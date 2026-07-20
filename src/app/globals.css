@@ -1,0 +1,103 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Neutrals */
+    --background: 30 40% 98%;
+    --foreground: 20 15% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 20 15% 12%;
+
+    --muted: 30 15% 94%;
+    --muted-foreground: 25 10% 42%;
+
+    --border: 30 15% 88%;
+    --input: 30 15% 88%;
+    --ring: 340 55% 45%;
+
+    /* Brand — rosé profundo, elegante e neutro-friendly */
+    --primary: 340 55% 45%;
+    --primary-foreground: 30 40% 98%;
+
+    --secondary: 30 25% 92%;
+    --secondary-foreground: 20 15% 12%;
+
+    --accent: 25 60% 55%; /* cobre para destaques quentes */
+    --accent-foreground: 30 40% 98%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --radius: 0.75rem;
+
+    --font-sans: "Inter", system-ui, sans-serif;
+    --font-display: "Fraunces", Georgia, serif;
+  }
+
+  .dark {
+    --background: 20 15% 8%;
+    --foreground: 30 25% 94%;
+
+    --card: 20 15% 11%;
+    --card-foreground: 30 25% 94%;
+
+    --muted: 20 10% 18%;
+    --muted-foreground: 25 8% 65%;
+
+    --border: 20 10% 20%;
+    --input: 20 10% 20%;
+    --ring: 340 65% 60%;
+
+    --primary: 340 65% 62%;
+    --primary-foreground: 20 15% 8%;
+
+    --secondary: 20 10% 18%;
+    --secondary-foreground: 30 25% 94%;
+
+    --accent: 25 70% 62%;
+    --accent-foreground: 20 15% 8%;
+  }
+
+  /* Tema client "Trimly-style": dark warm-black + verde neon.
+     Aplicado via data-theme na route group (client). */
+  [data-theme="salon-dark"] {
+    --background: 230 8% 6%;         /* #0E0F11 */
+    --foreground: 40 30% 96%;        /* warm off-white */
+
+    --card: 230 8% 11%;              /* #191A1E card elevado */
+    --card-foreground: 40 30% 96%;
+
+    --muted: 230 8% 15%;             /* #22242A pills sem seleção */
+    --muted-foreground: 220 6% 60%;
+
+    --border: 230 8% 18%;
+    --input: 230 8% 18%;
+    --ring: 138 82% 74%;
+
+    /* Verde neon "Trimly" #7DF89B — primário e único destaque forte */
+    --primary: 138 82% 74%;
+    --primary-foreground: 230 12% 8%;
+
+    --secondary: 230 8% 15%;
+    --secondary-foreground: 40 30% 96%;
+
+    --accent: 138 82% 74%;
+    --accent-foreground: 230 12% 8%;
+
+    --destructive: 0 72% 62%;
+    --destructive-foreground: 230 12% 8%;
+
+    --radius: 1rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+}

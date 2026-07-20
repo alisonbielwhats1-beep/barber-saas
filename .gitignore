@@ -1,0 +1,14 @@
+node_modules
+.next
+.env
+.env.local
+.env.production.local
+.DS_Store
+*.log
+dist
+coverage
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+.vercel

@@ -1,0 +1,288 @@
+// Salon SaaS — Multi-tenant schema
+// Estratégia: single-database, single-schema, isolamento via `salonId` em cada
+// tabela tenant-scoped + `Membership` (usuário ↔ salão com role).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── Enums ──────────────────────────────────────────────────────────────────
+
+enum Role {
+  SUPER_ADMIN
+  OWNER
+  MANAGER
+  PROFESSIONAL
+  RECEPTIONIST
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum PaymentMethod {
+  CASH
+  CREDIT_CARD
+  DEBIT_CARD
+  PIX
+  TRANSFER
+}
+
+enum Plan {
+  FREE
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+// ─── Identidade & Tenant ────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  phone        String?
+  passwordHash String
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  memberships    Membership[]
+  professional   Professional?
+  clientProfiles ClientProfile[]
+}
+
+model Salon {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  name      String
+  logoUrl   String?
+  address   String?
+  phone     String?
+  timezone  String   @default("America/Sao_Paulo")
+  currency  String   @default("BRL")
+  plan      Plan     @default(FREE)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships   Membership[]
+  professionals Professional[]
+  services      Service[]
+  clients       ClientProfile[]
+  appointments  Appointment[]
+  workingHours  WorkingHours[]
+  products      Product[]
+  portfolio     PortfolioItem[]
+}
+
+model Membership {
+  id      String @id @default(cuid())
+  userId  String
+  salonId String
+  role    Role
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  salon Salon @relation(fields: [salonId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, salonId])
+  @@index([salonId])
+}
+
+// ─── Catálogo & Equipe ──────────────────────────────────────────────────────
+
+model Professional {
+  id            String  @id @default(cuid())
+  salonId       String
+  userId        String  @unique
+  bio           String?
+  colorHex      String?
+  commissionPct Decimal @default(0) @db.Decimal(5, 2)
+  active        Boolean @default(true)
+
+  salon        Salon                 @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  user         User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workingHours WorkingHours[]
+  services     ProfessionalService[]
+  appointments Appointment[]
+  timeOffs     TimeOff[]
+  portfolio    PortfolioItem[]
+
+  @@index([salonId])
+}
+
+model Service {
+  id          String  @id @default(cuid())
+  salonId     String
+  name        String
+  description String?
+  durationMin Int
+  priceCents  Int
+  colorHex    String?
+  active      Boolean @default(true)
+
+  salon         Salon                 @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  professionals ProfessionalService[]
+  appointments  Appointment[]
+
+  @@index([salonId])
+}
+
+model ProfessionalService {
+  professionalId String
+  serviceId      String
+
+  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  service      Service      @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@id([professionalId, serviceId])
+}
+
+// ─── Disponibilidade ────────────────────────────────────────────────────────
+
+model WorkingHours {
+  id             String @id @default(cuid())
+  salonId        String
+  professionalId String
+  weekday        Int
+  startMinutes   Int
+  endMinutes     Int
+
+  salon        Salon        @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@index([salonId, professionalId, weekday])
+}
+
+model TimeOff {
+  id             String   @id @default(cuid())
+  professionalId String
+  startAt        DateTime
+  endAt          DateTime
+  reason         String?
+
+  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@index([professionalId, startAt])
+}
+
+// ─── Clientes & Agendamentos ────────────────────────────────────────────────
+
+model ClientProfile {
+  id        String    @id @default(cuid())
+  salonId   String
+  userId    String?
+  name      String
+  phone     String?
+  email     String?
+  birthday  DateTime?
+  notes     String?
+  createdAt DateTime  @default(now())
+
+  salon        Salon         @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  user         User?         @relation(fields: [userId], references: [id])
+  appointments Appointment[]
+
+  @@index([salonId])
+  @@index([salonId, phone])
+}
+
+model Appointment {
+  id             String            @id @default(cuid())
+  salonId        String
+  clientId       String
+  professionalId String
+  serviceId      String
+  startAt        DateTime
+  endAt          DateTime
+  priceCents     Int
+  status         AppointmentStatus @default(PENDING)
+  notes          String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  salon        Salon         @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  client       ClientProfile @relation(fields: [clientId], references: [id])
+  professional Professional  @relation(fields: [professionalId], references: [id])
+  service      Service       @relation(fields: [serviceId], references: [id])
+  payment      Payment?
+  products     AppointmentProduct[]
+
+  @@index([salonId, startAt])
+  @@index([professionalId, startAt])
+  @@index([clientId])
+}
+
+// ─── Catálogo de produtos & carrinho ────────────────────────────────────────
+
+model Product {
+  id          String   @id @default(cuid())
+  salonId     String
+  name        String
+  description String?
+  brand       String?
+  category    String?
+  priceCents  Int
+  stock       Int      @default(0)
+  imageUrl    String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  salon        Salon                @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  appointments AppointmentProduct[]
+
+  @@index([salonId])
+  @@index([salonId, category])
+}
+
+model AppointmentProduct {
+  id             String @id @default(cuid())
+  appointmentId  String
+  productId      String
+  quantity       Int
+  priceCentsUnit Int
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  product     Product     @relation(fields: [productId], references: [id])
+
+  @@index([appointmentId])
+  @@index([productId])
+}
+
+// ─── Portfolio ───────────────────────────────────────────────────────────────
+
+model PortfolioItem {
+  id             String   @id @default(cuid())
+  salonId        String
+  professionalId String?
+  imageUrl       String
+  caption        String?
+  createdAt      DateTime @default(now())
+
+  salon        Salon         @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  professional Professional? @relation(fields: [professionalId], references: [id], onDelete: SetNull)
+
+  @@index([salonId, createdAt])
+  @@index([professionalId])
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  appointmentId String        @unique
+  amountCents   Int
+  method        PaymentMethod
+  paidAt        DateTime      @default(now())
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+}
