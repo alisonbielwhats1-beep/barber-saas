@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { Scissors } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,7 +21,9 @@ export default function LoginPage() {
             <CardDescription>Entre para acessar seu painel.</CardDescription>
           </CardHeader>
           <CardContent>
-            <LoginForm />
+            <Suspense fallback={null}>
+              <LoginForm />
+            </Suspense>
             <p className="mt-6 text-center text-sm text-muted-foreground">
               Ainda não tem salão?{" "}
               <Link href="/signup" className="text-primary hover:underline">
