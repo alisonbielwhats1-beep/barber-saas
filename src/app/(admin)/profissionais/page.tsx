@@ -1,8 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getTenantContext } from "@/lib/tenant";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { ProfessionalForm } from "./professional-form";
 import { WorkingHoursForm } from "./working-hours-form";
 import { ToggleActiveButton } from "./toggle-active-button";
@@ -39,19 +37,19 @@ export default async function ProfissionaisPage() {
     <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl md:text-4xl">Profissionais</h1>
-          <p className="text-sm text-muted-foreground">
-            Equipe, comissão, horários e vínculo com serviços
+          <p className="mb-1 text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+            Equipe
           </p>
+          <h1 className="text-2xl font-semibold tracking-tight">Profissionais</h1>
         </div>
         <ProfessionalForm services={services} />
       </header>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-3 md:grid-cols-2">
         {pros.map((p) => (
-          <Card key={p.id} className="flex items-start gap-4 p-6">
+          <Card key={p.id} className="card-glow flex gap-4 p-5">
             <div
-              className="grid h-14 w-14 shrink-0 place-items-center rounded-full text-lg font-medium text-white"
+              className="grid h-12 w-12 shrink-0 place-items-center rounded-full text-sm font-semibold text-white"
               style={{ background: p.colorHex ?? "hsl(var(--primary))" }}
             >
               {p.user.name
@@ -60,26 +58,40 @@ export default async function ProfissionaisPage() {
                 .slice(0, 2)
                 .join("")}
             </div>
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <h3 className="font-medium">{p.user.name}</h3>
-                  <p className="text-sm text-muted-foreground">{p.user.email}</p>
+                  <h3 className="text-[13px] font-medium">{p.user.name}</h3>
+                  <p className="text-[12px] text-muted-foreground">{p.user.email}</p>
                 </div>
-                {p.active ? (
-                  <Badge variant="success">Ativo</Badge>
-                ) : (
-                  <Badge variant="outline">Inativo</Badge>
-                )}
+                <span
+                  className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                    p.active
+                      ? "bg-emerald-500/10 text-emerald-400"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {p.active ? "Ativo" : "Inativo"}
+                </span>
               </div>
-              {p.bio && <p className="mt-2 text-sm text-muted-foreground">{p.bio}</p>}
-              <div className="mt-3 flex flex-wrap gap-4 text-xs text-muted-foreground">
-                <span>Comissão: <strong>{Number(p.commissionPct)}%</strong></span>
-                <span>Atendimentos: <strong>{p._count.appointments}</strong></span>
-                <span>Serviços: <strong>{p.services.length}</strong></span>
-                <span>Dias/semana: <strong>{p.workingHours.length}</strong></span>
+              {p.bio && (
+                <p className="mt-1.5 line-clamp-2 text-[12px] text-muted-foreground">{p.bio}</p>
+              )}
+              <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-muted-foreground">
+                <span>
+                  Comissão <strong className="text-foreground">{Number(p.commissionPct)}%</strong>
+                </span>
+                <span>
+                  Atend. <strong className="text-foreground">{p._count.appointments}</strong>
+                </span>
+                <span>
+                  Serviços <strong className="text-foreground">{p.services.length}</strong>
+                </span>
+                <span>
+                  Dias/sem <strong className="text-foreground">{p.workingHours.length}</strong>
+                </span>
               </div>
-              <div className="mt-4 flex flex-wrap items-center gap-1">
+              <div className="mt-3 flex flex-wrap items-center gap-1 border-t border-border/50 pt-3">
                 <ProfessionalForm
                   services={services}
                   professional={{
@@ -103,7 +115,7 @@ export default async function ProfissionaisPage() {
           </Card>
         ))}
         {pros.length === 0 && (
-          <Card className="col-span-full p-12 text-center text-muted-foreground">
+          <Card className="col-span-full p-12 text-center text-[13px] text-muted-foreground">
             Sem profissionais cadastrados.
           </Card>
         )}

@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getTenantContext } from "@/lib/tenant";
 import { startOfDay, endOfDay, format } from "date-fns";
-import { Badge } from "@/components/ui/badge";
+import { ptBR } from "date-fns/locale";
 import { AgendaGrid, type Appointment, type Professional } from "./agenda-grid";
 import type { ServiceOption, ClientOption } from "./appointment-form";
 
@@ -81,12 +81,16 @@ export default async function AgendaPage({
     <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl md:text-4xl">Agenda</h1>
-          <p className="text-sm text-muted-foreground">
-            {format(date, "EEEE, dd 'de' MMMM")} · clique num horário livre pra agendar
+          <p className="mb-1 text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+            {format(date, "EEEE", { locale: ptBR })}
           </p>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {format(date, "dd 'de' MMMM", { locale: ptBR })}
+          </h1>
         </div>
-        <Badge variant="outline">{appointments.length} agendamentos</Badge>
+        <span className="flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-3 py-1 text-[12px] text-muted-foreground">
+          {appointments.length} agendamento{appointments.length !== 1 ? "s" : ""}
+        </span>
       </header>
 
       <AgendaGrid

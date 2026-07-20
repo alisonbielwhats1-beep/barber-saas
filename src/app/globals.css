@@ -3,82 +3,58 @@
 @tailwind utilities;
 
 @layer base {
+  /* ─── Admin: Dark Premium + Amber ───────────────────────────────────────── */
   :root {
-    /* Neutrals */
-    --background: 30 40% 98%;
-    --foreground: 20 15% 12%;
+    --background: 0 0% 4%;          /* #0B0B0B */
+    --foreground: 0 0% 96%;         /* #F5F5F5 */
 
-    --card: 0 0% 100%;
-    --card-foreground: 20 15% 12%;
+    --card: 0 0% 9%;                /* #161616 */
+    --card-foreground: 0 0% 96%;
 
-    --muted: 30 15% 94%;
-    --muted-foreground: 25 10% 42%;
+    --card-hover: 0 0% 14%;         /* #242424 */
 
-    --border: 30 15% 88%;
-    --input: 30 15% 88%;
-    --ring: 340 55% 45%;
+    --muted: 0 0% 14%;              /* #242424 */
+    --muted-foreground: 0 0% 46%;   /* #757575 */
 
-    /* Brand — rosé profundo, elegante e neutro-friendly */
-    --primary: 340 55% 45%;
-    --primary-foreground: 30 40% 98%;
+    --border: 0 0% 16%;             /* #2A2A2A */
+    --input: 0 0% 14%;
+    --ring: 38 92% 50%;
 
-    --secondary: 30 25% 92%;
-    --secondary-foreground: 20 15% 12%;
+    /* Amber / Dourado */
+    --primary: 38 92% 50%;          /* #F59E0B */
+    --primary-foreground: 0 0% 4%;
 
-    --accent: 25 60% 55%; /* cobre para destaques quentes */
-    --accent-foreground: 30 40% 98%;
+    --secondary: 0 0% 14%;
+    --secondary-foreground: 0 0% 96%;
+
+    --accent: 38 92% 50%;
+    --accent-foreground: 0 0% 4%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --radius: 0.75rem;
+    --radius: 1rem;
 
     --font-sans: "Inter", system-ui, sans-serif;
-    --font-display: "Fraunces", Georgia, serif;
+    --font-display: "Inter", system-ui, sans-serif;
   }
 
-  .dark {
-    --background: 20 15% 8%;
-    --foreground: 30 25% 94%;
-
-    --card: 20 15% 11%;
-    --card-foreground: 30 25% 94%;
-
-    --muted: 20 10% 18%;
-    --muted-foreground: 25 8% 65%;
-
-    --border: 20 10% 20%;
-    --input: 20 10% 20%;
-    --ring: 340 65% 60%;
-
-    --primary: 340 65% 62%;
-    --primary-foreground: 20 15% 8%;
-
-    --secondary: 20 10% 18%;
-    --secondary-foreground: 30 25% 94%;
-
-    --accent: 25 70% 62%;
-    --accent-foreground: 20 15% 8%;
-  }
-
-  /* Tema client "Trimly-style": dark warm-black + verde neon.
-     Aplicado via data-theme na route group (client). */
+  /* ─── Client Booking: Dark Trimly + Verde Neon ──────────────────────────── */
   [data-theme="salon-dark"] {
-    --background: 230 8% 6%;         /* #0E0F11 */
-    --foreground: 40 30% 96%;        /* warm off-white */
+    --background: 230 8% 6%;
+    --foreground: 40 30% 96%;
 
-    --card: 230 8% 11%;              /* #191A1E card elevado */
+    --card: 230 8% 11%;
     --card-foreground: 40 30% 96%;
 
-    --muted: 230 8% 15%;             /* #22242A pills sem seleção */
+    --muted: 230 8% 15%;
     --muted-foreground: 220 6% 60%;
 
     --border: 230 8% 18%;
     --input: 230 8% 18%;
     --ring: 138 82% 74%;
 
-    /* Verde neon "Trimly" #7DF89B — primário e único destaque forte */
-    --primary: 138 82% 74%;
+    --primary: 138 82% 74%;         /* #7DF89B verde neon */
     --primary-foreground: 230 12% 8%;
 
     --secondary: 230 8% 15%;
@@ -96,8 +72,81 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
+}
+
+@layer utilities {
+  /* Fade-in de entrada de página */
+  .animate-fade-in {
+    animation: fade-in 0.3s ease-out both;
+  }
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Slide-up suave */
+  .animate-slide-up {
+    animation: slide-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  @keyframes slide-up {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Scale-in para cards/modals */
+  .animate-scale-in {
+    animation: scale-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  @keyframes scale-in {
+    from { opacity: 0; transform: scale(0.96); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+
+  /* Shimmer para skeleton loaders */
+  .animate-shimmer {
+    background: linear-gradient(90deg, hsl(0 0% 9%), hsl(0 0% 15%), hsl(0 0% 9%));
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+  @keyframes shimmer {
+    from { background-position: -200% 0; }
+    to   { background-position: 200% 0; }
+  }
+
+  /* Ripple em botões */
+  .btn-ripple {
+    position: relative;
+    overflow: hidden;
+  }
+  .btn-ripple::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at center, rgba(255,255,255,0.15) 0%, transparent 70%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  .btn-ripple:active::after {
+    opacity: 1;
+  }
+
+  /* Card glow laranja sutil no hover */
+  .card-glow {
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+  .card-glow:hover {
+    box-shadow: 0 0 0 1px hsl(38 92% 50% / 0.3), 0 4px 24px hsl(38 92% 50% / 0.08);
+    border-color: hsl(38 92% 50% / 0.25);
+  }
+
+  /* Scrollbar dark */
+  .scrollbar-dark::-webkit-scrollbar { width: 4px; }
+  .scrollbar-dark::-webkit-scrollbar-track { background: transparent; }
+  .scrollbar-dark::-webkit-scrollbar-thumb { background: hsl(0 0% 20%); border-radius: 9999px; }
+  .scrollbar-dark::-webkit-scrollbar-thumb:hover { background: hsl(0 0% 30%); }
 }

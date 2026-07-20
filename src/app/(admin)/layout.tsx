@@ -1,4 +1,3 @@
-import Link from "next/link";
 import {
   LayoutDashboard,
   CalendarDays,
@@ -13,6 +12,7 @@ import { prisma } from "@/lib/prisma";
 import { getTenantContext } from "@/lib/tenant";
 import { SidebarFooter } from "./sidebar-footer";
 import { SalonSwitcher } from "./salon-switcher";
+import { NavLink } from "./nav-link";
 
 const nav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -47,34 +47,39 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const currentSalon = membershipList.find((m) => m.id === salonId)!;
 
   return (
-    <div className="flex min-h-screen bg-muted/30">
-      <aside className="hidden w-64 shrink-0 border-r bg-background md:flex md:flex-col">
-        <div className="flex h-16 items-center gap-2 border-b px-6 font-display text-lg">
-          <span className="grid h-8 w-8 place-items-center rounded-md bg-primary text-primary-foreground">
-            <Scissors className="h-4 w-4" />
+    <div className="flex h-screen overflow-hidden bg-background">
+      {/* ── Sidebar ─────────────────────────────────────── */}
+      <aside className="hidden w-56 shrink-0 flex-col border-r border-border md:flex scrollbar-dark overflow-y-auto">
+        {/* Logo */}
+        <div className="flex h-12 shrink-0 items-center gap-2 px-4">
+          <span className="grid h-6 w-6 shrink-0 place-items-center rounded bg-primary">
+            <Scissors className="h-3.5 w-3.5 text-primary-foreground" />
           </span>
-          <span>SalonSaaS</span>
+          <span className="text-[13px] font-semibold tracking-tight">SalonSaaS</span>
         </div>
-        <nav className="flex-1 space-y-1 p-3">
-          {nav.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground transition hover:bg-muted hover:text-foreground"
-            >
-              <item.icon className="h-4 w-4" />
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-        <SidebarFooter salonName={`${salon?.name ?? "Meu salão"} · ${salon?.plan ?? "FREE"}`} />
-      </aside>
 
-      <main className="flex-1 animate-fade-in">
-        <div className="border-b bg-background px-6 py-3 md:px-10">
+        {/* Salon switcher */}
+        <div className="shrink-0 px-3 pb-2">
           <SalonSwitcher current={currentSalon} memberships={membershipList} />
         </div>
-        <div className="p-6 md:p-10">{children}</div>
+
+        {/* Divider */}
+        <div className="mx-3 mb-3 h-px bg-border" />
+
+        {/* Navigation */}
+        <nav className="flex-1 space-y-0.5 px-3">
+          {nav.map((item) => (
+            <NavLink key={item.href} href={item.href} label={item.label} icon={item.icon} />
+          ))}
+        </nav>
+
+        {/* User footer */}
+        <SidebarFooter plan={salon?.plan ?? "FREE"} />
+      </aside>
+
+      {/* ── Main content ─────────────────────────────────── */}
+      <main className="flex-1 overflow-y-auto scrollbar-dark">
+        <div className="animate-fade-in p-6 md:p-8">{children}</div>
       </main>
     </div>
   );

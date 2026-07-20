@@ -1,37 +1,53 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { Scissors } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoginForm } from "./login-form";
 
 export default function LoginPage() {
   return (
-    <main className="grid min-h-screen place-items-center bg-muted/30 p-6">
-      <div className="w-full max-w-sm">
-        <Link href="/" className="mb-8 flex items-center justify-center gap-2 font-display text-xl">
-          <span className="grid h-8 w-8 place-items-center rounded-md bg-primary text-primary-foreground">
-            <Scissors className="h-4 w-4" />
+    <main className="relative grid min-h-screen place-items-center overflow-hidden bg-background p-6">
+      {/* Ambient glow */}
+      <div
+        className="pointer-events-none absolute inset-0 -z-0"
+        aria-hidden
+        style={{
+          background:
+            "radial-gradient(ellipse 60% 40% at 50% 0%, hsl(38 92% 50% / 0.08) 0%, transparent 70%)",
+        }}
+      />
+
+      <div className="relative z-10 w-full max-w-[360px]">
+        {/* Logo */}
+        <Link
+          href="/"
+          className="mb-8 flex items-center justify-center gap-2.5"
+        >
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary shadow-lg shadow-primary/20">
+            <Scissors className="h-4 w-4 text-primary-foreground" />
           </span>
-          Salon<span className="text-primary">SaaS</span>
+          <span className="text-lg font-semibold tracking-tight">
+            Salon<span className="text-primary">SaaS</span>
+          </span>
         </Link>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-display text-2xl">Bem-vindo de volta</CardTitle>
-            <CardDescription>Entre para acessar seu painel.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Suspense fallback={null}>
-              <LoginForm />
-            </Suspense>
-            <p className="mt-6 text-center text-sm text-muted-foreground">
-              Ainda não tem salão?{" "}
-              <Link href="/signup" className="text-primary hover:underline">
-                Criar conta
-              </Link>
-            </p>
-          </CardContent>
-        </Card>
+        {/* Card */}
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-2xl shadow-black/40">
+          <div className="mb-6">
+            <h1 className="text-lg font-semibold tracking-tight">Bem-vindo de volta</h1>
+            <p className="mt-1 text-[13px] text-muted-foreground">Entre para acessar seu painel.</p>
+          </div>
+
+          <Suspense fallback={null}>
+            <LoginForm />
+          </Suspense>
+
+          <p className="mt-5 text-center text-[12px] text-muted-foreground">
+            Ainda não tem salão?{" "}
+            <Link href="/signup" className="text-primary transition hover:underline">
+              Criar conta
+            </Link>
+          </p>
+        </div>
       </div>
     </main>
   );
