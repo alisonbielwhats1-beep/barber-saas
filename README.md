@@ -13,20 +13,60 @@ Cada salão é um tenant isolado por `salonId` — arquitetura pensada para esca
 - **Recharts** para os gráficos do dashboard BI
 - **date-fns** + `date-fns-tz` para lidar com timezone por salão
 
-## Setup local
+## Em produção
+
+- **App:** https://salon-saas-ruby.vercel.app
+- **Agendamento do cliente:** `/book/luna-hair` e `/book/north-barber`
+- Hospedagem Vercel · banco e storage no Supabase (região São Paulo)
+
+## Rodar em outra máquina
+
+O `.env` **não** vai para o Git (contém senhas). Duas formas de obtê-lo:
 
 ```bash
+git clone https://github.com/alisonbielwhats1-beep/barber-saas.git
+cd barber-saas
 npm install
-cp .env.example .env      # e edite DATABASE_URL / NEXTAUTH_SECRET
-npm run db:push           # cria as tabelas
-npm run db:seed           # popula 2 salões demo
-npm run dev               # http://localhost:3000
+
+# Opção A — puxar as variáveis já configuradas na Vercel (recomendado)
+npx vercel link          # escolhe o projeto salon-saas
+npx vercel env pull .env
+
+# Opção B — preencher na mão
+cp .env.example .env     # leia os avisos do arquivo, eles evitam 2 armadilhas reais
 ```
+
+Depois:
+
+```bash
+npm run dev              # http://localhost:3001
+```
+
+O banco Supabase já está com schema e dados demo — não precisa rodar `db:push`
+nem `db:seed` de novo (isso apagaria/duplicaria dados de produção).
 
 Logins seed:
 - `dono@lunahair.com` / `demo1234` — dono do salão "Luna Hair"
 - `dono@northbarber.com` / `demo1234` — dono do "North Barber"
-- `cliente@demo.com` / `demo1234` — cliente
+
+> Se for apontar para um banco **novo**, aí sim: `npm run db:push` e `npm run db:seed`.
+> Alternativa ao `db:push`: colar `schema_supabase.sql` no SQL Editor do Supabase
+> (o arquivo é idempotente, pode rodar mais de uma vez sem erro).
+
+## Deploy
+
+```bash
+npx vercel --prod
+```
+
+Variáveis de ambiente ficam no painel da Vercel (não no `.env` do repo).
+Ao adicionar via CLI, use redirecionamento de arquivo — pipe do PowerShell
+pode gravar valor corrompido:
+
+```bash
+printf '%s' 'valor' > /tmp/v.txt
+npx vercel env add MINHA_VAR production < /tmp/v.txt
+```
 
 ## Estrutura
 
