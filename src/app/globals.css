@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 @layer base {
-  /* ─── Admin: Dark Premium + Amber ───────────────────────────────────────── */
+  /* ─── Admin: Dark Premium + Verde ───────────────────────────────────────── */
   :root {
     --background: 0 0% 4%;          /* #0B0B0B */
     --foreground: 0 0% 96%;         /* #F5F5F5 */
@@ -18,16 +18,16 @@
 
     --border: 0 0% 16%;             /* #2A2A2A */
     --input: 0 0% 14%;
-    --ring: 38 92% 50%;
+    --ring: 138 82% 74%;
 
-    /* Amber / Dourado */
-    --primary: 38 92% 50%;          /* #F59E0B */
+    /* Verde neon — mesma identidade do app do cliente */
+    --primary: 138 82% 74%;         /* #7DF89B */
     --primary-foreground: 0 0% 4%;
 
     --secondary: 0 0% 14%;
     --secondary-foreground: 0 0% 96%;
 
-    --accent: 38 92% 50%;
+    --accent: 138 82% 74%;
     --accent-foreground: 0 0% 4%;
 
     --destructive: 0 72% 51%;
@@ -140,8 +140,8 @@
     transition: box-shadow 0.2s ease, border-color 0.2s ease;
   }
   .card-glow:hover {
-    box-shadow: 0 0 0 1px hsl(38 92% 50% / 0.3), 0 4px 24px hsl(38 92% 50% / 0.08);
-    border-color: hsl(38 92% 50% / 0.25);
+    box-shadow: 0 0 0 1px hsl(138 82% 74% / 0.3), 0 4px 24px hsl(138 82% 74% / 0.08);
+    border-color: hsl(138 82% 74% / 0.25);
   }
 
   /* Scrollbar dark */

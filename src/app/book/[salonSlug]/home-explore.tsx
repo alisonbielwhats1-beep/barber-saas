@@ -122,7 +122,7 @@ export function HomeExplore({
             onClick={() => setQuery("")}
             className="text-xs text-muted-foreground hover:text-foreground"
           >
-            limpar
+            Limpar
           </button>
         )}
       </div>

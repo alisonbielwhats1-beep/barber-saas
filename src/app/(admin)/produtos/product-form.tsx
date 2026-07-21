@@ -100,7 +100,7 @@ export function ProductForm({ product }: { product?: Product }) {
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium">Categoria</label>
-              <Input name="category" defaultValue={product?.category ?? ""} placeholder="pomade, oleo, shampoo…" />
+              <Input name="category" defaultValue={product?.category ?? ""} placeholder="Pomada, óleo, shampoo…" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">

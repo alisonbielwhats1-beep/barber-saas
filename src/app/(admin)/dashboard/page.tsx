@@ -61,14 +61,14 @@ export default async function DashboardPage() {
           icon={CalendarCheck}
           label="Ticket médio"
           value={formatMoney(rev.avgTicket.value)}
-          hint="por atendimento"
+          hint="Por atendimento"
           change={rev.avgTicket.change}
         />
         <Kpi
           icon={Users}
           label="Profissionais ativos"
           value={occ.professionalCount.toString()}
-          hint="na equipe"
+          hint="Na equipe"
         />
       </section>
 

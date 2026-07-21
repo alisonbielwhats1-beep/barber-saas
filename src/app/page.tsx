@@ -96,18 +96,18 @@ export default function LandingPage() {
             <div className="mt-14 flex flex-wrap items-center gap-8 text-sm">
               <div>
                 <p className="font-display text-3xl text-foreground">200+</p>
-                <p className="text-muted-foreground">agendamentos/mês por salão</p>
+                <p className="text-muted-foreground">Agendamentos/mês por salão</p>
               </div>
               <div className="h-10 w-px bg-white/10" />
               <div>
                 <p className="font-display text-3xl text-foreground">3 toques</p>
-                <p className="text-muted-foreground">do serviço à reserva</p>
+                <p className="text-muted-foreground">Do serviço à reserva</p>
               </div>
               <div className="h-10 w-px bg-white/10" />
               <div className="flex items-center gap-1.5">
                 <Star className="h-5 w-5 fill-primary text-primary" />
                 <p className="text-muted-foreground">
-                  feito para barbearias <span className="text-foreground">e salões</span>
+                  Feito para barbearias <span className="text-foreground">e salões</span>
                 </p>
               </div>
             </div>
@@ -259,7 +259,7 @@ export default function LandingPage() {
       </section>
 
       <footer className="border-t border-white/5 py-10 text-center text-sm text-muted-foreground">
-        © {new Date().getFullYear()} SalonSaaS — feito para profissionais de beleza.
+        © {new Date().getFullYear()} SalonSaaS — Feito para profissionais de beleza.
       </footer>
     </main>
   );
