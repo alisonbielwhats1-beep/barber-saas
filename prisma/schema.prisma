@@ -90,6 +90,30 @@ model Salon {
   workingHours  WorkingHours[]
   products      Product[]
   portfolio     PortfolioItem[]
+  expenses      Expense[]
+}
+
+enum ExpenseKind {
+  FIXED
+  VARIABLE
+}
+
+model Expense {
+  id          String         @id @default(cuid())
+  salonId     String
+  description String
+  amountCents Int
+  category    String
+  kind        ExpenseKind    @default(VARIABLE)
+  method      PaymentMethod?
+  dueDate     DateTime
+  paidAt      DateTime?
+  recurring   Boolean        @default(false)
+  createdAt   DateTime       @default(now())
+
+  salon Salon @relation(fields: [salonId], references: [id], onDelete: Cascade)
+
+  @@index([salonId, dueDate])
 }
 
 model Membership {

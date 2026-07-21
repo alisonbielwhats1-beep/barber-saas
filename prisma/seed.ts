@@ -289,6 +289,51 @@ async function main() {
     data: { email: "cliente@demo.com", name: "Cliente Demo", passwordHash },
   });
 
+  // ─── Finanças demo (despesas + pagamentos) ──────────────
+  async function seedFinance(sid: string) {
+    const fixed = [
+      { description: "Aluguel do ponto", category: "Aluguel", amountCents: 320000 },
+      { description: "Energia elétrica", category: "Energia", amountCents: 68000 },
+      { description: "Internet + telefone", category: "Software", amountCents: 15000 },
+      { description: "Assinatura SalonSaaS", category: "Software", amountCents: 19900 },
+    ];
+    const variable = [
+      { description: "Reposição de produtos", category: "Produtos", amountCents: 145000 },
+      { description: "Tráfego pago Instagram", category: "Marketing", amountCents: 60000 },
+      { description: "Material descartável", category: "Produtos", amountCents: 38000 },
+    ];
+    const monthStart = startOfDay(new Date());
+    monthStart.setDate(3);
+    for (const e of fixed) {
+      await prisma.expense.create({
+        data: { salonId: sid, ...e, kind: "FIXED", recurring: true, method: "PIX", dueDate: monthStart, paidAt: monthStart },
+      });
+    }
+    for (let i = 0; i < variable.length; i++) {
+      const paid = i < variable.length - 1;
+      await prisma.expense.create({
+        data: {
+          salonId: sid, ...variable[i], kind: "VARIABLE",
+          method: paid ? "PIX" : null,
+          dueDate: addDays(new Date(), paid ? -(2 + i * 3) : 4),
+          paidAt: paid ? addDays(new Date(), -(2 + i * 3)) : null,
+        },
+      });
+    }
+    const methods = ["PIX", "CREDIT_CARD", "DEBIT_CARD", "CASH"] as const;
+    const completed = await prisma.appointment.findMany({
+      where: { salonId: sid, status: "COMPLETED" },
+      select: { id: true, priceCents: true, startAt: true },
+    });
+    for (const a of completed) {
+      await prisma.payment.create({
+        data: { appointmentId: a.id, amountCents: a.priceCents, method: methods[Math.floor(Math.random() * methods.length)], paidAt: a.startAt },
+      }).catch(() => null);
+    }
+  }
+  await seedFinance(luna.id);
+  await seedFinance(north.id);
+
   console.log("✅ Seed concluído");
   console.log("   → Salão 1: Luna Hair Studio (luna-hair) — dono@lunahair.com");
   console.log("   → Salão 2: North Barber Co. (north-barber) — dono@northbarber.com");

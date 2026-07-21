@@ -57,7 +57,7 @@ const GROUPS: { title: string; items: Item[] }[] = [
   {
     title: "Financeiro",
     items: [
-      { href: "/financeiro", label: "Financeiro", icon: Wallet, soon: true },
+      { href: "/financeiro", label: "Financeiro", icon: Wallet },
       { href: "/pagamentos", label: "Pagamentos", icon: CreditCard, soon: true },
       { href: "/relatorios", label: "Relatórios", icon: FileBarChart, soon: true },
     ],
