@@ -76,6 +76,16 @@ Não unifique os dois sem pedir.
 6. **`useSearchParams` exige `<Suspense>`** para o build de produção passar
    (aconteceu no `/login`).
 
+7. **As env vars da Vercel são "Sensitive"** — `vercel env pull` grava o
+   placeholder `[SENSITIVE]` no lugar do valor. Não dá pra recuperar
+   credenciais pela CLI; a `DATABASE_URL` precisa ser montada com a
+   connection string do painel do Supabase (Connect → Transaction pooler).
+
+8. **Resetar a senha do banco no Supabase derruba a produção**: a
+   `DATABASE_URL`/`DIRECT_URL` guardadas na Vercel ficam com a senha antiga
+   e todo request dá `Authentication failed`. Após reset, atualizar as duas
+   vars na Vercel (via arquivo, ver armadilha 4) e rodar `vercel redeploy`.
+
 ## Isolamento multi-tenant
 
 Toda tabela tenant-scoped tem `salonId` + índice; `Membership(userId, salonId,
@@ -83,6 +93,11 @@ role)` liga usuário a salão. **Todo acesso a dados passa por
 `getTenantContext()`** (`src/lib/tenant.ts`), que resolve o `salonId` ativo da
 sessão — é o que impede vazamento entre salões. Há RLS pronto para ativar em
 `prisma/migrations/rls/enable_rls.sql` (ver README).
+
+## Roadmap
+
+Plano de evolução (abas do dono e do cliente, financeiro, multi-salão) em
+`ROADMAP.md` — ordem de execução sugerida no fim do arquivo.
 
 ## Pendências conhecidas
 
