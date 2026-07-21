@@ -95,6 +95,104 @@ model Salon {
   products      Product[]
   portfolio     PortfolioItem[]
   expenses      Expense[]
+  packages      Package[]
+  plans         MembershipPlan[]
+}
+
+enum PackageStatus {
+  ACTIVE
+  FROZEN
+  EXPIRED
+  COMPLETED
+  CANCELLED
+}
+
+enum BillingInterval {
+  MONTHLY
+  ANNUAL
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  PAST_DUE
+}
+
+// Oferta de pacote de sessões (ex.: 5 cortes com desconto)
+model Package {
+  id           String   @id @default(cuid())
+  salonId      String
+  name         String
+  description  String?
+  serviceId    String?
+  sessions     Int
+  priceCents   Int
+  validityDays Int      @default(90)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  salon     Salon             @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  service   Service?          @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  purchases PackagePurchase[]
+
+  @@index([salonId])
+}
+
+// Pacote comprado por um cliente
+model PackagePurchase {
+  id            String        @id @default(cuid())
+  salonId       String
+  packageId     String
+  clientId      String
+  sessionsTotal Int
+  sessionsUsed  Int           @default(0)
+  priceCents    Int
+  purchasedAt   DateTime      @default(now())
+  expiresAt     DateTime
+  status        PackageStatus @default(ACTIVE)
+
+  package Package       @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  client  ClientProfile @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([salonId, status])
+  @@index([clientId])
+}
+
+// Oferta de plano de assinatura (mensal/anual)
+model MembershipPlan {
+  id          String          @id @default(cuid())
+  salonId     String
+  name        String
+  description String?
+  priceCents  Int
+  interval    BillingInterval @default(MONTHLY)
+  discountPct Int             @default(0)
+  benefits    String?
+  active      Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+
+  salon         Salon                @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  subscriptions ClientSubscription[]
+
+  @@index([salonId])
+}
+
+// Assinatura de um cliente a um plano
+model ClientSubscription {
+  id        String             @id @default(cuid())
+  salonId   String
+  planId    String
+  clientId  String
+  startedAt DateTime           @default(now())
+  renewsAt  DateTime
+  status    SubscriptionStatus @default(ACTIVE)
+  autoRenew Boolean            @default(true)
+
+  plan   MembershipPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  client ClientProfile  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([salonId, status])
+  @@index([clientId])
 }
 
 enum ExpenseKind {
@@ -172,6 +270,7 @@ model Service {
   salon         Salon                 @relation(fields: [salonId], references: [id], onDelete: Cascade)
   professionals ProfessionalService[]
   appointments  Appointment[]
+  packages      Package[]
 
   @@index([salonId])
 }
@@ -228,9 +327,11 @@ model ClientProfile {
   notes     String?
   createdAt DateTime  @default(now())
 
-  salon        Salon         @relation(fields: [salonId], references: [id], onDelete: Cascade)
-  user         User?         @relation(fields: [userId], references: [id])
-  appointments Appointment[]
+  salon         Salon                @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  user          User?                @relation(fields: [userId], references: [id])
+  appointments  Appointment[]
+  packages      PackagePurchase[]
+  subscriptions ClientSubscription[]
 
   @@index([salonId])
   @@index([salonId, phone])
