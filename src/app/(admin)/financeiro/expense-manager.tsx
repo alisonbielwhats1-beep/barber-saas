@@ -13,6 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Plus, Check, Clock, Trash2, Loader2 } from "lucide-react";
+import { toast } from "@/components/ui/toast";
 import { formatMoney } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -66,9 +67,12 @@ export function ExpenseManager({ expenses }: { expenses: ExpenseRow[] }) {
       try {
         await createExpense(payload);
         setOpen(false);
+        toast("Despesa adicionada", "success");
         router.refresh();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Erro ao salvar");
+        const msg = err instanceof Error ? err.message : "Erro ao salvar";
+        setError(msg);
+        toast(msg, "error");
       }
     });
   }

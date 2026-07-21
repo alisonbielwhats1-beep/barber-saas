@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Check, Loader2 } from "lucide-react";
+import { toast } from "@/components/ui/toast";
 import { updateSalonSettings } from "./actions";
 
 type Salon = {
@@ -55,10 +56,13 @@ export function SalonSettingsForm({ salon }: { salon: Salon }) {
       try {
         await updateSalonSettings(payload);
         setSaved(true);
+        toast("Configurações salvas", "success");
         router.refresh();
         setTimeout(() => setSaved(false), 2500);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Erro ao salvar");
+        const msg = err instanceof Error ? err.message : "Erro ao salvar";
+        setError(msg);
+        toast(msg, "error");
       }
     });
   }

@@ -4,6 +4,8 @@ import { getTenantContext } from "@/lib/tenant";
 import { SidebarFooter } from "./sidebar-footer";
 import { SalonSwitcher } from "./salon-switcher";
 import { SidebarNav } from "./sidebar-nav";
+import { CommandPalette } from "./command-palette";
+import { Toaster } from "@/components/ui/toast";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const { userId, salonId } = await getTenantContext();
@@ -29,7 +31,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       {/* ── Sidebar ─────────────────────────────────────── */}
-      <aside className="scrollbar-dark hidden w-56 shrink-0 flex-col overflow-y-auto border-r border-border md:flex">
+      <aside className="scrollbar-dark hidden w-56 shrink-0 flex-col overflow-y-auto border-r border-border md:flex print:hidden">
         {/* Logo */}
         <div className="flex h-12 shrink-0 items-center gap-2 px-4">
           <span className="grid h-6 w-6 shrink-0 place-items-center rounded bg-primary">
@@ -56,6 +58,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <main className="scrollbar-dark flex-1 overflow-y-auto">
         <div className="animate-fade-in p-6 md:p-8">{children}</div>
       </main>
+
+      <CommandPalette />
+      <Toaster />
     </div>
   );
 }
