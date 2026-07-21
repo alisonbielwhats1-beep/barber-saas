@@ -91,24 +91,42 @@ export default async function DashboardPage() {
               Serviços top
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-4">
             {topServices.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Sem dados neste mês.</p>
+              <EmptyHint
+                title="Sem dados neste mês"
+                hint="Assim que os primeiros atendimentos forem concluídos, o ranking aparece aqui."
+              />
             ) : (
-              topServices.map((s, i) => (
-                <div key={s.serviceId} className="flex items-center gap-3">
-                  <span className="w-4 text-[11px] text-muted-foreground">{i + 1}</span>
-                  <span
-                    className="h-2 w-2 shrink-0 rounded-full"
-                    style={{ background: s.colorHex ?? "hsl(var(--primary))" }}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13px] font-medium">{s.name}</p>
-                    <p className="text-[11px] text-muted-foreground">{s.count}×</p>
+              topServices.map((s, i) => {
+                const maxRevenue = topServices[0].revenueCents || 1;
+                const share = Math.max(0.06, s.revenueCents / maxRevenue);
+                return (
+                  <div key={s.serviceId}>
+                    <div className="mb-1.5 flex items-center gap-3">
+                      <span className="w-4 text-[11px] text-muted-foreground">{i + 1}</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[13px] font-medium">{s.name}</p>
+                      </div>
+                      <p className="shrink-0 text-[13px] font-medium">{formatMoney(s.revenueCents)}</p>
+                    </div>
+                    <div className="ml-7 flex items-center gap-2">
+                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className="h-full rounded-full"
+                          style={{
+                            width: `${share * 100}%`,
+                            background: s.colorHex ?? "hsl(var(--primary))",
+                          }}
+                        />
+                      </div>
+                      <span className="w-8 text-right text-[11px] text-muted-foreground">
+                        {s.count}×
+                      </span>
+                    </div>
                   </div>
-                  <p className="shrink-0 text-[13px] font-medium">{formatMoney(s.revenueCents)}</p>
-                </div>
-              ))
+                );
+              })
             )}
           </CardContent>
         </Card>
@@ -143,11 +161,11 @@ export default async function DashboardPage() {
               <tbody>
                 {proPerf.length === 0 ? (
                   <tr>
-                    <td
-                      colSpan={4}
-                      className="py-8 text-center text-[13px] text-muted-foreground"
-                    >
-                      Sem atendimentos concluídos.
+                    <td colSpan={4} className="py-8">
+                      <EmptyHint
+                        title="Sem atendimentos concluídos"
+                        hint="Cadastre a equipe em Profissionais e compartilhe o link de agendamento — os números aparecem conforme os atendimentos forem concluídos."
+                      />
                     </td>
                   </tr>
                 ) : (
@@ -156,10 +174,16 @@ export default async function DashboardPage() {
                       <td className="py-3">
                         <div className="flex items-center gap-2.5">
                           <span
-                            className="h-2 w-2 shrink-0 rounded-full"
+                            className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-[11px] font-semibold text-black/80"
                             style={{ background: p.colorHex ?? "hsl(var(--primary))" }}
-                          />
-                          {p.name}
+                          >
+                            {p.name
+                              .split(" ")
+                              .map((n: string) => n[0])
+                              .slice(0, 2)
+                              .join("")}
+                          </span>
+                          <span className="font-medium">{p.name}</span>
                         </div>
                       </td>
                       <td className="py-3 text-muted-foreground">{p.appointments}</td>
@@ -173,6 +197,17 @@ export default async function DashboardPage() {
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function EmptyHint({ title, hint }: { title: string; hint: string }) {
+  return (
+    <div className="py-2 text-center">
+      <p className="text-[13px] font-medium text-foreground">{title}</p>
+      <p className="mx-auto mt-1 max-w-sm text-[12px] leading-relaxed text-muted-foreground">
+        {hint}
+      </p>
     </div>
   );
 }

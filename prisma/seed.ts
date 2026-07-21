@@ -246,7 +246,7 @@ async function main() {
       { salonId: luna.id, name: "Óleo capilar leave-in", brand: "Kevin Murphy", category: "oleo", priceCents: 14500, stock: 8, imageUrl: w("photo-1620916566398-39f1143ab7be") },
       { salonId: luna.id, name: "Shampoo revitalizante 250ml", brand: "Lunicare", category: "shampoo", priceCents: 6500, stock: 20, imageUrl: w("photo-1608248543803-ba4f8c70ae0b") },
       { salonId: luna.id, name: "Máscara de hidratação profunda", brand: "L'Oréal Pro", category: "tratamento", priceCents: 9800, stock: 6, imageUrl: w("photo-1594736797933-d0501ba2fe65") },
-      { salonId: luna.id, name: "Escova térmica premium", brand: "Trimly Tools", category: "acessorio", priceCents: 22000, stock: 3, imageUrl: w("photo-1595425964072-e0b95df2b12b") },
+      { salonId: luna.id, name: "Escova térmica premium", brand: "Trimly Tools", category: "acessorio", priceCents: 22000, stock: 3, imageUrl: w("photo-1590540179852-2110a54f813a") },
       { salonId: luna.id, name: "Loção pós-barba", brand: "Proraso", category: "barba", priceCents: 7200, stock: 0, imageUrl: w("photo-1608248597279-f99d160bfcbc") },
     ],
   });
@@ -254,7 +254,7 @@ async function main() {
     data: [
       { salonId: north.id, name: "Pomada Reuzel Grease", brand: "Reuzel", category: "pomade", priceCents: 8900, stock: 15, imageUrl: w("photo-1631730486572-226d1f595b68") },
       { salonId: north.id, name: "Óleo para barba", brand: "Beardbrand", category: "barba", priceCents: 13500, stock: 10, imageUrl: w("photo-1585232004423-244e0e6904e3") },
-      { salonId: north.id, name: "Navalha profissional", brand: "Merkur", category: "acessorio", priceCents: 32000, stock: 4, imageUrl: w("photo-1626015365107-b83aae9c25f2") },
+      { salonId: north.id, name: "Navalha profissional", brand: "Merkur", category: "acessorio", priceCents: 32000, stock: 4, imageUrl: w("photo-1599351431202-1e0f0137899a") },
     ],
   });
 

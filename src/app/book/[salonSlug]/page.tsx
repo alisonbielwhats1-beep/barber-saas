@@ -1,10 +1,19 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Bell, MapPin, ArrowUpRight } from "lucide-react";
+import Image from "next/image";
+import { Bell, MapPin, ArrowUpRight, Sparkles } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { HERO_IMAGES } from "@/lib/images";
 import { BottomNav } from "./bottom-nav";
 import { CartBadge } from "./cart-badge";
 import { HomeExplore } from "./home-explore";
+
+// Capa determinística por salão — mesmo salão, mesma foto
+function heroForSalon(slug: string) {
+  let h = 0;
+  for (const c of slug) h = (h * 31 + c.charCodeAt(0)) % 997;
+  return HERO_IMAGES[h % HERO_IMAGES.length];
+}
 
 export default async function ClientHome({
   params,
@@ -48,11 +57,8 @@ export default async function ClientHome({
           {initials}
         </div>
         <div className="flex-1">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Onde</p>
-          <p className="flex items-center gap-1 text-sm font-medium">
-            <MapPin className="h-3.5 w-3.5 text-primary" />
-            {salon.address ?? "Endereço não informado"}
-          </p>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Bem-vindo a</p>
+          <p className="text-sm font-semibold">{salon.name}</p>
         </div>
         <CartBadge salonSlug={params.salonSlug} />
         <button
@@ -62,6 +68,30 @@ export default async function ClientHome({
           <Bell className="h-4 w-4" />
         </button>
       </header>
+
+      {/* Hero — capa do salão */}
+      <div className="relative h-48 overflow-hidden rounded-3xl">
+        <Image
+          src={heroForSalon(params.salonSlug)}
+          alt={salon.name}
+          fill
+          priority
+          sizes="(max-width: 480px) 92vw, 440px"
+          className="object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 p-5">
+          <span className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-primary/90 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-primary-foreground">
+            <Sparkles className="h-3 w-3" />
+            Experiência premium
+          </span>
+          <h1 className="font-display text-2xl leading-tight text-white">{salon.name}</h1>
+          <p className="mt-1 flex items-center gap-1 text-xs text-white/80">
+            <MapPin className="h-3 w-3 text-primary" />
+            {salon.address ?? "Endereço não informado"}
+          </p>
+        </div>
+      </div>
 
       {/* Promo card */}
       <Link
