@@ -246,7 +246,7 @@ function ServiceGridCard({ s, maxSold }: { s: ServiceCard; maxSold: number }) {
 
         <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
           <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-            <Users className="h-3.5 w-3.5" /> {s.proCount} profissional{s.proCount !== 1 ? "is" : ""}
+            <Users className="h-3.5 w-3.5" /> {s.proCount} {s.proCount === 1 ? "profissional" : "profissionais"}
           </span>
           <ActionsMenu s={s} />
         </div>

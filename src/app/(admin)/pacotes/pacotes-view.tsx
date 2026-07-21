@@ -87,7 +87,7 @@ export function PacotesView({
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <p className="text-[14px] font-semibold">{p.name}</p>
-                      <p className="text-[11px] text-muted-foreground">{p.serviceName ?? "Genérico"} · {p.soldCount} vendidos</p>
+                      <p className="text-[11px] text-muted-foreground">{p.serviceName ?? "Genérico"} · {p.soldCount} {p.soldCount === 1 ? "vendido" : "vendidos"}</p>
                     </div>
                     <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${p.active ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}>
                       {p.active ? "Ativo" : "Pausado"}
@@ -193,7 +193,7 @@ export function PacotesView({
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <p className="text-[14px] font-semibold">{p.name}</p>
-                      <p className="text-[11px] text-muted-foreground">{p.subCount} assinantes</p>
+                      <p className="text-[11px] text-muted-foreground">{p.subCount} {p.subCount === 1 ? "assinante" : "assinantes"}</p>
                     </div>
                     <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${p.active ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}>
                       {p.active ? "Ativo" : "Pausado"}

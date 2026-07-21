@@ -211,7 +211,7 @@ export function AgendaBoard({
             <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
               {format(dateObj, "EEEE", { locale: ptBR })}
             </p>
-            <h1 className="text-xl font-semibold capitalize tracking-tight">{rangeLabel}</h1>
+            <h1 className="text-xl font-semibold tracking-tight first-letter:uppercase">{rangeLabel}</h1>
           </div>
           {pending && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
         </div>

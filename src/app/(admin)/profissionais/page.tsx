@@ -68,9 +68,9 @@ export default async function ProfissionaisPage() {
               <div className="flex items-start gap-3">
                 <div className="relative shrink-0">
                   {p.avatarUrl ? (
-                    <Image src={p.avatarUrl} alt={p.name} width={52} height={52} className="h-13 w-13 rounded-full object-cover" style={{ height: 52, width: 52 }} />
+                    <Image src={p.avatarUrl} alt={p.name} width={52} height={52} className="rounded-full object-cover" style={{ height: 52, width: 52 }} />
                   ) : (
-                    <div className="grid h-13 w-13 place-items-center rounded-full text-base font-semibold text-black/80" style={{ height: 52, width: 52, background: p.colorHex ?? "#2ECC8B" }}>
+                    <div className="grid place-items-center rounded-full text-base font-semibold text-black/80" style={{ height: 52, width: 52, background: p.colorHex ?? "#2ECC8B" }}>
                       {p.name.split(" ").map((n) => n[0]).slice(0, 2).join("")}
                     </div>
                   )}
