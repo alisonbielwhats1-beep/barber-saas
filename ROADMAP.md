@@ -9,30 +9,36 @@ persona (dono × cliente) e priorizado por impacto no negócio.
 
 Objetivo: elevar o painel ao nível Stripe / Linear / Notion / Vercel.
 
-- **Fase 1 — CONCLUÍDA.** Design system semântico (verde primário, azul info,
-  laranja warning, vermelho danger, roxo marketing, superfícies em camadas,
-  glass, motion) + Dashboard reconstruído: 4 hero KPIs, 12 stat tiles,
-  filtro de período (hoje→ano) com comparação, área de faturamento, donut de
-  receita por gênero, painéis masculino×feminino, bloco de clientes e
-  rankings. Campo `ClientProfile.gender` adicionado. Sidebar agrupada.
-- **Fase 2 — Agenda pro** (estilo Google Calendar/Booksy): drag & drop,
-  redimensionar duração, criar por clique no horário, cores por status/
-  serviço/profissional, linha do horário atual, visualizações dia/semana/mês/
-  timeline/lista, filtros rápidos, busca instantânea, ações rápidas
-  (confirmar/cancelar/mover/WhatsApp/finalizar/recibo), indicadores no topo.
-- **Fase 3 — Financeiro**: receitas, despesas, fluxo de caixa, centro de
-  custos, contas a pagar/receber, DRE, formas de pagamento, status coloridos.
-  Requer modelos novos (Expense, CashFlow, Payment estendido).
-- **Fase 4 — Catálogo rico**: serviços como cards (imagem, margem, lucro,
-  popularidade, avaliação), edição inline, duplicar/arquivar; produtos com
-  estoque, fornecedor, código de barras, validade, reposição.
-- **Fase 5 — Pacotes & Planos**: pacotes de serviços (saldo, validade,
-  renovação, congelamento); assinaturas mensais/anuais.
-- **Fase 6 — CRM & Marketing**: ficha completa do cliente (foto, histórico,
-  LTV, fidelidade, preferências); campanhas (aniversariantes, sumidos),
-  WhatsApp/SMS/e-mail, cupons, cashback, indicações.
-- **Fase 7 — Relatórios & UX global**: exportação PDF/Excel/CSV, comparativos;
-  command palette (⌘K), atalhos, toasts, drawer, skeletons, empty states.
+Todas as 7 fases foram concluídas e estão em produção.
+
+- **Fase 1 — CONCLUÍDA.** Design system semântico + Dashboard reconstruído
+  (hero KPIs, stat tiles, filtro de período, gráficos, split por gênero).
+  Campo `ClientProfile.gender`. Sidebar agrupada.
+- **Fase 2 — CONCLUÍDA.** Agenda pro: cores por status, linha do agora,
+  drag-to-move, redimensionar, visões Dia/Semana/Mês/Lista, filtros, busca,
+  ações rápidas (status/WhatsApp/duplicar/recibo). Actions move/resize/duplicate.
+- **Fase 3 — CONCLUÍDA.** Financeiro: modelo `Expense`, receita/despesa,
+  fluxo de caixa, DRE, contas a pagar/receber, donuts categoria e forma de
+  pagamento, gestão de despesas.
+- **Fase 4 — CONCLUÍDA.** Catálogo: Service/Product ganharam custo, categoria,
+  fornecedor, minStock, validade. Serviços e produtos como cards premium com
+  margem/lucro/popularidade, filtros, ajuste de estoque, alertas de reposição.
+- **Fase 5 — CONCLUÍDA.** Pacotes & Planos: modelos Package/PackagePurchase/
+  MembershipPlan/ClientSubscription; venda, uso de sessão, congelar/renovar,
+  assinaturas, MRR.
+- **Fase 6 — CONCLUÍDA.** CRM (`src/lib/crm.ts`): LTV, fidelidade, favoritos,
+  segmentação (VIP/sumido/aniversariante), drawer com histórico. Marketing:
+  campanhas com WhatsApp + cupom.
+- **Fase 7 — CONCLUÍDA.** Relatórios (comparativos + export CSV/PDF), command
+  palette ⌘K, toasts globais, skeletons de carregamento. Campos de settings
+  no Salon; página `/configuracoes` com acessos por papel.
+
+### Próximos passos possíveis (fora do roadmap original)
+- Billing do próprio SaaS (Stripe) usando o enum `Plan` FREE/STARTER/PRO.
+- Ativar RLS (`prisma/migrations/rls/enable_rls.sql`) antes de clientes reais.
+- Reviews/avaliações (modelo novo) para nota real dos profissionais.
+- Portfolio premium e refino da landing comercial.
+- Envio real de WhatsApp/SMS (Evolution API/Twilio) para lembretes e campanhas.
 
 Cada fase que depende de dado novo exige migração de schema + seed —
 lembrar das armadilhas de `DIRECT_URL`/`db push` no CLAUDE.md.
