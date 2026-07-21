@@ -1,8 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getTenantContext } from "@/lib/tenant";
 import { startOfDay, endOfDay, format } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { AgendaGrid, type Appointment, type Professional } from "./agenda-grid";
+import { AgendaBoard, type Appointment, type Professional } from "./agenda-board";
 import type { ServiceOption, ClientOption } from "./appointment-form";
 
 export default async function AgendaPage({
@@ -11,16 +10,17 @@ export default async function AgendaPage({
   searchParams: { date?: string };
 }) {
   const { salonId } = await getTenantContext();
-  const date = searchParams.date ? new Date(searchParams.date) : new Date();
+  const date = searchParams.date ? new Date(`${searchParams.date}T12:00:00`) : new Date();
   const dateStr = format(date, "yyyy-MM-dd");
 
-  const [prosRaw, apptsRaw, services, clients] = await Promise.all([
+  const [salon, prosRaw, apptsRaw, services, clients] = await Promise.all([
+    prisma.salon.findUnique({ where: { id: salonId }, select: { name: true } }),
     prisma.professional.findMany({
       where: { salonId, active: true },
       select: {
         id: true,
         colorHex: true,
-        user: { select: { name: true } },
+        user: { select: { name: true, avatarUrl: true } },
         services: { select: { serviceId: true } },
       },
       orderBy: { user: { name: "asc" } },
@@ -38,9 +38,11 @@ export default async function AgendaPage({
         endAt: true,
         priceCents: true,
         status: true,
-        client: { select: { name: true } },
+        notes: true,
+        client: { select: { name: true, phone: true } },
         service: { select: { name: true, colorHex: true } },
       },
+      orderBy: { startAt: "asc" },
     }),
     prisma.service.findMany({
       where: { salonId, active: true },
@@ -51,7 +53,7 @@ export default async function AgendaPage({
       where: { salonId },
       select: { id: true, name: true, phone: true },
       orderBy: { name: "asc" },
-      take: 200,
+      take: 300,
     }),
   ]);
 
@@ -69,37 +71,21 @@ export default async function AgendaPage({
     endAt: a.endAt.toISOString(),
     priceCents: a.priceCents,
     status: a.status,
+    notes: a.notes,
     clientName: a.client.name,
+    clientPhone: a.client.phone,
     serviceName: a.service.name,
     serviceColor: a.service.colorHex,
   }));
 
-  const serviceOptions: ServiceOption[] = services;
-  const clientOptions: ClientOption[] = clients;
-
   return (
-    <div className="space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="mb-1 text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
-            {format(date, "EEEE", { locale: ptBR })}
-          </p>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {format(date, "dd 'de' MMMM", { locale: ptBR })}
-          </h1>
-        </div>
-        <span className="flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-3 py-1 text-[12px] text-muted-foreground">
-          {appointments.length} agendamento{appointments.length !== 1 ? "s" : ""}
-        </span>
-      </header>
-
-      <AgendaGrid
-        date={dateStr}
-        professionals={professionals}
-        appointments={appointments}
-        services={serviceOptions}
-        clients={clientOptions}
-      />
-    </div>
+    <AgendaBoard
+      date={dateStr}
+      salonName={salon?.name ?? "seu salão"}
+      professionals={professionals}
+      appointments={appointments}
+      services={services as ServiceOption[]}
+      clients={clients as ClientOption[]}
+    />
   );
 }

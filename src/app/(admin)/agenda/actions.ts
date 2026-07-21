@@ -127,3 +127,59 @@ export async function updateAppointmentStatus(
 export async function cancelAppointment(id: string) {
   return updateAppointmentStatus(id, "CANCELLED");
 }
+
+const moveInput = z.object({
+  id: z.string(),
+  professionalId: z.string(),
+  startAt: z.string().datetime(),
+});
+
+/**
+ * Move um agendamento (arrastar na agenda): troca horário e/ou profissional.
+ * Mantém a duração do serviço, valida que o novo profissional faz o serviço
+ * e que não há conflito de horário.
+ */
+export async function moveAppointment(input: z.infer<typeof moveInput>) {
+  const ctx = await getTenantContext();
+  assertRole(ctx, ["OWNER", "MANAGER", "RECEPTIONIST"]);
+  const data = moveInput.parse(input);
+
+  const appt = await prisma.appointment.findFirst({
+    where: { id: data.id, salonId: ctx.salonId },
+    select: { serviceId: true, startAt: true, endAt: true },
+  });
+  if (!appt) throw new Error("Agendamento não encontrado");
+
+  const durationMs = appt.endAt.getTime() - appt.startAt.getTime();
+  const startAt = new Date(data.startAt);
+  const endAt = new Date(startAt.getTime() + durationMs);
+
+  const canDo = await prisma.professionalService.findFirst({
+    where: {
+      serviceId: appt.serviceId,
+      professional: { id: data.professionalId, salonId: ctx.salonId, active: true },
+    },
+    select: { serviceId: true },
+  });
+  if (!canDo) throw new Error("Este profissional não faz esse serviço");
+
+  const conflict = await prisma.appointment.findFirst({
+    where: {
+      id: { not: data.id },
+      professionalId: data.professionalId,
+      status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
+      startAt: { lt: endAt },
+      endAt: { gt: startAt },
+    },
+    select: { id: true },
+  });
+  if (conflict) throw new Error("Horário já ocupado");
+
+  await prisma.appointment.update({
+    where: { id: data.id },
+    data: { professionalId: data.professionalId, startAt, endAt },
+  });
+
+  revalidatePath("/agenda");
+  revalidatePath("/dashboard");
+}
