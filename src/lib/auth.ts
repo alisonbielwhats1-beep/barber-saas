@@ -11,6 +11,7 @@ import { prisma } from "./prisma";
  * a mudança vale já na próxima requisição, sem esperar o token expirar.
  */
 export const authOptions: NextAuthOptions = {
+  secret: process.env.NEXTAUTH_SECRET,
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },
   providers: [

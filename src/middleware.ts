@@ -5,6 +5,7 @@ import { withAuth } from "next-auth/middleware";
  * O NextAuth injeta o próprio middleware — este arquivo só declara o matcher.
  */
 export default withAuth({
+  secret: process.env.NEXTAUTH_SECRET,
   pages: { signIn: "/login" },
 });
 
