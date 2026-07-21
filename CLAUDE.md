@@ -36,12 +36,31 @@ Recharts · date-fns.
 Aplicação completa e funcionando em produção. O banco Supabase já tem schema
 aplicado **e dados demo** — não rode `db:push`/`db:seed` contra ele.
 
-Redesign do admin concluído: tema dark (`#0B0B0B`) com âmbar `#F59E0B`,
-sidebar estilo Linear, em todas as telas (dashboard, agenda, serviços,
-produtos, profissionais, clientes, portfolio, login, signup).
+**7 fases do roadmap premium concluídas:**
 
-**Importante:** o booking do cliente (`/book/*`) usa outro tema — verde neon,
-via `[data-theme="salon-dark"]` no `globals.css`. O laranja é **só do admin**.
+- Fase 1 — Dashboard reconstruído, design system semântico, filtro de período
+- Fase 2 — Agenda pro: cores por status, drag-to-move, visões Dia/Semana/Mês/Lista, ações rápidas
+- Fase 3 — Financeiro: modelo `Expense`, DRE, fluxo de caixa, contas a pagar/receber
+- Fase 4 — Catálogo: custo/margem/popularidade em serviços e produtos, alertas de estoque
+- Fase 5 — Pacotes & Planos: `Package`/`PackagePurchase`/`MembershipPlan`/`ClientSubscription`, MRR
+- Fase 6 — CRM (`src/lib/crm.ts`): LTV, segmentação VIP/sumido/aniversariante, Marketing com WhatsApp
+- Fase 7 — Relatórios (CSV/PDF), command palette ⌘K, toasts, skeletons, `/configuracoes`
+
+**Módulos no admin (sidebar agrupada):**
+Principal: Dashboard, Agenda
+Catálogo: Serviços, Produtos, Pacotes, Portfolio
+Pessoas: Clientes (CRM), Profissionais
+Financeiro: Financeiro, Relatórios (Pagamentos: `soon: true`)
+Crescimento: Marketing
++ Configurações
+
+**Salões de demo no banco:**
+- `dono@lunahair.com` / `demo1234` — Luna Hair Studio
+- `dono@northbarber.com` / `demo1234` — North Barber
+- Studio Martinelli (seed separado em `scripts/seed-martinelli.ts`)
+
+**Importante:** o booking do cliente (`/book/*`) usa tema verde neon via
+`[data-theme="salon-dark"]` no `globals.css`. O âmbar `#F59E0B` é só do admin.
 Não unifique os dois sem pedir.
 
 ## Armadilhas já resolvidas (não repetir)
@@ -104,4 +123,7 @@ Plano de evolução (abas do dono e do cliente, financeiro, multi-salão) em
 - O login pelo formulário foi validado via API do NextAuth, não digitando nos
   campos (a automação de browser não mantinha texto em input controlado do
   React). Vale um teste manual.
-- `/configuracoes` está no menu lateral mas a página ainda não existe.
+- `/pagamentos` está no menu com `soon: true` (renderiza desabilitado) — não tem página ainda.
+- Billing do próprio SaaS (Stripe por `Plan` FREE/STARTER/PRO) não implementado.
+- Envio real de WhatsApp/SMS (Marketing dispara link de wa.me, não Evolution API/Twilio).
+- RLS (`prisma/migrations/rls/enable_rls.sql`) pronto mas não ativado — ativar antes de clientes reais.
