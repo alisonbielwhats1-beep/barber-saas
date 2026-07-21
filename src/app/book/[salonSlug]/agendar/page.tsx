@@ -26,6 +26,11 @@ export default async function AgendarPage({
                   colorHex: true,
                   active: true,
                   user: { select: { name: true, avatarUrl: true } },
+                  // serviços que o profissional executa → vira tag de especialidade
+                  services: {
+                    select: { service: { select: { name: true } } },
+                    take: 3,
+                  },
                 },
               },
             },
@@ -35,6 +40,21 @@ export default async function AgendarPage({
     },
   });
   if (!salon) notFound();
+
+  // Contagem real de atendimentos por profissional (prova social honesta)
+  const counts = await prisma.appointment.groupBy({
+    by: ["professionalId"],
+    where: {
+      salonId: salon.id,
+      status: { in: ["CONFIRMED", "IN_PROGRESS", "COMPLETED"] },
+    },
+    _count: { _all: true },
+  });
+  const countByPro = new Map(counts.map((c) => [c.professionalId, c._count._all]));
+  const topProId =
+    counts.length > 1
+      ? counts.reduce((a, b) => (b._count._all > a._count._all ? b : a)).professionalId
+      : null;
 
   const services = salon.services.map((s) => ({
     id: s.id,
@@ -47,7 +67,11 @@ export default async function AgendarPage({
       .map((ps) => ({
         id: ps.professional.id,
         name: ps.professional.user.name,
+        avatarUrl: ps.professional.user.avatarUrl,
         colorHex: ps.professional.colorHex,
+        specialties: ps.professional.services.map((x) => x.service.name),
+        apptCount: countByPro.get(ps.professional.id) ?? 0,
+        topPro: ps.professional.id === topProId,
       })),
   }));
 

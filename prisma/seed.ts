@@ -89,13 +89,16 @@ async function main() {
     }),
   );
 
-  // Clientes
+  // Clientes — mix de homens e mulheres (salão atende ambos)
   const clientsData = [
     { name: "Beatriz Lima", phone: "(11) 91234-5678" },
     { name: "Julia Fernandes", phone: "(11) 98765-4321" },
     { name: "Amanda Rocha", phone: "(11) 99999-1111" },
     { name: "Sofia Toledo", phone: "(11) 98888-2222" },
     { name: "Larissa Melo", phone: "(11) 97777-3333" },
+    { name: "Pedro Alves", phone: "(11) 96666-4444" },
+    { name: "Lucas Martins", phone: "(11) 95555-5555" },
+    { name: "Gabriel Nogueira", phone: "(11) 94444-6666" },
   ];
   const clients = await Promise.all(
     clientsData.map((c) =>
@@ -103,42 +106,51 @@ async function main() {
     ),
   );
 
-  // Agendamentos: passado (completos) + futuros
-  const today = startOfDay(new Date());
-  const bookings: Promise<unknown>[] = [];
+  // Gera agendamentos passados (COMPLETED) + futuros (CONFIRMED) para um salão.
+  // Reaproveitada pelos dois tenants.
+  async function seedAppointments(
+    salonId: string,
+    proList: { id: string }[],
+    serviceList: { id: string; durationMin: number; priceCents: number }[],
+    clientList: { id: string }[],
+  ) {
+    const today = startOfDay(new Date());
+    const bookings: Promise<unknown>[] = [];
+    for (let dayOffset = -14; dayOffset <= 7; dayOffset++) {
+      const day = addDays(today, dayOffset);
+      // 4-6 agendamentos por dia
+      const count = 4 + Math.floor(Math.random() * 3);
+      for (let i = 0; i < count; i++) {
+        const pro = proList[i % proList.length];
+        const service = serviceList[Math.floor(Math.random() * serviceList.length)];
+        const client = clientList[Math.floor(Math.random() * clientList.length)];
+        const hour = 9 + Math.floor(Math.random() * 9);
+        const startAt = setMinutes(setHours(day, hour), Math.random() > 0.5 ? 0 : 30);
+        const endAt = new Date(startAt.getTime() + service.durationMin * 60_000);
 
-  for (let dayOffset = -14; dayOffset <= 7; dayOffset++) {
-    const day = addDays(today, dayOffset);
-    // 4-6 agendamentos por dia
-    const count = 4 + Math.floor(Math.random() * 3);
-    for (let i = 0; i < count; i++) {
-      const pro = pros[i % pros.length];
-      const service = services[Math.floor(Math.random() * services.length)];
-      const client = clients[Math.floor(Math.random() * clients.length)];
-      const hour = 9 + Math.floor(Math.random() * 9);
-      const startAt = setMinutes(setHours(day, hour), Math.random() > 0.5 ? 0 : 30);
-      const endAt = new Date(startAt.getTime() + service.durationMin * 60_000);
+        const status =
+          dayOffset < 0 ? AppointmentStatus.COMPLETED : AppointmentStatus.CONFIRMED;
 
-      const status =
-        dayOffset < 0 ? AppointmentStatus.COMPLETED : AppointmentStatus.CONFIRMED;
-
-      bookings.push(
-        prisma.appointment.create({
-          data: {
-            salonId: luna.id,
-            clientId: client.id,
-            professionalId: pro.id,
-            serviceId: service.id,
-            startAt,
-            endAt,
-            priceCents: service.priceCents,
-            status,
-          },
-        }).catch(() => null), // ignora conflitos aleatórios
-      );
+        bookings.push(
+          prisma.appointment.create({
+            data: {
+              salonId,
+              clientId: client.id,
+              professionalId: pro.id,
+              serviceId: service.id,
+              startAt,
+              endAt,
+              priceCents: service.priceCents,
+              status,
+            },
+          }).catch(() => null), // ignora conflitos aleatórios
+        );
+      }
     }
+    await Promise.all(bookings);
   }
-  await Promise.all(bookings);
+
+  await seedAppointments(luna.id, pros, services, clients);
 
   // ─── Salão 2: North Barber ──────────────────────────────
   const owner2 = await prisma.user.create({
@@ -156,13 +168,75 @@ async function main() {
   await prisma.membership.create({
     data: { userId: owner2.id, salonId: north.id, role: Role.OWNER },
   });
-  await prisma.service.createMany({
-    data: [
-      { salonId: north.id, name: "Corte social", durationMin: 30, priceCents: 6000, colorHex: "#374151" },
-      { salonId: north.id, name: "Barba desenhada", durationMin: 30, priceCents: 5000, colorHex: "#6b7280" },
-      { salonId: north.id, name: "Combo corte + barba", durationMin: 60, priceCents: 10000, colorHex: "#111827" },
-    ],
-  });
+  const northServices = await Promise.all([
+    prisma.service.create({
+      data: { salonId: north.id, name: "Corte social", durationMin: 30, priceCents: 6000, colorHex: "#374151" },
+    }),
+    prisma.service.create({
+      data: { salonId: north.id, name: "Barba desenhada", durationMin: 30, priceCents: 5000, colorHex: "#6b7280" },
+    }),
+    prisma.service.create({
+      data: { salonId: north.id, name: "Combo corte + barba", durationMin: 60, priceCents: 10000, colorHex: "#111827" },
+    }),
+    prisma.service.create({
+      data: { salonId: north.id, name: "Hot towel shave", durationMin: 45, priceCents: 8500, colorHex: "#7c2d12" },
+    }),
+  ]);
+
+  const northPros = await Promise.all(
+    [
+      { email: "thiago@northbarber.com", name: "Thiago Nunes", colorHex: "#374151", commission: 50 },
+      { email: "bruno@northbarber.com", name: "Bruno Costa", colorHex: "#6b7280", commission: 45 },
+      { email: "aline@northbarber.com", name: "Aline Prado", colorHex: "#7c2d12", commission: 45 },
+    ].map(async (p) => {
+      const u = await prisma.user.create({
+        data: { email: p.email, name: p.name, passwordHash },
+      });
+      await prisma.membership.create({
+        data: { userId: u.id, salonId: north.id, role: Role.PROFESSIONAL },
+      });
+      const pro = await prisma.professional.create({
+        data: {
+          salonId: north.id,
+          userId: u.id,
+          colorHex: p.colorHex,
+          commissionPct: p.commission,
+        },
+      });
+      await prisma.professionalService.createMany({
+        data: northServices.map((s) => ({ professionalId: pro.id, serviceId: s.id })),
+      });
+      // Horário: ter-sáb, 10:00-20:00
+      await prisma.workingHours.createMany({
+        data: [2, 3, 4, 5, 6].map((weekday) => ({
+          salonId: north.id,
+          professionalId: pro.id,
+          weekday,
+          startMinutes: 10 * 60,
+          endMinutes: 20 * 60,
+        })),
+      });
+      return pro;
+    }),
+  );
+
+  // Clientela da barbearia — maioria homens, com mulheres também
+  const northClientsData = [
+    { name: "João Pedro Ramos", phone: "(11) 93333-1010" },
+    { name: "Matheus Carvalho", phone: "(11) 93333-2020" },
+    { name: "Felipe Duarte", phone: "(11) 93333-3030" },
+    { name: "André Siqueira", phone: "(11) 93333-4040" },
+    { name: "Vinícius Prado", phone: "(11) 93333-5050" },
+    { name: "Renata Borges", phone: "(11) 93333-6060" },
+    { name: "Carla Menezes", phone: "(11) 93333-7070" },
+  ];
+  const northClients = await Promise.all(
+    northClientsData.map((c) =>
+      prisma.clientProfile.create({ data: { ...c, salonId: north.id } }),
+    ),
+  );
+
+  await seedAppointments(north.id, northPros, northServices, northClients);
 
   // ─── Produtos (Luna Hair) ────────────────────────────────
   const w = (id: string) => `https://images.unsplash.com/${id}?w=600&auto=format&fit=crop&q=80`;

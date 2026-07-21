@@ -7,7 +7,9 @@ import { startOfDay, endOfDay, addMinutes, isBefore } from "date-fns";
  *
  * Retorna a lista de slots (HH:MM) livres para o profissional no dia,
  * respeitando: working hours, time-offs, agendamentos existentes e duração
- * do serviço.
+ * do serviço. Também devolve `popularSlot` — o horário historicamente mais
+ * agendado do profissional (se estiver livre no dia), para o front sinalizar
+ * "concorrido" com dado real, não teatro.
  */
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
@@ -23,7 +25,7 @@ export async function GET(req: NextRequest) {
   const date = new Date(dateStr);
   const weekday = date.getDay();
 
-  const [service, workingHours, timeOffs, appointments] = await Promise.all([
+  const [service, workingHours, timeOffs, appointments, history] = await Promise.all([
     prisma.service.findFirst({
       where: { id: serviceId, salonId },
       select: { durationMin: true },
@@ -47,6 +49,16 @@ export async function GET(req: NextRequest) {
         status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
       },
       select: { startAt: true, endAt: true },
+    }),
+    // Histórico de horários do profissional (qualquer dia) para achar o mais pedido
+    prisma.appointment.findMany({
+      where: {
+        professionalId,
+        status: { in: ["CONFIRMED", "IN_PROGRESS", "COMPLETED"] },
+      },
+      select: { startAt: true },
+      take: 500,
+      orderBy: { startAt: "desc" },
     }),
   ]);
 
@@ -85,5 +97,23 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ slots });
+  // Horário (HH:MM) mais frequente no histórico que esteja livre hoje
+  const freq = new Map<string, number>();
+  for (const a of history) {
+    const key = `${a.startAt.getHours().toString().padStart(2, "0")}:${a.startAt
+      .getMinutes()
+      .toString()
+      .padStart(2, "0")}`;
+    freq.set(key, (freq.get(key) ?? 0) + 1);
+  }
+  let popularSlot: string | null = null;
+  let best = 1; // exige pelo menos 2 ocorrências pra valer o selo
+  for (const [key, count] of freq) {
+    if (count > best && slots.includes(key)) {
+      best = count;
+      popularSlot = key;
+    }
+  }
+
+  return NextResponse.json({ slots, popularSlot });
 }
