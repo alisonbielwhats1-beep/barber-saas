@@ -5,6 +5,40 @@ persona (dono × cliente) e priorizado por impacto no negócio.
 
 ---
 
+## Transformação premium do painel do dono — plano em fases
+
+Objetivo: elevar o painel ao nível Stripe / Linear / Notion / Vercel.
+
+- **Fase 1 — CONCLUÍDA.** Design system semântico (verde primário, azul info,
+  laranja warning, vermelho danger, roxo marketing, superfícies em camadas,
+  glass, motion) + Dashboard reconstruído: 4 hero KPIs, 12 stat tiles,
+  filtro de período (hoje→ano) com comparação, área de faturamento, donut de
+  receita por gênero, painéis masculino×feminino, bloco de clientes e
+  rankings. Campo `ClientProfile.gender` adicionado. Sidebar agrupada.
+- **Fase 2 — Agenda pro** (estilo Google Calendar/Booksy): drag & drop,
+  redimensionar duração, criar por clique no horário, cores por status/
+  serviço/profissional, linha do horário atual, visualizações dia/semana/mês/
+  timeline/lista, filtros rápidos, busca instantânea, ações rápidas
+  (confirmar/cancelar/mover/WhatsApp/finalizar/recibo), indicadores no topo.
+- **Fase 3 — Financeiro**: receitas, despesas, fluxo de caixa, centro de
+  custos, contas a pagar/receber, DRE, formas de pagamento, status coloridos.
+  Requer modelos novos (Expense, CashFlow, Payment estendido).
+- **Fase 4 — Catálogo rico**: serviços como cards (imagem, margem, lucro,
+  popularidade, avaliação), edição inline, duplicar/arquivar; produtos com
+  estoque, fornecedor, código de barras, validade, reposição.
+- **Fase 5 — Pacotes & Planos**: pacotes de serviços (saldo, validade,
+  renovação, congelamento); assinaturas mensais/anuais.
+- **Fase 6 — CRM & Marketing**: ficha completa do cliente (foto, histórico,
+  LTV, fidelidade, preferências); campanhas (aniversariantes, sumidos),
+  WhatsApp/SMS/e-mail, cupons, cashback, indicações.
+- **Fase 7 — Relatórios & UX global**: exportação PDF/Excel/CSV, comparativos;
+  command palette (⌘K), atalhos, toasts, drawer, skeletons, empty states.
+
+Cada fase que depende de dado novo exige migração de schema + seed —
+lembrar das armadilhas de `DIRECT_URL`/`db push` no CLAUDE.md.
+
+---
+
 ## 🧑‍💼 Painel do dono (admin)
 
 ### Abas existentes
