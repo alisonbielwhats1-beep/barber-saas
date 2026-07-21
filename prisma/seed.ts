@@ -1,4 +1,4 @@
-import { PrismaClient, Role, AppointmentStatus, Plan } from "@prisma/client";
+import { PrismaClient, Role, AppointmentStatus, Plan, Gender } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { addDays, setHours, setMinutes, startOfDay } from "date-fns";
 
@@ -91,14 +91,14 @@ async function main() {
 
   // Clientes — mix de homens e mulheres (salão atende ambos)
   const clientsData = [
-    { name: "Beatriz Lima", phone: "(11) 91234-5678" },
-    { name: "Julia Fernandes", phone: "(11) 98765-4321" },
-    { name: "Amanda Rocha", phone: "(11) 99999-1111" },
-    { name: "Sofia Toledo", phone: "(11) 98888-2222" },
-    { name: "Larissa Melo", phone: "(11) 97777-3333" },
-    { name: "Pedro Alves", phone: "(11) 96666-4444" },
-    { name: "Lucas Martins", phone: "(11) 95555-5555" },
-    { name: "Gabriel Nogueira", phone: "(11) 94444-6666" },
+    { name: "Beatriz Lima", phone: "(11) 91234-5678", gender: Gender.FEMALE },
+    { name: "Julia Fernandes", phone: "(11) 98765-4321", gender: Gender.FEMALE },
+    { name: "Amanda Rocha", phone: "(11) 99999-1111", gender: Gender.FEMALE },
+    { name: "Sofia Toledo", phone: "(11) 98888-2222", gender: Gender.FEMALE },
+    { name: "Larissa Melo", phone: "(11) 97777-3333", gender: Gender.FEMALE },
+    { name: "Pedro Alves", phone: "(11) 96666-4444", gender: Gender.MALE },
+    { name: "Lucas Martins", phone: "(11) 95555-5555", gender: Gender.MALE },
+    { name: "Gabriel Nogueira", phone: "(11) 94444-6666", gender: Gender.MALE },
   ];
   const clients = await Promise.all(
     clientsData.map((c) =>
@@ -222,13 +222,13 @@ async function main() {
 
   // Clientela da barbearia — maioria homens, com mulheres também
   const northClientsData = [
-    { name: "João Pedro Ramos", phone: "(11) 93333-1010" },
-    { name: "Matheus Carvalho", phone: "(11) 93333-2020" },
-    { name: "Felipe Duarte", phone: "(11) 93333-3030" },
-    { name: "André Siqueira", phone: "(11) 93333-4040" },
-    { name: "Vinícius Prado", phone: "(11) 93333-5050" },
-    { name: "Renata Borges", phone: "(11) 93333-6060" },
-    { name: "Carla Menezes", phone: "(11) 93333-7070" },
+    { name: "João Pedro Ramos", phone: "(11) 93333-1010", gender: Gender.MALE },
+    { name: "Matheus Carvalho", phone: "(11) 93333-2020", gender: Gender.MALE },
+    { name: "Felipe Duarte", phone: "(11) 93333-3030", gender: Gender.MALE },
+    { name: "André Siqueira", phone: "(11) 93333-4040", gender: Gender.MALE },
+    { name: "Vinícius Prado", phone: "(11) 93333-5050", gender: Gender.MALE },
+    { name: "Renata Borges", phone: "(11) 93333-6060", gender: Gender.FEMALE },
+    { name: "Carla Menezes", phone: "(11) 93333-7070", gender: Gender.FEMALE },
   ];
   const northClients = await Promise.all(
     northClientsData.map((c) =>

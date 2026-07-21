@@ -3,37 +3,47 @@
 @tailwind utilities;
 
 @layer base {
-  /* ─── Admin: Dark Premium + Verde ───────────────────────────────────────── */
+  /* ─── Admin: Dark Premium — paleta semântica 2026 ───────────────────────── */
   :root {
-    --background: 0 0% 4%;          /* #0B0B0B */
-    --foreground: 0 0% 96%;         /* #F5F5F5 */
+    /* Superfícies: quase-preto com leve viés frio, em camadas (não tudo preto) */
+    --background: 240 6% 5%;        /* #0B0B0D  base da app */
+    --surface-1: 240 6% 8%;         /* #131316  painéis */
+    --foreground: 240 20% 98%;      /* #F8F9FB */
 
-    --card: 0 0% 9%;                /* #161616 */
-    --card-foreground: 0 0% 96%;
+    --card: 240 6% 9%;              /* #16161A  card padrão */
+    --card-foreground: 240 20% 98%;
+    --card-hover: 240 6% 12%;       /* #1D1D22 */
+    --elevated: 240 7% 13%;         /* #1F1F25  card destacado/popover */
 
-    --card-hover: 0 0% 14%;         /* #242424 */
+    --muted: 240 5% 15%;            /* #242429 */
+    --muted-foreground: 240 5% 58%; /* #8E8E96 */
 
-    --muted: 0 0% 14%;              /* #242424 */
-    --muted-foreground: 0 0% 46%;   /* #757575 */
+    --border: 240 6% 15%;           /* #232328  borda suave */
+    --border-strong: 240 6% 22%;    /* #33333B */
+    --input: 240 6% 15%;
+    --ring: 152 65% 52%;
 
-    --border: 0 0% 16%;             /* #2A2A2A */
-    --input: 0 0% 14%;
-    --ring: 138 82% 74%;
+    /* Primária — verde esmeralda moderno (menos neon, mais SaaS) */
+    --primary: 152 65% 48%;         /* #2ECC8B */
+    --primary-foreground: 160 60% 6%;
 
-    /* Verde neon — mesma identidade do app do cliente */
-    --primary: 138 82% 74%;         /* #7DF89B */
-    --primary-foreground: 0 0% 4%;
+    --secondary: 240 5% 15%;
+    --secondary-foreground: 240 20% 98%;
 
-    --secondary: 0 0% 14%;
-    --secondary-foreground: 0 0% 96%;
+    --accent: 152 65% 48%;
+    --accent-foreground: 160 60% 6%;
 
-    --accent: 138 82% 74%;
-    --accent-foreground: 0 0% 4%;
+    /* Cores semânticas */
+    --success: 152 65% 48%;         /* verde  — positivo */
+    --info: 213 92% 60%;            /* azul   — informação */
+    --warning: 32 95% 56%;          /* laranja — alerta */
+    --danger: 0 78% 60%;            /* vermelho — problema */
+    --marketing: 267 84% 66%;       /* roxo   — marketing/growth */
 
-    --destructive: 0 72% 51%;
+    --destructive: 0 78% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --radius: 1rem;
+    --radius: 0.9rem;
 
     --font-sans: "Inter", system-ui, sans-serif;
     --font-display: "Inter", system-ui, sans-serif;
@@ -135,13 +145,54 @@
     opacity: 1;
   }
 
-  /* Card glow laranja sutil no hover */
+  /* Superfície glass discreta — cards premium */
+  .glass {
+    background:
+      linear-gradient(180deg, hsl(var(--card) / 0.9), hsl(var(--card) / 0.7));
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid hsl(var(--border));
+    box-shadow:
+      0 1px 0 0 hsl(0 0% 100% / 0.03) inset,
+      0 8px 24px -12px hsl(0 0% 0% / 0.6);
+  }
+
+  /* Card com hover elegante (elevação + borda) */
+  .card-interactive {
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+  }
+  .card-interactive:hover {
+    transform: translateY(-2px);
+    background-color: hsl(var(--card-hover));
+    border-color: hsl(var(--border-strong));
+    box-shadow: 0 12px 32px -16px hsl(0 0% 0% / 0.7);
+  }
+
+  /* Glow sutil na cor primária (usado em cards de destaque) */
   .card-glow {
     transition: box-shadow 0.2s ease, border-color 0.2s ease;
   }
   .card-glow:hover {
-    box-shadow: 0 0 0 1px hsl(138 82% 74% / 0.3), 0 4px 24px hsl(138 82% 74% / 0.08);
-    border-color: hsl(138 82% 74% / 0.25);
+    box-shadow: 0 0 0 1px hsl(var(--primary) / 0.3), 0 4px 24px hsl(var(--primary) / 0.1);
+    border-color: hsl(var(--primary) / 0.3);
+  }
+
+  /* Grid de fundo sutil para hero de painel */
+  .bg-grid {
+    background-image:
+      linear-gradient(to right, hsl(var(--border) / 0.5) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--border) / 0.5) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  /* Contagem/entrada escalonada */
+  .animate-rise {
+    animation: rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
 
   /* Scrollbar dark */

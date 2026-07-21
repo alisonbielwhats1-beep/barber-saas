@@ -35,7 +35,16 @@ const config: Config = {
         card: {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
+          hover: "hsl(var(--card-hover))",
         },
+        "surface-1": "hsl(var(--surface-1))",
+        elevated: "hsl(var(--elevated))",
+        "border-strong": "hsl(var(--border-strong))",
+        success: "hsl(var(--success))",
+        info: "hsl(var(--info))",
+        warning: "hsl(var(--warning))",
+        danger: "hsl(var(--danger))",
+        marketing: "hsl(var(--marketing))",
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -51,9 +60,17 @@ const config: Config = {
           from: { opacity: "0", transform: "translateY(4px)" },
           to: { opacity: "1", transform: "translateY(0)" },
         },
+        rise: {
+          from: { opacity: "0", transform: "translateY(10px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
       },
       animation: {
         "fade-in": "fade-in 0.4s ease-out",
+        rise: "rise 0.5s cubic-bezier(0.16,1,0.3,1) both",
+      },
+      boxShadow: {
+        premium: "0 12px 32px -16px hsl(0 0% 0% / 0.7)",
       },
     },
   },

@@ -46,6 +46,12 @@ enum Plan {
   ENTERPRISE
 }
 
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
 // ─── Identidade & Tenant ────────────────────────────────────────────────────
 
 model User {
@@ -186,6 +192,7 @@ model ClientProfile {
   phone     String?
   email     String?
   birthday  DateTime?
+  gender    Gender?
   notes     String?
   createdAt DateTime  @default(now())
 
