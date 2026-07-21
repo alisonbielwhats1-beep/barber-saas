@@ -79,6 +79,10 @@ model Salon {
   timezone  String   @default("America/Sao_Paulo")
   currency  String   @default("BRL")
   plan      Plan     @default(FREE)
+  openMinutes       Int @default(540)   // 09:00 — horário padrão de abertura
+  closeMinutes      Int @default(1140)  // 19:00 — horário padrão de fechamento
+  cancelPolicyHours Int @default(2)     // antecedência mínima para cancelar
+  noShowFeeCents    Int @default(0)     // taxa de no-show
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

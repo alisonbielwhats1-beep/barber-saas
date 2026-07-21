@@ -88,7 +88,7 @@ export function SidebarNav() {
 
       <div className="pt-1">
         <NavRow
-          item={{ href: "/configuracoes", label: "Configurações", icon: Settings, soon: true }}
+          item={{ href: "/configuracoes", label: "Configurações", icon: Settings }}
           pathname={pathname}
         />
       </div>
