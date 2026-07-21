@@ -4,6 +4,12 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { assertRole, getTenantContext } from "@/lib/tenant";
+import { getClientHistory } from "@/lib/crm";
+
+export async function fetchClientHistory(clientId: string) {
+  const ctx = await getTenantContext();
+  return getClientHistory(ctx.salonId, clientId);
+}
 
 const clientInput = z.object({
   name: z.string().min(2),

@@ -1,95 +1,55 @@
 import { prisma } from "@/lib/prisma";
 import { getTenantContext } from "@/lib/tenant";
-import { Card } from "@/components/ui/card";
+import { getClientList } from "@/lib/crm";
 import { formatMoney } from "@/lib/utils";
+import { Users, Crown, Cake, Clock } from "lucide-react";
 import { ClientForm } from "./client-form";
+import { ClientsCrm } from "./clients-crm";
 
 export default async function ClientesPage() {
   const { salonId } = await getTenantContext();
-  const clients = await prisma.clientProfile.findMany({
-    where: { salonId },
-    include: {
-      appointments: {
-        where: { status: "COMPLETED" },
-        select: { priceCents: true },
-      },
-    },
-    orderBy: { name: "asc" },
-    take: 100,
-  });
+  const [clients, salon] = await Promise.all([
+    getClientList(salonId),
+    prisma.salon.findUnique({ where: { id: salonId }, select: { name: true } }),
+  ]);
+
+  const vip = clients.filter((c) => c.isVip).length;
+  const birthday = clients.filter((c) => c.birthdayThisMonth).length;
+  const lapsed = clients.filter((c) => c.isLapsed).length;
+  const totalLtv = clients.reduce((s, c) => s + c.totalSpent, 0);
 
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="mb-1 text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
-            CRM
-          </p>
-          <h1 className="text-2xl font-semibold tracking-tight">Clientes</h1>
+          <p className="mb-1 text-[11px] font-medium uppercase tracking-widest text-muted-foreground">CRM</p>
+          <h1 className="text-[26px] font-semibold tracking-tight">Clientes</h1>
         </div>
         <ClientForm />
       </header>
 
-      <Card className="overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-[13px]">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="p-4 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                  Cliente
-                </th>
-                <th className="p-4 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                  Contato
-                </th>
-                <th className="p-4 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                  Atend.
-                </th>
-                <th className="p-4 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                  Total gasto
-                </th>
-                <th className="p-4 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                  Ações
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {clients.map((c) => {
-                const total = c.appointments.reduce((s, a) => s + a.priceCents, 0);
-                return (
-                  <tr
-                    key={c.id}
-                    className="border-b border-border/50 transition last:border-0 hover:bg-muted/30"
-                  >
-                    <td className="p-4 font-medium">{c.name}</td>
-                    <td className="p-4 text-muted-foreground">{c.phone ?? c.email ?? "—"}</td>
-                    <td className="p-4 text-muted-foreground">{c.appointments.length}</td>
-                    <td className="p-4 font-medium">{formatMoney(total)}</td>
-                    <td className="p-4 text-right">
-                      <ClientForm
-                        client={{
-                          id: c.id,
-                          name: c.name,
-                          phone: c.phone,
-                          email: c.email,
-                          birthday: c.birthday,
-                          notes: c.notes,
-                        }}
-                      />
-                    </td>
-                  </tr>
-                );
-              })}
-              {clients.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="p-12 text-center text-[13px] text-muted-foreground">
-                    Sem clientes ainda.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Kpi icon={Users} accent="#3B9EFF" label="Base de clientes" value={clients.length.toString()} hint={`${formatMoney(totalLtv)} em LTV`} />
+        <Kpi icon={Crown} accent="#F4C430" label="Clientes VIP" value={vip.toString()} />
+        <Kpi icon={Cake} accent="#EC4899" label="Aniversariantes do mês" value={birthday.toString()} />
+        <Kpi icon={Clock} accent="#EF4444" label="Sumidos (60d+)" value={lapsed.toString()} />
+      </section>
+
+      <ClientsCrm clients={clients} salonName={salon?.name ?? "nosso salão"} />
+    </div>
+  );
+}
+
+function Kpi({ icon: Icon, accent, label, value, hint }: { icon: React.ComponentType<{ className?: string }>; accent: string; label: string; value: string; hint?: string }) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3.5">
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg" style={{ background: `${accent}1f`, color: accent }}>
+        <Icon className="h-4 w-4" />
+      </span>
+      <div className="min-w-0">
+        <p className="text-lg font-semibold leading-none tracking-tight">{value}</p>
+        <p className="mt-1 truncate text-[11px] text-muted-foreground">{hint ?? label}</p>
+      </div>
     </div>
   );
 }

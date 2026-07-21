@@ -64,7 +64,7 @@ const GROUPS: { title: string; items: Item[] }[] = [
   },
   {
     title: "Crescimento",
-    items: [{ href: "/marketing", label: "Marketing", icon: Megaphone, soon: true }],
+    items: [{ href: "/marketing", label: "Marketing", icon: Megaphone }],
   },
 ];
 
