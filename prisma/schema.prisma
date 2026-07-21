@@ -158,6 +158,9 @@ model Service {
   description String?
   durationMin Int
   priceCents  Int
+  costCents   Int     @default(0)
+  category    String?
+  imageUrl    String?
   colorHex    String?
   active      Boolean @default(true)
 
@@ -264,7 +267,12 @@ model Product {
   brand       String?
   category    String?
   priceCents  Int
+  costCents   Int      @default(0)
   stock       Int      @default(0)
+  minStock    Int      @default(0)
+  supplier    String?
+  barcode     String?
+  expiresAt   DateTime?
   imageUrl    String?
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())

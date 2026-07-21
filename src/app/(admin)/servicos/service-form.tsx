@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ImageUpload } from "@/components/ui/image-upload";
 import {
   Dialog,
   DialogClose,
@@ -23,15 +24,27 @@ type Props = {
     description: string | null;
     durationMin: number;
     priceCents: number;
+    costCents: number;
+    category: string | null;
+    imageUrl: string | null;
     colorHex: string | null;
   };
+  trigger?: React.ReactNode;
 };
 
-export function ServiceForm({ service }: Props) {
+const CATEGORIES = ["Corte", "Barba", "Coloração", "Tratamento", "Finalização", "Estética", "Outros"];
+
+export function ServiceForm({ service, trigger }: Props) {
   const editing = !!service;
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState(service?.imageUrl ?? "");
+
+  function handleOpenChange(v: boolean) {
+    setOpen(v);
+    if (v) setImageUrl(service?.imageUrl ?? "");
+  }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -42,6 +55,9 @@ export function ServiceForm({ service }: Props) {
       description: (form.get("description") as string) || null,
       durationMin: Number(form.get("durationMin")),
       priceCents: Math.round(Number(form.get("price")) * 100),
+      costCents: Math.round(Number(form.get("cost") || 0) * 100),
+      category: (form.get("category") as string) || null,
+      imageUrl: imageUrl || null,
       colorHex: (form.get("colorHex") as string) || null,
     };
 
@@ -57,25 +73,29 @@ export function ServiceForm({ service }: Props) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        {editing ? (
+        {trigger ?? (editing ? (
           <Button variant="ghost" size="sm">Editar</Button>
         ) : (
           <Button>
             <Plus className="h-4 w-4" /> Novo serviço
           </Button>
-        )}
+        ))}
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{editing ? "Editar serviço" : "Novo serviço"}</DialogTitle>
           <DialogDescription>
-            Duração e preço aparecem para o cliente na hora de agendar.
+            Custo é usado para calcular margem e lucro (não aparece para o cliente).
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={onSubmit} className="grid gap-4">
+          <div>
+            <label className="mb-1 block text-sm font-medium">Foto (opcional)</label>
+            <ImageUpload value={imageUrl} onChange={setImageUrl} folder="services" aspectRatio="landscape" />
+          </div>
           <div>
             <label className="mb-1 block text-sm font-medium">Nome</label>
             <Input name="name" defaultValue={service?.name} required autoFocus />
@@ -86,41 +106,34 @@ export function ServiceForm({ service }: Props) {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-sm font-medium">Duração (min)</label>
-              <Input
-                name="durationMin"
-                type="number"
-                min={5}
-                step={5}
-                defaultValue={service?.durationMin ?? 60}
-                required
-              />
+              <label className="mb-1 block text-sm font-medium">Categoria</label>
+              <select name="category" defaultValue={service?.category ?? "Corte"} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                {CATEGORIES.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
             </div>
             <div>
+              <label className="mb-1 block text-sm font-medium">Duração (min)</label>
+              <Input name="durationMin" type="number" min={5} step={5} defaultValue={service?.durationMin ?? 60} required />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
               <label className="mb-1 block text-sm font-medium">Preço (R$)</label>
-              <Input
-                name="price"
-                type="number"
-                min={0}
-                step="0.01"
-                defaultValue={service ? (service.priceCents / 100).toFixed(2) : ""}
-                required
-              />
+              <Input name="price" type="number" min={0} step="0.01" defaultValue={service ? (service.priceCents / 100).toFixed(2) : ""} required />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium">Custo (R$)</label>
+              <Input name="cost" type="number" min={0} step="0.01" defaultValue={service ? (service.costCents / 100).toFixed(2) : "0.00"} />
             </div>
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium">Cor</label>
-            <Input
-              name="colorHex"
-              type="color"
-              defaultValue={service?.colorHex ?? "#a13860"}
-              className="h-10 w-20 cursor-pointer p-1"
-            />
+            <Input name="colorHex" type="color" defaultValue={service?.colorHex ?? "#2ECC8B"} className="h-10 w-20 cursor-pointer p-1" />
           </div>
           {error && (
-            <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {error}
-            </p>
+            <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>
           )}
           <DialogFooter>
             <DialogClose asChild>

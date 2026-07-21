@@ -10,10 +10,26 @@ const serviceInput = z.object({
   description: z.string().optional().nullable(),
   durationMin: z.coerce.number().int().min(5).max(600),
   priceCents: z.coerce.number().int().min(0),
+  costCents: z.coerce.number().int().min(0).default(0),
+  category: z.string().optional().nullable(),
+  imageUrl: z.string().url().optional().or(z.literal("")).nullable(),
   colorHex: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional().nullable(),
 });
 
 export type ServiceInput = z.infer<typeof serviceInput>;
+
+function toData(data: ServiceInput) {
+  return {
+    name: data.name,
+    description: data.description ?? null,
+    durationMin: data.durationMin,
+    priceCents: data.priceCents,
+    costCents: data.costCents,
+    category: data.category ?? null,
+    imageUrl: data.imageUrl || null,
+    colorHex: data.colorHex ?? null,
+  };
+}
 
 export async function createService(input: ServiceInput) {
   const ctx = await getTenantContext();
@@ -21,7 +37,7 @@ export async function createService(input: ServiceInput) {
   const data = serviceInput.parse(input);
 
   await prisma.service.create({
-    data: { ...data, salonId: ctx.salonId },
+    data: { ...toData(data), salonId: ctx.salonId },
   });
   revalidatePath("/servicos");
 }
@@ -34,7 +50,24 @@ export async function updateService(id: string, input: ServiceInput) {
   // Filtro por salonId protege cross-tenant mesmo com id vindo do cliente
   await prisma.service.updateMany({
     where: { id, salonId: ctx.salonId },
-    data,
+    data: toData(data),
+  });
+  revalidatePath("/servicos");
+}
+
+export async function duplicateService(id: string) {
+  const ctx = await getTenantContext();
+  assertRole(ctx, ["OWNER", "MANAGER"]);
+  const svc = await prisma.service.findFirst({
+    where: { id, salonId: ctx.salonId },
+    select: {
+      name: true, description: true, durationMin: true, priceCents: true,
+      costCents: true, category: true, imageUrl: true, colorHex: true,
+    },
+  });
+  if (!svc) throw new Error("Serviço não encontrado");
+  await prisma.service.create({
+    data: { ...svc, name: `${svc.name} (cópia)`, salonId: ctx.salonId, active: false },
   });
   revalidatePath("/servicos");
 }
