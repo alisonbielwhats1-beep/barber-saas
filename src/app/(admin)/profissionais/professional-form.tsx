@@ -29,15 +29,17 @@ type EditablePro = {
   bio: string | null;
   colorHex: string | null;
   commissionPct: number;
+  monthlyGoalCents: number;
   serviceIds: string[];
 };
 
 type Props = {
   services: Service[];
   professional?: EditablePro;
+  trigger?: React.ReactNode;
 };
 
-export function ProfessionalForm({ services, professional }: Props) {
+export function ProfessionalForm({ services, professional, trigger }: Props) {
   const editing = !!professional;
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -63,6 +65,7 @@ export function ProfessionalForm({ services, professional }: Props) {
       bio: (form.get("bio") as string) || null,
       colorHex: (form.get("colorHex") as string) || null,
       commissionPct: Number(form.get("commissionPct") ?? 0),
+      monthlyGoalCents: Math.round(Number(form.get("goal") || 0) * 100),
     };
 
     startTransition(async () => {
@@ -90,13 +93,13 @@ export function ProfessionalForm({ services, professional }: Props) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        {editing ? (
+        {trigger ?? (editing ? (
           <Button variant="ghost" size="sm">Editar</Button>
         ) : (
           <Button>
             <Plus className="h-4 w-4" /> Adicionar
           </Button>
-        )}
+        ))}
       </DialogTrigger>
       <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
@@ -157,10 +160,21 @@ export function ProfessionalForm({ services, professional }: Props) {
               <Input
                 name="colorHex"
                 type="color"
-                defaultValue={professional?.colorHex ?? "#a13860"}
+                defaultValue={professional?.colorHex ?? "#2ECC8B"}
                 className="h-10 w-20 cursor-pointer p-1"
               />
             </div>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium">Meta mensal (R$)</label>
+            <Input
+              name="goal"
+              type="number"
+              min={0}
+              step="100"
+              defaultValue={professional ? (professional.monthlyGoalCents / 100).toFixed(2) : "7000.00"}
+              placeholder="Meta de faturamento no mês"
+            />
           </div>
 
           {editing && (

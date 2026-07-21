@@ -12,6 +12,7 @@ const professionalInput = z.object({
   bio: z.string().optional().nullable(),
   colorHex: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional().nullable(),
   commissionPct: z.coerce.number().min(0).max(100).default(0),
+  monthlyGoalCents: z.coerce.number().int().min(0).default(0),
   password: z.string().min(6).optional(),
 });
 
@@ -57,6 +58,7 @@ export async function createProfessional(input: ProfessionalInput) {
       bio: data.bio ?? null,
       colorHex: data.colorHex ?? null,
       commissionPct: data.commissionPct,
+      monthlyGoalCents: data.monthlyGoalCents,
     },
   });
 
@@ -68,6 +70,7 @@ const updateInput = z.object({
   bio: z.string().optional().nullable(),
   colorHex: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional().nullable(),
   commissionPct: z.coerce.number().min(0).max(100),
+  monthlyGoalCents: z.coerce.number().int().min(0).default(0),
 });
 
 export async function updateProfessional(
@@ -91,6 +94,7 @@ export async function updateProfessional(
         bio: data.bio ?? null,
         colorHex: data.colorHex ?? null,
         commissionPct: data.commissionPct,
+        monthlyGoalCents: data.monthlyGoalCents,
       },
     }),
     prisma.user.update({
