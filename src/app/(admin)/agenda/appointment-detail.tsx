@@ -18,11 +18,13 @@ import {
   User,
   Scissors,
   StickyNote,
+  Copy,
+  Receipt,
 } from "lucide-react";
 import { formatMoney } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { updateAppointmentStatus, cancelAppointment } from "./actions";
+import { updateAppointmentStatus, cancelAppointment, duplicateAppointment } from "./actions";
 import { STATUS, nextActions, type ApptStatus } from "./agenda-status";
 import type { Appointment } from "./agenda-board";
 
@@ -38,6 +40,43 @@ function waLink(phone: string | null, clientName: string, salonName: string, whe
   const full = digits.length <= 11 ? `55${digits}` : digits;
   const msg = `Olá ${clientName.split(" ")[0]}! Passando para confirmar seu horário em ${salonName} ${when}. Podemos confirmar? 💈`;
   return `https://wa.me/${full}?text=${encodeURIComponent(msg)}`;
+}
+
+/** Abre uma janela só com o recibo e dispara a impressão (sem lib externa). */
+function printReceipt(
+  appt: { clientName: string; serviceName: string; priceCents: number; startAt: string },
+  salonName: string,
+) {
+  const when = format(new Date(appt.startAt), "d 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR });
+  const price = formatMoney(appt.priceCents);
+  const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Recibo</title>
+  <style>
+    *{font-family:ui-sans-serif,system-ui,Arial,sans-serif;box-sizing:border-box}
+    body{margin:0;padding:40px;color:#111}
+    .card{max-width:420px;margin:0 auto;border:1px solid #e5e5e5;border-radius:16px;padding:28px}
+    h1{font-size:18px;margin:0 0 2px}
+    .muted{color:#777;font-size:12px}
+    .row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px dashed #e5e5e5;font-size:14px}
+    .total{display:flex;justify-content:space-between;padding-top:16px;font-size:20px;font-weight:700}
+    .tag{display:inline-block;margin-top:16px;font-size:11px;color:#2ECC8B;font-weight:700}
+  </style></head><body>
+  <div class="card">
+    <h1>${salonName}</h1>
+    <p class="muted">Recibo de atendimento</p>
+    <div style="height:16px"></div>
+    <div class="row"><span>Cliente</span><b>${appt.clientName}</b></div>
+    <div class="row"><span>Serviço</span><b>${appt.serviceName}</b></div>
+    <div class="row"><span>Data</span><b>${when}</b></div>
+    <div class="total"><span>Total</span><span>${price}</span></div>
+    <span class="tag">✓ PAGO</span>
+  </div>
+  <script>window.onload=function(){window.print()}</script>
+  </body></html>`;
+  const w = window.open("", "_blank", "width=480,height=640");
+  if (w) {
+    w.document.write(html);
+    w.document.close();
+  }
 }
 
 export function AppointmentDetail({
@@ -128,26 +167,43 @@ export function AppointmentDetail({
             })}
           </div>
 
-          {/* Contato + cancelar */}
-          <div className="mt-3 flex items-center gap-2 border-t border-border pt-3">
+          {/* Utilidades: WhatsApp, duplicar, recibo */}
+          <div className="mt-3 grid grid-cols-3 gap-2 border-t border-border pt-3">
             <a
               href={waLink(appt.clientPhone, appt.clientName, salonName, whenLabel)}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#25D366]/15 px-3 py-2 text-[13px] font-medium text-[#25D366] transition hover:bg-[#25D366]/25"
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#25D366]/15 px-3 py-2 text-[13px] font-medium text-[#25D366] transition hover:bg-[#25D366]/25"
             >
               <MessageCircle className="h-4 w-4" />
               WhatsApp
             </a>
             <button
               disabled={pending}
-              onClick={() => run(() => cancelAppointment(appt.id))}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[13px] font-medium text-muted-foreground transition hover:border-danger/50 hover:text-danger disabled:opacity-50"
+              onClick={() => run(() => duplicateAppointment(appt.id))}
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[13px] font-medium text-muted-foreground transition hover:text-foreground disabled:opacity-50"
             >
-              <Ban className="h-4 w-4" />
-              Cancelar
+              <Copy className="h-4 w-4" />
+              Duplicar
+            </button>
+            <button
+              onClick={() => printReceipt(appt, salonName)}
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[13px] font-medium text-muted-foreground transition hover:text-foreground"
+            >
+              <Receipt className="h-4 w-4" />
+              Recibo
             </button>
           </div>
+
+          {/* Cancelar */}
+          <button
+            disabled={pending}
+            onClick={() => run(() => cancelAppointment(appt.id))}
+            className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[13px] font-medium text-muted-foreground transition hover:border-danger/50 hover:text-danger disabled:opacity-50"
+          >
+            <Ban className="h-4 w-4" />
+            Cancelar agendamento
+          </button>
         </div>
       </DialogContent>
     </Dialog>

@@ -128,6 +128,101 @@ export async function cancelAppointment(id: string) {
   return updateAppointmentStatus(id, "CANCELLED");
 }
 
+const resizeInput = z.object({
+  id: z.string(),
+  endAt: z.string().datetime(),
+});
+
+/**
+ * Redimensiona a duração de um agendamento (arrastar a borda inferior).
+ * Mantém o início, valida duração mínima de 15min e conflito.
+ */
+export async function resizeAppointment(input: z.infer<typeof resizeInput>) {
+  const ctx = await getTenantContext();
+  assertRole(ctx, ["OWNER", "MANAGER", "RECEPTIONIST"]);
+  const data = resizeInput.parse(input);
+
+  const appt = await prisma.appointment.findFirst({
+    where: { id: data.id, salonId: ctx.salonId },
+    select: { startAt: true, professionalId: true },
+  });
+  if (!appt) throw new Error("Agendamento não encontrado");
+
+  const endAt = new Date(data.endAt);
+  if (endAt.getTime() - appt.startAt.getTime() < 15 * 60_000)
+    throw new Error("Duração mínima de 15 minutos");
+
+  const conflict = await prisma.appointment.findFirst({
+    where: {
+      id: { not: data.id },
+      professionalId: appt.professionalId,
+      status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
+      startAt: { lt: endAt },
+      endAt: { gt: appt.startAt },
+    },
+    select: { id: true },
+  });
+  if (conflict) throw new Error("Conflito com outro agendamento");
+
+  await prisma.appointment.update({ where: { id: data.id }, data: { endAt } });
+  revalidatePath("/agenda");
+}
+
+/**
+ * Duplica um agendamento para a semana seguinte no mesmo horário. Se o slot
+ * estiver ocupado, procura o mesmo horário nos dias seguintes (até 6 dias).
+ * A cópia nasce como PENDING.
+ */
+export async function duplicateAppointment(id: string) {
+  const ctx = await getTenantContext();
+  assertRole(ctx, ["OWNER", "MANAGER", "RECEPTIONIST"]);
+
+  const appt = await prisma.appointment.findFirst({
+    where: { id, salonId: ctx.salonId },
+    select: {
+      clientId: true,
+      serviceId: true,
+      professionalId: true,
+      priceCents: true,
+      startAt: true,
+      endAt: true,
+    },
+  });
+  if (!appt) throw new Error("Agendamento não encontrado");
+
+  const durationMs = appt.endAt.getTime() - appt.startAt.getTime();
+  for (let addDays = 7; addDays <= 13; addDays++) {
+    const startAt = new Date(appt.startAt.getTime() + addDays * 86_400_000);
+    const endAt = new Date(startAt.getTime() + durationMs);
+    const conflict = await prisma.appointment.findFirst({
+      where: {
+        professionalId: appt.professionalId,
+        status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
+        startAt: { lt: endAt },
+        endAt: { gt: startAt },
+      },
+      select: { id: true },
+    });
+    if (conflict) continue;
+    await prisma.appointment.create({
+      data: {
+        salonId: ctx.salonId,
+        clientId: appt.clientId,
+        serviceId: appt.serviceId,
+        professionalId: appt.professionalId,
+        startAt,
+        endAt,
+        priceCents: appt.priceCents,
+        status: "PENDING",
+      },
+    });
+    revalidatePath("/agenda");
+    revalidatePath("/dashboard");
+    return;
+  }
+  throw new Error("Sem horário livre na semana seguinte para duplicar");
+}
+
 const moveInput = z.object({
   id: z.string(),
   professionalId: z.string(),

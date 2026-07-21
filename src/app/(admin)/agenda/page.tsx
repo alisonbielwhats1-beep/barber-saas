@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getTenantContext } from "@/lib/tenant";
-import { startOfDay, endOfDay, format } from "date-fns";
+import { startOfMonth, endOfMonth, format } from "date-fns";
 import { AgendaBoard, type Appointment, type Professional } from "./agenda-board";
 import type { ServiceOption, ClientOption } from "./appointment-form";
 
@@ -28,7 +28,7 @@ export default async function AgendaPage({
     prisma.appointment.findMany({
       where: {
         salonId,
-        startAt: { gte: startOfDay(date), lte: endOfDay(date) },
+        startAt: { gte: startOfMonth(date), lte: endOfMonth(date) },
         status: { not: "CANCELLED" },
       },
       select: {
