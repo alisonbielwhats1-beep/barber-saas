@@ -12,6 +12,8 @@ import {
   Pencil,
   Clock,
   Users,
+  LayoutGrid,
+  List,
   Loader2,
 } from "lucide-react";
 import {
@@ -43,6 +45,7 @@ export type ServiceCard = {
 };
 
 type Sort = "popular" | "price" | "margin" | "name";
+type View = "grid" | "list";
 
 function margin(s: ServiceCard) {
   return s.priceCents > 0 ? (s.priceCents - s.costCents) / s.priceCents : 0;
@@ -53,9 +56,10 @@ function marginColor(m: number) {
 }
 
 export function ServicesCatalog({ services }: { services: ServiceCard[] }) {
-  const [search, setSearch] = useState("");
-  const [activeCategory, setActiveCategory] = useState("all");
-  const [sort, setSort] = useState<Sort>("popular");
+  const [search, setSearch]           = useState("");
+  const [activeCategory, setCategory] = useState("all");
+  const [sort, setSort]               = useState<Sort>("popular");
+  const [view, setView]               = useState<View>("grid");
 
   const categories = useMemo(
     () => ["all", ...Array.from(new Set(services.map((s) => s.category).filter(Boolean) as string[]))],
@@ -71,7 +75,6 @@ export function ServicesCatalog({ services }: { services: ServiceCard[] }) {
     });
   }, [services, search, activeCategory]);
 
-  // Agrupar por categoria mantendo a ordem de aparição
   const groups = useMemo(() => {
     const order: string[] = [];
     const map = new Map<string, ServiceCard[]>();
@@ -80,7 +83,6 @@ export function ServicesCatalog({ services }: { services: ServiceCard[] }) {
       if (!map.has(cat)) { order.push(cat); map.set(cat, []); }
       map.get(cat)!.push(s);
     }
-    // Ordenar serviços dentro de cada grupo
     for (const [cat, items] of map) {
       map.set(cat, [...items].sort((a, b) => {
         if (sort === "price")  return b.priceCents - a.priceCents;
@@ -91,8 +93,6 @@ export function ServicesCatalog({ services }: { services: ServiceCard[] }) {
     }
     return order.map((cat) => ({ cat, items: map.get(cat)! }));
   }, [filtered, sort]);
-
-  const total = filtered.length;
 
   return (
     <div className="space-y-4">
@@ -112,7 +112,7 @@ export function ServicesCatalog({ services }: { services: ServiceCard[] }) {
           {categories.map((c) => (
             <button
               key={c}
-              onClick={() => setActiveCategory(c)}
+              onClick={() => setCategory(c)}
               className={`rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors ${
                 activeCategory === c
                   ? "border-primary/40 bg-primary/10 text-foreground"
@@ -135,60 +135,108 @@ export function ServicesCatalog({ services }: { services: ServiceCard[] }) {
             <option value="margin">Maior margem</option>
             <option value="name">Nome (A-Z)</option>
           </select>
+
+          {/* Toggle grade / lista */}
+          <div className="flex items-center gap-0.5 rounded-full border border-border bg-surface-1 p-1">
+            <button
+              onClick={() => setView("grid")}
+              title="Vista em grade (com imagens)"
+              className={`grid h-7 w-7 place-items-center rounded-full transition-colors ${
+                view === "grid" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => setView("list")}
+              title="Vista em lista (compacta)"
+              className={`grid h-7 w-7 place-items-center rounded-full transition-colors ${
+                view === "list" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <List className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
       </div>
 
-      {total === 0 ? (
+      {filtered.length === 0 ? (
         <div className="rounded-2xl border border-border bg-card p-12 text-center text-[13px] text-muted-foreground">
           Nenhum serviço encontrado.
         </div>
       ) : (
         <div className="space-y-3">
-          {groups.map(({ cat, items }) => (
-            <CategoryGroup key={cat} cat={cat} items={items} />
-          ))}
+          {groups.map(({ cat, items }) =>
+            view === "grid" ? (
+              <CategoryGroupGrid key={cat} cat={cat} items={items} />
+            ) : (
+              <CategoryGroupList key={cat} cat={cat} items={items} />
+            )
+          )}
         </div>
       )}
     </div>
   );
 }
 
-function CategoryGroup({ cat, items }: { cat: string; items: ServiceCard[] }) {
+/* ── Vista GRADE — banner full-width por categoria ─────────────────────── */
+
+function CategoryGroupGrid({ cat, items }: { cat: string; items: ServiceCard[] }) {
   const totalRevenue = items.reduce((s, i) => s + i.revenueCents, 0);
   const totalSold    = items.reduce((s, i) => s + i.sold, 0);
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card">
-      {/* Cabeçalho da categoria — UMA imagem por categoria */}
-      <div className="flex items-center gap-4 border-b border-border bg-surface-1 px-4 py-3">
-        <div className="relative h-11 w-[72px] shrink-0 overflow-hidden rounded-lg">
-          <Image
-            src={imageForCategory(cat)}
-            alt={cat}
-            fill
-            sizes="72px"
-            className="object-cover"
-          />
-          <div className="absolute inset-0 bg-black/20" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-[13px] font-semibold">{cat}</p>
-          <p className="text-[11px] text-muted-foreground">
-            {items.length} {items.length === 1 ? "serviço" : "serviços"}
-            {totalSold > 0 && ` · ${totalSold} vendas · ${formatMoney(totalRevenue)}`}
-          </p>
+      {/* Banner full-width — UMA imagem por categoria */}
+      <div className="relative h-28 w-full overflow-hidden sm:h-32">
+        <Image
+          src={imageForCategory(cat)}
+          alt={cat}
+          fill
+          sizes="(max-width: 768px) 100vw, 800px"
+          className="object-cover"
+          priority={false}
+        />
+        {/* Gradiente para legibilidade do texto */}
+        <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/40 to-transparent" />
+        <div className="absolute inset-0 flex items-center px-5">
+          <div>
+            <p className="text-[15px] font-semibold text-white drop-shadow">{cat}</p>
+            <p className="mt-0.5 text-[12px] text-white/70">
+              {items.length} {items.length === 1 ? "serviço" : "serviços"}
+              {totalSold > 0 && ` · ${totalSold} vendas · ${formatMoney(totalRevenue)}`}
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* Lista de serviços — sem imagem individual */}
-      <div>
-        {items.map((s) => (
-          <ServiceRow key={s.id} s={s} />
-        ))}
-      </div>
+      {/* Serviços — linhas sem imagem */}
+      {items.map((s) => (
+        <ServiceRow key={s.id} s={s} />
+      ))}
     </div>
   );
 }
+
+/* ── Vista LISTA — sem imagens, apenas separador de categoria ───────────── */
+
+function CategoryGroupList({ cat, items }: { cat: string; items: ServiceCard[] }) {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-border bg-card">
+      {/* Cabeçalho de texto simples */}
+      <div className="border-b border-border bg-surface-1 px-4 py-2">
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/70">
+          {cat}
+        </p>
+      </div>
+      {items.map((s) => (
+        <ServiceRow key={s.id} s={s} />
+      ))}
+    </div>
+  );
+}
+
+/* ── Linha de serviço (compartilhada entre as duas vistas) ─────────────── */
 
 function ServiceRow({ s }: { s: ServiceCard }) {
   const m = margin(s);
@@ -198,7 +246,6 @@ function ServiceRow({ s }: { s: ServiceCard }) {
         !s.active ? "opacity-50" : ""
       }`}
     >
-      {/* Nome + meta */}
       <div className="min-w-0 flex-1">
         <p className="truncate text-[13px] font-medium leading-tight">{s.name}</p>
         <p className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
@@ -220,7 +267,6 @@ function ServiceRow({ s }: { s: ServiceCard }) {
         </p>
       </div>
 
-      {/* Margem */}
       <div className="hidden w-14 shrink-0 text-right sm:block">
         <p className="text-[13px] font-semibold" style={{ color: marginColor(m) }}>
           {(m * 100).toFixed(0)}%
@@ -228,13 +274,11 @@ function ServiceRow({ s }: { s: ServiceCard }) {
         <p className="text-[10px] text-muted-foreground">margem</p>
       </div>
 
-      {/* Vendas */}
       <div className="hidden w-10 shrink-0 text-right sm:block">
         <p className="text-[13px] font-semibold">{s.sold}</p>
         <p className="text-[10px] text-muted-foreground">vendas</p>
       </div>
 
-      {/* Preço */}
       <p className="w-20 shrink-0 text-right text-[13px] font-semibold">
         {formatMoney(s.priceCents)}
       </p>
@@ -243,6 +287,8 @@ function ServiceRow({ s }: { s: ServiceCard }) {
     </div>
   );
 }
+
+/* ── Menu de ações ────────────────────────────────────────────────────── */
 
 function ActionsMenu({ s }: { s: ServiceCard }) {
   const router = useRouter();

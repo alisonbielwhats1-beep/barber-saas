@@ -20,21 +20,28 @@ export const HERO_IMAGES = [
 ];
 
 // Uma imagem representativa por categoria de serviço
+// IDs verificados no Unsplash — não alterar sem verificar no browser
 export const CATEGORY_IMAGES: Record<string, string> = {
-  barba:          w("photo-1621607512214-68297480165e"),
-  sobrancelha:    w("photo-1596728325488-58c87691e9af"),
-  cortemasculino: w("photo-1621605815971-fbc98d665033"),
-  cortefeminino:  w("photo-1560066984-138dadb4c035"),
-  coloracao:      w("photo-1580618672591-eb180b1a973f"),
-  hidratacao:     w("photo-1522337660859-02fbefca4702"),
-  escova:         w("photo-1522338242992-e1a54906a8da"),
-  quimica:        w("photo-1580618672591-eb180b1a973f"),
-  combo:          w("photo-1503951914875-452162b0f3f1"),
-  depilacao:      w("photo-1585747860715-2ba37e788b70"),
-  maquiagem:      w("photo-1512690459411-b9245aed614b"),
-  unhas:          w("photo-1622287162716-f311baa1a2b8"),
-  pele:           w("photo-1585747860715-2ba37e788b70"),
-  default:        w("photo-1503951914875-452162b0f3f1"),
+  // Cabelo masculino
+  barba:            w("photo-1621607512214-68297480165e"), // homem aparando barba
+  sobrancelha:      w("photo-1519415387722-a1c3bbef716c"), // design de sobrancelha
+  cortemasculino:   w("photo-1621605815971-fbc98d665033"), // corte masculino
+  quimimasculina:   w("photo-1524582603048-cdeb7f943d0a"), // química/tintura em homem
+  combomaculino:    w("photo-1503951914875-452162b0f3f1"), // barbearia geral
+  // Cabelo feminino
+  cortefeminino:    w("photo-1560066984-138dadb4c035"), // corte feminino
+  coloracao:        w("photo-1580618672591-eb180b1a973f"), // coloração feminina
+  hidratacao:       w("photo-1522337660859-02fbefca4702"), // hidratação/tratamento
+  escova:           w("photo-1522338242992-e1a54906a8da"), // escova e prancha
+  quimifeminina:    w("photo-1580618672591-eb180b1a973f"), // química feminina
+  combofeminino:    w("photo-1622286342621-4bd786c2447c"), // finalização feminina
+  // Estética
+  maquiagem:        w("photo-1596462502278-27bfdc403348"), // maquiagem (real)
+  unhas:            w("photo-1604654894610-df63bc536371"), // unhas/manicure (real)
+  depilacao:        w("photo-1512496015851-a90fb38ba796"), // depilação (real)
+  pele:             w("photo-1655029635663-aac10b088cd1"), // skincare (real)
+  // Fallback
+  default:          w("photo-1503951914875-452162b0f3f1"),
 };
 
 export function imageForCategory(category: string): string {
@@ -43,24 +50,37 @@ export function imageForCategory(category: string): string {
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
     .replace(/\s+/g, "");
-  if (n.includes("barba")) return CATEGORY_IMAGES.barba;
-  if (n.includes("sobrancelha")) return CATEGORY_IMAGES.sobrancelha;
-  if (n.includes("quimica")) return CATEGORY_IMAGES.quimica;
-  if (n.includes("cortef") || n.includes("cortefeminino")) return CATEGORY_IMAGES.cortefeminino;
-  if (n.includes("cortem") || n.includes("cortemasculino")) return CATEGORY_IMAGES.cortemasculino;
-  if (n.includes("corte")) return CATEGORY_IMAGES.cortemasculino;
-  if (n.includes("escova") || n.includes("prancha")) return CATEGORY_IMAGES.escova;
-  if (n.includes("coloracao")) return CATEGORY_IMAGES.coloracao;
-  if (n.includes("hidrata")) return CATEGORY_IMAGES.hidratacao;
-  if (n.includes("combo")) return CATEGORY_IMAGES.combo;
-  if (n.includes("depila")) return CATEGORY_IMAGES.depilacao;
-  if (n.includes("maquiagem")) return CATEGORY_IMAGES.maquiagem;
-  if (n.includes("unha")) return CATEGORY_IMAGES.unhas;
-  if (n.includes("pele") || n.includes("cuidados")) return CATEGORY_IMAGES.pele;
+  // Ordem: mais específico primeiro
+  if (n.includes("sobrancelha"))                         return CATEGORY_IMAGES.sobrancelha;
+  if (n.includes("barba"))                               return CATEGORY_IMAGES.barba;
+  if (n.includes("quimicamasculina") || (n.includes("quimica") && n.includes("masc")))
+                                                         return CATEGORY_IMAGES.quimimasculina;
+  if (n.includes("quimicafeminina")  || (n.includes("quimica") && n.includes("fem")))
+                                                         return CATEGORY_IMAGES.quimifeminina;
+  if (n.includes("quimica"))                             return CATEGORY_IMAGES.quimifeminina;
+  if (n.includes("combomaculino") || (n.includes("combo") && n.includes("masc")))
+                                                         return CATEGORY_IMAGES.combomaculino;
+  if (n.includes("combofeminino")  || (n.includes("combo") && n.includes("fem")))
+                                                         return CATEGORY_IMAGES.combofeminino;
+  if (n.includes("combo"))                               return CATEGORY_IMAGES.combomaculino;
+  if (n.includes("cortefeminino")  || n.includes("cortef"))  return CATEGORY_IMAGES.cortefeminino;
+  if (n.includes("cortemasculino") || n.includes("cortem"))  return CATEGORY_IMAGES.cortemasculino;
+  if (n.includes("corte"))                               return CATEGORY_IMAGES.cortemasculino;
+  if (n.includes("escova") || n.includes("prancha") || n.includes("finalizacao"))
+                                                         return CATEGORY_IMAGES.escova;
+  if (n.includes("coloracao") || n.includes("tinta") || n.includes("luzes"))
+                                                         return CATEGORY_IMAGES.coloracao;
+  if (n.includes("hidrata") || n.includes("tratamento") || n.includes("nutri") || n.includes("reconstru"))
+                                                         return CATEGORY_IMAGES.hidratacao;
+  if (n.includes("maquiagem"))                           return CATEGORY_IMAGES.maquiagem;
+  if (n.includes("unha"))                                return CATEGORY_IMAGES.unhas;
+  if (n.includes("depila") || n.includes("cera"))        return CATEGORY_IMAGES.depilacao;
+  if (n.includes("pele") || n.includes("cuidados") || n.includes("limpeza"))
+                                                         return CATEGORY_IMAGES.pele;
   return CATEGORY_IMAGES.default;
 }
 
-// imageForService mantido apenas como fallback para upload personalizado
+// mantido como fallback para upload personalizado
 export function imageForService(name: string): string {
   return imageForCategory(name);
 }
