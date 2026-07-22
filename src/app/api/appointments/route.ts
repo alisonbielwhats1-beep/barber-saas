@@ -13,8 +13,10 @@ const bodySchema = z.object({
   serviceId: z.string(),
   professionalId: z.string(),
   startAt: z.string().datetime(),
-  clientName: z.string().min(2),
-  clientPhone: z.string().min(6),
+  // Either authenticated (clientId) or guest (clientName + clientPhone)
+  clientId: z.string().optional(),
+  clientName: z.string().min(2).optional(),
+  clientPhone: z.string().min(6).optional(),
   clientEmail: z.string().email().optional(),
   notes: z.string().optional(),
   cartItems: z.array(cartItemSchema).optional().default([]),
@@ -98,17 +100,30 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  let client = await prisma.clientProfile.findFirst({
-    where: { salonId: b.salonId, phone: b.clientPhone },
-  });
-  client ??= await prisma.clientProfile.create({
-    data: {
-      salonId: b.salonId,
-      name: b.clientName,
-      phone: b.clientPhone,
-      email: b.clientEmail ?? null,
-    },
-  });
+  let client = null;
+  if (b.clientId) {
+    // Authenticated client — verify they belong to this salon
+    client = await prisma.clientProfile.findFirst({
+      where: { id: b.clientId, salonId: b.salonId },
+    });
+    if (!client) return NextResponse.json({ error: "client invalid" }, { status: 400 });
+  } else {
+    // Guest flow — find or create by phone
+    if (!b.clientName || !b.clientPhone) {
+      return NextResponse.json({ error: "clientName and clientPhone required" }, { status: 400 });
+    }
+    client = await prisma.clientProfile.findFirst({
+      where: { salonId: b.salonId, phone: b.clientPhone },
+    });
+    client ??= await prisma.clientProfile.create({
+      data: {
+        salonId: b.salonId,
+        name: b.clientName,
+        phone: b.clientPhone,
+        email: b.clientEmail ?? null,
+      },
+    });
+  }
 
   const appt = await prisma.$transaction(async (tx) => {
     const created = await tx.appointment.create({

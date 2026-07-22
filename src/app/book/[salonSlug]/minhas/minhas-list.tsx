@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useTransition } from "react";
 import Link from "next/link";
-import { CalendarDays, User, MapPin, XCircle } from "lucide-react";
+import { CalendarDays, LogOut, XCircle } from "lucide-react";
 import { formatMoney } from "@/lib/utils";
 import { format, isPast } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { logoutClient } from "../auth-actions";
+import type { ClientSession } from "@/lib/client-auth";
 
 type Appt = {
   id: string;
@@ -18,132 +20,90 @@ type Appt = {
   products: { quantity: number; priceCentsUnit: number; product: { name: string } }[];
 };
 
-const PHONE_KEY = (slug: string) => `salon-phone:${slug}`;
-
-export function MinhasList({ salonSlug }: { salonSlug: string }) {
-  const [phone, setPhone] = useState<string | null>(null);
-  const [inputPhone, setInputPhone] = useState("");
-  const [data, setData] = useState<{ appointments: Appt[]; client?: { name: string }; currency?: string } | null>(null);
-  const [loading, setLoading] = useState(false);
+export function MinhasList({
+  appointments,
+  salonSlug,
+  currency,
+  session,
+}: {
+  appointments: Appt[];
+  salonSlug: string;
+  currency: string;
+  session: ClientSession;
+}) {
   const [pending, startTransition] = useTransition();
 
-  useEffect(() => {
-    const stored = localStorage.getItem(PHONE_KEY(salonSlug));
-    if (stored) setPhone(stored);
-  }, [salonSlug]);
-
-  useEffect(() => {
-    if (!phone) return;
-    setLoading(true);
-    fetch(`/api/client/appointments?salon=${salonSlug}&phone=${encodeURIComponent(phone)}`)
-      .then((r) => r.json())
-      .then(setData)
-      .finally(() => setLoading(false));
-  }, [phone, salonSlug]);
-
-  function connect() {
-    const p = inputPhone.trim();
-    if (!p) return;
-    localStorage.setItem(PHONE_KEY(salonSlug), p);
-    setPhone(p);
-  }
-
-  function disconnect() {
-    localStorage.removeItem(PHONE_KEY(salonSlug));
-    setPhone(null);
-    setData(null);
-  }
+  const upcoming = appointments.filter(
+    (a) => !isPast(new Date(a.endAt)) && a.status !== "CANCELLED",
+  );
+  const past = appointments.filter(
+    (a) => isPast(new Date(a.endAt)) || a.status === "CANCELLED",
+  );
 
   function cancel(id: string) {
-    if (!phone || !confirm("Cancelar essa reserva?")) return;
+    if (!confirm("Cancelar essa reserva?")) return;
     startTransition(async () => {
       await fetch("/api/client/cancel", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ salonSlug, phone, appointmentId: id }),
+        body: JSON.stringify({ salonSlug, appointmentId: id, clientId: session.clientId }),
       });
-      // Recarrega
-      const r = await fetch(
-        `/api/client/appointments?salon=${salonSlug}&phone=${encodeURIComponent(phone)}`,
-      );
-      setData(await r.json());
+      window.location.reload();
     });
   }
 
-  if (!phone) {
-    return (
-      <div className="space-y-3 rounded-2xl border border-border bg-card p-6">
-        <div className="grid h-12 w-12 place-items-center rounded-full bg-primary/10 text-primary">
-          <User className="h-6 w-6" />
-        </div>
-        <p className="text-sm font-medium">Ver minhas reservas</p>
-        <p className="text-xs text-muted-foreground">
-          Digite o telefone que você usou ao agendar.
-        </p>
-        <input
-          value={inputPhone}
-          onChange={(e) => setInputPhone(e.target.value)}
-          placeholder="(11) 91234-5678"
-          className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm focus:border-primary focus:outline-none"
-        />
-        <button
-          onClick={connect}
-          disabled={!inputPhone.trim()}
-          className="w-full rounded-full bg-primary py-3 text-sm font-semibold text-primary-foreground disabled:opacity-40"
-        >
-          Continuar
-        </button>
-        <Link
-          href={`/book/${salonSlug}/agendar`}
-          className="block text-center text-xs text-primary"
-        >
-          Ainda não agendou? Faça agora →
-        </Link>
-      </div>
-    );
+  function logout() {
+    startTransition(() => logoutClient(salonSlug));
   }
-
-  if (loading || !data) {
-    return <p className="text-sm text-muted-foreground">Carregando…</p>;
-  }
-
-  const upcoming = data.appointments.filter(
-    (a) => !isPast(new Date(a.endAt)) && a.status !== "CANCELLED",
-  );
-  const past = data.appointments.filter(
-    (a) => isPast(new Date(a.endAt)) || a.status === "CANCELLED",
-  );
 
   return (
     <>
-      {data.client && (
-        <div className="flex items-center justify-between rounded-2xl border border-border bg-card p-3 text-sm">
-          <div className="flex items-center gap-2">
-            <div className="grid h-8 w-8 place-items-center rounded-full bg-primary/10 text-primary">
-              <User className="h-4 w-4" />
-            </div>
-            <span className="font-medium">Olá, {data.client.name}</span>
-          </div>
-          <button
-            onClick={disconnect}
-            className="text-xs text-muted-foreground hover:text-foreground"
-          >
-            Trocar
-          </button>
+      {/* Profile card */}
+      <div className="flex items-center justify-between rounded-2xl border border-border bg-card p-4">
+        <div>
+          <p className="font-medium">{session.name}</p>
+          <p className="text-xs text-muted-foreground">{session.email}</p>
         </div>
-      )}
+        <button
+          onClick={logout}
+          disabled={pending}
+          className="flex items-center gap-1.5 text-xs text-muted-foreground transition hover:text-foreground disabled:opacity-50"
+        >
+          <LogOut className="h-3.5 w-3.5" />
+          Sair
+        </button>
+      </div>
 
+      {/* Upcoming */}
       <Section title="Próximas" empty="Nenhuma reserva futura.">
         {upcoming.map((a) => (
-          <ApptCard key={a.id} a={a} canCancel onCancel={() => cancel(a.id)} disabled={pending} />
+          <ApptCard
+            key={a.id}
+            a={a}
+            currency={currency}
+            canCancel
+            onCancel={() => cancel(a.id)}
+            disabled={pending}
+          />
         ))}
       </Section>
 
+      {/* History */}
       <Section title="Histórico" empty="Sem histórico ainda.">
         {past.map((a) => (
-          <ApptCard key={a.id} a={a} />
+          <ApptCard key={a.id} a={a} currency={currency} />
         ))}
       </Section>
+
+      {/* CTA if no appointments */}
+      {appointments.length === 0 && (
+        <Link
+          href={`/book/${salonSlug}/agendar`}
+          className="block rounded-2xl border border-primary/30 bg-primary/5 p-5 text-center text-sm font-medium text-primary"
+        >
+          Fazer meu primeiro agendamento →
+        </Link>
+      )}
     </>
   );
 }
@@ -157,7 +117,7 @@ function Section({
   empty: string;
   children: React.ReactNode;
 }) {
-  const hasChildren = Array.isArray(children) ? children.length > 0 : !!children;
+  const hasChildren = Array.isArray(children) ? children.some(Boolean) : !!children;
   return (
     <section>
       <h2 className="mb-3 text-sm font-semibold text-muted-foreground">{title}</h2>
@@ -174,11 +134,13 @@ function Section({
 
 function ApptCard({
   a,
+  currency,
   canCancel,
   onCancel,
   disabled,
 }: {
   a: Appt;
+  currency: string;
   canCancel?: boolean;
   onCancel?: () => void;
   disabled?: boolean;
@@ -202,9 +164,9 @@ function ApptCard({
           <p className="text-xs text-muted-foreground">com {a.professional.user.name}</p>
         </div>
         <span
-          className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
             a.status === "CANCELLED"
-              ? "bg-destructive/10 text-destructive"
+              ? "bg-red-500/10 text-red-500"
               : a.status === "COMPLETED"
                 ? "bg-muted text-muted-foreground"
                 : "bg-primary/15 text-primary"
@@ -226,20 +188,20 @@ function ApptCard({
               <span>
                 {p.quantity}× {p.product.name}
               </span>
-              <span>{formatMoney(p.quantity * p.priceCentsUnit)}</span>
+              <span>{formatMoney(p.quantity * p.priceCentsUnit, currency)}</span>
             </p>
           ))}
         </div>
       )}
       <div className="mt-3 flex items-center justify-between">
         <span className="text-sm font-semibold text-primary">
-          Total {formatMoney(total)}
+          Total {formatMoney(total, currency)}
         </span>
         {canCancel && (
           <button
             onClick={onCancel}
             disabled={disabled}
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive disabled:opacity-40"
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-red-500 disabled:opacity-40"
           >
             <XCircle className="h-3.5 w-3.5" /> Cancelar
           </button>

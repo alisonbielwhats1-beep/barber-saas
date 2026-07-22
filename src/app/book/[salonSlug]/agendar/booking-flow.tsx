@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { formatMoney, formatDuration } from "@/lib/utils";
 import { useCart } from "@/lib/cart";
+import type { ClientSession } from "@/lib/client-auth";
 import {
   addMonths,
   eachDayOfInterval,
@@ -63,12 +64,14 @@ export function BookingFlow({
   currency,
   services,
   initialServiceId,
+  clientSession,
 }: {
   salonId: string;
   salonName: string;
   currency: string;
   services: Service[];
   initialServiceId: string | null;
+  clientSession: ClientSession | null;
 }) {
   const router = useRouter();
   const { salonSlug } = useParams<{ salonSlug: string }>();
@@ -81,7 +84,7 @@ export function BookingFlow({
   const [slots, setSlots] = useState<string[]>([]);
   const [popularSlot, setPopularSlot] = useState<string | null>(null);
   const [slotsLoading, setSlotsLoading] = useState(false);
-  const [name, setName] = useState("");
+  const [name, setName] = useState(clientSession?.name ?? "");
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [booked, setBooked] = useState<Booked | null>(null);
@@ -140,8 +143,9 @@ export function BookingFlow({
         serviceId: service.id,
         professionalId: proId,
         startAt: startAt.toISOString(),
-        clientName: name,
-        clientPhone: phone,
+        ...(clientSession
+          ? { clientId: clientSession.clientId }
+          : { clientName: name, clientPhone: phone }),
         cartItems: cart.items.map((i) => ({
           productId: i.productId,
           quantity: i.quantity,
@@ -150,8 +154,9 @@ export function BookingFlow({
     });
     setLoading(false);
     if (res.ok) {
-      // Guarda phone pra tela Minhas identificar
-      localStorage.setItem(`salon-phone:${salonSlug}`, phone);
+      if (!clientSession && phone) {
+        localStorage.setItem(`salon-phone:${salonSlug}`, phone);
+      }
       const pro = service.professionals.find((p) => p.id === proId);
       cart.clear();
       setBooked({
@@ -422,20 +427,42 @@ export function BookingFlow({
 
       {/* Dados do cliente — collapsed até horário escolhido */}
       {slot && (
-        <div className="space-y-3 rounded-2xl border border-border bg-card p-4">
-          <p className="text-sm font-semibold">Seus dados</p>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Nome"
-            className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none"
-          />
-          <input
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="WhatsApp"
-            className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none"
-          />
+        <div className="rounded-2xl border border-border bg-card p-4">
+          {clientSession ? (
+            /* Logged-in: show identity, no form needed */
+            <div className="flex items-center gap-3">
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary/20 text-sm font-semibold text-primary">
+                {clientSession.name.split(" ").map((n) => n[0]).slice(0, 2).join("")}
+              </div>
+              <div>
+                <p className="text-sm font-medium">{clientSession.name}</p>
+                <p className="text-xs text-muted-foreground">{clientSession.email}</p>
+              </div>
+            </div>
+          ) : (
+            /* Guest: name + phone form */
+            <div className="space-y-3">
+              <p className="text-sm font-semibold">Seus dados</p>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Nome"
+                className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+              />
+              <input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="WhatsApp"
+                className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+              />
+              <p className="text-xs text-muted-foreground">
+                Tem conta?{" "}
+                <a href={`/book/${salonSlug}/login`} className="text-primary hover:underline">
+                  Entre para agendar sem digitar seus dados
+                </a>
+              </p>
+            </div>
+          )}
         </div>
       )}
 
@@ -458,7 +485,7 @@ export function BookingFlow({
 
       <button
         onClick={submit}
-        disabled={!proId || !slot || !name || !phone || loading}
+        disabled={!proId || !slot || (!clientSession && (!name || !phone)) || loading}
         className="mb-6 w-full rounded-full bg-primary py-4 text-base font-semibold text-primary-foreground shadow-lg transition disabled:opacity-40"
       >
         {loading ? "Confirmando…" : "Confirmar agendamento"}
