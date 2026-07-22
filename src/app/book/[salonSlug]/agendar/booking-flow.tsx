@@ -68,6 +68,7 @@ export function BookingFlow({
   currency,
   services,
   initialServiceId,
+  initialProId = null,
   clientSession,
 }: {
   salonId: string;
@@ -75,13 +76,19 @@ export function BookingFlow({
   currency: string;
   services: Service[];
   initialServiceId: string | null;
+  initialProId?: string | null;
   clientSession: ClientSession | null;
 }) {
   const router = useRouter();
   const { salonSlug } = useParams<{ salonSlug: string }>();
   const cart = useCart(salonSlug);
   const [serviceId, setServiceId] = useState<string | null>(initialServiceId);
-  const [proId, setProId] = useState<string | null>(null);
+  const [proId, setProId] = useState<string | null>(() => {
+    if (!initialServiceId || !initialProId) return null;
+    const svc = services.find((s) => s.id === initialServiceId);
+    if (!svc) return null;
+    return svc.professionals.some((p) => p.id === initialProId) ? initialProId : null;
+  });
   const [date, setDate] = useState<Date>(startOfDay(new Date()));
   const [viewMonth, setViewMonth] = useState<Date>(startOfMonth(new Date()));
   const [slot, setSlot] = useState<string | null>(null);

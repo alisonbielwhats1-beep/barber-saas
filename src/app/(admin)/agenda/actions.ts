@@ -141,6 +141,117 @@ export async function cancelAppointment(id: string) {
   return updateAppointmentStatus(id, "CANCELLED");
 }
 
+// ── Comanda ──────────────────────────────────────────────────────────────────
+
+export async function getComandaData(id: string) {
+  const ctx = await getTenantContext();
+  assertRole(ctx, ["OWNER", "MANAGER", "RECEPTIONIST"]);
+
+  const appt = await prisma.appointment.findFirst({
+    where: { id, salonId: ctx.salonId },
+    select: {
+      priceCents: true,
+      service: { select: { name: true } },
+      products: {
+        select: {
+          quantity: true,
+          priceCentsUnit: true,
+          product: { select: { name: true } },
+        },
+      },
+      payment: {
+        select: {
+          amountCents: true,
+          discountCents: true,
+          method: true,
+          notes: true,
+        },
+      },
+    },
+  });
+  if (!appt) throw new Error("Agendamento não encontrado");
+  return appt;
+}
+
+const comandaInput = z.object({
+  id: z.string(),
+  discountCents: z.number().int().min(0).default(0),
+  method: z.enum(["CASH", "CREDIT_CARD", "DEBIT_CARD", "PIX", "TRANSFER"]),
+  notes: z.string().optional().nullable(),
+});
+
+export async function closeComanda(input: z.infer<typeof comandaInput>) {
+  const ctx = await getTenantContext();
+  assertRole(ctx, ["OWNER", "MANAGER", "RECEPTIONIST"]);
+  const data = comandaInput.parse(input);
+
+  const appt = await prisma.appointment.findFirst({
+    where: { id: data.id, salonId: ctx.salonId },
+    select: {
+      id: true,
+      status: true,
+      priceCents: true,
+      products: { select: { quantity: true, priceCentsUnit: true } },
+    },
+  });
+  if (!appt) throw new Error("Agendamento não encontrado");
+  if (appt.status === "CANCELLED" || appt.status === "COMPLETED") {
+    throw new Error("Agendamento já encerrado");
+  }
+
+  const subtotal =
+    appt.priceCents +
+    appt.products.reduce((s, p) => s + p.quantity * p.priceCentsUnit, 0);
+  const amountCents = Math.max(0, subtotal - data.discountCents);
+
+  const paymentId = `pay_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+
+  await prisma.$transaction([
+    // $executeRaw para suportar discountCents/notes antes do prisma generate
+    prisma.$executeRaw`
+      INSERT INTO "Payment" (id, "appointmentId", "amountCents", "discountCents", method, notes, "paidAt")
+      VALUES (
+        ${paymentId},
+        ${data.id},
+        ${amountCents},
+        ${data.discountCents},
+        ${data.method}::"PaymentMethod",
+        ${data.notes ?? null},
+        NOW()
+      )
+      ON CONFLICT ("appointmentId") DO UPDATE SET
+        "amountCents"   = EXCLUDED."amountCents",
+        "discountCents" = EXCLUDED."discountCents",
+        method          = EXCLUDED.method,
+        notes           = EXCLUDED.notes,
+        "paidAt"        = NOW()
+    `,
+    prisma.appointment.update({
+      where: { id: data.id },
+      data: { status: "COMPLETED" },
+    }),
+  ]);
+
+  revalidatePath("/agenda");
+  revalidatePath("/dashboard");
+  revalidatePath("/financeiro");
+}
+
+// ── Lembretes ────────────────────────────────────────────────────────────────
+
+export async function markReminderSent(id: string) {
+  const ctx = await getTenantContext();
+  assertRole(ctx, ["OWNER", "MANAGER", "RECEPTIONIST"]);
+
+  await prisma.$executeRaw`
+    UPDATE "Appointment"
+    SET   "reminderSentAt" = NOW(),
+          "updatedAt"      = NOW()
+    WHERE id = ${id} AND "salonId" = ${ctx.salonId}
+  `;
+  revalidatePath("/dashboard");
+}
+
 const resizeInput = z.object({
   id: z.string(),
   endAt: z.string().datetime(),

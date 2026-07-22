@@ -8,7 +8,7 @@ export default async function AgendarPage({
   searchParams,
 }: {
   params: { salonSlug: string };
-  searchParams: { service?: string };
+  searchParams: { service?: string; pro?: string };
 }) {
   const salon = await prisma.salon.findUnique({
     where: { slug: params.salonSlug },
@@ -87,6 +87,7 @@ export default async function AgendarPage({
       currency={salon.currency}
       services={services}
       initialServiceId={searchParams.service ?? null}
+      initialProId={searchParams.pro ?? null}
       clientSession={validSession}
     />
   );

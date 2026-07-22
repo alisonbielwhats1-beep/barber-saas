@@ -3,9 +3,9 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CalendarDays, LogOut, XCircle } from "lucide-react";
+import { CalendarDays, LogOut, XCircle, RefreshCw, Repeat } from "lucide-react";
 import { formatMoney } from "@/lib/utils";
-import { format, isPast } from "date-fns";
+import { format, isPast, differenceInHours } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { logoutClient } from "../auth-actions";
@@ -17,8 +17,8 @@ type Appt = {
   endAt: string;
   priceCents: number;
   status: string;
-  service: { name: string; colorHex: string | null };
-  professional: { user: { name: string } };
+  service: { id: string; name: string; colorHex: string | null };
+  professional: { id: string; user: { name: string } };
   products: { quantity: number; priceCentsUnit: number; product: { name: string } }[];
 };
 
@@ -36,6 +36,7 @@ export function MinhasList({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
+  const [remarkTarget, setRemarkTarget] = useState<Appt | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const upcoming = appointments.filter(
@@ -45,26 +46,44 @@ export function MinhasList({
     (a) => isPast(new Date(a.endAt)) || a.status === "CANCELLED",
   );
 
+  async function callCancel(appointmentId: string): Promise<string | null> {
+    const res = await fetch("/api/client/cancel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ salonSlug, appointmentId }),
+    });
+    if (res.ok) return null;
+    const b = await res.json().catch(() => ({}));
+    if (b.error === "ALREADY_CLOSED") return "Essa reserva já foi encerrada.";
+    if (b.error === "UNAUTHENTICATED") return "Sua sessão expirou — entre novamente.";
+    if (b.error === "TOO_LATE_TO_CANCEL")
+      return "Não é possível cancelar com tão pouca antecedência. Entre em contato com o salão.";
+    return "Não foi possível cancelar. Tente de novo em instantes.";
+  }
+
   function confirmCancel() {
     if (!cancelTarget) return;
     setError(null);
     startTransition(async () => {
-      const res = await fetch("/api/client/cancel", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ salonSlug, appointmentId: cancelTarget }),
-      });
+      const err = await callCancel(cancelTarget);
       setCancelTarget(null);
-      if (res.ok) {
-        router.refresh();
+      if (err) setError(err);
+      else router.refresh();
+    });
+  }
+
+  function confirmRemark() {
+    if (!remarkTarget) return;
+    setError(null);
+    startTransition(async () => {
+      const err = await callCancel(remarkTarget.id);
+      const target = remarkTarget;
+      setRemarkTarget(null);
+      if (err) {
+        setError(err);
       } else {
-        const b = await res.json().catch(() => ({}));
-        setError(
-          b.error === "ALREADY_CLOSED"
-            ? "Essa reserva já foi encerrada."
-            : b.error === "UNAUTHENTICATED"
-              ? "Sua sessão expirou — entre novamente."
-              : "Não foi possível cancelar. Tente de novo em instantes.",
+        router.push(
+          `/book/${salonSlug}/agendar?service=${target.service.id}&pro=${target.professional.id}`,
         );
       }
     });
@@ -100,16 +119,38 @@ export function MinhasList({
 
       {/* Upcoming */}
       <Section title="Próximas" empty="Nenhuma reserva futura.">
-        {upcoming.map((a) => (
-          <ApptCard
-            key={a.id}
-            a={a}
-            currency={currency}
-            canCancel
-            onCancel={() => setCancelTarget(a.id)}
-            disabled={pending}
-          />
-        ))}
+        {upcoming.map((a) => {
+          const hoursUntil = differenceInHours(new Date(a.startAt), new Date());
+          const canCancel = hoursUntil > 2;
+          return (
+            <ApptCard
+              key={a.id}
+              a={a}
+              currency={currency}
+              salonSlug={salonSlug}
+              actions={
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setRemarkTarget(a)}
+                    disabled={pending || !canCancel}
+                    title={!canCancel ? "Muito próximo para remarcar" : undefined}
+                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary disabled:opacity-40"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" /> Remarcar
+                  </button>
+                  <button
+                    onClick={() => setCancelTarget(a.id)}
+                    disabled={pending || !canCancel}
+                    title={!canCancel ? "Muito próximo para cancelar" : undefined}
+                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-red-500 disabled:opacity-40"
+                  >
+                    <XCircle className="h-3.5 w-3.5" /> Cancelar
+                  </button>
+                </div>
+              }
+            />
+          );
+        })}
       </Section>
 
       <ConfirmDialog
@@ -122,10 +163,33 @@ export function MinhasList({
         pending={pending}
       />
 
+      <ConfirmDialog
+        open={remarkTarget !== null}
+        onOpenChange={(o) => !o && setRemarkTarget(null)}
+        title="Remarcar reserva?"
+        description="A reserva atual será cancelada e você poderá escolher um novo horário para o mesmo serviço."
+        confirmLabel="Remarcar"
+        onConfirm={confirmRemark}
+        pending={pending}
+      />
+
       {/* History */}
       <Section title="Histórico" empty="Sem histórico ainda.">
         {past.map((a) => (
-          <ApptCard key={a.id} a={a} currency={currency} />
+          <ApptCard
+            key={a.id}
+            a={a}
+            currency={currency}
+            salonSlug={salonSlug}
+            actions={
+              <Link
+                href={`/book/${salonSlug}/agendar?service=${a.service.id}`}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary"
+              >
+                <Repeat className="h-3.5 w-3.5" /> Agendar de novo
+              </Link>
+            }
+          />
         ))}
       </Section>
 
@@ -169,15 +233,13 @@ function Section({
 function ApptCard({
   a,
   currency,
-  canCancel,
-  onCancel,
-  disabled,
+  salonSlug: _salonSlug,
+  actions,
 }: {
   a: Appt;
   currency: string;
-  canCancel?: boolean;
-  onCancel?: () => void;
-  disabled?: boolean;
+  salonSlug: string;
+  actions?: React.ReactNode;
 }) {
   const start = new Date(a.startAt);
   const productsTotal = a.products.reduce((s, p) => s + p.quantity * p.priceCentsUnit, 0);
@@ -231,15 +293,7 @@ function ApptCard({
         <span className="text-sm font-semibold text-primary">
           Total {formatMoney(total, currency)}
         </span>
-        {canCancel && (
-          <button
-            onClick={onCancel}
-            disabled={disabled}
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-red-500 disabled:opacity-40"
-          >
-            <XCircle className="h-3.5 w-3.5" /> Cancelar
-          </button>
-        )}
+        {actions}
       </div>
     </article>
   );

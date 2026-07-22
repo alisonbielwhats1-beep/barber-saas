@@ -23,6 +23,8 @@ import {
   Pencil,
   X,
   Save,
+  CreditCard,
+  ArrowLeft,
 } from "lucide-react";
 import { formatMoney } from "@/lib/utils";
 import { format } from "date-fns";
@@ -34,6 +36,7 @@ import {
   editAppointment,
 } from "./actions";
 import { STATUS, nextActions, type ApptStatus } from "./agenda-status";
+import { ComandaPanel } from "./comanda-panel";
 import type { Appointment } from "./agenda-board";
 
 const ACTION_ICON: Record<string, typeof Check> = {
@@ -86,6 +89,8 @@ function printReceipt(
   }
 }
 
+type ViewMode = "detail" | "edit" | "comanda";
+
 export function AppointmentDetail({
   appt,
   salonName,
@@ -97,9 +102,8 @@ export function AppointmentDetail({
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [editMode, setEditMode] = useState(false);
+  const [view, setView] = useState<ViewMode>("detail");
 
-  // Edit form state — initialised when appt loads
   const start = appt ? new Date(appt.startAt) : new Date();
   const end = appt ? new Date(appt.endAt) : new Date();
   const [editDate, setEditDate] = useState(() => format(start, "yyyy-MM-dd"));
@@ -110,6 +114,11 @@ export function AppointmentDetail({
 
   const cfg = STATUS[appt.status as keyof typeof STATUS] ?? STATUS.CONFIRMED;
   const whenLabel = `${format(start, "d 'de' MMMM 'às' HH:mm", { locale: ptBR })}`;
+
+  const canOpenComanda =
+    appt.status === "CONFIRMED" ||
+    appt.status === "IN_PROGRESS" ||
+    appt.status === "PENDING";
 
   function run(fn: () => Promise<void>) {
     setError(null);
@@ -125,12 +134,11 @@ export function AppointmentDetail({
 
   function openEdit() {
     if (!appt) return;
-    // Reset to current values before opening
     setEditDate(format(start, "yyyy-MM-dd"));
     setEditTime(format(start, "HH:mm"));
     setEditNotes(appt.notes ?? "");
     setError(null);
-    setEditMode(true);
+    setView("edit");
   }
 
   function saveEdit() {
@@ -142,12 +150,23 @@ export function AppointmentDetail({
   return (
     <Dialog open={!!appt} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-md gap-0 overflow-hidden p-0">
-        {/* Status color strip */}
         <div className="h-1.5 w-full" style={{ background: cfg.color }} />
 
         <div className="p-5">
           <DialogHeader className="mb-4 flex-row items-center justify-between space-y-0">
-            <DialogTitle className="text-lg">{appt.clientName}</DialogTitle>
+            <div className="flex items-center gap-2">
+              {view !== "detail" && (
+                <button
+                  onClick={() => { setView("detail"); setError(null); }}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </button>
+              )}
+              <DialogTitle className="text-lg">
+                {view === "comanda" ? "Fechar comanda" : appt.clientName}
+              </DialogTitle>
+            </div>
             <span
               className="rounded-full px-2.5 py-1 text-[11px] font-semibold"
               style={{ background: `${cfg.color}22`, color: cfg.color }}
@@ -156,8 +175,16 @@ export function AppointmentDetail({
             </span>
           </DialogHeader>
 
-          {/* ── EDIT MODE ─────────────────────────────────────────────── */}
-          {editMode ? (
+          {/* ── COMANDA MODE ─────────────────────────────────── */}
+          {view === "comanda" && (
+            <ComandaPanel
+              apptId={appt.id}
+              onClose={() => { setView("detail"); onClose(); }}
+            />
+          )}
+
+          {/* ── EDIT MODE ─────────────────────────────────────── */}
+          {view === "edit" && (
             <div className="space-y-3">
               <p className="text-[12px] font-medium text-muted-foreground">
                 Editando agendamento de{" "}
@@ -222,7 +249,7 @@ export function AppointmentDetail({
                   Salvar alterações
                 </button>
                 <button
-                  onClick={() => { setEditMode(false); setError(null); }}
+                  onClick={() => { setView("detail"); setError(null); }}
                   className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-4 py-2.5 text-[13px] text-muted-foreground transition hover:text-foreground"
                 >
                   <X className="h-3.5 w-3.5" />
@@ -230,8 +257,10 @@ export function AppointmentDetail({
                 </button>
               </div>
             </div>
-          ) : (
-            /* ── DETAIL VIEW ─────────────────────────────────────────── */
+          )}
+
+          {/* ── DETAIL VIEW ──────────────────────────────────── */}
+          {view === "detail" && (
             <>
               <div className="space-y-2.5 text-sm">
                 <Row icon={Scissors} label={appt.serviceName} />
@@ -277,7 +306,7 @@ export function AppointmentDetail({
                 })}
               </div>
 
-              {/* Utility actions: Editar, WhatsApp, Duplicar, Recibo */}
+              {/* Utility actions */}
               <div className="mt-3 grid grid-cols-2 gap-2 border-t border-border pt-3">
                 <button
                   onClick={openEdit}
@@ -304,14 +333,25 @@ export function AppointmentDetail({
                   <Copy className="h-4 w-4" />
                   Repetir
                 </button>
-                <button
-                  onClick={() => printReceipt(appt, salonName)}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[13px] font-medium text-muted-foreground transition hover:text-foreground"
-                  title="Imprimir recibo para o cliente"
-                >
-                  <Receipt className="h-4 w-4" />
-                  Recibo
-                </button>
+                {canOpenComanda ? (
+                  <button
+                    onClick={() => { setError(null); setView("comanda"); }}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[13px] font-medium text-muted-foreground transition hover:border-primary/40 hover:text-primary"
+                    title="Fechar comanda e registrar pagamento"
+                  >
+                    <CreditCard className="h-4 w-4" />
+                    Fechar comanda
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => printReceipt(appt, salonName)}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[13px] font-medium text-muted-foreground transition hover:text-foreground"
+                    title="Imprimir recibo"
+                  >
+                    <Receipt className="h-4 w-4" />
+                    Recibo
+                  </button>
+                )}
               </div>
 
               {/* Cancel */}

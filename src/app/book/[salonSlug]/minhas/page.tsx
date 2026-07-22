@@ -31,8 +31,8 @@ export default async function MinhasPage({
       endAt: true,
       priceCents: true,
       status: true,
-      service: { select: { name: true, colorHex: true } },
-      professional: { select: { user: { select: { name: true } } } },
+      service: { select: { id: true, name: true, colorHex: true } },
+      professional: { select: { id: true, user: { select: { name: true } } } },
       products: {
         select: {
           quantity: true,

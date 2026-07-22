@@ -3,7 +3,7 @@ import { getTenantContext } from "@/lib/tenant";
 import { getDashboardMetrics, RANGE_LABELS, type RangeKey } from "@/lib/dashboard";
 import { prisma } from "@/lib/prisma";
 import { formatMoney, formatDuration } from "@/lib/utils";
-import { format, startOfDay, endOfDay } from "date-fns";
+import { format, startOfDay, endOfDay, addDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { PageHeader } from "@/components/page-header";
 import { CountUp } from "@/components/count-up";
@@ -31,10 +31,12 @@ import {
   ArrowRight,
   CalendarClock,
   AlertTriangle,
+  Bell,
 } from "lucide-react";
 import { RangeFilter } from "./range-filter";
 import { RevenueChart } from "./revenue-chart";
 import { DonutChart } from "./donut-chart";
+import { LembretesPanel } from "./lembretes-panel";
 
 const MALE_COLOR = "#3B9EFF";
 const FEMALE_COLOR = "#E85D9E";
@@ -52,7 +54,45 @@ export default async function DashboardPage({
     : "30d";
 
   const now = new Date();
-  const [m, todayAppts, setupCounts] = await Promise.all([
+  const tomorrow = startOfDay(addDays(now, 1));
+  const tomorrowEnd = endOfDay(addDays(now, 1));
+
+  // Lembretes de amanhã — $queryRaw evita erro de tipo antes do prisma generate;
+  // try/catch protege caso a migration 003 ainda não tenha sido aplicada.
+  type ReminderRow = {
+    id: string;
+    startAt: Date;
+    clientName: string;
+    clientPhone: string | null;
+    serviceName: string;
+    proName: string;
+  };
+  let remindersRaw: ReminderRow[] = [];
+  try {
+    remindersRaw = await prisma.$queryRaw<ReminderRow[]>`
+      SELECT
+        a.id,
+        a."startAt",
+        c.name      AS "clientName",
+        c.phone     AS "clientPhone",
+        s.name      AS "serviceName",
+        u.name      AS "proName"
+      FROM "Appointment" a
+      JOIN "ClientProfile" c  ON c.id = a."clientId"
+      JOIN "Service"       s  ON s.id = a."serviceId"
+      JOIN "Professional"  p  ON p.id = a."professionalId"
+      JOIN "User"          u  ON u.id = p."userId"
+      WHERE a."salonId"        = ${salonId}
+        AND a."startAt"       >= ${tomorrow}
+        AND a."startAt"       <= ${tomorrowEnd}
+        AND a.status          IN ('CONFIRMED', 'PENDING')
+        AND a."reminderSentAt" IS NULL
+      ORDER BY a."startAt" ASC
+      LIMIT 10
+    `;
+  } catch {}
+
+  const [m, todayAppts, salonData, setupCounts] = await Promise.all([
     getDashboardMetrics(salonId, range),
     prisma.appointment.findMany({
       where: {
@@ -72,6 +112,7 @@ export default async function DashboardPage({
         professional: { select: { user: { select: { name: true } } } },
       },
     }),
+    prisma.salon.findUnique({ where: { id: salonId }, select: { name: true } }),
     Promise.all([
       prisma.service.count({ where: { salonId, active: true } }),
       prisma.professional.count({ where: { salonId, active: true } }),
@@ -79,7 +120,18 @@ export default async function DashboardPage({
       prisma.appointment.count({ where: { salonId } }),
     ]),
   ]);
+  const salonName = salonData?.name ?? "seu salão";
   const genderTotal = m.gender.male.revenue + m.gender.female.revenue;
+
+  const reminders = remindersRaw.map((r) => ({
+    id: r.id,
+    startAt: r.startAt.toISOString(),
+    clientName: r.clientName,
+    clientPhone: r.clientPhone,
+    serviceName: r.serviceName,
+    proName: r.proName,
+    salonName,
+  }));
 
   const [svcCount, proCount, whCount, apptCount] = setupCounts;
   const steps = [
@@ -226,6 +278,19 @@ export default async function DashboardPage({
           )}
         </Panel>
       </section>
+
+      {/* ── Lembretes de amanhã ────────────────────────────── */}
+      {reminders.length > 0 && (
+        <section className="rounded-2xl border border-border bg-card p-5">
+          <div className="mb-3 flex items-center justify-between">
+            <PanelTitle icon={Bell}>Lembretes de amanhã</PanelTitle>
+            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
+              {reminders.length} sem lembrete
+            </span>
+          </div>
+          <LembretesPanel reminders={reminders} salonName={salonName} />
+        </section>
+      )}
 
       {/* ── Hero KPIs ──────────────────────────────────────── */}
       <section className="stagger grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
