@@ -49,6 +49,47 @@
     --font-display: "Inter", system-ui, sans-serif;
   }
 
+  /* ─── Admin: Light theme (toggled via ThemeProvider) ───────────────────── */
+  [data-theme="admin-light"] {
+    --background: 220 16% 96%;        /* #F4F5F8 — soft off-white */
+    --surface-1: 0 0% 100%;
+    --foreground: 222 22% 13%;        /* #181C26 */
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 22% 13%;
+    --card-hover: 220 16% 93%;
+    --elevated: 0 0% 100%;
+
+    --muted: 220 14% 91%;
+    --muted-foreground: 220 9% 46%;
+
+    --border: 220 13% 86%;
+    --border-strong: 220 13% 75%;
+    --input: 220 16% 93%;
+    --ring: 152 55% 38%;
+
+    /* Primary — slightly deeper green for contrast on white */
+    --primary: 152 55% 38%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 14% 91%;
+    --secondary-foreground: 222 22% 13%;
+
+    --accent: 152 55% 38%;
+    --accent-foreground: 0 0% 100%;
+
+    --success: 152 55% 36%;
+    --info: 213 85% 48%;
+    --warning: 35 88% 46%;
+    --danger: 0 70% 50%;
+    --marketing: 267 76% 55%;
+
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --radius: 0.9rem;
+  }
+
   /* ─── Client Booking: Dark Trimly + Verde Neon ──────────────────────────── */
   [data-theme="salon-dark"] {
     --background: 230 8% 6%;

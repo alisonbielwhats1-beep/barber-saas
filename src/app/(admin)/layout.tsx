@@ -6,6 +6,7 @@ import { SalonSwitcher } from "./salon-switcher";
 import { SidebarNav } from "./sidebar-nav";
 import { CommandPalette } from "./command-palette";
 import { Toaster } from "@/components/ui/toast";
+import { ThemeProvider } from "./theme-provider";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const { userId, salonId } = await getTenantContext();
@@ -29,6 +30,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const currentSalon = membershipList.find((m) => m.id === salonId)!;
 
   return (
+    <ThemeProvider>
     <div className="flex h-screen overflow-hidden bg-background">
       {/* ── Sidebar ─────────────────────────────────────── */}
       <aside className="scrollbar-dark hidden w-56 shrink-0 flex-col overflow-y-auto border-r border-border md:flex print:hidden">
@@ -62,5 +64,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <CommandPalette />
       <Toaster />
     </div>
+    </ThemeProvider>
   );
 }

@@ -43,6 +43,16 @@ export function HomeExplore({
     return result;
   }, [services]);
 
+  // Count per category
+  const countByCat = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const s of services) {
+      const cat = s.category ?? "Outros";
+      m.set(cat, (m.get(cat) ?? 0) + 1);
+    }
+    return m;
+  }, [services]);
+
   // Groups filtered by active category + search query
   const groups = useMemo(() => {
     const q = norm(query.trim());
@@ -80,43 +90,77 @@ export function HomeExplore({
         )}
       </div>
 
-      {/* Category pills — derived from actual DB categories */}
-      {categories.length > 1 && (
+      {/* Category grid — 2-column square tiles, shown only when multiple categories */}
+      {categories.length > 1 && !query && (
         <section>
-          <p className="mb-2.5 text-sm font-semibold text-muted-foreground">Categorias</p>
-          <div className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <p className="mb-3 text-sm font-semibold text-muted-foreground">Categorias</p>
+          <div className="grid grid-cols-2 gap-3">
+            {/* "Todos" tile */}
             <button
               onClick={() => setActiveCategory(null)}
-              className={`shrink-0 rounded-full border px-4 py-2 text-[13px] font-medium transition ${
+              className={`relative aspect-square overflow-hidden rounded-2xl transition ${
                 activeCategory === null
-                  ? "border-primary/40 bg-primary/10 text-foreground"
-                  : "border-border bg-card text-muted-foreground"
+                  ? "ring-2 ring-primary ring-offset-2 ring-offset-background"
+                  : "opacity-80 hover:opacity-100"
               }`}
             >
-              Todos
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/40 to-primary/10" />
+              <div className="absolute inset-0 flex flex-col items-start justify-end p-4">
+                <p className="text-sm font-bold text-white drop-shadow-sm">Todos</p>
+                <p className="text-xs text-white/70">
+                  {services.length} {services.length === 1 ? "serviço" : "serviços"}
+                </p>
+              </div>
             </button>
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setActiveCategory(cat === activeCategory ? null : cat)}
-                className={`shrink-0 rounded-full border px-4 py-2 text-[13px] font-medium transition ${
-                  activeCategory === cat
-                    ? "border-primary/40 bg-primary/10 text-foreground"
-                    : "border-border bg-card text-muted-foreground"
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
+
+            {categories.map((cat) => {
+              const count = countByCat.get(cat) ?? 0;
+              const active = activeCategory === cat;
+              return (
+                <button
+                  key={cat}
+                  onClick={() => setActiveCategory(active ? null : cat)}
+                  className={`relative aspect-square overflow-hidden rounded-2xl transition ${
+                    active
+                      ? "ring-2 ring-primary ring-offset-2 ring-offset-background"
+                      : "opacity-85 hover:opacity-100"
+                  }`}
+                >
+                  <Image
+                    src={imageForCategory(cat)}
+                    alt={cat}
+                    fill
+                    sizes="(max-width: 480px) 45vw, 200px"
+                    className="object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
+                  <div className="absolute inset-0 flex flex-col items-start justify-end p-4">
+                    <p className="text-sm font-bold text-white drop-shadow-sm">{cat}</p>
+                    <p className="text-xs text-white/70">
+                      {count} {count === 1 ? "serviço" : "serviços"}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </section>
       )}
 
-      {/* Service groups — one banner image per category, no duplicates */}
+      {/* Service list */}
       <section className="space-y-4">
-        <p className="text-sm font-semibold text-muted-foreground">
-          {activeCategory ?? (query ? `${groups.reduce((n, g) => n + g.items.length, 0)} resultado${groups.reduce((n, g) => n + g.items.length, 0) !== 1 ? "s" : ""}` : "Nossos serviços")}
-        </p>
+        {query && (
+          <p className="text-sm font-semibold text-muted-foreground">
+            {groups.reduce((n, g) => n + g.items.length, 0)} resultado
+            {groups.reduce((n, g) => n + g.items.length, 0) !== 1 ? "s" : ""}
+          </p>
+        )}
+        {!query && activeCategory && (
+          <p className="text-sm font-semibold text-muted-foreground">{activeCategory}</p>
+        )}
+        {!query && !activeCategory && categories.length <= 1 && (
+          <p className="text-sm font-semibold text-muted-foreground">Nossos serviços</p>
+        )}
 
         {groups.length === 0 ? (
           <div className="rounded-3xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
@@ -130,33 +174,19 @@ export function HomeExplore({
               key={cat}
               className="overflow-hidden rounded-3xl border border-border bg-card"
             >
-              {/* Category banner — ONE image per category, distinct and correct */}
-              <div className="relative h-36 w-full overflow-hidden">
-                <Image
-                  src={imageForCategory(cat)}
-                  alt={cat}
-                  fill
-                  sizes="(max-width: 480px) 92vw, 440px"
-                  className="object-cover"
-                  priority={false}
-                />
-                <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/45 to-transparent" />
-                <div className="absolute inset-0 flex items-center px-5">
-                  <div>
-                    <p className="text-[17px] font-semibold text-white drop-shadow">{cat}</p>
-                    <p className="mt-0.5 text-[12px] text-white/65">
-                      {items.length} {items.length === 1 ? "serviço" : "serviços"}
-                    </p>
-                  </div>
+              {/* Category header — only when showing multiple categories */}
+              {(activeCategory === null && categories.length > 1 && !query) && (
+                <div className="border-b border-border px-4 py-3">
+                  <p className="text-[13px] font-semibold">{cat}</p>
                 </div>
-              </div>
+              )}
 
-              {/* Service rows — no per-service images, clean list */}
+              {/* Service rows */}
               {items.map((s) => (
                 <Link
                   key={s.id}
                   href={`/book/${salonSlug}/agendar?service=${s.id}`}
-                  className="flex items-center gap-3 border-t border-border px-4 py-3.5 transition hover:bg-card-hover active:opacity-75"
+                  className="flex items-center gap-3 border-t border-border px-4 py-3.5 transition hover:bg-card-hover active:opacity-75 first:border-t-0"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[14px] font-medium">{s.name}</p>

@@ -10,8 +10,10 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  LogIn,
   Scissors,
   Star,
+  UserPlus,
   Zap,
 } from "lucide-react";
 import { formatMoney, formatDuration } from "@/lib/utils";
@@ -89,6 +91,8 @@ export function BookingFlow({
   const [loading, setLoading] = useState(false);
   const [booked, setBooked] = useState<Booked | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // "hidden" → no auth prompt yet; "prompt" → show login/guest options; "guest-form" → collecting name+phone
+  const [authStep, setAuthStep] = useState<"hidden" | "prompt" | "guest-form">("hidden");
 
   const service = services.find((s) => s.id === serviceId) ?? null;
 
@@ -126,6 +130,19 @@ export function BookingFlow({
     const last = endOfWeek(endOfMonth(viewMonth), { weekStartsOn: 1 });
     return eachDayOfInterval({ start: first, end: last });
   }, [viewMonth]);
+
+  function handleConfirmClick() {
+    if (!service || !proId || !slot) return;
+    if (clientSession) {
+      submit();
+    } else if (authStep === "guest-form" && name && phone) {
+      submit();
+    } else if (authStep === "guest-form") {
+      // form visible but not filled
+    } else {
+      setAuthStep("prompt");
+    }
+  }
 
   async function submit() {
     if (!service || !proId || !slot) return;
@@ -425,23 +442,49 @@ export function BookingFlow({
         )}
       </div>
 
-      {/* Dados do cliente — collapsed até horário escolhido */}
-      {slot && (
-        <div className="rounded-2xl border border-border bg-card p-4">
-          {clientSession ? (
-            /* Logged-in: show identity, no form needed */
-            <div className="flex items-center gap-3">
-              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary/20 text-sm font-semibold text-primary">
-                {clientSession.name.split(" ").map((n) => n[0]).slice(0, 2).join("")}
-              </div>
-              <div>
-                <p className="text-sm font-medium">{clientSession.name}</p>
-                <p className="text-xs text-muted-foreground">{clientSession.email}</p>
-              </div>
-            </div>
-          ) : (
-            /* Guest: name + phone form */
-            <div className="space-y-3">
+      {/* Identidade — só quando logado e horário selecionado */}
+      {slot && clientSession && (
+        <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4">
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary/20 text-sm font-semibold text-primary">
+            {clientSession.name.split(" ").map((n) => n[0]).slice(0, 2).join("")}
+          </div>
+          <div>
+            <p className="text-sm font-medium">{clientSession.name}</p>
+            <p className="text-xs text-muted-foreground">{clientSession.email}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Auth step — aparece apenas ao clicar em Confirmar sem sessão */}
+      {authStep !== "hidden" && !clientSession && (
+        <div className="space-y-3 rounded-2xl border border-border bg-card p-4">
+          {authStep === "prompt" && (
+            <>
+              <p className="text-sm font-semibold">Como deseja continuar?</p>
+              <Link
+                href={`/book/${salonSlug}/login`}
+                className="flex items-center justify-center gap-2 rounded-full bg-primary py-3 text-sm font-semibold text-primary-foreground"
+              >
+                <LogIn className="h-4 w-4" />
+                Entrar na minha conta
+              </Link>
+              <Link
+                href={`/book/${salonSlug}/cadastro`}
+                className="flex items-center justify-center gap-2 rounded-full border border-border py-3 text-sm font-medium"
+              >
+                <UserPlus className="h-4 w-4" />
+                Criar conta
+              </Link>
+              <button
+                onClick={() => setAuthStep("guest-form")}
+                className="w-full py-2 text-center text-xs text-muted-foreground hover:text-foreground"
+              >
+                Continuar sem conta
+              </button>
+            </>
+          )}
+          {authStep === "guest-form" && (
+            <>
               <p className="text-sm font-semibold">Seus dados</p>
               <input
                 value={name}
@@ -456,12 +499,15 @@ export function BookingFlow({
                 className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none"
               />
               <p className="text-xs text-muted-foreground">
-                Tem conta?{" "}
-                <a href={`/book/${salonSlug}/login`} className="text-primary hover:underline">
-                  Entre para agendar sem digitar seus dados
-                </a>
+                <button
+                  onClick={() => setAuthStep("prompt")}
+                  className="text-primary hover:underline"
+                >
+                  Voltar
+                </button>
+                {" "}para entrar ou criar conta
               </p>
-            </div>
+            </>
           )}
         </div>
       )}
@@ -484,8 +530,13 @@ export function BookingFlow({
       )}
 
       <button
-        onClick={submit}
-        disabled={!proId || !slot || (!clientSession && (!name || !phone)) || loading}
+        onClick={handleConfirmClick}
+        disabled={
+          !proId ||
+          !slot ||
+          (authStep === "guest-form" && (!name || !phone)) ||
+          loading
+        }
         className="mb-6 w-full rounded-full bg-primary py-4 text-base font-semibold text-primary-foreground shadow-lg transition disabled:opacity-40"
       >
         {loading ? "Confirmando…" : "Confirmar agendamento"}
