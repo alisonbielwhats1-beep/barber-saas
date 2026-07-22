@@ -16,6 +16,7 @@ import {
   Megaphone,
   FileBarChart,
   CreditCard,
+  Share2,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -64,7 +65,10 @@ const GROUPS: { title: string; items: Item[] }[] = [
   },
   {
     title: "Crescimento",
-    items: [{ href: "/marketing", label: "Marketing", icon: Megaphone }],
+    items: [
+      { href: "/marketing",     label: "Marketing",     icon: Megaphone },
+      { href: "/compartilhar",  label: "Compartilhar",  icon: Share2 },
+    ],
   },
 ];
 
