@@ -173,14 +173,14 @@ export function AgendaBoard({
   function refresh() {
     startTransition(() => router.refresh());
   }
-  function runAction(fn: () => Promise<void>) {
+  function runAction(fn: () => Promise<{ error: string } | { success: true }>) {
     setActionError(null);
     startTransition(async () => {
-      try {
-        await fn();
+      const result = await fn();
+      if ("error" in result) {
+        setActionError(result.error);
+      } else {
         router.refresh();
-      } catch (e) {
-        setActionError(e instanceof Error ? e.message : "Não foi possível concluir");
       }
     });
   }

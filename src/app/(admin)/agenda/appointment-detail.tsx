@@ -144,7 +144,15 @@ export function AppointmentDetail({
   function saveEdit() {
     if (!appt) return;
     const startAt = new Date(`${editDate}T${editTime}:00`).toISOString();
-    run(() => editAppointment({ id: appt.id, startAt, notes: editNotes || null }));
+    setError(null);
+    startTransition(async () => {
+      const result = await editAppointment({ id: appt.id, startAt, notes: editNotes || null });
+      if ("error" in result) {
+        setError(result.error);
+      } else {
+        onClose();
+      }
+    });
   }
 
   return (

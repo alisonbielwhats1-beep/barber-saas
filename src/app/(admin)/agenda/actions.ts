@@ -17,6 +17,8 @@ async function guardOverlap<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
+export type ActionResult = { error: string } | { success: true };
+
 const createInput = z.object({
   professionalId: z.string(),
   serviceId: z.string(),
@@ -38,7 +40,7 @@ const createInput = z.object({
  */
 export async function createAppointmentManually(
   input: z.infer<typeof createInput>,
-) {
+): Promise<ActionResult> {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER", "RECEPTIONIST"]);
   const data = createInput.parse(input);
@@ -55,8 +57,8 @@ export async function createAppointmentManually(
       },
     }),
   ]);
-  if (!service) throw new Error("Serviço inválido");
-  if (!link) throw new Error("Este profissional não faz esse serviço");
+  if (!service) return { error: "Serviço inválido" };
+  if (!link) return { error: "Este profissional não faz esse serviço" };
 
   const startAt = new Date(data.startAt);
   const endAt = addMinutes(startAt, service.durationMin);
@@ -70,11 +72,11 @@ export async function createAppointmentManually(
     },
     select: { id: true },
   });
-  if (conflict) throw new Error("Horário já ocupado");
+  if (conflict) return { error: "Horário já ocupado" };
 
   let clientId = data.clientId;
   if (!clientId) {
-    if (!data.clientName) throw new Error("Informe um cliente");
+    if (!data.clientName) return { error: "Informe um cliente" };
     const client = await prisma.clientProfile.create({
       data: {
         salonId: ctx.salonId,
@@ -89,7 +91,7 @@ export async function createAppointmentManually(
       where: { id: clientId, salonId: ctx.salonId },
       select: { id: true },
     });
-    if (!owned) throw new Error("Cliente inválido");
+    if (!owned) return { error: "Cliente inválido" };
   }
 
   await guardOverlap(() =>
@@ -110,6 +112,7 @@ export async function createAppointmentManually(
 
   revalidatePath("/agenda");
   revalidatePath("/dashboard");
+  return { success: true };
 }
 
 const statusInput = z.enum([
@@ -261,7 +264,7 @@ const resizeInput = z.object({
  * Redimensiona a duração de um agendamento (arrastar a borda inferior).
  * Mantém o início, valida duração mínima de 15min e conflito.
  */
-export async function resizeAppointment(input: z.infer<typeof resizeInput>) {
+export async function resizeAppointment(input: z.infer<typeof resizeInput>): Promise<ActionResult> {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER", "RECEPTIONIST"]);
   const data = resizeInput.parse(input);
@@ -270,11 +273,11 @@ export async function resizeAppointment(input: z.infer<typeof resizeInput>) {
     where: { id: data.id, salonId: ctx.salonId },
     select: { startAt: true, professionalId: true },
   });
-  if (!appt) throw new Error("Agendamento não encontrado");
+  if (!appt) return { error: "Agendamento não encontrado" };
 
   const endAt = new Date(data.endAt);
   if (endAt.getTime() - appt.startAt.getTime() < 15 * 60_000)
-    throw new Error("Duração mínima de 15 minutos");
+    return { error: "Duração mínima de 15 minutos" };
 
   const conflict = await prisma.appointment.findFirst({
     where: {
@@ -286,12 +289,13 @@ export async function resizeAppointment(input: z.infer<typeof resizeInput>) {
     },
     select: { id: true },
   });
-  if (conflict) throw new Error("Conflito com outro agendamento");
+  if (conflict) return { error: "Conflito com outro agendamento" };
 
   await guardOverlap(() =>
     prisma.appointment.update({ where: { id: data.id }, data: { endAt } }),
   );
   revalidatePath("/agenda");
+  return { success: true };
 }
 
 /**
@@ -365,7 +369,7 @@ const editInput = z.object({
  * Edita data/hora e observações de um agendamento existente.
  * Mantém o profissional e a duração original; verifica conflitos.
  */
-export async function editAppointment(input: z.infer<typeof editInput>) {
+export async function editAppointment(input: z.infer<typeof editInput>): Promise<ActionResult> {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER", "RECEPTIONIST"]);
   const data = editInput.parse(input);
@@ -374,7 +378,7 @@ export async function editAppointment(input: z.infer<typeof editInput>) {
     where: { id: data.id, salonId: ctx.salonId },
     select: { startAt: true, endAt: true, professionalId: true },
   });
-  if (!appt) throw new Error("Agendamento não encontrado");
+  if (!appt) return { error: "Agendamento não encontrado" };
 
   const duration = appt.endAt.getTime() - appt.startAt.getTime();
   const startAt = new Date(data.startAt);
@@ -390,17 +394,22 @@ export async function editAppointment(input: z.infer<typeof editInput>) {
     },
     select: { id: true },
   });
-  if (conflict) throw new Error("Horário já ocupado nesse momento");
+  if (conflict) return { error: "Horário já ocupado" };
 
-  await guardOverlap(() =>
-    prisma.appointment.update({
-      where: { id: data.id },
-      data: { startAt, endAt, notes: data.notes ?? null },
-    }),
-  );
+  try {
+    await guardOverlap(() =>
+      prisma.appointment.update({
+        where: { id: data.id },
+        data: { startAt, endAt, notes: data.notes ?? null },
+      }),
+    );
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Erro ao salvar" };
+  }
 
   revalidatePath("/agenda");
   revalidatePath("/dashboard");
+  return { success: true };
 }
 
 const moveInput = z.object({
@@ -414,7 +423,7 @@ const moveInput = z.object({
  * Mantém a duração do serviço, valida que o novo profissional faz o serviço
  * e que não há conflito de horário.
  */
-export async function moveAppointment(input: z.infer<typeof moveInput>) {
+export async function moveAppointment(input: z.infer<typeof moveInput>): Promise<ActionResult> {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER", "RECEPTIONIST"]);
   const data = moveInput.parse(input);
@@ -423,7 +432,7 @@ export async function moveAppointment(input: z.infer<typeof moveInput>) {
     where: { id: data.id, salonId: ctx.salonId },
     select: { serviceId: true, startAt: true, endAt: true },
   });
-  if (!appt) throw new Error("Agendamento não encontrado");
+  if (!appt) return { error: "Agendamento não encontrado" };
 
   const durationMs = appt.endAt.getTime() - appt.startAt.getTime();
   const startAt = new Date(data.startAt);
@@ -436,7 +445,7 @@ export async function moveAppointment(input: z.infer<typeof moveInput>) {
     },
     select: { serviceId: true },
   });
-  if (!canDo) throw new Error("Este profissional não faz esse serviço");
+  if (!canDo) return { error: "Este profissional não faz esse serviço" };
 
   const conflict = await prisma.appointment.findFirst({
     where: {
@@ -448,7 +457,7 @@ export async function moveAppointment(input: z.infer<typeof moveInput>) {
     },
     select: { id: true },
   });
-  if (conflict) throw new Error("Horário já ocupado");
+  if (conflict) return { error: "Horário já ocupado" };
 
   await guardOverlap(() =>
     prisma.appointment.update({
@@ -459,4 +468,6 @@ export async function moveAppointment(input: z.infer<typeof moveInput>) {
 
   revalidatePath("/agenda");
   revalidatePath("/dashboard");
+  return { success: true };
 }
+

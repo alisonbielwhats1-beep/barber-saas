@@ -79,11 +79,11 @@ export function AppointmentDialog({
           };
 
     startTransition(async () => {
-      try {
-        await createAppointmentManually(payload);
+      const result = await createAppointmentManually(payload);
+      if ("error" in result) {
+        setError(result.error);
+      } else {
         onOpenChange(false);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Erro ao salvar");
       }
     });
   }
