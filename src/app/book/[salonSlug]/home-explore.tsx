@@ -3,18 +3,9 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import {
-  Search,
-  Scissors,
-  Droplet,
-  Palette,
-  Wand2,
-  Sparkles,
-  Wind,
-  LayoutGrid,
-} from "lucide-react";
+import { Search, ChevronRight } from "lucide-react";
 import { formatMoney, formatDuration } from "@/lib/utils";
-import { imageForService } from "@/lib/images";
+import { imageForCategory } from "@/lib/images";
 
 type Service = {
   id: string;
@@ -22,57 +13,12 @@ type Service = {
   description: string | null;
   priceCents: number;
   durationMin: number;
+  category: string | null;
 };
 
-/**
- * Vitrine de serviços da home do cliente: busca + categorias circulares +
- * grid de cards full-bleed (imagem cobre o card, texto flutua sobre degradê).
- * Client component porque busca e filtro de categoria são interativos.
- */
-
-// normaliza igual ao lib/images.ts pra heurística de categoria bater
-function norm(name: string) {
-  return name
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/\s+/g, "");
+function norm(s: string) {
+  return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 }
-
-const CATEGORIES: {
-  key: string;
-  label: string;
-  icon: typeof Scissors;
-  match: (n: string) => boolean;
-}[] = [
-  { key: "todos", label: "Todos", icon: LayoutGrid, match: () => true },
-  { key: "corte", label: "Cortes", icon: Scissors, match: (n) => n.includes("corte") },
-  { key: "barba", label: "Barba", icon: Wand2, match: (n) => n.includes("barba") },
-  {
-    key: "coloracao",
-    label: "Coloração",
-    icon: Palette,
-    match: (n) => n.includes("coloracao") || n.includes("tinta") || n.includes("luzes") || n.includes("mecha"),
-  },
-  {
-    key: "tratamento",
-    label: "Tratamentos",
-    icon: Sparkles,
-    match: (n) => n.includes("hidrata") || n.includes("tratamento") || n.includes("botox") || n.includes("selagem"),
-  },
-  {
-    key: "escova",
-    label: "Escova",
-    icon: Wind,
-    match: (n) => n.includes("escova") || n.includes("finaliza") || n.includes("penteado"),
-  },
-  {
-    key: "quente",
-    label: "Hot towel",
-    icon: Droplet,
-    match: (n) => n.includes("hot") || n.includes("toalha"),
-  },
-];
 
 export function HomeExplore({
   salonSlug,
@@ -83,32 +29,39 @@ export function HomeExplore({
   currency: string;
   services: Service[];
 }) {
-  const [category, setCategory] = useState("todos");
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [query, setQuery] = useState("");
 
-  // só mostra categorias que têm pelo menos 1 serviço (fora "Todos")
-  const visibleCategories = useMemo(
-    () =>
-      CATEGORIES.filter(
-        (c) => c.key === "todos" || services.some((s) => c.match(norm(s.name))),
-      ),
-    [services],
-  );
+  // Derive ordered category list from DB data
+  const categories = useMemo(() => {
+    const seen = new Set<string>();
+    const result: string[] = [];
+    for (const s of services) {
+      const cat = s.category ?? "Outros";
+      if (!seen.has(cat)) { seen.add(cat); result.push(cat); }
+    }
+    return result;
+  }, [services]);
 
-  const filtered = useMemo(() => {
-    const cat = CATEGORIES.find((c) => c.key === category) ?? CATEGORIES[0];
-    const q = norm(query);
-    return services.filter((s) => {
-      const n = norm(s.name);
-      if (!cat.match(n)) return false;
-      if (q && !n.includes(q) && !norm(s.description ?? "").includes(q)) return false;
-      return true;
-    });
-  }, [services, category, query]);
+  // Groups filtered by active category + search query
+  const groups = useMemo(() => {
+    const q = norm(query.trim());
+    return categories
+      .filter((cat) => activeCategory === null || cat === activeCategory)
+      .map((cat) => ({
+        cat,
+        items: services.filter((s) => {
+          if ((s.category ?? "Outros") !== cat) return false;
+          if (!q) return true;
+          return norm(s.name).includes(q) || norm(s.description ?? "").includes(q);
+        }),
+      }))
+      .filter((g) => g.items.length > 0);
+  }, [services, categories, activeCategory, query]);
 
   return (
     <>
-      {/* Busca */}
+      {/* Search */}
       <div className="flex items-center gap-2 rounded-full border border-border bg-card px-4 py-3">
         <Search className="h-4 w-4 text-muted-foreground" />
         <input
@@ -127,86 +80,100 @@ export function HomeExplore({
         )}
       </div>
 
-      {/* Categorias — círculos perfeitos, scroll horizontal */}
-      <section>
-        <h3 className="mb-3 text-sm font-semibold text-muted-foreground">Categorias</h3>
-        <div className="-mx-5 flex gap-4 overflow-x-auto px-5 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {visibleCategories.map((c) => {
-            const active = c.key === category;
-            return (
-              <button
-                key={c.key}
-                onClick={() => setCategory(c.key)}
-                className="flex shrink-0 flex-col items-center gap-2"
-                style={{ minWidth: 64 }}
-              >
-                <span
-                  className={`grid h-14 w-14 place-items-center rounded-full transition ${
-                    active
-                      ? "bg-primary text-primary-foreground shadow-[0_0_24px_-4px_hsl(var(--primary))]"
-                      : "border border-border bg-card text-muted-foreground"
-                  }`}
-                >
-                  <c.icon className="h-5 w-5" strokeWidth={2.2} />
-                </span>
-                <span
-                  className={`text-xs font-medium ${
-                    active ? "text-foreground" : "text-muted-foreground"
-                  }`}
-                >
-                  {c.label}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* Grid de serviços — imagem full-bleed com texto sobre degradê */}
-      <section>
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-muted-foreground">
-            {category === "todos" && !query
-              ? "Nossos serviços"
-              : `${filtered.length} ${filtered.length === 1 ? "resultado" : "resultados"}`}
-          </h3>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          {filtered.map((s) => (
-            <Link
-              key={s.id}
-              href={`/book/${salonSlug}/agendar?service=${s.id}`}
-              className="group relative aspect-[4/5] overflow-hidden rounded-3xl"
+      {/* Category pills — derived from actual DB categories */}
+      {categories.length > 1 && (
+        <section>
+          <p className="mb-2.5 text-sm font-semibold text-muted-foreground">Categorias</p>
+          <div className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <button
+              onClick={() => setActiveCategory(null)}
+              className={`shrink-0 rounded-full border px-4 py-2 text-[13px] font-medium transition ${
+                activeCategory === null
+                  ? "border-primary/40 bg-primary/10 text-foreground"
+                  : "border-border bg-card text-muted-foreground"
+              }`}
             >
-              <Image
-                src={imageForService(s.name)}
-                alt={s.name}
-                fill
-                sizes="(max-width: 480px) 45vw, 220px"
-                className="object-cover transition duration-300 group-hover:scale-[1.05]"
-              />
-              {/* degradê protege a leitura do texto flutuante */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
-              <span className="absolute left-3 top-3 rounded-full bg-black/50 px-2.5 py-1 text-[10px] font-medium text-white backdrop-blur">
-                {formatDuration(s.durationMin)}
-              </span>
-              <div className="absolute inset-x-0 bottom-0 p-3.5">
-                <p className="line-clamp-2 text-sm font-semibold leading-snug text-white">
-                  {s.name}
-                </p>
-                <p className="mt-1 text-sm font-bold text-primary">
-                  {formatMoney(s.priceCents, currency)}
-                </p>
-              </div>
-            </Link>
-          ))}
-        </div>
-        {filtered.length === 0 && (
+              Todos
+            </button>
+            {categories.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setActiveCategory(cat === activeCategory ? null : cat)}
+                className={`shrink-0 rounded-full border px-4 py-2 text-[13px] font-medium transition ${
+                  activeCategory === cat
+                    ? "border-primary/40 bg-primary/10 text-foreground"
+                    : "border-border bg-card text-muted-foreground"
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Service groups — one banner image per category, no duplicates */}
+      <section className="space-y-4">
+        <p className="text-sm font-semibold text-muted-foreground">
+          {activeCategory ?? (query ? `${groups.reduce((n, g) => n + g.items.length, 0)} resultado${groups.reduce((n, g) => n + g.items.length, 0) !== 1 ? "s" : ""}` : "Nossos serviços")}
+        </p>
+
+        {groups.length === 0 ? (
           <div className="rounded-3xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
             {services.length === 0
               ? "Este salão ainda não publicou serviços."
               : "Nada encontrado com esse filtro."}
           </div>
+        ) : (
+          groups.map(({ cat, items }) => (
+            <div
+              key={cat}
+              className="overflow-hidden rounded-3xl border border-border bg-card"
+            >
+              {/* Category banner — ONE image per category, distinct and correct */}
+              <div className="relative h-36 w-full overflow-hidden">
+                <Image
+                  src={imageForCategory(cat)}
+                  alt={cat}
+                  fill
+                  sizes="(max-width: 480px) 92vw, 440px"
+                  className="object-cover"
+                  priority={false}
+                />
+                <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/45 to-transparent" />
+                <div className="absolute inset-0 flex items-center px-5">
+                  <div>
+                    <p className="text-[17px] font-semibold text-white drop-shadow">{cat}</p>
+                    <p className="mt-0.5 text-[12px] text-white/65">
+                      {items.length} {items.length === 1 ? "serviço" : "serviços"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Service rows — no per-service images, clean list */}
+              {items.map((s) => (
+                <Link
+                  key={s.id}
+                  href={`/book/${salonSlug}/agendar?service=${s.id}`}
+                  className="flex items-center gap-3 border-t border-border px-4 py-3.5 transition hover:bg-card-hover active:opacity-75"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[14px] font-medium">{s.name}</p>
+                    <p className="mt-0.5 text-[12px] text-muted-foreground">
+                      {formatDuration(s.durationMin)}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <p className="text-[14px] font-bold text-primary">
+                      {formatMoney(s.priceCents, currency)}
+                    </p>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          ))
         )}
       </section>
     </>

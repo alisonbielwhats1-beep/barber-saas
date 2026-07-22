@@ -36,6 +36,7 @@ export default async function ClientHome({
           description: true,
           priceCents: true,
           durationMin: true,
+          category: true,
         },
       },
     },

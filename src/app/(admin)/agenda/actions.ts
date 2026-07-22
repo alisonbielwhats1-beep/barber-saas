@@ -223,6 +223,52 @@ export async function duplicateAppointment(id: string) {
   throw new Error("Sem horário livre na semana seguinte para duplicar");
 }
 
+const editInput = z.object({
+  id: z.string(),
+  startAt: z.string().datetime(),
+  notes: z.string().optional().nullable(),
+});
+
+/**
+ * Edita data/hora e observações de um agendamento existente.
+ * Mantém o profissional e a duração original; verifica conflitos.
+ */
+export async function editAppointment(input: z.infer<typeof editInput>) {
+  const ctx = await getTenantContext();
+  assertRole(ctx, ["OWNER", "MANAGER", "RECEPTIONIST"]);
+  const data = editInput.parse(input);
+
+  const appt = await prisma.appointment.findFirst({
+    where: { id: data.id, salonId: ctx.salonId },
+    select: { startAt: true, endAt: true, professionalId: true },
+  });
+  if (!appt) throw new Error("Agendamento não encontrado");
+
+  const duration = appt.endAt.getTime() - appt.startAt.getTime();
+  const startAt = new Date(data.startAt);
+  const endAt = new Date(startAt.getTime() + duration);
+
+  const conflict = await prisma.appointment.findFirst({
+    where: {
+      id: { not: data.id },
+      professionalId: appt.professionalId,
+      status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
+      startAt: { lt: endAt },
+      endAt: { gt: startAt },
+    },
+    select: { id: true },
+  });
+  if (conflict) throw new Error("Horário já ocupado nesse momento");
+
+  await prisma.appointment.update({
+    where: { id: data.id },
+    data: { startAt, endAt, notes: data.notes ?? null },
+  });
+
+  revalidatePath("/agenda");
+  revalidatePath("/dashboard");
+}
+
 const moveInput = z.object({
   id: z.string(),
   professionalId: z.string(),
