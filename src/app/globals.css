@@ -162,9 +162,14 @@
     to   { opacity: 1; transform: scale(1); }
   }
 
-  /* Shimmer para skeleton loaders */
+  /* Shimmer para skeleton loaders — tokens: funciona em dark e light */
   .animate-shimmer {
-    background: linear-gradient(90deg, hsl(0 0% 9%), hsl(0 0% 15%), hsl(0 0% 9%));
+    background: linear-gradient(
+      90deg,
+      hsl(var(--muted)),
+      hsl(var(--card-hover)),
+      hsl(var(--muted))
+    );
     background-size: 200% 100%;
     animation: shimmer 1.5s infinite;
   }
@@ -240,9 +245,9 @@
     to   { opacity: 1; transform: translateY(0); }
   }
 
-  /* Scrollbar dark */
+  /* Scrollbar — tokens: acompanha o tema ativo */
   .scrollbar-dark::-webkit-scrollbar { width: 4px; }
   .scrollbar-dark::-webkit-scrollbar-track { background: transparent; }
-  .scrollbar-dark::-webkit-scrollbar-thumb { background: hsl(0 0% 20%); border-radius: 9999px; }
-  .scrollbar-dark::-webkit-scrollbar-thumb:hover { background: hsl(0 0% 30%); }
+  .scrollbar-dark::-webkit-scrollbar-thumb { background: hsl(var(--border-strong)); border-radius: 9999px; }
+  .scrollbar-dark::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground)); }
 }

@@ -1,11 +1,13 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { CalendarDays, LogOut, XCircle } from "lucide-react";
 import { formatMoney } from "@/lib/utils";
 import { format, isPast } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { logoutClient } from "../auth-actions";
 import type { ClientSession } from "@/lib/client-auth";
 
@@ -31,7 +33,10 @@ export function MinhasList({
   currency: string;
   session: ClientSession;
 }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [cancelTarget, setCancelTarget] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const upcoming = appointments.filter(
     (a) => !isPast(new Date(a.endAt)) && a.status !== "CANCELLED",
@@ -40,15 +45,28 @@ export function MinhasList({
     (a) => isPast(new Date(a.endAt)) || a.status === "CANCELLED",
   );
 
-  function cancel(id: string) {
-    if (!confirm("Cancelar essa reserva?")) return;
+  function confirmCancel() {
+    if (!cancelTarget) return;
+    setError(null);
     startTransition(async () => {
-      await fetch("/api/client/cancel", {
+      const res = await fetch("/api/client/cancel", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ salonSlug, appointmentId: id, clientId: session.clientId }),
+        body: JSON.stringify({ salonSlug, appointmentId: cancelTarget }),
       });
-      window.location.reload();
+      setCancelTarget(null);
+      if (res.ok) {
+        router.refresh();
+      } else {
+        const b = await res.json().catch(() => ({}));
+        setError(
+          b.error === "ALREADY_CLOSED"
+            ? "Essa reserva já foi encerrada."
+            : b.error === "UNAUTHENTICATED"
+              ? "Sua sessão expirou — entre novamente."
+              : "Não foi possível cancelar. Tente de novo em instantes.",
+        );
+      }
     });
   }
 
@@ -74,6 +92,12 @@ export function MinhasList({
         </button>
       </div>
 
+      {error && (
+        <p className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {error}
+        </p>
+      )}
+
       {/* Upcoming */}
       <Section title="Próximas" empty="Nenhuma reserva futura.">
         {upcoming.map((a) => (
@@ -82,11 +106,21 @@ export function MinhasList({
             a={a}
             currency={currency}
             canCancel
-            onCancel={() => cancel(a.id)}
+            onCancel={() => setCancelTarget(a.id)}
             disabled={pending}
           />
         ))}
       </Section>
+
+      <ConfirmDialog
+        open={cancelTarget !== null}
+        onOpenChange={(o) => !o && setCancelTarget(null)}
+        title="Cancelar reserva?"
+        description="O horário será liberado para outras pessoas. Você pode agendar de novo quando quiser."
+        confirmLabel="Cancelar reserva"
+        onConfirm={confirmCancel}
+        pending={pending}
+      />
 
       {/* History */}
       <Section title="Histórico" empty="Sem histórico ainda.">

@@ -28,6 +28,8 @@ import { formatMoney } from "@/lib/utils";
 import { imageForProduct } from "@/lib/images";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { toast } from "@/components/ui/toast";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ProductForm } from "./product-form";
 import { toggleProductActive, deleteProduct, adjustStock } from "./actions";
 
@@ -111,13 +113,18 @@ function ProductCardView({ p }: { p: ProductCard }) {
   const needRestock = p.stock <= p.minStock;
   const stockPct = Math.max(4, Math.min(100, (p.stock / Math.max(1, p.minStock * 3)) * 100));
 
-  function run(fn: () => Promise<void>) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // Toda mutação dá feedback: sucesso ou erro, nunca silêncio.
+  // Ajuste de estoque só avisa em erro — o número na tela já é o feedback.
+  function run(fn: () => Promise<void>, okMsg?: string) {
     startTransition(async () => {
       try {
         await fn();
         router.refresh();
+        if (okMsg) toast(okMsg);
       } catch {
-        /* reversível */
+        toast("Não foi possível concluir. Tente novamente.", "error");
       }
     });
   }
@@ -215,17 +222,33 @@ function ProductCardView({ p }: { p: ProductCard }) {
                   </DropdownMenuItem>
                 }
               />
-              <DropdownMenuItem onSelect={() => run(() => toggleProductActive(p.id))}>
+              <DropdownMenuItem
+                onSelect={() =>
+                  run(() => toggleProductActive(p.id), p.active ? "Produto pausado" : "Produto ativado")
+                }
+              >
                 <Power className="mr-2 h-3.5 w-3.5" /> {p.active ? "Pausar" : "Ativar"}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => run(() => deleteProduct(p.id))} className="text-danger focus:text-danger">
+              <DropdownMenuItem onSelect={() => setConfirmDelete(true)} className="text-danger focus:text-danger">
                 <Trash2 className="mr-2 h-3.5 w-3.5" /> Excluir
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        onOpenChange={setConfirmDelete}
+        title={`Excluir "${p.name}"?`}
+        description="O produto sai do catálogo e da vitrine do cliente. Vendas já registradas são mantidas."
+        onConfirm={() => {
+          setConfirmDelete(false);
+          run(() => deleteProduct(p.id), "Produto excluído");
+        }}
+        pending={pending}
+      />
     </div>
   );
 }

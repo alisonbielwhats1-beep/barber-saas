@@ -60,6 +60,24 @@ type Booked = {
   proName: string;
 };
 
+/** Códigos de erro da API → mensagens amigáveis. Nunca mostrar código cru. */
+const ERROR_PT: Record<string, string> = {
+  SLOT_TAKEN: "Esse horário acabou de ser reservado 😕 Os horários foram atualizados — escolha outro.",
+  SERVICE_INVALID: "Este serviço não está mais disponível.",
+  PRO_SERVICE_MISMATCH: "Esse profissional não realiza este serviço.",
+  CLIENT_INVALID: "Sua sessão expirou — entre novamente para confirmar.",
+  GUEST_DATA_REQUIRED: "Preencha seu nome e WhatsApp para confirmar.",
+};
+
+function friendlyError(raw: unknown): string {
+  const code = typeof raw === "string" ? raw : "";
+  if (ERROR_PT[code]) return ERROR_PT[code];
+  // Mensagens já em PT (ex.: "Estoque insuficiente: Pomada") passam direto;
+  // códigos desconhecidos ou payloads estranhos viram mensagem genérica.
+  if (code && !/^[A-Z_]+$/.test(code)) return code;
+  return "Não foi possível concluir. Tente novamente em instantes.";
+}
+
 export function BookingFlow({
   salonId,
   salonName,
@@ -84,6 +102,7 @@ export function BookingFlow({
   const [viewMonth, setViewMonth] = useState<Date>(startOfMonth(new Date()));
   const [slot, setSlot] = useState<string | null>(null);
   const [slots, setSlots] = useState<string[]>([]);
+  const [slotsVersion, setSlotsVersion] = useState(0);
   const [popularSlot, setPopularSlot] = useState<string | null>(null);
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [name, setName] = useState(clientSession?.name ?? "");
@@ -123,7 +142,7 @@ export function BookingFlow({
       })
       .finally(() => setSlotsLoading(false));
     return () => controller.abort();
-  }, [salonId, service, proId, date]);
+  }, [salonId, service, proId, date, slotsVersion]);
 
   const calendarDays = useMemo(() => {
     const first = startOfWeek(startOfMonth(viewMonth), { weekStartsOn: 1 });
@@ -184,7 +203,12 @@ export function BookingFlow({
       });
     } else {
       const b = await res.json().catch(() => ({}));
-      setError(typeof b.error === "string" ? b.error : "Não foi possível concluir");
+      setError(friendlyError(b.error));
+      // Slot foi tomado por outra pessoa: recarrega a grade na hora
+      if (b.error === "SLOT_TAKEN") {
+        setSlot(null);
+        setSlotsVersion((v) => v + 1);
+      }
     }
   }
 

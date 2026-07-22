@@ -25,6 +25,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { formatMoney, formatDuration } from "@/lib/utils";
 import { bannerForCategory } from "@/lib/images";
+import { toast } from "@/components/ui/toast";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ServiceForm } from "./service-form";
 import { toggleServiceActive, deleteService, duplicateService } from "./actions";
 
@@ -291,41 +293,68 @@ function ServiceRow({ s }: { s: ServiceCard }) {
 function ActionsMenu({ s }: { s: ServiceCard }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const run = (fn: () => Promise<void>) =>
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // Toda mutação dá feedback: sucesso ou erro, nunca silêncio.
+  const run = (fn: () => Promise<void>, okMsg: string) =>
     startTransition(async () => {
-      try { await fn(); router.refresh(); } catch { /* silencioso */ }
+      try {
+        await fn();
+        router.refresh();
+        toast(okMsg);
+      } catch {
+        toast("Não foi possível concluir. Tente novamente.", "error");
+      }
     });
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-card-hover hover:text-foreground">
-          {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <ServiceForm
-          service={s}
-          trigger={
-            <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-              <Pencil className="mr-2 h-3.5 w-3.5" /> Editar
-            </DropdownMenuItem>
-          }
-        />
-        <DropdownMenuItem onSelect={() => run(() => duplicateService(s.id))}>
-          <Copy className="mr-2 h-3.5 w-3.5" /> Duplicar
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => run(() => toggleServiceActive(s.id))}>
-          <Power className="mr-2 h-3.5 w-3.5" /> {s.active ? "Pausar" : "Ativar"}
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onSelect={() => run(() => deleteService(s.id))}
-          className="text-danger focus:text-danger"
-        >
-          <Trash2 className="mr-2 h-3.5 w-3.5" /> Excluir
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-card-hover hover:text-foreground">
+            {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <ServiceForm
+            service={s}
+            trigger={
+              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                <Pencil className="mr-2 h-3.5 w-3.5" /> Editar
+              </DropdownMenuItem>
+            }
+          />
+          <DropdownMenuItem onSelect={() => run(() => duplicateService(s.id), "Serviço duplicado")}>
+            <Copy className="mr-2 h-3.5 w-3.5" /> Duplicar
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={() =>
+              run(() => toggleServiceActive(s.id), s.active ? "Serviço pausado" : "Serviço ativado")
+            }
+          >
+            <Power className="mr-2 h-3.5 w-3.5" /> {s.active ? "Pausar" : "Ativar"}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onSelect={() => setConfirmDelete(true)}
+            className="text-danger focus:text-danger"
+          >
+            <Trash2 className="mr-2 h-3.5 w-3.5" /> Excluir
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        onOpenChange={setConfirmDelete}
+        title={`Excluir "${s.name}"?`}
+        description="O serviço sai do catálogo e do link de agendamento. O histórico de atendimentos já realizados é mantido."
+        onConfirm={() => {
+          setConfirmDelete(false);
+          run(() => deleteService(s.id), "Serviço excluído");
+        }}
+        pending={pending}
+      />
+    </>
   );
 }

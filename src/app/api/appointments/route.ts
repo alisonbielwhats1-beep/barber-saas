@@ -48,9 +48,9 @@ export async function POST(req: NextRequest) {
       where: { serviceId: b.serviceId, professional: { id: b.professionalId, salonId: b.salonId, active: true } },
     }),
   ]);
-  if (!service) return NextResponse.json({ error: "service invalid" }, { status: 400 });
+  if (!service) return NextResponse.json({ error: "SERVICE_INVALID" }, { status: 400 });
   if (!prosLink)
-    return NextResponse.json({ error: "professional cannot do this service" }, { status: 400 });
+    return NextResponse.json({ error: "PRO_SERVICE_MISMATCH" }, { status: 400 });
 
   const startAt = new Date(b.startAt);
   const endAt = addMinutes(startAt, service.durationMin);
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
     },
     select: { id: true },
   });
-  if (conflict) return NextResponse.json({ error: "slot taken" }, { status: 409 });
+  if (conflict) return NextResponse.json({ error: "SLOT_TAKEN" }, { status: 409 });
 
   // Valida produtos: só os que pertencem ao salão e têm estoque suficiente
   let productSnapshots: { productId: string; quantity: number; priceCentsUnit: number }[] = [];
@@ -106,11 +106,11 @@ export async function POST(req: NextRequest) {
     client = await prisma.clientProfile.findFirst({
       where: { id: b.clientId, salonId: b.salonId },
     });
-    if (!client) return NextResponse.json({ error: "client invalid" }, { status: 400 });
+    if (!client) return NextResponse.json({ error: "CLIENT_INVALID" }, { status: 400 });
   } else {
     // Guest flow — find or create by phone
     if (!b.clientName || !b.clientPhone) {
-      return NextResponse.json({ error: "clientName and clientPhone required" }, { status: 400 });
+      return NextResponse.json({ error: "GUEST_DATA_REQUIRED" }, { status: 400 });
     }
     client = await prisma.clientProfile.findFirst({
       where: { salonId: b.salonId, phone: b.clientPhone },

@@ -1,7 +1,13 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 
-const SECRET = new TextEncoder().encode(process.env.NEXTAUTH_SECRET ?? "fallback-dev-secret");
+// Sem fallback: um segredo padrão público tornaria toda sessão de cliente forjável.
+function requireSecret(): Uint8Array {
+  const s = process.env.NEXTAUTH_SECRET;
+  if (!s) throw new Error("NEXTAUTH_SECRET não definida — obrigatória para sessões de cliente.");
+  return new TextEncoder().encode(s);
+}
+const SECRET = requireSecret();
 const COOKIE = "client_token";
 const MAX_AGE = 30 * 24 * 60 * 60; // 30 days
 

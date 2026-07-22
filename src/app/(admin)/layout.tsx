@@ -31,6 +31,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <ThemeProvider>
+    {/* Aplica o tema salvo antes do primeiro paint — evita flash dark→light */}
+    <script
+      dangerouslySetInnerHTML={{
+        __html: `try{if(localStorage.getItem("admin-theme")==="light")document.documentElement.setAttribute("data-theme","admin-light")}catch(e){}`,
+      }}
+    />
     <div className="flex h-screen overflow-hidden bg-background text-foreground">
       {/* ── Sidebar ─────────────────────────────────────── */}
       <aside className="scrollbar-dark hidden w-56 shrink-0 flex-col overflow-y-auto border-r border-border md:flex print:hidden">
