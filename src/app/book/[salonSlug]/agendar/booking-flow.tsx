@@ -610,14 +610,18 @@ function BoardingPass({
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-5 py-10">
-      <div className="mb-6 grid h-16 w-16 place-items-center rounded-full bg-primary text-primary-foreground shadow-[0_0_40px_-8px_hsl(var(--primary))]">
-        <Check className="h-8 w-8" strokeWidth={2.5} />
+      <div className="animate-pop mb-6 grid h-16 w-16 place-items-center rounded-full bg-primary text-primary-foreground shadow-[0_0_40px_-8px_hsl(var(--primary))]">
+        <Check className="check-draw h-8 w-8" strokeWidth={2.5} />
       </div>
-      <h1 className="font-display text-2xl">Reserva confirmada</h1>
-      <p className="mt-1 text-sm text-muted-foreground">Te esperamos lá 👇</p>
+      <h1 className="animate-rise font-display text-2xl [animation-delay:150ms]">
+        Reserva confirmada
+      </h1>
+      <p className="animate-rise mt-1 text-sm text-muted-foreground [animation-delay:220ms]">
+        Te esperamos lá 👇
+      </p>
 
       {/* Cartão */}
-      <div className="relative mt-8 w-full max-w-sm overflow-hidden rounded-3xl border border-border bg-card">
+      <div className="animate-slide-up relative mt-8 w-full max-w-sm overflow-hidden rounded-3xl border border-border bg-card [animation-delay:280ms]">
         <div className="space-y-4 p-6">
           <div className="flex items-center justify-between">
             <p className="text-xs uppercase tracking-widest text-muted-foreground">
@@ -672,7 +676,7 @@ function BoardingPass({
         </div>
       </div>
 
-      <div className="mt-8 flex w-full max-w-sm flex-col gap-2">
+      <div className="animate-rise mt-8 flex w-full max-w-sm flex-col gap-2 [animation-delay:450ms]">
         <button
           onClick={downloadIcs}
           className="flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-3.5 text-sm font-semibold text-primary-foreground"

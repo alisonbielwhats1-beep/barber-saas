@@ -1,8 +1,12 @@
+import Link from "next/link";
 import { getTenantContext } from "@/lib/tenant";
 import { getDashboardMetrics, RANGE_LABELS, type RangeKey } from "@/lib/dashboard";
+import { prisma } from "@/lib/prisma";
 import { formatMoney, formatDuration } from "@/lib/utils";
-import { format } from "date-fns";
+import { format, startOfDay, endOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { PageHeader } from "@/components/page-header";
+import { CountUp } from "@/components/count-up";
 import {
   TrendingUp,
   TrendingDown,
@@ -10,22 +14,23 @@ import {
   PiggyBank,
   Gauge,
   Receipt,
-  CalendarClock,
   CalendarX,
   UserX,
   Users,
   UserPlus,
   Repeat,
-  Timer,
-  Package,
   PackageX,
-  Coins,
   HandCoins,
   Scissors,
   Trophy,
   User,
   UserRound,
   Sparkles,
+  CheckCircle2,
+  Circle,
+  ArrowRight,
+  CalendarClock,
+  AlertTriangle,
 } from "lucide-react";
 import { RangeFilter } from "./range-filter";
 import { RevenueChart } from "./revenue-chart";
@@ -46,14 +51,51 @@ export default async function DashboardPage({
     ? (searchParams.range as RangeKey)
     : "30d";
 
-  const m = await getDashboardMetrics(salonId, range);
+  const now = new Date();
+  const [m, todayAppts, setupCounts] = await Promise.all([
+    getDashboardMetrics(salonId, range),
+    prisma.appointment.findMany({
+      where: {
+        salonId,
+        startAt: { gte: startOfDay(now), lte: endOfDay(now) },
+        endAt: { gte: now },
+        status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
+      },
+      orderBy: { startAt: "asc" },
+      take: 5,
+      select: {
+        id: true,
+        startAt: true,
+        status: true,
+        client: { select: { name: true } },
+        service: { select: { name: true, colorHex: true } },
+        professional: { select: { user: { select: { name: true } } } },
+      },
+    }),
+    Promise.all([
+      prisma.service.count({ where: { salonId, active: true } }),
+      prisma.professional.count({ where: { salonId, active: true } }),
+      prisma.workingHours.count({ where: { professional: { salonId } } }),
+      prisma.appointment.count({ where: { salonId } }),
+    ]),
+  ]);
   const genderTotal = m.gender.male.revenue + m.gender.female.revenue;
+
+  const [svcCount, proCount, whCount, apptCount] = setupCounts;
+  const steps = [
+    { done: svcCount > 0, label: "Criar seus serviços", href: "/servicos" },
+    { done: proCount > 0, label: "Cadastrar profissionais", href: "/profissionais" },
+    { done: whCount > 0, label: "Definir horários de trabalho", href: "/profissionais" },
+    { done: apptCount > 0, label: "Receber o primeiro agendamento", href: "/compartilhar" },
+  ];
+  const setupDone = steps.every((s) => s.done);
 
   return (
     <div className="space-y-6">
       {/* ── Header ─────────────────────────────────────────── */}
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
+      <PageHeader
+        title="Visão geral"
+        meta={
           <div className="mb-1 flex items-center gap-2">
             <span className="flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
               <Sparkles className="h-3 w-3" />
@@ -64,18 +106,134 @@ export default async function DashboardPage({
               {format(m.period.to, "d MMM yyyy", { locale: ptBR })}
             </span>
           </div>
-          <h1 className="text-[26px] font-semibold tracking-tight">Visão geral</h1>
-        </div>
+        }
+      >
         <RangeFilter current={range} />
-      </header>
+      </PageHeader>
+
+      {/* ── Checklist de onboarding — some quando completo ─── */}
+      {!setupDone && (
+        <section className="rounded-2xl border border-primary/25 bg-primary/5 p-5">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-[15px] font-semibold">Deixe seu salão pronto para agendar</h2>
+              <p className="mt-0.5 text-[12px] text-muted-foreground">
+                {steps.filter((s) => s.done).length} de {steps.length} passos concluídos
+              </p>
+            </div>
+            <div className="hidden h-1.5 w-32 overflow-hidden rounded-full bg-muted sm:block">
+              <div
+                className="h-full rounded-full bg-primary transition-all"
+                style={{ width: `${(steps.filter((s) => s.done).length / steps.length) * 100}%` }}
+              />
+            </div>
+          </div>
+          <div className="stagger mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            {steps.map((s) =>
+              s.done ? (
+                <div
+                  key={s.label}
+                  className="flex items-center gap-2.5 rounded-xl border border-border bg-card px-3.5 py-3 text-[13px] text-muted-foreground"
+                >
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
+                  {s.label}
+                </div>
+              ) : (
+                <Link
+                  key={s.label}
+                  href={s.href}
+                  className="group flex items-center gap-2.5 rounded-xl border border-border bg-card px-3.5 py-3 text-[13px] font-medium transition-colors hover:border-primary/40"
+                >
+                  <Circle className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <span className="flex-1">{s.label}</span>
+                  <ArrowRight className="h-3.5 w-3.5 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+                </Link>
+              ),
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* ── Hoje: o que está acontecendo agora ─────────────── */}
+      <section className="grid gap-4 lg:grid-cols-3">
+        <Panel className="lg:col-span-2">
+          <div className="flex items-center justify-between">
+            <PanelTitle icon={CalendarClock}>Próximos atendimentos de hoje</PanelTitle>
+            <Link href="/agenda" className="text-[12px] font-medium text-primary hover:underline">
+              Ver agenda
+            </Link>
+          </div>
+          {todayAppts.length === 0 ? (
+            <div className="py-8 text-center">
+              <p className="text-[13px] text-muted-foreground">
+                Nenhum atendimento restante hoje.
+              </p>
+              <Link
+                href="/agenda"
+                className="mt-2 inline-block text-[13px] font-medium text-primary hover:underline"
+              >
+                Criar agendamento →
+              </Link>
+            </div>
+          ) : (
+            <div className="stagger mt-3 space-y-1">
+              {todayAppts.map((a) => (
+                <div
+                  key={a.id}
+                  className="flex items-center gap-3 rounded-xl px-2 py-2.5 transition-colors hover:bg-card-hover"
+                >
+                  <span className="w-12 shrink-0 text-[14px] font-semibold tabular-nums">
+                    {format(a.startAt, "HH:mm")}
+                  </span>
+                  <span
+                    className="h-8 w-1 shrink-0 rounded-full"
+                    style={{ background: a.service.colorHex ?? "hsl(var(--primary))" }}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13px] font-medium">{a.client.name}</p>
+                    <p className="truncate text-[12px] text-muted-foreground">
+                      {a.service.name} · {a.professional.user.name}
+                    </p>
+                  </div>
+                  {a.status === "IN_PROGRESS" && (
+                    <span className="shrink-0 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                      Na cadeira
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </Panel>
+
+        <Panel>
+          <PanelTitle icon={Wallet}>Hoje em números</PanelTitle>
+          <div className="mt-4 space-y-3">
+            <TodayRow label="Receita de hoje" value={formatMoney(m.revenueToday)} strong />
+            <TodayRow label="Agendados hoje" value={m.apptsToday.toString()} />
+            <TodayRow label="Agendados amanhã" value={m.apptsTomorrow.toString()} />
+          </div>
+          {m.products.outOfStock > 0 && (
+            <Link
+              href="/produtos"
+              className="mt-4 flex items-center gap-2 rounded-xl border border-warning/30 bg-warning/10 px-3 py-2.5 text-[12px] font-medium text-warning transition-colors hover:border-warning/50"
+            >
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              {m.products.outOfStock}{" "}
+              {m.products.outOfStock === 1 ? "produto em falta" : "produtos em falta"}
+              <ArrowRight className="ml-auto h-3.5 w-3.5" />
+            </Link>
+          )}
+        </Panel>
+      </section>
 
       {/* ── Hero KPIs ──────────────────────────────────────── */}
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="stagger grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <HeroKpi
           accent="primary"
           icon={Wallet}
           label="Faturamento"
-          value={formatMoney(m.revenue.value)}
+          value={<CountUp value={m.revenue.value} format="money" />}
           change={m.revenue.change}
           hint={`${m.appointments.value} atendimentos`}
         />
@@ -83,40 +241,34 @@ export default async function DashboardPage({
           accent="info"
           icon={PiggyBank}
           label="Lucro (pós-comissão)"
-          value={formatMoney(m.profit.value)}
+          value={<CountUp value={m.profit.value} format="money" />}
           hint={`Margem ${(m.profit.margin * 100).toFixed(0)}%`}
         />
         <HeroKpi
           accent="marketing"
           icon={Gauge}
           label="Taxa de ocupação"
-          value={`${Math.round(m.occupancy.rate * 100)}%`}
+          value={<CountUp value={Math.round(m.occupancy.rate * 100)} format="percent" />}
           hint={`${Math.round(m.occupancy.idleMinutes / 60)}h ociosas`}
         />
         <HeroKpi
           accent="warning"
           icon={Receipt}
           label="Ticket médio"
-          value={formatMoney(m.avgTicket.value)}
+          value={<CountUp value={m.avgTicket.value} format="money" />}
           change={m.avgTicket.change}
           hint={`Atendimento ~${formatDuration(m.avgDuration || 0)}`}
         />
       </section>
 
-      {/* ── Stat tiles ─────────────────────────────────────── */}
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
-        <StatTile accent="info" icon={Coins} label="Receita hoje" value={formatMoney(m.revenueToday)} />
-        <StatTile accent="marketing" icon={TrendingUp} label="Receita prevista" value={formatMoney(m.forecast)} hint="Próximos 30 dias" />
-        <StatTile accent="primary" icon={HandCoins} label="Comissão paga" value={formatMoney(m.commissionPaid)} />
-        <StatTile accent="warning" icon={HandCoins} label="Comissão pendente" value={formatMoney(m.commissionPending)} />
-        <StatTile accent="info" icon={CalendarClock} label="Agendados hoje" value={m.apptsToday.toString()} />
-        <StatTile accent="info" icon={CalendarClock} label="Agendados amanhã" value={m.apptsTomorrow.toString()} />
-        <StatTile accent="danger" icon={CalendarX} label="Cancelamentos" value={m.cancellations.toString()} />
-        <StatTile accent="danger" icon={UserX} label="No-show" value={m.noShow.toString()} />
-        <StatTile accent="muted" icon={Timer} label="Tempo médio" value={formatDuration(m.avgDuration || 0)} />
-        <StatTile accent="primary" icon={Package} label="Produtos vendidos" value={m.products.sold.toString()} />
-        <StatTile accent="warning" icon={PackageX} label="Produtos em falta" value={m.products.outOfStock.toString()} />
-        <StatTile accent="info" icon={Users} label="Clientes ativos" value={m.clients.active.toString()} />
+      {/* ── Stat tiles — só o que pede atenção no período ──── */}
+      <section className="stagger grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+        <StatTile icon={TrendingUp} label="Receita prevista" value={formatMoney(m.forecast)} hint="Próximos 30 dias" />
+        <StatTile icon={HandCoins} label="Comissão pendente" value={formatMoney(m.commissionPending)} />
+        <StatTile icon={CalendarX} label="Cancelamentos" value={m.cancellations.toString()} />
+        <StatTile icon={UserX} label="No-show" value={m.noShow.toString()} />
+        <StatTile icon={PackageX} label="Produtos em falta" value={m.products.outOfStock.toString()} />
+        <StatTile icon={Users} label="Clientes ativos" value={m.clients.active.toString()} />
       </section>
 
       {/* ── Charts ─────────────────────────────────────────── */}
@@ -164,12 +316,12 @@ export default async function DashboardPage({
       </section>
 
       {/* ── Clientes ───────────────────────────────────────── */}
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <MiniStat icon={Users} accent="info" label="Base total" value={m.clients.total.toString()} />
-        <MiniStat icon={UserPlus} accent="primary" label="Novos no período" value={m.clients.new.toString()} />
-        <MiniStat icon={Repeat} accent="marketing" label="Recorrentes" value={m.clients.returning.toString()} />
-        <MiniStat icon={UserX} accent="danger" label="Sumidos (60d+)" value={m.clients.lost.toString()} />
-        <MiniStat icon={TrendingUp} accent="primary" label="Retenção" value={`${Math.round(m.clients.retentionRate * 100)}%`} />
+      <section className="stagger grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <MiniStat icon={Users} label="Base total" value={m.clients.total.toString()} />
+        <MiniStat icon={UserPlus} label="Novos no período" value={m.clients.new.toString()} />
+        <MiniStat icon={Repeat} label="Recorrentes" value={m.clients.returning.toString()} />
+        <MiniStat icon={UserX} label="Sumidos (60d+)" value={m.clients.lost.toString()} />
+        <MiniStat icon={TrendingUp} label="Retenção" value={`${Math.round(m.clients.retentionRate * 100)}%`} />
       </section>
 
       {/* ── Rankings ───────────────────────────────────────── */}
@@ -271,12 +423,12 @@ function HeroKpi({
   accent: Accent;
   icon: IconType;
   label: string;
-  value: string;
+  value: React.ReactNode;
   change?: number | null;
   hint?: string;
 }) {
   return (
-    <div className="card-interactive animate-rise rounded-2xl border border-border bg-card p-5">
+    <div className="card-interactive rounded-2xl border border-border bg-card p-5">
       <div className="flex items-center justify-between">
         <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
           {label}
@@ -295,13 +447,11 @@ function HeroKpi({
 }
 
 function StatTile({
-  accent,
   icon: Icon,
   label,
   value,
   hint,
 }: {
-  accent: Accent;
   icon: IconType;
   label: string;
   value: string;
@@ -309,7 +459,7 @@ function StatTile({
 }) {
   return (
     <div className="card-interactive rounded-xl border border-border bg-card p-4">
-      <span className={`grid h-8 w-8 place-items-center rounded-lg bg-muted text-muted-foreground`}>
+      <span className="grid h-8 w-8 place-items-center rounded-lg bg-muted text-muted-foreground">
         <Icon className="h-4 w-4" />
       </span>
       <p className="mt-3 text-xl font-semibold tracking-tight">{value}</p>
@@ -319,20 +469,29 @@ function StatTile({
   );
 }
 
+function TodayRow({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <div className="flex items-center justify-between rounded-xl bg-surface-1 px-3.5 py-2.5">
+      <span className="text-[12px] text-muted-foreground">{label}</span>
+      <span className={strong ? "text-[15px] font-semibold text-primary" : "text-[14px] font-semibold"}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
 function MiniStat({
-  accent,
   icon: Icon,
   label,
   value,
 }: {
-  accent: Accent;
   icon: IconType;
   label: string;
   value: string;
 }) {
   return (
     <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
-      <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground`}>
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
         <Icon className="h-4 w-4" />
       </span>
       <div className="min-w-0">

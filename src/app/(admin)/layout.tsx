@@ -7,6 +7,7 @@ import { SidebarNav } from "./sidebar-nav";
 import { CommandPalette } from "./command-palette";
 import { Toaster } from "@/components/ui/toast";
 import { ThemeProvider } from "./theme-provider";
+import { MobileNav } from "./mobile-nav";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const { userId, salonId } = await getTenantContext();
@@ -64,9 +65,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
       {/* ── Main content ─────────────────────────────────── */}
       <main className="scrollbar-dark flex-1 overflow-y-auto">
-        <div className="animate-fade-in p-6 md:p-8">{children}</div>
+        <div className="mx-auto max-w-[1400px] p-6 pb-24 md:p-8 md:pb-8">{children}</div>
       </main>
 
+      <MobileNav />
       <CommandPalette />
       <Toaster />
     </div>

@@ -29,9 +29,10 @@ import { cn } from "@/lib/utils";
  * A lista vive no client porque ícones do lucide são funções e RSC não
  * serializa função como prop de Server → Client Component.
  */
-type Item = { href: string; label: string; icon: LucideIcon; soon?: boolean };
+export type NavItem = { href: string; label: string; icon: LucideIcon; soon?: boolean };
+type Item = NavItem;
 
-const GROUPS: { title: string; items: Item[] }[] = [
+export const GROUPS: { title: string; items: Item[] }[] = [
   {
     title: "Principal",
     items: [

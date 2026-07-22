@@ -3,6 +3,7 @@ import { getTenantContext } from "@/lib/tenant";
 import { getClientList } from "@/lib/crm";
 import { formatMoney } from "@/lib/utils";
 import { Users, Crown, Cake, Clock } from "lucide-react";
+import { PageHeader } from "@/components/page-header";
 import { ClientForm } from "./client-form";
 import { ClientsCrm } from "./clients-crm";
 
@@ -20,15 +21,11 @@ export default async function ClientesPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="mb-1 text-[11px] font-medium uppercase tracking-widest text-muted-foreground">CRM</p>
-          <h1 className="text-[26px] font-semibold tracking-tight">Clientes</h1>
-        </div>
+      <PageHeader kicker="CRM" title="Clientes">
         <ClientForm />
-      </header>
+      </PageHeader>
 
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <section className="stagger grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi icon={Users} accent="#3B9EFF" label="Base de clientes" value={clients.length.toString()} hint={`${formatMoney(totalLtv)} em LTV`} />
         <Kpi icon={Crown} accent="#F4C430" label="Clientes VIP" value={vip.toString()} />
         <Kpi icon={Cake} accent="#EC4899" label="Aniversariantes do mês" value={birthday.toString()} />
