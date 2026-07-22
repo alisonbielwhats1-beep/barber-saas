@@ -85,6 +85,18 @@ export function imageForService(name: string): string {
   return imageForCategory(name);
 }
 
+/**
+ * Banner landscape (1200×500) para admin — extrai o ID da URL quadrada
+ * e reemite com dimensões que evitam distorção no banner h-44 w-full.
+ * crop=entropy = foca na área visualmente mais rica.
+ */
+export function bannerForCategory(category: string): string {
+  const square = imageForCategory(category);
+  const match = square.match(/unsplash\.com\/(photo-[^?]+)/);
+  if (!match) return square;
+  return `https://images.unsplash.com/${match[1]}?w=1200&h=500&auto=format&fit=crop&crop=entropy&q=88`;
+}
+
 // Produtos (grooming, hair care) — usados como placeholder de vitrine
 export const PRODUCT_IMAGES = [
   w("photo-1631730486572-226d1f595b68", 600), // pomade jar

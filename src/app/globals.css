@@ -51,43 +51,47 @@
 
   /* ─── Admin: Light theme (toggled via ThemeProvider) ───────────────────── */
   [data-theme="admin-light"] {
-    --background: 220 16% 96%;        /* #F4F5F8 — soft off-white */
-    --surface-1: 0 0% 100%;
-    --foreground: 222 22% 13%;        /* #181C26 */
+    --background: 220 18% 92%;        /* #E5E8F1 — blue-tinted light gray */
+    --surface-1: 0 0% 100%;           /* white panels */
+    --foreground: 240 12% 8%;         /* #111116 — near-black, max contrast */
 
-    --card: 0 0% 100%;
-    --card-foreground: 222 22% 13%;
-    --card-hover: 220 16% 93%;
+    --card: 0 0% 100%;                /* white cards pop on gray bg */
+    --card-foreground: 240 12% 8%;
+    --card-hover: 220 18% 97%;
     --elevated: 0 0% 100%;
 
-    --muted: 220 14% 91%;
-    --muted-foreground: 220 9% 46%;
+    --muted: 220 16% 88%;             /* #D7DBE9 subtle gray area */
+    --muted-foreground: 240 8% 38%;   /* #585864 — dark enough for WCAG AA */
 
-    --border: 220 13% 86%;
-    --border-strong: 220 13% 75%;
-    --input: 220 16% 93%;
-    --ring: 152 55% 38%;
+    --border: 220 14% 82%;            /* #C7CCDB — clearly visible */
+    --border-strong: 220 14% 68%;
+    --input: 0 0% 98%;
+    --ring: 152 55% 36%;
 
-    /* Primary — slightly deeper green for contrast on white */
-    --primary: 152 55% 38%;
+    /* Primary — deeper green for contrast on white */
+    --primary: 152 55% 36%;           /* #2AA373 */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 14% 91%;
-    --secondary-foreground: 222 22% 13%;
+    --secondary: 220 18% 92%;
+    --secondary-foreground: 240 12% 8%;
 
-    --accent: 152 55% 38%;
+    --accent: 152 55% 36%;
     --accent-foreground: 0 0% 100%;
 
-    --success: 152 55% 36%;
-    --info: 213 85% 48%;
-    --warning: 35 88% 46%;
-    --danger: 0 70% 50%;
-    --marketing: 267 76% 55%;
+    /* Semantic — slightly deeper for light bg legibility */
+    --success: 152 55% 34%;
+    --info: 213 85% 44%;
+    --warning: 35 90% 42%;
+    --danger: 0 68% 46%;
+    --marketing: 267 72% 50%;
 
-    --destructive: 0 70% 50%;
+    --destructive: 0 68% 46%;
     --destructive-foreground: 0 0% 100%;
 
     --radius: 0.9rem;
+
+    /* Force text color so elements without explicit class still read correctly */
+    color: hsl(var(--foreground));
   }
 
   /* ─── Client Booking: Dark Trimly + Verde Neon ──────────────────────────── */

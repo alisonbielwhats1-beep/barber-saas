@@ -247,13 +247,15 @@ export default async function DashboardPage({
 
 type Accent = "primary" | "info" | "warning" | "danger" | "marketing" | "muted";
 
-const ACCENT: Record<Accent, { chip: string; glow: string }> = {
-  primary: { chip: "bg-primary/10 text-primary", glow: "hsl(var(--primary))" },
-  info: { chip: "bg-info/10 text-info", glow: "hsl(var(--info))" },
-  warning: { chip: "bg-warning/10 text-warning", glow: "hsl(var(--warning))" },
-  danger: { chip: "bg-danger/10 text-danger", glow: "hsl(var(--danger))" },
-  marketing: { chip: "bg-marketing/10 text-marketing", glow: "hsl(var(--marketing))" },
-  muted: { chip: "bg-muted text-muted-foreground", glow: "hsl(var(--muted-foreground))" },
+/* Only the primary (revenue) KPI gets the brand color chip.
+   All others use neutral so the dashboard feels calm, not noisy. */
+const ACCENT: Record<Accent, { chip: string }> = {
+  primary:   { chip: "bg-primary/10 text-primary" },
+  info:      { chip: "bg-muted text-muted-foreground" },
+  warning:   { chip: "bg-muted text-muted-foreground" },
+  danger:    { chip: "bg-muted text-muted-foreground" },
+  marketing: { chip: "bg-muted text-muted-foreground" },
+  muted:     { chip: "bg-muted text-muted-foreground" },
 };
 
 type IconType = React.ComponentType<{ className?: string }>;
@@ -274,11 +276,7 @@ function HeroKpi({
   hint?: string;
 }) {
   return (
-    <div className="card-interactive animate-rise glass relative overflow-hidden rounded-2xl p-5">
-      <div
-        className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full opacity-20 blur-2xl"
-        style={{ background: ACCENT[accent].glow }}
-      />
+    <div className="card-interactive animate-rise rounded-2xl border border-border bg-card p-5">
       <div className="flex items-center justify-between">
         <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
           {label}
@@ -311,7 +309,7 @@ function StatTile({
 }) {
   return (
     <div className="card-interactive rounded-xl border border-border bg-card p-4">
-      <span className={`grid h-8 w-8 place-items-center rounded-lg ${ACCENT[accent].chip}`}>
+      <span className={`grid h-8 w-8 place-items-center rounded-lg bg-muted text-muted-foreground`}>
         <Icon className="h-4 w-4" />
       </span>
       <p className="mt-3 text-xl font-semibold tracking-tight">{value}</p>
@@ -334,7 +332,7 @@ function MiniStat({
 }) {
   return (
     <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
-      <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${ACCENT[accent].chip}`}>
+      <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground`}>
         <Icon className="h-4 w-4" />
       </span>
       <div className="min-w-0">

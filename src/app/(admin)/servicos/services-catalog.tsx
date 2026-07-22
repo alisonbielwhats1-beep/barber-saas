@@ -24,7 +24,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { formatMoney, formatDuration } from "@/lib/utils";
-import { imageForCategory } from "@/lib/images";
+import { bannerForCategory } from "@/lib/images";
 import { ServiceForm } from "./service-form";
 import { toggleServiceActive, deleteService, duplicateService } from "./actions";
 
@@ -187,26 +187,24 @@ function CategoryGroupGrid({ cat, items }: { cat: string; items: ServiceCard[] }
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card">
-      {/* Banner full-width — UMA imagem por categoria */}
-      <div className="relative h-28 w-full overflow-hidden sm:h-32">
+      {/* Banner landscape — altura generosa para a imagem respirar */}
+      <div className="relative h-48 w-full overflow-hidden sm:h-56">
         <Image
-          src={imageForCategory(cat)}
+          src={bannerForCategory(cat)}
           alt={cat}
           fill
-          sizes="(max-width: 768px) 100vw, 800px"
-          className="object-cover"
+          sizes="(max-width: 768px) 100vw, 900px"
+          className="object-cover object-center"
           priority={false}
         />
-        {/* Gradiente para legibilidade do texto */}
-        <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/40 to-transparent" />
-        <div className="absolute inset-0 flex items-center px-5">
-          <div>
-            <p className="text-[15px] font-semibold text-white drop-shadow">{cat}</p>
-            <p className="mt-0.5 text-[12px] text-white/70">
-              {items.length} {items.length === 1 ? "serviço" : "serviços"}
-              {totalSold > 0 && ` · ${totalSold} vendas · ${formatMoney(totalRevenue)}`}
-            </p>
-          </div>
+        {/* Gradiente vertical — escurece a base onde fica o texto */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 px-5 pb-4">
+          <p className="text-[17px] font-semibold text-white drop-shadow">{cat}</p>
+          <p className="mt-0.5 text-[12px] text-white/70">
+            {items.length} {items.length === 1 ? "serviço" : "serviços"}
+            {totalSold > 0 && ` · ${totalSold} vendas · ${formatMoney(totalRevenue)}`}
+          </p>
         </div>
       </div>
 
