@@ -11,10 +11,13 @@ export default async function CompartilharPage() {
     select: { name: true, slug: true, plan: true, phone: true },
   });
 
-  // Detecta a URL real (funciona em localhost e produção)
+  // Usa NEXTAUTH_URL como URL canônica (evita URLs de preview da Vercel).
+  // Localmente: http://localhost:3001 — produção: https://salon-saas-ruby.vercel.app
+  const nextAuthUrl = process.env.NEXTAUTH_URL?.replace(/\/$/, "");
   const host = headers().get("host") ?? "salon-saas-ruby.vercel.app";
   const protocol = host.includes("localhost") ? "http" : "https";
-  const bookingUrl = `${protocol}://${host}/book/${salon.slug}`;
+  const baseUrl = nextAuthUrl ?? `${protocol}://${host}`;
+  const bookingUrl = `${baseUrl}/book/${salon.slug}`;
 
   return <SharePage salon={salon} bookingUrl={bookingUrl} />;
 }

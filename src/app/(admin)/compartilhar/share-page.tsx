@@ -144,21 +144,44 @@ export function SharePage({ salon, bookingUrl }: { salon: Salon; bookingUrl: str
             </div>
           </div>
 
-          {/* QR gerado via api.qrserver.com — sem dependência npm */}
-          <div className="mt-5 overflow-hidden rounded-2xl border border-border bg-white p-4 shadow-sm">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={qrDisplay}
-              alt={`QR Code — ${salon.name}`}
-              width={220}
-              height={220}
-              className="block"
-            />
-          </div>
+          {/* Card premium do QR — fundo escuro, QR em caixa branca */}
+          <div className="mt-5 w-full overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-b from-[#1a1400] to-[#0f0f0f]">
+            {/* Faixa âmbar superior */}
+            <div className="flex items-center justify-center gap-2 border-b border-primary/10 py-3">
+              <span className="h-px w-6 bg-primary/40" />
+              <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary/70">
+                Agendamento online
+              </span>
+              <span className="h-px w-6 bg-primary/40" />
+            </div>
 
-          <p className="mt-3 text-center text-[11px] text-muted-foreground">
-            Aponte a câmera do celular para agendar
-          </p>
+            {/* QR em caixa branca — preto-no-branco para máxima legibilidade */}
+            <div className="flex justify-center py-6">
+              <div className="relative rounded-2xl bg-white p-4 shadow-[0_0_40px_rgba(245,158,11,0.15)]">
+                {/* Cantos âmbar decorativos */}
+                <span className="absolute -left-px -top-px h-5 w-5 rounded-tl-2xl border-l-2 border-t-2 border-primary" />
+                <span className="absolute -right-px -top-px h-5 w-5 rounded-tr-2xl border-r-2 border-t-2 border-primary" />
+                <span className="absolute -bottom-px -left-px h-5 w-5 rounded-bl-2xl border-b-2 border-l-2 border-primary" />
+                <span className="absolute -bottom-px -right-px h-5 w-5 rounded-br-2xl border-b-2 border-r-2 border-primary" />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={qrDisplay}
+                  alt={`QR Code — ${salon.name}`}
+                  width={200}
+                  height={200}
+                  className="block"
+                />
+              </div>
+            </div>
+
+            {/* Nome do salão + instrução */}
+            <div className="border-t border-primary/10 py-3 text-center">
+              <p className="text-[13px] font-semibold text-white/90">{salon.name}</p>
+              <p className="mt-0.5 text-[10px] text-white/40">
+                Aponte a câmera do celular para agendar
+              </p>
+            </div>
+          </div>
 
           <button
             onClick={downloadQr}
