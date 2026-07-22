@@ -4,7 +4,18 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { addMinutes } from "date-fns";
 import { prisma } from "@/lib/prisma";
+import { isOverlapViolation } from "@/lib/db-errors";
 import { assertRole, getTenantContext } from "@/lib/tenant";
+
+/** Executa a mutação traduzindo violação da exclusion constraint. */
+async function guardOverlap<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (e) {
+    if (isOverlapViolation(e)) throw new Error("Horário já ocupado");
+    throw e;
+  }
+}
 
 const createInput = z.object({
   professionalId: z.string(),
@@ -81,19 +92,21 @@ export async function createAppointmentManually(
     if (!owned) throw new Error("Cliente inválido");
   }
 
-  await prisma.appointment.create({
-    data: {
-      salonId: ctx.salonId,
-      clientId,
-      serviceId: data.serviceId,
-      professionalId: data.professionalId,
-      startAt,
-      endAt,
-      priceCents: service.priceCents,
-      status: "CONFIRMED",
-      notes: data.notes ?? null,
-    },
-  });
+  await guardOverlap(() =>
+    prisma.appointment.create({
+      data: {
+        salonId: ctx.salonId,
+        clientId,
+        serviceId: data.serviceId,
+        professionalId: data.professionalId,
+        startAt,
+        endAt,
+        priceCents: service.priceCents,
+        status: "CONFIRMED",
+        notes: data.notes ?? null,
+      },
+    }),
+  );
 
   revalidatePath("/agenda");
   revalidatePath("/dashboard");
@@ -164,7 +177,9 @@ export async function resizeAppointment(input: z.infer<typeof resizeInput>) {
   });
   if (conflict) throw new Error("Conflito com outro agendamento");
 
-  await prisma.appointment.update({ where: { id: data.id }, data: { endAt } });
+  await guardOverlap(() =>
+    prisma.appointment.update({ where: { id: data.id }, data: { endAt } }),
+  );
   revalidatePath("/agenda");
 }
 
@@ -204,18 +219,24 @@ export async function duplicateAppointment(id: string) {
       select: { id: true },
     });
     if (conflict) continue;
-    await prisma.appointment.create({
-      data: {
-        salonId: ctx.salonId,
-        clientId: appt.clientId,
-        serviceId: appt.serviceId,
-        professionalId: appt.professionalId,
-        startAt,
-        endAt,
-        priceCents: appt.priceCents,
-        status: "PENDING",
-      },
-    });
+    try {
+      await prisma.appointment.create({
+        data: {
+          salonId: ctx.salonId,
+          clientId: appt.clientId,
+          serviceId: appt.serviceId,
+          professionalId: appt.professionalId,
+          startAt,
+          endAt,
+          priceCents: appt.priceCents,
+          status: "PENDING",
+        },
+      });
+    } catch (e) {
+      // Slot ocupado na corrida — tenta o próximo dia
+      if (isOverlapViolation(e)) continue;
+      throw e;
+    }
     revalidatePath("/agenda");
     revalidatePath("/dashboard");
     return;
@@ -260,10 +281,12 @@ export async function editAppointment(input: z.infer<typeof editInput>) {
   });
   if (conflict) throw new Error("Horário já ocupado nesse momento");
 
-  await prisma.appointment.update({
-    where: { id: data.id },
-    data: { startAt, endAt, notes: data.notes ?? null },
-  });
+  await guardOverlap(() =>
+    prisma.appointment.update({
+      where: { id: data.id },
+      data: { startAt, endAt, notes: data.notes ?? null },
+    }),
+  );
 
   revalidatePath("/agenda");
   revalidatePath("/dashboard");
@@ -316,10 +339,12 @@ export async function moveAppointment(input: z.infer<typeof moveInput>) {
   });
   if (conflict) throw new Error("Horário já ocupado");
 
-  await prisma.appointment.update({
-    where: { id: data.id },
-    data: { professionalId: data.professionalId, startAt, endAt },
-  });
+  await guardOverlap(() =>
+    prisma.appointment.update({
+      where: { id: data.id },
+      data: { professionalId: data.professionalId, startAt, endAt },
+    }),
+  );
 
   revalidatePath("/agenda");
   revalidatePath("/dashboard");

@@ -4,7 +4,13 @@ import { useState, useTransition } from "react";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { loginClient } from "../auth-actions";
 
-export function LoginForm({ salonSlug }: { salonSlug: string }) {
+export function LoginForm({
+  salonSlug,
+  returnTo,
+}: {
+  salonSlug: string;
+  returnTo?: string | null;
+}) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
@@ -15,7 +21,7 @@ export function LoginForm({ salonSlug }: { salonSlug: string }) {
     e.preventDefault();
     setError(null);
     startTransition(async () => {
-      const result = await loginClient(salonSlug, email, password);
+      const result = await loginClient(salonSlug, email, password, returnTo);
       if (result?.error) setError(result.error);
     });
   }

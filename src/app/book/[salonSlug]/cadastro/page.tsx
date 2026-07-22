@@ -5,11 +5,18 @@ import { CadastroForm } from "./cadastro-form";
 
 export default async function CadastroPage({
   params,
+  searchParams,
 }: {
   params: { salonSlug: string };
+  searchParams: { returnTo?: string };
 }) {
+  const returnTo =
+    searchParams.returnTo?.startsWith(`/book/${params.salonSlug}/`)
+      ? searchParams.returnTo
+      : null;
+
   const session = await getClientSession();
-  if (session) redirect(`/book/${params.salonSlug}/minhas`);
+  if (session) redirect(returnTo ?? `/book/${params.salonSlug}/minhas`);
 
   return (
     <main className="flex min-h-[100dvh] flex-col items-center justify-center px-5 py-10">
@@ -24,12 +31,12 @@ export default async function CadastroPage({
           </p>
         </div>
 
-        <CadastroForm salonSlug={params.salonSlug} />
+        <CadastroForm salonSlug={params.salonSlug} returnTo={returnTo} />
 
         <p className="text-center text-sm text-muted-foreground">
           Já tem conta?{" "}
           <Link
-            href={`/book/${params.salonSlug}/login`}
+            href={`/book/${params.salonSlug}/login${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ""}`}
             className="font-medium text-primary hover:underline"
           >
             Entrar

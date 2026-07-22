@@ -3,12 +3,20 @@
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { normalizePhone } from "@/lib/phone";
 import { setClientSession, clearClientSession } from "@/lib/client-auth";
+
+/** Só aceita caminhos internos do próprio salão — evita open redirect. */
+function safeReturnTo(salonSlug: string, returnTo?: string | null): string {
+  if (returnTo && returnTo.startsWith(`/book/${salonSlug}/`)) return returnTo;
+  return `/book/${salonSlug}/minhas`;
+}
 
 export async function loginClient(
   salonSlug: string,
   email: string,
   password: string,
+  returnTo?: string | null,
 ): Promise<{ error: string }> {
   const salon = await prisma.salon.findUnique({
     where: { slug: salonSlug },
@@ -33,12 +41,13 @@ export async function loginClient(
     email: client.email!,
   });
 
-  redirect(`/book/${salonSlug}/minhas`);
+  redirect(safeReturnTo(salonSlug, returnTo));
 }
 
 export async function registerClient(
   salonSlug: string,
   data: { name: string; phone: string; email: string; password: string },
+  returnTo?: string | null,
 ): Promise<{ error: string }> {
   const salon = await prisma.salon.findUnique({
     where: { slug: salonSlug },
@@ -60,7 +69,7 @@ export async function registerClient(
     data: {
       salonId: salon.id,
       name: data.name.trim(),
-      phone: data.phone.trim() || null,
+      phone: normalizePhone(data.phone) || null,
       email,
       passwordHash,
     },
@@ -74,7 +83,7 @@ export async function registerClient(
     email,
   });
 
-  redirect(`/book/${salonSlug}/minhas`);
+  redirect(safeReturnTo(salonSlug, returnTo));
 }
 
 export async function logoutClient(salonSlug: string): Promise<void> {

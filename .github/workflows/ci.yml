@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      # Dummies: o build não conecta no banco (páginas são dinâmicas),
+      # mas o Prisma e o client-auth exigem que as vars existam.
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?pgbouncer=true
+      DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
+      NEXTAUTH_SECRET: ci-only-secret-not-used-in-prod
+      NEXTAUTH_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx tsc --noEmit
+      - run: npx vitest run
+      - run: npx next build

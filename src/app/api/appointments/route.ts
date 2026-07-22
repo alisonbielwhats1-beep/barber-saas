@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { isOverlapViolation } from "@/lib/db-errors";
 import { addMinutes } from "date-fns";
 
 const cartItemSchema = z.object({
@@ -125,7 +126,9 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const appt = await prisma.$transaction(async (tx) => {
+  let appt;
+  try {
+    appt = await prisma.$transaction(async (tx) => {
     const created = await tx.appointment.create({
       data: {
         salonId: b.salonId,
@@ -158,6 +161,15 @@ export async function POST(req: NextRequest) {
     }
     return created;
   });
+  } catch (e) {
+    // Exclusion constraint (appointment_no_overlap): outra reserva venceu a
+    // corrida entre a checagem de conflito e o INSERT. Mesma resposta de slot
+    // ocupado — o client recarrega a grade.
+    if (isOverlapViolation(e)) {
+      return NextResponse.json({ error: "SLOT_TAKEN" }, { status: 409 });
+    }
+    throw e;
+  }
 
   return NextResponse.json({ appointment: appt }, { status: 201 });
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useParams } from "next/navigation";
@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { formatMoney, formatDuration } from "@/lib/utils";
 import { useCart } from "@/lib/cart";
+import { formatPhoneBR, isValidPhoneBR, normalizePhone } from "@/lib/phone";
+import { friendlyError } from "@/lib/booking-errors";
 import type { ClientSession } from "@/lib/client-auth";
 import {
   addMonths,
@@ -60,24 +62,6 @@ type Booked = {
   proName: string;
 };
 
-/** Códigos de erro da API → mensagens amigáveis. Nunca mostrar código cru. */
-const ERROR_PT: Record<string, string> = {
-  SLOT_TAKEN: "Esse horário acabou de ser reservado 😕 Os horários foram atualizados — escolha outro.",
-  SERVICE_INVALID: "Este serviço não está mais disponível.",
-  PRO_SERVICE_MISMATCH: "Esse profissional não realiza este serviço.",
-  CLIENT_INVALID: "Sua sessão expirou — entre novamente para confirmar.",
-  GUEST_DATA_REQUIRED: "Preencha seu nome e WhatsApp para confirmar.",
-};
-
-function friendlyError(raw: unknown): string {
-  const code = typeof raw === "string" ? raw : "";
-  if (ERROR_PT[code]) return ERROR_PT[code];
-  // Mensagens já em PT (ex.: "Estoque insuficiente: Pomada") passam direto;
-  // códigos desconhecidos ou payloads estranhos viram mensagem genérica.
-  if (code && !/^[A-Z_]+$/.test(code)) return code;
-  return "Não foi possível concluir. Tente novamente em instantes.";
-}
-
 export function BookingFlow({
   salonId,
   salonName,
@@ -115,6 +99,57 @@ export function BookingFlow({
 
   const service = services.find((s) => s.id === serviceId) ?? null;
 
+  // Slot a restaurar depois que a grade de horários carregar (fluxo returnTo)
+  const pendingSlotRef = useRef<string | null>(null);
+
+  // Restaura a seleção salva antes de ir para login/cadastro — o cliente
+  // volta exatamente onde parou (profissional, dia e horário escolhidos).
+  useEffect(() => {
+    try {
+      const key = `booking-state:${salonSlug}`;
+      const raw = sessionStorage.getItem(key);
+      if (!raw) return;
+      sessionStorage.removeItem(key);
+      const s = JSON.parse(raw) as {
+        serviceId?: string;
+        proId?: string;
+        date?: string;
+        slot?: string;
+        savedAt?: number;
+      };
+      if (!s.savedAt || Date.now() - s.savedAt > 30 * 60_000) return;
+      if (s.serviceId) setServiceId(s.serviceId);
+      if (s.proId) setProId(s.proId);
+      if (s.date) {
+        const d = startOfDay(new Date(s.date));
+        setDate(d);
+        setViewMonth(startOfMonth(d));
+      }
+      if (s.slot) pendingSlotRef.current = s.slot;
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** Congela a seleção atual antes de sair para login/cadastro. */
+  function saveBookingState() {
+    try {
+      sessionStorage.setItem(
+        `booking-state:${salonSlug}`,
+        JSON.stringify({
+          serviceId: service?.id,
+          proId,
+          date: date.toISOString(),
+          slot,
+          savedAt: Date.now(),
+        }),
+      );
+    } catch {}
+  }
+
+  const returnToParam = service
+    ? `?returnTo=${encodeURIComponent(`/book/${salonSlug}/agendar?service=${service.id}`)}`
+    : "";
+
   // Disponibilidade real: working hours + time-offs + agendamentos existentes
   useEffect(() => {
     if (!service || !proId) {
@@ -134,8 +169,14 @@ export function BookingFlow({
     fetch(`/api/availability?${params}`, { signal: controller.signal })
       .then((r) => r.json())
       .then((b) => {
-        setSlots(Array.isArray(b.slots) ? b.slots : []);
+        const list: string[] = Array.isArray(b.slots) ? b.slots : [];
+        setSlots(list);
         setPopularSlot(typeof b.popularSlot === "string" ? b.popularSlot : null);
+        // Fluxo returnTo: re-seleciona o horário salvo se ainda estiver livre
+        if (pendingSlotRef.current && list.includes(pendingSlotRef.current)) {
+          setSlot(pendingSlotRef.current);
+        }
+        pendingSlotRef.current = null;
       })
       .catch((e) => {
         if (e.name !== "AbortError") setSlots([]);
@@ -154,7 +195,7 @@ export function BookingFlow({
     if (!service || !proId || !slot) return;
     if (clientSession) {
       submit();
-    } else if (authStep === "guest-form" && name && phone) {
+    } else if (authStep === "guest-form" && name && isValidPhoneBR(phone)) {
       submit();
     } else if (authStep === "guest-form") {
       // form visible but not filled
@@ -181,7 +222,7 @@ export function BookingFlow({
         startAt: startAt.toISOString(),
         ...(clientSession
           ? { clientId: clientSession.clientId }
-          : { clientName: name, clientPhone: phone }),
+          : { clientName: name, clientPhone: normalizePhone(phone) }),
         cartItems: cart.items.map((i) => ({
           productId: i.productId,
           quantity: i.quantity,
@@ -191,7 +232,7 @@ export function BookingFlow({
     setLoading(false);
     if (res.ok) {
       if (!clientSession && phone) {
-        localStorage.setItem(`salon-phone:${salonSlug}`, phone);
+        localStorage.setItem(`salon-phone:${salonSlug}`, normalizePhone(phone));
       }
       const pro = service.professionals.find((p) => p.id === proId);
       cart.clear();
@@ -486,14 +527,16 @@ export function BookingFlow({
             <>
               <p className="text-sm font-semibold">Como deseja continuar?</p>
               <Link
-                href={`/book/${salonSlug}/login`}
+                href={`/book/${salonSlug}/login${returnToParam}`}
+                onClick={saveBookingState}
                 className="flex items-center justify-center gap-2 rounded-full bg-primary py-3 text-sm font-semibold text-primary-foreground"
               >
                 <LogIn className="h-4 w-4" />
                 Entrar na minha conta
               </Link>
               <Link
-                href={`/book/${salonSlug}/cadastro`}
+                href={`/book/${salonSlug}/cadastro${returnToParam}`}
+                onClick={saveBookingState}
                 className="flex items-center justify-center gap-2 rounded-full border border-border py-3 text-sm font-medium"
               >
                 <UserPlus className="h-4 w-4" />
@@ -517,11 +560,18 @@ export function BookingFlow({
                 className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none"
               />
               <input
+                type="tel"
+                inputMode="tel"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="WhatsApp"
+                onChange={(e) => setPhone(formatPhoneBR(e.target.value))}
+                placeholder="WhatsApp — (11) 91234-5678"
                 className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none"
               />
+              {phone && !isValidPhoneBR(phone) && (
+                <p className="text-xs text-muted-foreground">
+                  Digite o DDD + número completo.
+                </p>
+              )}
               <p className="text-xs text-muted-foreground">
                 <button
                   onClick={() => setAuthStep("prompt")}
@@ -558,7 +608,7 @@ export function BookingFlow({
         disabled={
           !proId ||
           !slot ||
-          (authStep === "guest-form" && (!name || !phone)) ||
+          (authStep === "guest-form" && (!name || !isValidPhoneBR(phone))) ||
           loading
         }
         className="mb-6 w-full rounded-full bg-primary py-4 text-base font-semibold text-primary-foreground shadow-lg transition disabled:opacity-40"

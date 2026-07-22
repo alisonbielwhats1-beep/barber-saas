@@ -19,5 +19,12 @@ export const config = {
     "/profissionais/:path*",
     "/clientes/:path*",
     "/configuracoes/:path*",
+    "/financeiro/:path*",
+    "/pacotes/:path*",
+    "/relatorios/:path*",
+    "/marketing/:path*",
+    "/compartilhar/:path*",
+    "/pagamentos/:path*",
+    "/onboarding/:path*",
   ],
 };

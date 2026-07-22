@@ -2,9 +2,16 @@
 
 import { useState, useTransition } from "react";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { formatPhoneBR, isValidPhoneBR } from "@/lib/phone";
 import { registerClient } from "../auth-actions";
 
-export function CadastroForm({ salonSlug }: { salonSlug: string }) {
+export function CadastroForm({
+  salonSlug,
+  returnTo,
+}: {
+  salonSlug: string;
+  returnTo?: string | null;
+}) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -19,9 +26,13 @@ export function CadastroForm({ salonSlug }: { salonSlug: string }) {
       setError("A senha deve ter pelo menos 6 caracteres");
       return;
     }
+    if (phone && !isValidPhoneBR(phone)) {
+      setError("WhatsApp inválido — use DDD + número, ex.: (11) 91234-5678");
+      return;
+    }
     setError(null);
     startTransition(async () => {
-      const result = await registerClient(salonSlug, { name, phone, email, password });
+      const result = await registerClient(salonSlug, { name, phone, email, password }, returnTo);
       if (result?.error) setError(result.error);
     });
   }
@@ -50,8 +61,9 @@ export function CadastroForm({ salonSlug }: { salonSlug: string }) {
         </label>
         <input
           type="tel"
+          inputMode="tel"
           value={phone}
-          onChange={(e) => setPhone(e.target.value)}
+          onChange={(e) => setPhone(formatPhoneBR(e.target.value))}
           autoComplete="tel"
           placeholder="(11) 91234-5678"
           className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none"
