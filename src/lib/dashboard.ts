@@ -72,22 +72,11 @@ export async function getDashboardMetrics(salonId: string, range: RangeKey) {
   const prev = previousWindow(from, to);
   const lostThreshold = subDays(now, 60);
 
-  const [
-    completed,
-    prevCompleted,
-    statusGroups,
-    upcoming,
-    proPerf,
-    topServices,
-    occupancy,
-    clientsByGender,
-    newClientsByGender,
-    clientAgg,
-    professionals,
-    productsSoldAgg,
-    outOfStock,
-    totalClients,
-  ] = await Promise.all([
+  // O dashboard costumava iniciar mais de vinte queries ao mesmo tempo.
+  // Em serverless, isso pode esgotar o pool do Prisma/Supavisor antes que as
+  // primeiras queries devolvam a conexão. As ondas abaixo mantêm no máximo
+  // quatro operações concorrentes sem alterar os indicadores calculados.
+  const [completed, prevCompleted, statusGroups, upcoming] = await Promise.all([
     // 1. Atendimentos concluídos no período (motor de receita, ticket, gênero)
     prisma.appointment.findMany({
       where: { salonId, status: "COMPLETED", startAt: { gte: from, lte: to } },
@@ -121,9 +110,16 @@ export async function getDashboardMetrics(salonId: string, range: RangeKey) {
       },
       select: { startAt: true, priceCents: true, professionalId: true },
     }),
+  ]);
+
+  const [proPerf, topServices] = await Promise.all([
     getProfessionalPerformance(salonId, from, to),
     getTopServices(salonId, from, to, 5),
-    getOccupancyRate(salonId, from, to),
+  ]);
+  const occupancy = await getOccupancyRate(salonId, from, to);
+
+  const [clientsByGender, newClientsByGender, clientAgg, totalClients] =
+    await Promise.all([
     // Clientes por gênero (base total)
     prisma.clientProfile.groupBy({
       by: ["gender"],
@@ -143,6 +139,10 @@ export async function getDashboardMetrics(salonId: string, range: RangeKey) {
       _count: { _all: true },
       _max: { startAt: true },
     }),
+    prisma.clientProfile.count({ where: { salonId } }),
+  ]);
+
+  const [professionals, productsSoldAgg, outOfStock] = await Promise.all([
     prisma.professional.findMany({
       where: { salonId },
       select: { id: true, commissionPct: true },
@@ -153,7 +153,6 @@ export async function getDashboardMetrics(salonId: string, range: RangeKey) {
       _sum: { quantity: true },
     }),
     prisma.product.count({ where: { salonId, active: true, stock: { lte: 0 } } }),
-    prisma.clientProfile.count({ where: { salonId } }),
   ]);
 
   // ── Receita / ticket / duração ────────────────────────────────
