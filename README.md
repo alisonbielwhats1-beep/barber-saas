@@ -80,6 +80,9 @@ O procedimento de homologação, ordem de deploy e rollback está em
 `docs/fase-1-rollout.md`. O bucket público `salon-assets` deve existir antes do
 deploy e é exclusivo para imagens públicas de serviços, produtos e portfólio.
 
+O ponto exato de retomada entre chats e computadores está registrado em
+`docs/STATUS_ATUAL.md`.
+
 Ao adicionar via CLI, use redirecionamento de arquivo — pipe do PowerShell
 pode gravar valor corrompido:
 
