@@ -19,18 +19,39 @@ import {
 import { ProfessionalForm } from "./professional-form";
 import { WorkingHoursForm } from "./working-hours-form";
 import { ToggleActiveButton } from "./toggle-active-button";
+import { PendingInvites } from "./pending-invites";
 
 const MEDAL = ["#F4C430", "#C0C0C0", "#CD7F32"]; // ouro, prata, bronze
 
 export default async function ProfissionaisPage() {
   const { salonId } = await getTenantContext();
 
-  const [perf, services] = await Promise.all([
+  const [perf, services, pendingInvites] = await Promise.all([
     getTeamPerformance(salonId),
     prisma.service.findMany({
       where: { salonId, active: true },
       select: { id: true, name: true, colorHex: true },
       orderBy: { name: "asc" },
+    }),
+    prisma.userInvite.findMany({
+      where: {
+        salonId,
+        role: "PROFESSIONAL",
+        usedAt: null,
+        createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1_000) },
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        createdAt: true,
+        sentAt: true,
+        expiresAt: true,
+        revokedAt: true,
+        deliveryStatus: true,
+      },
+      orderBy: { createdAt: "desc" },
     }),
   ]);
 
@@ -55,6 +76,16 @@ export default async function ProfissionaisPage() {
         <Overview icon={CalendarCheck} accent="#A855F7" label="Atendimentos" value={perf.team.appointments.toString()} />
         <Overview icon={Receipt} accent="#F59E0B" label="Ticket médio" value={formatMoney(perf.team.avgTicket)} />
       </section>
+
+      <PendingInvites
+        invites={pendingInvites.map((invite) => ({
+          ...invite,
+          createdAt: invite.createdAt.toISOString(),
+          sentAt: invite.sentAt?.toISOString() ?? null,
+          expiresAt: invite.expiresAt.toISOString(),
+          revokedAt: invite.revokedAt?.toISOString() ?? null,
+        }))}
+      />
 
       {perf.pros.length === 0 ? (
         <div className="rounded-2xl border border-border bg-card p-12 text-center text-[13px] text-muted-foreground">

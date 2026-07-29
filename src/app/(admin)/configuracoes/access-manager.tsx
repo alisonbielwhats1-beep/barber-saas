@@ -12,8 +12,14 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { UserPlus, Trash2, Loader2, Copy, Check } from "lucide-react";
-import { inviteMember, changeMemberRole, removeMember } from "./actions";
+import { UserPlus, Trash2, Loader2, RotateCw, XCircle } from "lucide-react";
+import {
+  inviteMember,
+  changeMemberRole,
+  removeMember,
+  resendTeamInvite,
+  cancelTeamInvite,
+} from "./actions";
 
 export type Member = {
   userId: string;
@@ -21,6 +27,17 @@ export type Member = {
   email: string;
   role: string;
   isSelf: boolean;
+};
+
+export type PendingTeamInvite = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  deliveryStatus: "SENDING" | "SENT" | "FAILED";
+  sentAt: string | null;
+  expiresAt: string;
+  revokedAt: string | null;
 };
 
 const ROLE_LABEL: Record<string, string> = {
@@ -36,14 +53,23 @@ const ROLE_COLOR: Record<string, string> = {
   RECEPTIONIST: "#F59E0B",
 };
 
-export function AccessManager({ members, canManage }: { members: Member[]; canManage: boolean }) {
+export function AccessManager({
+  members,
+  canManage,
+  pendingInvites,
+}: {
+  members: Member[];
+  canManage: boolean;
+  pendingInvites: PendingTeamInvite[];
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [invitePath, setInvitePath] = useState<string | null>(null);
-  const [verificationRequired, setVerificationRequired] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [inviteResult, setInviteResult] = useState<{
+    email: string;
+    status: "SENT" | "FAILED";
+  } | null>(null);
 
   function run(fn: () => Promise<void>) {
     setError(null);
@@ -65,19 +91,15 @@ export function AccessManager({ members, canManage }: { members: Member[]; canMa
     startTransition(async () => {
       try {
         const result = await inviteMember(payload);
-        setInvitePath(result.invitePath);
-        setVerificationRequired(result.requiresEmailVerification);
+        setInviteResult({
+          email: result.recipientEmail,
+          status: result.deliveryStatus,
+        });
+        router.refresh();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Erro ao convidar");
       }
     });
-  }
-
-  async function copyInvite() {
-    if (!invitePath) return;
-    await navigator.clipboard.writeText(`${window.location.origin}${invitePath}`);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 2_000);
   }
 
   return (
@@ -91,9 +113,7 @@ export function AccessManager({ members, canManage }: { members: Member[]; canMa
           <button
             onClick={() => {
               setError(null);
-              setInvitePath(null);
-              setVerificationRequired(false);
-              setCopied(false);
+              setInviteResult(null);
               setOpen(true);
             }}
             className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-[12px] font-semibold text-primary-foreground transition hover:opacity-90"
@@ -147,31 +167,93 @@ export function AccessManager({ members, canManage }: { members: Member[]; canMa
         ))}
       </div>
 
+      {pendingInvites.length > 0 && (
+        <div className="border-t border-border p-5">
+          <p className="text-[12px] font-semibold">Convites pendentes</p>
+          <div className="mt-2 space-y-2">
+            {pendingInvites.map((invite) => {
+              const expired = new Date(invite.expiresAt).getTime() <= Date.now();
+              const cancelled = Boolean(invite.revokedAt);
+              const status = cancelled
+                ? "Cancelado"
+                : expired
+                  ? "Expirado"
+                  : invite.deliveryStatus === "FAILED"
+                    ? "Falha no envio"
+                    : invite.deliveryStatus === "SENDING"
+                      ? "Enviando"
+                      : "Pendente · enviado";
+              return (
+                <div key={invite.id} className="rounded-xl bg-surface-1 p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-[12px] font-medium">{invite.name}</p>
+                      <p className="truncate text-[10px] text-muted-foreground">{invite.email}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {ROLE_LABEL[invite.role] ?? invite.role} · {status}
+                      </p>
+                    </div>
+                    {canManage && !cancelled && (
+                      <div className="flex">
+                        <button
+                          disabled={pending}
+                          title="Reenviar convite"
+                          onClick={() =>
+                            run(async () => {
+                              const result = await resendTeamInvite(invite.id);
+                              if (result.deliveryStatus !== "SENT") {
+                                throw new Error("O provedor não confirmou o reenvio.");
+                              }
+                            })
+                          }
+                          className="grid h-8 w-8 place-items-center text-muted-foreground hover:text-foreground"
+                        >
+                          <RotateCw className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          disabled={pending || expired}
+                          title="Cancelar convite"
+                          onClick={() => {
+                            if (!window.confirm(`Cancelar o convite de ${invite.name}?`)) return;
+                            run(() => cancelTeamInvite(invite.id));
+                          }}
+                          className="grid h-8 w-8 place-items-center text-muted-foreground hover:text-danger"
+                        >
+                          <XCircle className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Convidar para a equipe</DialogTitle>
           </DialogHeader>
-          {invitePath ? (
+          {inviteResult ? (
             <div className="grid gap-4">
-              <div className="rounded-xl border border-success/25 bg-success/5 p-4">
+              <div className={`rounded-xl border p-4 ${
+                inviteResult.status === "SENT"
+                  ? "border-success/25 bg-success/5"
+                  : "border-danger/25 bg-danger/5"
+              }`}>
                 <p className="text-sm font-medium">
-                  {verificationRequired
-                    ? "Convite aguardando verificação de e-mail"
-                    : "Convite criado com segurança"}
+                  {inviteResult.status === "SENT"
+                    ? `Convite enviado para ${inviteResult.email}`
+                    : "Convite salvo, mas o envio falhou"}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {verificationRequired
-                    ? "A conta ainda não existe. Como o projeto não possui verificação de e-mail, o convite foi registrado, mas permanece bloqueado e não permite criar senha ou acesso."
-                    : "Copie o link agora e envie manualmente à pessoa. Ela precisará entrar na própria conta para aceitar."}
+                  {inviteResult.status === "SENT"
+                    ? "O acesso só será criado depois que a pessoa aceitar pelo próprio e-mail."
+                    : "Use a opção de reenvio no convite pendente depois de corrigir a configuração do provedor."}
                 </p>
               </div>
-              {!verificationRequired && (
-                <Button type="button" onClick={copyInvite} className="w-full gap-2">
-                  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                  {copied ? "Link copiado" : "Copiar link de uso único"}
-                </Button>
-              )}
               <DialogFooter>
                 <DialogClose asChild>
                   <Button type="button" variant="outline">Concluir</Button>
@@ -197,12 +279,12 @@ export function AccessManager({ members, canManage }: { members: Member[]; canMa
               </select>
             </div>
             <p className="text-[11px] text-muted-foreground">
-              O acesso só será ativado quando a pessoa abrir o link de uso único
-              e definir a própria senha. O envio do convite é manual.
+              Um e-mail de uso único será enviado. Para conta nova, a própria
+              pessoa definirá a senha; contas existentes mantêm a senha atual.
             </p>
             <DialogFooter>
               <DialogClose asChild><Button variant="outline" type="button">Cancelar</Button></DialogClose>
-              <Button type="submit" disabled={pending}>{pending ? "Convidando…" : "Convidar"}</Button>
+              <Button type="submit" disabled={pending}>{pending ? "Enviando…" : "Enviar convite"}</Button>
             </DialogFooter>
           </form>
           )}

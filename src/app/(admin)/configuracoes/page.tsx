@@ -14,7 +14,7 @@ const PLAN_LABEL: Record<string, string> = {
 export default async function ConfiguracoesPage() {
   const { salonId, userId, role } = await getTenantContext();
 
-  const [salon, memberships] = await Promise.all([
+  const [salon, memberships, pendingInvites] = await Promise.all([
     prisma.salon.findUnique({
       where: { id: salonId },
       select: {
@@ -27,6 +27,24 @@ export default async function ConfiguracoesPage() {
       where: { salonId },
       select: { role: true, user: { select: { id: true, name: true, email: true } } },
       orderBy: { role: "asc" },
+    }),
+    prisma.userInvite.findMany({
+      where: {
+        salonId,
+        usedAt: null,
+        createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1_000) },
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        deliveryStatus: true,
+        sentAt: true,
+        expiresAt: true,
+        revokedAt: true,
+      },
+      orderBy: { createdAt: "desc" },
     }),
   ]);
 
@@ -73,7 +91,16 @@ export default async function ConfiguracoesPage() {
           <SalonSettingsForm salon={salon} />
         </div>
         <div className="lg:col-span-2">
-          <AccessManager members={members} canManage={canManage} />
+          <AccessManager
+            members={members}
+            canManage={canManage}
+            pendingInvites={pendingInvites.map((invite) => ({
+              ...invite,
+              sentAt: invite.sentAt?.toISOString() ?? null,
+              expiresAt: invite.expiresAt.toISOString(),
+              revokedAt: invite.revokedAt?.toISOString() ?? null,
+            }))}
+          />
         </div>
       </div>
     </div>

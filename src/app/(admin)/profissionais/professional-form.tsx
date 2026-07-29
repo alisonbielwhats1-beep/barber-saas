@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Check, Copy, Plus } from "lucide-react";
+import { CheckCircle2, MailWarning, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -44,9 +44,10 @@ export function ProfessionalForm({ services, professional, trigger }: Props) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [invitePath, setInvitePath] = useState<string | null>(null);
-  const [verificationRequired, setVerificationRequired] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [inviteResult, setInviteResult] = useState<{
+    email: string;
+    status: "SENT" | "FAILED";
+  } | null>(null);
   const [selected, setSelected] = useState<Set<string>>(
     new Set(professional?.serviceIds ?? services.map((s) => s.id)),
   );
@@ -80,9 +81,12 @@ export function ProfessionalForm({ services, professional, trigger }: Props) {
           const result = await createProfessional({
             ...commonPayload,
             email: String(form.get("email")),
+            serviceIds: Array.from(selected),
           });
-          setInvitePath(result.invitePath);
-          setVerificationRequired(result.requiresEmailVerification);
+          setInviteResult({
+            email: result.recipientEmail,
+            status: result.deliveryStatus,
+          });
           return;
         }
         setOpen(false);
@@ -92,22 +96,13 @@ export function ProfessionalForm({ services, professional, trigger }: Props) {
     });
   }
 
-  async function copyInvite() {
-    if (!invitePath) return;
-    await navigator.clipboard.writeText(`${window.location.origin}${invitePath}`);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 2_000);
-  }
-
   return (
     <Dialog
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
         if (next) {
-          setInvitePath(null);
-          setVerificationRequired(false);
-          setCopied(false);
+          setInviteResult(null);
           setError(null);
         }
       }}
@@ -131,26 +126,29 @@ export function ProfessionalForm({ services, professional, trigger }: Props) {
           </DialogDescription>
         </DialogHeader>
 
-        {invitePath ? (
+        {inviteResult ? (
           <div className="grid gap-4">
-            <div className="rounded-xl border border-success/25 bg-success/5 p-4">
-              <p className="text-sm font-medium">
-                {verificationRequired
-                  ? "Cadastro aguardando verificação de e-mail"
-                  : "Profissional criado, acesso pendente"}
+            <div className={`rounded-xl border p-4 ${
+              inviteResult.status === "SENT"
+                ? "border-success/25 bg-success/5"
+                : "border-destructive/25 bg-destructive/5"
+            }`}>
+              <p className="flex items-center gap-2 text-sm font-medium">
+                {inviteResult.status === "SENT" ? (
+                  <CheckCircle2 className="h-4 w-4 text-success" />
+                ) : (
+                  <MailWarning className="h-4 w-4 text-destructive" />
+                )}
+                {inviteResult.status === "SENT"
+                  ? `Convite enviado para ${inviteResult.email}`
+                  : "O convite foi salvo, mas o e-mail não foi enviado"}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {verificationRequired
-                  ? "A conta ainda não existe. Nenhum User, Membership ou Professional foi criado; o convite permanece bloqueado até existir verificação real de e-mail."
-                  : "Copie o link agora. O profissional precisará entrar na própria conta para aceitar e só então será ativado."}
+                {inviteResult.status === "SENT"
+                  ? "A pessoa aparecerá como convite pendente e só será ativada depois do aceite."
+                  : "Confira a configuração do e-mail e use “Reenviar convite” no card pendente. Nenhum acesso foi ativado."}
               </p>
             </div>
-            {!verificationRequired && (
-              <Button type="button" onClick={copyInvite} className="w-full gap-2">
-                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                {copied ? "Link copiado" : "Copiar link de uso único"}
-              </Button>
-            )}
             <DialogFooter>
               <DialogClose asChild>
                 <Button type="button" variant="outline">Concluir</Button>
@@ -219,7 +217,7 @@ export function ProfessionalForm({ services, professional, trigger }: Props) {
             />
           </div>
 
-          {editing && (
+          <div>
             <div>
               <p className="mb-2 text-sm font-medium">Serviços que realiza</p>
               <div className="grid gap-1 rounded-md border p-3 sm:grid-cols-2">
@@ -248,7 +246,7 @@ export function ProfessionalForm({ services, professional, trigger }: Props) {
                 ))}
               </div>
             </div>
-          )}
+          </div>
 
           {error && (
             <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -260,7 +258,7 @@ export function ProfessionalForm({ services, professional, trigger }: Props) {
               <Button variant="outline" type="button">Cancelar</Button>
             </DialogClose>
             <Button type="submit" disabled={pending}>
-              {pending ? "Salvando…" : editing ? "Salvar" : "Criar"}
+              {pending ? "Enviando…" : editing ? "Salvar" : "Enviar convite"}
             </Button>
           </DialogFooter>
         </form>
