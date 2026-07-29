@@ -256,6 +256,7 @@ model UserInvite {
   @@index([salonId, expiresAt])
   @@index([email, usedAt])
   @@index([userId, usedAt])
+  @@index([createdById])
 }
 
 // ─── Catálogo & Equipe ──────────────────────────────────────────────────────
