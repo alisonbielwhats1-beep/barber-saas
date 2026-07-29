@@ -70,8 +70,15 @@ export async function inviteMember(input: {
     identifier: `${ctx.salonId}:${ctx.userId}:${clientIp(requestHeaders)}`,
     limit: 10,
     windowSeconds: 60 * 60,
+    failClosed: true,
   });
-  if (!limited.allowed) throw new Error("Muitos convites criados. Aguarde e tente novamente.");
+  if (!limited.allowed) {
+    throw new Error(
+      limited.source === "unavailable"
+        ? "Serviço de segurança temporariamente indisponível."
+        : "Muitos convites criados. Aguarde e tente novamente.",
+    );
+  }
 
   const invite = await createUserInvite({
     salonId: ctx.salonId,
@@ -98,8 +105,15 @@ async function limitInviteAction(namespace: string, salonId: string, userId: str
     identifier: `${salonId}:${userId}:${clientIp(requestHeaders)}`,
     limit: 20,
     windowSeconds: 60 * 60,
+    failClosed: true,
   });
-  if (!limited.allowed) throw new Error("Muitas tentativas. Aguarde e tente novamente.");
+  if (!limited.allowed) {
+    throw new Error(
+      limited.source === "unavailable"
+        ? "Serviço de segurança temporariamente indisponível."
+        : "Muitas tentativas. Aguarde e tente novamente.",
+    );
+  }
 }
 
 export async function resendTeamInvite(id: string) {

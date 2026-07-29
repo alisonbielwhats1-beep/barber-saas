@@ -29,7 +29,7 @@ ALTER TABLE "UserInvite"
   ADD COLUMN IF NOT EXISTS "pendingMonthlyGoalCents" INTEGER,
   ADD COLUMN IF NOT EXISTS "pendingServiceIds" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
 
--- O único convite legado nunca passou por um provedor real.
+-- Convites legados nunca passaram por um provedor real.
 UPDATE "UserInvite"
 SET
   "deliveryStatus" = 'FAILED',

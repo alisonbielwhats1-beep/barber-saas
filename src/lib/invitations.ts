@@ -117,13 +117,22 @@ function errorCode(error: unknown): string {
 async function markDelivery(
   inviteId: string,
   actorUserId: string,
+  tokenHash: string,
+  sendAttempt: number,
   result:
     | { ok: true; messageId: string; now: Date }
     | { ok: false; code: string; now: Date },
 ) {
-  await prisma.$transaction([
-    prisma.userInvite.update({
-      where: { id: inviteId },
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.userInvite.updateMany({
+      where: {
+        id: inviteId,
+        tokenHash,
+        sendAttempts: sendAttempt,
+        deliveryStatus: "SENDING",
+        usedAt: null,
+        revokedAt: null,
+      },
       data: result.ok
         ? {
             deliveryStatus: "SENT",
@@ -136,16 +145,21 @@ async function markDelivery(
             providerMessageId: null,
             lastErrorCode: result.code,
           },
-    }),
-    prisma.userInviteEvent.create({
+    });
+    if (updated.count !== 1) return false;
+
+    await tx.userInviteEvent.create({
       data: {
         inviteId,
         actorUserId,
         type: result.ok ? "SENT" : "SEND_FAILED",
-        details: result.ok ? undefined : { code: result.code },
+        details: result.ok
+          ? { sendAttempt }
+          : { code: result.code, sendAttempt },
       },
-    }),
-  ]);
+    });
+    return true;
+  });
 }
 
 async function deliverInvite(input: {
@@ -156,9 +170,15 @@ async function deliverInvite(input: {
   email: string;
   role: InviteRole;
   token: string;
+  tokenHash: string;
+  sendAttempt: number;
   mailer: Mailer;
   now: Date;
 }): Promise<"SENT" | "FAILED"> {
+  let result:
+    | { ok: true; messageId: string; now: Date }
+    | { ok: false; code: string; now: Date };
+
   try {
     const message = buildInviteEmail({
       salonName: input.salonName,
@@ -166,21 +186,34 @@ async function deliverInvite(input: {
       role: input.role,
       token: input.token,
     });
-    const sent = await input.mailer.send({ ...message, to: input.email });
-    await markDelivery(input.inviteId, input.actorUserId, {
+    const sent = await input.mailer.send(
+      { ...message, to: input.email },
+      {
+        idempotencyKey: `invite-${input.inviteId}-attempt-${input.sendAttempt}`,
+      },
+    );
+    result = {
       ok: true,
       messageId: sent.messageId,
       now: input.now,
-    });
-    return "SENT";
+    };
   } catch (error) {
-    await markDelivery(input.inviteId, input.actorUserId, {
+    result = {
       ok: false,
       code: errorCode(error),
       now: input.now,
-    });
-    return "FAILED";
+    };
   }
+
+  const currentAttempt = await markDelivery(
+    input.inviteId,
+    input.actorUserId,
+    input.tokenHash,
+    input.sendAttempt,
+    result,
+  );
+  if (!currentAttempt) return "FAILED";
+  return result.ok ? "SENT" : "FAILED";
 }
 
 /**
@@ -208,6 +241,7 @@ export async function createUserInvite(
 
   const email = normalizeEmail(input.email);
   const token = options?.token ?? generateInviteToken();
+  const tokenHash = hashInviteToken(token);
   const now = options?.now ?? new Date();
   const expiresAt = new Date(
     now.getTime() + INVITE_TTL_HOURS * 60 * 60 * 1_000,
@@ -256,13 +290,11 @@ export async function createUserInvite(
       if (input.role === "PROFESSIONAL") {
         const existingProfessional = await tx.professional.findUnique({
           where: { userId: user.id },
-          select: { salonId: true },
+          select: { id: true },
         });
         if (existingProfessional) {
           throw new Error(
-            existingProfessional.salonId === input.salonId
-              ? "Esta conta já possui um perfil profissional neste salão."
-              : "Esta conta já é profissional em outro estabelecimento.",
+            "Não foi possível criar o convite para o endereço informado.",
           );
         }
       }
@@ -310,7 +342,7 @@ export async function createUserInvite(
         createdById: input.createdById,
         role: input.role,
         emailVerificationRequired: !user,
-        tokenHash: hashInviteToken(token),
+        tokenHash,
         expiresAt,
         deliveryStatus: "SENDING",
         lastSendAttemptAt: now,
@@ -343,6 +375,8 @@ export async function createUserInvite(
     email,
     role: input.role,
     token,
+    tokenHash,
+    sendAttempt: 1,
     mailer: options?.mailer ?? defaultMailer,
     now,
   });
@@ -375,7 +409,20 @@ export async function resendUserInvite(
         hashtextextended(${`user-invite-id:${inviteId}`}, 0)
       )
     `;
-    const current = await tx.userInvite.findFirst({
+    const actorMembership = await tx.membership.findUnique({
+      where: {
+        userId_salonId: {
+          userId: actor.userId,
+          salonId: actor.salonId,
+        },
+      },
+      select: { role: true },
+    });
+    if (!actorMembership || !["OWNER", "MANAGER"].includes(actorMembership.role)) {
+      throw new Error("Convite não disponível para reenvio.");
+    }
+
+    let current = await tx.userInvite.findFirst({
       where: {
         id: inviteId,
         salonId: actor.salonId,
@@ -387,17 +434,55 @@ export async function resendUserInvite(
         email: true,
         name: true,
         role: true,
+        tokenHash: true,
         salon: { select: { name: true } },
       },
     });
-    if (!current || current.role === "SUPER_ADMIN") {
+    if (
+      !current ||
+      current.role === "SUPER_ADMIN" ||
+      (current.role !== "PROFESSIONAL" && actorMembership.role !== "OWNER")
+    ) {
       throw new Error("Convite não disponível para reenvio.");
     }
 
-    await tx.userInvite.update({
-      where: { id: current.id },
+    await tx.$queryRaw`
+      SELECT pg_advisory_xact_lock(
+        hashtextextended(
+          ${`user-invite:${actor.salonId}:${normalizeEmail(current.email)}`},
+          0
+        )
+      )
+    `;
+    current = await tx.userInvite.findFirst({
+      where: {
+        id: inviteId,
+        salonId: actor.salonId,
+        tokenHash: current.tokenHash,
+        usedAt: null,
+        revokedAt: null,
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        tokenHash: true,
+        salon: { select: { name: true } },
+      },
+    });
+    if (!current) throw new Error("Convite não disponível para reenvio.");
+
+    const nextTokenHash = hashInviteToken(token);
+    const rotated = await tx.userInvite.updateMany({
+      where: {
+        id: current.id,
+        tokenHash: current.tokenHash,
+        usedAt: null,
+        revokedAt: null,
+      },
       data: {
-        tokenHash: hashInviteToken(token),
+        tokenHash: nextTokenHash,
         expiresAt,
         deliveryStatus: "SENDING",
         sentAt: null,
@@ -407,6 +492,14 @@ export async function resendUserInvite(
         sendAttempts: { increment: 1 },
       },
     });
+    if (rotated.count !== 1) {
+      throw new Error("Convite não disponível para reenvio.");
+    }
+    const rotationState = await tx.userInvite.findUnique({
+      where: { tokenHash: nextTokenHash },
+      select: { tokenHash: true, sendAttempts: true },
+    });
+    if (!rotationState) throw new Error("Convite não disponível para reenvio.");
     await tx.userInviteEvent.create({
       data: {
         inviteId: current.id,
@@ -420,6 +513,8 @@ export async function resendUserInvite(
       name: current.name,
       role: current.role as InviteRole,
       salonName: current.salon.name,
+      tokenHash: rotationState.tokenHash,
+      sendAttempt: rotationState.sendAttempts,
     };
   });
 
@@ -431,6 +526,8 @@ export async function resendUserInvite(
     email: invite.email,
     role: invite.role,
     token,
+    tokenHash: invite.tokenHash,
+    sendAttempt: invite.sendAttempt,
     mailer: options?.mailer ?? defaultMailer,
     now,
   });
@@ -443,6 +540,45 @@ export async function revokeUserInvite(
   now = new Date(),
 ): Promise<void> {
   await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`
+      SELECT pg_advisory_xact_lock(
+        hashtextextended(${`user-invite-id:${inviteId}`}, 0)
+      )
+    `;
+    const actorMembership = await tx.membership.findUnique({
+      where: {
+        userId_salonId: {
+          userId: actor.userId,
+          salonId: actor.salonId,
+        },
+      },
+      select: { role: true },
+    });
+    const current = await tx.userInvite.findFirst({
+      where: {
+        id: inviteId,
+        salonId: actor.salonId,
+        usedAt: null,
+        revokedAt: null,
+      },
+      select: { email: true, role: true },
+    });
+    if (
+      !actorMembership ||
+      !current ||
+      !["OWNER", "MANAGER"].includes(actorMembership.role) ||
+      (current.role !== "PROFESSIONAL" && actorMembership.role !== "OWNER")
+    ) {
+      throw new Error("Convite não disponível para cancelamento.");
+    }
+    await tx.$queryRaw`
+      SELECT pg_advisory_xact_lock(
+        hashtextextended(
+          ${`user-invite:${actor.salonId}:${normalizeEmail(current.email)}`},
+          0
+        )
+      )
+    `;
     const revoked = await tx.userInvite.updateMany({
       where: {
         id: inviteId,
@@ -607,6 +743,7 @@ async function acceptInviteTransaction(input: {
       const claim = await tx.userInvite.updateMany({
         where: {
           id: invite.id,
+          tokenHash,
           usedAt: null,
           revokedAt: null,
           expiresAt: { gt: input.now },
@@ -691,11 +828,33 @@ export async function acceptNewUserInvite(input: {
   if (input.password.length < 10) {
     return { ok: false, reason: "INVALID" };
   }
+  const now = input.now ?? new Date();
+  const invite = await prisma.userInvite.findUnique({
+    where: { tokenHash: hashInviteToken(input.token) },
+    select: {
+      role: true,
+      userId: true,
+      emailVerificationRequired: true,
+      expiresAt: true,
+      usedAt: true,
+      revokedAt: true,
+    },
+  });
+  if (!invite || invite.role === "SUPER_ADMIN") {
+    return { ok: false, reason: "INVALID" };
+  }
+  if (invite.revokedAt) return { ok: false, reason: "REVOKED" };
+  if (invite.usedAt) return { ok: false, reason: "USED" };
+  if (invite.expiresAt <= now) return { ok: false, reason: "EXPIRED" };
+  if (!invite.emailVerificationRequired && invite.userId) {
+    return { ok: false, reason: "INVALID" };
+  }
+
   const passwordHash = await bcrypt.hash(input.password, 12);
   return acceptInviteTransaction({
     token: input.token,
     passwordHash,
-    now: input.now ?? new Date(),
+    now,
   });
 }
 
@@ -765,7 +924,12 @@ const prismaInviteRepository: InviteRepository = {
         return "CLAIMED";
       });
     } catch (error) {
-      if (isUniqueConflict(error) || error instanceof Error) return "CONFLICT";
+      if (
+        isUniqueConflict(error) ||
+        (error instanceof Error && error.message === "INVITE_USER_CONFLICT")
+      ) {
+        return "CONFLICT";
+      }
       throw error;
     }
   },

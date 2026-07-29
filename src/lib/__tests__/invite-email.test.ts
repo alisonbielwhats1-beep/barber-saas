@@ -70,4 +70,36 @@ describe("e-mail de convite", () => {
       message: "O provedor de e-mail não confirmou o envio.",
     });
   });
+
+  it("envia timeout e chave de idempotência ao Resend", async () => {
+    const fetchMock = vi.fn(async () =>
+      Response.json({ id: "message-id" }, { status: 200 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const mailer = new ResendMailer(
+      "secret-api-key",
+      "noreply@example.com",
+      2_000,
+    );
+
+    await mailer.send(
+      {
+        to: "a@example.com",
+        subject: "x",
+        html: "x",
+        text: "x",
+      },
+      { idempotencyKey: "invite-1-attempt-2" },
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.resend.com/emails",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          "Idempotency-Key": "invite-1-attempt-2",
+        }),
+        signal: expect.any(AbortSignal),
+      }),
+    );
+  });
 });

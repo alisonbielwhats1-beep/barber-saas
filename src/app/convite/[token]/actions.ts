@@ -66,13 +66,33 @@ export async function acceptInvite(input: {
   }
 
   const requestHeaders = await headers();
-  const limited = await checkRateLimit({
-    namespace: "accept-invite",
-    identifier: `${clientIp(requestHeaders)}:${parsed.data.token}`,
-    limit: 8,
-    windowSeconds: 15 * 60,
-  });
-  if (!limited.allowed) {
+  const ip = clientIp(requestHeaders);
+  const [ipLimit, tokenLimit] = await Promise.all([
+    checkRateLimit({
+      namespace: "accept-invite-ip",
+      identifier: ip,
+      limit: 20,
+      windowSeconds: 15 * 60,
+      failClosed: true,
+    }),
+    checkRateLimit({
+      namespace: "accept-invite-token",
+      identifier: parsed.data.token,
+      limit: 8,
+      windowSeconds: 15 * 60,
+      failClosed: true,
+    }),
+  ]);
+  if (!ipLimit.allowed || !tokenLimit.allowed) {
+    if (
+      ipLimit.source === "unavailable" ||
+      tokenLimit.source === "unavailable"
+    ) {
+      return {
+        ok: false,
+        error: "Serviço de segurança temporariamente indisponível. Tente novamente.",
+      };
+    }
     return {
       ok: false,
       error: "Muitas tentativas. Aguarde alguns minutos e tente novamente.",

@@ -76,6 +76,10 @@ O domínio de `EMAIL_FROM` precisa estar verificado no Resend. Nunca use uma
 variável `NEXT_PUBLIC_` para a chave. Em testes, injete um `Mailer` falso; a
 suíte automatizada não chama o Resend.
 
+O procedimento de homologação, ordem de deploy e rollback está em
+`docs/fase-1-rollout.md`. O bucket público `salon-assets` deve existir antes do
+deploy e é exclusivo para imagens públicas de serviços, produtos e portfólio.
+
 Ao adicionar via CLI, use redirecionamento de arquivo — pipe do PowerShell
 pode gravar valor corrompido:
 

@@ -41,6 +41,9 @@ function matchesInvite(row: Record<string, any>, where: Record<string, any>) {
   if (where.salonId && row.salonId !== where.salonId) return false;
   if (where.userId !== undefined && row.userId !== where.userId) return false;
   if (where.emailVerificationRequired !== undefined && row.emailVerificationRequired !== where.emailVerificationRequired) return false;
+  if (where.tokenHash !== undefined && row.tokenHash !== where.tokenHash) return false;
+  if (where.sendAttempts !== undefined && row.sendAttempts !== where.sendAttempts) return false;
+  if (where.deliveryStatus !== undefined && row.deliveryStatus !== where.deliveryStatus) return false;
   if (where.usedAt === null && row.usedAt !== null) return false;
   if (where.revokedAt === null && row.revokedAt !== null) return false;
   if (where.expiresAt?.gt && row.expiresAt <= where.expiresAt.gt) return false;
@@ -138,7 +141,14 @@ const fakePrisma: any = {
     }),
     updateMany: vi.fn(async ({ where, data }: any) => {
       const rows = state.invites.filter((row) => matchesInvite(row, where));
-      for (const row of rows) Object.assign(row, data);
+      for (const row of rows) {
+        for (const [key, value] of Object.entries(data)) {
+          row[key] =
+            typeof value === "object" && value && "increment" in value
+              ? row[key] + (value as any).increment
+              : value;
+        }
+      }
       return { count: rows.length };
     }),
     update: vi.fn(async ({ where, data }: any) => {
@@ -210,6 +220,7 @@ const failingMailer = {
 const now = new Date("2026-07-29T12:00:00.000Z");
 const tokenA = "new-account-token-value-1234567890";
 const tokenB = "rotated-account-token-value-1234567890";
+const tokenC = "latest-account-token-value-1234567890";
 
 function professionalInput(email = "new@example.com") {
   return {
@@ -290,6 +301,59 @@ describe("persistência transacional de convites", () => {
     expect(state.events.some((event) => event.type === "RESENT")).toBe(true);
   });
 
+  it("resultado de envio antigo não sobrescreve uma tentativa mais recente", async () => {
+    const created = await createUserInvite(professionalInput(), {
+      now,
+      token: tokenA,
+      mailer,
+    });
+    let releaseFirst!: (value: { messageId: string }) => void;
+    let notifyFirstStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      notifyFirstStarted = resolve;
+    });
+    const delayedMailer = {
+      send() {
+        notifyFirstStarted();
+        return new Promise<{ messageId: string }>((resolve) => {
+          releaseFirst = resolve;
+        });
+      },
+    };
+
+    const first = resendUserInvite(
+      created.inviteId,
+      { userId: "owner-a", salonId: "salon-a" },
+      {
+        now: new Date(now.getTime() + 1_000),
+        token: tokenB,
+        mailer: delayedMailer,
+      },
+    );
+    await started;
+    await resendUserInvite(
+      created.inviteId,
+      { userId: "owner-a", salonId: "salon-a" },
+      {
+        now: new Date(now.getTime() + 2_000),
+        token: tokenC,
+        mailer,
+      },
+    );
+    releaseFirst({ messageId: "stale-message" });
+    expect((await first).deliveryStatus).toBe("FAILED");
+
+    expect((await getInviteView(tokenB, null, now)).state).toBe("INVALID");
+    expect((await getInviteView(tokenC, null, now)).state).toBe("CREATE_ACCOUNT");
+    expect(state.invites[0]).toEqual(
+      expect.objectContaining({
+        deliveryStatus: "SENT",
+        providerMessageId: "message-2",
+        sendAttempts: 3,
+      }),
+    );
+  });
+
   it("cancelamento é isolado por salão e torna o token inutilizável", async () => {
     const created = await createUserInvite(professionalInput(), { now, token: tokenA, mailer });
     await expect(
@@ -315,6 +379,13 @@ describe("persistência transacional de convites", () => {
     ]);
 
     expect(results.filter((result) => result.ok)).toHaveLength(1);
+    expect(fakePrisma.userInvite.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          tokenHash: hashInviteToken(tokenA),
+        }),
+      }),
+    );
     expect(state.users).toHaveLength(2);
     expect(state.memberships.filter((row) => row.userId !== "owner-a")).toHaveLength(1);
     expect(state.professionals).toEqual([
@@ -370,5 +441,29 @@ describe("persistência transacional de convites", () => {
       createUserInvite(input, { now, token: tokenA, mailer }),
     ).rejects.toThrow("não pertencem");
     expect(state.invites).toHaveLength(0);
+  });
+
+  it("não revela se uma conta profissional pertence a outro salão", async () => {
+    state.users.push({
+      id: "other-professional",
+      email: "other@example.com",
+      name: "Outro",
+      passwordHash: "hash",
+    });
+    state.professionals.push({
+      id: "professional-other",
+      userId: "other-professional",
+      salonId: "salon-b",
+    });
+
+    await expect(
+      createUserInvite(professionalInput("other@example.com"), {
+        now,
+        token: tokenA,
+        mailer,
+      }),
+    ).rejects.toThrow(
+      "Não foi possível criar o convite para o endereço informado.",
+    );
   });
 });

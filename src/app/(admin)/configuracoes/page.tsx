@@ -28,24 +28,28 @@ export default async function ConfiguracoesPage() {
       select: { role: true, user: { select: { id: true, name: true, email: true } } },
       orderBy: { role: "asc" },
     }),
-    prisma.userInvite.findMany({
-      where: {
-        salonId,
-        usedAt: null,
-        createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1_000) },
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        deliveryStatus: true,
-        sentAt: true,
-        expiresAt: true,
-        revokedAt: true,
-      },
-      orderBy: { createdAt: "desc" },
-    }),
+    role === "OWNER"
+      ? prisma.userInvite.findMany({
+          where: {
+            salonId,
+            usedAt: null,
+            createdAt: {
+              gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1_000),
+            },
+          },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+            deliveryStatus: true,
+            sentAt: true,
+            expiresAt: true,
+            revokedAt: true,
+          },
+          orderBy: { createdAt: "desc" },
+        })
+      : Promise.resolve([]),
   ]);
 
   if (!salon) return null;

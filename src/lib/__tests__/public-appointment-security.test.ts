@@ -3,21 +3,24 @@ import { NextRequest } from "next/server";
 
 const mocks = vi.hoisted(() => {
   const appointmentCreate = vi.fn();
+  const clientCreate = vi.fn();
   const tx = {
     appointment: { create: appointmentCreate },
+    clientProfile: { create: clientCreate },
     appointmentProduct: { createMany: vi.fn() },
     product: { update: vi.fn() },
   };
   return {
     getClientSession: vi.fn(),
     appointmentCreate,
+    clientCreate,
     tx,
     prisma: {
       service: { findFirst: vi.fn() },
       professionalService: { findFirst: vi.fn() },
       appointment: { findFirst: vi.fn() },
       product: { findMany: vi.fn() },
-      clientProfile: { findFirst: vi.fn(), create: vi.fn() },
+      clientProfile: { findFirst: vi.fn(), create: clientCreate },
       $transaction: vi.fn(async (callback: (value: typeof tx) => unknown) =>
         callback(tx),
       ),

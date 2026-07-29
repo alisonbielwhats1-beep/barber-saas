@@ -26,13 +26,24 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials, request) {
         if (!credentials?.email || !credentials?.password) return null;
         const email = credentials.email.toLowerCase().trim();
-        const limited = await checkRateLimit({
-          namespace: "admin-login",
-          identifier: `${clientIp(new Headers(request.headers))}:${email}`,
-          limit: 8,
-          windowSeconds: 15 * 60,
-        });
-        if (!limited.allowed) return null;
+        const ip = clientIp(new Headers(request.headers));
+        const [ipLimit, accountLimit] = await Promise.all([
+          checkRateLimit({
+            namespace: "admin-login-ip",
+            identifier: ip,
+            limit: 30,
+            windowSeconds: 15 * 60,
+            failClosed: true,
+          }),
+          checkRateLimit({
+            namespace: "admin-login-account",
+            identifier: email,
+            limit: 8,
+            windowSeconds: 15 * 60,
+            failClosed: true,
+          }),
+        ]);
+        if (!ipLimit.allowed || !accountLimit.allowed) return null;
 
         const user = await prisma.user.findUnique({
           where: { email },

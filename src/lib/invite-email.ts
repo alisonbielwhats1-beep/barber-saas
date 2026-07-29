@@ -77,4 +77,3 @@ export function buildInviteEmail(input: {
     ].join("\n"),
   };
 }
-

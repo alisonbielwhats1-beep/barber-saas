@@ -5,6 +5,7 @@ import {
   checkRateLimit,
   clientIp,
   rateLimitHeaders,
+  rateLimitStatus,
 } from "@/lib/rate-limit";
 
 /**
@@ -19,11 +20,20 @@ export async function GET(req: NextRequest) {
     identifier: clientIp(req.headers),
     limit: 30,
     windowSeconds: 60,
+    failClosed: true,
   });
   if (!limited.allowed) {
     return NextResponse.json(
-      { error: "TOO_MANY_REQUESTS" },
-      { status: 429, headers: rateLimitHeaders(limited) },
+      {
+        error:
+          limited.source === "unavailable"
+            ? "SECURITY_SERVICE_UNAVAILABLE"
+            : "TOO_MANY_REQUESTS",
+      },
+      {
+        status: rateLimitStatus(limited),
+        headers: rateLimitHeaders(limited),
+      },
     );
   }
 

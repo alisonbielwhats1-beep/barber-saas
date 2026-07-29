@@ -9,8 +9,12 @@ export type MailResult = {
   messageId: string;
 };
 
+export type MailSendOptions = {
+  idempotencyKey: string;
+};
+
 export interface Mailer {
-  send(message: MailMessage): Promise<MailResult>;
+  send(message: MailMessage, options?: MailSendOptions): Promise<MailResult>;
 }
 
 export class MailerConfigurationError extends Error {
@@ -34,9 +38,13 @@ export class ResendMailer implements Mailer {
   constructor(
     private readonly apiKey = process.env.RESEND_API_KEY,
     private readonly from = process.env.EMAIL_FROM,
+    private readonly timeoutMs = 10_000,
   ) {}
 
-  async send(message: MailMessage): Promise<MailResult> {
+  async send(
+    message: MailMessage,
+    options?: MailSendOptions,
+  ): Promise<MailResult> {
     if (!this.apiKey || !this.from) {
       throw new MailerConfigurationError(
         "RESEND_API_KEY e EMAIL_FROM precisam estar configurados.",
@@ -48,6 +56,9 @@ export class ResendMailer implements Mailer {
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
         "Content-Type": "application/json",
+        ...(options?.idempotencyKey
+          ? { "Idempotency-Key": options.idempotencyKey }
+          : {}),
       },
       body: JSON.stringify({
         from: this.from,
@@ -57,6 +68,7 @@ export class ResendMailer implements Mailer {
         text: message.text,
       }),
       cache: "no-store",
+      signal: AbortSignal.timeout(this.timeoutMs),
     });
 
     if (!response.ok) {
@@ -72,4 +84,3 @@ export class ResendMailer implements Mailer {
 }
 
 export const defaultMailer: Mailer = new ResendMailer();
-

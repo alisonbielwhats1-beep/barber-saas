@@ -39,8 +39,12 @@ export async function signup(input: SignupInput): Promise<
     identifier: clientIp(requestHeaders),
     limit: 5,
     windowSeconds: 60 * 60,
+    failClosed: true,
   });
   if (!limited.allowed) {
+    if (limited.source === "unavailable") {
+      return { ok: false, error: "Serviço de segurança temporariamente indisponível." };
+    }
     return { ok: false, error: "Muitas tentativas. Aguarde e tente novamente." };
   }
 

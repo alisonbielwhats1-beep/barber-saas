@@ -24,7 +24,7 @@ import { PendingInvites } from "./pending-invites";
 const MEDAL = ["#F4C430", "#C0C0C0", "#CD7F32"]; // ouro, prata, bronze
 
 export default async function ProfissionaisPage() {
-  const { salonId } = await getTenantContext();
+  const { salonId, role } = await getTenantContext();
 
   const [perf, services, pendingInvites] = await Promise.all([
     getTeamPerformance(salonId),
@@ -33,26 +33,30 @@ export default async function ProfissionaisPage() {
       select: { id: true, name: true, colorHex: true },
       orderBy: { name: "asc" },
     }),
-    prisma.userInvite.findMany({
-      where: {
-        salonId,
-        role: "PROFESSIONAL",
-        usedAt: null,
-        createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1_000) },
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        createdAt: true,
-        sentAt: true,
-        expiresAt: true,
-        revokedAt: true,
-        deliveryStatus: true,
-      },
-      orderBy: { createdAt: "desc" },
-    }),
+    ["OWNER", "MANAGER"].includes(role)
+      ? prisma.userInvite.findMany({
+          where: {
+            salonId,
+            role: "PROFESSIONAL",
+            usedAt: null,
+            createdAt: {
+              gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1_000),
+            },
+          },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+            createdAt: true,
+            sentAt: true,
+            expiresAt: true,
+            revokedAt: true,
+            deliveryStatus: true,
+          },
+          orderBy: { createdAt: "desc" },
+        })
+      : Promise.resolve([]),
   ]);
 
   const monthLabel = format(perf.period.from, "MMMM yyyy", { locale: ptBR });
