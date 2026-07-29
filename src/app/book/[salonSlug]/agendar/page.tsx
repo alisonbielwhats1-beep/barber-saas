@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getClientSession } from "@/lib/client-auth";
+import { clientSessionForSalon } from "@/lib/public-appointment";
 import { BookingFlow } from "./booking-flow";
 
 export default async function AgendarPage({
@@ -43,8 +44,7 @@ export default async function AgendarPage({
   if (!salon) notFound();
 
   const clientSession = await getClientSession();
-  const validSession =
-    clientSession && clientSession.salonId === salon.id ? clientSession : null;
+  const validSession = clientSessionForSalon(clientSession, salon.id);
 
   // Contagem real de atendimentos por profissional (prova social honesta)
   const counts = await prisma.appointment.groupBy({

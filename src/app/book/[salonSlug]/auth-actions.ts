@@ -1,10 +1,12 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { normalizePhone } from "@/lib/phone";
 import { setClientSession, clearClientSession } from "@/lib/client-auth";
+import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 
 /** Só aceita caminhos internos do próprio salão — evita open redirect. */
 function safeReturnTo(salonSlug: string, returnTo?: string | null): string {
@@ -18,6 +20,17 @@ export async function loginClient(
   password: string,
   returnTo?: string | null,
 ): Promise<{ error: string }> {
+  const normalizedEmail = email.toLowerCase().trim();
+  const limited = await checkRateLimit({
+    namespace: "client-login",
+    identifier: `${clientIp(headers())}:${salonSlug}:${normalizedEmail}`,
+    limit: 8,
+    windowSeconds: 15 * 60,
+  });
+  if (!limited.allowed) {
+    return { error: "Muitas tentativas. Aguarde alguns minutos e tente novamente." };
+  }
+
   const salon = await prisma.salon.findUnique({
     where: { slug: salonSlug },
     select: { id: true },
@@ -25,7 +38,7 @@ export async function loginClient(
   if (!salon) return { error: "Salão não encontrado" };
 
   const client = await prisma.clientProfile.findFirst({
-    where: { salonId: salon.id, email: email.toLowerCase().trim() },
+    where: { salonId: salon.id, email: normalizedEmail },
     select: { id: true, name: true, email: true, passwordHash: true },
   });
 
@@ -49,6 +62,16 @@ export async function registerClient(
   data: { name: string; phone: string; email: string; password: string },
   returnTo?: string | null,
 ): Promise<{ error: string }> {
+  const limited = await checkRateLimit({
+    namespace: "client-register",
+    identifier: `${clientIp(headers())}:${salonSlug}`,
+    limit: 5,
+    windowSeconds: 60 * 60,
+  });
+  if (!limited.allowed) {
+    return { error: "Muitas tentativas. Aguarde antes de criar outra conta." };
+  }
+
   const salon = await prisma.salon.findUnique({
     where: { slug: salonSlug },
     select: { id: true },
@@ -61,7 +84,9 @@ export async function registerClient(
     where: { salonId: salon.id, email },
     select: { id: true },
   });
-  if (exists) return { error: "Este e-mail já tem conta neste salão" };
+  if (exists) {
+    return { error: "Não foi possível criar a conta com os dados informados." };
+  }
 
   const passwordHash = await bcrypt.hash(data.password, 10);
 

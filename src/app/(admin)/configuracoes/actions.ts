@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { assertRole, getTenantContext } from "@/lib/tenant";
+import { createUserInvite } from "@/lib/invitations";
 
 const salonInput = z.object({
   name: z.string().min(2, "Nome muito curto"),
@@ -43,27 +44,35 @@ export async function updateSalonSettings(input: z.infer<typeof salonInput>) {
 
 const ROLES = ["OWNER", "MANAGER", "PROFESSIONAL", "RECEPTIONIST"] as const;
 
-export async function inviteMember(input: { email: string; name: string; role: string }) {
+export async function inviteMember(input: {
+  email: string;
+  name: string;
+  role: string;
+}): Promise<{
+  invitePath: string;
+  expiresAt: string;
+  requiresEmailVerification: boolean;
+}> {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER"]);
-  const email = z.string().email().parse(input.email);
+  const email = z.string().email().parse(input.email).toLowerCase().trim();
   const name = z.string().min(2).parse(input.name);
   const role = z.enum(ROLES).parse(input.role);
 
-  let user = await prisma.user.findUnique({ where: { email }, select: { id: true } });
-  if (!user) {
-    // Cria conta placeholder; a pessoa define a senha no primeiro acesso
-    const bcrypt = (await import("bcryptjs")).default;
-    const passwordHash = await bcrypt.hash("trocar-agora", 10);
-    user = await prisma.user.create({ data: { email, name, passwordHash }, select: { id: true } });
-  }
-
-  await prisma.membership.upsert({
-    where: { userId_salonId: { userId: user.id, salonId: ctx.salonId } },
-    update: { role },
-    create: { userId: user.id, salonId: ctx.salonId, role },
+  const invite = await createUserInvite({
+    salonId: ctx.salonId,
+    createdById: ctx.userId,
+    email,
+    name,
+    role,
+    professional: role === "PROFESSIONAL" ? {} : undefined,
   });
-  revalidatePath("/configuracoes");
+
+  return {
+    invitePath: `/convite/${invite.token}`,
+    expiresAt: invite.expiresAt.toISOString(),
+    requiresEmailVerification: invite.requiresEmailVerification,
+  };
 }
 
 export async function changeMemberRole(userId: string, role: string) {

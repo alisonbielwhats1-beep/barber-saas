@@ -5,11 +5,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { sanitizeAuthCallback } from "@/lib/safe-callback";
 
 export function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
-  const callbackUrl = params.get("callbackUrl") ?? "/dashboard";
+  const callbackUrl = sanitizeAuthCallback(params.get("callbackUrl"));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

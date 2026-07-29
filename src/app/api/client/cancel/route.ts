@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getClientSession } from "@/lib/client-auth";
+import {
+  checkRateLimit,
+  clientIp,
+  rateLimitHeaders,
+} from "@/lib/rate-limit";
 
 const body = z.object({
   salonSlug: z.string(),
@@ -16,6 +21,19 @@ const body = z.object({
  * com menos antecedência do que o configurado.
  */
 export async function POST(req: NextRequest) {
+  const limited = await checkRateLimit({
+    namespace: "client-cancel",
+    identifier: clientIp(req.headers),
+    limit: 15,
+    windowSeconds: 60,
+  });
+  if (!limited.allowed) {
+    return NextResponse.json(
+      { error: "TOO_MANY_REQUESTS" },
+      { status: 429, headers: rateLimitHeaders(limited) },
+    );
+  }
+
   const parsed = body.safeParse(await req.json());
   if (!parsed.success) {
     return NextResponse.json({ error: "BAD_REQUEST" }, { status: 400 });

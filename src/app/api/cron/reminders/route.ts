@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { isCronAuthorized } from "@/lib/cron-auth";
 import { startOfDay, endOfDay, addDays } from "date-fns";
 
 /**
@@ -18,7 +19,8 @@ export async function GET(req: NextRequest) {
   const auth = req.headers.get("authorization");
   const secret = process.env.CRON_SECRET;
 
-  if (secret && auth !== `Bearer ${secret}`) {
+  // Fail closed: configuração ausente também bloqueia a rota.
+  if (!isCronAuthorized(auth, secret)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

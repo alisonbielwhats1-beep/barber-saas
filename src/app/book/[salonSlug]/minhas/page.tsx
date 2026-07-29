@@ -22,7 +22,7 @@ export default async function MinhasPage({
   }
 
   const appointments = await prisma.appointment.findMany({
-    where: { clientId: session.clientId },
+    where: { clientId: session.clientId, salonId: session.salonId },
     orderBy: { startAt: "desc" },
     take: 60,
     select: {

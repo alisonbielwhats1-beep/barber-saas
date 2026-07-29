@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import {
+  checkRateLimit,
+  clientIp,
+  rateLimitHeaders,
+} from "@/lib/rate-limit";
 import { startOfDay, endOfDay, addMinutes, isBefore } from "date-fns";
 
 /**
@@ -12,6 +17,19 @@ import { startOfDay, endOfDay, addMinutes, isBefore } from "date-fns";
  * "concorrido" com dado real, não teatro.
  */
 export async function GET(req: NextRequest) {
+  const limited = await checkRateLimit({
+    namespace: "availability",
+    identifier: clientIp(req.headers),
+    limit: 60,
+    windowSeconds: 60,
+  });
+  if (!limited.allowed) {
+    return NextResponse.json(
+      { error: "TOO_MANY_REQUESTS" },
+      { status: 429, headers: rateLimitHeaders(limited) },
+    );
+  }
+
   const url = new URL(req.url);
   const salonId = url.searchParams.get("salonId");
   const professionalId = url.searchParams.get("professionalId");
@@ -25,10 +43,17 @@ export async function GET(req: NextRequest) {
   const date = new Date(dateStr);
   const weekday = date.getDay();
 
-  const [service, workingHours, timeOffs, appointments, history] = await Promise.all([
+  const [service, professionalLink, workingHours, timeOffs, appointments, history] = await Promise.all([
     prisma.service.findFirst({
       where: { id: serviceId, salonId },
       select: { durationMin: true },
+    }),
+    prisma.professionalService.findFirst({
+      where: {
+        serviceId,
+        professional: { id: professionalId, salonId, active: true },
+      },
+      select: { serviceId: true },
     }),
     prisma.workingHours.findMany({
       where: { salonId, professionalId, weekday },
@@ -62,7 +87,9 @@ export async function GET(req: NextRequest) {
     }),
   ]);
 
-  if (!service) return NextResponse.json({ error: "service not found" }, { status: 404 });
+  if (!service || !professionalLink) {
+    return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+  }
   if (workingHours.length === 0) return NextResponse.json({ slots: [] });
 
   const step = 15; // grade de 15min
