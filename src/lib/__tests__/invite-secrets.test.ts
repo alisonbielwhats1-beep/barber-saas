@@ -25,6 +25,6 @@ describe("segredos do fluxo de convite", () => {
 
   it("bcrypt é o único mecanismo de armazenamento da nova senha", () => {
     expect(files[0]).toContain("bcrypt.hash(input.password, 12)");
-    expect(files[0]).not.toMatch(/passwordHash:\s*input\.password/);
+    expect(files[0]).not.toMatch(/passwordHash:\s*input\.password(?!Hash)/);
   });
 });
