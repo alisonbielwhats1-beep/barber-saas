@@ -251,7 +251,8 @@ export async function createUserInvite(
 
   const created = await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`
-      SELECT pg_advisory_xact_lock(
+      SELECT 1::integer AS "locked"
+      FROM pg_advisory_xact_lock(
         hashtextextended(${`user-invite:${input.salonId}:${email}`}, 0)
       )
     `;
@@ -405,7 +406,8 @@ export async function resendUserInvite(
 
   const invite = await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`
-      SELECT pg_advisory_xact_lock(
+      SELECT 1::integer AS "locked"
+      FROM pg_advisory_xact_lock(
         hashtextextended(${`user-invite-id:${inviteId}`}, 0)
       )
     `;
@@ -447,7 +449,8 @@ export async function resendUserInvite(
     }
 
     await tx.$queryRaw`
-      SELECT pg_advisory_xact_lock(
+      SELECT 1::integer AS "locked"
+      FROM pg_advisory_xact_lock(
         hashtextextended(
           ${`user-invite:${actor.salonId}:${normalizeEmail(current.email)}`},
           0
@@ -541,7 +544,8 @@ export async function revokeUserInvite(
 ): Promise<void> {
   await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`
-      SELECT pg_advisory_xact_lock(
+      SELECT 1::integer AS "locked"
+      FROM pg_advisory_xact_lock(
         hashtextextended(${`user-invite-id:${inviteId}`}, 0)
       )
     `;
@@ -572,7 +576,8 @@ export async function revokeUserInvite(
       throw new Error("Convite não disponível para cancelamento.");
     }
     await tx.$queryRaw`
-      SELECT pg_advisory_xact_lock(
+      SELECT 1::integer AS "locked"
+      FROM pg_advisory_xact_lock(
         hashtextextended(
           ${`user-invite:${actor.salonId}:${normalizeEmail(current.email)}`},
           0
