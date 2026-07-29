@@ -60,6 +60,22 @@ npx vercel --prod
 ```
 
 Variáveis de ambiente ficam no painel da Vercel (não no `.env` do repo).
+
+### Convites da equipe por e-mail
+
+O envio usa Resend por uma abstração server-side. Configure em todos os
+ambientes da Vercel que devem enviar convites:
+
+```env
+RESEND_API_KEY=re_...
+EMAIL_FROM=SalonSaaS <convites@seudominio.com>
+NEXTAUTH_URL=https://seu-dominio-de-producao.com
+```
+
+O domínio de `EMAIL_FROM` precisa estar verificado no Resend. Nunca use uma
+variável `NEXT_PUBLIC_` para a chave. Em testes, injete um `Mailer` falso; a
+suíte automatizada não chama o Resend.
+
 Ao adicionar via CLI, use redirecionamento de arquivo — pipe do PowerShell
 pode gravar valor corrompido:
 
