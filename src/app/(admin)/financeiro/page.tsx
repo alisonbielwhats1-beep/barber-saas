@@ -30,11 +30,12 @@ const VALID: RangeKey[] = ["today", "yesterday", "7d", "15d", "30d", "90d", "yea
 export default async function FinanceiroPage({
   searchParams,
 }: {
-  searchParams: { range?: string };
+  searchParams: Promise<{ range?: string }>;
 }) {
   const { salonId } = await getTenantContext();
-  const range: RangeKey = VALID.includes(searchParams.range as RangeKey)
-    ? (searchParams.range as RangeKey)
+  const { range: selectedRange } = await searchParams;
+  const range: RangeKey = VALID.includes(selectedRange as RangeKey)
+    ? (selectedRange as RangeKey)
     : "30d";
 
   const m = await getFinanceMetrics(salonId, range);

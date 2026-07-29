@@ -21,7 +21,8 @@ export async function setActiveSalon(salonId: string) {
   });
   if (!membership) throw new Error("Forbidden: not a member of this salon");
 
-  cookies().set("active_salon", salonId, {
+  const cookieStore = await cookies();
+  cookieStore.set("active_salon", salonId, {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",

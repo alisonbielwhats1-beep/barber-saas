@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Plus } from "lucide-react";
+import { Check, Copy, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -44,6 +44,9 @@ export function ProfessionalForm({ services, professional, trigger }: Props) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [invitePath, setInvitePath] = useState<string | null>(null);
+  const [verificationRequired, setVerificationRequired] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(
     new Set(professional?.serviceIds ?? services.map((s) => s.id)),
   );
@@ -74,14 +77,13 @@ export function ProfessionalForm({ services, professional, trigger }: Props) {
           await updateProfessional(professional!.id, commonPayload);
           await setProfessionalServices(professional!.id, Array.from(selected));
         } else {
-          await createProfessional({
+          const result = await createProfessional({
             ...commonPayload,
             email: String(form.get("email")),
-            password: String(form.get("password") || ""),
           });
-          // Nota: para create, o pro é criado sem services vinculados. O usuário
-          // pode editar em seguida pra escolher — evita passar id que ainda não
-          // existe pro action.
+          setInvitePath(result.invitePath);
+          setVerificationRequired(result.requiresEmailVerification);
+          return;
         }
         setOpen(false);
       } catch (err) {
@@ -90,8 +92,26 @@ export function ProfessionalForm({ services, professional, trigger }: Props) {
     });
   }
 
+  async function copyInvite() {
+    if (!invitePath) return;
+    await navigator.clipboard.writeText(`${window.location.origin}${invitePath}`);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 2_000);
+  }
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (next) {
+          setInvitePath(null);
+          setVerificationRequired(false);
+          setCopied(false);
+          setError(null);
+        }
+      }}
+    >
       <DialogTrigger asChild>
         {trigger ?? (editing ? (
           <Button variant="ghost" size="sm">Editar</Button>
@@ -111,6 +131,33 @@ export function ProfessionalForm({ services, professional, trigger }: Props) {
           </DialogDescription>
         </DialogHeader>
 
+        {invitePath ? (
+          <div className="grid gap-4">
+            <div className="rounded-xl border border-success/25 bg-success/5 p-4">
+              <p className="text-sm font-medium">
+                {verificationRequired
+                  ? "Cadastro aguardando verificação de e-mail"
+                  : "Profissional criado, acesso pendente"}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {verificationRequired
+                  ? "A conta ainda não existe. Nenhum User, Membership ou Professional foi criado; o convite permanece bloqueado até existir verificação real de e-mail."
+                  : "Copie o link agora. O profissional precisará entrar na própria conta para aceitar e só então será ativado."}
+              </p>
+            </div>
+            {!verificationRequired && (
+              <Button type="button" onClick={copyInvite} className="w-full gap-2">
+                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                {copied ? "Link copiado" : "Copiar link de uso único"}
+              </Button>
+            )}
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button type="button" variant="outline">Concluir</Button>
+              </DialogClose>
+            </DialogFooter>
+          </div>
+        ) : (
         <form onSubmit={onSubmit} className="grid gap-4">
           <div>
             <label className="mb-1 block text-sm font-medium">Nome</label>
@@ -123,15 +170,10 @@ export function ProfessionalForm({ services, professional, trigger }: Props) {
                 <label className="mb-1 block text-sm font-medium">Email</label>
                 <Input name="email" type="email" required />
               </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium">Senha inicial</label>
-                <Input
-                  name="password"
-                  type="password"
-                  minLength={6}
-                  placeholder="Deixe em branco para gerar 'trocar-agora'"
-                />
-              </div>
+              <p className="text-xs text-muted-foreground">
+                O acesso será liberado por um link de uso único. Nenhuma senha
+                temporária será criada ou exibida.
+              </p>
             </>
           )}
 
@@ -222,6 +264,7 @@ export function ProfessionalForm({ services, professional, trigger }: Props) {
             </Button>
           </DialogFooter>
         </form>
+        )}
       </DialogContent>
     </Dialog>
   );

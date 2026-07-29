@@ -2,9 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { assertRole, getTenantContext } from "@/lib/tenant";
+import { createUserInvite } from "@/lib/invitations";
 
 const professionalInput = z.object({
   name: z.string().min(2),
@@ -13,48 +13,35 @@ const professionalInput = z.object({
   colorHex: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional().nullable(),
   commissionPct: z.coerce.number().min(0).max(100).default(0),
   monthlyGoalCents: z.coerce.number().int().min(0).default(0),
-  password: z.string().min(6).optional(),
 });
 
 export type ProfessionalInput = z.infer<typeof professionalInput>;
 
 /**
  * Cria (ou vincula) um profissional ao salão atual.
- * Se o email já existe, apenas cria a Membership + Professional para este salão
- * (útil para profissional que trabalha em mais de um salão da rede).
+ * A Membership só é criada quando o convite é aceito. Para uma conta já
+ * existente, o próprio usuário precisa autenticar antes de aceitar.
  */
-export async function createProfessional(input: ProfessionalInput) {
+export async function createProfessional(
+  input: ProfessionalInput,
+): Promise<{
+  professionalId: string | null;
+  invitePath: string;
+  expiresAt: string;
+  requiresEmailVerification: boolean;
+}> {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER"]);
   const data = professionalInput.parse(input);
+  const email = data.email.toLowerCase().trim();
 
-  const existing = await prisma.user.findUnique({
-    where: { email: data.email },
-    select: { id: true },
-  });
-
-  let userId: string;
-  if (existing) {
-    userId = existing.id;
-  } else {
-    const passwordHash = await bcrypt.hash(data.password ?? "trocar-agora", 10);
-    const user = await prisma.user.create({
-      data: { email: data.email, name: data.name, passwordHash },
-      select: { id: true },
-    });
-    userId = user.id;
-  }
-
-  await prisma.membership.upsert({
-    where: { userId_salonId: { userId, salonId: ctx.salonId } },
-    update: { role: "PROFESSIONAL" },
-    create: { userId, salonId: ctx.salonId, role: "PROFESSIONAL" },
-  });
-
-  await prisma.professional.create({
-    data: {
-      salonId: ctx.salonId,
-      userId,
+  const invite = await createUserInvite({
+    salonId: ctx.salonId,
+    createdById: ctx.userId,
+    email,
+    name: data.name,
+    role: "PROFESSIONAL",
+    professional: {
       bio: data.bio ?? null,
       colorHex: data.colorHex ?? null,
       commissionPct: data.commissionPct,
@@ -63,6 +50,12 @@ export async function createProfessional(input: ProfessionalInput) {
   });
 
   revalidatePath("/profissionais");
+  return {
+    professionalId: invite.professionalId,
+    invitePath: `/convite/${invite.token}`,
+    expiresAt: invite.expiresAt.toISOString(),
+    requiresEmailVerification: invite.requiresEmailVerification,
+  };
 }
 
 const updateInput = z.object({

@@ -1,13 +1,12 @@
 /**
  * Migração Studio Martinelli
- * Cria o salão, vincula Andreson Martinelli (já existe no banco) como dono,
- * cria Tatiana Medeiros e o catálogo completo de serviços.
+ * Cria o salão, associa Andreson Martinelli e Tatiana Medeiros (ambos já
+ * existentes no banco) e cria o catálogo completo de serviços.
  *
  * Executar: npx tsx scripts/seed-martinelli.ts
  */
 
 import { PrismaClient, Role, Plan, Gender } from "@prisma/client";
-import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
@@ -21,7 +20,39 @@ async function main() {
     return;
   }
 
-  const passwordHash = await bcrypt.hash("trocar-agora", 10);
+  // Preflight de identidade: o seed associa somente contas já existentes e
+  // utilizáveis. Nenhuma identidade ou credencial é criada por este script.
+  const [ownerUser, tatianaUser] = await Promise.all([
+    prisma.user.findUnique({
+      where: { email: "andersonmartinelli@hotmail.com" },
+      include: { professional: true },
+    }),
+    prisma.user.findUnique({
+      where: { email: "tatiana@studiomartinelli.com" },
+      include: { professional: true },
+    }),
+  ]);
+
+  if (!ownerUser || !tatianaUser) {
+    console.error(
+      "Pré-requisito não atendido: os usuários configurados precisam existir previamente.",
+    );
+    throw new Error("Usuários configurados não existem previamente.");
+  }
+
+  if (!ownerUser.passwordSetAt || !tatianaUser.passwordSetAt) {
+    throw new Error(
+      "Os usuários configurados precisam possuir acesso previamente configurado.",
+    );
+  }
+
+  if (ownerUser.professional || tatianaUser.professional) {
+    throw new Error(
+      "Um usuário configurado já possui perfil Professional em outro salão.",
+    );
+  }
+
+  console.log("ℹ️  Usuários configurados encontrados; continuando.");
 
   // ── Salão ─────────────────────────────────────────────────────────────────
   const salon = await prisma.salon.create({
@@ -38,61 +69,24 @@ async function main() {
   });
   console.log(`✅ Salão criado: ${salon.name}`);
 
-  // ── Dono: Andreson Martinelli (já existe como usuário) ────────────────────
-  let ownerUser = await prisma.user.findUnique({
-    where: { email: "andersonmartinelli@hotmail.com" },
-    include: { professional: true },
-  });
-
-  if (!ownerUser) {
-    ownerUser = await prisma.user.create({
-      data: { email: "andersonmartinelli@hotmail.com", name: "Andreson Martinelli", passwordHash },
-      include: { professional: true },
-    }) as typeof ownerUser;
-    console.log("✅ Usuário Andreson criado");
-  } else {
-    console.log("ℹ️  Usuário Andreson já existe, reutilizando");
-  }
-
   // Adiciona membership de OWNER no novo salão
   await prisma.membership.upsert({
-    where: { userId_salonId: { userId: ownerUser!.id, salonId: salon.id } },
-    create: { userId: ownerUser!.id, salonId: salon.id, role: Role.OWNER },
+    where: { userId_salonId: { userId: ownerUser.id, salonId: salon.id } },
+    create: { userId: ownerUser.id, salonId: salon.id, role: Role.OWNER },
     update: { role: Role.OWNER },
   });
 
-  // Professional: move o registro existente ou cria novo
-  let proAndreson: { id: string };
-  if (ownerUser!.professional) {
-    // Limpa dados do salão anterior e move para Martinelli
-    const oldProfId = ownerUser!.professional.id;
-    await prisma.workingHours.deleteMany({ where: { professionalId: oldProfId } });
-    await prisma.professionalService.deleteMany({ where: { professionalId: oldProfId } });
-    proAndreson = await prisma.professional.update({
-      where: { id: oldProfId },
-      data: {
-        salonId: salon.id,
-        colorHex: "#1A1A2E",
-        commissionPct: 100,
-        monthlyGoalCents: 1200000,
-        bio: "Dono e cabeleireiro especialista em cortes masculinos e femininos",
-        active: true,
-      },
-    });
-    console.log("✅ Professional Andreson movido para Studio Martinelli");
-  } else {
-    proAndreson = await prisma.professional.create({
-      data: {
-        salonId: salon.id,
-        userId: ownerUser!.id,
-        colorHex: "#1A1A2E",
-        commissionPct: 100,
-        monthlyGoalCents: 1200000,
-        bio: "Dono e cabeleireiro especialista em cortes masculinos e femininos",
-      },
-    });
-    console.log("✅ Professional Andreson criado");
-  }
+  const proAndreson = await prisma.professional.create({
+    data: {
+      salonId: salon.id,
+      userId: ownerUser.id,
+      colorHex: "#1A1A2E",
+      commissionPct: 100,
+      monthlyGoalCents: 1200000,
+      bio: "Dono e cabeleireiro especialista em cortes masculinos e femininos",
+    },
+  });
+  console.log("✅ Professional Andreson criado");
 
   await prisma.workingHours.createMany({
     data: [2, 3, 4, 5, 6].map((weekday) => ({
@@ -104,45 +98,23 @@ async function main() {
     })),
   });
 
-  // ── Profissional: Tatiana Medeiros ─────────────────────────────────────────
-  let tatianaUser = await prisma.user.findUnique({ where: { email: "tatiana@studiomartinelli.com" } });
-  if (!tatianaUser) {
-    tatianaUser = await prisma.user.create({
-      data: { email: "tatiana@studiomartinelli.com", name: "Tatiana Medeiros", passwordHash },
-    });
-    console.log("✅ Usuária Tatiana criada");
-  }
-
   await prisma.membership.upsert({
     where: { userId_salonId: { userId: tatianaUser.id, salonId: salon.id } },
     create: { userId: tatianaUser.id, salonId: salon.id, role: Role.PROFESSIONAL },
     update: { role: Role.PROFESSIONAL },
   });
 
-  // Tatiana pode já ter Professional em outro salão
-  let proTatiana: { id: string };
-  const tatianaExisting = await prisma.professional.findUnique({ where: { userId: tatianaUser.id } });
-  if (tatianaExisting) {
-    await prisma.workingHours.deleteMany({ where: { professionalId: tatianaExisting.id } });
-    await prisma.professionalService.deleteMany({ where: { professionalId: tatianaExisting.id } });
-    proTatiana = await prisma.professional.update({
-      where: { id: tatianaExisting.id },
-      data: { salonId: salon.id, colorHex: "#8B1A4A", commissionPct: 50, monthlyGoalCents: 600000, bio: "Especialista em depilação, unhas, maquiagem e cuidados com a pele", active: true },
-    });
-    console.log("✅ Professional Tatiana movida para Studio Martinelli");
-  } else {
-    proTatiana = await prisma.professional.create({
-      data: {
-        salonId: salon.id,
-        userId: tatianaUser.id,
-        colorHex: "#8B1A4A",
-        commissionPct: 50,
-        monthlyGoalCents: 600000,
-        bio: "Especialista em depilação, unhas, maquiagem e cuidados com a pele",
-      },
-    });
-    console.log("✅ Professional Tatiana criada");
-  }
+  const proTatiana = await prisma.professional.create({
+    data: {
+      salonId: salon.id,
+      userId: tatianaUser.id,
+      colorHex: "#8B1A4A",
+      commissionPct: 50,
+      monthlyGoalCents: 600000,
+      bio: "Especialista em depilação, unhas, maquiagem e cuidados com a pele",
+    },
+  });
+  console.log("✅ Professional Tatiana criada");
 
   await prisma.workingHours.createMany({
     data: [2, 3, 4, 5, 6].map((weekday) => ({
@@ -314,8 +286,7 @@ async function main() {
   console.log("\n══════════════════════════════════════════════════════");
   console.log("🎉 Studio Martinelli migrado com sucesso!");
   console.log("══════════════════════════════════════════════════════");
-  console.log("   Login do dono:  andersonmartinelli@hotmail.com");
-  console.log("   Senha inicial:  trocar-agora  (alterar em Configurações)");
+  console.log("   Acesso administrativo não é exibido por este script.");
   console.log("   Booking:        /book/studio-martinelli");
   console.log("══════════════════════════════════════════════════════");
 }

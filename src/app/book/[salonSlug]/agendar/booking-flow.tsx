@@ -113,6 +113,8 @@ export function BookingFlow({
   // volta exatamente onde parou (profissional, dia e horário escolhidos).
   useEffect(() => {
     try {
+      // Remedia versões antigas que persistiam telefone de visitante.
+      localStorage.removeItem(`salon-phone:${salonSlug}`);
       const key = `booking-state:${salonSlug}`;
       const raw = sessionStorage.getItem(key);
       if (!raw) return;
@@ -227,9 +229,9 @@ export function BookingFlow({
         serviceId: service.id,
         professionalId: proId,
         startAt: startAt.toISOString(),
-        ...(clientSession
-          ? { clientId: clientSession.clientId }
-          : { clientName: name, clientPhone: normalizePhone(phone) }),
+        ...(!clientSession
+          ? { clientName: name, clientPhone: normalizePhone(phone) }
+          : {}),
         cartItems: cart.items.map((i) => ({
           productId: i.productId,
           quantity: i.quantity,
@@ -238,9 +240,6 @@ export function BookingFlow({
     });
     setLoading(false);
     if (res.ok) {
-      if (!clientSession && phone) {
-        localStorage.setItem(`salon-phone:${salonSlug}`, normalizePhone(phone));
-      }
       const pro = service.professionals.find((p) => p.id === proId);
       cart.clear();
       setBooked({

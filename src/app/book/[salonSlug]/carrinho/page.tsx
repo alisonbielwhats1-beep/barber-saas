@@ -3,16 +3,17 @@ import { ArrowLeft } from "lucide-react";
 import { BottomNav } from "../bottom-nav";
 import { CartView } from "./cart-view";
 
-export default function CarrinhoPage({
+export default async function CarrinhoPage({
   params,
 }: {
-  params: { salonSlug: string };
+  params: Promise<{ salonSlug: string }>;
 }) {
+  const { salonSlug } = await params;
   return (
     <main className="animate-fade-in space-y-6 px-5 pt-6">
       <header className="flex items-center gap-3">
         <Link
-          href={`/book/${params.salonSlug}/produtos`}
+          href={`/book/${salonSlug}/produtos`}
           className="grid h-11 w-11 place-items-center rounded-full border border-border bg-card text-foreground"
           aria-label="Voltar"
         >
@@ -21,9 +22,9 @@ export default function CarrinhoPage({
         <h1 className="flex-1 text-lg font-semibold">Seu carrinho</h1>
       </header>
 
-      <CartView salonSlug={params.salonSlug} />
+      <CartView salonSlug={salonSlug} />
 
-      <BottomNav salonSlug={params.salonSlug} />
+      <BottomNav salonSlug={salonSlug} />
     </main>
   );
 }

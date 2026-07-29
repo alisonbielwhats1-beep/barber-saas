@@ -34,7 +34,7 @@ export async function getTenantContext(): Promise<TenantContext> {
   if (!session?.user?.id) redirect("/login");
   const userId = session.user.id;
 
-  const activeSalonId = cookies().get("active_salon")?.value;
+  const activeSalonId = (await cookies()).get("active_salon")?.value;
 
   const memberships = await prisma.membership.findMany({
     where: { userId },

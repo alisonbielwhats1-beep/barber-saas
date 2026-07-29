@@ -1,27 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { isOverlapViolation } from "@/lib/db-errors";
+import { getClientSession } from "@/lib/client-auth";
+import {
+  publicAppointmentSchema,
+  resolveBookingIdentity,
+} from "@/lib/public-appointment";
+import {
+  checkRateLimit,
+  clientIp,
+  rateLimitHeaders,
+} from "@/lib/rate-limit";
 import { addMinutes } from "date-fns";
-
-const cartItemSchema = z.object({
-  productId: z.string(),
-  quantity: z.number().int().min(1).max(20),
-});
-
-const bodySchema = z.object({
-  salonId: z.string(),
-  serviceId: z.string(),
-  professionalId: z.string(),
-  startAt: z.string().datetime(),
-  // Either authenticated (clientId) or guest (clientName + clientPhone)
-  clientId: z.string().optional(),
-  clientName: z.string().min(2).optional(),
-  clientPhone: z.string().min(6).optional(),
-  clientEmail: z.string().email().optional(),
-  notes: z.string().optional(),
-  cartItems: z.array(cartItemSchema).optional().default([]),
-});
 
 /**
  * POST /api/appointments — cria agendamento público + carrinho.
@@ -33,12 +23,26 @@ const bodySchema = z.object({
  * pelo cliente. Cliente é UI — server é fonte da verdade.
  */
 export async function POST(req: NextRequest) {
-  const json = await req.json();
-  const parsed = bodySchema.safeParse(json);
+  const limited = await checkRateLimit({
+    namespace: "public-appointments",
+    identifier: clientIp(req.headers),
+    limit: 12,
+    windowSeconds: 60,
+  });
+  if (!limited.allowed) {
+    return NextResponse.json(
+      { error: "TOO_MANY_REQUESTS" },
+      { status: 429, headers: rateLimitHeaders(limited) },
+    );
+  }
+
+  const parsed = publicAppointmentSchema.safeParse(await req.json());
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+    return NextResponse.json({ error: "BAD_REQUEST" }, { status: 400 });
   }
   const b = parsed.data;
+  const session = await getClientSession();
+  const identity = resolveBookingIdentity(session, b.salonId);
 
   const [service, prosLink] = await Promise.all([
     prisma.service.findFirst({
@@ -101,28 +105,30 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  let client = null;
-  if (b.clientId) {
-    // Authenticated client — verify they belong to this salon
+  let client: { id: string } | null = null;
+  if (identity.kind === "authenticated") {
+    // O ID vem exclusivamente do cookie assinado, nunca do navegador.
     client = await prisma.clientProfile.findFirst({
-      where: { id: b.clientId, salonId: b.salonId },
+      where: { id: identity.clientId, salonId: b.salonId },
+      select: { id: true },
     });
-    if (!client) return NextResponse.json({ error: "CLIENT_INVALID" }, { status: 400 });
+    if (!client) {
+      return NextResponse.json({ error: "AUTH_REQUIRED" }, { status: 401 });
+    }
   } else {
-    // Guest flow — find or create by phone
+    // Visitante não prova posse do telefone. Por isso, o telefone é apenas
+    // contato e nunca é usado para localizar/reutilizar uma identidade
+    // existente (especialmente uma conta autenticada).
     if (!b.clientName || !b.clientPhone) {
       return NextResponse.json({ error: "GUEST_DATA_REQUIRED" }, { status: 400 });
     }
-    client = await prisma.clientProfile.findFirst({
-      where: { salonId: b.salonId, phone: b.clientPhone },
-    });
-    client ??= await prisma.clientProfile.create({
+    client = await prisma.clientProfile.create({
       data: {
         salonId: b.salonId,
         name: b.clientName,
         phone: b.clientPhone,
-        email: b.clientEmail ?? null,
       },
+      select: { id: true },
     });
   }
 

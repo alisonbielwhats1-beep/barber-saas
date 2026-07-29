@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { UserPlus, Trash2, Loader2 } from "lucide-react";
+import { UserPlus, Trash2, Loader2, Copy, Check } from "lucide-react";
 import { inviteMember, changeMemberRole, removeMember } from "./actions";
 
 export type Member = {
@@ -41,6 +41,9 @@ export function AccessManager({ members, canManage }: { members: Member[]; canMa
   const [pending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [invitePath, setInvitePath] = useState<string | null>(null);
+  const [verificationRequired, setVerificationRequired] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   function run(fn: () => Promise<void>) {
     setError(null);
@@ -61,13 +64,20 @@ export function AccessManager({ members, canManage }: { members: Member[]; canMa
     setError(null);
     startTransition(async () => {
       try {
-        await inviteMember(payload);
-        setOpen(false);
-        router.refresh();
+        const result = await inviteMember(payload);
+        setInvitePath(result.invitePath);
+        setVerificationRequired(result.requiresEmailVerification);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Erro ao convidar");
       }
     });
+  }
+
+  async function copyInvite() {
+    if (!invitePath) return;
+    await navigator.clipboard.writeText(`${window.location.origin}${invitePath}`);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 2_000);
   }
 
   return (
@@ -79,7 +89,13 @@ export function AccessManager({ members, canManage }: { members: Member[]; canMa
         </div>
         {canManage && (
           <button
-            onClick={() => { setError(null); setOpen(true); }}
+            onClick={() => {
+              setError(null);
+              setInvitePath(null);
+              setVerificationRequired(false);
+              setCopied(false);
+              setOpen(true);
+            }}
             className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-[12px] font-semibold text-primary-foreground transition hover:opacity-90"
           >
             <UserPlus className="h-3.5 w-3.5" /> Convidar
@@ -136,6 +152,33 @@ export function AccessManager({ members, canManage }: { members: Member[]; canMa
           <DialogHeader>
             <DialogTitle>Convidar para a equipe</DialogTitle>
           </DialogHeader>
+          {invitePath ? (
+            <div className="grid gap-4">
+              <div className="rounded-xl border border-success/25 bg-success/5 p-4">
+                <p className="text-sm font-medium">
+                  {verificationRequired
+                    ? "Convite aguardando verificação de e-mail"
+                    : "Convite criado com segurança"}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {verificationRequired
+                    ? "A conta ainda não existe. Como o projeto não possui verificação de e-mail, o convite foi registrado, mas permanece bloqueado e não permite criar senha ou acesso."
+                    : "Copie o link agora e envie manualmente à pessoa. Ela precisará entrar na própria conta para aceitar."}
+                </p>
+              </div>
+              {!verificationRequired && (
+                <Button type="button" onClick={copyInvite} className="w-full gap-2">
+                  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  {copied ? "Link copiado" : "Copiar link de uso único"}
+                </Button>
+              )}
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button type="button" variant="outline">Concluir</Button>
+                </DialogClose>
+              </DialogFooter>
+            </div>
+          ) : (
           <form onSubmit={onInvite} className="grid gap-4">
             <div>
               <label className="mb-1 block text-sm font-medium">Nome</label>
@@ -154,13 +197,15 @@ export function AccessManager({ members, canManage }: { members: Member[]; canMa
               </select>
             </div>
             <p className="text-[11px] text-muted-foreground">
-              Se o email ainda não tem conta, criamos uma com a senha inicial <code>trocar-agora</code>, que a pessoa altera no primeiro acesso.
+              O acesso só será ativado quando a pessoa abrir o link de uso único
+              e definir a própria senha. O envio do convite é manual.
             </p>
             <DialogFooter>
               <DialogClose asChild><Button variant="outline" type="button">Cancelar</Button></DialogClose>
               <Button type="submit" disabled={pending}>{pending ? "Convidando…" : "Convidar"}</Button>
             </DialogFooter>
           </form>
+          )}
         </DialogContent>
       </Dialog>
     </div>

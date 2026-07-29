@@ -2,8 +2,10 @@
 
 import { z } from "zod";
 import bcrypt from "bcryptjs";
+import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { uniqueSalonSlug } from "@/lib/slug";
+import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 
 const signupInput = z.object({
   ownerName: z.string().min(2, "Nome muito curto"),
@@ -30,19 +32,33 @@ export async function signup(input: SignupInput): Promise<
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
   }
   const data = parsed.data;
+  const email = data.email.toLowerCase().trim();
+  const requestHeaders = await headers();
+  const limited = await checkRateLimit({
+    namespace: "salon-signup",
+    identifier: clientIp(requestHeaders),
+    limit: 5,
+    windowSeconds: 60 * 60,
+  });
+  if (!limited.allowed) {
+    return { ok: false, error: "Muitas tentativas. Aguarde e tente novamente." };
+  }
 
   const existing = await prisma.user.findUnique({
-    where: { email: data.email },
+    where: { email },
     select: { id: true },
   });
-  if (existing) return { ok: false, error: "Este email já está cadastrado." };
+  if (existing) {
+    return { ok: false, error: "Não foi possível criar a conta com os dados informados." };
+  }
 
   const passwordHash = await bcrypt.hash(data.password, 10);
+  const passwordSetAt = new Date();
   const slug = await uniqueSalonSlug(data.salonName);
 
   await prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
-      data: { email: data.email, name: data.ownerName, passwordHash },
+      data: { email, name: data.ownerName, passwordHash, passwordSetAt },
       select: { id: true },
     });
     const salon = await tx.salon.create({

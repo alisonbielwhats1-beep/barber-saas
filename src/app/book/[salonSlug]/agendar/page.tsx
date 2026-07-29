@@ -1,17 +1,19 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getClientSession } from "@/lib/client-auth";
+import { clientSessionForSalon } from "@/lib/public-appointment";
 import { BookingFlow } from "./booking-flow";
 
 export default async function AgendarPage({
   params,
   searchParams,
 }: {
-  params: { salonSlug: string };
-  searchParams: { service?: string; pro?: string };
+  params: Promise<{ salonSlug: string }>;
+  searchParams: Promise<{ service?: string; pro?: string }>;
 }) {
+  const [{ salonSlug }, query] = await Promise.all([params, searchParams]);
   const salon = await prisma.salon.findUnique({
-    where: { slug: params.salonSlug },
+    where: { slug: salonSlug },
     select: {
       id: true,
       name: true,
@@ -43,8 +45,7 @@ export default async function AgendarPage({
   if (!salon) notFound();
 
   const clientSession = await getClientSession();
-  const validSession =
-    clientSession && clientSession.salonId === salon.id ? clientSession : null;
+  const validSession = clientSessionForSalon(clientSession, salon.id);
 
   // Contagem real de atendimentos por profissional (prova social honesta)
   const counts = await prisma.appointment.groupBy({
@@ -86,8 +87,8 @@ export default async function AgendarPage({
       salonName={salon.name}
       currency={salon.currency}
       services={services}
-      initialServiceId={searchParams.service ?? null}
-      initialProId={searchParams.pro ?? null}
+      initialServiceId={query.service ?? null}
+      initialProId={query.pro ?? null}
       clientSession={validSession}
     />
   );

@@ -10,9 +10,16 @@ import { ReportActions, type ReportSection } from "./report-actions";
 
 const VALID: RangeKey[] = ["today", "yesterday", "7d", "15d", "30d", "90d", "year"];
 
-export default async function RelatoriosPage({ searchParams }: { searchParams: { range?: string } }) {
+export default async function RelatoriosPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ range?: string }>;
+}) {
   const { salonId } = await getTenantContext();
-  const range: RangeKey = VALID.includes(searchParams.range as RangeKey) ? (searchParams.range as RangeKey) : "30d";
+  const { range: selectedRange } = await searchParams;
+  const range: RangeKey = VALID.includes(selectedRange as RangeKey)
+    ? (selectedRange as RangeKey)
+    : "30d";
 
   const [m, fin] = await Promise.all([
     getDashboardMetrics(salonId, range),
