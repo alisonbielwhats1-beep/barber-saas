@@ -43,6 +43,30 @@ const FEMALE_COLOR = "#E85D9E";
 
 const VALID: RangeKey[] = ["today", "yesterday", "7d", "15d", "30d", "90d", "year"];
 
+function isTransientDatabaseError(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  const code = "code" in error ? String(error.code) : "";
+  const message = "message" in error ? String(error.message) : "";
+  return (
+    ["P1001", "P1002", "P2024"].includes(code) ||
+    /connection pool|can't reach database|timed out/i.test(message)
+  );
+}
+
+async function withDatabaseRetry<T>(
+  label: string,
+  operation: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await operation();
+  } catch (error) {
+    if (!isTransientDatabaseError(error)) throw error;
+    console.warn(`[dashboard] retrying transient database operation: ${label}`);
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    return operation();
+  }
+}
+
 export default async function DashboardPage({
   searchParams,
 }: {
@@ -93,34 +117,47 @@ export default async function DashboardPage({
     `;
   } catch {}
 
-  const [m, todayAppts, salonData, setupCounts] = await Promise.all([
+  // Carrega primeiro as métricas para não somar as queries auxiliares às
+  // ondas concorrentes do motor do dashboard.
+  const m = await withDatabaseRetry("metrics", () =>
     getDashboardMetrics(salonId, range),
-    prisma.appointment.findMany({
-      where: {
-        salonId,
-        startAt: { gte: startOfDay(now), lte: endOfDay(now) },
-        endAt: { gte: now },
-        status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
-      },
-      orderBy: { startAt: "asc" },
-      take: 5,
-      select: {
-        id: true,
-        startAt: true,
-        status: true,
-        client: { select: { name: true } },
-        service: { select: { name: true, colorHex: true } },
-        professional: { select: { user: { select: { name: true } } } },
-      },
-    }),
-    prisma.salon.findUnique({ where: { id: salonId }, select: { name: true } }),
+  );
+
+  const [todayAppts, salonData, svcCount, proCount] =
+    await withDatabaseRetry("summary", () =>
+      Promise.all([
+        prisma.appointment.findMany({
+          where: {
+            salonId,
+            startAt: { gte: startOfDay(now), lte: endOfDay(now) },
+            endAt: { gte: now },
+            status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
+          },
+          orderBy: { startAt: "asc" },
+          take: 5,
+          select: {
+            id: true,
+            startAt: true,
+            status: true,
+            client: { select: { name: true } },
+            service: { select: { name: true, colorHex: true } },
+            professional: { select: { user: { select: { name: true } } } },
+          },
+        }),
+        prisma.salon.findUnique({
+          where: { id: salonId },
+          select: { name: true },
+        }),
+        prisma.service.count({ where: { salonId, active: true } }),
+        prisma.professional.count({ where: { salonId, active: true } }),
+      ]),
+    );
+  const [whCount, apptCount] = await withDatabaseRetry("setup", () =>
     Promise.all([
-      prisma.service.count({ where: { salonId, active: true } }),
-      prisma.professional.count({ where: { salonId, active: true } }),
       prisma.workingHours.count({ where: { professional: { salonId } } }),
       prisma.appointment.count({ where: { salonId } }),
     ]),
-  ]);
+  );
   const salonName = salonData?.name ?? "seu salão";
   const genderTotal = m.gender.male.revenue + m.gender.female.revenue;
 
@@ -134,7 +171,6 @@ export default async function DashboardPage({
     salonName,
   }));
 
-  const [svcCount, proCount, whCount, apptCount] = setupCounts;
   const steps = [
     { done: svcCount > 0, label: "Criar seus serviços", href: "/servicos" },
     { done: proCount > 0, label: "Cadastrar profissionais", href: "/profissionais" },
