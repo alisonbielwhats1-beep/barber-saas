@@ -28,6 +28,12 @@ expansão comercial sem acompanhamento. Segurança imediata melhorou; onboarding
 de equipe, rate limiting distribuído, upload, RLS amplo, migrations, testes com
 PostgreSQL e operação de produção ainda exigem trabalho.
 
+O preview Vercel do PR #3 falhou. Uma branch posterior contendo somente estes
+arquivos de documentação também recebeu falha imediata no preview, enquanto o
+deploy do `master` permaneceu saudável. Isso aponta para um problema sistêmico
+na configuração/pipeline de previews; não é evidência de falha funcional da
+produção nem, isoladamente, de defeito no código do PR #3.
+
 O checkout `D:\Projetos\barber-saas` estava na branch
 `fix/fase-1-seguranca`, inicialmente no commit `6a30cb3`, e ficou atrás do
 remoto. Ele não deve ser usado como evidência do que está publicado. A fonte de
@@ -228,17 +234,19 @@ Flutter neste estágio.
 
 1. Tratar o `master` e a produção como fonte de verdade; não continuar a partir
    do checkout local antigo.
-2. Revisar o PR #3, corrigir o preview Vercel e executar teste de integração com
-   PostgreSQL para criação/aceite/reenvio/cancelamento concorrentes.
-3. Criar backup/ponto de restauração e homologar a migration do PR #3 antes de
+2. Inspecionar os logs do preview Vercel e corrigir a configuração comum às
+   branches antes de usar preview como gate.
+3. Revisar o PR #3 e executar teste de integração com PostgreSQL para
+   criação/aceite/reenvio/cancelamento concorrentes.
+4. Criar backup/ponto de restauração e homologar a migration do PR #3 antes de
    qualquer merge.
-4. Confirmar `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` e alertas 429
+5. Confirmar `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` e alertas 429
    na produção.
-5. Corrigir o upload: autorização por Membership/salão, prefixo tenant,
+6. Corrigir o upload: autorização por Membership/salão, prefixo tenant,
    conteúdo real e buckets separados por finalidade.
-6. Remover ou implementar a oferta pública de 30%.
-7. Criar ambiente de homologação e checklist de migration/rollback/restore.
-8. Especificar e implementar multi-serviço antes da waitlist.
-9. Implementar waitlist em lote separado, com testes PostgreSQL de corrida.
-10. Rodar piloto com 1–3 salões e medir agendamento, cancelamento, no-show,
+7. Remover ou implementar a oferta pública de 30%.
+8. Criar ambiente de homologação e checklist de migration/rollback/restore.
+9. Especificar e implementar multi-serviço antes da waitlist.
+10. Implementar waitlist em lote separado, com testes PostgreSQL de corrida.
+11. Rodar piloto com 1–3 salões e medir agendamento, cancelamento, no-show,
     ocupação e suporte antes de iniciar billing e IA.
