@@ -11,9 +11,9 @@ Este arquivo é o ponto de retomada para outro chat ou computador. Leia também
 - Branch local e remota: `feat/email-professional-invites`
 - Pull request: [PR #3 — convites de profissionais por e-mail](https://github.com/alisonbielwhats1-beep/barber-saas/pull/3)
 - Estado do PR: aberto, `draft`, mergeável e ainda não mesclado
-- Último commit técnico antes deste handoff: `2e85831`
-- GitHub Actions: [aprovado](https://github.com/alisonbielwhats1-beep/barber-saas/actions/runs/30494266444)
-- Preview da Vercel: falhou e continua sendo o único bloqueador conhecido
+- Commit validado antes desta atualização: `1f81574`
+- GitHub Actions: [aprovado](https://github.com/alisonbielwhats1-beep/barber-saas/actions/runs/30499403288)
+- Preview da Vercel: [aprovado](https://vercel.com/alisonbielwhats1-beeps-projects/salon-saas/AUus5URSAryco5Nrn4yHheizi74P)
 
 Nenhum merge, deploy manual, `prisma db push` ou migration em produção foi
 executado.
@@ -100,35 +100,37 @@ escondiam: `pg_advisory_xact_lock` retorna `void`, que o Prisma não
 desserializa. O SQL agora adquire o mesmo lock projetando somente um inteiro
 compatível.
 
-## Bloqueio e próxima ação
+## Estado operacional e próxima ação
 
-O deployment abaixo falhou antes de disponibilizar detalhes no GitHub:
+O deployment `dpl_8prwDgsiHeqejArctZYJg9us6Ytk` falhou durante a coleta de
+dados porque `NEXTAUTH_SECRET` não estava disponível na branch atual. As cinco
+variáveis de Preview necessárias ao build estavam restritas à branch antiga
+`fix/fase-1-seguranca`.
 
-- Deployment: `dpl_9Ym98SdNFxMfyJzSF4oWbM7EYc3P`
-- Painel: [Vercel Preview](https://vercel.com/alisonbielwhats1-beeps-projects/salon-saas/9Ym98SdNFxMfyJzSF4oWbM7EYc3P)
+O escopo de `NEXTAUTH_SECRET`, `DATABASE_URL`, `DIRECT_URL`, `SUPABASE_URL` e
+`SUPABASE_SERVICE_ROLE_KEY` foi movido para
+`feat/email-professional-invites`, sem visualizar ou alterar valores e sem
+modificar o ambiente Production. O redeploy
+`dpl_AUus5URSAryco5Nrn4yHheizi74P` terminou em `Ready`, e a página inicial do
+Preview abriu corretamente.
 
-Para retomar:
+Antes de homologar:
 
-1. Entrar na conta correta da Vercel e abrir o deployment acima, ou executar
-   `npx vercel inspect dpl_9Ym98SdNFxMfyJzSF4oWbM7EYc3P --logs` em ambiente
-   autenticado.
-2. Corrigir a causa comprovada pelo log. Não presumir que é código: o build
-   equivalente passou localmente e no GitHub Actions.
-3. Confirmar em Preview e Production, sem registrar valores no Git:
+1. Confirmar em Preview e Production, sem registrar valores no Git:
    `RESEND_API_KEY`, `EMAIL_FROM`, `NEXTAUTH_URL`,
    `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `SUPABASE_URL` e
    `SUPABASE_SERVICE_ROLE_KEY`.
-4. Confirmar a existência do bucket público `salon-assets`.
-5. Reexecutar o Preview e exigir Vercel + GitHub Actions verdes.
-6. Só então homologar o histórico de migrations e seguir
+2. Confirmar a existência do bucket público `salon-assets`.
+3. Homologar o histórico de migrations e seguir
    `docs/fase-1-rollout.md`.
-7. Não mesclar nem publicar em produção antes dessas confirmações.
+4. Não mesclar nem publicar em produção antes dessas confirmações.
 
 ## Prompt curto para o próximo chat
 
 > Abra `C:\Claude Code\salon-saas`, confirme a branch
 > `feat/email-professional-invites` e leia `docs/STATUS_ATUAL.md` e
 > `docs/fase-1-rollout.md`. Inspecione o PR #3. A Fase 1 está implementada e o
-> GitHub Actions passou; não refaça o trabalho. Continue pelo log autenticado do
-> Preview Vercel que falhou. Não faça merge, deploy, migration de produção ou
-> `prisma db push` sem autorização explícita.
+> GitHub Actions e o Preview da Vercel passaram; não refaça o trabalho.
+> Continue pelas confirmações operacionais e pela homologação descritas neste
+> arquivo. Não faça merge, deploy, migration de produção ou `prisma db push`
+> sem autorização explícita.
