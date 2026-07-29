@@ -33,9 +33,10 @@ export async function signup(input: SignupInput): Promise<
   }
   const data = parsed.data;
   const email = data.email.toLowerCase().trim();
+  const requestHeaders = await headers();
   const limited = await checkRateLimit({
     namespace: "salon-signup",
-    identifier: clientIp(headers()),
+    identifier: clientIp(requestHeaders),
     limit: 5,
     windowSeconds: 60 * 60,
   });

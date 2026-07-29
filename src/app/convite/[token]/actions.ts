@@ -15,9 +15,10 @@ const inputSchema = z.object({
 export async function acceptInvite(input: {
   token: string;
 }): Promise<{ error: string }> {
+  const requestHeaders = await headers();
   const limited = await checkRateLimit({
     namespace: "accept-invite",
-    identifier: clientIp(headers()),
+    identifier: clientIp(requestHeaders),
     limit: 8,
     windowSeconds: 15 * 60,
   });

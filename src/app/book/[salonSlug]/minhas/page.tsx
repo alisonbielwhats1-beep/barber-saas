@@ -7,18 +7,19 @@ import { MinhasList } from "./minhas-list";
 export default async function MinhasPage({
   params,
 }: {
-  params: { salonSlug: string };
+  params: Promise<{ salonSlug: string }>;
 }) {
+  const { salonSlug } = await params;
   const session = await getClientSession();
-  if (!session) redirect(`/book/${params.salonSlug}/login`);
+  if (!session) redirect(`/book/${salonSlug}/login`);
 
   // Verify session belongs to this salon
   const salon = await prisma.salon.findUnique({
-    where: { slug: params.salonSlug },
+    where: { slug: salonSlug },
     select: { id: true, name: true, currency: true },
   });
   if (!salon || session.salonId !== salon.id) {
-    redirect(`/book/${params.salonSlug}/login`);
+    redirect(`/book/${salonSlug}/login`);
   }
 
   const appointments = await prisma.appointment.findMany({
@@ -62,12 +63,12 @@ export default async function MinhasPage({
 
       <MinhasList
         appointments={serialized}
-        salonSlug={params.salonSlug}
+        salonSlug={salonSlug}
         currency={salon.currency}
         session={session}
       />
 
-      <BottomNav salonSlug={params.salonSlug} />
+      <BottomNav salonSlug={salonSlug} />
     </main>
   );
 }

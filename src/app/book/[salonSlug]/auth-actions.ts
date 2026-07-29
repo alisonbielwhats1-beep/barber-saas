@@ -21,9 +21,10 @@ export async function loginClient(
   returnTo?: string | null,
 ): Promise<{ error: string }> {
   const normalizedEmail = email.toLowerCase().trim();
+  const requestHeaders = await headers();
   const limited = await checkRateLimit({
     namespace: "client-login",
-    identifier: `${clientIp(headers())}:${salonSlug}:${normalizedEmail}`,
+    identifier: `${clientIp(requestHeaders)}:${salonSlug}:${normalizedEmail}`,
     limit: 8,
     windowSeconds: 15 * 60,
   });
@@ -62,9 +63,10 @@ export async function registerClient(
   data: { name: string; phone: string; email: string; password: string },
   returnTo?: string | null,
 ): Promise<{ error: string }> {
+  const requestHeaders = await headers();
   const limited = await checkRateLimit({
     namespace: "client-register",
-    identifier: `${clientIp(headers())}:${salonSlug}`,
+    identifier: `${clientIp(requestHeaders)}:${salonSlug}`,
     limit: 5,
     windowSeconds: 60 * 60,
   });
@@ -112,6 +114,6 @@ export async function registerClient(
 }
 
 export async function logoutClient(salonSlug: string): Promise<void> {
-  clearClientSession();
+  await clearClientSession();
   redirect(`/book/${salonSlug}`);
 }

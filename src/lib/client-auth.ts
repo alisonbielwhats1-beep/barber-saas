@@ -36,14 +36,15 @@ export async function verifyClientToken(token: string): Promise<ClientSession | 
 }
 
 export async function getClientSession(): Promise<ClientSession | null> {
-  const token = cookies().get(COOKIE)?.value;
+  const token = (await cookies()).get(COOKIE)?.value;
   if (!token) return null;
   return verifyClientToken(token);
 }
 
 export async function setClientSession(payload: ClientSession): Promise<void> {
   const token = await signClientToken(payload);
-  cookies().set(COOKIE, token, {
+  const cookieStore = await cookies();
+  cookieStore.set(COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -52,6 +53,7 @@ export async function setClientSession(payload: ClientSession): Promise<void> {
   });
 }
 
-export function clearClientSession(): void {
-  cookies().delete(COOKIE);
+export async function clearClientSession(): Promise<void> {
+  const cookieStore = await cookies();
+  cookieStore.delete(COOKIE);
 }

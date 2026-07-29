@@ -5,9 +5,14 @@ import { authOptions } from "@/lib/auth";
 import { getInviteMode } from "@/lib/invitations";
 import { InviteForm } from "./invite-form";
 
-export default async function InvitePage({ params }: { params: { token: string } }) {
+export default async function InvitePage({
+  params,
+}: {
+  params: Promise<{ token: string }>;
+}) {
+  const { token } = await params;
   const session = await getServerSession(authOptions);
-  const mode = await getInviteMode(params.token, session?.user?.id);
+  const mode = await getInviteMode(token, session?.user?.id);
 
   return (
     <main className="grid min-h-screen place-items-center bg-background p-6 text-foreground">
@@ -35,7 +40,7 @@ export default async function InvitePage({ params }: { params: { token: string }
                 não será alterada.
               </p>
               <Link
-                href={`/login?callbackUrl=${encodeURIComponent(`/convite/${params.token}`)}`}
+                href={`/login?callbackUrl=${encodeURIComponent(`/convite/${token}`)}`}
                 className="flex w-full justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
               >
                 Entrar para aceitar
@@ -59,7 +64,7 @@ export default async function InvitePage({ params }: { params: { token: string }
                 Confirme o convite para acessar este estabelecimento.{" "}
                 O link funciona uma única vez e expira automaticamente.
               </p>
-              <InviteForm token={params.token} />
+              <InviteForm token={token} />
             </>
           )}
         </section>

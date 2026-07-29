@@ -18,10 +18,11 @@ function heroForSalon(slug: string) {
 export default async function ClientHome({
   params,
 }: {
-  params: { salonSlug: string };
+  params: Promise<{ salonSlug: string }>;
 }) {
+  const { salonSlug } = await params;
   const salon = await prisma.salon.findUnique({
-    where: { slug: params.salonSlug },
+    where: { slug: salonSlug },
     select: {
       id: true,
       name: true,
@@ -61,7 +62,7 @@ export default async function ClientHome({
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Bem-vindo a</p>
           <p className="text-sm font-semibold">{salon.name}</p>
         </div>
-        <CartBadge salonSlug={params.salonSlug} />
+        <CartBadge salonSlug={salonSlug} />
         <button
           aria-label="Notificações"
           className="grid h-11 w-11 place-items-center rounded-full border border-border bg-card text-muted-foreground"
@@ -73,7 +74,7 @@ export default async function ClientHome({
       {/* Hero — capa do salão */}
       <div className="relative h-48 overflow-hidden rounded-3xl">
         <Image
-          src={heroForSalon(params.salonSlug)}
+          src={heroForSalon(salonSlug)}
           alt={salon.name}
           fill
           priority
@@ -96,7 +97,7 @@ export default async function ClientHome({
 
       {/* Promo card */}
       <Link
-        href={`/book/${params.salonSlug}/agendar`}
+        href={`/book/${salonSlug}/agendar`}
         className="block overflow-hidden rounded-3xl bg-primary p-6 text-primary-foreground shadow-lg"
       >
         <span className="inline-block rounded-full bg-primary-foreground/10 px-3 py-1 text-[11px] font-medium uppercase tracking-wide">
@@ -115,12 +116,12 @@ export default async function ClientHome({
 
       {/* Busca + categorias + grid (interativo) */}
       <HomeExplore
-        salonSlug={params.salonSlug}
+        salonSlug={salonSlug}
         currency={salon.currency}
         services={salon.services}
       />
 
-      <BottomNav salonSlug={params.salonSlug} />
+      <BottomNav salonSlug={salonSlug} />
     </main>
   );
 }

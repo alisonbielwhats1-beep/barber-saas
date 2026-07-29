@@ -7,10 +7,11 @@ import type { ServiceOption, ClientOption } from "./appointment-form";
 export default async function AgendaPage({
   searchParams,
 }: {
-  searchParams: { date?: string };
+  searchParams: Promise<{ date?: string }>;
 }) {
   const { salonId } = await getTenantContext();
-  const date = searchParams.date ? new Date(`${searchParams.date}T12:00:00`) : new Date();
+  const { date: selectedDate } = await searchParams;
+  const date = selectedDate ? new Date(`${selectedDate}T12:00:00`) : new Date();
   const dateStr = format(date, "yyyy-MM-dd");
 
   const [salon, prosRaw, apptsRaw, services, clients] = await Promise.all([

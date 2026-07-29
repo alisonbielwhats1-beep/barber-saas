@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { supabaseAdmin, STORAGE_BUCKET } from "@/lib/supabase";
+import { getSupabaseAdmin, STORAGE_BUCKET } from "@/lib/supabase";
 import {
   checkRateLimit,
   clientIp,
@@ -58,6 +58,7 @@ export async function POST(req: NextRequest) {
   };
   const ext = extensionByType[file.type];
   const path = `${session.user.id}/${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+  const supabaseAdmin = getSupabaseAdmin();
 
   // Garante que o bucket existe (cria na primeira vez, ignora se já existe)
   await supabaseAdmin.storage.createBucket(STORAGE_BUCKET, { public: true }).catch(() => null);

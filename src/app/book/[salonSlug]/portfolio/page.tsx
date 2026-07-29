@@ -9,10 +9,11 @@ import { CartBadge } from "../cart-badge";
 export default async function ClientPortfolio({
   params,
 }: {
-  params: { salonSlug: string };
+  params: Promise<{ salonSlug: string }>;
 }) {
+  const { salonSlug } = await params;
   const salon = await prisma.salon.findUnique({
-    where: { slug: params.salonSlug },
+    where: { slug: salonSlug },
     select: {
       id: true,
       portfolio: {
@@ -29,7 +30,7 @@ export default async function ClientPortfolio({
     <main className="animate-fade-in space-y-5 px-5 pt-6">
       <header className="flex items-center gap-3">
         <Link
-          href={`/book/${params.salonSlug}`}
+          href={`/book/${salonSlug}`}
           className="grid h-11 w-11 place-items-center rounded-full border border-border bg-card text-foreground"
           aria-label="Voltar"
         >
@@ -41,7 +42,7 @@ export default async function ClientPortfolio({
           </p>
           <p className="text-sm font-semibold">Portfolio</p>
         </div>
-        <CartBadge salonSlug={params.salonSlug} />
+        <CartBadge salonSlug={salonSlug} />
       </header>
 
       {salon.portfolio.length === 0 ? (
@@ -81,7 +82,7 @@ export default async function ClientPortfolio({
         </div>
       )}
 
-      <BottomNav salonSlug={params.salonSlug} />
+      <BottomNav salonSlug={salonSlug} />
     </main>
   );
 }

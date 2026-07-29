@@ -12,16 +12,17 @@ import { HERO_IMAGES } from "@/lib/images";
 export default async function WelcomePage({
   params,
 }: {
-  params: { salonSlug: string };
+  params: Promise<{ salonSlug: string }>;
 }) {
+  const { salonSlug } = await params;
   const salon = await prisma.salon.findUnique({
-    where: { slug: params.salonSlug },
+    where: { slug: salonSlug },
     select: { name: true, address: true, logoUrl: true },
   });
   if (!salon) notFound();
 
   // Escolha determinística por slug pra a mesma URL sempre mostrar a mesma foto
-  const heroIdx = params.salonSlug
+  const heroIdx = salonSlug
     .split("")
     .reduce((a, c) => a + c.charCodeAt(0), 0) % HERO_IMAGES.length;
   const heroSrc = salon.logoUrl ?? HERO_IMAGES[heroIdx];
@@ -45,7 +46,7 @@ export default async function WelcomePage({
       <header className="flex items-center justify-between px-6 pt-6 text-xs text-muted-foreground">
         <span className="font-mono">•••</span>
         <Link
-          href={`/book/${params.salonSlug}`}
+          href={`/book/${salonSlug}`}
           className="flex items-center gap-1 text-primary"
         >
           Pular <ArrowRight className="h-3 w-3" />
@@ -67,7 +68,7 @@ export default async function WelcomePage({
         </p>
 
         <Link
-          href={`/book/${params.salonSlug}`}
+          href={`/book/${salonSlug}`}
           className="mt-10 flex items-center justify-between rounded-full bg-primary px-6 py-4 text-base font-semibold text-primary-foreground shadow-2xl shadow-primary/30 transition hover:scale-[1.01]"
         >
           Vamos lá

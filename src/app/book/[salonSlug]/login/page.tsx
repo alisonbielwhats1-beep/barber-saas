@@ -7,16 +7,17 @@ export default async function LoginPage({
   params,
   searchParams,
 }: {
-  params: { salonSlug: string };
-  searchParams: { returnTo?: string };
+  params: Promise<{ salonSlug: string }>;
+  searchParams: Promise<{ returnTo?: string }>;
 }) {
+  const [{ salonSlug }, query] = await Promise.all([params, searchParams]);
   const returnTo =
-    searchParams.returnTo?.startsWith(`/book/${params.salonSlug}/`)
-      ? searchParams.returnTo
+    query.returnTo?.startsWith(`/book/${salonSlug}/`)
+      ? query.returnTo
       : null;
 
   const session = await getClientSession();
-  if (session) redirect(returnTo ?? `/book/${params.salonSlug}/minhas`);
+  if (session) redirect(returnTo ?? `/book/${salonSlug}/minhas`);
 
   return (
     <main className="flex min-h-[100dvh] flex-col items-center justify-center px-5 py-10">
@@ -31,12 +32,12 @@ export default async function LoginPage({
           </p>
         </div>
 
-        <LoginForm salonSlug={params.salonSlug} returnTo={returnTo} />
+        <LoginForm salonSlug={salonSlug} returnTo={returnTo} />
 
         <p className="text-center text-sm text-muted-foreground">
           Primeira vez?{" "}
           <Link
-            href={`/book/${params.salonSlug}/cadastro${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ""}`}
+            href={`/book/${salonSlug}/cadastro${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ""}`}
             className="font-medium text-primary hover:underline"
           >
             Criar conta
@@ -45,7 +46,7 @@ export default async function LoginPage({
 
         <div className="text-center">
           <Link
-            href={`/book/${params.salonSlug}`}
+            href={`/book/${salonSlug}`}
             className="text-xs text-muted-foreground hover:text-foreground"
           >
             ← Voltar para o salão

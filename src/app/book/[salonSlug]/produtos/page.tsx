@@ -10,10 +10,11 @@ import { imageForProduct } from "@/lib/images";
 export default async function ClientProdutos({
   params,
 }: {
-  params: { salonSlug: string };
+  params: Promise<{ salonSlug: string }>;
 }) {
+  const { salonSlug } = await params;
   const salon = await prisma.salon.findUnique({
-    where: { slug: params.salonSlug },
+    where: { slug: salonSlug },
     select: {
       id: true,
       name: true,
@@ -45,7 +46,7 @@ export default async function ClientProdutos({
     <main className="animate-fade-in space-y-6 px-5 pt-6">
       <header className="flex items-center gap-3">
         <Link
-          href={`/book/${params.salonSlug}`}
+          href={`/book/${salonSlug}`}
           className="grid h-11 w-11 place-items-center rounded-full border border-border bg-card text-foreground"
           aria-label="Voltar"
         >
@@ -57,10 +58,10 @@ export default async function ClientProdutos({
           </p>
           <p className="text-sm font-semibold">Produtos que amamos</p>
         </div>
-        <CartBadge salonSlug={params.salonSlug} />
+        <CartBadge salonSlug={salonSlug} />
       </header>
 
-      <ProductList salonSlug={params.salonSlug} products={products} currency={salon.currency} />
+      <ProductList salonSlug={salonSlug} products={products} currency={salon.currency} />
 
       {products.length === 0 && (
         <div className="rounded-2xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
@@ -68,7 +69,7 @@ export default async function ClientProdutos({
         </div>
       )}
 
-      <BottomNav salonSlug={params.salonSlug} />
+      <BottomNav salonSlug={salonSlug} />
     </main>
   );
 }
