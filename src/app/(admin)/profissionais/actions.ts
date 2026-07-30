@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { assertRole, getTenantContext } from "@/lib/tenant";
+import { assertEmailInvitesEnabled } from "@/lib/email-invites-feature";
 import {
   createUserInvite,
   resendUserInvite,
@@ -38,6 +39,7 @@ export async function createProfessional(
 }> {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER"]);
+  assertEmailInvitesEnabled();
   const data = professionalInput.parse(input);
   const email = data.email.toLowerCase().trim();
   const requestHeaders = await headers();
@@ -102,6 +104,7 @@ async function limitInviteAction(namespace: string, salonId: string, userId: str
 export async function resendProfessionalInvite(inviteId: string) {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER"]);
+  assertEmailInvitesEnabled();
   await limitInviteAction("resend-professional-invite", ctx.salonId, ctx.userId);
   const result = await resendUserInvite(inviteIdInput.parse(inviteId), {
     userId: ctx.userId,
@@ -117,6 +120,7 @@ export async function resendProfessionalInvite(inviteId: string) {
 export async function cancelProfessionalInvite(inviteId: string) {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER"]);
+  assertEmailInvitesEnabled();
   await limitInviteAction("cancel-professional-invite", ctx.salonId, ctx.userId);
   await revokeUserInvite(inviteIdInput.parse(inviteId), {
     userId: ctx.userId,

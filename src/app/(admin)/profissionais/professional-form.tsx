@@ -35,11 +35,17 @@ type EditablePro = {
 
 type Props = {
   services: Service[];
+  invitesEnabled: boolean;
   professional?: EditablePro;
   trigger?: React.ReactNode;
 };
 
-export function ProfessionalForm({ services, professional, trigger }: Props) {
+export function ProfessionalForm({
+  services,
+  invitesEnabled,
+  professional,
+  trigger,
+}: Props) {
   const editing = !!professional;
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -111,7 +117,14 @@ export function ProfessionalForm({ services, professional, trigger }: Props) {
         {trigger ?? (editing ? (
           <Button variant="ghost" size="sm">Editar</Button>
         ) : (
-          <Button>
+          <Button
+            disabled={!invitesEnabled}
+            title={
+              invitesEnabled
+                ? undefined
+                : "Convites por e-mail temporariamente indisponíveis"
+            }
+          >
             <Plus className="h-4 w-4" /> Adicionar
           </Button>
         ))}

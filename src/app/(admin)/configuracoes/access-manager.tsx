@@ -56,10 +56,12 @@ const ROLE_COLOR: Record<string, string> = {
 export function AccessManager({
   members,
   canManage,
+  invitesEnabled,
   pendingInvites,
 }: {
   members: Member[];
   canManage: boolean;
+  invitesEnabled: boolean;
   pendingInvites: PendingTeamInvite[];
 }) {
   const router = useRouter();
@@ -109,7 +111,7 @@ export function AccessManager({
           <h3 className="text-[13px] font-semibold">Acessos da equipe</h3>
           <p className="text-[11px] text-muted-foreground">Quem pode entrar no painel e com qual papel.</p>
         </div>
-        {canManage && (
+        {canManage && invitesEnabled && (
           <button
             onClick={() => {
               setError(null);
@@ -124,6 +126,11 @@ export function AccessManager({
       </div>
 
       {error && <p className="mx-5 mb-3 rounded-lg bg-danger/10 px-3 py-2 text-[12px] text-danger">{error}</p>}
+      {canManage && !invitesEnabled && (
+        <p className="mx-5 mb-3 rounded-lg bg-surface-1 px-3 py-2 text-[12px] text-muted-foreground">
+          Convites por e-mail estão em contingência e ainda não estão disponíveis.
+        </p>
+      )}
 
       <div className="divide-y divide-border">
         {members.map((m) => (

@@ -5,6 +5,10 @@ import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import {
+  EMAIL_INVITES_DISABLED_MESSAGE,
+  emailInvitesEnabled,
+} from "@/lib/email-invites-feature";
+import {
   acceptExistingUserInvite,
   acceptNewUserInvite,
 } from "@/lib/invitations";
@@ -57,6 +61,10 @@ export async function acceptInvite(input: {
   | { ok: true; newAccount: boolean; email?: string }
   | { ok: false; error: string }
 > {
+  if (!emailInvitesEnabled()) {
+    return { ok: false, error: EMAIL_INVITES_DISABLED_MESSAGE };
+  }
+
   const parsed = inputSchema.safeParse(input);
   if (!parsed.success) {
     return {

@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { prisma } from "@/lib/prisma";
+import { emailInvitesEnabled } from "@/lib/email-invites-feature";
 import { getTenantContext } from "@/lib/tenant";
 import { getTeamPerformance } from "@/lib/team";
 import { formatMoney, formatDuration } from "@/lib/utils";
@@ -25,6 +26,7 @@ const MEDAL = ["#F4C430", "#C0C0C0", "#CD7F32"]; // ouro, prata, bronze
 
 export default async function ProfissionaisPage() {
   const { salonId, role } = await getTenantContext();
+  const invitesEnabled = emailInvitesEnabled();
 
   const [perf, services, pendingInvites] = await Promise.all([
     getTeamPerformance(salonId),
@@ -33,7 +35,7 @@ export default async function ProfissionaisPage() {
       select: { id: true, name: true, colorHex: true },
       orderBy: { name: "asc" },
     }),
-    ["OWNER", "MANAGER"].includes(role)
+    ["OWNER", "MANAGER"].includes(role) && invitesEnabled
       ? prisma.userInvite.findMany({
           where: {
             salonId,
@@ -70,7 +72,7 @@ export default async function ProfissionaisPage() {
           </p>
           <h1 className="text-[26px] font-semibold tracking-tight">Profissionais</h1>
         </div>
-        <ProfessionalForm services={services} />
+        <ProfessionalForm services={services} invitesEnabled={invitesEnabled} />
       </header>
 
       {/* Overview da equipe */}
@@ -170,6 +172,7 @@ export default async function ProfissionaisPage() {
               <div className="mt-4 flex flex-wrap items-center gap-1 border-t border-border pt-3">
                 <ProfessionalForm
                   services={services}
+                  invitesEnabled={invitesEnabled}
                   professional={{
                     id: p.id,
                     name: p.name,

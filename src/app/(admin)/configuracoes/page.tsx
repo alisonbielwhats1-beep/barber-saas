@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getTenantContext } from "@/lib/tenant";
+import { emailInvitesEnabled } from "@/lib/email-invites-feature";
 import { Crown } from "lucide-react";
 import { SalonSettingsForm } from "./salon-settings-form";
 import { AccessManager, type Member } from "./access-manager";
@@ -13,6 +14,7 @@ const PLAN_LABEL: Record<string, string> = {
 
 export default async function ConfiguracoesPage() {
   const { salonId, userId, role } = await getTenantContext();
+  const invitesEnabled = emailInvitesEnabled();
 
   const [salon, memberships, pendingInvites] = await Promise.all([
     prisma.salon.findUnique({
@@ -28,7 +30,7 @@ export default async function ConfiguracoesPage() {
       select: { role: true, user: { select: { id: true, name: true, email: true } } },
       orderBy: { role: "asc" },
     }),
-    role === "OWNER"
+    role === "OWNER" && invitesEnabled
       ? prisma.userInvite.findMany({
           where: {
             salonId,
@@ -98,6 +100,7 @@ export default async function ConfiguracoesPage() {
           <AccessManager
             members={members}
             canManage={canManage}
+            invitesEnabled={invitesEnabled}
             pendingInvites={pendingInvites.map((invite) => ({
               ...invite,
               sentAt: invite.sentAt?.toISOString() ?? null,

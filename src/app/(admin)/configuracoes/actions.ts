@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { assertRole, getTenantContext } from "@/lib/tenant";
+import { assertEmailInvitesEnabled } from "@/lib/email-invites-feature";
 import {
   createUserInvite,
   resendUserInvite,
@@ -61,6 +62,7 @@ export async function inviteMember(input: {
 }> {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER"]);
+  assertEmailInvitesEnabled();
   const email = z.string().email().parse(input.email).toLowerCase().trim();
   const name = z.string().min(2).parse(input.name);
   const role = z.enum(ROLES).parse(input.role);
@@ -119,6 +121,7 @@ async function limitInviteAction(namespace: string, salonId: string, userId: str
 export async function resendTeamInvite(id: string) {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER"]);
+  assertEmailInvitesEnabled();
   await limitInviteAction("resend-team-invite", ctx.salonId, ctx.userId);
   const result = await resendUserInvite(inviteId.parse(id), {
     salonId: ctx.salonId,
@@ -134,6 +137,7 @@ export async function resendTeamInvite(id: string) {
 export async function cancelTeamInvite(id: string) {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER"]);
+  assertEmailInvitesEnabled();
   await limitInviteAction("cancel-team-invite", ctx.salonId, ctx.userId);
   await revokeUserInvite(inviteId.parse(id), {
     salonId: ctx.salonId,
