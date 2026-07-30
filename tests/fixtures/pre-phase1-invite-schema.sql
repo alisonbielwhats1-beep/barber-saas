@@ -1,6 +1,6 @@
 -- Minimal production-compatible baseline used only by PostgreSQL integration
--- tests. It represents the tables touched by the invite migrations immediately
--- before 20260728220000_fase_1_security_invites.
+-- tests. It represents the invite baseline plus the minimal agenda tables
+-- required by the PostgreSQL concurrency suite.
 
 CREATE TYPE "Role" AS ENUM (
   'SUPER_ADMIN',
@@ -10,6 +10,15 @@ CREATE TYPE "Role" AS ENUM (
   'RECEPTIONIST'
 );
 CREATE TYPE "Plan" AS ENUM ('FREE', 'STARTER', 'PRO', 'ENTERPRISE');
+CREATE TYPE "Gender" AS ENUM ('MALE', 'FEMALE', 'OTHER');
+CREATE TYPE "AppointmentStatus" AS ENUM (
+  'PENDING',
+  'CONFIRMED',
+  'IN_PROGRESS',
+  'COMPLETED',
+  'CANCELLED',
+  'NO_SHOW'
+);
 
 CREATE TABLE "User" (
   "id" TEXT NOT NULL,
@@ -112,3 +121,64 @@ CREATE TABLE "ProfessionalService" (
     FOREIGN KEY ("serviceId") REFERENCES "Service"("id")
     ON DELETE CASCADE ON UPDATE CASCADE
 );
+
+CREATE TABLE "ClientProfile" (
+  "id" TEXT NOT NULL,
+  "salonId" TEXT NOT NULL,
+  "userId" TEXT,
+  "name" TEXT NOT NULL,
+  "phone" TEXT,
+  "email" TEXT,
+  "passwordHash" TEXT,
+  "birthday" TIMESTAMP(3),
+  "gender" "Gender",
+  "notes" TEXT,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "ClientProfile_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "ClientProfile_salonId_fkey"
+    FOREIGN KEY ("salonId") REFERENCES "Salon"("id")
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT "ClientProfile_userId_fkey"
+    FOREIGN KEY ("userId") REFERENCES "User"("id")
+    ON DELETE NO ACTION ON UPDATE CASCADE
+);
+CREATE UNIQUE INDEX "ClientProfile_salonId_email_key"
+  ON "ClientProfile"("salonId", "email");
+CREATE INDEX "ClientProfile_salonId_idx" ON "ClientProfile"("salonId");
+CREATE INDEX "ClientProfile_salonId_phone_idx"
+  ON "ClientProfile"("salonId", "phone");
+
+CREATE TABLE "Appointment" (
+  "id" TEXT NOT NULL,
+  "salonId" TEXT NOT NULL,
+  "clientId" TEXT NOT NULL,
+  "professionalId" TEXT NOT NULL,
+  "serviceId" TEXT NOT NULL,
+  "startAt" TIMESTAMP(3) NOT NULL,
+  "endAt" TIMESTAMP(3) NOT NULL,
+  "priceCents" INTEGER NOT NULL,
+  "status" "AppointmentStatus" NOT NULL DEFAULT 'PENDING',
+  "notes" TEXT,
+  "reminderSentAt" TIMESTAMP(3),
+  "cancelledAt" TIMESTAMP(3),
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP(3) NOT NULL,
+  CONSTRAINT "Appointment_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "Appointment_salonId_fkey"
+    FOREIGN KEY ("salonId") REFERENCES "Salon"("id")
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT "Appointment_clientId_fkey"
+    FOREIGN KEY ("clientId") REFERENCES "ClientProfile"("id")
+    ON DELETE NO ACTION ON UPDATE CASCADE,
+  CONSTRAINT "Appointment_professionalId_fkey"
+    FOREIGN KEY ("professionalId") REFERENCES "Professional"("id")
+    ON DELETE NO ACTION ON UPDATE CASCADE,
+  CONSTRAINT "Appointment_serviceId_fkey"
+    FOREIGN KEY ("serviceId") REFERENCES "Service"("id")
+    ON DELETE NO ACTION ON UPDATE CASCADE
+);
+CREATE INDEX "Appointment_salonId_startAt_idx"
+  ON "Appointment"("salonId", "startAt");
+CREATE INDEX "Appointment_professionalId_startAt_idx"
+  ON "Appointment"("professionalId", "startAt");
+CREATE INDEX "Appointment_clientId_idx" ON "Appointment"("clientId");
