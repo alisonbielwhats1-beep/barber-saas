@@ -11,7 +11,7 @@ Este arquivo é o ponto de retomada para outro chat ou computador. Leia também
 - Branch local e remota: `feat/email-professional-invites`
 - Pull request: [PR #3 — convites de profissionais por e-mail](https://github.com/alisonbielwhats1-beep/barber-saas/pull/3)
 - Estado do PR: aberto, `draft`, mergeável e ainda não mesclado
-- Commit validado antes desta atualização: `1f81574`
+- Commit-base desta homologação: `d2892b9`
 - GitHub Actions: [aprovado](https://github.com/alisonbielwhats1-beep/barber-saas/actions/runs/30499403288)
 - Preview da Vercel: [aprovado](https://vercel.com/alisonbielwhats1-beeps-projects/salon-saas/AUus5URSAryco5Nrn4yHheizi74P)
 
@@ -100,7 +100,7 @@ escondiam: `pg_advisory_xact_lock` retorna `void`, que o Prisma não
 desserializa. O SQL agora adquire o mesmo lock projetando somente um inteiro
 compatível.
 
-## Estado operacional e próxima ação
+## Estado operacional da Fase 1B
 
 O deployment `dpl_8prwDgsiHeqejArctZYJg9us6Ytk` falhou durante a coleta de
 dados porque `NEXTAUTH_SECRET` não estava disponível na branch atual. As cinco
@@ -114,23 +114,48 @@ modificar o ambiente Production. O redeploy
 `dpl_AUus5URSAryco5Nrn4yHheizi74P` terminou em `Ready`, e a página inicial do
 Preview abriu corretamente.
 
-Antes de homologar:
+Em 29/07/2026, a homologação operacional avançou sem publicar código em
+Production:
 
-1. Confirmar em Preview e Production, sem registrar valores no Git:
-   `RESEND_API_KEY`, `EMAIL_FROM`, `NEXTAUTH_URL`,
-   `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `SUPABASE_URL` e
-   `SUPABASE_SERVICE_ROLE_KEY`.
-2. Confirmar a existência do bucket público `salon-assets`.
-3. Homologar o histórico de migrations e seguir
-   `docs/fase-1-rollout.md`.
-4. Não mesclar nem publicar em produção antes dessas confirmações.
+- foi criado o Redis gratuito `salon-saas-preview` no Upstash;
+- `UPSTASH_REDIS_REST_URL` e `UPSTASH_REDIS_REST_TOKEN` foram gravados como
+  sensíveis somente em Preview e somente na branch
+  `feat/email-professional-invites`;
+- `NEXTAUTH_URL` foi confirmado em Production e configurado no Preview com o
+  alias estável da branch;
+- o bucket `salon-assets` foi criado no Supabase de produção como público, com
+  limite de 5 MiB e MIME restrito a JPEG, PNG, WebP e GIF;
+- a conta Resend está acessível, mas `RESEND_API_KEY` e `EMAIL_FROM` não foram
+  criados nem conectados à Vercel. O envio de convites por e-mail permanece
+  deliberadamente em contingência e não deve ser usado até sua ativação;
+- os scripts SQL manuais e de RLS foram movidos de `prisma/migrations` para
+  `prisma/sql`, para que não sejam interpretados como migrations pelo Prisma.
+- TypeScript, Prisma Validate, 17 arquivos/80 testes unitários e o build
+  Next.js passaram localmente sem conexão com o banco real.
+
+A inspeção somente leitura do banco de produção mostrou que ele não possui
+histórico Prisma reconhecido e que as três migrations versionadas locais
+aparecem como pendentes. Nenhuma migration foi aplicada ou marcada como
+resolvida. Antes de qualquer `migrate deploy`, é obrigatório criar backup e
+reconciliar cada objeto existente com o SQL local; não usar `migrate resolve`
+sem essa evidência.
+
+Ainda falta para promover a Fase 1:
+
+1. validar o novo deployment e os smoke tests do Preview após este commit;
+2. planejar e autorizar explicitamente o baseline/migrations do banco real;
+3. configurar Redis de Production antes de publicar o código;
+4. ativar Resend somente quando o envio de convites for liberado;
+5. manter o PR em draft e não mesclar nem publicar em Production antes dessas
+   etapas.
 
 ## Prompt curto para o próximo chat
 
 > Abra `C:\Claude Code\salon-saas`, confirme a branch
 > `feat/email-professional-invites` e leia `docs/STATUS_ATUAL.md` e
 > `docs/fase-1-rollout.md`. Inspecione o PR #3. A Fase 1 está implementada e o
-> GitHub Actions e o Preview da Vercel passaram; não refaça o trabalho.
-> Continue pelas confirmações operacionais e pela homologação descritas neste
-> arquivo. Não faça merge, deploy, migration de produção ou `prisma db push`
-> sem autorização explícita.
+> GitHub Actions e o Preview anterior da Vercel passaram; não refaça o
+> trabalho. Upstash está configurado somente no Preview, o bucket existe e o
+> Resend está deliberadamente em contingência. Valide os checks do commit mais
+> recente e planeje o baseline do banco. Não faça merge, deploy, migration de
+> produção ou `prisma db push` sem autorização explícita.

@@ -131,14 +131,14 @@ Se um dia uma Server Action esquecer o filtro `salonId`, o filtro no código nã
 
 ```bash
 # 1. Aplica policies no banco (idempotente)
-psql "$DATABASE_URL" -f prisma/migrations/rls/enable_rls.sql
+psql "$DATABASE_URL" -f prisma/sql/rls/enable_rls.sql
 
 # 2. Nas páginas/actions, troca `import { prisma } from "@/lib/prisma"`
 #    por    `import { getTenantPrisma } from "@/lib/prisma-tenant"`
 #    e usa  `const db = await getTenantPrisma();`
 ```
 
-Cada query passa a rodar dentro de uma transação que seta `app.current_salon` via `set_config`; as policies em `prisma/migrations/rls/enable_rls.sql` comparam com esse GUC. Login/signup/booking público continuam usando o `prisma` cru (não têm tenant na sessão ainda).
+Cada query passa a rodar dentro de uma transação que seta `app.current_salon` via `set_config`; as policies em `prisma/sql/rls/enable_rls.sql` comparam com esse GUC. Login/signup/booking público continuam usando o `prisma` cru (não têm tenant na sessão ainda).
 
 ## BI / Dashboard
 

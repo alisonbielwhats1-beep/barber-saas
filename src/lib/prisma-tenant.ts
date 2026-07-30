@@ -12,7 +12,7 @@ import { getTenantContext } from "./tenant";
  *   const services = await db.service.findMany(); // já filtrado por salão
  *
  * QUANDO USAR ESTE em vez de `@/lib/prisma` direto:
- *   - Depois de aplicar `prisma/migrations/rls/enable_rls.sql`
+ *   - Depois de aplicar `prisma/sql/rls/enable_rls.sql`
  *   - Em qualquer query dentro de contexto de tenant (páginas admin, actions)
  *
  * QUANDO CONTINUAR usando o `prisma` puro:

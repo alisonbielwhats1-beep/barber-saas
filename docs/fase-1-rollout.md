@@ -14,16 +14,33 @@ Vercel.
 2. Comparar as migrations locais com o histórico do ambiente.
 3. Criar backup ou ponto de restauração e registrar quem fará o rollback.
 4. Configurar em Preview e Production:
-   - `RESEND_API_KEY`;
-   - `EMAIL_FROM`;
    - `NEXTAUTH_URL`;
    - `UPSTASH_REDIS_REST_URL`;
    - `UPSTASH_REDIS_REST_TOKEN`;
    - `SUPABASE_URL`;
    - `SUPABASE_SERVICE_ROLE_KEY`.
+   Para habilitar o envio de convites por e-mail, configurar também
+   `RESEND_API_KEY` e `EMAIL_FROM`. Sem essas duas variáveis o recurso deve
+   permanecer fora da operação; não anunciar nem usar convites por e-mail.
 5. Criar previamente o bucket público `salon-assets`. Ele contém apenas imagens
    públicas de serviços, produtos e portfólio. O backend não cria buckets em
    requisições de usuário.
+
+## Estado da Fase 1B em 29/07/2026
+
+- Preview: Upstash e `NEXTAUTH_URL` configurados na branch
+  `feat/email-professional-invites`.
+- Production: Redis ainda não configurado para este lote.
+- Resend: deliberadamente não conectado; envio por e-mail em contingência.
+- Storage de Production: bucket `salon-assets` criado com limite de 5 MiB e
+  allowlist de MIME.
+- Banco de Production: somente leitura confirmou ausência de histórico Prisma
+  reconhecido. As migrations locais aparecem pendentes e nenhuma foi aplicada.
+- Organização local: somente diretórios timestampados permanecem em
+  `prisma/migrations`; SQL manual e RLS ficam em `prisma/sql`.
+
+Esse estado permite homologar o Preview, mas não autoriza merge nem publicação
+em Production.
 
 ## Homologação
 
