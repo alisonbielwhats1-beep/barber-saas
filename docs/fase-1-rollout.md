@@ -22,14 +22,17 @@ Vercel.
    Para habilitar o envio de convites por e-mail, configurar também
    `RESEND_API_KEY` e `EMAIL_FROM`. Sem essas duas variáveis o recurso deve
    permanecer fora da operação; não anunciar nem usar convites por e-mail.
+   A integração nativa Upstash/Vercel pode fornecer
+   `KV_REST_API_URL` e `KV_REST_API_TOKEN` no lugar das duas variáveis
+   `UPSTASH_*`; o runtime aceita ambos os pares e prioriza o par `KV_*`.
 5. Criar previamente o bucket público `salon-assets`. Ele contém apenas imagens
    públicas de serviços, produtos e portfólio. O backend não cria buckets em
    requisições de usuário.
 
 ## Estado da Fase 1B em 29/07/2026
 
-- Preview: Upstash e `NEXTAUTH_URL` configurados na branch
-  `feat/email-professional-invites`.
+- Preview: Upstash integrado à Vercel somente nesse ambiente e
+  `NEXTAUTH_URL` configurado na branch `feat/email-professional-invites`.
 - Production: Redis ainda não configurado para este lote.
 - Resend: deliberadamente não conectado; envio por e-mail em contingência.
 - Storage de Production: bucket `salon-assets` criado com limite de 5 MiB e

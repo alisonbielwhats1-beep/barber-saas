@@ -8,6 +8,8 @@ import {
 
 describe("rate limiting local de defesa adicional", () => {
   beforeEach(() => {
+    delete process.env.KV_REST_API_URL;
+    delete process.env.KV_REST_API_TOKEN;
     delete process.env.UPSTASH_REDIS_REST_URL;
     delete process.env.UPSTASH_REDIS_REST_TOKEN;
     resetLocalRateLimitsForTests();
@@ -53,6 +55,39 @@ describe("rate limiting local de defesa adicional", () => {
       source: "unavailable",
     });
     expect(rateLimitStatus(result)).toBe(503);
+  });
+
+  it("usa as credenciais injetadas pela integração nativa da Vercel", async () => {
+    vi.stubEnv("KV_REST_API_URL", "https://preview-redis.example");
+    vi.stubEnv("KV_REST_API_TOKEN", "preview-token");
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ result: [1, 60] }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await checkRateLimit({
+      namespace: "native-vercel-integration",
+      identifier: "client",
+      limit: 5,
+      windowSeconds: 60,
+      failClosed: true,
+    });
+
+    expect(result).toMatchObject({
+      allowed: true,
+      source: "distributed",
+      remaining: 4,
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://preview-redis.example",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          Authorization: "Bearer preview-token",
+        }),
+      }),
+    );
   });
 
   it("mantém apenas fallback local para leitura quando failClosed não é solicitado", async () => {

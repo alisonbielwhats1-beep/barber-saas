@@ -117,10 +117,13 @@ Preview abriu corretamente.
 Em 29/07/2026, a homologação operacional avançou sem publicar código em
 Production:
 
-- foi criado o Redis gratuito `salon-saas-preview` no Upstash;
-- `UPSTASH_REDIS_REST_URL` e `UPSTASH_REDIS_REST_TOKEN` foram gravados como
-  sensíveis somente em Preview e somente na branch
-  `feat/email-professional-invites`;
+- foi criado o Redis gratuito `salon-saas-preview-vercel` em São Paulo
+  (`gru1`) pela integração oficial Upstash/Vercel;
+- `KV_REST_API_URL` e `KV_REST_API_TOKEN` foram injetados como sensíveis
+  somente em Preview. O runtime também mantém compatibilidade com
+  `UPSTASH_REDIS_REST_URL` e `UPSTASH_REDIS_REST_TOKEN`;
+- o banco manual inicial `salon-saas-preview` (US East) ficou desconectado e
+  não é usado pelo aplicativo; não foi apagado automaticamente;
 - `NEXTAUTH_URL` foi confirmado em Production e configurado no Preview com o
   alias estável da branch;
 - o bucket `salon-assets` foi criado no Supabase de produção como público, com
@@ -130,7 +133,7 @@ Production:
   deliberadamente em contingência e não deve ser usado até sua ativação;
 - os scripts SQL manuais e de RLS foram movidos de `prisma/migrations` para
   `prisma/sql`, para que não sejam interpretados como migrations pelo Prisma.
-- TypeScript, Prisma Validate, 17 arquivos/80 testes unitários e o build
+- TypeScript, Prisma Validate, 17 arquivos/81 testes unitários e o build
   Next.js passaram localmente sem conexão com o banco real.
 
 A inspeção somente leitura do banco de produção mostrou que ele não possui

@@ -75,8 +75,13 @@ async function checkDistributed(
   limit: number,
   windowSeconds: number,
 ): Promise<RateLimitResult | null> {
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  // A integração nativa Upstash/Vercel usa KV_REST_API_*; a configuração
+  // direta do Upstash usa UPSTASH_REDIS_REST_*. Preferimos a integração para
+  // evitar cópia manual de segredos, mantendo compatibilidade com ambos.
+  const url =
+    process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
+  const token =
+    process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
   if (!url || !token) return null;
 
   try {
