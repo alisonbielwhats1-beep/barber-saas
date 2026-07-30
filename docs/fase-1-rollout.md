@@ -33,9 +33,10 @@ Vercel.
 
 ## Estado da Fase 1B em 29/07/2026
 
-- Preview: Upstash integrado à Vercel somente nesse ambiente e
-  `NEXTAUTH_URL` configurado na branch `feat/email-professional-invites`.
-- Production: Redis ainda não configurado para este lote.
+- Preview: Upstash integrado à Vercel e `NEXTAUTH_URL` configurado na branch
+  homologada.
+- Production: a mesma integração Upstash injeta as credenciais sensíveis
+  `KV_*`; o login inválido confirmou o Redis distribuído em operação.
 - Resend: deliberadamente não conectado; envio por e-mail em contingência.
 - Gate de contingência: `EMAIL_INVITES_ENABLED` está ausente/desligada. A rota
   pública, as consultas administrativas e todas as Server Actions de convite
@@ -48,8 +49,11 @@ Vercel.
   `prisma/migrations`; SQL manual e RLS ficam em `prisma/sql`.
 
 GitHub Actions, Vercel Preview e os smoke tests passaram no commit `a1d35d0`.
-A Fase 1B está concluída no Preview, mas esse estado não autoriza merge nem
-publicação em Production.
+O PR #3 foi mesclado por squash no commit `af6d063`, e o deployment
+`dpl_3of24kMW7hMUWXXPTHqSoZv3drVT` terminou em `Ready` no domínio oficial.
+Dashboard, agenda, profissionais e configurações foram validados com a conta
+demo; os convites continuam bloqueados. Nenhuma migration foi aplicada no banco
+real.
 
 ## Homologação
 

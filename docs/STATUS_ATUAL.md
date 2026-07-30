@@ -8,15 +8,16 @@ Este arquivo é o ponto de retomada para outro chat ou computador. Leia também
 - Repositório: `alisonbielwhats1-beep/barber-saas`
 - Checkout local usado: `C:\Claude Code\salon-saas`
 - Checkout original preservado: `D:\Projetos\barber-saas`
-- Branch local e remota: `feat/email-professional-invites`
+- Branch local e remota: `master`
 - Pull request: [PR #3 — convites de profissionais por e-mail](https://github.com/alisonbielwhats1-beep/barber-saas/pull/3)
-- Estado do PR: aberto, `draft`, mergeável e ainda não mesclado
-- Commit de fechamento técnico da Fase 1B: `a1d35d0`
-- GitHub Actions: [aprovado](https://github.com/alisonbielwhats1-beep/barber-saas/actions/runs/30505468872)
-- Preview da Vercel: [aprovado](https://vercel.com/alisonbielwhats1-beeps-projects/salon-saas/ARpKUpfpfES71Muow4aE1ye1TdBE)
+- Estado do PR: mesclado por squash em Production
+- Commit de Production: `af6d063`
+- GitHub Actions: [aprovado](https://github.com/alisonbielwhats1-beep/barber-saas/actions/runs/30506440533)
+- Deployment da Vercel: `dpl_3of24kMW7hMUWXXPTHqSoZv3drVT` — `Ready`
+- Aplicativo oficial: [salon-saas-ruby.vercel.app](https://salon-saas-ruby.vercel.app)
 
-Nenhum merge, deploy manual, `prisma db push` ou migration em produção foi
-executado.
+O PR foi mesclado e o deploy automático de Production foi concluído. Nenhum
+deploy manual, `prisma db push` ou migration no banco real foi executado.
 
 ## Escopo concluído na Fase 1
 
@@ -119,8 +120,8 @@ Production:
 
 - foi criado o Redis gratuito `salon-saas-preview-vercel` em São Paulo
   (`gru1`) pela integração oficial Upstash/Vercel;
-- `KV_REST_API_URL` e `KV_REST_API_TOKEN` foram injetados como sensíveis
-  somente em Preview. O runtime também mantém compatibilidade com
+- `KV_REST_API_URL` e `KV_REST_API_TOKEN` foram injetados como sensíveis em
+  Preview e Production. O runtime também mantém compatibilidade com
   `UPSTASH_REDIS_REST_URL` e `UPSTASH_REDIS_REST_TOKEN`;
 - o banco manual inicial `salon-saas-preview` (US East) ficou desconectado e
   não é usado pelo aplicativo; não foi apagado automaticamente;
@@ -150,6 +151,19 @@ sem autenticação, cron sem segredo e disponibilidade sem parâmetros. A rota
 `/convite/token-invalido-phase1b`, que antes retornava erro 500 pela ausência
 das tabelas, agora exibe a contingência sem consultar o banco de convites.
 
+O rollout de apresentação foi autorizado e concluído em Production pelo commit
+`af6d063`. O CI e o deployment automático passaram. Os smoke tests no domínio
+oficial confirmaram:
+
+- home, login e cadastro;
+- Luna Hair e North Barber;
+- redirecionamento de “Minhas visitas” sem sessão;
+- disponibilidade, histórico e cron com respostas protegidas;
+- login de cliente inválido respondendo normalmente via Redis de Production;
+- login administrativo demo e carregamento de dashboard, agenda,
+  profissionais e configurações;
+- contingência de convites sem consulta às tabelas ainda não migradas.
+
 A inspeção somente leitura do banco de produção mostrou que ele não possui
 histórico Prisma reconhecido e que as três migrations versionadas locais
 aparecem como pendentes. Nenhuma migration foi aplicada ou marcada como
@@ -157,23 +171,22 @@ resolvida. Antes de qualquer `migrate deploy`, é obrigatório criar backup e
 reconciliar cada objeto existente com o SQL local; não usar `migrate resolve`
 sem essa evidência.
 
-Ainda falta para promover a Fase 1 a Production:
+Ainda falta somente para ativar convites por e-mail:
 
 1. planejar e autorizar explicitamente o baseline/migrations do banco real;
-2. configurar Redis de Production antes de publicar o código;
-3. configurar Resend e habilitar `EMAIL_INVITES_ENABLED=true` somente depois
+2. configurar Resend e habilitar `EMAIL_INVITES_ENABLED=true` somente depois
    de validar a migration e quando o envio de convites for liberado;
-4. manter o PR em draft e não mesclar nem publicar em Production antes dessas
-   etapas.
+3. executar os smoke tests específicos de criação, entrega e aceite do convite.
+
+Essas pendências não bloqueiam a demonstração: a aplicação está em Production
+com os convites desativados de forma segura.
 
 ## Prompt curto para o próximo chat
 
-> Abra `C:\Claude Code\salon-saas`, confirme a branch
-> `feat/email-professional-invites` e leia `docs/STATUS_ATUAL.md` e
-> `docs/fase-1-rollout.md`. Inspecione o PR #3. A Fase 1B terminou no Preview:
-> GitHub Actions, Vercel e smoke tests passaram no commit `a1d35d0`; não refaça
-> o trabalho. Upstash está configurado somente no Preview, o bucket existe e
-> convites por e-mail estão bloqueados por padrão porque Resend e a migration
-> de Production ainda não foram liberados. Planeje o baseline do banco. Não
-> faça merge, deploy, migration de produção ou `prisma db push` sem autorização
-> explícita.
+> Abra `C:\Claude Code\salon-saas`, confirme a branch `master` e leia
+> `docs/STATUS_ATUAL.md` e `docs/fase-1-rollout.md`. O PR #3 foi mesclado e o
+> commit `af6d063` está em Production; CI, Vercel e smoke tests passaram. Redis
+> está configurado em Preview e Production, e o bucket `salon-assets` existe.
+> Convites por e-mail continuam bloqueados porque Resend e as migrations do
+> banco real não foram liberados. Não aplique migration, `prisma db push` nem
+> ative `EMAIL_INVITES_ENABLED` sem autorização explícita.
