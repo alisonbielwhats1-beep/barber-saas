@@ -145,3 +145,32 @@ Depois da conciliação:
 - Integração PostgreSQL nova: preparada; deve rodar no CI isolado, nunca contra
   o Supabase de Production.
 - `git diff --check`: pendente da revisão final do lote.
+
+## Handoff do lote 2A — publicado em 30/07/2026
+
+O lote 2A está concluído e não deve ser refeito.
+
+- Branch remota: `feat/fase-2-agenda-integrity`
+- PR draft: [#5](https://github.com/alisonbielwhats1-beep/barber-saas/pull/5)
+- Commit final: `6b792a1`
+- GitHub Actions: aprovado, incluindo integração PostgreSQL isolada
+- Vercel Preview: [abrir](https://salon-saas-git-feat-fase-bb7e3d-alisonbielwhats1-beeps-projects.vercel.app)
+- Vercel Preview: Ready
+- Production e Supabase: sem alteração de dados ou schema
+
+O front-end alterado neste lote é somente o fluxo de agendamento e “Minhas
+visitas”: horários, confirmação, calendário `.ics`, timezone e cancelamento
+agora usam as regras do salão. Não houve redesign visual.
+
+### Próxima ação
+
+Implementar o lote 2B — remarcação atômica. A reserva existente deve ser
+preservada até a nova vaga ser revalidada e confirmada na mesma transação. Uma
+vaga tomada simultaneamente não pode cancelar a reserva original.
+
+### Restrições de retomada
+
+- Não criar a constraint `appointment_no_overlap` antes de classificar os 9 pares
+  ativos sobrepostos encontrados em Production.
+- Não usar `prisma db push`.
+- Não aplicar migration ou alterar Production/Supabase sem autorização explícita.

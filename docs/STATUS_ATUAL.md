@@ -182,3 +182,46 @@ Estado detalhado, critérios e próximos lotes:
 > 9 pares ativos sobrepostos; não altere esses dados nem crie a constraint sem
 > conciliação e autorização. Continue pela validação/PR do lote 2A e depois
 > implemente a remarcação atômica 2B. Nunca use `prisma db push`.
+
+## Registro canônico de retomada — 30/07/2026
+
+O lote 2A foi concluído, publicado no GitHub e validado no Preview da Vercel.
+
+- Branch: `feat/fase-2-agenda-integrity`
+- PR draft: [#5](https://github.com/alisonbielwhats1-beep/barber-saas/pull/5)
+- Commit final: `6b792a1`
+- Vercel Preview: [abrir aplicativo](https://salon-saas-git-feat-fase-bb7e3d-alisonbielwhats1-beeps-projects.vercel.app)
+- GitHub Actions: aprovado
+- Vercel Preview: Ready
+- Working tree e branch remota: sincronizados
+- Production: não alterada
+- Supabase: nenhuma migration, `db push` ou alteração de dados executada
+
+### Escopo entregue no lote 2A
+
+- Front-end de agendamento e “Minhas visitas” alinhado ao timezone do salão.
+- Cancelamento no front-end alinhado à política real do salão.
+- API pública e agenda administrativa com validação única de disponibilidade.
+- Advisory lock PostgreSQL para impedir corrida de reservas.
+- Criação de contato e agendamento manual na mesma transação.
+- Testes unitários, build, TypeScript e integração PostgreSQL no CI.
+
+### Ponto exato onde parar
+
+Não refazer o lote 2A. O próximo trabalho é o lote **2B — remarcação atômica**:
+manter a reserva atual até a nova vaga ser validada e confirmada dentro da mesma
+transação; se a nova vaga for tomada, a reserva original deve permanecer.
+
+Antes de criar `appointment_no_overlap` em Production, ainda é obrigatório
+classificar os 9 pares de agendamentos ativos sobrepostos encontrados na auditoria.
+Não alterar esses dados sem autorização operacional explícita.
+
+### Prompt curto para continuar
+
+> Abra `C:\Claude Code\salon-saas` e leia `docs/STATUS_ATUAL.md`,
+> `docs/fase-2-agenda.md` e `docs/PROXIMAS_FASES.md`. Continue da branch
+> `feat/fase-2-agenda-integrity`, PR draft #5, commit `6b792a1`. O lote 2A já
+> está concluído e validado; não o refaça. Implemente o lote 2B de remarcação
+> atômica. Não faça migration, `prisma db push`, alteração no Supabase ou deploy
+> de Production sem autorização explícita. Production possui 9 pares ativos
+> sobrepostos e não tem a constraint `appointment_no_overlap`.
