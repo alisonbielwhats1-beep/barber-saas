@@ -1,192 +1,165 @@
-# Handoff do projeto — 29/07/2026
+# Handoff do projeto — Fase 1 em Production
 
-Este arquivo é o ponto de retomada para outro chat ou computador. Leia também
-`docs/fase-1-rollout.md` antes de qualquer homologação, migration ou deploy.
+Atualizado em 29/07/2026. Este é o ponto canônico de retomada para outro chat
+ou computador. Leia também `docs/fase-1-rollout.md` e
+`docs/PROXIMAS_FASES.md`.
 
 ## Onde o trabalho está
 
 - Repositório: `alisonbielwhats1-beep/barber-saas`
-- Checkout local usado: `C:\Claude Code\salon-saas`
-- Checkout original preservado: `D:\Projetos\barber-saas`
-- Branch local e remota: `master`
-- Pull request: [PR #3 — convites de profissionais por e-mail](https://github.com/alisonbielwhats1-beep/barber-saas/pull/3)
-- Estado do PR: mesclado por squash em Production
-- Commit de Production: `af6d063`
-- GitHub Actions: [aprovado](https://github.com/alisonbielwhats1-beep/barber-saas/actions/runs/30506440533)
-- Deployment da Vercel: `dpl_3of24kMW7hMUWXXPTHqSoZv3drVT` — `Ready`
-- Aplicativo oficial: [salon-saas-ruby.vercel.app](https://salon-saas-ruby.vercel.app)
+- Checkout usado: `C:\Claude Code\salon-saas`
+- Checkout preservado e não alterado: `D:\Projetos\barber-saas`
+- Branch local/remota: `master`
+- PR da Fase 1: [#3](https://github.com/alisonbielwhats1-beep/barber-saas/pull/3),
+  mesclado
+- Commit do código em Production: `af6d063`
+- Aplicativo oficial:
+  [salon-saas-ruby.vercel.app](https://salon-saas-ruby.vercel.app)
+- Deployment do código: `dpl_3of24kMW7hMUWXXPTHqSoZv3drVT`, estado `Ready`
 
-O PR foi mesclado e o deploy automático de Production foi concluído. Nenhum
-deploy manual, `prisma db push` ou migration no banco real foi executado.
+## Veredito atual
 
-## Escopo concluído na Fase 1
+A base da **Fase 1 está concluída em Production**: código, Redis, storage,
+schema e histórico Prisma foram validados. A única exceção deliberada é a
+ativação do envio de convites por e-mail.
 
-### Identidade pública
+Enquanto o e-mail estiver pendente:
+
+- `EMAIL_INVITES_ENABLED` permanece ausente/desligada;
+- `RESEND_API_KEY` e `EMAIL_FROM` não estão na Vercel;
+- criação, reenvio, revogação e aceite de convites falham fechados;
+- a rota pública de convite mostra indisponibilidade controlada;
+- não anunciar convites por e-mail como recurso disponível.
+
+Isso não bloqueia demonstrações das demais áreas do produto.
+
+## Fase 1 entregue
+
+### Identidade, agendamento e histórico
 
 - A API pública de agendamento não aceita `clientId` do navegador.
-- A sessão assinada é a única fonte de identidade de cliente autenticado.
-- Um visitante nunca reutiliza contato existente por telefone ou e-mail.
-- O contato isolado do visitante é criado na mesma transação do agendamento.
-- Histórico, cancelamento e “Minhas visitas” cruzam cliente e salão da sessão.
-- O cron falha fechado e compara o segredo com `timingSafeEqual`, verificando o
-  tamanho antes da comparação.
-- O fluxo fixo `trocar-agora` não existe em produção.
+- A sessão assinada é a fonte da identidade de cliente autenticado.
+- Visitante não reutiliza contato existente por telefone/e-mail e recebe um
+  contato isolado dentro da transação do agendamento.
+- Histórico, cancelamento e “Minhas visitas” isolam cliente e salão.
+- O cron falha fechado e usa `timingSafeEqual` somente após comparar tamanhos.
+- Nenhum fluxo de Production usa a senha fixa `trocar-agora`.
 
-### Convites
+### Convites e consistência
 
-- Token aleatório de 256 bits, com somente SHA-256 persistido.
-- Validade de 24 horas, rotação no reenvio e consumo único.
-- Resend usa chave de idempotência por tentativa e timeout.
-- Resultado atrasado do provedor não sobrescreve uma tentativa mais nova.
-- Criação, reenvio e cancelamento usam advisory locks compatíveis.
-- O aceite exige o hash vigente no `UPDATE`; token rotacionado não pode ser
-  consumido numa corrida.
-- Conta existente exige sessão do usuário destinatário.
-- Owner ou manager não consegue assumir conta global de outro salão.
-- `User`, `Membership`, `Professional`, serviços e evento de aceite são
-  consistentes na mesma transação.
-- Falha parcial reverte consumo do convite e todas as ativações.
+- Token aleatório de 256 bits; somente SHA-256 é persistido.
+- Expiração de 24 horas, rotação no reenvio e consumo único.
+- Locks e `UPDATE` condicionado ao hash vigente protegem contra corrida.
+- Conta existente exige a sessão do destinatário.
+- Owner/manager de um salão não assume conta global de outro salão.
+- Aceite atualiza `User`, `Membership`, `Professional`, serviços e auditoria na
+  mesma transação; falha parcial reverte tudo.
+- A infraestrutura de entrega por Resend está implementada, mas desligada.
 
-### Migration
+### Rate limiting e upload
 
-- O nome histórico foi restaurado para
-  `20260729120000_user_invite_created_by_index`.
-- A nova migration é
-  `20260729164510_email_professional_invites`.
-- O SQL preserva dados legados, cria estados/eventos, FKs, índices e o índice
-  parcial correto, habilita RLS e revoga `anon`/`authenticated`.
-- Os arquivos SQL reais foram aplicados em ordem num PostgreSQL 16 efêmero.
-- O CI usa uma fixture pré-Fase-1 porque o repositório não contém uma migration
-  baseline completa. A fixture não é migration de produção.
-- Rollout, rollback honesto e recuperação estão em
-  `docs/fase-1-rollout.md`.
+- Upstash REST está conectado a Preview e Production pela integração Vercel.
+- O limiter usa `EVAL` atômico, timeout e identificadores protegidos por hash.
+- Autenticação e escritas sensíveis falham fechadas em Production.
+- Em Production, somente `x-vercel-forwarded-for` é usado como IP confiável.
+- Upload exige sessão, papel e membership do salão; valida magic bytes e grava
+  somente em `<salonId>/<finalidade>/<uuid>.<ext>`.
+- O bucket público `salon-assets` existe no Supabase, limitado a 5 MiB e a
+  JPEG, PNG, WebP e GIF.
 
-### Rate limiting
+## Banco de Production e migrations
 
-- Upstash REST usa `EVAL` atômico, timeout e chaves com identificador em hash.
-- Login administrativo e de cliente têm buckets separados por IP e conta.
-- Aceite de convite tem buckets por IP e token.
-- Autenticação e escritas sensíveis falham fechadas em produção se o Redis
-  estiver ausente ou indisponível.
-- Em produção, somente `x-vercel-forwarded-for` é aceito como IP confiável.
-- Leituras públicas não críticas podem usar fallback local.
+Em 29/07/2026 foi feita uma reconciliação controlada:
 
-### Upload e dependências
+1. O banco não tinha `_prisma_migrations`, embora os objetos das duas primeiras
+   migrations já existissem.
+2. Colunas, `tokenHash VARCHAR(64)`, índices, FKs, RLS e privilégios foram
+   comparados com o SQL versionado.
+3. `20260728220000_fase_1_security_invites` foi marcada como aplicada somente
+   após essa comprovação.
+4. `20260729120000_user_invite_created_by_index` também foi marcada como
+   aplicada somente após confirmar o índice.
+5. `20260729164510_email_professional_invites` foi aplicada por
+   `prisma migrate deploy`.
+6. `prisma migrate status` confirmou: `Database schema is up to date!`.
 
-- Upload exige sessão, membership no salão ativo, role e finalidade permitida.
-- O caminho é `<salonId>/<finalidade>/<uuid>.<ext>`.
-- O MIME declarado é conferido com magic bytes; SVG e paths arbitrários são
-  rejeitados.
-- O bucket público `salon-assets` é somente para imagens públicas de serviços,
-  produtos e portfólio e deve ser criado antes do deploy.
-- `next-auth` está em `4.24.15`; `postcss` e `sharp` têm versões corretivas.
-- `npm audit --omit=dev` retorna zero vulnerabilidades.
-- Restam 13 alertas somente em tooling de desenvolvimento.
-- Node.js mínimo: `20.9.0`.
+Também foram validados:
 
-## Evidências
+- `UserInviteEvent`, enums, FKs e índices esperados;
+- RLS ativa e ausência de DML para `anon`/`authenticated` nas duas tabelas;
+- preservação do único convite legado, agora em
+  `FAILED / LEGACY_NOT_SENT`.
 
-- TypeScript: aprovado.
-- Prisma Generate e Validate: aprovados.
-- Unitários: 19 arquivos, 87 testes aprovados.
-- PostgreSQL 16: 3 testes de integração aprovados:
-  - duas aceitações concorrentes consomem somente uma vez;
-  - falha parcial reverte usuário, membership e profissional;
-  - owner não assume conta global pertencente a outro salão.
-- Build de produção com Next.js `15.5.22`: aprovado localmente e no CI.
-- `git diff --check`: aprovado.
+Não repetir `migrate resolve`, não usar `prisma db push` e não reaplicar essas
+migrations.
 
-O teste PostgreSQL encontrou e permitiu corrigir um erro que os mocks
-escondiam: `pg_advisory_xact_lock` retorna `void`, que o Prisma não
-desserializa. O SQL agora adquire o mesmo lock projetando somente um inteiro
-compatível.
+### Backup anterior à mudança
 
-## Estado operacional da Fase 1B
+Foi criado um snapshot lógico consistente de todas as 20 tabelas públicas
+(758 registros), fora do Git:
 
-O deployment `dpl_8prwDgsiHeqejArctZYJg9us6Ytk` falhou durante a coleta de
-dados porque `NEXTAUTH_SECRET` não estava disponível na branch atual. As cinco
-variáveis de Preview necessárias ao build estavam restritas à branch antiga
-`fix/fase-1-seguranca`.
+`C:\Claude Code\backups\salon-saas\phase1-pre-migration-2026-07-30T02-42-16.085Z.json`
 
-O escopo de `NEXTAUTH_SECRET`, `DATABASE_URL`, `DIRECT_URL`, `SUPABASE_URL` e
-`SUPABASE_SERVICE_ROLE_KEY` foi movido para
-`feat/email-professional-invites`, sem visualizar ou alterar valores e sem
-modificar o ambiente Production. O redeploy
-`dpl_AUus5URSAryco5Nrn4yHheizi74P` terminou em `Ready`, e a página inicial do
-Preview abriu corretamente.
+SHA-256:
+`05B783DDF5F1AB4F32DA35ABE4916C9C855CF49C9A27D2A9748225ED4C191EC2`
 
-Em 29/07/2026, a homologação operacional avançou sem publicar código em
-Production:
+O arquivo contém dados pessoais e hashes: não subir, compartilhar ou registrar
+seu conteúdo. É um snapshot JSON para recuperação manual e **não substitui**
+um backup nativo `pg_dump`/Supabase. Antes de mudanças destrutivas futuras,
+criar também um backup nativo ou ponto de restauração do provedor.
 
-- foi criado o Redis gratuito `salon-saas-preview-vercel` em São Paulo
-  (`gru1`) pela integração oficial Upstash/Vercel;
-- `KV_REST_API_URL` e `KV_REST_API_TOKEN` foram injetados como sensíveis em
-  Preview e Production. O runtime também mantém compatibilidade com
-  `UPSTASH_REDIS_REST_URL` e `UPSTASH_REDIS_REST_TOKEN`;
-- o banco manual inicial `salon-saas-preview` (US East) ficou desconectado e
-  não é usado pelo aplicativo; não foi apagado automaticamente;
-- `NEXTAUTH_URL` foi confirmado em Production e configurado no Preview com o
-  alias estável da branch;
-- o bucket `salon-assets` foi criado no Supabase de produção como público, com
-  limite de 5 MiB e MIME restrito a JPEG, PNG, WebP e GIF;
-- a conta Resend está acessível, mas `RESEND_API_KEY` e `EMAIL_FROM` não foram
-  criados nem conectados à Vercel. O envio de convites por e-mail permanece
-  deliberadamente em contingência e não deve ser usado até sua ativação;
-- `EMAIL_INVITES_ENABLED` é uma flag server-side desativada por padrão. O
-  recurso só é habilitado quando seu valor é exatamente `true` e as duas
-  configurações do Resend estão presentes;
-- com a flag desligada, as páginas administrativas não consultam
-  `UserInvite`, as Server Actions recusam criação/reenvio/cancelamento/aceite e
-  a rota pública de convite mostra uma indisponibilidade controlada antes de
-  ler sessão ou token;
-- os scripts SQL manuais e de RLS foram movidos de `prisma/migrations` para
-  `prisma/sql`, para que não sejam interpretados como migrations pelo Prisma.
-- TypeScript, Prisma Validate, 19 arquivos/87 testes unitários e o build
-  Next.js passaram localmente sem conexão com o banco real.
+### Drift conhecido, fora da Fase 1
 
-O commit `a1d35d0` passou no GitHub Actions e no Vercel Preview. Os smoke tests
-confirmaram home, login, cadastro, os dois salões de demonstração, redirecionamento
-de “Minhas visitas” sem sessão, rate limiting distribuído no login, histórico
-sem autenticação, cron sem segredo e disponibilidade sem parâmetros. A rota
-`/convite/token-invalido-phase1b`, que antes retornava erro 500 pela ausência
-das tabelas, agora exibe a contingência sem consultar o banco de convites.
+`prisma migrate diff` ainda sugere ajustar a precisão de
+`Appointment.reminderSentAt` e `Appointment.cancelledAt` para `TIMESTAMP(3)`.
+O histórico está em dia, mas esse drift preexistente deve virar uma migration
+separada, após validar impacto e backup. Não corrigir com `db push`.
 
-O rollout de apresentação foi autorizado e concluído em Production pelo commit
-`af6d063`. O CI e o deployment automático passaram. Os smoke tests no domínio
-oficial confirmaram:
+## Evidências finais
 
-- home, login e cadastro;
-- Luna Hair e North Barber;
-- redirecionamento de “Minhas visitas” sem sessão;
-- disponibilidade, histórico e cron com respostas protegidas;
-- login de cliente inválido respondendo normalmente via Redis de Production;
-- login administrativo demo e carregamento de dashboard, agenda,
-  profissionais e configurações;
-- contingência de convites sem consulta às tabelas ainda não migradas.
+- CI e build do código da Fase 1: aprovados.
+- Testes unitários: 19 arquivos / 87 testes.
+- Integração PostgreSQL 16: concorrência, rollback parcial e isolamento global
+  de conta aprovados.
+- Vercel Production: `Ready`.
+- Variáveis de Production confirmadas sem revelar valores:
+  banco, auth, Supabase, cron e `KV_*`; Resend/flag ausentes.
+- Smoke tests após a migration:
+  - home, login, cadastro e salão público: HTTP 200;
+  - “Minhas visitas” sem sessão: redireciona ao login do salão;
+  - disponibilidade sem parâmetros: HTTP 400;
+  - histórico sem sessão: HTTP 401;
+  - cron sem segredo: HTTP 401;
+  - convite com flag desligada: contingência controlada.
 
-A inspeção somente leitura do banco de produção mostrou que ele não possui
-histórico Prisma reconhecido e que as três migrations versionadas locais
-aparecem como pendentes. Nenhuma migration foi aplicada ou marcada como
-resolvida. Antes de qualquer `migrate deploy`, é obrigatório criar backup e
-reconciliar cada objeto existente com o SQL local; não usar `migrate resolve`
-sem essa evidência.
+## Única pendência da Fase 1: ativar e-mail
 
-Ainda falta somente para ativar convites por e-mail:
+Executar em uma janela própria:
 
-1. planejar e autorizar explicitamente o baseline/migrations do banco real;
-2. configurar Resend e habilitar `EMAIL_INVITES_ENABLED=true` somente depois
-   de validar a migration e quando o envio de convites for liberado;
-3. executar os smoke tests específicos de criação, entrega e aceite do convite.
+1. verificar domínio remetente no Resend;
+2. definir `RESEND_API_KEY` e `EMAIL_FROM` em Preview;
+3. definir `EMAIL_INVITES_ENABLED=true` somente em Preview;
+4. testar criar, entregar, reenviar, revogar e aceitar convite;
+5. confirmar rotação do token, idempotência, expiração, uso único e auditoria;
+6. monitorar logs sem token, hash, cookie, senha ou dado pessoal;
+7. só então repetir as três variáveis em Production e executar smoke controlado.
 
-Essas pendências não bloqueiam a demonstração: a aplicação está em Production
-com os convites desativados de forma segura.
+Nenhuma migration adicional é necessária para essa ativação.
+
+## Atenção antes de clientes reais
+
+As credenciais demo públicas são úteis para apresentação, mas não devem dar
+acesso a tenants de clientes reais. Antes do primeiro onboarding comercial,
+isolar/remover os tenants demo ou rotacionar suas credenciais e validar o
+onboarding do cliente em tenant próprio.
 
 ## Prompt curto para o próximo chat
 
-> Abra `C:\Claude Code\salon-saas`, confirme a branch `master` e leia
-> `docs/STATUS_ATUAL.md` e `docs/fase-1-rollout.md`. O PR #3 foi mesclado e o
-> commit `af6d063` está em Production; CI, Vercel e smoke tests passaram. Redis
-> está configurado em Preview e Production, e o bucket `salon-assets` existe.
-> Convites por e-mail continuam bloqueados porque Resend e as migrations do
-> banco real não foram liberados. Não aplique migration, `prisma db push` nem
-> ative `EMAIL_INVITES_ENABLED` sem autorização explícita.
+> Abra `C:\Claude Code\salon-saas`, confirme `master` limpa e sincronizada e
+> leia integralmente `docs/STATUS_ATUAL.md`, `docs/fase-1-rollout.md` e
+> `docs/PROXIMAS_FASES.md`. A Fase 1 está em Production, o Supabase está com as
+> 3 migrations em dia, Upstash e `salon-assets` estão operacionais. Não refaça
+> migrations nem use `prisma db push`. A única pendência da Fase 1 é ativar
+> Resend por Preview primeiro; não habilite e-mail sem autorização explícita.
+> Para seguir sem e-mail, comece pela Fase 2 descrita em
+> `docs/PROXIMAS_FASES.md`.

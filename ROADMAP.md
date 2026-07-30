@@ -3,6 +3,11 @@
 Visão de produto para evolução da plataforma multi-tenant. Organizado por
 persona (dono × cliente) e priorizado por impacto no negócio.
 
+> **Nota de 29/07/2026:** este arquivo preserva o roadmap histórico do painel.
+> A ordem canônica do programa atual, incluindo segurança, agenda,
+> arquitetura, infraestrutura, billing, operação, IA e escala, está em
+> [`docs/PROXIMAS_FASES.md`](docs/PROXIMAS_FASES.md).
+
 ---
 
 ## Transformação premium do painel do dono — plano em fases

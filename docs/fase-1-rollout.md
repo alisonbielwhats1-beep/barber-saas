@@ -1,122 +1,115 @@
-# Fase 1 — rollout e rollback
+# Fase 1 — rollout, estado e rollback
 
-Este documento cobre o lote de convites por e-mail, rate limiting distribuído
-e endurecimento de uploads. Nenhuma migration deve ser executada pelo build da
-Vercel.
+Este documento cobre convites por e-mail, rate limiting distribuído,
+endurecimento de uploads e a reconciliação do banco. Migration nunca deve ser
+executada pelo build da Vercel.
 
-## Pré-condições
+## Estado em 29/07/2026
 
-1. Confirmar que o histórico contém, com os nomes exatos,
-   `20260728220000_fase_1_security_invites` e
-   `20260729120000_user_invite_created_by_index`. Se a segunda ainda estiver
-   pendente, ela deve ser aplicada nessa ordem pelo `migrate deploy`; nunca
-   renomear ou marcar como aplicada sem evidência do banco.
-2. Comparar as migrations locais com o histórico do ambiente.
-3. Criar backup ou ponto de restauração e registrar quem fará o rollback.
-4. Configurar em Preview e Production:
-   - `NEXTAUTH_URL`;
-   - `UPSTASH_REDIS_REST_URL`;
-   - `UPSTASH_REDIS_REST_TOKEN`;
-   - `SUPABASE_URL`;
-   - `SUPABASE_SERVICE_ROLE_KEY`.
-   Para habilitar o envio de convites por e-mail, configurar também
-   `RESEND_API_KEY`, `EMAIL_FROM` e `EMAIL_INVITES_ENABLED=true`. A flag só é
-   aceita com o valor exato `true` e o runtime exige as duas variáveis do
-   Resend. Sem as três condições o recurso falha fechado antes de consultar
-   `UserInvite`; não anunciar nem usar convites por e-mail.
-   A integração nativa Upstash/Vercel pode fornecer
-   `KV_REST_API_URL` e `KV_REST_API_TOKEN` no lugar das duas variáveis
-   `UPSTASH_*`; o runtime aceita ambos os pares e prioriza o par `KV_*`.
-5. Criar previamente o bucket público `salon-assets`. Ele contém apenas imagens
-   públicas de serviços, produtos e portfólio. O backend não cria buckets em
-   requisições de usuário.
+### Concluído
 
-## Estado da Fase 1B em 29/07/2026
+- PR #3 mesclado no commit `af6d063`.
+- GitHub Actions e Vercel Production aprovados.
+- Upstash conectado a Preview e Production por `KV_REST_API_URL` e
+  `KV_REST_API_TOKEN`.
+- `NEXTAUTH_URL`, banco, Supabase e `CRON_SECRET` presentes em Production.
+- Bucket público `salon-assets` criado com limite de 5 MiB e MIME restrito.
+- Código publicado com convites bloqueados de forma fail-closed.
+- Schema de Production reconciliado e as três migrations estão aplicadas:
+  - `20260728220000_fase_1_security_invites`;
+  - `20260729120000_user_invite_created_by_index`;
+  - `20260729164510_email_professional_invites`.
+- RLS, privilégios, FKs, índices, enums e histórico Prisma validados.
+- Smoke tests de Production aprovados depois da migration.
 
-- Preview: Upstash integrado à Vercel e `NEXTAUTH_URL` configurado na branch
-  homologada.
-- Production: a mesma integração Upstash injeta as credenciais sensíveis
-  `KV_*`; o login inválido confirmou o Redis distribuído em operação.
-- Resend: deliberadamente não conectado; envio por e-mail em contingência.
-- Gate de contingência: `EMAIL_INVITES_ENABLED` está ausente/desligada. A rota
-  pública, as consultas administrativas e todas as Server Actions de convite
-  ficam bloqueadas sem acessar as tabelas ainda não migradas.
-- Storage de Production: bucket `salon-assets` criado com limite de 5 MiB e
-  allowlist de MIME.
-- Banco de Production: somente leitura confirmou ausência de histórico Prisma
-  reconhecido. As migrations locais aparecem pendentes e nenhuma foi aplicada.
-- Organização local: somente diretórios timestampados permanecem em
-  `prisma/migrations`; SQL manual e RLS ficam em `prisma/sql`.
+### Deliberadamente pendente
 
-GitHub Actions, Vercel Preview e os smoke tests passaram no commit `a1d35d0`.
-O PR #3 foi mesclado por squash no commit `af6d063`, e o deployment
-`dpl_3of24kMW7hMUWXXPTHqSoZv3drVT` terminou em `Ready` no domínio oficial.
-Dashboard, agenda, profissionais e configurações foram validados com a conta
-demo; os convites continuam bloqueados. Nenhuma migration foi aplicada no banco
-real.
+- domínio remetente no Resend;
+- `RESEND_API_KEY`;
+- `EMAIL_FROM`;
+- `EMAIL_INVITES_ENABLED=true`;
+- smoke completo de entrega e aceite por e-mail.
 
-## Homologação
+Sem essas três variáveis, o recurso de convite falha fechado antes de executar
+ações de convite. O restante do aplicativo continua operacional.
 
-1. Aplicar as migrations em PostgreSQL isolado.
-2. Executar os testes de integração reais:
-   `npm run test:integration`.
-3. Confirmar:
-   - duas aceitações simultâneas geram somente um usuário, membership e
-     profissional;
-   - falha parcial não consome o convite;
-   - reenvio invalida o token anterior;
-   - cancelamento impede atualização posterior da tentativa de envio;
-   - upload grava somente em `<salonId>/<finalidade>/<uuid>.<ext>`;
-   - Redis ausente ou indisponível bloqueia autenticação e escritas sensíveis
-     em produção.
+## Registro da reconciliação do banco
 
-## Ordem de produção
+O banco já possuía materialmente as duas primeiras migrations, mas não tinha
+`_prisma_migrations`. Antes de registrar qualquer histórico foram comprovados:
 
-1. Evitar criação de convites durante a janela e manter
-   `EMAIL_INVITES_ENABLED` ausente ou igual a `false`.
-2. Configurar o Redis de Production antes de publicar o código.
-3. Executar `prisma migrate deploy` depois de conferir que a lista de pendências
-   contém somente as migrations esperadas — o índice `20260729120000`, caso
-   ainda pendente, seguido de `20260729164510_email_professional_invites`.
-4. Validar colunas, índices, FKs, RLS e privilégios.
-5. Publicar o código ainda com os convites bloqueados.
-6. Configurar Resend e ativar `EMAIL_INVITES_ENABLED=true` somente após a
-   validação do banco e uma autorização explícita.
-7. Fazer smoke tests de login, cadastro, convite, aceite, upload e agendamento.
-8. Monitorar erros, respostas 429/503 e falhas de entrega.
+- `User.passwordSetAt`;
+- estrutura completa de `UserInvite`;
+- `tokenHash VARCHAR(64)`;
+- índice único do token e índice parcial por salão/e-mail normalizado;
+- índices de consulta e do criador;
+- FKs com regras `ON DELETE`/`ON UPDATE`;
+- RLS ativa;
+- ausência de DML para `anon` e `authenticated`.
 
-A migration pode ser aplicada antes do código porque é expansiva. Entretanto,
-o código anterior não registra tentativas de e-mail; por isso a janela entre
-migration e deploy deve ser curta e sem criação de convites. O código novo
-também pode ser publicado antes da migration somente com a flag desligada,
-pois nesse modo não consulta `UserInvite`; isso não substitui a reconciliação
-obrigatória do histórico Prisma.
+Somente após a comparação, as duas migrations foram registradas com
+`prisma migrate resolve --applied`. A terceira, que ainda não existia, foi
+executada com `prisma migrate deploy`.
+
+O convite legado foi preservado e marcado como
+`FAILED / LEGACY_NOT_SENT`. `prisma migrate status` confirmou o banco em dia.
+
+O snapshot lógico anterior à mudança e seu checksum estão registrados em
+`docs/STATUS_ATUAL.md`. Ele não está no Git porque contém dados sensíveis.
+
+## Drift conhecido
+
+A comparação final ainda sugere somente:
+
+```sql
+ALTER TABLE "Appointment"
+  ALTER COLUMN "reminderSentAt" SET DATA TYPE TIMESTAMP(3),
+  ALTER COLUMN "cancelledAt" SET DATA TYPE TIMESTAMP(3);
+```
+
+Isso é anterior e fora do escopo da Fase 1. Criar migration separada após
+backup e validação; não usar `prisma db push`.
+
+## Ativação futura do e-mail
+
+Fazer primeiro em Preview:
+
+1. verificar o domínio remetente no Resend;
+2. configurar `RESEND_API_KEY` e `EMAIL_FROM`;
+3. configurar `EMAIL_INVITES_ENABLED=true`;
+4. criar convite novo e confirmar entrega;
+5. reenviar e provar que o token anterior foi invalidado;
+6. revogar e provar que entrega atrasada não reativa o convite;
+7. aceitar com conta nova e existente;
+8. executar duas aceitações simultâneas e confirmar uso único;
+9. conferir `UserInviteEvent` sem registrar token, hash ou dado sensível;
+10. monitorar 429, 503 e falhas do provedor.
+
+Somente depois repetir a configuração em Production. Não há migration
+adicional para ativar o e-mail.
 
 ## Rollback
 
-O rollback padrão é somente da aplicação:
+O rollback padrão é da aplicação/configuração:
 
-1. interromper novos convites;
-2. voltar ao commit anterior;
-3. manter as colunas, enums e `UserInviteEvent` no banco;
-4. invalidar convites emitidos pelo código novo se necessário;
-5. investigar e corrigir antes de novo rollout.
+1. remover ou definir `EMAIL_INVITES_ENABLED=false`;
+2. interromper novos convites;
+3. voltar o código ao deployment anterior, se necessário;
+4. manter colunas, enums e `UserInviteEvent`;
+5. investigar antes de reativar.
 
-Manter a expansão do schema é o rollback mais seguro: o código anterior ignora
-as colunas novas, e removê-las destruiria histórico de entrega e auditoria.
+Manter a expansão do schema é o caminho mais seguro: remover colunas ou a
+tabela de eventos destruiria auditoria, e não desfaria usuários, memberships
+ou profissionais já ativados.
 
-Rollback estrutural só pode ocorrer com backup e reconciliação manual. Antes de
-recriar o índice antigo, é obrigatório provar que não existem dois convites não
-consumidos para o mesmo salão/e-mail, inclusive linhas revogadas. Remover
-`UserInviteEvent`, enums ou colunas apaga dados e não desfaz usuários,
-memberships ou profissionais já ativados.
+Rollback estrutural só pode ocorrer com backup nativo/ponto de restauração e
+reconciliação manual. Antes de recriar o índice antigo, provar que não há dois
+convites não consumidos do mesmo salão/e-mail, incluindo linhas revogadas.
 
 ## Recuperação operacional
 
-- `FAILED`: reenviar; o token é rotacionado.
-- `SENDING` após interrupção: usar reenvio administrativo; a nova tentativa
-  invalida a anterior.
-- e-mail entregue com atualização de banco incerta: não reutilizar o mesmo
-  token manualmente; executar reenvio para rotacioná-lo.
-- Upstash indisponível: autenticação e escritas sensíveis retornam
-  indisponibilidade; restaurar Redis antes de liberar tráfego.
+- `FAILED`: reenviar; a nova tentativa rotaciona o token.
+- `SENDING` após interrupção: usar o reenvio administrativo.
+- Entrega com atualização incerta: não reutilizar token manualmente; reenviar.
+- Upstash indisponível: restaurar Redis antes de liberar autenticação/escritas.
+- Resend indisponível: desligar a flag; o restante do sistema continua ativo.
