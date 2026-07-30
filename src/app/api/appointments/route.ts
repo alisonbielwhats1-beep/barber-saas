@@ -12,6 +12,13 @@ import {
   rateLimitHeaders,
   rateLimitStatus,
 } from "@/lib/rate-limit";
+import {
+  safeTimeZone,
+  salonDateKey,
+  slotUnavailableReason,
+  weekdayForDateKey,
+} from "@/lib/booking-availability";
+import { lockProfessionalSchedule } from "@/lib/appointment-lock";
 import { addMinutes } from "date-fns";
 
 /**
@@ -54,7 +61,15 @@ export async function POST(req: NextRequest) {
   const session = await getClientSession();
   const identity = resolveBookingIdentity(session, b.salonId);
 
-  const [service, prosLink] = await Promise.all([
+  const [salon, service, prosLink] = await Promise.all([
+    prisma.salon.findUnique({
+      where: { id: b.salonId },
+      select: {
+        timezone: true,
+        openMinutes: true,
+        closeMinutes: true,
+      },
+    }),
     prisma.service.findFirst({
       where: { id: b.serviceId, salonId: b.salonId, active: true },
       select: { durationMin: true, priceCents: true },
@@ -63,23 +78,61 @@ export async function POST(req: NextRequest) {
       where: { serviceId: b.serviceId, professional: { id: b.professionalId, salonId: b.salonId, active: true } },
     }),
   ]);
-  if (!service) return NextResponse.json({ error: "SERVICE_INVALID" }, { status: 400 });
+  if (!salon || !service)
+    return NextResponse.json({ error: "SERVICE_INVALID" }, { status: 400 });
   if (!prosLink)
     return NextResponse.json({ error: "PRO_SERVICE_MISMATCH" }, { status: 400 });
 
   const startAt = new Date(b.startAt);
   const endAt = addMinutes(startAt, service.durationMin);
-
-  const conflict = await prisma.appointment.findFirst({
-    where: {
-      professionalId: b.professionalId,
-      status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
-      startAt: { lt: endAt },
-      endAt: { gt: startAt },
-    },
-    select: { id: true },
+  const timeZone = safeTimeZone(salon.timezone);
+  const dateKey = salonDateKey(startAt, timeZone);
+  const weekday = weekdayForDateKey(dateKey);
+  const [workingHours, timeOffs, appointments] = await Promise.all([
+    prisma.workingHours.findMany({
+      where: {
+        salonId: b.salonId,
+        professionalId: b.professionalId,
+        weekday,
+      },
+      select: { startMinutes: true, endMinutes: true },
+    }),
+    prisma.timeOff.findMany({
+      where: {
+        professionalId: b.professionalId,
+        startAt: { lt: endAt },
+        endAt: { gt: startAt },
+      },
+      select: { startAt: true, endAt: true },
+    }),
+    prisma.appointment.findMany({
+      where: {
+        salonId: b.salonId,
+        professionalId: b.professionalId,
+        status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
+        startAt: { lt: endAt },
+        endAt: { gt: startAt },
+      },
+      select: { startAt: true, endAt: true },
+    }),
+  ]);
+  const unavailable = slotUnavailableReason({
+    startAt,
+    endAt,
+    now: new Date(),
+    timeZone,
+    salonOpenMinutes: salon.openMinutes,
+    salonCloseMinutes: salon.closeMinutes,
+    workingHours,
+    timeOffs,
+    appointments,
   });
-  if (conflict) return NextResponse.json({ error: "SLOT_TAKEN" }, { status: 409 });
+  if (unavailable) {
+    return NextResponse.json(
+      { error: unavailable },
+      { status: unavailable === "INVALID_SLOT" ? 400 : 409 },
+    );
+  }
 
   // Valida produtos: só os que pertencem ao salão e têm estoque suficiente
   let productSnapshots: { productId: string; quantity: number; priceCentsUnit: number }[] = [];
@@ -140,6 +193,18 @@ export async function POST(req: NextRequest) {
   let appt;
   try {
     appt = await prisma.$transaction(async (tx) => {
+      await lockProfessionalSchedule(tx, b.professionalId);
+      const conflict = await tx.appointment.findFirst({
+        where: {
+          professionalId: b.professionalId,
+          status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
+          startAt: { lt: endAt },
+          endAt: { gt: startAt },
+        },
+        select: { id: true },
+      });
+      if (conflict) throw new Error("SLOT_TAKEN");
+
       const appointmentClientId =
         clientId ??
         (
@@ -185,10 +250,12 @@ export async function POST(req: NextRequest) {
       return created;
     });
   } catch (e) {
-    // Exclusion constraint (appointment_no_overlap): outra reserva venceu a
-    // corrida entre a checagem de conflito e o INSERT. Mesma resposta de slot
-    // ocupado — o client recarrega a grade.
-    if (isOverlapViolation(e)) {
+    // O advisory lock fecha a corrida no código atual. A detecção de 23P01
+    // permanece como defesa quando a constraint definitiva puder ser aplicada.
+    if (
+      isOverlapViolation(e) ||
+      (e instanceof Error && e.message === "SLOT_TAKEN")
+    ) {
       return NextResponse.json({ error: "SLOT_TAKEN" }, { status: 409 });
     }
     throw e;

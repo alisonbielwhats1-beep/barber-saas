@@ -5,7 +5,13 @@ import {
   clientIp,
   rateLimitHeaders,
 } from "@/lib/rate-limit";
-import { startOfDay, endOfDay, addMinutes, isBefore } from "date-fns";
+import {
+  availableSlots,
+  salonDayRange,
+  safeTimeZone,
+  weekdayForDateKey,
+} from "@/lib/booking-availability";
+import { formatInTimeZone } from "date-fns-tz";
 
 /**
  * GET /api/availability?salonId=…&professionalId=…&serviceId=…&date=YYYY-MM-DD
@@ -40,12 +46,24 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "missing params" }, { status: 400 });
   }
 
-  const date = new Date(dateStr);
-  const weekday = date.getDay();
+  let weekday: number;
+  try {
+    weekday = weekdayForDateKey(dateStr);
+  } catch {
+    return NextResponse.json({ error: "INVALID_DATE" }, { status: 400 });
+  }
 
-  const [service, professionalLink, workingHours, timeOffs, appointments, history] = await Promise.all([
+  const [salon, service, professionalLink, workingHours, history] = await Promise.all([
+    prisma.salon.findUnique({
+      where: { id: salonId },
+      select: {
+        timezone: true,
+        openMinutes: true,
+        closeMinutes: true,
+      },
+    }),
     prisma.service.findFirst({
-      where: { id: serviceId, salonId },
+      where: { id: serviceId, salonId, active: true },
       select: { durationMin: true },
     }),
     prisma.professionalService.findFirst({
@@ -59,25 +77,10 @@ export async function GET(req: NextRequest) {
       where: { salonId, professionalId, weekday },
       select: { startMinutes: true, endMinutes: true },
     }),
-    prisma.timeOff.findMany({
-      where: {
-        professionalId,
-        startAt: { lte: endOfDay(date) },
-        endAt: { gte: startOfDay(date) },
-      },
-      select: { startAt: true, endAt: true },
-    }),
-    prisma.appointment.findMany({
-      where: {
-        professionalId,
-        startAt: { gte: startOfDay(date), lte: endOfDay(date) },
-        status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
-      },
-      select: { startAt: true, endAt: true },
-    }),
     // Histórico de horários do profissional (qualquer dia) para achar o mais pedido
     prisma.appointment.findMany({
       where: {
+        salonId,
         professionalId,
         status: { in: ["CONFIRMED", "IN_PROGRESS", "COMPLETED"] },
       },
@@ -87,50 +90,50 @@ export async function GET(req: NextRequest) {
     }),
   ]);
 
-  if (!service || !professionalLink) {
+  if (!salon || !service || !professionalLink) {
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
   }
   if (workingHours.length === 0) return NextResponse.json({ slots: [] });
 
-  const step = 15; // grade de 15min
-  const slots: string[] = [];
+  const timeZone = safeTimeZone(salon.timezone);
+  const dayRange = salonDayRange(dateStr, timeZone);
+  const [timeOffs, appointments] = await Promise.all([
+    prisma.timeOff.findMany({
+      where: {
+        professionalId,
+        startAt: { lt: dayRange.endAt },
+        endAt: { gt: dayRange.startAt },
+      },
+      select: { startAt: true, endAt: true },
+    }),
+    prisma.appointment.findMany({
+      where: {
+        salonId,
+        professionalId,
+        startAt: { lt: dayRange.endAt },
+        endAt: { gt: dayRange.startAt },
+        status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
+      },
+      select: { startAt: true, endAt: true },
+    }),
+  ]);
 
-  for (const wh of workingHours) {
-    const dayStart = new Date(date);
-    dayStart.setHours(0, wh.startMinutes, 0, 0);
-    const dayEnd = new Date(date);
-    dayEnd.setHours(0, wh.endMinutes, 0, 0);
-
-    for (let cursor = dayStart; isBefore(addMinutes(cursor, service.durationMin), dayEnd) || +addMinutes(cursor, service.durationMin) === +dayEnd; cursor = addMinutes(cursor, step)) {
-      const slotEnd = addMinutes(cursor, service.durationMin);
-
-      const overlapsAppt = appointments.some(
-        (a) => cursor < a.endAt && slotEnd > a.startAt,
-      );
-      const overlapsOff = timeOffs.some(
-        (t) => cursor < t.endAt && slotEnd > t.startAt,
-      );
-      if (overlapsAppt || overlapsOff) continue;
-
-      // não oferecer horário no passado do dia corrente
-      if (isBefore(cursor, new Date())) continue;
-
-      slots.push(
-        `${cursor.getHours().toString().padStart(2, "0")}:${cursor
-          .getMinutes()
-          .toString()
-          .padStart(2, "0")}`,
-      );
-    }
-  }
+  const slots = availableSlots({
+    dateKey: dateStr,
+    durationMinutes: service.durationMin,
+    now: new Date(),
+    timeZone,
+    salonOpenMinutes: salon.openMinutes,
+    salonCloseMinutes: salon.closeMinutes,
+    workingHours,
+    timeOffs,
+    appointments,
+  });
 
   // Horário (HH:MM) mais frequente no histórico que esteja livre hoje
   const freq = new Map<string, number>();
   for (const a of history) {
-    const key = `${a.startAt.getHours().toString().padStart(2, "0")}:${a.startAt
-      .getMinutes()
-      .toString()
-      .padStart(2, "0")}`;
+    const key = formatInTimeZone(a.startAt, timeZone, "HH:mm");
     freq.set(key, (freq.get(key) ?? 0) + 1);
   }
   let popularSlot: string | null = null;

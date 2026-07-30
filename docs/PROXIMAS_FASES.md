@@ -37,6 +37,9 @@ Não exige nova migration. O checklist completo está em
 Objetivo: tornar a agenda confiável para uso diário e competitiva com produtos
 como Booksy, sem copiar interface ou regras proprietárias.
 
+Estado de execução, auditoria e divisão em lotes:
+[`docs/fase-2-agenda.md`](fase-2-agenda.md).
+
 1. Auditar o que já existe e cobrir lacunas com testes.
 2. Implementar lista de espera por serviço, profissional e faixa de horário,
    com prioridade, expiração, oferta de vaga e aceite atômico.

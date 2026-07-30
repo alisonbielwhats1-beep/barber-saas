@@ -18,6 +18,7 @@ export default async function AgendarPage({
       id: true,
       name: true,
       currency: true,
+      timezone: true,
       services: {
         where: { active: true },
         include: {
@@ -85,6 +86,7 @@ export default async function AgendarPage({
     <BookingFlow
       salonId={salon.id}
       salonName={salon.name}
+      salonTimeZone={salon.timezone}
       currency={salon.currency}
       services={services}
       initialServiceId={query.service ?? null}

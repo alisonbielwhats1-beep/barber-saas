@@ -5,6 +5,9 @@ describe("friendlyError", () => {
   it("mapeia códigos conhecidos para PT", () => {
     expect(friendlyError("SLOT_TAKEN")).toBe(ERROR_PT.SLOT_TAKEN);
     expect(friendlyError("SERVICE_INVALID")).toBe(ERROR_PT.SERVICE_INVALID);
+    expect(friendlyError("OUTSIDE_WORKING_HOURS")).toBe(
+      ERROR_PT.OUTSIDE_WORKING_HOURS,
+    );
   });
   it("nunca mostra código cru desconhecido", () => {
     const msg = friendlyError("SOME_NEW_CODE");

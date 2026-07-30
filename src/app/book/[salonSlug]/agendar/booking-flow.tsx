@@ -35,6 +35,11 @@ import {
   endOfWeek,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import {
+  formatInTimeZone,
+  fromZonedTime,
+  toZonedTime,
+} from "date-fns-tz";
 
 type Pro = {
   id: string;
@@ -65,6 +70,7 @@ type Booked = {
 export function BookingFlow({
   salonId,
   salonName,
+  salonTimeZone,
   currency,
   services,
   initialServiceId,
@@ -73,6 +79,7 @@ export function BookingFlow({
 }: {
   salonId: string;
   salonName: string;
+  salonTimeZone: string;
   currency: string;
   services: Service[];
   initialServiceId: string | null;
@@ -89,8 +96,12 @@ export function BookingFlow({
     if (!svc) return null;
     return svc.professionals.some((p) => p.id === initialProId) ? initialProId : null;
   });
-  const [date, setDate] = useState<Date>(startOfDay(new Date()));
-  const [viewMonth, setViewMonth] = useState<Date>(startOfMonth(new Date()));
+  const [date, setDate] = useState<Date>(() =>
+    startOfDay(toZonedTime(new Date(), salonTimeZone)),
+  );
+  const [viewMonth, setViewMonth] = useState<Date>(() =>
+    startOfMonth(toZonedTime(new Date(), salonTimeZone)),
+  );
   const [slot, setSlot] = useState<string | null>(null);
   const [slots, setSlots] = useState<string[]>([]);
   const [slotsVersion, setSlotsVersion] = useState(0);
@@ -217,9 +228,10 @@ export function BookingFlow({
     if (!service || !proId || !slot) return;
     setLoading(true);
     setError(null);
-    const [h, m] = slot.split(":").map(Number);
-    const startAt = new Date(date);
-    startAt.setHours(h, m, 0, 0);
+    const startAt = fromZonedTime(
+      `${format(date, "yyyy-MM-dd")}T${slot}:00`,
+      salonTimeZone,
+    );
 
     const res = await fetch("/api/appointments", {
       method: "POST",
@@ -265,6 +277,7 @@ export function BookingFlow({
         booked={booked}
         salonName={salonName}
         salonSlug={salonSlug}
+        salonTimeZone={salonTimeZone}
       />
     );
   }
@@ -426,7 +439,10 @@ export function BookingFlow({
           <div className="grid grid-cols-7 gap-1">
             {calendarDays.map((d) => {
               const inMonth = isSameMonth(d, viewMonth);
-              const past = isBefore(d, startOfDay(new Date()));
+              const past = isBefore(
+                d,
+                startOfDay(toZonedTime(new Date(), salonTimeZone)),
+              );
               const selected = isSameDay(d, date);
               const disabled = past || !inMonth;
               return (
@@ -633,13 +649,16 @@ function BoardingPass({
   booked,
   salonName,
   salonSlug,
+  salonTimeZone,
 }: {
   booked: Booked;
   salonName: string;
   salonSlug: string;
+  salonTimeZone: string;
 }) {
   function downloadIcs() {
-    const dt = (d: Date) => format(d, "yyyyMMdd'T'HHmmss");
+    const dt = (d: Date) =>
+      formatInTimeZone(d, "UTC", "yyyyMMdd'T'HHmmss'Z'");
     const end = new Date(booked.startAt.getTime() + booked.durationMin * 60_000);
     const ics = [
       "BEGIN:VCALENDAR",
@@ -689,10 +708,15 @@ function BoardingPass({
           </div>
           <div>
             <p className="font-display text-4xl leading-none text-primary">
-              {format(booked.startAt, "HH:mm")}
+              {formatInTimeZone(booked.startAt, salonTimeZone, "HH:mm")}
             </p>
             <p className="mt-2 text-sm capitalize text-foreground">
-              {format(booked.startAt, "EEEE, d 'de' MMMM", { locale: ptBR })}
+              {formatInTimeZone(
+                booked.startAt,
+                salonTimeZone,
+                "EEEE, d 'de' MMMM",
+                { locale: ptBR },
+              )}
             </p>
           </div>
         </div>

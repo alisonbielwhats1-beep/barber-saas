@@ -5,8 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CalendarDays, LogOut, XCircle, RefreshCw, Repeat } from "lucide-react";
 import { formatMoney } from "@/lib/utils";
-import { format, isPast, differenceInHours } from "date-fns";
+import { isPast } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { formatInTimeZone } from "date-fns-tz";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { logoutClient } from "../auth-actions";
 import type { ClientSession } from "@/lib/client-auth";
@@ -26,11 +27,15 @@ export function MinhasList({
   appointments,
   salonSlug,
   currency,
+  salonTimeZone,
+  cancelPolicyHours,
   session,
 }: {
   appointments: Appt[];
   salonSlug: string;
   currency: string;
+  salonTimeZone: string;
+  cancelPolicyHours: number;
   session: ClientSession;
 }) {
   const router = useRouter();
@@ -58,6 +63,8 @@ export function MinhasList({
     if (b.error === "UNAUTHENTICATED") return "Sua sessão expirou — entre novamente.";
     if (b.error === "TOO_LATE_TO_CANCEL")
       return "Não é possível cancelar com tão pouca antecedência. Entre em contato com o salão.";
+    if (b.error === "ALREADY_STARTED")
+      return "Esse atendimento já começou e não pode mais ser cancelado pelo aplicativo.";
     return "Não foi possível cancelar. Tente de novo em instantes.";
   }
 
@@ -120,14 +127,17 @@ export function MinhasList({
       {/* Upcoming */}
       <Section title="Próximas" empty="Nenhuma reserva futura.">
         {upcoming.map((a) => {
-          const hoursUntil = differenceInHours(new Date(a.startAt), new Date());
-          const canCancel = hoursUntil > 2;
+          const canCancel =
+            ["PENDING", "CONFIRMED"].includes(a.status) &&
+            new Date(a.startAt).getTime() - Date.now() >=
+              cancelPolicyHours * 3_600_000;
           return (
             <ApptCard
               key={a.id}
               a={a}
               currency={currency}
               salonSlug={salonSlug}
+              salonTimeZone={salonTimeZone}
               actions={
                 <div className="flex gap-3">
                   <button
@@ -181,6 +191,7 @@ export function MinhasList({
             a={a}
             currency={currency}
             salonSlug={salonSlug}
+            salonTimeZone={salonTimeZone}
             actions={
               <Link
                 href={`/book/${salonSlug}/agendar?service=${a.service.id}`}
@@ -234,11 +245,13 @@ function ApptCard({
   a,
   currency,
   salonSlug: _salonSlug,
+  salonTimeZone,
   actions,
 }: {
   a: Appt;
   currency: string;
   salonSlug: string;
+  salonTimeZone: string;
   actions?: React.ReactNode;
 }) {
   const start = new Date(a.startAt);
@@ -274,7 +287,12 @@ function ApptCard({
       <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
         <span className="flex items-center gap-1">
           <CalendarDays className="h-3.5 w-3.5" />
-          {format(start, "dd 'de' MMM · HH:mm", { locale: ptBR })}
+          {formatInTimeZone(
+            start,
+            salonTimeZone,
+            "dd 'de' MMM · HH:mm",
+            { locale: ptBR },
+          )}
         </span>
       </div>
       {a.products.length > 0 && (

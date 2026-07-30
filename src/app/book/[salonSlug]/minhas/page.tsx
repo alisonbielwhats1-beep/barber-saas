@@ -16,7 +16,13 @@ export default async function MinhasPage({
   // Verify session belongs to this salon
   const salon = await prisma.salon.findUnique({
     where: { slug: salonSlug },
-    select: { id: true, name: true, currency: true },
+    select: {
+      id: true,
+      name: true,
+      currency: true,
+      timezone: true,
+      cancelPolicyHours: true,
+    },
   });
   if (!salon || session.salonId !== salon.id) {
     redirect(`/book/${salonSlug}/login`);
@@ -65,6 +71,8 @@ export default async function MinhasPage({
         appointments={serialized}
         salonSlug={salonSlug}
         currency={salon.currency}
+        salonTimeZone={salon.timezone}
+        cancelPolicyHours={salon.cancelPolicyHours}
         session={session}
       />
 

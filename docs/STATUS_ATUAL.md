@@ -153,13 +153,32 @@ acesso a tenants de clientes reais. Antes do primeiro onboarding comercial,
 isolar/remover os tenants demo ou rotacionar suas credenciais e validar o
 onboarding do cliente em tenant próprio.
 
+## Fase 2 em andamento
+
+A Fase 2 começou em 30/07/2026 na branch
+`feat/fase-2-agenda-integrity`. O primeiro lote centraliza disponibilidade,
+timezone, cancelamento e concorrência da agenda sem migration.
+
+A inspeção somente leitura encontrou dois fatos que precisam ser preservados no
+handoff:
+
+- a constraint PostgreSQL `appointment_no_overlap` não existe em Production;
+- existem 9 pares de agendamentos ativos sobrepostos.
+
+Nenhum desses dados foi alterado. O código do lote usa advisory lock
+transacional para impedir novas corridas, mas a constraint definitiva só pode
+ser criada depois da conciliação humana dos conflitos existentes.
+
+Estado detalhado, critérios e próximos lotes:
+`docs/fase-2-agenda.md`.
+
 ## Prompt curto para o próximo chat
 
-> Abra `C:\Claude Code\salon-saas`, confirme `master` limpa e sincronizada e
-> leia integralmente `docs/STATUS_ATUAL.md`, `docs/fase-1-rollout.md` e
-> `docs/PROXIMAS_FASES.md`. A Fase 1 está em Production, o Supabase está com as
-> 3 migrations em dia, Upstash e `salon-assets` estão operacionais. Não refaça
-> migrations nem use `prisma db push`. A única pendência da Fase 1 é ativar
-> Resend por Preview primeiro; não habilite e-mail sem autorização explícita.
-> Para seguir sem e-mail, comece pela Fase 2 descrita em
-> `docs/PROXIMAS_FASES.md`.
+> Abra `C:\Claude Code\salon-saas`, leia integralmente
+> `docs/STATUS_ATUAL.md`, `docs/fase-2-agenda.md` e
+> `docs/PROXIMAS_FASES.md`. A Fase 1 está em Production e o e-mail continua
+> desligado. A Fase 2 está na branch `feat/fase-2-agenda-integrity`; não refaça
+> o lote 2A. Production não tem a constraint `appointment_no_overlap` e possui
+> 9 pares ativos sobrepostos; não altere esses dados nem crie a constraint sem
+> conciliação e autorização. Continue pela validação/PR do lote 2A e depois
+> implemente a remarcação atômica 2B. Nunca use `prisma db push`.

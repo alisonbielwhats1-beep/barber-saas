@@ -75,20 +75,38 @@ export async function POST(req: NextRequest) {
   if (appt.status === "COMPLETED" || appt.status === "CANCELLED") {
     return NextResponse.json({ error: "ALREADY_CLOSED" }, { status: 409 });
   }
+  if (!["PENDING", "CONFIRMED"].includes(appt.status)) {
+    return NextResponse.json({ error: "ALREADY_STARTED" }, { status: 409 });
+  }
 
   // Política de cancelamento: não permite cancelar com menos de N horas de antecedência
-  const hoursUntil = (appt.startAt.getTime() - Date.now()) / 3_600_000;
-  if (hoursUntil >= 0 && hoursUntil < salon.cancelPolicyHours) {
+  const now = new Date();
+  const hoursUntil = (appt.startAt.getTime() - now.getTime()) / 3_600_000;
+  if (hoursUntil < 0) {
+    return NextResponse.json({ error: "ALREADY_STARTED" }, { status: 409 });
+  }
+  if (hoursUntil < salon.cancelPolicyHours) {
     return NextResponse.json({ error: "TOO_LATE_TO_CANCEL" }, { status: 409 });
   }
 
-  // $executeRaw evita erro de tipo quando a migration 003 ainda não foi aplicada
-  await prisma.$executeRaw`
-    UPDATE "Appointment"
-    SET   status = 'CANCELLED'::"AppointmentStatus",
-          "cancelledAt" = NOW(),
-          "updatedAt"   = NOW()
-    WHERE id = ${appt.id}
-  `;
+  const policyCutoff = new Date(
+    now.getTime() + salon.cancelPolicyHours * 3_600_000,
+  );
+  const cancelled = await prisma.appointment.updateMany({
+    where: {
+      id: appt.id,
+      salonId: salon.id,
+      clientId: session.clientId,
+      status: { in: ["PENDING", "CONFIRMED"] },
+      startAt: { gte: policyCutoff },
+    },
+    data: {
+      status: "CANCELLED",
+      cancelledAt: now,
+    },
+  });
+  if (cancelled.count !== 1) {
+    return NextResponse.json({ error: "STATE_CHANGED" }, { status: 409 });
+  }
   return NextResponse.json({ ok: true });
 }

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { addMinutes } from "date-fns";
 import { prisma } from "@/lib/prisma";
 import { isOverlapViolation } from "@/lib/db-errors";
+import { lockProfessionalSchedule } from "@/lib/appointment-lock";
 import { assertRole, getTenantContext } from "@/lib/tenant";
 
 /** Executa a mutação traduzindo violação da exclusion constraint. */
@@ -74,41 +75,64 @@ export async function createAppointmentManually(
   });
   if (conflict) return { error: "Horário já ocupado" };
 
-  let clientId = data.clientId;
-  if (!clientId) {
+  if (!data.clientId) {
     if (!data.clientName) return { error: "Informe um cliente" };
-    const client = await prisma.clientProfile.create({
-      data: {
-        salonId: ctx.salonId,
-        name: data.clientName,
-        phone: data.clientPhone ?? null,
-      },
-      select: { id: true },
-    });
-    clientId = client.id;
   } else {
     const owned = await prisma.clientProfile.findFirst({
-      where: { id: clientId, salonId: ctx.salonId },
+      where: { id: data.clientId, salonId: ctx.salonId },
       select: { id: true },
     });
     if (!owned) return { error: "Cliente inválido" };
   }
 
-  await guardOverlap(() =>
-    prisma.appointment.create({
-      data: {
-        salonId: ctx.salonId,
-        clientId,
-        serviceId: data.serviceId,
-        professionalId: data.professionalId,
-        startAt,
-        endAt,
-        priceCents: service.priceCents,
-        status: "CONFIRMED",
-        notes: data.notes ?? null,
-      },
-    }),
-  );
+  try {
+    await guardOverlap(() =>
+      prisma.$transaction(async (tx) => {
+        await lockProfessionalSchedule(tx, data.professionalId);
+        const lockedConflict = await tx.appointment.findFirst({
+          where: {
+            professionalId: data.professionalId,
+            status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
+            startAt: { lt: endAt },
+            endAt: { gt: startAt },
+          },
+          select: { id: true },
+        });
+        if (lockedConflict) throw new Error("Horário já ocupado");
+
+        const clientId =
+          data.clientId ??
+          (
+            await tx.clientProfile.create({
+              data: {
+                salonId: ctx.salonId,
+                name: data.clientName!,
+                phone: data.clientPhone ?? null,
+              },
+              select: { id: true },
+            })
+          ).id;
+
+        await tx.appointment.create({
+          data: {
+            salonId: ctx.salonId,
+            clientId,
+            serviceId: data.serviceId,
+            professionalId: data.professionalId,
+            startAt,
+            endAt,
+            priceCents: service.priceCents,
+            status: "CONFIRMED",
+            notes: data.notes ?? null,
+          },
+        });
+      }),
+    );
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "Erro ao agendar",
+    };
+  }
 
   revalidatePath("/agenda");
   revalidatePath("/dashboard");
@@ -132,10 +156,64 @@ export async function updateAppointmentStatus(
   assertRole(ctx, ["OWNER", "MANAGER", "RECEPTIONIST", "PROFESSIONAL"]);
   const parsedStatus = statusInput.parse(status);
 
-  await prisma.appointment.updateMany({
+  const appt = await prisma.appointment.findFirst({
     where: { id, salonId: ctx.salonId },
-    data: { status: parsedStatus },
+    select: {
+      status: true,
+      professionalId: true,
+      startAt: true,
+      endAt: true,
+    },
   });
+  if (!appt) throw new Error("Agendamento não encontrado");
+
+  const activeStatuses = ["PENDING", "CONFIRMED", "IN_PROGRESS"] as const;
+  const data = {
+    status: parsedStatus,
+    cancelledAt:
+      parsedStatus === "CANCELLED"
+        ? new Date()
+        : activeStatuses.includes(
+              parsedStatus as (typeof activeStatuses)[number],
+            )
+          ? null
+          : undefined,
+  };
+
+  const targetIsActive = activeStatuses.includes(
+    parsedStatus as (typeof activeStatuses)[number],
+  );
+  const wasActive = activeStatuses.includes(
+    appt.status as (typeof activeStatuses)[number],
+  );
+
+  if (targetIsActive && !wasActive) {
+    await guardOverlap(() =>
+      prisma.$transaction(async (tx) => {
+        await lockProfessionalSchedule(tx, appt.professionalId);
+        const conflict = await tx.appointment.findFirst({
+          where: {
+            id: { not: id },
+            professionalId: appt.professionalId,
+            status: { in: [...activeStatuses] },
+            startAt: { lt: appt.endAt },
+            endAt: { gt: appt.startAt },
+          },
+          select: { id: true },
+        });
+        if (conflict) throw new Error("Horário já ocupado");
+        await tx.appointment.updateMany({
+          where: { id, salonId: ctx.salonId },
+          data,
+        });
+      }),
+    );
+  } else {
+    await prisma.appointment.updateMany({
+      where: { id, salonId: ctx.salonId },
+      data,
+    });
+  }
   revalidatePath("/agenda");
   revalidatePath("/dashboard");
 }
@@ -291,9 +369,32 @@ export async function resizeAppointment(input: z.infer<typeof resizeInput>): Pro
   });
   if (conflict) return { error: "Conflito com outro agendamento" };
 
-  await guardOverlap(() =>
-    prisma.appointment.update({ where: { id: data.id }, data: { endAt } }),
-  );
+  try {
+    await guardOverlap(() =>
+      prisma.$transaction(async (tx) => {
+        await lockProfessionalSchedule(tx, appt.professionalId);
+        const lockedConflict = await tx.appointment.findFirst({
+          where: {
+            id: { not: data.id },
+            professionalId: appt.professionalId,
+            status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
+            startAt: { lt: endAt },
+            endAt: { gt: appt.startAt },
+          },
+          select: { id: true },
+        });
+        if (lockedConflict) throw new Error("Conflito com outro agendamento");
+        await tx.appointment.update({
+          where: { id: data.id },
+          data: { endAt },
+        });
+      }),
+    );
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "Erro ao redimensionar",
+    };
+  }
   revalidatePath("/agenda");
   return { success: true };
 }
@@ -335,18 +436,33 @@ export async function duplicateAppointment(id: string) {
     });
     if (conflict) continue;
     try {
-      await prisma.appointment.create({
-        data: {
-          salonId: ctx.salonId,
-          clientId: appt.clientId,
-          serviceId: appt.serviceId,
-          professionalId: appt.professionalId,
-          startAt,
-          endAt,
-          priceCents: appt.priceCents,
-          status: "PENDING",
-        },
+      const created = await prisma.$transaction(async (tx) => {
+        await lockProfessionalSchedule(tx, appt.professionalId);
+        const lockedConflict = await tx.appointment.findFirst({
+          where: {
+            professionalId: appt.professionalId,
+            status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
+            startAt: { lt: endAt },
+            endAt: { gt: startAt },
+          },
+          select: { id: true },
+        });
+        if (lockedConflict) return false;
+        await tx.appointment.create({
+          data: {
+            salonId: ctx.salonId,
+            clientId: appt.clientId,
+            serviceId: appt.serviceId,
+            professionalId: appt.professionalId,
+            startAt,
+            endAt,
+            priceCents: appt.priceCents,
+            status: "PENDING",
+          },
+        });
+        return true;
       });
+      if (!created) continue;
     } catch (e) {
       // Slot ocupado na corrida — tenta o próximo dia
       if (isOverlapViolation(e)) continue;
@@ -398,9 +514,23 @@ export async function editAppointment(input: z.infer<typeof editInput>): Promise
 
   try {
     await guardOverlap(() =>
-      prisma.appointment.update({
-        where: { id: data.id },
-        data: { startAt, endAt, notes: data.notes ?? null },
+      prisma.$transaction(async (tx) => {
+        await lockProfessionalSchedule(tx, appt.professionalId);
+        const lockedConflict = await tx.appointment.findFirst({
+          where: {
+            id: { not: data.id },
+            professionalId: appt.professionalId,
+            status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
+            startAt: { lt: endAt },
+            endAt: { gt: startAt },
+          },
+          select: { id: true },
+        });
+        if (lockedConflict) throw new Error("Horário já ocupado");
+        await tx.appointment.update({
+          where: { id: data.id },
+          data: { startAt, endAt, notes: data.notes ?? null },
+        });
       }),
     );
   } catch (e) {
@@ -459,12 +589,32 @@ export async function moveAppointment(input: z.infer<typeof moveInput>): Promise
   });
   if (conflict) return { error: "Horário já ocupado" };
 
-  await guardOverlap(() =>
-    prisma.appointment.update({
-      where: { id: data.id },
-      data: { professionalId: data.professionalId, startAt, endAt },
-    }),
-  );
+  try {
+    await guardOverlap(() =>
+      prisma.$transaction(async (tx) => {
+        await lockProfessionalSchedule(tx, data.professionalId);
+        const lockedConflict = await tx.appointment.findFirst({
+          where: {
+            id: { not: data.id },
+            professionalId: data.professionalId,
+            status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
+            startAt: { lt: endAt },
+            endAt: { gt: startAt },
+          },
+          select: { id: true },
+        });
+        if (lockedConflict) throw new Error("Horário já ocupado");
+        await tx.appointment.update({
+          where: { id: data.id },
+          data: { professionalId: data.professionalId, startAt, endAt },
+        });
+      }),
+    );
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "Erro ao mover",
+    };
+  }
 
   revalidatePath("/agenda");
   revalidatePath("/dashboard");

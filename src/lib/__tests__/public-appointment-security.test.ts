@@ -5,10 +5,11 @@ const mocks = vi.hoisted(() => {
   const appointmentCreate = vi.fn();
   const clientCreate = vi.fn();
   const tx = {
-    appointment: { create: appointmentCreate },
+    appointment: { create: appointmentCreate, findFirst: vi.fn() },
     clientProfile: { create: clientCreate },
     appointmentProduct: { createMany: vi.fn() },
     product: { update: vi.fn() },
+    $queryRaw: vi.fn(),
   };
   return {
     getClientSession: vi.fn(),
@@ -16,9 +17,12 @@ const mocks = vi.hoisted(() => {
     clientCreate,
     tx,
     prisma: {
+      salon: { findUnique: vi.fn() },
       service: { findFirst: vi.fn() },
       professionalService: { findFirst: vi.fn() },
-      appointment: { findFirst: vi.fn() },
+      workingHours: { findMany: vi.fn() },
+      timeOff: { findMany: vi.fn() },
+      appointment: { findFirst: vi.fn(), findMany: vi.fn() },
       product: { findMany: vi.fn() },
       clientProfile: { findFirst: vi.fn(), create: clientCreate },
       $transaction: vi.fn(async (callback: (value: typeof tx) => unknown) =>
@@ -76,10 +80,19 @@ describe("POST /api/appointments — identidade do cliente", () => {
       durationMin: 30,
       priceCents: 5_000,
     });
+    mocks.prisma.salon.findUnique.mockResolvedValue({
+      timezone: "America/Sao_Paulo",
+      openMinutes: 8 * 60,
+      closeMinutes: 20 * 60,
+    });
     mocks.prisma.professionalService.findFirst.mockResolvedValue({
       serviceId: "service-a",
     });
-    mocks.prisma.appointment.findFirst.mockResolvedValue(null);
+    mocks.prisma.workingHours.findMany.mockResolvedValue([
+      { startMinutes: 9 * 60, endMinutes: 18 * 60 },
+    ]);
+    mocks.prisma.timeOff.findMany.mockResolvedValue([]);
+    mocks.prisma.appointment.findMany.mockResolvedValue([]);
     mocks.prisma.clientProfile.findFirst.mockResolvedValue({
       id: "client-session",
     });
@@ -88,6 +101,7 @@ describe("POST /api/appointments — identidade do cliente", () => {
       startAt: new Date(validBody.startAt),
       endAt: new Date("2030-01-10T15:30:00.000Z"),
     });
+    mocks.tx.appointment.findFirst.mockResolvedValue(null);
   });
 
   it("usa exclusivamente o cliente da sessão na persistência", async () => {
@@ -225,5 +239,46 @@ describe("POST /api/appointments — identidade do cliente", () => {
       },
       select: { id: true },
     });
+  });
+
+  it("rejeita horário forjado fora da jornada do profissional", async () => {
+    mocks.prisma.workingHours.findMany.mockResolvedValue([
+      { startMinutes: 9 * 60, endMinutes: 11 * 60 },
+    ]);
+
+    const response = await POST(
+      request({ ...validBody, startAt: "2030-01-10T15:00:00.000Z" }),
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      error: "OUTSIDE_WORKING_HOURS",
+    });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("rejeita horário fora da grade mesmo com POST direto", async () => {
+    const response = await POST(
+      request({ ...validBody, startAt: "2030-01-10T15:07:00.000Z" }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "INVALID_SLOT",
+    });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("revalida conflito depois do advisory lock", async () => {
+    mocks.tx.appointment.findFirst.mockResolvedValue({
+      id: "appointment-winner",
+    });
+
+    const response = await POST(request(validBody));
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({ error: "SLOT_TAKEN" });
+    expect(mocks.tx.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(mocks.appointmentCreate).not.toHaveBeenCalled();
   });
 });
