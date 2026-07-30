@@ -16,7 +16,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "test": "vitest run --exclude \"**/*.integration.test.ts\"",
-    "test:integration": "vitest run \"src/lib/__tests__/*-postgres.integration.test.ts\""
+    "test:integration": "vitest run src/lib/__tests__/invite-postgres.integration.test.ts src/lib/__tests__/appointment-postgres.integration.test.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
