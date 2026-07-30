@@ -11,9 +11,9 @@ Este arquivo é o ponto de retomada para outro chat ou computador. Leia também
 - Branch local e remota: `feat/email-professional-invites`
 - Pull request: [PR #3 — convites de profissionais por e-mail](https://github.com/alisonbielwhats1-beep/barber-saas/pull/3)
 - Estado do PR: aberto, `draft`, mergeável e ainda não mesclado
-- Commit-base desta homologação: `d2892b9`
-- GitHub Actions: [aprovado](https://github.com/alisonbielwhats1-beep/barber-saas/actions/runs/30499403288)
-- Preview da Vercel: [aprovado](https://vercel.com/alisonbielwhats1-beeps-projects/salon-saas/AUus5URSAryco5Nrn4yHheizi74P)
+- Commit de fechamento técnico da Fase 1B: `a1d35d0`
+- GitHub Actions: [aprovado](https://github.com/alisonbielwhats1-beep/barber-saas/actions/runs/30505468872)
+- Preview da Vercel: [aprovado](https://vercel.com/alisonbielwhats1-beeps-projects/salon-saas/ARpKUpfpfES71Muow4aE1ye1TdBE)
 
 Nenhum merge, deploy manual, `prisma db push` ou migration em produção foi
 executado.
@@ -87,7 +87,7 @@ executado.
 
 - TypeScript: aprovado.
 - Prisma Generate e Validate: aprovados.
-- Unitários: 17 arquivos, 80 testes aprovados.
+- Unitários: 19 arquivos, 87 testes aprovados.
 - PostgreSQL 16: 3 testes de integração aprovados:
   - duas aceitações concorrentes consomem somente uma vez;
   - falha parcial reverte usuário, membership e profissional;
@@ -131,10 +131,24 @@ Production:
 - a conta Resend está acessível, mas `RESEND_API_KEY` e `EMAIL_FROM` não foram
   criados nem conectados à Vercel. O envio de convites por e-mail permanece
   deliberadamente em contingência e não deve ser usado até sua ativação;
+- `EMAIL_INVITES_ENABLED` é uma flag server-side desativada por padrão. O
+  recurso só é habilitado quando seu valor é exatamente `true` e as duas
+  configurações do Resend estão presentes;
+- com a flag desligada, as páginas administrativas não consultam
+  `UserInvite`, as Server Actions recusam criação/reenvio/cancelamento/aceite e
+  a rota pública de convite mostra uma indisponibilidade controlada antes de
+  ler sessão ou token;
 - os scripts SQL manuais e de RLS foram movidos de `prisma/migrations` para
   `prisma/sql`, para que não sejam interpretados como migrations pelo Prisma.
-- TypeScript, Prisma Validate, 17 arquivos/81 testes unitários e o build
+- TypeScript, Prisma Validate, 19 arquivos/87 testes unitários e o build
   Next.js passaram localmente sem conexão com o banco real.
+
+O commit `a1d35d0` passou no GitHub Actions e no Vercel Preview. Os smoke tests
+confirmaram home, login, cadastro, os dois salões de demonstração, redirecionamento
+de “Minhas visitas” sem sessão, rate limiting distribuído no login, histórico
+sem autenticação, cron sem segredo e disponibilidade sem parâmetros. A rota
+`/convite/token-invalido-phase1b`, que antes retornava erro 500 pela ausência
+das tabelas, agora exibe a contingência sem consultar o banco de convites.
 
 A inspeção somente leitura do banco de produção mostrou que ele não possui
 histórico Prisma reconhecido e que as três migrations versionadas locais
@@ -143,22 +157,23 @@ resolvida. Antes de qualquer `migrate deploy`, é obrigatório criar backup e
 reconciliar cada objeto existente com o SQL local; não usar `migrate resolve`
 sem essa evidência.
 
-Ainda falta para promover a Fase 1:
+Ainda falta para promover a Fase 1 a Production:
 
-1. validar o novo deployment e os smoke tests do Preview após este commit;
-2. planejar e autorizar explicitamente o baseline/migrations do banco real;
-3. configurar Redis de Production antes de publicar o código;
-4. ativar Resend somente quando o envio de convites for liberado;
-5. manter o PR em draft e não mesclar nem publicar em Production antes dessas
+1. planejar e autorizar explicitamente o baseline/migrations do banco real;
+2. configurar Redis de Production antes de publicar o código;
+3. configurar Resend e habilitar `EMAIL_INVITES_ENABLED=true` somente depois
+   de validar a migration e quando o envio de convites for liberado;
+4. manter o PR em draft e não mesclar nem publicar em Production antes dessas
    etapas.
 
 ## Prompt curto para o próximo chat
 
 > Abra `C:\Claude Code\salon-saas`, confirme a branch
 > `feat/email-professional-invites` e leia `docs/STATUS_ATUAL.md` e
-> `docs/fase-1-rollout.md`. Inspecione o PR #3. A Fase 1 está implementada e o
-> GitHub Actions e o Preview anterior da Vercel passaram; não refaça o
-> trabalho. Upstash está configurado somente no Preview, o bucket existe e o
-> Resend está deliberadamente em contingência. Valide os checks do commit mais
-> recente e planeje o baseline do banco. Não faça merge, deploy, migration de
-> produção ou `prisma db push` sem autorização explícita.
+> `docs/fase-1-rollout.md`. Inspecione o PR #3. A Fase 1B terminou no Preview:
+> GitHub Actions, Vercel e smoke tests passaram no commit `a1d35d0`; não refaça
+> o trabalho. Upstash está configurado somente no Preview, o bucket existe e
+> convites por e-mail estão bloqueados por padrão porque Resend e a migration
+> de Production ainda não foram liberados. Planeje o baseline do banco. Não
+> faça merge, deploy, migration de produção ou `prisma db push` sem autorização
+> explícita.

@@ -20,8 +20,10 @@ Vercel.
    - `SUPABASE_URL`;
    - `SUPABASE_SERVICE_ROLE_KEY`.
    Para habilitar o envio de convites por e-mail, configurar também
-   `RESEND_API_KEY` e `EMAIL_FROM`. Sem essas duas variáveis o recurso deve
-   permanecer fora da operação; não anunciar nem usar convites por e-mail.
+   `RESEND_API_KEY`, `EMAIL_FROM` e `EMAIL_INVITES_ENABLED=true`. A flag só é
+   aceita com o valor exato `true` e o runtime exige as duas variáveis do
+   Resend. Sem as três condições o recurso falha fechado antes de consultar
+   `UserInvite`; não anunciar nem usar convites por e-mail.
    A integração nativa Upstash/Vercel pode fornecer
    `KV_REST_API_URL` e `KV_REST_API_TOKEN` no lugar das duas variáveis
    `UPSTASH_*`; o runtime aceita ambos os pares e prioriza o par `KV_*`.
@@ -35,6 +37,9 @@ Vercel.
   `NEXTAUTH_URL` configurado na branch `feat/email-professional-invites`.
 - Production: Redis ainda não configurado para este lote.
 - Resend: deliberadamente não conectado; envio por e-mail em contingência.
+- Gate de contingência: `EMAIL_INVITES_ENABLED` está ausente/desligada. A rota
+  pública, as consultas administrativas e todas as Server Actions de convite
+  ficam bloqueadas sem acessar as tabelas ainda não migradas.
 - Storage de Production: bucket `salon-assets` criado com limite de 5 MiB e
   allowlist de MIME.
 - Banco de Production: somente leitura confirmou ausência de histórico Prisma
@@ -42,8 +47,9 @@ Vercel.
 - Organização local: somente diretórios timestampados permanecem em
   `prisma/migrations`; SQL manual e RLS ficam em `prisma/sql`.
 
-Esse estado permite homologar o Preview, mas não autoriza merge nem publicação
-em Production.
+GitHub Actions, Vercel Preview e os smoke tests passaram no commit `a1d35d0`.
+A Fase 1B está concluída no Preview, mas esse estado não autoriza merge nem
+publicação em Production.
 
 ## Homologação
 
@@ -62,18 +68,25 @@ em Production.
 
 ## Ordem de produção
 
-1. Evitar criação de convites durante a janela.
-2. Executar `prisma migrate deploy` depois de conferir que a lista de pendências
+1. Evitar criação de convites durante a janela e manter
+   `EMAIL_INVITES_ENABLED` ausente ou igual a `false`.
+2. Configurar o Redis de Production antes de publicar o código.
+3. Executar `prisma migrate deploy` depois de conferir que a lista de pendências
    contém somente as migrations esperadas — o índice `20260729120000`, caso
    ainda pendente, seguido de `20260729164510_email_professional_invites`.
-3. Validar colunas, índices, FKs, RLS e privilégios.
-4. Publicar o código.
-5. Fazer smoke tests de login, cadastro, convite, aceite, upload e agendamento.
-6. Monitorar erros, respostas 429/503 e falhas de entrega.
+4. Validar colunas, índices, FKs, RLS e privilégios.
+5. Publicar o código ainda com os convites bloqueados.
+6. Configurar Resend e ativar `EMAIL_INVITES_ENABLED=true` somente após a
+   validação do banco e uma autorização explícita.
+7. Fazer smoke tests de login, cadastro, convite, aceite, upload e agendamento.
+8. Monitorar erros, respostas 429/503 e falhas de entrega.
 
 A migration pode ser aplicada antes do código porque é expansiva. Entretanto,
 o código anterior não registra tentativas de e-mail; por isso a janela entre
-migration e deploy deve ser curta e sem criação de convites.
+migration e deploy deve ser curta e sem criação de convites. O código novo
+também pode ser publicado antes da migration somente com a flag desligada,
+pois nesse modo não consulta `UserInvite`; isso não substitui a reconciliação
+obrigatória do histórico Prisma.
 
 ## Rollback
 
