@@ -1,10 +1,17 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { assertRole, getTenantContext } from "@/lib/tenant";
-import { createUserInvite } from "@/lib/invitations";
+import { assertEmailInvitesEnabled } from "@/lib/email-invites-feature";
+import {
+  createUserInvite,
+  resendUserInvite,
+  revokeUserInvite,
+} from "@/lib/invitations";
+import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 
 const salonInput = z.object({
   name: z.string().min(2, "Nome muito curto"),
@@ -49,15 +56,31 @@ export async function inviteMember(input: {
   name: string;
   role: string;
 }): Promise<{
-  invitePath: string;
+  recipientEmail: string;
+  deliveryStatus: "SENT" | "FAILED";
   expiresAt: string;
-  requiresEmailVerification: boolean;
 }> {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER"]);
+  assertEmailInvitesEnabled();
   const email = z.string().email().parse(input.email).toLowerCase().trim();
   const name = z.string().min(2).parse(input.name);
   const role = z.enum(ROLES).parse(input.role);
+  const requestHeaders = await headers();
+  const limited = await checkRateLimit({
+    namespace: "create-team-invite",
+    identifier: `${ctx.salonId}:${ctx.userId}:${clientIp(requestHeaders)}`,
+    limit: 10,
+    windowSeconds: 60 * 60,
+    failClosed: true,
+  });
+  if (!limited.allowed) {
+    throw new Error(
+      limited.source === "unavailable"
+        ? "Serviço de segurança temporariamente indisponível."
+        : "Muitos convites criados. Aguarde e tente novamente.",
+    );
+  }
 
   const invite = await createUserInvite({
     salonId: ctx.salonId,
@@ -69,10 +92,58 @@ export async function inviteMember(input: {
   });
 
   return {
-    invitePath: `/convite/${invite.token}`,
+    recipientEmail: invite.recipientEmail,
+    deliveryStatus: invite.deliveryStatus,
     expiresAt: invite.expiresAt.toISOString(),
-    requiresEmailVerification: invite.requiresEmailVerification,
   };
+}
+
+const inviteId = z.string().cuid();
+
+async function limitInviteAction(namespace: string, salonId: string, userId: string) {
+  const requestHeaders = await headers();
+  const limited = await checkRateLimit({
+    namespace,
+    identifier: `${salonId}:${userId}:${clientIp(requestHeaders)}`,
+    limit: 20,
+    windowSeconds: 60 * 60,
+    failClosed: true,
+  });
+  if (!limited.allowed) {
+    throw new Error(
+      limited.source === "unavailable"
+        ? "Serviço de segurança temporariamente indisponível."
+        : "Muitas tentativas. Aguarde e tente novamente.",
+    );
+  }
+}
+
+export async function resendTeamInvite(id: string) {
+  const ctx = await getTenantContext();
+  assertRole(ctx, ["OWNER"]);
+  assertEmailInvitesEnabled();
+  await limitInviteAction("resend-team-invite", ctx.salonId, ctx.userId);
+  const result = await resendUserInvite(inviteId.parse(id), {
+    salonId: ctx.salonId,
+    userId: ctx.userId,
+  });
+  revalidatePath("/configuracoes");
+  return {
+    deliveryStatus: result.deliveryStatus,
+    expiresAt: result.expiresAt.toISOString(),
+  };
+}
+
+export async function cancelTeamInvite(id: string) {
+  const ctx = await getTenantContext();
+  assertRole(ctx, ["OWNER"]);
+  assertEmailInvitesEnabled();
+  await limitInviteAction("cancel-team-invite", ctx.salonId, ctx.userId);
+  await revokeUserInvite(inviteId.parse(id), {
+    salonId: ctx.salonId,
+    userId: ctx.userId,
+  });
+  revalidatePath("/configuracoes");
 }
 
 export async function changeMemberRole(userId: string, role: string) {

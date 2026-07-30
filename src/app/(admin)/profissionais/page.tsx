@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { prisma } from "@/lib/prisma";
+import { emailInvitesEnabled } from "@/lib/email-invites-feature";
 import { getTenantContext } from "@/lib/tenant";
 import { getTeamPerformance } from "@/lib/team";
 import { formatMoney, formatDuration } from "@/lib/utils";
@@ -19,19 +20,45 @@ import {
 import { ProfessionalForm } from "./professional-form";
 import { WorkingHoursForm } from "./working-hours-form";
 import { ToggleActiveButton } from "./toggle-active-button";
+import { PendingInvites } from "./pending-invites";
 
 const MEDAL = ["#F4C430", "#C0C0C0", "#CD7F32"]; // ouro, prata, bronze
 
 export default async function ProfissionaisPage() {
-  const { salonId } = await getTenantContext();
+  const { salonId, role } = await getTenantContext();
+  const invitesEnabled = emailInvitesEnabled();
 
-  const [perf, services] = await Promise.all([
+  const [perf, services, pendingInvites] = await Promise.all([
     getTeamPerformance(salonId),
     prisma.service.findMany({
       where: { salonId, active: true },
       select: { id: true, name: true, colorHex: true },
       orderBy: { name: "asc" },
     }),
+    ["OWNER", "MANAGER"].includes(role) && invitesEnabled
+      ? prisma.userInvite.findMany({
+          where: {
+            salonId,
+            role: "PROFESSIONAL",
+            usedAt: null,
+            createdAt: {
+              gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1_000),
+            },
+          },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+            createdAt: true,
+            sentAt: true,
+            expiresAt: true,
+            revokedAt: true,
+            deliveryStatus: true,
+          },
+          orderBy: { createdAt: "desc" },
+        })
+      : Promise.resolve([]),
   ]);
 
   const monthLabel = format(perf.period.from, "MMMM yyyy", { locale: ptBR });
@@ -45,7 +72,7 @@ export default async function ProfissionaisPage() {
           </p>
           <h1 className="text-[26px] font-semibold tracking-tight">Profissionais</h1>
         </div>
-        <ProfessionalForm services={services} />
+        <ProfessionalForm services={services} invitesEnabled={invitesEnabled} />
       </header>
 
       {/* Overview da equipe */}
@@ -55,6 +82,16 @@ export default async function ProfissionaisPage() {
         <Overview icon={CalendarCheck} accent="#A855F7" label="Atendimentos" value={perf.team.appointments.toString()} />
         <Overview icon={Receipt} accent="#F59E0B" label="Ticket médio" value={formatMoney(perf.team.avgTicket)} />
       </section>
+
+      <PendingInvites
+        invites={pendingInvites.map((invite) => ({
+          ...invite,
+          createdAt: invite.createdAt.toISOString(),
+          sentAt: invite.sentAt?.toISOString() ?? null,
+          expiresAt: invite.expiresAt.toISOString(),
+          revokedAt: invite.revokedAt?.toISOString() ?? null,
+        }))}
+      />
 
       {perf.pros.length === 0 ? (
         <div className="rounded-2xl border border-border bg-card p-12 text-center text-[13px] text-muted-foreground">
@@ -135,6 +172,7 @@ export default async function ProfissionaisPage() {
               <div className="mt-4 flex flex-wrap items-center gap-1 border-t border-border pt-3">
                 <ProfessionalForm
                   services={services}
+                  invitesEnabled={invitesEnabled}
                   professional={{
                     id: p.id,
                     name: p.name,

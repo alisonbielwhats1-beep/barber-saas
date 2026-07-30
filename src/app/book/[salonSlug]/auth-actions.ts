@@ -22,13 +22,30 @@ export async function loginClient(
 ): Promise<{ error: string }> {
   const normalizedEmail = email.toLowerCase().trim();
   const requestHeaders = await headers();
-  const limited = await checkRateLimit({
-    namespace: "client-login",
-    identifier: `${clientIp(requestHeaders)}:${salonSlug}:${normalizedEmail}`,
-    limit: 8,
-    windowSeconds: 15 * 60,
-  });
-  if (!limited.allowed) {
+  const ip = clientIp(requestHeaders);
+  const [ipLimit, accountLimit] = await Promise.all([
+    checkRateLimit({
+      namespace: "client-login-ip",
+      identifier: `${ip}:${salonSlug}`,
+      limit: 30,
+      windowSeconds: 15 * 60,
+      failClosed: true,
+    }),
+    checkRateLimit({
+      namespace: "client-login-account",
+      identifier: `${salonSlug}:${normalizedEmail}`,
+      limit: 8,
+      windowSeconds: 15 * 60,
+      failClosed: true,
+    }),
+  ]);
+  if (!ipLimit.allowed || !accountLimit.allowed) {
+    if (
+      ipLimit.source === "unavailable" ||
+      accountLimit.source === "unavailable"
+    ) {
+      return { error: "Serviço de segurança temporariamente indisponível." };
+    }
     return { error: "Muitas tentativas. Aguarde alguns minutos e tente novamente." };
   }
 
@@ -69,8 +86,12 @@ export async function registerClient(
     identifier: `${clientIp(requestHeaders)}:${salonSlug}`,
     limit: 5,
     windowSeconds: 60 * 60,
+    failClosed: true,
   });
   if (!limited.allowed) {
+    if (limited.source === "unavailable") {
+      return { error: "Serviço de segurança temporariamente indisponível." };
+    }
     return { error: "Muitas tentativas. Aguarde antes de criar outra conta." };
   }
 

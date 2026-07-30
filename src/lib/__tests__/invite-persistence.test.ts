@@ -1,557 +1,469 @@
+import bcrypt from "bcryptjs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const database = vi.hoisted(() => {
-  type UserRow = { id: string; email: string };
-  type MembershipRow = {
-    id: string;
-    userId: string;
-    salonId: string;
-    role: string;
-  };
-  type ProfessionalRow = {
-    id: string;
-    userId: string;
-    salonId: string;
-    active: boolean;
-    bio?: string | null;
-    colorHex?: string | null;
-    commissionPct?: number;
-    monthlyGoalCents?: number;
-  };
-  type InviteRow = {
-    id: string;
-    salonId: string;
-    email: string;
-    name: string;
-    userId: string | null;
-    createdById: string;
-    role: string;
-    emailVerificationRequired: boolean;
-    tokenHash: string;
-    expiresAt: Date;
-    usedAt: Date | null;
-  };
-  type State = {
-    users: UserRow[];
-    memberships: MembershipRow[];
-    professionals: ProfessionalRow[];
-    invites: InviteRow[];
-  };
+type State = {
+  salons: Array<{ id: string; name: string }>;
+  users: Array<Record<string, any>>;
+  memberships: Array<Record<string, any>>;
+  services: Array<Record<string, any>>;
+  professionals: Array<Record<string, any>>;
+  professionalServices: Array<Record<string, any>>;
+  invites: Array<Record<string, any>>;
+  events: Array<Record<string, any>>;
+};
 
-  let state: State;
-  let nextId: number;
-  let failInviteCreation: boolean;
-  let transactionTail: Promise<void>;
-
-  function copy<T>(value: T): T {
-    return structuredClone(value);
-  }
-
-  function uniqueConflict(): Error & { code: string } {
-    return Object.assign(new Error("Unique constraint failed"), {
-      code: "P2002",
-    });
-  }
-
-  function makeTransactionClient(working: State) {
-    return {
-      $queryRaw: vi.fn(async () => [{ locked: 1 }]),
-      user: {
-        findUnique: vi.fn(
-          async (args: { where: { id?: string; email?: string } }) =>
-            working.users.find(
-              (user) =>
-                (args.where.id !== undefined &&
-                  user.id === args.where.id) ||
-                (args.where.email !== undefined &&
-                  user.email === args.where.email),
-            ) ?? null,
-        ),
-      },
-      membership: {
-        findUnique: vi.fn(
-          async (args: {
-            where: {
-              userId_salonId: { userId: string; salonId: string };
-            };
-          }) => {
-            const key = args.where.userId_salonId;
-            return (
-              working.memberships.find(
-                (membership) =>
-                  membership.userId === key.userId &&
-                  membership.salonId === key.salonId,
-              ) ?? null
-            );
-          },
-        ),
-        create: vi.fn(
-          async (args: {
-            data: { userId: string; salonId: string; role: string };
-          }) => {
-            if (
-              working.memberships.some(
-                (membership) =>
-                  membership.userId === args.data.userId &&
-                  membership.salonId === args.data.salonId,
-              )
-            ) {
-              throw uniqueConflict();
-            }
-            const created = {
-              id: `membership-${nextId++}`,
-              ...args.data,
-            };
-            working.memberships.push(created);
-            return created;
-          },
-        ),
-      },
-      professional: {
-        findUnique: vi.fn(
-          async (args: { where: { userId: string } }) =>
-            working.professionals.find(
-              (professional) =>
-                professional.userId === args.where.userId,
-            ) ?? null,
-        ),
-        create: vi.fn(
-          async (args: { data: Omit<ProfessionalRow, "id"> }) => {
-            if (
-              working.professionals.some(
-                (professional) =>
-                  professional.userId === args.data.userId,
-              )
-            ) {
-              throw uniqueConflict();
-            }
-            const created = {
-              id: `professional-${nextId++}`,
-              ...args.data,
-            };
-            working.professionals.push(created);
-            return created;
-          },
-        ),
-        count: vi.fn(
-          async (args: {
-            where: { userId: string; salonId: string };
-          }) =>
-            working.professionals.filter(
-              (professional) =>
-                professional.userId === args.where.userId &&
-                professional.salonId === args.where.salonId,
-            ).length,
-        ),
-        updateMany: vi.fn(
-          async (args: {
-            where: {
-              userId: string;
-              salonId: string;
-              active: false;
-            };
-            data: { active: true };
-          }) => {
-            const matches = working.professionals.filter(
-              (professional) =>
-                professional.userId === args.where.userId &&
-                professional.salonId === args.where.salonId &&
-                professional.active === args.where.active,
-            );
-            for (const professional of matches) {
-              professional.active = args.data.active;
-            }
-            return { count: matches.length };
-          },
-        ),
-      },
-      userInvite: {
-        updateMany: vi.fn(
-          async (args: {
-            where: {
-              id?: string;
-              salonId?: string;
-              email?: string;
-              userId?: string;
-              emailVerificationRequired?: boolean;
-              usedAt: null;
-              expiresAt?: { gt: Date };
-            };
-            data: { usedAt: Date };
-          }) => {
-            const matches = working.invites.filter((invite) => {
-              if (invite.usedAt !== null) return false;
-              if (args.where.id && invite.id !== args.where.id) return false;
-              if (
-                args.where.salonId &&
-                invite.salonId !== args.where.salonId
-              ) {
-                return false;
-              }
-              if (args.where.email && invite.email !== args.where.email) {
-                return false;
-              }
-              if (args.where.userId && invite.userId !== args.where.userId) {
-                return false;
-              }
-              if (
-                args.where.emailVerificationRequired !== undefined &&
-                invite.emailVerificationRequired !==
-                  args.where.emailVerificationRequired
-              ) {
-                return false;
-              }
-              if (
-                args.where.expiresAt &&
-                invite.expiresAt <= args.where.expiresAt.gt
-              ) {
-                return false;
-              }
-              return true;
-            });
-            for (const invite of matches) invite.usedAt = args.data.usedAt;
-            return { count: matches.length };
-          },
-        ),
-        create: vi.fn(
-          async (args: {
-            data: Omit<InviteRow, "id" | "usedAt">;
-          }) => {
-            if (failInviteCreation) {
-              throw new Error("simulated invite insert failure");
-            }
-            if (
-              working.invites.some(
-                (invite) =>
-                  invite.salonId === args.data.salonId &&
-                  invite.email === args.data.email &&
-                  invite.usedAt === null,
-              )
-            ) {
-              throw uniqueConflict();
-            }
-            const created: InviteRow = {
-              id: `invite-${nextId++}`,
-              ...args.data,
-              usedAt: null,
-            };
-            working.invites.push(created);
-            return created;
-          },
-        ),
-      },
-    };
-  }
-
-  const prisma = {
-    userInvite: {
-      findUnique: vi.fn(
-        async (args: { where: { tokenHash: string } }) =>
-          copy(
-            state.invites.find(
-              (candidate) => candidate.tokenHash === args.where.tokenHash,
-            ) ?? null,
-          ),
-      ),
-    },
-    $transaction: vi.fn(
-      async <T>(
-        callback: (
-          tx: ReturnType<typeof makeTransactionClient>,
-        ) => Promise<T>,
-      ): Promise<T> => {
-        let release = () => {};
-        const previous = transactionTail;
-        transactionTail = new Promise<void>((resolve) => {
-          release = resolve;
-        });
-        await previous;
-        const working = copy(state);
-        try {
-          const result = await callback(makeTransactionClient(working));
-          state = working;
-          return result;
-        } finally {
-          release();
-        }
-      },
-    ),
-  };
-
-  return {
-    prisma,
-    reset() {
-      state = {
-        users: [],
-        memberships: [],
-        professionals: [],
-        invites: [],
-      };
-      nextId = 1;
-      failInviteCreation = false;
-      transactionTail = Promise.resolve();
-      vi.clearAllMocks();
-    },
-    failNextInviteCreation() {
-      failInviteCreation = true;
-    },
-    seed(value: Partial<State>) {
-      state = {
-        users: copy(value.users ?? []),
-        memberships: copy(value.memberships ?? []),
-        professionals: copy(value.professionals ?? []),
-        invites: copy(value.invites ?? []),
-      };
-    },
-    snapshot() {
-      return copy(state);
-    },
-  };
+const initialState = (): State => ({
+  salons: [{ id: "salon-a", name: "Barbearia Teste" }, { id: "salon-b", name: "Outro Salão" }],
+  users: [{ id: "owner-a", email: "owner@example.com", name: "Owner", passwordHash: "owner-hash" }],
+  memberships: [{ id: "membership-owner", userId: "owner-a", salonId: "salon-a", role: "OWNER" }],
+  services: [
+    { id: "service-a", salonId: "salon-a", active: true },
+    { id: "service-b", salonId: "salon-a", active: true },
+    { id: "service-other", salonId: "salon-b", active: true },
+  ],
+  professionals: [],
+  professionalServices: [],
+  invites: [],
+  events: [],
 });
 
-vi.mock("@/lib/prisma", () => ({ prisma: database.prisma }));
+let state = initialState();
+let nextId = 1;
+let transactionTail = Promise.resolve();
 
-import {
+function uniqueError() {
+  return Object.assign(new Error("unique"), { code: "P2002" });
+}
+
+function matchesInvite(row: Record<string, any>, where: Record<string, any>) {
+  if (where.id && typeof where.id === "string" && row.id !== where.id) return false;
+  if (where.id?.in && !where.id.in.includes(row.id)) return false;
+  if (where.salonId && row.salonId !== where.salonId) return false;
+  if (where.userId !== undefined && row.userId !== where.userId) return false;
+  if (where.emailVerificationRequired !== undefined && row.emailVerificationRequired !== where.emailVerificationRequired) return false;
+  if (where.tokenHash !== undefined && row.tokenHash !== where.tokenHash) return false;
+  if (where.sendAttempts !== undefined && row.sendAttempts !== where.sendAttempts) return false;
+  if (where.deliveryStatus !== undefined && row.deliveryStatus !== where.deliveryStatus) return false;
+  if (where.usedAt === null && row.usedAt !== null) return false;
+  if (where.revokedAt === null && row.revokedAt !== null) return false;
+  if (where.expiresAt?.gt && row.expiresAt <= where.expiresAt.gt) return false;
+  if (where.email?.equals && row.email.toLowerCase() !== where.email.equals.toLowerCase()) return false;
+  return true;
+}
+
+const fakePrisma: any = {
+  $queryRaw: vi.fn(async () => [{ locked: 1 }]),
+  $transaction(arg: any) {
+    if (Array.isArray(arg)) return Promise.all(arg);
+    const run = transactionTail.then(async () => {
+      const snapshot = structuredClone(state);
+      try {
+        return await arg(fakePrisma);
+      } catch (error) {
+        state = snapshot;
+        throw error;
+      }
+    });
+    transactionTail = run.then(() => undefined, () => undefined);
+    return run;
+  },
+  salon: {
+    findUnique: vi.fn(async ({ where }: any) => state.salons.find((row) => row.id === where.id) ?? null),
+  },
+  membership: {
+    findUnique: vi.fn(async ({ where }: any) => {
+      const key = where.userId_salonId;
+      return state.memberships.find((row) => row.userId === key.userId && row.salonId === key.salonId) ?? null;
+    }),
+    create: vi.fn(async ({ data }: any) => {
+      if (state.memberships.some((row) => row.userId === data.userId && row.salonId === data.salonId)) throw uniqueError();
+      const row = { id: `membership-${nextId++}`, ...data };
+      state.memberships.push(row);
+      return row;
+    }),
+  },
+  user: {
+    findUnique: vi.fn(async ({ where }: any) => {
+      if (where.email) return state.users.find((row) => row.email === where.email) ?? null;
+      return state.users.find((row) => row.id === where.id) ?? null;
+    }),
+    create: vi.fn(async ({ data }: any) => {
+      if (state.users.some((row) => row.email === data.email)) throw uniqueError();
+      const row = { id: `user-${nextId++}`, ...data };
+      state.users.push(row);
+      return row;
+    }),
+  },
+  service: {
+    count: vi.fn(async ({ where }: any) =>
+      state.services.filter(
+        (row) =>
+          row.salonId === where.salonId &&
+          where.id.in.includes(row.id) &&
+          (where.active === undefined || row.active === where.active),
+      ).length,
+    ),
+  },
+  userInvite: {
+    findMany: vi.fn(async ({ where }: any) => state.invites.filter((row) => matchesInvite(row, where))),
+    findUnique: vi.fn(async ({ where, select }: any) => {
+      const row = where.tokenHash
+        ? state.invites.find((item) => item.tokenHash === where.tokenHash)
+        : state.invites.find((item) => item.id === where.id);
+      if (!row) return null;
+      return select?.salon
+        ? { ...row, salon: state.salons.find((salon) => salon.id === row.salonId) }
+        : row;
+    }),
+    findFirst: vi.fn(async ({ where }: any) => {
+      const row = state.invites.find((item) => matchesInvite(item, where));
+      if (!row) return null;
+      return { ...row, salon: state.salons.find((salon) => salon.id === row.salonId) };
+    }),
+    create: vi.fn(async ({ data }: any) => {
+      if (state.invites.some((row) => row.tokenHash === data.tokenHash)) throw uniqueError();
+      const row = {
+        id: `invite-${nextId++}`,
+        createdAt: new Date(),
+        usedAt: null,
+        revokedAt: null,
+        sentAt: null,
+        providerMessageId: null,
+        lastErrorCode: null,
+        ...data,
+      };
+      delete row.events;
+      state.invites.push(row);
+      if (data.events?.create) {
+        state.events.push({ id: `event-${nextId++}`, inviteId: row.id, ...data.events.create });
+      }
+      return row;
+    }),
+    updateMany: vi.fn(async ({ where, data }: any) => {
+      const rows = state.invites.filter((row) => matchesInvite(row, where));
+      for (const row of rows) {
+        for (const [key, value] of Object.entries(data)) {
+          row[key] =
+            typeof value === "object" && value && "increment" in value
+              ? row[key] + (value as any).increment
+              : value;
+        }
+      }
+      return { count: rows.length };
+    }),
+    update: vi.fn(async ({ where, data }: any) => {
+      const row = state.invites.find((item) => item.id === where.id);
+      if (!row) throw new Error("not found");
+      for (const [key, value] of Object.entries(data)) {
+        row[key] =
+          typeof value === "object" && value && "increment" in value
+            ? row[key] + (value as any).increment
+            : value;
+      }
+      return row;
+    }),
+  },
+  userInviteEvent: {
+    create: vi.fn(async ({ data }: any) => {
+      const row = { id: `event-${nextId++}`, ...data };
+      state.events.push(row);
+      return row;
+    }),
+    createMany: vi.fn(async ({ data }: any) => {
+      for (const item of data) state.events.push({ id: `event-${nextId++}`, ...item });
+      return { count: data.length };
+    }),
+  },
+  professional: {
+    findUnique: vi.fn(async ({ where }: any) =>
+      state.professionals.find((row) => row.userId === where.userId) ?? null,
+    ),
+    create: vi.fn(async ({ data }: any) => {
+      if (state.professionals.some((row) => row.userId === data.userId)) throw uniqueError();
+      const row = { id: `professional-${nextId++}`, ...data };
+      state.professionals.push(row);
+      return row;
+    }),
+  },
+  professionalService: {
+    createMany: vi.fn(async ({ data }: any) => {
+      state.professionalServices.push(...data);
+      return { count: data.length };
+    }),
+  },
+};
+
+vi.mock("@/lib/prisma", () => ({ prisma: fakePrisma }));
+
+const {
+  acceptExistingUserInvite,
+  acceptNewUserInvite,
   createUserInvite,
-  consumeUserInvite,
+  getInviteView,
   hashInviteToken,
-} from "@/lib/invitations";
+  resendUserInvite,
+  revokeUserInvite,
+} = await import("@/lib/invitations");
 
-const now = new Date("2030-01-01T12:00:00.000Z");
+const sentMessages: Array<Record<string, any>> = [];
+const mailer = {
+  async send(message: any) {
+    sentMessages.push(message);
+    return { messageId: `message-${sentMessages.length}` };
+  },
+};
+const failingMailer = {
+  async send() {
+    throw new Error("provider unavailable");
+  },
+};
+const now = new Date("2026-07-29T12:00:00.000Z");
+const tokenA = "new-account-token-value-1234567890";
+const tokenB = "rotated-account-token-value-1234567890";
+const tokenC = "latest-account-token-value-1234567890";
 
-function inviteInput(role: "RECEPTIONIST" | "PROFESSIONAL" = "RECEPTIONIST") {
+function professionalInput(email = "new@example.com") {
   return {
     salonId: "salon-a",
     createdById: "owner-a",
-    email: "member@example.com",
-    name: "Member",
-    role,
-    ...(role === "PROFESSIONAL"
-      ? { professional: { commissionPct: 40 } }
-      : {}),
+    email,
+    name: "Pessoa Convidada",
+    role: "PROFESSIONAL" as const,
+    professional: {
+      bio: "Especialista",
+      colorHex: "#112233",
+      commissionPct: 42,
+      monthlyGoalCents: 900_000,
+      serviceIds: ["service-a", "service-b"],
+    },
   };
 }
 
-function persistedInvite(
-  overrides: Partial<ReturnType<typeof database.snapshot>["invites"][number]> = {},
-) {
-  return {
-    id: "invite-a",
-    salonId: "salon-a",
-    email: "member@example.com",
-    name: "Member",
-    userId: "user-a",
-    createdById: "owner-a",
-    role: "PROFESSIONAL",
-    emailVerificationRequired: false,
-    tokenHash: hashInviteToken("valid-token-value-1234567890"),
-    expiresAt: new Date("2030-01-01T13:00:00.000Z"),
-    usedAt: null,
-    ...overrides,
-  };
-}
+beforeEach(() => {
+  state = initialState();
+  nextId = 1;
+  transactionTail = Promise.resolve();
+  sentMessages.length = 0;
+  vi.clearAllMocks();
+  process.env.NEXTAUTH_URL = "https://app.example.com";
+});
 
 describe("persistência transacional de convites", () => {
-  beforeEach(() => {
-    database.reset();
-  });
+  it("cria convite para conta nova, preserva dados e envia sem expor token no banco", async () => {
+    const result = await createUserInvite(professionalInput(), { now, token: tokenA, mailer });
 
-  it("reverte Professional quando a criação do convite falha", async () => {
-    database.seed({
-      users: [{ id: "user-a", email: "member@example.com" }],
-    });
-    database.failNextInviteCreation();
-
-    await expect(
-      createUserInvite(inviteInput("PROFESSIONAL"), {
-        now,
-        token: "rollback-token-value-1234567890",
-      }),
-    ).rejects.toThrow("simulated invite insert failure");
-
-    expect(database.snapshot()).toEqual({
-      users: [{ id: "user-a", email: "member@example.com" }],
-      memberships: [],
-      professionals: [],
-      invites: [],
-    });
-  });
-
-  it("serializa emissões concorrentes e mantém um convite pendente", async () => {
-    const [first, second] = await Promise.all([
-      createUserInvite(inviteInput(), {
-        now,
-        token: "concurrent-token-value-a-1234567890",
-      }),
-      createUserInvite(inviteInput(), {
-        now: new Date(now.getTime() + 1),
-        token: "concurrent-token-value-b-1234567890",
-      }),
-    ]);
-
-    const state = database.snapshot();
-    expect(first.userId).toBeNull();
-    expect(second.userId).toBeNull();
-    expect(state.users).toEqual([]);
-    expect(state.invites).toHaveLength(2);
-    expect(state.invites.filter((invite) => invite.usedAt === null)).toHaveLength(
-      1,
-    );
-  });
-
-  it("normaliza caixa e espaços e mantém somente um convite pendente", async () => {
-    const emails = [
-      "Pessoa@Email.com",
-      "pessoa@email.com",
-      "  pessoa@email.com  ",
-    ];
-
-    for (const [index, email] of emails.entries()) {
-      await createUserInvite(
-        { ...inviteInput(), email },
-        {
-          now: new Date(now.getTime() + index),
-          token: `normalized-email-token-${index}-1234567890`,
-        },
-      );
-    }
-
-    const state = database.snapshot();
-    expect(state.invites).toHaveLength(3);
-    expect(
-      state.invites.map((invite) => invite.email),
-    ).toEqual([
-      "pessoa@email.com",
-      "pessoa@email.com",
-      "pessoa@email.com",
-    ]);
-    expect(
-      state.invites.filter((invite) => invite.usedAt === null),
-    ).toHaveLength(1);
-  });
-
-  it("conta nova fica bloqueada sem criar identidade global ou Professional", async () => {
-    const result = await createUserInvite(inviteInput("PROFESSIONAL"), {
-      now,
-      token: "new-account-token-value-1234567890",
-    });
-
-    const state = database.snapshot();
-    expect(result).toEqual(
-      expect.objectContaining({
-        userId: null,
-        professionalId: null,
-        requiresEmailVerification: true,
-      }),
-    );
-    expect(state.users).toEqual([]);
-    expect(state.professionals).toEqual([]);
-    expect(state.memberships).toEqual([]);
+    expect(result.deliveryStatus).toBe("SENT");
+    expect(result.requiresEmailVerification).toBe(true);
+    expect(state.users).toHaveLength(1);
+    expect(state.professionals).toHaveLength(0);
     expect(state.invites[0]).toEqual(
       expect.objectContaining({
-        email: "member@example.com",
-        salonId: "salon-a",
-        userId: null,
-        emailVerificationRequired: true,
+        tokenHash: hashInviteToken(tokenA),
+        pendingBio: "Especialista",
+        pendingColorHex: "#112233",
+        pendingCommissionPct: 42,
+        pendingMonthlyGoalCents: 900_000,
+        pendingServiceIds: ["service-a", "service-b"],
+        deliveryStatus: "SENT",
+      }),
+    );
+    expect(JSON.stringify(state)).not.toContain(tokenA);
+    expect(sentMessages[0]?.html).toContain("/convite/");
+  });
+
+  it("mantém o registro em falha quando o provedor não confirma", async () => {
+    const result = await createUserInvite(professionalInput(), {
+      now,
+      token: tokenA,
+      mailer: failingMailer,
+    });
+    expect(result.deliveryStatus).toBe("FAILED");
+    expect(state.invites[0]).toEqual(
+      expect.objectContaining({
+        deliveryStatus: "FAILED",
+        lastErrorCode: "MAIL_DELIVERY_FAILED",
+      }),
+    );
+    expect(state.events.some((event) => event.type === "SEND_FAILED")).toBe(true);
+  });
+
+  it("reenvio rotaciona o token e invalida o anterior", async () => {
+    const created = await createUserInvite(professionalInput(), { now, token: tokenA, mailer });
+    await resendUserInvite(
+      created.inviteId,
+      { userId: "owner-a", salonId: "salon-a" },
+      { now: new Date(now.getTime() + 1_000), token: tokenB, mailer },
+    );
+
+    expect((await getInviteView(tokenA, null, now)).state).toBe("INVALID");
+    expect((await getInviteView(tokenB, null, now)).state).toBe("CREATE_ACCOUNT");
+    expect(state.invites[0]?.sendAttempts).toBe(2);
+    expect(state.events.some((event) => event.type === "RESENT")).toBe(true);
+  });
+
+  it("resultado de envio antigo não sobrescreve uma tentativa mais recente", async () => {
+    const created = await createUserInvite(professionalInput(), {
+      now,
+      token: tokenA,
+      mailer,
+    });
+    let releaseFirst!: (value: { messageId: string }) => void;
+    let notifyFirstStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      notifyFirstStarted = resolve;
+    });
+    const delayedMailer = {
+      send() {
+        notifyFirstStarted();
+        return new Promise<{ messageId: string }>((resolve) => {
+          releaseFirst = resolve;
+        });
+      },
+    };
+
+    const first = resendUserInvite(
+      created.inviteId,
+      { userId: "owner-a", salonId: "salon-a" },
+      {
+        now: new Date(now.getTime() + 1_000),
+        token: tokenB,
+        mailer: delayedMailer,
+      },
+    );
+    await started;
+    await resendUserInvite(
+      created.inviteId,
+      { userId: "owner-a", salonId: "salon-a" },
+      {
+        now: new Date(now.getTime() + 2_000),
+        token: tokenC,
+        mailer,
+      },
+    );
+    releaseFirst({ messageId: "stale-message" });
+    expect((await first).deliveryStatus).toBe("FAILED");
+
+    expect((await getInviteView(tokenB, null, now)).state).toBe("INVALID");
+    expect((await getInviteView(tokenC, null, now)).state).toBe("CREATE_ACCOUNT");
+    expect(state.invites[0]).toEqual(
+      expect.objectContaining({
+        deliveryStatus: "SENT",
+        providerMessageId: "message-2",
+        sendAttempts: 3,
       }),
     );
   });
 
-  it("convite antigo não sobrescreve role de membership ativa", async () => {
-    database.seed({
-      users: [{ id: "user-a", email: "member@example.com" }],
-      memberships: [
-        {
-          id: "membership-a",
-          userId: "user-a",
-          salonId: "salon-a",
-          role: "MANAGER",
-        },
-      ],
-      invites: [persistedInvite({ role: "RECEPTIONIST" })],
-    });
+  it("cancelamento é isolado por salão e torna o token inutilizável", async () => {
+    const created = await createUserInvite(professionalInput(), { now, token: tokenA, mailer });
+    await expect(
+      revokeUserInvite(created.inviteId, { userId: "owner-a", salonId: "salon-b" }, now),
+    ).rejects.toThrow("não disponível");
+    await revokeUserInvite(created.inviteId, { userId: "owner-a", salonId: "salon-a" }, now);
+    expect((await getInviteView(tokenA, null, now)).state).toBe("REVOKED");
+  });
 
-    const result = await consumeUserInvite(
-      "valid-token-value-1234567890",
-      { now, actorUserId: "user-a" },
-    );
-
-    const state = database.snapshot();
-    expect(result).toEqual({ ok: false, reason: "CONFLICT" });
-    expect(state.memberships[0]?.role).toBe("MANAGER");
+  it("expiração é reconhecida sem consumir o GET", async () => {
+    await createUserInvite(professionalInput(), { now, token: tokenA, mailer });
+    const afterExpiry = new Date(now.getTime() + 25 * 60 * 60 * 1_000);
+    expect((await getInviteView(tokenA, null, afterExpiry)).state).toBe("EXPIRED");
     expect(state.invites[0]?.usedAt).toBeNull();
   });
 
-  it("role PROFESSIONAL sem perfil válido causa rollback", async () => {
-    database.seed({
-      users: [{ id: "user-a", email: "member@example.com" }],
-      invites: [persistedInvite()],
-    });
+  it("duas aceitações concorrentes criam User, Membership e Professional uma vez", async () => {
+    await createUserInvite(professionalInput(), { now, token: tokenA, mailer });
+    const acceptedAt = new Date(now.getTime() + 5_000);
+    const results = await Promise.all([
+      acceptNewUserInvite({ token: tokenA, password: "uma-senha-segura", now: acceptedAt }),
+      acceptNewUserInvite({ token: tokenA, password: "uma-senha-segura", now: acceptedAt }),
+    ]);
 
-    const result = await consumeUserInvite(
-      "valid-token-value-1234567890",
-      { now, actorUserId: "user-a" },
+    expect(results.filter((result) => result.ok)).toHaveLength(1);
+    expect(fakePrisma.userInvite.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          tokenHash: hashInviteToken(tokenA),
+        }),
+      }),
     );
-
-    const state = database.snapshot();
-    expect(result).toEqual({ ok: false, reason: "CONFLICT" });
-    expect(state.memberships).toEqual([]);
-    expect(state.invites[0]?.usedAt).toBeNull();
+    expect(state.users).toHaveLength(2);
+    expect(state.memberships.filter((row) => row.userId !== "owner-a")).toHaveLength(1);
+    expect(state.professionals).toEqual([
+      expect.objectContaining({
+        active: true,
+        bio: "Especialista",
+        colorHex: "#112233",
+        commissionPct: 42,
+        monthlyGoalCents: 900_000,
+      }),
+    ]);
+    expect(state.professionalServices).toHaveLength(2);
+    const user = state.users.find((row) => row.email === "new@example.com")!;
+    expect(user.passwordSetAt).toEqual(acceptedAt);
+    expect(await bcrypt.compare("uma-senha-segura", user.passwordHash)).toBe(true);
   });
 
-  it("Professional de outro salão é rejeitado e nunca movido", async () => {
-    database.seed({
-      users: [{ id: "user-a", email: "member@example.com" }],
-      professionals: [
-        {
-          id: "professional-b",
-          userId: "user-a",
-          salonId: "salon-b",
-          active: true,
-        },
-      ],
+  it("conta existente exige o usuário correspondente e não altera sua senha", async () => {
+    state.users.push({
+      id: "existing-user",
+      email: "existing@example.com",
+      name: "Existente",
+      passwordHash: "hash-existente",
+      passwordSetAt: new Date("2025-01-01"),
+    });
+    await createUserInvite(professionalInput("existing@example.com"), {
+      now,
+      token: tokenA,
+      mailer,
+    });
+
+    expect((await getInviteView(tokenA, null, now)).state).toBe("LOGIN_REQUIRED");
+    expect((await getInviteView(tokenA, "owner-a", now)).state).toBe("WRONG_USER");
+    const wrong = await acceptExistingUserInvite({
+      token: tokenA,
+      actorUserId: "owner-a",
+      now,
+    });
+    expect(wrong).toEqual({ ok: false, reason: "WRONG_USER" });
+    const correct = await acceptExistingUserInvite({
+      token: tokenA,
+      actorUserId: "existing-user",
+      now,
+    });
+    expect(correct.ok).toBe(true);
+    expect(state.users.find((row) => row.id === "existing-user")?.passwordHash).toBe("hash-existente");
+  });
+
+  it("serviço de outro salão é rejeitado antes de persistir", async () => {
+    const input = professionalInput();
+    input.professional.serviceIds = ["service-other"];
+    await expect(
+      createUserInvite(input, { now, token: tokenA, mailer }),
+    ).rejects.toThrow("não pertencem");
+    expect(state.invites).toHaveLength(0);
+  });
+
+  it("não revela se uma conta profissional pertence a outro salão", async () => {
+    state.users.push({
+      id: "other-professional",
+      email: "other@example.com",
+      name: "Outro",
+      passwordHash: "hash",
+    });
+    state.professionals.push({
+      id: "professional-other",
+      userId: "other-professional",
+      salonId: "salon-b",
     });
 
     await expect(
-      createUserInvite(inviteInput("PROFESSIONAL"), {
+      createUserInvite(professionalInput("other@example.com"), {
         now,
-        token: "other-salon-token-value-1234567890",
+        token: tokenA,
+        mailer,
       }),
     ).rejects.toThrow(
-      "Esta conta já é profissional em outro estabelecimento.",
+      "Não foi possível criar o convite para o endereço informado.",
     );
-
-    expect(database.snapshot().professionals).toEqual([
-      expect.objectContaining({
-        id: "professional-b",
-        salonId: "salon-b",
-      }),
-    ]);
-    expect(database.snapshot().invites).toEqual([]);
-  });
-
-  it("updateMany com count zero não ativa Professional nem membership", async () => {
-    database.seed({
-      users: [{ id: "user-a", email: "member@example.com" }],
-      professionals: [
-        {
-          id: "professional-a",
-          userId: "user-a",
-          salonId: "salon-a",
-          active: true,
-        },
-      ],
-      invites: [persistedInvite()],
-    });
-
-    const result = await consumeUserInvite(
-      "valid-token-value-1234567890",
-      { now, actorUserId: "user-a" },
-    );
-
-    const state = database.snapshot();
-    expect(result).toEqual({ ok: false, reason: "CONFLICT" });
-    expect(state.memberships).toEqual([]);
-    expect(state.invites[0]?.usedAt).toBeNull();
   });
 });

@@ -1,7 +1,7 @@
 -- Row-Level Security (RLS) para as tabelas tenant-scoped
 --
 -- COMO ATIVAR:
---   1. Aplique este SQL no banco: `psql $DATABASE_URL -f prisma/migrations/rls/enable_rls.sql`
+--   1. Aplique este SQL no banco: `psql $DATABASE_URL -f prisma/sql/rls/enable_rls.sql`
 --   2. Troque `src/lib/prisma.ts` por `src/lib/prisma-tenant.ts` no import das
 --      Server Actions e páginas — a extensão do Prisma seta `app.current_salon`
 --      antes de cada query, e o Postgres bloqueia leitura cross-tenant.

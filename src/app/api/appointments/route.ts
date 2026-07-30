@@ -10,6 +10,7 @@ import {
   checkRateLimit,
   clientIp,
   rateLimitHeaders,
+  rateLimitStatus,
 } from "@/lib/rate-limit";
 import { addMinutes } from "date-fns";
 
@@ -28,11 +29,20 @@ export async function POST(req: NextRequest) {
     identifier: clientIp(req.headers),
     limit: 12,
     windowSeconds: 60,
+    failClosed: true,
   });
   if (!limited.allowed) {
     return NextResponse.json(
-      { error: "TOO_MANY_REQUESTS" },
-      { status: 429, headers: rateLimitHeaders(limited) },
+      {
+        error:
+          limited.source === "unavailable"
+            ? "SECURITY_SERVICE_UNAVAILABLE"
+            : "TOO_MANY_REQUESTS",
+      },
+      {
+        status: rateLimitStatus(limited),
+        headers: rateLimitHeaders(limited),
+      },
     );
   }
 
@@ -105,16 +115,18 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  let client: { id: string } | null = null;
+  let clientId: string | null = null;
+  let guestContact: { name: string; phone: string } | null = null;
   if (identity.kind === "authenticated") {
     // O ID vem exclusivamente do cookie assinado, nunca do navegador.
-    client = await prisma.clientProfile.findFirst({
+    const client = await prisma.clientProfile.findFirst({
       where: { id: identity.clientId, salonId: b.salonId },
       select: { id: true },
     });
     if (!client) {
       return NextResponse.json({ error: "AUTH_REQUIRED" }, { status: 401 });
     }
+    clientId = client.id;
   } else {
     // Visitante não prova posse do telefone. Por isso, o telefone é apenas
     // contato e nunca é usado para localizar/reutilizar uma identidade
@@ -122,51 +134,56 @@ export async function POST(req: NextRequest) {
     if (!b.clientName || !b.clientPhone) {
       return NextResponse.json({ error: "GUEST_DATA_REQUIRED" }, { status: 400 });
     }
-    client = await prisma.clientProfile.create({
-      data: {
-        salonId: b.salonId,
-        name: b.clientName,
-        phone: b.clientPhone,
-      },
-      select: { id: true },
-    });
+    guestContact = { name: b.clientName, phone: b.clientPhone };
   }
 
   let appt;
   try {
     appt = await prisma.$transaction(async (tx) => {
-    const created = await tx.appointment.create({
-      data: {
-        salonId: b.salonId,
-        clientId: client!.id,
-        serviceId: b.serviceId,
-        professionalId: b.professionalId,
-        startAt,
-        endAt,
-        priceCents: service.priceCents,
-        status: "CONFIRMED",
-        notes: b.notes,
-      },
-      select: { id: true, startAt: true, endAt: true },
-    });
-
-    if (productSnapshots.length > 0) {
-      await tx.appointmentProduct.createMany({
-        data: productSnapshots.map((s) => ({
-          appointmentId: created.id,
-          ...s,
-        })),
+      const appointmentClientId =
+        clientId ??
+        (
+          await tx.clientProfile.create({
+            data: {
+              salonId: b.salonId,
+              name: guestContact!.name,
+              phone: guestContact!.phone,
+            },
+            select: { id: true },
+          })
+        ).id;
+      const created = await tx.appointment.create({
+        data: {
+          salonId: b.salonId,
+          clientId: appointmentClientId,
+          serviceId: b.serviceId,
+          professionalId: b.professionalId,
+          startAt,
+          endAt,
+          priceCents: service.priceCents,
+          status: "CONFIRMED",
+          notes: b.notes,
+        },
+        select: { id: true, startAt: true, endAt: true },
       });
-      // Decrementa estoque
-      for (const s of productSnapshots) {
-        await tx.product.update({
-          where: { id: s.productId },
-          data: { stock: { decrement: s.quantity } },
+
+      if (productSnapshots.length > 0) {
+        await tx.appointmentProduct.createMany({
+          data: productSnapshots.map((s) => ({
+            appointmentId: created.id,
+            ...s,
+          })),
         });
+        // Decrementa estoque
+        for (const s of productSnapshots) {
+          await tx.product.update({
+            where: { id: s.productId },
+            data: { stock: { decrement: s.quantity } },
+          });
+        }
       }
-    }
-    return created;
-  });
+      return created;
+    });
   } catch (e) {
     // Exclusion constraint (appointment_no_overlap): outra reserva venceu a
     // corrida entre a checagem de conflito e o INSERT. Mesma resposta de slot

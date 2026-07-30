@@ -1,11 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import { randomUUID } from "node:crypto";
 import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { getSupabaseAdmin, STORAGE_BUCKET } from "@/lib/supabase";
+import {
+  canUploadToFolder,
+  detectImageMimeType,
+  isUploadFolder,
+} from "@/lib/image-upload-security";
 import {
   checkRateLimit,
   clientIp,
   rateLimitHeaders,
+  rateLimitStatus,
 } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
@@ -14,25 +22,52 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
+  const activeSalonId = req.cookies.get("active_salon")?.value;
+  const membership = await prisma.membership.findFirst({
+    where: {
+      userId: session.user.id,
+      ...(activeSalonId ? { salonId: activeSalonId } : {}),
+    },
+    select: { salonId: true, role: true },
+    orderBy: { id: "asc" },
+  });
+  if (!membership) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+
   const limited = await checkRateLimit({
     namespace: "uploads",
-    identifier: `${session.user.id}:${clientIp(req.headers)}`,
+    identifier: `${membership.salonId}:${session.user.id}:${clientIp(req.headers)}`,
     limit: 20,
     windowSeconds: 60 * 60,
+    failClosed: true,
   });
   if (!limited.allowed) {
     return NextResponse.json(
-      { error: "too many requests" },
-      { status: 429, headers: rateLimitHeaders(limited) },
+      {
+        error:
+          limited.source === "unavailable"
+            ? "security service unavailable"
+            : "too many requests",
+      },
+      {
+        status: rateLimitStatus(limited),
+        headers: rateLimitHeaders(limited),
+      },
     );
   }
 
   const formData = await req.formData();
   const file = formData.get("file") as File | null;
-  const requestedFolder = (formData.get("folder") as string) || "misc";
-  const folder = requestedFolder.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 40) || "misc";
+  const folder = formData.get("folder");
 
   if (!file) return NextResponse.json({ error: "no file" }, { status: 400 });
+  if (
+    !isUploadFolder(folder) ||
+    !canUploadToFolder(membership.role, folder)
+  ) {
+    return NextResponse.json({ error: "invalid upload purpose" }, { status: 403 });
+  }
 
   const maxMb = 5;
   if (file.size > maxMb * 1024 * 1024) {
@@ -42,8 +77,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-  if (!allowed.includes(file.type)) {
+  const header = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+  const detectedType = detectImageMimeType(header);
+  if (!detectedType || detectedType !== file.type) {
     return NextResponse.json(
       { error: "Formato inválido. Use JPG, PNG, WEBP ou GIF." },
       { status: 415 },
@@ -56,19 +92,18 @@ export async function POST(req: NextRequest) {
     "image/webp": "webp",
     "image/gif": "gif",
   };
-  const ext = extensionByType[file.type];
-  const path = `${session.user.id}/${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+  const ext = extensionByType[detectedType];
+  const path = `${membership.salonId}/${folder}/${randomUUID()}.${ext}`;
   const supabaseAdmin = getSupabaseAdmin();
-
-  // Garante que o bucket existe (cria na primeira vez, ignora se já existe)
-  await supabaseAdmin.storage.createBucket(STORAGE_BUCKET, { public: true }).catch(() => null);
 
   const { error } = await supabaseAdmin.storage
     .from(STORAGE_BUCKET)
-    .upload(path, file, { contentType: file.type, upsert: false });
+    .upload(path, file, { contentType: detectedType, upsert: false });
 
   if (error) {
-    console.error("[upload]", error);
+    console.error("[upload] storage failure", {
+      statusCode: error.statusCode,
+    });
     return NextResponse.json(
       { error: "Não foi possível enviar a imagem." },
       { status: 500 },

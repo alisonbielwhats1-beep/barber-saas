@@ -60,6 +60,29 @@ npx vercel --prod
 ```
 
 Variáveis de ambiente ficam no painel da Vercel (não no `.env` do repo).
+
+### Convites da equipe por e-mail
+
+O envio usa Resend por uma abstração server-side. Configure em todos os
+ambientes da Vercel que devem enviar convites:
+
+```env
+RESEND_API_KEY=re_...
+EMAIL_FROM=SalonSaaS <convites@seudominio.com>
+NEXTAUTH_URL=https://seu-dominio-de-producao.com
+```
+
+O domínio de `EMAIL_FROM` precisa estar verificado no Resend. Nunca use uma
+variável `NEXT_PUBLIC_` para a chave. Em testes, injete um `Mailer` falso; a
+suíte automatizada não chama o Resend.
+
+O procedimento de homologação, ordem de deploy e rollback está em
+`docs/fase-1-rollout.md`. O bucket público `salon-assets` deve existir antes do
+deploy e é exclusivo para imagens públicas de serviços, produtos e portfólio.
+
+O ponto exato de retomada entre chats e computadores está registrado em
+`docs/STATUS_ATUAL.md`.
+
 Ao adicionar via CLI, use redirecionamento de arquivo — pipe do PowerShell
 pode gravar valor corrompido:
 
@@ -108,14 +131,14 @@ Se um dia uma Server Action esquecer o filtro `salonId`, o filtro no código nã
 
 ```bash
 # 1. Aplica policies no banco (idempotente)
-psql "$DATABASE_URL" -f prisma/migrations/rls/enable_rls.sql
+psql "$DATABASE_URL" -f prisma/sql/rls/enable_rls.sql
 
 # 2. Nas páginas/actions, troca `import { prisma } from "@/lib/prisma"`
 #    por    `import { getTenantPrisma } from "@/lib/prisma-tenant"`
 #    e usa  `const db = await getTenantPrisma();`
 ```
 
-Cada query passa a rodar dentro de uma transação que seta `app.current_salon` via `set_config`; as policies em `prisma/migrations/rls/enable_rls.sql` comparam com esse GUC. Login/signup/booking público continuam usando o `prisma` cru (não têm tenant na sessão ainda).
+Cada query passa a rodar dentro de uma transação que seta `app.current_salon` via `set_config`; as policies em `prisma/sql/rls/enable_rls.sql` comparam com esse GUC. Login/signup/booking público continuam usando o `prisma` cru (não têm tenant na sessão ainda).
 
 ## BI / Dashboard
 

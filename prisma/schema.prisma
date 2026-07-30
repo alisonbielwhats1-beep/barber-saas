@@ -22,6 +22,21 @@ enum Role {
   RECEPTIONIST
 }
 
+enum InviteDeliveryStatus {
+  SENDING
+  SENT
+  FAILED
+}
+
+enum InviteEventType {
+  CREATED
+  SENT
+  SEND_FAILED
+  RESENT
+  REVOKED
+  ACCEPTED
+}
+
 enum AppointmentStatus {
   PENDING
   CONFIRMED
@@ -55,39 +70,40 @@ enum Gender {
 // ─── Identidade & Tenant ────────────────────────────────────────────────────
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  name         String
-  phone        String?
-  passwordHash String
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String
+  phone         String?
+  passwordHash  String
   passwordSetAt DateTime?
-  avatarUrl    String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  avatarUrl     String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  memberships    Membership[]
-  professional   Professional?
-  clientProfiles ClientProfile[]
-  receivedInvites UserInvite[] @relation("InviteUser")
-  createdInvites  UserInvite[] @relation("InviteCreator")
+  memberships     Membership[]
+  professional    Professional?
+  clientProfiles  ClientProfile[]
+  receivedInvites UserInvite[]      @relation("InviteUser")
+  createdInvites  UserInvite[]      @relation("InviteCreator")
+  inviteEvents    UserInviteEvent[]
 }
 
 model Salon {
-  id        String   @id @default(cuid())
-  slug      String   @unique
-  name      String
-  logoUrl   String?
-  address   String?
-  phone     String?
-  timezone  String   @default("America/Sao_Paulo")
-  currency  String   @default("BRL")
-  plan      Plan     @default(FREE)
-  openMinutes       Int @default(540)   // 09:00 — horário padrão de abertura
-  closeMinutes      Int @default(1140)  // 19:00 — horário padrão de fechamento
-  cancelPolicyHours Int @default(2)     // antecedência mínima para cancelar
-  noShowFeeCents    Int @default(0)     // taxa de no-show
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                String   @id @default(cuid())
+  slug              String   @unique
+  name              String
+  logoUrl           String?
+  address           String?
+  phone             String?
+  timezone          String   @default("America/Sao_Paulo")
+  currency          String   @default("BRL")
+  plan              Plan     @default(FREE)
+  openMinutes       Int      @default(540) // 09:00 — horário padrão de abertura
+  closeMinutes      Int      @default(1140) // 19:00 — horário padrão de fechamento
+  cancelPolicyHours Int      @default(2) // antecedência mínima para cancelar
+  noShowFeeCents    Int      @default(0) // taxa de no-show
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   memberships   Membership[]
   professionals Professional[]
@@ -236,40 +252,68 @@ model Membership {
 }
 
 model UserInvite {
-  id                        String   @id @default(cuid())
+  id                        String               @id @default(cuid())
   salonId                   String
   email                     String
   name                      String
   userId                    String?
   createdById               String
   role                      Role
-  emailVerificationRequired Boolean  @default(true)
-  tokenHash                 String   @unique @db.VarChar(64)
+  emailVerificationRequired Boolean              @default(true)
+  tokenHash                 String               @unique @db.VarChar(64)
   expiresAt                 DateTime
   usedAt                    DateTime?
-  createdAt                 DateTime @default(now())
+  revokedAt                 DateTime?
+  deliveryStatus            InviteDeliveryStatus @default(SENDING)
+  sentAt                    DateTime?
+  lastSendAttemptAt         DateTime?
+  sendAttempts              Int                  @default(0)
+  providerMessageId         String?
+  lastErrorCode             String?
+  pendingBio                String?
+  pendingColorHex           String?
+  pendingCommissionPct      Decimal?             @db.Decimal(5, 2)
+  pendingMonthlyGoalCents   Int?
+  pendingServiceIds         String[]             @default([])
+  createdAt                 DateTime             @default(now())
 
-  salon     Salon @relation(fields: [salonId], references: [id], onDelete: Cascade)
-  user      User? @relation("InviteUser", fields: [userId], references: [id], onDelete: Cascade)
-  createdBy User  @relation("InviteCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  salon     Salon             @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  user      User?             @relation("InviteUser", fields: [userId], references: [id], onDelete: Cascade)
+  createdBy User              @relation("InviteCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  events    UserInviteEvent[]
 
-  @@index([salonId, expiresAt])
+  @@index([salonId, usedAt, revokedAt, expiresAt])
   @@index([email, usedAt])
   @@index([userId, usedAt])
   @@index([createdById])
 }
 
+model UserInviteEvent {
+  id          String          @id @default(cuid())
+  inviteId    String
+  actorUserId String?
+  type        InviteEventType
+  details     Json?
+  createdAt   DateTime        @default(now())
+
+  invite UserInvite @relation(fields: [inviteId], references: [id], onDelete: Cascade)
+  actor  User?      @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([inviteId, createdAt])
+  @@index([actorUserId])
+}
+
 // ─── Catálogo & Equipe ──────────────────────────────────────────────────────
 
 model Professional {
-  id            String  @id @default(cuid())
-  salonId       String
-  userId        String  @unique
-  bio             String?
-  colorHex        String?
-  commissionPct   Decimal @default(0) @db.Decimal(5, 2)
-  monthlyGoalCents Int    @default(0)
-  active          Boolean @default(true)
+  id               String  @id @default(cuid())
+  salonId          String
+  userId           String  @unique
+  bio              String?
+  colorHex         String?
+  commissionPct    Decimal @default(0) @db.Decimal(5, 2)
+  monthlyGoalCents Int     @default(0)
+  active           Boolean @default(true)
 
   salon        Salon                 @relation(fields: [salonId], references: [id], onDelete: Cascade)
   user         User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -383,10 +427,10 @@ model Appointment {
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 
-  salon        Salon         @relation(fields: [salonId], references: [id], onDelete: Cascade)
-  client       ClientProfile @relation(fields: [clientId], references: [id])
-  professional Professional  @relation(fields: [professionalId], references: [id])
-  service      Service       @relation(fields: [serviceId], references: [id])
+  salon        Salon                @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  client       ClientProfile        @relation(fields: [clientId], references: [id])
+  professional Professional         @relation(fields: [professionalId], references: [id])
+  service      Service              @relation(fields: [serviceId], references: [id])
   payment      Payment?
   products     AppointmentProduct[]
 
@@ -398,23 +442,23 @@ model Appointment {
 // ─── Catálogo de produtos & carrinho ────────────────────────────────────────
 
 model Product {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   salonId     String
   name        String
   description String?
   brand       String?
   category    String?
   priceCents  Int
-  costCents   Int      @default(0)
-  stock       Int      @default(0)
-  minStock    Int      @default(0)
+  costCents   Int       @default(0)
+  stock       Int       @default(0)
+  minStock    Int       @default(0)
   supplier    String?
   barcode     String?
   expiresAt   DateTime?
   imageUrl    String?
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   salon        Salon                @relation(fields: [salonId], references: [id], onDelete: Cascade)
   appointments AppointmentProduct[]

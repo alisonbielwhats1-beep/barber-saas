@@ -3,7 +3,7 @@ type RateLimitResult = {
   limit: number;
   remaining: number;
   retryAfterSeconds: number;
-  source: "distributed" | "local";
+  source: "distributed" | "local" | "unavailable";
 };
 
 type RateLimitInput = {
@@ -11,6 +11,7 @@ type RateLimitInput = {
   identifier: string;
   limit: number;
   windowSeconds: number;
+  failClosed?: boolean;
 };
 
 type LocalEntry = {
@@ -74,8 +75,13 @@ async function checkDistributed(
   limit: number,
   windowSeconds: number,
 ): Promise<RateLimitResult | null> {
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  // A integração nativa Upstash/Vercel usa KV_REST_API_*; a configuração
+  // direta do Upstash usa UPSTASH_REDIS_REST_*. Preferimos a integração para
+  // evitar cópia manual de segredos, mantendo compatibilidade com ambos.
+  const url =
+    process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
+  const token =
+    process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
   if (!url || !token) return null;
 
   try {
@@ -94,6 +100,7 @@ async function checkDistributed(
         String(windowSeconds),
       ]),
       cache: "no-store",
+      signal: AbortSignal.timeout(1_500),
     });
     if (!response.ok) return null;
 
@@ -120,6 +127,17 @@ async function checkDistributed(
 export async function checkRateLimit(
   input: RateLimitInput,
 ): Promise<RateLimitResult> {
+  if (
+    !input.namespace ||
+    !input.identifier ||
+    !Number.isInteger(input.limit) ||
+    input.limit <= 0 ||
+    !Number.isInteger(input.windowSeconds) ||
+    input.windowSeconds <= 0
+  ) {
+    throw new Error("Configuração de rate limit inválida.");
+  }
+
   const hashed = await hashIdentifier(input.identifier);
   const key = `salon-saas:rl:${input.namespace}:${hashed}`;
 
@@ -130,14 +148,44 @@ export async function checkRateLimit(
   );
   if (distributed) return distributed;
 
+  if (input.failClosed && process.env.NODE_ENV === "production") {
+    return {
+      allowed: false,
+      limit: input.limit,
+      remaining: 0,
+      retryAfterSeconds: 30,
+      source: "unavailable",
+    };
+  }
+
   // Defesa adicional e fallback de disponibilidade. Em Vercel, este mapa não
   // é compartilhado entre instâncias; configure Upstash para proteção global.
   return checkLocal(key, input.limit, input.windowSeconds);
 }
 
 export function clientIp(headers: Headers): string {
-  const forwarded = headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return forwarded || headers.get("x-real-ip") || "unknown";
+  const vercelIp = headers
+    .get("x-vercel-forwarded-for")
+    ?.split(",")[0]
+    ?.trim();
+  const candidate =
+    vercelIp ||
+    (process.env.NODE_ENV === "production"
+      ? undefined
+      : headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+        headers.get("x-real-ip")?.trim());
+  if (
+    !candidate ||
+    candidate.length > 64 ||
+    !/^[0-9a-fA-F:.]+$/.test(candidate)
+  ) {
+    return "unknown";
+  }
+  return candidate.toLowerCase();
+}
+
+export function rateLimitStatus(result: RateLimitResult): 429 | 503 {
+  return result.source === "unavailable" ? 503 : 429;
 }
 
 export function rateLimitHeaders(result: RateLimitResult): HeadersInit {
