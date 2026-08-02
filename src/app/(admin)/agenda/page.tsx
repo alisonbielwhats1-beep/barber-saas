@@ -14,49 +14,49 @@ export default async function AgendaPage({
   const date = selectedDate ? new Date(`${selectedDate}T12:00:00`) : new Date();
   const dateStr = format(date, "yyyy-MM-dd");
 
-  const [salon, prosRaw, apptsRaw, services, clients] = await Promise.all([
-    prisma.salon.findUnique({ where: { id: salonId }, select: { name: true } }),
-    prisma.professional.findMany({
-      where: { salonId, active: true },
-      select: {
-        id: true,
-        colorHex: true,
-        user: { select: { name: true, avatarUrl: true } },
-        services: { select: { serviceId: true } },
-      },
-      orderBy: { user: { name: "asc" } },
-    }),
-    prisma.appointment.findMany({
-      where: {
-        salonId,
-        startAt: { gte: startOfMonth(date), lte: endOfMonth(date) },
-        status: { not: "CANCELLED" },
-      },
-      select: {
-        id: true,
-        professionalId: true,
-        startAt: true,
-        endAt: true,
-        priceCents: true,
-        status: true,
-        notes: true,
-        client: { select: { name: true, phone: true } },
-        service: { select: { name: true, colorHex: true } },
-      },
-      orderBy: { startAt: "asc" },
-    }),
-    prisma.service.findMany({
-      where: { salonId, active: true },
-      select: { id: true, name: true, durationMin: true, priceCents: true },
-      orderBy: { name: "asc" },
-    }),
-    prisma.clientProfile.findMany({
-      where: { salonId },
-      select: { id: true, name: true, phone: true },
-      orderBy: { name: "asc" },
-      take: 300,
-    }),
-  ]);
+  // Sequencial de propósito: pooler com connection_limit=1 em serverless —
+  // 5 queries em Promise.all estouravam o timeout do pool (P2024).
+  const salon = await prisma.salon.findUnique({ where: { id: salonId }, select: { name: true } });
+  const prosRaw = await prisma.professional.findMany({
+    where: { salonId, active: true },
+    select: {
+      id: true,
+      colorHex: true,
+      user: { select: { name: true, avatarUrl: true } },
+      services: { select: { serviceId: true } },
+    },
+    orderBy: { user: { name: "asc" } },
+  });
+  const apptsRaw = await prisma.appointment.findMany({
+    where: {
+      salonId,
+      startAt: { gte: startOfMonth(date), lte: endOfMonth(date) },
+      status: { not: "CANCELLED" },
+    },
+    select: {
+      id: true,
+      professionalId: true,
+      startAt: true,
+      endAt: true,
+      priceCents: true,
+      status: true,
+      notes: true,
+      client: { select: { name: true, phone: true } },
+      service: { select: { name: true, colorHex: true } },
+    },
+    orderBy: { startAt: "asc" },
+  });
+  const services = await prisma.service.findMany({
+    where: { salonId, active: true },
+    select: { id: true, name: true, durationMin: true, priceCents: true },
+    orderBy: { name: "asc" },
+  });
+  const clients = await prisma.clientProfile.findMany({
+    where: { salonId },
+    select: { id: true, name: true, phone: true },
+    orderBy: { name: "asc" },
+    take: 300,
+  });
 
   const professionals: Professional[] = prosRaw.map((p) => ({
     id: p.id,

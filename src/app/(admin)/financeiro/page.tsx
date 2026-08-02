@@ -1,4 +1,4 @@
-import { getTenantContext } from "@/lib/tenant";
+import { requireRole, FINANCE_ROLES } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import { getFinanceMetrics } from "@/lib/finance";
 import { RANGE_LABELS, type RangeKey } from "@/lib/dashboard";
@@ -32,7 +32,9 @@ export default async function FinanceiroPage({
 }: {
   searchParams: Promise<{ range?: string }>;
 }) {
-  const { salonId } = await getTenantContext();
+  // Financeiro do salão inteiro: só dono/gerente. Profissional e recepcionista
+  // são redirecionados — antes bastava abrir a URL para ver o DRE completo.
+  const { salonId } = await requireRole(FINANCE_ROLES);
   const { range: selectedRange } = await searchParams;
   const range: RangeKey = VALID.includes(selectedRange as RangeKey)
     ? (selectedRange as RangeKey)

@@ -4,13 +4,13 @@ import { getTenantContext } from "@/lib/tenant";
 import { SidebarFooter } from "./sidebar-footer";
 import { SalonSwitcher } from "./salon-switcher";
 import { SidebarNav } from "./sidebar-nav";
-import { CommandPalette } from "./command-palette";
+import { CommandPalette, OpenCommandPaletteButton } from "./command-palette";
 import { Toaster } from "@/components/ui/toast";
 import { ThemeProvider } from "./theme-provider";
 import { MobileNav } from "./mobile-nav";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { userId, salonId } = await getTenantContext();
+  const { userId, salonId, role } = await getTenantContext();
 
   const [salon, memberships] = await Promise.all([
     prisma.salon.findUnique({
@@ -54,10 +54,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <SalonSwitcher current={currentSalon} memberships={membershipList} />
         </div>
 
+        <div className="shrink-0 px-3 pb-3">
+          <OpenCommandPaletteButton />
+        </div>
+
         <div className="mx-3 mb-3 h-px bg-border" />
 
         {/* Navigation */}
-        <SidebarNav />
+        <SidebarNav role={role} />
 
         {/* User footer */}
         <SidebarFooter plan={salon?.plan ?? "FREE"} />
@@ -68,8 +72,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <div className="mx-auto max-w-[1400px] p-6 pb-24 md:p-8 md:pb-8">{children}</div>
       </main>
 
-      <MobileNav />
-      <CommandPalette />
+      <MobileNav role={role} />
+      <CommandPalette role={role} />
       <Toaster />
     </div>
     </ThemeProvider>

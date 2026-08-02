@@ -7,13 +7,16 @@ import {
   Users, UserCog, Wallet, FileBarChart, Megaphone, Settings, Search, CornerDownLeft, Command,
 } from "lucide-react";
 
-type Cmd = { label: string; hint: string; icon: typeof Search; href: string };
+type Cmd = { label: string; hint: string; icon: typeof Search; href: string; roles?: string[] };
+
+/** Espelha FINANCE_ROLES do tenant.ts — a proteção real é requireRole na página. */
+const FINANCE_ONLY = ["SUPER_ADMIN", "OWNER", "MANAGER"];
 
 const COMMANDS: Cmd[] = [
   { label: "Dashboard", hint: "Visão geral", icon: LayoutDashboard, href: "/dashboard" },
   { label: "Agenda", hint: "Ver agendamentos", icon: CalendarDays, href: "/agenda" },
-  { label: "Financeiro", hint: "Receitas e despesas", icon: Wallet, href: "/financeiro" },
-  { label: "Relatórios", hint: "Exportar e comparar", icon: FileBarChart, href: "/relatorios" },
+  { label: "Financeiro", hint: "Receitas e despesas", icon: Wallet, href: "/financeiro", roles: FINANCE_ONLY },
+  { label: "Relatórios", hint: "Exportar e comparar", icon: FileBarChart, href: "/relatorios", roles: FINANCE_ONLY },
   { label: "Serviços", hint: "Catálogo de serviços", icon: Scissors, href: "/servicos" },
   { label: "Produtos", hint: "Estoque e vendas", icon: ShoppingBag, href: "/produtos" },
   { label: "Pacotes & Planos", hint: "Receita recorrente", icon: Layers, href: "/pacotes" },
@@ -24,14 +27,15 @@ const COMMANDS: Cmd[] = [
   { label: "Configurações", hint: "Ajustes do salão", icon: Settings, href: "/configuracoes" },
 ];
 
-export function CommandPalette() {
+export function CommandPalette({ role }: { role: string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Atalho ⌘K / Ctrl+K
+  // Atalho ⌘K / Ctrl+K — em telas sem teclado físico (celular/tablet), o
+  // gatilho visível em OpenCommandPaletteButton dispara o mesmo evento.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -40,8 +44,15 @@ export function CommandPalette() {
       }
       if (e.key === "Escape") setOpen(false);
     }
+    function onOpenEvent() {
+      setOpen(true);
+    }
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("open-command-palette", onOpenEvent);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("open-command-palette", onOpenEvent);
+    };
   }, []);
 
   useEffect(() => {
@@ -53,10 +64,11 @@ export function CommandPalette() {
   }, [open]);
 
   const results = useMemo(() => {
+    const allowed = COMMANDS.filter((c) => !c.roles || c.roles.includes(role));
     const s = q.trim().toLowerCase();
-    if (!s) return COMMANDS;
-    return COMMANDS.filter((c) => c.label.toLowerCase().includes(s) || c.hint.toLowerCase().includes(s));
-  }, [q]);
+    if (!s) return allowed;
+    return allowed.filter((c) => c.label.toLowerCase().includes(s) || c.hint.toLowerCase().includes(s));
+  }, [q, role]);
 
   function go(href: string) {
     setOpen(false);
@@ -121,5 +133,24 @@ export function CommandPalette() {
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Gatilho visível para abrir o CommandPalette — sem isso, quem não tem
+ * teclado físico (celular/tablet) não descobre o atalho ⌘K/Ctrl+K de jeito
+ * nenhum. Dispara um CustomEvent em vez de levantar estado entre irmãos
+ * (CommandPalette é montado à parte, em (admin)/layout.tsx).
+ */
+export function OpenCommandPaletteButton() {
+  return (
+    <button
+      onClick={() => window.dispatchEvent(new Event("open-command-palette"))}
+      className="flex w-full items-center gap-2.5 rounded-lg border border-border bg-surface-1 px-2.5 py-1.5 text-[12px] text-muted-foreground transition hover:border-border-strong hover:text-foreground"
+    >
+      <Search className="h-3.5 w-3.5 shrink-0" />
+      <span className="flex-1 text-left">Buscar</span>
+      <kbd className="rounded border border-border px-1 py-0.5 text-[10px]">⌘K</kbd>
+    </button>
   );
 }

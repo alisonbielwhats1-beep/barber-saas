@@ -1,85 +1,47 @@
 import Link from "next/link";
-import Image from "next/image";
-import { Button } from "@/components/ui/button";
 import {
   CalendarDays,
-  Scissors,
   BarChart3,
   Users,
-  Sparkles,
+  Bell,
   ArrowRight,
   ArrowUpRight,
-  Star,
+  Quote,
+  ShieldCheck,
 } from "lucide-react";
-
-const img = (id: string, size = 1600) =>
-  `https://images.unsplash.com/${id}?w=${size}&auto=format&fit=crop&q=80`;
-
-// Curadoria dark moody — todas verificadas (HTTP 200)
-const HERO = img("photo-1585747860715-2ba37e788b70", 2000); // barbeiro + cliente, cinematográfico
-const OWNER_SIDE = img("photo-1512690459411-b9245aed614b", 1000); // interior barbearia dark
-const CLIENT_SIDE = img("photo-1562322140-8baeececf3df", 1000); // styling feminino premium
-const FEATURE_AGENDA = img("photo-1621607512214-68297480165e", 800); // navalha close-up
-const FEATURE_BI = img("photo-1621605815971-fbc98d665033", 800); // fade masculino
-const FEATURE_CRM = img("photo-1560066984-138dadb4c035", 800); // corte feminino
-const CTA_BG = img("photo-1503951914875-452162b0f3f1", 2000); // barbershop clássico
+import { Button } from "@/components/ui/button";
+import { MarketingHeader } from "./marketing-header";
+import { SegmentExplorer } from "./segment-explorer";
+import { ProductMockup } from "./product-mockup";
+import { ClientMockup } from "./client-mockup";
 
 export default function LandingPage() {
   return (
     <main className="min-h-screen bg-background">
-      {/* Nav flutuante */}
-      <header className="fixed inset-x-0 top-0 z-50 border-b border-white/5 bg-background/60 backdrop-blur-xl">
-        <div className="container flex h-16 items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 font-display text-xl">
-            <span className="grid h-8 w-8 place-items-center rounded-md bg-primary text-primary-foreground">
-              <Scissors className="h-4 w-4" />
-            </span>
-            Salon<span className="text-primary">SaaS</span>
-          </Link>
-          <nav className="flex items-center gap-2">
-            <Button asChild variant="ghost" size="sm">
-              <Link href="/login">Entrar</Link>
-            </Button>
-            <Button asChild size="sm">
-              <Link href="/signup">Começar grátis</Link>
-            </Button>
-          </nav>
-        </div>
-      </header>
+      <MarketingHeader />
 
-      {/* Hero cinematográfico */}
-      <section className="relative flex min-h-[92vh] items-center overflow-hidden">
-        <Image
-          src={HERO}
-          alt="Barbeiro finalizando corte"
-          fill
-          priority
-          sizes="100vw"
-          className="object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-background via-background/80 to-background/20" />
-        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-background to-transparent" />
-
-        <div className="container relative z-10 pt-16">
-          <div className="max-w-2xl animate-fade-in">
+      {/* Hero */}
+      <section className="relative overflow-hidden pb-20 pt-32 md:pt-40">
+        <div className="container grid gap-14 lg:grid-cols-2 lg:items-center lg:gap-10">
+          <div className="animate-fade-in">
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-xs font-medium text-primary">
-              <Sparkles className="h-3 w-3" />
-              Multi-tenant · um sistema, vários salões
+              <ShieldCheck className="h-3 w-3" />
+              Um sistema, vários tipos de negócio de beleza e bem-estar
             </div>
-            <h1 className="font-display text-5xl leading-[1.05] tracking-tight md:text-7xl">
-              Sua barbearia,
+            <h1 className="font-display text-4xl leading-[1.1] tracking-tight md:text-6xl">
+              Seu espaço organizado,
               <br />
-              <span className="text-primary">no controle total.</span>
+              <span className="text-primary">sua agenda sempre em movimento.</span>
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground">
-              Agenda online que o cliente ama usar, dashboard que mostra cada
-              real entrando e a operação inteira — equipe, serviços, produtos —
-              num painel só.
+              Agenda online, cadastro de clientes, controle da equipe e visão
+              financeira num só painel — para barbearias, salões, manicures,
+              estética e espaços mistos.
             </p>
             <div className="mt-10 flex flex-wrap items-center gap-3">
               <Button asChild size="lg" className="h-14 rounded-full px-8 text-base">
                 <Link href="/signup">
-                  Criar meu salão <ArrowRight className="h-4 w-4" />
+                  Criar conta grátis <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
               <Button
@@ -88,203 +50,344 @@ export default function LandingPage() {
                 size="lg"
                 className="h-14 rounded-full border-white/20 bg-white/5 px-8 text-base backdrop-blur hover:bg-white/10"
               >
-                <Link href="/book/north-barber">Ver demo ao vivo</Link>
+                <Link href="/book/north-barber">Ver demonstração</Link>
               </Button>
             </div>
-
-            {/* Prova social */}
-            <div className="mt-14 flex flex-wrap items-center gap-8 text-sm">
-              <div>
-                <p className="font-display text-3xl text-foreground">200+</p>
-                <p className="text-muted-foreground">Agendamentos/mês por salão</p>
-              </div>
-              <div className="h-10 w-px bg-white/10" />
-              <div>
-                <p className="font-display text-3xl text-foreground">3 toques</p>
-                <p className="text-muted-foreground">Do serviço à reserva</p>
-              </div>
-              <div className="h-10 w-px bg-white/10" />
-              <div className="flex items-center gap-1.5">
-                <Star className="h-5 w-5 fill-primary text-primary" />
-                <p className="text-muted-foreground">
-                  Feito para barbearias <span className="text-foreground">e salões</span>
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Dois lados da plataforma */}
-      <section className="container py-24">
-        <div className="mx-auto max-w-2xl text-center">
-          <h2 className="font-display text-3xl md:text-5xl">Um app para cada lado do balcão</h2>
-          <p className="mt-4 text-muted-foreground">
-            O dono gerencia. O cliente agenda. Ninguém liga no WhatsApp perguntando horário.
-          </p>
-        </div>
-
-        <div className="mt-14 grid gap-6 md:grid-cols-2">
-          {/* Card dono */}
-          <Link
-            href="/login"
-            className="group relative overflow-hidden rounded-3xl border border-white/10"
-          >
-            <div className="relative aspect-[16/11] w-full overflow-hidden">
-              <Image
-                src={OWNER_SIDE}
-                alt="Interior de barbearia premium"
-                fill
-                sizes="(max-width: 768px) 100vw, 50vw"
-                className="object-cover transition duration-500 group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
-            </div>
-            <div className="absolute inset-x-0 bottom-0 p-8">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-primary">
-                Para o dono
-              </p>
-              <h3 className="font-display text-2xl text-white md:text-3xl">
-                Dashboard, agenda e financeiro
-              </h3>
-              <p className="mt-2 max-w-md text-sm text-white/70">
-                Faturamento por dia, ocupação da equipe, comissões e os serviços
-                que mais dão retorno — em tempo real.
-              </p>
-              <span className="mt-5 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground">
-                Entrar no painel <ArrowUpRight className="h-4 w-4" />
-              </span>
-            </div>
-          </Link>
-
-          {/* Card cliente */}
-          <Link
-            href="/book/luna-hair"
-            className="group relative overflow-hidden rounded-3xl border border-white/10"
-          >
-            <div className="relative aspect-[16/11] w-full overflow-hidden">
-              <Image
-                src={CLIENT_SIDE}
-                alt="Styling em salão de alto padrão"
-                fill
-                sizes="(max-width: 768px) 100vw, 50vw"
-                className="object-cover transition duration-500 group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
-            </div>
-            <div className="absolute inset-x-0 bottom-0 p-8">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-primary">
-                Para o cliente
-              </p>
-              <h3 className="font-display text-2xl text-white md:text-3xl">
-                Agendamento em 3 toques
-              </h3>
-              <p className="mt-2 max-w-md text-sm text-white/70">
-                Vitrine de serviços com fotos, escolha de profissional, horários
-                em tempo real e confirmação na hora.
-              </p>
-              <span className="mt-5 inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black">
-                Testar como cliente <ArrowUpRight className="h-4 w-4" />
-              </span>
-            </div>
-          </Link>
-        </div>
-      </section>
-
-      {/* Features com imagem */}
-      <section className="border-t border-white/5 bg-muted/20 py-24">
-        <div className="container">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="font-display text-3xl md:text-4xl">Tudo num só lugar</h2>
-            <p className="mt-3 text-muted-foreground">
-              Da primeira reserva ao fechamento do mês.
+            <p className="mt-6 text-sm text-muted-foreground">
+              Sem cartão de crédito para começar.
             </p>
           </div>
 
-          <div className="mt-14 grid gap-6 md:grid-cols-3">
-            {features.map((f) => (
+          <div className="animate-slide-up">
+            <ProductMockup />
+          </div>
+        </div>
+      </section>
+
+      {/* Benefícios principais */}
+      <section id="recursos" className="scroll-mt-24 border-t border-white/5 bg-muted/20 py-24">
+        <div className="container">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="font-display text-3xl md:text-4xl">
+              O que mais pesa no dia a dia, resolvido primeiro
+            </h2>
+            <p className="mt-3 text-muted-foreground">
+              Sem vinte recursos com o mesmo peso — o que realmente evita
+              prejuízo e retrabalho.
+            </p>
+          </div>
+
+          <div className="mt-14 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            {BENEFITS.map((b) => (
               <div
-                key={f.title}
-                className="group overflow-hidden rounded-3xl border border-white/10 bg-card transition hover:border-primary/40"
+                key={b.title}
+                className="card-interactive rounded-2xl border border-white/10 bg-card p-6"
               >
-                <div className="relative aspect-[16/9] overflow-hidden">
-                  <Image
-                    src={f.image}
-                    alt={f.title}
-                    fill
-                    sizes="(max-width: 768px) 100vw, 33vw"
-                    className="object-cover transition duration-500 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-card to-transparent" />
+                <div className="mb-4 grid h-11 w-11 place-items-center rounded-xl bg-primary/10 text-primary">
+                  <b.icon className="h-5 w-5" />
                 </div>
-                <div className="p-7 pt-4">
-                  <div className="mb-4 grid h-11 w-11 place-items-center rounded-xl bg-primary/10 text-primary">
-                    <f.icon className="h-5 w-5" />
-                  </div>
-                  <h3 className="mb-2 font-display text-xl">{f.title}</h3>
-                  <p className="text-sm leading-relaxed text-muted-foreground">
-                    {f.description}
-                  </p>
-                </div>
+                <h3 className="mb-2 font-display text-lg">{b.title}</h3>
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  {b.description}
+                </p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
+      {/* Demonstração do sistema */}
+      <section className="py-24">
+        <div className="container">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="font-display text-3xl md:text-4xl">Como funciona na prática</h2>
+            <p className="mt-3 text-muted-foreground">
+              Um painel para quem gerencia, uma vitrine simples para quem agenda.
+            </p>
+          </div>
+
+          <div className="mt-14 grid gap-10 lg:grid-cols-[1.4fr_1fr] lg:items-center">
+            <div>
+              <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-primary">
+                Para o dono
+              </p>
+              <ProductMockup />
+            </div>
+            <div>
+              <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-primary">
+                Para o cliente
+              </p>
+              <ClientMockup />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Como funciona — passo a passo */}
+      <section className="border-t border-white/5 bg-muted/20 py-24">
+        <div className="container">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="font-display text-3xl md:text-4xl">Do zero ao primeiro agendamento</h2>
+          </div>
+          <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
+            {STEPS.map((s, i) => (
+              <div key={s.title} className="relative rounded-2xl border border-white/10 bg-card p-5">
+                <span className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+                  {i + 1}
+                </span>
+                <h3 className="mb-1.5 text-sm font-semibold">{s.title}</h3>
+                <p className="text-xs leading-relaxed text-muted-foreground">{s.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Qual é o seu tipo de negócio + recursos por segmento */}
+      <section id="segmentos" className="scroll-mt-24 py-24">
+        <div className="container">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="font-display text-3xl md:text-4xl">Qual é o seu tipo de negócio?</h2>
+            <p className="mt-3 text-muted-foreground">
+              A plataforma se adapta a textos, imagens e exemplos — mas nunca
+              limita o que você pode cadastrar depois.
+            </p>
+          </div>
+          <div className="mt-14">
+            <SegmentExplorer />
+          </div>
+        </div>
+      </section>
+
+      {/* Planos */}
+      <section id="planos" className="scroll-mt-24 border-t border-white/5 bg-muted/20 py-24">
+        <div className="container">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="font-display text-3xl md:text-4xl">Planos</h2>
+            <p className="mt-3 text-muted-foreground">
+              Condições comerciais em definição — fale com a gente para os
+              valores atuais.
+            </p>
+          </div>
+
+          <div className="mt-14 grid gap-6 md:grid-cols-3">
+            {PLANS.map((p) => (
+              <div
+                key={p.name}
+                className={`rounded-3xl border p-7 ${
+                  p.highlight ? "border-primary/50 bg-primary/5" : "border-white/10 bg-card"
+                }`}
+              >
+                <h3 className="font-display text-xl">{p.name}</h3>
+                <p className="mt-1 text-sm text-muted-foreground">{p.audience}</p>
+                <p className="mt-6 text-2xl font-semibold text-muted-foreground">
+                  Consulte as condições
+                </p>
+                <ul className="mt-6 space-y-2.5 text-sm">
+                  {p.bullets.map((b) => (
+                    <li key={b} className="flex items-start gap-2.5">
+                      <ArrowUpRight className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                      <span className="text-muted-foreground">{b}</span>
+                    </li>
+                  ))}
+                </ul>
+                <Button
+                  asChild
+                  variant={p.highlight ? "default" : "outline"}
+                  className="mt-7 w-full rounded-full"
+                >
+                  <Link href="/signup">Começar</Link>
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Prova de valor honesta */}
+      <section className="py-24">
+        <div className="container">
+          <div className="mx-auto max-w-2xl text-center">
+            <Quote className="mx-auto mb-6 h-8 w-8 text-primary" />
+            <p className="font-display text-2xl leading-snug md:text-3xl">
+              Desenvolvido junto com profissionais que vivem a rotina de
+              atender, agendar e fechar o caixa todos os dias.
+            </p>
+            <p className="mt-4 text-sm text-muted-foreground">
+              Ainda estamos construindo nossa base de estabelecimentos — sem
+              números inventados por aqui.
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* CTA final */}
-      <section className="relative overflow-hidden py-32">
-        <Image
-          src={CTA_BG}
-          alt="Barbearia clássica"
-          fill
-          sizes="100vw"
-          className="object-cover"
-        />
-        <div className="absolute inset-0 bg-background/85" />
+      <section className="relative overflow-hidden border-t border-white/5 py-32">
         <div className="container relative z-10 text-center">
           <h2 className="mx-auto max-w-2xl font-display text-4xl leading-tight md:text-5xl">
-            Seu salão online em <span className="text-primary">30 segundos</span>
+            Seu negócio <span className="text-primary">organizado e online</span>
           </h2>
           <p className="mx-auto mt-4 max-w-md text-muted-foreground">
             Crie a conta, cadastre os serviços e compartilhe o link de
             agendamento. Sem cartão de crédito.
           </p>
-          <Button asChild size="lg" className="mt-10 h-14 rounded-full px-10 text-base">
-            <Link href="/signup">
-              Começar agora <ArrowRight className="h-4 w-4" />
-            </Link>
-          </Button>
+          <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
+            <Button asChild size="lg" className="h-14 rounded-full px-10 text-base">
+              <Link href="/signup">
+                Criar conta grátis <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
+            <Button
+              asChild
+              variant="outline"
+              size="lg"
+              className="h-14 rounded-full px-10 text-base"
+            >
+              <Link href="/book/north-barber">Ver demonstração</Link>
+            </Button>
+          </div>
         </div>
       </section>
 
-      <footer className="border-t border-white/5 py-10 text-center text-sm text-muted-foreground">
-        © {new Date().getFullYear()} SalonSaaS — Feito para profissionais de beleza.
-      </footer>
+      <MarketingFooter />
     </main>
   );
 }
 
-const features = [
+const BENEFITS = [
   {
     icon: CalendarDays,
-    image: FEATURE_AGENDA,
-    title: "Agenda inteligente",
+    title: "Agenda sem conflito",
     description:
-      "Cada profissional tem sua agenda, com jornada, pausas e bloqueios. O cliente só vê horário que existe de verdade.",
+      "Cada profissional com sua jornada, pausas e bloqueios. O cliente só vê horário que existe de verdade.",
   },
   {
-    icon: BarChart3,
-    image: FEATURE_BI,
-    title: "Dashboard financeiro",
+    // Não prometer envio automático: o cron de lembretes hoje só monta a
+    // lista; quem dispara a mensagem é o dono, pelo painel. Ver
+    // src/app/api/cron/reminders/route.ts.
+    icon: Bell,
+    title: "Lembrete antes de cada horário",
     description:
-      "Faturamento por dia, taxa de ocupação, comissão por profissional e os serviços que mais dão retorno.",
+      "O painel separa os atendimentos do dia seguinte e você dispara o lembrete no WhatsApp em um toque.",
   },
   {
     icon: Users,
-    image: FEATURE_CRM,
-    title: "Base de clientes",
+    title: "Histórico de cada cliente",
     description:
-      "Histórico de cada cliente, contato direto no WhatsApp e serviços preferidos. Fidelização sem planilha.",
+      "Cadastro, preferências e retorno — sem depender de planilha ou caderno.",
+  },
+  {
+    icon: BarChart3,
+    title: "Visão financeira do dia",
+    description:
+      "Faturamento, comissão por profissional e os serviços que mais dão retorno, em tempo real.",
   },
 ];
+
+const STEPS = [
+  { title: "Cadastre seu estabelecimento", description: "Nome, contato e endereço para começar." },
+  { title: "Adicione serviços e profissionais", description: "Cada um com sua agenda e especialidade." },
+  { title: "Compartilhe sua página", description: "Link próprio para o cliente agendar sozinho." },
+  { title: "Receba os atendimentos", description: "Confirme, remarque ou cancele em poucos toques." },
+  { title: "Acompanhe os resultados", description: "Financeiro e relatórios direto do painel." },
+];
+
+const PLANS = [
+  {
+    name: "Essencial",
+    audience: "Para quem está começando a organizar a agenda.",
+    bullets: ["Agenda e agendamento online", "Cadastro de clientes", "Página pública do estabelecimento"],
+    highlight: false,
+  },
+  {
+    name: "Profissional",
+    audience: "Para equipes que já têm rotina de atendimento.",
+    bullets: ["Tudo do Essencial", "Financeiro e relatórios", "Pacotes e planos de assinatura"],
+    highlight: true,
+  },
+  {
+    name: "Premium",
+    audience: "Para operações maiores, com mais de uma unidade.",
+    bullets: ["Tudo do Profissional", "Recursos avançados de marketing", "Suporte prioritário"],
+    highlight: false,
+  },
+];
+
+function MarketingFooter() {
+  return (
+    <footer className="border-t border-white/5 py-14 text-sm">
+      <div className="container grid gap-10 md:grid-cols-5">
+        <div className="md:col-span-2">
+          <p className="font-display text-lg">
+            Salon<span className="text-primary">SaaS</span>
+          </p>
+          <p className="mt-2 max-w-xs text-muted-foreground">
+            Gestão e agendamento para negócios de beleza e bem-estar.
+          </p>
+        </div>
+
+        <FooterColumn
+          title="Produto"
+          items={[
+            { label: "Recursos", href: "#recursos" },
+            { label: "Para quem é", href: "#segmentos" },
+            { label: "Planos", href: "#planos" },
+          ]}
+        />
+        <FooterColumn
+          title="Conta"
+          items={[
+            { label: "Entrar", href: "/login" },
+            { label: "Criar conta", href: "/signup" },
+          ]}
+        />
+        <FooterColumn
+          title="Institucional"
+          items={[
+            { label: "Termos de uso", soon: true },
+            { label: "Política de privacidade", soon: true },
+            { label: "Contato", soon: true },
+          ]}
+        />
+      </div>
+
+      <div className="container mt-10 border-t border-white/5 pt-6 text-xs text-muted-foreground">
+        © {new Date().getFullYear()} SalonSaaS — feito para profissionais de beleza e bem-estar.
+      </div>
+    </footer>
+  );
+}
+
+function FooterColumn({
+  title,
+  items,
+}: {
+  title: string;
+  items: { label: string; href?: string; soon?: boolean }[];
+}) {
+  return (
+    <div>
+      <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground/70">
+        {title}
+      </p>
+      <ul className="space-y-2">
+        {items.map((it) => (
+          <li key={it.label}>
+            {it.soon || !it.href ? (
+              <span className="inline-flex items-center gap-1.5 text-muted-foreground/50">
+                {it.label}
+                <span className="rounded-full border border-border px-1.5 py-0.5 text-[9px] uppercase tracking-wide">
+                  Em breve
+                </span>
+              </span>
+            ) : (
+              <Link href={it.href} className="text-muted-foreground transition hover:text-foreground">
+                {it.label}
+              </Link>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}

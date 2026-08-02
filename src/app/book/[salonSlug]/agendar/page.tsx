@@ -68,6 +68,7 @@ export default async function AgendarPage({
     priceCents: s.priceCents,
     durationMin: s.durationMin,
     colorHex: s.colorHex,
+    category: s.category,
     professionals: s.professionals
       .filter((ps) => ps.professional.active)
       .map((ps) => ({

@@ -117,35 +117,38 @@ export async function getRevenueKpis(salonId: string, period: Period) {
 // ─── Ocupação (com comparação) ──────────────────────────────────────────
 
 async function occupancy(salonId: string, from: Date, to: Date) {
-  const [appointments, workingHours, timeOffs, professionals] =
-    await Promise.all([
-      prisma.appointment.findMany({
-        where: {
-          salonId,
-          startAt: { gte: from, lte: to },
-          status: { in: ["CONFIRMED", "IN_PROGRESS", "COMPLETED"] },
-        },
-        select: { startAt: true, endAt: true },
-      }),
-      prisma.workingHours.findMany({
-        where: { salonId },
-        select: {
-          weekday: true,
-          startMinutes: true,
-          endMinutes: true,
-          professionalId: true,
-        },
-      }),
-      prisma.timeOff.findMany({
-        where: {
-          professional: { salonId },
-          startAt: { lte: to },
-          endAt: { gte: from },
-        },
-        select: { startAt: true, endAt: true },
-      }),
-      prisma.professional.count({ where: { salonId, active: true } }),
-    ]);
+  // Sequencial de propósito: o pool de conexão do Postgres (Supabase pooler)
+  // roda com connection_limit=1 em serverless — 4 queries em paralelo aqui
+  // estouravam o timeout de 10s do pool (P2024) quando somadas às outras
+  // consultas concorrentes do dashboard. Ver getDashboardMetrics.
+  const appointments = await prisma.appointment.findMany({
+    where: {
+      salonId,
+      startAt: { gte: from, lte: to },
+      status: { in: ["CONFIRMED", "IN_PROGRESS", "COMPLETED"] },
+    },
+    select: { startAt: true, endAt: true },
+  });
+  const workingHours = await prisma.workingHours.findMany({
+    where: { salonId },
+    select: {
+      weekday: true,
+      startMinutes: true,
+      endMinutes: true,
+      professionalId: true,
+    },
+  });
+  const timeOffs = await prisma.timeOff.findMany({
+    where: {
+      professional: { salonId },
+      startAt: { lte: to },
+      endAt: { gte: from },
+    },
+    select: { startAt: true, endAt: true },
+  });
+  const professionals = await prisma.professional.count({
+    where: { salonId, active: true },
+  });
 
   const bookedMinutes = appointments.reduce(
     (sum, a) => sum + differenceInMinutes(a.endAt, a.startAt),

@@ -1,4 +1,4 @@
-import { getTenantContext } from "@/lib/tenant";
+import { requireRole, FINANCE_ROLES } from "@/lib/tenant";
 import { getDashboardMetrics, RANGE_LABELS, type RangeKey } from "@/lib/dashboard";
 import { getFinanceMetrics } from "@/lib/finance";
 import { formatMoney, formatDuration } from "@/lib/utils";
@@ -15,16 +15,18 @@ export default async function RelatoriosPage({
 }: {
   searchParams: Promise<{ range?: string }>;
 }) {
-  const { salonId } = await getTenantContext();
+  // Relatórios expõem faturamento, comissões e DRE — mesma restrição do
+  // /financeiro. Ver requireRole em lib/tenant.ts.
+  const { salonId } = await requireRole(FINANCE_ROLES);
   const { range: selectedRange } = await searchParams;
   const range: RangeKey = VALID.includes(selectedRange as RangeKey)
     ? (selectedRange as RangeKey)
     : "30d";
 
-  const [m, fin] = await Promise.all([
-    getDashboardMetrics(salonId, range),
-    getFinanceMetrics(salonId, range),
-  ]);
+  // Sequencial: são as duas funções mais pesadas do sistema (~21 queries
+  // somadas). Em paralelo, competiam pela única conexão do pool (P2024).
+  const m = await getDashboardMetrics(salonId, range);
+  const fin = await getFinanceMetrics(salonId, range);
 
   const periodLabel = `${format(m.period.from, "d MMM", { locale: ptBR })} – ${format(m.period.to, "d MMM yyyy", { locale: ptBR })}`;
 

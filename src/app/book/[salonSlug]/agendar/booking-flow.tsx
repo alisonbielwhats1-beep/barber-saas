@@ -10,10 +10,13 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  Gem,
   LogIn,
   Scissors,
+  Sparkles,
   Star,
   UserPlus,
+  Waves,
   Zap,
 } from "lucide-react";
 import { formatMoney, formatDuration } from "@/lib/utils";
@@ -51,8 +54,19 @@ type Service = {
   priceCents: number;
   durationMin: number;
   colorHex: string | null;
+  category: string | null;
   professionals: Pro[];
 };
+
+/** Ícone do serviço por categoria — evita a tesoura fixa para todo segmento. */
+function iconForService(category: string | null) {
+  const n = (category ?? "").toLowerCase();
+  if (n.includes("unha")) return Gem;
+  if (n.includes("massagem") || n.includes("pele") || n.includes("depila") || n.includes("estetic"))
+    return Waves;
+  if (n.includes("maquiagem") || n.includes("sobrancelha")) return Sparkles;
+  return Scissors;
+}
 
 /** Reserva confirmada — dados congelados para o boarding pass e o .ics */
 type Booked = {
@@ -275,7 +289,9 @@ export function BookingFlow({
       <section className="animate-fade-in space-y-6 px-5 pt-6">
         <FlowHeader title="Escolha o serviço" onBack={() => router.push(`/book/${salonSlug}`)} />
         <div className="space-y-3">
-          {services.map((s) => (
+          {services.map((s) => {
+            const Icon = iconForService(s.category);
+            return (
             <button
               key={s.id}
               onClick={() => setServiceId(s.id)}
@@ -286,7 +302,7 @@ export function BookingFlow({
                   className="grid h-11 w-11 place-items-center rounded-xl"
                   style={{ background: `${s.colorHex ?? "#7DF89B"}33` }}
                 >
-                  <Scissors className="h-4 w-4 text-primary" />
+                  <Icon className="h-4 w-4 text-primary" />
                 </div>
                 <div>
                   <p className="font-medium">{s.name}</p>
@@ -299,7 +315,8 @@ export function BookingFlow({
                 {formatMoney(s.priceCents, currency)}
               </p>
             </button>
-          ))}
+            );
+          })}
         </div>
       </section>
     );
