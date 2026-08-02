@@ -1,12 +1,20 @@
 "use client";
 
-import { ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { formatMoney } from "@/lib/utils";
+import dynamic from "next/dynamic";
 
 /**
  * Donut de composição (ex.: receita por gênero). Centro mostra o total.
  * Puramente apresentacional — recebe fatias já calculadas no servidor.
+ *
+ * O anel (que traz o recharts junto, ~405KB) é carregado sob demanda; o valor
+ * central é renderizado de imediato, porque é a informação que importa — some
+ * o gráfico por um instante, nunca o número.
  */
+const DonutPie = dynamic(() => import("./donut-pie"), {
+  ssr: false,
+  loading: () => null,
+});
+
 export function DonutChart({
   slices,
   centerLabel,
@@ -21,24 +29,7 @@ export function DonutChart({
 
   return (
     <div className="relative h-52 w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        <PieChart>
-          <Pie
-            data={data}
-            dataKey="value"
-            innerRadius="66%"
-            outerRadius="100%"
-            paddingAngle={total === 0 ? 0 : 3}
-            stroke="none"
-            startAngle={90}
-            endAngle={-270}
-          >
-            {data.map((s, i) => (
-              <Cell key={i} fill={s.color} />
-            ))}
-          </Pie>
-        </PieChart>
-      </ResponsiveContainer>
+      <DonutPie data={data} paddingAngle={total === 0 ? 0 : 3} />
       <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-[11px] uppercase tracking-widest text-muted-foreground">
           {centerLabel}
@@ -48,5 +39,3 @@ export function DonutChart({
     </div>
   );
 }
-
-export { formatMoney };
