@@ -26,23 +26,24 @@ function topOf(counts: Map<string, number>): string | null {
 
 export async function getClientList(salonId: string) {
   const now = new Date();
-  const [clients, pros, services, activePkgs, activeSubs] = await Promise.all([
-    prisma.clientProfile.findMany({
-      where: { salonId },
-      select: {
-        id: true, name: true, phone: true, email: true, birthday: true, gender: true, notes: true, createdAt: true,
-        appointments: {
-          where: { status: "COMPLETED" },
-          select: { priceCents: true, startAt: true, professionalId: true, serviceId: true },
-        },
+  // Sequencial de propósito: pooler com connection_limit=1 em serverless —
+  // 5 queries em Promise.all estouravam o timeout do pool (P2024).
+  // Mesma correção aplicada em lib/dashboard.ts, lib/kpis.ts e lib/finance.ts.
+  const clients = await prisma.clientProfile.findMany({
+    where: { salonId },
+    select: {
+      id: true, name: true, phone: true, email: true, birthday: true, gender: true, notes: true, createdAt: true,
+      appointments: {
+        where: { status: "COMPLETED" },
+        select: { priceCents: true, startAt: true, professionalId: true, serviceId: true },
       },
-      orderBy: { name: "asc" },
-    }),
-    prisma.professional.findMany({ where: { salonId }, select: { id: true, user: { select: { name: true } } } }),
-    prisma.service.findMany({ where: { salonId }, select: { id: true, name: true } }),
-    prisma.packagePurchase.groupBy({ by: ["clientId"], where: { salonId, status: "ACTIVE" }, _count: { _all: true } }),
-    prisma.clientSubscription.groupBy({ by: ["clientId"], where: { salonId, status: "ACTIVE" }, _count: { _all: true } }),
-  ]);
+    },
+    orderBy: { name: "asc" },
+  });
+  const pros = await prisma.professional.findMany({ where: { salonId }, select: { id: true, user: { select: { name: true } } } });
+  const services = await prisma.service.findMany({ where: { salonId }, select: { id: true, name: true } });
+  const activePkgs = await prisma.packagePurchase.groupBy({ by: ["clientId"], where: { salonId, status: "ACTIVE" }, _count: { _all: true } });
+  const activeSubs = await prisma.clientSubscription.groupBy({ by: ["clientId"], where: { salonId, status: "ACTIVE" }, _count: { _all: true } });
 
   const proName = new Map(pros.map((p) => [p.id, p.user.name]));
   const svcName = new Map(services.map((s) => [s.id, s.name]));

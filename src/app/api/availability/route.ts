@@ -43,49 +43,52 @@ export async function GET(req: NextRequest) {
   const date = new Date(dateStr);
   const weekday = date.getDay();
 
-  const [service, professionalLink, workingHours, timeOffs, appointments, history] = await Promise.all([
-    prisma.service.findFirst({
-      where: { id: serviceId, salonId },
-      select: { durationMin: true },
-    }),
-    prisma.professionalService.findFirst({
-      where: {
-        serviceId,
-        professional: { id: professionalId, salonId, active: true },
-      },
-      select: { serviceId: true },
-    }),
-    prisma.workingHours.findMany({
-      where: { salonId, professionalId, weekday },
-      select: { startMinutes: true, endMinutes: true },
-    }),
-    prisma.timeOff.findMany({
-      where: {
-        professionalId,
-        startAt: { lte: endOfDay(date) },
-        endAt: { gte: startOfDay(date) },
-      },
-      select: { startAt: true, endAt: true },
-    }),
-    prisma.appointment.findMany({
-      where: {
-        professionalId,
-        startAt: { gte: startOfDay(date), lte: endOfDay(date) },
-        status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
-      },
-      select: { startAt: true, endAt: true },
-    }),
-    // Histórico de horários do profissional (qualquer dia) para achar o mais pedido
-    prisma.appointment.findMany({
-      where: {
-        professionalId,
-        status: { in: ["CONFIRMED", "IN_PROGRESS", "COMPLETED"] },
-      },
-      select: { startAt: true },
-      take: 500,
-      orderBy: { startAt: "desc" },
-    }),
-  ]);
+  // Sequencial de propósito: pooler com connection_limit=1 em serverless —
+  // 6 queries em Promise.all estouravam o timeout do pool (P2024). Esta rota
+  // é a mais sensível do produto: é ela que o cliente final chama ao escolher
+  // o dia, e falhar aqui bloqueia o agendamento.
+  // Validações primeiro — sem serviço ou vínculo válido, nem busca o resto.
+  const service = await prisma.service.findFirst({
+    where: { id: serviceId, salonId },
+    select: { durationMin: true },
+  });
+  const professionalLink = await prisma.professionalService.findFirst({
+    where: {
+      serviceId,
+      professional: { id: professionalId, salonId, active: true },
+    },
+    select: { serviceId: true },
+  });
+  const workingHours = await prisma.workingHours.findMany({
+    where: { salonId, professionalId, weekday },
+    select: { startMinutes: true, endMinutes: true },
+  });
+  const timeOffs = await prisma.timeOff.findMany({
+    where: {
+      professionalId,
+      startAt: { lte: endOfDay(date) },
+      endAt: { gte: startOfDay(date) },
+    },
+    select: { startAt: true, endAt: true },
+  });
+  const appointments = await prisma.appointment.findMany({
+    where: {
+      professionalId,
+      startAt: { gte: startOfDay(date), lte: endOfDay(date) },
+      status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
+    },
+    select: { startAt: true, endAt: true },
+  });
+  // Histórico de horários do profissional (qualquer dia) para achar o mais pedido
+  const history = await prisma.appointment.findMany({
+    where: {
+      professionalId,
+      status: { in: ["CONFIRMED", "IN_PROGRESS", "COMPLETED"] },
+    },
+    select: { startAt: true },
+    take: 500,
+    orderBy: { startAt: "desc" },
+  });
 
   if (!service || !professionalLink) {
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });

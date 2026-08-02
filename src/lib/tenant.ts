@@ -56,5 +56,24 @@ export function assertRole(ctx: TenantContext, roles: Role[]) {
   }
 }
 
+/** Papéis que enxergam dados financeiros do salão inteiro. */
+export const FINANCE_ROLES: Role[] = ["SUPER_ADMIN", "OWNER", "MANAGER"];
+
+/**
+ * Guarda de PÁGINA (não de action). Resolve o tenant e, se o papel não estiver
+ * autorizado, redireciona em vez de lançar — `throw` numa página cairia no
+ * error boundary com "Algo deu errado", que é enganoso para uma negativa de
+ * permissão.
+ *
+ * Existe porque as páginas só liam `salonId` de `getTenantContext()` e
+ * descartavam o `role`: as Server Actions barravam a escrita, mas qualquer
+ * membro do salão conseguia LER o financeiro completo abrindo a URL direto.
+ */
+export async function requireRole(roles: Role[]): Promise<TenantContext> {
+  const ctx = await getTenantContext();
+  if (!roles.includes(ctx.role)) redirect("/dashboard");
+  return ctx;
+}
+
 /** Alias mantido pra compatibilidade — remove quando refatorar chamadas antigas. */
 export const getTenantContextSafe = getTenantContext;

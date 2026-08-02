@@ -29,8 +29,29 @@ import { cn } from "@/lib/utils";
  * A lista vive no client porque ícones do lucide são funções e RSC não
  * serializa função como prop de Server → Client Component.
  */
-export type NavItem = { href: string; label: string; icon: LucideIcon; soon?: boolean };
+export type NavItem = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  soon?: boolean;
+  /** Se presente, o item só aparece para estes papéis. */
+  roles?: string[];
+};
 type Item = NavItem;
+
+/** Papéis que enxergam dados financeiros — espelha FINANCE_ROLES do tenant.ts. */
+const FINANCE_ONLY = ["SUPER_ADMIN", "OWNER", "MANAGER"];
+
+/**
+ * Esconder o item é só cortesia visual — a proteção real está em
+ * `requireRole()` na própria página. Nunca confie só nisto.
+ */
+export function visibleGroups(role: string) {
+  return GROUPS.map((g) => ({
+    ...g,
+    items: g.items.filter((i) => !i.roles || i.roles.includes(role)),
+  })).filter((g) => g.items.length > 0);
+}
 
 export const GROUPS: { title: string; items: Item[] }[] = [
   {
@@ -59,9 +80,9 @@ export const GROUPS: { title: string; items: Item[] }[] = [
   {
     title: "Financeiro",
     items: [
-      { href: "/financeiro", label: "Financeiro", icon: Wallet },
-      { href: "/pagamentos", label: "Pagamentos", icon: CreditCard, soon: true },
-      { href: "/relatorios", label: "Relatórios", icon: FileBarChart },
+      { href: "/financeiro", label: "Financeiro", icon: Wallet, roles: FINANCE_ONLY },
+      { href: "/pagamentos", label: "Pagamentos", icon: CreditCard, soon: true, roles: FINANCE_ONLY },
+      { href: "/relatorios", label: "Relatórios", icon: FileBarChart, roles: FINANCE_ONLY },
     ],
   },
   {
@@ -73,12 +94,12 @@ export const GROUPS: { title: string; items: Item[] }[] = [
   },
 ];
 
-export function SidebarNav() {
+export function SidebarNav({ role }: { role: string }) {
   const pathname = usePathname();
 
   return (
     <nav className="flex-1 space-y-4 px-3 pb-4">
-      {GROUPS.map((group) => (
+      {visibleGroups(role).map((group) => (
         <div key={group.title}>
           <p className="mb-1 px-2.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
             {group.title}
@@ -123,6 +144,7 @@ function NavRow({ item, pathname }: { item: Item; pathname: string }) {
   return (
     <Link
       href={href}
+      prefetch={false}
       className={cn(
         "relative flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] transition-colors",
         active

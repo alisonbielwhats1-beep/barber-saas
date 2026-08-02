@@ -12,32 +12,31 @@ export async function getTeamPerformance(salonId: string) {
   const from = startOfMonth(now);
   const to = endOfMonth(now);
 
-  const [pros, completed, noShows] = await Promise.all([
-    prisma.professional.findMany({
-      where: { salonId },
-      select: {
-        id: true,
-        bio: true,
-        colorHex: true,
-        commissionPct: true,
-        monthlyGoalCents: true,
-        active: true,
-        user: { select: { name: true, email: true, avatarUrl: true } },
-        services: { select: { serviceId: true } },
-        workingHours: { select: { weekday: true, startMinutes: true, endMinutes: true } },
-      },
-      orderBy: { user: { name: "asc" } },
-    }),
-    prisma.appointment.findMany({
-      where: { salonId, status: "COMPLETED", startAt: { gte: from, lte: to } },
-      select: { professionalId: true, clientId: true, priceCents: true, startAt: true, endAt: true },
-    }),
-    prisma.appointment.groupBy({
-      by: ["professionalId"],
-      where: { salonId, status: "NO_SHOW", startAt: { gte: from, lte: to } },
-      _count: { _all: true },
-    }),
-  ]);
+  // Sequencial: pooler com connection_limit=1 em serverless (ver P2024).
+  const pros = await prisma.professional.findMany({
+    where: { salonId },
+    select: {
+      id: true,
+      bio: true,
+      colorHex: true,
+      commissionPct: true,
+      monthlyGoalCents: true,
+      active: true,
+      user: { select: { name: true, email: true, avatarUrl: true } },
+      services: { select: { serviceId: true } },
+      workingHours: { select: { weekday: true, startMinutes: true, endMinutes: true } },
+    },
+    orderBy: { user: { name: "asc" } },
+  });
+  const completed = await prisma.appointment.findMany({
+    where: { salonId, status: "COMPLETED", startAt: { gte: from, lte: to } },
+    select: { professionalId: true, clientId: true, priceCents: true, startAt: true, endAt: true },
+  });
+  const noShows = await prisma.appointment.groupBy({
+    by: ["professionalId"],
+    where: { salonId, status: "NO_SHOW", startAt: { gte: from, lte: to } },
+    _count: { _all: true },
+  });
 
   const noShowMap = new Map(noShows.map((n) => [n.professionalId, n._count._all]));
 

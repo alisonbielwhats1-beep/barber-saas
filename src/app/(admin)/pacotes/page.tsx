@@ -7,47 +7,47 @@ import { PacotesView } from "./pacotes-view";
 export default async function PacotesPage() {
   const { salonId } = await getTenantContext();
 
-  const [packages, purchases, plans, subscriptions, clients, services] = await Promise.all([
-    prisma.package.findMany({
-      where: { salonId },
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true, name: true, description: true, serviceId: true, sessions: true,
-        priceCents: true, validityDays: true, active: true,
-        service: { select: { name: true } },
-        _count: { select: { purchases: true } },
-      },
-    }),
-    prisma.packagePurchase.findMany({
-      where: { salonId },
-      orderBy: { purchasedAt: "desc" },
-      select: {
-        id: true, sessionsUsed: true, sessionsTotal: true, expiresAt: true, status: true, priceCents: true,
-        client: { select: { name: true } },
-        package: { select: { name: true } },
-      },
-    }),
-    prisma.membershipPlan.findMany({
-      where: { salonId },
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true, name: true, description: true, priceCents: true, interval: true,
-        discountPct: true, benefits: true, active: true,
-        _count: { select: { subscriptions: true } },
-      },
-    }),
-    prisma.clientSubscription.findMany({
-      where: { salonId },
-      orderBy: { startedAt: "desc" },
-      select: {
-        id: true, renewsAt: true, status: true,
-        client: { select: { name: true } },
-        plan: { select: { name: true, priceCents: true, interval: true } },
-      },
-    }),
-    prisma.clientProfile.findMany({ where: { salonId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
-    prisma.service.findMany({ where: { salonId, active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
-  ]);
+  // Sequencial de propósito: pooler com connection_limit=1 em serverless —
+  // 6 queries em Promise.all estouravam o timeout do pool (P2024).
+  const packages = await prisma.package.findMany({
+    where: { salonId },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true, name: true, description: true, serviceId: true, sessions: true,
+      priceCents: true, validityDays: true, active: true,
+      service: { select: { name: true } },
+      _count: { select: { purchases: true } },
+    },
+  });
+  const purchases = await prisma.packagePurchase.findMany({
+    where: { salonId },
+    orderBy: { purchasedAt: "desc" },
+    select: {
+      id: true, sessionsUsed: true, sessionsTotal: true, expiresAt: true, status: true, priceCents: true,
+      client: { select: { name: true } },
+      package: { select: { name: true } },
+    },
+  });
+  const plans = await prisma.membershipPlan.findMany({
+    where: { salonId },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true, name: true, description: true, priceCents: true, interval: true,
+      discountPct: true, benefits: true, active: true,
+      _count: { select: { subscriptions: true } },
+    },
+  });
+  const subscriptions = await prisma.clientSubscription.findMany({
+    where: { salonId },
+    orderBy: { startedAt: "desc" },
+    select: {
+      id: true, renewsAt: true, status: true,
+      client: { select: { name: true } },
+      plan: { select: { name: true, priceCents: true, interval: true } },
+    },
+  });
+  const clients = await prisma.clientProfile.findMany({ where: { salonId }, select: { id: true, name: true }, orderBy: { name: "asc" } });
+  const services = await prisma.service.findMany({ where: { salonId, active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } });
 
   // KPIs
   const activePackages = purchases.filter((p) => p.status === "ACTIVE").length;

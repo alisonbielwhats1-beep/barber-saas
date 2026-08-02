@@ -190,6 +190,11 @@ export function HomeExplore({
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[14px] font-medium">{s.name}</p>
+                    {s.description && (
+                      <p className="mt-0.5 truncate text-[12px] text-muted-foreground">
+                        {s.description}
+                      </p>
+                    )}
                     <p className="mt-0.5 text-[12px] text-muted-foreground">
                       {formatDuration(s.durationMin)}
                     </p>

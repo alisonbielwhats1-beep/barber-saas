@@ -12,7 +12,8 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { GROUPS } from "./sidebar-nav";
+import { visibleGroups } from "./sidebar-nav";
+import { OpenCommandPaletteButton } from "./command-palette";
 
 /**
  * Navegação mobile do admin (a sidebar é `hidden md:flex`).
@@ -24,7 +25,7 @@ const PRIMARY = [
   { href: "/clientes", label: "Clientes", icon: Users },
 ];
 
-export function MobileNav() {
+export function MobileNav({ role }: { role: string }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
@@ -47,7 +48,8 @@ export function MobileNav() {
             </button>
           </div>
           <div className="scrollbar-dark flex-1 space-y-5 overflow-y-auto px-5 py-5 pb-24">
-            {GROUPS.map((group) => (
+            <OpenCommandPaletteButton />
+            {visibleGroups(role).map((group) => (
               <div key={group.title}>
                 <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
                   {group.title}
@@ -66,6 +68,7 @@ export function MobileNav() {
                       <Link
                         key={item.href}
                         href={item.href}
+                        prefetch={false}
                         onClick={() => setOpen(false)}
                         className={cn(
                           "flex items-center gap-2.5 rounded-xl border px-3 py-3 text-[13px] font-medium transition-colors",
@@ -86,6 +89,7 @@ export function MobileNav() {
             ))}
             <Link
               href="/configuracoes"
+              prefetch={false}
               onClick={() => setOpen(false)}
               className={cn(
                 "flex items-center gap-2.5 rounded-xl border px-3 py-3 text-[13px] font-medium transition-colors",
@@ -109,6 +113,7 @@ export function MobileNav() {
             <Link
               key={item.href}
               href={item.href}
+              prefetch={false}
               onClick={() => setOpen(false)}
               className={cn(
                 "flex flex-1 flex-col items-center gap-1 pb-3 pt-2.5 text-[10px] font-medium transition-colors",
