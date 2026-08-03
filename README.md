@@ -125,20 +125,25 @@ salon-saas/
 - **Todo acesso a dados via `getTenantContext()`** (ver `src/lib/tenant.ts`) — ele resolve o `salonId` ativo a partir da sessão e todo `where` inclui esse filtro. Isso previne vazamento cross-tenant.
 - Quando você escalar >200 salões e a mesa `Appointment` ficar quente, prox passos são: (1) particionamento por `salonId` no Postgres, (2) réplicas de leitura, e só então (3) schema-per-tenant.
 
-### RLS (defense-in-depth)
+### RLS (defense-in-depth) — preparado, **não ativado**
 
-Se um dia uma Server Action esquecer o filtro `salonId`, o filtro no código não protege — mas o banco pode. Está tudo pronto pra ativar Row-Level Security:
+Se uma Server Action esquecer o filtro `salonId`, o código não protege — mas o banco poderia. Os arquivos em `prisma/sql/rls/` implementam isso, e **nenhum deles foi aplicado**.
 
-```bash
-# 1. Aplica policies no banco (idempotente)
-psql "$DATABASE_URL" -f prisma/sql/rls/enable_rls.sql
+| Arquivo | O que faz | Seguro rodar hoje? |
+|---|---|---|
+| `00_diagnose_rls.sql` | Só leitura. Mostra dono das tabelas, RLS ativo e policies existentes | ✅ sim |
+| `01_enable_rls.sql` | Liga o RLS e cria as policies | ❌ não — ver pré-requisitos |
+| `02_rollback_rls.sql` | Desfaz o `01`. Não altera dado | ✅ (só faz sentido após o 01) |
 
-# 2. Nas páginas/actions, troca `import { prisma } from "@/lib/prisma"`
-#    por    `import { getTenantPrisma } from "@/lib/prisma-tenant"`
-#    e usa  `const db = await getTenantPrisma();`
-```
+**Rode o `00` primeiro.** Ele responde a pergunta que decide tudo: se a role da aplicação é dona das tabelas, o RLS comum é ignorado — por isso o `01` usa `FORCE ROW LEVEL SECURITY`.
 
-Cada query passa a rodar dentro de uma transação que seta `app.current_salon` via `set_config`; as policies em `prisma/sql/rls/enable_rls.sql` comparam com esse GUC. Login/signup/booking público continuam usando o `prisma` cru (não têm tenant na sessão ainda).
+Ativar exige antes um trabalho de aplicação que ainda não foi feito, porque três caminhos consultam o banco sem contexto de salão e parariam de funcionar:
+
+1. **Resolução do tenant** — `getTenantContext()` lê `Membership` justamente para descobrir o salão. Precisa da GUC `app.current_user_id` (ver `withUser`).
+2. **Rotas públicas** — `/book/*`, `/api/availability` e `/api/appointments` derivam o salão do slug, não da sessão. Precisam de `withSalon`.
+3. **Cadastro** — cria Salon + Membership + Service numa transação sem salão ativo; precisa setar a GUC logo após criar o salão.
+
+Os utilitários estão em `src/lib/prisma-tenant.ts` (`withTenant`, `withSalon`, `withUser`). Falta migrar as ~241 chamadas a `prisma.*` espalhadas por 39 arquivos.
 
 ## BI / Dashboard
 
