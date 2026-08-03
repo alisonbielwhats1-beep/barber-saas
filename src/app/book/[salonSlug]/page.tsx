@@ -10,10 +10,14 @@ import {
   MessageCircle,
   ShieldCheck,
   ChevronRight,
+  Instagram,
+  CreditCard,
+  Info,
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { HERO_IMAGES, imageForProduct } from "@/lib/images";
 import { normalizePhone, formatPhoneBR } from "@/lib/phone";
+import { hexToHslTriple, readableForeground } from "@/lib/color";
 import { formatMoney } from "@/lib/utils";
 import { BottomNav } from "./bottom-nav";
 import { CartBadge } from "./cart-badge";
@@ -25,6 +29,14 @@ function heroForSalon(slug: string) {
   for (const c of slug) h = (h * 31 + c.charCodeAt(0)) % 997;
   return HERO_IMAGES[h % HERO_IMAGES.length];
 }
+
+const PAYMENT_LABELS: Record<string, string> = {
+  PIX: "Pix",
+  CASH: "Dinheiro",
+  CREDIT_CARD: "Crédito",
+  DEBIT_CARD: "Débito",
+  TRANSFER: "Transferência",
+};
 
 function formatHours(openMinutes: number, closeMinutes: number) {
   const fmt = (m: number) =>
@@ -49,6 +61,14 @@ export default async function ClientHome({
       openMinutes: true,
       closeMinutes: true,
       cancelPolicyHours: true,
+      // Personalização do dono (colunas de 004_salon_customization.sql)
+      description: true,
+      coverUrl: true,
+      themeColorHex: true,
+      instagram: true,
+      whatsapp: true,
+      paymentMethods: true,
+      importantInfo: true,
       services: {
         where: { active: true },
         orderBy: { name: "asc" },
@@ -80,9 +100,17 @@ export default async function ClientHome({
   });
   if (!salon) notFound();
 
-  const whatsappHref = salon.phone
-    ? `https://wa.me/55${normalizePhone(salon.phone)}`
+  // WhatsApp próprio tem precedência sobre o telefone geral do salão.
+  const whatsappNumber = salon.whatsapp || salon.phone;
+  const whatsappHref = whatsappNumber
+    ? `https://wa.me/55${normalizePhone(whatsappNumber)}`
     : null;
+  // Sem capa própria, cai no pool determinístico de sempre.
+  const coverSrc = salon.coverUrl || heroForSalon(salonSlug);
+  const paymentLabels = (salon.paymentMethods ?? "")
+    .split(",")
+    .map((m) => PAYMENT_LABELS[m.trim()])
+    .filter(Boolean);
 
   const initials = salon.name
     .split(" ")
@@ -91,8 +119,20 @@ export default async function ClientHome({
     .join("")
     .toUpperCase();
 
+  // Cor da marca sobrescreve o verde neon do tema salon-dark. Fica no escopo
+  // desta página (CSS variable inline) para não vazar para o painel.
+  const brandHsl = hexToHslTriple(salon.themeColorHex);
+  const brandStyle = brandHsl
+    ? ({
+        "--primary": brandHsl,
+        "--accent": brandHsl,
+        "--ring": brandHsl,
+        "--primary-foreground": readableForeground(salon.themeColorHex) ?? "0 0% 100%",
+      } as React.CSSProperties)
+    : undefined;
+
   return (
-    <main className="animate-fade-in space-y-6 px-5 pt-6">
+    <main className="animate-fade-in space-y-6 px-5 pt-6" style={brandStyle}>
       {/* Top bar */}
       <header className="flex items-center gap-3">
         <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary/20 text-sm font-semibold text-primary">
@@ -114,7 +154,7 @@ export default async function ClientHome({
       {/* Hero — capa do salão */}
       <div className="relative h-48 overflow-hidden rounded-3xl">
         <Image
-          src={heroForSalon(salonSlug)}
+          src={coverSrc}
           alt={salon.name}
           fill
           priority
@@ -150,6 +190,13 @@ export default async function ClientHome({
         </div>
       </Link>
 
+      {/* Apresentação escrita pelo dono */}
+      {salon.description && (
+        <p className="text-[14px] leading-relaxed text-muted-foreground">
+          {salon.description}
+        </p>
+      )}
+
       {/* Informações — só dados que existem de verdade no cadastro do salão */}
       <div className="grid grid-cols-1 gap-2.5 rounded-3xl border border-border bg-card p-4 text-[13px] sm:grid-cols-2">
         <div className="flex items-center gap-2.5 text-muted-foreground">
@@ -165,11 +212,33 @@ export default async function ClientHome({
             href={whatsappHref}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2.5 text-primary sm:col-span-2"
+            className="flex items-center gap-2.5 text-primary"
           >
             <MessageCircle className="h-4 w-4 shrink-0" />
-            {formatPhoneBR(salon.phone ?? "")} · Falar no WhatsApp
+            {formatPhoneBR(whatsappNumber ?? "")} · WhatsApp
           </a>
+        )}
+        {salon.instagram && (
+          <a
+            href={`https://instagram.com/${salon.instagram}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2.5 text-primary"
+          >
+            <Instagram className="h-4 w-4 shrink-0" />@{salon.instagram}
+          </a>
+        )}
+        {paymentLabels.length > 0 && (
+          <div className="flex items-start gap-2.5 text-muted-foreground sm:col-span-2">
+            <CreditCard className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+            Aceita {paymentLabels.join(" · ")}
+          </div>
+        )}
+        {salon.importantInfo && (
+          <div className="flex items-start gap-2.5 text-muted-foreground sm:col-span-2">
+            <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+            {salon.importantInfo}
+          </div>
         )}
       </div>
 
