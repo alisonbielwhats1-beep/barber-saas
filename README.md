@@ -134,8 +134,12 @@ Se uma Server Action esquecer o filtro `salonId`, o código não protege — mas
 | `00_diagnose_rls.sql` | Só leitura. Mostra dono das tabelas, RLS ativo e policies existentes | ✅ sim |
 | `01_enable_rls.sql` | Liga o RLS e cria as policies | ❌ não — ver pré-requisitos |
 | `02_rollback_rls.sql` | Desfaz o `01`. Não altera dado | ✅ (só faz sentido após o 01) |
+| `03_create_app_role.sql` | Cria a role de banco dedicada da aplicação | ✅ — não muda nada em produção sozinho |
 
-**Rode o `00` primeiro.** Ele responde a pergunta que decide tudo: se a role da aplicação é dona das tabelas, o RLS comum é ignorado — por isso o `01` usa `FORCE ROW LEVEL SECURITY`.
+**Já rodamos o `00` em produção.** Duas descobertas:
+
+- A role `postgres` (a que `DATABASE_URL` usa hoje) tem **`rolbypassrls = true`**. Essa role ignora RLS sempre, com ou sem `FORCE ROW LEVEL SECURITY` — não existe policy que a alcance. Enquanto a aplicação conectar como `postgres`, ativar RLS não protegeria nada. `03_create_app_role.sql` resolve isso: cria uma role sem esse atributo, com só o DML que a aplicação precisa.
+- RLS já está **ligado** nas 20 tabelas (provavelmente um default do Supabase ao criar tabela pelo painel), mas **sem nenhuma policy**. Consequência: qualquer role que não seja `postgres` já recebe zero linhas hoje. É esperado — só volta a funcionar depois do `01`.
 
 Ativar exige antes um trabalho de aplicação que ainda não foi feito, porque três caminhos consultam o banco sem contexto de salão e parariam de funcionar:
 
@@ -143,7 +147,7 @@ Ativar exige antes um trabalho de aplicação que ainda não foi feito, porque t
 2. **Rotas públicas** — `/book/*`, `/api/availability` e `/api/appointments` derivam o salão do slug, não da sessão. Precisam de `withSalon`.
 3. **Cadastro** — cria Salon + Membership + Service numa transação sem salão ativo; precisa setar a GUC logo após criar o salão.
 
-Os utilitários estão em `src/lib/prisma-tenant.ts` (`withTenant`, `withSalon`, `withUser`). Falta migrar as ~241 chamadas a `prisma.*` espalhadas por 39 arquivos.
+Os utilitários estão em `src/lib/prisma-tenant.ts` (`withTenant`, `withSalon`, `withUser`). Falta migrar as ~241 chamadas a `prisma.*` espalhadas por 39 arquivos, e só então trocar `DATABASE_URL`/`DIRECT_URL` para a role nova — os passos em ordem estão no cabeçalho de `03_create_app_role.sql`.
 
 ## BI / Dashboard
 

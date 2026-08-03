@@ -111,8 +111,10 @@ Toda tabela tenant-scoped tem `salonId` + índice; `Membership(userId, salonId,
 role)` liga usuário a salão. **Todo acesso a dados passa por
 `getTenantContext()`** (`src/lib/tenant.ts`), que resolve o `salonId` ativo da
 sessão — é o que impede vazamento entre salões. Há RLS **preparado e não
-ativado** em `prisma/sql/rls/` (ver README): só o `00_diagnose_rls.sql` é
-seguro rodar hoje.
+ativado** em `prisma/sql/rls/` (ver README). Diagnóstico já rodado em
+produção: a role `postgres` da `DATABASE_URL` tem `BYPASSRLS` — ignora RLS
+sempre, mesmo com FORCE. `03_create_app_role.sql` cria a role correta; falta
+migrar o código e trocar a connection string.
 
 ## Roadmap
 
@@ -127,10 +129,10 @@ Plano de evolução (abas do dono e do cliente, financeiro, multi-salão) em
 - `/pagamentos` está no menu com `soon: true` (renderiza desabilitado) — não tem página ainda.
 - Billing do próprio SaaS (Stripe por `Plan` FREE/STARTER/PRO) não implementado.
 - Envio real de WhatsApp/SMS (Marketing dispara link de wa.me, não Evolution API/Twilio).
-- RLS (`prisma/sql/rls/`) escrito e revisado, **não ativado**. Não é "rodar um
-  SQL": três caminhos consultam o banco sem contexto de salão (resolução do
-  tenant via `Membership`, rotas públicas por slug, e o cadastro) e quebrariam.
-  Falta migrar ~241 chamadas a `prisma.*` em 39 arquivos para os utilitários de
-  `src/lib/prisma-tenant.ts`. O `00_diagnose_rls.sql` é só leitura e responde
-  se a role da aplicação é dona das tabelas — se for, RLS sem `FORCE` é
-  ignorado em silêncio.
+- RLS (`prisma/sql/rls/`) escrito e revisado, **não ativado**. Diagnóstico
+  (`00_diagnose_rls.sql`) já rodado em produção: a role `postgres` da
+  `DATABASE_URL` tem `BYPASSRLS` — ignora RLS sempre, mesmo com `FORCE`. RLS já
+  está `ENABLE`d nas 20 tabelas (default do Supabase), sem nenhuma policy.
+  `03_create_app_role.sql` cria a role correta, sem esse atributo. Falta migrar
+  ~241 chamadas `prisma.*` em 39 arquivos para `src/lib/prisma-tenant.ts` e só
+  então trocar a connection string — passos em ordem no cabeçalho do `03`.

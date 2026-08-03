@@ -16,18 +16,21 @@
 -- linhas nesse caso — a falha vira ausência de dado em vez de vazamento.
 --
 -- ─── PRÉ-REQUISITOS (nesta ordem) ───────────────────────────────────────────
--- 1. Rodar `00_diagnose_rls.sql` e confirmar que a role da aplicação NÃO é
---    superuser e NÃO tem BYPASSRLS. Se for, nenhuma policy vale.
--- 2. Migrar as queries de tabela tenant-scoped para o client tenant-aware
+-- 0. JÁ CONFIRMADO em produção via `00_diagnose_rls.sql`: a role `postgres`
+--    (a que `DATABASE_URL` usa hoje) tem `rolbypassrls = true`. Essa role
+--    ignora RLS sempre, com ou sem FORCE — não é contornável por policy.
+--    `03_create_app_role.sql` cria a role correta; falta apontar a aplicação
+--    para ela (ver os passos numerados no cabeçalho daquele arquivo).
+-- 1. Migrar as queries de tabela tenant-scoped para o client tenant-aware
 --    (`src/lib/prisma-tenant.ts`), que seta as GUCs por transação.
--- 3. Plugar as rotas públicas (`/book/*`, `/api/availability`,
+-- 2. Plugar as rotas públicas (`/book/*`, `/api/availability`,
 --    `/api/appointments`): elas resolvem o salão pelo slug, não pela sessão,
 --    e precisam setar `app.current_salon` depois de resolver.
--- 4. Ajustar o `signup`: ele cria Salon + Membership + Service numa transação
+-- 3. Ajustar o `signup`: ele cria Salon + Membership + Service numa transação
 --    sem contexto de salão. Precisa chamar `set_config('app.current_salon',
 --    <id do salão recém-criado>, true)` logo após criar o Salon, senão os
 --    INSERTs seguintes são barrados pelas próprias policies.
--- 5. Aplicar em ambiente de teste antes de produção. Rollback:
+-- 4. Aplicar em ambiente de teste antes de produção. Rollback:
 --    `02_rollback_rls.sql`.
 --
 -- ─── AS DUAS GUCs ───────────────────────────────────────────────────────────
