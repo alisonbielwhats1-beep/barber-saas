@@ -110,8 +110,9 @@ Não unifique os dois sem pedir.
 Toda tabela tenant-scoped tem `salonId` + índice; `Membership(userId, salonId,
 role)` liga usuário a salão. **Todo acesso a dados passa por
 `getTenantContext()`** (`src/lib/tenant.ts`), que resolve o `salonId` ativo da
-sessão — é o que impede vazamento entre salões. Há RLS pronto para ativar em
-`prisma/sql/rls/enable_rls.sql` (ver README).
+sessão — é o que impede vazamento entre salões. Há RLS **preparado e não
+ativado** em `prisma/sql/rls/` (ver README): só o `00_diagnose_rls.sql` é
+seguro rodar hoje.
 
 ## Roadmap
 
@@ -126,4 +127,10 @@ Plano de evolução (abas do dono e do cliente, financeiro, multi-salão) em
 - `/pagamentos` está no menu com `soon: true` (renderiza desabilitado) — não tem página ainda.
 - Billing do próprio SaaS (Stripe por `Plan` FREE/STARTER/PRO) não implementado.
 - Envio real de WhatsApp/SMS (Marketing dispara link de wa.me, não Evolution API/Twilio).
-- RLS (`prisma/sql/rls/enable_rls.sql`) pronto mas não ativado — ativar antes de clientes reais.
+- RLS (`prisma/sql/rls/`) escrito e revisado, **não ativado**. Não é "rodar um
+  SQL": três caminhos consultam o banco sem contexto de salão (resolução do
+  tenant via `Membership`, rotas públicas por slug, e o cadastro) e quebrariam.
+  Falta migrar ~241 chamadas a `prisma.*` em 39 arquivos para os utilitários de
+  `src/lib/prisma-tenant.ts`. O `00_diagnose_rls.sql` é só leitura e responde
+  se a role da aplicação é dona das tabelas — se for, RLS sem `FORCE` é
+  ignorado em silêncio.

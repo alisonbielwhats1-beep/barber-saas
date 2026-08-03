@@ -40,7 +40,8 @@ Todas as 7 fases foram concluídas e estão em produção.
 
 ### Próximos passos possíveis (fora do roadmap original)
 - Billing do próprio SaaS (Stripe) usando o enum `Plan` FREE/STARTER/PRO.
-- Ativar RLS (`prisma/sql/rls/enable_rls.sql`) antes de clientes reais.
+- Ativar RLS (`prisma/sql/rls/`) antes de clientes reais — exige migrar as
+  queries para `src/lib/prisma-tenant.ts` primeiro, não é só rodar o SQL.
 - Reviews/avaliações (modelo novo) para nota real dos profissionais.
 - Portfolio premium e refino da landing comercial.
 - Envio real de WhatsApp/SMS (Evolution API/Twilio) para lembretes e campanhas.
@@ -145,8 +146,10 @@ Início · Loja · Fotos · Minhas
 - **Onboarding self-service**: página de signup que cria salão + owner num
   passo (hoje o signup existe mas o fluxo de criação de salão pode ser
   polido com wizard: dados → serviços → equipe → horários)
-- **Ativar RLS** (`prisma/sql/rls/enable_rls.sql` pronto) como
-  defense-in-depth antes de abrir para salões reais
+- **Ativar RLS** (`prisma/sql/rls/` escrito e revisado) como defense-in-depth
+  antes de abrir para salões reais. Trabalho de aplicação primeiro: resolução
+  do tenant, rotas públicas e cadastro consultam o banco sem contexto de salão
+  e precisam dos utilitários de `src/lib/prisma-tenant.ts`
 - Caminho de escala já documentado no README: particionamento por
   `salonId` → réplicas de leitura → schema-per-tenant (só depois de
   ~200 salões)
