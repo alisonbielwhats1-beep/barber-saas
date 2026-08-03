@@ -5,12 +5,18 @@ import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  SegmentPicker,
+  StarterServicePicker,
+  useSegmentSelection,
+} from "@/components/segment-service-picker";
 import { signup } from "./actions";
 
 export function SignupForm() {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const selection = useSegmentSelection();
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -21,6 +27,8 @@ export function SignupForm() {
       email: String(form.get("email")),
       password: String(form.get("password")),
       salonName: String(form.get("salonName")),
+      segmentId: selection.segmentId,
+      serviceNames: selection.serviceNames,
     };
 
     startTransition(async () => {
@@ -50,6 +58,24 @@ export function SignupForm() {
         <label htmlFor="salonName" className="text-sm font-medium">Nome do salão</label>
         <Input id="salonName" name="salonName" placeholder="Luna Hair Studio" required autoFocus />
       </div>
+
+      <div className="space-y-1.5">
+        <p className="text-sm font-medium">Tipo de negócio</p>
+        <p className="text-xs text-muted-foreground">
+          Define a aparência da sua página pública e sugere seus serviços. Você
+          cadastra qualquer serviço depois, independente do que escolher aqui.
+        </p>
+        <div className="pt-1">
+          <SegmentPicker segmentId={selection.segmentId} onPick={selection.pickSegment} />
+        </div>
+      </div>
+
+      <StarterServicePicker
+        segment={selection.segment}
+        isChecked={selection.isChecked}
+        onToggle={selection.toggleService}
+        collapsible
+      />
       <div className="space-y-1.5">
         <label htmlFor="ownerName" className="text-sm font-medium">Seu nome</label>
         <Input id="ownerName" name="ownerName" placeholder="Marina Souza" required />
