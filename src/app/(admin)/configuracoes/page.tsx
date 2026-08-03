@@ -4,6 +4,7 @@ import { emailInvitesEnabled } from "@/lib/email-invites-feature";
 import { Crown } from "lucide-react";
 import { SalonSettingsForm } from "./salon-settings-form";
 import { AccessManager, type Member } from "./access-manager";
+import { BrandingForm } from "./branding-form";
 
 const PLAN_LABEL: Record<string, string> = {
   FREE: "Grátis",
@@ -23,6 +24,10 @@ export default async function ConfiguracoesPage() {
         name: true, address: true, phone: true, timezone: true, currency: true,
         plan: true, openMinutes: true, closeMinutes: true,
         cancelPolicyHours: true, noShowFeeCents: true,
+        // Personalização da vitrine
+        slug: true, segment: true, description: true, coverUrl: true,
+        themeColorHex: true, instagram: true, whatsapp: true,
+        paymentMethods: true, importantInfo: true,
       },
     }),
     prisma.membership.findMany({
@@ -93,8 +98,21 @@ export default async function ConfiguracoesPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-5">
-        <div className="lg:col-span-3">
+        <div className="space-y-6 lg:col-span-3">
           <SalonSettingsForm salon={salon} />
+          <BrandingForm
+            branding={{
+              slug: salon.slug,
+              segment: salon.segment,
+              description: salon.description,
+              coverUrl: salon.coverUrl,
+              themeColorHex: salon.themeColorHex,
+              instagram: salon.instagram,
+              whatsapp: salon.whatsapp,
+              paymentMethods: salon.paymentMethods,
+              importantInfo: salon.importantInfo,
+            }}
+          />
         </div>
         <div className="lg:col-span-2">
           <AccessManager

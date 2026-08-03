@@ -49,6 +49,73 @@ export async function updateSalonSettings(input: z.infer<typeof salonInput>) {
   revalidatePath("/dashboard");
 }
 
+// ─── Personalização da vitrine ──────────────────────────────────────────────
+
+/** Só os métodos que o schema já conhece — evita string livre virando lixo. */
+const PAYMENT_METHODS = ["CASH", "CREDIT_CARD", "DEBIT_CARD", "PIX", "TRANSFER"] as const;
+
+const brandingInput = z.object({
+  segment: z.string().max(40).optional().nullable(),
+  description: z.string().max(600).optional().nullable(),
+  coverUrl: z.string().url("URL de capa inválida").optional().nullable().or(z.literal("")),
+  themeColorHex: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, "Cor deve estar no formato #RRGGBB")
+    .optional()
+    .nullable()
+    .or(z.literal("")),
+  instagram: z.string().max(60).optional().nullable(),
+  whatsapp: z.string().max(20).optional().nullable(),
+  paymentMethods: z.array(z.enum(PAYMENT_METHODS)).optional(),
+  importantInfo: z.string().max(600).optional().nullable(),
+});
+
+export type BrandingInput = z.infer<typeof brandingInput>;
+
+/** Vazio vira null para não gravar string em branco e ter que tratar depois. */
+function orNull(v: string | null | undefined) {
+  const t = v?.trim();
+  return t ? t : null;
+}
+
+/**
+ * Identidade da vitrine: o que o cliente final vê em /book/[slug].
+ * Separada de `updateSalonSettings` de propósito — aquela mexe em regra de
+ * operação (horário, política de cancelamento, moeda) e esta em aparência.
+ * Misturar as duas faria um formulário de aparência exigir as validações da
+ * operação.
+ */
+export async function updateSalonBranding(input: BrandingInput) {
+  const ctx = await getTenantContext();
+  assertRole(ctx, ["OWNER", "MANAGER"]);
+  const data = brandingInput.parse(input);
+
+  await prisma.salon.update({
+    where: { id: ctx.salonId },
+    data: {
+      segment: orNull(data.segment),
+      description: orNull(data.description),
+      coverUrl: orNull(data.coverUrl),
+      themeColorHex: orNull(data.themeColorHex),
+      // Guardamos só dígitos: o link wa.me não aceita máscara.
+      whatsapp: orNull(data.whatsapp?.replace(/\D/g, "")),
+      // Sem "@" no banco; a vitrine adiciona ao exibir.
+      instagram: orNull(data.instagram?.replace(/^@/, "")),
+      paymentMethods: data.paymentMethods?.length ? data.paymentMethods.join(",") : null,
+      importantInfo: orNull(data.importantInfo),
+    },
+  });
+
+  revalidatePath("/configuracoes");
+  // A vitrine é pública e cacheada por slug — sem isto o cliente continuaria
+  // vendo a versão antiga.
+  const salon = await prisma.salon.findUnique({
+    where: { id: ctx.salonId },
+    select: { slug: true },
+  });
+  if (salon) revalidatePath(`/book/${salon.slug}`);
+}
+
 const ROLES = ["OWNER", "MANAGER", "PROFESSIONAL", "RECEPTIONIST"] as const;
 
 export async function inviteMember(input: {

@@ -102,6 +102,19 @@ model Salon {
   closeMinutes      Int      @default(1140) // 19:00 — horário padrão de fechamento
   cancelPolicyHours Int      @default(2) // antecedência mínima para cancelar
   noShowFeeCents    Int      @default(0) // taxa de no-show
+
+  // ── Personalização pelo dono ────────────────────────────────────────────
+  // Colunas criadas por prisma/sql/manual/004_salon_customization.sql.
+  // Todas anuláveis: salão que nunca personalizou segue com os defaults.
+  segment        String? // 'barbearia' | 'salao-beleza' | 'manicure-nail' | 'estetica-bemestar' | 'espaco-misto'
+  description    String? // apresentação exibida na vitrine
+  coverUrl       String? // foto de capa própria (sem isto, cai no pool do Unsplash)
+  themeColorHex  String? @db.VarChar(7) // cor da marca, #RRGGBB
+  instagram      String? // @usuario, sem a URL
+  whatsapp       String? // só dígitos; separado de `phone` porque costuma ser outro número
+  paymentMethods String? // separadas por vírgula, ex.: "PIX,CASH,CREDIT_CARD"
+  importantInfo  String? // avisos livres: estacionamento, política de atraso...
+
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
