@@ -344,9 +344,9 @@ function MarketingFooter() {
         <FooterColumn
           title="Institucional"
           items={[
-            { label: "Termos de uso", soon: true },
-            { label: "Política de privacidade", soon: true },
-            { label: "Contato", soon: true },
+            { label: "Termos de uso", href: "/termos" },
+            { label: "Política de privacidade", href: "/privacidade" },
+            { label: "Contato", href: "/contato" },
           ]}
         />
       </div>
