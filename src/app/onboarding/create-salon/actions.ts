@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { uniqueSalonSlug } from "@/lib/slug";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
-import { SEGMENTS, type SegmentId } from "@/lib/segments";
+import { resolveSalonSetup } from "@/lib/salon-setup";
 
 const input = z.object({
   salonName: z.string().min(2, "Nome do estabelecimento muito curto").max(80),
@@ -26,9 +26,9 @@ export type CreateSalonInput = z.infer<typeof input>;
  * equipe em /configuracoes, e esse usuário continua existindo sem salão algum.
  * Antes essa rota não existia e a pessoa batia num 404 sem saída.
  *
- * O segmento escolhido ainda não é persistido (não há coluna para isso); ele
- * decide quais serviços nascem com o salão. Quando `Salon.segment` existir,
- * basta gravá-lo aqui.
+ * O segmento decide quais serviços nascem com o salão e fica gravado em
+ * `Salon.segment`, alimentando a vitrine pública. Ele já era perguntado aqui
+ * antes da coluna existir, e por um tempo a escolha era descartada em silêncio.
  */
 export async function createSalon(
   raw: CreateSalonInput,
@@ -60,21 +60,15 @@ export async function createSalon(
     return { ok: false, error: "Você já pertence a um estabelecimento." };
   }
 
-  const segment = SEGMENTS.find((s) => s.id === (data.segmentId as SegmentId));
-  if (!segment) return { ok: false, error: "Tipo de negócio inválido." };
-
-  // Só aceita nomes que realmente vieram das sugestões do segmento escolhido —
-  // o cliente não dita o que é criado.
-  const allowed = new Map(segment.exampleServices.map((s) => [s.name, s.durationMin]));
-  const services = data.serviceNames
-    .filter((n) => allowed.has(n))
-    .map((n) => ({ name: n, durationMin: allowed.get(n)! }));
+  const resolved = resolveSalonSetup(data.segmentId, data.serviceNames);
+  if (!resolved.ok) return { ok: false, error: resolved.error };
+  const { segmentId, services } = resolved.setup;
 
   const slug = await uniqueSalonSlug(data.salonName);
 
   await prisma.$transaction(async (tx) => {
     const salon = await tx.salon.create({
-      data: { slug, name: data.salonName, plan: "FREE" },
+      data: { slug, name: data.salonName, plan: "FREE", segment: segmentId },
       select: { id: true },
     });
     await tx.membership.create({
@@ -82,15 +76,7 @@ export async function createSalon(
     });
     if (services.length > 0) {
       await tx.service.createMany({
-        data: services.map((s) => ({
-          salonId: salon.id,
-          name: s.name,
-          durationMin: s.durationMin,
-          // Preço zerado de propósito: inventar valor seria dado falso. O
-          // checklist do dashboard puxa o dono para definir os preços.
-          priceCents: 0,
-          category: segment.shortLabel,
-        })),
+        data: services.map((s) => ({ salonId: salon.id, ...s })),
       });
     }
   });

@@ -6,19 +6,31 @@ import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { uniqueSalonSlug } from "@/lib/slug";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
+import { resolveSalonSetup } from "@/lib/salon-setup";
 
 const signupInput = z.object({
   ownerName: z.string().min(2, "Nome muito curto"),
   email: z.string().email("Email inválido"),
   password: z.string().min(6, "Senha precisa ter ao menos 6 caracteres"),
   salonName: z.string().min(2, "Nome do salão muito curto"),
+  segmentId: z.string(),
+  /** Nomes das sugestões que o dono manteve marcadas. */
+  serviceNames: z.array(z.string()).max(20),
 });
 
 export type SignupInput = z.infer<typeof signupInput>;
 
 /**
- * Cria conta do dono + salão + membership OWNER + horário padrão (seg-sáb 09-19)
- * em uma transação. Retorna `{ slug }` para o client redirecionar corretamente.
+ * Cria conta do dono + salão + membership OWNER em uma transação, já com o
+ * segmento escolhido e os serviços iniciais que ele confirmou. Retorna
+ * `{ slug }` para o client redirecionar corretamente.
+ *
+ * O segmento é perguntado aqui porque este é o único caminho que um dono novo
+ * percorre: `/onboarding/create-salon` só é alcançado por quem não tem vínculo
+ * nenhum, o que nunca acontece logo após o cadastro.
+ *
+ * Não criamos `WorkingHours` — o modelo é por profissional, e nenhum existe
+ * ainda neste ponto. O horário nasce junto do primeiro profissional.
  *
  * Falhas comuns retornadas como `{ error }` em vez de throw pra melhor UX:
  *  - email já cadastrado
@@ -56,6 +68,10 @@ export async function signup(input: SignupInput): Promise<
     return { ok: false, error: "Não foi possível criar a conta com os dados informados." };
   }
 
+  const resolved = resolveSalonSetup(data.segmentId, data.serviceNames);
+  if (!resolved.ok) return { ok: false, error: resolved.error };
+  const { segmentId, services } = resolved.setup;
+
   const passwordHash = await bcrypt.hash(data.password, 10);
   const passwordSetAt = new Date();
   const slug = await uniqueSalonSlug(data.salonName);
@@ -66,12 +82,17 @@ export async function signup(input: SignupInput): Promise<
       select: { id: true },
     });
     const salon = await tx.salon.create({
-      data: { slug, name: data.salonName, plan: "FREE" },
+      data: { slug, name: data.salonName, plan: "FREE", segment: segmentId },
       select: { id: true },
     });
     await tx.membership.create({
       data: { userId: user.id, salonId: salon.id, role: "OWNER" },
     });
+    if (services.length > 0) {
+      await tx.service.createMany({
+        data: services.map((s) => ({ salonId: salon.id, ...s })),
+      });
+    }
   });
 
   return { ok: true, slug };
