@@ -18,6 +18,7 @@ import { prisma } from "@/lib/prisma";
 import { HERO_IMAGES, imageForProduct } from "@/lib/images";
 import { normalizePhone, formatPhoneBR } from "@/lib/phone";
 import { hexToHslTriple, readableForeground } from "@/lib/color";
+import { getSegment, isSegmentId } from "@/lib/segments";
 import { formatMoney } from "@/lib/utils";
 import { BottomNav } from "./bottom-nav";
 import { CartBadge } from "./cart-badge";
@@ -62,6 +63,7 @@ export default async function ClientHome({
       closeMinutes: true,
       cancelPolicyHours: true,
       // Personalização do dono (colunas de 004_salon_customization.sql)
+      segment: true,
       description: true,
       coverUrl: true,
       themeColorHex: true,
@@ -105,8 +107,11 @@ export default async function ClientHome({
   const whatsappHref = whatsappNumber
     ? `https://wa.me/55${normalizePhone(whatsappNumber)}`
     : null;
-  // Sem capa própria, cai no pool determinístico de sempre.
-  const coverSrc = salon.coverUrl || heroForSalon(salonSlug);
+  // Sem capa própria: usa a imagem do segmento escolhido em Configurações;
+  // sem segmento definido, cai no pool determinístico de sempre (mesmo salão,
+  // mesma foto, pelo hash do slug — como já era antes desta personalização).
+  const segment = isSegmentId(salon.segment) ? getSegment(salon.segment) : null;
+  const coverSrc = salon.coverUrl || segment?.accentImage || heroForSalon(salonSlug);
   const paymentLabels = (salon.paymentMethods ?? "")
     .split(",")
     .map((m) => PAYMENT_LABELS[m.trim()])
@@ -163,9 +168,12 @@ export default async function ClientHome({
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
         <div className="absolute inset-x-0 bottom-0 p-5">
+          {/* Badge de segmento — dado real escolhido pelo dono, no lugar do
+              rótulo genérico que havia antes. Sem segmento definido, mantém
+              o texto anterior; não some nada para quem não personalizou. */}
           <span className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-primary/90 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-primary-foreground">
-            <Sparkles className="h-3 w-3" />
-            Experiência premium
+            {segment ? <segment.icon className="h-3 w-3" /> : <Sparkles className="h-3 w-3" />}
+            {segment ? segment.shortLabel : "Experiência premium"}
           </span>
           <h1 className="font-display text-2xl leading-tight text-white">{salon.name}</h1>
           <p className="mt-1 flex items-center gap-1 text-xs text-white/80">

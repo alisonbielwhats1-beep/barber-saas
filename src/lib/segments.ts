@@ -169,3 +169,13 @@ export const DEFAULT_SEGMENT_ID: SegmentId = SEGMENTS[0].id;
 export function getSegment(id: SegmentId): Segment {
   return SEGMENTS.find((s) => s.id === id) ?? SEGMENTS[0];
 }
+
+/**
+ * `Salon.segment` é texto livre no banco (não enum), então qualquer valor
+ * pode chegar ali — inclusive de uma versão antiga do formulário ou edição
+ * manual. Este guard é o que decide se dá para tratar como SegmentId ou se é
+ * mais seguro tratar como "sem segmento definido".
+ */
+export function isSegmentId(value: string | null | undefined): value is SegmentId {
+  return !!value && SEGMENTS.some((s) => s.id === value);
+}
