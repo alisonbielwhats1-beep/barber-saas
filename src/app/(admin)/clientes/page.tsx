@@ -1,5 +1,5 @@
-import { prisma } from "@/lib/prisma";
 import { getTenantContext } from "@/lib/tenant";
+import { withTenant } from "@/lib/prisma-tenant";
 import { getClientList } from "@/lib/crm";
 import { formatMoney } from "@/lib/utils";
 import { Users, Crown, Cake, Clock } from "lucide-react";
@@ -8,11 +8,13 @@ import { ClientForm } from "./client-form";
 import { ClientsCrm } from "./clients-crm";
 
 export default async function ClientesPage() {
-  const { salonId } = await getTenantContext();
-  const [clients, salon] = await Promise.all([
-    getClientList(salonId),
-    prisma.salon.findUnique({ where: { id: salonId }, select: { name: true } }),
-  ]);
+  const ctx = await getTenantContext();
+  const { salonId } = ctx;
+  const { clients, salon } = await withTenant(ctx, async (tx) => {
+    const clients = await getClientList(tx, salonId);
+    const salon = await tx.salon.findUnique({ where: { id: salonId }, select: { name: true } });
+    return { clients, salon };
+  });
 
   const vip = clients.filter((c) => c.isVip).length;
   const birthday = clients.filter((c) => c.birthdayThisMonth).length;

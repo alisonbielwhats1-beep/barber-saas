@@ -3,8 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
 import { assertRole, getTenantContext } from "@/lib/tenant";
+import { withTenant } from "@/lib/prisma-tenant";
 import { assertEmailInvitesEnabled } from "@/lib/email-invites-feature";
 import {
   createUserInvite,
@@ -145,39 +145,45 @@ export async function updateProfessional(
   assertRole(ctx, ["OWNER", "MANAGER"]);
   const data = updateInput.parse(input);
 
-  const pro = await prisma.professional.findFirst({
-    where: { id, salonId: ctx.salonId },
-    select: { userId: true },
-  });
-  if (!pro) throw new Error("Not found");
+  await withTenant(ctx, async (tx) => {
+    const pro = await tx.professional.findFirst({
+      where: { id, salonId: ctx.salonId },
+      select: { userId: true },
+    });
+    if (!pro) throw new Error("Not found");
 
-  await prisma.$transaction([
-    prisma.professional.update({
-      where: { id },
+    // $transaction([...]) em array vira sequencial na mesma transação
+    // interativa — mesma atomicidade, agora com a GUC setada.
+    await tx.professional.updateMany({
+      where: { id, salonId: ctx.salonId },
       data: {
         bio: data.bio ?? null,
         colorHex: data.colorHex ?? null,
         commissionPct: data.commissionPct,
         monthlyGoalCents: data.monthlyGoalCents,
       },
-    }),
-    prisma.user.update({
+    });
+    // User não é tenant-scoped (pode pertencer a vários salões) — o alvo já
+    // foi confirmado pertencer a este salão via pro.userId acima.
+    await tx.user.update({
       where: { id: pro.userId },
       data: { name: data.name },
-    }),
-  ]);
+    });
+  });
   revalidatePath("/profissionais");
 }
 
 export async function toggleProfessionalActive(id: string) {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER"]);
-  const p = await prisma.professional.findFirst({
-    where: { id, salonId: ctx.salonId },
-    select: { active: true },
+  await withTenant(ctx, async (tx) => {
+    const p = await tx.professional.findFirst({
+      where: { id, salonId: ctx.salonId },
+      select: { active: true },
+    });
+    if (!p) throw new Error("Not found");
+    await tx.professional.updateMany({ where: { id, salonId: ctx.salonId }, data: { active: !p.active } });
   });
-  if (!p) throw new Error("Not found");
-  await prisma.professional.update({ where: { id }, data: { active: !p.active } });
   revalidatePath("/profissionais");
 }
 
@@ -195,12 +201,6 @@ export async function setWorkingHours(
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER"]);
 
-  const pro = await prisma.professional.findFirst({
-    where: { id: professionalId, salonId: ctx.salonId },
-    select: { id: true },
-  });
-  if (!pro) throw new Error("Not found");
-
   const parsed = days.map((d) => workingDayInput.parse(d));
   for (const d of parsed) {
     if (d.enabled && d.endMinutes <= d.startMinutes) {
@@ -208,9 +208,15 @@ export async function setWorkingHours(
     }
   }
 
-  await prisma.$transaction([
-    prisma.workingHours.deleteMany({ where: { professionalId } }),
-    prisma.workingHours.createMany({
+  await withTenant(ctx, async (tx) => {
+    const pro = await tx.professional.findFirst({
+      where: { id: professionalId, salonId: ctx.salonId },
+      select: { id: true },
+    });
+    if (!pro) throw new Error("Not found");
+
+    await tx.workingHours.deleteMany({ where: { professionalId, salonId: ctx.salonId } });
+    await tx.workingHours.createMany({
       data: parsed
         .filter((d) => d.enabled)
         .map((d) => ({
@@ -220,8 +226,8 @@ export async function setWorkingHours(
           startMinutes: d.startMinutes,
           endMinutes: d.endMinutes,
         })),
-    }),
-  ]);
+    });
+  });
   revalidatePath("/profissionais");
   revalidatePath("/agenda");
 }
@@ -233,24 +239,24 @@ export async function setProfessionalServices(
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER"]);
 
-  // Confirma que o pro pertence a este salão
-  const pro = await prisma.professional.findFirst({
-    where: { id: professionalId, salonId: ctx.salonId },
-    select: { id: true },
-  });
-  if (!pro) throw new Error("Not found");
+  await withTenant(ctx, async (tx) => {
+    // Confirma que o pro pertence a este salão
+    const pro = await tx.professional.findFirst({
+      where: { id: professionalId, salonId: ctx.salonId },
+      select: { id: true },
+    });
+    if (!pro) throw new Error("Not found");
 
-  // Confirma que todos os serviços pertencem a este salão
-  const validServices = await prisma.service.findMany({
-    where: { id: { in: serviceIds }, salonId: ctx.salonId },
-    select: { id: true },
-  });
+    // Confirma que todos os serviços pertencem a este salão
+    const validServices = await tx.service.findMany({
+      where: { id: { in: serviceIds }, salonId: ctx.salonId },
+      select: { id: true },
+    });
 
-  await prisma.$transaction([
-    prisma.professionalService.deleteMany({ where: { professionalId } }),
-    prisma.professionalService.createMany({
+    await tx.professionalService.deleteMany({ where: { professionalId } });
+    await tx.professionalService.createMany({
       data: validServices.map((s) => ({ professionalId, serviceId: s.id })),
-    }),
-  ]);
+    });
+  });
   revalidatePath("/profissionais");
 }

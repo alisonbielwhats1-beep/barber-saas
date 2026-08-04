@@ -1,4 +1,4 @@
-import { prisma } from "./prisma";
+import type { Tx } from "./prisma-tenant";
 import { differenceInMinutes, startOfMonth, endOfMonth } from "date-fns";
 
 /**
@@ -7,13 +7,13 @@ import { differenceInMinutes, startOfMonth, endOfMonth } from "date-fns";
  * retorno (clientes que voltaram no período) e progresso da meta mensal.
  * Ordena por receita e marca o ranking.
  */
-export async function getTeamPerformance(salonId: string) {
+export async function getTeamPerformance(tx: Tx, salonId: string) {
   const now = new Date();
   const from = startOfMonth(now);
   const to = endOfMonth(now);
 
   // Sequencial: pooler com connection_limit=1 em serverless (ver P2024).
-  const pros = await prisma.professional.findMany({
+  const pros = await tx.professional.findMany({
     where: { salonId },
     select: {
       id: true,
@@ -28,11 +28,11 @@ export async function getTeamPerformance(salonId: string) {
     },
     orderBy: { user: { name: "asc" } },
   });
-  const completed = await prisma.appointment.findMany({
+  const completed = await tx.appointment.findMany({
     where: { salonId, status: "COMPLETED", startAt: { gte: from, lte: to } },
     select: { professionalId: true, clientId: true, priceCents: true, startAt: true, endAt: true },
   });
-  const noShows = await prisma.appointment.groupBy({
+  const noShows = await tx.appointment.groupBy({
     by: ["professionalId"],
     where: { salonId, status: "NO_SHOW", startAt: { gte: from, lte: to } },
     _count: { _all: true },
