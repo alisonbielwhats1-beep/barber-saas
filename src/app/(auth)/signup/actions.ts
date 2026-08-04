@@ -4,6 +4,7 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
+import { setSalonGuc } from "@/lib/prisma-tenant";
 import { uniqueSalonSlug } from "@/lib/slug";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { resolveSalonSetup } from "@/lib/salon-setup";
@@ -77,6 +78,7 @@ export async function signup(input: SignupInput): Promise<
   const slug = await uniqueSalonSlug(data.salonName);
 
   await prisma.$transaction(async (tx) => {
+    // User não é tenant-scoped (sem RLS) — sem GUC necessária até aqui.
     const user = await tx.user.create({
       data: { email, name: data.ownerName, passwordHash, passwordSetAt },
       select: { id: true },
@@ -85,6 +87,9 @@ export async function signup(input: SignupInput): Promise<
       data: { slug, name: data.salonName, plan: "FREE", segment: segmentId },
       select: { id: true },
     });
+    // A partir daqui, Membership e Service exigem a GUC do salão recém-criado
+    // — sem isto, os INSERTs seguintes seriam barrados pelas próprias policies.
+    await setSalonGuc(tx, salon.id);
     await tx.membership.create({
       data: { userId: user.id, salonId: salon.id, role: "OWNER" },
     });

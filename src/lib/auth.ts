@@ -11,6 +11,12 @@ import { safeNextAuthRedirect } from "./safe-callback";
  * Não gravamos memberships/role no JWT: eles vêm do `Membership` a cada
  * request via `getTenantContext()`. Assim, se o dono muda a role de alguém,
  * a mudança vale já na próxima requisição, sem esperar o token expirar.
+ *
+ * `authorize()` fica em `prisma` cru de propósito: só toca `User`, que é
+ * explicitamente excluído do RLS (`01_enable_rls.sql`) — o login busca a
+ * pessoa por e-mail antes de qualquer salão existir na sessão, e um usuário
+ * pode ter memberships em vários salões, então não há um `salonId` único
+ * que descreva a linha.
  */
 export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,

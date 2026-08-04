@@ -4,6 +4,7 @@ import { z } from "zod";
 import { headers } from "next/headers";
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
+import { setSalonGuc, withUser } from "@/lib/prisma-tenant";
 import { authOptions } from "@/lib/auth";
 import { uniqueSalonSlug } from "@/lib/slug";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
@@ -55,7 +56,10 @@ export async function createSalon(
 
   // Guarda essencial: sem isto, qualquer usuário logado criaria salões à vontade
   // chamando a action direto. Quem já tem salão não passa por aqui.
-  const existing = await prisma.membership.count({ where: { userId } });
+  // withUser, não prisma cru: sob RLS, Membership só é legível por userId
+  // OU salonId — sem a GUC de usuário, esta contagem sempre voltaria zero e
+  // a guarda seria contornada em silêncio.
+  const existing = await withUser(userId, (tx) => tx.membership.count({ where: { userId } }));
   if (existing > 0) {
     return { ok: false, error: "Você já pertence a um estabelecimento." };
   }
@@ -71,6 +75,8 @@ export async function createSalon(
       data: { slug, name: data.salonName, plan: "FREE", segment: segmentId },
       select: { id: true },
     });
+    // A partir daqui, Membership e Service exigem a GUC do salão recém-criado.
+    await setSalonGuc(tx, salon.id);
     await tx.membership.create({
       data: { userId, salonId: salon.id, role: "OWNER" },
     });

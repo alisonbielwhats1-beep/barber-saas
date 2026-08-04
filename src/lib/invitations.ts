@@ -4,6 +4,7 @@ import type { Prisma, Role } from "@prisma/client";
 import { buildInviteEmail } from "./invite-email";
 import { defaultMailer, MailDeliveryError, type Mailer } from "./mailer";
 import { prisma } from "./prisma";
+import { setSalonGuc } from "./prisma-tenant";
 
 export const INVITE_TTL_HOURS = 24;
 
@@ -115,6 +116,7 @@ function errorCode(error: unknown): string {
 }
 
 async function markDelivery(
+  salonId: string,
   inviteId: string,
   actorUserId: string,
   tokenHash: string,
@@ -124,6 +126,7 @@ async function markDelivery(
     | { ok: false; code: string; now: Date },
 ) {
   return prisma.$transaction(async (tx) => {
+    await setSalonGuc(tx, salonId);
     const updated = await tx.userInvite.updateMany({
       where: {
         id: inviteId,
@@ -163,6 +166,7 @@ async function markDelivery(
 }
 
 async function deliverInvite(input: {
+  salonId: string;
   inviteId: string;
   actorUserId: string;
   salonName: string;
@@ -206,6 +210,7 @@ async function deliverInvite(input: {
   }
 
   const currentAttempt = await markDelivery(
+    input.salonId,
     input.inviteId,
     input.actorUserId,
     input.tokenHash,
@@ -250,6 +255,9 @@ export async function createUserInvite(
   const serviceIds = [...new Set(professional?.serviceIds ?? [])];
 
   const created = await prisma.$transaction(async (tx) => {
+    // GUC antes de qualquer leitura tenant-scoped nesta transação — Salon,
+    // Membership, Service e UserInvite exigem salonId = app_current_salon().
+    await setSalonGuc(tx, input.salonId);
     await tx.$queryRaw`
       SELECT 1::integer AS "locked"
       FROM pg_advisory_xact_lock(
@@ -371,6 +379,7 @@ export async function createUserInvite(
 
   const deliveryStatus = await deliverInvite({
     ...created,
+    salonId: input.salonId,
     actorUserId: input.createdById,
     invitedName: input.name.trim(),
     email,
@@ -405,6 +414,7 @@ export async function resendUserInvite(
   );
 
   const invite = await prisma.$transaction(async (tx) => {
+    await setSalonGuc(tx, actor.salonId);
     await tx.$queryRaw`
       SELECT 1::integer AS "locked"
       FROM pg_advisory_xact_lock(
@@ -522,6 +532,7 @@ export async function resendUserInvite(
   });
 
   const deliveryStatus = await deliverInvite({
+    salonId: actor.salonId,
     inviteId: invite.id,
     actorUserId: actor.userId,
     salonName: invite.salonName,
@@ -543,6 +554,7 @@ export async function revokeUserInvite(
   now = new Date(),
 ): Promise<void> {
   await prisma.$transaction(async (tx) => {
+    await setSalonGuc(tx, actor.salonId);
     await tx.$queryRaw`
       SELECT 1::integer AS "locked"
       FROM pg_advisory_xact_lock(
@@ -606,6 +618,33 @@ export async function revokeUserInvite(
     });
   });
 }
+
+// ============================================================================
+// A PARTIR DAQUI: leitura e aceite de convite POR TOKEN — fica em prisma cru
+// de propósito, e é uma LACUNA REAL do RLS preparado, não uma omissão.
+//
+// getInviteView, acceptInviteTransaction (e os dois que a chamam) e
+// prismaInviteRepository leem UserInvite por tokenHash, sem sessão de salão
+// alguma — é assim que a pessoa convidada abre o link antes de ter qualquer
+// vínculo. Diferente de Salon (que tem `salon_public_read: USING (TRUE)`
+// porque o dado é público por natureza — a vitrine), UserInvite não tem
+// policy pública em 01_enable_rls.sql: a policy dele exige
+// `salonId = app_current_salon()` para TODA operação, e não há como setar
+// essa GUC antes de ler o próprio convite que revelaria qual é o salão —
+// é o mesmo problema circular do Salon-por-slug, mas sem a saída que o
+// Salon tem, porque abrir UserInvite inteiro para leitura pública
+// (`USING (TRUE)`) vazaria e-mail, nome e papel de QUALQUER convite de
+// QUALQUER salão para qualquer conexão — não é o mesmo tipo de dado
+// público que a vitrine.
+//
+// Sob RLS com a role dedicada, tudo abaixo devolveria "convite inválido"
+// para convites válidos — outra rota, junto do cron (api/cron/reminders),
+// que precisa de decisão própria antes da troca de connection string.
+// Candidatos: uma função SECURITY DEFINER no Postgres para essa leitura
+// específica, ou uma policy que valide contra um hash setado por GUC
+// (`tokenHash = current_setting('app.invite_token_hash')`) em vez de
+// salonId. Nenhuma das duas é óbvia o bastante pra decidir aqui.
+// ============================================================================
 
 export async function getInviteView(
   token: string,

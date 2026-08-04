@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { Sparkles } from "lucide-react";
-import { prisma } from "@/lib/prisma";
+import { withUser } from "@/lib/prisma-tenant";
 import { authOptions } from "@/lib/auth";
 import { CreateSalonForm } from "./create-salon-form";
 
@@ -20,10 +20,12 @@ export default async function CreateSalonPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/login");
 
-  // Quem já tem estabelecimento não tem o que fazer aqui.
-  const memberships = await prisma.membership.count({
-    where: { userId: session.user.id },
-  });
+  // Quem já tem estabelecimento não tem o que fazer aqui. withUser, não
+  // prisma cru: mesma razão do guard em actions.ts — sob RLS, Membership só
+  // é legível com a GUC de usuário setada.
+  const memberships = await withUser(session.user.id, (tx) =>
+    tx.membership.count({ where: { userId: session.user.id } }),
+  );
   if (memberships > 0) redirect("/dashboard");
 
   return (
