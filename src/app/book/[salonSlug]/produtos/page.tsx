@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { prisma } from "@/lib/prisma";
+import { withSalonBySlug } from "@/lib/prisma-tenant";
 import { BottomNav } from "../bottom-nav";
 import { CartBadge } from "../cart-badge";
 import { ProductList } from "./product-list";
@@ -13,28 +13,30 @@ export default async function ClientProdutos({
   params: Promise<{ salonSlug: string }>;
 }) {
   const { salonSlug } = await params;
-  const salon = await prisma.salon.findUnique({
-    where: { slug: salonSlug },
-    select: {
-      id: true,
-      name: true,
-      currency: true,
-      products: {
-        where: { active: true },
-        orderBy: [{ stock: "desc" }, { name: "asc" }],
-        select: {
-          id: true,
-          name: true,
-          description: true,
-          brand: true,
-          category: true,
-          priceCents: true,
-          stock: true,
-          imageUrl: true,
+  const salon = await withSalonBySlug(salonSlug, (tx, salonId) =>
+    tx.salon.findUnique({
+      where: { id: salonId },
+      select: {
+        id: true,
+        name: true,
+        currency: true,
+        products: {
+          where: { active: true },
+          orderBy: [{ stock: "desc" }, { name: "asc" }],
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            brand: true,
+            category: true,
+            priceCents: true,
+            stock: true,
+            imageUrl: true,
+          },
         },
       },
-    },
-  });
+    }),
+  );
   if (!salon) notFound();
 
   const products = salon.products.map((p, i) => ({

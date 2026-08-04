@@ -107,3 +107,29 @@ export async function withUser<T>(
     return fn(tx);
   });
 }
+
+/**
+ * Resolve um salão pelo slug da URL e executa `fn` já com a GUC setada.
+ * Devolve `null` sem chamar `fn` se o slug não existir.
+ *
+ * É o padrão das páginas de `/book/[salonSlug]`: a página não sabe o
+ * `salonId` até ler o `Salon` pelo slug, mas as relações aninhadas do select
+ * (Service, Professional, PortfolioItem, Product…) são tabelas com RLS
+ * exigindo a GUC do salão — sem ela, a leitura do `Salon` funciona (policy
+ * pública), mas cada relação aninhada volta vazia, silenciosamente, porque a
+ * policy dela compara `salonId` com uma GUC nunca setada.
+ *
+ * Por isso o id é resolvido ANTES de abrir a transação, com uma consulta à
+ * parte — `Salon` tem leitura pública (`USING (TRUE)`), então essa consulta
+ * não precisa de GUC nenhuma. Isso custa um round-trip extra por carregamento
+ * de página pública; é o preço de não poder saber o salão antes de achar o
+ * salão.
+ */
+export async function withSalonBySlug<T>(
+  slug: string,
+  fn: (tx: Tx, salonId: string) => Promise<T>,
+): Promise<T | null> {
+  const found = await prisma.salon.findUnique({ where: { slug }, select: { id: true } });
+  if (!found) return null;
+  return withSalon(found.id, (tx) => fn(tx, found.id));
+}
