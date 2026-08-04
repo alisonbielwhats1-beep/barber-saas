@@ -1,5 +1,5 @@
-import { prisma } from "@/lib/prisma";
 import { getTenantContext } from "@/lib/tenant";
+import { withTenant } from "@/lib/prisma-tenant";
 import { emailInvitesEnabled } from "@/lib/email-invites-feature";
 import { Crown } from "lucide-react";
 import { SalonSettingsForm } from "./salon-settings-form";
@@ -14,11 +14,12 @@ const PLAN_LABEL: Record<string, string> = {
 };
 
 export default async function ConfiguracoesPage() {
-  const { salonId, userId, role } = await getTenantContext();
+  const ctx = await getTenantContext();
+  const { salonId, userId, role } = ctx;
   const invitesEnabled = emailInvitesEnabled();
 
-  const [salon, memberships, pendingInvites] = await Promise.all([
-    prisma.salon.findUnique({
+  const { salon, memberships, pendingInvites } = await withTenant(ctx, async (tx) => {
+    const salon = await tx.salon.findUnique({
       where: { id: salonId },
       select: {
         name: true, address: true, phone: true, timezone: true, currency: true,
@@ -29,35 +30,37 @@ export default async function ConfiguracoesPage() {
         themeColorHex: true, instagram: true, whatsapp: true,
         paymentMethods: true, importantInfo: true,
       },
-    }),
-    prisma.membership.findMany({
+    });
+    const memberships = await tx.membership.findMany({
       where: { salonId },
       select: { role: true, user: { select: { id: true, name: true, email: true } } },
       orderBy: { role: "asc" },
-    }),
-    role === "OWNER" && invitesEnabled
-      ? prisma.userInvite.findMany({
-          where: {
-            salonId,
-            usedAt: null,
-            createdAt: {
-              gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1_000),
+    });
+    const pendingInvites =
+      role === "OWNER" && invitesEnabled
+        ? await tx.userInvite.findMany({
+            where: {
+              salonId,
+              usedAt: null,
+              createdAt: {
+                gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1_000),
+              },
             },
-          },
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true,
-            deliveryStatus: true,
-            sentAt: true,
-            expiresAt: true,
-            revokedAt: true,
-          },
-          orderBy: { createdAt: "desc" },
-        })
-      : Promise.resolve([]),
-  ]);
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true,
+              deliveryStatus: true,
+              sentAt: true,
+              expiresAt: true,
+              revokedAt: true,
+            },
+            orderBy: { createdAt: "desc" },
+          })
+        : [];
+    return { salon, memberships, pendingInvites };
+  });
 
   if (!salon) return null;
 

@@ -1,4 +1,5 @@
 import { prisma } from "./prisma";
+import { withSalon } from "./prisma-tenant";
 import {
   startOfDay,
   endOfDay,
@@ -112,11 +113,18 @@ export async function getDashboardMetrics(salonId: string, range: RangeKey) {
     }),
   ]);
 
-  const [proPerf, topServices] = await Promise.all([
-    getProfessionalPerformance(salonId, from, to),
-    getTopServices(salonId, from, to, 5),
-  ]);
-  const occupancy = await getOccupancyRate(salonId, from, to);
+  // Só estas 3 chamadas passam por withSalon (kpis.ts mudou de assinatura
+  // para receber tx). As waves de prisma.* cru acima e abaixo ficam como
+  // estão de propósito: migrar o arquivo inteiro trocaria o modelo de
+  // concorrência que o B1.1/B1.5 calibrou especificamente contra o
+  // esgotamento de pool desta página — isso é trabalho do RLS-M6, feito com
+  // cuidado próprio, não um efeito colateral de mudar a assinatura do kpis.ts.
+  const { proPerf, topServices, occupancy } = await withSalon(salonId, async (tx) => {
+    const proPerf = await getProfessionalPerformance(tx, salonId, from, to);
+    const topServices = await getTopServices(tx, salonId, from, to, 5);
+    const occupancy = await getOccupancyRate(tx, salonId, from, to);
+    return { proPerf, topServices, occupancy };
+  });
 
   const [clientsByGender, newClientsByGender, clientAgg, totalClients] =
     await Promise.all([

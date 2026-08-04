@@ -3,8 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
 import { assertRole, getTenantContext } from "@/lib/tenant";
+import { withTenant } from "@/lib/prisma-tenant";
 import { assertEmailInvitesEnabled } from "@/lib/email-invites-feature";
 import {
   createUserInvite,
@@ -31,20 +31,22 @@ export async function updateSalonSettings(input: z.infer<typeof salonInput>) {
   const data = salonInput.parse(input);
   if (data.closeMinutes <= data.openMinutes) throw new Error("Fechamento deve ser depois da abertura");
 
-  await prisma.salon.update({
-    where: { id: ctx.salonId },
-    data: {
-      name: data.name,
-      address: data.address ?? null,
-      phone: data.phone ?? null,
-      timezone: data.timezone,
-      currency: data.currency,
-      openMinutes: data.openMinutes,
-      closeMinutes: data.closeMinutes,
-      cancelPolicyHours: data.cancelPolicyHours,
-      noShowFeeCents: data.noShowFeeCents,
-    },
-  });
+  await withTenant(ctx, (tx) =>
+    tx.salon.update({
+      where: { id: ctx.salonId },
+      data: {
+        name: data.name,
+        address: data.address ?? null,
+        phone: data.phone ?? null,
+        timezone: data.timezone,
+        currency: data.currency,
+        openMinutes: data.openMinutes,
+        closeMinutes: data.closeMinutes,
+        cancelPolicyHours: data.cancelPolicyHours,
+        noShowFeeCents: data.noShowFeeCents,
+      },
+    }),
+  );
   revalidatePath("/configuracoes");
   revalidatePath("/dashboard");
 }
@@ -90,29 +92,28 @@ export async function updateSalonBranding(input: BrandingInput) {
   assertRole(ctx, ["OWNER", "MANAGER"]);
   const data = brandingInput.parse(input);
 
-  await prisma.salon.update({
-    where: { id: ctx.salonId },
-    data: {
-      segment: orNull(data.segment),
-      description: orNull(data.description),
-      coverUrl: orNull(data.coverUrl),
-      themeColorHex: orNull(data.themeColorHex),
-      // Guardamos só dígitos: o link wa.me não aceita máscara.
-      whatsapp: orNull(data.whatsapp?.replace(/\D/g, "")),
-      // Sem "@" no banco; a vitrine adiciona ao exibir.
-      instagram: orNull(data.instagram?.replace(/^@/, "")),
-      paymentMethods: data.paymentMethods?.length ? data.paymentMethods.join(",") : null,
-      importantInfo: orNull(data.importantInfo),
-    },
+  const salon = await withTenant(ctx, async (tx) => {
+    await tx.salon.update({
+      where: { id: ctx.salonId },
+      data: {
+        segment: orNull(data.segment),
+        description: orNull(data.description),
+        coverUrl: orNull(data.coverUrl),
+        themeColorHex: orNull(data.themeColorHex),
+        // Guardamos só dígitos: o link wa.me não aceita máscara.
+        whatsapp: orNull(data.whatsapp?.replace(/\D/g, "")),
+        // Sem "@" no banco; a vitrine adiciona ao exibir.
+        instagram: orNull(data.instagram?.replace(/^@/, "")),
+        paymentMethods: data.paymentMethods?.length ? data.paymentMethods.join(",") : null,
+        importantInfo: orNull(data.importantInfo),
+      },
+    });
+    // A vitrine é pública e cacheada por slug — sem isto o cliente continuaria
+    // vendo a versão antiga.
+    return tx.salon.findUnique({ where: { id: ctx.salonId }, select: { slug: true } });
   });
 
   revalidatePath("/configuracoes");
-  // A vitrine é pública e cacheada por slug — sem isto o cliente continuaria
-  // vendo a versão antiga.
-  const salon = await prisma.salon.findUnique({
-    where: { id: ctx.salonId },
-    select: { slug: true },
-  });
   if (salon) revalidatePath(`/book/${salon.slug}`);
 }
 
@@ -218,19 +219,21 @@ export async function changeMemberRole(userId: string, role: string) {
   assertRole(ctx, ["OWNER"]);
   const parsed = z.enum(ROLES).parse(role);
 
-  // Não permite rebaixar o último OWNER
-  if (parsed !== "OWNER") {
-    const owners = await prisma.membership.count({ where: { salonId: ctx.salonId, role: "OWNER" } });
-    const target = await prisma.membership.findUnique({
-      where: { userId_salonId: { userId, salonId: ctx.salonId } },
-      select: { role: true },
-    });
-    if (target?.role === "OWNER" && owners <= 1) throw new Error("O salão precisa de ao menos um dono");
-  }
+  await withTenant(ctx, async (tx) => {
+    // Não permite rebaixar o último OWNER
+    if (parsed !== "OWNER") {
+      const owners = await tx.membership.count({ where: { salonId: ctx.salonId, role: "OWNER" } });
+      const target = await tx.membership.findUnique({
+        where: { userId_salonId: { userId, salonId: ctx.salonId } },
+        select: { role: true },
+      });
+      if (target?.role === "OWNER" && owners <= 1) throw new Error("O salão precisa de ao menos um dono");
+    }
 
-  await prisma.membership.update({
-    where: { userId_salonId: { userId, salonId: ctx.salonId } },
-    data: { role: parsed },
+    await tx.membership.update({
+      where: { userId_salonId: { userId, salonId: ctx.salonId } },
+      data: { role: parsed },
+    });
   });
   revalidatePath("/configuracoes");
 }
@@ -240,15 +243,17 @@ export async function removeMember(userId: string) {
   assertRole(ctx, ["OWNER"]);
   if (userId === ctx.userId) throw new Error("Você não pode remover a si mesmo");
 
-  const target = await prisma.membership.findUnique({
-    where: { userId_salonId: { userId, salonId: ctx.salonId } },
-    select: { role: true },
-  });
-  if (target?.role === "OWNER") {
-    const owners = await prisma.membership.count({ where: { salonId: ctx.salonId, role: "OWNER" } });
-    if (owners <= 1) throw new Error("O salão precisa de ao menos um dono");
-  }
+  await withTenant(ctx, async (tx) => {
+    const target = await tx.membership.findUnique({
+      where: { userId_salonId: { userId, salonId: ctx.salonId } },
+      select: { role: true },
+    });
+    if (target?.role === "OWNER") {
+      const owners = await tx.membership.count({ where: { salonId: ctx.salonId, role: "OWNER" } });
+      if (owners <= 1) throw new Error("O salão precisa de ao menos um dono");
+    }
 
-  await prisma.membership.deleteMany({ where: { userId, salonId: ctx.salonId } });
+    await tx.membership.deleteMany({ where: { userId, salonId: ctx.salonId } });
+  });
   revalidatePath("/configuracoes");
 }

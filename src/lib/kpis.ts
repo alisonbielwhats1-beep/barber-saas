@@ -1,4 +1,4 @@
-import { prisma } from "./prisma";
+import type { Tx } from "./prisma-tenant";
 import {
   eachDayOfInterval,
   format,
@@ -12,7 +12,12 @@ import {
 
 /**
  * Queries de BI do dashboard.
- * Todas exigem `salonId` — enforcement de tenant já na assinatura.
+ *
+ * Toda função recebe `tx` (a transação com o contexto de tenant já setado,
+ * de `withTenant`/`withSalon`) como primeiro parâmetro, em vez de abrir a
+ * própria conexão via `prisma` cru — assim o chamador decide o tenant, e
+ * várias chamadas deste arquivo dentro do mesmo `withTenant` reaproveitam a
+ * mesma conexão em vez de abrir uma por função.
  */
 
 export type Period = { from: Date; to: Date };
@@ -35,8 +40,8 @@ function pctChange(current: number, previous: number): number | null {
 
 // ─── Faturamento por dia ────────────────────────────────────────────────
 
-export async function getRevenueByDay(salonId: string, from: Date, to: Date) {
-  const rows = await prisma.appointment.findMany({
+export async function getRevenueByDay(tx: Tx, salonId: string, from: Date, to: Date) {
+  const rows = await tx.appointment.findMany({
     where: {
       salonId,
       status: "COMPLETED",
@@ -59,8 +64,8 @@ export async function getRevenueByDay(salonId: string, from: Date, to: Date) {
 
 // ─── Totais + comparação ────────────────────────────────────────────────
 
-async function revenueSums(salonId: string, from: Date, to: Date) {
-  const agg = await prisma.appointment.aggregate({
+async function revenueSums(tx: Tx, salonId: string, from: Date, to: Date) {
+  const agg = await tx.appointment.aggregate({
     where: {
       salonId,
       status: "COMPLETED",
@@ -75,20 +80,23 @@ async function revenueSums(salonId: string, from: Date, to: Date) {
   };
 }
 
-export async function getRevenueTotals(salonId: string, from: Date, to: Date) {
-  return revenueSums(salonId, from, to);
+export async function getRevenueTotals(tx: Tx, salonId: string, from: Date, to: Date) {
+  return revenueSums(tx, salonId, from, to);
 }
 
 /**
  * Faturamento, atendimentos e ticket médio + variação % vs. mesmo período
  * do mês anterior. É o dado que alimenta os cards de KPI do dashboard.
+ *
+ * Sequencial de propósito (não Promise.all): concorrência dentro da mesma
+ * conexão/transação não reintroduz o esgotamento de pool que as waves de 4
+ * evitam — mas as duas chamadas usam a MESMA conexão, então rodar em
+ * paralelo não traria ganho real de qualquer forma.
  */
-export async function getRevenueKpis(salonId: string, period: Period) {
+export async function getRevenueKpis(tx: Tx, salonId: string, period: Period) {
   const prev = previousPeriod(period);
-  const [curr, previous] = await Promise.all([
-    revenueSums(salonId, period.from, period.to),
-    revenueSums(salonId, prev.from, prev.to),
-  ]);
+  const curr = await revenueSums(tx, salonId, period.from, period.to);
+  const previous = await revenueSums(tx, salonId, prev.from, prev.to);
 
   const currAvg =
     curr.completedCount > 0 ? curr.revenueCents / curr.completedCount : 0;
@@ -116,12 +124,12 @@ export async function getRevenueKpis(salonId: string, period: Period) {
 
 // ─── Ocupação (com comparação) ──────────────────────────────────────────
 
-async function occupancy(salonId: string, from: Date, to: Date) {
+async function occupancy(tx: Tx, salonId: string, from: Date, to: Date) {
   // Sequencial de propósito: o pool de conexão do Postgres (Supabase pooler)
   // roda com connection_limit=1 em serverless — 4 queries em paralelo aqui
   // estouravam o timeout de 10s do pool (P2024) quando somadas às outras
   // consultas concorrentes do dashboard. Ver getDashboardMetrics.
-  const appointments = await prisma.appointment.findMany({
+  const appointments = await tx.appointment.findMany({
     where: {
       salonId,
       startAt: { gte: from, lte: to },
@@ -129,7 +137,7 @@ async function occupancy(salonId: string, from: Date, to: Date) {
     },
     select: { startAt: true, endAt: true },
   });
-  const workingHours = await prisma.workingHours.findMany({
+  const workingHours = await tx.workingHours.findMany({
     where: { salonId },
     select: {
       weekday: true,
@@ -138,7 +146,7 @@ async function occupancy(salonId: string, from: Date, to: Date) {
       professionalId: true,
     },
   });
-  const timeOffs = await prisma.timeOff.findMany({
+  const timeOffs = await tx.timeOff.findMany({
     where: {
       professional: { salonId },
       startAt: { lte: to },
@@ -146,7 +154,7 @@ async function occupancy(salonId: string, from: Date, to: Date) {
     },
     select: { startAt: true, endAt: true },
   });
-  const professionals = await prisma.professional.count({
+  const professionals = await tx.professional.count({
     where: { salonId, active: true },
   });
 
@@ -179,16 +187,14 @@ async function occupancy(salonId: string, from: Date, to: Date) {
   };
 }
 
-export async function getOccupancyRate(salonId: string, from: Date, to: Date) {
-  return occupancy(salonId, from, to);
+export async function getOccupancyRate(tx: Tx, salonId: string, from: Date, to: Date) {
+  return occupancy(tx, salonId, from, to);
 }
 
-export async function getOccupancyKpi(salonId: string, period: Period) {
+export async function getOccupancyKpi(tx: Tx, salonId: string, period: Period) {
   const prev = previousPeriod(period);
-  const [curr, previous] = await Promise.all([
-    occupancy(salonId, period.from, period.to),
-    occupancy(salonId, prev.from, prev.to),
-  ]);
+  const curr = await occupancy(tx, salonId, period.from, period.to);
+  const previous = await occupancy(tx, salonId, prev.from, prev.to);
   return {
     ...curr,
     change: pctChange(curr.rate, previous.rate),
@@ -199,12 +205,13 @@ export async function getOccupancyKpi(salonId: string, period: Period) {
 // ─── Top serviços & performance por profissional ────────────────────────
 
 export async function getTopServices(
+  tx: Tx,
   salonId: string,
   from: Date,
   to: Date,
   limit = 5,
 ) {
-  const grouped = await prisma.appointment.groupBy({
+  const grouped = await tx.appointment.groupBy({
     by: ["serviceId"],
     where: {
       salonId,
@@ -217,7 +224,7 @@ export async function getTopServices(
     take: limit,
   });
 
-  const services = await prisma.service.findMany({
+  const services = await tx.service.findMany({
     where: { id: { in: grouped.map((g) => g.serviceId) } },
     select: { id: true, name: true, colorHex: true },
   });
@@ -233,11 +240,12 @@ export async function getTopServices(
 }
 
 export async function getProfessionalPerformance(
+  tx: Tx,
   salonId: string,
   from: Date,
   to: Date,
 ) {
-  const grouped = await prisma.appointment.groupBy({
+  const grouped = await tx.appointment.groupBy({
     by: ["professionalId"],
     where: {
       salonId,
@@ -248,7 +256,7 @@ export async function getProfessionalPerformance(
     _count: { _all: true },
   });
 
-  const pros = await prisma.professional.findMany({
+  const pros = await tx.professional.findMany({
     where: { id: { in: grouped.map((g) => g.professionalId) } },
     select: {
       id: true,

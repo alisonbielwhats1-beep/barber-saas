@@ -42,7 +42,13 @@ import { prisma } from "./prisma";
  * reaproveitada por outra requisição — de outro salão — logo em seguida.
  */
 
-type Tx = Prisma.TransactionClient;
+/**
+ * Exportado para os helpers de `lib/` (kpis.ts, finance.ts, dashboard.ts…)
+ * tipar o parâmetro `tx` que recebem do chamador, em vez de importar
+ * `prisma` cru internamente — é essa troca de assinatura que permite migrar
+ * um helper de BI sem duplicar sua lógica.
+ */
+export type Tx = Prisma.TransactionClient;
 
 async function setGuc(tx: Tx, key: string, value: string) {
   // `set_config` recebe o valor como parâmetro ligado, então não há

@@ -1,4 +1,5 @@
 import { requireRole, FINANCE_ROLES } from "@/lib/tenant";
+import { withTenant } from "@/lib/prisma-tenant";
 import { getDashboardMetrics, RANGE_LABELS, type RangeKey } from "@/lib/dashboard";
 import { getFinanceMetrics } from "@/lib/finance";
 import { formatMoney, formatDuration } from "@/lib/utils";
@@ -17,7 +18,8 @@ export default async function RelatoriosPage({
 }) {
   // Relatórios expõem faturamento, comissões e DRE — mesma restrição do
   // /financeiro. Ver requireRole em lib/tenant.ts.
-  const { salonId } = await requireRole(FINANCE_ROLES);
+  const ctx = await requireRole(FINANCE_ROLES);
+  const { salonId } = ctx;
   const { range: selectedRange } = await searchParams;
   const range: RangeKey = VALID.includes(selectedRange as RangeKey)
     ? (selectedRange as RangeKey)
@@ -25,8 +27,11 @@ export default async function RelatoriosPage({
 
   // Sequencial: são as duas funções mais pesadas do sistema (~21 queries
   // somadas). Em paralelo, competiam pela única conexão do pool (P2024).
+  // getDashboardMetrics mantém as próprias waves de prisma.* cru (RLS-M6,
+  // fora de escopo aqui); só a chamada a getFinanceMetrics abre transação,
+  // por causa da mudança de assinatura de lib/finance.ts.
   const m = await getDashboardMetrics(salonId, range);
-  const fin = await getFinanceMetrics(salonId, range);
+  const fin = await withTenant(ctx, (tx) => getFinanceMetrics(tx, salonId, range));
 
   const periodLabel = `${format(m.period.from, "d MMM", { locale: ptBR })} – ${format(m.period.to, "d MMM yyyy", { locale: ptBR })}`;
 

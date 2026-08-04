@@ -1,4 +1,4 @@
-import { prisma } from "./prisma";
+import type { Tx } from "./prisma-tenant";
 import { eachDayOfInterval, format } from "date-fns";
 import { resolveRange, type RangeKey } from "./dashboard";
 import { getProfessionalPerformance } from "./kpis";
@@ -8,6 +8,9 @@ import { getProfessionalPerformance } from "./kpis";
  * produtos), despesas (modelo Expense), comissões e deriva lucro, fluxo de
  * caixa, DRE, quebras por categoria e por forma de pagamento, além de contas
  * a pagar/receber. Reaproveita resolveRange do dashboard para o filtro.
+ *
+ * Recebe `tx` do chamador (de `withTenant`) em vez de abrir a própria
+ * conexão — mesmo padrão de kpis.ts.
  */
 
 const METHOD_LABEL: Record<string, string> = {
@@ -28,41 +31,43 @@ const METHOD_COLOR: Record<string, string> = {
 
 const CAT_COLORS = ["#3B9EFF", "#A855F7", "#F59E0B", "#EF4444", "#2ECC8B", "#EC4899", "#94A3B8"];
 
-export async function getFinanceMetrics(salonId: string, range: RangeKey) {
+export async function getFinanceMetrics(tx: Tx, salonId: string, range: RangeKey) {
   const now = new Date();
   const { from, to } = resolveRange(range, now);
 
   // Sequencial de propósito: o pooler do Postgres roda com connection_limit=1
   // em serverless — 7 queries em Promise.all estouravam o timeout do pool
-  // (P2024). Mesma correção aplicada em lib/dashboard.ts e lib/kpis.ts.
+  // (P2024). Agora roda tudo numa única transação/conexão via withTenant no
+  // chamador, então sequencial aqui também evita o anti-padrão de rodar
+  // queries concorrentes na mesma transação interativa do Prisma.
   // Receita de serviços (atendimentos concluídos)
-  const services = await prisma.appointment.findMany({
+  const services = await tx.appointment.findMany({
     where: { salonId, status: "COMPLETED", startAt: { gte: from, lte: to } },
     select: { priceCents: true, startAt: true },
   });
   // Receita de produtos vendidos
-  const products = await prisma.appointmentProduct.findMany({
+  const products = await tx.appointmentProduct.findMany({
     where: { appointment: { salonId, status: "COMPLETED", startAt: { gte: from, lte: to } } },
     select: { quantity: true, priceCentsUnit: true, appointment: { select: { startAt: true } } },
   });
   // Despesas do período (por vencimento)
-  const expenses = await prisma.expense.findMany({
+  const expenses = await tx.expense.findMany({
     where: { salonId, dueDate: { gte: from, lte: to } },
     select: { id: true, amountCents: true, category: true, kind: true, dueDate: true, paidAt: true },
   });
   // Pagamentos por forma (dos atendimentos concluídos do período)
-  const payments = await prisma.payment.findMany({
+  const payments = await tx.payment.findMany({
     where: { appointment: { salonId, status: "COMPLETED", startAt: { gte: from, lte: to } } },
     select: { amountCents: true, method: true },
   });
-  const proPerf = await getProfessionalPerformance(salonId, from, to);
+  const proPerf = await getProfessionalPerformance(tx, salonId, from, to);
   // Contas a receber: futuros confirmados/pendentes
-  const upcoming = await prisma.appointment.findMany({
+  const upcoming = await tx.appointment.findMany({
     where: { salonId, status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] }, startAt: { gte: now } },
     select: { priceCents: true },
   });
   // Contas a pagar: despesas não pagas (qualquer vencimento)
-  const unpaidExpenses = await prisma.expense.findMany({
+  const unpaidExpenses = await tx.expense.findMany({
     where: { salonId, paidAt: null },
     select: { id: true, description: true, amountCents: true, dueDate: true, category: true },
     orderBy: { dueDate: "asc" },
