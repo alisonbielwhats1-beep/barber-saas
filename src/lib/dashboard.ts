@@ -1,4 +1,3 @@
-import { prisma } from "./prisma";
 import { withSalon } from "./prisma-tenant";
 import {
   startOfDay,
@@ -77,90 +76,111 @@ export async function getDashboardMetrics(salonId: string, range: RangeKey) {
   // Em serverless, isso pode esgotar o pool do Prisma/Supavisor antes que as
   // primeiras queries devolvam a conexão. As ondas abaixo mantêm no máximo
   // quatro operações concorrentes sem alterar os indicadores calculados.
+  //
+  // Cada query abre a própria withSalon (transação curta, uma conexão),
+  // e as N chamadas de cada onda continuam concorrentes via Promise.all —
+  // de propósito, para não trocar o modelo de concorrência que B1.1/B1.5
+  // calibraram contra esgotamento de pool. A alternativa óbvia — uma única
+  // withTenant envolvendo a função inteira — serializaria as ~20 queries
+  // numa transação/conexão só, multiplicando a latência da página mais
+  // visitada do painel. Isso não é uma troca para fazer de passagem junto
+  // de uma migração de assinatura.
   const [completed, prevCompleted, statusGroups, upcoming] = await Promise.all([
     // 1. Atendimentos concluídos no período (motor de receita, ticket, gênero)
-    prisma.appointment.findMany({
-      where: { salonId, status: "COMPLETED", startAt: { gte: from, lte: to } },
-      select: {
-        priceCents: true,
-        startAt: true,
-        endAt: true,
-        serviceId: true,
-        client: { select: { gender: true } },
-        service: { select: { name: true, colorHex: true } },
-      },
-    }),
+    withSalon(salonId, (tx) =>
+      tx.appointment.findMany({
+        where: { salonId, status: "COMPLETED", startAt: { gte: from, lte: to } },
+        select: {
+          priceCents: true,
+          startAt: true,
+          endAt: true,
+          serviceId: true,
+          client: { select: { gender: true } },
+          service: { select: { name: true, colorHex: true } },
+        },
+      }),
+    ),
     // 2. Concluídos no período anterior (comparação)
-    prisma.appointment.aggregate({
-      where: { salonId, status: "COMPLETED", startAt: { gte: prev.from, lte: prev.to } },
-      _sum: { priceCents: true },
-      _count: { _all: true },
-    }),
+    withSalon(salonId, (tx) =>
+      tx.appointment.aggregate({
+        where: { salonId, status: "COMPLETED", startAt: { gte: prev.from, lte: prev.to } },
+        _sum: { priceCents: true },
+        _count: { _all: true },
+      }),
+    ),
     // 3. Contagem por status no período (cancelamentos, no-show)
-    prisma.appointment.groupBy({
-      by: ["status"],
-      where: { salonId, startAt: { gte: from, lte: to } },
-      _count: { _all: true },
-    }),
+    withSalon(salonId, (tx) =>
+      tx.appointment.groupBy({
+        by: ["status"],
+        where: { salonId, startAt: { gte: from, lte: to } },
+        _count: { _all: true },
+      }),
+    ),
     // 4. Próximos agendamentos (previsão, hoje, amanhã, comissão pendente)
-    prisma.appointment.findMany({
-      where: {
-        salonId,
-        status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
-        startAt: { gte: startOfDay(now) },
-      },
-      select: { startAt: true, priceCents: true, professionalId: true },
-    }),
+    withSalon(salonId, (tx) =>
+      tx.appointment.findMany({
+        where: {
+          salonId,
+          status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
+          startAt: { gte: startOfDay(now) },
+        },
+        select: { startAt: true, priceCents: true, professionalId: true },
+      }),
+    ),
   ]);
 
-  // Só estas 3 chamadas passam por withSalon (kpis.ts mudou de assinatura
-  // para receber tx). As waves de prisma.* cru acima e abaixo ficam como
-  // estão de propósito: migrar o arquivo inteiro trocaria o modelo de
-  // concorrência que o B1.1/B1.5 calibrou especificamente contra o
-  // esgotamento de pool desta página — isso é trabalho do RLS-M6, feito com
-  // cuidado próprio, não um efeito colateral de mudar a assinatura do kpis.ts.
-  const { proPerf, topServices, occupancy } = await withSalon(salonId, async (tx) => {
-    const proPerf = await getProfessionalPerformance(tx, salonId, from, to);
-    const topServices = await getTopServices(tx, salonId, from, to, 5);
-    const occupancy = await getOccupancyRate(tx, salonId, from, to);
-    return { proPerf, topServices, occupancy };
-  });
+  const [proPerf, topServices, occupancy] = await Promise.all([
+    withSalon(salonId, (tx) => getProfessionalPerformance(tx, salonId, from, to)),
+    withSalon(salonId, (tx) => getTopServices(tx, salonId, from, to, 5)),
+    withSalon(salonId, (tx) => getOccupancyRate(tx, salonId, from, to)),
+  ]);
 
-  const [clientsByGender, newClientsByGender, clientAgg, totalClients] =
-    await Promise.all([
+  const [clientsByGender, newClientsByGender, clientAgg, totalClients] = await Promise.all([
     // Clientes por gênero (base total)
-    prisma.clientProfile.groupBy({
-      by: ["gender"],
-      where: { salonId },
-      _count: { _all: true },
-    }),
+    withSalon(salonId, (tx) =>
+      tx.clientProfile.groupBy({
+        by: ["gender"],
+        where: { salonId },
+        _count: { _all: true },
+      }),
+    ),
     // Novos clientes por gênero no período
-    prisma.clientProfile.groupBy({
-      by: ["gender"],
-      where: { salonId, createdAt: { gte: from, lte: to } },
-      _count: { _all: true },
-    }),
+    withSalon(salonId, (tx) =>
+      tx.clientProfile.groupBy({
+        by: ["gender"],
+        where: { salonId, createdAt: { gte: from, lte: to } },
+        _count: { _all: true },
+      }),
+    ),
     // Por cliente: nº de concluídos + último atendimento (retorno/perdidos)
-    prisma.appointment.groupBy({
-      by: ["clientId"],
-      where: { salonId, status: "COMPLETED" },
-      _count: { _all: true },
-      _max: { startAt: true },
-    }),
-    prisma.clientProfile.count({ where: { salonId } }),
+    withSalon(salonId, (tx) =>
+      tx.appointment.groupBy({
+        by: ["clientId"],
+        where: { salonId, status: "COMPLETED" },
+        _count: { _all: true },
+        _max: { startAt: true },
+      }),
+    ),
+    withSalon(salonId, (tx) => tx.clientProfile.count({ where: { salonId } })),
   ]);
 
   const [professionals, productsSoldAgg, outOfStock] = await Promise.all([
-    prisma.professional.findMany({
-      where: { salonId },
-      select: { id: true, commissionPct: true },
-    }),
+    withSalon(salonId, (tx) =>
+      tx.professional.findMany({
+        where: { salonId },
+        select: { id: true, commissionPct: true },
+      }),
+    ),
     // Produtos vendidos no período
-    prisma.appointmentProduct.aggregate({
-      where: { appointment: { salonId, startAt: { gte: from, lte: to } } },
-      _sum: { quantity: true },
-    }),
-    prisma.product.count({ where: { salonId, active: true, stock: { lte: 0 } } }),
+    withSalon(salonId, (tx) =>
+      tx.appointmentProduct.aggregate({
+        where: { appointment: { salonId, startAt: { gte: from, lte: to } } },
+        _sum: { quantity: true },
+      }),
+    ),
+    withSalon(salonId, (tx) =>
+      tx.product.count({ where: { salonId, active: true, stock: { lte: 0 } } }),
+    ),
   ]);
 
   // ── Receita / ticket / duração ────────────────────────────────
