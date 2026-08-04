@@ -2,10 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
 import { assertRole, getTenantContext } from "@/lib/tenant";
+import { withTenant } from "@/lib/prisma-tenant";
 import { getClientHistory } from "@/lib/crm";
 
+// getClientHistory (lib/crm.ts) ainda usa prisma cru — crm.ts inteiro é
+// migrado à parte (RLS-M5), junto com as outras chamadas que ele atende.
 export async function fetchClientHistory(clientId: string) {
   const ctx = await getTenantContext();
   return getClientHistory(ctx.salonId, clientId);
@@ -26,16 +28,18 @@ export async function createClient(input: ClientInput) {
   assertRole(ctx, ["OWNER", "MANAGER", "RECEPTIONIST"]);
   const data = clientInput.parse(input);
 
-  await prisma.clientProfile.create({
-    data: {
-      salonId: ctx.salonId,
-      name: data.name,
-      phone: data.phone ?? null,
-      email: data.email || null,
-      birthday: data.birthday ? new Date(data.birthday) : null,
-      notes: data.notes ?? null,
-    },
-  });
+  await withTenant(ctx, (tx) =>
+    tx.clientProfile.create({
+      data: {
+        salonId: ctx.salonId,
+        name: data.name,
+        phone: data.phone ?? null,
+        email: data.email || null,
+        birthday: data.birthday ? new Date(data.birthday) : null,
+        notes: data.notes ?? null,
+      },
+    }),
+  );
   revalidatePath("/clientes");
 }
 
@@ -44,22 +48,26 @@ export async function updateClient(id: string, input: ClientInput) {
   assertRole(ctx, ["OWNER", "MANAGER", "RECEPTIONIST"]);
   const data = clientInput.parse(input);
 
-  await prisma.clientProfile.updateMany({
-    where: { id, salonId: ctx.salonId },
-    data: {
-      name: data.name,
-      phone: data.phone ?? null,
-      email: data.email || null,
-      birthday: data.birthday ? new Date(data.birthday) : null,
-      notes: data.notes ?? null,
-    },
-  });
+  await withTenant(ctx, (tx) =>
+    tx.clientProfile.updateMany({
+      where: { id, salonId: ctx.salonId },
+      data: {
+        name: data.name,
+        phone: data.phone ?? null,
+        email: data.email || null,
+        birthday: data.birthday ? new Date(data.birthday) : null,
+        notes: data.notes ?? null,
+      },
+    }),
+  );
   revalidatePath("/clientes");
 }
 
 export async function deleteClient(id: string) {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER"]);
-  await prisma.clientProfile.deleteMany({ where: { id, salonId: ctx.salonId } });
+  await withTenant(ctx, (tx) =>
+    tx.clientProfile.deleteMany({ where: { id, salonId: ctx.salonId } }),
+  );
   revalidatePath("/clientes");
 }
