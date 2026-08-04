@@ -1,7 +1,7 @@
 import Image from "next/image";
-import { prisma } from "@/lib/prisma";
 import { emailInvitesEnabled } from "@/lib/email-invites-feature";
 import { getTenantContext } from "@/lib/tenant";
+import { withTenant } from "@/lib/prisma-tenant";
 import { getTeamPerformance } from "@/lib/team";
 import { formatMoney, formatDuration } from "@/lib/utils";
 import { format } from "date-fns";
@@ -25,41 +25,44 @@ import { PendingInvites } from "./pending-invites";
 const MEDAL = ["#F4C430", "#C0C0C0", "#CD7F32"]; // ouro, prata, bronze
 
 export default async function ProfissionaisPage() {
-  const { salonId, role } = await getTenantContext();
+  const ctx = await getTenantContext();
+  const { salonId, role } = ctx;
   const invitesEnabled = emailInvitesEnabled();
 
-  const [perf, services, pendingInvites] = await Promise.all([
-    getTeamPerformance(salonId),
-    prisma.service.findMany({
+  const { perf, services, pendingInvites } = await withTenant(ctx, async (tx) => {
+    const perf = await getTeamPerformance(tx, salonId);
+    const services = await tx.service.findMany({
       where: { salonId, active: true },
       select: { id: true, name: true, colorHex: true },
       orderBy: { name: "asc" },
-    }),
-    ["OWNER", "MANAGER"].includes(role) && invitesEnabled
-      ? prisma.userInvite.findMany({
-          where: {
-            salonId,
-            role: "PROFESSIONAL",
-            usedAt: null,
-            createdAt: {
-              gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1_000),
+    });
+    const pendingInvites =
+      ["OWNER", "MANAGER"].includes(role) && invitesEnabled
+        ? await tx.userInvite.findMany({
+            where: {
+              salonId,
+              role: "PROFESSIONAL",
+              usedAt: null,
+              createdAt: {
+                gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1_000),
+              },
             },
-          },
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true,
-            createdAt: true,
-            sentAt: true,
-            expiresAt: true,
-            revokedAt: true,
-            deliveryStatus: true,
-          },
-          orderBy: { createdAt: "desc" },
-        })
-      : Promise.resolve([]),
-  ]);
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true,
+              createdAt: true,
+              sentAt: true,
+              expiresAt: true,
+              revokedAt: true,
+              deliveryStatus: true,
+            },
+            orderBy: { createdAt: "desc" },
+          })
+        : [];
+    return { perf, services, pendingInvites };
+  });
 
   const monthLabel = format(perf.period.from, "MMMM yyyy", { locale: ptBR });
 

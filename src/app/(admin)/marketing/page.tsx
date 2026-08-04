@@ -1,15 +1,17 @@
-import { prisma } from "@/lib/prisma";
 import { getTenantContext } from "@/lib/tenant";
+import { withTenant } from "@/lib/prisma-tenant";
 import { getClientList } from "@/lib/crm";
 import { Cake, Clock, Crown, Megaphone } from "lucide-react";
 import { MarketingCampaigns } from "./marketing-campaigns";
 
 export default async function MarketingPage() {
-  const { salonId } = await getTenantContext();
-  const [clients, salon] = await Promise.all([
-    getClientList(salonId),
-    prisma.salon.findUnique({ where: { id: salonId }, select: { name: true } }),
-  ]);
+  const ctx = await getTenantContext();
+  const { salonId } = ctx;
+  const { clients, salon } = await withTenant(ctx, async (tx) => {
+    const clients = await getClientList(tx, salonId);
+    const salon = await tx.salon.findUnique({ where: { id: salonId }, select: { name: true } });
+    return { clients, salon };
+  });
 
   const toTarget = (c: { id: string; name: string; phone: string | null }) => ({ id: c.id, name: c.name, phone: c.phone });
   const birthdays = clients.filter((c) => c.birthdayThisMonth).map(toTarget);

@@ -1,4 +1,4 @@
-import { prisma } from "./prisma";
+import type { Tx } from "./prisma-tenant";
 import { differenceInDays } from "date-fns";
 
 /**
@@ -24,12 +24,12 @@ function topOf(counts: Map<string, number>): string | null {
   return best;
 }
 
-export async function getClientList(salonId: string) {
+export async function getClientList(tx: Tx, salonId: string) {
   const now = new Date();
   // Sequencial de propósito: pooler com connection_limit=1 em serverless —
   // 5 queries em Promise.all estouravam o timeout do pool (P2024).
   // Mesma correção aplicada em lib/dashboard.ts, lib/kpis.ts e lib/finance.ts.
-  const clients = await prisma.clientProfile.findMany({
+  const clients = await tx.clientProfile.findMany({
     where: { salonId },
     select: {
       id: true, name: true, phone: true, email: true, birthday: true, gender: true, notes: true, createdAt: true,
@@ -40,10 +40,10 @@ export async function getClientList(salonId: string) {
     },
     orderBy: { name: "asc" },
   });
-  const pros = await prisma.professional.findMany({ where: { salonId }, select: { id: true, user: { select: { name: true } } } });
-  const services = await prisma.service.findMany({ where: { salonId }, select: { id: true, name: true } });
-  const activePkgs = await prisma.packagePurchase.groupBy({ by: ["clientId"], where: { salonId, status: "ACTIVE" }, _count: { _all: true } });
-  const activeSubs = await prisma.clientSubscription.groupBy({ by: ["clientId"], where: { salonId, status: "ACTIVE" }, _count: { _all: true } });
+  const pros = await tx.professional.findMany({ where: { salonId }, select: { id: true, user: { select: { name: true } } } });
+  const services = await tx.service.findMany({ where: { salonId }, select: { id: true, name: true } });
+  const activePkgs = await tx.packagePurchase.groupBy({ by: ["clientId"], where: { salonId, status: "ACTIVE" }, _count: { _all: true } });
+  const activeSubs = await tx.clientSubscription.groupBy({ by: ["clientId"], where: { salonId, status: "ACTIVE" }, _count: { _all: true } });
 
   const proName = new Map(pros.map((p) => [p.id, p.user.name]));
   const svcName = new Map(services.map((s) => [s.id, s.name]));
@@ -100,8 +100,8 @@ export async function getClientList(salonId: string) {
 
 export type ClientRow = Awaited<ReturnType<typeof getClientList>>[number];
 
-export async function getClientHistory(salonId: string, clientId: string) {
-  const appts = await prisma.appointment.findMany({
+export async function getClientHistory(tx: Tx, salonId: string, clientId: string) {
+  const appts = await tx.appointment.findMany({
     where: { salonId, clientId },
     orderBy: { startAt: "desc" },
     take: 40,

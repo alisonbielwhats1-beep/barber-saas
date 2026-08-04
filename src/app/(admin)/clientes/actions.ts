@@ -6,11 +6,9 @@ import { assertRole, getTenantContext } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
 import { getClientHistory } from "@/lib/crm";
 
-// getClientHistory (lib/crm.ts) ainda usa prisma cru — crm.ts inteiro é
-// migrado à parte (RLS-M5), junto com as outras chamadas que ele atende.
 export async function fetchClientHistory(clientId: string) {
   const ctx = await getTenantContext();
-  return getClientHistory(ctx.salonId, clientId);
+  return withTenant(ctx, (tx) => getClientHistory(tx, ctx.salonId, clientId));
 }
 
 const clientInput = z.object({
