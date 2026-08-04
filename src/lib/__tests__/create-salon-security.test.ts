@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   salonCreate: vi.fn(async () => ({ id: "salon-novo" })),
   membershipCreate: vi.fn(),
   serviceCreateMany: vi.fn(),
+  executeRaw: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("next-auth", () => ({ getServerSession: mocks.getServerSession }));
@@ -27,6 +28,10 @@ vi.mock("@/lib/rate-limit", () => ({
   checkRateLimit: mocks.checkRateLimit,
   clientIp: mocks.clientIp,
 }));
+// createSalon passa por withUser (guarda de membership já existente) e por
+// prisma.$transaction direto (criação) — os dois abrem $transaction, então
+// o tx mockado precisa ter todos os métodos que qualquer um dos dois usa,
+// mais $executeRaw (a GUC que withUser/setSalonGuc setam).
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     membership: { count: mocks.membershipCount },
@@ -50,9 +55,10 @@ describe("createSalon", () => {
     mocks.checkRateLimit.mockResolvedValue({ allowed: true });
     mocks.transaction.mockImplementation(async (fn: (tx: unknown) => unknown) =>
       fn({
+        membership: { count: mocks.membershipCount, create: mocks.membershipCreate },
         salon: { create: mocks.salonCreate },
-        membership: { create: mocks.membershipCreate },
         service: { createMany: mocks.serviceCreateMany },
+        $executeRaw: mocks.executeRaw,
       }),
     );
   });
@@ -68,20 +74,23 @@ describe("createSalon", () => {
     mocks.membershipCount.mockResolvedValue(1);
     const res = await createSalon(VALID);
     expect(res.ok).toBe(false);
-    expect(mocks.transaction).not.toHaveBeenCalled();
+    // A guarda em si já roda dentro de um $transaction (withUser) — o que
+    // não pode acontecer é a CRIAÇÃO do salão.
+    expect(mocks.salonCreate).not.toHaveBeenCalled();
   });
 
   it("respeita o rate limit", async () => {
     mocks.checkRateLimit.mockResolvedValue({ allowed: false });
     const res = await createSalon(VALID);
     expect(res.ok).toBe(false);
+    // Rate limit é checado antes até da guarda de membership.
     expect(mocks.transaction).not.toHaveBeenCalled();
   });
 
   it("rejeita segmento inexistente", async () => {
     const res = await createSalon({ ...VALID, segmentId: "cassino" });
     expect(res.ok).toBe(false);
-    expect(mocks.transaction).not.toHaveBeenCalled();
+    expect(mocks.salonCreate).not.toHaveBeenCalled();
   });
 
   it("ignora serviço que não veio das sugestões do segmento", async () => {

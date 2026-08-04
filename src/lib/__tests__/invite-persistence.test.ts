@@ -53,6 +53,11 @@ function matchesInvite(row: Record<string, any>, where: Record<string, any>) {
 
 const fakePrisma: any = {
   $queryRaw: vi.fn(async () => [{ locked: 1 }]),
+  // createUserInvite/resendUserInvite/revokeUserInvite agora chamam
+  // setSalonGuc(tx, ...) logo no início de cada transação — como o
+  // $transaction abaixo devolve o próprio fakePrisma como tx, um mock aqui
+  // cobre todo mundo.
+  $executeRaw: vi.fn(async () => undefined),
   $transaction(arg: any) {
     if (Array.isArray(arg)) return Promise.all(arg);
     const run = transactionTail.then(async () => {

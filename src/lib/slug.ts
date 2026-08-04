@@ -14,6 +14,10 @@ export function slugify(input: string): string {
  * Garante slug único na tabela Salon. Tenta o slug base; se já existe, tenta
  * `base-2`, `base-3`, … até achar livre. Não usa random pra manter URLs limpas
  * (`/book/luna-hair` melhor que `/book/luna-hair-x7k`).
+ *
+ * Fica em `prisma` cru de propósito: a policy de SELECT de Salon é pública
+ * (`USING (TRUE)`), então essa checagem de unicidade não precisa de GUC —
+ * é a mesma razão documentada em `withSalonBySlug` (prisma-tenant.ts).
  */
 export async function uniqueSalonSlug(base: string): Promise<string> {
   const slug = slugify(base) || "salao";

@@ -57,6 +57,22 @@ async function setGuc(tx: Tx, key: string, value: string) {
 }
 
 /**
+ * Seta a GUC de salão numa transação já aberta pelo próprio chamador.
+ *
+ * Existe para o único caso em que nem `withTenant` nem `withSalon` servem:
+ * `signup` e `onboarding/create-salon` criam o `Salon` DENTRO da transação —
+ * não há `salonId` pra passar a `withSalon` antes de abrir, porque o salão
+ * ainda não existe. Depois do INSERT do Salon (que não precisa de GUC — a
+ * policy de INSERT é aberta, `WITH CHECK (TRUE)`), chame isto com o id
+ * recém-criado antes de qualquer INSERT em Membership ou Service — as
+ * policies deles exigem `salonId = app_current_salon()`, inclusive na
+ * escrita.
+ */
+export async function setSalonGuc(tx: Tx, salonId: string): Promise<void> {
+  await setGuc(tx, "app.current_salon", salonId);
+}
+
+/**
  * Executa `fn` com o salão e o usuário de um contexto já resolvido
  * (`getTenantContext()`). Use em páginas e Server Actions do painel.
  */
