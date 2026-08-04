@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { withSalon } from "@/lib/prisma-tenant";
 import {
   checkRateLimit,
   clientIp,
@@ -47,48 +47,52 @@ export async function GET(req: NextRequest) {
   // 6 queries em Promise.all estouravam o timeout do pool (P2024). Esta rota
   // é a mais sensível do produto: é ela que o cliente final chama ao escolher
   // o dia, e falhar aqui bloqueia o agendamento.
-  // Validações primeiro — sem serviço ou vínculo válido, nem busca o resto.
-  const service = await prisma.service.findFirst({
-    where: { id: serviceId, salonId },
-    select: { durationMin: true },
-  });
-  const professionalLink = await prisma.professionalService.findFirst({
-    where: {
-      serviceId,
-      professional: { id: professionalId, salonId, active: true },
-    },
-    select: { serviceId: true },
-  });
-  const workingHours = await prisma.workingHours.findMany({
-    where: { salonId, professionalId, weekday },
-    select: { startMinutes: true, endMinutes: true },
-  });
-  const timeOffs = await prisma.timeOff.findMany({
-    where: {
-      professionalId,
-      startAt: { lte: endOfDay(date) },
-      endAt: { gte: startOfDay(date) },
-    },
-    select: { startAt: true, endAt: true },
-  });
-  const appointments = await prisma.appointment.findMany({
-    where: {
-      professionalId,
-      startAt: { gte: startOfDay(date), lte: endOfDay(date) },
-      status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
-    },
-    select: { startAt: true, endAt: true },
-  });
-  // Histórico de horários do profissional (qualquer dia) para achar o mais pedido
-  const history = await prisma.appointment.findMany({
-    where: {
-      professionalId,
-      status: { in: ["CONFIRMED", "IN_PROGRESS", "COMPLETED"] },
-    },
-    select: { startAt: true },
-    take: 500,
-    orderBy: { startAt: "desc" },
-  });
+  const { service, professionalLink, workingHours, timeOffs, appointments, history } =
+    await withSalon(salonId, async (tx) => {
+      // Validações primeiro — sem serviço ou vínculo válido, nem busca o resto.
+      const service = await tx.service.findFirst({
+        where: { id: serviceId, salonId },
+        select: { durationMin: true },
+      });
+      const professionalLink = await tx.professionalService.findFirst({
+        where: {
+          serviceId,
+          professional: { id: professionalId, salonId, active: true },
+        },
+        select: { serviceId: true },
+      });
+      const workingHours = await tx.workingHours.findMany({
+        where: { salonId, professionalId, weekday },
+        select: { startMinutes: true, endMinutes: true },
+      });
+      const timeOffs = await tx.timeOff.findMany({
+        where: {
+          professionalId,
+          startAt: { lte: endOfDay(date) },
+          endAt: { gte: startOfDay(date) },
+        },
+        select: { startAt: true, endAt: true },
+      });
+      const appointments = await tx.appointment.findMany({
+        where: {
+          professionalId,
+          startAt: { gte: startOfDay(date), lte: endOfDay(date) },
+          status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
+        },
+        select: { startAt: true, endAt: true },
+      });
+      // Histórico de horários do profissional (qualquer dia) para achar o mais pedido
+      const history = await tx.appointment.findMany({
+        where: {
+          professionalId,
+          status: { in: ["CONFIRMED", "IN_PROGRESS", "COMPLETED"] },
+        },
+        select: { startAt: true },
+        take: 500,
+        orderBy: { startAt: "desc" },
+      });
+      return { service, professionalLink, workingHours, timeOffs, appointments, history };
+    });
 
   if (!service || !professionalLink) {
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });

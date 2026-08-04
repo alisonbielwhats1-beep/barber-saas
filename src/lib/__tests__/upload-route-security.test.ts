@@ -12,9 +12,21 @@ const from = vi.fn(() => ({
 
 vi.mock("next-auth", () => ({ getServerSession }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
-vi.mock("@/lib/prisma", () => ({
-  prisma: { membership: { findFirst: findMembership } },
-}));
+// A rota passa por withUser (prisma-tenant.ts) para achar a membership — o
+// mock precisa de $transaction executando o callback com o client mockado
+// (mesmo ajuste de finance-access-security.test.ts) e de $executeRaw, que é
+// o set_config da GUC.
+vi.mock("@/lib/prisma", () => {
+  const tx = { membership: { findFirst: findMembership } };
+  return {
+    prisma: {
+      ...tx,
+      $executeRaw: vi.fn().mockResolvedValue(undefined),
+      $transaction: (fn: (tx: unknown) => unknown) =>
+        fn({ ...tx, $executeRaw: vi.fn().mockResolvedValue(undefined) }),
+    },
+  };
+});
 vi.mock("@/lib/supabase", () => ({
   STORAGE_BUCKET: "salon-assets",
   getSupabaseAdmin: () => ({ storage: { from } }),

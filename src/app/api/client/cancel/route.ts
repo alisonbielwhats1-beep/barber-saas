@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
+import { withSalonBySlug } from "@/lib/prisma-tenant";
 import { getClientSession } from "@/lib/client-auth";
 import {
   checkRateLimit,
@@ -55,40 +55,56 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
   }
 
-  const salon = await prisma.salon.findUnique({
-    where: { slug: salonSlug },
-    select: { id: true, cancelPolicyHours: true },
+  const result = await withSalonBySlug(salonSlug, async (tx, salonId) => {
+    if (session.salonId !== salonId) return { kind: "not_found" as const };
+
+    const salon = await tx.salon.findUnique({
+      where: { id: salonId },
+      select: { cancelPolicyHours: true },
+    });
+    if (!salon) return { kind: "not_found" as const };
+
+    const appt = await tx.appointment.findFirst({
+      where: {
+        id: appointmentId,
+        salonId,
+        clientId: session.clientId,
+      },
+      select: { id: true, status: true, startAt: true },
+    });
+    if (!appt) return { kind: "forbidden" as const };
+    if (appt.status === "COMPLETED" || appt.status === "CANCELLED") {
+      return { kind: "already_closed" as const };
+    }
+
+    // Política de cancelamento: não permite cancelar com menos de N horas de antecedência
+    const hoursUntil = (appt.startAt.getTime() - Date.now()) / 3_600_000;
+    if (hoursUntil >= 0 && hoursUntil < salon.cancelPolicyHours) {
+      return { kind: "too_late" as const };
+    }
+
+    // $executeRaw evita erro de tipo quando a migration 003 ainda não foi aplicada
+    await tx.$executeRaw`
+      UPDATE "Appointment"
+      SET   status = 'CANCELLED'::"AppointmentStatus",
+            "cancelledAt" = NOW(),
+            "updatedAt"   = NOW()
+      WHERE id = ${appt.id}
+    `;
+    return { kind: "ok" as const };
   });
-  if (!salon || session.salonId !== salon.id) {
-    return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
-  }
 
-  const appt = await prisma.appointment.findFirst({
-    where: {
-      id: appointmentId,
-      salonId: salon.id,
-      clientId: session.clientId,
-    },
-    select: { id: true, status: true, startAt: true },
-  });
-  if (!appt) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  if (appt.status === "COMPLETED" || appt.status === "CANCELLED") {
-    return NextResponse.json({ error: "ALREADY_CLOSED" }, { status: 409 });
+  switch (result?.kind) {
+    case undefined:
+    case "not_found":
+      return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+    case "forbidden":
+      return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+    case "already_closed":
+      return NextResponse.json({ error: "ALREADY_CLOSED" }, { status: 409 });
+    case "too_late":
+      return NextResponse.json({ error: "TOO_LATE_TO_CANCEL" }, { status: 409 });
+    case "ok":
+      return NextResponse.json({ ok: true });
   }
-
-  // Política de cancelamento: não permite cancelar com menos de N horas de antecedência
-  const hoursUntil = (appt.startAt.getTime() - Date.now()) / 3_600_000;
-  if (hoursUntil >= 0 && hoursUntil < salon.cancelPolicyHours) {
-    return NextResponse.json({ error: "TOO_LATE_TO_CANCEL" }, { status: 409 });
-  }
-
-  // $executeRaw evita erro de tipo quando a migration 003 ainda não foi aplicada
-  await prisma.$executeRaw`
-    UPDATE "Appointment"
-    SET   status = 'CANCELLED'::"AppointmentStatus",
-          "cancelledAt" = NOW(),
-          "updatedAt"   = NOW()
-    WHERE id = ${appt.id}
-  `;
-  return NextResponse.json({ ok: true });
 }

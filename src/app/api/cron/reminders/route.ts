@@ -14,6 +14,17 @@ import { startOfDay, endOfDay, addDays } from "date-fns";
  *
  * Protegido por CRON_SECRET — configure na Vercel:
  *   vercel env add CRON_SECRET production
+ *
+ * ⚠️  FICA EM `prisma` CRU DE PROPÓSITO — não migrar para withSalon/withTenant.
+ * A query varre TODOS os salões numa passada só (ORDER BY "salonId"), por
+ * design: é um job de sistema, não uma requisição de um tenant específico.
+ * Sob RLS com a role dedicada (sem BYPASSRLS, ver 03_create_app_role.sql),
+ * uma query cross-tenant como esta devolveria ZERO linhas — a policy de
+ * Appointment exige salonId = app_current_salon(), e não há UM salão aqui.
+ * Antes de trocar a connection string do app para a role nova, este cron
+ * precisa de uma decisão própria: (a) continuar numa conexão à parte com
+ * BYPASSRLS, ou (b) virar um loop de withSalon por salão. Nenhuma das duas
+ * é óbvia o bastante pra decidir de passagem numa migração de queries.
  */
 export async function GET(req: NextRequest) {
   const auth = req.headers.get("authorization");

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { randomUUID } from "node:crypto";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { withUser } from "@/lib/prisma-tenant";
 import { getSupabaseAdmin, STORAGE_BUCKET } from "@/lib/supabase";
 import {
   canUploadToFolder,
@@ -23,14 +23,18 @@ export async function POST(req: NextRequest) {
   }
 
   const activeSalonId = req.cookies.get("active_salon")?.value;
-  const membership = await prisma.membership.findFirst({
-    where: {
-      userId: session.user.id,
-      ...(activeSalonId ? { salonId: activeSalonId } : {}),
-    },
-    select: { salonId: true, role: true },
-    orderBy: { id: "asc" },
-  });
+  // withUser, não withTenant: só a GUC de usuário está disponível aqui — é
+  // esta mesma consulta que decide qual salão vale, igual setActiveSalon.
+  const membership = await withUser(session.user.id, (tx) =>
+    tx.membership.findFirst({
+      where: {
+        userId: session.user.id,
+        ...(activeSalonId ? { salonId: activeSalonId } : {}),
+      },
+      select: { salonId: true, role: true },
+      orderBy: { id: "asc" },
+    }),
+  );
   if (!membership) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
