@@ -149,3 +149,26 @@ export async function withSalonBySlug<T>(
   if (!found) return null;
   return withSalon(found.id, (tx) => fn(tx, found.id));
 }
+
+/**
+ * Executa `fn` com o hash de um token de convite, sem salão nem usuário
+ * conhecidos — é o único jeito de ler `UserInvite` antes de saber o salonId,
+ * porque é assim que o convidado abre o link antes de ter qualquer vínculo.
+ *
+ * A policy correspondente (`user_invite_token_read`, `01_enable_rls.sql` seção
+ * 6) só libera SELECT, e só a linha cujo tokenHash bate com esta GUC — não é
+ * leitura pública da tabela como em `Salon`, porque `UserInvite` carrega
+ * e-mail, nome e papel. Depois de ler o convite e descobrir seu `salonId`,
+ * chame `setSalonGuc(tx, invite.salonId)` na mesma transação antes de
+ * qualquer escrita — a policy de escrita continua exigindo
+ * salonId = app_current_salon(), esta GUC não abre exceção nenhuma pra isso.
+ */
+export async function withInviteToken<T>(
+  tokenHash: string,
+  fn: (tx: Tx) => Promise<T>,
+): Promise<T> {
+  return prisma.$transaction(async (tx) => {
+    await setGuc(tx, "app.invite_token_hash", tokenHash);
+    return fn(tx);
+  });
+}
