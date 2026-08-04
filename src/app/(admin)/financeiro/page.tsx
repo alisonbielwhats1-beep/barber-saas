@@ -1,5 +1,5 @@
 import { requireRole, FINANCE_ROLES } from "@/lib/tenant";
-import { prisma } from "@/lib/prisma";
+import { withTenant } from "@/lib/prisma-tenant";
 import { getFinanceMetrics } from "@/lib/finance";
 import { RANGE_LABELS, type RangeKey } from "@/lib/dashboard";
 import { formatMoney } from "@/lib/utils";
@@ -34,29 +34,31 @@ export default async function FinanceiroPage({
 }) {
   // Financeiro do salão inteiro: só dono/gerente. Profissional e recepcionista
   // são redirecionados — antes bastava abrir a URL para ver o DRE completo.
-  const { salonId } = await requireRole(FINANCE_ROLES);
+  const ctx = await requireRole(FINANCE_ROLES);
+  const { salonId } = ctx;
   const { range: selectedRange } = await searchParams;
   const range: RangeKey = VALID.includes(selectedRange as RangeKey)
     ? (selectedRange as RangeKey)
     : "30d";
 
-  const m = await getFinanceMetrics(salonId, range);
-
-  const expenseRows = (
-    await prisma.expense.findMany({
+  const { m, expenseRows } = await withTenant(ctx, async (tx) => {
+    const m = await getFinanceMetrics(tx, salonId, range);
+    const expenses = await tx.expense.findMany({
       where: { salonId, dueDate: { gte: m.period.from, lte: m.period.to } },
       select: { id: true, description: true, category: true, kind: true, amountCents: true, dueDate: true, paidAt: true },
       orderBy: { dueDate: "desc" },
-    })
-  ).map((e) => ({
-    id: e.id,
-    description: e.description,
-    category: e.category,
-    kind: e.kind,
-    amountCents: e.amountCents,
-    dueDate: e.dueDate.toISOString(),
-    paidAt: e.paidAt ? e.paidAt.toISOString() : null,
-  })) as ExpenseRow[];
+    });
+    const expenseRows = expenses.map((e) => ({
+      id: e.id,
+      description: e.description,
+      category: e.category,
+      kind: e.kind,
+      amountCents: e.amountCents,
+      dueDate: e.dueDate.toISOString(),
+      paidAt: e.paidAt ? e.paidAt.toISOString() : null,
+    })) as ExpenseRow[];
+    return { m, expenseRows };
+  });
 
   return (
     <div className="space-y-6">
