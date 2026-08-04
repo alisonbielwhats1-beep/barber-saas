@@ -25,10 +25,10 @@ export const SERVICE_URL = "https://salon-saas-ruby.vercel.app";
  * Enquanto estiver com o valor abaixo, as páginas legais exibem um aviso
  * visível — ver `hasPendingLegalIdentity()`.
  */
-export const OPERATOR_LEGAL_NAME = "PREENCHER: nome civil completo";
+export const OPERATOR_LEGAL_NAME = "Alison Barbosa da Silva";
 
 /** Cidade/UF do foro eleito para resolver disputas. */
-export const OPERATOR_JURISDICTION = "PREENCHER: cidade/UF";
+export const OPERATOR_JURISDICTION = "São Paulo/SP";
 
 /** Canal obrigatório da LGPD para exercício de direitos do titular. */
 export const PRIVACY_CONTACT_EMAIL = "alisonbsilva1@hotmail.com";
