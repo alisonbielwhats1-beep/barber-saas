@@ -4,27 +4,29 @@ import { NextRequest } from "next/server";
 const mocks = vi.hoisted(() => {
   const appointmentCreate = vi.fn();
   const clientCreate = vi.fn();
-  const tx = {
-    appointment: { create: appointmentCreate },
-    clientProfile: { create: clientCreate },
+  // A rota inteira (leituras e escritas) passa a rodar dentro de uma única
+  // withSalon — não há mais um $transaction separado só para as escritas.
+  // Por isso um objeto só serve tanto de "prisma" de topo quanto de "tx"
+  // devolvido ao callback: é a mesma mudança de forma de finance-access-
+  // security.test.ts, aqui com mais métodos por causa do fluxo de reserva.
+  const prisma = {
+    service: { findFirst: vi.fn() },
+    professionalService: { findFirst: vi.fn() },
+    appointment: { findFirst: vi.fn(), create: appointmentCreate },
+    product: { findMany: vi.fn(), update: vi.fn() },
+    clientProfile: { findFirst: vi.fn(), create: clientCreate },
     appointmentProduct: { createMany: vi.fn() },
-    product: { update: vi.fn() },
+    $executeRaw: vi.fn().mockResolvedValue(undefined),
+    $transaction: vi.fn(),
   };
+  prisma.$transaction.mockImplementation(
+    async (callback: (value: typeof prisma) => unknown) => callback(prisma),
+  );
   return {
     getClientSession: vi.fn(),
     appointmentCreate,
     clientCreate,
-    tx,
-    prisma: {
-      service: { findFirst: vi.fn() },
-      professionalService: { findFirst: vi.fn() },
-      appointment: { findFirst: vi.fn() },
-      product: { findMany: vi.fn() },
-      clientProfile: { findFirst: vi.fn(), create: clientCreate },
-      $transaction: vi.fn(async (callback: (value: typeof tx) => unknown) =>
-        callback(tx),
-      ),
-    },
+    prisma,
   };
 });
 

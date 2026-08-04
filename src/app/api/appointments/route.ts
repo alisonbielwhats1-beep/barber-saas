@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { withSalon } from "@/lib/prisma-tenant";
 import { isOverlapViolation } from "@/lib/db-errors";
 import { getClientSession } from "@/lib/client-auth";
 import {
@@ -54,92 +54,94 @@ export async function POST(req: NextRequest) {
   const session = await getClientSession();
   const identity = resolveBookingIdentity(session, b.salonId);
 
-  const [service, prosLink] = await Promise.all([
-    prisma.service.findFirst({
+  // Toda a operação — validações e escrita — numa transação só. O catch de
+  // overlap violation continua isolado ao redor só da escrita final, e não
+  // emite mais nenhuma query depois de capturar o erro: seguro dentro da
+  // mesma transação interativa (o commit seguinte vira rollback silencioso).
+  return withSalon(b.salonId, async (tx) => {
+    const service = await tx.service.findFirst({
       where: { id: b.serviceId, salonId: b.salonId, active: true },
       select: { durationMin: true, priceCents: true },
-    }),
-    prisma.professionalService.findFirst({
-      where: { serviceId: b.serviceId, professional: { id: b.professionalId, salonId: b.salonId, active: true } },
-    }),
-  ]);
-  if (!service) return NextResponse.json({ error: "SERVICE_INVALID" }, { status: 400 });
-  if (!prosLink)
-    return NextResponse.json({ error: "PRO_SERVICE_MISMATCH" }, { status: 400 });
-
-  const startAt = new Date(b.startAt);
-  const endAt = addMinutes(startAt, service.durationMin);
-
-  const conflict = await prisma.appointment.findFirst({
-    where: {
-      professionalId: b.professionalId,
-      status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
-      startAt: { lt: endAt },
-      endAt: { gt: startAt },
-    },
-    select: { id: true },
-  });
-  if (conflict) return NextResponse.json({ error: "SLOT_TAKEN" }, { status: 409 });
-
-  // Valida produtos: só os que pertencem ao salão e têm estoque suficiente
-  let productSnapshots: { productId: string; quantity: number; priceCentsUnit: number }[] = [];
-  if (b.cartItems.length > 0) {
-    const products = await prisma.product.findMany({
-      where: {
-        id: { in: b.cartItems.map((i) => i.productId) },
-        salonId: b.salonId,
-        active: true,
-      },
-      select: { id: true, priceCents: true, stock: true, name: true },
     });
-    const byId = new Map(products.map((p) => [p.id, p]));
-    for (const ci of b.cartItems) {
-      const p = byId.get(ci.productId);
-      if (!p) {
-        return NextResponse.json(
-          { error: `Produto inválido: ${ci.productId}` },
-          { status: 400 },
-        );
-      }
-      if (p.stock < ci.quantity) {
-        return NextResponse.json(
-          { error: `Estoque insuficiente: ${p.name}` },
-          { status: 409 },
-        );
-      }
-      productSnapshots.push({
-        productId: p.id,
-        quantity: ci.quantity,
-        priceCentsUnit: p.priceCents,
-      });
-    }
-  }
+    const prosLink = await tx.professionalService.findFirst({
+      where: { serviceId: b.serviceId, professional: { id: b.professionalId, salonId: b.salonId, active: true } },
+    });
+    if (!service) return NextResponse.json({ error: "SERVICE_INVALID" }, { status: 400 });
+    if (!prosLink)
+      return NextResponse.json({ error: "PRO_SERVICE_MISMATCH" }, { status: 400 });
 
-  let clientId: string | null = null;
-  let guestContact: { name: string; phone: string } | null = null;
-  if (identity.kind === "authenticated") {
-    // O ID vem exclusivamente do cookie assinado, nunca do navegador.
-    const client = await prisma.clientProfile.findFirst({
-      where: { id: identity.clientId, salonId: b.salonId },
+    const startAt = new Date(b.startAt);
+    const endAt = addMinutes(startAt, service.durationMin);
+
+    const conflict = await tx.appointment.findFirst({
+      where: {
+        professionalId: b.professionalId,
+        status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
+        startAt: { lt: endAt },
+        endAt: { gt: startAt },
+      },
       select: { id: true },
     });
-    if (!client) {
-      return NextResponse.json({ error: "AUTH_REQUIRED" }, { status: 401 });
-    }
-    clientId = client.id;
-  } else {
-    // Visitante não prova posse do telefone. Por isso, o telefone é apenas
-    // contato e nunca é usado para localizar/reutilizar uma identidade
-    // existente (especialmente uma conta autenticada).
-    if (!b.clientName || !b.clientPhone) {
-      return NextResponse.json({ error: "GUEST_DATA_REQUIRED" }, { status: 400 });
-    }
-    guestContact = { name: b.clientName, phone: b.clientPhone };
-  }
+    if (conflict) return NextResponse.json({ error: "SLOT_TAKEN" }, { status: 409 });
 
-  let appt;
-  try {
-    appt = await prisma.$transaction(async (tx) => {
+    // Valida produtos: só os que pertencem ao salão e têm estoque suficiente
+    let productSnapshots: { productId: string; quantity: number; priceCentsUnit: number }[] = [];
+    if (b.cartItems.length > 0) {
+      const products = await tx.product.findMany({
+        where: {
+          id: { in: b.cartItems.map((i) => i.productId) },
+          salonId: b.salonId,
+          active: true,
+        },
+        select: { id: true, priceCents: true, stock: true, name: true },
+      });
+      const byId = new Map(products.map((p) => [p.id, p]));
+      for (const ci of b.cartItems) {
+        const p = byId.get(ci.productId);
+        if (!p) {
+          return NextResponse.json(
+            { error: `Produto inválido: ${ci.productId}` },
+            { status: 400 },
+          );
+        }
+        if (p.stock < ci.quantity) {
+          return NextResponse.json(
+            { error: `Estoque insuficiente: ${p.name}` },
+            { status: 409 },
+          );
+        }
+        productSnapshots.push({
+          productId: p.id,
+          quantity: ci.quantity,
+          priceCentsUnit: p.priceCents,
+        });
+      }
+    }
+
+    let clientId: string | null = null;
+    let guestContact: { name: string; phone: string } | null = null;
+    if (identity.kind === "authenticated") {
+      // O ID vem exclusivamente do cookie assinado, nunca do navegador.
+      const client = await tx.clientProfile.findFirst({
+        where: { id: identity.clientId, salonId: b.salonId },
+        select: { id: true },
+      });
+      if (!client) {
+        return NextResponse.json({ error: "AUTH_REQUIRED" }, { status: 401 });
+      }
+      clientId = client.id;
+    } else {
+      // Visitante não prova posse do telefone. Por isso, o telefone é apenas
+      // contato e nunca é usado para localizar/reutilizar uma identidade
+      // existente (especialmente uma conta autenticada).
+      if (!b.clientName || !b.clientPhone) {
+        return NextResponse.json({ error: "GUEST_DATA_REQUIRED" }, { status: 400 });
+      }
+      guestContact = { name: b.clientName, phone: b.clientPhone };
+    }
+
+    let appt;
+    try {
       const appointmentClientId =
         clientId ??
         (
@@ -182,17 +184,17 @@ export async function POST(req: NextRequest) {
           });
         }
       }
-      return created;
-    });
-  } catch (e) {
-    // Exclusion constraint (appointment_no_overlap): outra reserva venceu a
-    // corrida entre a checagem de conflito e o INSERT. Mesma resposta de slot
-    // ocupado — o client recarrega a grade.
-    if (isOverlapViolation(e)) {
-      return NextResponse.json({ error: "SLOT_TAKEN" }, { status: 409 });
+      appt = created;
+    } catch (e) {
+      // Exclusion constraint (appointment_no_overlap): outra reserva venceu a
+      // corrida entre a checagem de conflito e o INSERT. Mesma resposta de slot
+      // ocupado — o client recarrega a grade.
+      if (isOverlapViolation(e)) {
+        return NextResponse.json({ error: "SLOT_TAKEN" }, { status: 409 });
+      }
+      throw e;
     }
-    throw e;
-  }
 
-  return NextResponse.json({ appointment: appt }, { status: 201 });
+    return NextResponse.json({ appointment: appt }, { status: 201 });
+  });
 }

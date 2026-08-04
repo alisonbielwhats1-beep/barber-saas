@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { withSalonBySlug } from "@/lib/prisma-tenant";
 import { getClientSession } from "@/lib/client-auth";
 import {
   checkRateLimit,
@@ -47,50 +47,59 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "BAD_REQUEST" }, { status: 400 });
   }
 
-  const salon = await prisma.salon.findUnique({
-    where: { slug: salonSlug },
-    select: { id: true, currency: true },
+  const result = await withSalonBySlug(salonSlug, async (tx, salonId) => {
+    if (salonId !== session.salonId) return { kind: "not_found" as const };
+
+    const salon = await tx.salon.findUnique({
+      where: { id: salonId },
+      select: { currency: true },
+    });
+    if (!salon) return { kind: "not_found" as const };
+
+    const client = await tx.clientProfile.findFirst({
+      where: { id: session.clientId, salonId },
+      select: { id: true, name: true },
+    });
+    if (!client) return { kind: "unauthenticated" as const };
+
+    const appointments = await tx.appointment.findMany({
+      where: {
+        clientId: client.id,
+        salonId,
+      },
+      orderBy: { startAt: "desc" },
+      take: 50,
+      select: {
+        id: true,
+        startAt: true,
+        endAt: true,
+        priceCents: true,
+        status: true,
+        service: { select: { name: true, colorHex: true } },
+        professional: { select: { user: { select: { name: true } } } },
+        products: {
+          select: {
+            quantity: true,
+            priceCentsUnit: true,
+            product: { select: { name: true } },
+          },
+        },
+      },
+    });
+
+    return { kind: "ok" as const, client, currency: salon.currency, appointments };
   });
-  if (!salon || salon.id !== session.salonId) {
+
+  if (!result || result.kind === "not_found") {
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
   }
-
-  const client = await prisma.clientProfile.findFirst({
-    where: { id: session.clientId, salonId: session.salonId },
-    select: { id: true, name: true },
-  });
-  if (!client) {
+  if (result.kind === "unauthenticated") {
     return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
   }
 
-  const appointments = await prisma.appointment.findMany({
-    where: {
-      clientId: client.id,
-      salonId: session.salonId,
-    },
-    orderBy: { startAt: "desc" },
-    take: 50,
-    select: {
-      id: true,
-      startAt: true,
-      endAt: true,
-      priceCents: true,
-      status: true,
-      service: { select: { name: true, colorHex: true } },
-      professional: { select: { user: { select: { name: true } } } },
-      products: {
-        select: {
-          quantity: true,
-          priceCentsUnit: true,
-          product: { select: { name: true } },
-        },
-      },
-    },
-  });
-
   return NextResponse.json({
-    client: { name: client.name },
-    currency: salon.currency,
-    appointments,
+    client: { name: result.client.name },
+    currency: result.currency,
+    appointments: result.appointments,
   });
 }
