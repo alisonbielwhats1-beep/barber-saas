@@ -90,10 +90,15 @@ export async function toggleServiceActive(id: string) {
       select: { active: true },
     });
     if (!svc) throw new Error("Not found");
-    // Sob RLS a policy já restringe este update ao salão ativo mesmo sem o
-    // filtro explícito — mas o `findFirst` acima continua sendo a checagem
-    // de posse que decide o valor de `active` a gravar.
-    await tx.service.update({ where: { id }, data: { active: !svc.active } });
+    // updateMany (não update) para manter o filtro salonId também na
+    // escrita — a versão anterior gravava por `id` sozinho, dependendo só
+    // do findFirst acima como checagem de posse. Funcionalmente seguro no
+    // fluxo atual (o `id` já foi confirmado do salão certo), mas destoava
+    // do resto do arquivo e da regra de nunca escrever sem o filtro.
+    await tx.service.updateMany({
+      where: { id, salonId: ctx.salonId },
+      data: { active: !svc.active },
+    });
   });
   revalidatePath("/servicos");
 }
