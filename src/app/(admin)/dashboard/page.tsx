@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getTenantContext } from "@/lib/tenant";
 import { getDashboardMetrics, RANGE_LABELS, type RangeKey } from "@/lib/dashboard";
-import { prisma } from "@/lib/prisma";
+import { withSalon } from "@/lib/prisma-tenant";
 import { formatMoney, formatDuration } from "@/lib/utils";
 import { format, startOfDay, endOfDay, addDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -94,7 +94,7 @@ export default async function DashboardPage({
   };
   let remindersRaw: ReminderRow[] = [];
   try {
-    remindersRaw = await prisma.$queryRaw<ReminderRow[]>`
+    remindersRaw = await withSalon(salonId, (tx) => tx.$queryRaw<ReminderRow[]>`
       SELECT
         a.id,
         a."startAt",
@@ -114,7 +114,7 @@ export default async function DashboardPage({
         AND a."reminderSentAt" IS NULL
       ORDER BY a."startAt" ASC
       LIMIT 10
-    `;
+    `);
   } catch {}
 
   // Carrega primeiro as métricas para não somar as queries auxiliares às
@@ -126,36 +126,40 @@ export default async function DashboardPage({
   const [todayAppts, salonData, svcCount, proCount] =
     await withDatabaseRetry("summary", () =>
       Promise.all([
-        prisma.appointment.findMany({
-          where: {
-            salonId,
-            startAt: { gte: startOfDay(now), lte: endOfDay(now) },
-            endAt: { gte: now },
-            status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
-          },
-          orderBy: { startAt: "asc" },
-          take: 5,
-          select: {
-            id: true,
-            startAt: true,
-            status: true,
-            client: { select: { name: true } },
-            service: { select: { name: true, colorHex: true } },
-            professional: { select: { user: { select: { name: true } } } },
-          },
-        }),
-        prisma.salon.findUnique({
-          where: { id: salonId },
-          select: { name: true },
-        }),
-        prisma.service.count({ where: { salonId, active: true } }),
-        prisma.professional.count({ where: { salonId, active: true } }),
+        withSalon(salonId, (tx) =>
+          tx.appointment.findMany({
+            where: {
+              salonId,
+              startAt: { gte: startOfDay(now), lte: endOfDay(now) },
+              endAt: { gte: now },
+              status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
+            },
+            orderBy: { startAt: "asc" },
+            take: 5,
+            select: {
+              id: true,
+              startAt: true,
+              status: true,
+              client: { select: { name: true } },
+              service: { select: { name: true, colorHex: true } },
+              professional: { select: { user: { select: { name: true } } } },
+            },
+          }),
+        ),
+        withSalon(salonId, (tx) =>
+          tx.salon.findUnique({
+            where: { id: salonId },
+            select: { name: true },
+          }),
+        ),
+        withSalon(salonId, (tx) => tx.service.count({ where: { salonId, active: true } })),
+        withSalon(salonId, (tx) => tx.professional.count({ where: { salonId, active: true } })),
       ]),
     );
   const [whCount, apptCount] = await withDatabaseRetry("setup", () =>
     Promise.all([
-      prisma.workingHours.count({ where: { professional: { salonId } } }),
-      prisma.appointment.count({ where: { salonId } }),
+      withSalon(salonId, (tx) => tx.workingHours.count({ where: { professional: { salonId } } })),
+      withSalon(salonId, (tx) => tx.appointment.count({ where: { salonId } })),
     ]),
   );
   const salonName = salonData?.name ?? "seu salão";

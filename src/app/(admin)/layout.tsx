@@ -1,6 +1,6 @@
 import { Scissors } from "lucide-react";
-import { prisma } from "@/lib/prisma";
 import { getTenantContext } from "@/lib/tenant";
+import { withTenant } from "@/lib/prisma-tenant";
 import { SidebarFooter } from "./sidebar-footer";
 import { SalonSwitcher } from "./salon-switcher";
 import { SidebarNav } from "./sidebar-nav";
@@ -10,18 +10,24 @@ import { ThemeProvider } from "./theme-provider";
 import { MobileNav } from "./mobile-nav";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { userId, salonId, role } = await getTenantContext();
+  const ctx = await getTenantContext();
+  const { userId, salonId, role } = ctx;
 
-  const [salon, memberships] = await Promise.all([
-    prisma.salon.findUnique({
+  // membership.findMany aqui é por userId (não salonId) de propósito: é a
+  // lista de TODOS os salões do usuário, para o seletor — withTenant seta as
+  // duas GUCs, e a policy de leitura de Membership aceita por usuário OU por
+  // salão, então a linha do próprio usuário passa mesmo cruzando salão.
+  const { salon, memberships } = await withTenant(ctx, async (tx) => {
+    const salon = await tx.salon.findUnique({
       where: { id: salonId },
       select: { name: true, plan: true },
-    }),
-    prisma.membership.findMany({
+    });
+    const memberships = await tx.membership.findMany({
       where: { userId },
       select: { role: true, salon: { select: { id: true, name: true } } },
-    }),
-  ]);
+    });
+    return { salon, memberships };
+  });
 
   const membershipList = memberships.map((m) => ({
     id: m.salon.id,
