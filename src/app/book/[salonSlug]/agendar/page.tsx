@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/prisma";
+import { withSalonBySlug } from "@/lib/prisma-tenant";
 import { getClientSession } from "@/lib/client-auth";
 import { clientSessionForSalon } from "@/lib/public-appointment";
 import { BookingFlow } from "./booking-flow";
@@ -12,27 +12,29 @@ export default async function AgendarPage({
   searchParams: Promise<{ service?: string; pro?: string }>;
 }) {
   const [{ salonSlug }, query] = await Promise.all([params, searchParams]);
-  const salon = await prisma.salon.findUnique({
-    where: { slug: salonSlug },
-    select: {
-      id: true,
-      name: true,
-      currency: true,
-      services: {
-        where: { active: true },
-        include: {
-          professionals: {
-            include: {
-              professional: {
-                select: {
-                  id: true,
-                  colorHex: true,
-                  active: true,
-                  user: { select: { name: true, avatarUrl: true } },
-                  // serviços que o profissional executa → vira tag de especialidade
-                  services: {
-                    select: { service: { select: { name: true } } },
-                    take: 3,
+  const result = await withSalonBySlug(salonSlug, async (tx, salonId) => {
+    const salon = await tx.salon.findUnique({
+      where: { id: salonId },
+      select: {
+        id: true,
+        name: true,
+        currency: true,
+        services: {
+          where: { active: true },
+          include: {
+            professionals: {
+              include: {
+                professional: {
+                  select: {
+                    id: true,
+                    colorHex: true,
+                    active: true,
+                    user: { select: { name: true, avatarUrl: true } },
+                    // serviços que o profissional executa → vira tag de especialidade
+                    services: {
+                      select: { service: { select: { name: true } } },
+                      take: 3,
+                    },
                   },
                 },
               },
@@ -40,22 +42,25 @@ export default async function AgendarPage({
           },
         },
       },
-    },
+    });
+    if (!salon) return null;
+
+    // Contagem real de atendimentos por profissional (prova social honesta)
+    const counts = await tx.appointment.groupBy({
+      by: ["professionalId"],
+      where: {
+        salonId,
+        status: { in: ["CONFIRMED", "IN_PROGRESS", "COMPLETED"] },
+      },
+      _count: { _all: true },
+    });
+    return { salon, counts };
   });
-  if (!salon) notFound();
+  if (!result) notFound();
+  const { salon, counts } = result;
 
   const clientSession = await getClientSession();
   const validSession = clientSessionForSalon(clientSession, salon.id);
-
-  // Contagem real de atendimentos por profissional (prova social honesta)
-  const counts = await prisma.appointment.groupBy({
-    by: ["professionalId"],
-    where: {
-      salonId: salon.id,
-      status: { in: ["CONFIRMED", "IN_PROGRESS", "COMPLETED"] },
-    },
-    _count: { _all: true },
-  });
   const countByPro = new Map(counts.map((c) => [c.professionalId, c._count._all]));
   const topProId =
     counts.length > 1

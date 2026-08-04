@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight, MoreHorizontal } from "lucide-react";
-import { prisma } from "@/lib/prisma";
+import { withSalonBySlug } from "@/lib/prisma-tenant";
 import { HERO_IMAGES } from "@/lib/images";
 
 /**
@@ -15,10 +15,12 @@ export default async function WelcomePage({
   params: Promise<{ salonSlug: string }>;
 }) {
   const { salonSlug } = await params;
-  const salon = await prisma.salon.findUnique({
-    where: { slug: salonSlug },
-    select: { name: true, address: true, logoUrl: true },
-  });
+  const salon = await withSalonBySlug(salonSlug, (tx, salonId) =>
+    tx.salon.findUnique({
+      where: { id: salonId },
+      select: { name: true, address: true, logoUrl: true },
+    }),
+  );
   if (!salon) notFound();
 
   // Escolha determinística por slug pra a mesma URL sempre mostrar a mesma foto

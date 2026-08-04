@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import bcrypt from "bcryptjs";
-import { prisma } from "@/lib/prisma";
+import { withSalonBySlug } from "@/lib/prisma-tenant";
 import { normalizePhone } from "@/lib/phone";
 import { setClientSession, clearClientSession } from "@/lib/client-auth";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
@@ -49,16 +49,14 @@ export async function loginClient(
     return { error: "Muitas tentativas. Aguarde alguns minutos e tente novamente." };
   }
 
-  const salon = await prisma.salon.findUnique({
-    where: { slug: salonSlug },
-    select: { id: true },
-  });
-  if (!salon) return { error: "Salão não encontrado" };
-
-  const client = await prisma.clientProfile.findFirst({
-    where: { salonId: salon.id, email: normalizedEmail },
-    select: { id: true, name: true, email: true, passwordHash: true },
-  });
+  const found = await withSalonBySlug(salonSlug, (tx, salonId) =>
+    tx.clientProfile.findFirst({
+      where: { salonId, email: normalizedEmail },
+      select: { id: true, name: true, email: true, passwordHash: true },
+    }).then((client) => ({ salonId, client })),
+  );
+  if (!found) return { error: "Salão não encontrado" };
+  const { salonId, client } = found;
 
   if (!client?.passwordHash) return { error: "E-mail ou senha incorretos" };
 
@@ -67,7 +65,7 @@ export async function loginClient(
 
   await setClientSession({
     clientId: client.id,
-    salonId: salon.id,
+    salonId,
     name: client.name,
     email: client.email!,
   });
@@ -95,38 +93,38 @@ export async function registerClient(
     return { error: "Muitas tentativas. Aguarde antes de criar outra conta." };
   }
 
-  const salon = await prisma.salon.findUnique({
-    where: { slug: salonSlug },
-    select: { id: true },
-  });
-  if (!salon) return { error: "Salão não encontrado" };
-
   const email = data.email.toLowerCase().trim();
+  // Hash fora da transação: bcrypt é CPU-bound e não depende de nada lido do
+  // banco — não faz sentido segurar a conexão presa nesse tempo.
+  const passwordHash = await bcrypt.hash(data.password, 10);
 
-  const exists = await prisma.clientProfile.findFirst({
-    where: { salonId: salon.id, email },
-    select: { id: true },
+  const result = await withSalonBySlug(salonSlug, async (tx, salonId) => {
+    const exists = await tx.clientProfile.findFirst({
+      where: { salonId, email },
+      select: { id: true },
+    });
+    if (exists) return { error: "duplicate" as const };
+
+    const client = await tx.clientProfile.create({
+      data: {
+        salonId,
+        name: data.name.trim(),
+        phone: normalizePhone(data.phone) || null,
+        email,
+        passwordHash,
+      },
+      select: { id: true },
+    });
+    return { clientId: client.id, salonId };
   });
-  if (exists) {
+  if (!result) return { error: "Salão não encontrado" };
+  if ("error" in result) {
     return { error: "Não foi possível criar a conta com os dados informados." };
   }
 
-  const passwordHash = await bcrypt.hash(data.password, 10);
-
-  const client = await prisma.clientProfile.create({
-    data: {
-      salonId: salon.id,
-      name: data.name.trim(),
-      phone: normalizePhone(data.phone) || null,
-      email,
-      passwordHash,
-    },
-    select: { id: true },
-  });
-
   await setClientSession({
-    clientId: client.id,
-    salonId: salon.id,
+    clientId: result.clientId,
+    salonId: result.salonId,
     name: data.name.trim(),
     email,
   });

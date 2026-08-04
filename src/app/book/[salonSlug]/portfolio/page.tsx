@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { prisma } from "@/lib/prisma";
+import { withSalonBySlug } from "@/lib/prisma-tenant";
 import { BottomNav } from "../bottom-nav";
 import { CartBadge } from "../cart-badge";
 
@@ -12,18 +12,20 @@ export default async function ClientPortfolio({
   params: Promise<{ salonSlug: string }>;
 }) {
   const { salonSlug } = await params;
-  const salon = await prisma.salon.findUnique({
-    where: { slug: salonSlug },
-    select: {
-      id: true,
-      portfolio: {
-        orderBy: { createdAt: "desc" },
-        include: {
-          professional: { select: { user: { select: { name: true } } } },
+  const salon = await withSalonBySlug(salonSlug, (tx, salonId) =>
+    tx.salon.findUnique({
+      where: { id: salonId },
+      select: {
+        id: true,
+        portfolio: {
+          orderBy: { createdAt: "desc" },
+          include: {
+            professional: { select: { user: { select: { name: true } } } },
+          },
         },
       },
-    },
-  });
+    }),
+  );
   if (!salon) notFound();
 
   return (

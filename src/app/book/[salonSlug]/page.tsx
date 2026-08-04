@@ -14,7 +14,7 @@ import {
   CreditCard,
   Info,
 } from "lucide-react";
-import { prisma } from "@/lib/prisma";
+import { withSalonBySlug } from "@/lib/prisma-tenant";
 import { HERO_IMAGES, imageForProduct } from "@/lib/images";
 import { normalizePhone, formatPhoneBR } from "@/lib/phone";
 import { hexToHslTriple, readableForeground } from "@/lib/color";
@@ -51,8 +51,8 @@ export default async function ClientHome({
   params: Promise<{ salonSlug: string }>;
 }) {
   const { salonSlug } = await params;
-  const salon = await prisma.salon.findUnique({
-    where: { slug: salonSlug },
+  const salon = await withSalonBySlug(salonSlug, (tx, salonId) => tx.salon.findUnique({
+    where: { id: salonId },
     select: {
       id: true,
       name: true,
@@ -99,7 +99,7 @@ export default async function ClientHome({
         select: { id: true, name: true, priceCents: true, imageUrl: true },
       },
     },
-  });
+  }));
   if (!salon) notFound();
 
   // WhatsApp próprio tem precedência sobre o telefone geral do salão.
