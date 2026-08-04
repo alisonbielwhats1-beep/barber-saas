@@ -1,22 +1,24 @@
-import { prisma } from "@/lib/prisma";
 import { getTenantContext } from "@/lib/tenant";
+import { withTenant } from "@/lib/prisma-tenant";
 import { ProductForm } from "./product-form";
 import { ProductsCatalog, type ProductCard } from "./products-catalog";
 
 export default async function ProdutosPage() {
-  const { salonId } = await getTenantContext();
+  const ctx = await getTenantContext();
+  const { salonId } = ctx;
 
-  const [products, sales] = await Promise.all([
-    prisma.product.findMany({
+  const { products, sales } = await withTenant(ctx, async (tx) => {
+    const products = await tx.product.findMany({
       where: { salonId },
       orderBy: [{ active: "desc" }, { name: "asc" }],
-    }),
-    prisma.appointmentProduct.groupBy({
+    });
+    const sales = await tx.appointmentProduct.groupBy({
       by: ["productId"],
       where: { appointment: { salonId } },
       _sum: { quantity: true },
-    }),
-  ]);
+    });
+    return { products, sales };
+  });
 
   const soldMap = new Map(sales.map((g) => [g.productId, g._sum.quantity ?? 0]));
   const topId = sales.length

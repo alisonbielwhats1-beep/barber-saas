@@ -2,8 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
 import { assertRole, getTenantContext } from "@/lib/tenant";
+import { withTenant } from "@/lib/prisma-tenant";
 
 const productInput = z.object({
   name: z.string().min(2),
@@ -43,7 +43,9 @@ export async function createProduct(input: ProductInput) {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER"]);
   const data = productInput.parse(input);
-  await prisma.product.create({ data: { salonId: ctx.salonId, ...toData(data) } });
+  await withTenant(ctx, (tx) =>
+    tx.product.create({ data: { salonId: ctx.salonId, ...toData(data) } }),
+  );
   revalidatePath("/produtos");
 }
 
@@ -51,38 +53,46 @@ export async function updateProduct(id: string, input: ProductInput) {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER"]);
   const data = productInput.parse(input);
-  await prisma.product.updateMany({ where: { id, salonId: ctx.salonId }, data: toData(data) });
+  await withTenant(ctx, (tx) =>
+    tx.product.updateMany({ where: { id, salonId: ctx.salonId }, data: toData(data) }),
+  );
   revalidatePath("/produtos");
 }
 
 export async function adjustStock(id: string, delta: number) {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER"]);
-  const prod = await prisma.product.findFirst({
-    where: { id, salonId: ctx.salonId },
-    select: { stock: true },
+  await withTenant(ctx, async (tx) => {
+    const prod = await tx.product.findFirst({
+      where: { id, salonId: ctx.salonId },
+      select: { stock: true },
+    });
+    if (!prod) throw new Error("Produto não encontrado");
+    const next = Math.max(0, prod.stock + delta);
+    await tx.product.updateMany({ where: { id, salonId: ctx.salonId }, data: { stock: next } });
   });
-  if (!prod) throw new Error("Produto não encontrado");
-  const next = Math.max(0, prod.stock + delta);
-  await prisma.product.update({ where: { id }, data: { stock: next } });
   revalidatePath("/produtos");
 }
 
 export async function toggleProductActive(id: string) {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER"]);
-  const p = await prisma.product.findFirst({
-    where: { id, salonId: ctx.salonId },
-    select: { active: true },
+  await withTenant(ctx, async (tx) => {
+    const p = await tx.product.findFirst({
+      where: { id, salonId: ctx.salonId },
+      select: { active: true },
+    });
+    if (!p) throw new Error("Not found");
+    await tx.product.updateMany({ where: { id, salonId: ctx.salonId }, data: { active: !p.active } });
   });
-  if (!p) throw new Error("Not found");
-  await prisma.product.update({ where: { id }, data: { active: !p.active } });
   revalidatePath("/produtos");
 }
 
 export async function deleteProduct(id: string) {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER"]);
-  await prisma.product.deleteMany({ where: { id, salonId: ctx.salonId } });
+  await withTenant(ctx, (tx) =>
+    tx.product.deleteMany({ where: { id, salonId: ctx.salonId } }),
+  );
   revalidatePath("/produtos");
 }
