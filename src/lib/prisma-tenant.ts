@@ -1,6 +1,5 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
-import { getTenantContext } from "./tenant";
 
 /**
  * Acesso ao banco com contexto de tenant, para uso junto do RLS
@@ -22,7 +21,21 @@ import { getTenantContext } from "./tenant";
  * e roda tudo dentro dele.
  *
  * ─── USO ────────────────────────────────────────────────────────────────────
- *   const servicos = await withTenant((tx) => tx.service.findMany());
+ *   const ctx = await getTenantContext();
+ *   const servicos = await withTenant(ctx, (tx) => tx.service.findMany());
+ *
+ * `withTenant` recebe o contexto já resolvido em vez de chamar
+ * `getTenantContext()` internamente, por dois motivos:
+ *
+ *   1. Import circular: `getTenantContext()` (`tenant.ts`) precisa de
+ *      `withUser` daqui para a PRÓPRIA leitura de `Membership` (ver abaixo).
+ *      Se este arquivo importasse `tenant.ts` de volta, os dois módulos se
+ *      importariam um ao outro — frágil sob o bundler do Next.js, que pode
+ *      deixar um dos dois parcialmente inicializado.
+ *   2. Toda Server Action já chama `getTenantContext()` para checar o papel
+ *      via `assertRole()` antes de tocar no banco. Se `withTenant` chamasse
+ *      de novo, seria uma segunda consulta a `Membership` por escrita — em
+ *      dobro, sem necessidade.
  *
  * O `set_config` usa `is_local => true`: o valor morre no fim da transação.
  * Isso é obrigatório com o PgBouncer em transaction mode, onde a conexão é
@@ -38,14 +51,16 @@ async function setGuc(tx: Tx, key: string, value: string) {
 }
 
 /**
- * Executa `fn` com o salão e o usuário da sessão ativos no banco.
- * Use em páginas e Server Actions do painel.
+ * Executa `fn` com o salão e o usuário de um contexto já resolvido
+ * (`getTenantContext()`). Use em páginas e Server Actions do painel.
  */
-export async function withTenant<T>(fn: (tx: Tx) => Promise<T>): Promise<T> {
-  const { salonId, userId } = await getTenantContext();
+export async function withTenant<T>(
+  ctx: { salonId: string; userId: string },
+  fn: (tx: Tx) => Promise<T>,
+): Promise<T> {
   return prisma.$transaction(async (tx) => {
-    await setGuc(tx, "app.current_salon", salonId);
-    await setGuc(tx, "app.current_user_id", userId);
+    await setGuc(tx, "app.current_salon", ctx.salonId);
+    await setGuc(tx, "app.current_user_id", ctx.userId);
     return fn(tx);
   });
 }

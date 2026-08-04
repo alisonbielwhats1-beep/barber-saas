@@ -2,8 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
 import { assertRole, getTenantContext } from "@/lib/tenant";
+import { withTenant } from "@/lib/prisma-tenant";
 
 const serviceInput = z.object({
   name: z.string().min(2, "Nome muito curto"),
@@ -36,9 +36,11 @@ export async function createService(input: ServiceInput) {
   assertRole(ctx, ["OWNER", "MANAGER"]);
   const data = serviceInput.parse(input);
 
-  await prisma.service.create({
-    data: { ...toData(data), salonId: ctx.salonId },
-  });
+  await withTenant(ctx, (tx) =>
+    tx.service.create({
+      data: { ...toData(data), salonId: ctx.salonId },
+    }),
+  );
   revalidatePath("/servicos");
 }
 
@@ -47,27 +49,33 @@ export async function updateService(id: string, input: ServiceInput) {
   assertRole(ctx, ["OWNER", "MANAGER"]);
   const data = serviceInput.parse(input);
 
-  // Filtro por salonId protege cross-tenant mesmo com id vindo do cliente
-  await prisma.service.updateMany({
-    where: { id, salonId: ctx.salonId },
-    data: toData(data),
-  });
+  // Filtro por salonId protege cross-tenant mesmo com id vindo do cliente —
+  // e, sob RLS, a policy da tabela reforça o mesmo filtro por trás.
+  await withTenant(ctx, (tx) =>
+    tx.service.updateMany({
+      where: { id, salonId: ctx.salonId },
+      data: toData(data),
+    }),
+  );
   revalidatePath("/servicos");
 }
 
 export async function duplicateService(id: string) {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER"]);
-  const svc = await prisma.service.findFirst({
-    where: { id, salonId: ctx.salonId },
-    select: {
-      name: true, description: true, durationMin: true, priceCents: true,
-      costCents: true, category: true, imageUrl: true, colorHex: true,
-    },
-  });
-  if (!svc) throw new Error("Serviço não encontrado");
-  await prisma.service.create({
-    data: { ...svc, name: `${svc.name} (cópia)`, salonId: ctx.salonId, active: false },
+
+  await withTenant(ctx, async (tx) => {
+    const svc = await tx.service.findFirst({
+      where: { id, salonId: ctx.salonId },
+      select: {
+        name: true, description: true, durationMin: true, priceCents: true,
+        costCents: true, category: true, imageUrl: true, colorHex: true,
+      },
+    });
+    if (!svc) throw new Error("Serviço não encontrado");
+    await tx.service.create({
+      data: { ...svc, name: `${svc.name} (cópia)`, salonId: ctx.salonId, active: false },
+    });
   });
   revalidatePath("/servicos");
 }
@@ -75,18 +83,26 @@ export async function duplicateService(id: string) {
 export async function toggleServiceActive(id: string) {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER"]);
-  const svc = await prisma.service.findFirst({
-    where: { id, salonId: ctx.salonId },
-    select: { active: true },
+
+  await withTenant(ctx, async (tx) => {
+    const svc = await tx.service.findFirst({
+      where: { id, salonId: ctx.salonId },
+      select: { active: true },
+    });
+    if (!svc) throw new Error("Not found");
+    // Sob RLS a policy já restringe este update ao salão ativo mesmo sem o
+    // filtro explícito — mas o `findFirst` acima continua sendo a checagem
+    // de posse que decide o valor de `active` a gravar.
+    await tx.service.update({ where: { id }, data: { active: !svc.active } });
   });
-  if (!svc) throw new Error("Not found");
-  await prisma.service.update({ where: { id }, data: { active: !svc.active } });
   revalidatePath("/servicos");
 }
 
 export async function deleteService(id: string) {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER"]);
-  await prisma.service.deleteMany({ where: { id, salonId: ctx.salonId } });
+  await withTenant(ctx, (tx) =>
+    tx.service.deleteMany({ where: { id, salonId: ctx.salonId } }),
+  );
   revalidatePath("/servicos");
 }

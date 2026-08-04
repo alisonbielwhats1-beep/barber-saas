@@ -1,8 +1,8 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
-import { prisma } from "./prisma";
 import { authOptions } from "./auth";
+import { withUser } from "./prisma-tenant";
 
 /**
  * Contexto de tenant resolvido a partir da sessão NextAuth.
@@ -13,6 +13,12 @@ import { authOptions } from "./auth";
  *
  * REGRA DE OURO: nenhuma query de tabela tenant-scoped roda sem `salonId`.
  * Nunca faça `findMany()` sem esse filtro — vazaria dados entre salões.
+ *
+ * Sob RLS (`prisma/sql/rls/01_enable_rls.sql`, ainda não aplicado): esta
+ * função é o único lugar do app que precisa ler `Membership` ANTES de saber
+ * o salão — é ela quem descobre o salão. Por isso a leitura roda dentro de
+ * `withUser`, que seta só a GUC de usuário. Todo o resto do app usa
+ * `withTenant`, que já recebe salão e usuário resolvidos por aqui.
  */
 
 export type Role =
@@ -36,10 +42,12 @@ export async function getTenantContext(): Promise<TenantContext> {
 
   const activeSalonId = (await cookies()).get("active_salon")?.value;
 
-  const memberships = await prisma.membership.findMany({
-    where: { userId },
-    select: { salonId: true, role: true },
-  });
+  const memberships = await withUser(userId, (tx) =>
+    tx.membership.findMany({
+      where: { userId },
+      select: { salonId: true, role: true },
+    }),
+  );
 
   if (memberships.length === 0) redirect("/onboarding/create-salon");
 

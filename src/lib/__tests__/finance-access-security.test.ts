@@ -18,14 +18,24 @@ const mocks = vi.hoisted(() => ({
     throw new Error(`REDIRECT:${path}`);
   }),
   findMany: vi.fn(),
+  executeRaw: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("next-auth", () => ({ getServerSession: mocks.getServerSession }));
 vi.mock("next/headers", () => ({ cookies: mocks.cookies }));
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
+// getTenantContext() passa pelo withUser() de prisma-tenant.ts, que abre uma
+// transação para setar a GUC antes de ler Membership — por isso o mock
+// precisa de $transaction (executa o callback com o próprio client mockado)
+// e $executeRaw (o set_config, que não faz diferença nenhuma sem RLS real).
 vi.mock("@/lib/prisma", () => ({
-  prisma: { membership: { findMany: mocks.findMany } },
+  prisma: {
+    membership: { findMany: mocks.findMany },
+    $executeRaw: mocks.executeRaw,
+    $transaction: (fn: (tx: unknown) => unknown) =>
+      fn({ membership: { findMany: mocks.findMany }, $executeRaw: mocks.executeRaw }),
+  },
 }));
 
 import { requireRole, FINANCE_ROLES } from "@/lib/tenant";

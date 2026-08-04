@@ -1,13 +1,16 @@
-import { prisma } from "@/lib/prisma";
 import { getTenantContext } from "@/lib/tenant";
+import { withTenant } from "@/lib/prisma-tenant";
 import { ServiceForm } from "./service-form";
 import { ServicesCatalog, type ServiceCard } from "./services-catalog";
 
 export default async function ServicosPage() {
-  const { salonId } = await getTenantContext();
+  const ctx = await getTenantContext();
+  const { salonId } = ctx;
 
-  const [services, sold] = await Promise.all([
-    prisma.service.findMany({
+  // Sequencial dentro da mesma transação/conexão — não concorrente entre si,
+  // então não reintroduz o esgotamento de pool que as waves de 4 evitam.
+  const { services, sold } = await withTenant(ctx, async (tx) => {
+    const services = await tx.service.findMany({
       where: { salonId },
       orderBy: { name: "asc" },
       select: {
@@ -16,15 +19,16 @@ export default async function ServicosPage() {
         colorHex: true, active: true,
         _count: { select: { professionals: true } },
       },
-    }),
+    });
     // Popularidade: atendimentos concluídos por serviço
-    prisma.appointment.groupBy({
+    const sold = await tx.appointment.groupBy({
       by: ["serviceId"],
       where: { salonId, status: "COMPLETED" },
       _count: { _all: true },
       _sum: { priceCents: true },
-    }),
-  ]);
+    });
+    return { services, sold };
+  });
 
   const stats = new Map(sold.map((g) => [g.serviceId, { sold: g._count._all, revenue: g._sum.priceCents ?? 0 }]));
 
