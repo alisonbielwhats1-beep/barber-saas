@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { withSalon } from "@/lib/prisma-tenant";
 import { isCronAuthorized } from "@/lib/cron-auth";
 import { startOfDay, endOfDay, addDays } from "date-fns";
 
@@ -15,16 +16,14 @@ import { startOfDay, endOfDay, addDays } from "date-fns";
  * Protegido por CRON_SECRET — configure na Vercel:
  *   vercel env add CRON_SECRET production
  *
- * ⚠️  FICA EM `prisma` CRU DE PROPÓSITO — não migrar para withSalon/withTenant.
- * A query varre TODOS os salões numa passada só (ORDER BY "salonId"), por
- * design: é um job de sistema, não uma requisição de um tenant específico.
- * Sob RLS com a role dedicada (sem BYPASSRLS, ver 03_create_app_role.sql),
- * uma query cross-tenant como esta devolveria ZERO linhas — a policy de
- * Appointment exige salonId = app_current_salon(), e não há UM salão aqui.
- * Antes de trocar a connection string do app para a role nova, este cron
- * precisa de uma decisão própria: (a) continuar numa conexão à parte com
- * BYPASSRLS, ou (b) virar um loop de withSalon por salão. Nenhuma das duas
- * é óbvia o bastante pra decidir de passagem numa migração de queries.
+ * Varre todos os salões, mas em loop — um `withSalon` por salão, não uma
+ * query cross-tenant. Sob RLS (`01_enable_rls.sql`, já aplicado) a policy de
+ * Appointment exige salonId = app_current_salon(); sem essa GUC a leitura
+ * volta vazia. A alternativa seria uma conexão à parte com BYPASSRLS, mas
+ * isso reintroduziria exatamente o atributo que o resto da migração eliminou
+ * — uma credencial assim vazando anula o RLS inteiro. O loop mantém este job
+ * na mesma forma de acesso do resto do app; roda 1x/dia, então N round-trips
+ * sequenciais não é custo sensível.
  */
 export async function GET(req: NextRequest) {
   const auth = req.headers.get("authorization");
@@ -49,30 +48,43 @@ export async function GET(req: NextRequest) {
     serviceName: string;
     proName: string;
   };
-  let appointments: ApptRow[] = [];
+  const appointments: ApptRow[] = [];
   try {
-    appointments = await prisma.$queryRaw<ApptRow[]>`
-      SELECT
-        a.id,
-        a."startAt",
-        sl.name      AS "salonName",
-        sl.phone     AS "salonPhone",
-        c.name       AS "clientName",
-        c.phone      AS "clientPhone",
-        s.name       AS "serviceName",
-        u.name       AS "proName"
-      FROM "Appointment" a
-      JOIN "Salon"         sl ON sl.id = a."salonId"
-      JOIN "ClientProfile" c  ON c.id  = a."clientId"
-      JOIN "Service"       s  ON s.id  = a."serviceId"
-      JOIN "Professional"  p  ON p.id  = a."professionalId"
-      JOIN "User"          u  ON u.id  = p."userId"
-      WHERE a."startAt"        >= ${tomorrow}
-        AND a."startAt"        <= ${tomorrowEnd}
-        AND a.status           IN ('CONFIRMED', 'PENDING')
-        AND a."reminderSentAt"  IS NULL
-      ORDER BY a."salonId" ASC, a."startAt" ASC
-    `;
+    // Salon tem leitura pública nas policies (01_enable_rls.sql, seção 2) —
+    // listar os ids não precisa de GUC nenhuma.
+    const salons = await prisma.salon.findMany({
+      select: { id: true },
+      orderBy: { id: "asc" },
+    });
+
+    for (const salon of salons) {
+      const rows = await withSalon(salon.id, (tx) =>
+        tx.$queryRaw<ApptRow[]>`
+          SELECT
+            a.id,
+            a."startAt",
+            sl.name      AS "salonName",
+            sl.phone     AS "salonPhone",
+            c.name       AS "clientName",
+            c.phone      AS "clientPhone",
+            s.name       AS "serviceName",
+            u.name       AS "proName"
+          FROM "Appointment" a
+          JOIN "Salon"         sl ON sl.id = a."salonId"
+          JOIN "ClientProfile" c  ON c.id  = a."clientId"
+          JOIN "Service"       s  ON s.id  = a."serviceId"
+          JOIN "Professional"  p  ON p.id  = a."professionalId"
+          JOIN "User"          u  ON u.id  = p."userId"
+          WHERE a."salonId"        = ${salon.id}
+            AND a."startAt"        >= ${tomorrow}
+            AND a."startAt"        <= ${tomorrowEnd}
+            AND a.status           IN ('CONFIRMED', 'PENDING')
+            AND a."reminderSentAt"  IS NULL
+          ORDER BY a."startAt" ASC
+        `,
+      );
+      appointments.push(...rows);
+    }
   } catch {
     return NextResponse.json(
       { error: "Migration 003 not applied yet", appointments: [] },

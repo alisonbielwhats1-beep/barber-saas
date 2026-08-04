@@ -2,11 +2,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const mocks = vi.hoisted(() => ({
+  salonFindMany: vi.fn(),
   queryRaw: vi.fn(),
+  executeRaw: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
-  prisma: { $queryRaw: mocks.queryRaw },
+  prisma: {
+    salon: { findMany: mocks.salonFindMany },
+    $transaction: (fn: (tx: unknown) => unknown) =>
+      fn({ $queryRaw: mocks.queryRaw, $executeRaw: mocks.executeRaw }),
+  },
 }));
 
 import { GET } from "@/app/api/cron/reminders/route";
@@ -35,6 +41,7 @@ describe("GET /api/cron/reminders — fail closed", () => {
     const response = await GET(request());
 
     expect(response.status).toBe(401);
+    expect(mocks.salonFindMany).not.toHaveBeenCalled();
     expect(mocks.queryRaw).not.toHaveBeenCalled();
   });
 
@@ -44,6 +51,7 @@ describe("GET /api/cron/reminders — fail closed", () => {
     const response = await GET(request());
 
     expect(response.status).toBe(401);
+    expect(mocks.salonFindMany).not.toHaveBeenCalled();
     expect(mocks.queryRaw).not.toHaveBeenCalled();
   });
 
@@ -53,16 +61,21 @@ describe("GET /api/cron/reminders — fail closed", () => {
     const response = await GET(request("Bearer incorrect"));
 
     expect(response.status).toBe(401);
+    expect(mocks.salonFindMany).not.toHaveBeenCalled();
     expect(mocks.queryRaw).not.toHaveBeenCalled();
   });
 
-  it("aceita somente o segredo correto", async () => {
+  it("aceita o segredo correto e varre um salão por vez (withSalon)", async () => {
     process.env.CRON_SECRET = "test-secret";
+    mocks.salonFindMany.mockResolvedValue([{ id: "salon-a" }, { id: "salon-b" }]);
     mocks.queryRaw.mockResolvedValue([]);
 
     const response = await GET(request("Bearer test-secret"));
 
     expect(response.status).toBe(200);
-    expect(mocks.queryRaw).toHaveBeenCalledOnce();
+    expect(mocks.salonFindMany).toHaveBeenCalledOnce();
+    // Um withSalon (que seta a GUC via $executeRaw) e um $queryRaw por salão.
+    expect(mocks.executeRaw).toHaveBeenCalledTimes(2);
+    expect(mocks.queryRaw).toHaveBeenCalledTimes(2);
   });
 });
