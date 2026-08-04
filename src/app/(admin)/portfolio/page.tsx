@@ -1,26 +1,28 @@
 import Image from "next/image";
-import { prisma } from "@/lib/prisma";
 import { getTenantContext } from "@/lib/tenant";
+import { withTenant } from "@/lib/prisma-tenant";
 import { Card } from "@/components/ui/card";
 import { PortfolioForm } from "./portfolio-form";
 import { DeleteButton } from "./delete-button";
 
 export default async function PortfolioPage() {
-  const { salonId } = await getTenantContext();
+  const ctx = await getTenantContext();
+  const { salonId } = ctx;
 
-  const [items, pros] = await Promise.all([
-    prisma.portfolioItem.findMany({
+  const { items, pros } = await withTenant(ctx, async (tx) => {
+    const items = await tx.portfolioItem.findMany({
       where: { salonId },
       include: {
         professional: { select: { user: { select: { name: true } } } },
       },
       orderBy: { createdAt: "desc" },
-    }),
-    prisma.professional.findMany({
+    });
+    const pros = await tx.professional.findMany({
       where: { salonId, active: true },
       select: { id: true, user: { select: { name: true } } },
-    }),
-  ]);
+    });
+    return { items, pros };
+  });
 
   const proOptions = pros.map((p) => ({ id: p.id, name: p.user.name }));
 
