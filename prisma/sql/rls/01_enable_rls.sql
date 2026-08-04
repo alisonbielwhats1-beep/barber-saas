@@ -2,12 +2,15 @@
 -- Row-Level Security — isolamento entre salões no próprio banco
 -- ============================================================================
 --
--- ⚠️  NÃO APLIQUE ESTE ARQUIVO AINDA.
+-- ✅ APLICADO EM PRODUÇÃO. As policies abaixo já existem no banco — este
+-- arquivo agora é a referência de auditoria e a base para reaplicar depois de
+-- um rollback (`02_rollback_rls.sql`), não mais um rascunho pendente. Ele é
+-- idempotente (`CREATE OR REPLACE FUNCTION`, `DROP POLICY IF EXISTS` antes de
+-- cada `CREATE POLICY`), então rodar de novo do zero é seguro.
 --
--- Ele está correto, mas depende de trabalho na aplicação que ainda não foi
--- feito (ver "PRÉ-REQUISITOS"). Aplicar antes disso derruba o painel e o
--- agendamento público. O `00_diagnose_rls.sql` é o único desta pasta seguro
--- para rodar hoje.
+-- A `DATABASE_URL` de produção ainda usa a role `postgres` (`BYPASSRLS`), o
+-- que faz este arquivo já aplicado ter, por ora, efeito zero sobre o app —
+-- ver `03_create_app_role.sql` para o que falta antes da troca de conexão.
 --
 -- ─── POR QUÊ ────────────────────────────────────────────────────────────────
 -- Hoje o isolamento entre salões depende inteiramente do filtro `salonId`
@@ -15,34 +18,32 @@
 -- filtro vaza dados de outro salão e nada avisa. Com RLS, o banco devolve zero
 -- linhas nesse caso — a falha vira ausência de dado em vez de vazamento.
 --
--- ─── PRÉ-REQUISITOS (nesta ordem) ───────────────────────────────────────────
--- 0. JÁ CONFIRMADO em produção via `00_diagnose_rls.sql`: a role `postgres`
---    (a que `DATABASE_URL` usa hoje) tem `rolbypassrls = true`. Essa role
---    ignora RLS sempre, com ou sem FORCE — não é contornável por policy.
---    `03_create_app_role.sql` cria a role correta; falta apontar a aplicação
---    para ela (ver os passos numerados no cabeçalho daquele arquivo).
--- 1. Migrar as queries de tabela tenant-scoped para o client tenant-aware
+-- ─── PRÉ-REQUISITOS — todos cumpridos ───────────────────────────────────────
+-- 0. ✅ `postgres` tem `rolbypassrls = true` (confirmado, `00_diagnose_rls.sql`).
+--    `03_create_app_role.sql` cria a role sem esse atributo; falta apontar a
+--    aplicação para ela.
+-- 1. ✅ Queries de tabela tenant-scoped migradas para o client tenant-aware
 --    (`src/lib/prisma-tenant.ts`), que seta as GUCs por transação.
--- 2. Plugar as rotas públicas (`/book/*`, `/api/availability`,
---    `/api/appointments`): elas resolvem o salão pelo slug, não pela sessão,
---    e precisam setar `app.current_salon` depois de resolver.
--- 3. Ajustar o `signup`: ele cria Salon + Membership + Service numa transação
---    sem contexto de salão. Precisa chamar `set_config('app.current_salon',
---    <id do salão recém-criado>, true)` logo após criar o Salon, senão os
---    INSERTs seguintes são barrados pelas próprias policies.
--- 4. Aplicar em ambiente de teste antes de produção. Rollback:
---    `02_rollback_rls.sql`.
+-- 2. ✅ Rotas públicas (`/book/*`, `/api/availability`, `/api/appointments`)
+--    setando `app.current_salon` depois de resolver o salão pelo slug.
+-- 3. ✅ `signup`/`onboarding` chamando `setSalonGuc` logo após criar o Salon.
+-- 4. ⚠️ Não há ambiente de teste separado — aplicado direto em produção,
+--    mitigado pelo item 0 (postgres ainda ignora RLS por completo).
 --
--- ─── AS DUAS GUCs ───────────────────────────────────────────────────────────
--- `app.current_salon`   — salão ativo da requisição.
--- `app.current_user_id` — usuário logado.
+-- ─── AS TRÊS GUCs ───────────────────────────────────────────────────────────
+-- `app.current_salon`     — salão ativo da requisição.
+-- `app.current_user_id`   — usuário logado.
+-- `app.invite_token_hash` — hash do token de convite sendo lido/aceito.
 --
 -- A segunda existe por um motivo específico: `getTenantContext()` descobre o
 -- salão LENDO a tabela Membership, então essa leitura não pode depender de já
 -- saber o salão. Sem essa GUC, a consulta volta vazia, o código conclui que o
 -- usuário não tem salão nenhum e redireciona todo mundo para o onboarding.
 --
--- Ambas são setadas com `is_local => true`, valendo só dentro da transação.
+-- A terceira resolve o mesmo tipo de problema para convites: quem abre o link
+-- do convite não tem sessão nem salão — só o token da URL. Ver seção 6.
+--
+-- Todas são setadas com `is_local => true`, valendo só dentro da transação.
 -- Isso é obrigatório aqui: a `DATABASE_URL` usa PgBouncer em transaction mode,
 -- onde a conexão é reciclada entre transações e um SET de sessão vazaria para
 -- a requisição seguinte — de outro salão.
@@ -61,6 +62,10 @@ $$ LANGUAGE SQL STABLE;
 
 CREATE OR REPLACE FUNCTION app_current_user() RETURNS TEXT AS $$
   SELECT NULLIF(current_setting('app.current_user_id', TRUE), '')
+$$ LANGUAGE SQL STABLE;
+
+CREATE OR REPLACE FUNCTION app_current_invite_token() RETURNS TEXT AS $$
+  SELECT NULLIF(current_setting('app.invite_token_hash', TRUE), '')
 $$ LANGUAGE SQL STABLE;
 
 
@@ -251,3 +256,37 @@ CREATE POLICY tenant_isolation ON "UserInviteEvent"
 --
 -- Tabelas do NextAuth (Account, Session, VerificationToken), se existirem, ficam
 -- fora pelo mesmo motivo: são consultadas antes de haver contexto de tenant.
+
+
+-- ============================================================================
+-- 6. UserInvite — leitura adicional por token, sem salão conhecido
+-- ============================================================================
+-- Quem abre `/convite/[token]` não tem sessão nem salonId — só o token da
+-- URL. `UserInvite` já tem a policy `tenant_isolation` da seção 1 (exige
+-- salonId = app_current_salon()), que cobre toda a operação de quem JÁ está
+-- autenticado num salão (criar, reenviar, revogar convite). Esta seção
+-- resolve o outro lado: o convidado, que só tem o token.
+--
+-- Diferente de Salon (seção 2), abrir a tabela inteira para leitura pública
+-- vazaria e-mail, nome e papel de QUALQUER convite de QUALQUER salão. Por
+-- isso a policy abaixo não usa `USING (TRUE)` — ela só libera a ÚNICA linha
+-- cujo tokenHash bate com o hash setado na GUC `app.invite_token_hash`, que
+-- só quem tem o token original (256 bits aleatórios, nunca listável) consegue
+-- produzir. `src/lib/prisma-tenant.ts` (`withInviteToken`) seta essa GUC antes
+-- de ler; depois de descobrir o salonId da linha, o código troca para
+-- `setSalonGuc` na mesma transação — daí em diante toda escrita (aceitar o
+-- convite, criar Membership/Professional) passa pela `tenant_isolation`
+-- normal, não por esta policy.
+--
+-- É SELECT apenas: esta policy nunca autoriza INSERT/UPDATE/DELETE. Ter o
+-- token não deveria bastar para escrever no convite de outra pessoa — a
+-- escrita exige o salonId, que só se obtém DEPOIS de já ter passado por essa
+-- leitura restrita, com o código explicitamente trocando de GUC.
+--
+-- Policies permissivas do mesmo comando se combinam com OR: um SELECT passa
+-- se `tenant_isolation` OU esta autorizar. Não muda nada para quem já tem
+-- salão ativo — só abre a exceção mínima para quem tem só o token.
+
+DROP POLICY IF EXISTS user_invite_token_read ON "UserInvite";
+CREATE POLICY user_invite_token_read ON "UserInvite"
+  FOR SELECT USING ("tokenHash" = app_current_invite_token());

@@ -4,7 +4,7 @@ import type { Prisma, Role } from "@prisma/client";
 import { buildInviteEmail } from "./invite-email";
 import { defaultMailer, MailDeliveryError, type Mailer } from "./mailer";
 import { prisma } from "./prisma";
-import { setSalonGuc } from "./prisma-tenant";
+import { setSalonGuc, withInviteToken, withSalon } from "./prisma-tenant";
 
 export const INVITE_TTL_HOURS = 24;
 
@@ -620,30 +620,22 @@ export async function revokeUserInvite(
 }
 
 // ============================================================================
-// A PARTIR DAQUI: leitura e aceite de convite POR TOKEN — fica em prisma cru
-// de propósito, e é uma LACUNA REAL do RLS preparado, não uma omissão.
+// A PARTIR DAQUI: leitura e aceite de convite POR TOKEN.
 //
 // getInviteView, acceptInviteTransaction (e os dois que a chamam) e
 // prismaInviteRepository leem UserInvite por tokenHash, sem sessão de salão
 // alguma — é assim que a pessoa convidada abre o link antes de ter qualquer
-// vínculo. Diferente de Salon (que tem `salon_public_read: USING (TRUE)`
-// porque o dado é público por natureza — a vitrine), UserInvite não tem
-// policy pública em 01_enable_rls.sql: a policy dele exige
-// `salonId = app_current_salon()` para TODA operação, e não há como setar
-// essa GUC antes de ler o próprio convite que revelaria qual é o salão —
-// é o mesmo problema circular do Salon-por-slug, mas sem a saída que o
-// Salon tem, porque abrir UserInvite inteiro para leitura pública
-// (`USING (TRUE)`) vazaria e-mail, nome e papel de QUALQUER convite de
-// QUALQUER salão para qualquer conexão — não é o mesmo tipo de dado
-// público que a vitrine.
+// vínculo. A leitura inicial passa por `withInviteToken`, que seta
+// `app.invite_token_hash`; a policy `user_invite_token_read`
+// (`01_enable_rls.sql` seção 6) libera só a linha cujo tokenHash bate —
+// nunca a tabela inteira, ao contrário de `Salon` (cujo dado é vitrine
+// pública por natureza; `UserInvite` carrega e-mail e nome).
 //
-// Sob RLS com a role dedicada, tudo abaixo devolveria "convite inválido"
-// para convites válidos — outra rota, junto do cron (api/cron/reminders),
-// que precisa de decisão própria antes da troca de connection string.
-// Candidatos: uma função SECURITY DEFINER no Postgres para essa leitura
-// específica, ou uma policy que valide contra um hash setado por GUC
-// (`tokenHash = current_setting('app.invite_token_hash')`) em vez de
-// salonId. Nenhuma das duas é óbvia o bastante pra decidir aqui.
+// Assim que o `salonId` do convite é conhecido, o código troca para
+// `setSalonGuc` NA MESMA TRANSAÇÃO antes de qualquer escrita — a policy de
+// escrita (`tenant_isolation`) continua exigindo salonId = app_current_salon();
+// a policy por token é só leitura (`FOR SELECT`), nunca autoriza INSERT/
+// UPDATE/DELETE.
 // ============================================================================
 
 export async function getInviteView(
@@ -654,20 +646,23 @@ export async function getInviteView(
   if (!token || token.length < 20 || token.length > 256) {
     return { state: "INVALID" };
   }
-  const invite = await prisma.userInvite.findUnique({
-    where: { tokenHash: hashInviteToken(token) },
-    select: {
-      name: true,
-      email: true,
-      role: true,
-      userId: true,
-      emailVerificationRequired: true,
-      expiresAt: true,
-      usedAt: true,
-      revokedAt: true,
-      salon: { select: { name: true } },
-    },
-  });
+  const tokenHash = hashInviteToken(token);
+  const invite = await withInviteToken(tokenHash, (tx) =>
+    tx.userInvite.findUnique({
+      where: { tokenHash },
+      select: {
+        name: true,
+        email: true,
+        role: true,
+        userId: true,
+        emailVerificationRequired: true,
+        expiresAt: true,
+        usedAt: true,
+        revokedAt: true,
+        salon: { select: { name: true } },
+      },
+    }),
+  );
   if (!invite || invite.role === "SUPER_ADMIN") return { state: "INVALID" };
 
   const details = {
@@ -762,7 +757,7 @@ async function acceptInviteTransaction(input: {
 }): Promise<AcceptanceResult> {
   const tokenHash = hashInviteToken(input.token);
   try {
-    return await prisma.$transaction(async (tx) => {
+    return await withInviteToken(tokenHash, async (tx) => {
       const invite = await tx.userInvite.findUnique({
         where: { tokenHash },
       });
@@ -783,6 +778,10 @@ async function acceptInviteTransaction(input: {
       if (!isNewAccount && input.actorUserId !== invite.userId) {
         return { ok: false, reason: "WRONG_USER" } as const;
       }
+
+      // Salão descoberto e convite validado — a partir daqui a operação
+      // escreve, e a policy por token não autoriza escrita nenhuma.
+      await setSalonGuc(tx, invite.salonId);
 
       const claim = await tx.userInvite.updateMany({
         where: {
@@ -873,17 +872,20 @@ export async function acceptNewUserInvite(input: {
     return { ok: false, reason: "INVALID" };
   }
   const now = input.now ?? new Date();
-  const invite = await prisma.userInvite.findUnique({
-    where: { tokenHash: hashInviteToken(input.token) },
-    select: {
-      role: true,
-      userId: true,
-      emailVerificationRequired: true,
-      expiresAt: true,
-      usedAt: true,
-      revokedAt: true,
-    },
-  });
+  const tokenHash = hashInviteToken(input.token);
+  const invite = await withInviteToken(tokenHash, (tx) =>
+    tx.userInvite.findUnique({
+      where: { tokenHash },
+      select: {
+        role: true,
+        userId: true,
+        emailVerificationRequired: true,
+        expiresAt: true,
+        usedAt: true,
+        revokedAt: true,
+      },
+    }),
+  );
   if (!invite || invite.role === "SUPER_ADMIN") {
     return { ok: false, reason: "INVALID" };
   }
@@ -919,25 +921,29 @@ export async function acceptExistingUserInvite(input: {
 
 const prismaInviteRepository: InviteRepository = {
   async findByTokenHash(tokenHash) {
-    const invite = await prisma.userInvite.findUnique({
-      where: { tokenHash },
-      select: {
-        id: true,
-        salonId: true,
-        email: true,
-        userId: true,
-        role: true,
-        emailVerificationRequired: true,
-        expiresAt: true,
-        usedAt: true,
-      },
-    });
+    const invite = await withInviteToken(tokenHash, (tx) =>
+      tx.userInvite.findUnique({
+        where: { tokenHash },
+        select: {
+          id: true,
+          salonId: true,
+          email: true,
+          userId: true,
+          role: true,
+          emailVerificationRequired: true,
+          expiresAt: true,
+          usedAt: true,
+        },
+      }),
+    );
     if (!invite || invite.role === "SUPER_ADMIN") return null;
     return { ...invite, role: invite.role as InviteRole };
   },
   async claimAndActivate(invite, now) {
     try {
-      return await prisma.$transaction(async (tx) => {
+      // salonId já é conhecido (veio de findByTokenHash) — a escrita usa o
+      // contexto normal de salão, não a GUC de token.
+      return await withSalon(invite.salonId, async (tx) => {
         if (!invite.userId) return "CONFLICT";
         const claimed = await tx.userInvite.updateMany({
           where: {

@@ -46,6 +46,7 @@ END $$;
 
 DROP FUNCTION IF EXISTS app_current_salon();
 DROP FUNCTION IF EXISTS app_current_user();
+DROP FUNCTION IF EXISTS app_current_invite_token();
 
 -- Confirmação: todas devem voltar com rls_ativo = false e zero policies.
 SELECT
