@@ -18,6 +18,9 @@ type Salon = {
   closeMinutes: number;
   cancelPolicyHours: number;
   noShowFeeCents: number;
+  minBookingLeadMinutes: number;
+  maxBookingLeadDays: number;
+  bufferMinutes: number;
 };
 
 const TIMEZONES = ["America/Sao_Paulo", "America/Manaus", "America/Recife", "America/Fortaleza", "America/Cuiaba"];
@@ -51,6 +54,9 @@ export function SalonSettingsForm({ salon }: { salon: Salon }) {
       closeMinutes: toMin(String(f.get("close"))),
       cancelPolicyHours: Number(f.get("cancelPolicyHours")),
       noShowFeeCents: Math.round(Number(f.get("noShowFee") || 0) * 100),
+      minBookingLeadMinutes: Number(f.get("minBookingLeadMinutes")),
+      maxBookingLeadDays: Number(f.get("maxBookingLeadDays")),
+      bufferMinutes: Number(f.get("bufferMinutes")),
     };
     startTransition(async () => {
       try {
@@ -120,6 +126,37 @@ export function SalonSettingsForm({ salon }: { salon: Salon }) {
             <Input name="noShowFee" type="number" min={0} step="0.01" defaultValue={(salon.noShowFeeCents / 100).toFixed(2)} />
           </Field>
         </div>
+      </Section>
+
+      <Section title="Janela de agendamento online">
+        <div className="grid grid-cols-3 gap-3">
+          <Field label="Antecedência mínima (minutos)">
+            <Input
+              name="minBookingLeadMinutes"
+              type="number"
+              min={0}
+              max={10080}
+              defaultValue={salon.minBookingLeadMinutes}
+            />
+          </Field>
+          <Field label="Até quantos dias no futuro">
+            <Input
+              name="maxBookingLeadDays"
+              type="number"
+              min={1}
+              max={365}
+              defaultValue={salon.maxBookingLeadDays}
+            />
+          </Field>
+          <Field label="Intervalo entre atendimentos (minutos)">
+            <Input name="bufferMinutes" type="number" min={0} max={120} defaultValue={salon.bufferMinutes} />
+          </Field>
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Controla o que o cliente vê ao marcar sozinho pela página pública. O intervalo entre
+          atendimentos reserva um tempo de preparo/limpeza para cada profissional entre um
+          horário e o próximo — não afeta agendamentos feitos por você no painel.
+        </p>
       </Section>
 
       {error && <p className="rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger">{error}</p>}

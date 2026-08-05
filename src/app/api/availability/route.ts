@@ -5,6 +5,7 @@ import {
   clientIp,
   rateLimitHeaders,
 } from "@/lib/rate-limit";
+import { checkBookingWindow, bufferedWindow } from "@/lib/scheduling";
 import { startOfDay, endOfDay, addMinutes, isBefore } from "date-fns";
 
 /**
@@ -47,8 +48,12 @@ export async function GET(req: NextRequest) {
   // 6 queries em Promise.all estouravam o timeout do pool (P2024). Esta rota
   // é a mais sensível do produto: é ela que o cliente final chama ao escolher
   // o dia, e falhar aqui bloqueia o agendamento.
-  const { service, professionalLink, workingHours, timeOffs, appointments, history } =
+  const { salon, service, professionalLink, workingHours, timeOffs, appointments, history } =
     await withSalon(salonId, async (tx) => {
+      const salon = await tx.salon.findUnique({
+        where: { id: salonId },
+        select: { minBookingLeadMinutes: true, maxBookingLeadDays: true, bufferMinutes: true },
+      });
       // Validações primeiro — sem serviço ou vínculo válido, nem busca o resto.
       const service = await tx.service.findFirst({
         where: { id: serviceId, salonId },
@@ -91,10 +96,10 @@ export async function GET(req: NextRequest) {
         take: 500,
         orderBy: { startAt: "desc" },
       });
-      return { service, professionalLink, workingHours, timeOffs, appointments, history };
+      return { salon, service, professionalLink, workingHours, timeOffs, appointments, history };
     });
 
-  if (!service || !professionalLink) {
+  if (!salon || !service || !professionalLink) {
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
   }
   if (workingHours.length === 0) return NextResponse.json({ slots: [] });
@@ -111,16 +116,17 @@ export async function GET(req: NextRequest) {
     for (let cursor = dayStart; isBefore(addMinutes(cursor, service.durationMin), dayEnd) || +addMinutes(cursor, service.durationMin) === +dayEnd; cursor = addMinutes(cursor, step)) {
       const slotEnd = addMinutes(cursor, service.durationMin);
 
-      const overlapsAppt = appointments.some(
-        (a) => cursor < a.endAt && slotEnd > a.startAt,
-      );
+      const overlapsAppt = appointments.some((a) => {
+        const buffered = bufferedWindow(a.startAt, a.endAt, salon.bufferMinutes);
+        return cursor < buffered.to && slotEnd > buffered.from;
+      });
       const overlapsOff = timeOffs.some(
         (t) => cursor < t.endAt && slotEnd > t.startAt,
       );
       if (overlapsAppt || overlapsOff) continue;
 
-      // não oferecer horário no passado do dia corrente
-      if (isBefore(cursor, new Date())) continue;
+      // respeita antecedência mínima/máxima do salão (0 min / sem teto = como antes)
+      if (checkBookingWindow(cursor, salon) !== null) continue;
 
       slots.push(
         `${cursor.getHours().toString().padStart(2, "0")}:${cursor

@@ -83,6 +83,7 @@ export function BookingFlow({
   services,
   initialServiceId,
   initialProId = null,
+  rescheduleId = null,
   clientSession,
 }: {
   salonId: string;
@@ -91,6 +92,9 @@ export function BookingFlow({
   services: Service[];
   initialServiceId: string | null;
   initialProId?: string | null;
+  /** Se vier de "Minhas reservas → Remarcar": id da reserva a atualizar em
+   *  vez de criar uma nova. Ver `submit()`. */
+  rescheduleId?: string | null;
   clientSession: ClientSession | null;
 }) {
   const router = useRouter();
@@ -235,27 +239,39 @@ export function BookingFlow({
     const startAt = new Date(date);
     startAt.setHours(h, m, 0, 0);
 
-    const res = await fetch("/api/appointments", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        salonId,
-        serviceId: service.id,
-        professionalId: proId,
-        startAt: startAt.toISOString(),
-        ...(!clientSession
-          ? { clientName: name, clientPhone: normalizePhone(phone) }
-          : {}),
-        cartItems: cart.items.map((i) => ({
-          productId: i.productId,
-          quantity: i.quantity,
-        })),
-      }),
-    });
+    const res = rescheduleId
+      ? await fetch("/api/client/reschedule", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            salonSlug,
+            appointmentId: rescheduleId,
+            serviceId: service.id,
+            professionalId: proId,
+            startAt: startAt.toISOString(),
+          }),
+        })
+      : await fetch("/api/appointments", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            salonId,
+            serviceId: service.id,
+            professionalId: proId,
+            startAt: startAt.toISOString(),
+            ...(!clientSession
+              ? { clientName: name, clientPhone: normalizePhone(phone) }
+              : {}),
+            cartItems: cart.items.map((i) => ({
+              productId: i.productId,
+              quantity: i.quantity,
+            })),
+          }),
+        });
     setLoading(false);
     if (res.ok) {
       const pro = service.professionals.find((p) => p.id === proId);
-      cart.clear();
+      if (!rescheduleId) cart.clear();
       setBooked({
         startAt,
         serviceName: service.name,
@@ -265,7 +281,7 @@ export function BookingFlow({
     } else {
       const b = await res.json().catch(() => ({}));
       setError(friendlyError(b.error));
-      // Slot foi tomado por outra pessoa: recarrega a grade na hora
+      // Slot foi tomado por outra pessoa (ou por outra reserva): recarrega a grade
       if (b.error === "SLOT_TAKEN") {
         setSlot(null);
         setSlotsVersion((v) => v + 1);

@@ -9,6 +9,12 @@ export const ERROR_PT: Record<string, string> = {
   PRO_SERVICE_MISMATCH: "Esse profissional não realiza este serviço.",
   CLIENT_INVALID: "Sua sessão expirou — entre novamente para confirmar.",
   GUEST_DATA_REQUIRED: "Preencha seu nome e WhatsApp para confirmar.",
+  AUTH_REQUIRED: "Sua sessão expirou — entre novamente para confirmar.",
+  NOT_FOUND: "Reserva não encontrada.",
+  FORBIDDEN: "Essa reserva não pertence à sua conta.",
+  ALREADY_CLOSED: "Essa reserva já foi encerrada.",
+  TOO_LATE_TO_RESCHEDULE:
+    "Não é possível remarcar com tão pouca antecedência. Entre em contato com o salão.",
 };
 
 export function friendlyError(raw: unknown): string {

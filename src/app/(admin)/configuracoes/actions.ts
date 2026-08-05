@@ -23,6 +23,9 @@ const salonInput = z.object({
   closeMinutes: z.coerce.number().int().min(0).max(1440),
   cancelPolicyHours: z.coerce.number().int().min(0).max(168),
   noShowFeeCents: z.coerce.number().int().min(0),
+  minBookingLeadMinutes: z.coerce.number().int().min(0).max(10_080), // até 7 dias
+  maxBookingLeadDays: z.coerce.number().int().min(1).max(365),
+  bufferMinutes: z.coerce.number().int().min(0).max(120),
 });
 
 export async function updateSalonSettings(input: z.infer<typeof salonInput>) {
@@ -44,6 +47,9 @@ export async function updateSalonSettings(input: z.infer<typeof salonInput>) {
         closeMinutes: data.closeMinutes,
         cancelPolicyHours: data.cancelPolicyHours,
         noShowFeeCents: data.noShowFeeCents,
+        minBookingLeadMinutes: data.minBookingLeadMinutes,
+        maxBookingLeadDays: data.maxBookingLeadDays,
+        bufferMinutes: data.bufferMinutes,
       },
     }),
   );

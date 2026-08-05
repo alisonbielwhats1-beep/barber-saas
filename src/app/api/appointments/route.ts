@@ -12,6 +12,7 @@ import {
   rateLimitHeaders,
   rateLimitStatus,
 } from "@/lib/rate-limit";
+import { checkBookingWindow, bufferedWindow } from "@/lib/scheduling";
 import { addMinutes } from "date-fns";
 
 /**
@@ -59,6 +60,10 @@ export async function POST(req: NextRequest) {
   // emite mais nenhuma query depois de capturar o erro: seguro dentro da
   // mesma transação interativa (o commit seguinte vira rollback silencioso).
   return withSalon(b.salonId, async (tx) => {
+    const salon = await tx.salon.findUnique({
+      where: { id: b.salonId },
+      select: { minBookingLeadMinutes: true, maxBookingLeadDays: true, bufferMinutes: true },
+    });
     const service = await tx.service.findFirst({
       where: { id: b.serviceId, salonId: b.salonId, active: true },
       select: { durationMin: true, priceCents: true },
@@ -66,6 +71,7 @@ export async function POST(req: NextRequest) {
     const prosLink = await tx.professionalService.findFirst({
       where: { serviceId: b.serviceId, professional: { id: b.professionalId, salonId: b.salonId, active: true } },
     });
+    if (!salon) return NextResponse.json({ error: "SERVICE_INVALID" }, { status: 400 });
     if (!service) return NextResponse.json({ error: "SERVICE_INVALID" }, { status: 400 });
     if (!prosLink)
       return NextResponse.json({ error: "PRO_SERVICE_MISMATCH" }, { status: 400 });
@@ -73,12 +79,17 @@ export async function POST(req: NextRequest) {
     const startAt = new Date(b.startAt);
     const endAt = addMinutes(startAt, service.durationMin);
 
+    if (checkBookingWindow(startAt, salon) !== null) {
+      return NextResponse.json({ error: "SLOT_TAKEN" }, { status: 409 });
+    }
+
+    const buffered = bufferedWindow(startAt, endAt, salon.bufferMinutes);
     const conflict = await tx.appointment.findFirst({
       where: {
         professionalId: b.professionalId,
         status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
-        startAt: { lt: endAt },
-        endAt: { gt: startAt },
+        startAt: { lt: buffered.to },
+        endAt: { gt: buffered.from },
       },
       select: { id: true },
     });
