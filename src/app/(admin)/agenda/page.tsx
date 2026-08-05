@@ -18,7 +18,7 @@ export default async function AgendaPage({
   // Sequencial de propósito: pooler com connection_limit=1 em serverless —
   // 5 queries em Promise.all estouravam o timeout do pool (P2024). Dentro de
   // withTenant, as 5 passam a usar uma única conexão em vez de 5 aquisições.
-  const { salon, prosRaw, apptsRaw, services, clients } = await withTenant(ctx, async (tx) => {
+  const { salon, prosRaw, apptsRaw, waitlistRaw, services, clients } = await withTenant(ctx, async (tx) => {
     const salon = await tx.salon.findUnique({ where: { id: salonId }, select: { name: true } });
     const prosRaw = await tx.professional.findMany({
       where: { salonId, active: true },
@@ -49,6 +49,19 @@ export default async function AgendaPage({
       },
       orderBy: { startAt: "asc" },
     });
+    const waitlistRaw = await tx.waitlistEntry.findMany({
+      where: {
+        salonId,
+        appointmentId: { in: apptsRaw.map((a) => a.id) },
+        fulfilledAt: null,
+      },
+      select: {
+        appointmentId: true,
+        guestName: true,
+        client: { select: { name: true } },
+      },
+      orderBy: { createdAt: "asc" },
+    });
     const services = await tx.service.findMany({
       where: { salonId, active: true },
       select: { id: true, name: true, durationMin: true, priceCents: true },
@@ -60,8 +73,18 @@ export default async function AgendaPage({
       orderBy: { name: "asc" },
       take: 300,
     });
-    return { salon, prosRaw, apptsRaw, services, clients };
+    return { salon, prosRaw, apptsRaw, waitlistRaw, services, clients };
   });
+
+  // Fila de espera por agendamento (só quem ainda não foi atendido) — pro
+  // dono ver, antes de cancelar, se tem gente esperando aquela vaga.
+  const waitlistByAppt = new Map<string, string[]>();
+  for (const w of waitlistRaw) {
+    const name = w.client?.name ?? w.guestName ?? "Cliente";
+    const list = waitlistByAppt.get(w.appointmentId) ?? [];
+    list.push(name);
+    waitlistByAppt.set(w.appointmentId, list);
+  }
 
   const professionals: Professional[] = prosRaw.map((p) => ({
     id: p.id,
@@ -70,19 +93,24 @@ export default async function AgendaPage({
     serviceIds: p.services.map((s) => s.serviceId),
   }));
 
-  const appointments: Appointment[] = apptsRaw.map((a) => ({
-    id: a.id,
-    professionalId: a.professionalId,
-    startAt: a.startAt.toISOString(),
-    endAt: a.endAt.toISOString(),
-    priceCents: a.priceCents,
-    status: a.status,
-    notes: a.notes,
-    clientName: a.client.name,
-    clientPhone: a.client.phone,
-    serviceName: a.service.name,
-    serviceColor: a.service.colorHex,
-  }));
+  const appointments: Appointment[] = apptsRaw.map((a) => {
+    const waiting = waitlistByAppt.get(a.id) ?? [];
+    return {
+      id: a.id,
+      professionalId: a.professionalId,
+      startAt: a.startAt.toISOString(),
+      endAt: a.endAt.toISOString(),
+      priceCents: a.priceCents,
+      status: a.status,
+      notes: a.notes,
+      clientName: a.client.name,
+      clientPhone: a.client.phone,
+      serviceName: a.service.name,
+      serviceColor: a.service.colorHex,
+      waitlistCount: waiting.length,
+      waitlistNext: waiting[0] ?? null,
+    };
+  });
 
   return (
     <AgendaBoard
