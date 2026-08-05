@@ -5,6 +5,7 @@ import { Crown } from "lucide-react";
 import { SalonSettingsForm } from "./salon-settings-form";
 import { AccessManager, type Member } from "./access-manager";
 import { BrandingForm } from "./branding-form";
+import { ClosuresManager, type Closure } from "./closures-manager";
 
 const PLAN_LABEL: Record<string, string> = {
   FREE: "Grátis",
@@ -18,7 +19,7 @@ export default async function ConfiguracoesPage() {
   const { salonId, userId, role } = ctx;
   const invitesEnabled = emailInvitesEnabled();
 
-  const { salon, memberships, pendingInvites } = await withTenant(ctx, async (tx) => {
+  const { salon, memberships, pendingInvites, closures } = await withTenant(ctx, async (tx) => {
     const salon = await tx.salon.findUnique({
       where: { id: salonId },
       select: {
@@ -60,7 +61,13 @@ export default async function ConfiguracoesPage() {
             orderBy: { createdAt: "desc" },
           })
         : [];
-    return { salon, memberships, pendingInvites };
+    const closures = await tx.salonClosure.findMany({
+      where: { salonId, endAt: { gte: new Date() } },
+      select: { id: true, startAt: true, endAt: true, reason: true },
+      orderBy: { startAt: "asc" },
+      take: 50,
+    });
+    return { salon, memberships, pendingInvites, closures };
   });
 
   if (!salon) return null;
@@ -132,6 +139,16 @@ export default async function ConfiguracoesPage() {
           />
         </div>
       </div>
+
+      <ClosuresManager
+        closures={closures.map((c): Closure => ({
+          id: c.id,
+          startAt: c.startAt.toISOString(),
+          endAt: c.endAt.toISOString(),
+          reason: c.reason,
+        }))}
+        canManage={role === "OWNER" || role === "MANAGER"}
+      />
     </div>
   );
 }

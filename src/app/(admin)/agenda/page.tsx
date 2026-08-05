@@ -10,7 +10,7 @@ export default async function AgendaPage({
   searchParams: Promise<{ date?: string }>;
 }) {
   const ctx = await getTenantContext();
-  const { salonId } = ctx;
+  const { salonId, role } = ctx;
   const { date: selectedDate } = await searchParams;
   const date = selectedDate ? new Date(`${selectedDate}T12:00:00`) : new Date();
   const dateStr = format(date, "yyyy-MM-dd");
@@ -44,6 +44,7 @@ export default async function AgendaPage({
         priceCents: true,
         status: true,
         notes: true,
+        isOverbooked: true,
         client: { select: { name: true, phone: true } },
         service: { select: { name: true, colorHex: true } },
       },
@@ -109,6 +110,7 @@ export default async function AgendaPage({
       serviceColor: a.service.colorHex,
       waitlistCount: waiting.length,
       waitlistNext: waiting[0] ?? null,
+      isOverbooked: a.isOverbooked,
     };
   });
 
@@ -120,6 +122,7 @@ export default async function AgendaPage({
       appointments={appointments}
       services={services as ServiceOption[]}
       clients={clients as ClientOption[]}
+      canOverbook={role === "OWNER" || role === "MANAGER"}
     />
   );
 }

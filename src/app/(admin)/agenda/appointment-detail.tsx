@@ -26,6 +26,7 @@ import {
   CreditCard,
   ArrowLeft,
   Users,
+  AlertTriangle,
 } from "lucide-react";
 import { formatMoney } from "@/lib/utils";
 import { format } from "date-fns";
@@ -287,6 +288,14 @@ export function AppointmentDetail({
                   <span className="text-muted-foreground">Valor</span>
                   <span className="font-semibold">{formatMoney(appt.priceCents)}</span>
                 </div>
+                {appt.isOverbooked && (
+                  <div className="flex items-center gap-1.5 rounded-lg bg-danger/10 px-3 py-2 text-danger">
+                    <AlertTriangle className="h-4 w-4" />
+                    <span className="text-[12px] font-medium">
+                      Overbooking deliberado — registrado na trilha de auditoria.
+                    </span>
+                  </div>
+                )}
                 {appt.waitlistCount > 0 && (
                   <div className="flex items-center justify-between rounded-lg bg-amber-500/10 px-3 py-2 text-amber-600">
                     <span className="flex items-center gap-1.5 font-medium">

@@ -136,6 +136,8 @@ model Salon {
   plans           MembershipPlan[]
   userInvites     UserInvite[]
   waitlistEntries WaitlistEntry[]
+  closures        SalonClosure[]
+  auditLogs       AuditLog[]
 }
 
 enum PackageStatus {
@@ -444,6 +446,16 @@ model Appointment {
   notes          String?
   reminderSentAt DateTime?
   cancelledAt    DateTime?
+  // Overbooking deliberado (dono/gerente encaixou apesar de conflito) — ver
+  // AuditLog pra trilha de quem/quando/por quê. Único caso em que a exclusion
+  // constraint appointment_no_overlap permite sobreposição, ver
+  // prisma/sql/manual/007_fase2.sql.
+  isOverbooked   Boolean           @default(false)
+  // Agrupa ocorrências de um agendamento recorrente (mesmo cuid pra todas).
+  // Sem tabela de série própria em v1: cada ocorrência é um Appointment
+  // independente, editável/cancelável isoladamente — só o agrupamento visual
+  // depende do seriesId.
+  seriesId       String?
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 
@@ -458,6 +470,43 @@ model Appointment {
   @@index([salonId, startAt])
   @@index([professionalId, startAt])
   @@index([clientId])
+  @@index([seriesId])
+}
+
+// Bloqueio do salão inteiro (feriado, reforma, viagem) — diferente de
+// TimeOff, que é por profissional. Impede novos agendamentos (público e
+// admin) no intervalo; não cancela retroativamente o que já existia.
+model SalonClosure {
+  id        String   @id @default(cuid())
+  salonId   String
+  startAt   DateTime
+  endAt     DateTime
+  reason    String?
+  createdAt DateTime @default(now())
+
+  salon Salon @relation(fields: [salonId], references: [id], onDelete: Cascade)
+
+  @@index([salonId, startAt])
+}
+
+// Trilha de auditoria para ações sensíveis (hoje: overbooking deliberado).
+// Append-only por design — a role de runtime só tem GRANT de SELECT/INSERT
+// nesta tabela (ver 007_fase2.sql), sem UPDATE/DELETE.
+model AuditLog {
+  id         String   @id @default(cuid())
+  salonId    String
+  userId     String?
+  actorName  String
+  action     String
+  entityType String
+  entityId   String
+  reason     String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  salon Salon @relation(fields: [salonId], references: [id], onDelete: Cascade)
+
+  @@index([salonId, createdAt])
 }
 
 // Fila de espera por um agendamento específico — não por faixa de horário

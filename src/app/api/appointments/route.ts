@@ -13,6 +13,7 @@ import {
   rateLimitStatus,
 } from "@/lib/rate-limit";
 import { checkBookingWindow, bufferedWindow } from "@/lib/scheduling";
+import { isSalonClosedAt } from "@/lib/closures";
 import { addMinutes } from "date-fns";
 
 /**
@@ -80,6 +81,9 @@ export async function POST(req: NextRequest) {
     const endAt = addMinutes(startAt, service.durationMin);
 
     if (checkBookingWindow(startAt, salon) !== null) {
+      return NextResponse.json({ error: "SLOT_TAKEN" }, { status: 409 });
+    }
+    if (await isSalonClosedAt(tx, b.salonId, startAt, endAt)) {
       return NextResponse.json({ error: "SLOT_TAKEN" }, { status: 409 });
     }
 

@@ -10,6 +10,7 @@ import {
   rateLimitStatus,
 } from "@/lib/rate-limit";
 import { checkBookingWindow, bufferedWindow } from "@/lib/scheduling";
+import { isSalonClosedAt } from "@/lib/closures";
 import { addMinutes } from "date-fns";
 
 const body = z.object({
@@ -109,6 +110,9 @@ export async function POST(req: NextRequest) {
     if (!prosLink) return { kind: "pro_mismatch" as const };
 
     const endAt = addMinutes(startAt, service.durationMin);
+    if (await isSalonClosedAt(tx, salonId, startAt, endAt)) {
+      return { kind: "slot_taken" as const };
+    }
     const buffered = bufferedWindow(startAt, endAt, salon.bufferMinutes);
     const conflict = await tx.appointment.findFirst({
       where: {

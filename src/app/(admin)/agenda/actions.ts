@@ -1,13 +1,19 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { addMinutes } from "date-fns";
+import { addMinutes, addWeeks } from "date-fns";
 import { isOverlapViolation } from "@/lib/db-errors";
 import { assertRole, getTenantContext } from "@/lib/tenant";
-import { withTenant } from "@/lib/prisma-tenant";
+import { withTenant, type Tx } from "@/lib/prisma-tenant";
 import { bufferedWindow } from "@/lib/scheduling";
 import { fulfillWaitlistOnCancel } from "@/lib/waitlist";
+import { isSalonClosedAt } from "@/lib/closures";
+import { writeAuditLog } from "@/lib/audit";
+
+/** Papéis que podem forçar overbooking — decisão de política, não operacional. */
+const OVERBOOK_ROLES = ["OWNER", "MANAGER"] as const;
 
 /** Executa a mutação traduzindo violação da exclusion constraint. */
 async function guardOverlap<T>(fn: () => Promise<T>): Promise<T> {
@@ -29,6 +35,10 @@ const createInput = z.object({
   clientPhone: z.string().optional().nullable(),
   startAt: z.string().datetime(),
   notes: z.string().optional().nullable(),
+  // Overbooking deliberado: só tem efeito se houver conflito real E a role
+  // permitir (checado no servidor, nunca confiando só no que o cliente
+  // manda) — sem conflito, este flag simplesmente não muda nada.
+  overbookReason: z.string().trim().min(3).max(200).optional(),
 });
 
 /**
@@ -38,7 +48,10 @@ const createInput = z.object({
  * novo cliente no mesmo salão). Valida:
  *  - profissional e serviço pertencem ao salão ativo
  *  - profissional pode fazer aquele serviço
- *  - não há conflito de horário
+ *  - o salão não está com bloqueio de dia inteiro nesse horário
+ *  - não há conflito de horário — a menos que `overbookReason` esteja
+ *    preenchido e a role permita (OWNER/MANAGER), caso em que o
+ *    agendamento nasce com `isOverbooked=true` e uma entrada em `AuditLog`
  */
 export async function createAppointmentManually(
   input: z.infer<typeof createInput>,
@@ -46,6 +59,7 @@ export async function createAppointmentManually(
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER", "RECEPTIONIST"]);
   const data = createInput.parse(input);
+  const canOverbook = (OVERBOOK_ROLES as readonly string[]).includes(ctx.role);
 
   // Tudo numa transação só: se guardOverlap relançar o erro de conflito, a
   // transação inteira desfaz (inclusive um clientProfile recém-criado) e o
@@ -70,8 +84,12 @@ export async function createAppointmentManually(
 
     const startAt = new Date(data.startAt);
     const endAt = addMinutes(startAt, service.durationMin);
-    const buffered = bufferedWindow(startAt, endAt, salon?.bufferMinutes ?? 0);
 
+    if (await isSalonClosedAt(tx, ctx.salonId, startAt, endAt)) {
+      return { error: "O salão está fechado nesse período" };
+    }
+
+    const buffered = bufferedWindow(startAt, endAt, salon?.bufferMinutes ?? 0);
     const conflict = await tx.appointment.findFirst({
       where: {
         professionalId: data.professionalId,
@@ -81,7 +99,8 @@ export async function createAppointmentManually(
       },
       select: { id: true },
     });
-    if (conflict) return { error: "Horário já ocupado" };
+    const overbook = conflict !== null && !!data.overbookReason && canOverbook;
+    if (conflict && !overbook) return { error: "Horário já ocupado" };
 
     let clientId = data.clientId;
     if (!clientId) {
@@ -103,7 +122,7 @@ export async function createAppointmentManually(
       if (!owned) return { error: "Cliente inválido" };
     }
 
-    await guardOverlap(() =>
+    const created = await guardOverlap(() =>
       tx.appointment.create({
         data: {
           salonId: ctx.salonId,
@@ -115,9 +134,24 @@ export async function createAppointmentManually(
           priceCents: service.priceCents,
           status: "CONFIRMED",
           notes: data.notes ?? null,
+          isOverbooked: overbook,
         },
+        select: { id: true },
       }),
     );
+
+    if (overbook) {
+      await writeAuditLog(tx, {
+        salonId: ctx.salonId,
+        userId: ctx.userId,
+        actorName: await actorName(tx, ctx.userId),
+        action: "OVERBOOK_CREATE",
+        entityType: "Appointment",
+        entityId: created.id,
+        reason: data.overbookReason,
+        metadata: { professionalId: data.professionalId, startAt: startAt.toISOString() },
+      });
+    }
 
     return { success: true } as const;
   });
@@ -127,6 +161,11 @@ export async function createAppointmentManually(
     revalidatePath("/dashboard");
   }
   return result;
+}
+
+async function actorName(tx: Tx, userId: string): Promise<string> {
+  const user = await tx.user.findUnique({ where: { id: userId }, select: { name: true } });
+  return user?.name ?? "Usuário";
 }
 
 const statusInput = z.enum([
@@ -312,6 +351,10 @@ export async function resizeAppointment(input: z.infer<typeof resizeInput>): Pro
     if (endAt.getTime() - appt.startAt.getTime() < 15 * 60_000)
       return { error: "Duração mínima de 15 minutos" };
 
+    if (await isSalonClosedAt(tx, ctx.salonId, appt.startAt, endAt)) {
+      return { error: "O salão está fechado nesse período" };
+    }
+
     const buffered = bufferedWindow(appt.startAt, endAt, salon?.bufferMinutes ?? 0);
     const conflict = await tx.appointment.findFirst({
       where: {
@@ -377,6 +420,7 @@ export async function duplicateAppointment(id: string) {
     // não emite mais nenhuma query depois de capturar o erro, então o COMMIT
     // seguinte do Prisma vira ROLLBACK silencioso, sem propagar exceção).
     const created = await withTenant(ctx, async (tx) => {
+      if (await isSalonClosedAt(tx, ctx.salonId, startAt, endAt)) return false;
       const buffered = bufferedWindow(startAt, endAt, bufferMinutes);
       const conflict = await tx.appointment.findFirst({
         where: {
@@ -446,6 +490,10 @@ export async function editAppointment(input: z.infer<typeof editInput>): Promise
     const startAt = new Date(data.startAt);
     const endAt = new Date(startAt.getTime() + duration);
 
+    if (await isSalonClosedAt(tx, ctx.salonId, startAt, endAt)) {
+      return { error: "O salão está fechado nesse período" };
+    }
+
     const buffered = bufferedWindow(startAt, endAt, salon?.bufferMinutes ?? 0);
     const conflict = await tx.appointment.findFirst({
       where: {
@@ -510,6 +558,10 @@ export async function moveAppointment(input: z.infer<typeof moveInput>): Promise
     const startAt = new Date(data.startAt);
     const endAt = new Date(startAt.getTime() + durationMs);
 
+    if (await isSalonClosedAt(tx, ctx.salonId, startAt, endAt)) {
+      return { error: "O salão está fechado nesse período" };
+    }
+
     const canDo = await tx.professionalService.findFirst({
       where: {
         serviceId: appt.serviceId,
@@ -546,5 +598,185 @@ export async function moveAppointment(input: z.infer<typeof moveInput>): Promise
     revalidatePath("/dashboard");
   }
   return result;
+}
+
+// ── Recorrência ──────────────────────────────────────────────────────────────
+
+const recurringInput = z.object({
+  professionalId: z.string(),
+  serviceId: z.string(),
+  clientId: z.string().optional(),
+  clientName: z.string().min(2).optional(),
+  clientPhone: z.string().optional().nullable(),
+  startAt: z.string().datetime(), // primeira ocorrência
+  notes: z.string().optional().nullable(),
+  frequency: z.enum(["WEEKLY", "BIWEEKLY"]),
+  occurrences: z.number().int().min(2).max(24), // inclui a primeira
+});
+
+export type RecurringResult =
+  | { error: string }
+  | { success: true; created: number; skipped: string[] };
+
+/**
+ * Cria uma série de agendamentos recorrentes (semanal ou quinzenal).
+ *
+ * Sem tabela de série própria: cada ocorrência é um `Appointment`
+ * independente com o mesmo `seriesId`, e cada uma passa pela MESMA validação
+ * de conflito/bloqueio de uma criação manual — nada de burlar a exclusion
+ * constraint ou os bloqueios do salão só por vir de uma série. Se uma data
+ * específica estiver ocupada ou o salão fechado, aquela ocorrência é pulada
+ * (não vira overbooking automático) e reportada em `skipped`; o resto da
+ * série continua. Cada ocorrência é a própria transação — mesmo motivo do
+ * `duplicateAppointment` logo acima: uma exclusion violation aborta a
+ * transação Postgres corrente inteira, então tentar a próxima data na MESMA
+ * transação quebraria com um erro sem relação ("current transaction is
+ * aborted"), não com o conflito real.
+ */
+export async function createRecurringAppointments(
+  input: z.infer<typeof recurringInput>,
+): Promise<RecurringResult> {
+  const ctx = await getTenantContext();
+  assertRole(ctx, ["OWNER", "MANAGER", "RECEPTIONIST"]);
+  const data = recurringInput.parse(input);
+
+  const seriesId = randomUUID();
+  const stepWeeks = data.frequency === "WEEKLY" ? 1 : 2;
+  const firstStart = new Date(data.startAt);
+
+  let created = 0;
+  const skipped: string[] = [];
+  let resolvedClientId = data.clientId ?? null;
+
+  for (let i = 0; i < data.occurrences; i++) {
+    const startAt = addWeeks(firstStart, i * stepWeeks);
+
+    const outcome = await withTenant(ctx, async (tx) => {
+      const service = await tx.service.findFirst({
+        where: { id: data.serviceId, salonId: ctx.salonId, active: true },
+        select: { durationMin: true, priceCents: true },
+      });
+      if (!service) return { kind: "fatal" as const, error: "Serviço inválido" };
+      if (i === 0) {
+        const link = await tx.professionalService.findFirst({
+          where: {
+            serviceId: data.serviceId,
+            professional: { id: data.professionalId, salonId: ctx.salonId, active: true },
+          },
+        });
+        if (!link) {
+          return { kind: "fatal" as const, error: "Este profissional não faz esse serviço" };
+        }
+      }
+
+      let clientId = resolvedClientId;
+      if (!clientId) {
+        if (!data.clientName) return { kind: "fatal" as const, error: "Informe um cliente" };
+        const client = await tx.clientProfile.create({
+          data: { salonId: ctx.salonId, name: data.clientName, phone: data.clientPhone ?? null },
+          select: { id: true },
+        });
+        clientId = client.id;
+      } else {
+        const owned = await tx.clientProfile.findFirst({
+          where: { id: clientId, salonId: ctx.salonId },
+          select: { id: true },
+        });
+        if (!owned) return { kind: "fatal" as const, error: "Cliente inválido" };
+      }
+
+      const endAt = addMinutes(startAt, service.durationMin);
+      if (await isSalonClosedAt(tx, ctx.salonId, startAt, endAt)) {
+        return { kind: "skip" as const, clientId };
+      }
+
+      const salon = await tx.salon.findUnique({
+        where: { id: ctx.salonId },
+        select: { bufferMinutes: true },
+      });
+      const buffered = bufferedWindow(startAt, endAt, salon?.bufferMinutes ?? 0);
+      const conflict = await tx.appointment.findFirst({
+        where: {
+          professionalId: data.professionalId,
+          status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
+          startAt: { lt: buffered.to },
+          endAt: { gt: buffered.from },
+        },
+        select: { id: true },
+      });
+      if (conflict) return { kind: "skip" as const, clientId };
+
+      try {
+        await tx.appointment.create({
+          data: {
+            salonId: ctx.salonId,
+            clientId,
+            serviceId: data.serviceId,
+            professionalId: data.professionalId,
+            startAt,
+            endAt,
+            priceCents: service.priceCents,
+            status: "CONFIRMED",
+            notes: data.notes ?? null,
+            seriesId,
+          },
+        });
+        return { kind: "created" as const, clientId };
+      } catch (e) {
+        if (isOverlapViolation(e)) return { kind: "skip" as const, clientId };
+        throw e;
+      }
+    });
+
+    if (outcome.kind === "fatal") return { error: outcome.error };
+    resolvedClientId = outcome.clientId;
+    if (outcome.kind === "created") created++;
+    else skipped.push(startAt.toISOString());
+  }
+
+  if (created === 0) return { error: "Nenhuma data da série ficou disponível" };
+  revalidatePath("/agenda");
+  revalidatePath("/dashboard");
+  return { success: true, created, skipped };
+}
+
+// ── Bloqueios do salão ────────────────────────────────────────────────────────
+
+const closureInput = z.object({
+  startAt: z.string().datetime(),
+  endAt: z.string().datetime(),
+  reason: z.string().trim().min(2).max(200).optional().nullable(),
+});
+
+export async function createSalonClosure(
+  input: z.infer<typeof closureInput>,
+): Promise<ActionResult> {
+  const ctx = await getTenantContext();
+  assertRole(ctx, ["OWNER", "MANAGER"]);
+  const data = closureInput.parse(input);
+  const startAt = new Date(data.startAt);
+  const endAt = new Date(data.endAt);
+  if (endAt <= startAt) return { error: "O fim precisa ser depois do início" };
+
+  await withTenant(ctx, (tx) =>
+    tx.salonClosure.create({
+      data: { salonId: ctx.salonId, startAt, endAt, reason: data.reason ?? null },
+    }),
+  );
+  revalidatePath("/configuracoes");
+  revalidatePath("/agenda");
+  return { success: true };
+}
+
+export async function deleteSalonClosure(id: string): Promise<ActionResult> {
+  const ctx = await getTenantContext();
+  assertRole(ctx, ["OWNER", "MANAGER"]);
+
+  await withTenant(ctx, (tx) =>
+    tx.salonClosure.deleteMany({ where: { id, salonId: ctx.salonId } }),
+  );
+  revalidatePath("/configuracoes");
+  revalidatePath("/agenda");
+  return { success: true };
 }
 

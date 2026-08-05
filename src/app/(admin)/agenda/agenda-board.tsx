@@ -15,6 +15,7 @@ import {
   CircleDollarSign,
   Clock,
   Loader2,
+  AlertTriangle,
 } from "lucide-react";
 import {
   format,
@@ -58,6 +59,7 @@ export type Appointment = {
   serviceColor: string | null;
   waitlistCount: number;
   waitlistNext: string | null;
+  isOverbooked: boolean;
 };
 
 export type Professional = {
@@ -85,6 +87,7 @@ export function AgendaBoard({
   appointments,
   services,
   clients,
+  canOverbook,
 }: {
   date: string;
   salonName: string;
@@ -92,6 +95,7 @@ export function AgendaBoard({
   appointments: Appointment[];
   services: ServiceOption[];
   clients: ClientOption[];
+  canOverbook: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -337,6 +341,7 @@ export function AgendaBoard({
           professionals={proOptions}
           services={services}
           clients={clients}
+          canOverbook={canOverbook}
         />
       )}
 
@@ -511,6 +516,14 @@ function DayView({
                         >
                           <Users className="h-2.5 w-2.5" />
                           {a.waitlistCount}
+                        </span>
+                      )}
+                      {a.isOverbooked && (
+                        <span
+                          title="Overbooking deliberado — encaixado apesar de conflito de horário"
+                          className="absolute left-1 top-1 grid h-[18px] w-[18px] place-items-center rounded-full bg-danger text-white"
+                        >
+                          <AlertTriangle className="h-2.5 w-2.5" />
                         </span>
                       )}
                       {/* Alça de redimensionar */}

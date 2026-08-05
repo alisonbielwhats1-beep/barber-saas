@@ -13,6 +13,7 @@ import {
   brazilHHMM,
   endOfBrazilDay,
 } from "@/lib/br-time";
+import { isSalonClosedAt } from "@/lib/closures";
 
 /**
  * GET /api/availability?salonId=…&professionalId=…&serviceId=…&date=YYYY-MM-DD
@@ -59,12 +60,13 @@ export async function GET(req: NextRequest) {
   // 6 queries em Promise.all estouravam o timeout do pool (P2024). Esta rota
   // é a mais sensível do produto: é ela que o cliente final chama ao escolher
   // o dia, e falhar aqui bloqueia o agendamento.
-  const { salon, service, professionalLink, workingHours, timeOffs, appointments, history } =
+  const { salon, service, professionalLink, workingHours, timeOffs, appointments, history, closed } =
     await withSalon(salonId, async (tx) => {
       const salon = await tx.salon.findUnique({
         where: { id: salonId },
         select: { minBookingLeadMinutes: true, maxBookingLeadDays: true, bufferMinutes: true },
       });
+      const closed = await isSalonClosedAt(tx, salonId, dayStartInstant, dayEndInstant);
       // Validações primeiro — sem serviço ou vínculo válido, nem busca o resto.
       const service = await tx.service.findFirst({
         where: { id: serviceId, salonId },
@@ -107,12 +109,13 @@ export async function GET(req: NextRequest) {
         take: 500,
         orderBy: { startAt: "desc" },
       });
-      return { salon, service, professionalLink, workingHours, timeOffs, appointments, history };
+      return { salon, service, professionalLink, workingHours, timeOffs, appointments, history, closed };
     });
 
   if (!salon || !service || !professionalLink) {
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
   }
+  if (closed) return NextResponse.json({ slots: [], closed: true });
   if (workingHours.length === 0) return NextResponse.json({ slots: [] });
 
   const step = 15; // grade de 15min
