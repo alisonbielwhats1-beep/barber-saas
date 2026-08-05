@@ -105,16 +105,40 @@ Não unifique os dois sem pedir.
    e todo request dá `Authentication failed`. Após reset, atualizar as duas
    vars na Vercel (via arquivo, ver armadilha 4) e rodar `vercel redeploy`.
 
+9. **Toda tabela nova criada no Supabase nasce com RLS ativo e zero policy.**
+   RLS ativo + zero policy = bloqueia geral (fail-closed) pra qualquer role
+   sem `BYPASSRLS` — foi isso que derrubou login em produção por alguns
+   minutos na ativação do RLS (04/08/2026): `User` tinha RLS ligado pelo
+   padrão do Supabase mas ninguém tinha desativado explicitamente, e o
+   diagnóstico original contou "20 tabelas" sem incluir `User`, escondendo o
+   problema. Ao criar tabela nova: ou ela entra em `01_enable_rls.sql` com uma
+   policy, ou leva um `ALTER TABLE ... DISABLE ROW LEVEL SECURITY` explícito
+   — nunca deixe implícito que uma tabela "está de fora" do RLS.
+
 ## Isolamento multi-tenant
 
 Toda tabela tenant-scoped tem `salonId` + índice; `Membership(userId, salonId,
-role)` liga usuário a salão. **Todo acesso a dados passa por
-`getTenantContext()`** (`src/lib/tenant.ts`), que resolve o `salonId` ativo da
-sessão — é o que impede vazamento entre salões. Há RLS **preparado e não
-ativado** em `prisma/sql/rls/` (ver README). Diagnóstico já rodado em
-produção: a role `postgres` da `DATABASE_URL` tem `BYPASSRLS` — ignora RLS
-sempre, mesmo com FORCE. `03_create_app_role.sql` cria a role correta; falta
-migrar o código e trocar a connection string.
+role)` liga usuário a salão. Todo acesso a dados tenant-scoped passa pelos
+helpers de `src/lib/prisma-tenant.ts` (`withTenant`/`withSalon`/`withUser`/
+`withSalonBySlug`/`withInviteToken`), que abrem uma transação e setam as GUCs
+(`app.current_salon`, `app.current_user_id`, `app.invite_token_hash`) antes de
+qualquer query. `getTenantContext()` (`src/lib/tenant.ts`) resolve o `salonId`
+ativo da sessão por cima disso.
+
+**RLS está ATIVO em produção desde 04/08/2026.** `DATABASE_URL`/`DIRECT_URL`
+conectam como a role `app_runtime` (sem `BYPASSRLS`, criada por
+`03_create_app_role.sql`), e as policies de `prisma/sql/rls/01_enable_rls.sql`
+estão aplicadas nas 21 tabelas. O filtro `salonId` nas queries continua
+existindo como defesa em profundidade, mas o isolamento real agora é reforçado
+pelo próprio banco: uma query sem a GUC certa volta vazia em vez de vazar dado
+de outro salão. Rollback disponível em `02_rollback_rls.sql` se algo quebrar
+(não apaga dado, só remove policies e a exigência de contexto).
+
+Duas rotas fogem do padrão `withTenant`/`withSalon`, documentadas nos próprios
+arquivos: `api/cron/reminders` (varre todos os salões, um `withSalon` por
+salão — não há conexão com `BYPASSRLS`) e `src/lib/invitations.ts` (leitura de
+convite por token usa `withInviteToken`, que seta uma GUC própria só de
+leitura — ver seção 6 de `01_enable_rls.sql`).
 
 ## Roadmap
 
@@ -129,10 +153,3 @@ Plano de evolução (abas do dono e do cliente, financeiro, multi-salão) em
 - `/pagamentos` está no menu com `soon: true` (renderiza desabilitado) — não tem página ainda.
 - Billing do próprio SaaS (Stripe por `Plan` FREE/STARTER/PRO) não implementado.
 - Envio real de WhatsApp/SMS (Marketing dispara link de wa.me, não Evolution API/Twilio).
-- RLS (`prisma/sql/rls/`) escrito e revisado, **não ativado**. Diagnóstico
-  (`00_diagnose_rls.sql`) já rodado em produção: a role `postgres` da
-  `DATABASE_URL` tem `BYPASSRLS` — ignora RLS sempre, mesmo com `FORCE`. RLS já
-  está `ENABLE`d nas 20 tabelas (default do Supabase), sem nenhuma policy.
-  `03_create_app_role.sql` cria a role correta, sem esse atributo. Falta migrar
-  ~241 chamadas `prisma.*` em 39 arquivos para `src/lib/prisma-tenant.ts` e só
-  então trocar a connection string — passos em ordem no cabeçalho do `03`.
