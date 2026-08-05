@@ -94,7 +94,7 @@
     color: hsl(var(--foreground));
   }
 
-  /* ─── Client Booking: Dark Trimly + Verde Neon ──────────────────────────── */
+  /* ─── Client Booking: tema escuro + verde neon ──────────────────────────── */
   [data-theme="salon-dark"] {
     --background: 230 8% 6%;
     --foreground: 40 30% 96%;

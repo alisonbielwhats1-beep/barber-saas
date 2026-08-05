@@ -661,14 +661,14 @@ function BoardingPass({
     const ics = [
       "BEGIN:VCALENDAR",
       "VERSION:2.0",
-      "PRODID:-//Trimly//Agendamento//PT",
+      "PRODID:-//SalonSaaS//Agendamento//PT",
       "BEGIN:VEVENT",
-      `UID:${Date.now()}@trimly`,
+      `UID:${Date.now()}@salonsaas`,
       `DTSTAMP:${dt(new Date())}`,
       `DTSTART:${dt(booked.startAt)}`,
       `DTEND:${dt(end)}`,
       `SUMMARY:${booked.serviceName} — ${salonName}`,
-      `DESCRIPTION:Com ${booked.proName}. Reserva feita pelo Trimly.`,
+      `DESCRIPTION:Com ${booked.proName}. Reserva feita via ${salonName}.`,
       "END:VEVENT",
       "END:VCALENDAR",
     ].join("\r\n");

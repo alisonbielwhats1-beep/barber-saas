@@ -6,8 +6,8 @@ import { withSalonBySlug } from "@/lib/prisma-tenant";
 import { HERO_IMAGES } from "@/lib/images";
 
 /**
- * Splash / onboarding — Trimly middle screen. Hero full-bleed com foto moody
- * de barbearia, overlay dark + tint verde, tagline forte e CTA.
+ * Splash / onboarding — hero full-bleed com foto do salão, overlay dark +
+ * tint verde, e CTA. Não é linkada de nenhum outro lugar do app hoje.
  */
 export default async function WelcomePage({
   params,
@@ -57,15 +57,13 @@ export default async function WelcomePage({
 
       <div className="flex flex-1 flex-col justify-end px-8 pb-16 pt-24">
         <span className="mb-3 inline-flex w-fit items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-[11px] font-medium uppercase tracking-wide text-primary backdrop-blur">
-          <MoreHorizontal className="h-3 w-3" /> Trimly experience
+          <MoreHorizontal className="h-3 w-3" /> Agendamento online
         </span>
         <h1 className="font-display text-4xl uppercase leading-tight tracking-tight">
-          {salon.name.toUpperCase()} —
-          <br />
-          <span className="text-primary">mais que um corte</span>
+          {salon.name.toUpperCase()}
         </h1>
         <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted-foreground">
-          Se pra você um corte é ritual, não rotina — te esperamos.
+          Se pra você isso é ritual, não rotina — te esperamos.
           {salon.address ? ` ${salon.address}.` : ""}
         </p>
 
