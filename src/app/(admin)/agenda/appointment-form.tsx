@@ -12,7 +12,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { createAppointmentManually } from "./actions";
+import { AlertTriangle, Repeat } from "lucide-react";
+import { createAppointmentManually, createRecurringAppointments } from "./actions";
 import { formatMoney, formatDuration } from "@/lib/utils";
 
 export type ProOption = {
@@ -36,6 +37,7 @@ export function AppointmentDialog({
   professionals,
   services,
   clients,
+  canOverbook,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -44,23 +46,27 @@ export function AppointmentDialog({
   professionals: ProOption[];
   services: ServiceOption[];
   clients: ClientOption[];
+  canOverbook: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [selectedProId, setSelectedProId] = useState(professionalId);
   const [mode, setMode] = useState<"existing" | "new">("existing");
+  const [repeat, setRepeat] = useState(false);
+  const [frequency, setFrequency] = useState<"WEEKLY" | "BIWEEKLY">("WEEKLY");
+  const [occurrences, setOccurrences] = useState(4);
+  const [conflict, setConflict] = useState(false);
+  const [overbookReason, setOverbookReason] = useState("");
+  const [seriesResult, setSeriesResult] = useState<{ created: number; skipped: number } | null>(null);
+  const [lastFormData, setLastFormData] = useState<FormData | null>(null);
 
   const proNow = professionals.find((p) => p.id === selectedProId);
   const availableServices = services.filter((s) =>
     proNow?.serviceIds.includes(s.id),
   );
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setError(null);
-    const form = new FormData(e.currentTarget);
-
-    const payload =
+  function buildPayload(form: FormData, overbookReasonValue?: string) {
+    const base =
       mode === "existing"
         ? {
             professionalId: selectedProId,
@@ -77,7 +83,52 @@ export function AppointmentDialog({
             startAt: slotStartISO,
             notes: (form.get("notes") as string) || null,
           };
+    return overbookReasonValue ? { ...base, overbookReason: overbookReasonValue } : base;
+  }
 
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError(null);
+    setConflict(false);
+    const form = new FormData(e.currentTarget);
+    setLastFormData(form);
+
+    if (repeat) {
+      const payload = buildPayload(form);
+      startTransition(async () => {
+        const result = await createRecurringAppointments({
+          ...payload,
+          frequency,
+          occurrences,
+        });
+        if ("error" in result) {
+          setError(result.error);
+        } else {
+          setSeriesResult({ created: result.created, skipped: result.skipped.length });
+        }
+      });
+      return;
+    }
+
+    const payload = buildPayload(form);
+    startTransition(async () => {
+      const result = await createAppointmentManually(payload);
+      if ("error" in result) {
+        if (result.error === "Horário já ocupado" && canOverbook) {
+          setConflict(true);
+        } else {
+          setError(result.error);
+        }
+      } else {
+        onOpenChange(false);
+      }
+    });
+  }
+
+  function onOverbookConfirm() {
+    if (!lastFormData || overbookReason.trim().length < 3) return;
+    setError(null);
+    const payload = buildPayload(lastFormData, overbookReason.trim());
     startTransition(async () => {
       const result = await createAppointmentManually(payload);
       if ("error" in result) {
@@ -92,6 +143,27 @@ export function AppointmentDialog({
     dateStyle: "short",
     timeStyle: "short",
   });
+
+  if (seriesResult) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Série criada</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm">
+            {seriesResult.created} agendamento{seriesResult.created !== 1 ? "s" : ""} criado
+            {seriesResult.created !== 1 ? "s" : ""}.
+            {seriesResult.skipped > 0 &&
+              ` ${seriesResult.skipped} data${seriesResult.skipped !== 1 ? "s" : ""} pulada${seriesResult.skipped !== 1 ? "s" : ""} por conflito de horário ou bloqueio do salão.`}
+          </p>
+          <DialogFooter>
+            <Button onClick={() => onOpenChange(false)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -187,6 +259,82 @@ export function AppointmentDialog({
             <Input name="notes" placeholder="Ex.: cliente pediu franja curta" />
           </div>
 
+          <div className="rounded-md border border-border p-3">
+            <label className="flex items-center gap-2 text-sm font-medium">
+              <input
+                type="checkbox"
+                checked={repeat}
+                onChange={(e) => setRepeat(e.target.checked)}
+                className="h-4 w-4"
+              />
+              <Repeat className="h-3.5 w-3.5" />
+              Repetir agendamento
+            </label>
+            {repeat && (
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                    Frequência
+                  </label>
+                  <select
+                    value={frequency}
+                    onChange={(e) => setFrequency(e.target.value as "WEEKLY" | "BIWEEKLY")}
+                    className="flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                  >
+                    <option value="WEEKLY">Toda semana</option>
+                    <option value="BIWEEKLY">A cada 2 semanas</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                    Nº de ocorrências
+                  </label>
+                  <Input
+                    type="number"
+                    min={2}
+                    max={24}
+                    value={occurrences}
+                    onChange={(e) => setOccurrences(Math.min(24, Math.max(2, Number(e.target.value) || 2)))}
+                    className="h-9"
+                  />
+                </div>
+                <p className="col-span-2 text-[11px] text-muted-foreground">
+                  Datas com conflito de horário ou bloqueio do salão são puladas automaticamente — o
+                  resto da série é criado.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {conflict && !repeat && (
+            <div className="rounded-md border border-danger/40 bg-danger/5 p-3">
+              <p className="flex items-center gap-1.5 text-sm font-medium text-danger">
+                <AlertTriangle className="h-4 w-4" />
+                Horário já ocupado
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Você pode encaixar mesmo assim (overbooking). A ação fica registrada na trilha de
+                auditoria — informe o motivo.
+              </p>
+              <Input
+                value={overbookReason}
+                onChange={(e) => setOverbookReason(e.target.value)}
+                placeholder="Motivo do encaixe (obrigatório)"
+                className="mt-2"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={pending || overbookReason.trim().length < 3}
+                onClick={onOverbookConfirm}
+                className="mt-2 border-danger/40 text-danger hover:bg-danger/10"
+              >
+                Encaixar mesmo assim
+              </Button>
+            </div>
+          )}
+
           {error && (
             <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
               {error}
@@ -198,7 +346,7 @@ export function AppointmentDialog({
               <Button variant="outline" type="button">Cancelar</Button>
             </DialogClose>
             <Button type="submit" disabled={pending || availableServices.length === 0}>
-              {pending ? "Agendando…" : "Confirmar"}
+              {pending ? "Agendando…" : repeat ? "Criar série" : "Confirmar"}
             </Button>
           </DialogFooter>
         </form>

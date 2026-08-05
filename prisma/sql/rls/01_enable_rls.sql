@@ -97,7 +97,9 @@ DECLARE
     'Service',
     'UserInvite',
     'WaitlistEntry',
-    'WorkingHours'
+    'WorkingHours',
+    'SalonClosure',
+    'AuditLog'
   ];
 BEGIN
   FOREACH t IN ARRAY tabelas LOOP

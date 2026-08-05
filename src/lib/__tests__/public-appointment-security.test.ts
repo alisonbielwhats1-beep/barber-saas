@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => {
   // security.test.ts, aqui com mais métodos por causa do fluxo de reserva.
   const prisma = {
     salon: { findUnique: vi.fn() },
+    salonClosure: { findFirst: vi.fn() },
     service: { findFirst: vi.fn() },
     professionalService: { findFirst: vi.fn() },
     appointment: { findFirst: vi.fn(), create: appointmentCreate },
@@ -84,6 +85,7 @@ describe("POST /api/appointments — identidade do cliente", () => {
       maxBookingLeadDays: 100_000,
       bufferMinutes: 0,
     });
+    mocks.prisma.salonClosure.findFirst.mockResolvedValue(null);
     mocks.prisma.service.findFirst.mockResolvedValue({
       durationMin: 30,
       priceCents: 5_000,

@@ -22,7 +22,8 @@ DECLARE
     'Expense', 'Membership', 'MembershipPlan', 'Package', 'PackagePurchase',
     'Payment', 'PortfolioItem', 'Product', 'Professional',
     'ProfessionalService', 'Salon', 'Service', 'TimeOff', 'UserInvite',
-    'UserInviteEvent', 'WaitlistEntry', 'WorkingHours'
+    'UserInviteEvent', 'WaitlistEntry', 'WorkingHours',
+    'SalonClosure', 'AuditLog'
   ];
 BEGIN
   FOREACH t IN ARRAY tabelas LOOP

@@ -42,8 +42,9 @@
 -- repositório é público.
 --
 -- ─── O QUE ESTA ROLE PODE FAZER ─────────────────────────────────────────────
--- SELECT/INSERT/UPDATE/DELETE nas 21 tabelas que `schema.prisma` define — nem
--- uma a mais. Sem CREATE, sem ALTER, sem DROP: esta app nunca roda `prisma
+-- SELECT/INSERT/UPDATE/DELETE nas 22 tabelas que `schema.prisma` define (+
+-- SELECT/INSERT só em "AuditLog", append-only) — nem uma a mais. Sem CREATE,
+-- sem ALTER, sem DROP: esta app nunca roda `prisma
 -- migrate` em runtime (usa SQL manual revisado, ver `prisma/sql/manual/`), e
 -- dar privilégio de DDL a uma role de aplicação é superfície de ataque sem
 -- necessidade nenhuma correspondente.
@@ -107,7 +108,7 @@ GRANT CONNECT ON DATABASE postgres TO app_runtime;
 GRANT USAGE ON SCHEMA public TO app_runtime;
 
 
--- ─── DML nas 21 tabelas da aplicação — nada de DDL ──────────────────────────
+-- ─── DML nas 22 tabelas da aplicação (+ AuditLog à parte) — nada de DDL ────
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
   "User",
@@ -131,8 +132,14 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
   "Expense",
   "UserInvite",
   "UserInviteEvent",
-  "WaitlistEntry"
+  "WaitlistEntry",
+  "SalonClosure"
 TO app_runtime;
+
+-- "AuditLog" fica de fora deste GRANT geral de propósito: é append-only
+-- (só SELECT + INSERT, ver 007_fase2_recorrencia_overbooking_bloqueio.sql)
+-- — uma trilha de auditoria que a própria aplicação pode UPDATE/DELETE não
+-- serve pra nada.
 
 
 -- ─── Confirmação ─────────────────────────────────────────────────────────

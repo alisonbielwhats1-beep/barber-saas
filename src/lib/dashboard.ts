@@ -127,10 +127,20 @@ export async function getDashboardMetrics(salonId: string, range: RangeKey) {
     ),
   ]);
 
-  const [proPerf, topServices, occupancy] = await Promise.all([
+  const [proPerf, topServices, occupancy, waitlistEntries] = await Promise.all([
     withSalon(salonId, (tx) => getProfessionalPerformance(tx, salonId, from, to)),
     withSalon(salonId, (tx) => getTopServices(tx, salonId, from, to, 5)),
     withSalon(salonId, (tx) => getOccupancyRate(tx, salonId, from, to)),
+    // Conversão da lista de espera: de quem entrou na fila NO PERÍODO, quantos
+    // acabaram confirmados (fulfilledAt não-nulo, seja qual for a data do
+    // preenchimento). Volume esperado é baixo (dezenas por salão/mês) — busca
+    // as linhas e conta em memória em vez de duas queries de agregação.
+    withSalon(salonId, (tx) =>
+      tx.waitlistEntry.findMany({
+        where: { salonId, createdAt: { gte: from, lte: to } },
+        select: { fulfilledAt: true },
+      }),
+    ),
   ]);
 
   const [clientsByGender, newClientsByGender, clientAgg, totalClients] = await Promise.all([
@@ -213,6 +223,14 @@ export async function getDashboardMetrics(salonId: string, range: RangeKey) {
     statusGroups.find((g) => g.status === s)?._count._all ?? 0;
   const cancellations = statusCount("CANCELLED");
   const noShow = statusCount("NO_SHOW");
+  const totalInPeriod = statusGroups.reduce((s, g) => s + g._count._all, 0);
+  const cancellationRate = totalInPeriod > 0 ? cancellations / totalInPeriod : null;
+  const noShowRate = totalInPeriod > 0 ? noShow / totalInPeriod : null;
+
+  // ── Lista de espera ──────────────────────────────────────────────
+  const waitlistTotal = waitlistEntries.length;
+  const waitlistFulfilled = waitlistEntries.filter((w) => w.fulfilledAt !== null).length;
+  const waitlistConversionRate = waitlistTotal > 0 ? waitlistFulfilled / waitlistTotal : null;
 
   // ── Próximos ──────────────────────────────────────────────────
   const in30 = addDays(now, 30);
@@ -307,6 +325,13 @@ export async function getDashboardMetrics(salonId: string, range: RangeKey) {
     },
     cancellations,
     noShow,
+    cancellationRate,
+    noShowRate,
+    waitlist: {
+      total: waitlistTotal,
+      fulfilled: waitlistFulfilled,
+      conversionRate: waitlistConversionRate,
+    },
     apptsToday,
     apptsTomorrow,
     clients: {

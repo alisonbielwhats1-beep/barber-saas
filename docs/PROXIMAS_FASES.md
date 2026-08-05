@@ -37,6 +37,22 @@ Não exige nova migration. O checklist completo está em
 Objetivo: tornar a agenda confiável para uso diário e competitiva com produtos
 como Booksy, sem copiar interface ou regras proprietárias.
 
+**Concluído (05/08/2026):** antecedência mín/máx e buffer entre atendimentos
+(item 3, parcial); lista de espera por agendamento específico com aceite
+atômico via advisory lock, sem expiração/oferta explícita em v1 (item 2,
+escopado); remarcação atômica pelo cliente (item 7, parcial); agendamentos
+recorrentes semanal/quinzenal com pulo automático de data conflitante (item
+5, metade); overbooking deliberado com `AuditLog` append-only, restrito a
+OWNER/MANAGER e só na criação manual — não em mover/editar/redimensionar
+(item 5, outra metade); bloqueio de dia(s) inteiro(s) do salão via
+`SalonClosure`, respeitado por toda rota de criação/edição, pública e admin
+(item 3, outra parte); taxa de ocupação, no-show, cancelamento e conversão da
+lista de espera no dashboard (item 9).
+
+Itens 1, 4, 6 (parcial — status já tinha fluxo, faltava reagendar-e-notificar
+combinado), 7 (cliente ainda não cancela sozinho sem conta) e 8 seguem em
+aberto.
+
 1. Auditar o que já existe e cobrir lacunas com testes.
 2. Implementar lista de espera por serviço, profissional e faixa de horário,
    com prioridade, expiração, oferta de vaga e aceite atômico.

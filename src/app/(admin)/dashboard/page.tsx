@@ -33,6 +33,7 @@ import {
   CalendarClock,
   AlertTriangle,
   Bell,
+  Hourglass,
 } from "lucide-react";
 import { RangeFilter } from "./range-filter";
 import { RevenueChart } from "./revenue-chart";
@@ -369,11 +370,27 @@ export default async function DashboardPage({
       </section>
 
       {/* ── Stat tiles — só o que pede atenção no período ──── */}
-      <section className="stagger grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+      <section className="stagger grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-7">
         <StatTile icon={TrendingUp} label="Receita prevista" value={formatMoney(m.forecast)} hint="Próximos 30 dias" />
         <StatTile icon={HandCoins} label="Comissão pendente" value={formatMoney(m.commissionPending)} />
-        <StatTile icon={CalendarX} label="Cancelamentos" value={m.cancellations.toString()} />
-        <StatTile icon={UserX} label="No-show" value={m.noShow.toString()} />
+        <StatTile
+          icon={CalendarX}
+          label="Cancelamentos"
+          value={m.cancellations.toString()}
+          hint={m.cancellationRate != null ? `${Math.round(m.cancellationRate * 100)}% do período` : undefined}
+        />
+        <StatTile
+          icon={UserX}
+          label="No-show"
+          value={m.noShow.toString()}
+          hint={m.noShowRate != null ? `${Math.round(m.noShowRate * 100)}% do período` : undefined}
+        />
+        <StatTile
+          icon={Hourglass}
+          label="Conversão da fila"
+          value={m.waitlist.total > 0 ? `${Math.round((m.waitlist.conversionRate ?? 0) * 100)}%` : "—"}
+          hint={m.waitlist.total > 0 ? `${m.waitlist.fulfilled}/${m.waitlist.total} confirmados` : "Sem entradas no período"}
+        />
         <StatTile icon={PackageX} label="Produtos em falta" value={m.products.outOfStock.toString()} />
         <StatTile icon={Users} label="Clientes ativos" value={m.clients.active.toString()} />
       </section>
