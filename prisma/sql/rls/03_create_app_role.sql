@@ -16,12 +16,17 @@
 -- definição. Antes de ativar RLS de verdade, a aplicação precisa se conectar
 -- como uma role SEM esse atributo.
 --
--- Rodamos também `pg_class` e confirmamos: RLS já está `ENABLE`d nas 20
--- tabelas (aparentemente por um comportamento padrão do Supabase ao criar
--- tabela pelo painel), mas sem nenhuma policy. Isso significa que, JÁ HOJE,
--- qualquer role sem BYPASSRLS e sem ser dona das tabelas recebe zero linhas
--- de SELECT/INSERT/UPDATE/DELETE em todas elas. A role nova só voltará a
--- funcionar depois que `01_enable_rls.sql` criar as policies.
+-- Rodamos também `pg_class` e confirmamos: RLS já está `ENABLE`d nas 21
+-- tabelas da aplicação — `User` incluída — (aparentemente por um
+-- comportamento padrão do Supabase ao criar tabela pelo painel), mas sem
+-- nenhuma policy. Isso significa que, JÁ HOJE, qualquer role sem BYPASSRLS e
+-- sem ser dona das tabelas recebe zero linhas de SELECT/INSERT/UPDATE/DELETE
+-- em todas elas. A role nova só volta a funcionar depois que
+-- `01_enable_rls.sql` criar as policies — e, especificamente para `User`,
+-- depois que a seção 5 daquele arquivo rodar o `DISABLE ROW LEVEL SECURITY`
+-- explícito (ver o incidente documentado lá: contar "20 tabelas" aqui, sem
+-- incluir `User`, foi o que fez essa tabela ficar de fora do `DISABLE` da
+-- primeira vez).
 --
 -- ─── SENHA ───────────────────────────────────────────────────────────────
 -- `CREATE ROLE ... LOGIN PASSWORD` exige uma senha literal — não há como

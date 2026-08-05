@@ -256,6 +256,20 @@ CREATE POLICY tenant_isolation ON "UserInviteEvent"
 --
 -- Tabelas do NextAuth (Account, Session, VerificationToken), se existirem, ficam
 -- fora pelo mesmo motivo: são consultadas antes de haver contexto de tenant.
+--
+-- ⚠️  INCIDENTE (04/08/2026): esta seção só documentava a intenção, sem
+-- executar o `DISABLE` de fato. O Supabase ativa RLS por padrão em toda
+-- tabela criada pelo painel — `User` incluída, apesar de nunca ter passado
+-- por um `ENABLE ROW LEVEL SECURITY` nosso. RLS ativo + zero policy = bloqueia
+-- todo mundo (fail-closed), então na troca de `DATABASE_URL` para `app_runtime`
+-- login e a listagem de equipe no booking quebraram imediatamente
+-- (`Inconsistent query result: Field user is required to return data, got
+-- null`). Corrigido ao vivo com o `DISABLE` abaixo; a linha existe aqui para
+-- este arquivo continuar correto se algum dia for reaplicado depois de um
+-- rollback (`02_rollback_rls.sql` não mexe em `User`, então sem esta linha o
+-- mesmo incidente se repetiria).
+
+ALTER TABLE "User" DISABLE ROW LEVEL SECURITY;
 
 
 -- ============================================================================
