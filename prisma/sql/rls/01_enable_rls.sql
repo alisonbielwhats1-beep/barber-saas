@@ -96,6 +96,7 @@ DECLARE
     'Professional',
     'Service',
     'UserInvite',
+    'WaitlistEntry',
     'WorkingHours'
   ];
 BEGIN

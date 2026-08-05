@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { withSalonBySlug } from "@/lib/prisma-tenant";
 import { getClientSession } from "@/lib/client-auth";
+import { fulfillWaitlistOnCancel } from "@/lib/waitlist";
 import {
   checkRateLimit,
   clientIp,
@@ -91,6 +92,8 @@ export async function POST(req: NextRequest) {
             "updatedAt"   = NOW()
       WHERE id = ${appt.id}
     `;
+    // Libera automaticamente pro primeiro da fila de espera, se houver.
+    await fulfillWaitlistOnCancel(tx, appt.id, salonId);
     return { kind: "ok" as const };
   });
 

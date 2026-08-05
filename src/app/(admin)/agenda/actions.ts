@@ -7,6 +7,7 @@ import { isOverlapViolation } from "@/lib/db-errors";
 import { assertRole, getTenantContext } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
 import { bufferedWindow } from "@/lib/scheduling";
+import { fulfillWaitlistOnCancel } from "@/lib/waitlist";
 
 /** Executa a mutação traduzindo violação da exclusion constraint. */
 async function guardOverlap<T>(fn: () => Promise<T>): Promise<T> {
@@ -145,12 +146,17 @@ export async function updateAppointmentStatus(
   assertRole(ctx, ["OWNER", "MANAGER", "RECEPTIONIST", "PROFESSIONAL"]);
   const parsedStatus = statusInput.parse(status);
 
-  await withTenant(ctx, (tx) =>
-    tx.appointment.updateMany({
+  await withTenant(ctx, async (tx) => {
+    await tx.appointment.updateMany({
       where: { id, salonId: ctx.salonId },
       data: { status: parsedStatus },
-    }),
-  );
+    });
+    // Libera automaticamente pro primeiro da fila de espera, se houver —
+    // mesma transação, então ou os dois efeitos acontecem ou nenhum.
+    if (parsedStatus === "CANCELLED") {
+      await fulfillWaitlistOnCancel(tx, id, ctx.salonId);
+    }
+  });
   revalidatePath("/agenda");
   revalidatePath("/dashboard");
 }

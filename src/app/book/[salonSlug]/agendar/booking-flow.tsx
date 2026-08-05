@@ -114,6 +114,13 @@ export function BookingFlow({
   const [slotsVersion, setSlotsVersion] = useState(0);
   const [popularSlot, setPopularSlot] = useState<string | null>(null);
   const [slotsLoading, setSlotsLoading] = useState(false);
+  const [occupied, setOccupied] = useState<{ appointmentId: string; time: string }[]>([]);
+  const [waitlistTarget, setWaitlistTarget] = useState<{ appointmentId: string; time: string } | null>(null);
+  const [waitlistName, setWaitlistName] = useState(clientSession?.name ?? "");
+  const [waitlistPhone, setWaitlistPhone] = useState("");
+  const [waitlistJoined, setWaitlistJoined] = useState<string | null>(null);
+  const [waitlistLoading, setWaitlistLoading] = useState(false);
+  const [waitlistError, setWaitlistError] = useState<string | null>(null);
   const [name, setName] = useState(clientSession?.name ?? "");
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
@@ -182,6 +189,7 @@ export function BookingFlow({
     if (!service || !proId) {
       setSlots([]);
       setPopularSlot(null);
+      setOccupied([]);
       return;
     }
     const controller = new AbortController();
@@ -199,6 +207,7 @@ export function BookingFlow({
         const list: string[] = Array.isArray(b.slots) ? b.slots : [];
         setSlots(list);
         setPopularSlot(typeof b.popularSlot === "string" ? b.popularSlot : null);
+        setOccupied(Array.isArray(b.occupied) ? b.occupied : []);
         // Fluxo returnTo: re-seleciona o horário salvo se ainda estiver livre
         if (pendingSlotRef.current && list.includes(pendingSlotRef.current)) {
           setSlot(pendingSlotRef.current);
@@ -286,6 +295,32 @@ export function BookingFlow({
         setSlot(null);
         setSlotsVersion((v) => v + 1);
       }
+    }
+  }
+
+  async function joinWaitlist() {
+    if (!waitlistTarget) return;
+    if (!clientSession && (!waitlistName || !isValidPhoneBR(waitlistPhone))) return;
+    setWaitlistLoading(true);
+    setWaitlistError(null);
+    const res = await fetch("/api/waitlist/join", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        salonId,
+        appointmentId: waitlistTarget.appointmentId,
+        ...(!clientSession
+          ? { clientName: waitlistName, clientPhone: normalizePhone(waitlistPhone) }
+          : {}),
+      }),
+    });
+    setWaitlistLoading(false);
+    if (res.ok) {
+      setWaitlistJoined(waitlistTarget.appointmentId);
+      setWaitlistTarget(null);
+    } else {
+      const b = await res.json().catch(() => ({}));
+      setWaitlistError(friendlyError(b.error));
     }
   }
 
@@ -545,6 +580,84 @@ export function BookingFlow({
           </p>
         )}
       </div>
+
+      {/* Horários ocupados — entrar na fila de espera */}
+      {!slotsLoading && proId && occupied.length > 0 && (
+        <div>
+          <h3 className="mb-3 text-sm font-semibold text-muted-foreground">
+            Ocupados — entre na fila
+          </h3>
+          <div className="grid grid-cols-4 gap-2">
+            {occupied.map((o) => {
+              const joined = waitlistJoined === o.appointmentId;
+              return (
+                <button
+                  key={o.appointmentId}
+                  onClick={() => {
+                    setWaitlistError(null);
+                    setWaitlistTarget(joined ? null : o);
+                  }}
+                  disabled={joined}
+                  className={`rounded-full border py-2 text-xs transition ${
+                    joined
+                      ? "border-primary/40 bg-primary/10 text-primary"
+                      : "border-dashed border-border text-muted-foreground hover:border-primary/50"
+                  }`}
+                >
+                  {joined ? "Na fila ✓" : o.time}
+                </button>
+              );
+            })}
+          </div>
+
+          {waitlistTarget && (
+            <div className="mt-3 rounded-2xl border border-border bg-card p-4">
+              <p className="text-sm font-medium">Entrar na fila das {waitlistTarget.time}?</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Se quem tem esse horário cancelar, você é confirmado automaticamente nele. O
+                salão pode entrar em contato — não há confirmação instantânea garantida.
+              </p>
+              {!clientSession && (
+                <div className="mt-3 space-y-2">
+                  <input
+                    value={waitlistName}
+                    onChange={(e) => setWaitlistName(e.target.value)}
+                    placeholder="Seu nome"
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
+                  />
+                  <input
+                    value={waitlistPhone}
+                    onChange={(e) => setWaitlistPhone(formatPhoneBR(e.target.value))}
+                    placeholder="WhatsApp — (11) 91234-5678"
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
+                  />
+                </div>
+              )}
+              {waitlistError && (
+                <p className="mt-2 text-xs text-destructive">{waitlistError}</p>
+              )}
+              <div className="mt-3 flex gap-2">
+                <button
+                  onClick={() => setWaitlistTarget(null)}
+                  className="flex-1 rounded-full border border-border py-2 text-xs font-medium text-muted-foreground"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={joinWaitlist}
+                  disabled={
+                    waitlistLoading ||
+                    (!clientSession && (!waitlistName || !isValidPhoneBR(waitlistPhone)))
+                  }
+                  className="flex-1 rounded-full bg-primary py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+                >
+                  {waitlistLoading ? "Entrando…" : "Entrar na fila"}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Identidade — só quando logado e horário selecionado */}
       {slot && clientSession && (

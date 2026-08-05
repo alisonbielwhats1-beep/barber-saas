@@ -15,6 +15,7 @@ export const ERROR_PT: Record<string, string> = {
   ALREADY_CLOSED: "Essa reserva já foi encerrada.",
   TOO_LATE_TO_RESCHEDULE:
     "Não é possível remarcar com tão pouca antecedência. Entre em contato com o salão.",
+  ALREADY_WAITING: "Você já está na lista de espera desse horário.",
 };
 
 export function friendlyError(raw: unknown): string {

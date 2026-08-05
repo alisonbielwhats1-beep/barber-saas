@@ -130,7 +130,8 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
   "ClientSubscription",
   "Expense",
   "UserInvite",
-  "UserInviteEvent"
+  "UserInviteEvent",
+  "WaitlistEntry"
 TO app_runtime;
 
 

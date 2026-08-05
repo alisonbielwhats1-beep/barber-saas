@@ -84,7 +84,7 @@ export async function GET(req: NextRequest) {
           startAt: { gte: startOfDay(date), lte: endOfDay(date) },
           status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
         },
-        select: { startAt: true, endAt: true },
+        select: { id: true, startAt: true, endAt: true },
       });
       // Histórico de horários do profissional (qualquer dia) para achar o mais pedido
       const history = await tx.appointment.findMany({
@@ -155,5 +155,18 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ slots, popularSlot });
+  // Agendamentos deste profissional que ocupam ESTE dia — pro front oferecer
+  // "entrar na fila de espera" em cima do horário exato, em vez de só
+  // esconder o que não está livre (só faz sentido pro caso de conflito de
+  // agenda; não lista nada aqui se o dia inteiro estiver fora da janela de
+  // antecedência ou o profissional não trabalhar nesse dia).
+  const occupied = appointments.map((a) => ({
+    appointmentId: a.id,
+    time: `${a.startAt.getHours().toString().padStart(2, "0")}:${a.startAt
+      .getMinutes()
+      .toString()
+      .padStart(2, "0")}`,
+  }));
+
+  return NextResponse.json({ slots, popularSlot, occupied });
 }
