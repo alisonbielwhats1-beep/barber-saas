@@ -81,6 +81,15 @@ CREATE INDEX IF NOT EXISTS "Appointment_seriesId_idx" ON "Appointment" ("seriesI
 -- nasce com isOverbooked=false (default), então o comportamento pra dados
 -- já gravados não muda em nada — só abre a exceção pra overbooking
 -- deliberado, marcado explicitamente pela aplicação.
+--
+-- CREATE EXTENSION repetido de propósito: já foi instalada em
+-- 002_appointment_no_overlap.sql, mas sem ela visível nesta sessão do SQL
+-- Editor o ADD CONSTRAINT abaixo falha com "data type text has no default
+-- operator class for access method gist" — é ela quem registra o operator
+-- class default de GiST pra tipos como text. IF NOT EXISTS torna isto um
+-- no-op seguro se já estiver instalada.
+CREATE EXTENSION IF NOT EXISTS btree_gist;
+
 ALTER TABLE "Appointment" DROP CONSTRAINT IF EXISTS appointment_no_overlap;
 ALTER TABLE "Appointment"
   ADD CONSTRAINT appointment_no_overlap
