@@ -25,6 +25,7 @@ import {
   Save,
   CreditCard,
   ArrowLeft,
+  Users,
 } from "lucide-react";
 import { formatMoney } from "@/lib/utils";
 import { format } from "date-fns";
@@ -286,6 +287,17 @@ export function AppointmentDetail({
                   <span className="text-muted-foreground">Valor</span>
                   <span className="font-semibold">{formatMoney(appt.priceCents)}</span>
                 </div>
+                {appt.waitlistCount > 0 && (
+                  <div className="flex items-center justify-between rounded-lg bg-amber-500/10 px-3 py-2 text-amber-600">
+                    <span className="flex items-center gap-1.5 font-medium">
+                      <Users className="h-4 w-4" />
+                      {appt.waitlistCount} na fila de espera
+                    </span>
+                    {appt.waitlistNext && (
+                      <span className="text-[12px]">Próximo: {appt.waitlistNext}</span>
+                    )}
+                  </div>
+                )}
               </div>
 
               {error && (
@@ -366,10 +378,18 @@ export function AppointmentDetail({
               <button
                 disabled={pending}
                 onClick={() => run(() => cancelAppointment(appt.id))}
+                title={
+                  appt.waitlistCount > 0
+                    ? `Ao cancelar, ${appt.waitlistNext ?? "o primeiro da fila"} é confirmado automaticamente nesse horário`
+                    : undefined
+                }
                 className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[13px] font-medium text-muted-foreground transition hover:border-danger/50 hover:text-danger disabled:opacity-50"
               >
                 <Ban className="h-4 w-4" />
                 Cancelar agendamento
+                {appt.waitlistCount > 0 && (
+                  <span className="ml-1 text-[11px] text-amber-600">(fila será chamada)</span>
+                )}
               </button>
             </>
           )}

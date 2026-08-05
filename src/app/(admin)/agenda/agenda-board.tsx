@@ -56,6 +56,8 @@ export type Appointment = {
   clientPhone: string | null;
   serviceName: string;
   serviceColor: string | null;
+  waitlistCount: number;
+  waitlistNext: string | null;
 };
 
 export type Professional = {
@@ -502,6 +504,15 @@ function DayView({
                           {format(new Date(a.startAt), "HH:mm")} · {formatMoney(a.priceCents)}
                         </p>
                       )}
+                      {a.waitlistCount > 0 && (
+                        <span
+                          title={`${a.waitlistCount} na fila de espera${a.waitlistNext ? ` — próximo: ${a.waitlistNext}` : ""}`}
+                          className="absolute right-1 top-1 inline-flex items-center gap-0.5 rounded-full bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold text-black"
+                        >
+                          <Users className="h-2.5 w-2.5" />
+                          {a.waitlistCount}
+                        </span>
+                      )}
                       {/* Alça de redimensionar */}
                       <div
                         onPointerDown={(e) => startDrag(e, a.id, "resize")}
@@ -766,6 +777,15 @@ function ListView({
                   {a.serviceName}{pro ? ` · ${pro.name.split(" ")[0]}` : ""}
                 </p>
               </div>
+              {a.waitlistCount > 0 && (
+                <span
+                  title={a.waitlistNext ? `Próximo da fila: ${a.waitlistNext}` : undefined}
+                  className="hidden shrink-0 items-center gap-1 rounded-full bg-amber-500/15 px-2 py-1 text-[11px] font-semibold text-amber-600 sm:inline-flex"
+                >
+                  <Users className="h-3 w-3" />
+                  {a.waitlistCount} na fila
+                </span>
+              )}
               <span className="hidden shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold sm:inline" style={{ background: `${cfg.color}22`, color: cfg.color }}>
                 {cfg.label}
               </span>
