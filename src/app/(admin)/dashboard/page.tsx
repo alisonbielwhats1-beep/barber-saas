@@ -3,8 +3,9 @@ import { getTenantContext } from "@/lib/tenant";
 import { getDashboardMetrics, RANGE_LABELS, type RangeKey } from "@/lib/dashboard";
 import { withSalon } from "@/lib/prisma-tenant";
 import { formatMoney, formatDuration } from "@/lib/utils";
-import { format, startOfDay, endOfDay, addDays } from "date-fns";
+import { format, addDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { startOfBrazilDay, endOfBrazilDay } from "@/lib/br-time";
 import { PageHeader } from "@/components/page-header";
 import { CountUp } from "@/components/count-up";
 import {
@@ -79,8 +80,8 @@ export default async function DashboardPage({
     : "30d";
 
   const now = new Date();
-  const tomorrow = startOfDay(addDays(now, 1));
-  const tomorrowEnd = endOfDay(addDays(now, 1));
+  const tomorrow = startOfBrazilDay(addDays(now, 1));
+  const tomorrowEnd = endOfBrazilDay(addDays(now, 1));
 
   // Lembretes de amanhã — $queryRaw evita erro de tipo antes do prisma generate;
   // try/catch protege caso a migration 003 ainda não tenha sido aplicada.
@@ -130,7 +131,7 @@ export default async function DashboardPage({
           tx.appointment.findMany({
             where: {
               salonId,
-              startAt: { gte: startOfDay(now), lte: endOfDay(now) },
+              startAt: { gte: startOfBrazilDay(now), lte: endOfBrazilDay(now) },
               endAt: { gte: now },
               status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
             },

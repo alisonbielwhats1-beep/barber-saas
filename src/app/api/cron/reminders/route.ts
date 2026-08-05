@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withSalon } from "@/lib/prisma-tenant";
 import { isCronAuthorized } from "@/lib/cron-auth";
-import { startOfDay, endOfDay, addDays } from "date-fns";
+import { addDays } from "date-fns";
+import { startOfBrazilDay, endOfBrazilDay } from "@/lib/br-time";
 
 /**
  * GET /api/cron/reminders
@@ -35,8 +36,8 @@ export async function GET(req: NextRequest) {
   }
 
   const now = new Date();
-  const tomorrow = startOfDay(addDays(now, 1));
-  const tomorrowEnd = endOfDay(addDays(now, 1));
+  const tomorrow = startOfBrazilDay(addDays(now, 1));
+  const tomorrowEnd = endOfBrazilDay(addDays(now, 1));
 
   type ApptRow = {
     id: string;
