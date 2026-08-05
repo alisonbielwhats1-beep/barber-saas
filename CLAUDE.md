@@ -153,3 +153,10 @@ Plano de evolução (abas do dono e do cliente, financeiro, multi-salão) em
 - `/pagamentos` está no menu com `soon: true` (renderiza desabilitado) — não tem página ainda.
 - Billing do próprio SaaS (Stripe por `Plan` FREE/STARTER/PRO) não implementado.
 - Envio real de WhatsApp/SMS (Marketing dispara link de wa.me, não Evolution API/Twilio).
+- **Convites por e-mail não ativados.** `src/lib/mailer.ts`/`email-invites-feature.ts`
+  já suportam Resend, mas em produção faltam `RESEND_API_KEY`, `EMAIL_FROM` e o
+  flag `EMAIL_INVITES_ENABLED` — hoje convidar alguém cai em contingência
+  controlada (falha fechada), não em e-mail de verdade. Roteiro de ativação:
+  verificar domínio no Resend → configurar as 3 vars primeiro em Preview →
+  testar criar/entregar/reenviar/revogar/aceitar → só então repetir em
+  Production.
