@@ -36,7 +36,6 @@ export function MinhasList({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
-  const [remarkTarget, setRemarkTarget] = useState<Appt | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const upcoming = appointments.filter(
@@ -72,21 +71,13 @@ export function MinhasList({
     });
   }
 
-  function confirmRemark() {
-    if (!remarkTarget) return;
-    setError(null);
-    startTransition(async () => {
-      const err = await callCancel(remarkTarget.id);
-      const target = remarkTarget;
-      setRemarkTarget(null);
-      if (err) {
-        setError(err);
-      } else {
-        router.push(
-          `/book/${salonSlug}/agendar?service=${target.service.id}&pro=${target.professional.id}`,
-        );
-      }
-    });
+  function goRemark(a: Appt) {
+    // Não cancela antes: a rota de reagendamento atualiza a mesma reserva
+    // (ver api/client/reschedule) — assim ela nunca conta como cancelamento
+    // nas métricas, e o cliente não fica sem reserva ativa se desistir no meio.
+    router.push(
+      `/book/${salonSlug}/agendar?service=${a.service.id}&pro=${a.professional.id}&reschedule=${a.id}`,
+    );
   }
 
   function logout() {
@@ -131,7 +122,7 @@ export function MinhasList({
               actions={
                 <div className="flex gap-3">
                   <button
-                    onClick={() => setRemarkTarget(a)}
+                    onClick={() => goRemark(a)}
                     disabled={pending || !canCancel}
                     title={!canCancel ? "Muito próximo para remarcar" : undefined}
                     className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary disabled:opacity-40"
@@ -160,16 +151,6 @@ export function MinhasList({
         description="O horário será liberado para outras pessoas. Você pode agendar de novo quando quiser."
         confirmLabel="Cancelar reserva"
         onConfirm={confirmCancel}
-        pending={pending}
-      />
-
-      <ConfirmDialog
-        open={remarkTarget !== null}
-        onOpenChange={(o) => !o && setRemarkTarget(null)}
-        title="Remarcar reserva?"
-        description="A reserva atual será cancelada e você poderá escolher um novo horário para o mesmo serviço."
-        confirmLabel="Remarcar"
-        onConfirm={confirmRemark}
         pending={pending}
       />
 

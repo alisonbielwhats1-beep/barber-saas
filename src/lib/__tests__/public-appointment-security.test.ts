@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => {
   // devolvido ao callback: é a mesma mudança de forma de finance-access-
   // security.test.ts, aqui com mais métodos por causa do fluxo de reserva.
   const prisma = {
+    salon: { findUnique: vi.fn() },
     service: { findFirst: vi.fn() },
     professionalService: { findFirst: vi.fn() },
     appointment: { findFirst: vi.fn(), create: appointmentCreate },
@@ -73,6 +74,15 @@ describe("POST /api/appointments — identidade do cliente", () => {
       salonId: "salon-a",
       name: "Cliente",
       email: "cliente@example.com",
+    });
+    // Janela de agendamento permissiva por padrão — não é o que estes testes
+    // verificam; `startAt` fixo do fixture (2030) fica bem além de qualquer
+    // limite realista de `maxBookingLeadDays`, então o teto aqui precisa ser
+    // grande o bastante pra não interferir.
+    mocks.prisma.salon.findUnique.mockResolvedValue({
+      minBookingLeadMinutes: 0,
+      maxBookingLeadDays: 100_000,
+      bufferMinutes: 0,
     });
     mocks.prisma.service.findFirst.mockResolvedValue({
       durationMin: 30,

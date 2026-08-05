@@ -9,7 +9,7 @@ export default async function AgendarPage({
   searchParams,
 }: {
   params: Promise<{ salonSlug: string }>;
-  searchParams: Promise<{ service?: string; pro?: string }>;
+  searchParams: Promise<{ service?: string; pro?: string; reschedule?: string }>;
 }) {
   const [{ salonSlug }, query] = await Promise.all([params, searchParams]);
   const result = await withSalonBySlug(salonSlug, async (tx, salonId) => {
@@ -95,6 +95,7 @@ export default async function AgendarPage({
       services={services}
       initialServiceId={query.service ?? null}
       initialProId={query.pro ?? null}
+      rescheduleId={query.reschedule ?? null}
       clientSession={validSession}
     />
   );

@@ -6,6 +6,7 @@ import { addMinutes } from "date-fns";
 import { isOverlapViolation } from "@/lib/db-errors";
 import { assertRole, getTenantContext } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
+import { bufferedWindow } from "@/lib/scheduling";
 
 /** Executa a mutação traduzindo violação da exclusion constraint. */
 async function guardOverlap<T>(fn: () => Promise<T>): Promise<T> {
@@ -49,6 +50,10 @@ export async function createAppointmentManually(
   // transação inteira desfaz (inclusive um clientProfile recém-criado) e o
   // erro sobe normalmente — não há catch-e-continua aqui, então é seguro.
   const result = await withTenant(ctx, async (tx) => {
+    const salon = await tx.salon.findUnique({
+      where: { id: ctx.salonId },
+      select: { bufferMinutes: true },
+    });
     const service = await tx.service.findFirst({
       where: { id: data.serviceId, salonId: ctx.salonId, active: true },
       select: { durationMin: true, priceCents: true },
@@ -64,13 +69,14 @@ export async function createAppointmentManually(
 
     const startAt = new Date(data.startAt);
     const endAt = addMinutes(startAt, service.durationMin);
+    const buffered = bufferedWindow(startAt, endAt, salon?.bufferMinutes ?? 0);
 
     const conflict = await tx.appointment.findFirst({
       where: {
         professionalId: data.professionalId,
         status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
-        startAt: { lt: endAt },
-        endAt: { gt: startAt },
+        startAt: { lt: buffered.to },
+        endAt: { gt: buffered.from },
       },
       select: { id: true },
     });
@@ -286,6 +292,10 @@ export async function resizeAppointment(input: z.infer<typeof resizeInput>): Pro
   const data = resizeInput.parse(input);
 
   const result = await withTenant(ctx, async (tx) => {
+    const salon = await tx.salon.findUnique({
+      where: { id: ctx.salonId },
+      select: { bufferMinutes: true },
+    });
     const appt = await tx.appointment.findFirst({
       where: { id: data.id, salonId: ctx.salonId },
       select: { startAt: true, professionalId: true },
@@ -296,13 +306,14 @@ export async function resizeAppointment(input: z.infer<typeof resizeInput>): Pro
     if (endAt.getTime() - appt.startAt.getTime() < 15 * 60_000)
       return { error: "Duração mínima de 15 minutos" };
 
+    const buffered = bufferedWindow(appt.startAt, endAt, salon?.bufferMinutes ?? 0);
     const conflict = await tx.appointment.findFirst({
       where: {
         id: { not: data.id },
         professionalId: appt.professionalId,
         status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
-        startAt: { lt: endAt },
-        endAt: { gt: appt.startAt },
+        startAt: { lt: buffered.to },
+        endAt: { gt: buffered.from },
       },
       select: { id: true },
     });
@@ -326,8 +337,9 @@ export async function duplicateAppointment(id: string) {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER", "RECEPTIONIST"]);
 
-  const appt = await withTenant(ctx, (tx) =>
-    tx.appointment.findFirst({
+  // Sequencial (não Promise.all): transação interativa, uma conexão só.
+  const { appt, bufferMinutes } = await withTenant(ctx, async (tx) => {
+    const appt = await tx.appointment.findFirst({
       where: { id, salonId: ctx.salonId },
       select: {
         clientId: true,
@@ -337,8 +349,13 @@ export async function duplicateAppointment(id: string) {
         startAt: true,
         endAt: true,
       },
-    }),
-  );
+    });
+    const salon = await tx.salon.findUnique({
+      where: { id: ctx.salonId },
+      select: { bufferMinutes: true },
+    });
+    return { appt, bufferMinutes: salon?.bufferMinutes ?? 0 };
+  });
   if (!appt) throw new Error("Agendamento não encontrado");
 
   const durationMs = appt.endAt.getTime() - appt.startAt.getTime();
@@ -354,12 +371,13 @@ export async function duplicateAppointment(id: string) {
     // não emite mais nenhuma query depois de capturar o erro, então o COMMIT
     // seguinte do Prisma vira ROLLBACK silencioso, sem propagar exceção).
     const created = await withTenant(ctx, async (tx) => {
+      const buffered = bufferedWindow(startAt, endAt, bufferMinutes);
       const conflict = await tx.appointment.findFirst({
         where: {
           professionalId: appt.professionalId,
           status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
-          startAt: { lt: endAt },
-          endAt: { gt: startAt },
+          startAt: { lt: buffered.to },
+          endAt: { gt: buffered.from },
         },
         select: { id: true },
       });
@@ -408,6 +426,10 @@ export async function editAppointment(input: z.infer<typeof editInput>): Promise
   const data = editInput.parse(input);
 
   const result = await withTenant(ctx, async (tx) => {
+    const salon = await tx.salon.findUnique({
+      where: { id: ctx.salonId },
+      select: { bufferMinutes: true },
+    });
     const appt = await tx.appointment.findFirst({
       where: { id: data.id, salonId: ctx.salonId },
       select: { startAt: true, endAt: true, professionalId: true },
@@ -418,13 +440,14 @@ export async function editAppointment(input: z.infer<typeof editInput>): Promise
     const startAt = new Date(data.startAt);
     const endAt = new Date(startAt.getTime() + duration);
 
+    const buffered = bufferedWindow(startAt, endAt, salon?.bufferMinutes ?? 0);
     const conflict = await tx.appointment.findFirst({
       where: {
         id: { not: data.id },
         professionalId: appt.professionalId,
         status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
-        startAt: { lt: endAt },
-        endAt: { gt: startAt },
+        startAt: { lt: buffered.to },
+        endAt: { gt: buffered.from },
       },
       select: { id: true },
     });
@@ -467,6 +490,10 @@ export async function moveAppointment(input: z.infer<typeof moveInput>): Promise
   const data = moveInput.parse(input);
 
   const result = await withTenant(ctx, async (tx) => {
+    const salon = await tx.salon.findUnique({
+      where: { id: ctx.salonId },
+      select: { bufferMinutes: true },
+    });
     const appt = await tx.appointment.findFirst({
       where: { id: data.id, salonId: ctx.salonId },
       select: { serviceId: true, startAt: true, endAt: true },
@@ -486,13 +513,14 @@ export async function moveAppointment(input: z.infer<typeof moveInput>): Promise
     });
     if (!canDo) return { error: "Este profissional não faz esse serviço" };
 
+    const buffered = bufferedWindow(startAt, endAt, salon?.bufferMinutes ?? 0);
     const conflict = await tx.appointment.findFirst({
       where: {
         id: { not: data.id },
         professionalId: data.professionalId,
         status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
-        startAt: { lt: endAt },
-        endAt: { gt: startAt },
+        startAt: { lt: buffered.to },
+        endAt: { gt: buffered.from },
       },
       select: { id: true },
     });

@@ -25,6 +25,7 @@ export default async function ConfiguracoesPage() {
         name: true, address: true, phone: true, timezone: true, currency: true,
         plan: true, openMinutes: true, closeMinutes: true,
         cancelPolicyHours: true, noShowFeeCents: true,
+        minBookingLeadMinutes: true, maxBookingLeadDays: true, bufferMinutes: true,
         // Personalização da vitrine
         slug: true, segment: true, description: true, coverUrl: true,
         themeColorHex: true, instagram: true, whatsapp: true,
