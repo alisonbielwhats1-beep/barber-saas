@@ -6,7 +6,13 @@ import {
   rateLimitHeaders,
 } from "@/lib/rate-limit";
 import { checkBookingWindow, bufferedWindow } from "@/lib/scheduling";
-import { startOfDay, endOfDay, addMinutes, isBefore } from "date-fns";
+import { addMinutes, isBefore } from "date-fns";
+import {
+  weekdayOfDateStr,
+  brazilInstant,
+  brazilHHMM,
+  endOfBrazilDay,
+} from "@/lib/br-time";
 
 /**
  * GET /api/availability?salonId=…&professionalId=…&serviceId=…&date=YYYY-MM-DD
@@ -41,8 +47,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "missing params" }, { status: 400 });
   }
 
-  const date = new Date(dateStr);
-  const weekday = date.getDay();
+  // Salão é sempre horário de Brasília — nunca o fuso do processo. Em
+  // produção a função Vercel roda com TZ=UTC por padrão, então .getHours()/
+  // startOfDay() nativos dariam o dia/hora errados perto da virada; ver
+  // src/lib/br-time.ts.
+  const weekday = weekdayOfDateStr(dateStr);
+  const dayStartInstant = brazilInstant(dateStr, 0);
+  const dayEndInstant = endOfBrazilDay(dayStartInstant);
 
   // Sequencial de propósito: pooler com connection_limit=1 em serverless —
   // 6 queries em Promise.all estouravam o timeout do pool (P2024). Esta rota
@@ -73,15 +84,15 @@ export async function GET(req: NextRequest) {
       const timeOffs = await tx.timeOff.findMany({
         where: {
           professionalId,
-          startAt: { lte: endOfDay(date) },
-          endAt: { gte: startOfDay(date) },
+          startAt: { lte: dayEndInstant },
+          endAt: { gte: dayStartInstant },
         },
         select: { startAt: true, endAt: true },
       });
       const appointments = await tx.appointment.findMany({
         where: {
           professionalId,
-          startAt: { gte: startOfDay(date), lte: endOfDay(date) },
+          startAt: { gte: dayStartInstant, lte: dayEndInstant },
           status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
         },
         select: { id: true, startAt: true, endAt: true },
@@ -108,10 +119,8 @@ export async function GET(req: NextRequest) {
   const slots: string[] = [];
 
   for (const wh of workingHours) {
-    const dayStart = new Date(date);
-    dayStart.setHours(0, wh.startMinutes, 0, 0);
-    const dayEnd = new Date(date);
-    dayEnd.setHours(0, wh.endMinutes, 0, 0);
+    const dayStart = brazilInstant(dateStr, wh.startMinutes);
+    const dayEnd = brazilInstant(dateStr, wh.endMinutes);
 
     for (let cursor = dayStart; isBefore(addMinutes(cursor, service.durationMin), dayEnd) || +addMinutes(cursor, service.durationMin) === +dayEnd; cursor = addMinutes(cursor, step)) {
       const slotEnd = addMinutes(cursor, service.durationMin);
@@ -128,22 +137,14 @@ export async function GET(req: NextRequest) {
       // respeita antecedência mínima/máxima do salão (0 min / sem teto = como antes)
       if (checkBookingWindow(cursor, salon) !== null) continue;
 
-      slots.push(
-        `${cursor.getHours().toString().padStart(2, "0")}:${cursor
-          .getMinutes()
-          .toString()
-          .padStart(2, "0")}`,
-      );
+      slots.push(brazilHHMM(cursor));
     }
   }
 
   // Horário (HH:MM) mais frequente no histórico que esteja livre hoje
   const freq = new Map<string, number>();
   for (const a of history) {
-    const key = `${a.startAt.getHours().toString().padStart(2, "0")}:${a.startAt
-      .getMinutes()
-      .toString()
-      .padStart(2, "0")}`;
+    const key = brazilHHMM(a.startAt);
     freq.set(key, (freq.get(key) ?? 0) + 1);
   }
   let popularSlot: string | null = null;
@@ -162,10 +163,7 @@ export async function GET(req: NextRequest) {
   // antecedência ou o profissional não trabalhar nesse dia).
   const occupied = appointments.map((a) => ({
     appointmentId: a.id,
-    time: `${a.startAt.getHours().toString().padStart(2, "0")}:${a.startAt
-      .getMinutes()
-      .toString()
-      .padStart(2, "0")}`,
+    time: brazilHHMM(a.startAt),
   }));
 
   return NextResponse.json({ slots, popularSlot, occupied });

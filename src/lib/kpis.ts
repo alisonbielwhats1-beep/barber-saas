@@ -1,14 +1,12 @@
 import type { Tx } from "./prisma-tenant";
 import {
   eachDayOfInterval,
-  format,
   differenceInMinutes,
-  startOfDay,
-  endOfDay,
   subMonths,
   startOfMonth,
   endOfMonth,
 } from "date-fns";
+import { startOfBrazilDay, endOfBrazilDay, brazilDateKey, brazilWeekday } from "./br-time";
 
 /**
  * Queries de BI do dashboard.
@@ -52,10 +50,10 @@ export async function getRevenueByDay(tx: Tx, salonId: string, from: Date, to: D
 
   const bucket = new Map<string, number>();
   for (const d of eachDayOfInterval({ start: from, end: to })) {
-    bucket.set(format(d, "yyyy-MM-dd"), 0);
+    bucket.set(brazilDateKey(d), 0);
   }
   for (const r of rows) {
-    const key = format(r.startAt, "yyyy-MM-dd");
+    const key = brazilDateKey(r.startAt);
     bucket.set(key, (bucket.get(key) ?? 0) + r.priceCents);
   }
 
@@ -165,10 +163,10 @@ async function occupancy(tx: Tx, salonId: string, from: Date, to: Date) {
 
   let availableMinutes = 0;
   for (const d of eachDayOfInterval({
-    start: startOfDay(from),
-    end: endOfDay(to),
+    start: startOfBrazilDay(from),
+    end: endOfBrazilDay(to),
   })) {
-    const weekday = d.getDay();
+    const weekday = brazilWeekday(d);
     for (const wh of workingHours.filter((w) => w.weekday === weekday)) {
       availableMinutes += wh.endMinutes - wh.startMinutes;
     }

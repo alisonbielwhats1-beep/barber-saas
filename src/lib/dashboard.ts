@@ -1,16 +1,14 @@
 import { withSalon } from "./prisma-tenant";
 import {
-  startOfDay,
-  endOfDay,
   subDays,
   addDays,
   startOfYear,
   differenceInCalendarDays,
   differenceInMinutes,
   eachDayOfInterval,
-  format,
 } from "date-fns";
 import { getProfessionalPerformance, getTopServices, getOccupancyRate } from "./kpis";
+import { startOfBrazilDay, endOfBrazilDay, brazilDateKey } from "./br-time";
 
 /**
  * Motor de métricas do dashboard do dono. Uma única função resolve o período
@@ -36,27 +34,27 @@ export const RANGE_LABELS: Record<RangeKey, string> = {
 export function resolveRange(range: RangeKey, now = new Date()) {
   switch (range) {
     case "today":
-      return { from: startOfDay(now), to: endOfDay(now) };
+      return { from: startOfBrazilDay(now), to: endOfBrazilDay(now) };
     case "yesterday": {
       const d = subDays(now, 1);
-      return { from: startOfDay(d), to: endOfDay(d) };
+      return { from: startOfBrazilDay(d), to: endOfBrazilDay(d) };
     }
     case "7d":
-      return { from: startOfDay(subDays(now, 6)), to: endOfDay(now) };
+      return { from: startOfBrazilDay(subDays(now, 6)), to: endOfBrazilDay(now) };
     case "15d":
-      return { from: startOfDay(subDays(now, 14)), to: endOfDay(now) };
+      return { from: startOfBrazilDay(subDays(now, 14)), to: endOfBrazilDay(now) };
     case "30d":
-      return { from: startOfDay(subDays(now, 29)), to: endOfDay(now) };
+      return { from: startOfBrazilDay(subDays(now, 29)), to: endOfBrazilDay(now) };
     case "90d":
-      return { from: startOfDay(subDays(now, 89)), to: endOfDay(now) };
+      return { from: startOfBrazilDay(subDays(now, 89)), to: endOfBrazilDay(now) };
     case "year":
-      return { from: startOfYear(now), to: endOfDay(now) };
+      return { from: startOfYear(now), to: endOfBrazilDay(now) };
   }
 }
 
 function previousWindow(from: Date, to: Date) {
   const len = differenceInCalendarDays(to, from) + 1;
-  return { from: startOfDay(subDays(from, len)), to: endOfDay(subDays(from, 1)) };
+  return { from: startOfBrazilDay(subDays(from, len)), to: endOfBrazilDay(subDays(from, 1)) };
 }
 
 function pctChange(curr: number, prev: number): number | null {
@@ -122,7 +120,7 @@ export async function getDashboardMetrics(salonId: string, range: RangeKey) {
         where: {
           salonId,
           status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
-          startAt: { gte: startOfDay(now) },
+          startAt: { gte: startOfBrazilDay(now) },
         },
         select: { startAt: true, priceCents: true, professionalId: true },
       }),
@@ -200,7 +198,7 @@ export async function getDashboardMetrics(salonId: string, range: RangeKey) {
 
   // Receita de hoje (subconjunto, independe do filtro)
   const revenueToday = completed
-    .filter((a) => a.startAt >= startOfDay(now) && a.startAt <= endOfDay(now))
+    .filter((a) => a.startAt >= startOfBrazilDay(now) && a.startAt <= endOfBrazilDay(now))
     .reduce((s, a) => s + a.priceCents, 0);
 
   // ── Comissões / lucro ─────────────────────────────────────────
@@ -227,10 +225,10 @@ export async function getDashboardMetrics(salonId: string, range: RangeKey) {
   );
   const tomorrow = addDays(now, 1);
   const apptsToday = upcoming.filter(
-    (a) => a.startAt >= startOfDay(now) && a.startAt <= endOfDay(now),
+    (a) => a.startAt >= startOfBrazilDay(now) && a.startAt <= endOfBrazilDay(now),
   ).length;
   const apptsTomorrow = upcoming.filter(
-    (a) => a.startAt >= startOfDay(tomorrow) && a.startAt <= endOfDay(tomorrow),
+    (a) => a.startAt >= startOfBrazilDay(tomorrow) && a.startAt <= endOfBrazilDay(tomorrow),
   ).length;
 
   // ── Clientes ──────────────────────────────────────────────────
@@ -272,10 +270,10 @@ export async function getDashboardMetrics(salonId: string, range: RangeKey) {
   // ── Séries de gráfico ─────────────────────────────────────────
   const dayBucket = new Map<string, { total: number; male: number; female: number }>();
   for (const d of eachDayOfInterval({ start: from, end: to })) {
-    dayBucket.set(format(d, "yyyy-MM-dd"), { total: 0, male: 0, female: 0 });
+    dayBucket.set(brazilDateKey(d), { total: 0, male: 0, female: 0 });
   }
   for (const a of completed) {
-    const k = format(a.startAt, "yyyy-MM-dd");
+    const k = brazilDateKey(a.startAt);
     const b = dayBucket.get(k);
     if (b) {
       b.total += a.priceCents;
