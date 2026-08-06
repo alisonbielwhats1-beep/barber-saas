@@ -9,6 +9,62 @@ import {
 const describePostgres =
   process.env.RUN_POSTGRES_INTEGRATION === "1" ? describe : describe.skip;
 
+type HistoricalSalonFixture = {
+  salonId: string;
+  userId: string;
+  role: "OWNER" | "PROFESSIONAL";
+  slug: string;
+  name: string;
+  serviceId?: string;
+  createProfessional?: boolean;
+};
+
+async function createHistoricalSalonFixture({
+  salonId,
+  userId,
+  role,
+  slug,
+  name,
+  serviceId,
+  createProfessional = false,
+}: HistoricalSalonFixture) {
+  await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`
+      INSERT INTO "Salon" ("id", "slug", "name", "updatedAt")
+      VALUES (${salonId}, ${slug}, ${name}, ${new Date()})
+    `;
+    await tx.$executeRaw`
+      INSERT INTO "Membership" ("id", "userId", "salonId", "role")
+      VALUES (
+        ${crypto.randomUUID()},
+        ${userId},
+        ${salonId},
+        CAST(${role} AS "Role")
+      )
+    `;
+
+    if (serviceId) {
+      await tx.$executeRaw`
+        INSERT INTO "Service" (
+          "id",
+          "salonId",
+          "name",
+          "durationMin",
+          "priceCents"
+        )
+        VALUES (${serviceId}, ${salonId}, ${"Corte"}, ${30}, ${5_000})
+      `;
+    }
+
+    if (createProfessional) {
+      await tx.$executeRaw`
+        INSERT INTO "Professional" ("id", "salonId", "userId")
+        VALUES (${crypto.randomUUID()}, ${salonId}, ${userId})
+      `;
+    }
+  });
+}
+
 describePostgres("convites com PostgreSQL real", () => {
   let suffix: string;
   let salonId: string;
@@ -43,28 +99,16 @@ describePostgres("convites com PostgreSQL real", () => {
     });
     ownerId = owner.id;
 
-    const salon = await prisma.salon.create({
-      data: {
-        name: `Salon ${suffix}`,
-        slug: `salon-${suffix}`,
-        memberships: {
-          create: { userId: ownerId, role: "OWNER" },
-        },
-        services: {
-          create: {
-            name: "Corte",
-            durationMin: 30,
-            priceCents: 5_000,
-          },
-        },
-      },
-      select: {
-        id: true,
-        services: { select: { id: true } },
-      },
+    salonId = crypto.randomUUID();
+    serviceId = crypto.randomUUID();
+    await createHistoricalSalonFixture({
+      salonId,
+      userId: ownerId,
+      role: "OWNER",
+      name: `Salon ${suffix}`,
+      slug: `salon-${suffix}`,
+      serviceId,
     });
-    salonId = salon.id;
-    serviceId = salon.services[0]!.id;
   });
 
   afterEach(async () => {
@@ -162,20 +206,15 @@ describePostgres("convites com PostgreSQL real", () => {
       },
       select: { id: true },
     });
-    const otherSalon = await prisma.salon.create({
-      data: {
-        name: `Other Salon ${suffix}`,
-        slug: `other-salon-${suffix}`,
-        memberships: {
-          create: { userId: victim.id, role: "PROFESSIONAL" },
-        },
-        professionals: {
-          create: { userId: victim.id },
-        },
-      },
-      select: { id: true },
+    otherSalonId = crypto.randomUUID();
+    await createHistoricalSalonFixture({
+      salonId: otherSalonId,
+      userId: victim.id,
+      role: "PROFESSIONAL",
+      name: `Other Salon ${suffix}`,
+      slug: `other-salon-${suffix}`,
+      createProfessional: true,
     });
-    otherSalonId = otherSalon.id;
 
     const token = `postgres-existing-user-token-${suffix}`;
     await createUserInvite(
