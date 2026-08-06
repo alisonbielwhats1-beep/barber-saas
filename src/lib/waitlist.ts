@@ -107,18 +107,19 @@ export async function fulfillWaitlistOnCancel(
       idempotencyKey,
       idempotencyFingerprint: idempotencyKey,
       notes: WAITLIST_NOTE,
-      serviceItems: {
-        create: services.map((service, position) => ({
-          salonId,
-          serviceId: service.serviceId,
-          serviceName: service.serviceName,
-          durationMin: service.durationMin,
-          priceCents: service.priceCents,
-          position,
-        })),
-      },
     },
     select: { id: true, clientId: true },
+  });
+  await tx.appointmentService.createMany({
+    data: services.map((service, position) => ({
+      appointmentId: created.id,
+      salonId,
+      serviceId: service.serviceId,
+      serviceName: service.serviceName,
+      durationMin: service.durationMin,
+      priceCents: service.priceCents,
+      position,
+    })),
   });
   await tx.waitlistEntry.updateMany({
     where: { id: entry.id, salonId, fulfilledAt: null },
