@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
+import { getClientSession } from "@/lib/client-auth";
+import { withSalonBySlug } from "@/lib/prisma-tenant";
+import { ClientShell } from "./client-shell";
 
 /**
  * Título por salão — lido direto (Salon tem leitura pública nas policies de
@@ -30,15 +33,36 @@ export async function generateMetadata({
  * Também restringe a largura ao formato "mobile" (max 480px) centralizando,
  * pra que a experiência pareça um app tanto em celular quanto em desktop.
  */
-export default function BookLayout({ children }: { children: React.ReactNode }) {
+export default async function BookLayout({
+  children,
+  params,
+}: {
+  children: React.ReactNode;
+  params: Promise<{ salonSlug: string }>;
+}) {
+  const [{ salonSlug }, session] = await Promise.all([params, getClientSession()]);
+  const unreadNotifications = session
+    ? (await withSalonBySlug(salonSlug, (tx, salonId) => {
+        if (session.salonId !== salonId) return Promise.resolve(0);
+        return tx.notificationOutbox.count({
+          where: {
+            salonId,
+            recipientKey: `CLIENT:${session.clientId}`,
+            channel: "INTERNAL",
+            readAt: null,
+          },
+        });
+      })) ?? 0
+    : 0;
+
   return (
     <div
       data-theme="salon-dark"
       className="min-h-dvh bg-background text-foreground"
     >
-      <div className="mx-auto min-h-dvh w-full max-w-[480px] pb-[calc(6rem+env(safe-area-inset-bottom))]">
+      <ClientShell salonSlug={salonSlug} unreadNotifications={unreadNotifications}>
         {children}
-      </div>
+      </ClientShell>
     </div>
   );
 }

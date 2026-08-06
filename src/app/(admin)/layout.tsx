@@ -17,16 +17,26 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // lista de TODOS os salões do usuário, para o seletor — withTenant seta as
   // duas GUCs, e a policy de leitura de Membership aceita por usuário OU por
   // salão, então a linha do próprio usuário passa mesmo cruzando salão.
-  const { salon, memberships } = await withTenant(ctx, async (tx) => {
-    const salon = await tx.salon.findUnique({
-      where: { id: salonId },
-      select: { name: true, plan: true },
-    });
-    const memberships = await tx.membership.findMany({
-      where: { userId },
-      select: { role: true, salon: { select: { id: true, name: true } } },
-    });
-    return { salon, memberships };
+  const { salon, memberships, unreadNotifications } = await withTenant(ctx, async (tx) => {
+    const [salon, memberships, unreadNotifications] = await Promise.all([
+      tx.salon.findUnique({
+        where: { id: salonId },
+        select: { name: true, plan: true },
+      }),
+      tx.membership.findMany({
+        where: { userId },
+        select: { role: true, salon: { select: { id: true, name: true } } },
+      }),
+      tx.notificationOutbox.count({
+        where: {
+          salonId,
+          recipientKey: `USER:${userId}`,
+          channel: "INTERNAL",
+          readAt: null,
+        },
+      }),
+    ]);
+    return { salon, memberships, unreadNotifications };
   });
 
   const membershipList = memberships.map((m) => ({
@@ -67,7 +77,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <div className="mx-3 mb-3 h-px bg-border" />
 
         {/* Navigation */}
-        <SidebarNav role={role} />
+        <SidebarNav role={role} unreadNotifications={unreadNotifications} />
 
         {/* User footer */}
         <SidebarFooter plan={salon?.plan ?? "FREE"} />
@@ -78,7 +88,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <div className="mx-auto max-w-[1400px] p-6 pb-24 md:p-8 md:pb-8">{children}</div>
       </main>
 
-      <MobileNav role={role} />
+      <MobileNav role={role} unreadNotifications={unreadNotifications} />
       <CommandPalette role={role} />
       <Toaster />
     </div>

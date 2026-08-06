@@ -3,7 +3,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { withSalonBySlug } from "@/lib/prisma-tenant";
-import { BottomNav } from "../bottom-nav";
 import { CartBadge } from "../cart-badge";
 
 export default async function ClientPortfolio({
@@ -84,7 +83,6 @@ export default async function ClientPortfolio({
         </div>
       )}
 
-      <BottomNav salonSlug={salonSlug} />
     </main>
   );
 }

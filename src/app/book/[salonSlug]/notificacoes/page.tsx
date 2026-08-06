@@ -3,7 +3,6 @@ import { Bell } from "lucide-react";
 import { NotificationList, type NotificationRow } from "@/components/notification-list";
 import { getClientSession } from "@/lib/client-auth";
 import { withSalonBySlug } from "@/lib/prisma-tenant";
-import { BottomNav } from "../bottom-nav";
 
 function payloadRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -78,7 +77,6 @@ export default async function ClientNotificationsPage({
         scope="client"
         salonSlug={salonSlug}
       />
-      <BottomNav salonSlug={salonSlug} />
     </main>
   );
 }

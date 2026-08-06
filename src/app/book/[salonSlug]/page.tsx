@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import {
-  Bell,
   MapPin,
   ArrowUpRight,
   Sparkles,
@@ -20,7 +19,7 @@ import { normalizePhone, formatPhoneBR } from "@/lib/phone";
 import { hexToHslTriple, readableForeground } from "@/lib/color";
 import { getSegment, isSegmentId } from "@/lib/segments";
 import { formatMoney } from "@/lib/utils";
-import { BottomNav } from "./bottom-nav";
+import { ClientNotificationLink } from "./client-shell";
 import { CartBadge } from "./cart-badge";
 import { HomeExplore } from "./home-explore";
 
@@ -148,13 +147,7 @@ export default async function ClientHome({
           <p className="text-sm font-semibold">{salon.name}</p>
         </div>
         <CartBadge salonSlug={salonSlug} />
-        <Link
-          href={`/book/${salonSlug}/notificacoes`}
-          aria-label="Notificações"
-          className="grid h-11 w-11 place-items-center rounded-full border border-border bg-card text-muted-foreground"
-        >
-          <Bell className="h-4 w-4" />
-        </Link>
+        <ClientNotificationLink salonSlug={salonSlug} />
       </header>
 
       {/* Hero — capa do salão */}
@@ -358,7 +351,6 @@ export default async function ClientHome({
         </section>
       )}
 
-      <BottomNav salonSlug={salonSlug} />
     </main>
   );
 }

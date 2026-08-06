@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { BottomNav } from "../bottom-nav";
 import { CartView } from "./cart-view";
 
 export default async function CarrinhoPage({
@@ -24,7 +23,6 @@ export default async function CarrinhoPage({
 
       <CartView salonSlug={salonSlug} />
 
-      <BottomNav salonSlug={salonSlug} />
     </main>
   );
 }
