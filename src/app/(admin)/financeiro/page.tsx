@@ -3,8 +3,8 @@ import { withTenant } from "@/lib/prisma-tenant";
 import { getFinanceMetrics } from "@/lib/finance";
 import { RANGE_LABELS, type RangeKey } from "@/lib/dashboard";
 import { formatMoney } from "@/lib/utils";
-import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { formatInTimeZone } from "date-fns-tz";
 import {
   Wallet,
   TrendingDown,
@@ -24,6 +24,7 @@ import { RangeFilter } from "../dashboard/range-filter";
 import { DonutChart } from "../dashboard/donut-chart";
 import { CashflowChart } from "./cashflow-chart";
 import { ExpenseManager, type ExpenseRow } from "./expense-manager";
+import { AutoRefresh } from "@/components/auto-refresh";
 
 const VALID: RangeKey[] = ["today", "yesterday", "7d", "15d", "30d", "90d", "year"];
 
@@ -41,10 +42,15 @@ export default async function FinanceiroPage({
     ? (selectedRange as RangeKey)
     : "30d";
 
-  const { m, expenseRows } = await withTenant(ctx, async (tx) => {
-    const m = await getFinanceMetrics(tx, salonId, range);
+  const { m, expenseRows, timezone } = await withTenant(ctx, async (tx) => {
+    const salon = await tx.salon.findUnique({
+      where: { id: salonId },
+      select: { timezone: true },
+    });
+    if (!salon) throw new Error("Estabelecimento não encontrado");
+    const m = await getFinanceMetrics(tx, salonId, range, salon.timezone);
     const expenses = await tx.expense.findMany({
-      where: { salonId, dueDate: { gte: m.period.from, lte: m.period.to } },
+      where: { salonId, dueDate: { gte: m.bounds.from, lt: m.bounds.to } },
       select: { id: true, description: true, category: true, kind: true, amountCents: true, dueDate: true, paidAt: true },
       orderBy: { dueDate: "desc" },
     });
@@ -57,11 +63,12 @@ export default async function FinanceiroPage({
       dueDate: e.dueDate.toISOString(),
       paidAt: e.paidAt ? e.paidAt.toISOString() : null,
     })) as ExpenseRow[];
-    return { m, expenseRows };
+    return { m, expenseRows, timezone: salon.timezone };
   });
 
   return (
     <div className="space-y-6">
+      <AutoRefresh />
       {/* Header */}
       <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
@@ -71,7 +78,7 @@ export default async function FinanceiroPage({
               {RANGE_LABELS[range]}
             </span>
             <span className="text-[11px] text-muted-foreground">
-              {format(m.period.from, "d MMM", { locale: ptBR })} – {format(m.period.to, "d MMM yyyy", { locale: ptBR })}
+              {formatInTimeZone(m.period.from, timezone, "d MMM", { locale: ptBR })} – {formatInTimeZone(m.period.to, timezone, "d MMM yyyy", { locale: ptBR })}
             </span>
           </div>
           <h1 className="text-[26px] font-semibold tracking-tight">Financeiro</h1>

@@ -4,8 +4,8 @@ import { getTenantContext } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
 import { getTeamPerformance } from "@/lib/team";
 import { formatMoney, formatDuration } from "@/lib/utils";
-import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { formatInTimeZone } from "date-fns-tz";
 import {
   Users,
   CircleDollarSign,
@@ -28,9 +28,27 @@ export default async function ProfissionaisPage() {
   const ctx = await getTenantContext();
   const { salonId, role } = ctx;
   const invitesEnabled = emailInvitesEnabled();
+  const canManageTeam = role === "OWNER" || role === "MANAGER";
+  const canSeeFinancial = role === "OWNER" || role === "MANAGER" || role === "SUPER_ADMIN";
+  const isProfessional = role === "PROFESSIONAL";
 
-  const { perf, services, pendingInvites } = await withTenant(ctx, async (tx) => {
-    const perf = await getTeamPerformance(tx, salonId);
+  const { perf, services, pendingInvites, timezone } = await withTenant(ctx, async (tx) => {
+    const salon = await tx.salon.findUniqueOrThrow({
+      where: { id: salonId },
+      select: { timezone: true },
+    });
+    const ownProfessional = isProfessional
+      ? await tx.professional.findFirst({
+          where: { salonId, userId: ctx.userId, active: true },
+          select: { id: true },
+        })
+      : null;
+    const perf = await getTeamPerformance(
+      tx,
+      salonId,
+      salon.timezone,
+      isProfessional ? (ownProfessional?.id ?? "__professional_not_found__") : undefined,
+    );
     const services = await tx.service.findMany({
       where: { salonId, active: true },
       select: { id: true, name: true, colorHex: true },
@@ -61,10 +79,10 @@ export default async function ProfissionaisPage() {
             orderBy: { createdAt: "desc" },
           })
         : [];
-    return { perf, services, pendingInvites };
+    return { perf, services, pendingInvites, timezone: salon.timezone };
   });
 
-  const monthLabel = format(perf.period.from, "MMMM yyyy", { locale: ptBR });
+  const monthLabel = formatInTimeZone(perf.period.from, timezone, "MMMM yyyy", { locale: ptBR });
 
   return (
     <div className="space-y-6">
@@ -73,18 +91,26 @@ export default async function ProfissionaisPage() {
           <p className="mb-1 text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
             Equipe · <span className="capitalize">{monthLabel}</span>
           </p>
-          <h1 className="text-[26px] font-semibold tracking-tight">Profissionais</h1>
+          <h1 className="text-[26px] font-semibold tracking-tight">
+            {isProfessional ? "Meu perfil profissional" : "Profissionais"}
+          </h1>
         </div>
-        <ProfessionalForm services={services} invitesEnabled={invitesEnabled} />
+        {canManageTeam && <ProfessionalForm services={services} invitesEnabled={invitesEnabled} />}
       </header>
 
       {/* Overview da equipe */}
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Overview icon={Users} accent="#3B9EFF" label="Equipe ativa" value={perf.team.activeCount.toString()} />
-        <Overview icon={CircleDollarSign} accent="#2ECC8B" label="Receita no mês" value={formatMoney(perf.team.revenue)} />
-        <Overview icon={CalendarCheck} accent="#A855F7" label="Atendimentos" value={perf.team.appointments.toString()} />
-        <Overview icon={Receipt} accent="#F59E0B" label="Ticket médio" value={formatMoney(perf.team.avgTicket)} />
-      </section>
+      {!isProfessional && (
+        <section className={`grid grid-cols-2 gap-3 ${canSeeFinancial ? "lg:grid-cols-4" : "lg:grid-cols-2"}`}>
+          <Overview icon={Users} accent="#3B9EFF" label="Equipe ativa" value={perf.team.activeCount.toString()} />
+          {canSeeFinancial && (
+            <Overview icon={CircleDollarSign} accent="#2ECC8B" label="Receita no mês" value={formatMoney(perf.team.revenue)} />
+          )}
+          <Overview icon={CalendarCheck} accent="#A855F7" label="Atendimentos" value={perf.team.appointments.toString()} />
+          {canSeeFinancial && (
+            <Overview icon={Receipt} accent="#F59E0B" label="Ticket médio" value={formatMoney(perf.team.avgTicket)} />
+          )}
+        </section>
+      )}
 
       <PendingInvites
         invites={pendingInvites.map((invite) => ({
@@ -98,7 +124,9 @@ export default async function ProfissionaisPage() {
 
       {perf.pros.length === 0 ? (
         <div className="rounded-2xl border border-border bg-card p-12 text-center text-[13px] text-muted-foreground">
-          Sem profissionais cadastrados. Adicione o primeiro no botão acima.
+          {isProfessional
+            ? "Seu perfil profissional não está ativo neste estabelecimento."
+            : "Sem profissionais cadastrados. Adicione o primeiro no botão acima."}
         </div>
       ) : (
         <div className="grid gap-4 xl:grid-cols-2">
@@ -114,7 +142,7 @@ export default async function ProfissionaisPage() {
                       {p.name.split(" ").map((n) => n[0]).slice(0, 2).join("")}
                     </div>
                   )}
-                  {p.rank <= 3 && p.revenue > 0 && (
+                  {canSeeFinancial && p.rank <= 3 && p.revenue > 0 && (
                     <span className="absolute -right-1.5 -top-1.5 grid h-6 w-6 place-items-center rounded-full text-[10px] font-bold text-black shadow" style={{ background: MEDAL[p.rank - 1] }}>
                       {p.rank}
                     </span>
@@ -123,12 +151,16 @@ export default async function ProfissionaisPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <h3 className="truncate text-[15px] font-semibold">{p.name}</h3>
-                    {p.rank === 1 && p.revenue > 0 && <Trophy className="h-3.5 w-3.5 shrink-0 text-[#F4C430]" />}
+                    {canSeeFinancial && p.rank === 1 && p.revenue > 0 && <Trophy className="h-3.5 w-3.5 shrink-0 text-[#F4C430]" />}
                   </div>
                   <p className="truncate text-[12px] text-muted-foreground">{p.bio || p.email}</p>
                   <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-                    <span>Comissão <strong className="text-foreground">{p.commissionPct}%</strong></span>
-                    <span>·</span>
+                    {canSeeFinancial && (
+                      <>
+                        <span>Comissão <strong className="text-foreground">{p.commissionPct}%</strong></span>
+                        <span>·</span>
+                      </>
+                    )}
                     <span>{p.serviceCount} serviços</span>
                     <span>·</span>
                     <span>{p.workingDays} dias/sem</span>
@@ -140,7 +172,7 @@ export default async function ProfissionaisPage() {
               </div>
 
               {/* Meta */}
-              <div className="mt-4 rounded-xl bg-surface-1 p-3">
+              {canSeeFinancial && <div className="mt-4 rounded-xl bg-surface-1 p-3">
                 <div className="mb-1.5 flex items-center justify-between text-[11px]">
                   <span className="flex items-center gap-1 text-muted-foreground"><Target className="h-3 w-3" /> Meta do mês</span>
                   <span className="font-medium">
@@ -159,20 +191,20 @@ export default async function ProfissionaisPage() {
                 <p className="mt-1 text-right text-[10px] text-muted-foreground">
                   {(p.goalPct * 100).toFixed(0)}% da meta{p.goalPct >= 1 ? " · batida! 🎉" : ""}
                 </p>
-              </div>
+              </div>}
 
               {/* Métricas */}
-              <div className="mt-3 grid grid-cols-3 gap-2">
+              <div className={`mt-3 grid gap-2 ${canSeeFinancial ? "grid-cols-3" : "grid-cols-2"}`}>
                 <Stat icon={CalendarCheck} label="Atendimentos" value={p.appointments.toString()} />
-                <Stat icon={Receipt} label="Ticket médio" value={formatMoney(p.avgTicket)} />
-                <Stat icon={CircleDollarSign} label="Comissão" value={formatMoney(p.commissionCents)} />
+                {canSeeFinancial && <Stat icon={Receipt} label="Ticket médio" value={formatMoney(p.avgTicket)} />}
+                {canSeeFinancial && <Stat icon={CircleDollarSign} label="Comissão" value={formatMoney(p.commissionCents)} />}
                 <Stat icon={Repeat} label="Taxa retorno" value={`${(p.returnRate * 100).toFixed(0)}%`} />
                 <Stat icon={Timer} label="Tempo médio" value={formatDuration(p.avgDuration || 0)} />
                 <Stat icon={UserX} label="No-show" value={p.noShow.toString()} accent={p.noShow > 0 ? "#EF4444" : undefined} />
               </div>
 
               {/* Ações */}
-              <div className="mt-4 flex flex-wrap items-center gap-1 border-t border-border pt-3">
+              {canManageTeam && <div className="mt-4 flex flex-wrap items-center gap-1 border-t border-border pt-3">
                 <ProfessionalForm
                   services={services}
                   invitesEnabled={invitesEnabled}
@@ -189,7 +221,7 @@ export default async function ProfissionaisPage() {
                 />
                 <WorkingHoursForm professionalId={p.id} professionalName={p.name} current={p.workingHours} />
                 <ToggleActiveButton id={p.id} active={p.active} />
-              </div>
+              </div>}
             </div>
           ))}
         </div>

@@ -6,25 +6,28 @@ import {
   LayoutDashboard, CalendarDays, Scissors, ShoppingBag, Layers, Image as ImageIcon,
   Users, UserCog, Wallet, FileBarChart, Megaphone, Settings, Search, CornerDownLeft, Command,
 } from "lucide-react";
+import {
+  DASHBOARD_ROLES,
+  FINANCIAL_ROLES,
+  MANAGEMENT_ROLES,
+  MARKETING_ROLES,
+} from "@/lib/role-permissions";
 
-type Cmd = { label: string; hint: string; icon: typeof Search; href: string; roles?: string[] };
-
-/** Espelha FINANCE_ROLES do tenant.ts — a proteção real é requireRole na página. */
-const FINANCE_ONLY = ["SUPER_ADMIN", "OWNER", "MANAGER"];
+type Cmd = { label: string; hint: string; icon: typeof Search; href: string; roles?: readonly string[] };
 
 const COMMANDS: Cmd[] = [
-  { label: "Dashboard", hint: "Visão geral", icon: LayoutDashboard, href: "/dashboard" },
+  { label: "Dashboard", hint: "Visão geral", icon: LayoutDashboard, href: "/dashboard", roles: DASHBOARD_ROLES },
   { label: "Agenda", hint: "Ver agendamentos", icon: CalendarDays, href: "/agenda" },
-  { label: "Financeiro", hint: "Receitas e despesas", icon: Wallet, href: "/financeiro", roles: FINANCE_ONLY },
-  { label: "Relatórios", hint: "Exportar e comparar", icon: FileBarChart, href: "/relatorios", roles: FINANCE_ONLY },
+  { label: "Financeiro", hint: "Receitas e despesas", icon: Wallet, href: "/financeiro", roles: FINANCIAL_ROLES },
+  { label: "Relatórios", hint: "Exportar e comparar", icon: FileBarChart, href: "/relatorios", roles: FINANCIAL_ROLES },
   { label: "Serviços", hint: "Catálogo de serviços", icon: Scissors, href: "/servicos" },
-  { label: "Produtos", hint: "Estoque e vendas", icon: ShoppingBag, href: "/produtos" },
-  { label: "Pacotes & Planos", hint: "Receita recorrente", icon: Layers, href: "/pacotes" },
+  { label: "Produtos", hint: "Estoque e vendas", icon: ShoppingBag, href: "/produtos", roles: MANAGEMENT_ROLES },
+  { label: "Pacotes & Planos", hint: "Receita recorrente", icon: Layers, href: "/pacotes", roles: MANAGEMENT_ROLES },
   { label: "Clientes", hint: "CRM", icon: Users, href: "/clientes" },
-  { label: "Marketing", hint: "Campanhas", icon: Megaphone, href: "/marketing" },
+  { label: "Marketing", hint: "Campanhas", icon: Megaphone, href: "/marketing", roles: MARKETING_ROLES },
   { label: "Profissionais", hint: "Equipe e metas", icon: UserCog, href: "/profissionais" },
   { label: "Portfolio", hint: "Galeria de trabalhos", icon: ImageIcon, href: "/portfolio" },
-  { label: "Configurações", hint: "Ajustes do salão", icon: Settings, href: "/configuracoes" },
+  { label: "Configurações", hint: "Ajustes do salão", icon: Settings, href: "/configuracoes", roles: MANAGEMENT_ROLES },
 ];
 
 export function CommandPalette({ role }: { role: string }) {

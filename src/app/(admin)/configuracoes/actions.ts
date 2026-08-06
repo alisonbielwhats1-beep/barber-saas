@@ -12,12 +12,13 @@ import {
   revokeUserInvite,
 } from "@/lib/invitations";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
+import { isValidTimeZone } from "@/lib/time";
 
 const salonInput = z.object({
   name: z.string().min(2, "Nome muito curto"),
   address: z.string().optional().nullable(),
   phone: z.string().optional().nullable(),
-  timezone: z.string().min(1),
+  timezone: z.string().refine(isValidTimeZone, "Fuso horário IANA inválido"),
   currency: z.string().min(1),
   openMinutes: z.coerce.number().int().min(0).max(1440),
   closeMinutes: z.coerce.number().int().min(0).max(1440),

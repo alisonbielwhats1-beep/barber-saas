@@ -13,7 +13,13 @@ import { createPortfolioItem } from "./actions";
 
 type Pro = { id: string; name: string };
 
-export function PortfolioForm({ professionals }: { professionals: Pro[] }) {
+export function PortfolioForm({
+  professionals,
+  lockedProfessional,
+}: {
+  professionals: Pro[];
+  lockedProfessional?: Pro;
+}) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +41,8 @@ export function PortfolioForm({ professionals }: { professionals: Pro[] }) {
     const payload = {
       imageUrl,
       caption: (form.get("caption") as string) || null,
-      professionalId: (form.get("professionalId") as string) || null,
+      professionalId:
+        lockedProfessional?.id || (form.get("professionalId") as string) || null,
     };
     startTransition(async () => {
       try {
@@ -73,15 +80,21 @@ export function PortfolioForm({ professionals }: { professionals: Pro[] }) {
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium">Feito por</label>
-            <select
-              name="professionalId"
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-            >
-              <option value="">Do salão (sem atribuição)</option>
-              {professionals.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
+            {lockedProfessional ? (
+              <div className="flex h-10 items-center rounded-md border border-input bg-muted px-3 text-sm">
+                {lockedProfessional.name}
+              </div>
+            ) : (
+              <select
+                name="professionalId"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="">Do salão (sem atribuição)</option>
+                {professionals.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            )}
           </div>
           {error && <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
           <DialogFooter>

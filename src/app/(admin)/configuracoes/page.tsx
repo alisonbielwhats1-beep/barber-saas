@@ -1,4 +1,5 @@
-import { getTenantContext } from "@/lib/tenant";
+import { requireRole } from "@/lib/tenant";
+import { MANAGEMENT_ROLES } from "@/lib/role-permissions";
 import { withTenant } from "@/lib/prisma-tenant";
 import { emailInvitesEnabled } from "@/lib/email-invites-feature";
 import { Crown } from "lucide-react";
@@ -15,7 +16,7 @@ const PLAN_LABEL: Record<string, string> = {
 };
 
 export default async function ConfiguracoesPage() {
-  const ctx = await getTenantContext();
+  const ctx = await requireRole(MANAGEMENT_ROLES);
   const { salonId, userId, role } = ctx;
   const invitesEnabled = emailInvitesEnabled();
 
@@ -141,6 +142,7 @@ export default async function ConfiguracoesPage() {
       </div>
 
       <ClosuresManager
+        timezone={salon.timezone}
         closures={closures.map((c): Closure => ({
           id: c.id,
           startAt: c.startAt.toISOString(),

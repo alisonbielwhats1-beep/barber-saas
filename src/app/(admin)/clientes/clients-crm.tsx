@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { formatMoney } from "@/lib/utils";
 import { format } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 import { ptBR } from "date-fns/locale";
 import { ClientForm } from "./client-form";
 import { fetchClientHistory } from "./actions";
@@ -25,7 +26,17 @@ function waLink(phone: string | null, first: string, salonName: string) {
   return `https://wa.me/${full}?text=${encodeURIComponent(msg)}`;
 }
 
-export function ClientsCrm({ clients, salonName }: { clients: ClientRow[]; salonName: string }) {
+export function ClientsCrm({
+  clients,
+  salonName,
+  timezone,
+  canManage,
+}: {
+  clients: ClientRow[];
+  salonName: string;
+  timezone: string;
+  canManage: boolean;
+}) {
   const [search, setSearch] = useState("");
   const [segment, setSegment] = useState<Segment>("all");
   const [detail, setDetail] = useState<ClientRow | null>(null);
@@ -173,7 +184,7 @@ export function ClientsCrm({ clients, salonName }: { clients: ClientRow[]; salon
                         <span className="h-8 w-1 shrink-0 rounded-full" style={{ background: h.serviceColor ?? "#2ECC8B" }} />
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-[12px] font-medium">{h.serviceName}</p>
-                          <p className="text-[10px] text-muted-foreground">{format(new Date(h.startAt), "d MMM yyyy", { locale: ptBR })} · {h.proName.split(" ")[0]}</p>
+                          <p className="text-[10px] text-muted-foreground">{formatInTimeZone(new Date(h.startAt), timezone, "d MMM yyyy · HH:mm", { locale: ptBR })} · {h.proName.split(" ")[0]}</p>
                         </div>
                         <p className="text-[12px] font-semibold">{formatMoney(h.priceCents)}</p>
                       </div>
@@ -190,9 +201,11 @@ export function ClientsCrm({ clients, salonName }: { clients: ClientRow[]; salon
                     <MessageCircle className="h-4 w-4" /> WhatsApp
                   </a>
                 )}
-                <ClientForm
-                  client={{ id: detail.id, name: detail.name, phone: detail.phone, email: detail.email, birthday: detail.birthday ? new Date(detail.birthday) : null, notes: detail.notes }}
-                />
+                {canManage && (
+                  <ClientForm
+                    client={{ id: detail.id, name: detail.name, phone: detail.phone, email: detail.email, birthday: detail.birthday ? new Date(detail.birthday) : null, notes: detail.notes }}
+                  />
+                )}
               </div>
             </>
           )}

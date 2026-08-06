@@ -23,7 +23,17 @@ type Salon = {
   bufferMinutes: number;
 };
 
-const TIMEZONES = ["America/Sao_Paulo", "America/Manaus", "America/Recife", "America/Fortaleza", "America/Cuiaba"];
+const TIMEZONES = [
+  "America/Sao_Paulo",
+  "America/Manaus",
+  "America/Recife",
+  "America/Fortaleza",
+  "America/Cuiaba",
+  "America/Argentina/Buenos_Aires",
+  "America/New_York",
+  "Europe/Lisbon",
+  "UTC",
+];
 
 function toHHMM(min: number) {
   return `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
@@ -95,11 +105,22 @@ export function SalonSettingsForm({ salon }: { salon: Salon }) {
           </Field>
         </div>
         <Field label="Fuso horário">
-          <select name="timezone" defaultValue={salon.timezone} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+          <Input
+            name="timezone"
+            list="salon-timezones"
+            defaultValue={salon.timezone}
+            placeholder="America/Sao_Paulo"
+            autoComplete="off"
+            required
+          />
+          <datalist id="salon-timezones">
             {TIMEZONES.map((tz) => (
               <option key={tz} value={tz}>{tz}</option>
             ))}
-          </select>
+          </datalist>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Use um identificador IANA. Agenda, dashboard e avisos seguirão este fuso.
+          </p>
         </Field>
       </Section>
 

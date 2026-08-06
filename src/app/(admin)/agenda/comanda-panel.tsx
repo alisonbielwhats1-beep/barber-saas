@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { Check, Loader2, Package, Scissors } from "lucide-react";
 import { formatMoney } from "@/lib/utils";
 import { getComandaData, closeComanda } from "./actions";
@@ -34,6 +34,7 @@ export function ComandaPanel({
   const [notes, setNotes] = useState("");
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const idempotencyKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     getComandaData(apptId)
@@ -69,8 +70,13 @@ export function ComandaPanel({
     data.priceCents +
     data.products.reduce((s, p) => s + p.quantity * p.priceCentsUnit, 0);
   const total = Math.max(0, subtotal - discountCents);
+  const expectedVersion = data.version;
+  const serviceName = data.serviceItems.length > 0
+    ? data.serviceItems.map((service) => service.serviceName).join(" + ")
+    : data.service.name;
 
   function handleDiscount(v: string) {
+    idempotencyKeyRef.current = null;
     setDiscountInput(v);
     const num = parseFloat(v.replace(",", "."));
     setDiscountCents(isNaN(num) || num < 0 ? 0 : Math.round(num * 100));
@@ -80,12 +86,20 @@ export function ComandaPanel({
     setError(null);
     startTransition(async () => {
       try {
-        await closeComanda({
+        const idempotencyKey = idempotencyKeyRef.current ?? crypto.randomUUID();
+        idempotencyKeyRef.current = idempotencyKey;
+        const result = await closeComanda({
           id: apptId,
+          idempotencyKey,
+          expectedVersion,
           discountCents,
           method,
           notes: notes || null,
         });
+        if ("error" in result) {
+          setError(result.error);
+          return;
+        }
         onClose();
       } catch (e) {
         setError(e instanceof Error ? e.message : "Erro ao fechar comanda");
@@ -103,7 +117,7 @@ export function ComandaPanel({
         <div className="flex items-center justify-between rounded-xl bg-surface-1 px-3 py-2.5">
           <span className="flex items-center gap-2 text-[13px]">
             <Scissors className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-            {data.service.name}
+            {serviceName}
           </span>
           <span className="text-[13px] font-medium">
             {formatMoney(data.priceCents, currency)}
@@ -172,7 +186,10 @@ export function ComandaPanel({
           {METHODS.map((m) => (
             <button
               key={m.value}
-              onClick={() => setMethod(m.value)}
+              onClick={() => {
+                idempotencyKeyRef.current = null;
+                setMethod(m.value);
+              }}
               className={`flex flex-col items-center gap-1 rounded-xl border px-1 py-2 text-[11px] font-medium transition ${
                 method === m.value
                   ? "border-primary bg-primary/10 text-primary"
@@ -189,7 +206,10 @@ export function ComandaPanel({
       {/* Observação */}
       <textarea
         value={notes}
-        onChange={(e) => setNotes(e.target.value)}
+        onChange={(e) => {
+          idempotencyKeyRef.current = null;
+          setNotes(e.target.value);
+        }}
         rows={2}
         placeholder="Observação opcional…"
         className="w-full resize-none rounded-lg border border-border bg-surface-1 px-3 py-2 text-[13px] placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"

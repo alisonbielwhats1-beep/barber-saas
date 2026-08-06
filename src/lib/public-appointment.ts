@@ -10,9 +10,10 @@ const cartItemSchema = z.object({
 export const publicAppointmentSchema = z
   .object({
     salonId: z.string().min(1),
-    serviceId: z.string().min(1),
+    serviceIds: z.array(z.string().min(1)).min(1).max(10),
     professionalId: z.string().min(1),
-    startAt: z.string().datetime(),
+    startLocal: z.string().regex(/^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d$/),
+    idempotencyKey: z.string().uuid(),
     clientName: z.string().trim().min(2).max(120).optional(),
     clientPhone: z
       .string()

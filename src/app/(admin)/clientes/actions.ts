@@ -8,7 +8,16 @@ import { getClientHistory } from "@/lib/crm";
 
 export async function fetchClientHistory(clientId: string) {
   const ctx = await getTenantContext();
-  return withTenant(ctx, (tx) => getClientHistory(tx, ctx.salonId, clientId));
+  return withTenant(ctx, async (tx) => {
+    const professional = ctx.role === "PROFESSIONAL"
+      ? await tx.professional.findFirst({
+          where: { salonId: ctx.salonId, userId: ctx.userId, active: true },
+          select: { id: true },
+        })
+      : null;
+    if (ctx.role === "PROFESSIONAL" && !professional) return [];
+    return getClientHistory(tx, ctx.salonId, clientId, professional?.id);
+  });
 }
 
 const clientInput = z.object({

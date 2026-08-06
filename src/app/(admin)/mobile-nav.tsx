@@ -9,9 +9,11 @@ import {
   Users,
   MoreHorizontal,
   Settings,
+  Bell,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DASHBOARD_ROLES, MANAGEMENT_ROLES } from "@/lib/role-permissions";
 import { visibleGroups } from "./sidebar-nav";
 import { OpenCommandPaletteButton } from "./command-palette";
 
@@ -19,10 +21,16 @@ import { OpenCommandPaletteButton } from "./command-palette";
  * Navegação mobile do admin (a sidebar é `hidden md:flex`).
  * 3 atalhos principais + "Mais" abre painel com todos os módulos.
  */
-const PRIMARY = [
-  { href: "/dashboard", label: "Início", icon: LayoutDashboard },
+const PRIMARY: Array<{
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  roles?: readonly string[];
+}> = [
+  { href: "/dashboard", label: "Início", icon: LayoutDashboard, roles: DASHBOARD_ROLES },
   { href: "/agenda", label: "Agenda", icon: CalendarDays },
   { href: "/clientes", label: "Clientes", icon: Users },
+  { href: "/notificacoes", label: "Alertas", icon: Bell },
 ];
 
 export function MobileNav({ role }: { role: string }) {
@@ -87,27 +95,29 @@ export function MobileNav({ role }: { role: string }) {
                 </div>
               </div>
             ))}
-            <Link
-              href="/configuracoes"
-              prefetch={false}
-              onClick={() => setOpen(false)}
-              className={cn(
-                "flex items-center gap-2.5 rounded-xl border px-3 py-3 text-[13px] font-medium transition-colors",
-                isActive("/configuracoes")
-                  ? "border-primary/40 bg-primary/10 text-foreground"
-                  : "border-border bg-card text-muted-foreground",
-              )}
-            >
-              <Settings className="h-4 w-4 shrink-0" />
-              Configurações
-            </Link>
+            {MANAGEMENT_ROLES.some((allowedRole) => allowedRole === role) && (
+              <Link
+                href="/configuracoes"
+                prefetch={false}
+                onClick={() => setOpen(false)}
+                className={cn(
+                  "flex items-center gap-2.5 rounded-xl border px-3 py-3 text-[13px] font-medium transition-colors",
+                  isActive("/configuracoes")
+                    ? "border-primary/40 bg-primary/10 text-foreground"
+                    : "border-border bg-card text-muted-foreground",
+                )}
+              >
+                <Settings className="h-4 w-4 shrink-0" />
+                Configurações
+              </Link>
+            )}
           </div>
         </div>
       )}
 
       {/* Barra inferior */}
-      <nav className="fixed inset-x-0 bottom-0 z-50 flex border-t border-border bg-card/95 backdrop-blur md:hidden print:hidden">
-        {PRIMARY.map((item) => {
+      <nav className="fixed inset-x-0 bottom-0 z-50 flex border-t border-border bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden print:hidden">
+        {PRIMARY.filter((item) => !item.roles || item.roles.includes(role)).map((item) => {
           const active = !open && isActive(item.href);
           return (
             <Link

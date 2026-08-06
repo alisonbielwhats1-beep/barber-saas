@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { withSalon } from "@/lib/prisma-tenant";
 import { isOverlapViolation } from "@/lib/db-errors";
 import { getClientSession } from "@/lib/client-auth";
@@ -12,18 +13,27 @@ import {
   rateLimitHeaders,
   rateLimitStatus,
 } from "@/lib/rate-limit";
-import { checkBookingWindow, bufferedWindow } from "@/lib/scheduling";
-import { isSalonClosedAt } from "@/lib/closures";
-import { addMinutes } from "date-fns";
+import {
+  appointmentErrorStatus,
+  createAppointment,
+} from "@/lib/appointment-service";
+import { isAppointmentError } from "@/lib/appointment-domain";
+
+class PublicBookingError extends Error {
+  constructor(
+    readonly code: string,
+    readonly status: number,
+  ) {
+    super(code);
+  }
+}
 
 /**
- * POST /api/appointments — cria agendamento público + carrinho.
+ * POST /api/appointments — cria um agendamento público de forma idempotente.
  *
- * Tenant enforcement: `salonId` do payload é usado como filtro em toda query
- * (service, produto, professional-service-link). Cross-tenant impossível.
- *
- * Preços: usamos o snapshot atual do server; ignoramos qualquer preço enviado
- * pelo cliente. Cliente é UI — server é fonte da verdade.
+ * O navegador envia apenas data/hora de parede. O servidor resolve o instante
+ * usando o timezone IANA do estabelecimento, recalcula serviços/preços e
+ * serializa a disputa pelo profissional dentro da transação.
  */
 export async function POST(req: NextRequest) {
   const limited = await checkRateLimit({
@@ -52,164 +62,139 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: "BAD_REQUEST" }, { status: 400 });
   }
-  const b = parsed.data;
+  const booking = parsed.data;
   const session = await getClientSession();
-  const identity = resolveBookingIdentity(session, b.salonId);
+  const identity = resolveBookingIdentity(session, booking.salonId);
+  if (identity.kind === "guest" && (!booking.clientName || !booking.clientPhone)) {
+    return NextResponse.json({ error: "GUEST_DATA_REQUIRED" }, { status: 400 });
+  }
 
-  // Toda a operação — validações e escrita — numa transação só. O catch de
-  // overlap violation continua isolado ao redor só da escrita final, e não
-  // emite mais nenhuma query depois de capturar o erro: seguro dentro da
-  // mesma transação interativa (o commit seguinte vira rollback silencioso).
-  return withSalon(b.salonId, async (tx) => {
-    const salon = await tx.salon.findUnique({
-      where: { id: b.salonId },
-      select: { minBookingLeadMinutes: true, maxBookingLeadDays: true, bufferMinutes: true },
-    });
-    const service = await tx.service.findFirst({
-      where: { id: b.serviceId, salonId: b.salonId, active: true },
-      select: { durationMin: true, priceCents: true },
-    });
-    const prosLink = await tx.professionalService.findFirst({
-      where: { serviceId: b.serviceId, professional: { id: b.professionalId, salonId: b.salonId, active: true } },
-    });
-    if (!salon) return NextResponse.json({ error: "SERVICE_INVALID" }, { status: 400 });
-    if (!service) return NextResponse.json({ error: "SERVICE_INVALID" }, { status: 400 });
-    if (!prosLink)
-      return NextResponse.json({ error: "PRO_SERVICE_MISMATCH" }, { status: 400 });
-
-    const startAt = new Date(b.startAt);
-    const endAt = addMinutes(startAt, service.durationMin);
-
-    if (checkBookingWindow(startAt, salon) !== null) {
-      return NextResponse.json({ error: "SLOT_TAKEN" }, { status: 409 });
+  const quantities = new Map<string, number>();
+  for (const item of booking.cartItems) {
+    const total = (quantities.get(item.productId) ?? 0) + item.quantity;
+    if (total > 20) {
+      return NextResponse.json({ error: "BAD_REQUEST" }, { status: 400 });
     }
-    if (await isSalonClosedAt(tx, b.salonId, startAt, endAt)) {
-      return NextResponse.json({ error: "SLOT_TAKEN" }, { status: 409 });
-    }
+    quantities.set(item.productId, total);
+  }
+  const normalizedCart = [...quantities.entries()]
+    .map(([productId, quantity]) => ({ productId, quantity }))
+    .sort((left, right) => left.productId.localeCompare(right.productId));
 
-    const buffered = bufferedWindow(startAt, endAt, salon.bufferMinutes);
-    const conflict = await tx.appointment.findFirst({
-      where: {
-        professionalId: b.professionalId,
-        status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
-        startAt: { lt: buffered.to },
-        endAt: { gt: buffered.from },
-      },
-      select: { id: true },
-    });
-    if (conflict) return NextResponse.json({ error: "SLOT_TAKEN" }, { status: 409 });
-
-    // Valida produtos: só os que pertencem ao salão e têm estoque suficiente
-    const productSnapshots: { productId: string; quantity: number; priceCentsUnit: number }[] = [];
-    if (b.cartItems.length > 0) {
-      const products = await tx.product.findMany({
-        where: {
-          id: { in: b.cartItems.map((i) => i.productId) },
-          salonId: b.salonId,
-          active: true,
-        },
-        select: { id: true, priceCents: true, stock: true, name: true },
+  try {
+    const result = await withSalon(booking.salonId, async (tx) => {
+      const created = await createAppointment(tx, {
+        salonId: booking.salonId,
+        professionalId: booking.professionalId,
+        serviceIds: booking.serviceIds,
+        startLocal: booking.startLocal,
+        notes: booking.notes,
+        origin: "PUBLIC",
+        actor:
+          identity.kind === "authenticated"
+            ? {
+                type: "CLIENT",
+                id: identity.clientId,
+                name: session?.name ?? "Cliente",
+              }
+            : { type: "GUEST", name: booking.clientName! },
+        idempotencyKey: booking.idempotencyKey,
+        idempotencyContext: normalizedCart,
+        enforceBookingWindow: true,
+        ...(identity.kind === "authenticated"
+          ? { clientId: identity.clientId }
+          : {
+              guest: {
+                name: booking.clientName!,
+                phone: booking.clientPhone!,
+              },
+            }),
       });
-      const byId = new Map(products.map((p) => [p.id, p]));
-      for (const ci of b.cartItems) {
-        const p = byId.get(ci.productId);
-        if (!p) {
-          return NextResponse.json(
-            { error: `Produto inválido: ${ci.productId}` },
-            { status: 400 },
-          );
-        }
-        if (p.stock < ci.quantity) {
-          return NextResponse.json(
-            { error: `Estoque insuficiente: ${p.name}` },
-            { status: 409 },
-          );
-        }
-        productSnapshots.push({
-          productId: p.id,
-          quantity: ci.quantity,
-          priceCentsUnit: p.priceCents,
+
+      // O retry idempotente retorna antes de reler o catálogo. Um produto que
+      // ficou inativo depois da primeira confirmação não pode transformar o
+      // mesmo retry em erro. Na primeira execução, qualquer falha abaixo
+      // reverte appointment, evento, notificação e cliente convidado juntos.
+      if (!created.duplicate && normalizedCart.length > 0) {
+        const products = await tx.product.findMany({
+          where: {
+            id: { in: normalizedCart.map((item) => item.productId) },
+            salonId: booking.salonId,
+            active: true,
+          },
+          select: { id: true, priceCents: true, name: true },
         });
-      }
-    }
-
-    let clientId: string | null = null;
-    let guestContact: { name: string; phone: string } | null = null;
-    if (identity.kind === "authenticated") {
-      // O ID vem exclusivamente do cookie assinado, nunca do navegador.
-      const client = await tx.clientProfile.findFirst({
-        where: { id: identity.clientId, salonId: b.salonId },
-        select: { id: true },
-      });
-      if (!client) {
-        return NextResponse.json({ error: "AUTH_REQUIRED" }, { status: 401 });
-      }
-      clientId = client.id;
-    } else {
-      // Visitante não prova posse do telefone. Por isso, o telefone é apenas
-      // contato e nunca é usado para localizar/reutilizar uma identidade
-      // existente (especialmente uma conta autenticada).
-      if (!b.clientName || !b.clientPhone) {
-        return NextResponse.json({ error: "GUEST_DATA_REQUIRED" }, { status: 400 });
-      }
-      guestContact = { name: b.clientName, phone: b.clientPhone };
-    }
-
-    let appt;
-    try {
-      const appointmentClientId =
-        clientId ??
-        (
-          await tx.clientProfile.create({
-            data: {
-              salonId: b.salonId,
-              name: guestContact!.name,
-              phone: guestContact!.phone,
+        if (products.length !== normalizedCart.length) {
+          throw new PublicBookingError("PRODUCT_INVALID", 400);
+        }
+        const productsById = new Map(
+          products.map((product) => [product.id, product]),
+        );
+        const productSnapshots = normalizedCart.map((item) => ({
+          ...item,
+          priceCentsUnit: productsById.get(item.productId)!.priceCents,
+          name: productsById.get(item.productId)!.name,
+        }));
+        for (const product of productSnapshots) {
+          const reserved = await tx.product.updateMany({
+            where: {
+              id: product.productId,
+              salonId: booking.salonId,
+              active: true,
+              stock: { gte: product.quantity },
             },
-            select: { id: true },
-          })
-        ).id;
-      const created = await tx.appointment.create({
-        data: {
-          salonId: b.salonId,
-          clientId: appointmentClientId,
-          serviceId: b.serviceId,
-          professionalId: b.professionalId,
-          startAt,
-          endAt,
-          priceCents: service.priceCents,
-          status: "CONFIRMED",
-          notes: b.notes,
-        },
-        select: { id: true, startAt: true, endAt: true },
-      });
-
-      if (productSnapshots.length > 0) {
+            data: { stock: { decrement: product.quantity } },
+          });
+          if (reserved.count !== 1) {
+            throw new PublicBookingError(
+              `Estoque insuficiente: ${product.name}`,
+              409,
+            );
+          }
+        }
         await tx.appointmentProduct.createMany({
-          data: productSnapshots.map((s) => ({
-            appointmentId: created.id,
-            ...s,
+          data: productSnapshots.map((product) => ({
+            appointmentId: created.appointment.id,
+            productId: product.productId,
+            quantity: product.quantity,
+            priceCentsUnit: product.priceCentsUnit,
           })),
         });
-        // Decrementa estoque
-        for (const s of productSnapshots) {
-          await tx.product.update({
-            where: { id: s.productId },
-            data: { stock: { decrement: s.quantity } },
-          });
-        }
       }
-      appt = created;
-    } catch (e) {
-      // Exclusion constraint (appointment_no_overlap): outra reserva venceu a
-      // corrida entre a checagem de conflito e o INSERT. Mesma resposta de slot
-      // ocupado — o client recarrega a grade.
-      if (isOverlapViolation(e)) {
-        return NextResponse.json({ error: "SLOT_TAKEN" }, { status: 409 });
-      }
-      throw e;
-    }
+      return created;
+    });
 
-    return NextResponse.json({ appointment: appt }, { status: 201 });
-  });
+    revalidatePath("/agenda");
+    revalidatePath("/dashboard");
+    revalidatePath("/financeiro");
+    revalidatePath("/book", "layout");
+
+    return NextResponse.json(
+      {
+        appointment: {
+          id: result.appointment.id,
+          startAt: result.appointment.startAt,
+          endAt: result.appointment.endAt,
+          version: result.appointment.version,
+          professionalId: result.appointment.professionalId,
+        },
+        duplicate: result.duplicate,
+      },
+      { status: result.duplicate ? 200 : 201 },
+    );
+  } catch (error) {
+    if (error instanceof PublicBookingError) {
+      return NextResponse.json({ error: error.code }, { status: error.status });
+    }
+    if (isAppointmentError(error)) {
+      return NextResponse.json(
+        { error: error.code },
+        { status: appointmentErrorStatus(error.code) },
+      );
+    }
+    if (isOverlapViolation(error)) {
+      return NextResponse.json({ error: "SLOT_TAKEN" }, { status: 409 });
+    }
+    throw error;
+  }
 }

@@ -24,26 +24,46 @@ function topOf(counts: Map<string, number>): string | null {
   return best;
 }
 
-export async function getClientList(tx: Tx, salonId: string) {
+export async function getClientList(
+  tx: Tx,
+  salonId: string,
+  options?: { professionalId?: string; includeCommercialData?: boolean },
+) {
   const now = new Date();
+  const professionalId = options?.professionalId;
   // Sequencial de propósito: pooler com connection_limit=1 em serverless —
   // 5 queries em Promise.all estouravam o timeout do pool (P2024).
   // Mesma correção aplicada em lib/dashboard.ts, lib/kpis.ts e lib/finance.ts.
   const clients = await tx.clientProfile.findMany({
-    where: { salonId },
+    where: {
+      salonId,
+      ...(professionalId
+        ? { appointments: { some: { professionalId } } }
+        : {}),
+    },
     select: {
       id: true, name: true, phone: true, email: true, birthday: true, gender: true, notes: true, createdAt: true,
       appointments: {
-        where: { status: "COMPLETED" },
+        where: {
+          status: "COMPLETED",
+          ...(professionalId ? { professionalId } : {}),
+        },
         select: { priceCents: true, startAt: true, professionalId: true, serviceId: true },
       },
     },
     orderBy: { name: "asc" },
   });
-  const pros = await tx.professional.findMany({ where: { salonId }, select: { id: true, user: { select: { name: true } } } });
+  const pros = await tx.professional.findMany({
+    where: { salonId, ...(professionalId ? { id: professionalId } : {}) },
+    select: { id: true, user: { select: { name: true } } },
+  });
   const services = await tx.service.findMany({ where: { salonId }, select: { id: true, name: true } });
-  const activePkgs = await tx.packagePurchase.groupBy({ by: ["clientId"], where: { salonId, status: "ACTIVE" }, _count: { _all: true } });
-  const activeSubs = await tx.clientSubscription.groupBy({ by: ["clientId"], where: { salonId, status: "ACTIVE" }, _count: { _all: true } });
+  const activePkgs = options?.includeCommercialData === false
+    ? []
+    : await tx.packagePurchase.groupBy({ by: ["clientId"], where: { salonId, status: "ACTIVE" }, _count: { _all: true } });
+  const activeSubs = options?.includeCommercialData === false
+    ? []
+    : await tx.clientSubscription.groupBy({ by: ["clientId"], where: { salonId, status: "ACTIVE" }, _count: { _all: true } });
 
   const proName = new Map(pros.map((p) => [p.id, p.user.name]));
   const svcName = new Map(services.map((s) => [s.id, s.name]));
@@ -100,14 +120,23 @@ export async function getClientList(tx: Tx, salonId: string) {
 
 export type ClientRow = Awaited<ReturnType<typeof getClientList>>[number];
 
-export async function getClientHistory(tx: Tx, salonId: string, clientId: string) {
+export async function getClientHistory(
+  tx: Tx,
+  salonId: string,
+  clientId: string,
+  professionalId?: string,
+) {
   const appts = await tx.appointment.findMany({
-    where: { salonId, clientId },
+    where: { salonId, clientId, ...(professionalId ? { professionalId } : {}) },
     orderBy: { startAt: "desc" },
     take: 40,
     select: {
       id: true, startAt: true, priceCents: true, status: true,
       service: { select: { name: true, colorHex: true } },
+      serviceItems: {
+        orderBy: { position: "asc" },
+        select: { serviceName: true },
+      },
       professional: { select: { user: { select: { name: true } } } },
     },
   });
@@ -116,7 +145,9 @@ export async function getClientHistory(tx: Tx, salonId: string, clientId: string
     startAt: a.startAt.toISOString(),
     priceCents: a.priceCents,
     status: a.status,
-    serviceName: a.service.name,
+    serviceName: a.serviceItems.length > 0
+      ? a.serviceItems.map((service) => service.serviceName).join(" + ")
+      : a.service.name,
     serviceColor: a.service.colorHex,
     proName: a.professional.user.name,
   }));

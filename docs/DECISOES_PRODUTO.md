@@ -43,8 +43,10 @@ Decisão recomendada:
 
 - desabilitado por padrão;
 - conflito acidental sempre bloqueado no banco;
-- uma configuração futura por estabelecimento pode liberar encaixe deliberado
-  apenas para dono/gerente, com confirmação, motivo e auditoria;
+- encaixe deliberado está disponível apenas na criação manual para
+  dono/gerente, depois de um conflito real, com confirmação, motivo e
+  auditoria;
+- encaixe não ignora fechamento, folga, jornada ou isolamento de tenant;
 - lista de espera é a opção preferencial;
 - nunca disponível no aplicativo do cliente.
 
@@ -54,7 +56,9 @@ Manter o mesmo `appointment_id` e gravar um evento imutável com valores antigo
 e novo. Essa opção preserva links, pagamento e referências já existentes e é a
 mais segura para a arquitetura atual.
 
-Pode trocar data, horário, profissional e serviços, desde que a operação:
+No painel, pode trocar data, horário, profissional e serviços. No aplicativo
+do cliente, a versão atual permite trocar data/horário e profissional,
+preservando serviços, preços e durações contratados. Toda operação:
 
 1. recalcule duração e preço no servidor;
 2. valide todas as relações dentro do mesmo tenant;
@@ -171,3 +175,9 @@ Modelo alvo:
 
 “Remarcado” será um evento, não um status terminal. A migration a partir dos
 status atuais terá mapeamento explícito, contagem antes/depois e rollback.
+
+Na Fase 2 foi mantido o enum legado compatível
+`PENDING/CONFIRMED/IN_PROGRESS/COMPLETED/CANCELLED/NO_SHOW`. A distinção entre
+cancelamento do cliente e do estabelecimento está preservada em metadados de
+ator e evento; “remarcado” já é evento imutável. `checked_in` e a expansão do
+enum ficam para uma migration própria, sem reescrever o histórico existente.

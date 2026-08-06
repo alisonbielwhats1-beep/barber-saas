@@ -37,40 +37,37 @@ Não exige nova migration. O checklist completo está em
 Objetivo: tornar a agenda confiável para uso diário e competitiva com produtos
 como Booksy, sem copiar interface ou regras proprietárias.
 
-**Concluído (05/08/2026):** antecedência mín/máx e buffer entre atendimentos
-(item 3, parcial); lista de espera por agendamento específico com aceite
-atômico via advisory lock, sem expiração/oferta explícita em v1 (item 2,
-escopado); remarcação atômica pelo cliente (item 7, parcial); agendamentos
-recorrentes semanal/quinzenal com pulo automático de data conflitante (item
-5, metade); overbooking deliberado com `AuditLog` append-only, restrito a
-OWNER/MANAGER e só na criação manual — não em mover/editar/redimensionar
-(item 5, outra metade); bloqueio de dia(s) inteiro(s) do salão via
-`SalonClosure`, respeitado por toda rota de criação/edição, pública e admin
-(item 3, outra parte); taxa de ocupação, no-show, cancelamento e conversão da
-lista de espera no dashboard (item 9).
+**Implementação concluída na branch (05/08/2026), ainda não promovida:**
 
-Itens 1, 4, 6 (parcial — status já tinha fluxo, faltava reagendar-e-notificar
-combinado), 7 (cliente ainda não cancela sozinho sem conta) e 8 seguem em
-aberto.
+- política central de timezone IANA, servidor como fonte de verdade e
+  regressão automatizada do caso 10:00/13:00;
+- serviço transacional único para criar, remarcar, cancelar e mudar status;
+- snapshots para múltiplos serviços, duração e preço calculados no servidor;
+- advisory locks, idempotência e exclusion constraint `[início, fim)`;
+- teste PostgreSQL de duas requisições concorrentes;
+- remarcação atômica mantendo o mesmo id e evento imutável;
+- cancelamento sem delete, com ator, motivo, liberação do intervalo e
+  reflexos idempotentes;
+- outbox de notificação interna deduplicada e lembrete automático;
+- fluxo mobile explícito, barra de ações com safe area e drag apenas como
+  atalho desktop;
+- cache invalidado nas superfícies afetadas e polling seguro de 30 segundos;
+- privilégio mínimo: profissional vê sua agenda, clientes e portfólio, sem
+  financeiro ou dados comerciais globais;
+- preflight somente leitura, migration aditiva e rollback não destrutivo.
 
-1. Auditar o que já existe e cobrir lacunas com testes.
-2. Implementar lista de espera por serviço, profissional e faixa de horário,
-   com prioridade, expiração, oferta de vaga e aceite atômico.
-3. Regras de disponibilidade: duração, buffer, intervalo, folga, feriado,
-   bloqueio, antecedência mínima/máxima, timezone e capacidade.
-4. Garantir que criação, remarcação e drag-and-drop não produzam conflito em
-   corrida simultânea.
-5. Agendamentos recorrentes, encaixe/overbooking somente com permissão e trilha
-   de auditoria.
-6. Fluxo completo de confirmar, concluir, cancelar, no-show e reagendar.
-7. Cliente: repetir visita, adicionar ao calendário, cancelar/remarcar dentro
-   da política e acompanhar lista de espera.
-8. Agenda mobile-first, atalhos de teclado, filtros persistentes, estados
-   vazios/erro/carregamento e acessibilidade.
-9. Métricas: ocupação, no-show, tempo ocioso, conversão da lista de espera.
+**Itens deliberadamente pendentes:**
 
-Gate: testes PostgreSQL de concorrência, smoke E2E das jornadas e validação com
-um dono de salão usando dados de demonstração.
+- lista de espera genérica por faixa/prioridade/expiração; a versão atual é
+  vinculada a um atendimento/horário;
+- Realtime filtrado por tenant; o fallback atual é polling;
+- automação Playwright das jornadas em Preview;
+- múltiplas unidades;
+- regras comerciais de pacote, cupom, comissão, taxa e pagamento online.
+
+Gate: CI verde com PostgreSQL descartável, smoke E2E em Preview isolado e
+validação de um dono/gerente com dados de demonstração. Até cumprir os três,
+a Fase 2 está pronta para validação, não para Production.
 
 ## Fase 3 — multi-tenant, dados e arquitetura
 

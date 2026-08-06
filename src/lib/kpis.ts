@@ -1,12 +1,11 @@
 import type { Tx } from "./prisma-tenant";
+import { differenceInMinutes, subMonths, startOfMonth, endOfMonth } from "date-fns";
 import {
-  eachDayOfInterval,
-  differenceInMinutes,
-  subMonths,
-  startOfMonth,
-  endOfMonth,
-} from "date-fns";
-import { startOfBrazilDay, endOfBrazilDay, brazilDateKey, brazilWeekday } from "./br-time";
+  DEFAULT_TIMEZONE,
+  addCalendarDays,
+  dateKeyInTimeZone,
+  weekdayOfDateKey,
+} from "./time";
 
 /**
  * Queries de BI do dashboard.
@@ -38,22 +37,33 @@ function pctChange(current: number, previous: number): number | null {
 
 // ─── Faturamento por dia ────────────────────────────────────────────────
 
-export async function getRevenueByDay(tx: Tx, salonId: string, from: Date, to: Date) {
+export async function getRevenueByDay(
+  tx: Tx,
+  salonId: string,
+  from: Date,
+  to: Date,
+  timezone = DEFAULT_TIMEZONE,
+) {
   const rows = await tx.appointment.findMany({
     where: {
       salonId,
       status: "COMPLETED",
-      startAt: { gte: from, lte: to },
+      startAt: { gte: from, lt: to },
     },
     select: { startAt: true, priceCents: true },
   });
 
   const bucket = new Map<string, number>();
-  for (const d of eachDayOfInterval({ start: from, end: to })) {
-    bucket.set(brazilDateKey(d), 0);
+  const toDate = dateKeyInTimeZone(to, timezone);
+  for (
+    let date = dateKeyInTimeZone(from, timezone);
+    date < toDate;
+    date = addCalendarDays(date, 1)
+  ) {
+    bucket.set(date, 0);
   }
   for (const r of rows) {
-    const key = brazilDateKey(r.startAt);
+    const key = dateKeyInTimeZone(r.startAt, timezone);
     bucket.set(key, (bucket.get(key) ?? 0) + r.priceCents);
   }
 
@@ -67,7 +77,7 @@ async function revenueSums(tx: Tx, salonId: string, from: Date, to: Date) {
     where: {
       salonId,
       status: "COMPLETED",
-      startAt: { gte: from, lte: to },
+      startAt: { gte: from, lt: to },
     },
     _sum: { priceCents: true },
     _count: { _all: true },
@@ -122,7 +132,13 @@ export async function getRevenueKpis(tx: Tx, salonId: string, period: Period) {
 
 // ─── Ocupação (com comparação) ──────────────────────────────────────────
 
-async function occupancy(tx: Tx, salonId: string, from: Date, to: Date) {
+async function occupancy(
+  tx: Tx,
+  salonId: string,
+  from: Date,
+  to: Date,
+  timezone: string,
+) {
   // Sequencial de propósito: o pool de conexão do Postgres (Supabase pooler)
   // roda com connection_limit=1 em serverless — 4 queries em paralelo aqui
   // estouravam o timeout de 10s do pool (P2024) quando somadas às outras
@@ -130,7 +146,7 @@ async function occupancy(tx: Tx, salonId: string, from: Date, to: Date) {
   const appointments = await tx.appointment.findMany({
     where: {
       salonId,
-      startAt: { gte: from, lte: to },
+      startAt: { gte: from, lt: to },
       status: { in: ["CONFIRMED", "IN_PROGRESS", "COMPLETED"] },
     },
     select: { startAt: true, endAt: true },
@@ -147,8 +163,8 @@ async function occupancy(tx: Tx, salonId: string, from: Date, to: Date) {
   const timeOffs = await tx.timeOff.findMany({
     where: {
       professional: { salonId },
-      startAt: { lte: to },
-      endAt: { gte: from },
+      startAt: { lt: to },
+      endAt: { gt: from },
     },
     select: { startAt: true, endAt: true },
   });
@@ -162,11 +178,13 @@ async function occupancy(tx: Tx, salonId: string, from: Date, to: Date) {
   );
 
   let availableMinutes = 0;
-  for (const d of eachDayOfInterval({
-    start: startOfBrazilDay(from),
-    end: endOfBrazilDay(to),
-  })) {
-    const weekday = brazilWeekday(d);
+  const toDate = dateKeyInTimeZone(to, timezone);
+  for (
+    let date = dateKeyInTimeZone(from, timezone);
+    date < toDate;
+    date = addCalendarDays(date, 1)
+  ) {
+    const weekday = weekdayOfDateKey(date);
     for (const wh of workingHours.filter((w) => w.weekday === weekday)) {
       availableMinutes += wh.endMinutes - wh.startMinutes;
     }
@@ -185,14 +203,20 @@ async function occupancy(tx: Tx, salonId: string, from: Date, to: Date) {
   };
 }
 
-export async function getOccupancyRate(tx: Tx, salonId: string, from: Date, to: Date) {
-  return occupancy(tx, salonId, from, to);
+export async function getOccupancyRate(
+  tx: Tx,
+  salonId: string,
+  from: Date,
+  to: Date,
+  timezone = DEFAULT_TIMEZONE,
+) {
+  return occupancy(tx, salonId, from, to, timezone);
 }
 
 export async function getOccupancyKpi(tx: Tx, salonId: string, period: Period) {
   const prev = previousPeriod(period);
-  const curr = await occupancy(tx, salonId, period.from, period.to);
-  const previous = await occupancy(tx, salonId, prev.from, prev.to);
+  const curr = await occupancy(tx, salonId, period.from, period.to, DEFAULT_TIMEZONE);
+  const previous = await occupancy(tx, salonId, prev.from, prev.to, DEFAULT_TIMEZONE);
   return {
     ...curr,
     change: pctChange(curr.rate, previous.rate),
@@ -214,7 +238,7 @@ export async function getTopServices(
     where: {
       salonId,
       status: "COMPLETED",
-      startAt: { gte: from, lte: to },
+      startAt: { gte: from, lt: to },
     },
     _sum: { priceCents: true },
     _count: { _all: true },
@@ -248,7 +272,7 @@ export async function getProfessionalPerformance(
     where: {
       salonId,
       status: "COMPLETED",
-      startAt: { gte: from, lte: to },
+      startAt: { gte: from, lt: to },
     },
     _sum: { priceCents: true },
     _count: { _all: true },

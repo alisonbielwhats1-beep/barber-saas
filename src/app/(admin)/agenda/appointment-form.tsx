@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -32,21 +32,23 @@ export type ClientOption = { id: string; name: string; phone: string | null };
 export function AppointmentDialog({
   open,
   onOpenChange,
-  slotStartISO,
+  slotStartLocal,
   professionalId,
   professionals,
   services,
   clients,
   canOverbook,
+  timezone,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  slotStartISO: string;
+  slotStartLocal: string;
   professionalId: string;
   professionals: ProOption[];
   services: ServiceOption[];
   clients: ClientOption[];
   canOverbook: boolean;
+  timezone: string;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -59,6 +61,7 @@ export function AppointmentDialog({
   const [overbookReason, setOverbookReason] = useState("");
   const [seriesResult, setSeriesResult] = useState<{ created: number; skipped: number } | null>(null);
   const [lastFormData, setLastFormData] = useState<FormData | null>(null);
+  const idempotencyKeyRef = useRef<string | null>(null);
 
   const proNow = professionals.find((p) => p.id === selectedProId);
   const availableServices = services.filter((s) =>
@@ -66,21 +69,26 @@ export function AppointmentDialog({
   );
 
   function buildPayload(form: FormData, overbookReasonValue?: string) {
+    const idempotencyKey = idempotencyKeyRef.current ?? crypto.randomUUID();
+    idempotencyKeyRef.current = idempotencyKey;
+    const serviceIds = form.getAll("serviceIds").map(String).filter(Boolean);
     const base =
       mode === "existing"
         ? {
             professionalId: selectedProId,
-            serviceId: String(form.get("serviceId")),
+            serviceIds,
             clientId: String(form.get("clientId")),
-            startAt: slotStartISO,
+            startLocal: slotStartLocal,
+            idempotencyKey,
             notes: (form.get("notes") as string) || null,
           }
         : {
             professionalId: selectedProId,
-            serviceId: String(form.get("serviceId")),
+            serviceIds,
             clientName: String(form.get("clientName")),
             clientPhone: (form.get("clientPhone") as string) || null,
-            startAt: slotStartISO,
+            startLocal: slotStartLocal,
+            idempotencyKey,
             notes: (form.get("notes") as string) || null,
           };
     return overbookReasonValue ? { ...base, overbookReason: overbookReasonValue } : base;
@@ -91,6 +99,10 @@ export function AppointmentDialog({
     setError(null);
     setConflict(false);
     const form = new FormData(e.currentTarget);
+    if (form.getAll("serviceIds").length === 0) {
+      setError("Selecione pelo menos um serviço");
+      return;
+    }
     setLastFormData(form);
 
     if (repeat) {
@@ -139,10 +151,7 @@ export function AppointmentDialog({
     });
   }
 
-  const startLabel = new Date(slotStartISO).toLocaleString("pt-BR", {
-    dateStyle: "short",
-    timeStyle: "short",
-  });
+  const startLabel = `${slotStartLocal.slice(8, 10)}/${slotStartLocal.slice(5, 7)}/${slotStartLocal.slice(0, 4)} às ${slotStartLocal.slice(11)} (${timezone})`;
 
   if (seriesResult) {
     return (
@@ -173,7 +182,14 @@ export function AppointmentDialog({
           <DialogDescription>Início: {startLabel}</DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={onSubmit} className="grid gap-4">
+        <form
+          onSubmit={onSubmit}
+          onChange={() => {
+            idempotencyKeyRef.current = null;
+            setConflict(false);
+          }}
+          className="grid gap-4"
+        >
           <div>
             <label className="mb-1 block text-sm font-medium">Profissional</label>
             <select
@@ -188,19 +204,26 @@ export function AppointmentDialog({
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium">Serviço</label>
-            <select
-              name="serviceId"
-              required
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-            >
-              <option value="">Selecione…</option>
-              {availableServices.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name} — {formatDuration(s.durationMin)} · {formatMoney(s.priceCents)}
-                </option>
+            <label className="mb-1 block text-sm font-medium">Serviços</label>
+            <div className="max-h-48 space-y-2 overflow-y-auto rounded-md border border-input p-2">
+              {availableServices.map((service) => (
+                <label
+                  key={service.id}
+                  className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 hover:bg-muted"
+                >
+                  <input
+                    type="checkbox"
+                    name="serviceIds"
+                    value={service.id}
+                    className="h-4 w-4"
+                  />
+                  <span className="min-w-0 flex-1 text-sm">{service.name}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {formatDuration(service.durationMin)} · {formatMoney(service.priceCents)}
+                  </span>
+                </label>
               ))}
-            </select>
+            </div>
             {availableServices.length === 0 && (
               <p className="mt-1 text-xs text-muted-foreground">
                 Este profissional não realiza nenhum serviço ainda. Vincule em Profissionais → Editar.

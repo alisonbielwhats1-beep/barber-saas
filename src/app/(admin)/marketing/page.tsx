@@ -1,11 +1,12 @@
-import { getTenantContext } from "@/lib/tenant";
+import { requireRole } from "@/lib/tenant";
+import { MARKETING_ROLES } from "@/lib/role-permissions";
 import { withTenant } from "@/lib/prisma-tenant";
 import { getClientList } from "@/lib/crm";
 import { Cake, Clock, Crown, Megaphone } from "lucide-react";
 import { MarketingCampaigns } from "./marketing-campaigns";
 
 export default async function MarketingPage() {
-  const ctx = await getTenantContext();
+  const ctx = await requireRole(MARKETING_ROLES);
   const { salonId } = ctx;
   const { clients, salon } = await withTenant(ctx, async (tx) => {
     const clients = await getClientList(tx, salonId);

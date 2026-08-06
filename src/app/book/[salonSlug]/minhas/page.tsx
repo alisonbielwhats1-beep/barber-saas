@@ -3,6 +3,17 @@ import { withSalonBySlug } from "@/lib/prisma-tenant";
 import { getClientSession } from "@/lib/client-auth";
 import { BottomNav } from "../bottom-nav";
 import { MinhasList } from "./minhas-list";
+import { AutoRefresh } from "@/components/auto-refresh";
+
+function jsonRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function optionalString(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
 
 export default async function MinhasPage({
   params,
@@ -21,7 +32,12 @@ export default async function MinhasPage({
     if (session.salonId !== salonId) return null;
     const salon = await tx.salon.findUnique({
       where: { id: salonId },
-      select: { name: true, currency: true },
+      select: {
+        name: true,
+        currency: true,
+        timezone: true,
+        cancelPolicyHours: true,
+      },
     });
     if (!salon) return null;
     const appointments = await tx.appointment.findMany({
@@ -34,8 +50,26 @@ export default async function MinhasPage({
         endAt: true,
         priceCents: true,
         status: true,
+        version: true,
         service: { select: { id: true, name: true, colorHex: true } },
+        serviceItems: {
+          orderBy: { position: "asc" },
+          select: { serviceId: true, serviceName: true },
+        },
         professional: { select: { id: true, user: { select: { name: true } } } },
+        events: {
+          orderBy: { createdAt: "desc" },
+          take: 10,
+          select: {
+            id: true,
+            eventType: true,
+            actorType: true,
+            reason: true,
+            createdAt: true,
+            previousValue: true,
+            newValue: true,
+          },
+        },
         products: {
           select: {
             quantity: true,
@@ -56,10 +90,26 @@ export default async function MinhasPage({
     startAt: a.startAt.toISOString(),
     endAt: a.endAt.toISOString(),
     status: a.status as string,
+    events: a.events.map((event) => {
+      const previousValue = jsonRecord(event.previousValue);
+      const newValue = jsonRecord(event.newValue);
+      const actor = jsonRecord(newValue.actor);
+      return {
+        id: event.id,
+        eventType: event.eventType as string,
+        actorType: event.actorType as string,
+        actorName: optionalString(actor.name),
+        reason: event.reason,
+        createdAt: event.createdAt.toISOString(),
+        previousStartAt: optionalString(previousValue.startAt),
+        startAt: optionalString(newValue.startAt),
+      };
+    }),
   }));
 
   return (
     <main className="animate-fade-in space-y-6 px-5 pb-28 pt-6">
+      <AutoRefresh />
       <header>
         <p className="text-xs uppercase tracking-wide text-muted-foreground">
           Olá, {session.name.split(" ")[0]}
@@ -71,6 +121,8 @@ export default async function MinhasPage({
         appointments={serialized}
         salonSlug={salonSlug}
         currency={salon.currency}
+        timezone={salon.timezone}
+        cancelPolicyHours={salon.cancelPolicyHours}
         session={session}
       />
 

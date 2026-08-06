@@ -17,9 +17,16 @@ import {
   FileBarChart,
   CreditCard,
   Share2,
+  Bell,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  DASHBOARD_ROLES,
+  FINANCIAL_ROLES,
+  MANAGEMENT_ROLES,
+  MARKETING_ROLES,
+} from "@/lib/role-permissions";
 
 /**
  * Navegação agrupada por área. Ícones Lucide, todos 14px, mesmo estilo.
@@ -35,12 +42,9 @@ export type NavItem = {
   icon: LucideIcon;
   soon?: boolean;
   /** Se presente, o item só aparece para estes papéis. */
-  roles?: string[];
+  roles?: readonly string[];
 };
 type Item = NavItem;
-
-/** Papéis que enxergam dados financeiros — espelha FINANCE_ROLES do tenant.ts. */
-const FINANCE_ONLY = ["SUPER_ADMIN", "OWNER", "MANAGER"];
 
 /**
  * Esconder o item é só cortesia visual — a proteção real está em
@@ -57,16 +61,17 @@ export const GROUPS: { title: string; items: Item[] }[] = [
   {
     title: "Principal",
     items: [
-      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: DASHBOARD_ROLES },
       { href: "/agenda", label: "Agenda", icon: CalendarDays },
+      { href: "/notificacoes", label: "Notificações", icon: Bell },
     ],
   },
   {
     title: "Catálogo",
     items: [
       { href: "/servicos", label: "Serviços", icon: Scissors },
-      { href: "/produtos", label: "Produtos", icon: ShoppingBag },
-      { href: "/pacotes", label: "Pacotes", icon: Layers },
+      { href: "/produtos", label: "Produtos", icon: ShoppingBag, roles: MANAGEMENT_ROLES },
+      { href: "/pacotes", label: "Pacotes", icon: Layers, roles: MANAGEMENT_ROLES },
       { href: "/portfolio", label: "Portfolio", icon: ImageIcon },
     ],
   },
@@ -80,15 +85,15 @@ export const GROUPS: { title: string; items: Item[] }[] = [
   {
     title: "Financeiro",
     items: [
-      { href: "/financeiro", label: "Financeiro", icon: Wallet, roles: FINANCE_ONLY },
-      { href: "/pagamentos", label: "Pagamentos", icon: CreditCard, soon: true, roles: FINANCE_ONLY },
-      { href: "/relatorios", label: "Relatórios", icon: FileBarChart, roles: FINANCE_ONLY },
+      { href: "/financeiro", label: "Financeiro", icon: Wallet, roles: FINANCIAL_ROLES },
+      { href: "/pagamentos", label: "Pagamentos", icon: CreditCard, soon: true, roles: FINANCIAL_ROLES },
+      { href: "/relatorios", label: "Relatórios", icon: FileBarChart, roles: FINANCIAL_ROLES },
     ],
   },
   {
     title: "Crescimento",
     items: [
-      { href: "/marketing",     label: "Marketing",     icon: Megaphone },
+      { href: "/marketing",     label: "Marketing",     icon: Megaphone, roles: MARKETING_ROLES },
       { href: "/compartilhar",  label: "Compartilhar",  icon: Share2 },
     ],
   },
@@ -112,12 +117,14 @@ export function SidebarNav({ role }: { role: string }) {
         </div>
       ))}
 
-      <div className="pt-1">
-        <NavRow
-          item={{ href: "/configuracoes", label: "Configurações", icon: Settings }}
-          pathname={pathname}
-        />
-      </div>
+      {MANAGEMENT_ROLES.some((allowedRole) => allowedRole === role) && (
+        <div className="pt-1">
+          <NavRow
+            item={{ href: "/configuracoes", label: "Configurações", icon: Settings }}
+            pathname={pathname}
+          />
+        </div>
+      )}
     </nav>
   );
 }

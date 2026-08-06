@@ -60,10 +60,13 @@ describe("requireRole — guarda de página do financeiro", () => {
     expect(mocks.redirect).not.toHaveBeenCalled();
   });
 
-  it.each(["PROFESSIONAL", "RECEPTIONIST"])("bloqueia %s", async (role) => {
+  it.each([
+    ["PROFESSIONAL", "/agenda"],
+    ["RECEPTIONIST", "/dashboard"],
+  ])("bloqueia %s", async (role, destination) => {
     signedInAs(role);
-    await expect(requireRole(FINANCE_ROLES)).rejects.toThrow("REDIRECT:/dashboard");
-    expect(mocks.redirect).toHaveBeenCalledWith("/dashboard");
+    await expect(requireRole(FINANCE_ROLES)).rejects.toThrow(`REDIRECT:${destination}`);
+    expect(mocks.redirect).toHaveBeenCalledWith(destination);
   });
 
   it("não vaza o contexto do tenant quando bloqueia", async () => {

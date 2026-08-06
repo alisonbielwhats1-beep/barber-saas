@@ -5,7 +5,9 @@ import { ServicesCatalog, type ServiceCard } from "./services-catalog";
 
 export default async function ServicosPage() {
   const ctx = await getTenantContext();
-  const { salonId } = ctx;
+  const { salonId, role } = ctx;
+  const canManage = role === "OWNER" || role === "MANAGER";
+  const canSeeFinancial = canManage || role === "SUPER_ADMIN";
 
   // Sequencial dentro da mesma transação/conexão — não concorrente entre si,
   // então não reintroduz o esgotamento de pool que as waves de 4 evitam.
@@ -21,12 +23,14 @@ export default async function ServicosPage() {
       },
     });
     // Popularidade: atendimentos concluídos por serviço
-    const sold = await tx.appointment.groupBy({
-      by: ["serviceId"],
-      where: { salonId, status: "COMPLETED" },
-      _count: { _all: true },
-      _sum: { priceCents: true },
-    });
+    const sold = canSeeFinancial
+      ? await tx.appointment.groupBy({
+          by: ["serviceId"],
+          where: { salonId, status: "COMPLETED" },
+          _count: { _all: true },
+          _sum: { priceCents: true },
+        })
+      : [];
     return { services, sold };
   });
 
@@ -38,7 +42,7 @@ export default async function ServicosPage() {
     description: s.description,
     durationMin: s.durationMin,
     priceCents: s.priceCents,
-    costCents: s.costCents,
+    costCents: canSeeFinancial ? s.costCents : 0,
     category: s.category,
     imageUrl: s.imageUrl,
     colorHex: s.colorHex,
@@ -57,7 +61,7 @@ export default async function ServicosPage() {
           </p>
           <h1 className="text-[26px] font-semibold tracking-tight">Serviços</h1>
         </div>
-        <ServiceForm />
+        {canManage && <ServiceForm />}
       </header>
 
       {cards.length === 0 ? (
@@ -65,7 +69,11 @@ export default async function ServicosPage() {
           Nenhum serviço cadastrado ainda. Crie o primeiro no botão acima.
         </div>
       ) : (
-        <ServicesCatalog services={cards} />
+        <ServicesCatalog
+          services={cards}
+          canManage={canManage}
+          canSeeFinancial={canSeeFinancial}
+        />
       )}
     </div>
   );

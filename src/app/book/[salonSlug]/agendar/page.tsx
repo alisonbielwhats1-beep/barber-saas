@@ -3,15 +3,31 @@ import { withSalonBySlug } from "@/lib/prisma-tenant";
 import { getClientSession } from "@/lib/client-auth";
 import { clientSessionForSalon } from "@/lib/public-appointment";
 import { BookingFlow } from "./booking-flow";
+import { dateKeyInTimeZone } from "@/lib/time";
 
 export default async function AgendarPage({
   params,
   searchParams,
 }: {
   params: Promise<{ salonSlug: string }>;
-  searchParams: Promise<{ service?: string; pro?: string; reschedule?: string }>;
+  searchParams: Promise<{
+    service?: string;
+    services?: string;
+    pro?: string;
+    reschedule?: string;
+    version?: string;
+  }>;
 }) {
   const [{ salonSlug }, query] = await Promise.all([params, searchParams]);
+  const initialServiceIds = [
+    ...new Set(
+      (query.services ?? query.service ?? "")
+        .split(",")
+        .map((id) => id.trim())
+        .filter(Boolean)
+        .slice(0, 10),
+    ),
+  ];
   const result = await withSalonBySlug(salonSlug, async (tx, salonId) => {
     const salon = await tx.salon.findUnique({
       where: { id: salonId },
@@ -19,6 +35,7 @@ export default async function AgendarPage({
         id: true,
         name: true,
         currency: true,
+        timezone: true,
         services: {
           where: { active: true },
           include: {
@@ -92,10 +109,13 @@ export default async function AgendarPage({
       salonId={salon.id}
       salonName={salon.name}
       currency={salon.currency}
+      timezone={salon.timezone}
+      todayDate={dateKeyInTimeZone(new Date(), salon.timezone)}
       services={services}
-      initialServiceId={query.service ?? null}
+      initialServiceIds={initialServiceIds}
       initialProId={query.pro ?? null}
       rescheduleId={query.reschedule ?? null}
+      rescheduleVersion={query.version ? Number(query.version) : undefined}
       clientSession={validSession}
     />
   );

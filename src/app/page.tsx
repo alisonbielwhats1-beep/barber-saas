@@ -262,13 +262,10 @@ const BENEFITS = [
       "Cada profissional com sua jornada, pausas e bloqueios. O cliente só vê horário que existe de verdade.",
   },
   {
-    // Não prometer envio automático: o cron de lembretes hoje só monta a
-    // lista; quem dispara a mensagem é o dono, pelo painel. Ver
-    // src/app/api/cron/reminders/route.ts.
     icon: Bell,
     title: "Lembrete antes de cada horário",
     description:
-      "O painel separa os atendimentos do dia seguinte e você dispara o lembrete no WhatsApp em um toque.",
+      "A notificação interna é automática, e o painel mantém o atalho manual de WhatsApp sem contratar serviço pago.",
   },
   {
     icon: Users,
@@ -280,7 +277,7 @@ const BENEFITS = [
     icon: BarChart3,
     title: "Visão financeira do dia",
     description:
-      "Faturamento, comissão por profissional e os serviços que mais dão retorno, em tempo real.",
+      "Faturamento, comissão por profissional e os serviços que mais dão retorno, sempre atualizados.",
   },
 ];
 

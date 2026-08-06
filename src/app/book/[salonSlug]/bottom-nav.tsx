@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, ShoppingBag, Calendar, Image as ImageIcon, User } from "lucide-react";
+import { Home, ShoppingBag, Calendar, Image as ImageIcon, Bell } from "lucide-react";
 
 export function BottomNav({ salonSlug }: { salonSlug: string }) {
   const pathname = usePathname();
@@ -32,15 +32,15 @@ export function BottomNav({ salonSlug }: { salonSlug: string }) {
       match: (p: string) => p.includes("/minhas"),
     },
     {
-      href: `/book/${salonSlug}/minhas`,
-      icon: User,
-      label: "Conta",
-      match: (p: string) => p.includes("/login") || p.includes("/cadastro"),
+      href: `/book/${salonSlug}/notificacoes`,
+      icon: Bell,
+      label: "Notificações",
+      match: (p: string) => p.includes("/notificacoes"),
     },
   ];
 
   return (
-    <nav className="fixed inset-x-0 bottom-4 z-40 mx-auto flex w-full max-w-[440px] justify-around gap-1 rounded-full border border-border/60 bg-card/90 px-3 py-2 backdrop-blur">
+    <nav className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 mx-auto flex w-auto max-w-[440px] justify-around gap-1 rounded-full border border-border/60 bg-card/90 px-3 py-2 shadow-lg backdrop-blur">
       {items.map((it) => {
         const active = it.match(pathname);
         return (

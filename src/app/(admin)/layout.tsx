@@ -44,7 +44,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         __html: `try{if(localStorage.getItem("admin-theme")==="light")document.documentElement.setAttribute("data-theme","admin-light")}catch(e){}`,
       }}
     />
-    <div className="flex h-screen overflow-hidden bg-background text-foreground">
+    <div className="flex h-dvh overflow-hidden bg-background text-foreground">
       {/* ── Sidebar ─────────────────────────────────────── */}
       <aside className="scrollbar-dark hidden w-56 shrink-0 flex-col overflow-y-auto border-r border-border md:flex print:hidden">
         {/* Logo */}

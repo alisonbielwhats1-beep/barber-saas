@@ -1,11 +1,16 @@
 import Link from "next/link";
-import { getTenantContext } from "@/lib/tenant";
+import { requireRole } from "@/lib/tenant";
+import { DASHBOARD_ROLES } from "@/lib/role-permissions";
 import { getDashboardMetrics, RANGE_LABELS, type RangeKey } from "@/lib/dashboard";
 import { withSalon } from "@/lib/prisma-tenant";
 import { formatMoney, formatDuration } from "@/lib/utils";
-import { format, addDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { startOfBrazilDay, endOfBrazilDay } from "@/lib/br-time";
+import { formatInTimeZone } from "date-fns-tz";
+import {
+  addCalendarDays,
+  dateKeyInTimeZone,
+  startOfDateInTimeZone,
+} from "@/lib/time";
 import { PageHeader } from "@/components/page-header";
 import { CountUp } from "@/components/count-up";
 import {
@@ -39,6 +44,7 @@ import { RangeFilter } from "./range-filter";
 import { RevenueChart } from "./revenue-chart";
 import { DonutChart } from "./donut-chart";
 import { LembretesPanel } from "./lembretes-panel";
+import { AutoRefresh } from "@/components/auto-refresh";
 
 const MALE_COLOR = "#3B9EFF";
 const FEMALE_COLOR = "#E85D9E";
@@ -74,15 +80,28 @@ export default async function DashboardPage({
 }: {
   searchParams: Promise<{ range?: string }>;
 }) {
-  const { salonId } = await getTenantContext();
+  const { salonId } = await requireRole(DASHBOARD_ROLES);
   const { range: selectedRange } = await searchParams;
   const range: RangeKey = VALID.includes(selectedRange as RangeKey)
     ? (selectedRange as RangeKey)
     : "30d";
 
   const now = new Date();
-  const tomorrow = startOfBrazilDay(addDays(now, 1));
-  const tomorrowEnd = endOfBrazilDay(addDays(now, 1));
+  const salonData = await withSalon(salonId, (tx) =>
+    tx.salon.findUnique({
+      where: { id: salonId },
+      select: { name: true, timezone: true },
+    }),
+  );
+  if (!salonData) throw new Error("Estabelecimento não encontrado");
+  const timezone = salonData.timezone;
+  const todayDate = dateKeyInTimeZone(now, timezone);
+  const today = {
+    from: startOfDateInTimeZone(todayDate, timezone),
+    to: startOfDateInTimeZone(addCalendarDays(todayDate, 1), timezone),
+  };
+  const tomorrow = today.to;
+  const tomorrowEnd = startOfDateInTimeZone(addCalendarDays(todayDate, 2), timezone);
 
   // Lembretes de amanhã — $queryRaw evita erro de tipo antes do prisma generate;
   // try/catch protege caso a migration 003 ainda não tenha sido aplicada.
@@ -111,7 +130,7 @@ export default async function DashboardPage({
       JOIN "User"          u  ON u.id = p."userId"
       WHERE a."salonId"        = ${salonId}
         AND a."startAt"       >= ${tomorrow}
-        AND a."startAt"       <= ${tomorrowEnd}
+        AND a."startAt"        < ${tomorrowEnd}
         AND a.status          IN ('CONFIRMED', 'PENDING')
         AND a."reminderSentAt" IS NULL
       ORDER BY a."startAt" ASC
@@ -122,17 +141,17 @@ export default async function DashboardPage({
   // Carrega primeiro as métricas para não somar as queries auxiliares às
   // ondas concorrentes do motor do dashboard.
   const m = await withDatabaseRetry("metrics", () =>
-    getDashboardMetrics(salonId, range),
+    getDashboardMetrics(salonId, range, timezone),
   );
 
-  const [todayAppts, salonData, svcCount, proCount] =
+  const [todayAppts, svcCount, proCount] =
     await withDatabaseRetry("summary", () =>
       Promise.all([
         withSalon(salonId, (tx) =>
           tx.appointment.findMany({
             where: {
               salonId,
-              startAt: { gte: startOfBrazilDay(now), lte: endOfBrazilDay(now) },
+              startAt: { gte: today.from, lt: today.to },
               endAt: { gte: now },
               status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
             },
@@ -148,12 +167,6 @@ export default async function DashboardPage({
             },
           }),
         ),
-        withSalon(salonId, (tx) =>
-          tx.salon.findUnique({
-            where: { id: salonId },
-            select: { name: true },
-          }),
-        ),
         withSalon(salonId, (tx) => tx.service.count({ where: { salonId, active: true } })),
         withSalon(salonId, (tx) => tx.professional.count({ where: { salonId, active: true } })),
       ]),
@@ -164,7 +177,7 @@ export default async function DashboardPage({
       withSalon(salonId, (tx) => tx.appointment.count({ where: { salonId } })),
     ]),
   );
-  const salonName = salonData?.name ?? "seu salão";
+  const salonName = salonData.name;
   const genderTotal = m.gender.male.revenue + m.gender.female.revenue;
 
   const reminders = remindersRaw.map((r) => ({
@@ -187,6 +200,7 @@ export default async function DashboardPage({
 
   return (
     <div className="space-y-6">
+      <AutoRefresh />
       {/* ── Header ─────────────────────────────────────────── */}
       <PageHeader
         title="Visão geral"
@@ -197,8 +211,8 @@ export default async function DashboardPage({
               {RANGE_LABELS[range]}
             </span>
             <span className="text-[11px] text-muted-foreground">
-              {format(m.period.from, "d MMM", { locale: ptBR })} –{" "}
-              {format(m.period.to, "d MMM yyyy", { locale: ptBR })}
+              {formatInTimeZone(m.period.from, timezone, "d MMM", { locale: ptBR })} –{" "}
+              {formatInTimeZone(m.period.to, timezone, "d MMM yyyy", { locale: ptBR })}
             </span>
           </div>
         }
@@ -278,7 +292,7 @@ export default async function DashboardPage({
                   className="flex items-center gap-3 rounded-xl px-2 py-2.5 transition-colors hover:bg-card-hover"
                 >
                   <span className="w-12 shrink-0 text-[14px] font-semibold tabular-nums">
-                    {format(a.startAt, "HH:mm")}
+                    {formatInTimeZone(a.startAt, timezone, "HH:mm")}
                   </span>
                   <span
                     className="h-8 w-1 shrink-0 rounded-full"
@@ -331,7 +345,7 @@ export default async function DashboardPage({
               {reminders.length} sem lembrete
             </span>
           </div>
-          <LembretesPanel reminders={reminders} salonName={salonName} />
+          <LembretesPanel reminders={reminders} salonName={salonName} timezone={timezone} />
         </section>
       )}
 

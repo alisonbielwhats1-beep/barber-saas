@@ -91,6 +91,7 @@ jobs:
       APP_ENV: test
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/salon_schema_ci
       DIRECT_URL: postgresql://postgres:postgres@localhost:5432/salon_schema_ci
+      RUN_POSTGRES_INTEGRATION: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -103,7 +104,29 @@ jobs:
         run: npm run db:safety-check
       - name: Apply complete Prisma schema to disposable database
         run: npm run db:push
+      - name: Prepare tenant helper for Phase 2 migration
+        run: >-
+          npx prisma db execute
+          --file tests/fixtures/fase2-app-current-salon.sql
+          --url "$DIRECT_URL"
+      - name: Run read-only Phase 2 preflight
+        run: >-
+          npx prisma db execute
+          --file prisma/sql/manual/008_fase2_appointment_reliability.preflight.sql
+          --url "$DIRECT_URL"
+      - name: Apply Phase 2 reliability migration
+        run: >-
+          npx prisma db execute
+          --file prisma/sql/manual/008_fase2_appointment_reliability.sql
+          --url "$DIRECT_URL"
       - name: Validate Prisma schema
         run: npx prisma validate
       - name: Seed disposable database
         run: npm run db:seed
+      - name: Prove appointment concurrency with PostgreSQL
+        run: npm run test:appointment-integration
+      - name: Prove non-destructive Phase 2 rollback SQL
+        run: >-
+          npx prisma db execute
+          --file prisma/sql/manual/008_fase2_appointment_reliability.rollback.sql
+          --url "$DIRECT_URL"

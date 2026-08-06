@@ -1,18 +1,17 @@
 import type { Tx } from "./prisma-tenant";
-import { isOverlapViolation } from "./db-errors";
+import { randomUUID } from "node:crypto";
+import { businessRecipients, recordAppointmentEvent } from "./appointment-events";
 
-const WAITLIST_NOTE =
-  "Veio da lista de espera — avise por WhatsApp que a vaga foi confirmada.";
+const WAITLIST_NOTE = "Confirmado automaticamente pela lista de espera.";
 
 /**
- * Chamada logo após um Appointment ser marcado CANCELLED (mesma transação).
- * Se houver alguém esperando por ESSE agendamento específico, cria
- * automaticamente um novo Appointment pro primeiro da fila (mesmo horário,
- * serviço e profissional) e marca a entrada como cumprida.
+ * Chamada pelo motor central depois de uma desistência do cliente e de
+ * revalidar o intervalo (mesma transação). Se houver alguém esperando por
+ * ESSE agendamento específico, cria automaticamente um novo Appointment pro
+ * primeiro da fila e marca a entrada como cumprida.
  *
- * Não há canal de notificação automática — o `notes` do novo agendamento
- * lembra o dono de avisar manualmente. O cliente logado vê a reserva nova em
- * "Minhas reservas"; se não quiser mais, cancela normalmente por lá.
+ * A confirmação grava evento e notificação interna idempotentes para cliente,
+ * responsável e profissional, sem contratar canal pago.
  *
  * Lock por advisory lock (mesmo padrão de invitations.ts) pra dois
  * cancelamentos/retries concorrentes do mesmo agendamento não preencherem a
@@ -31,20 +30,45 @@ export async function fulfillWaitlistOnCancel(
   `;
 
   const entry = await tx.waitlistEntry.findFirst({
-    where: { appointmentId, salonId, fulfilledAt: null },
+    where: {
+      appointmentId,
+      salonId,
+      fulfilledAt: null,
+      OR: [
+        { clientId: { not: null }, client: { is: { salonId } } },
+        {
+          clientId: null,
+          guestName: { not: null },
+          guestPhone: { not: null },
+        },
+      ],
+    },
     orderBy: { createdAt: "asc" },
     select: { id: true, clientId: true, guestName: true, guestPhone: true },
   });
   if (!entry) return null;
 
-  const original = await tx.appointment.findUnique({
-    where: { id: appointmentId },
+  const original = await tx.appointment.findFirst({
+    where: { id: appointmentId, salonId },
     select: {
       serviceId: true,
       professionalId: true,
       startAt: true,
       endAt: true,
       priceCents: true,
+      timezone: true,
+      serviceItems: {
+        orderBy: { position: "asc" },
+        select: {
+          serviceId: true,
+          serviceName: true,
+          durationMin: true,
+          priceCents: true,
+        },
+      },
+      service: {
+        select: { id: true, name: true, durationMin: true, priceCents: true },
+      },
     },
   });
   if (!original) return null;
@@ -59,31 +83,71 @@ export async function fulfillWaitlistOnCancel(
     clientId = guest.id;
   }
 
-  try {
-    const created = await tx.appointment.create({
-      data: {
-        salonId,
-        clientId,
-        serviceId: original.serviceId,
-        professionalId: original.professionalId,
-        startAt: original.startAt,
-        endAt: original.endAt,
-        priceCents: original.priceCents,
-        status: "CONFIRMED",
-        notes: WAITLIST_NOTE,
-      },
-      select: { id: true, clientId: true },
-    });
-    await tx.waitlistEntry.update({
-      where: { id: entry.id },
-      data: { fulfilledAt: new Date(), fulfilledAppointmentId: created.id },
-    });
-    return { appointmentId: created.id, clientId: created.clientId };
-  } catch (e) {
-    // Corrida rara: algo mais ocupou o horário entre o cancelamento e aqui.
-    // Deixa a entrada em espera — ela é reavaliada no próximo cancelamento
-    // que afetar esse agendamento (ex.: se o novo ocupante também cancelar).
-    if (isOverlapViolation(e)) return null;
-    throw e;
-  }
+  const services = original.serviceItems.length > 0
+    ? original.serviceItems
+    : [{
+        serviceId: original.service.id,
+        serviceName: original.service.name,
+        durationMin: original.service.durationMin,
+        priceCents: original.service.priceCents,
+      }];
+  const idempotencyKey = `waitlist:${entry.id}`;
+  const created = await tx.appointment.create({
+    data: {
+      salonId,
+      clientId,
+      serviceId: services[0]!.serviceId,
+      professionalId: original.professionalId,
+      startAt: original.startAt,
+      endAt: original.endAt,
+      priceCents: original.priceCents,
+      status: "CONFIRMED",
+      timezone: original.timezone,
+      origin: "WAITLIST",
+      idempotencyKey,
+      idempotencyFingerprint: idempotencyKey,
+      notes: WAITLIST_NOTE,
+    },
+    select: { id: true, clientId: true },
+  });
+  await tx.appointmentService.createMany({
+    data: services.map((service, position) => ({
+      appointmentId: created.id,
+      salonId,
+      serviceId: service.serviceId,
+      serviceName: service.serviceName,
+      durationMin: service.durationMin,
+      priceCents: service.priceCents,
+      position,
+    })),
+  });
+  await tx.waitlistEntry.updateMany({
+    where: { id: entry.id, salonId, fulfilledAt: null },
+    data: { fulfilledAt: new Date(), fulfilledAppointmentId: created.id },
+  });
+
+  const business = await businessRecipients(tx, salonId, original.professionalId);
+  const payload = {
+    appointmentId: created.id,
+    previousAppointmentId: appointmentId,
+    eventType: "WAITLIST_FULFILLED",
+    startAt: original.startAt.toISOString(),
+    endAt: original.endAt.toISOString(),
+    timezone: original.timezone,
+    services: services.map((service) => service.serviceName),
+  };
+  await recordAppointmentEvent(tx, {
+    salonId,
+    appointmentId: created.id,
+    eventType: "WAITLIST_FULFILLED",
+    actor: { type: "SYSTEM", name: "Lista de espera" },
+    correlationId: randomUUID(),
+    idempotencyKey: `${idempotencyKey}:fulfilled`,
+    requestFingerprint: idempotencyKey,
+    newValue: payload,
+    recipients: [{ type: "CLIENT", id: clientId }, ...business],
+    template: "appointment.waitlist_fulfilled",
+    payload,
+  });
+  return { appointmentId: created.id, clientId: created.clientId };
 }

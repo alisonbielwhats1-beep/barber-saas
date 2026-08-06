@@ -1,7 +1,11 @@
 import type { Tx } from "./prisma-tenant";
-import { eachDayOfInterval, format } from "date-fns";
 import { resolveRange, type RangeKey } from "./dashboard";
 import { getProfessionalPerformance } from "./kpis";
+import {
+  DEFAULT_TIMEZONE,
+  addCalendarDays,
+  dateKeyInTimeZone,
+} from "./time";
 
 /**
  * Motor financeiro do painel do dono. Consolida receitas (serviços +
@@ -31,9 +35,15 @@ const METHOD_COLOR: Record<string, string> = {
 
 const CAT_COLORS = ["#3B9EFF", "#A855F7", "#F59E0B", "#EF4444", "#2ECC8B", "#EC4899", "#94A3B8"];
 
-export async function getFinanceMetrics(tx: Tx, salonId: string, range: RangeKey) {
+export async function getFinanceMetrics(
+  tx: Tx,
+  salonId: string,
+  range: RangeKey,
+  timezone = DEFAULT_TIMEZONE,
+) {
   const now = new Date();
-  const { from, to } = resolveRange(range, now);
+  const resolved = resolveRange(range, timezone, now);
+  const { from, to } = resolved;
 
   // Sequencial de propósito: o pooler do Postgres roda com connection_limit=1
   // em serverless — 7 queries em Promise.all estouravam o timeout do pool
@@ -42,22 +52,22 @@ export async function getFinanceMetrics(tx: Tx, salonId: string, range: RangeKey
   // queries concorrentes na mesma transação interativa do Prisma.
   // Receita de serviços (atendimentos concluídos)
   const services = await tx.appointment.findMany({
-    where: { salonId, status: "COMPLETED", startAt: { gte: from, lte: to } },
+    where: { salonId, status: "COMPLETED", startAt: { gte: from, lt: to } },
     select: { priceCents: true, startAt: true },
   });
   // Receita de produtos vendidos
   const products = await tx.appointmentProduct.findMany({
-    where: { appointment: { salonId, status: "COMPLETED", startAt: { gte: from, lte: to } } },
+    where: { appointment: { salonId, status: "COMPLETED", startAt: { gte: from, lt: to } } },
     select: { quantity: true, priceCentsUnit: true, appointment: { select: { startAt: true } } },
   });
   // Despesas do período (por vencimento)
   const expenses = await tx.expense.findMany({
-    where: { salonId, dueDate: { gte: from, lte: to } },
+    where: { salonId, dueDate: { gte: from, lt: to } },
     select: { id: true, amountCents: true, category: true, kind: true, dueDate: true, paidAt: true },
   });
   // Pagamentos por forma (dos atendimentos concluídos do período)
   const payments = await tx.payment.findMany({
-    where: { appointment: { salonId, status: "COMPLETED", startAt: { gte: from, lte: to } } },
+    where: { appointment: { salonId, status: "COMPLETED", startAt: { gte: from, lt: to } } },
     select: { amountCents: true, method: true },
   });
   const proPerf = await getProfessionalPerformance(tx, salonId, from, to);
@@ -88,21 +98,25 @@ export async function getFinanceMetrics(tx: Tx, salonId: string, range: RangeKey
 
   // ── Fluxo de caixa diário (entradas - saídas) ─────────────────
   const bucket = new Map<string, { in: number; out: number }>();
-  for (const d of eachDayOfInterval({ start: from, end: to })) {
-    bucket.set(format(d, "yyyy-MM-dd"), { in: 0, out: 0 });
+  for (
+    let date = resolved.fromDate;
+    date < resolved.toDate;
+    date = addCalendarDays(date, 1)
+  ) {
+    bucket.set(date, { in: 0, out: 0 });
   }
   for (const a of services) {
-    const k = format(a.startAt, "yyyy-MM-dd");
+    const k = dateKeyInTimeZone(a.startAt, timezone);
     const b = bucket.get(k);
     if (b) b.in += a.priceCents;
   }
   for (const x of products) {
-    const k = format(x.appointment.startAt, "yyyy-MM-dd");
+    const k = dateKeyInTimeZone(x.appointment.startAt, timezone);
     const b = bucket.get(k);
     if (b) b.in += x.quantity * x.priceCentsUnit;
   }
   for (const e of expenses) {
-    const k = format(e.dueDate, "yyyy-MM-dd");
+    const k = dateKeyInTimeZone(e.dueDate, timezone);
     const b = bucket.get(k);
     if (b) b.out += e.amountCents;
   }
@@ -137,7 +151,8 @@ export async function getFinanceMetrics(tx: Tx, salonId: string, range: RangeKey
 
   return {
     range,
-    period: { from, to },
+    period: { from, to: new Date(to.getTime() - 1) },
+    bounds: { from, to },
     revenue,
     serviceRevenue,
     productRevenue,

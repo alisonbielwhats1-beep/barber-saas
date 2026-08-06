@@ -29,11 +29,13 @@ import {
   isSameMonth,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { formatInTimeZone } from "date-fns-tz";
 import { minutesToHHMM, formatMoney } from "@/lib/utils";
 import { AppointmentDialog, type ProOption, type ServiceOption, type ClientOption } from "./appointment-form";
 import { AppointmentDetail } from "./appointment-detail";
 import { STATUS, STATUS_ORDER } from "./agenda-status";
-import { moveAppointment, resizeAppointment } from "./actions";
+import { moveAppointment } from "./actions";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 const DAY_START = 8 * 60;
 const DAY_END = 21 * 60;
@@ -59,6 +61,21 @@ export type Appointment = {
   waitlistCount: number;
   waitlistNext: string | null;
   isOverbooked: boolean;
+  version: number;
+  serviceIds: string[];
+  hasPayment: boolean;
+  events: Array<{
+    id: string;
+    eventType: string;
+    actorType: string;
+    actorName: string | null;
+    reason: string | null;
+    createdAt: string;
+    previousStartAt: string | null;
+    startAt: string | null;
+    previousStatus: string | null;
+    status: string | null;
+  }>;
 };
 
 export type Professional = {
@@ -68,9 +85,11 @@ export type Professional = {
   serviceIds: string[];
 };
 
-function minutesOf(iso: string) {
-  const d = new Date(iso);
-  return d.getHours() * 60 + d.getMinutes();
+function minutesOf(iso: string, timezone: string) {
+  const [hour, minute] = formatInTimeZone(new Date(iso), timezone, "HH:mm")
+    .split(":")
+    .map(Number);
+  return hour! * 60 + minute!;
 }
 function initials(name: string) {
   return name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
@@ -82,44 +101,59 @@ function ymd(d: Date) {
 export function AgendaBoard({
   date,
   salonName,
+  timezone,
   professionals,
   appointments,
   services,
   clients,
   canOverbook,
+  canCreate,
+  canCancel,
 }: {
   date: string;
   salonName: string;
+  timezone: string;
   professionals: Professional[];
   appointments: Appointment[];
   services: ServiceOption[];
   clients: ClientOption[];
   canOverbook: boolean;
+  canCreate: boolean;
+  canCancel: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [view, setView] = useState<ViewKind>("day");
   const [proFilter, setProFilter] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("not_cancelled");
   const [search, setSearch] = useState("");
   const [detail, setDetail] = useState<Appointment | null>(null);
-  const [createAt, setCreateAt] = useState<{ slotISO: string; proId: string } | null>(null);
+  const [createAt, setCreateAt] = useState<{ startLocal: string; proId: string } | null>(null);
+  const [moveProposal, setMoveProposal] = useState<{
+    appointment: Appointment;
+    professionalId: string;
+    startLocal: string;
+    idempotencyKey: string;
+  } | null>(null);
   const [nowMin, setNowMin] = useState<number | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const dateObj = parseISO(`${date}T12:00:00`);
-  const isToday = ymd(new Date()) === date;
+  const today = formatInTimeZone(new Date(), timezone, "yyyy-MM-dd");
+  const isToday = today === date;
 
   useEffect(() => {
     if (!isToday) return setNowMin(null);
     const tick = () => {
-      const n = new Date();
-      setNowMin(n.getHours() * 60 + n.getMinutes());
+      const [hour, minute] = formatInTimeZone(new Date(), timezone, "HH:mm")
+        .split(":")
+        .map(Number);
+      setNowMin(hour! * 60 + minute!);
     };
     tick();
     const id = setInterval(tick, 60_000);
     return () => clearInterval(id);
-  }, [isToday]);
+  }, [isToday, timezone]);
 
   const proOptions: ProOption[] = professionals.map((p) => ({
     id: p.id,
@@ -133,7 +167,12 @@ export function AgendaBoard({
     const q = search.trim().toLowerCase();
     return (list: Appointment[]) =>
       list.filter((a) => {
-        if (statusFilter !== "all" && a.status !== statusFilter) return false;
+        if (statusFilter === "not_cancelled" && a.status === "CANCELLED") return false;
+        if (
+          statusFilter !== "all" &&
+          statusFilter !== "not_cancelled" &&
+          a.status !== statusFilter
+        ) return false;
         if (proFilter !== "all" && a.professionalId !== proFilter) return false;
         if (q && !a.clientName.toLowerCase().includes(q) && !(a.clientPhone ?? "").includes(q)) return false;
         return true;
@@ -142,8 +181,11 @@ export function AgendaBoard({
 
   const filteredAll = useMemo(() => applyFilters(appointments), [applyFilters, appointments]);
   const dayAppts = useMemo(
-    () => filteredAll.filter((a) => ymd(new Date(a.startAt)) === date),
-    [filteredAll, date],
+    () => filteredAll.filter(
+      (appointment) =>
+        formatInTimeZone(new Date(appointment.startAt), timezone, "yyyy-MM-dd") === date,
+    ),
+    [filteredAll, date, timezone],
   );
 
   const kpis = useMemo(() => {
@@ -163,7 +205,7 @@ export function AgendaBoard({
     startTransition(() => router.push(`/agenda?date=${d}`, { scroll: false }));
   }
   function goToday() {
-    startTransition(() => router.push(`/agenda?date=${ymd(new Date())}`, { scroll: false }));
+    startTransition(() => router.push(`/agenda?date=${today}`, { scroll: false }));
   }
   function goToDay(d: string) {
     setView("day");
@@ -171,9 +213,8 @@ export function AgendaBoard({
   }
 
   function openSlot(proId: string, minutes: number, dayStr = date) {
-    const start = new Date(`${dayStr}T00:00:00`);
-    start.setHours(0, minutes, 0, 0);
-    setCreateAt({ slotISO: start.toISOString(), proId });
+    if (!canCreate) return;
+    setCreateAt({ startLocal: `${dayStr}T${minutesToHHMM(minutes)}`, proId });
   }
   function refresh() {
     startTransition(() => router.refresh());
@@ -228,14 +269,16 @@ export function AgendaBoard({
             <ViewBtn active={view === "month"} onClick={() => setView("month")} icon={Grid3x3} label="Mês" />
             <ViewBtn active={view === "list"} onClick={() => setView("list")} icon={List} label="Lista" />
           </div>
-          <button
-            onClick={() => openSlot(professionals[0]?.id ?? "", DAY_START)}
-            disabled={professionals.length === 0}
-            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-[13px] font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-40"
-          >
-            <Plus className="h-4 w-4" />
-            Novo
-          </button>
+          {canCreate && (
+            <button
+              onClick={() => openSlot(professionals[0]?.id ?? "", DAY_START)}
+              disabled={professionals.length === 0}
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-[13px] font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-40"
+            >
+              <Plus className="h-4 w-4" />
+              Novo
+            </button>
+          )}
         </div>
       </header>
 
@@ -265,6 +308,9 @@ export function AgendaBoard({
           </FilterChip>
         ))}
         <span className="mx-1 h-4 w-px bg-border" />
+        <FilterChip active={statusFilter === "not_cancelled"} onClick={() => setStatusFilter("not_cancelled")}>
+          Agenda
+        </FilterChip>
         <FilterChip active={statusFilter === "all"} onClick={() => setStatusFilter("all")}>
           Todos status
         </FilterChip>
@@ -288,19 +334,27 @@ export function AgendaBoard({
           date={date}
           professionals={shownPros}
           appointments={dayAppts}
+          timezone={timezone}
           nowMin={nowMin}
           onOpenSlot={openSlot}
           onOpenDetail={setDetail}
-          onMove={(id, proId, startISO) => runAction(() => moveAppointment({ id, professionalId: proId, startAt: startISO }))}
-          onResize={(id, endISO) => runAction(() => resizeAppointment({ id, endAt: endISO }))}
+          onMove={(appointment, professionalId, startLocal) =>
+            setMoveProposal({
+              appointment,
+              professionalId,
+              startLocal,
+              idempotencyKey: crypto.randomUUID(),
+            })
+          }
         />
       ) : view === "week" ? (
         <WeekView
           dateObj={dateObj}
           firstProId={professionals[0]?.id ?? ""}
           appointments={filteredAll}
+          timezone={timezone}
           nowMin={nowMin}
-          today={ymd(new Date())}
+          today={today}
           onOpenSlot={openSlot}
           onOpenDetail={setDetail}
           onOpenDay={goToDay}
@@ -309,12 +363,13 @@ export function AgendaBoard({
         <MonthView
           dateObj={dateObj}
           appointments={filteredAll}
-          today={ymd(new Date())}
+          timezone={timezone}
+          today={today}
           onOpenDay={goToDay}
           onOpenDetail={setDetail}
         />
       ) : (
-        <ListView appointments={filteredAll} professionals={professionals} onOpenDetail={setDetail} />
+        <ListView appointments={filteredAll} professionals={professionals} timezone={timezone} onOpenDetail={setDetail} />
       )}
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-muted-foreground">
@@ -335,21 +390,55 @@ export function AgendaBoard({
               refresh();
             }
           }}
-          slotStartISO={createAt.slotISO}
+          slotStartLocal={createAt.startLocal}
           professionalId={createAt.proId}
           professionals={proOptions}
           services={services}
           clients={clients}
           canOverbook={canOverbook}
+          timezone={timezone}
         />
       )}
 
       <AppointmentDetail
+        key={detail?.id ?? "empty"}
         appt={detail}
         salonName={salonName}
+        timezone={timezone}
+        canCreate={canCreate}
+        canCancel={canCancel}
         onClose={() => {
           setDetail(null);
           refresh();
+        }}
+      />
+
+      <ConfirmDialog
+        open={moveProposal !== null}
+        onOpenChange={(open) => !open && setMoveProposal(null)}
+        title="Confirmar remarcação?"
+        description={
+          moveProposal
+            ? `${moveProposal.appointment.clientName}: ${formatInTimeZone(new Date(moveProposal.appointment.startAt), timezone, "dd/MM 'às' HH:mm")} → ${moveProposal.startLocal.slice(8, 10)}/${moveProposal.startLocal.slice(5, 7)} às ${moveProposal.startLocal.slice(11)}, com ${professionals.find((professional) => professional.id === moveProposal.professionalId)?.name ?? "o profissional selecionado"}. O cliente receberá uma atualização.`
+            : ""
+        }
+        confirmLabel="Confirmar remarcação"
+        pending={pending}
+        onConfirm={() => {
+          if (!moveProposal) return;
+          const proposal = moveProposal;
+          runAction(async () => {
+            const result = await moveAppointment({
+              id: proposal.appointment.id,
+              professionalId: proposal.professionalId,
+              serviceIds: proposal.appointment.serviceIds,
+              startLocal: proposal.startLocal,
+              idempotencyKey: proposal.idempotencyKey,
+              expectedVersion: proposal.appointment.version,
+            });
+            if ("success" in result) setMoveProposal(null);
+            return result;
+          });
         }}
       />
     </div>
@@ -362,36 +451,41 @@ function DayView({
   date,
   professionals,
   appointments,
+  timezone,
   nowMin,
   onOpenSlot,
   onOpenDetail,
   onMove,
-  onResize,
 }: {
   date: string;
   professionals: Professional[];
   appointments: Appointment[];
+  timezone: string;
   nowMin: number | null;
   onOpenSlot: (proId: string, minutes: number, dayStr?: string) => void;
   onOpenDetail: (a: Appointment) => void;
-  onMove: (id: string, proId: string, startISO: string) => void;
-  onResize: (id: string, endISO: string) => void;
+  onMove: (appointment: Appointment, proId: string, startLocal: string) => void;
 }) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const apptById = useRef(new Map<string, Appointment>());
   apptById.current = new Map(appointments.map((a) => [a.id, a]));
   const [drag, setDrag] = useState<
-    { id: string; mode: "move" | "resize"; x: number; y: number; started: boolean } | null
+    { id: string; x: number; y: number; started: boolean } | null
   >(null);
 
   const slots: number[] = [];
   for (let m = DAY_START; m < DAY_END; m += SLOT_MIN) slots.push(m);
   const totalH = (DAY_END - DAY_START) * PX_PER_MIN;
 
-  function startDrag(e: React.PointerEvent, id: string, mode: "move" | "resize") {
-    if (e.button !== 0) return;
-    if (mode === "resize") e.stopPropagation();
-    setDrag({ id, mode, x: e.clientX, y: e.clientY, started: false });
+  function startDrag(e: React.PointerEvent, id: string) {
+    if (e.button !== 0 || e.pointerType === "touch") return;
+    const appointment = apptById.current.get(id);
+    if (
+      !appointment ||
+      !["PENDING", "CONFIRMED"].includes(appointment.status) ||
+      new Date(appointment.startAt).getTime() <= Date.now()
+    ) return;
+    setDrag({ id, x: e.clientX, y: e.clientY, started: false });
   }
 
   useEffect(() => {
@@ -413,19 +507,13 @@ function DayView({
             const rel = e.clientY - rect.top;
             let mins = DAY_START + Math.round(rel / PX_PER_MIN / 15) * 15;
             mins = Math.max(DAY_START, Math.min(DAY_END, mins));
-            if (d.mode === "move") {
-              const start = new Date(`${date}T00:00:00`);
-              start.setHours(0, mins, 0, 0);
-              onMove(d.id, col.dataset.proId!, start.toISOString());
-            } else {
-              const appt = apptById.current.get(d.id);
-              if (appt) {
-                const startMin = minutesOf(appt.startAt);
-                const endMin = Math.max(startMin + 15, mins);
-                const end = new Date(`${date}T00:00:00`);
-                end.setHours(0, endMin, 0, 0);
-                onResize(d.id, end.toISOString());
-              }
+            const appointment = apptById.current.get(d.id);
+            if (appointment) {
+              onMove(
+                appointment,
+                col.dataset.proId!,
+                `${date}T${minutesToHHMM(mins)}`,
+              );
             }
           }
         }
@@ -438,7 +526,7 @@ function DayView({
       window.removeEventListener("pointermove", onMoveEv);
       window.removeEventListener("pointerup", onUp);
     };
-  }, [drag, date, onMove, onResize]);
+  }, [drag, date, onMove]);
 
   return (
     <div className="overflow-x-auto rounded-2xl border border-border bg-card">
@@ -482,21 +570,23 @@ function DayView({
                 )}
 
                 {proAppts.map((a) => {
-                  const startMin = minutesOf(a.startAt);
-                  const endMin = minutesOf(a.endAt);
+                  const startMin = minutesOf(a.startAt, timezone);
+                  const endMin = minutesOf(a.endAt, timezone);
                   const top = (startMin - DAY_START) * PX_PER_MIN;
                   const height = Math.max(24, (endMin - startMin) * PX_PER_MIN);
                   if (top < 0 || top > totalH) return null;
                   const cfg = STATUS[a.status as keyof typeof STATUS] ?? STATUS.CONFIRMED;
                   const isDragging = drag?.id === a.id && drag.started;
                   return (
-                    <div
+                    <button
+                      type="button"
                       key={a.id}
-                      onPointerDown={(e) => startDrag(e, a.id, "move")}
+                      onPointerDown={(e) => startDrag(e, a.id)}
                       onClick={() => {
                         if (!drag?.started) onOpenDetail(a);
                       }}
-                      className={`group absolute inset-x-1 cursor-grab touch-none select-none rounded-lg border-l-[3px] p-2 text-xs shadow-sm transition ${
+                      aria-label={`${a.clientName}, ${a.serviceName}, ${formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")}. Abrir detalhes`}
+                      className={`group absolute inset-x-1 cursor-pointer touch-pan-y select-none rounded-lg border-l-[3px] p-2 text-left text-xs shadow-sm transition focus-visible:z-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:cursor-grab ${
                         isDragging ? "z-30 opacity-70 ring-2 ring-primary" : "hover:shadow-md"
                       }`}
                       style={{ top, height, borderLeftColor: cfg.color, background: `${cfg.color}1f` }}
@@ -505,7 +595,7 @@ function DayView({
                       <p className="truncate text-[11px] text-muted-foreground">{a.serviceName}</p>
                       {height > 46 && (
                         <p className="mt-0.5 text-[10px] font-medium" style={{ color: cfg.color }}>
-                          {format(new Date(a.startAt), "HH:mm")} · {formatMoney(a.priceCents)}
+                          {formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")} · {formatMoney(a.priceCents)}
                         </p>
                       )}
                       {a.waitlistCount > 0 && (
@@ -525,14 +615,7 @@ function DayView({
                           <AlertTriangle className="h-2.5 w-2.5" />
                         </span>
                       )}
-                      {/* Alça de redimensionar */}
-                      <div
-                        onPointerDown={(e) => startDrag(e, a.id, "resize")}
-                        className="absolute inset-x-0 bottom-0 h-2 cursor-ns-resize rounded-b-lg opacity-0 transition group-hover:opacity-100"
-                        style={{ background: `${cfg.color}55` }}
-                        aria-label="Redimensionar duração"
-                      />
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -550,6 +633,7 @@ function WeekView({
   dateObj,
   firstProId,
   appointments,
+  timezone,
   nowMin,
   today,
   onOpenSlot,
@@ -559,6 +643,7 @@ function WeekView({
   dateObj: Date;
   firstProId: string;
   appointments: Appointment[];
+  timezone: string;
   nowMin: number | null;
   today: string;
   onOpenSlot: (proId: string, minutes: number, dayStr?: string) => void;
@@ -589,7 +674,10 @@ function WeekView({
         {days.map((day) => {
           const dStr = ymd(day);
           const isToday = dStr === today;
-          const dayAppts = appointments.filter((a) => ymd(new Date(a.startAt)) === dStr);
+          const dayAppts = appointments.filter(
+            (appointment) =>
+              formatInTimeZone(new Date(appointment.startAt), timezone, "yyyy-MM-dd") === dStr,
+          );
           return (
             <div key={dStr} className="relative shrink-0 border-r border-border last:border-r-0" style={{ width: colW }}>
               <button
@@ -625,8 +713,8 @@ function WeekView({
                 )}
 
                 {dayAppts.map((a) => {
-                  const startMin = minutesOf(a.startAt);
-                  const endMin = minutesOf(a.endAt);
+                  const startMin = minutesOf(a.startAt, timezone);
+                  const endMin = minutesOf(a.endAt, timezone);
                   const top = (startMin - DAY_START) * PX_PER_MIN;
                   const height = Math.max(20, (endMin - startMin) * PX_PER_MIN);
                   if (top < 0 || top > totalH) return null;
@@ -638,7 +726,7 @@ function WeekView({
                       className="absolute inset-x-0.5 overflow-hidden rounded-md border-l-[3px] px-1.5 py-1 text-left text-[10px] shadow-sm transition hover:shadow-md"
                       style={{ top, height, borderLeftColor: cfg.color, background: `${cfg.color}1f` }}
                     >
-                      <p className="truncate font-semibold">{format(new Date(a.startAt), "HH:mm")} {a.clientName.split(" ")[0]}</p>
+                      <p className="truncate font-semibold">{formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")} {a.clientName.split(" ")[0]}</p>
                       {height > 30 && <p className="truncate text-muted-foreground">{a.serviceName}</p>}
                     </button>
                   );
@@ -657,12 +745,14 @@ function WeekView({
 function MonthView({
   dateObj,
   appointments,
+  timezone,
   today,
   onOpenDay,
   onOpenDetail,
 }: {
   dateObj: Date;
   appointments: Appointment[];
+  timezone: string;
   today: string;
   onOpenDay: (d: string) => void;
   onOpenDetail: (a: Appointment) => void;
@@ -673,7 +763,7 @@ function MonthView({
   });
   const byDay = new Map<string, Appointment[]>();
   for (const a of appointments) {
-    const k = ymd(new Date(a.startAt));
+    const k = formatInTimeZone(new Date(a.startAt), timezone, "yyyy-MM-dd");
     (byDay.get(k) ?? byDay.set(k, []).get(k)!).push(a);
   }
 
@@ -718,7 +808,7 @@ function MonthView({
                       style={{ background: `${cfg.color}14` }}
                     >
                       <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: cfg.color }} />
-                      <span className="truncate">{format(new Date(a.startAt), "HH:mm")} {a.clientName.split(" ")[0]}</span>
+                      <span className="truncate">{formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")} {a.clientName.split(" ")[0]}</span>
                     </button>
                   );
                 })}
@@ -741,10 +831,12 @@ function MonthView({
 function ListView({
   appointments,
   professionals,
+  timezone,
   onOpenDetail,
 }: {
   appointments: Appointment[];
   professionals: Professional[];
+  timezone: string;
   onOpenDetail: (a: Appointment) => void;
 }) {
   const proById = new Map(professionals.map((p) => [p.id, p]));
@@ -764,14 +856,14 @@ function ListView({
       {sorted.map((a) => {
         const cfg = STATUS[a.status as keyof typeof STATUS] ?? STATUS.CONFIRMED;
         const pro = proById.get(a.professionalId);
-        const dayKey = ymd(new Date(a.startAt));
+        const dayKey = formatInTimeZone(new Date(a.startAt), timezone, "yyyy-MM-dd");
         const showDay = dayKey !== lastDay;
         lastDay = dayKey;
         return (
           <div key={a.id}>
             {showDay && (
               <div className="border-b border-border bg-surface-1 px-4 py-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                {format(new Date(a.startAt), "EEEE, d 'de' MMMM", { locale: ptBR })}
+                {formatInTimeZone(new Date(a.startAt), timezone, "EEEE, d 'de' MMMM", { locale: ptBR })}
               </div>
             )}
             <button
@@ -779,8 +871,8 @@ function ListView({
               className="flex w-full items-center gap-4 border-b border-border px-4 py-3 text-left transition last:border-0 hover:bg-card-hover"
             >
               <div className="w-14 shrink-0 text-center">
-                <p className="text-sm font-semibold">{format(new Date(a.startAt), "HH:mm")}</p>
-                <p className="text-[10px] text-muted-foreground">{format(new Date(a.endAt), "HH:mm")}</p>
+                <p className="text-sm font-semibold">{formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")}</p>
+                <p className="text-[10px] text-muted-foreground">{formatInTimeZone(new Date(a.endAt), timezone, "HH:mm")}</p>
               </div>
               <span className="h-8 w-1 shrink-0 rounded-full" style={{ background: cfg.color }} />
               <div className="min-w-0 flex-1">
