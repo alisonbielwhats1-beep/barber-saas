@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
     if (conflict) return NextResponse.json({ error: "SLOT_TAKEN" }, { status: 409 });
 
     // Valida produtos: só os que pertencem ao salão e têm estoque suficiente
-    let productSnapshots: { productId: string; quantity: number; priceCentsUnit: number }[] = [];
+    const productSnapshots: { productId: string; quantity: number; priceCentsUnit: number }[] = [];
     if (b.cartItems.length > 0) {
       const products = await tx.product.findMany({
         where: {

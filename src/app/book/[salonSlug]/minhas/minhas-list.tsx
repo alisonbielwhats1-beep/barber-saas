@@ -118,7 +118,6 @@ export function MinhasList({
               key={a.id}
               a={a}
               currency={currency}
-              salonSlug={salonSlug}
               actions={
                 <div className="flex gap-3">
                   <button
@@ -161,7 +160,6 @@ export function MinhasList({
             key={a.id}
             a={a}
             currency={currency}
-            salonSlug={salonSlug}
             actions={
               <Link
                 href={`/book/${salonSlug}/agendar?service=${a.service.id}`}
@@ -214,12 +212,10 @@ function Section({
 function ApptCard({
   a,
   currency,
-  salonSlug: _salonSlug,
   actions,
 }: {
   a: Appt;
   currency: string;
-  salonSlug: string;
   actions?: React.ReactNode;
 }) {
   const start = new Date(a.startAt);

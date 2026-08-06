@@ -2,12 +2,21 @@ name: CI
 
 on:
   push:
-    branches: [master]
+    branches: [master, staging]
   pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   check:
     runs-on: ubuntu-latest
+    environment: test
+    timeout-minutes: 25
     services:
       postgres:
         image: postgres:16-alpine
@@ -23,6 +32,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
+      APP_ENV: test
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/salon_ci
       DIRECT_URL: postgresql://postgres:postgres@localhost:5432/salon_ci
       NEXTAUTH_SECRET: ci-only-secret-not-used-in-prod
@@ -36,6 +46,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx prisma generate
+      - name: Verify safe database target
+        run: npm run db:safety-check
       - name: Prepare Supabase-compatible roles
         run: |
           printf '%s' 'DO $$ BEGIN CREATE ROLE anon; EXCEPTION WHEN duplicate_object THEN NULL; END $$; DO $$ BEGIN CREATE ROLE authenticated; EXCEPTION WHEN duplicate_object THEN NULL; END $$;' |
@@ -50,7 +62,48 @@ jobs:
           npx prisma db execute --file prisma/migrations/20260728220000_fase_1_security_invites/migration.sql --url "$DIRECT_URL"
           npx prisma db execute --file prisma/migrations/20260729120000_user_invite_created_by_index/migration.sql --url "$DIRECT_URL"
           npx prisma db execute --file prisma/migrations/20260729164510_email_professional_invites/migration.sql --url "$DIRECT_URL"
-      - run: npx tsc --noEmit
+      - run: npm run lint
+      - run: npx tsc --noEmit --incremental false
       - run: npm test
       - run: npm run test:integration
-      - run: npx next build
+      - run: npm run build
+
+  schema-smoke:
+    runs-on: ubuntu-latest
+    environment: test
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: salon_schema_ci
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d salon_schema_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      ALLOW_DESTRUCTIVE_DB_OPERATIONS: YES_I_AM_USING_A_DISPOSABLE_DATABASE
+      APP_ENV: test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/salon_schema_ci
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/salon_schema_ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Verify safe database target
+        run: npm run db:safety-check
+      - name: Apply complete Prisma schema to disposable database
+        run: npm run db:push
+      - name: Validate Prisma schema
+        run: npx prisma validate
+      - name: Seed disposable database
+        run: npm run db:seed

@@ -1,6 +1,14 @@
 import { PrismaClient, Role, AppointmentStatus, Plan, Gender } from "@prisma/client";
+import { loadEnvConfig } from "@next/env";
 import bcrypt from "bcryptjs";
 import { addDays, setHours, setMinutes, startOfDay } from "date-fns";
+import { assertSafeDatabaseOperation } from "../src/lib/database-safety";
+
+loadEnvConfig(process.cwd(), process.env.NODE_ENV !== "production");
+assertSafeDatabaseOperation(process.env, {
+  destructive: true,
+  operation: "db:seed",
+});
 
 const prisma = new PrismaClient();
 

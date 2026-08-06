@@ -7,6 +7,13 @@
  */
 
 import { PrismaClient, Role, Plan, Gender } from "@prisma/client";
+import { loadEnvConfig } from "@next/env";
+import { assertSafeDatabaseOperation } from "../src/lib/database-safety";
+
+loadEnvConfig(process.cwd(), process.env.NODE_ENV !== "production");
+assertSafeDatabaseOperation(process.env, {
+  operation: "seed-martinelli",
+});
 
 const prisma = new PrismaClient();
 
