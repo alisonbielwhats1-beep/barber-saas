@@ -570,16 +570,6 @@ export async function createAppointment(
       notes: input.notes ?? null,
       isOverbooked: inspected.violation === "SLOT_TAKEN" && override.overridden,
       seriesId: input.seriesId ?? null,
-      serviceItems: {
-        create: inspected.services.map((service, position) => ({
-          salonId: input.salonId,
-          serviceId: service.id,
-          position,
-          serviceName: service.name,
-          durationMin: service.durationMin,
-          priceCents: service.priceCents,
-        })),
-      },
     },
     select: {
       id: true,
@@ -589,6 +579,18 @@ export async function createAppointment(
       clientId: true,
       professionalId: true,
     },
+  });
+
+  await tx.appointmentService.createMany({
+    data: inspected.services.map((service, position) => ({
+      appointmentId: appointment.id,
+      salonId: input.salonId,
+      serviceId: service.id,
+      position,
+      serviceName: service.name,
+      durationMin: service.durationMin,
+      priceCents: service.priceCents,
+    })),
   });
 
   const correlationId = randomUUID();

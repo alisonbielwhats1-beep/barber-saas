@@ -49,6 +49,9 @@ function schedulingTx() {
       findUnique: vi.fn().mockResolvedValue(null),
       create: appointmentCreate,
     },
+    appointmentService: {
+      createMany: vi.fn().mockResolvedValue({ count: 2 }),
+    },
     clientProfile: { findFirst: vi.fn().mockResolvedValue({ id: "client-a" }) },
     membership: { findMany: vi.fn().mockResolvedValue([{ userId: "owner-a" }]) },
     professional: { findFirst: vi.fn().mockResolvedValue({ userId: "pro-user-a" }) },
@@ -142,14 +145,26 @@ describe("motor central de agendamentos", () => {
         idempotencyKey: input.idempotencyKey,
         startAt: new Date("2026-08-06T13:00:00.000Z"),
         endAt: new Date("2026-08-06T14:15:00.000Z"),
-        serviceItems: {
-          create: [
-            expect.objectContaining({ serviceId: "service-a", position: 0, priceCents: 5_000 }),
-            expect.objectContaining({ serviceId: "service-b", position: 1, priceCents: 4_000 }),
-          ],
-        },
       }),
     );
+    expect(raw.appointmentService.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          appointmentId: first.appointment.id,
+          salonId: "salon-a",
+          serviceId: "service-a",
+          position: 0,
+          priceCents: 5_000,
+        }),
+        expect.objectContaining({
+          appointmentId: first.appointment.id,
+          salonId: "salon-a",
+          serviceId: "service-b",
+          position: 1,
+          priceCents: 4_000,
+        }),
+      ],
+    });
     expect(raw.appointmentEvent.create).toHaveBeenCalledOnce();
     expect(raw.notificationOutbox.createMany).toHaveBeenCalledOnce();
   });
