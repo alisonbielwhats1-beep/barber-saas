@@ -5,7 +5,7 @@ Cada salão é um tenant isolado por `salonId` — arquitetura pensada para esca
 
 ## Stack
 
-- **Next.js 14** (App Router, Server Components, Server Actions)
+- **Next.js 15.5** (App Router, Server Components, Server Actions)
 - **TypeScript** estrito
 - **Tailwind CSS** + tokens estilo shadcn/ui (Radix headless)
 - **Prisma** + **PostgreSQL** (Neon ou Supabase recomendados para produção)
@@ -19,47 +19,44 @@ Cada salão é um tenant isolado por `salonId` — arquitetura pensada para esca
 - **Agendamento do cliente:** `/book/luna-hair` e `/book/north-barber`
 - Hospedagem Vercel · banco e storage no Supabase (região São Paulo)
 
-## Rodar em outra máquina
+## Desenvolvimento seguro
 
-O `.env` **não** vai para o Git (contém senhas). Duas formas de obtê-lo:
+O `.env` **não** vai para o Git. Não baixe variáveis de produção da Vercel para
+desenvolver. Use PostgreSQL local e um `.env` baseado em `.env.example`:
 
 ```bash
 git clone https://github.com/alisonbielwhats1-beep/barber-saas.git
 cd barber-saas
-npm install
-
-# Opção A — puxar as variáveis já configuradas na Vercel (recomendado)
-npx vercel link          # escolhe o projeto salon-saas
-npx vercel env pull .env
-
-# Opção B — preencher na mão
-cp .env.example .env     # leia os avisos do arquivo, eles evitam 2 armadilhas reais
+npm ci
+cp .env.example .env
+docker compose -f compose.dev.yml up -d
+npm run db:push
+npm run dev
 ```
 
-Depois:
+Os scripts de banco falham de forma segura quando `APP_ENV` está ausente, o
+destino parece produção ou as identidades dos projetos Supabase divergem. O
+seed apaga os dados do banco descartável e exige confirmação adicional:
 
-```bash
-npm run dev              # http://localhost:3001
+```env
+ALLOW_DESTRUCTIVE_DB_OPERATIONS=YES_I_AM_USING_A_DISPOSABLE_DATABASE
 ```
 
-O banco Supabase já está com schema e dados demo — não precisa rodar `db:push`
-nem `db:seed` de novo (isso apagaria/duplicaria dados de produção).
-
-Logins seed:
-- `dono@lunahair.com` / `demo1234` — dono do salão "Luna Hair"
-- `dono@northbarber.com` / `demo1234` — dono do "North Barber"
-
-> Se for apontar para um banco **novo**, aí sim: `npm run db:push` e `npm run db:seed`.
-> Alternativa ao `db:push`: colar `schema_supabase.sql` no SQL Editor do Supabase
-> (o arquivo é idempotente, pode rodar mais de uma vez sem erro).
+Use essa confirmação somente no PostgreSQL local/efêmero. Nunca copie dados
+reais para desenvolvimento, CI ou homologação. A arquitetura completa e a
+configuração do segundo projeto Supabase estão em
+[`docs/AMBIENTES.md`](docs/AMBIENTES.md).
 
 ## Deploy
 
-```bash
-npx vercel --prod
-```
+Pull requests passam pelo GitHub Actions com PostgreSQL efêmero. A branch
+`staging`, depois de configurada com o segundo Supabase, gera Preview da Vercel.
+Produção ocorre somente a partir da branch `master`, após revisão; deploy
+produtivo pela CLI não faz parte do fluxo normal.
 
-Variáveis de ambiente ficam no painel da Vercel (não no `.env` do repo).
+Variáveis ficam separadas por ambiente no painel da Vercel. Preview nunca pode
+herdar URLs ou chaves do Supabase de produção. Todo Preview permanece bloqueado
+com HTTP 503 até receber deliberadamente `APP_ENV=staging`.
 
 ### Convites da equipe por e-mail
 

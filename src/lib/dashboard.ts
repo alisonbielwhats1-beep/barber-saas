@@ -62,8 +62,6 @@ function pctChange(curr: number, prev: number): number | null {
   return (curr - prev) / prev;
 }
 
-const SCHEDULED = ["CONFIRMED", "IN_PROGRESS", "COMPLETED"] as const;
-
 export async function getDashboardMetrics(salonId: string, range: RangeKey) {
   const now = new Date();
   const { from, to } = resolveRange(range, now);

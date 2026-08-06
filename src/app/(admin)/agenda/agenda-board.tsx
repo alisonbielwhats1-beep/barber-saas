@@ -26,7 +26,6 @@ import {
   startOfMonth,
   endOfMonth,
   eachDayOfInterval,
-  isSameDay,
   isSameMonth,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";

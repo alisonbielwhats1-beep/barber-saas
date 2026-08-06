@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: salon_dev
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d salon_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - salon_dev_data:/var/lib/postgresql/data
+
+volumes:
+  salon_dev_data:

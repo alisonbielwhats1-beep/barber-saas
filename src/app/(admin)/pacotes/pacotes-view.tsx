@@ -19,7 +19,7 @@ import { ptBR } from "date-fns/locale";
 import { PackageForm } from "./package-form";
 import { PlanForm } from "./plan-form";
 import {
-  togglePackageActive, deletePackage, sellPackage, usePackageSession, setPurchaseStatus, renewPurchase,
+  togglePackageActive, deletePackage, sellPackage, usePackageSession as consumePackageSession, setPurchaseStatus, renewPurchase,
   togglePlanActive, deletePlan, subscribeClient, cancelSubscription,
 } from "./actions";
 
@@ -153,7 +153,7 @@ export function PacotesView({
                         </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onSelect={() => run(() => usePackageSession(pur.id))} disabled={remaining <= 0 || pur.status !== "ACTIVE"}>
+                        <DropdownMenuItem onSelect={() => run(() => consumePackageSession(pur.id))} disabled={remaining <= 0 || pur.status !== "ACTIVE"}>
                           <MinusCircle className="mr-2 h-3.5 w-3.5" /> Usar sessão
                         </DropdownMenuItem>
                         {pur.status === "FROZEN" ? (
