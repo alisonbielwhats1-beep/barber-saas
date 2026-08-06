@@ -1,19 +1,36 @@
 # Fase 2 — agenda confiável
 
-Atualizado em 05/08/2026.
+Atualizado em 06/08/2026.
 
 ## Estado da entrega
 
-O código da Fase 2 está na branch `codex/fase-2-agenda-confiavel` e **não foi
-aplicado em Production**. Nenhum banco Supabase remoto foi aberto, nenhuma
-migration remota foi executada e nenhum deploy foi promovido.
+O rollout controlado foi iniciado em Production após autorização explícita. A
+migration `fase2_appointment_reliability` foi aplicada no projeto Supabase
+`barber-saas` e registrada na versão `20260806092927`. O código continua sendo
+promovido exclusivamente pelo PR #23 e pela branch protegida pelo CI.
 
-A promoção continua condicionada a quatro gates:
+Como os dois projetos do plano Free já pertencem a produtos diferentes, não
+existe um Supabase de homologação disponível. Para permitir o teste sem ligar um
+Preview ao banco produtivo, foi adotado temporariamente um snapshot interno de
+recuperação. Essa exceção não transforma Production em ambiente de teste e não
+autoriza seeds, resets ou dados fictícios.
 
-1. CI completo, inclusive PostgreSQL 16 descartável e teste de concorrência;
-2. preflight sem anomalias sobre uma cópia de dados em homologação;
-3. smoke das jornadas em Preview com variáveis exclusivas de homologação;
-4. validação de um dono/gerente com dados de demonstração.
+Antes da migration foram comprovados:
+
+1. zero intervalos inválidos, conflitos ativos, timezones inválidos ou vínculos
+   cross-tenant;
+2. snapshot consistente de nove tabelas no schema privado
+   `phase2_recovery_20260806`;
+3. 529 registros copiados, com contagens e checksums idênticos às fontes;
+4. zero privilégios do snapshot para `PUBLIC`, `anon` ou `authenticated`.
+
+Depois da migration foram comprovados:
+
+1. 252 agendamentos antes e depois;
+2. zero divergências nos instantes de Appointment e Payment;
+3. 252 snapshots de serviço legados criados;
+4. constraints tenant-aware e exclusion constraint `[início, fim)` válidas;
+5. RLS habilitada e forçada nas três novas tabelas, sem grants públicos.
 
 ## Política de tempo
 
@@ -173,17 +190,18 @@ A migration:
 - revoga acesso de `anon` e `authenticated`;
 - mantém DML do runtime apenas quando o papel `app_runtime` existir.
 
-### Ordem segura de rollout
+### Rollout temporário sem segundo projeto Supabase
 
-1. confirmar ambiente de homologação e URL de banco exclusiva;
-2. criar backup nativo verificável da homologação;
-3. executar o preflight somente leitura e arquivar as contagens;
-4. aplicar a migration na homologação;
-5. executar schema smoke, testes PostgreSQL e jornadas de demonstração;
-6. comparar agenda, dashboard, cliente, notificação e histórico;
-7. somente depois abrir uma janela separada para decidir rollout de Production.
+O snapshot interno é um paliativo deliberado para o plano Free. Ele permite
+restaurar os dados afetados por erro lógico da migration, mas não protege contra
+perda do projeto Supabase inteiro. Por isso:
 
-Esta branch não autoriza o passo 7.
+1. o schema `phase2_recovery_20260806` não pode ser removido automaticamente;
+2. um dump lógico externo continua obrigatório assim que a credencial direta do
+   banco estiver disponível;
+3. Preview continua bloqueado e nunca recebe credenciais de Production;
+4. qualquer nova migration repete preflight, snapshot e autorização;
+5. o deploy do código só ocorre com CI e Vercel verdes.
 
 ### Rollback
 
