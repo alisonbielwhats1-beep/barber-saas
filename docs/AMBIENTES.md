@@ -34,10 +34,11 @@ Referências oficiais:
 3. Secrets nunca entram no Git, em logs ou em artefatos do CI.
 4. Pull requests usam apenas o PostgreSQL efêmero do próprio job.
 5. Preview da Vercel nunca recebe variáveis de produção.
-6. Nenhuma migration produtiva é executada automaticamente nesta fase.
-7. O projeto Supabase de produção e o de homologação precisam ter project refs
+6. Preview sem `APP_ENV=staging` permanece bloqueado com HTTP 503.
+7. Nenhuma migration produtiva é executada automaticamente nesta fase.
+8. O projeto Supabase de produção e o de homologação precisam ter project refs
    diferentes, verificados automaticamente antes de qualquer escrita.
-8. `db:seed` é destrutivo e só funciona em banco descartável com confirmação
+9. `db:seed` é destrutivo e só funciona em banco descartável com confirmação
    explícita.
 
 ## Variáveis por ambiente
@@ -83,9 +84,9 @@ Cada job recebe um banco novo. Ao terminar o job, o container é descartado.
 
 ### Homologação
 
-Criar um segundo projeto Supabase, por exemplo `barber-saas-staging`. Na
-Vercel, cadastrar as variáveis somente no ambiente Preview e, quando possível,
-restringi-las à branch `staging`:
+Identificar um projeto Supabase não produtivo, por exemplo
+`barber-saas-staging`. Na Vercel, cadastrar as variáveis somente no ambiente
+Preview e, quando possível, restringi-las à branch `staging`:
 
 ```env
 APP_ENV=staging
@@ -110,7 +111,8 @@ e nova autorização.
 
 ## Ordem segura para ativar homologação
 
-1. Criar o segundo projeto Supabase Free sem tocar no projeto existente.
+1. Identificar inequivocamente produção e homologação entre os projetos
+   Supabase existentes; criar outro somente se houver vaga no plano e aprovação.
 2. Anotar os dois project refs e confirmar visualmente qual é produção.
 3. Configurar as variáveis de Preview da Vercel com o segundo projeto.
 4. Fazer uma verificação de conexão somente leitura.
@@ -160,8 +162,10 @@ Rollback nunca deve apagar dados recém-criados sem exportação e autorização
 
 - CI com banco efêmero: configurado no repositório.
 - Barreiras locais: configuradas no repositório.
+- Preview sem `APP_ENV=staging`: bloqueado no middleware.
 - Ambientes GitHub `test`, `staging` e `production`: gerenciados separadamente
   nas configurações do repositório.
-- Segundo Supabase e variáveis Vercel Preview: pendentes de criação guiada,
-  porque exigem acesso externo e identificação inequívoca do projeto produtivo.
+- A conta já possui dois projetos Supabase ativos; a classificação segura entre
+  produção e homologação e o ajuste das variáveis Vercel Preview estão
+  pendentes. Nenhum terceiro projeto foi criado.
 - Produção: não alterada.

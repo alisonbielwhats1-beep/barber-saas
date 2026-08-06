@@ -55,7 +55,8 @@ Produção ocorre somente a partir da branch `master`, após revisão; deploy
 produtivo pela CLI não faz parte do fluxo normal.
 
 Variáveis ficam separadas por ambiente no painel da Vercel. Preview nunca pode
-herdar URLs ou chaves do Supabase de produção.
+herdar URLs ou chaves do Supabase de produção. Todo Preview permanece bloqueado
+com HTTP 503 até receber deliberadamente `APP_ENV=staging`.
 
 ### Convites da equipe por e-mail
 
