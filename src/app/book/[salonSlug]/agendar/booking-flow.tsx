@@ -12,11 +12,13 @@ import {
   ChevronRight,
   Gem,
   LogIn,
+  Search,
   Scissors,
   Sparkles,
   Star,
   UserPlus,
   Waves,
+  X,
   Zap,
 } from "lucide-react";
 import { formatMoney, formatDuration } from "@/lib/utils";
@@ -37,6 +39,11 @@ import {
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatInTimeZone } from "date-fns-tz";
+import {
+  filterServiceOptions,
+  getServiceCategories,
+  serviceCategoryLabel,
+} from "@/lib/service-discovery";
 
 type Pro = {
   id: string;
@@ -50,6 +57,7 @@ type Pro = {
 type Service = {
   id: string;
   name: string;
+  description: string | null;
   priceCents: number;
   durationMin: number;
   colorHex: string | null;
@@ -113,6 +121,8 @@ export function BookingFlow({
   ];
   const [serviceIds, setServiceIds] = useState<string[]>(validInitialServiceIds);
   const [choosingServices, setChoosingServices] = useState(validInitialServiceIds.length === 0);
+  const [serviceQuery, setServiceQuery] = useState("");
+  const [serviceCategory, setServiceCategory] = useState<string | null>(null);
   const [proId, setProId] = useState<string | null>(() => {
     if (!initialProId || validInitialServiceIds.length === 0) return null;
     const selected = services.filter((service) => validInitialServiceIds.includes(service.id));
@@ -151,6 +161,11 @@ export function BookingFlow({
   const selectedServices = useMemo(
     () => services.filter((service) => serviceIds.includes(service.id)),
     [services, serviceIds],
+  );
+  const serviceCategories = useMemo(() => getServiceCategories(services), [services]);
+  const visibleServices = useMemo(
+    () => filterServiceOptions(services, serviceQuery, serviceCategory),
+    [services, serviceQuery, serviceCategory],
   );
   const eligibleProfessionals = useMemo(() => {
     const first = selectedServices[0];
@@ -407,8 +422,118 @@ export function BookingFlow({
     return (
       <section className="animate-fade-in min-h-dvh space-y-6 px-5 pb-28 pt-6">
         <FlowHeader title="Escolha os serviços" onBack={() => router.push(`/book/${salonSlug}`)} />
+        {selectedServices.length > 0 && (
+          <div
+            aria-live="polite"
+            className="flex items-start justify-between gap-3 rounded-2xl border border-primary/30 bg-primary/5 px-4 py-3"
+          >
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-primary">
+                {selectedServices.length} {selectedServices.length === 1 ? "serviço escolhido" : "serviços escolhidos"}
+              </p>
+              <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                {selectedServices.map((service) => service.name).join(" + ")}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setServiceIds([]);
+                setProId(null);
+                setSlot(null);
+              }}
+              className="min-h-11 shrink-0 rounded-full px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-card hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Limpar
+            </button>
+          </div>
+        )}
+
         <div className="space-y-3">
-          {services.map((s) => {
+          <label className="flex min-h-12 items-center gap-3 rounded-2xl border border-border bg-card px-4 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
+            <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+            <span className="sr-only">Buscar serviços</span>
+            <input
+              type="search"
+              value={serviceQuery}
+              onChange={(event) => {
+                setServiceQuery(event.target.value);
+                if (event.target.value) setServiceCategory(null);
+              }}
+              placeholder="Buscar corte, barba, manicure…"
+              className="min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground"
+            />
+            {serviceQuery && (
+              <button
+                type="button"
+                onClick={() => setServiceQuery("")}
+                aria-label="Limpar busca"
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </label>
+
+          {serviceCategories.length > 1 && (
+            <div
+              className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              aria-label="Filtrar por categoria"
+            >
+              {[null, ...serviceCategories].map((category) => {
+                const active = serviceCategory === category;
+                return (
+                  <button
+                    key={category ?? "all"}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => {
+                      setServiceCategory(category);
+                      setServiceQuery("");
+                    }}
+                    className={`min-h-11 shrink-0 rounded-full border px-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                      active
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-card text-muted-foreground hover:border-primary/60 hover:text-foreground"
+                    }`}
+                  >
+                    {category ?? "Todos"}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm font-semibold">
+            {visibleServices.length} {visibleServices.length === 1 ? "serviço" : "serviços"}
+          </p>
+          {(serviceQuery || serviceCategory) && (
+            <button
+              type="button"
+              onClick={() => {
+                setServiceQuery("");
+                setServiceCategory(null);
+              }}
+              className="min-h-11 rounded-full px-3 text-xs font-medium text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Mostrar todos
+            </button>
+          )}
+        </div>
+
+        {visibleServices.length === 0 ? (
+          <div className="rounded-3xl border border-border bg-card p-8 text-center">
+            <Search className="mx-auto h-6 w-6 text-muted-foreground" />
+            <p className="mt-3 text-sm font-medium">Nenhum serviço encontrado</p>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              Tente outro nome ou remova o filtro de categoria.
+            </p>
+          </div>
+        ) : (
+        <div className="grid grid-cols-1 gap-3 min-[390px]:grid-cols-2">
+          {visibleServices.map((s) => {
             const Icon = iconForService(s.category);
             const selected = serviceIds.includes(s.id);
             return (
@@ -425,38 +550,45 @@ export function BookingFlow({
                     : [...current, s.id],
                 );
               }}
-              className={`flex min-h-16 w-full items-center justify-between rounded-2xl border bg-card p-4 text-left transition ${
-                selected ? "border-primary ring-2 ring-primary/30" : "border-border hover:border-primary"
+              className={`relative flex min-h-36 w-full flex-col rounded-2xl border bg-card p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                selected ? "border-primary bg-primary/5 ring-2 ring-primary/30" : "border-border hover:border-primary"
               }`}
             >
-              <div className="flex items-center gap-3">
+              <div className="flex w-full items-start justify-between gap-3">
                 <div
                   className="grid h-11 w-11 place-items-center rounded-xl"
                   style={{ background: `${s.colorHex ?? "#7DF89B"}33` }}
                 >
                   <Icon className="h-4 w-4 text-primary" />
                 </div>
-                <div>
-                  <p className="font-medium">{s.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {formatDuration(s.durationMin)}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <p className="text-sm font-semibold text-primary">
-                  {formatMoney(s.priceCents, currency)}
-                </p>
                 <span className={`grid h-6 w-6 place-items-center rounded-full border ${
                   selected ? "border-primary bg-primary text-primary-foreground" : "border-border"
                 }`}>
                   {selected && <Check className="h-3.5 w-3.5" />}
                 </span>
               </div>
+              <p className="mt-3 line-clamp-2 font-medium leading-snug">{s.name}</p>
+              {s.description && (
+                <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                  {s.description}
+                </p>
+              )}
+              <div className="mt-auto flex w-full items-end justify-between gap-2 pt-4">
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    {serviceCategoryLabel(s)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{formatDuration(s.durationMin)}</p>
+                </div>
+                <p className="text-sm font-semibold text-primary">
+                  {formatMoney(s.priceCents, currency)}
+                </p>
+              </div>
             </button>
             );
           })}
         </div>
+        )}
         <div className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-[480px] border-t border-border/70 bg-background/95 px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_24px_rgba(0,0,0,0.18)] backdrop-blur">
           <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
             <span>{formatDuration(totalDuration)}</span>

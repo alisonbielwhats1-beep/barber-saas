@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { withSalonBySlug } from "@/lib/prisma-tenant";
-import { BottomNav } from "../bottom-nav";
 import { CartBadge } from "../cart-badge";
 import { ProductList } from "./product-list";
 import { imageForProduct } from "@/lib/images";
@@ -71,7 +70,6 @@ export default async function ClientProdutos({
         </div>
       )}
 
-      <BottomNav salonSlug={salonSlug} />
     </main>
   );
 }

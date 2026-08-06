@@ -38,6 +38,7 @@ export default async function AgendarPage({
         timezone: true,
         services: {
           where: { active: true },
+          orderBy: [{ category: "asc" }, { name: "asc" }],
           include: {
             professionals: {
               include: {
@@ -87,6 +88,7 @@ export default async function AgendarPage({
   const services = salon.services.map((s) => ({
     id: s.id,
     name: s.name,
+    description: s.description,
     priceCents: s.priceCents,
     durationMin: s.durationMin,
     colorHex: s.colorHex,

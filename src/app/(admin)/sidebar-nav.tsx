@@ -21,6 +21,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { UnreadBadge } from "@/components/unread-badge";
 import {
   DASHBOARD_ROLES,
   FINANCIAL_ROLES,
@@ -99,7 +100,13 @@ export const GROUPS: { title: string; items: Item[] }[] = [
   },
 ];
 
-export function SidebarNav({ role }: { role: string }) {
+export function SidebarNav({
+  role,
+  unreadNotifications = 0,
+}: {
+  role: string;
+  unreadNotifications?: number;
+}) {
   const pathname = usePathname();
 
   return (
@@ -111,7 +118,12 @@ export function SidebarNav({ role }: { role: string }) {
           </p>
           <div className="space-y-0.5">
             {group.items.map((item) => (
-              <NavRow key={item.href} item={item} pathname={pathname} />
+              <NavRow
+                key={item.href}
+                item={item}
+                pathname={pathname}
+                badgeCount={item.href === "/notificacoes" ? unreadNotifications : 0}
+              />
             ))}
           </div>
         </div>
@@ -129,7 +141,15 @@ export function SidebarNav({ role }: { role: string }) {
   );
 }
 
-function NavRow({ item, pathname }: { item: Item; pathname: string }) {
+function NavRow({
+  item,
+  pathname,
+  badgeCount = 0,
+}: {
+  item: Item;
+  pathname: string;
+  badgeCount?: number;
+}) {
   const { href, label, icon: Icon, soon } = item;
   const active = pathname === href || pathname.startsWith(href + "/");
 
@@ -163,7 +183,8 @@ function NavRow({ item, pathname }: { item: Item; pathname: string }) {
         <span className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-primary" />
       )}
       <Icon className={cn("h-3.5 w-3.5 shrink-0", active && "text-primary")} />
-      {label}
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      <UnreadBadge count={badgeCount} />
     </Link>
   );
 }

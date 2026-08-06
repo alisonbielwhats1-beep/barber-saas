@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { UnreadBadge } from "@/components/unread-badge";
 import { DASHBOARD_ROLES, MANAGEMENT_ROLES } from "@/lib/role-permissions";
 import { visibleGroups } from "./sidebar-nav";
 import { OpenCommandPaletteButton } from "./command-palette";
@@ -33,7 +34,13 @@ const PRIMARY: Array<{
   { href: "/notificacoes", label: "Alertas", icon: Bell },
 ];
 
-export function MobileNav({ role }: { role: string }) {
+export function MobileNav({
+  role,
+  unreadNotifications = 0,
+}: {
+  role: string;
+  unreadNotifications?: number;
+}) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
@@ -88,7 +95,10 @@ export function MobileNav({ role }: { role: string }) {
                         <item.icon
                           className={cn("h-4 w-4 shrink-0", isActive(item.href) && "text-primary")}
                         />
-                        {item.label}
+                        <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                        <UnreadBadge
+                          count={item.href === "/notificacoes" ? unreadNotifications : 0}
+                        />
                       </Link>
                     ),
                   )}
@@ -130,7 +140,13 @@ export function MobileNav({ role }: { role: string }) {
                 active ? "text-primary" : "text-muted-foreground",
               )}
             >
-              <item.icon className="h-5 w-5" strokeWidth={active ? 2.4 : 2} />
+              <span className="relative">
+                <item.icon className="h-5 w-5" strokeWidth={active ? 2.4 : 2} />
+                <UnreadBadge
+                  count={item.href === "/notificacoes" ? unreadNotifications : 0}
+                  className="absolute -right-3 -top-2"
+                />
+              </span>
               {item.label}
             </Link>
           );

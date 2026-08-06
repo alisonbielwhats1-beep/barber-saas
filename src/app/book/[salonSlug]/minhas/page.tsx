@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { withSalonBySlug } from "@/lib/prisma-tenant";
 import { getClientSession } from "@/lib/client-auth";
-import { BottomNav } from "../bottom-nav";
 import { MinhasList } from "./minhas-list";
 import { AutoRefresh } from "@/components/auto-refresh";
 
@@ -126,7 +125,6 @@ export default async function MinhasPage({
         session={session}
       />
 
-      <BottomNav salonSlug={salonSlug} />
     </main>
   );
 }
