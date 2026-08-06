@@ -11,15 +11,13 @@ export type ApptStatus =
   | "CANCELLED"
   | "NO_SHOW";
 
-export const STATUS: Record<
-  Exclude<ApptStatus, "CANCELLED">,
-  { label: string; color: string }
-> = {
+export const STATUS: Record<ApptStatus, { label: string; color: string }> = {
   PENDING: { label: "Pendente", color: "#F59E0B" },
   CONFIRMED: { label: "Confirmado", color: "#3B9EFF" },
   IN_PROGRESS: { label: "Em atendimento", color: "#A855F7" },
   COMPLETED: { label: "Finalizado", color: "#2ECC8B" },
   NO_SHOW: { label: "No-show", color: "#EF4444" },
+  CANCELLED: { label: "Cancelado", color: "#64748B" },
 };
 
 export const STATUS_ORDER: (keyof typeof STATUS)[] = [
@@ -28,6 +26,7 @@ export const STATUS_ORDER: (keyof typeof STATUS)[] = [
   "IN_PROGRESS",
   "COMPLETED",
   "NO_SHOW",
+  "CANCELLED",
 ];
 
 /** Transições oferecidas como ações rápidas a partir do status atual. */
@@ -39,8 +38,6 @@ export function nextActions(status: string): (keyof typeof STATUS)[] {
       return ["IN_PROGRESS", "NO_SHOW"];
     case "IN_PROGRESS":
       return ["COMPLETED"];
-    case "NO_SHOW":
-      return ["CONFIRMED"];
     default:
       return [];
   }

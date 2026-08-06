@@ -19,10 +19,22 @@ export async function createPortfolioItem(input: PortfolioInput) {
   const data = portfolioInput.parse(input);
 
   await withTenant(ctx, async (tx) => {
-    // valida que o profissional pertence ao salão, se informado
-    if (data.professionalId) {
+    let professionalId = data.professionalId ?? null;
+
+    if (ctx.role === "PROFESSIONAL") {
+      const ownProfessional = await tx.professional.findFirst({
+        where: { salonId: ctx.salonId, userId: ctx.userId, active: true },
+        select: { id: true },
+      });
+      if (!ownProfessional) throw new Error("Perfil profissional ativo não encontrado");
+      if (professionalId && professionalId !== ownProfessional.id) {
+        throw new Error("Você só pode publicar trabalhos no seu próprio portfólio");
+      }
+      professionalId = ownProfessional.id;
+    } else if (professionalId) {
+      // Valida que o profissional pertence ao tenant, se informado.
       const p = await tx.professional.findFirst({
-        where: { id: data.professionalId, salonId: ctx.salonId },
+        where: { id: professionalId, salonId: ctx.salonId },
         select: { id: true },
       });
       if (!p) throw new Error("Profissional inválido");
@@ -33,7 +45,7 @@ export async function createPortfolioItem(input: PortfolioInput) {
         salonId: ctx.salonId,
         imageUrl: data.imageUrl,
         caption: data.caption ?? null,
-        professionalId: data.professionalId ?? null,
+        professionalId,
       },
     });
   });

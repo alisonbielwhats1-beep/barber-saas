@@ -2,8 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { MessageCircle, CheckCircle2 } from "lucide-react";
-import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { formatInTimeZone } from "date-fns-tz";
 import { markReminderSent } from "@/app/(admin)/agenda/actions";
 
 type Reminder = {
@@ -26,9 +26,11 @@ function waLink(phone: string | null, clientName: string, salonName: string, whe
 export function LembretesPanel({
   reminders: initial,
   salonName,
+  timezone,
 }: {
   reminders: Reminder[];
   salonName: string;
+  timezone: string;
 }) {
   const [list, setList] = useState(initial);
   const [pending, startTransition] = useTransition();
@@ -54,7 +56,7 @@ export function LembretesPanel({
   return (
     <div className="space-y-1">
       {list.map((r) => {
-        const when = format(new Date(r.startAt), "HH:mm", { locale: ptBR });
+        const when = formatInTimeZone(new Date(r.startAt), timezone, "HH:mm", { locale: ptBR });
         return (
           <div
             key={r.id}

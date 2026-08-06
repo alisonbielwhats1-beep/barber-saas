@@ -29,15 +29,14 @@ import {
   eachDayOfInterval,
   endOfMonth,
   format,
-  isBefore,
   isSameDay,
   isSameMonth,
-  startOfDay,
   startOfMonth,
   startOfWeek,
   endOfWeek,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { formatInTimeZone } from "date-fns-tz";
 
 type Pro = {
   id: string;
@@ -71,6 +70,7 @@ function iconForService(category: string | null) {
 /** Reserva confirmada — dados congelados para o boarding pass e o .ics */
 type Booked = {
   startAt: Date;
+  timezone: string;
   serviceName: string;
   durationMin: number;
   proName: string;
@@ -80,35 +80,53 @@ export function BookingFlow({
   salonId,
   salonName,
   currency,
+  timezone,
+  todayDate,
   services,
-  initialServiceId,
+  initialServiceIds,
   initialProId = null,
   rescheduleId = null,
+  rescheduleVersion,
   clientSession,
 }: {
   salonId: string;
   salonName: string;
   currency: string;
+  timezone: string;
+  todayDate: string;
   services: Service[];
-  initialServiceId: string | null;
+  initialServiceIds: string[];
   initialProId?: string | null;
   /** Se vier de "Minhas reservas → Remarcar": id da reserva a atualizar em
    *  vez de criar uma nova. Ver `submit()`. */
   rescheduleId?: string | null;
+  rescheduleVersion?: number;
   clientSession: ClientSession | null;
 }) {
   const router = useRouter();
   const { salonSlug } = useParams<{ salonSlug: string }>();
   const cart = useCart(salonSlug);
-  const [serviceId, setServiceId] = useState<string | null>(initialServiceId);
+  const validInitialServiceIds = [
+    ...new Set(
+      initialServiceIds.filter((id) => services.some((service) => service.id === id)),
+    ),
+  ];
+  const [serviceIds, setServiceIds] = useState<string[]>(validInitialServiceIds);
+  const [choosingServices, setChoosingServices] = useState(validInitialServiceIds.length === 0);
   const [proId, setProId] = useState<string | null>(() => {
-    if (!initialServiceId || !initialProId) return null;
-    const svc = services.find((s) => s.id === initialServiceId);
-    if (!svc) return null;
-    return svc.professionals.some((p) => p.id === initialProId) ? initialProId : null;
+    if (!initialProId || validInitialServiceIds.length === 0) return null;
+    const selected = services.filter((service) => validInitialServiceIds.includes(service.id));
+    return selected.length === validInitialServiceIds.length &&
+      selected.every((service) =>
+        service.professionals.some((professional) => professional.id === initialProId),
+      )
+      ? initialProId
+      : null;
   });
-  const [date, setDate] = useState<Date>(startOfDay(new Date()));
-  const [viewMonth, setViewMonth] = useState<Date>(startOfMonth(new Date()));
+  const [date, setDate] = useState<Date>(() => new Date(`${todayDate}T12:00:00`));
+  const [viewMonth, setViewMonth] = useState<Date>(() =>
+    startOfMonth(new Date(`${todayDate}T12:00:00`)),
+  );
   const [slot, setSlot] = useState<string | null>(null);
   const [slots, setSlots] = useState<string[]>([]);
   const [slotsVersion, setSlotsVersion] = useState(0);
@@ -128,8 +146,30 @@ export function BookingFlow({
   const [error, setError] = useState<string | null>(null);
   // "hidden" → no auth prompt yet; "prompt" → show login/guest options; "guest-form" → collecting name+phone
   const [authStep, setAuthStep] = useState<"hidden" | "prompt" | "guest-form">("hidden");
+  const idempotencyKeyRef = useRef<string | null>(null);
 
-  const service = services.find((s) => s.id === serviceId) ?? null;
+  const selectedServices = useMemo(
+    () => services.filter((service) => serviceIds.includes(service.id)),
+    [services, serviceIds],
+  );
+  const eligibleProfessionals = useMemo(() => {
+    const first = selectedServices[0];
+    if (!first) return [];
+    return first.professionals.filter((professional) =>
+      selectedServices.every((service) =>
+        service.professionals.some((candidate) => candidate.id === professional.id),
+      ),
+    );
+  }, [selectedServices]);
+  const serviceName = selectedServices.map((service) => service.name).join(" + ");
+  const totalDuration = selectedServices.reduce(
+    (sum, service) => sum + service.durationMin,
+    0,
+  );
+  const totalServicePrice = selectedServices.reduce(
+    (sum, service) => sum + service.priceCents,
+    0,
+  );
 
   // Slot a restaurar depois que a grade de horários carregar (fluxo returnTo)
   const pendingSlotRef = useRef<string | null>(null);
@@ -146,16 +186,24 @@ export function BookingFlow({
       sessionStorage.removeItem(key);
       const s = JSON.parse(raw) as {
         serviceId?: string;
+        serviceIds?: string[];
         proId?: string;
         date?: string;
         slot?: string;
         savedAt?: number;
       };
       if (!s.savedAt || Date.now() - s.savedAt > 30 * 60_000) return;
-      if (s.serviceId) setServiceId(s.serviceId);
+      const restoredIds = s.serviceIds ?? (s.serviceId ? [s.serviceId] : []);
+      const validIds = restoredIds.filter((id) =>
+        services.some((service) => service.id === id),
+      );
+      if (validIds.length > 0) {
+        setServiceIds([...new Set(validIds)]);
+        setChoosingServices(false);
+      }
       if (s.proId) setProId(s.proId);
       if (s.date) {
-        const d = startOfDay(new Date(s.date));
+        const d = new Date(`${s.date}T12:00:00`);
         setDate(d);
         setViewMonth(startOfMonth(d));
       }
@@ -170,9 +218,9 @@ export function BookingFlow({
       sessionStorage.setItem(
         `booking-state:${salonSlug}`,
         JSON.stringify({
-          serviceId: service?.id,
+          serviceIds,
           proId,
-          date: date.toISOString(),
+          date: format(date, "yyyy-MM-dd"),
           slot,
           savedAt: Date.now(),
         }),
@@ -180,13 +228,13 @@ export function BookingFlow({
     } catch {}
   }
 
-  const returnToParam = service
-    ? `?returnTo=${encodeURIComponent(`/book/${salonSlug}/agendar?service=${service.id}`)}`
+  const returnToParam = selectedServices.length > 0
+    ? `?returnTo=${encodeURIComponent(`/book/${salonSlug}/agendar?services=${serviceIds.join(",")}`)}`
     : "";
 
   // Disponibilidade real: working hours + time-offs + agendamentos existentes
   useEffect(() => {
-    if (!service || !proId) {
+    if (selectedServices.length === 0 || !proId) {
       setSlots([]);
       setPopularSlot(null);
       setOccupied([]);
@@ -198,7 +246,7 @@ export function BookingFlow({
     const params = new URLSearchParams({
       salonId,
       professionalId: proId,
-      serviceId: service.id,
+      serviceId: serviceIds.join(","),
       date: format(date, "yyyy-MM-dd"),
     });
     fetch(`/api/availability?${params}`, { signal: controller.signal })
@@ -219,7 +267,13 @@ export function BookingFlow({
       })
       .finally(() => setSlotsLoading(false));
     return () => controller.abort();
-  }, [salonId, service, proId, date, slotsVersion]);
+  }, [salonId, selectedServices, serviceIds, proId, date, slotsVersion]);
+
+  // A mesma tentativa reutiliza a chave em caso de falha de rede. Alterar a
+  // escolha cria uma nova tentativa lógica e, portanto, uma nova chave.
+  useEffect(() => {
+    idempotencyKeyRef.current = null;
+  }, [serviceIds, proId, slot, date, rescheduleId]);
 
   const calendarDays = useMemo(() => {
     const first = startOfWeek(startOfMonth(viewMonth), { weekStartsOn: 1 });
@@ -228,7 +282,7 @@ export function BookingFlow({
   }, [viewMonth]);
 
   function handleConfirmClick() {
-    if (!service || !proId || !slot) return;
+    if (selectedServices.length === 0 || !proId || !slot) return;
     if (clientSession) {
       submit();
     } else if (authStep === "guest-form" && name && isValidPhoneBR(phone)) {
@@ -241,60 +295,74 @@ export function BookingFlow({
   }
 
   async function submit() {
-    if (!service || !proId || !slot) return;
+    if (selectedServices.length === 0 || !proId || !slot) return;
     setLoading(true);
     setError(null);
-    const [h, m] = slot.split(":").map(Number);
-    const startAt = new Date(date);
-    startAt.setHours(h, m, 0, 0);
+    const startLocal = `${format(date, "yyyy-MM-dd")}T${slot}`;
+    const idempotencyKey = idempotencyKeyRef.current ?? crypto.randomUUID();
+    idempotencyKeyRef.current = idempotencyKey;
 
-    const res = rescheduleId
-      ? await fetch("/api/client/reschedule", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            salonSlug,
-            appointmentId: rescheduleId,
-            serviceId: service.id,
-            professionalId: proId,
-            startAt: startAt.toISOString(),
-          }),
-        })
-      : await fetch("/api/appointments", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            salonId,
-            serviceId: service.id,
-            professionalId: proId,
-            startAt: startAt.toISOString(),
-            ...(!clientSession
-              ? { clientName: name, clientPhone: normalizePhone(phone) }
-              : {}),
-            cartItems: cart.items.map((i) => ({
-              productId: i.productId,
-              quantity: i.quantity,
-            })),
-          }),
+    try {
+      const res = rescheduleId
+        ? await fetch("/api/client/reschedule", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              salonSlug,
+              appointmentId: rescheduleId,
+              professionalId: proId,
+              startLocal,
+              idempotencyKey,
+              ...(Number.isInteger(rescheduleVersion)
+                ? { expectedVersion: rescheduleVersion }
+                : {}),
+            }),
+          })
+        : await fetch("/api/appointments", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              salonId,
+              serviceIds,
+              professionalId: proId,
+              startLocal,
+              idempotencyKey,
+              ...(!clientSession
+                ? { clientName: name, clientPhone: normalizePhone(phone) }
+                : {}),
+              cartItems: cart.items.map((item) => ({
+                productId: item.productId,
+                quantity: item.quantity,
+              })),
+            }),
+          });
+      const responseBody = await res.json().catch(() => ({}));
+      if (res.ok) {
+        const confirmedStart = new Date(responseBody.appointment?.startAt);
+        if (Number.isNaN(confirmedStart.getTime())) {
+          throw new Error("INVALID_SERVER_APPOINTMENT");
+        }
+        const pro = eligibleProfessionals.find((professional) => professional.id === proId);
+        if (!rescheduleId) cart.clear();
+        setBooked({
+          startAt: confirmedStart,
+          timezone,
+          serviceName,
+          durationMin: totalDuration,
+          proName: pro?.name ?? "",
         });
-    setLoading(false);
-    if (res.ok) {
-      const pro = service.professionals.find((p) => p.id === proId);
-      if (!rescheduleId) cart.clear();
-      setBooked({
-        startAt,
-        serviceName: service.name,
-        durationMin: service.durationMin,
-        proName: pro?.name ?? "",
-      });
-    } else {
-      const b = await res.json().catch(() => ({}));
-      setError(friendlyError(b.error));
-      // Slot foi tomado por outra pessoa (ou por outra reserva): recarrega a grade
-      if (b.error === "SLOT_TAKEN") {
-        setSlot(null);
-        setSlotsVersion((v) => v + 1);
+      } else {
+        setError(friendlyError(responseBody.error));
+        if (responseBody.error === "SLOT_TAKEN") {
+          idempotencyKeyRef.current = null;
+          setSlot(null);
+          setSlotsVersion((version) => version + 1);
+        }
       }
+    } catch {
+      setError("Não foi possível confirmar agora. Verifique sua conexão e tente novamente.");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -334,19 +402,32 @@ export function BookingFlow({
     );
   }
 
-  // Se ainda não escolheu serviço, mostra seletor no mesmo formato dark
-  if (!service) {
+  // Seleção explícita permite combinar serviços antes do profissional.
+  if (choosingServices) {
     return (
-      <section className="animate-fade-in space-y-6 px-5 pt-6">
-        <FlowHeader title="Escolha o serviço" onBack={() => router.push(`/book/${salonSlug}`)} />
+      <section className="animate-fade-in min-h-dvh space-y-6 px-5 pb-28 pt-6">
+        <FlowHeader title="Escolha os serviços" onBack={() => router.push(`/book/${salonSlug}`)} />
         <div className="space-y-3">
           {services.map((s) => {
             const Icon = iconForService(s.category);
+            const selected = serviceIds.includes(s.id);
             return (
             <button
               key={s.id}
-              onClick={() => setServiceId(s.id)}
-              className="flex w-full items-center justify-between rounded-2xl border border-border bg-card p-4 text-left transition hover:border-primary"
+              type="button"
+              aria-pressed={selected}
+              onClick={() => {
+                setProId(null);
+                setSlot(null);
+                setServiceIds((current) =>
+                  current.includes(s.id)
+                    ? current.filter((id) => id !== s.id)
+                    : [...current, s.id],
+                );
+              }}
+              className={`flex min-h-16 w-full items-center justify-between rounded-2xl border bg-card p-4 text-left transition ${
+                selected ? "border-primary ring-2 ring-primary/30" : "border-border hover:border-primary"
+              }`}
             >
               <div className="flex items-center gap-3">
                 <div
@@ -362,37 +443,65 @@ export function BookingFlow({
                   </p>
                 </div>
               </div>
-              <p className="text-sm font-semibold text-primary">
-                {formatMoney(s.priceCents, currency)}
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-semibold text-primary">
+                  {formatMoney(s.priceCents, currency)}
+                </p>
+                <span className={`grid h-6 w-6 place-items-center rounded-full border ${
+                  selected ? "border-primary bg-primary text-primary-foreground" : "border-border"
+                }`}>
+                  {selected && <Check className="h-3.5 w-3.5" />}
+                </span>
+              </div>
             </button>
             );
           })}
+        </div>
+        <div className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-[480px] border-t border-border/70 bg-background/95 px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_24px_rgba(0,0,0,0.18)] backdrop-blur">
+          <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
+            <span>{formatDuration(totalDuration)}</span>
+            <span>{formatMoney(totalServicePrice, currency)}</span>
+          </div>
+          <button
+            type="button"
+            disabled={selectedServices.length === 0 || eligibleProfessionals.length === 0}
+            onClick={() => setChoosingServices(false)}
+            className="min-h-12 w-full rounded-full bg-primary px-5 py-3 text-base font-semibold text-primary-foreground disabled:opacity-40"
+          >
+            Continuar com {selectedServices.length} {selectedServices.length === 1 ? "serviço" : "serviços"}
+          </button>
+          {selectedServices.length > 0 && eligibleProfessionals.length === 0 && (
+            <p className="mt-2 text-center text-xs text-destructive">
+              Nenhum profissional realiza todos os serviços selecionados.
+            </p>
+          )}
         </div>
       </section>
     );
   }
 
   return (
-    <section className="animate-fade-in space-y-8 px-5 pt-6">
+    <section className="animate-fade-in min-h-dvh space-y-8 px-5 pb-28 pt-6">
       <FlowHeader
         title="Agendamento"
-        onBack={() => setServiceId(null)}
-        subtitle={`${service.name} · ${formatDuration(service.durationMin)}`}
+        onBack={() => setChoosingServices(true)}
+        subtitle={`${serviceName} · ${formatDuration(totalDuration)}`}
       />
 
       {/* Escolher profissional — cards com prova social real */}
       <div>
         <h3 className="mb-4 text-sm font-semibold">Escolher profissional</h3>
-        {service.professionals.length === 0 ? (
+        {eligibleProfessionals.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             Nenhum profissional realiza esse serviço ainda.
           </p>
         ) : (
           <div className="-mx-5 flex gap-3 overflow-x-auto px-5 pb-2 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {service.professionals.map((p) => {
+            {eligibleProfessionals.map((p) => {
               const selected = p.id === proId;
-              const specialty = p.specialties.find((s) => s !== service.name) ?? p.specialties[0];
+              const specialty = p.specialties.find(
+                (name) => !selectedServices.some((service) => service.name === name),
+              ) ?? p.specialties[0];
               return (
                 <button
                   key={p.id}
@@ -467,7 +576,8 @@ export function BookingFlow({
           <div className="mb-3 flex items-center justify-between">
             <button
               onClick={() => setViewMonth((m) => addMonths(m, -1))}
-              className="grid h-8 w-8 place-items-center rounded-full text-muted-foreground hover:text-foreground"
+              className="grid h-11 w-11 place-items-center rounded-full text-muted-foreground hover:text-foreground"
+              aria-label="Mês anterior"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -479,7 +589,8 @@ export function BookingFlow({
             </p>
             <button
               onClick={() => setViewMonth((m) => addMonths(m, 1))}
-              className="grid h-8 w-8 place-items-center rounded-full text-muted-foreground hover:text-foreground"
+              className="grid h-11 w-11 place-items-center rounded-full text-muted-foreground hover:text-foreground"
+              aria-label="Próximo mês"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -494,7 +605,7 @@ export function BookingFlow({
           <div className="grid grid-cols-7 gap-1">
             {calendarDays.map((d) => {
               const inMonth = isSameMonth(d, viewMonth);
-              const past = isBefore(d, startOfDay(new Date()));
+              const past = format(d, "yyyy-MM-dd") < todayDate;
               const selected = isSameDay(d, date);
               const disabled = past || !inMonth;
               return (
@@ -502,7 +613,7 @@ export function BookingFlow({
                   key={d.toISOString()}
                   disabled={disabled}
                   onClick={() => setDate(d)}
-                  className={`grid h-10 place-items-center rounded-full text-sm transition ${
+                  className={`grid h-11 place-items-center rounded-full text-sm transition ${
                     selected
                       ? "bg-primary font-semibold text-primary-foreground"
                       : disabled
@@ -535,7 +646,7 @@ export function BookingFlow({
             Escolha um profissional para ver os horários.
           </p>
         ) : slotsLoading ? (
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-3 gap-2 min-[380px]:grid-cols-4">
             {Array.from({ length: 12 }).map((_, i) => (
               <div key={i} className="h-9 animate-pulse rounded-full bg-muted" />
             ))}
@@ -553,7 +664,7 @@ export function BookingFlow({
                 <button
                   key={s}
                   onClick={() => setSlot(s)}
-                  className={`relative rounded-full border py-2 text-sm transition ${
+                  className={`relative min-h-11 rounded-full border px-2 py-2 text-sm transition ${
                     selected
                       ? "border-primary bg-primary font-semibold text-primary-foreground"
                       : "border-border bg-card text-foreground hover:border-primary/50"
@@ -587,7 +698,7 @@ export function BookingFlow({
           <h3 className="mb-3 text-sm font-semibold text-muted-foreground">
             Ocupados — entre na fila
           </h3>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-3 gap-2 min-[380px]:grid-cols-4">
             {occupied.map((o) => {
               const joined = waitlistJoined === o.appointmentId;
               return (
@@ -598,7 +709,7 @@ export function BookingFlow({
                     setWaitlistTarget(joined ? null : o);
                   }}
                   disabled={joined}
-                  className={`rounded-full border py-2 text-xs transition ${
+                  className={`min-h-11 rounded-full border px-2 py-2 text-xs transition ${
                     joined
                       ? "border-primary/40 bg-primary/10 text-primary"
                       : "border-dashed border-border text-muted-foreground hover:border-primary/50"
@@ -639,7 +750,7 @@ export function BookingFlow({
               <div className="mt-3 flex gap-2">
                 <button
                   onClick={() => setWaitlistTarget(null)}
-                  className="flex-1 rounded-full border border-border py-2 text-xs font-medium text-muted-foreground"
+                  className="min-h-11 flex-1 rounded-full border border-border px-3 py-2 text-xs font-medium text-muted-foreground"
                 >
                   Cancelar
                 </button>
@@ -649,7 +760,7 @@ export function BookingFlow({
                     waitlistLoading ||
                     (!clientSession && (!waitlistName || !isValidPhoneBR(waitlistPhone)))
                   }
-                  className="flex-1 rounded-full bg-primary py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+                  className="min-h-11 flex-1 rounded-full bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"
                 >
                   {waitlistLoading ? "Entrando…" : "Entrar na fila"}
                 </button>
@@ -755,18 +866,24 @@ export function BookingFlow({
         </p>
       )}
 
-      <button
-        onClick={handleConfirmClick}
-        disabled={
-          !proId ||
-          !slot ||
-          (authStep === "guest-form" && (!name || !isValidPhoneBR(phone))) ||
-          loading
-        }
-        className="mb-6 w-full rounded-full bg-primary py-4 text-base font-semibold text-primary-foreground shadow-lg transition disabled:opacity-40"
-      >
-        {loading ? "Confirmando…" : "Confirmar agendamento"}
-      </button>
+      <div className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-[480px] border-t border-border/70 bg-background/95 px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_24px_rgba(0,0,0,0.18)] backdrop-blur">
+        <button
+          onClick={handleConfirmClick}
+          disabled={
+            !proId ||
+            !slot ||
+            (authStep === "guest-form" && (!name || !isValidPhoneBR(phone))) ||
+            loading
+          }
+          className="min-h-12 w-full rounded-full bg-primary px-5 py-3 text-base font-semibold text-primary-foreground shadow-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-40"
+        >
+          {loading
+            ? "Confirmando…"
+            : rescheduleId
+              ? "Confirmar remarcação"
+              : "Confirmar agendamento"}
+        </button>
+      </div>
     </section>
   );
 }
@@ -785,7 +902,8 @@ function BoardingPass({
   salonSlug: string;
 }) {
   function downloadIcs() {
-    const dt = (d: Date) => format(d, "yyyyMMdd'T'HHmmss");
+    const dt = (d: Date) =>
+      d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
     const end = new Date(booked.startAt.getTime() + booked.durationMin * 60_000);
     const ics = [
       "BEGIN:VCALENDAR",
@@ -811,7 +929,7 @@ function BoardingPass({
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-5 py-10">
+    <div className="flex min-h-dvh flex-col items-center justify-center px-5 py-10">
       <div className="animate-pop mb-6 grid h-16 w-16 place-items-center rounded-full bg-primary text-primary-foreground shadow-[0_0_40px_-8px_hsl(var(--primary))]">
         <Check className="check-draw h-8 w-8" strokeWidth={2.5} />
       </div>
@@ -835,10 +953,15 @@ function BoardingPass({
           </div>
           <div>
             <p className="font-display text-4xl leading-none text-primary">
-              {format(booked.startAt, "HH:mm")}
+              {formatInTimeZone(booked.startAt, booked.timezone, "HH:mm")}
             </p>
             <p className="mt-2 text-sm capitalize text-foreground">
-              {format(booked.startAt, "EEEE, d 'de' MMMM", { locale: ptBR })}
+              {formatInTimeZone(
+                booked.startAt,
+                booked.timezone,
+                "EEEE, d 'de' MMMM",
+                { locale: ptBR },
+              )}
             </p>
           </div>
         </div>
@@ -871,9 +994,9 @@ function BoardingPass({
           </div>
           <div>
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-              Lembrete
+              Fuso do local
             </p>
-            <p className="mt-1 text-sm font-medium">No dia, via WhatsApp</p>
+            <p className="mt-1 text-sm font-medium">{booked.timezone}</p>
           </div>
         </div>
       </div>

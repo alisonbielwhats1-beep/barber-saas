@@ -1,10 +1,11 @@
-import { getTenantContext } from "@/lib/tenant";
+import { requireRole } from "@/lib/tenant";
+import { MANAGEMENT_ROLES } from "@/lib/role-permissions";
 import { withTenant } from "@/lib/prisma-tenant";
 import { ProductForm } from "./product-form";
 import { ProductsCatalog, type ProductCard } from "./products-catalog";
 
 export default async function ProdutosPage() {
-  const ctx = await getTenantContext();
+  const ctx = await requireRole(MANAGEMENT_ROLES);
   const { salonId } = ctx;
 
   const { products, sales } = await withTenant(ctx, async (tx) => {

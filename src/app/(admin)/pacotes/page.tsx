@@ -1,11 +1,12 @@
-import { getTenantContext } from "@/lib/tenant";
+import { requireRole } from "@/lib/tenant";
+import { MANAGEMENT_ROLES } from "@/lib/role-permissions";
 import { withTenant } from "@/lib/prisma-tenant";
 import { formatMoney } from "@/lib/utils";
 import { Layers, CircleDollarSign, BadgePercent, TrendingUp } from "lucide-react";
 import { PacotesView } from "./pacotes-view";
 
 export default async function PacotesPage() {
-  const ctx = await getTenantContext();
+  const ctx = await requireRole(MANAGEMENT_ROLES);
   const { salonId } = ctx;
 
   // Sequencial de propósito: pooler com connection_limit=1 em serverless —

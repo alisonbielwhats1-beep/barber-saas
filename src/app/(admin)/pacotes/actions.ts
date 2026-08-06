@@ -107,7 +107,10 @@ export async function sellPackage(packageId: string, clientId: string) {
 
 export async function usePackageSession(purchaseId: string) {
   const ctx = await getTenantContext();
-  assertRole(ctx, ["OWNER", "MANAGER", "RECEPTIONIST", "PROFESSIONAL"]);
+  // O consumo ainda não está ligado atomicamente a um atendimento. Até
+  // existir esse vínculo, um profissional não pode consumir saldo de um
+  // cliente arbitrário apenas conhecendo o id da compra.
+  assertRole(ctx, ["OWNER", "MANAGER", "RECEPTIONIST"]);
   await withTenant(ctx, async (tx) => {
     const pur = await tx.packagePurchase.findFirst({
       where: { id: purchaseId, salonId: ctx.salonId },

@@ -3,8 +3,8 @@ import { withTenant } from "@/lib/prisma-tenant";
 import { getDashboardMetrics, RANGE_LABELS, type RangeKey } from "@/lib/dashboard";
 import { getFinanceMetrics } from "@/lib/finance";
 import { formatMoney, formatDuration } from "@/lib/utils";
-import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { formatInTimeZone } from "date-fns-tz";
 import { TrendingUp, TrendingDown, FileBarChart } from "lucide-react";
 import { RangeFilter } from "../dashboard/range-filter";
 import { ReportActions, type ReportSection } from "./report-actions";
@@ -30,10 +30,20 @@ export default async function RelatoriosPage({
   // getDashboardMetrics mantém as próprias waves de prisma.* cru (RLS-M6,
   // fora de escopo aqui); só a chamada a getFinanceMetrics abre transação,
   // por causa da mudança de assinatura de lib/finance.ts.
-  const m = await getDashboardMetrics(salonId, range);
-  const fin = await withTenant(ctx, (tx) => getFinanceMetrics(tx, salonId, range));
+  const timezone = await withTenant(ctx, async (tx) => {
+    const salon = await tx.salon.findUnique({
+      where: { id: salonId },
+      select: { timezone: true },
+    });
+    if (!salon) throw new Error("Estabelecimento não encontrado");
+    return salon.timezone;
+  });
+  const m = await getDashboardMetrics(salonId, range, timezone);
+  const fin = await withTenant(ctx, (tx) =>
+    getFinanceMetrics(tx, salonId, range, timezone),
+  );
 
-  const periodLabel = `${format(m.period.from, "d MMM", { locale: ptBR })} – ${format(m.period.to, "d MMM yyyy", { locale: ptBR })}`;
+  const periodLabel = `${formatInTimeZone(m.period.from, timezone, "d MMM", { locale: ptBR })} – ${formatInTimeZone(m.period.to, timezone, "d MMM yyyy", { locale: ptBR })}`;
 
   // Seções exportáveis (CSV)
   const sections: ReportSection[] = [

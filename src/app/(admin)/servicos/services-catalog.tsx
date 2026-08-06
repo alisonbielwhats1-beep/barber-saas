@@ -57,10 +57,18 @@ function marginColor(m: number) {
   return m >= 0.5 ? "#2ECC8B" : m >= 0.3 ? "#F59E0B" : "#EF4444";
 }
 
-export function ServicesCatalog({ services }: { services: ServiceCard[] }) {
+export function ServicesCatalog({
+  services,
+  canManage,
+  canSeeFinancial,
+}: {
+  services: ServiceCard[];
+  canManage: boolean;
+  canSeeFinancial: boolean;
+}) {
   const [search, setSearch]           = useState("");
   const [activeCategory, setCategory] = useState("all");
-  const [sort, setSort]               = useState<Sort>("popular");
+  const [sort, setSort]               = useState<Sort>(canSeeFinancial ? "popular" : "name");
   const [view, setView]               = useState<View>("grid");
 
   const categories = useMemo(
@@ -132,9 +140,9 @@ export function ServicesCatalog({ services }: { services: ServiceCard[] }) {
             onChange={(e) => setSort(e.target.value as Sort)}
             className="h-9 rounded-full border border-border bg-card px-3 text-[12px] text-muted-foreground focus:outline-none"
           >
-            <option value="popular">Mais vendidos</option>
+            {canSeeFinancial && <option value="popular">Mais vendidos</option>}
             <option value="price">Maior preço</option>
-            <option value="margin">Maior margem</option>
+            {canSeeFinancial && <option value="margin">Maior margem</option>}
             <option value="name">Nome (A-Z)</option>
           </select>
 
@@ -170,9 +178,21 @@ export function ServicesCatalog({ services }: { services: ServiceCard[] }) {
         <div className="space-y-3">
           {groups.map(({ cat, items }) =>
             view === "grid" ? (
-              <CategoryGroupGrid key={cat} cat={cat} items={items} />
+              <CategoryGroupGrid
+                key={cat}
+                cat={cat}
+                items={items}
+                canManage={canManage}
+                canSeeFinancial={canSeeFinancial}
+              />
             ) : (
-              <CategoryGroupList key={cat} cat={cat} items={items} />
+              <CategoryGroupList
+                key={cat}
+                cat={cat}
+                items={items}
+                canManage={canManage}
+                canSeeFinancial={canSeeFinancial}
+              />
             )
           )}
         </div>
@@ -183,7 +203,17 @@ export function ServicesCatalog({ services }: { services: ServiceCard[] }) {
 
 /* ── Vista GRADE — banner full-width por categoria ─────────────────────── */
 
-function CategoryGroupGrid({ cat, items }: { cat: string; items: ServiceCard[] }) {
+function CategoryGroupGrid({
+  cat,
+  items,
+  canManage,
+  canSeeFinancial,
+}: {
+  cat: string;
+  items: ServiceCard[];
+  canManage: boolean;
+  canSeeFinancial: boolean;
+}) {
   const totalRevenue = items.reduce((s, i) => s + i.revenueCents, 0);
   const totalSold    = items.reduce((s, i) => s + i.sold, 0);
 
@@ -205,14 +235,19 @@ function CategoryGroupGrid({ cat, items }: { cat: string; items: ServiceCard[] }
           <p className="text-[17px] font-semibold text-white drop-shadow">{cat}</p>
           <p className="mt-0.5 text-[12px] text-white/70">
             {items.length} {items.length === 1 ? "serviço" : "serviços"}
-            {totalSold > 0 && ` · ${totalSold} vendas · ${formatMoney(totalRevenue)}`}
+            {canSeeFinancial && totalSold > 0 && ` · ${totalSold} vendas · ${formatMoney(totalRevenue)}`}
           </p>
         </div>
       </div>
 
       {/* Serviços — linhas sem imagem */}
       {items.map((s) => (
-        <ServiceRow key={s.id} s={s} />
+        <ServiceRow
+          key={s.id}
+          s={s}
+          canManage={canManage}
+          canSeeFinancial={canSeeFinancial}
+        />
       ))}
     </div>
   );
@@ -220,7 +255,17 @@ function CategoryGroupGrid({ cat, items }: { cat: string; items: ServiceCard[] }
 
 /* ── Vista LISTA — sem imagens, apenas separador de categoria ───────────── */
 
-function CategoryGroupList({ cat, items }: { cat: string; items: ServiceCard[] }) {
+function CategoryGroupList({
+  cat,
+  items,
+  canManage,
+  canSeeFinancial,
+}: {
+  cat: string;
+  items: ServiceCard[];
+  canManage: boolean;
+  canSeeFinancial: boolean;
+}) {
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card">
       {/* Cabeçalho de texto simples */}
@@ -230,7 +275,12 @@ function CategoryGroupList({ cat, items }: { cat: string; items: ServiceCard[] }
         </p>
       </div>
       {items.map((s) => (
-        <ServiceRow key={s.id} s={s} />
+        <ServiceRow
+          key={s.id}
+          s={s}
+          canManage={canManage}
+          canSeeFinancial={canSeeFinancial}
+        />
       ))}
     </div>
   );
@@ -238,7 +288,15 @@ function CategoryGroupList({ cat, items }: { cat: string; items: ServiceCard[] }
 
 /* ── Linha de serviço (compartilhada entre as duas vistas) ─────────────── */
 
-function ServiceRow({ s }: { s: ServiceCard }) {
+function ServiceRow({
+  s,
+  canManage,
+  canSeeFinancial,
+}: {
+  s: ServiceCard;
+  canManage: boolean;
+  canSeeFinancial: boolean;
+}) {
   const m = margin(s);
   return (
     <div
@@ -267,23 +325,23 @@ function ServiceRow({ s }: { s: ServiceCard }) {
         </p>
       </div>
 
-      <div className="hidden w-14 shrink-0 text-right sm:block">
+      {canSeeFinancial && <div className="hidden w-14 shrink-0 text-right sm:block">
         <p className="text-[13px] font-semibold" style={{ color: marginColor(m) }}>
           {(m * 100).toFixed(0)}%
         </p>
         <p className="text-[10px] text-muted-foreground">margem</p>
-      </div>
+      </div>}
 
-      <div className="hidden w-10 shrink-0 text-right sm:block">
+      {canSeeFinancial && <div className="hidden w-10 shrink-0 text-right sm:block">
         <p className="text-[13px] font-semibold">{s.sold}</p>
         <p className="text-[10px] text-muted-foreground">vendas</p>
-      </div>
+      </div>}
 
       <p className="w-20 shrink-0 text-right text-[13px] font-semibold">
         {formatMoney(s.priceCents)}
       </p>
 
-      <ActionsMenu s={s} />
+      {canManage && <ActionsMenu s={s} />}
     </div>
   );
 }

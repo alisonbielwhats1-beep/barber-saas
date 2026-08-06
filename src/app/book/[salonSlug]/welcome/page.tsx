@@ -30,7 +30,7 @@ export default async function WelcomePage({
   const heroSrc = salon.logoUrl ?? HERO_IMAGES[heroIdx];
 
   return (
-    <div className="relative flex min-h-screen flex-col overflow-hidden">
+    <div className="relative flex min-h-dvh flex-col overflow-hidden">
       {/* Hero image */}
       <Image
         src={heroSrc}

@@ -7,24 +7,46 @@ import { DeleteButton } from "./delete-button";
 
 export default async function PortfolioPage() {
   const ctx = await getTenantContext();
-  const { salonId } = ctx;
+  const { salonId, role, userId } = ctx;
 
-  const { items, pros } = await withTenant(ctx, async (tx) => {
-    const items = await tx.portfolioItem.findMany({
-      where: { salonId },
-      include: {
-        professional: { select: { user: { select: { name: true } } } },
-      },
-      orderBy: { createdAt: "desc" },
-    });
+  const { items, pros, ownProfessional } = await withTenant(ctx, async (tx) => {
+    const ownProfessional =
+      role === "PROFESSIONAL"
+        ? await tx.professional.findFirst({
+            where: { salonId, userId, active: true },
+            select: { id: true, user: { select: { name: true } } },
+          })
+        : null;
+    const items =
+      role === "PROFESSIONAL" && !ownProfessional
+        ? []
+        : await tx.portfolioItem.findMany({
+            where: {
+              salonId,
+              ...(role === "PROFESSIONAL" ? { professionalId: ownProfessional!.id } : {}),
+            },
+            include: {
+              professional: { select: { user: { select: { name: true } } } },
+            },
+            orderBy: { createdAt: "desc" },
+          });
     const pros = await tx.professional.findMany({
-      where: { salonId, active: true },
+      where: {
+        salonId,
+        active: true,
+        ...(role === "PROFESSIONAL" ? { userId } : {}),
+      },
       select: { id: true, user: { select: { name: true } } },
     });
-    return { items, pros };
+    return { items, pros, ownProfessional };
   });
 
   const proOptions = pros.map((p) => ({ id: p.id, name: p.user.name }));
+  const canManage = role === "OWNER" || role === "MANAGER";
+  const lockedProfessional =
+    role === "PROFESSIONAL" && ownProfessional
+      ? { id: ownProfessional.id, name: ownProfessional.user.name }
+      : undefined;
 
   return (
     <div className="space-y-6">
@@ -35,7 +57,12 @@ export default async function PortfolioPage() {
           </p>
           <h1 className="text-2xl font-semibold tracking-tight">Portfolio</h1>
         </div>
-        <PortfolioForm professionals={proOptions} />
+        {(canManage || lockedProfessional) && (
+          <PortfolioForm
+            professionals={proOptions}
+            lockedProfessional={lockedProfessional}
+          />
+        )}
       </header>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
@@ -58,13 +85,15 @@ export default async function PortfolioPage() {
                   <p className="opacity-70">por {it.professional.user.name}</p>
                 )}
               </div>
-              <DeleteButton id={it.id} />
+              {canManage && <DeleteButton id={it.id} />}
             </div>
           </Card>
         ))}
         {items.length === 0 && (
           <Card className="col-span-full p-12 text-center text-[13px] text-muted-foreground">
-            Nenhuma foto ainda. Adicione a primeira e o portfolio aparece no app.
+            {role === "PROFESSIONAL" && !ownProfessional
+              ? "Seu usuário ainda não possui um perfil profissional ativo neste estabelecimento."
+              : "Nenhuma foto ainda. Adicione a primeira e o portfolio aparece no app."}
           </Card>
         )}
       </div>

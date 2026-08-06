@@ -1,14 +1,14 @@
 import { withSalon } from "./prisma-tenant";
 import {
-  subDays,
-  addDays,
-  startOfYear,
-  differenceInCalendarDays,
   differenceInMinutes,
-  eachDayOfInterval,
 } from "date-fns";
 import { getProfessionalPerformance, getTopServices, getOccupancyRate } from "./kpis";
-import { startOfBrazilDay, endOfBrazilDay, brazilDateKey } from "./br-time";
+import {
+  DEFAULT_TIMEZONE,
+  addCalendarDays,
+  dateKeyInTimeZone,
+  startOfDateInTimeZone,
+} from "./time";
 
 /**
  * Motor de métricas do dashboard do dono. Uma única função resolve o período
@@ -31,30 +31,67 @@ export const RANGE_LABELS: Record<RangeKey, string> = {
   year: "Este ano",
 };
 
-export function resolveRange(range: RangeKey, now = new Date()) {
+export function resolveRange(
+  range: RangeKey,
+  timezone = DEFAULT_TIMEZONE,
+  now = new Date(),
+) {
+  const today = dateKeyInTimeZone(now, timezone);
+  const endDate = addCalendarDays(today, 1);
+  let fromDate: string;
   switch (range) {
     case "today":
-      return { from: startOfBrazilDay(now), to: endOfBrazilDay(now) };
-    case "yesterday": {
-      const d = subDays(now, 1);
-      return { from: startOfBrazilDay(d), to: endOfBrazilDay(d) };
-    }
+      fromDate = today;
+      break;
+    case "yesterday":
+      fromDate = addCalendarDays(today, -1);
+      return {
+        from: startOfDateInTimeZone(fromDate, timezone),
+        to: startOfDateInTimeZone(today, timezone),
+        fromDate,
+        toDate: today,
+      };
     case "7d":
-      return { from: startOfBrazilDay(subDays(now, 6)), to: endOfBrazilDay(now) };
+      fromDate = addCalendarDays(today, -6);
+      break;
     case "15d":
-      return { from: startOfBrazilDay(subDays(now, 14)), to: endOfBrazilDay(now) };
+      fromDate = addCalendarDays(today, -14);
+      break;
     case "30d":
-      return { from: startOfBrazilDay(subDays(now, 29)), to: endOfBrazilDay(now) };
+      fromDate = addCalendarDays(today, -29);
+      break;
     case "90d":
-      return { from: startOfBrazilDay(subDays(now, 89)), to: endOfBrazilDay(now) };
+      fromDate = addCalendarDays(today, -89);
+      break;
     case "year":
-      return { from: startOfYear(now), to: endOfBrazilDay(now) };
+      fromDate = `${today.slice(0, 4)}-01-01`;
+      break;
   }
+  return {
+    from: startOfDateInTimeZone(fromDate, timezone),
+    to: startOfDateInTimeZone(endDate, timezone),
+    fromDate,
+    toDate: endDate,
+  };
 }
 
-function previousWindow(from: Date, to: Date) {
-  const len = differenceInCalendarDays(to, from) + 1;
-  return { from: startOfBrazilDay(subDays(from, len)), to: endOfBrazilDay(subDays(from, 1)) };
+function daysBetween(fromDate: string, toDate: string): number {
+  const from = Date.parse(`${fromDate}T00:00:00Z`);
+  const to = Date.parse(`${toDate}T00:00:00Z`);
+  return Math.round((to - from) / 86_400_000);
+}
+
+function previousWindow(
+  fromDate: string,
+  toDate: string,
+  timezone: string,
+) {
+  const length = daysBetween(fromDate, toDate);
+  const previousFromDate = addCalendarDays(fromDate, -length);
+  return {
+    from: startOfDateInTimeZone(previousFromDate, timezone),
+    to: startOfDateInTimeZone(fromDate, timezone),
+  };
 }
 
 function pctChange(curr: number, prev: number): number | null {
@@ -62,11 +99,25 @@ function pctChange(curr: number, prev: number): number | null {
   return (curr - prev) / prev;
 }
 
-export async function getDashboardMetrics(salonId: string, range: RangeKey) {
+export async function getDashboardMetrics(
+  salonId: string,
+  range: RangeKey,
+  timezone = DEFAULT_TIMEZONE,
+) {
   const now = new Date();
-  const { from, to } = resolveRange(range, now);
-  const prev = previousWindow(from, to);
-  const lostThreshold = subDays(now, 60);
+  const resolved = resolveRange(range, timezone, now);
+  const { from, to } = resolved;
+  const prev = previousWindow(resolved.fromDate, resolved.toDate, timezone);
+  const todayDate = dateKeyInTimeZone(now, timezone);
+  const today = {
+    from: startOfDateInTimeZone(todayDate, timezone),
+    to: startOfDateInTimeZone(addCalendarDays(todayDate, 1), timezone),
+  };
+  const tomorrow = {
+    from: today.to,
+    to: startOfDateInTimeZone(addCalendarDays(todayDate, 2), timezone),
+  };
+  const lostThreshold = startOfDateInTimeZone(addCalendarDays(todayDate, -60), timezone);
 
   // O dashboard costumava iniciar mais de vinte queries ao mesmo tempo.
   // Em serverless, isso pode esgotar o pool do Prisma/Supavisor antes que as
@@ -85,7 +136,7 @@ export async function getDashboardMetrics(salonId: string, range: RangeKey) {
     // 1. Atendimentos concluídos no período (motor de receita, ticket, gênero)
     withSalon(salonId, (tx) =>
       tx.appointment.findMany({
-        where: { salonId, status: "COMPLETED", startAt: { gte: from, lte: to } },
+        where: { salonId, status: "COMPLETED", startAt: { gte: from, lt: to } },
         select: {
           priceCents: true,
           startAt: true,
@@ -99,7 +150,7 @@ export async function getDashboardMetrics(salonId: string, range: RangeKey) {
     // 2. Concluídos no período anterior (comparação)
     withSalon(salonId, (tx) =>
       tx.appointment.aggregate({
-        where: { salonId, status: "COMPLETED", startAt: { gte: prev.from, lte: prev.to } },
+        where: { salonId, status: "COMPLETED", startAt: { gte: prev.from, lt: prev.to } },
         _sum: { priceCents: true },
         _count: { _all: true },
       }),
@@ -108,7 +159,7 @@ export async function getDashboardMetrics(salonId: string, range: RangeKey) {
     withSalon(salonId, (tx) =>
       tx.appointment.groupBy({
         by: ["status"],
-        where: { salonId, startAt: { gte: from, lte: to } },
+        where: { salonId, startAt: { gte: from, lt: to } },
         _count: { _all: true },
       }),
     ),
@@ -118,7 +169,7 @@ export async function getDashboardMetrics(salonId: string, range: RangeKey) {
         where: {
           salonId,
           status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
-          startAt: { gte: startOfBrazilDay(now) },
+          startAt: { gte: today.from },
         },
         select: { startAt: true, priceCents: true, professionalId: true },
       }),
@@ -128,14 +179,14 @@ export async function getDashboardMetrics(salonId: string, range: RangeKey) {
   const [proPerf, topServices, occupancy, waitlistEntries] = await Promise.all([
     withSalon(salonId, (tx) => getProfessionalPerformance(tx, salonId, from, to)),
     withSalon(salonId, (tx) => getTopServices(tx, salonId, from, to, 5)),
-    withSalon(salonId, (tx) => getOccupancyRate(tx, salonId, from, to)),
+    withSalon(salonId, (tx) => getOccupancyRate(tx, salonId, from, to, timezone)),
     // Conversão da lista de espera: de quem entrou na fila NO PERÍODO, quantos
     // acabaram confirmados (fulfilledAt não-nulo, seja qual for a data do
     // preenchimento). Volume esperado é baixo (dezenas por salão/mês) — busca
     // as linhas e conta em memória em vez de duas queries de agregação.
     withSalon(salonId, (tx) =>
       tx.waitlistEntry.findMany({
-        where: { salonId, createdAt: { gte: from, lte: to } },
+        where: { salonId, createdAt: { gte: from, lt: to } },
         select: { fulfilledAt: true },
       }),
     ),
@@ -154,7 +205,7 @@ export async function getDashboardMetrics(salonId: string, range: RangeKey) {
     withSalon(salonId, (tx) =>
       tx.clientProfile.groupBy({
         by: ["gender"],
-        where: { salonId, createdAt: { gte: from, lte: to } },
+        where: { salonId, createdAt: { gte: from, lt: to } },
         _count: { _all: true },
       }),
     ),
@@ -170,7 +221,7 @@ export async function getDashboardMetrics(salonId: string, range: RangeKey) {
     withSalon(salonId, (tx) => tx.clientProfile.count({ where: { salonId } })),
   ]);
 
-  const [professionals, productsSoldAgg, outOfStock] = await Promise.all([
+  const [professionals, productsSoldAgg, outOfStock, completedToday] = await Promise.all([
     withSalon(salonId, (tx) =>
       tx.professional.findMany({
         where: { salonId },
@@ -180,12 +231,22 @@ export async function getDashboardMetrics(salonId: string, range: RangeKey) {
     // Produtos vendidos no período
     withSalon(salonId, (tx) =>
       tx.appointmentProduct.aggregate({
-        where: { appointment: { salonId, startAt: { gte: from, lte: to } } },
+        where: { appointment: { salonId, startAt: { gte: from, lt: to } } },
         _sum: { quantity: true },
       }),
     ),
     withSalon(salonId, (tx) =>
       tx.product.count({ where: { salonId, active: true, stock: { lte: 0 } } }),
+    ),
+    withSalon(salonId, (tx) =>
+      tx.appointment.aggregate({
+        where: {
+          salonId,
+          status: "COMPLETED",
+          startAt: { gte: today.from, lt: today.to },
+        },
+        _sum: { priceCents: true },
+      }),
     ),
   ]);
 
@@ -205,9 +266,7 @@ export async function getDashboardMetrics(salonId: string, range: RangeKey) {
   const prevAvg = prevCount > 0 ? prevRevenue / prevCount : 0;
 
   // Receita de hoje (subconjunto, independe do filtro)
-  const revenueToday = completed
-    .filter((a) => a.startAt >= startOfBrazilDay(now) && a.startAt <= endOfBrazilDay(now))
-    .reduce((s, a) => s + a.priceCents, 0);
+  const revenueToday = completedToday._sum.priceCents ?? 0;
 
   // ── Comissões / lucro ─────────────────────────────────────────
   const commissionPaid = proPerf.reduce((s, p) => s + p.commissionCents, 0);
@@ -231,7 +290,7 @@ export async function getDashboardMetrics(salonId: string, range: RangeKey) {
   const waitlistConversionRate = waitlistTotal > 0 ? waitlistFulfilled / waitlistTotal : null;
 
   // ── Próximos ──────────────────────────────────────────────────
-  const in30 = addDays(now, 30);
+  const in30 = startOfDateInTimeZone(addCalendarDays(todayDate, 31), timezone);
   const forecast = upcoming
     .filter((a) => a.startAt <= in30)
     .reduce((s, a) => s + a.priceCents, 0);
@@ -239,17 +298,19 @@ export async function getDashboardMetrics(salonId: string, range: RangeKey) {
     (s, a) => s + Math.round((a.priceCents * (commissionPctById.get(a.professionalId) ?? 0)) / 100),
     0,
   );
-  const tomorrow = addDays(now, 1);
   const apptsToday = upcoming.filter(
-    (a) => a.startAt >= startOfBrazilDay(now) && a.startAt <= endOfBrazilDay(now),
+    (appointment) => appointment.startAt >= today.from && appointment.startAt < today.to,
   ).length;
   const apptsTomorrow = upcoming.filter(
-    (a) => a.startAt >= startOfBrazilDay(tomorrow) && a.startAt <= endOfBrazilDay(tomorrow),
+    (appointment) =>
+      appointment.startAt >= tomorrow.from && appointment.startAt < tomorrow.to,
   ).length;
 
   // ── Clientes ──────────────────────────────────────────────────
   const activeClients = clientAgg.filter(
-    (c) => (c._max.startAt ?? new Date(0)) >= from && (c._max.startAt ?? new Date(0)) <= to,
+    (client) =>
+      (client._max.startAt ?? new Date(0)) >= from &&
+      (client._max.startAt ?? new Date(0)) < to,
   ).length;
   const returningClients = clientAgg.filter((c) => c._count._all >= 2).length;
   const lostClients = clientAgg.filter(
@@ -285,11 +346,15 @@ export async function getDashboardMetrics(salonId: string, range: RangeKey) {
 
   // ── Séries de gráfico ─────────────────────────────────────────
   const dayBucket = new Map<string, { total: number; male: number; female: number }>();
-  for (const d of eachDayOfInterval({ start: from, end: to })) {
-    dayBucket.set(brazilDateKey(d), { total: 0, male: 0, female: 0 });
+  for (
+    let date = resolved.fromDate;
+    date < resolved.toDate;
+    date = addCalendarDays(date, 1)
+  ) {
+    dayBucket.set(date, { total: 0, male: 0, female: 0 });
   }
   for (const a of completed) {
-    const k = brazilDateKey(a.startAt);
+    const k = dateKeyInTimeZone(a.startAt, timezone);
     const b = dayBucket.get(k);
     if (b) {
       b.total += a.priceCents;
@@ -306,7 +371,7 @@ export async function getDashboardMetrics(salonId: string, range: RangeKey) {
 
   return {
     range,
-    period: { from, to },
+    period: { from, to: new Date(to.getTime() - 1) },
     revenue: { value: revenue, change: pctChange(revenue, prevRevenue) },
     revenueToday,
     forecast,

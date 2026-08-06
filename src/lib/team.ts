@@ -1,5 +1,6 @@
 import type { Tx } from "./prisma-tenant";
-import { differenceInMinutes, startOfMonth, endOfMonth } from "date-fns";
+import { differenceInMinutes } from "date-fns";
+import { dateKeyInTimeZone, monthRangeInTimeZone } from "./time";
 
 /**
  * Performance da equipe no mês corrente: por profissional agrega receita,
@@ -7,14 +8,21 @@ import { differenceInMinutes, startOfMonth, endOfMonth } from "date-fns";
  * retorno (clientes que voltaram no período) e progresso da meta mensal.
  * Ordena por receita e marca o ranking.
  */
-export async function getTeamPerformance(tx: Tx, salonId: string) {
+export async function getTeamPerformance(
+  tx: Tx,
+  salonId: string,
+  timezone: string,
+  professionalId?: string,
+) {
   const now = new Date();
-  const from = startOfMonth(now);
-  const to = endOfMonth(now);
+  const { from, to } = monthRangeInTimeZone(
+    dateKeyInTimeZone(now, timezone),
+    timezone,
+  );
 
   // Sequencial: pooler com connection_limit=1 em serverless (ver P2024).
   const pros = await tx.professional.findMany({
-    where: { salonId },
+    where: { salonId, ...(professionalId ? { id: professionalId } : {}) },
     select: {
       id: true,
       bio: true,
@@ -29,12 +37,22 @@ export async function getTeamPerformance(tx: Tx, salonId: string) {
     orderBy: { user: { name: "asc" } },
   });
   const completed = await tx.appointment.findMany({
-    where: { salonId, status: "COMPLETED", startAt: { gte: from, lte: to } },
+    where: {
+      salonId,
+      ...(professionalId ? { professionalId } : {}),
+      status: "COMPLETED",
+      startAt: { gte: from, lt: to },
+    },
     select: { professionalId: true, clientId: true, priceCents: true, startAt: true, endAt: true },
   });
   const noShows = await tx.appointment.groupBy({
     by: ["professionalId"],
-    where: { salonId, status: "NO_SHOW", startAt: { gte: from, lte: to } },
+    where: {
+      salonId,
+      ...(professionalId ? { professionalId } : {}),
+      status: "NO_SHOW",
+      startAt: { gte: from, lt: to },
+    },
     _count: { _all: true },
   });
 

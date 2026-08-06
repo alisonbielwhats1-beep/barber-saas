@@ -9,10 +9,24 @@ import { ClientsCrm } from "./clients-crm";
 
 export default async function ClientesPage() {
   const ctx = await getTenantContext();
-  const { salonId } = ctx;
+  const { salonId, role } = ctx;
   const { clients, salon } = await withTenant(ctx, async (tx) => {
-    const clients = await getClientList(tx, salonId);
-    const salon = await tx.salon.findUnique({ where: { id: salonId }, select: { name: true } });
+    const professional = role === "PROFESSIONAL"
+      ? await tx.professional.findFirst({
+          where: { salonId, userId: ctx.userId, active: true },
+          select: { id: true },
+        })
+      : null;
+    const clients = role === "PROFESSIONAL" && !professional
+      ? []
+      : await getClientList(tx, salonId, {
+          professionalId: professional?.id,
+          includeCommercialData: role !== "PROFESSIONAL",
+        });
+    const salon = await tx.salon.findUnique({
+      where: { id: salonId },
+      select: { name: true, timezone: true },
+    });
     return { clients, salon };
   });
 
@@ -24,7 +38,7 @@ export default async function ClientesPage() {
   return (
     <div className="space-y-6">
       <PageHeader kicker="CRM" title="Clientes">
-        <ClientForm />
+        {role !== "PROFESSIONAL" && <ClientForm />}
       </PageHeader>
 
       <section className="stagger grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -34,7 +48,12 @@ export default async function ClientesPage() {
         <Kpi icon={Clock} accent="#EF4444" label="Sumidos (60d+)" value={lapsed.toString()} />
       </section>
 
-      <ClientsCrm clients={clients} salonName={salon?.name ?? "nosso salão"} />
+      <ClientsCrm
+        clients={clients}
+        salonName={salon?.name ?? "nosso salão"}
+        timezone={salon?.timezone ?? "America/Sao_Paulo"}
+        canManage={role !== "PROFESSIONAL"}
+      />
     </div>
   );
 }

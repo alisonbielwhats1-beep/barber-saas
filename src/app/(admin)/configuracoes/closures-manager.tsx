@@ -2,8 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { formatInTimeZone } from "date-fns-tz";
 import { CalendarOff, Plus, Trash2, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -24,9 +24,11 @@ export type Closure = {
 export function ClosuresManager({
   closures,
   canManage,
+  timezone,
 }: {
   closures: Closure[];
   canManage: boolean;
+  timezone: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -51,12 +53,7 @@ export function ClosuresManager({
     const startDate = String(f.get("startDate"));
     const endDate = String(f.get("endDate") || startDate);
     const reason = (f.get("reason") as string) || null;
-    // Dia inteiro, do início de startDate ao fim de endDate, no fuso do
-    // navegador — como o admin já opera de dentro do Brasil, isso equivale
-    // ao dia local do salão sem precisar reimplementar br-time no cliente.
-    const startAt = new Date(`${startDate}T00:00:00`).toISOString();
-    const endAt = new Date(`${endDate}T23:59:59`).toISOString();
-    run(() => createSalonClosure({ startAt, endAt, reason }));
+    run(() => createSalonClosure({ startDate, endDate, reason }));
   }
 
   return (
@@ -110,8 +107,10 @@ export function ClosuresManager({
         <ul className="space-y-2">
           {closures.map((c) => {
             const start = new Date(c.startAt);
-            const end = new Date(c.endAt);
-            const sameDay = format(start, "yyyy-MM-dd") === format(end, "yyyy-MM-dd");
+            const end = new Date(new Date(c.endAt).getTime() - 1);
+            const sameDay =
+              formatInTimeZone(start, timezone, "yyyy-MM-dd") ===
+              formatInTimeZone(end, timezone, "yyyy-MM-dd");
             return (
               <li
                 key={c.id}
@@ -120,8 +119,8 @@ export function ClosuresManager({
                 <div className="min-w-0">
                   <p className="text-[13px] font-medium">
                     {sameDay
-                      ? format(start, "d 'de' MMMM", { locale: ptBR })
-                      : `${format(start, "d MMM", { locale: ptBR })} – ${format(end, "d MMM", { locale: ptBR })}`}
+                      ? formatInTimeZone(start, timezone, "d 'de' MMMM", { locale: ptBR })
+                      : `${formatInTimeZone(start, timezone, "d MMM", { locale: ptBR })} – ${formatInTimeZone(end, timezone, "d MMM", { locale: ptBR })}`}
                   </p>
                   {c.reason && <p className="truncate text-[11px] text-muted-foreground">{c.reason}</p>}
                 </div>

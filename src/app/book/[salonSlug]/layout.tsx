@@ -34,9 +34,9 @@ export default function BookLayout({ children }: { children: React.ReactNode }) 
   return (
     <div
       data-theme="salon-dark"
-      className="min-h-screen bg-background text-foreground"
+      className="min-h-dvh bg-background text-foreground"
     >
-      <div className="mx-auto min-h-screen w-full max-w-[480px] pb-24">
+      <div className="mx-auto min-h-dvh w-full max-w-[480px] pb-[calc(6rem+env(safe-area-inset-bottom))]">
         {children}
       </div>
     </div>

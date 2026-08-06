@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "./auth";
 import { withUser } from "./prisma-tenant";
+import { FINANCIAL_ROLES } from "./role-permissions";
 
 /**
  * Contexto de tenant resolvido a partir da sessão NextAuth.
@@ -58,14 +59,14 @@ export async function getTenantContext(): Promise<TenantContext> {
 }
 
 /** Asserção de role — chame no início de Server Actions sensíveis. */
-export function assertRole(ctx: TenantContext, roles: Role[]) {
+export function assertRole(ctx: TenantContext, roles: readonly Role[]) {
   if (!roles.includes(ctx.role)) {
     throw new Error(`Forbidden: requires one of ${roles.join(", ")}`);
   }
 }
 
 /** Papéis que enxergam dados financeiros do salão inteiro. */
-export const FINANCE_ROLES: Role[] = ["SUPER_ADMIN", "OWNER", "MANAGER"];
+export const FINANCE_ROLES: readonly Role[] = FINANCIAL_ROLES;
 
 /**
  * Guarda de PÁGINA (não de action). Resolve o tenant e, se o papel não estiver
@@ -77,9 +78,11 @@ export const FINANCE_ROLES: Role[] = ["SUPER_ADMIN", "OWNER", "MANAGER"];
  * descartavam o `role`: as Server Actions barravam a escrita, mas qualquer
  * membro do salão conseguia LER o financeiro completo abrindo a URL direto.
  */
-export async function requireRole(roles: Role[]): Promise<TenantContext> {
+export async function requireRole(roles: readonly Role[]): Promise<TenantContext> {
   const ctx = await getTenantContext();
-  if (!roles.includes(ctx.role)) redirect("/dashboard");
+  if (!roles.includes(ctx.role)) {
+    redirect(ctx.role === "PROFESSIONAL" ? "/agenda" : "/dashboard");
+  }
   return ctx;
 }
 

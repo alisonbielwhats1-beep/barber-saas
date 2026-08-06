@@ -30,8 +30,9 @@ const body = z
  * específico que já está ocupado.
  *
  * Não cria conta nem exige uma — visitante entra com nome+telefone, igual ao
- * agendamento normal. Se o horário abrir (cancelamento), a fila é preenchida
- * automaticamente por `fulfillWaitlistOnCancel` — ver src/lib/waitlist.ts.
+ * agendamento normal. Se o cliente desistir e o horário continuar válido, a
+ * fila é preenchida automaticamente por `fulfillWaitlistOnCancel`. Um
+ * cancelamento do estabelecimento não realoca a vaga por segurança.
  */
 export async function POST(req: NextRequest) {
   const limited = await checkRateLimit({

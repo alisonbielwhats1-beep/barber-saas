@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import {
   Dialog,
   DialogContent,
@@ -27,10 +27,11 @@ import {
   ArrowLeft,
   Users,
   AlertTriangle,
+  History,
 } from "lucide-react";
 import { formatMoney } from "@/lib/utils";
-import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { formatInTimeZone } from "date-fns-tz";
 import {
   updateAppointmentStatus,
   cancelAppointment,
@@ -55,11 +56,26 @@ function waLink(phone: string | null, clientName: string, salonName: string, whe
   return `https://wa.me/${full}?text=${encodeURIComponent(msg)}`;
 }
 
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"]/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+  })[character]!);
+}
+
 function printReceipt(
   appt: { clientName: string; serviceName: string; priceCents: number; startAt: string },
   salonName: string,
+  timezone: string,
 ) {
-  const when = format(new Date(appt.startAt), "d 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR });
+  const when = formatInTimeZone(
+    new Date(appt.startAt),
+    timezone,
+    "d 'de' MMMM 'de' yyyy 'às' HH:mm",
+    { locale: ptBR },
+  );
   const price = formatMoney(appt.priceCents);
   const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Recibo</title>
   <style>
@@ -73,13 +89,13 @@ function printReceipt(
     .tag{display:inline-block;margin-top:16px;font-size:11px;color:#2ECC8B;font-weight:700}
   </style></head><body>
   <div class="card">
-    <h1>${salonName}</h1>
+    <h1>${escapeHtml(salonName)}</h1>
     <p class="muted">Recibo de atendimento</p>
     <div style="height:16px"></div>
-    <div class="row"><span>Cliente</span><b>${appt.clientName}</b></div>
-    <div class="row"><span>Serviço</span><b>${appt.serviceName}</b></div>
-    <div class="row"><span>Data</span><b>${when}</b></div>
-    <div class="total"><span>Total</span><span>${price}</span></div>
+    <div class="row"><span>Cliente</span><b>${escapeHtml(appt.clientName)}</b></div>
+    <div class="row"><span>Serviço</span><b>${escapeHtml(appt.serviceName)}</b></div>
+    <div class="row"><span>Data</span><b>${escapeHtml(when)}</b></div>
+    <div class="total"><span>Total</span><span>${escapeHtml(price)}</span></div>
     <span class="tag">✓ PAGO</span>
   </div>
   <script>window.onload=function(){window.print()}</script>
@@ -96,37 +112,60 @@ type ViewMode = "detail" | "edit" | "comanda";
 export function AppointmentDetail({
   appt,
   salonName,
+  timezone,
+  canCreate,
+  canCancel,
   onClose,
 }: {
   appt: Appointment | null;
   salonName: string;
+  timezone: string;
+  canCreate: boolean;
+  canCancel: boolean;
   onClose: () => void;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<ViewMode>("detail");
+  const [cancelMode, setCancelMode] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const mutationKeys = useRef(new Map<string, string>());
 
   const start = appt ? new Date(appt.startAt) : new Date();
   const end = appt ? new Date(appt.endAt) : new Date();
-  const [editDate, setEditDate] = useState(() => format(start, "yyyy-MM-dd"));
-  const [editTime, setEditTime] = useState(() => format(start, "HH:mm"));
+  const [editDate, setEditDate] = useState(() => formatInTimeZone(start, timezone, "yyyy-MM-dd"));
+  const [editTime, setEditTime] = useState(() => formatInTimeZone(start, timezone, "HH:mm"));
   const [editNotes, setEditNotes] = useState(appt?.notes ?? "");
 
   if (!appt) return null;
 
   const cfg = STATUS[appt.status as keyof typeof STATUS] ?? STATUS.CONFIRMED;
-  const whenLabel = `${format(start, "d 'de' MMMM 'às' HH:mm", { locale: ptBR })}`;
+  const whenLabel = formatInTimeZone(start, timezone, "d 'de' MMMM 'às' HH:mm", { locale: ptBR });
 
-  const canOpenComanda =
-    appt.status === "CONFIRMED" ||
-    appt.status === "IN_PROGRESS" ||
-    appt.status === "PENDING";
+  const canOpenComanda = canCreate && ["PENDING", "CONFIRMED", "IN_PROGRESS"].includes(appt.status);
+  const isMutable =
+    ["PENDING", "CONFIRMED"].includes(appt.status) && start.getTime() > Date.now();
+  const availableActions = nextActions(appt.status).filter(
+    (status) => status !== "NO_SHOW" || start.getTime() <= Date.now(),
+  );
 
-  function run(fn: () => Promise<void>) {
+  function mutationKey(action: string) {
+    const existing = mutationKeys.current.get(action);
+    if (existing) return existing;
+    const created = crypto.randomUUID();
+    mutationKeys.current.set(action, created);
+    return created;
+  }
+
+  function run(fn: () => Promise<{ error: string } | { success: true } | void>) {
     setError(null);
     startTransition(async () => {
       try {
-        await fn();
+        const result = await fn();
+        if (result && "error" in result) {
+          setError(result.error);
+          return;
+        }
         onClose();
       } catch (e) {
         setError(e instanceof Error ? e.message : "Erro");
@@ -136,8 +175,8 @@ export function AppointmentDetail({
 
   function openEdit() {
     if (!appt) return;
-    setEditDate(format(start, "yyyy-MM-dd"));
-    setEditTime(format(start, "HH:mm"));
+    setEditDate(formatInTimeZone(start, timezone, "yyyy-MM-dd"));
+    setEditTime(formatInTimeZone(start, timezone, "HH:mm"));
     setEditNotes(appt.notes ?? "");
     setError(null);
     setView("edit");
@@ -145,10 +184,17 @@ export function AppointmentDetail({
 
   function saveEdit() {
     if (!appt) return;
-    const startAt = new Date(`${editDate}T${editTime}:00`).toISOString();
     setError(null);
     startTransition(async () => {
-      const result = await editAppointment({ id: appt.id, startAt, notes: editNotes || null });
+      const result = await editAppointment({
+        id: appt.id,
+        professionalId: appt.professionalId,
+        serviceIds: appt.serviceIds,
+        startLocal: `${editDate}T${editTime}`,
+        notes: editNotes || null,
+        idempotencyKey: mutationKey("edit"),
+        expectedVersion: appt.version,
+      });
       if ("error" in result) {
         setError(result.error);
       } else {
@@ -209,7 +255,10 @@ export function AppointmentDetail({
                   <input
                     type="date"
                     value={editDate}
-                    onChange={(e) => setEditDate(e.target.value)}
+                    onChange={(e) => {
+                      mutationKeys.current.delete("edit");
+                      setEditDate(e.target.value);
+                    }}
                     className="w-full rounded-lg border border-border bg-surface-1 px-3 py-2 text-[13px] focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
@@ -220,7 +269,10 @@ export function AppointmentDetail({
                   <input
                     type="time"
                     value={editTime}
-                    onChange={(e) => setEditTime(e.target.value)}
+                    onChange={(e) => {
+                      mutationKeys.current.delete("edit");
+                      setEditTime(e.target.value);
+                    }}
                     className="w-full rounded-lg border border-border bg-surface-1 px-3 py-2 text-[13px] focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
@@ -232,7 +284,10 @@ export function AppointmentDetail({
                 </label>
                 <textarea
                   value={editNotes}
-                  onChange={(e) => setEditNotes(e.target.value)}
+                  onChange={(e) => {
+                    mutationKeys.current.delete("edit");
+                    setEditNotes(e.target.value);
+                  }}
                   rows={3}
                   placeholder="Preferências, alergias, observações…"
                   className="w-full resize-none rounded-lg border border-border bg-surface-1 px-3 py-2 text-[13px] placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
@@ -276,7 +331,7 @@ export function AppointmentDetail({
                 <Row icon={Scissors} label={appt.serviceName} />
                 <Row
                   icon={Clock}
-                  label={`${format(start, "HH:mm")} – ${format(end, "HH:mm")} · ${format(start, "EEEE, d MMM", { locale: ptBR })}`}
+                  label={`${formatInTimeZone(start, timezone, "HH:mm")} – ${formatInTimeZone(end, timezone, "HH:mm")} · ${formatInTimeZone(start, timezone, "EEEE, d MMM", { locale: ptBR })}`}
                 />
                 <Row icon={User} label={appt.clientPhone ?? "Sem telefone"} />
                 <Row
@@ -307,6 +362,35 @@ export function AppointmentDetail({
                     )}
                   </div>
                 )}
+                {appt.events.length > 0 && (
+                  <div className="rounded-lg border border-border bg-surface-1 p-3">
+                    <p className="mb-2 flex items-center gap-1.5 text-[12px] font-semibold">
+                      <History className="h-4 w-4 text-muted-foreground" />
+                      Histórico imutável
+                    </p>
+                    <ol className="space-y-2 border-l border-border pl-3">
+                      {appt.events.map((event) => (
+                        <li key={event.id} className="text-[11px] leading-relaxed">
+                          <p className="font-medium">{eventTitle(event.eventType)}</p>
+                          {event.eventType === "RESCHEDULED" && event.previousStartAt && event.startAt && (
+                            <p className="text-muted-foreground">
+                              {formatHistoryTime(event.previousStartAt, timezone)} → {formatHistoryTime(event.startAt, timezone)}
+                            </p>
+                          )}
+                          {event.previousStatus && event.status && (
+                            <p className="text-muted-foreground">
+                              {statusName(event.previousStatus)} → {statusName(event.status)}
+                            </p>
+                          )}
+                          <p className="text-muted-foreground">
+                            {event.actorName ?? actorName(event.actorType)} · {formatInTimeZone(new Date(event.createdAt), timezone, "dd/MM/yyyy HH:mm")}
+                          </p>
+                          {event.reason && <p className="mt-0.5 text-muted-foreground">Motivo: {event.reason}</p>}
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
               </div>
 
               {error && (
@@ -317,15 +401,22 @@ export function AppointmentDetail({
 
               {/* Status action buttons */}
               <div className="mt-4 flex flex-wrap gap-2">
-                {nextActions(appt.status).map((s) => {
+                {availableActions.map((s) => {
                   const Icon = ACTION_ICON[s] ?? Check;
                   const target = STATUS[s];
                   return (
                     <button
                       key={s}
                       disabled={pending}
-                      onClick={() => run(() => updateAppointmentStatus(appt.id, s as ApptStatus))}
-                      className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-medium text-white transition hover:opacity-90 disabled:opacity-50"
+                      onClick={() =>
+                        run(() =>
+                          updateAppointmentStatus(appt.id, s as ApptStatus, {
+                            idempotencyKey: mutationKey(`status:${s}`),
+                            expectedVersion: appt.version,
+                          }),
+                        )
+                      }
+                      className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-medium text-white transition hover:opacity-90 disabled:opacity-50"
                       style={{ background: target.color }}
                     >
                       <Icon className="h-4 w-4" />
@@ -337,13 +428,15 @@ export function AppointmentDetail({
 
               {/* Utility actions */}
               <div className="mt-3 grid grid-cols-2 gap-2 border-t border-border pt-3">
-                <button
-                  onClick={openEdit}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary/10 px-3 py-2 text-[13px] font-medium text-primary transition hover:bg-primary/20"
-                >
-                  <Pencil className="h-4 w-4" />
-                  Editar
-                </button>
+                {isMutable && (
+                  <button
+                    onClick={openEdit}
+                    className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg bg-primary/10 px-3 py-2 text-[13px] font-medium text-primary transition hover:bg-primary/20"
+                  >
+                    <Pencil className="h-4 w-4" />
+                    Editar
+                  </button>
+                )}
                 <a
                   href={waLink(appt.clientPhone, appt.clientName, salonName, whenLabel)}
                   target="_blank"
@@ -353,15 +446,19 @@ export function AppointmentDetail({
                   <MessageCircle className="h-4 w-4" />
                   WhatsApp
                 </a>
-                <button
-                  disabled={pending}
-                  onClick={() => run(() => duplicateAppointment(appt.id))}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[13px] font-medium text-muted-foreground transition hover:text-foreground disabled:opacity-50"
-                  title="Reagendar para a semana seguinte no mesmo horário"
-                >
-                  <Copy className="h-4 w-4" />
-                  Repetir
-                </button>
+                {canCreate && (
+                  <button
+                    disabled={pending}
+                    onClick={() =>
+                      run(() => duplicateAppointment(appt.id, mutationKey("duplicate")))
+                    }
+                    className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[13px] font-medium text-muted-foreground transition hover:text-foreground disabled:opacity-50"
+                    title="Criar nova visita na semana seguinte"
+                  >
+                    <Copy className="h-4 w-4" />
+                    Repetir
+                  </button>
+                )}
                 {canOpenComanda ? (
                   <button
                     onClick={() => { setError(null); setView("comanda"); }}
@@ -371,41 +468,116 @@ export function AppointmentDetail({
                     <CreditCard className="h-4 w-4" />
                     Fechar comanda
                   </button>
-                ) : (
+                ) : canCreate && appt.status === "COMPLETED" && appt.hasPayment ? (
                   <button
-                    onClick={() => printReceipt(appt, salonName)}
+                    onClick={() => printReceipt(appt, salonName, timezone)}
                     className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[13px] font-medium text-muted-foreground transition hover:text-foreground"
                     title="Imprimir recibo"
                   >
                     <Receipt className="h-4 w-4" />
                     Recibo
                   </button>
-                )}
+                ) : null}
               </div>
 
               {/* Cancel */}
-              <button
-                disabled={pending}
-                onClick={() => run(() => cancelAppointment(appt.id))}
-                title={
-                  appt.waitlistCount > 0
-                    ? `Ao cancelar, ${appt.waitlistNext ?? "o primeiro da fila"} é confirmado automaticamente nesse horário`
-                    : undefined
-                }
-                className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[13px] font-medium text-muted-foreground transition hover:border-danger/50 hover:text-danger disabled:opacity-50"
-              >
-                <Ban className="h-4 w-4" />
-                Cancelar agendamento
-                {appt.waitlistCount > 0 && (
-                  <span className="ml-1 text-[11px] text-amber-600">(fila será chamada)</span>
-                )}
-              </button>
+              {isMutable && canCancel && (cancelMode ? (
+                <div className="mt-3 space-y-2 rounded-lg border border-danger/40 bg-danger/5 p-3">
+                  <label className="block text-[12px] font-medium text-danger" htmlFor="cancel-reason">
+                    Motivo do cancelamento
+                  </label>
+                  <textarea
+                    id="cancel-reason"
+                    value={cancelReason}
+                    onChange={(event) => {
+                      mutationKeys.current.delete("cancel");
+                      setCancelReason(event.target.value);
+                    }}
+                    rows={3}
+                    maxLength={500}
+                    autoFocus
+                    className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    placeholder="Explique o motivo para o histórico e para o cliente"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    O registro será preservado, o horário liberado e a parte interessada notificada.
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { setCancelMode(false); setCancelReason(""); }}
+                      className="min-h-11 flex-1 rounded-lg border border-border px-3 text-sm"
+                    >
+                      Voltar
+                    </button>
+                    <button
+                      type="button"
+                      disabled={pending || cancelReason.trim().length < 3}
+                      onClick={() =>
+                        run(() =>
+                          cancelAppointment(
+                            appt.id,
+                            cancelReason.trim(),
+                            mutationKey("cancel"),
+                            appt.version,
+                          ),
+                        )
+                      }
+                      className="min-h-11 flex-1 rounded-lg bg-danger px-3 text-sm font-medium text-white disabled:opacity-40"
+                    >
+                      Confirmar cancelamento
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  disabled={pending}
+                  onClick={() => setCancelMode(true)}
+                  title={
+                    appt.waitlistCount > 0
+                      ? `Ao cancelar, ${appt.waitlistNext ?? "o primeiro da fila"} será chamado para esse horário`
+                      : undefined
+                  }
+                  className="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[13px] font-medium text-muted-foreground transition hover:border-danger/50 hover:text-danger disabled:opacity-50"
+                >
+                  <Ban className="h-4 w-4" />
+                  Cancelar agendamento
+                </button>
+              ))}
             </>
           )}
         </div>
       </DialogContent>
     </Dialog>
   );
+}
+
+function eventTitle(eventType: string): string {
+  return {
+    CREATED: "Agendamento criado",
+    RESCHEDULED: "Agendamento remarcado",
+    STATUS_CHANGED: "Status atualizado",
+    CANCELLED: "Agendamento cancelado",
+    WAITLIST_FULFILLED: "Vaga preenchida pela lista de espera",
+    REMINDER_MARKED: "Lembrete registrado",
+  }[eventType] ?? "Agendamento atualizado";
+}
+
+function actorName(actorType: string): string {
+  return {
+    CLIENT: "Cliente",
+    STAFF: "Equipe",
+    SYSTEM: "Sistema",
+    GUEST: "Visitante",
+  }[actorType] ?? "Sistema";
+}
+
+function statusName(status: string): string {
+  return STATUS[status as keyof typeof STATUS]?.label ?? status;
+}
+
+function formatHistoryTime(value: string, timezone: string): string {
+  return formatInTimeZone(new Date(value), timezone, "dd/MM/yyyy HH:mm");
 }
 
 function Row({

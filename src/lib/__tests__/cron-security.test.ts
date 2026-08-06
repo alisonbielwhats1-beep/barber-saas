@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 
 const mocks = vi.hoisted(() => ({
   salonFindMany: vi.fn(),
-  queryRaw: vi.fn(),
+  appointmentFindMany: vi.fn(),
   executeRaw: vi.fn(),
 }));
 
@@ -11,7 +11,10 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     salon: { findMany: mocks.salonFindMany },
     $transaction: (fn: (tx: unknown) => unknown) =>
-      fn({ $queryRaw: mocks.queryRaw, $executeRaw: mocks.executeRaw }),
+      fn({
+        appointment: { findMany: mocks.appointmentFindMany },
+        $executeRaw: mocks.executeRaw,
+      }),
   },
 }));
 
@@ -42,7 +45,7 @@ describe("GET /api/cron/reminders — fail closed", () => {
 
     expect(response.status).toBe(401);
     expect(mocks.salonFindMany).not.toHaveBeenCalled();
-    expect(mocks.queryRaw).not.toHaveBeenCalled();
+    expect(mocks.appointmentFindMany).not.toHaveBeenCalled();
   });
 
   it("falha sem cabeçalho de autorização", async () => {
@@ -52,7 +55,7 @@ describe("GET /api/cron/reminders — fail closed", () => {
 
     expect(response.status).toBe(401);
     expect(mocks.salonFindMany).not.toHaveBeenCalled();
-    expect(mocks.queryRaw).not.toHaveBeenCalled();
+    expect(mocks.appointmentFindMany).not.toHaveBeenCalled();
   });
 
   it("falha com segredo incorreto", async () => {
@@ -62,20 +65,23 @@ describe("GET /api/cron/reminders — fail closed", () => {
 
     expect(response.status).toBe(401);
     expect(mocks.salonFindMany).not.toHaveBeenCalled();
-    expect(mocks.queryRaw).not.toHaveBeenCalled();
+    expect(mocks.appointmentFindMany).not.toHaveBeenCalled();
   });
 
   it("aceita o segredo correto e varre um salão por vez (withSalon)", async () => {
     process.env.CRON_SECRET = "test-secret";
-    mocks.salonFindMany.mockResolvedValue([{ id: "salon-a" }, { id: "salon-b" }]);
-    mocks.queryRaw.mockResolvedValue([]);
+    mocks.salonFindMany.mockResolvedValue([
+      { id: "salon-a", timezone: "America/Sao_Paulo" },
+      { id: "salon-b", timezone: "America/Manaus" },
+    ]);
+    mocks.appointmentFindMany.mockResolvedValue([]);
 
     const response = await GET(request("Bearer test-secret"));
 
     expect(response.status).toBe(200);
     expect(mocks.salonFindMany).toHaveBeenCalledOnce();
-    // Um withSalon (que seta a GUC via $executeRaw) e um $queryRaw por salão.
+    // Um withSalon (que seta a GUC) e uma leitura de agenda por salão.
     expect(mocks.executeRaw).toHaveBeenCalledTimes(2);
-    expect(mocks.queryRaw).toHaveBeenCalledTimes(2);
+    expect(mocks.appointmentFindMany).toHaveBeenCalledTimes(2);
   });
 });

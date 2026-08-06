@@ -1,8 +1,25 @@
-# Handoff do projeto — Fase 1 em Production
+# Handoff do projeto — Fase 2 pronta para validação
 
-Atualizado em 29/07/2026. Este é o ponto canônico de retomada para outro chat
-ou computador. Leia também `docs/fase-1-rollout.md` e
-`docs/PROXIMAS_FASES.md`.
+Atualizado em 05/08/2026. Este é o ponto canônico de retomada para outro chat
+ou computador. Leia também `docs/fase-2-agenda-confiavel.md`,
+`docs/fase-1-rollout.md` e `docs/PROXIMAS_FASES.md`.
+
+## Situação atual da Fase 2
+
+- Checkout: `D:\Projetos\barber-saas`
+- Branch: `codex/fase-2-agenda-confiavel`
+- Escopo: agenda, timezone, concorrência, idempotência, histórico,
+  notificações internas, consistência mobile e permissões relacionadas
+- Banco remoto: **não acessado**
+- Migration da Fase 2: **não aplicada fora do CI descartável**
+- Production: **não alterada**
+- Próximo gate: PR/CI, PostgreSQL descartável, depois Preview/homologação
+
+O código possui preflight somente leitura, migration aditiva e rollback não
+destrutivo. A entrega não deve ser promovida diretamente para Production. Os
+detalhes e limitações estão em `docs/fase-2-agenda-confiavel.md`.
+
+## Registro histórico da Fase 1 em Production
 
 ## Onde o trabalho está
 

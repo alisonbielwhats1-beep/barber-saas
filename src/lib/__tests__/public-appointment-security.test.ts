@@ -2,37 +2,34 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const mocks = vi.hoisted(() => {
-  const appointmentCreate = vi.fn();
-  const clientCreate = vi.fn();
-  // A rota inteira (leituras e escritas) passa a rodar dentro de uma única
-  // withSalon — não há mais um $transaction separado só para as escritas.
-  // Por isso um objeto só serve tanto de "prisma" de topo quanto de "tx"
-  // devolvido ao callback: é a mesma mudança de forma de finance-access-
-  // security.test.ts, aqui com mais métodos por causa do fluxo de reserva.
-  const prisma = {
-    salon: { findUnique: vi.fn() },
-    salonClosure: { findFirst: vi.fn() },
-    service: { findFirst: vi.fn() },
-    professionalService: { findFirst: vi.fn() },
-    appointment: { findFirst: vi.fn(), create: appointmentCreate },
-    product: { findMany: vi.fn(), update: vi.fn() },
-    clientProfile: { findFirst: vi.fn(), create: clientCreate },
+  const createAppointment = vi.fn();
+  const tx = {
+    product: {
+      findMany: vi.fn().mockResolvedValue([]),
+      updateMany: vi.fn(),
+    },
     appointmentProduct: { createMany: vi.fn() },
     $executeRaw: vi.fn().mockResolvedValue(undefined),
-    $transaction: vi.fn(),
   };
-  prisma.$transaction.mockImplementation(
-    async (callback: (value: typeof prisma) => unknown) => callback(prisma),
+  const transaction = vi.fn(
+    async (callback: (value: typeof tx) => unknown) => callback(tx),
   );
   return {
+    createAppointment,
     getClientSession: vi.fn(),
-    appointmentCreate,
-    clientCreate,
-    prisma,
+    transaction,
+    tx,
   };
 });
 
-vi.mock("@/lib/prisma", () => ({ prisma: mocks.prisma }));
+vi.mock("@/lib/prisma", () => ({
+  prisma: { $transaction: mocks.transaction },
+}));
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("@/lib/appointment-service", () => ({
+  createAppointment: mocks.createAppointment,
+  appointmentErrorStatus: () => 409,
+}));
 vi.mock("@/lib/client-auth", () => ({
   getClientSession: mocks.getClientSession,
 }));
@@ -53,9 +50,10 @@ import { POST } from "@/app/api/appointments/route";
 
 const validBody = {
   salonId: "salon-a",
-  serviceId: "service-a",
+  serviceIds: ["service-a"],
   professionalId: "professional-a",
-  startAt: "2030-01-10T15:00:00.000Z",
+  startLocal: "2030-01-10T12:00",
+  idempotencyKey: "11111111-1111-4111-8111-111111111111",
   cartItems: [],
 };
 
@@ -76,47 +74,58 @@ describe("POST /api/appointments — identidade do cliente", () => {
       name: "Cliente",
       email: "cliente@example.com",
     });
-    // Janela de agendamento permissiva por padrão — não é o que estes testes
-    // verificam; `startAt` fixo do fixture (2030) fica bem além de qualquer
-    // limite realista de `maxBookingLeadDays`, então o teto aqui precisa ser
-    // grande o bastante pra não interferir.
-    mocks.prisma.salon.findUnique.mockResolvedValue({
-      minBookingLeadMinutes: 0,
-      maxBookingLeadDays: 100_000,
-      bufferMinutes: 0,
-    });
-    mocks.prisma.salonClosure.findFirst.mockResolvedValue(null);
-    mocks.prisma.service.findFirst.mockResolvedValue({
-      durationMin: 30,
-      priceCents: 5_000,
-    });
-    mocks.prisma.professionalService.findFirst.mockResolvedValue({
-      serviceId: "service-a",
-    });
-    mocks.prisma.appointment.findFirst.mockResolvedValue(null);
-    mocks.prisma.clientProfile.findFirst.mockResolvedValue({
-      id: "client-session",
-    });
-    mocks.appointmentCreate.mockResolvedValue({
-      id: "appointment-a",
-      startAt: new Date(validBody.startAt),
-      endAt: new Date("2030-01-10T15:30:00.000Z"),
+    mocks.createAppointment.mockResolvedValue({
+      appointment: {
+        id: "appointment-a",
+        startAt: new Date("2030-01-10T15:00:00.000Z"),
+        endAt: new Date("2030-01-10T15:30:00.000Z"),
+        version: 1,
+        clientId: "client-session",
+        professionalId: "professional-a",
+      },
+      duplicate: false,
     });
   });
 
-  it("usa exclusivamente o cliente da sessão na persistência", async () => {
+  it("usa exclusivamente o cliente da sessão na operação central", async () => {
     const response = await POST(request(validBody));
 
     expect(response.status).toBe(201);
-    expect(mocks.prisma.clientProfile.findFirst).toHaveBeenCalledWith({
-      where: { id: "client-session", salonId: "salon-a" },
-      select: { id: true },
-    });
-    expect(mocks.appointmentCreate).toHaveBeenCalledWith(
+    expect(mocks.createAppointment).toHaveBeenCalledWith(
+      mocks.tx,
       expect.objectContaining({
-        data: expect.objectContaining({ clientId: "client-session" }),
+        salonId: "salon-a",
+        clientId: "client-session",
+        actor: expect.objectContaining({ type: "CLIENT", id: "client-session" }),
       }),
     );
+    const body = await response.json();
+    expect(body.appointment).not.toHaveProperty("clientId");
+  });
+
+  it("retry idempotente não depende do estado atual do catálogo", async () => {
+    mocks.createAppointment.mockResolvedValueOnce({
+      appointment: {
+        id: "appointment-a",
+        startAt: new Date("2030-01-10T15:00:00.000Z"),
+        endAt: new Date("2030-01-10T15:30:00.000Z"),
+        version: 1,
+        clientId: "client-session",
+        professionalId: "professional-a",
+      },
+      duplicate: true,
+    });
+
+    const response = await POST(
+      request({
+        ...validBody,
+        cartItems: [{ productId: "product-now-inactive", quantity: 1 }],
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.tx.product.findMany).not.toHaveBeenCalled();
+    expect(mocks.tx.product.updateMany).not.toHaveBeenCalled();
   });
 
   it("clientId enviado pelo navegador não substitui a sessão", async () => {
@@ -125,17 +134,16 @@ describe("POST /api/appointments — identidade do cliente", () => {
     );
 
     expect(response.status).toBe(400);
-    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+    expect(mocks.transaction).not.toHaveBeenCalled();
   });
 
-  it("cliente do salão A consegue agendar como visitante no salão B", async () => {
+  it("cliente do salão A agenda no salão B somente como visitante", async () => {
     mocks.getClientSession.mockResolvedValue({
       clientId: "client-salon-a",
       salonId: "salon-a",
       name: "Outro",
       email: "outro@example.com",
     });
-    mocks.prisma.clientProfile.create.mockResolvedValue({ id: "guest-salon-b" });
 
     const response = await POST(
       request({
@@ -147,26 +155,26 @@ describe("POST /api/appointments — identidade do cliente", () => {
     );
 
     expect(response.status).toBe(201);
-    expect(mocks.prisma.clientProfile.create).toHaveBeenCalledWith({
-      data: {
+    const input = mocks.createAppointment.mock.calls[0]![1];
+    expect(input).toEqual(
+      expect.objectContaining({
         salonId: "salon-b",
-        name: "Visitante B",
-        phone: "11988887777",
-      },
-      select: { id: true },
-    });
+        guest: { name: "Visitante B", phone: "11988887777" },
+        actor: expect.objectContaining({ type: "GUEST" }),
+      }),
+    );
+    expect(input).not.toHaveProperty("clientId");
   });
 
-  it("sessão do salão A nunca é anexada ao agendamento do salão B", async () => {
+  it("sessão de outro tenant nunca é anexada ao agendamento", async () => {
     mocks.getClientSession.mockResolvedValue({
       clientId: "client-salon-a",
       salonId: "salon-a",
       name: "Cliente A",
       email: "a@example.com",
     });
-    mocks.prisma.clientProfile.create.mockResolvedValue({ id: "guest-salon-b" });
 
-    const response = await POST(
+    await POST(
       request({
         ...validBody,
         salonId: "salon-b",
@@ -175,23 +183,13 @@ describe("POST /api/appointments — identidade do cliente", () => {
       }),
     );
 
-    expect(response.status).toBe(201);
-    expect(mocks.prisma.clientProfile.findFirst).not.toHaveBeenCalled();
-    expect(mocks.appointmentCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ clientId: "guest-salon-b" }),
-      }),
-    );
-    expect(mocks.appointmentCreate).not.toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ clientId: "client-salon-a" }),
-      }),
-    );
+    const input = mocks.createAppointment.mock.calls[0]![1];
+    expect(input).not.toHaveProperty("clientId", "client-salon-a");
+    expect(input.guest).toEqual({ name: "Visitante B", phone: "11988887777" });
   });
 
   it("visitante não reutiliza identidade existente apenas pelo telefone", async () => {
     mocks.getClientSession.mockResolvedValue(null);
-    mocks.prisma.clientProfile.create.mockResolvedValue({ id: "guest-new" });
 
     const response = await POST(
       request({
@@ -202,27 +200,15 @@ describe("POST /api/appointments — identidade do cliente", () => {
     );
 
     expect(response.status).toBe(201);
-    expect(mocks.prisma.clientProfile.findFirst).not.toHaveBeenCalled();
-    expect(mocks.prisma.clientProfile.create).toHaveBeenCalledWith({
-      data: {
-        salonId: "salon-a",
-        name: "Visitante",
-        phone: "11999999999",
-      },
-      select: { id: true },
-    });
-    expect(mocks.appointmentCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ clientId: "guest-new" }),
-      }),
-    );
+    const input = mocks.createAppointment.mock.calls[0]![1];
+    expect(input).not.toHaveProperty("clientId");
+    expect(input.guest).toEqual({ name: "Visitante", phone: "11999999999" });
   });
 
   it("normaliza telefone do visitante exclusivamente no servidor", async () => {
     mocks.getClientSession.mockResolvedValue(null);
-    mocks.prisma.clientProfile.create.mockResolvedValue({ id: "guest-new" });
 
-    const response = await POST(
+    await POST(
       request({
         ...validBody,
         clientName: "Visitante",
@@ -230,14 +216,9 @@ describe("POST /api/appointments — identidade do cliente", () => {
       }),
     );
 
-    expect(response.status).toBe(201);
-    expect(mocks.prisma.clientProfile.create).toHaveBeenCalledWith({
-      data: {
-        salonId: "salon-a",
-        name: "Visitante",
-        phone: "11999998888",
-      },
-      select: { id: true },
+    expect(mocks.createAppointment.mock.calls[0]![1].guest).toEqual({
+      name: "Visitante",
+      phone: "11999998888",
     });
   });
 });
