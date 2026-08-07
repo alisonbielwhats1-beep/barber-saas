@@ -23,6 +23,7 @@ const METHOD_LABEL: Record<string, string> = {
   DEBIT_CARD: "Cartão de débito",
   CASH: "Dinheiro",
   TRANSFER: "Transferência",
+  DIRECT_PRODUCT_SALE: "Venda avulsa de produto",
 };
 
 const METHOD_COLOR: Record<string, string> = {
@@ -31,6 +32,7 @@ const METHOD_COLOR: Record<string, string> = {
   DEBIT_CARD: "#A855F7",
   CASH: "#F59E0B",
   TRANSFER: "#94A3B8",
+  DIRECT_PRODUCT_SALE: "#EC4899",
 };
 
 const CAT_COLORS = ["#3B9EFF", "#A855F7", "#F59E0B", "#EF4444", "#2ECC8B", "#EC4899", "#94A3B8"];
@@ -60,6 +62,10 @@ export async function getFinanceMetrics(
     where: { appointment: { salonId, status: "COMPLETED", startAt: { gte: from, lt: to } } },
     select: { quantity: true, priceCentsUnit: true, appointment: { select: { startAt: true } } },
   });
+  const directProductSales = await tx.productSale.findMany({
+    where: { salonId, soldAt: { gte: from, lt: to } },
+    select: { quantity: true, priceCentsUnit: true, soldAt: true },
+  });
   // Despesas do período (por vencimento)
   const expenses = await tx.expense.findMany({
     where: { salonId, dueDate: { gte: from, lt: to } },
@@ -84,7 +90,15 @@ export async function getFinanceMetrics(
   });
 
   const serviceRevenue = services.reduce((s, a) => s + a.priceCents, 0);
-  const productRevenue = products.reduce((s, x) => s + x.quantity * x.priceCentsUnit, 0);
+  const appointmentProductRevenue = products.reduce(
+    (sum, item) => sum + item.quantity * item.priceCentsUnit,
+    0,
+  );
+  const directProductRevenue = directProductSales.reduce(
+    (sum, sale) => sum + sale.quantity * sale.priceCentsUnit,
+    0,
+  );
+  const productRevenue = appointmentProductRevenue + directProductRevenue;
   const revenue = serviceRevenue + productRevenue;
 
   const commissions = proPerf.reduce((s, p) => s + p.commissionCents, 0);
@@ -115,6 +129,11 @@ export async function getFinanceMetrics(
     const b = bucket.get(k);
     if (b) b.in += x.quantity * x.priceCentsUnit;
   }
+  for (const sale of directProductSales) {
+    const k = dateKeyInTimeZone(sale.soldAt, timezone);
+    const b = bucket.get(k);
+    if (b) b.in += sale.quantity * sale.priceCentsUnit;
+  }
   for (const e of expenses) {
     const k = dateKeyInTimeZone(e.dueDate, timezone);
     const b = bucket.get(k);
@@ -137,6 +156,9 @@ export async function getFinanceMetrics(
   // ── Receita por forma de pagamento ────────────────────────────
   const methodMap = new Map<string, number>();
   for (const pay of payments) methodMap.set(pay.method, (methodMap.get(pay.method) ?? 0) + pay.amountCents);
+  if (directProductRevenue > 0) {
+    methodMap.set("DIRECT_PRODUCT_SALE", directProductRevenue);
+  }
   const byMethod = [...methodMap.entries()]
     .sort((a, b) => b[1] - a[1])
     .map(([method, value]) => ({

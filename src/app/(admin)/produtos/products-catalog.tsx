@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
@@ -16,6 +16,7 @@ import {
   CalendarClock,
   Loader2,
   Flame,
+  ShoppingCart,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -30,8 +31,22 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "@/components/ui/toast";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { ProductForm } from "./product-form";
-import { toggleProductActive, deleteProduct, adjustStock } from "./actions";
+import {
+  toggleProductActive,
+  deleteProduct,
+  adjustStock,
+  registerProductSale,
+} from "./actions";
 
 export type ProductCard = {
   id: string;
@@ -114,6 +129,10 @@ function ProductCardView({ p }: { p: ProductCard }) {
   const stockPct = Math.max(4, Math.min(100, (p.stock / Math.max(1, p.minStock * 3)) * 100));
 
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [saleOpen, setSaleOpen] = useState(false);
+  const [saleQuantity, setSaleQuantity] = useState(1);
+  const [saleError, setSaleError] = useState<string | null>(null);
+  const saleIdempotencyKey = useRef<string | null>(null);
 
   // Toda mutação dá feedback: sucesso ou erro, nunca silêncio.
   // Ajuste de estoque só avisa em erro — o número na tela já é o feedback.
@@ -129,10 +148,50 @@ function ProductCardView({ p }: { p: ProductCard }) {
     });
   }
 
+  function changeSaleQuantity(next: number) {
+    saleIdempotencyKey.current = null;
+    setSaleError(null);
+    setSaleQuantity(Math.max(1, Math.min(p.stock, next)));
+  }
+
+  function submitSale() {
+    setSaleError(null);
+    startTransition(async () => {
+      const idempotencyKey = saleIdempotencyKey.current ?? crypto.randomUUID();
+      saleIdempotencyKey.current = idempotencyKey;
+      const result = await registerProductSale({
+        productId: p.id,
+        quantity: saleQuantity,
+        idempotencyKey,
+      });
+
+      if (!result.ok) {
+        setSaleError(result.error);
+        return;
+      }
+
+      setSaleOpen(false);
+      setSaleQuantity(1);
+      saleIdempotencyKey.current = null;
+      router.refresh();
+      toast(
+        result.duplicate
+          ? "Venda já estava registrada"
+          : `Venda registrada · estoque atual: ${result.stockAfter}`,
+      );
+    });
+  }
+
   return (
     <div className={`card-interactive overflow-hidden rounded-2xl border border-border bg-card ${!p.active ? "opacity-60" : ""}`}>
-      <div className="relative aspect-video w-full overflow-hidden bg-muted">
-        <Image src={p.imageUrl || imageForProduct(p.index)} alt={p.name} fill sizes="(max-width:768px) 100vw, 33vw" className="object-cover" />
+      <div className="relative aspect-video w-full overflow-hidden bg-surface-1">
+        <Image
+          src={p.imageUrl || imageForProduct(p.index)}
+          alt={`Foto completa de ${p.name}`}
+          fill
+          sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw"
+          className="object-contain"
+        />
         <div className="absolute left-2 top-2 flex gap-1.5">
           {p.topSeller && (
             <span className="inline-flex items-center gap-1 rounded-full bg-marketing/90 px-2 py-0.5 text-[10px] font-semibold text-white">
@@ -198,6 +257,21 @@ function ProductCardView({ p }: { p: ProductCard }) {
           </div>
         </div>
 
+        <button
+          type="button"
+          onClick={() => {
+            setSaleError(null);
+            setSaleQuantity(1);
+            saleIdempotencyKey.current = null;
+            setSaleOpen(true);
+          }}
+          disabled={pending || p.stock === 0 || !p.active}
+          className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <ShoppingCart className="h-4 w-4" aria-hidden="true" />
+          {p.stock === 0 ? "Sem estoque para vender" : "Registrar venda"}
+        </button>
+
         <div className="mt-3 flex items-center justify-between border-t border-border pt-3 text-[11px] text-muted-foreground">
           <div className="min-w-0 space-y-0.5">
             {p.supplier && (
@@ -249,6 +323,105 @@ function ProductCardView({ p }: { p: ProductCard }) {
         }}
         pending={pending}
       />
+
+      <Dialog
+        open={saleOpen}
+        onOpenChange={(open) => {
+          if (pending) return;
+          setSaleOpen(open);
+          if (!open) {
+            setSaleError(null);
+            setSaleQuantity(1);
+            saleIdempotencyKey.current = null;
+          }
+        }}
+      >
+        <DialogContent className="w-[calc(100%-2rem)] max-w-sm rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Registrar venda</DialogTitle>
+            <DialogDescription>
+              A venda será contabilizada e o estoque de {p.name} será reduzido na mesma operação.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="rounded-xl border border-border bg-surface-1 p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold">{p.name}</p>
+                  <p className="text-xs text-muted-foreground">{p.stock} unidades disponíveis</p>
+                </div>
+                <p className="shrink-0 text-sm font-semibold">{formatMoney(p.priceCents)}</p>
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor={`sale-quantity-${p.id}`} className="mb-2 block text-sm font-medium">
+                Quantidade vendida
+              </label>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => changeSaleQuantity(saleQuantity - 1)}
+                  disabled={pending || saleQuantity <= 1}
+                  aria-label="Diminuir quantidade vendida"
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-border text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
+                >
+                  <Minus className="h-4 w-4" />
+                </button>
+                <input
+                  id={`sale-quantity-${p.id}`}
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={p.stock}
+                  value={saleQuantity}
+                  onChange={(event) => changeSaleQuantity(Number(event.target.value) || 1)}
+                  className="h-11 min-w-0 flex-1 rounded-xl border border-border bg-background px-3 text-center text-base font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                />
+                <button
+                  type="button"
+                  onClick={() => changeSaleQuantity(saleQuantity + 1)}
+                  disabled={pending || saleQuantity >= p.stock}
+                  aria-label="Aumentar quantidade vendida"
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-border text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between rounded-xl bg-primary/10 px-4 py-3">
+              <div>
+                <p className="text-xs text-muted-foreground">Estoque depois</p>
+                <p className="text-sm font-semibold">{p.stock - saleQuantity} unidades</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-muted-foreground">Total da venda</p>
+                <p className="text-base font-bold text-primary">
+                  {formatMoney(p.priceCents * saleQuantity)}
+                </p>
+              </div>
+            </div>
+
+            {saleError && (
+              <p role="alert" className="rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger">
+                {saleError}
+              </p>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setSaleOpen(false)} disabled={pending}>
+              Cancelar
+            </Button>
+            <Button type="button" onClick={submitSale} disabled={pending || saleQuantity > p.stock}>
+              {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShoppingCart className="h-4 w-4" />}
+              Confirmar venda
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

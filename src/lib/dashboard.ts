@@ -221,7 +221,13 @@ export async function getDashboardMetrics(
     withSalon(salonId, (tx) => tx.clientProfile.count({ where: { salonId } })),
   ]);
 
-  const [professionals, productsSoldAgg, outOfStock, completedToday] = await Promise.all([
+  const [
+    professionals,
+    appointmentProductsSoldAgg,
+    directProductsSoldAgg,
+    outOfStock,
+    completedToday,
+  ] = await Promise.all([
     withSalon(salonId, (tx) =>
       tx.professional.findMany({
         where: { salonId },
@@ -231,7 +237,19 @@ export async function getDashboardMetrics(
     // Produtos vendidos no período
     withSalon(salonId, (tx) =>
       tx.appointmentProduct.aggregate({
-        where: { appointment: { salonId, startAt: { gte: from, lt: to } } },
+        where: {
+          appointment: {
+            salonId,
+            status: "COMPLETED",
+            startAt: { gte: from, lt: to },
+          },
+        },
+        _sum: { quantity: true },
+      }),
+    ),
+    withSalon(salonId, (tx) =>
+      tx.productSale.aggregate({
+        where: { salonId, soldAt: { gte: from, lt: to } },
         _sum: { quantity: true },
       }),
     ),
@@ -406,7 +424,9 @@ export async function getDashboardMetrics(
       retentionRate,
     },
     products: {
-      sold: productsSoldAgg._sum.quantity ?? 0,
+      sold:
+        (appointmentProductsSoldAgg._sum.quantity ?? 0) +
+        (directProductsSoldAgg._sum.quantity ?? 0),
       outOfStock,
     },
     topService: topServices[0] ?? null,

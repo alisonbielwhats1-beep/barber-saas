@@ -420,7 +420,8 @@ export function BookingFlow({
   // Seleção explícita permite combinar serviços antes do profissional.
   if (choosingServices) {
     return (
-      <section className="animate-fade-in min-h-dvh space-y-6 px-5 pb-28 pt-6">
+      <>
+      <section className="animate-fade-in min-h-dvh space-y-6 px-5 pb-36 pt-6">
         <FlowHeader title="Escolha os serviços" onBack={() => router.push(`/book/${salonSlug}`)} />
         {selectedServices.length > 0 && (
           <div
@@ -589,7 +590,8 @@ export function BookingFlow({
           })}
         </div>
         )}
-        <div className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-[480px] border-t border-border/70 bg-background/95 px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_24px_rgba(0,0,0,0.18)] backdrop-blur">
+      </section>
+        <div className="fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-[480px] border-t border-border/70 bg-background/95 px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_24px_rgba(0,0,0,0.18)] backdrop-blur">
           <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
             <span>{formatDuration(totalDuration)}</span>
             <span>{formatMoney(totalServicePrice, currency)}</span>
@@ -608,12 +610,13 @@ export function BookingFlow({
             </p>
           )}
         </div>
-      </section>
+      </>
     );
   }
 
   return (
-    <section className="animate-fade-in min-h-dvh space-y-8 px-5 pb-28 pt-6">
+    <>
+    <section className="animate-fade-in min-h-dvh space-y-8 px-5 pb-32 pt-6">
       <FlowHeader
         title="Agendamento"
         onBack={() => setChoosingServices(true)}
@@ -998,7 +1001,8 @@ export function BookingFlow({
         </p>
       )}
 
-      <div className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-[480px] border-t border-border/70 bg-background/95 px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_24px_rgba(0,0,0,0.18)] backdrop-blur">
+    </section>
+      <div className="fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-[480px] border-t border-border/70 bg-background/95 px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_24px_rgba(0,0,0,0.18)] backdrop-blur">
         <button
           onClick={handleConfirmClick}
           disabled={
@@ -1016,7 +1020,7 @@ export function BookingFlow({
               : "Confirmar agendamento"}
         </button>
       </div>
-    </section>
+    </>
   );
 }
 

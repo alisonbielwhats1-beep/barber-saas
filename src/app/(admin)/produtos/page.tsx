@@ -8,23 +8,36 @@ export default async function ProdutosPage() {
   const ctx = await requireRole(MANAGEMENT_ROLES);
   const { salonId } = ctx;
 
-  const { products, sales } = await withTenant(ctx, async (tx) => {
+  const { products, appointmentSales, directSales } = await withTenant(ctx, async (tx) => {
     const products = await tx.product.findMany({
       where: { salonId },
       orderBy: [{ active: "desc" }, { name: "asc" }],
     });
-    const sales = await tx.appointmentProduct.groupBy({
+    const appointmentSales = await tx.appointmentProduct.groupBy({
       by: ["productId"],
-      where: { appointment: { salonId } },
+      where: { appointment: { salonId, status: "COMPLETED" } },
       _sum: { quantity: true },
     });
-    return { products, sales };
+    const directSales = await tx.productSale.groupBy({
+      by: ["productId"],
+      where: { salonId },
+      _sum: { quantity: true },
+    });
+    return { products, appointmentSales, directSales };
   });
 
-  const soldMap = new Map(sales.map((g) => [g.productId, g._sum.quantity ?? 0]));
-  const topId = sales.length
-    ? sales.reduce((a, b) => ((b._sum.quantity ?? 0) > (a._sum.quantity ?? 0) ? b : a)).productId
-    : null;
+  const soldMap = new Map<string, number>();
+  for (const sale of [...appointmentSales, ...directSales]) {
+    soldMap.set(
+      sale.productId,
+      (soldMap.get(sale.productId) ?? 0) + (sale._sum.quantity ?? 0),
+    );
+  }
+  const topId = [...soldMap.entries()].reduce<string | null>(
+    (top, [productId, quantity]) =>
+      top === null || quantity > (soldMap.get(top) ?? 0) ? productId : top,
+    null,
+  );
 
   const cards: ProductCard[] = products.map((p, i) => ({
     id: p.id,
