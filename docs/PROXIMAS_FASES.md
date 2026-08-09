@@ -1,5 +1,10 @@
 # Próximas fases — ordem prática
 
+> **Nota de atualização (09/08/2026):** este arquivo é um roadmap, não a fonte
+> do estado implantado. A Fase 2 e a administração global já foram promovidas.
+> Para saber o que está em Production e quais migrations estão pendentes, use
+> `docs/STATUS_ATUAL.md`.
+
 Este plano substitui a ambiguidade entre as “7 fases” históricas do painel e o
 programa atual do produto. O roadmap antigo registra entregas visuais já
 existentes; as fases abaixo organizam o trabalho daqui para frente.
@@ -37,7 +42,7 @@ Não exige nova migration. O checklist completo está em
 Objetivo: tornar a agenda confiável para uso diário e competitiva com produtos
 como Booksy, sem copiar interface ou regras proprietárias.
 
-**Implementação concluída na branch (05/08/2026), ainda não promovida:**
+**Implementação promovida para Production e estabilizada em releases posteriores:**
 
 - política central de timezone IANA, servidor como fonte de verdade e
   regressão automatizada do caso 10:00/13:00;
@@ -65,15 +70,15 @@ como Booksy, sem copiar interface ou regras proprietárias.
 - múltiplas unidades;
 - regras comerciais de pacote, cupom, comissão, taxa e pagamento online.
 
-Gate: CI verde com PostgreSQL descartável, smoke E2E em Preview isolado e
-validação de um dono/gerente com dados de demonstração. Até cumprir os três,
-a Fase 2 está pronta para validação, não para Production.
+O rollout inicial já ocorreu com CI, PostgreSQL descartável, preflight e
+rollback. Os itens deliberadamente pendentes acima permanecem como melhorias
+incrementais; não reaplique as migrations da fase.
 
 ## Fase 3 — multi-tenant, dados e arquitetura
 
 1. Inventariar toda consulta por tenant e impedir acesso sem `salonId`.
 2. Testar cross-tenant em API, actions, uploads, relatórios e jobs.
-3. Planejar RLS como defesa em profundidade sem quebrar Prisma/pooling.
+3. Auditar e manter a RLS já ativa, sem quebrar Prisma/pooling.
 4. Criar baseline confiável de migrations para novos ambientes.
 5. Resolver o drift de precisão de `Appointment` por migration própria.
 6. Definir estratégia de conexão Supabase: pooler para runtime e conexão direta
@@ -126,6 +131,11 @@ Gate: restore ensaiado, incidente simulado e observabilidade sem dados
 sensíveis.
 
 ## Fase 7 — billing e monetização
+
+O controle **manual** de cobranças já está preparado no código, protegido por
+`PLATFORM_BILLING_ENABLED=false`. A migration `011_platform_billing` não foi
+aplicada em Production. Os itens abaixo continuam necessários antes de billing
+automático ou ativação comercial.
 
 1. Definir planos, limites, trial, upgrade/downgrade e inadimplência.
 2. Integrar provedor de pagamentos por webhooks idempotentes.
