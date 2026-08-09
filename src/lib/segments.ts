@@ -1,6 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import { Scissors, Sparkles, Gem, Waves, LayoutGrid } from "lucide-react";
-import { CATEGORY_IMAGES, HERO_IMAGES, SEGMENT_IMAGES } from "./images";
+import { CATEGORY_IMAGES, HERO_IMAGES } from "./images";
 
 /**
  * Segmentos de negócio suportados pela plataforma — hoje é só apresentação
@@ -64,7 +64,7 @@ export const SEGMENTS: Segment[] = [
       "Controle de produtos",
       "Retorno do cliente facilitado",
     ],
-    accentImage: SEGMENT_IMAGES.barbearia,
+    accentImage: CATEGORY_IMAGES.combomaculino,
     heroImages: HERO_IMAGES,
   },
   {
@@ -88,8 +88,8 @@ export const SEGMENTS: Segment[] = [
       "Histórico completo do cliente",
       "Pacotes e recorrência",
     ],
-    accentImage: SEGMENT_IMAGES.salao,
-    heroImages: [SEGMENT_IMAGES.salao, CATEGORY_IMAGES.coloracao, CATEGORY_IMAGES.escova],
+    accentImage: CATEGORY_IMAGES.cortefeminino,
+    heroImages: [CATEGORY_IMAGES.cortefeminino, CATEGORY_IMAGES.coloracao, CATEGORY_IMAGES.escova],
   },
   {
     id: "manicure-nail",
@@ -112,8 +112,8 @@ export const SEGMENTS: Segment[] = [
       "Agendamento por duração",
       "Histórico e preferências do cliente",
     ],
-    accentImage: SEGMENT_IMAGES.manicure,
-    heroImages: [SEGMENT_IMAGES.manicure],
+    accentImage: CATEGORY_IMAGES.unhas,
+    heroImages: [CATEGORY_IMAGES.unhas],
   },
   {
     id: "estetica-bemestar",
@@ -135,8 +135,8 @@ export const SEGMENTS: Segment[] = [
       "Horários por profissional",
       "Tratamentos faciais e corporais",
     ],
-    accentImage: SEGMENT_IMAGES.estetica,
-    heroImages: [SEGMENT_IMAGES.estetica, CATEGORY_IMAGES.depilacao],
+    accentImage: CATEGORY_IMAGES.pele,
+    heroImages: [CATEGORY_IMAGES.pele, CATEGORY_IMAGES.depilacao],
   },
   {
     id: "espaco-misto",
@@ -159,8 +159,8 @@ export const SEGMENTS: Segment[] = [
       "Sem necessidade de outra conta para crescer",
       "Relatórios unificados",
     ],
-    accentImage: SEGMENT_IMAGES.misto,
-    heroImages: [SEGMENT_IMAGES.misto, CATEGORY_IMAGES.unhas, CATEGORY_IMAGES.pele],
+    accentImage: CATEGORY_IMAGES.maquiagem,
+    heroImages: [HERO_IMAGES[0], CATEGORY_IMAGES.unhas, CATEGORY_IMAGES.pele],
   },
 ];
 

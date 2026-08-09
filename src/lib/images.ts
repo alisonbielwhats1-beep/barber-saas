@@ -11,23 +11,12 @@
 const w = (id: string, size = 800) =>
   `https://images.unsplash.com/${id}?w=${size}&auto=format&fit=crop&q=80`;
 
-// Fontes maiores para capas e seletores em telas Retina/2K. O Next/Image
-// continua entregando tamanhos responsivos; estes URLs apenas evitam ampliar
-// um arquivo de origem pequeno em cards grandes.
-export const SEGMENT_IMAGES = {
-  barbearia: w("photo-1503951914875-452162b0f3f1", 1800),
-  salao: w("photo-1560066984-138dadb4c035", 1800),
-  manicure: w("photo-1604654894610-df63bc536371", 1800),
-  estetica: w("photo-1655029635663-aac10b088cd1", 1800),
-  misto: w("photo-1522338242992-e1a54906a8da", 1800),
-} as const;
-
 // Hero moody de barbearia — usado no splash
 export const HERO_IMAGES = [
-  w("photo-1503951914875-452162b0f3f1", 1800), // barbershop classic
-  w("photo-1622287162716-f311baa1a2b8", 1800), // barber tools
-  w("photo-1585747860715-2ba37e788b70", 1800), // client + barber
-  w("photo-1512690459411-b9245aed614b", 1800), // dark barber chair
+  w("photo-1503951914875-452162b0f3f1", 1200), // barbershop classic
+  w("photo-1622287162716-f311baa1a2b8", 1200), // barber tools
+  w("photo-1585747860715-2ba37e788b70", 1200), // client + barber
+  w("photo-1512690459411-b9245aed614b", 1200), // dark barber chair
 ];
 
 // Uma imagem representativa por categoria de serviço

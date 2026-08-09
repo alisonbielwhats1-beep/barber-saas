@@ -15,7 +15,6 @@ import {
   Search,
   Scissors,
   Sparkles,
-  ShoppingCart,
   Star,
   UserPlus,
   Waves,
@@ -45,7 +44,6 @@ import {
   getServiceCategories,
   serviceCategoryLabel,
 } from "@/lib/service-discovery";
-import { useBusinessExperience } from "@/components/business-experience-provider";
 
 type Pro = {
   id: string;
@@ -115,7 +113,6 @@ export function BookingFlow({
 }) {
   const router = useRouter();
   const { salonSlug } = useParams<{ salonSlug: string }>();
-  const experience = useBusinessExperience();
   const cart = useCart(salonSlug);
   const validInitialServiceIds = [
     ...new Set(
@@ -424,11 +421,7 @@ export function BookingFlow({
   if (choosingServices) {
     return (
       <section className="animate-fade-in min-h-dvh space-y-6 px-5 pb-28 pt-6">
-        <FlowHeader
-          title={experience.booking.serviceTitle}
-          onBack={() => router.push(`/book/${salonSlug}`)}
-        />
-        <FlowProgress current={1} />
+        <FlowHeader title="Escolha os serviços" onBack={() => router.push(`/book/${salonSlug}`)} />
         {selectedServices.length > 0 && (
           <div
             aria-live="polite"
@@ -436,10 +429,7 @@ export function BookingFlow({
           >
             <div className="min-w-0">
               <p className="text-xs font-semibold text-primary">
-                {selectedServices.length}{" "}
-                {selectedServices.length === 1
-                  ? `${experience.terminology.service} escolhido`
-                  : `${experience.terminology.services} escolhidos`}
+                {selectedServices.length} {selectedServices.length === 1 ? "serviço escolhido" : "serviços escolhidos"}
               </p>
               <p className="mt-0.5 truncate text-xs text-muted-foreground">
                 {selectedServices.map((service) => service.name).join(" + ")}
@@ -462,7 +452,7 @@ export function BookingFlow({
         <div className="space-y-3">
           <label className="flex min-h-12 items-center gap-3 rounded-2xl border border-border bg-card px-4 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
             <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-            <span className="sr-only">Buscar {experience.terminology.services}</span>
+            <span className="sr-only">Buscar serviços</span>
             <input
               type="search"
               value={serviceQuery}
@@ -470,7 +460,7 @@ export function BookingFlow({
                 setServiceQuery(event.target.value);
                 if (event.target.value) setServiceCategory(null);
               }}
-              placeholder={`Buscar ${experience.terminology.services}…`}
+              placeholder="Buscar corte, barba, manicure…"
               className="min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground"
             />
             {serviceQuery && (
@@ -478,7 +468,7 @@ export function BookingFlow({
                 type="button"
                 onClick={() => setServiceQuery("")}
                 aria-label="Limpar busca"
-                className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -517,10 +507,7 @@ export function BookingFlow({
 
         <div className="flex items-center justify-between gap-3">
           <p className="text-sm font-semibold">
-            {visibleServices.length}{" "}
-            {visibleServices.length === 1
-              ? experience.terminology.service
-              : experience.terminology.services}
+            {visibleServices.length} {visibleServices.length === 1 ? "serviço" : "serviços"}
           </p>
           {(serviceQuery || serviceCategory) && (
             <button
@@ -539,15 +526,13 @@ export function BookingFlow({
         {visibleServices.length === 0 ? (
           <div className="rounded-3xl border border-border bg-card p-8 text-center">
             <Search className="mx-auto h-6 w-6 text-muted-foreground" />
-            <p className="mt-3 text-sm font-medium">
-              Nenhum {experience.terminology.service} encontrado
-            </p>
+            <p className="mt-3 text-sm font-medium">Nenhum serviço encontrado</p>
             <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
               Tente outro nome ou remova o filtro de categoria.
             </p>
           </div>
         ) : (
-        <div className="grid grid-cols-1 gap-3 min-[390px]:grid-cols-2 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 min-[390px]:grid-cols-2">
           {visibleServices.map((s) => {
             const Icon = iconForService(s.category);
             const selected = serviceIds.includes(s.id);
@@ -565,7 +550,7 @@ export function BookingFlow({
                     : [...current, s.id],
                 );
               }}
-              className={`experience-card-interactive relative flex min-h-36 w-full flex-col border bg-card p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+              className={`relative flex min-h-36 w-full flex-col rounded-2xl border bg-card p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                 selected ? "border-primary bg-primary/5 ring-2 ring-primary/30" : "border-border hover:border-primary"
               }`}
             >
@@ -604,7 +589,7 @@ export function BookingFlow({
           })}
         </div>
         )}
-        <div className="booking-action-bar fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-[760px] border-t border-border/70 bg-background/95 px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_24px_rgba(0,0,0,0.24)] backdrop-blur-xl sm:bottom-4 sm:rounded-[1.5rem] sm:border">
+        <div className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-[480px] border-t border-border/70 bg-background/95 px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_24px_rgba(0,0,0,0.18)] backdrop-blur">
           <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
             <span>{formatDuration(totalDuration)}</span>
             <span>{formatMoney(totalServicePrice, currency)}</span>
@@ -615,14 +600,11 @@ export function BookingFlow({
             onClick={() => setChoosingServices(false)}
             className="min-h-12 w-full rounded-full bg-primary px-5 py-3 text-base font-semibold text-primary-foreground disabled:opacity-40"
           >
-            Continuar com {selectedServices.length}{" "}
-            {selectedServices.length === 1
-              ? experience.terminology.service
-              : experience.terminology.services}
+            Continuar com {selectedServices.length} {selectedServices.length === 1 ? "serviço" : "serviços"}
           </button>
           {selectedServices.length > 0 && eligibleProfessionals.length === 0 && (
             <p className="mt-2 text-center text-xs text-destructive">
-              Nenhum {experience.terminology.professional} realiza todos os {experience.terminology.services} selecionados.
+              Nenhum profissional realiza todos os serviços selecionados.
             </p>
           )}
         </div>
@@ -637,14 +619,13 @@ export function BookingFlow({
         onBack={() => setChoosingServices(true)}
         subtitle={`${serviceName} · ${formatDuration(totalDuration)}`}
       />
-      <FlowProgress current={authStep === "hidden" ? 2 : 3} />
 
       {/* Escolher profissional — cards com prova social real */}
       <div>
-        <h3 className="mb-4 text-sm font-semibold">{experience.booking.professionalTitle}</h3>
+        <h3 className="mb-4 text-sm font-semibold">Escolher profissional</h3>
         {eligibleProfessionals.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Nenhum {experience.terminology.professional} realiza esse {experience.terminology.service} ainda.
+            Nenhum profissional realiza esse serviço ainda.
           </p>
         ) : (
           <div className="-mx-5 flex gap-3 overflow-x-auto px-5 pb-2 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -723,7 +704,7 @@ export function BookingFlow({
       {/* Data e hora */}
       <div>
         <h3 className="mb-3 text-sm font-semibold">Data e hora</h3>
-        <div className="experience-surface p-4 sm:p-5">
+        <div className="rounded-2xl border border-border bg-card p-4">
           <div className="mb-3 flex items-center justify-between">
             <button
               onClick={() => setViewMonth((m) => addMonths(m, -1))}
@@ -794,7 +775,7 @@ export function BookingFlow({
 
         {!proId ? (
           <p className="rounded-2xl border border-border bg-card px-4 py-6 text-center text-sm text-muted-foreground">
-            Escolha um {experience.terminology.professional} para ver os horários.
+            Escolha um profissional para ver os horários.
           </p>
         ) : slotsLoading ? (
           <div className="grid grid-cols-3 gap-2 min-[380px]:grid-cols-4">
@@ -866,7 +847,7 @@ export function BookingFlow({
                       : "border-dashed border-border text-muted-foreground hover:border-primary/50"
                   }`}
                 >
-                  {joined ? "Na fila" : o.time}
+                  {joined ? "Na fila ✓" : o.time}
                 </button>
               );
             })}
@@ -877,7 +858,7 @@ export function BookingFlow({
               <p className="text-sm font-medium">Entrar na fila das {waitlistTarget.time}?</p>
               <p className="mt-1 text-xs text-muted-foreground">
                 Se quem tem esse horário cancelar, você é confirmado automaticamente nele. O
-                estabelecimento pode entrar em contato — não há confirmação instantânea garantida.
+                salão pode entrar em contato — não há confirmação instantânea garantida.
               </p>
               {!clientSession && (
                 <div className="mt-3 space-y-2">
@@ -1003,8 +984,7 @@ export function BookingFlow({
       {cart.items.length > 0 && (
         <div className="flex items-center justify-between rounded-2xl border border-primary/40 bg-primary/5 px-4 py-3 text-sm">
           <span className="font-medium">
-            <ShoppingCart className="mr-1.5 inline h-4 w-4" aria-hidden="true" />
-            {cart.count} {cart.count === 1 ? "produto" : "produtos"} do carrinho
+            🛒 {cart.count} {cart.count === 1 ? "produto" : "produtos"} do carrinho
           </span>
           <span className="font-semibold text-primary">
             +{formatMoney(cart.totalCents)}
@@ -1018,7 +998,7 @@ export function BookingFlow({
         </p>
       )}
 
-      <div className="booking-action-bar fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-[760px] border-t border-border/70 bg-background/95 px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_24px_rgba(0,0,0,0.24)] backdrop-blur-xl sm:bottom-4 sm:rounded-[1.5rem] sm:border">
+      <div className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-[480px] border-t border-border/70 bg-background/95 px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_24px_rgba(0,0,0,0.18)] backdrop-blur">
         <button
           onClick={handleConfirmClick}
           disabled={
@@ -1053,7 +1033,6 @@ function BoardingPass({
   salonName: string;
   salonSlug: string;
 }) {
-  const experience = useBusinessExperience();
   function downloadIcs() {
     const dt = (d: Date) =>
       d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
@@ -1090,7 +1069,7 @@ function BoardingPass({
         Reserva confirmada
       </h1>
       <p className="animate-rise mt-1 text-sm text-muted-foreground [animation-delay:220ms]">
-        Seu horário está reservado com segurança.
+        Te esperamos lá 👇
       </p>
 
       {/* Cartão */}
@@ -1129,13 +1108,13 @@ function BoardingPass({
         <div className="grid grid-cols-2 gap-4 p-6">
           <div>
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-              {experience.terminology.service}
+              Serviço
             </p>
             <p className="mt-1 text-sm font-medium">{booked.serviceName}</p>
           </div>
           <div>
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-              {experience.terminology.professional}
+              Profissional
             </p>
             <p className="mt-1 text-sm font-medium">{booked.proName}</p>
           </div>
@@ -1189,7 +1168,7 @@ function FlowHeader({
   onBack: () => void;
 }) {
   return (
-    <header className="experience-context-panel flex items-center gap-3 p-3">
+    <header className="flex items-center gap-3">
       <button
         onClick={onBack}
         className="grid h-11 w-11 place-items-center rounded-full border border-border bg-card text-foreground"
@@ -1202,26 +1181,5 @@ function FlowHeader({
         {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
       </div>
     </header>
-  );
-}
-
-function FlowProgress({ current }: { current: 1 | 2 | 3 }) {
-  const labels = ["Serviços", "Horário", "Confirmar"];
-
-  return (
-    <div className="grid grid-cols-3 gap-2" aria-label={`Etapa ${current} de 3`}>
-      {labels.map((label, index) => {
-        const step = index + 1;
-        const active = step <= current;
-        return (
-          <div key={label} className="min-w-0">
-            <div className={`h-1 rounded-full transition-colors ${active ? "bg-primary" : "bg-muted"}`} />
-            <p className={`mt-1.5 truncate text-[10px] font-medium ${step === current ? "text-foreground" : "text-muted-foreground"}`}>
-              {label}
-            </p>
-          </div>
-        );
-      })}
-    </div>
   );
 }

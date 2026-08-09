@@ -35,14 +35,9 @@ export function SalonSwitcher({
   }
 
   const trigger = (
-    <div className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[12px]">
-      <span className="experience-icon-surface grid h-9 w-9 shrink-0 place-items-center rounded-lg border">
-        <Store className="h-4 w-4" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-[9px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Estabelecimento</span>
-        <span className="mt-0.5 block truncate font-semibold text-foreground">{current.name}</span>
-      </span>
+    <div className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px]">
+      <Store className="h-3 w-3 shrink-0 text-primary" />
+      <span className="flex-1 truncate font-medium text-foreground">{current.name}</span>
       {memberships.length > 1 && (
         <ChevronsUpDown className="h-3 w-3 shrink-0 text-muted-foreground" />
       )}
@@ -51,7 +46,7 @@ export function SalonSwitcher({
 
   if (memberships.length <= 1) {
     return (
-      <div className="experience-surface overflow-hidden">
+      <div className="rounded-md border border-border bg-muted/30">
         {trigger}
       </div>
     );
@@ -61,7 +56,7 @@ export function SalonSwitcher({
     <DropdownMenu>
       <DropdownMenuTrigger
         className={cn(
-          "experience-surface w-full overflow-hidden transition hover:border-border-strong hover:bg-card-hover disabled:opacity-60",
+          "w-full rounded-md border border-border bg-muted/30 transition hover:bg-muted disabled:opacity-60",
           pending && "opacity-60",
         )}
         disabled={pending}

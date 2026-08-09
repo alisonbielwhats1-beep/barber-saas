@@ -1,8 +1,4 @@
-"use client";
-
-import { useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import {
   CalendarDays,
   BarChart3,
@@ -11,140 +7,144 @@ import {
   ArrowRight,
   ArrowUpRight,
   Quote,
+  ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MarketingHeader } from "./marketing-header";
-import { MarketingExperienceHero } from "./marketing-experience-hero";
 import { SegmentExplorer } from "./segment-explorer";
 import { ProductMockup } from "./product-mockup";
 import { ClientMockup } from "./client-mockup";
-import { ProductWordmark } from "@/components/product-wordmark";
-import { ScrollReveal } from "@/components/scroll-reveal";
-import { getBusinessExperience } from "@/config/business-experience";
-import { DEFAULT_SEGMENT_ID, getSegment, type SegmentId } from "@/lib/segments";
 
 export default function LandingPage() {
-  const [selectedId, setSelectedId] = useState<SegmentId>(DEFAULT_SEGMENT_ID);
-  const experience = getBusinessExperience(selectedId);
-  const segment = getSegment(selectedId);
-  const benefits = BENEFITS.map((benefit, index) => ({
-    ...benefit,
-    description: BENEFIT_COPY[selectedId][index],
-  }));
-
   return (
-    <main
-      data-marketing-experience="true"
-      data-business-experience={selectedId}
-      data-experience-direction={experience.visual.direction}
-      data-experience-density={experience.visual.density}
-      className="marketing-page experience-scope min-h-screen overflow-x-clip bg-background text-foreground"
-    >
+    <main className="min-h-screen bg-background">
       <MarketingHeader />
-      <MarketingExperienceHero selectedId={selectedId} onSelect={setSelectedId} />
+
+      {/* Hero */}
+      <section className="relative overflow-hidden pb-20 pt-32 md:pt-40">
+        <div className="container grid gap-14 lg:grid-cols-2 lg:items-center lg:gap-10">
+          <div className="animate-fade-in">
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-xs font-medium text-primary">
+              <ShieldCheck className="h-3 w-3" />
+              Um sistema, vários tipos de negócio de beleza e bem-estar
+            </div>
+            <h1 className="font-display text-4xl leading-[1.1] tracking-tight md:text-6xl">
+              Seu espaço organizado,
+              <br />
+              <span className="text-primary">sua agenda sempre em movimento.</span>
+            </h1>
+            <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground">
+              Agenda online, cadastro de clientes, controle da equipe e visão
+              financeira num só painel — para barbearias, salões, manicures,
+              estética e espaços mistos.
+            </p>
+            <div className="mt-10 flex flex-wrap items-center gap-3">
+              <Button asChild size="lg" className="h-14 rounded-full px-8 text-base">
+                <Link href="/signup">
+                  Criar conta grátis <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+              <Button
+                asChild
+                variant="outline"
+                size="lg"
+                className="h-14 rounded-full border-white/20 bg-white/5 px-8 text-base backdrop-blur hover:bg-white/10"
+              >
+                <Link href="/book/north-barber">Ver demonstração</Link>
+              </Button>
+            </div>
+            <p className="mt-6 text-sm text-muted-foreground">
+              Sem cartão de crédito para começar.
+            </p>
+          </div>
+
+          <div className="animate-slide-up">
+            <ProductMockup />
+          </div>
+        </div>
+      </section>
 
       {/* Benefícios principais */}
-      <section id="recursos" className="marketing-section marketing-section-muted scroll-mt-24 border-t border-border py-24">
+      <section id="recursos" className="scroll-mt-24 border-t border-white/5 bg-muted/20 py-24">
         <div className="container">
           <div className="mx-auto max-w-2xl text-center">
-            <p className="marketing-section-eyebrow mb-4 text-xs font-semibold uppercase tracking-[0.2em]">
-              Rotina sob controle
-            </p>
             <h2 className="font-display text-3xl md:text-4xl">
               O que mais pesa no dia a dia, resolvido primeiro
             </h2>
             <p className="mt-3 text-muted-foreground">
-              O essencial para proteger a rotina da sua {experience.terminology.establishment},
-              sem excesso de telas ou retrabalho.
+              Sem vinte recursos com o mesmo peso — o que realmente evita
+              prejuízo e retrabalho.
             </p>
           </div>
 
-          <div className="marketing-benefit-grid mt-14 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {benefits.map((b, index) => (
-              <ScrollReveal
+          <div className="mt-14 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            {BENEFITS.map((b) => (
+              <div
                 key={b.title}
-                delay={index * 70}
-                className="marketing-benefit-card card-interactive overflow-hidden rounded-[1.5rem] border border-border bg-card"
+                className="card-interactive rounded-2xl border border-white/10 bg-card p-6"
               >
-                {index === 0 && (
-                  <div className="marketing-benefit-photo relative min-h-44 overflow-hidden">
-                    <Image
-                      src={segment.accentImage}
-                      alt={`Atendimento em ${segment.label.toLowerCase()}`}
-                      fill
-                      sizes="(max-width: 1023px) 100vw, 32vw"
-                      className="object-cover transition duration-700 hover:scale-[1.025]"
-                    />
-                    <span className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent" />
-                  </div>
-                )}
-                <div className="marketing-benefit-copy p-6">
-                  <div className="marketing-detail-icon mb-4 grid h-11 w-11 place-items-center rounded-xl border border-border bg-foreground/[0.045] text-foreground">
-                    <b.icon className="h-5 w-5" />
-                  </div>
-                  <h3 className="mb-2 font-display text-lg">{b.title}</h3>
-                  <p className="text-sm leading-relaxed text-muted-foreground">
-                    {b.description}
-                  </p>
+                <div className="mb-4 grid h-11 w-11 place-items-center rounded-xl bg-primary/10 text-primary">
+                  <b.icon className="h-5 w-5" />
                 </div>
-              </ScrollReveal>
+                <h3 className="mb-2 font-display text-lg">{b.title}</h3>
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  {b.description}
+                </p>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
       {/* Demonstração do sistema */}
-      <section className="marketing-section marketing-section-base py-24">
+      <section className="py-24">
         <div className="container">
           <div className="mx-auto max-w-2xl text-center">
-            <p className="marketing-section-eyebrow mb-4 text-xs font-semibold uppercase tracking-[0.2em]">
-              Produto em contexto
-            </p>
             <h2 className="font-display text-3xl md:text-4xl">Como funciona na prática</h2>
             <p className="mt-3 text-muted-foreground">
-              Uma operação preparada para {segment.label.toLowerCase()}, do painel à experiência de quem agenda.
+              Um painel para quem gerencia, uma vitrine simples para quem agenda.
             </p>
           </div>
 
-          <div className="marketing-demo-grid mt-14 grid gap-10 lg:grid-cols-[1.4fr_1fr] lg:items-center">
+          <div className="mt-14 grid gap-10 lg:grid-cols-[1.4fr_1fr] lg:items-center">
             <div>
-              <p className="marketing-section-eyebrow mb-3 text-xs font-semibold uppercase tracking-widest">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-primary">
                 Para o dono
               </p>
-              <ProductMockup segmentId={selectedId} />
+              <ProductMockup />
             </div>
             <div>
-              <p className="marketing-section-eyebrow mb-3 text-xs font-semibold uppercase tracking-widest">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-primary">
                 Para o cliente
               </p>
-              <ClientMockup segmentId={selectedId} />
+              <ClientMockup />
             </div>
           </div>
         </div>
       </section>
 
       {/* Como funciona — passo a passo */}
-      <section className="marketing-section marketing-section-soft border-t border-border py-24">
+      <section className="border-t border-white/5 bg-muted/20 py-24">
         <div className="container">
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="font-display text-3xl md:text-4xl">Do zero ao primeiro agendamento</h2>
           </div>
           <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
             {STEPS.map((s, i) => (
-              <ScrollReveal key={s.title} delay={i * 60} className="marketing-step-card relative rounded-2xl border border-border bg-card p-5">
-                <span className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-full border border-border bg-foreground/[0.045] text-sm font-semibold text-foreground">
+              <div key={s.title} className="relative rounded-2xl border border-white/10 bg-card p-5">
+                <span className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
                   {i + 1}
                 </span>
                 <h3 className="mb-1.5 text-sm font-semibold">{s.title}</h3>
                 <p className="text-xs leading-relaxed text-muted-foreground">{s.description}</p>
-              </ScrollReveal>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
       {/* Qual é o seu tipo de negócio + recursos por segmento */}
-      <section id="segmentos" className="marketing-section marketing-section-base scroll-mt-24 py-24">
+      <section id="segmentos" className="scroll-mt-24 py-24">
         <div className="container">
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="font-display text-3xl md:text-4xl">Qual é o seu tipo de negócio?</h2>
@@ -154,13 +154,13 @@ export default function LandingPage() {
             </p>
           </div>
           <div className="mt-14">
-            <SegmentExplorer selectedId={selectedId} onSelect={setSelectedId} />
+            <SegmentExplorer />
           </div>
         </div>
       </section>
 
       {/* Planos */}
-      <section id="planos" className="marketing-section marketing-section-muted scroll-mt-24 border-t border-border py-24">
+      <section id="planos" className="scroll-mt-24 border-t border-white/5 bg-muted/20 py-24">
         <div className="container">
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="font-display text-3xl md:text-4xl">Planos</h2>
@@ -171,13 +171,11 @@ export default function LandingPage() {
           </div>
 
           <div className="mt-14 grid gap-6 md:grid-cols-3">
-            {PLANS.map((p, index) => (
-              <ScrollReveal
+            {PLANS.map((p) => (
+              <div
                 key={p.name}
-                delay={index * 70}
-                data-highlighted={p.highlight || undefined}
-                className={`marketing-plan-card rounded-3xl border border-border bg-card p-7 ${
-                  p.highlight ? "marketing-plan-featured" : ""
+                className={`rounded-3xl border p-7 ${
+                  p.highlight ? "border-primary/50 bg-primary/5" : "border-white/10 bg-card"
                 }`}
               >
                 <h3 className="font-display text-xl">{p.name}</h3>
@@ -188,7 +186,7 @@ export default function LandingPage() {
                 <ul className="mt-6 space-y-2.5 text-sm">
                   {p.bullets.map((b) => (
                     <li key={b} className="flex items-start gap-2.5">
-                      <ArrowUpRight className="marketing-section-eyebrow mt-0.5 h-4 w-4 shrink-0" />
+                      <ArrowUpRight className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                       <span className="text-muted-foreground">{b}</span>
                     </li>
                   ))}
@@ -200,17 +198,17 @@ export default function LandingPage() {
                 >
                   <Link href="/signup">Começar</Link>
                 </Button>
-              </ScrollReveal>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
       {/* Prova de valor honesta */}
-      <section className="marketing-section marketing-editorial-break py-24">
+      <section className="py-24">
         <div className="container">
           <div className="mx-auto max-w-2xl text-center">
-            <Quote className="marketing-section-eyebrow mx-auto mb-6 h-8 w-8" />
+            <Quote className="mx-auto mb-6 h-8 w-8 text-primary" />
             <p className="font-display text-2xl leading-snug md:text-3xl">
               Desenvolvido junto com profissionais que vivem a rotina de
               atender, agendar e fechar o caixa todos os dias.
@@ -224,11 +222,10 @@ export default function LandingPage() {
       </section>
 
       {/* CTA final */}
-      <section className="marketing-section marketing-cta-section relative overflow-hidden border-t border-border py-32">
+      <section className="relative overflow-hidden border-t border-white/5 py-32">
         <div className="container relative z-10 text-center">
           <h2 className="mx-auto max-w-2xl font-display text-4xl leading-tight md:text-5xl">
-            Sua {experience.terminology.establishment}{" "}
-            <span className="marketing-cta-accent">organizada e pronta para agendar</span>
+            Seu negócio <span className="text-primary">organizado e online</span>
           </h2>
           <p className="mx-auto mt-4 max-w-md text-muted-foreground">
             Crie a conta, cadastre os serviços e compartilhe o link de
@@ -252,7 +249,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <MarketingFooter experienceLabel={experience.label} />
+      <MarketingFooter />
     </main>
   );
 }
@@ -284,39 +281,6 @@ const BENEFITS = [
   },
 ];
 
-const BENEFIT_COPY: Record<SegmentId, readonly [string, string, string, string]> = {
-  barbearia: [
-    "Jornadas, pausas e bloqueios por barbeiro. O cliente só vê um horário que existe de verdade.",
-    "A equipe acompanha cada corte ou barba e mantém o contato com o cliente no momento certo.",
-    "Preferências, frequência e último serviço ajudam a transformar uma visita em retorno.",
-    "Acompanhe faturamento, comissão e desempenho dos serviços sem perder o ritmo do dia.",
-  ],
-  "salao-beleza": [
-    "Organize coloração, corte e tratamentos longos respeitando a duração e a agenda de cada profissional.",
-    "Clientes e equipe recebem o contexto necessário antes de serviços que exigem mais preparação.",
-    "Fórmulas, preferências e recorrência ficam fáceis de consultar em cada novo atendimento.",
-    "Compare faturamento, ocupação e serviços de maior retorno com uma leitura clara da operação.",
-  ],
-  "manicure-nail": [
-    "Encaixe procedimentos e manutenções pela duração correta, sem sobrepor o horário da profissional.",
-    "Lembretes facilitam a recorrência de gel, alongamento, nail art e cuidados periódicos.",
-    "Preferências e intervalo entre manutenções ajudam a oferecer uma experiência mais pessoal.",
-    "Visualize ticket, recorrência e procedimentos mais procurados sem transformar a rotina em planilha.",
-  ],
-  "estetica-bemestar": [
-    "Sessões, intervalos e bloqueios ficam claros para preservar o ritmo de cada especialista.",
-    "A comunicação acompanha tratamentos e pacotes com discrição, clareza e previsibilidade.",
-    "Frequência e histórico de procedimentos permanecem organizados para um cuidado contínuo.",
-    "Acompanhe sessões, ocupação e resultados da operação com uma visão calma e objetiva.",
-  ],
-  "espaco-misto": [
-    "Profissionais e especialidades diferentes convivem na mesma agenda sem disputar o mesmo horário.",
-    "Cada área recebe o contexto certo sem duplicar cadastros ou fragmentar a comunicação.",
-    "Um único histórico reúne os atendimentos do cliente em cabelo, unhas, estética e outras áreas.",
-    "Consolide faturamento, comissões e desempenho de várias categorias em uma visão coerente.",
-  ],
-};
-
 const STEPS = [
   { title: "Cadastre seu estabelecimento", description: "Nome, contato e endereço para começar." },
   { title: "Adicione serviços e profissionais", description: "Cada um com sua agenda e especialidade." },
@@ -346,17 +310,16 @@ const PLANS = [
   },
 ];
 
-function MarketingFooter({ experienceLabel }: { experienceLabel: string }) {
+function MarketingFooter() {
   return (
-    <footer className="marketing-footer border-t border-border py-14 text-sm">
+    <footer className="border-t border-white/5 py-14 text-sm">
       <div className="container grid gap-10 md:grid-cols-5">
         <div className="md:col-span-2">
-          <ProductWordmark />
+          <p className="font-display text-lg">
+            Salon<span className="text-primary">SaaS</span>
+          </p>
           <p className="mt-2 max-w-xs text-muted-foreground">
             Gestão e agendamento para negócios de beleza e bem-estar.
-          </p>
-          <p className="marketing-section-eyebrow mt-4 text-[10px] font-semibold uppercase tracking-[0.16em]">
-            Experiência para {experienceLabel}
           </p>
         </div>
 
@@ -385,7 +348,7 @@ function MarketingFooter({ experienceLabel }: { experienceLabel: string }) {
         />
       </div>
 
-      <div className="container mt-10 border-t border-border pt-6 text-xs text-muted-foreground">
+      <div className="container mt-10 border-t border-white/5 pt-6 text-xs text-muted-foreground">
         © {new Date().getFullYear()} SalonSaaS — feito para profissionais de beleza e bem-estar.
       </div>
     </footer>

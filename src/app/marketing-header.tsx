@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Menu, X } from "lucide-react";
+import { Sparkles, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ProductWordmark } from "@/components/product-wordmark";
 
 const NAV_LINKS = [
   { href: "#top", label: "Início" },
@@ -13,10 +12,13 @@ const NAV_LINKS = [
   { href: "#planos", label: "Planos" },
 ];
 
-/** Cabeçalho comercial com a mesma marca tipográfica usada no produto. */
+/**
+ * Cabeçalho da homepage comercial. Marca é wordmark + símbolo abstrato
+ * (Sparkles) — decisão temporária até etapa própria de branding definir
+ * um logotipo oficial. Não usa o ícone Scissors do painel administrativo.
+ */
 export function MarketingHeader() {
   const [open, setOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
 
   // Trava o scroll do fundo enquanto o menu mobile está aberto — sem isso
   // dava pra rolar a página por trás do painel, que não cobre tudo.
@@ -29,27 +31,24 @@ export function MarketingHeader() {
     };
   }, [open]);
 
-  useEffect(() => {
-    const update = () => setScrolled(window.scrollY > 24);
-    update();
-    window.addEventListener("scroll", update, { passive: true });
-    return () => window.removeEventListener("scroll", update);
-  }, []);
-
   return (
     <>
     <header
       id="top"
-      data-scrolled={scrolled || undefined}
-      className="marketing-header fixed inset-x-0 top-0 z-50 border-b border-transparent transition duration-300"
+      className="fixed inset-x-0 top-0 z-50 border-b border-white/5 bg-background/60 backdrop-blur-xl"
     >
-      <div className="container flex h-[4.5rem] items-center justify-between">
-        <ProductWordmark />
+      <div className="container flex h-16 items-center justify-between">
+        <Link href="/" className="flex items-center gap-2 font-display text-xl">
+          <span className="grid h-8 w-8 place-items-center rounded-md bg-primary text-primary-foreground">
+            <Sparkles className="h-4 w-4" />
+          </span>
+          Salon<span className="text-primary">SaaS</span>
+        </Link>
 
         {/* Nav desktop */}
-        <nav className="hidden items-center gap-1 rounded-full border border-border bg-card/55 p-1 text-sm text-muted-foreground md:flex">
+        <nav className="hidden items-center gap-6 text-sm text-muted-foreground md:flex">
           {NAV_LINKS.map((l) => (
-            <a key={l.href} href={l.href} className="rounded-full px-4 py-2 transition hover:bg-foreground/[0.055] hover:text-foreground">
+            <a key={l.href} href={l.href} className="transition hover:text-foreground">
               {l.label}
             </a>
           ))}
@@ -69,7 +68,7 @@ export function MarketingHeader() {
           aria-label={open ? "Fechar menu" : "Abrir menu"}
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
-          className="grid h-11 w-11 place-items-center rounded-xl border border-border bg-card/70 text-foreground md:hidden"
+          className="grid h-10 w-10 place-items-center rounded-lg border border-white/10 text-foreground md:hidden"
         >
           {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
@@ -82,14 +81,14 @@ export function MarketingHeader() {
         irmão do header, ele usa a viewport de verdade e cobre 100% do
         conteúdo por trás. */}
     {open && (
-      <nav className="fixed inset-x-0 bottom-0 top-[4.5rem] z-40 overflow-y-auto border-t border-border bg-background/98 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4 backdrop-blur-2xl md:hidden">
+      <nav className="fixed inset-x-0 top-16 bottom-0 z-40 overflow-y-auto border-t border-white/5 bg-background px-6 pb-6 pt-2 md:hidden">
         <div className="flex flex-col gap-1">
           {NAV_LINKS.map((l) => (
             <a
               key={l.href}
               href={l.href}
               onClick={() => setOpen(false)}
-              className="flex min-h-14 items-center rounded-2xl border border-transparent px-4 text-base text-muted-foreground transition hover:border-border hover:bg-card hover:text-foreground"
+              className="rounded-lg px-3 py-3 text-sm text-muted-foreground transition hover:bg-card hover:text-foreground"
             >
               {l.label}
             </a>

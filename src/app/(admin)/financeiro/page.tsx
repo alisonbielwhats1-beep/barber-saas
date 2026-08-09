@@ -70,7 +70,7 @@ export default async function FinanceiroPage({
     <div className="space-y-6">
       <AutoRefresh />
       {/* Header */}
-      <header className="experience-page-header flex flex-col gap-4 border-b border-border/70 pb-6 lg:flex-row lg:items-end lg:justify-between">
+      <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <div className="mb-1 flex items-center gap-2">
             <span className="flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
@@ -81,16 +81,14 @@ export default async function FinanceiroPage({
               {formatInTimeZone(m.period.from, timezone, "d MMM", { locale: ptBR })} – {formatInTimeZone(m.period.to, timezone, "d MMM yyyy", { locale: ptBR })}
             </span>
           </div>
-          <h1 className="text-[32px] font-semibold leading-none tracking-[-0.04em] sm:text-[38px]">Financeiro</h1>
+          <h1 className="text-[26px] font-semibold tracking-tight">Financeiro</h1>
         </div>
-        <div className="experience-filter-rail p-1.5">
-          <RangeFilter current={range} />
-        </div>
+        <RangeFilter current={range} />
       </header>
 
       {/* Hero KPIs */}
-      <section className="finance-hero-grid stagger grid grid-cols-2 gap-4 xl:grid-cols-5 [&>*:last-child]:col-span-2 xl:[&>*:last-child]:col-span-1">
-        <Hero featured accent="#2ECC8B" icon={Wallet} label="Receita" value={formatMoney(m.revenue)} hint={`${formatMoney(m.serviceRevenue)} serviços · ${formatMoney(m.productRevenue)} produtos`} />
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Hero accent="#2ECC8B" icon={Wallet} label="Receita" value={formatMoney(m.revenue)} hint={`${formatMoney(m.serviceRevenue)} serviços · ${formatMoney(m.productRevenue)} produtos`} />
         <Hero accent="#EF4444" icon={TrendingDown} label="Despesas" value={formatMoney(m.expenseTotal)} hint={`${formatMoney(m.expenseFixed)} fixas · ${formatMoney(m.expenseVar)} variáveis`} />
         <Hero accent="#3B9EFF" icon={PiggyBank} label="Lucro líquido" value={formatMoney(m.netProfit)} hint="Após comissões e despesas" />
         <Hero accent="#A855F7" icon={Percent} label="Margem líquida" value={`${(m.margin * 100).toFixed(0)}%`} hint="Lucro ÷ receita" />
@@ -188,9 +186,9 @@ export default async function FinanceiroPage({
 /* ── bits ── */
 type IconType = React.ComponentType<{ className?: string }>;
 
-function Hero({ featured, accent, icon: Icon, label, value, hint }: { featured?: boolean; accent: string; icon: IconType; label: string; value: string; hint?: string }) {
+function Hero({ accent, icon: Icon, label, value, hint }: { accent: string; icon: IconType; label: string; value: string; hint?: string }) {
   return (
-    <div className={`experience-kpi card-interactive relative h-full overflow-hidden p-5 sm:p-6 ${featured ? "col-span-2" : "col-span-1"}`}>
+    <div className="card-interactive glass relative overflow-hidden rounded-2xl p-5">
       <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full opacity-20 blur-2xl" style={{ background: accent }} />
       <div className="flex items-center justify-between">
         <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{label}</span>
@@ -198,7 +196,7 @@ function Hero({ featured, accent, icon: Icon, label, value, hint }: { featured?:
           <Icon className="h-4 w-4" />
         </span>
       </div>
-      <p className={`mt-4 font-semibold leading-none tracking-[-0.045em] ${featured ? "text-[34px] sm:text-[40px]" : "text-[26px] sm:text-[30px]"}`}>{value}</p>
+      <p className="mt-3 text-[26px] font-semibold leading-none tracking-tight">{value}</p>
       {hint && <p className="mt-2 text-[11px] text-muted-foreground">{hint}</p>}
     </div>
   );
@@ -206,7 +204,7 @@ function Hero({ featured, accent, icon: Icon, label, value, hint }: { featured?:
 
 function Tile({ accent, icon: Icon, label, value }: { accent: string; icon: IconType; label: string; value: string }) {
   return (
-    <div className="experience-surface card-interactive p-4">
+    <div className="card-interactive rounded-xl border border-border bg-card p-4">
       <span className="grid h-8 w-8 place-items-center rounded-lg" style={{ background: `${accent}1f`, color: accent }}>
         <Icon className="h-4 w-4" />
       </span>
@@ -217,16 +215,14 @@ function Tile({ accent, icon: Icon, label, value }: { accent: string; icon: Icon
 }
 
 function Panel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <div className={`experience-surface p-5 sm:p-6 ${className}`}>{children}</div>;
+  return <div className={`rounded-2xl border border-border bg-card p-5 ${className}`}>{children}</div>;
 }
 
 function PanelTitle({ icon: Icon, children }: { icon: IconType; children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="experience-icon-surface grid h-8 w-8 place-items-center rounded-lg border">
-        <Icon className="h-4 w-4" />
-      </span>
-      <h3 className="text-[13px] font-semibold tracking-tight">{children}</h3>
+      <Icon className="h-4 w-4 text-muted-foreground" />
+      <h3 className="text-[13px] font-semibold">{children}</h3>
     </div>
   );
 }

@@ -12,7 +12,6 @@ import {
   MANAGEMENT_ROLES,
   MARKETING_ROLES,
 } from "@/lib/role-permissions";
-import { useBusinessExperience } from "@/components/business-experience-provider";
 
 type Cmd = { label: string; hint: string; icon: typeof Search; href: string; roles?: readonly string[] };
 
@@ -37,7 +36,6 @@ export function CommandPalette({ role }: { role: string }) {
   const [q, setQ] = useState("");
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
-  const experience = useBusinessExperience();
 
   // Atalho ⌘K / Ctrl+K — em telas sem teclado físico (celular/tablet), o
   // gatilho visível em OpenCommandPaletteButton dispara o mesmo evento.
@@ -69,30 +67,11 @@ export function CommandPalette({ role }: { role: string }) {
   }, [open]);
 
   const results = useMemo(() => {
-    const allowed = COMMANDS.filter((c) => !c.roles || c.roles.includes(role)).map((command) => {
-      if (command.href === "/profissionais") {
-        return {
-          ...command,
-          label: experience.navigation.professionals,
-          hint: `Equipe de ${experience.terminology.professionals}`,
-        };
-      }
-      if (command.href === "/servicos") {
-        return {
-          ...command,
-          label: experience.navigation.services,
-          hint: `Catálogo de ${experience.terminology.services}`,
-        };
-      }
-      if (command.href === "/configuracoes") {
-        return { ...command, hint: "Ajustes do estabelecimento" };
-      }
-      return command;
-    });
+    const allowed = COMMANDS.filter((c) => !c.roles || c.roles.includes(role));
     const s = q.trim().toLowerCase();
     if (!s) return allowed;
     return allowed.filter((c) => c.label.toLowerCase().includes(s) || c.hint.toLowerCase().includes(s));
-  }, [experience, q, role]);
+  }, [q, role]);
 
   function go(href: string) {
     setOpen(false);
@@ -170,8 +149,7 @@ export function OpenCommandPaletteButton() {
   return (
     <button
       onClick={() => window.dispatchEvent(new Event("open-command-palette"))}
-      aria-label="Abrir busca rápida"
-      className="flex min-h-11 w-full items-center gap-2.5 rounded-lg border border-border bg-surface-1 px-2.5 py-1.5 text-[12px] text-muted-foreground transition hover:border-border-strong hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="flex w-full items-center gap-2.5 rounded-lg border border-border bg-surface-1 px-2.5 py-1.5 text-[12px] text-muted-foreground transition hover:border-border-strong hover:text-foreground"
     >
       <Search className="h-3.5 w-3.5 shrink-0" />
       <span className="flex-1 text-left">Buscar</span>
