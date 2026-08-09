@@ -62,6 +62,15 @@ jobs:
           npx prisma db execute --file prisma/migrations/20260728220000_fase_1_security_invites/migration.sql --url "$DIRECT_URL"
           npx prisma db execute --file prisma/migrations/20260729120000_user_invite_created_by_index/migration.sql --url "$DIRECT_URL"
           npx prisma db execute --file prisma/migrations/20260729164510_email_professional_invites/migration.sql --url "$DIRECT_URL"
+      - name: Prepare tenant helper for platform approval migration
+        run: >-
+          npx prisma db execute
+          --file tests/fixtures/fase2-app-current-salon.sql
+          --url "$DIRECT_URL"
+      - name: Apply platform approval schema used by the current Prisma client
+        run: |
+          npx prisma db execute --file prisma/sql/manual/010_platform_access_approval.preflight.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/010_platform_access_approval.sql --url "$DIRECT_URL"
       - run: npm run lint
       - run: npx tsc --noEmit --incremental false
       - run: npm test
