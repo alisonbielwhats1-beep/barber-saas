@@ -15,7 +15,7 @@ describe("callback após login", () => {
         "https://evil.example/steal",
         "https://app.example",
       ),
-    ).toBe("https://app.example/dashboard");
+    ).toBe("https://app.example/pos-login");
   });
 
   it("rejeita javascript:, data: e URL iniciada por //", () => {
@@ -30,6 +30,7 @@ describe("callback após login", () => {
 
   it("aceita caminho interno permitido iniciado por uma única barra", () => {
     expect(sanitizeAuthCallback("/dashboard")).toBe("/dashboard");
+    expect(sanitizeAuthCallback("/plataforma")).toBe("/plataforma");
     expect(sanitizeAuthCallback("/agenda?date=2030-01-01")).toBe(
       "/agenda?date=2030-01-01",
     );

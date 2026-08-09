@@ -94,11 +94,18 @@ export function SalonCinematicBackground({
         className={cn(
           "absolute inset-0",
           variant === "hero"
-            ? "bg-[linear-gradient(90deg,hsl(var(--background))_0%,hsl(var(--background)/0.96)_28%,hsl(var(--background)/0.58)_62%,hsl(var(--background)/0.28)_100%)]"
+            ? "bg-[linear-gradient(90deg,hsl(var(--background))_0%,hsl(var(--background)/0.94)_28%,hsl(var(--background)/0.48)_62%,hsl(var(--background)/0.18)_100%)]"
             : "bg-[linear-gradient(90deg,hsl(var(--background)/0.98)_0%,hsl(var(--background)/0.86)_38%,hsl(var(--background)/0.34)_100%)]",
         )}
       />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_42%,hsl(var(--primary)/0.12),transparent_34%)]" />
+      <div
+        className={cn(
+          "absolute inset-0",
+          variant === "hero"
+            ? "bg-[radial-gradient(circle_at_72%_42%,hsl(var(--foreground)/0.035),transparent_38%)]"
+            : "bg-[radial-gradient(circle_at_72%_42%,hsl(var(--primary)/0.06),transparent_36%)]",
+        )}
+      />
       <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-background to-transparent" />
     </div>
   );

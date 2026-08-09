@@ -1,10 +1,12 @@
 import Link from "next/link";
-import { ArrowLeft, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Building2, LayoutDashboard, ShieldCheck, WalletCards } from "lucide-react";
 import { getPlatformAdminContext } from "@/lib/platform-admin";
+import { isPlatformBillingEnabled } from "@/lib/platform-billing";
 import { Toaster } from "@/components/ui/toast";
 
 export default async function PlatformLayout({ children }: { children: React.ReactNode }) {
   const admin = await getPlatformAdminContext();
+  const billingEnabled = isPlatformBillingEnabled();
 
   return (
     <div className="min-h-dvh bg-background text-foreground">
@@ -27,8 +29,43 @@ export default async function PlatformLayout({ children }: { children: React.Rea
           </Link>
         </div>
       </header>
+      <nav className="border-b border-border bg-background/80" aria-label="Administração global">
+        <div className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-5 py-2">
+          <PlatformNavLink href="/plataforma" label="Visão geral" icon={LayoutDashboard} />
+          <PlatformNavLink href="/plataforma/solicitacoes" label="Estabelecimentos" icon={Building2} />
+          {billingEnabled ? (
+            <PlatformNavLink href="/plataforma/cobrancas" label="Cobranças" icon={WalletCards} />
+          ) : (
+            <span
+              className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-xl px-3 text-sm text-muted-foreground/50"
+              title="Aguardando validação da migration em homologação"
+            >
+              <WalletCards className="h-4 w-4" /> Cobranças em preparação
+            </span>
+          )}
+        </div>
+      </nav>
       <main className="mx-auto max-w-6xl px-5 py-8">{children}</main>
       <Toaster />
     </div>
+  );
+}
+
+function PlatformNavLink({
+  href,
+  label,
+  icon: Icon,
+}: {
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+}) {
+  return (
+    <Link
+      href={href}
+      className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-xl px-3 text-sm text-muted-foreground transition hover:bg-card hover:text-foreground"
+    >
+      <Icon className="h-4 w-4" /> {label}
+    </Link>
   );
 }

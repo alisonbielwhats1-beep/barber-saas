@@ -92,4 +92,27 @@ describe("decisão de acesso da plataforma", () => {
     ).rejects.toThrow("alterada por outra pessoa");
     expect(mocks.eventCreate).not.toHaveBeenCalled();
   });
+
+  it("reativa um estabelecimento suspenso sem apagar seus dados", async () => {
+    mocks.salonFindUnique.mockResolvedValue({
+      id: "salon-1",
+      plan: "PRO",
+      accessStatus: "SUSPENDED",
+    });
+
+    await reviewSalonAccess({
+      salonId: "salon-1",
+      decision: "APPROVE",
+      plan: "PRO",
+      reason: "Acesso regularizado",
+    });
+
+    expect(mocks.eventCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        type: "REACTIVATED",
+        previousStatus: "SUSPENDED",
+        newStatus: "APPROVED",
+      }),
+    });
+  });
 });
