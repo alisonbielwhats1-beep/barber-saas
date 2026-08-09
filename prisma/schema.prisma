@@ -717,6 +717,7 @@ model ProductSale {
   @@unique([salonId, idempotencyKey], map: "ProductSale_salonId_idempotencyKey_key")
   @@index([salonId, soldAt])
   @@index([productId, soldAt])
+  @@index([productId, salonId], map: "ProductSale_productId_salonId_idx")
 }
 
 model AppointmentProduct {

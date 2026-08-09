@@ -14,6 +14,18 @@ const preflight = readFileSync(
   resolve("prisma/sql/manual/009_product_sales.preflight.sql"),
   "utf8",
 );
+const fkIndexMigration = readFileSync(
+  resolve("prisma/sql/manual/010_product_sales_fk_index.sql"),
+  "utf8",
+);
+const fkIndexRollback = readFileSync(
+  resolve("prisma/sql/manual/010_product_sales_fk_index.rollback.sql"),
+  "utf8",
+);
+const fkIndexPreflight = readFileSync(
+  resolve("prisma/sql/manual/010_product_sales_fk_index.preflight.sql"),
+  "utf8",
+);
 
 describe("migration de vendas avulsas de produtos", () => {
   it("é aditiva, transacional e armazena o instante com timezone", () => {
@@ -49,6 +61,23 @@ describe("migration de vendas avulsas de produtos", () => {
   it("possui preflight somente leitura", () => {
     const sqlWithoutComments = preflight.replace(/--.*$/gm, "");
     expect(sqlWithoutComments).toMatch(/SELECT[\s\S]*"Product"/);
+    expect(sqlWithoutComments).not.toMatch(
+      /\b(?:INSERT|UPDATE|DELETE|ALTER|DROP|TRUNCATE|CREATE)\b/i,
+    );
+  });
+
+  it("cobre a FK composta de produto e tenant com indice reversivel", () => {
+    expect(fkIndexMigration).toMatch(/\bBEGIN;/);
+    expect(fkIndexMigration).toContain(
+      '"ProductSale" ("productId", "salonId")',
+    );
+    expect(fkIndexMigration).not.toMatch(/\b(?:DELETE|UPDATE|TRUNCATE)\b/i);
+    expect(fkIndexRollback).toContain(
+      'DROP INDEX IF EXISTS "ProductSale_productId_salonId_idx"',
+    );
+
+    const sqlWithoutComments = fkIndexPreflight.replace(/--.*$/gm, "");
+    expect(sqlWithoutComments).toMatch(/SELECT[\s\S]*ProductSale/);
     expect(sqlWithoutComments).not.toMatch(
       /\b(?:INSERT|UPDATE|DELETE|ALTER|DROP|TRUNCATE|CREATE)\b/i,
     );
