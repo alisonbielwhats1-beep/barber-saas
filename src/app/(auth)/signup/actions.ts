@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import bcrypt from "bcryptjs";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { setSalonGuc, setUserGuc } from "@/lib/prisma-tenant";
 import { uniqueSalonSlug } from "@/lib/slug";
@@ -80,7 +80,7 @@ export async function signup(input: SignupInput): Promise<
   const slug = await uniqueSalonSlug(data.salonName);
 
   try {
-    await prisma.$transaction(async (tx) => {
+    const salonId = await prisma.$transaction(async (tx) => {
       // User não é tenant-scoped (sem RLS) — sem GUC necessária até aqui.
       const user = await tx.user.create({
         data: { email, name: data.ownerName, passwordHash, passwordSetAt },
@@ -111,6 +111,16 @@ export async function signup(input: SignupInput): Promise<
         salonId: salon.id,
         actorUserId: user.id,
       });
+      return salon.id;
+    });
+
+    const cookieStore = await cookies();
+    cookieStore.set("active_salon", salonId, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365,
     });
   } catch (error) {
     const details = error as { code?: unknown; name?: unknown };

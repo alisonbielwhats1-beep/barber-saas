@@ -118,6 +118,18 @@ enum Plan {
   ENTERPRISE
 }
 
+enum PlatformInvoiceStatus {
+  OPEN
+  PAID
+  VOID
+}
+
+enum PlatformInvoiceEventType {
+  CREATED
+  MARKED_PAID
+  VOIDED
+}
+
 enum Gender {
   MALE
   FEMALE
@@ -138,13 +150,16 @@ model User {
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
-  memberships       Membership[]
-  professional      Professional?
-  clientProfiles    ClientProfile[]
-  receivedInvites   UserInvite[]       @relation("InviteUser")
-  createdInvites    UserInvite[]       @relation("InviteCreator")
-  inviteEvents      UserInviteEvent[]
-  salonAccessEvents SalonAccessEvent[] @relation("SalonAccessActor")
+  memberships             Membership[]
+  professional            Professional?
+  clientProfiles          ClientProfile[]
+  receivedInvites         UserInvite[]           @relation("InviteUser")
+  createdInvites          UserInvite[]           @relation("InviteCreator")
+  inviteEvents            UserInviteEvent[]
+  salonAccessEvents       SalonAccessEvent[]     @relation("SalonAccessActor")
+  createdPlatformInvoices PlatformInvoice[]      @relation("PlatformInvoiceCreator")
+  updatedPlatformInvoices PlatformInvoice[]      @relation("PlatformInvoiceUpdater")
+  platformInvoiceEvents   PlatformInvoiceEvent[]
 }
 
 model Salon {
@@ -204,6 +219,7 @@ model Salon {
   appointmentEvents   AppointmentEvent[]
   notificationOutbox  NotificationOutbox[]
   accessEvents        SalonAccessEvent[]
+  platformInvoices    PlatformInvoice[]
 
   @@index([accessStatus, accessRequestedAt])
 }
@@ -227,6 +243,50 @@ model SalonAccessEvent {
 
   @@index([salonId, createdAt])
   @@index([newStatus, createdAt])
+}
+
+/// Cobrança manual da assinatura do SaaS. É separada de Payment, que representa
+/// pagamentos dos clientes pelos atendimentos do estabelecimento.
+model PlatformInvoice {
+  id              String                @id @default(cuid())
+  salonId         String
+  reference       String
+  amountCents     Int
+  dueDate         DateTime              @db.Date
+  paidDate        DateTime?             @db.Date
+  status          PlatformInvoiceStatus @default(OPEN)
+  paymentMethod   PaymentMethod?
+  notes           String?
+  createdByUserId String?
+  updatedByUserId String?
+  createdAt       DateTime              @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime              @updatedAt @db.Timestamptz(3)
+
+  salon     Salon                  @relation(fields: [salonId], references: [id], onDelete: Restrict)
+  createdBy User?                  @relation("PlatformInvoiceCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedBy User?                  @relation("PlatformInvoiceUpdater", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  events    PlatformInvoiceEvent[]
+
+  @@unique([salonId, reference])
+  @@index([salonId, dueDate])
+  @@index([status, dueDate])
+}
+
+/// Histórico imutável das alterações de uma cobrança da plataforma.
+model PlatformInvoiceEvent {
+  id             String                   @id @default(cuid())
+  invoiceId      String
+  actorUserId    String?
+  type           PlatformInvoiceEventType
+  previousStatus PlatformInvoiceStatus?
+  newStatus      PlatformInvoiceStatus
+  reason         String?
+  createdAt      DateTime                 @default(now()) @db.Timestamptz(3)
+
+  invoice PlatformInvoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  actor   User?           @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([invoiceId, createdAt])
 }
 
 enum PackageStatus {

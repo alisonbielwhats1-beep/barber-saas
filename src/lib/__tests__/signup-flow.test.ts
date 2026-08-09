@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   headers: vi.fn(async () => new Headers()),
+  cookieSet: vi.fn(),
   checkRateLimit: vi.fn(async () => ({ allowed: true, source: "memory" })),
   clientIp: vi.fn(() => "1.2.3.4"),
   uniqueSalonSlug: vi.fn(async () => "studio-teste"),
@@ -16,7 +17,10 @@ const mocks = vi.hoisted(() => ({
   transaction: vi.fn(),
 }));
 
-vi.mock("next/headers", () => ({ headers: mocks.headers }));
+vi.mock("next/headers", () => ({
+  headers: mocks.headers,
+  cookies: vi.fn(async () => ({ set: mocks.cookieSet })),
+}));
 vi.mock("bcryptjs", () => ({ default: { hash: vi.fn(async () => "password-hash") } }));
 vi.mock("@/lib/rate-limit", () => ({
   checkRateLimit: mocks.checkRateLimit,
@@ -71,6 +75,11 @@ describe("signup", () => {
     });
     expect(mocks.accessEventCreateMany).toHaveBeenCalledOnce();
     expect(mocks.notify).toHaveBeenCalledOnce();
+    expect(mocks.cookieSet).toHaveBeenCalledWith(
+      "active_salon",
+      "salon-1",
+      expect.objectContaining({ httpOnly: true, sameSite: "lax", path: "/" }),
+    );
   });
 
   it("devolve erro amigável sem expor a página de exceção", async () => {

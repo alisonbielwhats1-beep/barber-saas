@@ -23,6 +23,7 @@ const PROTECTED_PATH_PREFIXES = [
   "/compartilhar",
   "/pagamentos",
   "/onboarding",
+  "/pos-login",
   "/plataforma",
 ] as const;
 

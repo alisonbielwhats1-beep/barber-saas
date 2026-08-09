@@ -1,4 +1,4 @@
-export const DEFAULT_AUTH_CALLBACK = "/dashboard";
+export const DEFAULT_AUTH_CALLBACK = "/pos-login";
 
 const ALLOWED_EXACT_PATHS = new Set([
   "/",
@@ -11,10 +11,14 @@ const ALLOWED_EXACT_PATHS = new Set([
   "/marketing",
   "/pacotes",
   "/portfolio",
+  "/pos-login",
   "/produtos",
   "/profissionais",
   "/relatorios",
   "/servicos",
+  "/plataforma",
+  "/plataforma/cobrancas",
+  "/plataforma/solicitacoes",
 ]);
 
 const INVITE_PATH = /^\/convite\/[A-Za-z0-9_-]{20,256}$/;

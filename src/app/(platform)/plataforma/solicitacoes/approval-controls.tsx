@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Check, Crown, Loader2, ShieldAlert, XCircle } from "lucide-react";
+import { Check, Crown, Loader2, RotateCcw, ShieldAlert, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -52,7 +52,8 @@ export function ApprovalControls({ salonId, salonName, status, currentPlan }: Pr
       <div className="flex flex-wrap gap-2">
         {status !== "APPROVED" && (
           <Button size="sm" onClick={() => setDialog("approve")}>
-            <Check className="h-4 w-4" /> Liberar acesso
+            {status === "SUSPENDED" ? <RotateCcw className="h-4 w-4" /> : <Check className="h-4 w-4" />}
+            {status === "SUSPENDED" ? "Reativar" : "Liberar acesso"}
           </Button>
         )}
         {status === "APPROVED" && (
@@ -77,13 +78,17 @@ export function ApprovalControls({ salonId, salonName, status, currentPlan }: Pr
           <DialogHeader>
             <DialogTitle>
               {dialog === "approve"
-                ? `Liberar ${salonName}`
+                ? status === "SUSPENDED"
+                  ? `Reativar ${salonName}`
+                  : `Liberar ${salonName}`
                 : dialog === "reject"
                   ? `Recusar ${salonName}`
                   : `Suspender ${salonName}`}
             </DialogTitle>
             <DialogDescription>
-              Revise a recomendação antes de confirmar. Toda decisão fica registrada no histórico.
+              {dialog === "suspend"
+                ? "O acesso será bloqueado, mas agenda, clientes e histórico continuarão preservados."
+                : "Revise a recomendação antes de confirmar. Toda decisão fica registrada no histórico."}
             </DialogDescription>
           </DialogHeader>
 

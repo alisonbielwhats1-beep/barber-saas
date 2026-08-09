@@ -26,14 +26,14 @@ export default function LandingPage() {
         <SalonCinematicBackground priority />
         <div className="container relative z-10 grid gap-14 lg:grid-cols-2 lg:items-center lg:gap-10">
           <div className="animate-fade-in drop-shadow-[0_8px_30px_rgba(0,0,0,0.45)]">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/35 bg-background/55 px-4 py-1.5 text-xs font-medium text-primary backdrop-blur-md">
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/20 bg-background/55 px-4 py-1.5 text-xs font-medium text-foreground/80 backdrop-blur-md">
               <ShieldCheck className="h-3 w-3" />
               A rotina do seu espaço, em um só lugar
             </div>
             <h1 className="font-display text-4xl leading-[1.1] tracking-tight md:text-6xl">
               Seu espaço organizado,
               <br />
-              <span className="text-primary">sua agenda sempre em movimento.</span>
+              <span className="text-foreground">sua agenda sempre em movimento.</span>
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground">
               Agenda online, cadastro de clientes, controle da equipe e visão
