@@ -1,182 +1,158 @@
-# Handoff do projeto — Fase 2 pronta para validação
+# Status atual canônico — Salon SaaS
 
-Atualizado em 05/08/2026. Este é o ponto canônico de retomada para outro chat
-ou computador. Leia também `docs/fase-2-agenda-confiavel.md`,
-`docs/fase-1-rollout.md` e `docs/PROXIMAS_FASES.md`.
+Atualizado em **09/08/2026** após o PR
+[#32](https://github.com/alisonbielwhats1-beep/barber-saas/pull/32).
+Este arquivo substitui os status históricos quando houver contradição.
 
-## Situação atual da Fase 2
-
-- Checkout: `D:\Projetos\barber-saas`
-- Branch: `codex/fase-2-agenda-confiavel`
-- Escopo: agenda, timezone, concorrência, idempotência, histórico,
-  notificações internas, consistência mobile e permissões relacionadas
-- Banco remoto: **não acessado**
-- Migration da Fase 2: **não aplicada fora do CI descartável**
-- Production: **não alterada**
-- Próximo gate: PR/CI, PostgreSQL descartável, depois Preview/homologação
-
-O código possui preflight somente leitura, migration aditiva e rollback não
-destrutivo. A entrega não deve ser promovida diretamente para Production. Os
-detalhes e limitações estão em `docs/fase-2-agenda-confiavel.md`.
-
-## Registro histórico da Fase 1 em Production
-
-## Onde o trabalho está
+## Identificação da versão
 
 - Repositório: `alisonbielwhats1-beep/barber-saas`
-- Checkout usado: `C:\Claude Code\salon-saas`
-- Checkout preservado e não alterado: `D:\Projetos\barber-saas`
-- Branch local/remota: `master`
-- PR da Fase 1: [#3](https://github.com/alisonbielwhats1-beep/barber-saas/pull/3),
-  mesclado
-- Commit do código em Production: `af6d063`
-- Aplicativo oficial:
-  [salon-saas-ruby.vercel.app](https://salon-saas-ruby.vercel.app)
-- Deployment do código: `dpl_3of24kMW7hMUWXXPTHqSoZv3drVT`, estado `Ready`
+- Branch produtiva: `master`
+- Commit produtivo: `daf54a66c53ded2901851c3673487216a6de7d25`
+- Vercel: projeto `salon-saas`
+- Deploy: `dpl_3me7furAn8QnZu7HGdqrCJUMz65B`, estado `READY`
+- URL oficial: [salon-saas-ruby.vercel.app](https://salon-saas-ruby.vercel.app)
+- Região das Functions: `gru1`
+- Banco/Storage: Supabase do projeto de barbearia
+- Erros de runtime logo após o deploy: nenhum encontrado
 
-## Veredito atual
+## O que está em Production
 
-A base da **Fase 1 está concluída em Production**: código, Redis, storage,
-schema e histórico Prisma foram validados. A única exceção deliberada é a
-ativação do envio de convites por e-mail.
+### Estabelecimento
 
-Enquanto o e-mail estiver pendente:
+- dashboard, agenda dia/semana/mês/lista, clientes, profissionais e serviços;
+- financeiro, despesas, relatórios, produtos, estoque, pacotes e portfólio;
+- configurações do perfil, logo e capa do estabelecimento;
+- notificações internas e lembretes pelo cron;
+- permissões por papel, com financeiro bloqueado para profissional;
+- seletor de tenant para usuários com múltiplos vínculos.
 
-- `EMAIL_INVITES_ENABLED` permanece ausente/desligada;
-- `RESEND_API_KEY` e `EMAIL_FROM` não estão na Vercel;
-- criação, reenvio, revogação e aceite de convites falham fechados;
-- a rota pública de convite mostra indisponibilidade controlada;
-- não anunciar convites por e-mail como recurso disponível.
+### Cliente
 
-Isso não bloqueia demonstrações das demais áreas do produto.
+- vitrine pública por `salonSlug`;
+- seleção de múltiplos serviços, profissional, data e horário;
+- criação idempotente, histórico, reagendamento e cancelamento;
+- fluxo explícito mobile e barra inferior com safe area;
+- notificações internas e lista de espera vinculada ao horário;
+- catálogo de produtos e portfólio público.
 
-## Fase 1 entregue
+### Confiabilidade da agenda
 
-### Identidade, agendamento e histórico
+- timezone IANA por estabelecimento e servidor como fonte de verdade;
+- `timestamptz` para instantes e intervalo `[início, fim)`;
+- transação, advisory lock, idempotency key e proteção de conflito no banco;
+- múltiplos serviços com snapshots de duração/preço;
+- reagendamento atômico mantendo o mesmo agendamento;
+- cancelamento sem delete, com ator, motivo, evento e liberação do horário;
+- histórico imutável de eventos e outbox idempotente de notificações;
+- polling seguro como fallback; Supabase Realtime ainda não é a fonte principal.
 
-- A API pública de agendamento não aceita `clientId` do navegador.
-- A sessão assinada é a fonte da identidade de cliente autenticado.
-- Visitante não reutiliza contato existente por telefone/e-mail e recebe um
-  contato isolado dentro da transação do agendamento.
-- Histórico, cancelamento e “Minhas visitas” isolam cliente e salão.
-- O cron falha fechado e usa `timingSafeEqual` somente após comparar tamanhos.
-- Nenhum fluxo de Production usa a senha fixa `trocar-agora`.
+### Administração global
 
-### Convites e consistência
+- `PlatformRole.SUPER_ADMIN` separado dos papéis de cada tenant;
+- login padrão do SUPER_ADMIN redireciona para `/plataforma`;
+- visão geral e fila de solicitações de estabelecimentos;
+- aprovação como FREE/PRO, alteração de plano, suspensão e reativação;
+- suspensão preserva todos os dados;
+- decisões gravadas em `SalonAccessEvent`;
+- e-mail do administrador principal configurado em variável sensível da Vercel;
+- a promoção persistente ocorre no primeiro acesso autenticado à plataforma.
 
-- Token aleatório de 256 bits; somente SHA-256 é persistido.
-- Expiração de 24 horas, rotação no reenvio e consumo único.
-- Locks e `UPDATE` condicionado ao hash vigente protegem contra corrida.
-- Conta existente exige a sessão do destinatário.
-- Owner/manager de um salão não assume conta global de outro salão.
-- Aceite atualiza `User`, `Membership`, `Professional`, serviços e auditoria na
-  mesma transação; falha parcial reverte tudo.
-- A infraestrutura de entrega por Resend está implementada, mas desligada.
+## Banco, RLS e migrations
 
-### Rate limiting e upload
+### Estado conhecido
 
-- Upstash REST está conectado a Preview e Production pela integração Vercel.
-- O limiter usa `EVAL` atômico, timeout e identificadores protegidos por hash.
-- Autenticação e escritas sensíveis falham fechadas em Production.
-- Em Production, somente `x-vercel-forwarded-for` é usado como IP confiável.
-- Upload exige sessão, papel e membership do salão; valida magic bytes e grava
-  somente em `<salonId>/<finalidade>/<uuid>.<ext>`.
-- O bucket público `salon-assets` existe no Supabase, limitado a 5 MiB e a
-  JPEG, PNG, WebP e GIF.
+- O runtime usa a role `app_runtime`, sem `BYPASSRLS`.
+- RLS e GUCs (`app.current_salon`, `app.current_user_id` e token de convite)
+  reforçam o isolamento no banco.
+- O código não deve usar Prisma cru em operação tenant-scoped; use os helpers
+  de `src/lib/prisma-tenant.ts`.
+- As três migrations Prisma de convites foram reconciliadas/aplicadas na Fase 1.
+- A migration manual `008_fase2_appointment_reliability` foi aplicada e
+  verificada em Production durante o rollout da Fase 2.
+- As estruturas de `009_waitlist_reliability` e
+  `010_platform_access_approval` pertencem às versões produtivas atuais.
+  Como são SQL manual, confirme objetos e policies com consultas somente
+  leitura antes de qualquer migration futura; não as reaplique cegamente.
 
-## Banco de Production e migrations
+### Não aplicado
 
-Em 29/07/2026 foi feita uma reconciliação controlada:
+- `011_platform_billing.sql` **não foi aplicado em Production**.
+- `PLATFORM_BILLING_ENABLED` permanece ausente ou `false`.
+- A interface de cobranças do SaaS fica inacessível e as Server Actions falham
+  fechadas enquanto a flag estiver desligada.
+- Preflight e rollback não destrutivo estão versionados junto da migration.
 
-1. O banco não tinha `_prisma_migrations`, embora os objetos das duas primeiras
-   migrations já existissem.
-2. Colunas, `tokenHash VARCHAR(64)`, índices, FKs, RLS e privilégios foram
-   comparados com o SQL versionado.
-3. `20260728220000_fase_1_security_invites` foi marcada como aplicada somente
-   após essa comprovação.
-4. `20260729120000_user_invite_created_by_index` também foi marcada como
-   aplicada somente após confirmar o índice.
-5. `20260729164510_email_professional_invites` foi aplicada por
-   `prisma migrate deploy`.
-6. `prisma migrate status` confirmou: `Database schema is up to date!`.
+### Proibições
 
-Também foram validados:
+- não executar `prisma db push`, seed, reset ou `migrate dev` em Production;
+- não usar Production para descobrir se uma migration “funciona”;
+- não marcar migration como aplicada sem comparar o schema real;
+- não remover snapshots, eventos, invoices ou agendamentos cancelados;
+- não trocar `DATABASE_URL` para a role `postgres` com `BYPASSRLS`.
 
-- `UserInviteEvent`, enums, FKs e índices esperados;
-- RLS ativa e ausência de DML para `anon`/`authenticated` nas duas tabelas;
-- preservação do único convite legado, agora em
-  `FAILED / LEGACY_NOT_SENT`.
+## Ambientes
 
-Não repetir `migrate resolve`, não usar `prisma db push` e não reaplicar essas
-migrations.
+- Desenvolvimento: PostgreSQL local com dados fictícios.
+- CI: PostgreSQL 16 efêmero; executa lint, typecheck, unitários, integração,
+  concorrência, build e schema smoke-test.
+- Preview/staging: a arquitetura está documentada, mas um segundo Supabase
+  inequivocamente identificado ainda é necessário para homologar migrations.
+- Production: Vercel + Supabase atuais; migrations produtivas não são
+  automatizadas pelo repositório.
 
-### Backup anterior à mudança
+## Integrações e flags
 
-Foi criado um snapshot lógico consistente de todas as 20 tabelas públicas
-(758 registros), fora do Git:
+- Upstash/KV: configurado para rate limiting distribuído.
+- Supabase Storage: bucket público de assets usado para imagens permitidas.
+- Vercel Cron: `/api/cron/reminders`, protegido por `CRON_SECRET`.
+- Resend/e-mail: infraestrutura existe, mas convites reais permanecem
+  desativados até configurar e validar `RESEND_API_KEY`, `EMAIL_FROM` e
+  `EMAIL_INVITES_ENABLED=true` primeiro fora de Production.
+- WhatsApp: somente atalho manual; nenhuma integração paga automática.
+- Billing automático/Stripe: não implementado nem autorizado.
 
-`C:\Claude Code\backups\salon-saas\phase1-pre-migration-2026-07-30T02-42-16.085Z.json`
+## Evidências da última entrega
 
-SHA-256:
-`05B783DDF5F1AB4F32DA35ABE4916C9C855CF49C9A27D2A9748225ED4C191EC2`
+- `npm run lint`: passou.
+- `npx tsc --noEmit --incremental false`: passou.
+- `npm test`: 49 arquivos e 219 testes passaram.
+- `npm run build`: passou com Next.js 15.5.22.
+- CI do PR #32: `check`, `schema-smoke` e Vercel passaram.
+- Inspeção visual: desktop 1280×720 e mobile 390×844 sem overflow/overlay.
+- Produção após deploy: home carregou sem erro; Vercel não registrou clusters
+  de erro no intervalo verificado.
 
-O arquivo contém dados pessoais e hashes: não subir, compartilhar ou registrar
-seu conteúdo. É um snapshot JSON para recuperação manual e **não substitui**
-um backup nativo `pg_dump`/Supabase. Antes de mudanças destrutivas futuras,
-criar também um backup nativo ou ponto de restauração do provedor.
+## Pendências reais e priorizadas
 
-### Drift conhecido, fora da Fase 1
+1. Confirmar manualmente o primeiro login do administrador principal e a
+   promoção para `SUPER_ADMIN`; nenhuma senha foi acessada pelo agente.
+2. Criar/identificar Supabase de homologação separado antes da migration `011`.
+3. Validar a migration `011`, RLS, rollback e cobranças manuais em staging;
+   só depois decidir se ativa em Production.
+4. Ativar convites por e-mail via Resend somente após teste completo em Preview.
+5. Adicionar Playwright para jornadas E2E quando houver banco de staging seguro.
+6. Ensaiar backup nativo/restore do Supabase antes de clientes reais.
+7. Rotacionar/remover qualquer credencial de demonstração conhecida e nunca
+   documentar senhas no repositório público.
+8. Realtime filtrado por tenant, múltiplas unidades e pagamento online continuam
+   fora do escopo atual.
 
-`prisma migrate diff` ainda sugere ajustar a precisão de
-`Appointment.reminderSentAt` e `Appointment.cancelledAt` para `TIMESTAMP(3)`.
-O histórico está em dia, mas esse drift preexistente deve virar uma migration
-separada, após validar impacto e backup. Não corrigir com `db push`.
+## Próximo passo recomendado
 
-## Evidências finais
+Não refazer auditoria geral. Começar por uma verificação curta do repositório e
+escolher apenas uma frente:
 
-- CI e build do código da Fase 1: aprovados.
-- Testes unitários: 19 arquivos / 87 testes.
-- Integração PostgreSQL 16: concorrência, rollback parcial e isolamento global
-  de conta aprovados.
-- Vercel Production: `Ready`.
-- Variáveis de Production confirmadas sem revelar valores:
-  banco, auth, Supabase, cron e `KV_*`; Resend/flag ausentes.
-- Smoke tests após a migration:
-  - home, login, cadastro e salão público: HTTP 200;
-  - “Minhas visitas” sem sessão: redireciona ao login do salão;
-  - disponibilidade sem parâmetros: HTTP 400;
-  - histórico sem sessão: HTTP 401;
-  - cron sem segredo: HTTP 401;
-  - convite com flag desligada: contingência controlada.
+- **Operação imediata:** validar login SUPER_ADMIN e onboarding de um tenant;
+- **Infraestrutura:** criar staging Supabase e ensaiar a migration `011`;
+- **Qualidade:** adicionar E2E dos fluxos críticos em Preview isolado.
 
-## Única pendência da Fase 1: ativar e-mail
+## Prompt curto para outra conversa
 
-Executar em uma janela própria:
-
-1. verificar domínio remetente no Resend;
-2. definir `RESEND_API_KEY` e `EMAIL_FROM` em Preview;
-3. definir `EMAIL_INVITES_ENABLED=true` somente em Preview;
-4. testar criar, entregar, reenviar, revogar e aceitar convite;
-5. confirmar rotação do token, idempotência, expiração, uso único e auditoria;
-6. monitorar logs sem token, hash, cookie, senha ou dado pessoal;
-7. só então repetir as três variáveis em Production e executar smoke controlado.
-
-Nenhuma migration adicional é necessária para essa ativação.
-
-## Atenção antes de clientes reais
-
-As credenciais demo públicas são úteis para apresentação, mas não devem dar
-acesso a tenants de clientes reais. Antes do primeiro onboarding comercial,
-isolar/remover os tenants demo ou rotacionar suas credenciais e validar o
-onboarding do cliente em tenant próprio.
-
-## Prompt curto para o próximo chat
-
-> Abra `C:\Claude Code\salon-saas`, confirme `master` limpa e sincronizada e
-> leia integralmente `docs/STATUS_ATUAL.md`, `docs/fase-1-rollout.md` e
-> `docs/PROXIMAS_FASES.md`. A Fase 1 está em Production, o Supabase está com as
-> 3 migrations em dia, Upstash e `salon-assets` estão operacionais. Não refaça
-> migrations nem use `prisma db push`. A única pendência da Fase 1 é ativar
-> Resend por Preview primeiro; não habilite e-mail sem autorização explícita.
-> Para seguir sem e-mail, comece pela Fase 2 descrita em
-> `docs/PROXIMAS_FASES.md`.
+> Trabalhe no repositório `alisonbielwhats1-beep/barber-saas`. Leia primeiro
+> `AGENTS.md`, `docs/STATUS_ATUAL.md`, `docs/AMBIENTES.md` e
+> `docs/DECISOES_PRODUTO.md`. Não refaça auditoria completa e não altere
+> Production. Confirme branch limpa, CI e o escopo escolhido. A versão
+> produtiva é o commit `daf54a6`; a migration `011_platform_billing` não foi
+> aplicada e a flag de billing está desligada. Preserve RLS, histórico e
+> isolamento multi-tenant. Proponha o próximo passo antes de qualquer migration.
