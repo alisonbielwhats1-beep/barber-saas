@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -76,8 +75,13 @@ const SEGMENT_STORIES: Record<SegmentId, SegmentStory> = {
 
 const APPOINTMENT_TIMES = ["09:00", "10:30", "13:00"] as const;
 
-export function MarketingExperienceHero() {
-  const [selectedId, setSelectedId] = useState<SegmentId>(DEFAULT_SEGMENT_ID);
+export function MarketingExperienceHero({
+  selectedId,
+  onSelect,
+}: {
+  selectedId: SegmentId;
+  onSelect: (segmentId: SegmentId) => void;
+}) {
   const selected = getSegment(selectedId);
   const experience = getBusinessExperience(selectedId);
   const story = SEGMENT_STORIES[selectedId];
@@ -96,7 +100,7 @@ export function MarketingExperienceHero() {
             Veja o SalonSaaS para o seu negócio
           </p>
           <div
-            className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-card/70 p-2 shadow-premium backdrop-blur-xl sm:grid-cols-5"
+            className="marketing-segment-switcher grid grid-cols-2 gap-2 rounded-2xl border border-border bg-card/75 p-2 shadow-premium backdrop-blur-xl sm:grid-cols-5"
             aria-label="Escolha um tipo de estabelecimento para personalizar a demonstração"
           >
             {SEGMENTS.map((segment) => {
@@ -108,11 +112,11 @@ export function MarketingExperienceHero() {
                   key={segment.id}
                   type="button"
                   aria-pressed={active}
-                  onClick={() => setSelectedId(segment.id)}
+                  onClick={() => onSelect(segment.id)}
                   className={`group relative flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background last:col-span-2 sm:last:col-span-1 ${
                     active
                       ? "marketing-segment-active"
-                      : "border-transparent text-muted-foreground hover:border-white/10 hover:bg-white/5 hover:text-foreground"
+                      : "border-transparent text-muted-foreground hover:border-border hover:bg-card-hover hover:text-foreground"
                   }`}
                 >
                   <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />
@@ -166,7 +170,7 @@ export function MarketingExperienceHero() {
                 asChild
                 variant="outline"
                 size="lg"
-                className="h-14 rounded-full border-white/20 bg-white/5 px-8 text-base backdrop-blur hover:bg-white/10"
+                className="h-14 rounded-full border-border bg-card/60 px-8 text-base backdrop-blur hover:bg-card-hover"
               >
                 <Link href="/book/north-barber">
                   Abrir demonstração <ExternalLink aria-hidden="true" className="h-4 w-4" />
@@ -175,7 +179,7 @@ export function MarketingExperienceHero() {
             </div>
 
             <p className="mt-5 flex items-center gap-2 text-sm text-muted-foreground">
-              <Check aria-hidden="true" className="h-4 w-4 text-primary" />
+              <Check aria-hidden="true" className="experience-accent-text h-4 w-4" />
               Sem cartão de crédito para começar.
             </p>
           </div>
@@ -205,7 +209,7 @@ function HeroBenefit({
   label: string;
 }) {
   return (
-    <div className="flex min-h-12 items-center gap-2.5 rounded-xl border border-white/10 bg-white/[0.035] px-3 py-2">
+    <div className="marketing-quiet-surface flex min-h-12 items-center gap-2.5 rounded-xl border border-border bg-card/55 px-3 py-2">
       <Icon aria-hidden="true" className="experience-accent-text h-4 w-4 shrink-0" />
       <span className="leading-5">{label}</span>
     </div>
@@ -264,7 +268,7 @@ function ExperiencePreview({
       </div>
 
       <div className="relative -mt-8 p-3 pt-0 sm:-mt-10 sm:p-5 sm:pt-0">
-        <div className="rounded-2xl border border-white/10 bg-background/95 p-4 shadow-premium backdrop-blur-xl sm:p-5">
+        <div className="rounded-2xl border border-border bg-background/95 p-4 shadow-premium backdrop-blur-xl sm:p-5">
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs font-medium text-muted-foreground">Agenda de hoje</p>

@@ -21,10 +21,10 @@ export function ProductWordmark({
       )}
     >
       <span>Salon</span>
-      <span className="experience-accent-text text-primary">SaaS</span>
+      <span className="text-primary">SaaS</span>
       <span
         aria-hidden="true"
-        className="experience-accent-bg ml-1.5 h-1.5 w-1.5 rounded-full transition-transform duration-200 group-hover:scale-125"
+        className="ml-1.5 h-1.5 w-1.5 rounded-full bg-primary transition-transform duration-200 group-hover:scale-125"
       />
     </Link>
   );

@@ -1030,6 +1030,274 @@
   box-shadow: 0 18px 55px rgb(0 0 0 / 0.16);
 }
 
+/* Landing comercial: o segmento altera a atmosfera da página inteira.
+   A cor verde permanece como assinatura do produto e aparece sobretudo em ações. */
+[data-marketing-experience] {
+  --primary: 154 64% 36%;
+  --primary-foreground: 0 0% 100%;
+  --ring: 154 64% 36%;
+  --marketing-section-base: 36 24% 98%;
+  --marketing-section-muted: 34 18% 95%;
+  --marketing-section-soft: 34 15% 92%;
+  --marketing-editorial: 34 16% 94%;
+  --marketing-footer: 32 15% 91%;
+  color-scheme: light;
+}
+
+[data-marketing-experience][data-business-experience="barbearia"] {
+  --background: 30 10% 6%;
+  --surface-1: 30 9% 8%;
+  --foreground: 38 18% 94%;
+  --card: 30 8% 11%;
+  --card-foreground: 38 18% 94%;
+  --card-hover: 30 8% 14%;
+  --elevated: 30 8% 16%;
+  --muted: 30 7% 17%;
+  --muted-foreground: 34 7% 66%;
+  --border: 30 7% 20%;
+  --border-strong: 32 8% 31%;
+  --input: 30 8% 13%;
+  --secondary: 30 7% 16%;
+  --secondary-foreground: 38 18% 94%;
+  --primary: 154 66% 49%;
+  --primary-foreground: 154 45% 8%;
+  --ring: 154 66% 49%;
+  --experience-accent: 35 12% 70%;
+  --experience-accent-strong: 35 11% 58%;
+  --experience-soft: 32 9% 14%;
+  --experience-glow: 34 18% 47%;
+  --experience-radius: 0.9rem;
+  --marketing-section-base: 30 10% 6%;
+  --marketing-section-muted: 30 8% 9%;
+  --marketing-section-soft: 30 7% 12%;
+  --marketing-editorial: 30 8% 10%;
+  --marketing-footer: 30 10% 5%;
+  color-scheme: dark;
+}
+
+[data-marketing-experience][data-business-experience="salao-beleza"] {
+  --background: 32 33% 97%;
+  --surface-1: 30 30% 99%;
+  --foreground: 25 14% 15%;
+  --card: 30 30% 99%;
+  --card-foreground: 25 14% 15%;
+  --card-hover: 30 22% 96%;
+  --elevated: 30 30% 100%;
+  --muted: 30 18% 91%;
+  --muted-foreground: 24 8% 43%;
+  --border: 28 16% 84%;
+  --border-strong: 27 14% 69%;
+  --input: 30 30% 99%;
+  --secondary: 30 18% 91%;
+  --secondary-foreground: 25 14% 15%;
+  --experience-accent: 332 9% 35%;
+  --experience-accent-strong: 332 9% 27%;
+  --experience-soft: 30 22% 94%;
+  --experience-glow: 25 20% 66%;
+  --experience-radius: 1.4rem;
+  --marketing-section-base: 32 33% 97%;
+  --marketing-section-muted: 31 25% 94%;
+  --marketing-section-soft: 30 20% 91%;
+  --marketing-editorial: 28 22% 93%;
+  --marketing-footer: 29 18% 90%;
+}
+
+[data-marketing-experience][data-business-experience="manicure-nail"] {
+  --background: 36 25% 98%;
+  --surface-1: 34 25% 99%;
+  --foreground: 285 9% 16%;
+  --card: 34 25% 100%;
+  --card-foreground: 285 9% 16%;
+  --card-hover: 330 10% 97%;
+  --elevated: 34 25% 100%;
+  --muted: 330 10% 92%;
+  --muted-foreground: 285 7% 44%;
+  --border: 325 9% 85%;
+  --border-strong: 310 8% 70%;
+  --input: 34 25% 99%;
+  --secondary: 330 10% 92%;
+  --secondary-foreground: 285 9% 16%;
+  --experience-accent: 292 8% 35%;
+  --experience-accent-strong: 292 8% 27%;
+  --experience-soft: 330 12% 95%;
+  --experience-glow: 330 18% 72%;
+  --experience-radius: 1.55rem;
+  --marketing-section-base: 36 25% 98%;
+  --marketing-section-muted: 330 12% 95%;
+  --marketing-section-soft: 330 10% 92%;
+  --marketing-editorial: 25 18% 94%;
+  --marketing-footer: 325 9% 91%;
+}
+
+[data-marketing-experience][data-business-experience="estetica-bemestar"] {
+  --background: 48 30% 98%;
+  --surface-1: 45 28% 99%;
+  --foreground: 160 10% 17%;
+  --card: 45 28% 100%;
+  --card-foreground: 160 10% 17%;
+  --card-hover: 90 12% 97%;
+  --elevated: 45 28% 100%;
+  --muted: 90 12% 92%;
+  --muted-foreground: 155 7% 42%;
+  --border: 95 10% 85%;
+  --border-strong: 110 9% 69%;
+  --input: 45 28% 99%;
+  --secondary: 90 12% 92%;
+  --secondary-foreground: 160 10% 17%;
+  --experience-accent: 155 10% 34%;
+  --experience-accent-strong: 155 10% 26%;
+  --experience-soft: 90 14% 95%;
+  --experience-glow: 90 16% 68%;
+  --experience-radius: 1.65rem;
+  --marketing-section-base: 48 30% 98%;
+  --marketing-section-muted: 80 17% 95%;
+  --marketing-section-soft: 90 12% 92%;
+  --marketing-editorial: 70 16% 94%;
+  --marketing-footer: 85 12% 91%;
+}
+
+[data-marketing-experience][data-business-experience="espaco-misto"] {
+  --background: 216 22% 97%;
+  --surface-1: 214 22% 99%;
+  --foreground: 220 18% 14%;
+  --card: 214 22% 100%;
+  --card-foreground: 220 18% 14%;
+  --card-hover: 215 16% 97%;
+  --elevated: 214 22% 100%;
+  --muted: 215 16% 91%;
+  --muted-foreground: 218 9% 42%;
+  --border: 215 15% 84%;
+  --border-strong: 215 14% 68%;
+  --input: 214 22% 99%;
+  --secondary: 215 16% 91%;
+  --secondary-foreground: 220 18% 14%;
+  --experience-accent: 215 16% 34%;
+  --experience-accent-strong: 215 17% 26%;
+  --experience-soft: 215 18% 95%;
+  --experience-glow: 210 20% 66%;
+  --experience-radius: 1.15rem;
+  --marketing-section-base: 216 22% 97%;
+  --marketing-section-muted: 215 18% 94%;
+  --marketing-section-soft: 215 16% 91%;
+  --marketing-editorial: 214 17% 93%;
+  --marketing-footer: 215 15% 90%;
+}
+
+[data-marketing-experience].marketing-page {
+  background: hsl(var(--background));
+  transition: background-color 520ms cubic-bezier(0.22, 1, 0.36, 1), color 420ms ease;
+}
+
+[data-marketing-experience] .marketing-section,
+[data-marketing-experience] .marketing-header,
+[data-marketing-experience] .marketing-footer,
+[data-marketing-experience] .marketing-benefit-card,
+[data-marketing-experience] .marketing-step-card,
+[data-marketing-experience] .marketing-plan-card,
+[data-marketing-experience] .marketing-product-mockup,
+[data-marketing-experience] .marketing-client-mockup,
+[data-marketing-experience] .marketing-segment-switcher {
+  transition:
+    background-color 520ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 420ms ease,
+    color 420ms ease,
+    box-shadow 420ms ease;
+}
+
+[data-marketing-experience] .marketing-experience-hero {
+  background:
+    radial-gradient(circle at 78% 24%, hsl(var(--experience-glow) / 0.14), transparent 30rem),
+    radial-gradient(circle at 10% 74%, hsl(var(--experience-accent) / 0.055), transparent 25rem),
+    linear-gradient(180deg, hsl(var(--background)), hsl(var(--background)) 78%, hsl(var(--marketing-section-muted)));
+  transition: background 520ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+[data-marketing-experience] .marketing-section-base {
+  background-color: hsl(var(--marketing-section-base));
+}
+
+[data-marketing-experience] .marketing-section-muted {
+  background-color: hsl(var(--marketing-section-muted));
+}
+
+[data-marketing-experience] .marketing-section-soft {
+  background-color: hsl(var(--marketing-section-soft));
+}
+
+[data-marketing-experience] .marketing-editorial-break {
+  background:
+    linear-gradient(115deg, hsl(var(--experience-glow) / 0.06), transparent 45%),
+    hsl(var(--marketing-editorial));
+}
+
+[data-marketing-experience] .marketing-cta-section {
+  background:
+    radial-gradient(circle at 50% 15%, hsl(var(--experience-glow) / 0.11), transparent 31rem),
+    linear-gradient(180deg, hsl(var(--marketing-section-base)), hsl(var(--marketing-section-muted)));
+}
+
+[data-marketing-experience] .marketing-footer {
+  background-color: hsl(var(--marketing-footer));
+}
+
+[data-marketing-experience] .marketing-section-eyebrow,
+[data-marketing-experience] .marketing-cta-accent {
+  color: hsl(var(--experience-accent));
+}
+
+[data-marketing-experience] .experience-accent-bg {
+  color: hsl(var(--background));
+}
+
+[data-marketing-experience] .marketing-plan-featured {
+  border-color: hsl(var(--experience-accent) / 0.42);
+  box-shadow: 0 24px 70px -50px hsl(var(--experience-glow) / 0.75);
+}
+
+[data-marketing-experience] .marketing-benefit-card:first-child {
+  background:
+    radial-gradient(circle at 85% 10%, hsl(var(--experience-accent) / 0.075), transparent 45%),
+    hsl(var(--card));
+}
+
+[data-marketing-experience] .marketing-benefit-photo img,
+[data-marketing-experience] .marketing-preview-frame img {
+  transition: filter 520ms ease, transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+[data-marketing-experience][data-business-experience="barbearia"] .marketing-benefit-photo img,
+[data-marketing-experience][data-business-experience="barbearia"] .marketing-preview-frame img {
+  filter: saturate(0.82) contrast(1.08) brightness(0.82);
+}
+
+[data-marketing-experience][data-business-experience="salao-beleza"] .marketing-benefit-photo img,
+[data-marketing-experience][data-business-experience="salao-beleza"] .marketing-preview-frame img {
+  filter: saturate(0.82) contrast(0.98) brightness(1.05);
+}
+
+[data-marketing-experience][data-business-experience="manicure-nail"] .marketing-benefit-photo img,
+[data-marketing-experience][data-business-experience="manicure-nail"] .marketing-preview-frame img {
+  filter: saturate(0.76) contrast(0.98) brightness(1.07);
+}
+
+[data-marketing-experience][data-business-experience="estetica-bemestar"] .marketing-benefit-photo img,
+[data-marketing-experience][data-business-experience="estetica-bemestar"] .marketing-preview-frame img {
+  filter: saturate(0.68) contrast(0.94) brightness(1.08);
+}
+
+[data-marketing-experience][data-business-experience="espaco-misto"] .marketing-benefit-photo img,
+[data-marketing-experience][data-business-experience="espaco-misto"] .marketing-preview-frame img {
+  filter: saturate(0.78) contrast(0.98) brightness(1.04);
+}
+
+[data-marketing-experience][data-experience-density="compact"] .marketing-section {
+  padding-block: 5rem;
+}
+
+[data-marketing-experience][data-experience-density="airy"] .marketing-section {
+  padding-block: 7.5rem;
+}
+
 @media (min-width: 768px) {
   [data-public-layout="portfolio"] .public-hero-grid {
     grid-template-columns: minmax(0, 1.55fr) minmax(17rem, 0.45fr);
@@ -1097,9 +1365,15 @@
   }
 
   .marketing-benefit-card:first-child {
+    display: grid;
+    grid-template-columns: minmax(12rem, 0.9fr) minmax(0, 1.1fr);
     background:
-      radial-gradient(circle at 85% 10%, hsl(var(--primary) / 0.15), transparent 45%),
+      radial-gradient(circle at 85% 10%, hsl(var(--experience-accent) / 0.075), transparent 45%),
       hsl(var(--card));
+  }
+
+  .marketing-benefit-card:first-child .marketing-benefit-photo {
+    min-height: 100%;
   }
 }
 

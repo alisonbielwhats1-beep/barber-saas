@@ -1,31 +1,25 @@
 "use client";
 
-import { useState } from "react";
 import Image from "next/image";
 import { Check } from "lucide-react";
-import { SEGMENTS, DEFAULT_SEGMENT_ID, type SegmentId } from "@/lib/segments";
-import { getBusinessExperience } from "@/config/business-experience";
+import { SEGMENTS, type SegmentId } from "@/lib/segments";
 
 /**
  * Seletor "Qual é o seu tipo de negócio?" + recursos por segmento, unidos
- * num só componente client para compartilhar o estado da seleção sem
- * precisar de contexto entre seções distantes da página (server component).
- *
- * Troca de segmento é só apresentação local (useState) — não persiste em
- * lugar nenhum e não limita o que aparece nas demais seções da homepage.
+ * num só componente controlado. O estado pertence à Landing, portanto uma
+ * troca feita aqui atualiza também Hero, seções, mockups, CTA e Footer.
  */
-export function SegmentExplorer() {
-  const [selectedId, setSelectedId] = useState<SegmentId>(DEFAULT_SEGMENT_ID);
+export function SegmentExplorer({
+  selectedId,
+  onSelect,
+}: {
+  selectedId: SegmentId;
+  onSelect: (segmentId: SegmentId) => void;
+}) {
   const selected = SEGMENTS.find((s) => s.id === selectedId) ?? SEGMENTS[0];
-  const experience = getBusinessExperience(selectedId);
 
   return (
-    <div
-      data-business-experience={selectedId}
-      data-experience-direction={experience.visual.direction}
-      data-experience-density={experience.visual.density}
-      className="experience-scope"
-    >
+    <div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {SEGMENTS.map((seg) => {
           const active = seg.id === selectedId;
@@ -33,13 +27,13 @@ export function SegmentExplorer() {
           return (
             <button
               key={seg.id}
-              onClick={() => setSelectedId(seg.id)}
+              onClick={() => onSelect(seg.id)}
               aria-pressed={active}
               aria-label={`Ver recursos para ${seg.label}`}
               className={`experience-card-interactive group relative min-h-44 cursor-pointer overflow-hidden border text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                 active
                   ? "experience-card-selected"
-                  : "border-white/10 opacity-80 hover:opacity-100"
+                  : "border-border opacity-80 hover:opacity-100"
               }`}
             >
               <div className="relative aspect-[4/5] w-full overflow-hidden">

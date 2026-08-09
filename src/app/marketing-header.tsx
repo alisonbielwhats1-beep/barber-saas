@@ -47,9 +47,9 @@ export function MarketingHeader() {
         <ProductWordmark />
 
         {/* Nav desktop */}
-        <nav className="hidden items-center gap-1 rounded-full border border-white/[0.07] bg-white/[0.025] p-1 text-sm text-muted-foreground md:flex">
+        <nav className="hidden items-center gap-1 rounded-full border border-border bg-card/55 p-1 text-sm text-muted-foreground md:flex">
           {NAV_LINKS.map((l) => (
-            <a key={l.href} href={l.href} className="rounded-full px-4 py-2 transition hover:bg-white/[0.06] hover:text-foreground">
+            <a key={l.href} href={l.href} className="rounded-full px-4 py-2 transition hover:bg-foreground/[0.055] hover:text-foreground">
               {l.label}
             </a>
           ))}
@@ -69,7 +69,7 @@ export function MarketingHeader() {
           aria-label={open ? "Fechar menu" : "Abrir menu"}
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
-          className="grid h-11 w-11 place-items-center rounded-xl border border-white/10 bg-white/[0.035] text-foreground md:hidden"
+          className="grid h-11 w-11 place-items-center rounded-xl border border-border bg-card/70 text-foreground md:hidden"
         >
           {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
@@ -82,7 +82,7 @@ export function MarketingHeader() {
         irmão do header, ele usa a viewport de verdade e cobre 100% do
         conteúdo por trás. */}
     {open && (
-      <nav className="fixed inset-x-0 bottom-0 top-[4.5rem] z-40 overflow-y-auto border-t border-white/5 bg-background/98 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4 backdrop-blur-2xl md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 top-[4.5rem] z-40 overflow-y-auto border-t border-border bg-background/98 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4 backdrop-blur-2xl md:hidden">
         <div className="flex flex-col gap-1">
           {NAV_LINKS.map((l) => (
             <a
