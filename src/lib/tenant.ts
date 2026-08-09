@@ -46,14 +46,24 @@ export async function getTenantContext(): Promise<TenantContext> {
   const memberships = await withUser(userId, (tx) =>
     tx.membership.findMany({
       where: { userId },
-      select: { salonId: true, role: true },
+      select: {
+        salonId: true,
+        role: true,
+        salon: { select: { accessStatus: true } },
+      },
     }),
   );
 
   if (memberships.length === 0) redirect("/onboarding/create-salon");
 
   const active =
-    memberships.find((m) => m.salonId === activeSalonId) ?? memberships[0];
+    memberships.find((m) => m.salonId === activeSalonId) ??
+    memberships.find((m) => m.salon.accessStatus === "APPROVED") ??
+    memberships[0];
+
+  if (active.salon.accessStatus !== "APPROVED") {
+    redirect("/onboarding/acesso");
+  }
 
   return { userId, salonId: active.salonId, role: active.role as Role };
 }

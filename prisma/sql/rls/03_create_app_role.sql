@@ -141,6 +141,8 @@ TO app_runtime;
 -- — uma trilha de auditoria que a própria aplicação pode UPDATE/DELETE não
 -- serve pra nada.
 
+GRANT SELECT, INSERT ON TABLE "SalonAccessEvent" TO app_runtime;
+
 
 -- ─── Confirmação ─────────────────────────────────────────────────────────
 -- Espera-se: rolsuper = false, rolbypassrls = false, rolcanlogin = true.

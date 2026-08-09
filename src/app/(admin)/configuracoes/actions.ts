@@ -67,6 +67,7 @@ const brandingInput = z.object({
   segment: z.string().max(40).optional().nullable(),
   description: z.string().max(600).optional().nullable(),
   coverUrl: z.string().url("URL de capa inválida").optional().nullable().or(z.literal("")),
+  logoUrl: z.string().url("URL da foto de perfil inválida").optional().nullable().or(z.literal("")),
   themeColorHex: z
     .string()
     .regex(/^#[0-9a-fA-F]{6}$/, "Cor deve estar no formato #RRGGBB")
@@ -80,6 +81,33 @@ const brandingInput = z.object({
 });
 
 export type BrandingInput = z.infer<typeof brandingInput>;
+
+const profileInput = z.object({
+  name: z.string().trim().min(2, "Nome muito curto").max(100),
+  phone: z.string().max(20).optional().nullable(),
+  avatarUrl: z.string().url("URL da foto inválida").optional().nullable().or(z.literal("")),
+});
+
+export type ProfileInput = z.infer<typeof profileInput>;
+
+export async function updateMyProfile(input: ProfileInput) {
+  const ctx = await getTenantContext();
+  const data = profileInput.parse(input);
+
+  await withTenant(ctx, (tx) =>
+    tx.user.update({
+      where: { id: ctx.userId },
+      data: {
+        name: data.name,
+        phone: orNull(data.phone),
+        avatarUrl: orNull(data.avatarUrl),
+      },
+    }),
+  );
+  revalidatePath("/configuracoes");
+  revalidatePath("/profissionais");
+  revalidatePath("/agenda");
+}
 
 /** Vazio vira null para não gravar string em branco e ter que tratar depois. */
 function orNull(v: string | null | undefined) {
@@ -106,6 +134,7 @@ export async function updateSalonBranding(input: BrandingInput) {
         segment: orNull(data.segment),
         description: orNull(data.description),
         coverUrl: orNull(data.coverUrl),
+        logoUrl: orNull(data.logoUrl),
         themeColorHex: orNull(data.themeColorHex),
         // Guardamos só dígitos: o link wa.me não aceita máscara.
         whatsapp: orNull(data.whatsapp?.replace(/\D/g, "")),

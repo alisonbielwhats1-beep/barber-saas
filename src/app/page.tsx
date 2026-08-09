@@ -14,6 +14,7 @@ import { MarketingHeader } from "./marketing-header";
 import { SegmentExplorer } from "./segment-explorer";
 import { ProductMockup } from "./product-mockup";
 import { ClientMockup } from "./client-mockup";
+import { SalonCinematicBackground } from "@/components/salon-cinematic-background";
 
 export default function LandingPage() {
   return (
@@ -21,12 +22,13 @@ export default function LandingPage() {
       <MarketingHeader />
 
       {/* Hero */}
-      <section className="relative overflow-hidden pb-20 pt-32 md:pt-40">
-        <div className="container grid gap-14 lg:grid-cols-2 lg:items-center lg:gap-10">
-          <div className="animate-fade-in">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-xs font-medium text-primary">
+      <section className="relative min-h-[760px] overflow-hidden pb-20 pt-32 md:pt-40">
+        <SalonCinematicBackground priority />
+        <div className="container relative z-10 grid gap-14 lg:grid-cols-2 lg:items-center lg:gap-10">
+          <div className="animate-fade-in drop-shadow-[0_8px_30px_rgba(0,0,0,0.45)]">
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/35 bg-background/55 px-4 py-1.5 text-xs font-medium text-primary backdrop-blur-md">
               <ShieldCheck className="h-3 w-3" />
-              Um sistema, vários tipos de negócio de beleza e bem-estar
+              A rotina do seu espaço, em um só lugar
             </div>
             <h1 className="font-display text-4xl leading-[1.1] tracking-tight md:text-6xl">
               Seu espaço organizado,
@@ -58,8 +60,10 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="animate-slide-up">
-            <ProductMockup />
+          <div className="animate-slide-up lg:translate-y-6">
+            <div className="rounded-[1.65rem] bg-background/30 p-2 shadow-2xl shadow-black/50 backdrop-blur-sm">
+              <ProductMockup />
+            </div>
           </div>
         </div>
       </section>

@@ -17,6 +17,8 @@ const mocks = vi.hoisted(() => ({
   salonCreate: vi.fn(async () => ({ id: "salon-novo" })),
   membershipCreate: vi.fn(),
   serviceCreateMany: vi.fn(),
+  accessEventCreateMany: vi.fn(async () => ({ count: 1 })),
+  userFindUnique: vi.fn(async () => ({ name: "Dono Teste", email: "dono@example.com" })),
   executeRaw: vi.fn().mockResolvedValue(undefined),
 }));
 
@@ -35,6 +37,7 @@ vi.mock("@/lib/rate-limit", () => ({
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     membership: { count: mocks.membershipCount },
+    user: { findUnique: mocks.userFindUnique },
     $transaction: mocks.transaction,
   },
 }));
@@ -58,6 +61,7 @@ describe("createSalon", () => {
         membership: { count: mocks.membershipCount, create: mocks.membershipCreate },
         salon: { create: mocks.salonCreate },
         service: { createMany: mocks.serviceCreateMany },
+        salonAccessEvent: { createMany: mocks.accessEventCreateMany },
         $executeRaw: mocks.executeRaw,
       }),
     );
@@ -108,6 +112,11 @@ describe("createSalon", () => {
     expect(res.ok).toBe(true);
     expect(mocks.membershipCreate).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ role: "OWNER" }) }),
+    );
+    expect(mocks.accessEventCreateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ type: "REQUESTED", newStatus: "PENDING" }),
+      }),
     );
     const created = mocks.serviceCreateMany.mock.calls[0][0].data as {
       name: string;

@@ -7,6 +7,7 @@ import { SalonSettingsForm } from "./salon-settings-form";
 import { AccessManager, type Member } from "./access-manager";
 import { BrandingForm } from "./branding-form";
 import { ClosuresManager, type Closure } from "./closures-manager";
+import { ProfileForm } from "./profile-form";
 
 const PLAN_LABEL: Record<string, string> = {
   FREE: "Grátis",
@@ -20,7 +21,7 @@ export default async function ConfiguracoesPage() {
   const { salonId, userId, role } = ctx;
   const invitesEnabled = emailInvitesEnabled();
 
-  const { salon, memberships, pendingInvites, closures } = await withTenant(ctx, async (tx) => {
+  const { salon, profile, memberships, pendingInvites, closures } = await withTenant(ctx, async (tx) => {
     const salon = await tx.salon.findUnique({
       where: { id: salonId },
       select: {
@@ -29,7 +30,7 @@ export default async function ConfiguracoesPage() {
         cancelPolicyHours: true, noShowFeeCents: true,
         minBookingLeadMinutes: true, maxBookingLeadDays: true, bufferMinutes: true,
         // Personalização da vitrine
-        slug: true, segment: true, description: true, coverUrl: true,
+        slug: true, segment: true, description: true, coverUrl: true, logoUrl: true,
         themeColorHex: true, instagram: true, whatsapp: true,
         paymentMethods: true, importantInfo: true,
       },
@@ -38,6 +39,10 @@ export default async function ConfiguracoesPage() {
       where: { salonId },
       select: { role: true, user: { select: { id: true, name: true, email: true } } },
       orderBy: { role: "asc" },
+    });
+    const profile = await tx.user.findUnique({
+      where: { id: userId },
+      select: { name: true, email: true, phone: true, avatarUrl: true },
     });
     const pendingInvites =
       role === "OWNER" && invitesEnabled
@@ -68,10 +73,10 @@ export default async function ConfiguracoesPage() {
       orderBy: { startAt: "asc" },
       take: 50,
     });
-    return { salon, memberships, pendingInvites, closures };
+    return { salon, profile, memberships, pendingInvites, closures };
   });
 
-  if (!salon) return null;
+  if (!salon || !profile) return null;
 
   const members: Member[] = memberships.map((m) => ({
     userId: m.user.id,
@@ -111,6 +116,7 @@ export default async function ConfiguracoesPage() {
 
       <div className="grid gap-6 lg:grid-cols-5">
         <div className="space-y-6 lg:col-span-3">
+          <ProfileForm profile={profile} />
           <SalonSettingsForm salon={salon} />
           <BrandingForm
             branding={{
@@ -118,6 +124,7 @@ export default async function ConfiguracoesPage() {
               segment: salon.segment,
               description: salon.description,
               coverUrl: salon.coverUrl,
+              logoUrl: salon.logoUrl,
               themeColorHex: salon.themeColorHex,
               instagram: salon.instagram,
               whatsapp: salon.whatsapp,

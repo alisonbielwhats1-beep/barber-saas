@@ -10,6 +10,7 @@ import {
   MoreHorizontal,
   Settings,
   Bell,
+  ShieldCheck,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -37,9 +38,11 @@ const PRIMARY: Array<{
 export function MobileNav({
   role,
   unreadNotifications = 0,
+  isPlatformAdmin = false,
 }: {
   role: string;
   unreadNotifications?: number;
+  isPlatformAdmin?: boolean;
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -119,6 +122,17 @@ export function MobileNav({
               >
                 <Settings className="h-4 w-4 shrink-0" />
                 Configurações
+              </Link>
+            )}
+            {isPlatformAdmin && (
+              <Link
+                href="/plataforma/solicitacoes"
+                prefetch={false}
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2.5 rounded-xl border border-primary/30 bg-primary/10 px-3 py-3 text-[13px] font-medium text-foreground"
+              >
+                <ShieldCheck className="h-4 w-4 shrink-0 text-primary" />
+                Administração da plataforma
               </Link>
             )}
           </div>

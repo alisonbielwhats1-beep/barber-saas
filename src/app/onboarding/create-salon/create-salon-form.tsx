@@ -24,17 +24,21 @@ export function CreateSalonForm() {
     setError(null);
 
     startTransition(async () => {
-      const res = await createSalon({
-        salonName,
-        segmentId: selection.segmentId,
-        serviceNames: selection.serviceNames,
-      });
-      if (!res.ok) {
-        setError(res.error);
-        return;
+      try {
+        const res = await createSalon({
+          salonName,
+          segmentId: selection.segmentId,
+          serviceNames: selection.serviceNames,
+        });
+        if (!res.ok) {
+          setError(res.error);
+          return;
+        }
+        router.push("/onboarding/acesso");
+        router.refresh();
+      } catch {
+        setError("Não foi possível concluir agora. Verifique sua conexão e tente novamente.");
       }
-      router.push("/dashboard");
-      router.refresh();
     });
   }
 
@@ -96,10 +100,10 @@ export function CreateSalonForm() {
       <Button type="submit" size="lg" className="w-full" disabled={pending || salonName.trim().length < 2}>
         {pending ? (
           <>
-            <Loader2 className="h-4 w-4 animate-spin" /> Criando…
+            <Loader2 className="h-4 w-4 animate-spin" /> Enviando…
           </>
         ) : (
-          "Criar estabelecimento"
+          "Enviar para aprovação"
         )}
       </Button>
     </form>

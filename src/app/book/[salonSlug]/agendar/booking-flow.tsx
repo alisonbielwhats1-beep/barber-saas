@@ -466,7 +466,7 @@ export function BookingFlow({
               <p className="text-xs font-semibold text-primary">
                 {selectedServices.length} {selectedServices.length === 1 ? "serviço escolhido" : "serviços escolhidos"}
               </p>
-              <p className="mt-0.5 truncate text-xs text-muted-foreground">
+              <p className="mt-0.5 break-words text-xs leading-relaxed text-muted-foreground">
                 {selectedServices.map((service) => service.name).join(" + ")}
               </p>
             </div>
@@ -602,9 +602,9 @@ export function BookingFlow({
                   {selected && <Check className="h-3.5 w-3.5" />}
                 </span>
               </div>
-              <p className="mt-3 line-clamp-2 font-medium leading-snug">{s.name}</p>
+              <p className="mt-3 break-words font-medium leading-snug">{s.name}</p>
               {s.description && (
-                <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                <p className="mt-1 break-words text-xs leading-relaxed text-muted-foreground">
                   {s.description}
                 </p>
               )}

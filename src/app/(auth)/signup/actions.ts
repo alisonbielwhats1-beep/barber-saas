@@ -4,10 +4,12 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { setSalonGuc } from "@/lib/prisma-tenant";
+import { setSalonGuc, setUserGuc } from "@/lib/prisma-tenant";
 import { uniqueSalonSlug } from "@/lib/slug";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { resolveSalonSetup } from "@/lib/salon-setup";
+import { notifyPlatformAdminOfSignup } from "@/lib/platform-signup-notification";
+import { recordSalonAccessRequest } from "@/lib/salon-access-request";
 
 const signupInput = z.object({
   ownerName: z.string().min(2, "Nome muito curto"),
@@ -77,27 +79,59 @@ export async function signup(input: SignupInput): Promise<
   const passwordSetAt = new Date();
   const slug = await uniqueSalonSlug(data.salonName);
 
-  await prisma.$transaction(async (tx) => {
-    // User não é tenant-scoped (sem RLS) — sem GUC necessária até aqui.
-    const user = await tx.user.create({
-      data: { email, name: data.ownerName, passwordHash, passwordSetAt },
-      select: { id: true },
-    });
-    const salon = await tx.salon.create({
-      data: { slug, name: data.salonName, plan: "FREE", segment: segmentId },
-      select: { id: true },
-    });
-    // A partir daqui, Membership e Service exigem a GUC do salão recém-criado
-    // — sem isto, os INSERTs seguintes seriam barrados pelas próprias policies.
-    await setSalonGuc(tx, salon.id);
-    await tx.membership.create({
-      data: { userId: user.id, salonId: salon.id, role: "OWNER" },
-    });
-    if (services.length > 0) {
-      await tx.service.createMany({
-        data: services.map((s) => ({ salonId: salon.id, ...s })),
+  try {
+    await prisma.$transaction(async (tx) => {
+      // User não é tenant-scoped (sem RLS) — sem GUC necessária até aqui.
+      const user = await tx.user.create({
+        data: { email, name: data.ownerName, passwordHash, passwordSetAt },
+        select: { id: true },
       });
-    }
+      const salon = await tx.salon.create({
+        data: {
+          slug,
+          name: data.salonName,
+          plan: "FREE",
+          segment: segmentId,
+          accessStatus: "PENDING",
+        },
+        select: { id: true },
+      });
+      // A partir daqui, Membership e Service exigem as GUCs recém-criadas.
+      await setSalonGuc(tx, salon.id);
+      await setUserGuc(tx, user.id);
+      await tx.membership.create({
+        data: { userId: user.id, salonId: salon.id, role: "OWNER" },
+      });
+      if (services.length > 0) {
+        await tx.service.createMany({
+          data: services.map((s) => ({ salonId: salon.id, ...s })),
+        });
+      }
+      await recordSalonAccessRequest(tx, {
+        salonId: salon.id,
+        actorUserId: user.id,
+      });
+    });
+  } catch (error) {
+    const details = error as { code?: unknown; name?: unknown };
+    console.error("salon_signup_failed", {
+      code: typeof details.code === "string" ? details.code : "unknown",
+      name: typeof details.name === "string" ? details.name : "unknown",
+    });
+    return {
+      ok: false,
+      error:
+        details.code === "P2002"
+          ? "Não foi possível criar a conta com os dados informados."
+          : "Não foi possível criar o estabelecimento agora. Tente novamente em instantes.",
+    };
+  }
+
+  await notifyPlatformAdminOfSignup({
+    salonName: data.salonName,
+    slug,
+    ownerName: data.ownerName,
+    ownerEmail: email,
   });
 
   return { ok: true, slug };

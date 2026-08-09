@@ -72,6 +72,11 @@ export async function setSalonGuc(tx: Tx, salonId: string): Promise<void> {
   await setGuc(tx, "app.current_salon", salonId);
 }
 
+/** Seta a identidade em uma transação que acabou de criar o próprio usuário. */
+export async function setUserGuc(tx: Tx, userId: string): Promise<void> {
+  await setGuc(tx, "app.current_user_id", userId);
+}
+
 /**
  * Executa `fn` com o salão e o usuário de um contexto já resolvido
  * (`getTenantContext()`). Use em páginas e Server Actions do painel.
@@ -145,7 +150,10 @@ export async function withSalonBySlug<T>(
   slug: string,
   fn: (tx: Tx, salonId: string) => Promise<T>,
 ): Promise<T | null> {
-  const found = await prisma.salon.findUnique({ where: { slug }, select: { id: true } });
+  const found = await prisma.salon.findFirst({
+    where: { slug, accessStatus: "APPROVED" },
+    select: { id: true },
+  });
   if (!found) return null;
   return withSalon(found.id, (tx) => fn(tx, found.id));
 }

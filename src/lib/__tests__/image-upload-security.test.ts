@@ -24,6 +24,8 @@ describe("segurança de upload de imagens", () => {
 
   it("aceita somente finalidades conhecidas", () => {
     expect(isUploadFolder("portfolio")).toBe(true);
+    expect(isUploadFolder("branding")).toBe(true);
+    expect(isUploadFolder("profiles")).toBe(true);
     expect(isUploadFolder("../../private")).toBe(false);
     expect(isUploadFolder("misc")).toBe(false);
   });
@@ -33,5 +35,8 @@ describe("segurança de upload de imagens", () => {
     expect(canUploadToFolder("PROFESSIONAL", "services")).toBe(false);
     expect(canUploadToFolder("RECEPTIONIST", "portfolio")).toBe(false);
     expect(canUploadToFolder("MANAGER", "products")).toBe(true);
+    expect(canUploadToFolder("OWNER", "branding")).toBe(true);
+    expect(canUploadToFolder("PROFESSIONAL", "branding")).toBe(false);
+    expect(canUploadToFolder("PROFESSIONAL", "profiles")).toBe(true);
   });
 });

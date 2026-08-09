@@ -4,6 +4,7 @@ import Image from "next/image";
 import { ArrowRight, MoreHorizontal } from "lucide-react";
 import { withSalonBySlug } from "@/lib/prisma-tenant";
 import { HERO_IMAGES } from "@/lib/images";
+import { SEGMENTS } from "@/lib/segments";
 
 /**
  * Splash / onboarding — hero full-bleed com foto do salão, overlay dark +
@@ -18,7 +19,7 @@ export default async function WelcomePage({
   const salon = await withSalonBySlug(salonSlug, (tx, salonId) =>
     tx.salon.findUnique({
       where: { id: salonId },
-      select: { name: true, address: true, logoUrl: true },
+      select: { name: true, address: true, coverUrl: true, segment: true },
     }),
   );
   if (!salon) notFound();
@@ -27,7 +28,8 @@ export default async function WelcomePage({
   const heroIdx = salonSlug
     .split("")
     .reduce((a, c) => a + c.charCodeAt(0), 0) % HERO_IMAGES.length;
-  const heroSrc = salon.logoUrl ?? HERO_IMAGES[heroIdx];
+  const segmentImage = SEGMENTS.find((item) => item.id === salon.segment)?.accentImage;
+  const heroSrc = salon.coverUrl ?? segmentImage ?? HERO_IMAGES[heroIdx];
 
   return (
     <div className="relative flex min-h-dvh flex-col overflow-hidden">

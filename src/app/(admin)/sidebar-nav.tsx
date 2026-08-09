@@ -18,6 +18,7 @@ import {
   CreditCard,
   Share2,
   Bell,
+  ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -103,9 +104,11 @@ export const GROUPS: { title: string; items: Item[] }[] = [
 export function SidebarNav({
   role,
   unreadNotifications = 0,
+  isPlatformAdmin = false,
 }: {
   role: string;
   unreadNotifications?: number;
+  isPlatformAdmin?: boolean;
 }) {
   const pathname = usePathname();
 
@@ -133,6 +136,14 @@ export function SidebarNav({
         <div className="pt-1">
           <NavRow
             item={{ href: "/configuracoes", label: "Configurações", icon: Settings }}
+            pathname={pathname}
+          />
+        </div>
+      )}
+      {isPlatformAdmin && (
+        <div className="pt-1">
+          <NavRow
+            item={{ href: "/plataforma/solicitacoes", label: "Administração", icon: ShieldCheck }}
             pathname={pathname}
           />
         </div>

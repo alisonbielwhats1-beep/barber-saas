@@ -19,18 +19,23 @@ export function LoginForm() {
     setLoading(true);
     setError(null);
     const form = new FormData(e.currentTarget);
-    const res = await signIn("credentials", {
-      email: form.get("email"),
-      password: form.get("password"),
-      redirect: false,
-    });
-    setLoading(false);
-    if (res?.error) {
-      setError("Email ou senha inválidos.");
-      return;
+    try {
+      const res = await signIn("credentials", {
+        email: form.get("email"),
+        password: form.get("password"),
+        redirect: false,
+      });
+      if (res?.error) {
+        setError("Email ou senha inválidos.");
+        return;
+      }
+      router.push(callbackUrl);
+      router.refresh();
+    } catch {
+      setError("Não foi possível entrar agora. Verifique sua conexão e tente novamente.");
+    } finally {
+      setLoading(false);
     }
-    router.push(callbackUrl);
-    router.refresh();
   }
 
   return (
