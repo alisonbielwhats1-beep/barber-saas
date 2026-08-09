@@ -14,6 +14,15 @@ function optionalString(value: unknown): string | null {
   return typeof value === "string" ? value : null;
 }
 
+function waitlistServiceName(value: unknown): string {
+  if (!Array.isArray(value)) return "Serviço";
+  const names = value.flatMap((item) => {
+    const record = jsonRecord(item);
+    return typeof record.serviceName === "string" ? [record.serviceName] : [];
+  });
+  return names.length > 0 ? names.join(" + ") : "Serviço";
+}
+
 export default async function MinhasPage({
   params,
 }: {
@@ -50,6 +59,13 @@ export default async function MinhasPage({
         priceCents: true,
         status: true,
         version: true,
+        _count: {
+          select: {
+            waitlistEntries: {
+              where: { fulfilledAt: null, cancelledAt: null },
+            },
+          },
+        },
         service: { select: { id: true, name: true, colorHex: true } },
         serviceItems: {
           orderBy: { position: "asc" },
@@ -78,10 +94,55 @@ export default async function MinhasPage({
         },
       },
     });
-    return { salon, appointments };
+    const waitlistEntries = await tx.waitlistEntry.findMany({
+      where: {
+        salonId,
+        clientId: session.clientId,
+        fulfilledAt: null,
+        cancelledAt: null,
+        startAt: { gt: new Date() },
+      },
+      orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+      take: 30,
+      select: {
+        id: true,
+        appointmentId: true,
+        startAt: true,
+        timezone: true,
+        serviceSnapshots: true,
+        professional: { select: { user: { select: { name: true } } } },
+      },
+    });
+    const queueOrder = waitlistEntries.length === 0
+      ? []
+      : await tx.waitlistEntry.findMany({
+          where: {
+            salonId,
+            appointmentId: { in: waitlistEntries.map((entry) => entry.appointmentId) },
+            fulfilledAt: null,
+            cancelledAt: null,
+          },
+          select: { id: true, appointmentId: true },
+          orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+        });
+    const positions = new Map<string, number>();
+    const counters = new Map<string, number>();
+    for (const entry of queueOrder) {
+      const position = (counters.get(entry.appointmentId) ?? 0) + 1;
+      counters.set(entry.appointmentId, position);
+      positions.set(entry.id, position);
+    }
+    return {
+      salon,
+      appointments,
+      waitlistEntries: waitlistEntries.map((entry) => ({
+        ...entry,
+        position: positions.get(entry.id) ?? 1,
+      })),
+    };
   });
   if (!result) redirect(`/book/${salonSlug}/login`);
-  const { salon, appointments } = result;
+  const { salon, appointments, waitlistEntries } = result;
 
   // Serialize Date objects — can't pass them directly to client components
   const serialized = appointments.map((a) => ({
@@ -118,6 +179,14 @@ export default async function MinhasPage({
 
       <MinhasList
         appointments={serialized}
+        waitlistEntries={waitlistEntries.map((entry) => ({
+          id: entry.id,
+          position: entry.position,
+          startAt: entry.startAt.toISOString(),
+          timezone: entry.timezone,
+          serviceName: waitlistServiceName(entry.serviceSnapshots),
+          professionalName: entry.professional.user.name,
+        }))}
         salonSlug={salonSlug}
         currency={salon.currency}
         timezone={salon.timezone}

@@ -119,6 +119,16 @@ jobs:
           npx prisma db execute
           --file prisma/sql/manual/008_fase2_appointment_reliability.sql
           --url "$DIRECT_URL"
+      - name: Run read-only waitlist preflight
+        run: >-
+          npx prisma db execute
+          --file prisma/sql/manual/009_waitlist_reliability.preflight.sql
+          --url "$DIRECT_URL"
+      - name: Apply waitlist reliability migration
+        run: >-
+          npx prisma db execute
+          --file prisma/sql/manual/009_waitlist_reliability.sql
+          --url "$DIRECT_URL"
       - name: Validate Prisma schema
         run: npx prisma validate
       - name: Seed disposable database
@@ -129,4 +139,9 @@ jobs:
         run: >-
           npx prisma db execute
           --file prisma/sql/manual/008_fase2_appointment_reliability.rollback.sql
+          --url "$DIRECT_URL"
+      - name: Prove non-destructive waitlist rollback SQL
+        run: >-
+          npx prisma db execute
+          --file prisma/sql/manual/009_waitlist_reliability.rollback.sql
           --url "$DIRECT_URL"

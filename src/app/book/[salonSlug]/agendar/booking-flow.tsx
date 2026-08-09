@@ -146,7 +146,14 @@ export function BookingFlow({
   const [waitlistTarget, setWaitlistTarget] = useState<{ appointmentId: string; time: string } | null>(null);
   const [waitlistName, setWaitlistName] = useState(clientSession?.name ?? "");
   const [waitlistPhone, setWaitlistPhone] = useState("");
-  const [waitlistJoined, setWaitlistJoined] = useState<string | null>(null);
+  const [waitlistJoined, setWaitlistJoined] = useState<{
+    appointmentId: string;
+    position: number;
+    time: string;
+    serviceName: string;
+    professionalName: string;
+    dateLabel: string;
+  } | null>(null);
   const [waitlistLoading, setWaitlistLoading] = useState(false);
   const [waitlistError, setWaitlistError] = useState<string | null>(null);
   const [name, setName] = useState(clientSession?.name ?? "");
@@ -382,28 +389,56 @@ export function BookingFlow({
   }
 
   async function joinWaitlist() {
-    if (!waitlistTarget) return;
+    if (!waitlistTarget || !proId || serviceIds.length === 0) return;
     if (!clientSession && (!waitlistName || !isValidPhoneBR(waitlistPhone))) return;
     setWaitlistLoading(true);
     setWaitlistError(null);
-    const res = await fetch("/api/waitlist/join", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        salonId,
+    try {
+      const res = await fetch("/api/waitlist/join", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          salonId,
+          appointmentId: waitlistTarget.appointmentId,
+          professionalId: proId,
+          serviceIds,
+          ...(!clientSession
+            ? { clientName: waitlistName, clientPhone: normalizePhone(waitlistPhone) }
+            : {}),
+        }),
+      });
+      const responseBody = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setWaitlistError(friendlyError(responseBody.error));
+        return;
+      }
+      const position = Number(responseBody.position);
+      if (!Number.isInteger(position) || position < 1) {
+        throw new Error("INVALID_WAITLIST_RESPONSE");
+      }
+      setWaitlistJoined({
         appointmentId: waitlistTarget.appointmentId,
-        ...(!clientSession
-          ? { clientName: waitlistName, clientPhone: normalizePhone(waitlistPhone) }
-          : {}),
-      }),
-    });
-    setWaitlistLoading(false);
-    if (res.ok) {
-      setWaitlistJoined(waitlistTarget.appointmentId);
+        position,
+        time: waitlistTarget.time,
+        serviceName: Array.isArray(responseBody.serviceNames)
+          ? responseBody.serviceNames.join(" + ")
+          : serviceName,
+        professionalName:
+          eligibleProfessionals.find((professional) => professional.id === proId)?.name ?? "",
+        dateLabel: responseBody.startAt && responseBody.timezone
+          ? formatInTimeZone(
+              new Date(responseBody.startAt),
+              responseBody.timezone,
+              "dd 'de' MMMM",
+              { locale: ptBR },
+            )
+          : format(date, "dd 'de' MMMM", { locale: ptBR }),
+      });
       setWaitlistTarget(null);
-    } else {
-      const b = await res.json().catch(() => ({}));
-      setWaitlistError(friendlyError(b.error));
+    } catch {
+      setWaitlistError("Não foi possível entrar na fila agora. Verifique sua conexão e tente novamente.");
+    } finally {
+      setWaitlistLoading(false);
     }
   }
 
@@ -832,7 +867,7 @@ export function BookingFlow({
           </h3>
           <div className="grid grid-cols-3 gap-2 min-[380px]:grid-cols-4">
             {occupied.map((o) => {
-              const joined = waitlistJoined === o.appointmentId;
+              const joined = waitlistJoined?.appointmentId === o.appointmentId;
               return (
                 <button
                   key={o.appointmentId}
@@ -852,6 +887,42 @@ export function BookingFlow({
               );
             })}
           </div>
+
+          {waitlistJoined && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="mt-3 rounded-2xl border border-primary/30 bg-primary/5 p-4"
+            >
+              <p className="font-semibold text-primary">Você entrou na fila de espera.</p>
+              <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+                <dt className="text-muted-foreground">Serviço</dt>
+                <dd className="text-right font-medium">{waitlistJoined.serviceName}</dd>
+                <dt className="text-muted-foreground">Profissional</dt>
+                <dd className="text-right font-medium">
+                  {waitlistJoined.professionalName}
+                </dd>
+                <dt className="text-muted-foreground">Data</dt>
+                <dd className="text-right font-medium">
+                  {waitlistJoined.dateLabel} às {waitlistJoined.time}
+                </dd>
+                <dt className="text-muted-foreground">Sua posição</dt>
+                <dd className="text-right font-semibold text-primary">#{waitlistJoined.position}</dd>
+              </dl>
+              <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+                Se esse horário ficar disponível e você for o primeiro da fila, sua visita será
+                confirmada automaticamente.
+              </p>
+              {clientSession && (
+                <Link
+                  href={`/book/${salonSlug}/minhas`}
+                  className="mt-3 inline-flex min-h-11 items-center text-xs font-semibold text-primary"
+                >
+                  Acompanhar em Minhas visitas
+                </Link>
+              )}
+            </div>
+          )}
 
           {waitlistTarget && (
             <div className="mt-3 rounded-2xl border border-border bg-card p-4">
@@ -882,7 +953,8 @@ export function BookingFlow({
               <div className="mt-3 flex gap-2">
                 <button
                   onClick={() => setWaitlistTarget(null)}
-                  className="min-h-11 flex-1 rounded-full border border-border px-3 py-2 text-xs font-medium text-muted-foreground"
+                  disabled={waitlistLoading}
+                  className="min-h-11 flex-1 rounded-full border border-border px-3 py-2 text-xs font-medium text-muted-foreground disabled:opacity-50"
                 >
                   Cancelar
                 </button>

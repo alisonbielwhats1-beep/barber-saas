@@ -13,6 +13,7 @@ import {
 } from "@/lib/appointment-service";
 import { isAppointmentError } from "@/lib/appointment-domain";
 import { recordAppointmentEvent } from "@/lib/appointment-events";
+import { cancelWaitlistEntry, isWaitlistError } from "@/lib/waitlist";
 import {
   addCalendarDays,
   isDateKey,
@@ -66,6 +67,7 @@ function appointmentActionMessage(error: unknown): string {
     VERSION_CONFLICT: "O agendamento foi alterado em outra tela. Atualize e tente novamente",
     IDEMPOTENCY_MISMATCH: "A solicitação repetida contém dados diferentes",
     REASON_REQUIRED: "Informe um motivo com pelo menos 3 caracteres",
+    WAITLIST_BLOCKED: "O horário anterior tem fila, mas não pode ser liberado. Resolva o bloqueio ou a fila antes de remarcar",
   };
   return messages[error.code] ?? error.code;
 }
@@ -248,6 +250,43 @@ export async function getComandaData(id: string) {
   );
   if (!appt) throw new Error("Agendamento não encontrado");
   return appt;
+}
+
+export async function removeWaitlistEntry(
+  entryId: string,
+  reason: string,
+): Promise<ActionResult> {
+  const ctx = await getTenantContext();
+  assertRole(ctx, ["OWNER", "MANAGER"]);
+  const parsedId = z.string().min(1).parse(entryId);
+  const parsedReason = z.string().trim().min(3).max(500).parse(reason);
+
+  try {
+    await withTenant(ctx, (tx) =>
+      cancelWaitlistEntry(tx, {
+        salonId: ctx.salonId,
+        entryId: parsedId,
+        actorType: "STAFF",
+        actorId: ctx.userId,
+        reason: parsedReason,
+      }),
+    );
+  } catch (error) {
+    if (isWaitlistError(error)) {
+      return {
+        error: error.code === "ALREADY_FULFILLED"
+          ? "Essa pessoa já foi promovida para o horário"
+          : "Entrada da fila não encontrada",
+      };
+    }
+    return {
+      error: error instanceof Error ? error.message : "Não foi possível alterar a fila",
+    };
+  }
+  revalidatePath("/agenda");
+  revalidatePath("/dashboard");
+  revalidatePath("/book", "layout");
+  return { success: true };
 }
 
 const comandaInput = z.object({

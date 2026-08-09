@@ -37,6 +37,7 @@ import {
   cancelAppointment,
   duplicateAppointment,
   editAppointment,
+  removeWaitlistEntry,
 } from "./actions";
 import { STATUS, nextActions, type ApptStatus } from "./agenda-status";
 import { ComandaPanel } from "./comanda-panel";
@@ -129,6 +130,8 @@ export function AppointmentDetail({
   const [view, setView] = useState<ViewMode>("detail");
   const [cancelMode, setCancelMode] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
+  const [removeWaitlistId, setRemoveWaitlistId] = useState<string | null>(null);
+  const [removeWaitlistReason, setRemoveWaitlistReason] = useState("");
   const mutationKeys = useRef(new Map<string, string>());
 
   const start = appt ? new Date(appt.startAt) : new Date();
@@ -205,7 +208,7 @@ export function AppointmentDetail({
 
   return (
     <Dialog open={!!appt} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-md gap-0 overflow-hidden p-0">
+      <DialogContent className="max-h-[calc(100dvh-1rem)] max-w-md gap-0 overflow-y-auto overscroll-contain p-0 pb-[env(safe-area-inset-bottom)]">
         <div className="h-1.5 w-full" style={{ background: cfg.color }} />
 
         <div className="p-5">
@@ -352,13 +355,81 @@ export function AppointmentDetail({
                   </div>
                 )}
                 {appt.waitlistCount > 0 && (
-                  <div className="flex items-center justify-between rounded-lg bg-amber-500/10 px-3 py-2 text-amber-600">
-                    <span className="flex items-center gap-1.5 font-medium">
+                  <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-amber-700 dark:text-amber-400">
+                    <p className="flex items-center gap-1.5 font-semibold">
                       <Users className="h-4 w-4" />
-                      {appt.waitlistCount} na fila de espera
-                    </span>
-                    {appt.waitlistNext && (
-                      <span className="text-[12px]">Próximo: {appt.waitlistNext}</span>
+                      Fila de espera · {appt.waitlistCount}
+                    </p>
+                    <ol className="mt-2 space-y-2">
+                      {appt.waitlist.map((entry) => (
+                        <li
+                          key={entry.id}
+                          className="flex min-h-11 items-center justify-between gap-3 rounded-lg bg-background/70 px-3 py-2"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-[12px] font-semibold">
+                              #{entry.position} · {entry.name}
+                            </p>
+                            {entry.phone && (
+                              <p className="text-[11px] text-muted-foreground">{entry.phone}</p>
+                            )}
+                            <p className="truncate text-[11px] text-muted-foreground">
+                              {entry.serviceName}
+                            </p>
+                          </div>
+                          {canCancel && (
+                            <button
+                              type="button"
+                              disabled={pending}
+                              onClick={() => {
+                                setRemoveWaitlistId(entry.id);
+                                setRemoveWaitlistReason("");
+                              }}
+                              className="min-h-11 shrink-0 rounded-lg px-3 text-[11px] font-medium text-danger hover:bg-danger/10 disabled:opacity-50"
+                              aria-label={`Remover ${entry.name} da fila`}
+                            >
+                              Remover da fila
+                            </button>
+                          )}
+                        </li>
+                      ))}
+                    </ol>
+                    {removeWaitlistId && (
+                      <div className="mt-3 rounded-lg border border-border bg-background p-3">
+                        <p className="text-[12px] font-semibold text-foreground">
+                          Remover somente esta pessoa da fila?
+                        </p>
+                        <p className="mt-1 text-[11px] text-muted-foreground">
+                          O agendamento confirmado não será alterado. As demais posições serão atualizadas.
+                        </p>
+                        <input
+                          value={removeWaitlistReason}
+                          onChange={(event) => setRemoveWaitlistReason(event.target.value)}
+                          placeholder="Motivo da remoção"
+                          maxLength={500}
+                          className="mt-2 min-h-11 w-full rounded-lg border border-border bg-background px-3 text-xs text-foreground"
+                        />
+                        <div className="mt-2 flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setRemoveWaitlistId(null)}
+                            className="min-h-11 flex-1 rounded-lg border border-border px-3 text-xs text-foreground"
+                          >
+                            Voltar
+                          </button>
+                          <button
+                            type="button"
+                            disabled={pending || removeWaitlistReason.trim().length < 3}
+                            onClick={() => run(() => removeWaitlistEntry(
+                              removeWaitlistId,
+                              removeWaitlistReason.trim(),
+                            ))}
+                            className="min-h-11 flex-1 rounded-lg bg-danger px-3 text-xs font-semibold text-white disabled:opacity-40"
+                          >
+                            Remover da fila
+                          </button>
+                        </div>
+                      </div>
                     )}
                   </div>
                 )}
@@ -502,6 +573,13 @@ export function AppointmentDetail({
                   <p className="text-[11px] text-muted-foreground">
                     O registro será preservado, o horário liberado e a parte interessada notificada.
                   </p>
+                  {appt.waitlistCount > 0 && (
+                    <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px] font-medium text-amber-700 dark:text-amber-400">
+                      Ao confirmar, {appt.waitlistNext ?? "a primeira pessoa da fila"} será promovido(a)
+                      automaticamente. As outras {Math.max(0, appt.waitlistCount - 1)} pessoa(s)
+                      continuarão na fila.
+                    </p>
+                  )}
                   <div className="flex gap-2">
                     <button
                       type="button"

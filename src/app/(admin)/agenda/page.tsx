@@ -15,6 +15,15 @@ function optionalString(value: unknown): string | null {
   return typeof value === "string" ? value : null;
 }
 
+function waitlistServiceName(value: unknown): string {
+  if (!Array.isArray(value)) return "Serviço";
+  const names = value.flatMap((item) => {
+    const record = jsonRecord(item);
+    return typeof record.serviceName === "string" ? [record.serviceName] : [];
+  });
+  return names.length > 0 ? names.join(" + ") : "Serviço";
+}
+
 export default async function AgendaPage({
   searchParams,
 }: {
@@ -104,13 +113,17 @@ export default async function AgendaPage({
         salonId,
         appointmentId: { in: apptsRaw.map((a) => a.id) },
         fulfilledAt: null,
+        cancelledAt: null,
       },
       select: {
+        id: true,
         appointmentId: true,
         guestName: true,
-        client: { select: { name: true } },
+        guestPhone: true,
+        serviceSnapshots: true,
+        client: { select: { name: true, phone: true } },
       },
-      orderBy: { createdAt: "asc" },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     });
     const services = await tx.service.findMany({
       where: { salonId, active: true },
@@ -130,11 +143,21 @@ export default async function AgendaPage({
 
   // Fila de espera por agendamento (só quem ainda não foi atendido) — pro
   // dono ver, antes de cancelar, se tem gente esperando aquela vaga.
-  const waitlistByAppt = new Map<string, string[]>();
+  const waitlistByAppt = new Map<string, Array<{
+    id: string;
+    name: string;
+    phone: string | null;
+    serviceName: string;
+  }>>();
   for (const w of waitlistRaw) {
     const name = w.client?.name ?? w.guestName ?? "Cliente";
     const list = waitlistByAppt.get(w.appointmentId) ?? [];
-    list.push(name);
+    list.push({
+      id: w.id,
+      name,
+      phone: w.client?.phone ?? w.guestPhone ?? null,
+      serviceName: waitlistServiceName(w.serviceSnapshots),
+    });
     waitlistByAppt.set(w.appointmentId, list);
   }
 
@@ -182,7 +205,8 @@ export default async function AgendaPage({
         : a.service.name,
       serviceColor: a.service.colorHex,
       waitlistCount: waiting.length,
-      waitlistNext: waiting[0] ?? null,
+      waitlistNext: waiting[0]?.name ?? null,
+      waitlist: waiting.map((entry, index) => ({ ...entry, position: index + 1 })),
       isOverbooked: a.isOverbooked,
       version: a.version,
       hasPayment: Boolean(a.payment),

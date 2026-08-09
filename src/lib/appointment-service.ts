@@ -31,7 +31,11 @@ import {
   type InternalNotificationRecipient,
 } from "./appointment-events";
 import { writeAuditLog } from "./audit";
-import { fulfillWaitlistOnCancel } from "./waitlist";
+import {
+  fulfillWaitlistOnCancel,
+  nextWaitlistSlot,
+  type ReleasedAppointmentSlot,
+} from "./waitlist";
 
 type ServiceSnapshot = {
   id: string;
@@ -792,6 +796,20 @@ export async function rescheduleAppointment(
   }
 
   const previousServiceSnapshots = previousServices(appointment);
+  const releasedSlot: ReleasedAppointmentSlot = {
+    serviceId: appointment.service.id,
+    professionalId: appointment.professionalId,
+    startAt: appointment.startAt,
+    endAt: appointment.endAt,
+    priceCents: appointment.priceCents,
+    timezone: appointment.timezone,
+    services: previousServiceSnapshots.map((service) => ({
+      serviceId: service.id,
+      serviceName: service.name,
+      durationMin: service.durationMin,
+      priceCents: service.priceCents,
+    })),
+  };
   const preservesExistingServices =
     previousServiceSnapshots.length === serviceIds.length &&
     previousServiceSnapshots.every((service) => serviceIds.includes(service.id));
@@ -911,6 +929,42 @@ export async function rescheduleAppointment(
     template: "appointment.rescheduled",
     payload,
   });
+
+  const releasedOriginalSlot =
+    appointment.professionalId !== input.professionalId ||
+    appointment.startAt.getTime() !== inspected.startAt.getTime() ||
+    appointment.endAt.getTime() !== inspected.endAt.getTime();
+  if (releasedOriginalSlot) {
+    const waitingSlot = await nextWaitlistSlot(
+      tx,
+      appointment.id,
+      input.salonId,
+      releasedSlot,
+    );
+    if (waitingSlot) {
+      const releasedSlotViolation = await availabilityViolation(tx, {
+        salonId: input.salonId,
+        professionalId: waitingSlot.professionalId,
+        startAt: waitingSlot.startAt,
+        endAt: waitingSlot.endAt,
+        salon,
+        excludeAppointmentId: appointment.id,
+        enforceBookingWindow: false,
+        now: input.now,
+      });
+      if (releasedSlotViolation) {
+        // A transacao inteira volta: reserva e fila originais permanecem
+        // intactas ate o impedimento ser resolvido explicitamente.
+        throw new AppointmentError("WAITLIST_BLOCKED");
+      }
+      await fulfillWaitlistOnCancel(
+        tx,
+        appointment.id,
+        input.salonId,
+        waitingSlot,
+      );
+    }
+  }
 
   if (override.overridden) {
     await writeAuditLog(tx, {
@@ -1065,23 +1119,27 @@ export async function cancelAppointmentReliably(
     payload,
   });
 
-  // Cancelamento do estabelecimento costuma significar que o horário não
-  // deve ser ocupado (ausência, fechamento etc.). A fila só preenche
-  // automaticamente uma desistência do cliente e apenas se o intervalo ainda
-  // passar por todas as regras de disponibilidade.
-  if (input.actor.type === "CLIENT" || input.actor.type === "GUEST") {
+  // Cliente e estabelecimento seguem a mesma regra: se a vaga continua
+  // elegível, somente o primeiro da fila é promovido na mesma transação.
+  const waitingSlot = await nextWaitlistSlot(tx, appointment.id, input.salonId);
+  if (waitingSlot) {
     const releasedSlotViolation = await availabilityViolation(tx, {
       salonId: input.salonId,
-      professionalId: appointment.professionalId,
-      startAt: appointment.startAt,
-      endAt: appointment.endAt,
+      professionalId: waitingSlot.professionalId,
+      startAt: waitingSlot.startAt,
+      endAt: waitingSlot.endAt,
       salon,
       excludeAppointmentId: appointment.id,
       enforceBookingWindow: false,
       now: input.now,
     });
     if (!releasedSlotViolation) {
-      await fulfillWaitlistOnCancel(tx, appointment.id, input.salonId);
+      await fulfillWaitlistOnCancel(
+        tx,
+        appointment.id,
+        input.salonId,
+        waitingSlot,
+      );
     }
   }
 
