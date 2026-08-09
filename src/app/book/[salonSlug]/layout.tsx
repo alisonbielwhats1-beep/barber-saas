@@ -3,8 +3,6 @@ import { prisma } from "@/lib/prisma";
 import { getClientSession } from "@/lib/client-auth";
 import { withSalonBySlug } from "@/lib/prisma-tenant";
 import { ClientShell } from "./client-shell";
-import { BusinessExperienceProvider } from "@/components/business-experience-provider";
-import { getBusinessExperience } from "@/config/business-experience";
 
 /**
  * Título por salão — lido direto (Salon tem leitura pública nas policies de
@@ -43,11 +41,6 @@ export default async function BookLayout({
   params: Promise<{ salonSlug: string }>;
 }) {
   const [{ salonSlug }, session] = await Promise.all([params, getClientSession()]);
-  const salon = await prisma.salon.findUnique({
-    where: { slug: salonSlug },
-    select: { segment: true },
-  });
-  const experience = getBusinessExperience(salon?.segment);
   const unreadNotifications = session
     ? (await withSalonBySlug(salonSlug, (tx, salonId) => {
         if (session.salonId !== salonId) return Promise.resolve(0);
@@ -63,19 +56,13 @@ export default async function BookLayout({
     : 0;
 
   return (
-    <BusinessExperienceProvider segment={salon?.segment}>
-      <div
-        data-theme="salon-dark"
-        data-business-experience={experience.id}
-        data-experience-direction={experience.visual.direction}
-        data-experience-density={experience.visual.density}
-        data-public-layout={experience.visual.publicLayout}
-        className="experience-scope min-h-dvh text-foreground"
-      >
-        <ClientShell salonSlug={salonSlug} unreadNotifications={unreadNotifications}>
-          {children}
-        </ClientShell>
-      </div>
-    </BusinessExperienceProvider>
+    <div
+      data-theme="salon-dark"
+      className="min-h-dvh bg-background text-foreground"
+    >
+      <ClientShell salonSlug={salonSlug} unreadNotifications={unreadNotifications}>
+        {children}
+      </ClientShell>
+    </div>
   );
 }

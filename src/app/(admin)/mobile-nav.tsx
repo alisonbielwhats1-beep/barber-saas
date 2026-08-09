@@ -14,8 +14,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UnreadBadge } from "@/components/unread-badge";
-import { useBusinessExperience } from "@/components/business-experience-provider";
-import { ProductWordmark } from "@/components/product-wordmark";
 import { DASHBOARD_ROLES, MANAGEMENT_ROLES } from "@/lib/role-permissions";
 import { visibleGroups } from "./sidebar-nav";
 import { OpenCommandPaletteButton } from "./command-palette";
@@ -45,7 +43,6 @@ export function MobileNav({
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const experience = useBusinessExperience();
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + "/");
@@ -54,35 +51,30 @@ export function MobileNav({
     <>
       {/* Painel "Mais" — todos os módulos agrupados */}
       {open && (
-        <div className="experience-scope fixed inset-0 z-50 flex flex-col bg-background md:hidden">
-          <div className="flex items-center justify-between border-b border-border/70 px-5 py-4">
-            <div>
-              <ProductWordmark compact />
-              <p className="experience-eyebrow text-[9px] font-semibold uppercase tracking-[0.17em]">
-                Todos os módulos
-              </p>
-            </div>
+        <div className="fixed inset-0 z-50 flex flex-col bg-background md:hidden">
+          <div className="flex items-center justify-between border-b border-border px-5 py-4">
+            <p className="text-sm font-semibold">Todos os módulos</p>
             <button
               onClick={() => setOpen(false)}
               aria-label="Fechar menu"
-              className="grid h-11 w-11 place-items-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="grid h-8 w-8 place-items-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
-          <div className="scrollbar-dark flex-1 space-y-6 overflow-y-auto px-5 py-5 pb-32">
+          <div className="scrollbar-dark flex-1 space-y-5 overflow-y-auto px-5 py-5 pb-24">
             <OpenCommandPaletteButton />
-            {visibleGroups(role, experience).map((group) => (
+            {visibleGroups(role).map((group) => (
               <div key={group.title}>
                 <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
                   {group.title}
                 </p>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-2">
                   {group.items.map((item) =>
                     item.soon ? (
                       <div
                         key={item.href}
-                        className="experience-surface flex min-h-16 items-center gap-2.5 px-3 py-3 text-[13px] text-muted-foreground/45"
+                        className="flex items-center gap-2.5 rounded-xl border border-border bg-card px-3 py-3 text-[13px] text-muted-foreground/45"
                       >
                         <item.icon className="h-4 w-4 shrink-0" />
                         {item.label}
@@ -94,14 +86,14 @@ export function MobileNav({
                         prefetch={false}
                         onClick={() => setOpen(false)}
                         className={cn(
-                          "experience-surface flex min-h-16 items-center gap-2.5 px-3 py-3 text-[13px] font-medium transition",
+                          "flex items-center gap-2.5 rounded-xl border px-3 py-3 text-[13px] font-medium transition-colors",
                           isActive(item.href)
-                            ? "experience-active-nav experience-card-selected"
-                            : "text-muted-foreground",
+                            ? "border-primary/40 bg-primary/10 text-foreground"
+                            : "border-border bg-card text-muted-foreground",
                         )}
                       >
                         <item.icon
-                          className={cn("h-4 w-4 shrink-0", isActive(item.href) && "experience-accent-text")}
+                          className={cn("h-4 w-4 shrink-0", isActive(item.href) && "text-primary")}
                         />
                         <span className="min-w-0 flex-1 truncate">{item.label}</span>
                         <UnreadBadge
@@ -119,10 +111,10 @@ export function MobileNav({
                 prefetch={false}
                 onClick={() => setOpen(false)}
                 className={cn(
-                  "experience-surface flex min-h-16 items-center gap-2.5 px-3 py-3 text-[13px] font-medium transition",
+                  "flex items-center gap-2.5 rounded-xl border px-3 py-3 text-[13px] font-medium transition-colors",
                   isActive("/configuracoes")
-                    ? "experience-active-nav experience-card-selected"
-                    : "text-muted-foreground",
+                    ? "border-primary/40 bg-primary/10 text-foreground"
+                    : "border-border bg-card text-muted-foreground",
                 )}
               >
                 <Settings className="h-4 w-4 shrink-0" />
@@ -134,7 +126,7 @@ export function MobileNav({
       )}
 
       {/* Barra inferior */}
-      <nav aria-label="Navegação principal" className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-50 flex overflow-hidden rounded-2xl border border-border-strong/70 bg-card/92 p-1.5 shadow-[0_22px_60px_-22px_rgba(0,0,0,0.75)] backdrop-blur-xl md:hidden print:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-50 flex border-t border-border bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden print:hidden">
         {PRIMARY.filter((item) => !item.roles || item.roles.includes(role)).map((item) => {
           const active = !open && isActive(item.href);
           return (
@@ -144,12 +136,12 @@ export function MobileNav({
               prefetch={false}
               onClick={() => setOpen(false)}
               className={cn(
-                "flex min-h-14 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 text-[10px] font-medium transition-colors",
-                active ? "experience-active-nav experience-accent-text" : "text-muted-foreground",
+                "flex flex-1 flex-col items-center gap-1 pb-3 pt-2.5 text-[10px] font-medium transition-colors",
+                active ? "text-primary" : "text-muted-foreground",
               )}
             >
               <span className="relative">
-                <item.icon className="h-[19px] w-[19px]" strokeWidth={active ? 2.4 : 2} />
+                <item.icon className="h-5 w-5" strokeWidth={active ? 2.4 : 2} />
                 <UnreadBadge
                   count={item.href === "/notificacoes" ? unreadNotifications : 0}
                   className="absolute -right-3 -top-2"
@@ -161,11 +153,9 @@ export function MobileNav({
         })}
         <button
           onClick={() => setOpen((o) => !o)}
-          aria-expanded={open}
-          aria-label={open ? "Fechar menu completo" : "Abrir menu completo"}
           className={cn(
-            "flex min-h-14 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 text-[10px] font-medium transition-colors",
-            open ? "experience-active-nav experience-accent-text" : "text-muted-foreground",
+            "flex flex-1 flex-col items-center gap-1 pb-3 pt-2.5 text-[10px] font-medium transition-colors",
+            open ? "text-primary" : "text-muted-foreground",
           )}
         >
           <MoreHorizontal className="h-5 w-5" strokeWidth={open ? 2.4 : 2} />

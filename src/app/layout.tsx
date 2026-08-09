@@ -11,9 +11,9 @@ const fraunces = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: "SalonSaaS — Gestão e agendamento para negócios de beleza",
+  title: "Salon SaaS — Gestão e agendamento para salões",
   description:
-    "Agenda online e gestão para barbearias, salões, manicures, estética e espaços de beleza multiespecialidade.",
+    "Sistema completo de agendamento, agenda e gestão financeira para salões de cabeleireiro e barbearias.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

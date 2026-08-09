@@ -1,39 +1,54 @@
 import { Suspense } from "react";
 import Link from "next/link";
+import { Scissors } from "lucide-react";
 import { LoginForm } from "./login-form";
-import { ProductWordmark } from "@/components/product-wordmark";
-import { AuthShowcase } from "../auth-showcase";
 
 export default function LoginPage() {
   return (
-    <main data-business-experience="espaco-misto" data-experience-direction="modular" data-experience-density="comfortable" className="experience-scope grid min-h-dvh bg-background lg:grid-cols-[1.1fr_0.9fr]">
-      <AuthShowcase mode="login" />
+    <main className="relative grid min-h-screen place-items-center overflow-hidden bg-background p-6">
+      {/* Ambient glow */}
+      <div
+        className="pointer-events-none absolute inset-0 -z-0"
+        aria-hidden
+        style={{
+          background:
+            "radial-gradient(ellipse 60% 40% at 50% 0%, hsl(38 92% 50% / 0.08) 0%, transparent 70%)",
+        }}
+      />
 
-      <section className="relative grid min-h-dvh place-items-center overflow-hidden px-5 py-10 sm:px-8">
-        <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,hsl(var(--experience-accent)/0.12),transparent_32rem)]" />
-        <div className="relative z-10 w-full max-w-[430px]">
-          <ProductWordmark className="mb-10" />
+      <div className="relative z-10 w-full max-w-[360px]">
+        {/* Logo */}
+        <Link
+          href="/"
+          className="mb-8 flex items-center justify-center gap-2.5"
+        >
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary shadow-lg shadow-primary/20">
+            <Scissors className="h-4 w-4 text-primary-foreground" />
+          </span>
+          <span className="text-lg font-semibold tracking-tight">
+            Salon<span className="text-primary">SaaS</span>
+          </span>
+        </Link>
 
-          <div className="experience-surface-raised p-6 sm:p-8">
-            <div className="mb-7">
-              <p className="experience-eyebrow text-[10px] font-semibold uppercase tracking-[0.17em]">Acesso ao workspace</p>
-              <h1 className="mt-2 text-[30px] font-semibold leading-none tracking-[-0.04em]">Bem-vindo de volta</h1>
-              <p className="mt-3 text-sm leading-6 text-muted-foreground">Entre para acessar a operação do seu estabelecimento.</p>
-            </div>
-
-            <Suspense fallback={null}>
-              <LoginForm />
-            </Suspense>
-
-            <p className="mt-6 text-center text-[12px] text-muted-foreground">
-              Ainda não tem estabelecimento?{" "}
-              <Link href="/signup" className="font-semibold text-primary transition hover:underline">
-                Criar conta
-              </Link>
-            </p>
+        {/* Card */}
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-2xl shadow-black/40">
+          <div className="mb-6">
+            <h1 className="text-lg font-semibold tracking-tight">Bem-vindo de volta</h1>
+            <p className="mt-1 text-[13px] text-muted-foreground">Entre para acessar seu painel.</p>
           </div>
+
+          <Suspense fallback={null}>
+            <LoginForm />
+          </Suspense>
+
+          <p className="mt-5 text-center text-[12px] text-muted-foreground">
+            Ainda não tem salão?{" "}
+            <Link href="/signup" className="text-primary transition hover:underline">
+              Criar conta
+            </Link>
+          </p>
         </div>
-      </section>
+      </div>
     </main>
   );
 }

@@ -21,8 +21,6 @@ import { ProfessionalForm } from "./professional-form";
 import { WorkingHoursForm } from "./working-hours-form";
 import { ToggleActiveButton } from "./toggle-active-button";
 import { PendingInvites } from "./pending-invites";
-import { PageHeader } from "@/components/page-header";
-import { getBusinessExperience } from "@/config/business-experience";
 
 const MEDAL = ["#F4C430", "#C0C0C0", "#CD7F32"]; // ouro, prata, bronze
 
@@ -34,10 +32,10 @@ export default async function ProfissionaisPage() {
   const canSeeFinancial = role === "OWNER" || role === "MANAGER" || role === "SUPER_ADMIN";
   const isProfessional = role === "PROFESSIONAL";
 
-  const { perf, services, pendingInvites, timezone, segment } = await withTenant(ctx, async (tx) => {
+  const { perf, services, pendingInvites, timezone } = await withTenant(ctx, async (tx) => {
     const salon = await tx.salon.findUniqueOrThrow({
       where: { id: salonId },
-      select: { timezone: true, segment: true },
+      select: { timezone: true },
     });
     const ownProfessional = isProfessional
       ? await tx.professional.findFirst({
@@ -81,31 +79,28 @@ export default async function ProfissionaisPage() {
             orderBy: { createdAt: "desc" },
           })
         : [];
-    return {
-      perf,
-      services,
-      pendingInvites,
-      timezone: salon.timezone,
-      segment: salon.segment,
-    };
+    return { perf, services, pendingInvites, timezone: salon.timezone };
   });
 
   const monthLabel = formatInTimeZone(perf.period.from, timezone, "MMMM yyyy", { locale: ptBR });
-  const experience = getBusinessExperience(segment);
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        kicker={`Equipe · ${monthLabel}`}
-        title={isProfessional ? "Meu perfil profissional" : experience.navigation.professionals}
-        description={experience.pages.professionalsDescription}
-      >
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="mb-1 text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+            Equipe · <span className="capitalize">{monthLabel}</span>
+          </p>
+          <h1 className="text-[26px] font-semibold tracking-tight">
+            {isProfessional ? "Meu perfil profissional" : "Profissionais"}
+          </h1>
+        </div>
         {canManageTeam && <ProfessionalForm services={services} invitesEnabled={invitesEnabled} />}
-      </PageHeader>
+      </header>
 
       {/* Overview da equipe */}
       {!isProfessional && (
-        <section className={`stagger grid grid-cols-2 gap-3 ${canSeeFinancial ? "lg:grid-cols-4" : "lg:grid-cols-2"}`}>
+        <section className={`grid grid-cols-2 gap-3 ${canSeeFinancial ? "lg:grid-cols-4" : "lg:grid-cols-2"}`}>
           <Overview icon={Users} accent="#3B9EFF" label="Equipe ativa" value={perf.team.activeCount.toString()} />
           {canSeeFinancial && (
             <Overview icon={CircleDollarSign} accent="#2ECC8B" label="Receita no mês" value={formatMoney(perf.team.revenue)} />
@@ -131,19 +126,19 @@ export default async function ProfissionaisPage() {
         <div className="rounded-2xl border border-border bg-card p-12 text-center text-[13px] text-muted-foreground">
           {isProfessional
             ? "Seu perfil profissional não está ativo neste estabelecimento."
-            : experience.emptyStates.professionals}
+            : "Sem profissionais cadastrados. Adicione o primeiro no botão acima."}
         </div>
       ) : (
-        <div className="professional-grid grid gap-4 xl:grid-cols-2">
+        <div className="grid gap-4 xl:grid-cols-2">
           {perf.pros.map((p) => (
-            <div key={p.id} className={`professional-card experience-surface experience-card-interactive relative overflow-hidden p-5 sm:p-6 ${!p.active ? "opacity-60" : ""}`}>
+            <div key={p.id} className={`card-interactive rounded-2xl border border-border bg-card p-5 ${!p.active ? "opacity-60" : ""}`}>
               {/* Cabeçalho */}
               <div className="flex items-start gap-3">
                 <div className="relative shrink-0">
                   {p.avatarUrl ? (
-                    <Image src={p.avatarUrl} alt={p.name} width={60} height={60} className="rounded-full object-cover ring-2 ring-[hsl(var(--experience-accent)/0.25)]" style={{ height: 60, width: 60 }} />
+                    <Image src={p.avatarUrl} alt={p.name} width={52} height={52} className="rounded-full object-cover" style={{ height: 52, width: 52 }} />
                   ) : (
-                    <div className="grid place-items-center rounded-full text-base font-semibold text-black/80 ring-2 ring-[hsl(var(--experience-accent)/0.25)]" style={{ height: 60, width: 60, background: p.colorHex ?? "#2ECC8B" }}>
+                    <div className="grid place-items-center rounded-full text-base font-semibold text-black/80" style={{ height: 52, width: 52, background: p.colorHex ?? "#2ECC8B" }}>
                       {p.name.split(" ").map((n) => n[0]).slice(0, 2).join("")}
                     </div>
                   )}
@@ -166,7 +161,7 @@ export default async function ProfissionaisPage() {
                         <span>·</span>
                       </>
                     )}
-                    <span>{p.serviceCount} {experience.terminology.services}</span>
+                    <span>{p.serviceCount} serviços</span>
                     <span>·</span>
                     <span>{p.workingDays} dias/sem</span>
                   </div>
@@ -177,7 +172,7 @@ export default async function ProfissionaisPage() {
               </div>
 
               {/* Meta */}
-              {canSeeFinancial && <div className="mt-5 rounded-xl border border-border/60 bg-surface-1/70 p-3.5">
+              {canSeeFinancial && <div className="mt-4 rounded-xl bg-surface-1 p-3">
                 <div className="mb-1.5 flex items-center justify-between text-[11px]">
                   <span className="flex items-center gap-1 text-muted-foreground"><Target className="h-3 w-3" /> Meta do mês</span>
                   <span className="font-medium">
@@ -194,7 +189,7 @@ export default async function ProfissionaisPage() {
                   />
                 </div>
                 <p className="mt-1 text-right text-[10px] text-muted-foreground">
-                  {(p.goalPct * 100).toFixed(0)}% da meta{p.goalPct >= 1 ? " · meta alcançada" : ""}
+                  {(p.goalPct * 100).toFixed(0)}% da meta{p.goalPct >= 1 ? " · batida! 🎉" : ""}
                 </p>
               </div>}
 
@@ -239,7 +234,7 @@ type IconType = React.ComponentType<{ className?: string }>;
 
 function Overview({ icon: Icon, accent, label, value }: { icon: IconType; accent: string; label: string; value: string }) {
   return (
-    <div className="experience-kpi flex items-center gap-3 p-3.5">
+    <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3.5">
       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg" style={{ background: `${accent}1f`, color: accent }}>
         <Icon className="h-4 w-4" />
       </span>
@@ -253,7 +248,7 @@ function Overview({ icon: Icon, accent, label, value }: { icon: IconType; accent
 
 function Stat({ icon: Icon, label, value, accent }: { icon: IconType; label: string; value: string; accent?: string }) {
   return (
-    <div className="rounded-xl border border-border/50 bg-surface-1/70 p-2.5">
+    <div className="rounded-lg bg-surface-1 p-2.5">
       <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
         <Icon className="h-3 w-3" /> {label}
       </span>

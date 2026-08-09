@@ -1,12 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Image from "next/image";
 import { Check, ChevronDown } from "lucide-react";
 import { SEGMENTS, DEFAULT_SEGMENT_ID, getSegment, type SegmentId } from "@/lib/segments";
-import { getBusinessExperience } from "@/config/business-experience";
-import { BusinessExperienceIcon } from "@/components/business-experience-icon";
-import { cn } from "@/lib/utils";
 
 /**
  * Escolha de segmento e dos serviços iniciais, compartilhada por `/signup` e
@@ -53,81 +49,29 @@ export function useSegmentSelection() {
 export function SegmentPicker({
   segmentId,
   onPick,
-  compact = false,
 }: {
-  segmentId: SegmentId | null;
+  segmentId: SegmentId;
   onPick: (id: SegmentId) => void;
-  compact?: boolean;
 }) {
   return (
-    <div
-      className={cn(
-        compact
-          ? "grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-5"
-          : "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5",
-      )}
-    >
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
       {SEGMENTS.map((s) => {
         const active = s.id === segmentId;
-        const experience = getBusinessExperience(s.id);
+        const Icon = s.icon;
         return (
           <button
             key={s.id}
             type="button"
             onClick={() => onPick(s.id)}
             aria-pressed={active}
-            data-business-experience={s.id}
-            className={cn(
-              "experience-card-interactive group relative overflow-hidden border bg-card text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-              compact ? "min-h-28 last:col-span-2 sm:last:col-span-1" : "min-h-44",
-              active ? "experience-card-selected" : "border-border",
-            )}
+            className={`flex items-center gap-2 rounded-xl border px-3 py-3 text-left text-[13px] font-medium transition ${
+              active
+                ? "border-primary/50 bg-primary/10 text-foreground"
+                : "border-border bg-card text-muted-foreground hover:border-border-strong"
+            }`}
           >
-            <span className="relative block aspect-[16/9] overflow-hidden bg-muted lg:aspect-[4/3]">
-              <Image
-                src={experience.imagery.accentImage}
-                alt=""
-                fill
-                sizes="(max-width: 639px) 100vw, (max-width: 1023px) 50vw, 20vw"
-                className="object-cover transition duration-300 motion-safe:group-hover:scale-[1.035]"
-                style={{ objectPosition: experience.imagery.objectPosition }}
-              />
-              <span className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-black/5" />
-              <span className="experience-icon-surface absolute left-3 top-3 grid h-9 w-9 place-items-center rounded-xl border backdrop-blur-md">
-                <BusinessExperienceIcon name={experience.icon} className="h-[18px] w-[18px]" />
-              </span>
-              {active && (
-                <span
-                  className="experience-accent-bg absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-full shadow-lg"
-                  aria-hidden="true"
-                >
-                  <Check className="h-4 w-4" strokeWidth={3} />
-                </span>
-              )}
-              <span className="absolute inset-x-3 bottom-3">
-                <span className="block text-[15px] font-semibold tracking-tight text-white">
-                  {s.shortLabel}
-                </span>
-                {!compact && (
-                  <span className="mt-0.5 line-clamp-2 block text-[11px] leading-4 text-white/75">
-                    {experience.personality}
-                  </span>
-                )}
-              </span>
-            </span>
-            {!compact && <span className="flex min-h-12 items-center justify-between gap-2 px-3 py-2.5">
-              <span className="line-clamp-2 text-[11px] leading-4 text-muted-foreground">
-                {s.description}
-              </span>
-              <span
-                className={cn(
-                  "h-2.5 w-2.5 shrink-0 rounded-full border",
-                  active
-                    ? "experience-accent-bg border-transparent"
-                    : "border-border-strong bg-transparent",
-                )}
-              />
-            </span>}
+            <Icon className={`h-4 w-4 shrink-0 ${active ? "text-primary" : ""}`} />
+            {s.shortLabel}
           </button>
         );
       })}
@@ -164,7 +108,7 @@ export function StarterServicePicker({
           type="button"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
-          className="flex min-h-11 w-full items-center justify-between gap-2 rounded-xl border border-border bg-card px-3 py-2.5 text-left transition hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex w-full items-center justify-between gap-2 rounded-xl border border-border bg-card px-3 py-2.5 text-left transition hover:border-border-strong"
         >
           <span className="min-w-0 text-[13px] text-muted-foreground">
             <span className="font-medium text-foreground">
@@ -193,7 +137,7 @@ export function StarterServicePicker({
                   type="button"
                   onClick={() => onToggle(s.name)}
                   aria-pressed={checked}
-                  className={`flex min-h-11 items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                  className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition ${
                     checked ? "border-primary/40 bg-primary/5" : "border-border bg-card opacity-60"
                   }`}
                 >

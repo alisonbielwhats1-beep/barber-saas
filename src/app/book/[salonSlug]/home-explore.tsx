@@ -6,7 +6,6 @@ import Image from "next/image";
 import { Search, ChevronRight } from "lucide-react";
 import { formatMoney, formatDuration } from "@/lib/utils";
 import { imageForCategory } from "@/lib/images";
-import { useBusinessExperience } from "@/components/business-experience-provider";
 
 type Service = {
   id: string;
@@ -32,7 +31,6 @@ export function HomeExplore({
 }) {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const experience = useBusinessExperience();
 
   // Derive ordered category list from DB data
   const categories = useMemo(() => {
@@ -72,23 +70,20 @@ export function HomeExplore({
   }, [services, categories, activeCategory, query]);
 
   return (
-    <div
-      data-service-presentation={experience.visual.catalogLayout}
-      className="public-service-explorer space-y-6"
-    >
+    <>
       {/* Search */}
-      <div className="flex min-h-12 items-center gap-2 rounded-full border border-border bg-card px-4 py-3">
+      <div className="flex items-center gap-2 rounded-full border border-border bg-card px-4 py-3">
         <Search className="h-4 w-4 text-muted-foreground" />
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder={`Buscar ${experience.terminology.services}…`}
+          placeholder="Buscar serviços…"
           className="flex-1 bg-transparent text-sm placeholder:text-muted-foreground focus:outline-none"
         />
         {query && (
           <button
             onClick={() => setQuery("")}
-            className="min-h-11 rounded-full px-2 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="text-xs text-muted-foreground hover:text-foreground"
           >
             Limpar
           </button>
@@ -99,12 +94,11 @@ export function HomeExplore({
       {categories.length > 1 && !query && (
         <section>
           <p className="mb-3 text-sm font-semibold text-muted-foreground">Categorias</p>
-          <div className="public-category-grid grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3">
             {/* "Todos" tile */}
             <button
               onClick={() => setActiveCategory(null)}
-              aria-pressed={activeCategory === null}
-              className={`experience-card-interactive relative aspect-[4/3] overflow-hidden transition sm:aspect-square ${
+              className={`relative aspect-square overflow-hidden rounded-2xl transition ${
                 activeCategory === null
                   ? "ring-2 ring-primary ring-offset-2 ring-offset-background"
                   : "opacity-80 hover:opacity-100"
@@ -114,7 +108,7 @@ export function HomeExplore({
               <div className="absolute inset-0 flex flex-col items-start justify-end p-4">
                 <p className="text-sm font-bold text-white drop-shadow-sm">Todos</p>
                 <p className="text-xs text-white/70">
-                  {services.length} {services.length === 1 ? experience.terminology.service : experience.terminology.services}
+                  {services.length} {services.length === 1 ? "serviço" : "serviços"}
                 </p>
               </div>
             </button>
@@ -126,8 +120,7 @@ export function HomeExplore({
                 <button
                   key={cat}
                   onClick={() => setActiveCategory(active ? null : cat)}
-                  aria-pressed={active}
-                  className={`experience-card-interactive relative aspect-[4/3] overflow-hidden transition sm:aspect-square ${
+                  className={`relative aspect-square overflow-hidden rounded-2xl transition ${
                     active
                       ? "ring-2 ring-primary ring-offset-2 ring-offset-background"
                       : "opacity-85 hover:opacity-100"
@@ -144,7 +137,7 @@ export function HomeExplore({
                   <div className="absolute inset-0 flex flex-col items-start justify-end p-4">
                     <p className="text-sm font-bold text-white drop-shadow-sm">{cat}</p>
                     <p className="text-xs text-white/70">
-                      {count} {count === 1 ? experience.terminology.service : experience.terminology.services}
+                      {count} {count === 1 ? "serviço" : "serviços"}
                     </p>
                   </div>
                 </button>
@@ -155,7 +148,7 @@ export function HomeExplore({
       )}
 
       {/* Service list */}
-      <section className="public-service-catalog space-y-4">
+      <section className="space-y-4">
         {query && (
           <p className="text-sm font-semibold text-muted-foreground">
             {groups.reduce((n, g) => n + g.items.length, 0)} resultado
@@ -166,27 +159,24 @@ export function HomeExplore({
           <p className="text-sm font-semibold text-muted-foreground">{activeCategory}</p>
         )}
         {!query && !activeCategory && categories.length <= 1 && (
-          <p className="text-sm font-semibold text-muted-foreground">
-            {experience.navigation.services}
-          </p>
+          <p className="text-sm font-semibold text-muted-foreground">Nossos serviços</p>
         )}
 
         {groups.length === 0 ? (
           <div className="rounded-3xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
             {services.length === 0
-              ? `Este estabelecimento ainda não publicou ${experience.terminology.services}.`
+              ? "Este salão ainda não publicou serviços."
               : "Nada encontrado com esse filtro."}
           </div>
         ) : (
           groups.map(({ cat, items }) => (
             <div
               key={cat}
-              data-catalog-layout={experience.visual.catalogLayout}
-              className="public-service-group experience-card-interactive overflow-hidden border border-border bg-card"
+              className="overflow-hidden rounded-3xl border border-border bg-card"
             >
               {/* Category header — only when showing multiple categories */}
               {(activeCategory === null && categories.length > 1 && !query) && (
-                <div className="public-service-group-heading border-b border-border px-4 py-3">
+                <div className="border-b border-border px-4 py-3">
                   <p className="text-[13px] font-semibold">{cat}</p>
                 </div>
               )}
@@ -196,7 +186,7 @@ export function HomeExplore({
                 <Link
                   key={s.id}
                   href={`/book/${salonSlug}/agendar?service=${s.id}`}
-                  className="public-service-row flex min-h-20 items-center gap-3 border-t border-border px-4 py-3.5 transition hover:bg-card-hover active:opacity-75 first:border-t-0"
+                  className="flex items-center gap-3 border-t border-border px-4 py-3.5 transition hover:bg-card-hover active:opacity-75 first:border-t-0"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[14px] font-medium">{s.name}</p>
@@ -221,6 +211,6 @@ export function HomeExplore({
           ))
         )}
       </section>
-    </div>
+    </>
   );
 }

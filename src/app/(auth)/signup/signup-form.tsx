@@ -11,14 +11,12 @@ import {
   useSegmentSelection,
 } from "@/components/segment-service-picker";
 import { signup } from "./actions";
-import { getBusinessExperience } from "@/config/business-experience";
 
 export function SignupForm() {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const selection = useSegmentSelection();
-  const experience = getBusinessExperience(selection.segmentId);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -55,28 +53,20 @@ export function SignupForm() {
   }
 
   return (
-    <form
-      className="min-w-0 space-y-4"
-      data-business-experience={experience.id}
-      onSubmit={onSubmit}
-    >
-      <div className="space-y-2">
-        <label htmlFor="salonName" className="text-sm font-medium">Nome do estabelecimento</label>
-        <Input id="salonName" name="salonName" placeholder="Luna Hair Studio" required autoFocus className="min-h-11" />
+    <form className="space-y-4" onSubmit={onSubmit}>
+      <div className="space-y-1.5">
+        <label htmlFor="salonName" className="text-sm font-medium">Nome do salão</label>
+        <Input id="salonName" name="salonName" placeholder="Luna Hair Studio" required autoFocus />
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <p className="text-sm font-medium">Tipo de negócio</p>
         <p className="text-xs text-muted-foreground">
           Define a aparência da sua página pública e sugere seus serviços. Você
           cadastra qualquer serviço depois, independente do que escolher aqui.
         </p>
         <div className="pt-1">
-          <SegmentPicker
-            segmentId={selection.segmentId}
-            onPick={selection.pickSegment}
-            compact
-          />
+          <SegmentPicker segmentId={selection.segmentId} onPick={selection.pickSegment} />
         </div>
       </div>
 
@@ -86,28 +76,26 @@ export function SignupForm() {
         onToggle={selection.toggleService}
         collapsible
       />
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <label htmlFor="ownerName" className="text-sm font-medium">Seu nome</label>
-          <Input id="ownerName" name="ownerName" placeholder="Marina Souza" required className="min-h-11" />
-        </div>
-        <div className="space-y-2">
-          <label htmlFor="email" className="text-sm font-medium">Email</label>
-          <Input id="email" name="email" type="email" placeholder="voce@salon.com" required className="min-h-11" />
-        </div>
-        <div className="space-y-2 sm:col-span-2">
-          <label htmlFor="password" className="text-sm font-medium">Senha</label>
-          <Input id="password" name="password" type="password" minLength={6} required className="min-h-11" />
-          <p className="text-xs text-muted-foreground">Mínimo 6 caracteres.</p>
-        </div>
+      <div className="space-y-1.5">
+        <label htmlFor="ownerName" className="text-sm font-medium">Seu nome</label>
+        <Input id="ownerName" name="ownerName" placeholder="Marina Souza" required />
+      </div>
+      <div className="space-y-1.5">
+        <label htmlFor="email" className="text-sm font-medium">Email</label>
+        <Input id="email" name="email" type="email" placeholder="voce@salon.com" required />
+      </div>
+      <div className="space-y-1.5">
+        <label htmlFor="password" className="text-sm font-medium">Senha</label>
+        <Input id="password" name="password" type="password" minLength={6} required />
+        <p className="text-xs text-muted-foreground">Mínimo 6 caracteres.</p>
       </div>
       {error && (
         <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {error}
         </p>
       )}
-      <Button type="submit" className="min-h-11 w-full" disabled={pending}>
-        {pending ? "Criando…" : "Criar meu estabelecimento"}
+      <Button type="submit" className="w-full" disabled={pending}>
+        {pending ? "Criando…" : "Criar meu salão"}
       </Button>
     </form>
   );

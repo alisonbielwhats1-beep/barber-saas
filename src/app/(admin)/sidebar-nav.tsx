@@ -22,11 +22,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UnreadBadge } from "@/components/unread-badge";
-import { useBusinessExperience } from "@/components/business-experience-provider";
-import {
-  genericBusinessExperience,
-  type BusinessExperience,
-} from "@/config/business-experience";
 import {
   DASHBOARD_ROLES,
   FINANCIAL_ROLES,
@@ -56,23 +51,10 @@ type Item = NavItem;
  * Esconder o item é só cortesia visual — a proteção real está em
  * `requireRole()` na própria página. Nunca confie só nisto.
  */
-export function visibleGroups(
-  role: string,
-  experience: BusinessExperience = genericBusinessExperience,
-) {
+export function visibleGroups(role: string) {
   return GROUPS.map((g) => ({
     ...g,
-    items: g.items
-      .filter((i) => !i.roles || i.roles.includes(role))
-      .map((item) => {
-        if (item.href === "/profissionais") {
-          return { ...item, label: experience.navigation.professionals };
-        }
-        if (item.href === "/servicos") {
-          return { ...item, label: experience.navigation.services };
-        }
-        return item;
-      }),
+    items: g.items.filter((i) => !i.roles || i.roles.includes(role)),
   })).filter((g) => g.items.length > 0);
 }
 
@@ -126,17 +108,15 @@ export function SidebarNav({
   unreadNotifications?: number;
 }) {
   const pathname = usePathname();
-  const experience = useBusinessExperience();
 
   return (
-    <nav className="flex-1 space-y-5 px-3 pb-5">
-      {visibleGroups(role, experience).map((group) => (
+    <nav className="flex-1 space-y-4 px-3 pb-4">
+      {visibleGroups(role).map((group) => (
         <div key={group.title}>
-          <p className="mb-2 flex items-center gap-2 px-2.5 text-[9px] font-semibold uppercase tracking-[0.19em] text-muted-foreground/55">
+          <p className="mb-1 px-2.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
             {group.title}
-            <span aria-hidden="true" className="h-px flex-1 bg-border/60" />
           </p>
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             {group.items.map((item) => (
               <NavRow
                 key={item.href}
@@ -176,12 +156,10 @@ function NavRow({
   if (soon) {
     return (
       <div
-        className="flex min-h-11 cursor-default items-center gap-3 rounded-xl px-3 py-2 text-[13px] text-muted-foreground/40"
+        className="flex cursor-default items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] text-muted-foreground/45"
         title="Em breve"
       >
-        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-border/50 bg-card/50">
-          <Icon className="h-3.5 w-3.5" />
-        </span>
+        <Icon className="h-3.5 w-3.5 shrink-0" />
         <span className="flex-1">{label}</span>
         <span className="rounded-full border border-border bg-surface-1 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-muted-foreground/70">
           Breve
@@ -195,22 +173,16 @@ function NavRow({
       href={href}
       prefetch={false}
       className={cn(
-        "group relative flex min-h-12 items-center gap-3 rounded-xl border px-2.5 py-2 text-[13px] transition duration-200",
+        "relative flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] transition-colors",
         active
-          ? "experience-active-nav experience-accent-border bg-card/75 font-semibold shadow-sm"
-          : "border-transparent text-muted-foreground hover:translate-x-0.5 hover:border-border/70 hover:bg-card/60 hover:text-foreground",
+          ? "bg-primary/10 font-medium text-foreground"
+          : "text-muted-foreground hover:bg-card-hover hover:text-foreground",
       )}
     >
-      <span
-        className={cn(
-          "grid h-8 w-8 shrink-0 place-items-center rounded-lg border transition-colors",
-          active
-            ? "experience-icon-surface"
-            : "border-border/50 bg-surface-1/60 group-hover:border-border",
-        )}
-      >
-        <Icon className={cn("h-3.5 w-3.5", active && "experience-accent-text")} />
-      </span>
+      {active && (
+        <span className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-primary" />
+      )}
+      <Icon className={cn("h-3.5 w-3.5 shrink-0", active && "text-primary")} />
       <span className="min-w-0 flex-1 truncate">{label}</span>
       <UnreadBadge count={badgeCount} />
     </Link>

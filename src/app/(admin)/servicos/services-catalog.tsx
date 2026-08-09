@@ -29,8 +29,6 @@ import { toast } from "@/components/ui/toast";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ServiceForm } from "./service-form";
 import { toggleServiceActive, deleteService, duplicateService } from "./actions";
-import { useBusinessExperience } from "@/components/business-experience-provider";
-import type { ExperienceCatalogLayout } from "@/config/business-experience";
 
 export type ServiceCard = {
   id: string;
@@ -68,7 +66,6 @@ export function ServicesCatalog({
   canManage: boolean;
   canSeeFinancial: boolean;
 }) {
-  const experience = useBusinessExperience();
   const [search, setSearch]           = useState("");
   const [activeCategory, setCategory] = useState("all");
   const [sort, setSort]               = useState<Sort>(canSeeFinancial ? "popular" : "name");
@@ -110,14 +107,14 @@ export function ServicesCatalog({
   return (
     <div className="space-y-4">
       {/* Barra de ferramentas */}
-      <div className="experience-filter-rail flex flex-wrap items-center gap-2 p-2">
-        <div className="flex min-h-11 flex-1 items-center gap-2 rounded-xl border border-border bg-card/75 px-3 py-1.5 sm:flex-none">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5">
           <Search className="h-3.5 w-3.5 text-muted-foreground" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder={`Buscar ${experience.terminology.service}…`}
-            className="min-w-0 flex-1 bg-transparent text-[13px] placeholder:text-muted-foreground focus:outline-none sm:w-44"
+            placeholder="Buscar serviço…"
+            className="w-44 bg-transparent text-[13px] placeholder:text-muted-foreground focus:outline-none"
           />
         </div>
 
@@ -126,9 +123,9 @@ export function ServicesCatalog({
             <button
               key={c}
               onClick={() => setCategory(c)}
-              className={`min-h-11 rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors ${
+              className={`rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors ${
                 activeCategory === c
-                  ? "experience-active-nav experience-accent-border"
+                  ? "border-primary/40 bg-primary/10 text-foreground"
                   : "border-border bg-card text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -141,7 +138,7 @@ export function ServicesCatalog({
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as Sort)}
-            className="h-11 rounded-xl border border-border bg-card px-3 text-[12px] text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="h-9 rounded-full border border-border bg-card px-3 text-[12px] text-muted-foreground focus:outline-none"
           >
             {canSeeFinancial && <option value="popular">Mais vendidos</option>}
             <option value="price">Maior preço</option>
@@ -150,12 +147,11 @@ export function ServicesCatalog({
           </select>
 
           {/* Toggle grade / lista */}
-          <div className="flex items-center gap-0.5 rounded-xl border border-border bg-surface-1 p-1">
+          <div className="flex items-center gap-0.5 rounded-full border border-border bg-surface-1 p-1">
             <button
               onClick={() => setView("grid")}
               title="Vista em grade (com imagens)"
-              aria-label="Visualizar em grade"
-              className={`grid h-11 w-11 place-items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+              className={`grid h-7 w-7 place-items-center rounded-full transition-colors ${
                 view === "grid" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -164,8 +160,7 @@ export function ServicesCatalog({
             <button
               onClick={() => setView("list")}
               title="Vista em lista (compacta)"
-              aria-label="Visualizar em lista"
-              className={`grid h-11 w-11 place-items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+              className={`grid h-7 w-7 place-items-center rounded-full transition-colors ${
                 view === "list" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -176,8 +171,8 @@ export function ServicesCatalog({
       </div>
 
       {filtered.length === 0 ? (
-        <div className="experience-surface p-12 text-center text-[13px] text-muted-foreground">
-          Nenhum {experience.terminology.service} encontrado.
+        <div className="rounded-2xl border border-border bg-card p-12 text-center text-[13px] text-muted-foreground">
+          Nenhum serviço encontrado.
         </div>
       ) : (
         <div className="space-y-3">
@@ -189,9 +184,6 @@ export function ServicesCatalog({
                 items={items}
                 canManage={canManage}
                 canSeeFinancial={canSeeFinancial}
-                serviceLabel={experience.terminology.service}
-                servicesLabel={experience.terminology.services}
-                catalogLayout={experience.visual.catalogLayout}
               />
             ) : (
               <CategoryGroupList
@@ -216,28 +208,19 @@ function CategoryGroupGrid({
   items,
   canManage,
   canSeeFinancial,
-  serviceLabel,
-  servicesLabel,
-  catalogLayout,
 }: {
   cat: string;
   items: ServiceCard[];
   canManage: boolean;
   canSeeFinancial: boolean;
-  serviceLabel: string;
-  servicesLabel: string;
-  catalogLayout: ExperienceCatalogLayout;
 }) {
   const totalRevenue = items.reduce((s, i) => s + i.revenueCents, 0);
   const totalSold    = items.reduce((s, i) => s + i.sold, 0);
 
   return (
-    <div
-      data-catalog-layout={catalogLayout}
-      className="catalog-group experience-surface experience-card-interactive overflow-hidden"
-    >
+    <div className="overflow-hidden rounded-2xl border border-border bg-card">
       {/* Banner landscape — altura generosa para a imagem respirar */}
-      <div className="catalog-group-image relative h-48 w-full overflow-hidden sm:h-56">
+      <div className="relative h-48 w-full overflow-hidden sm:h-56">
         <Image
           src={bannerForCategory(cat)}
           alt={cat}
@@ -251,7 +234,7 @@ function CategoryGroupGrid({
         <div className="absolute inset-x-0 bottom-0 px-5 pb-4">
           <p className="text-[17px] font-semibold text-white drop-shadow">{cat}</p>
           <p className="mt-0.5 text-[12px] text-white/70">
-            {items.length} {items.length === 1 ? serviceLabel : servicesLabel}
+            {items.length} {items.length === 1 ? "serviço" : "serviços"}
             {canSeeFinancial && totalSold > 0 && ` · ${totalSold} vendas · ${formatMoney(totalRevenue)}`}
           </p>
         </div>
@@ -284,7 +267,7 @@ function CategoryGroupList({
   canSeeFinancial: boolean;
 }) {
   return (
-    <div className="experience-surface overflow-hidden">
+    <div className="overflow-hidden rounded-2xl border border-border bg-card">
       {/* Cabeçalho de texto simples */}
       <div className="border-b border-border bg-surface-1 px-4 py-2">
         <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/70">
@@ -317,7 +300,7 @@ function ServiceRow({
   const m = margin(s);
   return (
     <div
-      className={`flex min-h-16 items-center gap-3 border-b border-border/80 px-4 py-3 transition-colors hover:bg-card-hover/70 last:border-0 ${
+      className={`flex items-center gap-3 border-b border-border px-4 py-3 last:border-0 ${
         !s.active ? "opacity-50" : ""
       }`}
     >
@@ -386,7 +369,7 @@ function ActionsMenu({ s }: { s: ServiceCard }) {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button aria-label="Mais opções" className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-card-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <button className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-card-hover hover:text-foreground">
             {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
           </button>
         </DropdownMenuTrigger>
