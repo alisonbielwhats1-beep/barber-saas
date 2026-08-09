@@ -15,7 +15,7 @@ export default function SignupPage() {
         }}
       />
 
-      <div className="relative z-10 w-full max-w-[360px]">
+      <div className="relative z-10 min-w-0 w-full max-w-xl">
         {/* Logo */}
         <Link href="/" className="mb-8 flex items-center justify-center gap-2.5">
           <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary shadow-lg shadow-primary/20">
@@ -27,9 +27,9 @@ export default function SignupPage() {
         </Link>
 
         {/* Card */}
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-2xl shadow-black/40">
+        <div className="min-w-0 rounded-2xl border border-border bg-card p-5 shadow-2xl shadow-black/40 sm:p-6">
           <div className="mb-6">
-            <h1 className="text-lg font-semibold tracking-tight">Criar salão</h1>
+            <h1 className="text-xl font-semibold tracking-tight">Criar estabelecimento</h1>
             <p className="mt-1 text-[13px] text-muted-foreground">
               Em 30 segundos você tem agenda online e URL de reservas do cliente.
             </p>

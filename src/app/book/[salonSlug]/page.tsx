@@ -4,7 +4,6 @@ import Image from "next/image";
 import {
   MapPin,
   ArrowUpRight,
-  Sparkles,
   Clock,
   MessageCircle,
   ShieldCheck,
@@ -18,6 +17,8 @@ import { HERO_IMAGES, imageForProduct } from "@/lib/images";
 import { normalizePhone, formatPhoneBR } from "@/lib/phone";
 import { hexToHslTriple, readableForeground } from "@/lib/color";
 import { getSegment, isSegmentId } from "@/lib/segments";
+import { getBusinessExperience } from "@/config/business-experience";
+import { BusinessExperienceIcon } from "@/components/business-experience-icon";
 import { formatMoney } from "@/lib/utils";
 import { ClientNotificationLink } from "./client-shell";
 import { CartBadge } from "./cart-badge";
@@ -110,6 +111,7 @@ export default async function ClientHome({
   // sem segmento definido, cai no pool determinístico de sempre (mesmo salão,
   // mesma foto, pelo hash do slug — como já era antes desta personalização).
   const segment = isSegmentId(salon.segment) ? getSegment(salon.segment) : null;
+  const experience = getBusinessExperience(salon.segment);
   const coverSrc = salon.coverUrl || segment?.accentImage || heroForSalon(salonSlug);
   const paymentLabels = (salon.paymentMethods ?? "")
     .split(",")
@@ -136,7 +138,7 @@ export default async function ClientHome({
     : undefined;
 
   return (
-    <main className="animate-fade-in space-y-6 px-5 pt-6" style={brandStyle}>
+    <main className="animate-fade-in space-y-6 px-4 pt-5 sm:px-5 sm:pt-6" style={brandStyle}>
       {/* Top bar */}
       <header className="flex items-center gap-3">
         <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary/20 text-sm font-semibold text-primary">
@@ -151,7 +153,7 @@ export default async function ClientHome({
       </header>
 
       {/* Hero — capa do salão */}
-      <div className="relative h-48 overflow-hidden rounded-3xl">
+      <div className="relative h-52 overflow-hidden rounded-[1.75rem] border border-white/10 shadow-premium sm:h-56">
         <Image
           src={coverSrc}
           alt={salon.name}
@@ -159,6 +161,7 @@ export default async function ClientHome({
           priority
           sizes="(max-width: 480px) 92vw, 440px"
           className="object-cover"
+          style={{ objectPosition: experience.imagery.objectPosition }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
         <div className="absolute inset-x-0 bottom-0 p-5">
@@ -166,8 +169,8 @@ export default async function ClientHome({
               rótulo genérico que havia antes. Sem segmento definido, mantém
               o texto anterior; não some nada para quem não personalizou. */}
           <span className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-primary/90 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-primary-foreground">
-            {segment ? <segment.icon className="h-3 w-3" /> : <Sparkles className="h-3 w-3" />}
-            {segment ? segment.shortLabel : "Experiência premium"}
+            <BusinessExperienceIcon name={experience.icon} className="h-3 w-3" />
+            {experience.booking.publicEyebrow}
           </span>
           <h1 className="font-display text-2xl leading-tight text-white">{salon.name}</h1>
           <p className="mt-1 flex items-center gap-1 text-xs text-white/80">
@@ -180,11 +183,11 @@ export default async function ClientHome({
       {/* CTA de agendamento */}
       <Link
         href={`/book/${salonSlug}/agendar`}
-        className="block overflow-hidden rounded-3xl bg-primary p-6 text-primary-foreground shadow-lg"
+        className="group block min-h-44 overflow-hidden rounded-[1.75rem] bg-primary p-6 text-primary-foreground shadow-lg transition-transform motion-safe:hover:-translate-y-0.5"
       >
         <h2 className="font-display text-2xl leading-tight">Agendar um horário</h2>
         <p className="mt-1 text-sm text-primary-foreground/80">
-          Escolha o serviço e veja os horários disponíveis agora.
+          {experience.booking.publicDescription}
         </p>
         <div className="mt-4 flex w-fit items-center gap-2 rounded-full bg-primary-foreground px-4 py-2 text-sm font-semibold text-primary">
           Agendar agora
@@ -247,7 +250,9 @@ export default async function ClientHome({
       {/* Equipe — só profissionais ativos, sem dado inventado */}
       {salon.professionals.length > 0 && (
         <section>
-          <p className="mb-3 text-sm font-semibold text-muted-foreground">Nossa equipe</p>
+          <p className="mb-3 text-sm font-semibold text-muted-foreground">
+            {experience.navigation.professionals}
+          </p>
           <div className="scrollbar-dark flex gap-3 overflow-x-auto pb-1">
             {salon.professionals.map((p) => {
               const initials = (p.user.name || "?")
@@ -259,7 +264,7 @@ export default async function ClientHome({
               return (
                 <div
                   key={p.id}
-                  className="w-32 shrink-0 rounded-2xl border border-border bg-card p-3 text-center"
+                  className="experience-card-interactive w-32 shrink-0 border border-border bg-card p-3 text-center"
                 >
                   <div
                     className="mx-auto grid h-12 w-12 place-items-center rounded-full text-sm font-semibold text-white"
@@ -292,7 +297,7 @@ export default async function ClientHome({
             <p className="text-sm font-semibold text-muted-foreground">Portfólio</p>
             <Link
               href={`/book/${salonSlug}/portfolio`}
-              className="flex items-center gap-0.5 text-xs font-medium text-primary"
+              className="flex min-h-11 items-center gap-0.5 rounded-full px-2 text-xs font-medium text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               Ver tudo <ChevronRight className="h-3.5 w-3.5" />
             </Link>
@@ -324,7 +329,7 @@ export default async function ClientHome({
             <p className="text-sm font-semibold text-muted-foreground">Produtos</p>
             <Link
               href={`/book/${salonSlug}/produtos`}
-              className="flex items-center gap-0.5 text-xs font-medium text-primary"
+              className="flex min-h-11 items-center gap-0.5 rounded-full px-2 text-xs font-medium text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               Ver loja <ChevronRight className="h-3.5 w-3.5" />
             </Link>

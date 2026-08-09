@@ -6,6 +6,7 @@ import { Users, Crown, Cake, Clock } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { ClientForm } from "./client-form";
 import { ClientsCrm } from "./clients-crm";
+import { getBusinessExperience } from "@/config/business-experience";
 
 export default async function ClientesPage() {
   const ctx = await getTenantContext();
@@ -25,7 +26,7 @@ export default async function ClientesPage() {
         });
     const salon = await tx.salon.findUnique({
       where: { id: salonId },
-      select: { name: true, timezone: true },
+      select: { name: true, timezone: true, segment: true },
     });
     return { clients, salon };
   });
@@ -34,10 +35,15 @@ export default async function ClientesPage() {
   const birthday = clients.filter((c) => c.birthdayThisMonth).length;
   const lapsed = clients.filter((c) => c.isLapsed).length;
   const totalLtv = clients.reduce((s, c) => s + c.totalSpent, 0);
+  const experience = getBusinessExperience(salon?.segment);
 
   return (
     <div className="space-y-6">
-      <PageHeader kicker="CRM" title="Clientes">
+      <PageHeader
+        kicker="Relacionamento"
+        title={experience.terminology.clients.charAt(0).toUpperCase() + experience.terminology.clients.slice(1)}
+        description={experience.pages.clientsDescription}
+      >
         {role !== "PROFESSIONAL" && <ClientForm />}
       </PageHeader>
 
@@ -50,7 +56,7 @@ export default async function ClientesPage() {
 
       <ClientsCrm
         clients={clients}
-        salonName={salon?.name ?? "nosso salão"}
+        salonName={salon?.name ?? "nosso estabelecimento"}
         timezone={salon?.timezone ?? "America/Sao_Paulo"}
         canManage={role !== "PROFESSIONAL"}
       />

@@ -29,6 +29,7 @@ import { toast } from "@/components/ui/toast";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ServiceForm } from "./service-form";
 import { toggleServiceActive, deleteService, duplicateService } from "./actions";
+import { useBusinessExperience } from "@/components/business-experience-provider";
 
 export type ServiceCard = {
   id: string;
@@ -66,6 +67,7 @@ export function ServicesCatalog({
   canManage: boolean;
   canSeeFinancial: boolean;
 }) {
+  const experience = useBusinessExperience();
   const [search, setSearch]           = useState("");
   const [activeCategory, setCategory] = useState("all");
   const [sort, setSort]               = useState<Sort>(canSeeFinancial ? "popular" : "name");
@@ -108,13 +110,13 @@ export function ServicesCatalog({
     <div className="space-y-4">
       {/* Barra de ferramentas */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5">
+        <div className="flex min-h-11 flex-1 items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 sm:flex-none">
           <Search className="h-3.5 w-3.5 text-muted-foreground" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar serviço…"
-            className="w-44 bg-transparent text-[13px] placeholder:text-muted-foreground focus:outline-none"
+            placeholder={`Buscar ${experience.terminology.service}…`}
+            className="min-w-0 flex-1 bg-transparent text-[13px] placeholder:text-muted-foreground focus:outline-none sm:w-44"
           />
         </div>
 
@@ -123,9 +125,9 @@ export function ServicesCatalog({
             <button
               key={c}
               onClick={() => setCategory(c)}
-              className={`rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors ${
+              className={`min-h-11 rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors ${
                 activeCategory === c
-                  ? "border-primary/40 bg-primary/10 text-foreground"
+                  ? "experience-active-nav experience-accent-border"
                   : "border-border bg-card text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -138,7 +140,7 @@ export function ServicesCatalog({
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as Sort)}
-            className="h-9 rounded-full border border-border bg-card px-3 text-[12px] text-muted-foreground focus:outline-none"
+            className="h-11 rounded-full border border-border bg-card px-3 text-[12px] text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {canSeeFinancial && <option value="popular">Mais vendidos</option>}
             <option value="price">Maior preço</option>
@@ -151,7 +153,8 @@ export function ServicesCatalog({
             <button
               onClick={() => setView("grid")}
               title="Vista em grade (com imagens)"
-              className={`grid h-7 w-7 place-items-center rounded-full transition-colors ${
+              aria-label="Visualizar em grade"
+              className={`grid h-11 w-11 place-items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                 view === "grid" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -160,7 +163,8 @@ export function ServicesCatalog({
             <button
               onClick={() => setView("list")}
               title="Vista em lista (compacta)"
-              className={`grid h-7 w-7 place-items-center rounded-full transition-colors ${
+              aria-label="Visualizar em lista"
+              className={`grid h-11 w-11 place-items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                 view === "list" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -172,7 +176,7 @@ export function ServicesCatalog({
 
       {filtered.length === 0 ? (
         <div className="rounded-2xl border border-border bg-card p-12 text-center text-[13px] text-muted-foreground">
-          Nenhum serviço encontrado.
+          Nenhum {experience.terminology.service} encontrado.
         </div>
       ) : (
         <div className="space-y-3">
@@ -184,6 +188,8 @@ export function ServicesCatalog({
                 items={items}
                 canManage={canManage}
                 canSeeFinancial={canSeeFinancial}
+                serviceLabel={experience.terminology.service}
+                servicesLabel={experience.terminology.services}
               />
             ) : (
               <CategoryGroupList
@@ -208,17 +214,21 @@ function CategoryGroupGrid({
   items,
   canManage,
   canSeeFinancial,
+  serviceLabel,
+  servicesLabel,
 }: {
   cat: string;
   items: ServiceCard[];
   canManage: boolean;
   canSeeFinancial: boolean;
+  serviceLabel: string;
+  servicesLabel: string;
 }) {
   const totalRevenue = items.reduce((s, i) => s + i.revenueCents, 0);
   const totalSold    = items.reduce((s, i) => s + i.sold, 0);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-card">
+    <div className="experience-card-interactive overflow-hidden border border-border bg-card">
       {/* Banner landscape — altura generosa para a imagem respirar */}
       <div className="relative h-48 w-full overflow-hidden sm:h-56">
         <Image
@@ -234,7 +244,7 @@ function CategoryGroupGrid({
         <div className="absolute inset-x-0 bottom-0 px-5 pb-4">
           <p className="text-[17px] font-semibold text-white drop-shadow">{cat}</p>
           <p className="mt-0.5 text-[12px] text-white/70">
-            {items.length} {items.length === 1 ? "serviço" : "serviços"}
+            {items.length} {items.length === 1 ? serviceLabel : servicesLabel}
             {canSeeFinancial && totalSold > 0 && ` · ${totalSold} vendas · ${formatMoney(totalRevenue)}`}
           </p>
         </div>
@@ -369,7 +379,7 @@ function ActionsMenu({ s }: { s: ServiceCard }) {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-card-hover hover:text-foreground">
+          <button aria-label="Mais opções" className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-card-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
           </button>
         </DropdownMenuTrigger>

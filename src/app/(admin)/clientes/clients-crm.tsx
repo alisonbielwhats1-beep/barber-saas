@@ -76,9 +76,9 @@ export function ClientsCrm({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5">
+        <div className="flex min-h-11 flex-1 items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 sm:flex-none">
           <Search className="h-3.5 w-3.5 text-muted-foreground" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar cliente ou telefone…" className="w-48 bg-transparent text-[13px] placeholder:text-muted-foreground focus:outline-none" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar cliente ou telefone…" className="min-w-0 flex-1 bg-transparent text-[13px] placeholder:text-muted-foreground focus:outline-none sm:w-48" />
         </div>
         <Seg active={segment === "all"} onClick={() => setSegment("all")}>Todos ({clients.length})</Seg>
         <Seg active={segment === "vip"} onClick={() => setSegment("vip")} icon={Crown} accent="#F4C430">VIP ({counts.vip})</Seg>
@@ -92,8 +92,8 @@ export function ClientsCrm({
           <div className="p-12 text-center text-[13px] text-muted-foreground">Nenhum cliente neste filtro.</div>
         ) : (
           shown.map((c) => (
-            <div key={c.id} className="flex items-center gap-3 border-b border-border px-4 py-3 last:border-0 hover:bg-card-hover">
-              <button onClick={() => openDetail(c)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+            <div key={c.id} className="flex min-h-16 items-center gap-3 border-b border-border px-3 py-3 last:border-0 hover:bg-card-hover sm:px-4">
+              <button onClick={() => openDetail(c)} className="flex min-h-11 min-w-0 flex-1 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-[12px] font-semibold text-black/80" style={{ background: c.loyaltyColor }}>
                   {c.name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase()}
                 </span>
@@ -120,7 +120,7 @@ export function ClientsCrm({
               </div>
               {c.isLapsed && <span className="hidden shrink-0 rounded-full bg-danger/10 px-2 py-0.5 text-[10px] font-semibold text-danger lg:inline">Sumido</span>}
               {c.phone && (
-                <a href={waLink(c.phone, c.name.split(" ")[0], salonName)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#25D366]/15 text-[#25D366] transition hover:bg-[#25D366]/25" title="WhatsApp">
+                <a href={waLink(c.phone, c.name.split(" ")[0], salonName)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#25D366]/15 text-[#25D366] transition hover:bg-[#25D366]/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title="WhatsApp" aria-label={`Conversar com ${c.name} pelo WhatsApp`}>
                   <MessageCircle className="h-4 w-4" />
                 </a>
               )}
@@ -217,7 +217,7 @@ export function ClientsCrm({
 
 function Seg({ active, onClick, children, icon: Icon, accent }: { active: boolean; onClick: () => void; children: React.ReactNode; icon?: typeof Crown; accent?: string }) {
   return (
-    <button onClick={onClick} className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors ${active ? "border-primary/40 bg-primary/10 text-foreground" : "border-border bg-card text-muted-foreground hover:text-foreground"}`} style={active && accent ? { borderColor: `${accent}66`, color: accent, background: `${accent}14` } : undefined}>
+    <button onClick={onClick} className={`inline-flex min-h-11 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${active ? "experience-active-nav experience-accent-border" : "border-border bg-card text-muted-foreground hover:text-foreground"}`} style={active && accent ? { borderColor: `${accent}66`, color: accent, background: `${accent}14` } : undefined}>
       {Icon && <Icon className="h-3.5 w-3.5" />} {children}
     </button>
   );

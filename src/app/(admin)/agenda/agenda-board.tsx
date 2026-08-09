@@ -36,6 +36,7 @@ import { AppointmentDetail } from "./appointment-detail";
 import { STATUS, STATUS_ORDER } from "./agenda-status";
 import { moveAppointment } from "./actions";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useBusinessExperience } from "@/components/business-experience-provider";
 
 const DAY_START = 8 * 60;
 const DAY_END = 21 * 60;
@@ -122,6 +123,7 @@ export function AgendaBoard({
   canCancel: boolean;
 }) {
   const router = useRouter();
+  const experience = useBusinessExperience();
   const [pending, startTransition] = useTransition();
   const [view, setView] = useState<ViewKind>("day");
   const [proFilter, setProFilter] = useState<string>("all");
@@ -240,7 +242,7 @@ export function AgendaBoard({
 
   return (
     <div className="space-y-5">
-      <header className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+      <header className="experience-context-panel flex flex-col gap-4 p-4 sm:p-5 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1 rounded-full border border-border bg-surface-1 p-1">
             <button onClick={() => goDate(-1)} className="grid h-8 w-8 place-items-center rounded-full text-muted-foreground hover:bg-card-hover hover:text-foreground">
@@ -254,8 +256,8 @@ export function AgendaBoard({
             </button>
           </div>
           <div>
-            <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
-              {format(dateObj, "EEEE", { locale: ptBR })}
+            <p className="experience-eyebrow text-[10px] font-semibold uppercase tracking-[0.16em]">
+              Agenda de {experience.label} · {format(dateObj, "EEEE", { locale: ptBR })}
             </p>
             <h1 className="text-xl font-semibold tracking-tight first-letter:uppercase">{rangeLabel}</h1>
           </div>
@@ -300,7 +302,7 @@ export function AgendaBoard({
           />
         </div>
         <FilterChip active={proFilter === "all"} onClick={() => setProFilter("all")} icon={Users}>
-          Todos profissionais
+          Todos {experience.terminology.professionals}
         </FilterChip>
         {professionals.map((p) => (
           <FilterChip key={p.id} active={proFilter === p.id} onClick={() => setProFilter(p.id)} dot={p.colorHex ?? "#2ECC8B"}>
@@ -327,7 +329,7 @@ export function AgendaBoard({
 
       {professionals.length === 0 ? (
         <div className="rounded-2xl border border-border bg-card p-16 text-center text-sm text-muted-foreground">
-          Cadastre profissionais para ver a agenda.
+          Cadastre {experience.terminology.professionals} para ver a agenda.
         </div>
       ) : view === "day" ? (
         <DayView

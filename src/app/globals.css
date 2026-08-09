@@ -124,6 +124,85 @@
     --radius: 1rem;
   }
 
+  /* Frontend Experience Engine. A cor funcional do produto continua sendo
+     `primary`; estes tokens acrescentam contexto sem criar cinco temas. */
+  [data-business-experience] {
+    --experience-accent: 152 65% 52%;
+    --experience-accent-strong: 152 55% 42%;
+    --experience-soft: 152 55% 14%;
+    --experience-glow: 152 65% 52%;
+    --experience-radius: 1.1rem;
+  }
+
+  [data-business-experience="barbearia"] {
+    --experience-accent: 38 90% 62%;
+    --experience-accent-strong: 35 82% 48%;
+    --experience-soft: 34 42% 14%;
+    --experience-glow: 38 90% 58%;
+    --experience-radius: 0.9rem;
+  }
+
+  [data-business-experience="salao-beleza"] {
+    --experience-accent: 334 58% 72%;
+    --experience-accent-strong: 332 52% 54%;
+    --experience-soft: 330 32% 15%;
+    --experience-glow: 334 64% 68%;
+    --experience-radius: 1.2rem;
+  }
+
+  [data-business-experience="manicure-nail"] {
+    --experience-accent: 274 68% 74%;
+    --experience-accent-strong: 272 56% 57%;
+    --experience-soft: 272 34% 16%;
+    --experience-glow: 282 72% 70%;
+    --experience-radius: 1.35rem;
+  }
+
+  [data-business-experience="estetica-bemestar"] {
+    --experience-accent: 164 42% 66%;
+    --experience-accent-strong: 166 44% 43%;
+    --experience-soft: 166 28% 14%;
+    --experience-glow: 164 42% 62%;
+    --experience-radius: 1.4rem;
+  }
+
+  [data-business-experience="espaco-misto"] {
+    --experience-accent: 207 78% 68%;
+    --experience-accent-strong: 211 68% 52%;
+    --experience-soft: 211 35% 15%;
+    --experience-glow: 207 78% 64%;
+    --experience-radius: 1.1rem;
+  }
+
+  [data-theme="admin-light"] [data-business-experience] {
+    --experience-soft: 152 45% 92%;
+  }
+
+  [data-theme="admin-light"] [data-business-experience="barbearia"] {
+    --experience-accent: 34 82% 42%;
+    --experience-soft: 39 72% 91%;
+  }
+
+  [data-theme="admin-light"] [data-business-experience="salao-beleza"] {
+    --experience-accent: 332 52% 48%;
+    --experience-soft: 334 55% 94%;
+  }
+
+  [data-theme="admin-light"] [data-business-experience="manicure-nail"] {
+    --experience-accent: 272 54% 48%;
+    --experience-soft: 275 54% 94%;
+  }
+
+  [data-theme="admin-light"] [data-business-experience="estetica-bemestar"] {
+    --experience-accent: 166 48% 34%;
+    --experience-soft: 160 42% 92%;
+  }
+
+  [data-theme="admin-light"] [data-business-experience="espaco-misto"] {
+    --experience-accent: 211 68% 46%;
+    --experience-soft: 210 64% 93%;
+  }
+
   * {
     @apply border-border;
   }
@@ -135,6 +214,72 @@
 }
 
 @layer utilities {
+  .experience-scope {
+    background:
+      radial-gradient(circle at 8% -8%, hsl(var(--experience-glow) / 0.1), transparent 34rem),
+      hsl(var(--background));
+  }
+
+  .experience-context-panel {
+    border-radius: var(--experience-radius);
+    border: 1px solid hsl(var(--experience-accent) / 0.24);
+    background:
+      linear-gradient(115deg, hsl(var(--experience-accent) / 0.13), transparent 52%),
+      hsl(var(--card));
+    box-shadow:
+      inset 0 1px 0 hsl(0 0% 100% / 0.04),
+      0 18px 42px -34px hsl(var(--experience-glow) / 0.8);
+  }
+
+  .experience-eyebrow,
+  .experience-accent-text {
+    color: hsl(var(--experience-accent));
+  }
+
+  .experience-icon-surface {
+    color: hsl(var(--experience-accent));
+    border-color: hsl(var(--experience-accent) / 0.28);
+    background-color: hsl(var(--experience-accent) / 0.12);
+  }
+
+  .experience-active-nav {
+    color: hsl(var(--foreground));
+    background-color: hsl(var(--experience-accent) / 0.12);
+  }
+
+  .experience-active-nav::before {
+    background-color: hsl(var(--experience-accent));
+  }
+
+  .experience-card-interactive {
+    border-radius: var(--experience-radius);
+    transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
+      border-color 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
+  }
+
+  .experience-card-interactive:hover {
+    border-color: hsl(var(--experience-accent) / 0.45);
+    box-shadow: 0 18px 40px -28px hsl(var(--experience-glow) / 0.7);
+    transform: translateY(-2px);
+  }
+
+  .experience-card-selected {
+    border-color: hsl(var(--experience-accent) / 0.78);
+    box-shadow:
+      0 0 0 2px hsl(var(--background)),
+      0 0 0 4px hsl(var(--experience-accent) / 0.62),
+      0 20px 48px -28px hsl(var(--experience-glow) / 0.85);
+  }
+
+  .experience-accent-bg {
+    background-color: hsl(var(--experience-accent));
+    color: hsl(240 12% 8%);
+  }
+
+  .experience-accent-border {
+    border-color: hsl(var(--experience-accent) / 0.32);
+  }
+
   /* Fade-in de entrada de página */
   .animate-fade-in {
     animation: fade-in 0.3s ease-out both;

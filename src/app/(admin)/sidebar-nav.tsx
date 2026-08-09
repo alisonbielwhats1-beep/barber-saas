@@ -22,6 +22,11 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UnreadBadge } from "@/components/unread-badge";
+import { useBusinessExperience } from "@/components/business-experience-provider";
+import {
+  genericBusinessExperience,
+  type BusinessExperience,
+} from "@/config/business-experience";
 import {
   DASHBOARD_ROLES,
   FINANCIAL_ROLES,
@@ -51,10 +56,23 @@ type Item = NavItem;
  * Esconder o item é só cortesia visual — a proteção real está em
  * `requireRole()` na própria página. Nunca confie só nisto.
  */
-export function visibleGroups(role: string) {
+export function visibleGroups(
+  role: string,
+  experience: BusinessExperience = genericBusinessExperience,
+) {
   return GROUPS.map((g) => ({
     ...g,
-    items: g.items.filter((i) => !i.roles || i.roles.includes(role)),
+    items: g.items
+      .filter((i) => !i.roles || i.roles.includes(role))
+      .map((item) => {
+        if (item.href === "/profissionais") {
+          return { ...item, label: experience.navigation.professionals };
+        }
+        if (item.href === "/servicos") {
+          return { ...item, label: experience.navigation.services };
+        }
+        return item;
+      }),
   })).filter((g) => g.items.length > 0);
 }
 
@@ -108,10 +126,11 @@ export function SidebarNav({
   unreadNotifications?: number;
 }) {
   const pathname = usePathname();
+  const experience = useBusinessExperience();
 
   return (
     <nav className="flex-1 space-y-4 px-3 pb-4">
-      {visibleGroups(role).map((group) => (
+      {visibleGroups(role, experience).map((group) => (
         <div key={group.title}>
           <p className="mb-1 px-2.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
             {group.title}
@@ -173,16 +192,16 @@ function NavRow({
       href={href}
       prefetch={false}
       className={cn(
-        "relative flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] transition-colors",
+        "relative flex min-h-11 items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] transition-colors",
         active
-          ? "bg-primary/10 font-medium text-foreground"
+          ? "experience-active-nav font-medium"
           : "text-muted-foreground hover:bg-card-hover hover:text-foreground",
       )}
     >
       {active && (
-        <span className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-primary" />
+        <span className="experience-accent-bg absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full" />
       )}
-      <Icon className={cn("h-3.5 w-3.5 shrink-0", active && "text-primary")} />
+      <Icon className={cn("h-3.5 w-3.5 shrink-0", active && "experience-accent-text")} />
       <span className="min-w-0 flex-1 truncate">{label}</span>
       <UnreadBadge count={badgeCount} />
     </Link>

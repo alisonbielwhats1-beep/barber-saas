@@ -6,7 +6,10 @@ import { Check, Loader2, ExternalLink } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
-import { SEGMENTS } from "@/lib/segments";
+import { SegmentPicker } from "@/components/segment-service-picker";
+import { BusinessExperienceIcon } from "@/components/business-experience-icon";
+import { getBusinessExperience } from "@/config/business-experience";
+import { isSegmentId } from "@/lib/segments";
 import { updateSalonBranding } from "./actions";
 
 export type Branding = {
@@ -40,6 +43,8 @@ export function BrandingForm({ branding }: { branding: Branding }) {
   const [methods, setMethods] = useState<string[]>(
     branding.paymentMethods ? branding.paymentMethods.split(",").filter(Boolean) : [],
   );
+  const selectedSegment = isSegmentId(segment) ? segment : null;
+  const experience = getBusinessExperience(selectedSegment);
 
   function toggleMethod(m: string) {
     setMethods((prev) => (prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m]));
@@ -76,28 +81,32 @@ export function BrandingForm({ branding }: { branding: Branding }) {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-5">
+    <form
+      onSubmit={onSubmit}
+      data-business-experience={experience.id}
+      className="experience-scope space-y-5"
+    >
       <Section
         title="Aparência da vitrine"
         hint="É o que o cliente vê na sua página pública de agendamento."
       >
         <Field label="Tipo de negócio">
-          <select
-            value={segment}
-            onChange={(e) => setSegment(e.target.value)}
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-          >
-            <option value="">Não definido</option>
-            {SEGMENTS.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.label}
-              </option>
-            ))}
-          </select>
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            Ajusta textos e imagens padrão. Não limita os serviços que você pode
-            cadastrar.
-          </p>
+          <div className="experience-context-panel mb-3 flex items-center gap-3 p-3">
+            <span className="experience-icon-surface grid h-10 w-10 shrink-0 place-items-center rounded-xl border">
+              <BusinessExperienceIcon name={experience.icon} className="h-[18px] w-[18px]" />
+            </span>
+            <p className="text-[12px] leading-5 text-muted-foreground">
+              <span className="block font-semibold text-foreground">
+                {selectedSegment ? experience.label : "Escolha uma experiência"}
+              </span>
+              Ajusta linguagem, imagens e destaques. Seu catálogo continua livre.
+            </p>
+          </div>
+          <SegmentPicker
+            segmentId={selectedSegment}
+            onPick={(nextSegment) => setSegment(nextSegment)}
+            compact
+          />
         </Field>
 
         <Field label="Apresentação">
@@ -176,7 +185,7 @@ export function BrandingForm({ branding }: { branding: Branding }) {
                 type="button"
                 onClick={() => toggleMethod(value)}
                 aria-pressed={on}
-                className={`rounded-full border px-3 py-1.5 text-[13px] transition ${
+                className={`min-h-11 rounded-full border px-3 py-1.5 text-[13px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                   on
                     ? "border-primary/50 bg-primary/10 text-foreground"
                     : "border-border bg-card text-muted-foreground"
