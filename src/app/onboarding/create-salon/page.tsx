@@ -29,23 +29,25 @@ export default async function CreateSalonPage() {
   if (memberships > 0) redirect("/dashboard");
 
   return (
-    <main className="min-h-screen bg-background px-6 py-12">
-      <div className="mx-auto w-full max-w-2xl">
-        <header className="mb-10">
+    <main className="min-h-dvh bg-background px-4 py-8 sm:px-6 sm:py-12">
+      <div className="mx-auto w-full max-w-6xl">
+        <header className="mb-8 max-w-2xl sm:mb-10">
           <span className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-primary">
             <Sparkles className="h-3 w-3" />
             Primeiro passo
           </span>
-          <h1 className="text-[28px] font-semibold leading-tight tracking-tight">
+          <h1 className="text-[30px] font-semibold leading-[1.08] tracking-tight sm:text-[38px]">
             Vamos criar seu estabelecimento
           </h1>
-          <p className="mt-2 text-[14px] text-muted-foreground">
+          <p className="mt-3 max-w-xl text-[14px] leading-6 text-muted-foreground sm:text-[15px]">
             Sua conta ainda não está ligada a nenhum estabelecimento. Leva menos
             de um minuto — dá para ajustar tudo depois.
           </p>
         </header>
 
-        <CreateSalonForm />
+        <div className="rounded-[1.5rem] border border-border bg-card/55 p-4 shadow-premium backdrop-blur-sm sm:p-6 lg:p-8">
+          <CreateSalonForm />
+        </div>
       </div>
     </main>
   );

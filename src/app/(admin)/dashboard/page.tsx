@@ -11,8 +11,12 @@ import {
   dateKeyInTimeZone,
   startOfDateInTimeZone,
 } from "@/lib/time";
-import { PageHeader } from "@/components/page-header";
 import { CountUp } from "@/components/count-up";
+import { ExperienceHero } from "@/components/experience-hero";
+import {
+  getBusinessExperience,
+  type DashboardMetricKey,
+} from "@/config/business-experience";
 import {
   TrendingUp,
   TrendingDown,
@@ -90,7 +94,7 @@ export default async function DashboardPage({
   const salonData = await withSalon(salonId, (tx) =>
     tx.salon.findUnique({
       where: { id: salonId },
-      select: { name: true, timezone: true },
+      select: { name: true, timezone: true, segment: true },
     }),
   );
   if (!salonData) throw new Error("Estabelecimento não encontrado");
@@ -178,6 +182,7 @@ export default async function DashboardPage({
     ]),
   );
   const salonName = salonData.name;
+  const experience = getBusinessExperience(salonData.segment);
   const genderTotal = m.gender.male.revenue + m.gender.female.revenue;
 
   const reminders = remindersRaw.map((r) => ({
@@ -191,41 +196,101 @@ export default async function DashboardPage({
   }));
 
   const steps = [
-    { done: svcCount > 0, label: "Criar seus serviços", href: "/servicos" },
-    { done: proCount > 0, label: "Cadastrar profissionais", href: "/profissionais" },
+    {
+      done: svcCount > 0,
+      label: `Criar seus ${experience.terminology.services}`,
+      href: "/servicos",
+    },
+    {
+      done: proCount > 0,
+      label: `Cadastrar ${experience.terminology.professionals}`,
+      href: "/profissionais",
+    },
     { done: whCount > 0, label: "Definir horários de trabalho", href: "/profissionais" },
     { done: apptCount > 0, label: "Receber o primeiro agendamento", href: "/compartilhar" },
   ];
   const setupDone = steps.every((s) => s.done);
+  const heroMetrics: Record<DashboardMetricKey, React.ReactNode> = {
+    revenue: (
+      <HeroKpi
+        accent="primary"
+        icon={Wallet}
+        label="Faturamento"
+        value={<CountUp value={m.revenue.value} format="money" />}
+        change={m.revenue.change}
+        hint={`${m.appointments.value} atendimentos`}
+      />
+    ),
+    profit: (
+      <HeroKpi
+        accent="info"
+        icon={PiggyBank}
+        label="Lucro (pós-comissão)"
+        value={<CountUp value={m.profit.value} format="money" />}
+        hint={`Margem ${(m.profit.margin * 100).toFixed(0)}%`}
+      />
+    ),
+    occupancy: (
+      <HeroKpi
+        accent="marketing"
+        icon={Gauge}
+        label="Taxa de ocupação"
+        value={<CountUp value={Math.round(m.occupancy.rate * 100)} format="percent" />}
+        hint={`${Math.round(m.occupancy.idleMinutes / 60)}h ociosas`}
+      />
+    ),
+    ticket: (
+      <HeroKpi
+        accent="warning"
+        icon={Receipt}
+        label="Ticket médio"
+        value={<CountUp value={m.avgTicket.value} format="money" />}
+        change={m.avgTicket.change}
+        hint={`Atendimento ~${formatDuration(m.avgDuration || 0)}`}
+      />
+    ),
+  };
 
   return (
     <div className="space-y-6">
       <AutoRefresh />
-      {/* ── Header ─────────────────────────────────────────── */}
-      <PageHeader
-        title="Visão geral"
-        meta={
-          <div className="mb-1 flex items-center gap-2">
-            <span className="flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
-              <Sparkles className="h-3 w-3" />
-              {RANGE_LABELS[range]}
-            </span>
-            <span className="text-[11px] text-muted-foreground">
-              {formatInTimeZone(m.period.from, timezone, "d MMM", { locale: ptBR })} –{" "}
-              {formatInTimeZone(m.period.to, timezone, "d MMM yyyy", { locale: ptBR })}
-            </span>
-          </div>
-        }
+      <ExperienceHero
+        experience={experience}
+        eyebrow={experience.dashboard.eyebrow}
+        title={experience.dashboard.title}
+        description={experience.dashboard.description}
       >
+        <span className="rounded-full border border-border/80 bg-background/65 px-3 py-1.5 text-[11px] font-medium backdrop-blur">
+          {m.apptsToday} hoje
+        </span>
+        <span className="rounded-full border border-border/80 bg-background/65 px-3 py-1.5 text-[11px] font-medium backdrop-blur">
+          {proCount} {experience.terminology.professionals}
+        </span>
+        <span className="rounded-full border border-border/80 bg-background/65 px-3 py-1.5 text-[11px] font-medium backdrop-blur">
+          {svcCount} {experience.terminology.services}
+        </span>
+      </ExperienceHero>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/70 bg-card/60 px-4 py-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
+            <Sparkles className="h-3 w-3" />
+            {RANGE_LABELS[range]}
+          </span>
+          <span className="text-[11px] text-muted-foreground">
+            {formatInTimeZone(m.period.from, timezone, "d MMM", { locale: ptBR })} –{" "}
+            {formatInTimeZone(m.period.to, timezone, "d MMM yyyy", { locale: ptBR })}
+          </span>
+        </div>
         <RangeFilter current={range} />
-      </PageHeader>
+      </div>
 
       {/* ── Checklist de onboarding — some quando completo ─── */}
       {!setupDone && (
         <section className="rounded-2xl border border-primary/25 bg-primary/5 p-5">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-[15px] font-semibold">Deixe seu salão pronto para agendar</h2>
+              <h2 className="text-[15px] font-semibold">{experience.dashboard.setupTitle}</h2>
               <p className="mt-0.5 text-[12px] text-muted-foreground">
                 {steps.filter((s) => s.done).length} de {steps.length} passos concluídos
               </p>
@@ -267,7 +332,7 @@ export default async function DashboardPage({
       <section className="grid gap-4 lg:grid-cols-3">
         <Panel className="lg:col-span-2">
           <div className="flex items-center justify-between">
-            <PanelTitle icon={CalendarClock}>Próximos atendimentos de hoje</PanelTitle>
+            <PanelTitle icon={CalendarClock}>{experience.dashboard.todayTitle}</PanelTitle>
             <Link href="/agenda" className="text-[12px] font-medium text-primary hover:underline">
               Ver agenda
             </Link>
@@ -351,36 +416,11 @@ export default async function DashboardPage({
 
       {/* ── Hero KPIs ──────────────────────────────────────── */}
       <section className="stagger grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <HeroKpi
-          accent="primary"
-          icon={Wallet}
-          label="Faturamento"
-          value={<CountUp value={m.revenue.value} format="money" />}
-          change={m.revenue.change}
-          hint={`${m.appointments.value} atendimentos`}
-        />
-        <HeroKpi
-          accent="info"
-          icon={PiggyBank}
-          label="Lucro (pós-comissão)"
-          value={<CountUp value={m.profit.value} format="money" />}
-          hint={`Margem ${(m.profit.margin * 100).toFixed(0)}%`}
-        />
-        <HeroKpi
-          accent="marketing"
-          icon={Gauge}
-          label="Taxa de ocupação"
-          value={<CountUp value={Math.round(m.occupancy.rate * 100)} format="percent" />}
-          hint={`${Math.round(m.occupancy.idleMinutes / 60)}h ociosas`}
-        />
-        <HeroKpi
-          accent="warning"
-          icon={Receipt}
-          label="Ticket médio"
-          value={<CountUp value={m.avgTicket.value} format="money" />}
-          change={m.avgTicket.change}
-          hint={`Atendimento ~${formatDuration(m.avgDuration || 0)}`}
-        />
+        {experience.dashboard.metricOrder.map((metric) => (
+          <div key={metric} className="contents">
+            {heroMetrics[metric]}
+          </div>
+        ))}
       </section>
 
       {/* ── Stat tiles — só o que pede atenção no período ──── */}

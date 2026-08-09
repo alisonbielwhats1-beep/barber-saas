@@ -1,6 +1,8 @@
-import { Scissors } from "lucide-react";
 import { getTenantContext } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
+import { getBusinessExperience } from "@/config/business-experience";
+import { BusinessExperienceProvider } from "@/components/business-experience-provider";
+import { BusinessExperienceIcon } from "@/components/business-experience-icon";
 import { SidebarFooter } from "./sidebar-footer";
 import { SalonSwitcher } from "./salon-switcher";
 import { SidebarNav } from "./sidebar-nav";
@@ -21,7 +23,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     const [salon, memberships, unreadNotifications] = await Promise.all([
       tx.salon.findUnique({
         where: { id: salonId },
-        select: { name: true, plan: true },
+        select: { name: true, plan: true, segment: true },
       }),
       tx.membership.findMany({
         where: { userId },
@@ -45,24 +47,34 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     role: m.role,
   }));
   const currentSalon = membershipList.find((m) => m.id === salonId)!;
+  const experience = getBusinessExperience(salon?.segment);
 
   return (
     <ThemeProvider>
+    <BusinessExperienceProvider segment={salon?.segment}>
     {/* Aplica o tema salvo antes do primeiro paint — evita flash dark→light */}
     <script
       dangerouslySetInnerHTML={{
         __html: `try{if(localStorage.getItem("admin-theme")==="light")document.documentElement.setAttribute("data-theme","admin-light")}catch(e){}`,
       }}
     />
-    <div className="flex h-dvh overflow-hidden bg-background text-foreground">
+    <div
+      data-business-experience={experience.id}
+      className="experience-scope flex h-dvh overflow-hidden text-foreground"
+    >
       {/* ── Sidebar ─────────────────────────────────────── */}
-      <aside className="scrollbar-dark hidden w-56 shrink-0 flex-col overflow-y-auto border-r border-border md:flex print:hidden">
+      <aside className="scrollbar-dark hidden w-60 shrink-0 flex-col overflow-y-auto border-r border-border/80 bg-surface-1/75 backdrop-blur-xl md:flex print:hidden">
         {/* Logo */}
-        <div className="flex h-12 shrink-0 items-center gap-2 px-4">
-          <span className="grid h-6 w-6 shrink-0 place-items-center rounded bg-primary">
-            <Scissors className="h-3.5 w-3.5 text-primary-foreground" />
+        <div className="flex min-h-16 shrink-0 items-center gap-3 px-4">
+          <span className="experience-icon-surface grid h-9 w-9 shrink-0 place-items-center rounded-xl border">
+            <BusinessExperienceIcon name={experience.icon} className="h-[18px] w-[18px]" />
           </span>
-          <span className="text-[13px] font-semibold tracking-tight">SalonSaaS</span>
+          <span className="min-w-0">
+            <span className="block text-[13px] font-semibold tracking-tight">SalonSaaS</span>
+            <span className="experience-eyebrow block truncate text-[9px] font-semibold uppercase tracking-[0.18em]">
+              {experience.shortLabel}
+            </span>
+          </span>
         </div>
 
         {/* Salon switcher */}
@@ -74,7 +86,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <OpenCommandPaletteButton />
         </div>
 
-        <div className="mx-3 mb-3 h-px bg-border" />
+        <div className="mx-3 mb-3 h-px bg-border/80" />
 
         {/* Navigation */}
         <SidebarNav role={role} unreadNotifications={unreadNotifications} />
@@ -84,14 +96,17 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       </aside>
 
       {/* ── Main content ─────────────────────────────────── */}
-      <main className="scrollbar-dark flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-[1400px] p-6 pb-24 md:p-8 md:pb-8">{children}</div>
+      <main className="scrollbar-dark min-w-0 flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-[1440px] px-4 py-5 pb-24 sm:px-6 sm:py-6 md:px-8 md:py-8 md:pb-8">
+          {children}
+        </div>
       </main>
 
       <MobileNav role={role} unreadNotifications={unreadNotifications} />
       <CommandPalette role={role} />
       <Toaster />
     </div>
+    </BusinessExperienceProvider>
     </ThemeProvider>
   );
 }

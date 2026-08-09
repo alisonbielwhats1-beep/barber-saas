@@ -2,6 +2,8 @@ import { getTenantContext } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
 import { ServiceForm } from "./service-form";
 import { ServicesCatalog, type ServiceCard } from "./services-catalog";
+import { PageHeader } from "@/components/page-header";
+import { getBusinessExperience } from "@/config/business-experience";
 
 export default async function ServicosPage() {
   const ctx = await getTenantContext();
@@ -11,7 +13,11 @@ export default async function ServicosPage() {
 
   // Sequencial dentro da mesma transação/conexão — não concorrente entre si,
   // então não reintroduz o esgotamento de pool que as waves de 4 evitam.
-  const { services, sold } = await withTenant(ctx, async (tx) => {
+  const { services, sold, segment } = await withTenant(ctx, async (tx) => {
+    const salon = await tx.salon.findUnique({
+      where: { id: salonId },
+      select: { segment: true },
+    });
     const services = await tx.service.findMany({
       where: { salonId },
       orderBy: { name: "asc" },
@@ -31,8 +37,9 @@ export default async function ServicosPage() {
           _sum: { priceCents: true },
         })
       : [];
-    return { services, sold };
+    return { services, sold, segment: salon?.segment };
   });
+  const experience = getBusinessExperience(segment);
 
   const stats = new Map(sold.map((g) => [g.serviceId, { sold: g._count._all, revenue: g._sum.priceCents ?? 0 }]));
 
@@ -54,19 +61,17 @@ export default async function ServicosPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="mb-1 text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
-            Catálogo
-          </p>
-          <h1 className="text-[26px] font-semibold tracking-tight">Serviços</h1>
-        </div>
+      <PageHeader
+        kicker="Catálogo"
+        title={experience.navigation.services}
+        description={experience.pages.servicesDescription}
+      >
         {canManage && <ServiceForm />}
-      </header>
+      </PageHeader>
 
       {cards.length === 0 ? (
         <div className="rounded-2xl border border-border bg-card p-12 text-center text-[13px] text-muted-foreground">
-          Nenhum serviço cadastrado ainda. Crie o primeiro no botão acima.
+          {experience.emptyStates.services}
         </div>
       ) : (
         <ServicesCatalog

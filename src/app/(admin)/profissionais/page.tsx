@@ -21,6 +21,8 @@ import { ProfessionalForm } from "./professional-form";
 import { WorkingHoursForm } from "./working-hours-form";
 import { ToggleActiveButton } from "./toggle-active-button";
 import { PendingInvites } from "./pending-invites";
+import { PageHeader } from "@/components/page-header";
+import { getBusinessExperience } from "@/config/business-experience";
 
 const MEDAL = ["#F4C430", "#C0C0C0", "#CD7F32"]; // ouro, prata, bronze
 
@@ -32,10 +34,10 @@ export default async function ProfissionaisPage() {
   const canSeeFinancial = role === "OWNER" || role === "MANAGER" || role === "SUPER_ADMIN";
   const isProfessional = role === "PROFESSIONAL";
 
-  const { perf, services, pendingInvites, timezone } = await withTenant(ctx, async (tx) => {
+  const { perf, services, pendingInvites, timezone, segment } = await withTenant(ctx, async (tx) => {
     const salon = await tx.salon.findUniqueOrThrow({
       where: { id: salonId },
-      select: { timezone: true },
+      select: { timezone: true, segment: true },
     });
     const ownProfessional = isProfessional
       ? await tx.professional.findFirst({
@@ -79,24 +81,27 @@ export default async function ProfissionaisPage() {
             orderBy: { createdAt: "desc" },
           })
         : [];
-    return { perf, services, pendingInvites, timezone: salon.timezone };
+    return {
+      perf,
+      services,
+      pendingInvites,
+      timezone: salon.timezone,
+      segment: salon.segment,
+    };
   });
 
   const monthLabel = formatInTimeZone(perf.period.from, timezone, "MMMM yyyy", { locale: ptBR });
+  const experience = getBusinessExperience(segment);
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="mb-1 text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
-            Equipe · <span className="capitalize">{monthLabel}</span>
-          </p>
-          <h1 className="text-[26px] font-semibold tracking-tight">
-            {isProfessional ? "Meu perfil profissional" : "Profissionais"}
-          </h1>
-        </div>
+      <PageHeader
+        kicker={`Equipe · ${monthLabel}`}
+        title={isProfessional ? "Meu perfil profissional" : experience.navigation.professionals}
+        description={experience.pages.professionalsDescription}
+      >
         {canManageTeam && <ProfessionalForm services={services} invitesEnabled={invitesEnabled} />}
-      </header>
+      </PageHeader>
 
       {/* Overview da equipe */}
       {!isProfessional && (
@@ -126,12 +131,12 @@ export default async function ProfissionaisPage() {
         <div className="rounded-2xl border border-border bg-card p-12 text-center text-[13px] text-muted-foreground">
           {isProfessional
             ? "Seu perfil profissional não está ativo neste estabelecimento."
-            : "Sem profissionais cadastrados. Adicione o primeiro no botão acima."}
+            : experience.emptyStates.professionals}
         </div>
       ) : (
         <div className="grid gap-4 xl:grid-cols-2">
           {perf.pros.map((p) => (
-            <div key={p.id} className={`card-interactive rounded-2xl border border-border bg-card p-5 ${!p.active ? "opacity-60" : ""}`}>
+            <div key={p.id} className={`experience-card-interactive border border-border bg-card p-5 ${!p.active ? "opacity-60" : ""}`}>
               {/* Cabeçalho */}
               <div className="flex items-start gap-3">
                 <div className="relative shrink-0">
@@ -161,7 +166,7 @@ export default async function ProfissionaisPage() {
                         <span>·</span>
                       </>
                     )}
-                    <span>{p.serviceCount} serviços</span>
+                    <span>{p.serviceCount} {experience.terminology.services}</span>
                     <span>·</span>
                     <span>{p.workingDays} dias/sem</span>
                   </div>
@@ -189,7 +194,7 @@ export default async function ProfissionaisPage() {
                   />
                 </div>
                 <p className="mt-1 text-right text-[10px] text-muted-foreground">
-                  {(p.goalPct * 100).toFixed(0)}% da meta{p.goalPct >= 1 ? " · batida! 🎉" : ""}
+                  {(p.goalPct * 100).toFixed(0)}% da meta{p.goalPct >= 1 ? " · meta alcançada" : ""}
                 </p>
               </div>}
 
