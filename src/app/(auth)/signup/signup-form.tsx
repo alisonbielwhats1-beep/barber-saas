@@ -60,12 +60,12 @@ export function SignupForm() {
       data-business-experience={experience.id}
       onSubmit={onSubmit}
     >
-      <div className="space-y-1.5">
+      <div className="space-y-2">
         <label htmlFor="salonName" className="text-sm font-medium">Nome do estabelecimento</label>
         <Input id="salonName" name="salonName" placeholder="Luna Hair Studio" required autoFocus className="min-h-11" />
       </div>
 
-      <div className="space-y-1.5">
+      <div className="space-y-2">
         <p className="text-sm font-medium">Tipo de negócio</p>
         <p className="text-xs text-muted-foreground">
           Define a aparência da sua página pública e sugere seus serviços. Você
@@ -86,18 +86,20 @@ export function SignupForm() {
         onToggle={selection.toggleService}
         collapsible
       />
-      <div className="space-y-1.5">
-        <label htmlFor="ownerName" className="text-sm font-medium">Seu nome</label>
-        <Input id="ownerName" name="ownerName" placeholder="Marina Souza" required className="min-h-11" />
-      </div>
-      <div className="space-y-1.5">
-        <label htmlFor="email" className="text-sm font-medium">Email</label>
-        <Input id="email" name="email" type="email" placeholder="voce@salon.com" required className="min-h-11" />
-      </div>
-      <div className="space-y-1.5">
-        <label htmlFor="password" className="text-sm font-medium">Senha</label>
-        <Input id="password" name="password" type="password" minLength={6} required className="min-h-11" />
-        <p className="text-xs text-muted-foreground">Mínimo 6 caracteres.</p>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <label htmlFor="ownerName" className="text-sm font-medium">Seu nome</label>
+          <Input id="ownerName" name="ownerName" placeholder="Marina Souza" required className="min-h-11" />
+        </div>
+        <div className="space-y-2">
+          <label htmlFor="email" className="text-sm font-medium">Email</label>
+          <Input id="email" name="email" type="email" placeholder="voce@salon.com" required className="min-h-11" />
+        </div>
+        <div className="space-y-2 sm:col-span-2">
+          <label htmlFor="password" className="text-sm font-medium">Senha</label>
+          <Input id="password" name="password" type="password" minLength={6} required className="min-h-11" />
+          <p className="text-xs text-muted-foreground">Mínimo 6 caracteres.</p>
+        </div>
       </div>
       {error && (
         <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">

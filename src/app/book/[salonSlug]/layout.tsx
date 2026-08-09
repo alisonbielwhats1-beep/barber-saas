@@ -67,6 +67,9 @@ export default async function BookLayout({
       <div
         data-theme="salon-dark"
         data-business-experience={experience.id}
+        data-experience-direction={experience.visual.direction}
+        data-experience-density={experience.visual.density}
+        data-public-layout={experience.visual.publicLayout}
         className="experience-scope min-h-dvh text-foreground"
       >
         <ClientShell salonSlug={salonSlug} unreadNotifications={unreadNotifications}>

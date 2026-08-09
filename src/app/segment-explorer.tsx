@@ -4,6 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { Check } from "lucide-react";
 import { SEGMENTS, DEFAULT_SEGMENT_ID, type SegmentId } from "@/lib/segments";
+import { getBusinessExperience } from "@/config/business-experience";
 
 /**
  * Seletor "Qual é o seu tipo de negócio?" + recursos por segmento, unidos
@@ -16,9 +17,15 @@ import { SEGMENTS, DEFAULT_SEGMENT_ID, type SegmentId } from "@/lib/segments";
 export function SegmentExplorer() {
   const [selectedId, setSelectedId] = useState<SegmentId>(DEFAULT_SEGMENT_ID);
   const selected = SEGMENTS.find((s) => s.id === selectedId) ?? SEGMENTS[0];
+  const experience = getBusinessExperience(selectedId);
 
   return (
-    <div>
+    <div
+      data-business-experience={selectedId}
+      data-experience-direction={experience.visual.direction}
+      data-experience-density={experience.visual.density}
+      className="experience-scope"
+    >
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {SEGMENTS.map((seg) => {
           const active = seg.id === selectedId;
@@ -29,9 +36,9 @@ export function SegmentExplorer() {
               onClick={() => setSelectedId(seg.id)}
               aria-pressed={active}
               aria-label={`Ver recursos para ${seg.label}`}
-              className={`group relative overflow-hidden rounded-2xl border text-left transition ${
+              className={`experience-card-interactive group relative min-h-44 cursor-pointer overflow-hidden border text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                 active
-                  ? "border-primary/60 ring-2 ring-primary/40"
+                  ? "experience-card-selected"
                   : "border-white/10 opacity-80 hover:opacity-100"
               }`}
             >
@@ -45,13 +52,13 @@ export function SegmentExplorer() {
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
                 {active && (
-                  <span className="absolute right-2 top-2 grid h-6 w-6 place-items-center rounded-full bg-primary text-primary-foreground">
+                  <span className="experience-accent-bg absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-full">
                     <Check className="h-3.5 w-3.5" />
                   </span>
                 )}
               </div>
               <div className="absolute inset-x-0 bottom-0 flex items-center gap-1.5 p-3">
-                <Icon className="h-3.5 w-3.5 shrink-0 text-primary" />
+                <Icon className="experience-accent-text h-3.5 w-3.5 shrink-0" />
                 <p className="text-[13px] font-semibold leading-tight text-white">
                   {seg.shortLabel}
                 </p>
@@ -62,9 +69,9 @@ export function SegmentExplorer() {
       </div>
 
       {/* Painel do segmento selecionado */}
-      <div className="mt-8 grid gap-8 rounded-3xl border border-white/10 bg-card p-6 md:grid-cols-2 md:p-8">
+      <div className="experience-context-panel mt-8 grid gap-8 p-6 md:grid-cols-2 md:p-8">
         <div>
-          <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+          <div className="experience-icon-surface mb-3 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium">
             <selected.icon className="h-3.5 w-3.5" />
             {selected.label}
           </div>
@@ -92,7 +99,7 @@ export function SegmentExplorer() {
           <ul className="space-y-2.5">
             {selected.highlights.map((h) => (
               <li key={h} className="flex items-start gap-2.5 text-sm">
-                <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <Check className="experience-accent-text mt-0.5 h-4 w-4 shrink-0" />
                 <span>{h}</span>
               </li>
             ))}

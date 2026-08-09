@@ -11,6 +11,22 @@ export type BusinessExperienceIconName =
 
 export type DashboardMetricKey = "revenue" | "profit" | "occupancy" | "ticket";
 
+export type ExperienceDirection =
+  | "precision"
+  | "editorial"
+  | "fashion"
+  | "wellness"
+  | "modular";
+
+export type ExperienceDensity = "compact" | "comfortable" | "airy";
+
+export type ExperienceCatalogLayout =
+  | "split"
+  | "editorial"
+  | "portfolio"
+  | "gallery"
+  | "modular";
+
 export type BusinessExperience = {
   id: BusinessExperienceId;
   segmentId: SegmentId | null;
@@ -18,6 +34,13 @@ export type BusinessExperience = {
   shortLabel: string;
   icon: BusinessExperienceIconName;
   personality: string;
+  visual: {
+    direction: ExperienceDirection;
+    density: ExperienceDensity;
+    dashboardLayout: "operations" | "relationship" | "recurrence" | "care" | "overview";
+    catalogLayout: ExperienceCatalogLayout;
+    publicLayout: "editorial" | "studio" | "portfolio" | "retreat" | "marketplace";
+  };
   terminology: {
     establishment: string;
     professional: string;

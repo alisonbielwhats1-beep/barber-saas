@@ -16,7 +16,7 @@ export function PageHeader({
   children?: React.ReactNode;
 }) {
   return (
-    <header className="flex flex-wrap items-end justify-between gap-4">
+    <header className="experience-page-header flex flex-wrap items-end justify-between gap-5 border-b border-border/70 pb-5 sm:pb-6">
       <div className="min-w-0 max-w-2xl">
         {meta}
         {kicker && (
@@ -24,11 +24,11 @@ export function PageHeader({
             {kicker}
           </p>
         )}
-        <h1 className="text-[26px] font-semibold leading-tight tracking-[-0.025em] sm:text-[30px]">
+        <h1 className="text-[30px] font-semibold leading-[1.05] tracking-[-0.035em] sm:text-[36px]">
           {title}
         </h1>
         {description && (
-          <p className="mt-2 max-w-2xl text-[13px] leading-5 text-muted-foreground sm:text-[14px]">
+          <p className="mt-2.5 max-w-2xl text-[13px] leading-6 text-muted-foreground sm:text-[14px]">
             {description}
           </p>
         )}

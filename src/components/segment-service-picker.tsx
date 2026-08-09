@@ -63,7 +63,7 @@ export function SegmentPicker({
     <div
       className={cn(
         compact
-          ? "-mx-1 flex min-w-0 max-w-full snap-x gap-3 overflow-x-auto px-1 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          ? "grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-5"
           : "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5",
       )}
     >
@@ -79,7 +79,7 @@ export function SegmentPicker({
             data-business-experience={s.id}
             className={cn(
               "experience-card-interactive group relative overflow-hidden border bg-card text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-              compact ? "w-40 shrink-0 snap-start" : "min-h-44",
+              compact ? "min-h-28 last:col-span-2 sm:last:col-span-1" : "min-h-44",
               active ? "experience-card-selected" : "border-border",
             )}
           >

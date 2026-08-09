@@ -61,7 +61,7 @@ export function BottomNav({
   return (
     <nav
       aria-label="Navegação principal do cliente"
-      className="fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-[480px] border-t border-border/80 bg-card/95 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-10px_30px_rgba(0,0,0,0.2)] backdrop-blur"
+      className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-50 mx-auto w-auto max-w-[680px] rounded-[1.4rem] border border-border/80 bg-card/90 px-2 py-2 shadow-[0_20px_60px_rgba(0,0,0,0.4)] backdrop-blur-xl sm:inset-x-6"
     >
       <div className="grid grid-cols-5 items-end gap-1">
       {items.map((it) => {
@@ -75,8 +75,8 @@ export function BottomNav({
             aria-current={active ? "page" : undefined}
             aria-label={badgeCount > 0 ? `${it.label}, ${badgeCount} não lidas` : it.label}
             className={cn(
-              "group flex min-h-14 min-w-0 flex-col items-center justify-end gap-1 rounded-xl px-1 py-1.5 text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              active ? "text-primary" : "text-muted-foreground hover:text-foreground",
+              "group flex min-h-14 min-w-0 flex-col items-center justify-end gap-1 rounded-2xl px-1 py-1.5 text-[10px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-white/[0.035] hover:text-foreground",
             )}
           >
             <span

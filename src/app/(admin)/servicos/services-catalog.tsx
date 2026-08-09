@@ -30,6 +30,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ServiceForm } from "./service-form";
 import { toggleServiceActive, deleteService, duplicateService } from "./actions";
 import { useBusinessExperience } from "@/components/business-experience-provider";
+import type { ExperienceCatalogLayout } from "@/config/business-experience";
 
 export type ServiceCard = {
   id: string;
@@ -109,8 +110,8 @@ export function ServicesCatalog({
   return (
     <div className="space-y-4">
       {/* Barra de ferramentas */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex min-h-11 flex-1 items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 sm:flex-none">
+      <div className="experience-filter-rail flex flex-wrap items-center gap-2 p-2">
+        <div className="flex min-h-11 flex-1 items-center gap-2 rounded-xl border border-border bg-card/75 px-3 py-1.5 sm:flex-none">
           <Search className="h-3.5 w-3.5 text-muted-foreground" />
           <input
             value={search}
@@ -140,7 +141,7 @@ export function ServicesCatalog({
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as Sort)}
-            className="h-11 rounded-full border border-border bg-card px-3 text-[12px] text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="h-11 rounded-xl border border-border bg-card px-3 text-[12px] text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {canSeeFinancial && <option value="popular">Mais vendidos</option>}
             <option value="price">Maior preço</option>
@@ -149,7 +150,7 @@ export function ServicesCatalog({
           </select>
 
           {/* Toggle grade / lista */}
-          <div className="flex items-center gap-0.5 rounded-full border border-border bg-surface-1 p-1">
+          <div className="flex items-center gap-0.5 rounded-xl border border-border bg-surface-1 p-1">
             <button
               onClick={() => setView("grid")}
               title="Vista em grade (com imagens)"
@@ -175,7 +176,7 @@ export function ServicesCatalog({
       </div>
 
       {filtered.length === 0 ? (
-        <div className="rounded-2xl border border-border bg-card p-12 text-center text-[13px] text-muted-foreground">
+        <div className="experience-surface p-12 text-center text-[13px] text-muted-foreground">
           Nenhum {experience.terminology.service} encontrado.
         </div>
       ) : (
@@ -190,6 +191,7 @@ export function ServicesCatalog({
                 canSeeFinancial={canSeeFinancial}
                 serviceLabel={experience.terminology.service}
                 servicesLabel={experience.terminology.services}
+                catalogLayout={experience.visual.catalogLayout}
               />
             ) : (
               <CategoryGroupList
@@ -216,6 +218,7 @@ function CategoryGroupGrid({
   canSeeFinancial,
   serviceLabel,
   servicesLabel,
+  catalogLayout,
 }: {
   cat: string;
   items: ServiceCard[];
@@ -223,14 +226,18 @@ function CategoryGroupGrid({
   canSeeFinancial: boolean;
   serviceLabel: string;
   servicesLabel: string;
+  catalogLayout: ExperienceCatalogLayout;
 }) {
   const totalRevenue = items.reduce((s, i) => s + i.revenueCents, 0);
   const totalSold    = items.reduce((s, i) => s + i.sold, 0);
 
   return (
-    <div className="experience-card-interactive overflow-hidden border border-border bg-card">
+    <div
+      data-catalog-layout={catalogLayout}
+      className="catalog-group experience-surface experience-card-interactive overflow-hidden"
+    >
       {/* Banner landscape — altura generosa para a imagem respirar */}
-      <div className="relative h-48 w-full overflow-hidden sm:h-56">
+      <div className="catalog-group-image relative h-48 w-full overflow-hidden sm:h-56">
         <Image
           src={bannerForCategory(cat)}
           alt={cat}
@@ -277,7 +284,7 @@ function CategoryGroupList({
   canSeeFinancial: boolean;
 }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-card">
+    <div className="experience-surface overflow-hidden">
       {/* Cabeçalho de texto simples */}
       <div className="border-b border-border bg-surface-1 px-4 py-2">
         <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/70">
@@ -310,7 +317,7 @@ function ServiceRow({
   const m = margin(s);
   return (
     <div
-      className={`flex items-center gap-3 border-b border-border px-4 py-3 last:border-0 ${
+      className={`flex min-h-16 items-center gap-3 border-b border-border/80 px-4 py-3 transition-colors hover:bg-card-hover/70 last:border-0 ${
         !s.active ? "opacity-50" : ""
       }`}
     >

@@ -428,6 +428,7 @@ export function BookingFlow({
           title={experience.booking.serviceTitle}
           onBack={() => router.push(`/book/${salonSlug}`)}
         />
+        <FlowProgress current={1} />
         {selectedServices.length > 0 && (
           <div
             aria-live="polite"
@@ -546,7 +547,7 @@ export function BookingFlow({
             </p>
           </div>
         ) : (
-        <div className="grid grid-cols-1 gap-3 min-[390px]:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 min-[390px]:grid-cols-2 sm:grid-cols-3">
           {visibleServices.map((s) => {
             const Icon = iconForService(s.category);
             const selected = serviceIds.includes(s.id);
@@ -603,7 +604,7 @@ export function BookingFlow({
           })}
         </div>
         )}
-        <div className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-[480px] border-t border-border/70 bg-background/95 px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_24px_rgba(0,0,0,0.18)] backdrop-blur">
+        <div className="booking-action-bar fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-[760px] border-t border-border/70 bg-background/95 px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_24px_rgba(0,0,0,0.24)] backdrop-blur-xl sm:bottom-4 sm:rounded-[1.5rem] sm:border">
           <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
             <span>{formatDuration(totalDuration)}</span>
             <span>{formatMoney(totalServicePrice, currency)}</span>
@@ -636,6 +637,7 @@ export function BookingFlow({
         onBack={() => setChoosingServices(true)}
         subtitle={`${serviceName} · ${formatDuration(totalDuration)}`}
       />
+      <FlowProgress current={authStep === "hidden" ? 2 : 3} />
 
       {/* Escolher profissional — cards com prova social real */}
       <div>
@@ -721,7 +723,7 @@ export function BookingFlow({
       {/* Data e hora */}
       <div>
         <h3 className="mb-3 text-sm font-semibold">Data e hora</h3>
-        <div className="rounded-2xl border border-border bg-card p-4">
+        <div className="experience-surface p-4 sm:p-5">
           <div className="mb-3 flex items-center justify-between">
             <button
               onClick={() => setViewMonth((m) => addMonths(m, -1))}
@@ -1016,7 +1018,7 @@ export function BookingFlow({
         </p>
       )}
 
-      <div className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-[480px] border-t border-border/70 bg-background/95 px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_24px_rgba(0,0,0,0.18)] backdrop-blur">
+      <div className="booking-action-bar fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-[760px] border-t border-border/70 bg-background/95 px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_24px_rgba(0,0,0,0.24)] backdrop-blur-xl sm:bottom-4 sm:rounded-[1.5rem] sm:border">
         <button
           onClick={handleConfirmClick}
           disabled={
@@ -1200,5 +1202,26 @@ function FlowHeader({
         {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
       </div>
     </header>
+  );
+}
+
+function FlowProgress({ current }: { current: 1 | 2 | 3 }) {
+  const labels = ["Serviços", "Horário", "Confirmar"];
+
+  return (
+    <div className="grid grid-cols-3 gap-2" aria-label={`Etapa ${current} de 3`}>
+      {labels.map((label, index) => {
+        const step = index + 1;
+        const active = step <= current;
+        return (
+          <div key={label} className="min-w-0">
+            <div className={`h-1 rounded-full transition-colors ${active ? "bg-primary" : "bg-muted"}`} />
+            <p className={`mt-1.5 truncate text-[10px] font-medium ${step === current ? "text-foreground" : "text-muted-foreground"}`}>
+              {label}
+            </p>
+          </div>
+        );
+      })}
+    </div>
   );
 }

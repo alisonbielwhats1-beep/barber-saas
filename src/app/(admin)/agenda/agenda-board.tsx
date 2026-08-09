@@ -241,17 +241,17 @@ export function AgendaBoard({
         : format(dateObj, "d 'de' MMMM", { locale: ptBR });
 
   return (
-    <div className="space-y-5">
-      <header className="experience-context-panel flex flex-col gap-4 p-4 sm:p-5 xl:flex-row xl:items-center xl:justify-between">
+    <div className="agenda-workspace space-y-5">
+      <header className="experience-surface-raised flex flex-col gap-4 p-4 sm:p-5 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1 rounded-full border border-border bg-surface-1 p-1">
-            <button onClick={() => goDate(-1)} className="grid h-8 w-8 place-items-center rounded-full text-muted-foreground hover:bg-card-hover hover:text-foreground">
+          <div className="flex items-center gap-1 rounded-xl border border-border bg-surface-1/80 p-1">
+            <button onClick={() => goDate(-1)} aria-label="Data anterior" className="grid h-10 w-10 place-items-center rounded-lg text-muted-foreground hover:bg-card-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <button onClick={goToday} className="rounded-full px-3 py-1 text-[12px] font-medium text-muted-foreground hover:text-foreground">
+            <button onClick={goToday} className="min-h-10 rounded-lg px-3 py-1 text-[12px] font-medium text-muted-foreground hover:bg-card-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               Hoje
             </button>
-            <button onClick={() => goDate(1)} className="grid h-8 w-8 place-items-center rounded-full text-muted-foreground hover:bg-card-hover hover:text-foreground">
+            <button onClick={() => goDate(1)} aria-label="Próxima data" className="grid h-10 w-10 place-items-center rounded-lg text-muted-foreground hover:bg-card-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <ChevronRight className="h-4 w-4" />
             </button>
           </div>
@@ -265,7 +265,7 @@ export function AgendaBoard({
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-0.5 rounded-full border border-border bg-surface-1 p-1">
+          <div className="flex items-center gap-0.5 rounded-xl border border-border bg-surface-1/80 p-1">
             <ViewBtn active={view === "day"} onClick={() => setView("day")} icon={CalendarDays} label="Dia" />
             <ViewBtn active={view === "week"} onClick={() => setView("week")} icon={CalendarRange} label="Semana" />
             <ViewBtn active={view === "month"} onClick={() => setView("month")} icon={Grid3x3} label="Mês" />
@@ -275,7 +275,7 @@ export function AgendaBoard({
             <button
               onClick={() => openSlot(professionals[0]?.id ?? "", DAY_START)}
               disabled={professionals.length === 0}
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-[13px] font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-40"
+              className="press-feedback inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-[13px] font-semibold text-primary-foreground shadow-sm hover:brightness-105 disabled:opacity-40"
             >
               <Plus className="h-4 w-4" />
               Novo
@@ -291,8 +291,8 @@ export function AgendaBoard({
         <DayKpi icon={CircleDollarSign} accent="#F59E0B" label="Receita prevista" value={formatMoney(kpis.forecast)} />
       </section>
 
-      <section className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5">
+      <section className="experience-filter-rail scrollbar-dark flex flex-nowrap items-center gap-2 overflow-x-auto p-2 lg:flex-wrap">
+        <div className="flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-border bg-card/75 px-3 py-1.5">
           <Search className="h-3.5 w-3.5 text-muted-foreground" />
           <input
             value={search}
@@ -328,7 +328,7 @@ export function AgendaBoard({
       )}
 
       {professionals.length === 0 ? (
-        <div className="rounded-2xl border border-border bg-card p-16 text-center text-sm text-muted-foreground">
+        <div className="experience-surface p-16 text-center text-sm text-muted-foreground">
           Cadastre {experience.terminology.professionals} para ver a agenda.
         </div>
       ) : view === "day" ? (
@@ -531,7 +531,7 @@ function DayView({
   }, [drag, date, onMove]);
 
   return (
-    <div className="overflow-x-auto rounded-2xl border border-border bg-card">
+    <div className="agenda-canvas experience-surface overflow-x-auto">
       <div className="flex min-w-max" ref={bodyRef}>
         <div className="w-14 shrink-0 border-r border-border bg-surface-1">
           <div style={{ height: HEADER_H }} className="border-b border-border" />
@@ -662,7 +662,7 @@ function WeekView({
   const colW = 150;
 
   return (
-    <div className="overflow-x-auto rounded-2xl border border-border bg-card">
+    <div className="agenda-canvas experience-surface overflow-x-auto">
       <div className="flex min-w-max">
         <div className="w-14 shrink-0 border-r border-border bg-surface-1">
           <div style={{ height: HEADER_H }} className="border-b border-border" />
@@ -770,7 +770,7 @@ function MonthView({
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-card">
+    <div className="agenda-canvas experience-surface overflow-hidden">
       <div className="grid grid-cols-7 border-b border-border bg-surface-1">
         {["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"].map((d) => (
           <div key={d} className="py-2 text-center text-[11px] font-medium text-muted-foreground">
@@ -846,7 +846,7 @@ function ListView({
 
   if (sorted.length === 0) {
     return (
-      <div className="rounded-2xl border border-border bg-card p-12 text-center text-sm text-muted-foreground">
+      <div className="experience-surface p-12 text-center text-sm text-muted-foreground">
         Nenhum agendamento com esse filtro.
       </div>
     );
@@ -854,7 +854,7 @@ function ListView({
 
   let lastDay = "";
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-card">
+    <div className="agenda-canvas experience-surface overflow-hidden">
       {sorted.map((a) => {
         const cfg = STATUS[a.status as keyof typeof STATUS] ?? STATUS.CONFIRMED;
         const pro = proById.get(a.professionalId);
@@ -910,7 +910,7 @@ function ViewBtn({ active, onClick, icon: Icon, label }: { active: boolean; onCl
   return (
     <button
       onClick={onClick}
-      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors ${
+      className={`inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
         active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
       }`}
     >
@@ -924,7 +924,7 @@ function FilterChip({ active, onClick, children, icon: Icon, dot }: { active: bo
   return (
     <button
       onClick={onClick}
-      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors ${
+      className={`inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl border px-3 py-1.5 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
         active ? "border-primary/40 bg-primary/10 text-foreground" : "border-border bg-card text-muted-foreground hover:text-foreground"
       }`}
     >
@@ -937,7 +937,7 @@ function FilterChip({ active, onClick, children, icon: Icon, dot }: { active: bo
 
 function DayKpi({ icon: Icon, accent, label, value }: { icon: typeof Clock; accent: string; label: string; value: string }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
+    <div className="experience-kpi flex items-center gap-3 p-3">
       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg" style={{ background: `${accent}1f`, color: accent }}>
         <Icon className="h-4 w-4" />
       </span>

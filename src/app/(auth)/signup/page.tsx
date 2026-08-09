@@ -1,50 +1,38 @@
 import Link from "next/link";
-import { Scissors } from "lucide-react";
 import { SignupForm } from "./signup-form";
+import { ProductWordmark } from "@/components/product-wordmark";
+import { AuthShowcase } from "../auth-showcase";
 
 export default function SignupPage() {
   return (
-    <main className="relative grid min-h-screen place-items-center overflow-hidden bg-background p-6">
-      {/* Ambient glow */}
-      <div
-        className="pointer-events-none absolute inset-0 -z-0"
-        aria-hidden
-        style={{
-          background:
-            "radial-gradient(ellipse 60% 40% at 50% 0%, hsl(38 92% 50% / 0.08) 0%, transparent 70%)",
-        }}
-      />
+    <main data-business-experience="espaco-misto" data-experience-direction="modular" data-experience-density="comfortable" className="experience-scope grid min-h-dvh bg-background lg:grid-cols-[0.82fr_1.18fr]">
+      <AuthShowcase mode="signup" />
 
-      <div className="relative z-10 min-w-0 w-full max-w-xl">
-        {/* Logo */}
-        <Link href="/" className="mb-8 flex items-center justify-center gap-2.5">
-          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary shadow-lg shadow-primary/20">
-            <Scissors className="h-4 w-4 text-primary-foreground" />
-          </span>
-          <span className="text-lg font-semibold tracking-tight">
-            Salon<span className="text-primary">SaaS</span>
-          </span>
-        </Link>
+      <section className="relative min-w-0 px-4 py-8 sm:px-8 lg:px-10 lg:py-10 xl:px-14">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,hsl(var(--experience-accent)/0.1),transparent_34rem)]" />
+        <div className="relative z-10 mx-auto min-w-0 w-full max-w-3xl">
+          <ProductWordmark className="mb-8" />
 
-        {/* Card */}
-        <div className="min-w-0 rounded-2xl border border-border bg-card p-5 shadow-2xl shadow-black/40 sm:p-6">
-          <div className="mb-6">
-            <h1 className="text-xl font-semibold tracking-tight">Criar estabelecimento</h1>
-            <p className="mt-1 text-[13px] text-muted-foreground">
-              Em 30 segundos você tem agenda online e URL de reservas do cliente.
+          <div className="experience-surface-raised min-w-0 p-5 sm:p-8">
+            <div className="mb-7">
+              <p className="experience-eyebrow text-[10px] font-semibold uppercase tracking-[0.17em]">Seu novo workspace</p>
+              <h1 className="mt-2 text-[30px] font-semibold leading-none tracking-[-0.04em] sm:text-[34px]">Criar estabelecimento</h1>
+              <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                Escolha a experiência, confirme os serviços iniciais e publique sua agenda.
+              </p>
+            </div>
+
+            <SignupForm />
+
+            <p className="mt-6 text-center text-[12px] text-muted-foreground">
+              Já tem conta?{" "}
+              <Link href="/login" className="font-semibold text-primary transition hover:underline">
+                Entrar
+              </Link>
             </p>
           </div>
-
-          <SignupForm />
-
-          <p className="mt-5 text-center text-[12px] text-muted-foreground">
-            Já tem conta?{" "}
-            <Link href="/login" className="text-primary transition hover:underline">
-              Entrar
-            </Link>
-          </p>
         </div>
-      </div>
+      </section>
     </main>
   );
 }
