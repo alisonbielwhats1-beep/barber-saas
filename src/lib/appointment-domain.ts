@@ -36,7 +36,8 @@ export type AppointmentErrorCode =
   | "INVALID_STATUS_TRANSITION"
   | "VERSION_CONFLICT"
   | "IDEMPOTENCY_MISMATCH"
-  | "REASON_REQUIRED";
+  | "REASON_REQUIRED"
+  | "WAITLIST_BLOCKED";
 
 export class AppointmentError extends Error {
   constructor(

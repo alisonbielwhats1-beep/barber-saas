@@ -27,6 +27,8 @@ export const ERROR_PT: Record<string, string> = {
   TOO_LATE_TO_RESCHEDULE:
     "Não é possível remarcar com tão pouca antecedência. Entre em contato com o salão.",
   ALREADY_WAITING: "Você já está na lista de espera desse horário.",
+  WAITLIST_BLOCKED:
+    "O horário atual possui fila de espera e não pôde ser liberado. Fale com o estabelecimento.",
 };
 
 export function friendlyError(raw: unknown): string {

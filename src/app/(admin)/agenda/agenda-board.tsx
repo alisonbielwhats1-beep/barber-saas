@@ -60,6 +60,13 @@ export type Appointment = {
   serviceColor: string | null;
   waitlistCount: number;
   waitlistNext: string | null;
+  waitlist: Array<{
+    id: string;
+    name: string;
+    phone: string | null;
+    serviceName: string;
+    position: number;
+  }>;
   isOverbooked: boolean;
   version: number;
   serviceIds: string[];

@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CalendarDays, LogOut, XCircle, RefreshCw, Repeat } from "lucide-react";
+import { CalendarDays, LogOut, XCircle, RefreshCw, Repeat, Users } from "lucide-react";
 import { formatMoney } from "@/lib/utils";
 import { isPast } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -19,6 +19,7 @@ type Appt = {
   priceCents: number;
   status: string;
   version: number;
+  _count: { waitlistEntries: number };
   service: { id: string; name: string; colorHex: string | null };
   serviceItems: { serviceId: string; serviceName: string }[];
   events: Array<{
@@ -35,8 +36,18 @@ type Appt = {
   products: { quantity: number; priceCentsUnit: number; product: { name: string } }[];
 };
 
+type WaitlistItem = {
+  id: string;
+  position: number;
+  startAt: string;
+  timezone: string;
+  serviceName: string;
+  professionalName: string;
+};
+
 export function MinhasList({
   appointments,
+  waitlistEntries,
   salonSlug,
   currency,
   timezone,
@@ -44,6 +55,7 @@ export function MinhasList({
   session,
 }: {
   appointments: Appt[];
+  waitlistEntries: WaitlistItem[];
   salonSlug: string;
   currency: string;
   timezone: string;
@@ -53,6 +65,7 @@ export function MinhasList({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
+  const [waitlistCancelTarget, setWaitlistCancelTarget] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const cancelKeys = useRef(new Map<string, string>());
 
@@ -114,6 +127,34 @@ export function MinhasList({
     });
   }
 
+  function confirmWaitlistCancel() {
+    if (!waitlistCancelTarget) return;
+    setError(null);
+    startTransition(async () => {
+      try {
+        const res = await fetch("/api/client/waitlist/cancel", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ salonSlug, waitlistId: waitlistCancelTarget }),
+        });
+        const responseBody = await res.json().catch(() => ({}));
+        setWaitlistCancelTarget(null);
+        if (!res.ok) {
+          setError(
+            responseBody.error === "ALREADY_FULFILLED"
+              ? "Essa vaga já foi confirmada para você. Atualize a página."
+              : "Não foi possível sair da fila. Atualize e tente novamente.",
+          );
+          return;
+        }
+        router.refresh();
+      } catch {
+        setWaitlistCancelTarget(null);
+        setError("Sem conexão. Tente novamente para sair da fila.");
+      }
+    });
+  }
+
   function goRemark(a: Appt) {
     // Não cancela antes: a rota de reagendamento atualiza a mesma reserva
     // (ver api/client/reschedule) — assim ela nunca conta como cancelamento
@@ -158,6 +199,38 @@ export function MinhasList({
         </p>
       )}
 
+      <Section title="Filas de espera" empty="Você não está aguardando nenhuma vaga.">
+        {waitlistEntries.map((entry) => (
+          <article key={entry.id} className="rounded-2xl border border-amber-500/25 bg-amber-500/5 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-medium">{entry.serviceName}</p>
+                <p className="text-xs text-muted-foreground">com {entry.professionalName}</p>
+              </div>
+              <span className="shrink-0 rounded-full bg-amber-500/15 px-2.5 py-1 text-[11px] font-semibold text-amber-600">
+                Fila #{entry.position}
+              </span>
+            </div>
+            <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
+              <CalendarDays className="h-3.5 w-3.5" />
+              {formatInTimeZone(new Date(entry.startAt), entry.timezone, "dd 'de' MMM · HH:mm", { locale: ptBR })}
+            </p>
+            <p className="mt-3 flex gap-2 text-xs leading-relaxed text-muted-foreground">
+              <Users className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              Se a vaga ficar livre e você for o primeiro, sua visita será confirmada automaticamente.
+            </p>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => setWaitlistCancelTarget(entry.id)}
+              className="mt-3 min-h-11 text-xs font-medium text-danger disabled:opacity-50"
+            >
+              Sair somente desta fila
+            </button>
+          </article>
+        ))}
+      </Section>
+
       {/* Upcoming */}
       <Section title="Próximas" empty="Nenhuma reserva futura.">
         {upcoming.map((a) => {
@@ -199,9 +272,23 @@ export function MinhasList({
         open={cancelTarget !== null}
         onOpenChange={(o) => !o && setCancelTarget(null)}
         title="Cancelar reserva?"
-        description="O horário será liberado para outras pessoas. Você pode agendar de novo quando quiser."
+        description={
+          (appointments.find((appointment) => appointment.id === cancelTarget)?._count.waitlistEntries ?? 0) > 0
+            ? "A primeira pessoa da fila será confirmada automaticamente neste horário. Somente a sua reserva será cancelada."
+            : "O horário será liberado para outras pessoas. Você pode agendar de novo quando quiser."
+        }
         confirmLabel="Cancelar reserva"
         onConfirm={confirmCancel}
+        pending={pending}
+      />
+
+      <ConfirmDialog
+        open={waitlistCancelTarget !== null}
+        onOpenChange={(open) => !open && setWaitlistCancelTarget(null)}
+        title="Sair da fila de espera?"
+        description="Somente sua posição nesta fila será removida. O agendamento confirmado e as outras pessoas não serão alterados."
+        confirmLabel="Sair desta fila"
+        onConfirm={confirmWaitlistCancel}
         pending={pending}
       />
 
@@ -231,7 +318,7 @@ export function MinhasList({
       </Section>
 
       {/* CTA if no appointments */}
-      {appointments.length === 0 && (
+      {appointments.length === 0 && waitlistEntries.length === 0 && (
         <Link
           href={`/book/${salonSlug}/agendar`}
           className="block rounded-2xl border border-primary/30 bg-primary/5 p-5 text-center text-sm font-medium text-primary"
