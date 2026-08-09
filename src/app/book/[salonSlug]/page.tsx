@@ -65,6 +65,7 @@ export default async function ClientHome({
       segment: true,
       description: true,
       coverUrl: true,
+      logoUrl: true,
       themeColorHex: true,
       instagram: true,
       whatsapp: true,
@@ -139,8 +140,18 @@ export default async function ClientHome({
     <main className="animate-fade-in space-y-6 px-5 pt-6" style={brandStyle}>
       {/* Top bar */}
       <header className="flex items-center gap-3">
-        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary/20 text-sm font-semibold text-primary">
-          {initials}
+        <div className="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full bg-primary/20 text-sm font-semibold text-primary">
+          {salon.logoUrl ? (
+            <Image
+              src={salon.logoUrl}
+              alt={`Foto de ${salon.name}`}
+              fill
+              sizes="44px"
+              className="object-cover"
+            />
+          ) : (
+            initials
+          )}
         </div>
         <div className="flex-1">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Bem-vindo a</p>

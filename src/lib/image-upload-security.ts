@@ -2,6 +2,8 @@ export const UPLOAD_FOLDERS = [
   "portfolio",
   "products",
   "services",
+  "branding",
+  "profiles",
 ] as const;
 
 export type UploadFolder = (typeof UPLOAD_FOLDERS)[number];
@@ -64,6 +66,9 @@ export function canUploadToFolder(
 ): boolean {
   if (folder === "portfolio") {
     return ["OWNER", "MANAGER", "PROFESSIONAL"].includes(role);
+  }
+  if (folder === "profiles") {
+    return ["OWNER", "MANAGER", "PROFESSIONAL", "RECEPTIONIST"].includes(role);
   }
   return ["OWNER", "MANAGER"].includes(role);
 }

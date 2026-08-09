@@ -43,7 +43,9 @@ import { requireRole, FINANCE_ROLES } from "@/lib/tenant";
 function signedInAs(role: string) {
   mocks.getServerSession.mockResolvedValue({ user: { id: "user-1" } });
   mocks.cookies.mockResolvedValue({ get: () => ({ value: "salon-1" }) });
-  mocks.findMany.mockResolvedValue([{ salonId: "salon-1", role }]);
+  mocks.findMany.mockResolvedValue([
+    { salonId: "salon-1", role, salon: { accessStatus: "APPROVED" } },
+  ]);
 }
 
 describe("requireRole — guarda de página do financeiro", () => {

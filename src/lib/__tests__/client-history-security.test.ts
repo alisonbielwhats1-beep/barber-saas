@@ -4,7 +4,7 @@ import { NextRequest } from "next/server";
 const mocks = vi.hoisted(() => ({
   getClientSession: vi.fn(),
   prisma: {
-    salon: { findUnique: vi.fn() },
+    salon: { findFirst: vi.fn(), findUnique: vi.fn() },
     clientProfile: { findFirst: vi.fn() },
     appointment: { findMany: vi.fn() },
     $executeRaw: vi.fn().mockResolvedValue(undefined),
@@ -46,6 +46,7 @@ function request(query = "salon=studio-a") {
 describe("GET /api/client/appointments — histórico privado", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.prisma.salon.findFirst.mockResolvedValue({ id: "salon-a" });
     mocks.prisma.salon.findUnique.mockResolvedValue({
       id: "salon-a",
       currency: "BRL",

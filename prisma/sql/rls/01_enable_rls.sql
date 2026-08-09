@@ -145,6 +145,23 @@ CREATE POLICY salon_update ON "Salon"
   FOR UPDATE USING (id = app_current_salon())
   WITH CHECK (id = app_current_salon());
 
+DROP POLICY IF EXISTS salon_platform_admin_update ON "Salon";
+CREATE POLICY salon_platform_admin_update ON "Salon"
+  FOR UPDATE USING (
+    EXISTS (
+      SELECT 1 FROM "User"
+      WHERE id = app_current_user()
+        AND "platformRole" = 'SUPER_ADMIN'
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM "User"
+      WHERE id = app_current_user()
+        AND "platformRole" = 'SUPER_ADMIN'
+    )
+  );
+
 DROP POLICY IF EXISTS salon_delete ON "Salon";
 CREATE POLICY salon_delete ON "Salon"
   FOR DELETE USING (id = app_current_salon());
@@ -168,6 +185,48 @@ CREATE POLICY membership_read ON "Membership"
   FOR SELECT USING (
     "userId"  = app_current_user()
     OR "salonId" = app_current_salon()
+    OR EXISTS (
+      SELECT 1 FROM "User"
+      WHERE id = app_current_user()
+        AND "platformRole" = 'SUPER_ADMIN'
+    )
+  );
+
+-- Histórico global de aprovação: não pertence ao tenant ativo e só pode ser
+-- lido/escrito pelo administrador da plataforma. O dono só insere o primeiro
+-- evento PENDING, após criar sua própria membership OWNER.
+ALTER TABLE "SalonAccessEvent" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "SalonAccessEvent" FORCE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS platform_admin_access_events ON "SalonAccessEvent";
+CREATE POLICY platform_admin_access_events ON "SalonAccessEvent"
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM "User"
+      WHERE id = app_current_user()
+        AND "platformRole" = 'SUPER_ADMIN'
+    )
+  );
+
+DROP POLICY IF EXISTS platform_admin_insert_access_events ON "SalonAccessEvent";
+CREATE POLICY platform_admin_insert_access_events ON "SalonAccessEvent"
+  FOR INSERT WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM "User"
+      WHERE id = app_current_user()
+        AND "platformRole" = 'SUPER_ADMIN'
+    )
+    OR (
+      "actorUserId" = app_current_user()
+      AND "newStatus" = 'PENDING'
+      AND "previousStatus" IS NULL
+      AND EXISTS (
+        SELECT 1 FROM "Membership"
+        WHERE "Membership"."salonId" = "SalonAccessEvent"."salonId"
+          AND "Membership"."userId" = app_current_user()
+          AND "Membership".role = 'OWNER'
+      )
+    )
   );
 
 -- No cadastro o vínculo nasce junto do salão. Exigimos que a GUC já aponte

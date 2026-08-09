@@ -29,9 +29,10 @@ export default function SignupPage() {
         {/* Card */}
         <div className="rounded-2xl border border-border bg-card p-6 shadow-2xl shadow-black/40">
           <div className="mb-6">
-            <h1 className="text-lg font-semibold tracking-tight">Criar salão</h1>
+            <h1 className="text-lg font-semibold tracking-tight">Criar estabelecimento</h1>
             <p className="mt-1 text-[13px] text-muted-foreground">
-              Em 30 segundos você tem agenda online e URL de reservas do cliente.
+              Preencha os dados para solicitar acesso. Depois da análise, o plano
+              Grátis ou Pro será liberado pelo administrador.
             </p>
           </div>
 

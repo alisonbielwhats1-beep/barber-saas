@@ -4,10 +4,11 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { setSalonGuc } from "@/lib/prisma-tenant";
+import { setSalonGuc, setUserGuc } from "@/lib/prisma-tenant";
 import { uniqueSalonSlug } from "@/lib/slug";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { resolveSalonSetup } from "@/lib/salon-setup";
+import { notifyPlatformAdminOfSignup } from "@/lib/platform-signup-notification";
 
 const signupInput = z.object({
   ownerName: z.string().min(2, "Nome muito curto"),
@@ -84,12 +85,19 @@ export async function signup(input: SignupInput): Promise<
       select: { id: true },
     });
     const salon = await tx.salon.create({
-      data: { slug, name: data.salonName, plan: "FREE", segment: segmentId },
+      data: {
+        slug,
+        name: data.salonName,
+        plan: "FREE",
+        segment: segmentId,
+        accessStatus: "PENDING",
+      },
       select: { id: true },
     });
     // A partir daqui, Membership e Service exigem a GUC do salão recém-criado
     // — sem isto, os INSERTs seguintes seriam barrados pelas próprias policies.
     await setSalonGuc(tx, salon.id);
+    await setUserGuc(tx, user.id);
     await tx.membership.create({
       data: { userId: user.id, salonId: salon.id, role: "OWNER" },
     });
@@ -98,6 +106,24 @@ export async function signup(input: SignupInput): Promise<
         data: services.map((s) => ({ salonId: salon.id, ...s })),
       });
     }
+    await tx.salonAccessEvent.create({
+      data: {
+        salonId: salon.id,
+        actorUserId: user.id,
+        type: "REQUESTED",
+        previousStatus: null,
+        newStatus: "PENDING",
+        previousPlan: null,
+        newPlan: "FREE",
+      },
+    });
+  });
+
+  await notifyPlatformAdminOfSignup({
+    salonName: data.salonName,
+    slug,
+    ownerName: data.ownerName,
+    ownerEmail: email,
   });
 
   return { ok: true, slug };

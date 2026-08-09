@@ -76,6 +76,7 @@ export function ImageUpload({
             <button
               type="button"
               onClick={() => onChange("")}
+              aria-label="Remover imagem"
               className="absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-full bg-black/60 text-white hover:bg-black/80"
             >
               <X className="h-4 w-4" />

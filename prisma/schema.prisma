@@ -22,6 +22,27 @@ enum Role {
   RECEPTIONIST
 }
 
+enum PlatformRole {
+  USER
+  SUPER_ADMIN
+}
+
+enum SalonAccessStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+enum SalonAccessEventType {
+  REQUESTED
+  APPROVED
+  REJECTED
+  SUSPENDED
+  REACTIVATED
+  PLAN_CHANGED
+}
+
 enum InviteDeliveryStatus {
   SENDING
   SENT
@@ -106,43 +127,48 @@ enum Gender {
 // ─── Identidade & Tenant ────────────────────────────────────────────────────
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
+  id            String       @id @default(cuid())
+  email         String       @unique
   name          String
   phone         String?
   passwordHash  String
   passwordSetAt DateTime?
   avatarUrl     String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  platformRole  PlatformRole @default(USER)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
-  memberships     Membership[]
-  professional    Professional?
-  clientProfiles  ClientProfile[]
-  receivedInvites UserInvite[]      @relation("InviteUser")
-  createdInvites  UserInvite[]      @relation("InviteCreator")
-  inviteEvents    UserInviteEvent[]
+  memberships       Membership[]
+  professional      Professional?
+  clientProfiles    ClientProfile[]
+  receivedInvites   UserInvite[]       @relation("InviteUser")
+  createdInvites    UserInvite[]       @relation("InviteCreator")
+  inviteEvents      UserInviteEvent[]
+  salonAccessEvents SalonAccessEvent[] @relation("SalonAccessActor")
 }
 
 model Salon {
-  id                String   @id @default(cuid())
-  slug              String   @unique
+  id                String            @id @default(cuid())
+  slug              String            @unique
   name              String
   logoUrl           String?
   address           String?
   phone             String?
-  timezone          String   @default("America/Sao_Paulo")
-  currency          String   @default("BRL")
-  plan              Plan     @default(FREE)
-  openMinutes       Int      @default(540) // 09:00 — horário padrão de abertura
-  closeMinutes      Int      @default(1140) // 19:00 — horário padrão de fechamento
-  cancelPolicyHours Int      @default(2) // antecedência mínima para cancelar
-  noShowFeeCents    Int      @default(0) // taxa de no-show
+  timezone          String            @default("America/Sao_Paulo")
+  currency          String            @default("BRL")
+  plan              Plan              @default(FREE)
+  accessStatus      SalonAccessStatus @default(PENDING)
+  accessRequestedAt DateTime          @default(now()) @db.Timestamptz(3)
+  accessReviewedAt  DateTime?         @db.Timestamptz(3)
+  openMinutes       Int               @default(540) // 09:00 — horário padrão de abertura
+  closeMinutes      Int               @default(1140) // 19:00 — horário padrão de fechamento
+  cancelPolicyHours Int               @default(2) // antecedência mínima para cancelar
+  noShowFeeCents    Int               @default(0) // taxa de no-show
 
   // ── Janela de agendamento — prisma/sql/manual/005_booking_lead_time.sql ──
-  minBookingLeadMinutes Int @default(0)  // antecedência mínima pra marcar (minutos)
+  minBookingLeadMinutes Int @default(0) // antecedência mínima pra marcar (minutos)
   maxBookingLeadDays    Int @default(90) // até quantos dias no futuro dá pra marcar
-  bufferMinutes         Int @default(0)  // intervalo forçado entre atendimentos, por profissional
+  bufferMinutes         Int @default(0) // intervalo forçado entre atendimentos, por profissional
 
   // ── Personalização pelo dono ────────────────────────────────────────────
   // Colunas criadas por prisma/sql/manual/004_salon_customization.sql.
@@ -156,27 +182,51 @@ model Salon {
   paymentMethods String? // separadas por vírgula, ex.: "PIX,CASH,CREDIT_CARD"
   importantInfo  String? // avisos livres: estacionamento, política de atraso...
 
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  memberships     Membership[]
-  professionals   Professional[]
-  services        Service[]
-  clients         ClientProfile[]
-  appointments    Appointment[]
-  workingHours    WorkingHours[]
-  products        Product[]
-  portfolio       PortfolioItem[]
-  expenses        Expense[]
-  packages        Package[]
-  plans           MembershipPlan[]
-  userInvites     UserInvite[]
-  waitlistEntries WaitlistEntry[]
-  closures        SalonClosure[]
-  auditLogs       AuditLog[]
+  memberships         Membership[]
+  professionals       Professional[]
+  services            Service[]
+  clients             ClientProfile[]
+  appointments        Appointment[]
+  workingHours        WorkingHours[]
+  products            Product[]
+  portfolio           PortfolioItem[]
+  expenses            Expense[]
+  packages            Package[]
+  plans               MembershipPlan[]
+  userInvites         UserInvite[]
+  waitlistEntries     WaitlistEntry[]
+  closures            SalonClosure[]
+  auditLogs           AuditLog[]
   appointmentServices AppointmentService[]
   appointmentEvents   AppointmentEvent[]
   notificationOutbox  NotificationOutbox[]
+  accessEvents        SalonAccessEvent[]
+
+  @@index([accessStatus, accessRequestedAt])
+}
+
+/// Histórico imutável das decisões de acesso da plataforma. Não é tenant-scoped:
+/// somente administradores da plataforma podem ler ou inserir eventos.
+model SalonAccessEvent {
+  id             String               @id @default(cuid())
+  salonId        String
+  actorUserId    String?
+  type           SalonAccessEventType
+  previousStatus SalonAccessStatus?
+  newStatus      SalonAccessStatus
+  previousPlan   Plan?
+  newPlan        Plan
+  reason         String?
+  createdAt      DateTime             @default(now()) @db.Timestamptz(3)
+
+  salon Salon @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  actor User? @relation("SalonAccessActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([salonId, createdAt])
+  @@index([newStatus, createdAt])
 }
 
 enum PackageStatus {
@@ -375,17 +425,17 @@ model Professional {
   monthlyGoalCents Int     @default(0)
   active           Boolean @default(true)
 
-  salon        Salon                 @relation(fields: [salonId], references: [id], onDelete: Cascade)
-  user         User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workingHours WorkingHours[]
-  services     ProfessionalService[]
-  appointments Appointment[]
+  salon           Salon                 @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  user            User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workingHours    WorkingHours[]
+  services        ProfessionalService[]
+  appointments    Appointment[]
   waitlistEntries WaitlistEntry[]
-  timeOffs     TimeOff[]
-  portfolio    PortfolioItem[]
+  timeOffs        TimeOff[]
+  portfolio       PortfolioItem[]
 
-  @@index([salonId])
   @@unique([id, salonId], map: "Professional_id_salonId_key")
+  @@index([salonId])
 }
 
 model Service {
@@ -401,14 +451,14 @@ model Service {
   colorHex    String?
   active      Boolean @default(true)
 
-  salon         Salon                 @relation(fields: [salonId], references: [id], onDelete: Cascade)
-  professionals ProfessionalService[]
-  appointments  Appointment[]
+  salon            Salon                 @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  professionals    ProfessionalService[]
+  appointments     Appointment[]
   appointmentItems AppointmentService[]
-  packages      Package[]
+  packages         Package[]
 
-  @@index([salonId])
   @@unique([id, salonId], map: "Service_id_salonId_key")
+  @@index([salonId])
 }
 
 model ProfessionalService {
@@ -478,38 +528,38 @@ model ClientProfile {
 }
 
 model Appointment {
-  id             String            @id @default(cuid())
-  salonId        String
-  clientId       String
-  professionalId String
-  serviceId      String
-  startAt        DateTime          @db.Timestamptz(3)
-  endAt          DateTime          @db.Timestamptz(3)
-  priceCents     Int
-  status         AppointmentStatus @default(PENDING)
-  timezone       String            @default("America/Sao_Paulo")
-  origin         AppointmentOrigin @default(LEGACY)
-  version        Int               @default(1)
-  idempotencyKey String?
+  id                     String                @id @default(cuid())
+  salonId                String
+  clientId               String
+  professionalId         String
+  serviceId              String
+  startAt                DateTime              @db.Timestamptz(3)
+  endAt                  DateTime              @db.Timestamptz(3)
+  priceCents             Int
+  status                 AppointmentStatus     @default(PENDING)
+  timezone               String                @default("America/Sao_Paulo")
+  origin                 AppointmentOrigin     @default(LEGACY)
+  version                Int                   @default(1)
+  idempotencyKey         String?
   idempotencyFingerprint String?
-  notes          String?
-  reminderSentAt DateTime?         @db.Timestamptz(3)
-  cancelledAt    DateTime?         @db.Timestamptz(3)
-  cancelledReason String?
-  cancelledByType AppointmentActorType?
-  cancelledById   String?
+  notes                  String?
+  reminderSentAt         DateTime?             @db.Timestamptz(3)
+  cancelledAt            DateTime?             @db.Timestamptz(3)
+  cancelledReason        String?
+  cancelledByType        AppointmentActorType?
+  cancelledById          String?
   // Overbooking deliberado (dono/gerente encaixou apesar de conflito) — ver
   // AuditLog pra trilha de quem/quando/por quê. Único caso em que a exclusion
   // constraint appointment_no_overlap permite sobreposição, ver
   // prisma/sql/manual/008_fase2_appointment_reliability.sql.
-  isOverbooked   Boolean           @default(false)
+  isOverbooked           Boolean               @default(false)
   // Agrupa ocorrências de um agendamento recorrente (mesmo cuid pra todas).
   // Sem tabela de série própria em v1: cada ocorrência é um Appointment
   // independente, editável/cancelável isoladamente — só o agrupamento visual
   // depende do seriesId.
-  seriesId       String?
-  createdAt      DateTime          @default(now()) @db.Timestamptz(3)
-  updatedAt      DateTime          @updatedAt @db.Timestamptz(3)
+  seriesId               String?
+  createdAt              DateTime              @default(now()) @db.Timestamptz(3)
+  updatedAt              DateTime              @updatedAt @db.Timestamptz(3)
 
   salon           Salon                @relation(fields: [salonId], references: [id], onDelete: Cascade)
   client          ClientProfile        @relation(fields: [clientId, salonId], references: [id, salonId], map: "Appointment_client_tenant_fkey")
@@ -552,22 +602,22 @@ model AppointmentService {
 }
 
 model AppointmentEvent {
-  id             String               @id @default(cuid())
-  salonId        String
-  appointmentId  String
-  eventType      AppointmentEventType
-  previousValue  Json?
-  newValue       Json?
-  actorType      AppointmentActorType
-  actorId        String?
-  reason         String?
-  correlationId  String
-  idempotencyKey String?
+  id                 String               @id @default(cuid())
+  salonId            String
+  appointmentId      String
+  eventType          AppointmentEventType
+  previousValue      Json?
+  newValue           Json?
+  actorType          AppointmentActorType
+  actorId            String?
+  reason             String?
+  correlationId      String
+  idempotencyKey     String?
   requestFingerprint String?
-  createdAt      DateTime             @default(now()) @db.Timestamptz(3)
+  createdAt          DateTime             @default(now()) @db.Timestamptz(3)
 
-  salon        Salon               @relation(fields: [salonId], references: [id], onDelete: Cascade)
-  appointment  Appointment         @relation(fields: [appointmentId, salonId], references: [id, salonId], onDelete: Restrict, map: "AppointmentEvent_appointment_tenant_fkey")
+  salon         Salon                @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  appointment   Appointment          @relation(fields: [appointmentId, salonId], references: [id, salonId], onDelete: Restrict, map: "AppointmentEvent_appointment_tenant_fkey")
   notifications NotificationOutbox[]
 
   @@unique([appointmentId, idempotencyKey], map: "AppointmentEvent_appointmentId_idempotencyKey_key")
@@ -651,30 +701,30 @@ model AuditLog {
 // A confirmação gera notificação interna; WhatsApp continua sendo atalho
 // manual, sem serviço pago.
 model WaitlistEntry {
-  id                     String               @id @default(cuid())
+  id                     String                @id @default(cuid())
   salonId                String
   appointmentId          String
   clientId               String?
   guestName              String?
   guestPhone             String?
   professionalId         String
-  startAt                DateTime             @db.Timestamptz(3)
-  endAt                  DateTime             @db.Timestamptz(3)
+  startAt                DateTime              @db.Timestamptz(3)
+  endAt                  DateTime              @db.Timestamptz(3)
   timezone               String
   serviceSnapshots       Json
   priceCents             Int
-  fulfilledAt            DateTime?            @db.Timestamptz(3)
+  fulfilledAt            DateTime?             @db.Timestamptz(3)
   fulfilledAppointmentId String?
-  cancelledAt            DateTime?            @db.Timestamptz(3)
+  cancelledAt            DateTime?             @db.Timestamptz(3)
   cancelledByType        AppointmentActorType?
   cancelledById          String?
   cancelledReason        String?
-  createdAt              DateTime             @default(now()) @db.Timestamptz(3)
+  createdAt              DateTime              @default(now()) @db.Timestamptz(3)
 
-  salon       Salon          @relation(fields: [salonId], references: [id], onDelete: Cascade)
-  appointment Appointment    @relation(fields: [appointmentId, salonId], references: [id, salonId], onDelete: Cascade, map: "WaitlistEntry_appointment_tenant_fkey")
-  client      ClientProfile? @relation(fields: [clientId, salonId], references: [id, salonId], onDelete: Cascade, map: "WaitlistEntry_client_tenant_fkey")
-  professional Professional  @relation(fields: [professionalId, salonId], references: [id, salonId], map: "WaitlistEntry_professional_tenant_fkey")
+  salon        Salon          @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  appointment  Appointment    @relation(fields: [appointmentId, salonId], references: [id, salonId], onDelete: Cascade, map: "WaitlistEntry_appointment_tenant_fkey")
+  client       ClientProfile? @relation(fields: [clientId, salonId], references: [id, salonId], onDelete: Cascade, map: "WaitlistEntry_client_tenant_fkey")
+  professional Professional   @relation(fields: [professionalId, salonId], references: [id, salonId], map: "WaitlistEntry_professional_tenant_fkey")
 
   @@unique([id, salonId], map: "WaitlistEntry_id_salonId_key")
   @@index([salonId, appointmentId, cancelledAt, fulfilledAt, createdAt])

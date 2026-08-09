@@ -2,9 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Loader2, ExternalLink } from "lucide-react";
+import Image from "next/image";
+import { Check, Loader2, ExternalLink, RotateCcw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { ImageUpload } from "@/components/ui/image-upload";
 import { toast } from "@/components/ui/toast";
 import { SEGMENTS } from "@/lib/segments";
 import { updateSalonBranding } from "./actions";
@@ -14,6 +16,7 @@ export type Branding = {
   segment: string | null;
   description: string | null;
   coverUrl: string | null;
+  logoUrl: string | null;
   themeColorHex: string | null;
   instagram: string | null;
   whatsapp: string | null;
@@ -37,6 +40,8 @@ export function BrandingForm({ branding }: { branding: Branding }) {
 
   const [segment, setSegment] = useState(branding.segment ?? "");
   const [color, setColor] = useState(branding.themeColorHex ?? "");
+  const [coverUrl, setCoverUrl] = useState(branding.coverUrl ?? "");
+  const [logoUrl, setLogoUrl] = useState(branding.logoUrl ?? "");
   const [methods, setMethods] = useState<string[]>(
     branding.paymentMethods ? branding.paymentMethods.split(",").filter(Boolean) : [],
   );
@@ -56,7 +61,8 @@ export function BrandingForm({ branding }: { branding: Branding }) {
         await updateSalonBranding({
           segment: segment || null,
           description: String(f.get("description") ?? ""),
-          coverUrl: String(f.get("coverUrl") ?? ""),
+          coverUrl,
+          logoUrl,
           themeColorHex: color || null,
           instagram: String(f.get("instagram") ?? ""),
           whatsapp: String(f.get("whatsapp") ?? ""),
@@ -111,16 +117,60 @@ export function BrandingForm({ branding }: { branding: Branding }) {
           />
         </Field>
 
-        <Field label="Foto de capa (URL)">
-          <Input
-            name="coverUrl"
-            type="url"
-            defaultValue={branding.coverUrl ?? ""}
-            placeholder="https://…"
-          />
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            Sem uma capa própria, usamos uma imagem padrão.
+        <Field label="Foto de perfil do estabelecimento">
+          <p className="mb-3 text-[11px] leading-relaxed text-muted-foreground">
+            Aparece ao lado do nome para seus clientes. Use uma foto quadrada do
+            salão ou o seu logotipo.
           </p>
+          <div className="max-w-48">
+            <ImageUpload
+              value={logoUrl}
+              onChange={setLogoUrl}
+              folder="branding"
+              aspectRatio="square"
+            />
+          </div>
+        </Field>
+
+        <Field label="Foto de capa da página de agendamento">
+          <p className="mb-3 text-[11px] leading-relaxed text-muted-foreground">
+            Você pode enviar uma foto real do espaço ou manter a imagem padrão do
+            tipo de estabelecimento escolhido acima.
+          </p>
+          <div className={`rounded-2xl border p-3 ${!coverUrl ? "border-primary bg-primary/5" : "border-border"}`}>
+            <div className="relative aspect-video overflow-hidden rounded-xl">
+              <Image
+                src={SEGMENTS.find((item) => item.id === segment)?.accentImage ?? SEGMENTS[0].accentImage}
+                alt="Prévia da foto padrão"
+                fill
+                sizes="(max-width: 640px) 90vw, 520px"
+                className="object-cover"
+              />
+              {!coverUrl && (
+                <span className="absolute left-3 top-3 rounded-full bg-black/70 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  Padrão selecionado
+                </span>
+              )}
+            </div>
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium">Imagem padrão do segmento</p>
+                <p className="text-[11px] text-muted-foreground">Sem custo e sempre disponível.</p>
+              </div>
+              <Button type="button" variant="outline" size="sm" onClick={() => setCoverUrl("")} disabled={!coverUrl}>
+                <RotateCcw className="h-3.5 w-3.5" /> Usar padrão
+              </Button>
+            </div>
+          </div>
+          <div className={`mt-3 rounded-2xl border p-3 ${coverUrl ? "border-primary bg-primary/5" : "border-border"}`}>
+            <p className="mb-3 text-sm font-medium">Minha foto do estabelecimento</p>
+            <ImageUpload
+              value={coverUrl}
+              onChange={setCoverUrl}
+              folder="branding"
+              aspectRatio="landscape"
+            />
+          </div>
         </Field>
 
         <Field label="Cor da marca">

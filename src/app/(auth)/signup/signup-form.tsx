@@ -47,7 +47,7 @@ export function SignupForm() {
         setError("Conta criada, mas falhou ao entrar. Vá para o login.");
         return;
       }
-      router.push("/dashboard");
+      router.push("/onboarding/acesso");
       router.refresh();
     });
   }
@@ -95,7 +95,7 @@ export function SignupForm() {
         </p>
       )}
       <Button type="submit" className="w-full" disabled={pending}>
-        {pending ? "Criando…" : "Criar meu salão"}
+        {pending ? "Enviando solicitação…" : "Solicitar acesso"}
       </Button>
     </form>
   );

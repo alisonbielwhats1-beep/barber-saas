@@ -33,7 +33,7 @@ export function CreateSalonForm() {
         setError(res.error);
         return;
       }
-      router.push("/dashboard");
+      router.push("/onboarding/acesso");
       router.refresh();
     });
   }
@@ -96,10 +96,10 @@ export function CreateSalonForm() {
       <Button type="submit" size="lg" className="w-full" disabled={pending || salonName.trim().length < 2}>
         {pending ? (
           <>
-            <Loader2 className="h-4 w-4 animate-spin" /> Criando…
+            <Loader2 className="h-4 w-4 animate-spin" /> Enviando…
           </>
         ) : (
-          "Criar estabelecimento"
+          "Enviar para aprovação"
         )}
       </Button>
     </form>

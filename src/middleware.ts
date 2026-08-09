@@ -23,6 +23,7 @@ const PROTECTED_PATH_PREFIXES = [
   "/compartilhar",
   "/pagamentos",
   "/onboarding",
+  "/plataforma",
 ] as const;
 
 const authMiddleware = withAuth({

@@ -4,11 +4,12 @@ import { z } from "zod";
 import { headers } from "next/headers";
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
-import { setSalonGuc, withUser } from "@/lib/prisma-tenant";
+import { setSalonGuc, setUserGuc, withUser } from "@/lib/prisma-tenant";
 import { authOptions } from "@/lib/auth";
 import { uniqueSalonSlug } from "@/lib/slug";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { resolveSalonSetup } from "@/lib/salon-setup";
+import { notifyPlatformAdminOfSignup } from "@/lib/platform-signup-notification";
 
 const input = z.object({
   salonName: z.string().min(2, "Nome do estabelecimento muito curto").max(80),
@@ -72,11 +73,18 @@ export async function createSalon(
 
   await prisma.$transaction(async (tx) => {
     const salon = await tx.salon.create({
-      data: { slug, name: data.salonName, plan: "FREE", segment: segmentId },
+      data: {
+        slug,
+        name: data.salonName,
+        plan: "FREE",
+        segment: segmentId,
+        accessStatus: "PENDING",
+      },
       select: { id: true },
     });
     // A partir daqui, Membership e Service exigem a GUC do salão recém-criado.
     await setSalonGuc(tx, salon.id);
+    await setUserGuc(tx, userId);
     await tx.membership.create({
       data: { userId, salonId: salon.id, role: "OWNER" },
     });
@@ -85,7 +93,29 @@ export async function createSalon(
         data: services.map((s) => ({ salonId: salon.id, ...s })),
       });
     }
+    await tx.salonAccessEvent.create({
+      data: {
+        salonId: salon.id,
+        actorUserId: userId,
+        type: "REQUESTED",
+        newStatus: "PENDING",
+        newPlan: "FREE",
+      },
+    });
   });
+
+  const owner = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { name: true, email: true },
+  });
+  if (owner) {
+    await notifyPlatformAdminOfSignup({
+      salonName: data.salonName,
+      slug,
+      ownerName: owner.name,
+      ownerEmail: owner.email,
+    });
+  }
 
   return { ok: true };
 }
