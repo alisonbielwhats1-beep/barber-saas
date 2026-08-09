@@ -75,8 +75,8 @@ export function ClientsCrm({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex min-h-11 flex-1 items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 sm:flex-none">
+      <div className="experience-filter-rail flex flex-wrap items-center gap-2 p-2">
+        <div className="flex min-h-11 flex-1 items-center gap-2 rounded-xl border border-border bg-card/75 px-3 py-1.5 sm:flex-none">
           <Search className="h-3.5 w-3.5 text-muted-foreground" />
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar cliente ou telefone…" className="min-w-0 flex-1 bg-transparent text-[13px] placeholder:text-muted-foreground focus:outline-none sm:w-48" />
         </div>
@@ -87,12 +87,12 @@ export function ClientsCrm({
         <Seg active={segment === "recurring"} onClick={() => setSegment("recurring")} icon={Repeat} accent="#A855F7">Recorrentes ({counts.recurring})</Seg>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-border bg-card">
+      <div className="client-list experience-surface overflow-hidden">
         {shown.length === 0 ? (
           <div className="p-12 text-center text-[13px] text-muted-foreground">Nenhum cliente neste filtro.</div>
         ) : (
           shown.map((c) => (
-            <div key={c.id} className="flex min-h-16 items-center gap-3 border-b border-border px-3 py-3 last:border-0 hover:bg-card-hover sm:px-4">
+            <div key={c.id} className="client-row flex min-h-[4.5rem] items-center gap-3 border-b border-border/80 px-3 py-3 transition-colors last:border-0 hover:bg-card-hover/75 sm:px-4">
               <button onClick={() => openDetail(c)} className="flex min-h-11 min-w-0 flex-1 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-[12px] font-semibold text-black/80" style={{ background: c.loyaltyColor }}>
                   {c.name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase()}

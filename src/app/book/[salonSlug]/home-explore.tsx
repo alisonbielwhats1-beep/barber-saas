@@ -72,7 +72,10 @@ export function HomeExplore({
   }, [services, categories, activeCategory, query]);
 
   return (
-    <>
+    <div
+      data-service-presentation={experience.visual.catalogLayout}
+      className="public-service-explorer space-y-6"
+    >
       {/* Search */}
       <div className="flex min-h-12 items-center gap-2 rounded-full border border-border bg-card px-4 py-3">
         <Search className="h-4 w-4 text-muted-foreground" />
@@ -96,7 +99,7 @@ export function HomeExplore({
       {categories.length > 1 && !query && (
         <section>
           <p className="mb-3 text-sm font-semibold text-muted-foreground">Categorias</p>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="public-category-grid grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {/* "Todos" tile */}
             <button
               onClick={() => setActiveCategory(null)}
@@ -152,7 +155,7 @@ export function HomeExplore({
       )}
 
       {/* Service list */}
-      <section className="space-y-4">
+      <section className="public-service-catalog space-y-4">
         {query && (
           <p className="text-sm font-semibold text-muted-foreground">
             {groups.reduce((n, g) => n + g.items.length, 0)} resultado
@@ -178,11 +181,12 @@ export function HomeExplore({
           groups.map(({ cat, items }) => (
             <div
               key={cat}
-              className="experience-card-interactive overflow-hidden border border-border bg-card"
+              data-catalog-layout={experience.visual.catalogLayout}
+              className="public-service-group experience-card-interactive overflow-hidden border border-border bg-card"
             >
               {/* Category header — only when showing multiple categories */}
               {(activeCategory === null && categories.length > 1 && !query) && (
-                <div className="border-b border-border px-4 py-3">
+                <div className="public-service-group-heading border-b border-border px-4 py-3">
                   <p className="text-[13px] font-semibold">{cat}</p>
                 </div>
               )}
@@ -192,7 +196,7 @@ export function HomeExplore({
                 <Link
                   key={s.id}
                   href={`/book/${salonSlug}/agendar?service=${s.id}`}
-                  className="flex items-center gap-3 border-t border-border px-4 py-3.5 transition hover:bg-card-hover active:opacity-75 first:border-t-0"
+                  className="public-service-row flex min-h-20 items-center gap-3 border-t border-border px-4 py-3.5 transition hover:bg-card-hover active:opacity-75 first:border-t-0"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[14px] font-medium">{s.name}</p>
@@ -217,6 +221,6 @@ export function HomeExplore({
           ))
         )}
       </section>
-    </>
+    </div>
   );
 }

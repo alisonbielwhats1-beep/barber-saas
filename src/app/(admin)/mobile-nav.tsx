@@ -15,6 +15,7 @@ import {
 import { cn } from "@/lib/utils";
 import { UnreadBadge } from "@/components/unread-badge";
 import { useBusinessExperience } from "@/components/business-experience-provider";
+import { ProductWordmark } from "@/components/product-wordmark";
 import { DASHBOARD_ROLES, MANAGEMENT_ROLES } from "@/lib/role-permissions";
 import { visibleGroups } from "./sidebar-nav";
 import { OpenCommandPaletteButton } from "./command-palette";
@@ -53,9 +54,14 @@ export function MobileNav({
     <>
       {/* Painel "Mais" — todos os módulos agrupados */}
       {open && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-background md:hidden">
-          <div className="flex items-center justify-between border-b border-border px-5 py-4">
-            <p className="text-sm font-semibold">Todos os módulos</p>
+        <div className="experience-scope fixed inset-0 z-50 flex flex-col bg-background md:hidden">
+          <div className="flex items-center justify-between border-b border-border/70 px-5 py-4">
+            <div>
+              <ProductWordmark compact />
+              <p className="experience-eyebrow text-[9px] font-semibold uppercase tracking-[0.17em]">
+                Todos os módulos
+              </p>
+            </div>
             <button
               onClick={() => setOpen(false)}
               aria-label="Fechar menu"
@@ -64,19 +70,19 @@ export function MobileNav({
               <X className="h-4 w-4" />
             </button>
           </div>
-          <div className="scrollbar-dark flex-1 space-y-5 overflow-y-auto px-5 py-5 pb-24">
+          <div className="scrollbar-dark flex-1 space-y-6 overflow-y-auto px-5 py-5 pb-32">
             <OpenCommandPaletteButton />
             {visibleGroups(role, experience).map((group) => (
               <div key={group.title}>
                 <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
                   {group.title}
                 </p>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-3">
                   {group.items.map((item) =>
                     item.soon ? (
                       <div
                         key={item.href}
-                        className="flex items-center gap-2.5 rounded-xl border border-border bg-card px-3 py-3 text-[13px] text-muted-foreground/45"
+                        className="experience-surface flex min-h-16 items-center gap-2.5 px-3 py-3 text-[13px] text-muted-foreground/45"
                       >
                         <item.icon className="h-4 w-4 shrink-0" />
                         {item.label}
@@ -88,10 +94,10 @@ export function MobileNav({
                         prefetch={false}
                         onClick={() => setOpen(false)}
                         className={cn(
-                          "flex items-center gap-2.5 rounded-xl border px-3 py-3 text-[13px] font-medium transition-colors",
+                          "experience-surface flex min-h-16 items-center gap-2.5 px-3 py-3 text-[13px] font-medium transition",
                           isActive(item.href)
-                            ? "experience-active-nav experience-accent-border"
-                            : "border-border bg-card text-muted-foreground",
+                            ? "experience-active-nav experience-card-selected"
+                            : "text-muted-foreground",
                         )}
                       >
                         <item.icon
@@ -113,10 +119,10 @@ export function MobileNav({
                 prefetch={false}
                 onClick={() => setOpen(false)}
                 className={cn(
-                  "flex items-center gap-2.5 rounded-xl border px-3 py-3 text-[13px] font-medium transition-colors",
+                  "experience-surface flex min-h-16 items-center gap-2.5 px-3 py-3 text-[13px] font-medium transition",
                   isActive("/configuracoes")
-                    ? "experience-active-nav experience-accent-border"
-                    : "border-border bg-card text-muted-foreground",
+                    ? "experience-active-nav experience-card-selected"
+                    : "text-muted-foreground",
                 )}
               >
                 <Settings className="h-4 w-4 shrink-0" />
@@ -128,7 +134,7 @@ export function MobileNav({
       )}
 
       {/* Barra inferior */}
-      <nav aria-label="Navegação principal" className="fixed inset-x-0 bottom-0 z-50 flex border-t border-border bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden print:hidden">
+      <nav aria-label="Navegação principal" className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-50 flex overflow-hidden rounded-2xl border border-border-strong/70 bg-card/92 p-1.5 shadow-[0_22px_60px_-22px_rgba(0,0,0,0.75)] backdrop-blur-xl md:hidden print:hidden">
         {PRIMARY.filter((item) => !item.roles || item.roles.includes(role)).map((item) => {
           const active = !open && isActive(item.href);
           return (
@@ -138,12 +144,12 @@ export function MobileNav({
               prefetch={false}
               onClick={() => setOpen(false)}
               className={cn(
-                "flex flex-1 flex-col items-center gap-1 pb-3 pt-2.5 text-[10px] font-medium transition-colors",
-                active ? "experience-accent-text" : "text-muted-foreground",
+                "flex min-h-14 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 text-[10px] font-medium transition-colors",
+                active ? "experience-active-nav experience-accent-text" : "text-muted-foreground",
               )}
             >
               <span className="relative">
-                <item.icon className="h-5 w-5" strokeWidth={active ? 2.4 : 2} />
+                <item.icon className="h-[19px] w-[19px]" strokeWidth={active ? 2.4 : 2} />
                 <UnreadBadge
                   count={item.href === "/notificacoes" ? unreadNotifications : 0}
                   className="absolute -right-3 -top-2"
@@ -158,8 +164,8 @@ export function MobileNav({
           aria-expanded={open}
           aria-label={open ? "Fechar menu completo" : "Abrir menu completo"}
           className={cn(
-            "flex flex-1 flex-col items-center gap-1 pb-3 pt-2.5 text-[10px] font-medium transition-colors",
-            open ? "experience-accent-text" : "text-muted-foreground",
+            "flex min-h-14 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 text-[10px] font-medium transition-colors",
+            open ? "experience-active-nav experience-accent-text" : "text-muted-foreground",
           )}
         >
           <MoreHorizontal className="h-5 w-5" strokeWidth={open ? 2.4 : 2} />

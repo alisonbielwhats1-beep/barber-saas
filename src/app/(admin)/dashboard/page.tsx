@@ -252,7 +252,7 @@ export default async function DashboardPage({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-7">
       <AutoRefresh />
       <ExperienceHero
         experience={experience}
@@ -271,7 +271,7 @@ export default async function DashboardPage({
         </span>
       </ExperienceHero>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/70 bg-card/60 px-4 py-3">
+      <div className="experience-filter-rail flex flex-wrap items-center justify-between gap-3 px-4 py-3">
         <div className="flex flex-wrap items-center gap-2">
           <span className="flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
             <Sparkles className="h-3 w-3" />
@@ -287,7 +287,7 @@ export default async function DashboardPage({
 
       {/* ── Checklist de onboarding — some quando completo ─── */}
       {!setupDone && (
-        <section className="rounded-2xl border border-primary/25 bg-primary/5 p-5">
+        <section className="experience-surface border-primary/25 bg-primary/5 p-5">
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-[15px] font-semibold">{experience.dashboard.setupTitle}</h2>
@@ -328,9 +328,22 @@ export default async function DashboardPage({
         </section>
       )}
 
+      {/* ── Indicadores que definem a leitura de cada experiência ───────── */}
+      <section className="dashboard-kpi-grid stagger grid grid-cols-2 gap-4 xl:grid-cols-5 [&>*:last-child]:col-span-2 xl:[&>*:last-child]:col-span-1">
+        {experience.dashboard.metricOrder.map((metric, index) => (
+          <div
+            key={metric}
+            data-dashboard-metric={metric}
+            className={index === 0 ? "col-span-2" : "col-span-1"}
+          >
+            {heroMetrics[metric]}
+          </div>
+        ))}
+      </section>
+
       {/* ── Hoje: o que está acontecendo agora ─────────────── */}
-      <section className="grid gap-4 lg:grid-cols-3">
-        <Panel className="lg:col-span-2">
+      <section className="dashboard-today-grid grid gap-4">
+        <Panel className="dashboard-primary-panel">
           <div className="flex items-center justify-between">
             <PanelTitle icon={CalendarClock}>{experience.dashboard.todayTitle}</PanelTitle>
             <Link href="/agenda" className="text-[12px] font-medium text-primary hover:underline">
@@ -413,15 +426,6 @@ export default async function DashboardPage({
           <LembretesPanel reminders={reminders} salonName={salonName} timezone={timezone} />
         </section>
       )}
-
-      {/* ── Hero KPIs ──────────────────────────────────────── */}
-      <section className="stagger grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {experience.dashboard.metricOrder.map((metric) => (
-          <div key={metric} className="contents">
-            {heroMetrics[metric]}
-          </div>
-        ))}
-      </section>
 
       {/* ── Stat tiles — só o que pede atenção no período ──── */}
       <section className="stagger grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-7">
@@ -606,7 +610,7 @@ function HeroKpi({
   hint?: string;
 }) {
   return (
-    <div className="card-interactive rounded-2xl border border-border bg-card p-5">
+    <div className="experience-kpi h-full p-5 sm:p-6">
       <div className="flex items-center justify-between">
         <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
           {label}
@@ -615,7 +619,7 @@ function HeroKpi({
           <Icon className="h-4 w-4" />
         </span>
       </div>
-      <p className="mt-3 text-[28px] font-semibold leading-none tracking-tight">{value}</p>
+      <p className="mt-4 text-[30px] font-semibold leading-none tracking-[-0.04em] sm:text-[34px]">{value}</p>
       <div className="mt-2 flex items-center gap-2">
         {change != null && <TrendBadge change={change} />}
         {hint && <span className="text-[12px] text-muted-foreground">{hint}</span>}
@@ -636,7 +640,7 @@ function StatTile({
   hint?: string;
 }) {
   return (
-    <div className="card-interactive rounded-xl border border-border bg-card p-4">
+    <div className="experience-surface card-interactive p-4">
       <span className="grid h-8 w-8 place-items-center rounded-lg bg-muted text-muted-foreground">
         <Icon className="h-4 w-4" />
       </span>
@@ -649,7 +653,7 @@ function StatTile({
 
 function TodayRow({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
   return (
-    <div className="flex items-center justify-between rounded-xl bg-surface-1 px-3.5 py-2.5">
+    <div className="flex min-h-11 items-center justify-between rounded-xl border border-border/50 bg-surface-1/70 px-3.5 py-2.5">
       <span className="text-[12px] text-muted-foreground">{label}</span>
       <span className={strong ? "text-[15px] font-semibold text-primary" : "text-[14px] font-semibold"}>
         {value}
@@ -668,7 +672,7 @@ function MiniStat({
   value: string;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
+    <div className="experience-surface flex items-center gap-3 p-3">
       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
         <Icon className="h-4 w-4" />
       </span>
@@ -696,15 +700,17 @@ function TrendBadge({ change }: { change: number }) {
 
 function Panel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`rounded-2xl border border-border bg-card p-5 ${className}`}>{children}</div>
+    <div className={`experience-surface p-5 sm:p-6 ${className}`}>{children}</div>
   );
 }
 
 function PanelTitle({ icon: Icon, children }: { icon: IconType; children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-2">
-      <Icon className="h-4 w-4 text-muted-foreground" />
-      <h3 className="text-[13px] font-semibold">{children}</h3>
+      <span className="experience-icon-surface grid h-8 w-8 place-items-center rounded-lg border">
+        <Icon className="h-4 w-4" />
+      </span>
+      <h3 className="text-[13px] font-semibold tracking-tight">{children}</h3>
     </div>
   );
 }
@@ -742,7 +748,7 @@ function GenderPanel({
   share: number;
 }) {
   return (
-    <div className="card-interactive rounded-2xl border border-border bg-card p-5">
+    <div className="experience-surface card-interactive p-5 sm:p-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <span

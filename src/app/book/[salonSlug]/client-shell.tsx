@@ -32,7 +32,8 @@ export function ClientShell({
     <UnreadNotificationsContext.Provider value={unreadNotifications}>
       <div
         className={cn(
-          "mx-auto min-h-dvh w-full max-w-[480px]",
+          "mx-auto min-h-dvh w-full",
+          hideNavigation ? "max-w-[760px]" : "max-w-[1180px]",
           !hideNavigation && "pb-[calc(6.75rem+env(safe-area-inset-bottom))]",
         )}
       >

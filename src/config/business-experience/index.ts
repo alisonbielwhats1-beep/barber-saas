@@ -14,6 +14,13 @@ const experiences: Record<SegmentId, BusinessExperience> = {
     shortLabel: "Barbearia",
     icon: "scissors",
     personality: "Precisão, presença e ritmo para uma agenda sempre em movimento.",
+    visual: {
+      direction: "precision",
+      density: "compact",
+      dashboardLayout: "operations",
+      catalogLayout: "split",
+      publicLayout: "editorial",
+    },
     terminology: {
       establishment: "barbearia",
       professional: "barbeiro",
@@ -61,6 +68,13 @@ const experiences: Record<SegmentId, BusinessExperience> = {
     shortLabel: "Salão",
     icon: "sparkles",
     personality: "Elegância leve para uma operação cuidadosa e bem coordenada.",
+    visual: {
+      direction: "editorial",
+      density: "comfortable",
+      dashboardLayout: "relationship",
+      catalogLayout: "editorial",
+      publicLayout: "studio",
+    },
     terminology: {
       establishment: "salão",
       professional: "profissional",
@@ -108,6 +122,13 @@ const experiences: Record<SegmentId, BusinessExperience> = {
     shortLabel: "Manicure",
     icon: "gem",
     personality: "Detalhe, resultado e recorrência em uma experiência altamente visual.",
+    visual: {
+      direction: "fashion",
+      density: "comfortable",
+      dashboardLayout: "recurrence",
+      catalogLayout: "portfolio",
+      publicLayout: "portfolio",
+    },
     terminology: {
       establishment: "espaço de manicure",
       professional: "profissional",
@@ -155,6 +176,13 @@ const experiences: Record<SegmentId, BusinessExperience> = {
     shortLabel: "Estética",
     icon: "waves",
     personality: "Clareza, confiança e bem-estar com espaço para o que importa.",
+    visual: {
+      direction: "wellness",
+      density: "airy",
+      dashboardLayout: "care",
+      catalogLayout: "gallery",
+      publicLayout: "retreat",
+    },
     terminology: {
       establishment: "espaço de estética",
       professional: "especialista",
@@ -202,6 +230,13 @@ const experiences: Record<SegmentId, BusinessExperience> = {
     shortLabel: "Misto",
     icon: "layout-grid",
     personality: "Uma visão versátil para várias especialidades no mesmo espaço.",
+    visual: {
+      direction: "modular",
+      density: "comfortable",
+      dashboardLayout: "overview",
+      catalogLayout: "modular",
+      publicLayout: "marketplace",
+    },
     terminology: {
       establishment: "espaço",
       professional: "profissional",
@@ -281,4 +316,7 @@ export type {
   BusinessExperienceIconName,
   BusinessExperienceId,
   DashboardMetricKey,
+  ExperienceCatalogLayout,
+  ExperienceDensity,
+  ExperienceDirection,
 } from "./types";

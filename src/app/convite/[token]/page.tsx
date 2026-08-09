@@ -1,10 +1,10 @@
-import { Scissors } from "lucide-react";
 import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { emailInvitesEnabled } from "@/lib/email-invites-feature";
 import { getInviteView, type InviteRole } from "@/lib/invitations";
 import { InviteForm } from "./invite-form";
+import { ProductWordmark } from "@/components/product-wordmark";
 
 const ROLE_LABEL: Record<InviteRole, string> = {
   OWNER: "Dono(a)",
@@ -28,15 +28,12 @@ export default async function InvitePage({
 }) {
   if (!emailInvitesEnabled()) {
     return (
-      <main className="grid min-h-screen place-items-center bg-background p-6 text-foreground">
+      <main data-theme="salon-dark" data-business-experience="espaco-misto" data-experience-direction="modular" className="experience-scope grid min-h-screen place-items-center bg-background p-6 text-foreground">
         <div className="w-full max-w-sm">
-          <div className="mb-6 flex items-center justify-center gap-2">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary">
-              <Scissors className="h-4 w-4 text-primary-foreground" />
-            </span>
-            <span className="font-semibold">SalonSaaS</span>
+          <div className="mb-6 flex justify-center">
+            <ProductWordmark />
           </div>
-          <section className="rounded-2xl border border-border bg-card p-6 shadow-xl">
+          <section className="experience-surface-raised p-6">
             <h1 className="text-xl font-semibold">Convites temporariamente indisponíveis</h1>
             <p className="mt-2 text-sm text-muted-foreground">
               O envio e o aceite de convites ainda não estão liberados. Fale
@@ -62,15 +59,12 @@ export default async function InvitePage({
     : null;
 
   return (
-    <main className="grid min-h-screen place-items-center bg-background p-6 text-foreground">
+    <main data-theme="salon-dark" data-business-experience="espaco-misto" data-experience-direction="modular" className="experience-scope grid min-h-screen place-items-center bg-background p-6 text-foreground">
       <div className="w-full max-w-sm">
-        <div className="mb-6 flex items-center justify-center gap-2">
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary">
-            <Scissors className="h-4 w-4 text-primary-foreground" />
-          </span>
-          <span className="font-semibold">SalonSaaS</span>
+        <div className="mb-6 flex justify-center">
+          <ProductWordmark />
         </div>
-        <section className="rounded-2xl border border-border bg-card p-6 shadow-xl">
+        <section className="experience-surface-raised p-6">
           {terminal ? (
             <>
               <h1 className="text-xl font-semibold">

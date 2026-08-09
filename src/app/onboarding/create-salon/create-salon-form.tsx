@@ -50,10 +50,12 @@ export function CreateSalonForm() {
     <form
       onSubmit={onSubmit}
       data-business-experience={experience.id}
-      className="space-y-8"
+      data-experience-direction={experience.visual.direction}
+      data-experience-density={experience.visual.density}
+      className="experience-scope space-y-8 rounded-[inherit]"
     >
       {/* 1. Tipo de negócio */}
-      <section>
+      <section className="experience-context-panel p-4 sm:p-5">
         <div className="flex items-start gap-3">
           <span className="experience-icon-surface grid h-10 w-10 shrink-0 place-items-center rounded-xl border">
             <BusinessExperienceIcon name={experience.icon} className="h-[18px] w-[18px]" />
@@ -71,8 +73,8 @@ export function CreateSalonForm() {
         </div>
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] lg:items-start">
-        <div>
+      <section className="grid gap-5 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:items-start">
+        <div className="experience-surface p-4 sm:p-5">
           <label htmlFor="salonName" className="text-[15px] font-semibold">
             Nome do estabelecimento
           </label>
@@ -117,7 +119,7 @@ export function CreateSalonForm() {
       <Button
         type="submit"
         size="lg"
-        className="min-h-12 w-full sm:ml-auto sm:w-auto sm:min-w-64"
+          className="min-h-12 w-full rounded-full sm:ml-auto sm:w-auto sm:min-w-64"
         disabled={pending || salonName.trim().length < 2}
       >
         {pending ? (

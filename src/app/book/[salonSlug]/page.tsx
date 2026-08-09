@@ -133,14 +133,16 @@ export default async function ClientHome({
         "--primary": brandHsl,
         "--accent": brandHsl,
         "--ring": brandHsl,
+        "--experience-accent": brandHsl,
+        "--experience-glow": brandHsl,
         "--primary-foreground": readableForeground(salon.themeColorHex) ?? "0 0% 100%",
       } as React.CSSProperties)
     : undefined;
 
   return (
-    <main className="animate-fade-in space-y-6 px-4 pt-5 sm:px-5 sm:pt-6" style={brandStyle}>
+    <main className="animate-fade-in space-y-7 px-4 pt-5 sm:px-6 sm:pt-6 lg:px-8 lg:pt-8" style={brandStyle}>
       {/* Top bar */}
-      <header className="flex items-center gap-3">
+      <header className="experience-surface flex items-center gap-3 px-3 py-2.5 sm:px-4">
         <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary/20 text-sm font-semibold text-primary">
           {initials}
         </div>
@@ -153,13 +155,14 @@ export default async function ClientHome({
       </header>
 
       {/* Hero — capa do salão */}
-      <div className="relative h-52 overflow-hidden rounded-[1.75rem] border border-white/10 shadow-premium sm:h-56">
+      <section className="public-hero-grid">
+      <div className="relative h-64 overflow-hidden rounded-[1.75rem] border border-white/10 shadow-premium sm:h-80 lg:h-[25rem]">
         <Image
           src={coverSrc}
           alt={salon.name}
           fill
           priority
-          sizes="(max-width: 480px) 92vw, 440px"
+          sizes="(max-width: 767px) 94vw, 68vw"
           className="object-cover"
           style={{ objectPosition: experience.imagery.objectPosition }}
         />
@@ -183,27 +186,28 @@ export default async function ClientHome({
       {/* CTA de agendamento */}
       <Link
         href={`/book/${salonSlug}/agendar`}
-        className="group block min-h-44 overflow-hidden rounded-[1.75rem] bg-primary p-6 text-primary-foreground shadow-lg transition-transform motion-safe:hover:-translate-y-0.5"
+        className="group relative flex min-h-48 flex-col justify-end overflow-hidden rounded-[1.75rem] bg-primary p-6 text-primary-foreground shadow-lg transition-transform motion-safe:hover:-translate-y-1 sm:p-7"
       >
         <h2 className="font-display text-2xl leading-tight">Agendar um horário</h2>
         <p className="mt-1 text-sm text-primary-foreground/80">
           {experience.booking.publicDescription}
         </p>
-        <div className="mt-4 flex w-fit items-center gap-2 rounded-full bg-primary-foreground px-4 py-2 text-sm font-semibold text-primary">
+        <div className="mt-6 flex w-fit items-center gap-2 rounded-full bg-primary-foreground px-4 py-2.5 text-sm font-semibold text-primary transition-transform group-hover:translate-x-1">
           Agendar agora
           <ArrowUpRight className="h-4 w-4" />
         </div>
       </Link>
+      </section>
 
       {/* Apresentação escrita pelo dono */}
       {salon.description && (
-        <p className="text-[14px] leading-relaxed text-muted-foreground">
+        <p className="max-w-3xl text-[15px] leading-7 text-muted-foreground">
           {salon.description}
         </p>
       )}
 
       {/* Informações — só dados que existem de verdade no cadastro do salão */}
-      <div className="grid grid-cols-1 gap-2.5 rounded-3xl border border-border bg-card p-4 text-[13px] sm:grid-cols-2">
+      <div className="experience-surface grid grid-cols-1 gap-3 p-4 text-[13px] sm:grid-cols-2 lg:grid-cols-4 lg:p-5">
         <div className="flex items-center gap-2.5 text-muted-foreground">
           <Clock className="h-4 w-4 shrink-0 text-primary" />
           Aberto das {formatHours(salon.openMinutes, salon.closeMinutes)}
@@ -253,7 +257,7 @@ export default async function ClientHome({
           <p className="mb-3 text-sm font-semibold text-muted-foreground">
             {experience.navigation.professionals}
           </p>
-          <div className="scrollbar-dark flex gap-3 overflow-x-auto pb-1">
+          <div className="scrollbar-dark grid grid-flow-col auto-cols-[9rem] gap-3 overflow-x-auto pb-2 sm:auto-cols-[10rem] lg:grid-flow-row lg:grid-cols-5 lg:overflow-visible">
             {salon.professionals.map((p) => {
               const initials = (p.user.name || "?")
                 .split(" ")
@@ -264,7 +268,7 @@ export default async function ClientHome({
               return (
                 <div
                   key={p.id}
-                  className="experience-card-interactive w-32 shrink-0 border border-border bg-card p-3 text-center"
+                  className="experience-card-interactive border border-border bg-card p-3 text-center"
                 >
                   <div
                     className="mx-auto grid h-12 w-12 place-items-center rounded-full text-sm font-semibold text-white"
@@ -302,19 +306,19 @@ export default async function ClientHome({
               Ver tudo <ChevronRight className="h-3.5 w-3.5" />
             </Link>
           </div>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
             {salon.portfolio.slice(0, 6).map((item) => (
               <Link
                 key={item.id}
                 href={`/book/${salonSlug}/portfolio`}
-                className="relative aspect-square overflow-hidden rounded-xl"
+                className="group relative aspect-square overflow-hidden rounded-[var(--experience-radius)] border border-border"
               >
                 <Image
                   src={item.imageUrl}
                   alt={item.caption ?? "Trabalho do portfólio"}
                   fill
                   sizes="150px"
-                  className="object-cover"
+                  className="object-cover transition duration-500 group-hover:scale-105"
                 />
               </Link>
             ))}
@@ -334,12 +338,12 @@ export default async function ClientHome({
               Ver loja <ChevronRight className="h-3.5 w-3.5" />
             </Link>
           </div>
-          <div className="scrollbar-dark flex gap-3 overflow-x-auto pb-1">
+          <div className="scrollbar-dark grid grid-flow-col auto-cols-[8rem] gap-3 overflow-x-auto pb-2 sm:auto-cols-[10rem] lg:grid-flow-row lg:grid-cols-4 lg:overflow-visible">
             {salon.products.map((p, i) => (
               <Link
                 key={p.id}
                 href={`/book/${salonSlug}/produtos`}
-                className="w-28 shrink-0 overflow-hidden rounded-2xl border border-border bg-card"
+                className="experience-card-interactive overflow-hidden border border-border bg-card"
               >
                 <div className="relative aspect-square w-full">
                   <Image src={p.imageUrl ?? imageForProduct(i)} alt={p.name} fill sizes="112px" className="object-cover" />
