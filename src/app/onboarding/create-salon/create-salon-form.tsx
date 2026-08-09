@@ -24,17 +24,21 @@ export function CreateSalonForm() {
     setError(null);
 
     startTransition(async () => {
-      const res = await createSalon({
-        salonName,
-        segmentId: selection.segmentId,
-        serviceNames: selection.serviceNames,
-      });
-      if (!res.ok) {
-        setError(res.error);
-        return;
+      try {
+        const res = await createSalon({
+          salonName,
+          segmentId: selection.segmentId,
+          serviceNames: selection.serviceNames,
+        });
+        if (!res.ok) {
+          setError(res.error);
+          return;
+        }
+        router.push("/onboarding/acesso");
+        router.refresh();
+      } catch {
+        setError("Não foi possível concluir agora. Verifique sua conexão e tente novamente.");
       }
-      router.push("/onboarding/acesso");
-      router.refresh();
     });
   }
 

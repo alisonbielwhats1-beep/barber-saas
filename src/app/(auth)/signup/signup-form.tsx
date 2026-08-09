@@ -32,23 +32,27 @@ export function SignupForm() {
     };
 
     startTransition(async () => {
-      const res = await signup(payload);
-      if (!res.ok) {
-        setError(res.error);
-        return;
+      try {
+        const res = await signup(payload);
+        if (!res.ok) {
+          setError(res.error);
+          return;
+        }
+        // Auto-login logo após criar.
+        const signInRes = await signIn("credentials", {
+          email: payload.email,
+          password: payload.password,
+          redirect: false,
+        });
+        if (signInRes?.error) {
+          setError("Conta criada, mas não foi possível entrar automaticamente. Use o login.");
+          return;
+        }
+        router.push("/onboarding/acesso");
+        router.refresh();
+      } catch {
+        setError("Não foi possível concluir agora. Verifique sua conexão e tente novamente.");
       }
-      // Auto-login logo após criar
-      const signInRes = await signIn("credentials", {
-        email: payload.email,
-        password: payload.password,
-        redirect: false,
-      });
-      if (signInRes?.error) {
-        setError("Conta criada, mas falhou ao entrar. Vá para o login.");
-        return;
-      }
-      router.push("/onboarding/acesso");
-      router.refresh();
     });
   }
 

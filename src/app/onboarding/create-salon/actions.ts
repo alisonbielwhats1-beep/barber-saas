@@ -10,6 +10,7 @@ import { uniqueSalonSlug } from "@/lib/slug";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { resolveSalonSetup } from "@/lib/salon-setup";
 import { notifyPlatformAdminOfSignup } from "@/lib/platform-signup-notification";
+import { recordSalonAccessRequest } from "@/lib/salon-access-request";
 
 const input = z.object({
   salonName: z.string().min(2, "Nome do estabelecimento muito curto").max(80),
@@ -71,38 +72,42 @@ export async function createSalon(
 
   const slug = await uniqueSalonSlug(data.salonName);
 
-  await prisma.$transaction(async (tx) => {
-    const salon = await tx.salon.create({
-      data: {
-        slug,
-        name: data.salonName,
-        plan: "FREE",
-        segment: segmentId,
-        accessStatus: "PENDING",
-      },
-      select: { id: true },
-    });
-    // A partir daqui, Membership e Service exigem a GUC do salão recém-criado.
-    await setSalonGuc(tx, salon.id);
-    await setUserGuc(tx, userId);
-    await tx.membership.create({
-      data: { userId, salonId: salon.id, role: "OWNER" },
-    });
-    if (services.length > 0) {
-      await tx.service.createMany({
-        data: services.map((s) => ({ salonId: salon.id, ...s })),
+  try {
+    await prisma.$transaction(async (tx) => {
+      const salon = await tx.salon.create({
+        data: {
+          slug,
+          name: data.salonName,
+          plan: "FREE",
+          segment: segmentId,
+          accessStatus: "PENDING",
+        },
+        select: { id: true },
       });
-    }
-    await tx.salonAccessEvent.create({
-      data: {
-        salonId: salon.id,
-        actorUserId: userId,
-        type: "REQUESTED",
-        newStatus: "PENDING",
-        newPlan: "FREE",
-      },
+      // A partir daqui, Membership e Service exigem as GUCs recém-criadas.
+      await setSalonGuc(tx, salon.id);
+      await setUserGuc(tx, userId);
+      await tx.membership.create({
+        data: { userId, salonId: salon.id, role: "OWNER" },
+      });
+      if (services.length > 0) {
+        await tx.service.createMany({
+          data: services.map((s) => ({ salonId: salon.id, ...s })),
+        });
+      }
+      await recordSalonAccessRequest(tx, { salonId: salon.id, actorUserId: userId });
     });
-  });
+  } catch (error) {
+    const details = error as { code?: unknown; name?: unknown };
+    console.error("salon_onboarding_failed", {
+      code: typeof details.code === "string" ? details.code : "unknown",
+      name: typeof details.name === "string" ? details.name : "unknown",
+    });
+    return {
+      ok: false,
+      error: "Não foi possível criar o estabelecimento agora. Tente novamente em instantes.",
+    };
+  }
 
   const owner = await prisma.user.findUnique({
     where: { id: userId },
