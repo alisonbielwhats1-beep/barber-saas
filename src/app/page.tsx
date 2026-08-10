@@ -7,70 +7,44 @@ import {
   ArrowRight,
   ArrowUpRight,
   Quote,
-  ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MarketingHeader } from "./marketing-header";
 import { SegmentExplorer } from "./segment-explorer";
 import { ProductMockup } from "./product-mockup";
 import { ClientMockup } from "./client-mockup";
-import { SalonCinematicBackground } from "@/components/salon-cinematic-background";
+import { AnimatedLandingHero, LandingReveal } from "./animated-landing";
 
 export default function LandingPage() {
   return (
-    <main className="min-h-screen bg-background">
+    <main data-theme="marketing-light" className="min-h-screen overflow-hidden bg-background">
       <MarketingHeader />
+      <AnimatedLandingHero />
 
-      {/* Hero */}
-      <section className="relative min-h-[760px] overflow-hidden pb-20 pt-32 md:pt-40">
-        <SalonCinematicBackground priority />
-        <div className="container relative z-10 grid gap-14 lg:grid-cols-2 lg:items-center lg:gap-10">
-          <div className="animate-fade-in drop-shadow-[0_8px_30px_rgba(0,0,0,0.45)]">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/20 bg-background/55 px-4 py-1.5 text-xs font-medium text-foreground/80 backdrop-blur-md">
-              <ShieldCheck className="h-3 w-3" />
-              A rotina do seu espaço, em um só lugar
-            </div>
-            <h1 className="font-display text-4xl leading-[1.1] tracking-tight md:text-6xl">
-              Seu espaço organizado,
-              <br />
-              <span className="text-foreground">sua agenda sempre em movimento.</span>
-            </h1>
-            <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground">
-              Agenda online, cadastro de clientes, controle da equipe e visão
-              financeira num só painel — para barbearias, salões, manicures,
-              estética e espaços mistos.
+      {/* Segmentos — identificação imediata logo após o hero */}
+      <section id="segmentos" className="scroll-mt-24 border-y border-border/70 bg-white/45 py-24">
+        <LandingReveal className="container">
+          <div className="mx-auto max-w-2xl text-center">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-primary">
+              Feito para a sua rotina
             </p>
-            <div className="mt-10 flex flex-wrap items-center gap-3">
-              <Button asChild size="lg" className="h-14 rounded-full px-8 text-base">
-                <Link href="/signup">
-                  Criar conta grátis <ArrowRight className="h-4 w-4" />
-                </Link>
-              </Button>
-              <Button
-                asChild
-                variant="outline"
-                size="lg"
-                className="h-14 rounded-full border-white/20 bg-white/5 px-8 text-base backdrop-blur hover:bg-white/10"
-              >
-                <Link href="/book/north-barber">Ver demonstração</Link>
-              </Button>
-            </div>
-            <p className="mt-6 text-sm text-muted-foreground">
-              Sem cartão de crédito para começar.
+            <h2 className="font-display text-3xl tracking-tight md:text-5xl">
+              Qual é o seu tipo de negócio?
+            </h2>
+            <p className="mt-4 text-muted-foreground">
+              A experiência se adapta ao seu segmento sem limitar os serviços
+              que você pode oferecer.
             </p>
           </div>
-
-          <div className="animate-slide-up lg:translate-y-6">
-            <div className="rounded-[1.65rem] bg-background/30 p-2 shadow-2xl shadow-black/50 backdrop-blur-sm">
-              <ProductMockup />
-            </div>
+          <div className="mt-14">
+            <SegmentExplorer />
           </div>
-        </div>
+        </LandingReveal>
       </section>
 
       {/* Benefícios principais */}
-      <section id="recursos" className="scroll-mt-24 border-t border-white/5 bg-muted/20 py-24">
-        <div className="container">
+      <section id="recursos" className="scroll-mt-24 py-24">
+        <LandingReveal className="container">
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="font-display text-3xl md:text-4xl">
               O que mais pesa no dia a dia, resolvido primeiro
@@ -85,7 +59,7 @@ export default function LandingPage() {
             {BENEFITS.map((b) => (
               <div
                 key={b.title}
-                className="card-interactive rounded-2xl border border-white/10 bg-card p-6"
+                className="card-interactive rounded-2xl border border-border bg-card p-6 shadow-[0_18px_45px_-38px_rgba(29,50,40,0.55)]"
               >
                 <div className="mb-4 grid h-11 w-11 place-items-center rounded-xl bg-primary/10 text-primary">
                   <b.icon className="h-5 w-5" />
@@ -97,12 +71,12 @@ export default function LandingPage() {
               </div>
             ))}
           </div>
-        </div>
+        </LandingReveal>
       </section>
 
       {/* Demonstração do sistema */}
       <section className="py-24">
-        <div className="container">
+        <LandingReveal className="container">
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="font-display text-3xl md:text-4xl">Como funciona na prática</h2>
             <p className="mt-3 text-muted-foreground">
@@ -115,7 +89,9 @@ export default function LandingPage() {
               <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-primary">
                 Para o dono
               </p>
-              <ProductMockup />
+              <div data-theme="marketing-dark" className="rounded-3xl bg-[#111513] p-1 shadow-[0_28px_70px_-38px_rgba(12,22,17,0.75)]">
+                <ProductMockup />
+              </div>
             </div>
             <div>
               <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-primary">
@@ -124,18 +100,18 @@ export default function LandingPage() {
               <ClientMockup />
             </div>
           </div>
-        </div>
+        </LandingReveal>
       </section>
 
       {/* Como funciona — passo a passo */}
-      <section className="border-t border-white/5 bg-muted/20 py-24">
-        <div className="container">
+      <section className="border-y border-border/70 bg-white/45 py-24">
+        <LandingReveal className="container">
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="font-display text-3xl md:text-4xl">Do zero ao primeiro agendamento</h2>
           </div>
           <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
             {STEPS.map((s, i) => (
-              <div key={s.title} className="relative rounded-2xl border border-white/10 bg-card p-5">
+              <div key={s.title} className="card-interactive relative rounded-2xl border border-border bg-card p-5">
                 <span className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
                   {i + 1}
                 </span>
@@ -144,28 +120,12 @@ export default function LandingPage() {
               </div>
             ))}
           </div>
-        </div>
-      </section>
-
-      {/* Qual é o seu tipo de negócio + recursos por segmento */}
-      <section id="segmentos" className="scroll-mt-24 py-24">
-        <div className="container">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="font-display text-3xl md:text-4xl">Qual é o seu tipo de negócio?</h2>
-            <p className="mt-3 text-muted-foreground">
-              A plataforma se adapta a textos, imagens e exemplos — mas nunca
-              limita o que você pode cadastrar depois.
-            </p>
-          </div>
-          <div className="mt-14">
-            <SegmentExplorer />
-          </div>
-        </div>
+        </LandingReveal>
       </section>
 
       {/* Planos */}
-      <section id="planos" className="scroll-mt-24 border-t border-white/5 bg-muted/20 py-24">
-        <div className="container">
+      <section id="planos" className="scroll-mt-24 py-24">
+        <LandingReveal className="container">
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="font-display text-3xl md:text-4xl">Planos</h2>
             <p className="mt-3 text-muted-foreground">
@@ -179,7 +139,7 @@ export default function LandingPage() {
               <div
                 key={p.name}
                 className={`rounded-3xl border p-7 ${
-                  p.highlight ? "border-primary/50 bg-primary/5" : "border-white/10 bg-card"
+                  p.highlight ? "border-primary/50 bg-primary/5" : "border-border bg-card"
                 }`}
               >
                 <h3 className="font-display text-xl">{p.name}</h3>
@@ -200,17 +160,17 @@ export default function LandingPage() {
                   variant={p.highlight ? "default" : "outline"}
                   className="mt-7 w-full rounded-full"
                 >
-                  <Link href="/signup">Começar</Link>
+                  <Link href="/signup">Criar meu espaço</Link>
                 </Button>
               </div>
             ))}
           </div>
-        </div>
+        </LandingReveal>
       </section>
 
       {/* Prova de valor honesta */}
       <section className="py-24">
-        <div className="container">
+        <LandingReveal className="container">
           <div className="mx-auto max-w-2xl text-center">
             <Quote className="mx-auto mb-6 h-8 w-8 text-primary" />
             <p className="font-display text-2xl leading-snug md:text-3xl">
@@ -222,23 +182,23 @@ export default function LandingPage() {
               números inventados por aqui.
             </p>
           </div>
-        </div>
+        </LandingReveal>
       </section>
 
       {/* CTA final */}
-      <section className="relative overflow-hidden border-t border-white/5 py-32">
-        <div className="container relative z-10 text-center">
+      <section className="relative overflow-hidden border-t border-border bg-[#17201c] py-32 text-white" data-theme="marketing-dark">
+        <LandingReveal className="container relative z-10 text-center">
           <h2 className="mx-auto max-w-2xl font-display text-4xl leading-tight md:text-5xl">
             Seu negócio <span className="text-primary">organizado e online</span>
           </h2>
           <p className="mx-auto mt-4 max-w-md text-muted-foreground">
-            Crie a conta, cadastre os serviços e compartilhe o link de
-            agendamento. Sem cartão de crédito.
+            Envie sua solicitação, configure os serviços e compartilhe o link
+            de agendamento após a aprovação.
           </p>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
             <Button asChild size="lg" className="h-14 rounded-full px-10 text-base">
               <Link href="/signup">
-                Criar conta grátis <ArrowRight className="h-4 w-4" />
+                Criar meu espaço <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
             <Button
@@ -250,7 +210,7 @@ export default function LandingPage() {
               <Link href="/book/north-barber">Ver demonstração</Link>
             </Button>
           </div>
-        </div>
+        </LandingReveal>
       </section>
 
       <MarketingFooter />
@@ -316,7 +276,7 @@ const PLANS = [
 
 function MarketingFooter() {
   return (
-    <footer className="border-t border-white/5 py-14 text-sm">
+    <footer className="border-t border-border py-14 text-sm">
       <div className="container grid gap-10 md:grid-cols-5">
         <div className="md:col-span-2">
           <p className="font-display text-lg">
@@ -352,7 +312,7 @@ function MarketingFooter() {
         />
       </div>
 
-      <div className="container mt-10 border-t border-white/5 pt-6 text-xs text-muted-foreground">
+      <div className="container mt-10 border-t border-border pt-6 text-xs text-muted-foreground">
         © {new Date().getFullYear()} SalonSaaS — feito para profissionais de beleza e bem-estar.
       </div>
     </footer>

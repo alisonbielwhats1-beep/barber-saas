@@ -94,6 +94,75 @@
     color: hsl(var(--foreground));
   }
 
+  /* ─── Marketing: porcelana + esmeralda, exclusivo da landing ──────────── */
+  [data-theme="marketing-light"] {
+    --background: 40 33% 95%;        /* #F6F3ED */
+    --surface-1: 0 0% 100%;
+    --foreground: 150 5% 11%;        /* #1B1D1C */
+
+    --card: 0 0% 100%;
+    --card-foreground: 150 5% 11%;
+    --card-hover: 40 30% 98%;
+    --elevated: 0 0% 100%;
+
+    --muted: 40 22% 89%;
+    --muted-foreground: 140 4% 39%;
+
+    --border: 39 14% 84%;            /* #DDD8CF */
+    --border-strong: 39 12% 70%;
+    --input: 0 0% 100%;
+    --ring: 158 71% 30%;
+
+    --primary: 158 71% 30%;          /* #168263 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 40 22% 89%;
+    --secondary-foreground: 150 5% 11%;
+    --accent: 158 71% 30%;
+    --accent-foreground: 0 0% 100%;
+
+    --success: 158 60% 32%;
+    --info: 213 72% 44%;
+    --warning: 35 82% 42%;
+    --danger: 0 64% 47%;
+    --marketing: 267 62% 48%;
+    --destructive: 0 64% 47%;
+    --destructive-foreground: 0 0% 100%;
+
+    color: hsl(var(--foreground));
+    color-scheme: light;
+  }
+
+  /* Ilha escura usada nos mockups e no CTA sem contaminar o restante. */
+  [data-theme="marketing-dark"] {
+    --background: 150 11% 7%;
+    --surface-1: 150 9% 10%;
+    --foreground: 40 20% 96%;
+    --card: 150 8% 10%;
+    --card-foreground: 40 20% 96%;
+    --card-hover: 150 8% 13%;
+    --elevated: 150 8% 14%;
+    --muted: 150 7% 16%;
+    --muted-foreground: 120 4% 62%;
+    --border: 150 7% 19%;
+    --border-strong: 150 7% 27%;
+    --input: 150 7% 17%;
+    --ring: 158 63% 45%;
+    --primary: 158 63% 45%;
+    --primary-foreground: 150 20% 6%;
+    --secondary: 150 7% 16%;
+    --secondary-foreground: 40 20% 96%;
+    --accent: 158 63% 45%;
+    --accent-foreground: 150 20% 6%;
+    --success: 158 63% 45%;
+    --info: 213 85% 60%;
+    --warning: 35 90% 58%;
+    --danger: 0 70% 60%;
+    --destructive: 0 70% 60%;
+    --destructive-foreground: 0 0% 100%;
+    color: hsl(var(--foreground));
+    color-scheme: dark;
+  }
+
   /* ─── Client Booking: tema escuro + verde neon ──────────────────────────── */
   [data-theme="salon-dark"] {
     --background: 230 8% 6%;
@@ -162,6 +231,80 @@
   @keyframes cinematic-drift {
     from { transform: scale(1.035) translate3d(0, 0, 0); }
     to   { transform: scale(1.075) translate3d(-0.8%, -0.35%, 0); }
+  }
+
+  /* Assinatura da landing: um mosaico troca de segmento como uma só cena. */
+  .animate-photo-swap {
+    animation: photo-swap 0.75s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  @keyframes photo-swap {
+    from { opacity: 0.35; transform: scale(0.975) translateY(8px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  .animate-segment-panel {
+    animation: segment-panel 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  @keyframes segment-panel {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .animate-landing-float {
+    animation: landing-float 6s ease-in-out infinite;
+    will-change: transform;
+  }
+  @keyframes landing-float {
+    0%, 100% { transform: translate3d(0, 0, 0); }
+    50%      { transform: translate3d(0, -7px, 0); }
+  }
+
+  .animate-landing-progress {
+    animation: landing-progress 6.5s linear both;
+  }
+  @keyframes landing-progress {
+    from { width: 0%; }
+    to   { width: 100%; }
+  }
+
+  .landing-reveal {
+    opacity: 0;
+    transform: translateY(24px);
+    transition:
+      opacity 0.75s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.75s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .landing-reveal.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .landing-orbit {
+    pointer-events: none;
+    position: absolute;
+    border-radius: 9999px;
+    filter: blur(1px);
+    opacity: 0.65;
+  }
+  .landing-orbit-one {
+    right: -11rem;
+    top: 4rem;
+    height: 30rem;
+    width: 30rem;
+    background: radial-gradient(circle, hsl(var(--primary) / 0.12), transparent 68%);
+    animation: orbit-breathe 9s ease-in-out infinite;
+  }
+  .landing-orbit-two {
+    bottom: -9rem;
+    left: 16%;
+    height: 22rem;
+    width: 22rem;
+    background: radial-gradient(circle, hsl(31 38% 72% / 0.18), transparent 70%);
+    animation: orbit-breathe 11s ease-in-out 1.5s infinite reverse;
+  }
+  @keyframes orbit-breathe {
+    0%, 100% { transform: scale(0.94); opacity: 0.42; }
+    50%      { transform: scale(1.08); opacity: 0.72; }
   }
 
   /* Scale-in para cards/modals */
@@ -305,5 +448,10 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  .landing-reveal {
+    opacity: 1 !important;
+    transform: none !important;
   }
 }
