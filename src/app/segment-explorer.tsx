@@ -37,10 +37,10 @@ export function SegmentExplorer() {
               onClick={() => setSelectedId(seg.id)}
               aria-pressed={active}
               aria-label={`Ver recursos para ${seg.label}`}
-              className={`group relative overflow-hidden rounded-2xl border text-left transition ${
+              className={`group relative overflow-hidden rounded-2xl border text-left transition-[border-color,box-shadow,transform] duration-300 ${
                 active
-                  ? "border-primary/60 ring-2 ring-primary/40"
-                  : "border-border opacity-80 hover:border-primary/30 hover:opacity-100"
+                  ? "border-primary/70 ring-2 ring-primary/35"
+                  : "border-border hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-lg"
               }`}
             >
               <div className="relative aspect-[4/5] w-full overflow-hidden">
@@ -48,10 +48,11 @@ export function SegmentExplorer() {
                   src={LANDING_SEGMENT_IMAGES[seg.id]}
                   alt={seg.label}
                   fill
+                  quality={95}
                   sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 220px"
-                  className="object-cover transition duration-500 group-hover:scale-105"
+                  className="object-cover transition-transform duration-700 group-hover:scale-[1.025]"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" />
                 {active && (
                   <span className="absolute right-2 top-2 grid h-6 w-6 place-items-center rounded-full bg-primary text-primary-foreground">
                     <Check className="h-3.5 w-3.5" />
