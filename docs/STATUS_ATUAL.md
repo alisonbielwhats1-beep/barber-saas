@@ -1,16 +1,16 @@
 # Status atual canônico — Salon SaaS
 
-Atualizado em **09/08/2026** após o PR
-[#32](https://github.com/alisonbielwhats1-beep/barber-saas/pull/32).
+Atualizado em **10/08/2026** após o PR
+[#35](https://github.com/alisonbielwhats1-beep/barber-saas/pull/35).
 Este arquivo substitui os status históricos quando houver contradição.
 
 ## Identificação da versão
 
 - Repositório: `alisonbielwhats1-beep/barber-saas`
 - Branch produtiva: `master`
-- Commit produtivo: `daf54a66c53ded2901851c3673487216a6de7d25`
+- Commit produtivo: `a01b583b6d71d244d894e7acbbc2c30624a2d0ed`
 - Vercel: projeto `salon-saas`
-- Deploy: `dpl_3me7furAn8QnZu7HGdqrCJUMz65B`, estado `READY`
+- Deploy do commit: estado `READY` confirmado pela integração Vercel/GitHub
 - URL oficial: [salon-saas-ruby.vercel.app](https://salon-saas-ruby.vercel.app)
 - Região das Functions: `gru1`
 - Banco/Storage: Supabase do projeto de barbearia
@@ -118,7 +118,7 @@ Este arquivo substitui os status históricos quando houver contradição.
 - `npx tsc --noEmit --incremental false`: passou.
 - `npm test`: 49 arquivos e 219 testes passaram.
 - `npm run build`: passou com Next.js 15.5.22.
-- CI do PR #32: `check`, `schema-smoke` e Vercel passaram.
+- CI do PR #35: `check`, `schema-smoke` e Vercel passaram.
 - Inspeção visual: desktop 1280×720 e mobile 390×844 sem overflow/overlay.
 - Produção após deploy: home carregou sem erro; Vercel não registrou clusters
   de erro no intervalo verificado.
@@ -153,6 +153,6 @@ escolher apenas uma frente:
 > `AGENTS.md`, `docs/STATUS_ATUAL.md`, `docs/AMBIENTES.md` e
 > `docs/DECISOES_PRODUTO.md`. Não refaça auditoria completa e não altere
 > Production. Confirme branch limpa, CI e o escopo escolhido. A versão
-> produtiva é o commit `daf54a6`; a migration `011_platform_billing` não foi
+> produtiva é o commit `a01b583`; a migration `011_platform_billing` não foi
 > aplicada e a flag de billing está desligada. Preserve RLS, histórico e
 > isolamento multi-tenant. Proponha o próximo passo antes de qualquer migration.

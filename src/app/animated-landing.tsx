@@ -108,48 +108,48 @@ export function AnimatedLandingHero() {
 
   return (
     <section
-      className={cn("relative min-h-[760px] overflow-hidden pt-16 transition-colors duration-700 lg:min-h-[800px]", active.theme)}
+      className={cn("relative overflow-hidden pt-16 transition-colors duration-700 lg:h-[clamp(620px,100svh,900px)]", active.theme)}
       aria-label="Apresentação do Salon SaaS"
     >
-      <div className="relative z-20 mx-auto grid min-h-[700px] max-w-[1536px] lg:grid-cols-[43%_57%]">
-        <div className="relative z-30 flex items-center px-6 py-16 sm:px-10 lg:px-12 xl:pl-20 2xl:pl-24">
+      <div className="relative z-20 mx-auto grid max-w-[1536px] lg:h-[calc(clamp(620px,100svh,900px)-4rem)] lg:grid-cols-[43%_57%]">
+        <div className="relative z-30 flex items-center px-6 py-12 sm:px-10 lg:px-12 lg:py-6 xl:pl-20 2xl:pl-24">
           <div className="max-w-[620px]">
             <div className={cn(
-              "mb-8 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition-colors",
+              "mb-5 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition-colors",
               active.key === "barbearia" ? "border-[#7df89b]/25 bg-[#7df89b]/10 text-[#b8f2d8]" : "border-[#bcd5c9] bg-white/45 text-[#275947]",
             )}>
               <ShieldCheck className="h-3.5 w-3.5" />
               <span aria-live="polite">{active.eyebrow}</span>
             </div>
 
-            <h1 className="landing-title max-w-2xl font-display text-5xl leading-[0.98] tracking-[-0.055em] sm:text-6xl lg:text-[4.15rem] xl:text-[4.55rem]">
+            <h1 className="landing-title max-w-2xl font-display text-5xl leading-[0.98] tracking-[-0.055em] sm:text-6xl lg:text-[3.5rem] xl:text-[3.8rem] 2xl:text-[4.2rem]">
               <span className="landing-title-line block">Seu espaço</span>
               <span className="landing-title-line block">organizado,</span>
               <span className="landing-title-line block">sua agenda sempre em</span>
               <span className="landing-title-line block">movimento.</span>
             </h1>
 
-            <p className={cn("mt-7 max-w-xl text-base leading-relaxed sm:text-lg", active.key === "barbearia" ? "text-[#aab3af]" : "text-[#5c6461]")}>
+            <p className={cn("mt-5 max-w-xl text-base leading-relaxed sm:text-lg", active.key === "barbearia" ? "text-[#aab3af]" : "text-[#5c6461]")}>
               Agenda online, clientes, equipe e gestão em um só lugar — para
               barbearias, salões, manicures, estética, massagem e espaços mistos.
             </p>
 
-            <div className="mt-9 flex flex-wrap gap-3">
-              <Button asChild size="lg" className="h-14 rounded-full px-8 text-base shadow-[0_16px_36px_-18px_rgba(23,139,101,.8)]">
+            <div className="mt-7 flex flex-wrap gap-3 xl:flex-nowrap">
+              <Button asChild size="lg" className="h-14 rounded-full px-6 text-base shadow-[0_16px_36px_-18px_rgba(23,139,101,.8)]">
                 <Link href="/signup">Criar meu espaço <ArrowRight className="h-4 w-4" /></Link>
               </Button>
-              <Button asChild variant="outline" size="lg" className={cn("h-14 rounded-full px-8 text-base", active.key === "barbearia" && "border-white/20 bg-white/5 text-white hover:bg-white/10 hover:text-white")}>
+              <Button asChild variant="outline" size="lg" className={cn("h-14 rounded-full px-6 text-base", active.key === "barbearia" && "border-white/20 bg-white/5 text-white hover:bg-white/10 hover:text-white")}>
                 <Link href="/book/north-barber">Ver demonstração</Link>
               </Button>
             </div>
-            <p className={cn("mt-5 text-sm", active.key === "barbearia" ? "text-[#818b87]" : "text-[#686f6c]")}>
+            <p className={cn("mt-3 text-sm", active.key === "barbearia" ? "text-[#818b87]" : "text-[#686f6c]")}>
               Envie sua solicitação e configure seu espaço após a aprovação.
             </p>
           </div>
         </div>
 
         <div
-          className="relative min-h-[620px] lg:min-h-[736px]"
+          className="relative min-h-[580px] lg:min-h-0"
           onMouseEnter={() => setPaused(true)}
           onMouseLeave={() => setPaused(false)}
           onFocusCapture={() => setPaused(true)}
@@ -193,7 +193,7 @@ function HeroCollage({ segment, active, priority }: { segment: Segment; active: 
     <div className={cn("absolute inset-0 transition-opacity duration-1000", active ? "z-10 opacity-100" : "pointer-events-none opacity-0")} aria-hidden={!active}>
       {general ? (
         <div className="grid h-full grid-cols-[1.15fr_.72fr_.72fr] grid-rows-2 gap-1 bg-[#d8d0c3]">
-          <Photo photo={segment.photos[0]} className="row-span-2 [clip-path:polygon(7%_0,100%_0,88%_100%,0_100%)]" priority={priority} />
+          <Photo photo={segment.photos[0]} className="row-span-2 [clip-path:polygon(7%_0,100%_0,88%_100%,0_100%)]" labelClassName="left-[12%]" priority={priority} />
           <Photo photo={segment.photos[1]} priority={priority} />
           <Photo photo={segment.photos[2]} priority={priority} />
           <Photo photo={segment.photos[3]} priority={priority} />
@@ -202,8 +202,8 @@ function HeroCollage({ segment, active, priority }: { segment: Segment; active: 
       ) : (
         <div className="relative h-full bg-[#111513]">
           <Photo photo={segment.photos[0]} className="absolute inset-0" priority={priority} />
-          <Photo photo={segment.photos[1]} className="absolute bottom-0 left-0 z-10 h-[40%] w-[47%] border-r-2 border-white/70 [clip-path:polygon(0_18%,88%_0,100%_100%,10%_100%)]" priority={priority} />
-          <Photo photo={segment.photos[2]} className="absolute bottom-0 right-0 z-10 h-[42%] w-[34%] border-l-2 border-white/70 [clip-path:polygon(14%_0,100%_8%,100%_100%,0_100%)]" priority={priority} />
+          <Photo photo={segment.photos[1]} className="absolute bottom-0 left-0 z-10 h-[40%] w-[47%] border-r-2 border-white/70 [clip-path:polygon(0_18%,88%_0,100%_100%,10%_100%)]" labelClassName="bottom-4 left-[15%] top-auto" priority={priority} />
+          <Photo photo={segment.photos[2]} className="absolute bottom-0 right-0 z-10 h-[42%] w-[34%] border-l-2 border-white/70 [clip-path:polygon(14%_0,100%_8%,100%_100%,0_100%)]" labelClassName="left-[20%]" priority={priority} />
         </div>
       )}
       <div className="absolute inset-0 bg-gradient-to-b from-black/5 via-transparent to-black/20" />
@@ -211,11 +211,11 @@ function HeroCollage({ segment, active, priority }: { segment: Segment; active: 
   );
 }
 
-function Photo({ photo, className, priority }: { photo: Segment["photos"][number]; className?: string; priority: boolean }) {
+function Photo({ photo, className, labelClassName, priority }: { photo: Segment["photos"][number]; className?: string; labelClassName?: string; priority: boolean }) {
   return (
     <div className={cn("relative overflow-hidden bg-[#d9d4ca]", className)}>
       <Image src={photo.src} alt={photo.alt} fill priority={priority} quality={95} sizes="(max-width: 1024px) 100vw, 62vw" className={cn("object-cover", photo.position)} />
-      {photo.label && <span className="absolute left-4 top-4 rounded-full border border-white/25 bg-black/50 px-3 py-1.5 text-[11px] font-semibold text-white backdrop-blur">{photo.label}</span>}
+      {photo.label && <span className={cn("absolute left-4 top-4 rounded-full border border-white/25 bg-black/60 px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm backdrop-blur", labelClassName)}>{photo.label}</span>}
     </div>
   );
 }
