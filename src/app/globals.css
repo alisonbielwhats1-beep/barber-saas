@@ -238,8 +238,38 @@
     animation: photo-swap 0.75s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
   @keyframes photo-swap {
-    from { opacity: 0.35; transform: scale(0.975) translateY(8px); }
+    from { opacity: 0.3; transform: scale(1.035); filter: saturate(0.82); }
     to   { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  /* O título entra linha a linha, como uma abertura editorial lenta. */
+  .landing-title-line {
+    animation: landing-title-line 1.05s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .landing-title-line:nth-child(1) { animation-delay: 100ms; }
+  .landing-title-line:nth-child(2) { animation-delay: 250ms; }
+  .landing-title-line:nth-child(3) { animation-delay: 430ms; }
+  .landing-title-line:nth-child(4) { animation-delay: 580ms; }
+  @keyframes landing-title-line {
+    from { opacity: 0; transform: translate3d(0, 28px, 0); filter: blur(4px); }
+    to   { opacity: 1; transform: translate3d(0, 0, 0); filter: blur(0); }
+  }
+
+  /* No desktop, o mosaico deixa de parecer uma grade de cards e vira uma
+     composição fotográfica contínua, com os recortes diagonais da referência. */
+  @media (min-width: 1024px) {
+    .landing-collage-main {
+      z-index: 2;
+      margin-left: -6%;
+      margin-right: -12%;
+      clip-path: polygon(10% 0, 100% 0, 88% 100%, 0 100%);
+    }
+    .landing-collage-side {
+      margin-left: -7%;
+      clip-path: polygon(9% 0, 100% 0, 100% 100%, 0 100%);
+    }
+    .landing-collage-side-top { z-index: 1; }
+    .landing-collage-side-bottom { z-index: 3; }
   }
 
   .animate-segment-panel {

@@ -16,7 +16,7 @@ export function ClientMockup() {
     <div className="mx-auto w-full max-w-[280px] overflow-hidden rounded-[2rem] border border-border bg-card shadow-2xl">
       <div className="relative h-28 w-full overflow-hidden">
         <Image
-          src="/images/salon-hero-stylist-v1.webp"
+          src="/images/salon-hero-stylist-v2.webp"
           alt=""
           fill
           sizes="280px"

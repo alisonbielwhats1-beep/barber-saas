@@ -6,11 +6,11 @@ import { Check } from "lucide-react";
 import { SEGMENTS, DEFAULT_SEGMENT_ID, type SegmentId } from "@/lib/segments";
 
 const LANDING_SEGMENT_IMAGES: Record<SegmentId, string> = {
-  barbearia: "/images/salon-hero-male-haircut-v1.webp",
-  "salao-beleza": "/images/salon-hero-stylist-v1.webp",
+  barbearia: "/images/salon-hero-barber-v2.webp",
+  "salao-beleza": "/images/salon-hero-stylist-v2.webp",
   "manicure-nail": "/images/salon-hero-manicure-v1.webp",
-  "estetica-bemestar": "/images/salon-hero-massage-v1.webp",
-  "espaco-misto": "/images/salon-hero-aesthetics-v1.webp",
+  "estetica-bemestar": "/images/salon-hero-massage-v2.webp",
+  "espaco-misto": "/images/salon-hero-aesthetics-v2.webp",
 };
 
 /**
