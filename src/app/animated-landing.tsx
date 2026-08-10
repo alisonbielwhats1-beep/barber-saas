@@ -5,261 +5,261 @@ import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ArrowRight,
-  Gem,
-  Scissors,
+  CalendarDays,
+  LayoutDashboard,
   ShieldCheck,
-  Sparkles,
-  Waves,
-  type LucideIcon,
+  Users,
+  Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { ProductMockup } from "./product-mockup";
 
-type HeroScene = {
+type SegmentKey = "todos" | "barbearia" | "salao" | "bem-estar";
+
+type Segment = {
+  key: SegmentKey;
   label: string;
   eyebrow: string;
-  image: string;
-  icon: LucideIcon;
-  position?: string;
+  theme: string;
+  photos: { src: string; alt: string; label?: string; position?: string }[];
+  appointments: string[];
 };
 
-const HERO_SCENES: HeroScene[] = [
+const SEGMENTS: Segment[] = [
   {
-    label: "Salão",
-    eyebrow: "Cabelo e beleza",
-    image: "/images/salon-hero-stylist-v2.webp",
-    icon: Sparkles,
-    position: "object-center",
+    key: "todos",
+    label: "Todos",
+    eyebrow: "Um sistema para beleza e bem-estar",
+    theme: "bg-[#faf8f3] text-[#101514]",
+    photos: [
+      { src: "/images/salon-hero-male-haircut-v1.webp", alt: "Corte masculino em barbearia", label: "Barbearia", position: "object-[62%_center]" },
+      { src: "/images/salon-hero-stylist-v2.webp", alt: "Atendimento em salão de beleza", label: "Salão", position: "object-[54%_center]" },
+      { src: "/images/salon-hero-manicure-v1.webp", alt: "Atendimento de manicure", label: "Manicure", position: "object-center" },
+      { src: "/images/salon-hero-aesthetics-v2.webp", alt: "Tratamento de estética", label: "Estética", position: "object-center" },
+      { src: "/images/salon-hero-massage-v2.webp", alt: "Massagem profissional", label: "Bem-estar", position: "object-center" },
+    ],
+    appointments: ["Corte masculino · Rafael", "Escova · Renata", "Massagem · Marina"],
   },
   {
-    label: "Barbearia",
-    eyebrow: "Corte e barba",
-    image: "/images/salon-hero-barber-v2.webp",
-    icon: Scissors,
-    position: "object-center",
+    key: "barbearia",
+    label: "Barbearias & cabeleireiros",
+    eyebrow: "Agenda e gestão para barbearias e cabeleireiros",
+    theme: "bg-[#0b100f] text-[#f4f5f2]",
+    photos: [
+      { src: "/images/salon-hero-beard-v1.webp", alt: "Barbeiro modelando a barba de um cliente", label: "Barba & cuidado", position: "object-[68%_center]" },
+      { src: "/images/salon-hero-male-haircut-v1.webp", alt: "Barbeiro realizando um corte masculino", label: "Corte masculino", position: "object-[60%_center]" },
+      { src: "/images/salon-hero-barber-v2.webp", alt: "Finalização de corte em barbearia", label: "Acabamento", position: "object-[64%_center]" },
+    ],
+    appointments: ["Corte + barba · Rafael", "Degradê · Marcos", "Barba terapia · Rafael"],
   },
   {
-    label: "Manicure",
-    eyebrow: "Unhas e cuidado",
-    image: "/images/salon-hero-manicure-v1.webp",
-    icon: Gem,
-    position: "object-center",
+    key: "salao",
+    label: "Salão & manicure",
+    eyebrow: "Agenda e gestão para salão e manicure",
+    theme: "bg-[#fbf7f0] text-[#171513]",
+    photos: [
+      { src: "/images/salon-hero-stylist-v2.webp", alt: "Cabeleireira finalizando o cabelo de uma cliente", label: "Cabelo & beleza", position: "object-[56%_center]" },
+      { src: "/images/salon-hero-manicure-v1.webp", alt: "Manicure atendendo uma cliente", label: "Manicure", position: "object-center" },
+      { src: "/images/salon-hero-stylist-v1.webp", alt: "Atendimento em salão de beleza", label: "Coloração", position: "object-[55%_center]" },
+    ],
+    appointments: ["Corte feminino · Camila", "Escova · Renata", "Manicure · Júlia"],
   },
   {
-    label: "Massagem",
-    eyebrow: "Corpo e bem-estar",
-    image: "/images/salon-hero-massage-v2.webp",
-    icon: Waves,
-    position: "object-center",
-  },
-  {
-    label: "Estética",
-    eyebrow: "Pele e tratamentos",
-    image: "/images/salon-hero-aesthetics-v2.webp",
-    icon: ShieldCheck,
-    position: "object-center",
+    key: "bem-estar",
+    label: "Estética & bem-estar",
+    eyebrow: "Agenda e gestão para estética e bem-estar",
+    theme: "bg-[#eef1e8] text-[#17201c]",
+    photos: [
+      { src: "/images/salon-hero-massage-v2.webp", alt: "Massagem profissional em ambiente de bem-estar", label: "Massagem", position: "object-[55%_center]" },
+      { src: "/images/salon-hero-aesthetics-v2.webp", alt: "Tratamento facial profissional", label: "Estética facial", position: "object-center" },
+      { src: "/images/salon-hero-massage-v1.webp", alt: "Atendimento de relaxamento", label: "Relaxamento", position: "object-center" },
+    ],
+    appointments: ["Limpeza de pele · Ana", "Massagem · Marina", "Drenagem · Ana"],
   },
 ];
 
-const SCENE_DURATION_MS = 6_500;
+const SEGMENT_DURATION_MS = 5_500;
 
 export function AnimatedLandingHero() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [paused, setPaused] = useState(false);
+  const resumeTimer = useRef<number | null>(null);
+  const active = SEGMENTS[activeIndex];
 
   useEffect(() => {
-    if (paused) return;
-
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-    if (reducedMotion.matches) return;
-
-    const interval = window.setInterval(() => {
-      setActiveIndex((current) => (current + 1) % HERO_SCENES.length);
-    }, SCENE_DURATION_MS);
-
+    if (paused || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const interval = window.setInterval(
+      () => setActiveIndex((current) => (current + 1) % SEGMENTS.length),
+      SEGMENT_DURATION_MS,
+    );
     return () => window.clearInterval(interval);
   }, [paused]);
 
-  const active = HERO_SCENES[activeIndex];
-  const next = HERO_SCENES[(activeIndex + 1) % HERO_SCENES.length];
-  const afterNext = HERO_SCENES[(activeIndex + 2) % HERO_SCENES.length];
+  useEffect(() => () => {
+    if (resumeTimer.current) window.clearTimeout(resumeTimer.current);
+  }, []);
+
+  function selectSegment(index: number) {
+    setActiveIndex(index);
+    setPaused(true);
+    if (resumeTimer.current) window.clearTimeout(resumeTimer.current);
+    resumeTimer.current = window.setTimeout(() => setPaused(false), 9_000);
+  }
 
   return (
-    <section className="relative overflow-hidden pb-16 pt-28 md:pb-24 md:pt-32 lg:pt-16">
-      <div className="landing-orbit landing-orbit-one" aria-hidden="true" />
-      <div className="landing-orbit landing-orbit-two" aria-hidden="true" />
+    <section
+      className={cn("relative min-h-[760px] overflow-hidden pt-16 transition-colors duration-700 lg:min-h-[800px]", active.theme)}
+      aria-label="Apresentação do Salon SaaS"
+    >
+      <div className="relative z-20 mx-auto grid min-h-[700px] max-w-[1536px] lg:grid-cols-[43%_57%]">
+        <div className="relative z-30 flex items-center px-6 py-16 sm:px-10 lg:px-12 xl:pl-20 2xl:pl-24">
+          <div className="max-w-[620px]">
+            <div className={cn(
+              "mb-8 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition-colors",
+              active.key === "barbearia" ? "border-[#7df89b]/25 bg-[#7df89b]/10 text-[#b8f2d8]" : "border-[#bcd5c9] bg-white/45 text-[#275947]",
+            )}>
+              <ShieldCheck className="h-3.5 w-3.5" />
+              <span aria-live="polite">{active.eyebrow}</span>
+            </div>
 
-      <div className="container relative z-10 grid gap-14 lg:min-h-[700px] lg:grid-cols-[0.78fr_1.22fr] lg:items-center lg:gap-5">
-        <div className="relative z-20 lg:py-16">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-1.5 text-xs font-semibold text-primary">
-            <ShieldCheck className="h-3.5 w-3.5" />
-            A rotina do seu espaço, em um só lugar
+            <h1 className="landing-title max-w-2xl font-display text-5xl leading-[0.98] tracking-[-0.055em] sm:text-6xl lg:text-[4.15rem] xl:text-[4.55rem]">
+              <span className="landing-title-line block">Seu espaço</span>
+              <span className="landing-title-line block">organizado,</span>
+              <span className="landing-title-line block">sua agenda sempre em</span>
+              <span className="landing-title-line block">movimento.</span>
+            </h1>
+
+            <p className={cn("mt-7 max-w-xl text-base leading-relaxed sm:text-lg", active.key === "barbearia" ? "text-[#aab3af]" : "text-[#5c6461]")}>
+              Agenda online, clientes, equipe e gestão em um só lugar — para
+              barbearias, salões, manicures, estética, massagem e espaços mistos.
+            </p>
+
+            <div className="mt-9 flex flex-wrap gap-3">
+              <Button asChild size="lg" className="h-14 rounded-full px-8 text-base shadow-[0_16px_36px_-18px_rgba(23,139,101,.8)]">
+                <Link href="/signup">Criar meu espaço <ArrowRight className="h-4 w-4" /></Link>
+              </Button>
+              <Button asChild variant="outline" size="lg" className={cn("h-14 rounded-full px-8 text-base", active.key === "barbearia" && "border-white/20 bg-white/5 text-white hover:bg-white/10 hover:text-white")}>
+                <Link href="/book/north-barber">Ver demonstração</Link>
+              </Button>
+            </div>
+            <p className={cn("mt-5 text-sm", active.key === "barbearia" ? "text-[#818b87]" : "text-[#686f6c]")}>
+              Envie sua solicitação e configure seu espaço após a aprovação.
+            </p>
           </div>
-
-          <h1 className="landing-title max-w-2xl font-display text-5xl leading-[0.98] tracking-[-0.045em] sm:text-6xl lg:text-[4.15rem] xl:text-[4.55rem]">
-            <span className="landing-title-line block">Seu espaço</span>
-            <span className="landing-title-line block">organizado,</span>
-            <span className="landing-title-line mt-2 block text-primary">sua agenda sempre em</span>
-            <span className="landing-title-line block text-primary">movimento.</span>
-          </h1>
-
-          <p className="mt-7 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-            Agenda, clientes, equipe e gestão em um só lugar — para barbearias,
-            salões, unhas, estética, massagem e espaços mistos.
-          </p>
-
-          <div className="mt-9 flex flex-wrap items-center gap-3">
-            <Button asChild size="lg" className="h-14 rounded-full px-8 text-base shadow-[0_16px_36px_-18px_hsl(var(--primary)/0.8)]">
-              <Link href="/signup">
-                Criar meu espaço <ArrowRight className="h-4 w-4" />
-              </Link>
-            </Button>
-            <Button
-              asChild
-              variant="outline"
-              size="lg"
-              className="h-14 rounded-full border-border bg-white/55 px-8 text-base hover:bg-white"
-            >
-              <Link href="/book/north-barber">Conhecer a plataforma</Link>
-            </Button>
-          </div>
-
-          <p className="mt-5 text-sm text-muted-foreground">
-            Envie sua solicitação e configure seu espaço após a aprovação.
-          </p>
         </div>
 
         <div
-          className="relative min-h-[545px] sm:min-h-[630px] lg:-mr-8 lg:min-h-[700px] xl:-mr-16 2xl:-mr-[calc((100vw-1360px)/2)]"
+          className="relative min-h-[620px] lg:min-h-[736px]"
           onMouseEnter={() => setPaused(true)}
           onMouseLeave={() => setPaused(false)}
           onFocusCapture={() => setPaused(true)}
           onBlurCapture={() => setPaused(false)}
         >
-          <div className="landing-collage absolute inset-x-0 top-0 grid h-[490px] grid-cols-[1.3fr_0.7fr] grid-rows-2 gap-2 sm:h-[565px] lg:h-[700px] lg:gap-1">
-            <HeroPhoto scene={active} className="landing-collage-main row-span-2" priority sizes="(max-width: 1024px) 65vw, 50vw" />
-            <HeroPhoto scene={next} className="landing-collage-side landing-collage-side-top" priority sizes="(max-width: 1024px) 35vw, 28vw" />
-            <HeroPhoto scene={afterNext} className="landing-collage-side landing-collage-side-bottom" priority sizes="(max-width: 1024px) 35vw, 28vw" />
+          <div className="absolute inset-0 overflow-hidden lg:-right-[12vw]">
+            {SEGMENTS.map((segment, index) => (
+              <HeroCollage key={segment.key} segment={segment} active={index === activeIndex} priority={index === 0} />
+            ))}
           </div>
 
-          <div className="absolute left-3 top-3 z-20 rounded-full border border-white/25 bg-black/45 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-md sm:left-5 sm:top-5 lg:left-[12%]">
-            <span aria-live="polite">{active.eyebrow}</span>
-          </div>
+          <HeroDashboard appointments={active.appointments} />
+        </div>
+      </div>
 
-          <div className="absolute bottom-3 left-4 right-1 z-30 sm:bottom-0 sm:left-10 lg:bottom-9 lg:left-[10%] lg:right-[5%]">
-            <div className="animate-landing-float rounded-[1.7rem] bg-[#111513]/96 p-1.5 shadow-[0_32px_80px_-25px_rgba(5,12,9,0.85)] backdrop-blur-md" data-theme="marketing-dark">
-              <ProductMockup />
-            </div>
-          </div>
-
-          <div className="absolute bottom-0 right-2 z-40 flex items-center gap-2 rounded-full border border-white/15 bg-[#111513]/90 px-3 py-2 text-white shadow-lg backdrop-blur sm:right-4 lg:bottom-3 lg:right-[5%]" data-theme="marketing-dark">
-            <span className="text-[11px] font-semibold text-muted-foreground">
-              {String(activeIndex + 1).padStart(2, "0")} / {String(HERO_SCENES.length).padStart(2, "0")}
-            </span>
-            <span className="h-1 w-16 overflow-hidden rounded-full bg-muted" aria-hidden="true">
-              <span
-                key={`${activeIndex}-${paused}`}
-                className={cn("block h-full rounded-full bg-primary", !paused && "animate-landing-progress")}
-              />
-            </span>
-          </div>
-
-          <div className="absolute right-2 top-20 z-40 flex flex-col gap-1 rounded-full border border-white/15 bg-black/45 p-1.5 backdrop-blur-md sm:right-4 sm:top-24 lg:right-[3%]" aria-label="Escolha um segmento para visualizar">
-            {HERO_SCENES.map((scene, index) => {
-              const Icon = scene.icon;
-              const selected = index === activeIndex;
-
-              return (
-                <button
-                  key={scene.label}
-                  type="button"
-                  aria-label={`Mostrar ${scene.label}`}
-                  aria-pressed={selected}
-                  title={scene.label}
-                  onClick={() => setActiveIndex(index)}
-                  className={cn(
-                    "grid h-9 w-9 place-items-center rounded-full text-white/70 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white",
-                    selected ? "bg-primary text-primary-foreground" : "hover:bg-white/15 hover:text-white",
-                  )}
-                >
-                  <Icon className="h-4 w-4" />
-                </button>
-              );
-            })}
-          </div>
+      <div className="relative z-40 mx-auto -mt-9 flex max-w-[1536px] justify-center px-4 pb-7 lg:absolute lg:bottom-7 lg:left-0 lg:right-0 lg:mt-0 lg:justify-end lg:px-10 2xl:px-16">
+        <div className="flex max-w-full gap-1 overflow-x-auto rounded-full border border-white/20 bg-[#101413]/85 p-1.5 shadow-xl backdrop-blur-xl" aria-label="Escolha o segmento mostrado">
+          {SEGMENTS.map((segment, index) => (
+            <button
+              key={segment.key}
+              type="button"
+              aria-pressed={index === activeIndex}
+              onClick={() => selectSegment(index)}
+              className={cn(
+                "whitespace-nowrap rounded-full px-3.5 py-2.5 text-[11px] font-semibold text-white/75 transition sm:px-4 sm:text-xs",
+                index === activeIndex && (active.key === "bem-estar" ? "bg-[#738f7c] text-white" : "bg-[#49e8b4] text-[#0c241c]"),
+              )}
+            >
+              {segment.label}
+            </button>
+          ))}
         </div>
       </div>
     </section>
   );
 }
 
-function HeroPhoto({
-  scene,
-  className,
-  priority = false,
-  sizes,
-}: {
-  scene: HeroScene;
-  className?: string;
-  priority?: boolean;
-  sizes: string;
-}) {
+function HeroCollage({ segment, active, priority }: { segment: Segment; active: boolean; priority: boolean }) {
+  const general = segment.key === "todos";
   return (
-    <div
-      key={scene.image}
-      className={cn(
-        "animate-photo-swap group relative overflow-hidden rounded-[1.5rem] bg-muted shadow-[0_24px_60px_-34px_rgba(30,45,38,0.55)] lg:rounded-none",
-        className,
+    <div className={cn("absolute inset-0 transition-opacity duration-1000", active ? "z-10 opacity-100" : "pointer-events-none opacity-0")} aria-hidden={!active}>
+      {general ? (
+        <div className="grid h-full grid-cols-[1.15fr_.72fr_.72fr] grid-rows-2 gap-1 bg-[#d8d0c3]">
+          <Photo photo={segment.photos[0]} className="row-span-2 [clip-path:polygon(7%_0,100%_0,88%_100%,0_100%)]" priority={priority} />
+          <Photo photo={segment.photos[1]} priority={priority} />
+          <Photo photo={segment.photos[2]} priority={priority} />
+          <Photo photo={segment.photos[3]} priority={priority} />
+          <Photo photo={segment.photos[4]} priority={priority} />
+        </div>
+      ) : (
+        <div className="relative h-full bg-[#111513]">
+          <Photo photo={segment.photos[0]} className="absolute inset-0" priority={priority} />
+          <Photo photo={segment.photos[1]} className="absolute bottom-0 left-0 z-10 h-[40%] w-[47%] border-r-2 border-white/70 [clip-path:polygon(0_18%,88%_0,100%_100%,10%_100%)]" priority={priority} />
+          <Photo photo={segment.photos[2]} className="absolute bottom-0 right-0 z-10 h-[42%] w-[34%] border-l-2 border-white/70 [clip-path:polygon(14%_0,100%_8%,100%_100%,0_100%)]" priority={priority} />
+        </div>
       )}
-    >
-      <Image
-        src={scene.image}
-        alt={`${scene.label}: ${scene.eyebrow}`}
-        fill
-        priority={priority}
-        sizes={sizes}
-        quality={90}
-        className={cn("object-cover transition duration-1000 group-hover:scale-[1.025]", scene.position)}
-      />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-white/5" />
-      <span className="absolute bottom-3 left-3 rounded-full border border-white/20 bg-black/40 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur-md sm:bottom-4 sm:left-4">
-        {scene.label}
-      </span>
+      <div className="absolute inset-0 bg-gradient-to-b from-black/5 via-transparent to-black/20" />
     </div>
   );
 }
 
-export function LandingReveal({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
+function Photo({ photo, className, priority }: { photo: Segment["photos"][number]; className?: string; priority: boolean }) {
+  return (
+    <div className={cn("relative overflow-hidden bg-[#d9d4ca]", className)}>
+      <Image src={photo.src} alt={photo.alt} fill priority={priority} quality={95} sizes="(max-width: 1024px) 100vw, 62vw" className={cn("object-cover", photo.position)} />
+      {photo.label && <span className="absolute left-4 top-4 rounded-full border border-white/25 bg-black/50 px-3 py-1.5 text-[11px] font-semibold text-white backdrop-blur">{photo.label}</span>}
+    </div>
+  );
+}
+
+function HeroDashboard({ appointments }: { appointments: string[] }) {
+  return (
+    <div className="absolute bottom-20 left-[8%] right-[3%] z-20 hidden overflow-hidden rounded-[1.6rem] border border-white/15 bg-[#202322]/95 text-white shadow-[0_35px_80px_-28px_rgba(4,8,7,.85)] backdrop-blur-md sm:block lg:left-[5%] lg:right-[10%]">
+      <div className="flex h-12 items-center gap-2 border-b border-white/10 px-4">
+        <i className="h-2.5 w-2.5 rounded-full bg-[#e65d52]" /><i className="h-2.5 w-2.5 rounded-full bg-[#eba644]" /><i className="h-2.5 w-2.5 rounded-full bg-[#44c68f]" />
+        <span className="ml-3 rounded-full bg-black/20 px-3 py-1 text-[10px] text-white/60">app.salonsaas.com/dashboard</span>
+      </div>
+      <div className="grid min-h-[238px] grid-cols-[130px_1fr]">
+        <div className="space-y-1 border-r border-white/10 p-3 text-[11px] text-white/55">
+          {[{ icon: LayoutDashboard, label: "Dashboard" }, { icon: CalendarDays, label: "Agenda" }, { icon: Users, label: "Clientes" }, { icon: Wallet, label: "Financeiro" }].map((item, index) => (
+            <div key={item.label} className={cn("flex items-center gap-2 rounded-xl px-3 py-2.5", index === 0 && "bg-[#35ba89]/15 text-[#58e6b1]")}><item.icon className="h-3.5 w-3.5" />{item.label}</div>
+          ))}
+        </div>
+        <div className="p-4">
+          <p className="text-sm font-semibold">Hoje</p>
+          <div className="mt-3 grid grid-cols-3 gap-2.5">
+            {["Agendamentos", "Faturamento", "Ocupação"].map((label, index) => <div key={label} className="rounded-xl border border-white/10 p-3 text-[9px] text-white/60">{label}<span className="mt-2 block h-1.5 rounded-full bg-[#308c68]" style={{ width: `${78 - index * 7}%` }} /></div>)}
+          </div>
+          <div className="mt-3 rounded-xl border border-white/10 px-3">
+            {appointments.map((label, index) => <div key={label} className="grid grid-cols-[48px_1fr] border-b border-white/10 py-2 text-[10px] last:border-0"><strong className="text-[#4ce1a9]">{["09:00", "10:30", "13:00"][index]}</strong><span className="text-white/65">{label}</span></div>)}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function LandingReveal({ children, className }: { children: ReactNode; className?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
-
   useEffect(() => {
     const node = ref.current;
     if (!node) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (!entry.isIntersecting) return;
-        setVisible(true);
-        observer.disconnect();
-      },
-      { rootMargin: "0px 0px -10% 0px", threshold: 0.08 },
-    );
-
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) return;
+      setVisible(true);
+      observer.disconnect();
+    }, { rootMargin: "0px 0px -10% 0px", threshold: 0.08 });
     observer.observe(node);
     return () => observer.disconnect();
   }, []);
-
-  return (
-    <div ref={ref} className={cn("landing-reveal", visible && "is-visible", className)}>
-      {children}
-    </div>
-  );
+  return <div ref={ref} className={cn("landing-reveal", visible && "is-visible", className)}>{children}</div>;
 }
