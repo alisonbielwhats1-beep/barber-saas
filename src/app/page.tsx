@@ -11,9 +11,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { MarketingHeader } from "./marketing-header";
 import { SegmentExplorer } from "./segment-explorer";
-import { ProductMockup } from "./product-mockup";
-import { ClientMockup } from "./client-mockup";
 import { AnimatedLandingHero, LandingReveal } from "./animated-landing";
+import { LandingMobileShowcase } from "./landing-mobile-showcase";
 
 export default function LandingPage() {
   return (
@@ -74,34 +73,7 @@ export default function LandingPage() {
         </LandingReveal>
       </section>
 
-      {/* Demonstração do sistema */}
-      <section className="py-24">
-        <LandingReveal className="container">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="font-display text-3xl md:text-4xl">Como funciona na prática</h2>
-            <p className="mt-3 text-muted-foreground">
-              Um painel para quem gerencia, uma vitrine simples para quem agenda.
-            </p>
-          </div>
-
-          <div className="mt-14 grid gap-10 lg:grid-cols-[1.4fr_1fr] lg:items-center">
-            <div>
-              <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-primary">
-                Para o dono
-              </p>
-              <div data-theme="marketing-dark" className="rounded-3xl bg-[#111513] p-1 shadow-[0_28px_70px_-38px_rgba(12,22,17,0.75)]">
-                <ProductMockup />
-              </div>
-            </div>
-            <div>
-              <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-primary">
-                Para o cliente
-              </p>
-              <ClientMockup />
-            </div>
-          </div>
-        </LandingReveal>
-      </section>
+      <LandingMobileShowcase />
 
       {/* Como funciona — passo a passo */}
       <section className="border-y border-border/70 bg-white/45 py-24">
