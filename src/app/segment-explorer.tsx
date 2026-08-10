@@ -5,6 +5,14 @@ import Image from "next/image";
 import { Check } from "lucide-react";
 import { SEGMENTS, DEFAULT_SEGMENT_ID, type SegmentId } from "@/lib/segments";
 
+const LANDING_SEGMENT_IMAGES: Record<SegmentId, string> = {
+  barbearia: "/images/salon-hero-barber-v2.webp",
+  "salao-beleza": "/images/salon-hero-stylist-v2.webp",
+  "manicure-nail": "/images/salon-hero-manicure-v1.webp",
+  "estetica-bemestar": "/images/salon-hero-massage-v2.webp",
+  "espaco-misto": "/images/salon-hero-aesthetics-v2.webp",
+};
+
 /**
  * Seletor "Qual é o seu tipo de negócio?" + recursos por segmento, unidos
  * num só componente client para compartilhar o estado da seleção sem
@@ -32,12 +40,12 @@ export function SegmentExplorer() {
               className={`group relative overflow-hidden rounded-2xl border text-left transition ${
                 active
                   ? "border-primary/60 ring-2 ring-primary/40"
-                  : "border-white/10 opacity-80 hover:opacity-100"
+                  : "border-border opacity-80 hover:border-primary/30 hover:opacity-100"
               }`}
             >
               <div className="relative aspect-[4/5] w-full overflow-hidden">
                 <Image
-                  src={seg.accentImage}
+                  src={LANDING_SEGMENT_IMAGES[seg.id]}
                   alt={seg.label}
                   fill
                   sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 220px"
@@ -62,7 +70,10 @@ export function SegmentExplorer() {
       </div>
 
       {/* Painel do segmento selecionado */}
-      <div className="mt-8 grid gap-8 rounded-3xl border border-white/10 bg-card p-6 md:grid-cols-2 md:p-8">
+      <div
+        key={selected.id}
+        className="animate-segment-panel mt-8 grid gap-8 rounded-3xl border border-border bg-card p-6 shadow-[0_24px_55px_-42px_rgba(29,50,40,0.6)] md:grid-cols-2 md:p-8"
+      >
         <div>
           <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
             <selected.icon className="h-3.5 w-3.5" />

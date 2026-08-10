@@ -35,7 +35,8 @@ export function MarketingHeader() {
     <>
     <header
       id="top"
-      className="fixed inset-x-0 top-0 z-50 border-b border-white/5 bg-background/60 backdrop-blur-xl"
+      data-theme="marketing-dark"
+      className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-[#131715]/95 text-foreground shadow-[0_8px_30px_-24px_rgba(5,12,9,0.8)] backdrop-blur-xl"
     >
       <div className="container flex h-16 items-center justify-between">
         <Link href="/" className="flex items-center gap-2 font-display text-xl">
@@ -59,7 +60,7 @@ export function MarketingHeader() {
             <Link href="/login">Entrar</Link>
           </Button>
           <Button asChild size="sm">
-            <Link href="/signup">Criar conta grátis</Link>
+            <Link href="/signup">Criar meu espaço</Link>
           </Button>
         </div>
 
@@ -68,7 +69,7 @@ export function MarketingHeader() {
           aria-label={open ? "Fechar menu" : "Abrir menu"}
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
-          className="grid h-10 w-10 place-items-center rounded-lg border border-white/10 text-foreground md:hidden"
+          className="grid h-10 w-10 place-items-center rounded-lg border border-white/15 bg-white/5 text-foreground md:hidden"
         >
           {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
@@ -81,7 +82,7 @@ export function MarketingHeader() {
         irmão do header, ele usa a viewport de verdade e cobre 100% do
         conteúdo por trás. */}
     {open && (
-      <nav className="fixed inset-x-0 top-16 bottom-0 z-40 overflow-y-auto border-t border-white/5 bg-background px-6 pb-6 pt-2 md:hidden">
+      <nav data-theme="marketing-dark" className="fixed inset-x-0 top-16 bottom-0 z-40 overflow-y-auto border-t border-white/10 bg-[#131715] px-6 pb-6 pt-2 md:hidden">
         <div className="flex flex-col gap-1">
           {NAV_LINKS.map((l) => (
             <a
@@ -99,7 +100,7 @@ export function MarketingHeader() {
             <Link href="/login">Entrar</Link>
           </Button>
           <Button asChild onClick={() => setOpen(false)}>
-            <Link href="/signup">Criar conta grátis</Link>
+            <Link href="/signup">Criar meu espaço</Link>
           </Button>
         </div>
       </nav>

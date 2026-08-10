@@ -1,6 +1,5 @@
 import Image from "next/image";
 import { ChevronRight, Search } from "lucide-react";
-import { CATEGORY_IMAGES } from "@/lib/images";
 
 const SERVICES = [
   { name: "Serviço", duration: "45 min" },
@@ -14,10 +13,10 @@ const SERVICES = [
  */
 export function ClientMockup() {
   return (
-    <div className="mx-auto w-full max-w-[280px] overflow-hidden rounded-[2rem] border border-white/10 bg-card shadow-2xl">
+    <div className="mx-auto w-full max-w-[280px] overflow-hidden rounded-[2rem] border border-border bg-card shadow-2xl">
       <div className="relative h-28 w-full overflow-hidden">
         <Image
-          src={CATEGORY_IMAGES.cortefeminino}
+          src="/images/salon-hero-stylist-v2.webp"
           alt=""
           fill
           sizes="280px"
