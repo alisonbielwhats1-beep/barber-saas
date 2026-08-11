@@ -32,11 +32,11 @@ const SEGMENTS: Segment[] = [
     eyebrow: "Um sistema para beleza e bem-estar",
     theme: "bg-[#faf8f3] text-[#101514]",
     photos: [
-      { src: "/images/salon-hero-barber-v2.webp", alt: "Corte masculino em barbearia", label: "Barbearia", position: "object-[64%_center]" },
-      { src: "/images/salon-hero-stylist-v2.webp", alt: "Atendimento em salão de beleza", label: "Salão", position: "object-[54%_center]" },
-      { src: "/images/salon-hero-manicure-v1.webp", alt: "Atendimento de manicure", label: "Manicure", position: "object-center" },
-      { src: "/images/salon-hero-aesthetics-v2.webp", alt: "Tratamento de estética", label: "Estética", position: "object-center" },
-      { src: "/images/salon-hero-massage-v2.webp", alt: "Massagem profissional", label: "Bem-estar", position: "object-center" },
+      { src: "/images/salon-hero-barber-v2-hq.png", alt: "Corte masculino em barbearia", label: "Barbearia", position: "object-[64%_center]" },
+      { src: "/images/salon-hero-stylist-v2-hq.png", alt: "Atendimento em salão de beleza", label: "Salão", position: "object-[54%_center]" },
+      { src: "/images/salon-hero-manicure-v1-hq.png", alt: "Atendimento de manicure", label: "Manicure", position: "object-center" },
+      { src: "/images/salon-hero-aesthetics-v2-hq.png", alt: "Tratamento de estética", label: "Estética", position: "object-center" },
+      { src: "/images/salon-hero-massage-v2-hq.png", alt: "Massagem profissional", label: "Bem-estar", position: "object-center" },
     ],
     appointments: ["Corte masculino · Rafael", "Escova · Renata", "Massagem · Marina"],
   },
@@ -46,9 +46,9 @@ const SEGMENTS: Segment[] = [
     eyebrow: "Agenda e gestão para barbearias e cabeleireiros",
     theme: "bg-[#0b100f] text-[#f4f5f2]",
     photos: [
-      { src: "/images/salon-hero-barber-v2.webp", alt: "Barbeiro finalizando um corte masculino", label: "Corte & acabamento", position: "object-[64%_center]" },
-      { src: "/images/salon-hero-male-haircut-v1.webp", alt: "Barbeiro realizando um corte masculino", label: "Corte masculino", position: "object-[60%_center]" },
-      { src: "/images/salon-hero-beard-v1.webp", alt: "Barbeiro modelando a barba de um cliente", label: "Barba & cuidado", position: "object-[68%_center]" },
+      { src: "/images/salon-hero-barber-v2-hq.png", alt: "Barbeiro finalizando um corte masculino", label: "Corte & acabamento", position: "object-[64%_center]" },
+      { src: "/images/salon-hero-male-haircut-v1-hq.png", alt: "Barbeiro realizando um corte masculino", label: "Corte masculino", position: "object-[60%_center]" },
+      { src: "/images/salon-hero-beard-v1-hq.png", alt: "Barbeiro modelando a barba de um cliente", label: "Barba & cuidado", position: "object-[68%_center]" },
     ],
     appointments: ["Corte + barba · Rafael", "Degradê · Marcos", "Barba terapia · Rafael"],
   },
@@ -58,9 +58,9 @@ const SEGMENTS: Segment[] = [
     eyebrow: "Agenda e gestão para salão e manicure",
     theme: "bg-[#fbf7f0] text-[#171513]",
     photos: [
-      { src: "/images/salon-hero-stylist-v2.webp", alt: "Cabeleireira finalizando o cabelo de uma cliente", label: "Cabelo & beleza", position: "object-[56%_center]" },
-      { src: "/images/salon-hero-manicure-v1.webp", alt: "Manicure atendendo uma cliente", label: "Manicure", position: "object-center" },
-      { src: "/images/salon-hero-stylist-v1.webp", alt: "Atendimento em salão de beleza", label: "Coloração", position: "object-[55%_center]" },
+      { src: "/images/salon-hero-stylist-v2-hq.png", alt: "Cabeleireira finalizando o cabelo de uma cliente", label: "Cabelo & beleza", position: "object-[56%_center]" },
+      { src: "/images/salon-hero-manicure-v1-hq.png", alt: "Manicure atendendo uma cliente", label: "Manicure", position: "object-center" },
+      { src: "/images/salon-hero-stylist-v1-hq.png", alt: "Atendimento em salão de beleza", label: "Coloração", position: "object-[55%_center]" },
     ],
     appointments: ["Corte feminino · Camila", "Escova · Renata", "Manicure · Júlia"],
   },
@@ -70,9 +70,9 @@ const SEGMENTS: Segment[] = [
     eyebrow: "Agenda e gestão para estética e bem-estar",
     theme: "bg-[#eef1e8] text-[#17201c]",
     photos: [
-      { src: "/images/salon-hero-massage-v2.webp", alt: "Massagem profissional em ambiente de bem-estar", label: "Massagem", position: "object-[55%_center]" },
-      { src: "/images/salon-hero-aesthetics-v2.webp", alt: "Tratamento facial profissional", label: "Estética facial", position: "object-center" },
-      { src: "/images/salon-hero-massage-v1.webp", alt: "Atendimento de relaxamento", label: "Relaxamento", position: "object-center" },
+      { src: "/images/salon-hero-massage-v2-hq.png", alt: "Massagem profissional em ambiente de bem-estar", label: "Massagem", position: "object-[55%_center]" },
+      { src: "/images/salon-hero-aesthetics-v2-hq.png", alt: "Tratamento facial profissional", label: "Estética facial", position: "object-center" },
+      { src: "/images/salon-hero-massage-v1-hq.png", alt: "Atendimento de relaxamento", label: "Relaxamento", position: "object-center" },
     ],
     appointments: ["Limpeza de pele · Ana", "Massagem · Marina", "Drenagem · Ana"],
   },
@@ -111,8 +111,8 @@ export function AnimatedLandingHero() {
       className={cn("relative overflow-hidden pt-16 transition-colors duration-700 lg:h-[clamp(620px,100svh,900px)]", active.theme)}
       aria-label="Apresentação do Salon SaaS"
     >
-      <div className="relative z-20 mx-auto grid max-w-[1536px] lg:h-[calc(clamp(620px,100svh,900px)-4rem)] lg:grid-cols-[43%_57%]">
-        <div className="relative z-30 flex items-center px-6 py-12 sm:px-10 lg:px-12 lg:py-6 xl:pl-20 2xl:pl-24">
+      <div className="relative z-20 mx-auto grid max-w-[1920px] lg:h-[calc(clamp(620px,100svh,900px)-4rem)] lg:grid-cols-[43%_57%]">
+        <div className="relative z-30 flex items-center px-6 py-12 sm:px-10 lg:px-12 lg:py-6 xl:pl-20 2xl:pl-40">
           <div className="max-w-[620px]">
             <div className={cn(
               "mb-5 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition-colors",
@@ -122,7 +122,7 @@ export function AnimatedLandingHero() {
               <span>{active.eyebrow}</span>
             </div>
 
-            <h1 className="landing-title max-w-2xl font-display text-5xl leading-[0.98] tracking-[-0.055em] sm:text-6xl lg:text-[3.15rem] xl:text-[3rem] 2xl:text-[3.4rem]">
+            <h1 className="landing-title max-w-[680px] font-display text-5xl leading-[0.98] tracking-[-0.055em] sm:text-6xl lg:text-[clamp(3rem,3.35vw,4rem)]">
               <span className="landing-title-line block">Seu espaço</span>
               <span className="landing-title-line block">organizado,</span>
               <span className="landing-title-line block">sua agenda sempre</span>
@@ -163,7 +163,7 @@ export function AnimatedLandingHero() {
         </div>
       </div>
 
-      <div className="relative z-40 mx-auto -mt-9 flex max-w-[1536px] justify-center px-4 pb-7 lg:absolute lg:bottom-7 lg:left-0 lg:right-0 lg:mt-0 lg:justify-end lg:px-10 2xl:px-16">
+      <div className="relative z-40 mx-auto -mt-9 flex max-w-[1920px] justify-center px-4 pb-7 lg:absolute lg:bottom-7 lg:left-0 lg:right-0 lg:mt-0 lg:justify-end lg:px-10 2xl:px-16">
         <div
           className="landing-scrollbar-hidden flex max-w-full gap-1 overflow-x-auto rounded-full border border-white/20 bg-[#101413]/85 p-1.5 shadow-xl backdrop-blur-xl"
           role="group"
@@ -195,17 +195,17 @@ function HeroCollage({ segment }: { segment: Segment }) {
     <div className="animate-photo-swap absolute inset-0 z-10">
       {general ? (
         <div className="grid h-full grid-cols-[1.15fr_.72fr_.72fr] grid-rows-2 gap-1 bg-[#d8d0c3]">
-          <Photo photo={segment.photos[0]} className="row-span-2 lg:[clip-path:polygon(7%_0,100%_0,88%_100%,0_100%)]" labelClassName="left-3 lg:left-[12%]" priority sizes="(max-width: 1024px) 100vw, 28vw" />
-          <Photo photo={segment.photos[1]} sizes="(max-width: 1024px) 100vw, 18vw" />
-          <Photo photo={segment.photos[2]} sizes="(max-width: 1024px) 100vw, 18vw" />
-          <Photo photo={segment.photos[3]} sizes="(max-width: 1024px) 100vw, 18vw" />
-          <Photo photo={segment.photos[4]} sizes="(max-width: 1024px) 100vw, 18vw" />
+          <Photo photo={segment.photos[0]} className="row-span-2 lg:[clip-path:polygon(7%_0,100%_0,88%_100%,0_100%)]" labelClassName="left-3 lg:left-[12%]" priority sizes="(max-width: 1023px) 1100px, (max-width: 1919px) 80vw, 1500px" />
+          <Photo photo={segment.photos[1]} sizes="(max-width: 1023px) 640px, (max-width: 1919px) 40vw, 760px" />
+          <Photo photo={segment.photos[2]} sizes="(max-width: 1023px) 640px, (max-width: 1919px) 40vw, 760px" />
+          <Photo photo={segment.photos[3]} sizes="(max-width: 1023px) 640px, (max-width: 1919px) 40vw, 760px" />
+          <Photo photo={segment.photos[4]} sizes="(max-width: 1023px) 640px, (max-width: 1919px) 40vw, 760px" />
         </div>
       ) : (
         <div className="relative h-full bg-[#111513]">
-          <Photo photo={segment.photos[0]} className="absolute inset-0" priority sizes="(max-width: 1024px) 100vw, 58vw" />
-          <Photo photo={segment.photos[1]} className="absolute bottom-0 left-0 z-10 h-[40%] w-[47%] border-r-2 border-white/70 [clip-path:polygon(0_18%,88%_0,100%_100%,10%_100%)]" labelClassName="bottom-4 left-[15%] top-auto" sizes="(max-width: 1024px) 47vw, 27vw" />
-          <Photo photo={segment.photos[2]} className="absolute bottom-0 right-0 z-10 h-[42%] w-[34%] border-l-2 border-white/70 [clip-path:polygon(14%_0,100%_8%,100%_100%,0_100%)]" labelClassName="left-[20%]" sizes="(max-width: 1024px) 34vw, 20vw" />
+          <Photo photo={segment.photos[0]} className="absolute inset-0" priority sizes="(max-width: 1023px) 1100px, (max-width: 1919px) 80vw, 1500px" />
+          <Photo photo={segment.photos[1]} className="absolute bottom-0 left-0 z-10 h-[40%] w-[47%] border-r-2 border-white/70 [clip-path:polygon(0_18%,88%_0,100%_100%,10%_100%)]" labelClassName="bottom-4 left-[15%] top-auto" sizes="(max-width: 1023px) 480px, (max-width: 1919px) 34vw, 640px" />
+          <Photo photo={segment.photos[2]} className="absolute bottom-0 right-0 z-10 h-[42%] w-[34%] border-l-2 border-white/70 [clip-path:polygon(14%_0,100%_8%,100%_100%,0_100%)]" labelClassName="left-[20%]" sizes="(max-width: 1023px) 480px, (max-width: 1919px) 34vw, 640px" />
         </div>
       )}
       <div className="absolute inset-0 bg-gradient-to-b from-black/5 via-transparent to-black/20" />

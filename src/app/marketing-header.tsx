@@ -56,7 +56,7 @@ export function MarketingHeader() {
       data-theme="marketing-dark"
       className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-[#131715]/95 text-foreground shadow-[0_8px_30px_-24px_rgba(5,12,9,0.8)] backdrop-blur-xl"
     >
-      <div className="container flex h-16 items-center justify-between">
+      <div className="mx-auto flex h-16 w-full max-w-[1600px] items-center justify-between px-6 sm:px-10">
         <Link href="/" className="flex min-h-11 items-center gap-2 rounded-lg font-display text-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-[#131715]">
           <span className="grid h-8 w-8 place-items-center rounded-md bg-primary text-primary-foreground">
             <Sparkles className="h-4 w-4" />
