@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Cake, Clock, Crown, MessageCircle, Copy, Check, Ticket, Star, UserPlus } from "lucide-react";
+import { Cake, Clock, Crown, MessageCircle, Copy, Check, Ticket, Star, UserPlus, Users } from "lucide-react";
 
 type Target = { id: string; name: string; phone: string | null };
 type Campaign = { key: string; title: string; icon: typeof Cake; accent: string; description: string; template: string; targets: Target[] };
@@ -48,25 +48,50 @@ export function MarketingCampaigns({
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       {/* Seleção de campanha */}
-      <div className="space-y-2 lg:col-span-1">
-        {campaigns.map((c) => (
-          <button
-            key={c.key}
-            onClick={() => setActive(c.key)}
-            className={`w-full rounded-2xl border p-4 text-left transition ${active === c.key ? "border-primary/40 bg-primary/5" : "border-border bg-card hover:bg-card-hover"}`}
+      <div className="lg:col-span-1">
+        <div className="lg:hidden">
+          <label htmlFor="mobile-campaign" className="mb-2 block text-[12px] font-semibold">
+            Escolha a campanha
+          </label>
+          <select
+            id="mobile-campaign"
+            aria-label="Escolher campanha"
+            value={active}
+            onChange={(event) => setActive(event.target.value)}
+            className="h-12 w-full rounded-xl border border-border bg-card px-3 text-[14px] font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
           >
-            <div className="flex items-center gap-2.5">
-              <span className="grid h-9 w-9 place-items-center rounded-lg" style={{ background: `${c.accent}1f`, color: c.accent }}>
-                <c.icon className="h-4 w-4" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-[13px] font-semibold">{c.title}</p>
-                <p className="text-[11px] text-muted-foreground">{c.targets.length} clientes</p>
+            {campaigns.map((campaign) => (
+              <option key={campaign.key} value={campaign.key}>
+                {campaign.title} ({campaign.targets.length})
+              </option>
+            ))}
+          </select>
+          <div className="mt-2 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5">
+            <p className="text-[12px] font-semibold">{current.title}</p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">{current.description}</p>
+          </div>
+        </div>
+
+        <div className="hidden space-y-2 lg:block">
+          {campaigns.map((c) => (
+            <button
+              key={c.key}
+              onClick={() => setActive(c.key)}
+              className={`w-full rounded-2xl border p-4 text-left transition ${active === c.key ? "border-primary/40 bg-primary/5" : "border-border bg-card hover:bg-card-hover"}`}
+            >
+              <div className="flex items-center gap-2.5">
+                <span className="grid h-9 w-9 place-items-center rounded-lg" style={{ background: `${c.accent}1f`, color: c.accent }}>
+                  <c.icon className="h-4 w-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-semibold">{c.title}</p>
+                  <p className="text-[11px] text-muted-foreground">{c.targets.length} clientes</p>
+                </div>
               </div>
-            </div>
-            <p className="mt-2 text-[11px] text-muted-foreground">{c.description}</p>
-          </button>
-        ))}
+              <p className="mt-2 text-[11px] text-muted-foreground">{c.description}</p>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Editor + alvos */}
@@ -88,9 +113,16 @@ export function MarketingCampaigns({
           <p className="mt-2 text-[11px] text-muted-foreground">
             Use <code className="rounded bg-surface-1 px-1">{"{nome}"}</code> e <code className="rounded bg-surface-1 px-1">{"{cupom}"}</code> — trocamos automaticamente para cada cliente.
           </p>
+          <a
+            href="#marketing-destinatarios"
+            className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-[13px] font-semibold text-primary-foreground lg:hidden"
+          >
+            <Users className="h-4 w-4" />
+            Ver destinatários ({current.targets.length})
+          </a>
         </div>
 
-        <div className="overflow-hidden rounded-2xl border border-border bg-card">
+        <div id="marketing-destinatarios" className="scroll-mt-4 overflow-hidden rounded-2xl border border-border bg-card">
           <div className="border-b border-border px-5 py-3 text-[13px] font-semibold">
             {current.targets.length} destinatários
           </div>
@@ -99,7 +131,7 @@ export function MarketingCampaigns({
           ) : (
             <div className="max-h-[420px] overflow-y-auto">
               {current.targets.map((t) => (
-                <div key={t.id} className="flex items-center gap-3 border-b border-border px-5 py-2.5 last:border-0">
+                <div key={t.id} className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3 last:border-0 sm:flex-nowrap sm:px-5 sm:py-2.5">
                   <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-surface-1 text-[11px] font-semibold">
                     {t.name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase()}
                   </span>
@@ -107,16 +139,21 @@ export function MarketingCampaigns({
                     <p className="truncate text-[13px] font-medium">{t.name}</p>
                     <p className="truncate text-[11px] text-muted-foreground">{t.phone ?? "sem telefone"}</p>
                   </div>
-                  <button onClick={() => copyMsg(t)} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:text-foreground" title="Copiar mensagem">
-                    {copied === t.id ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
-                  </button>
-                  {t.phone ? (
-                    <a href={waLink(t)} target="_blank" rel="noopener noreferrer" className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[#25D366]/15 px-3 py-1.5 text-[12px] font-medium text-[#25D366] transition hover:bg-[#25D366]/25">
-                      <MessageCircle className="h-3.5 w-3.5" /> Enviar
-                    </a>
-                  ) : (
-                    <span className="text-[11px] text-muted-foreground">—</span>
-                  )}
+                  <div className="flex basis-full gap-2 pl-11 sm:basis-auto sm:pl-0">
+                    <button onClick={() => copyMsg(t)} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-border px-3 text-[12px] text-muted-foreground transition hover:text-foreground" title="Copiar mensagem">
+                      {copied === t.id ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
+                      <span className="sm:hidden">{copied === t.id ? "Copiado" : "Copiar"}</span>
+                    </button>
+                    {t.phone ? (
+                      <a href={waLink(t)} target="_blank" rel="noopener noreferrer" className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#25D366]/15 px-3 text-[12px] font-medium text-[#25D366] transition hover:bg-[#25D366]/25 sm:flex-none">
+                        <MessageCircle className="h-3.5 w-3.5" />
+                        <span className="sm:hidden">Enviar pelo WhatsApp</span>
+                        <span className="hidden sm:inline">Enviar</span>
+                      </a>
+                    ) : (
+                      <span className="inline-flex h-9 flex-1 items-center justify-center rounded-lg bg-surface-1 px-3 text-[11px] text-muted-foreground sm:flex-none">Sem WhatsApp</span>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
