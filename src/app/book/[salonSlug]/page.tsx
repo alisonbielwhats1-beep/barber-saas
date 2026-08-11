@@ -14,7 +14,7 @@ import {
   Info,
 } from "lucide-react";
 import { withSalonBySlug } from "@/lib/prisma-tenant";
-import { HERO_IMAGES, imageForProduct } from "@/lib/images";
+import { HERO_IMAGES, resolveProductImage } from "@/lib/images";
 import { normalizePhone, formatPhoneBR } from "@/lib/phone";
 import { hexToHslTriple, readableForeground } from "@/lib/color";
 import { getSegment, isSegmentId } from "@/lib/segments";
@@ -96,7 +96,7 @@ export default async function ClientHome({
         where: { active: true },
         orderBy: { name: "asc" },
         take: 4,
-        select: { id: true, name: true, priceCents: true, imageUrl: true },
+        select: { id: true, name: true, category: true, priceCents: true, imageUrl: true },
       },
     },
   }));
@@ -348,7 +348,18 @@ export default async function ClientHome({
                 className="w-28 shrink-0 overflow-hidden rounded-2xl border border-border bg-card"
               >
                 <div className="relative aspect-square w-full">
-                  <Image src={p.imageUrl ?? imageForProduct(i)} alt={p.name} fill sizes="112px" className="object-cover" />
+                  <Image
+                    src={resolveProductImage({
+                      imageUrl: p.imageUrl,
+                      name: p.name,
+                      category: p.category,
+                      index: i,
+                    })}
+                    alt={p.name}
+                    fill
+                    sizes="112px"
+                    className="object-cover"
+                  />
                 </div>
                 <div className="p-2">
                   <p className="truncate text-[11px] font-medium">{p.name}</p>

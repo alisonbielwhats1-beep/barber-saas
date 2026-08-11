@@ -4,7 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { withSalonBySlug } from "@/lib/prisma-tenant";
 import { CartBadge } from "../cart-badge";
 import { ProductList } from "./product-list";
-import { imageForProduct } from "@/lib/images";
+import { resolveProductImage } from "@/lib/images";
 
 export default async function ClientProdutos({
   params,
@@ -40,7 +40,12 @@ export default async function ClientProdutos({
 
   const products = salon.products.map((p, i) => ({
     ...p,
-    imageUrl: p.imageUrl || imageForProduct(i),
+    imageUrl: resolveProductImage({
+      imageUrl: p.imageUrl,
+      name: p.name,
+      category: p.category,
+      index: i,
+    }),
   }));
 
   return (

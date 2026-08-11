@@ -25,7 +25,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { formatMoney } from "@/lib/utils";
-import { imageForProduct } from "@/lib/images";
+import { resolveProductImage } from "@/lib/images";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "@/components/ui/toast";
@@ -112,6 +112,12 @@ function ProductCardView({ p }: { p: ProductCard }) {
   const profit = p.priceCents - p.costCents;
   const needRestock = p.stock <= p.minStock;
   const stockPct = Math.max(4, Math.min(100, (p.stock / Math.max(1, p.minStock * 3)) * 100));
+  const imageSrc = resolveProductImage({
+    imageUrl: p.imageUrl,
+    name: p.name,
+    category: p.category,
+    index: p.index,
+  });
 
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -132,7 +138,7 @@ function ProductCardView({ p }: { p: ProductCard }) {
   return (
     <div className={`card-interactive overflow-hidden rounded-2xl border border-border bg-card ${!p.active ? "opacity-60" : ""}`}>
       <div className="relative aspect-video w-full overflow-hidden bg-muted">
-        <Image src={p.imageUrl || imageForProduct(p.index)} alt={p.name} fill sizes="(max-width:768px) 100vw, 33vw" className="object-cover" />
+        <Image src={imageSrc} alt={p.name} fill sizes="(max-width:768px) 100vw, 33vw" className="object-cover" />
         <div className="absolute left-2 top-2 flex gap-1.5">
           {p.topSeller && (
             <span className="inline-flex items-center gap-1 rounded-full bg-marketing/90 px-2 py-0.5 text-[10px] font-semibold text-white">
