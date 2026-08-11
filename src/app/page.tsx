@@ -5,7 +5,9 @@ import {
   Users,
   Bell,
   ArrowRight,
-  ArrowUpRight,
+  Check,
+  Building2,
+  ShieldCheck,
   Quote,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,41 +18,47 @@ import { LandingMobileShowcase } from "./landing-mobile-showcase";
 
 export default function LandingPage() {
   return (
-    <main data-theme="marketing-light" className="min-h-screen overflow-hidden bg-background">
+    <main
+      id="conteudo-principal"
+      tabIndex={-1}
+      data-theme="marketing-light"
+      className="min-h-screen overflow-hidden bg-background"
+    >
       <MarketingHeader />
       <AnimatedLandingHero />
 
       {/* Segmentos — identificação imediata logo após o hero */}
-      <section id="segmentos" className="scroll-mt-24 border-y border-border/70 bg-white/45 py-24">
+      <section id="segmentos" className="landing-section scroll-mt-24 border-y border-border/70 bg-white/45">
         <LandingReveal className="container">
           <div className="mx-auto max-w-2xl text-center">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-primary">
+            <p className="landing-eyebrow mb-3">
               Feito para a sua rotina
             </p>
-            <h2 className="font-display text-3xl tracking-tight md:text-5xl">
+            <h2 className="font-display text-3xl leading-tight tracking-[-0.035em] sm:text-4xl md:text-5xl">
               Qual é o seu tipo de negócio?
             </h2>
-            <p className="mt-4 text-muted-foreground">
-              A experiência se adapta ao seu segmento sem limitar os serviços
-              que você pode oferecer.
+            <p className="mx-auto mt-4 max-w-xl leading-relaxed text-muted-foreground">
+              Uma plataforma flexível para combinar serviços, profissionais e
+              rotinas sem limitar o crescimento do seu espaço.
             </p>
           </div>
-          <div className="mt-14">
+          <div className="mt-10 sm:mt-14">
             <SegmentExplorer />
           </div>
         </LandingReveal>
       </section>
 
       {/* Benefícios principais */}
-      <section id="recursos" className="scroll-mt-24 py-24">
+      <section id="recursos" className="landing-section scroll-mt-24">
         <LandingReveal className="container">
           <div className="mx-auto max-w-2xl text-center">
-            <h2 className="font-display text-3xl md:text-4xl">
-              O que mais pesa no dia a dia, resolvido primeiro
+            <p className="landing-eyebrow mb-3">Menos retrabalho, mais controle</p>
+            <h2 className="font-display text-3xl leading-tight tracking-[-0.03em] md:text-4xl">
+              Tudo o que mais impacta sua operação, em um só lugar
             </h2>
-            <p className="mt-3 text-muted-foreground">
-              Sem vinte recursos com o mesmo peso — o que realmente evita
-              prejuízo e retrabalho.
+            <p className="mx-auto mt-4 max-w-xl leading-relaxed text-muted-foreground">
+              Organize a rotina, reduza falhas e acompanhe o que acontece no
+              seu negócio sem depender de várias ferramentas.
             </p>
           </div>
 
@@ -58,10 +66,10 @@ export default function LandingPage() {
             {BENEFITS.map((b) => (
               <div
                 key={b.title}
-                className="card-interactive rounded-2xl border border-border bg-card p-6 shadow-[0_18px_45px_-38px_rgba(29,50,40,0.55)]"
+                className="landing-card rounded-2xl p-6"
               >
                 <div className="mb-4 grid h-11 w-11 place-items-center rounded-xl bg-primary/10 text-primary">
-                  <b.icon className="h-5 w-5" />
+                  <b.icon aria-hidden="true" className="h-5 w-5" />
                 </div>
                 <h3 className="mb-2 font-display text-lg">{b.title}</h3>
                 <p className="text-sm leading-relaxed text-muted-foreground">
@@ -76,14 +84,21 @@ export default function LandingPage() {
       <LandingMobileShowcase />
 
       {/* Como funciona — passo a passo */}
-      <section className="border-y border-border/70 bg-white/45 py-24">
+      <section className="landing-section border-y border-border/70 bg-white/45">
         <LandingReveal className="container">
           <div className="mx-auto max-w-2xl text-center">
-            <h2 className="font-display text-3xl md:text-4xl">Do zero ao primeiro agendamento</h2>
+            <p className="landing-eyebrow mb-3">Comece sem complicar</p>
+            <h2 className="font-display text-3xl leading-tight tracking-[-0.03em] md:text-4xl">
+              Do cadastro ao primeiro agendamento
+            </h2>
+            <p className="mx-auto mt-4 max-w-xl leading-relaxed text-muted-foreground">
+              Configure sua operação, publique sua página e centralize a rotina
+              da equipe em poucos passos.
+            </p>
           </div>
           <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
             {STEPS.map((s, i) => (
-              <div key={s.title} className="card-interactive relative rounded-2xl border border-border bg-card p-5">
+              <div key={s.title} className="landing-card relative rounded-2xl p-5">
                 <span className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
                   {i + 1}
                 </span>
@@ -96,63 +111,91 @@ export default function LandingPage() {
       </section>
 
       {/* Planos */}
-      <section id="planos" className="scroll-mt-24 py-24">
+      <section id="planos" className="landing-section scroll-mt-24">
         <LandingReveal className="container">
           <div className="mx-auto max-w-2xl text-center">
-            <h2 className="font-display text-3xl md:text-4xl">Planos</h2>
-            <p className="mt-3 text-muted-foreground">
-              Condições comerciais em definição — fale com a gente para os
-              valores atuais.
+            <p className="landing-eyebrow mb-3">Planos que acompanham seu negócio</p>
+            <h2 className="font-display text-3xl leading-tight tracking-[-0.03em] md:text-4xl">
+              Comece com o que sua operação precisa hoje
+            </h2>
+            <p className="mx-auto mt-4 max-w-xl leading-relaxed text-muted-foreground">
+              Uma base completa para organizar o primeiro espaço e evoluir
+              conforme sua equipe, seus serviços e suas unidades crescerem.
             </p>
           </div>
 
-          <div className="mt-14 grid gap-6 md:grid-cols-3">
-            {PLANS.map((p) => (
+          <div className="mt-14 overflow-hidden rounded-[2rem] border border-border bg-card shadow-[0_32px_80px_-58px_rgba(23,32,28,0.5)]">
+            <div className="grid lg:grid-cols-[0.82fr_1.18fr]">
               <div
-                key={p.name}
-                className={`rounded-3xl border p-7 ${
-                  p.highlight ? "border-primary/50 bg-primary/5" : "border-border bg-card"
-                }`}
+                className="bg-[#17201c] p-7 text-white sm:p-10 lg:p-12"
+                data-theme="marketing-dark"
               >
-                <h3 className="font-display text-xl">{p.name}</h3>
-                <p className="mt-1 text-sm text-muted-foreground">{p.audience}</p>
-                <p className="mt-6 text-2xl font-semibold text-muted-foreground">
-                  Consulte as condições
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+                  A partir de
                 </p>
-                <ul className="mt-6 space-y-2.5 text-sm">
-                  {p.bullets.map((b) => (
-                    <li key={b} className="flex items-start gap-2.5">
-                      <ArrowUpRight className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                      <span className="text-muted-foreground">{b}</span>
+                <div className="mt-4 flex items-end gap-2">
+                  <span className="font-display text-5xl leading-none tracking-[-0.05em] sm:text-6xl">
+                    R$ 79,90
+                  </span>
+                  <span className="pb-1 text-sm text-muted-foreground">/mês</span>
+                </div>
+                <p className="mt-5 max-w-sm text-sm leading-relaxed text-muted-foreground">
+                  Comece com o que sua operação precisa. O valor do plano
+                  evolui conforme o volume de agendamentos do seu negócio.
+                </p>
+                <div className="mt-8 flex flex-col gap-3 sm:flex-row lg:flex-col xl:flex-row">
+                  <Button asChild size="lg" className="h-12 rounded-full px-6">
+                    <Link href="/signup">Criar meu espaço</Link>
+                  </Button>
+                  <Button asChild variant="outline" size="lg" className="h-12 rounded-full px-6">
+                    <Link href="/book/north-barber">Ver demonstração</Link>
+                  </Button>
+                </div>
+                <p className="mt-4 text-xs text-muted-foreground">Solicite seu acesso · sem cartão</p>
+              </div>
+
+              <div className="p-7 sm:p-10 lg:p-12">
+                <h3 className="font-display text-2xl tracking-[-0.025em]">
+                  Uma estrutura completa desde o início
+                </h3>
+                <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground">
+                  Centralize o que movimenta o atendimento e mantenha espaço
+                  para crescer sem trocar de plataforma.
+                </p>
+                <ul className="mt-8 grid gap-x-8 gap-y-4 sm:grid-cols-2">
+                  {PLAN_FEATURES.map((feature) => (
+                    <li key={feature} className="flex items-start gap-3 text-sm">
+                      <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
+                        <Check aria-hidden="true" className="h-3.5 w-3.5" />
+                      </span>
+                      <span>{feature}</span>
                     </li>
                   ))}
                 </ul>
-                <Button
-                  asChild
-                  variant={p.highlight ? "default" : "outline"}
-                  className="mt-7 w-full rounded-full"
-                >
-                  <Link href="/signup">Criar meu espaço</Link>
-                </Button>
               </div>
-            ))}
+            </div>
           </div>
         </LandingReveal>
       </section>
 
       {/* Prova de valor honesta */}
-      <section className="py-24">
+      <section className="landing-section border-t border-border/60 bg-white/35">
         <LandingReveal className="container">
-          <div className="mx-auto max-w-2xl text-center">
-            <Quote className="mx-auto mb-6 h-8 w-8 text-primary" />
+          <div className="mx-auto max-w-3xl text-center">
+            <Quote aria-hidden="true" className="mx-auto mb-6 h-8 w-8 text-primary" />
             <p className="font-display text-2xl leading-snug md:text-3xl">
-              Desenvolvido junto com profissionais que vivem a rotina de
+              Desenvolvido ouvindo profissionais que vivem a rotina de
               atender, agendar e fechar o caixa todos os dias.
             </p>
-            <p className="mt-4 text-sm text-muted-foreground">
-              Ainda estamos construindo nossa base de estabelecimentos — sem
-              números inventados por aqui.
-            </p>
+            <div className="mt-10 grid gap-3 text-left sm:grid-cols-3">
+              {TRUST_POINTS.map((point) => (
+                <div key={point.title} className="rounded-2xl border border-border bg-card/80 p-4">
+                  <point.icon aria-hidden="true" className="h-5 w-5 text-primary" />
+                  <h3 className="mt-3 text-sm font-semibold">{point.title}</h3>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{point.description}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </LandingReveal>
       </section>
@@ -164,8 +207,8 @@ export default function LandingPage() {
             Seu negócio <span className="text-primary">organizado e online</span>
           </h2>
           <p className="mx-auto mt-4 max-w-md text-muted-foreground">
-            Envie sua solicitação, configure os serviços e compartilhe o link
-            de agendamento após a aprovação.
+            Reúna agenda, clientes, equipe e resultados em uma plataforma que
+            se adapta à rotina do seu espaço.
           </p>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
             <Button asChild size="lg" className="h-14 rounded-full px-10 text-base">
@@ -182,6 +225,7 @@ export default function LandingPage() {
               <Link href="/book/north-barber">Ver demonstração</Link>
             </Button>
           </div>
+          <p className="mt-4 text-xs text-muted-foreground">Solicite seu acesso · sem cartão</p>
         </LandingReveal>
       </section>
 
@@ -195,13 +239,13 @@ const BENEFITS = [
     icon: CalendarDays,
     title: "Agenda sem conflito",
     description:
-      "Cada profissional com sua jornada, pausas e bloqueios. O cliente só vê horário que existe de verdade.",
+      "Ofereça apenas horários realmente disponíveis e mantenha cada profissional com sua rotina organizada.",
   },
   {
     icon: Bell,
-    title: "Lembrete antes de cada horário",
+    title: "Lembretes que reduzem faltas",
     description:
-      "A notificação interna é automática, e o painel mantém o atalho manual de WhatsApp sem contratar serviço pago.",
+      "Reduza esquecimentos com lembretes e mantenha o contato com o cliente a poucos toques.",
   },
   {
     icon: Users,
@@ -211,9 +255,9 @@ const BENEFITS = [
   },
   {
     icon: BarChart3,
-    title: "Visão financeira do dia",
+    title: "Resultados mais claros",
     description:
-      "Faturamento, comissão por profissional e os serviços que mais dão retorno, sempre atualizados.",
+      "Acompanhe faturamento, comissões e os serviços que mais movimentam o seu negócio.",
   },
 ];
 
@@ -225,24 +269,30 @@ const STEPS = [
   { title: "Acompanhe os resultados", description: "Financeiro e relatórios direto do painel." },
 ];
 
-const PLANS = [
+const PLAN_FEATURES = [
+  "Agenda e agendamento online",
+  "Clientes, serviços e profissionais",
+  "Página pública do estabelecimento",
+  "Financeiro e relatórios operacionais",
+  "Notificações e histórico de atendimento",
+  "Produtos, pacotes e portfólio",
+];
+
+const TRUST_POINTS = [
   {
-    name: "Essencial",
-    audience: "Para quem está começando a organizar a agenda.",
-    bullets: ["Agenda e agendamento online", "Cadastro de clientes", "Página pública do estabelecimento"],
-    highlight: false,
+    icon: Users,
+    title: "Feito para a rotina real",
+    description: "Fluxos pensados para quem atende e administra todos os dias.",
   },
   {
-    name: "Profissional",
-    audience: "Para equipes que já têm rotina de atendimento.",
-    bullets: ["Tudo do Essencial", "Financeiro e relatórios", "Pacotes e planos de assinatura"],
-    highlight: true,
+    icon: ShieldCheck,
+    title: "Operação confiável",
+    description: "Agenda, permissões e histórico tratados com consistência.",
   },
   {
-    name: "Premium",
-    audience: "Para operações maiores, com mais de uma unidade.",
-    bullets: ["Tudo do Profissional", "Recursos avançados de marketing", "Suporte prioritário"],
-    highlight: false,
+    icon: Building2,
+    title: "Pronto para evoluir",
+    description: "Uma base flexível para novos serviços, profissionais e unidades.",
   },
 ];
 
@@ -271,7 +321,7 @@ function MarketingFooter() {
           title="Conta"
           items={[
             { label: "Entrar", href: "/login" },
-            { label: "Criar conta", href: "/signup" },
+            { label: "Criar meu espaço", href: "/signup" },
           ]}
         />
         <FooterColumn
@@ -314,7 +364,10 @@ function FooterColumn({
                 </span>
               </span>
             ) : (
-              <Link href={it.href} className="text-muted-foreground transition hover:text-foreground">
+              <Link
+                href={it.href}
+                className="inline-flex min-h-11 items-center rounded-sm text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
                 {it.label}
               </Link>
             )}
