@@ -5,7 +5,10 @@ import {
   type NextFetchEvent,
   type NextRequest,
 } from "next/server";
-import { isUnconfiguredVercelPreview } from "@/lib/runtime-environment";
+import {
+  isSafeMarketingPreviewPath,
+  isUnconfiguredVercelPreview,
+} from "@/lib/runtime-environment";
 
 const PROTECTED_PATH_PREFIXES = [
   "/dashboard",
@@ -40,14 +43,17 @@ function isProtectedPath(pathname: string) {
 
 /**
  * Protege as rotas administrativas: sem sessão válida, redireciona para /login.
- * Em Vercel Preview, bloqueia todas as rotas até o ambiente ser explicitamente
- * classificado como staging.
+ * Em Vercel Preview sem staging, permite somente a landing para revisão visual
+ * e mantém bloqueadas todas as rotas que acessam dados ou autenticação.
  */
 export default function middleware(
   request: NextRequest,
   event: NextFetchEvent,
 ) {
-  if (isUnconfiguredVercelPreview(process.env)) {
+  if (
+    isUnconfiguredVercelPreview(process.env) &&
+    !isSafeMarketingPreviewPath(request.nextUrl.pathname)
+  ) {
     return new NextResponse(
       "Ambiente de homologação ainda não foi configurado com segurança.",
       {
@@ -61,6 +67,14 @@ export default function middleware(
         },
       },
     );
+  }
+
+  if (isUnconfiguredVercelPreview(process.env)) {
+    const response = NextResponse.next();
+    response.headers.set("Cache-Control", "no-store");
+    response.headers.set("X-Environment-Guard", "marketing-only");
+    response.headers.set("X-Robots-Tag", "noindex, nofollow");
+    return response;
   }
 
   if (isProtectedPath(request.nextUrl.pathname)) {

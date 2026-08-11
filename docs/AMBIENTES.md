@@ -34,7 +34,9 @@ Referências oficiais:
 3. Secrets nunca entram no Git, em logs ou em artefatos do CI.
 4. Pull requests usam apenas o PostgreSQL efêmero do próprio job.
 5. Preview da Vercel nunca recebe variáveis de produção.
-6. Preview sem `APP_ENV=staging` permanece bloqueado com HTTP 503.
+6. Preview sem `APP_ENV=staging` permite somente a landing `/` para revisão
+   visual; autenticação, agendamento, APIs e painéis permanecem bloqueados com
+   HTTP 503.
 7. Nenhuma migration produtiva é executada automaticamente nesta fase.
 8. O projeto Supabase de produção e o de homologação precisam ter project refs
    diferentes, verificados automaticamente antes de qualquer escrita.
@@ -162,7 +164,9 @@ Rollback nunca deve apagar dados recém-criados sem exportação e autorização
 
 - CI com banco efêmero: configurado no repositório.
 - Barreiras locais: configuradas no repositório.
-- Preview sem `APP_ENV=staging`: bloqueado no middleware.
+- Preview sem `APP_ENV=staging`: somente a landing `/` é liberada para revisão
+  visual; todas as rotas com dados, autenticação ou operação permanecem
+  bloqueadas no middleware.
 - Ambientes GitHub `test`, `staging` e `production`: gerenciados separadamente
   nas configurações do repositório.
 - A conta já possui dois projetos Supabase ativos; a classificação segura entre

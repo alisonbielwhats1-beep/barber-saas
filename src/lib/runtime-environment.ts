@@ -13,3 +13,11 @@ export function isUnconfiguredVercelPreview(
     environment.APP_ENV?.trim().toLowerCase() !== "staging"
   );
 }
+
+/**
+ * Mantém o Preview sem staging útil apenas para revisão visual da landing.
+ * Nenhuma rota de autenticação, agendamento, API ou painel entra nesta lista.
+ */
+export function isSafeMarketingPreviewPath(pathname: string): boolean {
+  return pathname === "/";
+}

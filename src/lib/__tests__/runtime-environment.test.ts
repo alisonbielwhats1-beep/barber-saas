@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { isUnconfiguredVercelPreview } from "../runtime-environment";
+import {
+  isSafeMarketingPreviewPath,
+  isUnconfiguredVercelPreview,
+} from "../runtime-environment";
 
 describe("isUnconfiguredVercelPreview", () => {
   it.each([undefined, "", "development", "test", "production"])(
@@ -34,4 +37,21 @@ describe("isUnconfiguredVercelPreview", () => {
       ).toBe(false);
     },
   );
+});
+
+describe("isSafeMarketingPreviewPath", () => {
+  it("libera somente a raiz para revisão visual da landing", () => {
+    expect(isSafeMarketingPreviewPath("/")).toBe(true);
+  });
+
+  it.each([
+    "/login",
+    "/signup",
+    "/book/north-barber",
+    "/api/auth/session",
+    "/dashboard",
+    "/plataforma",
+  ])("mantém bloqueada a rota %s", (pathname) => {
+    expect(isSafeMarketingPreviewPath(pathname)).toBe(false);
+  });
 });
