@@ -1,14 +1,14 @@
 # Status atual canônico — Salon SaaS
 
 Atualizado em **11/08/2026** após o PR
-[#38](https://github.com/alisonbielwhats1-beep/barber-saas/pull/38).
+[#39](https://github.com/alisonbielwhats1-beep/barber-saas/pull/39).
 Este arquivo substitui os status históricos quando houver contradição.
 
 ## Identificação da versão
 
 - Repositório: `alisonbielwhats1-beep/barber-saas`
 - Branch produtiva: `master`
-- Commit produtivo verificado antes desta frente: `1583b5bed399a54a7151051e4ed18379b07ef5d8`
+- Commit funcional da aplicação: `066ecbdf9c82d41d5bc84daca3592a10a97a91c4`
 - Vercel: projeto `salon-saas`
 - Deploy do commit: estado `READY` confirmado pela integração Vercel/GitHub
 - URL oficial: [salon-saas-ruby.vercel.app](https://salon-saas-ruby.vercel.app)
@@ -112,25 +112,26 @@ Este arquivo substitui os status históricos quando houver contradição.
 - WhatsApp: somente atalho manual; nenhuma integração paga automática.
 - Billing automático/Stripe: não implementado nem autorizado.
 
-## Frente local de auditoria de frontend
+## Auditoria de frontend implantada
 
-- Branch local: `codex/frontend-audit-improvements`.
-- As melhorias de responsividade, acessibilidade, segurança do login e lógica
-  de comparação ainda não foram enviadas ao GitHub nem implantadas na Vercel.
-- Nenhum banco, migration, variável de ambiente remota ou dado de Production
-  foi alterado nesta frente.
+- O PR #39 foi integrado a `master` e implantado em Production.
+- Responsividade do dashboard, acessibilidade, segurança do login, estados
+  vazios de produtos e comparações dos KPIs foram corrigidos.
+- Deploy funcional: `dpl_EYKFsLYBf9C6Smu6wjZd52eDvUUD`, estado `READY`.
+- Nenhum banco, migration, variável remota ou dado do Supabase foi alterado;
+  a rota dinâmica `/book/north-barber` respondeu `200` após o deploy.
 
-## Evidências da entrega anterior
+## Evidências da entrega atual
 
 - `npm run lint`: passou.
 - `npx tsc --noEmit --incremental false`: passou.
-- `npm test`: 49 arquivos e 219 testes passaram.
+- `npm test`: 53 arquivos e 257 testes passaram.
+- `npm audit --omit=dev`: nenhuma vulnerabilidade encontrada.
 - `npm run build`: passou com Next.js 15.5.22.
-- O PR #38 está integrado ao branch `master` no commit indicado acima.
-- A auditoria visual posterior identificou overflow horizontal no dashboard
-  mobile; a correção está contida apenas na branch local citada acima.
-- Produção após deploy: home carregou sem erro; Vercel não registrou clusters
-  de erro no intervalo verificado.
+- CI #111 do PR #39: passou.
+- Inspeção local do login: desktop 1280×720 e mobile 390×844 sem overflow.
+- Produção após deploy: home, login e vitrine pública dinâmica responderam
+  `200`; a Vercel não registrou clusters de erro no intervalo verificado.
 
 ## Pendências reais e priorizadas
 
@@ -162,7 +163,7 @@ escolher apenas uma frente:
 > `AGENTS.md`, `docs/STATUS_ATUAL.md`, `docs/AMBIENTES.md` e
 > `docs/DECISOES_PRODUTO.md`. Não refaça auditoria completa e não altere
 > Production. Confirme branch limpa, CI e o escopo escolhido. A versão
-> produtiva verificada antes da frente local é o commit `1583b5b`; a migration
+> funcional implantada é o commit `066ecbd`; a migration
 > `011_platform_billing` não foi
 > aplicada e a flag de billing está desligada. Preserve RLS, histórico e
 > isolamento multi-tenant. Proponha o próximo passo antes de qualquer migration.
