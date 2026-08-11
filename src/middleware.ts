@@ -43,8 +43,9 @@ function isProtectedPath(pathname: string) {
 
 /**
  * Protege as rotas administrativas: sem sessão válida, redireciona para /login.
- * Em Vercel Preview sem staging, permite somente a landing para revisão visual
- * e mantém bloqueadas todas as rotas que acessam dados ou autenticação.
+ * Em Vercel Preview sem staging, permite somente a landing e seus assets
+ * versionados para revisão visual. Rotas com dados ou autenticação continuam
+ * bloqueadas.
  */
 export default function middleware(
   request: NextRequest,

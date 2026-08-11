@@ -19,5 +19,5 @@ export function isUnconfiguredVercelPreview(
  * Nenhuma rota de autenticação, agendamento, API ou painel entra nesta lista.
  */
 export function isSafeMarketingPreviewPath(pathname: string): boolean {
-  return pathname === "/";
+  return pathname === "/" || pathname.startsWith("/images/");
 }

@@ -40,8 +40,12 @@ describe("isUnconfiguredVercelPreview", () => {
 });
 
 describe("isSafeMarketingPreviewPath", () => {
-  it("libera somente a raiz para revisão visual da landing", () => {
-    expect(isSafeMarketingPreviewPath("/")).toBe(true);
+  it.each([
+    "/",
+    "/images/salon-hero-barber-v2.webp",
+    "/images/salon-hero-manicure-v1.webp",
+  ])("libera a landing e seu asset estático %s", (pathname) => {
+    expect(isSafeMarketingPreviewPath(pathname)).toBe(true);
   });
 
   it.each([
@@ -51,6 +55,7 @@ describe("isSafeMarketingPreviewPath", () => {
     "/api/auth/session",
     "/dashboard",
     "/plataforma",
+    "/images",
   ])("mantém bloqueada a rota %s", (pathname) => {
     expect(isSafeMarketingPreviewPath(pathname)).toBe(false);
   });
