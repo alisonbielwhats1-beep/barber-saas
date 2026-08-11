@@ -18,6 +18,7 @@ export default async function MarketingPage() {
   const birthdays = clients.filter((c) => c.birthdayThisMonth).map(toTarget);
   const lapsed = clients.filter((c) => c.isLapsed).map(toTarget);
   const vips = clients.filter((c) => c.isVip).map(toTarget);
+  const attended = clients.filter((c) => c.visits > 0).map(toTarget);
 
   return (
     <div className="space-y-6">
@@ -39,7 +40,7 @@ export default async function MarketingPage() {
         </p>
       </div>
 
-      <MarketingCampaigns birthdays={birthdays} lapsed={lapsed} vips={vips} salonName={salon?.name ?? "nosso salão"} />
+      <MarketingCampaigns birthdays={birthdays} lapsed={lapsed} vips={vips} attended={attended} salonName={salon?.name ?? "nosso salão"} />
     </div>
   );
 }

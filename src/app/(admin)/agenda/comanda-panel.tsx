@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { Check, Loader2, Package, Scissors } from "lucide-react";
+import { Check, Loader2, Minus, Package, Plus, Printer, Scissors } from "lucide-react";
 import { formatMoney } from "@/lib/utils";
+import { calculateComandaTotals } from "@/lib/comanda";
 import { getComandaData, closeComanda } from "./actions";
 
 type Method = "CASH" | "CREDIT_CARD" | "DEBIT_CARD" | "PIX" | "TRANSFER";
@@ -32,6 +33,8 @@ export function ComandaPanel({
   const [discountCents, setDiscountCents] = useState(0);
   const [method, setMethod] = useState<Method>("PIX");
   const [notes, setNotes] = useState("");
+  const [productQuantities, setProductQuantities] = useState<Record<string, number>>({});
+  const [confirmed, setConfirmed] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const idempotencyKeyRef = useRef<string | null>(null);
@@ -50,6 +53,7 @@ export function ComandaPanel({
           setMethod(d.payment.method as Method);
           setNotes(d.payment.notes ?? "");
         }
+        setProductQuantities(Object.fromEntries(d.products.map((product) => [product.productId, product.quantity])));
       })
       .catch(() => setLoadError("Não foi possível carregar a comanda."));
   }, [apptId]);
@@ -66,10 +70,16 @@ export function ComandaPanel({
       </div>
     );
 
-  const subtotal =
-    data.priceCents +
-    data.products.reduce((s, p) => s + p.quantity * p.priceCentsUnit, 0);
-  const total = Math.max(0, subtotal - discountCents);
+  const selectedProducts = data.availableProducts
+    .map((product) => ({ ...product, quantity: productQuantities[product.id] ?? 0 }))
+    .filter((product) => product.quantity > 0);
+  const totals = calculateComandaTotals({
+    serviceCents: data.priceCents,
+    productLines: selectedProducts.map((product) => ({ quantity: product.quantity, priceCentsUnit: product.priceCents })),
+    discountCents,
+  });
+  const subtotal = totals.subtotalCents;
+  const total = totals.totalCents;
   const expectedVersion = data.version;
   const serviceName = data.serviceItems.length > 0
     ? data.serviceItems.map((service) => service.serviceName).join(" + ")
@@ -80,6 +90,14 @@ export function ComandaPanel({
     setDiscountInput(v);
     const num = parseFloat(v.replace(",", "."));
     setDiscountCents(isNaN(num) || num < 0 ? 0 : Math.round(num * 100));
+  }
+
+  function changeProduct(productId: string, delta: number, stock: number) {
+    idempotencyKeyRef.current = null;
+    setProductQuantities((current) => ({
+      ...current,
+      [productId]: Math.min(stock, Math.max(0, (current[productId] ?? 0) + delta)),
+    }));
   }
 
   function submit() {
@@ -93,6 +111,7 @@ export function ComandaPanel({
           idempotencyKey,
           expectedVersion,
           discountCents,
+          productLines: selectedProducts.map((product) => ({ productId: product.id, quantity: product.quantity })),
           method,
           notes: notes || null,
         });
@@ -100,11 +119,34 @@ export function ComandaPanel({
           setError(result.error);
           return;
         }
-        onClose();
+        setConfirmed(true);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Erro ao fechar comanda");
       }
     });
+  }
+
+  if (confirmed) {
+    return (
+      <div className="space-y-4 print:fixed print:inset-0 print:z-[9999] print:bg-white print:p-8 print:text-black">
+        <div className="text-center">
+          <span className="mx-auto grid h-11 w-11 place-items-center rounded-full bg-success/15 text-success print:hidden"><Check className="h-5 w-5" /></span>
+          <h3 className="mt-2 text-lg font-semibold">Pagamento registrado</h3>
+          <p className="text-[12px] text-muted-foreground print:text-neutral-600">Comprovante interno da comanda</p>
+        </div>
+        <div className="space-y-2 rounded-xl border border-border p-4 text-[13px]">
+          <div className="flex justify-between"><span>{serviceName}</span><strong>{formatMoney(data.priceCents, currency)}</strong></div>
+          {selectedProducts.map((product) => <div key={product.id} className="flex justify-between text-muted-foreground print:text-neutral-700"><span>{product.quantity}× {product.name}</span><span>{formatMoney(product.quantity * product.priceCents, currency)}</span></div>)}
+          {totals.discountCents > 0 && <div className="flex justify-between text-muted-foreground print:text-neutral-700"><span>Desconto</span><span>- {formatMoney(totals.discountCents, currency)}</span></div>}
+          <div className="flex justify-between border-t border-border pt-2 text-base"><span>Total</span><strong>{formatMoney(total, currency)}</strong></div>
+          <div className="flex justify-between text-muted-foreground print:text-neutral-700"><span>Forma</span><span>{METHODS.find((item) => item.value === method)?.label}</span></div>
+        </div>
+        <div className="grid grid-cols-2 gap-2 print:hidden">
+          <button onClick={() => window.print()} className="inline-flex items-center justify-center gap-2 rounded-xl border border-border px-4 py-3 text-[13px]"><Printer className="h-4 w-4" /> Imprimir</button>
+          <button onClick={onClose} className="rounded-xl bg-primary px-4 py-3 text-[13px] font-semibold text-primary-foreground">Concluir</button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -126,33 +168,37 @@ export function ComandaPanel({
       </div>
 
       {/* Produtos */}
-      {data.products.length > 0 && (
+      {data.availableProducts.length > 0 && (
         <div className="space-y-1.5">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Produtos
+            Produtos da comanda
           </p>
           <div className="space-y-1">
-            {data.products.map((p, i) => (
+            {data.availableProducts.map((product) => {
+              const quantity = productQuantities[product.id] ?? 0;
+              return (
               <div
-                key={i}
+                key={product.id}
                 className="flex items-center justify-between rounded-xl bg-surface-1 px-3 py-2.5"
               >
                 <span className="flex items-center gap-2 text-[13px]">
                   <Package className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                  {p.quantity}× {p.product.name}
+                  <span><span className="font-medium">{product.name}</span><span className="block text-[10px] text-muted-foreground">{formatMoney(product.priceCents, currency)} · {product.stock} em estoque</span></span>
                 </span>
-                <span className="text-[13px] font-medium">
-                  {formatMoney(p.quantity * p.priceCentsUnit, currency)}
+                <span className="flex items-center gap-1.5">
+                  <button type="button" onClick={() => changeProduct(product.id, -1, product.stock)} disabled={quantity === 0} aria-label={`Remover ${product.name}`} className="grid h-8 w-8 place-items-center rounded-lg border border-border disabled:opacity-30"><Minus className="h-3.5 w-3.5" /></button>
+                  <span className="w-6 text-center text-[13px] font-semibold">{quantity}</span>
+                  <button type="button" onClick={() => changeProduct(product.id, 1, product.stock)} disabled={quantity >= product.stock} aria-label={`Adicionar ${product.name}`} className="grid h-8 w-8 place-items-center rounded-lg border border-border disabled:opacity-30"><Plus className="h-3.5 w-3.5" /></button>
                 </span>
               </div>
-            ))}
+            );})}
           </div>
         </div>
       )}
 
       {/* Totais */}
       <div className="space-y-2 rounded-xl border border-border bg-card/50 px-3.5 py-3">
-        {data.products.length > 0 && (
+        {selectedProducts.length > 0 && (
           <div className="flex justify-between text-[13px] text-muted-foreground">
             <span>Subtotal</span>
             <span>{formatMoney(subtotal, currency)}</span>

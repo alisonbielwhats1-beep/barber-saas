@@ -34,7 +34,7 @@ describe("ferramentas de crescimento sem integracao paga", () => {
 
     expect(message).toContain("R$ 30,00");
     expect(message).toContain("pix@studio.com");
-    expect(message).toContain("confirmacao manual");
+    expect(message).toContain("confirmação manual");
     expect(message).toContain("https://example.com/book/studio");
   });
 

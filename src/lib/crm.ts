@@ -1,5 +1,7 @@
 import type { Tx } from "./prisma-tenant";
 import { differenceInDays } from "date-fns";
+import { parseClientCareProfile } from "./client-care-profile";
+import { loyaltyProgress } from "./growth-tools";
 
 /**
  * Motor de CRM: consolida, por cliente, LTV, visitas, última visita,
@@ -87,6 +89,8 @@ export async function getClientList(
     const favSvcId = topOf(svcCounts);
 
     const loyalty = loyaltyOf(visits);
+    const loyaltyStatus = loyaltyProgress(visits);
+    const care = parseClientCareProfile(c.notes);
     const isVip = totalSpent >= 50000 || visits >= 8;
     const isLapsed = visits > 0 && daysSince != null && daysSince > 60;
     const birthdayThisMonth = c.birthday ? c.birthday.getMonth() === now.getMonth() : false;
@@ -97,7 +101,10 @@ export async function getClientList(
       phone: c.phone,
       email: c.email,
       gender: c.gender,
-      notes: c.notes,
+      notes: care.notes,
+      allergies: care.allergies,
+      preferences: care.preferences,
+      consentGiven: care.consentGiven,
       birthday: c.birthday ? c.birthday.toISOString() : null,
       createdAt: c.createdAt.toISOString(),
       visits,
@@ -109,6 +116,10 @@ export async function getClientList(
       favoriteService: favSvcId ? svcName.get(favSvcId) ?? null : null,
       loyaltyTier: loyalty.tier,
       loyaltyColor: loyalty.color,
+      loyaltyPoints: loyaltyStatus.points,
+      nextLoyaltyTier: loyaltyStatus.nextTier,
+      loyaltyRemaining: loyaltyStatus.remaining,
+      loyaltyProgressPct: loyaltyStatus.progressPct,
       activePackages: pkgCount.get(c.id) ?? 0,
       activeSubscriptions: subCount.get(c.id) ?? 0,
       isVip,

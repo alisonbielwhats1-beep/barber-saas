@@ -406,7 +406,7 @@ describe("persistência transacional de convites", () => {
     const user = state.users.find((row) => row.email === "new@example.com")!;
     expect(user.passwordSetAt).toEqual(acceptedAt);
     expect(await bcrypt.compare("uma-senha-segura", user.passwordHash)).toBe(true);
-  });
+  }, 10_000);
 
   it("conta existente exige o usuário correspondente e não altera sua senha", async () => {
     state.users.push({

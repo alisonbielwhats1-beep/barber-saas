@@ -29,4 +29,13 @@ describe("perfil de cuidados do cliente", () => {
     const invalid = "SALONSAAS_CARE_V1:{invalido";
     expect(parseClientCareProfile(invalid).notes).toBe(invalid);
   });
+
+  it("nao grava alergias ou preferencias sem consentimento", () => {
+    expect(() => serializeClientCareProfile({
+      notes: "",
+      allergies: "Alergia a amonia",
+      preferences: "",
+      consentGiven: false,
+    })).toThrow("consentimento");
+  });
 });
