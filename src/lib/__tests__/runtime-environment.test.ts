@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { isUnconfiguredVercelPreview } from "../runtime-environment";
+import {
+  isSafeMarketingPreviewPath,
+  isUnconfiguredVercelPreview,
+} from "../runtime-environment";
 
 describe("isUnconfiguredVercelPreview", () => {
   it.each([undefined, "", "development", "test", "production"])(
@@ -34,4 +37,26 @@ describe("isUnconfiguredVercelPreview", () => {
       ).toBe(false);
     },
   );
+});
+
+describe("isSafeMarketingPreviewPath", () => {
+  it.each([
+    "/",
+    "/images/salon-hero-barber-v2.webp",
+    "/images/salon-hero-manicure-v1.webp",
+  ])("libera a landing e seu asset estático %s", (pathname) => {
+    expect(isSafeMarketingPreviewPath(pathname)).toBe(true);
+  });
+
+  it.each([
+    "/login",
+    "/signup",
+    "/book/north-barber",
+    "/api/auth/session",
+    "/dashboard",
+    "/plataforma",
+    "/images",
+  ])("mantém bloqueada a rota %s", (pathname) => {
+    expect(isSafeMarketingPreviewPath(pathname)).toBe(false);
+  });
 });

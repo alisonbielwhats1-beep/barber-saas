@@ -111,13 +111,13 @@
     --border: 39 14% 84%;            /* #DDD8CF */
     --border-strong: 39 12% 70%;
     --input: 0 0% 100%;
-    --ring: 158 71% 30%;
+    --ring: 158 71% 29%;
 
-    --primary: 158 71% 30%;          /* #168263 */
+    --primary: 158 71% 29%;          /* verde profundo, AA em fundo porcelana */
     --primary-foreground: 0 0% 100%;
     --secondary: 40 22% 89%;
     --secondary-foreground: 150 5% 11%;
-    --accent: 158 71% 30%;
+    --accent: 158 71% 29%;
     --accent-foreground: 0 0% 100%;
 
     --success: 158 60% 32%;
@@ -204,6 +204,45 @@
 }
 
 @layer utilities {
+  /* Ritmo visual comum da landing: espaçamento, superfície e hierarquia. */
+  .landing-section {
+    padding-block: clamp(5rem, 7vw, 7rem);
+  }
+
+  .landing-eyebrow {
+    color: hsl(var(--primary));
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    line-height: 1.4;
+    text-transform: uppercase;
+  }
+
+  .landing-card {
+    border: 1px solid hsl(var(--border));
+    background: hsl(var(--card));
+    box-shadow: 0 18px 48px -40px rgb(23 32 28 / 0.5);
+    transition:
+      transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+      border-color 0.22s ease,
+      box-shadow 0.22s ease;
+  }
+
+  .landing-card:hover {
+    transform: translateY(-2px);
+    border-color: hsl(var(--border-strong));
+    box-shadow: 0 24px 54px -42px rgb(23 32 28 / 0.55);
+  }
+
+  .landing-scrollbar-hidden {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .landing-scrollbar-hidden::-webkit-scrollbar {
+    display: none;
+  }
+
   /* Fade-in de entrada de página */
   .animate-fade-in {
     animation: fade-in 0.3s ease-out both;
@@ -235,7 +274,7 @@
 
   /* Assinatura da landing: um mosaico troca de segmento como uma só cena. */
   .animate-photo-swap {
-    animation: photo-swap 0.75s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: photo-swap 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
   @keyframes photo-swap {
     from { opacity: 0.3; transform: scale(1.035); filter: saturate(0.82); }
@@ -273,7 +312,7 @@
   }
 
   .animate-segment-panel {
-    animation: segment-panel 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: segment-panel 0.26s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
   @keyframes segment-panel {
     from { opacity: 0; transform: translateY(8px); }
@@ -301,8 +340,8 @@
     opacity: 0;
     transform: translateY(24px);
     transition:
-      opacity 0.75s cubic-bezier(0.16, 1, 0.3, 1),
-      transform 0.75s cubic-bezier(0.16, 1, 0.3, 1);
+      opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
   }
   .landing-reveal.is-visible {
     opacity: 1;
