@@ -5,6 +5,7 @@ import { z } from "zod";
 import { assertRole, getTenantContext } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
 import { getClientHistory } from "@/lib/crm";
+import { serializeClientCareProfile } from "@/lib/client-care-profile";
 
 export async function fetchClientHistory(clientId: string) {
   const ctx = await getTenantContext();
@@ -25,7 +26,11 @@ const clientInput = z.object({
   phone: z.string().optional().nullable(),
   email: z.string().email().optional().or(z.literal("")).nullable(),
   birthday: z.string().optional().nullable(),
-  notes: z.string().optional().nullable(),
+  gender: z.enum(["MALE", "FEMALE", "OTHER"]).optional().nullable(),
+  notes: z.string().max(1000).optional().nullable(),
+  allergies: z.string().max(1000).optional().nullable(),
+  preferences: z.string().max(1000).optional().nullable(),
+  consentGiven: z.boolean().default(false),
 });
 
 export type ClientInput = z.infer<typeof clientInput>;
@@ -43,7 +48,13 @@ export async function createClient(input: ClientInput) {
         phone: data.phone ?? null,
         email: data.email || null,
         birthday: data.birthday ? new Date(data.birthday) : null,
-        notes: data.notes ?? null,
+        gender: data.gender ?? null,
+        notes: serializeClientCareProfile({
+          notes: data.notes ?? "",
+          allergies: data.allergies ?? "",
+          preferences: data.preferences ?? "",
+          consentGiven: data.consentGiven,
+        }),
       },
     }),
   );
@@ -63,7 +74,13 @@ export async function updateClient(id: string, input: ClientInput) {
         phone: data.phone ?? null,
         email: data.email || null,
         birthday: data.birthday ? new Date(data.birthday) : null,
-        notes: data.notes ?? null,
+        gender: data.gender ?? null,
+        notes: serializeClientCareProfile({
+          notes: data.notes ?? "",
+          allergies: data.allergies ?? "",
+          preferences: data.preferences ?? "",
+          consentGiven: data.consentGiven,
+        }),
       },
     }),
   );

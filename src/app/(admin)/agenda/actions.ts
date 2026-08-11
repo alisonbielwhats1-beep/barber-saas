@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import { calculateComandaTotals, normalizeProductLines } from "@/lib/comanda";
 import { isOverlapViolation } from "@/lib/db-errors";
 import { assertRole, getTenantContext } from "@/lib/tenant";
 import { withTenant, type Tx } from "@/lib/prisma-tenant";
@@ -219,8 +220,8 @@ export async function getComandaData(id: string) {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER", "RECEPTIONIST"]);
 
-  const appt = await withTenant(ctx, (tx) =>
-    tx.appointment.findFirst({
+  const data = await withTenant(ctx, async (tx) => {
+    const appt = await tx.appointment.findFirst({
       where: { id, salonId: ctx.salonId },
       select: {
         version: true,
@@ -232,6 +233,7 @@ export async function getComandaData(id: string) {
         },
         products: {
           select: {
+            productId: true,
             quantity: true,
             priceCentsUnit: true,
             product: { select: { name: true } },
@@ -246,10 +248,16 @@ export async function getComandaData(id: string) {
           },
         },
       },
-    }),
-  );
-  if (!appt) throw new Error("Agendamento não encontrado");
-  return appt;
+    });
+    if (!appt) throw new Error("Agendamento não encontrado");
+    const availableProducts = await tx.product.findMany({
+      where: { salonId: ctx.salonId, active: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, priceCents: true, stock: true },
+    });
+    return { ...appt, availableProducts };
+  });
+  return data;
 }
 
 export async function removeWaitlistEntry(
@@ -294,6 +302,10 @@ const comandaInput = z.object({
   idempotencyKey: z.string().uuid(),
   expectedVersion: z.number().int().positive(),
   discountCents: z.number().int().min(0).default(0),
+  productLines: z.array(z.object({
+    productId: z.string().min(1),
+    quantity: z.number().int().min(0).max(999),
+  })).max(100).default([]),
   method: z.enum(["CASH", "CREDIT_CARD", "DEBIT_CARD", "PIX", "TRANSFER"]),
   notes: z.string().optional().nullable(),
 });
@@ -304,6 +316,7 @@ export async function closeComanda(
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER", "RECEPTIONIST"]);
   const data = comandaInput.parse(input);
+  const productLines = normalizeProductLines(data.productLines);
 
   try {
     await withTenant(ctx, async (tx) => {
@@ -314,7 +327,6 @@ export async function closeComanda(
           version: true,
           status: true,
           priceCents: true,
-          products: { select: { quantity: true, priceCentsUnit: true } },
         },
       });
       if (!appt) throw new Error("Agendamento não encontrado");
@@ -322,10 +334,28 @@ export async function closeComanda(
         throw new Error("Agendamento já encerrado");
       }
 
-      const subtotal =
-        appt.priceCents +
-        appt.products.reduce((s, p) => s + p.quantity * p.priceCentsUnit, 0);
-      const amountCents = Math.max(0, subtotal - data.discountCents);
+      const products = productLines.length === 0
+        ? []
+        : await tx.product.findMany({
+            where: {
+              salonId: ctx.salonId,
+              active: true,
+              id: { in: productLines.map((line) => line.productId) },
+            },
+            select: { id: true, name: true, priceCents: true, stock: true },
+          });
+      if (products.length !== productLines.length) throw new Error("Produto não encontrado ou inativo");
+      const productById = new Map(products.map((product) => [product.id, product]));
+      const pricedLines = productLines.map((line) => {
+        const product = productById.get(line.productId)!;
+        return { ...line, priceCentsUnit: product.priceCents };
+      });
+      const totals = calculateComandaTotals({
+        serviceCents: appt.priceCents,
+        productLines: pricedLines,
+        discountCents: data.discountCents,
+      });
+      const amountCents = totals.totalCents;
 
       // O status é alterado primeiro dentro da mesma transação. Em retry com
       // a mesma chave, o evento idempotente retorna antes do version check;
@@ -343,15 +373,42 @@ export async function closeComanda(
         expectedVersion: data.expectedVersion,
         idempotencyContext: {
           amountCents,
-          discountCents: data.discountCents,
+          discountCents: totals.discountCents,
           method: data.method,
           notes: data.notes ?? null,
+          productLines: pricedLines,
         },
       });
 
       // A primeira execução grava evento e pagamento na mesma transação.
       // Um retry idempotente não deve atualizar `paidAt` novamente.
       if (transition.duplicate) return;
+
+      for (const line of pricedLines) {
+        const product = productById.get(line.productId)!;
+        if (line.quantity > product.stock) {
+          throw new Error(`Estoque insuficiente para ${product.name}`);
+        }
+      }
+
+      await tx.appointmentProduct.deleteMany({ where: { appointmentId: data.id } });
+      if (pricedLines.length > 0) {
+        await tx.appointmentProduct.createMany({
+          data: pricedLines.map((line) => ({
+            appointmentId: data.id,
+            productId: line.productId,
+            quantity: line.quantity,
+            priceCentsUnit: line.priceCentsUnit,
+          })),
+        });
+        for (const line of pricedLines) {
+          const updated = await tx.product.updateMany({
+            where: { id: line.productId, salonId: ctx.salonId, stock: { gte: line.quantity } },
+            data: { stock: { decrement: line.quantity } },
+          });
+          if (updated.count !== 1) throw new Error("Estoque alterado por outra operação. Revise a comanda.");
+        }
+      }
 
       const paymentId = `pay_${randomUUID()}`;
       await tx.$executeRaw`
@@ -360,7 +417,7 @@ export async function closeComanda(
           ${paymentId},
           ${data.id},
           ${amountCents},
-          ${data.discountCents},
+          ${totals.discountCents},
           ${data.method}::"PaymentMethod",
           ${data.notes ?? null},
           NOW()

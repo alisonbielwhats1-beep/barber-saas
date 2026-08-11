@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="SalonSaaS">
+  <rect width="512" height="512" fill="#2ecc8b"/>
+  <g transform="translate(77 77) scale(.7)" fill="none" stroke="#08110d" stroke-width="42" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="155" cy="358" r="57"/>
+    <circle cx="357" cy="358" r="57"/>
+    <path d="M195 319 366 118M317 319 146 118M231 249l50 59"/>
+  </g>
+</svg>

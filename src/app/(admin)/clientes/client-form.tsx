@@ -23,7 +23,11 @@ type Props = {
     phone: string | null;
     email: string | null;
     birthday: Date | null;
+    gender: "MALE" | "FEMALE" | "OTHER" | null;
     notes: string | null;
+    allergies: string;
+    preferences: string;
+    consentGiven: boolean;
   };
 };
 
@@ -42,7 +46,11 @@ export function ClientForm({ client }: Props) {
       phone: (form.get("phone") as string) || null,
       email: (form.get("email") as string) || null,
       birthday: (form.get("birthday") as string) || null,
+      gender: (form.get("gender") as "MALE" | "FEMALE" | "OTHER") || null,
       notes: (form.get("notes") as string) || null,
+      allergies: (form.get("allergies") as string) || null,
+      preferences: (form.get("preferences") as string) || null,
+      consentGiven: form.get("consentGiven") === "on",
     };
 
     startTransition(async () => {
@@ -98,26 +106,66 @@ export function ClientForm({ client }: Props) {
               />
             </div>
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-sm font-medium">Aniversário</label>
+              <Input
+                name="birthday"
+                type="date"
+                defaultValue={
+                  client?.birthday
+                    ? new Date(client.birthday).toISOString().slice(0, 10)
+                    : ""
+                }
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium">Gênero</label>
+              <select name="gender" defaultValue={client?.gender ?? ""} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                <option value="">Não informado</option>
+                <option value="FEMALE">Feminino</option>
+                <option value="MALE">Masculino</option>
+                <option value="OTHER">Outro</option>
+              </select>
+            </div>
+          </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Aniversário</label>
-            <Input
-              name="birthday"
-              type="date"
-              defaultValue={
-                client?.birthday
-                  ? new Date(client.birthday).toISOString().slice(0, 10)
-                  : ""
-              }
+            <label className="mb-1 block text-sm font-medium">Alergias e restrições</label>
+            <textarea
+              name="allergies"
+              defaultValue={client?.allergies ?? ""}
+              rows={2}
+              className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm"
+              placeholder="Alergia a amônia, sensibilidade na pele…"
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Notas</label>
-            <Input
+            <label className="mb-1 block text-sm font-medium">Preferências de atendimento</label>
+            <textarea
+              name="preferences"
+              defaultValue={client?.preferences ?? ""}
+              rows={2}
+              className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm"
+              placeholder="Corte baixo, água morna, atendimento silencioso…"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium">Observações internas</label>
+            <textarea
               name="notes"
               defaultValue={client?.notes ?? ""}
-              placeholder="Alergia a amônia, prefere café sem açúcar…"
+              rows={2}
+              className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm"
+              placeholder="Informações úteis para a equipe…"
             />
           </div>
+          <label className="flex items-start gap-2 rounded-lg border border-border bg-surface-1 p-3 text-sm">
+            <input name="consentGiven" type="checkbox" defaultChecked={client?.consentGiven ?? false} className="mt-0.5 h-4 w-4 accent-primary" />
+            <span>
+              Cliente autorizou registrar estas informações para personalizar o atendimento.
+              <span className="mt-0.5 block text-xs text-muted-foreground">O consentimento pode ser removido a qualquer momento.</span>
+            </span>
+          </label>
           {error && (
             <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
               {error}

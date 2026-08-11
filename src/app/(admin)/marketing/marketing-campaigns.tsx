@@ -1,23 +1,26 @@
 "use client";
 
 import { useState } from "react";
-import { Cake, Clock, Crown, MessageCircle, Copy, Check, Ticket } from "lucide-react";
+import { Cake, Clock, Crown, MessageCircle, Copy, Check, Ticket, Star, UserPlus } from "lucide-react";
 
 type Target = { id: string; name: string; phone: string | null };
 type Campaign = { key: string; title: string; icon: typeof Cake; accent: string; description: string; template: string; targets: Target[] };
 
 export function MarketingCampaigns({
-  birthdays, lapsed, vips, salonName,
+  birthdays, lapsed, vips, attended, salonName,
 }: {
   birthdays: Target[];
   lapsed: Target[];
   vips: Target[];
+  attended: Target[];
   salonName: string;
 }) {
   const campaigns: Campaign[] = [
     { key: "birthday", title: "Aniversariantes do mês", icon: Cake, accent: "#EC4899", description: "Parabenize e ofereça um mimo para trazer o cliente de volta no mês do aniversário.", template: `Feliz aniversário, {nome}! 🎉 Para comemorar, você ganhou {cupom} de desconto neste mês no ${salonName}. Bora agendar? 💈`, targets: birthdays },
     { key: "lapsed", title: "Resgate de sumidos", icon: Clock, accent: "#EF4444", description: "Reative quem não volta há mais de 60 dias com uma oferta de retorno.", template: `Oi {nome}, sentimos sua falta no ${salonName}! Volte com {cupom} de desconto no seu próximo horário. 💈`, targets: lapsed },
     { key: "vip", title: "Novidades para VIPs", icon: Crown, accent: "#F4C430", description: "Ofereça exclusividade aos seus melhores clientes.", template: `{nome}, você é cliente VIP do ${salonName}! Temos novidades e horários exclusivos esperando por você. ✨`, targets: vips },
+    { key: "referral", title: "Programa de indicação", icon: UserPlus, accent: "#3B9EFF", description: "Convide clientes fiéis a compartilhar o link do seu estabelecimento.", template: `{nome}, gostou do atendimento no ${salonName}? Indique alguém especial! É só encaminhar nosso link de agendamento. 🤝`, targets: vips },
+    { key: "review", title: "Pedir avaliação", icon: Star, accent: "#A855F7", description: "Peça feedback manual depois de atendimentos concluídos.", template: `Oi {nome}! Como foi sua experiência no ${salonName}? Responda esta mensagem com uma nota de 1 a 5 e conte o que podemos melhorar. Sua opinião ajuda muito! ⭐`, targets: attended },
   ];
 
   const [active, setActive] = useState(campaigns[0].key);

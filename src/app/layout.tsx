@@ -9,6 +9,11 @@ export const metadata: Metadata = {
   title: "SalonSaaS — Gestão e agendamento para beleza e bem-estar",
   description:
     "Agenda online, clientes, equipe e gestão para barbearias, salões, manicures, estética e espaços multisserviços.",
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: "/icon.svg",
+    apple: "/icon.svg",
+  },
   openGraph: {
     title: "SalonSaaS — Seu espaço organizado, sua agenda em movimento",
     description:

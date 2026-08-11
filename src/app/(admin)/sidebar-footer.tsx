@@ -3,6 +3,7 @@
 import { signOut, useSession } from "next-auth/react";
 import { LogOut } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
+import { PwaInstallButton } from "@/components/pwa-install-button";
 
 export function SidebarFooter({ plan }: { plan: string }) {
   const { data: session } = useSession();
@@ -24,6 +25,7 @@ export function SidebarFooter({ plan }: { plan: string }) {
           <p className="truncate text-[13px] font-medium leading-none">{name}</p>
           <p className="mt-0.5 text-[11px] text-muted-foreground">{plan}</p>
         </div>
+        <PwaInstallButton />
         <ThemeToggle />
         <button
           onClick={() => signOut({ callbackUrl: "/" })}

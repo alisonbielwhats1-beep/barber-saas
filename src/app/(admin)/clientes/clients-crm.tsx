@@ -6,7 +6,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   Search, MessageCircle, Crown, Cake, Clock, Star, Scissors, User,
-  CircleDollarSign, Repeat, Layers, Loader2,
+  CircleDollarSign, Repeat, Layers, Loader2, ShieldCheck, HeartPulse,
 } from "lucide-react";
 import { formatMoney } from "@/lib/utils";
 import { format } from "date-fns";
@@ -165,6 +165,34 @@ export function ClientsCrm({
                 <Info icon={Layers} label="Pacotes/assinaturas" value={`${detail.activePackages} pac · ${detail.activeSubscriptions} plano`} />
               </div>
 
+              <div className="rounded-xl border border-border bg-surface-1 p-3">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="font-semibold">Fidelidade · {detail.loyaltyPoints} pontos</span>
+                  <span className="text-muted-foreground">
+                    {detail.nextLoyaltyTier
+                      ? `${detail.loyaltyRemaining} para ${detail.nextLoyaltyTier}`
+                      : "Nível máximo"}
+                  </span>
+                </div>
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+                  <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${detail.loyaltyProgressPct}%` }} />
+                </div>
+                <p className="mt-1.5 text-[10px] text-muted-foreground">Cada atendimento concluído vale 1 ponto.</p>
+              </div>
+
+              {(detail.allergies || detail.preferences || detail.consentGiven) && (
+                <div className="space-y-2 rounded-xl border border-border bg-card px-3 py-3 text-[12px]">
+                  {detail.allergies && <Info icon={HeartPulse} label="Alergias e restrições" value={detail.allergies} wrap />}
+                  {detail.preferences && <Info icon={Star} label="Preferências" value={detail.preferences} wrap />}
+                  <Info
+                    icon={ShieldCheck}
+                    label="Consentimento para dados de atendimento"
+                    value={detail.consentGiven ? "Registrado" : "Não registrado"}
+                    wrap
+                  />
+                </div>
+              )}
+
               {detail.notes && (
                 <div className="rounded-xl bg-surface-1 px-3 py-2.5 text-[12px]">
                   <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Observações</p>
@@ -203,7 +231,18 @@ export function ClientsCrm({
                 )}
                 {canManage && (
                   <ClientForm
-                    client={{ id: detail.id, name: detail.name, phone: detail.phone, email: detail.email, birthday: detail.birthday ? new Date(detail.birthday) : null, notes: detail.notes }}
+                    client={{
+                      id: detail.id,
+                      name: detail.name,
+                      phone: detail.phone,
+                      email: detail.email,
+                      birthday: detail.birthday ? new Date(detail.birthday) : null,
+                      gender: detail.gender,
+                      notes: detail.notes,
+                      allergies: detail.allergies,
+                      preferences: detail.preferences,
+                      consentGiven: detail.consentGiven,
+                    }}
                   />
                 )}
               </div>
@@ -232,13 +271,13 @@ function DStat({ icon: Icon, label, value }: { icon: typeof Star; label: string;
   );
 }
 
-function Info({ icon: Icon, label, value }: { icon: typeof Star; label: string; value: string }) {
+function Info({ icon: Icon, label, value, wrap = false }: { icon: typeof Star; label: string; value: string; wrap?: boolean }) {
   return (
     <div className="flex items-start gap-2">
       <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
       <div className="min-w-0">
         <p className="text-[10px] text-muted-foreground">{label}</p>
-        <p className="truncate font-medium">{value}</p>
+        <p className={`${wrap ? "whitespace-pre-wrap" : "truncate"} font-medium`}>{value}</p>
       </div>
     </div>
   );
