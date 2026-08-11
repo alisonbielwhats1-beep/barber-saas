@@ -12,6 +12,7 @@ import {
   MANAGEMENT_ROLES,
   MARKETING_ROLES,
 } from "@/lib/role-permissions";
+import { commandShortcutLabel } from "@/lib/platform-shortcut";
 
 type Cmd = { label: string; hint: string; icon: typeof Search; href: string; roles?: readonly string[] };
 
@@ -146,14 +147,20 @@ export function CommandPalette({ role }: { role: string }) {
  * (CommandPalette é montado à parte, em (admin)/layout.tsx).
  */
 export function OpenCommandPaletteButton() {
+  const [shortcut, setShortcut] = useState<"⌘K" | "Ctrl K">("Ctrl K");
+
+  useEffect(() => {
+    setShortcut(commandShortcutLabel(navigator.platform));
+  }, []);
+
   return (
     <button
       onClick={() => window.dispatchEvent(new Event("open-command-palette"))}
-      className="flex w-full items-center gap-2.5 rounded-lg border border-border bg-surface-1 px-2.5 py-1.5 text-[12px] text-muted-foreground transition hover:border-border-strong hover:text-foreground"
+      className="flex min-h-11 w-full items-center gap-2.5 rounded-lg border border-border bg-surface-1 px-2.5 text-[12px] text-muted-foreground transition hover:border-border-strong hover:text-foreground"
     >
       <Search className="h-3.5 w-3.5 shrink-0" />
       <span className="flex-1 text-left">Buscar</span>
-      <kbd className="rounded border border-border px-1 py-0.5 text-[10px]">⌘K</kbd>
+      <kbd className="rounded border border-border px-1 py-0.5 text-[10px]">{shortcut}</kbd>
     </button>
   );
 }

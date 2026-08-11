@@ -75,7 +75,7 @@ export function ProductForm({ product, trigger }: { product?: Product; trigger?:
         {trigger ?? (editing ? (
           <Button variant="ghost" size="sm">Editar</Button>
         ) : (
-          <Button><Plus className="h-4 w-4" /> Novo produto</Button>
+          <Button size="lg"><Plus className="h-4 w-4" /> Novo produto</Button>
         ))}
       </DialogTrigger>
       <DialogContent className="max-h-[85vh] overflow-y-auto">

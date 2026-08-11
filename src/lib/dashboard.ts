@@ -94,8 +94,8 @@ function previousWindow(
   };
 }
 
-function pctChange(curr: number, prev: number): number | null {
-  if (prev === 0) return curr > 0 ? 1 : null;
+export function percentageChange(curr: number, prev: number): number | null {
+  if (prev === 0) return null;
   return (curr - prev) / prev;
 }
 
@@ -372,14 +372,14 @@ export async function getDashboardMetrics(
   return {
     range,
     period: { from, to: new Date(to.getTime() - 1) },
-    revenue: { value: revenue, change: pctChange(revenue, prevRevenue) },
+    revenue: { value: revenue, change: percentageChange(revenue, prevRevenue) },
     revenueToday,
     forecast,
     profit: { value: profit, margin: revenue > 0 ? profit / revenue : 0 },
     commissionPaid,
     commissionPending,
-    appointments: { value: count, change: pctChange(count, prevCount) },
-    avgTicket: { value: avgTicket, change: pctChange(avgTicket, prevAvg) },
+    appointments: { value: count, change: percentageChange(count, prevCount) },
+    avgTicket: { value: avgTicket, change: percentageChange(avgTicket, prevAvg) },
     avgDuration,
     occupancy: {
       rate: occupancy.rate,

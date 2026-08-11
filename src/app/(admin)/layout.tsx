@@ -89,8 +89,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       </aside>
 
       {/* ── Main content ─────────────────────────────────── */}
-      <main className="scrollbar-dark flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-[1400px] p-6 pb-24 md:p-8 md:pb-8">{children}</div>
+      <main className="scrollbar-dark min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
+        <div className="mx-auto w-full min-w-0 max-w-[1400px] p-4 pb-24 sm:p-6 md:p-8 md:pb-8">{children}</div>
       </main>
 
       <MobileNav role={role} unreadNotifications={unreadNotifications} isPlatformAdmin={platformAdmin} />
