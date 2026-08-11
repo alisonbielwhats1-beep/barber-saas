@@ -1,14 +1,14 @@
 # Status atual canônico — Salon SaaS
 
-Atualizado em **10/08/2026** após o PR
-[#36](https://github.com/alisonbielwhats1-beep/barber-saas/pull/36).
+Atualizado em **11/08/2026** após o PR
+[#38](https://github.com/alisonbielwhats1-beep/barber-saas/pull/38).
 Este arquivo substitui os status históricos quando houver contradição.
 
 ## Identificação da versão
 
 - Repositório: `alisonbielwhats1-beep/barber-saas`
 - Branch produtiva: `master`
-- Commit produtivo: `91f3e85a8b9a94b5c2e90fdeeec715b05d5596d4`
+- Commit produtivo verificado antes desta frente: `1583b5bed399a54a7151051e4ed18379b07ef5d8`
 - Vercel: projeto `salon-saas`
 - Deploy do commit: estado `READY` confirmado pela integração Vercel/GitHub
 - URL oficial: [salon-saas-ruby.vercel.app](https://salon-saas-ruby.vercel.app)
@@ -112,14 +112,23 @@ Este arquivo substitui os status históricos quando houver contradição.
 - WhatsApp: somente atalho manual; nenhuma integração paga automática.
 - Billing automático/Stripe: não implementado nem autorizado.
 
-## Evidências da última entrega
+## Frente local de auditoria de frontend
+
+- Branch local: `codex/frontend-audit-improvements`.
+- As melhorias de responsividade, acessibilidade, segurança do login e lógica
+  de comparação ainda não foram enviadas ao GitHub nem implantadas na Vercel.
+- Nenhum banco, migration, variável de ambiente remota ou dado de Production
+  foi alterado nesta frente.
+
+## Evidências da entrega anterior
 
 - `npm run lint`: passou.
 - `npx tsc --noEmit --incremental false`: passou.
 - `npm test`: 49 arquivos e 219 testes passaram.
 - `npm run build`: passou com Next.js 15.5.22.
-- CI do PR #36: `check`, `schema-smoke` e Vercel passaram.
-- Inspeção visual: desktop 1280×720 e mobile 390×844 sem overflow/overlay.
+- O PR #38 está integrado ao branch `master` no commit indicado acima.
+- A auditoria visual posterior identificou overflow horizontal no dashboard
+  mobile; a correção está contida apenas na branch local citada acima.
 - Produção após deploy: home carregou sem erro; Vercel não registrou clusters
   de erro no intervalo verificado.
 
@@ -153,6 +162,7 @@ escolher apenas uma frente:
 > `AGENTS.md`, `docs/STATUS_ATUAL.md`, `docs/AMBIENTES.md` e
 > `docs/DECISOES_PRODUTO.md`. Não refaça auditoria completa e não altere
 > Production. Confirme branch limpa, CI e o escopo escolhido. A versão
-> produtiva é o commit `91f3e85`; a migration `011_platform_billing` não foi
+> produtiva verificada antes da frente local é o commit `1583b5b`; a migration
+> `011_platform_billing` não foi
 > aplicada e a flag de billing está desligada. Preserve RLS, histórico e
 > isolamento multi-tenant. Proponha o próximo passo antes de qualquer migration.

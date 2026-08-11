@@ -3,6 +3,8 @@ import { MANAGEMENT_ROLES } from "@/lib/role-permissions";
 import { withTenant } from "@/lib/prisma-tenant";
 import { ProductForm } from "./product-form";
 import { ProductsCatalog, type ProductCard } from "./products-catalog";
+import { Button } from "@/components/ui/button";
+import { PackageOpen, Plus } from "lucide-react";
 
 export default async function ProdutosPage() {
   const ctx = await requireRole(MANAGEMENT_ROLES);
@@ -59,8 +61,21 @@ export default async function ProdutosPage() {
       </header>
 
       {cards.length === 0 ? (
-        <div className="rounded-2xl border border-border bg-card p-12 text-center text-[13px] text-muted-foreground">
-          Nenhum produto cadastrado ainda. Crie o primeiro no botão acima.
+        <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-14 text-center">
+          <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-primary/10 text-primary">
+            <PackageOpen className="h-7 w-7" />
+          </span>
+          <h2 className="mt-4 text-lg font-semibold">Comece seu catálogo</h2>
+          <p className="mx-auto mt-1 max-w-sm text-[13px] leading-relaxed text-muted-foreground">
+            Cadastre o primeiro produto para acompanhar estoque, margem e reposição em um só lugar.
+          </p>
+          <ProductForm
+            trigger={
+              <Button size="lg" className="mt-5">
+                <Plus className="h-4 w-4" /> Cadastrar primeiro produto
+              </Button>
+            }
+          />
         </div>
       ) : (
         <ProductsCatalog products={cards} />

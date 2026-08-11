@@ -12,7 +12,6 @@ import {
   startOfDateInTimeZone,
 } from "@/lib/time";
 import { PageHeader } from "@/components/page-header";
-import { CountUp } from "@/components/count-up";
 import {
   TrendingUp,
   TrendingDown,
@@ -264,9 +263,9 @@ export default async function DashboardPage({
       )}
 
       {/* ── Hoje: o que está acontecendo agora ─────────────── */}
-      <section className="grid gap-4 lg:grid-cols-3">
+      <section className="grid min-w-0 gap-4 lg:grid-cols-3">
         <Panel className="lg:col-span-2">
-          <div className="flex items-center justify-between">
+          <div className="flex min-w-0 items-center justify-between gap-3">
             <PanelTitle icon={CalendarClock}>Próximos atendimentos de hoje</PanelTitle>
             <Link href="/agenda" className="text-[12px] font-medium text-primary hover:underline">
               Ver agenda
@@ -355,7 +354,7 @@ export default async function DashboardPage({
           accent="primary"
           icon={Wallet}
           label="Faturamento"
-          value={<CountUp value={m.revenue.value} format="money" />}
+          value={formatMoney(m.revenue.value)}
           change={m.revenue.change}
           hint={`${m.appointments.value} atendimentos`}
         />
@@ -363,28 +362,33 @@ export default async function DashboardPage({
           accent="info"
           icon={PiggyBank}
           label="Lucro (pós-comissão)"
-          value={<CountUp value={m.profit.value} format="money" />}
+          value={formatMoney(m.profit.value)}
           hint={`Margem ${(m.profit.margin * 100).toFixed(0)}%`}
         />
         <HeroKpi
           accent="marketing"
           icon={Gauge}
           label="Taxa de ocupação"
-          value={<CountUp value={Math.round(m.occupancy.rate * 100)} format="percent" />}
+          value={`${Math.round(m.occupancy.rate * 100)}%`}
           hint={`${Math.round(m.occupancy.idleMinutes / 60)}h ociosas`}
         />
         <HeroKpi
           accent="warning"
           icon={Receipt}
           label="Ticket médio"
-          value={<CountUp value={m.avgTicket.value} format="money" />}
+          value={formatMoney(m.avgTicket.value)}
           change={m.avgTicket.change}
-          hint={`Atendimento ~${formatDuration(m.avgDuration || 0)}`}
+          hint={`Duração média ${formatDuration(m.avgDuration || 0)}`}
         />
       </section>
 
       {/* ── Stat tiles — só o que pede atenção no período ──── */}
-      <section className="stagger grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-7">
+      <section aria-labelledby="operation-signals-title" className="space-y-3">
+        <div>
+          <h2 id="operation-signals-title" className="text-[14px] font-semibold">Sinais da operação</h2>
+          <p className="mt-0.5 text-[12px] text-muted-foreground">Acompanhe previsão, equipe e pontos que pedem atenção.</p>
+        </div>
+        <div className="stagger grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
         <StatTile icon={TrendingUp} label="Receita prevista" value={formatMoney(m.forecast)} hint="Próximos 30 dias" />
         <StatTile icon={HandCoins} label="Comissão pendente" value={formatMoney(m.commissionPending)} />
         <StatTile
@@ -392,12 +396,14 @@ export default async function DashboardPage({
           label="Cancelamentos"
           value={m.cancellations.toString()}
           hint={m.cancellationRate != null ? `${Math.round(m.cancellationRate * 100)}% do período` : undefined}
+          tone={m.cancellations > 0 ? "warning" : "neutral"}
         />
         <StatTile
           icon={UserX}
           label="No-show"
           value={m.noShow.toString()}
           hint={m.noShowRate != null ? `${Math.round(m.noShowRate * 100)}% do período` : undefined}
+          tone={m.noShow > 0 ? "danger" : "neutral"}
         />
         <StatTile
           icon={Hourglass}
@@ -407,6 +413,7 @@ export default async function DashboardPage({
         />
         <StatTile icon={PackageX} label="Produtos em falta" value={m.products.outOfStock.toString()} />
         <StatTile icon={Users} label="Clientes ativos" value={m.clients.active.toString()} />
+        </div>
       </section>
 
       {/* ── Charts ─────────────────────────────────────────── */}
@@ -589,15 +596,27 @@ function StatTile({
   label,
   value,
   hint,
+  tone = "neutral",
 }: {
   icon: IconType;
   label: string;
   value: string;
   hint?: string;
+  tone?: "neutral" | "warning" | "danger";
 }) {
+  const toneClass = tone === "danger"
+    ? "border-danger/30 bg-danger/5"
+    : tone === "warning"
+      ? "border-warning/30 bg-warning/5"
+      : "border-border bg-card";
+  const iconClass = tone === "danger"
+    ? "bg-danger/10 text-danger"
+    : tone === "warning"
+      ? "bg-warning/10 text-warning"
+      : "bg-muted text-muted-foreground";
   return (
-    <div className="card-interactive rounded-xl border border-border bg-card p-4">
-      <span className="grid h-8 w-8 place-items-center rounded-lg bg-muted text-muted-foreground">
+    <div className={`card-interactive min-w-0 rounded-xl border p-4 ${toneClass}`}>
+      <span className={`grid h-8 w-8 place-items-center rounded-lg ${iconClass}`}>
         <Icon className="h-4 w-4" />
       </span>
       <p className="mt-3 text-xl font-semibold tracking-tight">{value}</p>
@@ -656,7 +675,7 @@ function TrendBadge({ change }: { change: number }) {
 
 function Panel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`rounded-2xl border border-border bg-card p-5 ${className}`}>{children}</div>
+    <div className={`min-w-0 rounded-2xl border border-border bg-card p-4 sm:p-5 ${className}`}>{children}</div>
   );
 }
 

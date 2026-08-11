@@ -16,6 +16,7 @@ import {
   CalendarClock,
   Loader2,
   Flame,
+  PackageSearch,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -74,12 +75,13 @@ export function ProductsCatalog({ products }: { products: ProductCard[] }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5">
+        <div className="flex min-h-11 items-center gap-2 rounded-full border border-border bg-card px-3">
           <Search className="h-3.5 w-3.5 text-muted-foreground" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar produto ou marca…"
+            aria-label="Buscar produto ou marca"
             className="w-44 bg-transparent text-[13px] placeholder:text-muted-foreground focus:outline-none"
           />
         </div>
@@ -91,8 +93,17 @@ export function ProductsCatalog({ products }: { products: ProductCard[] }) {
       </div>
 
       {shown.length === 0 ? (
-        <div className="rounded-2xl border border-border bg-card p-12 text-center text-[13px] text-muted-foreground">
-          Nenhum produto encontrado.
+        <div className="rounded-2xl border border-dashed border-border bg-card p-10 text-center">
+          <PackageSearch className="mx-auto h-8 w-8 text-muted-foreground" />
+          <p className="mt-3 text-[14px] font-medium">Nenhum produto encontrado</p>
+          <p className="mt-1 text-[12px] text-muted-foreground">Ajuste a busca ou limpe os filtros para ver o catálogo.</p>
+          <button
+            type="button"
+            onClick={() => { setSearch(""); setFilter("all"); }}
+            className="mt-4 min-h-11 rounded-lg border border-border px-4 text-[13px] font-medium transition hover:bg-card-hover"
+          >
+            Limpar filtros
+          </button>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -187,7 +198,8 @@ function ProductCardView({ p }: { p: ProductCard }) {
             <button
               onClick={() => run(() => adjustStock(p.id, -1))}
               disabled={pending || p.stock === 0}
-              className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-border text-muted-foreground transition hover:text-foreground disabled:opacity-40"
+              aria-label={`Diminuir estoque de ${p.name}`}
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-border text-muted-foreground transition hover:bg-card-hover hover:text-foreground disabled:opacity-40"
             >
               <Minus className="h-3.5 w-3.5" />
             </button>
@@ -197,7 +209,8 @@ function ProductCardView({ p }: { p: ProductCard }) {
             <button
               onClick={() => run(() => adjustStock(p.id, 1))}
               disabled={pending}
-              className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-border text-muted-foreground transition hover:text-foreground disabled:opacity-40"
+              aria-label={`Aumentar estoque de ${p.name}`}
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-border text-muted-foreground transition hover:bg-card-hover hover:text-foreground disabled:opacity-40"
             >
               <Plus className="h-3.5 w-3.5" />
             </button>
@@ -215,7 +228,7 @@ function ProductCardView({ p }: { p: ProductCard }) {
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-card-hover hover:text-foreground">
+              <button aria-label={`Mais opções para ${p.name}`} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-card-hover hover:text-foreground">
                 {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
               </button>
             </DropdownMenuTrigger>
@@ -271,8 +284,10 @@ function Metric({ label, value, accent }: { label: string; value: string; accent
 function Chip({ active, onClick, children, accent }: { active: boolean; onClick: () => void; children: React.ReactNode; accent?: string }) {
   return (
     <button
+      type="button"
       onClick={onClick}
-      className={`rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors ${
+      aria-pressed={active}
+      className={`min-h-11 rounded-full border px-3 text-[12px] font-medium transition-colors ${
         active ? "border-primary/40 bg-primary/10 text-foreground" : "border-border bg-card text-muted-foreground hover:text-foreground"
       }`}
       style={active && accent ? { borderColor: `${accent}66`, color: accent, background: `${accent}14` } : undefined}

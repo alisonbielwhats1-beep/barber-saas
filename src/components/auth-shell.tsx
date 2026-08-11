@@ -32,14 +32,14 @@ export function AuthShell({
           <div className="rounded-3xl border border-white/10 bg-card/90 p-5 shadow-2xl shadow-black/50 backdrop-blur-xl sm:p-7">
             <div className="mb-6">
               <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
-              <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">
+              <p className="mt-1.5 text-[13px] leading-relaxed text-foreground/70">
                 {description}
               </p>
             </div>
 
             {children}
 
-            <div className="mt-5 text-center text-[12px] text-muted-foreground">
+            <div className="mt-5 text-center text-[12px] text-foreground/70">
               {footer}
             </div>
           </div>

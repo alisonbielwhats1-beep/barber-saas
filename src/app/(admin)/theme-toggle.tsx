@@ -10,12 +10,12 @@ export function ThemeToggle() {
       onClick={toggle}
       title={theme === "dark" ? "Mudar para tema claro" : "Mudar para tema escuro"}
       aria-label={theme === "dark" ? "Mudar para tema claro" : "Mudar para tema escuro"}
-      className="grid h-6 w-6 shrink-0 place-items-center rounded text-muted-foreground transition hover:bg-muted hover:text-foreground"
+      className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       {theme === "dark" ? (
-        <Sun className="h-3.5 w-3.5" />
+        <Sun className="h-4 w-4" />
       ) : (
-        <Moon className="h-3.5 w-3.5" />
+        <Moon className="h-4 w-4" />
       )}
     </button>
   );

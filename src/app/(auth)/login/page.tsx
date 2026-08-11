@@ -20,6 +20,12 @@ export default function LoginPage() {
       <Suspense fallback={null}>
         <LoginForm />
       </Suspense>
+      <p className="mt-4 text-center text-[12px] text-foreground/70">
+        Esqueceu a senha?{" "}
+        <Link href="/contato" className="font-medium text-primary transition hover:underline">
+          Fale com o suporte
+        </Link>
+      </p>
     </AuthShell>
   );
 }

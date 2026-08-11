@@ -29,9 +29,9 @@ export function SidebarFooter({ plan }: { plan: string }) {
           onClick={() => signOut({ callbackUrl: "/" })}
           title="Sair"
           aria-label="Sair da conta"
-          className="grid h-6 w-6 shrink-0 place-items-center rounded text-muted-foreground transition hover:bg-muted hover:text-foreground"
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <LogOut className="h-3.5 w-3.5" />
+          <LogOut className="h-4 w-4" />
         </button>
       </div>
     </div>
