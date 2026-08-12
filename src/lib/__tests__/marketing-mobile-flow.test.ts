@@ -6,6 +6,10 @@ const source = readFileSync(
   join(process.cwd(), "src/app/(admin)/marketing/marketing-campaigns.tsx"),
   "utf8",
 );
+const pageSource = readFileSync(
+  join(process.cwd(), "src/app/(admin)/marketing/page.tsx"),
+  "utf8",
+);
 
 describe("fluxo mobile de campanhas", () => {
   it("mostra um seletor compacto antes do editor de mensagem", () => {
@@ -25,5 +29,12 @@ describe("fluxo mobile de campanhas", () => {
 
   it("nomeia claramente a ação do WhatsApp em telas estreitas", () => {
     expect(source).toContain("Enviar pelo WhatsApp");
+  });
+
+  it("abre a base completa de clientes antes dos segmentos especiais", () => {
+    expect(pageSource).toContain("allClients={clients.map(toTarget)}");
+    expect(source).toContain('key: "all"');
+    expect(source).toContain('title: "Todos os clientes"');
+    expect(source.indexOf('key: "all"')).toBeLessThan(source.indexOf('key: "birthday"'));
   });
 });

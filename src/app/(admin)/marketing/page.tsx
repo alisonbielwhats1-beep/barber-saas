@@ -42,7 +42,7 @@ export default async function MarketingPage() {
         <Kpi icon={Crown} accent="#F4C430" label="VIPs" value={vips.length.toString()} />
       </section>
       <div className="flex items-start gap-2 rounded-2xl border border-primary/20 bg-primary/5 p-4"><Megaphone className="mt-0.5 h-4 w-4 shrink-0 text-primary" /><p className="text-[12px] text-muted-foreground">Escolha uma campanha, selecione os destinatários e abra o WhatsApp com a mensagem personalizada. O sistema registra a preparação para você acompanhar o trabalho.</p></div>
-      <MarketingCampaigns birthdays={birthdays} lapsed={lapsed} vips={vips} attended={attended} salonName={salon?.name ?? "nosso salão"} />
+      <MarketingCampaigns allClients={clients.map(toTarget)} birthdays={birthdays} lapsed={lapsed} vips={vips} attended={attended} salonName={salon?.name ?? "nosso salão"} />
 
       <section className="overflow-hidden rounded-2xl border border-border bg-card">
         <div className="flex flex-col gap-3 border-b border-border px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
