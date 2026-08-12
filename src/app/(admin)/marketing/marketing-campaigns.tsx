@@ -7,8 +7,9 @@ import { recordCampaignInteraction } from "./actions";
 type Target = { id: string; name: string; phone: string | null };
 type Campaign = { key: string; title: string; icon: typeof Cake; accent: string; description: string; template: string; targets: Target[] };
 
-export function MarketingCampaigns({ birthdays, lapsed, vips, attended, salonName }: { birthdays: Target[]; lapsed: Target[]; vips: Target[]; attended: Target[]; salonName: string }) {
+export function MarketingCampaigns({ allClients, birthdays, lapsed, vips, attended, salonName }: { allClients: Target[]; birthdays: Target[]; lapsed: Target[]; vips: Target[]; attended: Target[]; salonName: string }) {
   const campaigns: Campaign[] = [
+    { key: "all", title: "Todos os clientes", icon: Users, accent: "#10B981", description: "Veja a base completa e envie um comunicado para os clientes selecionados.", template: `Oi {nome}! Temos novidades no ${salonName}. Fale com a gente para saber mais e agendar seu horário. 💈`, targets: allClients },
     { key: "birthday", title: "Aniversariantes do mês", icon: Cake, accent: "#EC4899", description: "Parabenize e ofereça um mimo para trazer o cliente de volta.", template: `Feliz aniversário, {nome}! 🎉 Você ganhou {cupom} de desconto neste mês no ${salonName}. Bora agendar? 💈`, targets: birthdays },
     { key: "lapsed", title: "Resgate de sumidos", icon: Clock, accent: "#EF4444", description: "Reative quem não volta há mais de 60 dias.", template: `Oi {nome}, sentimos sua falta no ${salonName}! Volte com {cupom} de desconto no próximo horário. 💈`, targets: lapsed },
     { key: "vip", title: "Novidades para VIPs", icon: Crown, accent: "#F4C430", description: "Ofereça exclusividade aos seus melhores clientes.", template: `{nome}, você é cliente VIP do ${salonName}! Temos novidades e horários exclusivos esperando por você. ✨`, targets: vips },
