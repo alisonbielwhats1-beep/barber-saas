@@ -216,13 +216,14 @@ function CategoryGroupGrid({
 }) {
   const totalRevenue = items.reduce((s, i) => s + i.revenueCents, 0);
   const totalSold    = items.reduce((s, i) => s + i.sold, 0);
+  const categoryImage = items.find((item) => item.imageUrl)?.imageUrl ?? bannerForCategory(cat);
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card">
       {/* Banner landscape — altura generosa para a imagem respirar */}
       <div className="relative h-48 w-full overflow-hidden sm:h-56">
         <Image
-          src={bannerForCategory(cat)}
+          src={categoryImage}
           alt={cat}
           fill
           sizes="(max-width: 768px) 100vw, 900px"

@@ -37,6 +37,7 @@ describe("readableForeground", () => {
   it("pede texto escuro sobre cor clara", () => {
     expect(readableForeground("#FFFFFF")).toBe("0 0% 10%");
     expect(readableForeground("#FDE68A")).toBe("0 0% 10%");
+    expect(readableForeground("#777777")).toBe("0 0% 10%");
   });
 
   it("pede texto claro sobre cor escura", () => {

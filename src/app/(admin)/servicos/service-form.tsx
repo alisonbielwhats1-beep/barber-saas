@@ -93,7 +93,10 @@ export function ServiceForm({ service, trigger }: Props) {
 
         <form onSubmit={onSubmit} className="grid gap-4">
           <div>
-            <label className="mb-1 block text-sm font-medium">Foto (opcional)</label>
+            <label className="mb-1 block text-sm font-medium">Foto do serviço (opcional)</label>
+            <p className="mb-2 text-xs leading-relaxed text-muted-foreground">
+              A primeira foto cadastrada em uma categoria também representa essa categoria na vitrine.
+            </p>
             <ImageUpload value={imageUrl} onChange={setImageUrl} folder="services" aspectRatio="landscape" />
           </div>
           <div>
@@ -107,11 +110,15 @@ export function ServiceForm({ service, trigger }: Props) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-sm font-medium">Categoria</label>
-              <select name="category" defaultValue={service?.category ?? "Corte"} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-                {CATEGORIES.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
+              <Input
+                name="category"
+                list="service-categories"
+                defaultValue={service?.category ?? "Corte"}
+                placeholder="Ex.: Barba ou Unhas"
+              />
+              <datalist id="service-categories">
+                {CATEGORIES.map((category) => <option key={category} value={category} />)}
+              </datalist>
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium">Duração (min)</label>

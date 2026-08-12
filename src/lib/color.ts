@@ -58,6 +58,7 @@ export function readableForeground(hex: string | null | undefined): string | nul
     return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
   });
   const lum = 0.2126 * chan[0] + 0.7152 * chan[1] + 0.0722 * chan[2];
-  // Limiar 0.4: acima disso a cor é clara e pede texto escuro.
-  return lum > 0.4 ? "0 0% 10%" : "0 0% 100%";
+  // 0,179 é o ponto em que preto e branco trocam de vantagem no critério
+  // WCAG. Assim, pelo menos uma das duas opções mantém contraste AA.
+  return lum > 0.179 ? "0 0% 10%" : "0 0% 100%";
 }

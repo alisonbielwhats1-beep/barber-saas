@@ -34,8 +34,10 @@ export default async function AgendarPage({
       select: {
         id: true,
         name: true,
+        address: true,
         currency: true,
         timezone: true,
+        cancelPolicyHours: true,
         services: {
           where: { active: true },
           orderBy: [{ category: "asc" }, { name: "asc" }],
@@ -93,6 +95,7 @@ export default async function AgendarPage({
     durationMin: s.durationMin,
     colorHex: s.colorHex,
     category: s.category,
+    imageUrl: s.imageUrl,
     professionals: s.professionals
       .filter((ps) => ps.professional.active)
       .map((ps) => ({
@@ -110,8 +113,10 @@ export default async function AgendarPage({
     <BookingFlow
       salonId={salon.id}
       salonName={salon.name}
+      salonAddress={salon.address}
       currency={salon.currency}
       timezone={salon.timezone}
+      cancelPolicyHours={salon.cancelPolicyHours}
       todayDate={dateKeyInTimeZone(new Date(), salon.timezone)}
       services={services}
       initialServiceIds={initialServiceIds}
