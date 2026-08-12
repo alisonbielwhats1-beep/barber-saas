@@ -39,4 +39,31 @@ describe("frontend audit source regressions", () => {
     expect(products).toContain("Comece seu catálogo");
     expect(products).toMatch(/ProductForm[\s\S]+trigger=/);
   });
+
+  it("keeps the agenda month usable and named on narrow screens", () => {
+    const agenda = source("src/app/(admin)/agenda/agenda-board.tsx");
+
+    expect(agenda).toContain('aria-label="Visualização da agenda"');
+    expect(agenda).toContain("aria-pressed={active}");
+    expect(agenda).toContain('className="grid grid-cols-7 sm:hidden"');
+    expect(agenda).toContain("min-h-12");
+    expect(agenda).toContain("Toque em um dia para abrir os agendamentos.");
+    expect(agenda).toContain('aria-current={isToday ? "date" : undefined}');
+    expect(agenda).toContain('aria-label="Buscar cliente ou telefone"');
+  });
+
+  it("keeps the dashboard operational first and secondary analysis progressive", () => {
+    const dashboard = source("src/app/(admin)/dashboard/page.tsx");
+    const nowStrip = source("src/app/(admin)/dashboard/now-strip.tsx");
+
+    expect(dashboard).toContain("<NowStrip");
+    expect(nowStrip).toContain('aria-labelledby="now-strip-title"');
+    expect(nowStrip).toContain("Faixa Agora");
+    expect(nowStrip).toContain("appointments.slice(0, 4)");
+    expect(nowStrip).toContain("Receita concluída hoje");
+    expect(nowStrip).toContain('aria-label="Próximos atendimentos de hoje"');
+    expect(nowStrip).toContain("overflow-x-auto");
+    expect(dashboard).toMatch(/<details[\s\S]+Análises complementares/);
+    expect(dashboard).toContain('href="/relatorios"');
+  });
 });

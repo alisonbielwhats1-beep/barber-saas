@@ -34,16 +34,17 @@ import {
   CheckCircle2,
   Circle,
   ArrowRight,
-  CalendarClock,
-  AlertTriangle,
   Bell,
   Hourglass,
+  Activity,
+  ChevronDown,
 } from "lucide-react";
 import { RangeFilter } from "./range-filter";
 import { RevenueChart } from "./revenue-chart";
 import { DonutChart } from "./donut-chart";
 import { LembretesPanel } from "./lembretes-panel";
 import { AutoRefresh } from "@/components/auto-refresh";
+import { NowStrip } from "./now-strip";
 
 const MALE_COLOR = "#3B9EFF";
 const FEMALE_COLOR = "#E85D9E";
@@ -262,78 +263,17 @@ export default async function DashboardPage({
         </section>
       )}
 
-      {/* ── Hoje: o que está acontecendo agora ─────────────── */}
-      <section className="grid min-w-0 gap-4 lg:grid-cols-3">
-        <Panel className="lg:col-span-2">
-          <div className="flex min-w-0 items-center justify-between gap-3">
-            <PanelTitle icon={CalendarClock}>Próximos atendimentos de hoje</PanelTitle>
-            <Link href="/agenda" className="text-[12px] font-medium text-primary hover:underline">
-              Ver agenda
-            </Link>
-          </div>
-          {todayAppts.length === 0 ? (
-            <div className="py-8 text-center">
-              <p className="text-[13px] text-muted-foreground">
-                Nenhum atendimento restante hoje.
-              </p>
-              <Link
-                href="/agenda"
-                className="mt-2 inline-block text-[13px] font-medium text-primary hover:underline"
-              >
-                Criar agendamento →
-              </Link>
-            </div>
-          ) : (
-            <div className="stagger mt-3 space-y-1">
-              {todayAppts.map((a) => (
-                <div
-                  key={a.id}
-                  className="flex items-center gap-3 rounded-xl px-2 py-2.5 transition-colors hover:bg-card-hover"
-                >
-                  <span className="w-12 shrink-0 text-[14px] font-semibold tabular-nums">
-                    {formatInTimeZone(a.startAt, timezone, "HH:mm")}
-                  </span>
-                  <span
-                    className="h-8 w-1 shrink-0 rounded-full"
-                    style={{ background: a.service.colorHex ?? "hsl(var(--primary))" }}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13px] font-medium">{a.client.name}</p>
-                    <p className="truncate text-[12px] text-muted-foreground">
-                      {a.service.name} · {a.professional.user.name}
-                    </p>
-                  </div>
-                  {a.status === "IN_PROGRESS" && (
-                    <span className="shrink-0 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
-                      Na cadeira
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </Panel>
-
-        <Panel>
-          <PanelTitle icon={Wallet}>Hoje em números</PanelTitle>
-          <div className="mt-4 space-y-3">
-            <TodayRow label="Receita de hoje" value={formatMoney(m.revenueToday)} strong />
-            <TodayRow label="Agendados hoje" value={m.apptsToday.toString()} />
-            <TodayRow label="Agendados amanhã" value={m.apptsTomorrow.toString()} />
-          </div>
-          {m.products.outOfStock > 0 && (
-            <Link
-              href="/produtos"
-              className="mt-4 flex items-center gap-2 rounded-xl border border-warning/30 bg-warning/10 px-3 py-2.5 text-[12px] font-medium text-warning transition-colors hover:border-warning/50"
-            >
-              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-              {m.products.outOfStock}{" "}
-              {m.products.outOfStock === 1 ? "produto em falta" : "produtos em falta"}
-              <ArrowRight className="ml-auto h-3.5 w-3.5" />
-            </Link>
-          )}
-        </Panel>
-      </section>
+      {/* ── Faixa Agora: operação antes da análise ─────────── */}
+      <NowStrip
+        appointments={todayAppts}
+        timezone={timezone}
+        todayDate={todayDate}
+        now={now}
+        revenueToday={m.revenueToday}
+        apptsToday={m.apptsToday}
+        apptsTomorrow={m.apptsTomorrow}
+        outOfStock={m.products.outOfStock}
+      />
 
       {/* ── Lembretes de amanhã ────────────────────────────── */}
       {reminders.length > 0 && (
@@ -382,91 +322,14 @@ export default async function DashboardPage({
         />
       </section>
 
-      {/* ── Stat tiles — só o que pede atenção no período ──── */}
-      <section aria-labelledby="operation-signals-title" className="space-y-3">
-        <div>
-          <h2 id="operation-signals-title" className="text-[14px] font-semibold">Sinais da operação</h2>
-          <p className="mt-0.5 text-[12px] text-muted-foreground">Acompanhe previsão, equipe e pontos que pedem atenção.</p>
-        </div>
-        <div className="stagger grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
-        <StatTile icon={TrendingUp} label="Receita prevista" value={formatMoney(m.forecast)} hint="Próximos 30 dias" />
-        <StatTile icon={HandCoins} label="Comissão pendente" value={formatMoney(m.commissionPending)} />
-        <StatTile
-          icon={CalendarX}
-          label="Cancelamentos"
-          value={m.cancellations.toString()}
-          hint={m.cancellationRate != null ? `${Math.round(m.cancellationRate * 100)}% do período` : undefined}
-          tone={m.cancellations > 0 ? "warning" : "neutral"}
-        />
-        <StatTile
-          icon={UserX}
-          label="No-show"
-          value={m.noShow.toString()}
-          hint={m.noShowRate != null ? `${Math.round(m.noShowRate * 100)}% do período` : undefined}
-          tone={m.noShow > 0 ? "danger" : "neutral"}
-        />
-        <StatTile
-          icon={Hourglass}
-          label="Conversão da fila"
-          value={m.waitlist.total > 0 ? `${Math.round((m.waitlist.conversionRate ?? 0) * 100)}%` : "—"}
-          hint={m.waitlist.total > 0 ? `${m.waitlist.fulfilled}/${m.waitlist.total} confirmados` : "Sem entradas no período"}
-        />
-        <StatTile icon={PackageX} label="Produtos em falta" value={m.products.outOfStock.toString()} />
-        <StatTile icon={Users} label="Clientes ativos" value={m.clients.active.toString()} />
-        </div>
-      </section>
-
       {/* ── Charts ─────────────────────────────────────────── */}
-      <section className="grid gap-4 lg:grid-cols-3">
-        <Panel className="lg:col-span-2">
+      <section>
+        <Panel>
           <PanelTitle icon={TrendingUp}>Faturamento diário</PanelTitle>
           <div className="mt-4 h-64">
             <RevenueChart data={m.series} />
           </div>
         </Panel>
-
-        <Panel>
-          <PanelTitle icon={UserRound}>Receita por gênero</PanelTitle>
-          <DonutChart
-            centerLabel="Total"
-            centerValue={formatMoney(genderTotal)}
-            slices={[
-              { name: "Masculino", value: m.gender.male.revenue, color: MALE_COLOR },
-              { name: "Feminino", value: m.gender.female.revenue, color: FEMALE_COLOR },
-            ]}
-          />
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            <LegendRow color={MALE_COLOR} label="Masculino" value={formatMoney(m.gender.male.revenue)} />
-            <LegendRow color={FEMALE_COLOR} label="Feminino" value={formatMoney(m.gender.female.revenue)} />
-          </div>
-        </Panel>
-      </section>
-
-      {/* ── Público masculino x feminino ───────────────────── */}
-      <section className="grid gap-4 lg:grid-cols-2">
-        <GenderPanel
-          icon={User}
-          color={MALE_COLOR}
-          title="Público masculino"
-          data={m.gender.male}
-          share={genderTotal > 0 ? m.gender.male.revenue / genderTotal : 0}
-        />
-        <GenderPanel
-          icon={UserRound}
-          color={FEMALE_COLOR}
-          title="Público feminino"
-          data={m.gender.female}
-          share={genderTotal > 0 ? m.gender.female.revenue / genderTotal : 0}
-        />
-      </section>
-
-      {/* ── Clientes ───────────────────────────────────────── */}
-      <section className="stagger grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <MiniStat icon={Users} label="Base total" value={m.clients.total.toString()} />
-        <MiniStat icon={UserPlus} label="Novos no período" value={m.clients.new.toString()} />
-        <MiniStat icon={Repeat} label="Recorrentes" value={m.clients.returning.toString()} />
-        <MiniStat icon={UserX} label="Sumidos (60d+)" value={m.clients.lost.toString()} />
-        <MiniStat icon={TrendingUp} label="Retenção" value={`${Math.round(m.clients.retentionRate * 100)}%`} />
       </section>
 
       {/* ── Rankings ───────────────────────────────────────── */}
@@ -536,6 +399,109 @@ export default async function DashboardPage({
           </div>
         </Panel>
       </section>
+
+      {/* ── Profundidade sob demanda ───────────────────────── */}
+      <details className="group overflow-hidden rounded-2xl border border-border bg-card">
+        <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:px-5 [&::-webkit-details-marker]:hidden">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
+            <Activity aria-hidden="true" className="h-4 w-4" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[14px] font-semibold">Análises complementares</span>
+            <span className="block text-[12px] text-muted-foreground">
+              Sinais do período, público e base de clientes
+            </span>
+          </span>
+          <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+        </summary>
+
+        <div className="space-y-5 border-t border-border p-4 sm:p-5">
+          <section aria-labelledby="operation-signals-title" className="space-y-3">
+            <div>
+              <h2 id="operation-signals-title" className="text-[14px] font-semibold">Sinais do período</h2>
+              <p className="mt-0.5 text-[12px] text-muted-foreground">Previsão, equipe e ocorrências para aprofundar a leitura.</p>
+            </div>
+            <div className="stagger grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+              <StatTile icon={TrendingUp} label="Receita prevista" value={formatMoney(m.forecast)} hint="Próximos 30 dias" />
+              <StatTile icon={HandCoins} label="Comissão pendente" value={formatMoney(m.commissionPending)} />
+              <StatTile
+                icon={CalendarX}
+                label="Cancelamentos"
+                value={m.cancellations.toString()}
+                hint={m.cancellationRate != null ? `${Math.round(m.cancellationRate * 100)}% do período` : undefined}
+                tone={m.cancellations > 0 ? "warning" : "neutral"}
+              />
+              <StatTile
+                icon={UserX}
+                label="No-show"
+                value={m.noShow.toString()}
+                hint={m.noShowRate != null ? `${Math.round(m.noShowRate * 100)}% do período` : undefined}
+                tone={m.noShow > 0 ? "danger" : "neutral"}
+              />
+              <StatTile
+                icon={Hourglass}
+                label="Conversão da fila"
+                value={m.waitlist.total > 0 ? `${Math.round((m.waitlist.conversionRate ?? 0) * 100)}%` : "—"}
+                hint={m.waitlist.total > 0 ? `${m.waitlist.fulfilled}/${m.waitlist.total} confirmados` : "Sem entradas no período"}
+              />
+              <StatTile icon={PackageX} label="Produtos em falta" value={m.products.outOfStock.toString()} />
+              <StatTile icon={Users} label="Clientes ativos" value={m.clients.active.toString()} />
+            </div>
+          </section>
+
+          <section className="grid gap-4 lg:grid-cols-3">
+            <Panel className="lg:col-span-1">
+              <PanelTitle icon={UserRound}>Receita por gênero</PanelTitle>
+              <DonutChart
+                centerLabel="Total"
+                centerValue={formatMoney(genderTotal)}
+                slices={[
+                  { name: "Masculino", value: m.gender.male.revenue, color: MALE_COLOR },
+                  { name: "Feminino", value: m.gender.female.revenue, color: FEMALE_COLOR },
+                ]}
+              />
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <LegendRow color={MALE_COLOR} label="Masculino" value={formatMoney(m.gender.male.revenue)} />
+                <LegendRow color={FEMALE_COLOR} label="Feminino" value={formatMoney(m.gender.female.revenue)} />
+              </div>
+            </Panel>
+            <div className="grid gap-4 lg:col-span-2 lg:grid-cols-2">
+              <GenderPanel
+                icon={User}
+                color={MALE_COLOR}
+                title="Público masculino"
+                data={m.gender.male}
+                share={genderTotal > 0 ? m.gender.male.revenue / genderTotal : 0}
+              />
+              <GenderPanel
+                icon={UserRound}
+                color={FEMALE_COLOR}
+                title="Público feminino"
+                data={m.gender.female}
+                share={genderTotal > 0 ? m.gender.female.revenue / genderTotal : 0}
+              />
+            </div>
+          </section>
+
+          <section aria-label="Indicadores da base de clientes" className="stagger grid grid-cols-2 gap-3 lg:grid-cols-5">
+            <MiniStat icon={Users} label="Base total" value={m.clients.total.toString()} />
+            <MiniStat icon={UserPlus} label="Novos no período" value={m.clients.new.toString()} />
+            <MiniStat icon={Repeat} label="Recorrentes" value={m.clients.returning.toString()} />
+            <MiniStat icon={UserX} label="Sumidos (60d+)" value={m.clients.lost.toString()} />
+            <MiniStat icon={TrendingUp} label="Retenção" value={`${Math.round(m.clients.retentionRate * 100)}%`} />
+          </section>
+
+          <div className="flex justify-end">
+            <Link
+              href="/relatorios"
+              className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border px-4 text-[13px] font-medium transition-colors hover:border-border-strong hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Abrir relatórios
+              <ArrowRight aria-hidden="true" className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
+      </details>
     </div>
   );
 }
@@ -622,17 +588,6 @@ function StatTile({
       <p className="mt-3 text-xl font-semibold tracking-tight">{value}</p>
       <p className="text-[11px] font-medium text-muted-foreground">{label}</p>
       {hint && <p className="text-[10px] text-muted-foreground/70">{hint}</p>}
-    </div>
-  );
-}
-
-function TodayRow({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
-  return (
-    <div className="flex items-center justify-between rounded-xl bg-surface-1 px-3.5 py-2.5">
-      <span className="text-[12px] text-muted-foreground">{label}</span>
-      <span className={strong ? "text-[15px] font-semibold text-primary" : "text-[14px] font-semibold"}>
-        {value}
-      </span>
     </div>
   );
 }
