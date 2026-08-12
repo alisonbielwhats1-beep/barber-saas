@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Search, ChevronRight } from "lucide-react";
@@ -14,6 +14,7 @@ type Service = {
   priceCents: number;
   durationMin: number;
   category: string | null;
+  imageUrl: string | null;
 };
 
 function norm(s: string) {
@@ -31,6 +32,7 @@ export function HomeExplore({
 }) {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const resultsRef = useRef<HTMLElement>(null);
 
   // Derive ordered category list from DB data
   const categories = useMemo(() => {
@@ -53,6 +55,15 @@ export function HomeExplore({
     return m;
   }, [services]);
 
+  const imageByCategory = useMemo(() => {
+    const images = new Map<string, string>();
+    for (const service of services) {
+      const category = service.category ?? "Outros";
+      if (service.imageUrl && !images.has(category)) images.set(category, service.imageUrl);
+    }
+    return images;
+  }, [services]);
+
   // Groups filtered by active category + search query
   const groups = useMemo(() => {
     const q = norm(query.trim());
@@ -69,14 +80,26 @@ export function HomeExplore({
       .filter((g) => g.items.length > 0);
   }, [services, categories, activeCategory, query]);
 
+  function chooseCategory(category: string) {
+    setActiveCategory(category);
+    setQuery("");
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => resultsRef.current?.focus({ preventScroll: false }));
+    });
+  }
+
   return (
     <>
       {/* Search */}
       <div className="flex items-center gap-2 rounded-full border border-border bg-card px-4 py-3">
-        <Search className="h-4 w-4 text-muted-foreground" />
+        <Search aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
         <input
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            if (e.target.value) setActiveCategory(null);
+          }}
+          aria-label="Buscar serviços"
           placeholder="Buscar serviços…"
           className="flex-1 bg-transparent text-sm placeholder:text-muted-foreground focus:outline-none"
         />
@@ -91,13 +114,15 @@ export function HomeExplore({
       </div>
 
       {/* Category grid — 2-column square tiles, shown only when multiple categories */}
-      {categories.length > 1 && !query && (
+      {categories.length > 1 && !query && activeCategory === null && (
         <section>
           <p className="mb-3 text-sm font-semibold text-muted-foreground">Categorias</p>
           <div className="grid grid-cols-2 gap-3">
             {/* "Todos" tile */}
-            <button
-              onClick={() => setActiveCategory(null)}
+          <button
+            type="button"
+            onClick={() => setActiveCategory(null)}
+            aria-pressed={activeCategory === null}
               className={`relative aspect-square overflow-hidden rounded-2xl transition ${
                 activeCategory === null
                   ? "ring-2 ring-primary ring-offset-2 ring-offset-background"
@@ -118,8 +143,10 @@ export function HomeExplore({
               const active = activeCategory === cat;
               return (
                 <button
+                  type="button"
                   key={cat}
-                  onClick={() => setActiveCategory(active ? null : cat)}
+                  onClick={() => chooseCategory(cat)}
+                  aria-pressed={active}
                   className={`relative aspect-square overflow-hidden rounded-2xl transition ${
                     active
                       ? "ring-2 ring-primary ring-offset-2 ring-offset-background"
@@ -127,7 +154,7 @@ export function HomeExplore({
                   }`}
                 >
                   <Image
-                    src={imageForCategory(cat)}
+                    src={imageByCategory.get(cat) ?? imageForCategory(cat)}
                     alt={cat}
                     fill
                     sizes="(max-width: 480px) 45vw, 200px"
@@ -147,8 +174,24 @@ export function HomeExplore({
         </section>
       )}
 
+      {activeCategory && !query && (
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-primary/25 bg-primary/5 px-4 py-3">
+          <div className="min-w-0">
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Categoria escolhida</p>
+            <p className="truncate text-sm font-semibold">{activeCategory}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActiveCategory(null)}
+            className="min-h-11 shrink-0 rounded-full px-3 text-xs font-semibold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Trocar categoria
+          </button>
+        </div>
+      )}
+
       {/* Service list */}
-      <section className="space-y-4">
+      <section ref={resultsRef} tabIndex={-1} className="space-y-4 outline-none">
         {query && (
           <p className="text-sm font-semibold text-muted-foreground">
             {groups.reduce((n, g) => n + g.items.length, 0)} resultado
@@ -188,6 +231,11 @@ export function HomeExplore({
                   href={`/book/${salonSlug}/agendar?service=${s.id}`}
                   className="flex items-center gap-3 border-t border-border px-4 py-3.5 transition hover:bg-card-hover active:opacity-75 first:border-t-0"
                 >
+                  {s.imageUrl && (
+                    <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl">
+                      <Image src={s.imageUrl} alt="" fill sizes="56px" className="object-cover" />
+                    </div>
+                  )}
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[14px] font-medium">{s.name}</p>
                     {s.description && (

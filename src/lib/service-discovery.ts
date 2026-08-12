@@ -40,3 +40,16 @@ export function filterServiceOptions<T extends DiscoverableService>(
     ).includes(normalizedQuery);
   });
 }
+
+export function eligibleProfessionalsForServices<
+  TService extends { professionals: Array<{ id: string }> },
+>(services: TService[]): TService["professionals"] {
+  const first = services[0];
+  if (!first) return [];
+
+  return first.professionals.filter((professional) =>
+    services.every((service) =>
+      service.professionals.some((candidate) => candidate.id === professional.id),
+    ),
+  );
+}

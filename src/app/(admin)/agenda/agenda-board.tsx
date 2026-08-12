@@ -25,6 +25,7 @@ import {
   endOfWeek,
   startOfMonth,
   endOfMonth,
+  addMonths,
   eachDayOfInterval,
   isSameMonth,
 } from "date-fns";
@@ -207,8 +208,10 @@ export function AgendaBoard({
   }, [dayAppts]);
 
   function goDate(offset: number) {
-    const step = view === "month" ? 30 : view === "week" ? 7 : 1;
-    const d = ymd(addDays(dateObj, offset * step));
+    const targetDate = view === "month" || view === "list"
+      ? addMonths(dateObj, offset)
+      : addDays(dateObj, offset * (view === "week" ? 7 : 1));
+    const d = ymd(targetDate);
     startTransition(() => router.push(`/agenda?date=${d}`, { scroll: false }));
   }
   function goToday() {
@@ -241,23 +244,39 @@ export function AgendaBoard({
   const rangeLabel =
     view === "week"
       ? `${format(startOfWeek(dateObj, { weekStartsOn: 1 }), "d MMM", { locale: ptBR })} – ${format(endOfWeek(dateObj, { weekStartsOn: 1 }), "d MMM", { locale: ptBR })}`
-      : view === "month"
+      : view === "month" || view === "list"
         ? format(dateObj, "MMMM yyyy", { locale: ptBR })
         : format(dateObj, "d 'de' MMMM", { locale: ptBR });
+  const navigationUnit = view === "week" ? "semana" : view === "month" || view === "list" ? "mês" : "dia";
 
   return (
     <div className="space-y-5">
       <header className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1 rounded-full border border-border bg-surface-1 p-1">
-            <button onClick={() => goDate(-1)} className="grid h-8 w-8 place-items-center rounded-full text-muted-foreground hover:bg-card-hover hover:text-foreground">
-              <ChevronLeft className="h-4 w-4" />
+            <button
+              type="button"
+              onClick={() => goDate(-1)}
+              aria-label={`Ir para ${navigationUnit} anterior`}
+              className="grid min-h-11 min-w-11 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-card-hover hover:text-foreground"
+            >
+              <ChevronLeft aria-hidden="true" className="h-4 w-4" />
             </button>
-            <button onClick={goToday} className="rounded-full px-3 py-1 text-[12px] font-medium text-muted-foreground hover:text-foreground">
+            <button
+              type="button"
+              onClick={goToday}
+              aria-label="Ir para hoje"
+              className="min-h-11 rounded-full px-3 py-1 text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
               Hoje
             </button>
-            <button onClick={() => goDate(1)} className="grid h-8 w-8 place-items-center rounded-full text-muted-foreground hover:bg-card-hover hover:text-foreground">
-              <ChevronRight className="h-4 w-4" />
+            <button
+              type="button"
+              onClick={() => goDate(1)}
+              aria-label={`Ir para próximo ${navigationUnit}`}
+              className="grid min-h-11 min-w-11 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-card-hover hover:text-foreground"
+            >
+              <ChevronRight aria-hidden="true" className="h-4 w-4" />
             </button>
           </div>
           <div>
@@ -270,7 +289,7 @@ export function AgendaBoard({
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-0.5 rounded-full border border-border bg-surface-1 p-1">
+          <div role="group" aria-label="Visualização da agenda" className="flex items-center gap-0.5 rounded-full border border-border bg-surface-1 p-1">
             <ViewBtn active={view === "day"} onClick={() => setView("day")} icon={CalendarDays} label="Dia" />
             <ViewBtn active={view === "week"} onClick={() => setView("week")} icon={CalendarRange} label="Semana" />
             <ViewBtn active={view === "month"} onClick={() => setView("month")} icon={Grid3x3} label="Mês" />
@@ -297,13 +316,14 @@ export function AgendaBoard({
       </section>
 
       <section className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5">
-          <Search className="h-3.5 w-3.5 text-muted-foreground" />
+        <div className="flex min-h-11 items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 max-sm:w-full">
+          <Search aria-hidden="true" className="h-3.5 w-3.5 text-muted-foreground" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            aria-label="Buscar cliente ou telefone"
             placeholder="Buscar cliente ou telefone…"
-            className="w-44 bg-transparent text-[13px] placeholder:text-muted-foreground focus:outline-none"
+            className="min-w-0 flex-1 bg-transparent text-[13px] placeholder:text-muted-foreground focus:outline-none sm:w-44"
           />
         </div>
         <FilterChip active={proFilter === "all"} onClick={() => setProFilter("all")} icon={Users}>
@@ -777,13 +797,65 @@ function MonthView({
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card">
       <div className="grid grid-cols-7 border-b border-border bg-surface-1">
-        {["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"].map((d) => (
-          <div key={d} className="py-2 text-center text-[11px] font-medium text-muted-foreground">
-            {d}
+        {[
+          ["Seg", "segunda-feira"],
+          ["Ter", "terça-feira"],
+          ["Qua", "quarta-feira"],
+          ["Qui", "quinta-feira"],
+          ["Sex", "sexta-feira"],
+          ["Sáb", "sábado"],
+          ["Dom", "domingo"],
+        ].map(([shortLabel, fullLabel]) => (
+          <div key={shortLabel} className="py-2 text-center text-[11px] font-medium text-muted-foreground">
+            <span aria-hidden="true">{shortLabel}</span>
+            <span className="sr-only">{fullLabel}</span>
           </div>
         ))}
       </div>
-      <div className="grid grid-cols-7">
+      <div className="grid grid-cols-7 sm:hidden">
+        {days.map((day) => {
+          const dStr = ymd(day);
+          const inMonth = isSameMonth(day, dateObj);
+          const isToday = dStr === today;
+          const dayAppts = (byDay.get(dStr) ?? []).sort((a, b) => a.startAt.localeCompare(b.startAt));
+          const appointmentLabel = dayAppts.length === 1 ? "1 agendamento" : `${dayAppts.length} agendamentos`;
+          const dateLabel = format(day, "EEEE, d 'de' MMMM", { locale: ptBR });
+
+          return (
+            <button
+              type="button"
+              key={dStr}
+              onClick={() => onOpenDay(dStr)}
+              aria-label={`${dateLabel}, ${appointmentLabel}${isToday ? ", hoje" : ""}${inMonth ? "" : ", fora do mês atual"}`}
+              aria-current={isToday ? "date" : undefined}
+              className={`relative flex min-h-12 min-w-0 flex-col items-center justify-center border-b border-r border-border px-0.5 py-1 transition-colors hover:bg-card-hover focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring [&:nth-child(7n)]:border-r-0 ${
+                inMonth ? "" : "bg-surface-1/40 text-muted-foreground/50"
+              }`}
+            >
+              {dayAppts.length > 0 && (
+                <span className="absolute right-1 top-1 text-[9px] font-semibold leading-none text-muted-foreground" aria-hidden="true">
+                  {dayAppts.length}
+                </span>
+              )}
+              <span className={`grid h-7 w-7 place-items-center rounded-full text-xs ${
+                isToday ? "bg-primary font-semibold text-primary-foreground" : ""
+              }`}>
+                {format(day, "d")}
+              </span>
+              <span className="mt-0.5 flex h-1.5 items-center justify-center gap-0.5" aria-hidden="true">
+                {dayAppts.slice(0, 3).map((appointment) => {
+                  const cfg = STATUS[appointment.status as keyof typeof STATUS] ?? STATUS.CONFIRMED;
+                  return <span key={appointment.id} className="h-1.5 w-1.5 rounded-full" style={{ background: cfg.color }} />;
+                })}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      <p className="border-t border-border bg-surface-1 px-3 py-2 text-center text-[11px] text-muted-foreground sm:hidden">
+        Toque em um dia para abrir os agendamentos.
+      </p>
+      <div className="hidden grid-cols-7 sm:grid">
         {days.map((day) => {
           const dStr = ymd(day);
           const inMonth = isSameMonth(day, dateObj);
@@ -797,8 +869,11 @@ function MonthView({
               }`}
             >
               <button
+                type="button"
                 onClick={() => onOpenDay(dStr)}
-                className={`mb-1 grid h-6 w-6 place-items-center rounded-full text-[11px] transition hover:bg-card-hover ${
+                aria-label={`Abrir ${format(day, "d 'de' MMMM", { locale: ptBR })}`}
+                aria-current={isToday ? "date" : undefined}
+                className={`mb-1 grid h-11 w-11 place-items-center rounded-full text-[11px] transition hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                   isToday ? "bg-primary font-semibold text-primary-foreground" : inMonth ? "text-foreground" : "text-muted-foreground/50"
                 }`}
               >
@@ -809,9 +884,11 @@ function MonthView({
                   const cfg = STATUS[a.status as keyof typeof STATUS] ?? STATUS.CONFIRMED;
                   return (
                     <button
+                      type="button"
                       key={a.id}
                       onClick={() => onOpenDetail(a)}
-                      className="flex w-full items-center gap-1 truncate rounded px-1 py-0.5 text-left text-[10px] transition hover:bg-card-hover"
+                      aria-label={`${formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")}, ${a.clientName}, ${a.serviceName}`}
+                      className="flex min-h-6 w-full items-center gap-1 truncate rounded px-1 py-1 text-left text-[11px] transition hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       style={{ background: `${cfg.color}14` }}
                     >
                       <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: cfg.color }} />
@@ -820,7 +897,7 @@ function MonthView({
                   );
                 })}
                 {dayAppts.length > 3 && (
-                  <button onClick={() => onOpenDay(dStr)} className="px-1 text-[10px] text-muted-foreground hover:text-foreground">
+                  <button type="button" onClick={() => onOpenDay(dStr)} className="min-h-6 px-1 text-[10px] text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                     +{dayAppts.length - 3} mais
                   </button>
                 )}
@@ -914,12 +991,15 @@ function ListView({
 function ViewBtn({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: typeof List; label: string }) {
   return (
     <button
+      type="button"
       onClick={onClick}
-      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors ${
+      aria-label={`Visualização ${label}`}
+      aria-pressed={active}
+      className={`inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
         active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
       }`}
     >
-      <Icon className="h-3.5 w-3.5" />
+      <Icon aria-hidden="true" className="h-3.5 w-3.5" />
       <span className="hidden sm:inline">{label}</span>
     </button>
   );
@@ -928,8 +1008,10 @@ function ViewBtn({ active, onClick, icon: Icon, label }: { active: boolean; onCl
 function FilterChip({ active, onClick, children, icon: Icon, dot }: { active: boolean; onClick: () => void; children: React.ReactNode; icon?: typeof Users; dot?: string }) {
   return (
     <button
+      type="button"
       onClick={onClick}
-      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors ${
+      aria-pressed={active}
+      className={`inline-flex min-h-11 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
         active ? "border-primary/40 bg-primary/10 text-foreground" : "border-border bg-card text-muted-foreground hover:text-foreground"
       }`}
     >

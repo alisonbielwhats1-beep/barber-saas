@@ -39,4 +39,58 @@ describe("frontend audit source regressions", () => {
     expect(products).toContain("Comece seu catálogo");
     expect(products).toMatch(/ProductForm[\s\S]+trigger=/);
   });
+
+  it("keeps the agenda month usable and named on narrow screens", () => {
+    const agenda = source("src/app/(admin)/agenda/agenda-board.tsx");
+
+    expect(agenda).toContain('aria-label="Visualização da agenda"');
+    expect(agenda).toContain("aria-pressed={active}");
+    expect(agenda).toContain('className="grid grid-cols-7 sm:hidden"');
+    expect(agenda).toContain("min-h-12");
+    expect(agenda).toContain("Toque em um dia para abrir os agendamentos.");
+    expect(agenda).toContain('aria-current={isToday ? "date" : undefined}');
+    expect(agenda).toContain('aria-label="Buscar cliente ou telefone"');
+  });
+
+  it("keeps the dashboard operational first and secondary analysis progressive", () => {
+    const dashboard = source("src/app/(admin)/dashboard/page.tsx");
+    const nowStrip = source("src/app/(admin)/dashboard/now-strip.tsx");
+
+    expect(dashboard).toContain("<NowStrip");
+    expect(nowStrip).toContain('aria-labelledby="now-strip-title"');
+    expect(nowStrip).toContain("Faixa Agora");
+    expect(nowStrip).toContain("appointments.slice(0, 4)");
+    expect(nowStrip).toContain("Receita concluída hoje");
+    expect(nowStrip).toContain('aria-label="Próximos atendimentos de hoje"');
+    expect(nowStrip).toContain("overflow-x-auto");
+    expect(dashboard).toMatch(/<details[\s\S]+Análises complementares/);
+    expect(dashboard).toContain('href="/relatorios"');
+  });
+
+  it("keeps the booking actions attached to the viewport and reviews before writing", () => {
+    const booking = source("src/app/book/[salonSlug]/agendar/booking-flow.tsx");
+
+    expect(booking.match(/data-booking-tray/g)).toHaveLength(2);
+    expect(booking).toMatch(/<\/section>\s*<div data-booking-tray/);
+    expect(booking).toContain("eligibleProfessionals.length === 1");
+    expect(booking).toContain("foi selecionado automaticamente");
+    expect(booking).toContain("<BookingReview");
+    expect(booking).toContain("Revise sua reserva");
+  });
+
+  it("keeps the next client reservation first and visually distinct", () => {
+    const visits = source("src/app/book/[salonSlug]/minhas/minhas-list.tsx");
+
+    expect(visits).toContain(".sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime())");
+    expect(visits).toContain("Seu próximo atendimento");
+    expect(visits).toContain("featured");
+  });
+
+  it("applies the establishment brand to the complete public route tree", () => {
+    const layout = source("src/app/book/[salonSlug]/layout.tsx");
+
+    expect(layout).toContain("themeColorHex");
+    expect(layout).toContain("style={brandStyle}");
+    expect(layout).toContain('"--primary-foreground"');
+  });
 });

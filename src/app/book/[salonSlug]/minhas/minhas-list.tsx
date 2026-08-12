@@ -3,9 +3,20 @@
 import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CalendarDays, LogOut, XCircle, RefreshCw, Repeat, Users } from "lucide-react";
+import {
+  AlertCircle,
+  CalendarDays,
+  CheckCircle2,
+  Clock3,
+  LogOut,
+  MapPin,
+  RefreshCw,
+  Repeat,
+  Users,
+  XCircle,
+} from "lucide-react";
 import { formatMoney } from "@/lib/utils";
-import { isPast } from "date-fns";
+import { addDays, isPast } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatInTimeZone } from "date-fns-tz";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -52,6 +63,8 @@ export function MinhasList({
   currency,
   timezone,
   cancelPolicyHours,
+  salonName,
+  salonAddress,
   session,
 }: {
   appointments: Appt[];
@@ -60,6 +73,8 @@ export function MinhasList({
   currency: string;
   timezone: string;
   cancelPolicyHours: number;
+  salonName: string;
+  salonAddress: string | null;
   session: ClientSession;
 }) {
   const router = useRouter();
@@ -70,14 +85,45 @@ export function MinhasList({
   const cancelKeys = useRef(new Map<string, string>());
 
   const activeStatuses = new Set(["PENDING", "CONFIRMED", "IN_PROGRESS"]);
-  const upcoming = appointments.filter(
-    (appointment) =>
-      activeStatuses.has(appointment.status) && !isPast(new Date(appointment.endAt)),
-  );
+  const upcoming = appointments
+    .filter(
+      (appointment) =>
+        activeStatuses.has(appointment.status) && !isPast(new Date(appointment.endAt)),
+    )
+    .sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
   const past = appointments.filter(
     (appointment) =>
       !activeStatuses.has(appointment.status) || isPast(new Date(appointment.endAt)),
   );
+  const [nextAppointment, ...laterAppointments] = upcoming;
+
+  function appointmentActions(appointment: Appt) {
+    const canChange =
+      new Date(appointment.startAt).getTime() - Date.now() >=
+      cancelPolicyHours * 60 * 60 * 1_000;
+    return (
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          onClick={() => goRemark(appointment)}
+          disabled={pending || !canChange}
+          title={!canChange ? "Muito próximo para remarcar" : undefined}
+          className="inline-flex min-h-11 items-center gap-1.5 rounded-full px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary disabled:opacity-40"
+        >
+          <RefreshCw aria-hidden="true" className="h-3.5 w-3.5" /> Remarcar
+        </button>
+        <button
+          type="button"
+          onClick={() => setCancelTarget(appointment.id)}
+          disabled={pending || !canChange}
+          title={!canChange ? "Muito próximo para cancelar" : undefined}
+          className="inline-flex min-h-11 items-center gap-1.5 rounded-full px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-danger/10 hover:text-danger disabled:opacity-40"
+        >
+          <XCircle aria-hidden="true" className="h-3.5 w-3.5" /> Cancelar
+        </button>
+      </div>
+    );
+  }
 
   async function callCancel(appointment: Appt): Promise<string | null> {
     const idempotencyKey =
@@ -184,11 +230,12 @@ export function MinhasList({
           <p className="text-xs text-muted-foreground">{session.email}</p>
         </div>
         <button
+          type="button"
           onClick={logout}
           disabled={pending}
-          className="flex items-center gap-1.5 text-xs text-muted-foreground transition hover:text-foreground disabled:opacity-50"
+          className="flex min-h-11 items-center gap-1.5 rounded-xl px-2 text-xs text-muted-foreground transition hover:bg-secondary/70 hover:text-foreground disabled:opacity-50"
         >
-          <LogOut className="h-3.5 w-3.5" />
+          <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
           Sair
         </button>
       </div>
@@ -199,7 +246,43 @@ export function MinhasList({
         </p>
       )}
 
-      <Section title="Filas de espera" empty="Você não está aguardando nenhuma vaga.">
+      {nextAppointment ? (
+        <section aria-labelledby="next-appointment-title">
+          <div className="mb-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">Próxima</p>
+            <h2 id="next-appointment-title" className="text-base font-semibold">Seu próximo atendimento</h2>
+          </div>
+          <ApptCard
+            a={nextAppointment}
+            currency={currency}
+            timezone={timezone}
+            salonName={salonName}
+            salonAddress={salonAddress}
+            featured
+            actions={appointmentActions(nextAppointment)}
+          />
+        </section>
+      ) : (
+        <Section title="Próximas reservas" empty="Nenhuma reserva futura.">{null}</Section>
+      )}
+
+      {laterAppointments.length > 0 && (
+        <Section title="Outras reservas" empty="">
+          {laterAppointments.map((appointment) => (
+            <ApptCard
+              key={appointment.id}
+              a={appointment}
+              currency={currency}
+              timezone={timezone}
+              salonName={salonName}
+              salonAddress={salonAddress}
+              actions={appointmentActions(appointment)}
+            />
+          ))}
+        </Section>
+      )}
+
+      {waitlistEntries.length > 0 && <Section title="Filas de espera" empty="">
         {waitlistEntries.map((entry) => (
           <article key={entry.id} className="rounded-2xl border border-amber-500/25 bg-amber-500/5 p-4">
             <div className="flex items-start justify-between gap-3">
@@ -212,11 +295,11 @@ export function MinhasList({
               </span>
             </div>
             <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
-              <CalendarDays className="h-3.5 w-3.5" />
+              <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
               {formatInTimeZone(new Date(entry.startAt), entry.timezone, "dd 'de' MMM · HH:mm", { locale: ptBR })}
             </p>
             <p className="mt-3 flex gap-2 text-xs leading-relaxed text-muted-foreground">
-              <Users className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <Users className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               Se a vaga ficar livre e você for o primeiro, sua visita será confirmada automaticamente.
             </p>
             <button
@@ -229,44 +312,7 @@ export function MinhasList({
             </button>
           </article>
         ))}
-      </Section>
-
-      {/* Upcoming */}
-      <Section title="Próximas" empty="Nenhuma reserva futura.">
-        {upcoming.map((a) => {
-          const canCancel =
-            new Date(a.startAt).getTime() - Date.now() >=
-            cancelPolicyHours * 60 * 60 * 1_000;
-          return (
-            <ApptCard
-              key={a.id}
-              a={a}
-              currency={currency}
-              timezone={timezone}
-              actions={
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => goRemark(a)}
-                    disabled={pending || !canCancel}
-                    title={!canCancel ? "Muito próximo para remarcar" : undefined}
-                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary disabled:opacity-40"
-                  >
-                    <RefreshCw className="h-3.5 w-3.5" /> Remarcar
-                  </button>
-                  <button
-                    onClick={() => setCancelTarget(a.id)}
-                    disabled={pending || !canCancel}
-                    title={!canCancel ? "Muito próximo para cancelar" : undefined}
-                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-red-500 disabled:opacity-40"
-                  >
-                    <XCircle className="h-3.5 w-3.5" /> Cancelar
-                  </button>
-                </div>
-              }
-            />
-          );
-        })}
-      </Section>
+      </Section>}
 
       <ConfirmDialog
         open={cancelTarget !== null}
@@ -300,6 +346,8 @@ export function MinhasList({
             a={a}
             currency={currency}
             timezone={timezone}
+            salonName={salonName}
+            salonAddress={salonAddress}
             actions={
               <Link
                 href={`/book/${salonSlug}/agendar?services=${encodeURIComponent(
@@ -308,9 +356,9 @@ export function MinhasList({
                     : [a.service.id]
                   ).join(","),
                 )}`}
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary"
+                className="flex min-h-11 items-center gap-1 rounded-xl px-2 text-xs text-muted-foreground transition-colors hover:bg-secondary/70 hover:text-primary"
               >
-                <Repeat className="h-3.5 w-3.5" /> Agendar de novo
+                <Repeat className="h-3.5 w-3.5" aria-hidden="true" /> Agendar de novo
               </Link>
             }
           />
@@ -358,16 +406,23 @@ function ApptCard({
   a,
   currency,
   timezone,
+  salonName,
+  salonAddress,
+  featured = false,
   actions,
 }: {
   a: Appt;
   currency: string;
   timezone: string;
+  salonName: string;
+  salonAddress: string | null;
+  featured?: boolean;
   actions?: React.ReactNode;
 }) {
   const start = new Date(a.startAt);
   const productsTotal = a.products.reduce((s, p) => s + p.quantity * p.priceCentsUnit, 0);
   const total = a.priceCents + productsTotal;
+  const durationMinutes = Math.max(0, Math.round((new Date(a.endAt).getTime() - start.getTime()) / 60_000));
   const serviceName = a.serviceItems.length > 0
     ? a.serviceItems.map((service) => service.serviceName).join(" + ")
     : a.service.name;
@@ -384,31 +439,54 @@ function ApptCard({
             : a.status === "PENDING"
               ? "Pendente"
               : "Confirmado";
+  const statusTone =
+    a.status === "CANCELLED" || a.status === "NO_SHOW"
+      ? "bg-danger/10 text-danger"
+      : a.status === "PENDING"
+        ? "bg-warning/10 text-warning"
+        : a.status === "COMPLETED"
+          ? "bg-muted text-muted-foreground"
+          : "bg-primary/15 text-primary";
+  const dateKey = formatInTimeZone(start, timezone, "yyyy-MM-dd");
+  const todayKey = formatInTimeZone(new Date(), timezone, "yyyy-MM-dd");
+  const tomorrowKey = formatInTimeZone(addDays(new Date(), 1), timezone, "yyyy-MM-dd");
+  const relativeDate = dateKey === todayKey ? "Hoje" : dateKey === tomorrowKey ? "Amanhã" : null;
+  const StatusIcon = a.status === "PENDING"
+    ? Clock3
+    : a.status === "CANCELLED" || a.status === "NO_SHOW"
+      ? AlertCircle
+      : CheckCircle2;
 
   return (
-    <article className="rounded-2xl border border-border bg-card p-4">
+    <article className={`rounded-2xl border p-4 ${featured ? "border-primary/40 bg-primary/[0.06] shadow-premium" : "border-border bg-card"}`}>
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="font-medium">{serviceName}</p>
           <p className="text-xs text-muted-foreground">com {a.professional.user.name}</p>
         </div>
-        <span
-          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
-            a.status === "CANCELLED"
-              ? "bg-red-500/10 text-red-500"
-              : a.status === "COMPLETED"
-                ? "bg-muted text-muted-foreground"
-                : "bg-primary/15 text-primary"
-          }`}
-        >
+        <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold ${statusTone}`}>
+          <StatusIcon aria-hidden="true" className="h-3 w-3" />
           {statusLabel}
         </span>
       </div>
-      <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1">
-          <CalendarDays className="h-3.5 w-3.5" />
-          {formatInTimeZone(start, timezone, "dd 'de' MMM · HH:mm", { locale: ptBR })}
-        </span>
+      <div className={`mt-4 rounded-xl p-3 ${featured ? "bg-background/70" : "bg-muted/25"}`}>
+        <p className="text-lg font-semibold capitalize">
+          {relativeDate ? `${relativeDate}, ` : ""}{formatInTimeZone(start, timezone, "HH:mm")}
+        </p>
+        <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+          <CalendarDays aria-hidden="true" className="h-3.5 w-3.5" />
+          {formatInTimeZone(start, timezone, "EEEE, d 'de' MMMM", { locale: ptBR })}
+        </p>
+        <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Clock3 aria-hidden="true" className="h-3.5 w-3.5" />
+          {durationMinutes} min · {salonName}
+        </p>
+        {featured && salonAddress && (
+          <p className="mt-1 flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
+            <MapPin aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            {salonAddress}
+          </p>
+        )}
       </div>
       {a.products.length > 0 && (
         <div className="mt-3 space-y-1 rounded-lg bg-muted/40 p-2 text-xs">
@@ -447,7 +525,7 @@ function ApptCard({
           </ol>
         </details>
       )}
-      <div className="mt-3 flex items-center justify-between">
+      <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <span className="text-sm font-semibold text-primary">
           Total {formatMoney(total, currency)}
         </span>

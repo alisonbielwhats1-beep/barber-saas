@@ -31,17 +31,23 @@ function toData(data: ServiceInput) {
   };
 }
 
+function revalidateServiceCatalog(salonSlug: string | null | undefined) {
+  revalidatePath("/servicos");
+  if (salonSlug) revalidatePath(`/book/${salonSlug}`, "layout");
+}
+
 export async function createService(input: ServiceInput) {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER"]);
   const data = serviceInput.parse(input);
 
-  await withTenant(ctx, (tx) =>
-    tx.service.create({
+  const salon = await withTenant(ctx, async (tx) => {
+    await tx.service.create({
       data: { ...toData(data), salonId: ctx.salonId },
-    }),
-  );
-  revalidatePath("/servicos");
+    });
+    return tx.salon.findUnique({ where: { id: ctx.salonId }, select: { slug: true } });
+  });
+  revalidateServiceCatalog(salon?.slug);
 }
 
 export async function updateService(id: string, input: ServiceInput) {
@@ -51,20 +57,21 @@ export async function updateService(id: string, input: ServiceInput) {
 
   // Filtro por salonId protege cross-tenant mesmo com id vindo do cliente —
   // e, sob RLS, a policy da tabela reforça o mesmo filtro por trás.
-  await withTenant(ctx, (tx) =>
-    tx.service.updateMany({
+  const salon = await withTenant(ctx, async (tx) => {
+    await tx.service.updateMany({
       where: { id, salonId: ctx.salonId },
       data: toData(data),
-    }),
-  );
-  revalidatePath("/servicos");
+    });
+    return tx.salon.findUnique({ where: { id: ctx.salonId }, select: { slug: true } });
+  });
+  revalidateServiceCatalog(salon?.slug);
 }
 
 export async function duplicateService(id: string) {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER"]);
 
-  await withTenant(ctx, async (tx) => {
+  const salon = await withTenant(ctx, async (tx) => {
     const svc = await tx.service.findFirst({
       where: { id, salonId: ctx.salonId },
       select: {
@@ -76,15 +83,16 @@ export async function duplicateService(id: string) {
     await tx.service.create({
       data: { ...svc, name: `${svc.name} (cópia)`, salonId: ctx.salonId, active: false },
     });
+    return tx.salon.findUnique({ where: { id: ctx.salonId }, select: { slug: true } });
   });
-  revalidatePath("/servicos");
+  revalidateServiceCatalog(salon?.slug);
 }
 
 export async function toggleServiceActive(id: string) {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER"]);
 
-  await withTenant(ctx, async (tx) => {
+  const salon = await withTenant(ctx, async (tx) => {
     const svc = await tx.service.findFirst({
       where: { id, salonId: ctx.salonId },
       select: { active: true },
@@ -99,15 +107,17 @@ export async function toggleServiceActive(id: string) {
       where: { id, salonId: ctx.salonId },
       data: { active: !svc.active },
     });
+    return tx.salon.findUnique({ where: { id: ctx.salonId }, select: { slug: true } });
   });
-  revalidatePath("/servicos");
+  revalidateServiceCatalog(salon?.slug);
 }
 
 export async function deleteService(id: string) {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER"]);
-  await withTenant(ctx, (tx) =>
-    tx.service.deleteMany({ where: { id, salonId: ctx.salonId } }),
-  );
-  revalidatePath("/servicos");
+  const salon = await withTenant(ctx, async (tx) => {
+    await tx.service.deleteMany({ where: { id, salonId: ctx.salonId } });
+    return tx.salon.findUnique({ where: { id: ctx.salonId }, select: { slug: true } });
+  });
+  revalidateServiceCatalog(salon?.slug);
 }

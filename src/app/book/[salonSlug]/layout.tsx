@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import type { CSSProperties } from "react";
 import { prisma } from "@/lib/prisma";
 import { getClientSession } from "@/lib/client-auth";
 import { withSalonBySlug } from "@/lib/prisma-tenant";
 import { ClientShell } from "./client-shell";
+import { hexToHslTriple, readableForeground } from "@/lib/color";
 
 /**
  * Título por salão — lido direto (Salon tem leitura pública nas policies de
@@ -41,26 +43,43 @@ export default async function BookLayout({
   params: Promise<{ salonSlug: string }>;
 }) {
   const [{ salonSlug }, session] = await Promise.all([params, getClientSession()]);
-  const unreadNotifications = session
-    ? (await withSalonBySlug(salonSlug, (tx, salonId) => {
-        if (session.salonId !== salonId) return Promise.resolve(0);
-        return tx.notificationOutbox.count({
-          where: {
-            salonId,
-            recipientKey: `CLIENT:${session.clientId}`,
-            channel: "INTERNAL",
-            readAt: null,
-          },
-        });
-      })) ?? 0
-    : 0;
+  const shellData = await withSalonBySlug(salonSlug, async (tx, salonId) => {
+    const [salon, unreadNotifications] = await Promise.all([
+      tx.salon.findUnique({
+        where: { id: salonId },
+        select: { themeColorHex: true },
+      }),
+      session?.salonId === salonId
+        ? tx.notificationOutbox.count({
+            where: {
+              salonId,
+              recipientKey: `CLIENT:${session.clientId}`,
+              channel: "INTERNAL",
+              readAt: null,
+            },
+          })
+        : Promise.resolve(0),
+    ]);
+    return { salon, unreadNotifications };
+  });
+  const brandHex = shellData?.salon?.themeColorHex ?? null;
+  const brandHsl = hexToHslTriple(brandHex);
+  const brandStyle = brandHsl
+    ? ({
+        "--primary": brandHsl,
+        "--accent": brandHsl,
+        "--ring": brandHsl,
+        "--primary-foreground": readableForeground(brandHex) ?? "0 0% 100%",
+      } as CSSProperties)
+    : undefined;
 
   return (
     <div
       data-theme="salon-dark"
+      style={brandStyle}
       className="min-h-dvh bg-background text-foreground"
     >
-      <ClientShell salonSlug={salonSlug} unreadNotifications={unreadNotifications}>
+      <ClientShell salonSlug={salonSlug} unreadNotifications={shellData?.unreadNotifications ?? 0}>
         {children}
       </ClientShell>
     </div>

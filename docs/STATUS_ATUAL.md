@@ -1,16 +1,16 @@
 # Status atual canônico — Salon SaaS
 
-Atualizado em **11/08/2026** após o PR
-[#39](https://github.com/alisonbielwhats1-beep/barber-saas/pull/39).
+Atualizado em **12/08/2026** após o PR
+[#44](https://github.com/alisonbielwhats1-beep/barber-saas/pull/44).
 Este arquivo substitui os status históricos quando houver contradição.
 
 ## Identificação da versão
 
 - Repositório: `alisonbielwhats1-beep/barber-saas`
 - Branch produtiva: `master`
-- Commit funcional da aplicação: `066ecbdf9c82d41d5bc84daca3592a10a97a91c4`
+- Commit funcional da aplicação: `dc36a27ced66cd23825ba3791e924da5c5817de5`
 - Vercel: projeto `salon-saas`
-- Deploy do commit: estado `READY` confirmado pela integração Vercel/GitHub
+- Deploy do commit: `dpl_DheyfzeD79yKhaKjNNfCuzVjpaYy`, estado `READY`
 - URL oficial: [salon-saas-ruby.vercel.app](https://salon-saas-ruby.vercel.app)
 - Região das Functions: `gru1`
 - Banco/Storage: Supabase do projeto de barbearia
@@ -31,9 +31,14 @@ Este arquivo substitui os status históricos quando houver contradição.
 
 - vitrine pública por `salonSlug`;
 - seleção de múltiplos serviços, profissional, data e horário;
+- seleção automática quando somente um profissional realiza todos os serviços;
+- CTA de agendamento fixo na viewport e revisão final antes da confirmação;
 - criação idempotente, histórico, reagendamento e cancelamento;
 - fluxo explícito mobile e barra inferior com safe area;
 - notificações internas e lista de espera vinculada ao horário;
+- próxima reserva destacada, com data relativa, duração e endereço;
+- cor de marca aplicada em toda a experiência pública;
+- fotos dos serviços usadas na vitrine e como capa das categorias;
 - catálogo de produtos e portfólio público.
 
 ### Confiabilidade da agenda
@@ -112,26 +117,31 @@ Este arquivo substitui os status históricos quando houver contradição.
 - WhatsApp: somente atalho manual; nenhuma integração paga automática.
 - Billing automático/Stripe: não implementado nem autorizado.
 
-## Auditoria de frontend implantada
+## Melhoria da jornada do cliente implantada
 
-- O PR #39 foi integrado a `master` e implantado em Production.
-- Responsividade do dashboard, acessibilidade, segurança do login, estados
-  vazios de produtos e comparações dos KPIs foram corrigidos.
-- Deploy funcional: `dpl_EYKFsLYBf9C6Smu6wjZd52eDvUUD`, estado `READY`.
-- Nenhum banco, migration, variável remota ou dado do Supabase foi alterado;
-  a rota dinâmica `/book/north-barber` respondeu `200` após o deploy.
+- O PR #44 foi integrado a `master` e implantado em Production.
+- A seleção de serviços não exige mais rolagem até o fim da lista para avançar.
+- O único profissional compatível é selecionado automaticamente; quando há
+  mais opções, a escolha continua explícita.
+- A confirmação ganhou uma revisão final com serviço, profissional, data,
+  duração, total, endereço e política de cancelamento.
+- A próxima reserva tem prioridade visual sobre histórico e filas de espera.
+- Categorias aceitam nomes livres e usam a primeira foto de serviço disponível
+  como capa, evitando migration ou alteração de banco.
+- Deploy funcional: `dpl_DheyfzeD79yKhaKjNNfCuzVjpaYy`, estado `READY`.
+- Nenhum banco, migration, variável remota ou dado do Supabase foi alterado.
 
 ## Evidências da entrega atual
 
 - `npm run lint`: passou.
 - `npx tsc --noEmit --incremental false`: passou.
-- `npm test`: 53 arquivos e 257 testes passaram.
-- `npm audit --omit=dev`: nenhuma vulnerabilidade encontrada.
+- `npm test`: 58 arquivos e 283 testes passaram.
 - `npm run build`: passou com Next.js 15.5.22.
-- CI #111 do PR #39: passou.
-- Inspeção local do login: desktop 1280×720 e mobile 390×844 sem overflow.
-- Produção após deploy: home, login e vitrine pública dinâmica responderam
-  `200`; a Vercel não registrou clusters de erro no intervalo verificado.
+- CI e `schema-smoke` do PR #44: passaram.
+- Inspeção visual com 24 serviços: CTA fixo no limite da viewport, seleção
+  automática e revisão final confirmadas, sem erro de console.
+- Produção após deploy: home, vitrine pública e agendamento responderam `200`;
+  a Vercel não registrou erros no intervalo verificado.
 
 ## Pendências reais e priorizadas
 
