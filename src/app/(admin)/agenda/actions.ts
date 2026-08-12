@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { calculateComandaTotals, normalizeProductLines } from "@/lib/comanda";
 import { isOverlapViolation } from "@/lib/db-errors";
+import { writeAuditLog } from "@/lib/audit";
 import { assertRole, getTenantContext } from "@/lib/tenant";
 import { withTenant, type Tx } from "@/lib/prisma-tenant";
 import {
@@ -401,12 +402,24 @@ export async function closeComanda(
             priceCentsUnit: line.priceCentsUnit,
           })),
         });
+        const inventoryActorName = await actorName(tx, ctx.userId);
         for (const line of pricedLines) {
+          const product = productById.get(line.productId)!;
           const updated = await tx.product.updateMany({
             where: { id: line.productId, salonId: ctx.salonId, stock: { gte: line.quantity } },
             data: { stock: { decrement: line.quantity } },
           });
           if (updated.count !== 1) throw new Error("Estoque alterado por outra operação. Revise a comanda.");
+          await writeAuditLog(tx, {
+            salonId: ctx.salonId,
+            userId: ctx.userId,
+            actorName: inventoryActorName,
+            action: "STOCK_ADJUSTED",
+            entityType: "Product",
+            entityId: line.productId,
+            reason: "Venda na comanda",
+            metadata: { productName: product.name, kind: "SALE", delta: -line.quantity, previousStock: product.stock, newStock: product.stock - line.quantity, appointmentId: data.id },
+          });
         }
       }
 
@@ -437,6 +450,8 @@ export async function closeComanda(
   revalidatePath("/agenda");
   revalidatePath("/dashboard");
   revalidatePath("/financeiro");
+  revalidatePath("/pagamentos");
+  revalidatePath("/produtos");
   revalidatePath("/book", "layout");
   return { success: true };
 }

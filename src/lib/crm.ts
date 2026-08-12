@@ -2,6 +2,7 @@ import type { Tx } from "./prisma-tenant";
 import { differenceInDays } from "date-fns";
 import { parseClientCareProfile } from "./client-care-profile";
 import { loyaltyProgress } from "./growth-tools";
+import { calculateLoyaltyBalance } from "./operational-flows";
 
 /**
  * Motor de CRM: consolida, por cliente, LTV, visitas, última visita,
@@ -66,11 +67,23 @@ export async function getClientList(
   const activeSubs = options?.includeCommercialData === false
     ? []
     : await tx.clientSubscription.groupBy({ by: ["clientId"], where: { salonId, status: "ACTIVE" }, _count: { _all: true } });
+  const loyaltyRedemptions = options?.includeCommercialData === false
+    ? []
+    : await tx.auditLog.findMany({
+        where: { salonId, action: "LOYALTY_REDEEMED", entityType: "ClientProfile" },
+        select: { entityId: true, metadata: true },
+      });
 
   const proName = new Map(pros.map((p) => [p.id, p.user.name]));
   const svcName = new Map(services.map((s) => [s.id, s.name]));
   const pkgCount = new Map(activePkgs.map((g) => [g.clientId, g._count._all]));
   const subCount = new Map(activeSubs.map((g) => [g.clientId, g._count._all]));
+  const redeemedPoints = new Map<string, number>();
+  for (const redemption of loyaltyRedemptions) {
+    const metadata = redemption.metadata as Record<string, unknown> | null;
+    const points = typeof metadata?.points === "number" ? Math.max(0, Math.floor(metadata.points)) : 0;
+    redeemedPoints.set(redemption.entityId, (redeemedPoints.get(redemption.entityId) ?? 0) + points);
+  }
 
   return clients.map((c) => {
     const visits = c.appointments.length;
@@ -90,6 +103,7 @@ export async function getClientList(
 
     const loyalty = loyaltyOf(visits);
     const loyaltyStatus = loyaltyProgress(visits);
+    const loyaltyBalance = calculateLoyaltyBalance({ completedVisits: visits, redeemedPoints: redeemedPoints.get(c.id) ?? 0, rewardCost: 5 });
     const care = parseClientCareProfile(c.notes);
     const isVip = totalSpent >= 50000 || visits >= 8;
     const isLapsed = visits > 0 && daysSince != null && daysSince > 60;
@@ -116,7 +130,10 @@ export async function getClientList(
       favoriteService: favSvcId ? svcName.get(favSvcId) ?? null : null,
       loyaltyTier: loyalty.tier,
       loyaltyColor: loyalty.color,
-      loyaltyPoints: loyaltyStatus.points,
+      loyaltyPoints: loyaltyBalance.availablePoints,
+      loyaltyEarnedPoints: loyaltyBalance.earnedPoints,
+      loyaltyRedeemedPoints: loyaltyBalance.redeemedPoints,
+      canRedeemLoyaltyReward: loyaltyBalance.canRedeem,
       nextLoyaltyTier: loyaltyStatus.nextTier,
       loyaltyRemaining: loyaltyStatus.remaining,
       loyaltyProgressPct: loyaltyStatus.progressPct,

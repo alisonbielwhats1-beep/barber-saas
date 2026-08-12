@@ -2,7 +2,7 @@ import { requireRole } from "@/lib/tenant";
 import { MANAGEMENT_ROLES } from "@/lib/role-permissions";
 import { withTenant } from "@/lib/prisma-tenant";
 import { emailInvitesEnabled } from "@/lib/email-invites-feature";
-import { Crown } from "lucide-react";
+import { Check, Circle, Crown, ListChecks } from "lucide-react";
 import { SalonSettingsForm } from "./salon-settings-form";
 import { AccessManager, type Member } from "./access-manager";
 import { BrandingForm } from "./branding-form";
@@ -21,7 +21,7 @@ export default async function ConfiguracoesPage() {
   const { salonId, userId, role } = ctx;
   const invitesEnabled = emailInvitesEnabled();
 
-  const { salon, profile, memberships, pendingInvites, closures } = await withTenant(ctx, async (tx) => {
+  const { salon, profile, memberships, pendingInvites, closures, setupCounts } = await withTenant(ctx, async (tx) => {
     const salon = await tx.salon.findUnique({
       where: { id: salonId },
       select: {
@@ -73,7 +73,11 @@ export default async function ConfiguracoesPage() {
       orderBy: { startAt: "asc" },
       take: 50,
     });
-    return { salon, profile, memberships, pendingInvites, closures };
+    const serviceCount = await tx.service.count({ where: { salonId, active: true } });
+    const professionalCount = await tx.professional.count({ where: { salonId, active: true } });
+    const clientCount = await tx.clientProfile.count({ where: { salonId } });
+    const productCount = await tx.product.count({ where: { salonId, active: true } });
+    return { salon, profile, memberships, pendingInvites, closures, setupCounts: { serviceCount, professionalCount, clientCount, productCount } };
   });
 
   if (!salon || !profile) return null;
@@ -109,10 +113,16 @@ export default async function ConfiguracoesPage() {
             </p>
           </div>
         </div>
-        <span className="rounded-full border border-border bg-card px-3 py-1 text-[11px] text-muted-foreground">
-          Gerenciar assinatura em breve
-        </span>
+        <span className="rounded-full border border-border bg-card px-3 py-1 text-[11px] text-muted-foreground">Gestão administrativa</span>
       </div>
+
+      <SetupChecklist items={[
+        { label: "Cadastrar serviços e preços", done: setupCounts.serviceCount > 0 },
+        { label: "Cadastrar ao menos um profissional", done: setupCounts.professionalCount > 0 },
+        { label: "Adicionar ou importar clientes", done: setupCounts.clientCount > 0 },
+        { label: "Cadastrar produtos e estoque", done: setupCounts.productCount > 0 },
+        { label: "Completar marca e WhatsApp", done: Boolean(salon.logoUrl && salon.whatsapp && salon.description) },
+      ]} />
 
       <div className="grid gap-6 lg:grid-cols-5">
         <div className="space-y-6 lg:col-span-3">
@@ -160,4 +170,9 @@ export default async function ConfiguracoesPage() {
       />
     </div>
   );
+}
+
+function SetupChecklist({ items }: { items: Array<{ label: string; done: boolean }> }) {
+  const completed = items.filter((item) => item.done).length;
+  return <section className="rounded-2xl border border-border bg-card p-5"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="flex items-center gap-2 text-[14px] font-semibold"><ListChecks className="h-4 w-4 text-primary" /> Checklist de configuração</h2><p className="mt-0.5 text-[11px] text-muted-foreground">{completed} de {items.length} etapas concluídas</p></div><div className="h-2 w-full max-w-52 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.round((completed / items.length) * 100)}%` }} /></div></div><div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">{items.map((item) => <div key={item.label} className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-[11px] ${item.done ? "border-success/20 bg-success/5 text-foreground" : "border-border bg-surface-1 text-muted-foreground"}`}>{item.done ? <Check className="h-3.5 w-3.5 shrink-0 text-success" /> : <Circle className="h-3.5 w-3.5 shrink-0" />}<span>{item.label}</span></div>)}</div></section>;
 }

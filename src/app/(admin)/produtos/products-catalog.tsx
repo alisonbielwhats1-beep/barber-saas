@@ -17,6 +17,8 @@ import {
   Loader2,
   Flame,
   PackageSearch,
+  ClipboardList,
+  PackagePlus,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -33,6 +35,7 @@ import { toast } from "@/components/ui/toast";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ProductForm } from "./product-form";
 import { toggleProductActive, deleteProduct, adjustStock } from "./actions";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export type ProductCard = {
   id: string;
@@ -55,8 +58,9 @@ export type ProductCard = {
 };
 
 type Filter = "all" | "restock" | "out";
+export type StockMovement = { id: string; actorName: string; reason: string | null; createdAt: string; metadata: Record<string, unknown> | null };
 
-export function ProductsCatalog({ products }: { products: ProductCard[] }) {
+export function ProductsCatalog({ products, movements }: { products: ProductCard[]; movements: StockMovement[] }) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
 
@@ -112,6 +116,14 @@ export function ProductsCatalog({ products }: { products: ProductCard[] }) {
           ))}
         </div>
       )}
+
+      <div className="overflow-hidden rounded-2xl border border-border bg-card">
+        <div className="flex items-center gap-2 border-b border-border px-5 py-3.5"><ClipboardList className="h-4 w-4 text-primary" /><h2 className="text-[13px] font-semibold">Histórico de movimentações</h2></div>
+        {movements.length === 0 ? <p className="p-8 text-center text-[12px] text-muted-foreground">As entradas, perdas e inventários aparecerão aqui.</p> : movements.slice(0, 15).map((movement) => {
+          const delta = Number(movement.metadata?.delta ?? 0);
+          return <div key={movement.id} className="flex items-center gap-3 border-b border-border px-4 py-3 last:border-0 sm:px-5"><span className={`grid h-8 w-8 place-items-center rounded-lg text-[12px] font-bold ${delta >= 0 ? "bg-success/10 text-success" : "bg-danger/10 text-danger"}`}>{delta >= 0 ? `+${delta}` : delta}</span><div className="min-w-0 flex-1"><p className="truncate text-[12px] font-medium">{String(movement.metadata?.productName ?? "Produto")}</p><p className="truncate text-[10px] text-muted-foreground">{movement.reason ?? "Sem motivo"} · {movement.actorName}</p></div><p className="text-[10px] text-muted-foreground">{format(new Date(movement.createdAt), "dd/MM · HH:mm", { locale: ptBR })}</p></div>;
+        })}
+      </div>
     </div>
   );
 }
@@ -131,6 +143,10 @@ function ProductCardView({ p }: { p: ProductCard }) {
   });
 
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [stockDialog, setStockDialog] = useState(false);
+  const [stockDelta, setStockDelta] = useState("1");
+  const [stockReason, setStockReason] = useState("");
+  const [stockKind, setStockKind] = useState<"PURCHASE" | "LOSS" | "INVENTORY" | "ADJUSTMENT">("PURCHASE");
 
   // Toda mutação dá feedback: sucesso ou erro, nunca silêncio.
   // Ajuste de estoque só avisa em erro — o número na tela já é o feedback.
@@ -196,7 +212,7 @@ function ProductCardView({ p }: { p: ProductCard }) {
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => run(() => adjustStock(p.id, -1))}
+              onClick={() => run(() => adjustStock(p.id, -1, { reason: "Ajuste rápido de saída", kind: "ADJUSTMENT" }))}
               disabled={pending || p.stock === 0}
               aria-label={`Diminuir estoque de ${p.name}`}
               className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-border text-muted-foreground transition hover:bg-card-hover hover:text-foreground disabled:opacity-40"
@@ -207,7 +223,7 @@ function ProductCardView({ p }: { p: ProductCard }) {
               <div className="h-full rounded-full" style={{ width: `${stockPct}%`, background: needRestock ? "#F59E0B" : "#2ECC8B" }} />
             </div>
             <button
-              onClick={() => run(() => adjustStock(p.id, 1))}
+              onClick={() => run(() => adjustStock(p.id, 1, { reason: "Ajuste rápido de entrada", kind: "ADJUSTMENT" }))}
               disabled={pending}
               aria-label={`Aumentar estoque de ${p.name}`}
               className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-border text-muted-foreground transition hover:bg-card-hover hover:text-foreground disabled:opacity-40"
@@ -215,6 +231,7 @@ function ProductCardView({ p }: { p: ProductCard }) {
               <Plus className="h-3.5 w-3.5" />
             </button>
           </div>
+          <button onClick={() => setStockDialog(true)} className="mt-2 inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-border text-[11px] font-medium text-muted-foreground transition hover:text-foreground"><PackagePlus className="h-3.5 w-3.5" /> Movimentar estoque</button>
         </div>
 
         <div className="mt-3 flex items-center justify-between border-t border-border pt-3 text-[11px] text-muted-foreground">
@@ -256,6 +273,17 @@ function ProductCardView({ p }: { p: ProductCard }) {
           </DropdownMenu>
         </div>
       </div>
+      <Dialog open={stockDialog} onOpenChange={setStockDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Movimentar estoque</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div><label htmlFor={`kind-${p.id}`} className="mb-1 block text-[11px] font-medium text-muted-foreground">Tipo</label><select id={`kind-${p.id}`} value={stockKind} onChange={(event) => setStockKind(event.target.value as typeof stockKind)} className="h-11 w-full rounded-xl border border-border bg-background px-3 text-[13px]"><option value="PURCHASE">Entrada por compra</option><option value="LOSS">Perda ou descarte</option><option value="INVENTORY">Correção de inventário</option><option value="ADJUSTMENT">Outro ajuste</option></select></div>
+            <div><label htmlFor={`quantity-${p.id}`} className="mb-1 block text-[11px] font-medium text-muted-foreground">Quantidade</label><input id={`quantity-${p.id}`} type="number" min="1" value={stockDelta} onChange={(event) => setStockDelta(event.target.value)} className="h-11 w-full rounded-xl border border-border bg-background px-3 text-[13px]" /></div>
+            <div><label htmlFor={`reason-${p.id}`} className="mb-1 block text-[11px] font-medium text-muted-foreground">Motivo</label><input id={`reason-${p.id}`} value={stockReason} onChange={(event) => setStockReason(event.target.value)} placeholder="Ex.: Nota 123 do fornecedor" className="h-11 w-full rounded-xl border border-border bg-background px-3 text-[13px]" /></div>
+            <button disabled={pending || stockReason.trim().length < 3 || Number(stockDelta) < 1} onClick={() => run(async () => { const quantity = Math.max(1, Math.floor(Number(stockDelta))); const sign = stockKind === "LOSS" ? -1 : 1; await adjustStock(p.id, sign * quantity, { reason: stockReason, kind: stockKind }); setStockDialog(false); setStockReason(""); }, "Movimentação registrada")} className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-[13px] font-semibold text-primary-foreground disabled:opacity-50">{pending && <Loader2 className="h-4 w-4 animate-spin" />} Salvar movimentação</button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         open={confirmDelete}

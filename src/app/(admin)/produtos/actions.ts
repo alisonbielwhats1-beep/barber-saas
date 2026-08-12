@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { assertRole, getTenantContext } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
+import { writeAuditLog } from "@/lib/audit";
+import { validateStockAdjustment } from "@/lib/operational-flows";
 
 const productInput = z.object({
   name: z.string().min(2),
@@ -59,17 +61,38 @@ export async function updateProduct(id: string, input: ProductInput) {
   revalidatePath("/produtos");
 }
 
-export async function adjustStock(id: string, delta: number) {
+export async function adjustStock(id: string, delta: number, options?: {
+  reason?: string;
+  kind?: "PURCHASE" | "LOSS" | "INVENTORY" | "ADJUSTMENT";
+}) {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER"]);
+  const data = z.object({
+    id: z.string().min(1),
+    delta: z.number().int().min(-100_000).max(100_000).refine((value) => value !== 0, "Informe uma quantidade"),
+    reason: z.string().trim().min(3).max(300).default("Ajuste rápido"),
+    kind: z.enum(["PURCHASE", "LOSS", "INVENTORY", "ADJUSTMENT"]).default("ADJUSTMENT"),
+  }).parse({ id, delta, reason: options?.reason, kind: options?.kind });
   await withTenant(ctx, async (tx) => {
     const prod = await tx.product.findFirst({
-      where: { id, salonId: ctx.salonId },
-      select: { stock: true },
+      where: { id: data.id, salonId: ctx.salonId },
+      select: { stock: true, name: true },
     });
     if (!prod) throw new Error("Produto não encontrado");
-    const next = Math.max(0, prod.stock + delta);
-    await tx.product.updateMany({ where: { id, salonId: ctx.salonId }, data: { stock: next } });
+    const next = validateStockAdjustment({ currentStock: prod.stock, delta: data.delta });
+    const updated = await tx.product.updateMany({ where: { id: data.id, salonId: ctx.salonId, stock: prod.stock }, data: { stock: next } });
+    if (updated.count !== 1) throw new Error("O estoque mudou em outra tela. Atualize e tente novamente");
+    const actor = await tx.user.findUnique({ where: { id: ctx.userId }, select: { name: true } });
+    await writeAuditLog(tx, {
+      salonId: ctx.salonId,
+      userId: ctx.userId,
+      actorName: actor?.name ?? "Usuário",
+      action: "STOCK_ADJUSTED",
+      entityType: "Product",
+      entityId: data.id,
+      reason: data.reason,
+      metadata: { productName: prod.name, kind: data.kind, delta: data.delta, previousStock: prod.stock, newStock: next },
+    });
   });
   revalidatePath("/produtos");
 }

@@ -10,7 +10,7 @@ export default async function ProdutosPage() {
   const ctx = await requireRole(MANAGEMENT_ROLES);
   const { salonId } = ctx;
 
-  const { products, sales } = await withTenant(ctx, async (tx) => {
+  const { products, sales, movements } = await withTenant(ctx, async (tx) => {
     const products = await tx.product.findMany({
       where: { salonId },
       orderBy: [{ active: "desc" }, { name: "asc" }],
@@ -20,7 +20,13 @@ export default async function ProdutosPage() {
       where: { appointment: { salonId } },
       _sum: { quantity: true },
     });
-    return { products, sales };
+    const movements = await tx.auditLog.findMany({
+      where: { salonId, action: "STOCK_ADJUSTED", entityType: "Product" },
+      orderBy: { createdAt: "desc" },
+      take: 30,
+      select: { id: true, actorName: true, reason: true, createdAt: true, metadata: true },
+    });
+    return { products, sales, movements };
   });
 
   const soldMap = new Map(sales.map((g) => [g.productId, g._sum.quantity ?? 0]));
@@ -78,7 +84,13 @@ export default async function ProdutosPage() {
           />
         </div>
       ) : (
-        <ProductsCatalog products={cards} />
+        <ProductsCatalog products={cards} movements={movements.map((movement) => ({
+          id: movement.id,
+          actorName: movement.actorName,
+          reason: movement.reason,
+          createdAt: movement.createdAt.toISOString(),
+          metadata: movement.metadata as Record<string, unknown> | null,
+        }))} />
       )}
     </div>
   );
