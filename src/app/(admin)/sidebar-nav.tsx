@@ -88,7 +88,7 @@ export const GROUPS: { title: string; items: Item[] }[] = [
     title: "Financeiro",
     items: [
       { href: "/financeiro", label: "Financeiro", icon: Wallet, roles: FINANCIAL_ROLES },
-      { href: "/pagamentos", label: "Pagamentos", icon: CreditCard, soon: true, roles: FINANCIAL_ROLES },
+      { href: "/pagamentos", label: "Pagamentos", icon: CreditCard, roles: FINANCIAL_ROLES },
       { href: "/relatorios", label: "Relatórios", icon: FileBarChart, roles: FINANCIAL_ROLES },
     ],
   },

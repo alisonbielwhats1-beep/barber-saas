@@ -1,19 +1,21 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
   Search, MessageCircle, Crown, Cake, Clock, Star, Scissors, User,
-  CircleDollarSign, Repeat, Layers, Loader2, ShieldCheck, HeartPulse,
+  CircleDollarSign, Repeat, Layers, Loader2, ShieldCheck, HeartPulse, FileUp, Gift, X,
 } from "lucide-react";
 import { formatMoney } from "@/lib/utils";
 import { format } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { ptBR } from "date-fns/locale";
 import { ClientForm } from "./client-form";
-import { fetchClientHistory } from "./actions";
+import { fetchClientHistory, importClientsCsv, redeemLoyaltyReward } from "./actions";
+import { toast } from "@/components/ui/toast";
 import type { ClientRow } from "@/lib/crm";
 
 type Segment = "all" | "vip" | "birthday" | "lapsed" | "recurring";
@@ -37,11 +39,31 @@ export function ClientsCrm({
   timezone: string;
   canManage: boolean;
 }) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
   const [search, setSearch] = useState("");
   const [segment, setSegment] = useState<Segment>("all");
   const [detail, setDetail] = useState<ClientRow | null>(null);
   const [history, setHistory] = useState<HistoryItem[] | null>(null);
   const [loadingHist, setLoadingHist] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [csv, setCsv] = useState("");
+
+  function importCsv() {
+    startTransition(async () => {
+      const result = await importClientsCsv(csv);
+      if (!("success" in result)) toast(result.error, "error");
+      else { toast(`${result.imported} clientes importados${result.skipped ? ` · ${result.skipped} duplicados ignorados` : ""}`); setCsv(""); setImportOpen(false); router.refresh(); }
+    });
+  }
+
+  function redeem(client: ClientRow) {
+    startTransition(async () => {
+      const result = await redeemLoyaltyReward(client.id, 5, "R$ 10 de desconto");
+      if ("error" in result && result.error) toast(result.error, "error");
+      else { toast("Recompensa resgatada: R$ 10 de desconto"); setDetail(null); router.refresh(); }
+    });
+  }
 
   const counts = useMemo(() => ({
     vip: clients.filter((c) => c.isVip).length,
@@ -85,7 +107,10 @@ export function ClientsCrm({
         <Seg active={segment === "birthday"} onClick={() => setSegment("birthday")} icon={Cake} accent="#EC4899">Aniversariantes ({counts.birthday})</Seg>
         <Seg active={segment === "lapsed"} onClick={() => setSegment("lapsed")} icon={Clock} accent="#EF4444">Sumidos ({counts.lapsed})</Seg>
         <Seg active={segment === "recurring"} onClick={() => setSegment("recurring")} icon={Repeat} accent="#A855F7">Recorrentes ({counts.recurring})</Seg>
+        {canManage && <button onClick={() => setImportOpen((open) => !open)} className="ml-auto inline-flex min-h-11 items-center gap-1.5 rounded-full border border-border bg-card px-3 text-[12px] font-medium text-muted-foreground"><FileUp className="h-3.5 w-3.5" /> Importar planilha</button>}
       </div>
+
+      {importOpen && <div className="rounded-2xl border border-primary/25 bg-primary/5 p-4"><div className="mb-3 flex items-start justify-between"><div><p className="text-[13px] font-semibold">Importar clientes por CSV</p><p className="text-[11px] text-muted-foreground">Colunas aceitas: nome, telefone, email e aniversario. Duplicados são ignorados.</p></div><button onClick={() => setImportOpen(false)} aria-label="Fechar importação"><X className="h-4 w-4 text-muted-foreground" /></button></div><input type="file" accept=".csv,text/csv" onChange={(event) => { const file = event.target.files?.[0]; if (file) void file.text().then(setCsv); }} className="mb-3 block w-full text-[11px] text-muted-foreground file:mr-3 file:rounded-lg file:border-0 file:bg-card file:px-3 file:py-2 file:text-[11px] file:font-medium" /><textarea value={csv} onChange={(event) => setCsv(event.target.value)} rows={4} placeholder={'nome,telefone,email,aniversario\nAna,11999990000,ana@email.com,1990-08-20'} className="w-full rounded-xl border border-border bg-background px-3 py-2 text-[12px] outline-none" /><button onClick={importCsv} disabled={pending || !csv.trim()} className="mt-3 inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-[12px] font-semibold text-primary-foreground disabled:opacity-50">{pending && <Loader2 className="h-4 w-4 animate-spin" />} Importar clientes</button></div>}
 
       <div className="overflow-hidden rounded-2xl border border-border bg-card">
         {shown.length === 0 ? (
@@ -177,7 +202,7 @@ export function ClientsCrm({
                 <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
                   <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${detail.loyaltyProgressPct}%` }} />
                 </div>
-                <p className="mt-1.5 text-[10px] text-muted-foreground">Cada atendimento concluído vale 1 ponto.</p>
+                <div className="mt-2 flex items-center justify-between gap-2"><p className="text-[10px] text-muted-foreground">Cada atendimento concluído vale 1 ponto.</p>{canManage && <button onClick={() => redeem(detail)} disabled={pending || !detail.canRedeemLoyaltyReward} className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg bg-primary/10 px-2.5 text-[10px] font-semibold text-primary disabled:opacity-40"><Gift className="h-3.5 w-3.5" /> Resgatar recompensa</button>}</div>
               </div>
 
               {(detail.allergies || detail.preferences || detail.consentGiven) && (

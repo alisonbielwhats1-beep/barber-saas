@@ -8,6 +8,7 @@ import { formatInTimeZone } from "date-fns-tz";
 import { TrendingUp, TrendingDown, FileBarChart } from "lucide-react";
 import { RangeFilter } from "../dashboard/range-filter";
 import { ReportActions, type ReportSection } from "./report-actions";
+import { calculateRetentionMetrics } from "@/lib/operational-flows";
 
 const VALID: RangeKey[] = ["today", "yesterday", "7d", "15d", "30d", "90d", "year"];
 
@@ -42,6 +43,11 @@ export default async function RelatoriosPage({
   const fin = await withTenant(ctx, (tx) =>
     getFinanceMetrics(tx, salonId, range, timezone),
   );
+  const retentionSource = await withTenant(ctx, (tx) => tx.clientProfile.findMany({
+    where: { salonId },
+    select: { appointments: { where: { status: "COMPLETED" }, select: { startAt: true }, orderBy: { startAt: "desc" } } },
+  }));
+  const retention = calculateRetentionMetrics(retentionSource.map((client) => ({ visits: client.appointments.map((appointment) => appointment.startAt) })));
 
   const periodLabel = `${formatInTimeZone(m.period.from, timezone, "d MMM", { locale: ptBR })} – ${formatInTimeZone(m.period.to, timezone, "d MMM yyyy", { locale: ptBR })}`;
 
@@ -57,6 +63,9 @@ export default async function RelatoriosPage({
         ["Atendimentos", m.appointments.value],
         ["Ticket médio", (m.avgTicket.value / 100).toFixed(2)],
         ["Ocupação (%)", Math.round(m.occupancy.rate * 100)],
+        ["Retenção de clientes (%)", retention.returningClientRatePct],
+        ["Intervalo médio entre visitas (dias)", retention.averageDaysBetweenVisits],
+        ["Clientes inativos há mais de 60 dias", retention.lapsedClients],
       ],
     },
     {
@@ -110,6 +119,12 @@ export default async function RelatoriosPage({
         <Mini label="Comissões" value={formatMoney(fin.commissions)} />
         <Mini label="Ocupação" value={`${Math.round(m.occupancy.rate * 100)}%`} />
         <Mini label="Tempo médio" value={formatDuration(m.avgDuration || 0)} />
+      </section>
+
+      <section className="grid gap-3 sm:grid-cols-3">
+        <Mini label="Clientes que retornaram" value={`${retention.returningClientRatePct}%`} />
+        <Mini label="Intervalo médio entre visitas" value={`${retention.averageDaysBetweenVisits} dias`} />
+        <Mini label="Clientes inativos há 60+ dias" value={retention.lapsedClients.toString()} />
       </section>
 
       {/* Tabelas */}
