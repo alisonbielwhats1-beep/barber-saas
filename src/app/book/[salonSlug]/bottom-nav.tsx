@@ -83,13 +83,14 @@ export function BottomNav({
               className={cn(
                 "relative grid h-8 w-8 place-items-center rounded-full transition-colors",
                 active && !prominent && "bg-primary/15",
-                prominent && "h-11 w-11 bg-primary text-primary-foreground shadow-lg shadow-primary/20",
+                prominent && active && "h-11 w-11 bg-primary text-primary-foreground shadow-lg shadow-primary/20",
+                prominent && !active && "h-11 w-11 border border-border bg-muted text-muted-foreground",
               )}
             >
-              <it.icon className="h-5 w-5" strokeWidth={active ? 2.5 : 2} />
+              <it.icon aria-hidden="true" className="h-5 w-5" strokeWidth={active ? 2.5 : 2} />
               <UnreadBadge count={badgeCount} className="absolute -right-2 -top-1" />
             </span>
-            <span className={cn("max-w-full truncate", prominent && "font-semibold text-foreground")}>
+            <span className={cn("max-w-full truncate", prominent && active && "font-semibold text-foreground")}>
               {it.label}
             </span>
           </Link>

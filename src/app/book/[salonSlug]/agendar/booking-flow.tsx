@@ -41,9 +41,11 @@ import { ptBR } from "date-fns/locale";
 import { formatInTimeZone } from "date-fns-tz";
 import {
   filterServiceOptions,
+  eligibleProfessionalsForServices,
   getServiceCategories,
   serviceCategoryLabel,
 } from "@/lib/service-discovery";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 
 type Pro = {
   id: string;
@@ -62,6 +64,7 @@ type Service = {
   durationMin: number;
   colorHex: string | null;
   category: string | null;
+  imageUrl: string | null;
   professionals: Pro[];
 };
 
@@ -87,8 +90,10 @@ type Booked = {
 export function BookingFlow({
   salonId,
   salonName,
+  salonAddress,
   currency,
   timezone,
+  cancelPolicyHours,
   todayDate,
   services,
   initialServiceIds,
@@ -99,8 +104,10 @@ export function BookingFlow({
 }: {
   salonId: string;
   salonName: string;
+  salonAddress: string | null;
   currency: string;
   timezone: string;
+  cancelPolicyHours: number;
   todayDate: string;
   services: Service[];
   initialServiceIds: string[];
@@ -161,9 +168,12 @@ export function BookingFlow({
   const [loading, setLoading] = useState(false);
   const [booked, setBooked] = useState<Booked | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [reviewing, setReviewing] = useState(false);
+  const [bookingStateReady, setBookingStateReady] = useState(false);
   // "hidden" → no auth prompt yet; "prompt" → show login/guest options; "guest-form" → collecting name+phone
   const [authStep, setAuthStep] = useState<"hidden" | "prompt" | "guest-form">("hidden");
   const idempotencyKeyRef = useRef<string | null>(null);
+  const authPanelRef = useRef<HTMLDivElement>(null);
 
   const selectedServices = useMemo(
     () => services.filter((service) => serviceIds.includes(service.id)),
@@ -175,13 +185,7 @@ export function BookingFlow({
     [services, serviceQuery, serviceCategory],
   );
   const eligibleProfessionals = useMemo(() => {
-    const first = selectedServices[0];
-    if (!first) return [];
-    return first.professionals.filter((professional) =>
-      selectedServices.every((service) =>
-        service.professionals.some((candidate) => candidate.id === professional.id),
-      ),
-    );
+    return eligibleProfessionalsForServices(selectedServices);
   }, [selectedServices]);
   const serviceName = selectedServices.map((service) => service.name).join(" + ");
   const totalDuration = selectedServices.reduce(
@@ -192,6 +196,24 @@ export function BookingFlow({
     (sum, service) => sum + service.priceCents,
     0,
   );
+  const selectedProfessional = eligibleProfessionals.find(
+    (professional) => professional.id === proId,
+  ) ?? null;
+
+  // O cliente só precisa escolher quando existe mais de uma opção. A
+  // compatibilidade continua sendo validada novamente no servidor.
+  useEffect(() => {
+    const currentIsEligible = proId
+      ? eligibleProfessionals.some((professional) => professional.id === proId)
+      : false;
+    if (currentIsEligible) return;
+
+    const nextProfessional = eligibleProfessionals.length === 1
+      ? eligibleProfessionals[0]!.id
+      : null;
+    setProId(nextProfessional);
+    setSlot(null);
+  }, [eligibleProfessionals, proId]);
 
   // Slot a restaurar depois que a grade de horários carregar (fluxo returnTo)
   const pendingSlotRef = useRef<string | null>(null);
@@ -230,9 +252,33 @@ export function BookingFlow({
         setViewMonth(startOfMonth(d));
       }
       if (s.slot) pendingSlotRef.current = s.slot;
-    } catch {}
+    } catch {
+      // Storage indisponível não pode bloquear o agendamento.
+    } finally {
+      setBookingStateReady(true);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Mantém a jornada depois de refresh ou retorno do login, sem persistir
+  // nome, telefone ou qualquer outro dado pessoal.
+  useEffect(() => {
+    if (!bookingStateReady) return;
+    try {
+      sessionStorage.setItem(
+        `booking-state:${salonSlug}`,
+        JSON.stringify({
+          serviceIds,
+          proId,
+          date: format(date, "yyyy-MM-dd"),
+          slot,
+          savedAt: Date.now(),
+        }),
+      );
+    } catch {
+      // A URL com os serviços ainda preserva o retorno do fluxo de login.
+    }
+  }, [bookingStateReady, date, proId, salonSlug, serviceIds, slot]);
 
   /** Congela a seleção atual antes de sair para login/cadastro. */
   function saveBookingState() {
@@ -306,13 +352,16 @@ export function BookingFlow({
   function handleConfirmClick() {
     if (selectedServices.length === 0 || !proId || !slot) return;
     if (clientSession) {
-      submit();
+      setReviewing(true);
     } else if (authStep === "guest-form" && name && isValidPhoneBR(phone)) {
-      submit();
+      setReviewing(true);
     } else if (authStep === "guest-form") {
       // form visible but not filled
     } else {
       setAuthStep("prompt");
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => authPanelRef.current?.focus({ preventScroll: false }));
+      });
     }
   }
 
@@ -366,6 +415,9 @@ export function BookingFlow({
         }
         const pro = eligibleProfessionals.find((professional) => professional.id === proId);
         if (!rescheduleId) cart.clear();
+        try {
+          sessionStorage.removeItem(`booking-state:${salonSlug}`);
+        } catch {}
         setBooked({
           startAt: confirmedStart,
           timezone,
@@ -374,6 +426,7 @@ export function BookingFlow({
           proName: pro?.name ?? "",
         });
       } else {
+        setReviewing(false);
         setError(friendlyError(responseBody.error));
         if (responseBody.error === "SLOT_TAKEN") {
           idempotencyKeyRef.current = null;
@@ -382,6 +435,7 @@ export function BookingFlow({
         }
       }
     } catch {
+      setReviewing(false);
       setError("Não foi possível confirmar agora. Verifique sua conexão e tente novamente.");
     } finally {
       setLoading(false);
@@ -455,8 +509,9 @@ export function BookingFlow({
   // Seleção explícita permite combinar serviços antes do profissional.
   if (choosingServices) {
     return (
-      <section className="animate-fade-in min-h-dvh space-y-6 px-5 pb-28 pt-6">
-        <FlowHeader title="Escolha os serviços" onBack={() => router.push(`/book/${salonSlug}`)} />
+      <>
+        <section className="animate-fade-in min-h-dvh space-y-6 px-5 pb-32 pt-6">
+          <FlowHeader title="Escolha os serviços" onBack={() => router.push(`/book/${salonSlug}`)} />
         {selectedServices.length > 0 && (
           <div
             aria-live="polite"
@@ -590,12 +645,24 @@ export function BookingFlow({
               }`}
             >
               <div className="flex w-full items-start justify-between gap-3">
-                <div
-                  className="grid h-11 w-11 place-items-center rounded-xl"
-                  style={{ background: `${s.colorHex ?? "#7DF89B"}33` }}
-                >
-                  <Icon className="h-4 w-4 text-primary" />
-                </div>
+                {s.imageUrl ? (
+                  <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-xl">
+                    <Image
+                      src={s.imageUrl}
+                      alt=""
+                      fill
+                      sizes="44px"
+                      className="object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div
+                    className="grid h-11 w-11 place-items-center rounded-xl"
+                    style={{ background: `${s.colorHex ?? "#7DF89B"}33` }}
+                  >
+                    <Icon aria-hidden="true" className="h-4 w-4 text-primary" />
+                  </div>
+                )}
                 <span className={`grid h-6 w-6 place-items-center rounded-full border ${
                   selected ? "border-primary bg-primary text-primary-foreground" : "border-border"
                 }`}>
@@ -624,7 +691,8 @@ export function BookingFlow({
           })}
         </div>
         )}
-        <div className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-[480px] border-t border-border/70 bg-background/95 px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_24px_rgba(0,0,0,0.18)] backdrop-blur">
+        </section>
+        <div data-booking-tray className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-[480px] border-t border-border/70 bg-background/95 px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_24px_rgba(0,0,0,0.18)] backdrop-blur">
           <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
             <span>{formatDuration(totalDuration)}</span>
             <span>{formatMoney(totalServicePrice, currency)}</span>
@@ -643,12 +711,13 @@ export function BookingFlow({
             </p>
           )}
         </div>
-      </section>
+      </>
     );
   }
 
   return (
-    <section className="animate-fade-in min-h-dvh space-y-8 px-5 pb-28 pt-6">
+    <>
+    <section className="animate-fade-in min-h-dvh space-y-8 px-5 pb-32 pt-6">
       <FlowHeader
         title="Agendamento"
         onBack={() => setChoosingServices(true)}
@@ -657,7 +726,14 @@ export function BookingFlow({
 
       {/* Escolher profissional — cards com prova social real */}
       <div>
-        <h3 className="mb-4 text-sm font-semibold">Escolher profissional</h3>
+        <h3 className="mb-1 text-sm font-semibold">
+          {eligibleProfessionals.length === 1 ? "Profissional" : "Escolher profissional"}
+        </h3>
+        {eligibleProfessionals.length === 1 && selectedProfessional && (
+          <p role="status" aria-live="polite" className="mb-4 text-xs text-muted-foreground">
+            {selectedProfessional.name} foi selecionado automaticamente por realizar todos os serviços.
+          </p>
+        )}
         {eligibleProfessionals.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             Nenhum profissional realiza esse serviço ainda.
@@ -671,8 +747,14 @@ export function BookingFlow({
               ) ?? p.specialties[0];
               return (
                 <button
+                  type="button"
                   key={p.id}
-                  onClick={() => setProId(p.id)}
+                  aria-pressed={selected}
+                  disabled={eligibleProfessionals.length === 1}
+                  onClick={() => {
+                    setProId(p.id);
+                    setSlot(null);
+                  }}
                   className={`flex w-[132px] shrink-0 flex-col items-center gap-2.5 rounded-3xl border p-4 transition duration-200 ${
                     selected
                       ? "scale-[1.03] border-primary bg-primary/10 ring-2 ring-primary"
@@ -742,6 +824,7 @@ export function BookingFlow({
         <div className="rounded-2xl border border-border bg-card p-4">
           <div className="mb-3 flex items-center justify-between">
             <button
+              type="button"
               onClick={() => setViewMonth((m) => addMonths(m, -1))}
               className="grid h-11 w-11 place-items-center rounded-full text-muted-foreground hover:text-foreground"
               aria-label="Mês anterior"
@@ -755,6 +838,7 @@ export function BookingFlow({
               </span>
             </p>
             <button
+              type="button"
               onClick={() => setViewMonth((m) => addMonths(m, 1))}
               className="grid h-11 w-11 place-items-center rounded-full text-muted-foreground hover:text-foreground"
               aria-label="Próximo mês"
@@ -764,8 +848,19 @@ export function BookingFlow({
           </div>
 
           <div className="grid grid-cols-7 gap-1 text-center text-[11px] text-muted-foreground">
-            {["S", "T", "Q", "Q", "S", "S", "D"].map((d, i) => (
-              <span key={i} className="py-1">{d}</span>
+            {[
+              ["S", "segunda-feira"],
+              ["T", "terça-feira"],
+              ["Q", "quarta-feira"],
+              ["Q", "quinta-feira"],
+              ["S", "sexta-feira"],
+              ["S", "sábado"],
+              ["D", "domingo"],
+            ].map(([shortLabel, fullLabel]) => (
+              <span key={fullLabel} className="py-1">
+                <span aria-hidden="true">{shortLabel}</span>
+                <span className="sr-only">{fullLabel}</span>
+              </span>
             ))}
           </div>
 
@@ -777,9 +872,13 @@ export function BookingFlow({
               const disabled = past || !inMonth;
               return (
                 <button
+                  type="button"
                   key={d.toISOString()}
                   disabled={disabled}
                   onClick={() => setDate(d)}
+                  aria-label={format(d, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                  aria-pressed={selected}
+                  aria-current={format(d, "yyyy-MM-dd") === todayDate ? "date" : undefined}
                   className={`grid h-11 place-items-center rounded-full text-sm transition ${
                     selected
                       ? "bg-primary font-semibold text-primary-foreground"
@@ -829,8 +928,11 @@ export function BookingFlow({
               const popular = s === popularSlot;
               return (
                 <button
+                  type="button"
                   key={s}
                   onClick={() => setSlot(s)}
+                  aria-label={`Horário ${s}${popular ? ", muito procurado" : ""}`}
+                  aria-pressed={selected}
                   className={`relative min-h-11 rounded-full border px-2 py-2 text-sm transition ${
                     selected
                       ? "border-primary bg-primary font-semibold text-primary-foreground"
@@ -989,7 +1091,11 @@ export function BookingFlow({
 
       {/* Auth step — aparece apenas ao clicar em Confirmar sem sessão */}
       {authStep !== "hidden" && !clientSession && (
-        <div className="space-y-3 rounded-2xl border border-border bg-card p-4">
+        <div
+          ref={authPanelRef}
+          tabIndex={-1}
+          className="space-y-3 rounded-2xl border border-border bg-card p-4 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
           {authStep === "prompt" && (
             <>
               <p className="text-sm font-semibold">Como deseja continuar?</p>
@@ -1070,7 +1176,8 @@ export function BookingFlow({
         </p>
       )}
 
-      <div className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-[480px] border-t border-border/70 bg-background/95 px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_24px_rgba(0,0,0,0.18)] backdrop-blur">
+      </section>
+      <div data-booking-tray className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-[480px] border-t border-border/70 bg-background/95 px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_24px_rgba(0,0,0,0.18)] backdrop-blur">
         <button
           onClick={handleConfirmClick}
           disabled={
@@ -1085,10 +1192,115 @@ export function BookingFlow({
             ? "Confirmando…"
             : rescheduleId
               ? "Confirmar remarcação"
-              : "Confirmar agendamento"}
+              : clientSession || authStep === "guest-form"
+                ? "Revisar reserva"
+                : "Continuar"}
         </button>
       </div>
-    </section>
+      {reviewing && selectedProfessional && slot && (
+        <BookingReview
+          salonName={salonName}
+          salonAddress={salonAddress}
+          serviceName={serviceName}
+          professionalName={selectedProfessional.name}
+          date={date}
+          slot={slot}
+          durationMin={totalDuration}
+          totalCents={totalServicePrice + cart.totalCents}
+          currency={currency}
+          cancelPolicyHours={cancelPolicyHours}
+          loading={loading}
+          onBack={() => setReviewing(false)}
+          onConfirm={submit}
+          rescheduling={Boolean(rescheduleId)}
+        />
+      )}
+    </>
+  );
+}
+
+function BookingReview({
+  salonName,
+  salonAddress,
+  serviceName,
+  professionalName,
+  date,
+  slot,
+  durationMin,
+  totalCents,
+  currency,
+  cancelPolicyHours,
+  loading,
+  onBack,
+  onConfirm,
+  rescheduling,
+}: {
+  salonName: string;
+  salonAddress: string | null;
+  serviceName: string;
+  professionalName: string;
+  date: Date;
+  slot: string;
+  durationMin: number;
+  totalCents: number;
+  currency: string;
+  cancelPolicyHours: number;
+  loading: boolean;
+  onBack: () => void;
+  onConfirm: () => void;
+  rescheduling: boolean;
+}) {
+  return (
+    <Dialog open onOpenChange={(open) => !open && !loading && onBack()}>
+      <DialogContent className="bottom-0 top-auto max-w-[480px] -translate-y-0 gap-0 rounded-b-none rounded-t-3xl bg-background p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2 sm:rounded-3xl">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">{salonName}</p>
+        <DialogTitle className="mt-1 text-xl">Revise sua reserva</DialogTitle>
+        <DialogDescription className="sr-only">
+          Confira serviços, profissional, data, duração e total antes de confirmar.
+        </DialogDescription>
+        <dl className="mt-5 divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card px-4">
+          <ReviewRow label="Serviços" value={serviceName} />
+          <ReviewRow label="Profissional" value={professionalName} />
+          <ReviewRow
+            label="Data e hora"
+            value={`${format(date, "EEEE, d 'de' MMMM", { locale: ptBR })} às ${slot}`}
+          />
+          <ReviewRow label="Duração" value={formatDuration(durationMin)} />
+          <ReviewRow label="Total" value={formatMoney(totalCents, currency)} strong />
+        </dl>
+        {salonAddress && <p className="mt-4 text-xs leading-relaxed text-muted-foreground">{salonAddress}</p>}
+        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+          Cancelamento ou remarcação pelo app até {cancelPolicyHours}h antes do horário.
+        </p>
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={onBack}
+            disabled={loading}
+            className="min-h-12 rounded-full border border-border px-4 text-sm font-medium disabled:opacity-50"
+          >
+            Alterar
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={loading}
+            className="min-h-12 rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+          >
+            {loading ? "Confirmando…" : rescheduling ? "Confirmar remarcação" : "Confirmar reserva"}
+          </button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ReviewRow({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <div className="grid grid-cols-[6.5rem_1fr] gap-3 py-3 text-sm">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className={`text-right ${strong ? "font-semibold text-primary" : "font-medium"}`}>{value}</dd>
+    </div>
   );
 }
 

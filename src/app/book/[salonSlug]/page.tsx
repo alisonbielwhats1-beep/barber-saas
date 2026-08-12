@@ -16,7 +16,6 @@ import {
 import { withSalonBySlug } from "@/lib/prisma-tenant";
 import { HERO_IMAGES, resolveProductImage } from "@/lib/images";
 import { normalizePhone, formatPhoneBR } from "@/lib/phone";
-import { hexToHslTriple, readableForeground } from "@/lib/color";
 import { getSegment, isSegmentId } from "@/lib/segments";
 import { formatMoney } from "@/lib/utils";
 import { ClientNotificationLink } from "./client-shell";
@@ -66,7 +65,6 @@ export default async function ClientHome({
       description: true,
       coverUrl: true,
       logoUrl: true,
-      themeColorHex: true,
       instagram: true,
       whatsapp: true,
       paymentMethods: true,
@@ -81,6 +79,7 @@ export default async function ClientHome({
           priceCents: true,
           durationMin: true,
           category: true,
+          imageUrl: true,
         },
       },
       professionals: {
@@ -124,20 +123,8 @@ export default async function ClientHome({
     .join("")
     .toUpperCase();
 
-  // Cor da marca sobrescreve o verde neon do tema salon-dark. Fica no escopo
-  // desta página (CSS variable inline) para não vazar para o painel.
-  const brandHsl = hexToHslTriple(salon.themeColorHex);
-  const brandStyle = brandHsl
-    ? ({
-        "--primary": brandHsl,
-        "--accent": brandHsl,
-        "--ring": brandHsl,
-        "--primary-foreground": readableForeground(salon.themeColorHex) ?? "0 0% 100%",
-      } as React.CSSProperties)
-    : undefined;
-
   return (
-    <main className="animate-fade-in space-y-6 px-5 pt-6" style={brandStyle}>
+    <main className="animate-fade-in space-y-6 px-5 pt-6">
       {/* Top bar */}
       <header className="flex items-center gap-3">
         <div className="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full bg-primary/20 text-sm font-semibold text-primary">

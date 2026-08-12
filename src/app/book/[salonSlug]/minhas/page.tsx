@@ -42,6 +42,7 @@ export default async function MinhasPage({
       where: { id: salonId },
       select: {
         name: true,
+        address: true,
         currency: true,
         timezone: true,
         cancelPolicyHours: true,
@@ -174,7 +175,8 @@ export default async function MinhasPage({
         <p className="text-xs uppercase tracking-wide text-muted-foreground">
           Olá, {session.name.split(" ")[0]}
         </p>
-        <h1 className="text-2xl font-semibold">Minhas visitas</h1>
+        <h1 className="text-2xl font-semibold">Minhas reservas</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{salon.name}</p>
       </header>
 
       <MinhasList
@@ -191,6 +193,8 @@ export default async function MinhasPage({
         currency={salon.currency}
         timezone={salon.timezone}
         cancelPolicyHours={salon.cancelPolicyHours}
+        salonName={salon.name}
+        salonAddress={salon.address}
         session={session}
       />
 
