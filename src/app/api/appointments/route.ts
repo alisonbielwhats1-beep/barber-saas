@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { withSalon } from "@/lib/prisma-tenant";
+import { withApprovedSalon } from "@/lib/prisma-tenant";
 import { isOverlapViolation } from "@/lib/db-errors";
 import { getClientSession } from "@/lib/client-auth";
 import {
@@ -15,18 +15,12 @@ import {
 } from "@/lib/rate-limit";
 import {
   appointmentErrorStatus,
-  createAppointment,
 } from "@/lib/appointment-service";
 import { isAppointmentError } from "@/lib/appointment-domain";
-
-class PublicBookingError extends Error {
-  constructor(
-    readonly code: string,
-    readonly status: number,
-  ) {
-    super(code);
-  }
-}
+import {
+  AppointmentProductReservationError,
+  createAppointmentWithProductReservation,
+} from "@/lib/appointment-product-service";
 
 /**
  * POST /api/appointments — cria um agendamento público de forma idempotente.
@@ -58,7 +52,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const parsed = publicAppointmentSchema.safeParse(await req.json());
+  let payload: unknown;
+  try {
+    payload = await req.json();
+  } catch {
+    return NextResponse.json({ error: "BAD_REQUEST" }, { status: 400 });
+  }
+  const parsed = publicAppointmentSchema.safeParse(payload);
   if (!parsed.success) {
     return NextResponse.json({ error: "BAD_REQUEST" }, { status: 400 });
   }
@@ -82,87 +82,46 @@ export async function POST(req: NextRequest) {
     .sort((left, right) => left.productId.localeCompare(right.productId));
 
   try {
-    const result = await withSalon(booking.salonId, async (tx) => {
-      const created = await createAppointment(tx, {
-        salonId: booking.salonId,
-        professionalId: booking.professionalId,
-        serviceIds: booking.serviceIds,
-        startLocal: booking.startLocal,
-        notes: booking.notes,
-        origin: "PUBLIC",
-        actor:
-          identity.kind === "authenticated"
-            ? {
-                type: "CLIENT",
-                id: identity.clientId,
-                name: session?.name ?? "Cliente",
-              }
-            : { type: "GUEST", name: booking.clientName! },
-        idempotencyKey: booking.idempotencyKey,
-        idempotencyContext: normalizedCart,
-        enforceBookingWindow: true,
-        ...(identity.kind === "authenticated"
-          ? { clientId: identity.clientId }
-          : {
-              guest: {
-                name: booking.clientName!,
-                phone: booking.clientPhone!,
-              },
-            }),
+    const result = await withApprovedSalon(booking.salonId, async (tx) => {
+      return createAppointmentWithProductReservation(tx, {
+        appointment: {
+          salonId: booking.salonId,
+          professionalId: booking.professionalId,
+          serviceIds: booking.serviceIds,
+          startLocal: booking.startLocal,
+          notes: booking.notes,
+          origin: "PUBLIC",
+          actor:
+            identity.kind === "authenticated"
+              ? {
+                  type: "CLIENT",
+                  id: identity.clientId,
+                  name: session?.name ?? "Cliente",
+                }
+              : { type: "GUEST", name: booking.clientName! },
+          idempotencyKey: booking.idempotencyKey,
+          enforceBookingWindow: true,
+          ...(identity.kind === "authenticated"
+            ? { clientId: identity.clientId }
+            : {
+                guest: {
+                  name: booking.clientName!,
+                  phone: booking.clientPhone!,
+                },
+              }),
+        },
+        productReservation: {
+          actorName: identity.kind === "authenticated"
+            ? session?.name ?? "Cliente"
+            : booking.clientName!,
+          items: normalizedCart,
+        },
       });
-
-      // O retry idempotente retorna antes de reler o catálogo. Um produto que
-      // ficou inativo depois da primeira confirmação não pode transformar o
-      // mesmo retry em erro. Na primeira execução, qualquer falha abaixo
-      // reverte appointment, evento, notificação e cliente convidado juntos.
-      if (!created.duplicate && normalizedCart.length > 0) {
-        const products = await tx.product.findMany({
-          where: {
-            id: { in: normalizedCart.map((item) => item.productId) },
-            salonId: booking.salonId,
-            active: true,
-          },
-          select: { id: true, priceCents: true, name: true },
-        });
-        if (products.length !== normalizedCart.length) {
-          throw new PublicBookingError("PRODUCT_INVALID", 400);
-        }
-        const productsById = new Map(
-          products.map((product) => [product.id, product]),
-        );
-        const productSnapshots = normalizedCart.map((item) => ({
-          ...item,
-          priceCentsUnit: productsById.get(item.productId)!.priceCents,
-          name: productsById.get(item.productId)!.name,
-        }));
-        for (const product of productSnapshots) {
-          const reserved = await tx.product.updateMany({
-            where: {
-              id: product.productId,
-              salonId: booking.salonId,
-              active: true,
-              stock: { gte: product.quantity },
-            },
-            data: { stock: { decrement: product.quantity } },
-          });
-          if (reserved.count !== 1) {
-            throw new PublicBookingError(
-              `Estoque insuficiente: ${product.name}`,
-              409,
-            );
-          }
-        }
-        await tx.appointmentProduct.createMany({
-          data: productSnapshots.map((product) => ({
-            appointmentId: created.appointment.id,
-            productId: product.productId,
-            quantity: product.quantity,
-            priceCentsUnit: product.priceCentsUnit,
-          })),
-        });
-      }
-      return created;
     });
+
+    if (!result) {
+      return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+    }
 
     revalidatePath("/agenda");
     revalidatePath("/dashboard");
@@ -183,8 +142,9 @@ export async function POST(req: NextRequest) {
       { status: result.duplicate ? 200 : 201 },
     );
   } catch (error) {
-    if (error instanceof PublicBookingError) {
-      return NextResponse.json({ error: error.code }, { status: error.status });
+    if (error instanceof AppointmentProductReservationError) {
+      const status = error.code === "INSUFFICIENT_STOCK" ? 409 : 400;
+      return NextResponse.json({ error: error.code }, { status });
     }
     if (isAppointmentError(error)) {
       return NextResponse.json(

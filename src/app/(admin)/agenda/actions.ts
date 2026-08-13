@@ -3,9 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { calculateComandaTotals, normalizeProductLines } from "@/lib/comanda";
 import { isOverlapViolation } from "@/lib/db-errors";
-import { writeAuditLog } from "@/lib/audit";
 import { assertRole, getTenantContext } from "@/lib/tenant";
 import { withTenant, type Tx } from "@/lib/prisma-tenant";
 import {
@@ -14,6 +12,7 @@ import {
   updateAppointmentStatusReliably,
 } from "@/lib/appointment-service";
 import { isAppointmentError } from "@/lib/appointment-domain";
+import { closeComandaReliably } from "@/lib/comanda-service";
 import { recordAppointmentEvent } from "@/lib/appointment-events";
 import { cancelWaitlistEntry, isWaitlistError } from "@/lib/waitlist";
 import {
@@ -65,6 +64,7 @@ function appointmentActionMessage(error: unknown): string {
     SLOT_TAKEN: "Horário já ocupado",
     ALREADY_CLOSED: "O agendamento já foi encerrado",
     ALREADY_STARTED: "O atendimento já começou",
+    NOT_STARTED_YET: "O horário do atendimento ainda não começou",
     INVALID_STATUS_TRANSITION: "Mudança de status não permitida",
     VERSION_CONFLICT: "O agendamento foi alterado em outra tela. Atualize e tente novamente",
     IDEMPOTENCY_MISMATCH: "A solicitação repetida contém dados diferentes",
@@ -225,15 +225,20 @@ export async function getComandaData(id: string) {
     const appt = await tx.appointment.findFirst({
       where: { id, salonId: ctx.salonId },
       select: {
+        id: true,
+        startAt: true,
         version: true,
         priceCents: true,
-        service: { select: { name: true } },
+        client: { select: { name: true } },
+        service: { select: { name: true, priceCents: true } },
         serviceItems: {
           orderBy: { position: "asc" },
-          select: { serviceName: true },
+          select: { serviceName: true, priceCents: true },
         },
         products: {
+          orderBy: [{ productId: "asc" }, { priceCentsUnit: "asc" }, { id: "asc" }],
           select: {
+            id: true,
             productId: true,
             quantity: true,
             priceCentsUnit: true,
@@ -242,21 +247,49 @@ export async function getComandaData(id: string) {
         },
         payment: {
           select: {
+            id: true,
             amountCents: true,
             discountCents: true,
             method: true,
             notes: true,
+            paidAt: true,
           },
         },
       },
     });
     if (!appt) throw new Error("Agendamento não encontrado");
+    const reservedByProduct = new Map<string, number>();
+    for (const product of appt.products) {
+      reservedByProduct.set(
+        product.productId,
+        (reservedByProduct.get(product.productId) ?? 0) + product.quantity,
+      );
+    }
     const availableProducts = await tx.product.findMany({
-      where: { salonId: ctx.salonId, active: true },
+      where: {
+        salonId: ctx.salonId,
+        OR: [
+          { active: true },
+          { id: { in: [...reservedByProduct.keys()] } },
+        ],
+      },
       orderBy: { name: "asc" },
-      select: { id: true, name: true, priceCents: true, stock: true },
+      select: { id: true, name: true, priceCents: true, stock: true, active: true },
     });
-    return { ...appt, availableProducts };
+    return {
+      ...appt,
+      availableProducts: availableProducts.map((product) => ({
+        ...product,
+        reservedQuantity: reservedByProduct.get(product.id) ?? 0,
+        reservedValueCents: appt.products
+          .filter((reserved) => reserved.productId === product.id)
+          .reduce(
+            (sum, reserved) => sum + reserved.quantity * reserved.priceCentsUnit,
+            0,
+          ),
+      })),
+      canDiscount: ctx.role === "OWNER" || ctx.role === "MANAGER",
+    };
   });
   return data;
 }
@@ -317,131 +350,22 @@ export async function closeComanda(
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER", "RECEPTIONIST"]);
   const data = comandaInput.parse(input);
-  const productLines = normalizeProductLines(data.productLines);
 
   try {
     await withTenant(ctx, async (tx) => {
-      const appt = await tx.appointment.findFirst({
-        where: { id: data.id, salonId: ctx.salonId },
-        select: {
-          id: true,
-          version: true,
-          status: true,
-          priceCents: true,
-        },
-      });
-      if (!appt) throw new Error("Agendamento não encontrado");
-      if (appt.status === "CANCELLED" || appt.status === "NO_SHOW") {
-        throw new Error("Agendamento já encerrado");
-      }
-
-      const products = productLines.length === 0
-        ? []
-        : await tx.product.findMany({
-            where: {
-              salonId: ctx.salonId,
-              active: true,
-              id: { in: productLines.map((line) => line.productId) },
-            },
-            select: { id: true, name: true, priceCents: true, stock: true },
-          });
-      if (products.length !== productLines.length) throw new Error("Produto não encontrado ou inativo");
-      const productById = new Map(products.map((product) => [product.id, product]));
-      const pricedLines = productLines.map((line) => {
-        const product = productById.get(line.productId)!;
-        return { ...line, priceCentsUnit: product.priceCents };
-      });
-      const totals = calculateComandaTotals({
-        serviceCents: appt.priceCents,
-        productLines: pricedLines,
-        discountCents: data.discountCents,
-      });
-      const amountCents = totals.totalCents;
-
-      // O status é alterado primeiro dentro da mesma transação. Em retry com
-      // a mesma chave, o evento idempotente retorna antes do version check;
-      // uma chave diferente não consegue reabrir/editar uma comanda concluída.
-      const transition = await updateAppointmentStatusReliably(tx, {
+      await closeComandaReliably(tx, {
         salonId: ctx.salonId,
+        userId: ctx.userId,
+        actorName: await actorName(tx, ctx.userId),
+        role: ctx.role as "OWNER" | "MANAGER" | "RECEPTIONIST",
         appointmentId: data.id,
-        status: "COMPLETED",
-        actor: {
-          type: "STAFF",
-          id: ctx.userId,
-          name: await actorName(tx, ctx.userId),
-        },
         idempotencyKey: data.idempotencyKey,
         expectedVersion: data.expectedVersion,
-        idempotencyContext: {
-          amountCents,
-          discountCents: totals.discountCents,
-          method: data.method,
-          notes: data.notes ?? null,
-          productLines: pricedLines,
-        },
+        discountCents: data.discountCents,
+        productLines: data.productLines,
+        method: data.method,
+        notes: data.notes,
       });
-
-      // A primeira execução grava evento e pagamento na mesma transação.
-      // Um retry idempotente não deve atualizar `paidAt` novamente.
-      if (transition.duplicate) return;
-
-      for (const line of pricedLines) {
-        const product = productById.get(line.productId)!;
-        if (line.quantity > product.stock) {
-          throw new Error(`Estoque insuficiente para ${product.name}`);
-        }
-      }
-
-      await tx.appointmentProduct.deleteMany({ where: { appointmentId: data.id } });
-      if (pricedLines.length > 0) {
-        await tx.appointmentProduct.createMany({
-          data: pricedLines.map((line) => ({
-            appointmentId: data.id,
-            productId: line.productId,
-            quantity: line.quantity,
-            priceCentsUnit: line.priceCentsUnit,
-          })),
-        });
-        const inventoryActorName = await actorName(tx, ctx.userId);
-        for (const line of pricedLines) {
-          const product = productById.get(line.productId)!;
-          const updated = await tx.product.updateMany({
-            where: { id: line.productId, salonId: ctx.salonId, stock: { gte: line.quantity } },
-            data: { stock: { decrement: line.quantity } },
-          });
-          if (updated.count !== 1) throw new Error("Estoque alterado por outra operação. Revise a comanda.");
-          await writeAuditLog(tx, {
-            salonId: ctx.salonId,
-            userId: ctx.userId,
-            actorName: inventoryActorName,
-            action: "STOCK_ADJUSTED",
-            entityType: "Product",
-            entityId: line.productId,
-            reason: "Venda na comanda",
-            metadata: { productName: product.name, kind: "SALE", delta: -line.quantity, previousStock: product.stock, newStock: product.stock - line.quantity, appointmentId: data.id },
-          });
-        }
-      }
-
-      const paymentId = `pay_${randomUUID()}`;
-      await tx.$executeRaw`
-        INSERT INTO "Payment" (id, "appointmentId", "amountCents", "discountCents", method, notes, "paidAt")
-        VALUES (
-          ${paymentId},
-          ${data.id},
-          ${amountCents},
-          ${totals.discountCents},
-          ${data.method}::"PaymentMethod",
-          ${data.notes ?? null},
-          NOW()
-        )
-        ON CONFLICT ("appointmentId") DO UPDATE SET
-          "amountCents"   = EXCLUDED."amountCents",
-          "discountCents" = EXCLUDED."discountCents",
-          method          = EXCLUDED.method,
-          notes           = EXCLUDED.notes,
-          "paidAt"        = NOW()
-      `;
     });
   } catch (error) {
     return { error: appointmentActionMessage(error) };

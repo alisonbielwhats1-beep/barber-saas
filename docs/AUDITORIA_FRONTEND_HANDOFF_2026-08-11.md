@@ -413,6 +413,11 @@ Estado: implementado localmente nesta branch.
 - diálogos responsivos;
 - filtros e navegação de período.
 
+Estado em 13/08/2026: Toast, Dialog, Command Palette e coordenação do modal
+mobile “Mais” foram implementados na candidata
+`codex/commercial-maturity-wave1`; detalhes e gates estão na seção 14. Os
+demais componentes candidatos continuam pendentes.
+
 ### Fase 6 — rotas de gestão
 
 - Serviços, Pacotes, Portfólio, Clientes e Profissionais;
@@ -648,3 +653,52 @@ Verificação visual local com dados fictícios:
 Próximo incremento recomendado: aplicar a alternativa A ao Financeiro,
 preservando estritamente a separação entre previsto, realizado, recebido e
 revertido. Não ampliar para migration ou billing.
+
+## 14. Wave1 frontend candidata — disponibilidade e componentes compartilhados
+
+Estado em **13/08/2026**, na branch local
+`codex/commercial-maturity-wave1`. Esta seção não altera o histórico dos dois
+incrementos anteriores e não significa CI ou deploy.
+
+### Disponibilidade do cliente
+
+- `200` com `slots=[]` é tratado como agenda vazia válida;
+- `429`, timeout, rede, `500`, JSON inválido e contrato incompleto exibem erro
+  próprio, preservam as escolhas e oferecem retry;
+- `Retry-After` aceita delta-seconds e HTTP-date com limite máximo; enquanto o
+  cooldown está ativo, o botão mostra contagem e permanece bloqueado;
+- requests recebem `AbortSignal` e id crescente; resposta antiga não substitui
+  profissional/data/serviços atuais;
+- horário restaurado carrega uma `queryKey` com salão, serviços, profissional e
+  data; qualquer troca explícita invalida a seleção pendente;
+- o CTA só habilita se o slot existir na resposta vigente.
+
+### Toast, Dialog, palette e mobile
+
+- Toast mantém regiões vivas persistentes `polite` e `assertive`, separa
+  severidade sem anúncio duplicado, limpa fila/timers e pausa expiração em
+  hover ou foco;
+- fechar Toast preserva o foco na próxima notificação ou no alvo de origem;
+- botões de fechar de Toast/Dialog têm nome acessível e alvo de 44 px;
+- Command Palette usa Dialog modal, foco inicial no combobox, trap, Escape,
+  navegação por setas/Enter e retorno ao gatilho;
+- toda abertura da palette passa por um evento cancelável. Se “Mais” estiver
+  aberto, MobileNav fecha primeiro e só então reabre a palette com o botão
+  “Mais” como retorno estável;
+- a coordenação cobre o botão Buscar, rota atual e `Ctrl/Cmd+K`, garantindo um
+  único dialog/overlay/focus trap.
+
+### Evidências locais e limites
+
+- testes DOM focados passaram com 24 cenários na onda frontend, incluindo
+  promises fora de ordem, retry, múltiplos `429`, troca de query no cooldown,
+  unmount, teclado, foco e modais mobile;
+- lint, TypeScript, suíte completa e build local passaram após o retrabalho
+  frontend; a suíte completa tinha 69 arquivos e 433 testes naquele ponto;
+- após todos os retrabalhos e a crítica de integração, a suíte local passou com
+  70 arquivos e 446 testes; lint, TypeScript e o build completo do Next.js
+  15.5.22 também passaram, gerando 41 páginas;
+- não havia staging autenticável nem banco seguro para browser real nesta
+  máquina. Não se usou Production e não se contornou o Environment Guard;
+- Preview, comparação visual final autenticada, CI e deploy permanecem
+  pendentes até evidência verificável.

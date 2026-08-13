@@ -37,9 +37,15 @@ import {
   cancelAppointment,
   duplicateAppointment,
   editAppointment,
+  getComandaData,
   removeWaitlistEntry,
 } from "./actions";
-import { STATUS, nextActions, type ApptStatus } from "./agenda-status";
+import {
+  STATUS,
+  canOpenAppointmentCheckout,
+  nextActions,
+  type ApptStatus,
+} from "./agenda-status";
 import { ComandaPanel } from "./comanda-panel";
 import type { Appointment } from "./agenda-board";
 
@@ -67,17 +73,36 @@ function escapeHtml(value: string): string {
 }
 
 function printReceipt(
-  appt: { clientName: string; serviceName: string; priceCents: number; startAt: string },
+  receipt: Awaited<ReturnType<typeof getComandaData>>,
   salonName: string,
   timezone: string,
 ) {
+  if (!receipt.payment) throw new Error("Pagamento não encontrado");
   const when = formatInTimeZone(
-    new Date(appt.startAt),
+    new Date(receipt.startAt),
     timezone,
     "d 'de' MMMM 'de' yyyy 'às' HH:mm",
     { locale: ptBR },
   );
-  const price = formatMoney(appt.priceCents);
+  const services = receipt.serviceItems.length > 0
+    ? receipt.serviceItems
+    : [{ serviceName: receipt.service.name, priceCents: receipt.priceCents }];
+  const serviceRows = services.map((service) =>
+    `<div class="row"><span>${escapeHtml(service.serviceName)}</span><b>${escapeHtml(formatMoney(service.priceCents))}</b></div>`,
+  ).join("");
+  const productRows = receipt.products.map((product) =>
+    `<div class="row"><span>${product.quantity}× ${escapeHtml(product.product.name)}</span><b>${escapeHtml(formatMoney(product.quantity * product.priceCentsUnit))}</b></div>`,
+  ).join("");
+  const discountRow = receipt.payment.discountCents > 0
+    ? `<div class="row"><span>Desconto</span><b>- ${escapeHtml(formatMoney(receipt.payment.discountCents))}</b></div>`
+    : "";
+  const method = ({
+    CASH: "Dinheiro",
+    CREDIT_CARD: "Crédito",
+    DEBIT_CARD: "Débito",
+    PIX: "Pix",
+    TRANSFER: "Transferência",
+  } as const)[receipt.payment.method];
   const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Recibo</title>
   <style>
     *{font-family:ui-sans-serif,system-ui,Arial,sans-serif;box-sizing:border-box}
@@ -93,10 +118,12 @@ function printReceipt(
     <h1>${escapeHtml(salonName)}</h1>
     <p class="muted">Recibo de atendimento</p>
     <div style="height:16px"></div>
-    <div class="row"><span>Cliente</span><b>${escapeHtml(appt.clientName)}</b></div>
-    <div class="row"><span>Serviço</span><b>${escapeHtml(appt.serviceName)}</b></div>
+    <div class="row"><span>Cliente</span><b>${escapeHtml(receipt.client.name)}</b></div>
     <div class="row"><span>Data</span><b>${escapeHtml(when)}</b></div>
-    <div class="total"><span>Total</span><span>${escapeHtml(price)}</span></div>
+    ${serviceRows}${productRows}${discountRow}
+    <div class="row"><span>Forma</span><b>${escapeHtml(method)}</b></div>
+    <div class="row"><span>Pagamento</span><b>${escapeHtml(receipt.payment.id)}</b></div>
+    <div class="total"><span>Total recebido</span><span>${escapeHtml(formatMoney(receipt.payment.amountCents))}</span></div>
     <span class="tag">✓ PAGO</span>
   </div>
   <script>window.onload=function(){window.print()}</script>
@@ -145,11 +172,20 @@ export function AppointmentDetail({
   const cfg = STATUS[appt.status as keyof typeof STATUS] ?? STATUS.CONFIRMED;
   const whenLabel = formatInTimeZone(start, timezone, "d 'de' MMMM 'às' HH:mm", { locale: ptBR });
 
-  const canOpenComanda = canCreate && ["PENDING", "CONFIRMED", "IN_PROGRESS"].includes(appt.status);
+  const now = new Date();
+  const isCompletedAwaitingPayment = appt.status === "COMPLETED" && !appt.hasPayment;
+  const canOpenComanda = canCreate && canOpenAppointmentCheckout({
+    status: appt.status,
+    hasPayment: appt.hasPayment,
+    startAt: start,
+    now,
+  });
   const isMutable =
-    ["PENDING", "CONFIRMED"].includes(appt.status) && start.getTime() > Date.now();
+    ["PENDING", "CONFIRMED"].includes(appt.status) && start.getTime() > now.getTime();
   const availableActions = nextActions(appt.status).filter(
-    (status) => status !== "NO_SHOW" || start.getTime() <= Date.now(),
+    (status) =>
+      !["IN_PROGRESS", "COMPLETED", "NO_SHOW"].includes(status) ||
+      start.getTime() <= now.getTime(),
   );
 
   function mutationKey(action: string) {
@@ -223,7 +259,9 @@ export function AppointmentDetail({
                 </button>
               )}
               <DialogTitle className="text-lg">
-                {view === "comanda" ? "Fechar comanda" : appt.clientName}
+                {view === "comanda"
+                  ? isCompletedAwaitingPayment ? "Registrar recebimento" : "Fechar comanda"
+                  : appt.clientName}
               </DialogTitle>
             </div>
             <span
@@ -534,14 +572,25 @@ export function AppointmentDetail({
                   <button
                     onClick={() => { setError(null); setView("comanda"); }}
                     className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[13px] font-medium text-muted-foreground transition hover:border-primary/40 hover:text-primary"
-                    title="Fechar comanda e registrar pagamento"
+                    title={isCompletedAwaitingPayment
+                      ? "Registrar o pagamento pendente"
+                      : "Fechar comanda e registrar pagamento"}
                   >
                     <CreditCard className="h-4 w-4" />
-                    Fechar comanda
+                    {isCompletedAwaitingPayment ? "Registrar recebimento" : "Fechar comanda"}
                   </button>
                 ) : canCreate && appt.status === "COMPLETED" && appt.hasPayment ? (
                   <button
-                    onClick={() => printReceipt(appt, salonName, timezone)}
+                    onClick={() => startTransition(async () => {
+                      try {
+                        const receipt = await getComandaData(appt.id);
+                        printReceipt(receipt, salonName, timezone);
+                      } catch (receiptError) {
+                        setError(receiptError instanceof Error
+                          ? receiptError.message
+                          : "Não foi possível carregar o recibo");
+                      }
+                    })}
                     className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[13px] font-medium text-muted-foreground transition hover:text-foreground"
                     title="Imprimir recibo"
                   >
@@ -571,13 +620,12 @@ export function AppointmentDetail({
                     placeholder="Explique o motivo para o histórico e para o cliente"
                   />
                   <p className="text-[11px] text-muted-foreground">
-                    O registro será preservado, o horário liberado e a parte interessada notificada.
+                    O registro será preservado, o horário liberado e o cliente do agendamento notificado.
                   </p>
                   {appt.waitlistCount > 0 && (
                     <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px] font-medium text-amber-700 dark:text-amber-400">
-                      Ao confirmar, {appt.waitlistNext ?? "a primeira pessoa da fila"} será promovido(a)
-                      automaticamente. As outras {Math.max(0, appt.waitlistCount - 1)} pessoa(s)
-                      continuarão na fila.
+                      Este cancelamento não promove ninguém. As {appt.waitlistCount} entrada(s)
+                      serão encerradas e deixarão de aparecer como fila ativa.
                     </p>
                   )}
                   <div className="flex gap-2">
@@ -613,7 +661,7 @@ export function AppointmentDetail({
                   onClick={() => setCancelMode(true)}
                   title={
                     appt.waitlistCount > 0
-                      ? `Ao cancelar, ${appt.waitlistNext ?? "o primeiro da fila"} será chamado para esse horário`
+                      ? "Ao cancelar pelo estabelecimento, a fila será encerrada sem promoção automática"
                       : undefined
                   }
                   className="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[13px] font-medium text-muted-foreground transition hover:border-danger/50 hover:text-danger disabled:opacity-50"

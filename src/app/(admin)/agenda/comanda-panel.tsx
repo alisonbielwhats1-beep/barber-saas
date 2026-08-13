@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { Check, Loader2, Minus, Package, Plus, Printer, Scissors } from "lucide-react";
 import { formatMoney } from "@/lib/utils";
-import { calculateComandaTotals } from "@/lib/comanda";
+import { calculateComandaTotals, reconcileReservedProduct } from "@/lib/comanda";
 import { getComandaData, closeComanda } from "./actions";
 
 type Method = "CASH" | "CREDIT_CARD" | "DEBIT_CARD" | "PIX" | "TRANSFER";
@@ -71,11 +71,25 @@ export function ComandaPanel({
     );
 
   const selectedProducts = data.availableProducts
-    .map((product) => ({ ...product, quantity: productQuantities[product.id] ?? 0 }))
+    .map((product) => {
+      const quantity = productQuantities[product.id] ?? 0;
+      const reservedRows = data.products.filter((row) => row.productId === product.id);
+      const reconciliation = reconcileReservedProduct({
+        reserved: reservedRows,
+        desiredQuantity: quantity,
+        currentPriceCents: product.priceCents,
+      });
+      return {
+        ...product,
+        quantity,
+        pricedLines: reconciliation.pricedLines,
+        totalCents: reconciliation.totalCents,
+      };
+    })
     .filter((product) => product.quantity > 0);
   const totals = calculateComandaTotals({
     serviceCents: data.priceCents,
-    productLines: selectedProducts.map((product) => ({ quantity: product.quantity, priceCentsUnit: product.priceCents })),
+    productLines: selectedProducts.flatMap((product) => product.pricedLines),
     discountCents,
   });
   const subtotal = totals.subtotalCents;
@@ -92,11 +106,11 @@ export function ComandaPanel({
     setDiscountCents(isNaN(num) || num < 0 ? 0 : Math.round(num * 100));
   }
 
-  function changeProduct(productId: string, delta: number, stock: number) {
+  function changeProduct(productId: string, delta: number, maxQuantity: number) {
     idempotencyKeyRef.current = null;
     setProductQuantities((current) => ({
       ...current,
-      [productId]: Math.min(stock, Math.max(0, (current[productId] ?? 0) + delta)),
+      [productId]: Math.min(maxQuantity, Math.max(0, (current[productId] ?? 0) + delta)),
     }));
   }
 
@@ -119,6 +133,15 @@ export function ComandaPanel({
           setError(result.error);
           return;
         }
+        const receipt = await getComandaData(apptId);
+        if (!receipt.payment) {
+          setError("Pagamento confirmado, mas o recibo ainda não está disponível. Reabra o atendimento.");
+          return;
+        }
+        setData(receipt);
+        setProductQuantities(Object.fromEntries(
+          receipt.products.map((product) => [product.productId, product.quantity]),
+        ));
         setConfirmed(true);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Erro ao fechar comanda");
@@ -127,6 +150,13 @@ export function ComandaPanel({
   }
 
   if (confirmed) {
+    const payment = data.payment;
+    if (!payment) {
+      return <p role="alert" className="py-8 text-center text-[13px] text-danger">Recibo indisponível.</p>;
+    }
+    const receiptServices = data.serviceItems.length > 0
+      ? data.serviceItems
+      : [{ serviceName: data.service.name, priceCents: data.priceCents }];
     return (
       <div className="space-y-4 print:fixed print:inset-0 print:z-[9999] print:bg-white print:p-8 print:text-black">
         <div className="text-center">
@@ -135,11 +165,12 @@ export function ComandaPanel({
           <p className="text-[12px] text-muted-foreground print:text-neutral-600">Comprovante interno da comanda</p>
         </div>
         <div className="space-y-2 rounded-xl border border-border p-4 text-[13px]">
-          <div className="flex justify-between"><span>{serviceName}</span><strong>{formatMoney(data.priceCents, currency)}</strong></div>
-          {selectedProducts.map((product) => <div key={product.id} className="flex justify-between text-muted-foreground print:text-neutral-700"><span>{product.quantity}× {product.name}</span><span>{formatMoney(product.quantity * product.priceCents, currency)}</span></div>)}
-          {totals.discountCents > 0 && <div className="flex justify-between text-muted-foreground print:text-neutral-700"><span>Desconto</span><span>- {formatMoney(totals.discountCents, currency)}</span></div>}
-          <div className="flex justify-between border-t border-border pt-2 text-base"><span>Total</span><strong>{formatMoney(total, currency)}</strong></div>
-          <div className="flex justify-between text-muted-foreground print:text-neutral-700"><span>Forma</span><span>{METHODS.find((item) => item.value === method)?.label}</span></div>
+          {receiptServices.map((service, index) => <div key={`${service.serviceName}-${index}`} className="flex justify-between"><span>{service.serviceName}</span><strong>{formatMoney(service.priceCents, currency)}</strong></div>)}
+          {data.products.map((product) => <div key={product.id} className="flex justify-between text-muted-foreground print:text-neutral-700"><span>{product.quantity}× {product.product.name}</span><span>{formatMoney(product.quantity * product.priceCentsUnit, currency)}</span></div>)}
+          {payment.discountCents > 0 && <div className="flex justify-between text-muted-foreground print:text-neutral-700"><span>Desconto</span><span>- {formatMoney(payment.discountCents, currency)}</span></div>}
+          <div className="flex justify-between border-t border-border pt-2 text-base"><span>Total recebido</span><strong>{formatMoney(payment.amountCents, currency)}</strong></div>
+          <div className="flex justify-between text-muted-foreground print:text-neutral-700"><span>Forma</span><span>{METHODS.find((item) => item.value === payment.method)?.label ?? payment.method}</span></div>
+          <div className="flex justify-between gap-3 text-[11px] text-muted-foreground print:text-neutral-700"><span>Pagamento</span><span className="break-all text-right">{payment.id}</span></div>
         </div>
         <div className="grid grid-cols-2 gap-2 print:hidden">
           <button onClick={() => window.print()} className="inline-flex items-center justify-center gap-2 rounded-xl border border-border px-4 py-3 text-[13px]"><Printer className="h-4 w-4" /> Imprimir</button>
@@ -176,6 +207,7 @@ export function ComandaPanel({
           <div className="space-y-1">
             {data.availableProducts.map((product) => {
               const quantity = productQuantities[product.id] ?? 0;
+              const maxQuantity = product.reservedQuantity + (product.active ? product.stock : 0);
               return (
               <div
                 key={product.id}
@@ -183,12 +215,12 @@ export function ComandaPanel({
               >
                 <span className="flex items-center gap-2 text-[13px]">
                   <Package className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                  <span><span className="font-medium">{product.name}</span><span className="block text-[10px] text-muted-foreground">{formatMoney(product.priceCents, currency)} · {product.stock} em estoque</span></span>
+                  <span><span className="font-medium">{product.name}</span><span className="block text-[10px] text-muted-foreground">{product.reservedQuantity > 0 ? `${product.reservedQuantity} reservado(s) por ${formatMoney(product.reservedValueCents, currency)}` : formatMoney(product.priceCents, currency)} · {product.active ? `${product.stock} disponíveis além da reserva` : "inativo · apenas reserva existente"}</span></span>
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <button type="button" onClick={() => changeProduct(product.id, -1, product.stock)} disabled={quantity === 0} aria-label={`Remover ${product.name}`} className="grid h-8 w-8 place-items-center rounded-lg border border-border disabled:opacity-30"><Minus className="h-3.5 w-3.5" /></button>
+                  <button type="button" onClick={() => changeProduct(product.id, -1, maxQuantity)} disabled={quantity === 0} aria-label={`Remover ${product.name}`} className="grid h-8 w-8 place-items-center rounded-lg border border-border disabled:opacity-30"><Minus className="h-3.5 w-3.5" /></button>
                   <span className="w-6 text-center text-[13px] font-semibold">{quantity}</span>
-                  <button type="button" onClick={() => changeProduct(product.id, 1, product.stock)} disabled={quantity >= product.stock} aria-label={`Adicionar ${product.name}`} className="grid h-8 w-8 place-items-center rounded-lg border border-border disabled:opacity-30"><Plus className="h-3.5 w-3.5" /></button>
+                  <button type="button" onClick={() => changeProduct(product.id, 1, maxQuantity)} disabled={quantity >= maxQuantity} aria-label={`Adicionar ${product.name}`} className="grid h-8 w-8 place-items-center rounded-lg border border-border disabled:opacity-30"><Plus className="h-3.5 w-3.5" /></button>
                 </span>
               </div>
             );})}
@@ -213,10 +245,17 @@ export function ComandaPanel({
             inputMode="decimal"
             value={discountInput}
             onChange={(e) => handleDiscount(e.target.value)}
+            disabled={!data.canDiscount}
             placeholder="0,00"
-            className="w-24 rounded-lg border border-border bg-surface-1 px-2 py-1.5 text-right text-[13px] focus:outline-none focus:ring-1 focus:ring-primary"
+            title={!data.canDiscount ? "Somente proprietário ou gerente pode aplicar desconto" : undefined}
+            className="w-24 rounded-lg border border-border bg-surface-1 px-2 py-1.5 text-right text-[13px] focus:outline-none focus:ring-1 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-50"
           />
         </div>
+        {!data.canDiscount && (
+          <p className="text-right text-[10px] text-muted-foreground">
+            Descontos exigem proprietário ou gerente.
+          </p>
+        )}
         <div className="flex justify-between border-t border-border pt-2 text-[15px] font-bold">
           <span>Total</span>
           <span className="text-primary">{formatMoney(total, currency)}</span>

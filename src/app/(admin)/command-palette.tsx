@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   LayoutDashboard, CalendarDays, Scissors, ShoppingBag, Layers, Image as ImageIcon,
@@ -13,8 +13,35 @@ import {
   MARKETING_ROLES,
 } from "@/lib/role-permissions";
 import { commandShortcutLabel } from "@/lib/platform-shortcut";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type Cmd = { label: string; hint: string; icon: typeof Search; href: string; roles?: readonly string[] };
+
+export const OPEN_COMMAND_PALETTE_EVENT = "open-command-palette";
+export const COMMAND_PALETTE_NAVIGATE_EVENT = "command-palette-navigate";
+
+type CommandPaletteOpenDetail = {
+  returnFocusTo?: HTMLElement | null;
+};
+
+/**
+ * Single entry point for opening the palette. The request is cancelable so an
+ * open modal can close first and replay it with a stable focus target.
+ */
+export function requestCommandPaletteOpen(returnFocusTo?: HTMLElement | null) {
+  window.dispatchEvent(new CustomEvent<CommandPaletteOpenDetail>(
+    OPEN_COMMAND_PALETTE_EVENT,
+    {
+      cancelable: true,
+      detail: { returnFocusTo },
+    },
+  ));
+}
 
 const COMMANDS: Cmd[] = [
   { label: "Dashboard", hint: "Visão geral", icon: LayoutDashboard, href: "/dashboard", roles: DASHBOARD_ROLES },
@@ -37,6 +64,14 @@ export function CommandPalette({ role }: { role: string }) {
   const [q, setQ] = useState("");
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+  const openRef = useRef(false);
+  const resultsId = useId();
+
+  function setPaletteOpen(nextOpen: boolean) {
+    openRef.current = nextOpen;
+    setOpen(nextOpen);
+  }
 
   // Atalho ⌘K / Ctrl+K — em telas sem teclado físico (celular/tablet), o
   // gatilho visível em OpenCommandPaletteButton dispara o mesmo evento.
@@ -44,27 +79,48 @@ export function CommandPalette({ role }: { role: string }) {
     function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        setOpen((v) => !v);
+        if (openRef.current) {
+          setPaletteOpen(false);
+          return;
+        }
+        requestCommandPaletteOpen(
+          document.activeElement instanceof HTMLElement
+            ? document.activeElement
+            : null,
+        );
       }
-      if (e.key === "Escape") setOpen(false);
     }
-    function onOpenEvent() {
-      setOpen(true);
+    function onOpenEvent(event: Event) {
+      const request = event as CustomEvent<CommandPaletteOpenDetail>;
+
+      // A sibling modal may cancel the request regardless of listener mount
+      // order. Defer the decision until every synchronous listener has run.
+      queueMicrotask(() => {
+        if (request.defaultPrevented || openRef.current) return;
+        const requestedTarget = request.detail?.returnFocusTo;
+        const activeTarget = document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null;
+        returnFocusRef.current = requestedTarget?.isConnected
+          ? requestedTarget
+          : activeTarget?.isConnected
+            ? activeTarget
+            : null;
+        setPaletteOpen(true);
+      });
     }
     window.addEventListener("keydown", onKey);
-    window.addEventListener("open-command-palette", onOpenEvent);
+    window.addEventListener(OPEN_COMMAND_PALETTE_EVENT, onOpenEvent);
     return () => {
       window.removeEventListener("keydown", onKey);
-      window.removeEventListener("open-command-palette", onOpenEvent);
+      window.removeEventListener(OPEN_COMMAND_PALETTE_EVENT, onOpenEvent);
     };
   }, []);
 
   useEffect(() => {
-    if (open) {
-      setQ("");
-      setActive(0);
-      setTimeout(() => inputRef.current?.focus(), 20);
-    }
+    if (!open) return;
+    setQ("");
+    setActive(0);
   }, [open]);
 
   const results = useMemo(() => {
@@ -74,27 +130,47 @@ export function CommandPalette({ role }: { role: string }) {
     return allowed.filter((c) => c.label.toLowerCase().includes(s) || c.hint.toLowerCase().includes(s));
   }, [q, role]);
 
+  useEffect(() => {
+    if (!open || !results[active]) return;
+    document
+      .getElementById(`${resultsId}-option-${active}`)
+      ?.scrollIntoView({ block: "nearest" });
+  }, [active, open, results, resultsId]);
+
   function go(href: string) {
-    setOpen(false);
+    window.dispatchEvent(
+      new CustomEvent(COMMAND_PALETTE_NAVIGATE_EVENT, { detail: { href } }),
+    );
+    setPaletteOpen(false);
     router.push(href);
   }
 
   function onKeyDown(e: React.KeyboardEvent) {
-    if (e.key === "ArrowDown") { e.preventDefault(); setActive((a) => Math.min(a + 1, results.length - 1)); }
+    if (e.key === "ArrowDown") { e.preventDefault(); setActive((a) => Math.min(a + 1, Math.max(results.length - 1, 0))); }
     else if (e.key === "ArrowUp") { e.preventDefault(); setActive((a) => Math.max(a - 1, 0)); }
     else if (e.key === "Enter" && results[active]) { e.preventDefault(); go(results[active].href); }
   }
 
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh] print:hidden" onMouseDown={() => setOpen(false)}>
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-      <div
-        className="relative w-full max-w-xl overflow-hidden rounded-2xl border border-border-strong bg-elevated shadow-premium animate-scale-in"
-        onMouseDown={(e) => e.stopPropagation()}
+    <Dialog open={open} onOpenChange={setPaletteOpen}>
+      <DialogContent
+        className="top-[max(1rem,15dvh)] z-[100] flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-xl -translate-y-0 flex-col gap-0 overflow-hidden rounded-2xl border-border-strong bg-elevated p-0 pr-0 shadow-premium print:hidden"
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          inputRef.current?.focus();
+        }}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          const returnTarget = returnFocusRef.current;
+          returnFocusRef.current = null;
+          if (returnTarget?.isConnected) returnTarget.focus();
+        }}
       >
-        <div className="flex items-center gap-3 border-b border-border px-4">
+        <DialogTitle className="sr-only">Navegação rápida</DialogTitle>
+        <DialogDescription className="sr-only">
+          Busque uma tela do painel e use as setas para escolher.
+        </DialogDescription>
+        <div className="flex items-center gap-3 border-b border-border py-1 pl-4 pr-14">
           <Search className="h-4 w-4 text-muted-foreground" />
           <input
             ref={inputRef}
@@ -102,18 +178,29 @@ export function CommandPalette({ role }: { role: string }) {
             onChange={(e) => { setQ(e.target.value); setActive(0); }}
             onKeyDown={onKeyDown}
             placeholder="Buscar tela ou ação…"
+            aria-label="Buscar tela ou ação"
+            aria-controls={resultsId}
+            aria-expanded="true"
+            aria-autocomplete="list"
+            aria-activedescendant={results[active] ? `${resultsId}-option-${active}` : undefined}
+            role="combobox"
             className="h-12 flex-1 bg-transparent text-[14px] placeholder:text-muted-foreground focus:outline-none"
           />
-          <kbd className="rounded border border-border bg-surface-1 px-1.5 py-0.5 text-[10px] text-muted-foreground">ESC</kbd>
         </div>
 
-        <div className="max-h-80 overflow-y-auto p-2">
+        <div id={resultsId} role="listbox" aria-label="Telas disponíveis" className="min-h-0 flex-1 overflow-y-auto p-2">
           {results.length === 0 ? (
-            <p className="py-8 text-center text-[13px] text-muted-foreground">Nada encontrado.</p>
+            <p role="option" aria-disabled="true" aria-selected="false" className="py-8 text-center text-[13px] text-muted-foreground">
+              Nada encontrado.
+            </p>
           ) : (
             results.map((c, i) => (
               <button
                 key={c.href}
+                id={`${resultsId}-option-${i}`}
+                role="option"
+                aria-selected={i === active}
+                tabIndex={-1}
                 onMouseEnter={() => setActive(i)}
                 onClick={() => go(c.href)}
                 className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition ${i === active ? "bg-primary/10" : "hover:bg-card-hover"}`}
@@ -135,8 +222,8 @@ export function CommandPalette({ role }: { role: string }) {
           <span className="flex items-center gap-1"><Command className="h-3 w-3" /> Navegar rápido</span>
           <span>↑↓ mover · ↵ abrir</span>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -155,7 +242,9 @@ export function OpenCommandPaletteButton() {
 
   return (
     <button
-      onClick={() => window.dispatchEvent(new Event("open-command-palette"))}
+      onClick={(event) => requestCommandPaletteOpen(event.currentTarget)}
+      aria-haspopup="dialog"
+      data-command-palette-trigger="true"
       className="flex min-h-11 w-full items-center gap-2.5 rounded-lg border border-border bg-surface-1 px-2.5 text-[12px] text-muted-foreground transition hover:border-border-strong hover:text-foreground"
     >
       <Search className="h-3.5 w-3.5 shrink-0" />

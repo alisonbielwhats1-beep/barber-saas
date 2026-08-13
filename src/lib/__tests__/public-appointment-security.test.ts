@@ -4,11 +4,16 @@ import { NextRequest } from "next/server";
 const mocks = vi.hoisted(() => {
   const createAppointment = vi.fn();
   const tx = {
+    $queryRaw: vi.fn().mockResolvedValue([{ id: "salon-a" }]),
     product: {
       findMany: vi.fn().mockResolvedValue([]),
       updateMany: vi.fn(),
     },
+    appointment: {
+      findFirst: vi.fn().mockResolvedValue({ id: "appointment-a", products: [] }),
+    },
     appointmentProduct: { createMany: vi.fn() },
+    auditLog: { create: vi.fn().mockResolvedValue({}) },
     $executeRaw: vi.fn().mockResolvedValue(undefined),
   };
   const transaction = vi.fn(
@@ -68,6 +73,8 @@ function request(body: object) {
 describe("POST /api/appointments — identidade do cliente", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.tx.$queryRaw.mockResolvedValue([{ id: "salon-a" }]);
+    mocks.tx.appointment.findFirst.mockResolvedValue({ id: "appointment-a", products: [] });
     mocks.getClientSession.mockResolvedValue({
       clientId: "client-session",
       salonId: "salon-a",
@@ -128,12 +135,84 @@ describe("POST /api/appointments — identidade do cliente", () => {
     expect(mocks.tx.product.updateMany).not.toHaveBeenCalled();
   });
 
+  it("serializa e reserva produto pelo preço do servidor", async () => {
+    mocks.tx.product.findMany.mockResolvedValueOnce([{
+      id: "product-a",
+      name: "Pomada",
+      priceCents: 1_500,
+      stock: 5,
+    }]);
+    mocks.tx.product.updateMany.mockResolvedValueOnce({ count: 1 });
+    mocks.tx.appointmentProduct.createMany.mockResolvedValueOnce({ count: 1 });
+
+    const response = await POST(request({
+      ...validBody,
+      cartItems: [{ productId: "product-a", quantity: 2 }],
+    }));
+
+    expect(response.status).toBe(201);
+    expect(mocks.createAppointment).toHaveBeenCalledWith(
+      mocks.tx,
+      expect.objectContaining({
+        idempotencyContext: [{ productId: "product-a", quantity: 2 }],
+      }),
+    );
+    expect(mocks.tx.product.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "product-a",
+        salonId: "salon-a",
+        active: true,
+        stock: 5,
+      },
+      data: { stock: { decrement: 2 } },
+    });
+    expect(mocks.tx.appointmentProduct.createMany).toHaveBeenCalledWith({
+      data: [{
+        appointmentId: "appointment-a",
+        productId: "product-a",
+        quantity: 2,
+        priceCentsUnit: 1_500,
+      }],
+    });
+    expect(mocks.tx.$queryRaw.mock.invocationCallOrder.at(-1))
+      .toBeLessThan(mocks.tx.product.findMany.mock.invocationCallOrder[0]!);
+    expect(mocks.tx.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        salonId: "salon-a",
+        action: "STOCK_ADJUSTED",
+        entityId: "product-a",
+        metadata: expect.objectContaining({
+          kind: "RESERVATION",
+          delta: -2,
+          previousStock: 5,
+          newStock: 3,
+          appointmentId: "appointment-a",
+        }),
+      }),
+    });
+  });
+
   it("clientId enviado pelo navegador não substitui a sessão", async () => {
     const response = await POST(
       request({ ...validBody, clientId: "client-de-outra-pessoa" }),
     );
 
     expect(response.status).toBe(400);
+    expect(mocks.transaction).not.toHaveBeenCalled();
+  });
+
+  it("trata JSON malformado como BAD_REQUEST sem consultar sessão ou tenant", async () => {
+    const response = await POST(
+      new NextRequest("http://localhost/api/appointments", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "{",
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: "BAD_REQUEST" });
+    expect(mocks.getClientSession).not.toHaveBeenCalled();
     expect(mocks.transaction).not.toHaveBeenCalled();
   });
 
@@ -205,20 +284,69 @@ describe("POST /api/appointments — identidade do cliente", () => {
     expect(input.guest).toEqual({ name: "Visitante", phone: "11999999999" });
   });
 
-  it("normaliza telefone do visitante exclusivamente no servidor", async () => {
+  it.each([
+    ["+55 (11) 99999-8888", "11999998888"],
+    ["55 11 99999-8888", "11999998888"],
+    ["(11) 99999-8888", "11999998888"],
+    ["+55 (11) 3333-4444", "1133334444"],
+    ["55 11 3333-4444", "1133334444"],
+    ["(11) 3333-4444", "1133334444"],
+  ])("normaliza telefone visitante %s exclusivamente no servidor", async (
+    clientPhone,
+    normalized,
+  ) => {
     mocks.getClientSession.mockResolvedValue(null);
 
     await POST(
       request({
         ...validBody,
         clientName: "Visitante",
-        clientPhone: "(11) 99999-8888",
+        clientPhone,
       }),
     );
 
     expect(mocks.createAppointment.mock.calls[0]![1].guest).toEqual({
       name: "Visitante",
-      phone: "11999998888",
+      phone: normalized,
     });
   });
+
+  it.each([
+    "+1 (212) 555-0100",
+    "abc (11) 99999-8888",
+    "(20) 99999-8888",
+    "(11) 9333-4444",
+    "(11) 89999-8888",
+    "+55 (11) 99999-88889",
+  ])("rejeita telefone visitante inválido sem consultar sessão ou persistir: %s", async (
+    clientPhone,
+  ) => {
+    mocks.getClientSession.mockResolvedValue(null);
+
+    const response = await POST(request({
+      ...validBody,
+      clientName: "Visitante",
+      clientPhone,
+    }));
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: "BAD_REQUEST" });
+    expect(mocks.getClientSession).not.toHaveBeenCalled();
+    expect(mocks.transaction).not.toHaveBeenCalled();
+    expect(mocks.createAppointment).not.toHaveBeenCalled();
+  });
+
+  it.each(["PENDING", "REJECTED", "SUSPENDED"])(
+    "oculta estabelecimento %s e não inicia a criação",
+    async () => {
+      mocks.tx.$queryRaw.mockResolvedValueOnce([]);
+
+      const response = await POST(request(validBody));
+
+      expect(response.status).toBe(404);
+      await expect(response.json()).resolves.toEqual({ error: "NOT_FOUND" });
+      expect(mocks.createAppointment).not.toHaveBeenCalled();
+      expect(mocks.tx.$executeRaw).not.toHaveBeenCalled();
+    },
+  );
 });

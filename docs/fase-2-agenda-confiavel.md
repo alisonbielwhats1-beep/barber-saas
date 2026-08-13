@@ -252,3 +252,54 @@ obrigatório da homologação e devem virar automação E2E na etapa seguinte.
 - múltiplas unidades ainda não fazem parte do schema atual;
 - processamento assíncrono com retry/dead-letter da outbox fica para a Fase 4;
 - aplicação em homologação e Production exige autorização separada.
+
+## Wave1 operacional candidata — ainda não implantada
+
+Em 13/08/2026, a branch `codex/commercial-maturity-wave1` consolidou uma onda
+posterior à Fase 2 já implantada. Não houve migration, alteração de Supabase ou
+deploy desta candidata.
+
+### Agenda, fila e estados
+
+- todas as mutações operacionais relevantes compartilham a ordem canônica de
+  locks `appointment → professional → product`;
+- cancelamento continua não destrutivo, restaura reserva de produto no máximo
+  uma vez e, quando feito pela equipe, encerra todas as entradas ativas da fila
+  daquele atendimento sem promover outra pessoa;
+- `IN_PROGRESS` e `COMPLETED` falham antes do início contratado; a comanda só
+  pode receber depois de `startAt`, inclusive para atendimento já concluído;
+- UI e servidor usam a mesma regra temporal para oferecer ação e autorizá-la.
+
+### Produto, comanda, estoque e recibo
+
+- criação pública com produtos ganhou uma capability única que cria o
+  atendimento e reserva estoque na mesma transação/fingerprint idempotente;
+- a reserva valida appointment, produto ativo, tenant, quantidade e estoque sob
+  locks canônicos, usando preço do servidor como snapshot;
+- fechamento da comanda reconcilia reserva e quantidade desejada, preserva o
+  preço das unidades retidas, usa o preço atual nas adicionais e movimenta
+  somente o delta de estoque;
+- status, linhas finais, estoque, `Payment`, evento e `AuditLog` confirmam ou
+  revertem juntos; retry idempotente não gera segundo pagamento ou movimento;
+- recepção pode registrar recebimento, mas não aplicar desconto; owner/manager
+  continuam responsáveis por desconto;
+- recibo interno e impressão usam o `Payment` persistido e os snapshots de
+  serviço/preço/quantidade.
+
+### Testes candidatos
+
+- integração PostgreSQL amplia concorrência para create+reserve, checkout,
+  cancelamento, ajuste, idempotência, preço e estoque;
+- `schema-smoke` chama agenda, comanda e lock público pelo script
+  `test:appointment-integration`;
+- a execução PostgreSQL e o CI remoto estão pendentes porque esta máquina não
+  possui PostgreSQL/Docker; não há staging/browser autenticado disponível.
+
+### Dívidas que permanecem
+
+- `AppointmentProduct` não carrega `salonId`; a validação transacional reduz a
+  superfície atual, mas a solução estrutural exige migration tenant-aware com
+  preflight, backfill, constraints compostas, RLS e rollback;
+- nome do produto e moeda não são snapshots persistidos. O recibo atual é
+  interno, não fiscal, e pode refletir nome/moeda configurados depois da venda;
+- CI verde, Preview seguro e deploy ainda não foram comprovados.

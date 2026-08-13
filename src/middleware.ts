@@ -7,6 +7,7 @@ import {
 } from "next/server";
 import {
   isSafeMarketingPreviewPath,
+  isSafePreviewSessionProbe,
   isUnconfiguredVercelPreview,
 } from "@/lib/runtime-environment";
 
@@ -44,13 +45,27 @@ function isProtectedPath(pathname: string) {
 /**
  * Protege as rotas administrativas: sem sessão válida, redireciona para /login.
  * Em Vercel Preview sem staging, permite somente a landing e seus assets
- * versionados para revisão visual. Rotas com dados ou autenticação continuam
- * bloqueadas.
+ * versionados para revisão visual. Apenas o probe anônimo de sessão recebe
+ * `{}` diretamente; rotas com dados ou autenticação continuam bloqueadas.
  */
 export default function middleware(
   request: NextRequest,
   event: NextFetchEvent,
 ) {
+  if (
+    isUnconfiguredVercelPreview(process.env) &&
+    request.method === "GET" &&
+    isSafePreviewSessionProbe(request.nextUrl.pathname)
+  ) {
+    // O cliente do NextAuth converte um objeto vazio em sessão nula. Retornar
+    // JSON `null` diretamente faz sua rotina chamar Object.keys(null).
+    const response = NextResponse.json({}, { status: 200 });
+    response.headers.set("Cache-Control", "no-store");
+    response.headers.set("X-Environment-Guard", "anonymous-session");
+    response.headers.set("X-Robots-Tag", "noindex, nofollow");
+    return response;
+  }
+
   if (
     isUnconfiguredVercelPreview(process.env) &&
     !isSafeMarketingPreviewPath(request.nextUrl.pathname)

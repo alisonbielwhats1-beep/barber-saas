@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { withSalon } from "@/lib/prisma-tenant";
+import { withApprovedSalon } from "@/lib/prisma-tenant";
 import { getClientSession } from "@/lib/client-auth";
 import { resolveBookingIdentity } from "@/lib/public-appointment";
-import { isValidPhoneBR } from "@/lib/phone";
+import { isValidPhoneBR, normalizePhone } from "@/lib/phone";
 import { isWaitlistError, joinWaitlist } from "@/lib/waitlist";
 import {
   checkRateLimit,
@@ -22,8 +22,8 @@ const body = z
     clientPhone: z
       .string()
       .max(32)
-      .transform((value) => value.replace(/\D/g, ""))
-      .refine((value) => (value.length === 10 || value.length === 11) && isValidPhoneBR(value))
+      .refine(isValidPhoneBR)
+      .transform(normalizePhone)
       .optional(),
   })
   .strict();
@@ -49,7 +49,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const parsed = body.safeParse(await req.json());
+  let payload: unknown;
+  try {
+    payload = await req.json();
+  } catch {
+    return NextResponse.json({ error: "BAD_REQUEST" }, { status: 400 });
+  }
+  const parsed = body.safeParse(payload);
   if (!parsed.success) {
     return NextResponse.json({ error: "BAD_REQUEST" }, { status: 400 });
   }
@@ -58,7 +64,7 @@ export async function POST(req: NextRequest) {
   const identity = resolveBookingIdentity(session, input.salonId);
 
   try {
-    const result = await withSalon(input.salonId, (tx) =>
+    const result = await withApprovedSalon(input.salonId, (tx) =>
       joinWaitlist(tx, {
         salonId: input.salonId,
         appointmentId: input.appointmentId,
@@ -69,6 +75,9 @@ export async function POST(req: NextRequest) {
           : { guestName: input.clientName, guestPhone: input.clientPhone }),
       }),
     );
+    if (!result) {
+      return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+    }
     return NextResponse.json(
       {
         ok: true,

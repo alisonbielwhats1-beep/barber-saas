@@ -48,6 +48,8 @@ export function CadastroForm({
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
+          minLength={2}
+          maxLength={120}
           autoComplete="name"
           placeholder="Seu nome"
           className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none"
@@ -64,6 +66,7 @@ export function CadastroForm({
           inputMode="tel"
           value={phone}
           onChange={(e) => setPhone(formatPhoneBR(e.target.value))}
+          maxLength={32}
           autoComplete="tel"
           placeholder="(11) 91234-5678"
           className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none"
@@ -79,6 +82,7 @@ export function CadastroForm({
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
+          maxLength={254}
           autoComplete="email"
           placeholder="seu@email.com"
           className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none"
@@ -95,6 +99,8 @@ export function CadastroForm({
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
+            minLength={6}
+            maxLength={128}
             autoComplete="new-password"
             placeholder="Mínimo 6 caracteres"
             className="w-full rounded-2xl border border-border bg-card px-4 py-3 pr-12 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none"

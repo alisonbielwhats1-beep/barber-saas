@@ -152,7 +152,7 @@ jobs:
         run: npx prisma validate
       - name: Seed disposable database
         run: npm run db:seed
-      - name: Prove appointment concurrency with PostgreSQL
+      - name: Prove appointment and comanda concurrency with PostgreSQL, plus public access locking
         run: npm run test:appointment-integration
       - name: Prove non-destructive Phase 2 rollback SQL
         run: >-

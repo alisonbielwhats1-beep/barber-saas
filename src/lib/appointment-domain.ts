@@ -33,6 +33,7 @@ export type AppointmentErrorCode =
   | "ALREADY_CLOSED"
   | "TOO_LATE"
   | "ALREADY_STARTED"
+  | "NOT_STARTED_YET"
   | "INVALID_STATUS_TRANSITION"
   | "VERSION_CONFLICT"
   | "IDEMPOTENCY_MISMATCH"
@@ -83,6 +84,27 @@ export function assertStatusTransition(
     throw new AppointmentError(
       "INVALID_STATUS_TRANSITION",
       `Transição inválida: ${current} → ${next}`,
+    );
+  }
+}
+
+/**
+ * Estados que afirmam presenca ou execucao so podem ser gravados quando o
+ * horario contratado ja comecou. Isso tambem impede que uma conclusao
+ * antecipada retire o intervalo da protecao contra conflito.
+ */
+export function assertOperationalStatusTime(
+  status: AppointmentStatus,
+  startAt: Date,
+  now = new Date(),
+): void {
+  if (
+    (status === "IN_PROGRESS" || status === "COMPLETED" || status === "NO_SHOW") &&
+    startAt.getTime() > now.getTime()
+  ) {
+    throw new AppointmentError(
+      "NOT_STARTED_YET",
+      `O horario do atendimento ainda nao comecou: ${startAt.toISOString()}`,
     );
   }
 }
