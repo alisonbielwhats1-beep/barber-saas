@@ -174,14 +174,16 @@ Rollback nunca deve apagar dados recém-criados sem exportação e autorização
 - A conta já possui dois projetos Supabase ativos; a classificação segura entre
   produção e homologação e o ajuste das variáveis Vercel Preview estão
   pendentes. Nenhum terceiro projeto foi criado.
-- A candidata `codex/commercial-maturity-wave1` adiciona testes PostgreSQL de
+- A wave1 implantada pelos PRs #50/#51 adiciona testes PostgreSQL de
   concorrência de agenda, comanda/estoque e lock de aprovação versus suspensão
-  ao `schema-smoke`; a ligação está versionada, mas sua execução no CI remoto
-  ainda não foi comprovada.
+  ao `schema-smoke`; a execução no CI remoto foi comprovada em PostgreSQL 16,
+  inclusive com role runtime `NOBYPASSRLS` e FORCE RLS.
 - O teste de lock público identifica o backend concorrente por
   `application_name` e exige evidência positiva em `pg_stat_activity` e
   `pg_blocking_pids`, evitando aprovação por mero atraso do pool.
 - A máquina usada na wave não possui PostgreSQL/Docker e não dispõe de staging
-  autenticável. Testes de banco e browser real devem ocorrer exclusivamente no
-  PostgreSQL efêmero do CI e em Preview ligado a staging inequivocamente seguro.
-- Produção: não alterada.
+  autenticável. Testes de banco continuam exclusivos do PostgreSQL efêmero do
+  CI; jornadas autenticadas exigem staging inequivocamente seguro.
+- Production final: commit `6465123`, deploy
+  `dpl_65KHBGkS2SGbd6HdMGTCKopLqV6B`, estado `READY`. O rollback do primeiro
+  deploy da wave foi executado e validado antes do hotfix #51.

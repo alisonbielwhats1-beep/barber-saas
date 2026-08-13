@@ -1,20 +1,17 @@
 # Status atual canônico — Salon SaaS
 
-Atualizado em **13/08/2026** após o PR
-[#48](https://github.com/alisonbielwhats1-beep/barber-saas/pull/48).
+Atualizado em **13/08/2026** após os PRs
+[#50](https://github.com/alisonbielwhats1-beep/barber-saas/pull/50) e
+[#51](https://github.com/alisonbielwhats1-beep/barber-saas/pull/51).
 Este arquivo substitui os status históricos quando houver contradição.
-
-> A seção “Candidata wave1 de maturidade comercial” descreve trabalho local
-> posterior ao PR #48. Ela **não está em Production**: CI remoto, Preview e
-> deploy continuam pendentes até haver evidência verificável.
 
 ## Identificação da versão
 
 - Repositório: `alisonbielwhats1-beep/barber-saas`
 - Branch produtiva: `master`
-- Commit funcional da aplicação: `bc4aab8451548d5ac1fc3b121c73591e1c099ce0`
+- Commit funcional da aplicação: `646512399ca9b9dd45a4a8eb524a79dc6fec1dd4`
 - Vercel: projeto `salon-saas`
-- Deploy do commit: `dpl_AoMGQXkw1ZbfZchSr4qb2gjUakuS`, estado `READY`
+- Deploy do commit: `dpl_65KHBGkS2SGbd6HdMGTCKopLqV6B`, estado `READY`
 - URL oficial: [salon-saas-ruby.vercel.app](https://salon-saas-ruby.vercel.app)
 - Região das Functions: `gru1`
 - Banco/Storage: Supabase do projeto de barbearia
@@ -154,10 +151,10 @@ Este arquivo substitui os status históricos quando houver contradição.
 - Home e vitrine pública responderam `200`; `/marketing` sem sessão respondeu
   `307` para login; não houve erro nos logs pós-deploy verificados.
 
-## Candidata wave1 de maturidade comercial — ainda não implantada
+## Wave1 de maturidade comercial — implantada
 
-Estado local da branch `codex/commercial-maturity-wave1`, revisado por ondas de
-implementação e crítica independente:
+O PR #50 foi revisado por ondas de implementação e crítica independente; o
+hotfix do PR #51 fechou a incompatibilidade de lock público com a role runtime.
 
 ### Jornada e componentes compartilhados
 
@@ -209,7 +206,7 @@ implementação e crítica independente:
 - `IN_PROGRESS` e `COMPLETED`, assim como a abertura da comanda, só são aceitos
   depois do início contratado; a UI deriva as ações da mesma regra temporal.
 
-### Testes e gates da candidata
+### Testes, CI e rollout
 
 - testes DOM cobrem concorrência da disponibilidade, cooldowns sucessivos,
   troca de consulta durante `429`, modais mobile/palette, teclado e retorno de
@@ -218,14 +215,25 @@ implementação e crítica independente:
   e o lock de aprovação versus suspensão; o último identifica o backend por
   `application_name` e prova bloqueio com `pg_stat_activity` e
   `pg_blocking_pids`;
-- `schema-smoke` está configurado para executar essas três famílias pelo script
+- `schema-smoke` executa essas famílias pelo script
   `test:appointment-integration`;
-- evidência local final da candidata: lint e TypeScript passaram; `npm test`
-  passou com 70 arquivos e 446 testes; o build completo do Next.js 15.5.22
-  passou e gerou 41 páginas;
-- esta máquina não possui PostgreSQL/Docker nem staging seguro; portanto a
-  integração PostgreSQL, browser autenticado, Preview e CI remoto ainda
-  precisam ser comprovados fora desta sessão.
+- evidência local final: lint e TypeScript passaram; `npm test` passou com 71
+  arquivos e 464 testes; o build completo do Next.js 15.5.22 passou e gerou 41
+  páginas;
+- CI do PR #50 e do hotfix #51 passou; o PostgreSQL 16 efêmero executou agenda,
+  comanda, concorrência, suspensão e uma role `NOBYPASSRLS` equivalente à
+  `app_runtime` sob FORCE RLS;
+- o primeiro deploy do PR #50 (`dpl_8GvJGoEHeBzLqXmfZohqpTYRwJ4k`) retornou 404
+  nas vitrines públicas. Houve rollback imediato para
+  `dpl_6KwTp9HBs4iYSBEd4gABks3d7jdW`, com recuperação dos 90 serviços do Studio
+  Martinelli;
+- causa: `SELECT ... FOR SHARE` ocorria antes de `app.current_salon`; a policy
+  RLS de UPDATE tornava a linha invisível à role runtime. O PR #51 passou a
+  resolver o id publicamente, setar a GUC local, revalidar slug + `APPROVED` e
+  só então adquirir o lock;
+- deploy final do hotfix: `dpl_65KHBGkS2SGbd6HdMGTCKopLqV6B`, estado `READY`.
+  Home e `/book/studio-martinelli/agendar` foram verificados por GET; a vitrine
+  exibiu 90 serviços, sem 404 e sem erro/warning de navegador ou runtime.
 
 ### Limitações deliberadamente não resolvidas
 
@@ -233,8 +241,8 @@ implementação e crítica independente:
   tenant, mas a defesa estrutural ideal exige migration tenant-aware aditiva;
 - o recibo preserva pagamento, preço e quantidade, porém nome do produto e
   moeda ainda vêm do catálogo/configuração atuais, sem snapshot fiscal;
-- não houve migration, alteração de Supabase, CI remoto, Preview ou deploy para
-  esta wave.
+- não houve migration, alteração de schema, variável remota ou mutação de dados
+  do Supabase nesta wave.
 
 ## Evidências da entrega implantada no PR #48
 
@@ -250,24 +258,21 @@ implementação e crítica independente:
 
 ## Pendências reais e priorizadas
 
-1. Rodar CI completo da candidata wave1, incluindo `schema-smoke` e integrações
-   PostgreSQL; depois validar Preview seguro e somente então
-   decidir merge/deploy.
-2. Criar a migration tenant-aware de `AppointmentProduct`, com preflight,
+1. Criar a migration tenant-aware de `AppointmentProduct`, com preflight,
    backfill, constraints compostas, RLS e rollback, apenas após staging e nova
    autorização; incluir snapshots persistentes de nome do produto e moeda em
    uma decisão de schema própria.
-3. Confirmar manualmente o primeiro login do administrador principal e a
+2. Confirmar manualmente o primeiro login do administrador principal e a
    promoção para `SUPER_ADMIN`; nenhuma senha foi acessada pelo agente.
-4. Criar/identificar Supabase de homologação separado antes da migration `011`.
-5. Validar a migration `011`, RLS, rollback e cobranças manuais em staging;
+3. Criar/identificar Supabase de homologação separado antes da migration `011`.
+4. Validar a migration `011`, RLS, rollback e cobranças manuais em staging;
    só depois decidir se ativa em Production.
-6. Ativar convites por e-mail via Resend somente após teste completo em Preview.
-7. Adicionar Playwright para jornadas E2E quando houver banco de staging seguro.
-8. Ensaiar backup nativo/restore do Supabase antes de clientes reais.
-9. Rotacionar/remover qualquer credencial de demonstração conhecida e nunca
+5. Ativar convites por e-mail via Resend somente após teste completo em Preview.
+6. Adicionar Playwright para jornadas E2E quando houver banco de staging seguro.
+7. Ensaiar backup nativo/restore do Supabase antes de clientes reais.
+8. Rotacionar/remover qualquer credencial de demonstração conhecida e nunca
    documentar senhas no repositório público.
-10. Realtime filtrado por tenant, múltiplas unidades e pagamento online continuam
+9. Realtime filtrado por tenant, múltiplas unidades e pagamento online continuam
    fora do escopo atual.
 
 ## Próximo passo recomendado
@@ -285,7 +290,7 @@ escolher apenas uma frente:
 > `AGENTS.md`, `docs/STATUS_ATUAL.md`, `docs/AMBIENTES.md` e
 > `docs/DECISOES_PRODUTO.md`. Não refaça auditoria completa e não altere
 > Production. Confirme branch limpa, CI e o escopo escolhido. A versão
-> funcional implantada é o commit `bc4aab8`; a migration
+> funcional implantada é o commit `6465123`; a migration
 > `011_platform_billing` não foi
 > aplicada e a flag de billing está desligada. Preserve RLS, histórico e
 > isolamento multi-tenant. Proponha o próximo passo antes de qualquer migration.
