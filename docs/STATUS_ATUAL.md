@@ -1,16 +1,16 @@
 # Status atual canônico — Salon SaaS
 
-Atualizado em **12/08/2026** após o PR
-[#44](https://github.com/alisonbielwhats1-beep/barber-saas/pull/44).
+Atualizado em **13/08/2026** após o PR
+[#48](https://github.com/alisonbielwhats1-beep/barber-saas/pull/48).
 Este arquivo substitui os status históricos quando houver contradição.
 
 ## Identificação da versão
 
 - Repositório: `alisonbielwhats1-beep/barber-saas`
 - Branch produtiva: `master`
-- Commit funcional da aplicação: `dc36a27ced66cd23825ba3791e924da5c5817de5`
+- Commit funcional da aplicação: `bc4aab8451548d5ac1fc3b121c73591e1c099ce0`
 - Vercel: projeto `salon-saas`
-- Deploy do commit: `dpl_DheyfzeD79yKhaKjNNfCuzVjpaYy`, estado `READY`
+- Deploy do commit: `dpl_AoMGQXkw1ZbfZchSr4qb2gjUakuS`, estado `READY`
 - URL oficial: [salon-saas-ruby.vercel.app](https://salon-saas-ruby.vercel.app)
 - Região das Functions: `gru1`
 - Banco/Storage: Supabase do projeto de barbearia
@@ -131,13 +131,32 @@ Este arquivo substitui os status históricos quando houver contradição.
 - Deploy funcional: `dpl_DheyfzeD79yKhaKjNNfCuzVjpaYy`, estado `READY`.
 - Nenhum banco, migration, variável remota ou dado do Supabase foi alterado.
 
+## Marketing e reativação implantados
+
+- O PR #48 foi integrado a `master` e implantado em Production.
+- “Lembrete de sumidos” existe na página de Marketing e continua usando o
+  WhatsApp manual, sem disparo pago ou automático.
+- O dono configura entre 15 e 365 dias para um cliente ser considerado sumido;
+  o padrão seguro permanece 60 dias.
+- A regra é tenant-scoped e vale de forma consistente em Marketing, Clientes,
+  Dashboard e Relatórios.
+- A configuração é persistida na trilha append-only `AuditLog`, sem migration
+  ou alteração de schema em Production.
+- Campanhas podem personalizar nome, cupom, dias sem visita, serviço favorito,
+  link de agendamento e link de avaliação do Google.
+- A página prioriza reativação semanal, avaliações e indicações, com uma
+  oportunidade de retorno estimada a partir do ticket real da base.
+- Deploy funcional: `dpl_AoMGQXkw1ZbfZchSr4qb2gjUakuS`, estado `READY`.
+- Home e vitrine pública responderam `200`; `/marketing` sem sessão respondeu
+  `307` para login; não houve erro nos logs pós-deploy verificados.
+
 ## Evidências da entrega atual
 
 - `npm run lint`: passou.
 - `npx tsc --noEmit --incremental false`: passou.
-- `npm test`: 58 arquivos e 283 testes passaram.
+- `npm test`: 61 arquivos e 297 testes passaram.
 - `npm run build`: passou com Next.js 15.5.22.
-- CI e `schema-smoke` do PR #44: passaram.
+- CI, integração, build e `schema-smoke` do PR #48: passaram.
 - Inspeção visual com 24 serviços: CTA fixo no limite da viewport, seleção
   automática e revisão final confirmadas, sem erro de console.
 - Produção após deploy: home, vitrine pública e agendamento responderam `200`;
@@ -173,7 +192,7 @@ escolher apenas uma frente:
 > `AGENTS.md`, `docs/STATUS_ATUAL.md`, `docs/AMBIENTES.md` e
 > `docs/DECISOES_PRODUTO.md`. Não refaça auditoria completa e não altere
 > Production. Confirme branch limpa, CI e o escopo escolhido. A versão
-> funcional implantada é o commit `066ecbd`; a migration
+> funcional implantada é o commit `bc4aab8`; a migration
 > `011_platform_billing` não foi
 > aplicada e a flag de billing está desligada. Preserve RLS, histórico e
 > isolamento multi-tenant. Proponha o próximo passo antes de qualquer migration.
