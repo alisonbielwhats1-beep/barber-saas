@@ -6,11 +6,13 @@ import { Users, Crown, Cake, Clock } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { ClientForm } from "./client-form";
 import { ClientsCrm } from "./clients-crm";
+import { getMarketingSettings } from "@/lib/marketing-settings";
 
 export default async function ClientesPage() {
   const ctx = await getTenantContext();
   const { salonId, role } = ctx;
-  const { clients, salon } = await withTenant(ctx, async (tx) => {
+  const { clients, salon, marketingSettings } = await withTenant(ctx, async (tx) => {
+    const marketingSettings = await getMarketingSettings(tx, salonId);
     const professional = role === "PROFESSIONAL"
       ? await tx.professional.findFirst({
           where: { salonId, userId: ctx.userId, active: true },
@@ -22,12 +24,13 @@ export default async function ClientesPage() {
       : await getClientList(tx, salonId, {
           professionalId: professional?.id,
           includeCommercialData: role !== "PROFESSIONAL",
+          lapsedClientDays: marketingSettings.lapsedClientDays,
         });
     const salon = await tx.salon.findUnique({
       where: { id: salonId },
       select: { name: true, timezone: true },
     });
-    return { clients, salon };
+    return { clients, salon, marketingSettings };
   });
 
   const vip = clients.filter((c) => c.isVip).length;
@@ -45,7 +48,7 @@ export default async function ClientesPage() {
         <Kpi icon={Users} accent="#3B9EFF" label="Base de clientes" value={clients.length.toString()} hint={`${formatMoney(totalLtv)} em LTV`} />
         <Kpi icon={Crown} accent="#F4C430" label="Clientes VIP" value={vip.toString()} />
         <Kpi icon={Cake} accent="#EC4899" label="Aniversariantes do mês" value={birthday.toString()} />
-        <Kpi icon={Clock} accent="#EF4444" label="Sumidos (60d+)" value={lapsed.toString()} />
+        <Kpi icon={Clock} accent="#EF4444" label={`Sumidos (${marketingSettings.lapsedClientDays}d+)`} value={lapsed.toString()} />
       </section>
 
       <ClientsCrm
@@ -53,6 +56,7 @@ export default async function ClientesPage() {
         salonName={salon?.name ?? "nosso salão"}
         timezone={salon?.timezone ?? "America/Sao_Paulo"}
         canManage={role !== "PROFESSIONAL"}
+        lapsedClientDays={marketingSettings.lapsedClientDays}
       />
     </div>
   );

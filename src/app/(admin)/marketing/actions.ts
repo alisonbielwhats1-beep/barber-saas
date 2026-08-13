@@ -3,6 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { writeAuditLog } from "@/lib/audit";
+import {
+  MARKETING_SETTINGS_ACTION,
+  MAX_LAPSED_CLIENT_DAYS,
+  MIN_LAPSED_CLIENT_DAYS,
+} from "@/lib/marketing-settings";
 import { withTenant } from "@/lib/prisma-tenant";
 import { assertRole, getTenantContext } from "@/lib/tenant";
 
@@ -10,6 +15,14 @@ const interactionInput = z.object({
   campaignKey: z.string().trim().min(2).max(50),
   clientId: z.string().min(1),
   status: z.enum(["OPENED", "COPIED"]),
+});
+
+const settingsInput = z.object({
+  lapsedClientDays: z.number().int().min(MIN_LAPSED_CLIENT_DAYS).max(MAX_LAPSED_CLIENT_DAYS),
+  googleReviewUrl: z.string().trim().max(500).refine(
+    (value) => value === "" || (z.string().url().safeParse(value).success && value.startsWith("https://")),
+    "Informe um link HTTPS válido",
+  ),
 });
 
 export async function recordCampaignInteraction(input: z.infer<typeof interactionInput>) {
@@ -31,5 +44,38 @@ export async function recordCampaignInteraction(input: z.infer<typeof interactio
     });
   });
   revalidatePath("/marketing");
+  return { success: true as const };
+}
+
+export async function updateMarketingSettings(input: z.infer<typeof settingsInput>) {
+  const ctx = await getTenantContext();
+  assertRole(ctx, ["OWNER"]);
+  const parsed = settingsInput.safeParse(input);
+  if (!parsed.success) {
+    return { success: false as const, error: parsed.error.issues[0]?.message ?? "Configuração inválida" };
+  }
+
+  await withTenant(ctx, async (tx) => {
+    const actor = await tx.user.findUnique({
+      where: { id: ctx.userId },
+      select: { name: true },
+    });
+    await writeAuditLog(tx, {
+      salonId: ctx.salonId,
+      userId: ctx.userId,
+      actorName: actor?.name ?? "Dono do estabelecimento",
+      action: MARKETING_SETTINGS_ACTION,
+      entityType: "Salon",
+      entityId: ctx.salonId,
+      metadata: {
+        lapsedClientDays: parsed.data.lapsedClientDays,
+        googleReviewUrl: parsed.data.googleReviewUrl || null,
+      },
+    });
+  });
+
+  revalidatePath("/marketing");
+  revalidatePath("/clientes");
+  revalidatePath("/dashboard");
   return { success: true as const };
 }

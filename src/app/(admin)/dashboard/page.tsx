@@ -45,6 +45,7 @@ import { DonutChart } from "./donut-chart";
 import { LembretesPanel } from "./lembretes-panel";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { NowStrip } from "./now-strip";
+import { getMarketingSettings } from "@/lib/marketing-settings";
 
 const MALE_COLOR = "#3B9EFF";
 const FEMALE_COLOR = "#E85D9E";
@@ -87,12 +88,14 @@ export default async function DashboardPage({
     : "30d";
 
   const now = new Date();
-  const salonData = await withSalon(salonId, (tx) =>
-    tx.salon.findUnique({
+  const { salonData, marketingSettings } = await withSalon(salonId, async (tx) => {
+    const salonData = await tx.salon.findUnique({
       where: { id: salonId },
       select: { name: true, timezone: true },
-    }),
-  );
+    });
+    const marketingSettings = await getMarketingSettings(tx, salonId);
+    return { salonData, marketingSettings };
+  });
   if (!salonData) throw new Error("Estabelecimento não encontrado");
   const timezone = salonData.timezone;
   const todayDate = dateKeyInTimeZone(now, timezone);
@@ -141,7 +144,7 @@ export default async function DashboardPage({
   // Carrega primeiro as métricas para não somar as queries auxiliares às
   // ondas concorrentes do motor do dashboard.
   const m = await withDatabaseRetry("metrics", () =>
-    getDashboardMetrics(salonId, range, timezone),
+    getDashboardMetrics(salonId, range, timezone, marketingSettings.lapsedClientDays),
   );
 
   const [todayAppts, svcCount, proCount] =
@@ -487,7 +490,7 @@ export default async function DashboardPage({
             <MiniStat icon={Users} label="Base total" value={m.clients.total.toString()} />
             <MiniStat icon={UserPlus} label="Novos no período" value={m.clients.new.toString()} />
             <MiniStat icon={Repeat} label="Recorrentes" value={m.clients.returning.toString()} />
-            <MiniStat icon={UserX} label="Sumidos (60d+)" value={m.clients.lost.toString()} />
+            <MiniStat icon={UserX} label={`Sumidos (${marketingSettings.lapsedClientDays}d+)`} value={m.clients.lost.toString()} />
             <MiniStat icon={TrendingUp} label="Retenção" value={`${Math.round(m.clients.retentionRate * 100)}%`} />
           </section>
 

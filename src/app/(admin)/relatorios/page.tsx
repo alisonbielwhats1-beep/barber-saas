@@ -9,6 +9,7 @@ import { TrendingUp, TrendingDown, FileBarChart } from "lucide-react";
 import { RangeFilter } from "../dashboard/range-filter";
 import { ReportActions, type ReportSection } from "./report-actions";
 import { calculateRetentionMetrics } from "@/lib/operational-flows";
+import { getMarketingSettings } from "@/lib/marketing-settings";
 
 const VALID: RangeKey[] = ["today", "yesterday", "7d", "15d", "30d", "90d", "year"];
 
@@ -31,15 +32,16 @@ export default async function RelatoriosPage({
   // getDashboardMetrics mantém as próprias waves de prisma.* cru (RLS-M6,
   // fora de escopo aqui); só a chamada a getFinanceMetrics abre transação,
   // por causa da mudança de assinatura de lib/finance.ts.
-  const timezone = await withTenant(ctx, async (tx) => {
+  const { timezone, marketingSettings } = await withTenant(ctx, async (tx) => {
     const salon = await tx.salon.findUnique({
       where: { id: salonId },
       select: { timezone: true },
     });
     if (!salon) throw new Error("Estabelecimento não encontrado");
-    return salon.timezone;
+    const marketingSettings = await getMarketingSettings(tx, salonId);
+    return { timezone: salon.timezone, marketingSettings };
   });
-  const m = await getDashboardMetrics(salonId, range, timezone);
+  const m = await getDashboardMetrics(salonId, range, timezone, marketingSettings.lapsedClientDays);
   const fin = await withTenant(ctx, (tx) =>
     getFinanceMetrics(tx, salonId, range, timezone),
   );
@@ -47,7 +49,11 @@ export default async function RelatoriosPage({
     where: { salonId },
     select: { appointments: { where: { status: "COMPLETED" }, select: { startAt: true }, orderBy: { startAt: "desc" } } },
   }));
-  const retention = calculateRetentionMetrics(retentionSource.map((client) => ({ visits: client.appointments.map((appointment) => appointment.startAt) })));
+  const retention = calculateRetentionMetrics(
+    retentionSource.map((client) => ({ visits: client.appointments.map((appointment) => appointment.startAt) })),
+    new Date(),
+    marketingSettings.lapsedClientDays,
+  );
 
   const periodLabel = `${formatInTimeZone(m.period.from, timezone, "d MMM", { locale: ptBR })} – ${formatInTimeZone(m.period.to, timezone, "d MMM yyyy", { locale: ptBR })}`;
 
@@ -65,7 +71,7 @@ export default async function RelatoriosPage({
         ["Ocupação (%)", Math.round(m.occupancy.rate * 100)],
         ["Retenção de clientes (%)", retention.returningClientRatePct],
         ["Intervalo médio entre visitas (dias)", retention.averageDaysBetweenVisits],
-        ["Clientes inativos há mais de 60 dias", retention.lapsedClients],
+        [`Clientes inativos há ${marketingSettings.lapsedClientDays} dias ou mais`, retention.lapsedClients],
       ],
     },
     {

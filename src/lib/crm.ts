@@ -3,6 +3,7 @@ import { differenceInDays } from "date-fns";
 import { parseClientCareProfile } from "./client-care-profile";
 import { loyaltyProgress } from "./growth-tools";
 import { calculateLoyaltyBalance } from "./operational-flows";
+import { normalizeLapsedClientDays } from "./marketing-settings";
 
 /**
  * Motor de CRM: consolida, por cliente, LTV, visitas, última visita,
@@ -30,10 +31,11 @@ function topOf(counts: Map<string, number>): string | null {
 export async function getClientList(
   tx: Tx,
   salonId: string,
-  options?: { professionalId?: string; includeCommercialData?: boolean },
+  options?: { professionalId?: string; includeCommercialData?: boolean; lapsedClientDays?: number },
 ) {
   const now = new Date();
   const professionalId = options?.professionalId;
+  const lapsedClientDays = normalizeLapsedClientDays(options?.lapsedClientDays);
   // Sequencial de propósito: pooler com connection_limit=1 em serverless —
   // 5 queries em Promise.all estouravam o timeout do pool (P2024).
   // Mesma correção aplicada em lib/dashboard.ts, lib/kpis.ts e lib/finance.ts.
@@ -106,7 +108,7 @@ export async function getClientList(
     const loyaltyBalance = calculateLoyaltyBalance({ completedVisits: visits, redeemedPoints: redeemedPoints.get(c.id) ?? 0, rewardCost: 5 });
     const care = parseClientCareProfile(c.notes);
     const isVip = totalSpent >= 50000 || visits >= 8;
-    const isLapsed = visits > 0 && daysSince != null && daysSince > 60;
+    const isLapsed = visits > 0 && daysSince != null && daysSince >= lapsedClientDays;
     const birthdayThisMonth = c.birthday ? c.birthday.getMonth() === now.getMonth() : false;
 
     return {
