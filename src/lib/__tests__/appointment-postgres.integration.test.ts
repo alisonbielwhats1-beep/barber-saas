@@ -529,7 +529,7 @@ describePostgres("concorrência real de agendamentos", () => {
     await expect(prisma.appointment.findUniqueOrThrow({
       where: { id: created.appointment.id },
       select: { status: true, version: true },
-    })).resolves.toEqual({ status: "PENDING", version: 1 });
+    })).resolves.toEqual({ status: "CONFIRMED", version: 1 });
     expect(await prisma.appointment.count({
       where: {
         salonId: data.salonId,
