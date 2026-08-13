@@ -346,7 +346,10 @@ describe("POST /api/appointments — identidade do cliente", () => {
       expect(response.status).toBe(404);
       await expect(response.json()).resolves.toEqual({ error: "NOT_FOUND" });
       expect(mocks.createAppointment).not.toHaveBeenCalled();
-      expect(mocks.tx.$executeRaw).not.toHaveBeenCalled();
+      // O salonId já é conhecido nesta API: a GUC transacional precisa ser
+      // definida antes do FOR SHARE para a policy RLS de UPDATE enxergar a
+      // linha. O callback e a mutação continuam proibidos.
+      expect(mocks.tx.$executeRaw).toHaveBeenCalledOnce();
     },
   );
 });

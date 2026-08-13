@@ -124,6 +124,11 @@ export async function withApprovedSalon<T>(
   fn: (tx: Tx, salonId: string) => Promise<T>,
 ): Promise<T | null> {
   return prisma.$transaction(async (tx) => {
+    // `SELECT ... FOR SHARE` também exige que a linha seja visível para a
+    // policy de UPDATE. Com RLS forçada, o lock precisa vir depois da GUC;
+    // do contrário um salão aprovado fica invisível para app_runtime.
+    await setGuc(tx, "app.current_salon", salonId);
+
     // O lock compartilhado impede UPDATE/DELETE do Salon até o callback
     // terminar. Sem ele, READ COMMITTED ainda permitiria suspensão entre o
     // SELECT e a escrita pública, apesar de ambos estarem na mesma transação.
@@ -136,7 +141,6 @@ export async function withApprovedSalon<T>(
     `;
     if (!found) return null;
 
-    await setGuc(tx, "app.current_salon", found.id);
     return fn(tx, found.id);
   });
 }
@@ -189,17 +193,31 @@ export async function withSalonBySlug<T>(
   fn: (tx: Tx, salonId: string) => Promise<T>,
 ): Promise<T | null> {
   return prisma.$transaction(async (tx) => {
-    const [found] = await tx.$queryRaw<Array<{ id: string }>>`
+    // A leitura pública resolve o id sem lock. Depois de setar a GUC, uma
+    // segunda leitura revalida APPROVED e adquire o lock na mesma transação.
+    // Assim preservamos o bloqueio de suspensão sem esbarrar na policy RLS de
+    // UPDATE exigida por SELECT ... FOR SHARE.
+    const [resolved] = await tx.$queryRaw<Array<{ id: string }>>`
       SELECT "id"
       FROM "Salon"
       WHERE "slug" = ${slug}
         AND "accessStatus" = 'APPROVED'::"SalonAccessStatus"
+    `;
+    if (!resolved) return null;
+
+    await setGuc(tx, "app.current_salon", resolved.id);
+
+    const [locked] = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT "id"
+      FROM "Salon"
+      WHERE "id" = ${resolved.id}
+        AND "slug" = ${slug}
+        AND "accessStatus" = 'APPROVED'::"SalonAccessStatus"
       FOR SHARE
     `;
-    if (!found) return null;
+    if (!locked) return null;
 
-    await setGuc(tx, "app.current_salon", found.id);
-    return fn(tx, found.id);
+    return fn(tx, locked.id);
   });
 }
 
