@@ -21,3 +21,12 @@ export function isUnconfiguredVercelPreview(
 export function isSafeMarketingPreviewPath(pathname: string): boolean {
   return pathname === "/" || pathname.startsWith("/images/");
 }
+
+/**
+ * A landing monta o SessionProvider, que consulta este endpoint via GET mesmo
+ * sem autenticação. Em Preview sem staging, o middleware responde `null`
+ * diretamente e não encaminha a requisição ao NextAuth ou ao banco.
+ */
+export function isSafePreviewSessionProbe(pathname: string): boolean {
+  return pathname === "/api/auth/session";
+}

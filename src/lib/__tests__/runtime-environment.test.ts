@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   isSafeMarketingPreviewPath,
+  isSafePreviewSessionProbe,
   isUnconfiguredVercelPreview,
 } from "../runtime-environment";
 
@@ -58,5 +59,20 @@ describe("isSafeMarketingPreviewPath", () => {
     "/images",
   ])("mantém bloqueada a rota %s", (pathname) => {
     expect(isSafeMarketingPreviewPath(pathname)).toBe(false);
+  });
+});
+
+describe("isSafePreviewSessionProbe", () => {
+  it("permite somente o probe anônimo exato usado pela landing", () => {
+    expect(isSafePreviewSessionProbe("/api/auth/session")).toBe(true);
+  });
+
+  it.each([
+    "/api/auth/session/",
+    "/api/auth/providers",
+    "/api/auth/csrf",
+    "/api/appointments",
+  ])("não abre outras superfícies do Preview: %s", (pathname) => {
+    expect(isSafePreviewSessionProbe(pathname)).toBe(false);
   });
 });
