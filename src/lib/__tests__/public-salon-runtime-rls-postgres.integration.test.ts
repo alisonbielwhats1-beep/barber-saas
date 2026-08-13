@@ -37,6 +37,10 @@ describePostgres("acesso público com a role runtime e RLS real", () => {
       $$
       `,
       `GRANT USAGE ON SCHEMA public TO ${ROLE}`,
+      // A policy produtiva `salon_platform_admin_update` consulta User para a
+      // exceção de SUPER_ADMIN. A role app_runtime real possui este SELECT;
+      // sem ele o Postgres falha ao avaliar o conjunto permissivo de policies.
+      `GRANT SELECT ON TABLE "User" TO ${ROLE}`,
       `GRANT SELECT, UPDATE ON TABLE "Salon" TO ${ROLE}`,
       `ALTER TABLE "Salon" ENABLE ROW LEVEL SECURITY`,
       `ALTER TABLE "Salon" FORCE ROW LEVEL SECURITY`,
