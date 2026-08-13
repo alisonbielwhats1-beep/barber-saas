@@ -111,6 +111,46 @@ export async function withSalon<T>(
 }
 
 /**
+ * Executa uma operação pública somente se o estabelecimento estiver
+ * aprovado. A resolução e o callback compartilham a mesma transação para
+ * impedir que uma suspensão concorrente deixe uma escrita passar entre a
+ * verificação e o uso do tenant.
+ *
+ * Estados não públicos e ids inexistentes produzem o mesmo `null`; o chamador
+ * não deve distinguir PENDING, REJECTED, SUSPENDED ou ausência.
+ */
+export async function withApprovedSalon<T>(
+  salonId: string,
+  fn: (tx: Tx, salonId: string) => Promise<T>,
+): Promise<T | null> {
+  return prisma.$transaction(async (tx) => {
+    // O lock compartilhado impede UPDATE/DELETE do Salon até o callback
+    // terminar. Sem ele, READ COMMITTED ainda permitiria suspensão entre o
+    // SELECT e a escrita pública, apesar de ambos estarem na mesma transação.
+    const [found] = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT "id"
+      FROM "Salon"
+      WHERE "id" = ${salonId}
+        AND "accessStatus" = 'APPROVED'::"SalonAccessStatus"
+      FOR SHARE
+    `;
+    if (!found) return null;
+
+    await setGuc(tx, "app.current_salon", found.id);
+    return fn(tx, found.id);
+  });
+}
+
+/** Preflight público barato; operações posteriores devem revalidar no tx. */
+export async function isApprovedSalonSlug(slug: string): Promise<boolean> {
+  const found = await prisma.salon.findFirst({
+    where: { slug, accessStatus: "APPROVED" },
+    select: { id: true },
+  });
+  return Boolean(found);
+}
+
+/**
  * Executa `fn` conhecendo apenas o usuário, sem salão ativo.
  *
  * Existe para o passo que descobre o tenant: `getTenantContext()` lê
@@ -140,22 +180,27 @@ export async function withUser<T>(
  * pública), mas cada relação aninhada volta vazia, silenciosamente, porque a
  * policy dela compara `salonId` com uma GUC nunca setada.
  *
- * Por isso o id é resolvido ANTES de abrir a transação, com uma consulta à
- * parte — `Salon` tem leitura pública (`USING (TRUE)`), então essa consulta
- * não precisa de GUC nenhuma. Isso custa um round-trip extra por carregamento
- * de página pública; é o preço de não poder saber o salão antes de achar o
- * salão.
+ * A resolução usa um lock compartilhado e acontece na mesma transação do
+ * callback. Assim, uma suspensão concorrente não pode ocorrer entre validar o
+ * estabelecimento e executar uma leitura ou escrita pública.
  */
 export async function withSalonBySlug<T>(
   slug: string,
   fn: (tx: Tx, salonId: string) => Promise<T>,
 ): Promise<T | null> {
-  const found = await prisma.salon.findFirst({
-    where: { slug, accessStatus: "APPROVED" },
-    select: { id: true },
+  return prisma.$transaction(async (tx) => {
+    const [found] = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT "id"
+      FROM "Salon"
+      WHERE "slug" = ${slug}
+        AND "accessStatus" = 'APPROVED'::"SalonAccessStatus"
+      FOR SHARE
+    `;
+    if (!found) return null;
+
+    await setGuc(tx, "app.current_salon", found.id);
+    return fn(tx, found.id);
   });
-  if (!found) return null;
-  return withSalon(found.id, (tx) => fn(tx, found.id));
 }
 
 /**

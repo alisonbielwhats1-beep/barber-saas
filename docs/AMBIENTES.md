@@ -172,4 +172,14 @@ Rollback nunca deve apagar dados recém-criados sem exportação e autorização
 - A conta já possui dois projetos Supabase ativos; a classificação segura entre
   produção e homologação e o ajuste das variáveis Vercel Preview estão
   pendentes. Nenhum terceiro projeto foi criado.
+- A candidata `codex/commercial-maturity-wave1` adiciona testes PostgreSQL de
+  concorrência de agenda, comanda/estoque e lock de aprovação versus suspensão
+  ao `schema-smoke`; a ligação está versionada, mas sua execução no CI remoto
+  ainda não foi comprovada.
+- O teste de lock público identifica o backend concorrente por
+  `application_name` e exige evidência positiva em `pg_stat_activity` e
+  `pg_blocking_pids`, evitando aprovação por mero atraso do pool.
+- A máquina usada na wave não possui PostgreSQL/Docker e não dispõe de staging
+  autenticável. Testes de banco e browser real devem ocorrer exclusivamente no
+  PostgreSQL efêmero do CI e em Preview ligado a staging inequivocamente seguro.
 - Produção: não alterada.

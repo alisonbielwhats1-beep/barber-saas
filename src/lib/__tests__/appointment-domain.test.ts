@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   AppointmentError,
+  assertOperationalStatusTime,
   assertStatusTransition,
   checkClientChangePolicy,
 } from "../appointment-domain";
@@ -60,5 +61,21 @@ describe("regras de domínio do agendamento", () => {
     expect(() => assertStatusTransition("COMPLETED", "CONFIRMED")).toThrow(
       AppointmentError,
     );
+  });
+
+  it.each(["IN_PROGRESS", "COMPLETED", "NO_SHOW"] as const)(
+    "bloqueia %s antes do início contratado",
+    (status) => {
+      expect(() => assertOperationalStatusTime(
+        status,
+        new Date("2026-08-06T12:00:00.001Z"),
+        now,
+      )).toThrowError(expect.objectContaining({ code: "NOT_STARTED_YET" }));
+    },
+  );
+
+  it("permite a operação exatamente no horário de início", () => {
+    expect(() => assertOperationalStatusTime("IN_PROGRESS", now, now)).not.toThrow();
+    expect(() => assertOperationalStatusTime("COMPLETED", now, now)).not.toThrow();
   });
 });

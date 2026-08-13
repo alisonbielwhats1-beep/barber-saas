@@ -95,6 +95,21 @@ registra tenant, unidade, item, quantidade, responsável, origem e data.
   agendamento e liberado no cancelamento.
 - Bloquear estoque negativo por padrão; override exige dono/gerente e auditoria.
 
+Decisão operacional adotada na candidata wave1, ainda pendente de CI/deploy:
+
+- locks seguem ordem global `appointment → professional → product`, com ids
+  ordenados, para evitar deadlock entre reserva, comanda, cancelamento e ajuste;
+- produto escolhido no agendamento público é reservado atomicamente com o
+  atendimento; retry idempotente não repete o débito;
+- a comanda reconcilia a quantidade final contra a reserva: unidades mantidas
+  conservam o preço reservado, adicionais usam o preço atual, redução devolve
+  somente o delta e cancelamento devolve no máximo uma vez;
+- todo movimento grava saldo anterior/novo, origem, atendimento e ator/motivo
+  quando aplicável no `AuditLog`;
+- `AppointmentProduct` ainda requer uma migration com `salonId` e constraints
+  tenant-aware. Até lá, o serviço central valida appointment e produto pelo
+  mesmo tenant dentro da transação; isso não substitui a defesa no banco.
+
 ## Financeiro
 
 Não misturar métricas diferentes:
@@ -111,6 +126,12 @@ cupom exigem decisão específica antes de implementação.
 Como ainda não há cobrança online, cancelamento de algo marcado manualmente
 como pago deve criar uma reversão e uma tarefa de devolução manual; nunca apagar
 o pagamento original.
+
+Para comanda manual, o `Payment` persistido é a fonte do recebido e o fechamento
+é idempotente. O recibo pode apresentar snapshots de serviço e de preço/
+quantidade de produto, mas não deve ser tratado como documento fiscal: nome do
+produto e moeda ainda não são snapshots persistidos. Essa dívida exige migration
+aditiva e decisão fiscal explícita antes de qualquer promessa comercial.
 
 ## Notificações
 
@@ -146,6 +167,11 @@ manuais como “tirar três horas” são proibidos.
 
 Para redes com unidades em fusos diferentes, a unidade poderá sobrescrever o
 timezone do estabelecimento; enquanto isso não existir, herda o do tenant.
+
+Estados que afirmam presença ou execução (`IN_PROGRESS` e `COMPLETED`) e o
+recebimento pela comanda não podem ser antecipados para antes de `startAt`.
+Essa regra é de domínio no servidor; esconder a ação na interface é apenas uma
+representação adicional, nunca a autorização.
 
 ## Cliente convidado e conta
 

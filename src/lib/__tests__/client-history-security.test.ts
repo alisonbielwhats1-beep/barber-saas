@@ -7,14 +7,13 @@ const mocks = vi.hoisted(() => ({
     salon: { findFirst: vi.fn(), findUnique: vi.fn() },
     clientProfile: { findFirst: vi.fn() },
     appointment: { findMany: vi.fn() },
+    $queryRaw: vi.fn(),
     $executeRaw: vi.fn().mockResolvedValue(undefined),
   },
 }));
 
-// A rota passa por withSalonBySlug (prisma-tenant.ts): resolve o id pelo
-// slug com uma consulta crua, depois abre $transaction para o resto — o
-// mock precisa de $transaction executando o callback com o próprio client
-// mockado, senão "prisma.$transaction is not a function".
+// withSalonBySlug resolve, bloqueia e usa o tenant na mesma transação; o
+// mock executa o callback com um único client para representar esse escopo.
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     ...mocks.prisma,
@@ -46,7 +45,7 @@ function request(query = "salon=studio-a") {
 describe("GET /api/client/appointments — histórico privado", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.prisma.salon.findFirst.mockResolvedValue({ id: "salon-a" });
+    mocks.prisma.$queryRaw.mockResolvedValue([{ id: "salon-a" }]);
     mocks.prisma.salon.findUnique.mockResolvedValue({
       id: "salon-a",
       currency: "BRL",

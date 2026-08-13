@@ -42,3 +42,20 @@ export function nextActions(status: string): (keyof typeof STATUS)[] {
       return [];
   }
 }
+
+/**
+ * A comanda só pode receber depois do início contratado. Atendimentos já
+ * concluídos continuam recebíveis enquanto ainda não houver pagamento.
+ */
+export function canOpenAppointmentCheckout(input: {
+  status: string;
+  hasPayment: boolean;
+  startAt: Date;
+  now?: Date;
+}): boolean {
+  if (input.hasPayment || input.startAt.getTime() > (input.now ?? new Date()).getTime()) {
+    return false;
+  }
+  return input.status === "COMPLETED" ||
+    ["PENDING", "CONFIRMED", "IN_PROGRESS"].includes(input.status);
+}

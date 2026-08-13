@@ -266,6 +266,38 @@ export async function cancelWaitlistEntry(
   return { appointmentId: entry.appointmentId, duplicate: false };
 }
 
+/**
+ * Encerra a fila inteira quando o próprio estabelecimento cancela o horário.
+ * Nada é promovido e nenhuma entrada continua aparecendo como espera ativa.
+ */
+export async function cancelActiveWaitlistForAppointment(
+  tx: Tx,
+  input: {
+    salonId: string;
+    appointmentId: string;
+    actorId?: string | null;
+    reason: string;
+    cancelledAt?: Date;
+  },
+): Promise<number> {
+  await lockWaitlist(tx, input.appointmentId);
+  const updated = await tx.waitlistEntry.updateMany({
+    where: {
+      salonId: input.salonId,
+      appointmentId: input.appointmentId,
+      fulfilledAt: null,
+      cancelledAt: null,
+    },
+    data: {
+      cancelledAt: input.cancelledAt ?? new Date(),
+      cancelledByType: "STAFF",
+      cancelledById: input.actorId ?? null,
+      cancelledReason: input.reason.trim() || "Agendamento cancelado pelo estabelecimento",
+    },
+  });
+  return updated.count;
+}
+
 function serviceSnapshotsFromJson(value: unknown): ReleasedAppointmentSlot["services"] | null {
   if (!Array.isArray(value) || value.length === 0) return null;
   const services = value.map((item) => {

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { calculateComandaTotals, normalizeProductLines } from "../comanda";
+import {
+  calculateComandaTotals,
+  normalizeProductLines,
+  reconcileReservedProduct,
+} from "../comanda";
 
 describe("comanda interna", () => {
   it("agrupa produtos repetidos e remove linhas zeradas", () => {
@@ -36,5 +40,40 @@ describe("comanda interna", () => {
         discountCents: 5000,
       }).totalCents,
     ).toBe(0);
+  });
+
+  it("preserva snapshots reservados e usa preço atual apenas no acréscimo", () => {
+    expect(reconcileReservedProduct({
+      reserved: [
+        { quantity: 1, priceCentsUnit: 700 },
+        { quantity: 1, priceCentsUnit: 800 },
+      ],
+      desiredQuantity: 3,
+      currentPriceCents: 1_500,
+    })).toEqual({
+      reservedQuantity: 2,
+      additionalQuantity: 1,
+      stockDelta: -1,
+      pricedLines: [
+        { quantity: 1, priceCentsUnit: 700 },
+        { quantity: 1, priceCentsUnit: 800 },
+        { quantity: 1, priceCentsUnit: 1_500 },
+      ],
+      totalCents: 3_000,
+    });
+  });
+
+  it("devolve somente a parte removida e mantém o snapshot retido", () => {
+    expect(reconcileReservedProduct({
+      reserved: [{ quantity: 2, priceCentsUnit: 900 }],
+      desiredQuantity: 1,
+      currentPriceCents: 9_999,
+    })).toEqual({
+      reservedQuantity: 2,
+      additionalQuantity: 0,
+      stockDelta: 1,
+      pricedLines: [{ quantity: 1, priceCentsUnit: 900 }],
+      totalCents: 900,
+    });
   });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -11,13 +11,24 @@ import {
   Settings,
   Bell,
   ShieldCheck,
-  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UnreadBadge } from "@/components/unread-badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { DASHBOARD_ROLES, MANAGEMENT_ROLES } from "@/lib/role-permissions";
 import { visibleGroups } from "./sidebar-nav";
-import { OpenCommandPaletteButton } from "./command-palette";
+import {
+  COMMAND_PALETTE_NAVIGATE_EVENT,
+  OPEN_COMMAND_PALETTE_EVENT,
+  OpenCommandPaletteButton,
+  requestCommandPaletteOpen,
+} from "./command-palette";
 
 /**
  * Navegação mobile do admin (a sidebar é `hidden md:flex`).
@@ -46,6 +57,39 @@ export function MobileNav({
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const openRef = useRef(false);
+  const moreTriggerRef = useRef<HTMLButtonElement>(null);
+  const paletteRequestPendingRef = useRef(false);
+
+  function setMobileOpen(nextOpen: boolean) {
+    openRef.current = nextOpen;
+    setOpen(nextOpen);
+  }
+
+  useEffect(() => {
+    const closeBeforePalette = (event: Event) => {
+      if (!openRef.current) return;
+      event.preventDefault();
+      paletteRequestPendingRef.current = true;
+      setMobileOpen(false);
+    };
+    const closeAfterNavigation = () => setMobileOpen(false);
+    window.addEventListener(OPEN_COMMAND_PALETTE_EVENT, closeBeforePalette);
+    window.addEventListener(COMMAND_PALETTE_NAVIGATE_EVENT, closeAfterNavigation);
+    return () => {
+      window.removeEventListener(OPEN_COMMAND_PALETTE_EVENT, closeBeforePalette);
+      window.removeEventListener(COMMAND_PALETTE_NAVIGATE_EVENT, closeAfterNavigation);
+    };
+  }, []);
+
+  useEffect(() => {
+    const desktop = window.matchMedia("(min-width: 768px)");
+    const closeOnDesktop = (event: MediaQueryListEvent) => {
+      if (event.matches) setMobileOpen(false);
+    };
+    desktop.addEventListener("change", closeOnDesktop);
+    return () => desktop.removeEventListener("change", closeOnDesktop);
+  }, []);
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + "/");
@@ -53,17 +97,26 @@ export function MobileNav({
   return (
     <>
       {/* Painel "Mais" — todos os módulos agrupados */}
-      {open && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-background md:hidden">
-          <div className="flex items-center justify-between border-b border-border px-5 py-4">
-            <p className="text-sm font-semibold">Todos os módulos</p>
-            <button
-              onClick={() => setOpen(false)}
-              aria-label="Fechar menu"
-              className="grid h-8 w-8 place-items-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
-            >
-              <X className="h-4 w-4" />
-            </button>
+      <Dialog open={open} onOpenChange={setMobileOpen}>
+        <DialogContent
+          className="inset-0 z-[60] flex h-dvh max-h-none w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 bg-background p-0 pr-0 md:hidden"
+          onCloseAutoFocus={(event) => {
+            if (!paletteRequestPendingRef.current) return;
+            event.preventDefault();
+            paletteRequestPendingRef.current = false;
+            const returnTarget = moreTriggerRef.current;
+            if (returnTarget?.isConnected) returnTarget.focus();
+
+            // Radix has released the MobileNav focus scope. Replaying the
+            // request now guarantees that the palette is the only open modal.
+            queueMicrotask(() => requestCommandPaletteOpen(returnTarget));
+          }}
+        >
+          <div className="border-b border-border px-5 py-4 pr-16">
+            <DialogTitle className="text-sm font-semibold">Todos os módulos</DialogTitle>
+            <DialogDescription className="sr-only">
+              Escolha uma área do painel ou busque uma tela.
+            </DialogDescription>
           </div>
           <div className="scrollbar-dark flex-1 space-y-5 overflow-y-auto px-5 py-5 pb-24">
             <OpenCommandPaletteButton />
@@ -87,7 +140,7 @@ export function MobileNav({
                         key={item.href}
                         href={item.href}
                         prefetch={false}
-                        onClick={() => setOpen(false)}
+                        onClick={() => setMobileOpen(false)}
                         className={cn(
                           "flex items-center gap-2.5 rounded-xl border px-3 py-3 text-[13px] font-medium transition-colors",
                           isActive(item.href)
@@ -112,7 +165,7 @@ export function MobileNav({
               <Link
                 href="/configuracoes"
                 prefetch={false}
-                onClick={() => setOpen(false)}
+                onClick={() => setMobileOpen(false)}
                 className={cn(
                   "flex items-center gap-2.5 rounded-xl border px-3 py-3 text-[13px] font-medium transition-colors",
                   isActive("/configuracoes")
@@ -128,7 +181,7 @@ export function MobileNav({
               <Link
                 href="/plataforma/solicitacoes"
                 prefetch={false}
-                onClick={() => setOpen(false)}
+                onClick={() => setMobileOpen(false)}
                 className="flex items-center gap-2.5 rounded-xl border border-primary/30 bg-primary/10 px-3 py-3 text-[13px] font-medium text-foreground"
               >
                 <ShieldCheck className="h-4 w-4 shrink-0 text-primary" />
@@ -136,8 +189,7 @@ export function MobileNav({
               </Link>
             )}
           </div>
-        </div>
-      )}
+        </DialogContent>
 
       {/* Barra inferior */}
       <nav className="fixed inset-x-0 bottom-0 z-50 flex border-t border-border bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden print:hidden">
@@ -148,7 +200,7 @@ export function MobileNav({
               key={item.href}
               href={item.href}
               prefetch={false}
-              onClick={() => setOpen(false)}
+              onClick={() => setMobileOpen(false)}
               className={cn(
                 "flex flex-1 flex-col items-center gap-1 pb-3 pt-2.5 text-[10px] font-medium transition-colors",
                 active ? "text-primary" : "text-muted-foreground",
@@ -165,17 +217,21 @@ export function MobileNav({
             </Link>
           );
         })}
-        <button
-          onClick={() => setOpen((o) => !o)}
-          className={cn(
-            "flex flex-1 flex-col items-center gap-1 pb-3 pt-2.5 text-[10px] font-medium transition-colors",
-            open ? "text-primary" : "text-muted-foreground",
-          )}
-        >
-          <MoreHorizontal className="h-5 w-5" strokeWidth={open ? 2.4 : 2} />
-          Mais
-        </button>
+        <DialogTrigger asChild>
+          <button
+            ref={moreTriggerRef}
+            aria-label="Abrir todos os módulos"
+            className={cn(
+              "flex flex-1 flex-col items-center gap-1 pb-3 pt-2.5 text-[10px] font-medium transition-colors",
+              open ? "text-primary" : "text-muted-foreground",
+            )}
+          >
+            <MoreHorizontal className="h-5 w-5" strokeWidth={open ? 2.4 : 2} />
+            Mais
+          </button>
+        </DialogTrigger>
       </nav>
+      </Dialog>
     </>
   );
 }

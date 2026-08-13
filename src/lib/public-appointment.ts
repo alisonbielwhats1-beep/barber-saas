@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { ClientSession } from "./client-auth";
-import { isValidPhoneBR } from "./phone";
+import { isValidPhoneBR, normalizePhone } from "./phone";
 
 const cartItemSchema = z.object({
   productId: z.string().min(1),
@@ -18,12 +18,8 @@ export const publicAppointmentSchema = z
     clientPhone: z
       .string()
       .max(32)
-      .transform((value) => value.replace(/\D/g, ""))
-      .refine(
-        (value) =>
-          (value.length === 10 || value.length === 11) &&
-          isValidPhoneBR(value),
-      )
+      .refine(isValidPhoneBR)
+      .transform(normalizePhone)
       .optional(),
     notes: z.string().max(1_000).optional(),
     cartItems: z.array(cartItemSchema).max(30).optional().default([]),

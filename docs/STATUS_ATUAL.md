@@ -4,6 +4,10 @@ Atualizado em **13/08/2026** após o PR
 [#48](https://github.com/alisonbielwhats1-beep/barber-saas/pull/48).
 Este arquivo substitui os status históricos quando houver contradição.
 
+> A seção “Candidata wave1 de maturidade comercial” descreve trabalho local
+> posterior ao PR #48. Ela **não está em Production**: CI remoto, Preview e
+> deploy continuam pendentes até haver evidência verificável.
+
 ## Identificação da versão
 
 - Repositório: `alisonbielwhats1-beep/barber-saas`
@@ -150,7 +154,89 @@ Este arquivo substitui os status históricos quando houver contradição.
 - Home e vitrine pública responderam `200`; `/marketing` sem sessão respondeu
   `307` para login; não houve erro nos logs pós-deploy verificados.
 
-## Evidências da entrega atual
+## Candidata wave1 de maturidade comercial — ainda não implantada
+
+Estado local da branch `codex/commercial-maturity-wave1`, revisado por ondas de
+implementação e crítica independente:
+
+### Jornada e componentes compartilhados
+
+- disponibilidade diferencia dia realmente vazio (`200` com `slots=[]`) de
+  timeout, rede, JSON/contrato inválido, `429` e erro de servidor;
+- seleção restaurada só volta para a mesma combinação de salão, serviços,
+  profissional e data; respostas fora de ordem são descartadas e o CTA fica
+  bloqueado até o horário estar confirmado na grade atual;
+- retry respeita `Retry-After` em segundos ou HTTP-date, exibe contagem,
+  preserva escolhas e consulta a combinação atual após troca de data;
+- Toast possui regiões vivas separadas por severidade, anúncio único, fila,
+  limpeza de timers, pausa em hover/foco e continuidade de foco ao fechar;
+- Dialog compartilhado nomeia o fechamento e usa alvo mínimo de 44 px;
+- Command Palette e o modal mobile “Mais” usam coordenação explícita: somente
+  um modal/focus trap permanece aberto, inclusive via `Ctrl/Cmd+K`, e Escape
+  devolve o foco a um gatilho conectado.
+
+### Segurança pública e isolamento
+
+- `withApprovedSalon` e `withSalonBySlug` validam `APPROVED` sob lock
+  compartilhado durante todo o callback, serializando suspensão concorrente;
+- login do cliente valida schema/tamanho/72 bytes antes de headers, rate
+  limiting, lookup ou bcrypt, e ganhou bucket global por IP contra rotação de
+  slugs sem remover buckets por salão e conta;
+- cadastro, agendamento visitante e lista de espera usam a mesma validação de
+  telefone BR: formatos nacional, `55` e `+55`, celular/fixo, DDD e prefixo;
+  excesso é rejeitado sem truncar ou transformar silenciosamente outro número;
+- cron consulta apenas salões aprovados e revalida/bloqueia cada tenant durante
+  a geração idempotente de lembretes;
+- rotas públicas de disponibilidade, agendamento e fila falham de forma
+  uniforme para estabelecimento inexistente ou não aprovado.
+
+### Agenda, comanda, estoque e fila
+
+- mutações operacionais usam ordem canônica de locks `appointment →
+  professional → product`, com ids ordenados dentro de cada grupo;
+- reserva de produtos no agendamento público é atômica com a criação e com o
+  fingerprint idempotente; preço/quantidade são snapshots do servidor;
+- comanda reconcilia reserva anterior com a quantidade final: conserva o preço
+  das unidades reservadas, usa preço atual somente nas adicionais, debita ou
+  devolve apenas o delta e registra `Payment` e auditorias na mesma transação;
+- fechamento da comanda é idempotente, impede double debit/double payment,
+  bloqueia desconto da recepção e gera recibo interno/imprimível a partir do
+  pagamento persistido;
+- ajustes manuais de estoque são tenant-scoped, bloqueiam estoque negativo e
+  registram saldo anterior/novo e motivo em `AuditLog`;
+- cancelamento restaura cada reserva no máximo uma vez; cancelamento pela
+  equipe encerra todas as entradas ativas daquela fila sem realocação;
+- `IN_PROGRESS` e `COMPLETED`, assim como a abertura da comanda, só são aceitos
+  depois do início contratado; a UI deriva as ações da mesma regra temporal.
+
+### Testes e gates da candidata
+
+- testes DOM cobrem concorrência da disponibilidade, cooldowns sucessivos,
+  troca de consulta durante `429`, modais mobile/palette, teclado e retorno de
+  foco;
+- testes PostgreSQL descartáveis cobrem concorrência de agenda, comanda/estoque
+  e o lock de aprovação versus suspensão; o último identifica o backend por
+  `application_name` e prova bloqueio com `pg_stat_activity` e
+  `pg_blocking_pids`;
+- `schema-smoke` está configurado para executar essas três famílias pelo script
+  `test:appointment-integration`;
+- evidência local final da candidata: lint e TypeScript passaram; `npm test`
+  passou com 70 arquivos e 446 testes; o build completo do Next.js 15.5.22
+  passou e gerou 41 páginas;
+- esta máquina não possui PostgreSQL/Docker nem staging seguro; portanto a
+  integração PostgreSQL, browser autenticado, Preview e CI remoto ainda
+  precisam ser comprovados fora desta sessão.
+
+### Limitações deliberadamente não resolvidas
+
+- `AppointmentProduct` ainda não possui `salonId`; a aplicação valida e trava o
+  tenant, mas a defesa estrutural ideal exige migration tenant-aware aditiva;
+- o recibo preserva pagamento, preço e quantidade, porém nome do produto e
+  moeda ainda vêm do catálogo/configuração atuais, sem snapshot fiscal;
+- não houve migration, alteração de Supabase, CI remoto, Preview ou deploy para
+  esta wave.
+
+## Evidências da entrega implantada no PR #48
 
 - `npm run lint`: passou.
 - `npx tsc --noEmit --incremental false`: passou.
@@ -164,17 +250,24 @@ Este arquivo substitui os status históricos quando houver contradição.
 
 ## Pendências reais e priorizadas
 
-1. Confirmar manualmente o primeiro login do administrador principal e a
+1. Rodar CI completo da candidata wave1, incluindo `schema-smoke` e integrações
+   PostgreSQL; depois validar Preview seguro e somente então
+   decidir merge/deploy.
+2. Criar a migration tenant-aware de `AppointmentProduct`, com preflight,
+   backfill, constraints compostas, RLS e rollback, apenas após staging e nova
+   autorização; incluir snapshots persistentes de nome do produto e moeda em
+   uma decisão de schema própria.
+3. Confirmar manualmente o primeiro login do administrador principal e a
    promoção para `SUPER_ADMIN`; nenhuma senha foi acessada pelo agente.
-2. Criar/identificar Supabase de homologação separado antes da migration `011`.
-3. Validar a migration `011`, RLS, rollback e cobranças manuais em staging;
+4. Criar/identificar Supabase de homologação separado antes da migration `011`.
+5. Validar a migration `011`, RLS, rollback e cobranças manuais em staging;
    só depois decidir se ativa em Production.
-4. Ativar convites por e-mail via Resend somente após teste completo em Preview.
-5. Adicionar Playwright para jornadas E2E quando houver banco de staging seguro.
-6. Ensaiar backup nativo/restore do Supabase antes de clientes reais.
-7. Rotacionar/remover qualquer credencial de demonstração conhecida e nunca
+6. Ativar convites por e-mail via Resend somente após teste completo em Preview.
+7. Adicionar Playwright para jornadas E2E quando houver banco de staging seguro.
+8. Ensaiar backup nativo/restore do Supabase antes de clientes reais.
+9. Rotacionar/remover qualquer credencial de demonstração conhecida e nunca
    documentar senhas no repositório público.
-8. Realtime filtrado por tenant, múltiplas unidades e pagamento online continuam
+10. Realtime filtrado por tenant, múltiplas unidades e pagamento online continuam
    fora do escopo atual.
 
 ## Próximo passo recomendado

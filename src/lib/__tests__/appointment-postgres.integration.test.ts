@@ -8,7 +8,7 @@ import {
   updateAppointmentStatusReliably,
 } from "../appointment-service";
 import { isAppointmentError } from "../appointment-domain";
-import { cancelWaitlistEntry, joinWaitlist } from "../waitlist";
+import { joinWaitlist } from "../waitlist";
 
 const describePostgres =
   process.env.RUN_POSTGRES_INTEGRATION === "1" ? describe : describe.skip;
@@ -357,6 +357,7 @@ describePostgres("concorrência real de agendamentos", () => {
         amountCents: 5_000,
         method: "PIX",
       },
+      now: new Date("2032-08-05T15:00:00.000Z"),
     };
     await withSalon(data.salonId, (tx) =>
       updateAppointmentStatusReliably(tx, completeInput),
@@ -374,7 +375,7 @@ describePostgres("concorrência real de agendamentos", () => {
     ).rejects.toMatchObject({ code: "IDEMPOTENCY_MISMATCH" });
   });
 
-  it("promove em ordem no cancelamento do dono e preserva as pessoas restantes", async () => {
+  it("encerra toda a fila sem promover quando o estabelecimento cancela", async () => {
     const data = await fixture();
     const original = await withSalon(data.salonId, (tx) =>
       createAppointment(tx, {
@@ -416,62 +417,119 @@ describePostgres("concorrência real de agendamentos", () => {
       }),
     );
 
-    const first = await prisma.waitlistEntry.findUniqueOrThrow({
-      where: { id: queued[0]!.entryId },
-      select: { fulfilledAppointmentId: true, fulfilledAt: true },
-    });
-    expect(first.fulfilledAt).not.toBeNull();
-    const promotedId = first.fulfilledAppointmentId!;
-    await expect(prisma.appointment.findUniqueOrThrow({ where: { id: promotedId } }))
-      .resolves.toMatchObject({ clientId: data.clients[1]!.id, status: "CONFIRMED" });
-
-    const remaining = await prisma.waitlistEntry.findMany({
+    const closedQueue = await prisma.waitlistEntry.findMany({
       where: {
         salonId: data.salonId,
-        appointmentId: promotedId,
+        appointmentId: original.appointment.id,
+      },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      select: {
+        clientId: true,
+        fulfilledAt: true,
+        fulfilledAppointmentId: true,
+        cancelledAt: true,
+        cancelledByType: true,
+        cancelledById: true,
+        cancelledReason: true,
+      },
+    });
+    expect(closedQueue).toEqual([
+      expect.objectContaining({
+        clientId: data.clients[1]!.id,
+        fulfilledAt: null,
+        fulfilledAppointmentId: null,
+        cancelledAt: expect.any(Date),
+        cancelledByType: "STAFF",
+        cancelledById: data.professionalUserId,
+        cancelledReason: "Cancelado pelo estabelecimento",
+      }),
+      expect.objectContaining({
+        clientId: data.clients[2]!.id,
+        fulfilledAt: null,
+        fulfilledAppointmentId: null,
+        cancelledAt: expect.any(Date),
+        cancelledByType: "STAFF",
+        cancelledById: data.professionalUserId,
+        cancelledReason: "Cancelado pelo estabelecimento",
+      }),
+      expect.objectContaining({
+        clientId: data.clients[3]!.id,
+        fulfilledAt: null,
+        fulfilledAppointmentId: null,
+        cancelledAt: expect.any(Date),
+        cancelledByType: "STAFF",
+        cancelledById: data.professionalUserId,
+        cancelledReason: "Cancelado pelo estabelecimento",
+      }),
+    ]);
+    expect(await prisma.waitlistEntry.count({
+      where: {
+        salonId: data.salonId,
+        appointmentId: original.appointment.id,
         fulfilledAt: null,
         cancelledAt: null,
       },
-      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-      select: { id: true, clientId: true },
+    })).toBe(0);
+    expect(await prisma.appointment.count({
+      where: {
+        salonId: data.salonId,
+        professionalId: data.professionalId,
+        startAt: new Date("2032-08-05T13:00:00.000Z"),
+        status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
+      },
+    })).toBe(0);
+    expect(await prisma.notificationOutbox.count({
+      where: {
+        salonId: data.salonId,
+        template: "appointment.waitlist_fulfilled",
+      },
+    })).toBe(0);
+    const cancellationEvent = await prisma.appointmentEvent.findFirstOrThrow({
+      where: {
+        salonId: data.salonId,
+        appointmentId: original.appointment.id,
+        eventType: "CANCELLED",
+      },
+      orderBy: { createdAt: "desc" },
+      select: { newValue: true },
     });
-    expect(remaining.map((entry) => entry.clientId)).toEqual([
-      data.clients[2]!.id,
-      data.clients[3]!.id,
-    ]);
+    expect(cancellationEvent.newValue).toMatchObject({ cancelledWaitlistCount: 3 });
+  });
 
-    await withSalon(data.salonId, (tx) =>
-      cancelWaitlistEntry(tx, {
+  it("mantém status e slot ativos ao rejeitar início ou conclusão antecipados", async () => {
+    const data = await fixture();
+    const created = await withSalon(data.salonId, (tx) =>
+      createAppointment(tx, {
         salonId: data.salonId,
-        entryId: queued[1]!.entryId,
-        actorType: "STAFF",
-        actorId: data.professionalUserId,
-        reason: "Cliente pediu remoção",
-      }),
-    );
-    expect(await prisma.appointment.findUniqueOrThrow({ where: { id: promotedId } }))
-      .toMatchObject({ status: "CONFIRMED", clientId: data.clients[1]!.id });
-
-    await withSalon(data.salonId, (tx) =>
-      cancelAppointmentReliably(tx, {
-        salonId: data.salonId,
-        appointmentId: promotedId,
-        actor: { type: "CLIENT", id: data.clients[1]!.id, name: "Cliente B" },
+        clientId: data.clients[0]!.id,
+        professionalId: data.professionalId,
+        serviceIds: [data.serviceId],
+        startLocal: "2032-08-05T10:00",
+        origin: "ADMIN",
+        actor: { type: "STAFF", id: data.professionalUserId, name: "Dono CI" },
         idempotencyKey: crypto.randomUUID(),
-        expectedVersion: 1,
-        expectedClientId: data.clients[1]!.id,
-        enforceClientPolicy: false,
-        now: new Date("2032-08-01T12:00:00.000Z"),
+        enforceBookingWindow: false,
       }),
     );
 
-    const last = await prisma.waitlistEntry.findUniqueOrThrow({
-      where: { id: queued[2]!.entryId },
-      select: { fulfilledAppointmentId: true },
-    });
+    for (const status of ["IN_PROGRESS", "COMPLETED"] as const) {
+      await expect(withSalon(data.salonId, (tx) =>
+        updateAppointmentStatusReliably(tx, {
+          salonId: data.salonId,
+          appointmentId: created.appointment.id,
+          status,
+          actor: { type: "STAFF", id: data.professionalUserId, name: "Dono CI" },
+          idempotencyKey: crypto.randomUUID(),
+          expectedVersion: 1,
+          now: new Date("2032-08-05T12:59:59.999Z"),
+        }),
+      )).rejects.toMatchObject({ code: "NOT_STARTED_YET" });
+    }
+
     await expect(prisma.appointment.findUniqueOrThrow({
-      where: { id: last.fulfilledAppointmentId! },
-    })).resolves.toMatchObject({ clientId: data.clients[3]!.id, status: "CONFIRMED" });
+      where: { id: created.appointment.id },
+      select: { status: true, version: true },
+    })).resolves.toEqual({ status: "PENDING", version: 1 });
     expect(await prisma.appointment.count({
       where: {
         salonId: data.salonId,
@@ -480,19 +538,6 @@ describePostgres("concorrência real de agendamentos", () => {
         status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
       },
     })).toBe(1);
-
-    const clientNotifications = await prisma.notificationOutbox.findMany({
-      where: {
-        salonId: data.salonId,
-        template: "appointment.waitlist_fulfilled",
-        recipientType: "CLIENT",
-      },
-      select: { recipientId: true },
-    });
-    expect(clientNotifications.map((notification) => notification.recipientId).sort()).toEqual([
-      data.clients[1]!.id,
-      data.clients[3]!.id,
-    ].sort());
   });
 
   it("trata a fila do horário antigo na remarcação e mantém tudo intacto se o destino conflitar", async () => {

@@ -10,6 +10,7 @@ import { bufferedWindow, checkBookingWindow } from "./scheduling";
 import {
   ACTIVE_APPOINTMENT_STATUSES,
   AppointmentError,
+  assertOperationalStatusTime,
   assertStatusTransition,
   checkClientChangePolicy,
   isActiveAppointmentStatus,
@@ -32,6 +33,11 @@ import {
 } from "./appointment-events";
 import { writeAuditLog } from "./audit";
 import {
+  lockOperationalResources,
+  lockProductMutations,
+} from "./inventory-lock";
+import {
+  cancelActiveWaitlistForAppointment,
   fulfillWaitlistOnCancel,
   nextWaitlistSlot,
   type ReleasedAppointmentSlot,
@@ -64,7 +70,7 @@ type AppointmentIdentity =
   | { clientId: string; guest?: never }
   | { clientId?: never; guest: { name: string; phone: string | null } };
 
-type CreateAppointmentInput = AppointmentIdentity & {
+export type CreateAppointmentInput = AppointmentIdentity & {
   salonId: string;
   professionalId: string;
   serviceIds: string[];
@@ -139,6 +145,33 @@ async function lockMutationKeys(tx: Tx, keys: string[]): Promise<void> {
       FROM pg_advisory_xact_lock(hashtextextended(${`appointment:${key}`}, 0))
     `;
   }
+}
+
+/**
+ * Adquire o escopo mutável do atendimento na ordem global. O profissional é
+ * lido somente depois do lock do appointment, evitando operar sob o lock de
+ * um profissional que deixou de ser o atual durante uma remarcação.
+ */
+export async function lockAppointmentOperationalScope(
+  tx: Tx,
+  input: {
+    salonId: string;
+    appointmentId: string;
+    targetProfessionalIds?: string[];
+  },
+): Promise<void> {
+  await lockOperationalResources(tx, { appointmentIds: [input.appointmentId] });
+  const current = await tx.appointment.findFirst({
+    where: { id: input.appointmentId, salonId: input.salonId },
+    select: { professionalId: true },
+  });
+  if (!current) throw new AppointmentError("NOT_FOUND");
+  await lockOperationalResources(tx, {
+    professionalIds: [
+      current.professionalId,
+      ...(input.targetProfessionalIds ?? []),
+    ],
+  });
 }
 
 function normalizeServiceIds(serviceIds: string[]): string[] {
@@ -732,13 +765,11 @@ export async function rescheduleAppointment(
     throw new AppointmentError("FORBIDDEN");
   }
   const eventKey = `${input.idempotencyKey}:rescheduled`;
-  const firstRead = await loadMutableAppointment(tx, input.salonId, input.appointmentId);
-  if (!firstRead) throw new AppointmentError("NOT_FOUND");
-  await lockMutationKeys(tx, [
-    `appointment:${input.appointmentId}`,
-    `professional:${firstRead.professionalId}`,
-    `professional:${input.professionalId}`,
-  ]);
+  await lockAppointmentOperationalScope(tx, {
+    salonId: input.salonId,
+    appointmentId: input.appointmentId,
+    targetProfessionalIds: [input.professionalId],
+  });
 
   const appointment = await loadMutableAppointment(tx, input.salonId, input.appointmentId);
   if (!appointment) throw new AppointmentError("NOT_FOUND");
@@ -1002,12 +1033,10 @@ export async function cancelAppointmentReliably(
     actor: { type: input.actor.type, id: input.actor.id ?? null },
     expectedVersion: input.expectedVersion ?? null,
   });
-  const firstRead = await loadMutableAppointment(tx, input.salonId, input.appointmentId);
-  if (!firstRead) throw new AppointmentError("NOT_FOUND");
-  await lockMutationKeys(tx, [
-    `appointment:${input.appointmentId}`,
-    `professional:${firstRead.professionalId}`,
-  ]);
+  await lockAppointmentOperationalScope(tx, {
+    salonId: input.salonId,
+    appointmentId: input.appointmentId,
+  });
 
   const appointment = await loadMutableAppointment(tx, input.salonId, input.appointmentId);
   if (!appointment) throw new AppointmentError("NOT_FOUND");
@@ -1074,14 +1103,54 @@ export async function cancelAppointmentReliably(
 
   // Produtos são reservados no agendamento atual. O lock + mudança de status
   // condicionada garante que o estoque seja devolvido exatamente uma vez.
+  await lockProductMutations(
+    tx,
+    appointment.products.map((product) => product.productId),
+  );
   for (const product of appointment.products) {
-    await tx.product.updateMany({
+    const inventory = await tx.product.findFirst({
       where: { id: product.productId, salonId: input.salonId },
+      select: { id: true, name: true, stock: true },
+    });
+    if (!inventory) throw new AppointmentError("NOT_FOUND");
+    const restored = await tx.product.updateMany({
+      where: {
+        id: product.productId,
+        salonId: input.salonId,
+        stock: inventory.stock,
+      },
       data: { stock: { increment: product.quantity } },
+    });
+    if (restored.count !== 1) throw new AppointmentError("VERSION_CONFLICT");
+    await writeAuditLog(tx, {
+      salonId: input.salonId,
+      userId: input.actor.id ?? null,
+      actorName: input.actor.name,
+      action: "STOCK_ADJUSTED",
+      entityType: "Product",
+      entityId: product.productId,
+      reason: "Cancelamento de reserva",
+      metadata: {
+        productName: inventory.name,
+        kind: "RESERVATION_CANCELLED",
+        delta: product.quantity,
+        previousStock: inventory.stock,
+        newStock: inventory.stock + product.quantity,
+        appointmentId: appointment.id,
+      },
     });
   }
 
   const services = previousServices(appointment);
+  const cancelledWaitlistCount = input.actor.type === "STAFF"
+    ? await cancelActiveWaitlistForAppointment(tx, {
+        salonId: input.salonId,
+        appointmentId: appointment.id,
+        actorId: input.actor.id,
+        reason,
+        cancelledAt: now,
+      })
+    : 0;
   const recipients = await recipientsForEvent(tx, {
     salonId: input.salonId,
     clientId: appointment.clientId,
@@ -1102,6 +1171,7 @@ export async function cancelAppointmentReliably(
     ...previousValue,
     status: "CANCELLED",
     reason: reason || null,
+    cancelledWaitlistCount,
   } satisfies Prisma.InputJsonValue;
   await recordAppointmentEvent(tx, {
     salonId: input.salonId,
@@ -1119,27 +1189,30 @@ export async function cancelAppointmentReliably(
     payload,
   });
 
-  // Cliente e estabelecimento seguem a mesma regra: se a vaga continua
-  // elegível, somente o primeiro da fila é promovido na mesma transação.
-  const waitingSlot = await nextWaitlistSlot(tx, appointment.id, input.salonId);
-  if (waitingSlot) {
-    const releasedSlotViolation = await availabilityViolation(tx, {
-      salonId: input.salonId,
-      professionalId: waitingSlot.professionalId,
-      startAt: waitingSlot.startAt,
-      endAt: waitingSlot.endAt,
-      salon,
-      excludeAppointmentId: appointment.id,
-      enforceBookingWindow: false,
-      now: input.now,
-    });
-    if (!releasedSlotViolation) {
-      await fulfillWaitlistOnCancel(
-        tx,
-        appointment.id,
-        input.salonId,
-        waitingSlot,
-      );
+  // Somente cancelamento iniciado pelo cliente promove automaticamente. No
+  // cancelamento do estabelecimento, a fila já foi encerrada acima e ninguém
+  // continua aguardando um horário que não será mais oferecido.
+  if (input.actor.type === "CLIENT") {
+    const waitingSlot = await nextWaitlistSlot(tx, appointment.id, input.salonId);
+    if (waitingSlot) {
+      const releasedSlotViolation = await availabilityViolation(tx, {
+        salonId: input.salonId,
+        professionalId: waitingSlot.professionalId,
+        startAt: waitingSlot.startAt,
+        endAt: waitingSlot.endAt,
+        salon,
+        excludeAppointmentId: appointment.id,
+        enforceBookingWindow: false,
+        now: input.now,
+      });
+      if (!releasedSlotViolation) {
+        await fulfillWaitlistOnCancel(
+          tx,
+          appointment.id,
+          input.salonId,
+          waitingSlot,
+        );
+      }
     }
   }
 
@@ -1185,12 +1258,10 @@ export async function updateAppointmentStatusReliably(
     });
   }
 
-  const firstRead = await loadMutableAppointment(tx, input.salonId, input.appointmentId);
-  if (!firstRead) throw new AppointmentError("NOT_FOUND");
-  await lockMutationKeys(tx, [
-    `appointment:${input.appointmentId}`,
-    `professional:${firstRead.professionalId}`,
-  ]);
+  await lockAppointmentOperationalScope(tx, {
+    salonId: input.salonId,
+    appointmentId: input.appointmentId,
+  });
   const appointment = await loadMutableAppointment(tx, input.salonId, input.appointmentId);
   if (!appointment) throw new AppointmentError("NOT_FOUND");
   assertMutationOwnership(appointment, {
@@ -1229,9 +1300,11 @@ export async function updateAppointmentStatusReliably(
     return { appointment, duplicate: true };
   }
   assertStatusTransition(appointment.status, input.status);
-  if (input.status === "NO_SHOW" && appointment.startAt > (input.now ?? new Date())) {
-    throw new AppointmentError("ALREADY_STARTED", "Não é possível marcar falta antes do horário.");
-  }
+  assertOperationalStatusTime(
+    input.status,
+    appointment.startAt,
+    input.now ?? new Date(),
+  );
 
   const updated = await tx.appointment.updateMany({
     where: {

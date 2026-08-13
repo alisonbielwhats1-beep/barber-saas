@@ -98,3 +98,25 @@ suas credenciais.
 `CRON_SECRET` é obrigatório. Ausência, valor vazio ou incorreto retorna 401.
 Antes de `timingSafeEqual`, os buffers têm o tamanho comparado para evitar
 exceção e diferença de comportamento.
+
+## Hardening candidato posterior — pendente de CI e deploy
+
+A branch local `codex/commercial-maturity-wave1` acrescenta, sem migration:
+
+- `withApprovedSalon` e `withSalonBySlug` validam `APPROVED` sob `FOR SHARE` e
+  mantêm a linha bloqueada durante o callback; suspensão concorrente aguarda;
+- login do cliente valida tipos, slug, e-mail, retorno e senha de no máximo 72
+  bytes antes de headers, rate limiting, lookup ou bcrypt;
+- um bucket global por IP impede contornar o limite alternando slugs, sem
+  remover os buckets por salão e conta;
+- telefone BR é validado centralmente e nunca truncado: cadastro, agendamento
+  visitante e fila aceitam nacional/`55`/`+55`, celular e fixo válidos, e
+  rejeitam DDI, DDD, prefixo ou excesso antes de persistir;
+- cron lista somente estabelecimentos aprovados e revalida cada tenant sob o
+  mesmo lock antes de criar lembretes idempotentes.
+
+O teste PostgreSQL da suspensão usa `application_name`, `pg_stat_activity` e
+`pg_blocking_pids` para provar espera real de lock em ambos os helpers. Ele está
+incluído no `schema-smoke`, mas esta máquina não possui PostgreSQL/Docker; o CI
+remoto ainda é gate obrigatório. Nada desta seção deve ser descrito como
+implantado até CI, Preview e deploy terem evidência.

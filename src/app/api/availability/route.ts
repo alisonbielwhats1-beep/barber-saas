@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { addMinutes } from "date-fns";
-import { withSalon } from "@/lib/prisma-tenant";
+import { withApprovedSalon } from "@/lib/prisma-tenant";
 import {
   checkRateLimit,
   clientIp,
@@ -75,7 +75,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const result = await withSalon(salonId, async (tx) => {
+    const result = await withApprovedSalon(salonId, async (tx) => {
       const salon = await tx.salon.findUnique({
         where: { id: salonId },
         select: {

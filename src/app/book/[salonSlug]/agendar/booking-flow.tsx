@@ -45,6 +45,11 @@ import {
   getServiceCategories,
   serviceCategoryLabel,
 } from "@/lib/service-discovery";
+import {
+  AvailabilityRequestError,
+  availabilityErrorMessage,
+  requestAvailability,
+} from "@/lib/availability-client";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 
 type Pro = {
@@ -56,6 +61,20 @@ type Pro = {
   apptCount: number;
   topPro: boolean;
 };
+
+type PendingAvailabilitySlot = {
+  slot: string;
+  queryKey: string;
+};
+
+function availabilityQueryKey(
+  salonId: string,
+  professionalId: string,
+  selectedServiceIds: string[],
+  dateKey: string,
+) {
+  return [salonId, professionalId, selectedServiceIds.join(","), dateKey].join("|");
+}
 type Service = {
   id: string;
   name: string;
@@ -149,6 +168,9 @@ export function BookingFlow({
   const [slotsVersion, setSlotsVersion] = useState(0);
   const [popularSlot, setPopularSlot] = useState<string | null>(null);
   const [slotsLoading, setSlotsLoading] = useState(false);
+  const [slotsError, setSlotsError] = useState<AvailabilityRequestError | null>(null);
+  const [retryUntilMs, setRetryUntilMs] = useState<number | null>(null);
+  const [retryClockMs, setRetryClockMs] = useState(0);
   const [occupied, setOccupied] = useState<{ appointmentId: string; time: string }[]>([]);
   const [waitlistTarget, setWaitlistTarget] = useState<{ appointmentId: string; time: string } | null>(null);
   const [waitlistName, setWaitlistName] = useState(clientSession?.name ?? "");
@@ -174,6 +196,9 @@ export function BookingFlow({
   const [authStep, setAuthStep] = useState<"hidden" | "prompt" | "guest-form">("hidden");
   const idempotencyKeyRef = useRef<string | null>(null);
   const authPanelRef = useRef<HTMLDivElement>(null);
+  const availabilityQueryRef = useRef<string | null>(null);
+  const availabilityRequestRef = useRef(0);
+  const retryUntilRef = useRef<number | null>(null);
 
   const selectedServices = useMemo(
     () => services.filter((service) => serviceIds.includes(service.id)),
@@ -216,7 +241,11 @@ export function BookingFlow({
   }, [eligibleProfessionals, proId]);
 
   // Slot a restaurar depois que a grade de horários carregar (fluxo returnTo)
-  const pendingSlotRef = useRef<string | null>(null);
+  const pendingSlotRef = useRef<PendingAvailabilitySlot | null>(null);
+
+  function invalidatePendingSlot() {
+    pendingSlotRef.current = null;
+  }
 
   // Restaura a seleção salva antes de ir para login/cadastro — o cliente
   // volta exatamente onde parou (profissional, dia e horário escolhidos).
@@ -251,7 +280,20 @@ export function BookingFlow({
         setDate(d);
         setViewMonth(startOfMonth(d));
       }
-      if (s.slot) pendingSlotRef.current = s.slot;
+      if (s.slot && s.proId && s.date && validIds.length > 0) {
+        pendingSlotRef.current = {
+          slot: s.slot,
+          queryKey: availabilityQueryKey(
+            salonId,
+            s.proId,
+            [...new Set(validIds)],
+            s.date,
+          ),
+        };
+        // Mantém a escolha visível, mas o CTA segue bloqueado até a API
+        // confirmar que o horário ainda pertence à resposta atual.
+        setSlot(s.slot);
+      }
     } catch {
       // Storage indisponível não pode bloquear o agendamento.
     } finally {
@@ -280,6 +322,27 @@ export function BookingFlow({
     }
   }, [bookingStateReady, date, proId, salonSlug, serviceIds, slot]);
 
+  useEffect(() => {
+    if (retryUntilMs === null) return;
+
+    function updateRetryClock() {
+      const now = Date.now();
+      if (retryUntilRef.current !== null && now >= retryUntilRef.current) {
+        retryUntilRef.current = null;
+        setRetryUntilMs(null);
+      }
+      setRetryClockMs(now);
+    }
+
+    updateRetryClock();
+    const timer = window.setInterval(updateRetryClock, 250);
+    return () => window.clearInterval(timer);
+  }, [retryUntilMs]);
+
+  const retrySecondsRemaining = retryUntilMs === null
+    ? 0
+    : Math.max(0, Math.ceil((retryUntilMs - retryClockMs) / 1_000));
+
   /** Congela a seleção atual antes de sair para login/cadastro. */
   function saveBookingState() {
     try {
@@ -302,38 +365,102 @@ export function BookingFlow({
 
   // Disponibilidade real: working hours + time-offs + agendamentos existentes
   useEffect(() => {
+    const requestId = ++availabilityRequestRef.current;
     if (selectedServices.length === 0 || !proId) {
       setSlots([]);
       setPopularSlot(null);
       setOccupied([]);
+      setSlotsError(null);
+      setSlotsLoading(false);
+      if (!pendingSlotRef.current) setSlot(null);
+      availabilityQueryRef.current = null;
       return;
     }
+
+    const queryKey = availabilityQueryKey(
+      salonId,
+      proId,
+      serviceIds,
+      format(date, "yyyy-MM-dd"),
+    );
+    const queryChanged = availabilityQueryRef.current !== queryKey;
+    availabilityQueryRef.current = queryKey;
+    if (queryChanged) {
+      setSlots([]);
+      setPopularSlot(null);
+      setOccupied([]);
+      if (pendingSlotRef.current?.queryKey !== queryKey) setSlot(null);
+    }
+
+    if (retryUntilRef.current !== null && retryUntilRef.current > Date.now()) {
+      setSlotsLoading(false);
+      return;
+    }
+
     const controller = new AbortController();
     setSlotsLoading(true);
-    setSlot(null);
+    setSlotsError(null);
+    retryUntilRef.current = null;
+    setRetryUntilMs(null);
     const params = new URLSearchParams({
       salonId,
       professionalId: proId,
       serviceId: serviceIds.join(","),
       date: format(date, "yyyy-MM-dd"),
     });
-    fetch(`/api/availability?${params}`, { signal: controller.signal })
-      .then((r) => r.json())
-      .then((b) => {
-        const list: string[] = Array.isArray(b.slots) ? b.slots : [];
-        setSlots(list);
-        setPopularSlot(typeof b.popularSlot === "string" ? b.popularSlot : null);
-        setOccupied(Array.isArray(b.occupied) ? b.occupied : []);
+    requestAvailability(`/api/availability?${params}`, { signal: controller.signal })
+      .then((result) => {
+        if (availabilityRequestRef.current !== requestId) return;
+        setSlots(result.slots);
+        setPopularSlot(result.popularSlot);
+        setOccupied(result.occupied);
         // Fluxo returnTo: re-seleciona o horário salvo se ainda estiver livre
-        if (pendingSlotRef.current && list.includes(pendingSlotRef.current)) {
-          setSlot(pendingSlotRef.current);
+        setSlot((current) => {
+          const pending = pendingSlotRef.current;
+          if (
+            pending?.queryKey === queryKey &&
+            result.slots.includes(pending.slot)
+          ) {
+            return pending.slot;
+          }
+          return current && result.slots.includes(current) ? current : null;
+        });
+        if (pendingSlotRef.current?.queryKey === queryKey) {
+          pendingSlotRef.current = null;
         }
-        pendingSlotRef.current = null;
       })
-      .catch((e) => {
-        if (e.name !== "AbortError") setSlots([]);
+      .catch((requestError: unknown) => {
+        if (
+          availabilityRequestRef.current !== requestId ||
+          (requestError instanceof AvailabilityRequestError && requestError.code === "aborted")
+        ) {
+          return;
+        }
+        const availabilityError = requestError instanceof AvailabilityRequestError
+          ? requestError
+          : new AvailabilityRequestError("network");
+        setSlots([]);
+        setPopularSlot(null);
+        setOccupied([]);
+        setSlotsError(availabilityError);
+        if (
+          availabilityError.code === "rate_limited" &&
+          availabilityError.retryAfterSeconds !== null &&
+          availabilityError.retryAfterSeconds > 0
+        ) {
+          const now = Date.now();
+          const retryUntil = now + availabilityError.retryAfterSeconds * 1_000;
+          retryUntilRef.current = retryUntil;
+          setRetryClockMs(now);
+          setRetryUntilMs(retryUntil);
+        } else {
+          retryUntilRef.current = null;
+          setRetryUntilMs(null);
+        }
       })
-      .finally(() => setSlotsLoading(false));
+      .finally(() => {
+        if (availabilityRequestRef.current === requestId) setSlotsLoading(false);
+      });
     return () => controller.abort();
   }, [salonId, selectedServices, serviceIds, proId, date, slotsVersion]);
 
@@ -350,7 +477,14 @@ export function BookingFlow({
   }, [viewMonth]);
 
   function handleConfirmClick() {
-    if (selectedServices.length === 0 || !proId || !slot) return;
+    if (
+      selectedServices.length === 0 ||
+      !proId ||
+      !slot ||
+      !slots.includes(slot) ||
+      slotsLoading ||
+      slotsError
+    ) return;
     if (clientSession) {
       setReviewing(true);
     } else if (authStep === "guest-form" && name && isValidPhoneBR(phone)) {
@@ -528,6 +662,7 @@ export function BookingFlow({
             <button
               type="button"
               onClick={() => {
+                invalidatePendingSlot();
                 setServiceIds([]);
                 setProId(null);
                 setSlot(null);
@@ -632,6 +767,7 @@ export function BookingFlow({
               type="button"
               aria-pressed={selected}
               onClick={() => {
+                invalidatePendingSlot();
                 setProId(null);
                 setSlot(null);
                 setServiceIds((current) =>
@@ -752,6 +888,7 @@ export function BookingFlow({
                   aria-pressed={selected}
                   disabled={eligibleProfessionals.length === 1}
                   onClick={() => {
+                    invalidatePendingSlot();
                     setProId(p.id);
                     setSlot(null);
                   }}
@@ -875,7 +1012,11 @@ export function BookingFlow({
                   type="button"
                   key={d.toISOString()}
                   disabled={disabled}
-                  onClick={() => setDate(d)}
+                  onClick={() => {
+                    invalidatePendingSlot();
+                    setSlot(null);
+                    setDate(d);
+                  }}
                   aria-label={format(d, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}
                   aria-pressed={selected}
                   aria-current={format(d, "yyyy-MM-dd") === todayDate ? "date" : undefined}
@@ -916,6 +1057,32 @@ export function BookingFlow({
             {Array.from({ length: 12 }).map((_, i) => (
               <div key={i} className="h-9 animate-pulse rounded-full bg-muted" />
             ))}
+          </div>
+        ) : slotsError ? (
+          <div
+            role="alert"
+            className="rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-5 text-center"
+          >
+            <p className="text-sm font-medium text-foreground">
+              {slotsError.code === "rate_limited" && retrySecondsRemaining > 0
+                ? "Muitas consultas em pouco tempo. Aguarde o tempo indicado para tentar novamente."
+                : availabilityErrorMessage(slotsError)}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {slot
+                ? `O horário ${slot} e suas demais escolhas foram preservados.`
+                : "Serviço, profissional e data continuam selecionados."}
+            </p>
+            <button
+              type="button"
+              onClick={() => setSlotsVersion((version) => version + 1)}
+              disabled={retrySecondsRemaining > 0}
+              className="mt-3 min-h-11 rounded-full border border-border-strong bg-card px-5 text-sm font-semibold text-foreground transition hover:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {retrySecondsRemaining > 0
+                ? `Tentar novamente em ${retrySecondsRemaining}s`
+                : "Tentar novamente"}
+            </button>
           </div>
         ) : slots.length === 0 ? (
           <p className="rounded-2xl border border-border bg-card px-4 py-6 text-center text-sm text-muted-foreground">
@@ -1183,6 +1350,9 @@ export function BookingFlow({
           disabled={
             !proId ||
             !slot ||
+            !slots.includes(slot) ||
+            slotsLoading ||
+            Boolean(slotsError) ||
             (authStep === "guest-form" && (!name || !isValidPhoneBR(phone))) ||
             loading
           }

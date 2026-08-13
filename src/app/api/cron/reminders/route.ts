@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { withSalon } from "@/lib/prisma-tenant";
+import { withApprovedSalon } from "@/lib/prisma-tenant";
 import { isCronAuthorized } from "@/lib/cron-auth";
 import { recordAppointmentEvent } from "@/lib/appointment-events";
 import {
@@ -20,16 +20,12 @@ export async function GET(req: NextRequest) {
   }
 
   const salons = await prisma.salon.findMany({
+    where: { accessStatus: "APPROVED" },
     select: { id: true, timezone: true },
     orderBy: { id: "asc" },
   });
   let generated = 0;
-  const appointments: Array<{
-    id: string;
-    salonId: string;
-    startAt: string;
-    timezone: string;
-  }> = [];
+  let count = 0;
 
   for (const salon of salons) {
     const today = dateKeyInTimeZone(new Date(), salon.timezone);
@@ -37,7 +33,7 @@ export async function GET(req: NextRequest) {
     const from = startOfDateInTimeZone(reminderDate, salon.timezone);
     const to = startOfDateInTimeZone(addCalendarDays(reminderDate, 1), salon.timezone);
 
-    const result = await withSalon(salon.id, async (tx) => {
+    const result = await withApprovedSalon(salon.id, async (tx) => {
       const rows = await tx.appointment.findMany({
         where: {
           salonId: salon.id,
@@ -103,19 +99,14 @@ export async function GET(req: NextRequest) {
         });
         if (!before) created++;
       }
-      return { rows, created };
+      return { count: rows.length, created };
     });
 
+    if (!result) continue;
+
     generated += result.created;
-    appointments.push(
-      ...result.rows.map((appointment) => ({
-        id: appointment.id,
-        salonId: salon.id,
-        startAt: appointment.startAt.toISOString(),
-        timezone: appointment.timezone,
-      })),
-    );
+    count += result.count;
   }
 
-  return NextResponse.json({ generated, count: appointments.length, appointments });
+  return NextResponse.json({ generated, count });
 }
