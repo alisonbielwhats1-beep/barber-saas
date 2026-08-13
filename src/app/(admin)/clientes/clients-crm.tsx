@@ -33,11 +33,13 @@ export function ClientsCrm({
   salonName,
   timezone,
   canManage,
+  lapsedClientDays,
 }: {
   clients: ClientRow[];
   salonName: string;
   timezone: string;
   canManage: boolean;
+  lapsedClientDays: number;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -105,7 +107,7 @@ export function ClientsCrm({
         <Seg active={segment === "all"} onClick={() => setSegment("all")}>Todos ({clients.length})</Seg>
         <Seg active={segment === "vip"} onClick={() => setSegment("vip")} icon={Crown} accent="#F4C430">VIP ({counts.vip})</Seg>
         <Seg active={segment === "birthday"} onClick={() => setSegment("birthday")} icon={Cake} accent="#EC4899">Aniversariantes ({counts.birthday})</Seg>
-        <Seg active={segment === "lapsed"} onClick={() => setSegment("lapsed")} icon={Clock} accent="#EF4444">Sumidos ({counts.lapsed})</Seg>
+        <Seg active={segment === "lapsed"} onClick={() => setSegment("lapsed")} icon={Clock} accent="#EF4444">Sumidos {lapsedClientDays}d+ ({counts.lapsed})</Seg>
         <Seg active={segment === "recurring"} onClick={() => setSegment("recurring")} icon={Repeat} accent="#A855F7">Recorrentes ({counts.recurring})</Seg>
         {canManage && <button onClick={() => setImportOpen((open) => !open)} className="ml-auto inline-flex min-h-11 items-center gap-1.5 rounded-full border border-border bg-card px-3 text-[12px] font-medium text-muted-foreground"><FileUp className="h-3.5 w-3.5" /> Importar planilha</button>}
       </div>

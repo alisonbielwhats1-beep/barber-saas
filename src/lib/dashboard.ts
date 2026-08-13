@@ -103,6 +103,7 @@ export async function getDashboardMetrics(
   salonId: string,
   range: RangeKey,
   timezone = DEFAULT_TIMEZONE,
+  lapsedClientDays = 60,
 ) {
   const now = new Date();
   const resolved = resolveRange(range, timezone, now);
@@ -117,7 +118,7 @@ export async function getDashboardMetrics(
     from: today.to,
     to: startOfDateInTimeZone(addCalendarDays(todayDate, 2), timezone),
   };
-  const lostThreshold = startOfDateInTimeZone(addCalendarDays(todayDate, -60), timezone);
+  const lostThreshold = startOfDateInTimeZone(addCalendarDays(todayDate, -lapsedClientDays), timezone);
 
   // O dashboard costumava iniciar mais de vinte queries ao mesmo tempo.
   // Em serverless, isso pode esgotar o pool do Prisma/Supavisor antes que as
