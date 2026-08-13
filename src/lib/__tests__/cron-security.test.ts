@@ -106,7 +106,9 @@ describe("GET /api/cron/reminders — fail closed", () => {
 
     expect(response.status).toBe(200);
     expect(mocks.appointmentFindMany).not.toHaveBeenCalled();
-    expect(mocks.executeRaw).not.toHaveBeenCalled();
+    // O id já foi listado: a GUC local precede o FOR SHARE para que a policy
+    // RLS de UPDATE consiga revalidar o salão. O callback permanece fechado.
+    expect(mocks.executeRaw).toHaveBeenCalledOnce();
     await expect(response.json()).resolves.toEqual({ generated: 0, count: 0 });
   });
 });
