@@ -37,14 +37,14 @@ describe("middleware environment guard", () => {
     vi.unstubAllEnvs();
   });
 
-  it("responde ao probe de sessão com JSON nulo sem encaminhar ao NextAuth", async () => {
+  it("responde ao probe de sessão com objeto vazio sem encaminhar ao NextAuth", async () => {
     vi.stubEnv("VERCEL_ENV", "preview");
     vi.stubEnv("APP_ENV", "production");
 
     const response = await invokePreviewMiddleware("/api/auth/session");
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toBeNull();
+    await expect(response.json()).resolves.toEqual({});
     expect(response.headers.get("content-type")).toContain("application/json");
     expect(response.headers.get("cache-control")).toBe("no-store");
     expect(response.headers.get("x-environment-guard")).toBe(

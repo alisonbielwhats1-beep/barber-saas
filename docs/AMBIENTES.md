@@ -166,7 +166,7 @@ Rollback nunca deve apagar dados recém-criados sem exportação e autorização
 - Barreiras locais: configuradas no repositório.
 - Preview sem `APP_ENV=staging`: somente a landing `/` e seus assets estáticos
   versionados em `/images/` são liberados para revisão visual. O probe exato
-  `GET /api/auth/session` recebe `null` diretamente do guard, sem tocar em
+  `GET /api/auth/session` recebe `{}` diretamente do guard, sem tocar em
   NextAuth ou banco; outros métodos e todas as demais rotas com dados,
   autenticação ou operação continuam bloqueados no middleware.
 - Ambientes GitHub `test`, `staging` e `production`: gerenciados separadamente

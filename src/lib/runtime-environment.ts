@@ -24,7 +24,7 @@ export function isSafeMarketingPreviewPath(pathname: string): boolean {
 
 /**
  * A landing monta o SessionProvider, que consulta este endpoint via GET mesmo
- * sem autenticação. Em Preview sem staging, o middleware responde `null`
+ * sem autenticação. Em Preview sem staging, o middleware responde `{}`
  * diretamente e não encaminha a requisição ao NextAuth ou ao banco.
  */
 export function isSafePreviewSessionProbe(pathname: string): boolean {
