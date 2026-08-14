@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getClientSession } from "@/lib/client-auth";
-import { clientSessionForSalon } from "@/lib/public-appointment";
-import { withSalonBySlug } from "@/lib/prisma-tenant";
+import { getClientSessionForSalonSlug } from "@/lib/client-session-tenant";
 import { CadastroForm } from "./cadastro-form";
 
 export default async function CadastroPage({
@@ -18,13 +16,8 @@ export default async function CadastroPage({
       ? query.returnTo
       : null;
 
-  const [session, salonId] = await Promise.all([
-    getClientSession(),
-    withSalonBySlug(salonSlug, async (_tx, resolvedSalonId) => resolvedSalonId),
-  ]);
-  if (clientSessionForSalon(session, salonId ?? "")) {
-    redirect(returnTo ?? `/book/${salonSlug}/minhas`);
-  }
+  const session = await getClientSessionForSalonSlug(salonSlug);
+  if (session) redirect(returnTo ?? `/book/${salonSlug}/minhas`);
 
   return (
     <main className="flex min-h-[100dvh] flex-col items-center justify-center px-5 py-10">
