@@ -156,12 +156,22 @@ export async function loginClient(
     return { error: "Muitas tentativas. Aguarde alguns minutos e tente novamente." };
   }
 
-  const found = await withSalonBySlug(normalizedSlug, (tx, salonId) =>
-    tx.clientProfile.findFirst({
-      where: { salonId, email: normalizedEmail },
-      select: { id: true, name: true, email: true, passwordHash: true },
-    }).then((client) => ({ salonId, client })),
-  );
+  let found: { salonId: string; client: {
+    id: string;
+    name: string;
+    email: string | null;
+    passwordHash: string | null;
+  } | null } | null;
+  try {
+    found = await withSalonBySlug(normalizedSlug, (tx, salonId) =>
+      tx.clientProfile.findFirst({
+        where: { salonId, email: normalizedEmail },
+        select: { id: true, name: true, email: true, passwordHash: true },
+      }).then((client) => ({ salonId, client })),
+    );
+  } catch {
+    return { error: "Não foi possível entrar agora. Tente novamente." };
+  }
   if (!found) {
     await bcrypt.compare(validatedPassword, DUMMY_CLIENT_PASSWORD_HASH);
     return { error: "Salão não encontrado" };
@@ -229,8 +239,12 @@ export async function registerClient(
 
   // Evita bcrypt para um tenant inexistente/inativo. O helper transacional
   // abaixo revalida e bloqueia a linha antes de qualquer INSERT.
-  if (!(await isApprovedSalonSlug(normalizedSlug))) {
-    return { error: "Salão não encontrado" };
+  try {
+    if (!(await isApprovedSalonSlug(normalizedSlug))) {
+      return { error: "Salão não encontrado" };
+    }
+  } catch {
+    return { error: "Não foi possível criar a conta agora. Tente novamente." };
   }
 
   // Hash fora da transação: bcrypt é CPU-bound e não depende de nada lido do
@@ -254,7 +268,7 @@ export async function registerClient(
     });
   } catch (error) {
     if (isUniqueConflict(error)) return { error: REGISTRATION_ERROR };
-    throw error;
+    return { error: "Não foi possível criar a conta agora. Tente novamente." };
   }
   if (!result) return { error: "Salão não encontrado" };
 
