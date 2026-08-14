@@ -126,6 +126,7 @@ describe("registerClient — validação no servidor", () => {
         phone,
         email: "  MARIA@EXAMPLE.COM ",
         password: "123456",
+        confirmPassword: "123456",
       }),
     ).rejects.toThrow("NEXT_REDIRECT");
 
@@ -169,6 +170,7 @@ describe("registerClient — validação no servidor", () => {
       phone: "",
       email: "maria@example.com",
       password: "123456",
+      confirmPassword: "123456",
     });
 
     expect(result).toEqual({
@@ -185,6 +187,7 @@ describe("registerClient — validação no servidor", () => {
       phone: "",
       email: "maria@example.com",
       password: "123456",
+      confirmPassword: "123456",
     });
 
     expect(result).toEqual({ error: "Salão não encontrado" });
@@ -200,6 +203,7 @@ describe("registerClient — validação no servidor", () => {
       phone: "",
       email: "maria@example.com",
       password: "123456",
+      confirmPassword: "123456",
     });
 
     expect(mocks.isApprovedSalonSlug).toHaveBeenCalledOnce();
@@ -218,6 +222,7 @@ describe("registerClient — validação no servidor", () => {
       phone: "",
       email: "maria@example.com",
       password: "123456",
+      confirmPassword: "123456",
     });
 
     expect(result).toEqual({
@@ -236,6 +241,7 @@ describe("registerClient — validação no servidor", () => {
           phone: "",
           email: "maria@example.com",
           password: "123456",
+          confirmPassword: "123456",
         },
         "/book/studio-a/%2e%2e/admin",
       ),
@@ -253,6 +259,7 @@ describe("registerClient — validação no servidor", () => {
           phone: "",
           email: "maria@example.com",
           password: "123456",
+          confirmPassword: "123456",
         },
         "/book/studio-a/agendar?services=a%2Cb#ignored",
       ),

@@ -73,6 +73,7 @@ describe("client auth regressions", () => {
         phone: "",
         email: "maria@example.com",
         password: "123456",
+        confirmPassword: "123456",
       }),
     ).resolves.toMatchObject({ error: expect.stringContaining("Tente novamente") });
     expect(mocks.setClientSession).not.toHaveBeenCalled();

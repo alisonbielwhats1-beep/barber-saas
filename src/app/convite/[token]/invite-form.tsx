@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { acceptInvite } from "./actions";
 
 export function InviteForm({
@@ -67,28 +67,22 @@ export function InviteForm({
     <form onSubmit={submit} className="space-y-4">
       {mode === "new" && (
         <>
-          <div>
-            <label className="mb-1 block text-sm font-medium">Senha</label>
-            <Input
-              name="password"
-              type="password"
-              minLength={10}
-              autoComplete="new-password"
-              required
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium">
-              Confirmar senha
-            </label>
-            <Input
-              name="confirmPassword"
-              type="password"
-              minLength={10}
-              autoComplete="new-password"
-              required
-            />
-          </div>
+          <PasswordInput
+            id="invite-password"
+            name="password"
+            label="Senha"
+            minLength={10}
+            autoComplete="new-password"
+            required
+          />
+          <PasswordInput
+            id="invite-confirm-password"
+            name="confirmPassword"
+            label="Confirmar senha"
+            minLength={10}
+            autoComplete="new-password"
+            required
+          />
           <p className="text-xs text-muted-foreground">
             Use pelo menos 10 caracteres. Evite senhas reutilizadas em outros
             serviços.
