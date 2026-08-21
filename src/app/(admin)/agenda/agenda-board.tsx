@@ -37,6 +37,7 @@ import { AppointmentDetail } from "./appointment-detail";
 import { STATUS, STATUS_ORDER } from "./agenda-status";
 import { moveAppointment } from "./actions";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { layoutOverlappingIntervals } from "./agenda-layout";
 
 const DAY_START = 8 * 60;
 const DAY_END = 21 * 60;
@@ -99,6 +100,17 @@ function minutesOf(iso: string, timezone: string) {
     .map(Number);
   return hour! * 60 + minute!;
 }
+
+function appointmentPlacements(appointments: Appointment[], timezone: string) {
+  return layoutOverlappingIntervals(
+    appointments.map((appointment) => ({
+      id: appointment.id,
+      start: minutesOf(appointment.startAt, timezone),
+      end: minutesOf(appointment.endAt, timezone),
+    })),
+  );
+}
+
 function initials(name: string) {
   return name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
 }
@@ -569,6 +581,7 @@ function DayView({
 
         {professionals.map((pro) => {
           const proAppts = appointments.filter((a) => a.professionalId === pro.id);
+          const placements = appointmentPlacements(proAppts, timezone);
           return (
             <div key={pro.id} data-pro-col data-pro-id={pro.id} className="relative shrink-0 border-r border-border last:border-r-0" style={{ width: COL_WIDTH }}>
               <div style={{ height: HEADER_H }} className="sticky top-0 z-10 flex items-center gap-2 border-b border-border bg-card px-3">
@@ -603,6 +616,11 @@ function DayView({
                   const height = Math.max(24, (endMin - startMin) * PX_PER_MIN);
                   if (top < 0 || top > totalH) return null;
                   const cfg = STATUS[a.status as keyof typeof STATUS] ?? STATUS.CONFIRMED;
+                  const placement = placements.get(a.id) ?? {
+                    leftPct: 0,
+                    widthPct: 100,
+                    conflict: false,
+                  };
                   const isDragging = drag?.id === a.id && drag.started;
                   return (
                     <button
@@ -612,11 +630,21 @@ function DayView({
                       onClick={() => {
                         if (!drag?.started) onOpenDetail(a);
                       }}
-                      aria-label={`${a.clientName}, ${a.serviceName}, ${formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")}. Abrir detalhes`}
-                      className={`group absolute inset-x-1 cursor-pointer touch-pan-y select-none rounded-lg border-l-[3px] p-2 text-left text-xs shadow-sm transition focus-visible:z-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:cursor-grab ${
+                      aria-label={`${a.clientName}, ${a.serviceName}, ${formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")}.${placement.conflict ? " Conflito de horário detectado." : ""} Abrir detalhes`}
+                      title={placement.conflict && !a.isOverbooked ? "Conflito de horário detectado — revise este atendimento" : undefined}
+                      className={`group absolute cursor-pointer touch-pan-y select-none rounded-lg border-l-[3px] p-2 text-left text-xs shadow-sm transition focus-visible:z-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:cursor-grab ${
+                        placement.conflict ? "ring-1 ring-danger/60" : ""
+                      } ${
                         isDragging ? "z-30 opacity-70 ring-2 ring-primary" : "hover:shadow-md"
                       }`}
-                      style={{ top, height, borderLeftColor: cfg.color, background: `${cfg.color}1f` }}
+                      style={{
+                        top,
+                        height,
+                        left: `calc(${placement.leftPct}% + 4px)`,
+                        width: `calc(${placement.widthPct}% - 8px)`,
+                        borderLeftColor: placement.conflict ? "#EF4444" : cfg.color,
+                        background: `${cfg.color}1f`,
+                      }}
                     >
                       <p className="truncate font-semibold text-foreground">{a.clientName}</p>
                       <p className="truncate text-[11px] text-muted-foreground">{a.serviceName}</p>
@@ -634,9 +662,11 @@ function DayView({
                           {a.waitlistCount}
                         </span>
                       )}
-                      {a.isOverbooked && (
+                      {(a.isOverbooked || placement.conflict) && (
                         <span
-                          title="Overbooking deliberado — encaixado apesar de conflito de horário"
+                          title={a.isOverbooked
+                            ? "Overbooking deliberado — encaixado apesar de conflito de horário"
+                            : "Conflito de horário detectado — revise este atendimento"}
                           className="absolute left-1 top-1 grid h-[18px] w-[18px] place-items-center rounded-full bg-danger text-white"
                         >
                           <AlertTriangle className="h-2.5 w-2.5" />
@@ -705,6 +735,7 @@ function WeekView({
             (appointment) =>
               formatInTimeZone(new Date(appointment.startAt), timezone, "yyyy-MM-dd") === dStr,
           );
+          const placements = appointmentPlacements(dayAppts, timezone);
           return (
             <div key={dStr} className="relative shrink-0 border-r border-border last:border-r-0" style={{ width: colW }}>
               <button
@@ -746,15 +777,32 @@ function WeekView({
                   const height = Math.max(20, (endMin - startMin) * PX_PER_MIN);
                   if (top < 0 || top > totalH) return null;
                   const cfg = STATUS[a.status as keyof typeof STATUS] ?? STATUS.CONFIRMED;
+                  const placement = placements.get(a.id) ?? {
+                    leftPct: 0,
+                    widthPct: 100,
+                    conflict: false,
+                  };
                   return (
                     <button
                       key={a.id}
                       onClick={() => onOpenDetail(a)}
-                      className="absolute inset-x-0.5 overflow-hidden rounded-md border-l-[3px] px-1.5 py-1 text-left text-[10px] shadow-sm transition hover:shadow-md"
-                      style={{ top, height, borderLeftColor: cfg.color, background: `${cfg.color}1f` }}
+                      aria-label={`${formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")}, ${a.clientName}, ${a.serviceName}${placement.conflict ? ", conflito de horário" : ""}`}
+                      title={placement.conflict ? "Conflito de horário detectado — revise este atendimento" : undefined}
+                      className={`absolute overflow-hidden rounded-md border-l-[3px] px-1.5 py-1 text-left text-[10px] shadow-sm transition hover:shadow-md ${
+                        placement.conflict ? "ring-1 ring-danger/60" : ""
+                      }`}
+                      style={{
+                        top,
+                        height,
+                        left: `calc(${placement.leftPct}% + 3px)`,
+                        width: `calc(${placement.widthPct}% - 6px)`,
+                        borderLeftColor: placement.conflict ? "#EF4444" : cfg.color,
+                        background: `${cfg.color}1f`,
+                      }}
                     >
                       <p className="truncate font-semibold">{formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")} {a.clientName.split(" ")[0]}</p>
                       {height > 30 && <p className="truncate text-muted-foreground">{a.serviceName}</p>}
+                      {placement.conflict && <AlertTriangle className="absolute right-1 top-1 h-3 w-3 text-danger" aria-label="Conflito de horário" />}
                     </button>
                   );
                 })}

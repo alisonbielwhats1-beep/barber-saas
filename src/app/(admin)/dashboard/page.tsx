@@ -164,7 +164,7 @@ export default async function DashboardPage({
               id: true,
               startAt: true,
               status: true,
-              client: { select: { name: true } },
+              client: { select: { name: true, phone: true } },
               service: { select: { name: true, colorHex: true } },
               professional: { select: { user: { select: { name: true } } } },
             },
@@ -269,6 +269,7 @@ export default async function DashboardPage({
       {/* ── Faixa Agora: operação antes da análise ─────────── */}
       <NowStrip
         appointments={todayAppts}
+        salonName={salonName}
         timezone={timezone}
         todayDate={todayDate}
         now={now}

@@ -3,18 +3,20 @@ import { ptBR } from "date-fns/locale";
 import { formatInTimeZone } from "date-fns-tz";
 import { AlertTriangle, ArrowRight } from "lucide-react";
 import { formatMoney } from "@/lib/utils";
+import { WhatsAppReminderButton } from "./whatsapp-reminder-button";
 
 export type NowStripAppointment = {
   id: string;
   startAt: Date;
   status: string;
-  client: { name: string };
+  client: { name: string; phone: string | null };
   service: { name: string; colorHex: string | null };
   professional: { user: { name: string } };
 };
 
 export function NowStrip({
   appointments,
+  salonName,
   timezone,
   todayDate,
   now,
@@ -24,6 +26,7 @@ export function NowStrip({
   outOfStock,
 }: {
   appointments: NowStripAppointment[];
+  salonName: string;
   timezone: string;
   todayDate: string;
   now: Date;
@@ -35,7 +38,7 @@ export function NowStrip({
   return (
     <section
       aria-labelledby="now-strip-title"
-      className="relative overflow-hidden rounded-2xl border border-primary/25 bg-card shadow-premium"
+      className="relative overflow-hidden rounded-2xl border border-border bg-card shadow-sm"
     >
       <div
         aria-hidden="true"
@@ -49,20 +52,21 @@ export function NowStrip({
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-40" />
                 <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-primary" />
               </span>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em]">Agora</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em]">Operação de hoje</p>
             </div>
             <h2 id="now-strip-title" className="mt-1 text-lg font-semibold tracking-tight">
-              Faixa Agora
+              Próximos atendimentos de hoje
             </h2>
             <p className="mt-1 text-[13px] text-muted-foreground">
               {formatInTimeZone(now, timezone, "EEEE, d 'de' MMMM '·' HH:mm", { locale: ptBR })}
             </p>
+            <p className="mt-1 text-[11px] text-muted-foreground/80">Atualização automática a cada 30 segundos</p>
           </div>
           <Link
-            href={`/agenda?date=${todayDate}`}
+            href={`/hoje?date=${todayDate}`}
             className="inline-flex min-h-11 items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 text-[13px] font-semibold text-primary transition-colors hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            Abrir agenda
+            Ver o dia
             <ArrowRight aria-hidden="true" className="h-4 w-4" />
           </Link>
         </div>
@@ -87,49 +91,62 @@ export function NowStrip({
             className="stagger scrollbar-dark flex snap-x gap-2 overflow-x-auto pb-1 sm:grid sm:grid-cols-2 sm:overflow-visible sm:pb-0 xl:grid-cols-4"
           >
             {appointments.slice(0, 4).map((appointment, index) => (
-              <Link
+              <div
                 key={appointment.id}
-                href={`/agenda?date=${todayDate}`}
-                aria-label={`${formatInTimeZone(appointment.startAt, timezone, "HH:mm")}, ${appointment.client.name}, ${appointment.service.name}. Abrir agenda`}
-                className={`group relative w-[78vw] max-w-72 shrink-0 snap-start rounded-xl border p-3.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-auto sm:max-w-none sm:min-w-0 ${
+                className={`group relative w-[78vw] max-w-72 shrink-0 snap-start rounded-xl border p-3.5 pb-12 transition-colors sm:w-auto sm:max-w-none sm:min-w-0 ${
                   index === 0
                     ? "border-primary/30 bg-primary/[0.07] hover:bg-primary/10"
                     : "border-border bg-surface-1/70 hover:border-border-strong hover:bg-card-hover"
                 }`}
               >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[15px] font-semibold tabular-nums">
-                    {formatInTimeZone(appointment.startAt, timezone, "HH:mm")}
-                  </span>
-                  <span
-                    className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${
-                      appointment.status === "IN_PROGRESS"
-                        ? "bg-primary/15 text-primary"
-                        : appointment.status === "PENDING"
-                          ? "bg-warning/10 text-warning"
-                          : "bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    {appointmentStatusLabel(appointment.status)}
-                  </span>
-                </div>
-                <div className="mt-3 flex min-w-0 gap-2.5">
-                  <span
-                    aria-hidden="true"
-                    className="mt-1 h-8 w-1 shrink-0 rounded-full"
-                    style={{ background: appointment.service.colorHex ?? "hsl(var(--primary))" }}
-                  />
-                  <div className="min-w-0">
-                    <p className="truncate text-[14px] font-medium">{appointment.client.name}</p>
-                    <p className="mt-0.5 truncate text-[13px] text-muted-foreground">
-                      {appointment.service.name}
-                    </p>
-                    <p className="truncate text-[12px] text-muted-foreground">
-                      com {appointment.professional.user.name}
-                    </p>
+                <Link
+                  href={`/agenda?date=${todayDate}`}
+                  aria-label={`${formatInTimeZone(appointment.startAt, timezone, "HH:mm")}, ${appointment.client.name}, ${appointment.service.name}. Abrir agenda`}
+                  className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[15px] font-semibold tabular-nums">
+                      {formatInTimeZone(appointment.startAt, timezone, "HH:mm")}
+                    </span>
+                    <span
+                      className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${
+                        appointment.status === "IN_PROGRESS"
+                          ? "bg-primary/15 text-primary"
+                          : appointment.status === "PENDING"
+                            ? "bg-warning/10 text-warning"
+                            : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {appointmentStatusLabel(appointment.status)}
+                    </span>
                   </div>
-                </div>
-              </Link>
+                  <div className="mt-3 flex min-w-0 gap-2.5">
+                    <span
+                      aria-hidden="true"
+                      className="mt-1 h-8 w-1 shrink-0 rounded-full"
+                      style={{ background: appointment.service.colorHex ?? "hsl(var(--primary))" }}
+                    />
+                    <div className="min-w-0">
+                      <p className="truncate text-[14px] font-medium">{appointment.client.name}</p>
+                      <p className="mt-0.5 truncate text-[13px] text-muted-foreground">
+                        {appointment.service.name}
+                      </p>
+                      <p className="truncate text-[12px] text-muted-foreground">
+                        com {appointment.professional.user.name}
+                      </p>
+                    </div>
+                  </div>
+                </Link>
+                <WhatsAppReminderButton
+                  appointmentId={appointment.id}
+                  phone={appointment.client.phone}
+                  clientName={appointment.client.name}
+                  salonName={salonName}
+                  when={formatInTimeZone(appointment.startAt, timezone, "HH:mm")}
+                  serviceName={appointment.service.name}
+                  professionalName={appointment.professional.user.name}
+                />
+              </div>
             ))}
           </div>
         )}
