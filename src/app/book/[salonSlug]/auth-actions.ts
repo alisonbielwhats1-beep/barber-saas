@@ -82,8 +82,13 @@ const registrationSchema = z
     // bcrypt ignora silenciosamente bytes depois do 72º; rejeitamos em vez
     // de aceitar duas senhas visivelmente diferentes como equivalentes.
     password: passwordSchema,
+    confirmPassword: passwordSchema,
   })
-  .strict();
+  .strict()
+  .refine((input) => input.password === input.confirmPassword, {
+    path: ["confirmPassword"],
+    message: "As senhas não coincidem.",
+  });
 
 const REGISTRATION_ERROR =
   "Não foi possível criar a conta com os dados informados.";
@@ -198,7 +203,13 @@ export async function loginClient(
 
 export async function registerClient(
   salonSlug: string,
-  data: { name: string; phone: string; email: string; password: string },
+  data: {
+    name: string;
+    phone: string;
+    email: string;
+    password: string;
+    confirmPassword?: string;
+  },
   returnTo?: string | null,
 ): Promise<{ error: string }> {
   const parsedSlug = salonSlugSchema.safeParse(salonSlug);
@@ -206,7 +217,14 @@ export async function registerClient(
   const normalizedSlug = parsedSlug.data;
 
   const parsed = registrationSchema.safeParse(data);
-  if (!parsed.success) return { error: REGISTRATION_ERROR };
+  if (!parsed.success) {
+    const mismatch = parsed.error.issues.find(
+      (issue) =>
+        issue.path[0] === "confirmPassword" &&
+        issue.message === "As senhas não coincidem.",
+    );
+    return { error: mismatch?.message ?? REGISTRATION_ERROR };
+  }
   const registration = parsed.data;
 
   const requestHeaders = await headers();

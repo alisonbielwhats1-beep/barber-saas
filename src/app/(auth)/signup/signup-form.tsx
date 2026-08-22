@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import {
   SegmentPicker,
   StarterServicePicker,
@@ -26,10 +27,15 @@ export function SignupForm() {
       ownerName: String(form.get("ownerName")),
       email: String(form.get("email")),
       password: String(form.get("password")),
+      confirmPassword: String(form.get("confirmPassword")),
       salonName: String(form.get("salonName")),
       segmentId: selection.segmentId,
       serviceNames: selection.serviceNames,
     };
+    if (payload.password !== payload.confirmPassword) {
+      setError("As senhas não coincidem.");
+      return;
+    }
 
     startTransition(async () => {
       try {
@@ -88,11 +94,23 @@ export function SignupForm() {
         <label htmlFor="email" className="text-sm font-medium">Email</label>
         <Input id="email" name="email" type="email" placeholder="voce@salon.com" required />
       </div>
-      <div className="space-y-1.5">
-        <label htmlFor="password" className="text-sm font-medium">Senha</label>
-        <Input id="password" name="password" type="password" minLength={6} required />
-        <p className="text-xs text-muted-foreground">Mínimo 6 caracteres.</p>
-      </div>
+      <PasswordInput
+        id="password"
+        name="password"
+        label="Senha"
+        minLength={6}
+        autoComplete="new-password"
+        required
+      />
+      <PasswordInput
+        id="confirmPassword"
+        name="confirmPassword"
+        label="Confirmar senha"
+        minLength={6}
+        autoComplete="new-password"
+        required
+      />
+      <p className="text-xs text-muted-foreground">Mínimo 6 caracteres.</p>
       {error && (
         <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {error}

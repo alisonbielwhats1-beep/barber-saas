@@ -9,12 +9,16 @@ function source(path: string) {
 describe("frontend audit source regressions", () => {
   it("keeps login credentials out of a GET fallback and exposes accessible fields", () => {
     const login = source("src/app/(auth)/login/login-form.tsx");
+    const passwordInput = source("src/components/ui/password-input.tsx");
 
     expect(login).toContain('<form method="post"');
     expect(login).toContain('autoComplete="email"');
     expect(login).toContain('autoComplete="current-password"');
     expect(login).toContain("aria-invalid");
-    expect(login).toContain("Mostrar senha");
+    expect(login).toContain("<PasswordInput");
+    expect(passwordInput).toContain("Mostrar senha");
+    expect(passwordInput).toContain("Ocultar senha");
+    expect(passwordInput).toContain("aria-pressed");
   });
 
   it("prevents the admin content from forcing horizontal overflow", () => {

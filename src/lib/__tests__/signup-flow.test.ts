@@ -39,6 +39,7 @@ const VALID = {
   ownerName: "Dono Teste",
   email: "dono@example.com",
   password: "senha-segura",
+  confirmPassword: "senha-segura",
   salonName: "Studio Teste",
   segmentId: "barbearia",
   serviceNames: ["Corte masculino"],
@@ -84,6 +85,18 @@ describe("signup", () => {
       "salon-1",
       expect.objectContaining({ httpOnly: true, sameSite: "lax", path: "/" }),
     );
+  });
+
+  it("rejeita senhas divergentes antes do limiter e do banco", async () => {
+    const result = await signup({
+      ...VALID,
+      confirmPassword: "senha-diferente",
+    } as Parameters<typeof signup>[0]);
+
+    expect(result).toEqual({ ok: false, error: "As senhas não coincidem." });
+    expect(mocks.checkRateLimit).not.toHaveBeenCalled();
+    expect(mocks.userFindUnique).not.toHaveBeenCalled();
+    expect(mocks.transaction).not.toHaveBeenCalled();
   });
 
   it("devolve erro amigável sem expor a página de exceção", async () => {

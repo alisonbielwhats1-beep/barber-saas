@@ -33,6 +33,7 @@ describe("CadastroForm", () => {
 
     await fillRequiredFields(user);
     await user.type(screen.getByPlaceholderText("Mínimo 6 caracteres"), "12345");
+    await user.type(screen.getByLabelText("Confirmar senha"), "12345");
     await user.click(screen.getByRole("button", { name: "Criar conta" }));
 
     expect(screen.getByText("A senha deve ter pelo menos 6 caracteres")).toBeInTheDocument();
@@ -48,6 +49,7 @@ describe("CadastroForm", () => {
       target: { value: "(11) 9333-4444" },
     });
     await user.type(screen.getByPlaceholderText("Mínimo 6 caracteres"), "123456");
+    await user.type(screen.getByLabelText("Confirmar senha"), "123456");
     await user.click(screen.getByRole("button", { name: "Criar conta" }));
 
     expect(screen.getByText(/WhatsApp inválido/)).toBeInTheDocument();
@@ -69,6 +71,7 @@ describe("CadastroForm", () => {
       target: { value: "11912345678" },
     });
     await user.type(screen.getByPlaceholderText("Mínimo 6 caracteres"), "123456");
+    await user.type(screen.getByLabelText("Confirmar senha"), "123456");
     await user.click(screen.getByRole("button", { name: "Criar conta" }));
 
     await waitFor(() => expect(mocks.registerClient).toHaveBeenCalledOnce());
@@ -79,6 +82,7 @@ describe("CadastroForm", () => {
         phone: "(11) 91234-5678",
         email: "ana@example.com",
         password: "123456",
+        confirmPassword: "123456",
       },
       "/book/studio-a/agendar?services=service-a",
     );
