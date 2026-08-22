@@ -5,6 +5,7 @@ import { buildInviteEmail } from "./invite-email";
 import { defaultMailer, MailDeliveryError, type Mailer } from "./mailer";
 import { prisma } from "./prisma";
 import { setSalonGuc, withInviteToken, withSalon } from "./prisma-tenant";
+import { assertProfessionalCapacity } from "./plan-entitlements";
 
 export const INVITE_TTL_HOURS = 24;
 
@@ -267,7 +268,7 @@ export async function createUserInvite(
 
     const salon = await tx.salon.findUnique({
       where: { id: input.salonId },
-      select: { name: true },
+      select: { name: true, plan: true },
     });
     if (!salon) throw new Error("Estabelecimento não encontrado.");
 
@@ -316,6 +317,38 @@ export async function createUserInvite(
       if (valid !== serviceIds.length) {
         throw new Error("Um ou mais serviços não pertencem a este salão.");
       }
+    }
+
+    if (input.role === "PROFESSIONAL" && salon.plan) {
+      // Convites pendentes reservam uma agenda. O lock por salão evita que
+      // dois donos criem convites simultaneamente e ultrapassem o plano.
+      await tx.$queryRaw`
+        SELECT 1::integer AS "locked"
+        FROM pg_advisory_xact_lock(
+          hashtextextended(${`professional-capacity:${input.salonId}`}, 0)
+        )
+      `;
+      const activeProfessionals = await tx.professional.count({
+        where: { salonId: input.salonId, active: true },
+      });
+      const pendingInvites = await tx.userInvite.findMany({
+        where: {
+          salonId: input.salonId,
+          role: "PROFESSIONAL",
+          usedAt: null,
+          revokedAt: null,
+          expiresAt: { gt: now },
+        },
+        select: { email: true },
+      });
+      const pendingForOtherEmails = pendingInvites.filter(
+        (invite) => normalizeEmail(invite.email) !== email,
+      ).length;
+      assertProfessionalCapacity({
+        plan: salon.plan,
+        activeProfessionals,
+        pendingProfessionalInvites: pendingForOtherEmails,
+      });
     }
 
     const previous = await tx.userInvite.findMany({
@@ -718,6 +751,25 @@ async function createProfessionalFromInvite(
   userId: string,
 ) {
   if (invite.role !== "PROFESSIONAL") return;
+  const salon = await tx.salon.findUnique({
+    where: { id: invite.salonId },
+    select: { plan: true },
+  });
+  if (salon?.plan) {
+    await tx.$queryRaw`
+      SELECT 1::integer AS "locked"
+      FROM pg_advisory_xact_lock(
+        hashtextextended(${`professional-capacity:${invite.salonId}`}, 0)
+      )
+    `;
+    const activeProfessionals = await tx.professional.count({
+      where: { salonId: invite.salonId, active: true },
+    });
+    assertProfessionalCapacity({
+      plan: salon.plan,
+      activeProfessionals,
+    });
+  }
   const serviceIds = [...new Set(invite.pendingServiceIds)];
   if (serviceIds.length > 0) {
     const valid = await tx.service.count({

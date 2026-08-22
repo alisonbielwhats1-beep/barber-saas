@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { PasswordInput } from "@/components/ui/password-input";
 import { formatPhoneBR, isValidPhoneBR } from "@/lib/phone";
@@ -19,7 +19,7 @@ export function CadastroForm({
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const [pending, setPending] = useState(false);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -36,14 +36,19 @@ export function CadastroForm({
       return;
     }
     setError(null);
-    startTransition(async () => {
-      const result = await registerClient(
-        salonSlug,
-        { name, phone, email, password, confirmPassword },
-        returnTo,
-      );
-      if (result?.error) setError(result.error);
-    });
+    setPending(true);
+    void (async () => {
+      try {
+        const result = await registerClient(
+          salonSlug,
+          { name, phone, email, password, confirmPassword },
+          returnTo,
+        );
+        if (result?.error) setError(result.error);
+      } finally {
+        setPending(false);
+      }
+    })();
   }
 
   return (

@@ -75,16 +75,7 @@ export async function GET(req: NextRequest) {
           services: serviceNames,
         };
         const idempotencyKey = `reminder:${reminderDate}`;
-        const before = await tx.appointmentEvent.findUnique({
-          where: {
-            appointmentId_idempotencyKey: {
-              appointmentId: appointment.id,
-              idempotencyKey,
-            },
-          },
-          select: { id: true },
-        });
-        await recordAppointmentEvent(tx, {
+        const event = await recordAppointmentEvent(tx, {
           salonId: salon.id,
           appointmentId: appointment.id,
           eventType: "REMINDER_MARKED",
@@ -97,7 +88,7 @@ export async function GET(req: NextRequest) {
           template: "appointment.reminder",
           payload,
         });
-        if (!before) created++;
+        if (event.created) created++;
       }
       return { count: rows.length, created };
     });

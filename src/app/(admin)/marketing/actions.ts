@@ -10,6 +10,7 @@ import {
 } from "@/lib/marketing-settings";
 import { withTenant } from "@/lib/prisma-tenant";
 import { assertRole, getTenantContext } from "@/lib/tenant";
+import { assertPlanFeature } from "@/lib/plan-entitlements";
 
 const interactionInput = z.object({
   campaignKey: z.string().trim().min(2).max(50),
@@ -30,6 +31,11 @@ export async function recordCampaignInteraction(input: z.infer<typeof interactio
   assertRole(ctx, ["OWNER", "MANAGER", "RECEPTIONIST"]);
   const data = interactionInput.parse(input);
   await withTenant(ctx, async (tx) => {
+    const salon = await tx.salon.findUnique({
+      where: { id: ctx.salonId },
+      select: { plan: true },
+    });
+    assertPlanFeature(salon?.plan, "MARKETING");
     const client = await tx.clientProfile.findFirst({ where: { id: data.clientId, salonId: ctx.salonId }, select: { id: true, name: true } });
     if (!client) throw new Error("Cliente não encontrado");
     const actor = await tx.user.findUnique({ where: { id: ctx.userId }, select: { name: true } });
@@ -56,6 +62,11 @@ export async function updateMarketingSettings(input: z.infer<typeof settingsInpu
   }
 
   await withTenant(ctx, async (tx) => {
+    const salon = await tx.salon.findUnique({
+      where: { id: ctx.salonId },
+      select: { plan: true },
+    });
+    assertPlanFeature(salon?.plan, "MARKETING");
     const actor = await tx.user.findUnique({
       where: { id: ctx.userId },
       select: { name: true },

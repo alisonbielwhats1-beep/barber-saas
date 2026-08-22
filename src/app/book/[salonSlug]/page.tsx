@@ -14,7 +14,7 @@ import {
   Info,
 } from "lucide-react";
 import { withSalonBySlug } from "@/lib/prisma-tenant";
-import { HERO_IMAGES, resolveProductImage } from "@/lib/images";
+import { HERO_IMAGES, normalizeImageUrl, resolvePortfolioImage, resolveProductImage } from "@/lib/images";
 import { normalizePhone, formatPhoneBR } from "@/lib/phone";
 import { getSegment, isSegmentId } from "@/lib/segments";
 import { formatMoney } from "@/lib/utils";
@@ -110,7 +110,12 @@ export default async function ClientHome({
   // sem segmento definido, cai no pool determinístico de sempre (mesmo salão,
   // mesma foto, pelo hash do slug — como já era antes desta personalização).
   const segment = isSegmentId(salon.segment) ? getSegment(salon.segment) : null;
-  const coverSrc = salon.coverUrl || segment?.accentImage || heroForSalon(salonSlug);
+  const coverSrc = normalizeImageUrl(salon.coverUrl) || segment?.accentImage || heroForSalon(salonSlug);
+  const logoSrc = normalizeImageUrl(salon.logoUrl);
+  const services = salon.services.map((service) => ({
+    ...service,
+    imageUrl: normalizeImageUrl(service.imageUrl),
+  }));
   const paymentLabels = (salon.paymentMethods ?? "")
     .split(",")
     .map((m) => PAYMENT_LABELS[m.trim()])
@@ -128,9 +133,9 @@ export default async function ClientHome({
       {/* Top bar */}
       <header className="flex items-center gap-3">
         <div className="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full bg-primary/20 text-sm font-semibold text-primary">
-          {salon.logoUrl ? (
+          {logoSrc ? (
             <Image
-              src={salon.logoUrl}
+              src={logoSrc}
               alt={`Foto de ${salon.name}`}
               fill
               sizes="44px"
@@ -280,7 +285,7 @@ export default async function ClientHome({
       <HomeExplore
         salonSlug={salonSlug}
         currency={salon.currency}
-        services={salon.services}
+        services={services}
       />
 
       {/* Teaser de portfólio */}
@@ -296,14 +301,14 @@ export default async function ClientHome({
             </Link>
           </div>
           <div className="grid grid-cols-3 gap-2">
-            {salon.portfolio.slice(0, 6).map((item) => (
+            {salon.portfolio.slice(0, 6).map((item, index) => (
               <Link
                 key={item.id}
                 href={`/book/${salonSlug}/portfolio`}
                 className="relative aspect-square overflow-hidden rounded-xl"
               >
                 <Image
-                  src={item.imageUrl}
+                  src={resolvePortfolioImage(item.imageUrl, index)}
                   alt={item.caption ?? "Trabalho do portfólio"}
                   fill
                   sizes="150px"

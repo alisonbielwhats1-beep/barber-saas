@@ -12,6 +12,7 @@ import {
   revokeUserInvite,
 } from "@/lib/invitations";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
+import { assertProfessionalCapacity } from "@/lib/plan-entitlements";
 
 const professionalInput = z.object({
   name: z.string().min(2),
@@ -182,6 +183,24 @@ export async function toggleProfessionalActive(id: string) {
       select: { active: true },
     });
     if (!p) throw new Error("Not found");
+    if (!p.active) {
+      const salon = await tx.salon.findUnique({
+        where: { id: ctx.salonId },
+        select: { plan: true },
+      });
+      if (salon?.plan) {
+        await tx.$queryRaw`
+          SELECT 1::integer AS "locked"
+          FROM pg_advisory_xact_lock(
+            hashtextextended(${`professional-capacity:${ctx.salonId}`}, 0)
+          )
+        `;
+        const activeProfessionals = await tx.professional.count({
+          where: { salonId: ctx.salonId, active: true },
+        });
+        assertProfessionalCapacity({ plan: salon.plan, activeProfessionals });
+      }
+    }
     await tx.professional.updateMany({ where: { id, salonId: ctx.salonId }, data: { active: !p.active } });
   });
   revalidatePath("/profissionais");

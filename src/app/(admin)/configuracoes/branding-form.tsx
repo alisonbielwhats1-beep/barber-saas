@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { toast } from "@/components/ui/toast";
 import { SEGMENTS } from "@/lib/segments";
+import { normalizeImageUrl } from "@/lib/images";
 import { updateSalonBranding } from "./actions";
 
 export type Branding = {
@@ -40,8 +41,8 @@ export function BrandingForm({ branding }: { branding: Branding }) {
 
   const [segment, setSegment] = useState(branding.segment ?? "");
   const [color, setColor] = useState(branding.themeColorHex ?? "");
-  const [coverUrl, setCoverUrl] = useState(branding.coverUrl ?? "");
-  const [logoUrl, setLogoUrl] = useState(branding.logoUrl ?? "");
+  const [coverUrl, setCoverUrl] = useState(normalizeImageUrl(branding.coverUrl) ?? "");
+  const [logoUrl, setLogoUrl] = useState(normalizeImageUrl(branding.logoUrl) ?? "");
   const [methods, setMethods] = useState<string[]>(
     branding.paymentMethods ? branding.paymentMethods.split(",").filter(Boolean) : [],
   );

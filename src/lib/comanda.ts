@@ -1,8 +1,13 @@
 export type ProductLineInput = { productId: string; quantity: number };
-export type PricedProductLine = { quantity: number; priceCentsUnit: number };
+export type PricedProductLine = {
+  quantity: number;
+  priceCentsUnit: number;
+  productName: string;
+};
 export type ReservedProductSnapshot = {
   quantity: number;
   priceCentsUnit: number;
+  productName: string;
 };
 
 export function normalizeProductLines(lines: ProductLineInput[]): ProductLineInput[] {
@@ -51,6 +56,7 @@ export function reconcileReservedProduct(input: {
   reserved: ReservedProductSnapshot[];
   desiredQuantity: number;
   currentPriceCents: number;
+  currentProductName: string;
 }) {
   if (!Number.isInteger(input.desiredQuantity) || input.desiredQuantity < 0) {
     throw new Error("Quantidade de produto invalida");
@@ -67,6 +73,7 @@ export function reconcileReservedProduct(input: {
       pricedLines.push({
         quantity: retained,
         priceCentsUnit: row.priceCentsUnit,
+        productName: row.productName,
       });
       remaining -= retained;
     }
@@ -79,6 +86,7 @@ export function reconcileReservedProduct(input: {
     pricedLines.push({
       quantity: additionalQuantity,
       priceCentsUnit: input.currentPriceCents,
+      productName: input.currentProductName,
     });
   }
   return {

@@ -6,6 +6,16 @@ import { assertRole, getTenantContext } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
 import { lockProductMutations } from "@/lib/inventory-lock";
 import { adjustProductStockReliably } from "@/lib/appointment-product-service";
+import { assertPlanFeature } from "@/lib/plan-entitlements";
+import type { Tx } from "@/lib/prisma-tenant";
+
+async function assertInventoryEnabled(tx: Tx, salonId: string) {
+  const salon = await tx.salon.findUnique({
+    where: { id: salonId },
+    select: { plan: true },
+  });
+  assertPlanFeature(salon?.plan, "INVENTORY");
+}
 
 const productInput = z.object({
   name: z.string().min(2),
@@ -45,9 +55,10 @@ export async function createProduct(input: ProductInput) {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER"]);
   const data = productInput.parse(input);
-  await withTenant(ctx, (tx) =>
-    tx.product.create({ data: { salonId: ctx.salonId, ...toData(data) } }),
-  );
+  await withTenant(ctx, async (tx) => {
+    await assertInventoryEnabled(tx, ctx.salonId);
+    await tx.product.create({ data: { salonId: ctx.salonId, ...toData(data) } });
+  });
   revalidatePath("/produtos");
 }
 
@@ -56,6 +67,7 @@ export async function updateProduct(id: string, input: ProductInput) {
   assertRole(ctx, ["OWNER", "MANAGER"]);
   const data = productInput.parse(input);
   await withTenant(ctx, async (tx) => {
+    await assertInventoryEnabled(tx, ctx.salonId);
     await lockProductMutations(tx, [id]);
     await tx.product.updateMany({ where: { id, salonId: ctx.salonId }, data: toData(data) });
   });
@@ -75,6 +87,7 @@ export async function adjustStock(id: string, delta: number, options?: {
     kind: z.enum(["PURCHASE", "LOSS", "INVENTORY", "ADJUSTMENT"]).default("ADJUSTMENT"),
   }).parse({ id, delta, reason: options?.reason, kind: options?.kind });
   await withTenant(ctx, async (tx) => {
+    await assertInventoryEnabled(tx, ctx.salonId);
     const actor = await tx.user.findUnique({ where: { id: ctx.userId }, select: { name: true } });
     await adjustProductStockReliably(tx, {
       salonId: ctx.salonId,
@@ -93,6 +106,7 @@ export async function toggleProductActive(id: string) {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER"]);
   await withTenant(ctx, async (tx) => {
+    await assertInventoryEnabled(tx, ctx.salonId);
     await lockProductMutations(tx, [id]);
     const p = await tx.product.findFirst({
       where: { id, salonId: ctx.salonId },
@@ -108,6 +122,7 @@ export async function deleteProduct(id: string) {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER"]);
   await withTenant(ctx, async (tx) => {
+    await assertInventoryEnabled(tx, ctx.salonId);
     await lockProductMutations(tx, [id]);
     await tx.product.deleteMany({ where: { id, salonId: ctx.salonId } });
   });

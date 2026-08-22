@@ -13,6 +13,7 @@ import {
   Gem,
   LogIn,
   Search,
+  ShoppingBag,
   Scissors,
   Sparkles,
   Star,
@@ -636,6 +637,7 @@ export function BookingFlow({
         booked={booked}
         salonName={salonName}
         salonSlug={salonSlug}
+        guest={!clientSession}
       />
     );
   }
@@ -1265,11 +1267,23 @@ export function BookingFlow({
         >
           {authStep === "prompt" && (
             <>
-              <p className="text-sm font-semibold">Como deseja continuar?</p>
+              <p className="text-sm font-semibold">Quase lá</p>
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Você pode reservar agora sem criar conta. Depois, se quiser, acompanhe tudo em Minhas reservas.
+              </p>
+              <button
+                onClick={() => setAuthStep("guest-form")}
+                className="flex min-h-12 w-full items-center justify-center rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground"
+              >
+                Continuar sem conta
+              </button>
+              <div className="flex items-center gap-3 py-1 text-[11px] uppercase tracking-widest text-muted-foreground">
+                <span className="h-px flex-1 bg-border" /> ou <span className="h-px flex-1 bg-border" />
+              </div>
               <Link
                 href={`/book/${salonSlug}/login${returnToParam}`}
                 onClick={saveBookingState}
-                className="flex items-center justify-center gap-2 rounded-full bg-primary py-3 text-sm font-semibold text-primary-foreground"
+                className="flex min-h-11 items-center justify-center gap-2 rounded-full border border-border py-3 text-sm font-medium"
               >
                 <LogIn className="h-4 w-4" />
                 Entrar na minha conta
@@ -1277,29 +1291,27 @@ export function BookingFlow({
               <Link
                 href={`/book/${salonSlug}/cadastro${returnToParam}`}
                 onClick={saveBookingState}
-                className="flex items-center justify-center gap-2 rounded-full border border-border py-3 text-sm font-medium"
+                className="flex min-h-11 items-center justify-center gap-2 rounded-full border border-border py-3 text-sm font-medium"
               >
                 <UserPlus className="h-4 w-4" />
                 Criar conta
               </Link>
-              <button
-                onClick={() => setAuthStep("guest-form")}
-                className="w-full py-2 text-center text-xs text-muted-foreground hover:text-foreground"
-              >
-                Continuar sem conta
-              </button>
             </>
           )}
           {authStep === "guest-form" && (
             <>
               <p className="text-sm font-semibold">Seus dados</p>
+              <label htmlFor="guest-name" className="sr-only">Seu nome</label>
               <input
+                id="guest-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Nome"
                 className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none"
               />
+              <label htmlFor="guest-phone" className="sr-only">Seu WhatsApp</label>
               <input
+                id="guest-phone"
                 type="tel"
                 inputMode="tel"
                 value={phone}
@@ -1329,7 +1341,8 @@ export function BookingFlow({
       {cart.items.length > 0 && (
         <div className="flex items-center justify-between rounded-2xl border border-primary/40 bg-primary/5 px-4 py-3 text-sm">
           <span className="font-medium">
-            🛒 {cart.count} {cart.count === 1 ? "produto" : "produtos"} do carrinho
+            <ShoppingBag className="mr-1.5 inline-block h-4 w-4 align-[-0.2em]" aria-hidden="true" />
+            {cart.count} {cart.count === 1 ? "produto" : "produtos"} do carrinho
           </span>
           <span className="font-semibold text-primary">
             +{formatMoney(cart.totalCents)}
@@ -1482,10 +1495,12 @@ function BoardingPass({
   booked,
   salonName,
   salonSlug,
+  guest,
 }: {
   booked: Booked;
   salonName: string;
   salonSlug: string;
+  guest: boolean;
 }) {
   function downloadIcs() {
     const dt = (d: Date) =>
@@ -1601,6 +1616,11 @@ function BoardingPass({
         >
           Ver minhas reservas
         </Link>
+        {guest && (
+          <p className="text-center text-xs leading-relaxed text-muted-foreground">
+            Para alterar esta reserva pelo app depois, crie uma conta com os mesmos dados ou fale com o salão.
+          </p>
+        )}
         <Link
           href={`/book/${salonSlug}`}
           className="py-2 text-center text-sm text-muted-foreground"

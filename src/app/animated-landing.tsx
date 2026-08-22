@@ -32,11 +32,11 @@ const SEGMENTS: Segment[] = [
     eyebrow: "Um sistema para beleza e bem-estar",
     theme: "bg-[#faf8f3] text-[#101514]",
     photos: [
-      { src: "/images/salon-hero-barber-v2-hq.png", alt: "Corte masculino em barbearia", label: "Barbearia", position: "object-[64%_center]" },
-      { src: "/images/salon-hero-stylist-v2-hq.png", alt: "Atendimento em salão de beleza", label: "Salão", position: "object-[54%_center]" },
-      { src: "/images/salon-hero-manicure-v1-hq.png", alt: "Atendimento de manicure", label: "Manicure", position: "object-center" },
-      { src: "/images/salon-hero-aesthetics-v2-hq.png", alt: "Tratamento de estética", label: "Estética", position: "object-center" },
-      { src: "/images/salon-hero-massage-v2-hq.png", alt: "Massagem profissional", label: "Bem-estar", position: "object-center" },
+      { src: "/images/salon-hero-barber-v2.webp", alt: "Corte masculino em barbearia", label: "Barbearia", position: "object-[64%_center]" },
+      { src: "/images/salon-hero-stylist-v2.webp", alt: "Atendimento em salão de beleza", label: "Salão", position: "object-[54%_center]" },
+      { src: "/images/salon-hero-manicure-v1.webp", alt: "Atendimento de manicure", label: "Manicure", position: "object-center" },
+      { src: "/images/salon-hero-aesthetics-v2.webp", alt: "Tratamento de estética", label: "Estética", position: "object-center" },
+      { src: "/images/salon-hero-massage-v2.webp", alt: "Massagem profissional", label: "Bem-estar", position: "object-center" },
     ],
     appointments: ["Corte masculino · Rafael", "Escova · Renata", "Massagem · Marina"],
   },
@@ -46,9 +46,9 @@ const SEGMENTS: Segment[] = [
     eyebrow: "Agenda e gestão para barbearias e cabeleireiros",
     theme: "bg-[#0b100f] text-[#f4f5f2]",
     photos: [
-      { src: "/images/salon-hero-barber-v2-hq.png", alt: "Barbeiro finalizando um corte masculino", label: "Corte & acabamento", position: "object-[64%_center]" },
-      { src: "/images/salon-hero-male-haircut-v1-hq.png", alt: "Barbeiro realizando um corte masculino", label: "Corte masculino", position: "object-[60%_center]" },
-      { src: "/images/salon-hero-beard-v1-hq.png", alt: "Barbeiro modelando a barba de um cliente", label: "Barba & cuidado", position: "object-[68%_center]" },
+      { src: "/images/salon-hero-barber-v2.webp", alt: "Barbeiro finalizando um corte masculino", label: "Corte & acabamento", position: "object-[64%_center]" },
+      { src: "/images/salon-hero-male-haircut-v1.webp", alt: "Barbeiro realizando um corte masculino", label: "Corte masculino", position: "object-[60%_center]" },
+      { src: "/images/salon-hero-beard-v1.webp", alt: "Barbeiro modelando a barba de um cliente", label: "Barba & cuidado", position: "object-[68%_center]" },
     ],
     appointments: ["Corte + barba · Rafael", "Degradê · Marcos", "Barba terapia · Rafael"],
   },
@@ -58,9 +58,9 @@ const SEGMENTS: Segment[] = [
     eyebrow: "Agenda e gestão para salão e manicure",
     theme: "bg-[#fbf7f0] text-[#171513]",
     photos: [
-      { src: "/images/salon-hero-stylist-v2-hq.png", alt: "Cabeleireira finalizando o cabelo de uma cliente", label: "Cabelo & beleza", position: "object-[56%_center]" },
-      { src: "/images/salon-hero-manicure-v1-hq.png", alt: "Manicure atendendo uma cliente", label: "Manicure", position: "object-center" },
-      { src: "/images/salon-hero-stylist-v1-hq.png", alt: "Atendimento em salão de beleza", label: "Coloração", position: "object-[55%_center]" },
+      { src: "/images/salon-hero-stylist-v2.webp", alt: "Cabeleireira finalizando o cabelo de uma cliente", label: "Cabelo & beleza", position: "object-[56%_center]" },
+      { src: "/images/salon-hero-manicure-v1.webp", alt: "Manicure atendendo uma cliente", label: "Manicure", position: "object-center" },
+      { src: "/images/salon-hero-stylist-v1.webp", alt: "Atendimento em salão de beleza", label: "Coloração", position: "object-[55%_center]" },
     ],
     appointments: ["Corte feminino · Camila", "Escova · Renata", "Manicure · Júlia"],
   },
@@ -70,9 +70,9 @@ const SEGMENTS: Segment[] = [
     eyebrow: "Agenda e gestão para estética e bem-estar",
     theme: "bg-[#eef1e8] text-[#17201c]",
     photos: [
-      { src: "/images/salon-hero-massage-v2-hq.png", alt: "Massagem profissional em ambiente de bem-estar", label: "Massagem", position: "object-[55%_center]" },
-      { src: "/images/salon-hero-aesthetics-v2-hq.png", alt: "Tratamento facial profissional", label: "Estética facial", position: "object-center" },
-      { src: "/images/salon-hero-massage-v1-hq.png", alt: "Atendimento de relaxamento", label: "Relaxamento", position: "object-center" },
+      { src: "/images/salon-hero-massage-v2.webp", alt: "Massagem profissional em ambiente de bem-estar", label: "Massagem", position: "object-[55%_center]" },
+      { src: "/images/salon-hero-aesthetics-v2.webp", alt: "Tratamento facial profissional", label: "Estética facial", position: "object-center" },
+      { src: "/images/salon-hero-massage-v1.webp", alt: "Atendimento de relaxamento", label: "Relaxamento", position: "object-center" },
     ],
     appointments: ["Limpeza de pele · Ana", "Massagem · Marina", "Drenagem · Ana"],
   },
@@ -143,7 +143,7 @@ export function AnimatedLandingHero() {
               </Button>
             </div>
             <p className={cn("mt-3 text-sm", active.key === "barbearia" ? "text-[#818b87]" : "text-[#686f6c]")}>
-              Envie sua solicitação e configure seu espaço após a aprovação.
+              Comece grátis e configure seu espaço na hora.
             </p>
           </div>
         </div>
@@ -234,7 +234,7 @@ function Photo({
         fill
         priority={priority}
         loading={priority ? undefined : "eager"}
-        quality={95}
+        quality={85}
         sizes={sizes}
         className={cn("object-cover", photo.position)}
       />

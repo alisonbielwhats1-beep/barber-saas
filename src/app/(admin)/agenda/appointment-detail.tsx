@@ -78,6 +78,7 @@ function printReceipt(
   timezone: string,
 ) {
   if (!receipt.payment) throw new Error("Pagamento não encontrado");
+  const receiptCurrency = receipt.payment.currency;
   const when = formatInTimeZone(
     new Date(receipt.startAt),
     timezone,
@@ -88,13 +89,13 @@ function printReceipt(
     ? receipt.serviceItems
     : [{ serviceName: receipt.service.name, priceCents: receipt.priceCents }];
   const serviceRows = services.map((service) =>
-    `<div class="row"><span>${escapeHtml(service.serviceName)}</span><b>${escapeHtml(formatMoney(service.priceCents))}</b></div>`,
+    `<div class="row"><span>${escapeHtml(service.serviceName)}</span><b>${escapeHtml(formatMoney(service.priceCents, receiptCurrency))}</b></div>`,
   ).join("");
   const productRows = receipt.products.map((product) =>
-    `<div class="row"><span>${product.quantity}× ${escapeHtml(product.product.name)}</span><b>${escapeHtml(formatMoney(product.quantity * product.priceCentsUnit))}</b></div>`,
+    `<div class="row"><span>${product.quantity}× ${escapeHtml(product.productName)}</span><b>${escapeHtml(formatMoney(product.quantity * product.priceCentsUnit, receiptCurrency))}</b></div>`,
   ).join("");
   const discountRow = receipt.payment.discountCents > 0
-    ? `<div class="row"><span>Desconto</span><b>- ${escapeHtml(formatMoney(receipt.payment.discountCents))}</b></div>`
+    ? `<div class="row"><span>Desconto</span><b>- ${escapeHtml(formatMoney(receipt.payment.discountCents, receiptCurrency))}</b></div>`
     : "";
   const method = ({
     CASH: "Dinheiro",
@@ -123,7 +124,7 @@ function printReceipt(
     ${serviceRows}${productRows}${discountRow}
     <div class="row"><span>Forma</span><b>${escapeHtml(method)}</b></div>
     <div class="row"><span>Pagamento</span><b>${escapeHtml(receipt.payment.id)}</b></div>
-    <div class="total"><span>Total recebido</span><span>${escapeHtml(formatMoney(receipt.payment.amountCents))}</span></div>
+    <div class="total"><span>Total recebido</span><span>${escapeHtml(formatMoney(receipt.payment.amountCents, receiptCurrency))}</span></div>
     <span class="tag">✓ PAGO</span>
   </div>
   <script>window.onload=function(){window.print()}</script>

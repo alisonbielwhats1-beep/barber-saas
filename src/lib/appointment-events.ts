@@ -61,7 +61,7 @@ export async function businessRecipients(
 export async function recordAppointmentEvent(
   tx: Tx,
   input: AppointmentEventInput,
-): Promise<{ id: string }> {
+): Promise<{ id: string; created: boolean }> {
   if (input.idempotencyKey) {
     // Serializa a mesma ação também para jobs concorrentes (por exemplo, duas
     // execuções do cron). Assim a consulta + criação abaixo não depende de
@@ -81,7 +81,7 @@ export async function recordAppointmentEvent(
       },
       select: { id: true },
     });
-    if (existing) return existing;
+    if (existing) return { ...existing, created: false };
   }
 
   const event = await tx.appointmentEvent.create({
@@ -130,5 +130,5 @@ export async function recordAppointmentEvent(
     });
   }
 
-  return event;
+  return { ...event, created: true };
 }

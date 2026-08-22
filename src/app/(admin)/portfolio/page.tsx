@@ -4,6 +4,7 @@ import { withTenant } from "@/lib/prisma-tenant";
 import { Card } from "@/components/ui/card";
 import { PortfolioForm } from "./portfolio-form";
 import { DeleteButton } from "./delete-button";
+import { resolvePortfolioImage } from "@/lib/images";
 
 export default async function PortfolioPage() {
   const ctx = await getTenantContext();
@@ -66,11 +67,11 @@ export default async function PortfolioPage() {
       </header>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
-        {items.map((it) => (
+        {items.map((it, index) => (
           <Card key={it.id} className="group relative overflow-hidden">
             <div className="relative aspect-square w-full bg-muted">
               <Image
-                src={it.imageUrl}
+                src={resolvePortfolioImage(it.imageUrl, index)}
                 alt={it.caption ?? "Foto do portfolio"}
                 fill
                 sizes="(max-width: 768px) 45vw, 22vw"

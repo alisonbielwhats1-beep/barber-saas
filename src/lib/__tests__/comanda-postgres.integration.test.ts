@@ -256,7 +256,7 @@ describePostgres("comanda transacional real", () => {
     await data.reserveProduct(appointment.id, 2, 800);
     await prisma.product.update({
       where: { id: data.productId },
-      data: { priceCents: 9_900 },
+      data: { name: "Pomada Atual", priceCents: 9_900 },
     });
     const key = crypto.randomUUID();
     const tamperedLine = {
@@ -277,12 +277,18 @@ describePostgres("comanda transacional real", () => {
     })).resolves.toEqual({ stock: 8 });
     await expect(prisma.payment.findUniqueOrThrow({
       where: { appointmentId: appointment.id },
-      select: { amountCents: true },
-    })).resolves.toEqual({ amountCents: 6_600 });
+      select: { amountCents: true, currency: true },
+    })).resolves.toEqual({ amountCents: 6_600, currency: "BRL" });
     await expect(prisma.appointmentProduct.findFirstOrThrow({
       where: { appointmentId: appointment.id, productId: data.productId },
-      select: { quantity: true, priceCentsUnit: true },
-    })).resolves.toEqual({ quantity: 2, priceCentsUnit: 800 });
+      select: { quantity: true, priceCentsUnit: true, productName: true, currency: true, salonId: true },
+    })).resolves.toEqual({
+      quantity: 2,
+      priceCentsUnit: 800,
+      productName: "Pomada CI",
+      currency: "BRL",
+      salonId: data.salonId,
+    });
     const reservations = await prisma.auditLog.findMany({
       where: {
         salonId: data.salonId,
@@ -451,6 +457,7 @@ describePostgres("comanda transacional real", () => {
         amountCents: 4_500,
         discountCents: 500,
         method: "CASH",
+        currency: "BRL",
         paidAt,
       },
       select: { id: true },

@@ -112,6 +112,7 @@ export async function createAppointmentManually(
         actor,
         idempotencyKey: data.idempotencyKey,
         enforceBookingWindow: false,
+        enforcePlanLimits: true,
         canOverride: canOverbook,
         overrideReason: data.overbookReason,
         ...(data.clientId
@@ -129,6 +130,7 @@ export async function createAppointmentManually(
   }
 
   revalidatePath("/agenda");
+  revalidatePath("/hoje");
   revalidatePath("/dashboard");
   return { success: true };
 }
@@ -197,7 +199,9 @@ export async function updateAppointmentStatus(
     return { error: appointmentActionMessage(error) };
   }
   revalidatePath("/agenda");
+  revalidatePath("/hoje");
   revalidatePath("/dashboard");
+  revalidatePath("/fechamento");
   revalidatePath("/book", "layout");
   return { success: true };
 }
@@ -229,6 +233,7 @@ export async function getComandaData(id: string) {
         startAt: true,
         version: true,
         priceCents: true,
+        salon: { select: { currency: true } },
         client: { select: { name: true } },
         service: { select: { name: true, priceCents: true } },
         serviceItems: {
@@ -242,7 +247,7 @@ export async function getComandaData(id: string) {
             productId: true,
             quantity: true,
             priceCentsUnit: true,
-            product: { select: { name: true } },
+            productName: true,
           },
         },
         payment: {
@@ -252,6 +257,7 @@ export async function getComandaData(id: string) {
             discountCents: true,
             method: true,
             notes: true,
+            currency: true,
             paidAt: true,
           },
         },
@@ -276,8 +282,10 @@ export async function getComandaData(id: string) {
       orderBy: { name: "asc" },
       select: { id: true, name: true, priceCents: true, stock: true, active: true },
     });
+    const { salon, ...appointment } = appt;
     return {
-      ...appt,
+      ...appointment,
+      currency: salon.currency,
       availableProducts: availableProducts.map((product) => ({
         ...product,
         reservedQuantity: reservedByProduct.get(product.id) ?? 0,
@@ -372,7 +380,9 @@ export async function closeComanda(
   }
 
   revalidatePath("/agenda");
+  revalidatePath("/hoje");
   revalidatePath("/dashboard");
+  revalidatePath("/fechamento");
   revalidatePath("/financeiro");
   revalidatePath("/pagamentos");
   revalidatePath("/produtos");
@@ -462,6 +472,7 @@ export async function markReminderSent(id: string) {
     });
   });
   revalidatePath("/dashboard");
+  revalidatePath("/hoje");
 }
 
 /**
@@ -523,10 +534,12 @@ export async function duplicateAppointment(
           actor: { type: "STAFF", id: ctx.userId, name: staffName },
           idempotencyKey: `${idempotencyKey}:${offsetDays}`,
           enforceBookingWindow: false,
+          enforcePlanLimits: true,
           clientId: appointment.clientId,
         }),
       );
       revalidatePath("/agenda");
+      revalidatePath("/hoje");
       revalidatePath("/dashboard");
       revalidatePath("/book", "layout");
       return { success: true };
@@ -595,6 +608,7 @@ export async function editAppointment(input: z.infer<typeof editInput>): Promise
     return { error: appointmentActionMessage(error) };
   }
   revalidatePath("/agenda");
+  revalidatePath("/hoje");
   revalidatePath("/dashboard");
   revalidatePath("/book", "layout");
   return { success: true };
@@ -720,6 +734,7 @@ export async function createRecurringAppointments(
           actor: { type: "STAFF", id: ctx.userId, name: staffName },
           idempotencyKey: `${data.idempotencyKey}:${i}`,
           enforceBookingWindow: false,
+          enforcePlanLimits: true,
           seriesId,
           ...(resolvedClientId
             ? { clientId: resolvedClientId }

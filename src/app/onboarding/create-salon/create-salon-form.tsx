@@ -34,7 +34,7 @@ export function CreateSalonForm() {
           setError(res.error);
           return;
         }
-        router.push("/onboarding/acesso");
+        router.push("/dashboard");
         router.refresh();
       } catch {
         setError("Não foi possível concluir agora. Verifique sua conexão e tente novamente.");
@@ -100,10 +100,10 @@ export function CreateSalonForm() {
       <Button type="submit" size="lg" className="w-full" disabled={pending || salonName.trim().length < 2}>
         {pending ? (
           <>
-            <Loader2 className="h-4 w-4 animate-spin" /> Enviando…
+            <Loader2 className="h-4 w-4 animate-spin" /> Criando…
           </>
         ) : (
-          "Enviar para aprovação"
+          "Criar e entrar no painel"
         )}
       </Button>
     </form>

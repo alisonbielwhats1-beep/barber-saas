@@ -3,7 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight, MoreHorizontal } from "lucide-react";
 import { withSalonBySlug } from "@/lib/prisma-tenant";
-import { HERO_IMAGES } from "@/lib/images";
+import { HERO_IMAGES, normalizeImageUrl } from "@/lib/images";
 import { SEGMENTS } from "@/lib/segments";
 
 /**
@@ -29,7 +29,7 @@ export default async function WelcomePage({
     .split("")
     .reduce((a, c) => a + c.charCodeAt(0), 0) % HERO_IMAGES.length;
   const segmentImage = SEGMENTS.find((item) => item.id === salon.segment)?.accentImage;
-  const heroSrc = salon.coverUrl ?? segmentImage ?? HERO_IMAGES[heroIdx];
+  const heroSrc = normalizeImageUrl(salon.coverUrl) ?? segmentImage ?? HERO_IMAGES[heroIdx];
 
   return (
     <div className="relative flex min-h-dvh flex-col overflow-hidden">

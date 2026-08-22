@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => {
       updateMany: vi.fn(),
     },
     appointment: {
-      findFirst: vi.fn().mockResolvedValue({ id: "appointment-a", products: [] }),
+      findFirst: vi.fn().mockResolvedValue({ id: "appointment-a", salon: { currency: "BRL" }, products: [] }),
     },
     appointmentProduct: { createMany: vi.fn() },
     auditLog: { create: vi.fn().mockResolvedValue({}) },
@@ -74,7 +74,7 @@ describe("POST /api/appointments — identidade do cliente", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.tx.$queryRaw.mockResolvedValue([{ id: "salon-a" }]);
-    mocks.tx.appointment.findFirst.mockResolvedValue({ id: "appointment-a", products: [] });
+    mocks.tx.appointment.findFirst.mockResolvedValue({ id: "appointment-a", salon: { currency: "BRL" }, products: [] });
     mocks.getClientSession.mockResolvedValue({
       clientId: "client-session",
       salonId: "salon-a",
@@ -168,10 +168,13 @@ describe("POST /api/appointments — identidade do cliente", () => {
     });
     expect(mocks.tx.appointmentProduct.createMany).toHaveBeenCalledWith({
       data: [{
+        salonId: "salon-a",
         appointmentId: "appointment-a",
         productId: "product-a",
         quantity: 2,
         priceCentsUnit: 1_500,
+        productName: "Pomada",
+        currency: "BRL",
       }],
     });
     expect(mocks.tx.$queryRaw.mock.invocationCallOrder.at(-1))

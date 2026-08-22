@@ -5,12 +5,14 @@ import { ProductForm } from "./product-form";
 import { ProductsCatalog, type ProductCard } from "./products-catalog";
 import { Button } from "@/components/ui/button";
 import { PackageOpen, Plus } from "lucide-react";
+import { canUsePlanFeature } from "@/lib/plan-entitlements";
 
 export default async function ProdutosPage() {
   const ctx = await requireRole(MANAGEMENT_ROLES);
   const { salonId } = ctx;
 
-  const { products, sales, movements } = await withTenant(ctx, async (tx) => {
+  const { products, sales, movements, plan } = await withTenant(ctx, async (tx) => {
+    const salon = await tx.salon.findUnique({ where: { id: salonId }, select: { plan: true } });
     const products = await tx.product.findMany({
       where: { salonId },
       orderBy: [{ active: "desc" }, { name: "asc" }],
@@ -26,8 +28,9 @@ export default async function ProdutosPage() {
       take: 30,
       select: { id: true, actorName: true, reason: true, createdAt: true, metadata: true },
     });
-    return { products, sales, movements };
+    return { products, sales, movements, plan: salon?.plan };
   });
+  const inventoryEnabled = canUsePlanFeature(plan, "INVENTORY");
 
   const soldMap = new Map(sales.map((g) => [g.productId, g._sum.quantity ?? 0]));
   const topId = sales.length
@@ -63,8 +66,15 @@ export default async function ProdutosPage() {
           </p>
           <h1 className="text-[26px] font-semibold tracking-tight">Produtos</h1>
         </div>
-        <ProductForm />
+        {inventoryEnabled && <ProductForm />}
       </header>
+
+      {!inventoryEnabled && (
+        <section className="rounded-2xl border border-primary/25 bg-primary/5 px-4 py-3 text-[12px] text-muted-foreground">
+          <strong className="text-foreground">Estoque e produtos ficam disponíveis no plano Fundador.</strong>{" "}
+          Você ainda pode consultar o histórico existente; faça upgrade para cadastrar, editar ou movimentar produtos.
+        </section>
+      )}
 
       {cards.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-14 text-center">
@@ -75,16 +85,16 @@ export default async function ProdutosPage() {
           <p className="mx-auto mt-1 max-w-sm text-[13px] leading-relaxed text-muted-foreground">
             Cadastre o primeiro produto para acompanhar estoque, margem e reposição em um só lugar.
           </p>
-          <ProductForm
+          {inventoryEnabled ? <ProductForm
             trigger={
               <Button size="lg" className="mt-5">
                 <Plus className="h-4 w-4" /> Cadastrar primeiro produto
               </Button>
             }
-          />
+          /> : <p className="mx-auto mt-5 max-w-sm text-[12px] text-primary">Faça upgrade para liberar o catálogo e o controle de estoque.</p>}
         </div>
       ) : (
-        <ProductsCatalog products={cards} movements={movements.map((movement) => ({
+        <ProductsCatalog enabled={inventoryEnabled} products={cards} movements={movements.map((movement) => ({
           id: movement.id,
           actorName: movement.actorName,
           reason: movement.reason,

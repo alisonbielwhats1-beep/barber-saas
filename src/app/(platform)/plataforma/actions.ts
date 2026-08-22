@@ -9,7 +9,7 @@ const reviewInput = z.discriminatedUnion("decision", [
   z.object({
     salonId: z.string().min(1),
     decision: z.literal("APPROVE"),
-    plan: z.enum(["FREE", "PRO"]),
+    plan: z.enum(["FREE", "STARTER", "PRO", "ENTERPRISE"]),
     reason: z.string().max(500).optional(),
   }),
   z.object({

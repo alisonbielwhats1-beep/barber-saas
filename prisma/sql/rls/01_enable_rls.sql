@@ -285,14 +285,8 @@ ALTER TABLE "AppointmentProduct" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "AppointmentProduct" FORCE  ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation ON "AppointmentProduct";
 CREATE POLICY tenant_isolation ON "AppointmentProduct"
-  USING (EXISTS (
-    SELECT 1 FROM "Appointment" a
-    WHERE a.id = "AppointmentProduct"."appointmentId"
-      AND a."salonId" = app_current_salon()))
-  WITH CHECK (EXISTS (
-    SELECT 1 FROM "Appointment" a
-    WHERE a.id = "AppointmentProduct"."appointmentId"
-      AND a."salonId" = app_current_salon()));
+  USING ("salonId" = app_current_salon())
+  WITH CHECK ("salonId" = app_current_salon());
 
 ALTER TABLE "UserInviteEvent" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "UserInviteEvent" FORCE  ROW LEVEL SECURITY;

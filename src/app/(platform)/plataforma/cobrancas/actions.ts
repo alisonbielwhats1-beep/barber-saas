@@ -61,8 +61,8 @@ export async function createPlatformInvoice(raw: z.infer<typeof createInput>) {
         select: { id: true, plan: true, accessStatus: true },
       });
       if (!salon) throw new Error("Estabelecimento não encontrado");
-      if (salon.accessStatus !== "APPROVED" || salon.plan !== "PRO") {
-        throw new Error("A cobrança manual está disponível somente para estabelecimentos Pro ativos");
+      if (salon.accessStatus !== "APPROVED" || salon.plan === "FREE") {
+        throw new Error("A cobrança manual está disponível somente para planos pagos ativos");
       }
 
       const invoice = await tx.platformInvoice.create({

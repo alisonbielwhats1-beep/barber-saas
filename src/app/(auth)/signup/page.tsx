@@ -6,7 +6,7 @@ export default function SignupPage() {
   return (
     <AuthShell
       title="Criar estabelecimento"
-      description="Preencha os dados para solicitar acesso. Depois da análise, você recebe o plano Grátis ou Pro escolhido pelo administrador."
+      description="Crie seu espaço no plano Grátis e entre imediatamente. Um futuro upgrade para o Pro passa pela análise do administrador."
       footer={
         <>
           Já tem conta?{" "}

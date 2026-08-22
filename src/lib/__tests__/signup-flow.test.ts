@@ -6,7 +6,6 @@ const mocks = vi.hoisted(() => ({
   checkRateLimit: vi.fn(async () => ({ allowed: true, source: "memory" })),
   clientIp: vi.fn(() => "1.2.3.4"),
   uniqueSalonSlug: vi.fn(async () => "studio-teste"),
-  notify: vi.fn(async () => "disabled"),
   userFindUnique: vi.fn(async () => null),
   userCreate: vi.fn(async () => ({ id: "owner-1" })),
   salonCreate: vi.fn(async () => ({ id: "salon-1" })),
@@ -27,9 +26,6 @@ vi.mock("@/lib/rate-limit", () => ({
   clientIp: mocks.clientIp,
 }));
 vi.mock("@/lib/slug", () => ({ uniqueSalonSlug: mocks.uniqueSalonSlug }));
-vi.mock("@/lib/platform-signup-notification", () => ({
-  notifyPlatformAdminOfSignup: mocks.notify,
-}));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     user: { findUnique: mocks.userFindUnique },
@@ -67,15 +63,23 @@ describe("signup", () => {
     );
   });
 
-  it("cria conta, tenant e pedido de acesso de forma atômica", async () => {
+  it("cria conta e libera o plano Grátis de forma atômica", async () => {
     const result = await signup(VALID);
 
     expect(result).toEqual({ ok: true, slug: "studio-teste" });
+    expect(mocks.salonCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          plan: "FREE",
+          accessStatus: "APPROVED",
+          accessReviewedAt: expect.any(Date),
+        }),
+      }),
+    );
     expect(mocks.membershipCreate).toHaveBeenCalledWith({
       data: { userId: "owner-1", salonId: "salon-1", role: "OWNER" },
     });
-    expect(mocks.accessEventCreateMany).toHaveBeenCalledOnce();
-    expect(mocks.notify).toHaveBeenCalledOnce();
+    expect(mocks.accessEventCreateMany).not.toHaveBeenCalled();
     expect(mocks.cookieSet).toHaveBeenCalledWith(
       "active_salon",
       "salon-1",
@@ -104,6 +108,5 @@ describe("signup", () => {
       ok: false,
       error: "Não foi possível criar o estabelecimento agora. Tente novamente em instantes.",
     });
-    expect(mocks.notify).not.toHaveBeenCalled();
   });
 });

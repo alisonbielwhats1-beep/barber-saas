@@ -115,6 +115,7 @@ export async function closeComandaReliably(
       status: true,
       startAt: true,
       priceCents: true,
+      salon: { select: { currency: true } },
       payment: { select: { id: true } },
       products: {
         orderBy: [{ productId: "asc" }, { priceCentsUnit: "asc" }, { id: "asc" }],
@@ -123,6 +124,7 @@ export async function closeComandaReliably(
           productId: true,
           quantity: true,
           priceCentsUnit: true,
+          productName: true,
         },
       },
     },
@@ -206,6 +208,7 @@ export async function closeComandaReliably(
     productId: string;
     quantity: number;
     priceCentsUnit: number;
+    productName: string;
   }> = [];
   const stockDeltas = new Map<string, number>();
   for (const productId of productIds) {
@@ -216,6 +219,7 @@ export async function closeComandaReliably(
       reserved: existingRows,
       desiredQuantity,
       currentPriceCents: product.priceCents,
+      currentProductName: product.name,
     });
     if (reconciliation.additionalQuantity > 0 && !product.active) {
       throw new ComandaError(
@@ -272,10 +276,13 @@ export async function closeComandaReliably(
   if (pricedLines.length > 0) {
     await tx.appointmentProduct.createMany({
       data: pricedLines.map((line) => ({
+        salonId: input.salonId,
         appointmentId: input.appointmentId,
         productId: line.productId,
         quantity: line.quantity,
         priceCentsUnit: line.priceCentsUnit,
+        productName: line.productName,
+        currency: appointment.salon.currency,
       })),
     });
   }
@@ -327,6 +334,7 @@ export async function closeComandaReliably(
       discountCents: totals.discountCents,
       method: input.method,
       notes: input.notes ?? null,
+      currency: appointment.salon.currency,
     },
     select: { id: true },
   });

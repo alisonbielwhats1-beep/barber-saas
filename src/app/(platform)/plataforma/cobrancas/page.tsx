@@ -17,7 +17,7 @@ export default async function PlatformBillingPage() {
   const [salons, invoices] = await withUser(admin.userId, (tx) =>
     Promise.all([
       tx.salon.findMany({
-        where: { accessStatus: "APPROVED", plan: "PRO" },
+        where: { accessStatus: "APPROVED", plan: { not: "FREE" } },
         orderBy: { name: "asc" },
         select: { id: true, name: true },
       }),
@@ -54,7 +54,7 @@ export default async function PlatformBillingPage() {
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Controle manual</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">Cobranças da plataforma</h1>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            Mensalidades dos estabelecimentos Pro. Este módulo registra recebimentos, mas não cobra cartões nem contrata serviço externo.
+            Mensalidades dos planos pagos. Este módulo registra recebimentos, mas não cobra cartões nem contrata serviço externo.
           </p>
         </div>
         <NewInvoiceButton salons={salons} />

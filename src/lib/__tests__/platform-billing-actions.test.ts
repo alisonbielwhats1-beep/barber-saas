@@ -79,7 +79,7 @@ describe("cobranças manuais da plataforma", () => {
         amount: "99,90",
         dueDate: "2026-08-15",
       }),
-    ).rejects.toThrow("somente para estabelecimentos Pro ativos");
+    ).rejects.toThrow("somente para planos pagos ativos");
     expect(mocks.invoiceCreate).not.toHaveBeenCalled();
   });
 

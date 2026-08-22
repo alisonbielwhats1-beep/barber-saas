@@ -139,6 +139,7 @@ async function reserveAppointmentProductsAfterParentLock(
     where: { id: input.appointmentId, salonId: input.salonId },
     select: {
       id: true,
+      salon: { select: { currency: true } },
       products: { select: { id: true } },
     },
   });
@@ -218,10 +219,13 @@ async function reserveAppointmentProductsAfterParentLock(
 
   await tx.appointmentProduct.createMany({
     data: snapshots.map((snapshot) => ({
+      salonId: input.salonId,
       appointmentId: input.appointmentId,
       productId: snapshot.productId,
       quantity: snapshot.quantity,
       priceCentsUnit: snapshot.product.priceCents,
+      productName: snapshot.product.name,
+      currency: appointment.salon.currency,
     })),
   });
 }

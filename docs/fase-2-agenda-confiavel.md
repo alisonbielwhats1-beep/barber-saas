@@ -253,11 +253,12 @@ obrigatório da homologação e devem virar automação E2E na etapa seguinte.
 - processamento assíncrono com retry/dead-letter da outbox fica para a Fase 4;
 - aplicação em homologação e Production exige autorização separada.
 
-## Wave1 operacional candidata — ainda não implantada
+## Wave1 operacional — migration de produção aplicada
 
 Em 13/08/2026, a branch `codex/commercial-maturity-wave1` consolidou uma onda
-posterior à Fase 2 já implantada. Não houve migration, alteração de Supabase ou
-deploy desta candidata.
+posterior à Fase 2 já implantada. Em 22/08/2026, a migration 012 de snapshots e
+tenant-aware foi aplicada em Production após preflight aprovado; a fase 013 de
+índices operacionais também foi aplicada.
 
 ### Agenda, fila e estados
 
@@ -295,11 +296,10 @@ deploy desta candidata.
 - a execução PostgreSQL e o CI remoto estão pendentes porque esta máquina não
   possui PostgreSQL/Docker; não há staging/browser autenticado disponível.
 
-### Dívidas que permanecem
+### Estado após a migration
 
-- `AppointmentProduct` não carrega `salonId`; a validação transacional reduz a
-  superfície atual, mas a solução estrutural exige migration tenant-aware com
-  preflight, backfill, constraints compostas, RLS e rollback;
-- nome do produto e moeda não são snapshots persistidos. O recibo atual é
-  interno, não fiscal, e pode refletir nome/moeda configurados depois da venda;
-- CI verde, Preview seguro e deploy ainda não foram comprovados.
+- `AppointmentProduct` agora possui `salonId`, FKs compostas, snapshots de nome
+  e moeda e policy RLS tenant-aware, sem linhas nulas após o backfill;
+- os cinco índices operacionais da fase 013 existem em Production;
+- o recibo continua interno, não fiscal;
+- CI, Preview seguro e deploy do código permanecem gates da promoção da branch.

@@ -3,6 +3,7 @@ import { loadEnvConfig } from "@next/env";
 import bcrypt from "bcryptjs";
 import { addDays, setHours, setMinutes, startOfDay } from "date-fns";
 import { assertSafeDatabaseOperation } from "../src/lib/database-safety";
+import { PORTFOLIO_POOL, PRODUCT_IMAGES } from "../src/lib/images";
 
 loadEnvConfig(process.cwd(), process.env.NODE_ENV !== "production");
 assertSafeDatabaseOperation(process.env, {
@@ -15,14 +16,32 @@ const prisma = new PrismaClient();
 async function main() {
   // Limpa o banco (dev only)
   await prisma.payment.deleteMany();
+  await prisma.appointmentProduct.deleteMany();
+  await prisma.notificationOutbox.deleteMany();
+  await prisma.appointmentEvent.deleteMany();
+  await prisma.waitlistEntry.deleteMany();
   await prisma.appointment.deleteMany();
+  await prisma.auditLog.deleteMany();
+  await prisma.expense.deleteMany();
+  await prisma.clientSubscription.deleteMany();
+  await prisma.packagePurchase.deleteMany();
+  await prisma.package.deleteMany();
+  await prisma.membershipPlan.deleteMany();
+  await prisma.salonClosure.deleteMany();
+  await prisma.portfolioItem.deleteMany();
   await prisma.timeOff.deleteMany();
   await prisma.workingHours.deleteMany();
   await prisma.professionalService.deleteMany();
   await prisma.professional.deleteMany();
   await prisma.service.deleteMany();
+  await prisma.product.deleteMany();
   await prisma.clientProfile.deleteMany();
+  await prisma.userInviteEvent.deleteMany();
+  await prisma.userInvite.deleteMany();
   await prisma.membership.deleteMany();
+  await prisma.salonAccessEvent.deleteMany();
+  await prisma.platformInvoiceEvent.deleteMany();
+  await prisma.platformInvoice.deleteMany();
   await prisma.salon.deleteMany();
   await prisma.user.deleteMany();
 
@@ -39,6 +58,8 @@ async function main() {
       address: "R. Aspicuelta, 522 — Vila Madalena, SP",
       phone: "(11) 3456-7890",
       plan: Plan.PRO,
+      accessStatus: "APPROVED",
+      accessReviewedAt: new Date(),
     },
   });
   await prisma.membership.create({
@@ -126,14 +147,16 @@ async function main() {
     const bookings: Promise<unknown>[] = [];
     for (let dayOffset = -14; dayOffset <= 7; dayOffset++) {
       const day = addDays(today, dayOffset);
-      // 4-6 agendamentos por dia
-      const count = 4 + Math.floor(Math.random() * 3);
+      // 4-6 agendamentos por dia, em horários determinísticos e sem conflito.
+      // O seed é usado para demonstração; dados aleatórios podem criar uma
+      // agenda visualmente inválida e ensinar um comportamento incorreto.
+      const count = 4 + ((dayOffset + 14) % 3);
       for (let i = 0; i < count; i++) {
         const pro = proList[i % proList.length];
-        const service = serviceList[Math.floor(Math.random() * serviceList.length)];
-        const client = clientList[Math.floor(Math.random() * clientList.length)];
-        const hour = 9 + Math.floor(Math.random() * 9);
-        const startAt = setMinutes(setHours(day, hour), Math.random() > 0.5 ? 0 : 30);
+        const slot = Math.floor(i / proList.length);
+        const service = serviceList[(dayOffset + i + 14) % serviceList.length];
+        const client = clientList[(dayOffset + i + 14) % clientList.length];
+        const startAt = setMinutes(setHours(day, 9 + slot * 3), 0);
         const endAt = new Date(startAt.getTime() + service.durationMin * 60_000);
 
         const status =
@@ -151,7 +174,7 @@ async function main() {
               priceCents: service.priceCents,
               status,
             },
-          }).catch(() => null), // ignora conflitos aleatórios
+          }),
         );
       }
     }
@@ -171,6 +194,8 @@ async function main() {
       address: "R. Fradique Coutinho, 1250 — Pinheiros, SP",
       phone: "(11) 2222-3333",
       plan: Plan.STARTER,
+      accessStatus: "APPROVED",
+      accessReviewedAt: new Date(),
     },
   });
   await prisma.membership.create({
@@ -247,22 +272,21 @@ async function main() {
   await seedAppointments(north.id, northPros, northServices, northClients);
 
   // ─── Produtos (Luna Hair) ────────────────────────────────
-  const w = (id: string) => `https://images.unsplash.com/${id}?w=600&auto=format&fit=crop&q=80`;
   await prisma.product.createMany({
     data: [
-      { salonId: luna.id, name: "Pomada modeladora Matte", brand: "Reuzel", category: "pomade", priceCents: 8900, stock: 12, imageUrl: w("photo-1590540179852-2110a54f813a") },
-      { salonId: luna.id, name: "Óleo capilar leave-in", brand: "Kevin Murphy", category: "oleo", priceCents: 14500, stock: 8, imageUrl: w("photo-1608248543803-ba4f8c70ae0b") },
-      { salonId: luna.id, name: "Shampoo revitalizante 250ml", brand: "Lunicare", category: "shampoo", priceCents: 6500, stock: 20, imageUrl: w("photo-1608248543803-ba4f8c70ae0b") },
-      { salonId: luna.id, name: "Máscara de hidratação profunda", brand: "L'Oréal Pro", category: "tratamento", priceCents: 9800, stock: 6, imageUrl: w("photo-1608248543803-ba4f8c70ae0b") },
-      { salonId: luna.id, name: "Escova térmica premium", brand: "StyleCraft Tools", category: "acessorio", priceCents: 22000, stock: 3, imageUrl: w("photo-1590540179852-2110a54f813a") },
-      { salonId: luna.id, name: "Loção pós-barba", brand: "Proraso", category: "barba", priceCents: 7200, stock: 0, imageUrl: "/images/salon-hero-beard-v1-hq.png" },
+      { salonId: luna.id, name: "Pomada modeladora Matte", brand: "Reuzel", category: "pomade", priceCents: 8900, stock: 12, imageUrl: PRODUCT_IMAGES[4] },
+      { salonId: luna.id, name: "Óleo capilar leave-in", brand: "Kevin Murphy", category: "oleo", priceCents: 14500, stock: 8, imageUrl: PRODUCT_IMAGES[2] },
+      { salonId: luna.id, name: "Shampoo revitalizante 250ml", brand: "Lunicare", category: "shampoo", priceCents: 6500, stock: 20, imageUrl: PRODUCT_IMAGES[2] },
+      { salonId: luna.id, name: "Máscara de hidratação profunda", brand: "L'Oréal Pro", category: "tratamento", priceCents: 9800, stock: 6, imageUrl: PRODUCT_IMAGES[2] },
+      { salonId: luna.id, name: "Escova térmica premium", brand: "StyleCraft Tools", category: "acessorio", priceCents: 22000, stock: 3, imageUrl: PRODUCT_IMAGES[4] },
+      { salonId: luna.id, name: "Loção pós-barba", brand: "Proraso", category: "barba", priceCents: 7200, stock: 0, imageUrl: PRODUCT_IMAGES[3] },
     ],
   });
   await prisma.product.createMany({
     data: [
-      { salonId: north.id, name: "Pomada Reuzel Grease", brand: "Reuzel", category: "pomade", priceCents: 8900, stock: 15, imageUrl: w("photo-1590540179852-2110a54f813a") },
-      { salonId: north.id, name: "Óleo para barba", brand: "Beardbrand", category: "barba", priceCents: 13500, stock: 10, imageUrl: "/images/salon-hero-beard-v1-hq.png" },
-      { salonId: north.id, name: "Navalha profissional", brand: "Merkur", category: "acessorio", priceCents: 32000, stock: 4, imageUrl: w("photo-1599351431202-1e0f0137899a") },
+      { salonId: north.id, name: "Pomada Reuzel Grease", brand: "Reuzel", category: "pomade", priceCents: 8900, stock: 15, imageUrl: PRODUCT_IMAGES[4] },
+      { salonId: north.id, name: "Óleo para barba", brand: "Beardbrand", category: "barba", priceCents: 13500, stock: 10, imageUrl: "/images/salon-hero-beard-v1.webp" },
+      { salonId: north.id, name: "Navalha profissional", brand: "Merkur", category: "acessorio", priceCents: 32000, stock: 4, imageUrl: PRODUCT_IMAGES[3] },
     ],
   });
 
@@ -275,18 +299,11 @@ async function main() {
     "Undercut clássico",
     "Escova modelada volumosa",
   ];
-  const pool = [
-    "photo-1622287162716-f311baa1a2b8",
-    "photo-1621605815971-fbc98d665033",
-    "photo-1560066984-138dadb4c035",
-    "photo-1580618672591-eb180b1a973f",
-    "photo-1522337660859-02fbefca4702",
-    "photo-1503951914875-452162b0f3f1",
-  ];
+  const pool = PORTFOLIO_POOL.slice(0, captions.length);
   await prisma.portfolioItem.createMany({
-    data: pool.map((id, i) => ({
+    data: pool.map((imageUrl, i) => ({
       salonId: luna.id,
-      imageUrl: w(id).replace("w=600", "w=800"),
+      imageUrl,
       caption: captions[i],
       professionalId: pros[i % pros.length].id,
     })),
@@ -299,6 +316,11 @@ async function main() {
 
   // ─── Finanças demo (despesas + pagamentos) ──────────────
   async function seedFinance(sid: string) {
+    const salon = await prisma.salon.findUnique({
+      where: { id: sid },
+      select: { currency: true },
+    });
+    const currency = salon?.currency ?? "BRL";
     const fixed = [
       { description: "Aluguel do ponto", category: "Aluguel", amountCents: 320000 },
       { description: "Energia elétrica", category: "Energia", amountCents: 68000 },
@@ -335,7 +357,13 @@ async function main() {
     });
     for (const a of completed) {
       await prisma.payment.create({
-        data: { appointmentId: a.id, amountCents: a.priceCents, method: methods[Math.floor(Math.random() * methods.length)], paidAt: a.startAt },
+        data: {
+          appointmentId: a.id,
+          amountCents: a.priceCents,
+          method: methods[Math.floor(Math.random() * methods.length)],
+          currency,
+          paidAt: a.startAt,
+        },
       }).catch(() => null);
     }
   }

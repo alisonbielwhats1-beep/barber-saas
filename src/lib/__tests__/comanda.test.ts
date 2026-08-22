@@ -26,8 +26,8 @@ describe("comanda interna", () => {
       calculateComandaTotals({
         serviceCents: 9000,
         productLines: [
-          { quantity: 2, priceCentsUnit: 2500 },
-          { quantity: 1, priceCentsUnit: 1500 },
+          { quantity: 2, priceCentsUnit: 2500, productName: "Pomada" },
+          { quantity: 1, priceCentsUnit: 1500, productName: "Shampoo" },
         ],
         discountCents: 2000,
       }),
@@ -45,19 +45,20 @@ describe("comanda interna", () => {
   it("preserva snapshots reservados e usa preço atual apenas no acréscimo", () => {
     expect(reconcileReservedProduct({
       reserved: [
-        { quantity: 1, priceCentsUnit: 700 },
-        { quantity: 1, priceCentsUnit: 800 },
+        { quantity: 1, priceCentsUnit: 700, productName: "Pomada" },
+        { quantity: 1, priceCentsUnit: 800, productName: "Pomada" },
       ],
       desiredQuantity: 3,
       currentPriceCents: 1_500,
+      currentProductName: "Pomada Premium",
     })).toEqual({
       reservedQuantity: 2,
       additionalQuantity: 1,
       stockDelta: -1,
       pricedLines: [
-        { quantity: 1, priceCentsUnit: 700 },
-        { quantity: 1, priceCentsUnit: 800 },
-        { quantity: 1, priceCentsUnit: 1_500 },
+        { quantity: 1, priceCentsUnit: 700, productName: "Pomada" },
+        { quantity: 1, priceCentsUnit: 800, productName: "Pomada" },
+        { quantity: 1, priceCentsUnit: 1_500, productName: "Pomada Premium" },
       ],
       totalCents: 3_000,
     });
@@ -65,14 +66,15 @@ describe("comanda interna", () => {
 
   it("devolve somente a parte removida e mantém o snapshot retido", () => {
     expect(reconcileReservedProduct({
-      reserved: [{ quantity: 2, priceCentsUnit: 900 }],
+      reserved: [{ quantity: 2, priceCentsUnit: 900, productName: "Pomada" }],
       desiredQuantity: 1,
       currentPriceCents: 9_999,
+      currentProductName: "Pomada Atual",
     })).toEqual({
       reservedQuantity: 2,
       additionalQuantity: 0,
       stockDelta: 1,
-      pricedLines: [{ quantity: 1, priceCentsUnit: 900 }],
+      pricedLines: [{ quantity: 1, priceCentsUnit: 900, productName: "Pomada" }],
       totalCents: 900,
     });
   });

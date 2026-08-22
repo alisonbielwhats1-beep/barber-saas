@@ -6,11 +6,11 @@ import { Check } from "lucide-react";
 import { SEGMENTS, DEFAULT_SEGMENT_ID, type SegmentId } from "@/lib/segments";
 
 const LANDING_SEGMENT_IMAGES: Record<SegmentId, string> = {
-  barbearia: "/images/salon-hero-barber-v2-hq.png",
-  "salao-beleza": "/images/salon-hero-stylist-v2-hq.png",
-  "manicure-nail": "/images/salon-hero-manicure-v1-hq.png",
-  "estetica-bemestar": "/images/salon-hero-massage-v2-hq.png",
-  "espaco-misto": "/images/salon-hero-aesthetics-v2-hq.png",
+  barbearia: "/images/salon-hero-barber-v2.webp",
+  "salao-beleza": "/images/salon-hero-stylist-v2.webp",
+  "manicure-nail": "/images/salon-hero-manicure-v1.webp",
+  "estetica-bemestar": "/images/salon-hero-massage-v2.webp",
+  "espaco-misto": "/images/salon-hero-aesthetics-v2.webp",
 };
 
 const LANDING_SEGMENT_LABELS: Partial<Record<SegmentId, string>> = {
@@ -64,7 +64,7 @@ export function SegmentExplorer() {
                   src={LANDING_SEGMENT_IMAGES[seg.id]}
                   alt={`${displayLabel}: atendimento profissional`}
                   fill
-                  quality={95}
+                  quality={85}
                   sizes="(max-width: 767px) 420px, (max-width: 1023px) 600px, 560px"
                   className={`object-cover transition-transform duration-300 group-hover:scale-[1.03] ${LANDING_SEGMENT_POSITIONS[seg.id] ?? "object-center"}`}
                 />
