@@ -1,4 +1,5 @@
 import { differenceInCalendarDays } from "date-fns";
+import { isValidPhoneBR, normalizePhone } from "./phone";
 
 type AuditLike = {
   action: string;
@@ -150,9 +151,14 @@ export function parseClientCsv(csv: string): { rows: ImportedClient[]; errors: A
     }
     const rawBirthday = indexes.birthday >= 0 ? values[indexes.birthday]?.trim() ?? "" : "";
     const birthday = /^\d{4}-\d{2}-\d{2}$/.test(rawBirthday) ? rawBirthday : null;
+    const rawPhone = indexes.phone >= 0 ? values[indexes.phone]?.trim() ?? "" : "";
+    if (rawPhone && !isValidPhoneBR(rawPhone)) {
+      errors.push({ line: index + 1, message: "Telefone invalido" });
+      continue;
+    }
     rows.push({
       name,
-      phone: indexes.phone >= 0 ? values[indexes.phone]?.replace(/\D/g, "") || null : null,
+      phone: rawPhone ? normalizePhone(rawPhone) : null,
       email: indexes.email >= 0 ? values[indexes.email]?.trim().toLowerCase() || null : null,
       birthday,
     });

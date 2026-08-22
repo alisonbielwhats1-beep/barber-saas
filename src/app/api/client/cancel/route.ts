@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { withSalonBySlug } from "@/lib/prisma-tenant";
 import { getClientSession } from "@/lib/client-auth";
+import { resolveClientSessionInTenant } from "@/lib/public-appointment";
 import {
   appointmentErrorStatus,
   cancelAppointmentReliably,
@@ -59,13 +60,15 @@ export async function POST(req: NextRequest) {
       parsed.data.salonSlug,
       async (tx, salonId) => {
         if (session.salonId !== salonId) return null;
+        const effectiveSession = await resolveClientSessionInTenant(tx, session, salonId);
+        if (!effectiveSession) return null;
         return cancelAppointmentReliably(tx, {
           salonId,
           appointmentId: parsed.data.appointmentId,
-          actor: { type: "CLIENT", id: session.clientId, name: session.name },
+          actor: { type: "CLIENT", id: effectiveSession.clientId, name: effectiveSession.name },
           idempotencyKey: parsed.data.idempotencyKey,
           expectedVersion: parsed.data.expectedVersion,
-          expectedClientId: session.clientId,
+          expectedClientId: effectiveSession.clientId,
           reason: parsed.data.reason,
           enforceClientPolicy: true,
         });

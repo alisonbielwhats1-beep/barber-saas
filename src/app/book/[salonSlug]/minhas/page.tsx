@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { withSalonBySlug } from "@/lib/prisma-tenant";
 import { getClientSession } from "@/lib/client-auth";
+import { resolveClientSessionInTenant } from "@/lib/public-appointment";
 import { MinhasList } from "./minhas-list";
 import { AutoRefresh } from "@/components/auto-refresh";
 
@@ -38,6 +39,8 @@ export default async function MinhasPage({
   // o callback devolve null e cai no mesmo redirect de "salão não encontrado".
   const result = await withSalonBySlug(salonSlug, async (tx, salonId) => {
     if (session.salonId !== salonId) return null;
+    const effectiveSession = await resolveClientSessionInTenant(tx, session, salonId);
+    if (!effectiveSession) return null;
     const salon = await tx.salon.findUnique({
       where: { id: salonId },
       select: {
@@ -50,7 +53,7 @@ export default async function MinhasPage({
     });
     if (!salon) return null;
     const appointments = await tx.appointment.findMany({
-      where: { clientId: session.clientId, salonId },
+      where: { clientId: effectiveSession.clientId, salonId },
       orderBy: { startAt: "desc" },
       take: 60,
       select: {
@@ -93,12 +96,18 @@ export default async function MinhasPage({
             product: { select: { name: true } },
           },
         },
+        reviews: {
+          where: { clientId: effectiveSession.clientId },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: { id: true, rating: true, comment: true, status: true, createdAt: true },
+        },
       },
     });
     const waitlistEntries = await tx.waitlistEntry.findMany({
       where: {
         salonId,
-        clientId: session.clientId,
+        clientId: effectiveSession.clientId,
         fulfilledAt: null,
         cancelledAt: null,
         startAt: { gt: new Date() },
@@ -135,6 +144,7 @@ export default async function MinhasPage({
     }
     return {
       salon,
+      session: effectiveSession,
       appointments,
       waitlistEntries: waitlistEntries.map((entry) => ({
         ...entry,
@@ -143,7 +153,7 @@ export default async function MinhasPage({
     };
   });
   if (!result) redirect(`/book/${salonSlug}/login`);
-  const { salon, appointments, waitlistEntries } = result;
+  const { salon, session: effectiveSession, appointments, waitlistEntries } = result;
 
   // Serialize Date objects — can't pass them directly to client components
   const serialized = appointments.map((a) => ({
@@ -151,6 +161,15 @@ export default async function MinhasPage({
     startAt: a.startAt.toISOString(),
     endAt: a.endAt.toISOString(),
     status: a.status as string,
+    review: a.reviews[0]
+      ? {
+          id: a.reviews[0].id,
+          rating: a.reviews[0].rating,
+          comment: a.reviews[0].comment,
+          status: a.reviews[0].status as string,
+          createdAt: a.reviews[0].createdAt.toISOString(),
+        }
+      : null,
     events: a.events.map((event) => {
       const previousValue = jsonRecord(event.previousValue);
       const newValue = jsonRecord(event.newValue);
@@ -173,7 +192,7 @@ export default async function MinhasPage({
       <AutoRefresh />
       <header>
         <p className="text-xs uppercase tracking-wide text-muted-foreground">
-          Olá, {session.name.split(" ")[0]}
+          Olá, {effectiveSession.name.split(" ")[0]}
         </p>
         <h1 className="text-2xl font-semibold">Minhas reservas</h1>
         <p className="mt-1 text-sm text-muted-foreground">{salon.name}</p>
@@ -195,7 +214,7 @@ export default async function MinhasPage({
         cancelPolicyHours={salon.cancelPolicyHours}
         salonName={salon.name}
         salonAddress={salon.address}
-        session={session}
+        session={effectiveSession}
       />
 
     </main>

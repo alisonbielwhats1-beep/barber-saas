@@ -3,6 +3,7 @@ import {
   type ClientSession,
 } from "@/lib/client-auth";
 import { withSalonBySlug } from "@/lib/prisma-tenant";
+import { resolveClientSessionInTenant } from "@/lib/public-appointment";
 
 /**
  * Retorna a sessão somente quando ela pertence ao salão presente na URL.
@@ -18,7 +19,7 @@ export async function getClientSessionForSalonSlug(
   const session = await getClientSession();
   if (!session) return null;
 
-  return withSalonBySlug(salonSlug, async (_tx, salonId) =>
-    session.salonId === salonId ? session : null,
+  return withSalonBySlug(salonSlug, async (tx, salonId) =>
+    resolveClientSessionInTenant(tx, session, salonId),
   );
 }

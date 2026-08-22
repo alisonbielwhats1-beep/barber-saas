@@ -1,5 +1,7 @@
 import { z } from "zod";
 import type { ClientSession } from "./client-auth";
+import type { Tx } from "./prisma-tenant";
+import { resolveClientProfile } from "./client-identity";
 import { isValidPhoneBR, normalizePhone } from "./phone";
 
 const cartItemSchema = z.object({
@@ -37,6 +39,32 @@ export function clientSessionForSalon(
   salonId: string,
 ): ClientSession | null {
   return session?.salonId === salonId ? session : null;
+}
+
+/**
+ * Revalida a sessão no tenant e aponta tokens antigos para o cadastro
+ * canônico depois de uma mesclagem feita pelo salão.
+ *
+ * O cookie continua assinado e não é reescrito aqui; a resolução no banco
+ * evita que uma sessão legítima volte a criar reservas no perfil de origem.
+ */
+export async function resolveClientSessionInTenant(
+  tx: Tx,
+  session: ClientSession | null,
+  salonId: string,
+): Promise<ClientSession | null> {
+  const sessionForSalon = clientSessionForSalon(session, salonId);
+  if (!sessionForSalon) return null;
+
+  const profile = await resolveClientProfile(tx, salonId, sessionForSalon.clientId);
+  if (!profile) return null;
+
+  return {
+    ...sessionForSalon,
+    clientId: profile.id,
+    name: profile.name,
+    email: profile.email ?? sessionForSalon.email,
+  };
 }
 
 /**

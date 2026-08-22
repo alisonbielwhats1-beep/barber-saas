@@ -5,6 +5,7 @@ import { isOverlapViolation } from "@/lib/db-errors";
 import { getClientSession } from "@/lib/client-auth";
 import {
   publicAppointmentSchema,
+  resolveClientSessionInTenant,
   resolveBookingIdentity,
 } from "@/lib/public-appointment";
 import {
@@ -64,8 +65,8 @@ export async function POST(req: NextRequest) {
   }
   const booking = parsed.data;
   const session = await getClientSession();
-  const identity = resolveBookingIdentity(session, booking.salonId);
-  if (identity.kind === "guest" && (!booking.clientName || !booking.clientPhone)) {
+  const rawIdentity = resolveBookingIdentity(session, booking.salonId);
+  if (rawIdentity.kind === "guest" && (!booking.clientName || !booking.clientPhone)) {
     return NextResponse.json({ error: "GUEST_DATA_REQUIRED" }, { status: 400 });
   }
 
@@ -83,6 +84,17 @@ export async function POST(req: NextRequest) {
 
   try {
     const result = await withApprovedSalon(booking.salonId, async (tx) => {
+      const authenticatedSession = rawIdentity.kind === "authenticated"
+        ? await resolveClientSessionInTenant(tx, session, booking.salonId)
+        : null;
+      if (rawIdentity.kind === "authenticated" && !authenticatedSession) {
+        return { invalidSession: true as const };
+      }
+      const identity = authenticatedSession
+        ? { kind: "authenticated" as const, clientId: authenticatedSession.clientId }
+        : rawIdentity;
+      const effectiveSession = authenticatedSession ?? session;
+
       return createAppointmentWithProductReservation(tx, {
         appointment: {
           salonId: booking.salonId,
@@ -96,7 +108,7 @@ export async function POST(req: NextRequest) {
               ? {
                   type: "CLIENT",
                   id: identity.clientId,
-                  name: session?.name ?? "Cliente",
+                  name: effectiveSession?.name ?? "Cliente",
                 }
               : { type: "GUEST", name: booking.clientName! },
           idempotencyKey: booking.idempotencyKey,
@@ -113,12 +125,16 @@ export async function POST(req: NextRequest) {
         },
         productReservation: {
           actorName: identity.kind === "authenticated"
-            ? session?.name ?? "Cliente"
+            ? effectiveSession?.name ?? "Cliente"
             : booking.clientName!,
           items: normalizedCart,
         },
       });
     });
+
+    if (result && "invalidSession" in result) {
+      return NextResponse.json({ error: "AUTH_REQUIRED" }, { status: 401 });
+    }
 
     if (!result) {
       return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });

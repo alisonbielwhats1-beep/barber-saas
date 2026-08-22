@@ -3,6 +3,7 @@ import type { CSSProperties } from "react";
 import { prisma } from "@/lib/prisma";
 import { getClientSession } from "@/lib/client-auth";
 import { withSalonBySlug } from "@/lib/prisma-tenant";
+import { resolveClientSessionInTenant } from "@/lib/public-appointment";
 import { ClientShell } from "./client-shell";
 import { hexToHslTriple, readableForeground } from "@/lib/color";
 
@@ -44,16 +45,17 @@ export default async function BookLayout({
 }) {
   const [{ salonSlug }, session] = await Promise.all([params, getClientSession()]);
   const shellData = await withSalonBySlug(salonSlug, async (tx, salonId) => {
+    const effectiveSession = await resolveClientSessionInTenant(tx, session, salonId);
     const [salon, unreadNotifications] = await Promise.all([
       tx.salon.findUnique({
         where: { id: salonId },
         select: { themeColorHex: true },
       }),
-      session?.salonId === salonId
+      effectiveSession
         ? tx.notificationOutbox.count({
             where: {
               salonId,
-              recipientKey: `CLIENT:${session.clientId}`,
+              recipientKey: `CLIENT:${effectiveSession.clientId}`,
               channel: "INTERNAL",
               readAt: null,
             },

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withSalonBySlug } from "@/lib/prisma-tenant";
 import { getClientSession } from "@/lib/client-auth";
+import { resolveClientSessionInTenant } from "@/lib/public-appointment";
 import {
   checkRateLimit,
   clientIp,
@@ -56,15 +57,12 @@ export async function GET(req: NextRequest) {
     });
     if (!salon) return { kind: "not_found" as const };
 
-    const client = await tx.clientProfile.findFirst({
-      where: { id: session.clientId, salonId },
-      select: { id: true, name: true },
-    });
+    const client = await resolveClientSessionInTenant(tx, session, salonId);
     if (!client) return { kind: "unauthenticated" as const };
 
     const appointments = await tx.appointment.findMany({
       where: {
-        clientId: client.id,
+        clientId: client.clientId,
         salonId,
       },
       orderBy: { startAt: "desc" },

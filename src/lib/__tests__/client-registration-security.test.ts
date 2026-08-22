@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   setClientSession: vi.fn(),
   checkRateLimit: vi.fn(),
   clientFindFirst: vi.fn(),
+  clientFindMany: vi.fn(),
   clientCreate: vi.fn(),
 }));
 
@@ -38,6 +39,7 @@ import {
 const tx = {
   clientProfile: {
     findFirst: mocks.clientFindFirst,
+    findMany: mocks.clientFindMany,
     create: mocks.clientCreate,
   },
 };
@@ -50,6 +52,7 @@ describe("registerClient — validação no servidor", () => {
     mocks.hash.mockResolvedValue("password-hash");
     mocks.compare.mockResolvedValue(false);
     mocks.clientFindFirst.mockResolvedValue(null);
+    mocks.clientFindMany.mockResolvedValue([]);
     mocks.clientCreate.mockResolvedValue({ id: "client-a" });
     mocks.withSalonBySlug.mockImplementation(
       async (_slug: string, callback: (value: typeof tx, salonId: string) => unknown) =>
@@ -135,6 +138,7 @@ describe("registerClient — validação no servidor", () => {
         salonId: "salon-a",
         name: "Maria Silva",
         phone: normalized,
+        phoneNormalized: normalized,
         email: "maria@example.com",
         passwordHash: "password-hash",
       },

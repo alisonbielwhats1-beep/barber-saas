@@ -99,7 +99,8 @@ DECLARE
     'WaitlistEntry',
     'WorkingHours',
     'SalonClosure',
-    'AuditLog'
+    'AuditLog',
+    'ClientReview'
   ];
 BEGIN
   FOREACH t IN ARRAY tabelas LOOP

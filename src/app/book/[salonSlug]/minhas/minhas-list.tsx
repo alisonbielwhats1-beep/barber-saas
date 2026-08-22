@@ -21,6 +21,7 @@ import { ptBR } from "date-fns/locale";
 import { formatInTimeZone } from "date-fns-tz";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { logoutClient } from "../auth-actions";
+import { ReviewDialog } from "./review-dialog";
 import type { ClientSession } from "@/lib/client-auth";
 
 type Appt = {
@@ -45,6 +46,13 @@ type Appt = {
   }>;
   professional: { id: string; user: { name: string } };
   products: { quantity: number; priceCentsUnit: number; product: { name: string } }[];
+  review: {
+    id: string;
+    rating: number;
+    comment: string | null;
+    status: string;
+    createdAt: string;
+  } | null;
 };
 
 type WaitlistItem = {
@@ -349,17 +357,33 @@ export function MinhasList({
             salonName={salonName}
             salonAddress={salonAddress}
             actions={
-              <Link
-                href={`/book/${salonSlug}/agendar?services=${encodeURIComponent(
-                  (a.serviceItems.length > 0
-                    ? a.serviceItems.map((service) => service.serviceId)
-                    : [a.service.id]
-                  ).join(","),
-                )}`}
-                className="flex min-h-11 items-center gap-1 rounded-xl px-2 text-xs text-muted-foreground transition-colors hover:bg-secondary/70 hover:text-primary"
-              >
-                <Repeat className="h-3.5 w-3.5" aria-hidden="true" /> Agendar de novo
-              </Link>
+              <div className="flex flex-wrap items-center gap-2">
+                {a.status === "COMPLETED" && !a.review && (
+                  <ReviewDialog
+                    salonSlug={salonSlug}
+                    appointmentId={a.id}
+                    serviceName={a.serviceItems.length > 0
+                      ? a.serviceItems.map((service) => service.serviceName).join(" + ")
+                      : a.service.name}
+                  />
+                )}
+                {a.status === "COMPLETED" && a.review && (
+                  <span className="inline-flex min-h-11 items-center gap-1.5 px-2 text-xs text-amber-400">
+                    <span aria-hidden="true">★</span> Avaliado · {a.review.rating}/5
+                  </span>
+                )}
+                <Link
+                  href={`/book/${salonSlug}/agendar?services=${encodeURIComponent(
+                    (a.serviceItems.length > 0
+                      ? a.serviceItems.map((service) => service.serviceId)
+                      : [a.service.id]
+                    ).join(","),
+                  )}`}
+                  className="flex min-h-11 items-center gap-1 rounded-xl px-2 text-xs text-muted-foreground transition-colors hover:bg-secondary/70 hover:text-primary"
+                >
+                  <Repeat className="h-3.5 w-3.5" aria-hidden="true" /> Agendar de novo
+                </Link>
+              </div>
             }
           />
         ))}

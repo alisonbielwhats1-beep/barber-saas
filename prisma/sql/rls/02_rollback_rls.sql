@@ -23,7 +23,7 @@ DECLARE
     'Payment', 'PortfolioItem', 'Product', 'Professional',
     'ProfessionalService', 'Salon', 'Service', 'TimeOff', 'UserInvite',
     'UserInviteEvent', 'WaitlistEntry', 'WorkingHours',
-    'SalonClosure', 'AuditLog'
+    'SalonClosure', 'AuditLog', 'ClientReview'
   ];
 BEGIN
   FOREACH t IN ARRAY tabelas LOOP

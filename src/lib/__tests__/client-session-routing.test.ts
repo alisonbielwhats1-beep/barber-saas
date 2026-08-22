@@ -59,7 +59,16 @@ describe("sessão do cliente por tenant", () => {
       async (
         _salonSlug: string,
         callback: (tx: object, salonId: string) => unknown,
-      ) => callback({}, "salon-current"),
+      ) => callback({
+        clientProfile: {
+          findFirst: vi.fn().mockResolvedValue({
+            id: CURRENT_SALON_SESSION.clientId,
+            mergedIntoId: null,
+            name: CURRENT_SALON_SESSION.name,
+            email: CURRENT_SALON_SESSION.email,
+          }),
+        },
+      }, "salon-current"),
     );
   });
 

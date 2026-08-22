@@ -8,7 +8,9 @@ describe("escopo de clientes do profissional", () => {
     const subscriptionGroupBy = vi.fn();
     const clientFindMany = vi.fn().mockResolvedValue([]);
     const tx = {
-      clientProfile: { findMany: clientFindMany },
+      clientProfile: {
+        findMany: clientFindMany.mockResolvedValue([]),
+      },
       professional: { findMany: vi.fn().mockResolvedValue([]) },
       service: { findMany: vi.fn().mockResolvedValue([]) },
       packagePurchase: { groupBy: packageGroupBy },
@@ -24,6 +26,7 @@ describe("escopo de clientes do profissional", () => {
       expect.objectContaining({
         where: {
           salonId: "salon-a",
+          mergedIntoId: null,
           appointments: { some: { professionalId: "professional-a" } },
         },
         select: expect.objectContaining({
@@ -39,7 +42,12 @@ describe("escopo de clientes do profissional", () => {
 
   it("filtra também o histórico aberto pelo profissional", async () => {
     const findMany = vi.fn().mockResolvedValue([]);
-    const tx = { appointment: { findMany } } as unknown as Tx;
+    const tx = {
+      clientProfile: {
+        findFirst: vi.fn().mockResolvedValue({ id: "client-a", mergedIntoId: null }),
+      },
+      appointment: { findMany },
+    } as unknown as Tx;
 
     await getClientHistory(tx, "salon-a", "client-a", "professional-a");
 

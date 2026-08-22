@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { withSalonBySlug } from "@/lib/prisma-tenant";
 import { getClientSession } from "@/lib/client-auth";
-import { clientSessionForSalon } from "@/lib/public-appointment";
+import { resolveClientSessionInTenant } from "@/lib/public-appointment";
 import { BookingFlow } from "./booking-flow";
 import { dateKeyInTimeZone } from "@/lib/time";
 import { normalizeImageUrl } from "@/lib/images";
@@ -29,6 +29,7 @@ export default async function AgendarPage({
         .slice(0, 10),
     ),
   ];
+  const clientSession = await getClientSession();
   const result = await withSalonBySlug(salonSlug, async (tx, salonId) => {
     const salon = await tx.salon.findUnique({
       where: { id: salonId },
@@ -75,13 +76,12 @@ export default async function AgendarPage({
       },
       _count: { _all: true },
     });
-    return { salon, counts };
+    const validSession = await resolveClientSessionInTenant(tx, clientSession, salonId);
+    return { salon, counts, validSession };
   });
   if (!result) notFound();
-  const { salon, counts } = result;
+  const { salon, counts, validSession } = result;
 
-  const clientSession = await getClientSession();
-  const validSession = clientSessionForSalon(clientSession, salon.id);
   const countByPro = new Map(counts.map((c) => [c.professionalId, c._count._all]));
   const topProId =
     counts.length > 1

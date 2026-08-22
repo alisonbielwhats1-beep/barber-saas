@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { AppointmentActorType } from "@prisma/client";
 import type { Tx } from "./prisma-tenant";
 import { businessRecipients, recordAppointmentEvent } from "./appointment-events";
+import { clientIdentityData } from "./client-identity";
 
 const WAITLIST_NOTE = "Confirmado automaticamente pela lista de espera.";
 
@@ -489,8 +490,14 @@ export async function fulfillWaitlistOnCancel(
   let clientId = entry.clientId;
   if (!clientId) {
     if (!entry.guestName) return null;
+    const identity = clientIdentityData({ phone: entry.guestPhone });
     const guest = await tx.clientProfile.create({
-      data: { salonId, name: entry.guestName, phone: entry.guestPhone },
+      data: {
+        salonId,
+        name: entry.guestName,
+        phone: identity.phone,
+        phoneNormalized: identity.phoneNormalized,
+      },
       select: { id: true },
     });
     clientId = guest.id;

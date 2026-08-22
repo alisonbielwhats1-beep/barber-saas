@@ -6,6 +6,7 @@ import type {
   Prisma,
 } from "@prisma/client";
 import type { Tx } from "./prisma-tenant";
+import { clientIdentityData } from "./client-identity";
 import { bufferedWindow, checkBookingWindow } from "./scheduling";
 import {
   ACTIVE_APPOINTMENT_STATUSES,
@@ -628,11 +629,13 @@ export async function createAppointment(
     if (!("guest" in input) || !input.guest) {
       throw new AppointmentError("FORBIDDEN");
     }
+    const identity = clientIdentityData({ phone: input.guest.phone });
     const guest = await tx.clientProfile.create({
       data: {
         salonId: input.salonId,
         name: input.guest.name,
-        phone: input.guest.phone,
+        phone: identity.phone,
+        phoneNormalized: identity.phoneNormalized,
       },
       select: { id: true },
     });

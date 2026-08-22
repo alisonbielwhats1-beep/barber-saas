@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getClientSession } from "@/lib/client-auth";
 import { withSalonBySlug } from "@/lib/prisma-tenant";
+import { resolveClientSessionInTenant } from "@/lib/public-appointment";
 import { cancelWaitlistEntry, isWaitlistError } from "@/lib/waitlist";
 import {
   checkRateLimit,
@@ -48,12 +49,14 @@ export async function POST(req: NextRequest) {
   try {
     const result = await withSalonBySlug(parsed.data.salonSlug, async (tx, salonId) => {
       if (session.salonId !== salonId) return null;
+      const effectiveSession = await resolveClientSessionInTenant(tx, session, salonId);
+      if (!effectiveSession) return null;
       return cancelWaitlistEntry(tx, {
         salonId,
         entryId: parsed.data.waitlistId,
         actorType: "CLIENT",
-        actorId: session.clientId,
-        expectedClientId: session.clientId,
+        actorId: effectiveSession.clientId,
+        expectedClientId: effectiveSession.clientId,
         reason: "Cancelado pelo cliente",
       });
     });

@@ -108,7 +108,7 @@ GRANT CONNECT ON DATABASE postgres TO app_runtime;
 GRANT USAGE ON SCHEMA public TO app_runtime;
 
 
--- ─── DML nas 22 tabelas da aplicação (+ AuditLog à parte) — nada de DDL ────
+-- ─── DML nas 23 tabelas da aplicação (+ AuditLog à parte) — nada de DDL ────
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
   "User",
@@ -133,8 +133,12 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
   "UserInvite",
   "UserInviteEvent",
   "WaitlistEntry",
-  "SalonClosure"
+  "SalonClosure",
+  "ClientReview"
 TO app_runtime;
+
+-- Avaliações são moderadas por status; nunca são apagadas pelo runtime.
+REVOKE DELETE ON TABLE "ClientReview" FROM app_runtime;
 
 -- "AuditLog" fica de fora deste GRANT geral de propósito: é append-only
 -- (só SELECT + INSERT, ver 007_fase2_recorrencia_overbooking_bloqueio.sql)
