@@ -21,6 +21,7 @@ import {
   Share2,
   Bell,
   ShieldCheck,
+  Star,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -84,6 +85,7 @@ export const GROUPS: { title: string; items: Item[] }[] = [
     title: "Pessoas",
     items: [
       { href: "/clientes", label: "Clientes", icon: Users },
+      { href: "/avaliacoes", label: "Avaliações", icon: Star, roles: MANAGEMENT_ROLES },
       { href: "/profissionais", label: "Profissionais", icon: UserCog },
     ],
   },

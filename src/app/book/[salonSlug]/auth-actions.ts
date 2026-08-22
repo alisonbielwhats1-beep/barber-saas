@@ -11,6 +11,8 @@ import {
 import { isValidPhoneBR, normalizePhone } from "@/lib/phone";
 import { setClientSession, clearClientSession } from "@/lib/client-auth";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
+import { clientIdentityData, findPotentialClientMatches } from "@/lib/client-identity";
+import { writeAuditLog } from "@/lib/audit";
 
 const salonSlugSchema = z
   .string()
@@ -170,7 +172,7 @@ export async function loginClient(
   try {
     found = await withSalonBySlug(normalizedSlug, (tx, salonId) =>
       tx.clientProfile.findFirst({
-        where: { salonId, email: normalizedEmail },
+        where: { salonId, email: normalizedEmail, mergedIntoId: null },
         select: { id: true, name: true, email: true, passwordHash: true },
       }).then((client) => ({ salonId, client })),
     );
@@ -226,6 +228,7 @@ export async function registerClient(
     return { error: mismatch?.message ?? REGISTRATION_ERROR };
   }
   const registration = parsed.data;
+  const identity = clientIdentityData(registration);
 
   const requestHeaders = await headers();
   const ip = clientIp(requestHeaders);
@@ -272,19 +275,49 @@ export async function registerClient(
   let result: RegistrationResult;
   try {
     result = await withSalonBySlug(normalizedSlug, async (tx, salonId) => {
+      const matches = await findPotentialClientMatches(tx, salonId, identity);
+      const emailMatch = matches.find((candidate) => candidate.email?.toLowerCase() === identity.email);
+      if (emailMatch?.passwordHash) {
+        throw new Error("CLIENT_ACCOUNT_EXISTS");
+      }
+      if (emailMatch) {
+        throw new Error("CLIENT_EMAIL_ALREADY_USED_BY_GUEST");
+      }
       const client = await tx.clientProfile.create({
         data: {
           salonId,
           name: registration.name,
-          phone: registration.phone,
-          email: registration.email,
+          phone: identity.phone,
+          phoneNormalized: identity.phoneNormalized,
+          email: identity.email,
           passwordHash,
         },
         select: { id: true },
       });
+      if (matches.length > 0) {
+        await writeAuditLog(tx, {
+          salonId,
+          userId: null,
+          actorName: registration.name,
+          action: "CLIENT_POSSIBLE_DUPLICATE",
+          entityType: "ClientProfile",
+          entityId: client.id,
+          reason: "Cadastro público com correspondência de telefone; revisão humana necessária",
+          metadata: {
+            candidateIds: matches.map((candidate) => candidate.id),
+            candidateNames: matches.map((candidate) => candidate.name),
+          },
+        });
+      }
       return { clientId: client.id, salonId };
     });
   } catch (error) {
+    if (error instanceof Error && error.message === "CLIENT_ACCOUNT_EXISTS") {
+      return { error: "Este e-mail já possui uma conta. Entre com ela ou recupere a senha." };
+    }
+    if (error instanceof Error && error.message === "CLIENT_EMAIL_ALREADY_USED_BY_GUEST") {
+      return { error: "Este e-mail já está em uma reserva sem conta. Peça ao salão para vincular seu histórico com segurança." };
+    }
     if (isUniqueConflict(error)) return { error: REGISTRATION_ERROR };
     return { error: "Não foi possível criar a conta agora. Tente novamente." };
   }

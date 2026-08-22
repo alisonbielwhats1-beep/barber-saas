@@ -12,6 +12,14 @@ const mocks = vi.hoisted(() => {
     appointment: {
       findFirst: vi.fn().mockResolvedValue({ id: "appointment-a", salon: { currency: "BRL" }, products: [] }),
     },
+    clientProfile: {
+      findFirst: vi.fn().mockResolvedValue({
+        id: "client-session",
+        mergedIntoId: null,
+        name: "Cliente",
+        email: "cliente@example.com",
+      }),
+    },
     appointmentProduct: { createMany: vi.fn() },
     auditLog: { create: vi.fn().mockResolvedValue({}) },
     $executeRaw: vi.fn().mockResolvedValue(undefined),

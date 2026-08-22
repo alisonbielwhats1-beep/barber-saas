@@ -4,6 +4,7 @@ import { parseClientCareProfile } from "./client-care-profile";
 import { loyaltyProgress } from "./growth-tools";
 import { calculateLoyaltyBalance } from "./operational-flows";
 import { normalizeLapsedClientDays } from "./marketing-settings";
+import { clientIdentityKeys, matchReasons, resolveClientProfileId } from "./client-identity";
 
 /**
  * Motor de CRM: consolida, por cliente, LTV, visitas, última visita,
@@ -12,6 +13,17 @@ import { normalizeLapsedClientDays } from "./marketing-settings";
  */
 
 export type LoyaltyTier = "Novo" | "Bronze" | "Prata" | "Ouro" | "Diamante";
+
+export type ClientDuplicate = {
+  id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  visits: number;
+  totalSpent: number;
+  hasAccount: boolean;
+  matchReasons: Array<"email" | "phone">;
+};
 
 export function loyaltyOf(visits: number): { tier: LoyaltyTier; color: string } {
   if (visits >= 16) return { tier: "Diamante", color: "#3B9EFF" };
@@ -42,12 +54,13 @@ export async function getClientList(
   const clients = await tx.clientProfile.findMany({
     where: {
       salonId,
+      mergedIntoId: null,
       ...(professionalId
         ? { appointments: { some: { professionalId } } }
         : {}),
     },
     select: {
-      id: true, name: true, phone: true, email: true, birthday: true, gender: true, notes: true, createdAt: true,
+      id: true, name: true, phone: true, phoneNormalized: true, email: true, passwordHash: true, birthday: true, gender: true, notes: true, createdAt: true,
       appointments: {
         where: {
           status: "COMPLETED",
@@ -58,6 +71,36 @@ export async function getClientList(
     },
     orderBy: { name: "asc" },
   });
+  const mergedProfiles = await tx.clientProfile.findMany({
+    where: { salonId, mergedIntoId: { not: null } },
+    select: { id: true, mergedIntoId: true },
+  });
+  const mergedInto = new Map(
+    mergedProfiles.flatMap((profile) => profile.mergedIntoId ? [[profile.id, profile.mergedIntoId] as const] : []),
+  );
+  function canonicalClientId(clientId: string): string {
+    let current = clientId;
+    for (let depth = 0; depth < 8; depth += 1) {
+      const parent = mergedInto.get(current);
+      if (!parent) return current;
+      current = parent;
+    }
+    return current;
+  }
+  const clientIds = clients.map((client) => client.id);
+  const upcoming = clientIds.length === 0
+    ? []
+    : await tx.appointment.findMany({
+        where: {
+          salonId,
+          clientId: { in: clientIds },
+          startAt: { gte: now },
+          status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
+          ...(professionalId ? { professionalId } : {}),
+        },
+        select: { clientId: true, startAt: true },
+        orderBy: { startAt: "asc" },
+      });
   const pros = await tx.professional.findMany({
     where: { salonId, ...(professionalId ? { id: professionalId } : {}) },
     select: { id: true, user: { select: { name: true } } },
@@ -84,10 +127,18 @@ export async function getClientList(
   for (const redemption of loyaltyRedemptions) {
     const metadata = redemption.metadata as Record<string, unknown> | null;
     const points = typeof metadata?.points === "number" ? Math.max(0, Math.floor(metadata.points)) : 0;
-    redeemedPoints.set(redemption.entityId, (redeemedPoints.get(redemption.entityId) ?? 0) + points);
+    const clientId = canonicalClientId(redemption.entityId);
+    redeemedPoints.set(clientId, (redeemedPoints.get(clientId) ?? 0) + points);
   }
 
-  return clients.map((c) => {
+  const upcomingByClient = new Map<string, Date[]>();
+  for (const appointment of upcoming) {
+    const dates = upcomingByClient.get(appointment.clientId) ?? [];
+    dates.push(appointment.startAt);
+    upcomingByClient.set(appointment.clientId, dates);
+  }
+
+  const baseRows = clients.map((c) => {
     const visits = c.appointments.length;
     const totalSpent = c.appointments.reduce((s, a) => s + a.priceCents, 0);
     const dates = c.appointments.map((a) => a.startAt).sort((a, b) => +b - +a);
@@ -110,12 +161,14 @@ export async function getClientList(
     const isVip = totalSpent >= 50000 || visits >= 8;
     const isLapsed = visits > 0 && daysSince != null && daysSince >= lapsedClientDays;
     const birthdayThisMonth = c.birthday ? c.birthday.getMonth() === now.getMonth() : false;
+    const upcomingDates = upcomingByClient.get(c.id) ?? [];
 
     return {
       id: c.id,
       name: c.name,
       phone: c.phone,
       email: c.email,
+      accountStatus: c.passwordHash ? "registered" as const : "guest" as const,
       gender: c.gender,
       notes: care.notes,
       allergies: care.allergies,
@@ -141,10 +194,42 @@ export async function getClientList(
       loyaltyProgressPct: loyaltyStatus.progressPct,
       activePackages: pkgCount.get(c.id) ?? 0,
       activeSubscriptions: subCount.get(c.id) ?? 0,
+      upcomingCount: upcomingDates.length,
+      nextAppointmentAt: upcomingDates[0]?.toISOString() ?? null,
       isVip,
       isLapsed,
       birthdayThisMonth,
     };
+  });
+
+  const byIdentityKey = new Map<string, typeof baseRows>();
+  for (const row of baseRows) {
+    for (const key of clientIdentityKeys(row)) {
+      const group = byIdentityKey.get(key) ?? [];
+      group.push(row);
+      byIdentityKey.set(key, group);
+    }
+  }
+  return baseRows.map((row) => {
+    const candidates = new Map<string, ClientDuplicate>();
+    for (const key of clientIdentityKeys(row)) {
+      for (const candidate of byIdentityKey.get(key) ?? []) {
+        if (candidate.id === row.id) continue;
+        const reasons = matchReasons(row, candidate);
+        if (reasons.length === 0) continue;
+        candidates.set(candidate.id, {
+          id: candidate.id,
+          name: candidate.name,
+          phone: candidate.phone,
+          email: candidate.email,
+          visits: candidate.visits,
+          totalSpent: candidate.totalSpent,
+          hasAccount: candidate.accountStatus === "registered",
+          matchReasons: reasons,
+        });
+      }
+    }
+    return { ...row, possibleDuplicates: [...candidates.values()] };
   });
 }
 
@@ -156,8 +241,10 @@ export async function getClientHistory(
   clientId: string,
   professionalId?: string,
 ) {
+  const resolvedClientId = await resolveClientProfileId(tx, salonId, clientId);
+  if (!resolvedClientId) return [];
   const appts = await tx.appointment.findMany({
-    where: { salonId, clientId, ...(professionalId ? { professionalId } : {}) },
+    where: { salonId, clientId: resolvedClientId, ...(professionalId ? { professionalId } : {}) },
     orderBy: { startAt: "desc" },
     take: 40,
     select: {

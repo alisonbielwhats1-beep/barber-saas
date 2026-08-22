@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { withApprovedSalon } from "@/lib/prisma-tenant";
 import { getClientSession } from "@/lib/client-auth";
-import { resolveBookingIdentity } from "@/lib/public-appointment";
+import {
+  resolveBookingIdentity,
+  resolveClientSessionInTenant,
+} from "@/lib/public-appointment";
 import { isValidPhoneBR, normalizePhone } from "@/lib/phone";
 import { isWaitlistError, joinWaitlist } from "@/lib/waitlist";
 import {
@@ -61,11 +64,21 @@ export async function POST(req: NextRequest) {
   }
   const input = parsed.data;
   const session = await getClientSession();
-  const identity = resolveBookingIdentity(session, input.salonId);
+  const rawIdentity = resolveBookingIdentity(session, input.salonId);
 
   try {
-    const result = await withApprovedSalon(input.salonId, (tx) =>
-      joinWaitlist(tx, {
+    const result = await withApprovedSalon(input.salonId, async (tx) => {
+      const authenticatedSession = rawIdentity.kind === "authenticated"
+        ? await resolveClientSessionInTenant(tx, session, input.salonId)
+        : null;
+      if (rawIdentity.kind === "authenticated" && !authenticatedSession) {
+        return { invalidSession: true as const };
+      }
+      const identity = authenticatedSession
+        ? { kind: "authenticated" as const, clientId: authenticatedSession.clientId }
+        : rawIdentity;
+
+      return joinWaitlist(tx, {
         salonId: input.salonId,
         appointmentId: input.appointmentId,
         professionalId: input.professionalId,
@@ -73,8 +86,11 @@ export async function POST(req: NextRequest) {
         ...(identity.kind === "authenticated"
           ? { clientId: identity.clientId }
           : { guestName: input.clientName, guestPhone: input.clientPhone }),
-      }),
-    );
+      });
+    });
+    if (result && "invalidSession" in result) {
+      return NextResponse.json({ error: "AUTH_REQUIRED" }, { status: 401 });
+    }
     if (!result) {
       return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
     }

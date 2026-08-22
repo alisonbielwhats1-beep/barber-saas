@@ -17,10 +17,12 @@ import { withSalonBySlug } from "@/lib/prisma-tenant";
 import { HERO_IMAGES, normalizeImageUrl, resolvePortfolioImage, resolveProductImage } from "@/lib/images";
 import { normalizePhone, formatPhoneBR } from "@/lib/phone";
 import { getSegment, isSegmentId } from "@/lib/segments";
+import { getPublicReviewData } from "@/lib/reviews";
 import { formatMoney } from "@/lib/utils";
 import { ClientNotificationLink } from "./client-shell";
 import { CartBadge } from "./cart-badge";
 import { HomeExplore } from "./home-explore";
+import { ReviewsSection } from "./reviews-section";
 
 // Capa determinística por salão — mesmo salão, mesma foto
 function heroForSalon(slug: string) {
@@ -49,9 +51,10 @@ export default async function ClientHome({
   params: Promise<{ salonSlug: string }>;
 }) {
   const { salonSlug } = await params;
-  const salon = await withSalonBySlug(salonSlug, (tx, salonId) => tx.salon.findUnique({
-    where: { id: salonId },
-    select: {
+  const salon = await withSalonBySlug(salonSlug, async (tx, salonId) => {
+    const salonData = await tx.salon.findUnique({
+      where: { id: salonId },
+      select: {
       id: true,
       name: true,
       address: true,
@@ -97,8 +100,14 @@ export default async function ClientHome({
         take: 4,
         select: { id: true, name: true, category: true, priceCents: true, imageUrl: true },
       },
-    },
-  }));
+      },
+    });
+    if (!salonData) return null;
+    return {
+      ...salonData,
+      reviewData: await getPublicReviewData(tx, salonId, 3),
+    };
+  });
   if (!salon) notFound();
 
   // WhatsApp próprio tem precedência sobre o telefone geral do salão.
@@ -179,6 +188,13 @@ export default async function ClientHome({
           </p>
         </div>
       </div>
+
+      {/* Reputação visível antes da escolha do serviço — avaliações verificadas. */}
+      <ReviewsSection
+        salonSlug={salonSlug}
+        summary={salon.reviewData.summary}
+        reviews={salon.reviewData.reviews}
+      />
 
       {/* CTA de agendamento */}
       <Link

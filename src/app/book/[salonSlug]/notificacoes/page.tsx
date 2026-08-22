@@ -3,6 +3,7 @@ import { Bell } from "lucide-react";
 import { NotificationList, type NotificationRow } from "@/components/notification-list";
 import { getClientSession } from "@/lib/client-auth";
 import { withSalonBySlug } from "@/lib/prisma-tenant";
+import { resolveClientSessionInTenant } from "@/lib/public-appointment";
 
 function payloadRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -20,7 +21,8 @@ export default async function ClientNotificationsPage({
   if (!session) redirect(`/book/${salonSlug}/login`);
 
   const result = await withSalonBySlug(salonSlug, async (tx, salonId) => {
-    if (session.salonId !== salonId) return null;
+    const effectiveSession = await resolveClientSessionInTenant(tx, session, salonId);
+    if (!effectiveSession) return null;
     const [salon, notifications] = await Promise.all([
       tx.salon.findUnique({
         where: { id: salonId },
@@ -29,7 +31,7 @@ export default async function ClientNotificationsPage({
       tx.notificationOutbox.findMany({
         where: {
           salonId,
-          recipientKey: `CLIENT:${session.clientId}`,
+          recipientKey: `CLIENT:${effectiveSession.clientId}`,
           channel: "INTERNAL",
         },
         orderBy: { createdAt: "desc" },

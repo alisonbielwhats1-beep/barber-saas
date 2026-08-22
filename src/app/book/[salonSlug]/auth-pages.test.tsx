@@ -35,7 +35,16 @@ describe("client auth routes", () => {
     });
     mocks.withSalonBySlug.mockImplementation(
       async (_slug: string, callback: (_tx: unknown, salonId: string) => unknown) =>
-        callback({}, "salon-b"),
+        callback({
+          clientProfile: {
+            findFirst: vi.fn().mockResolvedValue({
+              id: "client-b",
+              mergedIntoId: null,
+              name: "Joao Silva",
+              email: "joao@example.com",
+            }),
+          },
+        }, "salon-b"),
     );
     mocks.redirect.mockImplementation((destination: string) => {
       throw new Error(`REDIRECT:${destination}`);

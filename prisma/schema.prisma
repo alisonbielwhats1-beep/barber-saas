@@ -67,6 +67,11 @@ enum AppointmentStatus {
   NO_SHOW
 }
 
+enum ClientReviewStatus {
+  PUBLISHED
+  HIDDEN
+}
+
 enum AppointmentOrigin {
   LEGACY
   PUBLIC
@@ -221,6 +226,7 @@ model Salon {
   notificationOutbox  NotificationOutbox[]
   accessEvents        SalonAccessEvent[]
   platformInvoices    PlatformInvoice[]
+  reviews             ClientReview[]
 
   @@index([accessStatus, accessRequestedAt])
 }
@@ -564,30 +570,38 @@ model TimeOff {
 // ─── Clientes & Agendamentos ────────────────────────────────────────────────
 
 model ClientProfile {
-  id           String    @id @default(cuid())
-  salonId      String
-  userId       String?
-  name         String
-  phone        String?
-  email        String?
-  passwordHash String?
-  birthday     DateTime?
-  gender       Gender?
-  notes        String?
-  createdAt    DateTime  @default(now())
+  id              String    @id @default(cuid())
+  salonId         String
+  userId          String?
+  name            String
+  phone           String?
+  phoneNormalized String?
+  email           String?
+  passwordHash    String?
+  birthday        DateTime?
+  gender          Gender?
+  notes           String?
+  mergedIntoId    String?
+  mergedAt        DateTime?
+  createdAt       DateTime  @default(now())
 
   salon           Salon                @relation(fields: [salonId], references: [id], onDelete: Cascade)
   user            User?                @relation(fields: [userId], references: [id])
+  mergedInto      ClientProfile?       @relation("ClientProfileMerge", fields: [mergedIntoId, salonId], references: [id, salonId], onDelete: NoAction)
+  mergedProfiles  ClientProfile[]      @relation("ClientProfileMerge")
   appointments    Appointment[]
   packages        PackagePurchase[]
   subscriptions   ClientSubscription[]
   waitlistEntries WaitlistEntry[]
+  reviews         ClientReview[]
 
   @@unique([salonId, email])
   @@unique([id, salonId], map: "ClientProfile_id_salonId_key")
   @@index([salonId])
   @@index([salonId, createdAt])
   @@index([salonId, phone])
+  @@index([salonId, phoneNormalized])
+  @@index([salonId, mergedIntoId])
 }
 
 model Appointment {
@@ -634,6 +648,7 @@ model Appointment {
   serviceItems    AppointmentService[]
   events          AppointmentEvent[]
   notifications   NotificationOutbox[]
+  reviews         ClientReview[]
 
   @@unique([salonId, idempotencyKey], map: "Appointment_salonId_idempotencyKey_key")
   @@unique([id, salonId], map: "Appointment_id_salonId_key")
@@ -645,6 +660,30 @@ model Appointment {
   @@index([professionalId, status, startAt, endAt])
   @@index([clientId])
   @@index([seriesId])
+}
+
+/// Avaliação verificada: só nasce de um atendimento concluído e nunca é
+/// apagada para esconder histórico. A moderação usa `status`.
+model ClientReview {
+  id            String            @id @default(cuid())
+  salonId       String
+  appointmentId String
+  clientId      String
+  rating        Int
+  comment       String?           @db.VarChar(500)
+  status        ClientReviewStatus @default(PUBLISHED)
+  moderatedAt   DateTime?         @db.Timestamptz(3)
+  createdAt     DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime          @updatedAt @db.Timestamptz(3)
+
+  salon       Salon         @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  appointment Appointment   @relation(fields: [appointmentId, salonId], references: [id, salonId], onDelete: Restrict, map: "ClientReview_appointment_tenant_fkey")
+  client      ClientProfile @relation(fields: [clientId, salonId], references: [id, salonId], onDelete: Restrict, map: "ClientReview_client_tenant_fkey")
+
+  @@unique([appointmentId, clientId], map: "ClientReview_appointmentId_clientId_key")
+  @@index([salonId, status, createdAt])
+  @@index([salonId, rating, createdAt])
+  @@index([clientId, createdAt])
 }
 
 model AppointmentService {

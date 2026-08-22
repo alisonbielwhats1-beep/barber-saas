@@ -7,14 +7,14 @@ import {
 } from "@/components/ui/dialog";
 import {
   Search, MessageCircle, Crown, Cake, Clock, Star, Scissors, User,
-  CircleDollarSign, Repeat, Layers, Loader2, ShieldCheck, HeartPulse, FileUp, Gift, X,
+  CircleDollarSign, Repeat, Layers, Loader2, ShieldCheck, HeartPulse, FileUp, Gift, X, GitMerge, AlertTriangle,
 } from "lucide-react";
 import { formatMoney } from "@/lib/utils";
 import { format } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { ptBR } from "date-fns/locale";
 import { ClientForm } from "./client-form";
-import { fetchClientHistory, importClientsCsv, redeemLoyaltyReward } from "./actions";
+import { fetchClientHistory, importClientsCsv, mergeClients, redeemLoyaltyReward } from "./actions";
 import { toast } from "@/components/ui/toast";
 import type { ClientRow } from "@/lib/crm";
 
@@ -50,6 +50,7 @@ export function ClientsCrm({
   const [loadingHist, setLoadingHist] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [csv, setCsv] = useState("");
+  const [mergeCandidate, setMergeCandidate] = useState<{ source: ClientRow; target: ClientRow } | null>(null);
 
   function importCsv() {
     startTransition(async () => {
@@ -64,6 +65,20 @@ export function ClientsCrm({
       const result = await redeemLoyaltyReward(client.id, 5, "R$ 10 de desconto");
       if ("error" in result && result.error) toast(result.error, "error");
       else { toast("Recompensa resgatada: R$ 10 de desconto"); setDetail(null); router.refresh(); }
+    });
+  }
+
+  function merge(source: ClientRow, target: ClientRow) {
+    startTransition(async () => {
+      try {
+        await mergeClients(source.id, target.id);
+        toast(`Cadastros mesclados em ${target.name}.`);
+        setMergeCandidate(null);
+        setDetail(null);
+        router.refresh();
+      } catch (error) {
+        toast(error instanceof Error ? error.message : "Não foi possível mesclar os cadastros.", "error");
+      }
     });
   }
 
@@ -131,8 +146,23 @@ export function ClientsCrm({
                     {c.birthdayThisMonth && <Cake className="h-3 w-3 shrink-0 text-[#EC4899]" />}
                   </div>
                   <p className="truncate text-[11px] text-muted-foreground">
-                    {c.loyaltyTier} · {c.visits} visitas{c.favoritePro ? ` · ${c.favoritePro.split(" ")[0]}` : ""}
+                    {c.visits} {c.visits === 1 ? "atendimento" : "atendimentos"}{c.favoritePro ? ` · ${c.favoritePro.split(" ")[0]}` : ""}
                   </p>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    <span className="rounded-full bg-muted px-1.5 py-0.5 text-[9px] text-muted-foreground">
+                      {c.accountStatus === "registered" ? "Conta criada" : "Sem conta"}
+                    </span>
+                    {c.upcomingCount > 0 && (
+                      <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] text-primary">
+                        {c.upcomingCount === 1 ? "Próximo agendamento" : `${c.upcomingCount} próximos`}
+                      </span>
+                    )}
+                    {c.possibleDuplicates.length > 0 && (
+                      <span className="rounded-full bg-amber-400/10 px-1.5 py-0.5 text-[9px] text-amber-300">
+                        Possível duplicata
+                      </span>
+                    )}
+                  </div>
                 </div>
               </button>
               <div className="hidden w-24 text-right sm:block">
@@ -172,7 +202,7 @@ export function ClientsCrm({
                       {detail.isVip && <Crown className="h-4 w-4 text-[#F4C430]" />}
                     </DialogTitle>
                     <p className="text-[12px] text-muted-foreground">
-                      {detail.phone ?? detail.email ?? "sem contato"} · {detail.loyaltyTier}
+                      {detail.phone ?? detail.email ?? "sem contato"} · {detail.accountStatus === "registered" ? "conta criada" : "sem conta"}
                     </p>
                   </div>
                 </div>
@@ -182,8 +212,54 @@ export function ClientsCrm({
                 <DStat icon={CircleDollarSign} label="LTV total" value={formatMoney(detail.totalSpent)} />
                 <DStat icon={Star} label="Ticket médio" value={formatMoney(detail.avgTicket)} />
                 <DStat icon={Repeat} label="Visitas" value={detail.visits.toString()} />
-                <DStat icon={Clock} label="Última visita" value={detail.daysSince == null ? "nunca" : `${detail.daysSince}d atrás`} />
+                <DStat icon={Clock} label="Último atendimento" value={detail.daysSince == null ? "nunca" : `${detail.daysSince}d atrás`} />
+                <DStat icon={Clock} label="Próximo agendamento" value={detail.nextAppointmentAt ? formatInTimeZone(new Date(detail.nextAppointmentAt), timezone, "dd/MM · HH:mm") : "nenhum"} />
               </div>
+
+              {detail.possibleDuplicates.length > 0 && canManage && (
+                <div className="rounded-xl border border-amber-400/30 bg-amber-400/5 p-3">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+                    <div>
+                      <p className="text-[12px] font-semibold text-amber-200">Possível cadastro duplicado</p>
+                      <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                        A coincidência de telefone ou e-mail não confirma que seja a mesma pessoa. Escolha o cadastro que deve permanecer e preserve o histórico.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    {detail.possibleDuplicates.map((candidate) => (
+                      <div key={candidate.id} className="rounded-lg border border-border bg-card px-3 py-2">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-[12px] font-semibold">{candidate.name}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {candidate.phone ?? candidate.email ?? "sem contato"} · {candidate.visits} {candidate.visits === 1 ? "atendimento" : "atendimentos"} · {candidate.hasAccount ? "conta criada" : "sem conta"}
+                            </p>
+                          </div>
+                          <span className="shrink-0 text-[10px] text-amber-300">{candidate.matchReasons.map(duplicateReasonLabel).join(" + ")}</span>
+                        </div>
+                        <div className="mt-2 flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setMergeCandidate({ source: candidateToRow(candidate, detail), target: detail })}
+                            className="min-h-9 flex-1 rounded-lg border border-border px-2 text-[11px] font-medium hover:border-primary/60"
+                          >
+                            Manter este cadastro
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setMergeCandidate({ source: detail, target: candidateToRow(candidate, detail) })}
+                            className="min-h-9 flex-1 rounded-lg bg-primary/10 px-2 text-[11px] font-semibold text-primary hover:bg-primary/20"
+                          >
+                            Usar o outro
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-2 text-[12px]">
                 <Info icon={User} label="Profissional favorito" value={detail.favoritePro ?? "—"} />
@@ -277,8 +353,50 @@ export function ClientsCrm({
           )}
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!mergeCandidate} onOpenChange={(open) => !open && setMergeCandidate(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><GitMerge className="h-4 w-4 text-primary" /> Confirmar mesclagem</DialogTitle>
+          </DialogHeader>
+          {mergeCandidate && (
+            <>
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                O histórico de <strong className="text-foreground">{mergeCandidate.source.name}</strong> será incorporado a <strong className="text-foreground">{mergeCandidate.target.name}</strong>. O cadastro de origem ficará preservado como mesclado e não aparecerá mais na lista.
+              </p>
+              <div className="rounded-xl border border-amber-400/30 bg-amber-400/5 px-3 py-2 text-[11px] leading-relaxed text-amber-100">
+                Agendamentos, pacotes, assinaturas e pontos serão mantidos. Essa ação fica registrada na auditoria.
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" onClick={() => setMergeCandidate(null)} className="min-h-10 rounded-lg border border-border px-4 text-sm">Cancelar</button>
+                <button type="button" onClick={() => merge(mergeCandidate.source, mergeCandidate.target)} disabled={pending} className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-50">
+                  <GitMerge className="h-4 w-4" /> {pending ? "Mesclando…" : "Confirmar mesclagem"}
+                </button>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
+}
+
+function candidateToRow(candidate: ClientRow["possibleDuplicates"][number], current: ClientRow): ClientRow {
+  return {
+    ...current,
+    id: candidate.id,
+    name: candidate.name,
+    phone: candidate.phone,
+    email: candidate.email,
+    visits: candidate.visits,
+    totalSpent: candidate.totalSpent,
+    accountStatus: candidate.hasAccount ? "registered" : "guest",
+    possibleDuplicates: [],
+  };
+}
+
+function duplicateReasonLabel(reason: "email" | "phone"): string {
+  return reason === "email" ? "e-mail" : "telefone";
 }
 
 function Seg({ active, onClick, children, icon: Icon, accent }: { active: boolean; onClick: () => void; children: React.ReactNode; icon?: typeof Crown; accent?: string }) {
