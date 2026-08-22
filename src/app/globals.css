@@ -47,6 +47,8 @@
 
     --font-sans: "Inter", system-ui, sans-serif;
     --font-display: "Inter", system-ui, sans-serif;
+
+    color-scheme: dark;
   }
 
   /* ─── Admin: Light theme (toggled via ThemeProvider) ───────────────────── */
@@ -92,6 +94,7 @@
 
     /* Force text color so elements without explicit class still read correctly */
     color: hsl(var(--foreground));
+    color-scheme: light;
   }
 
   /* ─── Marketing: porcelana + esmeralda, exclusivo da landing ──────────── */
@@ -200,10 +203,34 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
   }
 }
 
 @layer utilities {
+  /* ─── Admin shell: uma camada de atmosfera, sem competir com a operação ── */
+  .admin-shell {
+    background:
+      radial-gradient(circle at 78% -12%, hsl(var(--primary) / 0.08), transparent 28rem),
+      hsl(var(--background));
+  }
+
+  .admin-sidebar {
+    background:
+      linear-gradient(180deg, hsl(var(--surface-1) / 0.72), hsl(var(--background) / 0.96));
+    box-shadow: 1px 0 0 hsl(var(--border) / 0.45);
+  }
+
+  .admin-main {
+    background:
+      linear-gradient(180deg, hsl(var(--surface-1) / 0.18), transparent 18rem);
+  }
+
+  .admin-brand-mark {
+    box-shadow: 0 0 0 4px hsl(var(--primary) / 0.08), 0 8px 20px -10px hsl(var(--primary) / 0.8);
+  }
+
   /* Ritmo visual comum da landing: espaçamento, superfície e hierarquia. */
   .landing-section {
     padding-block: clamp(5rem, 7vw, 7rem);

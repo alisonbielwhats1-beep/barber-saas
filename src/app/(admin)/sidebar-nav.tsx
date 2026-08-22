@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
+  CalendarClock,
   CalendarDays,
   Scissors,
   Users,
@@ -16,6 +17,7 @@ import {
   Megaphone,
   FileBarChart,
   CreditCard,
+  ClipboardCheck,
   Share2,
   Bell,
   ShieldCheck,
@@ -63,6 +65,7 @@ export const GROUPS: { title: string; items: Item[] }[] = [
   {
     title: "Principal",
     items: [
+      { href: "/hoje", label: "Hoje", icon: CalendarClock, roles: DASHBOARD_ROLES },
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: DASHBOARD_ROLES },
       { href: "/agenda", label: "Agenda", icon: CalendarDays },
       { href: "/notificacoes", label: "Notificações", icon: Bell },
@@ -88,6 +91,7 @@ export const GROUPS: { title: string; items: Item[] }[] = [
     title: "Financeiro",
     items: [
       { href: "/financeiro", label: "Financeiro", icon: Wallet, roles: FINANCIAL_ROLES },
+      { href: "/fechamento", label: "Fechamento", icon: ClipboardCheck, roles: FINANCIAL_ROLES },
       { href: "/pagamentos", label: "Pagamentos", icon: CreditCard, roles: FINANCIAL_ROLES },
       { href: "/relatorios", label: "Relatórios", icon: FileBarChart, roles: FINANCIAL_ROLES },
     ],

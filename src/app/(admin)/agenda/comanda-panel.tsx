@@ -70,6 +70,7 @@ export function ComandaPanel({
       </div>
     );
 
+  const displayCurrency = data.payment?.currency ?? data.currency ?? currency ?? "BRL";
   const selectedProducts = data.availableProducts
     .map((product) => {
       const quantity = productQuantities[product.id] ?? 0;
@@ -78,6 +79,7 @@ export function ComandaPanel({
         reserved: reservedRows,
         desiredQuantity: quantity,
         currentPriceCents: product.priceCents,
+        currentProductName: product.name,
       });
       return {
         ...product,
@@ -165,10 +167,10 @@ export function ComandaPanel({
           <p className="text-[12px] text-muted-foreground print:text-neutral-600">Comprovante interno da comanda</p>
         </div>
         <div className="space-y-2 rounded-xl border border-border p-4 text-[13px]">
-          {receiptServices.map((service, index) => <div key={`${service.serviceName}-${index}`} className="flex justify-between"><span>{service.serviceName}</span><strong>{formatMoney(service.priceCents, currency)}</strong></div>)}
-          {data.products.map((product) => <div key={product.id} className="flex justify-between text-muted-foreground print:text-neutral-700"><span>{product.quantity}× {product.product.name}</span><span>{formatMoney(product.quantity * product.priceCentsUnit, currency)}</span></div>)}
-          {payment.discountCents > 0 && <div className="flex justify-between text-muted-foreground print:text-neutral-700"><span>Desconto</span><span>- {formatMoney(payment.discountCents, currency)}</span></div>}
-          <div className="flex justify-between border-t border-border pt-2 text-base"><span>Total recebido</span><strong>{formatMoney(payment.amountCents, currency)}</strong></div>
+          {receiptServices.map((service, index) => <div key={`${service.serviceName}-${index}`} className="flex justify-between"><span>{service.serviceName}</span><strong>{formatMoney(service.priceCents, displayCurrency)}</strong></div>)}
+          {data.products.map((product) => <div key={product.id} className="flex justify-between text-muted-foreground print:text-neutral-700"><span>{product.quantity}× {product.productName}</span><span>{formatMoney(product.quantity * product.priceCentsUnit, displayCurrency)}</span></div>)}
+          {payment.discountCents > 0 && <div className="flex justify-between text-muted-foreground print:text-neutral-700"><span>Desconto</span><span>- {formatMoney(payment.discountCents, displayCurrency)}</span></div>}
+          <div className="flex justify-between border-t border-border pt-2 text-base"><span>Total recebido</span><strong>{formatMoney(payment.amountCents, displayCurrency)}</strong></div>
           <div className="flex justify-between text-muted-foreground print:text-neutral-700"><span>Forma</span><span>{METHODS.find((item) => item.value === payment.method)?.label ?? payment.method}</span></div>
           <div className="flex justify-between gap-3 text-[11px] text-muted-foreground print:text-neutral-700"><span>Pagamento</span><span className="break-all text-right">{payment.id}</span></div>
         </div>
@@ -193,7 +195,7 @@ export function ComandaPanel({
             {serviceName}
           </span>
           <span className="text-[13px] font-medium">
-            {formatMoney(data.priceCents, currency)}
+            {formatMoney(data.priceCents, displayCurrency)}
           </span>
         </div>
       </div>
@@ -215,7 +217,7 @@ export function ComandaPanel({
               >
                 <span className="flex items-center gap-2 text-[13px]">
                   <Package className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                  <span><span className="font-medium">{product.name}</span><span className="block text-[10px] text-muted-foreground">{product.reservedQuantity > 0 ? `${product.reservedQuantity} reservado(s) por ${formatMoney(product.reservedValueCents, currency)}` : formatMoney(product.priceCents, currency)} · {product.active ? `${product.stock} disponíveis além da reserva` : "inativo · apenas reserva existente"}</span></span>
+                  <span><span className="font-medium">{product.name}</span><span className="block text-[10px] text-muted-foreground">{product.reservedQuantity > 0 ? `${product.reservedQuantity} reservado(s) por ${formatMoney(product.reservedValueCents, displayCurrency)}` : formatMoney(product.priceCents, displayCurrency)} · {product.active ? `${product.stock} disponíveis além da reserva` : "inativo · apenas reserva existente"}</span></span>
                 </span>
                 <span className="flex items-center gap-1.5">
                   <button type="button" onClick={() => changeProduct(product.id, -1, maxQuantity)} disabled={quantity === 0} aria-label={`Remover ${product.name}`} className="grid h-8 w-8 place-items-center rounded-lg border border-border disabled:opacity-30"><Minus className="h-3.5 w-3.5" /></button>
@@ -233,7 +235,7 @@ export function ComandaPanel({
         {selectedProducts.length > 0 && (
           <div className="flex justify-between text-[13px] text-muted-foreground">
             <span>Subtotal</span>
-            <span>{formatMoney(subtotal, currency)}</span>
+            <span>{formatMoney(subtotal, displayCurrency)}</span>
           </div>
         )}
         <div className="flex items-center justify-between gap-3">
@@ -258,7 +260,7 @@ export function ComandaPanel({
         )}
         <div className="flex justify-between border-t border-border pt-2 text-[15px] font-bold">
           <span>Total</span>
-          <span className="text-primary">{formatMoney(total, currency)}</span>
+          <span className="text-primary">{formatMoney(total, displayCurrency)}</span>
         </div>
       </div>
 
@@ -316,7 +318,7 @@ export function ComandaPanel({
         ) : (
           <Check className="h-4 w-4" />
         )}
-        Confirmar pagamento · {formatMoney(total, currency)}
+        Confirmar pagamento · {formatMoney(total, displayCurrency)}
       </button>
     </div>
   );

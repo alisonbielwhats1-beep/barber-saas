@@ -9,9 +9,11 @@ import { updateMarketingSettings } from "./actions";
 export function MarketingSettingsForm({
   lapsedClientDays,
   googleReviewUrl,
+  disabled = false,
 }: {
   lapsedClientDays: number;
   googleReviewUrl: string | null;
+  disabled?: boolean;
 }) {
   const [days, setDays] = useState(lapsedClientDays);
   const [reviewUrl, setReviewUrl] = useState(googleReviewUrl ?? "");
@@ -53,6 +55,7 @@ export function MarketingSettingsForm({
               max={MAX_LAPSED_CLIENT_DAYS}
               value={days}
               onChange={(event) => setDays(Number(event.target.value))}
+              disabled={disabled}
               className="w-full bg-transparent text-[14px] font-semibold text-foreground outline-none"
               aria-label="Dias para considerar cliente sumido"
             />
@@ -65,6 +68,7 @@ export function MarketingSettingsForm({
             type="url"
             value={reviewUrl}
             onChange={(event) => setReviewUrl(event.target.value)}
+            disabled={disabled}
             placeholder="https://g.page/r/.../review"
             className="mt-1 h-11 w-full rounded-xl border border-border bg-background px-3 text-[13px] text-foreground outline-none focus:ring-2 focus:ring-primary"
           />
@@ -72,7 +76,7 @@ export function MarketingSettingsForm({
         <button
           type="button"
           onClick={save}
-          disabled={pending || days < MIN_LAPSED_CLIENT_DAYS || days > MAX_LAPSED_CLIENT_DAYS}
+          disabled={disabled || pending || days < MIN_LAPSED_CLIENT_DAYS || days > MAX_LAPSED_CLIENT_DAYS}
           className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-[12px] font-semibold text-primary-foreground disabled:opacity-50"
         >
           {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}

@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Search, ChevronRight } from "lucide-react";
 import { formatMoney, formatDuration } from "@/lib/utils";
-import { imageForCategory } from "@/lib/images";
+import { imageForCategory, normalizeImageUrl } from "@/lib/images";
 
 type Service = {
   id: string;
@@ -59,7 +59,8 @@ export function HomeExplore({
     const images = new Map<string, string>();
     for (const service of services) {
       const category = service.category ?? "Outros";
-      if (service.imageUrl && !images.has(category)) images.set(category, service.imageUrl);
+      const imageUrl = normalizeImageUrl(service.imageUrl);
+      if (imageUrl && !images.has(category)) images.set(category, imageUrl);
     }
     return images;
   }, [services]);
@@ -233,7 +234,7 @@ export function HomeExplore({
                 >
                   {s.imageUrl && (
                     <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl">
-                      <Image src={s.imageUrl} alt="" fill sizes="56px" className="object-cover" />
+                      <Image src={normalizeImageUrl(s.imageUrl) ?? imageForCategory(s.category ?? "")} alt="" fill sizes="56px" className="object-cover" />
                     </div>
                   )}
                   <div className="min-w-0 flex-1">

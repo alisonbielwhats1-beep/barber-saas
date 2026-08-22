@@ -59,15 +59,20 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         __html: `try{if(localStorage.getItem("admin-theme")==="light")document.documentElement.setAttribute("data-theme","admin-light")}catch(e){}`,
       }}
     />
-    <div className="flex h-dvh overflow-hidden bg-background text-foreground">
+    <div className="admin-shell flex h-dvh overflow-hidden text-foreground">
       {/* ── Sidebar ─────────────────────────────────────── */}
-      <aside className="scrollbar-dark hidden w-56 shrink-0 flex-col overflow-y-auto border-r border-border md:flex print:hidden">
+      <aside className="admin-sidebar scrollbar-dark hidden w-56 shrink-0 flex-col overflow-y-auto border-r border-border md:flex print:hidden">
         {/* Logo */}
-        <div className="flex h-12 shrink-0 items-center gap-2 px-4">
-          <span className="grid h-6 w-6 shrink-0 place-items-center rounded bg-primary">
+        <div className="flex h-14 shrink-0 items-center gap-2.5 px-4">
+          <span className="admin-brand-mark grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-primary">
             <Scissors className="h-3.5 w-3.5 text-primary-foreground" />
           </span>
-          <span className="text-[13px] font-semibold tracking-tight">SalonSaaS</span>
+          <div className="min-w-0">
+            <span className="block text-[13px] font-semibold tracking-tight">SalonSaaS</span>
+            <span className="block text-[9px] font-medium uppercase tracking-[0.16em] text-muted-foreground/70">
+              Painel de operação
+            </span>
+          </div>
         </div>
 
         {/* Salon switcher */}
@@ -89,7 +94,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       </aside>
 
       {/* ── Main content ─────────────────────────────────── */}
-      <main className="scrollbar-dark min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
+      <main className="admin-main scrollbar-dark min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
         <div className="mx-auto w-full min-w-0 max-w-[1400px] p-4 pb-24 sm:p-6 md:p-8 md:pb-8">{children}</div>
       </main>
 

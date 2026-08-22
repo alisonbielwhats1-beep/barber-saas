@@ -48,7 +48,7 @@ export function SignupForm() {
           setError("Conta criada, mas não foi possível entrar automaticamente. Use o login.");
           return;
         }
-        router.push("/onboarding/acesso");
+        router.push("/dashboard");
         router.refresh();
       } catch {
         setError("Não foi possível concluir agora. Verifique sua conexão e tente novamente.");
@@ -99,7 +99,7 @@ export function SignupForm() {
         </p>
       )}
       <Button type="submit" className="w-full" disabled={pending}>
-        {pending ? "Enviando solicitação…" : "Solicitar acesso"}
+        {pending ? "Criando seu espaço…" : "Criar meu espaço"}
       </Button>
     </form>
   );

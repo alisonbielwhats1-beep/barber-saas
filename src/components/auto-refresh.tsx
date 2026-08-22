@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
  * Fallback sem custo para consistência entre telas enquanto o projeto não
  * possui um cliente Supabase Realtime seguro no navegador.
  */
-export function AutoRefresh({ intervalMs = 30_000 }: { intervalMs?: number }) {
+export function AutoRefresh({ intervalMs = 60_000 }: { intervalMs?: number }) {
   const router = useRouter();
 
   useEffect(() => {

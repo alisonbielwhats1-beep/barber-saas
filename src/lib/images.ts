@@ -1,41 +1,42 @@
 /**
- * Curadoria de imagens locais e Unsplash — usadas como default quando o dono
- * ainda não fez upload das próprias. As imagens locais são os masters em alta
- * resolução aprovados para a landing; URLs externas só permanecem onde foram
- * verificadas visualmente.
- *
- * Todas as imagens são servidas pelo domínio `images.unsplash.com` já
- * whitelisted em `next.config.mjs`.
+ * Curadoria de imagens locais usadas como default quando o dono ainda não fez
+ * upload das próprias. Manter os defaults no mesmo deploy evita dependência
+ * de rede, falhas de proxy e custo de otimização de imagens externas.
  */
 
-const w = (id: string, size = 800) =>
-  `https://images.unsplash.com/${id}?w=${size}&auto=format&fit=crop&q=80`;
-
 const LOCAL_SERVICE_IMAGES = {
-  barber: "/images/salon-hero-barber-v2-hq.png",
-  beard: "/images/salon-hero-beard-v1-hq.png",
-  maleHaircut: "/images/salon-hero-male-haircut-v1-hq.png",
-  stylistCut: "/images/salon-hero-stylist-v1-hq.png",
-  stylistFinish: "/images/salon-hero-stylist-v2-hq.png",
-  manicure: "/images/salon-hero-manicure-v1-hq.png",
-  aesthetics: "/images/salon-hero-aesthetics-v2-hq.png",
-  massage: "/images/salon-hero-massage-v2-hq.png",
+  barber: "/images/salon-hero-barber-v2.webp",
+  beard: "/images/salon-hero-beard-v1.webp",
+  maleHaircut: "/images/salon-hero-male-haircut-v1.webp",
+  stylistCut: "/images/salon-hero-stylist-v1.webp",
+  stylistFinish: "/images/salon-hero-stylist-v2.webp",
+  manicure: "/images/salon-hero-manicure-v1.webp",
+  aesthetics: "/images/salon-hero-aesthetics-v2.webp",
+  massage: "/images/salon-hero-massage-v2.webp",
 } as const;
+
+/**
+ * Compatibilidade com registros criados antes da conversão dos masters PNG
+ * para WebP. Não altera uploads personalizados nem URLs externas.
+ */
+export function normalizeImageUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  return url.replace(/(\/images\/[^/?#]+)-hq\.png(?=($|[?#]))/i, "$1.webp");
+}
 
 // Hero moody de barbearia — usado no splash
 export const HERO_IMAGES = [
-  w("photo-1503951914875-452162b0f3f1", 1200), // barbershop classic
-  w("photo-1622287162716-f311baa1a2b8", 1200), // barber tools
-  w("photo-1585747860715-2ba37e788b70", 1200), // client + barber
-  w("photo-1512690459411-b9245aed614b", 1200), // dark barber chair
+  LOCAL_SERVICE_IMAGES.barber,
+  LOCAL_SERVICE_IMAGES.maleHaircut,
+  LOCAL_SERVICE_IMAGES.beard,
+  LOCAL_SERVICE_IMAGES.stylistFinish,
 ];
 
-// Uma imagem representativa por categoria de serviço. Não adicionar um URL
-// externo sem conferir o conteúdo real retornado no navegador.
+// Uma imagem representativa por categoria de serviço.
 export const CATEGORY_IMAGES: Record<string, string> = {
   // Cabelo masculino
   barba:            LOCAL_SERVICE_IMAGES.beard,
-  sobrancelha:      w("photo-1519415387722-a1c3bbef716c"), // design de sobrancelha
+  sobrancelha:      LOCAL_SERVICE_IMAGES.aesthetics,
   cortemasculino:   LOCAL_SERVICE_IMAGES.maleHaircut,
   quimimasculina:   LOCAL_SERVICE_IMAGES.barber,
   combomaculino:    LOCAL_SERVICE_IMAGES.barber,
@@ -47,7 +48,7 @@ export const CATEGORY_IMAGES: Record<string, string> = {
   quimifeminina:    LOCAL_SERVICE_IMAGES.stylistCut,
   combofeminino:    LOCAL_SERVICE_IMAGES.stylistFinish,
   // Estética
-  maquiagem:        w("photo-1596462502278-27bfdc403348"), // maquiagem (real)
+  maquiagem:        LOCAL_SERVICE_IMAGES.stylistFinish,
   unhas:            LOCAL_SERVICE_IMAGES.manicure,
   depilacao:        LOCAL_SERVICE_IMAGES.aesthetics,
   pele:             LOCAL_SERVICE_IMAGES.aesthetics,
@@ -101,28 +102,21 @@ export function imageForService(name: string): string {
   return imageForCategory(name);
 }
 
-/**
- * Banner landscape (1200×500) para admin — extrai o ID da URL quadrada
- * e reemite com dimensões que evitam distorção no banner h-44 w-full.
- * crop=entropy = foca na área visualmente mais rica.
- */
+/** Banner da categoria para o catálogo administrativo. */
 export function bannerForCategory(category: string): string {
-  const square = imageForCategory(category);
-  const match = square.match(/unsplash\.com\/(photo-[^?]+)/);
-  if (!match) return square;
-  return `https://images.unsplash.com/${match[1]}?w=1200&h=500&auto=format&fit=crop&crop=entropy&q=88`;
+  return imageForCategory(category);
 }
 
 // Produtos demonstrativos. O conjunto antigo continha IDs que hoje retornam
 // tênis e brinquedos; estas opções foram verificadas visualmente e permanecem
 // relacionadas a cosméticos, cabelo ou barbearia.
 export const PRODUCT_IMAGES = [
-  w("photo-1631730486572-226d1f595b68", 600), // cosméticos
-  w("photo-1620916566398-39f1143ab7be", 600), // loção
-  w("photo-1608248543803-ba4f8c70ae0b", 600), // máscara capilar
-  w("photo-1599351431202-1e0f0137899a", 600), // barbearia / navalha
-  w("photo-1590540179852-2110a54f813a", 600), // finalização capilar
-  w("photo-1608248597279-f99d160bfcbc", 600), // tratamento capilar
+  LOCAL_SERVICE_IMAGES.aesthetics,
+  LOCAL_SERVICE_IMAGES.massage,
+  LOCAL_SERVICE_IMAGES.stylistFinish,
+  LOCAL_SERVICE_IMAGES.beard,
+  LOCAL_SERVICE_IMAGES.maleHaircut,
+  LOCAL_SERVICE_IMAGES.manicure,
 ];
 
 const LEGACY_DEMO_PRODUCT_IDS = [
@@ -162,7 +156,7 @@ export function resolveProductImage({
     ? LEGACY_DEMO_PRODUCT_IDS.some((id) => imageUrl.includes(id))
     : false;
 
-  if (imageUrl && !isLegacyDemoImage) return imageUrl;
+  if (imageUrl && !isLegacyDemoImage) return normalizeImageUrl(imageUrl) ?? imageForProduct(index);
 
   const normalized = `${name} ${category ?? ""}`
     .toLowerCase()
@@ -198,13 +192,33 @@ export function resolveProductImage({
 
 // Portfolio (galeria de cortes) — pool para dados demo
 export const PORTFOLIO_POOL = [
-  w("photo-1622287162716-f311baa1a2b8", 800),
-  w("photo-1621605815971-fbc98d665033", 800),
-  w("photo-1560066984-138dadb4c035", 800),
-  w("photo-1580618672591-eb180b1a973f", 800),
-  w("photo-1522337660859-02fbefca4702", 800),
-  w("photo-1621607512214-68297480165e", 800),
-  w("photo-1596728325488-58c87691e9af", 800),
-  w("photo-1503951914875-452162b0f3f1", 800),
-  w("photo-1512690459411-b9245aed614b", 800),
+  LOCAL_SERVICE_IMAGES.barber,
+  LOCAL_SERVICE_IMAGES.maleHaircut,
+  LOCAL_SERVICE_IMAGES.beard,
+  LOCAL_SERVICE_IMAGES.stylistCut,
+  LOCAL_SERVICE_IMAGES.stylistFinish,
+  LOCAL_SERVICE_IMAGES.manicure,
+  LOCAL_SERVICE_IMAGES.aesthetics,
+  LOCAL_SERVICE_IMAGES.massage,
+  LOCAL_SERVICE_IMAGES.barber,
 ];
+
+const LEGACY_DEMO_PORTFOLIO_IDS = [
+  "photo-1622287162716-f311baa1a2b8",
+  "photo-1621605815971-fbc98d665033",
+  "photo-1560066984-138dadb4c035",
+  "photo-1580618672591-eb180b1a973f",
+  "photo-1522337660859-02fbefca4702",
+  "photo-1503951914875-452162b0f3f1",
+] as const;
+
+/**
+ * Migra visualmente os itens demo antigos que apontavam para Unsplash. URLs
+ * personalizadas do estabelecimento continuam sendo respeitadas.
+ */
+export function resolvePortfolioImage(url: string | null | undefined, index = 0): string {
+  if (!url) return PORTFOLIO_POOL[index % PORTFOLIO_POOL.length];
+  const legacyIndex = LEGACY_DEMO_PORTFOLIO_IDS.findIndex((id) => url.includes(id));
+  if (legacyIndex >= 0) return PORTFOLIO_POOL[legacyIndex % PORTFOLIO_POOL.length];
+  return normalizeImageUrl(url) ?? PORTFOLIO_POOL[index % PORTFOLIO_POOL.length];
+}

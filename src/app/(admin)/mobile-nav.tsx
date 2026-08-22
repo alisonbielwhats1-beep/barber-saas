@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
+  CalendarClock,
   CalendarDays,
   Users,
   MoreHorizontal,
@@ -40,7 +41,7 @@ const PRIMARY: Array<{
   icon: typeof LayoutDashboard;
   roles?: readonly string[];
 }> = [
-  { href: "/dashboard", label: "Início", icon: LayoutDashboard, roles: DASHBOARD_ROLES },
+  { href: "/hoje", label: "Hoje", icon: CalendarClock, roles: DASHBOARD_ROLES },
   { href: "/agenda", label: "Agenda", icon: CalendarDays },
   { href: "/clientes", label: "Clientes", icon: Users },
   { href: "/notificacoes", label: "Alertas", icon: Bell },

@@ -19,6 +19,7 @@ import { withTenant } from "@/lib/prisma-tenant";
 import { MARKETING_ROLES } from "@/lib/role-permissions";
 import { requireRole } from "@/lib/tenant";
 import { formatMoney } from "@/lib/utils";
+import { canUsePlanFeature } from "@/lib/plan-entitlements";
 import { MarketingCampaigns } from "./marketing-campaigns";
 import { MarketingSettingsForm } from "./marketing-settings-form";
 
@@ -29,9 +30,9 @@ export default async function MarketingPage() {
     const clients = await getClientList(tx, ctx.salonId, {
       lapsedClientDays: settings.lapsedClientDays,
     });
-    const salon = await tx.salon.findUnique({
-      where: { id: ctx.salonId },
-      select: { name: true, timezone: true, slug: true },
+      const salon = await tx.salon.findUnique({
+        where: { id: ctx.salonId },
+      select: { name: true, timezone: true, slug: true, plan: true },
     });
     const history = await tx.auditLog.findMany({
       where: {
@@ -72,6 +73,7 @@ export default async function MarketingPage() {
       : [];
   });
   const summary = summarizeCampaignDeliveries(interactions);
+  const marketingEnabled = canUsePlanFeature(salon?.plan, "MARKETING");
 
   return (
     <div className="space-y-6">
@@ -80,6 +82,18 @@ export default async function MarketingPage() {
         <h1 className="text-[26px] font-semibold tracking-tight">Marketing</h1>
         <p className="mt-1 max-w-2xl text-[12px] text-muted-foreground">Transforme sua base atual em retorno, avaliações e indicações — com mensagens pessoais, sem disparo automático.</p>
       </header>
+
+      {!marketingEnabled && (
+        <section className="flex items-start gap-3 rounded-2xl border border-primary/25 bg-primary/5 p-4">
+          <Crown className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+          <div>
+            <p className="text-[12px] font-semibold">Marketing fica disponível no plano Fundador</p>
+            <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+              Você continua vendo sua base e histórico. Ao fazer upgrade, poderá preparar campanhas e abrir mensagens pelo WhatsApp.
+            </p>
+          </div>
+        </section>
+      )}
 
       <section className="grid grid-cols-3 gap-3">
         <Kpi icon={Cake} accent="#EC4899" label="Aniversariantes" value={birthdays.length.toString()} />
@@ -114,6 +128,7 @@ export default async function MarketingPage() {
         <MarketingSettingsForm
           lapsedClientDays={settings.lapsedClientDays}
           googleReviewUrl={settings.googleReviewUrl}
+          disabled={!marketingEnabled}
         />
       ) : (
         <div className="rounded-2xl border border-border bg-card px-4 py-3 text-[11px] text-muted-foreground">
@@ -137,6 +152,7 @@ export default async function MarketingPage() {
           bookingUrl={`${(process.env.NEXTAUTH_URL ?? "https://salon-saas-ruby.vercel.app").replace(/\/$/, "")}/book/${salon?.slug ?? ""}`}
           googleReviewUrl={settings.googleReviewUrl}
           lapsedClientDays={settings.lapsedClientDays}
+          enabled={marketingEnabled}
         />
       </div>
 

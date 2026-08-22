@@ -12,7 +12,7 @@ export type ApptStatus =
   | "NO_SHOW";
 
 export const STATUS: Record<ApptStatus, { label: string; color: string }> = {
-  PENDING: { label: "Pendente", color: "#F59E0B" },
+  PENDING: { label: "A confirmar", color: "#F59E0B" },
   CONFIRMED: { label: "Confirmado", color: "#3B9EFF" },
   IN_PROGRESS: { label: "Em atendimento", color: "#A855F7" },
   COMPLETED: { label: "Finalizado", color: "#2ECC8B" },

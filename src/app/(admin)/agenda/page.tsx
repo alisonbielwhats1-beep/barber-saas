@@ -216,7 +216,7 @@ export default async function AgendaPage({
 
   return (
     <>
-      <AutoRefresh />
+      <AutoRefresh intervalMs={30_000} />
       <AgendaBoard
         date={dateStr}
         salonName={salon?.name ?? "seu salão"}

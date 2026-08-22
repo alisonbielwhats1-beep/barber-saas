@@ -4,6 +4,7 @@ import { getClientSession } from "@/lib/client-auth";
 import { clientSessionForSalon } from "@/lib/public-appointment";
 import { BookingFlow } from "./booking-flow";
 import { dateKeyInTimeZone } from "@/lib/time";
+import { normalizeImageUrl } from "@/lib/images";
 
 export default async function AgendarPage({
   params,
@@ -95,7 +96,7 @@ export default async function AgendarPage({
     durationMin: s.durationMin,
     colorHex: s.colorHex,
     category: s.category,
-    imageUrl: s.imageUrl,
+    imageUrl: normalizeImageUrl(s.imageUrl),
     professionals: s.professionals
       .filter((ps) => ps.professional.active)
       .map((ps) => ({

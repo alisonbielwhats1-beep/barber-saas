@@ -37,6 +37,10 @@ import {
   lockProductMutations,
 } from "./inventory-lock";
 import {
+  assertMonthlyAppointmentCapacity,
+  getPlanEntitlement,
+} from "./plan-entitlements";
+import {
   cancelActiveWaitlistForAppointment,
   fulfillWaitlistOnCancel,
   nextWaitlistSlot,
@@ -84,6 +88,8 @@ export type CreateAppointmentInput = AppointmentIdentity & {
   canOverride?: boolean;
   seriesId?: string | null;
   idempotencyContext?: unknown;
+  /** Ativa a cota comercial para as entradas públicas e do painel. */
+  enforcePlanLimits?: boolean;
   now?: Date;
 };
 
@@ -145,6 +151,52 @@ async function lockMutationKeys(tx: Tx, keys: string[]): Promise<void> {
       FROM pg_advisory_xact_lock(hashtextextended(${`appointment:${key}`}, 0))
     `;
   }
+}
+
+async function enforceAppointmentPlanLimit(
+  tx: Tx,
+  input: { salonId: string; now: Date },
+): Promise<void> {
+  const salon = await tx.salon.findUnique({
+    where: { id: input.salonId },
+    select: { plan: true, timezone: true },
+  });
+  if (!salon) throw new AppointmentError("NOT_FOUND");
+  if (getPlanEntitlement(salon.plan).monthlyAppointments === null) return;
+
+  const monthKey = dateKeyInTimeZone(input.now, salon.timezone).slice(0, 7);
+  const [year, month] = monthKey.split("-").map(Number);
+  const nextYear = month === 12 ? year + 1 : year;
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const monthStart = localDateTimeToUtc(
+    `${monthKey}-01T00:00`,
+    salon.timezone,
+  );
+  const nextMonthStart = localDateTimeToUtc(
+    `${nextYear}-${String(nextMonth).padStart(2, "0")}-01T00:00`,
+    salon.timezone,
+  );
+
+  // A quota is shared by the whole salon, so serialize only free-plan
+  // bookings for the current month. This prevents two professionals from
+  // both observing the same last available reservation.
+  await tx.$queryRaw`
+    SELECT 1::integer AS "locked"
+    FROM pg_advisory_xact_lock(
+      hashtextextended(${`appointment-quota:${input.salonId}:${monthKey}`}, 0)
+    )
+  `;
+  const appointmentsThisMonth = await tx.appointment.count({
+    where: {
+      salonId: input.salonId,
+      createdAt: { gte: monthStart, lt: nextMonthStart },
+      status: { not: "CANCELLED" },
+    },
+  });
+  assertMonthlyAppointmentCapacity({
+    plan: salon.plan,
+    appointmentsThisMonth,
+  });
 }
 
 /**
@@ -548,6 +600,13 @@ export async function createAppointment(
       throw new AppointmentError("IDEMPOTENCY_MISMATCH");
     }
     return { appointment: existing, duplicate: true };
+  }
+
+  if (input.enforcePlanLimits) {
+    await enforceAppointmentPlanLimit(tx, {
+      salonId: input.salonId,
+      now: input.now ?? new Date(),
+    });
   }
 
   const inspected = await inspectAppointmentAvailability(tx, {

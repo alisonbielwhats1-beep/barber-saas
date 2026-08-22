@@ -23,7 +23,9 @@ type Props = {
 
 export function ApprovalControls({ salonId, salonName, status, currentPlan }: Props) {
   const [dialog, setDialog] = useState<"approve" | "reject" | "suspend" | null>(null);
-  const [plan, setPlan] = useState<"FREE" | "PRO">(currentPlan === "PRO" ? "PRO" : "FREE");
+  const [plan, setPlan] = useState<"FREE" | "STARTER" | "PRO" | "ENTERPRISE">(
+    currentPlan === "STARTER" || currentPlan === "PRO" || currentPlan === "ENTERPRISE" ? currentPlan : "FREE",
+  );
   const [reason, setReason] = useState("");
   const [pending, startTransition] = useTransition();
 
@@ -101,10 +103,22 @@ export function ApprovalControls({ salonId, salonName, status, currentPlan }: Pr
                 onClick={() => setPlan("FREE")}
               />
               <PlanOption
+                active={plan === "STARTER"}
+                title="Fundador"
+                description="Até 2 agendas, com preço especial para os primeiros estabelecimentos."
+                onClick={() => setPlan("STARTER")}
+              />
+              <PlanOption
                 active={plan === "PRO"}
                 title="Pro"
-                description="Use quando você decidir liberar os recursos profissionais para este estabelecimento."
+                description="Até 3 agendas e recursos completos para a operação."
                 onClick={() => setPlan("PRO")}
+              />
+              <PlanOption
+                active={plan === "ENTERPRISE"}
+                title="Equipe"
+                description="Até 10 agendas para equipes maiores."
+                onClick={() => setPlan("ENTERPRISE")}
               />
             </div>
           ) : (

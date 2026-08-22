@@ -15,6 +15,7 @@ import { MarketingHeader } from "./marketing-header";
 import { SegmentExplorer } from "./segment-explorer";
 import { AnimatedLandingHero, LandingReveal } from "./animated-landing";
 import { LandingMobileShowcase } from "./landing-mobile-showcase";
+import { PLAN_PRICING_ROWS } from "@/lib/plan-entitlements";
 
 export default function LandingPage() {
   return (
@@ -131,37 +132,49 @@ export default function LandingPage() {
                 data-theme="marketing-dark"
               >
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
-                  A partir de
+                  Oferta de lançamento
                 </p>
                 <div className="mt-4 flex items-end gap-2">
                   <span className="font-display text-5xl leading-none tracking-[-0.05em] sm:text-6xl">
-                    R$ 79,90
+                    R$ 49,90
                   </span>
                   <span className="pb-1 text-sm text-muted-foreground">/mês</span>
                 </div>
                 <p className="mt-5 max-w-sm text-sm leading-relaxed text-muted-foreground">
-                  Comece com o que sua operação precisa. O valor do plano
-                  evolui conforme o volume de agendamentos do seu negócio.
+                  Os 10 primeiros estabelecimentos podem começar com o plano
+                  Fundador. Depois, evolua para o Pro sem taxa por cliente.
                 </p>
                 <div className="mt-8 flex flex-col gap-3 sm:flex-row lg:flex-col xl:flex-row">
                   <Button asChild size="lg" className="h-12 rounded-full px-6">
-                    <Link href="/signup">Criar meu espaço</Link>
+                  <Link href="/signup">Começar grátis</Link>
                   </Button>
                   <Button asChild variant="outline" size="lg" className="h-12 rounded-full px-6">
                     <Link href="/book/north-barber">Ver demonstração</Link>
                   </Button>
                 </div>
-                <p className="mt-4 text-xs text-muted-foreground">Solicite seu acesso · sem cartão</p>
+                <p className="mt-4 text-xs text-muted-foreground">Sem cartão · sem taxa por agendamento</p>
               </div>
 
               <div className="p-7 sm:p-10 lg:p-12">
                 <h3 className="font-display text-2xl tracking-[-0.025em]">
-                  Uma estrutura completa desde o início
+                  Um plano claro para cada fase
                 </h3>
                 <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground">
-                  Centralize o que movimenta o atendimento e mantenha espaço
-                  para crescer sem trocar de plataforma.
+                  Comece no Grátis e pague somente quando a operação pedir mais
+                  agendas e recursos de crescimento.
                 </p>
+                <div className="mt-8 grid gap-3 sm:grid-cols-2">
+                  {PLAN_PRICING_ROWS.map((row) => (
+                    <article key={row.plan} className={`rounded-2xl border p-4 ${row.plan === "STARTER" ? "border-primary bg-primary/5" : "border-border bg-background/60"}`}>
+                      <div className="flex items-center justify-between gap-3">
+                        <h4 className="text-sm font-semibold">{row.title}</h4>
+                        {row.plan === "STARTER" && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">10 primeiros</span>}
+                      </div>
+                      <p className="mt-3 text-xl font-semibold tracking-tight">{row.price}<span className="text-xs font-normal text-muted-foreground">{row.plan === "FREE" ? "" : "/mês"}</span></p>
+                      <p className="mt-1 text-xs text-muted-foreground">{row.professionals} · {row.detail}</p>
+                    </article>
+                  ))}
+                </div>
                 <ul className="mt-8 grid gap-x-8 gap-y-4 sm:grid-cols-2">
                   {PLAN_FEATURES.map((feature) => (
                     <li key={feature} className="flex items-start gap-3 text-sm">
@@ -225,7 +238,7 @@ export default function LandingPage() {
               <Link href="/book/north-barber">Ver demonstração</Link>
             </Button>
           </div>
-          <p className="mt-4 text-xs text-muted-foreground">Solicite seu acesso · sem cartão</p>
+          <p className="mt-4 text-xs text-muted-foreground">Comece grátis · sem cartão</p>
         </LandingReveal>
       </section>
 

@@ -24,7 +24,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { formatMoney, formatDuration } from "@/lib/utils";
-import { bannerForCategory } from "@/lib/images";
+import { bannerForCategory, normalizeImageUrl } from "@/lib/images";
 import { toast } from "@/components/ui/toast";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ServiceForm } from "./service-form";
@@ -50,7 +50,7 @@ type Sort = "popular" | "price" | "margin" | "name";
 type View = "grid" | "list";
 
 function margin(s: ServiceCard) {
-  return s.priceCents > 0 ? (s.priceCents - s.costCents) / s.priceCents : 0;
+  return s.priceCents > 0 && s.costCents > 0 ? (s.priceCents - s.costCents) / s.priceCents : null;
 }
 
 function marginColor(m: number) {
@@ -69,7 +69,9 @@ export function ServicesCatalog({
   const [search, setSearch]           = useState("");
   const [activeCategory, setCategory] = useState("all");
   const [sort, setSort]               = useState<Sort>(canSeeFinancial ? "popular" : "name");
-  const [view, setView]               = useState<View>("grid");
+  // A lista é a leitura mais rápida para quem está administrando o catálogo.
+  // A grade continua disponível quando a imagem ajuda na decisão.
+  const [view, setView]               = useState<View>("list");
 
   const categories = useMemo(
     () => ["all", ...Array.from(new Set(services.map((s) => s.category).filter(Boolean) as string[]))],
@@ -97,7 +99,7 @@ export function ServicesCatalog({
       map.set(cat, [...items].sort((a, b) => {
         if (sort === "price")  return b.priceCents - a.priceCents;
         if (sort === "name")   return a.name.localeCompare(b.name);
-        if (sort === "margin") return margin(b) - margin(a);
+        if (sort === "margin") return (margin(b) ?? -1) - (margin(a) ?? -1);
         return b.sold - a.sold;
       }));
     }
@@ -216,12 +218,12 @@ function CategoryGroupGrid({
 }) {
   const totalRevenue = items.reduce((s, i) => s + i.revenueCents, 0);
   const totalSold    = items.reduce((s, i) => s + i.sold, 0);
-  const categoryImage = items.find((item) => item.imageUrl)?.imageUrl ?? bannerForCategory(cat);
+  const categoryImage = normalizeImageUrl(items.find((item) => item.imageUrl)?.imageUrl) ?? bannerForCategory(cat);
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card">
-      {/* Banner landscape — altura generosa para a imagem respirar */}
-      <div className="relative h-48 w-full overflow-hidden sm:h-56">
+      {/* Banner discreto: identifica a categoria sem dominar a operação. */}
+      <div className="relative h-32 w-full overflow-hidden sm:h-36">
         <Image
           src={categoryImage}
           alt={cat}
@@ -327,10 +329,10 @@ function ServiceRow({
       </div>
 
       {canSeeFinancial && <div className="hidden w-14 shrink-0 text-right sm:block">
-        <p className="text-[13px] font-semibold" style={{ color: marginColor(m) }}>
-          {(m * 100).toFixed(0)}%
+        <p className={`text-[13px] font-semibold ${m === null ? "text-muted-foreground" : ""}`} style={m === null ? undefined : { color: marginColor(m) }}>
+          {m === null ? "—" : `${(m * 100).toFixed(0)}%`}
         </p>
-        <p className="text-[10px] text-muted-foreground">margem</p>
+        <p className="text-[10px] text-muted-foreground">{m === null ? "custo não informado" : "margem"}</p>
       </div>}
 
       {canSeeFinancial && <div className="hidden w-10 shrink-0 text-right sm:block">

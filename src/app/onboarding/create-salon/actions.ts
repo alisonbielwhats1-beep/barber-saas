@@ -9,8 +9,6 @@ import { authOptions } from "@/lib/auth";
 import { uniqueSalonSlug } from "@/lib/slug";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { resolveSalonSetup } from "@/lib/salon-setup";
-import { notifyPlatformAdminOfSignup } from "@/lib/platform-signup-notification";
-import { recordSalonAccessRequest } from "@/lib/salon-access-request";
 
 const input = z.object({
   salonName: z.string().min(2, "Nome do estabelecimento muito curto").max(80),
@@ -80,7 +78,10 @@ export async function createSalon(
           name: data.salonName,
           plan: "FREE",
           segment: segmentId,
-          accessStatus: "PENDING",
+          // O plano Grátis entra imediatamente. Solicitação e aprovação ficam
+          // reservadas para um futuro fluxo de upgrade para o Pro.
+          accessStatus: "APPROVED",
+          accessReviewedAt: new Date(),
         },
         select: { id: true },
       });
@@ -95,7 +96,6 @@ export async function createSalon(
           data: services.map((s) => ({ salonId: salon.id, ...s })),
         });
       }
-      await recordSalonAccessRequest(tx, { salonId: salon.id, actorUserId: userId });
     });
   } catch (error) {
     const details = error as { code?: unknown; name?: unknown };
@@ -107,19 +107,6 @@ export async function createSalon(
       ok: false,
       error: "Não foi possível criar o estabelecimento agora. Tente novamente em instantes.",
     };
-  }
-
-  const owner = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { name: true, email: true },
-  });
-  if (owner) {
-    await notifyPlatformAdminOfSignup({
-      salonName: data.salonName,
-      slug,
-      ownerName: owner.name,
-      ownerEmail: owner.email,
-    });
   }
 
   return { ok: true };

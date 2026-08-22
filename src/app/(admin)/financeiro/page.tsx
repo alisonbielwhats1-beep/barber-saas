@@ -68,7 +68,7 @@ export default async function FinanceiroPage({
 
   return (
     <div className="space-y-6">
-      <AutoRefresh />
+      <AutoRefresh intervalMs={120_000} />
       {/* Header */}
       <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>

@@ -28,12 +28,50 @@ export function ImageUpload({
         ? "aspect-video"
         : "aspect-square";
 
+  async function optimizeImageForUpload(file: File): Promise<File> {
+    // GIF pode ser animado; preservamos o arquivo original para não remover
+    // quadros. Arquivos pequenos também não justificam uma segunda conversão.
+    if (file.type === "image/gif" || file.size < 350_000 || typeof createImageBitmap !== "function") {
+      return file;
+    }
+
+    try {
+      const bitmap = await createImageBitmap(file);
+      try {
+        const maxDimension = 1_600;
+        const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+        canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+        const context = canvas.getContext("2d");
+        if (!context) return file;
+        context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        const blob = await new Promise<Blob | null>((resolve) =>
+          canvas.toBlob(resolve, "image/webp", 0.84),
+        );
+        if (!blob || blob.size >= file.size * 0.92) return file;
+        const baseName = file.name.replace(/\.[^/.]+$/, "") || "imagem";
+        return new File([blob], `${baseName}.webp`, {
+          type: "image/webp",
+          lastModified: Date.now(),
+        });
+      } finally {
+        bitmap.close();
+      }
+    } catch {
+      // Alguns navegadores não decodificam determinados arquivos grandes.
+      // O servidor ainda valida e limita o upload original com segurança.
+      return file;
+    }
+  }
+
   async function handleFile(file: File) {
     setLoading(true);
     setError(null);
     try {
+      const optimizedFile = await optimizeImageForUpload(file);
       const fd = new FormData();
-      fd.append("file", file);
+      fd.append("file", optimizedFile);
       fd.append("folder", folder);
       const res = await fetch("/api/upload", { method: "POST", body: fd });
       const json = await res.json();
@@ -94,7 +132,7 @@ export function ImageUpload({
             ) : (
               <ImageIcon className="h-8 w-8" />
             )}
-            <span className="text-xs">{loading ? "Enviando…" : "Clique ou arraste uma imagem"}</span>
+            <span className="text-xs">{loading ? "Otimizando e enviando…" : "Clique ou arraste uma imagem"}</span>
           </button>
         )}
       </div>
@@ -107,7 +145,7 @@ export function ImageUpload({
           className="flex w-full items-center justify-center gap-2 rounded-xl border border-border py-2 text-xs text-muted-foreground transition hover:border-primary hover:text-foreground disabled:opacity-50"
         >
           <Upload className="h-3.5 w-3.5" />
-          {loading ? "Enviando…" : "Trocar imagem"}
+          {loading ? "Otimizando e enviando…" : "Trocar imagem"}
         </button>
       )}
 

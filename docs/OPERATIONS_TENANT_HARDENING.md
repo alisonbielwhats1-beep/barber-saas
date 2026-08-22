@@ -1,18 +1,18 @@
 # Hardening operacional de tenant e estoque
 
-Esta onda não aplica migration nem altera Production.
+O hardening tenant-aware foi aplicado no Supabase Production em 22/08/2026,
+após preflight somente leitura e autorização explícita.
 
-Estado em 13/08/2026: implementação local na branch
-`codex/commercial-maturity-wave1`, aprovada em crítica independente de código e
-testes locais, mas ainda pendente de CI remoto, Preview seguro e deploy.
+Estado em 22/08/2026: a migration manual `012` foi aplicada com backfill,
+constraints compostas, snapshots de nome/moeda e RLS tenant-aware. A fase `013`
+também foi aplicada com os cinco índices operacionais.
 
-`AppointmentProduct` ainda não carrega `salonId`. A RLS existente herda o
-tenant pelo `Appointment`, porém a chave estrangeira atual não consegue provar
-que o `Product` pertence ao mesmo estabelecimento. A correção definitiva no
-banco exige migration aditiva, preflight em banco descartável/homologação,
-rollback e autorização explícita.
+O preflight produtivo retornou zero vínculos cross-tenant, zero órfãos e zero
+pagamentos sem salão. A verificação posterior confirmou as colunas como `NOT
+NULL`, RLS habilitada e forçada, policy baseada em `app_current_salon()` e
+nenhuma linha sem snapshot.
 
-Até essa etapa, toda criação de reserva de produtos passa por
+Mesmo com a defesa estrutural aplicada, toda criação de reserva de produtos passa por
 `reserveAppointmentProducts`, que verifica na mesma transação:
 
 1. o agendamento pertence ao `salonId` ativo;
@@ -20,20 +20,17 @@ Até essa etapa, toda criação de reserva de produtos passa por
 3. o estoque é suficiente sob lock canônico;
 4. o vínculo e o movimento negativo são gravados atomicamente.
 
-O arquivo
-`prisma/sql/preflight/appointment_product_tenant_integrity.sql` é somente
-leitura e deve retornar zero vínculos cross-tenant e zero órfãos antes de uma
-futura migration. Ele não deve ser executado em Production como teste.
+Os arquivos `prisma/sql/manual/012_appointment_product_tenant_snapshots.*` e
+`prisma/sql/manual/013_operational_query_indexes.*` permanecem versionados como
+registro, preflight e rollback não destrutivo. Não reaplicar migrations
+manuais já confirmadas em Production.
 
-## Dívida explícita do recibo
+## Snapshot do recibo
 
 O recibo usa o `Payment` persistido e os snapshots de preço/quantidade de
-`AppointmentService` e `AppointmentProduct`. O schema atual, porém, não
-preserva o nome do produto nem a moeda no instante do pagamento: o nome ainda
-vem do catálogo atual e a moeda vem da configuração atual do estabelecimento.
-Persistir `productName` e `currency` como snapshots financeiros exige mudança
-aditiva de schema e backfill definido. Isso fica deliberadamente pendente até
-haver staging, preflight, rollback e autorização de migration.
+`AppointmentService` e `AppointmentProduct`. A migration 012 também preserva
+`productName` e `currency` no momento da reserva/recebimento, sem transformar o
+recibo interno em documento fiscal.
 
 ## Fronteiras operacionais desta candidata
 

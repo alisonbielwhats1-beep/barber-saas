@@ -59,7 +59,7 @@ describe("frontend audit source regressions", () => {
     expect(dashboard).toContain("<NowStrip");
     expect(nowStrip).toContain('aria-labelledby="now-strip-title"');
     expect(nowStrip).toContain("Próximos atendimentos de hoje");
-    expect(nowStrip).toContain("Atualização automática a cada 30 segundos");
+    expect(nowStrip).toContain("Atualização automática a cada minuto");
     expect(nowStrip).toContain("appointments.slice(0, 4)");
     expect(nowStrip).toContain("Receita concluída hoje");
     expect(nowStrip).toContain('aria-label="Próximos atendimentos de hoje"');

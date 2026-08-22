@@ -8,8 +8,6 @@ import { setSalonGuc, setUserGuc } from "@/lib/prisma-tenant";
 import { uniqueSalonSlug } from "@/lib/slug";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { resolveSalonSetup } from "@/lib/salon-setup";
-import { notifyPlatformAdminOfSignup } from "@/lib/platform-signup-notification";
-import { recordSalonAccessRequest } from "@/lib/salon-access-request";
 
 const signupInput = z.object({
   ownerName: z.string().min(2, "Nome muito curto"),
@@ -92,7 +90,10 @@ export async function signup(input: SignupInput): Promise<
           name: data.salonName,
           plan: "FREE",
           segment: segmentId,
-          accessStatus: "PENDING",
+          // O plano Grátis entra imediatamente. Solicitação e aprovação ficam
+          // reservadas para um futuro fluxo de upgrade para o Pro.
+          accessStatus: "APPROVED",
+          accessReviewedAt: new Date(),
         },
         select: { id: true },
       });
@@ -107,10 +108,6 @@ export async function signup(input: SignupInput): Promise<
           data: services.map((s) => ({ salonId: salon.id, ...s })),
         });
       }
-      await recordSalonAccessRequest(tx, {
-        salonId: salon.id,
-        actorUserId: user.id,
-      });
       return salon.id;
     });
 
@@ -136,13 +133,6 @@ export async function signup(input: SignupInput): Promise<
           : "Não foi possível criar o estabelecimento agora. Tente novamente em instantes.",
     };
   }
-
-  await notifyPlatformAdminOfSignup({
-    salonName: data.salonName,
-    slug,
-    ownerName: data.ownerName,
-    ownerEmail: email,
-  });
 
   return { ok: true, slug };
 }

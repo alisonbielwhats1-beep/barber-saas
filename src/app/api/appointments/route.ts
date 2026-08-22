@@ -101,6 +101,7 @@ export async function POST(req: NextRequest) {
               : { type: "GUEST", name: booking.clientName! },
           idempotencyKey: booking.idempotencyKey,
           enforceBookingWindow: true,
+          enforcePlanLimits: true,
           ...(identity.kind === "authenticated"
             ? { clientId: identity.clientId }
             : {

@@ -60,7 +60,7 @@ export type ProductCard = {
 type Filter = "all" | "restock" | "out";
 export type StockMovement = { id: string; actorName: string; reason: string | null; createdAt: string; metadata: Record<string, unknown> | null };
 
-export function ProductsCatalog({ products, movements }: { products: ProductCard[]; movements: StockMovement[] }) {
+export function ProductsCatalog({ products, movements, enabled = true }: { products: ProductCard[]; movements: StockMovement[]; enabled?: boolean }) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
 
@@ -112,7 +112,7 @@ export function ProductsCatalog({ products, movements }: { products: ProductCard
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {shown.map((p) => (
-            <ProductCardView key={p.id} p={p} />
+            <ProductCardView key={p.id} p={p} enabled={enabled} />
           ))}
         </div>
       )}
@@ -128,11 +128,12 @@ export function ProductsCatalog({ products, movements }: { products: ProductCard
   );
 }
 
-function ProductCardView({ p }: { p: ProductCard }) {
+function ProductCardView({ p, enabled }: { p: ProductCard; enabled: boolean }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const margin = p.priceCents > 0 ? (p.priceCents - p.costCents) / p.priceCents : 0;
-  const profit = p.priceCents - p.costCents;
+  const hasCost = p.priceCents > 0 && p.costCents > 0;
+  const margin = hasCost ? (p.priceCents - p.costCents) / p.priceCents : null;
+  const profit = hasCost ? p.priceCents - p.costCents : null;
   const needRestock = p.stock <= p.minStock;
   const stockPct = Math.max(4, Math.min(100, (p.stock / Math.max(1, p.minStock * 3)) * 100));
   const imageSrc = resolveProductImage({
@@ -197,8 +198,8 @@ function ProductCardView({ p }: { p: ProductCard }) {
         </div>
 
         <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-          <Metric label="Margem" value={`${(margin * 100).toFixed(0)}%`} accent={margin >= 0.45 ? "#2ECC8B" : margin >= 0.25 ? "#F59E0B" : "#EF4444"} />
-          <Metric label="Lucro/un" value={formatMoney(profit)} />
+          <Metric label="Margem" value={margin === null ? "—" : `${(margin * 100).toFixed(0)}%`} accent={margin === null ? undefined : margin >= 0.45 ? "#2ECC8B" : margin >= 0.25 ? "#F59E0B" : "#EF4444"} />
+          <Metric label={profit === null ? "Custo" : "Resultado/un"} value={profit === null ? "não informado" : formatMoney(profit)} />
           <Metric label="Vendidos" value={p.sold.toString()} />
         </div>
 
@@ -213,7 +214,7 @@ function ProductCardView({ p }: { p: ProductCard }) {
           <div className="flex items-center gap-2">
             <button
               onClick={() => run(() => adjustStock(p.id, -1, { reason: "Ajuste rápido de saída", kind: "ADJUSTMENT" }))}
-              disabled={pending || p.stock === 0}
+              disabled={!enabled || pending || p.stock === 0}
               aria-label={`Diminuir estoque de ${p.name}`}
               className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-border text-muted-foreground transition hover:bg-card-hover hover:text-foreground disabled:opacity-40"
             >
@@ -224,14 +225,14 @@ function ProductCardView({ p }: { p: ProductCard }) {
             </div>
             <button
               onClick={() => run(() => adjustStock(p.id, 1, { reason: "Ajuste rápido de entrada", kind: "ADJUSTMENT" }))}
-              disabled={pending}
+              disabled={!enabled || pending}
               aria-label={`Aumentar estoque de ${p.name}`}
               className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-border text-muted-foreground transition hover:bg-card-hover hover:text-foreground disabled:opacity-40"
             >
               <Plus className="h-3.5 w-3.5" />
             </button>
           </div>
-          <button onClick={() => setStockDialog(true)} className="mt-2 inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-border text-[11px] font-medium text-muted-foreground transition hover:text-foreground"><PackagePlus className="h-3.5 w-3.5" /> Movimentar estoque</button>
+          <button disabled={!enabled} onClick={() => setStockDialog(true)} className="mt-2 inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-border text-[11px] font-medium text-muted-foreground transition hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"><PackagePlus className="h-3.5 w-3.5" /> Movimentar estoque</button>
         </div>
 
         <div className="mt-3 flex items-center justify-between border-t border-border pt-3 text-[11px] text-muted-foreground">
@@ -245,19 +246,19 @@ function ProductCardView({ p }: { p: ProductCard }) {
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button aria-label={`Mais opções para ${p.name}`} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-card-hover hover:text-foreground">
+              <button disabled={!enabled} aria-label={`Mais opções para ${p.name}`} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-card-hover hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40">
                 {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <ProductForm
-                product={p}
-                trigger={
-                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                    <Pencil className="mr-2 h-3.5 w-3.5" /> Editar
-                  </DropdownMenuItem>
-                }
-              />
+              {enabled && <ProductForm
+                  product={p}
+                  trigger={
+                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                      <Pencil className="mr-2 h-3.5 w-3.5" /> Editar
+                    </DropdownMenuItem>
+                  }
+                />}
               <DropdownMenuItem
                 onSelect={() =>
                   run(() => toggleProductActive(p.id), p.active ? "Produto pausado" : "Produto ativado")
@@ -280,7 +281,7 @@ function ProductCardView({ p }: { p: ProductCard }) {
             <div><label htmlFor={`kind-${p.id}`} className="mb-1 block text-[11px] font-medium text-muted-foreground">Tipo</label><select id={`kind-${p.id}`} value={stockKind} onChange={(event) => setStockKind(event.target.value as typeof stockKind)} className="h-11 w-full rounded-xl border border-border bg-background px-3 text-[13px]"><option value="PURCHASE">Entrada por compra</option><option value="LOSS">Perda ou descarte</option><option value="INVENTORY">Correção de inventário</option><option value="ADJUSTMENT">Outro ajuste</option></select></div>
             <div><label htmlFor={`quantity-${p.id}`} className="mb-1 block text-[11px] font-medium text-muted-foreground">Quantidade</label><input id={`quantity-${p.id}`} type="number" min="1" value={stockDelta} onChange={(event) => setStockDelta(event.target.value)} className="h-11 w-full rounded-xl border border-border bg-background px-3 text-[13px]" /></div>
             <div><label htmlFor={`reason-${p.id}`} className="mb-1 block text-[11px] font-medium text-muted-foreground">Motivo</label><input id={`reason-${p.id}`} value={stockReason} onChange={(event) => setStockReason(event.target.value)} placeholder="Ex.: Nota 123 do fornecedor" className="h-11 w-full rounded-xl border border-border bg-background px-3 text-[13px]" /></div>
-            <button disabled={pending || stockReason.trim().length < 3 || Number(stockDelta) < 1} onClick={() => run(async () => { const quantity = Math.max(1, Math.floor(Number(stockDelta))); const sign = stockKind === "LOSS" ? -1 : 1; await adjustStock(p.id, sign * quantity, { reason: stockReason, kind: stockKind }); setStockDialog(false); setStockReason(""); }, "Movimentação registrada")} className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-[13px] font-semibold text-primary-foreground disabled:opacity-50">{pending && <Loader2 className="h-4 w-4 animate-spin" />} Salvar movimentação</button>
+            <button disabled={!enabled || pending || stockReason.trim().length < 3 || Number(stockDelta) < 1} onClick={() => run(async () => { const quantity = Math.max(1, Math.floor(Number(stockDelta))); const sign = stockKind === "LOSS" ? -1 : 1; await adjustStock(p.id, sign * quantity, { reason: stockReason, kind: stockKind }); setStockDialog(false); setStockReason(""); }, "Movimentação registrada")} className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-[13px] font-semibold text-primary-foreground disabled:opacity-50">{pending && <Loader2 className="h-4 w-4 animate-spin" />} Salvar movimentação</button>
           </div>
         </DialogContent>
       </Dialog>

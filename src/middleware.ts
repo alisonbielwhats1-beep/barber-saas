@@ -12,6 +12,7 @@ import {
 } from "@/lib/runtime-environment";
 
 const PROTECTED_PATH_PREFIXES = [
+  "/hoje",
   "/dashboard",
   "/agenda",
   "/servicos",
@@ -21,6 +22,7 @@ const PROTECTED_PATH_PREFIXES = [
   "/clientes",
   "/configuracoes",
   "/financeiro",
+  "/fechamento",
   "/pacotes",
   "/relatorios",
   "/marketing",

@@ -47,6 +47,7 @@ const receipt = {
   startAt: new Date("2030-01-10T15:00:00.000Z"),
   version: 1,
   priceCents: 5_000,
+  salon: { currency: "BRL" },
   client: { name: "Cliente A" },
   service: { name: "Corte", priceCents: 6_000 },
   serviceItems: [{ serviceName: "Corte snapshot", priceCents: 5_000 }],
@@ -57,6 +58,7 @@ const receipt = {
     discountCents: 500,
     method: "PIX",
     notes: null,
+    currency: "BRL",
     paidAt: new Date("2030-01-10T16:00:00.000Z"),
   },
 };
@@ -149,4 +151,3 @@ describe("boundaries de checkout e recibo", () => {
     expect(mocks.closeComandaReliably).not.toHaveBeenCalled();
   });
 });
-

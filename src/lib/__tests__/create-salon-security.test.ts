@@ -110,14 +110,19 @@ describe("createSalon", () => {
   it("cria salão, membership OWNER e os serviços escolhidos", async () => {
     const res = await createSalon(VALID);
     expect(res.ok).toBe(true);
+    expect(mocks.salonCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          plan: "FREE",
+          accessStatus: "APPROVED",
+          accessReviewedAt: expect.any(Date),
+        }),
+      }),
+    );
     expect(mocks.membershipCreate).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ role: "OWNER" }) }),
     );
-    expect(mocks.accessEventCreateMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ type: "REQUESTED", newStatus: "PENDING" }),
-      }),
-    );
+    expect(mocks.accessEventCreateMany).not.toHaveBeenCalled();
     const created = mocks.serviceCreateMany.mock.calls[0][0].data as {
       name: string;
       priceCents: number;

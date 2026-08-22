@@ -1,10 +1,8 @@
 -- PREFLIGHT SOMENTE LEITURA — NÃO É MIGRATION E NÃO CORRIGE DADOS.
 --
--- AppointmentProduct não possui salonId no schema atual. A policy RLS herda
--- o tenant pelo Appointment pai, mas uma FK futura ainda deve impedir que o
--- productId aponte para Product de outro tenant. Até essa migration aditiva
--- ser desenhada, homologada e explicitamente autorizada, o domínio valida os
--- dois lados antes de criar o vínculo.
+-- A migration manual 012 adiciona salonId, snapshots e FKs compostas. Este
+-- preflight legado continua sendo somente leitura e pode ser usado como gate
+-- de compatibilidade antes de qualquer aplicação da migration.
 --
 -- Gate para qualquer hardening futuro: todas as consultas abaixo devem
 -- retornar zero anomalias e a policy deve continuar habilitada/forçada.
@@ -33,4 +31,3 @@ LEFT JOIN pg_policy pol ON pol.polrelid = c.oid
 WHERE n.nspname = 'public'
   AND c.relname = 'AppointmentProduct'
 GROUP BY c.relrowsecurity, c.relforcerowsecurity;
-

@@ -293,23 +293,27 @@ export default async function DashboardPage({
       )}
 
       {/* ── Hero KPIs ──────────────────────────────────────── */}
-      <section className="stagger grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="stagger grid gap-3 sm:grid-cols-2 xl:grid-cols-12">
         <HeroKpi
+          className="xl:col-span-4"
+          featured
           accent="primary"
           icon={Wallet}
-          label="Faturamento"
+          label="Faturamento de serviços"
           value={formatMoney(m.revenue.value)}
           change={m.revenue.change}
           hint={`${m.appointments.value} atendimentos`}
         />
         <HeroKpi
+          className="xl:col-span-3"
           accent="info"
           icon={PiggyBank}
-          label="Lucro (pós-comissão)"
+          label="Resultado após comissões"
           value={formatMoney(m.profit.value)}
-          hint={`Margem ${(m.profit.margin * 100).toFixed(0)}%`}
+          hint={`Margem após comissão ${(m.profit.margin * 100).toFixed(0)}% · despesas não incluídas`}
         />
         <HeroKpi
+          className="xl:col-span-3"
           accent="marketing"
           icon={Gauge}
           label="Taxa de ocupação"
@@ -317,6 +321,7 @@ export default async function DashboardPage({
           hint={`${Math.round(m.occupancy.idleMinutes / 60)}h ociosas`}
         />
         <HeroKpi
+          className="xl:col-span-2"
           accent="warning"
           icon={Receipt}
           label="Ticket médio"
@@ -528,6 +533,8 @@ const ACCENT: Record<Accent, { chip: string }> = {
 type IconType = React.ComponentType<{ className?: string }>;
 
 function HeroKpi({
+  className = "",
+  featured = false,
   accent,
   icon: Icon,
   label,
@@ -535,6 +542,8 @@ function HeroKpi({
   change,
   hint,
 }: {
+  className?: string;
+  featured?: boolean;
   accent: Accent;
   icon: IconType;
   label: string;
@@ -543,7 +552,13 @@ function HeroKpi({
   hint?: string;
 }) {
   return (
-    <div className="card-interactive rounded-2xl border border-border bg-card p-5">
+    <div
+      className={`card-interactive rounded-2xl border p-5 ${
+        featured
+          ? "border-primary/30 bg-gradient-to-br from-primary/10 via-card to-card shadow-[0_18px_40px_-28px_hsl(var(--primary)/0.7)] sm:p-6"
+          : "border-border bg-card"
+      } ${className}`}
+    >
       <div className="flex items-center justify-between">
         <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
           {label}
@@ -552,7 +567,9 @@ function HeroKpi({
           <Icon className="h-4 w-4" />
         </span>
       </div>
-      <p className="mt-3 text-[28px] font-semibold leading-none tracking-tight">{value}</p>
+      <p className={`mt-3 font-semibold leading-none tracking-tight ${featured ? "text-3xl" : "text-[28px]"}`}>
+        {value}
+      </p>
       <div className="mt-2 flex items-center gap-2">
         {change != null && <TrendBadge change={change} />}
         {hint && <span className="text-[12px] text-muted-foreground">{hint}</span>}

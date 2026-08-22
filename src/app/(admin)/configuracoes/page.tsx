@@ -8,12 +8,13 @@ import { AccessManager, type Member } from "./access-manager";
 import { BrandingForm } from "./branding-form";
 import { ClosuresManager, type Closure } from "./closures-manager";
 import { ProfileForm } from "./profile-form";
+import { getPlanEntitlement } from "@/lib/plan-entitlements";
 
 const PLAN_LABEL: Record<string, string> = {
   FREE: "Grátis",
-  STARTER: "Starter",
+  STARTER: "Fundador",
   PRO: "Pro",
-  ENTERPRISE: "Enterprise",
+  ENTERPRISE: "Equipe",
 };
 
 export default async function ConfiguracoesPage() {
@@ -81,6 +82,7 @@ export default async function ConfiguracoesPage() {
   });
 
   if (!salon || !profile) return null;
+  const entitlement = getPlanEntitlement(salon.plan);
 
   const members: Member[] = memberships.map((m) => ({
     userId: m.user.id,
@@ -109,8 +111,15 @@ export default async function ConfiguracoesPage() {
           <div>
             <p className="text-[13px] font-semibold">Plano {PLAN_LABEL[salon.plan] ?? salon.plan}</p>
             <p className="text-[11px] text-muted-foreground">
-              {salon.plan === "FREE" ? "Faça upgrade para desbloquear mais recursos." : "Assinatura ativa."}
+              {salon.plan === "FREE"
+                ? `1 agenda · até ${entitlement.monthlyAppointments} agendamentos por mês`
+                : `${entitlement.maxProfessionals} agendas incluídas · sem taxa por cliente`}
             </p>
+            {salon.plan !== "FREE" && entitlement.priceCents > 0 && (
+              <p className="mt-1 text-[11px] font-medium text-primary">
+                R$ {(entitlement.priceCents / 100).toFixed(2).replace(".", ",")}/mês
+              </p>
+            )}
           </div>
         </div>
         <span className="rounded-full border border-border bg-card px-3 py-1 text-[11px] text-muted-foreground">Gestão administrativa</span>

@@ -148,6 +148,26 @@ jobs:
           npx prisma db execute
           --file prisma/sql/manual/010_platform_access_approval.sql
           --url "$DIRECT_URL"
+      - name: Run read-only tenant-aware product preflight
+        run: >-
+          npx prisma db execute
+          --file prisma/sql/manual/012_appointment_product_tenant_snapshots.preflight.sql
+          --url "$DIRECT_URL"
+      - name: Apply tenant-aware appointment product migration
+        run: >-
+          npx prisma db execute
+          --file prisma/sql/manual/012_appointment_product_tenant_snapshots.sql
+          --url "$DIRECT_URL"
+      - name: Run read-only operational index preflight
+        run: >-
+          npx prisma db execute
+          --file prisma/sql/manual/013_operational_query_indexes.preflight.sql
+          --url "$DIRECT_URL"
+      - name: Apply operational query indexes
+        run: >-
+          npx prisma db execute
+          --file prisma/sql/manual/013_operational_query_indexes.sql
+          --url "$DIRECT_URL"
       - name: Validate Prisma schema
         run: npx prisma validate
       - name: Seed disposable database
@@ -168,4 +188,14 @@ jobs:
         run: >-
           npx prisma db execute
           --file prisma/sql/manual/010_platform_access_approval.rollback.sql
+          --url "$DIRECT_URL"
+      - name: Prove non-destructive appointment product rollback SQL
+        run: >-
+          npx prisma db execute
+          --file prisma/sql/manual/012_appointment_product_tenant_snapshots.rollback.sql
+          --url "$DIRECT_URL"
+      - name: Prove operational index rollback SQL
+        run: >-
+          npx prisma db execute
+          --file prisma/sql/manual/013_operational_query_indexes.rollback.sql
           --url "$DIRECT_URL"

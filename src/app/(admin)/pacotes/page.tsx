@@ -4,6 +4,7 @@ import { withTenant } from "@/lib/prisma-tenant";
 import { formatMoney } from "@/lib/utils";
 import { Layers, CircleDollarSign, BadgePercent, TrendingUp } from "lucide-react";
 import { PacotesView } from "./pacotes-view";
+import { canUsePlanFeature } from "@/lib/plan-entitlements";
 
 export default async function PacotesPage() {
   const ctx = await requireRole(MANAGEMENT_ROLES);
@@ -13,9 +14,10 @@ export default async function PacotesPage() {
   // 6 queries em Promise.all estouravam o timeout do pool (P2024). Rodar
   // dentro de withTenant vai além: as 6 passam a usar uma única conexão em
   // vez de 6 aquisições separadas do pool.
-  const { packages, purchases, plans, subscriptions, clients, services } = await withTenant(
+  const { packages, purchases, plans, subscriptions, clients, services, plan } = await withTenant(
     ctx,
     async (tx) => {
+      const salon = await tx.salon.findUnique({ where: { id: salonId }, select: { plan: true } });
       const packages = await tx.package.findMany({
         where: { salonId },
         orderBy: { createdAt: "desc" },
@@ -55,7 +57,7 @@ export default async function PacotesPage() {
       });
       const clients = await tx.clientProfile.findMany({ where: { salonId }, select: { id: true, name: true }, orderBy: { name: "asc" } });
       const services = await tx.service.findMany({ where: { salonId, active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } });
-      return { packages, purchases, plans, subscriptions, clients, services };
+      return { packages, purchases, plans, subscriptions, clients, services, plan: salon?.plan };
     },
   );
 
@@ -87,6 +89,7 @@ export default async function PacotesPage() {
     id: s.id, clientName: s.client.name, planName: s.plan.name, interval: s.plan.interval,
     priceCents: s.plan.priceCents, renewsAt: s.renewsAt.toISOString(), status: s.status,
   }));
+  const packagesEnabled = canUsePlanFeature(plan, "PACKAGES");
 
   return (
     <div className="space-y-6">
@@ -96,6 +99,13 @@ export default async function PacotesPage() {
         </p>
         <h1 className="text-[26px] font-semibold tracking-tight">Pacotes & Planos</h1>
       </header>
+
+      {!packagesEnabled && (
+        <section className="rounded-2xl border border-primary/25 bg-primary/5 px-4 py-3 text-[12px] text-muted-foreground">
+          <strong className="text-foreground">Pacotes e planos recorrentes ficam disponíveis no plano Fundador.</strong>{" "}
+          Consulte os dados existentes e faça upgrade quando quiser ativar novas ofertas.
+        </section>
+      )}
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi icon={Layers} accent="#3B9EFF" label="Pacotes ativos" value={activePackages.toString()} />
@@ -111,6 +121,7 @@ export default async function PacotesPage() {
         subscriptions={subRows}
         clients={clients}
         services={services}
+        enabled={packagesEnabled}
       />
     </div>
   );

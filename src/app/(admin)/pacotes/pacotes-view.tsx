@@ -42,7 +42,7 @@ const SUB_STATUS: Record<string, { label: string; color: string }> = {
 };
 
 export function PacotesView({
-  packages, purchases, plans, subscriptions, clients, services,
+  packages, purchases, plans, subscriptions, clients, services, enabled = true,
 }: {
   packages: PackageRow[];
   purchases: PurchaseRow[];
@@ -50,6 +50,7 @@ export function PacotesView({
   subscriptions: SubRow[];
   clients: { id: string; name: string }[];
   services: { id: string; name: string }[];
+  enabled?: boolean;
 }) {
   const [tab, setTab] = useState<"packages" | "plans">("packages");
   const router = useRouter();
@@ -77,7 +78,7 @@ export function PacotesView({
       {tab === "packages" ? (
         <>
           {/* Ofertas de pacote */}
-          <SectionHead title="Ofertas de pacote" action={<PackageForm services={services} />} />
+          <SectionHead title="Ofertas de pacote" action={enabled ? <PackageForm services={services} /> : undefined} />
           {packages.length === 0 ? (
             <Empty title="Nenhum pacote criado. Crie a primeira oferta." />
           ) : (
@@ -104,18 +105,19 @@ export function PacotesView({
                   </div>
                   <div className="mt-4 flex items-center gap-2 border-t border-border pt-3">
                     <button
+                      disabled={!enabled}
                       onClick={() => setPicker({ title: `Vender "${p.name}"`, onConfirm: (cid) => sellPackage(p.id, cid) })}
                       className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-[12px] font-semibold text-primary-foreground transition hover:opacity-90"
                     >
                       <ShoppingCart className="h-3.5 w-3.5" /> Vender
                     </button>
-                    <OfferMenu
+                    {enabled && <OfferMenu
                       onEdit={<PackageForm services={services} pkg={p} trigger={<DropdownMenuItem onSelect={(e) => e.preventDefault()}>Editar</DropdownMenuItem>} />}
                       onToggle={() => run(() => togglePackageActive(p.id))}
                       active={p.active}
                       onDelete={() => run(() => deletePackage(p.id))}
                       pending={pending}
-                    />
+                    />}
                   </div>
                 </div>
               ))}
@@ -148,7 +150,7 @@ export function PacotesView({
                     <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: `${cfg.color}1f`, color: cfg.color }}>{cfg.label}</span>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <button className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-card-hover hover:text-foreground">
+                        <button disabled={!enabled} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-card-hover hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40">
                           {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
                         </button>
                       </DropdownMenuTrigger>
@@ -183,7 +185,7 @@ export function PacotesView({
       ) : (
         <>
           {/* Planos */}
-          <SectionHead title="Planos de assinatura" action={<PlanForm />} />
+          <SectionHead title="Planos de assinatura" action={enabled ? <PlanForm /> : undefined} />
           {plans.length === 0 ? (
             <Empty title="Nenhum plano criado. Crie a primeira assinatura." />
           ) : (
@@ -205,18 +207,19 @@ export function PacotesView({
                   {p.benefits && <p className="mt-2 line-clamp-2 text-[11px] text-muted-foreground">{p.benefits}</p>}
                   <div className="mt-4 flex items-center gap-2 border-t border-border pt-3">
                     <button
+                      disabled={!enabled}
                       onClick={() => setPicker({ title: `Assinar "${p.name}"`, onConfirm: (cid) => subscribeClient(p.id, cid) })}
                       className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-[12px] font-semibold text-primary-foreground transition hover:opacity-90"
                     >
                       <ShoppingCart className="h-3.5 w-3.5" /> Assinar
                     </button>
-                    <OfferMenu
+                    {enabled && <OfferMenu
                       onEdit={<PlanForm plan={p} trigger={<DropdownMenuItem onSelect={(e) => e.preventDefault()}>Editar</DropdownMenuItem>} />}
                       onToggle={() => run(() => togglePlanActive(p.id))}
                       active={p.active}
                       onDelete={() => run(() => deletePlan(p.id))}
                       pending={pending}
-                    />
+                    />}
                   </div>
                 </div>
               ))}
@@ -240,7 +243,7 @@ export function PacotesView({
                     <p className="hidden text-[12px] text-muted-foreground sm:block">{formatMoney(s.priceCents)}/{s.interval === "ANNUAL" ? "ano" : "mês"}</p>
                     <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: `${cfg.color}1f`, color: cfg.color }}>{cfg.label}</span>
                     {s.status === "ACTIVE" && (
-                      <button onClick={() => run(() => cancelSubscription(s.id))} disabled={pending} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted-foreground hover:text-danger" title="Cancelar assinatura">
+                      <button onClick={() => run(() => cancelSubscription(s.id))} disabled={!enabled || pending} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted-foreground hover:text-danger" title="Cancelar assinatura">
                         <Ban className="h-3.5 w-3.5" />
                       </button>
                     )}

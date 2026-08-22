@@ -63,7 +63,7 @@ export function NotificationList({
   const unread = notifications.filter((notification) => !notification.readAt).length;
 
   useEffect(() => {
-    const id = window.setInterval(() => router.refresh(), 30_000);
+    const id = window.setInterval(() => router.refresh(), 60_000);
     return () => window.clearInterval(id);
   }, [router]);
 

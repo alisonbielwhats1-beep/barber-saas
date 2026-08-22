@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { withSalonBySlug } from "@/lib/prisma-tenant";
+import { resolvePortfolioImage } from "@/lib/images";
 import { CartBadge } from "../cart-badge";
 
 export default async function ClientPortfolio({
@@ -52,13 +53,13 @@ export default async function ClientPortfolio({
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-2">
-          {salon.portfolio.map((it) => (
+          {salon.portfolio.map((it, index) => (
             <div
               key={it.id}
               className="relative aspect-[3/4] overflow-hidden rounded-xl bg-muted"
             >
               <Image
-                src={it.imageUrl}
+                src={resolvePortfolioImage(it.imageUrl, index)}
                 alt={it.caption ?? "Trabalho"}
                 fill
                 sizes="45vw"

@@ -1,8 +1,8 @@
 # Status atual canônico — Salon SaaS
 
-Atualizado em **13/08/2026** após os PRs
-[#50](https://github.com/alisonbielwhats1-beep/barber-saas/pull/50) e
-[#51](https://github.com/alisonbielwhats1-beep/barber-saas/pull/51).
+Atualizado em **22/08/2026** após a aplicação autorizada das migrations manuais
+012 e 013 no Supabase Production. O código desta onda ainda aguarda a
+promoção final pelo PR de release.
 Este arquivo substitui os status históricos quando houver contradição.
 
 ## Identificação da versão
@@ -80,6 +80,11 @@ Este arquivo substitui os status históricos quando houver contradição.
   `010_platform_access_approval` pertencem às versões produtivas atuais.
   Como são SQL manual, confirme objetos e policies com consultas somente
   leitura antes de qualquer migration futura; não as reaplique cegamente.
+- A migration manual `012_appointment_product_tenant_snapshots` foi aplicada
+  após preflight produtivo com zero vínculos cross-tenant, zero órfãos e zero
+  pagamentos sem salão. O backfill terminou sem snapshots nulos.
+- A migration manual `013_operational_query_indexes` foi aplicada e os cinco
+  índices operacionais foram confirmados em `pg_indexes`.
 
 ### Não aplicado
 
@@ -237,12 +242,12 @@ hotfix do PR #51 fechou a incompatibilidade de lock público com a role runtime.
 
 ### Limitações deliberadamente não resolvidas
 
-- `AppointmentProduct` ainda não possui `salonId`; a aplicação valida e trava o
-  tenant, mas a defesa estrutural ideal exige migration tenant-aware aditiva;
-- o recibo preserva pagamento, preço e quantidade, porém nome do produto e
-  moeda ainda vêm do catálogo/configuração atuais, sem snapshot fiscal;
-- não houve migration, alteração de schema, variável remota ou mutação de dados
-  do Supabase nesta wave.
+- O código da onda ainda precisa ser promovido pelo PR de release e verificado
+  nas rotas administrativas e públicas após o deploy.
+- O recibo continua interno, não fiscal, embora agora preserve nome do produto
+  e moeda como snapshots persistidos.
+- Billing automático, pagamento online, Realtime tenant-aware e múltiplas
+  unidades continuam fora do escopo.
 
 ## Evidências da entrega implantada no PR #48
 
@@ -258,10 +263,8 @@ hotfix do PR #51 fechou a incompatibilidade de lock público com a role runtime.
 
 ## Pendências reais e priorizadas
 
-1. Criar a migration tenant-aware de `AppointmentProduct`, com preflight,
-   backfill, constraints compostas, RLS e rollback, apenas após staging e nova
-   autorização; incluir snapshots persistentes de nome do produto e moeda em
-   uma decisão de schema própria.
+1. Finalizar o PR de release, promover o código e verificar home, dashboard,
+   agenda, fechamento e vitrine pública após o deploy.
 2. Confirmar manualmente o primeiro login do administrador principal e a
    promoção para `SUPER_ADMIN`; nenhuma senha foi acessada pelo agente.
 3. Criar/identificar Supabase de homologação separado antes da migration `011`.
