@@ -1,21 +1,21 @@
 # Status atual canônico — Salon SaaS
 
-Atualizado em **22/08/2026** após a aplicação autorizada das migrations manuais
-012 e 013 no Supabase Production. O código desta onda ainda aguarda a
-promoção final pelo PR de release.
+Atualizado em **22/08/2026** após a promoção autorizada do PR de avaliações e
+identidade de clientes para Production. As migrations manuais 012, 013, 014 e
+015 foram aplicadas/verificadas no Supabase Production.
 Este arquivo substitui os status históricos quando houver contradição.
 
 ## Identificação da versão
 
 - Repositório: `alisonbielwhats1-beep/barber-saas`
 - Branch produtiva: `master`
-- Commit funcional da aplicação: `646512399ca9b9dd45a4a8eb524a79dc6fec1dd4`
+- Commit funcional da aplicação: `040c3bb1f5f9bf0708f24de10b82f128809c2aed`
 - Vercel: projeto `salon-saas`
-- Deploy do commit: `dpl_65KHBGkS2SGbd6HdMGTCKopLqV6B`, estado `READY`
+- Deploy do commit: `dpl_6ffXYCRE8p6ezBpu5r7K8yoySg5G`, estado `READY`
 - URL oficial: [salon-saas-ruby.vercel.app](https://salon-saas-ruby.vercel.app)
 - Região das Functions: `gru1`
 - Banco/Storage: Supabase do projeto de barbearia
-- Erros de runtime logo após o deploy: nenhum encontrado
+- Erros de runtime logo após o deploy: nenhum encontrado nos últimos 30 minutos
 
 ## O que está em Production
 
@@ -27,12 +27,16 @@ Este arquivo substitui os status históricos quando houver contradição.
 - notificações internas e lembretes pelo cron;
 - permissões por papel, com financeiro bloqueado para profissional;
 - seletor de tenant para usuários com múltiplos vínculos.
+- avaliações verificadas no painel, com distribuição, média e moderação sem
+  exclusão;
 
 ### Cliente
 
 - vitrine pública por `salonSlug`;
 - seleção de múltiplos serviços, profissional, data e horário;
 - seleção automática quando somente um profissional realiza todos os serviços;
+- avaliações públicas por atendimento concluído, com nota, comentário e nome
+  anonimizado;
 - CTA de agendamento fixo na viewport e revisão final antes da confirmação;
 - criação idempotente, histórico, reagendamento e cancelamento;
 - fluxo explícito mobile e barra inferior com safe area;
