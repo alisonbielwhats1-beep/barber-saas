@@ -119,10 +119,10 @@ export function SidebarNav({
   const pathname = usePathname();
 
   return (
-    <nav className="flex-1 space-y-4 px-3 pb-4">
+    <nav aria-label="Navegação principal" className="flex-1 space-y-4 px-3 pb-4">
       {visibleGroups(role).map((group) => (
         <div key={group.title}>
-          <p className="mb-1 px-2.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+          <p className="mb-1 px-2.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
             {group.title}
           </p>
           <div className="space-y-0.5">
@@ -173,7 +173,7 @@ function NavRow({
   if (soon) {
     return (
       <div
-        className="flex cursor-default items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] text-muted-foreground/45"
+        className="flex min-h-11 cursor-default items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] text-muted-foreground/45"
         title="Em breve"
       >
         <Icon className="h-3.5 w-3.5 shrink-0" />
@@ -189,8 +189,9 @@ function NavRow({
     <Link
       href={href}
       prefetch={false}
+      aria-current={active ? "page" : undefined}
       className={cn(
-        "relative flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] transition-colors",
+        "relative flex min-h-11 items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         active
           ? "bg-primary/10 font-medium text-foreground"
           : "text-muted-foreground hover:bg-card-hover hover:text-foreground",

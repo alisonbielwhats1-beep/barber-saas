@@ -1,7 +1,21 @@
 import { formatInTimeZone, fromZonedTime, toZonedTime } from "date-fns-tz";
 import type { Locale } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 export const DEFAULT_TIMEZONE = "America/Sao_Paulo";
+
+/**
+ * Rótulo único para intervalos já resolvidos como datas inclusivas.
+ * Mantém Dashboard, Financeiro e Relatórios com a mesma leitura de período.
+ */
+export function formatPeriodLabel(from: Date, to: Date, timeZone: string): string {
+  const fromDate = formatInTimeZone(from, timeZone, "yyyy-MM-dd");
+  const toDate = formatInTimeZone(to, timeZone, "yyyy-MM-dd");
+  if (fromDate === toDate) {
+    return formatInTimeZone(from, timeZone, "d MMM yyyy", { locale: ptBR });
+  }
+  return `${formatInTimeZone(from, timeZone, "d MMM", { locale: ptBR })} – ${formatInTimeZone(to, timeZone, "d MMM yyyy", { locale: ptBR })}`;
+}
 
 const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
 const WALL_TIME = /^(?:[01]\d|2[0-3]):[0-5]\d$/;

@@ -82,14 +82,16 @@ export default async function ProfissionaisPage() {
     return { perf, services, pendingInvites, timezone: salon.timezone };
   });
 
-  const monthLabel = formatInTimeZone(perf.period.from, timezone, "MMMM yyyy", { locale: ptBR });
+  const monthLabel = formatInTimeZone(perf.period.from, timezone, "MMMM 'de' yyyy", { locale: ptBR });
+  const periodEnd = new Date(perf.period.to.getTime() - 1);
+  const periodLabel = `${formatInTimeZone(perf.period.from, timezone, "d", { locale: ptBR })}–${formatInTimeZone(periodEnd, timezone, "d", { locale: ptBR })} de ${monthLabel}`;
 
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="mb-1 text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
-            Equipe · <span className="capitalize">{monthLabel}</span>
+            Equipe · <span className="capitalize">{periodLabel}</span>
           </p>
           <h1 className="text-[26px] font-semibold tracking-tight">
             {isProfessional ? "Meu perfil profissional" : "Profissionais"}
@@ -103,7 +105,7 @@ export default async function ProfissionaisPage() {
         <section className={`grid grid-cols-2 gap-3 ${canSeeFinancial ? "lg:grid-cols-4" : "lg:grid-cols-2"}`}>
           <Overview icon={Users} accent="#3B9EFF" label="Equipe ativa" value={perf.team.activeCount.toString()} />
           {canSeeFinancial && (
-            <Overview icon={CircleDollarSign} accent="#2ECC8B" label="Receita no mês" value={formatMoney(perf.team.revenue)} />
+            <Overview icon={CircleDollarSign} accent="#2ECC8B" label="Receita do período" value={formatMoney(perf.team.revenue)} />
           )}
           <Overview icon={CalendarCheck} accent="#A855F7" label="Atendimentos" value={perf.team.appointments.toString()} />
           {canSeeFinancial && (
@@ -174,7 +176,7 @@ export default async function ProfissionaisPage() {
               {/* Meta */}
               {canSeeFinancial && <div className="mt-4 rounded-xl bg-surface-1 p-3">
                 <div className="mb-1.5 flex items-center justify-between text-[11px]">
-                  <span className="flex items-center gap-1 text-muted-foreground"><Target className="h-3 w-3" /> Meta do mês</span>
+                  <span className="flex items-center gap-1 text-muted-foreground"><Target className="h-3 w-3" /> Meta do período</span>
                   <span className="font-medium">
                     {formatMoney(p.revenue)} <span className="text-muted-foreground">/ {formatMoney(p.goalCents)}</span>
                   </span>
@@ -189,7 +191,7 @@ export default async function ProfissionaisPage() {
                   />
                 </div>
                 <p className="mt-1 text-right text-[10px] text-muted-foreground">
-                  {(p.goalPct * 100).toFixed(0)}% da meta{p.goalPct >= 1 ? " · batida! 🎉" : ""}
+                  {(p.goalPct * 100).toFixed(0)}% da meta{p.goalPct >= 1 ? " · atingida" : ""}
                 </p>
               </div>}
 

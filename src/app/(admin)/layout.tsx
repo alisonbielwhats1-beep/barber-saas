@@ -61,7 +61,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     />
     <div className="admin-shell flex h-dvh overflow-hidden text-foreground">
       {/* ── Sidebar ─────────────────────────────────────── */}
-      <aside className="admin-sidebar scrollbar-dark hidden w-56 shrink-0 flex-col overflow-y-auto border-r border-border md:flex print:hidden">
+      <aside className="admin-sidebar scrollbar-dark hidden w-56 shrink-0 flex-col overflow-y-auto border-r border-border lg:flex print:hidden">
         {/* Logo */}
         <div className="flex h-14 shrink-0 items-center gap-2.5 px-4">
           <span className="admin-brand-mark grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-primary">
@@ -95,7 +95,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
       {/* ── Main content ─────────────────────────────────── */}
       <main className="admin-main scrollbar-dark min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
-        <div className="mx-auto w-full min-w-0 max-w-[1400px] p-4 pb-24 sm:p-6 md:p-8 md:pb-8">{children}</div>
+        <div className="mx-auto w-full min-w-0 max-w-[1400px] p-4 pb-24 sm:p-6 md:p-8 lg:pb-8">{children}</div>
       </main>
 
       <MobileNav role={role} unreadNotifications={unreadNotifications} isPlatformAdmin={platformAdmin} />

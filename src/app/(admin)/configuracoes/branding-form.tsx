@@ -92,7 +92,7 @@ export function BrandingForm({ branding }: { branding: Branding }) {
           <select
             value={segment}
             onChange={(e) => setSegment(e.target.value)}
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                className="flex min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm"
           >
             <option value="">Não definido</option>
             {SEGMENTS.map((s) => (
@@ -227,7 +227,7 @@ export function BrandingForm({ branding }: { branding: Branding }) {
                 type="button"
                 onClick={() => toggleMethod(value)}
                 aria-pressed={on}
-                className={`rounded-full border px-3 py-1.5 text-[13px] transition ${
+                className={`min-h-11 rounded-full border px-3 py-1.5 text-[13px] transition ${
                   on
                     ? "border-primary/50 bg-primary/10 text-foreground"
                     : "border-border bg-card text-muted-foreground"

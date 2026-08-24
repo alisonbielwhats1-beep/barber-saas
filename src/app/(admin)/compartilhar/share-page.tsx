@@ -13,6 +13,13 @@ import {
   Building2,
   HandCoins,
   UserPlus,
+  ChevronDown,
+  Instagram,
+  MapPin,
+  Megaphone,
+  MessageCircle,
+  Printer,
+  Sprout,
 } from "lucide-react";
 import { buildManualPixMessage, buildReferralMessage } from "@/lib/growth-tools";
 
@@ -88,11 +95,11 @@ export function SharePage({ salon, bookingUrl }: { salon: Salon; bookingUrl: str
   }
 
   const tips = [
-    { icon: "🖨️", text: "Imprima o QR Code e coloque num porta-retrato na recepção" },
-    { icon: "📸", text: "Adicione o link na bio do Instagram e TikTok" },
-    { icon: "💬", text: "Envie a mensagem do WhatsApp para seus grupos de clientes" },
-    { icon: "📍", text: "Cadastre o link no Google Meu Negócio do salão" },
-    { icon: "🪧", text: "Cole numa plaquinha perto do espelho com 'Agende online'" },
+    { icon: Printer, text: "Imprima o QR Code e coloque num porta-retrato na recepção" },
+    { icon: Instagram, text: "Adicione o link na bio do Instagram e TikTok" },
+    { icon: MessageCircle, text: "Envie a mensagem do WhatsApp para seus grupos de clientes" },
+    { icon: MapPin, text: "Cadastre o link no Google Meu Negócio do salão" },
+    { icon: Megaphone, text: "Cole numa plaquinha perto do espelho com 'Agende online'" },
   ];
 
   return (
@@ -161,8 +168,9 @@ export function SharePage({ salon, bookingUrl }: { salon: Salon; bookingUrl: str
                   {bookingUrl}
                 </span>
               </div>
-              <div className="px-3 py-3 text-[12px] text-muted-foreground">
-                🌿 Agendamento online · {salon.name}
+              <div className="flex items-center gap-1.5 px-3 py-3 text-[12px] text-muted-foreground">
+                <Sprout aria-hidden="true" className="h-3.5 w-3.5 text-primary" />
+                Agendamento online · {salon.name}
               </div>
             </div>
           </div>
@@ -332,22 +340,30 @@ export function SharePage({ salon, bookingUrl }: { salon: Salon; bookingUrl: str
       </div>
 
       {/* ── Dicas ────────────────────────────────────────────────────── */}
-      <div className="rounded-2xl border border-border bg-card p-5">
-        <div className="flex items-center gap-2">
+      <details className="group rounded-2xl border border-border bg-card">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 p-5 [&::-webkit-details-marker]:hidden">
           <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary/10">
-            <Lightbulb className="h-4 w-4 text-primary" />
+            <Lightbulb aria-hidden="true" className="h-4 w-4 text-primary" />
           </span>
-          <p className="text-[13px] font-semibold">Dicas de divulgação</p>
+          <span className="text-[13px] font-semibold">Dicas de divulgação</span>
+          <span className="ml-auto flex items-center gap-2 text-[11px] text-muted-foreground">
+            Ver dicas
+            <ChevronDown aria-hidden="true" className="h-4 w-4 transition-transform group-open:rotate-180" />
+          </span>
+        </summary>
+        <div className="border-t border-border px-5 pb-5 pt-4">
+          <ul className="space-y-3">
+            {tips.map(({ icon: TipIcon, text }) => (
+              <li key={text} className="flex items-start gap-3">
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-surface-1 text-muted-foreground">
+                  <TipIcon aria-hidden="true" className="h-4 w-4" />
+                </span>
+                <span className="pt-1 text-[13px] leading-snug text-muted-foreground">{text}</span>
+              </li>
+            ))}
+          </ul>
         </div>
-        <ul className="mt-4 space-y-3">
-          {tips.map((t) => (
-            <li key={t.text} className="flex items-start gap-3">
-              <span className="text-base leading-none">{t.icon}</span>
-              <span className="text-[13px] leading-snug text-muted-foreground">{t.text}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
+      </details>
     </div>
   );
 }

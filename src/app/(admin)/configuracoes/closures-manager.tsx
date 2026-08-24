@@ -7,6 +7,7 @@ import { formatInTimeZone } from "date-fns-tz";
 import { CalendarOff, Plus, Trash2, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { createSalonClosure, deleteSalonClosure } from "../agenda/actions";
 
 export type Closure = {
@@ -125,15 +126,15 @@ export function ClosuresManager({
                   {c.reason && <p className="truncate text-[11px] text-muted-foreground">{c.reason}</p>}
                 </div>
                 {canManage && (
-                  <button
+                  <IconButton
+                    label="Remover bloqueio"
                     type="button"
                     disabled={pending}
                     onClick={() => run(() => deleteSalonClosure(c.id))}
-                    className="shrink-0 rounded-lg p-1.5 text-muted-foreground transition hover:bg-danger/10 hover:text-danger disabled:opacity-50"
-                    aria-label="Remover bloqueio"
+                    className="shrink-0 hover:bg-danger/10 hover:text-danger"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                  </IconButton>
                 )}
               </li>
             );

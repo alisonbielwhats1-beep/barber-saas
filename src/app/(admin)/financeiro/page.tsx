@@ -1,10 +1,10 @@
+import Link from "next/link";
 import { requireRole, FINANCE_ROLES } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
 import { getFinanceMetrics } from "@/lib/finance";
 import { RANGE_LABELS, type RangeKey } from "@/lib/dashboard";
+import { formatPeriodLabel } from "@/lib/time";
 import { formatMoney } from "@/lib/utils";
-import { ptBR } from "date-fns/locale";
-import { formatInTimeZone } from "date-fns-tz";
 import {
   Wallet,
   TrendingDown,
@@ -19,6 +19,8 @@ import {
   Activity,
   CreditCard,
   Layers,
+  ArrowRight,
+  ChevronDown,
 } from "lucide-react";
 import { RangeFilter } from "../dashboard/range-filter";
 import { DonutChart } from "../dashboard/donut-chart";
@@ -65,6 +67,7 @@ export default async function FinanceiroPage({
     })) as ExpenseRow[];
     return { m, expenseRows, timezone: salon.timezone };
   });
+  const received = m.byMethod.reduce((sum, item) => sum + item.value, 0);
 
   return (
     <div className="space-y-6">
@@ -78,7 +81,7 @@ export default async function FinanceiroPage({
               {RANGE_LABELS[range]}
             </span>
             <span className="text-[11px] text-muted-foreground">
-              {formatInTimeZone(m.period.from, timezone, "d MMM", { locale: ptBR })} – {formatInTimeZone(m.period.to, timezone, "d MMM yyyy", { locale: ptBR })}
+              {formatPeriodLabel(m.period.from, m.period.to, timezone)}
             </span>
           </div>
           <h1 className="text-[26px] font-semibold tracking-tight">Financeiro</h1>
@@ -86,23 +89,55 @@ export default async function FinanceiroPage({
         <RangeFilter current={range} />
       </header>
 
-      {/* Hero KPIs */}
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Hero accent="#2ECC8B" icon={Wallet} label="Receita" value={formatMoney(m.revenue)} hint={`${formatMoney(m.serviceRevenue)} serviços · ${formatMoney(m.productRevenue)} produtos`} />
-        <Hero accent="#EF4444" icon={TrendingDown} label="Despesas" value={formatMoney(m.expenseTotal)} hint={`${formatMoney(m.expenseFixed)} fixas · ${formatMoney(m.expenseVar)} variáveis`} />
-        <Hero accent="#3B9EFF" icon={PiggyBank} label="Lucro líquido" value={formatMoney(m.netProfit)} hint="Após comissões e despesas" />
-        <Hero accent="#A855F7" icon={Percent} label="Margem líquida" value={`${(m.margin * 100).toFixed(0)}%`} hint="Lucro ÷ receita" />
+      {/* Posição financeira: uma leitura curta antes do detalhamento. */}
+      <section aria-labelledby="finance-position-title" className="space-y-3">
+        <div>
+          <h2 id="finance-position-title" className="text-[15px] font-semibold">Posição do período</h2>
+          <p className="mt-1 text-[12px] text-muted-foreground">
+            Recebido é pagamento registrado; realizado considera atendimentos concluídos; a receber são reservas futuras ativas.
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <Hero featured accent="#2ECC8B" icon={Wallet} label="Recebido" value={formatMoney(received)} hint={`${formatMoney(m.revenue)} realizado · ${m.byMethod.length} formas`} />
+          <Hero accent="#3B9EFF" icon={ArrowDownCircle} label="A receber" value={formatMoney(m.receivable)} hint="Agendamentos futuros ativos" />
+          <Hero accent="#EF4444" icon={TrendingDown} label="Despesas" value={formatMoney(m.expenseTotal)} hint={`${formatMoney(m.expenseFixed)} fixas · ${formatMoney(m.expenseVar)} variáveis`} />
+          <Hero accent={m.netProfit >= 0 ? "#2ECC8B" : "#EF4444"} icon={PiggyBank} label="Resultado líquido" value={formatMoney(m.netProfit)} hint={`Margem líquida ${(m.margin * 100).toFixed(0)}%`} />
+        </div>
       </section>
 
-      {/* Tiles */}
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
-        <Tile accent="#2ECC8B" icon={Scissors} label="Receita serviços" value={formatMoney(m.serviceRevenue)} />
-        <Tile accent="#2ECC8B" icon={Package} label="Receita produtos" value={formatMoney(m.productRevenue)} />
-        <Tile accent="#F59E0B" icon={HandCoins} label="Comissões" value={formatMoney(m.commissions)} />
-        <Tile accent="#3B9EFF" icon={PiggyBank} label="Lucro bruto" value={formatMoney(m.grossProfit)} />
-        <Tile accent="#2ECC8B" icon={ArrowDownCircle} label="A receber" value={formatMoney(m.receivable)} />
-        <Tile accent="#EF4444" icon={ArrowUpCircle} label="A pagar" value={formatMoney(m.payable)} />
-      </section>
+      {(m.receivable > 0 || m.payable > 0) && (
+        <section aria-labelledby="finance-pending-title" className="rounded-2xl border border-border bg-card p-4 sm:p-5">
+          <div className="mb-3 flex items-center gap-2">
+            <Activity className="h-4 w-4 text-muted-foreground" />
+            <div>
+              <h2 id="finance-pending-title" className="text-[13px] font-semibold">Pendências que pedem ação</h2>
+              <p className="text-[11px] text-muted-foreground">Acompanhe o que ainda pode virar caixa ou sair do caixa.</p>
+            </div>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {m.receivable > 0 && (
+              <Link href="/agenda" className="group flex min-h-11 items-center gap-3 rounded-xl border border-info/25 bg-info/5 px-3.5 py-3 transition-colors hover:border-info/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <ArrowDownCircle className="h-4 w-4 shrink-0 text-info" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[12px] font-medium">Reservas a receber</span>
+                  <span className="block text-[11px] text-muted-foreground">{formatMoney(m.receivable)} em agendamentos futuros</span>
+                </span>
+                <ArrowRight aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+              </Link>
+            )}
+            {m.payable > 0 && (
+              <Link href="#despesas" className="group flex min-h-11 items-center gap-3 rounded-xl border border-warning/25 bg-warning/5 px-3.5 py-3 transition-colors hover:border-warning/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <ArrowUpCircle className="h-4 w-4 shrink-0 text-warning" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[12px] font-medium">Despesas pendentes</span>
+                  <span className="block text-[11px] text-muted-foreground">{formatMoney(m.payable)} ainda não marcadas como pagas</span>
+                </span>
+                <ArrowRight aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+              </Link>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* Fluxo de caixa + DRE */}
       <section className="grid gap-4 lg:grid-cols-3">
@@ -177,8 +212,32 @@ export default async function FinanceiroPage({
         </Panel>
       </section>
 
+      <details className="group overflow-hidden rounded-2xl border border-border bg-card">
+        <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:px-5 [&::-webkit-details-marker]:hidden">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
+            <Layers aria-hidden="true" className="h-4 w-4" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[14px] font-semibold">Composição detalhada</span>
+            <span className="block text-[12px] text-muted-foreground">Serviços, produtos, comissões, lucro bruto e contas em aberto</span>
+          </span>
+          <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+        </summary>
+        <div className="grid grid-cols-2 gap-3 border-t border-border p-4 sm:grid-cols-3 xl:grid-cols-6">
+          <Tile accent="#2ECC8B" icon={Scissors} label="Receita serviços" value={formatMoney(m.serviceRevenue)} />
+          <Tile accent="#2ECC8B" icon={Package} label="Receita produtos" value={formatMoney(m.productRevenue)} />
+          <Tile accent="#F59E0B" icon={HandCoins} label="Comissões" value={formatMoney(m.commissions)} />
+          <Tile accent="#3B9EFF" icon={PiggyBank} label="Lucro bruto" value={formatMoney(m.grossProfit)} />
+          <Tile accent="#2ECC8B" icon={ArrowDownCircle} label="A receber" value={formatMoney(m.receivable)} />
+          <Tile accent="#EF4444" icon={ArrowUpCircle} label="A pagar" value={formatMoney(m.payable)} />
+          <Tile accent="#A855F7" icon={Percent} label="Margem líquida" value={`${(m.margin * 100).toFixed(0)}%`} />
+        </div>
+      </details>
+
       {/* Gestão de despesas */}
-      <ExpenseManager expenses={expenseRows} />
+      <section id="despesas" className="scroll-mt-24">
+        <ExpenseManager expenses={expenseRows} />
+      </section>
     </div>
   );
 }
@@ -186,13 +245,21 @@ export default async function FinanceiroPage({
 /* ── bits ── */
 type IconType = React.ComponentType<{ className?: string }>;
 
-function Hero({ accent, icon: Icon, label, value, hint }: { accent: string; icon: IconType; label: string; value: string; hint?: string }) {
+function Hero({ accent, icon: Icon, label, value, hint, featured = false }: { accent: string; icon: IconType; label: string; value: string; hint?: string; featured?: boolean }) {
+  const isNegativeResult = label === "Resultado líquido" && accent.toUpperCase() === "#EF4444";
+  const iconTone = featured
+    ? "bg-primary/10 text-primary"
+    : label === "Resultado líquido"
+      ? isNegativeResult
+        ? "bg-danger/10 text-danger"
+        : "bg-success/10 text-success"
+      : "bg-muted text-muted-foreground";
+
   return (
-    <div className="card-interactive glass relative overflow-hidden rounded-2xl p-5">
-      <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full opacity-20 blur-2xl" style={{ background: accent }} />
+    <div className={`card-interactive rounded-2xl border bg-card p-5 ${featured ? "border-primary/30" : "border-border"}`}>
       <div className="flex items-center justify-between">
         <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{label}</span>
-        <span className="grid h-8 w-8 place-items-center rounded-lg" style={{ background: `${accent}1f`, color: accent }}>
+        <span className={`grid h-8 w-8 place-items-center rounded-lg ${iconTone}`}>
           <Icon className="h-4 w-4" />
         </span>
       </div>

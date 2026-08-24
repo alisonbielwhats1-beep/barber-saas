@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Mail, RotateCw, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   cancelProfessionalInvite,
   resendProfessionalInvite,
@@ -33,6 +34,7 @@ export function PendingInvites({ invites }: { invites: PendingInvite[] }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [inviteToCancel, setInviteToCancel] = useState<PendingInvite | null>(null);
   const now = Date.now();
 
   function run(action: () => Promise<void>) {
@@ -142,16 +144,7 @@ export function PendingInvites({ invites }: { invites: PendingInvite[] }) {
                     size="sm"
                     variant="ghost"
                     disabled={pending || !actionable}
-                    onClick={() => {
-                      if (
-                        !window.confirm(
-                          `Cancelar o convite de ${invite.name}? O link deixará de funcionar imediatamente.`,
-                        )
-                      ) {
-                        return;
-                      }
-                      run(() => cancelProfessionalInvite(invite.id));
-                    }}
+                    onClick={() => setInviteToCancel(invite)}
                   >
                     <XCircle className="h-3.5 w-3.5" />
                     Cancelar
@@ -162,6 +155,22 @@ export function PendingInvites({ invites }: { invites: PendingInvite[] }) {
           );
         })}
       </div>
+      <ConfirmDialog
+        open={Boolean(inviteToCancel)}
+        onOpenChange={(open) => {
+          if (!open) setInviteToCancel(null);
+        }}
+        title={`Cancelar convite de ${inviteToCancel?.name ?? "profissional"}?`}
+        description="O link deixará de funcionar imediatamente e este convite não poderá ser usado para entrar no estabelecimento."
+        confirmLabel="Cancelar convite"
+        onConfirm={() => {
+          if (!inviteToCancel) return;
+          const inviteId = inviteToCancel.id;
+          setInviteToCancel(null);
+          run(() => cancelProfessionalInvite(inviteId));
+        }}
+        pending={pending}
+      />
     </section>
   );
 }

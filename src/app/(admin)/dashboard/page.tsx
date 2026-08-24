@@ -4,12 +4,11 @@ import { DASHBOARD_ROLES } from "@/lib/role-permissions";
 import { getDashboardMetrics, RANGE_LABELS, type RangeKey } from "@/lib/dashboard";
 import { withSalon } from "@/lib/prisma-tenant";
 import { formatMoney, formatDuration } from "@/lib/utils";
-import { ptBR } from "date-fns/locale";
-import { formatInTimeZone } from "date-fns-tz";
 import {
   addCalendarDays,
   dateKeyInTimeZone,
   startOfDateInTimeZone,
+  formatPeriodLabel,
 } from "@/lib/time";
 import { PageHeader } from "@/components/page-header";
 import {
@@ -214,8 +213,7 @@ export default async function DashboardPage({
               {RANGE_LABELS[range]}
             </span>
             <span className="text-[11px] text-muted-foreground">
-              {formatInTimeZone(m.period.from, timezone, "d MMM", { locale: ptBR })} –{" "}
-              {formatInTimeZone(m.period.to, timezone, "d MMM yyyy", { locale: ptBR })}
+              {formatPeriodLabel(m.period.from, m.period.to, timezone)}
             </span>
           </div>
         }
@@ -555,7 +553,7 @@ function HeroKpi({
     <div
       className={`card-interactive rounded-2xl border p-5 ${
         featured
-          ? "border-primary/30 bg-gradient-to-br from-primary/10 via-card to-card shadow-[0_18px_40px_-28px_hsl(var(--primary)/0.7)] sm:p-6"
+          ? "border-primary/30 bg-card sm:p-6"
           : "border-border bg-card"
       } ${className}`}
     >
