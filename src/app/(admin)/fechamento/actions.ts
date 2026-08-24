@@ -49,7 +49,8 @@ export async function recordDailyClosing(
       if (data.dateKey > todayKey) throw new Error("Só é possível fechar hoje ou dias anteriores");
 
       await tx.$queryRaw`
-        SELECT pg_advisory_xact_lock(
+        SELECT 1::integer AS "locked"
+        FROM pg_advisory_xact_lock(
           hashtextextended(${`daily-closing:${ctx.salonId}:${data.dateKey}`}, 0)
         )
       `;

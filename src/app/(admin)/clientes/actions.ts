@@ -197,7 +197,8 @@ export async function mergeClients(sourceId: string, targetId: string) {
   await withTenant(ctx, async (tx) => {
     const ordered = [input.sourceId, input.targetId].sort();
     await tx.$queryRaw`
-      SELECT pg_advisory_xact_lock(
+      SELECT 1::integer AS "locked"
+      FROM pg_advisory_xact_lock(
         hashtextextended(${`client-merge:${ctx.salonId}:${ordered[0]}:${ordered[1]}`}, 0)
       )
     `;
