@@ -32,7 +32,7 @@ import {
 } from "./command-palette";
 
 /**
- * Navegação mobile do admin (a sidebar é `hidden md:flex`).
+ * Navegação compacta do admin (a sidebar só aparece a partir de lg).
  * 3 atalhos principais + "Mais" abre painel com todos os módulos.
  */
 const PRIMARY: Array<{
@@ -84,7 +84,7 @@ export function MobileNav({
   }, []);
 
   useEffect(() => {
-    const desktop = window.matchMedia("(min-width: 768px)");
+    const desktop = window.matchMedia("(min-width: 1024px)");
     const closeOnDesktop = (event: MediaQueryListEvent) => {
       if (event.matches) setMobileOpen(false);
     };
@@ -100,7 +100,7 @@ export function MobileNav({
       {/* Painel "Mais" — todos os módulos agrupados */}
       <Dialog open={open} onOpenChange={setMobileOpen}>
         <DialogContent
-          className="inset-0 z-[60] flex h-dvh max-h-none w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 bg-background p-0 pr-0 md:hidden"
+          className="inset-0 z-[60] flex h-dvh max-h-none w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 bg-background p-0 pr-0 lg:hidden"
           onCloseAutoFocus={(event) => {
             if (!paletteRequestPendingRef.current) return;
             event.preventDefault();
@@ -193,7 +193,7 @@ export function MobileNav({
         </DialogContent>
 
       {/* Barra inferior */}
-      <nav className="fixed inset-x-0 bottom-0 z-50 flex border-t border-border bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden print:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-50 flex border-t border-border bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden print:hidden">
         {PRIMARY.filter((item) => !item.roles || item.roles.includes(role)).map((item) => {
           const active = !open && isActive(item.href);
           return (

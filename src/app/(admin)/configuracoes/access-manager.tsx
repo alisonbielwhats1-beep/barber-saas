@@ -12,6 +12,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { IconButton } from "@/components/ui/icon-button";
 import { UserPlus, Trash2, Loader2, RotateCw, XCircle } from "lucide-react";
 import {
   inviteMember,
@@ -68,6 +70,7 @@ export function AccessManager({
   const [pending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [inviteToCancel, setInviteToCancel] = useState<PendingTeamInvite | null>(null);
   const [inviteResult, setInviteResult] = useState<{
     email: string;
     status: "SENT" | "FAILED";
@@ -112,16 +115,17 @@ export function AccessManager({
           <p className="text-[11px] text-muted-foreground">Quem pode entrar no painel e com qual papel.</p>
         </div>
         {canManage && invitesEnabled && (
-          <button
+          <Button
+            type="button"
+            size="sm"
             onClick={() => {
               setError(null);
               setInviteResult(null);
               setOpen(true);
             }}
-            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-[12px] font-semibold text-primary-foreground transition hover:opacity-90"
           >
             <UserPlus className="h-3.5 w-3.5" /> Convidar
-          </button>
+          </Button>
         )}
       </div>
 
@@ -149,7 +153,7 @@ export function AccessManager({
                 value={m.role}
                 disabled={pending}
                 onChange={(e) => run(() => changeMemberRole(m.userId, e.target.value))}
-                className="h-8 rounded-lg border border-border bg-background px-2 text-[12px]"
+                className="min-h-11 rounded-lg border border-border bg-background px-2 text-[12px]"
               >
                 {Object.keys(ROLE_LABEL).map((r) => (
                   <option key={r} value={r}>{ROLE_LABEL[r]}</option>
@@ -161,14 +165,14 @@ export function AccessManager({
               </span>
             )}
             {canManage && !m.isSelf && (
-              <button
+              <IconButton
+                label={`Remover acesso de ${m.name}`}
                 onClick={() => run(() => removeMember(m.userId))}
                 disabled={pending}
-                className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:text-danger"
-                title="Remover acesso"
+                className="shrink-0 hover:bg-danger/10 hover:text-danger"
               >
                 {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-              </button>
+              </IconButton>
             )}
           </div>
         ))}
@@ -202,9 +206,9 @@ export function AccessManager({
                     </div>
                     {canManage && !cancelled && (
                       <div className="flex">
-                        <button
+                        <IconButton
+                          label={`Reenviar convite para ${invite.name}`}
                           disabled={pending}
-                          title="Reenviar convite"
                           onClick={() =>
                             run(async () => {
                               const result = await resendTeamInvite(invite.id);
@@ -213,21 +217,17 @@ export function AccessManager({
                               }
                             })
                           }
-                          className="grid h-8 w-8 place-items-center text-muted-foreground hover:text-foreground"
                         >
                           <RotateCw className="h-3.5 w-3.5" />
-                        </button>
-                        <button
+                        </IconButton>
+                        <IconButton
+                          label={`Cancelar convite de ${invite.name}`}
                           disabled={pending || expired}
-                          title="Cancelar convite"
-                          onClick={() => {
-                            if (!window.confirm(`Cancelar o convite de ${invite.name}?`)) return;
-                            run(() => cancelTeamInvite(invite.id));
-                          }}
-                          className="grid h-8 w-8 place-items-center text-muted-foreground hover:text-danger"
+                          onClick={() => setInviteToCancel(invite)}
+                          className="hover:bg-danger/10 hover:text-danger"
                         >
                           <XCircle className="h-3.5 w-3.5" />
-                        </button>
+                        </IconButton>
                       </div>
                     )}
                   </div>
@@ -279,7 +279,7 @@ export function AccessManager({
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium">Papel</label>
-              <select name="role" defaultValue="RECEPTIONIST" className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+              <select name="role" defaultValue="RECEPTIONIST" className="flex min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm">
                 {Object.keys(ROLE_LABEL).map((r) => (
                   <option key={r} value={r}>{ROLE_LABEL[r]}</option>
                 ))}
@@ -297,6 +297,22 @@ export function AccessManager({
           )}
         </DialogContent>
       </Dialog>
+      <ConfirmDialog
+        open={Boolean(inviteToCancel)}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) setInviteToCancel(null);
+        }}
+        title="Cancelar convite da equipe?"
+        description={inviteToCancel ? `O convite de ${inviteToCancel.name} deixará de ser válido. A pessoa poderá receber um novo convite depois.` : undefined}
+        confirmLabel="Cancelar convite"
+        onConfirm={() => {
+          if (!inviteToCancel) return;
+          const invite = inviteToCancel;
+          setInviteToCancel(null);
+          run(() => cancelTeamInvite(invite.id));
+        }}
+        pending={pending}
+      />
     </div>
   );
 }

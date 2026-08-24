@@ -1,14 +1,16 @@
+import Link from "next/link";
 import { requireRole } from "@/lib/tenant";
 import { MANAGEMENT_ROLES } from "@/lib/role-permissions";
 import { withTenant } from "@/lib/prisma-tenant";
 import { emailInvitesEnabled } from "@/lib/email-invites-feature";
-import { Check, Circle, Crown, ListChecks } from "lucide-react";
+import { ArrowRight, Bell, Check, Circle, Crown, ListChecks } from "lucide-react";
 import { SalonSettingsForm } from "./salon-settings-form";
 import { AccessManager, type Member } from "./access-manager";
 import { BrandingForm } from "./branding-form";
 import { ClosuresManager, type Closure } from "./closures-manager";
 import { ProfileForm } from "./profile-form";
 import { getPlanEntitlement } from "@/lib/plan-entitlements";
+import { SettingsSectionNav } from "./settings-section-nav";
 
 const PLAN_LABEL: Record<string, string> = {
   FREE: "Grátis",
@@ -102,29 +104,6 @@ export default async function ConfiguracoesPage() {
         <h1 className="text-[26px] font-semibold tracking-tight">Configurações</h1>
       </header>
 
-      {/* Plano atual */}
-      <div className="flex items-center justify-between rounded-2xl border border-primary/25 bg-primary/5 p-5">
-        <div className="flex items-center gap-3">
-          <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary/15 text-primary">
-            <Crown className="h-5 w-5" />
-          </span>
-          <div>
-            <p className="text-[13px] font-semibold">Plano {PLAN_LABEL[salon.plan] ?? salon.plan}</p>
-            <p className="text-[11px] text-muted-foreground">
-              {salon.plan === "FREE"
-                ? `1 agenda · até ${entitlement.monthlyAppointments} agendamentos por mês`
-                : `${entitlement.maxProfessionals} agendas incluídas · sem taxa por cliente`}
-            </p>
-            {salon.plan !== "FREE" && entitlement.priceCents > 0 && (
-              <p className="mt-1 text-[11px] font-medium text-primary">
-                R$ {(entitlement.priceCents / 100).toFixed(2).replace(".", ",")}/mês
-              </p>
-            )}
-          </div>
-        </div>
-        <span className="rounded-full border border-border bg-card px-3 py-1 text-[11px] text-muted-foreground">Gestão administrativa</span>
-      </div>
-
       <SetupChecklist items={[
         { label: "Cadastrar serviços e preços", done: setupCounts.serviceCount > 0 },
         { label: "Cadastrar ao menos um profissional", done: setupCounts.professionalCount > 0 },
@@ -133,10 +112,14 @@ export default async function ConfiguracoesPage() {
         { label: "Completar marca e WhatsApp", done: Boolean(salon.logoUrl && salon.whatsapp && salon.description) },
       ]} />
 
-      <div className="grid gap-6 lg:grid-cols-5">
-        <div className="space-y-6 lg:col-span-3">
+      <SettingsSectionNav />
+
+      <div className="space-y-6">
+        <section id="perfil" className="scroll-mt-24">
           <ProfileForm profile={profile} />
-          <SalonSettingsForm salon={salon} />
+        </section>
+
+        <section id="aparencia" className="scroll-mt-24">
           <BrandingForm
             branding={{
               slug: salon.slug,
@@ -151,9 +134,48 @@ export default async function ConfiguracoesPage() {
               importantInfo: salon.importantInfo,
             }}
           />
-        </div>
-        <div className="lg:col-span-2">
-          <AccessManager
+        </section>
+
+        <section id="agenda" className="scroll-mt-24">
+          <SalonSettingsForm salon={salon} />
+          <div className="mt-6">
+            <ClosuresManager
+              timezone={salon.timezone}
+              closures={closures.map((c): Closure => ({
+                id: c.id,
+                startAt: c.startAt.toISOString(),
+                endAt: c.endAt.toISOString(),
+                reason: c.reason,
+              }))}
+              canManage={role === "OWNER" || role === "MANAGER"}
+            />
+          </div>
+        </section>
+
+        <section id="notificacoes" aria-labelledby="settings-notifications-title" className="scroll-mt-24 rounded-2xl border border-border bg-card p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-info/10 text-info">
+                <Bell aria-hidden="true" className="h-5 w-5" />
+              </span>
+              <div>
+                <h2 id="settings-notifications-title" className="text-[14px] font-semibold">Notificações</h2>
+                <p className="mt-1 max-w-2xl text-[12px] leading-relaxed text-muted-foreground">
+                  Confirmações, reagendamentos e cancelamentos são organizados automaticamente. Abra a central para revisar avisos e marcar itens como lidos.
+                </p>
+              </div>
+            </div>
+            <Link href="/notificacoes" className="group inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-border px-3.5 text-[12px] font-semibold transition-colors hover:border-border-strong hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              Abrir central
+              <ArrowRight aria-hidden="true" className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+            </Link>
+          </div>
+        </section>
+
+        <div className="grid gap-6 lg:grid-cols-5">
+          <section id="seguranca" aria-labelledby="settings-security-title" className="scroll-mt-24 lg:col-span-3">
+            <h2 id="settings-security-title" className="sr-only">Segurança e acessos</h2>
+            <AccessManager
             members={members}
             canManage={canManage}
             invitesEnabled={invitesEnabled}
@@ -162,21 +184,37 @@ export default async function ConfiguracoesPage() {
               sentAt: invite.sentAt?.toISOString() ?? null,
               expiresAt: invite.expiresAt.toISOString(),
               revokedAt: invite.revokedAt?.toISOString() ?? null,
-            }))}
-          />
+              }))}
+            />
+          </section>
+
+          <section id="plano" aria-labelledby="settings-plan-title" className="scroll-mt-24 lg:col-span-2">
+            <div className="flex h-full flex-col justify-between rounded-2xl border border-primary/25 bg-primary/5 p-5">
+              <div className="flex items-start gap-3">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/15 text-primary">
+                  <Crown aria-hidden="true" className="h-5 w-5" />
+                </span>
+                <div>
+                  <h2 id="settings-plan-title" className="text-[13px] font-semibold">Plano {PLAN_LABEL[salon.plan] ?? salon.plan}</h2>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    {salon.plan === "FREE"
+                      ? `1 agenda · até ${entitlement.monthlyAppointments} agendamentos por mês`
+                      : `${entitlement.maxProfessionals} agendas incluídas · sem taxa por cliente`}
+                  </p>
+                  {salon.plan !== "FREE" && entitlement.priceCents > 0 && (
+                    <p className="mt-1 text-[11px] font-medium text-primary">
+                      R$ {(entitlement.priceCents / 100).toFixed(2).replace(".", ",")}/mês
+                    </p>
+                  )}
+                </div>
+              </div>
+              <p className="mt-5 rounded-xl border border-border bg-card/70 px-3 py-2.5 text-[11px] leading-relaxed text-muted-foreground">
+                A gestão do plano e da assinatura fica protegida e será liberada somente quando o faturamento estiver configurado.
+              </p>
+            </div>
+          </section>
         </div>
       </div>
-
-      <ClosuresManager
-        timezone={salon.timezone}
-        closures={closures.map((c): Closure => ({
-          id: c.id,
-          startAt: c.startAt.toISOString(),
-          endAt: c.endAt.toISOString(),
-          reason: c.reason,
-        }))}
-        canManage={role === "OWNER" || role === "MANAGER"}
-      />
     </div>
   );
 }

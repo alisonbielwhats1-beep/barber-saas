@@ -97,7 +97,7 @@ export function SalonSettingsForm({ salon }: { salon: Salon }) {
             <Input name="phone" defaultValue={salon.phone ?? ""} placeholder="(11) 90000-0000" />
           </Field>
           <Field label="Moeda">
-            <select name="currency" defaultValue={salon.currency} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+            <select name="currency" defaultValue={salon.currency} className="flex min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm">
               <option value="BRL">Real (R$)</option>
               <option value="USD">Dólar (US$)</option>
               <option value="EUR">Euro (€)</option>

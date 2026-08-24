@@ -3,8 +3,7 @@ import { withTenant } from "@/lib/prisma-tenant";
 import { getDashboardMetrics, RANGE_LABELS, type RangeKey } from "@/lib/dashboard";
 import { getFinanceMetrics } from "@/lib/finance";
 import { formatMoney, formatDuration } from "@/lib/utils";
-import { ptBR } from "date-fns/locale";
-import { formatInTimeZone } from "date-fns-tz";
+import { formatPeriodLabel } from "@/lib/time";
 import { TrendingUp, TrendingDown, FileBarChart } from "lucide-react";
 import { RangeFilter } from "../dashboard/range-filter";
 import { ReportActions, type ReportSection } from "./report-actions";
@@ -55,7 +54,7 @@ export default async function RelatoriosPage({
     marketingSettings.lapsedClientDays,
   );
 
-  const periodLabel = `${formatInTimeZone(m.period.from, timezone, "d MMM", { locale: ptBR })} – ${formatInTimeZone(m.period.to, timezone, "d MMM yyyy", { locale: ptBR })}`;
+  const periodLabel = formatPeriodLabel(m.period.from, m.period.to, timezone);
 
   // Seções exportáveis (CSV)
   const sections: ReportSection[] = [

@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { Plus, Check, Clock, Trash2, Loader2 } from "lucide-react";
 import { toast } from "@/components/ui/toast";
 import { formatMoney } from "@/lib/utils";
@@ -81,13 +82,14 @@ export function ExpenseManager({ expenses }: { expenses: ExpenseRow[] }) {
     <div className="rounded-2xl border border-border bg-card">
       <div className="flex items-center justify-between p-5 pb-3">
         <h3 className="text-[13px] font-semibold">Despesas do período</h3>
-        <button
+        <Button
+          type="button"
+          size="sm"
           onClick={() => { setError(null); setOpen(true); }}
-          className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-[12px] font-semibold text-primary-foreground transition hover:opacity-90"
         >
           <Plus className="h-3.5 w-3.5" />
           Adicionar
-        </button>
+        </Button>
       </div>
 
       {expenses.length === 0 ? (
@@ -100,18 +102,18 @@ export function ExpenseManager({ expenses }: { expenses: ExpenseRow[] }) {
             const paid = !!e.paidAt;
             return (
               <div key={e.id} className="flex items-center gap-3 px-5 py-3">
-                <button
+                <IconButton
+                  label={paid ? `Marcar ${e.description} como pendente` : `Marcar ${e.description} como paga`}
                   onClick={() => act(() => toggleExpensePaid(e.id))}
                   disabled={pending}
-                  title={paid ? "Marcar como pendente" : "Marcar como paga"}
-                  className={`grid h-7 w-7 shrink-0 place-items-center rounded-full border transition ${
+                  className={`shrink-0 rounded-full border ${
                     paid
                       ? "border-transparent bg-success/15 text-success"
                       : "border-border text-muted-foreground hover:text-warning"
                   }`}
                 >
                   {paid ? <Check className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
-                </button>
+                </IconButton>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[13px] font-medium">{e.description}</p>
                   <p className="text-[11px] text-muted-foreground">
@@ -129,14 +131,14 @@ export function ExpenseManager({ expenses }: { expenses: ExpenseRow[] }) {
                 <p className="w-24 shrink-0 text-right text-[13px] font-semibold">
                   {formatMoney(e.amountCents)}
                 </p>
-                <button
+                <IconButton
+                  label={`Excluir despesa ${e.description}`}
                   onClick={() => act(() => deleteExpense(e.id))}
                   disabled={pending}
-                  className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-muted-foreground transition hover:text-danger"
-                  title="Excluir"
+                  className="shrink-0 rounded-full hover:bg-danger/10 hover:text-danger"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                </IconButton>
               </div>
             );
           })}
@@ -172,7 +174,7 @@ export function ExpenseManager({ expenses }: { expenses: ExpenseRow[] }) {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="mb-1 block text-sm font-medium">Categoria</label>
-                <select name="category" className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                <select name="category" className="flex min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm">
                   {CATEGORIES.map((c) => (
                     <option key={c} value={c}>{c}</option>
                   ))}
@@ -180,7 +182,7 @@ export function ExpenseManager({ expenses }: { expenses: ExpenseRow[] }) {
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium">Tipo</label>
-                <select name="kind" className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                <select name="kind" className="flex min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm">
                   <option value="VARIABLE">Variável</option>
                   <option value="FIXED">Fixa</option>
                 </select>
