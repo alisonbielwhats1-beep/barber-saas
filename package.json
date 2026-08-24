@@ -10,6 +10,8 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint src prisma scripts --ext .js,.jsx,.ts,.tsx",
+    "typecheck": "tsc --noEmit --incremental false",
+    "check:runtime": "tsx scripts/assert-runtime-contract.ts",
     "db:generate": "prisma generate",
     "db:safety-check": "tsx scripts/assert-safe-database.ts --operation=safety-check",
     "predb:push": "tsx scripts/assert-safe-database.ts --operation=db:push",

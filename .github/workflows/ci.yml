@@ -37,6 +37,7 @@ jobs:
       DIRECT_URL: postgresql://postgres:postgres@localhost:5432/salon_ci
       NEXTAUTH_SECRET: ci-only-secret-not-used-in-prod
       NEXTAUTH_URL: http://localhost:3000
+      CRON_SECRET: ci-only-cron-secret
       RUN_POSTGRES_INTEGRATION: "1"
     steps:
       - uses: actions/checkout@v4
@@ -45,6 +46,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Verify runtime environment contract
+        run: npm run check:runtime
       - run: npx prisma generate
       - name: Verify safe database target
         run: npm run db:safety-check
@@ -72,7 +75,7 @@ jobs:
           npx prisma db execute --file prisma/sql/manual/010_platform_access_approval.preflight.sql --url "$DIRECT_URL"
           npx prisma db execute --file prisma/sql/manual/010_platform_access_approval.sql --url "$DIRECT_URL"
       - run: npm run lint
-      - run: npx tsc --noEmit --incremental false
+      - run: npm run typecheck
       - run: npm test
       - run: npm run test:integration
       - run: npm run build
