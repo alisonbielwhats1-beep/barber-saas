@@ -5,6 +5,15 @@ identidade de clientes para Production. As migrations manuais 012, 013, 014 e
 015 foram aplicadas/verificadas no Supabase Production.
 Este arquivo substitui os status históricos quando houver contradição.
 
+## Fase 0 — prontidão para produção em validação
+
+As proteções desta fase estão sendo implementadas na branch
+`codex/fase-0-production-readiness` e ainda não representam um deploy em
+Production. A entrega local adiciona `/api/health`, validação do contrato de
+ambiente, headers básicos de segurança, testes de fumaça e um gate do CI. O
+checklist externo de homologação, monitoramento, backup/restauração e smoke
+test pós-deploy está em `docs/FASE_0_PRODUCTION_READINESS.md`.
+
 ## Identificação da versão
 
 - Repositório: `alisonbielwhats1-beep/barber-saas`
