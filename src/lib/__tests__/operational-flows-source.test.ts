@@ -41,6 +41,20 @@ describe("superficies dos novos fluxos operacionais", () => {
     expect(actions).toContain("redeemLoyaltyReward");
   });
 
+  it("faz o lock da mesclagem retornar um tipo que o Prisma consegue desserializar", () => {
+    const actions = source("src/app/(admin)/clientes/actions.ts");
+    expect(actions).toMatch(
+      /SELECT 1::integer AS "locked"\s+FROM pg_advisory_xact_lock\(/,
+    );
+  });
+
+  it("mantém o mesmo contrato de retorno no lock do fechamento diário", () => {
+    const actions = source("src/app/(admin)/fechamento/actions.ts");
+    expect(actions).toMatch(
+      /SELECT 1::integer AS "locked"\s+FROM pg_advisory_xact_lock\(/,
+    );
+  });
+
   it("recebe comanda concluída sem repetir transição nem sobrescrever pagamento", () => {
     const actions = source("src/app/(admin)/agenda/actions.ts");
     const service = source("src/lib/comanda-service.ts");
