@@ -13,6 +13,7 @@ import {
   clientIdentityData,
   findPotentialClientMatches,
 } from "@/lib/client-identity";
+import { inferGenderFromName } from "@/lib/name-gender";
 
 export async function fetchClientHistory(clientId: string) {
   const ctx = await getTenantContext();
@@ -63,7 +64,7 @@ export async function createClient(input: ClientInput) {
         phoneNormalized: identity.phoneNormalized,
         email: identity.email,
         birthday: data.birthday ? new Date(data.birthday) : null,
-        gender: data.gender ?? null,
+        gender: data.gender ?? inferGenderFromName(data.name),
         notes: serializeClientCareProfile({
           notes: data.notes ?? "",
           allergies: data.allergies ?? "",
@@ -158,6 +159,7 @@ export async function importClientsCsv(csv: string) {
         salonId: ctx.salonId,
         name: row.name,
         birthday: row.birthday ? new Date(`${row.birthday}T12:00:00.000Z`) : null,
+        gender: inferGenderFromName(row.name),
       })) });
     }
     const actor = await tx.user.findUnique({ where: { id: ctx.userId }, select: { name: true } });

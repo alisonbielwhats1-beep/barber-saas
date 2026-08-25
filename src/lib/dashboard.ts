@@ -3,6 +3,7 @@ import {
   differenceInMinutes,
 } from "date-fns";
 import { getProfessionalPerformance, getTopServices, getOccupancyRate } from "./kpis";
+import { inferGenderFromName } from "./name-gender";
 import {
   DEFAULT_TIMEZONE,
   addCalendarDays,
@@ -143,7 +144,7 @@ export async function getDashboardMetrics(
           startAt: true,
           endAt: true,
           serviceId: true,
-          client: { select: { gender: true } },
+          client: { select: { gender: true, name: true } },
           service: { select: { name: true, colorHex: true } },
         },
       }),
@@ -194,20 +195,20 @@ export async function getDashboardMetrics(
   ]);
 
   const [clientsByGender, newClientsByGender, clientAgg, totalClients] = await Promise.all([
-    // Clientes por gênero (base total)
+    // Clientes por gênero (base total). Busca nome junto porque o split usa
+    // inferGenderFromName() como fallback para quem não preencheu o campo —
+    // um groupBy no banco não consegue aplicar essa heurística.
     withSalon(salonId, (tx) =>
-      tx.clientProfile.groupBy({
-        by: ["gender"],
+      tx.clientProfile.findMany({
         where: { salonId },
-        _count: { _all: true },
+        select: { gender: true, name: true },
       }),
     ),
-    // Novos clientes por gênero no período
+    // Novos clientes por gênero no período (mesmo motivo acima)
     withSalon(salonId, (tx) =>
-      tx.clientProfile.groupBy({
-        by: ["gender"],
+      tx.clientProfile.findMany({
         where: { salonId, createdAt: { gte: from, lt: to } },
-        _count: { _all: true },
+        select: { gender: true, name: true },
       }),
     ),
     // Por cliente: nº de concluídos + último atendimento (retorno/perdidos)
@@ -320,13 +321,19 @@ export async function getDashboardMetrics(
   const withHistory = clientAgg.length;
   const retentionRate = withHistory > 0 ? returningClients / withHistory : 0;
 
-  const genderCount = (rows: { gender: string | null; _count: { _all: number } }[], g: string) =>
-    rows.find((r) => r.gender === g)?._count._all ?? 0;
-  const newClients = newClientsByGender.reduce((s, r) => s + r._count._all, 0);
+  // Gênero informado manualmente tem prioridade; sem isso, tenta estimar
+  // pelo primeiro nome. Cliente sem gênero e sem nome reconhecido fica de
+  // fora do split (nunca inventa um valor sem nenhum sinal).
+  const resolvedGender = (client: { gender: string | null; name?: string | null } | null | undefined) =>
+    client?.gender ?? inferGenderFromName(client?.name);
+
+  const genderCount = (rows: { gender: string | null; name: string }[], g: "MALE" | "FEMALE") =>
+    rows.filter((r) => resolvedGender(r) === g).length;
+  const newClients = newClientsByGender.length;
 
   // ── Split por gênero (receita, ticket, serviço) ───────────────
   const byGender = (g: "MALE" | "FEMALE") => {
-    const rows = completed.filter((a) => a.client?.gender === g);
+    const rows = completed.filter((a) => resolvedGender(a.client) === g);
     const rev = rows.reduce((s, a) => s + a.priceCents, 0);
     const svc = new Map<string, { name: string; count: number; colorHex: string | null }>();
     for (const a of rows) {
@@ -359,8 +366,9 @@ export async function getDashboardMetrics(
     const b = dayBucket.get(k);
     if (b) {
       b.total += a.priceCents;
-      if (a.client?.gender === "MALE") b.male += a.priceCents;
-      if (a.client?.gender === "FEMALE") b.female += a.priceCents;
+      const g = resolvedGender(a.client);
+      if (g === "MALE") b.male += a.priceCents;
+      if (g === "FEMALE") b.female += a.priceCents;
     }
   }
   const series = [...dayBucket.entries()].map(([date, v]) => ({

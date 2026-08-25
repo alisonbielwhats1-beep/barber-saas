@@ -3,6 +3,7 @@ import type { AppointmentActorType } from "@prisma/client";
 import type { Tx } from "./prisma-tenant";
 import { businessRecipients, recordAppointmentEvent } from "./appointment-events";
 import { clientIdentityData } from "./client-identity";
+import { inferGenderFromName } from "./name-gender";
 
 const WAITLIST_NOTE = "Confirmado automaticamente pela lista de espera.";
 
@@ -497,6 +498,7 @@ export async function fulfillWaitlistOnCancel(
         name: entry.guestName,
         phone: identity.phone,
         phoneNormalized: identity.phoneNormalized,
+        gender: inferGenderFromName(entry.guestName),
       },
       select: { id: true },
     });
