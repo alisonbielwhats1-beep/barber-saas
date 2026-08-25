@@ -12,6 +12,7 @@ import { isValidPhoneBR, normalizePhone } from "@/lib/phone";
 import { setClientSession, clearClientSession } from "@/lib/client-auth";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { clientIdentityData, findPotentialClientMatches } from "@/lib/client-identity";
+import { inferGenderFromName } from "@/lib/name-gender";
 import { writeAuditLog } from "@/lib/audit";
 
 const salonSlugSchema = z
@@ -291,6 +292,7 @@ export async function registerClient(
           phoneNormalized: identity.phoneNormalized,
           email: identity.email,
           passwordHash,
+          gender: inferGenderFromName(registration.name),
         },
         select: { id: true },
       });

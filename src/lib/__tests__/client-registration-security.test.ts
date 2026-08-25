@@ -141,6 +141,7 @@ describe("registerClient — validação no servidor", () => {
         phoneNormalized: normalized,
         email: "maria@example.com",
         passwordHash: "password-hash",
+        gender: "FEMALE",
       },
       select: { id: true },
     });
