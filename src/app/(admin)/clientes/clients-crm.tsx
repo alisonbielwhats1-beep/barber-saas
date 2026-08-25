@@ -20,6 +20,29 @@ import type { ClientRow } from "@/lib/crm";
 
 type Segment = "all" | "vip" | "birthday" | "lapsed" | "recurring";
 type HistoryItem = { id: string; startAt: string; priceCents: number; status: string; serviceName: string; serviceColor: string | null; proName: string };
+const HISTORY_PREVIEW_COUNT = 3;
+
+const GENDER_COLOR = { MALE: "#3B9EFF", FEMALE: "#E85D9E" } as const;
+
+function GenderBadge({ gender, source }: { gender: "MALE" | "FEMALE" | "OTHER" | null; source: "confirmed" | "inferred" | null }) {
+  if (gender !== "MALE" && gender !== "FEMALE") return null;
+  const letter = gender === "MALE" ? "M" : "F";
+  const color = GENDER_COLOR[gender];
+  const label = gender === "MALE" ? "Masculino" : "Feminino";
+  return (
+    <span
+      title={source === "inferred" ? `${label} (estimado pelo nome, confira em Editar)` : label}
+      className="grid h-3.5 w-3.5 shrink-0 place-items-center rounded-full text-[8px] font-bold leading-none"
+      style={{
+        color,
+        background: `${color}20`,
+        border: source === "inferred" ? `1px dashed ${color}90` : `1px solid transparent`,
+      }}
+    >
+      {letter}
+    </span>
+  );
+}
 
 function waLink(phone: string | null, first: string, salonName: string) {
   const digits = (phone ?? "").replace(/\D/g, "");
@@ -48,6 +71,7 @@ export function ClientsCrm({
   const [detail, setDetail] = useState<ClientRow | null>(null);
   const [history, setHistory] = useState<HistoryItem[] | null>(null);
   const [loadingHist, setLoadingHist] = useState(false);
+  const [historyExpanded, setHistoryExpanded] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [csv, setCsv] = useState("");
   const [mergeCandidate, setMergeCandidate] = useState<{ source: ClientRow; target: ClientRow } | null>(null);
@@ -104,6 +128,7 @@ export function ClientsCrm({
   async function openDetail(c: ClientRow) {
     setDetail(c);
     setHistory(null);
+    setHistoryExpanded(false);
     setLoadingHist(true);
     try {
       setHistory(await fetchClientHistory(c.id));
@@ -142,6 +167,7 @@ export function ClientsCrm({
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
                     <p className="truncate text-[13px] font-medium">{c.name}</p>
+                    <GenderBadge gender={c.genderDisplay} source={c.genderSource} />
                     {c.isVip && <Crown className="h-3 w-3 shrink-0 text-[#F4C430]" />}
                     {c.birthdayThisMonth && <Cake className="h-3 w-3 shrink-0 text-[#EC4899]" />}
                   </div>
@@ -199,6 +225,7 @@ export function ClientsCrm({
                   <div className="min-w-0">
                     <DialogTitle className="flex items-center gap-2 text-lg">
                       {detail.name}
+                      <GenderBadge gender={detail.genderDisplay} source={detail.genderSource} />
                       {detail.isVip && <Crown className="h-4 w-4 text-[#F4C430]" />}
                     </DialogTitle>
                     <p className="text-[12px] text-muted-foreground">
@@ -207,6 +234,30 @@ export function ClientsCrm({
                   </div>
                 </div>
               </DialogHeader>
+
+              <div className="flex items-center gap-2">
+                {detail.phone && (
+                  <a href={waLink(detail.phone, detail.name.split(" ")[0], salonName)} target="_blank" rel="noopener noreferrer" className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#25D366]/15 px-3 py-2 text-[13px] font-medium text-[#25D366] transition hover:bg-[#25D366]/25">
+                    <MessageCircle className="h-4 w-4" /> WhatsApp
+                  </a>
+                )}
+                {canManage && (
+                  <ClientForm
+                    client={{
+                      id: detail.id,
+                      name: detail.name,
+                      phone: detail.phone,
+                      email: detail.email,
+                      birthday: detail.birthday ? new Date(detail.birthday) : null,
+                      gender: detail.gender,
+                      notes: detail.notes,
+                      allergies: detail.allergies,
+                      preferences: detail.preferences,
+                      consentGiven: detail.consentGiven,
+                    }}
+                  />
+                )}
+              </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <DStat icon={CircleDollarSign} label="LTV total" value={formatMoney(detail.totalSpent)} />
@@ -305,12 +356,23 @@ export function ClientsCrm({
 
               {/* Histórico */}
               <div>
-                <p className="mb-2 text-[12px] font-semibold">Histórico de atendimentos</p>
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-[12px] font-semibold">Histórico de atendimentos</p>
+                  {history && history.length > HISTORY_PREVIEW_COUNT && (
+                    <button
+                      type="button"
+                      onClick={() => setHistoryExpanded((open) => !open)}
+                      className="text-[11px] font-medium text-primary hover:underline"
+                    >
+                      {historyExpanded ? "Ver menos" : `Ver todos (${history.length})`}
+                    </button>
+                  )}
+                </div>
                 {loadingHist ? (
                   <div className="flex items-center gap-2 py-4 text-[12px] text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Carregando…</div>
                 ) : history && history.length > 0 ? (
                   <div className="space-y-1.5">
-                    {history.map((h) => (
+                    {(historyExpanded ? history : history.slice(0, HISTORY_PREVIEW_COUNT)).map((h) => (
                       <div key={h.id} className="flex items-center gap-3 rounded-lg bg-surface-1 px-3 py-2">
                         <span className="h-8 w-1 shrink-0 rounded-full" style={{ background: h.serviceColor ?? "#2ECC8B" }} />
                         <div className="min-w-0 flex-1">
@@ -323,30 +385,6 @@ export function ClientsCrm({
                   </div>
                 ) : (
                   <p className="py-2 text-[12px] text-muted-foreground">Sem atendimentos registrados.</p>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2 border-t border-border pt-3">
-                {detail.phone && (
-                  <a href={waLink(detail.phone, detail.name.split(" ")[0], salonName)} target="_blank" rel="noopener noreferrer" className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#25D366]/15 px-3 py-2 text-[13px] font-medium text-[#25D366] transition hover:bg-[#25D366]/25">
-                    <MessageCircle className="h-4 w-4" /> WhatsApp
-                  </a>
-                )}
-                {canManage && (
-                  <ClientForm
-                    client={{
-                      id: detail.id,
-                      name: detail.name,
-                      phone: detail.phone,
-                      email: detail.email,
-                      birthday: detail.birthday ? new Date(detail.birthday) : null,
-                      gender: detail.gender,
-                      notes: detail.notes,
-                      allergies: detail.allergies,
-                      preferences: detail.preferences,
-                      consentGiven: detail.consentGiven,
-                    }}
-                  />
                 )}
               </div>
             </>
