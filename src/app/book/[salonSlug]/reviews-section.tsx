@@ -56,6 +56,20 @@ export function ReviewsSection({
   summary: ReviewSummary;
   reviews: PublicReview[];
 }) {
+  if (summary.count === 0) {
+    return (
+      <section id="avaliacoes" aria-labelledby="reviews-title" className="space-y-2">
+        <h2 id="reviews-title" className="text-base font-semibold">Avaliações</h2>
+        <div className="flex items-center gap-2.5 rounded-xl border border-border bg-card px-3.5 py-3">
+          <MessageSquareQuote aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            Ainda sem avaliações — aparecem aqui após o primeiro atendimento concluído.
+          </p>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section id="avaliacoes" aria-labelledby="reviews-title" className="space-y-3">
       <div className="flex items-end justify-between gap-3">
@@ -65,14 +79,12 @@ export function ReviewsSection({
           </p>
           <h2 id="reviews-title" className="text-base font-semibold">Avaliações</h2>
         </div>
-        {summary.count > 0 && (
-          <Link
-            href={`/book/${salonSlug}/avaliacoes`}
-            className="inline-flex min-h-11 items-center gap-1 text-xs font-semibold text-primary"
-          >
-            Ver todas <ChevronRight aria-hidden="true" className="h-3.5 w-3.5" />
-          </Link>
-        )}
+        <Link
+          href={`/book/${salonSlug}/avaliacoes`}
+          className="inline-flex min-h-11 items-center gap-1 text-xs font-semibold text-primary"
+        >
+          Ver todas <ChevronRight aria-hidden="true" className="h-3.5 w-3.5" />
+        </Link>
       </div>
 
       <div className="rounded-3xl border border-amber-400/20 bg-gradient-to-br from-amber-400/10 via-card to-card p-5">
@@ -83,18 +95,11 @@ export function ReviewsSection({
           <div>
             <ReviewStars rating={summary.average} />
             <p className="mt-1 text-xs text-muted-foreground">
-              {summary.count > 0
-                ? `${summary.count} ${summary.count === 1 ? "avaliação" : "avaliações"} verificadas`
-                : "Ainda sem avaliações"}
+              {summary.count} {summary.count === 1 ? "avaliação" : "avaliações"} verificadas
             </p>
           </div>
           <MessageSquareQuote aria-hidden="true" className="ml-auto h-5 w-5 text-amber-400/70" />
         </div>
-        {summary.count === 0 && (
-          <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-            Os comentários aparecem aqui depois de um atendimento concluído. Assim, quem está escolhendo consegue confiar em experiências reais.
-          </p>
-        )}
       </div>
 
       {reviews.length > 0 && (
