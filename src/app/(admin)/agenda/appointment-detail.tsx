@@ -49,6 +49,8 @@ import {
 import { ComandaPanel } from "./comanda-panel";
 import type { Appointment } from "./agenda-board";
 
+const HISTORY_PREVIEW_COUNT = 3;
+
 const ACTION_ICON: Record<string, typeof Check> = {
   CONFIRMED: Check,
   IN_PROGRESS: Play,
@@ -160,6 +162,7 @@ export function AppointmentDetail({
   const [cancelReason, setCancelReason] = useState("");
   const [removeWaitlistId, setRemoveWaitlistId] = useState<string | null>(null);
   const [removeWaitlistReason, setRemoveWaitlistReason] = useState("");
+  const [historyExpanded, setHistoryExpanded] = useState(false);
   const mutationKeys = useRef(new Map<string, string>());
 
   const start = appt ? new Date(appt.startAt) : new Date();
@@ -474,12 +477,23 @@ export function AppointmentDetail({
                 )}
                 {appt.events.length > 0 && (
                   <div className="rounded-lg border border-border bg-surface-1 p-3">
-                    <p className="mb-2 flex items-center gap-1.5 text-[12px] font-semibold">
-                      <History className="h-4 w-4 text-muted-foreground" />
-                      Histórico imutável
-                    </p>
+                    <div className="mb-2 flex items-center justify-between">
+                      <p className="flex items-center gap-1.5 text-[12px] font-semibold">
+                        <History className="h-4 w-4 text-muted-foreground" />
+                        Histórico imutável
+                      </p>
+                      {appt.events.length > HISTORY_PREVIEW_COUNT && (
+                        <button
+                          type="button"
+                          onClick={() => setHistoryExpanded((open) => !open)}
+                          className="text-[11px] font-medium text-primary hover:underline"
+                        >
+                          {historyExpanded ? "Ver menos" : `Ver tudo (${appt.events.length})`}
+                        </button>
+                      )}
+                    </div>
                     <ol className="space-y-2 border-l border-border pl-3">
-                      {appt.events.map((event) => (
+                      {(historyExpanded ? appt.events : appt.events.slice(0, HISTORY_PREVIEW_COUNT)).map((event) => (
                         <li key={event.id} className="text-[11px] leading-relaxed">
                           <p className="font-medium">{eventTitle(event.eventType)}</p>
                           {event.eventType === "RESCHEDULED" && event.previousStartAt && event.startAt && (
