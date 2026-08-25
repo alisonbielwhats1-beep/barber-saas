@@ -251,7 +251,7 @@ export async function getClientHistory(
   const resolvedClientId = await resolveClientProfileId(tx, salonId, clientId);
   if (!resolvedClientId) return [];
   const appts = await tx.appointment.findMany({
-    where: { salonId, clientId: resolvedClientId, ...(professionalId ? { professionalId } : {}) },
+    where: { salonId, clientId: resolvedClientId, status: "COMPLETED", ...(professionalId ? { professionalId } : {}) },
     orderBy: { startAt: "desc" },
     take: 40,
     select: {

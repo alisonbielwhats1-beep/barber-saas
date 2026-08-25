@@ -55,6 +55,8 @@ type Appt = {
   } | null;
 };
 
+const PAST_PREVIEW_COUNT = 5;
+
 type WaitlistItem = {
   id: string;
   position: number;
@@ -90,6 +92,7 @@ export function MinhasList({
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
   const [waitlistCancelTarget, setWaitlistCancelTarget] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pastExpanded, setPastExpanded] = useState(false);
   const cancelKeys = useRef(new Map<string, string>());
 
   const activeStatuses = new Set(["PENDING", "CONFIRMED", "IN_PROGRESS"]);
@@ -347,8 +350,22 @@ export function MinhasList({
       />
 
       {/* History */}
-      <Section title="Histórico" empty="Sem histórico ainda.">
-        {past.map((a) => (
+      <Section
+        title="Histórico"
+        empty="Sem histórico ainda."
+        action={
+          past.length > PAST_PREVIEW_COUNT ? (
+            <button
+              type="button"
+              onClick={() => setPastExpanded((open) => !open)}
+              className="text-xs font-medium text-primary hover:underline"
+            >
+              {pastExpanded ? "Ver menos" : `Ver tudo (${past.length})`}
+            </button>
+          ) : undefined
+        }
+      >
+        {(pastExpanded ? past : past.slice(0, PAST_PREVIEW_COUNT)).map((a) => (
           <ApptCard
             key={a.id}
             a={a}
@@ -405,16 +422,21 @@ export function MinhasList({
 function Section({
   title,
   empty,
+  action,
   children,
 }: {
   title: string;
   empty: string;
+  action?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const hasChildren = Array.isArray(children) ? children.some(Boolean) : !!children;
   return (
     <section>
-      <h2 className="mb-3 text-sm font-semibold text-muted-foreground">{title}</h2>
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-muted-foreground">{title}</h2>
+        {action}
+      </div>
       {hasChildren ? (
         <div className="space-y-3">{children}</div>
       ) : (
