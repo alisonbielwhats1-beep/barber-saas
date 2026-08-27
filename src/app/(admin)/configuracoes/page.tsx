@@ -11,6 +11,7 @@ import { ClosuresManager, type Closure } from "./closures-manager";
 import { ProfileForm } from "./profile-form";
 import { getPlanEntitlement } from "@/lib/plan-entitlements";
 import { SettingsSectionNav } from "./settings-section-nav";
+import { PricingRulesManager } from "./pricing-rules-manager";
 
 const PLAN_LABEL: Record<string, string> = {
   FREE: "Grátis",
@@ -24,7 +25,7 @@ export default async function ConfiguracoesPage() {
   const { salonId, userId, role } = ctx;
   const invitesEnabled = emailInvitesEnabled();
 
-  const { salon, profile, memberships, pendingInvites, closures, setupCounts } = await withTenant(ctx, async (tx) => {
+  const { salon, profile, memberships, pendingInvites, closures, pricingRules, setupCounts } = await withTenant(ctx, async (tx) => {
     const salon = await tx.salon.findUnique({
       where: { id: salonId },
       select: {
@@ -76,11 +77,25 @@ export default async function ConfiguracoesPage() {
       orderBy: { startAt: "asc" },
       take: 50,
     });
+    const pricingRules = await tx.servicePricingRule.findMany({
+      where: { salonId },
+      orderBy: [{ targetType: "asc" }, { weekday: "asc" }, { date: "asc" }],
+      select: {
+        id: true,
+        targetType: true,
+        weekday: true,
+        date: true,
+        label: true,
+        adjustmentType: true,
+        adjustmentValue: true,
+        active: true,
+      },
+    });
     const serviceCount = await tx.service.count({ where: { salonId, active: true } });
     const professionalCount = await tx.professional.count({ where: { salonId, active: true } });
     const clientCount = await tx.clientProfile.count({ where: { salonId } });
     const productCount = await tx.product.count({ where: { salonId, active: true } });
-    return { salon, profile, memberships, pendingInvites, closures, setupCounts: { serviceCount, professionalCount, clientCount, productCount } };
+    return { salon, profile, memberships, pendingInvites, closures, pricingRules, setupCounts: { serviceCount, professionalCount, clientCount, productCount } };
   });
 
   if (!salon || !profile) return null;
@@ -138,6 +153,17 @@ export default async function ConfiguracoesPage() {
 
         <section id="agenda" className="scroll-mt-24">
           <SalonSettingsForm salon={salon} />
+          <div className="mt-6">
+            <PricingRulesManager
+              canManage={role === "OWNER" || role === "MANAGER"}
+              rules={pricingRules.map((rule) => ({
+                ...rule,
+                targetType: rule.targetType as "WEEKDAY" | "DATE",
+                adjustmentType: rule.adjustmentType as "PERCENTAGE" | "FIXED_CENTS",
+                date: rule.date?.toISOString() ?? null,
+              }))}
+            />
+          </div>
           <div className="mt-6">
             <ClosuresManager
               timezone={salon.timezone}

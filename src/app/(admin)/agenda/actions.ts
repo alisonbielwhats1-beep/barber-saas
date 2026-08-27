@@ -8,13 +8,17 @@ import { assertRole, getTenantContext } from "@/lib/tenant";
 import { withTenant, type Tx } from "@/lib/prisma-tenant";
 import {
   createAppointment,
-  rescheduleAppointment,
   updateAppointmentStatusReliably,
 } from "@/lib/appointment-service";
+import { requestStaffReschedule } from "@/lib/reschedule-proposals";
 import { isAppointmentError } from "@/lib/appointment-domain";
 import { closeComandaReliably } from "@/lib/comanda-service";
 import { recordAppointmentEvent } from "@/lib/appointment-events";
-import { cancelWaitlistEntry, isWaitlistError } from "@/lib/waitlist";
+import {
+  cancelWaitlistEntry,
+  isWaitlistError,
+  promoteWaitlistEntry,
+} from "@/lib/waitlist";
 import {
   addCalendarDays,
   isDateKey,
@@ -586,7 +590,7 @@ export async function editAppointment(input: z.infer<typeof editInput>): Promise
       if (ownProfessionalId && data.professionalId !== ownProfessionalId) {
         throw new Error("Você só pode remarcar seus próprios atendimentos");
       }
-      await rescheduleAppointment(tx, {
+      await requestStaffReschedule(tx, {
         salonId: ctx.salonId,
         appointmentId: data.id,
         professionalId: data.professionalId,
@@ -601,7 +605,7 @@ export async function editAppointment(input: z.infer<typeof editInput>): Promise
         idempotencyKey: data.idempotencyKey,
         expectedVersion: data.expectedVersion,
         permittedProfessionalId: ownProfessionalId,
-        enforceClientPolicy: false,
+        reason: "Alteração solicitada pelo estabelecimento",
       });
     });
   } catch (error) {
@@ -641,7 +645,7 @@ export async function moveAppointment(input: z.infer<typeof moveInput>): Promise
       if (ownProfessionalId && data.professionalId !== ownProfessionalId) {
         throw new Error("Você só pode remarcar seus próprios atendimentos");
       }
-      await rescheduleAppointment(tx, {
+      await requestStaffReschedule(tx, {
         salonId: ctx.salonId,
         appointmentId: data.id,
         professionalId: data.professionalId,
@@ -655,13 +659,51 @@ export async function moveAppointment(input: z.infer<typeof moveInput>): Promise
         idempotencyKey: data.idempotencyKey,
         expectedVersion: data.expectedVersion,
         permittedProfessionalId: ownProfessionalId,
-        enforceClientPolicy: false,
+        reason: "Alteração solicitada pelo estabelecimento",
       });
     });
   } catch (error) {
     return { error: appointmentActionMessage(error) };
   }
   revalidatePath("/agenda");
+  revalidatePath("/dashboard");
+  revalidatePath("/book", "layout");
+  return { success: true };
+}
+
+/** Promove somente a primeira pessoa da fila de um horário já cancelado. */
+export async function promoteWaitlist(
+  appointmentId: string,
+  entryId: string,
+): Promise<ActionResult> {
+  const ctx = await getTenantContext();
+  assertRole(ctx, ["OWNER", "MANAGER"]);
+  const parsedAppointmentId = z.string().min(1).parse(appointmentId);
+  const parsedEntryId = z.string().min(1).parse(entryId);
+
+  try {
+    await withTenant(ctx, (tx) =>
+      promoteWaitlistEntry(tx, {
+        salonId: ctx.salonId,
+        appointmentId: parsedAppointmentId,
+        entryId: parsedEntryId,
+      }),
+    );
+  } catch (error) {
+    if (isWaitlistError(error)) {
+      const messages: Partial<Record<typeof error.code, string>> = {
+        NOT_FOUND: "Essa pessoa não está mais na fila ativa",
+        APPOINTMENT_NOT_CANCELLED: "Cancele o agendamento principal antes de promover alguém",
+        NOT_FIRST: "Somente a primeira pessoa da fila pode ser promovida",
+        SLOT_UNAVAILABLE: "O horário deixou de estar disponível. Atualize a agenda e revise a fila",
+        ALREADY_FULFILLED: "Essa pessoa já foi promovida para o horário",
+      };
+      return { error: messages[error.code] ?? "Não foi possível promover a fila" };
+    }
+    return { error: error instanceof Error ? error.message : "Não foi possível promover a fila" };
+  }
+  revalidatePath("/agenda");
+  revalidatePath("/hoje");
   revalidatePath("/dashboard");
   revalidatePath("/book", "layout");
   return { success: true };

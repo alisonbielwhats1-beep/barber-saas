@@ -33,6 +33,9 @@ function schedulingTx() {
         { id: "service-a", name: "Corte", durationMin: 30, priceCents: 5_000 },
       ]),
     },
+    servicePricingRule: {
+      findFirst: vi.fn().mockResolvedValue(null),
+    },
     professionalService: {
       findMany: vi.fn().mockResolvedValue([
         { serviceId: "service-a" },

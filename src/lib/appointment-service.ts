@@ -8,6 +8,7 @@ import type {
 import type { Tx } from "./prisma-tenant";
 import { clientIdentityData } from "./client-identity";
 import { bufferedWindow, checkBookingWindow } from "./scheduling";
+import { priceServicesForDate } from "./pricing";
 import {
   ACTIVE_APPOINTMENT_STATUSES,
   AppointmentError,
@@ -42,13 +43,12 @@ import {
   getPlanEntitlement,
 } from "./plan-entitlements";
 import {
-  cancelActiveWaitlistForAppointment,
   fulfillWaitlistOnCancel,
   nextWaitlistSlot,
   type ReleasedAppointmentSlot,
 } from "./waitlist";
 
-type ServiceSnapshot = {
+export type ServiceSnapshot = {
   id: string;
   name: string;
   durationMin: number;
@@ -123,6 +123,10 @@ export type RescheduleAppointmentInput = {
   overrideReason?: string | null;
   canOverride?: boolean;
   now?: Date;
+  /** Usado pelo aceite: mantém o orçamento que foi mostrado ao cliente. */
+  serviceSnapshotsOverride?: ServiceSnapshot[];
+  /** Vincula o evento à solicitação que o cliente aceitou. */
+  proposalId?: string;
 };
 
 export type CancelAppointmentInput = {
@@ -441,6 +445,41 @@ export async function inspectAppointmentAvailability(
   }
 }
 
+/**
+ * Inspeciona um destino usando o snapshot já contratado. É usado somente
+ * quando um serviço histórico foi desativado ou desvinculado do catálogo;
+ * ainda valida tenant, profissional ativo e compatibilidade do destino.
+ */
+export async function inspectAppointmentAvailabilityWithServiceSnapshots(
+  tx: Tx,
+  input: {
+    salonId: string;
+    professionalId: string;
+    currentProfessionalId: string;
+    serviceSnapshots: ServiceSnapshot[];
+    startLocal: string;
+    excludeAppointmentId?: string;
+    enforceBookingWindow: boolean;
+    now?: Date;
+  },
+) {
+  await validateServiceSnapshotOverride(tx, {
+    salonId: input.salonId,
+    currentProfessionalId: input.currentProfessionalId,
+    targetProfessionalId: input.professionalId,
+    snapshots: input.serviceSnapshots,
+  });
+  return inspectAvailabilityUsingServices(tx, {
+    salonId: input.salonId,
+    professionalId: input.professionalId,
+    startLocal: input.startLocal,
+    excludeAppointmentId: input.excludeAppointmentId,
+    enforceBookingWindow: input.enforceBookingWindow,
+    now: input.now,
+    applyPricing: false,
+  }, input.serviceSnapshots);
+}
+
 async function inspectAvailabilityUsingServices(
   tx: Tx,
   input: {
@@ -450,6 +489,7 @@ async function inspectAvailabilityUsingServices(
     excludeAppointmentId?: string;
     enforceBookingWindow: boolean;
     now?: Date;
+    applyPricing?: boolean;
   },
   services: ServiceSnapshot[],
 ): Promise<{
@@ -462,6 +502,13 @@ async function inspectAvailabilityUsingServices(
   try {
     const salon = await loadSalon(tx, input.salonId);
     const startAt = localDateTimeToUtc(input.startLocal, salon.timezone);
+    const priced = input.applyPricing === false
+      ? { services, rule: null }
+      : await priceServicesForDate(tx, {
+          salonId: input.salonId,
+          dateKey: input.startLocal.slice(0, 10),
+          services,
+        });
     const durationMin = services.reduce((sum, service) => sum + service.durationMin, 0);
     const endAt = addMinutes(startAt, durationMin);
     const violation = await availabilityViolation(tx, {
@@ -470,7 +517,7 @@ async function inspectAvailabilityUsingServices(
       startAt,
       endAt,
     });
-    return { violation, startAt, endAt, timezone: salon.timezone, services };
+    return { violation, startAt, endAt, timezone: salon.timezone, services: priced.services };
   } catch (error) {
     return toAppointmentError(error);
   }
@@ -532,6 +579,8 @@ function eventPayload(input: {
   services: ServiceSnapshot[];
   actor: AppointmentActor;
   previousStartAt?: Date;
+  proposalId?: string;
+  response?: "ACCEPTED";
 }) {
   return {
     appointmentId: input.appointmentId,
@@ -552,6 +601,8 @@ function eventPayload(input: {
       id: input.actor.id ?? null,
       name: input.actor.name,
     },
+    ...(input.proposalId ? { proposalId: input.proposalId } : {}),
+    ...(input.response ? { response: input.response } : {}),
   } satisfies Prisma.InputJsonValue;
 }
 
@@ -812,6 +863,57 @@ function previousServices(
   return [appointment.service];
 }
 
+async function validateServiceSnapshotOverride(
+  tx: Tx,
+  input: {
+    salonId: string;
+    currentProfessionalId: string;
+    targetProfessionalId: string;
+    snapshots: ServiceSnapshot[];
+  },
+): Promise<void> {
+  if (input.snapshots.length === 0 || input.snapshots.length > 10) {
+    throw new AppointmentError("SERVICE_INVALID");
+  }
+  const ids = input.snapshots.map((service) => service.id);
+  if (new Set(ids).size !== ids.length || input.snapshots.some((service) =>
+    !service.id || !service.name || !Number.isInteger(service.durationMin) || service.durationMin <= 0 ||
+    !Number.isInteger(service.priceCents) || service.priceCents < 0,
+  )) {
+    throw new AppointmentError("SERVICE_INVALID");
+  }
+  const services = await tx.service.findMany({
+    where: { salonId: input.salonId, id: { in: ids } },
+    select: { id: true },
+  });
+  if (services.length !== ids.length) throw new AppointmentError("SERVICE_INVALID");
+  await assertHistoricalServicesCanMove(tx, {
+    salonId: input.salonId,
+    currentProfessionalId: input.currentProfessionalId,
+    targetProfessionalId: input.targetProfessionalId,
+    serviceIds: ids,
+  });
+}
+
+async function cancelPendingRescheduleProposals(
+  tx: Tx,
+  input: { salonId: string; appointmentId: string; exceptId?: string; reason: string },
+): Promise<void> {
+  await tx.rescheduleProposal.updateMany({
+    where: {
+      salonId: input.salonId,
+      appointmentId: input.appointmentId,
+      status: "PENDING",
+      ...(input.exceptId ? { id: { not: input.exceptId } } : {}),
+    },
+    data: {
+      status: "CANCELLED",
+      responseReason: input.reason,
+      respondedAt: new Date(),
+    },
+  });
+}
+
 export async function rescheduleAppointment(
   tx: Tx,
   input: RescheduleAppointmentInput,
@@ -836,9 +938,14 @@ export async function rescheduleAppointment(
   const appointment = await loadMutableAppointment(tx, input.salonId, input.appointmentId);
   if (!appointment) throw new AppointmentError("NOT_FOUND");
   assertMutationOwnership(appointment, input);
-  const serviceIds = input.serviceIds
-    ? normalizeServiceIds(input.serviceIds)
-    : previousServices(appointment).map((service) => service.id);
+  // O snapshot validado pelo servidor tem precedência no aceite de uma
+  // proposta. Assim, um payload que traga `serviceIds` conflitantes não muda
+  // silenciosamente o orçamento que foi apresentado ao cliente.
+  const serviceIds = input.serviceSnapshotsOverride
+    ? normalizeServiceIds(input.serviceSnapshotsOverride.map((service) => service.id))
+    : input.serviceIds
+      ? normalizeServiceIds(input.serviceIds)
+      : previousServices(appointment).map((service) => service.id);
   const fingerprint = appointmentFingerprint({
     appointmentId: input.appointmentId,
     professionalId: input.professionalId,
@@ -848,6 +955,7 @@ export async function rescheduleAppointment(
     overrideReason: input.overrideReason?.trim() ?? null,
     actor: { type: input.actor.type, id: input.actor.id ?? null },
     expectedVersion: input.expectedVersion ?? null,
+    proposalId: input.proposalId ?? null,
   });
 
   const previousEvent = await tx.appointmentEvent.findUnique({
@@ -907,7 +1015,17 @@ export async function rescheduleAppointment(
     previousServiceSnapshots.length === serviceIds.length &&
     previousServiceSnapshots.every((service) => serviceIds.includes(service.id));
   let schedulingSnapshots: ServiceSnapshot[];
-  if (preservesExistingServices) {
+  let applyPricing = true;
+  if (input.serviceSnapshotsOverride) {
+    await validateServiceSnapshotOverride(tx, {
+      salonId: input.salonId,
+      currentProfessionalId: appointment.professionalId,
+      targetProfessionalId: input.professionalId,
+      snapshots: input.serviceSnapshotsOverride,
+    });
+    schedulingSnapshots = input.serviceSnapshotsOverride;
+    applyPricing = false;
+  } else if (preservesExistingServices) {
     await assertHistoricalServicesCanMove(tx, {
       salonId: input.salonId,
       currentProfessionalId: appointment.professionalId,
@@ -915,6 +1033,7 @@ export async function rescheduleAppointment(
       serviceIds,
     });
     schedulingSnapshots = previousServiceSnapshots;
+    applyPricing = false;
   } else {
     schedulingSnapshots = await loadServiceSnapshots(
       tx,
@@ -930,6 +1049,7 @@ export async function rescheduleAppointment(
     excludeAppointmentId: appointment.id,
     enforceBookingWindow: input.enforceClientPolicy,
     now: input.now,
+    applyPricing,
   }, schedulingSnapshots);
   const override = requireOverrideReason({
     violation: inspected.violation,
@@ -963,6 +1083,15 @@ export async function rescheduleAppointment(
     },
   });
   if (updated.count !== 1) throw new AppointmentError("VERSION_CONFLICT");
+
+  await cancelPendingRescheduleProposals(tx, {
+    salonId: input.salonId,
+    appointmentId: appointment.id,
+    exceptId: input.proposalId,
+    reason: input.proposalId
+      ? "A solicitação foi aceita."
+      : "Substituída por uma alteração mais recente.",
+  });
 
   await tx.appointmentService.deleteMany({
     where: { appointmentId: appointment.id, salonId: input.salonId },
@@ -1006,6 +1135,8 @@ export async function rescheduleAppointment(
     professionalId: input.professionalId,
     services: inspected.services,
     actor: input.actor,
+    proposalId: input.proposalId,
+    response: input.proposalId ? "ACCEPTED" : undefined,
   });
   await recordAppointmentEvent(tx, {
     salonId: input.salonId,
@@ -1019,7 +1150,9 @@ export async function rescheduleAppointment(
     previousValue,
     newValue: payload,
     recipients,
-    template: "appointment.rescheduled",
+    template: input.proposalId
+      ? "appointment.reschedule_accepted"
+      : "appointment.rescheduled",
     payload,
   });
 
@@ -1204,13 +1337,19 @@ export async function cancelAppointmentReliably(
   }
 
   const services = previousServices(appointment);
-  const cancelledWaitlistCount = input.actor.type === "STAFF"
-    ? await cancelActiveWaitlistForAppointment(tx, {
-        salonId: input.salonId,
-        appointmentId: appointment.id,
-        actorId: input.actor.id,
-        reason,
-        cancelledAt: now,
+  await cancelPendingRescheduleProposals(tx, {
+    salonId: input.salonId,
+    appointmentId: appointment.id,
+    reason: "O agendamento foi cancelado.",
+  });
+  const activeWaitlistCount = input.actor.type === "STAFF"
+    ? await tx.waitlistEntry.count({
+        where: {
+          salonId: input.salonId,
+          appointmentId: appointment.id,
+          fulfilledAt: null,
+          cancelledAt: null,
+        },
       })
     : 0;
   const recipients = await recipientsForEvent(tx, {
@@ -1233,7 +1372,8 @@ export async function cancelAppointmentReliably(
     ...previousValue,
     status: "CANCELLED",
     reason: reason || null,
-    cancelledWaitlistCount,
+    activeWaitlistCount,
+    waitlistPreserved: input.actor.type === "STAFF" && activeWaitlistCount > 0,
   } satisfies Prisma.InputJsonValue;
   await recordAppointmentEvent(tx, {
     salonId: input.salonId,
@@ -1252,8 +1392,8 @@ export async function cancelAppointmentReliably(
   });
 
   // Somente cancelamento iniciado pelo cliente promove automaticamente. No
-  // cancelamento do estabelecimento, a fila já foi encerrada acima e ninguém
-  // continua aguardando um horário que não será mais oferecido.
+  // cancelamento do estabelecimento, a fila permanece ativa para que o dono
+  // escolha explicitamente quem deve receber o horário liberado.
   if (input.actor.type === "CLIENT") {
     const waitingSlot = await nextWaitlistSlot(tx, appointment.id, input.salonId);
     if (waitingSlot) {
@@ -1378,6 +1518,14 @@ export async function updateAppointmentStatusReliably(
     data: { status: input.status, version: { increment: 1 } },
   });
   if (updated.count !== 1) throw new AppointmentError("VERSION_CONFLICT");
+
+  if (input.status === "COMPLETED" || input.status === "NO_SHOW") {
+    await cancelPendingRescheduleProposals(tx, {
+      salonId: input.salonId,
+      appointmentId: appointment.id,
+      reason: "O atendimento foi encerrado.",
+    });
+  }
 
   const services = previousServices(appointment);
   const recipients = await recipientsForEvent(tx, {

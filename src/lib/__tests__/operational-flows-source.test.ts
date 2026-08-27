@@ -121,14 +121,17 @@ describe("superficies dos novos fluxos operacionais", () => {
     expect(reservation).toContain('kind: "RESERVATION"');
   });
 
-  it("encerra a fila sem promoção em cancelamento do estabelecimento", () => {
+  it("preserva a fila e oferece promoção explícita após cancelamento do estabelecimento", () => {
     const service = source("src/lib/appointment-service.ts");
     const detail = source("src/app/(admin)/agenda/appointment-detail.tsx");
+    const actions = source("src/app/(admin)/agenda/actions.ts");
     expect(service).toMatch(
       /if \(input\.actor\.type === "CLIENT"\) \{[\s\S]*?nextWaitlistSlot/,
     );
-    expect(service).toContain("cancelActiveWaitlistForAppointment");
-    expect(detail).toContain("a fila será encerrada sem promoção automática");
+    expect(service).not.toContain("cancelActiveWaitlistForAppointment");
+    expect(service).toContain("waitlistPreserved");
+    expect(detail).toContain("Promover");
+    expect(actions).toContain("promoteWaitlistEntry");
   });
 
   it("mantém o preflight cross-tenant somente leitura até migration autorizada", () => {

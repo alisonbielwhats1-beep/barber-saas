@@ -3,6 +3,9 @@ import type { AppointmentActorType } from "@prisma/client";
 import type { Tx } from "./prisma-tenant";
 import { businessRecipients, recordAppointmentEvent } from "./appointment-events";
 import { clientIdentityData } from "./client-identity";
+import { priceServicesForDate } from "./pricing";
+import { dateKeyInTimeZone } from "./time";
+import { lockOperationalResources } from "./inventory-lock";
 
 const WAITLIST_NOTE = "Confirmado automaticamente pela lista de espera.";
 
@@ -28,7 +31,10 @@ export type WaitlistErrorCode =
   | "FORBIDDEN"
   | "ALREADY_FULFILLED"
   | "SERVICE_INVALID"
-  | "PRO_SERVICE_MISMATCH";
+  | "PRO_SERVICE_MISMATCH"
+  | "APPOINTMENT_NOT_CANCELLED"
+  | "NOT_FIRST"
+  | "SLOT_UNAVAILABLE";
 
 export class WaitlistError extends Error {
   constructor(public readonly code: WaitlistErrorCode) {
@@ -131,7 +137,7 @@ export async function joinWaitlist(
     );
   }
   const servicesById = new Map(requestedServices.map((service) => [service.id, service]));
-  const serviceSnapshots = serviceIds.map((serviceId) => {
+  const baseServiceSnapshots = serviceIds.map((serviceId) => {
     const service = servicesById.get(serviceId)!;
     return {
       serviceId: service.id,
@@ -140,6 +146,22 @@ export async function joinWaitlist(
       priceCents: service.priceCents,
     };
   });
+  const priced = await priceServicesForDate(tx, {
+    salonId: input.salonId,
+    dateKey: dateKeyInTimeZone(appointment.startAt, appointment.timezone),
+    services: baseServiceSnapshots.map((service) => ({
+      id: service.serviceId,
+      name: service.serviceName,
+      durationMin: service.durationMin,
+      priceCents: service.priceCents,
+    })),
+  });
+  const serviceSnapshots = priced.services.map((service) => ({
+    serviceId: service.id,
+    serviceName: service.name,
+    durationMin: service.durationMin,
+    priceCents: service.priceCents,
+  }));
   const durationMin = serviceSnapshots.reduce((total, service) => total + service.durationMin, 0);
   const priceCents = serviceSnapshots.reduce((total, service) => total + service.priceCents, 0);
   const endAt = new Date(appointment.startAt.getTime() + durationMin * 60_000);
@@ -268,35 +290,106 @@ export async function cancelWaitlistEntry(
 }
 
 /**
- * Encerra a fila inteira quando o próprio estabelecimento cancela o horário.
- * Nada é promovido e nenhuma entrada continua aparecendo como espera ativa.
+ * Promoção manual e explícita pelo estabelecimento. Só a primeira posição
+ * pode ser escolhida, o agendamento de origem precisa estar cancelado e o
+ * intervalo é rechecado antes de criar a nova reserva.
  */
-export async function cancelActiveWaitlistForAppointment(
+export async function promoteWaitlistEntry(
   tx: Tx,
-  input: {
-    salonId: string;
-    appointmentId: string;
-    actorId?: string | null;
-    reason: string;
-    cancelledAt?: Date;
-  },
-): Promise<number> {
-  await lockWaitlist(tx, input.appointmentId);
-  const updated = await tx.waitlistEntry.updateMany({
+  input: { salonId: string; appointmentId: string; entryId: string },
+): Promise<{ appointmentId: string; clientId: string }> {
+  // Mantém a mesma ordem das demais mutações: appointment → professional →
+  // fila. O segundo read abaixo acontece depois dos locks para que uma entrada
+  // que chegou/cancelou durante a inspeção não seja promovida por engano.
+  await lockOperationalResources(tx, { appointmentIds: [input.appointmentId] });
+  const source = await tx.appointment.findFirst({
+    where: { id: input.appointmentId, salonId: input.salonId },
+    select: { status: true },
+  });
+  if (!source) throw new WaitlistError("NOT_FOUND");
+  if (source.status !== "CANCELLED") {
+    throw new WaitlistError("APPOINTMENT_NOT_CANCELLED");
+  }
+
+  const candidateEntries = await tx.waitlistEntry.findMany({
     where: {
       salonId: input.salonId,
       appointmentId: input.appointmentId,
       fulfilledAt: null,
       cancelledAt: null,
+      OR: [
+        { clientId: { not: null }, client: { is: { salonId: input.salonId } } },
+        { clientId: null, guestName: { not: null }, guestPhone: { not: null } },
+      ],
     },
-    data: {
-      cancelledAt: input.cancelledAt ?? new Date(),
-      cancelledByType: "STAFF",
-      cancelledById: input.actorId ?? null,
-      cancelledReason: input.reason.trim() || "Agendamento cancelado pelo estabelecimento",
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    select: { professionalId: true },
+  });
+  await lockOperationalResources(tx, {
+    professionalIds: candidateEntries.map((entry) => entry.professionalId),
+  });
+  await lockWaitlist(tx, input.appointmentId);
+  const activeEntries = await tx.waitlistEntry.findMany({
+    where: {
+      salonId: input.salonId,
+      appointmentId: input.appointmentId,
+      fulfilledAt: null,
+      cancelledAt: null,
+      OR: [
+        { clientId: { not: null }, client: { is: { salonId: input.salonId } } },
+        { clientId: null, guestName: { not: null }, guestPhone: { not: null } },
+      ],
+    },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    select: {
+      id: true,
+      professionalId: true,
+      startAt: true,
+      endAt: true,
     },
   });
-  return updated.count;
+  if (!activeEntries.some((entry) => entry.id === input.entryId)) {
+    throw new WaitlistError("NOT_FOUND");
+  }
+  if (activeEntries[0]?.id !== input.entryId) {
+    throw new WaitlistError("NOT_FIRST");
+  }
+  const first = activeEntries[0];
+  const professional = await tx.professional.findFirst({
+    where: { id: first.professionalId, salonId: input.salonId, active: true },
+    select: { id: true },
+  });
+  if (!professional) throw new WaitlistError("SLOT_UNAVAILABLE");
+  const closure = await tx.salonClosure.findFirst({
+    where: {
+      salonId: input.salonId,
+      startAt: { lt: first.endAt },
+      endAt: { gt: first.startAt },
+    },
+    select: { id: true },
+  });
+  const timeOff = await tx.timeOff.findFirst({
+    where: {
+      professionalId: first.professionalId,
+      startAt: { lt: first.endAt },
+      endAt: { gt: first.startAt },
+    },
+    select: { id: true },
+  });
+  const conflict = await tx.appointment.findFirst({
+    where: {
+      salonId: input.salonId,
+      professionalId: first.professionalId,
+      status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
+      startAt: { lt: first.endAt },
+      endAt: { gt: first.startAt },
+    },
+    select: { id: true },
+  });
+  if (closure || timeOff || conflict) throw new WaitlistError("SLOT_UNAVAILABLE");
+
+  return (await fulfillWaitlistOnCancel(tx, input.appointmentId, input.salonId))
+    ?? (() => { throw new WaitlistError("NOT_FOUND"); })();
 }
 
 function serviceSnapshotsFromJson(value: unknown): ReleasedAppointmentSlot["services"] | null {

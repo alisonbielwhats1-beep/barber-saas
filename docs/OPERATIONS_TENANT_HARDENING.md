@@ -43,8 +43,9 @@ recibo interno em documento fiscal.
 - fechamento idempotente confirma status, estoque, pagamento e auditoria de
   forma atômica;
 - `IN_PROGRESS`, `COMPLETED` e recebimento antes de `startAt` falham fechados;
-- cancelamento pela equipe encerra a fila ativa daquele atendimento sem
-  realocação automática.
+- cancelamento pela equipe preserva a fila ativa daquele atendimento sem
+  realocação automática; dono/gerente podem promover explicitamente a primeira
+  posição após nova checagem de disponibilidade.
 
 Os testes PostgreSQL de concorrência estão ligados ao `schema-smoke`, junto do
 teste de lock `APPROVED` versus suspensão. Como a máquina local não possui

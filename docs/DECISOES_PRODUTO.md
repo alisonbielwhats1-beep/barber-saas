@@ -83,6 +83,17 @@ necessário um fluxo explícito de diferença/estorno antes de liberar a ação.
 - O intervalo é liberado, mas o evento e o responsável permanecem no histórico.
 - No-show é um status próprio, aplicado pelo estabelecimento, e não um delete.
 
+Atualização da operação de fila (fase 016):
+
+- cancelamento feito pelo cliente continua podendo confirmar automaticamente o
+  primeiro item válido;
+- cancelamento feito pelo dono/gerente preserva a fila ativa e não promove
+  ninguém sozinho, pois a equipe precisa confirmar que o horário continua
+  adequado;
+- dono/gerente podem promover somente a primeira posição, com uma nova
+  validação de profissional, jornada, folga, fechamento, buffer e conflito;
+- remover uma pessoa da fila continua sendo uma ação individual e auditável.
+
 ## Estoque
 
 Usar um livro-razão de movimentos, não apenas sobrescrever o número atual:
@@ -145,6 +156,23 @@ Estratégia sem novo custo obrigatório:
   custo e fornecedor;
 - falha de notificação não desfaz o agendamento e permanece disponível para
   nova tentativa.
+
+Para uma alteração de horário iniciada pela equipe, cliente com conta recebe
+uma proposta interna com horário, profissional, serviços e preço congelados.
+Aceitar atualiza o mesmo agendamento e registra o aceite; recusar mantém o
+horário original e registra a decisão. Visitante sem conta segue no fluxo
+direto e deve ser contatado pela equipe. Nenhum WhatsApp/SMS automático é
+adicionado.
+
+## Preço por dia e janela pública
+
+- o dono/gerente pode criar um acréscimo percentual ou fixo por dia da semana;
+- uma data específica, como feriado, substitui a regra do dia da semana para
+  evitar somar dois acréscimos;
+- preço, duração e serviços são recalculados no servidor e congelados no
+  snapshot do atendimento;
+- o calendário público oferece no máximo 60 dias de antecedência, ainda que
+  um valor legado do salão seja maior.
 
 ## Unidades e múltiplos serviços
 

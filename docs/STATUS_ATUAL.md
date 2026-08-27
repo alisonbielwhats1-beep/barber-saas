@@ -1,8 +1,8 @@
 # Status atual canônico — Salon SaaS
 
-Atualizado em **22/08/2026** após a promoção autorizada do PR de avaliações e
-identidade de clientes para Production. As migrations manuais 012, 013, 014 e
-015 foram aplicadas/verificadas no Supabase Production.
+Atualizado em **27/08/2026**. As migrations manuais 012, 013, 014 e 015 foram
+aplicadas/verificadas no Supabase Production; a fase 016 desta entrega está
+versionada no código, mas ainda não foi aplicada em nenhum banco remoto.
 Este arquivo substitui os status históricos quando houver contradição.
 
 ## Fase 0 — prontidão para produção em validação
@@ -66,6 +66,20 @@ test pós-deploy está em `docs/FASE_0_PRODUCTION_READINESS.md`.
 - histórico imutável de eventos e outbox idempotente de notificações;
 - polling seguro como fallback; Supabase Realtime ainda não é a fonte principal.
 
+### Entrega local desta solicitação — fase 016
+
+- regras de preço por dia da semana ou data específica, com precedência da data
+  exata sobre o dia da semana e snapshots do valor no atendimento;
+- janela pública limitada a 60 dias, mesmo que uma configuração antiga tenha
+  valor maior;
+- alteração de horário feita pela equipe gera proposta para cliente com conta,
+  aceite/recusa no app, histórico e notificações internas idempotentes;
+- cancelamento feito pela equipe preserva a fila ativa; dono/gerente promovem
+  explicitamente apenas a primeira posição após conferir a disponibilidade;
+- atalho de ligação por telefone no app público e nas telas operacionais;
+- cliente vê entrar/criar conta desde a vitrine e pode autenticar antes de
+  entrar na fila, sem persistir nome/telefone em armazenamento do navegador.
+
 ### Administração global
 
 - `PlatformRole.SUPER_ADMIN` separado dos papéis de cada tenant;
@@ -106,6 +120,10 @@ test pós-deploy está em `docs/FASE_0_PRODUCTION_READINESS.md`.
 - A interface de cobranças do SaaS fica inacessível e as Server Actions falham
   fechadas enquanto a flag estiver desligada.
 - Preflight e rollback não destrutivo estão versionados junto da migration.
+- `016_booking_experience.sql` está **pendente**: cria regras de preço,
+  propostas de remarcação, enums, índices e policies RLS; não foi aplicado em
+  Production. Execute o preflight em um banco identificado e homologado antes
+  de qualquer autorização de rollout.
 
 ### Proibições
 
@@ -220,7 +238,8 @@ hotfix do PR #51 fechou a incompatibilidade de lock público com a role runtime.
 - ajustes manuais de estoque são tenant-scoped, bloqueiam estoque negativo e
   registram saldo anterior/novo e motivo em `AuditLog`;
 - cancelamento restaura cada reserva no máximo uma vez; cancelamento pela
-  equipe encerra todas as entradas ativas daquela fila sem realocação;
+  equipe preserva as entradas ativas da fila, e dono/gerente podem promover
+  explicitamente a primeira posição somente depois de uma nova checagem;
 - `IN_PROGRESS` e `COMPLETED`, assim como a abertura da comanda, só são aceitos
   depois do início contratado; a UI deriva as ações da mesma regra temporal.
 

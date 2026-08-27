@@ -8,7 +8,11 @@ import {
   updateAppointmentStatusReliably,
 } from "../appointment-service";
 import { isAppointmentError } from "../appointment-domain";
-import { joinWaitlist } from "../waitlist";
+import { joinWaitlist, promoteWaitlistEntry } from "../waitlist";
+import {
+  requestStaffReschedule,
+  respondToRescheduleProposal,
+} from "../reschedule-proposals";
 
 const describePostgres =
   process.env.RUN_POSTGRES_INTEGRATION === "1" ? describe : describe.skip;
@@ -375,7 +379,127 @@ describePostgres("concorrência real de agendamentos", () => {
     ).rejects.toMatchObject({ code: "IDEMPOTENCY_MISMATCH" });
   });
 
-  it("encerra toda a fila sem promover quando o estabelecimento cancela", async () => {
+  it("mantém o horário até o aceite e registra aceite ou recusa da proposta", async () => {
+    const data = await fixture();
+    const suffix = crypto.randomUUID();
+    const [acceptedClient, rejectedClient] = await Promise.all([
+      prisma.clientProfile.create({
+        data: {
+          salonId: data.salonId,
+          name: "Cliente com conta",
+          email: `accepted-${suffix}@example.test`,
+          passwordHash: "integration-account",
+        },
+        select: { id: true },
+      }),
+      prisma.clientProfile.create({
+        data: {
+          salonId: data.salonId,
+          name: "Cliente que recusa",
+          email: `rejected-${suffix}@example.test`,
+          passwordHash: "integration-account",
+        },
+        select: { id: true },
+      }),
+    ]);
+    const original = await withSalon(data.salonId, (tx) =>
+      createAppointment(tx, {
+        salonId: data.salonId,
+        clientId: acceptedClient.id,
+        professionalId: data.professionalId,
+        serviceIds: [data.serviceId],
+        startLocal: "2032-08-05T10:00",
+        origin: "ADMIN",
+        actor: { type: "STAFF", id: data.professionalUserId, name: "Dono CI" },
+        idempotencyKey: crypto.randomUUID(),
+        enforceBookingWindow: false,
+      }),
+    );
+    const requested = await withSalon(data.salonId, (tx) =>
+      requestStaffReschedule(tx, {
+        salonId: data.salonId,
+        appointmentId: original.appointment.id,
+        professionalId: data.professionalId,
+        serviceIds: [data.serviceId],
+        startLocal: "2032-08-05T11:00",
+        actor: { type: "STAFF", id: data.professionalUserId, name: "Dono CI" },
+        idempotencyKey: crypto.randomUUID(),
+        expectedVersion: 1,
+      }),
+    );
+    expect(requested).toMatchObject({ requiresAcceptance: true, duplicate: false });
+    if (!requested.requiresAcceptance) throw new Error("proposta esperada");
+    expect(await prisma.appointment.findUniqueOrThrow({
+      where: { id: original.appointment.id },
+      select: { version: true, startAt: true },
+    })).toEqual({ version: 1, startAt: new Date("2032-08-05T13:00:00.000Z") });
+
+    const accepted = await withSalon(data.salonId, (tx) =>
+      respondToRescheduleProposal(tx, {
+        salonId: data.salonId,
+        proposalId: requested.proposalId,
+        clientId: acceptedClient.id,
+        decision: "ACCEPT",
+      }),
+    );
+    expect(accepted).toMatchObject({ status: "ACCEPTED", duplicate: false });
+    expect(accepted.appointment.startAt.toISOString()).toBe("2032-08-05T14:00:00.000Z");
+    expect(await prisma.rescheduleProposal.findUniqueOrThrow({
+      where: { id: requested.proposalId },
+      select: { status: true, targetNotes: true },
+    })).toEqual({ status: "ACCEPTED", targetNotes: null });
+    expect(await prisma.notificationOutbox.count({
+      where: {
+        salonId: data.salonId,
+        appointmentId: original.appointment.id,
+        template: { in: ["appointment.reschedule_requested", "appointment.reschedule_accepted"] },
+      },
+    })).toBe(3);
+
+    const rejectAppointment = await withSalon(data.salonId, (tx) =>
+      createAppointment(tx, {
+        salonId: data.salonId,
+        clientId: rejectedClient.id,
+        professionalId: data.professionalId,
+        serviceIds: [data.serviceId],
+        startLocal: "2032-08-05T12:00",
+        origin: "ADMIN",
+        actor: { type: "STAFF", id: data.professionalUserId, name: "Dono CI" },
+        idempotencyKey: crypto.randomUUID(),
+        enforceBookingWindow: false,
+      }),
+    );
+    const rejectedRequest = await withSalon(data.salonId, (tx) =>
+      requestStaffReschedule(tx, {
+        salonId: data.salonId,
+        appointmentId: rejectAppointment.appointment.id,
+        professionalId: data.professionalId,
+        serviceIds: [data.serviceId],
+        startLocal: "2032-08-05T13:00",
+        actor: { type: "STAFF", id: data.professionalUserId, name: "Dono CI" },
+        idempotencyKey: crypto.randomUUID(),
+        expectedVersion: 1,
+      }),
+    );
+    if (!rejectedRequest.requiresAcceptance) throw new Error("segunda proposta esperada");
+    const rejected = await withSalon(data.salonId, (tx) =>
+      respondToRescheduleProposal(tx, {
+        salonId: data.salonId,
+        proposalId: rejectedRequest.proposalId,
+        clientId: rejectedClient.id,
+        decision: "REJECT",
+        reason: "Esse horário não funciona",
+      }),
+    );
+    expect(rejected).toMatchObject({ status: "REJECTED", duplicate: false });
+    expect(rejected.appointment.startAt.toISOString()).toBe("2032-08-05T15:00:00.000Z");
+    expect(await prisma.rescheduleProposal.findUniqueOrThrow({
+      where: { id: rejectedRequest.proposalId },
+      select: { status: true, responseReason: true },
+    })).toEqual({ status: "REJECTED", responseReason: "Esse horário não funciona" });
+  });
+
+  it("preserva a fila e permite promover explicitamente a primeira pessoa", async () => {
     const data = await fixture();
     const original = await withSalon(data.salonId, (tx) =>
       createAppointment(tx, {
@@ -417,7 +541,7 @@ describePostgres("concorrência real de agendamentos", () => {
       }),
     );
 
-    const closedQueue = await prisma.waitlistEntry.findMany({
+    const activeQueue = await prisma.waitlistEntry.findMany({
       where: {
         salonId: data.salonId,
         appointmentId: original.appointment.id,
@@ -433,33 +557,33 @@ describePostgres("concorrência real de agendamentos", () => {
         cancelledReason: true,
       },
     });
-    expect(closedQueue).toEqual([
+    expect(activeQueue).toEqual([
       expect.objectContaining({
         clientId: data.clients[1]!.id,
         fulfilledAt: null,
         fulfilledAppointmentId: null,
-        cancelledAt: expect.any(Date),
-        cancelledByType: "STAFF",
-        cancelledById: data.professionalUserId,
-        cancelledReason: "Cancelado pelo estabelecimento",
+        cancelledAt: null,
+        cancelledByType: null,
+        cancelledById: null,
+        cancelledReason: null,
       }),
       expect.objectContaining({
         clientId: data.clients[2]!.id,
         fulfilledAt: null,
         fulfilledAppointmentId: null,
-        cancelledAt: expect.any(Date),
-        cancelledByType: "STAFF",
-        cancelledById: data.professionalUserId,
-        cancelledReason: "Cancelado pelo estabelecimento",
+        cancelledAt: null,
+        cancelledByType: null,
+        cancelledById: null,
+        cancelledReason: null,
       }),
       expect.objectContaining({
         clientId: data.clients[3]!.id,
         fulfilledAt: null,
         fulfilledAppointmentId: null,
-        cancelledAt: expect.any(Date),
-        cancelledByType: "STAFF",
-        cancelledById: data.professionalUserId,
-        cancelledReason: "Cancelado pelo estabelecimento",
+        cancelledAt: null,
+        cancelledByType: null,
+        cancelledById: null,
+        cancelledReason: null,
       }),
     ]);
     expect(await prisma.waitlistEntry.count({
@@ -469,7 +593,31 @@ describePostgres("concorrência real de agendamentos", () => {
         fulfilledAt: null,
         cancelledAt: null,
       },
-    })).toBe(0);
+    })).toBe(3);
+
+    await withSalon(data.salonId, (tx) =>
+      promoteWaitlistEntry(tx, {
+        salonId: data.salonId,
+        appointmentId: original.appointment.id,
+        entryId: queued[0]!.entryId,
+      }),
+    );
+
+    const promoted = await prisma.waitlistEntry.findUniqueOrThrow({
+      where: { id: queued[0]!.entryId },
+      select: { fulfilledAt: true, fulfilledAppointmentId: true, cancelledAt: true },
+    });
+    expect(promoted.fulfilledAt).toEqual(expect.any(Date));
+    expect(promoted.fulfilledAppointmentId).toBeTruthy();
+    expect(promoted.cancelledAt).toBeNull();
+    expect(await prisma.waitlistEntry.count({
+      where: {
+        salonId: data.salonId,
+        appointmentId: original.appointment.id,
+        fulfilledAt: null,
+        cancelledAt: null,
+      },
+    })).toBe(2);
     expect(await prisma.appointment.count({
       where: {
         salonId: data.salonId,
@@ -477,13 +625,13 @@ describePostgres("concorrência real de agendamentos", () => {
         startAt: new Date("2032-08-05T13:00:00.000Z"),
         status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
       },
-    })).toBe(0);
+    })).toBe(1);
     expect(await prisma.notificationOutbox.count({
       where: {
         salonId: data.salonId,
         template: "appointment.waitlist_fulfilled",
       },
-    })).toBe(0);
+    })).toBe(1);
     const cancellationEvent = await prisma.appointmentEvent.findFirstOrThrow({
       where: {
         salonId: data.salonId,
@@ -493,7 +641,10 @@ describePostgres("concorrência real de agendamentos", () => {
       orderBy: { createdAt: "desc" },
       select: { newValue: true },
     });
-    expect(cancellationEvent.newValue).toMatchObject({ cancelledWaitlistCount: 3 });
+    expect(cancellationEvent.newValue).toMatchObject({
+      activeWaitlistCount: 3,
+      waitlistPreserved: true,
+    });
   });
 
   it("mantém status e slot ativos ao rejeitar início ou conclusão antecipados", async () => {

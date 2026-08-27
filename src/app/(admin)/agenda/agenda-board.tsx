@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   ChevronLeft,
   ChevronRight,
@@ -73,6 +74,14 @@ export type Appointment = {
   version: number;
   serviceIds: string[];
   hasPayment: boolean;
+  pendingReschedule: {
+    id: string;
+    targetStartAt: string;
+    targetEndAt: string;
+    targetPriceCents: number;
+    targetProfessionalName: string;
+    reason: string | null;
+  } | null;
   events: Array<{
     id: string;
     eventType: string;
@@ -187,7 +196,11 @@ export function AgendaBoard({
     const q = search.trim().toLowerCase();
     return (list: Appointment[]) =>
       list.filter((a) => {
-        if (statusFilter === "not_cancelled" && a.status === "CANCELLED") return false;
+        if (
+          statusFilter === "not_cancelled" &&
+          a.status === "CANCELLED" &&
+          a.waitlistCount === 0
+        ) return false;
         if (
           statusFilter !== "all" &&
           statusFilter !== "not_cancelled" &&
@@ -218,6 +231,8 @@ export function AgendaBoard({
       forecast: sum((a) => ["PENDING", "CONFIRMED", "IN_PROGRESS"].includes(a.status)),
     };
   }, [dayAppts]);
+  const awaitingAcceptance = appointments.filter((a) => a.pendingReschedule !== null).length;
+  const cancelledWithQueue = appointments.filter((a) => a.status === "CANCELLED" && a.waitlistCount > 0).length;
 
   function goDate(offset: number) {
     const targetDate = view === "month" || view === "list"
@@ -362,6 +377,21 @@ export function AgendaBoard({
 
       {actionError && (
         <p className="rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger">{actionError}</p>
+      )}
+
+      {(awaitingAcceptance > 0 || cancelledWithQueue > 0) && (
+        <div className="flex flex-col gap-2 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-[12px] text-amber-800 dark:text-amber-300 sm:flex-row sm:items-center sm:justify-between">
+          <p>
+            {awaitingAcceptance > 0 && `${awaitingAcceptance} alteração(ões) aguardando aceite do cliente.`}
+            {awaitingAcceptance > 0 && cancelledWithQueue > 0 && " "}
+            {cancelledWithQueue > 0 && `${cancelledWithQueue} fila(s) têm horário liberado para promoção manual.`}
+          </p>
+          {awaitingAcceptance > 0 && (
+            <Link href="/notificacoes" className="inline-flex min-h-11 items-center font-semibold underline underline-offset-2">
+              Ver central de avisos
+            </Link>
+          )}
+        </div>
       )}
 
       {professionals.length === 0 ? (
@@ -648,6 +678,11 @@ function DayView({
                     >
                       <p className="truncate font-semibold text-foreground">{a.clientName}</p>
                       <p className="truncate text-[11px] text-muted-foreground">{a.serviceName}</p>
+                      {a.pendingReschedule && (
+                        <span className="mt-1 inline-flex rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700 dark:text-amber-300">
+                          Aguardando aceite
+                        </span>
+                      )}
                       {height > 46 && (
                         <p className="mt-0.5 text-[10px] font-medium" style={{ color: cfg.color }}>
                           {formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")} · {formatMoney(a.priceCents)}

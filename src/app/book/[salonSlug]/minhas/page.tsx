@@ -24,6 +24,32 @@ function waitlistServiceName(value: unknown): string {
   return names.length > 0 ? names.join(" + ") : "Serviço";
 }
 
+function proposalServices(value: unknown): Array<{
+  id: string;
+  name: string;
+  durationMin: number;
+  priceCents: number;
+}> {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    const record = jsonRecord(item);
+    if (
+      typeof record.id !== "string" ||
+      typeof record.name !== "string" ||
+      typeof record.durationMin !== "number" ||
+      !Number.isInteger(record.durationMin) ||
+      typeof record.priceCents !== "number" ||
+      !Number.isInteger(record.priceCents)
+    ) return [];
+    return [{
+      id: record.id,
+      name: record.name,
+      durationMin: record.durationMin,
+      priceCents: record.priceCents,
+    }];
+  });
+}
+
 export default async function MinhasPage({
   params,
 }: {
@@ -123,6 +149,34 @@ export default async function MinhasPage({
         professional: { select: { user: { select: { name: true } } } },
       },
     });
+    const pendingProposals = await tx.rescheduleProposal.findMany({
+      where: {
+        salonId,
+        status: "PENDING",
+        appointment: { clientId: effectiveSession.clientId },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+      select: {
+        id: true,
+        appointmentId: true,
+        targetStartAt: true,
+        targetEndAt: true,
+        targetTimezone: true,
+        targetPriceCents: true,
+        targetServices: true,
+        reason: true,
+        targetProfessional: { select: { user: { select: { name: true } } } },
+        appointment: {
+          select: {
+            startAt: true,
+            endAt: true,
+            timezone: true,
+            professional: { select: { user: { select: { name: true } } } },
+          },
+        },
+      },
+    });
     const queueOrder = waitlistEntries.length === 0
       ? []
       : await tx.waitlistEntry.findMany({
@@ -146,6 +200,7 @@ export default async function MinhasPage({
       salon,
       session: effectiveSession,
       appointments,
+      pendingProposals,
       waitlistEntries: waitlistEntries.map((entry) => ({
         ...entry,
         position: positions.get(entry.id) ?? 1,
@@ -153,7 +208,7 @@ export default async function MinhasPage({
     };
   });
   if (!result) redirect(`/book/${salonSlug}/login`);
-  const { salon, session: effectiveSession, appointments, waitlistEntries } = result;
+  const { salon, session: effectiveSession, appointments, pendingProposals, waitlistEntries } = result;
 
   // Serialize Date objects — can't pass them directly to client components
   const serialized = appointments.map((a) => ({
@@ -186,6 +241,21 @@ export default async function MinhasPage({
       };
     }),
   }));
+  const serializedProposals = pendingProposals.map((proposal) => ({
+    id: proposal.id,
+    appointmentId: proposal.appointmentId,
+    currentStartAt: proposal.appointment.startAt.toISOString(),
+    currentEndAt: proposal.appointment.endAt.toISOString(),
+    currentTimezone: proposal.appointment.timezone,
+    currentProfessionalName: proposal.appointment.professional.user.name,
+    targetStartAt: proposal.targetStartAt.toISOString(),
+    targetEndAt: proposal.targetEndAt.toISOString(),
+    targetTimezone: proposal.targetTimezone,
+    targetPriceCents: proposal.targetPriceCents,
+    targetProfessionalName: proposal.targetProfessional.user.name,
+    targetServices: proposalServices(proposal.targetServices),
+    reason: proposal.reason,
+  }));
 
   return (
     <main className="animate-fade-in space-y-6 px-5 pb-28 pt-6">
@@ -200,6 +270,7 @@ export default async function MinhasPage({
 
       <MinhasList
         appointments={serialized}
+        pendingProposals={serializedProposals}
         waitlistEntries={waitlistEntries.map((entry) => ({
           id: entry.id,
           position: entry.position,

@@ -13,6 +13,11 @@ import {
 } from "@/lib/invitations";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { isValidTimeZone } from "@/lib/time";
+import {
+  MAX_PRICING_FIXED_CENTS,
+  MAX_PRICING_PERCENTAGE,
+  pricingRuleKey,
+} from "@/lib/pricing";
 
 const salonInput = z.object({
   name: z.string().min(2, "Nome muito curto"),
@@ -25,7 +30,7 @@ const salonInput = z.object({
   cancelPolicyHours: z.coerce.number().int().min(0).max(168),
   noShowFeeCents: z.coerce.number().int().min(0),
   minBookingLeadMinutes: z.coerce.number().int().min(0).max(10_080), // até 7 dias
-  maxBookingLeadDays: z.coerce.number().int().min(1).max(365),
+  maxBookingLeadDays: z.coerce.number().int().min(1).max(60),
   bufferMinutes: z.coerce.number().int().min(0).max(120),
 });
 
@@ -56,6 +61,94 @@ export async function updateSalonSettings(input: z.infer<typeof salonInput>) {
   );
   revalidatePath("/configuracoes");
   revalidatePath("/dashboard");
+}
+
+const pricingRuleInput = z.object({
+  targetType: z.enum(["WEEKDAY", "DATE"]),
+  weekday: z.coerce.number().int().min(0).max(6).optional().nullable(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+  label: z.string().trim().min(2).max(80),
+  adjustmentType: z.enum(["PERCENTAGE", "FIXED_CENTS"]),
+  adjustmentValue: z.coerce.number().int().min(0),
+});
+
+export type PricingRuleInput = z.infer<typeof pricingRuleInput>;
+
+function pricingDateValue(date: string | null | undefined): Date | null {
+  return date ? new Date(`${date}T00:00:00.000Z`) : null;
+}
+
+export async function savePricingRule(input: PricingRuleInput) {
+  const ctx = await getTenantContext();
+  assertRole(ctx, ["OWNER", "MANAGER"]);
+  const data = pricingRuleInput.parse(input);
+  if (data.targetType === "WEEKDAY" && data.weekday == null) {
+    throw new Error("Escolha o dia da semana");
+  }
+  if (data.targetType === "DATE" && !data.date) {
+    throw new Error("Escolha a data especial");
+  }
+  if (data.adjustmentType === "PERCENTAGE" && data.adjustmentValue > MAX_PRICING_PERCENTAGE) {
+    throw new Error(`O acréscimo percentual pode ser de até ${MAX_PRICING_PERCENTAGE}%`);
+  }
+  if (data.adjustmentType === "FIXED_CENTS" && data.adjustmentValue > MAX_PRICING_FIXED_CENTS) {
+    throw new Error("O acréscimo fixo está acima do limite permitido");
+  }
+
+  const targetKey = pricingRuleKey({
+    targetType: data.targetType,
+    weekday: data.weekday,
+    date: data.date,
+  });
+  await withTenant(ctx, (tx) =>
+    tx.servicePricingRule.upsert({
+      where: { salonId_targetKey: { salonId: ctx.salonId, targetKey } },
+      create: {
+        salonId: ctx.salonId,
+        targetType: data.targetType,
+        targetKey,
+        weekday: data.targetType === "WEEKDAY" ? data.weekday : null,
+        date: data.targetType === "DATE" ? pricingDateValue(data.date) : null,
+        label: data.label,
+        adjustmentType: data.adjustmentType,
+        adjustmentValue: data.adjustmentValue,
+        active: true,
+      },
+      update: {
+        label: data.label,
+        adjustmentType: data.adjustmentType,
+        adjustmentValue: data.adjustmentValue,
+        weekday: data.targetType === "WEEKDAY" ? data.weekday : null,
+        date: data.targetType === "DATE" ? pricingDateValue(data.date) : null,
+        active: true,
+      },
+    }),
+  );
+  revalidatePath("/configuracoes");
+  revalidatePath("/book", "layout");
+}
+
+export async function togglePricingRule(id: string, active: boolean) {
+  const ctx = await getTenantContext();
+  assertRole(ctx, ["OWNER", "MANAGER"]);
+  await withTenant(ctx, (tx) =>
+    tx.servicePricingRule.updateMany({
+      where: { id, salonId: ctx.salonId },
+      data: { active: Boolean(active) },
+    }),
+  );
+  revalidatePath("/configuracoes");
+  revalidatePath("/book", "layout");
+}
+
+export async function deletePricingRule(id: string) {
+  const ctx = await getTenantContext();
+  assertRole(ctx, ["OWNER", "MANAGER"]);
+  await withTenant(ctx, (tx) =>
+    tx.servicePricingRule.deleteMany({ where: { id, salonId: ctx.salonId } }),
+  );
+  revalidatePath("/configuracoes");
+  revalidatePath("/book", "layout");
 }
 
 // ─── Personalização da vitrine ──────────────────────────────────────────────

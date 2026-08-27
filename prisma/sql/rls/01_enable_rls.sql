@@ -100,7 +100,9 @@ DECLARE
     'WorkingHours',
     'SalonClosure',
     'AuditLog',
-    'ClientReview'
+    'ClientReview',
+    'ServicePricingRule',
+    'RescheduleProposal'
   ];
 BEGIN
   FOREACH t IN ARRAY tabelas LOOP

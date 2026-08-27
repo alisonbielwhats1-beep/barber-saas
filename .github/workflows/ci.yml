@@ -171,6 +171,16 @@ jobs:
           npx prisma db execute
           --file prisma/sql/manual/013_operational_query_indexes.sql
           --url "$DIRECT_URL"
+      - name: Run read-only booking experience preflight
+        run: >-
+          npx prisma db execute
+          --file prisma/sql/manual/016_booking_experience.preflight.sql
+          --url "$DIRECT_URL"
+      - name: Apply booking experience migration
+        run: >-
+          npx prisma db execute
+          --file prisma/sql/manual/016_booking_experience.sql
+          --url "$DIRECT_URL"
       - name: Validate Prisma schema
         run: npx prisma validate
       - name: Seed disposable database
@@ -201,4 +211,9 @@ jobs:
         run: >-
           npx prisma db execute
           --file prisma/sql/manual/013_operational_query_indexes.rollback.sql
+          --url "$DIRECT_URL"
+      - name: Prove non-destructive booking experience rollback SQL
+        run: >-
+          npx prisma db execute
+          --file prisma/sql/manual/016_booking_experience.rollback.sql
           --url "$DIRECT_URL"

@@ -47,14 +47,28 @@ export default async function WelcomePage({
       {/* Tint verde no canto superior */}
       <div className="absolute inset-x-0 top-0 -z-10 h-1/2 bg-[radial-gradient(ellipse_at_top,_rgba(125,248,155,0.15),_transparent_65%)]" />
 
-      <header className="flex items-center justify-between px-6 pt-6 text-xs text-muted-foreground">
+      <header className="flex items-center justify-between gap-3 px-6 pt-6 text-xs text-muted-foreground">
         <span className="font-mono">•••</span>
-        <Link
-          href={`/book/${salonSlug}`}
-          className="flex items-center gap-1 text-primary"
-        >
-          Pular <ArrowRight className="h-3 w-3" />
-        </Link>
+        <div className="flex items-center gap-1">
+          <Link
+            href={`/book/${salonSlug}/login`}
+            className="inline-flex min-h-11 items-center rounded-full px-3 font-semibold text-muted-foreground hover:text-foreground"
+          >
+            Entrar
+          </Link>
+          <Link
+            href={`/book/${salonSlug}/cadastro`}
+            className="inline-flex min-h-11 items-center rounded-full bg-primary px-3 font-semibold text-primary-foreground"
+          >
+            Criar conta
+          </Link>
+          <Link
+            href={`/book/${salonSlug}`}
+            className="inline-flex min-h-11 items-center gap-1 rounded-full px-2 text-primary"
+          >
+            Pular <ArrowRight className="h-3 w-3" />
+          </Link>
+        </div>
       </header>
 
       <div className="flex flex-1 flex-col justify-end px-8 pb-16 pt-24">

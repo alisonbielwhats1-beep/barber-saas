@@ -14,6 +14,7 @@ import {
   UserX,
   Ban,
   MessageCircle,
+  Phone,
   Clock,
   User,
   Scissors,
@@ -30,6 +31,7 @@ import {
   History,
 } from "lucide-react";
 import { formatMoney } from "@/lib/utils";
+import { isValidPhoneBR, normalizePhone } from "@/lib/phone";
 import { ptBR } from "date-fns/locale";
 import { formatInTimeZone } from "date-fns-tz";
 import {
@@ -39,6 +41,7 @@ import {
   editAppointment,
   getComandaData,
   removeWaitlistEntry,
+  promoteWaitlist,
 } from "./actions";
 import {
   STATUS,
@@ -61,6 +64,10 @@ function waLink(phone: string | null, clientName: string, salonName: string, whe
   const full = digits.length <= 11 ? `55${digits}` : digits;
   const msg = `Olá ${clientName.split(" ")[0]}! Passando para confirmar seu horário em ${salonName} ${when}. Podemos confirmar? 💈`;
   return `https://wa.me/${full}?text=${encodeURIComponent(msg)}`;
+}
+
+function telLink(phone: string | null): string | null {
+  return phone && isValidPhoneBR(phone) ? `tel:+55${normalizePhone(phone)}` : null;
 }
 
 function escapeHtml(value: string): string {
@@ -172,6 +179,7 @@ export function AppointmentDetail({
 
   const cfg = STATUS[appt.status as keyof typeof STATUS] ?? STATUS.CONFIRMED;
   const whenLabel = formatInTimeZone(start, timezone, "d 'de' MMMM 'às' HH:mm", { locale: ptBR });
+  const clientPhoneHref = telLink(appt.clientPhone);
 
   const now = new Date();
   const isCompletedAwaitingPayment = appt.status === "COMPLETED" && !appt.hasPayment;
@@ -375,7 +383,24 @@ export function AppointmentDetail({
                   icon={Clock}
                   label={`${formatInTimeZone(start, timezone, "HH:mm")} – ${formatInTimeZone(end, timezone, "HH:mm")} · ${formatInTimeZone(start, timezone, "EEEE, d MMM", { locale: ptBR })}`}
                 />
-                <Row icon={User} label={appt.clientPhone ?? "Sem telefone"} />
+                {appt.pendingReschedule && (
+                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-amber-700 dark:text-amber-300">
+                    <p className="text-[12px] font-semibold">Aguardando aceite do cliente</p>
+                    <p className="mt-1 text-[11px] leading-relaxed">
+                      Novo horário: {formatInTimeZone(new Date(appt.pendingReschedule.targetStartAt), timezone, "dd/MM/yyyy 'às' HH:mm")} · {appt.pendingReschedule.targetProfessionalName}.
+                    </p>
+                    <p className="mt-1 text-[11px]">Novo valor: {formatMoney(appt.pendingReschedule.targetPriceCents)}</p>
+                    {appt.pendingReschedule.reason && <p className="mt-1 text-[11px]">Motivo: {appt.pendingReschedule.reason}</p>}
+                  </div>
+                )}
+                {clientPhoneHref ? (
+                  <a href={clientPhoneHref} className="flex items-center gap-2.5 text-primary">
+                    <Phone className="h-4 w-4 shrink-0" />
+                    {appt.clientPhone} · Ligar
+                  </a>
+                ) : (
+                  <Row icon={User} label={appt.clientPhone ? `${appt.clientPhone} · telefone inválido` : "Sem telefone"} />
+                )}
                 <Row
                   icon={StickyNote}
                   label={appt.notes || "Sem observações"}
@@ -417,18 +442,30 @@ export function AppointmentDetail({
                             </p>
                           </div>
                           {canCancel && (
-                            <button
-                              type="button"
-                              disabled={pending}
-                              onClick={() => {
-                                setRemoveWaitlistId(entry.id);
-                                setRemoveWaitlistReason("");
-                              }}
-                              className="min-h-11 shrink-0 rounded-lg px-3 text-[11px] font-medium text-danger hover:bg-danger/10 disabled:opacity-50"
-                              aria-label={`Remover ${entry.name} da fila`}
-                            >
-                              Remover da fila
-                            </button>
+                            <div className="flex shrink-0 flex-wrap justify-end gap-1">
+                              {appt.status === "CANCELLED" && entry.position === 1 && (
+                                <button
+                                  type="button"
+                                  disabled={pending}
+                                  onClick={() => run(() => promoteWaitlist(appt.id, entry.id))}
+                                  className="min-h-11 rounded-lg bg-primary px-3 text-[11px] font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                                >
+                                  Promover
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                disabled={pending}
+                                onClick={() => {
+                                  setRemoveWaitlistId(entry.id);
+                                  setRemoveWaitlistReason("");
+                                }}
+                                className="min-h-11 rounded-lg px-3 text-[11px] font-medium text-danger hover:bg-danger/10 disabled:opacity-50"
+                                aria-label={`Remover ${entry.name} da fila`}
+                              >
+                                Remover da fila
+                              </button>
+                            </div>
                           )}
                         </li>
                       ))}
@@ -556,6 +593,15 @@ export function AppointmentDetail({
                   <MessageCircle className="h-4 w-4" />
                   WhatsApp
                 </a>
+                {telLink(appt.clientPhone) && (
+                  <a
+                    href={telLink(appt.clientPhone)!}
+                    className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg bg-primary/10 px-3 py-2 text-[13px] font-medium text-primary transition hover:bg-primary/20"
+                  >
+                    <Phone className="h-4 w-4" />
+                    Ligar
+                  </a>
+                )}
                 {canCreate && (
                   <button
                     disabled={pending}
@@ -625,8 +671,7 @@ export function AppointmentDetail({
                   </p>
                   {appt.waitlistCount > 0 && (
                     <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px] font-medium text-amber-700 dark:text-amber-400">
-                      Este cancelamento não promove ninguém. As {appt.waitlistCount} entrada(s)
-                      serão encerradas e deixarão de aparecer como fila ativa.
+                      A fila permanecerá ativa. Depois de cancelar, use “Promover” na primeira posição para liberar o horário com segurança.
                     </p>
                   )}
                   <div className="flex gap-2">
@@ -662,7 +707,7 @@ export function AppointmentDetail({
                   onClick={() => setCancelMode(true)}
                   title={
                     appt.waitlistCount > 0
-                      ? "Ao cancelar pelo estabelecimento, a fila será encerrada sem promoção automática"
+                      ? "A fila permanecerá ativa e poderá ser promovida manualmente após o cancelamento"
                       : undefined
                   }
                   className="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[13px] font-medium text-muted-foreground transition hover:border-danger/50 hover:text-danger disabled:opacity-50"
@@ -683,6 +728,8 @@ function eventTitle(eventType: string): string {
   return {
     CREATED: "Agendamento criado",
     RESCHEDULED: "Agendamento remarcado",
+    RESCHEDULE_REQUESTED: "Alteração aguardando aceite",
+    RESCHEDULE_REJECTED: "Cliente recusou a alteração",
     STATUS_CHANGED: "Status atualizado",
     CANCELLED: "Agendamento cancelado",
     WAITLIST_FULFILLED: "Vaga preenchida pela lista de espera",

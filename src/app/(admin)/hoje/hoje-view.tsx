@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarDays, Check, CheckCircle2, CircleAlert, Clock3, Loader2, MessageCircle, Play, UserX, type LucideIcon } from "lucide-react";
+import { CalendarDays, Check, CheckCircle2, CircleAlert, Clock3, Loader2, MessageCircle, Phone, Play, UserX, type LucideIcon } from "lucide-react";
 import { formatInTimeZone } from "date-fns-tz";
 import { formatMoney } from "@/lib/utils";
 import { buildAppointmentWhatsAppLink } from "@/lib/whatsapp";
+import { isValidPhoneBR, normalizePhone } from "@/lib/phone";
 import { STATUS, nextActions, type ApptStatus } from "../agenda/agenda-status";
 import { markReminderSent, updateAppointmentStatus } from "../agenda/actions";
 
@@ -156,6 +157,7 @@ export function HojeView({
             {filtered.map((appointment) => {
               const start = new Date(appointment.startAt);
               const isStarted = start.getTime() <= now;
+              const callHref = phoneHref(appointment.clientPhone);
               const actions = nextActions(appointment.status)
                 .filter((action) => action !== "NO_SHOW" || isStarted)
                 .filter((action) => action !== "IN_PROGRESS" || isStarted)
@@ -196,6 +198,16 @@ export function HojeView({
                       >
                         {reminderId === appointment.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageCircle className="h-4 w-4" aria-hidden="true" />}
                       </button>
+                      <a
+                        href={callHref}
+                        aria-label={callHref !== "#" ? `Ligar para ${appointment.clientName}` : `${appointment.clientName} está sem telefone válido`}
+                        title={callHref !== "#" ? "Ligar para o cliente" : "Cliente sem telefone válido"}
+                        className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary transition hover:bg-primary/20 aria-disabled:pointer-events-none aria-disabled:opacity-40"
+                        aria-disabled={callHref === "#"}
+                        onClick={(event) => { if (callHref === "#") event.preventDefault(); }}
+                      >
+                        <Phone className="h-4 w-4" aria-hidden="true" />
+                      </a>
                       {actions.map((action) => {
                         const Icon = ACTION_ICONS[action] ?? Check;
                         const actionLabel = ACTION_LABELS[action] ?? STATUS[action].label;
@@ -225,6 +237,10 @@ export function HojeView({
       </section>
     </>
   );
+}
+
+function phoneHref(phone: string | null): string {
+  return phone && isValidPhoneBR(phone) ? `tel:+55${normalizePhone(phone)}` : "#";
 }
 
 function SummaryCard({

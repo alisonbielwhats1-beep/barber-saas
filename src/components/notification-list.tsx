@@ -27,6 +27,9 @@ export type NotificationRow = {
 const TITLES: Record<string, string> = {
   "appointment.created": "Novo agendamento",
   "appointment.rescheduled": "Agendamento remarcado",
+  "appointment.reschedule_requested": "Alteração de horário — aceite necessário",
+  "appointment.reschedule_accepted": "Cliente aceitou a alteração",
+  "appointment.reschedule_rejected": "Cliente recusou a alteração",
   "appointment.cancelled": "Agendamento cancelado",
   "appointment.status_changed": "Status atualizado",
   "appointment.waitlist_fulfilled": "Vaga confirmada pela lista de espera",
@@ -146,6 +149,11 @@ export function NotificationList({
                     <Link href={href} className="font-medium hover:text-primary">
                       {TITLES[notification.template] ?? "Atualização do agendamento"}
                     </Link>
+                    {notification.template === "appointment.reschedule_requested" && scope === "client" && (
+                      <p className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-300">
+                        Abra suas reservas para responder.
+                      </p>
+                    )}
                     {previousStartAt && startAt ? (
                       <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
                         <Clock3 className="h-3.5 w-3.5" />

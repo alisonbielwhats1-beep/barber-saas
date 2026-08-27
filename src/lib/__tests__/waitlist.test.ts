@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Tx } from "../prisma-tenant";
 import {
-  cancelActiveWaitlistForAppointment,
   cancelWaitlistEntry,
   fulfillWaitlistOnCancel,
   joinWaitlist,
@@ -141,6 +140,9 @@ describe("preenchimento automático da lista de espera", () => {
         }]),
         count: vi.fn(),
       },
+      servicePricingRule: {
+        findFirst: vi.fn().mockResolvedValue(null),
+      },
       clientProfile: {
         findFirst: vi.fn().mockResolvedValue({ id: "client-a" }),
       },
@@ -261,34 +263,4 @@ describe("preenchimento automático da lista de espera", () => {
     expect(tx.appointment.updateMany).not.toHaveBeenCalled();
   });
 
-  it("encerra atomicamente todas as entradas ativas quando a equipe cancela o horário", async () => {
-    const cancelledAt = new Date("2026-08-13T15:00:00.000Z");
-    const updateMany = vi.fn().mockResolvedValue({ count: 3 });
-    const tx = {
-      $queryRaw: vi.fn().mockResolvedValue([{ locked: 1 }]),
-      waitlistEntry: { updateMany },
-    };
-
-    await expect(cancelActiveWaitlistForAppointment(tx as unknown as Tx, {
-      salonId: "salon-a",
-      appointmentId: "appointment-a",
-      actorId: "owner-a",
-      reason: "Profissional indisponível",
-      cancelledAt,
-    })).resolves.toBe(3);
-    expect(updateMany).toHaveBeenCalledWith({
-      where: {
-        salonId: "salon-a",
-        appointmentId: "appointment-a",
-        fulfilledAt: null,
-        cancelledAt: null,
-      },
-      data: {
-        cancelledAt,
-        cancelledByType: "STAFF",
-        cancelledById: "owner-a",
-        cancelledReason: "Profissional indisponível",
-      },
-    });
-  });
 });

@@ -26,6 +26,7 @@ import { formatMoney, formatDuration } from "@/lib/utils";
 import { useCart } from "@/lib/cart";
 import { formatPhoneBR, isValidPhoneBR, normalizePhone } from "@/lib/phone";
 import { friendlyError } from "@/lib/booking-errors";
+import { effectivePublicBookingLeadDays } from "@/lib/pricing";
 import type { ClientSession } from "@/lib/client-auth";
 import {
   addMonths,
@@ -114,6 +115,7 @@ export function BookingFlow({
   currency,
   timezone,
   cancelPolicyHours,
+  maxBookingLeadDays,
   todayDate,
   services,
   initialServiceIds,
@@ -128,6 +130,7 @@ export function BookingFlow({
   currency: string;
   timezone: string;
   cancelPolicyHours: number;
+  maxBookingLeadDays?: number;
   todayDate: string;
   services: Service[];
   initialServiceIds: string[];
@@ -168,6 +171,10 @@ export function BookingFlow({
   const [slots, setSlots] = useState<string[]>([]);
   const [slotsVersion, setSlotsVersion] = useState(0);
   const [popularSlot, setPopularSlot] = useState<string | null>(null);
+  const [servicePrices, setServicePrices] = useState<Record<string, number>>(() =>
+    Object.fromEntries(services.map((service) => [service.id, service.priceCents])),
+  );
+  const [pricingLabel, setPricingLabel] = useState<string | null>(null);
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [slotsError, setSlotsError] = useState<AvailabilityRequestError | null>(null);
   const [retryUntilMs, setRetryUntilMs] = useState<number | null>(null);
@@ -186,6 +193,7 @@ export function BookingFlow({
   } | null>(null);
   const [waitlistLoading, setWaitlistLoading] = useState(false);
   const [waitlistError, setWaitlistError] = useState<string | null>(null);
+  const [waitlistAuthStep, setWaitlistAuthStep] = useState<"prompt" | "guest-form">("prompt");
   const [name, setName] = useState(clientSession?.name ?? "");
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
@@ -219,9 +227,13 @@ export function BookingFlow({
     0,
   );
   const totalServicePrice = selectedServices.reduce(
-    (sum, service) => sum + service.priceCents,
+    (sum, service) => sum + (servicePrices[service.id] ?? service.priceCents),
     0,
   );
+  const publicLeadDays = effectivePublicBookingLeadDays(maxBookingLeadDays ?? 60);
+  const maxBookingDate = new Date(`${todayDate}T12:00:00`);
+  maxBookingDate.setDate(maxBookingDate.getDate() + publicLeadDays);
+  const maxBookingDateKey = format(maxBookingDate, "yyyy-MM-dd");
   const selectedProfessional = eligibleProfessionals.find(
     (professional) => professional.id === proId,
   ) ?? null;
@@ -264,6 +276,7 @@ export function BookingFlow({
         proId?: string;
         date?: string;
         slot?: string;
+        waitlistTarget?: { appointmentId?: string; time?: string };
         savedAt?: number;
       };
       if (!s.savedAt || Date.now() - s.savedAt > 30 * 60_000) return;
@@ -276,12 +289,19 @@ export function BookingFlow({
         setChoosingServices(false);
       }
       if (s.proId) setProId(s.proId);
-      if (s.date) {
+      if (s.waitlistTarget?.appointmentId && s.waitlistTarget.time) {
+        setWaitlistTarget({
+          appointmentId: s.waitlistTarget.appointmentId,
+          time: s.waitlistTarget.time,
+        });
+        setWaitlistAuthStep(clientSession ? "guest-form" : "prompt");
+      }
+      if (s.date && s.date >= todayDate && s.date <= maxBookingDateKey) {
         const d = new Date(`${s.date}T12:00:00`);
         setDate(d);
         setViewMonth(startOfMonth(d));
       }
-      if (s.slot && s.proId && s.date && validIds.length > 0) {
+      if (s.slot && s.proId && s.date && s.date >= todayDate && s.date <= maxBookingDateKey && validIds.length > 0) {
         pendingSlotRef.current = {
           slot: s.slot,
           queryKey: availabilityQueryKey(
@@ -315,13 +335,14 @@ export function BookingFlow({
           proId,
           date: format(date, "yyyy-MM-dd"),
           slot,
+          waitlistTarget,
           savedAt: Date.now(),
         }),
       );
     } catch {
       // A URL com os serviços ainda preserva o retorno do fluxo de login.
     }
-  }, [bookingStateReady, date, proId, salonSlug, serviceIds, slot]);
+  }, [bookingStateReady, date, proId, salonSlug, serviceIds, slot, waitlistTarget]);
 
   useEffect(() => {
     if (retryUntilMs === null) return;
@@ -354,6 +375,7 @@ export function BookingFlow({
           proId,
           date: format(date, "yyyy-MM-dd"),
           slot,
+          waitlistTarget,
           savedAt: Date.now(),
         }),
       );
@@ -371,6 +393,8 @@ export function BookingFlow({
       setSlots([]);
       setPopularSlot(null);
       setOccupied([]);
+      setServicePrices(Object.fromEntries(services.map((service) => [service.id, service.priceCents])));
+      setPricingLabel(null);
       setSlotsError(null);
       setSlotsLoading(false);
       if (!pendingSlotRef.current) setSlot(null);
@@ -390,6 +414,10 @@ export function BookingFlow({
       setSlots([]);
       setPopularSlot(null);
       setOccupied([]);
+      setServicePrices(Object.fromEntries(
+        selectedServices.map((service) => [service.id, service.priceCents]),
+      ));
+      setPricingLabel(null);
       if (pendingSlotRef.current?.queryKey !== queryKey) setSlot(null);
     }
 
@@ -415,6 +443,16 @@ export function BookingFlow({
         setSlots(result.slots);
         setPopularSlot(result.popularSlot);
         setOccupied(result.occupied);
+        const returnedPrices = new Map(
+          (result.servicePrices ?? []).map((service) => [service.id, service.priceCents]),
+        );
+        setServicePrices(Object.fromEntries(
+          selectedServices.map((service) => [
+            service.id,
+            returnedPrices.get(service.id) ?? service.priceCents,
+          ]),
+        ));
+        setPricingLabel(result.pricing?.label ?? null);
         // Fluxo returnTo: re-seleciona o horário salvo se ainda estiver livre
         setSlot((current) => {
           const pending = pendingSlotRef.current;
@@ -443,6 +481,8 @@ export function BookingFlow({
         setSlots([]);
         setPopularSlot(null);
         setOccupied([]);
+        setServicePrices(Object.fromEntries(selectedServices.map((service) => [service.id, service.priceCents])));
+        setPricingLabel(null);
         setSlotsError(availabilityError);
         if (
           availabilityError.code === "rate_limited" &&
@@ -463,7 +503,7 @@ export function BookingFlow({
         if (availabilityRequestRef.current === requestId) setSlotsLoading(false);
       });
     return () => controller.abort();
-  }, [salonId, selectedServices, serviceIds, proId, date, slotsVersion]);
+  }, [salonId, services, selectedServices, serviceIds, proId, date, slotsVersion]);
 
   // A mesma tentativa reutiliza a chave em caso de falha de rede. Alterar a
   // escolha cria uma nova tentativa lógica e, portanto, uma nova chave.
@@ -965,7 +1005,8 @@ export function BookingFlow({
             <button
               type="button"
               onClick={() => setViewMonth((m) => addMonths(m, -1))}
-              className="grid h-11 w-11 place-items-center rounded-full text-muted-foreground hover:text-foreground"
+              disabled={format(viewMonth, "yyyy-MM") <= todayDate.slice(0, 7)}
+              className="grid h-11 w-11 place-items-center rounded-full text-muted-foreground hover:text-foreground disabled:opacity-30"
               aria-label="Mês anterior"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -979,7 +1020,8 @@ export function BookingFlow({
             <button
               type="button"
               onClick={() => setViewMonth((m) => addMonths(m, 1))}
-              className="grid h-11 w-11 place-items-center rounded-full text-muted-foreground hover:text-foreground"
+              disabled={format(addMonths(viewMonth, 1), "yyyy-MM-dd") > maxBookingDateKey}
+              className="grid h-11 w-11 place-items-center rounded-full text-muted-foreground hover:text-foreground disabled:opacity-30"
               aria-label="Próximo mês"
             >
               <ChevronRight className="h-4 w-4" />
@@ -1006,9 +1048,11 @@ export function BookingFlow({
           <div className="grid grid-cols-7 gap-1">
             {calendarDays.map((d) => {
               const inMonth = isSameMonth(d, viewMonth);
-              const past = format(d, "yyyy-MM-dd") < todayDate;
+              const dateKey = format(d, "yyyy-MM-dd");
+              const past = dateKey < todayDate;
+              const beyondWindow = dateKey > maxBookingDateKey;
               const selected = isSameDay(d, date);
-              const disabled = past || !inMonth;
+              const disabled = past || beyondWindow || !inMonth;
               return (
                 <button
                   type="button"
@@ -1035,6 +1079,14 @@ export function BookingFlow({
               );
             })}
           </div>
+          <p className="mt-3 text-center text-[11px] text-muted-foreground">
+            Agendamento online disponível até {format(maxBookingDate, "dd/MM/yyyy")}.
+          </p>
+          {pricingLabel && (
+            <p className="mt-2 rounded-lg bg-warning/10 px-3 py-2 text-center text-[11px] font-medium text-warning">
+              {pricingLabel}: o valor especial aparece no resumo da reserva.
+            </p>
+          )}
         </div>
       </div>
 
@@ -1144,7 +1196,12 @@ export function BookingFlow({
                   key={o.appointmentId}
                   onClick={() => {
                     setWaitlistError(null);
-                    setWaitlistTarget(joined ? null : o);
+                    if (joined) {
+                      setWaitlistTarget(null);
+                      return;
+                    }
+                    setWaitlistAuthStep(clientSession ? "guest-form" : "prompt");
+                    setWaitlistTarget(o);
                   }}
                   disabled={joined}
                   className={`min-h-11 rounded-full border px-2 py-2 text-xs transition ${
@@ -1181,8 +1238,9 @@ export function BookingFlow({
                 <dd className="text-right font-semibold text-primary">#{waitlistJoined.position}</dd>
               </dl>
               <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-                Se esse horário ficar disponível e você for o primeiro da fila, sua visita será
-                confirmada automaticamente.
+                Se esse horário ficar disponível, o sistema pode confirmar automaticamente a
+                primeira pessoa quando o cancelamento vier do cliente. Se o salão cancelar, a
+                equipe promove a fila pela ordem e você acompanha o status em Minhas visitas.
               </p>
               {clientSession && (
                 <Link
@@ -1199,18 +1257,56 @@ export function BookingFlow({
             <div className="mt-3 rounded-2xl border border-border bg-card p-4">
               <p className="text-sm font-medium">Entrar na fila das {waitlistTarget.time}?</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Se quem tem esse horário cancelar, você é confirmado automaticamente nele. O
-                salão pode entrar em contato — não há confirmação instantânea garantida.
+                Se a vaga for liberada, a confirmação segue a ordem da fila. Cancelamentos de
+                clientes podem confirmar automaticamente; quando o salão cancela, a equipe
+                escolhe a primeira pessoa. Você acompanha tudo em Minhas visitas.
               </p>
-              {!clientSession && (
+              {!clientSession && waitlistAuthStep === "prompt" && (
+                <div className="mt-3 rounded-xl border border-primary/20 bg-primary/5 p-3">
+                  <p className="text-xs font-medium">Entre ou crie sua conta para acompanhar a fila.</p>
+                  <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                    Assim você recebe a confirmação no app se o horário for liberado. Também é possível continuar como visitante.
+                  </p>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <Link
+                      href={`/book/${salonSlug}/login${returnToParam}`}
+                      onClick={saveBookingState}
+                      className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full bg-primary px-3 text-xs font-semibold text-primary-foreground"
+                    >
+                      <LogIn className="h-3.5 w-3.5" /> Entrar
+                    </Link>
+                    <Link
+                      href={`/book/${salonSlug}/cadastro${returnToParam}`}
+                      onClick={saveBookingState}
+                      className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full border border-primary/40 px-3 text-xs font-semibold text-primary"
+                    >
+                      <UserPlus className="h-3.5 w-3.5" /> Criar conta
+                    </Link>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setWaitlistAuthStep("guest-form")}
+                    className="mt-2 min-h-11 w-full rounded-full px-3 text-xs font-medium text-muted-foreground hover:bg-background"
+                  >
+                    Continuar como visitante
+                  </button>
+                </div>
+              )}
+              {!clientSession && waitlistAuthStep === "guest-form" && (
                 <div className="mt-3 space-y-2">
+                  <label htmlFor="waitlist-name" className="block text-[11px] font-medium text-muted-foreground">Seu nome</label>
                   <input
+                    id="waitlist-name"
                     value={waitlistName}
                     onChange={(e) => setWaitlistName(e.target.value)}
-                    placeholder="Seu nome"
+                    placeholder="Nome completo"
                     className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
                   />
+                  <label htmlFor="waitlist-phone" className="block text-[11px] font-medium text-muted-foreground">Seu WhatsApp</label>
                   <input
+                    id="waitlist-phone"
+                    type="tel"
+                    inputMode="tel"
                     value={waitlistPhone}
                     onChange={(e) => setWaitlistPhone(formatPhoneBR(e.target.value))}
                     placeholder="WhatsApp — (11) 91234-5678"
@@ -1233,6 +1329,7 @@ export function BookingFlow({
                   onClick={joinWaitlist}
                   disabled={
                     waitlistLoading ||
+                    !clientSession && waitlistAuthStep !== "guest-form" ||
                     (!clientSession && (!waitlistName || !isValidPhoneBR(waitlistPhone)))
                   }
                   className="min-h-11 flex-1 rounded-full bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"
@@ -1390,6 +1487,7 @@ export function BookingFlow({
           slot={slot}
           durationMin={totalDuration}
           totalCents={totalServicePrice + cart.totalCents}
+          pricingLabel={pricingLabel}
           currency={currency}
           cancelPolicyHours={cancelPolicyHours}
           loading={loading}
@@ -1411,6 +1509,7 @@ function BookingReview({
   slot,
   durationMin,
   totalCents,
+  pricingLabel,
   currency,
   cancelPolicyHours,
   loading,
@@ -1426,6 +1525,7 @@ function BookingReview({
   slot: string;
   durationMin: number;
   totalCents: number;
+  pricingLabel: string | null;
   currency: string;
   cancelPolicyHours: number;
   loading: boolean;
@@ -1451,6 +1551,11 @@ function BookingReview({
           <ReviewRow label="Duração" value={formatDuration(durationMin)} />
           <ReviewRow label="Total" value={formatMoney(totalCents, currency)} strong />
         </dl>
+        {pricingLabel && (
+          <p className="mt-3 rounded-xl bg-warning/10 px-3 py-2 text-xs font-medium text-warning">
+            {pricingLabel} aplicado ao valor dos serviços.
+          </p>
+        )}
         {salonAddress && <p className="mt-4 text-xs leading-relaxed text-muted-foreground">{salonAddress}</p>}
         <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
           Cancelamento ou remarcação pelo app até {cancelPolicyHours}h antes do horário.

@@ -71,8 +71,9 @@ antes do início e dentro da política do estabelecimento.
 
 Se o cancelamento parte do cliente e o intervalo ainda respeita jornada,
 folga, fechamento, buffer e conflitos, o primeiro item válido da fila pode ser
-confirmado automaticamente. Cancelamento do estabelecimento não realoca a
-vaga, pois normalmente indica que o horário não deve ser ocupado.
+confirmado automaticamente. Cancelamento do estabelecimento preserva a fila,
+mas não realoca a vaga sozinho: dono/gerente podem promover explicitamente a
+primeira posição depois de uma nova validação de disponibilidade.
 
 ## Proteção contra conflito e corrida
 
@@ -265,11 +266,23 @@ tenant-aware foi aplicada em Production após preflight aprovado; a fase 013 de
 - todas as mutações operacionais relevantes compartilham a ordem canônica de
   locks `appointment → professional → product`;
 - cancelamento continua não destrutivo, restaura reserva de produto no máximo
-  uma vez e, quando feito pela equipe, encerra todas as entradas ativas da fila
-  daquele atendimento sem promover outra pessoa;
+  uma vez e, quando feito pela equipe, preserva todas as entradas ativas da
+  fila daquele atendimento; dono/gerente promovem explicitamente a primeira
+  pessoa após nova checagem;
 - `IN_PROGRESS` e `COMPLETED` falham antes do início contratado; a comanda só
   pode receber depois de `startAt`, inclusive para atendimento já concluído;
 - UI e servidor usam a mesma regra temporal para oferecer ação e autorizá-la.
+
+### Fase 016 — preço especial e aceite de remarcação
+
+- regras por dia da semana/data específica usam a data exata como precedência;
+- o valor ajustado é calculado no servidor e salvo como snapshot, inclusive em
+  entradas da fila e propostas de alteração;
+- a vitrine limita o calendário a 60 dias e mantém a mesma barreira no servidor;
+- alteração de horário feita pela equipe vira proposta para cliente com conta,
+  com aceite/recusa atômicos, evento imutável e notificação interna;
+- o atalho de telefone usa somente números válidos e normalizados, sem criar
+  integração paga.
 
 ### Produto, comanda, estoque e recibo
 

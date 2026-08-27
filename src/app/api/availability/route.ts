@@ -7,6 +7,7 @@ import {
   rateLimitHeaders,
 } from "@/lib/rate-limit";
 import { checkBookingWindow, bufferedWindow } from "@/lib/scheduling";
+import { priceServicesForDate } from "@/lib/pricing";
 import {
   InvalidTimeZoneError,
   InvalidWallClockError,
@@ -97,9 +98,14 @@ export async function GET(req: NextRequest) {
 
       const services = await tx.service.findMany({
         where: { id: { in: serviceIds }, salonId, active: true },
-        select: { id: true, durationMin: true },
+        select: { id: true, durationMin: true, priceCents: true },
       });
       if (services.length !== serviceIds.length) return null;
+      const priced = await priceServicesForDate(tx, {
+        salonId,
+        dateKey: date,
+        services,
+      });
 
       const professionalLinks = await tx.professionalService.findMany({
         where: {
@@ -152,7 +158,15 @@ export async function GET(req: NextRequest) {
 
       return {
         salon,
-        services,
+        services: priced.services,
+        pricing: priced.rule
+          ? {
+              label: priced.rule.label,
+              targetType: priced.rule.targetType,
+              adjustmentType: priced.rule.adjustmentType,
+              adjustmentValue: priced.rule.adjustmentValue,
+            }
+          : null,
         workingHours,
         closures,
         timeOffs,
@@ -242,6 +256,11 @@ export async function GET(req: NextRequest) {
         popularSlot,
         occupied,
         timezone: result.salon.timezone,
+        servicePrices: result.services.map((service) => ({
+          id: service.id,
+          priceCents: service.priceCents,
+        })),
+        pricing: result.pricing,
       },
       { headers: { "Cache-Control": "private, no-store, max-age=0" } },
     );

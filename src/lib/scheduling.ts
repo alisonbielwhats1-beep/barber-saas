@@ -14,6 +14,9 @@ export type SchedulingPolicy = {
 
 export type BookingWindowViolation = "TOO_SOON" | "TOO_FAR";
 
+/** Regra de produto: a agenda pública nunca oferece mais de dois meses. */
+export const MAX_PUBLIC_BOOKING_LEAD_DAYS = 60;
+
 /**
  * Confere se `startAt` respeita a antecedência mínima/máxima do salão.
  * Só faz sentido pro caminho do CLIENTE — o admin marcando manualmente na
@@ -26,7 +29,11 @@ export function checkBookingWindow(
   now = new Date(),
 ): BookingWindowViolation | null {
   if (startAt < addMinutes(now, policy.minBookingLeadMinutes)) return "TOO_SOON";
-  if (startAt > addDays(now, policy.maxBookingLeadDays)) return "TOO_FAR";
+  const maxLeadDays = Math.min(
+    MAX_PUBLIC_BOOKING_LEAD_DAYS,
+    Math.max(1, policy.maxBookingLeadDays),
+  );
+  if (startAt > addDays(now, maxLeadDays)) return "TOO_FAR";
   return null;
 }
 

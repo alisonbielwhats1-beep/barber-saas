@@ -7,6 +7,13 @@ export type AvailabilityResult = {
   slots: string[];
   popularSlot: string | null;
   occupied: AvailabilitySlot[];
+  servicePrices?: Array<{ id: string; priceCents: number }>;
+  pricing?: {
+    label: string;
+    targetType: "WEEKDAY" | "DATE";
+    adjustmentType: "PERCENTAGE" | "FIXED_CENTS";
+    adjustmentValue: number;
+  } | null;
 };
 
 export type AvailabilityErrorCode =
@@ -119,10 +126,33 @@ export async function requestAvailability(
       throw new AvailabilityRequestError("invalid_response");
     }
 
+    const servicePrices = Array.isArray(payload.servicePrices) && payload.servicePrices.every(
+      (item) => item && typeof item === "object" &&
+        typeof (item as Record<string, unknown>).id === "string" &&
+        Number.isInteger((item as Record<string, unknown>).priceCents) &&
+        ((item as Record<string, unknown>).priceCents as number) >= 0,
+    )
+      ? (payload.servicePrices as Array<{ id: string; priceCents: number }>)
+      : undefined;
+    const rawPricing = payload.pricing;
+    const pricing = rawPricing === null || rawPricing === undefined
+      ? null
+      : rawPricing && typeof rawPricing === "object" &&
+          typeof (rawPricing as Record<string, unknown>).label === "string" &&
+          ((rawPricing as Record<string, unknown>).targetType === "WEEKDAY" ||
+            (rawPricing as Record<string, unknown>).targetType === "DATE") &&
+          (((rawPricing as Record<string, unknown>).adjustmentType === "PERCENTAGE") ||
+            ((rawPricing as Record<string, unknown>).adjustmentType === "FIXED_CENTS")) &&
+          Number.isInteger((rawPricing as Record<string, unknown>).adjustmentValue)
+        ? rawPricing as AvailabilityResult["pricing"]
+        : undefined;
+
     return {
       slots: payload.slots,
       popularSlot: payload.popularSlot,
       occupied: payload.occupied,
+      ...(servicePrices ? { servicePrices } : {}),
+      ...(pricing !== undefined ? { pricing } : {}),
     };
   } catch (error) {
     if (error instanceof AvailabilityRequestError) throw error;

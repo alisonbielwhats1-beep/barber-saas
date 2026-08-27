@@ -83,10 +83,29 @@ enum AppointmentOrigin {
 enum AppointmentEventType {
   CREATED
   RESCHEDULED
+  RESCHEDULE_REQUESTED
+  RESCHEDULE_REJECTED
   STATUS_CHANGED
   CANCELLED
   WAITLIST_FULFILLED
   REMINDER_MARKED
+}
+
+enum PricingRuleTargetType {
+  WEEKDAY
+  DATE
+}
+
+enum PricingAdjustmentType {
+  PERCENTAGE
+  FIXED_CENTS
+}
+
+enum RescheduleProposalStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
 }
 
 enum AppointmentActorType {
@@ -165,6 +184,7 @@ model User {
   createdPlatformInvoices PlatformInvoice[]      @relation("PlatformInvoiceCreator")
   updatedPlatformInvoices PlatformInvoice[]      @relation("PlatformInvoiceUpdater")
   platformInvoiceEvents   PlatformInvoiceEvent[]
+  requestedRescheduleProposals RescheduleProposal[] @relation("RescheduleProposalRequester")
 }
 
 model Salon {
@@ -187,7 +207,7 @@ model Salon {
 
   // ── Janela de agendamento — prisma/sql/manual/005_booking_lead_time.sql ──
   minBookingLeadMinutes Int @default(0) // antecedência mínima pra marcar (minutos)
-  maxBookingLeadDays    Int @default(90) // até quantos dias no futuro dá pra marcar
+  maxBookingLeadDays    Int @default(60) // até quantos dias no futuro dá pra marcar
   bufferMinutes         Int @default(0) // intervalo forçado entre atendimentos, por profissional
 
   // ── Personalização pelo dono ────────────────────────────────────────────
@@ -227,6 +247,8 @@ model Salon {
   accessEvents        SalonAccessEvent[]
   platformInvoices    PlatformInvoice[]
   reviews             ClientReview[]
+  pricingRules        ServicePricingRule[]
+  rescheduleProposals RescheduleProposal[]
 
   @@index([accessStatus, accessRequestedAt])
 }
@@ -501,6 +523,7 @@ model Professional {
   waitlistEntries WaitlistEntry[]
   timeOffs        TimeOff[]
   portfolio       PortfolioItem[]
+  rescheduleProposals RescheduleProposal[] @relation("RescheduleProposalProfessional")
 
   @@unique([id, salonId], map: "Professional_id_salonId_key")
   @@index([salonId])
@@ -647,6 +670,7 @@ model Appointment {
   waitlistEntries WaitlistEntry[]
   serviceItems    AppointmentService[]
   events          AppointmentEvent[]
+  rescheduleProposals RescheduleProposal[]
   notifications   NotificationOutbox[]
   reviews         ClientReview[]
 
@@ -731,6 +755,67 @@ model AppointmentEvent {
   @@index([correlationId])
 }
 
+/// Regra de preço público por dia da semana ou data específica. A data exata
+/// tem precedência sobre a regra de dia da semana, evitando somar dois
+/// acréscimos quando um feriado cai no domingo.
+model ServicePricingRule {
+  id              String                  @id @default(cuid())
+  salonId         String
+  targetType      PricingRuleTargetType
+  targetKey       String
+  weekday         Int?
+  date            DateTime?               @db.Date
+  label           String
+  adjustmentType  PricingAdjustmentType
+  adjustmentValue Int
+  active          Boolean                 @default(true)
+  createdAt       DateTime                @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime                @updatedAt @db.Timestamptz(3)
+
+  salon Salon @relation(fields: [salonId], references: [id], onDelete: Cascade)
+
+  @@unique([salonId, targetKey], map: "ServicePricingRule_salonId_targetKey_key")
+  @@index([salonId, active, targetType, weekday])
+  @@index([salonId, active, date])
+}
+
+/// Pedido de alteração feito pelo estabelecimento para o cliente confirmar.
+/// O orçamento de serviços fica congelado no JSON para o aceite não mudar o
+/// preço silenciosamente entre a solicitação e a resposta.
+model RescheduleProposal {
+  id                   String                   @id @default(cuid())
+  salonId              String
+  appointmentId        String
+  requestedById        String?
+  targetProfessionalId String
+  status               RescheduleProposalStatus @default(PENDING)
+  sourceVersion        Int
+  targetStartAt        DateTime                 @db.Timestamptz(3)
+  targetEndAt          DateTime                 @db.Timestamptz(3)
+  targetTimezone       String
+  targetPriceCents     Int
+  targetServices       Json
+  targetNotes          String?
+  reason               String?
+  responseReason       String?
+  idempotencyKey       String?
+  requestFingerprint   String?
+  respondedAt          DateTime?                @db.Timestamptz(3)
+  createdAt            DateTime                 @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime                 @updatedAt @db.Timestamptz(3)
+
+  salon              Salon        @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  appointment        Appointment  @relation(fields: [appointmentId, salonId], references: [id, salonId], onDelete: Restrict, map: "RescheduleProposal_appointment_tenant_fkey")
+  requestedBy        User?        @relation("RescheduleProposalRequester", fields: [requestedById], references: [id], onDelete: SetNull)
+  targetProfessional Professional @relation("RescheduleProposalProfessional", fields: [targetProfessionalId, salonId], references: [id, salonId], onDelete: Restrict, map: "RescheduleProposal_professional_tenant_fkey")
+
+  @@unique([salonId, idempotencyKey], map: "RescheduleProposal_salonId_idempotencyKey_key")
+  @@index([salonId, status, createdAt])
+  @@index([salonId, appointmentId, status, createdAt])
+  @@index([salonId, targetProfessionalId, targetStartAt])
+  @@index([requestedById])
+}
+
 model NotificationOutbox {
   id            String                     @id @default(cuid())
   salonId       String
@@ -800,9 +885,10 @@ model AuditLog {
 
 // Fila de espera por um agendamento específico — não por faixa de horário
 // genérica (v1 escopado assim de propósito, ver conversa de auditoria).
-// Quando o horário é liberado e o intervalo continua válido,
+// Quando o horário é liberado pelo cliente e o intervalo continua válido,
 // `fulfillWaitlistOnCancel` (src/lib/waitlist.ts) cria automaticamente um novo
-// Appointment para o primeiro da fila com o snapshot solicitado por ele.
+// Appointment para o primeiro da fila; no cancelamento do salão, a promoção é
+// explícita pelo dono/gerente.
 // A confirmação gera notificação interna; WhatsApp continua sendo atalho
 // manual, sem serviço pago.
 model WaitlistEntry {

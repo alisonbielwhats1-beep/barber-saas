@@ -7,6 +7,8 @@ import {
   Sparkles,
   Clock,
   MessageCircle,
+  Phone,
+  UserRound,
   ShieldCheck,
   ChevronRight,
   Instagram,
@@ -15,11 +17,13 @@ import {
 } from "lucide-react";
 import { withSalonBySlug } from "@/lib/prisma-tenant";
 import { HERO_IMAGES, normalizeImageUrl, resolvePortfolioImage, resolveProductImage } from "@/lib/images";
-import { normalizePhone, formatPhoneBR } from "@/lib/phone";
+import { isValidPhoneBR, normalizePhone, formatPhoneBR } from "@/lib/phone";
 import { getSegment, isSegmentId } from "@/lib/segments";
 import { getPublicReviewData } from "@/lib/reviews";
 import { formatMoney } from "@/lib/utils";
 import { ClientNotificationLink } from "./client-shell";
+import { getClientSession } from "@/lib/client-auth";
+import { resolveClientSessionInTenant } from "@/lib/public-appointment";
 import { CartBadge } from "./cart-badge";
 import { HomeExplore } from "./home-explore";
 import { ReviewsSection } from "./reviews-section";
@@ -51,6 +55,7 @@ export default async function ClientHome({
   params: Promise<{ salonSlug: string }>;
 }) {
   const { salonSlug } = await params;
+  const clientSession = await getClientSession();
   const salon = await withSalonBySlug(salonSlug, async (tx, salonId) => {
     const salonData = await tx.salon.findUnique({
       where: { id: salonId },
@@ -103,8 +108,22 @@ export default async function ClientHome({
       },
     });
     if (!salonData) return null;
+    const effectiveSession = clientSession?.salonId === salonId
+      ? await resolveClientSessionInTenant(tx, clientSession, salonId)
+      : null;
+    const pendingProposalCount = effectiveSession
+      ? await tx.rescheduleProposal.count({
+          where: {
+            salonId,
+            status: "PENDING",
+            appointment: { clientId: effectiveSession.clientId },
+          },
+        })
+      : 0;
     return {
       ...salonData,
+      hasValidClientSession: Boolean(effectiveSession),
+      pendingProposalCount,
       reviewData: await getPublicReviewData(tx, salonId, 3),
     };
   });
@@ -112,9 +131,12 @@ export default async function ClientHome({
 
   // WhatsApp próprio tem precedência sobre o telefone geral do salão.
   const whatsappNumber = salon.whatsapp || salon.phone;
-  const whatsappHref = whatsappNumber
-    ? `https://wa.me/55${normalizePhone(whatsappNumber)}`
+  const whatsappDigits = whatsappNumber ? normalizePhone(whatsappNumber) : "";
+  const whatsappHref = whatsappNumber && isValidPhoneBR(whatsappNumber)
+    ? `https://wa.me/55${whatsappDigits}`
     : null;
+  const phoneDigits = salon.phone ? normalizePhone(salon.phone) : "";
+  const phoneHref = salon.phone && isValidPhoneBR(salon.phone) ? `tel:+55${phoneDigits}` : null;
   // Sem capa própria: usa a imagem do segmento escolhido em Configurações;
   // sem segmento definido, cai no pool determinístico de sempre (mesmo salão,
   // mesma foto, pelo hash do slug — como já era antes desta personalização).
@@ -160,7 +182,40 @@ export default async function ClientHome({
         </div>
         <CartBadge salonSlug={salonSlug} />
         <ClientNotificationLink salonSlug={salonSlug} />
+        {salon.hasValidClientSession ? (
+          <Link
+            href={`/book/${salonSlug}/minhas`}
+            className="inline-flex min-h-11 items-center gap-1 rounded-full border border-border px-3 text-[11px] font-semibold text-primary"
+          >
+            <UserRound className="h-3.5 w-3.5" /> Minha conta
+          </Link>
+        ) : (
+          <div className="flex items-center gap-1">
+            <Link
+              href={`/book/${salonSlug}/login`}
+              className="inline-flex min-h-11 items-center rounded-full px-2 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+            >
+              Entrar
+            </Link>
+            <Link
+              href={`/book/${salonSlug}/cadastro`}
+              className="inline-flex min-h-11 items-center rounded-full bg-primary px-3 text-[11px] font-semibold text-primary-foreground"
+            >
+              Criar conta
+            </Link>
+          </div>
+        )}
       </header>
+
+      {salon.pendingProposalCount > 0 && salon.hasValidClientSession && (
+        <Link
+          href={`/book/${salonSlug}/minhas`}
+          className="block rounded-2xl border border-amber-500/35 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300"
+        >
+          <span className="font-semibold">Você tem uma alteração de horário aguardando resposta.</span>
+          <span className="mt-1 block text-xs">Abra suas reservas para aceitar ou recusar.</span>
+        </Link>
+      )}
 
       {/* Hero — capa do salão */}
       <div className="relative h-48 overflow-hidden rounded-3xl">
@@ -237,6 +292,12 @@ export default async function ClientHome({
           >
             <MessageCircle className="h-4 w-4 shrink-0" />
             {formatPhoneBR(whatsappNumber ?? "")} · WhatsApp
+          </a>
+        )}
+        {phoneHref && (
+          <a href={phoneHref} className="flex items-center gap-2.5 text-primary">
+            <Phone className="h-4 w-4 shrink-0" />
+            {formatPhoneBR(salon.phone ?? "")} · Ligar
           </a>
         )}
         {salon.instagram && (

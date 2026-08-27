@@ -105,6 +105,19 @@ export default async function AgendaPage({
             newValue: true,
           },
         },
+        rescheduleProposals: {
+          where: { status: "PENDING" },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: {
+            id: true,
+            targetStartAt: true,
+            targetEndAt: true,
+            targetPriceCents: true,
+            reason: true,
+            targetProfessional: { select: { user: { select: { name: true } } } },
+          },
+        },
       },
       orderBy: { startAt: "asc" },
     });
@@ -210,6 +223,16 @@ export default async function AgendaPage({
       isOverbooked: a.isOverbooked,
       version: a.version,
       hasPayment: Boolean(a.payment),
+      pendingReschedule: a.rescheduleProposals[0]
+        ? {
+            id: a.rescheduleProposals[0].id,
+            targetStartAt: a.rescheduleProposals[0].targetStartAt.toISOString(),
+            targetEndAt: a.rescheduleProposals[0].targetEndAt.toISOString(),
+            targetPriceCents: a.rescheduleProposals[0].targetPriceCents,
+            targetProfessionalName: a.rescheduleProposals[0].targetProfessional.user.name,
+            reason: a.rescheduleProposals[0].reason,
+          }
+        : null,
       events,
     };
   });

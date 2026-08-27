@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Check, Loader2 } from "lucide-react";
 import { toast } from "@/components/ui/toast";
 import { updateSalonSettings } from "./actions";
+import { MAX_PUBLIC_BOOKING_LEAD_DAYS } from "@/lib/scheduling";
 
 type Salon = {
   name: string;
@@ -165,8 +166,8 @@ export function SalonSettingsForm({ salon }: { salon: Salon }) {
               name="maxBookingLeadDays"
               type="number"
               min={1}
-              max={365}
-              defaultValue={salon.maxBookingLeadDays}
+              max={MAX_PUBLIC_BOOKING_LEAD_DAYS}
+              defaultValue={Math.min(salon.maxBookingLeadDays, MAX_PUBLIC_BOOKING_LEAD_DAYS)}
             />
           </Field>
           <Field label="Intervalo entre atendimentos (minutos)">
@@ -174,7 +175,8 @@ export function SalonSettingsForm({ salon }: { salon: Salon }) {
           </Field>
         </div>
         <p className="mt-2 text-xs text-muted-foreground">
-          Controla o que o cliente vê ao marcar sozinho pela página pública. O intervalo entre
+          Controla o que o cliente vê ao marcar sozinho pela página pública. Por segurança, o app
+          limita a janela pública a no máximo 60 dias. O intervalo entre
           atendimentos reserva um tempo de preparo/limpeza para cada profissional entre um
           horário e o próximo — não afeta agendamentos feitos por você no painel.
         </p>

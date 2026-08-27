@@ -64,8 +64,30 @@ type WaitlistItem = {
   professionalName: string;
 };
 
+type PendingProposal = {
+  id: string;
+  appointmentId: string;
+  currentStartAt: string;
+  currentEndAt: string;
+  currentTimezone: string;
+  currentProfessionalName: string;
+  targetStartAt: string;
+  targetEndAt: string;
+  targetTimezone: string;
+  targetPriceCents: number;
+  targetProfessionalName: string;
+  targetServices: Array<{
+    id: string;
+    name: string;
+    durationMin: number;
+    priceCents: number;
+  }>;
+  reason: string | null;
+};
+
 export function MinhasList({
   appointments,
+  pendingProposals,
   waitlistEntries,
   salonSlug,
   currency,
@@ -76,6 +98,7 @@ export function MinhasList({
   session,
 }: {
   appointments: Appt[];
+  pendingProposals: PendingProposal[];
   waitlistEntries: WaitlistItem[];
   salonSlug: string;
   currency: string;
@@ -89,6 +112,7 @@ export function MinhasList({
   const [pending, startTransition] = useTransition();
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
   const [waitlistCancelTarget, setWaitlistCancelTarget] = useState<string | null>(null);
+  const [proposalRejectTarget, setProposalRejectTarget] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const cancelKeys = useRef(new Map<string, string>());
 
@@ -104,6 +128,36 @@ export function MinhasList({
       !activeStatuses.has(appointment.status) || isPast(new Date(appointment.endAt)),
   );
   const [nextAppointment, ...laterAppointments] = upcoming;
+
+  function respondToProposal(proposalId: string, decision: "ACCEPT" | "REJECT") {
+    setError(null);
+    startTransition(async () => {
+      try {
+        const res = await fetch("/api/client/reschedule-proposal", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ salonSlug, proposalId, decision }),
+        });
+        const responseBody = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          const messages: Record<string, string> = {
+            AUTH_REQUIRED: "Sua sessão expirou — entre novamente.",
+            SLOT_TAKEN: "Esse horário acabou de ser ocupado. Fale com o estabelecimento.",
+            VERSION_CONFLICT: "A reserva mudou em outra tela. Atualize e tente novamente.",
+            ALREADY_STARTED: "Essa reserva já começou e não pode ser alterada.",
+            ALREADY_CLOSED: "Essa reserva já foi encerrada.",
+            FORBIDDEN: "Essa solicitação não pertence à sua conta.",
+          };
+          setError(messages[responseBody.error] ?? "Não foi possível responder agora. Atualize e tente novamente.");
+          return;
+        }
+        setProposalRejectTarget(null);
+        router.refresh();
+      } catch {
+        setError("Sem conexão. Tente novamente; sua reserva continua protegida.");
+      }
+    });
+  }
 
   function appointmentActions(appointment: Appt) {
     const canChange =
@@ -254,6 +308,68 @@ export function MinhasList({
         </p>
       )}
 
+      {pendingProposals.length > 0 && (
+        <section aria-labelledby="pending-proposals-title" className="space-y-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-500">Ação necessária</p>
+            <h2 id="pending-proposals-title" className="text-base font-semibold">O estabelecimento sugeriu uma alteração</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Confira o novo horário e aceite ou recuse cada solicitação.</p>
+          </div>
+          {pendingProposals.map((proposal) => {
+            const currentStart = new Date(proposal.currentStartAt);
+            const targetStart = new Date(proposal.targetStartAt);
+            const targetServiceName = proposal.targetServices.map((service) => service.name).join(" + ") || "Serviço";
+            return (
+              <article key={proposal.id} className="rounded-2xl border border-amber-500/35 bg-amber-500/5 p-4" aria-busy={pending}>
+                <div className="flex items-start gap-3">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-amber-500/15 text-amber-600">
+                    <Clock3 aria-hidden="true" className="h-5 w-5" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium">{targetServiceName}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Solicitado pelo estabelecimento</p>
+                  </div>
+                </div>
+                <div className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
+                  <div className="rounded-xl bg-background/60 p-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Atual</p>
+                    <p className="mt-1 font-medium">{formatInTimeZone(currentStart, proposal.currentTimezone, "dd/MM/yyyy 'às' HH:mm")}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">com {proposal.currentProfessionalName}</p>
+                  </div>
+                  <div className="rounded-xl border border-primary/25 bg-primary/5 p-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">Novo horário</p>
+                    <p className="mt-1 font-medium">{formatInTimeZone(targetStart, proposal.targetTimezone, "dd/MM/yyyy 'às' HH:mm")}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">com {proposal.targetProfessionalName}</p>
+                  </div>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                  <span>Novo valor: <strong className="text-foreground">{formatMoney(proposal.targetPriceCents, currency)}</strong></span>
+                  {proposal.reason && <span>Motivo: {proposal.reason}</span>}
+                </div>
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={() => respondToProposal(proposal.id, "ACCEPT")}
+                    disabled={pending}
+                    className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+                  >
+                    <CheckCircle2 aria-hidden="true" className="h-4 w-4" /> Aceitar novo horário
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setProposalRejectTarget(proposal.id)}
+                    disabled={pending}
+                    className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-border px-4 text-sm font-semibold text-muted-foreground disabled:opacity-50"
+                  >
+                    <XCircle aria-hidden="true" className="h-4 w-4" /> Recusar
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+        </section>
+      )}
+
       {nextAppointment ? (
         <section aria-labelledby="next-appointment-title">
           <div className="mb-3">
@@ -343,6 +459,16 @@ export function MinhasList({
         description="Somente sua posição nesta fila será removida. O agendamento confirmado e as outras pessoas não serão alterados."
         confirmLabel="Sair desta fila"
         onConfirm={confirmWaitlistCancel}
+        pending={pending}
+      />
+
+      <ConfirmDialog
+        open={proposalRejectTarget !== null}
+        onOpenChange={(open) => !open && setProposalRejectTarget(null)}
+        title="Recusar alteração?"
+        description="O horário atual continuará reservado. O estabelecimento será avisado da sua recusa."
+        confirmLabel="Recusar alteração"
+        onConfirm={() => proposalRejectTarget && respondToProposal(proposalRejectTarget, "REJECT")}
         pending={pending}
       />
 
@@ -567,6 +693,8 @@ function clientEventTitle(eventType: string): string {
     CANCELLED: "Reserva cancelada",
     WAITLIST_FULFILLED: "Vaga confirmada",
     REMINDER_MARKED: "Lembrete enviado",
+    RESCHEDULE_REQUESTED: "Alteração de horário aguardando sua resposta",
+    RESCHEDULE_REJECTED: "Alteração de horário recusada",
   }[eventType] ?? "Reserva atualizada";
 }
 

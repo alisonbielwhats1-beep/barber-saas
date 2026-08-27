@@ -40,6 +40,7 @@ export default async function AgendarPage({
         currency: true,
         timezone: true,
         cancelPolicyHours: true,
+        maxBookingLeadDays: true,
         services: {
           where: { active: true },
           orderBy: [{ category: "asc" }, { name: "asc" }],
@@ -118,6 +119,7 @@ export default async function AgendarPage({
       currency={salon.currency}
       timezone={salon.timezone}
       cancelPolicyHours={salon.cancelPolicyHours}
+      maxBookingLeadDays={salon.maxBookingLeadDays}
       todayDate={dateKeyInTimeZone(new Date(), salon.timezone)}
       services={services}
       initialServiceIds={initialServiceIds}
