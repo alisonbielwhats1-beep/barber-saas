@@ -9,6 +9,7 @@ interface ImageUploadProps {
   onChange: (url: string) => void;
   folder?: string;
   aspectRatio?: "square" | "portrait" | "landscape";
+  objectFit?: "cover" | "contain";
 }
 
 export function ImageUpload({
@@ -16,6 +17,7 @@ export function ImageUpload({
   onChange,
   folder = "misc",
   aspectRatio = "square",
+  objectFit = "cover",
 }: ImageUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
@@ -34,8 +36,14 @@ export function ImageUpload({
 
   async function optimizeImageForUpload(file: File): Promise<File> {
     // GIF pode ser animado; preservamos o arquivo original para não remover
-    // quadros. Arquivos pequenos também não justificam uma segunda conversão.
-    if (file.type === "image/gif" || file.size < 350_000 || typeof createImageBitmap !== "function") {
+    // quadros. PNGs de marca também ficam no formato original, pois a
+    // conversão lossy pode borrar letras, linhas finas e logotipos dourados.
+    if (
+      file.type === "image/gif" ||
+      file.type === "image/png" ||
+      file.size < 350_000 ||
+      typeof createImageBitmap !== "function"
+    ) {
       return file;
     }
 
@@ -53,9 +61,9 @@ export function ImageUpload({
         if (!context) return file;
         context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
         const blob = await new Promise<Blob | null>((resolve) =>
-          canvas.toBlob(resolve, "image/webp", 0.9),
+          canvas.toBlob(resolve, "image/webp", 0.96),
         );
-        if (!blob || blob.size >= file.size * 0.92) return file;
+        if (!blob || blob.size >= file.size * 0.98) return file;
         const baseName = file.name.replace(/\.[^/.]+$/, "") || "imagem";
         return new File([blob], `${baseName}.webp`, {
           type: "image/webp",
@@ -114,8 +122,8 @@ export function ImageUpload({
               src={value}
               alt="Preview"
               fill
-              className="object-cover"
-              quality={85}
+              className={objectFit === "contain" ? "object-contain p-2" : "object-cover"}
+              quality={95}
               sizes={previewSizes}
             />
             <button

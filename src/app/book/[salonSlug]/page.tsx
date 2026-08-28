@@ -30,6 +30,7 @@ import { resolveClientSessionInTenant } from "@/lib/public-appointment";
 import { CartBadge } from "./cart-badge";
 import { HomeExplore } from "./home-explore";
 import { ReviewsSection } from "./reviews-section";
+import { SalonLogoLightbox } from "./salon-logo-lightbox";
 import { PwaInstallCard } from "@/components/pwa-install-card";
 
 // Capa determinística por salão — mesmo salão, mesma foto
@@ -108,8 +109,9 @@ function extractPublicLinks(value: string | null): {
   const siteUrl = urls.find((url) => url !== blogUrl) ?? null;
   const importantText = raw
     .replace(/https?:\/\/[^\s|]+/gi, "")
-    .replace(/\b(?:site|blog)\s*:\s*/gi, "")
+    .replace(/\b(?:site|blog|instagram(?:\s+dos\s+responsáveis?)?)\s*:\s*/gi, "")
     .replace(/[|•]+/g, " ")
+    .replace(/(?:^|\s)(?:e|ou)\s*$/i, "")
     .replace(/\s{2,}/g, " ")
     .trim();
 
@@ -122,12 +124,14 @@ function QuickContact({
   label,
   value,
   external = false,
+  className = "",
 }: {
   href: string;
   icon: LucideIcon;
   label: string;
   value: string;
   external?: boolean;
+  className?: string;
 }) {
   return (
     <a
@@ -135,7 +139,7 @@ function QuickContact({
       target={external ? "_blank" : undefined}
       rel={external ? "noopener noreferrer" : undefined}
       title={value}
-      className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-2xl border border-border bg-card px-3 text-left transition-colors hover:border-primary/40 hover:bg-card/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className={`inline-flex min-h-11 shrink-0 items-center gap-2 rounded-2xl border border-border bg-card px-3 text-left transition-colors hover:border-primary/40 hover:bg-card/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${className}`}
     >
       <Icon className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
       <span className="grid min-w-0">
@@ -275,21 +279,16 @@ export default async function ClientHome({
     <main className="animate-fade-in space-y-6 px-5 pt-6">
       {/* Top bar */}
       <header className="flex items-center gap-3">
-        <div className="relative grid h-12 w-14 shrink-0 place-items-center overflow-hidden rounded-xl border border-border bg-white p-1 text-sm font-semibold text-primary shadow-sm">
-          {logoSrc ? (
-            <Image
-              src={logoSrc}
-              alt={`Logo de ${salon.name}`}
-              fill
-              sizes="56px"
-              className="object-contain p-1"
-            />
-          ) : (
-            <span className="grid h-full w-full place-items-center rounded-lg bg-primary/15">
-              {initials}
-            </span>
-          )}
-        </div>
+        <SalonLogoLightbox
+          src={logoSrc}
+          alt={`Logo de ${salon.name}`}
+          salonName={salon.name}
+          className="grid h-14 w-20 shrink-0 place-items-center overflow-hidden rounded-xl border border-border bg-white p-1 text-sm font-semibold text-primary shadow-sm"
+        >
+          <span className="grid h-full w-full place-items-center rounded-lg bg-primary/15">
+            {initials}
+          </span>
+        </SalonLogoLightbox>
         <div className="min-w-0 flex-1">
           <p className="truncate whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground">Bem-vindo</p>
           <p className="truncate text-sm font-semibold">{salon.name}</p>
@@ -324,57 +323,6 @@ export default async function ClientHome({
         )}
       </header>
 
-      {(whatsappHref || phoneHref || instagramHandle || siteUrl || blogUrl) && (
-        <section aria-label="Contato rápido" className="-mx-1 overflow-hidden">
-          <div className="scrollbar-dark flex gap-2 overflow-x-auto px-1 pb-1">
-            {whatsappHref && (
-              <QuickContact
-                href={whatsappHref}
-                icon={MessageCircle}
-                label="WhatsApp"
-                value={formatPhoneBR(whatsappNumber ?? "")}
-                external
-              />
-            )}
-            {phoneHref && (
-              <QuickContact
-                href={phoneHref}
-                icon={Phone}
-                label="Ligar"
-                value={formatPhoneBR(salon.phone ?? "")}
-              />
-            )}
-            {instagramHandle && (
-              <QuickContact
-                href={`https://instagram.com/${instagramHandle}`}
-                icon={Instagram}
-                label="Instagram"
-                value={`@${instagramHandle}`}
-                external
-              />
-            )}
-            {siteUrl && (
-              <QuickContact
-                href={siteUrl}
-                icon={Globe2}
-                label="Site"
-                value={compactExternalLabel(siteUrl)}
-                external
-              />
-            )}
-            {blogUrl && (
-              <QuickContact
-                href={blogUrl}
-                icon={ExternalLink}
-                label="Conteúdo"
-                value={compactExternalLabel(blogUrl)}
-                external
-              />
-            )}
-          </div>
-        </section>
-      )}
-
       {salon.pendingProposalCount > 0 && salon.hasValidClientSession && (
         <Link
           href={`/book/${salonSlug}/minhas`}
@@ -394,7 +342,7 @@ export default async function ClientHome({
           alt={salon.name}
           fill
           priority
-          quality={85}
+          quality={95}
           sizes="(max-width: 480px) 92vw, 480px"
           className="object-cover"
         />
@@ -408,10 +356,6 @@ export default async function ClientHome({
             {segment ? segment.shortLabel : "Experiência premium"}
           </span>
           <h1 className="font-display text-2xl leading-tight text-white">{salon.name}</h1>
-          <p className="mt-1 flex items-center gap-1 text-xs text-white/80">
-            <MapPin className="h-3 w-3 text-primary" />
-            {salon.address ?? "Endereço não informado"}
-          </p>
         </div>
       </div>
 
@@ -437,6 +381,66 @@ export default async function ClientHome({
         </div>
       </Link>
 
+      {(whatsappHref || phoneHref || instagramHandle || siteUrl || blogUrl) && (
+        <section aria-labelledby="contact-title" className="rounded-3xl border border-border bg-card p-4">
+          <div className="mb-3">
+            <p id="contact-title" className="text-sm font-semibold">Fale com o Studio</p>
+            <p className="mt-1 text-xs text-muted-foreground">Canais oficiais do salão</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {whatsappHref && (
+              <QuickContact
+                href={whatsappHref}
+                icon={MessageCircle}
+                label="WhatsApp"
+                value={formatPhoneBR(whatsappNumber ?? "")}
+                external
+                className="w-full min-w-0"
+              />
+            )}
+            {phoneHref && (
+              <QuickContact
+                href={phoneHref}
+                icon={Phone}
+                label="Ligar"
+                value={formatPhoneBR(salon.phone ?? "")}
+                className="w-full min-w-0"
+              />
+            )}
+            {instagramHandle && (
+              <QuickContact
+                href={`https://instagram.com/${instagramHandle}`}
+                icon={Instagram}
+                label="Instagram"
+                value={`@${instagramHandle}`}
+                external
+                className="w-full min-w-0"
+              />
+            )}
+            {siteUrl && (
+              <QuickContact
+                href={siteUrl}
+                icon={Globe2}
+                label="Site"
+                value={compactExternalLabel(siteUrl)}
+                external
+                className="w-full min-w-0"
+              />
+            )}
+            {blogUrl && (
+              <QuickContact
+                href={blogUrl}
+                icon={ExternalLink}
+                label="Conteúdo"
+                value={compactExternalLabel(blogUrl)}
+                external
+                className="w-full min-w-0"
+              />
+            )}
+          </div>
+        </section>
+      )}
+
       {/* Apresentação escrita pelo dono */}
       {salon.description && (
         <p className="text-[14px] leading-relaxed text-muted-foreground">
@@ -446,6 +450,12 @@ export default async function ClientHome({
 
       {/* Informações — só dados que existem de verdade no cadastro do salão */}
       <div className="grid grid-cols-1 gap-2.5 rounded-3xl border border-border bg-card p-4 text-[13px] sm:grid-cols-2">
+        {salon.address && (
+          <div className="flex items-start gap-2.5 text-muted-foreground sm:col-span-2">
+            <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+            <span>{salon.address}</span>
+          </div>
+        )}
         <div className="flex items-center gap-2.5 text-muted-foreground">
           <Clock className="h-4 w-4 shrink-0 text-primary" />
           Aberto das {formatHours(salon.openMinutes, salon.closeMinutes)}
@@ -454,23 +464,6 @@ export default async function ClientHome({
           <ShieldCheck className="h-4 w-4 shrink-0 text-primary" />
           Cancelamento com {salon.cancelPolicyHours}h de antecedência
         </div>
-        {whatsappHref && (
-          <a
-            href={whatsappHref}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2.5 text-primary"
-          >
-            <MessageCircle className="h-4 w-4 shrink-0" />
-            {formatPhoneBR(whatsappNumber ?? "")} · WhatsApp
-          </a>
-        )}
-        {phoneHref && (
-          <a href={phoneHref} className="flex items-center gap-2.5 text-primary">
-            <Phone className="h-4 w-4 shrink-0" />
-            {formatPhoneBR(salon.phone ?? "")} · Ligar
-          </a>
-        )}
         {paymentLabels.length > 0 && (
           <div className="flex items-start gap-2.5 text-muted-foreground sm:col-span-2">
             <CreditCard className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
