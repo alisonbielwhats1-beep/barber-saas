@@ -123,12 +123,13 @@ export function BrandingForm({ branding }: { branding: Branding }) {
             Aparece ao lado do nome para seus clientes. Use uma foto quadrada do
             salão ou o seu logotipo.
           </p>
-          <div className="max-w-48">
+          <div className="max-w-sm">
             <ImageUpload
               value={logoUrl}
               onChange={setLogoUrl}
               folder="branding"
-              aspectRatio="square"
+              aspectRatio="landscape"
+              objectFit="contain"
             />
           </div>
         </Field>
@@ -144,7 +145,7 @@ export function BrandingForm({ branding }: { branding: Branding }) {
                 src={SEGMENTS.find((item) => item.id === segment)?.accentImage ?? SEGMENTS[0].accentImage}
                 alt="Prévia da foto padrão"
                 fill
-                quality={85}
+                quality={95}
                 sizes="(max-width: 640px) 90vw, 1200px"
                 className="object-cover"
               />

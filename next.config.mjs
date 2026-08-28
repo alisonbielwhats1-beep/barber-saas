@@ -18,8 +18,8 @@ const nextConfig = {
     ];
   },
   images: {
-    // 85 preserva detalhes das fotos sem criar três variações quase iguais.
-    qualities: [75, 85],
+    // 95 preserva texto e linhas finas de logos sem desativar a otimização.
+    qualities: [75, 85, 95],
     formats: ["image/avif", "image/webp"],
     deviceSizes: [640, 750, 828, 1080, 1440, 1920],
     remotePatterns: [

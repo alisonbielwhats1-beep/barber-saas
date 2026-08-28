@@ -15,6 +15,7 @@ import { getClientSession } from "@/lib/client-auth";
 import { resolveClientSessionInTenant } from "@/lib/public-appointment";
 import { clientHomePath, safeClientReturnTo } from "@/lib/client-routes";
 import { PwaInstallCard } from "@/components/pwa-install-card";
+import { SalonLogoLightbox } from "../salon-logo-lightbox";
 
 /**
  * Entrada do app do cliente. Visitantes passam primeiro por esta escolha de
@@ -75,7 +76,7 @@ export default async function WelcomePage({
         alt=""
         fill
         priority
-        quality={85}
+        quality={95}
         sizes="100vw"
         className="-z-30 object-cover"
       />
@@ -86,21 +87,16 @@ export default async function WelcomePage({
 
       <header className="flex items-center justify-between gap-4 px-6 pt-6">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="relative grid h-12 w-14 shrink-0 place-items-center overflow-hidden rounded-xl border border-white/25 bg-white p-1 text-primary shadow-lg">
-            {logoSrc ? (
-              <Image
-                src={logoSrc}
-                alt={`Logo de ${salon.name}`}
-                fill
-                sizes="56px"
-                className="object-contain p-1"
-              />
-            ) : (
-              <span className="grid h-full w-full place-items-center rounded-lg bg-primary/15">
-                <Scissors className="h-5 w-5" aria-hidden="true" />
-              </span>
-            )}
-          </div>
+          <SalonLogoLightbox
+            src={logoSrc}
+            alt={`Logo de ${salon.name}`}
+            salonName={salon.name}
+            className="grid h-14 w-20 shrink-0 place-items-center overflow-hidden rounded-xl border border-white/25 bg-white p-1 text-primary shadow-lg"
+          >
+            <span className="grid h-full w-full place-items-center rounded-lg bg-primary/15">
+              <Scissors className="h-5 w-5" aria-hidden="true" />
+            </span>
+          </SalonLogoLightbox>
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-white">{salon.name}</p>
             <p className="text-[11px] text-white/65">Agendamento online</p>

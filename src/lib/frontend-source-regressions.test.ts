@@ -101,4 +101,22 @@ describe("frontend audit source regressions", () => {
     expect(clientLayout).not.toContain("themeColorHex");
     expect(clientLayout).not.toContain("style={brandStyle}");
   });
+
+  it("keeps the client vitrine focused and makes the real logo expandable", () => {
+    const home = source("src/app/book/[salonSlug]/page.tsx");
+    const logo = source("src/app/book/[salonSlug]/salon-logo-lightbox.tsx");
+
+    expect(home).toContain("<SalonLogoLightbox");
+    expect(home).not.toContain('aria-label="Contato rápido"');
+    expect(home).toContain('aria-labelledby="contact-title"');
+    expect(home).toContain("Fale com o Studio");
+    expect(home).toContain("{salon.address && (");
+    const infoStart = home.indexOf("{/* Informações");
+    expect(infoStart).toBeGreaterThan(-1);
+    expect(home.slice(infoStart)).not.toContain("whatsappHref");
+    expect(home.slice(infoStart)).not.toContain("phoneHref");
+    expect(logo).toContain('role="dialog"');
+    expect(logo).toContain('aria-label="Fechar logo ampliado"');
+    expect(logo).toContain('event.key === "Escape"');
+  });
 });
