@@ -283,6 +283,8 @@ tenant-aware foi aplicada em Production após preflight aprovado; a fase 013 de
   com aceite/recusa atômicos, evento imutável e notificação interna;
 - o atalho de telefone usa somente números válidos e normalizados, sem criar
   integração paga.
+- A migration `016_booking_experience.sql` foi aplicada em Production antes do
+  deploy do commit `83ab133`.
 
 ### Produto, comanda, estoque e recibo
 

@@ -1,8 +1,8 @@
 # Status atual canônico — Salon SaaS
 
-Atualizado em **27/08/2026**. As migrations manuais 012, 013, 014 e 015 foram
-aplicadas/verificadas no Supabase Production; a fase 016 desta entrega está
-versionada no código, mas ainda não foi aplicada em nenhum banco remoto.
+Atualizado em **27/08/2026**. As migrations manuais 012, 013, 014, 015 e 016
+foram aplicadas no Supabase Production; a execução da fase 016 foi confirmada
+pelo responsável antes da promoção do código.
 Este arquivo substitui os status históricos quando houver contradição.
 
 ## Fase 0 — prontidão para produção em validação
@@ -18,13 +18,14 @@ test pós-deploy está em `docs/FASE_0_PRODUCTION_READINESS.md`.
 
 - Repositório: `alisonbielwhats1-beep/barber-saas`
 - Branch produtiva: `master`
-- Commit funcional da aplicação: `040c3bb1f5f9bf0708f24de10b82f128809c2aed`
+- Commit funcional da aplicação: `83ab133c97aa3ae83fb917e5d52a9a3bc85ff32d`
 - Vercel: projeto `salon-saas`
-- Deploy do commit: `dpl_6ffXYCRE8p6ezBpu5r7K8yoySg5G`, estado `READY`
+- Deploy do commit: `dpl_GCbwaq2uhgfx9uQLyUMgs1YNboAx`, estado `READY`
 - URL oficial: [salon-saas-ruby.vercel.app](https://salon-saas-ruby.vercel.app)
 - Região das Functions: `gru1`
 - Banco/Storage: Supabase do projeto de barbearia
-- Erros de runtime logo após o deploy: nenhum encontrado nos últimos 30 minutos
+- Smoke pós-deploy: home, login, sessão e `/api/health` responderam `200`; o
+  health check confirmou `database: ok`.
 
 ## O que está em Production
 
@@ -112,6 +113,8 @@ test pós-deploy está em `docs/FASE_0_PRODUCTION_READINESS.md`.
   pagamentos sem salão. O backfill terminou sem snapshots nulos.
 - A migration manual `013_operational_query_indexes` foi aplicada e os cinco
   índices operacionais foram confirmados em `pg_indexes`.
+- A migration manual `016_booking_experience` foi executada em Production pelo
+  responsável em 27/08/2026 antes da promoção do commit `83ab133`.
 
 ### Não aplicado
 
@@ -120,10 +123,6 @@ test pós-deploy está em `docs/FASE_0_PRODUCTION_READINESS.md`.
 - A interface de cobranças do SaaS fica inacessível e as Server Actions falham
   fechadas enquanto a flag estiver desligada.
 - Preflight e rollback não destrutivo estão versionados junto da migration.
-- `016_booking_experience.sql` está **pendente**: cria regras de preço,
-  propostas de remarcação, enums, índices e policies RLS; não foi aplicado em
-  Production. Execute o preflight em um banco identificado e homologado antes
-  de qualquer autorização de rollout.
 
 ### Proibições
 
