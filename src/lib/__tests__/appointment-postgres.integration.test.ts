@@ -595,13 +595,14 @@ describePostgres("concorrência real de agendamentos", () => {
       },
     })).toBe(3);
 
-    await withSalon(data.salonId, (tx) =>
+    const promotedWaitlist = await withSalon(data.salonId, (tx) =>
       promoteWaitlistEntry(tx, {
         salonId: data.salonId,
         appointmentId: original.appointment.id,
         entryId: queued[0]!.entryId,
       }),
     );
+    expect(promotedWaitlist.appointmentId).not.toBe(original.appointment.id);
 
     const promoted = await prisma.waitlistEntry.findUniqueOrThrow({
       where: { id: queued[0]!.entryId },
@@ -613,7 +614,7 @@ describePostgres("concorrência real de agendamentos", () => {
     expect(await prisma.waitlistEntry.count({
       where: {
         salonId: data.salonId,
-        appointmentId: original.appointment.id,
+        appointmentId: promotedWaitlist.appointmentId,
         fulfilledAt: null,
         cancelledAt: null,
       },
