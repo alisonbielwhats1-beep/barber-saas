@@ -619,14 +619,23 @@ describePostgres("concorrência real de agendamentos", () => {
         cancelledAt: null,
       },
     })).toBe(2);
-    expect(await prisma.appointment.count({
+    const appointmentsAtReleasedSlot = await prisma.appointment.findMany({
       where: {
         salonId: data.salonId,
         professionalId: data.professionalId,
         startAt: new Date("2032-08-05T13:00:00.000Z"),
-        status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
       },
-    })).toBe(1);
+      orderBy: { id: "asc" },
+      select: { id: true, status: true, origin: true, clientId: true },
+    });
+    expect(appointmentsAtReleasedSlot).toEqual([
+      {
+        id: promotedWaitlist.appointmentId,
+        status: "CONFIRMED",
+        origin: "WAITLIST",
+        clientId: data.clients[1]!.id,
+      },
+    ]);
     expect(await prisma.notificationOutbox.count({
       where: {
         salonId: data.salonId,
