@@ -7,6 +7,7 @@ import type {
 } from "@prisma/client";
 import type { Tx } from "./prisma-tenant";
 import { clientIdentityData } from "./client-identity";
+import { inferGenderFromName } from "./name-gender";
 import { bufferedWindow, checkBookingWindow } from "./scheduling";
 import { priceServicesForDate } from "./pricing";
 import {
@@ -687,6 +688,7 @@ export async function createAppointment(
         name: input.guest.name,
         phone: identity.phone,
         phoneNormalized: identity.phoneNormalized,
+        gender: inferGenderFromName(input.guest.name),
       },
       select: { id: true },
     });

@@ -56,6 +56,7 @@ describe("escopo de clientes do profissional", () => {
         where: {
           salonId: "salon-a",
           clientId: "client-a",
+          status: "COMPLETED",
           professionalId: "professional-a",
         },
       }),
