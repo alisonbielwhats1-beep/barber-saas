@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -27,6 +27,7 @@ import { resolveClientSessionInTenant } from "@/lib/public-appointment";
 import { CartBadge } from "./cart-badge";
 import { HomeExplore } from "./home-explore";
 import { ReviewsSection } from "./reviews-section";
+import { PwaInstallCard } from "@/components/pwa-install-card";
 
 // Capa determinística por salão — mesmo salão, mesma foto
 function heroForSalon(slug: string) {
@@ -56,6 +57,10 @@ export default async function ClientHome({
 }) {
   const { salonSlug } = await params;
   const clientSession = await getClientSession();
+  if (!clientSession) {
+    const returnTo = `/book/${salonSlug}/agendar`;
+    redirect(`/book/${salonSlug}/welcome?returnTo=${encodeURIComponent(returnTo)}`);
+  }
   const salon = await withSalonBySlug(salonSlug, async (tx, salonId) => {
     const salonData = await tx.salon.findUnique({
       where: { id: salonId },
@@ -128,6 +133,10 @@ export default async function ClientHome({
     };
   });
   if (!salon) notFound();
+  if (!salon.hasValidClientSession) {
+    const returnTo = `/book/${salonSlug}/agendar`;
+    redirect(`/book/${salonSlug}/welcome?returnTo=${encodeURIComponent(returnTo)}`);
+  }
 
   // WhatsApp próprio tem precedência sobre o telefone geral do salão.
   const whatsappNumber = salon.whatsapp || salon.phone;
@@ -216,6 +225,8 @@ export default async function ClientHome({
           <span className="mt-1 block text-xs">Abra suas reservas para aceitar ou recusar.</span>
         </Link>
       )}
+
+      <PwaInstallCard salonName={salon.name} compact />
 
       {/* Hero — capa do salão */}
       <div className="relative h-48 overflow-hidden rounded-3xl">

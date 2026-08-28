@@ -14,6 +14,11 @@ export const metadata: Metadata = {
     icon: "/icon.svg",
     apple: "/icon.svg",
   },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "SalonSaaS",
+  },
   openGraph: {
     title: "SalonSaaS — Seu espaço organizado, sua agenda em movimento",
     description:
