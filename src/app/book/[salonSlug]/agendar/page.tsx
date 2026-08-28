@@ -1,10 +1,11 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { withSalonBySlug } from "@/lib/prisma-tenant";
 import { getClientSession } from "@/lib/client-auth";
 import { resolveClientSessionInTenant } from "@/lib/public-appointment";
 import { BookingFlow } from "./booking-flow";
 import { dateKeyInTimeZone } from "@/lib/time";
 import { normalizeImageUrl } from "@/lib/images";
+import { clientBookingReturnTo } from "@/lib/client-routes";
 
 export default async function AgendarPage({
   params,
@@ -20,6 +21,11 @@ export default async function AgendarPage({
   }>;
 }) {
   const [{ salonSlug }, query] = await Promise.all([params, searchParams]);
+  const returnTo = clientBookingReturnTo(salonSlug, query);
+  const clientSession = await getClientSession();
+  if (!clientSession) {
+    redirect(`/book/${salonSlug}/welcome?returnTo=${encodeURIComponent(returnTo)}`);
+  }
   const initialServiceIds = [
     ...new Set(
       (query.services ?? query.service ?? "")
@@ -29,7 +35,6 @@ export default async function AgendarPage({
         .slice(0, 10),
     ),
   ];
-  const clientSession = await getClientSession();
   const result = await withSalonBySlug(salonSlug, async (tx, salonId) => {
     const salon = await tx.salon.findUnique({
       where: { id: salonId },
@@ -82,6 +87,9 @@ export default async function AgendarPage({
   });
   if (!result) notFound();
   const { salon, counts, validSession } = result;
+  if (!validSession) {
+    redirect(`/book/${salonSlug}/welcome?returnTo=${encodeURIComponent(returnTo)}`);
+  }
 
   const countByPro = new Map(counts.map((c) => [c.professionalId, c._count._all]));
   const topProId =
