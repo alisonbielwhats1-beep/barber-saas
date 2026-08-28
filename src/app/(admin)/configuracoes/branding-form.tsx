@@ -144,7 +144,8 @@ export function BrandingForm({ branding }: { branding: Branding }) {
                 src={SEGMENTS.find((item) => item.id === segment)?.accentImage ?? SEGMENTS[0].accentImage}
                 alt="Prévia da foto padrão"
                 fill
-                sizes="(max-width: 640px) 90vw, 520px"
+                quality={85}
+                sizes="(max-width: 640px) 90vw, 1200px"
                 className="object-cover"
               />
               {!coverUrl && (

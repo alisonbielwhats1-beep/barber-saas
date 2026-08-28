@@ -58,7 +58,8 @@ export default async function WelcomePage({
         alt={salon.name}
         fill
         priority
-        sizes="480px"
+        quality={85}
+        sizes="100vw"
         className="-z-30 object-cover"
       />
       {/* Overlay dark do rodapé pra topo */}

@@ -235,7 +235,8 @@ export default async function ClientHome({
           alt={salon.name}
           fill
           priority
-          sizes="(max-width: 480px) 92vw, 440px"
+          quality={85}
+          sizes="(max-width: 480px) 92vw, 480px"
           className="object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
