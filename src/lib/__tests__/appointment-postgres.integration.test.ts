@@ -628,14 +628,29 @@ describePostgres("concorrência real de agendamentos", () => {
       orderBy: { id: "asc" },
       select: { id: true, status: true, origin: true, clientId: true },
     });
-    expect(appointmentsAtReleasedSlot).toEqual([
+    expect(appointmentsAtReleasedSlot).toHaveLength(2);
+    expect(appointmentsAtReleasedSlot).toEqual(expect.arrayContaining([
+      {
+        id: original.appointment.id,
+        status: "CANCELLED",
+        origin: "PUBLIC",
+        clientId: data.clients[0]!.id,
+      },
       {
         id: promotedWaitlist.appointmentId,
         status: "CONFIRMED",
         origin: "WAITLIST",
         clientId: data.clients[1]!.id,
       },
-    ]);
+    ]));
+    expect(appointmentsAtReleasedSlot.filter((appointment) =>
+      ["PENDING", "CONFIRMED", "IN_PROGRESS"].includes(appointment.status),
+    )).toEqual([{
+      id: promotedWaitlist.appointmentId,
+      status: "CONFIRMED",
+      origin: "WAITLIST",
+      clientId: data.clients[1]!.id,
+    }]);
     expect(await prisma.notificationOutbox.count({
       where: {
         salonId: data.salonId,
