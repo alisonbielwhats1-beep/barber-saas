@@ -91,11 +91,14 @@ describe("frontend audit source regressions", () => {
     expect(visits).toContain("featured");
   });
 
-  it("applies the establishment brand to the complete public route tree", () => {
-    const layout = source("src/app/book/[salonSlug]/layout.tsx");
+  it("keeps the salon brand in the owner panel and the client app in its default green", () => {
+    const adminLayout = source("src/app/(admin)/layout.tsx");
+    const clientLayout = source("src/app/book/[salonSlug]/layout.tsx");
 
-    expect(layout).toContain("themeColorHex");
-    expect(layout).toContain("style={brandStyle}");
-    expect(layout).toContain('"--primary-foreground"');
+    expect(adminLayout).toContain("themeColorHex");
+    expect(adminLayout).toContain("style={brandStyle}");
+    expect(adminLayout).toContain('"--primary-foreground"');
+    expect(clientLayout).not.toContain("themeColorHex");
+    expect(clientLayout).not.toContain("style={brandStyle}");
   });
 });

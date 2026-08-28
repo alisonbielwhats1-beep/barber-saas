@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   clientBookingPath,
   clientBookingReturnTo,
+  clientHomePath,
   safeClientReturnTo,
 } from "../client-routes";
 
@@ -28,5 +29,10 @@ describe("rotas do app do cliente", () => {
       "studio-a",
       "/book/studio-a/agendar?services=service-a",
     )).toBe("/book/studio-a/agendar?services=service-a");
+  });
+
+  it("aceita a home como destino padrão depois da autenticação", () => {
+    const home = clientHomePath("studio-a");
+    expect(safeClientReturnTo("studio-a", home, home)).toBe(home);
   });
 });

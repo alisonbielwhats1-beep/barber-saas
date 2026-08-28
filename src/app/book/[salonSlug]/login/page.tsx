@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getClientSessionForSalonSlug } from "@/lib/client-session-tenant";
+import { clientHomePath, safeClientReturnTo } from "@/lib/client-routes";
 import { LoginForm } from "./login-form";
 
 export default async function LoginPage({
@@ -11,13 +12,10 @@ export default async function LoginPage({
   searchParams: Promise<{ returnTo?: string }>;
 }) {
   const [{ salonSlug }, query] = await Promise.all([params, searchParams]);
-  const returnTo =
-    query.returnTo?.startsWith(`/book/${salonSlug}/`)
-      ? query.returnTo
-      : null;
+  const returnTo = safeClientReturnTo(salonSlug, query.returnTo, clientHomePath(salonSlug));
 
   const session = await getClientSessionForSalonSlug(salonSlug);
-  if (session) redirect(returnTo ?? `/book/${salonSlug}/minhas`);
+  if (session) redirect(returnTo);
 
   return (
     <main className="flex min-h-[100dvh] flex-col items-center justify-center px-5 py-10">
