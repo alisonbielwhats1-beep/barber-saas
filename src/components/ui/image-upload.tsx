@@ -27,6 +27,10 @@ export function ImageUpload({
       : aspectRatio === "landscape"
         ? "aspect-video"
         : "aspect-square";
+  const previewSizes =
+    aspectRatio === "landscape"
+      ? "(max-width: 640px) 100vw, 1200px"
+      : "300px";
 
   async function optimizeImageForUpload(file: File): Promise<File> {
     // GIF pode ser animado; preservamos o arquivo original para não remover
@@ -38,7 +42,9 @@ export function ImageUpload({
     try {
       const bitmap = await createImageBitmap(file);
       try {
-        const maxDimension = 1_600;
+        // A capa ocupa uma área larga no painel e na vitrine. Preservamos
+        // mais resolução nesse caso, sem alterar o limite seguro do servidor.
+        const maxDimension = aspectRatio === "landscape" ? 2_400 : 1_600;
         const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
         const canvas = document.createElement("canvas");
         canvas.width = Math.max(1, Math.round(bitmap.width * scale));
@@ -47,7 +53,7 @@ export function ImageUpload({
         if (!context) return file;
         context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
         const blob = await new Promise<Blob | null>((resolve) =>
-          canvas.toBlob(resolve, "image/webp", 0.84),
+          canvas.toBlob(resolve, "image/webp", 0.9),
         );
         if (!blob || blob.size >= file.size * 0.92) return file;
         const baseName = file.name.replace(/\.[^/.]+$/, "") || "imagem";
@@ -109,7 +115,8 @@ export function ImageUpload({
               alt="Preview"
               fill
               className="object-cover"
-              sizes="300px"
+              quality={85}
+              sizes={previewSizes}
             />
             <button
               type="button"
