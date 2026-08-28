@@ -252,7 +252,7 @@ describe("registerClient — validação no servidor", () => {
       ),
     ).rejects.toThrow("NEXT_REDIRECT");
 
-    expect(mocks.redirect).toHaveBeenCalledWith("/book/studio-a/minhas");
+    expect(mocks.redirect).toHaveBeenCalledWith("/book/studio-a");
   });
 
   it("preserva query de uma rota de retorno explicitamente permitida", async () => {

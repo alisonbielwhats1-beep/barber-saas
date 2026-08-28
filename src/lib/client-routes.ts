@@ -5,6 +5,10 @@ const CLIENT_RETURN_PAGES = new Set([
   "produtos",
 ]);
 
+export function clientHomePath(salonSlug: string): string {
+  return `/book/${salonSlug}`;
+}
+
 export type ClientBookingQuery = {
   service?: string;
   services?: string;
@@ -44,6 +48,11 @@ export function safeClientReturnTo(
 
   try {
     const parsed = new URL(returnTo, "https://salon.invalid");
+    const homePath = clientHomePath(salonSlug);
+    if (parsed.pathname === homePath) {
+      return `${parsed.pathname}${parsed.search}`;
+    }
+
     const prefix = `/book/${salonSlug}/`;
     if (!parsed.pathname.startsWith(prefix)) return fallback;
     const page = parsed.pathname.slice(prefix.length);

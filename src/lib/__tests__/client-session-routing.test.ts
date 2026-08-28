@@ -99,11 +99,11 @@ describe("sessão do cliente por tenant", () => {
       mocks.getClientSession.mockResolvedValue(CURRENT_SALON_SESSION);
 
       await expect(renderPage()).rejects.toThrow(
-        "NEXT_REDIRECT:/book/studio-atual/minhas",
+        "NEXT_REDIRECT:/book/studio-atual",
       );
 
       expect(mocks.redirect).toHaveBeenCalledWith(
-        "/book/studio-atual/minhas",
+        "/book/studio-atual",
       );
     },
   );

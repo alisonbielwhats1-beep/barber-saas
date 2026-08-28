@@ -30,13 +30,17 @@ const CLIENT_RETURN_PATHS = new Set([
 
 /** Normaliza e limita o retorno a telas conhecidas do próprio salão. */
 function safeReturnTo(salonSlug: string, returnTo?: string | null): string {
-  const fallback = `/book/${salonSlug}/minhas`;
+  const fallback = `/book/${salonSlug}`;
   if (!returnTo || !returnTo.startsWith("/") || returnTo.startsWith("//")) {
     return fallback;
   }
 
   try {
     const parsed = new URL(returnTo, "https://salon.invalid");
+    if (parsed.pathname === fallback) {
+      return `${parsed.pathname}${parsed.search}`;
+    }
+
     const prefix = `/book/${salonSlug}/`;
     if (!parsed.pathname.startsWith(prefix)) return fallback;
 

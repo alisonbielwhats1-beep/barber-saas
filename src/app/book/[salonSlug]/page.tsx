@@ -13,7 +13,10 @@ import {
   ChevronRight,
   Instagram,
   CreditCard,
+  ExternalLink,
+  Globe2,
   Info,
+  type LucideIcon,
 } from "lucide-react";
 import { withSalonBySlug } from "@/lib/prisma-tenant";
 import { HERO_IMAGES, normalizeImageUrl, resolvePortfolioImage, resolveProductImage } from "@/lib/images";
@@ -50,6 +53,104 @@ function formatHours(openMinutes: number, closeMinutes: number) {
   return `${fmt(openMinutes)} às ${fmt(closeMinutes)}`;
 }
 
+function normalizeInstagramHandle(value: string | null): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  const fromUrl = trimmed.match(
+    /^(?:https?:\/\/)?(?:www\.)?instagram\.com\/([^/?#]+)/i,
+  )?.[1];
+  const handle = (fromUrl ?? trimmed).replace(/^@/, "");
+  return /^[a-z0-9._]{1,30}$/i.test(handle) ? handle : null;
+}
+
+function normalizeExternalUrl(value: string): string | null {
+  try {
+    const parsed = new URL(value.replace(/[),.;!?]+$/g, ""));
+    return parsed.protocol === "https:" || parsed.protocol === "http:"
+      ? parsed.toString()
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function compactExternalLabel(value: string): string {
+  try {
+    const parsed = new URL(value);
+    const host = parsed.hostname.replace(/^www\./i, "");
+    const path = parsed.pathname.replace(/\/+$/g, "");
+    return `${host}${path && path !== "/" ? path : ""}`;
+  } catch {
+    return value;
+  }
+}
+
+function extractPublicLinks(value: string | null): {
+  siteUrl: string | null;
+  blogUrl: string | null;
+  importantText: string;
+} {
+  const raw = value ?? "";
+  const urls = Array.from(
+    new Set(
+      (raw.match(/https?:\/\/[^\s|]+/gi) ?? [])
+        .map(normalizeExternalUrl)
+        .filter((url): url is string => Boolean(url)),
+    ),
+  );
+  const blogUrl = urls.find((url) => {
+    try {
+      return /\/blog(?:\/|$)/i.test(new URL(url).pathname);
+    } catch {
+      return false;
+    }
+  }) ?? null;
+  const siteUrl = urls.find((url) => url !== blogUrl) ?? null;
+  const importantText = raw
+    .replace(/https?:\/\/[^\s|]+/gi, "")
+    .replace(/\b(?:site|blog)\s*:\s*/gi, "")
+    .replace(/[|•]+/g, " ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+
+  return { siteUrl, blogUrl, importantText };
+}
+
+function QuickContact({
+  href,
+  icon: Icon,
+  label,
+  value,
+  external = false,
+}: {
+  href: string;
+  icon: LucideIcon;
+  label: string;
+  value: string;
+  external?: boolean;
+}) {
+  return (
+    <a
+      href={href}
+      target={external ? "_blank" : undefined}
+      rel={external ? "noopener noreferrer" : undefined}
+      title={value}
+      className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-2xl border border-border bg-card px-3 text-left transition-colors hover:border-primary/40 hover:bg-card/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <Icon className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+      <span className="grid min-w-0">
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          {label}
+        </span>
+        <span className="max-w-[10rem] truncate text-[11px] font-medium text-foreground">
+          {value}
+        </span>
+      </span>
+      {external && <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden="true" />}
+    </a>
+  );
+}
+
 export default async function ClientHome({
   params,
 }: {
@@ -58,7 +159,7 @@ export default async function ClientHome({
   const { salonSlug } = await params;
   const clientSession = await getClientSession();
   if (!clientSession) {
-    const returnTo = `/book/${salonSlug}/agendar`;
+    const returnTo = `/book/${salonSlug}`;
     redirect(`/book/${salonSlug}/welcome?returnTo=${encodeURIComponent(returnTo)}`);
   }
   const salon = await withSalonBySlug(salonSlug, async (tx, salonId) => {
@@ -134,7 +235,7 @@ export default async function ClientHome({
   });
   if (!salon) notFound();
   if (!salon.hasValidClientSession) {
-    const returnTo = `/book/${salonSlug}/agendar`;
+    const returnTo = `/book/${salonSlug}`;
     redirect(`/book/${salonSlug}/welcome?returnTo=${encodeURIComponent(returnTo)}`);
   }
 
@@ -146,6 +247,8 @@ export default async function ClientHome({
     : null;
   const phoneDigits = salon.phone ? normalizePhone(salon.phone) : "";
   const phoneHref = salon.phone && isValidPhoneBR(salon.phone) ? `tel:+55${phoneDigits}` : null;
+  const instagramHandle = normalizeInstagramHandle(salon.instagram);
+  const { siteUrl, blogUrl, importantText } = extractPublicLinks(salon.importantInfo);
   // Sem capa própria: usa a imagem do segmento escolhido em Configurações;
   // sem segmento definido, cai no pool determinístico de sempre (mesmo salão,
   // mesma foto, pelo hash do slug — como já era antes desta personalização).
@@ -172,31 +275,36 @@ export default async function ClientHome({
     <main className="animate-fade-in space-y-6 px-5 pt-6">
       {/* Top bar */}
       <header className="flex items-center gap-3">
-        <div className="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full bg-primary/20 text-sm font-semibold text-primary">
+        <div className="relative grid h-12 w-14 shrink-0 place-items-center overflow-hidden rounded-xl border border-border bg-white p-1 text-sm font-semibold text-primary shadow-sm">
           {logoSrc ? (
             <Image
               src={logoSrc}
-              alt={`Foto de ${salon.name}`}
+              alt={`Logo de ${salon.name}`}
               fill
-              sizes="44px"
-              className="object-cover"
+              sizes="56px"
+              className="object-contain p-1"
             />
           ) : (
-            initials
+            <span className="grid h-full w-full place-items-center rounded-lg bg-primary/15">
+              {initials}
+            </span>
           )}
         </div>
-        <div className="flex-1">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Bem-vindo a</p>
-          <p className="text-sm font-semibold">{salon.name}</p>
+        <div className="min-w-0 flex-1">
+          <p className="truncate whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground">Bem-vindo</p>
+          <p className="truncate text-sm font-semibold">{salon.name}</p>
         </div>
         <CartBadge salonSlug={salonSlug} />
         <ClientNotificationLink salonSlug={salonSlug} />
         {salon.hasValidClientSession ? (
           <Link
             href={`/book/${salonSlug}/minhas`}
-            className="inline-flex min-h-11 items-center gap-1 rounded-full border border-border px-3 text-[11px] font-semibold text-primary"
+            aria-label="Minha conta"
+            title="Minha conta"
+            className="inline-flex min-h-11 w-11 items-center justify-center rounded-full border border-border text-primary sm:h-auto sm:w-auto sm:gap-1 sm:px-3"
           >
-            <UserRound className="h-3.5 w-3.5" /> Minha conta
+            <UserRound className="h-4 w-4" aria-hidden="true" />
+            <span className="hidden text-[11px] font-semibold sm:inline">Minha conta</span>
           </Link>
         ) : (
           <div className="flex items-center gap-1">
@@ -215,6 +323,57 @@ export default async function ClientHome({
           </div>
         )}
       </header>
+
+      {(whatsappHref || phoneHref || instagramHandle || siteUrl || blogUrl) && (
+        <section aria-label="Contato rápido" className="-mx-1 overflow-hidden">
+          <div className="scrollbar-dark flex gap-2 overflow-x-auto px-1 pb-1">
+            {whatsappHref && (
+              <QuickContact
+                href={whatsappHref}
+                icon={MessageCircle}
+                label="WhatsApp"
+                value={formatPhoneBR(whatsappNumber ?? "")}
+                external
+              />
+            )}
+            {phoneHref && (
+              <QuickContact
+                href={phoneHref}
+                icon={Phone}
+                label="Ligar"
+                value={formatPhoneBR(salon.phone ?? "")}
+              />
+            )}
+            {instagramHandle && (
+              <QuickContact
+                href={`https://instagram.com/${instagramHandle}`}
+                icon={Instagram}
+                label="Instagram"
+                value={`@${instagramHandle}`}
+                external
+              />
+            )}
+            {siteUrl && (
+              <QuickContact
+                href={siteUrl}
+                icon={Globe2}
+                label="Site"
+                value={compactExternalLabel(siteUrl)}
+                external
+              />
+            )}
+            {blogUrl && (
+              <QuickContact
+                href={blogUrl}
+                icon={ExternalLink}
+                label="Conteúdo"
+                value={compactExternalLabel(blogUrl)}
+                external
+              />
+            )}
+          </div>
+        </section>
+      )}
 
       {salon.pendingProposalCount > 0 && salon.hasValidClientSession && (
         <Link
@@ -312,26 +471,16 @@ export default async function ClientHome({
             {formatPhoneBR(salon.phone ?? "")} · Ligar
           </a>
         )}
-        {salon.instagram && (
-          <a
-            href={`https://instagram.com/${salon.instagram}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2.5 text-primary"
-          >
-            <Instagram className="h-4 w-4 shrink-0" />@{salon.instagram}
-          </a>
-        )}
         {paymentLabels.length > 0 && (
           <div className="flex items-start gap-2.5 text-muted-foreground sm:col-span-2">
             <CreditCard className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
             Aceita {paymentLabels.join(" · ")}
           </div>
         )}
-        {salon.importantInfo && (
+        {importantText && (
           <div className="flex items-start gap-2.5 text-muted-foreground sm:col-span-2">
             <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-            {salon.importantInfo}
+            {importantText}
           </div>
         )}
       </div>
