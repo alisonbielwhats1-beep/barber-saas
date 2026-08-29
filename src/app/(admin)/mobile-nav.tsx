@@ -203,7 +203,7 @@ export function MobileNav({
               prefetch={false}
               onClick={() => setMobileOpen(false)}
               className={cn(
-                "flex flex-1 flex-col items-center gap-1 pb-3 pt-2.5 text-[10px] font-medium transition-colors",
+                "flex min-h-14 flex-1 flex-col items-center gap-1 pb-3 pt-2.5 text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
                 active ? "text-primary" : "text-muted-foreground",
               )}
             >
@@ -223,7 +223,7 @@ export function MobileNav({
             ref={moreTriggerRef}
             aria-label="Abrir todos os módulos"
             className={cn(
-              "flex flex-1 flex-col items-center gap-1 pb-3 pt-2.5 text-[10px] font-medium transition-colors",
+              "flex min-h-14 flex-1 flex-col items-center gap-1 pb-3 pt-2.5 text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
               open ? "text-primary" : "text-muted-foreground",
             )}
           >

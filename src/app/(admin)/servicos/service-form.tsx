@@ -83,7 +83,7 @@ export function ServiceForm({ service, trigger }: Props) {
           </Button>
         ))}
       </DialogTrigger>
-      <DialogContent className="max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-h-[85dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{editing ? "Editar serviço" : "Novo serviço"}</DialogTitle>
           <DialogDescription>
@@ -107,7 +107,7 @@ export function ServiceForm({ service, trigger }: Props) {
             <label className="mb-1 block text-sm font-medium">Descrição</label>
             <Input name="description" defaultValue={service?.description ?? ""} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-medium">Categoria</label>
               <Input
@@ -125,7 +125,7 @@ export function ServiceForm({ service, trigger }: Props) {
               <Input name="durationMin" type="number" min={5} step={5} defaultValue={service?.durationMin ?? 60} required />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-medium">Preço (R$)</label>
               <Input name="price" type="number" min={0} step="0.01" defaultValue={service ? (service.priceCents / 100).toFixed(2) : ""} required />

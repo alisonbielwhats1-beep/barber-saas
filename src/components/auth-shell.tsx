@@ -15,7 +15,7 @@ export function AuthShell({
   footer: ReactNode;
 }) {
   return (
-    <main className="relative min-h-dvh overflow-x-hidden bg-background">
+    <main id="main-content" tabIndex={-1} className="relative min-h-dvh overflow-x-hidden bg-background outline-none">
       <SalonCinematicBackground variant="auth" priority />
 
       <div className="relative z-10 mx-auto flex min-h-dvh w-full max-w-7xl items-start px-4 py-8 sm:items-center sm:px-8 sm:py-12 lg:px-12">

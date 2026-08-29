@@ -29,7 +29,7 @@ export function ProductList({
   const inCart = new Set(items.map((i) => i.productId));
 
   return (
-    <div className="grid grid-cols-2 gap-3">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
       {products.map((p) => {
         const added = inCart.has(p.id);
         const soldOut = p.stock === 0;
@@ -43,7 +43,7 @@ export function ProductList({
                 src={p.imageUrl}
                 alt={p.name}
                 fill
-                sizes="45vw"
+                sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 240px"
                 className="object-cover"
               />
               {soldOut && (

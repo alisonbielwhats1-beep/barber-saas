@@ -29,7 +29,7 @@ export default async function CreateSalonPage() {
   if (memberships > 0) redirect("/dashboard");
 
   return (
-    <main className="min-h-screen bg-background px-6 py-12">
+    <main id="main-content" tabIndex={-1} className="min-h-dvh bg-background px-4 py-8 outline-none sm:px-6 sm:py-12">
       <div className="mx-auto w-full max-w-2xl">
         <header className="mb-10">
           <span className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-primary">

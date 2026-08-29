@@ -239,7 +239,7 @@ export function AccessManager({
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[calc(100dvh-1rem)] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Convidar para a equipe</DialogTitle>
           </DialogHeader>

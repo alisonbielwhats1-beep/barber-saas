@@ -152,7 +152,7 @@ export function ExpenseManager({ expenses }: { expenses: ExpenseRow[] }) {
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[calc(100dvh-1rem)] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Nova despesa</DialogTitle>
           </DialogHeader>
@@ -161,7 +161,7 @@ export function ExpenseManager({ expenses }: { expenses: ExpenseRow[] }) {
               <label className="mb-1 block text-sm font-medium">Descrição</label>
               <Input name="description" required placeholder="Ex.: Aluguel do ponto" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label className="mb-1 block text-sm font-medium">Valor (R$)</label>
                 <Input name="amount" required inputMode="decimal" placeholder="0,00" />
@@ -171,7 +171,7 @@ export function ExpenseManager({ expenses }: { expenses: ExpenseRow[] }) {
                 <Input name="dueDate" type="date" required defaultValue={format(new Date(), "yyyy-MM-dd")} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label className="mb-1 block text-sm font-medium">Categoria</label>
                 <select name="category" className="flex min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm">

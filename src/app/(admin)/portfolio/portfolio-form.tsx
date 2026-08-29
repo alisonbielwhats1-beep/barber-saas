@@ -59,7 +59,7 @@ export function PortfolioForm({
       <DialogTrigger asChild>
         <Button><Plus className="h-4 w-4" /> Adicionar foto</Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-h-[calc(100dvh-1rem)] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Nova foto do portfolio</DialogTitle>
           <DialogDescription>Faça upload do trabalho realizado.</DialogDescription>

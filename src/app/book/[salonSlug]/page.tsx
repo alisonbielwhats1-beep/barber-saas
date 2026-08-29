@@ -276,7 +276,7 @@ export default async function ClientHome({
     .toUpperCase();
 
   return (
-    <main className="animate-fade-in space-y-6 px-5 pt-6">
+    <main className="animate-fade-in space-y-6 px-4 pt-5 sm:px-5 sm:pt-6 lg:space-y-8 lg:px-0 lg:pt-8">
       {/* Top bar */}
       <header className="flex items-center gap-3">
         <SalonLogoLightbox
@@ -337,14 +337,14 @@ export default async function ClientHome({
       <PwaInstallCard salonName={salon.name} storageKey={salonSlug} compact />
 
       {/* Hero — capa do salão */}
-      <div className="relative h-48 overflow-hidden rounded-3xl">
+      <div className="relative h-48 overflow-hidden rounded-3xl sm:h-56 lg:h-72">
         <Image
           src={coverSrc}
           alt={salon.name}
           fill
           priority
           quality={95}
-          sizes="(max-width: 480px) 92vw, 480px"
+          sizes="(max-width: 640px) calc(100vw - 2rem), (max-width: 1024px) calc(100vw - 3rem), 1088px"
           className="object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
@@ -388,7 +388,7 @@ export default async function ClientHome({
             <p id="contact-title" className="text-sm font-semibold">Fale com o Studio</p>
             <p className="mt-1 text-xs text-muted-foreground">Canais oficiais do salão</p>
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
             {whatsappHref && (
               <QuickContact
                 href={whatsappHref}
@@ -483,7 +483,7 @@ export default async function ClientHome({
       {salon.professionals.length > 0 && (
         <section>
           <p className="mb-3 text-sm font-semibold text-muted-foreground">Nossa equipe</p>
-          <div className="scrollbar-dark flex gap-3 overflow-x-auto pb-1">
+          <div className="scrollbar-dark flex gap-3 overflow-x-auto pb-1 md:grid md:grid-cols-2 md:overflow-visible lg:grid-cols-3">
             {salon.professionals.map((p) => {
               const initials = (p.user.name || "?")
                 .split(" ")
@@ -494,16 +494,16 @@ export default async function ClientHome({
               return (
                 <div
                   key={p.id}
-                  className="w-32 shrink-0 rounded-2xl border border-border bg-card p-3 text-center"
+                  className="w-32 shrink-0 rounded-2xl border border-border bg-card p-3 text-center lg:w-auto"
                 >
                   {p.user.avatarUrl ? (
                     <Image
                       src={p.user.avatarUrl}
-                      alt=""
+                      alt={`Foto de ${p.user.name}`}
                       width={96}
                       height={96}
                       sizes="48px"
-                      quality={90}
+                      quality={95}
                       className="mx-auto h-12 w-12 rounded-full object-cover"
                     />
                   ) : (
@@ -544,7 +544,7 @@ export default async function ClientHome({
               Ver tudo <ChevronRight className="h-3.5 w-3.5" />
             </Link>
           </div>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
             {salon.portfolio.slice(0, 6).map((item, index) => (
               <Link
                 key={item.id}
@@ -555,7 +555,7 @@ export default async function ClientHome({
                   src={resolvePortfolioImage(item.imageUrl, index)}
                   alt={item.caption ?? "Trabalho do portfólio"}
                   fill
-                  sizes="150px"
+                  sizes="(max-width: 640px) 30vw, (max-width: 1024px) 22vw, 180px"
                   className="object-cover"
                 />
               </Link>

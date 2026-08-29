@@ -52,7 +52,7 @@ export default async function ClientPortfolio({
           Ainda sem fotos publicadas.
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
           {salon.portfolio.map((it, index) => (
             <div
               key={it.id}
@@ -62,7 +62,7 @@ export default async function ClientPortfolio({
                 src={resolvePortfolioImage(it.imageUrl, index)}
                 alt={it.caption ?? "Trabalho"}
                 fill
-                sizes="45vw"
+                sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 240px"
                 className="object-cover"
               />
               {(it.caption || it.professional) && (

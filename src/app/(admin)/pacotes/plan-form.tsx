@@ -57,7 +57,7 @@ export function PlanForm({ plan, trigger }: { plan?: PlanEditable; trigger?: Rea
       <DialogTrigger asChild>
         {trigger ?? (editing ? <Button variant="ghost" size="sm">Editar</Button> : <Button><Plus className="h-4 w-4" /> Novo plano</Button>)}
       </DialogTrigger>
-      <DialogContent className="max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-h-[85dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{editing ? "Editar plano" : "Novo plano"}</DialogTitle>
           <DialogDescription>Assinatura recorrente com benefícios para o cliente.</DialogDescription>
@@ -71,7 +71,7 @@ export function PlanForm({ plan, trigger }: { plan?: PlanEditable; trigger?: Rea
             <label className="mb-1 block text-sm font-medium">Descrição</label>
             <Input name="description" defaultValue={plan?.description ?? ""} />
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
               <label className="mb-1 block text-sm font-medium">Preço (R$)</label>
               <Input name="price" type="number" min={0} step="0.01" defaultValue={plan ? (plan.priceCents / 100).toFixed(2) : ""} required />

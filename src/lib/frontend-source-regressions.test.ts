@@ -131,5 +131,37 @@ describe("frontend audit source regressions", () => {
     expect(professionalActions).toContain("avatarUrl");
     expect(professionalsPage).toContain("avatarUrl: p.avatarUrl");
     expect(home).toContain("p.user.avatarUrl");
+    expect(home).toContain("quality={95}");
+    expect(home).not.toContain("quality={90}");
+  });
+
+  it("mantém a experiência utilizável em viewport pequeno e grande", () => {
+    const rootLayout = source("src/app/layout.tsx");
+    const styles = source("src/app/globals.css");
+    const clientShell = source("src/app/book/[salonSlug]/client-shell.tsx");
+    const clientNav = source("src/app/book/[salonSlug]/bottom-nav.tsx");
+    const clientHome = source("src/app/book/[salonSlug]/page.tsx");
+    const booking = source("src/app/book/[salonSlug]/agendar/booking-flow.tsx");
+    const adminLayout = source("src/app/(admin)/layout.tsx");
+    const welcome = source("src/app/book/[salonSlug]/welcome/page.tsx");
+    const settings = source("src/app/(admin)/configuracoes/salon-settings-form.tsx");
+    const hours = source("src/app/(admin)/profissionais/working-hours-form.tsx");
+
+    expect(rootLayout).toContain('width: "device-width"');
+    expect(rootLayout).toContain('viewportFit: "cover"');
+    expect(rootLayout).toContain('href="#main-content"');
+    expect(styles).toContain("text-size-adjust: 100%");
+    expect(styles).toContain("font-size: max(1rem, 1em) !important");
+    expect(clientShell).toContain("md:max-w-4xl");
+    expect(clientShell).toContain("lg:max-w-6xl");
+    expect(clientShell).toContain('id="main-content"');
+    expect(clientNav).toContain("md:max-w-4xl");
+    expect(clientNav).toContain("lg:max-w-6xl");
+    expect(clientHome).toContain('sizes="(max-width: 640px) calc(100vw - 2rem), (max-width: 1024px) calc(100vw - 3rem), 1088px"');
+    expect(booking).toContain("max-h-[calc(100dvh-1rem)]");
+    expect(adminLayout).toContain('id="main-content"');
+    expect(welcome).toContain("overflow-x-hidden");
+    expect(settings).toContain("grid-cols-1 gap-3 sm:grid-cols-2");
+    expect(hours).toContain("aria-label={`Início de ${WEEKDAYS[row.weekday]}`}");
   });
 });

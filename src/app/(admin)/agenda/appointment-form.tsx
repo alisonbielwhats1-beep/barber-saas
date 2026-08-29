@@ -156,7 +156,7 @@ export function AppointmentDialog({
   if (seriesResult) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent>
+        <DialogContent className="max-h-[calc(100dvh-1rem)] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Série criada</DialogTitle>
           </DialogHeader>
@@ -176,7 +176,7 @@ export function AppointmentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-h-[85dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Novo agendamento</DialogTitle>
           <DialogDescription>Início: {startLabel}</DialogDescription>
@@ -265,7 +265,7 @@ export function AppointmentDialog({
               </select>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label className="mb-1 block text-sm font-medium">Nome</label>
                 <Input name="clientName" required />
@@ -294,7 +294,7 @@ export function AppointmentDialog({
               Repetir agendamento
             </label>
             {repeat && (
-              <div className="mt-3 grid grid-cols-2 gap-3">
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">
                     Frequência
@@ -321,7 +321,7 @@ export function AppointmentDialog({
                     className="h-9"
                   />
                 </div>
-                <p className="col-span-2 text-[11px] text-muted-foreground">
+                <p className="sm:col-span-2 text-[11px] text-muted-foreground">
                   Datas com conflito de horário ou bloqueio do salão são puladas automaticamente — o
                   resto da série é criado.
                 </p>

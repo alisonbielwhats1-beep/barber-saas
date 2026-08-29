@@ -67,7 +67,7 @@ export function ReviewDialog({
       </button>
 
       <Dialog open={open} onOpenChange={close}>
-        <DialogContent>
+        <DialogContent className="max-h-[calc(100dvh-1rem)] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Como foi seu atendimento?</DialogTitle>
             <DialogDescription>

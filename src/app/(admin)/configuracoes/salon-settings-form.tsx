@@ -93,7 +93,7 @@ export function SalonSettingsForm({ salon }: { salon: Salon }) {
         <Field label="Endereço">
           <Input name="address" defaultValue={salon.address ?? ""} placeholder="Rua, número — bairro, cidade" />
         </Field>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Telefone / WhatsApp">
             <Input name="phone" defaultValue={salon.phone ?? ""} placeholder="(11) 90000-0000" />
           </Field>
@@ -126,7 +126,7 @@ export function SalonSettingsForm({ salon }: { salon: Salon }) {
       </Section>
 
       <Section title="Horário de funcionamento (padrão)">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Abertura">
             <Input name="open" type="time" defaultValue={toHHMM(salon.openMinutes)} />
           </Field>
@@ -140,7 +140,7 @@ export function SalonSettingsForm({ salon }: { salon: Salon }) {
       </Section>
 
       <Section title="Política de cancelamento">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Antecedência mínima (horas)">
             <Input name="cancelPolicyHours" type="number" min={0} max={168} defaultValue={salon.cancelPolicyHours} />
           </Field>
@@ -151,7 +151,7 @@ export function SalonSettingsForm({ salon }: { salon: Salon }) {
       </Section>
 
       <Section title="Janela de agendamento online">
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="Antecedência mínima (minutos)">
             <Input
               name="minBookingLeadMinutes"

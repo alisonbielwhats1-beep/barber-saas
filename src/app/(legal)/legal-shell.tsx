@@ -26,7 +26,7 @@ export function LegalShell({
   children: React.ReactNode;
 }) {
   return (
-    <main className="min-h-screen bg-background">
+    <main id="main-content" tabIndex={-1} className="min-h-dvh bg-background outline-none">
       <MarketingHeader />
 
       <article className="container max-w-3xl pb-24 pt-32 md:pt-40">

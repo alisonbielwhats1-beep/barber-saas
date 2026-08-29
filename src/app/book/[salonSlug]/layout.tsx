@@ -38,8 +38,8 @@ export async function generateMetadata({
  * ganham daquele ponto pra baixo. A cor personalizada fica exclusivamente no
  * painel do dono; a jornada pública mantém o verde padrão do aplicativo.
  *
- * Também restringe a largura ao formato "mobile" (max 480px) centralizando,
- * pra que a experiência pareça um app tanto em celular quanto em desktop.
+ * Mantém a leitura confortável no celular e amplia progressivamente a área
+ * útil em tablets e desktops, sem transformar a jornada em uma página esticada.
  */
 export default async function BookLayout({
   children,

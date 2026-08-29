@@ -78,7 +78,7 @@ export function ProductForm({ product, trigger }: { product?: Product; trigger?:
           <Button size="lg"><Plus className="h-4 w-4" /> Novo produto</Button>
         ))}
       </DialogTrigger>
-      <DialogContent className="max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-h-[85dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{editing ? "Editar produto" : "Novo produto"}</DialogTitle>
           <DialogDescription>Custo, fornecedor e estoque mínimo alimentam margem e reposição.</DialogDescription>
@@ -93,7 +93,7 @@ export function ProductForm({ product, trigger }: { product?: Product; trigger?:
             <label className="mb-1 block text-sm font-medium">Nome</label>
             <Input name="name" defaultValue={product?.name} required autoFocus />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-medium">Marca</label>
               <Input name="brand" defaultValue={product?.brand ?? ""} />
@@ -103,7 +103,7 @@ export function ProductForm({ product, trigger }: { product?: Product; trigger?:
               <Input name="category" defaultValue={product?.category ?? ""} placeholder="Pomada, óleo…" />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-medium">Fornecedor</label>
               <Input name="supplier" defaultValue={product?.supplier ?? ""} />
@@ -113,7 +113,7 @@ export function ProductForm({ product, trigger }: { product?: Product; trigger?:
               <Input name="barcode" defaultValue={product?.barcode ?? ""} />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-medium">Preço venda (R$)</label>
               <Input name="price" type="number" min={0} step="0.01" defaultValue={product ? (product.priceCents / 100).toFixed(2) : ""} required />
@@ -123,7 +123,7 @@ export function ProductForm({ product, trigger }: { product?: Product; trigger?:
               <Input name="cost" type="number" min={0} step="0.01" defaultValue={product ? (product.costCents / 100).toFixed(2) : "0.00"} />
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <div>
               <label className="mb-1 block text-sm font-medium">Estoque</label>
               <Input name="stock" type="number" min={0} step={1} defaultValue={product?.stock ?? 10} required />
