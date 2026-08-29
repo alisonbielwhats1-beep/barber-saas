@@ -118,7 +118,7 @@ export function HomeExplore({
       {categories.length > 1 && !query && activeCategory === null && (
         <section>
           <p className="mb-3 text-sm font-semibold text-muted-foreground">Categorias</p>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {/* "Todos" tile */}
           <button
             type="button"
@@ -158,7 +158,7 @@ export function HomeExplore({
                     src={imageByCategory.get(cat) ?? imageForCategory(cat)}
                     alt={cat}
                     fill
-                    sizes="(max-width: 480px) 45vw, 200px"
+                    sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 240px"
                     className="object-cover"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />

@@ -95,7 +95,7 @@ export default async function MarketingPage() {
         </section>
       )}
 
-      <section className="grid grid-cols-3 gap-3">
+      <section className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-3">
         <Kpi icon={Cake} accent="#EC4899" label="Aniversariantes" value={birthdays.length.toString()} />
         <Kpi icon={Clock} accent="#EF4444" label={`Sumidos · ${settings.lapsedClientDays}d+`} value={lapsed.length.toString()} />
         <Kpi icon={Crown} accent="#F4C430" label="VIPs" value={vips.length.toString()} />

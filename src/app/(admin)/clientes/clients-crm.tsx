@@ -214,7 +214,7 @@ export function ClientsCrm({
 
       {/* Drawer de detalhe */}
       <Dialog open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>
-        <DialogContent className="max-h-[88vh] max-w-lg overflow-y-auto">
+        <DialogContent className="max-h-[88dvh] max-w-lg overflow-y-auto">
           {detail && (
             <>
               <DialogHeader>

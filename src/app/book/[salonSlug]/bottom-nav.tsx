@@ -61,7 +61,7 @@ export function BottomNav({
   return (
     <nav
       aria-label="Navegação principal do cliente"
-      className="fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-[480px] border-t border-border/80 bg-card/95 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-10px_30px_rgba(0,0,0,0.2)] backdrop-blur"
+      className="fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-[480px] border-t border-border/80 bg-card/95 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-10px_30px_rgba(0,0,0,0.2)] backdrop-blur md:max-w-4xl md:px-6 lg:max-w-6xl lg:rounded-t-2xl lg:border-x lg:px-8"
     >
       <div className="grid grid-cols-5 items-end gap-1">
       {items.map((it) => {

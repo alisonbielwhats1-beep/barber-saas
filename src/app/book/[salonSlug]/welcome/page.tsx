@@ -69,7 +69,7 @@ export default async function WelcomePage({
   ];
 
   return (
-    <div className="relative flex min-h-dvh flex-col overflow-hidden">
+    <div className="relative flex min-h-dvh flex-col overflow-x-hidden">
       {/* Hero image */}
       <Image
         src={heroSrc}
@@ -85,7 +85,7 @@ export default async function WelcomePage({
       {/* Atmosfera sutil na cor padrão do app do cliente */}
       <div className="absolute inset-x-0 top-0 -z-10 h-1/2 bg-[radial-gradient(ellipse_at_top,_hsl(var(--primary)/0.18),_transparent_65%)]" />
 
-      <header className="flex items-center justify-between gap-4 px-6 pt-6">
+      <header className="flex items-center justify-between gap-4 px-4 pt-5 sm:px-6 sm:pt-6 lg:px-8">
         <div className="flex min-w-0 items-center gap-3">
           <SalonLogoLightbox
             src={logoSrc}
@@ -119,7 +119,7 @@ export default async function WelcomePage({
         </div>
       </header>
 
-      <div className="flex flex-1 flex-col justify-end px-6 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-20 sm:px-8">
+      <div className="flex flex-1 flex-col justify-end px-4 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-16 sm:px-8 sm:pt-20 lg:mx-auto lg:w-full lg:max-w-3xl">
         <span className="mb-4 inline-flex w-fit items-center gap-2 rounded-full border border-primary/40 bg-black/35 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-primary backdrop-blur">
           <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" /> Acesso do cliente
         </span>
@@ -130,7 +130,7 @@ export default async function WelcomePage({
           Entre na sua conta ou crie um cadastro para agendar e acompanhar seus horários em {salon.name}.
         </p>
 
-        <div className="mt-7 grid grid-cols-3 gap-2" aria-label="Benefícios da sua conta">
+        <div className="mt-7 grid grid-cols-1 gap-2 min-[390px]:grid-cols-3" aria-label="Benefícios da sua conta">
           {benefits.map(({ icon: Icon, label, text }) => (
             <div
               key={label}

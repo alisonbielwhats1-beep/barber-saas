@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
  */
 export default function NotFound() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background px-6 text-center">
+    <main id="main-content" tabIndex={-1} className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-background px-6 text-center outline-none">
       <p className="font-display text-6xl text-primary">404</p>
 
       <div>

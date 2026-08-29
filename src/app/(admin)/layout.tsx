@@ -120,7 +120,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       </aside>
 
       {/* ── Main content ─────────────────────────────────── */}
-      <main className="admin-main scrollbar-dark min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
+      <main id="main-content" tabIndex={-1} className="admin-main scrollbar-dark min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
         <div className="mx-auto w-full min-w-0 max-w-[1400px] p-4 pb-24 sm:p-6 md:p-8 lg:pb-8">{children}</div>
       </main>
 

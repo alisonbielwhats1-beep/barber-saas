@@ -3,7 +3,7 @@ import Link from "next/link";
 
 export default function OfflinePage() {
   return (
-    <main className="grid min-h-dvh place-items-center bg-background p-6 text-foreground">
+    <main id="main-content" tabIndex={-1} className="grid min-h-dvh place-items-center bg-background p-6 text-foreground outline-none">
       <div className="max-w-sm rounded-2xl border border-border bg-card p-6 text-center">
         <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-primary/10 text-primary">
           <WifiOff className="h-5 w-5" />

@@ -75,7 +75,7 @@ export function ClientForm({ client }: Props) {
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-h-[calc(100dvh-1rem)] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{editing ? "Editar cliente" : "Novo cliente"}</DialogTitle>
           <DialogDescription>
@@ -88,7 +88,7 @@ export function ClientForm({ client }: Props) {
             <label className="mb-1 block text-sm font-medium">Nome</label>
             <Input name="name" defaultValue={client?.name} required autoFocus />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-medium">WhatsApp</label>
               <Input
@@ -106,7 +106,7 @@ export function ClientForm({ client }: Props) {
               />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-medium">Aniversário</label>
               <Input

@@ -28,7 +28,7 @@ export default async function InvitePage({
 }) {
   if (!emailInvitesEnabled()) {
     return (
-      <main className="grid min-h-screen place-items-center bg-background p-6 text-foreground">
+      <main id="main-content" tabIndex={-1} className="grid min-h-dvh place-items-center bg-background p-6 text-foreground outline-none">
         <div className="w-full max-w-sm">
           <div className="mb-6 flex items-center justify-center gap-2">
             <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary">
@@ -62,7 +62,7 @@ export default async function InvitePage({
     : null;
 
   return (
-    <main className="grid min-h-screen place-items-center bg-background p-6 text-foreground">
+    <main id="main-content" tabIndex={-1} className="grid min-h-dvh place-items-center bg-background p-6 text-foreground outline-none">
       <div className="w-full max-w-sm">
         <div className="mb-6 flex items-center justify-center gap-2">
           <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary">

@@ -20,10 +20,10 @@ import { PLAN_PRICING_ROWS } from "@/lib/plan-entitlements";
 export default function LandingPage() {
   return (
     <main
-      id="conteudo-principal"
+      id="main-content"
       tabIndex={-1}
       data-theme="marketing-light"
-      className="min-h-screen overflow-hidden bg-background"
+      className="min-h-dvh overflow-hidden bg-background"
     >
       <MarketingHeader />
       <AnimatedLandingHero />

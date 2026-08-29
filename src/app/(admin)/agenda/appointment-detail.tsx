@@ -300,7 +300,7 @@ export function AppointmentDetail({
                 <span className="font-semibold text-foreground">{appt.clientName}</span>
               </p>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-[11px] font-medium text-muted-foreground">
                     Data
@@ -588,7 +588,7 @@ export function AppointmentDetail({
               </div>
 
               {/* Utility actions */}
-              <div className="mt-3 grid grid-cols-2 gap-2 border-t border-border pt-3">
+              <div className="mt-3 grid grid-cols-1 gap-2 border-t border-border pt-3 min-[420px]:grid-cols-2">
                 {isMutable && (
                   <button
                     onClick={openEdit}

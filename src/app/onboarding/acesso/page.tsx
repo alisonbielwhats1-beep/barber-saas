@@ -58,7 +58,7 @@ export default async function AccessStatusPage() {
   const Icon = content.icon;
 
   return (
-    <main className="grid min-h-dvh place-items-center bg-background px-5 py-10">
+    <main id="main-content" tabIndex={-1} className="grid min-h-dvh place-items-center bg-background px-5 py-10 outline-none">
       <section className="w-full max-w-lg rounded-3xl border border-border bg-card p-7 shadow-2xl">
         <span className="inline-flex rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-primary">
           {content.badge}

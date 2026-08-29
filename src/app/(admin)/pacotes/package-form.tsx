@@ -65,7 +65,7 @@ export function PackageForm({
       <DialogTrigger asChild>
         {trigger ?? (editing ? <Button variant="ghost" size="sm">Editar</Button> : <Button><Plus className="h-4 w-4" /> Novo pacote</Button>)}
       </DialogTrigger>
-      <DialogContent className="max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-h-[85dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{editing ? "Editar pacote" : "Novo pacote"}</DialogTitle>
           <DialogDescription>Um pacote agrupa várias sessões com preço promocional.</DialogDescription>
@@ -88,7 +88,7 @@ export function PackageForm({
               ))}
             </select>
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
               <label className="mb-1 block text-sm font-medium">Sessões</label>
               <Input name="sessions" type="number" min={1} defaultValue={pkg?.sessions ?? 5} required />

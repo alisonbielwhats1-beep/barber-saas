@@ -140,7 +140,7 @@ export function InvoiceActions({ invoiceId }: { invoiceId: string }) {
         </Button>
       </div>
       <Dialog open={dialog !== null} onOpenChange={(value) => !value && setDialog(null)}>
-        <DialogContent>
+        <DialogContent className="max-h-[calc(100dvh-1rem)] overflow-y-auto">
           <form onSubmit={submit}>
             <DialogHeader>
               <DialogTitle>{dialog === "paid" ? "Confirmar recebimento" : "Anular cobrança"}</DialogTitle>

@@ -276,7 +276,7 @@ function ClientPicker({ open, title, clients, onClose, onConfirm }: { open: bool
   const filtered = clients.filter((c) => c.name.toLowerCase().includes(q.toLowerCase())).slice(0, 30);
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[80vh] overflow-hidden">
+      <DialogContent className="max-h-[80dvh] overflow-hidden">
         <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar cliente…" className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none" autoFocus />
         <div className="max-h-72 space-y-1 overflow-y-auto">

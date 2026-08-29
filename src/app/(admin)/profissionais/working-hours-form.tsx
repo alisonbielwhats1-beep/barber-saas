@@ -91,7 +91,7 @@ export function WorkingHoursForm({
           <Clock className="h-4 w-4" /> Horários
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
+      <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>Horários de {professionalName}</DialogTitle>
           <DialogDescription>
@@ -104,9 +104,9 @@ export function WorkingHoursForm({
           {rows.map((row, i) => (
             <div
               key={row.weekday}
-              className="flex items-center gap-3 rounded-md border p-3"
+              className="grid gap-3 rounded-md border p-3 sm:flex sm:items-center"
             >
-              <label className="flex min-w-[130px] cursor-pointer items-center gap-2">
+              <label className="flex min-w-0 cursor-pointer items-center gap-2 sm:min-w-[130px]">
                 <input
                   type="checkbox"
                   className="h-4 w-4 accent-primary"
@@ -115,21 +115,25 @@ export function WorkingHoursForm({
                 />
                 <span className="text-sm font-medium">{WEEKDAYS[row.weekday]}</span>
               </label>
-              <Input
-                type="time"
-                value={row.start}
-                onChange={(e) => updateRow(i, { start: e.target.value })}
-                disabled={!row.enabled}
-                className="w-28"
-              />
-              <span className="text-muted-foreground">–</span>
-              <Input
-                type="time"
-                value={row.end}
-                onChange={(e) => updateRow(i, { end: e.target.value })}
-                disabled={!row.enabled}
-                className="w-28"
-              />
+              <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:flex sm:shrink-0">
+                <Input
+                  type="time"
+                  aria-label={`Início de ${WEEKDAYS[row.weekday]}`}
+                  value={row.start}
+                  onChange={(e) => updateRow(i, { start: e.target.value })}
+                  disabled={!row.enabled}
+                  className="w-full sm:w-28"
+                />
+                <span className="text-center text-muted-foreground">–</span>
+                <Input
+                  type="time"
+                  aria-label={`Fim de ${WEEKDAYS[row.weekday]}`}
+                  value={row.end}
+                  onChange={(e) => updateRow(i, { end: e.target.value })}
+                  disabled={!row.enabled}
+                  className="w-full sm:w-28"
+                />
+              </div>
               <Button
                 type="button"
                 variant="ghost"
@@ -137,7 +141,7 @@ export function WorkingHoursForm({
                 onClick={() => copyToAll(i)}
                 disabled={!row.enabled}
                 title="Aplicar este horário em todos os dias"
-                className="ml-auto text-xs"
+                className="w-full text-xs sm:ml-auto sm:w-auto"
               >
                 Copiar
               </Button>

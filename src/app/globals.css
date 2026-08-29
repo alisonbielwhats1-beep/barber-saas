@@ -200,11 +200,66 @@
     @apply border-border;
   }
 
+  html {
+    min-width: 320px;
+    scroll-behavior: smooth;
+    text-size-adjust: 100%;
+    -webkit-text-size-adjust: 100%;
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
+    min-width: 320px;
+    overflow-x: hidden;
+    overflow-wrap: break-word;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
+  }
+
+  img,
+  svg,
+  video,
+  canvas {
+    max-width: 100%;
+  }
+
+  :where(a, button, input, select, textarea, summary) {
+    touch-action: manipulation;
+  }
+
+  :where(a, button, input, select, textarea, summary):focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 3px;
+  }
+
+  .skip-link {
+    position: fixed;
+    left: 1rem;
+    top: 0;
+    z-index: 300;
+    transform: translateY(-150%);
+    border-radius: 9999px;
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+    box-shadow: 0 10px 24px hsl(0 0% 0% / 0.28);
+    transition: transform 180ms ease-out;
+  }
+
+  .skip-link:focus {
+    transform: translateY(1rem);
+  }
+}
+
+@media (max-width: 639px) {
+  input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+  select,
+  textarea {
+    /* Evita o zoom automático do Safari ao focar campos pequenos. */
+    font-size: max(1rem, 1em) !important;
   }
 }
 

@@ -46,7 +46,7 @@ export function MarketingHeader() {
   return (
     <>
     <a
-      href="#conteudo-principal"
+      href="#main-content"
       className="fixed left-4 top-3 z-[70] inline-flex min-h-11 -translate-y-20 items-center rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-lg transition-transform focus:translate-y-0 focus:outline-none focus:ring-2 focus:ring-white"
     >
       Pular para o conteúdo

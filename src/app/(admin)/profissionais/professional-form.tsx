@@ -133,7 +133,7 @@ export function ProfessionalForm({
           </Button>
         ))}
       </DialogTrigger>
-      <DialogContent className="max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-h-[85dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{editing ? "Editar profissional" : "Novo profissional"}</DialogTitle>
           <DialogDescription>
@@ -221,7 +221,7 @@ export function ProfessionalForm({
               placeholder="Especialista em coloração"
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-medium">Comissão (%)</label>
               <Input
