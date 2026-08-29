@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { CheckCircle2, MailWarning, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ImageUpload } from "@/components/ui/image-upload";
 import { Input } from "@/components/ui/input";
 import {
   Dialog,
@@ -28,6 +29,7 @@ type EditablePro = {
   email: string;
   bio: string | null;
   colorHex: string | null;
+  avatarUrl: string | null;
   commissionPct: number;
   monthlyGoalCents: number;
   serviceIds: string[];
@@ -50,6 +52,7 @@ export function ProfessionalForm({
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState(professional?.avatarUrl ?? "");
   const [inviteResult, setInviteResult] = useState<{
     email: string;
     status: "SENT" | "FAILED";
@@ -82,7 +85,7 @@ export function ProfessionalForm({
     startTransition(async () => {
       try {
         if (editing) {
-          await updateProfessional(professional!.id, commonPayload);
+          await updateProfessional(professional!.id, { ...commonPayload, avatarUrl });
           await setProfessionalServices(professional!.id, Array.from(selected));
         } else {
           const result = await createProfessional({
@@ -187,6 +190,27 @@ export function ProfessionalForm({
                 temporária será criada ou exibida.
               </p>
             </>
+          )}
+
+          {editing ? (
+            <div className="rounded-xl border border-border bg-muted/20 p-3">
+              <p className="text-sm font-medium">Foto de perfil</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Aparece para os clientes ao escolher o profissional e na equipe do salão.
+              </p>
+              <div className="mt-3 max-w-40">
+                <ImageUpload
+                  value={avatarUrl}
+                  onChange={setAvatarUrl}
+                  folder="profiles"
+                  aspectRatio="square"
+                />
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Depois de aceitar o convite, o profissional também poderá adicionar a foto em Configurações &gt; Meu perfil.
+            </p>
           )}
 
           <div>

@@ -119,4 +119,17 @@ describe("frontend audit source regressions", () => {
     expect(logo).toContain('aria-label="Fechar logo ampliado"');
     expect(logo).toContain('event.key === "Escape"');
   });
+
+  it("permite foto do profissional e a exibe na equipe pública", () => {
+    const professionalForm = source("src/app/(admin)/profissionais/professional-form.tsx");
+    const professionalActions = source("src/app/(admin)/profissionais/actions.ts");
+    const professionalsPage = source("src/app/(admin)/profissionais/page.tsx");
+    const home = source("src/app/book/[salonSlug]/page.tsx");
+
+    expect(professionalForm).toContain("<ImageUpload");
+    expect(professionalForm).toContain("folder=\"profiles\"");
+    expect(professionalActions).toContain("avatarUrl");
+    expect(professionalsPage).toContain("avatarUrl: p.avatarUrl");
+    expect(home).toContain("p.user.avatarUrl");
+  });
 });

@@ -9,12 +9,14 @@ export function SalonLogoLightbox({
   alt,
   salonName,
   className,
+  thumbnailImageClassName,
   children,
 }: {
   src: string | null;
   alt: string;
   salonName: string;
   className: string;
+  thumbnailImageClassName?: string;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -43,7 +45,7 @@ export function SalonLogoLightbox({
       unoptimized
       sizes="160px"
       quality={95}
-      className="object-contain transition-transform duration-200 group-hover:scale-[1.03]"
+      className={`transition-transform duration-200 group-hover:scale-[1.03] ${thumbnailImageClassName ?? "object-contain"}`}
     />
   ) : (
     children

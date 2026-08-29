@@ -91,9 +91,10 @@ export default async function WelcomePage({
             src={logoSrc}
             alt={`Logo de ${salon.name}`}
             salonName={salon.name}
-            className="grid h-14 w-20 shrink-0 place-items-center overflow-hidden rounded-xl border-0 bg-transparent p-0 text-primary shadow-none"
+            thumbnailImageClassName="object-cover object-center"
+            className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-full border border-white/30 bg-black/35 p-0 text-primary shadow-lg"
           >
-            <span className="grid h-full w-full place-items-center rounded-lg bg-primary/15">
+            <span className="grid h-full w-full place-items-center rounded-full bg-primary/15">
               <Scissors className="h-5 w-5" aria-hidden="true" />
             </span>
           </SalonLogoLightbox>
