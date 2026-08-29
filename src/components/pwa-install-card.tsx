@@ -24,6 +24,22 @@ type InstallPromptEvent = Event & {
 
 export type PwaPlatform = "ios" | "android" | "other";
 
+const INSTALL_STORAGE_PREFIX = "salonsaas:pwa-installed:";
+const DISPLAY_MODE_QUERIES = [
+  "standalone",
+  "fullscreen",
+  "minimal-ui",
+  "window-controls-overlay",
+] as const;
+
+export function pwaInstallStorageKey(scope?: string): string {
+  const normalizedScope = (scope?.trim().toLowerCase() || "default")
+    .replace(/[^a-z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+  return `${INSTALL_STORAGE_PREFIX}${normalizedScope || "default"}`;
+}
+
 export function detectPwaPlatform(
   userAgent: string,
   platform = "",
@@ -40,33 +56,78 @@ export function detectPwaPlatform(
 }
 
 function isStandaloneMode(): boolean {
+  if (typeof window === "undefined" || typeof navigator === "undefined") {
+    return false;
+  }
+
   const standaloneNavigator = navigator as Navigator & { standalone?: boolean };
-  return (
-    (typeof window.matchMedia === "function" &&
-      window.matchMedia("(display-mode: standalone)").matches) ||
-    standaloneNavigator.standalone === true
-  );
+  const hasStandaloneDisplayMode =
+    typeof window.matchMedia === "function" &&
+    DISPLAY_MODE_QUERIES.some((mode) =>
+      window.matchMedia(`(display-mode: ${mode})`).matches,
+    );
+
+  return hasStandaloneDisplayMode || standaloneNavigator.standalone === true;
+}
+
+function hasInstallAcknowledgement(storageKey: string): boolean {
+  try {
+    return window.localStorage.getItem(storageKey) === "installed";
+  } catch {
+    return false;
+  }
+}
+
+function rememberInstalled(storageKey: string): void {
+  try {
+    window.localStorage.setItem(storageKey, "installed");
+  } catch {
+    // Navegadores com armazenamento bloqueado ainda podem ocultar o card
+    // durante a sessão atual.
+  }
+}
+
+function watchDisplayMode(query: MediaQueryList, listener: () => void): () => void {
+  if (typeof query.addEventListener === "function") {
+    query.addEventListener("change", listener);
+    return () => query.removeEventListener("change", listener);
+  }
+
+  if (typeof query.addListener !== "function") return () => {};
+
+  query.addListener(listener);
+  return () => query.removeListener(listener);
 }
 
 export function PwaInstallCard({
   salonName,
+  storageKey,
   className,
   compact = false,
 }: {
   salonName?: string;
+  storageKey?: string;
   className?: string;
   compact?: boolean;
 }) {
+  const installKey = pwaInstallStorageKey(storageKey ?? salonName);
   const [platform, setPlatform] = useState<PwaPlatform | null>(null);
   const [promptEvent, setPromptEvent] = useState<InstallPromptEvent | null>(null);
   const [installed, setInstalled] = useState(false);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (isStandaloneMode()) {
-      setInstalled(true);
-      return;
-    }
+    const syncInstalledState = () => {
+      if (isStandaloneMode() || hasInstallAcknowledgement(installKey)) {
+        setInstalled(true);
+        setPromptEvent(null);
+        setOpen(false);
+        return true;
+      }
+      return false;
+    };
+
+    if (syncInstalledState()) return;
 
     setPlatform(
       detectPwaPlatform(
@@ -77,22 +138,59 @@ export function PwaInstallCard({
     );
 
     const capturePrompt = (event: Event) => {
+      if (isStandaloneMode() || hasInstallAcknowledgement(installKey)) return;
       event.preventDefault();
       setPromptEvent(event as InstallPromptEvent);
     };
     const handleInstalled = () => {
+      rememberInstalled(installKey);
       setInstalled(true);
       setPromptEvent(null);
       setOpen(false);
     };
+    const refreshInstallationState = () => {
+      syncInstalledState();
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") refreshInstallationState();
+    };
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === installKey) refreshInstallationState();
+    };
+    const mediaQueries =
+      typeof window.matchMedia === "function"
+        ? DISPLAY_MODE_QUERIES.map((mode) =>
+            window.matchMedia(`(display-mode: ${mode})`),
+          )
+        : [];
 
     window.addEventListener("beforeinstallprompt", capturePrompt);
     window.addEventListener("appinstalled", handleInstalled);
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("pageshow", refreshInstallationState);
+    window.addEventListener("focus", refreshInstallationState);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    const removeMediaQueryListeners = mediaQueries.map((query) =>
+      watchDisplayMode(query, refreshInstallationState),
+    );
+
     return () => {
       window.removeEventListener("beforeinstallprompt", capturePrompt);
       window.removeEventListener("appinstalled", handleInstalled);
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("pageshow", refreshInstallationState);
+      window.removeEventListener("focus", refreshInstallationState);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      removeMediaQueryListeners.forEach((removeListener) => removeListener());
     };
-  }, []);
+  }, [installKey]);
+
+  function acknowledgeInstall() {
+    rememberInstalled(installKey);
+    setInstalled(true);
+    setPromptEvent(null);
+    setOpen(false);
+  }
 
   async function installFromPrompt() {
     const currentPrompt = promptEvent;
@@ -100,7 +198,7 @@ export function PwaInstallCard({
     try {
       await currentPrompt.prompt();
       const choice = await currentPrompt.userChoice;
-      if (choice.outcome === "accepted") setOpen(false);
+      if (choice.outcome === "accepted") acknowledgeInstall();
     } catch {
       // Se o navegador recusar o prompt, os passos manuais continuam
       // disponíveis para o cliente.
@@ -111,7 +209,7 @@ export function PwaInstallCard({
   }
 
   // Evita conteúdo diferente entre SSR e hidratação e não mostra o convite
-  // depois que o app já está aberto como instalado.
+  // depois que o app já está aberto como instalado ou foi confirmado pelo cliente.
   if (
     platform === null ||
     installed ||
@@ -214,6 +312,15 @@ export function PwaInstallCard({
               Instalar agora
             </button>
           )}
+
+          <button
+            type="button"
+            onClick={acknowledgeInstall}
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-border px-4 py-2.5 text-sm font-semibold text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Check className="h-4 w-4" aria-hidden="true" />
+            Já instalei ou adicionei à tela inicial
+          </button>
         </DialogContent>
       </Dialog>
     </>

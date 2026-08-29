@@ -91,7 +91,7 @@ export default async function WelcomePage({
             src={logoSrc}
             alt={`Logo de ${salon.name}`}
             salonName={salon.name}
-            className="grid h-14 w-20 shrink-0 place-items-center overflow-hidden rounded-xl border border-white/25 bg-white p-1 text-primary shadow-lg"
+            className="grid h-14 w-20 shrink-0 place-items-center overflow-hidden rounded-xl border-0 bg-transparent p-0 text-primary shadow-none"
           >
             <span className="grid h-full w-full place-items-center rounded-lg bg-primary/15">
               <Scissors className="h-5 w-5" aria-hidden="true" />
@@ -160,7 +160,7 @@ export default async function WelcomePage({
           </Link>
         </div>
 
-        <PwaInstallCard salonName={salon.name} className="mt-4" />
+        <PwaInstallCard salonName={salon.name} storageKey={salonSlug} className="mt-4" />
       </div>
     </div>
   );

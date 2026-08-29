@@ -283,7 +283,7 @@ export default async function ClientHome({
           src={logoSrc}
           alt={`Logo de ${salon.name}`}
           salonName={salon.name}
-          className="grid h-14 w-20 shrink-0 place-items-center overflow-hidden rounded-xl border border-border bg-white p-1 text-sm font-semibold text-primary shadow-sm"
+          className="grid h-14 w-20 shrink-0 place-items-center overflow-hidden rounded-xl border-0 bg-transparent p-0 text-sm font-semibold text-primary shadow-none"
         >
           <span className="grid h-full w-full place-items-center rounded-lg bg-primary/15">
             {initials}
@@ -333,7 +333,7 @@ export default async function ClientHome({
         </Link>
       )}
 
-      <PwaInstallCard salonName={salon.name} compact />
+      <PwaInstallCard salonName={salon.name} storageKey={salonSlug} compact />
 
       {/* Hero — capa do salão */}
       <div className="relative h-48 overflow-hidden rounded-3xl">

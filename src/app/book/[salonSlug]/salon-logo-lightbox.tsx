@@ -40,9 +40,10 @@ export function SalonLogoLightbox({
       src={src}
       alt={alt}
       fill
-      sizes="80px"
+      unoptimized
+      sizes="160px"
       quality={95}
-      className="object-contain p-1.5 transition-transform duration-200 group-hover:scale-[1.03]"
+      className="object-contain transition-transform duration-200 group-hover:scale-[1.03]"
     />
   ) : (
     children
@@ -94,6 +95,7 @@ export function SalonLogoLightbox({
               alt={alt}
               fill
               priority
+              unoptimized
               quality={95}
               sizes="(max-width: 640px) 92vw, 1100px"
               className="object-contain"
