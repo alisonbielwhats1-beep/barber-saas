@@ -216,6 +216,7 @@ export default async function ProfissionaisPage() {
                     email: p.email,
                     bio: p.bio,
                     colorHex: p.colorHex,
+                    avatarUrl: p.avatarUrl,
                     commissionPct: p.commissionPct,
                     monthlyGoalCents: p.goalCents,
                     serviceIds: p.serviceIds,

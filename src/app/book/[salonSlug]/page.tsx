@@ -202,7 +202,7 @@ export default async function ClientHome({
       },
       professionals: {
         where: { active: true },
-        select: { id: true, bio: true, colorHex: true, user: { select: { name: true } } },
+        select: { id: true, bio: true, colorHex: true, user: { select: { name: true, avatarUrl: true } } },
       },
       portfolio: {
         orderBy: { createdAt: "desc" },
@@ -496,12 +496,24 @@ export default async function ClientHome({
                   key={p.id}
                   className="w-32 shrink-0 rounded-2xl border border-border bg-card p-3 text-center"
                 >
-                  <div
-                    className="mx-auto grid h-12 w-12 place-items-center rounded-full text-sm font-semibold text-white"
-                    style={{ backgroundColor: p.colorHex ?? "hsl(var(--primary))" }}
-                  >
-                    {initials}
-                  </div>
+                  {p.user.avatarUrl ? (
+                    <Image
+                      src={p.user.avatarUrl}
+                      alt=""
+                      width={96}
+                      height={96}
+                      sizes="48px"
+                      quality={90}
+                      className="mx-auto h-12 w-12 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div
+                      className="mx-auto grid h-12 w-12 place-items-center rounded-full text-sm font-semibold text-white"
+                      style={{ backgroundColor: p.colorHex ?? "hsl(var(--primary))" }}
+                    >
+                      {initials}
+                    </div>
+                  )}
                   <p className="mt-2 truncate text-[12px] font-medium">{p.user.name}</p>
                   {p.bio && (
                     <p className="mt-0.5 line-clamp-2 text-[10px] text-muted-foreground">{p.bio}</p>

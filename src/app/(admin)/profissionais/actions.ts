@@ -136,6 +136,7 @@ const updateInput = z.object({
   colorHex: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional().nullable(),
   commissionPct: z.coerce.number().min(0).max(100),
   monthlyGoalCents: z.coerce.number().int().min(0).default(0),
+  avatarUrl: z.string().url("URL da foto inválida").optional().nullable().or(z.literal("")),
 });
 
 export async function updateProfessional(
@@ -146,10 +147,10 @@ export async function updateProfessional(
   assertRole(ctx, ["OWNER", "MANAGER"]);
   const data = updateInput.parse(input);
 
-  await withTenant(ctx, async (tx) => {
+  const salonSlug = await withTenant(ctx, async (tx) => {
     const pro = await tx.professional.findFirst({
       where: { id, salonId: ctx.salonId },
-      select: { userId: true },
+      select: { userId: true, salon: { select: { slug: true } } },
     });
     if (!pro) throw new Error("Not found");
 
@@ -166,12 +167,21 @@ export async function updateProfessional(
     });
     // User não é tenant-scoped (pode pertencer a vários salões) — o alvo já
     // foi confirmado pertencer a este salão via pro.userId acima.
+    const avatarUrl = data.avatarUrl === undefined
+      ? undefined
+      : data.avatarUrl?.trim() || null;
     await tx.user.update({
       where: { id: pro.userId },
-      data: { name: data.name },
+      data: {
+        name: data.name,
+        ...(avatarUrl !== undefined ? { avatarUrl } : {}),
+      },
     });
+
+    return pro.salon.slug;
   });
   revalidatePath("/profissionais");
+  revalidatePath(`/book/${salonSlug}`, "layout");
 }
 
 export async function toggleProfessionalActive(id: string) {
