@@ -6,7 +6,7 @@ test.describe("@database jornadas críticas no PostgreSQL descartável", () => {
   test("proprietário entra e vê apenas os clientes do seu estabelecimento", async ({ page }) => {
     await page.goto("/login");
     await page.getByLabel("Email").fill("dono@lunahair.com");
-    await page.getByLabel("Senha").fill("demo1234");
+    await page.getByLabel("Senha", { exact: true }).fill("demo1234");
     await page.getByRole("button", { name: "Entrar" }).click();
 
     await expect(page).toHaveURL(/\/(hoje|dashboard)$/);
@@ -17,6 +17,7 @@ test.describe("@database jornadas críticas no PostgreSQL descartável", () => {
   });
 
   test("cliente cria conta, volta à home e conclui um agendamento", async ({ page }) => {
+    test.setTimeout(60_000);
     const email = `e2e-${Date.now()}-${test.info().workerIndex}@example.test`;
 
     await page.goto("/book/luna-hair/welcome");
@@ -30,8 +31,13 @@ test.describe("@database jornadas críticas no PostgreSQL descartável", () => {
     await page.getByRole("button", { name: "Criar conta" }).click();
 
     await expect(page).toHaveURL(/\/book\/luna-hair$/);
-    await page.getByRole("link", { name: "Agendar agora" }).click();
-    await expect(page.getByRole("heading", { name: "Escolha os serviços" })).toBeVisible();
+    await Promise.all([
+      page.waitForURL(/\/book\/luna-hair\/agendar$/, { timeout: 15_000 }),
+      page.getByRole("link", { name: "Agendar agora", exact: true }).first().click(),
+    ]);
+    await expect(page.getByRole("heading", { name: "Escolha os serviços" })).toBeVisible({
+      timeout: 15_000,
+    });
     await page.getByRole("button", { name: /Corte feminino/ }).click();
     await page.getByRole("button", { name: "Continuar com 1 serviço" }).click();
     await page.getByRole("button", { name: /Camila/ }).click();

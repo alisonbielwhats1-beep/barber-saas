@@ -27,7 +27,7 @@
     "test": "vitest run --exclude \"**/*.integration.test.ts\"",
     "test:e2e": "playwright test",
     "test:e2e:static": "playwright test --grep @static",
-    "test:e2e:database": "playwright test --grep @database --project=chromium",
+    "test:e2e:database": "playwright test --grep @database --project=chromium --workers=1",
     "test:integration": "vitest run src/lib/__tests__/invite-postgres.integration.test.ts",
     "test:appointment-integration": "vitest run src/lib/__tests__/appointment-postgres.integration.test.ts src/lib/__tests__/comanda-postgres.integration.test.ts src/lib/__tests__/public-salon-lock-postgres.integration.test.ts src/lib/__tests__/public-salon-runtime-rls-postgres.integration.test.ts"
   },
