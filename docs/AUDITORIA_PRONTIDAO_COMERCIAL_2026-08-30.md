@@ -6,10 +6,12 @@ Esta branch fecha os defeitos P1 encontrados no código e adiciona regressão
 automatizada para segurança, imagens, PWA, acessibilidade e jornadas críticas.
 A aplicação **ainda não deve ser promovida para Production**: faltam o CI do
 PR, o Preview ligado a um Supabase de homologação inequivocamente separado e
-a decisão de produto/infraestrutura para recuperação de senha.
+a validação da recuperação de senha/Resend nesse ambiente seguro.
 
 Nenhum teste ofensivo, escrita, seed, migration ou smoke test foi executado em
-Production. Não há alteração de schema nesta entrega.
+Production. A entrega agora contém a migration manual aditiva
+`017_password_recovery`, ainda não aplicada fora do PostgreSQL descartável do
+CI.
 
 ## Identificação e limites
 
@@ -32,7 +34,7 @@ Production. Não há alteração de schema nesta entrega.
 | P1 | Entradas de senha podiam ultrapassar os 72 bytes efetivos do bcrypt em cadastro administrativo e convites; login de usuário inexistente encerrava sem comparação equivalente. | Validação UTF-8 compartilhada em todos os fluxos e hash fictício no login administrativo para reduzir diferença temporal. | Corrigido e testado |
 | P1 | Upload validava apenas assinatura inicial, permitindo arquivo truncado, payload anexado, EXIF e dimensões abusivas. | Decodificação completa com Sharp, limites de dimensão/pixels, bloqueio de animação, rotação e regravação sem metadados. | Corrigido e testado |
 | P1 | Manifestos PWA anunciavam somente SVG; Chromium requer PNG 192/512 e iOS depende de `apple-touch-icon`. | PNGs 180/192/512 e maskable gerados, manifesto raiz/tenant e cache offline atualizados. | Corrigido e testado |
-| P1 | Recuperação de senha não existe, embora a cópia anterior desse a entender que existia. | Cópia direciona ao suporte, sem inventar token/e-mail. Implementação depende da decisão descrita abaixo. | **Aberto — decisão necessária** |
+| P1 | Recuperação de senha não existia para equipe nem cliente. | Fluxos por e-mail com resposta antienumeração, rate limit fail-closed, token aleatório armazenado como SHA-256, expiração de 1 hora, uso único, escopo de tenant e revogação de sessões. | Corrigido; ativação depende de migration 017 e Resend no staging |
 | P1 | Não existe staging autenticável e inequivocamente separado. | E2E autenticado foi levado ao PostgreSQL efêmero do CI; Preview continua fechado por padrão. | **Aberto — infraestrutura necessária** |
 | P2 | Três APIs do cliente transformavam JSON malformado em erro 500. | Parse protegido e resposta 400 uniforme. | Corrigido e testado |
 | P2 | Metadata do livro público consultava Prisma cru e podia revelar nome de salão suspenso. | Metadata usa `withSalonBySlug`, com o mesmo gate/lock da vitrine. | Corrigido e testado |
@@ -57,6 +59,10 @@ Production. Não há alteração de schema nesta entrega.
   token sem perfil válido no tenant;
 - erros de sessão/JSON falham fechados e não iniciam transação tenant-scoped;
 - página de primeiro acesso continua oferecendo “Entrar” e “Criar uma conta”.
+- proprietário/equipe e cliente podem solicitar recuperação por e-mail; conta,
+  estado do provedor e validade do token não são enumerados na solicitação;
+- a troca de senha invalida o token e sessões anteriores; o cliente é sempre
+  consumido dentro do salão resolvido pelo slug.
 
 ### Imagens e uploads
 
@@ -88,9 +94,9 @@ Production. Não há alteração de schema nesta entrega.
 |---|---|
 | TypeScript estrito | aprovado |
 | ESLint | aprovado; avisos novos removidos |
-| Vitest | 114 arquivos, 595 testes aprovados |
-| Build Next.js 15.5.22 | aprovado; 45 páginas; JS compartilhado 102 kB |
-| E2E público | 28 aprovados, 2 skips esperados |
+| Vitest | 119 arquivos, 613 testes aprovados |
+| Build Next.js 15.5.22 | aprovado; 46 páginas no passo de geração estática; JS compartilhado 102 kB |
+| E2E público | 31 aprovados, 2 skips esperados |
 | Motores | Chromium, Firefox e WebKit |
 | Viewports | 320, 360, 375, 390, 412, 430, 768, 820, 1024, 1280, 1366, 1440 e 1920 px; paisagem relevante |
 | Imagens | nenhum `img` carregado com `naturalWidth=0` nas páginas públicas testadas |
@@ -115,7 +121,7 @@ idempotência, fila, comanda e estoque.
 | Jornada | Evidência atual | Pendência antes de declarar pronto |
 |---|---|---|
 | Cadastro/login/logout administrativo | unitários + E2E CI | validar Preview em Chrome/Edge reais |
-| Recuperação de senha | inexistente | decisão e implementação |
+| Recuperação de senha | unitários, migration/preflight e integração PostgreSQL no CI | entrega real do Resend e smoke no Preview seguro |
 | Configurações, serviços, profissionais e fotos | actions/testes de segurança + build | smoke autenticado no Preview |
 | Agenda e agendamento | unitários + integração PostgreSQL + E2E CI | smoke no Preview |
 | Proposta de horário, aceite/recusa | testes existentes de domínio/UI | smoke no Preview |
@@ -144,7 +150,6 @@ Os padrões foram comparados sem copiar interfaces:
 
 | Classe | Sugestão | Problema/beneficiário | Impacto | Complexidade | Dependências e risco |
 |---|---|---|---|---|---|
-| Requisito de produção | Recuperação de senha | evita bloqueio de dono/equipe/cliente | alto | média | provedor de e-mail, tokens com expiração, rate limit; risco de takeover |
 | Requisito de produção | Staging persistente e restore ensaiado | elimina teste em Production | alto | média | classificar Supabase e variáveis Vercel; risco de apontar ao projeto errado |
 | Melhoria posterior | Paginação de reservas/clientes | evita corte silencioso e consultas crescentes | médio | média | contrato de API e UX; risco baixo |
 | Melhoria posterior | Coleta segura de assets órfãos | reduz custo/entulho de Storage | médio | média | inventário de referências e janela de retenção; risco de exclusão indevida |
@@ -157,8 +162,8 @@ Os padrões foram comparados sem copiar interfaces:
 
 1. Confirmar qual dos dois projetos Supabase é Production e qual pode ser
    homologação; fornecer somente os project refs, sem secrets na conversa.
-2. Autorizar a implementação de recuperação de senha e escolher o canal:
-   Resend/e-mail é a opção coerente com a infraestrutura existente.
+2. Confirmar remetente/domínio do Resend em staging e autorizar a aplicação da
+   migration `017_password_recovery` somente nesse ambiente.
 3. Definir se Preview será criado por PR ou pela branch `staging` depois de as
    variáveis isoladas estarem configuradas.
 4. Disponibilizar validação manual em iPhone/Safari e Edge, ou aceitar a
@@ -166,11 +171,14 @@ Os padrões foram comparados sem copiar interfaces:
 
 ## Rollback
 
-Esta entrega não altera banco nem dados. O rollback é reverter o commit do PR e
-redeployar o commit anterior já conhecido. Antes de qualquer promoção:
+O rollback da aplicação é reverter o commit do PR e redeployar o commit
+anterior. A migration 017 é aditiva; suas colunas podem permanecer inertes sem
+afetar a versão anterior, evitando um `DROP COLUMN` que eliminaria versões de
+sessão. Antes de qualquer promoção:
 
 1. registrar o SHA exato aprovado pelo CI e pelo Preview;
 2. manter o deploy anterior disponível na Vercel;
 3. se o smoke pós-deploy falhar, promover novamente o deploy anterior;
 4. verificar home, login, vitrine, agendamento e `/api/health`;
-5. não executar migration, seed ou limpeza de Storage como parte do rollback.
+5. não remover as colunas da migration 017, executar seed ou limpar Storage
+   como parte do rollback.

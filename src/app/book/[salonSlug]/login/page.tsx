@@ -9,9 +9,9 @@ export default async function LoginPage({
   searchParams,
 }: {
   params: Promise<{ salonSlug: string }>;
-  searchParams: Promise<{ returnTo?: string }>;
+  searchParams: Promise<{ returnTo?: string; senha?: string }>;
 }) {
-  const [{ salonSlug }] = await Promise.all([params, searchParams]);
+  const [{ salonSlug }, query] = await Promise.all([params, searchParams]);
   const homePath = clientHomePath(salonSlug);
 
   const session = await getClientSessionForSalonSlug(salonSlug);
@@ -30,7 +30,17 @@ export default async function LoginPage({
           </p>
         </div>
 
-        <LoginForm salonSlug={salonSlug} />
+        <LoginForm salonSlug={salonSlug} passwordReset={query.senha === "alterada"} />
+
+        <p className="text-center text-sm text-muted-foreground">
+          Esqueceu a senha?{" "}
+          <Link
+            href={`/book/${salonSlug}/recuperar-senha`}
+            className="font-medium text-primary hover:underline"
+          >
+            Recuperar por e-mail
+          </Link>
+        </p>
 
         <p className="text-center text-sm text-muted-foreground">
           Primeira vez?{" "}

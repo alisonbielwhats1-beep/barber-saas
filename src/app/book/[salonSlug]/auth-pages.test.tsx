@@ -32,6 +32,7 @@ describe("client auth routes", () => {
       salonId: "salon-a",
       name: "Maria Silva",
       email: "maria@example.com",
+      sessionVersion: 0,
     });
     mocks.withSalonBySlug.mockImplementation(
       async (_slug: string, callback: (_tx: unknown, salonId: string) => unknown) =>
@@ -42,6 +43,7 @@ describe("client auth routes", () => {
               mergedIntoId: null,
               name: "Joao Silva",
               email: "joao@example.com",
+              sessionVersion: 0,
             }),
           },
         }, "salon-b"),
@@ -63,6 +65,7 @@ describe("client auth routes", () => {
       salonId: "salon-b",
       name: "Joao Silva",
       email: "joao@example.com",
+      sessionVersion: 0,
     });
 
     await expect(CadastroPage({ params, searchParams })).rejects.toThrow(

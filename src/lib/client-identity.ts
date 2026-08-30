@@ -129,6 +129,7 @@ export type ResolvedClientProfile = {
   id: string;
   name: string;
   email: string | null;
+  sessionVersion: number;
 };
 
 export async function resolveClientProfile(
@@ -140,11 +141,16 @@ export async function resolveClientProfile(
   for (let depth = 0; depth < 8; depth += 1) {
     const profile = await tx.clientProfile.findFirst({
       where: { id: currentId, salonId },
-      select: { id: true, mergedIntoId: true, name: true, email: true },
+      select: { id: true, mergedIntoId: true, name: true, email: true, sessionVersion: true },
     });
     if (!profile) return null;
     if (!profile.mergedIntoId) {
-      return { id: profile.id, name: profile.name, email: profile.email };
+      return {
+        id: profile.id,
+        name: profile.name,
+        email: profile.email,
+        sessionVersion: profile.sessionVersion,
+      };
     }
     currentId = profile.mergedIntoId;
   }

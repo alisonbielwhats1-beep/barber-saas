@@ -65,6 +65,10 @@ jobs:
           npx prisma db execute --file prisma/migrations/20260728220000_fase_1_security_invites/migration.sql --url "$DIRECT_URL"
           npx prisma db execute --file prisma/migrations/20260729120000_user_invite_created_by_index/migration.sql --url "$DIRECT_URL"
           npx prisma db execute --file prisma/migrations/20260729164510_email_professional_invites/migration.sql --url "$DIRECT_URL"
+      - name: Run read-only password recovery preflight
+        run: npx prisma db execute --file prisma/sql/manual/017_password_recovery.preflight.sql --url "$DIRECT_URL"
+      - name: Apply password recovery schema
+        run: npx prisma db execute --file prisma/sql/manual/017_password_recovery.sql --url "$DIRECT_URL"
       - name: Prepare tenant helper for platform approval migration
         run: >-
           npx prisma db execute
@@ -119,6 +123,10 @@ jobs:
         run: npm run db:safety-check
       - name: Apply complete Prisma schema to disposable database
         run: npm run db:push
+      - name: Run read-only password recovery preflight
+        run: npx prisma db execute --file prisma/sql/manual/017_password_recovery.preflight.sql --url "$DIRECT_URL"
+      - name: Prove idempotent password recovery schema
+        run: npx prisma db execute --file prisma/sql/manual/017_password_recovery.sql --url "$DIRECT_URL"
       - name: Prepare tenant helper for Phase 2 migration
         run: >-
           npx prisma db execute
@@ -190,6 +198,8 @@ jobs:
         run: npm run db:seed
       - name: Prove appointment and comanda concurrency with PostgreSQL, plus public access locking
         run: npm run test:appointment-integration
+      - name: Prove tenant-isolated password recovery with PostgreSQL
+        run: npm run test:password-recovery-integration
       - name: Build the production application for browser tests
         run: npm run build
       - name: Install browser engines

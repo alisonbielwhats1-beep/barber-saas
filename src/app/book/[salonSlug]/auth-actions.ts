@@ -138,12 +138,13 @@ export async function loginClient(
     name: string;
     email: string | null;
     passwordHash: string | null;
+    sessionVersion: number;
   } | null } | null;
   try {
     found = await withSalonBySlug(normalizedSlug, (tx, salonId) =>
       tx.clientProfile.findFirst({
         where: { salonId, email: normalizedEmail, mergedIntoId: null },
-        select: { id: true, name: true, email: true, passwordHash: true },
+        select: { id: true, name: true, email: true, passwordHash: true, sessionVersion: true },
       }).then((client) => ({ salonId, client })),
     );
   } catch {
@@ -168,6 +169,7 @@ export async function loginClient(
     salonId,
     name: client.name,
     email: client.email!,
+    sessionVersion: client.sessionVersion,
   });
 
   // A experiência do cliente sempre recomeça na home do estabelecimento.
@@ -303,6 +305,7 @@ export async function registerClient(
     salonId: result.salonId,
     name: registration.name,
     email: registration.email,
+    sessionVersion: 0,
   });
 
   void returnTo;

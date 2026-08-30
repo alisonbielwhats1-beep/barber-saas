@@ -26,6 +26,7 @@ const OTHER_SALON_SESSION = {
   salonId: "salon-other",
   name: "Cliente Outro",
   email: "outro@example.com",
+  sessionVersion: 0,
 };
 
 const CURRENT_SALON_SESSION = {
@@ -33,6 +34,7 @@ const CURRENT_SALON_SESSION = {
   salonId: "salon-current",
   name: "Cliente Atual",
   email: "atual@example.com",
+  sessionVersion: 0,
 };
 
 function loginPage() {
@@ -66,6 +68,7 @@ describe("sessão do cliente por tenant", () => {
             mergedIntoId: null,
             name: CURRENT_SALON_SESSION.name,
             email: CURRENT_SALON_SESSION.email,
+            sessionVersion: 0,
           }),
         },
       }, "salon-current"),

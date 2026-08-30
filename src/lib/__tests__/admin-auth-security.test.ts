@@ -65,4 +65,19 @@ describe("login da equipe", () => {
     expect(mocks.compare).toHaveBeenCalledOnce();
     expect(mocks.compare.mock.calls[0]?.[1]).toMatch(/^\$2a\$10\$/);
   });
+
+  it("revoga JWT anterior quando a versão da sessão muda", async () => {
+    mocks.findUnique.mockResolvedValue({ sessionVersion: 2 });
+    const jwt = authOptions.callbacks?.jwt as unknown as (input: {
+      token: { uid?: string; sessionVersion?: number };
+      user?: undefined;
+    }) => Promise<{ uid?: string; sessionVersion?: number }>;
+
+    const token = await jwt({
+      token: { uid: "user-a", sessionVersion: 1 },
+      user: undefined,
+    });
+
+    expect(token.uid).toBeUndefined();
+  });
 });

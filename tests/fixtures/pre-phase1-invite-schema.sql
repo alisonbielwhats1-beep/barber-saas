@@ -44,6 +44,14 @@ CREATE TABLE "Salon" (
 );
 CREATE UNIQUE INDEX "Salon_slug_key" ON "Salon"("slug");
 
+-- Estrutura mínima para validar também a migration aditiva de recuperação de
+-- senha no mesmo banco descartável. Os testes de convite não leem esta tabela.
+CREATE TABLE "ClientProfile" (
+  "id" TEXT NOT NULL,
+  "salonId" TEXT NOT NULL,
+  CONSTRAINT "ClientProfile_pkey" PRIMARY KEY ("id")
+);
+
 CREATE TABLE "Membership" (
   "id" TEXT NOT NULL,
   "userId" TEXT NOT NULL,

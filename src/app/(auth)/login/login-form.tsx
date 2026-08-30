@@ -14,6 +14,7 @@ export function LoginForm() {
   const callbackUrl = sanitizeAuthCallback(params.get("callbackUrl"));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const passwordReset = params.get("senha") === "alterada";
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -41,6 +42,11 @@ export function LoginForm() {
 
   return (
     <form method="post" className="space-y-4" onSubmit={onSubmit} noValidate>
+      {passwordReset && (
+        <p role="status" className="rounded-md bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300">
+          Senha alterada. Entre novamente.
+        </p>
+      )}
       <div className="space-y-1.5">
         <label htmlFor="email" className="text-sm font-medium">Email</label>
         <Input

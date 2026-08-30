@@ -72,6 +72,7 @@ export const authOptions: NextAuthOptions = {
             name: true,
             passwordHash: true,
             passwordSetAt: true,
+            sessionVersion: true,
             avatarUrl: true,
           },
         });
@@ -93,6 +94,7 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           name: user.name,
           image: user.avatarUrl ?? undefined,
+          sessionVersion: user.sessionVersion,
         };
       },
     }),
@@ -102,12 +104,28 @@ export const authOptions: NextAuthOptions = {
       return safeNextAuthRedirect(url, baseUrl);
     },
     async jwt({ token, user }) {
-      if (user) token.uid = (user as { id: string }).id;
+      if (user) {
+        token.uid = (user as { id: string }).id;
+        token.sessionVersion = (user as { sessionVersion?: number }).sessionVersion ?? 0;
+      } else if (token.uid) {
+        try {
+          const current = await prisma.user.findUnique({
+            where: { id: token.uid },
+            select: { sessionVersion: true },
+          });
+          if (!current || current.sessionVersion !== (token.sessionVersion ?? 0)) {
+            token.uid = undefined;
+          }
+        } catch {
+          // Sem banco não é possível provar que a sessão ainda não foi revogada.
+          token.uid = undefined;
+        }
+      }
       return token;
     },
     async session({ session, token }) {
-      if (session.user && token.uid) {
-        (session.user as { id?: string }).id = token.uid as string;
+      if (session.user) {
+        (session.user as { id?: string }).id = typeof token.uid === "string" ? token.uid : "";
       }
       return session;
     },

@@ -13,9 +13,14 @@ Este arquivo substitui os status históricos quando houver contradição.
   `docs/AUDITORIA_PRONTIDAO_COMERCIAL_2026-08-30.md`.
 - A candidata exige conta no servidor para agendamento/fila pública, mantém
   cliente sem conta apenas na operação manual da equipe, reforça senhas,
-  uploads/imagens, PWA, CSP, acessibilidade e tratamento de JSON inválido.
-- Evidência local atual: 114 arquivos/595 testes Vitest; build com 45 páginas;
-  E2E público com 28 aprovações em Chromium, Firefox e WebKit e todas as
+  uploads/imagens, PWA, CSP, acessibilidade, recuperação de senha por e-mail e
+  tratamento de JSON inválido.
+- A migration manual aditiva `017_password_recovery` está versionada, mas não
+  foi aplicada em Production. O código depende dela e deve ser promovido
+  somente depois do preflight e aplicação no ambiente aprovado.
+- Evidência local atual: 119 arquivos/613 testes Vitest; build com 46 páginas
+  no passo de geração estática; E2E público com 31 aprovações em Chromium,
+  Firefox e WebKit e todas as
   larguras-alvo.
 - O E2E autenticado e os testes PostgreSQL serão executados somente no banco
   descartável do CI. Preview autenticado continua proibido até configurar
@@ -137,6 +142,8 @@ test pós-deploy está em `docs/FASE_0_PRODUCTION_READINESS.md`.
 ### Não aplicado
 
 - `011_platform_billing.sql` **não foi aplicado em Production**.
+- `017_password_recovery.sql` **não foi aplicado em Production**; é aditiva,
+  não reescreve senhas e exige validação prévia em homologação.
 - `PLATFORM_BILLING_ENABLED` permanece ausente ou `false`.
 - A interface de cobranças do SaaS fica inacessível e as Server Actions falham
   fechadas enquanto a flag estiver desligada.
@@ -167,7 +174,9 @@ test pós-deploy está em `docs/FASE_0_PRODUCTION_READINESS.md`.
 - Vercel Cron: `/api/cron/reminders`, protegido por `CRON_SECRET`.
 - Resend/e-mail: infraestrutura existe, mas convites reais permanecem
   desativados até configurar e validar `RESEND_API_KEY`, `EMAIL_FROM` e
-  `EMAIL_INVITES_ENABLED=true` primeiro fora de Production.
+  `EMAIL_INVITES_ENABLED=true` primeiro fora de Production. Recuperação de
+  senha usa as mesmas credenciais, sem ativar convites, e também deve ser
+  validada primeiro no Preview seguro.
 - WhatsApp: somente atalho manual; nenhuma integração paga automática.
 - Billing automático/Stripe: não implementado nem autorizado.
 

@@ -22,8 +22,8 @@ export default function LoginPage() {
       </Suspense>
       <p className="mt-4 text-center text-[12px] text-foreground/70">
         Esqueceu a senha?{" "}
-        <Link href="/contato" className="font-medium text-primary transition hover:underline">
-          Fale com o suporte
+        <Link href="/recuperar-senha" className="font-medium text-primary transition hover:underline">
+          Recuperar por e-mail
         </Link>
       </p>
     </AuthShell>

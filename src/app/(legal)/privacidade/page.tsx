@@ -68,7 +68,7 @@ export default function PrivacidadePage() {
           rows={[
             [
               "Dono e equipe",
-              "Nome, e-mail, telefone e senha (guardada apenas como hash, nunca em texto)",
+              "Nome, e-mail, telefone, senha (guardada apenas como hash) e token temporário de recuperação também armazenado somente como hash",
               "Você informa ao criar a conta",
             ],
             [
@@ -78,7 +78,7 @@ export default function PrivacidadePage() {
             ],
             [
               "Cliente do estabelecimento",
-              "Nome, telefone, e-mail, data de aniversário, gênero e observações livres escritas pelo estabelecimento. Senha (em hash) apenas se o cliente criar acesso próprio",
+              "Nome, telefone, e-mail, data de aniversário, gênero e observações livres escritas pelo estabelecimento. Senha e token temporário de recuperação (ambos em hash) apenas se o cliente criar acesso próprio",
               "Cadastrado pelo estabelecimento ou pelo próprio cliente ao agendar",
             ],
             [
@@ -185,7 +185,7 @@ export default function PrivacidadePage() {
             ],
             [
               "Resend",
-              "Envio de e-mail de convite de equipe. Integração não configurada no momento — enquanto assim estiver, nenhum e-mail é enviado e nenhum dado chega a este prestador",
+              "Envio de e-mail de convite de equipe e recuperação de senha. Enquanto a integração não estiver configurada, nenhum e-mail é enviado e nenhum dado chega a este prestador",
               "Conforme o prestador",
             ],
             [
@@ -236,6 +236,7 @@ export default function PrivacidadePage() {
             "Dados de clientes e atendimentos: enquanto o estabelecimento mantiver a conta ativa, já que é ele quem define esse prazo como controlador.",
             "Pedidos de exclusão são avaliados conforme o papel do controlador e as obrigações legais. Registros históricos de atendimentos, cancelamentos e movimentações podem ser preservados quando necessários para cumprir obrigação legal, manter a integridade operacional ou exercer direitos.",
             "Registros de contenção de abuso: apagados automaticamente ao fim da janela de contagem, que é de minutos ou horas.",
+            "Tokens de recuperação de senha: armazenados somente como hash, expiram em 1 hora e são removidos após uso ou falha de envio.",
           ]}
         />
       </LegalSection>
@@ -248,6 +249,7 @@ export default function PrivacidadePage() {
         <LegalList
           items={[
             "Senhas nunca são guardadas em texto — apenas o hash bcrypt, que não permite reverter a senha original.",
+            "Links de recuperação são aleatórios, de uso único, expiram em 1 hora e revogam sessões anteriores depois da troca.",
             "Todo o tráfego trafega por HTTPS.",
             "Cada estabelecimento tem seus dados isolados: toda consulta ao banco é filtrada pelo identificador do estabelecimento da sessão ativa.",
             "Acesso ao financeiro é restrito por papel — quem não tem permissão não vê o módulo nem acessa a rota.",

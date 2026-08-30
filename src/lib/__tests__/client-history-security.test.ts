@@ -53,6 +53,9 @@ describe("GET /api/client/appointments — histórico privado", () => {
     mocks.prisma.clientProfile.findFirst.mockResolvedValue({
       id: "client-a",
       name: "Cliente A",
+      email: "a@example.com",
+      mergedIntoId: null,
+      sessionVersion: 0,
     });
     mocks.prisma.appointment.findMany.mockResolvedValue([]);
   });
@@ -72,6 +75,7 @@ describe("GET /api/client/appointments — histórico privado", () => {
       salonId: "salon-a",
       name: "Cliente A",
       email: "a@example.com",
+      sessionVersion: 0,
     });
 
     const response = await GET(request());

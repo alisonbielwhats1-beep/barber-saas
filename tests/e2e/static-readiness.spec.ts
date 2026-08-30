@@ -4,6 +4,7 @@ import { expect, test, type Page } from "@playwright/test";
 const STATIC_ROUTES = [
   "/",
   "/login",
+  "/recuperar-senha",
   "/signup",
   "/termos",
   "/privacidade",

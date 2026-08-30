@@ -90,8 +90,8 @@ describe("identidade de cliente", () => {
 
   it("atualiza o nome e o id da sessão para o alvo da mesclagem", async () => {
     const findFirst = vi.fn()
-      .mockResolvedValueOnce({ id: "guest", mergedIntoId: "account", name: "Visitante", email: null })
-      .mockResolvedValueOnce({ id: "account", mergedIntoId: null, name: "Maria Silva", email: "maria@example.com" });
+      .mockResolvedValueOnce({ id: "guest", mergedIntoId: "account", name: "Visitante", email: null, sessionVersion: 0 })
+      .mockResolvedValueOnce({ id: "account", mergedIntoId: null, name: "Maria Silva", email: "maria@example.com", sessionVersion: 0 });
 
     await expect(resolveClientSessionInTenant(
       { clientProfile: { findFirst } } as never,
@@ -107,6 +107,29 @@ describe("identidade de cliente", () => {
       salonId: "salon-a",
       name: "Maria Silva",
       email: "maria@example.com",
+      sessionVersion: 0,
     });
+  });
+
+  it("revoga uma sessão anterior quando a senha incrementa sua versão", async () => {
+    const findFirst = vi.fn().mockResolvedValue({
+      id: "account",
+      mergedIntoId: null,
+      name: "Maria Silva",
+      email: "maria@example.com",
+      sessionVersion: 1,
+    });
+
+    await expect(resolveClientSessionInTenant(
+      { clientProfile: { findFirst } } as never,
+      {
+        clientId: "account",
+        salonId: "salon-a",
+        name: "Maria Silva",
+        email: "maria@example.com",
+        sessionVersion: 0,
+      },
+      "salon-a",
+    )).resolves.toBeNull();
   });
 });

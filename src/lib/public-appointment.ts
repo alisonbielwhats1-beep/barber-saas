@@ -58,12 +58,14 @@ export async function resolveClientSessionInTenant(
 
   const profile = await resolveClientProfile(tx, salonId, sessionForSalon.clientId);
   if (!profile) return null;
+  if ((sessionForSalon.sessionVersion ?? 0) !== profile.sessionVersion) return null;
 
   return {
     ...sessionForSalon,
     clientId: profile.id,
     name: profile.name,
     email: profile.email ?? sessionForSalon.email,
+    sessionVersion: profile.sessionVersion,
   };
 }
 

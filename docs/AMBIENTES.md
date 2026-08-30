@@ -182,6 +182,10 @@ Rollback nunca deve apagar dados recém-criados sem exportação e autorização
   `schema-smoke`: páginas públicas rodam em Chromium, Firefox e WebKit; login,
   isolamento visual de tenant e agendamento completo rodam em Chromium contra
   o mesmo PostgreSQL 16 descartável, antes dos rollbacks de schema.
+- A migration manual `017_password_recovery` é somente aditiva, possui
+  preflight read-only e é reaplicável. O rollback seguro é promover o commit
+  anterior e manter as novas colunas inertes; removê-las apagaria tokens e
+  versões de sessão sem necessidade e, por isso, não faz parte do rollback.
 - O teste de lock público identifica o backend concorrente por
   `application_name` e exige evidência positiva em `pg_stat_activity` e
   `pg_blocking_pids`, evitando aprovação por mero atraso do pool.

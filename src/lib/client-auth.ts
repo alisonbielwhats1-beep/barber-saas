@@ -16,6 +16,7 @@ export type ClientSession = {
   salonId: string;
   name: string;
   email: string;
+  sessionVersion?: number;
 };
 
 export async function signClientToken(payload: ClientSession): Promise<string> {
@@ -28,7 +29,13 @@ export async function signClientToken(payload: ClientSession): Promise<string> {
 export async function verifyClientToken(token: string): Promise<ClientSession | null> {
   try {
     const { payload } = await jwtVerify(token, SECRET);
-    if (typeof payload.clientId !== "string") return null;
+    if (
+      typeof payload.clientId !== "string" ||
+      typeof payload.salonId !== "string" ||
+      typeof payload.name !== "string" ||
+      typeof payload.email !== "string" ||
+      (payload.sessionVersion !== undefined && typeof payload.sessionVersion !== "number")
+    ) return null;
     return payload as unknown as ClientSession;
   } catch {
     return null;

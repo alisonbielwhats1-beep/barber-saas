@@ -29,6 +29,7 @@
     "test:e2e:static": "playwright test --grep @static",
     "test:e2e:database": "playwright test --grep @database --project=chromium --workers=1",
     "test:integration": "vitest run src/lib/__tests__/invite-postgres.integration.test.ts",
+    "test:password-recovery-integration": "vitest run src/lib/__tests__/password-recovery-postgres.integration.test.ts",
     "test:appointment-integration": "vitest run src/lib/__tests__/appointment-postgres.integration.test.ts src/lib/__tests__/comanda-postgres.integration.test.ts src/lib/__tests__/public-salon-lock-postgres.integration.test.ts src/lib/__tests__/public-salon-runtime-rls-postgres.integration.test.ts"
   },
   "dependencies": {
@@ -56,6 +57,7 @@
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.53.0",
     "recharts": "^2.12.7",
+    "server-only": "0.0.1",
     "tailwind-merge": "^2.5.2",
     "tailwindcss-animate": "^1.0.7",
     "zod": "^3.23.8"

@@ -218,6 +218,23 @@ Decisão recomendada:
 - nunca mover histórico entre tenants;
 - uma mesclagem preserva IDs anteriores e registra responsável/correlação.
 
+## Recuperação de senha por e-mail
+
+Decisão autorizada pelo responsável em 30/08/2026:
+
+- proprietário, equipe e cliente com conta podem solicitar recuperação por e-mail;
+- a resposta nunca confirma se a conta existe;
+- o token aleatório é persistido somente como SHA-256, expira em 1 hora e é
+  apagado após uso ou falha de entrega;
+- cada solicitação substitui o token anterior; a troca incrementa a versão da
+  sessão e exige novo login nos dispositivos;
+- cliente é sempre resolvido por `salonSlug` e atualizado dentro de
+  `withSalonBySlug`, sem procurar perfil fora do tenant;
+- a entrega usa a abstração Resend existente e só fica disponível com
+  `RESEND_API_KEY` e `EMAIL_FROM` configurados;
+- a migration manual aditiva `017_password_recovery` deve passar em banco
+  descartável e homologação antes de qualquer promoção do código.
+
 ## Status-base
 
 Modelo alvo:

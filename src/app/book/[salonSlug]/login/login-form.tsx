@@ -7,8 +7,10 @@ import { loginClient } from "../auth-actions";
 
 export function LoginForm({
   salonSlug,
+  passwordReset = false,
 }: {
   salonSlug: string;
+  passwordReset?: boolean;
 }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -31,6 +33,11 @@ export function LoginForm({
 
   return (
     <form onSubmit={submit} className="space-y-4">
+      {passwordReset && (
+        <p role="status" className="rounded-xl bg-emerald-500/10 px-4 py-2.5 text-[13px] text-emerald-700 dark:text-emerald-300">
+          Senha alterada. Entre novamente.
+        </p>
+      )}
       <div>
         <label className="mb-1.5 block text-[13px] font-medium text-muted-foreground">
           E-mail

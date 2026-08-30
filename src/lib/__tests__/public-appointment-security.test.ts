@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => {
         mergedIntoId: null,
         name: "Cliente",
         email: "cliente@example.com",
+        sessionVersion: 0,
       }),
     },
     appointmentProduct: { createMany: vi.fn() },
@@ -88,6 +89,7 @@ describe("POST /api/appointments — identidade do cliente", () => {
       salonId: "salon-a",
       name: "Cliente",
       email: "cliente@example.com",
+      sessionVersion: 0,
     });
     mocks.createAppointment.mockResolvedValue({
       appointment: {

@@ -150,6 +150,7 @@ describe("registerClient — validação no servidor", () => {
       salonId: "salon-a",
       name: "Maria Silva",
       email: "maria@example.com",
+      sessionVersion: 0,
     });
     expect(mocks.checkRateLimit).toHaveBeenCalledWith(
       expect.objectContaining({
