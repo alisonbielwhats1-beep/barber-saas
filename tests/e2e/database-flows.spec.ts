@@ -32,12 +32,22 @@ test.describe("@database jornadas críticas no PostgreSQL descartável", () => {
     await page.getByRole("button", { name: "Criar conta" }).click();
 
     await expect(page).toHaveURL(/\/book\/luna-hair$/);
+    // Confirma que a sessão recém-criada sobrevive a uma navegação completa e
+    // evita confundir a URL já atualizada com o DOM antigo durante a compilação
+    // sob demanda do Next no runner.
+    await page.goto("/book/luna-hair", {
+      waitUntil: "domcontentloaded",
+      timeout: 45_000,
+    });
+    const bookingLink = page.getByRole("link", {
+      name: "Agendar agora",
+      exact: true,
+    }).first();
+    await expect(bookingLink).toBeVisible({ timeout: 30_000 });
     // No `next dev`, a compilação da rota pesada pode manter o evento `load`
     // aberto por vários segundos. A navegação é comprovada no commit e a tela
     // pronta pela asserção do título logo abaixo.
-    await page.getByRole("link", { name: "Agendar agora", exact: true }).first().click({
-      noWaitAfter: true,
-    });
+    await bookingLink.click({ noWaitAfter: true });
     await page.waitForURL(/\/book\/luna-hair\/agendar$/, {
       timeout: 45_000,
       waitUntil: "commit",
