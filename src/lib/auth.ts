@@ -42,7 +42,14 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Senha", type: "password" },
       },
       async authorize(credentials, request) {
-        const parsed = adminCredentialsSchema.safeParse(credentials);
+        // O CredentialsProvider entrega o corpo HTTP inteiro, incluindo os
+        // metadados internos `csrfToken`, `callbackUrl` e `json`. Extraímos
+        // somente as credenciais antes da validação estrita para não rejeitar
+        // todo login legítimo feito pelo cliente oficial do NextAuth.
+        const parsed = adminCredentialsSchema.safeParse({
+          email: credentials?.email,
+          password: credentials?.password,
+        });
         if (!parsed.success) return null;
         const { email, password } = parsed.data;
         const ip = clientIp(new Headers(request.headers));

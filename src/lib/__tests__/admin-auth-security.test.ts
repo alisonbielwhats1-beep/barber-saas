@@ -66,6 +66,34 @@ describe("login da equipe", () => {
     expect(mocks.compare.mock.calls[0]?.[1]).toMatch(/^\$2a\$10\$/);
   });
 
+  it("aceita os metadados de transporte enviados pelo NextAuth", async () => {
+    mocks.findUnique.mockResolvedValue({
+      id: "user-a",
+      email: "owner@example.com",
+      name: "Owner",
+      passwordHash: "hash",
+      passwordSetAt: new Date(),
+      sessionVersion: 0,
+      avatarUrl: null,
+    });
+    mocks.compare.mockResolvedValue(true);
+
+    await expect(authorize(
+      {
+        email: "owner@example.com",
+        password: "senha-segura",
+        csrfToken: "csrf-interno",
+        callbackUrl: "http://localhost:3100/login",
+        json: "true",
+      },
+      { headers: {} },
+    )).resolves.toEqual(expect.objectContaining({
+      id: "user-a",
+      email: "owner@example.com",
+      sessionVersion: 0,
+    }));
+  });
+
   it("revoga JWT anterior quando a versão da sessão muda", async () => {
     mocks.findUnique.mockResolvedValue({ sessionVersion: 2 });
     const jwt = authOptions.callbacks?.jwt as unknown as (input: {

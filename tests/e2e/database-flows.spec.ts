@@ -10,8 +10,6 @@ test.describe("@database jornadas críticas no PostgreSQL descartável", () => {
     await page.getByLabel("Senha", { exact: true }).fill("demo1234");
     await page.getByRole("button", { name: "Entrar" }).click();
 
-    // O job usa `next dev` para manter o rate limit fail-closed do runtime de
-    // produção. A primeira visita compila o painel sob demanda no runner.
     await expect(page).toHaveURL(/\/(hoje|dashboard)$/, { timeout: 30_000 });
     await page.goto("/clientes");
     await expect(page.getByRole("heading", { name: "Clientes" })).toBeVisible();
@@ -34,12 +32,16 @@ test.describe("@database jornadas críticas no PostgreSQL descartável", () => {
     await page.getByRole("button", { name: "Criar conta" }).click();
 
     await expect(page).toHaveURL(/\/book\/luna-hair$/);
-    await Promise.all([
-      // A tela de agendamento é uma das maiores rotas e também é compilada na
-      // primeira navegação do job descartável.
-      page.waitForURL(/\/book\/luna-hair\/agendar$/, { timeout: 45_000 }),
-      page.getByRole("link", { name: "Agendar agora", exact: true }).first().click(),
-    ]);
+    // No `next dev`, a compilação da rota pesada pode manter o evento `load`
+    // aberto por vários segundos. A navegação é comprovada no commit e a tela
+    // pronta pela asserção do título logo abaixo.
+    await page.getByRole("link", { name: "Agendar agora", exact: true }).first().click({
+      noWaitAfter: true,
+    });
+    await page.waitForURL(/\/book\/luna-hair\/agendar$/, {
+      timeout: 45_000,
+      waitUntil: "commit",
+    });
     await expect(page.getByRole("heading", { name: "Escolha os serviços" })).toBeVisible({
       timeout: 15_000,
     });
