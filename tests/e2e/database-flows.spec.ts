@@ -4,12 +4,15 @@ test.describe("@database jornadas críticas no PostgreSQL descartável", () => {
   test.skip(!process.env.RUN_DATABASE_E2E, "Exige o banco descartável preparado pelo CI.");
 
   test("proprietário entra e vê apenas os clientes do seu estabelecimento", async ({ page }) => {
+    test.setTimeout(60_000);
     await page.goto("/login");
     await page.getByLabel("Email").fill("dono@lunahair.com");
     await page.getByLabel("Senha", { exact: true }).fill("demo1234");
     await page.getByRole("button", { name: "Entrar" }).click();
 
-    await expect(page).toHaveURL(/\/(hoje|dashboard)$/);
+    // O job usa `next dev` para manter o rate limit fail-closed do runtime de
+    // produção. A primeira visita compila o painel sob demanda no runner.
+    await expect(page).toHaveURL(/\/(hoje|dashboard)$/, { timeout: 30_000 });
     await page.goto("/clientes");
     await expect(page.getByRole("heading", { name: "Clientes" })).toBeVisible();
     await expect(page.getByText("Beatriz Lima")).toBeVisible();
@@ -17,7 +20,7 @@ test.describe("@database jornadas críticas no PostgreSQL descartável", () => {
   });
 
   test("cliente cria conta, volta à home e conclui um agendamento", async ({ page }) => {
-    test.setTimeout(60_000);
+    test.setTimeout(120_000);
     const email = `e2e-${Date.now()}-${test.info().workerIndex}@example.test`;
 
     await page.goto("/book/luna-hair/welcome");
@@ -32,7 +35,9 @@ test.describe("@database jornadas críticas no PostgreSQL descartável", () => {
 
     await expect(page).toHaveURL(/\/book\/luna-hair$/);
     await Promise.all([
-      page.waitForURL(/\/book\/luna-hair\/agendar$/, { timeout: 15_000 }),
+      // A tela de agendamento é uma das maiores rotas e também é compilada na
+      // primeira navegação do job descartável.
+      page.waitForURL(/\/book\/luna-hair\/agendar$/, { timeout: 45_000 }),
       page.getByRole("link", { name: "Agendar agora", exact: true }).first().click(),
     ]);
     await expect(page.getByRole("heading", { name: "Escolha os serviços" })).toBeVisible({
