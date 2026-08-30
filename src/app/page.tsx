@@ -363,7 +363,7 @@ function FooterColumn({
 }) {
   return (
     <div>
-      <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground/70">
+      <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
         {title}
       </p>
       <ul className="space-y-2">

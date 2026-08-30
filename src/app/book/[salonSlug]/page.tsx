@@ -1,6 +1,5 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import {
   MapPin,
   ArrowUpRight,
@@ -19,7 +18,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { withSalonBySlug } from "@/lib/prisma-tenant";
-import { HERO_IMAGES, normalizeImageUrl, resolvePortfolioImage, resolveProductImage } from "@/lib/images";
+import { HERO_IMAGES, PORTFOLIO_POOL, imageForProduct, normalizeImageUrl, resolvePortfolioImage, resolveProductImage } from "@/lib/images";
 import { isValidPhoneBR, normalizePhone, formatPhoneBR } from "@/lib/phone";
 import { getSegment, isSegmentId } from "@/lib/segments";
 import { getPublicReviewData } from "@/lib/reviews";
@@ -32,6 +31,7 @@ import { HomeExplore } from "./home-explore";
 import { ReviewsSection } from "./reviews-section";
 import { SalonLogoLightbox } from "./salon-logo-lightbox";
 import { PwaInstallCard } from "@/components/pwa-install-card";
+import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 
 // Capa determinística por salão — mesmo salão, mesma foto
 function heroForSalon(slug: string) {
@@ -257,7 +257,8 @@ export default async function ClientHome({
   // sem segmento definido, cai no pool determinístico de sempre (mesmo salão,
   // mesma foto, pelo hash do slug — como já era antes desta personalização).
   const segment = isSegmentId(salon.segment) ? getSegment(salon.segment) : null;
-  const coverSrc = normalizeImageUrl(salon.coverUrl) || segment?.accentImage || heroForSalon(salonSlug);
+  const coverFallback = segment?.accentImage || heroForSalon(salonSlug);
+  const coverSrc = normalizeImageUrl(salon.coverUrl) || coverFallback;
   const logoSrc = normalizeImageUrl(salon.logoUrl);
   const services = salon.services.map((service) => ({
     ...service,
@@ -310,7 +311,7 @@ export default async function ClientHome({
           <div className="flex items-center gap-1">
             <Link
               href={`/book/${salonSlug}/login`}
-              className="inline-flex min-h-11 items-center rounded-full px-2 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full px-2 text-[11px] font-semibold text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               Entrar
             </Link>
@@ -338,8 +339,9 @@ export default async function ClientHome({
 
       {/* Hero — capa do salão */}
       <div className="relative h-48 overflow-hidden rounded-3xl sm:h-56 lg:h-72">
-        <Image
+        <ImageWithFallback
           src={coverSrc}
+          fallbackSrc={coverFallback}
           alt={salon.name}
           fill
           priority
@@ -496,15 +498,24 @@ export default async function ClientHome({
                   key={p.id}
                   className="w-32 shrink-0 rounded-2xl border border-border bg-card p-3 text-center lg:w-auto"
                 >
-                  {p.user.avatarUrl ? (
-                    <Image
-                      src={p.user.avatarUrl}
+                  {normalizeImageUrl(p.user.avatarUrl) ? (
+                    <ImageWithFallback
+                      src={normalizeImageUrl(p.user.avatarUrl)!}
                       alt={`Foto de ${p.user.name}`}
                       width={96}
                       height={96}
                       sizes="48px"
                       quality={95}
                       className="mx-auto h-12 w-12 rounded-full object-cover"
+                      fallback={(
+                        <div
+                          aria-label={`Iniciais de ${p.user.name}`}
+                          className="mx-auto grid h-12 w-12 place-items-center rounded-full text-sm font-semibold text-white"
+                          style={{ backgroundColor: p.colorHex ?? "hsl(var(--primary))" }}
+                        >
+                          {initials}
+                        </div>
+                      )}
                     />
                   ) : (
                     <div
@@ -551,8 +562,9 @@ export default async function ClientHome({
                 href={`/book/${salonSlug}/portfolio`}
                 className="relative aspect-square overflow-hidden rounded-xl"
               >
-                <Image
+                <ImageWithFallback
                   src={resolvePortfolioImage(item.imageUrl, index)}
+                  fallbackSrc={PORTFOLIO_POOL[index % PORTFOLIO_POOL.length]}
                   alt={item.caption ?? "Trabalho do portfólio"}
                   fill
                   sizes="(max-width: 640px) 30vw, (max-width: 1024px) 22vw, 180px"
@@ -584,13 +596,14 @@ export default async function ClientHome({
                 className="w-28 shrink-0 overflow-hidden rounded-2xl border border-border bg-card"
               >
                 <div className="relative aspect-square w-full">
-                  <Image
+                  <ImageWithFallback
                     src={resolveProductImage({
                       imageUrl: p.imageUrl,
                       name: p.name,
                       category: p.category,
                       index: i,
                     })}
+                    fallbackSrc={imageForProduct(i)}
                     alt={p.name}
                     fill
                     sizes="112px"

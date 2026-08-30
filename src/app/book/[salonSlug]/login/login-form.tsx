@@ -7,10 +7,8 @@ import { loginClient } from "../auth-actions";
 
 export function LoginForm({
   salonSlug,
-  returnTo,
 }: {
   salonSlug: string;
-  returnTo?: string | null;
 }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -23,7 +21,7 @@ export function LoginForm({
     setPending(true);
     void (async () => {
       try {
-        const result = await loginClient(salonSlug, email, password, returnTo);
+        const result = await loginClient(salonSlug, email, password);
         if (result?.error) setError(result.error);
       } finally {
         setPending(false);

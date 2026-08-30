@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import Image from "next/image";
 import { ImageIcon, Loader2, Upload, X } from "lucide-react";
+import { normalizeImageUrl } from "@/lib/images";
 
 interface ImageUploadProps {
   value: string;
@@ -22,6 +23,7 @@ export function ImageUpload({
   const inputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const previewUrl = normalizeImageUrl(value);
 
   const aspectClass =
     aspectRatio === "portrait"
@@ -35,11 +37,9 @@ export function ImageUpload({
       : "300px";
 
   async function optimizeImageForUpload(file: File): Promise<File> {
-    // GIF pode ser animado; preservamos o arquivo original para não remover
-    // quadros. PNGs de marca também ficam no formato original, pois a
+    // PNGs de marca ficam no formato original, pois a
     // conversão lossy pode borrar letras, linhas finas e logotipos dourados.
     if (
-      file.type === "image/gif" ||
       file.type === "image/png" ||
       file.size < 350_000 ||
       typeof createImageBitmap !== "function"
@@ -100,7 +100,9 @@ export function ImageUpload({
 
   function onInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (file) handleFile(file);
+    if (file) void handleFile(file).finally(() => {
+      e.target.value = "";
+    });
   }
 
   function onDrop(e: React.DragEvent) {
@@ -116,15 +118,19 @@ export function ImageUpload({
         onDrop={onDrop}
         onDragOver={(e) => e.preventDefault()}
       >
-        {value ? (
+        {previewUrl ? (
           <>
             <Image
-              src={value}
+              src={previewUrl}
               alt="Preview"
               fill
               className={objectFit === "contain" ? "object-contain p-2" : "object-cover"}
               quality={95}
               sizes={previewSizes}
+              onError={() => {
+                setError("A imagem salva não está mais disponível. Envie outra imagem.");
+                onChange("");
+              }}
             />
             <button
               type="button"
@@ -169,7 +175,7 @@ export function ImageUpload({
       <input
         ref={inputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp,image/gif"
+        accept="image/jpeg,image/png,image/webp"
         className="hidden"
         onChange={onInputChange}
       />

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getTenantContext: vi.fn(),
@@ -25,9 +25,13 @@ const professionalContext = {
   role: "PROFESSIONAL",
 };
 
+const ownImage =
+  "https://project-a.supabase.co/storage/v1/object/public/salon-assets/salon-a/portfolio/work.jpg";
+
 describe("isolamento do portfólio profissional", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubEnv("SUPABASE_URL", "https://project-a.supabase.co");
     mocks.getTenantContext.mockResolvedValue(professionalContext);
     mocks.withTenant.mockImplementation(
       (_ctx: unknown, callback: (tx: unknown) => unknown) =>
@@ -40,9 +44,11 @@ describe("isolamento do portfólio profissional", () => {
     mocks.createPortfolioItem.mockResolvedValue({ id: "portfolio-1" });
   });
 
+  afterEach(() => vi.unstubAllEnvs());
+
   it("força a publicação no perfil ligado ao usuário", async () => {
     await createPortfolioItem({
-      imageUrl: "https://example.com/work.jpg",
+      imageUrl: ownImage,
       caption: "Trabalho",
       professionalId: null,
     });
@@ -66,7 +72,7 @@ describe("isolamento do portfólio profissional", () => {
   it("rejeita tentativa de publicar no perfil de outro profissional", async () => {
     await expect(
       createPortfolioItem({
-        imageUrl: "https://example.com/work.jpg",
+        imageUrl: ownImage,
         caption: null,
         professionalId: "professional-other",
       }),

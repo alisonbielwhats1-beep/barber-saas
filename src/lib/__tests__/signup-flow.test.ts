@@ -99,6 +99,25 @@ describe("signup", () => {
     expect(mocks.transaction).not.toHaveBeenCalled();
   });
 
+  it.each(["x".repeat(73), "é".repeat(37)])(
+    "rejeita senha acima de 72 bytes antes do limiter e do banco",
+    async (password) => {
+      const result = await signup({
+        ...VALID,
+        password,
+        confirmPassword: password,
+      });
+
+      expect(result).toEqual({
+        ok: false,
+        error: "A senha deve ter no máximo 72 bytes.",
+      });
+      expect(mocks.checkRateLimit).not.toHaveBeenCalled();
+      expect(mocks.userFindUnique).not.toHaveBeenCalled();
+      expect(mocks.transaction).not.toHaveBeenCalled();
+    },
+  );
+
   it("devolve erro amigável sem expor a página de exceção", async () => {
     mocks.transaction.mockRejectedValueOnce(
       Object.assign(new Error("RLS"), { code: "42501" }),

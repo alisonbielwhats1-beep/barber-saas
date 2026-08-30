@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { PWA_ICONS } from "@/lib/pwa-icons";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
@@ -10,19 +11,6 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: "#0b0b0d",
     theme_color: "#2ecc8b",
     lang: "pt-BR",
-    icons: [
-      {
-        src: "/icon.svg",
-        sizes: "any",
-        type: "image/svg+xml",
-        purpose: "any",
-      },
-      {
-        src: "/icon-maskable.svg",
-        sizes: "any",
-        type: "image/svg+xml",
-        purpose: "maskable",
-      },
-    ],
+    icons: [...PWA_ICONS],
   };
 }

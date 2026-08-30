@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { z } from "zod";
+import { assertAllowedStoredImageUrl } from "@/lib/stored-image-url";
 import { assertRole, getTenantContext } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
 import { assertEmailInvitesEnabled } from "@/lib/email-invites-feature";
@@ -186,6 +187,7 @@ export type ProfileInput = z.infer<typeof profileInput>;
 export async function updateMyProfile(input: ProfileInput) {
   const ctx = await getTenantContext();
   const data = profileInput.parse(input);
+  assertAllowedStoredImageUrl(data.avatarUrl, ctx.salonId);
 
   await withTenant(ctx, (tx) =>
     tx.user.update({
@@ -219,6 +221,8 @@ export async function updateSalonBranding(input: BrandingInput) {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER"]);
   const data = brandingInput.parse(input);
+  assertAllowedStoredImageUrl(data.coverUrl, ctx.salonId);
+  assertAllowedStoredImageUrl(data.logoUrl, ctx.salonId);
 
   const salon = await withTenant(ctx, async (tx) => {
     await tx.salon.update({

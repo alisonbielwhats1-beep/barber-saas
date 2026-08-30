@@ -8,14 +8,20 @@ import { setSalonGuc, setUserGuc } from "@/lib/prisma-tenant";
 import { uniqueSalonSlug } from "@/lib/slug";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { resolveSalonSetup } from "@/lib/salon-setup";
+import { bcryptPasswordSchema } from "@/lib/password";
+
+const ownerPasswordSchema = bcryptPasswordSchema(
+  6,
+  "Senha precisa ter ao menos 6 caracteres",
+);
 
 const signupInput = z
   .object({
-    ownerName: z.string().min(2, "Nome muito curto"),
-    email: z.string().email("Email inválido"),
-    password: z.string().min(6, "Senha precisa ter ao menos 6 caracteres"),
-    confirmPassword: z.string().min(6, "Confirme a senha"),
-    salonName: z.string().min(2, "Nome do salão muito curto"),
+    ownerName: z.string().trim().min(2, "Nome muito curto").max(120, "Nome muito longo"),
+    email: z.string().trim().toLowerCase().email("Email inválido").max(254, "Email muito longo"),
+    password: ownerPasswordSchema,
+    confirmPassword: ownerPasswordSchema,
+    salonName: z.string().trim().min(2, "Nome do salão muito curto").max(120, "Nome do salão muito longo"),
     segmentId: z.string(),
     /** Nomes das sugestões que o dono manteve marcadas. */
     serviceNames: z.array(z.string()).max(20),

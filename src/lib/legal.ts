@@ -34,7 +34,7 @@ export const OPERATOR_JURISDICTION = "São Paulo/SP";
 export const PRIVACY_CONTACT_EMAIL = "alisonbsilva1@hotmail.com";
 
 /** Data da última revisão dos documentos. Atualize ao alterar o conteúdo. */
-export const LEGAL_LAST_UPDATED = "3 de agosto de 2026";
+export const LEGAL_LAST_UPDATED = "29 de agosto de 2026";
 
 const PLACEHOLDER_PREFIX = "PREENCHER";
 

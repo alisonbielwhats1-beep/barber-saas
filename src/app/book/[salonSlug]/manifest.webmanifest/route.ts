@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { MetadataRoute } from "next";
 import { withSalonBySlug } from "@/lib/prisma-tenant";
+import { PWA_ICONS } from "@/lib/pwa-icons";
 
 type ManifestRouteContext = {
   params: Promise<{ salonSlug: string }>;
@@ -42,20 +43,7 @@ export async function GET(
     background_color: "#0b0b0d",
     theme_color: "#7df89b",
     lang: "pt-BR",
-    icons: [
-      {
-        src: "/icon.svg",
-        sizes: "any",
-        type: "image/svg+xml",
-        purpose: "any",
-      },
-      {
-        src: "/icon-maskable.svg",
-        sizes: "any",
-        type: "image/svg+xml",
-        purpose: "maskable",
-      },
-    ],
+    icons: [...PWA_ICONS],
   };
 
   return NextResponse.json(manifest, {

@@ -1,9 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import { Plus, Check } from "lucide-react";
 import { useCart } from "@/lib/cart";
 import { formatMoney } from "@/lib/utils";
+import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 
 type Product = {
   id: string;
@@ -39,8 +39,9 @@ export function ProductList({
             className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card"
           >
             <div className="relative aspect-square w-full">
-              <Image
+              <ImageWithFallback
                 src={p.imageUrl}
+                fallbackSrc="/images/salon-hero-aesthetics-v2.webp"
                 alt={p.name}
                 fill
                 sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 240px"

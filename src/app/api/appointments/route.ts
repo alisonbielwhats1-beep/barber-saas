@@ -66,8 +66,8 @@ export async function POST(req: NextRequest) {
   const booking = parsed.data;
   const session = await getClientSession();
   const rawIdentity = resolveBookingIdentity(session, booking.salonId);
-  if (rawIdentity.kind === "guest" && (!booking.clientName || !booking.clientPhone)) {
-    return NextResponse.json({ error: "GUEST_DATA_REQUIRED" }, { status: 400 });
+  if (rawIdentity.kind !== "authenticated") {
+    return NextResponse.json({ error: "AUTH_REQUIRED" }, { status: 401 });
   }
 
   const quantities = new Map<string, number>();
@@ -92,8 +92,10 @@ export async function POST(req: NextRequest) {
       }
       const identity = authenticatedSession
         ? { kind: "authenticated" as const, clientId: authenticatedSession.clientId }
-        : rawIdentity;
+        : null;
       const effectiveSession = authenticatedSession ?? session;
+
+      if (!identity) return { invalidSession: true as const };
 
       return createAppointmentWithProductReservation(tx, {
         appointment: {
@@ -103,30 +105,18 @@ export async function POST(req: NextRequest) {
           startLocal: booking.startLocal,
           notes: booking.notes,
           origin: "PUBLIC",
-          actor:
-            identity.kind === "authenticated"
-              ? {
-                  type: "CLIENT",
-                  id: identity.clientId,
-                  name: effectiveSession?.name ?? "Cliente",
-                }
-              : { type: "GUEST", name: booking.clientName! },
+          actor: {
+            type: "CLIENT",
+            id: identity.clientId,
+            name: effectiveSession?.name ?? "Cliente",
+          },
           idempotencyKey: booking.idempotencyKey,
           enforceBookingWindow: true,
           enforcePlanLimits: true,
-          ...(identity.kind === "authenticated"
-            ? { clientId: identity.clientId }
-            : {
-                guest: {
-                  name: booking.clientName!,
-                  phone: booking.clientPhone!,
-                },
-              }),
+          clientId: identity.clientId,
         },
         productReservation: {
-          actorName: identity.kind === "authenticated"
-            ? effectiveSession?.name ?? "Cliente"
-            : booking.clientName!,
+          actorName: effectiveSession?.name ?? "Cliente",
           items: normalizedCart,
         },
       });

@@ -1,10 +1,10 @@
-import Image from "next/image";
 import { getTenantContext } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
 import { Card } from "@/components/ui/card";
 import { PortfolioForm } from "./portfolio-form";
 import { DeleteButton } from "./delete-button";
-import { resolvePortfolioImage } from "@/lib/images";
+import { PORTFOLIO_POOL, resolvePortfolioImage } from "@/lib/images";
+import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 
 export default async function PortfolioPage() {
   const ctx = await getTenantContext();
@@ -70,8 +70,9 @@ export default async function PortfolioPage() {
         {items.map((it, index) => (
           <Card key={it.id} className="group relative overflow-hidden">
             <div className="relative aspect-square w-full bg-muted">
-              <Image
+              <ImageWithFallback
                 src={resolvePortfolioImage(it.imageUrl, index)}
+                fallbackSrc={PORTFOLIO_POOL[index % PORTFOLIO_POOL.length]}
                 alt={it.caption ?? "Foto do portfolio"}
                 fill
                 sizes="(max-width: 768px) 45vw, 22vw"

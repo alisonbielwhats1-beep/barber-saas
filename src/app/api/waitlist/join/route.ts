@@ -65,6 +65,9 @@ export async function POST(req: NextRequest) {
   const input = parsed.data;
   const session = await getClientSession();
   const rawIdentity = resolveBookingIdentity(session, input.salonId);
+  if (rawIdentity.kind !== "authenticated") {
+    return NextResponse.json({ error: "AUTH_REQUIRED" }, { status: 401 });
+  }
 
   try {
     const result = await withApprovedSalon(input.salonId, async (tx) => {
@@ -74,18 +77,14 @@ export async function POST(req: NextRequest) {
       if (rawIdentity.kind === "authenticated" && !authenticatedSession) {
         return { invalidSession: true as const };
       }
-      const identity = authenticatedSession
-        ? { kind: "authenticated" as const, clientId: authenticatedSession.clientId }
-        : rawIdentity;
+      if (!authenticatedSession) return { invalidSession: true as const };
 
       return joinWaitlist(tx, {
         salonId: input.salonId,
         appointmentId: input.appointmentId,
         professionalId: input.professionalId,
         serviceIds: input.serviceIds,
-        ...(identity.kind === "authenticated"
-          ? { clientId: identity.clientId }
-          : { guestName: input.clientName, guestPhone: input.clientPhone }),
+        clientId: authenticatedSession.clientId,
       });
     });
     if (result && "invalidSession" in result) {

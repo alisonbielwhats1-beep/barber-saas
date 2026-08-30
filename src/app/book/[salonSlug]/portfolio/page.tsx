@@ -1,9 +1,9 @@
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { withSalonBySlug } from "@/lib/prisma-tenant";
-import { resolvePortfolioImage } from "@/lib/images";
+import { PORTFOLIO_POOL, resolvePortfolioImage } from "@/lib/images";
+import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 import { CartBadge } from "../cart-badge";
 
 export default async function ClientPortfolio({
@@ -58,8 +58,9 @@ export default async function ClientPortfolio({
               key={it.id}
               className="relative aspect-[3/4] overflow-hidden rounded-xl bg-muted"
             >
-              <Image
+              <ImageWithFallback
                 src={resolvePortfolioImage(it.imageUrl, index)}
+                fallbackSrc={PORTFOLIO_POOL[index % PORTFOLIO_POOL.length]}
                 alt={it.caption ?? "Trabalho"}
                 fill
                 sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 240px"

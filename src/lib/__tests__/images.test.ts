@@ -4,6 +4,7 @@ import {
   PORTFOLIO_POOL,
   PRODUCT_IMAGES,
   imageForCategory,
+  imageForProduct,
   normalizeImageUrl,
   resolvePortfolioImage,
   resolveProductImage,
@@ -57,19 +58,17 @@ describe("curadoria de imagens da demonstração", () => {
     expect(normalizeImageUrl("/images/salon-hero-beard-v1-hq.png?v=1")).toBe(
       "/images/salon-hero-beard-v1.webp?v=1",
     );
-    expect(normalizeImageUrl("https://cdn.example.com/meu-produto.jpg")).toBe(
-      "https://cdn.example.com/meu-produto.jpg",
-    );
+    expect(normalizeImageUrl("https://cdn.example.com/meu-produto.jpg")).toBeNull();
   });
 
-  it("preserva a imagem personalizada enviada pelo estabelecimento", () => {
+  it("substitui host não permitido por fallback local", () => {
     expect(
       resolveProductImage({
         imageUrl: "https://cdn.example.com/meu-produto.jpg",
         name: "Óleo para barba",
         category: "Barba",
       }),
-    ).toBe("https://cdn.example.com/meu-produto.jpg");
+    ).toBe(imageForProduct(0));
   });
 
   it("troca somente fotos demo antigas do portfolio por assets locais", () => {
@@ -77,7 +76,7 @@ describe("curadoria de imagens da demonstração", () => {
       resolvePortfolioImage("https://images.unsplash.com/photo-1622287162716-f311baa1a2b8?w=800"),
     ).toBe(PORTFOLIO_POOL[0]);
     expect(resolvePortfolioImage("https://cdn.example.com/portfolio.jpg")).toBe(
-      "https://cdn.example.com/portfolio.jpg",
+      PORTFOLIO_POOL[0],
     );
   });
 });

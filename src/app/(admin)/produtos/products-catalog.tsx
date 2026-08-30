@@ -2,7 +2,6 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import {
   Search,
   MoreVertical,
@@ -28,7 +27,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { formatMoney } from "@/lib/utils";
-import { resolveProductImage } from "@/lib/images";
+import { imageForProduct, resolveProductImage } from "@/lib/images";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "@/components/ui/toast";
@@ -36,6 +35,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ProductForm } from "./product-form";
 import { toggleProductActive, deleteProduct, adjustStock } from "./actions";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 
 export type ProductCard = {
   id: string;
@@ -166,7 +166,14 @@ function ProductCardView({ p, enabled }: { p: ProductCard; enabled: boolean }) {
   return (
     <div className={`card-interactive overflow-hidden rounded-2xl border border-border bg-card ${!p.active ? "opacity-60" : ""}`}>
       <div className="relative aspect-video w-full overflow-hidden bg-muted">
-        <Image src={imageSrc} alt={p.name} fill sizes="(max-width:768px) 100vw, 33vw" className="object-cover" />
+        <ImageWithFallback
+          src={imageSrc}
+          fallbackSrc={imageForProduct(0)}
+          alt={p.name}
+          fill
+          sizes="(max-width:768px) 100vw, 33vw"
+          className="object-cover"
+        />
         <div className="absolute left-2 top-2 flex gap-1.5">
           {p.topSeller && (
             <span className="inline-flex items-center gap-1 rounded-full bg-marketing/90 px-2 py-0.5 text-[10px] font-semibold text-white">

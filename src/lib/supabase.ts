@@ -1,4 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
+import { STORAGE_BUCKET } from "./storage-constants";
+
+export { STORAGE_BUCKET } from "./storage-constants";
 
 type SupabaseAdmin = ReturnType<typeof createClient>;
 
@@ -22,8 +25,6 @@ export function getSupabaseAdmin(): SupabaseAdmin {
   });
   return supabaseAdmin;
 }
-
-export const STORAGE_BUCKET = "salon-assets";
 
 export function getPublicUrl(path: string): string {
   const supabaseAdmin = getSupabaseAdmin();

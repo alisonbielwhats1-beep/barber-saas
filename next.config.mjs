@@ -1,3 +1,33 @@
+const storageRemotePattern = (() => {
+  try {
+    const hostname = new URL(process.env.SUPABASE_URL ?? "").hostname;
+    return hostname
+      ? [{
+          protocol: "https",
+          hostname,
+          pathname: "/storage/v1/object/public/salon-assets/**",
+        }]
+      : [];
+  } catch {
+    return [];
+  }
+})();
+
+const contentSecurityPolicy = [
+  "default-src 'self'",
+  `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "production" ? "" : " 'unsafe-eval'"}`,
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https://api.qrserver.com",
+  "font-src 'self' data:",
+  "connect-src 'self' ws: wss: https://api.qrserver.com",
+  "manifest-src 'self'",
+  "worker-src 'self' blob:",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'self'",
+].join("; ");
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -7,6 +37,11 @@ const nextConfig = {
         source: "/(.*)",
         headers: [
           { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Content-Security-Policy", value: contentSecurityPolicy },
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=63072000; includeSubDomains",
+          },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           {
             key: "Permissions-Policy",
@@ -25,7 +60,7 @@ const nextConfig = {
     remotePatterns: [
       { protocol: "https", hostname: "images.unsplash.com" },
       { protocol: "https", hostname: "avatars.githubusercontent.com" },
-      { protocol: "https", hostname: "*.supabase.co" },
+      ...storageRemotePattern,
     ],
   },
 };

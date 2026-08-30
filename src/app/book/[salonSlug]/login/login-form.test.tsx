@@ -25,7 +25,7 @@ describe("LoginForm", () => {
   it("exibe o erro devolvido pela action sem perder os campos", async () => {
     mocks.loginClient.mockResolvedValue({ error: "Credenciais inválidas" });
     const user = userEvent.setup();
-    render(<LoginForm salonSlug="studio-a" returnTo="/book/studio-a/agendar" />);
+    render(<LoginForm salonSlug="studio-a" />);
 
     const email = screen.getByPlaceholderText("seu@email.com");
     const password = screen.getByPlaceholderText("••••••••");
@@ -40,7 +40,6 @@ describe("LoginForm", () => {
       "studio-a",
       "cliente@example.com",
       "senha-segura",
-      "/book/studio-a/agendar",
     );
   });
 

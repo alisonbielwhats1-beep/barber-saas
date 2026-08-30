@@ -14,6 +14,7 @@ import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { clientIdentityData, findPotentialClientMatches } from "@/lib/client-identity";
 import { inferGenderFromName } from "@/lib/name-gender";
 import { writeAuditLog } from "@/lib/audit";
+import { bcryptPasswordSchema } from "@/lib/password";
 
 const salonSlugSchema = z
   .string()
@@ -21,49 +22,13 @@ const salonSlugSchema = z
   .max(60)
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
 
-const CLIENT_RETURN_PATHS = new Set([
-  "agendar",
-  "minhas",
-  "notificacoes",
-  "produtos",
-]);
-
-/** Normaliza e limita o retorno a telas conhecidas do próprio salão. */
-function safeReturnTo(salonSlug: string, returnTo?: string | null): string {
-  const fallback = `/book/${salonSlug}`;
-  if (!returnTo || !returnTo.startsWith("/") || returnTo.startsWith("//")) {
-    return fallback;
-  }
-
-  try {
-    const parsed = new URL(returnTo, "https://salon.invalid");
-    if (parsed.pathname === fallback) {
-      return `${parsed.pathname}${parsed.search}`;
-    }
-
-    const prefix = `/book/${salonSlug}/`;
-    if (!parsed.pathname.startsWith(prefix)) return fallback;
-
-    const page = parsed.pathname.slice(prefix.length);
-    if (!CLIENT_RETURN_PATHS.has(page)) return fallback;
-    return `${parsed.pathname}${parsed.search}`;
-  } catch {
-    return fallback;
-  }
-}
-
 const DUMMY_CLIENT_PASSWORD_HASH =
   "$2a$10$EpwUuprmRRoDuqmTMprHZO/QYoydyJx0wblP26vSqDEMK1BhV/K1K";
 
-function passwordBytes(value: string): number {
-  return new TextEncoder().encode(value).byteLength;
-}
-
-const passwordSchema = z
-  .string()
-  .min(6)
-  .max(72)
-  .refine((value) => passwordBytes(value) <= 72);
+const passwordSchema = bcryptPasswordSchema(
+  6,
+  "A senha precisa ter pelo menos 6 caracteres.",
+);
 
 const loginSchema = z
   .object({
@@ -205,7 +170,11 @@ export async function loginClient(
     email: client.email!,
   });
 
-  redirect(safeReturnTo(normalizedSlug, validatedReturnTo));
+  // A experiência do cliente sempre recomeça na home do estabelecimento.
+  // O retorno antigo continua validado acima apenas para compatibilidade com
+  // formulários já abertos durante uma atualização.
+  void validatedReturnTo;
+  redirect(`/book/${normalizedSlug}`);
 }
 
 export async function registerClient(
@@ -319,7 +288,7 @@ export async function registerClient(
     });
   } catch (error) {
     if (error instanceof Error && error.message === "CLIENT_ACCOUNT_EXISTS") {
-      return { error: "Este e-mail já possui uma conta. Entre com ela ou recupere a senha." };
+      return { error: "Este e-mail já possui uma conta. Entre com ela ou fale com o suporte do estabelecimento." };
     }
     if (error instanceof Error && error.message === "CLIENT_EMAIL_ALREADY_USED_BY_GUEST") {
       return { error: "Este e-mail já está em uma reserva sem conta. Peça ao salão para vincular seu histórico com segurança." };
@@ -336,7 +305,8 @@ export async function registerClient(
     email: registration.email,
   });
 
-  redirect(safeReturnTo(normalizedSlug, returnTo));
+  void returnTo;
+  redirect(`/book/${normalizedSlug}`);
 }
 
 export async function logoutClient(salonSlug: string): Promise<void> {

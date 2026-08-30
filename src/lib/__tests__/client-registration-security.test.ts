@@ -237,7 +237,7 @@ describe("registerClient — validação no servidor", () => {
     expect(mocks.hash).not.toHaveBeenCalled();
   });
 
-  it("normaliza o returnTo por allowlist e remove destinos maliciosos", async () => {
+  it("ignora destino malicioso e abre a home do estabelecimento", async () => {
     await expect(
       registerClient(
         "studio-a",
@@ -255,7 +255,7 @@ describe("registerClient — validação no servidor", () => {
     expect(mocks.redirect).toHaveBeenCalledWith("/book/studio-a");
   });
 
-  it("preserva query de uma rota de retorno explicitamente permitida", async () => {
+  it("abre sempre a home mesmo quando havia uma rota de retorno permitida", async () => {
     await expect(
       registerClient(
         "studio-a",
@@ -270,9 +270,7 @@ describe("registerClient — validação no servidor", () => {
       ),
     ).rejects.toThrow("NEXT_REDIRECT");
 
-    expect(mocks.redirect).toHaveBeenCalledWith(
-      "/book/studio-a/agendar?services=a%2Cb",
-    );
+    expect(mocks.redirect).toHaveBeenCalledWith("/book/studio-a");
   });
 
   it("executa bcrypt dummy quando a conta não existe", async () => {

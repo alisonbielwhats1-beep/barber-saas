@@ -160,8 +160,8 @@ Estratégia sem novo custo obrigatório:
 Para uma alteração de horário iniciada pela equipe, cliente com conta recebe
 uma proposta interna com horário, profissional, serviços e preço congelados.
 Aceitar atualiza o mesmo agendamento e registra o aceite; recusar mantém o
-horário original e registra a decisão. Visitante sem conta segue no fluxo
-direto e deve ser contatado pela equipe. Nenhum WhatsApp/SMS automático é
+horário original e registra a decisão. Cliente sem conta criado pela equipe
+segue no fluxo direto e deve ser contatado pela equipe. Nenhum WhatsApp/SMS automático é
 adicionado.
 
 ## Preço por dia e janela pública
@@ -208,7 +208,11 @@ podem ser compartilhados, reciclados ou informados incorretamente.
 
 Decisão recomendada:
 
-- convidado permanece um perfil do estabelecimento;
+- convidado permanece um perfil do estabelecimento para cadastros e reservas
+  criados manualmente pela equipe;
+- o autoatendimento público (agendamento e fila) exige conta e sessão assinada
+  do mesmo estabelecimento; esconder a opção na UI não substitui o bloqueio
+  da API;
 - ao criar conta, o vínculo ocorre somente após confirmar e-mail ou telefone;
 - possíveis duplicatas entram em revisão/mesclagem auditável;
 - nunca mover histórico entre tenants;

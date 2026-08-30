@@ -83,7 +83,7 @@ jobs:
   schema-smoke:
     runs-on: ubuntu-latest
     environment: test
-    timeout-minutes: 20
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:16-alpine
@@ -103,7 +103,10 @@ jobs:
       APP_ENV: test
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/salon_schema_ci
       DIRECT_URL: postgresql://postgres:postgres@localhost:5432/salon_schema_ci
+      NEXTAUTH_SECRET: ci-only-secret-not-used-in-prod
+      NEXTAUTH_URL: http://127.0.0.1:3100
       RUN_POSTGRES_INTEGRATION: "1"
+      RUN_DATABASE_E2E: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -187,6 +190,14 @@ jobs:
         run: npm run db:seed
       - name: Prove appointment and comanda concurrency with PostgreSQL, plus public access locking
         run: npm run test:appointment-integration
+      - name: Build the production application for browser tests
+        run: npm run build
+      - name: Install browser engines
+        run: npx playwright install --with-deps chromium firefox webkit
+      - name: Validate public pages across browser engines
+        run: npm run test:e2e:static
+      - name: Validate authenticated critical journeys
+        run: npm run test:e2e:database
       - name: Prove non-destructive Phase 2 rollback SQL
         run: >-
           npx prisma db execute

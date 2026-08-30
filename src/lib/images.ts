@@ -1,3 +1,5 @@
+import { isRenderableImageUrl } from "./stored-image-url";
+
 /**
  * Curadoria de imagens locais usadas como default quando o dono ainda não fez
  * upload das próprias. Manter os defaults no mesmo deploy evita dependência
@@ -21,7 +23,8 @@ const LOCAL_SERVICE_IMAGES = {
  */
 export function normalizeImageUrl(url: string | null | undefined): string | null {
   if (!url) return null;
-  return url.replace(/(\/images\/[^/?#]+)-hq\.png(?=($|[?#]))/i, "$1.webp");
+  const normalized = url.replace(/(\/images\/[^/?#]+)-hq\.png(?=($|[?#]))/i, "$1.webp");
+  return isRenderableImageUrl(normalized) ? normalized : null;
 }
 
 // Hero moody de barbearia — usado no splash

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getClientSessionForSalonSlug } from "@/lib/client-session-tenant";
-import { clientHomePath, safeClientReturnTo } from "@/lib/client-routes";
+import { clientHomePath } from "@/lib/client-routes";
 import { LoginForm } from "./login-form";
 
 export default async function LoginPage({
@@ -11,11 +11,11 @@ export default async function LoginPage({
   params: Promise<{ salonSlug: string }>;
   searchParams: Promise<{ returnTo?: string }>;
 }) {
-  const [{ salonSlug }, query] = await Promise.all([params, searchParams]);
-  const returnTo = safeClientReturnTo(salonSlug, query.returnTo, clientHomePath(salonSlug));
+  const [{ salonSlug }] = await Promise.all([params, searchParams]);
+  const homePath = clientHomePath(salonSlug);
 
   const session = await getClientSessionForSalonSlug(salonSlug);
-  if (session) redirect(returnTo);
+  if (session) redirect(homePath);
 
   return (
     <main className="flex min-h-[100dvh] flex-col items-center justify-center px-5 py-10">
@@ -30,12 +30,12 @@ export default async function LoginPage({
           </p>
         </div>
 
-        <LoginForm salonSlug={salonSlug} returnTo={returnTo} />
+        <LoginForm salonSlug={salonSlug} />
 
         <p className="text-center text-sm text-muted-foreground">
           Primeira vez?{" "}
           <Link
-            href={`/book/${salonSlug}/cadastro${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ""}`}
+            href={`/book/${salonSlug}/cadastro`}
             className="font-medium text-primary hover:underline"
           >
             Criar conta

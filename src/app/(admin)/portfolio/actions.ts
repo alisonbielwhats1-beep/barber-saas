@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { assertRole, getTenantContext } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
+import { assertAllowedStoredImageUrl } from "@/lib/stored-image-url";
 
 const portfolioInput = z.object({
   imageUrl: z.string().url(),
@@ -17,6 +18,7 @@ export async function createPortfolioItem(input: PortfolioInput) {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER", "PROFESSIONAL"]);
   const data = portfolioInput.parse(input);
+  assertAllowedStoredImageUrl(data.imageUrl, ctx.salonId);
 
   await withTenant(ctx, async (tx) => {
     let professionalId = data.professionalId ?? null;

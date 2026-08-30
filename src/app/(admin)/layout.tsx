@@ -1,6 +1,5 @@
 import type { CSSProperties } from "react";
 import { Scissors } from "lucide-react";
-import Image from "next/image";
 import { getTenantContext } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
 import { hexToHslTriple, readableForeground } from "@/lib/color";
@@ -13,6 +12,7 @@ import { Toaster } from "@/components/ui/toast";
 import { ThemeProvider } from "./theme-provider";
 import { MobileNav } from "./mobile-nav";
 import { isPlatformAdmin } from "@/lib/platform-admin";
+import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const ctx = await getTenantContext();
@@ -80,12 +80,17 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <div className="flex h-14 shrink-0 items-center gap-2.5 px-4">
           <span className="admin-brand-mark relative grid h-9 w-11 shrink-0 place-items-center overflow-hidden rounded-xl border border-border bg-white p-1">
             {salonLogo ? (
-              <Image
+              <ImageWithFallback
                 src={salonLogo}
                 alt={`Logo de ${salon?.name ?? "seu salão"}`}
                 fill
                 sizes="44px"
                 className="object-contain p-1"
+                fallback={(
+                  <span className="grid h-full w-full place-items-center rounded-lg bg-primary">
+                    <Scissors className="h-3.5 w-3.5 text-primary-foreground" aria-hidden="true" />
+                  </span>
+                )}
               />
             ) : (
               <span className="grid h-full w-full place-items-center rounded-lg bg-primary">

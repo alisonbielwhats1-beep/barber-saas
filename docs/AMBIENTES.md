@@ -178,6 +178,10 @@ Rollback nunca deve apagar dados recém-criados sem exportação e autorização
   concorrência de agenda, comanda/estoque e lock de aprovação versus suspensão
   ao `schema-smoke`; a execução no CI remoto foi comprovada em PostgreSQL 16,
   inclusive com role runtime `NOBYPASSRLS` e FORCE RLS.
+- A candidata `codex/commercial-readiness-audit` acrescenta Playwright ao
+  `schema-smoke`: páginas públicas rodam em Chromium, Firefox e WebKit; login,
+  isolamento visual de tenant e agendamento completo rodam em Chromium contra
+  o mesmo PostgreSQL 16 descartável, antes dos rollbacks de schema.
 - O teste de lock público identifica o backend concorrente por
   `application_name` e exige evidência positiva em `pg_stat_activity` e
   `pg_blocking_pids`, evitando aprovação por mero atraso do pool.

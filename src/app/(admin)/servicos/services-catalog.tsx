@@ -2,7 +2,6 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import {
   Search,
   MoreVertical,
@@ -29,6 +28,7 @@ import { toast } from "@/components/ui/toast";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ServiceForm } from "./service-form";
 import { toggleServiceActive, deleteService, duplicateService } from "./actions";
+import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 
 export type ServiceCard = {
   id: string;
@@ -224,8 +224,9 @@ function CategoryGroupGrid({
     <div className="overflow-hidden rounded-2xl border border-border bg-card">
       {/* Banner discreto: identifica a categoria sem dominar a operação. */}
       <div className="relative h-32 w-full overflow-hidden sm:h-36">
-        <Image
+        <ImageWithFallback
           src={categoryImage}
+          fallbackSrc={bannerForCategory(cat)}
           alt={cat}
           fill
           sizes="(max-width: 768px) 100vw, 900px"

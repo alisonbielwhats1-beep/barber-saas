@@ -227,7 +227,7 @@ describe("POST /api/appointments — identidade do cliente", () => {
     expect(mocks.transaction).not.toHaveBeenCalled();
   });
 
-  it("cliente do salão A agenda no salão B somente como visitante", async () => {
+  it("rejeita sessão de outro tenant em vez de convertê-la em visitante", async () => {
     mocks.getClientSession.mockResolvedValue({
       clientId: "client-salon-a",
       salonId: "salon-a",
@@ -244,41 +244,13 @@ describe("POST /api/appointments — identidade do cliente", () => {
       }),
     );
 
-    expect(response.status).toBe(201);
-    const input = mocks.createAppointment.mock.calls[0]![1];
-    expect(input).toEqual(
-      expect.objectContaining({
-        salonId: "salon-b",
-        guest: { name: "Visitante B", phone: "11988887777" },
-        actor: expect.objectContaining({ type: "GUEST" }),
-      }),
-    );
-    expect(input).not.toHaveProperty("clientId");
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({ error: "AUTH_REQUIRED" });
+    expect(mocks.transaction).not.toHaveBeenCalled();
+    expect(mocks.createAppointment).not.toHaveBeenCalled();
   });
 
-  it("sessão de outro tenant nunca é anexada ao agendamento", async () => {
-    mocks.getClientSession.mockResolvedValue({
-      clientId: "client-salon-a",
-      salonId: "salon-a",
-      name: "Cliente A",
-      email: "a@example.com",
-    });
-
-    await POST(
-      request({
-        ...validBody,
-        salonId: "salon-b",
-        clientName: "Visitante B",
-        clientPhone: "11988887777",
-      }),
-    );
-
-    const input = mocks.createAppointment.mock.calls[0]![1];
-    expect(input).not.toHaveProperty("clientId", "client-salon-a");
-    expect(input.guest).toEqual({ name: "Visitante B", phone: "11988887777" });
-  });
-
-  it("visitante não reutiliza identidade existente apenas pelo telefone", async () => {
+  it("rejeita visitante mesmo quando nome e telefone são enviados diretamente", async () => {
     mocks.getClientSession.mockResolvedValue(null);
 
     const response = await POST(
@@ -289,37 +261,10 @@ describe("POST /api/appointments — identidade do cliente", () => {
       }),
     );
 
-    expect(response.status).toBe(201);
-    const input = mocks.createAppointment.mock.calls[0]![1];
-    expect(input).not.toHaveProperty("clientId");
-    expect(input.guest).toEqual({ name: "Visitante", phone: "11999999999" });
-  });
-
-  it.each([
-    ["+55 (11) 99999-8888", "11999998888"],
-    ["55 11 99999-8888", "11999998888"],
-    ["(11) 99999-8888", "11999998888"],
-    ["+55 (11) 3333-4444", "1133334444"],
-    ["55 11 3333-4444", "1133334444"],
-    ["(11) 3333-4444", "1133334444"],
-  ])("normaliza telefone visitante %s exclusivamente no servidor", async (
-    clientPhone,
-    normalized,
-  ) => {
-    mocks.getClientSession.mockResolvedValue(null);
-
-    await POST(
-      request({
-        ...validBody,
-        clientName: "Visitante",
-        clientPhone,
-      }),
-    );
-
-    expect(mocks.createAppointment.mock.calls[0]![1].guest).toEqual({
-      name: "Visitante",
-      phone: normalized,
-    });
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({ error: "AUTH_REQUIRED" });
+    expect(mocks.transaction).not.toHaveBeenCalled();
+    expect(mocks.createAppointment).not.toHaveBeenCalled();
   });
 
   it.each([

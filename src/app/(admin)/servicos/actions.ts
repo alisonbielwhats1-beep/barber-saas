@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { assertRole, getTenantContext } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
+import { assertAllowedStoredImageUrl } from "@/lib/stored-image-url";
 
 const serviceInput = z.object({
   name: z.string().min(2, "Nome muito curto"),
@@ -40,6 +41,7 @@ export async function createService(input: ServiceInput) {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER"]);
   const data = serviceInput.parse(input);
+  assertAllowedStoredImageUrl(data.imageUrl, ctx.salonId);
 
   const salon = await withTenant(ctx, async (tx) => {
     await tx.service.create({
@@ -54,6 +56,7 @@ export async function updateService(id: string, input: ServiceInput) {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER"]);
   const data = serviceInput.parse(input);
+  assertAllowedStoredImageUrl(data.imageUrl, ctx.salonId);
 
   // Filtro por salonId protege cross-tenant mesmo com id vindo do cliente —
   // e, sob RLS, a policy da tabela reforça o mesmo filtro por trás.

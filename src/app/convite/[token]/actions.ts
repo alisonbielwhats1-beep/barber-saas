@@ -13,6 +13,7 @@ import {
   acceptNewUserInvite,
 } from "@/lib/invitations";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
+import { isBcryptPasswordLengthValid } from "@/lib/password";
 
 const inputSchema = z
   .object({
@@ -28,6 +29,13 @@ const inputSchema = z
         code: "custom",
         path: ["password"],
         message: "A senha precisa ter pelo menos 10 caracteres.",
+      });
+    }
+    if (input.password && !isBcryptPasswordLengthValid(input.password)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["password"],
+        message: "A senha deve ter no máximo 72 bytes.",
       });
     }
     if (input.password !== input.confirmPassword) {

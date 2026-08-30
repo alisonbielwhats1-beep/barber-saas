@@ -111,7 +111,7 @@ export default async function AgendarPage({
       .map((ps) => ({
         id: ps.professional.id,
         name: ps.professional.user.name,
-        avatarUrl: ps.professional.user.avatarUrl,
+        avatarUrl: normalizeImageUrl(ps.professional.user.avatarUrl),
         colorHex: ps.professional.colorHex,
         specialties: ps.professional.services.map((x) => x.service.name),
         apptCount: countByPro.get(ps.professional.id) ?? 0,

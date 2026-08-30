@@ -1,4 +1,3 @@
-import Image from "next/image";
 import { emailInvitesEnabled } from "@/lib/email-invites-feature";
 import { getTenantContext } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
@@ -21,6 +20,8 @@ import { ProfessionalForm } from "./professional-form";
 import { WorkingHoursForm } from "./working-hours-form";
 import { ToggleActiveButton } from "./toggle-active-button";
 import { PendingInvites } from "./pending-invites";
+import { ImageWithFallback } from "@/components/ui/image-with-fallback";
+import { normalizeImageUrl } from "@/lib/images";
 
 const MEDAL = ["#F4C430", "#C0C0C0", "#CD7F32"]; // ouro, prata, bronze
 
@@ -137,8 +138,24 @@ export default async function ProfissionaisPage() {
               {/* Cabeçalho */}
               <div className="flex items-start gap-3">
                 <div className="relative shrink-0">
-                  {p.avatarUrl ? (
-                    <Image src={p.avatarUrl} alt={p.name} width={52} height={52} className="rounded-full object-cover" style={{ height: 52, width: 52 }} />
+                  {normalizeImageUrl(p.avatarUrl) ? (
+                    <ImageWithFallback
+                      src={normalizeImageUrl(p.avatarUrl)!}
+                      alt={p.name}
+                      width={52}
+                      height={52}
+                      className="rounded-full object-cover"
+                      style={{ height: 52, width: 52 }}
+                      fallback={(
+                        <div
+                          aria-label={`Iniciais de ${p.name}`}
+                          className="grid place-items-center rounded-full text-base font-semibold text-black/80"
+                          style={{ height: 52, width: 52, background: p.colorHex ?? "#2ECC8B" }}
+                        >
+                          {p.name.split(" ").map((name) => name[0]).slice(0, 2).join("")}
+                        </div>
+                      )}
+                    />
                   ) : (
                     <div className="grid place-items-center rounded-full text-base font-semibold text-black/80" style={{ height: 52, width: 52, background: p.colorHex ?? "#2ECC8B" }}>
                       {p.name.split(" ").map((n) => n[0]).slice(0, 2).join("")}

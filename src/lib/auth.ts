@@ -4,6 +4,18 @@ import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
 import { checkRateLimit, clientIp } from "./rate-limit";
 import { safeNextAuthRedirect } from "./safe-callback";
+import { bcryptPasswordSchema } from "./password";
+import { z } from "zod";
+
+const DUMMY_ADMIN_PASSWORD_HASH =
+  "$2a$10$EpwUuprmRRoDuqmTMprHZO/QYoydyJx0wblP26vSqDEMK1BhV/K1K";
+
+const adminCredentialsSchema = z
+  .object({
+    email: z.string().trim().toLowerCase().email().max(254),
+    password: bcryptPasswordSchema(6, "Senha inválida."),
+  })
+  .strict();
 
 /**
  * NextAuth v4 — Credentials + JWT (stateless).
@@ -30,8 +42,9 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Senha", type: "password" },
       },
       async authorize(credentials, request) {
-        if (!credentials?.email || !credentials?.password) return null;
-        const email = credentials.email.toLowerCase().trim();
+        const parsed = adminCredentialsSchema.safeParse(credentials);
+        if (!parsed.success) return null;
+        const { email, password } = parsed.data;
         const ip = clientIp(new Headers(request.headers));
         const [ipLimit, accountLimit] = await Promise.all([
           checkRateLimit({
@@ -62,9 +75,11 @@ export const authOptions: NextAuthOptions = {
             avatarUrl: true,
           },
         });
-        if (!user) return null;
-        const valid = await bcrypt.compare(credentials.password, user.passwordHash);
-        if (!valid) return null;
+        const valid = await bcrypt.compare(
+          password,
+          user?.passwordHash ?? DUMMY_ADMIN_PASSWORD_HASH,
+        );
+        if (!user || !valid) return null;
         // Backfill seguro e gradual: uma senha só é marcada como configurada
         // depois que seu conhecimento foi comprovado por login bem-sucedido.
         if (user.passwordSetAt === null) {

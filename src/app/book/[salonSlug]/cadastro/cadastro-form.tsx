@@ -8,10 +8,8 @@ import { registerClient } from "../auth-actions";
 
 export function CadastroForm({
   salonSlug,
-  returnTo,
 }: {
   salonSlug: string;
-  returnTo?: string | null;
 }) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -42,7 +40,6 @@ export function CadastroForm({
         const result = await registerClient(
           salonSlug,
           { name, phone, email, password, confirmPassword },
-          returnTo,
         );
         if (result?.error) setError(result.error);
       } finally {
@@ -54,10 +51,12 @@ export function CadastroForm({
   return (
     <form onSubmit={submit} className="space-y-4">
       <div>
-        <label className="mb-1.5 block text-[13px] font-medium text-muted-foreground">
+        <label htmlFor="client-name" className="mb-1.5 block text-[13px] font-medium text-muted-foreground">
           Nome completo
         </label>
         <input
+          id="client-name"
+          name="name"
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -66,16 +65,18 @@ export function CadastroForm({
           maxLength={120}
           autoComplete="name"
           placeholder="Seu nome"
-          className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+          className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/40"
         />
       </div>
 
       <div>
-        <label className="mb-1.5 block text-[13px] font-medium text-muted-foreground">
+        <label htmlFor="client-phone" className="mb-1.5 block text-[13px] font-medium text-muted-foreground">
           WhatsApp{" "}
           <span className="font-normal text-muted-foreground/60">(opcional)</span>
         </label>
         <input
+          id="client-phone"
+          name="phone"
           type="tel"
           inputMode="tel"
           value={phone}
@@ -83,15 +84,17 @@ export function CadastroForm({
           maxLength={32}
           autoComplete="tel"
           placeholder="(11) 91234-5678"
-          className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+          className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/40"
         />
       </div>
 
       <div>
-        <label className="mb-1.5 block text-[13px] font-medium text-muted-foreground">
+        <label htmlFor="client-email" className="mb-1.5 block text-[13px] font-medium text-muted-foreground">
           E-mail
         </label>
         <input
+          id="client-email"
+          name="email"
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -99,7 +102,7 @@ export function CadastroForm({
           maxLength={254}
           autoComplete="email"
           placeholder="seu@email.com"
-          className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+          className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/40"
         />
       </div>
 
@@ -111,7 +114,7 @@ export function CadastroForm({
         onChange={(event) => setPassword(event.target.value)}
         required
         minLength={6}
-        maxLength={128}
+        maxLength={72}
         autoComplete="new-password"
         placeholder="Mínimo 6 caracteres"
         className="h-auto rounded-2xl border-border bg-card px-4 py-3 focus-visible:border-primary focus-visible:ring-0 focus-visible:ring-offset-0"
@@ -125,7 +128,7 @@ export function CadastroForm({
         onChange={(event) => setConfirmPassword(event.target.value)}
         required
         minLength={6}
-        maxLength={128}
+        maxLength={72}
         autoComplete="new-password"
         placeholder="Digite a senha novamente"
         className="h-auto rounded-2xl border-border bg-card px-4 py-3 focus-visible:border-primary focus-visible:ring-0 focus-visible:ring-offset-0"
@@ -133,7 +136,7 @@ export function CadastroForm({
       />
 
       {error && (
-        <p className="rounded-xl bg-red-500/10 px-4 py-2.5 text-[13px] text-red-500">
+        <p role="alert" className="rounded-xl bg-red-500/10 px-4 py-2.5 text-[13px] text-red-500">
           {error}
         </p>
       )}
@@ -141,7 +144,7 @@ export function CadastroForm({
       <button
         type="submit"
         disabled={pending}
-        className="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
+        className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-primary py-3.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-60"
       >
         {pending && <Loader2 className="h-4 w-4 animate-spin" />}
         {pending ? "Criando conta…" : "Criar conta"}

@@ -6,6 +6,7 @@ import { defaultMailer, MailDeliveryError, type Mailer } from "./mailer";
 import { prisma } from "./prisma";
 import { setSalonGuc, withInviteToken, withSalon } from "./prisma-tenant";
 import { assertProfessionalCapacity } from "./plan-entitlements";
+import { isBcryptPasswordLengthValid } from "./password";
 
 export const INVITE_TTL_HOURS = 24;
 
@@ -920,7 +921,7 @@ export async function acceptNewUserInvite(input: {
   if (!input.token || input.token.length < 20 || input.token.length > 256) {
     return { ok: false, reason: "INVALID" };
   }
-  if (input.password.length < 10) {
+  if (input.password.length < 10 || !isBcryptPasswordLengthValid(input.password)) {
     return { ok: false, reason: "INVALID" };
   }
   const now = input.now ?? new Date();

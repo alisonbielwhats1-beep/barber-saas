@@ -1,4 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import sharp from "sharp";
+
+const validPng = await sharp({
+  create: {
+    width: 64,
+    height: 64,
+    channels: 3,
+    background: "#2ecc8b",
+  },
+}).png().toBuffer();
 
 const getServerSession = vi.fn();
 const findMembership = vi.fn();
@@ -48,15 +58,16 @@ const { POST } = await import("@/app/api/upload/route");
 
 function request(input: {
   folder: string;
-  bytes?: number[];
+  bytes?: Uint8Array;
   type?: string;
   activeSalonId?: string;
 }) {
   const data = new FormData();
+  const fileBytes = Uint8Array.from(input.bytes ?? validPng).buffer;
   data.set(
     "file",
     new File(
-      [Uint8Array.from(input.bytes ?? [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])],
+      [fileBytes],
       "asset.png",
       { type: input.type ?? "image/png" },
     ),
@@ -112,7 +123,7 @@ describe("POST /api/upload", () => {
     );
     expect(upload).toHaveBeenCalledWith(
       expect.stringMatching(/^salon-a\/services\/[0-9a-f-]+\.png$/),
-      expect.any(File),
+      expect.any(Uint8Array),
       { contentType: "image/png", upsert: false },
     );
   });
@@ -121,7 +132,20 @@ describe("POST /api/upload", () => {
     const response = await POST(
       request({
         folder: "portfolio",
-        bytes: [0x3c, 0x73, 0x63, 0x72, 0x69, 0x70, 0x74],
+        bytes: Uint8Array.from([0x3c, 0x73, 0x63, 0x72, 0x69, 0x70, 0x74]),
+        type: "image/png",
+      }) as never,
+    );
+
+    expect(response.status).toBe(415);
+    expect(upload).not.toHaveBeenCalled();
+  });
+
+  it("rejeita arquivo truncado mesmo quando a assinatura PNG é válida", async () => {
+    const response = await POST(
+      request({
+        folder: "portfolio",
+        bytes: Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
         type: "image/png",
       }) as never,
     );

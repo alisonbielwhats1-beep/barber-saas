@@ -9,9 +9,10 @@
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "next start",
-    "lint": "eslint src prisma scripts --ext .js,.jsx,.ts,.tsx",
+    "lint": "eslint src prisma scripts tests playwright.config.ts --ext .js,.jsx,.ts,.tsx",
     "typecheck": "tsc --noEmit --incremental false",
     "check:runtime": "tsx scripts/assert-runtime-contract.ts",
+    "generate:pwa-icons": "tsx scripts/generate-pwa-icons.ts",
     "db:generate": "prisma generate",
     "db:safety-check": "tsx scripts/assert-safe-database.ts --operation=safety-check",
     "predb:push": "tsx scripts/assert-safe-database.ts --operation=db:push",
@@ -24,6 +25,9 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "test": "vitest run --exclude \"**/*.integration.test.ts\"",
+    "test:e2e": "playwright test",
+    "test:e2e:static": "playwright test --grep @static",
+    "test:e2e:database": "playwright test --grep @database --project=chromium",
     "test:integration": "vitest run src/lib/__tests__/invite-postgres.integration.test.ts",
     "test:appointment-integration": "vitest run src/lib/__tests__/appointment-postgres.integration.test.ts src/lib/__tests__/comanda-postgres.integration.test.ts src/lib/__tests__/public-salon-lock-postgres.integration.test.ts src/lib/__tests__/public-salon-runtime-rls-postgres.integration.test.ts"
   },
@@ -57,6 +61,8 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@playwright/test": "1.62.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.4",
@@ -71,6 +77,7 @@
     "jsdom": "^26.1.0",
     "postcss": "8.5.25",
     "prisma": "^5.20.0",
+    "sharp": "0.35.3",
     "tailwindcss": "^3.4.13",
     "tsx": "^4.19.1",
     "typescript": "^5",

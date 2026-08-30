@@ -7,7 +7,9 @@ import { getSupabaseAdmin, STORAGE_BUCKET } from "@/lib/supabase";
 import {
   canUploadToFolder,
   detectImageMimeType,
+  ImageUploadValidationError,
   isUploadFolder,
+  normalizeUploadedImage,
 } from "@/lib/image-upload-security";
 import {
   checkRateLimit,
@@ -81,28 +83,43 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const header = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+  const fileBytes = new Uint8Array(await file.arrayBuffer());
+  const header = fileBytes.slice(0, 16);
   const detectedType = detectImageMimeType(header);
   if (!detectedType || detectedType !== file.type) {
     return NextResponse.json(
-      { error: "Formato inválido. Use JPG, PNG, WEBP ou GIF." },
+      { error: "Formato inválido. Use JPG, PNG ou WEBP." },
       { status: 415 },
     );
   }
 
-  const extensionByType: Record<string, string> = {
-    "image/jpeg": "jpg",
-    "image/png": "png",
-    "image/webp": "webp",
-    "image/gif": "gif",
-  };
-  const ext = extensionByType[detectedType];
-  const path = `${membership.salonId}/${folder}/${randomUUID()}.${ext}`;
+  let normalized: Awaited<ReturnType<typeof normalizeUploadedImage>>;
+  try {
+    normalized = await normalizeUploadedImage(fileBytes, detectedType);
+  } catch (error) {
+    if (!(error instanceof ImageUploadValidationError)) throw error;
+    return NextResponse.json(
+      {
+        error: error.code === "INVALID_DIMENSIONS"
+          ? "Dimensões inválidas. Use uma imagem entre 32 e 8192 pixels por lado."
+          : "A imagem está corrompida ou não pôde ser validada.",
+      },
+      { status: error.code === "INVALID_DIMENSIONS" ? 422 : 415 },
+    );
+  }
+  if (normalized.bytes.byteLength > maxMb * 1024 * 1024) {
+    return NextResponse.json(
+      { error: `Arquivo muito grande após processamento (máx ${maxMb}MB)` },
+      { status: 413 },
+    );
+  }
+
+  const path = `${membership.salonId}/${folder}/${randomUUID()}.${normalized.extension}`;
   const supabaseAdmin = getSupabaseAdmin();
 
   const { error } = await supabaseAdmin.storage
     .from(STORAGE_BUCKET)
-    .upload(path, file, { contentType: detectedType, upsert: false });
+    .upload(path, normalized.bytes, { contentType: normalized.mimeType, upsert: false });
 
   if (error) {
     console.error("[upload] storage failure", {

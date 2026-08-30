@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useRouter, useParams } from "next/navigation";
 import {
   ArrowLeft,
@@ -11,20 +10,17 @@ import {
   ChevronLeft,
   ChevronRight,
   Gem,
-  LogIn,
   Search,
   ShoppingBag,
   Scissors,
   Sparkles,
   Star,
-  UserPlus,
   Waves,
   X,
   Zap,
 } from "lucide-react";
 import { formatMoney, formatDuration } from "@/lib/utils";
 import { useCart } from "@/lib/cart";
-import { formatPhoneBR, isValidPhoneBR, normalizePhone } from "@/lib/phone";
 import { friendlyError } from "@/lib/booking-errors";
 import { effectivePublicBookingLeadDays } from "@/lib/pricing";
 import type { ClientSession } from "@/lib/client-auth";
@@ -53,6 +49,8 @@ import {
   requestAvailability,
 } from "@/lib/availability-client";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { ImageWithFallback } from "@/components/ui/image-with-fallback";
+import { imageForCategory } from "@/lib/images";
 
 type Pro = {
   id: string;
@@ -139,7 +137,7 @@ export function BookingFlow({
    *  vez de criar uma nova. Ver `submit()`. */
   rescheduleId?: string | null;
   rescheduleVersion?: number;
-  clientSession: ClientSession | null;
+  clientSession: ClientSession;
 }) {
   const router = useRouter();
   const { salonSlug } = useParams<{ salonSlug: string }>();
@@ -181,8 +179,6 @@ export function BookingFlow({
   const [retryClockMs, setRetryClockMs] = useState(0);
   const [occupied, setOccupied] = useState<{ appointmentId: string; time: string }[]>([]);
   const [waitlistTarget, setWaitlistTarget] = useState<{ appointmentId: string; time: string } | null>(null);
-  const [waitlistName, setWaitlistName] = useState(clientSession?.name ?? "");
-  const [waitlistPhone, setWaitlistPhone] = useState("");
   const [waitlistJoined, setWaitlistJoined] = useState<{
     appointmentId: string;
     position: number;
@@ -193,18 +189,12 @@ export function BookingFlow({
   } | null>(null);
   const [waitlistLoading, setWaitlistLoading] = useState(false);
   const [waitlistError, setWaitlistError] = useState<string | null>(null);
-  const [waitlistAuthStep, setWaitlistAuthStep] = useState<"prompt" | "guest-form">("prompt");
-  const [name, setName] = useState(clientSession?.name ?? "");
-  const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [booked, setBooked] = useState<Booked | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reviewing, setReviewing] = useState(false);
   const [bookingStateReady, setBookingStateReady] = useState(false);
-  // "hidden" → no auth prompt yet; "prompt" → show login/guest options; "guest-form" → collecting name+phone
-  const [authStep, setAuthStep] = useState<"hidden" | "prompt" | "guest-form">("hidden");
   const idempotencyKeyRef = useRef<string | null>(null);
-  const authPanelRef = useRef<HTMLDivElement>(null);
   const availabilityQueryRef = useRef<string | null>(null);
   const availabilityRequestRef = useRef(0);
   const retryUntilRef = useRef<number | null>(null);
@@ -253,15 +243,14 @@ export function BookingFlow({
     setSlot(null);
   }, [eligibleProfessionals, proId]);
 
-  // Slot a restaurar depois que a grade de horários carregar (fluxo returnTo)
+  // Slot a restaurar depois que a grade de horários carregar.
   const pendingSlotRef = useRef<PendingAvailabilitySlot | null>(null);
 
   function invalidatePendingSlot() {
     pendingSlotRef.current = null;
   }
 
-  // Restaura a seleção salva antes de ir para login/cadastro — o cliente
-  // volta exatamente onde parou (profissional, dia e horário escolhidos).
+  // Restaura uma seleção recente após atualização ou retorno do navegador.
   useEffect(() => {
     try {
       // Remedia versões antigas que persistiam telefone de visitante.
@@ -294,7 +283,6 @@ export function BookingFlow({
           appointmentId: s.waitlistTarget.appointmentId,
           time: s.waitlistTarget.time,
         });
-        setWaitlistAuthStep(clientSession ? "guest-form" : "prompt");
       }
       if (s.date && s.date >= todayDate && s.date <= maxBookingDateKey) {
         const d = new Date(`${s.date}T12:00:00`);
@@ -364,27 +352,6 @@ export function BookingFlow({
   const retrySecondsRemaining = retryUntilMs === null
     ? 0
     : Math.max(0, Math.ceil((retryUntilMs - retryClockMs) / 1_000));
-
-  /** Congela a seleção atual antes de sair para login/cadastro. */
-  function saveBookingState() {
-    try {
-      sessionStorage.setItem(
-        `booking-state:${salonSlug}`,
-        JSON.stringify({
-          serviceIds,
-          proId,
-          date: format(date, "yyyy-MM-dd"),
-          slot,
-          waitlistTarget,
-          savedAt: Date.now(),
-        }),
-      );
-    } catch {}
-  }
-
-  const returnToParam = selectedServices.length > 0
-    ? `?returnTo=${encodeURIComponent(`/book/${salonSlug}/agendar?services=${serviceIds.join(",")}`)}`
-    : "";
 
   // Disponibilidade real: working hours + time-offs + agendamentos existentes
   useEffect(() => {
@@ -526,18 +493,7 @@ export function BookingFlow({
       slotsLoading ||
       slotsError
     ) return;
-    if (clientSession) {
-      setReviewing(true);
-    } else if (authStep === "guest-form" && name && isValidPhoneBR(phone)) {
-      setReviewing(true);
-    } else if (authStep === "guest-form") {
-      // form visible but not filled
-    } else {
-      setAuthStep("prompt");
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => authPanelRef.current?.focus({ preventScroll: false }));
-      });
-    }
+    setReviewing(true);
   }
 
   async function submit() {
@@ -573,9 +529,6 @@ export function BookingFlow({
               professionalId: proId,
               startLocal,
               idempotencyKey,
-              ...(!clientSession
-                ? { clientName: name, clientPhone: normalizePhone(phone) }
-                : {}),
               cartItems: cart.items.map((item) => ({
                 productId: item.productId,
                 quantity: item.quantity,
@@ -619,7 +572,6 @@ export function BookingFlow({
 
   async function joinWaitlist() {
     if (!waitlistTarget || !proId || serviceIds.length === 0) return;
-    if (!clientSession && (!waitlistName || !isValidPhoneBR(waitlistPhone))) return;
     setWaitlistLoading(true);
     setWaitlistError(null);
     try {
@@ -631,9 +583,6 @@ export function BookingFlow({
           appointmentId: waitlistTarget.appointmentId,
           professionalId: proId,
           serviceIds,
-          ...(!clientSession
-            ? { clientName: waitlistName, clientPhone: normalizePhone(waitlistPhone) }
-            : {}),
         }),
       });
       const responseBody = await res.json().catch(() => ({}));
@@ -677,7 +626,6 @@ export function BookingFlow({
         booked={booked}
         salonName={salonName}
         salonSlug={salonSlug}
-        guest={!clientSession}
       />
     );
   }
@@ -825,8 +773,9 @@ export function BookingFlow({
               <div className="flex w-full items-start justify-between gap-3">
                 {s.imageUrl ? (
                   <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-xl">
-                    <Image
+                    <ImageWithFallback
                       src={s.imageUrl}
+                      fallbackSrc={imageForCategory(s.category ?? s.name)}
                       alt=""
                       fill
                       sizes="44px"
@@ -942,12 +891,25 @@ export function BookingFlow({
                 >
                   <div className="relative">
                     {p.avatarUrl ? (
-                      <Image
+                      <ImageWithFallback
                         src={p.avatarUrl}
                         alt={p.name}
                         width={56}
                         height={56}
                         className="h-14 w-14 rounded-full object-cover"
+                        fallback={(
+                          <div
+                            aria-label={`Iniciais de ${p.name}`}
+                            className="grid h-14 w-14 place-items-center rounded-full text-base font-semibold"
+                            style={{ background: p.colorHex ?? "#7DF89B", color: "#0E0F11" }}
+                          >
+                            {p.name
+                              .split(" ")
+                              .map((name) => name[0])
+                              .slice(0, 2)
+                              .join("")}
+                          </div>
+                        )}
                       />
                     ) : (
                       <div
@@ -1200,7 +1162,6 @@ export function BookingFlow({
                       setWaitlistTarget(null);
                       return;
                     }
-                    setWaitlistAuthStep(clientSession ? "guest-form" : "prompt");
                     setWaitlistTarget(o);
                   }}
                   disabled={joined}
@@ -1242,14 +1203,12 @@ export function BookingFlow({
                 primeira pessoa quando o cancelamento vier do cliente. Se o salão cancelar, a
                 equipe promove a fila pela ordem e você acompanha o status em Minhas visitas.
               </p>
-              {clientSession && (
-                <Link
-                  href={`/book/${salonSlug}/minhas`}
-                  className="mt-3 inline-flex min-h-11 items-center text-xs font-semibold text-primary"
-                >
-                  Acompanhar em Minhas visitas
-                </Link>
-              )}
+              <Link
+                href={`/book/${salonSlug}/minhas`}
+                className="mt-3 inline-flex min-h-11 items-center text-xs font-semibold text-primary"
+              >
+                Acompanhar em Minhas visitas
+              </Link>
             </div>
           )}
 
@@ -1261,59 +1220,6 @@ export function BookingFlow({
                 clientes podem confirmar automaticamente; quando o salão cancela, a equipe
                 escolhe a primeira pessoa. Você acompanha tudo em Minhas visitas.
               </p>
-              {!clientSession && waitlistAuthStep === "prompt" && (
-                <div className="mt-3 rounded-xl border border-primary/20 bg-primary/5 p-3">
-                  <p className="text-xs font-medium">Entre ou crie sua conta para acompanhar a fila.</p>
-                  <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                    Assim você recebe a confirmação no app se o horário for liberado. Também é possível continuar como visitante.
-                  </p>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <Link
-                      href={`/book/${salonSlug}/login${returnToParam}`}
-                      onClick={saveBookingState}
-                      className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full bg-primary px-3 text-xs font-semibold text-primary-foreground"
-                    >
-                      <LogIn className="h-3.5 w-3.5" /> Entrar
-                    </Link>
-                    <Link
-                      href={`/book/${salonSlug}/cadastro${returnToParam}`}
-                      onClick={saveBookingState}
-                      className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full border border-primary/40 px-3 text-xs font-semibold text-primary"
-                    >
-                      <UserPlus className="h-3.5 w-3.5" /> Criar conta
-                    </Link>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setWaitlistAuthStep("guest-form")}
-                    className="mt-2 min-h-11 w-full rounded-full px-3 text-xs font-medium text-muted-foreground hover:bg-background"
-                  >
-                    Continuar como visitante
-                  </button>
-                </div>
-              )}
-              {!clientSession && waitlistAuthStep === "guest-form" && (
-                <div className="mt-3 space-y-2">
-                  <label htmlFor="waitlist-name" className="block text-[11px] font-medium text-muted-foreground">Seu nome</label>
-                  <input
-                    id="waitlist-name"
-                    value={waitlistName}
-                    onChange={(e) => setWaitlistName(e.target.value)}
-                    placeholder="Nome completo"
-                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
-                  />
-                  <label htmlFor="waitlist-phone" className="block text-[11px] font-medium text-muted-foreground">Seu WhatsApp</label>
-                  <input
-                    id="waitlist-phone"
-                    type="tel"
-                    inputMode="tel"
-                    value={waitlistPhone}
-                    onChange={(e) => setWaitlistPhone(formatPhoneBR(e.target.value))}
-                    placeholder="WhatsApp — (11) 91234-5678"
-                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
-                  />
-                </div>
-              )}
               {waitlistError && (
                 <p className="mt-2 text-xs text-destructive">{waitlistError}</p>
               )}
@@ -1327,11 +1233,7 @@ export function BookingFlow({
                 </button>
                 <button
                   onClick={joinWaitlist}
-                  disabled={
-                    waitlistLoading ||
-                    !clientSession && waitlistAuthStep !== "guest-form" ||
-                    (!clientSession && (!waitlistName || !isValidPhoneBR(waitlistPhone)))
-                  }
+                  disabled={waitlistLoading}
                   className="min-h-11 flex-1 rounded-full bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"
                 >
                   {waitlistLoading ? "Entrando…" : "Entrar na fila"}
@@ -1342,8 +1244,8 @@ export function BookingFlow({
         </div>
       )}
 
-      {/* Identidade — só quando logado e horário selecionado */}
-      {slot && clientSession && (
+      {/* Identidade da conta que será vinculada à reserva. */}
+      {slot && (
         <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4">
           <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary/20 text-sm font-semibold text-primary">
             {clientSession.name.split(" ").map((n) => n[0]).slice(0, 2).join("")}
@@ -1352,86 +1254,6 @@ export function BookingFlow({
             <p className="text-sm font-medium">{clientSession.name}</p>
             <p className="text-xs text-muted-foreground">{clientSession.email}</p>
           </div>
-        </div>
-      )}
-
-      {/* Auth step — aparece apenas ao clicar em Confirmar sem sessão */}
-      {authStep !== "hidden" && !clientSession && (
-        <div
-          ref={authPanelRef}
-          tabIndex={-1}
-          className="space-y-3 rounded-2xl border border-border bg-card p-4 outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          {authStep === "prompt" && (
-            <>
-              <p className="text-sm font-semibold">Quase lá</p>
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                Você pode reservar agora sem criar conta. Depois, se quiser, acompanhe tudo em Minhas reservas.
-              </p>
-              <button
-                onClick={() => setAuthStep("guest-form")}
-                className="flex min-h-12 w-full items-center justify-center rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground"
-              >
-                Continuar sem conta
-              </button>
-              <div className="flex items-center gap-3 py-1 text-[11px] uppercase tracking-widest text-muted-foreground">
-                <span className="h-px flex-1 bg-border" /> ou <span className="h-px flex-1 bg-border" />
-              </div>
-              <Link
-                href={`/book/${salonSlug}/login${returnToParam}`}
-                onClick={saveBookingState}
-                className="flex min-h-11 items-center justify-center gap-2 rounded-full border border-border py-3 text-sm font-medium"
-              >
-                <LogIn className="h-4 w-4" />
-                Entrar na minha conta
-              </Link>
-              <Link
-                href={`/book/${salonSlug}/cadastro${returnToParam}`}
-                onClick={saveBookingState}
-                className="flex min-h-11 items-center justify-center gap-2 rounded-full border border-border py-3 text-sm font-medium"
-              >
-                <UserPlus className="h-4 w-4" />
-                Criar conta
-              </Link>
-            </>
-          )}
-          {authStep === "guest-form" && (
-            <>
-              <p className="text-sm font-semibold">Seus dados</p>
-              <label htmlFor="guest-name" className="sr-only">Seu nome</label>
-              <input
-                id="guest-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Nome"
-                className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none"
-              />
-              <label htmlFor="guest-phone" className="sr-only">Seu WhatsApp</label>
-              <input
-                id="guest-phone"
-                type="tel"
-                inputMode="tel"
-                value={phone}
-                onChange={(e) => setPhone(formatPhoneBR(e.target.value))}
-                placeholder="WhatsApp — (11) 91234-5678"
-                className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none"
-              />
-              {phone && !isValidPhoneBR(phone) && (
-                <p className="text-xs text-muted-foreground">
-                  Digite o DDD + número completo.
-                </p>
-              )}
-              <p className="text-xs text-muted-foreground">
-                <button
-                  onClick={() => setAuthStep("prompt")}
-                  className="text-primary hover:underline"
-                >
-                  Voltar
-                </button>
-                {" "}para entrar ou criar conta
-              </p>
-            </>
-          )}
         </div>
       )}
 
@@ -1463,7 +1285,6 @@ export function BookingFlow({
             !slots.includes(slot) ||
             slotsLoading ||
             Boolean(slotsError) ||
-            (authStep === "guest-form" && (!name || !isValidPhoneBR(phone))) ||
             loading
           }
           className="min-h-12 w-full rounded-full bg-primary px-5 py-3 text-base font-semibold text-primary-foreground shadow-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-40"
@@ -1472,9 +1293,7 @@ export function BookingFlow({
             ? "Confirmando…"
             : rescheduleId
               ? "Confirmar remarcação"
-              : clientSession || authStep === "guest-form"
-                ? "Revisar reserva"
-                : "Continuar"}
+              : "Revisar reserva"}
         </button>
       </div>
       {reviewing && selectedProfessional && slot && (
@@ -1600,12 +1419,10 @@ function BoardingPass({
   booked,
   salonName,
   salonSlug,
-  guest,
 }: {
   booked: Booked;
   salonName: string;
   salonSlug: string;
-  guest: boolean;
 }) {
   function downloadIcs() {
     const dt = (d: Date) =>
@@ -1721,11 +1538,6 @@ function BoardingPass({
         >
           Ver minhas reservas
         </Link>
-        {guest && (
-          <p className="text-center text-xs leading-relaxed text-muted-foreground">
-            Para alterar esta reserva pelo app depois, crie uma conta com os mesmos dados ou fale com o salão.
-          </p>
-        )}
         <Link
           href={`/book/${salonSlug}`}
           className="py-2 text-center text-sm text-muted-foreground"

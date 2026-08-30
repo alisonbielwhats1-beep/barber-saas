@@ -54,6 +54,12 @@ describe("rotas públicas — acesso do estabelecimento", () => {
   });
 
   it("waitlist devolve o mesmo 404 sem executar a mutação", async () => {
+    mocks.getClientSession.mockResolvedValueOnce({
+      clientId: "client-a",
+      salonId: "salon-a",
+      name: "Cliente",
+      email: "cliente@example.com",
+    });
     const response = await joinPublicWaitlist(
       new NextRequest("http://localhost/api/waitlist/join", {
         method: "POST",
@@ -87,30 +93,7 @@ describe("rotas públicas — acesso do estabelecimento", () => {
     expect(mocks.withApprovedSalon).not.toHaveBeenCalled();
   });
 
-  it.each([
-    ["+55 (11) 99999-8888", "11999998888"],
-    ["55 11 99999-8888", "11999998888"],
-    ["(11) 99999-8888", "11999998888"],
-    ["+55 (11) 3333-4444", "1133334444"],
-    ["55 11 3333-4444", "1133334444"],
-    ["(11) 3333-4444", "1133334444"],
-  ])("waitlist normaliza telefone visitante %s no servidor", async (
-    clientPhone,
-    normalized,
-  ) => {
-    mocks.withApprovedSalon.mockImplementationOnce(
-      async (_salonId: string, callback: (tx: object) => unknown) => callback({}),
-    );
-    mocks.joinWaitlist.mockResolvedValueOnce({
-      entryId: "entry-a",
-      position: 1,
-      duplicate: false,
-      serviceNames: ["Corte"],
-      professionalId: "pro-a",
-      startAt: new Date("2030-01-10T15:00:00.000Z"),
-      timezone: "America/Sao_Paulo",
-    });
-
+  it("waitlist exige conta mesmo quando o visitante envia nome e telefone", async () => {
     const response = await joinPublicWaitlist(
       new NextRequest("http://localhost/api/waitlist/join", {
         method: "POST",
@@ -121,19 +104,15 @@ describe("rotas públicas — acesso do estabelecimento", () => {
           professionalId: "pro-a",
           serviceIds: ["service-a"],
           clientName: "Visitante",
-          clientPhone,
+          clientPhone: "(11) 99999-8888",
         }),
       }),
     );
 
-    expect(response.status).toBe(201);
-    expect(mocks.joinWaitlist).toHaveBeenCalledWith(
-      {},
-      expect.objectContaining({
-        guestName: "Visitante",
-        guestPhone: normalized,
-      }),
-    );
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({ error: "AUTH_REQUIRED" });
+    expect(mocks.withApprovedSalon).not.toHaveBeenCalled();
+    expect(mocks.joinWaitlist).not.toHaveBeenCalled();
   });
 
   it.each([

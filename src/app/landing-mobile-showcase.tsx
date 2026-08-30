@@ -52,11 +52,11 @@ export function LandingMobileShowcase() {
         <div className="mt-14 grid gap-6 xl:grid-cols-2">
           <article className="grid min-h-[720px] overflow-hidden rounded-[2rem] border border-[#cfe7df] bg-[#e8f8f5] px-6 pt-10 shadow-[0_32px_70px_-56px_rgba(23,32,28,.55)] sm:grid-cols-[.8fr_1.2fr] sm:px-10 sm:pt-12">
             <div className="relative z-10 pb-8 sm:pt-8">
-              <p className="text-[11px] font-bold uppercase tracking-[.16em] text-[#178b65]">Para o cliente</p>
+              <p className="text-[11px] font-bold uppercase tracking-[.16em] text-[#0f704f]">Para o cliente</p>
               <h3 className="mt-3 font-display text-3xl tracking-[-.04em]">Veja o aplicativo funcionando</h3>
               <p className="mt-4 text-sm leading-relaxed text-[#4f5d58]">Uma experiência completa para o cliente descobrir, agendar e acompanhar seus horários.</p>
               <div className="mt-6 flex flex-wrap gap-2" role="group" aria-label="Telas demonstradas">
-                {CLIENT_SCREENS.map((label, index) => <button key={label} type="button" aria-pressed={screen === index} onClick={() => chooseScreen(index)} className={cn("min-h-11 rounded-full border px-3 text-[11px] font-semibold transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#178b65] focus-visible:ring-offset-2", screen === index ? "border-[#178b65] bg-[#178b65] text-white" : "border-[#a8cec0] bg-white/70 text-[#284f41] hover:border-[#178b65]/60")}>{label}</button>)}
+                {CLIENT_SCREENS.map((label, index) => <button key={label} type="button" aria-pressed={screen === index} onClick={() => chooseScreen(index)} className={cn("min-h-11 rounded-full border px-3 text-[11px] font-semibold transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f704f] focus-visible:ring-offset-2", screen === index ? "border-[#0f704f] bg-[#0f704f] text-white" : "border-[#a8cec0] bg-white/70 text-[#284f41] hover:border-[#0f704f]/60")}>{label}</button>)}
               </div>
             </div>
             <ClientPhone screen={screen} onPause={setPaused} />
@@ -64,7 +64,7 @@ export function LandingMobileShowcase() {
 
           <article className="grid min-h-[720px] overflow-hidden rounded-[2rem] border border-[#dfe1dd] bg-[#f0f1ef] px-6 pt-10 shadow-[0_32px_70px_-56px_rgba(23,32,28,.55)] sm:grid-cols-[.72fr_1.28fr] sm:px-9 sm:pt-12">
             <div className="relative z-10 pb-8 sm:pt-8">
-              <p className="text-[11px] font-bold uppercase tracking-[.16em] text-[#178b65]">Para o estabelecimento</p>
+              <p className="text-[11px] font-bold uppercase tracking-[.16em] text-[#0f704f]">Para o estabelecimento</p>
               <h3 className="mt-3 font-display text-3xl tracking-[-.04em]">A agenda do dia no bolso</h3>
               <p className="mt-4 text-sm leading-relaxed text-[#4f5d58]">Indicadores, filtros, profissionais, horários e status no mesmo formato usado pelo estabelecimento.</p>
             </div>
@@ -77,7 +77,7 @@ export function LandingMobileShowcase() {
 }
 
 function PhoneShell({ children, dark = false }: { children: React.ReactNode; dark?: boolean }) {
-  return <div aria-hidden="true" className={cn("relative mx-auto h-[640px] w-[306px] self-end rounded-t-[3rem] border p-2.5 shadow-[0_30px_70px_-28px_rgba(7,12,10,.45)]", dark ? "border-[#303138] bg-[#111216]" : "border-[#252932] bg-[#090b0f]")}><span className={cn("absolute left-1/2 top-4 z-30 h-6 w-24 -translate-x-1/2 rounded-full", dark ? "bg-[#22242a]" : "bg-[#1b1f27]")} /><div className="relative h-full overflow-hidden rounded-t-[2.35rem] bg-[#0e0f12]">{children}</div></div>;
+  return <div aria-hidden="true" className={cn("landing-phone-mockup relative mx-auto h-[640px] w-[306px] self-end rounded-t-[3rem] border p-2.5 shadow-[0_30px_70px_-28px_rgba(7,12,10,.45)]", dark ? "border-[#303138] bg-[#111216]" : "border-[#252932] bg-[#090b0f]")}><span className={cn("absolute left-1/2 top-4 z-30 h-6 w-24 -translate-x-1/2 rounded-full", dark ? "bg-[#22242a]" : "bg-[#1b1f27]")} /><div className="relative h-full overflow-hidden rounded-t-[2.35rem] bg-[#0e0f12]">{children}</div></div>;
 }
 
 function ClientPhone({ screen, onPause }: { screen: number; onPause: (paused: boolean) => void }) {

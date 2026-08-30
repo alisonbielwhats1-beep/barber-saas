@@ -1,3 +1,5 @@
+import sharp from "sharp";
+
 export const UPLOAD_FOLDERS = [
   "portfolio",
   "products",
@@ -9,7 +11,6 @@ export const UPLOAD_FOLDERS = [
 export type UploadFolder = (typeof UPLOAD_FOLDERS)[number];
 
 export const IMAGE_MIME_TYPES = [
-  "image/gif",
   "image/jpeg",
   "image/png",
   "image/webp",
@@ -48,16 +49,78 @@ export function detectImageMimeType(
   ) {
     return "image/png";
   }
-  if (bytes.length >= 6) {
-    const gif = new TextDecoder("ascii").decode(bytes.slice(0, 6));
-    if (gif === "GIF87a" || gif === "GIF89a") return "image/gif";
-  }
   if (bytes.length >= 12) {
     const riff = new TextDecoder("ascii").decode(bytes.slice(0, 4));
     const webp = new TextDecoder("ascii").decode(bytes.slice(8, 12));
     if (riff === "RIFF" && webp === "WEBP") return "image/webp";
   }
   return null;
+}
+
+export const MAX_IMAGE_DIMENSION = 8_192;
+export const MAX_IMAGE_PIXELS = 40_000_000;
+export const MIN_IMAGE_DIMENSION = 32;
+
+export class ImageUploadValidationError extends Error {
+  constructor(readonly code: "INVALID_IMAGE" | "INVALID_DIMENSIONS") {
+    super(code);
+    this.name = "ImageUploadValidationError";
+  }
+}
+
+/**
+ * Decodifica e regrava a imagem antes de enviá-la ao storage. Além de validar
+ * dimensões e conteúdo completo, isso remove EXIF e bytes anexados ao arquivo.
+ */
+export async function normalizeUploadedImage(
+  bytes: Uint8Array,
+  mimeType: ImageMimeType,
+): Promise<{
+  bytes: Uint8Array;
+  extension: "jpg" | "png" | "webp";
+  mimeType: ImageMimeType;
+  width: number;
+  height: number;
+}> {
+  try {
+    const metadata = await sharp(bytes, {
+      failOn: "error",
+      limitInputPixels: MAX_IMAGE_PIXELS,
+    }).metadata();
+    const width = metadata.width ?? 0;
+    const height = metadata.height ?? 0;
+    if (
+      width < MIN_IMAGE_DIMENSION ||
+      height < MIN_IMAGE_DIMENSION ||
+      width > MAX_IMAGE_DIMENSION ||
+      height > MAX_IMAGE_DIMENSION ||
+      width * height > MAX_IMAGE_PIXELS ||
+      (metadata.pages ?? 1) > 1
+    ) {
+      throw new ImageUploadValidationError("INVALID_DIMENSIONS");
+    }
+
+    const pipeline = sharp(bytes, {
+      failOn: "error",
+      limitInputPixels: MAX_IMAGE_PIXELS,
+    }).rotate();
+    const output = mimeType === "image/jpeg"
+      ? await pipeline.jpeg({ quality: 90, mozjpeg: true }).toBuffer({ resolveWithObject: true })
+      : mimeType === "image/png"
+        ? await pipeline.png({ compressionLevel: 9 }).toBuffer({ resolveWithObject: true })
+        : await pipeline.webp({ quality: 90, alphaQuality: 100 }).toBuffer({ resolveWithObject: true });
+
+    return {
+      bytes: output.data,
+      extension: mimeType === "image/jpeg" ? "jpg" : mimeType === "image/png" ? "png" : "webp",
+      mimeType,
+      width: output.info.width,
+      height: output.info.height,
+    };
+  } catch (error) {
+    if (error instanceof ImageUploadValidationError) throw error;
+    throw new ImageUploadValidationError("INVALID_IMAGE");
+  }
 }
 
 export function canUploadToFolder(

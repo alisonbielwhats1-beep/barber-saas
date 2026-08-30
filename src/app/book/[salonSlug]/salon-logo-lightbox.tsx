@@ -20,6 +20,8 @@ export function SalonLogoLightbox({
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const validSrc = src && failedSrc !== src ? src : null;
 
   useEffect(() => {
     if (!open) return;
@@ -37,15 +39,19 @@ export function SalonLogoLightbox({
     };
   }, [open]);
 
-  const thumbnail = src ? (
+  const thumbnail = validSrc ? (
     <Image
-      src={src}
+      src={validSrc}
       alt={alt}
       fill
       unoptimized
       sizes="160px"
       quality={95}
       className={`transition-transform duration-200 group-hover:scale-[1.03] ${thumbnailImageClassName ?? "object-contain"}`}
+      onError={() => {
+        setFailedSrc(validSrc);
+        setOpen(false);
+      }}
     />
   ) : (
     children
@@ -53,7 +59,7 @@ export function SalonLogoLightbox({
 
   return (
     <>
-      {src ? (
+      {validSrc ? (
         <button
           type="button"
           onClick={() => setOpen(true)}
@@ -72,7 +78,7 @@ export function SalonLogoLightbox({
         <div className={`relative ${className}`}>{thumbnail}</div>
       )}
 
-      {src && open && (
+      {validSrc && open && (
         <div
           role="dialog"
           aria-modal="true"
@@ -93,7 +99,7 @@ export function SalonLogoLightbox({
             onClick={(event) => event.stopPropagation()}
           >
             <Image
-              src={src}
+              src={validSrc}
               alt={alt}
               fill
               priority
@@ -101,6 +107,10 @@ export function SalonLogoLightbox({
               quality={95}
               sizes="(max-width: 640px) 92vw, 1100px"
               className="object-contain"
+              onError={() => {
+                setFailedSrc(validSrc);
+                setOpen(false);
+              }}
             />
           </div>
         </div>

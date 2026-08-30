@@ -59,12 +59,7 @@ describe("CadastroForm", () => {
   it("mantém a máscara do telefone e envia os dados preenchidos", async () => {
     mocks.registerClient.mockResolvedValue(undefined);
     const user = userEvent.setup();
-    render(
-      <CadastroForm
-        salonSlug="studio-a"
-        returnTo="/book/studio-a/agendar?services=service-a"
-      />,
-    );
+    render(<CadastroForm salonSlug="studio-a" />);
 
     await fillRequiredFields(user);
     fireEvent.change(screen.getByPlaceholderText("(11) 91234-5678"), {
@@ -84,7 +79,6 @@ describe("CadastroForm", () => {
         password: "123456",
         confirmPassword: "123456",
       },
-      "/book/studio-a/agendar?services=service-a",
     );
   });
 });

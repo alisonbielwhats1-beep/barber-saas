@@ -375,6 +375,19 @@ describe("persistência transacional de convites", () => {
     expect(state.invites[0]?.usedAt).toBeNull();
   });
 
+  it.each(["x".repeat(73), "é".repeat(37)])(
+    "rejeita senha de convite acima de 72 bytes antes de consultar o token",
+    async (password) => {
+      await expect(acceptNewUserInvite({
+        token: tokenA,
+        password,
+        now,
+      })).resolves.toEqual({ ok: false, reason: "INVALID" });
+
+      expect(fakePrisma.userInvite.findUnique).not.toHaveBeenCalled();
+    },
+  );
+
   it("duas aceitações concorrentes criam User, Membership e Professional uma vez", async () => {
     await createUserInvite(professionalInput(), { now, token: tokenA, mailer });
     const acceptedAt = new Date(now.getTime() + 5_000);

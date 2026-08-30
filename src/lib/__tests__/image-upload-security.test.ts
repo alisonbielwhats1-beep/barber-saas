@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   canUploadToFolder,
   detectImageMimeType,
+  ImageUploadValidationError,
   isUploadFolder,
+  normalizeUploadedImage,
 } from "@/lib/image-upload-security";
+import sharp from "sharp";
 
 describe("segurança de upload de imagens", () => {
   it("detecta o conteúdo real em vez de confiar no MIME enviado", () => {
@@ -20,6 +23,33 @@ describe("segurança de upload de imagens", () => {
     expect(
       detectImageMimeType(new TextEncoder().encode("<script>alert(1)</script>")),
     ).toBeNull();
+  });
+
+  it("decodifica, remove metadados e preserva dimensões válidas", async () => {
+    const input = await sharp({
+      create: { width: 80, height: 60, channels: 3, background: "#123456" },
+    }).jpeg().withMetadata({ exif: { IFD0: { Artist: "não persistir" } } }).toBuffer();
+
+    const result = await normalizeUploadedImage(input, "image/jpeg");
+    const metadata = await sharp(result.bytes).metadata();
+
+    expect(result).toEqual(expect.objectContaining({
+      extension: "jpg",
+      mimeType: "image/jpeg",
+      width: 80,
+      height: 60,
+    }));
+    expect(metadata.exif).toBeUndefined();
+  });
+
+  it("rejeita imagem pequena demais antes do storage", async () => {
+    const input = await sharp({
+      create: { width: 16, height: 16, channels: 3, background: "#123456" },
+    }).png().toBuffer();
+
+    await expect(normalizeUploadedImage(input, "image/png")).rejects.toMatchObject({
+      code: "INVALID_DIMENSIONS",
+    } satisfies Partial<ImageUploadValidationError>);
   });
 
   it("aceita somente finalidades conhecidas", () => {

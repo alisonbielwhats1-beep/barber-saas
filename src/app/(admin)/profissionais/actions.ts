@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { z } from "zod";
+import { assertAllowedStoredImageUrl } from "@/lib/stored-image-url";
 import { assertRole, getTenantContext } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
 import { assertEmailInvitesEnabled } from "@/lib/email-invites-feature";
@@ -146,6 +147,7 @@ export async function updateProfessional(
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER"]);
   const data = updateInput.parse(input);
+  assertAllowedStoredImageUrl(data.avatarUrl, ctx.salonId);
 
   const salonSlug = await withTenant(ctx, async (tx) => {
     const pro = await tx.professional.findFirst({

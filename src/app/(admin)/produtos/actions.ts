@@ -8,6 +8,7 @@ import { lockProductMutations } from "@/lib/inventory-lock";
 import { adjustProductStockReliably } from "@/lib/appointment-product-service";
 import { assertPlanFeature } from "@/lib/plan-entitlements";
 import type { Tx } from "@/lib/prisma-tenant";
+import { assertAllowedStoredImageUrl } from "@/lib/stored-image-url";
 
 async function assertInventoryEnabled(tx: Tx, salonId: string) {
   const salon = await tx.salon.findUnique({
@@ -55,6 +56,7 @@ export async function createProduct(input: ProductInput) {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER"]);
   const data = productInput.parse(input);
+  assertAllowedStoredImageUrl(data.imageUrl, ctx.salonId);
   await withTenant(ctx, async (tx) => {
     await assertInventoryEnabled(tx, ctx.salonId);
     await tx.product.create({ data: { salonId: ctx.salonId, ...toData(data) } });
@@ -66,6 +68,7 @@ export async function updateProduct(id: string, input: ProductInput) {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER"]);
   const data = productInput.parse(input);
+  assertAllowedStoredImageUrl(data.imageUrl, ctx.salonId);
   await withTenant(ctx, async (tx) => {
     await assertInventoryEnabled(tx, ctx.salonId);
     await lockProductMutations(tx, [id]);

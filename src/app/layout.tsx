@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
+import { PWA_APPLE_ICON } from "@/lib/pwa-icons";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
 
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   icons: {
     icon: "/icon.svg",
-    apple: "/icon.svg",
+    apple: PWA_APPLE_ICON,
   },
   appleWebApp: {
     capable: true,

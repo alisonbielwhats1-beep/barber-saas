@@ -93,7 +93,7 @@ export default function PrivacidadePage() {
             ],
             [
               "Imagens",
-              "Fotos de portfólio e de produtos enviadas pelo estabelecimento",
+              "Logo, capa e fotos do estabelecimento, de profissionais, serviços, portfólio e produtos",
               "Upload feito por você",
             ],
           ]}
@@ -193,11 +193,6 @@ export default function PrivacidadePage() {
               "Gerar a imagem do QR code de divulgação. Recebe apenas o endereço público de agendamento do estabelecimento — nenhum dado pessoal",
               "Conforme o prestador",
             ],
-            [
-              "Unsplash",
-              "Imagens ilustrativas carregadas diretamente pelo navegador de quem visita. Isso expõe o IP do visitante ao Unsplash, como em qualquer imagem externa na web",
-              "Conforme o prestador",
-            ],
           ]}
         />
         <p>
@@ -226,6 +221,10 @@ export default function PrivacidadePage() {
               "active_salon",
               "Guarda qual estabelecimento está ativo, para quem administra mais de um",
             ],
+            [
+              "client_token",
+              "Mantém o cliente conectado à página do estabelecimento por até 30 dias",
+            ],
           ]}
         />
       </LegalSection>
@@ -235,7 +234,7 @@ export default function PrivacidadePage() {
           items={[
             "Dados da conta e do estabelecimento: enquanto a conta existir.",
             "Dados de clientes e atendimentos: enquanto o estabelecimento mantiver a conta ativa, já que é ele quem define esse prazo como controlador.",
-            "Excluída a conta, os dados vinculados são apagados, salvo o que precisar ser mantido por obrigação legal ou para defesa em processo.",
+            "Pedidos de exclusão são avaliados conforme o papel do controlador e as obrigações legais. Registros históricos de atendimentos, cancelamentos e movimentações podem ser preservados quando necessários para cumprir obrigação legal, manter a integridade operacional ou exercer direitos.",
             "Registros de contenção de abuso: apagados automaticamente ao fim da janela de contagem, que é de minutos ou horas.",
           ]}
         />
@@ -252,7 +251,7 @@ export default function PrivacidadePage() {
             "Todo o tráfego trafega por HTTPS.",
             "Cada estabelecimento tem seus dados isolados: toda consulta ao banco é filtrada pelo identificador do estabelecimento da sessão ativa.",
             "Acesso ao financeiro é restrito por papel — quem não tem permissão não vê o módulo nem acessa a rota.",
-            "O banco de dados fica em São Paulo, e não é exposto publicamente à internet.",
+            "O banco de dados fica em São Paulo e exige conexão autenticada; as políticas de isolamento também são aplicadas no próprio PostgreSQL.",
             "Limites de tentativa em login, cadastro e agendamento, para conter ataque automatizado.",
           ]}
         />

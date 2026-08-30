@@ -52,7 +52,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const parsed = bodySchema.safeParse(await req.json());
+  let payload: unknown;
+  try {
+    payload = await req.json();
+  } catch {
+    return NextResponse.json({ error: "BAD_REQUEST" }, { status: 400 });
+  }
+  const parsed = bodySchema.safeParse(payload);
   if (!parsed.success) {
     return NextResponse.json({ error: "BAD_REQUEST" }, { status: 400 });
   }

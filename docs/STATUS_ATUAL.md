@@ -1,9 +1,27 @@
 # Status atual canônico — Salon SaaS
 
-Atualizado em **27/08/2026**. As migrations manuais 012, 013, 014, 015 e 016
+Atualizado em **30/08/2026**. As migrations manuais 012, 013, 014, 015 e 016
 foram aplicadas no Supabase Production; a execução da fase 016 foi confirmada
 pelo responsável antes da promoção do código.
 Este arquivo substitui os status históricos quando houver contradição.
+
+## Candidata de prontidão comercial — ainda não implantada
+
+- Base sincronizada: `master`/`origin/master` em `8b1fd34`.
+- Branch em validação: `codex/commercial-readiness-audit`.
+- Auditoria e matriz P0–P3:
+  `docs/AUDITORIA_PRONTIDAO_COMERCIAL_2026-08-30.md`.
+- A candidata exige conta no servidor para agendamento/fila pública, mantém
+  cliente sem conta apenas na operação manual da equipe, reforça senhas,
+  uploads/imagens, PWA, CSP, acessibilidade e tratamento de JSON inválido.
+- Evidência local atual: 114 arquivos/595 testes Vitest; build com 45 páginas;
+  E2E público com 28 aprovações em Chromium, Firefox e WebKit e todas as
+  larguras-alvo.
+- O E2E autenticado e os testes PostgreSQL serão executados somente no banco
+  descartável do CI. Preview autenticado continua proibido até configurar
+  staging inequivocamente separado.
+- Esta seção não descreve Production. Não houve deploy, migration ou escrita
+  no Supabase durante a auditoria.
 
 ## Fase 0 — prontidão para produção em validação
 
@@ -302,7 +320,8 @@ hotfix do PR #51 fechou a incompatibilidade de lock público com a role runtime.
 4. Validar a migration `011`, RLS, rollback e cobranças manuais em staging;
    só depois decidir se ativa em Production.
 5. Ativar convites por e-mail via Resend somente após teste completo em Preview.
-6. Adicionar Playwright para jornadas E2E quando houver banco de staging seguro.
+6. Confirmar no CI os novos E2E Playwright públicos e autenticados; repetir as
+   jornadas no Preview quando houver banco de staging seguro.
 7. Ensaiar backup nativo/restore do Supabase antes de clientes reais.
 8. Rotacionar/remover qualquer credencial de demonstração conhecida e nunca
    documentar senhas no repositório público.
@@ -311,20 +330,19 @@ hotfix do PR #51 fechou a incompatibilidade de lock público com a role runtime.
 
 ## Próximo passo recomendado
 
-Não refazer auditoria geral. Começar por uma verificação curta do repositório e
-escolher apenas uma frente:
+Concluir a candidata de prontidão comercial sem alterar Production:
 
 - **Operação imediata:** validar login SUPER_ADMIN e onboarding de um tenant;
 - **Infraestrutura:** criar staging Supabase e ensaiar a migration `011`;
-- **Qualidade:** adicionar E2E dos fluxos críticos em Preview isolado.
+- **Qualidade:** aprovar CI e executar E2E dos fluxos críticos em Preview isolado.
 
 ## Prompt curto para outra conversa
 
 > Trabalhe no repositório `alisonbielwhats1-beep/barber-saas`. Leia primeiro
 > `AGENTS.md`, `docs/STATUS_ATUAL.md`, `docs/AMBIENTES.md` e
-> `docs/DECISOES_PRODUTO.md`. Não refaça auditoria completa e não altere
-> Production. Confirme branch limpa, CI e o escopo escolhido. A versão
-> funcional implantada é o commit `6465123`; a migration
+> `docs/DECISOES_PRODUTO.md`. Não altere Production. Continue pela auditoria
+> versionada, confirme branch/CI/Preview e não repita evidências já coletadas.
+> A base da candidata é `8b1fd34`; a migration
 > `011_platform_billing` não foi
 > aplicada e a flag de billing está desligada. Preserve RLS, histórico e
 > isolamento multi-tenant. Proponha o próximo passo antes de qualquer migration.

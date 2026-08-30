@@ -1,6 +1,5 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import {
   ArrowRight,
   BellRing,
@@ -13,9 +12,10 @@ import { HERO_IMAGES, normalizeImageUrl } from "@/lib/images";
 import { SEGMENTS } from "@/lib/segments";
 import { getClientSession } from "@/lib/client-auth";
 import { resolveClientSessionInTenant } from "@/lib/public-appointment";
-import { clientHomePath, safeClientReturnTo } from "@/lib/client-routes";
+import { clientHomePath } from "@/lib/client-routes";
 import { PwaInstallCard } from "@/components/pwa-install-card";
 import { SalonLogoLightbox } from "../salon-logo-lightbox";
+import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 
 /**
  * Entrada do app do cliente. Visitantes passam primeiro por esta escolha de
@@ -28,7 +28,7 @@ export default async function WelcomePage({
   params: Promise<{ salonSlug: string }>;
   searchParams: Promise<{ returnTo?: string }>;
 }) {
-  const [{ salonSlug }, query] = await Promise.all([params, searchParams]);
+  const [{ salonSlug }] = await Promise.all([params, searchParams]);
   const session = await getClientSession();
   const result = await withSalonBySlug(salonSlug, async (tx, salonId) => {
     const salon = await tx.salon.findUnique({
@@ -47,12 +47,10 @@ export default async function WelcomePage({
   if (!result) notFound();
 
   const homePath = clientHomePath(salonSlug);
-  const returnTo = safeClientReturnTo(salonSlug, query.returnTo, homePath);
   if (result.validSession) {
-    redirect(returnTo);
+    redirect(homePath);
   }
 
-  const authQuery = `?returnTo=${encodeURIComponent(returnTo)}`;
   const { salon } = result;
 
   // Escolha determinística por slug pra a mesma URL sempre mostrar a mesma foto
@@ -60,7 +58,8 @@ export default async function WelcomePage({
     .split("")
     .reduce((a, c) => a + c.charCodeAt(0), 0) % HERO_IMAGES.length;
   const segmentImage = SEGMENTS.find((item) => item.id === salon.segment)?.accentImage;
-  const heroSrc = normalizeImageUrl(salon.coverUrl) ?? segmentImage ?? HERO_IMAGES[heroIdx];
+  const heroFallback = segmentImage ?? HERO_IMAGES[heroIdx];
+  const heroSrc = normalizeImageUrl(salon.coverUrl) ?? heroFallback;
   const logoSrc = normalizeImageUrl(salon.logoUrl);
   const benefits = [
     { icon: CalendarDays, label: "Agende", text: "Escolha seu horário" },
@@ -71,8 +70,9 @@ export default async function WelcomePage({
   return (
     <div className="relative flex min-h-dvh flex-col overflow-x-hidden">
       {/* Hero image */}
-      <Image
+      <ImageWithFallback
         src={heroSrc}
+        fallbackSrc={heroFallback}
         alt=""
         fill
         priority
@@ -105,13 +105,13 @@ export default async function WelcomePage({
         </div>
         <div className="flex items-center gap-1">
           <Link
-            href={`/book/${salonSlug}/login${authQuery}`}
-            className="inline-flex min-h-11 items-center rounded-full px-3 text-xs font-semibold text-white/75 transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            href={`/book/${salonSlug}/login`}
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full px-3 text-xs font-semibold text-white/75 transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             Entrar
           </Link>
           <Link
-            href={`/book/${salonSlug}/cadastro${authQuery}`}
+            href={`/book/${salonSlug}/cadastro`}
             className="inline-flex min-h-11 items-center rounded-full bg-primary px-3 text-xs font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             Criar conta
@@ -145,7 +145,7 @@ export default async function WelcomePage({
 
         <div className="mt-4 grid gap-3">
           <Link
-            href={`/book/${salonSlug}/login${authQuery}`}
+            href={`/book/${salonSlug}/login`}
             className="flex min-h-14 items-center justify-between rounded-full bg-primary px-6 py-4 text-base font-semibold text-primary-foreground shadow-2xl shadow-primary/30 transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             Entrar na minha conta
@@ -154,7 +154,7 @@ export default async function WelcomePage({
             </span>
           </Link>
           <Link
-            href={`/book/${salonSlug}/cadastro${authQuery}`}
+            href={`/book/${salonSlug}/cadastro`}
             className="flex min-h-14 items-center justify-center rounded-full border border-white/20 bg-black/25 px-6 py-4 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             Criar uma conta

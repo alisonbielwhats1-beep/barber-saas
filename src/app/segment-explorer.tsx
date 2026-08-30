@@ -102,7 +102,7 @@ export function SegmentExplorer() {
         className="animate-segment-panel mt-8 grid gap-8 rounded-3xl border border-border bg-card p-6 shadow-[0_24px_55px_-42px_rgba(29,50,40,0.6)] md:min-h-[286px] md:grid-cols-[0.95fr_1.05fr] md:p-8"
       >
         <div>
-          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground/80">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
             Segmento selecionado
           </p>
           <h3 className="flex items-center gap-2 font-display text-2xl tracking-[-0.025em]">
@@ -111,7 +111,7 @@ export function SegmentExplorer() {
           </h3>
           <p className="mt-3 max-w-lg leading-relaxed text-muted-foreground">{selected.description}</p>
 
-          <p className="mb-2 mt-6 text-xs font-semibold uppercase tracking-widest text-muted-foreground/70">
+          <p className="mb-2 mt-6 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             Exemplos de serviço
           </p>
           <div className="flex flex-wrap gap-2">
@@ -127,7 +127,7 @@ export function SegmentExplorer() {
         </div>
 
         <div className="md:border-l md:border-border md:pl-8">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground/70">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             O que você organiza em um só lugar
           </p>
           <ul className="space-y-2.5">

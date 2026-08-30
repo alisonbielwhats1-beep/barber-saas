@@ -35,6 +35,11 @@ describe("manifesto instalável do salão", () => {
     expect(manifest.name).toBe("Studio Atual — agendamento online");
     expect(manifest.start_url).toBe("/book/studio-a/welcome");
     expect(manifest.scope).toBe("/book/studio-a/");
+    expect(manifest.icons).toEqual(expect.arrayContaining([
+      expect.objectContaining({ sizes: "192x192", type: "image/png" }),
+      expect.objectContaining({ sizes: "512x512", type: "image/png", purpose: "any" }),
+      expect.objectContaining({ sizes: "512x512", type: "image/png", purpose: "maskable" }),
+    ]));
   });
 
   it("não expõe manifesto para salão inexistente ou não aprovado", async () => {

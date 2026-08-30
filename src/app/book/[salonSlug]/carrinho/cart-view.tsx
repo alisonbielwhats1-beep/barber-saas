@@ -1,10 +1,10 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { Minus, Plus, Trash2, ArrowRight, ShoppingBag } from "lucide-react";
 import { useCart } from "@/lib/cart";
 import { formatMoney } from "@/lib/utils";
+import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 
 export function CartView({ salonSlug }: { salonSlug: string }) {
   const { items, totalCents, setQuantity, remove } = useCart(salonSlug);
@@ -35,7 +35,14 @@ export function CartView({ salonSlug }: { salonSlug: string }) {
             className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3"
           >
             <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-muted">
-              <Image src={it.imageUrl} alt={it.name} fill sizes="64px" className="object-cover" />
+              <ImageWithFallback
+                src={it.imageUrl}
+                fallbackSrc="/images/salon-hero-aesthetics-v2.webp"
+                alt={it.name}
+                fill
+                sizes="64px"
+                className="object-cover"
+              />
             </div>
             <div className="min-w-0 flex-1">
               <p className="line-clamp-1 text-sm font-medium">{it.name}</p>

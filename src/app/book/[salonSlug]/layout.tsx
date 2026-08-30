@@ -1,15 +1,12 @@
 import type { Metadata } from "next";
-import { prisma } from "@/lib/prisma";
 import { getClientSession } from "@/lib/client-auth";
 import { withSalonBySlug } from "@/lib/prisma-tenant";
 import { resolveClientSessionInTenant } from "@/lib/public-appointment";
 import { ClientShell } from "./client-shell";
 
 /**
- * Título por salão — lido direto (Salon tem leitura pública nas policies de
- * RLS, mesma razão documentada em `lib/slug.ts`). Sem isso, toda página de
- * `/book/*` mostrava o mesmo título de marca genérico, incorreto pra
- * qualquer salão que não fosse aquele específico.
+ * O mesmo gate transacional da página protege os metadados: um salão suspenso
+ * não pode continuar expondo nome nem manifesto específico pelo HTML.
  */
 export async function generateMetadata({
   params,
@@ -17,10 +14,12 @@ export async function generateMetadata({
   params: Promise<{ salonSlug: string }>;
 }): Promise<Metadata> {
   const { salonSlug } = await params;
-  const salon = await prisma.salon.findUnique({
-    where: { slug: salonSlug },
-    select: { name: true },
-  });
+  const salon = await withSalonBySlug(salonSlug, (tx, salonId) =>
+    tx.salon.findUnique({
+      where: { id: salonId },
+      select: { name: true },
+    }),
+  );
   return {
     title: salon ? `${salon.name} — agendamento online` : "SalonSaaS",
     manifest: `/book/${salonSlug}/manifest.webmanifest`,

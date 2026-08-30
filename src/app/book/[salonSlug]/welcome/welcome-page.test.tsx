@@ -74,7 +74,7 @@ describe("entrada do app do cliente", () => {
     })).rejects.toThrow("NEXT_REDIRECT:/book/studio-a");
   });
 
-  it("preserva a volta para o agendamento depois do login", async () => {
+  it("não envia visitante direto ao agendamento antes da autenticação", async () => {
     await expect(WelcomePage({
       params: Promise.resolve({ salonSlug: "studio-a" }),
       searchParams: Promise.resolve({
