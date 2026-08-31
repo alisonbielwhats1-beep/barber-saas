@@ -48,7 +48,7 @@ describe("client auth regressions", () => {
     mocks.hash.mockResolvedValue("password-hash");
     mocks.compare.mockResolvedValue(false);
     mocks.clientFindFirst.mockResolvedValue(null);
-    mocks.clientCreate.mockResolvedValue({ id: "client-a" });
+    mocks.clientCreate.mockResolvedValue({ id: "client-a", sessionVersion: 0 });
     mocks.withSalonBySlug.mockImplementation(
       async (_slug: string, callback: (value: typeof tx, salonId: string) => unknown) =>
         callback(tx, "salon-a"),

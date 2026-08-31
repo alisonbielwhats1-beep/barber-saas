@@ -66,7 +66,7 @@ const REGISTRATION_ERROR =
   "Não foi possível criar a conta com os dados informados.";
 
 type RegistrationResult =
-  | { clientId: string; salonId: string }
+  | { clientId: string; salonId: string; sessionVersion: number }
   | null;
 
 function isUniqueConflict(error: unknown): boolean {
@@ -269,7 +269,7 @@ export async function registerClient(
           passwordHash,
           gender: inferGenderFromName(registration.name),
         },
-        select: { id: true },
+        select: { id: true, sessionVersion: true },
       });
       if (matches.length > 0) {
         await writeAuditLog(tx, {
@@ -286,7 +286,11 @@ export async function registerClient(
           },
         });
       }
-      return { clientId: client.id, salonId };
+      return {
+        clientId: client.id,
+        salonId,
+        sessionVersion: client.sessionVersion,
+      };
     });
   } catch (error) {
     if (error instanceof Error && error.message === "CLIENT_ACCOUNT_EXISTS") {
@@ -305,7 +309,7 @@ export async function registerClient(
     salonId: result.salonId,
     name: registration.name,
     email: registration.email,
-    sessionVersion: 0,
+    sessionVersion: result.sessionVersion,
   });
 
   void returnTo;

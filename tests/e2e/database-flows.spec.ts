@@ -39,6 +39,7 @@ test.describe("@database jornadas críticas no PostgreSQL descartável", () => {
       waitUntil: "domcontentloaded",
       timeout: 45_000,
     });
+    await expect(page).toHaveURL(/\/book\/luna-hair$/);
     const bookingLink = page.getByRole("link", {
       name: "Agendar agora",
       exact: true,

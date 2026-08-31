@@ -1,5 +1,6 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
+import { clientCookieIsSecure } from "./client-cookie";
 
 // Sem fallback: um segredo padrão público tornaria toda sessão de cliente forjável.
 function requireSecret(): Uint8Array {
@@ -53,7 +54,7 @@ export async function setClientSession(payload: ClientSession): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.set(COOKIE, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: clientCookieIsSecure(),
     sameSite: "lax",
     maxAge: MAX_AGE,
     path: "/",

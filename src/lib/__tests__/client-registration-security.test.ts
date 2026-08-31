@@ -53,7 +53,7 @@ describe("registerClient — validação no servidor", () => {
     mocks.compare.mockResolvedValue(false);
     mocks.clientFindFirst.mockResolvedValue(null);
     mocks.clientFindMany.mockResolvedValue([]);
-    mocks.clientCreate.mockResolvedValue({ id: "client-a" });
+    mocks.clientCreate.mockResolvedValue({ id: "client-a", sessionVersion: 0 });
     mocks.withSalonBySlug.mockImplementation(
       async (_slug: string, callback: (value: typeof tx, salonId: string) => unknown) =>
         callback(tx, "salon-a"),
@@ -143,7 +143,7 @@ describe("registerClient — validação no servidor", () => {
         passwordHash: "password-hash",
         gender: "FEMALE",
       },
-      select: { id: true },
+      select: { id: true, sessionVersion: true },
     });
     expect(mocks.setClientSession).toHaveBeenCalledWith({
       clientId: "client-a",
