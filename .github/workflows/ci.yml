@@ -238,3 +238,8 @@ jobs:
           npx prisma db execute
           --file prisma/sql/manual/016_booking_experience.rollback.sql
           --url "$DIRECT_URL"
+      - name: Prove non-destructive password recovery rollback SQL
+        run: >-
+          npx prisma db execute
+          --file prisma/sql/manual/017_password_recovery.rollback.sql
+          --url "$DIRECT_URL"

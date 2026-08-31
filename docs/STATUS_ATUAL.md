@@ -1,11 +1,11 @@
 # Status atual canônico — Salon SaaS
 
-Atualizado em **30/08/2026**. As migrations manuais 012, 013, 014, 015 e 016
-foram aplicadas no Supabase Production; a execução da fase 016 foi confirmada
-pelo responsável antes da promoção do código.
+Atualizado em **30/08/2026**. As migrations manuais 012, 013, 014, 015, 016 e
+017 foram aplicadas no Supabase Production; a execução da fase 017 ocorreu
+após autorização explícita e antes da promoção do código correspondente.
 Este arquivo substitui os status históricos quando houver contradição.
 
-## Candidata de prontidão comercial — ainda não implantada
+## Candidata de prontidão comercial — código ainda não implantado
 
 - Base sincronizada: `master`/`origin/master` em `8b1fd34`.
 - Branch em validação: `codex/commercial-readiness-audit`.
@@ -15,18 +15,19 @@ Este arquivo substitui os status históricos quando houver contradição.
   cliente sem conta apenas na operação manual da equipe, reforça senhas,
   uploads/imagens, PWA, CSP, acessibilidade, recuperação de senha por e-mail e
   tratamento de JSON inválido.
-- A migration manual aditiva `017_password_recovery` está versionada, mas não
-  foi aplicada em Production. O código depende dela e deve ser promovido
-  somente depois do preflight e aplicação no ambiente aprovado.
-- Evidência local atual: 119 arquivos/613 testes Vitest; build com 46 páginas
-  no passo de geração estática; E2E público com 31 aprovações em Chromium,
-  Firefox e WebKit e todas as
-  larguras-alvo.
-- O E2E autenticado e os testes PostgreSQL serão executados somente no banco
-  descartável do CI. Preview autenticado continua proibido até configurar
-  staging inequivocamente separado.
-- Esta seção não descreve Production. Não houve deploy, migration ou escrita
-  no Supabase durante a auditoria.
+- A migration manual aditiva `017_password_recovery` foi aplicada em Production
+  em 30/08/2026 após autorização explícita, identificação inequívoca do projeto
+  `barber-saas` (`vshnatkzxdekkvqttvbv`) e preflight somente leitura. As
+  contagens permaneceram em 20 usuários e 58 perfis de cliente; seis colunas e
+  dois índices foram confirmados, com zero tokens ou versões alterados.
+- Evidência do CI no commit `e49b0e9`: 120 arquivos/616 testes Vitest, três
+  testes de integração, build aprovado, E2E público em Chromium, Firefox e
+  WebKit e duas jornadas autenticadas no PostgreSQL 16 descartável.
+- Preview `dpl_9EkvLByDiiv1UM4r1sVfHghpfLu1` está `READY`; a landing respondeu
+  `200` e rotas protegidas responderam o `503` esperado pelo guard de ambiente.
+- O código ainda não foi promovido. `RESEND_API_KEY` e `EMAIL_FROM` permanecem
+  ausentes em Production; recuperação por e-mail deve continuar indisponível
+  até o remetente verificado ser configurado.
 
 ## Fase 0 — prontidão para produção em validação
 
@@ -138,12 +139,14 @@ test pós-deploy está em `docs/FASE_0_PRODUCTION_READINESS.md`.
   índices operacionais foram confirmados em `pg_indexes`.
 - A migration manual `016_booking_experience` foi executada em Production pelo
   responsável em 27/08/2026 antes da promoção do commit `83ab133`.
+- A migration manual `017_password_recovery` foi executada em Production em
+  30/08/2026. O preflight passou; 20 usuários e 58 perfis de cliente foram
+  preservados, e a verificação confirmou seis colunas, dois índices e zero
+  tokens/versões previamente preenchidos.
 
 ### Não aplicado
 
 - `011_platform_billing.sql` **não foi aplicado em Production**.
-- `017_password_recovery.sql` **não foi aplicado em Production**; é aditiva,
-  não reescreve senhas e exige validação prévia em homologação.
 - `PLATFORM_BILLING_ENABLED` permanece ausente ou `false`.
 - A interface de cobranças do SaaS fica inacessível e as Server Actions falham
   fechadas enquanto a flag estiver desligada.

@@ -4,14 +4,15 @@
 
 Esta branch fecha os defeitos P1 encontrados no código e adiciona regressão
 automatizada para segurança, imagens, PWA, acessibilidade e jornadas críticas.
-A aplicação **ainda não deve ser promovida para Production**: faltam o CI do
-PR, o Preview ligado a um Supabase de homologação inequivocamente separado e
-a validação da recuperação de senha/Resend nesse ambiente seguro.
+O CI e o Preview público estão aprovados. A migration manual aditiva
+`017_password_recovery` foi aplicada em Production após autorização explícita,
+preflight e identificação inequívoca do projeto. O código ainda não deve ser
+promovido enquanto `RESEND_API_KEY` e `EMAIL_FROM` não existirem em Production,
+pois a opção solicitada ficaria visível, mas indisponível.
 
-Nenhum teste ofensivo, escrita, seed, migration ou smoke test foi executado em
-Production. A entrega agora contém a migration manual aditiva
-`017_password_recovery`, ainda não aplicada fora do PostgreSQL descartável do
-CI.
+Nenhum teste ofensivo, seed, reset ou dado fictício foi executado em
+Production. A alteração do banco preservou as contagens de 20 usuários e 58
+perfis de cliente e não preencheu token ou versão de sessão existente.
 
 ## Identificação e limites
 
@@ -34,7 +35,7 @@ CI.
 | P1 | Entradas de senha podiam ultrapassar os 72 bytes efetivos do bcrypt em cadastro administrativo e convites; login de usuário inexistente encerrava sem comparação equivalente. | Validação UTF-8 compartilhada em todos os fluxos e hash fictício no login administrativo para reduzir diferença temporal. | Corrigido e testado |
 | P1 | Upload validava apenas assinatura inicial, permitindo arquivo truncado, payload anexado, EXIF e dimensões abusivas. | Decodificação completa com Sharp, limites de dimensão/pixels, bloqueio de animação, rotação e regravação sem metadados. | Corrigido e testado |
 | P1 | Manifestos PWA anunciavam somente SVG; Chromium requer PNG 192/512 e iOS depende de `apple-touch-icon`. | PNGs 180/192/512 e maskable gerados, manifesto raiz/tenant e cache offline atualizados. | Corrigido e testado |
-| P1 | Recuperação de senha não existia para equipe nem cliente. | Fluxos por e-mail com resposta antienumeração, rate limit fail-closed, token aleatório armazenado como SHA-256, expiração de 1 hora, uso único, escopo de tenant e revogação de sessões. | Corrigido; ativação depende de migration 017 e Resend no staging |
+| P1 | Recuperação de senha não existia para equipe nem cliente. | Fluxos por e-mail com resposta antienumeração, rate limit fail-closed, token aleatório armazenado como SHA-256, expiração de 1 hora, uso único, escopo de tenant e revogação de sessões. | Código e migration prontos; ativação bloqueada apenas pelas credenciais/remetente do Resend |
 | P1 | Não existe staging autenticável e inequivocamente separado. | E2E autenticado foi levado ao PostgreSQL efêmero do CI; Preview continua fechado por padrão. | **Aberto — infraestrutura necessária** |
 | P2 | Três APIs do cliente transformavam JSON malformado em erro 500. | Parse protegido e resposta 400 uniforme. | Corrigido e testado |
 | P2 | Metadata do livro público consultava Prisma cru e podia revelar nome de salão suspenso. | Metadata usa `withSalonBySlug`, com o mesmo gate/lock da vitrine. | Corrigido e testado |
@@ -94,7 +95,7 @@ CI.
 |---|---|
 | TypeScript estrito | aprovado |
 | ESLint | aprovado; avisos novos removidos |
-| Vitest | 119 arquivos, 613 testes aprovados |
+| Vitest | 120 arquivos, 616 testes aprovados |
 | Build Next.js 15.5.22 | aprovado; 46 páginas no passo de geração estática; JS compartilhado 102 kB |
 | E2E público | 31 aprovados, 2 skips esperados |
 | Motores | Chromium, Firefox e WebKit |
@@ -112,9 +113,9 @@ O E2E autenticado no PostgreSQL descartável cobre:
 5. escolha de serviço, profissional, data e horário;
 6. revisão e confirmação de reserva.
 
-O resultado desse bloco só deve ser registrado como aprovado depois do CI do
-PR. Os testes PostgreSQL existentes continuam cobrindo RLS, locks, conflito,
-idempotência, fila, comanda e estoque.
+Esse bloco foi aprovado no CI do PR #75, execução `33351492282`. Os testes
+PostgreSQL existentes continuam cobrindo RLS, locks, conflito, idempotência,
+fila, comanda e estoque.
 
 ## Cobertura funcional e lacunas de evidência
 
@@ -160,10 +161,9 @@ Os padrões foram comparados sem copiar interfaces:
 
 ## Decisões necessárias do responsável
 
-1. Confirmar qual dos dois projetos Supabase é Production e qual pode ser
-   homologação; fornecer somente os project refs, sem secrets na conversa.
-2. Confirmar remetente/domínio do Resend em staging e autorizar a aplicação da
-   migration `017_password_recovery` somente nesse ambiente.
+1. Configurar na Vercel Production um `RESEND_API_KEY` válido e um
+   `EMAIL_FROM` de domínio verificado, sem enviar o segredo pela conversa.
+2. Classificar se o segundo projeto Supabase pode ser homologação persistente.
 3. Definir se Preview será criado por PR ou pela branch `staging` depois de as
    variáveis isoladas estarem configuradas.
 4. Disponibilizar validação manual em iPhone/Safari e Edge, ou aceitar a
