@@ -4,12 +4,17 @@
 
 Esta branch fecha os defeitos P1 encontrados no código e adiciona regressão
 automatizada para segurança, imagens, PWA, acessibilidade e jornadas críticas.
-O CI e o Preview público estão aprovados. A migration manual aditiva
+O CI, o Preview público e o deploy de Production estão aprovados. A migration manual aditiva
 `017_password_recovery` foi aplicada em Production após autorização explícita,
 preflight e identificação inequívoca do projeto. A promoção sem provedor de
 e-mail foi autorizada em 31/08/2026; enquanto `RESEND_API_KEY` e `EMAIL_FROM`
 não existirem, o atalho de recuperação fica oculto nos logins e as ações
 continuam falhando fechadas.
+
+O commit funcional `8827095` foi promovido pelo PR #75. O deploy de Production
+`dpl_51L9sN7suMvwFq4SwXXD1xBRxU21` ficou `READY`; o smoke somente leitura
+confirmou a versão, banco `ok`, rotas públicas críticas, headers de segurança,
+imagens e ausência de respostas 500.
 
 Nenhum teste ofensivo, seed, reset ou dado fictício foi executado em
 Production. A alteração do banco preservou as contagens de 20 usuários e 58
@@ -96,7 +101,7 @@ perfis de cliente e não preencheu token ou versão de sessão existente.
 |---|---|
 | TypeScript estrito | aprovado |
 | ESLint | aprovado; avisos novos removidos |
-| Vitest | 120 arquivos, 616 testes aprovados |
+| Vitest | 121 arquivos, 618 testes aprovados |
 | Build Next.js 15.5.22 | aprovado; 46 páginas no passo de geração estática; JS compartilhado 102 kB |
 | E2E público | 31 aprovados, 2 skips esperados |
 | Motores | Chromium, Firefox e WebKit |

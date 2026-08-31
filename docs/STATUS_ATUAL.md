@@ -5,10 +5,10 @@ Atualizado em **30/08/2026**. As migrations manuais 012, 013, 014, 015, 016 e
 após autorização explícita e antes da promoção do código correspondente.
 Este arquivo substitui os status históricos quando houver contradição.
 
-## Candidata de prontidão comercial — código ainda não implantado
+## Prontidão comercial implantada
 
-- Base sincronizada: `master`/`origin/master` em `8b1fd34`.
-- Branch em validação: `codex/commercial-readiness-audit`.
+- Commit funcional promovido em `master`: `8827095e49257b0c74dcab5e405ccc72cda25978`.
+- PR integrado: `#75`, branch `codex/commercial-readiness-audit`.
 - Auditoria e matriz P0–P3:
   `docs/AUDITORIA_PRONTIDAO_COMERCIAL_2026-08-30.md`.
 - A candidata exige conta no servidor para agendamento/fila pública, mantém
@@ -20,15 +20,19 @@ Este arquivo substitui os status históricos quando houver contradição.
   `barber-saas` (`vshnatkzxdekkvqttvbv`) e preflight somente leitura. As
   contagens permaneceram em 20 usuários e 58 perfis de cliente; seis colunas e
   dois índices foram confirmados, com zero tokens ou versões alterados.
-- Evidência do CI no commit `e49b0e9`: 120 arquivos/616 testes Vitest, três
+- Evidência do CI no commit `8827095`: 121 arquivos/618 testes Vitest, três
   testes de integração, build aprovado, E2E público em Chromium, Firefox e
   WebKit e duas jornadas autenticadas no PostgreSQL 16 descartável.
-- Preview `dpl_9EkvLByDiiv1UM4r1sVfHghpfLu1` está `READY`; a landing respondeu
+- Preview `dpl_CcNM4jTEDGzEymdr1wu9RePHKpNe` ficou `READY`; a landing respondeu
   `200` e rotas protegidas responderam o `503` esperado pelo guard de ambiente.
 - `RESEND_API_KEY` e `EMAIL_FROM` permanecem ausentes em Production. A
   recuperação por e-mail fica desativada e seu atalho não aparece nos logins
   até um remetente verificado ser configurado; a promoção sem essa integração
   foi autorizada explicitamente em 31/08/2026.
+- Production `dpl_51L9sN7suMvwFq4SwXXD1xBRxU21` está `READY` e serve o commit
+  funcional `8827095`. O smoke somente leitura confirmou home, login, vitrine,
+  manifesto e health em `200`, banco `ok`, CSP/HSTS, ausência de imagens
+  quebradas e nenhum erro 500 no deploy.
 
 ## Fase 0 — prontidão para produção em validação
 
@@ -43,9 +47,9 @@ test pós-deploy está em `docs/FASE_0_PRODUCTION_READINESS.md`.
 
 - Repositório: `alisonbielwhats1-beep/barber-saas`
 - Branch produtiva: `master`
-- Commit funcional da aplicação: `83ab133c97aa3ae83fb917e5d52a9a3bc85ff32d`
+- Commit funcional da aplicação: `8827095e49257b0c74dcab5e405ccc72cda25978`
 - Vercel: projeto `salon-saas`
-- Deploy do commit: `dpl_GCbwaq2uhgfx9uQLyUMgs1YNboAx`, estado `READY`
+- Deploy do commit: `dpl_51L9sN7suMvwFq4SwXXD1xBRxU21`, estado `READY`
 - URL oficial: [salon-saas-ruby.vercel.app](https://salon-saas-ruby.vercel.app)
 - Região das Functions: `gru1`
 - Banco/Storage: Supabase do projeto de barbearia
