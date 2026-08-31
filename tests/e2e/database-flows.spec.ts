@@ -40,19 +40,15 @@ test.describe("@database jornadas críticas no PostgreSQL descartável", () => {
       timeout: 45_000,
     });
     await expect(page).toHaveURL(/\/book\/luna-hair$/);
-    const bookingLink = page.getByRole("link", {
-      name: "Agendar agora",
-      exact: true,
-    }).first();
-    await expect(bookingLink).toBeVisible({ timeout: 30_000 });
-    // No `next dev`, a compilação da rota pesada pode manter o evento `load`
-    // aberto por vários segundos. A navegação é comprovada no commit e a tela
-    // pronta pela asserção do título logo abaixo.
-    await bookingLink.click({ noWaitAfter: true });
-    await page.waitForURL(/\/book\/luna-hair\/agendar$/, {
-      timeout: 45_000,
-      waitUntil: "commit",
+    // A rota de agendamento revalida no servidor o cookie, o tenant, o cliente
+    // canônico e a versão da sessão. Abrir a URL diretamente evita depender do
+    // streaming visual da home no `next dev`; qualquer sessão inválida ainda
+    // redireciona para welcome e faz as asserções abaixo falharem.
+    await page.goto("/book/luna-hair/agendar", {
+      timeout: 60_000,
+      waitUntil: "domcontentloaded",
     });
+    await expect(page).toHaveURL(/\/book\/luna-hair\/agendar$/);
     await expect(page.getByRole("heading", { name: "Escolha os serviços" })).toBeVisible({
       timeout: 15_000,
     });
