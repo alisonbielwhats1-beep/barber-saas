@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getClientSessionForSalonSlug } from "@/lib/client-session-tenant";
 import { clientHomePath } from "@/lib/client-routes";
+import { PasswordRecoveryLoginLink } from "@/components/password-recovery-login-link";
 import { LoginForm } from "./login-form";
 
 export default async function LoginPage({
@@ -32,15 +33,9 @@ export default async function LoginPage({
 
         <LoginForm salonSlug={salonSlug} passwordReset={query.senha === "alterada"} />
 
-        <p className="text-center text-sm text-muted-foreground">
-          Esqueceu a senha?{" "}
-          <Link
-            href={`/book/${salonSlug}/recuperar-senha`}
-            className="font-medium text-primary hover:underline"
-          >
-            Recuperar por e-mail
-          </Link>
-        </p>
+        <PasswordRecoveryLoginLink
+          href={`/book/${salonSlug}/recuperar-senha`}
+        />
 
         <p className="text-center text-sm text-muted-foreground">
           Primeira vez?{" "}

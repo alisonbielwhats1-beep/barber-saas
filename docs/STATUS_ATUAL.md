@@ -25,9 +25,10 @@ Este arquivo substitui os status históricos quando houver contradição.
   WebKit e duas jornadas autenticadas no PostgreSQL 16 descartável.
 - Preview `dpl_9EkvLByDiiv1UM4r1sVfHghpfLu1` está `READY`; a landing respondeu
   `200` e rotas protegidas responderam o `503` esperado pelo guard de ambiente.
-- O código ainda não foi promovido. `RESEND_API_KEY` e `EMAIL_FROM` permanecem
-  ausentes em Production; recuperação por e-mail deve continuar indisponível
-  até o remetente verificado ser configurado.
+- `RESEND_API_KEY` e `EMAIL_FROM` permanecem ausentes em Production. A
+  recuperação por e-mail fica desativada e seu atalho não aparece nos logins
+  até um remetente verificado ser configurado; a promoção sem essa integração
+  foi autorizada explicitamente em 31/08/2026.
 
 ## Fase 0 — prontidão para produção em validação
 

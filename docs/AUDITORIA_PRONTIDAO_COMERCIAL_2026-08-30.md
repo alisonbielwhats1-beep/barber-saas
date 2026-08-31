@@ -6,9 +6,10 @@ Esta branch fecha os defeitos P1 encontrados no código e adiciona regressão
 automatizada para segurança, imagens, PWA, acessibilidade e jornadas críticas.
 O CI e o Preview público estão aprovados. A migration manual aditiva
 `017_password_recovery` foi aplicada em Production após autorização explícita,
-preflight e identificação inequívoca do projeto. O código ainda não deve ser
-promovido enquanto `RESEND_API_KEY` e `EMAIL_FROM` não existirem em Production,
-pois a opção solicitada ficaria visível, mas indisponível.
+preflight e identificação inequívoca do projeto. A promoção sem provedor de
+e-mail foi autorizada em 31/08/2026; enquanto `RESEND_API_KEY` e `EMAIL_FROM`
+não existirem, o atalho de recuperação fica oculto nos logins e as ações
+continuam falhando fechadas.
 
 Nenhum teste ofensivo, seed, reset ou dado fictício foi executado em
 Production. A alteração do banco preservou as contagens de 20 usuários e 58
