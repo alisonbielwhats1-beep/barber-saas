@@ -1,22 +1,13 @@
-import Link from "next/link";
 import { SignupForm } from "./signup-form";
-import { AuthShell } from "@/components/auth-shell";
+import { EstablishmentShell } from "@/components/marketing/establishment-shell";
+import { MARKETING_SEGMENTS, SIGNUP_SEGMENTS } from "@/components/marketing/segments";
 
-export default function SignupPage() {
+export default async function SignupPage({ searchParams }: { searchParams: Promise<{ segment?: string }> }) {
+  const query = await searchParams;
+  const selected = MARKETING_SEGMENTS.find(item => item.id === query.segment);
   return (
-    <AuthShell
-      title="Criar estabelecimento"
-      description="Crie seu espaço no plano Grátis e entre imediatamente. Um futuro upgrade para o Pro passa pela análise do administrador."
-      footer={
-        <>
-          Já tem conta?{" "}
-          <Link href="/login" className="text-primary transition hover:underline">
-            Entrar
-          </Link>
-        </>
-      }
-    >
-      <SignupForm />
-    </AuthShell>
+    <EstablishmentShell initialSegment={selected?.id}>
+      <SignupForm initialSegment={selected ? SIGNUP_SEGMENTS[selected.id] : undefined} />
+    </EstablishmentShell>
   );
 }

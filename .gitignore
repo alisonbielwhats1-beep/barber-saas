@@ -8,6 +8,7 @@ node_modules
 dist
 coverage
 playwright-report
+artifacts/
 test-results
 *.db
 *.db-journal

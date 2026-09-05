@@ -1,0 +1,37 @@
+.pc-section { padding-block: 95px 60px; }
+.pc-heading { display: grid; grid-template-columns: 1.5fr 1fr; gap: 80px; align-items: center; margin-bottom: 45px; }
+.pc-heading .mk-eyebrow { justify-content: flex-start; margin-bottom: 22px; font-size: 9px; }
+.pc-heading > div > p:last-child { margin-top: 24px; font-size: 14px; color: var(--mk-soft); line-height: 1.8; max-width: 48ch; }
+.pc-founder { border-left: 1px solid var(--mk-line); padding-left: 35px; }
+.pc-founder > span { font-size: 8px; color: var(--mk-soft); letter-spacing: .14em; }
+.pc-founder strong { display: block; font-size: 37px; font-weight: 500; letter-spacing: -.05em; margin: 15px 0; }
+.pc-founder small { font-size: 12px; color: var(--mk-soft); letter-spacing: 0; margin-left: 4px; }
+.pc-founder p { font-size: 12px; line-height: 1.8; color: var(--mk-soft); max-width: 34ch; }
+.pc-cards { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 14px; }
+.pc-cards article { display: flex; flex-direction: column; padding: 28px 24px; border: 1px solid var(--mk-line); border-radius: 17px; background: var(--mk-surface); }
+.pc-cards article[data-featured=true] { border-color: var(--mk-accent); background: var(--mk-tint); }
+.pc-plan-kind { font-size: 7px; letter-spacing: .13em; color: var(--mk-soft); }
+.pc-cards h3 { margin-top: 15px; font-size: 23px; }
+.pc-cards .pc-price { margin-top: 26px; font-size: 30px; letter-spacing: -.055em; white-space: nowrap; }
+.pc-price small { font-size: 10px; color: var(--mk-soft); letter-spacing: 0; }
+.pc-cards .pc-capacity { font-size: 12px; margin-top: 12px; }
+.pc-cards .pc-detail { font-size: 10px; line-height: 1.7; color: var(--mk-soft); margin-top: 10px; margin-bottom: 25px; min-height: 34px; }
+.pc-cards .mk-button { margin-top: auto; padding-inline: 12px; gap: 10px; font-size: 11px; }
+.pc-comparison { overflow-x: auto; margin-top: 45px; border: 1px solid var(--mk-line); border-radius: 17px; }
+.pc-comparison:focus-visible { outline: 2px solid var(--mk-accent); outline-offset: 4px; }
+.pc-comparison table { width: 100%; border-collapse: collapse; min-width: 620px; font-size: 12px; }
+.pc-comparison caption { padding: 23px; text-align: left; font-size: 18px; background: var(--mk-surface); }
+.pc-comparison th,.pc-comparison td { padding: 18px 20px; border-top: 1px solid var(--mk-line); }
+.pc-comparison thead { background: var(--mk-tint); }
+.pc-comparison th { font-weight: 500; }
+.pc-comparison th:first-child { text-align: left; }
+.pc-comparison tbody th { color: var(--mk-soft); }
+.pc-comparison td { text-align: center; }
+.pc-comparison td svg { margin: auto; }
+.pc-note { font-size: 11px; line-height: 1.8; color: var(--mk-soft); margin-top: 20px !important; }
+.pc-scroll-hint { display: none; }
+@media(max-width: 350px) { .mk .pc-cards { grid-template-columns: 1fr; } }
+@media(max-width: 700px) { .pc-scroll-hint { display: block; color: var(--mk-soft); font-size: 10px; margin-top: 30px !important; } .pc-comparison { margin-top: 12px; } }
+@media(max-width: 1100px) { .pc-cards article { padding: 22px 15px; } .pc-price { font-size: 26px !important; } }
+@media(max-width: 850px) { .pc-cards { grid-template-columns: repeat(2,minmax(0,1fr)); } .pc-heading { gap: 35px; } }
+@media(max-width: 700px) { .pc-section { padding-block: 60px 35px; } .pc-heading { grid-template-columns: 1fr; gap: 30px; } .pc-founder { padding-left: 20px; } .pc-cards { gap: 10px; } .pc-cards article { padding: 20px 14px; } .pc-cards h3 { font-size: 21px; } .pc-cards .pc-price { font-size: 25px !important; white-space: normal; } .pc-price small { display: block; margin-top: 2px; } .pc-cards .pc-detail { min-height: 50px; } .pc-cards .mk-button { font-size: 10px; gap: 5px; padding-inline: 6px; } .pc-comparison table { font-size: 11px; } }

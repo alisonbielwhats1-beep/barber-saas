@@ -1,0 +1,61 @@
+.cp-section { padding-block: 75px 30px; }
+.cp-heading { text-align: center; margin: 0 auto 75px; max-width: 860px; }
+.cp-heading .mk-eyebrow { margin-bottom: 24px; }
+.cp-heading > p:last-child { margin: 24px auto 0; max-width: 56ch; color: var(--mk-soft); line-height: 1.8; font-size: 14px; }
+.cp-row { display: grid; grid-template-columns: .9fr 1.1fr; align-items: center; gap: 9%; padding: 65px 0; border-top: 1px solid var(--mk-line); }
+.cp-copy > svg { display: block; margin: 26px 0 20px; color: var(--mk-accent); }
+.cp-number { font-size: 9px; letter-spacing: .14em; color: var(--mk-soft); }
+.cp-copy h3 { font-size: clamp(30px,3vw,42px); line-height: 1.15; }
+.cp-copy > p { font-size: 13px; line-height: 1.9; color: var(--mk-soft); margin-top: 22px; max-width: 48ch; }
+.cp-copy ul { display: grid; gap: 12px; margin-top: 25px; padding: 0; }
+.cp-copy li { display: flex; align-items: center; gap: 10px; font-size: 12px; }
+.cp-copy li svg { width: 14px; height: 14px; }
+.cp-copy .cp-small-copy { font-size: 11px; margin-top: 22px; }
+.cp-financial-visual,.cp-marketing-visual { border: 1px solid var(--mk-line); border-radius: 20px; background: var(--mk-surface); box-shadow: 0 30px 60px -40px #0003; overflow: hidden; }
+.cp-window-heading { display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--mk-line); padding: 20px 24px; font-size: 13px; }
+.cp-window-heading > span:last-child { margin-left: auto; font-size: 9px; color: var(--mk-soft); }
+.cp-finance-position { padding: 30px; }
+.cp-finance-position > span { color: var(--mk-soft); font-size: 8px; letter-spacing: .12em; }
+.cp-finance-position h4 { margin-top: 10px; margin-bottom: 25px; font-size: 24px; font-weight: 500; letter-spacing: -.04em; }
+.cp-money-row { display: flex; align-items: center; gap: 13px; padding: 20px 0; border-top: 1px solid var(--mk-line); }
+.cp-money-row > i { display: grid; place-items: center; width: 35px; height: 35px; border-radius: 10px; background: var(--mk-tint); }
+.cp-money-row svg { width: 16px; }
+.cp-money-row strong { font-size: 13px; font-weight: 500; }
+.cp-money-row p { font-size: 10px; color: var(--mk-soft); margin-top: 5px; }
+.cp-money-row > span { margin-left: auto; font-size: 9px; color: var(--mk-soft); }
+.cp-finance-bottom { display: flex; justify-content: center; flex-wrap: wrap; gap: 20px; padding: 20px; border-top: 1px solid var(--mk-line); font-size: 10px; }
+.mk .cp-demo-note { margin: 0; padding: 13px 16px; text-align: center; color: var(--mk-soft); font-size: 9px; line-height: 1.5; }
+.cp-client { grid-template-columns: 1fr 1fr; background: linear-gradient(105deg,transparent,var(--mk-tint)); border-radius: 22px; padding: 55px 45px; margin: 35px -15px; }
+.cp-app-demo { min-width: 0; }
+.cp-phone-stage { width: 100%; display: flex; justify-content: center; padding: 20px 0 0; overflow: hidden; }
+.cp-phone-stage .landing-phone-mockup { transform: none !important; animation: none !important; flex-shrink: 0; }
+.cp-phone-stage p { margin-block: 4px; }
+.cp-screen-controls { display: flex; gap: 5px; justify-content: center; flex-wrap: wrap; padding: 18px 0 0; border-top: 1px solid var(--mk-line); }
+.cp-screen-controls button { min-height: 44px; padding-inline: 14px; border-radius: 24px; border: 1px solid var(--mk-line); font-size: 10px; background: var(--mk-surface); }
+.cp-screen-controls button[aria-pressed=true] { background: var(--mk-accent); color: var(--mk-on-accent); border-color: var(--mk-accent); }
+.cp-campaigns { padding: 10px 25px; }
+.cp-campaign { display: flex; align-items: center; gap: 14px; padding: 26px 0; border-bottom: 1px solid var(--mk-line); }
+.cp-campaign:last-child { border: 0; }
+.cp-campaign > svg:last-child { margin-left: auto; color: var(--mk-soft); }
+.cp-campaign strong { font-size: 13px; font-weight: 500; }
+.cp-campaign p { margin-top: 5px; color: var(--mk-soft); font-size: 10px; line-height: 1.6; }
+.cp-campaign-flow { display: flex; gap: 10px; align-items: center; justify-content: center; padding: 20px 12px; background: var(--mk-tint); font-size: 9px; }
+.cp-campaign-flow svg { width: 12px; }
+@media(max-width: 350px) { .cp-phone-stage > div { flex-shrink: 0; transform: scale(.9); transform-origin: center top; margin-bottom: -64px; } }
+@media(max-width: 1000px) { .cp-row { gap: 5%; } .cp-client { padding-inline: 25px; } .cp-copy h3 { font-size: 33px; } }
+@media(max-width: 700px) {
+  .cp-section { padding-top: 30px; }
+  .cp-heading { text-align: left; margin-bottom: 45px; }
+  .cp-heading .mk-eyebrow { justify-content: flex-start; font-size: 8px; }
+  .cp-heading > p:last-child { margin-top: 20px; font-size: 13px; }
+  .cp-row { grid-template-columns: 1fr; gap: 32px; padding-block: 40px; }
+  .cp-copy h3 { font-size: 33px; }
+  .cp-copy > p { max-width: none; }
+  .cp-client { margin-inline: -10px; padding-inline: 10px; background: linear-gradient(transparent,var(--mk-tint)); }
+  .cp-copy ul { gap: 14px; }
+  .cp-finance-position { padding: 23px; }
+  .cp-window-heading { padding: 20px; }
+  .cp-campaign { gap: 10px; }
+  .cp-campaigns { padding-inline: 20px; }
+  .cp-campaign-flow { font-size: 8px; gap: 6px; }
+}

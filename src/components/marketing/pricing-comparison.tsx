@@ -1,0 +1,16 @@
+import Link from "next/link";
+import { ArrowUpRight, Check, Minus } from "lucide-react";
+import { PLAN_ENTITLEMENTS, PLAN_PRICING_ROWS } from "@/lib/plan-entitlements";
+import { signupHref, type MarketingSegmentId } from "./segments";
+import "./pricing.css";
+
+export function PricingComparison({ segmentId }: { segmentId: MarketingSegmentId }) {
+  return <section id="planos" className="pc-section mk-wrap" aria-labelledby="pricing-title"><div className="pc-heading"><div><p className="mk-eyebrow">UM PLANO PARA CADA FASE</p><h2 id="pricing-title">Comece no seu ritmo.<br /><span>Cresça com clareza.</span></h2><p>Compare agendas, limites e recursos. Escolha o plano que acompanha o momento da sua operação.</p></div><aside className="pc-founder"><span>OFERTA DE LANÇAMENTO</span><strong>{PLAN_PRICING_ROWS[1].price}<small>/mês</small></strong><p>Plano Fundador para os 10 primeiros estabelecimentos, sujeito à disponibilidade.</p></aside></div>
+    <div className="pc-cards">{PLAN_PRICING_ROWS.map(plan=><article key={plan.plan} data-featured={plan.plan==="PRO"}><span className="pc-plan-kind">{plan.plan==="FREE"?"SEU PRIMEIRO PASSO":plan.plan==="STARTER"?"EDIÇÃO FUNDADOR":plan.plan==="PRO"?"PARA SUA OPERAÇÃO":"PARA MAIS TALENTOS"}</span><h3>{plan.title}</h3><p className="pc-price">{plan.price}<small>{plan.plan==="FREE"?"":"/mês"}</small></p><p className="pc-capacity">{plan.professionals}</p><p className="pc-detail">{plan.detail}</p><Link href={signupHref(segmentId)} className={`mk-button ${plan.plan==="PRO"?"":"mk-button-outline"}`}>{plan.plan==="FREE"?"Começar grátis":"Criar meu espaço"}<ArrowUpRight size={16} /></Link></article>)}</div>
+    <p className="pc-scroll-hint">Deslize a tabela para comparar todos os planos →</p><div className="pc-comparison" tabIndex={0} role="region" aria-label="Comparação dos planos"><table><caption>Compare os recursos</caption><thead><tr><th scope="col">O que está incluído</th>{PLAN_PRICING_ROWS.map(plan=><th key={plan.plan} scope="col">{plan.title}</th>)}</tr></thead><tbody>
+      <tr><th scope="row">Agendas de profissionais</th>{PLAN_PRICING_ROWS.map(plan=><td key={plan.plan}>{PLAN_ENTITLEMENTS[plan.plan].maxProfessionals}</td>)}</tr>
+      <tr><th scope="row">Agendamentos por mês</th>{PLAN_PRICING_ROWS.map(plan=><td key={plan.plan}>{PLAN_ENTITLEMENTS[plan.plan].monthlyAppointments ?? "Ilimitados"}</td>)}</tr>
+      {["Agenda e agendamento online","Clientes, serviços e profissionais","Página pública e aplicativo do cliente","Financeiro e relatórios operacionais","Notificações e histórico de atendimento"].map(label=><tr key={label}><th scope="row">{label}</th>{PLAN_PRICING_ROWS.map(plan=><td key={plan.plan}><Check size={16} aria-label="Incluído" /></td>)}</tr>)}
+      {[{label:"Produtos e estoque",key:"INVENTORY" as const},{label:"Pacotes",key:"PACKAGES" as const},{label:"Marketing e campanhas",key:"MARKETING" as const}].map(feature=><tr key={feature.key}><th scope="row">{feature.label}</th>{PLAN_PRICING_ROWS.map(plan=><td key={plan.plan}>{PLAN_ENTITLEMENTS[plan.plan].features[feature.key]?<Check size={16} aria-label="Incluído" />:<Minus size={16} aria-label="Não incluído" />}</td>)}</tr>)}
+    </tbody></table></div><p className="pc-note">O plano Grátis tem acesso imediato. Upgrades são acompanhados pela plataforma. No Equipe, cada agenda adicional custa R$ 19,90/mês.</p></section>;
+}
