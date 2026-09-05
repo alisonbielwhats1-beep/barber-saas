@@ -12,12 +12,13 @@ import {
   useSegmentSelection,
 } from "@/components/segment-service-picker";
 import { signup } from "./actions";
+import type { SegmentId } from "@/lib/segments";
 
-export function SignupForm() {
+export function SignupForm({ initialSegment }: { initialSegment?: SegmentId }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const selection = useSegmentSelection();
+  const selection = useSegmentSelection(initialSegment);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -64,9 +65,10 @@ export function SignupForm() {
 
   return (
     <form className="space-y-4" onSubmit={onSubmit}>
+      <fieldset className="space-y-4"><legend>01 · SEU NEGÓCIO</legend>
       <div className="space-y-1.5">
-        <label htmlFor="salonName" className="text-sm font-medium">Nome do salão</label>
-        <Input id="salonName" name="salonName" placeholder="Luna Hair Studio" required autoFocus />
+        <label htmlFor="salonName" className="text-sm font-medium">Nome do estabelecimento</label>
+        <Input id="salonName" name="salonName" placeholder="Como se chama seu espaço?" autoComplete="organization" required />
       </div>
 
       <div className="space-y-1.5">
@@ -86,13 +88,15 @@ export function SignupForm() {
         onToggle={selection.toggleService}
         collapsible
       />
+      </fieldset>
+      <fieldset className="space-y-4"><legend>02 · SEU ACESSO</legend>
       <div className="space-y-1.5">
         <label htmlFor="ownerName" className="text-sm font-medium">Seu nome</label>
-        <Input id="ownerName" name="ownerName" placeholder="Marina Souza" required />
+        <Input id="ownerName" name="ownerName" placeholder="Seu nome completo" autoComplete="name" required />
       </div>
       <div className="space-y-1.5">
         <label htmlFor="email" className="text-sm font-medium">Email</label>
-        <Input id="email" name="email" type="email" placeholder="voce@salon.com" required />
+        <Input id="email" name="email" type="email" placeholder="voce@exemplo.com" autoComplete="email" required />
       </div>
       <PasswordInput
         id="password"
@@ -111,8 +115,9 @@ export function SignupForm() {
         required
       />
       <p className="text-xs text-muted-foreground">Mínimo 6 caracteres.</p>
+      </fieldset>
       {error && (
-        <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {error}
         </p>
       )}

@@ -13,8 +13,8 @@ import { SEGMENTS, DEFAULT_SEGMENT_ID, getSegment, type SegmentId } from "@/lib/
  * real não perguntava nada.
  */
 
-export function useSegmentSelection() {
-  const [segmentId, setSegmentId] = useState<SegmentId>(DEFAULT_SEGMENT_ID);
+export function useSegmentSelection(initialSegment: SegmentId = DEFAULT_SEGMENT_ID) {
+  const [segmentId, setSegmentId] = useState<SegmentId>(initialSegment);
   // Guardamos o que foi DESMARCADO: assim as sugestões de um segmento recém
   // escolhido já entram todas marcadas, sem precisar recalcular a lista.
   const [unchecked, setUnchecked] = useState<Set<string>>(new Set());
