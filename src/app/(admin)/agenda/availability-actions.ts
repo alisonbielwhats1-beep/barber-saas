@@ -17,6 +17,27 @@ const inputSchema = z.object({
   reason: z.string().trim().min(3).max(200),
 });
 
+export async function previewAvailabilityBlock(input: z.infer<typeof inputSchema>) {
+  const ctx = await getTenantContext();
+  assertRole(ctx, ["OWNER", "MANAGER"]);
+  const parsed = inputSchema.safeParse(input);
+  if (!parsed.success) return { error: "Preencha profissionais, início, fim e motivo." };
+  const data = parsed.data;
+  try {
+    const affected = await withTenant(ctx, async tx => {
+      const ids = [...new Set(data.professionalIds)];
+      const pros = await tx.professional.findMany({ where: { salonId: ctx.salonId, id: { in: ids }, active: true }, select: { id: true } });
+      if (pros.length !== ids.length) throw new Error("Profissional inválido para este estabelecimento.");
+      const salon = await tx.salon.findUniqueOrThrow({ where: { id: ctx.salonId }, select: { timezone: true } });
+      const startAt = localDateTimeToUtc(data.startLocal, salon.timezone);
+      const endAt = localDateTimeToUtc(data.endLocal, salon.timezone);
+      if (endAt <= startAt || +endAt - +startAt > 366 * 86400000) throw new Error("Informe um intervalo válido de até um ano.");
+      return tx.appointment.findMany({ where: { salonId: ctx.salonId, professionalId: { in: ids }, startAt: { lt: endAt }, endAt: { gt: startAt }, status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] } }, select: { id: true, version: true, startAt: true, client: { select: { name: true } } }, orderBy: { startAt: "asc" } });
+    });
+    return { affected: affected.map(a => ({ id: a.id, name: a.client.name, startAt: a.startAt.toISOString() })) };
+  } catch { return { error: "Não foi possível revisar. Confira profissionais e o intervalo informado." }; }
+}
+
 export async function blockAvailability(input: z.infer<typeof inputSchema>) {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER"]);

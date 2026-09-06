@@ -248,6 +248,7 @@ export default async function AgendaPage({
   return (
     <>
       <AutoRefresh intervalMs={30_000} />
+      {(role === "OWNER" || role === "MANAGER") && <AvailabilityPanel date={dateStr} timezone={salon.timezone} professionals={professionals} blocks={blocks.map(b => ({ ...b, startAt: b.startAt.toISOString(), endAt: b.endAt.toISOString() }))} />}
       <AgendaBoard
         initialAppointmentId={selectedAppointment}
         availabilityBlocks={blocks.map(b => ({ ...b, startAt: b.startAt.toISOString(), endAt: b.endAt.toISOString() }))}
@@ -262,7 +263,7 @@ export default async function AgendaPage({
         canCreate={role !== "PROFESSIONAL"}
         canCancel={role === "OWNER" || role === "MANAGER"}
       />
-      {(role === "OWNER" || role === "MANAGER") && <AvailabilityPanel date={dateStr} timezone={salon.timezone} professionals={professionals} blocks={blocks.map(b => ({ ...b, startAt: b.startAt.toISOString(), endAt: b.endAt.toISOString() }))} />}
+
     </>
   );
 }

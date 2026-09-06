@@ -25,7 +25,7 @@ Não representa implantação nem conclusão do programa completo.
 
 1. Revisão visual completa de cores, ícones, componentes, espaços e estados em
    todas as telas, com evidências desktop/mobile após estas alterações.
-2. Prévia de reservas afetadas antes do bloqueio, seleção por gesto na grade,
+2. Seleção por gesto na grade,
    recorrência de bloqueios e exibição nas visões semana/mês/lista.
 3. Liberação de expediente por data e edição de séries futuras com conflitos.
 4. Lista de espera flexível por datas/horários preservando FIFO.

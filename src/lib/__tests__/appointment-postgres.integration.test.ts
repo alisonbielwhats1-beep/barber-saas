@@ -9,6 +9,7 @@ import {
 } from "../appointment-service";
 import { isAppointmentError } from "../appointment-domain";
 import { joinWaitlist, promoteWaitlistEntry } from "../waitlist";
+import { lockOperationalResources } from "../inventory-lock";
 import {
   requestStaffReschedule,
   respondToRescheduleProposal,
@@ -77,6 +78,21 @@ async function fixture() {
 }
 
 describePostgres("concorrência real de agendamentos", () => {
+  it("bloqueio individual impede novas reservas e mantém intervalos adjacentes disponíveis", async () => {
+    const data = await fixture();
+    await withSalon(data.salonId, async tx => {
+      await lockOperationalResources(tx, { professionalIds: [data.professionalId] });
+      await tx.timeOff.create({ data: { professionalId: data.professionalId, startAt: new Date("2032-08-05T13:00:00Z"), endAt: new Date("2032-08-05T14:00:00Z"), reason: "Ausência CI" } });
+    });
+    const create = (startLocal: string) => withSalon(data.salonId, tx => createAppointment(tx, {
+      salonId: data.salonId, professionalId: data.professionalId, clientId: data.clients[0]!.id,
+      serviceIds: [data.serviceId], startLocal, origin: "PUBLIC",
+      actor: { type: "CLIENT", id: data.clients[0]!.id, name: "Cliente CI" },
+      idempotencyKey: crypto.randomUUID(), enforceBookingWindow: false,
+    }));
+    await expect(create("2032-08-05T10:00")).rejects.toMatchObject({ code: "PROFESSIONAL_UNAVAILABLE" });
+    await expect(create("2032-08-05T11:00")).resolves.toHaveProperty("appointment");
+  });
   it("confirma somente uma de duas requisições simultâneas para o mesmo slot", async () => {
     const data = await fixture();
     const create = (clientId: string, idempotencyKey: string) =>
