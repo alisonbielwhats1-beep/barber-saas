@@ -1,0 +1,46 @@
+services:
+  app:
+    image: mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm
+    command: sleep infinity
+    volumes:
+      - ../..:/workspaces:cached
+    network_mode: service:postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis-http:
+        condition: service_started
+  postgres:
+    image: postgres:16-bookworm
+    environment:
+      POSTGRES_DB: everflair_demo
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    volumes:
+      - demo-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d everflair_demo"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  redis:
+    image: redis:7.4-bookworm
+    command: redis-server --appendonly yes
+    volumes:
+      - demo-redis:/data
+  redis-http:
+    image: hiett/serverless-redis-http@sha256:5b0bb9239fce53abf87b2018a7a0deb9ec7bd900c5360738fe5fbeeb426f9150
+    environment:
+      SRH_MODE: file
+    volumes:
+      - ../.demo/redis-config.json:/app/srh-config/tokens.json:ro
+    depends_on:
+      - redis
+secrets:
+  postgres_password:
+    file: ../.demo/postgres-password
+volumes:
+  demo-postgres:
+  demo-redis:

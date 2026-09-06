@@ -2,25 +2,19 @@
 
 import Link from "next/link";
 import { useRef, useState } from "react";
-import { ArrowUpRight, Menu, X, CalendarDays, Users, Wallet, Package, Bell, Globe, Plus, Images, Layers } from "lucide-react";
+import { ArrowUpRight, Menu, X, Users, Package, Bell, Globe, Plus, Images, Layers } from "lucide-react";
 
 import { useMarketingSegment } from "./use-segment";
 import { MarketingBrand } from "./brand";
-import { marketingFont } from "./font";
 import { SceneHero } from "./scene-hero";
 import { ProductScene } from "./product-scene";
-import { ScrollNarrative } from "./scroll-narrative";
 import { signupHref } from "./segments";
-import { CapabilityShowcase } from "./capability-showcase";
+import { CapabilityShowcase, ClientAppShowcase } from "./capability-showcase";
 import { PricingComparison } from "./pricing-comparison";
 import "./marketing.css";
 import "./refinement.css";
+import "./conversion.css";
 
-const chapters = [
-  { title: "O dia inteiro, à vista.", text: "Veja horários, serviços e status de cada atendimento. Alterne entre dia, semana, mês e lista para encontrar o ritmo da sua operação.", label: "Agenda", icon: CalendarDays },
-  { title: "Cada profissional no seu tempo.", text: "Filtre a agenda por profissional e encontre quem atende cada cliente. A equipe trabalha com acessos definidos por função.", label: "Equipe", icon: Users },
-  { title: "Clareza para o próximo passo.", text: "Acompanhe atendimentos e diferencie receita prevista de realizada. Leve essa visão para o financeiro, as despesas e as comissões.", label: "Gestão", icon: Wallet },
-];
 const resources = [
   { icon: Layers, title: "Pacotes de serviços", text: "Organize sessões e acompanhe o uso dos pacotes contratados. Disponível a partir do plano Fundador." },
   { icon: Images, title: "Seu portfólio online", text: "Apresente seus trabalhos na página do estabelecimento e ajude o cliente a conhecer o seu estilo." },
@@ -30,11 +24,11 @@ const resources = [
   { icon: Globe, title: "Seu agendamento online", text: "Compartilhe a página do estabelecimento. O cliente escolhe serviços, profissional e horário disponível." },
 ];
 const questions = [
-  ["O sistema funciona para o meu tipo de negócio?", "O SalonSaaS atende barbearias, salões, manicures, estética, massagem e espaços com vários serviços. Você configura o catálogo, a equipe e os horários conforme sua operação."],
+  ["O sistema funciona para o meu tipo de negócio?", "O Everflair atende barbearias, salões, manicures, estética, massagem e espaços com vários serviços. Você configura o catálogo, a equipe e os horários conforme sua operação."],
   ["Meus clientes podem agendar pelo celular?", "Sim. Cada estabelecimento tem uma página pública. O cliente cria uma conta ou entra, escolhe serviços, profissional e um horário disponível, e revisa a reserva antes de confirmar."],
   ["Como funcionam os lembretes e o WhatsApp?", "O sistema oferece notificações internas e lembretes no aplicativo. O contato pelo WhatsApp é iniciado manualmente pela equipe. Não há disparos automáticos de WhatsApp incluídos."],
   ["Posso controlar o financeiro?", "Sim. Você acompanha receitas, despesas, comissões e relatórios, além de registrar pagamentos na operação. O sistema ainda não processa pagamentos online."],
-  ["O que acontece depois do cadastro?", "Você cria sua conta e entra imediatamente no plano Grátis. Os serviços sugeridos ajudam a começar; depois, você configura os profissionais e os horários do seu estabelecimento."],
+  ["O que acontece depois do cadastro?", "Você cria sua conta e entra imediatamente no plano Grátis. Um guia orienta a configuração de serviços, profissionais e horários. Você pode incluir sugestões de serviços no cadastro ou montar seu catálogo depois."],
 ];
 
 export function LandingExperience() {
@@ -50,7 +44,7 @@ export function LandingExperience() {
   }
 
   return (
-    <main ref={root} id="main-content" tabIndex={-1} className={`mk ${marketingFont.variable}`} data-ready={ready} data-atmosphere={dark ? "dark" : "light"} data-segment={segment.id}>
+    <main ref={root} id="main-content" tabIndex={-1} className={`mk ef-marketing`} data-ready={ready} data-atmosphere={dark ? "dark" : "light"} data-segment={segment.id}>
       <header className="mk-header" onKeyDown={(event) => { if (event.key === "Escape") closeMenu(true); }}>
         <div className="mk-header-inner">
           <MarketingBrand />
@@ -65,10 +59,10 @@ export function LandingExperience() {
       </header>
 
       <SceneHero segment={segment} ready={ready} onSelect={selectSegment} />
-      <ProductScene>
-        <div className="sc-product-story">{chapters.map(item => <article key={item.title}><span><item.icon size={22} strokeWidth={1.5} aria-hidden="true" /></span><h3>{item.title}</h3><p>{item.text}</p></article>)}</div>
+      <ProductScene segmentId={segment.id}>
+        <ClientAppShowcase />
       </ProductScene>
-      <ScrollNarrative />
+      <PricingComparison segmentId={segment.id} />
       <CapabilityShowcase />
 
       <section id="operacao" className="mk-resources mk-wrap">
@@ -76,12 +70,9 @@ export function LandingExperience() {
         <div className="mk-resource-list">{resources.map((item) => <article key={item.title}><item.icon size={22} strokeWidth={1.5} aria-hidden="true" /><div><h3>{item.title}</h3><p>{item.text}</p></div></article>)}</div>
       </section>
 
-      <section className="mk-start-section"><div className="mk-wrap mk-start-layout"><div><p className="mk-eyebrow">SEU PRÓXIMO CAPÍTULO</p><h2>Seu espaço.<br />Agora, conectado.</h2><p>Comece no plano Grátis, com acesso imediato. Prepare sua operação e compartilhe seu link de agendamento.</p></div><ol className="mk-steps"><li><span>1</span><div><h3>Apresente seu negócio</h3><p>Escolha seu segmento e comece no plano Grátis.</p></div></li><li><span>2</span><div><h3>Organize a casa</h3><p>Configure profissionais, serviços e horários de atendimento.</p></div></li><li><span>3</span><div><h3>Abra sua agenda online</h3><p>Compartilhe sua página e acompanhe as reservas pelo sistema.</p></div></li></ol></div></section>
-
-      <PricingComparison segmentId={segment.id} />
       <section className="mk-faq mk-wrap"><h2>Antes de começar.</h2><div>{questions.map(([question, answer]) => <details key={question}><summary>{question}<Plus size={19} aria-hidden="true" /></summary><p>{answer}</p></details>)}</div></section>
       <section className="mk-close"><div className="mk-wrap"><p>Seu próximo atendimento começa com uma boa organização.</p><h2>Cuide do seu talento.<br /><span>A gente organiza o resto.</span></h2><Link href={signupHref(segment.id)} className="mk-button">Criar meu espaço <ArrowUpRight size={20} aria-hidden="true" /></Link></div></section>
-      <footer className="mk-footer mk-wrap"><div><MarketingBrand /><p>Gestão para beleza e bem-estar.</p></div><nav aria-label="Links institucionais"><Link href="/contato">Contato</Link><Link href="/termos">Termos de uso</Link><Link href="/privacidade">Privacidade</Link><Link href="/login">Entrar</Link></nav><span>© {new Date().getFullYear()} SalonSaaS</span></footer>
+      <footer className="mk-footer mk-wrap"><div><MarketingBrand /><p>Seu talento. Seu negócio. Novas possibilidades.</p></div><nav aria-label="Links institucionais"><Link href="/contato">Contato</Link><Link href="/termos">Termos de uso</Link><Link href="/privacidade">Privacidade</Link><Link href="/login">Entrar</Link></nav><span>© {new Date().getFullYear()} Everflair</span></footer>
     </main>
   );
 }

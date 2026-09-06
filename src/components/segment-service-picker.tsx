@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useContext, useMemo, useState } from "react";
+import { SegmentAppearanceContext } from "./segment-appearance-context";
 import { Check, ChevronDown } from "lucide-react";
 import { SEGMENTS, DEFAULT_SEGMENT_ID, getSegment, type SegmentId } from "@/lib/segments";
 
@@ -14,7 +15,9 @@ import { SEGMENTS, DEFAULT_SEGMENT_ID, getSegment, type SegmentId } from "@/lib/
  */
 
 export function useSegmentSelection(initialSegment: SegmentId = DEFAULT_SEGMENT_ID) {
-  const [segmentId, setSegmentId] = useState<SegmentId>(initialSegment);
+  const appearance = useContext(SegmentAppearanceContext);
+  const [localSegmentId, setSegmentId] = useState<SegmentId>(initialSegment);
+  const segmentId = appearance?.segmentId ?? localSegmentId;
   // Guardamos o que foi DESMARCADO: assim as sugestões de um segmento recém
   // escolhido já entram todas marcadas, sem precisar recalcular a lista.
   const [unchecked, setUnchecked] = useState<Set<string>>(new Set());
@@ -33,6 +36,7 @@ export function useSegmentSelection(initialSegment: SegmentId = DEFAULT_SEGMENT_
     isChecked: (name: string) => !unchecked.has(name),
     pickSegment(id: SegmentId) {
       setSegmentId(id);
+      appearance?.onPick(id);
       setUnchecked(new Set());
     },
     toggleService(name: string) {

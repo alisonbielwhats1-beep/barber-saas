@@ -1,0 +1,24 @@
+/* Continuous document flow; only decorative planes have a small scroll offset. */
+.mk .sc-hero { height: auto; min-height: 0; }
+.mk .sc-hero .sc-stage { position: relative; top: 0; height: auto; min-height: 0; padding-bottom: 54px; overflow: clip; }
+.mk .sc-hero .sc-copy { position: relative; top: auto; padding-top: 48px; opacity: 1; transform: none; }
+.mk .sc-hero .sc-segment-dock { position: relative; top: auto; left: auto; right: auto; margin: 26px 20px 0; transform: none; }
+.mk .sc-hero .sc-dock-meta { justify-content: center; margin-bottom: 10px; }
+.mk .sc-hero .sc-photo-portal { position: relative; top: auto; bottom: auto; left: 50%; width: min(1000px,86vw); height: clamp(350px,35vw,500px); min-height: 0; margin-top: 22px; opacity: 1; transform: translateX(-50%) translateY(var(--subject-y,0px)); border-radius: 120px 120px 18px 18px; box-shadow: 0 18px 45px -30px #0004; }
+.mk .sc-hero .sc-photo { transform: none; transition: opacity 1.2s ease; }
+.mk .sc-hero .sc-environment { opacity: 1; }
+.mk .sc-hero .sc-foreground { opacity: .35; inset: 45% -14% -6%; transform: translateY(var(--near-y,0px)); }
+.mk .sc-hero .sc-floor { height: 100px; }
+.mk .sc-product-section { padding-top: 38px; }
+@media(max-width: 700px) {
+  .mk .sc-hero .sc-copy { padding-top: 30px; }
+  .mk .sc-hero .sc-stage { padding-bottom: 32px; }
+  .mk .sc-hero .sc-segment-dock { margin-top: 24px; }
+  .mk .sc-hero .sc-photo-portal { width: calc(100% - 40px); height: 340px; border-radius: 72px 72px 14px 14px; margin-top: 18px; }
+  .mk .sc-hero .sc-foreground { inset-inline: -35%; opacity: .2; }
+  .mk .sc-hero .sc-floor { height: 65px; }
+}
+@media(prefers-reduced-motion: reduce) {
+  .mk .sc-hero .sc-photo-portal { transform: translateX(-50%); }
+  .mk .sc-hero .sc-foreground,.mk .sc-hero .sc-environment { transform: none; }
+}

@@ -5,7 +5,7 @@ import { PasswordRecoveryRequestForm } from "@/components/password-recovery-requ
 import { passwordRecoveryEmailEnabled } from "@/lib/password-recovery-feature";
 
 export const metadata: Metadata = {
-  title: "Recuperar senha | SalonSaaS",
+  title: "Recuperar senha | Everflair",
   robots: { index: false, follow: false },
 };
 

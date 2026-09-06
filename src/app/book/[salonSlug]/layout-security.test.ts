@@ -37,7 +37,7 @@ describe("metadados da vitrine", () => {
       params: Promise.resolve({ salonSlug: "suspenso" }),
     });
 
-    expect(metadata.title).toBe("SalonSaaS");
-    expect(metadata.appleWebApp).toEqual(expect.objectContaining({ title: "SalonSaaS" }));
+    expect(metadata.title).toBe("Everflair");
+    expect(metadata.appleWebApp).toEqual(expect.objectContaining({ title: "Everflair" }));
   });
 });

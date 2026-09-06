@@ -21,12 +21,12 @@ export async function generateMetadata({
     }),
   );
   return {
-    title: salon ? `${salon.name} — agendamento online` : "SalonSaaS",
+    title: salon ? `${salon.name} — agendamento online` : "Everflair",
     manifest: `/book/${salonSlug}/manifest.webmanifest`,
     appleWebApp: {
       capable: true,
       statusBarStyle: "black-translucent",
-      title: salon?.name ?? "SalonSaaS",
+      title: salon?.name ?? "Everflair",
     },
   };
 }

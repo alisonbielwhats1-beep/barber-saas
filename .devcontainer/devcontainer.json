@@ -1,0 +1,15 @@
+{
+  "name": "Everflair · demonstração isolada",
+  "dockerComposeFile": "compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "remoteUser": "node",
+  "initializeCommand": ["bash", ".devcontainer/prepare.sh"],
+  "postCreateCommand": "npm ci && node .devcontainer/bootstrap.mjs",
+  "postStartCommand": "node .devcontainer/start.mjs",
+  "waitFor": "postCreateCommand",
+  "forwardPorts": [3000],
+  "portsAttributes": {"3000": {"label": "Everflair Demo", "onAutoForward": "notify"}},
+  "otherPortsAttributes": {"onAutoForward": "ignore"},
+  "shutdownAction": "stopCompose"
+}

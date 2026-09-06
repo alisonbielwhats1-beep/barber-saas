@@ -1431,7 +1431,7 @@ function BoardingPass({
     const ics = [
       "BEGIN:VCALENDAR",
       "VERSION:2.0",
-      "PRODID:-//SalonSaaS//Agendamento//PT",
+      "PRODID:-//Everflair//Agendamento//PT",
       "BEGIN:VEVENT",
       `UID:${Date.now()}@salonsaas`,
       `DTSTAMP:${dt(new Date())}`,

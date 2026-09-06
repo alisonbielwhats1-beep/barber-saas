@@ -2,20 +2,19 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Sparkles, Menu, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
+import { BrandLogo } from "@/components/brand";
 import { Button } from "@/components/ui/button";
 
 const NAV_LINKS = [
-  { href: "#top", label: "Início" },
-  { href: "#recursos", label: "Recursos" },
-  { href: "#segmentos", label: "Para quem é" },
-  { href: "#planos", label: "Planos" },
+  { href: "/", label: "Início" },
+  { href: "/#sistema", label: "O sistema" },
+  { href: "/#recursos", label: "Recursos" },
+  { href: "/#planos", label: "Planos" },
 ];
 
 /**
- * Cabeçalho da homepage comercial. Marca é wordmark + símbolo abstrato
- * (Sparkles) — decisão temporária até etapa própria de branding definir
- * um logotipo oficial. Não usa o ícone Scissors do painel administrativo.
+ * Cabeçalho das páginas institucionais, com a assinatura oficial Everflair.
  */
 export function MarketingHeader() {
   const [open, setOpen] = useState(false);
@@ -54,20 +53,17 @@ export function MarketingHeader() {
     <header
       id="top"
       data-theme="marketing-dark"
-      className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-[#131715]/95 text-foreground shadow-[0_8px_30px_-24px_rgba(5,12,9,0.8)] backdrop-blur-xl"
+      className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-[#23262b]/95 text-foreground shadow-[0_8px_30px_-24px_rgba(5,12,9,0.8)] backdrop-blur-xl"
     >
       <div className="mx-auto flex h-16 w-full max-w-[1600px] items-center justify-between px-6 sm:px-10">
-        <Link href="/" className="flex min-h-11 items-center gap-2 rounded-lg font-display text-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-[#131715]">
-          <span className="grid h-8 w-8 place-items-center rounded-md bg-primary text-primary-foreground">
-            <Sparkles className="h-4 w-4" />
-          </span>
-          Salon<span className="text-primary">SaaS</span>
+        <Link href="/" className="flex min-h-11 items-center gap-2 rounded-lg font-display text-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-[#23262b]">
+          <BrandLogo />
         </Link>
 
         {/* Nav desktop */}
         <nav aria-label="Navegação principal" className="hidden items-center gap-6 text-sm text-muted-foreground md:flex">
           {NAV_LINKS.map((l) => (
-            <a key={l.href} href={l.href} className="rounded-sm transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-[#131715]">
+            <a key={l.href} href={l.href} className="rounded-sm transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-[#23262b]">
               {l.label}
             </a>
           ))}
@@ -90,7 +86,7 @@ export function MarketingHeader() {
           aria-expanded={open}
           aria-controls="menu-mobile-marketing"
           onClick={() => setOpen((v) => !v)}
-          className="grid h-11 w-11 place-items-center rounded-lg border border-white/15 bg-white/5 text-foreground transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-[#131715] md:hidden"
+          className="grid h-11 w-11 place-items-center rounded-lg border border-white/15 bg-white/5 text-foreground transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-[#23262b] md:hidden"
         >
           {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
@@ -103,11 +99,11 @@ export function MarketingHeader() {
         irmão do header, ele usa a viewport de verdade e cobre 100% do
         conteúdo por trás. */}
     {open && (
-      <nav id="menu-mobile-marketing" aria-label="Navegação mobile" data-theme="marketing-dark" className="fixed inset-x-0 top-16 bottom-0 z-40 overflow-y-auto border-t border-white/10 bg-[#131715] px-6 pb-6 pt-2 md:hidden">
+      <nav id="menu-mobile-marketing" aria-label="Navegação mobile" data-theme="marketing-dark" className="fixed inset-x-0 top-16 bottom-0 z-40 overflow-y-auto border-t border-white/10 bg-[#23262b] px-6 pb-6 pt-2 md:hidden">
         <div className="flex flex-col gap-1">
           {NAV_LINKS.map((l) => (
             <a
-              ref={l.href === "#top" ? firstMobileLinkRef : undefined}
+              ref={l.href === "/" ? firstMobileLinkRef : undefined}
               key={l.href}
               href={l.href}
               onClick={() => setOpen(false)}

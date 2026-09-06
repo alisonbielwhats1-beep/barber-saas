@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { Scissors } from "lucide-react";
+import { BrandLogo, BrandMark } from "@/components/brand";
 import { getTenantContext } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
 import { hexToHslTriple, readableForeground } from "@/lib/color";
@@ -78,8 +78,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <aside className="admin-sidebar scrollbar-dark hidden w-56 shrink-0 flex-col overflow-y-auto border-r border-border lg:flex print:hidden">
         {/* Logo */}
         <div className="flex h-14 shrink-0 items-center gap-2.5 px-4">
-          <span className="admin-brand-mark relative grid h-9 w-11 shrink-0 place-items-center overflow-hidden rounded-xl border border-border bg-white p-1">
-            {salonLogo ? (
+          {salonLogo && <span className="admin-brand-mark relative grid h-9 w-11 shrink-0 place-items-center overflow-hidden rounded-xl border border-border bg-white p-1">
               <ImageWithFallback
                 src={salonLogo}
                 alt={`Logo de ${salon?.name ?? "seu salão"}`}
@@ -88,18 +87,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
                 className="object-contain p-1"
                 fallback={(
                   <span className="grid h-full w-full place-items-center rounded-lg bg-primary">
-                    <Scissors className="h-3.5 w-3.5 text-primary-foreground" aria-hidden="true" />
+                    <BrandMark className="text-primary-foreground" />
                   </span>
                 )}
               />
-            ) : (
-              <span className="grid h-full w-full place-items-center rounded-lg bg-primary">
-                <Scissors className="h-3.5 w-3.5 text-primary-foreground" aria-hidden="true" />
-              </span>
-            )}
-          </span>
+          </span>}
           <div className="min-w-0">
-            <span className="block text-[13px] font-semibold tracking-tight">SalonSaaS</span>
+            <BrandLogo className={salonLogo ? "ef-admin-logo" : ""} />
             <span className="block text-[9px] font-medium uppercase tracking-[0.16em] text-muted-foreground/70">
               Painel de operação
             </span>

@@ -31,22 +31,21 @@ describe("controle da narrativa automática", () => {
     act(() => vi.advanceTimersByTime(15999)); expect(hook.select).not.toHaveBeenCalled();
     act(() => vi.advanceTimersByTime(1)); expect(hook.select).toHaveBeenLastCalledWith("estetica"); hook.unmount();
   });
-  it("suspende a troca fora da tela, durante interação e após pausar", () => {
+  it("suspende a troca fora da tela e durante interação", () => {
     const hook = setup();
     act(() => intersect(false)); act(() => vi.advanceTimersByTime(20000)); expect(hook.select).not.toHaveBeenCalled();
     act(() => intersect(true)); act(() => hook.result.current.setInteracting(true));
     act(() => vi.advanceTimersByTime(20000)); expect(hook.select).not.toHaveBeenCalled();
-    act(() => hook.result.current.setInteracting(false)); act(() => hook.result.current.toggle());
-    act(() => vi.advanceTimersByTime(20000)); expect(hook.select).not.toHaveBeenCalled();
-    act(() => hook.result.current.toggle()); act(() => vi.advanceTimersByTime(8000)); expect(hook.select).toHaveBeenCalledOnce(); hook.unmount();
+    act(() => hook.result.current.setInteracting(false));
+    act(() => vi.advanceTimersByTime(8000)); expect(hook.select).toHaveBeenCalledOnce(); hook.unmount();
   });
-  it("movimento reduzido exige ativação explícita para trocar automaticamente", () => {
+  it("movimento reduzido mantém apenas a seleção manual, mesmo após uma escolha", () => {
     reduced = true; const hook = setup();
     expect(hook.result.current.enabled).toBe(false);
     act(() => vi.advanceTimersByTime(30000)); expect(hook.select).not.toHaveBeenCalled();
     act(() => hook.result.current.pick("barbearia")); expect(hook.select).toHaveBeenLastCalledWith("barbearia");
     hook.rerender({ id: "barbearia" }); hook.select.mockClear();
-    act(() => hook.result.current.toggle()); act(() => vi.advanceTimersByTime(16000)); expect(hook.select).toHaveBeenLastCalledWith("manicure");
-    act(() => hook.result.current.toggle()); expect(hook.result.current.enabled).toBe(false); hook.unmount();
+    act(() => vi.advanceTimersByTime(30000)); expect(hook.select).not.toHaveBeenCalled();
+    expect(hook.result.current.enabled).toBe(false); hook.unmount();
   });
 });

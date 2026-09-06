@@ -30,8 +30,6 @@ import {
   User,
   UserRound,
   Sparkles,
-  CheckCircle2,
-  Circle,
   ArrowRight,
   Bell,
   Hourglass,
@@ -45,6 +43,7 @@ import { LembretesPanel } from "./lembretes-panel";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { NowStrip } from "./now-strip";
 import { getMarketingSettings } from "@/lib/marketing-settings";
+import { SetupGuide, PlanInterestNotice } from "@/components/setup-guide";
 
 const MALE_COLOR = "#3B9EFF";
 const FEMALE_COLOR = "#E85D9E";
@@ -78,10 +77,10 @@ async function withDatabaseRetry<T>(
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string }>;
+  searchParams: Promise<{ range?: string; plan?: string }>;
 }) {
   const { salonId } = await requireRole(DASHBOARD_ROLES);
-  const { range: selectedRange } = await searchParams;
+  const { range: selectedRange, plan: planIntent } = await searchParams;
   const range: RangeKey = VALID.includes(selectedRange as RangeKey)
     ? (selectedRange as RangeKey)
     : "30d";
@@ -90,7 +89,7 @@ export default async function DashboardPage({
   const { salonData, marketingSettings } = await withSalon(salonId, async (tx) => {
     const salonData = await tx.salon.findUnique({
       where: { id: salonId },
-      select: { name: true, timezone: true },
+      select: { name: true, timezone: true, plan: true },
     });
     const marketingSettings = await getMarketingSettings(tx, salonId);
     return { salonData, marketingSettings };
@@ -198,7 +197,7 @@ export default async function DashboardPage({
     { done: whCount > 0, label: "Definir horários de trabalho", href: "/profissionais" },
     { done: apptCount > 0, label: "Receber o primeiro agendamento", href: "/compartilhar" },
   ];
-  const setupDone = steps.every((s) => s.done);
+
 
   return (
     <div className="space-y-6">
@@ -221,48 +220,8 @@ export default async function DashboardPage({
         <RangeFilter current={range} />
       </PageHeader>
 
-      {/* ── Checklist de onboarding — some quando completo ─── */}
-      {!setupDone && (
-        <section className="rounded-2xl border border-primary/25 bg-primary/5 p-5">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-[15px] font-semibold">Deixe seu salão pronto para agendar</h2>
-              <p className="mt-0.5 text-[12px] text-muted-foreground">
-                {steps.filter((s) => s.done).length} de {steps.length} passos concluídos
-              </p>
-            </div>
-            <div className="hidden h-1.5 w-32 overflow-hidden rounded-full bg-muted sm:block">
-              <div
-                className="h-full rounded-full bg-primary transition-all"
-                style={{ width: `${(steps.filter((s) => s.done).length / steps.length) * 100}%` }}
-              />
-            </div>
-          </div>
-          <div className="stagger mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-            {steps.map((s) =>
-              s.done ? (
-                <div
-                  key={s.label}
-                  className="flex items-center gap-2.5 rounded-xl border border-border bg-card px-3.5 py-3 text-[13px] text-muted-foreground"
-                >
-                  <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
-                  {s.label}
-                </div>
-              ) : (
-                <Link
-                  key={s.label}
-                  href={s.href}
-                  className="group flex items-center gap-2.5 rounded-xl border border-border bg-card px-3.5 py-3 text-[13px] font-medium transition-colors hover:border-primary/40"
-                >
-                  <Circle className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  <span className="flex-1">{s.label}</span>
-                  <ArrowRight className="h-3.5 w-3.5 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
-                </Link>
-              ),
-            )}
-          </div>
-        </section>
-      )}
+      <PlanInterestNotice intent={planIntent} currentPlan={salonData.plan} />
+      <SetupGuide steps={steps} />
 
       {/* ── Faixa Agora: operação antes da análise ─────────── */}
       <NowStrip

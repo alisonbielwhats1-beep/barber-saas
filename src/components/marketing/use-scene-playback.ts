@@ -4,17 +4,15 @@ import { MARKETING_SEGMENTS, type MarketingSegmentId } from "./segments";
 
 export function useScenePlayback(id: MarketingSegmentId, select: (id: MarketingSegmentId) => void, ready: boolean, scene: RefObject<HTMLElement>) {
   const [reduced, setReduced] = useState(true);
-  const [paused, setPaused] = useState(false);
   const [visible, setVisible] = useState(false);
   const [hidden, setHidden] = useState(false);
   const [interacting, setInteracting] = useState(false);
   const [manualVersion, setManualVersion] = useState(0);
   const holdUntil = useRef(0);
-  const explicitPlay = useRef(false);
 
   useEffect(() => {
     const media = matchMedia("(prefers-reduced-motion: reduce)");
-    const update = () => { setReduced(media.matches); explicitPlay.current = false; };
+    const update = () => setReduced(media.matches);
     const visibility = () => setHidden(document.hidden);
     update(); visibility();
     media.addEventListener("change", update);
@@ -24,7 +22,7 @@ export function useScenePlayback(id: MarketingSegmentId, select: (id: MarketingS
     return () => { media.removeEventListener("change", update); document.removeEventListener("visibilitychange", visibility); observer.disconnect(); };
   }, [scene]);
 
-  const enabled = !paused && (!reduced || explicitPlay.current);
+  const enabled = !reduced;
   const active = ready && enabled && visible && !hidden && !interacting;
   useEffect(() => {
     if (!active) return;
@@ -41,9 +39,5 @@ export function useScenePlayback(id: MarketingSegmentId, select: (id: MarketingS
     setManualVersion(value => value + 1);
     select(next);
   }, [select]);
-  function toggle() {
-    if (reduced && !explicitPlay.current) { explicitPlay.current = true; setPaused(false); setManualVersion(value => value + 1); }
-    else setPaused(value => !value);
-  }
-  return { reduced, enabled, active, pick, toggle, setInteracting, visible, hidden };
+  return { reduced, enabled, active, pick, setInteracting, visible, hidden };
 }
