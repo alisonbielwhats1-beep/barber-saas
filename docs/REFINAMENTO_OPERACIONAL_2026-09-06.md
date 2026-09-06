@@ -33,6 +33,7 @@ A auditoria contém recomendações de produto e itens maiores que esta rodada. 
 - Chromium/Playwright executado dentro do Codespace em `localhost:3000`, com proprietário, recepção e cliente fictícios: seis verificações funcionais aprovadas e dez capturas desktop/mobile, sem erros de runtime observados.
 - Verificados: identidade/permissões, bloqueio de financeiro para recepção, controles de conta no mobile, filtros da agenda, retorno ao agendamento após login e precedência do CTA sobre avaliações.
 - A verificação axe identificou e orientou correções de contraste no tema claro/menu, semântica das estrelas, foco da lista de profissionais e legibilidade dos avatares. Isso não equivale a certificação integral de acessibilidade.
+- Repetição final no build `700f835`: seis verificações funcionais, dez telas, zero erros de runtime e zero violações axe detectadas nas telas verificadas (WCAG 2 A/AA e 2.1 AA). Inspeção visual realizada nas capturas do painel mobile e agenda desktop.
 - Evidências locais em `artifacts/audit-2026-09-06/refinement-*`; relatório e imagens do navegador permanecem no mesmo diretório do Codespace. Credenciais estão fora do Git.
 - Não houve execução de CI remoto nesta branch, promoção para produção ou mudança nos bancos Supabase. Integração PostgreSQL abrangente e revisão de release continuam necessárias antes da promoção.
 
