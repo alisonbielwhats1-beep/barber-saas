@@ -64,7 +64,7 @@
     --elevated: 34.29 100.00% 98.63%; /* #FFFCF8 */
 
     --muted: 35.00 34.29% 86.27%; /* #E8DED0 */
-    --muted-foreground: 133.85 6.60% 38.63%; /* #5C695F */
+    --muted-foreground: 130.91 6.01% 35.88%; /* #566158 */
 
     --border: 52.00 15.15% 80.59%; /* #D5D3C6 */
     --border-strong: 120.00 7.87% 65.10%; /* #9FAD9F */
@@ -84,7 +84,7 @@
     /* Semantic — slightly deeper for light bg legibility */
     --success: 152 55% 34%;
     --info: 213 85% 44%;
-    --warning: 35 90% 32%;
+    --warning: 35 90% 29%;
     --danger: 0 68% 46%;
     --marketing: 267 72% 50%;
 
@@ -291,6 +291,11 @@
   .admin-shell .text-primary,
   [data-theme="salon-dark"] .text-primary {
     color: hsl(var(--accent));
+  }
+
+  .admin-shell .bg-primary-foreground.text-primary,
+  [data-theme="salon-dark"] .bg-primary-foreground.text-primary {
+    color: hsl(var(--primary));
   }
 
   .admin-shell .bg-primary,

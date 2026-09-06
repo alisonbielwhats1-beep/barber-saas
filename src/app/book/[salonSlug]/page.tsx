@@ -371,7 +371,7 @@ export default async function ClientHome({
         className="block overflow-hidden rounded-3xl bg-primary p-6 text-primary-foreground shadow-lg"
       >
         <h2 className="font-display text-2xl leading-tight">Agendar um horário</h2>
-        <p className="mt-1 text-sm text-primary-foreground/80">
+        <p className="mt-1 text-sm text-primary-foreground">
           Escolha o serviço e veja os horários disponíveis agora.
         </p>
         <div className="mt-4 flex w-fit items-center gap-2 rounded-full bg-primary-foreground px-4 py-2 text-sm font-semibold text-primary">
@@ -628,4 +628,3 @@ export default async function ClientHome({
     </main>
   );
 }
-
