@@ -10,7 +10,7 @@ export function demoEnvironment() {
   const inherited = Object.fromEntries(
     ['PATH', 'HOME', 'USER', 'SHELL', 'LANG', 'TERM', 'TMPDIR'].filter(k => process.env[k]).map(k => [k, process.env[k]])
   );
-  return {...inherited, ...saved, APP_ENV: 'development', NODE_ENV: 'production', TZ: 'America/Sao_Paulo',
+  return {...inherited, ...saved, EVERFLAIR_CODESPACE_DEMO: '1', APP_ENV: 'development', NODE_ENV: 'production', TZ: 'America/Sao_Paulo',
     NEXT_TELEMETRY_DISABLED: '1', PLATFORM_BILLING_ENABLED: 'false', EMAIL_INVITES_ENABLED: 'false',
     PLATFORM_SIGNUP_NOTIFICATIONS_ENABLED: 'false'};
 }

@@ -31,6 +31,11 @@ const contentSecurityPolicy = [
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Codespaces rewrites Origin to its local app endpoint. Only the isolated
+  // demo launcher enables this exact origin; never allow wildcard origins.
+  ...(process.env.EVERFLAIR_CODESPACE_DEMO === "1"
+    ? { experimental: { serverActions: { allowedOrigins: ["localhost:3000"] } } }
+    : {}),
   async headers() {
     return [
       {
