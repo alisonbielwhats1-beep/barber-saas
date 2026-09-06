@@ -4,11 +4,11 @@ export const MARKETING_SEGMENTS = [
   { id: "manicure", label: "Manicure", name: "sua esmalteria", image: "/images/brand-manicure.webp", alt: "Cuidado das unhas em um estúdio de manicure", position: "50% 50%", line: "Cuidado nos detalhes. Organização entre os horários." },
   { id: "estetica", label: "Estética", name: "seu espaço de estética", image: "/images/brand-aesthetics.webp", alt: "Atendimento facial em um espaço de estética", position: "50% 50%", line: "Presença em cada atendimento. Clareza em toda a operação." },
   { id: "bem-estar", label: "Massagem e bem-estar", name: "seu espaço de bem-estar", image: "/images/brand-wellness.webp", alt: "Profissional preparando as toalhas em um estúdio de bem-estar", position: "50% 50%", line: "Uma rotina mais leve para quem cuida de outras pessoas." },
-  { id: "espaco-misto", label: "Espaço misto", name: "seu espaço misto", image: "/images/brand-mixed.webp", alt: "Atendimentos de cabelo e manicure em um espaço integrado de beleza e bem-estar", position: "50% 50%", line: "Diferentes talentos. Um espaço conectado." },
+  { id: "espaco-misto", label: "Espaço misto", name: "seu espaço misto", image: "/images/brand-mixed-architecture.webp", alt: "Estúdio integrado com estações de cabelo, bancada de manicure e sala de bem-estar, em pedra clara e grafite", position: "50% 50%", line: "Diferentes talentos. Um espaço conectado." },
 ] as const;
 export type MarketingSegmentId = typeof MARKETING_SEGMENTS[number]["id"];
 export const SEGMENT_STORAGE_KEY = "salonsaas:marketing-segment:v1";
-export const signupHref = (id: MarketingSegmentId) => `/signup?segment=${encodeURIComponent(id)}`;
+export const signupHref = (id: MarketingSegmentId, plan?: import("@/lib/marketing-plan").MarketingPlanKey) => `/signup?segment=${encodeURIComponent(id)}${plan ? `&plan=${encodeURIComponent(plan)}` : ""}`;
 export const SIGNUP_SEGMENTS = {
   salao: "salao-beleza", barbearia: "barbearia", manicure: "manicure-nail",
   estetica: "estetica-bemestar", "bem-estar": "estetica-bemestar", "espaco-misto": "espaco-misto",

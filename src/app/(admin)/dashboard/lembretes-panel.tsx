@@ -74,7 +74,7 @@ export function LembretesPanel({
             <button
               disabled={pending}
               onClick={() => send(r.id, r.clientPhone, r.clientName, when)}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[#25D366]/15 px-3 py-1.5 text-[12px] font-medium text-[#25D366] transition hover:bg-[#25D366]/25 disabled:opacity-50"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-primary/10 px-3 py-1.5 text-[12px] font-medium text-primary transition hover:bg-primary/15 disabled:opacity-50"
             >
               <MessageCircle className="h-3.5 w-3.5" />
               Enviar
@@ -85,4 +85,5 @@ export function LembretesPanel({
     </div>
   );
 }
+
 

@@ -1,4 +1,4 @@
-const CACHE = "salonsaas-shell-v2";
+const CACHE = "everflair-shell-v3";
 const OFFLINE_URL = "/offline";
 const STATIC_SHELL = [
   OFFLINE_URL,

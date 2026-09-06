@@ -7,7 +7,7 @@ import { PRIVACY_CONTACT_EMAIL, SERVICE_NAME } from "@/lib/legal";
 export const metadata: Metadata = {
   title: `Contato — ${SERVICE_NAME}`,
   description:
-    "Como falar com o SalonSaaS: suporte, pedidos de LGPD e assuntos contratuais.",
+    "Como falar com o Everflair: suporte, pedidos de LGPD e assuntos contratuais.",
 };
 
 /**

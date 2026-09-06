@@ -45,7 +45,6 @@ function toData(data: ProductInput) {
     barcode: data.barcode ?? null,
     priceCents: data.priceCents,
     costCents: data.costCents,
-    stock: data.stock,
     minStock: data.minStock,
     expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
     imageUrl: data.imageUrl || null,
@@ -59,7 +58,7 @@ export async function createProduct(input: ProductInput) {
   assertAllowedStoredImageUrl(data.imageUrl, ctx.salonId);
   await withTenant(ctx, async (tx) => {
     await assertInventoryEnabled(tx, ctx.salonId);
-    await tx.product.create({ data: { salonId: ctx.salonId, ...toData(data) } });
+    await tx.product.create({ data: { salonId: ctx.salonId, stock: data.stock, ...toData(data) } });
   });
   revalidatePath("/produtos");
 }
@@ -72,7 +71,10 @@ export async function updateProduct(id: string, input: ProductInput) {
   await withTenant(ctx, async (tx) => {
     await assertInventoryEnabled(tx, ctx.salonId);
     await lockProductMutations(tx, [id]);
-    await tx.product.updateMany({ where: { id, salonId: ctx.salonId }, data: toData(data) });
+    const details = toData(data);
+    // Saldo muda somente por movimentação auditada, nunca ao salvar um
+    // formulário que pode ter sido aberto antes de uma venda concorrente.
+    await tx.product.updateMany({ where: { id, salonId: ctx.salonId }, data: details });
   });
   revalidatePath("/produtos");
 }

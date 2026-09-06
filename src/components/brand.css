@@ -1,0 +1,19 @@
+:root {
+  --ef-ivory: #f6f3ed;
+  --ef-graphite: #23262b;
+  --ef-copper: #b77752;
+  --ef-stone: #d8d1c7;
+}
+.ef-logo, .ef-mark {
+  display: inline-block;
+  flex-shrink: 0;
+  background-color: currentColor;
+  mask: var(--ef-art) center / contain no-repeat;
+  -webkit-mask: var(--ef-art) center / contain no-repeat;
+  vertical-align: middle;
+}
+.ef-logo { --ef-art: url('/images/brand/everflair-logo.png'); width: 166px; height: 38px; }
+.ef-mark { --ef-art: url('/images/brand/everflair-mark.png'); width: 25px; height: 25px; }
+.ef-admin-logo { width: 108px; height: 25px; }
+@media (max-width: 480px) { .mk-brand .ef-logo { width: 144px; height: 34px; } }
+@media (forced-colors: active) { .ef-logo, .ef-mark { background-color: CanvasText; forced-color-adjust: none; } }

@@ -1,5 +1,7 @@
 "use server";
 
+import { safeClientReturnTo, clientHomePath } from "@/lib/client-routes";
+
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import bcrypt from "bcryptjs";
@@ -12,7 +14,6 @@ import { isValidPhoneBR, normalizePhone } from "@/lib/phone";
 import { setClientSession, clearClientSession } from "@/lib/client-auth";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { clientIdentityData, findPotentialClientMatches } from "@/lib/client-identity";
-import { inferGenderFromName } from "@/lib/name-gender";
 import { writeAuditLog } from "@/lib/audit";
 import { bcryptPasswordSchema } from "@/lib/password";
 
@@ -172,11 +173,7 @@ export async function loginClient(
     sessionVersion: client.sessionVersion,
   });
 
-  // A experiência do cliente sempre recomeça na home do estabelecimento.
-  // O retorno antigo continua validado acima apenas para compatibilidade com
-  // formulários já abertos durante uma atualização.
-  void validatedReturnTo;
-  redirect(`/book/${normalizedSlug}`);
+  redirect(safeClientReturnTo(normalizedSlug, validatedReturnTo, clientHomePath(normalizedSlug)));
 }
 
 export async function registerClient(
@@ -267,7 +264,7 @@ export async function registerClient(
           phoneNormalized: identity.phoneNormalized,
           email: identity.email,
           passwordHash,
-          gender: inferGenderFromName(registration.name),
+          gender: null,
         },
         select: { id: true, sessionVersion: true },
       });
@@ -312,8 +309,7 @@ export async function registerClient(
     sessionVersion: result.sessionVersion,
   });
 
-  void returnTo;
-  redirect(`/book/${normalizedSlug}`);
+  redirect(safeClientReturnTo(normalizedSlug, returnTo, clientHomePath(normalizedSlug)));
 }
 
 export async function logoutClient(salonSlug: string): Promise<void> {

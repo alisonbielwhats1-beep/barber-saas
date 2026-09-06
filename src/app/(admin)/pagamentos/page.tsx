@@ -23,6 +23,12 @@ export default async function PagamentosPage() {
       orderBy: { createdAt: "desc" }, take: 30,
       select: { action: true, createdAt: true, metadata: true, actorName: true, reason: true },
     });
+    const register = deriveCashState(cashEvents);
+    const cashReceived = register.openedAt ? await tx.payment.aggregate({
+      where: { appointment: { salonId: ctx.salonId }, method: "CASH", paidAt: { gte: register.openedAt, lte: now } },
+      _sum: { amountCents: true },
+    }) : null;
+    const expectedCash = register.openingFloatCents + (cashReceived?._sum.amountCents ?? 0);
     const todayPayments = await tx.payment.findMany({
       where: { paidAt: { gte: from, lt: to }, appointment: { salonId: ctx.salonId } },
       orderBy: { paidAt: "desc" },
@@ -44,13 +50,12 @@ export default async function PagamentosPage() {
       where: { salonId: ctx.salonId, action: "DEPOSIT_STATUS_CHANGED", entityType: "Appointment", entityId: { in: upcoming.map((item) => item.id) } },
       orderBy: { createdAt: "desc" }, select: { entityId: true, metadata: true },
     });
-    return { timezone: salon.timezone, cashEvents, todayPayments, recentPayments, unpaid, upcoming, depositEvents };
+    return { expectedCash, timezone: salon.timezone, cashEvents, todayPayments, recentPayments, unpaid, upcoming, depositEvents };
   });
 
   const cash = deriveCashState(data.cashEvents);
   const totalToday = data.todayPayments.reduce((sum, payment) => sum + payment.amountCents, 0);
-  const cashToday = data.todayPayments.filter((payment) => payment.method === "CASH").reduce((sum, payment) => sum + payment.amountCents, 0);
-  const expectedCash = cash.openingFloatCents + cashToday;
+  const expectedCash = data.expectedCash;
   const receivable = data.unpaid.reduce((sum, item) => sum + item.priceCents, 0);
   const depositStatus = new Map<string, string>();
   for (const event of data.depositEvents) {

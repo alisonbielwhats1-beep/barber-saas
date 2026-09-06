@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getClientSessionForSalonSlug } from "@/lib/client-session-tenant";
-import { clientHomePath } from "@/lib/client-routes";
+import { clientHomePath, safeClientReturnTo } from "@/lib/client-routes";
 import { PasswordRecoveryLoginLink } from "@/components/password-recovery-login-link";
 import { LoginForm } from "./login-form";
 
@@ -13,7 +13,7 @@ export default async function LoginPage({
   searchParams: Promise<{ returnTo?: string; senha?: string }>;
 }) {
   const [{ salonSlug }, query] = await Promise.all([params, searchParams]);
-  const homePath = clientHomePath(salonSlug);
+  const homePath = safeClientReturnTo(salonSlug, query.returnTo, clientHomePath(salonSlug));
 
   const session = await getClientSessionForSalonSlug(salonSlug);
   if (session) redirect(homePath);
@@ -31,7 +31,7 @@ export default async function LoginPage({
           </p>
         </div>
 
-        <LoginForm salonSlug={salonSlug} passwordReset={query.senha === "alterada"} />
+        <LoginForm salonSlug={salonSlug} returnTo={homePath} passwordReset={query.senha === "alterada"} />
 
         <PasswordRecoveryLoginLink
           href={`/book/${salonSlug}/recuperar-senha`}
@@ -40,7 +40,7 @@ export default async function LoginPage({
         <p className="text-center text-sm text-muted-foreground">
           Primeira vez?{" "}
           <Link
-            href={`/book/${salonSlug}/cadastro`}
+            href={`/book/${salonSlug}/cadastro?returnTo=${encodeURIComponent(homePath)}`}
             className="font-medium text-primary hover:underline"
           >
             Criar conta

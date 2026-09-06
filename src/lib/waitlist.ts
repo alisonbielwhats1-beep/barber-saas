@@ -6,7 +6,6 @@ import { clientIdentityData } from "./client-identity";
 import { priceServicesForDate } from "./pricing";
 import { dateKeyInTimeZone } from "./time";
 import { lockOperationalResources } from "./inventory-lock";
-import { inferGenderFromName } from "./name-gender";
 
 const WAITLIST_NOTE = "Confirmado automaticamente pela lista de espera.";
 
@@ -591,7 +590,7 @@ export async function fulfillWaitlistOnCancel(
         name: entry.guestName,
         phone: identity.phone,
         phoneNormalized: identity.phoneNormalized,
-        gender: inferGenderFromName(entry.guestName),
+        gender: null,
       },
       select: { id: true },
     });

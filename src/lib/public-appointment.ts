@@ -24,6 +24,7 @@ export const publicAppointmentSchema = z
       .transform(normalizePhone)
       .optional(),
     notes: z.string().max(1_000).optional(),
+    expectedTotalCents: z.number().int().min(0).max(100_000_000).optional(),
     cartItems: z.array(cartItemSchema).max(30).optional().default([]),
   })
   .strict();

@@ -141,7 +141,7 @@ describe("registerClient — validação no servidor", () => {
         phoneNormalized: normalized,
         email: "maria@example.com",
         passwordHash: "password-hash",
-        gender: "FEMALE",
+        gender: null,
       },
       select: { id: true, sessionVersion: true },
     });
@@ -256,7 +256,7 @@ describe("registerClient — validação no servidor", () => {
     expect(mocks.redirect).toHaveBeenCalledWith("/book/studio-a");
   });
 
-  it("abre sempre a home mesmo quando havia uma rota de retorno permitida", async () => {
+  it("retoma a reserva permitida depois do cadastro", async () => {
     await expect(
       registerClient(
         "studio-a",
@@ -271,7 +271,7 @@ describe("registerClient — validação no servidor", () => {
       ),
     ).rejects.toThrow("NEXT_REDIRECT");
 
-    expect(mocks.redirect).toHaveBeenCalledWith("/book/studio-a");
+    expect(mocks.redirect).toHaveBeenCalledWith("/book/studio-a/agendar?services=a%2Cb");
   });
 
   it("executa bcrypt dummy quando a conta não existe", async () => {

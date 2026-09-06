@@ -302,7 +302,7 @@ export function SharePage({ salon, bookingUrl }: { salon: Salon; bookingUrl: str
             <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary/10 text-primary"><HandCoins className="h-4 w-4" /></span>
             <div>
               <p className="text-[13px] font-semibold">Sinal Pix manual</p>
-              <p className="text-[11px] text-muted-foreground">Sem gateway e sem tarifa do SalonSaaS</p>
+              <p className="text-[11px] text-muted-foreground">Sem gateway e sem tarifa do Everflair</p>
             </div>
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_120px]">
@@ -334,7 +334,7 @@ export function SharePage({ salon, bookingUrl }: { salon: Salon; bookingUrl: str
         <ol className="mt-4 grid gap-2 text-[12px] text-muted-foreground sm:grid-cols-3">
           <li className="rounded-xl bg-surface-1 p-3"><strong className="block text-foreground">1. Abra o perfil</strong>Acesse seu Perfil da Empresa no Google.</li>
           <li className="rounded-xl bg-surface-1 p-3"><strong className="block text-foreground">2. Edite agendamentos</strong>Escolha a opção de link para reservar.</li>
-          <li className="rounded-xl bg-surface-1 p-3"><strong className="block text-foreground">3. Cole o link</strong>Use o endereço do SalonSaaS exibido acima.</li>
+          <li className="rounded-xl bg-surface-1 p-3"><strong className="block text-foreground">3. Cole o link</strong>Use o endereço do Everflair exibido acima.</li>
         </ol>
         <a href="https://business.google.com/" target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-[13px] text-muted-foreground hover:text-foreground"><ExternalLink className="h-3.5 w-3.5" /> Abrir Perfil da Empresa</a>
       </div>

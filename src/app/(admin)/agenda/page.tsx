@@ -2,7 +2,7 @@ import { getTenantContext } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
 import { AgendaBoard, type Appointment, type Professional } from "./agenda-board";
 import type { ServiceOption, ClientOption } from "./appointment-form";
-import { dateKeyInTimeZone, isDateKey, monthRangeInTimeZone } from "@/lib/time";
+import { dateKeyInTimeZone, isDateKey, calendarGridRangeInTimeZone } from "@/lib/time";
 import { AutoRefresh } from "@/components/auto-refresh";
 
 function jsonRecord(value: unknown): Record<string, unknown> {
@@ -45,7 +45,7 @@ export default async function AgendaPage({
     const dateStr = selectedDate && isDateKey(selectedDate)
       ? selectedDate
       : dateKeyInTimeZone(new Date(), salon.timezone);
-    const range = monthRangeInTimeZone(dateStr, salon.timezone);
+    const range = calendarGridRangeInTimeZone(dateStr, salon.timezone);
     const ownProfessional = role === "PROFESSIONAL"
       ? await tx.professional.findFirst({
           where: { salonId, userId: ctx.userId, active: true },
@@ -66,6 +66,7 @@ export default async function AgendaPage({
         colorHex: true,
         user: { select: { name: true, avatarUrl: true } },
         services: { select: { serviceId: true } },
+        workingHours: { select: { startMinutes: true, endMinutes: true } },
       },
       orderBy: { user: { name: "asc" } },
     });
@@ -179,6 +180,7 @@ export default async function AgendaPage({
     name: p.user.name,
     colorHex: p.colorHex,
     serviceIds: p.services.map((s) => s.serviceId),
+    workingHours: p.workingHours,
   }));
 
   const appointments: Appointment[] = apptsRaw.map((a) => {

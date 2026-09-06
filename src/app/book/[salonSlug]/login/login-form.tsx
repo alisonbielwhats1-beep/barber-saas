@@ -8,9 +8,11 @@ import { loginClient } from "../auth-actions";
 export function LoginForm({
   salonSlug,
   passwordReset = false,
+  returnTo,
 }: {
   salonSlug: string;
   passwordReset?: boolean;
+  returnTo?: string;
 }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -23,8 +25,10 @@ export function LoginForm({
     setPending(true);
     void (async () => {
       try {
-        const result = await loginClient(salonSlug, email, password);
+        const result = await loginClient(salonSlug, email, password, returnTo);
         if (result?.error) setError(result.error);
+      } catch {
+        setError("Não foi possível entrar agora. Verifique sua conexão e tente novamente.");
       } finally {
         setPending(false);
       }
@@ -32,17 +36,19 @@ export function LoginForm({
   }
 
   return (
-    <form onSubmit={submit} className="space-y-4">
+    <form method="post" onSubmit={submit} className="space-y-4">
       {passwordReset && (
         <p role="status" className="rounded-xl bg-emerald-500/10 px-4 py-2.5 text-[13px] text-emerald-700 dark:text-emerald-300">
           Senha alterada. Entre novamente.
         </p>
       )}
       <div>
-        <label className="mb-1.5 block text-[13px] font-medium text-muted-foreground">
+        <label htmlFor="client-email" className="mb-1.5 block text-[13px] font-medium text-muted-foreground">
           E-mail
         </label>
         <input
+          id="client-email"
+          name="email"
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -67,7 +73,7 @@ export function LoginForm({
       />
 
       {error && (
-        <p className="rounded-xl bg-red-500/10 px-4 py-2.5 text-[13px] text-red-500">
+        <p role="alert" className="rounded-xl bg-destructive/10 px-4 py-2.5 text-[13px] text-destructive">
           {error}
         </p>
       )}

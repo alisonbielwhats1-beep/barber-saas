@@ -1,13 +1,14 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import "@/components/brand.css";
 import { Providers } from "./providers";
 import { PWA_APPLE_ICON } from "@/lib/pwa-icons";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
 
 export const metadata: Metadata = {
-  title: "SalonSaaS — Gestão e agendamento para beleza e bem-estar",
+  title: "Everflair — Gestão e agendamento para beleza e bem-estar",
   description:
     "Agenda online, clientes, equipe e gestão para barbearias, salões, manicures, estética e espaços multisserviços.",
   manifest: "/manifest.webmanifest",
@@ -18,10 +19,10 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "SalonSaaS",
+    title: "Everflair",
   },
   openGraph: {
-    title: "SalonSaaS — Seu espaço organizado, sua agenda em movimento",
+    title: "Everflair — Seu espaço organizado, sua agenda em movimento",
     description:
       "Uma plataforma de gestão e agendamento que se adapta ao seu negócio de beleza e bem-estar.",
     type: "website",

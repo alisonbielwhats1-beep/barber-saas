@@ -15,7 +15,7 @@ describe("contingência dos convites por e-mail", () => {
       emailInvitesEnabled({
         EMAIL_INVITES_ENABLED: "TRUE",
         RESEND_API_KEY: "re_test",
-        EMAIL_FROM: "SalonSaaS <convites@example.com>",
+        EMAIL_FROM: "Everflair <convites@example.com>",
       }),
     ).toBe(false);
     expect(
@@ -31,7 +31,7 @@ describe("contingência dos convites por e-mail", () => {
       emailInvitesEnabled({
         EMAIL_INVITES_ENABLED: "true",
         RESEND_API_KEY: "re_test",
-        EMAIL_FROM: "SalonSaaS <convites@example.com>",
+        EMAIL_FROM: "Everflair <convites@example.com>",
       }),
     ).toBe(true);
   });

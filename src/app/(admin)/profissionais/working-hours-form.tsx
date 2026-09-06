@@ -19,18 +19,18 @@ import { minutesToHHMM, hhmmToMinutes } from "@/lib/utils";
 
 const WEEKDAYS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 
-type Row = { weekday: number; enabled: boolean; start: string; end: string };
+type Row = { weekday: number; enabled: boolean; intervals: { start: string; end: string }[] };
 
 function buildRows(
   current: { weekday: number; startMinutes: number; endMinutes: number }[],
 ): Row[] {
   return Array.from({ length: 7 }, (_, weekday) => {
-    const existing = current.find((c) => c.weekday === weekday);
+    const existing = current.filter((c) => c.weekday === weekday).sort((a, b) => a.startMinutes - b.startMinutes);
     return {
-      weekday,
-      enabled: !!existing,
-      start: minutesToHHMM(existing?.startMinutes ?? 9 * 60),
-      end: minutesToHHMM(existing?.endMinutes ?? 18 * 60),
+      weekday, enabled: existing.length > 0,
+      intervals: (existing.length ? existing : [{ startMinutes: 540, endMinutes: 1080 }]).map((interval) => ({
+        start: minutesToHHMM(interval.startMinutes), end: minutesToHHMM(interval.endMinutes),
+      })),
     };
   });
 }
@@ -55,7 +55,7 @@ export function WorkingHoursForm({
 
   function copyToAll(i: number) {
     const src = rows[i];
-    setRows((r) => r.map((row) => ({ ...row, start: src.start, end: src.end })));
+    setRows((r) => r.map((row) => ({ ...row, intervals: src.intervals.map((interval) => ({ ...interval })) })));
   }
 
   function submit() {
@@ -64,12 +64,12 @@ export function WorkingHoursForm({
       try {
         await setWorkingHours(
           professionalId,
-          rows.map((r) => ({
+          rows.flatMap((r) => r.enabled ? r.intervals.map((interval) => ({
             weekday: r.weekday,
             enabled: r.enabled,
-            startMinutes: hhmmToMinutes(r.start),
-            endMinutes: hhmmToMinutes(r.end),
-          })),
+            startMinutes: hhmmToMinutes(interval.start),
+            endMinutes: hhmmToMinutes(interval.end),
+          })) : []),
         );
         setOpen(false);
       } catch (err) {
@@ -95,8 +95,7 @@ export function WorkingHoursForm({
         <DialogHeader>
           <DialogTitle>Horários de {professionalName}</DialogTitle>
           <DialogDescription>
-            Marque os dias e defina início/fim. A agenda usa isso para calcular a
-            ocupação e os slots disponíveis pro cliente reservar.
+            Defina um ou mais intervalos por dia para preservar pausas e almoço. Fim às 00:00 significa meia-noite ao encerrar o dia.
           </DialogDescription>
         </DialogHeader>
 
@@ -104,7 +103,7 @@ export function WorkingHoursForm({
           {rows.map((row, i) => (
             <div
               key={row.weekday}
-              className="grid gap-3 rounded-md border p-3 sm:flex sm:items-center"
+              className="grid gap-3 rounded-xl border border-border p-3"
             >
               <label className="flex min-w-0 cursor-pointer items-center gap-2 sm:min-w-[130px]">
                 <input
@@ -115,25 +114,22 @@ export function WorkingHoursForm({
                 />
                 <span className="text-sm font-medium">{WEEKDAYS[row.weekday]}</span>
               </label>
-              <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:flex sm:shrink-0">
-                <Input
-                  type="time"
-                  aria-label={`Início de ${WEEKDAYS[row.weekday]}`}
-                  value={row.start}
-                  onChange={(e) => updateRow(i, { start: e.target.value })}
-                  disabled={!row.enabled}
-                  className="w-full sm:w-28"
-                />
-                <span className="text-center text-muted-foreground">–</span>
-                <Input
-                  type="time"
-                  aria-label={`Fim de ${WEEKDAYS[row.weekday]}`}
-                  value={row.end}
-                  onChange={(e) => updateRow(i, { end: e.target.value })}
-                  disabled={!row.enabled}
-                  className="w-full sm:w-28"
-                />
-              </div>
+              {row.intervals.map((interval, index) => (
+                <div key={index} className="flex min-w-0 items-center gap-2">
+                  <Input type="time" aria-label={`Início ${WEEKDAYS[row.weekday]}, intervalo ${index + 1}`}
+                    value={interval.start} disabled={!row.enabled} className="min-w-0 flex-1"
+                    onChange={(e) => updateRow(i, { intervals: row.intervals.map((item, j) => j === index ? { ...item, start: e.target.value } : item) })} />
+                  <span aria-hidden="true">–</span>
+                  <Input type="time" aria-label={`Fim ${WEEKDAYS[row.weekday]}, intervalo ${index + 1}`}
+                    value={interval.end === "24:00" ? "00:00" : interval.end} disabled={!row.enabled} className="min-w-0 flex-1"
+                    onChange={(e) => updateRow(i, { intervals: row.intervals.map((item, j) => j === index ? { ...item, end: e.target.value === "00:00" ? "24:00" : e.target.value } : item) })} />
+                  {row.intervals.length > 1 && <Button type="button" variant="ghost" disabled={!row.enabled}
+                    aria-label={`Remover intervalo ${index + 1} de ${WEEKDAYS[row.weekday]}`}
+                    onClick={() => updateRow(i, { intervals: row.intervals.filter((_, j) => j !== index) })}>×</Button>}
+                </div>
+              ))}
+              {row.enabled && <Button type="button" variant="outline" disabled={row.intervals.length >= 6}
+                onClick={() => updateRow(i, { intervals: [...row.intervals, { start: "14:00", end: "18:00" }] })}>Adicionar intervalo</Button>}
               <Button
                 type="button"
                 variant="ghost"

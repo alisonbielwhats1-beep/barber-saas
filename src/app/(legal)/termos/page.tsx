@@ -12,7 +12,7 @@ import {
 export const metadata: Metadata = {
   title: `Termos de Uso — ${SERVICE_NAME}`,
   description:
-    "Condições de uso do SalonSaaS: o que o serviço faz, o que se espera de você e os limites de responsabilidade.",
+    "Condições de uso do Everflair: o que o serviço faz, o que se espera de você e os limites de responsabilidade.",
 };
 
 /**
@@ -25,7 +25,7 @@ export default function TermosPage() {
   return (
     <LegalShell
       title="Termos de Uso"
-      intro="Estas condições regem o uso do SalonSaaS. Ao criar uma conta ou utilizar o serviço, você concorda com elas. Leia com atenção a seção 3, que descreve com franqueza o que o sistema ainda não faz."
+      intro="Estas condições regem o uso do Everflair. Ao criar uma conta ou utilizar o serviço, você concorda com elas. Leia com atenção a seção 3, que descreve com franqueza o que o sistema ainda não faz."
     >
       <LegalSection title="1. Quem oferece o serviço">
         <p>

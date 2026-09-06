@@ -1,5 +1,21 @@
 # Status atual canônico — Salon SaaS
 
+## Decisão e primeiro acesso — trabalho local de 05/09/2026
+
+Melhorias da avaliação implementadas na branch `codex/everflair-conversion`:
+demonstração guiada da operação, planos antecipados e adaptados ao celular,
+contexto do plano no cadastro, catálogo inicial opcional, guia de configuração
+no painel e contato alternativo no login. Detalhes, validação e proposta de
+piloto em `docs/CONVERSAO_2026-09-05.md`. Trabalho local ainda não publicado.
+
+## Identidade Everflair — trabalho local de 05/09/2026
+
+A identidade aprovada foi aplicada localmente na branch `codex/everflair-brand`,
+preservando as melhorias locais de landing, agenda em dispositivos e motion.
+Escopo, evidências e limites em `docs/EVERFLAIR_2026-09-05.md`.
+Esta etapa ainda não foi publicada; as informações de implantação abaixo são
+históricas e não indicam publicação da marca Everflair.
+
 Atualizado em **30/08/2026**. As migrations manuais 012, 013, 014, 015, 016 e
 017 foram aplicadas no Supabase Production; a execução da fase 017 ocorreu
 após autorização explícita e antes da promoção do código correspondente.
@@ -363,3 +379,17 @@ Concluir a candidata de prontidão comercial sem alterar Production:
 > `011_platform_billing` não foi
 > aplicada e a flag de billing está desligada. Preserve RLS, histórico e
 > isolamento multi-tenant. Proponha o próximo passo antes de qualquer migration.
+
+
+## 2026-09-06 — refinamento operacional em demonstração
+
+- Implementação local em `codex/product-refinement`, preservando alterações anteriores de identidade Everflair.
+- Correções publicadas em `codex/everflair-demo`, commit funcional `9cadcd8`; script de verificação isolada em `5401fe0`; acessibilidade refinada em `e4df171` e `700f835`.
+- Paleta neutra no painel e no cliente, melhoria do menu mobile, agenda e jornada de autenticação.
+- Correções de caixa por pagamento, permissões da recepção, consumo/renovação de pacotes, estoque e mesclagem de clientes.
+- 659 testes unitários/regressão passaram. TypeScript, lint e build passaram. Auditoria de dependências: zero vulnerabilidades.
+- Build da demonstração concluído no Codespace, banco e dados existentes preservados. Nenhuma migration ou deploy produtivo foi realizado.
+- A liberação pública da porta 3000 foi bloqueada pela revisão automática; solicitação de autorização explícita pendente. Não contornar essa decisão. Verificação pelo localhost do Codespace: seis fluxos aprovados, dez telas capturadas, zero erros de runtime; ajustes de contraste e semântica aplicados a partir do axe.
+- Não houve CI remoto nesta branch nem promoção produtiva. Testes PostgreSQL abrangentes e revisão de release permanecem necessários antes de promover.
+- Esta rodada não encerra os 32 itens da auditoria. Escopo e pendências: `docs/REFINAMENTO_OPERACIONAL_2026-09-06.md`.
+

@@ -31,7 +31,7 @@ export async function GET(
 
   const clientPath = `/book/${salonSlug}`;
   const startPath = `${clientPath}/welcome`;
-  const name = salon.name.trim() || "SalonSaaS";
+  const name = salon.name.trim() || "Everflair";
   const manifest: MetadataRoute.Manifest = {
     id: clientPath,
     name: `${name} — agendamento online`,

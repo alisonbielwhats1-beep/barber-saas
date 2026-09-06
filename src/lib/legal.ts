@@ -15,7 +15,7 @@
  */
 
 /** Nome fantasia / marca do serviço. */
-export const SERVICE_NAME = "SalonSaaS";
+export const SERVICE_NAME = "Everflair";
 
 /** Endereço do serviço em produção. */
 export const SERVICE_URL = "https://salon-saas-ruby.vercel.app";

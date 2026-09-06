@@ -94,14 +94,14 @@ export default async function FinanceiroPage({
         <div>
           <h2 id="finance-position-title" className="text-[15px] font-semibold">Posição do período</h2>
           <p className="mt-1 text-[12px] text-muted-foreground">
-            Recebido é pagamento registrado; realizado considera atendimentos concluídos; a receber são reservas futuras ativas.
+            Recebido considera a data do pagamento. A receber mostra atendimentos concluídos sem pagamento. Reservas futuras são uma previsão.
           </p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <Hero featured accent="#2ECC8B" icon={Wallet} label="Recebido" value={formatMoney(received)} hint={`${formatMoney(m.revenue)} realizado · ${m.byMethod.length} formas`} />
-          <Hero accent="#3B9EFF" icon={ArrowDownCircle} label="A receber" value={formatMoney(m.receivable)} hint="Agendamentos futuros ativos" />
+          <Hero accent="#3B9EFF" icon={ArrowDownCircle} label="A receber" value={formatMoney(m.receivable)} hint="Concluídos sem pagamento registrado" />
           <Hero accent="#EF4444" icon={TrendingDown} label="Despesas" value={formatMoney(m.expenseTotal)} hint={`${formatMoney(m.expenseFixed)} fixas · ${formatMoney(m.expenseVar)} variáveis`} />
-          <Hero accent={m.netProfit >= 0 ? "#2ECC8B" : "#EF4444"} icon={PiggyBank} label="Resultado líquido" value={formatMoney(m.netProfit)} hint={`Margem líquida ${(m.margin * 100).toFixed(0)}%`} />
+          <Hero accent={m.netProfit >= 0 ? "#2ECC8B" : "#EF4444"} icon={PiggyBank} label="Resultado estimado" value={formatMoney(m.netProfit)} hint={`Margem líquida ${(m.margin * 100).toFixed(0)}%`} />
         </div>
       </section>
 
@@ -119,8 +119,8 @@ export default async function FinanceiroPage({
               <Link href="/agenda" className="group flex min-h-11 items-center gap-3 rounded-xl border border-info/25 bg-info/5 px-3.5 py-3 transition-colors hover:border-info/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <ArrowDownCircle className="h-4 w-4 shrink-0 text-info" />
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[12px] font-medium">Reservas a receber</span>
-                  <span className="block text-[11px] text-muted-foreground">{formatMoney(m.receivable)} em agendamentos futuros</span>
+                  <span className="block text-[12px] font-medium">Atendimentos a receber</span>
+                  <span className="block text-[11px] text-muted-foreground">{formatMoney(m.receivable)} em atendimentos concluídos</span>
                 </span>
                 <ArrowRight aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
               </Link>
@@ -143,6 +143,7 @@ export default async function FinanceiroPage({
       <section className="grid gap-4 lg:grid-cols-3">
         <Panel className="lg:col-span-2">
           <PanelTitle icon={Activity}>Fluxo de caixa</PanelTitle>
+          <p className="mt-1 text-xs text-muted-foreground">Entradas e despesas efetivamente pagas no período. Não inclui reservas nem despesas em aberto.</p>
           <div className="mt-4 h-64">
             <CashflowChart data={m.cashflow} />
           </div>
@@ -153,12 +154,13 @@ export default async function FinanceiroPage({
           </div>
         </Panel>
 
-        {/* DRE simplificada */}
+        {/* Resultado operacional */}
         <Panel>
-          <PanelTitle icon={Layers}>DRE simplificada</PanelTitle>
+          <PanelTitle icon={Layers}>Resultado operacional</PanelTitle>
+          <p className="mt-1 text-xs text-muted-foreground">Receita bruta por atendimento e despesas por vencimento. Comissões são estimativas, não comprovantes de repasse.</p>
           <div className="mt-4 space-y-0.5 text-[13px]">
-            <DreRow label="Receita bruta" value={formatMoney(m.revenue)} strong />
-            <DreRow label="(−) Comissões" value={`- ${formatMoney(m.commissions)}`} muted />
+            <DreRow label="Receita realizada bruta" value={formatMoney(m.revenue)} strong />
+            <DreRow label="(−) Comissões estimadas" value={`- ${formatMoney(m.commissions)}`} muted />
             <DreRow label="= Lucro bruto" value={formatMoney(m.grossProfit)} divider />
             <DreRow label="(−) Despesas fixas" value={`- ${formatMoney(m.expenseFixed)}`} muted />
             <DreRow label="(−) Despesas variáveis" value={`- ${formatMoney(m.expenseVar)}`} muted />
@@ -228,6 +230,7 @@ export default async function FinanceiroPage({
           <Tile accent="#2ECC8B" icon={Package} label="Receita produtos" value={formatMoney(m.productRevenue)} />
           <Tile accent="#F59E0B" icon={HandCoins} label="Comissões" value={formatMoney(m.commissions)} />
           <Tile accent="#3B9EFF" icon={PiggyBank} label="Lucro bruto" value={formatMoney(m.grossProfit)} />
+          <Tile accent="#94A3B8" icon={ArrowDownCircle} label="Reservas futuras" value={formatMoney(m.forecast)} />
           <Tile accent="#2ECC8B" icon={ArrowDownCircle} label="A receber" value={formatMoney(m.receivable)} />
           <Tile accent="#EF4444" icon={ArrowUpCircle} label="A pagar" value={formatMoney(m.payable)} />
           <Tile accent="#A855F7" icon={Percent} label="Margem líquida" value={`${(m.margin * 100).toFixed(0)}%`} />

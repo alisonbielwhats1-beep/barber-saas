@@ -1,8 +1,10 @@
 "use client";
-import Image from "next/image";
 import { useEffect, useRef, type ReactNode } from "react";
+import { AgendaDevices } from "./agenda-devices";
+import { RevealHeading } from "./reveal-heading";
+import type { MarketingSegmentId } from "./segments";
 
-export function ProductScene({ children }: { children: ReactNode }) {
+export function ProductScene({ children, segmentId }: { children: ReactNode; segmentId: MarketingSegmentId }) {
   const root = useRef<HTMLElement>(null);
   useEffect(() => {
     const section = root.current;
@@ -26,8 +28,8 @@ export function ProductScene({ children }: { children: ReactNode }) {
     return () => { cancelAnimationFrame(frame); window.removeEventListener("scroll", schedule); window.removeEventListener("resize", schedule); media.removeEventListener("change", schedule); };
   }, []);
   return <section ref={root} id="sistema" className="sc-product-section" aria-labelledby="product-title"><div className="mk-wrap">
-    <div className="sc-product-heading"><p className="mk-eyebrow">O ESPAÇO DO SEU NEGÓCIO</p><h2 id="product-title">Uma rotina mais clara.<br /><span>Em todos os sentidos.</span></h2><p>Encontre seus horários, organize a equipe e acompanhe a operação. Tudo começa com uma boa visão do dia.</p></div>
-    <figure className="sc-product-art"><Image src="/images/product-agenda-refined.webp" width={1568} height={1002} alt="Agenda diária ilustrativa com profissionais em colunas, clientes fictícios, serviços, horários e status de atendimento" sizes="(max-width: 700px) 100vw, 1120px" /><figcaption>Prévia ilustrativa da agenda · nomes e valores de demonstração.<a href="/images/product-agenda-refined.webp" target="_blank" rel="noreferrer" aria-label="Ampliar agenda em nova aba">Ampliar agenda ↗</a></figcaption></figure>
+    <div className="sc-product-heading"><p className="mk-eyebrow">AGENDA E EQUIPE</p><RevealHeading id="product-title" lines={["Saiba quem atende.", "E o que vem a seguir."]} /><p>Siga uma reserva do aplicativo do cliente até o registro financeiro. Clique nas etapas e veja o que muda na operação.</p></div>
+    <AgendaDevices segmentId={segmentId} />
     {children}
   </div></section>;
 }

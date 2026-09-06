@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef } from "react";
 
-const words = "O seu cuidado transforma o dia de alguém. A organização transforma o seu. Do primeiro horário ao último atendimento, encontre espaço para fazer o que você faz de melhor.".split(" ");
+const words = "Do horário reservado ao atendimento concluído. Do cliente que chega ao convite para voltar. Cada etapa merece estar conectada.".split(" ");
 
 export function ScrollNarrative() {
   const root = useRef<HTMLElement>(null);
