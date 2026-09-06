@@ -68,16 +68,16 @@
     --border: 220 14% 82%;            /* #C7CCDB — clearly visible */
     --border-strong: 220 14% 68%;
     --input: 0 0% 98%;
-    --ring: 152 55% 32%;
+    --ring: 152 55% 30%;
 
     /* Primary — deeper green for contrast on white */
-    --primary: 152 55% 32%;           /* contraste de texto ajustado sobre branco */
+    --primary: 152 55% 30%;           /* contraste de texto ajustado sobre branco */
     --primary-foreground: 0 0% 100%;
 
     --secondary: 220 18% 92%;
     --secondary-foreground: 240 12% 8%;
 
-    --accent: 152 55% 32%;
+    --accent: 152 55% 30%;
     --accent-foreground: 0 0% 100%;
 
     /* Semantic — slightly deeper for light bg legibility */
