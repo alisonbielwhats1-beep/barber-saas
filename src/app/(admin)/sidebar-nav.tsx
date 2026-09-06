@@ -193,12 +193,12 @@ function NavRow({
       className={cn(
         "relative flex min-h-11 items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         active
-          ? "bg-accent/15 font-medium text-foreground"
+          ? "bg-primary/10 font-medium text-foreground"
           : "text-muted-foreground hover:bg-card-hover hover:text-foreground",
       )}
     >
       {active && (
-        <span className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-accent" />
+        <span className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-primary" />
       )}
       <Icon className={cn("h-3.5 w-3.5 shrink-0", active && "text-primary")} />
       <span className="min-w-0 flex-1 truncate">{label}</span>

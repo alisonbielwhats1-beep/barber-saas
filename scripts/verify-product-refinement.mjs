@@ -34,7 +34,7 @@ try {
  const {context,page}=await login('owner');
  await visit(page,'/dashboard');await expect(page.getByText('Alex Costa · Demonstração',{exact:true})).toBeVisible();
  const primary=await page.locator('.admin-shell').evaluate(el=>getComputedStyle(el).getPropertyValue('--primary').trim());
- expect(primary).toBe('157.93 70.73% 24.12%');report.checks.push('Owner verified; emerald/sand theme applied');
+ expect(primary).toBe('152 65% 48%');report.checks.push('Owner verified; neutral surfaces restored from 6fd3d21');
  await capture(page,'dashboard-dark-desktop');
  await page.getByRole('button',{name:'Mudar para tema claro'}).click();await page.waitForTimeout(900);await capture(page,'dashboard-light-desktop');
  await page.setViewportSize({width:390,height:844});await visit(page,'/dashboard');await capture(page,'dashboard-light-mobile');
