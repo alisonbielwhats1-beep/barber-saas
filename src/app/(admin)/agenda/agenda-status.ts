@@ -16,9 +16,22 @@ export const STATUS: Record<ApptStatus, { label: string; color: string }> = {
   CONFIRMED: { label: "Confirmado", color: "#3B9EFF" },
   IN_PROGRESS: { label: "Em atendimento", color: "#A855F7" },
   COMPLETED: { label: "Finalizado", color: "#2ECC8B" },
-  NO_SHOW: { label: "No-show", color: "#EF4444" },
+  NO_SHOW: { label: "Não compareceu", color: "#EF4444" },
   CANCELLED: { label: "Cancelado", color: "#64748B" },
 };
+
+export const ACTION_LABELS: Partial<Record<ApptStatus, string>> = {
+  CONFIRMED: "Confirmar reserva",
+  IN_PROGRESS: "Iniciar atendimento",
+  COMPLETED: "Concluir atendimento",
+  NO_SHOW: "Marcar falta",
+};
+
+export function statusActionClasses(status: ApptStatus) {
+  return status === "NO_SHOW"
+    ? "bg-[var(--action-critical)] text-white hover:brightness-110"
+    : "bg-[var(--action-positive)] text-white hover:brightness-110";
+}
 
 export const STATUS_ORDER: (keyof typeof STATUS)[] = [
   "PENDING",

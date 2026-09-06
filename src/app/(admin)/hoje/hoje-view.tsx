@@ -8,7 +8,7 @@ import { formatInTimeZone } from "date-fns-tz";
 import { formatMoney } from "@/lib/utils";
 import { buildAppointmentWhatsAppLink } from "@/lib/whatsapp";
 import { isValidPhoneBR, normalizePhone } from "@/lib/phone";
-import { STATUS, nextActions, type ApptStatus } from "../agenda/agenda-status";
+import { ACTION_LABELS, STATUS, nextActions, statusActionClasses, type ApptStatus } from "../agenda/agenda-status";
 import { markReminderSent, updateAppointmentStatus } from "../agenda/actions";
 import { registerArrival } from "./actions";
 
@@ -28,13 +28,6 @@ export type TodayAppointment = {
 };
 
 type Filter = "all" | "attention" | "active" | "completed";
-
-const ACTION_LABELS: Partial<Record<ApptStatus, string>> = {
-  CONFIRMED: "Confirmar reserva",
-  IN_PROGRESS: "Iniciar atendimento",
-  COMPLETED: "Concluir atendimento",
-  NO_SHOW: "Marcar no-show",
-};
 
 const ACTION_ICONS: Partial<Record<ApptStatus, typeof Check>> = {
   CONFIRMED: Check,
@@ -203,11 +196,11 @@ export function HojeView({
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-base font-semibold">{appointment.clientName}</p>
                       <p className="mt-1 truncate text-sm text-muted-foreground">{appointment.serviceName} · {appointment.professionalName}</p>
-                      {appointment.checkedInAt && <p className="mt-1 text-xs font-medium text-primary">Chegou às {formatInTimeZone(new Date(appointment.checkedInAt), timezone, "HH:mm")}{["PENDING", "CONFIRMED"].includes(appointment.status) ? ` · aguardando ${Math.max(0, Math.floor((now - Date.parse(appointment.checkedInAt)) / 60000))} min` : ""}</p>}
+                      {appointment.checkedInAt && <p className="mt-1 text-xs font-medium text-success">Chegou às {formatInTimeZone(new Date(appointment.checkedInAt), timezone, "HH:mm")}{["PENDING", "CONFIRMED"].includes(appointment.status) ? ` · aguardando ${Math.max(0, Math.floor((now - Date.parse(appointment.checkedInAt)) / 60000))} min` : ""}</p>}
                       <p className="mt-1 text-xs text-muted-foreground">{formatMoney(appointment.priceCents, currency)}{appointment.hasPayment ? " · recebido" : ""}</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 sm:col-span-2 2xl:col-span-1 2xl:max-w-[660px] 2xl:justify-end">
-                      {!appointment.checkedInAt && ["PENDING", "CONFIRMED"].includes(appointment.status) && date === formatInTimeZone(now, timezone, "yyyy-MM-dd") && <button type="button" disabled={pending} onClick={() => arrive(appointment)} className="min-h-11 rounded-lg border border-primary/30 bg-primary/10 px-3 text-xs font-semibold text-primary">Registrar chegada</button>}
+                      {!appointment.checkedInAt && ["PENDING", "CONFIRMED"].includes(appointment.status) && date === formatInTimeZone(now, timezone, "yyyy-MM-dd") && <button type="button" disabled={pending} onClick={() => arrive(appointment)} className="min-h-11 rounded-lg border border-success/40 bg-success/10 px-3 text-xs font-semibold text-success">Registrar chegada</button>}
                       {openedReminderIds.has(appointment.id) && !sentReminderIds.has(appointment.id) && <button type="button" disabled={pending} onClick={() => confirmReminder(appointment)} className="min-h-11 rounded-lg border border-border px-3 text-xs">Confirmar envio manual</button>}
                       <button
                         type="button"
@@ -244,7 +237,7 @@ export function HojeView({
                             type="button"
                             disabled={pending || pendingId === appointment.id}
                             onClick={() => runStatus(appointment, action)}
-                            className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-3.5 text-xs font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
+                            className={`inline-flex min-h-11 items-center gap-2 rounded-xl px-3.5 text-xs font-semibold transition disabled:opacity-50 ${statusActionClasses(action)}`}
                           >
                             {pendingId === appointment.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" aria-hidden="true" />}
                             {actionLabel}

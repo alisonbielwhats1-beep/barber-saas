@@ -219,7 +219,7 @@ export default async function ProfissionaisPage() {
                 {canSeeFinancial && <Stat icon={CircleDollarSign} label="Comissão" value={formatMoney(p.commissionCents)} />}
                 <Stat icon={Repeat} label="Taxa retorno" value={`${(p.returnRate * 100).toFixed(0)}%`} />
                 <Stat icon={Timer} label="Tempo médio" value={formatDuration(p.avgDuration || 0)} />
-                <Stat icon={UserX} label="No-show" value={p.noShow.toString()} accent={p.noShow > 0 ? "#EF4444" : undefined} />
+                <Stat icon={UserX} label="Faltas" value={p.noShow.toString()} accent={p.noShow > 0 ? "#EF4444" : undefined} />
               </div>
 
               {/* Ações */}

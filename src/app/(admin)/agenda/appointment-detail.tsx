@@ -45,6 +45,8 @@ import {
 } from "./actions";
 import {
   STATUS,
+  ACTION_LABELS,
+  statusActionClasses,
   canOpenAppointmentCheckout,
   nextActions,
   type ApptStatus,
@@ -577,11 +579,10 @@ export function AppointmentDetail({
                           }),
                         )
                       }
-                      className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-medium text-white transition hover:opacity-90 disabled:opacity-50"
-                      style={{ background: target.color }}
+                      className={`inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-medium transition disabled:opacity-50 ${statusActionClasses(s)}`}
                     >
                       <Icon className="h-4 w-4" />
-                      {target.label}
+                      {ACTION_LABELS[s] ?? target.label}
                     </button>
                   );
                 })}

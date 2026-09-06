@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
+import { formatInTimeZone } from "date-fns-tz";
 import { assertSafeDatabaseOperation } from "../../src/lib/database-safety";
 import { dateKeyInTimeZone, zonedDateTimeToUtc } from "../../src/lib/time";
 
@@ -15,11 +16,14 @@ test.describe("@database operação diária e expediente", () => {
     const clientName = `Chegada CI ${suffix.slice(0, 6)}`;
     const salon = await db.salon.findUniqueOrThrow({ where: { slug: "luna-hair" } });
     const date = dateKeyInTimeZone(new Date(), salon.timezone);
+    const hour = formatInTimeZone(new Date(), salon.timezone, "HH");
+    const startTime = `${hour}:00`;
+    const endTime = `${hour}:30`;
     const user = await db.user.create({ data: { name: professionalName, email: `${suffix}@example.test`, passwordHash: "fixture-not-a-login" } });
     const professional = await db.professional.create({ data: { salonId: salon.id, userId: user.id } });
     const service = await db.service.create({ data: { salonId: salon.id, name: "Corte teste operacional", durationMin: 30, priceCents: 5000, professionals: { create: { professionalId: professional.id } } } });
     const client = await db.clientProfile.create({ data: { salonId: salon.id, name: clientName } });
-    const appointment = await db.appointment.create({ data: { salonId: salon.id, professionalId: professional.id, serviceId: service.id, clientId: client.id, startAt: zonedDateTimeToUtc(date, "18:00", salon.timezone), endAt: zonedDateTimeToUtc(date, "18:30", salon.timezone), priceCents: 5000, status: "CONFIRMED" } });
+    const appointment = await db.appointment.create({ data: { salonId: salon.id, professionalId: professional.id, serviceId: service.id, clientId: client.id, startAt: zonedDateTimeToUtc(date, startTime, salon.timezone), endAt: zonedDateTimeToUtc(date, endTime, salon.timezone), priceCents: 5000, status: "CONFIRMED" } });
     try {
       await page.goto("/login");
       await page.getByLabel("Email").fill("dono@lunahair.com");
@@ -35,6 +39,11 @@ test.describe("@database operação diária e expediente", () => {
       expect(clientBox?.width).toBeGreaterThan(220);
       expect((await db.appointment.findUniqueOrThrow({ where: { id: appointment.id } })).checkedInAt).not.toBeNull();
       await page.screenshot({ path: test.info().outputPath("hoje-chegada-desktop.png"), fullPage: true });
+      await card.screenshot({ path: test.info().outputPath("acoes-atendimento-dark.png") });
+      await page.getByRole("button", { name: "Mudar para tema claro" }).click();
+      await expect(page.locator("html")).toHaveAttribute("data-theme", "admin-light");
+      await card.screenshot({ path: test.info().outputPath("acoes-atendimento-light.png") });
+      await page.getByRole("button", { name: "Mudar para tema escuro" }).click();
 
       await page.goto(`/agenda?date=${date}`);
       await page.getByRole("button", { name: "Liberar expediente extra", exact: true }).click();
@@ -47,8 +56,8 @@ test.describe("@database operação diária e expediente", () => {
 
       await page.getByRole("button", { name: "Bloquear horário ou dia" }).click();
       const blocking = page.getByRole("dialog");
-      await blocking.getByLabel("Início", { exact: true }).fill(`${date}T18:00`);
-      await blocking.getByLabel("Fim", { exact: true }).fill(`${date}T18:30`);
+      await blocking.getByLabel("Início", { exact: true }).fill(`${date}T${startTime}`);
+      await blocking.getByLabel("Fim", { exact: true }).fill(`${date}T${endTime}`);
       await blocking.getByLabel("Motivo").fill(`Reunião CI ${suffix}`);
       await blocking.getByRole("button", { name: "Revisar bloqueio" }).click();
       await expect(blocking.getByRole("status")).toContainText(clientName);

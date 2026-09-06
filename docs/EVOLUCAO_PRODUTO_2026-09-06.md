@@ -25,6 +25,14 @@ Não representa implantação nem conclusão do programa completo.
 
 ### Direção visual solicitada com referências Fresha
 
+- Ajuste solicitado posteriormente: ações de confirmar/iniciar/concluir usam
+  verde #126949; marcar falta usa vermelho #B91C1C, ambos com texto branco e
+  contraste superior a 6:1. “No-show” foi traduzido para “Não compareceu”/“Faltas”
+  nas telas da operação. Chegada usa destaque verde. A decisão mantém os neutros
+  da marca como superfícies e devolve cor às ações operacionais.
+- Cartões de Hoje distribuem ações em uma linha própria abaixo de 1536 px,
+  evitando comprimir nomes e quebrar horários em telas de 1280 px.
+
 - Entrada de marca com o logo real Everflair e luzes difusas em grafite,
   marfim, cobre e pedra. Sem importar roxo/rosa/azul da referência.
 - Animação decorativa de 1,4 s, uma vez por sessão, dispensada com teclado/toque;

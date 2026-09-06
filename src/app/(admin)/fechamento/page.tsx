@@ -25,7 +25,7 @@ const STATUS_LABELS: Record<string, string> = {
   CONFIRMED: "Confirmado",
   IN_PROGRESS: "Em atendimento",
   COMPLETED: "Concluído",
-  NO_SHOW: "No-show",
+  NO_SHOW: "Não compareceu",
   CANCELLED: "Cancelado",
 };
 
@@ -217,7 +217,7 @@ export default async function FechamentoPage({
           <h2 className="text-base font-semibold">Pendências antes de fechar</h2>
           <div className="mt-4 space-y-3 text-sm">
             <AttentionRow label="Atendimentos sem recebimento" value={`${summary.pendingPaymentCount} · ${formatMoney(summary.pendingPaymentCents, salon.currency)}`} danger={summary.pendingPaymentCount > 0} />
-            <AttentionRow label="No-show" value={String(summary.noShowCount)} danger={summary.noShowCount > 0} />
+            <AttentionRow label="Não compareceram" value={String(summary.noShowCount)} danger={summary.noShowCount > 0} />
             <AttentionRow label="Cancelamentos" value={String(summary.cancelledCount)} />
           </div>
           {summary.pendingPaymentCount > 0 && (

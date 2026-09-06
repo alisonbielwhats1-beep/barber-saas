@@ -39,6 +39,9 @@
     --warning: 32 95% 56%;          /* laranja — alerta */
     --danger: 0 78% 60%;            /* vermelho — problema */
     --marketing: 267 84% 66%;       /* roxo   — marketing/growth */
+    /* Ações operacionais: verde solicitado e vermelho, com texto branco legível. */
+    --action-positive: #126949;
+    --action-critical: #b91c1c;
 
     --destructive: 0 78% 60%;
     --destructive-foreground: 0 0% 100%;

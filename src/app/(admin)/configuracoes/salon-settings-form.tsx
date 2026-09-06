@@ -144,7 +144,7 @@ export function SalonSettingsForm({ salon }: { salon: Salon }) {
           <Field label="Antecedência mínima (horas)">
             <Input name="cancelPolicyHours" type="number" min={0} max={168} defaultValue={salon.cancelPolicyHours} />
           </Field>
-          <Field label="Taxa de no-show (R$)">
+          <Field label="Taxa por não comparecimento (R$)">
             <Input name="noShowFee" type="number" min={0} step="0.01" defaultValue={(salon.noShowFeeCents / 100).toFixed(2)} />
           </Field>
         </div>

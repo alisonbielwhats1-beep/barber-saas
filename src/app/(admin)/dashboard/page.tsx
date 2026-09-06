@@ -403,7 +403,7 @@ export default async function DashboardPage({
               />
               <StatTile
                 icon={UserX}
-                label="No-show"
+                label="Não compareceram"
                 value={m.noShow.toString()}
                 hint={m.noShowRate != null ? `${Math.round(m.noShowRate * 100)}% do período` : undefined}
                 tone={m.noShow > 0 ? "danger" : "neutral"}
