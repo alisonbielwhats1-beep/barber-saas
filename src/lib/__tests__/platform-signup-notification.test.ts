@@ -19,7 +19,7 @@ describe("aviso de novo estabelecimento", () => {
         PLATFORM_SIGNUP_NOTIFICATIONS_ENABLED: "true",
         PLATFORM_ADMIN_NOTIFICATION_EMAIL: "admin@example.com",
         RESEND_API_KEY: "re_test",
-        EMAIL_FROM: "SalonSaaS <noreply@example.com>",
+        EMAIL_FROM: "Everflair <noreply@example.com>",
         NEXTAUTH_URL: "https://app.example.com",
       }),
     ).toBe(true);

@@ -98,6 +98,7 @@ export async function POST(req: NextRequest) {
       if (!identity) return { invalidSession: true as const };
 
       return createAppointmentWithProductReservation(tx, {
+        expectedTotalCents: booking.expectedTotalCents,
         appointment: {
           salonId: booking.salonId,
           professionalId: booking.professionalId,

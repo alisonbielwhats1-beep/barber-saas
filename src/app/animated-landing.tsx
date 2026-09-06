@@ -109,7 +109,7 @@ export function AnimatedLandingHero() {
   return (
     <section
       className={cn("relative overflow-hidden pt-16 transition-colors duration-700 lg:h-[clamp(620px,100svh,900px)]", active.theme)}
-      aria-label="Apresentação do Salon SaaS"
+      aria-label="Apresentação do Everflair"
     >
       <div className="relative z-20 mx-auto grid max-w-[1920px] lg:h-[calc(clamp(620px,100svh,900px)-4rem)] lg:grid-cols-[43%_57%]">
         <div className="relative z-30 flex items-center px-6 py-12 sm:px-10 lg:px-12 lg:py-6 xl:pl-20 2xl:pl-40">

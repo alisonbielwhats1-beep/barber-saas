@@ -4,6 +4,11 @@
  */
 
 export const ERROR_PT: Record<string, string> = {
+  PRICE_CHANGED: "Os preços foram atualizados. Nenhuma reserva foi criada. Revise os serviços e adicione novamente os produtos antes de confirmar.",
+  PRODUCT_INVALID: "Um produto não está mais disponível. Revise seu carrinho.",
+  INSUFFICIENT_STOCK: "Não há estoque suficiente para os produtos escolhidos. Reduza a quantidade ou retire o item.",
+  RATE_LIMITED: "Você fez várias tentativas. Aguarde um pouco antes de tentar novamente.",
+
   SLOT_TAKEN: "Esse horário acabou de ser reservado 😕 Os horários foram atualizados — escolha outro.",
   SERVICE_INVALID: "Este serviço não está mais disponível.",
   PRO_SERVICE_MISMATCH: "Esse profissional não realiza este serviço.",

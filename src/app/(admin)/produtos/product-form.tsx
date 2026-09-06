@@ -126,7 +126,8 @@ export function ProductForm({ product, trigger }: { product?: Product; trigger?:
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <div>
               <label className="mb-1 block text-sm font-medium">Estoque</label>
-              <Input name="stock" type="number" min={0} step={1} defaultValue={product?.stock ?? 10} required />
+              <Input disabled={!!product} aria-describedby={product ? "stock-help" : undefined} name="stock" type="number" min={0} step={1} defaultValue={product?.stock ?? 10} required />
+              {product && <p id="stock-help" className="text-xs text-muted-foreground">Ajuste o saldo pela opção Movimentar estoque.</p>}
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium">Mínimo</label>

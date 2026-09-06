@@ -1,5 +1,7 @@
 "use server";
 
+import { lockOperationalResources } from "@/lib/inventory-lock";
+
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { z } from "zod";
@@ -232,14 +234,22 @@ export async function setWorkingHours(
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER"]);
 
-  const parsed = days.map((d) => workingDayInput.parse(d));
+  const parsed = z.array(workingDayInput).max(42).parse(days);
   for (const d of parsed) {
     if (d.enabled && d.endMinutes <= d.startMinutes) {
       throw new Error(`Horário inválido no dia ${d.weekday}: fim ≤ início`);
     }
   }
 
+  for (let weekday = 0; weekday < 7; weekday++) {
+    const intervals = parsed.filter((day) => day.enabled && day.weekday === weekday).sort((a, b) => a.startMinutes - b.startMinutes);
+    if (intervals.some((day, index) => index > 0 && day.startMinutes < intervals[index - 1].endMinutes)) {
+      throw new Error("Os intervalos do mesmo dia não podem se sobrepor.");
+    }
+  }
+
   await withTenant(ctx, async (tx) => {
+    await lockOperationalResources(tx, { professionalIds: [professionalId] });
     const pro = await tx.professional.findFirst({
       where: { id: professionalId, salonId: ctx.salonId },
       select: { id: true },

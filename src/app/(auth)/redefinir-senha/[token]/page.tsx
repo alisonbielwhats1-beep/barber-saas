@@ -4,7 +4,7 @@ import { AuthShell } from "@/components/auth-shell";
 import { PasswordResetForm } from "@/components/password-reset-form";
 
 export const metadata: Metadata = {
-  title: "Criar nova senha | SalonSaaS",
+  title: "Criar nova senha | Everflair",
   robots: { index: false, follow: false },
 };
 

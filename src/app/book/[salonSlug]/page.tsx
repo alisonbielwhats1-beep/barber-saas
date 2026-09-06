@@ -1,3 +1,4 @@
+import { readableForeground } from "@/lib/color";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import {
@@ -362,12 +363,7 @@ export default async function ClientHome({
         </div>
       </div>
 
-      {/* Reputação visível antes da escolha do serviço — avaliações verificadas. */}
-      <ReviewsSection
-        salonSlug={salonSlug}
-        summary={salon.reviewData.summary}
-        reviews={salon.reviewData.reviews}
-      />
+
 
       {/* CTA de agendamento */}
       <Link
@@ -383,6 +379,13 @@ export default async function ClientHome({
           <ArrowUpRight className="h-4 w-4" />
         </div>
       </Link>
+
+      {/* Reputação após a ação principal — avaliações verificadas. */}
+      <ReviewsSection
+        salonSlug={salonSlug}
+        summary={salon.reviewData.summary}
+        reviews={salon.reviewData.reviews}
+      />
 
       {(whatsappHref || phoneHref || instagramHandle || siteUrl || blogUrl) && (
         <section aria-labelledby="contact-title" className="rounded-3xl border border-border bg-card p-4">
@@ -485,7 +488,7 @@ export default async function ClientHome({
       {salon.professionals.length > 0 && (
         <section>
           <p className="mb-3 text-sm font-semibold text-muted-foreground">Nossa equipe</p>
-          <div className="scrollbar-dark flex gap-3 overflow-x-auto pb-1 md:grid md:grid-cols-2 md:overflow-visible lg:grid-cols-3">
+          <div role="region" aria-label="Profissionais do estabelecimento" tabIndex={0} className="scrollbar-dark flex gap-3 overflow-x-auto pb-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:grid md:grid-cols-2 md:overflow-visible lg:grid-cols-3">
             {salon.professionals.map((p) => {
               const initials = (p.user.name || "?")
                 .split(" ")
@@ -509,9 +512,9 @@ export default async function ClientHome({
                       className="mx-auto h-12 w-12 rounded-full object-cover"
                       fallback={(
                         <div
-                          aria-label={`Iniciais de ${p.user.name}`}
+                          role="img" aria-label={`Iniciais de ${p.user.name}`}
                           className="mx-auto grid h-12 w-12 place-items-center rounded-full text-sm font-semibold text-white"
-                          style={{ backgroundColor: p.colorHex ?? "hsl(var(--primary))" }}
+                          style={{ backgroundColor: p.colorHex ?? "hsl(var(--primary))", color: p.colorHex ? `hsl(${readableForeground(p.colorHex) ?? "0 0% 0%"})` : "hsl(var(--primary-foreground))" }}
                         >
                           {initials}
                         </div>
@@ -520,7 +523,7 @@ export default async function ClientHome({
                   ) : (
                     <div
                       className="mx-auto grid h-12 w-12 place-items-center rounded-full text-sm font-semibold text-white"
-                      style={{ backgroundColor: p.colorHex ?? "hsl(var(--primary))" }}
+                      style={{ backgroundColor: p.colorHex ?? "hsl(var(--primary))", color: p.colorHex ? `hsl(${readableForeground(p.colorHex) ?? "0 0% 0%"})` : "hsl(var(--primary-foreground))" }}
                     >
                       {initials}
                     </div>
@@ -625,3 +628,4 @@ export default async function ClientHome({
     </main>
   );
 }
+

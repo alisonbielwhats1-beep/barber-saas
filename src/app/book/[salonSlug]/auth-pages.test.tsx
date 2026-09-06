@@ -69,10 +69,10 @@ describe("client auth routes", () => {
     });
 
     await expect(CadastroPage({ params, searchParams })).rejects.toThrow(
-      "REDIRECT:/book/studio-b",
+      "REDIRECT:/book/studio-b/agendar?services=service-1",
     );
     await expect(LoginPage({ params, searchParams })).rejects.toThrow(
-      "REDIRECT:/book/studio-b",
+      "REDIRECT:/book/studio-b/agendar?services=service-1",
     );
   });
 });

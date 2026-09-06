@@ -5,7 +5,6 @@ import { loyaltyProgress } from "./growth-tools";
 import { calculateLoyaltyBalance } from "./operational-flows";
 import { normalizeLapsedClientDays } from "./marketing-settings";
 import { clientIdentityKeys, matchReasons, resolveClientProfileId } from "./client-identity";
-import { inferGenderFromName } from "./name-gender";
 
 /**
  * Motor de CRM: consolida, por cliente, LTV, visitas, última visita,
@@ -163,7 +162,7 @@ export async function getClientList(
     const isLapsed = visits > 0 && daysSince != null && daysSince >= lapsedClientDays;
     const birthdayThisMonth = c.birthday ? c.birthday.getMonth() === now.getMonth() : false;
     const upcomingDates = upcomingByClient.get(c.id) ?? [];
-    const inferredGender = c.gender ?? inferGenderFromName(c.name);
+    const inferredGender = c.gender ?? null;
 
     return {
       id: c.id,

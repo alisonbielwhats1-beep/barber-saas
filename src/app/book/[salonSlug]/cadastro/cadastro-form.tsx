@@ -8,8 +8,10 @@ import { registerClient } from "../auth-actions";
 
 export function CadastroForm({
   salonSlug,
+  returnTo,
 }: {
   salonSlug: string;
+  returnTo?: string;
 }) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -40,8 +42,11 @@ export function CadastroForm({
         const result = await registerClient(
           salonSlug,
           { name, phone, email, password, confirmPassword },
+          returnTo,
         );
         if (result?.error) setError(result.error);
+      } catch {
+        setError("Não foi possível criar sua conta. Verifique a conexão e tente novamente.");
       } finally {
         setPending(false);
       }
@@ -49,7 +54,7 @@ export function CadastroForm({
   }
 
   return (
-    <form onSubmit={submit} className="space-y-4">
+    <form method="post" onSubmit={submit} className="space-y-4">
       <div>
         <label htmlFor="client-name" className="mb-1.5 block text-[13px] font-medium text-muted-foreground">
           Nome completo

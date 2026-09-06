@@ -1,3 +1,4 @@
+import { AppointmentError } from "./appointment-domain";
 import { writeAuditLog } from "./audit";
 import {
   createAppointment,
@@ -21,6 +22,7 @@ type OmitFromEach<T, Key extends PropertyKey> = T extends unknown
   : never;
 
 export type CreateAppointmentWithProductsInput = {
+  expectedTotalCents?: number;
   appointment: OmitFromEach<CreateAppointmentInput, "idempotencyContext">;
   productReservation: {
     actorName: string;
@@ -276,6 +278,16 @@ export async function createAppointmentWithProductReservation(
       actorName: input.productReservation.actorName,
       items,
     });
+  }
+  if (!created.duplicate && input.expectedTotalCents !== undefined) {
+    const snapshot = await tx.appointment.findFirst({
+      where: { id: created.appointment.id, salonId: input.appointment.salonId },
+      select: { priceCents: true, products: { select: { quantity: true, priceCentsUnit: true } } },
+    });
+    if (!snapshot) throw new AppointmentError("NOT_FOUND");
+    const total = snapshot.priceCents + snapshot.products.reduce((sum, item) => sum + item.quantity * item.priceCentsUnit, 0);
+    // The caller owns a transaction: throwing rolls back appointment, stock and outbox together.
+    if (total !== input.expectedTotalCents) throw new AppointmentError("PRICE_CHANGED");
   }
   return created;
 }

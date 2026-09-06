@@ -57,11 +57,12 @@ export function WhatsAppReminderButton({
         : `${clientName} está sem telefone cadastrado`}
       className={`absolute bottom-3 right-3 grid h-9 w-9 place-items-center rounded-lg transition disabled:cursor-not-allowed disabled:opacity-40 ${
         sent
-          ? "bg-[#25D366]/25 text-[#25D366]"
-          : "bg-[#25D366]/15 text-[#25D366] hover:bg-[#25D366]/25"
+          ? "bg-primary/20 text-primary"
+          : "bg-primary/10 text-primary hover:bg-primary/15"
       }`}
     >
       {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : sent ? <Check className="h-4 w-4" /> : <MessageCircle className="h-4 w-4" />}
     </button>
   );
 }
+

@@ -1,12 +1,12 @@
 .mk {
-  --mk-canvas: #f6f4f0;
-  --mk-surface: #fffefa;
-  --mk-ink: #252426;
-  --mk-soft: #68635f;
-  --mk-accent: #453f39;
+  --mk-canvas: var(--ef-ivory);
+  --mk-surface: #fffdf9;
+  --mk-ink: var(--ef-graphite);
+  --mk-soft: #63615f;
+  --mk-accent: var(--ef-graphite);
   --mk-on-accent: #fff;
-  --mk-line: #d8d3cc;
-  --mk-tint: #eae5dd;
+  --mk-line: var(--ef-stone);
+  --mk-tint: #eae5dc;
   --mk-shadow: 0 24px 70px -30px #29231e40;
   --mk-ease: cubic-bezier(.22, 1, .36, 1);
   --background: 40 25% 95%;
@@ -16,39 +16,39 @@
   --input: 35 12% 80%;
   --border: 35 12% 80%;
   --muted-foreground: 30 4% 39%;
-  --primary: 30 9% 25%;
+  --primary: 218 10% 15%;
   --primary-foreground: 0 0% 100%;
-  --ring: 30 9% 25%;
+  --ring: 21 47% 37%;
   --destructive: 0 65% 42%;
   color-scheme: light;
   min-height: 100dvh;
   background: var(--mk-canvas);
   color: var(--mk-ink);
-  font-family: var(--font-marketing), var(--font-sans), sans-serif;
+  font-family: var(--font-sans), sans-serif;
   transition: background-color 850ms var(--mk-ease), color 700ms var(--mk-ease);
   overflow: clip;
   outline: none;
 }
 .mk[data-atmosphere="dark"] {
-  --mk-canvas: #09090b;
-  --mk-surface: #171719;
-  --mk-ink: #f3f1ef;
-  --mk-soft: #bcb9b7;
-  --mk-accent: #e6e1da;
-  --mk-on-accent: #171719;
-  --mk-line: #424245;
-  --mk-tint: #242427;
+  --mk-canvas: var(--ef-graphite);
+  --mk-surface: #2d3035;
+  --mk-ink: var(--ef-ivory);
+  --mk-soft: #c9c4bd;
+  --mk-accent: var(--ef-ivory);
+  --mk-on-accent: #2d3035;
+  --mk-line: #55565a;
+  --mk-tint: #36393e;
   --mk-shadow: 0 32px 85px -26px #000000c4;
-  --background: 240 10% 4%;
+  --background: 218 10% 15%;
   --foreground: 30 13% 94%;
-  --card: 240 4% 9%;
+  --card: 218 8% 19%;
   --card-foreground: 30 13% 94%;
   --input: 240 2% 32%;
   --border: 240 2% 32%;
   --muted-foreground: 24 4% 73%;
-  --primary: 35 19% 88%;
-  --primary-foreground: 240 4% 9%;
-  --ring: 35 19% 88%;
+  --primary: 40 33% 95%;
+  --primary-foreground: 218 10% 15%;
+  --ring: 23 57% 68%;
   --destructive: 0 85% 74%;
   color-scheme: dark;
 }
@@ -67,8 +67,6 @@
 .mk-wrap { width: min(1200px, calc(100% - 96px)); margin-inline: auto; }
 .mk :is(section,article)[id] { scroll-margin-top: 104px; }
 .mk-brand { display: inline-flex; align-items: center; gap: 9px; min-height: 44px; color: var(--mk-ink); font-size: 25px; letter-spacing: -.065em; font-weight: 600; white-space: nowrap; }
-.mk-brand > svg { width: 32px; height: 32px; color: var(--mk-accent); }
-.mk-brand-suffix { font-weight: 400; }
 .mk-header { position: sticky; top: 0; z-index: 50; background: var(--mk-canvas); border-bottom: 1px solid var(--mk-line); transition: background-color 850ms var(--mk-ease), border-color 700ms; }
 .mk-header-inner { display: flex; align-items: center; justify-content: space-between; gap: 32px; width: min(1360px, calc(100% - 80px)); height: 86px; margin-inline: auto; }
 .mk-desktop-nav, .mk-header-actions { display: flex; align-items: center; gap: 30px; }
@@ -247,7 +245,6 @@
   .mk-wrap { width: calc(100% - 40px); }
   .mk-header-inner { width: calc(100% - 36px); height: 68px; gap: 12px; }
   .mk-brand { font-size: 22px; gap: 7px; }
-  .mk-brand > svg { width: 27px; height: 27px; }
   .mk-header-actions { gap: 8px; }
   .mk-header-actions > .mk-button { display: none; }
   .mk-login-link { font-size: 12px; padding-inline: 8px; }
@@ -335,3 +332,13 @@
   .mk-story-stage { position: static; }
   .mk-chapter { min-height: auto; padding-block: 24px; }
 }
+
+/* Copper accents support the identity without reducing text contrast. */
+.mk { --mk-highlight: #8a4f31; }
+.mk[data-atmosphere="dark"] { --mk-highlight: #dca17e; }
+.mk .mk-status-dot { background: var(--ef-copper); }
+.mk .mk-eyebrow::before { content: ""; width: 25px; height: 1px; background: var(--ef-copper); flex-shrink: 0; }
+.mk :is(a, button, summary, input):focus-visible { outline-color: var(--mk-highlight); }
+.mk[data-segment="manicure"] { --mk-canvas: #f6efed; --mk-tint: #ebded9; }
+.mk[data-segment="estetica"] { --mk-canvas: #f2f0ef; --mk-tint: #e4dedb; }
+.mk[data-segment="bem-estar"] { --mk-canvas: #f0f2ee; --mk-tint: #e0e4dc; }

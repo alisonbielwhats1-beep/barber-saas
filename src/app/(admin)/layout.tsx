@@ -1,8 +1,6 @@
-import type { CSSProperties } from "react";
-import { Scissors } from "lucide-react";
+import { BrandLogo, BrandMark } from "@/components/brand";
 import { getTenantContext } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
-import { hexToHslTriple, readableForeground } from "@/lib/color";
 import { normalizeImageUrl } from "@/lib/images";
 import { SidebarFooter } from "./sidebar-footer";
 import { SalonSwitcher } from "./salon-switcher";
@@ -28,7 +26,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       const [salon, memberships, unreadNotifications] = await Promise.all([
         tx.salon.findUnique({
           where: { id: salonId },
-          select: { name: true, plan: true, themeColorHex: true, logoUrl: true },
+          select: { name: true, plan: true, logoUrl: true },
         }),
         tx.membership.findMany({
           where: { userId },
@@ -54,16 +52,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     role: m.role,
   }));
   const currentSalon = membershipList.find((m) => m.id === salonId)!;
-  const brandHsl = hexToHslTriple(salon?.themeColorHex);
   const salonLogo = normalizeImageUrl(salon?.logoUrl);
-  const brandStyle = brandHsl
-    ? ({
-        "--primary": brandHsl,
-        "--accent": brandHsl,
-        "--ring": brandHsl,
-        "--primary-foreground": readableForeground(salon?.themeColorHex) ?? "0 0% 100%",
-      } as CSSProperties)
-    : undefined;
 
   return (
     <ThemeProvider>
@@ -73,13 +62,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         __html: `try{if(localStorage.getItem("admin-theme")==="light")document.documentElement.setAttribute("data-theme","admin-light")}catch(e){}`,
       }}
     />
-    <div className="admin-shell flex h-dvh overflow-hidden text-foreground" style={brandStyle}>
+    <div className="admin-shell flex h-dvh overflow-hidden text-foreground">
       {/* ── Sidebar ─────────────────────────────────────── */}
       <aside className="admin-sidebar scrollbar-dark hidden w-56 shrink-0 flex-col overflow-y-auto border-r border-border lg:flex print:hidden">
         {/* Logo */}
         <div className="flex h-14 shrink-0 items-center gap-2.5 px-4">
-          <span className="admin-brand-mark relative grid h-9 w-11 shrink-0 place-items-center overflow-hidden rounded-xl border border-border bg-white p-1">
-            {salonLogo ? (
+          {salonLogo && <span className="admin-brand-mark relative grid h-9 w-11 shrink-0 place-items-center overflow-hidden rounded-xl border border-border bg-white p-1">
               <ImageWithFallback
                 src={salonLogo}
                 alt={`Logo de ${salon?.name ?? "seu salão"}`}
@@ -88,18 +76,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
                 className="object-contain p-1"
                 fallback={(
                   <span className="grid h-full w-full place-items-center rounded-lg bg-primary">
-                    <Scissors className="h-3.5 w-3.5 text-primary-foreground" aria-hidden="true" />
+                    <BrandMark className="text-primary-foreground" />
                   </span>
                 )}
               />
-            ) : (
-              <span className="grid h-full w-full place-items-center rounded-lg bg-primary">
-                <Scissors className="h-3.5 w-3.5 text-primary-foreground" aria-hidden="true" />
-              </span>
-            )}
-          </span>
+          </span>}
           <div className="min-w-0">
-            <span className="block text-[13px] font-semibold tracking-tight">SalonSaaS</span>
+            <BrandLogo className={salonLogo ? "ef-admin-logo" : ""} />
             <span className="block text-[9px] font-medium uppercase tracking-[0.16em] text-muted-foreground/70">
               Painel de operação
             </span>
@@ -129,7 +112,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <div className="mx-auto w-full min-w-0 max-w-[1400px] p-4 pb-24 sm:p-6 md:p-8 lg:pb-8">{children}</div>
       </main>
 
-      <MobileNav role={role} unreadNotifications={unreadNotifications} isPlatformAdmin={platformAdmin} />
+      <MobileNav role={role} unreadNotifications={unreadNotifications} isPlatformAdmin={platformAdmin}
+        accountControls={<div className="space-y-4"><SalonSwitcher current={currentSalon} memberships={membershipList} /><SidebarFooter plan={salon?.plan ?? "FREE"} /></div>}
+      />
       <CommandPalette role={role} />
       <Toaster />
     </div>

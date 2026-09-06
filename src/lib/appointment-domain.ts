@@ -21,6 +21,7 @@ export type AppointmentErrorCode =
   | "NOT_FOUND"
   | "FORBIDDEN"
   | "SERVICE_INVALID"
+  | "PRICE_CHANGED"
   | "PRO_SERVICE_MISMATCH"
   | "INVALID_LOCAL_TIME"
   | "INVALID_TIMEZONE"

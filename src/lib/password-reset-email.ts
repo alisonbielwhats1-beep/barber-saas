@@ -43,13 +43,13 @@ export function buildPasswordResetEmail(input: {
   const name = escapeHtml(input.recipientName);
   const context = input.salonName
     ? ` para acessar <strong>${escapeHtml(input.salonName)}</strong>`
-    : " para acessar o SalonSaaS";
+    : " para acessar o Everflair";
 
   return {
     to: "",
     subject: input.salonName
       ? `Redefina sua senha em ${input.salonName}`
-      : "Redefina sua senha no SalonSaaS",
+      : "Redefina sua senha no Everflair",
     html: `
       <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;color:#171717">
         <h1 style="font-size:22px">Redefinição de senha</h1>
@@ -67,7 +67,7 @@ export function buildPasswordResetEmail(input: {
     text: [
       `Olá, ${input.recipientName}.`,
       "",
-      `Recebemos uma solicitação para redefinir sua senha${input.salonName ? ` em ${input.salonName}` : " no SalonSaaS"}.`,
+      `Recebemos uma solicitação para redefinir sua senha${input.salonName ? ` em ${input.salonName}` : " no Everflair"}.`,
       "Este link é pessoal, funciona uma única vez e expira em 1 hora.",
       "",
       `Criar nova senha: ${url}`,

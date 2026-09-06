@@ -10,7 +10,7 @@ import {
 export const metadata: Metadata = {
   title: `Política de Privacidade — ${SERVICE_NAME}`,
   description:
-    "Quais dados o SalonSaaS trata, para quê, com quem compartilha e como exercer seus direitos sob a LGPD.",
+    "Quais dados o Everflair trata, para quê, com quem compartilha e como exercer seus direitos sob a LGPD.",
 };
 
 /**
@@ -24,7 +24,7 @@ export default function PrivacidadePage() {
   return (
     <LegalShell
       title="Política de Privacidade"
-      intro="Esta política explica quais dados pessoais o SalonSaaS trata, por quê, com quem compartilha e como você exerce seus direitos previstos na Lei Geral de Proteção de Dados (Lei 13.709/2018)."
+      intro="Esta política explica quais dados pessoais o Everflair trata, por quê, com quem compartilha e como você exerce seus direitos previstos na Lei Geral de Proteção de Dados (Lei 13.709/2018)."
     >
       <LegalSection title="1. Dois papéis diferentes — e por que isso importa para você">
         <p>

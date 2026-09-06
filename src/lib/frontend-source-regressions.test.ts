@@ -91,13 +91,13 @@ describe("frontend audit source regressions", () => {
     expect(visits).toContain("featured");
   });
 
-  it("keeps the salon brand in the owner panel and the client app in its default green", () => {
+  it("keeps tenant logos without overriding the neutral application palette", () => {
     const adminLayout = source("src/app/(admin)/layout.tsx");
     const clientLayout = source("src/app/book/[salonSlug]/layout.tsx");
 
-    expect(adminLayout).toContain("themeColorHex");
-    expect(adminLayout).toContain("style={brandStyle}");
-    expect(adminLayout).toContain('"--primary-foreground"');
+    expect(adminLayout).toContain("logoUrl");
+    expect(adminLayout).not.toContain("style={brandStyle}");
+    expect(adminLayout).not.toContain("hexToHslTriple");
     expect(clientLayout).not.toContain("themeColorHex");
     expect(clientLayout).not.toContain("style={brandStyle}");
   });
@@ -162,6 +162,6 @@ describe("frontend audit source regressions", () => {
     expect(adminLayout).toContain('id="main-content"');
     expect(welcome).toContain("overflow-x-hidden");
     expect(settings).toContain("grid-cols-1 gap-3 sm:grid-cols-2");
-    expect(hours).toContain("aria-label={`Início de ${WEEKDAYS[row.weekday]}`}");
+    expect(hours).toContain("aria-label={`Início ${WEEKDAYS[row.weekday]}, intervalo ${index + 1}`}");
   });
 });

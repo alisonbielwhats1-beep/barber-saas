@@ -48,6 +48,7 @@ export function safeClientReturnTo(
 
   try {
     const parsed = new URL(returnTo, "https://salon.invalid");
+    if (parsed.origin !== "https://salon.invalid") return fallback;
     const homePath = clientHomePath(salonSlug);
     if (parsed.pathname === homePath) {
       return `${parsed.pathname}${parsed.search}`;

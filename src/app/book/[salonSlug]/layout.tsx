@@ -21,12 +21,12 @@ export async function generateMetadata({
     }),
   );
   return {
-    title: salon ? `${salon.name} — agendamento online` : "SalonSaaS",
+    title: salon ? `${salon.name} — agendamento online` : "Everflair",
     manifest: `/book/${salonSlug}/manifest.webmanifest`,
     appleWebApp: {
       capable: true,
       statusBarStyle: "black-translucent",
-      title: salon?.name ?? "SalonSaaS",
+      title: salon?.name ?? "Everflair",
     },
   };
 }
@@ -34,8 +34,8 @@ export async function generateMetadata({
 /**
  * Route layout do lado cliente. Aplica o tema `salon-dark` via data-attribute
  * na div raiz — as CSS variables em globals.css `[data-theme="salon-dark"]`
- * ganham daquele ponto pra baixo. A cor personalizada fica exclusivamente no
- * painel do dono; a jornada pública mantém o verde padrão do aplicativo.
+ * ganham daquele ponto pra baixo. A jornada pública usa a mesma paleta neutra da operação,
+ * com cores semânticas reservadas aos status.
  *
  * Mantém a leitura confortável no celular e amplia progressivamente a área
  * útil em tablets e desktops, sem transformar a jornada em uma página esticada.

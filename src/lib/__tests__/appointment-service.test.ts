@@ -172,3 +172,12 @@ describe("motor central de agendamentos", () => {
     expect(raw.notificationOutbox.createMany).toHaveBeenCalledOnce();
   });
 });
+
+describe("working hours at midnight", () => {
+  it.each([[1080, "OUTSIDE_WORKING_HOURS"], [1440, null]])("end of working day %s: rejects overruns and accepts midnight only when configured", async (endMinutes, violation) => {
+    const { tx, raw } = schedulingTx();
+    raw.workingHours.findMany.mockResolvedValue([{ startMinutes: 540, endMinutes }]);
+    const result = await inspectAppointmentAvailability(tx, { salonId: "salon-a", professionalId: "professional-a", serviceIds: ["service-a", "service-b"], startLocal: "2026-08-06T22:45", enforceBookingWindow: false });
+    expect(result.violation).toBe(violation);
+  });
+});

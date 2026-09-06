@@ -101,6 +101,7 @@ export type Professional = {
   name: string;
   colorHex: string | null;
   serviceIds: string[];
+  workingHours?: { startMinutes: number; endMinutes: number }[];
 };
 
 function minutesOf(iso: string, timezone: string) {
@@ -110,12 +111,25 @@ function minutesOf(iso: string, timezone: string) {
   return hour! * 60 + minute!;
 }
 
+function endMinutes(appointment: Appointment, timezone: string) {
+  const end = minutesOf(appointment.endAt, timezone);
+  return end === 0 && new Date(appointment.endAt) > new Date(appointment.startAt) ? 1440 : end;
+}
+
+function visibleHours(appointments: Appointment[], timezone: string, professionals: Professional[] = []) {
+  const hours = professionals.flatMap((professional) => professional.workingHours ?? []);
+  const starts = [...hours.map((h) => h.startMinutes), ...appointments.map((a) => minutesOf(a.startAt, timezone))];
+  const ends = [...hours.map((h) => h.endMinutes), ...appointments.map((a) => endMinutes(a, timezone))];
+  return { start: Math.max(0, Math.floor(Math.min(DAY_START, ...starts) / 30) * 30),
+    end: Math.min(1440, Math.ceil(Math.max(DAY_END, ...ends) / 30) * 30) };
+}
+
 function appointmentPlacements(appointments: Appointment[], timezone: string) {
   return layoutOverlappingIntervals(
     appointments.map((appointment) => ({
       id: appointment.id,
       start: minutesOf(appointment.startAt, timezone),
-      end: minutesOf(appointment.endAt, timezone),
+      end: endMinutes(appointment, timezone),
     })),
   );
 }
@@ -155,6 +169,7 @@ export function AgendaBoard({
   const [view, setView] = useState<ViewKind>("day");
   const [proFilter, setProFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("not_cancelled");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [detail, setDetail] = useState<Appointment | null>(null);
   const [createAt, setCreateAt] = useState<{ startLocal: string; proId: string } | null>(null);
@@ -353,6 +368,10 @@ export function AgendaBoard({
             className="min-w-0 flex-1 bg-transparent text-[13px] placeholder:text-muted-foreground focus:outline-none sm:w-44"
           />
         </div>
+        <button type="button" aria-expanded={filtersOpen} aria-controls="agenda-filters" onClick={() => setFiltersOpen(!filtersOpen)} className="min-h-11 rounded-full border border-border px-4 text-sm sm:hidden">
+          Filtros{proFilter !== "all" || statusFilter !== "not_cancelled" ? " · ativos" : ""}
+        </button>
+        <div id="agenda-filters" className={`${filtersOpen ? "flex" : "hidden"} flex-wrap items-center gap-2 sm:flex`}>
         <FilterChip active={proFilter === "all"} onClick={() => setProFilter("all")} icon={Users}>
           Todos profissionais
         </FilterChip>
@@ -373,6 +392,7 @@ export function AgendaBoard({
             {STATUS[s].label}
           </FilterChip>
         ))}
+        </div>
       </section>
 
       {actionError && (
@@ -418,6 +438,7 @@ export function AgendaBoard({
         />
       ) : view === "week" ? (
         <WeekView
+          professionals={shownPros}
           dateObj={dateObj}
           firstProId={professionals[0]?.id ?? ""}
           appointments={filteredAll}
@@ -535,6 +556,7 @@ function DayView({
   onOpenDetail: (a: Appointment) => void;
   onMove: (appointment: Appointment, proId: string, startLocal: string) => void;
 }) {
+  const { start: dayStart, end: dayEnd } = visibleHours(appointments, timezone, professionals);
   const bodyRef = useRef<HTMLDivElement>(null);
   const apptById = useRef(new Map<string, Appointment>());
   apptById.current = new Map(appointments.map((a) => [a.id, a]));
@@ -543,8 +565,8 @@ function DayView({
   >(null);
 
   const slots: number[] = [];
-  for (let m = DAY_START; m < DAY_END; m += SLOT_MIN) slots.push(m);
-  const totalH = (DAY_END - DAY_START) * PX_PER_MIN;
+  for (let m = dayStart; m < dayEnd; m += SLOT_MIN) slots.push(m);
+  const totalH = (dayEnd - dayStart) * PX_PER_MIN;
 
   function startDrag(e: React.PointerEvent, id: string) {
     if (e.button !== 0 || e.pointerType === "touch") return;
@@ -574,8 +596,8 @@ function DayView({
           if (col) {
             const rect = col.getBoundingClientRect();
             const rel = e.clientY - rect.top;
-            let mins = DAY_START + Math.round(rel / PX_PER_MIN / 15) * 15;
-            mins = Math.max(DAY_START, Math.min(DAY_END, mins));
+            let mins = dayStart + Math.round(rel / PX_PER_MIN / 15) * 15;
+            mins = Math.max(dayStart, Math.min(dayEnd, mins));
             const appointment = apptById.current.get(d.id);
             if (appointment) {
               onMove(
@@ -595,11 +617,11 @@ function DayView({
       window.removeEventListener("pointermove", onMoveEv);
       window.removeEventListener("pointerup", onUp);
     };
-  }, [drag, date, onMove]);
+  }, [drag, date, onMove, dayStart, dayEnd]);
 
   return (
     <div className="overflow-x-auto rounded-2xl border border-border bg-card">
-      <div className="flex min-w-max" ref={bodyRef}>
+      <div className="flex w-full" style={{ minWidth: 56 + professionals.length * COL_WIDTH }} ref={bodyRef}>
         <div className="w-14 shrink-0 border-r border-border bg-surface-1">
           <div style={{ height: HEADER_H }} className="border-b border-border" />
           {slots.map((m) => (
@@ -613,7 +635,7 @@ function DayView({
           const proAppts = appointments.filter((a) => a.professionalId === pro.id);
           const placements = appointmentPlacements(proAppts, timezone);
           return (
-            <div key={pro.id} data-pro-col data-pro-id={pro.id} className="relative shrink-0 border-r border-border last:border-r-0" style={{ width: COL_WIDTH }}>
+            <div key={pro.id} data-pro-col data-pro-id={pro.id} className="relative shrink-0 border-r border-border last:border-r-0" style={{ flex: 1, minWidth: COL_WIDTH }}>
               <div style={{ height: HEADER_H }} className="sticky top-0 z-10 flex items-center gap-2 border-b border-border bg-card px-3">
                 <span className="grid h-7 w-7 place-items-center rounded-full text-[10px] font-semibold text-black/80" style={{ background: pro.colorHex ?? "#2ECC8B" }}>
                   {initials(pro.name)}
@@ -632,8 +654,8 @@ function DayView({
                   />
                 ))}
 
-                {nowMin != null && nowMin >= DAY_START && nowMin <= DAY_END && (
-                  <div className="pointer-events-none absolute inset-x-0 z-20 flex items-center" style={{ top: (nowMin - DAY_START) * PX_PER_MIN }}>
+                {nowMin != null && nowMin >= dayStart && nowMin <= dayEnd && (
+                  <div className="pointer-events-none absolute inset-x-0 z-20 flex items-center" style={{ top: (nowMin - dayStart) * PX_PER_MIN }}>
                     <span className="h-2 w-2 rounded-full bg-danger" />
                     <span className="h-px flex-1 bg-danger" />
                   </div>
@@ -641,8 +663,8 @@ function DayView({
 
                 {proAppts.map((a) => {
                   const startMin = minutesOf(a.startAt, timezone);
-                  const endMin = minutesOf(a.endAt, timezone);
-                  const top = (startMin - DAY_START) * PX_PER_MIN;
+                  const endMin = endMinutes(a, timezone);
+                  const top = (startMin - dayStart) * PX_PER_MIN;
                   const height = Math.max(24, (endMin - startMin) * PX_PER_MIN);
                   if (top < 0 || top > totalH) return null;
                   const cfg = STATUS[a.status as keyof typeof STATUS] ?? STATUS.CONFIRMED;
@@ -722,6 +744,7 @@ function DayView({
 /* ─────────────────────────── Week view ─────────────────────────── */
 
 function WeekView({
+  professionals,
   dateObj,
   firstProId,
   appointments,
@@ -732,6 +755,7 @@ function WeekView({
   onOpenDetail,
   onOpenDay,
 }: {
+  professionals: Professional[];
   dateObj: Date;
   firstProId: string;
   appointments: Appointment[];
@@ -746,14 +770,15 @@ function WeekView({
     start: startOfWeek(dateObj, { weekStartsOn: 1 }),
     end: endOfWeek(dateObj, { weekStartsOn: 1 }),
   });
+  const { start: dayStart, end: dayEnd } = visibleHours(appointments, timezone, professionals);
   const slots: number[] = [];
-  for (let m = DAY_START; m < DAY_END; m += SLOT_MIN) slots.push(m);
-  const totalH = (DAY_END - DAY_START) * PX_PER_MIN;
+  for (let m = dayStart; m < dayEnd; m += SLOT_MIN) slots.push(m);
+  const totalH = (dayEnd - dayStart) * PX_PER_MIN;
   const colW = 150;
 
   return (
     <div className="overflow-x-auto rounded-2xl border border-border bg-card">
-      <div className="flex min-w-max">
+      <div className="flex w-full" style={{ minWidth: 56 + days.length * colW }}>
         <div className="w-14 shrink-0 border-r border-border bg-surface-1">
           <div style={{ height: HEADER_H }} className="border-b border-border" />
           {slots.map((m) => (
@@ -772,7 +797,7 @@ function WeekView({
           );
           const placements = appointmentPlacements(dayAppts, timezone);
           return (
-            <div key={dStr} className="relative shrink-0 border-r border-border last:border-r-0" style={{ width: colW }}>
+            <div key={dStr} className="relative shrink-0 border-r border-border last:border-r-0" style={{ flex: 1, minWidth: colW }}>
               <button
                 onClick={() => onOpenDay(dStr)}
                 style={{ height: HEADER_H }}
@@ -798,8 +823,8 @@ function WeekView({
                   />
                 ))}
 
-                {isToday && nowMin != null && nowMin >= DAY_START && nowMin <= DAY_END && (
-                  <div className="pointer-events-none absolute inset-x-0 z-20 flex items-center" style={{ top: (nowMin - DAY_START) * PX_PER_MIN }}>
+                {isToday && nowMin != null && nowMin >= dayStart && nowMin <= dayEnd && (
+                  <div className="pointer-events-none absolute inset-x-0 z-20 flex items-center" style={{ top: (nowMin - dayStart) * PX_PER_MIN }}>
                     <span className="h-1.5 w-1.5 rounded-full bg-danger" />
                     <span className="h-px flex-1 bg-danger" />
                   </div>
@@ -807,8 +832,8 @@ function WeekView({
 
                 {dayAppts.map((a) => {
                   const startMin = minutesOf(a.startAt, timezone);
-                  const endMin = minutesOf(a.endAt, timezone);
-                  const top = (startMin - DAY_START) * PX_PER_MIN;
+                  const endMin = endMinutes(a, timezone);
+                  const top = (startMin - dayStart) * PX_PER_MIN;
                   const height = Math.max(20, (endMin - startMin) * PX_PER_MIN);
                   if (top < 0 || top > totalH) return null;
                   const cfg = STATUS[a.status as keyof typeof STATUS] ?? STATUS.CONFIRMED;

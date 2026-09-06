@@ -25,8 +25,8 @@ export function PwaInstallButton() {
   return (
     <button
       type="button"
-      title="Instalar SalonSaaS"
-      aria-label="Instalar SalonSaaS neste dispositivo"
+      title="Instalar Everflair"
+      aria-label="Instalar Everflair neste dispositivo"
       onClick={async () => {
         await promptEvent.prompt();
         await promptEvent.userChoice;

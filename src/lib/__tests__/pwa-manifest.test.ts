@@ -8,6 +8,9 @@ import { PWA_APPLE_ICON } from "@/lib/pwa-icons";
 describe("manifesto instalavel", () => {
   it("abre o painel em modo standalone com PNGs 192, 512 e mascarável", () => {
     const data = manifest();
+    expect(data.name).toBe("Everflair");
+    expect(data.short_name).toBe("Everflair");
+    expect(data.theme_color).toBe("#23262b");
     expect(data.start_url).toBe("/");
     expect(data.display).toBe("standalone");
     expect(data.lang).toBe("pt-BR");
@@ -36,7 +39,7 @@ describe("manifesto instalavel", () => {
   it("atualiza o cache offline e inclui os ícones de instalação", () => {
     const serviceWorker = readFileSync(resolve(process.cwd(), "public", "sw.js"), "utf8");
 
-    expect(serviceWorker).toContain('const CACHE = "salonsaas-shell-v2"');
+    expect(serviceWorker).toContain('const CACHE = "everflair-shell-v3"');
     expect(serviceWorker).toContain('"/icon-192.png"');
     expect(serviceWorker).toContain('"/icon-512.png"');
     expect(serviceWorker).toContain('"/icon-maskable-512.png"');

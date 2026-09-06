@@ -7,7 +7,6 @@ import type {
 } from "@prisma/client";
 import type { Tx } from "./prisma-tenant";
 import { clientIdentityData } from "./client-identity";
-import { inferGenderFromName } from "./name-gender";
 import { bufferedWindow, checkBookingWindow } from "./scheduling";
 import { priceServicesForDate } from "./pricing";
 import {
@@ -363,7 +362,11 @@ async function availabilityViolation(
 
   const weekday = weekdayInTimeZone(input.startAt, input.salon.timezone);
   const startMinutes = wallClockMinutesInTimeZone(input.startAt, input.salon.timezone);
-  const endMinutes = wallClockMinutesInTimeZone(input.endAt, input.salon.timezone);
+  // O limite exclusivo 00:00 pertence ao fim do dia anterior (1440), não
+  // ao início da jornada. O teste por endAt - 1ms acima permite esse limite.
+  const endMinutes = dateKeyInTimeZone(input.endAt, input.salon.timezone) !== startDate
+    ? 1440
+    : wallClockMinutesInTimeZone(input.endAt, input.salon.timezone);
   const workingHours = await tx.workingHours.findMany({
     where: { salonId: input.salonId, professionalId: input.professionalId, weekday },
     select: { startMinutes: true, endMinutes: true },
@@ -688,7 +691,7 @@ export async function createAppointment(
         name: input.guest.name,
         phone: identity.phone,
         phoneNormalized: identity.phoneNormalized,
-        gender: inferGenderFromName(input.guest.name),
+        gender: null,
       },
       select: { id: true },
     });

@@ -1,4 +1,4 @@
-import { Scissors } from "lucide-react";
+import { BrandLogo } from "@/components/brand";
 import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -31,10 +31,7 @@ export default async function InvitePage({
       <main id="main-content" tabIndex={-1} className="grid min-h-dvh place-items-center bg-background p-6 text-foreground outline-none">
         <div className="w-full max-w-sm">
           <div className="mb-6 flex items-center justify-center gap-2">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary">
-              <Scissors className="h-4 w-4 text-primary-foreground" />
-            </span>
-            <span className="font-semibold">SalonSaaS</span>
+            <BrandLogo />
           </div>
           <section className="rounded-2xl border border-border bg-card p-6 shadow-xl">
             <h1 className="text-xl font-semibold">Convites temporariamente indisponíveis</h1>
@@ -65,10 +62,7 @@ export default async function InvitePage({
     <main id="main-content" tabIndex={-1} className="grid min-h-dvh place-items-center bg-background p-6 text-foreground outline-none">
       <div className="w-full max-w-sm">
         <div className="mb-6 flex items-center justify-center gap-2">
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary">
-            <Scissors className="h-4 w-4 text-primary-foreground" />
-          </span>
-          <span className="font-semibold">SalonSaaS</span>
+          <BrandLogo />
         </div>
         <section className="rounded-2xl border border-border bg-card p-6 shadow-xl">
           {terminal ? (

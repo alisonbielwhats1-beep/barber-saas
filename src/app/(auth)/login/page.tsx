@@ -11,6 +11,7 @@ export default function LoginPage() {
       </Suspense>
       <PasswordRecoveryLoginLink
         href="/recuperar-senha"
+        supportHref="/contato"
         className="mt-4 text-center text-[12px] text-foreground/70"
       />
     </PremiumLoginShell>

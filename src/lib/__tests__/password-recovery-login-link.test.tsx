@@ -25,4 +25,12 @@ describe("atalho de recuperação de senha no login", () => {
     expect(markup).toContain('href="/recuperar-senha"');
     expect(markup).toContain("Recuperar por e-mail");
   });
+
+  it("oferece suporte explícito quando solicitado sem prometer envio indisponível", () => {
+    vi.stubEnv("RESEND_API_KEY", "");
+    vi.stubEnv("EMAIL_FROM", "");
+    const markup = renderToStaticMarkup(<PasswordRecoveryLoginLink href="/recuperar-senha" supportHref="/contato" />);
+    expect(markup).toContain('href="/contato"');
+    expect(markup).not.toContain("Recuperar por e-mail");
+  });
 });

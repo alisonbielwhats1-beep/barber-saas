@@ -327,6 +327,7 @@ export async function closeComandaReliably(
     });
   }
 
+  await tx.$queryRaw`SELECT 1::integer FROM pg_advisory_xact_lock(hashtextextended(${`cash-register:${input.salonId}`}, 0))`;
   const payment = await tx.payment.create({
     data: {
       appointmentId: input.appointmentId,
@@ -335,6 +336,7 @@ export async function closeComandaReliably(
       method: input.method,
       notes: input.notes ?? null,
       currency: appointment.salon.currency,
+      paidAt: new Date(),
     },
     select: { id: true },
   });
@@ -361,3 +363,4 @@ export async function closeComandaReliably(
   });
   return { duplicate: false, paymentId: payment.id };
 }
+

@@ -60,7 +60,7 @@ export function NowStrip({
             <p className="mt-1 text-[13px] text-muted-foreground">
               {formatInTimeZone(now, timezone, "EEEE, d 'de' MMMM '·' HH:mm", { locale: ptBR })}
             </p>
-            <p className="mt-1 text-[11px] text-muted-foreground/80">Atualização automática a cada minuto</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">Atualização automática a cada minuto</p>
           </div>
           <Link
             href={`/hoje?date=${todayDate}`}
@@ -188,3 +188,4 @@ function DailyPulse({ label, value, emphasis }: { label: string; value: string; 
     </div>
   );
 }
+

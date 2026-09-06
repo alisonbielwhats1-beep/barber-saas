@@ -13,7 +13,6 @@ import {
   clientIdentityData,
   findPotentialClientMatches,
 } from "@/lib/client-identity";
-import { inferGenderFromName } from "@/lib/name-gender";
 
 export async function fetchClientHistory(clientId: string) {
   const ctx = await getTenantContext();
@@ -64,7 +63,7 @@ export async function createClient(input: ClientInput) {
         phoneNormalized: identity.phoneNormalized,
         email: identity.email,
         birthday: data.birthday ? new Date(data.birthday) : null,
-        gender: data.gender ?? inferGenderFromName(data.name),
+        gender: data.gender ?? null,
         notes: serializeClientCareProfile({
           notes: data.notes ?? "",
           allergies: data.allergies ?? "",
@@ -159,7 +158,7 @@ export async function importClientsCsv(csv: string) {
         salonId: ctx.salonId,
         name: row.name,
         birthday: row.birthday ? new Date(`${row.birthday}T12:00:00.000Z`) : null,
-        gender: inferGenderFromName(row.name),
+        gender: null,
       })) });
     }
     const actor = await tx.user.findUnique({ where: { id: ctx.userId }, select: { name: true } });
@@ -198,12 +197,12 @@ export async function mergeClients(sourceId: string, targetId: string) {
 
   await withTenant(ctx, async (tx) => {
     const ordered = [input.sourceId, input.targetId].sort();
-    await tx.$queryRaw`
-      SELECT 1::integer AS "locked"
-      FROM pg_advisory_xact_lock(
-        hashtextextended(${`client-merge:${ctx.salonId}:${ordered[0]}:${ordered[1]}`}, 0)
-      )
-    `;
+    for (const clientId of ordered) {
+      await tx.$queryRaw`
+        SELECT 1::integer AS "locked"
+        FROM pg_advisory_xact_lock(hashtextextended(${`client-merge:${ctx.salonId}:${clientId}`}, 0))
+      `;
+    }
 
     const profiles = await tx.clientProfile.findMany({
       where: { salonId: ctx.salonId, id: { in: [input.sourceId, input.targetId] } },
@@ -253,6 +252,16 @@ export async function mergeClients(sourceId: string, targetId: string) {
       data: { clientId: target.id, guestName: null, guestPhone: null },
     });
     await tx.clientProfile.update({
+      where: { id: source.id },
+      data: {
+        email: null,
+        passwordHash: null,
+        userId: null,
+        mergedIntoId: target.id,
+        mergedAt: new Date(),
+      },
+    });
+    await tx.clientProfile.update({
       where: { id: target.id },
       data: {
         phone: targetPhone,
@@ -263,16 +272,6 @@ export async function mergeClients(sourceId: string, targetId: string) {
         birthday: target.birthday ?? source.birthday,
         gender: target.gender ?? source.gender,
         notes: mergeNotes(target.notes, source.notes),
-      },
-    });
-    await tx.clientProfile.update({
-      where: { id: source.id },
-      data: {
-        email: null,
-        passwordHash: null,
-        userId: null,
-        mergedIntoId: target.id,
-        mergedAt: new Date(),
       },
     });
     const actor = await tx.user.findUnique({ where: { id: ctx.userId }, select: { name: true } });
