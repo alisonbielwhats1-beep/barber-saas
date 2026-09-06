@@ -40,13 +40,14 @@ import { moveAppointment } from "./actions";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { layoutOverlappingIntervals } from "./agenda-layout";
 import type { AvailabilityBlock } from "./availability-panel";
+import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 
 const DAY_START = 8 * 60;
 const DAY_END = 21 * 60;
 const SLOT_MIN = 30;
 const PX_PER_MIN = 1.7;
 const COL_WIDTH = 200;
-const HEADER_H = 56;
+const HEADER_H = 88;
 
 type ViewKind = "day" | "week" | "month" | "list";
 
@@ -101,6 +102,7 @@ export type Professional = {
   id: string;
   name: string;
   colorHex: string | null;
+  avatarUrl?: string | null;
   serviceIds: string[];
   workingHours?: { startMinutes: number; endMinutes: number }[];
 };
@@ -644,11 +646,11 @@ function DayView({
           const placements = appointmentPlacements(proAppts, timezone);
           return (
             <div key={pro.id} data-pro-col data-pro-id={pro.id} className="relative shrink-0 border-r border-border last:border-r-0" style={{ flex: 1, minWidth: COL_WIDTH }}>
-              <div style={{ height: HEADER_H }} className="sticky top-0 z-10 flex items-center gap-2 border-b border-border bg-card px-3">
-                <span className="grid h-7 w-7 place-items-center rounded-full text-[10px] font-semibold text-black/80" style={{ background: pro.colorHex ?? "#2ECC8B" }}>
-                  {initials(pro.name)}
+              <div style={{ height: HEADER_H }} className="sticky top-0 z-10 flex flex-col items-center justify-center gap-1.5 border-b border-border bg-card px-3">
+                <span className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-muted text-xs font-semibold text-foreground">
+                  {pro.avatarUrl ? <ImageWithFallback src={pro.avatarUrl} alt="" width={44} height={44} sizes="44px" className="h-full w-full object-cover" fallback={<span>{initials(pro.name)}</span>} /> : initials(pro.name)}
                 </span>
-                <span className="truncate text-[13px] font-medium">{pro.name}</span>
+                <span className="w-full truncate text-center text-xs font-medium" title={pro.name}>{pro.name}</span>
               </div>
 
               <div className="relative" style={{ height: totalH }}>

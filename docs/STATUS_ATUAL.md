@@ -9,9 +9,13 @@
   autenticação obrigatória para reservar e entrar na fila permanece no servidor.
 - Escopo implementado e pendências das 12 frentes em
   `docs/EVOLUCAO_PRODUTO_2026-09-06.md`. O programa completo não está concluído.
-- Lint, TypeScript, 670 testes e build local passaram. Não houve migration,
+- Direção visual adicional autorizada pelo responsável: entrada animada Everflair,
+  retratos com nomes abaixo na agenda diária e tema claro em marfim/pedra/grafite.
+  Os efeitos seguem as cores da marca, sem reproduzir a paleta Fresha.
+- Lint, TypeScript, 674 testes e build local passaram. Não houve migration,
   alteração de ambiente remoto, teste produtivo ou promoção desta branch.
-- Homologação autenticada e CI remoto ainda precisam de evidência própria.
+- CI e schema-smoke do incremento anterior (`67cb235`) passaram; a alteração
+  visual subsequente requer seu próprio CI. Homologação visual autenticada pendente.
 
 
 ## Revisão mais recente — restauração da referência 6fd3d21

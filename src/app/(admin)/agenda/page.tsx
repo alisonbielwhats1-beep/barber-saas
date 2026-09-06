@@ -185,6 +185,7 @@ export default async function AgendaPage({
     id: p.id,
     name: p.user.name,
     colorHex: p.colorHex,
+    avatarUrl: p.user.avatarUrl,
     serviceIds: p.services.map((s) => s.serviceId),
     workingHours: p.workingHours,
   }));

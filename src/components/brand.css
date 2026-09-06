@@ -17,3 +17,51 @@
 .ef-admin-logo { width: 104px; height: 24px; }
 @media (max-width: 480px) { .mk-brand .ef-logo { width: 144px; height: 34px; } }
 @media (forced-colors: active) { .ef-logo, .ef-mark { background-color: CanvasText; forced-color-adjust: none; } }
+
+/* Brand entrance: only Everflair's graphite, ivory, copper and stone. */
+.ef-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--ef-graphite);
+  color: var(--ef-ivory);
+  animation: ef-intro-exit 1400ms ease both;
+}
+.ef-intro-light {
+  position: absolute;
+  inset: -25%;
+  background:
+    radial-gradient(ellipse at 28% 72%, var(--ef-copper), transparent 48%),
+    radial-gradient(ellipse at 75% 30%, var(--ef-stone), transparent 48%),
+    radial-gradient(ellipse at 54% 52%, var(--ef-ivory), transparent 35%);
+  filter: blur(48px);
+  opacity: .58;
+  animation: ef-intro-light 1400ms ease-out both;
+}
+.ef-intro .ef-intro-logo {
+  position: relative;
+  width: clamp(180px, 40vw, 300px);
+  height: clamp(42px, 9vw, 70px);
+  filter: drop-shadow(0 2px 16px var(--ef-graphite));
+  animation: ef-intro-wordmark 1100ms cubic-bezier(.22,1,.36,1) both;
+}
+@keyframes ef-intro-light {
+  from { transform: scale(1.18) translate(-3%, 3%); opacity: .25; }
+  to { transform: scale(1) translate(3%, -3%); opacity: .58; }
+}
+@keyframes ef-intro-wordmark {
+  from { opacity: 0; transform: translateY(8px) scale(.97); }
+  35%, to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes ef-intro-exit {
+  0%, 72% { opacity: 1; visibility: visible; }
+  100% { opacity: 0; visibility: hidden; }
+}
+@media (prefers-reduced-motion: reduce), (forced-colors: active) {
+  .ef-intro { display: none; }
+}
+@media print { .ef-intro { display: none; } }

@@ -23,6 +23,23 @@ Não representa implantação nem conclusão do programa completo.
 
 ## Itens ainda abertos da solicitação
 
+### Direção visual solicitada com referências Fresha
+
+- Entrada de marca com o logo real Everflair e luzes difusas em grafite,
+  marfim, cobre e pedra. Sem importar roxo/rosa/azul da referência.
+- Animação decorativa de 1,4 s, uma vez por sessão, dispensada com teclado/toque;
+  não aparece com movimento reduzido e não condiciona autenticação ou carregamento.
+- Agenda diária usa a foto cadastrada do profissional, recorte circular 44 px,
+  nome abaixo e fallback com iniciais quando a foto está ausente ou falha.
+- Tema claro usa variações de marfim e pedra, ações em grafite e cobre como
+  destaque de marca. Status conservam sua semântica de informação/alerta/erro.
+- Testes locais após esta etapa: lint e TypeScript aprovados; 138 arquivos,
+  674 testes e build aprovados. CI da versão final acompanhado separadamente.
+- Login local abriu em 200. Inspeção visual autenticada da agenda continua
+  dependendo de ambiente com dados fictícios e acesso autorizado.
+
+### Pendências do programa completo
+
 1. Revisão visual completa de cores, ícones, componentes, espaços e estados em
    todas as telas, com evidências desktop/mobile após estas alterações.
 2. Seleção por gesto na grade,
