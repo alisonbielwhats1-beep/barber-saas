@@ -60,9 +60,9 @@ export type ProductCard = {
 type Filter = "all" | "restock" | "out";
 export type StockMovement = { id: string; actorName: string; reason: string | null; createdAt: string; metadata: Record<string, unknown> | null };
 
-export function ProductsCatalog({ products, movements, enabled = true }: { products: ProductCard[]; movements: StockMovement[]; enabled?: boolean }) {
+export function ProductsCatalog({ products, movements, enabled = true, initialFilter = "all" }: { products: ProductCard[]; movements: StockMovement[]; enabled?: boolean; initialFilter?: Filter }) {
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<Filter>("all");
+  const [filter, setFilter] = useState<Filter>(initialFilter);
 
   const restockCount = products.filter((p) => p.stock <= p.minStock).length;
 

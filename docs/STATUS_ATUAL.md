@@ -1,5 +1,19 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-06 — evolução de produto em implementação, sem deploy
+
+- Branch `codex/product-experience`, baseada em `origin/master` `a66a98b`.
+- Bloqueios por profissional/intervalo na agenda, cancelamento separado das
+  reservas selecionadas, capacidade corrigida, comunicação manual explícita,
+  atalhos e refinamentos de interface. Catálogo consultável antes do login;
+  autenticação obrigatória para reservar e entrar na fila permanece no servidor.
+- Escopo implementado e pendências das 12 frentes em
+  `docs/EVOLUCAO_PRODUTO_2026-09-06.md`. O programa completo não está concluído.
+- Lint, TypeScript, 669 testes e build local passaram. Não houve migration,
+  alteração de ambiente remoto, teste produtivo ou promoção desta branch.
+- Homologação autenticada e CI remoto ainda precisam de evidência própria.
+
+
 ## Revisão mais recente — restauração da referência 6fd3d21
 
 O usuário rejeitou a proposta de fundos verdes. A demonstração retorna a

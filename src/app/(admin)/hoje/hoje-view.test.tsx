@@ -116,6 +116,8 @@ describe("HojeView", () => {
       "_blank",
       "noopener,noreferrer",
     );
+    expect(statusAction.reminder).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Confirmar envio manual" }));
     await waitFor(() => expect(statusAction.reminder).toHaveBeenCalledWith("appt-pending"));
   });
 });

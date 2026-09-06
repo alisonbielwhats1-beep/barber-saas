@@ -62,6 +62,7 @@ describe("sessão do cliente por tenant", () => {
         _salonSlug: string,
         callback: (tx: object, salonId: string) => unknown,
       ) => callback({
+        salon: { findUnique: vi.fn().mockResolvedValue({ name: "Studio Atual" }) },
         clientProfile: {
           findFirst: vi.fn().mockResolvedValue({
             id: CURRENT_SALON_SESSION.clientId,
@@ -114,12 +115,13 @@ describe("sessão do cliente por tenant", () => {
   it.each([
     ["login", loginPage],
     ["cadastro", cadastroPage],
-  ])("não consulta tenant sem sessão na tela de %s", async (_name, renderPage) => {
+  ])("sem sessão, consulta apenas a identidade pública quando necessária em %s", async (name, renderPage) => {
     mocks.getClientSession.mockResolvedValue(null);
 
     await expect(renderPage()).resolves.toBeTruthy();
 
     expect(mocks.redirect).not.toHaveBeenCalled();
-    expect(mocks.withSalonBySlug).not.toHaveBeenCalled();
+    if (name === "cadastro") expect(mocks.withSalonBySlug).toHaveBeenCalledWith("studio-atual", expect.any(Function));
+    else expect(mocks.withSalonBySlug).not.toHaveBeenCalled();
   });
 });

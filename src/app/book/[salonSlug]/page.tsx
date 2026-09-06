@@ -1,5 +1,5 @@
 import { readableForeground } from "@/lib/color";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
   MapPin,
@@ -163,10 +163,6 @@ export default async function ClientHome({
 }) {
   const { salonSlug } = await params;
   const clientSession = await getClientSession();
-  if (!clientSession) {
-    const returnTo = `/book/${salonSlug}`;
-    redirect(`/book/${salonSlug}/welcome?returnTo=${encodeURIComponent(returnTo)}`);
-  }
   const salon = await withSalonBySlug(salonSlug, async (tx, salonId) => {
     const salonData = await tx.salon.findUnique({
       where: { id: salonId },
@@ -239,10 +235,6 @@ export default async function ClientHome({
     };
   });
   if (!salon) notFound();
-  if (!salon.hasValidClientSession) {
-    const returnTo = `/book/${salonSlug}`;
-    redirect(`/book/${salonSlug}/welcome?returnTo=${encodeURIComponent(returnTo)}`);
-  }
 
   // WhatsApp próprio tem precedência sobre o telefone geral do salão.
   const whatsappNumber = salon.whatsapp || salon.phone;

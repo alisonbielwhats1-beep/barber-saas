@@ -39,6 +39,7 @@ import { STATUS, STATUS_ORDER } from "./agenda-status";
 import { moveAppointment } from "./actions";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { layoutOverlappingIntervals } from "./agenda-layout";
+import type { AvailabilityBlock } from "./availability-panel";
 
 const DAY_START = 8 * 60;
 const DAY_END = 21 * 60;
@@ -142,6 +143,8 @@ function ymd(d: Date) {
 }
 
 export function AgendaBoard({
+  initialAppointmentId,
+  availabilityBlocks = [],
   date,
   salonName,
   timezone,
@@ -153,6 +156,8 @@ export function AgendaBoard({
   canCreate,
   canCancel,
 }: {
+  initialAppointmentId?: string;
+  availabilityBlocks?: AvailabilityBlock[];
   date: string;
   salonName: string;
   timezone: string;
@@ -171,7 +176,7 @@ export function AgendaBoard({
   const [statusFilter, setStatusFilter] = useState<string>("not_cancelled");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [detail, setDetail] = useState<Appointment | null>(null);
+  const [detail, setDetail] = useState<Appointment | null>(() => appointments.find(a => a.id === initialAppointmentId) ?? null);
   const [createAt, setCreateAt] = useState<{ startLocal: string; proId: string } | null>(null);
   const [moveProposal, setMoveProposal] = useState<{
     appointment: Appointment;
@@ -295,7 +300,7 @@ export function AgendaBoard({
     <div className="space-y-5">
       <header className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1 rounded-full border border-border bg-surface-1 p-1">
+          <div className="flex items-center gap-1 rounded-lg border border-border bg-surface-1 p-1">
             <button
               type="button"
               onClick={() => goDate(-1)}
@@ -308,7 +313,7 @@ export function AgendaBoard({
               type="button"
               onClick={goToday}
               aria-label="Ir para hoje"
-              className="min-h-11 rounded-full px-3 py-1 text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+              className="min-h-11 rounded-lg px-3 py-1 text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
               Hoje
             </button>
@@ -331,7 +336,7 @@ export function AgendaBoard({
         </div>
 
         <div className="flex items-center gap-2">
-          <div role="group" aria-label="Visualização da agenda" className="flex items-center gap-0.5 rounded-full border border-border bg-surface-1 p-1">
+          <div role="group" aria-label="Visualização da agenda" className="flex items-center gap-0.5 rounded-lg border border-border bg-surface-1 p-1">
             <ViewBtn active={view === "day"} onClick={() => setView("day")} icon={CalendarDays} label="Dia" />
             <ViewBtn active={view === "week"} onClick={() => setView("week")} icon={CalendarRange} label="Semana" />
             <ViewBtn active={view === "month"} onClick={() => setView("month")} icon={Grid3x3} label="Mês" />
@@ -341,7 +346,7 @@ export function AgendaBoard({
             <button
               onClick={() => openSlot(professionals[0]?.id ?? "", DAY_START)}
               disabled={professionals.length === 0}
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-[13px] font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-40"
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-[13px] font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-40"
             >
               <Plus className="h-4 w-4" />
               Novo
@@ -358,7 +363,7 @@ export function AgendaBoard({
       </section>
 
       <section className="flex flex-wrap items-center gap-2">
-        <div className="flex min-h-11 items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 max-sm:w-full">
+        <div className="flex min-h-11 items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 max-sm:w-full">
           <Search aria-hidden="true" className="h-3.5 w-3.5 text-muted-foreground" />
           <input
             value={search}
@@ -368,7 +373,7 @@ export function AgendaBoard({
             className="min-w-0 flex-1 bg-transparent text-[13px] placeholder:text-muted-foreground focus:outline-none sm:w-44"
           />
         </div>
-        <button type="button" aria-expanded={filtersOpen} aria-controls="agenda-filters" onClick={() => setFiltersOpen(!filtersOpen)} className="min-h-11 rounded-full border border-border px-4 text-sm sm:hidden">
+        <button type="button" aria-expanded={filtersOpen} aria-controls="agenda-filters" onClick={() => setFiltersOpen(!filtersOpen)} className="min-h-11 rounded-lg border border-border px-4 text-sm sm:hidden">
           Filtros{proFilter !== "all" || statusFilter !== "not_cancelled" ? " · ativos" : ""}
         </button>
         <div id="agenda-filters" className={`${filtersOpen ? "flex" : "hidden"} flex-wrap items-center gap-2 sm:flex`}>
@@ -420,6 +425,7 @@ export function AgendaBoard({
         </div>
       ) : view === "day" ? (
         <DayView
+          blocks={availabilityBlocks}
           date={date}
           professionals={shownPros}
           appointments={dayAppts}
@@ -538,6 +544,7 @@ export function AgendaBoard({
 /* ─────────────────────────── Day view ─────────────────────────── */
 
 function DayView({
+  blocks,
   date,
   professionals,
   appointments,
@@ -547,6 +554,7 @@ function DayView({
   onOpenDetail,
   onMove,
 }: {
+  blocks: AvailabilityBlock[];
   date: string;
   professionals: Professional[];
   appointments: Appointment[];
@@ -620,7 +628,7 @@ function DayView({
   }, [drag, date, onMove, dayStart, dayEnd]);
 
   return (
-    <div className="overflow-x-auto rounded-2xl border border-border bg-card">
+    <div className="max-h-[72dvh] overflow-auto rounded-xl border border-border bg-card">
       <div className="flex w-full" style={{ minWidth: 56 + professionals.length * COL_WIDTH }} ref={bodyRef}>
         <div className="w-14 shrink-0 border-r border-border bg-surface-1">
           <div style={{ height: HEADER_H }} className="border-b border-border" />
@@ -653,6 +661,16 @@ function DayView({
                     aria-label={`Agendar ${minutesToHHMM(m)} com ${pro.name}`}
                   />
                 ))}
+
+                {blocks.filter(b => b.professionalId === pro.id).map(block => {
+                  const firstDate = formatInTimeZone(new Date(block.startAt), timezone, "yyyy-MM-dd");
+                  const lastDate = formatInTimeZone(new Date(block.endAt), timezone, "yyyy-MM-dd");
+                  if (firstDate > date || lastDate < date) return null;
+                  const start = Math.max(dayStart, firstDate < date ? 0 : minutesOf(block.startAt, timezone));
+                  const end = Math.min(dayEnd, lastDate > date ? 1440 : minutesOf(block.endAt, timezone));
+                  if (end <= start) return null;
+                  return <div key={block.id} className="pointer-events-none absolute inset-x-0 overflow-hidden border-y border-border bg-muted/80 px-2 py-1 text-xs text-muted-foreground" style={{ top: (start - dayStart) * PX_PER_MIN, height: (end - start) * PX_PER_MIN, backgroundImage: "repeating-linear-gradient(135deg, transparent, transparent 6px, hsl(var(--border) / .35) 6px, hsl(var(--border) / .35) 7px)" }}><span className="rounded bg-card px-1">Bloqueado · {block.reason ?? "Indisponível"}</span></div>;
+                })}
 
                 {nowMin != null && nowMin >= dayStart && nowMin <= dayEnd && (
                   <div className="pointer-events-none absolute inset-x-0 z-20 flex items-center" style={{ top: (nowMin - dayStart) * PX_PER_MIN }}>
@@ -700,6 +718,7 @@ function DayView({
                     >
                       <p className="truncate font-semibold text-foreground">{a.clientName}</p>
                       <p className="truncate text-[11px] text-muted-foreground">{a.serviceName}</p>
+                      {height >= 70 && <p className="truncate text-[10px] font-medium">{cfg.label}</p>}
                       {a.pendingReschedule && (
                         <span className="mt-1 inline-flex rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700 dark:text-amber-300">
                           Aguardando aceite
@@ -777,7 +796,7 @@ function WeekView({
   const colW = 150;
 
   return (
-    <div className="overflow-x-auto rounded-2xl border border-border bg-card">
+    <div className="max-h-[72dvh] overflow-auto rounded-xl border border-border bg-card">
       <div className="flex w-full" style={{ minWidth: 56 + days.length * colW }}>
         <div className="w-14 shrink-0 border-r border-border bg-surface-1">
           <div style={{ height: HEADER_H }} className="border-b border-border" />
@@ -1103,7 +1122,7 @@ function ViewBtn({ active, onClick, icon: Icon, label }: { active: boolean; onCl
       onClick={onClick}
       aria-label={`Visualização ${label}`}
       aria-pressed={active}
-      className={`inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+      className={`inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
         active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
       }`}
     >
@@ -1119,7 +1138,7 @@ function FilterChip({ active, onClick, children, icon: Icon, dot }: { active: bo
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`inline-flex min-h-11 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+      className={`inline-flex min-h-11 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
         active ? "border-primary/40 bg-primary/10 text-foreground" : "border-border bg-card text-muted-foreground hover:text-foreground"
       }`}
     >

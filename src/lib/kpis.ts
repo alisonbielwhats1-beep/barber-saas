@@ -1,10 +1,12 @@
 import type { Tx } from "./prisma-tenant";
-import { differenceInMinutes, subMonths, startOfMonth, endOfMonth } from "date-fns";
+import { subMonths, startOfMonth, endOfMonth } from "date-fns";
+import { intervalMinutes, subtractIntervals } from "./intervals";
 import {
   DEFAULT_TIMEZONE,
   addCalendarDays,
   dateKeyInTimeZone,
   weekdayOfDateKey,
+  zonedDateTimeToUtc,
 } from "./time";
 
 /**
@@ -149,10 +151,10 @@ async function occupancy(
       startAt: { gte: from, lt: to },
       status: { in: ["CONFIRMED", "IN_PROGRESS", "COMPLETED"] },
     },
-    select: { startAt: true, endAt: true },
+    select: { startAt: true, endAt: true, professionalId: true },
   });
   const workingHours = await tx.workingHours.findMany({
-    where: { salonId },
+    where: { salonId, professional: { active: true } },
     select: {
       weekday: true,
       startMinutes: true,
@@ -166,17 +168,24 @@ async function occupancy(
       startAt: { lt: to },
       endAt: { gt: from },
     },
-    select: { startAt: true, endAt: true },
+    select: { startAt: true, endAt: true, professionalId: true },
   });
   const professionals = await tx.professional.count({
     where: { salonId, active: true },
   });
 
-  const bookedMinutes = appointments.reduce(
-    (sum, a) => sum + differenceInMinutes(a.endAt, a.startAt),
-    0,
-  );
-
+  const closures = await tx.salonClosure.findMany({
+    where: { salonId, startAt: { lt: to }, endAt: { gt: from } },
+    select: { startAt: true, endAt: true },
+  });
+  const asInterval = (item: { startAt: Date; endAt: Date }) => ({
+    start: Math.max(from.getTime(), item.startAt.getTime()),
+    end: Math.min(to.getTime(), item.endAt.getTime()),
+  });
+  let bookedMinutes = 0;
+  for (const id of new Set(appointments.map(a => a.professionalId))) {
+    bookedMinutes += intervalMinutes(appointments.filter(a => a.professionalId === id).map(asInterval));
+  }
   let availableMinutes = 0;
   const toDate = dateKeyInTimeZone(to, timezone);
   for (
@@ -185,15 +194,18 @@ async function occupancy(
     date = addCalendarDays(date, 1)
   ) {
     const weekday = weekdayOfDateKey(date);
-    for (const wh of workingHours.filter((w) => w.weekday === weekday)) {
-      availableMinutes += wh.endMinutes - wh.startMinutes;
+    const atMinute = (minute: number) => {
+      const targetDate = minute === 1440 ? addCalendarDays(date, 1) : date;
+      const value = minute === 1440 ? 0 : minute;
+      return zonedDateTimeToUtc(targetDate, `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`, timezone);
+    };
+    for (const id of new Set(workingHours.map(w => w.professionalId))) {
+      const shifts = workingHours.filter(w => w.weekday === weekday && w.professionalId === id)
+        .map(w => asInterval({ startAt: atMinute(w.startMinutes), endAt: atMinute(w.endMinutes) }));
+      const excluded = [...closures, ...timeOffs.filter(t => t.professionalId === id)].map(asInterval);
+      availableMinutes += intervalMinutes(subtractIntervals(shifts, excluded));
     }
   }
-  const timeOffMinutes = timeOffs.reduce(
-    (sum, t) => sum + differenceInMinutes(t.endAt, t.startAt),
-    0,
-  );
-  availableMinutes = Math.max(0, availableMinutes - timeOffMinutes);
 
   return {
     rate: availableMinutes > 0 ? bookedMinutes / availableMinutes : 0,

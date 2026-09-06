@@ -305,7 +305,7 @@ export default async function DashboardPage({
       {/* ── Rankings ───────────────────────────────────────── */}
       <section className="grid gap-4 lg:grid-cols-2">
         <Panel>
-          <PanelTitle icon={Scissors}>Serviços mais vendidos</PanelTitle>
+          <PanelTitle icon={Scissors}>Serviços por faturamento</PanelTitle>
           <div className="mt-4 space-y-4">
             {m.topServices.length === 0 ? (
               <Empty title="Sem dados neste período" />
@@ -337,7 +337,7 @@ export default async function DashboardPage({
         </Panel>
 
         <Panel>
-          <PanelTitle icon={Trophy}>Performance da equipe</PanelTitle>
+          <PanelTitle icon={Trophy}>Faturamento por profissional</PanelTitle>
           <div className="mt-3 space-y-1">
             {m.proPerf.length === 0 ? (
               <Empty title="Sem atendimentos concluídos" />

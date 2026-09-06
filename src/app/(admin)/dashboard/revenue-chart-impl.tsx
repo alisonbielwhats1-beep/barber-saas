@@ -52,7 +52,7 @@ export function RevenueChart({ data }: { data: { date: string; cents: number }[]
           formatter={(v: number) => [`R$ ${v.toFixed(2)}`, "Faturamento"]}
         />
         <Area
-          type="monotone"
+          type="linear"
           dataKey="value"
           stroke="hsl(var(--primary))"
           strokeWidth={2}

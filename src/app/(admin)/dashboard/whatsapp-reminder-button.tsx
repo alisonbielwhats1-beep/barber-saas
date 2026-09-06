@@ -23,6 +23,7 @@ export function WhatsAppReminderButton({
   professionalName: string;
 }) {
   const [sent, setSent] = useState(false);
+  const [opened, setOpened] = useState(false);
   const [pending, startTransition] = useTransition();
   const link = buildAppointmentWhatsAppLink({
     phone,
@@ -36,6 +37,10 @@ export function WhatsAppReminderButton({
   function send() {
     if (!link) return;
     window.open(link, "_blank", "noopener,noreferrer");
+    setOpened(true);
+  }
+
+  function confirmSent() {
     startTransition(async () => {
       try {
         await markReminderSent(appointmentId);
@@ -47,6 +52,8 @@ export function WhatsAppReminderButton({
   }
 
   return (
+    <div className="absolute bottom-2 right-2 flex items-center gap-2">
+    {opened && !sent && <button type="button" disabled={pending} onClick={confirmSent} className="min-h-11 rounded-lg border border-border px-2 text-xs">Confirmar envio manual</button>}
     <button
       type="button"
       disabled={!link || pending}
@@ -55,7 +62,7 @@ export function WhatsAppReminderButton({
       aria-label={link
         ? `Enviar lembrete pelo WhatsApp para ${clientName}`
         : `${clientName} está sem telefone cadastrado`}
-      className={`absolute bottom-3 right-3 grid h-9 w-9 place-items-center rounded-lg transition disabled:cursor-not-allowed disabled:opacity-40 ${
+      className={`grid h-11 w-11 place-items-center rounded-lg transition disabled:cursor-not-allowed disabled:opacity-40 ${
         sent
           ? "bg-primary/20 text-primary"
           : "bg-primary/10 text-primary hover:bg-primary/15"
@@ -63,6 +70,7 @@ export function WhatsAppReminderButton({
     >
       {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : sent ? <Check className="h-4 w-4" /> : <MessageCircle className="h-4 w-4" />}
     </button>
+    </div>
   );
 }
 

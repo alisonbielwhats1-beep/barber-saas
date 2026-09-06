@@ -59,6 +59,7 @@ export function HojeView({
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [reminderId, setReminderId] = useState<string | null>(null);
   const [sentReminderIds, setSentReminderIds] = useState<Set<string>>(new Set());
+  const [openedReminderIds, setOpenedReminderIds] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const now = Date.now();
@@ -109,6 +110,10 @@ export function HojeView({
     if (!link) return;
 
     window.open(link, "_blank", "noopener,noreferrer");
+    setOpenedReminderIds(previous => new Set(previous).add(appointment.id));
+  }
+
+  function confirmReminder(appointment: TodayAppointment) {
     setReminderId(appointment.id);
     startTransition(async () => {
       try {
@@ -182,6 +187,7 @@ export function HojeView({
                       <p className="mt-1 text-xs text-muted-foreground">{formatMoney(appointment.priceCents, currency)}{appointment.hasPayment ? " · recebido" : ""}</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                      {openedReminderIds.has(appointment.id) && !sentReminderIds.has(appointment.id) && <button type="button" disabled={pending} onClick={() => confirmReminder(appointment)} className="min-h-11 rounded-lg border border-border px-3 text-xs">Confirmar envio manual</button>}
                       <button
                         type="button"
                         disabled={!appointment.clientPhone || pending || reminderId === appointment.id}
