@@ -190,9 +190,9 @@ export function HojeView({
 
               return (
                 <article key={appointment.id} className="rounded-2xl border border-border bg-surface-1 p-4 transition-colors hover:border-border-strong">
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
-                    <div className="flex items-start gap-3 lg:w-48 lg:shrink-0">
-                      <span className="w-14 shrink-0 text-xl font-semibold tabular-nums">{formatInTimeZone(start, timezone, "HH:mm")}</span>
+                  <div className="grid gap-4 sm:grid-cols-[auto_minmax(0,1fr)] 2xl:grid-cols-[auto_minmax(220px,1fr)_auto] 2xl:items-center">
+                    <div className="flex items-start gap-3 sm:w-48">
+                      <span className="w-16 shrink-0 whitespace-nowrap text-xl font-semibold tabular-nums">{formatInTimeZone(start, timezone, "HH:mm")}</span>
                       <div className="min-w-0">
                         <span className="inline-flex rounded-full px-2 py-1 text-[10px] font-semibold" style={{ background: `${status?.color ?? "#94A3B8"}1c`, color: status?.color ?? "#94A3B8" }}>
                           {status?.label ?? appointment.status}
@@ -206,7 +206,7 @@ export function HojeView({
                       {appointment.checkedInAt && <p className="mt-1 text-xs font-medium text-primary">Chegou às {formatInTimeZone(new Date(appointment.checkedInAt), timezone, "HH:mm")}{["PENDING", "CONFIRMED"].includes(appointment.status) ? ` · aguardando ${Math.max(0, Math.floor((now - Date.parse(appointment.checkedInAt)) / 60000))} min` : ""}</p>}
                       <p className="mt-1 text-xs text-muted-foreground">{formatMoney(appointment.priceCents, currency)}{appointment.hasPayment ? " · recebido" : ""}</p>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                    <div className="flex flex-wrap items-center gap-2 sm:col-span-2 2xl:col-span-1 2xl:max-w-[660px] 2xl:justify-end">
                       {!appointment.checkedInAt && ["PENDING", "CONFIRMED"].includes(appointment.status) && date === formatInTimeZone(now, timezone, "yyyy-MM-dd") && <button type="button" disabled={pending} onClick={() => arrive(appointment)} className="min-h-11 rounded-lg border border-primary/30 bg-primary/10 px-3 text-xs font-semibold text-primary">Registrar chegada</button>}
                       {openedReminderIds.has(appointment.id) && !sentReminderIds.has(appointment.id) && <button type="button" disabled={pending} onClick={() => confirmReminder(appointment)} className="min-h-11 rounded-lg border border-border px-3 text-xs">Confirmar envio manual</button>}
                       <button

@@ -4,6 +4,7 @@ import { assertSafeDatabaseOperation } from "../../src/lib/database-safety";
 import { dateKeyInTimeZone, zonedDateTimeToUtc } from "../../src/lib/time";
 
 test.describe("@database operação diária e expediente", () => {
+  test.use({ actionTimeout: 15_000 });
   test.skip(!process.env.RUN_DATABASE_E2E, "Somente banco descartável.");
   test("registra chegada, libera expediente e bloqueia sem cancelar reservas", async ({ page }) => {
     test.setTimeout(180_000);
@@ -29,6 +30,9 @@ test.describe("@database operação diária e expediente", () => {
       const card = page.locator("article").filter({ hasText: clientName });
       await card.getByRole("button", { name: "Registrar chegada" }).click();
       await expect(card.getByText(/Chegou às.*aguardando/)).toBeVisible();
+      const clientLabel = card.getByText(clientName, { exact: true });
+      const clientBox = await clientLabel.boundingBox();
+      expect(clientBox?.width).toBeGreaterThan(220);
       expect((await db.appointment.findUniqueOrThrow({ where: { id: appointment.id } })).checkedInAt).not.toBeNull();
       await page.screenshot({ path: test.info().outputPath("hoje-chegada-desktop.png"), fullPage: true });
 
@@ -54,6 +58,9 @@ test.describe("@database operação diária e expediente", () => {
       expect((await db.appointment.findUniqueOrThrow({ where: { id: appointment.id } })).status).toBe("CONFIRMED");
       await blocking.getByRole("button", { name: "Concluir", exact: true }).click();
       await page.screenshot({ path: test.info().outputPath("agenda-desktop.png"), fullPage: true });
+      await page.getByRole("button", { name: "Mudar para tema claro" }).click();
+      await expect(page.locator("html")).toHaveAttribute("data-theme", "admin-light");
+      await page.screenshot({ path: test.info().outputPath("agenda-light-desktop.png"), fullPage: true });
       await page.setViewportSize({ width: 390, height: 844 });
       await page.screenshot({ path: test.info().outputPath("agenda-mobile.png"), fullPage: true });
     } finally {

@@ -46,6 +46,12 @@ autorização. Reservas feitas em expediente extra continuam visíveis na agenda
 
 ## Limites
 
+Evidência de banco: run GitHub Actions `34059744513`, commit `10055ef`.
+Backup/restauração, preflight, duas aplicações, preservação, constraints, RLS e
+testes PostgreSQL aprovados. Login e reserva pública passaram. A jornada nova
+chegou a persistir a chegada e detectou ambiguidade no seletor de profissional;
+rótulo corrigido antes da próxima execução.
+
 Sem promoção produtiva. Codespace `glorious-enigma-jjv6v4rvrv49f544r` documentado
 como demonstração, mas a credencial gh desta sessão não tem escopo codespace.
 GitHub Actions é descartável por job e não atualiza automaticamente a demonstração.

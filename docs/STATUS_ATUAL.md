@@ -17,10 +17,15 @@
 - Direção visual adicional autorizada pelo responsável: entrada animada Everflair,
   retratos com nomes abaixo na agenda diária e tema claro em marfim/pedra/grafite.
   Os efeitos seguem as cores da marca, sem reproduzir a paleta Fresha.
-- Lint, TypeScript, 674 testes e build local passaram. Não houve migration,
-  alteração de ambiente remoto, teste produtivo ou promoção desta branch.
-- CI e schema-smoke do incremento anterior (`67cb235`) passaram; a alteração
-  visual subsequente requer seu próprio CI. Homologação visual autenticada pendente.
+- Lint, TypeScript, 681 testes e build local passaram. Não houve teste produtivo
+  nem promoção desta branch. CI e schema-smoke da etapa visual `d665f44` passaram.
+- O run GitHub `34059744513`, commit `10055ef`, validou a migration 018 no
+  PostgreSQL descartável: backup/restauração, reaplicação, preservação dos
+  registros e RLS sem BYPASSRLS. Testes PostgreSQL de concorrência passaram.
+  Login, isolamento visual e agendamento público passaram. A nova jornada
+  registrou chegada, mas encontrou seletor ambíguo no formulário de expediente;
+  associação explícita do rótulo corrigida, com repetição do CI pendente.
+  O Codespace de demonstração não foi alterado.
 
 
 ## Revisão mais recente — restauração da referência 6fd3d21

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useId, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarPlus } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -13,6 +13,7 @@ export function OpeningPanel({ date, timezone, professionals, openings }: {
   date: string; timezone: string; professionals: { id: string; name: string }[]; openings: Opening[];
 }) {
   const router = useRouter();
+  const professionalFieldId = useId();
   const [open, setOpen] = useState(false);
   const [requestId, setRequestId] = useState("");
   const [pending, startTransition] = useTransition();
@@ -37,7 +38,7 @@ export function OpeningPanel({ date, timezone, professionals, openings }: {
           else { setOpen(false); router.refresh(); }
         } catch { setError("Não foi possível liberar o expediente. Tente novamente."); } });
       }}><fieldset disabled={pending} className="space-y-3">
-        <label className="block text-sm">Profissional<select required name="professionalId" className={field}>{professionals.map(p => <option value={p.id} key={p.id}>{p.name}</option>)}</select></label>
+        <div><label htmlFor={professionalFieldId} className="block text-sm">Profissional</label><select id={professionalFieldId} required name="professionalId" className={field}>{professionals.map(p => <option value={p.id} key={p.id}>{p.name}</option>)}</select></div>
         <label className="block text-sm">Data<input required type="date" name="dateKey" defaultValue={date} className={field} /></label>
         <div className="grid grid-cols-2 gap-3"><label className="text-sm">Das<input required type="time" name="start" defaultValue="18:00" className={field} /></label><label className="text-sm">Até<input required type="time" name="end" defaultValue="20:00" className={field} /></label></div>
         <label className="block text-sm">Motivo<input required minLength={3} maxLength={200} name="reason" placeholder="Ex.: atendimento especial de sábado" className={field} /></label>
