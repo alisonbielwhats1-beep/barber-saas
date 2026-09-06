@@ -126,7 +126,7 @@ export function MobileNav({
             <OpenCommandPaletteButton />
             {visibleGroups(role).map((group) => (
               <div key={group.title}>
-                <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                   {group.title}
                 </p>
                 <div className="grid grid-cols-2 gap-2">
@@ -239,3 +239,4 @@ export function MobileNav({
     </>
   );
 }
+
