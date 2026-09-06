@@ -4,7 +4,13 @@ Este documento define a separação de ambientes do Salon SaaS. A regra central
 é simples: nenhum teste, seed, preview ou migration de desenvolvimento pode
 usar o projeto Supabase de produção.
 
-## Arquitetura adotada
+## Atualização de 6 de setembro de 2026 — demonstração no GitHub
+
+Por decisão do proprietário, não foi criado outro projeto Supabase. A demonstração usa o Codespace `glorious-enigma-jjv6v4rvrv49f544r`, branch `codex/everflair-demo`, PostgreSQL e Redis locais isolados e somente dados fictícios. A aplicação usa uma role de runtime sem BYPASSRLS. Credenciais ficam exclusivamente em `.demo/`, ignoradas pelo Git. O acesso público da porta da aplicação depende de autorização; banco e Redis permanecem privados.
+
+A proposta de um segundo Supabase descrita abaixo é histórica e não foi executada. Os dois projetos Supabase existentes continuam destinados às aplicações de produção. O Codespace pode hibernar e não substitui hospedagem de produção.
+
+## Arquitetura proposta anteriormente
 
 | Ambiente | Aplicação | Banco | Fonte de dados | Custo adicional esperado |
 |---|---|---|---|---|
@@ -195,3 +201,4 @@ Rollback nunca deve apagar dados recém-criados sem exportação e autorização
 - Production final: commit `6465123`, deploy
   `dpl_65KHBGkS2SGbd6HdMGTCKopLqV6B`, estado `READY`. O rollback do primeiro
   deploy da wave foi executado e validado antes do hotfix #51.
+

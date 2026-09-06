@@ -1,6 +1,6 @@
 # Refinamento operacional — 6 de setembro de 2026
 
-Branch de trabalho: `codex/product-refinement`. Validação publicada separadamente em `codex/everflair-demo` quando os checks estiverem concluídos. Nenhuma migration, seed ou alteração de dados produtivos faz parte desta entrega.
+Branch de trabalho: `codex/product-refinement`. Implementação publicada separadamente em `codex/everflair-demo` (base funcional `9cadcd8`, ajustes de acessibilidade `e4df171` e `700f835`). Nenhuma migration, seed ou alteração de dados produtivos faz parte desta entrega.
 
 ## Escopo implementado
 
@@ -28,4 +28,13 @@ A auditoria contém recomendações de produto e itens maiores que esta rodada. 
 
 ## Validação
 
-Resultados serão registrados após compilação, testes de regressão e verificação visual da demonstração. A produção permanece separada do ambiente de teste.
+- `npm test`: 659 testes unitários/regressão aprovados; 17 testes direcionados repetidos após ajustes de acessibilidade também aprovados.
+- TypeScript, lint e build local aprovados. Build da demonstração aprovado no Codespace com variáveis exclusivas desse ambiente. `npm audit`: zero vulnerabilidades na verificação realizada.
+- Chromium/Playwright executado dentro do Codespace em `localhost:3000`, com proprietário, recepção e cliente fictícios: seis verificações funcionais aprovadas e dez capturas desktop/mobile, sem erros de runtime observados.
+- Verificados: identidade/permissões, bloqueio de financeiro para recepção, controles de conta no mobile, filtros da agenda, retorno ao agendamento após login e precedência do CTA sobre avaliações.
+- A verificação axe identificou e orientou correções de contraste no tema claro/menu, semântica das estrelas, foco da lista de profissionais e legibilidade dos avatares. Isso não equivale a certificação integral de acessibilidade.
+- Evidências locais em `artifacts/audit-2026-09-06/refinement-*`; relatório e imagens do navegador permanecem no mesmo diretório do Codespace. Credenciais estão fora do Git.
+- Não houve execução de CI remoto nesta branch, promoção para produção ou mudança nos bancos Supabase. Integração PostgreSQL abrangente e revisão de release continuam necessárias antes da promoção.
+
+O acesso externo da demonstração permanece privado. A revisão automática bloqueou tornar pública a porta 3000 e foi solicitada autorização explícita, ainda pendente. A validação pelo localhost não modificou essa visibilidade.
+
