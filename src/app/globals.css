@@ -83,7 +83,7 @@
     /* Semantic — slightly deeper for light bg legibility */
     --success: 152 55% 34%;
     --info: 213 85% 44%;
-    --warning: 35 90% 42%;
+    --warning: 35 90% 32%;
     --danger: 0 68% 46%;
     --marketing: 267 72% 50%;
 
@@ -606,3 +606,4 @@
     transform: none !important;
   }
 }
+

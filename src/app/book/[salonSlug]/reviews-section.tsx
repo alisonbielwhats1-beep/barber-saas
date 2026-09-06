@@ -4,7 +4,7 @@ import type { PublicReview, ReviewSummary } from "@/lib/reviews";
 
 export function ReviewStars({ rating, size = "h-4 w-4" }: { rating: number; size?: string }) {
   return (
-    <span className="inline-flex items-center gap-0.5" aria-label={`Nota ${rating} de 5`}>
+    <span role="img" className="inline-flex items-center gap-0.5" aria-label={`Nota ${rating} de 5`}>
       {Array.from({ length: 5 }, (_, index) => (
         <Star
           key={index}
@@ -110,3 +110,4 @@ export function ReviewsSection({
     </section>
   );
 }
+

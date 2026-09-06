@@ -41,7 +41,7 @@ try {
  await page.getByRole('button',{name:'Abrir todos os módulos'}).click();
  await expect(page.getByRole('dialog').getByRole('button',{name:'Sair da conta'})).toBeVisible();
  await expect(page.getByRole('dialog').getByRole('button',{name:'Everflair Studio · Demonstração'})).toBeVisible();
- await page.getByRole('dialog').getByRole('button',{name:'Mudar para tema escuro'}).click();await capture(page,'mobile-menu');
+ await page.getByRole('dialog').getByRole('button',{name:'Mudar para tema escuro'}).click();await page.waitForTimeout(900);await capture(page,'mobile-menu');
  report.checks.push('Mobile: establishment switcher, theme and sign out accessible');
  await page.keyboard.press('Escape');await visit(page,'/dashboard');await capture(page,'dashboard-dark-mobile');
  await visit(page,'/agenda');const filters=page.getByRole('button',{name:/^Filtros/});await expect(filters).toHaveAttribute('aria-expanded','false');
