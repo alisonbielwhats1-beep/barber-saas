@@ -1,7 +1,6 @@
-import { BrandLogo, BrandMark } from "@/components/brand";
+import { BrandLogo } from "@/components/brand";
 import { getTenantContext } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
-import { normalizeImageUrl } from "@/lib/images";
 import { SidebarFooter } from "./sidebar-footer";
 import { SalonSwitcher } from "./salon-switcher";
 import { SidebarNav } from "./sidebar-nav";
@@ -10,7 +9,6 @@ import { Toaster } from "@/components/ui/toast";
 import { ThemeProvider } from "./theme-provider";
 import { MobileNav } from "./mobile-nav";
 import { isPlatformAdmin } from "@/lib/platform-admin";
-import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const ctx = await getTenantContext();
@@ -26,7 +24,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       const [salon, memberships, unreadNotifications] = await Promise.all([
         tx.salon.findUnique({
           where: { id: salonId },
-          select: { name: true, plan: true, logoUrl: true },
+          select: { name: true, plan: true },
         }),
         tx.membership.findMany({
           where: { userId },
@@ -52,7 +50,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     role: m.role,
   }));
   const currentSalon = membershipList.find((m) => m.id === salonId)!;
-  const salonLogo = normalizeImageUrl(salon?.logoUrl);
 
   return (
     <ThemeProvider>
@@ -67,23 +64,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <aside className="admin-sidebar scrollbar-dark hidden w-56 shrink-0 flex-col overflow-y-auto border-r border-border lg:flex print:hidden">
         {/* Logo */}
         <div className="flex h-14 shrink-0 items-center gap-2.5 px-4">
-          {salonLogo && <span className="admin-brand-mark relative grid h-9 w-11 shrink-0 place-items-center overflow-hidden rounded-xl border border-border bg-white p-1">
-              <ImageWithFallback
-                src={salonLogo}
-                alt={`Logo de ${salon?.name ?? "seu salão"}`}
-                fill
-                sizes="44px"
-                className="object-contain p-1"
-                fallback={(
-                  <span className="grid h-full w-full place-items-center rounded-lg bg-primary">
-                    <BrandMark className="text-primary-foreground" />
-                  </span>
-                )}
-              />
-          </span>}
           <div className="min-w-0">
-            <BrandLogo className={salonLogo ? "ef-admin-logo" : ""} />
-            <span className="block text-[9px] font-medium uppercase tracking-[0.16em] text-muted-foreground/70">
+            <BrandLogo className="ef-admin-logo" />
+            <span className="mt-1 block text-[9px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
               Painel de operação
             </span>
           </div>

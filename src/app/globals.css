@@ -6,32 +6,32 @@
   /* ─── Admin: Dark Premium — paleta semântica 2026 ───────────────────────── */
   :root {
     /* Superfícies: quase-preto com leve viés frio, em camadas (não tudo preto) */
-    --background: 240 6% 5%;        /* #0B0B0D  base da app */
-    --surface-1: 240 6% 8%;         /* #131316  painéis */
-    --foreground: 240 20% 98%;      /* #F8F9FB */
+    --background: 156.00 22.73% 8.63%; /* #111B17 */
+    --surface-1: 152.31 22.81% 11.18%; /* #16231D */
+    --foreground: 36.92 35.14% 92.75%; /* #F3EEE6 */
 
-    --card: 240 6% 9%;              /* #16161A  card padrão */
-    --card-foreground: 240 20% 98%;
-    --card-hover: 240 6% 12%;       /* #1D1D22 */
-    --elevated: 240 7% 13%;         /* #1F1F25  card destacado/popover */
+    --card: 150.00 20.59% 13.33%; /* #1B2922 */
+    --card-foreground: 36.92 35.14% 92.75%; /* #F3EEE6 */
+    --card-hover: 147.00 21.74% 18.04%; /* #24382D */
+    --elevated: 148.42 20.43% 18.24%; /* #25382E */
 
-    --muted: 240 5% 15%;            /* #242429 */
-    --muted-foreground: 240 5% 67%; /* #8E8E96 */
+    --muted: 144.71 17.17% 19.41%; /* #293A30 */
+    --muted-foreground: 136.00 9.43% 68.82%; /* #A8B7AC */
 
-    --border: 240 6% 15%;           /* #232328  borda suave */
-    --border-strong: 240 6% 22%;    /* #33333B */
-    --input: 240 6% 15%;
-    --ring: 220 9% 72%;
+    --border: 144.00 16.39% 23.92%; /* #33473B */
+    --border-strong: 144.00 14.12% 34.71%; /* #4C6556 */
+    --input: 142.11 18.45% 20.20%; /* #2A3D31 */
+    --ring: 151.76 37.36% 64.31%; /* #82C6A6 */
 
-    /* Everflair — marfim sobre grafite; cores de status continuam semânticas. */
-    --primary: 40 33% 95%;
-    --primary-foreground: 218 10% 15%;
+    /* Everflair — verde #126949 e areia #E8DED0. */
+    --primary: 157.93 70.73% 24.12%; /* #126949 */
+    --primary-foreground: 35.00 34.29% 86.27%; /* #E8DED0 */
 
-    --secondary: 240 5% 15%;
-    --secondary-foreground: 240 20% 98%;
+    --secondary: 143.33 18.00% 19.61%; /* #293B30 */
+    --secondary-foreground: 35.00 34.29% 86.27%; /* #E8DED0 */
 
-    --accent: 40 33% 95%;
-    --accent-foreground: 218 10% 15%;
+    --accent: 151.76 37.36% 64.31%; /* #82C6A6 */
+    --accent-foreground: 153.75 28.57% 10.98%; /* #14241D */
 
     /* Cores semânticas */
     --success: 152 65% 48%;         /* verde  — positivo */
@@ -49,36 +49,37 @@
     --font-display: "Inter", system-ui, sans-serif;
 
     color-scheme: dark;
+    --chart-revenue: 152.61 41.07% 56.08%; /* #61BD93 */
   }
 
   /* ─── Admin: Light theme (toggled via ThemeProvider) ───────────────────── */
   [data-theme="admin-light"] {
-    --background: 220 6% 96%;         /* neutral gray */
-    --surface-1: 0 0% 100%;           /* white panels */
-    --foreground: 240 12% 8%;         /* #111116 — near-black, max contrast */
+    --background: 36.00 38.46% 92.35%; /* #F3EDE4 */
+    --surface-1: 40.00 52.94% 96.67%; /* #FBF8F2 */
+    --foreground: 152.50 27.27% 17.25%; /* #20382D */
 
-    --card: 0 0% 100%;                /* white cards pop on gray bg */
-    --card-foreground: 240 12% 8%;
-    --card-hover: 220 18% 97%;
-    --elevated: 0 0% 100%;
+    --card: 34.29 100.00% 98.63%; /* #FFFCF8 */
+    --card-foreground: 152.50 27.27% 17.25%; /* #20382D */
+    --card-hover: 35.29 34.69% 90.39%; /* #EFE8DE */
+    --elevated: 34.29 100.00% 98.63%; /* #FFFCF8 */
 
-    --muted: 220 6% 91%;             /* #D7DBE9 subtle gray area */
-    --muted-foreground: 240 8% 38%;   /* #585864 — dark enough for WCAG AA */
+    --muted: 35.00 34.29% 86.27%; /* #E8DED0 */
+    --muted-foreground: 133.85 6.60% 38.63%; /* #5C695F */
 
-    --border: 220 6% 83%;            /* #C7CCDB — clearly visible */
-    --border-strong: 220 14% 68%;
-    --input: 0 0% 98%;
-    --ring: 218 10% 35%;
+    --border: 52.00 15.15% 80.59%; /* #D5D3C6 */
+    --border-strong: 120.00 7.87% 65.10%; /* #9FAD9F */
+    --input: 34.29 100.00% 98.63%; /* #FFFCF8 */
+    --ring: 157.93 70.73% 24.12%; /* #126949 */
 
-    /* Everflair — grafite sobre superfícies claras. */
-    --primary: 218 10% 15%;
-    --primary-foreground: 0 0% 100%;
+    /* Verde profundo em superfícies de areia. */
+    --primary: 157.93 70.73% 24.12%; /* #126949 */
+    --primary-foreground: 0.00 0.00% 100.00%; /* #FFFFFF */
 
-    --secondary: 220 18% 92%;
-    --secondary-foreground: 240 12% 8%;
+    --secondary: 35.00 34.29% 86.27%; /* #E8DED0 */
+    --secondary-foreground: 146.40 23.36% 20.98%; /* #294234 */
 
-    --accent: 218 10% 15%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 157.93 70.73% 24.12%; /* #126949 */
+    --accent-foreground: 0.00 0.00% 100.00%; /* #FFFFFF */
 
     /* Semantic — slightly deeper for light bg legibility */
     --success: 152 55% 34%;
@@ -95,6 +96,7 @@
     /* Force text color so elements without explicit class still read correctly */
     color: hsl(var(--foreground));
     color-scheme: light;
+    --chart-revenue: 157.93 70.73% 24.12%; /* #126949 */
   }
 
   /* ─── Marketing: marfim + grafite, exclusivo da landing ──────────── */
@@ -166,34 +168,37 @@
     color-scheme: dark;
   }
 
-  /* ─── Client Booking: tema escuro + verde neon ──────────────────────────── */
+  /* ─── Client Booking: verde profundo + areia ──────────────────────────── */
   [data-theme="salon-dark"] {
-    --background: 230 8% 6%;
-    --foreground: 40 30% 96%;
+    --background: 156.00 22.73% 8.63%; /* #111B17 */
+    --foreground: 36.92 35.14% 92.75%; /* #F3EEE6 */
 
-    --card: 230 8% 11%;
-    --card-foreground: 40 30% 96%;
+    --card: 150.00 20.59% 13.33%; /* #1B2922 */
+    --card-foreground: 36.92 35.14% 92.75%; /* #F3EEE6 */
 
-    --muted: 230 8% 15%;
-    --muted-foreground: 220 6% 68%;
+    --muted: 144.71 17.17% 19.41%; /* #293A30 */
+    --muted-foreground: 136.00 9.43% 68.82%; /* #A8B7AC */
 
-    --border: 230 8% 18%;
-    --input: 230 8% 18%;
-    --ring: 220 9% 72%;
+    --border: 144.00 16.39% 23.92%; /* #33473B */
+    --input: 142.11 18.45% 20.20%; /* #2A3D31 */
+    --ring: 151.76 37.36% 64.31%; /* #82C6A6 */
 
-    --primary: 40 20% 96%;          /* Everflair: neutral high-contrast actions */
-    --primary-foreground: 230 12% 8%;
+    --primary: 157.93 70.73% 24.12%; /* #126949 */
+    --primary-foreground: 35.00 34.29% 86.27%; /* #E8DED0 */
 
-    --secondary: 230 8% 15%;
-    --secondary-foreground: 40 30% 96%;
+    --secondary: 143.33 18.00% 19.61%; /* #293B30 */
+    --secondary-foreground: 35.00 34.29% 86.27%; /* #E8DED0 */
 
-    --accent: 40 20% 96%;
-    --accent-foreground: 230 12% 8%;
+    --accent: 151.76 37.36% 64.31%; /* #82C6A6 */
+    --accent-foreground: 153.75 28.57% 10.98%; /* #14241D */
 
     --destructive: 0 72% 62%;
     --destructive-foreground: 230 12% 8%;
 
     --radius: 1rem;
+    --chart-revenue: 152.61 41.07% 56.08%; /* #61BD93 */
+    --surface-1: 152.31 22.81% 11.18%; /* #16231D */
+    --card-hover: 147.00 21.74% 18.04%; /* #24382D */
   }
 
   * {
@@ -282,8 +287,15 @@
       linear-gradient(180deg, hsl(var(--surface-1) / 0.18), transparent 18rem);
   }
 
-  .admin-brand-mark {
-    box-shadow: 0 0 0 4px hsl(var(--primary) / 0.08), 0 8px 20px -10px hsl(var(--primary) / 0.8);
+  /* Solid actions retain the brand green; text accents are brighter on dark. */
+  .admin-shell .text-primary,
+  [data-theme="salon-dark"] .text-primary {
+    color: hsl(var(--accent));
+  }
+
+  .admin-shell .bg-primary,
+  [data-theme="salon-dark"] .bg-primary {
+    box-shadow: inset 0 0 0 1px hsl(var(--accent) / 0.5);
   }
 
   /* Ritmo visual comum da landing: espaçamento, superfície e hierarquia. */
@@ -606,4 +618,3 @@
     transform: none !important;
   }
 }
-

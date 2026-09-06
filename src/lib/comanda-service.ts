@@ -283,7 +283,6 @@ export async function closeComandaReliably(
         priceCentsUnit: line.priceCentsUnit,
         productName: line.productName,
         currency: appointment.salon.currency,
-      paidAt: new Date(),
       })),
     });
   }

@@ -485,14 +485,13 @@ export default async function DashboardPage({
 
 type Accent = "primary" | "info" | "warning" | "danger" | "marketing" | "muted";
 
-/* Only the primary (revenue) KPI gets the brand color chip.
-   All others use neutral so the dashboard feels calm, not noisy. */
+/* Color identifies each metric family without tinting every value. */
 const ACCENT: Record<Accent, { chip: string }> = {
   primary:   { chip: "bg-primary/10 text-primary" },
-  info:      { chip: "bg-muted text-muted-foreground" },
-  warning:   { chip: "bg-muted text-muted-foreground" },
-  danger:    { chip: "bg-muted text-muted-foreground" },
-  marketing: { chip: "bg-muted text-muted-foreground" },
+  info:      { chip: "bg-info/10 text-info" },
+  warning:   { chip: "bg-warning/10 text-warning" },
+  danger:    { chip: "bg-danger/10 text-danger" },
+  marketing: { chip: "bg-marketing/10 text-marketing" },
   muted:     { chip: "bg-muted text-muted-foreground" },
 };
 
@@ -521,7 +520,7 @@ function HeroKpi({
     <div
       className={`card-interactive rounded-2xl border p-5 ${
         featured
-          ? "border-primary/30 bg-card sm:p-6"
+          ? "border-accent/30 bg-card sm:p-6"
           : "border-border bg-card"
       } ${className}`}
     >

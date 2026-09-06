@@ -34,7 +34,7 @@ try {
  const {context,page}=await login('owner');
  await visit(page,'/dashboard');await expect(page.getByText('Alex Costa · Demonstração',{exact:true})).toBeVisible();
  const primary=await page.locator('.admin-shell').evaluate(el=>getComputedStyle(el).getPropertyValue('--primary').trim());
- expect(primary).toBe('40 33% 95%');report.checks.push('Owner verified; neutral theme overrides removed');
+ expect(primary).toBe('157.93 70.73% 24.12%');report.checks.push('Owner verified; emerald/sand theme applied');
  await capture(page,'dashboard-dark-desktop');
  await page.getByRole('button',{name:'Mudar para tema claro'}).click();await page.waitForTimeout(900);await capture(page,'dashboard-light-desktop');
  await page.setViewportSize({width:390,height:844});await visit(page,'/dashboard');await capture(page,'dashboard-light-mobile');
@@ -62,4 +62,3 @@ try {
  report.checks.push('Client booking CTA precedes reviews');await customer.context.close();
 }catch(error){report.errors.push({error:String(error)});console.error(String(error));process.exitCode=1;}
 finally{await writeFile(`${out}/refinement-browser-report.json`,JSON.stringify(report,null,2));console.log(JSON.stringify({checks:report.checks,pages:report.pages.map(p=>({name:p.name,violations:p.violations.map(v=>v.id)})),errors:report.errors}));await browser.close();}
-
