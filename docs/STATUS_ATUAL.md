@@ -1,5 +1,28 @@
 # Status atual canônico — Salon SaaS
 
+## Revisão mais recente — restauração da referência 6fd3d21
+
+O usuário rejeitou a proposta de fundos verdes. A demonstração retorna a
+superfícies neutras e acentos da referência 6fd3d21 no commit
+106ac1154c700190954be7ec2b0cc2a13e7c012b. Esta decisão substitui a paleta
+verde/areia descrita abaixo. Escopo em `docs/RESTAURACAO_PALETA_6fd3d21.md`.
+Produção permanece sem alteração nesta revisão.
+
+## Atualização de 06/09/2026 — produção e nova paleta
+
+Este registro prevalece sobre os estados históricos abaixo. A produção foi
+promovida pelo PR #77 ao commit 38222cb3c0e79d5bb8c0f4c1987a97625dbb7199;
+o deployment dpl_6A5dDNia6v33aHXbokbTCvhFpHZh foi confirmado READY.
+
+A revisão posterior de verde #126949 e areia #E8DED0 está implementada localmente
+em codex/emerald-sand-refinement e enviada à branch codex/everflair-demo no commit
+10872764897cb89d1b63c41056847940cd9c1d4b. Não foi promovida a produção.
+Lint, TypeScript, 659 testes e build passaram; npm audit reportou zero
+vulnerabilidades. Após o Codespace iniciar, o build e a conferência autenticada
+passaram: seis verificações de fluxo, dez capturas desktop/mobile, zero erros
+de execução e zero violações nas regras axe executadas. Escopo e referências em
+`docs/PALETA_VERDE_AREIA_2026-09-06.md`.
+
 ## Decisão e primeiro acesso — trabalho local de 05/09/2026
 
 Melhorias da avaliação implementadas na branch `codex/everflair-conversion`:
@@ -392,4 +415,3 @@ Concluir a candidata de prontidão comercial sem alterar Production:
 - A liberação pública da porta 3000 foi bloqueada pela revisão automática; solicitação de autorização explícita pendente. Não contornar essa decisão. Verificação pelo localhost do Codespace: seis fluxos aprovados, dez telas capturadas, zero erros de runtime; ajustes de contraste e semântica aplicados a partir do axe.
 - Não houve CI remoto nesta branch nem promoção produtiva. Testes PostgreSQL abrangentes e revisão de release permanecem necessários antes de promover.
 - Esta rodada não encerra os 32 itens da auditoria. Escopo e pendências: `docs/REFINAMENTO_OPERACIONAL_2026-09-06.md`.
-

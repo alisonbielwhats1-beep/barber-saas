@@ -485,8 +485,7 @@ export default async function DashboardPage({
 
 type Accent = "primary" | "info" | "warning" | "danger" | "marketing" | "muted";
 
-/* Only the primary (revenue) KPI gets the brand color chip.
-   All others use neutral so the dashboard feels calm, not noisy. */
+/* Match the restrained KPI accents of the approved 6fd3d21 palette. */
 const ACCENT: Record<Accent, { chip: string }> = {
   primary:   { chip: "bg-primary/10 text-primary" },
   info:      { chip: "bg-muted text-muted-foreground" },
