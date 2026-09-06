@@ -25,7 +25,6 @@ import {
   dateKeyInTimeZone,
   localDateTimeToUtc,
   wallClockMinutesInTimeZone,
-  weekdayInTimeZone,
 } from "./time";
 import {
   businessRecipients,
@@ -34,6 +33,7 @@ import {
   type InternalNotificationRecipient,
 } from "./appointment-events";
 import { writeAuditLog } from "./audit";
+import { workingHoursForDate } from "./working-hours";
 import {
   lockOperationalResources,
   lockProductMutations,
@@ -360,17 +360,13 @@ async function availabilityViolation(
   );
   if (startDate !== endDate) return "OUTSIDE_WORKING_HOURS";
 
-  const weekday = weekdayInTimeZone(input.startAt, input.salon.timezone);
   const startMinutes = wallClockMinutesInTimeZone(input.startAt, input.salon.timezone);
   // O limite exclusivo 00:00 pertence ao fim do dia anterior (1440), não
   // ao início da jornada. O teste por endAt - 1ms acima permite esse limite.
   const endMinutes = dateKeyInTimeZone(input.endAt, input.salon.timezone) !== startDate
     ? 1440
     : wallClockMinutesInTimeZone(input.endAt, input.salon.timezone);
-  const workingHours = await tx.workingHours.findMany({
-    where: { salonId: input.salonId, professionalId: input.professionalId, weekday },
-    select: { startMinutes: true, endMinutes: true },
-  });
+  const workingHours = await workingHoursForDate(tx, input.salonId, input.professionalId, startDate);
   const insideWorkingHours = workingHours.some(
     (working) =>
       startMinutes >= working.startMinutes && endMinutes <= working.endMinutes,
@@ -1082,6 +1078,8 @@ export async function rescheduleAppointment(
       timezone: inspected.timezone,
       status: "CONFIRMED",
       reminderSentAt: null,
+      checkedInAt: null,
+      checkedInById: null,
       notes: input.notes === undefined ? appointment.notes : input.notes,
       version: { increment: 1 },
       isOverbooked: inspected.violation === "SLOT_TAKEN" && override.overridden,

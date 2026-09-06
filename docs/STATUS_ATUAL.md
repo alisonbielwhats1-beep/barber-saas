@@ -2,6 +2,11 @@
 
 ## 2026-09-06 — evolução de produto em implementação, sem deploy
 
+- Incremento 018 em validação: expediente adicional por data e registro real de
+  chegada. Autorização do responsável para validar no ambiente GitHub; CI usa
+  PostgreSQL 16 descartável e dados fictícios. Plano em
+  `docs/MIGRATION_018_EXPEDIENTE_CHEGADA.md`. Não aplicar em Production.
+
 - Branch `codex/product-experience`, baseada em `origin/master` `a66a98b`.
 - Bloqueios por profissional/intervalo na agenda, cancelamento separado das
   reservas selecionadas, capacidade corrigida, comunicação manual explícita,

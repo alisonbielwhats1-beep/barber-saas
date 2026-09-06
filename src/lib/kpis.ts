@@ -178,6 +178,10 @@ async function occupancy(
     where: { salonId, startAt: { lt: to }, endAt: { gt: from } },
     select: { startAt: true, endAt: true },
   });
+  const openings = await tx.professionalOpening.findMany({
+    where: { salonId, professional: { active: true }, dateKey: { gte: dateKeyInTimeZone(from, timezone), lte: dateKeyInTimeZone(to, timezone) } },
+    select: { dateKey: true, professionalId: true, startMinutes: true, endMinutes: true },
+  });
   const asInterval = (item: { startAt: Date; endAt: Date }) => ({
     start: Math.max(from.getTime(), item.startAt.getTime()),
     end: Math.min(to.getTime(), item.endAt.getTime()),
@@ -199,8 +203,8 @@ async function occupancy(
       const value = minute === 1440 ? 0 : minute;
       return zonedDateTimeToUtc(targetDate, `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`, timezone);
     };
-    for (const id of new Set(workingHours.map(w => w.professionalId))) {
-      const shifts = workingHours.filter(w => w.weekday === weekday && w.professionalId === id)
+    for (const id of new Set([...workingHours, ...openings].map(w => w.professionalId))) {
+      const shifts = [...workingHours.filter(w => w.weekday === weekday && w.professionalId === id), ...openings.filter(w => w.dateKey === date && w.professionalId === id)]
         .map(w => asInterval({ startAt: atMinute(w.startMinutes), endAt: atMinute(w.endMinutes) }));
       const excluded = [...closures, ...timeOffs.filter(t => t.professionalId === id)].map(asInterval);
       availableMinutes += intervalMinutes(subtractIntervals(shifts, excluded));

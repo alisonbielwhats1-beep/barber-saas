@@ -8,6 +8,7 @@ import {
 } from "@/lib/rate-limit";
 import { checkBookingWindow, bufferedWindow } from "@/lib/scheduling";
 import { priceServicesForDate } from "@/lib/pricing";
+import { workingHoursForDate } from "@/lib/working-hours";
 import {
   InvalidTimeZoneError,
   InvalidWallClockError,
@@ -17,7 +18,6 @@ import {
   hhmmInTimeZone,
   isDateKey,
   startOfDateInTimeZone,
-  weekdayOfDateKey,
   zonedDateTimeToUtc,
 } from "@/lib/time";
 
@@ -90,7 +90,6 @@ export async function GET(req: NextRequest) {
 
       const from = startOfDateInTimeZone(date, salon.timezone);
       const to = endExclusiveOfDateInTimeZone(date, salon.timezone);
-      const weekday = weekdayOfDateKey(date);
       const historyFrom = startOfDateInTimeZone(
         addCalendarDays(dateKeyInTimeZone(requestNow, salon.timezone), -90),
         salon.timezone,
@@ -116,11 +115,7 @@ export async function GET(req: NextRequest) {
       });
       if (professionalLinks.length !== serviceIds.length) return null;
 
-      const workingHours = await tx.workingHours.findMany({
-        where: { salonId, professionalId, weekday },
-        select: { startMinutes: true, endMinutes: true },
-        orderBy: { startMinutes: "asc" },
-      });
+      const workingHours = await workingHoursForDate(tx, salonId, professionalId, date);
       const closures = await tx.salonClosure.findMany({
         where: { salonId, startAt: { lt: to }, endAt: { gt: from } },
         select: { startAt: true, endAt: true },

@@ -10,6 +10,7 @@ describe("occupancy capacity", () => {
     return {
       appointment: { findMany: vi.fn().mockResolvedValue([{ professionalId: "a", startAt: at(9), endAt: at(10) }]) },
       professional: { count: vi.fn().mockResolvedValue(2) },
+      professionalOpening: { findMany: vi.fn().mockResolvedValue([]) },
       workingHours: { findMany: vi.fn().mockResolvedValue([
         { professionalId: "a", weekday: 1, startMinutes: 540, endMinutes: 1020 },
         { professionalId: "b", weekday: 1, startMinutes: 540, endMinutes: 1020 },
@@ -29,5 +30,13 @@ describe("occupancy capacity", () => {
   it("deducts a salon closure from both professionals without double counting absence", async () => {
     const result = await getOccupancyRate(database([{ startAt: at(9), endAt: at(12) }]), "salon", from, to, "America/Sao_Paulo");
     expect(result.availableMinutes).toBe(10 * 60);
+  });
+  it("conta expediente extra e profissional sem jornada semanal sem duplicar sobreposições", async () => {
+    const tx = database();
+    vi.mocked(tx.professionalOpening.findMany).mockResolvedValue([
+      { professionalId: "a", dateKey: "2026-09-07", startMinutes: 960, endMinutes: 1080 },
+      { professionalId: "c", dateKey: "2026-09-07", startMinutes: 540, endMinutes: 600 },
+    ] as never);
+    expect((await getOccupancyRate(tx, "salon", from, to, "America/Sao_Paulo")).availableMinutes).toBe(16 * 60);
   });
 });

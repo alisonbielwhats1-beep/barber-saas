@@ -44,10 +44,10 @@ Não representa implantação nem conclusão do programa completo.
    todas as telas, com evidências desktop/mobile após estas alterações.
 2. Seleção por gesto na grade,
    recorrência de bloqueios e exibição nas visões semana/mês/lista.
-3. Liberação de expediente por data e edição de séries futuras com conflitos.
+3. Edição de séries futuras com conflitos; expediente por data implementado na 018, em validação.
 4. Lista de espera flexível por datas/horários preservando FIFO.
 5. Encaixes sugeridos por aproveitamento da disponibilidade.
-6. Chegada presencial e tempo de espera com persistência própria.
+6. Chegada presencial e tempo de espera implementados na 018, em validação.
 7. Variantes de serviços e etapas de execução/processamento/finalização.
 8. Salas/equipamentos com controle concorrente de capacidade.
 9. Histórico de cuidados e fotos por visita, com armazenamento e autorização.
@@ -57,7 +57,8 @@ Não representa implantação nem conclusão do programa completo.
 
 Os itens de domínio precisam de migrations aditivas, contrato de autorização,
 testes PostgreSQL e homologação; não serão simulados com campos genéricos ou
-habilitados em produção sem validação. Nenhuma migration foi executada.
+habilitados em produção sem validação. Plano e evidências da próxima migration em
+`docs/MIGRATION_018_EXPEDIENTE_CHEGADA.md`; sem execução produtiva.
 
 ## Validação
 

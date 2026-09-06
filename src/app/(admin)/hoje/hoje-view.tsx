@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarDays, Check, CheckCircle2, CircleAlert, Clock3, Loader2, MessageCircle, Phone, Play, UserX, type LucideIcon } from "lucide-react";
 import { formatInTimeZone } from "date-fns-tz";
@@ -10,6 +10,7 @@ import { buildAppointmentWhatsAppLink } from "@/lib/whatsapp";
 import { isValidPhoneBR, normalizePhone } from "@/lib/phone";
 import { STATUS, nextActions, type ApptStatus } from "../agenda/agenda-status";
 import { markReminderSent, updateAppointmentStatus } from "../agenda/actions";
+import { registerArrival } from "./actions";
 
 export type TodayAppointment = {
   id: string;
@@ -17,6 +18,7 @@ export type TodayAppointment = {
   endAt: string;
   status: string;
   version: number;
+  checkedInAt?: string | null;
   priceCents: number;
   hasPayment: boolean;
   clientName: string;
@@ -28,7 +30,7 @@ export type TodayAppointment = {
 type Filter = "all" | "attention" | "active" | "completed";
 
 const ACTION_LABELS: Partial<Record<ApptStatus, string>> = {
-  CONFIRMED: "Confirmar presença",
+  CONFIRMED: "Confirmar reserva",
   IN_PROGRESS: "Iniciar atendimento",
   COMPLETED: "Concluir atendimento",
   NO_SHOW: "Marcar no-show",
@@ -62,7 +64,24 @@ export function HojeView({
   const [openedReminderIds, setOpenedReminderIds] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const now = Date.now();
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  function arrive(appointment: TodayAppointment) {
+    setError(null);
+    setPendingId(appointment.id);
+    startTransition(async () => {
+      try {
+        const result = await registerArrival({ appointmentId: appointment.id, expectedVersion: appointment.version });
+        if (result.error) setError(result.error);
+        else router.refresh();
+      } catch { setError("Não foi possível registrar a chegada. Tente novamente."); }
+      finally { setPendingId(null); }
+    });
+  }
 
   const counts = useMemo(() => ({
     total: appointments.length,
@@ -184,9 +203,11 @@ export function HojeView({
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-base font-semibold">{appointment.clientName}</p>
                       <p className="mt-1 truncate text-sm text-muted-foreground">{appointment.serviceName} · {appointment.professionalName}</p>
+                      {appointment.checkedInAt && <p className="mt-1 text-xs font-medium text-primary">Chegou às {formatInTimeZone(new Date(appointment.checkedInAt), timezone, "HH:mm")}{["PENDING", "CONFIRMED"].includes(appointment.status) ? ` · aguardando ${Math.max(0, Math.floor((now - Date.parse(appointment.checkedInAt)) / 60000))} min` : ""}</p>}
                       <p className="mt-1 text-xs text-muted-foreground">{formatMoney(appointment.priceCents, currency)}{appointment.hasPayment ? " · recebido" : ""}</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                      {!appointment.checkedInAt && ["PENDING", "CONFIRMED"].includes(appointment.status) && date === formatInTimeZone(now, timezone, "yyyy-MM-dd") && <button type="button" disabled={pending} onClick={() => arrive(appointment)} className="min-h-11 rounded-lg border border-primary/30 bg-primary/10 px-3 text-xs font-semibold text-primary">Registrar chegada</button>}
                       {openedReminderIds.has(appointment.id) && !sentReminderIds.has(appointment.id) && <button type="button" disabled={pending} onClick={() => confirmReminder(appointment)} className="min-h-11 rounded-lg border border-border px-3 text-xs">Confirmar envio manual</button>}
                       <button
                         type="button"

@@ -10,6 +10,12 @@ Por decisão do proprietário, não foi criado outro projeto Supabase. A demonst
 
 A proposta de um segundo Supabase descrita abaixo é histórica e não foi executada. Os dois projetos Supabase existentes continuam destinados às aplicações de produção. O Codespace pode hibernar e não substitui hospedagem de produção.
 
+O responsável autorizou validar as próximas mudanças no GitHub. Na tarefa
+`codex/product-experience`, o acesso disponível permite executar Actions, mas
+retorna 403 para Codespaces por falta de escopo `codespace`. A validação 018 usa
+o PostgreSQL 16 descartável do schema-smoke, incluindo login e operação no
+navegador. Isso não equivale a atualizar a demonstração persistente no Codespace.
+
 ## Arquitetura proposta anteriormente
 
 | Ambiente | Aplicação | Banco | Fonte de dados | Custo adicional esperado |

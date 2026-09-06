@@ -5,6 +5,7 @@ import type { ServiceOption, ClientOption } from "./appointment-form";
 import { dateKeyInTimeZone, isDateKey, calendarGridRangeInTimeZone } from "@/lib/time";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { AvailabilityPanel } from "./availability-panel";
+import { OpeningPanel } from "./opening-panel";
 
 function jsonRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -37,7 +38,7 @@ export default async function AgendaPage({
   // Sequencial de propósito: pooler com connection_limit=1 em serverless —
   // 5 queries em Promise.all estouravam o timeout do pool (P2024). Dentro de
   // withTenant, as 5 passam a usar uma única conexão em vez de 5 aquisições.
-  const { salon, dateStr, prosRaw, apptsRaw, waitlistRaw, services, clients, blocks } = await withTenant(ctx, async (tx) => {
+  const { salon, dateStr, prosRaw, apptsRaw, waitlistRaw, services, clients, blocks, openings } = await withTenant(ctx, async (tx) => {
     const salon = await tx.salon.findUnique({
       where: { id: salonId },
       select: { name: true, timezone: true },
@@ -158,7 +159,12 @@ export default async function AgendaPage({
       select: { id: true, professionalId: true, startAt: true, endAt: true, reason: true },
       orderBy: { startAt: "asc" },
     });
-    return { salon, dateStr, prosRaw, apptsRaw, waitlistRaw, services, clients, blocks };
+    const openings = await tx.professionalOpening.findMany({
+      where: { salonId, ...(professionalId ? { professionalId } : {}), dateKey: { gte: dateKeyInTimeZone(range.from, salon.timezone), lt: dateKeyInTimeZone(range.to, salon.timezone) } },
+      select: { id: true, professionalId: true, dateKey: true, startMinutes: true, endMinutes: true, reason: true },
+      orderBy: [{ dateKey: "asc" }, { startMinutes: "asc" }],
+    });
+    return { salon, dateStr, prosRaw, apptsRaw, waitlistRaw, services, clients, blocks, openings };
   });
 
   // Fila de espera por agendamento (só quem ainda não foi atendido) — pro
@@ -187,7 +193,7 @@ export default async function AgendaPage({
     colorHex: p.colorHex,
     avatarUrl: p.user.avatarUrl,
     serviceIds: p.services.map((s) => s.serviceId),
-    workingHours: p.workingHours,
+    workingHours: [...p.workingHours, ...openings.filter(o => o.professionalId === p.id)],
   }));
 
   const appointments: Appointment[] = apptsRaw.map((a) => {
@@ -249,6 +255,7 @@ export default async function AgendaPage({
   return (
     <>
       <AutoRefresh intervalMs={30_000} />
+      {(role === "OWNER" || role === "MANAGER") && <OpeningPanel date={dateStr} timezone={salon.timezone} professionals={professionals} openings={openings} />}
       {(role === "OWNER" || role === "MANAGER") && <AvailabilityPanel date={dateStr} timezone={salon.timezone} professionals={professionals} blocks={blocks.map(b => ({ ...b, startAt: b.startAt.toISOString(), endAt: b.endAt.toISOString() }))} />}
       <AgendaBoard
         initialAppointmentId={selectedAppointment}

@@ -68,7 +68,7 @@ describe("HojeView", () => {
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: "Confirmar presença" }));
+    await user.click(screen.getByRole("button", { name: "Confirmar reserva" }));
 
     await waitFor(() => expect(statusAction.update).toHaveBeenCalledWith(
       "appt-pending",

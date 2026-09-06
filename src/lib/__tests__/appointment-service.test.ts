@@ -45,6 +45,7 @@ function schedulingTx() {
     workingHours: {
       findMany: vi.fn().mockResolvedValue([{ startMinutes: 9 * 60, endMinutes: 18 * 60 }]),
     },
+    professionalOpening: { findMany: vi.fn().mockResolvedValue([]) },
     salonClosure: { findFirst: vi.fn().mockResolvedValue(null) },
     timeOff: { findFirst: vi.fn().mockResolvedValue(null) },
     appointment: {

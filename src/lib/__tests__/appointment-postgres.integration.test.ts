@@ -10,6 +10,7 @@ import {
 import { isAppointmentError } from "../appointment-domain";
 import { joinWaitlist, promoteWaitlistEntry } from "../waitlist";
 import { lockOperationalResources } from "../inventory-lock";
+import { checkInAppointment } from "../appointment-checkin";
 import {
   requestStaffReschedule,
   respondToRescheduleProposal,
@@ -78,6 +79,39 @@ async function fixture() {
 }
 
 describePostgres("concorrência real de agendamentos", () => {
+  it("abertura extra permite reserva fora da jornada, preservando bloqueios e a data", async () => {
+    const data = await fixture();
+    const create = (startLocal: string) => withSalon(data.salonId, tx => createAppointment(tx, {
+      salonId: data.salonId, professionalId: data.professionalId, clientId: data.clients[0]!.id, serviceIds: [data.serviceId], startLocal, origin: "PUBLIC",
+      actor: { type: "CLIENT", id: data.clients[0]!.id, name: "CI" }, idempotencyKey: crypto.randomUUID(), enforceBookingWindow: false,
+    }));
+    await expect(create("2032-08-05T19:00")).rejects.toMatchObject({ code: "OUTSIDE_WORKING_HOURS" });
+    await withSalon(data.salonId, tx => tx.professionalOpening.create({ data: { salonId: data.salonId, professionalId: data.professionalId, dateKey: "2032-08-05", startMinutes: 1080, endMinutes: 1200, reason: "Expediente extra CI" } }));
+    await expect(create("2032-08-05T19:00")).resolves.toHaveProperty("appointment");
+    await expect(create("2032-08-12T19:00")).rejects.toMatchObject({ code: "OUTSIDE_WORKING_HOURS" });
+    await prisma.timeOff.create({ data: { professionalId: data.professionalId, startAt: new Date("2032-08-05T22:30:00Z"), endAt: new Date("2032-08-05T23:00:00Z") } });
+    await expect(create("2032-08-05T19:30")).rejects.toMatchObject({ code: "PROFESSIONAL_UNAVAILABLE" });
+  });
+
+  it("chegada simultânea é idempotente e a remarcação preserva a auditoria", async () => {
+    const data = await fixture();
+    const created = await withSalon(data.salonId, tx => createAppointment(tx, {
+      salonId: data.salonId, professionalId: data.professionalId, clientId: data.clients[0]!.id, serviceIds: [data.serviceId], startLocal: "2032-08-05T10:00", origin: "ADMIN",
+      actor: { type: "STAFF", id: data.professionalUserId, name: "CI" }, idempotencyKey: crypto.randomUUID(), enforceBookingWindow: false,
+    }));
+    const input = { salonId: data.salonId, appointmentId: created.appointment.id, expectedVersion: 1, userId: data.professionalUserId, now: new Date("2032-08-05T12:55:00Z") };
+    await expect(withSalon(data.salonId, tx => checkInAppointment(tx, { ...input, now: new Date("2032-08-04T12:55:00Z") }))).rejects.toThrow("dia da reserva");
+    await expect(withSalon(data.salonId, tx => checkInAppointment(tx, { ...input, expectedVersion: 99 }))).rejects.toThrow("reserva mudou");
+    const arrived = await Promise.all([withSalon(data.salonId, tx => checkInAppointment(tx, input)), withSalon(data.salonId, tx => checkInAppointment(tx, input))]);
+    expect(arrived[0]).toEqual(arrived[1]);
+    expect(await prisma.auditLog.count({ where: { entityId: input.appointmentId, action: "APPOINTMENT_CHECKED_IN" } })).toBe(1);
+    await withSalon(data.salonId, tx => rescheduleAppointment(tx, {
+      salonId: data.salonId, appointmentId: input.appointmentId, professionalId: data.professionalId, startLocal: "2032-08-05T11:00", expectedVersion: 2,
+      actor: { type: "STAFF", id: data.professionalUserId, name: "CI" }, idempotencyKey: crypto.randomUUID(), enforceClientPolicy: false,
+    }));
+    expect(await prisma.appointment.findUnique({ where: { id: input.appointmentId } })).toMatchObject({ checkedInAt: null, checkedInById: null, version: 3 });
+    expect(await prisma.auditLog.count({ where: { entityId: input.appointmentId, action: "APPOINTMENT_CHECKED_IN" } })).toBe(1);
+  });
   it("bloqueio individual impede novas reservas e mantém intervalos adjacentes disponíveis", async () => {
     const data = await fixture();
     await withSalon(data.salonId, async tx => {

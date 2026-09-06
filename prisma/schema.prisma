@@ -234,6 +234,7 @@ model Salon {
   clients             ClientProfile[]
   appointments        Appointment[]
   workingHours        WorkingHours[]
+  openings            ProfessionalOpening[]
   products            Product[]
   appointmentProducts AppointmentProduct[]
   portfolio           PortfolioItem[]
@@ -521,6 +522,7 @@ model Professional {
   salon           Salon                 @relation(fields: [salonId], references: [id], onDelete: Cascade)
   user            User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   workingHours    WorkingHours[]
+  openings        ProfessionalOpening[]
   services        ProfessionalService[]
   appointments    Appointment[]
   waitlistEntries WaitlistEntry[]
@@ -579,6 +581,23 @@ model WorkingHours {
   professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
 
   @@index([salonId, professionalId, weekday])
+}
+
+/// Expediente adicional em uma data local; não substitui bloqueios ou feriados.
+model ProfessionalOpening {
+  id             String   @id @default(cuid())
+  salonId        String
+  professionalId String
+  dateKey        String   @db.VarChar(10)
+  startMinutes   Int
+  endMinutes     Int
+  reason         String
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+
+  salon        Salon        @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  professional Professional @relation(fields: [professionalId, salonId], references: [id, salonId], onDelete: Cascade)
+
+  @@index([salonId, professionalId, dateKey])
 }
 
 model TimeOff {
@@ -650,6 +669,8 @@ model Appointment {
   idempotencyFingerprint String?
   notes                  String?
   reminderSentAt         DateTime?             @db.Timestamptz(3)
+  checkedInAt            DateTime?             @db.Timestamptz(3)
+  checkedInById          String?
   cancelledAt            DateTime?             @db.Timestamptz(3)
   cancelledReason        String?
   cancelledByType        AppointmentActorType?
