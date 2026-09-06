@@ -14,6 +14,6 @@
 }
 .ef-logo { --ef-art: url('/images/brand/everflair-logo.png'); width: 166px; height: 38px; }
 .ef-mark { --ef-art: url('/images/brand/everflair-mark.png'); width: 25px; height: 25px; }
-.ef-admin-logo { width: 108px; height: 25px; }
+.ef-admin-logo { width: 104px; height: 24px; }
 @media (max-width: 480px) { .mk-brand .ef-logo { width: 144px; height: 34px; } }
 @media (forced-colors: active) { .ef-logo, .ef-mark { background-color: CanvasText; forced-color-adjust: none; } }

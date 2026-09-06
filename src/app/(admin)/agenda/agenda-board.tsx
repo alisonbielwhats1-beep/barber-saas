@@ -706,7 +706,7 @@ function DayView({
                         </span>
                       )}
                       {height > 46 && (
-                        <p className="mt-0.5 text-[10px] font-medium" style={{ color: cfg.color }}>
+                        <p className="mt-0.5 text-[10px] font-medium text-foreground">
                           {formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")} · {formatMoney(a.priceCents)}
                         </p>
                       )}

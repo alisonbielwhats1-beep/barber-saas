@@ -95,7 +95,8 @@ describe("frontend audit source regressions", () => {
     const adminLayout = source("src/app/(admin)/layout.tsx");
     const clientLayout = source("src/app/book/[salonSlug]/layout.tsx");
 
-    expect(adminLayout).toContain("logoUrl");
+    expect(adminLayout).not.toContain("logoUrl");
+    expect(adminLayout).toContain('className="ef-admin-logo"');
     expect(adminLayout).not.toContain("style={brandStyle}");
     expect(adminLayout).not.toContain("hexToHslTriple");
     expect(clientLayout).not.toContain("themeColorHex");

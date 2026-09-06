@@ -28,7 +28,7 @@ export default function DonutPie({
           endAngle={-270}
         >
           {data.map((s, i) => (
-            <Cell key={i} fill={s.color} />
+            <Cell key={i} fill={s.color} role="img" aria-label={`${s.name}: ${s.value}`} />
           ))}
         </Pie>
       </PieChart>

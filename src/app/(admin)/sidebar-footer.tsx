@@ -18,7 +18,7 @@ export function SidebarFooter({ plan }: { plan: string }) {
   return (
     <div className="shrink-0 border-t border-border px-3 py-3">
       <div className="flex items-center gap-2.5">
-        <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary/15 text-[11px] font-semibold text-primary">
+        <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary/15 text-[11px] font-semibold text-accent">
           {initials}
         </div>
         <div className="min-w-0 flex-1">
