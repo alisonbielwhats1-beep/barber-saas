@@ -9,7 +9,7 @@
   autenticação obrigatória para reservar e entrar na fila permanece no servidor.
 - Escopo implementado e pendências das 12 frentes em
   `docs/EVOLUCAO_PRODUTO_2026-09-06.md`. O programa completo não está concluído.
-- Lint, TypeScript, 669 testes e build local passaram. Não houve migration,
+- Lint, TypeScript, 670 testes e build local passaram. Não houve migration,
   alteração de ambiente remoto, teste produtivo ou promoção desta branch.
 - Homologação autenticada e CI remoto ainda precisam de evidência própria.
 

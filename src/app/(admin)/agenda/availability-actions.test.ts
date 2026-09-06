@@ -11,7 +11,7 @@ vi.mock("@/lib/prisma-tenant", () => ({ withTenant: async (_ctx: unknown, callba
 vi.mock("@/lib/inventory-lock", () => ({ lockOperationalResources: mocks.lock }));
 vi.mock("@/lib/audit", () => ({ writeAuditLog: mocks.audit }));
 vi.mock("@/lib/appointment-service", () => ({ updateAppointmentStatusReliably: mocks.update }));
-import { blockAvailability, cancelSelectedAppointments } from "./availability-actions";
+import { blockAvailability, cancelSelectedAppointments, previewAvailabilityBlock } from "./availability-actions";
 
 const input = { id: "550e8400-e29b-41d4-a716-446655440000", professionalIds: ["pro-a"], startLocal: "2026-09-07T12:00", endLocal: "2026-09-07T13:00", reason: "Almoço" };
 beforeEach(() => {
@@ -23,6 +23,12 @@ beforeEach(() => {
   mocks.tx.user.findUnique.mockResolvedValue({ name: "Dono" });
 });
 describe("availability operations", () => {
+  it("previews affected appointments without writing or locking", async () => {
+    mocks.tx.appointment.findMany.mockResolvedValue([{ id: "a", version: 1, startAt: new Date("2026-09-07T15:00:00Z"), client: { name: "Ana" } }]);
+    expect(await previewAvailabilityBlock(input)).toMatchObject({ affected: [{ id: "a", name: "Ana" }] });
+    expect(mocks.tx.timeOff.create).not.toHaveBeenCalled();
+    expect(mocks.lock).not.toHaveBeenCalled();
+  });
   it("rejects reception before any database mutation", async () => {
     mocks.ctx.role = "RECEPTIONIST";
     await expect(blockAvailability(input)).rejects.toThrow("Forbidden");

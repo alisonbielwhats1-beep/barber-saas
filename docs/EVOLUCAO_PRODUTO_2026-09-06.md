@@ -46,7 +46,7 @@ habilitados em produção sem validação. Nenhuma migration foi executada.
 
 - `npm run lint`: passou.
 - `npx tsc --noEmit --incremental false`: passou.
-- `npm test`: 137 arquivos e 669 testes passaram.
+- `npm test`: 137 arquivos e 670 testes passaram.
 - `npm run build`: passou, 46 páginas geradas, usando apenas URLs locais fictícias.
 
 Integração PostgreSQL e inspeção visual das novas telas
