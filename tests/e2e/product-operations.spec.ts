@@ -38,11 +38,11 @@ test.describe("@database operação diária e expediente", () => {
       const clientBox = await clientLabel.boundingBox();
       expect(clientBox?.width).toBeGreaterThan(220);
       expect((await db.appointment.findUniqueOrThrow({ where: { id: appointment.id } })).checkedInAt).not.toBeNull();
-      await page.screenshot({ path: test.info().outputPath("hoje-chegada-desktop.png"), fullPage: true });
-      await card.screenshot({ path: test.info().outputPath("acoes-atendimento-dark.png") });
+      await page.screenshot({ path: test.info().outputPath("hoje-chegada-desktop.png"), fullPage: true, animations: "disabled" });
+      await card.screenshot({ path: test.info().outputPath("acoes-atendimento-dark.png"), animations: "disabled" });
       await page.getByRole("button", { name: "Mudar para tema claro" }).click();
       await expect(page.locator("html")).toHaveAttribute("data-theme", "admin-light");
-      await card.screenshot({ path: test.info().outputPath("acoes-atendimento-light.png") });
+      await card.screenshot({ path: test.info().outputPath("acoes-atendimento-light.png"), animations: "disabled" });
       await page.getByRole("button", { name: "Mudar para tema escuro" }).click();
 
       await page.goto(`/agenda?date=${date}`);
@@ -61,17 +61,21 @@ test.describe("@database operação diária e expediente", () => {
       await blocking.getByLabel("Motivo").fill(`Reunião CI ${suffix}`);
       await blocking.getByRole("button", { name: "Revisar bloqueio" }).click();
       await expect(blocking.getByRole("status")).toContainText(clientName);
-      await page.screenshot({ path: test.info().outputPath("agenda-revisao-bloqueio.png"), fullPage: true });
+      await page.screenshot({ path: test.info().outputPath("agenda-revisao-bloqueio.png"), fullPage: true, animations: "disabled" });
       await blocking.getByRole("button", { name: "Confirmar bloqueio" }).click();
       await expect(blocking.getByRole("status")).toContainText("Disponibilidade bloqueada");
       expect((await db.appointment.findUniqueOrThrow({ where: { id: appointment.id } })).status).toBe("CONFIRMED");
       await blocking.getByRole("button", { name: "Concluir", exact: true }).click();
-      await page.screenshot({ path: test.info().outputPath("agenda-desktop.png"), fullPage: true });
+      await page.screenshot({ path: test.info().outputPath("agenda-desktop.png"), fullPage: true, animations: "disabled" });
       await page.getByRole("button", { name: "Mudar para tema claro" }).click();
       await expect(page.locator("html")).toHaveAttribute("data-theme", "admin-light");
-      await page.screenshot({ path: test.info().outputPath("agenda-light-desktop.png"), fullPage: true });
+      // Wait for inherited color transitions; changing the root attribute alone
+      // can leave button text in its old theme during the screenshot.
+      const expectedForeground = await page.locator("body").evaluate(el => getComputedStyle(el).color);
+      await expect.poll(() => page.getByRole("button", { name: "Todos profissionais", exact: true }).evaluate(el => getComputedStyle(el).color)).toBe(expectedForeground);
+      await page.screenshot({ path: test.info().outputPath("agenda-light-desktop.png"), fullPage: true, animations: "disabled" });
       await page.setViewportSize({ width: 390, height: 844 });
-      await page.screenshot({ path: test.info().outputPath("agenda-mobile.png"), fullPage: true });
+      await page.screenshot({ path: test.info().outputPath("agenda-mobile.png"), fullPage: true, animations: "disabled" });
     } finally {
       // Somente fixtures identificadas por UUID; os históricos de aplicação são mantidos.
       await db.timeOff.deleteMany({ where: { reason: `Reunião CI ${suffix}` } });

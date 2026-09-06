@@ -72,12 +72,16 @@ habilitados em produção sem validação. Plano e evidências da próxima migra
 
 - `npm run lint`: passou.
 - `npx tsc --noEmit --incremental false`: passou.
-- `npm test`: 137 arquivos e 670 testes passaram.
+- `npm test`: 141 arquivos e 681 testes passaram.
 - `npm run build`: passou, 46 páginas geradas, usando apenas URLs locais fictícias.
 
-Integração PostgreSQL e inspeção visual das novas telas
-ainda precisam de ambiente seguro. Esta máquina não tem PostgreSQL/Docker.
-O acesso a Codespaces pelo gh exige escopo indisponível na sessão atual.
+O run GitHub Actions `34060782156` (`b78aa88`) passou integralmente: PostgreSQL,
+três jornadas autenticadas, páginas públicas em três motores e rollback sem
+apagar dados. Capturas desktop/mobile em `browser-evidence`. A captura clara
+passou a aguardar o fim da transição de cores. Esta máquina não tem PostgreSQL/
+Docker; o teste usou apenas o banco descartável do job. O acesso a Codespaces
+pelo gh exige escopo indisponível; o navegador também não dispõe da conta da
+demonstração autenticada. Não houve alteração no Codespace nem em produção.
 
 ## Rollout
 

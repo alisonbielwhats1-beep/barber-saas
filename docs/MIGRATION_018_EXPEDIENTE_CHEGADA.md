@@ -48,9 +48,11 @@ autorização. Reservas feitas em expediente extra continuam visíveis na agenda
 
 Evidência de banco: run GitHub Actions `34059744513`, commit `10055ef`.
 Backup/restauração, preflight, duas aplicações, preservação, constraints, RLS e
-testes PostgreSQL aprovados. Login e reserva pública passaram. A jornada nova
-chegou a persistir a chegada e detectou ambiguidade no seletor de profissional;
-rótulo corrigido antes da próxima execução.
+testes PostgreSQL aprovados. A ambiguidade no seletor detectada no navegador
+foi corrigida. Run `34060782156` (`b78aa88`) passou integralmente, incluindo as
+três jornadas autenticadas e todos os rollbacks. Capturas em `browser-evidence`
+com dados fictícios. O ajuste posterior de captura espera o fim da transição
+de tema; conferir os checks do PR #79 para resultados de cada versão.
 
 Sem promoção produtiva. Codespace `glorious-enigma-jjv6v4rvrv49f544r` documentado
 como demonstração, mas a credencial gh desta sessão não tem escopo codespace.

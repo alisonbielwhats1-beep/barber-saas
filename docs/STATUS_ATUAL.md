@@ -22,10 +22,13 @@
 - O run GitHub `34059744513`, commit `10055ef`, validou a migration 018 no
   PostgreSQL descartável: backup/restauração, reaplicação, preservação dos
   registros e RLS sem BYPASSRLS. Testes PostgreSQL de concorrência passaram.
-  Login, isolamento visual e agendamento público passaram. A nova jornada
-  registrou chegada, mas encontrou seletor ambíguo no formulário de expediente;
-  associação explícita do rótulo corrigida, com repetição do CI pendente.
-  O Codespace de demonstração não foi alterado.
+  A jornada encontrou seletor ambíguo, corrigido com associação explícita de rótulo.
+- O run `34060782156`, commit `b78aa88`, passou integralmente: check,
+  schema-smoke, login/isolamento, reserva pública, chegada, expediente extra,
+  bloqueio sem cancelamento e rollbacks. Capturas confirmaram ações verdes e
+  vermelhas e cartões legíveis; a captura do tema claro foi estabilizada para
+  aguardar o fim da transição de cores. Resultados por versão ficam nos checks
+  do PR #79. O Codespace de demonstração não foi alterado.
 
 
 ## Revisão mais recente — restauração da referência 6fd3d21
