@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getClientSessionForSalonSlug } from "@/lib/client-session-tenant";
-import { clientHomePath } from "@/lib/client-routes";
+import { clientHomePath, safeClientReturnTo } from "@/lib/client-routes";
 import { CadastroForm } from "./cadastro-form";
 
 export default async function CadastroPage({
@@ -11,8 +11,8 @@ export default async function CadastroPage({
   params: Promise<{ salonSlug: string }>;
   searchParams: Promise<{ returnTo?: string }>;
 }) {
-  const [{ salonSlug }] = await Promise.all([params, searchParams]);
-  const homePath = clientHomePath(salonSlug);
+  const [{ salonSlug }, query] = await Promise.all([params, searchParams]);
+  const homePath = safeClientReturnTo(salonSlug, query.returnTo, clientHomePath(salonSlug));
 
   const session = await getClientSessionForSalonSlug(salonSlug);
   if (session) redirect(homePath);
@@ -30,12 +30,12 @@ export default async function CadastroPage({
           </p>
         </div>
 
-        <CadastroForm salonSlug={salonSlug} />
+        <CadastroForm salonSlug={salonSlug} returnTo={homePath} />
 
         <p className="text-center text-sm text-muted-foreground">
           Já tem conta?{" "}
           <Link
-            href={`/book/${salonSlug}/login`}
+            href={`/book/${salonSlug}/login?returnTo=${encodeURIComponent(homePath)}`}
             className="font-medium text-primary hover:underline"
           >
             Entrar

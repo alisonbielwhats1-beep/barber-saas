@@ -51,10 +51,12 @@ export function MobileNav({
   role,
   unreadNotifications = 0,
   isPlatformAdmin = false,
+  accountControls,
 }: {
   role: string;
   unreadNotifications?: number;
   isPlatformAdmin?: boolean;
+  accountControls?: React.ReactNode;
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -120,6 +122,7 @@ export function MobileNav({
             </DialogDescription>
           </div>
           <div className="scrollbar-dark flex-1 space-y-5 overflow-y-auto px-5 py-5 pb-24">
+            {accountControls}
             <OpenCommandPaletteButton />
             {visibleGroups(role).map((group) => (
               <div key={group.title}>

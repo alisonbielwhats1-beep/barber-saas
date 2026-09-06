@@ -16,12 +16,12 @@
     --elevated: 240 7% 13%;         /* #1F1F25  card destacado/popover */
 
     --muted: 240 5% 15%;            /* #242429 */
-    --muted-foreground: 240 5% 58%; /* #8E8E96 */
+    --muted-foreground: 240 5% 67%; /* #8E8E96 */
 
     --border: 240 6% 15%;           /* #232328  borda suave */
     --border-strong: 240 6% 22%;    /* #33333B */
     --input: 240 6% 15%;
-    --ring: 23 57% 68%;
+    --ring: 220 9% 72%;
 
     /* Everflair — marfim sobre grafite; cores de status continuam semânticas. */
     --primary: 40 33% 95%;
@@ -53,7 +53,7 @@
 
   /* ─── Admin: Light theme (toggled via ThemeProvider) ───────────────────── */
   [data-theme="admin-light"] {
-    --background: 220 18% 92%;        /* #E5E8F1 — blue-tinted light gray */
+    --background: 220 6% 96%;         /* neutral gray */
     --surface-1: 0 0% 100%;           /* white panels */
     --foreground: 240 12% 8%;         /* #111116 — near-black, max contrast */
 
@@ -62,13 +62,13 @@
     --card-hover: 220 18% 97%;
     --elevated: 0 0% 100%;
 
-    --muted: 220 16% 88%;             /* #D7DBE9 subtle gray area */
+    --muted: 220 6% 91%;             /* #D7DBE9 subtle gray area */
     --muted-foreground: 240 8% 38%;   /* #585864 — dark enough for WCAG AA */
 
-    --border: 220 14% 82%;            /* #C7CCDB — clearly visible */
+    --border: 220 6% 83%;            /* #C7CCDB — clearly visible */
     --border-strong: 220 14% 68%;
     --input: 0 0% 98%;
-    --ring: 21 47% 37%;
+    --ring: 218 10% 35%;
 
     /* Everflair — grafite sobre superfícies claras. */
     --primary: 218 10% 15%;
@@ -114,7 +114,7 @@
     --border: 39 14% 84%;            /* #DDD8CF */
     --border-strong: 39 12% 70%;
     --input: 0 0% 100%;
-    --ring: 21 47% 37%;
+    --ring: 218 10% 35%;
 
     --primary: 218 10% 15%;          /* grafite, alto contraste em superfícies claras */
     --primary-foreground: 0 0% 100%;
@@ -149,7 +149,7 @@
     --border: 150 7% 19%;
     --border-strong: 150 7% 27%;
     --input: 150 7% 17%;
-    --ring: 23 57% 68%;
+    --ring: 220 9% 72%;
     --primary: 40 33% 95%;
     --primary-foreground: 218 10% 15%;
     --secondary: 150 7% 16%;
@@ -175,19 +175,19 @@
     --card-foreground: 40 30% 96%;
 
     --muted: 230 8% 15%;
-    --muted-foreground: 220 6% 60%;
+    --muted-foreground: 220 6% 68%;
 
     --border: 230 8% 18%;
     --input: 230 8% 18%;
-    --ring: 138 82% 74%;
+    --ring: 220 9% 72%;
 
-    --primary: 138 82% 74%;         /* #7DF89B verde neon */
+    --primary: 40 20% 96%;          /* Everflair: neutral high-contrast actions */
     --primary-foreground: 230 12% 8%;
 
     --secondary: 230 8% 15%;
     --secondary-foreground: 40 30% 96%;
 
-    --accent: 138 82% 74%;
+    --accent: 40 20% 96%;
     --accent-foreground: 230 12% 8%;
 
     --destructive: 0 72% 62%;

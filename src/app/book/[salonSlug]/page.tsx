@@ -362,12 +362,7 @@ export default async function ClientHome({
         </div>
       </div>
 
-      {/* Reputação visível antes da escolha do serviço — avaliações verificadas. */}
-      <ReviewsSection
-        salonSlug={salonSlug}
-        summary={salon.reviewData.summary}
-        reviews={salon.reviewData.reviews}
-      />
+
 
       {/* CTA de agendamento */}
       <Link
@@ -383,6 +378,13 @@ export default async function ClientHome({
           <ArrowUpRight className="h-4 w-4" />
         </div>
       </Link>
+
+      {/* Reputação após a ação principal — avaliações verificadas. */}
+      <ReviewsSection
+        salonSlug={salonSlug}
+        summary={salon.reviewData.summary}
+        reviews={salon.reviewData.reviews}
+      />
 
       {(whatsappHref || phoneHref || instagramHandle || siteUrl || blogUrl) && (
         <section aria-labelledby="contact-title" className="rounded-3xl border border-border bg-card p-4">

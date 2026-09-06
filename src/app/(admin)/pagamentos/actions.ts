@@ -27,6 +27,7 @@ export async function openCashRegister(input: {
 
   try {
     await withTenant(ctx, async (tx) => {
+      await tx.$queryRaw`SELECT 1::integer FROM pg_advisory_xact_lock(hashtextextended(${`cash-register:${ctx.salonId}`}, 0))`;
       const events = await tx.auditLog.findMany({
         where: { salonId: ctx.salonId, entityType: "CashRegister", action: { in: ["CASH_OPENED", "CASH_CLOSED"] } },
         orderBy: { createdAt: "desc" },
@@ -38,6 +39,7 @@ export async function openCashRegister(input: {
         salonId: ctx.salonId,
         userId: ctx.userId,
         actorName: await actorName(tx, ctx.userId),
+        occurredAt: new Date(),
         action: "CASH_OPENED",
         entityType: "CashRegister",
         entityId: "main",
@@ -60,28 +62,38 @@ export async function closeCashRegister(input: {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER"]);
   const countedCashCents = money.parse(input.countedCashCents);
-  const expectedCashCents = money.parse(input.expectedCashCents);
+  // A contagem vem do operador; o saldo esperado é calculado no servidor.
   const notes = z.string().trim().max(300).optional().parse(input.notes);
 
   try {
     await withTenant(ctx, async (tx) => {
+      await tx.$queryRaw`SELECT 1::integer FROM pg_advisory_xact_lock(hashtextextended(${`cash-register:${ctx.salonId}`}, 0))`;
       const events = await tx.auditLog.findMany({
         where: { salonId: ctx.salonId, entityType: "CashRegister", action: { in: ["CASH_OPENED", "CASH_CLOSED"] } },
         orderBy: { createdAt: "desc" },
         take: 20,
         select: { action: true, createdAt: true, metadata: true },
       });
-      if (!deriveCashState(events).isOpen) throw new Error("Abra o caixa antes de fechá-lo");
+      const cash = deriveCashState(events);
+      if (!cash.isOpen || !cash.openedAt) throw new Error("Abra o caixa antes de fechá-lo");
+      const closingAt = new Date();
+      const received = await tx.payment.aggregate({
+        where: { appointment: { salonId: ctx.salonId }, method: "CASH", paidAt: { gte: cash.openedAt, lte: closingAt } },
+        _sum: { amountCents: true },
+      });
+      const expectedCashCents = cash.openingFloatCents + (received._sum.amountCents ?? 0);
       await writeAuditLog(tx, {
         salonId: ctx.salonId,
         userId: ctx.userId,
         actorName: await actorName(tx, ctx.userId),
+        occurredAt: closingAt,
         action: "CASH_CLOSED",
         entityType: "CashRegister",
         entityId: "main",
         reason: notes,
         metadata: {
           countedCashCents,
+          periodEnd: closingAt.toISOString(),
           expectedCashCents,
           differenceCents: countedCashCents - expectedCashCents,
         },

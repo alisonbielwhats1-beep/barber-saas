@@ -67,7 +67,7 @@ export const GROUPS: { title: string; items: Item[] }[] = [
     title: "Principal",
     items: [
       { href: "/hoje", label: "Hoje", icon: CalendarClock, roles: DASHBOARD_ROLES },
-      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: DASHBOARD_ROLES },
+      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: FINANCIAL_ROLES },
       { href: "/agenda", label: "Agenda", icon: CalendarDays },
       { href: "/notificacoes", label: "Notificações", icon: Bell },
     ],

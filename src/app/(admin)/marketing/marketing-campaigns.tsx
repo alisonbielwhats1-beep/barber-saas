@@ -221,11 +221,11 @@ export function MarketingCampaigns({
             <h3 className="text-[13px] font-semibold">Mensagem</h3>
             <div className="flex items-center gap-1.5 rounded-full border border-border bg-surface-1 px-2.5 py-1">
               <Ticket className="h-3.5 w-3.5 text-primary" />
-              <input value={coupon} onChange={(event) => setCoupon(event.target.value)} className="w-20 bg-transparent text-[12px] focus:outline-none" placeholder="Cupom" />
+              <input aria-label="Benefício informado na mensagem" value={coupon} onChange={(event) => setCoupon(event.target.value)} className="w-20 bg-transparent text-[12px] focus:outline-none" placeholder="Cupom" />
             </div>
           </div>
-          <textarea disabled={!enabled} value={templates[active]} onChange={(event) => setTemplates((previous) => ({ ...previous, [active]: event.target.value }))} rows={4} className="w-full resize-none rounded-xl border border-border bg-background px-3 py-2.5 text-[13px] leading-relaxed focus:outline-none focus:ring-2 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-60" />
-          <p className="mt-2 text-[11px] text-muted-foreground">Personalize com {"{nome}"}, {"{cupom}"}, {"{dias}"}, {"{servico}"}, {"{link}"} e {"{avaliacao}"}.</p>
+          <textarea aria-label="Mensagem da campanha" disabled={!enabled} value={templates[active]} onChange={(event) => setTemplates((previous) => ({ ...previous, [active]: event.target.value }))} rows={4} className="w-full resize-none rounded-xl border border-border bg-background px-3 py-2.5 text-[13px] leading-relaxed focus:outline-none focus:ring-2 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-60" />
+          <p className="mt-2 text-[11px] text-muted-foreground">O benefício é comunicado por mensagem; o desconto deve ser aplicado pela equipe no fechamento. Não há aplicação automática de cupom. Personalize com {"{nome}"}, {"{cupom}"}, {"{dias}"}, {"{servico}"}, {"{link}"} e {"{avaliacao}"}.</p>
           <a href="#marketing-destinatarios" className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-[13px] font-semibold text-primary-foreground lg:hidden"><Users className="h-4 w-4" /> Ver destinatários ({current.targets.length})</a>
         </div>
 

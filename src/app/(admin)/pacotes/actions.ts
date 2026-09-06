@@ -1,5 +1,6 @@
 "use server";
 
+import { writeAuditLog } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { addDays } from "date-fns";
@@ -129,15 +130,22 @@ export async function usePackageSession(purchaseId: string) {
     await assertPackagesEnabled(tx, ctx.salonId);
     const pur = await tx.packagePurchase.findFirst({
       where: { id: purchaseId, salonId: ctx.salonId },
-      select: { sessionsUsed: true, sessionsTotal: true, status: true },
+      select: { sessionsUsed: true, sessionsTotal: true, status: true, expiresAt: true },
     });
     if (!pur) throw new Error("Compra não encontrada");
+    if (pur.expiresAt <= new Date()) throw new Error("Este pacote expirou. Renove para iniciar um novo ciclo.");
     if (pur.status !== "ACTIVE") throw new Error("Pacote não está ativo");
     if (pur.sessionsUsed >= pur.sessionsTotal) throw new Error("Sem sessões restantes");
     const used = pur.sessionsUsed + 1;
-    await tx.packagePurchase.updateMany({
-      where: { id: purchaseId, salonId: ctx.salonId },
-      data: { sessionsUsed: used, status: used >= pur.sessionsTotal ? "COMPLETED" : "ACTIVE" },
+    const result = await tx.packagePurchase.updateMany({
+      where: { id: purchaseId, salonId: ctx.salonId, status: "ACTIVE", sessionsUsed: pur.sessionsUsed, expiresAt: { gt: new Date() } },
+      data: { sessionsUsed: { increment: 1 }, status: used >= pur.sessionsTotal ? "COMPLETED" : "ACTIVE" },
+    });
+    if (result.count !== 1) throw new Error("O saldo mudou. Atualize a página antes de consumir outra sessão.");
+    await writeAuditLog(tx, {
+      salonId: ctx.salonId, userId: ctx.userId, actorName: "Equipe",
+      action: "PACKAGE_SESSION_USED", entityType: "PackagePurchase", entityId: purchaseId,
+      metadata: { sessionsBefore: pur.sessionsUsed, sessionsAfter: used },
     });
   });
   revalidatePath("/pacotes");
@@ -158,19 +166,28 @@ export async function renewPurchase(purchaseId: string) {
   assertRole(ctx, ["OWNER", "MANAGER"]);
   await withTenant(ctx, async (tx) => {
     await assertPackagesEnabled(tx, ctx.salonId);
+    await tx.$queryRaw`SELECT 1::integer FROM pg_advisory_xact_lock(hashtextextended(${`package-renew:${ctx.salonId}:${purchaseId}`}, 0))`;
+    const previous = await tx.auditLog.findFirst({
+      where: { salonId: ctx.salonId, action: "PACKAGE_RENEWED", entityType: "PackagePurchase", entityId: purchaseId },
+      select: { id: true },
+    });
+    if (previous) throw new Error("Este ciclo já foi renovado. Use o novo pacote na lista.");
     const pur = await tx.packagePurchase.findFirst({
       where: { id: purchaseId, salonId: ctx.salonId },
-      select: { package: { select: { validityDays: true, sessions: true } } },
+      select: { clientId: true, packageId: true, package: { select: { active: true, priceCents: true, validityDays: true, sessions: true } } },
     });
-    if (!pur) throw new Error("Compra não encontrada");
-    await tx.packagePurchase.updateMany({
-      where: { id: purchaseId, salonId: ctx.salonId },
+    if (!pur || !pur.package.active) throw new Error("Pacote indisponível para renovação");
+    const next = await tx.packagePurchase.create({
       data: {
-        sessionsUsed: 0,
-        sessionsTotal: pur.package.sessions,
-        status: "ACTIVE",
-        expiresAt: addDays(new Date(), pur.package.validityDays),
+        salonId: ctx.salonId, clientId: pur.clientId, packageId: pur.packageId,
+        sessionsTotal: pur.package.sessions, priceCents: pur.package.priceCents,
+        status: "ACTIVE", expiresAt: addDays(new Date(), pur.package.validityDays),
       },
+    });
+    await writeAuditLog(tx, {
+      salonId: ctx.salonId, userId: ctx.userId, actorName: "Equipe",
+      action: "PACKAGE_RENEWED", entityType: "PackagePurchase", entityId: purchaseId,
+      metadata: { nextPurchaseId: next.id },
     });
   });
   revalidatePath("/pacotes");

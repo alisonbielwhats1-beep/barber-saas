@@ -36,9 +36,10 @@ describe("matriz de permissões do painel", () => {
     );
 
     for (const source of [sidebar, mobile, palette]) {
-      expect(source).toContain("DASHBOARD_ROLES");
       expect(source).toContain("MANAGEMENT_ROLES");
     }
+    expect(sidebar).toContain("roles: DASHBOARD_ROLES");
+    expect(mobile).toContain("roles: DASHBOARD_ROLES");
     expect(sidebar).toContain("roles: FINANCIAL_ROLES");
     expect(sidebar).toContain("roles: MARKETING_ROLES");
     expect(palette).toContain("roles: FINANCIAL_ROLES");

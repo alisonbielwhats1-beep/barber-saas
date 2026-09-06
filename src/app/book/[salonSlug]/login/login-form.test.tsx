@@ -40,6 +40,7 @@ describe("LoginForm", () => {
       "studio-a",
       "cliente@example.com",
       "senha-segura",
+      undefined,
     );
   });
 

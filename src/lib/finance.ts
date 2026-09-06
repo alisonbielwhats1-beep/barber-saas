@@ -65,10 +65,18 @@ export async function getFinanceMetrics(
     where: { salonId, dueDate: { gte: from, lt: to } },
     select: { id: true, amountCents: true, category: true, kind: true, dueDate: true, paidAt: true },
   });
-  // Pagamentos por forma (dos atendimentos concluídos do período)
+  // Caixa: a data do pagamento é independente da data do atendimento.
   const payments = await tx.payment.findMany({
-    where: { appointment: { salonId, status: "COMPLETED", startAt: { gte: from, lt: to } } },
-    select: { amountCents: true, method: true },
+    where: { appointment: { salonId }, paidAt: { gte: from, lt: to } },
+    select: { amountCents: true, method: true, paidAt: true },
+  });
+  const paidExpenses = await tx.expense.findMany({
+    where: { salonId, paidAt: { gte: from, lt: to } },
+    select: { amountCents: true, paidAt: true },
+  });
+  const unpaidCompleted = await tx.appointment.findMany({
+    where: { salonId, status: "COMPLETED", payment: { is: null } },
+    select: { priceCents: true, products: { select: { quantity: true, priceCentsUnit: true } } },
   });
   const proPerf = await getProfessionalPerformance(tx, salonId, from, to);
   // Contas a receber: futuros confirmados/pendentes
@@ -105,20 +113,14 @@ export async function getFinanceMetrics(
   ) {
     bucket.set(date, { in: 0, out: 0 });
   }
-  for (const a of services) {
-    const k = dateKeyInTimeZone(a.startAt, timezone);
-    const b = bucket.get(k);
-    if (b) b.in += a.priceCents;
+  for (const payment of payments) {
+    const entry = bucket.get(dateKeyInTimeZone(payment.paidAt, timezone));
+    if (entry) entry.in += payment.amountCents;
   }
-  for (const x of products) {
-    const k = dateKeyInTimeZone(x.appointment.startAt, timezone);
-    const b = bucket.get(k);
-    if (b) b.in += x.quantity * x.priceCentsUnit;
-  }
-  for (const e of expenses) {
-    const k = dateKeyInTimeZone(e.dueDate, timezone);
-    const b = bucket.get(k);
-    if (b) b.out += e.amountCents;
+  for (const expense of paidExpenses) {
+    if (!expense.paidAt) continue;
+    const entry = bucket.get(dateKeyInTimeZone(expense.paidAt, timezone));
+    if (entry) entry.out += expense.amountCents;
   }
   const cashflow = [...bucket.entries()].map(([date, v]) => ({
     date,
@@ -146,7 +148,9 @@ export async function getFinanceMetrics(
       color: METHOD_COLOR[method] ?? "#94A3B8",
     }));
 
-  const receivable = upcoming.reduce((s, a) => s + a.priceCents, 0);
+  const forecast = upcoming.reduce((s, a) => s + a.priceCents, 0);
+  const receivable = unpaidCompleted.reduce((sum, appointment) => sum + appointment.priceCents
+    + appointment.products.reduce((total, product) => total + product.quantity * product.priceCentsUnit, 0), 0);
   const payable = unpaidExpenses.reduce((s, e) => s + e.amountCents, 0);
 
   return {
@@ -167,6 +171,7 @@ export async function getFinanceMetrics(
     byCategory,
     byMethod,
     receivable,
+    forecast,
     payable,
     unpaidExpenses,
     expensesInPeriod: expenses.length,

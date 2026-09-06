@@ -17,12 +17,14 @@ export async function writeAuditLog(
     entityType: string;
     entityId: string;
     reason?: string | null;
+    occurredAt?: Date;
     metadata?: Record<string, unknown>;
   },
 ): Promise<void> {
   await tx.auditLog.create({
     data: {
       salonId: entry.salonId,
+      ...(entry.occurredAt ? { createdAt: entry.occurredAt } : {}),
       userId: entry.userId,
       actorName: entry.actorName,
       action: entry.action,

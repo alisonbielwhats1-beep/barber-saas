@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/tenant";
 import { DASHBOARD_ROLES } from "@/lib/role-permissions";
 import { getDashboardMetrics, RANGE_LABELS, type RangeKey } from "@/lib/dashboard";
@@ -79,7 +80,10 @@ export default async function DashboardPage({
 }: {
   searchParams: Promise<{ range?: string; plan?: string }>;
 }) {
-  const { salonId } = await requireRole(DASHBOARD_ROLES);
+  const { salonId, role } = await requireRole(DASHBOARD_ROLES);
+  // A recepção tem a operação do dia; nunca consultar métricas gerenciais
+  // para depois apenas escondê-las no JSX.
+  if (role === "RECEPTIONIST") redirect("/hoje");
   const { range: selectedRange, plan: planIntent } = await searchParams;
   const range: RangeKey = VALID.includes(selectedRange as RangeKey)
     ? (selectedRange as RangeKey)
@@ -179,7 +183,7 @@ export default async function DashboardPage({
     ]),
   );
   const salonName = salonData.name;
-  const genderTotal = m.gender.male.revenue + m.gender.female.revenue;
+  const genderTotal = m.gender.male.revenue + m.gender.female.revenue + m.gender.other.revenue + m.gender.unknown.revenue;
 
   const reminders = remindersRaw.map((r) => ({
     id: r.id,
@@ -417,18 +421,23 @@ export default async function DashboardPage({
 
           <section className="grid gap-4 lg:grid-cols-3">
             <Panel className="lg:col-span-1">
-              <PanelTitle icon={UserRound}>Receita por gênero</PanelTitle>
+              <PanelTitle icon={UserRound}>Receita por gênero informado</PanelTitle>
+              <p className="mt-1 text-xs text-muted-foreground">Considera apenas o cadastro. Dados não informados permanecem separados.</p>
               <DonutChart
                 centerLabel="Total"
                 centerValue={formatMoney(genderTotal)}
                 slices={[
                   { name: "Masculino", value: m.gender.male.revenue, color: MALE_COLOR },
                   { name: "Feminino", value: m.gender.female.revenue, color: FEMALE_COLOR },
+                  { name: "Outro", value: m.gender.other.revenue, color: "#A1A1AA" },
+                  { name: "Não informado", value: m.gender.unknown.revenue, color: "#71717A" },
                 ]}
               />
               <div className="mt-2 grid grid-cols-2 gap-2">
                 <LegendRow color={MALE_COLOR} label="Masculino" value={formatMoney(m.gender.male.revenue)} />
                 <LegendRow color={FEMALE_COLOR} label="Feminino" value={formatMoney(m.gender.female.revenue)} />
+                <LegendRow color="#A1A1AA" label="Outro" value={formatMoney(m.gender.other.revenue)} />
+                <LegendRow color="#71717A" label="Não informado" value={formatMoney(m.gender.unknown.revenue)} />
               </div>
             </Panel>
             <div className="grid gap-4 lg:col-span-2 lg:grid-cols-2">

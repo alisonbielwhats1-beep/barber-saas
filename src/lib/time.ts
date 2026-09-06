@@ -207,3 +207,12 @@ export function formatInSalonTime(
   assertTimeZone(timeZone);
   return formatInTimeZone(instant, timeZone, pattern, options);
 }
+
+/** Include the adjacent days rendered by a Monday-first month grid. */
+export function calendarGridRangeInTimeZone(date: string, timeZone: string) {
+  const month = monthRangeInTimeZone(date, timeZone);
+  const first = dateKeyInTimeZone(month.from, timeZone);
+  const last = addCalendarDays(dateKeyInTimeZone(month.to, timeZone), -1);
+  const weekday = (key: string) => (new Date(`${key}T12:00:00Z`).getUTCDay() + 6) % 7;
+  return dateRangeInTimeZone(addCalendarDays(first, -weekday(first)), addCalendarDays(last, 6 - weekday(last)), timeZone);
+}

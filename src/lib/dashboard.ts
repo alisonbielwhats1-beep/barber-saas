@@ -3,7 +3,6 @@ import {
   differenceInMinutes,
 } from "date-fns";
 import { getProfessionalPerformance, getTopServices, getOccupancyRate } from "./kpis";
-import { inferGenderFromName } from "./name-gender";
 import {
   DEFAULT_TIMEZONE,
   addCalendarDays,
@@ -196,7 +195,7 @@ export async function getDashboardMetrics(
 
   const [clientsByGender, newClientsByGender, clientAgg, totalClients] = await Promise.all([
     // Clientes por gênero (base total). Busca nome junto porque o split usa
-    // inferGenderFromName() como fallback para quem não preencheu o campo —
+    // Cadastro explícito; não estimar gênero por nome —
     // um groupBy no banco não consegue aplicar essa heurística.
     withSalon(salonId, (tx) =>
       tx.clientProfile.findMany({
@@ -321,18 +320,16 @@ export async function getDashboardMetrics(
   const withHistory = clientAgg.length;
   const retentionRate = withHistory > 0 ? returningClients / withHistory : 0;
 
-  // Gênero informado manualmente tem prioridade; sem isso, tenta estimar
-  // pelo primeiro nome. Cliente sem gênero e sem nome reconhecido fica de
-  // fora do split (nunca inventa um valor sem nenhum sinal).
+  // Apenas dados informados; nunca inferir gênero pelo nome.
   const resolvedGender = (client: { gender: string | null; name?: string | null } | null | undefined) =>
-    client?.gender ?? inferGenderFromName(client?.name);
+    client?.gender ?? "UNKNOWN";
 
-  const genderCount = (rows: { gender: string | null; name: string }[], g: "MALE" | "FEMALE") =>
+  const genderCount = (rows: { gender: string | null; name: string }[], g: "MALE" | "FEMALE" | "OTHER" | "UNKNOWN") =>
     rows.filter((r) => resolvedGender(r) === g).length;
   const newClients = newClientsByGender.length;
 
   // ── Split por gênero (receita, ticket, serviço) ───────────────
-  const byGender = (g: "MALE" | "FEMALE") => {
+  const byGender = (g: "MALE" | "FEMALE" | "OTHER" | "UNKNOWN") => {
     const rows = completed.filter((a) => resolvedGender(a.client) === g);
     const rev = rows.reduce((s, a) => s + a.priceCents, 0);
     const svc = new Map<string, { name: string; count: number; colorHex: string | null }>();
@@ -422,7 +419,7 @@ export async function getDashboardMetrics(
     topProfessional: proPerf[0] ?? null,
     proPerf,
     topServices,
-    gender: { male: byGender("MALE"), female: byGender("FEMALE") },
+    gender: { male: byGender("MALE"), female: byGender("FEMALE"), other: byGender("OTHER"), unknown: byGender("UNKNOWN") },
     series,
   };
 }

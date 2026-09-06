@@ -529,6 +529,7 @@ export function BookingFlow({
               professionalId: proId,
               startLocal,
               idempotencyKey,
+              expectedTotalCents: totalServicePrice + cart.totalCents,
               cartItems: cart.items.map((item) => ({
                 productId: item.productId,
                 quantity: item.quantity,
@@ -556,6 +557,12 @@ export function BookingFlow({
       } else {
         setReviewing(false);
         setError(friendlyError(responseBody.error));
+        if (responseBody.error === "PRICE_CHANGED") {
+          idempotencyKeyRef.current = null;
+          setSlot(null);
+          setSlotsVersion((version) => version + 1);
+          cart.clear();
+        }
         if (responseBody.error === "SLOT_TAKEN") {
           idempotencyKeyRef.current = null;
           setSlot(null);

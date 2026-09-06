@@ -79,6 +79,7 @@ describe("CadastroForm", () => {
         password: "123456",
         confirmPassword: "123456",
       },
+      undefined,
     );
   });
 });

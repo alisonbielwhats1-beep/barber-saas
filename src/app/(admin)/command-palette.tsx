@@ -7,7 +7,6 @@ import {
   Users, UserCog, Wallet, FileBarChart, Megaphone, Settings, Search, CornerDownLeft, Command,
 } from "lucide-react";
 import {
-  DASHBOARD_ROLES,
   FINANCIAL_ROLES,
   MANAGEMENT_ROLES,
   MARKETING_ROLES,
@@ -44,7 +43,7 @@ export function requestCommandPaletteOpen(returnFocusTo?: HTMLElement | null) {
 }
 
 const COMMANDS: Cmd[] = [
-  { label: "Dashboard", hint: "Visão geral", icon: LayoutDashboard, href: "/dashboard", roles: DASHBOARD_ROLES },
+  { label: "Dashboard", hint: "Visão geral", icon: LayoutDashboard, href: "/dashboard", roles: FINANCIAL_ROLES },
   { label: "Agenda", hint: "Ver agendamentos", icon: CalendarDays, href: "/agenda" },
   { label: "Financeiro", hint: "Receitas e despesas", icon: Wallet, href: "/financeiro", roles: FINANCIAL_ROLES },
   { label: "Relatórios", hint: "Exportar e comparar", icon: FileBarChart, href: "/relatorios", roles: FINANCIAL_ROLES },
