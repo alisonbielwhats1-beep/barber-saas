@@ -2,10 +2,10 @@
 
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
+
 import { Search, ChevronRight } from "lucide-react";
 import { formatMoney, formatDuration } from "@/lib/utils";
-import { imageForCategory, normalizeImageUrl } from "@/lib/images";
+
 
 type Service = {
   id: string;
@@ -55,16 +55,6 @@ export function HomeExplore({
     return m;
   }, [services]);
 
-  const imageByCategory = useMemo(() => {
-    const images = new Map<string, string>();
-    for (const service of services) {
-      const category = service.category ?? "Outros";
-      const imageUrl = normalizeImageUrl(service.imageUrl);
-      if (imageUrl && !images.has(category)) images.set(category, imageUrl);
-    }
-    return images;
-  }, [services]);
-
   // Groups filtered by active category + search query
   const groups = useMemo(() => {
     const q = norm(query.trim());
@@ -102,7 +92,7 @@ export function HomeExplore({
           }}
           aria-label="Buscar serviços"
           placeholder="Buscar serviços…"
-          className="flex-1 bg-transparent text-sm placeholder:text-muted-foreground focus:outline-none"
+          className="min-w-0 flex-1 bg-transparent text-base placeholder:text-muted-foreground focus:outline-none"
         />
         {query && (
           <button
@@ -114,67 +104,22 @@ export function HomeExplore({
         )}
       </div>
 
-      {/* Category grid — 2-column square tiles, shown only when multiple categories */}
+      {/* Compact categories keep the focus on service names and prices. */}
       {categories.length > 1 && !query && activeCategory === null && (
-        <section>
+        <section aria-label="Categorias de serviços">
           <p className="mb-3 text-sm font-semibold text-muted-foreground">Categorias</p>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {/* "Todos" tile */}
-          <button
-            type="button"
-            onClick={() => setActiveCategory(null)}
-            aria-pressed={activeCategory === null}
-              className={`relative aspect-square overflow-hidden rounded-2xl transition ${
-                activeCategory === null
-                  ? "ring-2 ring-primary ring-offset-2 ring-offset-background"
-                  : "opacity-80 hover:opacity-100"
-              }`}
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/40 to-primary/10" />
-              <div className="absolute inset-0 flex flex-col items-start justify-end p-4">
-                <p className="text-sm font-bold text-white drop-shadow-sm">Todos</p>
-                <p className="text-xs text-white/70">
-                  {services.length} {services.length === 1 ? "serviço" : "serviços"}
-                </p>
-              </div>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => setActiveCategory(null)} aria-pressed={activeCategory === null} className="min-h-11 rounded-full border border-primary bg-primary/10 px-4 py-2 text-sm font-medium text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              Todos <span className="ml-1 text-xs">({services.length})</span>
             </button>
-
-            {categories.map((cat) => {
-              const count = countByCat.get(cat) ?? 0;
-              const active = activeCategory === cat;
-              return (
-                <button
-                  type="button"
-                  key={cat}
-                  onClick={() => chooseCategory(cat)}
-                  aria-pressed={active}
-                  className={`relative aspect-square overflow-hidden rounded-2xl transition ${
-                    active
-                      ? "ring-2 ring-primary ring-offset-2 ring-offset-background"
-                      : "opacity-85 hover:opacity-100"
-                  }`}
-                >
-                  <Image
-                    src={imageByCategory.get(cat) ?? imageForCategory(cat)}
-                    alt={cat}
-                    fill
-                    sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 240px"
-                    className="object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
-                  <div className="absolute inset-0 flex flex-col items-start justify-end p-4">
-                    <p className="text-sm font-bold text-white drop-shadow-sm">{cat}</p>
-                    <p className="text-xs text-white/70">
-                      {count} {count === 1 ? "serviço" : "serviços"}
-                    </p>
-                  </div>
-                </button>
-              );
-            })}
+            {categories.map(cat => (
+              <button type="button" key={cat} onClick={() => chooseCategory(cat)} aria-pressed={activeCategory === cat} className="min-h-11 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium transition hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                {cat} <span className="ml-1 text-xs text-muted-foreground">({countByCat.get(cat) ?? 0})</span>
+              </button>
+            ))}
           </div>
         </section>
       )}
-
       {activeCategory && !query && (
         <div className="flex items-center justify-between gap-3 rounded-2xl border border-primary/25 bg-primary/5 px-4 py-3">
           <div className="min-w-0">
@@ -232,15 +177,10 @@ export function HomeExplore({
                   href={`/book/${salonSlug}/agendar?service=${s.id}`}
                   className="flex items-center gap-3 border-t border-border px-4 py-3.5 transition hover:bg-card-hover active:opacity-75 first:border-t-0"
                 >
-                  {s.imageUrl && (
-                    <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl">
-                      <Image src={normalizeImageUrl(s.imageUrl) ?? imageForCategory(s.category ?? "")} alt="" fill sizes="56px" className="object-cover" />
-                    </div>
-                  )}
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[14px] font-medium">{s.name}</p>
+                    <p className="break-words text-[14px] font-medium">{s.name}</p>
                     {s.description && (
-                      <p className="mt-0.5 truncate text-[12px] text-muted-foreground">
+                      <p className="mt-0.5 line-clamp-2 text-[12px] text-muted-foreground">
                         {s.description}
                       </p>
                     )}

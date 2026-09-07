@@ -53,7 +53,6 @@ import {
 } from "@/lib/availability-client";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
-import { imageForCategory } from "@/lib/images";
 
 type Pro = {
   id: string;
@@ -784,25 +783,9 @@ export function BookingFlow({
               }`}
             >
               <div className="flex w-full items-start justify-between gap-3">
-                {s.imageUrl ? (
-                  <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-xl">
-                    <ImageWithFallback
-                      src={s.imageUrl}
-                      fallbackSrc={imageForCategory(s.category ?? s.name)}
-                      alt=""
-                      fill
-                      sizes="44px"
-                      className="object-cover"
-                    />
-                  </div>
-                ) : (
-                  <div
-                    className="grid h-11 w-11 place-items-center rounded-xl"
-                    style={{ background: `${s.colorHex ?? "#7DF89B"}33` }}
-                  >
-                    <Icon aria-hidden="true" className="h-4 w-4 text-primary" />
-                  </div>
-                )}
+                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-primary/10">
+                  <Icon aria-hidden="true" className="h-4 w-4 text-primary" />
+                </div>
                 <span className={`grid h-6 w-6 place-items-center rounded-full border ${
                   selected ? "border-primary bg-primary text-primary-foreground" : "border-border"
                 }`}>

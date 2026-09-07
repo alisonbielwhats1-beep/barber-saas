@@ -77,7 +77,7 @@ export function CadastroForm({
       <div>
         <label htmlFor="client-phone" className="mb-1.5 block text-[13px] font-medium text-muted-foreground">
           WhatsApp{" "}
-          <span className="font-normal text-muted-foreground/60">(opcional)</span>
+          <span className="font-normal text-muted-foreground">(opcional)</span>
         </label>
         <input
           id="client-phone"

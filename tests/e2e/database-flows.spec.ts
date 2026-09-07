@@ -53,6 +53,7 @@ test.describe("@database jornadas críticas no PostgreSQL descartável", () => {
     await expect(page.getByRole("heading", { name: "Escolha os serviços" })).toBeVisible({
       timeout: 15_000,
     });
+    await expect(page.locator('button[aria-pressed] img')).toHaveCount(0);
     await page.getByRole("button", { name: /Corte feminino/ }).click();
     await page.getByRole("button", { name: "Continuar com 1 serviço" }).click();
     await page.getByRole("button", { name: /Camila/ }).click();

@@ -32,6 +32,15 @@ grafite, compartilhado entre painel e estabelecimentos. Não usa iniciais nem
 a foto do salão. Nome e destino do atalho continuam identificando o
 estabelecimento. Ver `ICONE_INSTALACAO_2026-09-07.md`.
 
+Após nova solicitação, cabeçalho e telas de acesso do cliente usam a marca
+Everflair completa, sem área de foto circular, iniciais ou ampliação/lupa.
+Nome do estabelecimento permanece legível em linha própria. Boas-vindas,
+login e cadastro compartilham o mesmo padrão grafite/verde/lilás e respeitam
+áreas seguras do celular. Serviços e categorias são apresentados sem fotos;
+retratos dos profissionais, produtos e portfólio permanecem. Esta decisão
+substitui a ampliação de logo e as fotos de categorias/serviços anteriores.
+Ver `CLIENTE_RESPONSIVO_2026-09-07.md`.
+
 ## Cores da agenda por profissional — revisão de 07/09/2026
 
 Por solicitação do responsável, a cor principal dos cartões identifica o

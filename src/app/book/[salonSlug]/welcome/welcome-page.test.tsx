@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { renderToStaticMarkup } from "react-dom/server";
 
 const mocks = vi.hoisted(() => ({
   getClientSession: vi.fn(),
@@ -83,5 +84,17 @@ describe("entrada do app do cliente", () => {
     })).resolves.toBeTruthy();
 
     expect(mocks.redirect).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["/book/studio-a/agendar?services=service-a", "/book/studio-a/agendar?services=service-a"],
+    ["https://example.com", "/book/studio-a"],
+    ["/book/studio-b/agendar", "/book/studio-a"],
+  ])("preserva somente retornos seguros nos dois caminhos de acesso: %s", async (returnTo, expected) => {
+    const tree = await WelcomePage({ params: Promise.resolve({ salonSlug: "studio-a" }), searchParams: Promise.resolve({ returnTo }) });
+    const html = renderToStaticMarkup(tree);
+    for (const route of ["login", "cadastro"]) {
+      expect(html).toContain(`/book/studio-a/${route}?returnTo=${encodeURIComponent(expected)}`);
+    }
   });
 });
