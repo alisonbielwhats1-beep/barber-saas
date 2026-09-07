@@ -30,6 +30,7 @@ const contentSecurityPolicy = [
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  devIndicators: process.env.CI ? false : undefined,
   reactStrictMode: true,
   async headers() {
     return [

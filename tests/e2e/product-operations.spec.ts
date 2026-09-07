@@ -46,6 +46,7 @@ test.describe("@database operação diária e expediente", () => {
       await page.getByRole("button", { name: "Mudar para tema escuro" }).click();
 
       await page.goto(`/agenda?date=${date}`);
+      await page.getByText("Expediente e fila de espera", { exact: true }).click();
       await page.getByRole("button", { name: "Liberar expediente extra", exact: true }).click();
       const opening = page.getByRole("dialog");
       await opening.getByLabel("Profissional", { exact: true }).selectOption(professional.id);

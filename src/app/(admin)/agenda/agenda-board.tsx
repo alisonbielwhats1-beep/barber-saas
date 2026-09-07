@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -148,6 +148,7 @@ function ymd(d: Date) {
 }
 
 export function AgendaBoard({
+  operations,
   initialAppointmentId,
   availabilityBlocks = [],
   date,
@@ -163,6 +164,7 @@ export function AgendaBoard({
 }: {
   initialAppointmentId?: string;
   availabilityBlocks?: AvailabilityBlock[];
+  operations?: ReactNode;
   date: string;
   salonName: string;
   timezone: string;
@@ -304,7 +306,7 @@ export function AgendaBoard({
   const navigationUnit = view === "week" ? "semana" : view === "month" || view === "list" ? "mês" : "dia";
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3">
       <header className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1 rounded-lg border border-border bg-surface-1 p-1">
@@ -362,9 +364,12 @@ export function AgendaBoard({
         </div>
       </header>
 
+      {operations && <details className="rounded-lg border border-border bg-card px-3"><summary className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-medium"><CalendarRange size={16} />Expediente e fila de espera</summary><div className="grid items-start gap-3 pb-3 xl:grid-cols-2">{operations}</div></details>}
+      <div className="grid items-start gap-2 xl:grid-cols-[1fr_auto]">
       {canCancel && <AvailabilityPanel key={blockSelection?.key ?? date} date={date} timezone={timezone} professionals={professionals} blocks={availabilityBlocks} selection={blockSelection} />}
       {canCancel && view === "day" && <div className="flex flex-wrap items-center gap-3"><button type="button" aria-pressed={blockMode} onClick={() => setBlockMode(!blockMode)} className={`inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm ${blockMode ? "border-danger bg-danger/10 text-danger" : "border-border"}`}><Ban size={16} />{blockMode ? "Sair da seleção de bloqueio" : "Selecionar intervalo na grade"}</button>{blockMode && <p className="text-xs text-muted-foreground">Arraste no horário de um profissional ou toque no início e no fim. Enter seleciona pelo teclado; Escape cancela.</p>}</div>}
 
+      </div>
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <DayKpi icon={CalendarDays} accent="#3B9EFF" label="Agendamentos (dia)" value={kpis.total.toString()} />
         <DayKpi icon={Clock} accent="#A855F7" label="Em atendimento" value={kpis.inProgress.toString()} />

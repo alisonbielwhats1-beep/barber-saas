@@ -259,9 +259,8 @@ export default async function AgendaPage({
   return (
     <>
       <AutoRefresh intervalMs={30_000} />
-      {(role === "OWNER" || role === "MANAGER") && <FlexibleQueuePanel />}
-      {(role === "OWNER" || role === "MANAGER") && <OpeningPanel date={dateStr} timezone={salon.timezone} professionals={professionals} openings={openings} />}
       <AgendaBoard
+        operations={(role === "OWNER" || role === "MANAGER") ? <><OpeningPanel date={dateStr} timezone={salon.timezone} professionals={professionals} openings={openings} /><FlexibleQueuePanel /></> : undefined}
         initialAppointmentId={selectedAppointment}
         availabilityBlocks={blocks.map(b => ({ ...b, startAt: b.startAt.toISOString(), endAt: b.endAt.toISOString() }))}
         date={dateStr}
