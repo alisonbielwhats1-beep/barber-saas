@@ -46,6 +46,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Verify monitoring failure and recovery without production requests
+        run: node --test scripts/health-monitor.test.mjs
       - name: Verify runtime environment contract
         run: npm run check:runtime
       - run: npx prisma generate
@@ -238,6 +240,16 @@ jobs:
         run: npm run test:appointment-integration
       - name: Prove tenant-isolated password recovery with PostgreSQL
         run: npm run test:password-recovery-integration
+      - name: Restore the complete current synthetic database and compare every table
+        run: |
+          docker exec ${{ job.services.postgres.id }} pg_dump -U postgres -d salon_schema_ci > "$RUNNER_TEMP/current-synthetic.sql"
+          test -s "$RUNNER_TEMP/current-synthetic.sql"
+          docker exec ${{ job.services.postgres.id }} createdb -U postgres salon_restore_current_ci
+          docker exec -i ${{ job.services.postgres.id }} psql -U postgres -d salon_restore_current_ci -v ON_ERROR_STOP=1 < "$RUNNER_TEMP/current-synthetic.sql" > /dev/null
+          docker exec -i ${{ job.services.postgres.id }} psql -X -A -t -U postgres -d salon_schema_ci -v ON_ERROR_STOP=1 < tests/fixtures/restore-fingerprint.sql > "$RUNNER_TEMP/source-fingerprint.txt"
+          docker exec -i ${{ job.services.postgres.id }} psql -X -A -t -U postgres -d salon_restore_current_ci -v ON_ERROR_STOP=1 < tests/fixtures/restore-fingerprint.sql > "$RUNNER_TEMP/restored-fingerprint.txt"
+          test -s "$RUNNER_TEMP/source-fingerprint.txt"
+          diff -u "$RUNNER_TEMP/source-fingerprint.txt" "$RUNNER_TEMP/restored-fingerprint.txt"
       - name: Build the production application for browser tests
         run: npm run build
       - name: Install browser engines

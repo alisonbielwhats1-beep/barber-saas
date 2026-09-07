@@ -1,0 +1,46 @@
+name: Disponibilidade Everflair
+
+on:
+  schedule:
+    - cron: '3-58/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: everflair-production-availability
+  cancel-in-progress: false
+
+jobs:
+  health:
+    # Standard Linux runners on this public repository; no paid services/secrets.
+    if: github.repository == 'alisonbielwhats1-beep/barber-saas' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Conferir aplicação e banco (somente leitura)
+        id: probe
+        run: node scripts/health-monitor.mjs
+      - name: Registrar falha ou recuperação
+        uses: actions/github-script@v7
+        env:
+          HEALTH_RESULT: ${{ steps.probe.outputs.result }}
+        with:
+          script: |
+            const { pathToFileURL } = require('node:url');
+            const { resolve } = require('node:path');
+            const { reconcileIncident } = await import(pathToFileURL(resolve('scripts/health-monitor.mjs')).href);
+            const result = JSON.parse(process.env.HEALTH_RESULT);
+            const incident = await reconcileIncident({ github, context, result });
+            await core.summary.addHeading('Disponibilidade Everflair')
+              .addRaw(`Estado: ${result.healthy ? 'saudável' : 'indisponível'}; motivo: ${result.reason}; tentativas: ${result.attempts}; incidente: ${incident.action}.`)
+              .write();
+            if (!result.healthy) core.setFailed('A sonda de aplicação/banco falhou. Consulte a issue de disponibilidade.');
