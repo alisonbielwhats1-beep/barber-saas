@@ -1,5 +1,13 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-07 — agenda com cores por profissional, em revisão
+
+No PR #80, fundo/faixa dos cartões passam a identificar o profissional,
+substituindo a cor do status. Cabeçalhos com fotos, filtros e legenda usam a
+mesma cor nos temas claro/escuro e nas quatro visões. Status e conflitos
+continuam explícitos, sem mudar regras operacionais. Escopo em
+`docs/AGENDA_CORES_PROFISSIONAIS_2026-09-07.md`. Sem banco ou deploy produtivo.
+
 ## 2026-09-07 — aplicativo do cliente com entrada e cores, em revisão
 
 No PR #80, entrada do cliente com fundo grafite e luzes móveis verde/lilás;

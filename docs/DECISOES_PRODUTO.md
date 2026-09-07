@@ -24,6 +24,15 @@ contatos recebem cores reconhecíveis. Reservas confirmadas têm bloco verde,
 canceladas vermelho, pendentes âmbar e em atendimento azul. Texto e ícone
 continuam explicitando o estado. Ver `CLIENTE_CORES_ENTRADA_2026-09-07.md`.
 
+## Cores da agenda por profissional — revisão de 07/09/2026
+
+Por solicitação do responsável, a cor principal dos cartões identifica o
+profissional, em todas as visões e em ambos os temas. O status usa indicador,
+selo e texto; conflitos permanecem destacados em vermelho e bloqueios
+hachurados. Esta decisão substitui o uso de status como fundo/faixa do cartão
+da agenda, sem alterar sua semântica nas demais áreas.
+Ver `AGENDA_CORES_PROFISSIONAIS_2026-09-07.md`.
+
 ## Permissões
 
 Matriz recomendada, baseada em privilégio mínimo:

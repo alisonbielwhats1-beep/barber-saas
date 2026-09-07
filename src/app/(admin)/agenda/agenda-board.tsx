@@ -37,6 +37,7 @@ import { minutesToHHMM, formatMoney } from "@/lib/utils";
 import { AppointmentDialog, type ProOption, type ServiceOption, type ClientOption } from "./appointment-form";
 import { AppointmentDetail } from "./appointment-detail";
 import { STATUS, STATUS_ORDER } from "./agenda-status";
+import { professionalColors } from "./professional-colors";
 import { moveAppointment } from "./actions";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { layoutOverlappingIntervals } from "./agenda-layout";
@@ -59,6 +60,7 @@ export type Appointment = {
   seriesId?: string | null;
   id: string;
   professionalId: string;
+  professionalColor?: string;
   startAt: string;
   endAt: string;
   priceCents: number;
@@ -156,8 +158,8 @@ export function AgendaBoard({
   date,
   salonName,
   timezone,
-  professionals,
-  appointments,
+  professionals: roster,
+  appointments: rawAppointments,
   services,
   clients,
   canOverbook,
@@ -178,6 +180,9 @@ export function AgendaBoard({
   canCreate: boolean;
   canCancel: boolean;
 }) {
+  const colors = useMemo(() => professionalColors(roster), [roster]);
+  const professionals = useMemo(() => roster.map(pro => ({ ...pro, colorHex: colors.get(pro.id)! })), [roster, colors]);
+  const appointments = useMemo(() => rawAppointments.map(appointment => ({ ...appointment, professionalColor: colors.get(appointment.professionalId) ?? "#6B9FA8" })), [rawAppointments, colors]);
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [view, setView] = useState<ViewKind>("day");
@@ -502,7 +507,12 @@ export function AgendaBoard({
         <div className="space-y-3"><BlockList blocks={availabilityBlocks.filter(b => shownPros.some(p => p.id === b.professionalId))} professionals={shownPros} timezone={timezone} /><ListView appointments={filteredAll} professionals={professionals} timezone={timezone} onOpenDetail={setDetail} /></div>
       )}
 
+      <div aria-label="Cores dos profissionais" className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-muted-foreground">
+        <span className="font-semibold">Cores por profissional</span>
+        {shownPros.map(pro => <span key={pro.id} className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="h-2.5 w-2.5 rounded-full" style={{ background: pro.colorHex ?? undefined }} />{pro.name}</span>)}
+      </div>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-muted-foreground">
+        <span className="font-semibold">Status dos atendimentos</span>
         {STATUS_ORDER.map((s) => (
           <span key={s} className="inline-flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full" style={{ background: STATUS[s].color }} />
@@ -710,8 +720,8 @@ function DayView({
           const placements = appointmentPlacements(proAppts, timezone);
           return (
             <div key={pro.id} data-pro-col data-pro-id={pro.id} className="relative shrink-0 border-r border-border last:border-r-0" style={{ flex: 1, minWidth: COL_WIDTH }}>
-              <div style={{ height: HEADER_H }} className="sticky top-0 z-10 flex flex-col items-center justify-center gap-1.5 border-b border-border bg-card px-3">
-                <span className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-muted text-xs font-semibold text-foreground">
+              <div data-professional-color={pro.colorHex} style={{ height: HEADER_H, borderBottom: `3px solid ${pro.colorHex}` }} className="sticky top-0 z-10 flex flex-col items-center justify-center gap-1.5 bg-card px-3">
+                <span style={{ borderColor: pro.colorHex ?? undefined }} className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full border-2 bg-muted text-xs font-semibold text-foreground">
                   {pro.avatarUrl ? <ImageWithFallback src={pro.avatarUrl} alt="" width={44} height={44} sizes="44px" className="h-full w-full object-cover" fallback={<span>{initials(pro.name)}</span>} /> : initials(pro.name)}
                 </span>
                 <span className="w-full truncate text-center text-xs font-medium" title={pro.name}>{pro.name}</span>
@@ -771,7 +781,8 @@ function DayView({
                       onClick={() => {
                         if (!drag?.started) onOpenDetail(a);
                       }}
-                      aria-label={`${a.clientName}, ${a.serviceName}, ${formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")}.${placement.conflict ? " Conflito de horário detectado." : ""} Abrir detalhes`}
+                      aria-label={`${a.clientName}, ${a.serviceName}, ${formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")}, ${pro.name}, ${cfg.label}.${placement.conflict ? " Conflito de horário detectado." : ""} Abrir detalhes`}
+                      data-appointment-professional={a.professionalId}
                       title={placement.conflict && !a.isOverbooked ? "Conflito de horário detectado — revise este atendimento" : undefined}
                       className={`group absolute cursor-pointer touch-pan-y select-none rounded-lg border-l-[3px] p-2 text-left text-xs shadow-sm transition focus-visible:z-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:cursor-grab ${
                         placement.conflict ? "ring-1 ring-danger/60" : ""
@@ -783,19 +794,19 @@ function DayView({
                         height,
                         left: `calc(${placement.leftPct}% + 4px)`,
                         width: `calc(${placement.widthPct}% - 8px)`,
-                        borderLeftColor: placement.conflict ? "#EF4444" : cfg.color,
-                        background: `${cfg.color}1f`,
+                        borderLeftColor: a.professionalColor,
+                        background: `color-mix(in srgb, ${a.professionalColor} 18%, hsl(var(--card)))`,
                       }}
                     >
-                      <p className="truncate font-semibold text-foreground">{a.clientName}</p>
-                      <p className="truncate text-[11px] text-muted-foreground">{a.serviceName}</p>
-                      {height >= 70 && <p className="truncate text-[10px] font-medium">{cfg.label}</p>}
+                      <p className="flex items-center gap-1.5 font-semibold text-foreground"><span aria-hidden="true" title={cfg.label} className="h-2 w-2 shrink-0 rounded-full" style={{ background: cfg.color }} /><span className="truncate">{a.clientName}</span></p>
+                      {height >= 42 && <p className="truncate text-[11px] text-foreground/85">{a.serviceName}</p>}
+                      {height >= 90 && <span style={{ backgroundColor: "hsl(var(--card))" }} className={`inline-flex max-w-full truncate rounded px-1 text-[10px] font-medium ${cfg.badgeClass}`}>{cfg.label}</span>}
                       {a.pendingReschedule && (
                         <span className="mt-1 inline-flex rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-warning">
                           Aguardando aceite
                         </span>
                       )}
-                      {height > 46 && (
+                      {height >= 70 && (
                         <p className="mt-0.5 text-[10px] font-medium text-foreground">
                           {formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")} · {formatMoney(a.priceCents)}
                         </p>
@@ -940,7 +951,8 @@ function WeekView({
                     <button
                       key={a.id}
                       onClick={() => onOpenDetail(a)}
-                      aria-label={`${formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")}, ${a.clientName}, ${a.serviceName}${placement.conflict ? ", conflito de horário" : ""}`}
+                      aria-label={`${formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")}, ${a.clientName}, ${a.serviceName}, ${professionals.find(p => p.id === a.professionalId)?.name ?? "Profissional"}, ${cfg.label}${placement.conflict ? ", conflito de horário" : ""}`}
+                      data-appointment-professional={a.professionalId}
                       title={placement.conflict ? "Conflito de horário detectado — revise este atendimento" : undefined}
                       className={`absolute z-[2] overflow-hidden rounded-md border-l-[3px] px-1.5 py-1 text-left text-[10px] shadow-sm transition hover:shadow-md ${
                         placement.conflict ? "ring-1 ring-danger/60" : ""
@@ -950,12 +962,13 @@ function WeekView({
                         height,
                         left: `calc(${placement.leftPct}% + 3px)`,
                         width: `calc(${placement.widthPct}% - 6px)`,
-                        borderLeftColor: placement.conflict ? "#EF4444" : cfg.color,
-                        background: `${cfg.color}1f`,
+                        borderLeftColor: a.professionalColor,
+                        background: `color-mix(in srgb, ${a.professionalColor} 18%, hsl(var(--card)))`,
                       }}
                     >
                       <p className="truncate font-semibold">{formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")} {a.clientName.split(" ")[0]}</p>
-                      {height > 30 && <p className="truncate text-muted-foreground">{a.serviceName}</p>}
+                      {height > 30 && <p className="truncate text-foreground/85">{a.serviceName}</p>}
+                      {height >= 70 && <span style={{ backgroundColor: "hsl(var(--card))" }} className={`inline-flex max-w-full truncate rounded px-1 text-[9px] ${cfg.badgeClass}`}>{cfg.label}</span>}
                       {placement.conflict && <AlertTriangle className="absolute right-1 top-1 h-3 w-3 text-danger" aria-label="Conflito de horário" />}
                     </button>
                   );
@@ -1049,8 +1062,7 @@ function MonthView({
               <span className="mt-0.5 flex h-1.5 items-center justify-center gap-0.5" aria-hidden="true">
                 {blocksOnDate(blocks, dStr, timezone).length > 0 && <Ban className="h-3 w-3 text-danger" />}
                 {dayAppts.slice(0, 3).map((appointment) => {
-                  const cfg = STATUS[appointment.status as keyof typeof STATUS] ?? STATUS.CONFIRMED;
-                  return <span key={appointment.id} className="h-1.5 w-1.5 rounded-full" style={{ background: cfg.color }} />;
+                  return <span key={appointment.id} className="h-1.5 w-1.5 rounded-full" style={{ background: appointment.professionalColor }} />;
                 })}
               </span>
             </button>
@@ -1093,11 +1105,12 @@ function MonthView({
                       type="button"
                       key={a.id}
                       onClick={() => onOpenDetail(a)}
-                      aria-label={`${formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")}, ${a.clientName}, ${a.serviceName}`}
+                      aria-label={`${formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")}, ${a.clientName}, ${a.serviceName}, ${cfg.label}`}
+                      data-appointment-professional={a.professionalId}
                       className="flex min-h-6 w-full items-center gap-1 truncate rounded px-1 py-1 text-left text-[11px] transition hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      style={{ background: `${cfg.color}14` }}
+                      style={{ background: `color-mix(in srgb, ${a.professionalColor} 18%, hsl(var(--card)))` }}
                     >
-                      <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: cfg.color }} />
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: a.professionalColor }} />
                       <span className="truncate">{formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")} {a.clientName.split(" ")[0]}</span>
                     </button>
                   );
@@ -1164,7 +1177,7 @@ function ListView({
                 <p className="text-sm font-semibold">{formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")}</p>
                 <p className="text-[10px] text-muted-foreground">{formatInTimeZone(new Date(a.endAt), timezone, "HH:mm")}</p>
               </div>
-              <span className="h-8 w-1 shrink-0 rounded-full" style={{ background: cfg.color }} />
+              <span className="h-8 w-1 shrink-0 rounded-full" style={{ background: a.professionalColor }} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[14px] font-medium">{a.clientName}</p>
                 <p className="truncate text-[12px] text-muted-foreground">
