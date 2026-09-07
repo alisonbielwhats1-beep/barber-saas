@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
-import { BrandMark } from "@/components/brand";
+import { BrandLogo, BrandMark } from "@/components/brand";
+import { ThemeToggle } from "./theme-toggle";
 import { SidebarNav } from "./sidebar-nav";
 import { SidebarFooter } from "./sidebar-footer";
 import { SalonSwitcher } from "./salon-switcher";
@@ -28,12 +29,18 @@ export function AdminSidebar({ current, memberships, role, plan, unreadNotificat
   return (
     <aside aria-label="Menu do estabelecimento" data-collapsed={collapsed} className={`admin-sidebar hidden shrink-0 flex-col border-r border-border lg:flex print:hidden ${collapsed ? "w-[72px]" : "w-56"}`}>
       <div className={`flex shrink-0 items-center p-3 ${collapsed ? "flex-col gap-1" : "justify-between"}`}>
-        <span role="img" aria-label="Everflair — símbolo Flair" className="grid h-11 w-11 place-items-center text-[hsl(var(--selection-foreground))]">
-          <BrandMark className="!h-8 !w-8" />
-        </span>
+        {collapsed ? (
+          <span role="img" aria-label="Everflair — símbolo Flair" className="grid h-11 w-11 place-items-center text-[hsl(var(--selection-foreground))]">
+            <BrandMark className="!h-8 !w-8" />
+          </span>
+        ) : <BrandLogo className="!h-11 !w-[144px] text-[hsl(var(--selection-foreground))]" />}
         <button type="button" onClick={toggle} aria-label={label} title={label} aria-expanded={!collapsed} aria-controls="admin-navigation" className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-card-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           {collapsed ? <PanelLeftOpen size={19} /> : <PanelLeftClose size={19} />}
         </button>
+      </div>
+      <div className={`flex px-3 pb-3 ${collapsed ? "justify-center" : "justify-between items-center"}`}>
+        {!collapsed && <span className="text-xs font-medium text-muted-foreground">Aparência</span>}
+        <ThemeToggle />
       </div>
       <div className="space-y-2 px-3 pb-3">
         <SalonSwitcher current={current} memberships={memberships} compact={collapsed} />

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
 
 test.describe("@database jornadas críticas no PostgreSQL descartável", () => {
   test.skip(!process.env.RUN_DATABASE_E2E, "Exige o banco descartável preparado pelo CI.");
@@ -84,10 +85,16 @@ test.describe("@database jornadas críticas no PostgreSQL descartável", () => {
     await expect(page.getByText("Pedido registrado. Acompanhe a confirmação em seus agendamentos.")).toBeVisible();
     await page.screenshot({ path: test.info().outputPath("cliente-dependente-fila.png"), fullPage: true, animations: "disabled" });
     await page.getByRole("button", { name: "Revisar reserva" }).click();
+    await expect(page.getByRole("dialog")).toHaveAttribute("data-theme", "salon-dark");
     await page.getByRole("button", { name: "Confirmar reserva" }).click();
     await expect(page.getByRole("heading", { name: "Reserva confirmada" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Ver minhas reservas" })).toBeVisible();
     await page.getByRole("link", { name: "Ver minhas reservas" }).click();
     await expect(page.getByText("Atendimento para Dependente E2E")).toBeVisible();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.locator('.client-reservation[data-status="CONFIRMED"]')).toHaveCSS("background-color", "rgb(18, 61, 46)");
+    expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations).toEqual([]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
+    await page.screenshot({ path: test.info().outputPath("cliente-reserva-confirmada.png"), fullPage: true, animations: "disabled" });
   });
 });

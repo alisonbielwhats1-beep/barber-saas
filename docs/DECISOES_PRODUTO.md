@@ -4,6 +4,43 @@ Estas decisões consolidam as respostas do responsável pelo produto e as
 recomendações técnicas adotadas. Elas orientam a implementação; não significam
 que todos os itens abaixo já estão implementados na Fase 1.
 
+## Aparência administrativa — revisão de 07/09/2026
+
+Fundos escuros em grafite neutro, sem roxo dominante. Após nova solicitação,
+o tema claro substitui marfim/pedra por cinza quase branco frio (`#F6F7F9`),
+cartões brancos, contornos suaves e sombras discretas para separar os painéis.
+Campos mantêm bordas mais definidas e foco visível.
+Botões principais verdes, próximo atendimento verde, execução azul,
+pendências âmbar e avisos críticos vermelhos. Lilás restrito à marca e seleção.
+Cores de serviços continuam sendo categorias, sem substituir os estados.
+Após revisão do tema claro, o próximo atendimento recebe verde sólido da
+marca com texto claro. Indicadores e próximas ações ganham acentos semânticos
+mais presentes; cobre diferencia ocupação. Os fundos gerais continuam neutros.
+O menu expandido exibe símbolo e nome; recolhido, somente símbolo. Controle de
+tema no topo, inclusive no celular. Ver `CORES_E_APRESENTACAO_2026-09-07.md`.
+
+## Aparência do aplicativo do cliente — revisão de 07/09/2026
+
+Por solicitação do responsável, a entrada do cliente usa fundo grafite com
+movimento verde/lilás e marca clara. Agendamento e botões principais verdes;
+contatos recebem cores reconhecíveis. Reservas confirmadas têm bloco verde,
+canceladas vermelho, pendentes âmbar e em atendimento azul. Texto e ícone
+continuam explicitando o estado. Ver `CLIENTE_CORES_ENTRADA_2026-09-07.md`.
+
+O ícone de instalação usa o símbolo Flair do Everflair em lilás claro sobre
+grafite, compartilhado entre painel e estabelecimentos. Não usa iniciais nem
+a foto do salão. Nome e destino do atalho continuam identificando o
+estabelecimento. Ver `ICONE_INSTALACAO_2026-09-07.md`.
+
+## Cores da agenda por profissional — revisão de 07/09/2026
+
+Por solicitação do responsável, a cor principal dos cartões identifica o
+profissional, em todas as visões e em ambos os temas. O status usa indicador,
+selo e texto; conflitos permanecem destacados em vermelho e bloqueios
+hachurados. Esta decisão substitui o uso de status como fundo/faixa do cartão
+da agenda, sem alterar sua semântica nas demais áreas.
+Ver `AGENDA_CORES_PROFISSIONAIS_2026-09-07.md`.
+
 ## Permissões
 
 Matriz recomendada, baseada em privilégio mínimo:

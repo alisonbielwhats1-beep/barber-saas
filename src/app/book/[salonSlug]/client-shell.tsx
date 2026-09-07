@@ -7,6 +7,7 @@ import { Bell } from "lucide-react";
 import { BottomNav } from "./bottom-nav";
 import { UnreadBadge } from "@/components/unread-badge";
 import { cn } from "@/lib/utils";
+import { DialogThemeProvider } from "@/components/ui/dialog";
 
 const UnreadNotificationsContext = createContext(0);
 
@@ -30,6 +31,7 @@ export function ClientShell({
 
   return (
     <UnreadNotificationsContext.Provider value={unreadNotifications}>
+      <DialogThemeProvider value="salon-dark">
       <div
         id="main-content"
         tabIndex={-1}
@@ -43,6 +45,7 @@ export function ClientShell({
       {!hideNavigation && (
         <BottomNav salonSlug={salonSlug} unreadNotifications={unreadNotifications} />
       )}
+      </DialogThemeProvider>
     </UnreadNotificationsContext.Provider>
   );
 }

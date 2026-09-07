@@ -58,46 +58,86 @@
     color-scheme: dark;
   }
 
+  /* Flair controls: color is scoped to the admin, including portalled dialogs. */
+  [data-theme="admin-dark"] {
+    --background: 240 5% 8%;
+    --surface-1: 240 5% 11%;
+    --foreground: 240 8% 96%;
+    --card: 240 5% 13%;
+    --card-foreground: 240 8% 96%;
+    --card-hover: 240 5% 17%;
+    --elevated: 240 5% 19%;
+    --muted: 240 4% 21%;
+    --muted-foreground: 240 5% 73%;
+    --border: 240 5% 25%;
+    --border-strong: 240 5% 37%;
+    --input: 240 5% 28%;
+    --primary: 155 52% 65%;
+    --primary-foreground: 158 48% 12%;
+    --secondary: 240 5% 21%;
+    --secondary-foreground: 240 8% 96%;
+    --accent: 155 52% 65%;
+    --accent-foreground: 158 48% 12%;
+    --ring: 155 52% 65%;
+    --selection: 262 27% 24%;
+    --selection-foreground: 264 65% 88%;
+    --selection-solid: 264 54% 73%;
+    --selection-on-solid: 258 35% 14%;
+    /* Texto de status sobre cartões e fundos semânticos suaves. */
+    --info: 213 92% 66%;
+    --danger: 0 78% 68%;
+    --destructive: 0 67% 45%;
+    --destructive-foreground: 0 0% 100%;
+    color: hsl(var(--foreground));
+    color-scheme: dark;
+  }
+
   /* ─── Admin: Light theme (toggled via ThemeProvider) ───────────────────── */
   [data-theme="admin-light"] {
-    --background: 40 33% 95%;         /* marfim Everflair #F6F3ED */
-    --surface-1: 40 33% 98%;          /* marfim elevado, quase branco */
+    --background: 220 20% 97%;       /* branco frio, sem tonalidade bege */
+    --surface-1: 220 20% 98%;
     --foreground: 218 10% 15%;        /* grafite Everflair #23262B */
 
-    --card: 40 33% 99%;
+    --card: 0 0% 100%;
     --card-foreground: 218 10% 15%;
-    --card-hover: 40 25% 96%;
-    --elevated: 40 33% 99%;
+    --card-hover: 220 20% 97%;
+    --elevated: 0 0% 100%;
 
-    --muted: 35 18% 90%;              /* pedra em tom suave */
+    --muted: 220 14% 94%;
     --muted-foreground: 218 7% 38%;
 
-    --border: 35 18% 85%;
-    --border-strong: 35 18% 68%;
-    --input: 40 33% 99%;
-    --ring: 263 36% 45%;
+    --border: 220 14% 90%;
+    --border-strong: 220 10% 69%;
+    --input: 220 10% 58%;
+    --panel-shadow: 0 2px 4px rgb(22 34 52 / 0.04), 0 8px 24px -8px rgb(22 34 52 / 0.12);
+    --ring: 158 71% 24%;
     /* Lilás autorizado como acento de navegação; ações operacionais mantêm semântica. */
     --selection: 263 65% 95%;
     --selection-foreground: 263 38% 38%;
     --selection-solid: 263 36% 45%;
     --selection-on-solid: 0 0% 100%;
 
-    /* Ações em grafite, com contraste sobre o marfim. */
-    --primary: 218 10% 15%;           /* grafite para ações e texto legíveis */
-    --primary-foreground: 40 33% 95%;
+    /* Verde nos controles; lilás fica restrito à marca e à seleção. */
+    --primary: 158 71% 24%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 35 18% 90%;
-    --secondary-foreground: 218 10% 15%;
+    --secondary: 220 14% 94%;
+    --secondary-foreground: 218 10% 23%;
 
-    --accent: 22 41% 52%;
-    --accent-foreground: 218 10% 15%;
+    --accent: 158 71% 24%;
+    --accent-foreground: 0 0% 100%;
 
     /* Semantic — slightly deeper for light bg legibility */
-    --success: 152 55% 30%;
-    --info: 213 85% 44%;
+    --success: 158 65% 25%;
+    --info: 213 85% 40%;
     --warning: 35 90% 29%;
     --danger: 0 68% 46%;
     --marketing: 267 72% 50%;
+
+    /* Contraste concentrado na prioridade; cobre faz parte da identidade. */
+    --priority-surface: #126949;
+    --priority-surface-hover: #0f5b40;
+    --copper: 22 50% 36%;
 
     --destructive: 0 68% 46%;
     --destructive-foreground: 0 0% 100%;
@@ -191,21 +231,29 @@
 
     --border: 230 8% 18%;
     --input: 230 8% 18%;
-    --ring: 35 18% 81%;
+    --ring: 155 52% 65%;
 
-    --primary: 40 33% 95%;
-    --primary-foreground: 218 10% 15%;
+    --primary: 155 52% 65%;
+    --primary-foreground: 158 48% 12%;
 
     --secondary: 230 8% 15%;
     --secondary-foreground: 40 30% 96%;
 
-    --accent: 22 41% 52%;
-    --accent-foreground: 218 10% 15%;
+    --accent: 264 54% 73%;
+    --accent-foreground: 258 35% 14%;
+    --success: 155 52% 65%;
+    --info: 213 92% 72%;
+    --warning: 38 90% 70%;
+    --danger: 0 85% 78%;
+    --selection: 262 27% 24%;
+    --selection-foreground: 264 65% 88%;
 
     --destructive: 0 72% 62%;
     --destructive-foreground: 230 12% 8%;
 
     --radius: 1rem;
+    color: hsl(var(--foreground));
+    color-scheme: dark;
   }
 
   * {
@@ -292,6 +340,136 @@
   .admin-main {
     background:
       linear-gradient(180deg, hsl(var(--surface-1) / 0.18), transparent 18rem);
+  }
+
+  /* Dark surfaces stay neutral; lilac belongs to the brand and selection only. */
+  [data-theme="admin-dark"] .admin-shell,
+  [data-theme="admin-dark"] .admin-main {
+    background: hsl(var(--background));
+  }
+
+  [data-theme="admin-dark"] .admin-sidebar {
+    background: hsl(var(--surface-1));
+  }
+
+  /* Clean light canvas: depth separates panels instead of dark outlines. */
+  [data-theme="admin-light"] .admin-shell,
+  [data-theme="admin-light"] .admin-main {
+    background: hsl(var(--background));
+  }
+
+  [data-theme="admin-light"] .admin-sidebar {
+    background: hsl(var(--card));
+    box-shadow: 6px 0 24px -16px rgb(22 34 52 / 0.18);
+  }
+
+  [data-theme="admin-light"] .admin-main :where(
+    .bg-card.border.rounded-lg,
+    .bg-card.border.rounded-xl,
+    .bg-card.border.rounded-2xl,
+    .bg-card.border.rounded-3xl,
+    .shadow-premium
+  ):not(button):not(input):not(textarea):not(select):not(:has(> input)) {
+    --tw-shadow: var(--panel-shadow);
+    box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+  }
+
+  [data-theme="admin-light"] [role="dialog"]:not([data-theme="salon-dark"]) {
+    --tw-shadow: 0 8px 24px rgb(22 34 52 / 0.1), 0 24px 64px -16px rgb(22 34 52 / 0.22);
+    box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+  }
+
+  [data-theme="admin-light"] .admin-main :where(input:not([type="checkbox"]):not([type="radio"]), textarea, select):not(:focus) {
+    border-color: hsl(var(--input));
+  }
+
+  [data-theme="admin-light"] .admin-main .border:has(> input.bg-transparent) {
+    border-color: hsl(var(--input));
+  }
+
+  [data-theme="admin-light"] .admin-main .border:has(> input.bg-transparent):focus-within {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
+  /* Light operations: one solid priority, with smaller semantic accents. */
+  [data-theme="admin-light"] .now-appointment[data-cue="next"] {
+    --primary: 0 0% 100%;
+    --foreground: 0 0% 100%;
+    --muted-foreground: 150 32% 89%;
+    --border: 150 30% 72%;
+    --ring: 0 0% 100%;
+    color: hsl(var(--foreground));
+    background: var(--priority-surface);
+    border-color: var(--priority-surface);
+    box-shadow: 0 8px 20px -14px rgb(18 105 73 / 0.65);
+  }
+
+  [data-theme="admin-light"] .now-appointment[data-cue="next"]:hover {
+    background: var(--priority-surface-hover);
+  }
+
+  [data-theme="admin-light"] .now-appointment[data-cue="next"] .now-appointment-cue {
+    color: hsl(var(--foreground));
+  }
+
+  [data-theme="admin-light"] .now-appointment[data-cue="next"] .now-appointment-status {
+    background: hsl(var(--card));
+  }
+
+  [data-theme="admin-light"] .now-appointment[data-cue="next"] .now-appointment-service-marker {
+    box-shadow: 0 0 0 1px rgb(255 255 255 / 0.7);
+  }
+
+  [data-theme="admin-light"] .now-appointment[data-cue="progress"] {
+    background: hsl(var(--info) / 0.1);
+    border-color: hsl(var(--info) / 0.5);
+  }
+
+  [data-theme="admin-light"] .now-appointment[data-cue="pending"] {
+    background: hsl(var(--warning) / 0.09);
+    border-color: hsl(var(--warning) / 0.5);
+  }
+
+  [data-theme="admin-light"] .now-appointment[data-cue="review"] {
+    background: hsl(var(--danger) / 0.08);
+    border-color: hsl(var(--danger) / 0.55);
+  }
+
+  [data-theme="admin-light"] :is(.dashboard-kpi, .dashboard-opportunity) {
+    --indicator-accent: var(--primary);
+    border-top: 3px solid hsl(var(--indicator-accent));
+  }
+
+  [data-theme="admin-light"] :is([data-accent="info"], [data-tone="info"]) {
+    --indicator-accent: var(--info);
+  }
+
+  [data-theme="admin-light"] :is([data-accent="warning"], [data-tone="warning"]) {
+    --indicator-accent: var(--warning);
+  }
+
+  [data-theme="admin-light"] [data-accent="copper"] {
+    --indicator-accent: var(--copper);
+  }
+
+  [data-theme="admin-light"] :is(.dashboard-kpi-icon, .dashboard-opportunity-icon) {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.6rem;
+    background: hsl(var(--indicator-accent) / 0.14);
+    color: hsl(var(--indicator-accent));
+  }
+
+  [data-theme="admin-light"] .dashboard-opportunity-value {
+    color: hsl(var(--indicator-accent));
+  }
+
+  [data-theme="admin-light"] :is(.dashboard-kpi, .dashboard-opportunity):hover {
+    border-top-color: hsl(var(--indicator-accent));
+    box-shadow: 0 8px 20px -14px rgb(35 38 43 / 0.3);
   }
 
   /* Ritmo visual comum da landing: espaçamento, superfície e hierarquia. */

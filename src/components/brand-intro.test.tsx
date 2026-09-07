@@ -39,21 +39,35 @@ describe("Everflair entrance", () => {
     navigation.path = "/book/studio-flair";
     view.rerender(<BrandIntro />);
     expect(view.container.querySelector('.ef-intro[data-audience="client"]')).not.toBeNull();
-    act(() => vi.advanceTimersByTime(700));
+    act(() => vi.advanceTimersByTime(1100));
     navigation.path = "/book/studio-flair/agendar";
     view.rerender(<BrandIntro />);
-    act(() => vi.advanceTimersByTime(700));
+    act(() => vi.advanceTimersByTime(1100));
+    expect(view.container.querySelector(".ef-intro")).toBeNull();
+    navigation.path = "/book/studio-flair/minhas";
+    view.rerender(<BrandIntro />);
     expect(view.container.querySelector(".ef-intro")).toBeNull();
     view.unmount();
-    expect(render(<BrandIntro />).container.querySelector(".ef-intro")).toBeNull();
+    // A new app opening is independent of the old tab session.
+    expect(render(<BrandIntro />).container.querySelector(".ef-intro")).not.toBeNull();
   });
   it("does not share the client's introduction with another establishment", () => {
     navigation.path = "/book/studio-a";
     const view = render(<BrandIntro />);
-    act(() => vi.advanceTimersByTime(1400));
+    act(() => vi.advanceTimersByTime(2200));
     navigation.path = "/book/studio-b";
     view.rerender(<BrandIntro />);
     expect(view.container.querySelector('.ef-intro[data-audience="client"]')).not.toBeNull();
+  });
+  it("finishes the client entrance under StrictMode without replaying on internal navigation", () => {
+    navigation.path = "/book/studio-flair";
+    const view = render(<StrictMode><BrandIntro /></StrictMode>);
+    expect(view.container.querySelector(".ef-intro-orbit")).not.toBeNull();
+    act(() => vi.advanceTimersByTime(2200));
+    expect(view.container.querySelector(".ef-intro")).toBeNull();
+    navigation.path = "/book/studio-flair/agendar";
+    view.rerender(<StrictMode><BrandIntro /></StrictMode>);
+    expect(view.container.querySelector(".ef-intro")).toBeNull();
   });
   it("leaves the app usable when session storage is unavailable", () => {
     const storage = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => { throw new Error("Storage disabled"); });

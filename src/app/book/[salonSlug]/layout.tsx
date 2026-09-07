@@ -3,6 +3,8 @@ import { getClientSession } from "@/lib/client-auth";
 import { withSalonBySlug } from "@/lib/prisma-tenant";
 import { resolveClientSessionInTenant } from "@/lib/public-appointment";
 import { ClientShell } from "./client-shell";
+import { PWA_APPLE_ICON, PWA_FAVICON } from "@/lib/pwa-icons";
+import "./client-theme.css";
 
 /**
  * O mesmo gate transacional da página protege os metadados: um salão suspenso
@@ -23,6 +25,7 @@ export async function generateMetadata({
   return {
     title: salon ? `${salon.name} — agendamento online` : "Everflair",
     manifest: `/book/${salonSlug}/manifest.webmanifest`,
+    icons: { icon: PWA_FAVICON, apple: PWA_APPLE_ICON },
     appleWebApp: {
       capable: true,
       statusBarStyle: "black-translucent",

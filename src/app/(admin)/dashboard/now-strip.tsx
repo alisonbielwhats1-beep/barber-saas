@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ptBR } from "date-fns/locale";
 import { formatInTimeZone } from "date-fns-tz";
-import { AlertTriangle, ArrowRight } from "lucide-react";
+import { AlertTriangle, ArrowRight, Clock3 } from "lucide-react";
 import { formatMoney } from "@/lib/utils";
 import { WhatsAppReminderButton } from "./whatsapp-reminder-button";
 
@@ -35,6 +35,15 @@ export function NowStrip({
   apptsTomorrow: number;
   outOfStock: number;
 }) {
+  const visibleAppointments = appointments.slice(0, 4);
+  const nextAppointment = visibleAppointments
+    .filter((appointment) =>
+      ["PENDING", "CONFIRMED"].includes(appointment.status) && appointment.startAt >= now,
+    )
+    .reduce<NowStripAppointment | undefined>((next, appointment) =>
+      !next || appointment.startAt < next.startAt ? appointment : next, undefined,
+    );
+
   return (
     <section
       aria-labelledby="now-strip-title"
@@ -90,31 +99,36 @@ export function NowStrip({
             aria-label="Próximos atendimentos de hoje"
             className="stagger scrollbar-dark flex snap-x gap-2 overflow-x-auto pb-1 sm:grid sm:grid-cols-2 sm:overflow-visible sm:pb-0 xl:grid-cols-4"
           >
-            {appointments.slice(0, 4).map((appointment, index) => (
+            {visibleAppointments.map((appointment) => {
+              const cue = appointmentCue(appointment, now, appointment.id === nextAppointment?.id);
+              return (
               <div
                 key={appointment.id}
-                className={`group relative w-[78vw] max-w-72 shrink-0 snap-start rounded-xl border p-3.5 pb-12 transition-colors sm:w-auto sm:max-w-none sm:min-w-0 ${
-                  index === 0
-                    ? "border-primary/30 bg-primary/[0.07] hover:bg-primary/10"
-                    : "border-border bg-surface-1/70 hover:border-border-strong hover:bg-card-hover"
+                data-cue={cue.kind}
+                className={`now-appointment group relative w-[78vw] max-w-72 shrink-0 snap-start rounded-xl border p-3.5 pb-12 transition-colors sm:w-auto sm:max-w-none sm:min-w-0 ${
+                  cue.card
                 }`}
               >
                 <Link
                   href={`/agenda?date=${todayDate}`}
-                  aria-label={`${formatInTimeZone(appointment.startAt, timezone, "HH:mm")}, ${appointment.client.name}, ${appointment.service.name}. Abrir agenda`}
+                  aria-label={`${cue.label}. ${formatInTimeZone(appointment.startAt, timezone, "HH:mm")}, ${appointment.client.name}, ${appointment.service.name}. Abrir agenda`}
                   className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
+                  <p className={`now-appointment-cue mb-3 flex items-center gap-1.5 text-[11px] font-semibold ${cue.text}`}>
+                    {cue.urgent ? <AlertTriangle aria-hidden="true" className="h-3.5 w-3.5 shrink-0" /> : <Clock3 aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />}
+                    {cue.label}
+                  </p>
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-[15px] font-semibold tabular-nums">
                       {formatInTimeZone(appointment.startAt, timezone, "HH:mm")}
                     </span>
                     <span
-                      className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${
+                      className={`now-appointment-status rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${
                         appointment.status === "IN_PROGRESS"
-                          ? "bg-primary/15 text-primary"
+                          ? "bg-info/10 text-info"
                           : appointment.status === "PENDING"
                             ? "bg-warning/10 text-warning"
-                            : "bg-muted text-muted-foreground"
+                            : "bg-success/10 text-success"
                       }`}
                     >
                       {appointmentStatusLabel(appointment.status)}
@@ -123,7 +137,7 @@ export function NowStrip({
                   <div className="mt-3 flex min-w-0 gap-2.5">
                     <span
                       aria-hidden="true"
-                      className="mt-1 h-8 w-1 shrink-0 rounded-full"
+                      className="now-appointment-service-marker mt-1 h-8 w-1 shrink-0 rounded-full"
                       style={{ background: appointment.service.colorHex ?? "hsl(var(--primary))" }}
                     />
                     <div className="min-w-0">
@@ -147,7 +161,8 @@ export function NowStrip({
                   professionalName={appointment.professional.user.name}
                 />
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -172,6 +187,34 @@ export function NowStrip({
   );
 }
 
+function appointmentCue(appointment: NowStripAppointment, now: Date, isNext: boolean) {
+  if (appointment.status === "IN_PROGRESS") return {
+    kind: "progress",
+    label: "Em atendimento", text: "text-info", urgent: false,
+    card: "border-info/40 bg-info/[0.04] hover:border-info/60",
+  };
+  if (appointment.startAt < now) return {
+    kind: "review",
+    label: "Horário ultrapassado · revisar início", text: "text-danger", urgent: true,
+    card: "border-danger/50 bg-danger/[0.04] hover:border-danger/70",
+  };
+  if (isNext) return {
+    kind: "next",
+    label: "Próximo atendimento", text: "text-success", urgent: false,
+    card: "border-success/60 bg-success/[0.06] ring-1 ring-success/20 hover:border-success",
+  };
+  if (appointment.status === "PENDING") return {
+    kind: "pending",
+    label: "Aguardando confirmação", text: "text-warning", urgent: false,
+    card: "border-warning/40 bg-surface-1/70 hover:border-warning/60",
+  };
+  return {
+    kind: "scheduled",
+    label: "Agendado para hoje", text: "text-muted-foreground", urgent: false,
+    card: "border-border bg-surface-1/70 hover:border-border-strong hover:bg-card-hover",
+  };
+}
+
 function appointmentStatusLabel(status: string) {
   if (status === "IN_PROGRESS") return "Em atendimento";
   if (status === "PENDING") return "A confirmar";
@@ -182,7 +225,7 @@ function DailyPulse({ label, value, emphasis }: { label: string; value: string; 
   return (
     <div className="flex min-h-16 items-center justify-between gap-3 bg-surface-1 px-4 py-3 sm:block">
       <p className="text-[12px] text-muted-foreground">{label}</p>
-      <p className={`text-[16px] font-semibold tracking-tight sm:mt-1 ${emphasis ? "text-primary" : ""}`}>
+      <p className={`text-[16px] font-semibold tracking-tight sm:mt-1 ${emphasis ? "text-success" : "text-info"}`}>
         {value}
       </p>
     </div>

@@ -83,8 +83,7 @@ export function BottomNav({
               className={cn(
                 "relative grid h-8 w-8 place-items-center rounded-full transition-colors",
                 active && !prominent && "bg-primary/15",
-                prominent && active && "h-11 w-11 bg-primary text-primary-foreground shadow-lg shadow-primary/20",
-                prominent && !active && "h-11 w-11 border border-border bg-muted text-muted-foreground",
+                prominent && "h-11 w-11 bg-primary text-primary-foreground shadow-lg shadow-primary/20",
               )}
             >
               <it.icon aria-hidden="true" className="h-5 w-5" strokeWidth={active ? 2.5 : 2} />

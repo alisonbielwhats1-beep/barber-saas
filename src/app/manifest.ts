@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { PWA_ICONS } from "@/lib/pwa-icons";
+import { PWA_BACKGROUND, PWA_ICONS } from "@/lib/pwa-icons";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
@@ -8,8 +8,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Agenda e gestão para salões, barbearias e profissionais de beleza.",
     start_url: "/",
     display: "standalone",
-    background_color: "#f6f3ed",
-    theme_color: "#23262b",
+    background_color: PWA_BACKGROUND,
+    theme_color: PWA_BACKGROUND,
     lang: "pt-BR",
     icons: [...PWA_ICONS],
   };

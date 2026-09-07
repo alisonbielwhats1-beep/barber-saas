@@ -247,7 +247,7 @@ export default async function DashboardPage({
         <section className="rounded-2xl border border-border bg-card p-5">
           <div className="mb-3 flex items-center justify-between">
             <PanelTitle icon={Bell}>Lembretes de amanhã</PanelTitle>
-            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
+            <span className="rounded-full bg-warning/10 px-2 py-0.5 text-[11px] font-semibold text-warning">
               {reminders.length} sem lembrete
             </span>
           </div>
@@ -258,7 +258,7 @@ export default async function DashboardPage({
       {/* ── Hero KPIs ──────────────────────────────────────── */}
       <section className="stagger grid gap-3 sm:grid-cols-2 xl:grid-cols-12">
         <HeroKpi
-          className="xl:col-span-4"
+          className="xl:col-span-3"
           featured
           accent="primary"
           icon={Wallet}
@@ -277,14 +277,14 @@ export default async function DashboardPage({
         />
         <HeroKpi
           className="xl:col-span-3"
-          accent="marketing"
+          accent="copper"
           icon={Gauge}
           label="Taxa de ocupação"
           value={`${Math.round(m.occupancy.rate * 100)}%`}
           hint={`${Math.round(m.occupancy.idleMinutes / 60)}h ociosas`}
         />
         <HeroKpi
-          className="xl:col-span-2"
+          className="xl:col-span-3"
           accent="warning"
           icon={Receipt}
           label="Ticket médio"
@@ -485,7 +485,7 @@ export default async function DashboardPage({
 
 /* ─────────────────────────── Building blocks ─────────────────────────── */
 
-type Accent = "primary" | "info" | "warning" | "danger" | "marketing" | "muted";
+type Accent = "primary" | "info" | "warning" | "danger" | "copper" | "muted";
 
 /* Match the restrained KPI accents of the approved 6fd3d21 palette. */
 const ACCENT: Record<Accent, { chip: string }> = {
@@ -493,7 +493,7 @@ const ACCENT: Record<Accent, { chip: string }> = {
   info:      { chip: "bg-muted text-muted-foreground" },
   warning:   { chip: "bg-muted text-muted-foreground" },
   danger:    { chip: "bg-muted text-muted-foreground" },
-  marketing: { chip: "bg-muted text-muted-foreground" },
+  copper:    { chip: "bg-muted text-muted-foreground" },
   muted:     { chip: "bg-muted text-muted-foreground" },
 };
 
@@ -520,7 +520,8 @@ function HeroKpi({
 }) {
   return (
     <div
-      className={`card-interactive rounded-2xl border p-5 ${
+      data-accent={accent}
+      className={`dashboard-kpi card-interactive rounded-2xl border p-5 ${
         featured
           ? "border-primary/30 bg-card sm:p-6"
           : "border-border bg-card"
@@ -530,7 +531,7 @@ function HeroKpi({
         <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
           {label}
         </span>
-        <span className={`grid h-8 w-8 place-items-center rounded-lg ${ACCENT[accent].chip}`}>
+        <span className={`dashboard-kpi-icon grid h-8 w-8 place-items-center rounded-lg ${ACCENT[accent].chip}`}>
           <Icon className="h-4 w-4" />
         </span>
       </div>

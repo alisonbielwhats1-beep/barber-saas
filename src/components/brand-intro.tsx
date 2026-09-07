@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { BrandLogo } from "./brand";
 
@@ -10,6 +10,7 @@ const SESSION_KEY = "everflair:intro:flair:v2";
 export function BrandIntro() {
   const pathname = usePathname();
   const [visibleKey, setVisibleKey] = useState<string | null>(null);
+  const clientEntrances = useRef(new Set<string>());
   const clientSlug = pathname?.match(/^\/book\/([^/]+)(?:\/|$)/)?.[1];
   const eligible = Boolean(clientSlug) || pathname === "/login" ||
     /^\/(dashboard|agenda|hoje|clientes|profissionais|servicos|produtos|configuracoes|relatorios|marketing|pacotes|pagamentos)(\/|$)/.test(pathname ?? "");
@@ -18,19 +19,24 @@ export function BrandIntro() {
   useEffect(() => {
     if (!sessionKey) return;
     const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
-    try {
-      if (sessionStorage.getItem(sessionKey)) return;
-    } catch {
-      // Storage disabled: do not interrupt the user's navigation with an intro.
-      return;
+    if (clientSlug) {
+      // A fresh opening replays the entrance; internal navigation never does.
+      if (clientEntrances.current.has(sessionKey)) return;
+    } else {
+      try {
+        if (sessionStorage.getItem(sessionKey)) return;
+      } catch {
+        return;
+      }
     }
     if (motion.matches) return;
     setVisibleKey(sessionKey);
     const dismiss = () => {
       setVisibleKey(null);
-      try { sessionStorage.setItem(sessionKey, "seen"); } catch {}
+      if (clientSlug) clientEntrances.current.add(sessionKey);
+      else try { sessionStorage.setItem(sessionKey, "seen"); } catch {}
     };
-    const timeout = window.setTimeout(dismiss, 1400);
+    const timeout = window.setTimeout(dismiss, clientSlug ? 2200 : 1400);
     window.addEventListener("pointerdown", dismiss, { once: true });
     window.addEventListener("keydown", dismiss, { once: true });
     motion.addEventListener("change", dismiss);
@@ -40,11 +46,12 @@ export function BrandIntro() {
       window.removeEventListener("keydown", dismiss);
       motion.removeEventListener("change", dismiss);
     };
-  }, [sessionKey]);
+  }, [sessionKey, clientSlug]);
 
   if (!sessionKey || visibleKey !== sessionKey) return null;
   return <div key={sessionKey} className="ef-intro" data-audience={clientSlug ? "client" : "admin"} aria-hidden="true">
     <div className="ef-intro-light" />
+    {clientSlug && <div className="ef-intro-orbit" />}
     <BrandLogo decorative className="ef-intro-logo" />
   </div>;
 }

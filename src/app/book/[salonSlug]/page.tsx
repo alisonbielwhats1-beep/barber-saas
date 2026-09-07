@@ -124,6 +124,7 @@ function QuickContact({
   icon: Icon,
   label,
   value,
+  channel,
   external = false,
   className = "",
 }: {
@@ -131,6 +132,7 @@ function QuickContact({
   icon: LucideIcon;
   label: string;
   value: string;
+  channel: "whatsapp" | "instagram" | "phone" | "website" | "content";
   external?: boolean;
   className?: string;
 }) {
@@ -142,7 +144,9 @@ function QuickContact({
       title={value}
       className={`inline-flex min-h-11 shrink-0 items-center gap-2 rounded-2xl border border-border bg-card px-3 text-left transition-colors hover:border-primary/40 hover:bg-card/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${className}`}
     >
-      <Icon className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+      <span className="client-contact-icon" data-channel={channel}>
+        <Icon className="h-4 w-4" aria-hidden="true" />
+      </span>
       <span className="grid min-w-0">
         <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
           {label}
@@ -360,13 +364,13 @@ export default async function ClientHome({
       {/* CTA de agendamento */}
       <Link
         href={`/book/${salonSlug}/agendar`}
-        className="block overflow-hidden rounded-3xl bg-primary p-6 text-primary-foreground shadow-lg"
+        className="client-booking-cta block overflow-hidden rounded-3xl p-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
         <h2 className="font-display text-2xl leading-tight">Agendar um horário</h2>
-        <p className="mt-1 text-sm text-primary-foreground">
+        <p className="mt-1 text-sm">
           Escolha o serviço e veja os horários disponíveis agora.
         </p>
-        <div className="mt-4 flex w-fit items-center gap-2 rounded-full bg-primary-foreground px-4 py-2 text-sm font-semibold text-primary">
+        <div className="client-booking-cta-action mt-4 flex w-fit items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold">
           Agendar agora
           <ArrowUpRight className="h-4 w-4" />
         </div>
@@ -391,6 +395,7 @@ export default async function ClientHome({
                 href={whatsappHref}
                 icon={MessageCircle}
                 label="WhatsApp"
+                channel="whatsapp"
                 value={formatPhoneBR(whatsappNumber ?? "")}
                 external
                 className="w-full min-w-0"
@@ -401,6 +406,7 @@ export default async function ClientHome({
                 href={phoneHref}
                 icon={Phone}
                 label="Ligar"
+                channel="phone"
                 value={formatPhoneBR(salon.phone ?? "")}
                 className="w-full min-w-0"
               />
@@ -410,6 +416,7 @@ export default async function ClientHome({
                 href={`https://instagram.com/${instagramHandle}`}
                 icon={Instagram}
                 label="Instagram"
+                channel="instagram"
                 value={`@${instagramHandle}`}
                 external
                 className="w-full min-w-0"
@@ -420,6 +427,7 @@ export default async function ClientHome({
                 href={siteUrl}
                 icon={Globe2}
                 label="Site"
+                channel="website"
                 value={compactExternalLabel(siteUrl)}
                 external
                 className="w-full min-w-0"
@@ -430,6 +438,7 @@ export default async function ClientHome({
                 href={blogUrl}
                 icon={ExternalLink}
                 label="Conteúdo"
+                channel="content"
                 value={compactExternalLabel(blogUrl)}
                 external
                 className="w-full min-w-0"
@@ -450,12 +459,12 @@ export default async function ClientHome({
       <div className="grid grid-cols-1 gap-2.5 rounded-3xl border border-border bg-card p-4 text-[13px] sm:grid-cols-2">
         {salon.address && (
           <div className="flex items-start gap-2.5 text-muted-foreground sm:col-span-2">
-            <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+            <MapPin className="client-location-icon mt-0.5 h-4 w-4 shrink-0" />
             <span>{salon.address}</span>
           </div>
         )}
         <div className="flex items-center gap-2.5 text-muted-foreground">
-          <Clock className="h-4 w-4 shrink-0 text-primary" />
+          <Clock className="client-hours-icon h-4 w-4 shrink-0" />
           Aberto das {formatHours(salon.openMinutes, salon.closeMinutes)}
         </div>
         <div className="flex items-center gap-2.5 text-muted-foreground">
@@ -464,7 +473,7 @@ export default async function ClientHome({
         </div>
         {paymentLabels.length > 0 && (
           <div className="flex items-start gap-2.5 text-muted-foreground sm:col-span-2">
-            <CreditCard className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+            <CreditCard className="client-payment-icon mt-0.5 h-4 w-4 shrink-0" />
             Aceita {paymentLabels.join(" · ")}
           </div>
         )}

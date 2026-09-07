@@ -13,8 +13,8 @@ export type ApptStatus =
 
 export const STATUS: Record<ApptStatus, { label: string; color: string; badgeClass: string }> = {
   PENDING: { label: "A confirmar", color: "#F59E0B", badgeClass: "bg-warning/10 text-warning" },
-  CONFIRMED: { label: "Confirmado", color: "#3B9EFF", badgeClass: "bg-info/10 text-info" },
-  IN_PROGRESS: { label: "Em atendimento", color: "#A855F7", badgeClass: "bg-marketing/10 text-marketing" },
+  CONFIRMED: { label: "Confirmado", color: "#2ECC8B", badgeClass: "bg-success/10 text-success" },
+  IN_PROGRESS: { label: "Em atendimento", color: "#3B9EFF", badgeClass: "bg-info/10 text-info" },
   COMPLETED: { label: "Finalizado", color: "#2ECC8B", badgeClass: "bg-success/10 text-success" },
   NO_SHOW: { label: "Não compareceu", color: "#EF4444", badgeClass: "bg-danger/10 text-danger" },
   CANCELLED: { label: "Cancelado", color: "#64748B", badgeClass: "bg-muted text-muted-foreground" },

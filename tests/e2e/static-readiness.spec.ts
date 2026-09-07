@@ -132,6 +132,12 @@ test.describe("@static páginas públicas", () => {
     const manifest = await manifestResponse.json();
     expect(manifest.display).toBe("standalone");
 
+    const appleIcon = await page.locator('link[rel="apple-touch-icon"]').getAttribute("href");
+    expect(appleIcon).toContain("apple-touch-icon-180.png?v=flair-dark-1");
+    const appleResponse = await request.get(appleIcon!);
+    expect(appleResponse.ok()).toBe(true);
+    expect(appleResponse.headers()["content-type"]).toContain("image/png");
+
     for (const icon of manifest.icons) {
       const iconResponse = await request.get(icon.src);
       expect(iconResponse.ok()).toBe(true);

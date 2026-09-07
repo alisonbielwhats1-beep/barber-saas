@@ -17,13 +17,36 @@ test.describe("@database navegação compacta e calendário", () => {
     await page.getByLabel("Senha", { exact: true }).fill("demo1234");
     await page.getByRole("button", { name: "Entrar", exact: true }).click();
     await expect(page).toHaveURL(/\/(hoje|dashboard)$/, { timeout: 30_000 });
+    await page.goto("/agenda");
+    await expect(page.locator("[data-appointment-professional]").first()).toBeVisible();
+    const professionalPalette = await page.locator("[data-pro-col]").evaluateAll(columns => columns.map(column => {
+      const header = column.querySelector("[data-professional-color]")!;
+      const color = getComputedStyle(header).borderBottomColor;
+      return { id: column.getAttribute("data-pro-id"), color,
+        matches: [...column.querySelectorAll("[data-appointment-professional]")].every(card => getComputedStyle(card).borderLeftColor === color) };
+    }));
+    expect(professionalPalette.length).toBeGreaterThan(1);
+    expect(new Set(professionalPalette.map(pro => pro.color)).size).toBe(professionalPalette.length);
+    expect(professionalPalette.every(pro => pro.matches)).toBe(true);
     await page.goto("/agenda?date=2026-09-06");
+    const darkSidebar = page.getByRole("complementary", { name: "Menu do estabelecimento" });
+    await expect(darkSidebar.getByRole("img", { name: "Everflair", exact: true })).toBeVisible();
+    const themeBox = await darkSidebar.getByRole("button", { name: "Mudar para tema claro" }).boundingBox();
+    const navBox = await darkSidebar.getByRole("navigation", { name: "Navegação principal" }).boundingBox();
+    expect(themeBox!.y + themeBox!.height).toBeLessThan(navBox!.y);
+    await page.screenshot({ path: test.info().outputPath("agenda-flair-escuro-expandido.png"), animations: "disabled" });
+    expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations).toEqual([]);
     await page.getByRole("button", { name: "Mudar para tema claro" }).click();
+    const lightPalette = await page.locator("[data-pro-col]").evaluateAll(columns => columns.map(column => ({
+      id: column.getAttribute("data-pro-id"), color: getComputedStyle(column.querySelector("[data-professional-color]")!).borderBottomColor,
+    })));
+    expect(lightPalette).toEqual(professionalPalette.map(({ id, color }) => ({ id, color })));
     const sidebar = page.getByRole("complementary", { name: "Menu do estabelecimento" });
-    await expect(sidebar.getByRole("img", { name: "Everflair — símbolo Flair" })).toBeVisible();
+    await expect(sidebar.getByRole("img", { name: "Everflair", exact: true })).toBeVisible();
     await expect(sidebar.getByText("Painel de operação")).toHaveCount(0);
     await page.getByRole("button", { name: "Recolher menu", exact: true }).click();
     await expect(sidebar).toHaveAttribute("data-collapsed", "true");
+    await expect(sidebar.getByRole("img", { name: "Everflair — símbolo Flair" })).toBeVisible();
     await page.reload();
     await expect(sidebar).toHaveAttribute("data-collapsed", "true");
     await expect(sidebar.getByRole("link", { name: "Agenda", exact: true })).toBeVisible();
@@ -43,6 +66,7 @@ test.describe("@database navegação compacta e calendário", () => {
     await page.getByRole("button", { name: "Expandir menu", exact: true }).click();
     await expect(sidebar).toHaveAttribute("data-collapsed", "false");
     await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.getByRole("region", { name: "Marca e aparência" }).getByRole("button", { name: "Mudar para tema escuro" })).toBeVisible();
     await page.getByRole("button", { name: "Abrir calendário", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Escolher data" });
     await expect(dialog).toBeVisible();

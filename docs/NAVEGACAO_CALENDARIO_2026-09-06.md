@@ -1,5 +1,10 @@
 # Menu compacto, calendário e lilás — Everflair
 
+Atualização de 07/09: por nova solicitação, o menu expandido volta a mostrar
+símbolo e nome Everflair; recolhido mantém somente o símbolo. Tema no topo,
+fundos neutros e cores operacionais substituem a proposta intermediária de roxo
+dominante. Ver `CORES_E_APRESENTACAO_2026-09-07.md`; o escopo abaixo é histórico.
+
 Solicitação: retirar o lettering e “Painel de operação” do topo, manter apenas
 o símbolo EF, permitir recolher o menu e abrir um calendário à esquerda da
 agenda, preservando fotos/nomes e o tema claro. O responsável autorizou explorar
