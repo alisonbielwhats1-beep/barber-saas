@@ -21,7 +21,8 @@ export async function joinFlexibleWaitlist(tx: Tx, salonId: string, clientId: st
   if (await tx.flexibleWaitlist.count({ where: { salonId, clientId, status: "WAITING", toDate: { gte: today } } }) >= 10) throw new Error("Você já tem dez pedidos ativos na fila.");
   const links = await tx.professionalService.count({ where: { serviceId: { in: services }, service: { salonId, active: true }, professional: { id: data.professionalId, salonId, active: true } } });
   if (links !== services.length) throw new Error("Profissional ou serviços indisponíveis.");
-  await tx.flexibleWaitlist.create({ data: { id: data.id, salonId, clientId, professionalId: data.professionalId, fromDate: data.fromDate, toDate: data.toDate, startMinutes: data.startMinutes, endMinutes: data.endMinutes, services: { create: services.map(serviceId => ({ serviceId, salonId })) } } });
+  await tx.flexibleWaitlist.create({ data: { id: data.id, salonId, clientId, professionalId: data.professionalId, fromDate: data.fromDate, toDate: data.toDate, startMinutes: data.startMinutes, endMinutes: data.endMinutes } });
+  await tx.flexibleWaitlistService.createMany({ data: services.map(serviceId => ({ waitlistId: data.id, serviceId, salonId })) });
 }
 
 export async function promoteFlexible(tx: Tx, ctx: { salonId: string; userId: string }, id: string, startLocal: string) {
