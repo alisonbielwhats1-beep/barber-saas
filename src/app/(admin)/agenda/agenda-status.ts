@@ -11,13 +11,13 @@ export type ApptStatus =
   | "CANCELLED"
   | "NO_SHOW";
 
-export const STATUS: Record<ApptStatus, { label: string; color: string }> = {
-  PENDING: { label: "A confirmar", color: "#F59E0B" },
-  CONFIRMED: { label: "Confirmado", color: "#3B9EFF" },
-  IN_PROGRESS: { label: "Em atendimento", color: "#A855F7" },
-  COMPLETED: { label: "Finalizado", color: "#2ECC8B" },
-  NO_SHOW: { label: "Não compareceu", color: "#EF4444" },
-  CANCELLED: { label: "Cancelado", color: "#64748B" },
+export const STATUS: Record<ApptStatus, { label: string; color: string; badgeClass: string }> = {
+  PENDING: { label: "A confirmar", color: "#F59E0B", badgeClass: "bg-warning/10 text-warning" },
+  CONFIRMED: { label: "Confirmado", color: "#3B9EFF", badgeClass: "bg-info/10 text-info" },
+  IN_PROGRESS: { label: "Em atendimento", color: "#A855F7", badgeClass: "bg-marketing/10 text-marketing" },
+  COMPLETED: { label: "Finalizado", color: "#2ECC8B", badgeClass: "bg-success/10 text-success" },
+  NO_SHOW: { label: "Não compareceu", color: "#EF4444", badgeClass: "bg-danger/10 text-danger" },
+  CANCELLED: { label: "Cancelado", color: "#64748B", badgeClass: "bg-muted text-muted-foreground" },
 };
 
 export const ACTION_LABELS: Partial<Record<ApptStatus, string>> = {

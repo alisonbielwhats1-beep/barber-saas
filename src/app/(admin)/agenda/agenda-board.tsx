@@ -1156,7 +1156,7 @@ function ListView({
                   {a.waitlistCount} na fila
                 </span>
               )}
-              <span className="hidden shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold sm:inline" style={{ background: `${cfg.color}22`, color: cfg.color }}>
+              <span className={`hidden shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold sm:inline ${cfg.badgeClass}`}>
                 {cfg.label}
               </span>
               <p className="w-20 shrink-0 text-right text-[13px] font-semibold">{formatMoney(a.priceCents)}</p>

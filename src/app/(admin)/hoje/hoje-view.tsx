@@ -187,7 +187,7 @@ export function HojeView({
                     <div className="flex items-start gap-3 sm:w-48">
                       <span className="w-16 shrink-0 whitespace-nowrap text-xl font-semibold tabular-nums">{formatInTimeZone(start, timezone, "HH:mm")}</span>
                       <div className="min-w-0">
-                        <span className="inline-flex rounded-full px-2 py-1 text-[10px] font-semibold" style={{ background: `${status?.color ?? "#94A3B8"}1c`, color: status?.color ?? "#94A3B8" }}>
+                        <span className={`inline-flex rounded-full px-2 py-1 text-[10px] font-semibold ${status?.badgeClass ?? "bg-muted text-muted-foreground"}`}>
                           {status?.label ?? appointment.status}
                         </span>
                         <p className="mt-1 text-xs text-muted-foreground">{formatInTimeZone(new Date(appointment.endAt), timezone, "HH:mm")}</p>
@@ -212,8 +212,8 @@ export function HojeView({
                           : `${appointment.clientName} está sem telefone cadastrado`}
                         className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl transition disabled:cursor-not-allowed disabled:opacity-40 ${
                           sentReminderIds.has(appointment.id)
-                            ? "bg-[#25D366]/25 text-[#25D366]"
-                            : "bg-[#25D366]/15 text-[#25D366] hover:bg-[#25D366]/25"
+                            ? "bg-success/15 text-success"
+                            : "bg-success/10 text-success hover:bg-success/15"
                         }`}
                       >
                         {reminderId === appointment.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageCircle className="h-4 w-4" aria-hidden="true" />}

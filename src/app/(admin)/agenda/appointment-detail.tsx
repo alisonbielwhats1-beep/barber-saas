@@ -281,8 +281,7 @@ export function AppointmentDetail({
               </DialogTitle>
             </div>
             <span
-              className="rounded-full px-2.5 py-1 text-[11px] font-semibold"
-              style={{ background: `${cfg.color}22`, color: cfg.color }}
+              className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${cfg.badgeClass}`}
             >
               {cfg.label}
             </span>
@@ -608,7 +607,7 @@ export function AppointmentDetail({
                   href={waLink(appt.clientPhone, appt.clientName, salonName, whenLabel)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#25D366]/15 px-3 py-2 text-[13px] font-medium text-[#25D366] transition hover:bg-[#25D366]/25"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-success/10 px-3 py-2 text-[13px] font-medium text-success transition hover:bg-success/15"
                 >
                   <MessageCircle className="h-4 w-4" />
                   WhatsApp
