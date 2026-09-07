@@ -24,6 +24,16 @@ beforeEach(() => {
   mocks.tx.user.findUnique.mockResolvedValue({ name: "Dono" });
 });
 describe("availability operations", () => {
+  it("creates weekly occurrences while preserving the original local hour", async () => {
+    expect(await blockAvailability({ ...input, everyWeeks: 1, count: 2 })).toMatchObject({ success: true });
+    expect(mocks.tx.timeOff.create).toHaveBeenCalledTimes(2);
+    expect(mocks.tx.timeOff.create).toHaveBeenNthCalledWith(2, { data: expect.objectContaining({ id: `${input.id}:pro-a:1`, startAt: new Date("2026-09-14T15:00:00Z"), endAt: new Date("2026-09-14T16:00:00Z") }) });
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+  it("rejects oversized recurring requests before touching the database", async () => {
+    expect(await blockAvailability({ ...input, professionalIds: ["a", "b", "c", "d", "e"], everyWeeks: 1, count: 52 })).toHaveProperty("error");
+    expect(mocks.tx.$queryRaw).not.toHaveBeenCalled();
+  });
   it("previews affected appointments without writing or locking", async () => {
     mocks.tx.appointment.findMany.mockResolvedValue([{ id: "a", version: 1, startAt: new Date("2026-09-07T15:00:00Z"), client: { name: "Ana" } }]);
     expect(await previewAvailabilityBlock(input)).toMatchObject({ affected: [{ id: "a", name: "Ana" }] });
