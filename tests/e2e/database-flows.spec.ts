@@ -31,7 +31,7 @@ test.describe("@database jornadas críticas no PostgreSQL descartável", () => {
     await page.getByLabel("Confirmar senha").fill("senha-e2e-123");
     await page.getByRole("button", { name: "Criar conta" }).click();
 
-    await expect(page).toHaveURL(/\/book\/luna-hair$/);
+    await expect(page).toHaveURL(/\/book\/luna-hair$/, { timeout: 15_000 });
     // Confirma que a sessão recém-criada sobrevive a uma navegação completa e
     // evita confundir a URL já atualizada com o DOM antigo durante a compilação
     // sob demanda do Next no runner.

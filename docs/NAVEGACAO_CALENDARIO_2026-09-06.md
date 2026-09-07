@@ -31,6 +31,11 @@ Verde e vermelho operacionais permanecem. O tema escuro mantém seus neutros.
 Tokens do claro: seleção HSL `263 65% 95%`; texto selecionado `263 38% 38%`;
 dia/foco `263 36% 45%`. Branco no dia ativo; texto escuro no lilás suave.
 
+Na recarga, o tema salvo é aplicado diretamente, sem uma aplicação intermediária
+do escuro. O atributo de tema restaurado antes do paint é uma diferença esperada
+apenas no `html`; a validação de hidratação dos filhos continua ativa. A rolagem
+suave existente é declarada ao roteador Next por `data-scroll-behavior`.
+
 ## Arquivos e verificação
 
 - `src/app/(admin)/admin-sidebar.tsx`, layout, navegação, footer, seletor de salão

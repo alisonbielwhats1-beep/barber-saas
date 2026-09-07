@@ -7,6 +7,10 @@ test.describe("@database navegação compacta e calendário", () => {
   test.skip(!process.env.RUN_DATABASE_E2E, "Somente ambiente isolado com dados fictícios.");
   test("recolhe e restaura o menu, muda a data e abre o calendário no celular", async ({ page }) => {
     test.setTimeout(120_000);
+    const runtime: string[] = [];
+    const hydration: string[] = [];
+    page.on("pageerror", error => runtime.push(error.message));
+    page.on("console", message => { if (["warning", "error"].includes(message.type()) && /hydrat|didn't match/i.test(message.text())) hydration.push(message.text()); });
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.goto("/login");
     await page.getByLabel("Email").fill("dono@lunahair.com");
@@ -47,5 +51,7 @@ test.describe("@database navegação compacta e calendário", () => {
     await page.keyboard.press("Escape");
     await expect(dialog).not.toBeVisible();
     await expect(page.getByRole("button", { name: "Abrir calendário", exact: true })).toBeFocused();
+    expect(runtime).toEqual([]);
+    expect(hydration).toEqual([]);
   });
 });
