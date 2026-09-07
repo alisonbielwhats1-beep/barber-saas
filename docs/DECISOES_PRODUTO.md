@@ -10,6 +10,9 @@ Fundos escuros em grafite neutro, sem roxo dominante. O tema claro preserva
 marfim/pedra. Botões principais verdes, próximo atendimento verde, execução azul,
 pendências âmbar e avisos críticos vermelhos. Lilás restrito à marca e seleção.
 Cores de serviços continuam sendo categorias, sem substituir os estados.
+Após revisão do tema claro, o próximo atendimento recebe verde sólido da
+marca com texto claro. Indicadores e próximas ações ganham acentos semânticos
+mais presentes; cobre diferencia ocupação. Os fundos gerais continuam neutros.
 O menu expandido exibe símbolo e nome; recolhido, somente símbolo. Controle de
 tema no topo, inclusive no celular. Ver `CORES_E_APRESENTACAO_2026-09-07.md`.
 

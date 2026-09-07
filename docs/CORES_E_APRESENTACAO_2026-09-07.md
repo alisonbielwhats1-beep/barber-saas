@@ -32,6 +32,33 @@ Build, jornadas autenticadas e contraste das 18 áreas são conferidos no CI
 com PostgreSQL descartável. O resultado final por commit fica no PR desta branch.
 Esta revisão visual ainda não foi promovida a Production.
 
+## Tema claro — contraste e presença das cores
+
+Revisão solicitada após a apresentação: o verde a 6% do próximo atendimento
+quase se misturava aos demais cartões. No tema claro, esse cartão agora usa
+verde da marca `#126949`, texto branco e informações secundárias em verde
+muito claro. O status permanece explícito em um selo separado, inclusive
+quando o próximo horário ainda aguarda confirmação.
+
+Indicadores do dashboard e próximas ações recebem acentos verdes, azuis,
+âmbar e cobre, com números e ícones mais definidos. Execução, pendências e
+horários ultrapassados têm fundos semânticos suaves mais visíveis. Superfícies
+marfim/pedra e bordas do tema claro têm separação mais perceptível. O cobre
+substitui a associação nominal da ocupação com marketing/roxo.
+
+Os ícones dos indicadores da agenda deixam de usar hexadecimais fixos e passam
+a seguir os tokens semânticos de cada tema. As cores dos profissionais e
+serviços e as regras de prioridade não foram alteradas.
+
+Arquivos: `globals.css`, `dashboard/now-strip.tsx`,
+`dashboard/opportunities.tsx`, `dashboard/page.tsx` e
+`agenda/agenda-board.tsx`. Sem mudanças de banco ou novos pacotes.
+
+Conferência local do cartão: texto branco 6,68:1 e texto secundário 5,44:1
+contra o verde sólido; selo de confirmação mantém texto escuro sobre fundo
+claro. Conferência visual e verificações automatizadas da versão corrente
+ficam no PR #80. Nenhuma promoção produtiva nesta revisão.
+
 ## Conta de apresentação autorizada no Supabase
 
 Os totais iniciais abaixo registram a primeira provisão. A complementação

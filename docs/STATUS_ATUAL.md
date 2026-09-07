@@ -1,5 +1,14 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-07 — tema claro com prioridade mais definida, em revisão
+
+No PR #80, o próximo atendimento passa a usar verde sólido da marca no tema
+claro. Indicadores e próximas ações ganham acentos verdes, azuis, âmbar e cobre;
+os ícones da agenda acompanham os tokens do tema. Marfim/pedra e bordas têm
+maior separação. Escopo e contraste medido em
+`docs/CORES_E_APRESENTACAO_2026-09-07.md`.
+Sem mudança de banco ou novo deploy produtivo.
+
 ## 2026-09-07 — conta de apresentação enriquecida
 
 Por solicitação explícita, a demonstração persistente foi ampliada para

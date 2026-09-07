@@ -15,9 +15,27 @@ export async function Opportunities() {
     return { unpaid, expiring: expiring.filter(p => p.sessionsUsed < p.sessionsTotal).length, waitlist };
   });
   const items = [
-    { icon: Receipt, title: "Concluídos sem recebimento", value: String(data.unpaid._count._all), detail: `${formatMoney(data.unpaid._sum.priceCents ?? 0)} em serviços; confira descontos e comanda`, href: "/fechamento", color: "text-warning" },
-    { icon: CalendarClock, title: "Pacotes próximos do vencimento", value: String(data.expiring), detail: "Com sessões restantes e vencimento nos próximos 7 dias", href: "/pacotes?filter=expiring", color: "text-info" },
-    { icon: Users, title: "Pedidos de encaixe ativos", value: String(data.waitlist), detail: "Revise os períodos e confirme vagas pela ordem da fila", href: "/agenda", color: "text-success" },
+    { icon: Receipt, title: "Concluídos sem recebimento", value: String(data.unpaid._count._all), detail: `${formatMoney(data.unpaid._sum.priceCents ?? 0)} em serviços; confira descontos e comanda`, href: "/fechamento", color: "text-warning", tone: "warning" },
+    { icon: CalendarClock, title: "Pacotes próximos do vencimento", value: String(data.expiring), detail: "Com sessões restantes e vencimento nos próximos 7 dias", href: "/pacotes?filter=expiring", color: "text-info", tone: "info" },
+    { icon: Users, title: "Pedidos de encaixe ativos", value: String(data.waitlist), detail: "Revise os períodos e confirme vagas pela ordem da fila", href: "/agenda", color: "text-success", tone: "success" },
   ];
-  return <section aria-label="Próximas ações" className="space-y-3"><h2 className="text-sm font-semibold">Próximas ações</h2><div className="grid gap-3 md:grid-cols-3">{items.map(({ icon: Icon, ...item }) => <Link key={item.title} href={item.href} className="group rounded-xl border border-border bg-card p-4 transition hover:border-primary/50"><div className="flex items-center justify-between"><Icon className={`h-5 w-5 ${item.color}`} /><ArrowUpRight className="h-4 w-4 text-muted-foreground" /></div><p className="mt-3 text-2xl font-semibold tabular-nums">{item.value}</p><p className="mt-1 text-sm font-medium">{item.title}</p><p className="mt-1 text-xs text-muted-foreground">{item.detail}</p></Link>)}</div></section>;
+  return (
+    <section aria-label="Próximas ações" className="space-y-3">
+      <h2 className="text-sm font-semibold">Próximas ações</h2>
+      <div className="grid gap-3 md:grid-cols-3">
+        {items.map(({ icon: Icon, ...item }) => (
+          <Link key={item.title} href={item.href} data-tone={item.tone}
+            className="dashboard-opportunity group rounded-xl border border-border bg-card p-4 transition hover:border-primary/50">
+            <div className="flex items-center justify-between">
+              <span className="dashboard-opportunity-icon"><Icon className={`h-5 w-5 ${item.color}`} /></span>
+              <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <p className="dashboard-opportunity-value mt-3 text-2xl font-semibold tabular-nums">{item.value}</p>
+            <p className="mt-1 text-sm font-medium">{item.title}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{item.detail}</p>
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
 }

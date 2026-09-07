@@ -386,10 +386,10 @@ export function AgendaBoard({
 
       </div>
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <DayKpi icon={CalendarDays} accent="#3B9EFF" label="Agendamentos (dia)" value={kpis.total.toString()} />
-        <DayKpi icon={Clock} accent={STATUS.IN_PROGRESS.color} label="Em atendimento" value={kpis.inProgress.toString()} />
-        <DayKpi icon={CircleDollarSign} accent="#2ECC8B" label="Receita realizada" value={formatMoney(kpis.realized)} />
-        <DayKpi icon={CircleDollarSign} accent="#F59E0B" label="Receita prevista" value={formatMoney(kpis.forecast)} />
+        <DayKpi icon={CalendarDays} accent="info" label="Agendamentos (dia)" value={kpis.total.toString()} />
+        <DayKpi icon={Clock} accent="info" label="Em atendimento" value={kpis.inProgress.toString()} />
+        <DayKpi icon={CircleDollarSign} accent="success" label="Receita realizada" value={formatMoney(kpis.realized)} />
+        <DayKpi icon={CircleDollarSign} accent="warning" label="Receita prevista" value={formatMoney(kpis.forecast)} />
       </section>
 
       <section className="flex flex-wrap items-center gap-2">
@@ -1247,10 +1247,10 @@ function FilterChip({ active, onClick, children, icon: Icon, dot }: { active: bo
   );
 }
 
-function DayKpi({ icon: Icon, accent, label, value }: { icon: typeof Clock; accent: string; label: string; value: string }) {
+function DayKpi({ icon: Icon, accent, label, value }: { icon: typeof Clock; accent: "info" | "success" | "warning"; label: string; value: string }) {
   return (
     <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg" style={{ background: `${accent}1f`, color: accent }}>
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg" style={{ background: `hsl(var(--${accent}) / 0.12)`, color: `hsl(var(--${accent}))` }}>
         <Icon className="h-4 w-4" />
       </span>
       <div className="min-w-0">
