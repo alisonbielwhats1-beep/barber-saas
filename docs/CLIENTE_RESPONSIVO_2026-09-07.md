@@ -23,6 +23,12 @@ vez e retirar fotos dos serviços na jornada de agendamento.
   lugar das miniaturas; retratos dos profissionais permanecem.
 - Imagens cadastradas não são apagadas. Produtos, portfólio e capa da vitrine
   permanecem disponíveis. Sem schema, migration ou alteração de dados.
+- Endereço clicável na vitrine, revisão do agendamento e próxima reserva,
+  usando `salon-location-link.tsx`. A ação “Abrir no Google Maps” abre outra
+  aba com o endereço cadastrado codificado como consulta. Campo vazio não
+  gera link. Não exige localização do cliente nem chave de API; a precisão
+  da busca depende de um endereço completo no cadastro. Formato oficial:
+  https://developers.google.com/maps/documentation/urls/get-started.
 
 ## Validação
 

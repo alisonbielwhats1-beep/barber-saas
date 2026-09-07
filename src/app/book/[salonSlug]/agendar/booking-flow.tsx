@@ -53,6 +53,7 @@ import {
 } from "@/lib/availability-client";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
+import { SalonLocationLink } from "../salon-location-link";
 
 type Pro = {
   id: string;
@@ -1378,7 +1379,7 @@ function BookingReview({
             {pricingLabel} aplicado ao valor dos serviços.
           </p>
         )}
-        {salonAddress && <p className="mt-4 text-xs leading-relaxed text-muted-foreground">{salonAddress}</p>}
+        <SalonLocationLink address={salonAddress} className="mt-4 text-xs leading-relaxed" />
         <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
           Cancelamento ou remarcação pelo app até {cancelPolicyHours}h antes do horário.
         </p>

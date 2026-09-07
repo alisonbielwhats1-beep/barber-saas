@@ -2,7 +2,6 @@ import { readableForeground } from "@/lib/color";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
-  MapPin,
   ArrowUpRight,
   Sparkles,
   Clock,
@@ -31,6 +30,7 @@ import { CartBadge } from "./cart-badge";
 import { HomeExplore } from "./home-explore";
 import { ReviewsSection } from "./reviews-section";
 import { BrandLogo } from "@/components/brand";
+import { SalonLocationLink } from "./salon-location-link";
 import { PwaInstallCard } from "@/components/pwa-install-card";
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 
@@ -440,12 +440,7 @@ export default async function ClientHome({
 
       {/* Informações — só dados que existem de verdade no cadastro do salão */}
       <div className="grid grid-cols-1 gap-2.5 rounded-3xl border border-border bg-card p-4 text-[13px] sm:grid-cols-2">
-        {salon.address && (
-          <div className="flex items-start gap-2.5 text-muted-foreground sm:col-span-2">
-            <MapPin className="client-location-icon mt-0.5 h-4 w-4 shrink-0" />
-            <span>{salon.address}</span>
-          </div>
-        )}
+        <SalonLocationLink address={salon.address} className="sm:col-span-2" />
         <div className="flex items-center gap-2.5 text-muted-foreground">
           <Clock className="client-hours-icon h-4 w-4 shrink-0" />
           Aberto das {formatHours(salon.openMinutes, salon.closeMinutes)}
