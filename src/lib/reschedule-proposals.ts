@@ -35,6 +35,8 @@ function proposalSnapshot(value: unknown): ServiceSnapshot | null {
   const item = value as Record<string, unknown>;
   const durationMin = typeof item.durationMin === "number" ? item.durationMin : null;
   const priceCents = typeof item.priceCents === "number" ? item.priceCents : null;
+  const processingMin = item.processingMin ?? 0;
+  const finishingMin = item.finishingMin ?? 0;
   if (
     typeof item.id !== "string" ||
     typeof item.name !== "string" ||
@@ -43,15 +45,18 @@ function proposalSnapshot(value: unknown): ServiceSnapshot | null {
     durationMin <= 0 ||
     priceCents === null ||
     !Number.isInteger(priceCents) ||
-    priceCents < 0
+    priceCents < 0 ||
+    typeof processingMin !== "number" || !Number.isInteger(processingMin) || processingMin < 0 ||
+    typeof finishingMin !== "number" || !Number.isInteger(finishingMin) || finishingMin < 0 ||
+    processingMin + finishingMin >= durationMin
   ) return null;
   return {
     id: item.id,
     name: item.name,
     durationMin,
     priceCents,
-    processingMin: typeof item.processingMin === "number" ? item.processingMin : 0,
-    finishingMin: typeof item.finishingMin === "number" ? item.finishingMin : 0,
+    processingMin,
+    finishingMin,
   };
 }
 

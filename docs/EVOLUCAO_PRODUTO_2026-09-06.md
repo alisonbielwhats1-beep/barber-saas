@@ -39,7 +39,7 @@ remota ainda está em andamento. Não representam publicação em produção.
 | Cuidados | Anotações imutáveis e fotos privadas normalizadas por visita; dono/gerente e profissional do atendimento |
 | Beneficiário | Pessoas vinculadas ao titular, reserva com nome separado e preservação do snapshot |
 | Indicadores | Próximas ações em dashboard/relatórios; vencimento e saldo de sessões em pacotes; acesso à visita pelo CRM |
-| Validação | PostgreSQL, RLS sem bypass, jornadas com dependente/fila/recurso/foto e varredura desktop/mobile de 16 áreas |
+| Validação | PostgreSQL, RLS sem bypass, jornadas com dependente/fila/recurso/foto e varredura desktop/mobile de 18 áreas |
 
 Limites explícitos desta versão: etapas ocupam o profissional durante toda a
 duração; cada serviço pode exigir um recurso físico exclusivo, com capacidade
@@ -71,28 +71,25 @@ e ficam privadas no banco; nenhuma imagem de cuidado entra no bucket público.
 - Login local abriu em 200. Inspeção visual autenticada da agenda continua
   dependendo de ambiente com dados fictícios e acesso autorizado.
 
-### Pendências do programa completo
+### Checklist das 12 frentes
 
-1. Revisão visual completa de cores, ícones, componentes, espaços e estados em
-   todas as telas, com evidências desktop/mobile após estas alterações.
-2. Seleção por gesto na grade,
-   recorrência de bloqueios e exibição nas visões semana/mês/lista.
-3. Edição de séries futuras com conflitos; expediente por data implementado na 018, em validação.
-4. Lista de espera flexível por datas/horários preservando FIFO.
-5. Encaixes sugeridos por aproveitamento da disponibilidade.
-6. Chegada presencial e tempo de espera implementados na 018, em validação.
-7. Variantes de serviços e etapas de execução/processamento/finalização.
-8. Salas/equipamentos com controle concorrente de capacidade.
-9. Histórico de cuidados e fotos por visita, com armazenamento e autorização.
-10. Dependentes e reservas para terceiros sem confundir titular/beneficiário.
-11. Demais indicadores acionáveis, evolução contextual de CRM/pacotes/relatórios.
-12. Validação autenticada integral do cliente, operação mobile e acessibilidade.
+Os itens 2–11 da lista anterior foram implementados entre 018 e 019. A tabela
+acima descreve o comportamento entregue e os limites, sem tratar campos ou telas
+isolados como homologação. A revisão visual e as jornadas dos itens 1 e 12 estão
+em execução no CI; correções encontradas entram no mesmo PR.
 
-Os itens de domínio precisam de migrations aditivas, contrato de autorização,
-testes PostgreSQL e homologação; não serão simulados com campos genéricos ou
-habilitados em produção sem validação. Plano e evidências da próxima migration em
-`docs/MIGRATION_018_EXPEDIENTE_CHEGADA.md`; sem execução produtiva.
+- Recursos físicos: mover uma visita preserva a alocação original mesmo após
+  alteração no catálogo. Trocar serviços desativa a alocação antiga sem apagar
+  o registro; mudanças posteriores não voltam a ocupar o recurso aposentado.
+- Fila flexível: a equipe vê o preço calculado para a data antes de confirmar;
+  se o preço mudar entre revisão e gravação, a operação exige nova revisão.
+- Dependentes e pedidos de fila reutilizam a chave em tentativas do mesmo
+  formulário, evitando duplicação por falha de rede.
+- Comparativo de temas, ícones, contrastes e distribuição: 18 áreas do
+  estabelecimento em desktop claro e celular escuro, com capturas e axe.
 
+O fechamento da solicitação depende das evidências dessas jornadas. Publicação
+em produção é uma etapa separada, ainda sem autorização de promoção.
 ## Validação
 
 - `npm run lint`: passou.

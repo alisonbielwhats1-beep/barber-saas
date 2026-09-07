@@ -1076,6 +1076,10 @@ export async function rescheduleAppointment(
     0,
   );
 
+  // Preserve the physical allocation when only moving the visit. A catalog edit
+  // must not silently replace a room that was already reserved.
+  await tx.$queryRaw`SELECT set_config('app.preserve_resource_snapshot', ${preservesExistingServices ? appointment.id : ""}, true), set_config('app.reset_resource_snapshot', ${preservesExistingServices ? "" : appointment.id}, true)`;
+
   const updated = await tx.appointment.updateMany({
     where: {
       id: appointment.id,
@@ -1125,6 +1129,8 @@ export async function rescheduleAppointment(
       priceCents: service.priceCents,
     })),
   });
+
+  await tx.$queryRaw`SELECT set_config('app.preserve_resource_snapshot', '', true), set_config('app.reset_resource_snapshot', '', true)`;
 
   const recipients = await recipientsForEvent(tx, {
     salonId: input.salonId,

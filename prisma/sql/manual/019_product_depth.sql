@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS "ResourceBooking" (
 
     CONSTRAINT "ResourceBooking_pkey" PRIMARY KEY ("appointmentId","resourceId")
 );
+ALTER TABLE "ResourceBooking" ADD COLUMN IF NOT EXISTS retired BOOLEAN NOT NULL DEFAULT false;
 
 -- CreateTable
 CREATE TABLE IF NOT EXISTS "ClientDependent" (
@@ -204,18 +205,23 @@ DECLARE a "Appointment"%ROWTYPE; rid text;
 BEGIN
  IF TG_TABLE_NAME = 'Appointment' THEN a := NEW;
  ELSE SELECT * INTO STRICT a FROM "Appointment" WHERE id=NEW."appointmentId" AND "salonId"=NEW."salonId"; END IF;
+ IF current_setting('app.preserve_resource_snapshot', true) = a.id THEN RETURN NEW; END IF;
  SELECT "physicalResourceId" INTO rid FROM "Service" WHERE id=NEW."serviceId" AND "salonId"=a."salonId";
  IF rid IS NOT NULL THEN
   PERFORM id FROM "PhysicalResource" WHERE id=rid AND "salonId"=a."salonId" AND active FOR SHARE;
   IF NOT FOUND THEN RAISE EXCEPTION 'Resource unavailable' USING ERRCODE='23514'; END IF;
   INSERT INTO "ResourceBooking" ("appointmentId","resourceId","salonId","startAt","endAt",active)
-   VALUES (a.id,rid,a."salonId",a."startAt",a."endAt",a.status::text IN ('PENDING','CONFIRMED','IN_PROGRESS')) ON CONFLICT ("appointmentId","resourceId") DO NOTHING;
+   VALUES (a.id,rid,a."salonId",a."startAt",a."endAt",a.status::text IN ('PENDING','CONFIRMED','IN_PROGRESS')) ON CONFLICT ("appointmentId","resourceId") DO UPDATE SET "startAt"=EXCLUDED."startAt", "endAt"=EXCLUDED."endAt", active=EXCLUDED.active, retired=false;
  END IF;
  RETURN NEW;
 END $$;
 CREATE OR REPLACE FUNCTION product_update_resources() RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path = public, pg_temp AS $$
 BEGIN
- UPDATE "ResourceBooking" SET "startAt"=NEW."startAt", "endAt"=NEW."endAt", active=NEW.status::text IN ('PENDING','CONFIRMED','IN_PROGRESS') WHERE "appointmentId"=NEW.id AND "salonId"=NEW."salonId";
+ IF current_setting('app.reset_resource_snapshot', true) = NEW.id THEN
+  UPDATE "ResourceBooking" SET active=false, retired=true WHERE "appointmentId"=NEW.id AND "salonId"=NEW."salonId";
+  RETURN NEW;
+ END IF;
+ UPDATE "ResourceBooking" SET "startAt"=NEW."startAt", "endAt"=NEW."endAt", active=NEW.status::text IN ('PENDING','CONFIRMED','IN_PROGRESS') WHERE "appointmentId"=NEW.id AND "salonId"=NEW."salonId" AND NOT retired;
  RETURN NEW;
 END $$;
 DROP TRIGGER IF EXISTS product_reserve_primary ON "Appointment";

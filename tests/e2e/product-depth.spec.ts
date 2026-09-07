@@ -33,7 +33,7 @@ test.describe("@database recursos e cuidados privados", () => {
       await page.goto(`/agenda?date=${date}&appointment=${appointment.id}`);
       await page.getByText("Cuidados e fotos desta visita", { exact: true }).click();
       await page.getByLabel("Procedimentos, produtos e orientações").fill("Procedimento de teste. Retorno em quatro semanas.");
-      await page.getByLabel(/Foto privada \(opcional/).setInputFiles({ name: "fixture.png", mimeType: "image/png", buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aN1cAAAAASUVORK5CYII=", "base64") });
+      await page.getByLabel(/Foto privada \(opcional/).setInputFiles({ name: "fixture.png", mimeType: "image/png", buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAEUlEQVQImWMQyvTEihiGlgQAGCUxAcokP78AAAAASUVORK5CYII=", "base64") });
       await page.getByLabel("O cliente autorizou esta foto para o histórico de cuidados.").check();
       await page.getByRole("button", { name: "Registrar cuidados" }).click();
       await expect(page.getByRole("link", { name: "Abrir foto privada" })).toBeVisible();

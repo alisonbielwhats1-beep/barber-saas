@@ -14,7 +14,7 @@ test.describe("@database revisão visual e acessibilidade", () => {
     await page.getByRole("button", { name: "Entrar", exact: true }).click();
     await expect(page).toHaveURL(/\/(hoje|dashboard)$/, { timeout: 30_000 });
     const issues: { route: string; mode: string; violations: unknown[]; overflow: number }[] = [];
-    const routes = ["hoje", "dashboard", "agenda", "clientes", "profissionais", "servicos", "financeiro", "relatorios", "produtos", "fechamento", "portfolio", "notificacoes", "compartilhar", "avaliacoes", "pacotes", "configuracoes"];
+    const routes = ["hoje", "dashboard", "agenda", "clientes", "profissionais", "servicos", "financeiro", "relatorios", "produtos", "fechamento", "portfolio", "notificacoes", "compartilhar", "avaliacoes", "pacotes", "configuracoes", "marketing", "pagamentos"];
     for (const mode of ["desktop-light", "mobile-dark"]) {
       await page.setViewportSize({ width: 1440, height: 1000 });
       // Change the persisted theme through the actual user control.

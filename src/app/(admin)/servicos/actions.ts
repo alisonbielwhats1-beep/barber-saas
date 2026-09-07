@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { assertRole, getTenantContext } from "@/lib/tenant";
-import { withTenant } from "@/lib/prisma-tenant";
+import { withTenant, type Tx } from "@/lib/prisma-tenant";
 import { assertAllowedStoredImageUrl } from "@/lib/stored-image-url";
 
 const serviceInput = z.object({
@@ -23,6 +23,12 @@ const serviceInput = z.object({
 }).refine(d => d.processingMin + d.finishingMin < d.durationMin, "Execução deve durar pelo menos um minuto dentro da duração total.");
 
 export type ServiceInput = z.infer<typeof serviceInput>;
+
+async function requireActiveResource(tx: Tx, salonId: string, id?: string | null) {
+  if (!id) return;
+  const rows = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM "PhysicalResource" WHERE id=${id} AND "salonId"=${salonId} AND active FOR SHARE`;
+  if (!rows.length) throw new Error("Recurso inválido ou inativo.");
+}
 
 function toData(data: ServiceInput) {
   return {
@@ -51,7 +57,7 @@ export async function createService(input: ServiceInput) {
   assertAllowedStoredImageUrl(data.imageUrl, ctx.salonId);
 
   const salon = await withTenant(ctx, async (tx) => {
-    if (data.physicalResourceId && !await tx.physicalResource.findFirst({ where: { id: data.physicalResourceId, salonId: ctx.salonId, active: true } })) throw new Error("Recurso inválido ou inativo.");
+    await requireActiveResource(tx, ctx.salonId, data.physicalResourceId);
     await tx.service.create({
       data: { ...toData(data), salonId: ctx.salonId },
     });
@@ -69,7 +75,7 @@ export async function updateService(id: string, input: ServiceInput) {
   // Filtro por salonId protege cross-tenant mesmo com id vindo do cliente —
   // e, sob RLS, a policy da tabela reforça o mesmo filtro por trás.
   const salon = await withTenant(ctx, async (tx) => {
-    if (data.physicalResourceId && !await tx.physicalResource.findFirst({ where: { id: data.physicalResourceId, salonId: ctx.salonId, active: true } })) throw new Error("Recurso inválido ou inativo.");
+    await requireActiveResource(tx, ctx.salonId, data.physicalResourceId);
     await tx.service.updateMany({
       where: { id, salonId: ctx.salonId },
       data: toData(data),
@@ -108,9 +114,10 @@ export async function toggleServiceActive(id: string) {
   const salon = await withTenant(ctx, async (tx) => {
     const svc = await tx.service.findFirst({
       where: { id, salonId: ctx.salonId },
-      select: { active: true },
+      select: { active: true, physicalResourceId: true },
     });
     if (!svc) throw new Error("Not found");
+    if (!svc.active) await requireActiveResource(tx, ctx.salonId, svc.physicalResourceId);
     // updateMany (não update) para manter o filtro salonId também na
     // escrita — a versão anterior gravava por `id` sozinho, dependendo só
     // do findFirst acima como checagem de posse. Funcionalmente seguro no

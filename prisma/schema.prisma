@@ -1069,6 +1069,7 @@ model ResourceBooking {
   startAt DateTime @db.Timestamptz(3)
   endAt DateTime @db.Timestamptz(3)
   active Boolean
+  retired Boolean @default(false)
   resource PhysicalResource @relation(fields: [resourceId, salonId], references: [id, salonId], onDelete: Restrict)
   appointment Appointment @relation(fields: [appointmentId, salonId], references: [id, salonId], onDelete: Restrict)
   salon Salon @relation(fields: [salonId], references: [id], onDelete: Restrict)

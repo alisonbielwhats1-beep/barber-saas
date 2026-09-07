@@ -46,6 +46,21 @@ pg("produto 019 em PostgreSQL descartável", () => {
     expect(+current.startAt).toBe(+second.appointment.startAt);
     expect(+current.startAt).not.toBe(+first.appointment.startAt);
   });
+  it("preserves the original room on a move and retires it when services change", async () => {
+    const f = await fixture();
+    const booking = await withSalon(f.salon.id, tx => createAppointment(tx, f.input()));
+    const replacement = await prisma.physicalResource.create({ data: { salonId: f.salon.id, name: "Sala nova", kind: "ROOM" } });
+    await prisma.service.update({ where: { id: f.service.id }, data: { physicalResourceId: replacement.id } });
+    const move = (version: number, time: string, serviceIds?: string[]) => withSalon(f.salon.id, tx => rescheduleAppointment(tx, { salonId: f.salon.id, appointmentId: booking.appointment.id, professionalId: f.professionals[0]!.id, startLocal: `${f.date}T${time}`, serviceIds, expectedVersion: version, idempotencyKey: crypto.randomUUID(), enforceClientPolicy: false, actor: { type: "STAFF", id: f.users[0]!.id, name: "Equipe" } }));
+    await move(1, "12:00");
+    const allocations = () => withSalon(f.salon.id, tx => tx.resourceBooking.findMany({ where: { salonId: f.salon.id, appointmentId: booking.appointment.id }, orderBy: { resourceId: "asc" } }));
+    expect(await allocations()).toEqual([expect.objectContaining({ resourceId: f.resource.id, active: true, retired: false })]);
+    const alternate = await prisma.service.create({ data: { salonId: f.salon.id, name: "Outro tratamento", durationMin: 60, priceCents: 9000, physicalResourceId: replacement.id, professionals: { create: { professionalId: f.professionals[0]!.id } } } });
+    await move(2, "14:00", [alternate.id]);
+    expect(await allocations()).toEqual(expect.arrayContaining([expect.objectContaining({ resourceId: f.resource.id, active: false, retired: true }), expect.objectContaining({ resourceId: replacement.id, active: true, retired: false })]));
+    await move(3, "16:00");
+    expect((await allocations()).filter(a => a.active).map(a => a.resourceId)).toEqual([replacement.id]);
+  });
   it("ties dependents to the correct titular and preserves the beneficiary snapshot", async () => {
     const f = await fixture();
     const dependent = await withSalon(f.salon.id, tx => tx.clientDependent.create({ data: { salonId: f.salon.id, clientId: f.clients[0]!.id, name: "Dependente CI", relationship: "Filho" } }));

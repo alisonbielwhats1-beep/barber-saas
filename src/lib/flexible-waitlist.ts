@@ -25,7 +25,7 @@ export async function joinFlexibleWaitlist(tx: Tx, salonId: string, clientId: st
   await tx.flexibleWaitlistService.createMany({ data: services.map(serviceId => ({ waitlistId: data.id, serviceId, salonId })) });
 }
 
-export async function promoteFlexible(tx: Tx, ctx: { salonId: string; userId: string }, id: string, startLocal: string) {
+export async function promoteFlexible(tx: Tx, ctx: { salonId: string; userId: string }, id: string, startLocal: string, expectedPriceCents?: number) {
   const selected = await tx.flexibleWaitlist.findFirst({ where: { id, salonId: ctx.salonId }, include: { client: true } });
   if (!selected) throw new Error("Pedido não encontrado.");
   if (selected.status === "FULFILLED") return { appointmentId: selected.fulfilledAppointmentId };
@@ -40,12 +40,15 @@ export async function promoteFlexible(tx: Tx, ctx: { salonId: string; userId: st
   if (candidates.length > 200) throw new Error("Há mais de 200 pedidos compatíveis. Revise a fila antes de promover.");
   for (const candidate of candidates) {
     let fits = false;
+    let priceCents = 0;
     try {
       const inspected = await inspectAppointmentAvailability(tx, { salonId: ctx.salonId, professionalId: candidate.professionalId, serviceIds: candidate.services.map(s => s.serviceId), startLocal, enforceBookingWindow: true });
+      priceCents = inspected.services.reduce((total, service) => total + service.priceCents, 0);
       fits = !inspected.violation && inspected.startAt > new Date() && dateKeyInTimeZone(new Date(+inspected.endAt - 1), inspected.timezone) === date && (dateKeyInTimeZone(inspected.endAt, inspected.timezone) !== date ? 1440 : wallClockMinutesInTimeZone(inspected.endAt, inspected.timezone)) <= candidate.endMinutes;
     } catch { fits = false; }
     if (!fits) continue;
     if (candidate.id !== id) throw new Error("Existe um pedido anterior compatível com este horário. Atenda primeiro a ordem da fila.");
+    if (expectedPriceCents !== undefined && expectedPriceCents !== priceCents) throw new Error("O preço mudou. Revise o valor atualizado antes de confirmar.");
     const result = await createAppointment(tx, { salonId: ctx.salonId, clientId: candidate.clientId, professionalId: candidate.professionalId, serviceIds: candidate.services.map(s => s.serviceId), startLocal, idempotencyKey: candidate.id, origin: "WAITLIST", enforceBookingWindow: true, enforcePlanLimits: true, actor: { type: "STAFF", id: ctx.userId, name: "Equipe" } });
     await tx.flexibleWaitlist.updateMany({ where: { id, salonId: ctx.salonId, status: "WAITING" }, data: { status: "FULFILLED", fulfilledAppointmentId: result.appointment.id } });
     await writeAuditLog(tx, { salonId: ctx.salonId, userId: ctx.userId, actorName: "Equipe", action: "FLEXIBLE_WAITLIST_FULFILLED", entityType: "FlexibleWaitlist", entityId: id, metadata: { appointmentId: result.appointment.id } });

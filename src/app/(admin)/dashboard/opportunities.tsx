@@ -3,14 +3,14 @@ import { withTenant } from "@/lib/prisma-tenant";
 import { getTenantContext, assertRole } from "@/lib/tenant";
 import { ArrowUpRight, CalendarClock, Receipt, Users } from "lucide-react";
 import { formatMoney } from "@/lib/utils";
-import { addCalendarDays, dateKeyInTimeZone, startOfDateInTimeZone } from "@/lib/time";
+import { dateKeyInTimeZone } from "@/lib/time";
 export async function Opportunities() {
   const ctx = await getTenantContext(); assertRole(ctx, ["OWNER", "MANAGER"]);
   const data = await withTenant(ctx, async tx => {
     const salon = await tx.salon.findUniqueOrThrow({ where: { id: ctx.salonId }, select: { timezone: true } });
     const now = new Date(); const today = dateKeyInTimeZone(now, salon.timezone);
     const unpaid = await tx.appointment.aggregate({ where: { salonId: ctx.salonId, status: "COMPLETED", payment: null }, _count: { _all: true }, _sum: { priceCents: true } });
-    const expiring = await tx.packagePurchase.findMany({ where: { salonId: ctx.salonId, status: "ACTIVE", expiresAt: { gte: now, lt: startOfDateInTimeZone(addCalendarDays(today, 8), salon.timezone) } }, select: { sessionsTotal: true, sessionsUsed: true } });
+    const expiring = await tx.packagePurchase.findMany({ where: { salonId: ctx.salonId, status: "ACTIVE", expiresAt: { gte: now, lte: new Date(+now + 7 * 86400000) } }, select: { sessionsTotal: true, sessionsUsed: true } });
     const waitlist = await tx.flexibleWaitlist.count({ where: { salonId: ctx.salonId, status: "WAITING", toDate: { gte: today } } });
     return { unpaid, expiring: expiring.filter(p => p.sessionsUsed < p.sessionsTotal).length, waitlist };
   });
