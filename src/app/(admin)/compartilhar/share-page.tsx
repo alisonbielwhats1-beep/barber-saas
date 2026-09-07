@@ -189,7 +189,7 @@ export function SharePage({ salon, bookingUrl }: { salon: Salon; bookingUrl: str
           </div>
 
           {/* Card premium do QR — fundo escuro, QR em caixa branca */}
-          <div className="mt-5 w-full overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-b from-[#1a1400] to-[#0f0f0f]">
+          <div data-theme="marketing-dark" className="mt-5 w-full overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-b from-[#23262b] to-[#0f0f0f]">
             {/* Faixa âmbar superior */}
             <div className="flex items-center justify-center gap-2 border-b border-primary/10 py-3">
               <span className="h-px w-6 bg-primary/40" />
@@ -201,7 +201,7 @@ export function SharePage({ salon, bookingUrl }: { salon: Salon; bookingUrl: str
 
             {/* QR em caixa branca — preto-no-branco para máxima legibilidade */}
             <div className="flex justify-center py-6">
-              <div className="relative rounded-2xl bg-white p-4 shadow-[0_0_40px_rgba(245,158,11,0.15)]">
+              <div className="relative rounded-2xl bg-white p-4 shadow-[0_0_40px_rgba(183,118,83,0.15)]">
                 {/* Cantos âmbar decorativos */}
                 <span className="absolute -left-px -top-px h-5 w-5 rounded-tl-2xl border-l-2 border-t-2 border-primary" />
                 <span className="absolute -right-px -top-px h-5 w-5 rounded-tr-2xl border-r-2 border-t-2 border-primary" />
@@ -221,7 +221,7 @@ export function SharePage({ salon, bookingUrl }: { salon: Salon; bookingUrl: str
             {/* Nome do salão + instrução */}
             <div className="border-t border-primary/10 py-3 text-center">
               <p className="text-[13px] font-semibold text-white/90">{salon.name}</p>
-              <p className="mt-0.5 text-[10px] text-white/40">
+              <p className="mt-0.5 text-[10px] text-white/70">
                 Aponte a câmera do celular para agendar
               </p>
             </div>
@@ -240,8 +240,8 @@ export function SharePage({ salon, bookingUrl }: { salon: Salon; bookingUrl: str
       {/* ── WhatsApp ─────────────────────────────────────────────────── */}
       <div className="rounded-2xl border border-border bg-card p-5">
         <div className="flex items-center gap-2">
-          <span className="grid h-8 w-8 place-items-center rounded-lg bg-[#25D366]/15">
-            <Share2 className="h-4 w-4 text-[#25D366]" />
+          <span className="grid h-8 w-8 place-items-center rounded-lg bg-[var(--action-positive)]/15">
+            <Share2 className="h-4 w-4 text-success" />
           </span>
           <div>
             <p className="text-[13px] font-semibold">Mensagem para WhatsApp</p>
@@ -262,7 +262,7 @@ export function SharePage({ salon, bookingUrl }: { salon: Salon; bookingUrl: str
             href={waUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 rounded-xl bg-[#25D366] px-4 py-2.5 text-[13px] font-medium text-white transition hover:bg-[#1db954]"
+            className="flex items-center gap-2 rounded-xl bg-[var(--action-positive)] px-4 py-2.5 text-[13px] font-medium text-white transition hover:opacity-90"
           >
             <Share2 className="h-3.5 w-3.5" />
             Abrir WhatsApp
@@ -288,7 +288,7 @@ export function SharePage({ salon, bookingUrl }: { salon: Salon; bookingUrl: str
           </div>
           <p className="mt-4 whitespace-pre-line rounded-xl border border-border bg-surface-1 p-3 text-[13px] text-muted-foreground">{referralMessage}</p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <a href={`https://wa.me/?text=${encodeURIComponent(referralMessage)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-xl bg-[#25D366] px-4 py-2.5 text-[13px] font-medium text-white">
+            <a href={`https://wa.me/?text=${encodeURIComponent(referralMessage)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-xl bg-[var(--action-positive)] px-4 py-2.5 text-[13px] font-medium text-white">
               <Share2 className="h-3.5 w-3.5" /> Abrir WhatsApp
             </a>
             <button onClick={copyReferral} className="inline-flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-[13px] text-muted-foreground">

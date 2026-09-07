@@ -326,9 +326,9 @@ function AttentionRow({ label, value, danger }: { label: string; value: string; 
     <div className="flex items-center justify-between gap-3 rounded-xl bg-surface-1 px-3 py-2.5">
       <span className="flex min-w-0 items-center gap-2">
         {danger ? <CircleAlert className="h-4 w-4 shrink-0 text-warning" aria-hidden="true" /> : <CheckCircle2 className="h-4 w-4 shrink-0 text-success" aria-hidden="true" />}
-        <span className="truncate">{label}</span>
+        <span className="text-sm leading-snug">{label}</span>
       </span>
-      <strong className={danger ? "text-warning" : ""}>{value}</strong>
+      <strong className={`shrink-0 whitespace-nowrap text-right text-sm ${danger ? "text-warning" : ""}`}>{value}</strong>
     </div>
   );
 }
