@@ -239,7 +239,7 @@ export default async function FinanceiroPage({
 
       {/* Gestão de despesas */}
       <section id="despesas" className="scroll-mt-24">
-        <ExpenseManager expenses={expenseRows} />
+        <ExpenseManager expenses={expenseRows} timezone={timezone} />
       </section>
     </div>
   );

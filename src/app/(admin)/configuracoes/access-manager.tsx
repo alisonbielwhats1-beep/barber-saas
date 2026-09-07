@@ -150,6 +150,7 @@ export function AccessManager({
             </div>
             {canManage && !m.isSelf ? (
               <select
+                aria-label={`Papel de ${m.name}`}
                 value={m.role}
                 disabled={pending}
                 onChange={(e) => run(() => changeMemberRole(m.userId, e.target.value))}
@@ -270,16 +271,16 @@ export function AccessManager({
           ) : (
           <form onSubmit={onInvite} className="grid gap-4">
             <div>
-              <label className="mb-1 block text-sm font-medium">Nome</label>
-              <Input name="name" required autoFocus />
+              <label htmlFor="invite-member-name" className="mb-1 block text-sm font-medium">Nome</label>
+              <Input id="invite-member-name" name="name" required autoFocus />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Email</label>
-              <Input name="email" type="email" required />
+              <label htmlFor="invite-member-email" className="mb-1 block text-sm font-medium">Email</label>
+              <Input id="invite-member-email" name="email" type="email" required />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Papel</label>
-              <select name="role" defaultValue="RECEPTIONIST" className="flex min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm">
+              <label htmlFor="invite-member-role" className="mb-1 block text-sm font-medium">Papel</label>
+              <select id="invite-member-role" name="role" defaultValue="RECEPTIONIST" className="flex min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm">
                 {Object.keys(ROLE_LABEL).map((r) => (
                   <option key={r} value={r}>{ROLE_LABEL[r]}</option>
                 ))}

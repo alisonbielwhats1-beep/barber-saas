@@ -90,6 +90,7 @@ export function BrandingForm({ branding }: { branding: Branding }) {
       >
         <Field label="Tipo de negócio">
           <select
+            aria-label="Tipo de negócio"
             value={segment}
             onChange={(e) => setSegment(e.target.value)}
                 className="flex min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm"

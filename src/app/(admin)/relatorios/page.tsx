@@ -189,7 +189,7 @@ function Table({ title, headers, rows, empty }: { title: string; headers: string
       {rows.length === 0 ? (
         <p className="p-8 text-center text-[13px] text-muted-foreground">{empty}</p>
       ) : (
-        <div className="overflow-x-auto">
+        <div role="region" aria-label={title} tabIndex={0} className="overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
           <table className="w-full text-[13px]">
             <thead>
               <tr className="border-b border-border">
