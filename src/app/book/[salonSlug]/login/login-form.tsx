@@ -38,7 +38,7 @@ export function LoginForm({
   return (
     <form method="post" onSubmit={submit} className="space-y-4">
       {passwordReset && (
-        <p role="status" className="rounded-xl bg-emerald-500/10 px-4 py-2.5 text-[13px] text-emerald-700 dark:text-emerald-300">
+        <p role="status" className="rounded-xl bg-success/10 px-4 py-2.5 text-[13px] text-success">
           Senha alterada. Entre novamente.
         </p>
       )}

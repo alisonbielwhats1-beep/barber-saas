@@ -9,7 +9,6 @@ import {
   CheckCircle2,
   Clock3,
   LogOut,
-  MapPin,
   RefreshCw,
   Repeat,
   Users,
@@ -22,6 +21,7 @@ import { formatInTimeZone } from "date-fns-tz";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { logoutClient } from "../auth-actions";
 import { ReviewDialog } from "./review-dialog";
+import { SalonLocationLink } from "../salon-location-link";
 import type { ClientSession } from "@/lib/client-auth";
 
 type Appt = {
@@ -647,12 +647,7 @@ function ApptCard({
           <Clock3 aria-hidden="true" className="h-3.5 w-3.5" />
           {durationMinutes} min · {salonName}
         </p>
-        {featured && salonAddress && (
-          <p className="mt-1 flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
-            <MapPin aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            {salonAddress}
-          </p>
-        )}
+        {featured && <SalonLocationLink address={salonAddress} className="mt-1 text-xs leading-relaxed" />}
       </div>
       {a.products.length > 0 && (
         <div className="mt-3 space-y-1 rounded-lg bg-muted/40 p-2 text-xs">

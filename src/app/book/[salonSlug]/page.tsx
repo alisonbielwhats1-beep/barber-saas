@@ -2,7 +2,6 @@ import { readableForeground } from "@/lib/color";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
-  MapPin,
   ArrowUpRight,
   Sparkles,
   Clock,
@@ -30,7 +29,8 @@ import { resolveClientSessionInTenant } from "@/lib/public-appointment";
 import { CartBadge } from "./cart-badge";
 import { HomeExplore } from "./home-explore";
 import { ReviewsSection } from "./reviews-section";
-import { SalonLogoLightbox } from "./salon-logo-lightbox";
+import { BrandLogo } from "@/components/brand";
+import { SalonLocationLink } from "./salon-location-link";
 import { PwaInstallCard } from "@/components/pwa-install-card";
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 
@@ -183,7 +183,6 @@ export default async function ClientHome({
       segment: true,
       description: true,
       coverUrl: true,
-      logoUrl: true,
       instagram: true,
       whatsapp: true,
       paymentMethods: true,
@@ -256,7 +255,6 @@ export default async function ClientHome({
   const segment = isSegmentId(salon.segment) ? getSegment(salon.segment) : null;
   const coverFallback = segment?.accentImage || heroForSalon(salonSlug);
   const coverSrc = normalizeImageUrl(salon.coverUrl) || coverFallback;
-  const logoSrc = normalizeImageUrl(salon.logoUrl);
   const services = salon.services.map((service) => ({
     ...service,
     imageUrl: normalizeImageUrl(service.imageUrl),
@@ -266,32 +264,12 @@ export default async function ClientHome({
     .map((m) => PAYMENT_LABELS[m.trim()])
     .filter(Boolean);
 
-  const initials = salon.name
-    .split(" ")
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-
   return (
     <main className="animate-fade-in space-y-6 px-4 pt-5 sm:px-5 sm:pt-6 lg:space-y-8 lg:px-0 lg:pt-8">
       {/* Top bar */}
-      <header className="flex items-center gap-3">
-        <SalonLogoLightbox
-          src={logoSrc}
-          alt={`Logo de ${salon.name}`}
-          salonName={salon.name}
-          thumbnailImageClassName="object-cover object-center"
-          className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-full border border-primary/35 bg-card p-0 text-xs font-bold text-primary shadow-sm"
-        >
-          <span className="grid h-full w-full place-items-center rounded-full bg-primary/15">
-            {initials}
-          </span>
-        </SalonLogoLightbox>
-        <div className="min-w-0 flex-1">
-          <p className="truncate whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground">Bem-vindo</p>
-          <p className="truncate text-sm font-semibold">{salon.name}</p>
-        </div>
+      <header className="client-home-header">
+        <BrandLogo className="client-brand-logo" />
+        <div className="client-home-actions">
         <CartBadge salonSlug={salonSlug} />
         <ClientNotificationLink salonSlug={salonSlug} />
         {salon.hasValidClientSession ? (
@@ -320,6 +298,11 @@ export default async function ClientHome({
             </Link>
           </div>
         )}
+        </div>
+        <div className="w-full min-w-0">
+          <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Bem-vindo</p>
+          <p className="mt-1 break-words text-base font-semibold leading-snug">{salon.name}</p>
+        </div>
       </header>
 
       {salon.pendingProposalCount > 0 && salon.hasValidClientSession && (
@@ -335,7 +318,7 @@ export default async function ClientHome({
       <PwaInstallCard salonName={salon.name} storageKey={salonSlug} compact />
 
       {/* Hero — capa do salão */}
-      <div className="relative h-48 overflow-hidden rounded-3xl sm:h-56 lg:h-72">
+      <div className="relative flex min-h-48 items-end overflow-hidden rounded-3xl sm:min-h-56 lg:min-h-72">
         <ImageWithFallback
           src={coverSrc}
           fallbackSrc={coverFallback}
@@ -347,7 +330,7 @@ export default async function ClientHome({
           className="object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
-        <div className="absolute inset-x-0 bottom-0 p-5">
+        <div className="relative min-w-0 w-full p-5">
           {/* Badge de segmento — dado real escolhido pelo dono, no lugar do
               rótulo genérico que havia antes. Sem segmento definido, mantém
               o texto anterior; não some nada para quem não personalizou. */}
@@ -355,7 +338,7 @@ export default async function ClientHome({
             {segment ? <segment.icon className="h-3 w-3" /> : <Sparkles className="h-3 w-3" />}
             {segment ? segment.shortLabel : "Experiência premium"}
           </span>
-          <h1 className="font-display text-2xl leading-tight text-white">{salon.name}</h1>
+          <h1 className="break-words font-display text-2xl leading-tight text-white">{salon.name}</h1>
         </div>
       </div>
 
@@ -457,12 +440,7 @@ export default async function ClientHome({
 
       {/* Informações — só dados que existem de verdade no cadastro do salão */}
       <div className="grid grid-cols-1 gap-2.5 rounded-3xl border border-border bg-card p-4 text-[13px] sm:grid-cols-2">
-        {salon.address && (
-          <div className="flex items-start gap-2.5 text-muted-foreground sm:col-span-2">
-            <MapPin className="client-location-icon mt-0.5 h-4 w-4 shrink-0" />
-            <span>{salon.address}</span>
-          </div>
-        )}
+        <SalonLocationLink address={salon.address} className="sm:col-span-2" />
         <div className="flex items-center gap-2.5 text-muted-foreground">
           <Clock className="client-hours-icon h-4 w-4 shrink-0" />
           Aberto das {formatHours(salon.openMinutes, salon.closeMinutes)}

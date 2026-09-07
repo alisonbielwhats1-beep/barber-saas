@@ -4,6 +4,7 @@ import { withSalonBySlug } from "@/lib/prisma-tenant";
 import { getClientSessionForSalonSlug } from "@/lib/client-session-tenant";
 import { clientHomePath, safeClientReturnTo } from "@/lib/client-routes";
 import { CadastroForm } from "./cadastro-form";
+import { ClientAccessLayout } from "../client-access-layout";
 
 export default async function CadastroPage({
   params,
@@ -21,18 +22,8 @@ export default async function CadastroPage({
   if (!salon) notFound();
 
   return (
-    <main className="flex min-h-[100dvh] flex-col items-center justify-center px-5 py-10">
-      <div className="w-full max-w-sm space-y-6">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-primary">
-            {salon.name}
-          </p>
-          <h1 className="mt-1 text-2xl font-semibold">Criar conta</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Agende sem precisar digitar seus dados toda vez.
-          </p>
-        </div>
-
+    <ClientAccessLayout salonName={salon.name} eyebrow="Primeira vez por aqui?" title="Criar conta" description="Cadastre-se para reservar seu horário e ter seus atendimentos sempre à mão.">
+      <div className="space-y-6">
         <CadastroForm salonSlug={salonSlug} returnTo={homePath} />
 
         <p className="text-center text-sm text-muted-foreground">
@@ -54,6 +45,6 @@ export default async function CadastroPage({
           </Link>
         </div>
       </div>
-    </main>
+    </ClientAccessLayout>
   );
 }

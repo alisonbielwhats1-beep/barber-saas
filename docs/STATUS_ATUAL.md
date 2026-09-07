@@ -1,5 +1,20 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-07 — PR #80 publicado; responsividade do cliente em revisão
+
+O PR #80 foi integrado em `master` no commit
+`0d20f99b8868cc5f24dedee8c5e185601c39bc90`. Production
+`dpl_H1iLeeNZJr5okkpP8mkE9oHmmVBu` foi confirmado READY no domínio oficial.
+Home, login, welcome, manifestos e ícones conferidos; nenhum erro de runtime
+no intervalo pós-publicação. Evidência final:
+https://github.com/alisonbielwhats1-beep/barber-saas/pull/80#issuecomment-5566245378.
+Isso conclui os registros históricos de preparação/revisão abaixo.
+
+A revisão seguinte, `codex/client-responsive-entry`, corrige cabeçalho e acesso
+do cliente, substitui o logo ampliável pela marca Everflair e retira fotos dos
+serviços. Escopo em `docs/CLIENTE_RESPONSIVO_2026-09-07.md`. Sem banco ou nova
+promoção produtiva nesta revisão.
+
 ## 2026-09-07 — publicação do PR #80 autorizada, em preparação
 
 O responsável autorizou atualizar o GitHub, integrar e publicar em produção

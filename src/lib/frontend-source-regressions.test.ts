@@ -103,22 +103,20 @@ describe("frontend audit source regressions", () => {
     expect(clientLayout).not.toContain("style={brandStyle}");
   });
 
-  it("keeps the client vitrine focused and makes the real logo expandable", () => {
+  it("keeps the client vitrine focused with the Everflair brand", () => {
     const home = source("src/app/book/[salonSlug]/page.tsx");
-    const logo = source("src/app/book/[salonSlug]/salon-logo-lightbox.tsx");
 
-    expect(home).toContain("<SalonLogoLightbox");
+    expect(home).toContain("<BrandLogo");
+    expect(home).not.toContain("SalonLogoLightbox");
     expect(home).not.toContain('aria-label="Contato rápido"');
     expect(home).toContain('aria-labelledby="contact-title"');
     expect(home).toContain("Fale com o Studio");
-    expect(home).toContain("{salon.address && (");
+    expect(home).toContain("<SalonLocationLink address={salon.address}");
+    expect(source("src/app/book/[salonSlug]/salon-location-link.tsx")).toContain("if (!location) return null;");
     const infoStart = home.indexOf("{/* Informações");
     expect(infoStart).toBeGreaterThan(-1);
     expect(home.slice(infoStart)).not.toContain("whatsappHref");
     expect(home.slice(infoStart)).not.toContain("phoneHref");
-    expect(logo).toContain('role="dialog"');
-    expect(logo).toContain('aria-label="Fechar logo ampliado"');
-    expect(logo).toContain('event.key === "Escape"');
   });
 
   it("permite foto do profissional e a exibe na equipe pública", () => {
@@ -161,7 +159,7 @@ describe("frontend audit source regressions", () => {
     expect(clientHome).toContain('sizes="(max-width: 640px) calc(100vw - 2rem), (max-width: 1024px) calc(100vw - 3rem), 1088px"');
     expect(booking).toContain("max-h-[calc(100dvh-1rem)]");
     expect(adminLayout).toContain('id="main-content"');
-    expect(welcome).toContain("overflow-x-hidden");
+    expect(welcome).toContain("<ClientAccessLayout");
     expect(settings).toContain("grid-cols-1 gap-3 sm:grid-cols-2");
     expect(hours).toContain("aria-label={`Início ${WEEKDAYS[row.weekday]}, intervalo ${index + 1}`}");
   });

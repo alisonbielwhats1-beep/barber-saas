@@ -4,6 +4,7 @@ import { getClientSessionForSalonSlug } from "@/lib/client-session-tenant";
 import { clientHomePath, safeClientReturnTo } from "@/lib/client-routes";
 import { PasswordRecoveryLoginLink } from "@/components/password-recovery-login-link";
 import { LoginForm } from "./login-form";
+import { ClientAccessLayout } from "../client-access-layout";
 
 export default async function LoginPage({
   params,
@@ -19,18 +20,8 @@ export default async function LoginPage({
   if (session) redirect(homePath);
 
   return (
-    <main className="flex min-h-[100dvh] flex-col items-center justify-center px-5 py-10">
-      <div className="w-full max-w-sm space-y-6">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-primary">
-            Sua conta
-          </p>
-          <h1 className="mt-1 text-2xl font-semibold">Entrar</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Acesse para ver e gerenciar suas reservas.
-          </p>
-        </div>
-
+    <ClientAccessLayout eyebrow="Sua conta" title="Entrar" description="Acesse para agendar e acompanhar suas reservas.">
+      <div className="space-y-6">
         <LoginForm salonSlug={salonSlug} returnTo={homePath} passwordReset={query.senha === "alterada"} />
 
         <PasswordRecoveryLoginLink
@@ -56,6 +47,6 @@ export default async function LoginPage({
           </Link>
         </div>
       </div>
-    </main>
+    </ClientAccessLayout>
   );
 }
