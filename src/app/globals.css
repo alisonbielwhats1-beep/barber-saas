@@ -127,8 +127,8 @@
     --accent-foreground: 0 0% 100%;
 
     /* Semantic — slightly deeper for light bg legibility */
-    --success: 152 55% 30%;
-    --info: 213 85% 44%;
+    --success: 152 55% 27%;
+    --info: 213 85% 40%;
     --warning: 35 90% 29%;
     --danger: 0 68% 46%;
     --marketing: 267 72% 50%;
