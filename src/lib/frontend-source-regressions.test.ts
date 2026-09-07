@@ -111,7 +111,8 @@ describe("frontend audit source regressions", () => {
     expect(home).not.toContain('aria-label="Contato rápido"');
     expect(home).toContain('aria-labelledby="contact-title"');
     expect(home).toContain("Fale com o Studio");
-    expect(home).toContain("{salon.address && (");
+    expect(home).toContain("<SalonLocationLink address={salon.address}");
+    expect(source("src/app/book/[salonSlug]/salon-location-link.tsx")).toContain("if (!location) return null;");
     const infoStart = home.indexOf("{/* Informações");
     expect(infoStart).toBeGreaterThan(-1);
     expect(home.slice(infoStart)).not.toContain("whatsappHref");
