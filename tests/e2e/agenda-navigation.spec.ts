@@ -20,7 +20,7 @@ test.describe("@database navegação compacta e calendário", () => {
     await page.goto("/agenda?date=2026-09-06");
     await page.getByRole("button", { name: "Mudar para tema claro" }).click();
     const sidebar = page.getByRole("complementary", { name: "Menu do estabelecimento" });
-    await expect(sidebar.getByRole("img", { name: "Everflair — símbolo EF" })).toBeVisible();
+    await expect(sidebar.getByRole("img", { name: "Everflair — símbolo Flair" })).toBeVisible();
     await expect(sidebar.getByText("Painel de operação")).toHaveCount(0);
     await page.getByRole("button", { name: "Recolher menu", exact: true }).click();
     await expect(sidebar).toHaveAttribute("data-collapsed", "true");

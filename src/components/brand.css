@@ -3,6 +3,9 @@
   --ef-graphite: #23262b;
   --ef-copper: #b77752;
   --ef-stone: #d8d1c7;
+  --ef-lilac: #69499c;
+  --ef-lilac-soft: #f0eafb;
+  --ef-lilac-light: #c7b4e5;
 }
 .ef-logo, .ef-mark {
   display: inline-block;
@@ -12,13 +15,13 @@
   -webkit-mask: var(--ef-art) center / contain no-repeat;
   vertical-align: middle;
 }
-.ef-logo { --ef-art: url('/images/brand/everflair-logo.png'); width: 166px; height: 38px; }
-.ef-mark { --ef-art: url('/images/brand/everflair-mark.png'); width: 25px; height: 25px; }
+.ef-logo { --ef-art: url('/images/brand/everflair-flair-logo.png'); width: 166px; height: 42px; }
+.ef-mark { --ef-art: url('/images/brand/everflair-flair-mark.png'); width: 25px; height: 25px; }
 .ef-admin-logo { width: 104px; height: 24px; }
 @media (max-width: 480px) { .mk-brand .ef-logo { width: 144px; height: 34px; } }
 @media (forced-colors: active) { .ef-logo, .ef-mark { background-color: CanvasText; forced-color-adjust: none; } }
 
-/* Brand entrance: only Everflair's graphite, ivory, copper and stone. */
+/* Flair entrance: the approved palette, independent of data loading. */
 .ef-intro {
   position: fixed;
   inset: 0;
@@ -36,7 +39,7 @@
   inset: -25%;
   background:
     radial-gradient(ellipse at 28% 72%, var(--ef-copper), transparent 48%),
-    radial-gradient(ellipse at 75% 30%, var(--ef-stone), transparent 48%),
+    radial-gradient(ellipse at 75% 30%, var(--ef-lilac), transparent 48%),
     radial-gradient(ellipse at 54% 52%, var(--ef-ivory), transparent 35%);
   filter: blur(48px);
   opacity: .58;
@@ -44,11 +47,18 @@
 }
 .ef-intro .ef-intro-logo {
   position: relative;
-  width: clamp(180px, 40vw, 300px);
-  height: clamp(42px, 9vw, 70px);
+  width: clamp(220px, 56vw, 360px);
+  height: clamp(56px, 14vw, 92px);
   filter: drop-shadow(0 2px 16px var(--ef-graphite));
   animation: ef-intro-wordmark 1100ms cubic-bezier(.22,1,.36,1) both;
 }
+.ef-intro[data-audience="client"] { background: var(--ef-ivory); color: var(--ef-lilac); }
+.ef-intro[data-audience="client"] .ef-intro-light {
+  background:
+    radial-gradient(ellipse at 32% 58%, var(--ef-lilac-light), transparent 46%),
+    radial-gradient(ellipse at 72% 40%, var(--ef-lilac-soft), transparent 48%);
+}
+.ef-intro[data-audience="client"] .ef-intro-logo { filter: none; }
 @keyframes ef-intro-light {
   from { transform: scale(1.18) translate(-3%, 3%); opacity: .25; }
   to { transform: scale(1) translate(3%, -3%); opacity: .58; }

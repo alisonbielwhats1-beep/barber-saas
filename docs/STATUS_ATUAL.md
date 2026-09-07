@@ -1,8 +1,16 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-06 — marca Flair escolhida, em revisão no PR #79
+
+O responsável escolheu a proposta 3 (Flair), substituindo o monograma EF.
+A nova marca compartilhada também aparece na landing, com lilás discreto, e
+na entrada animada do cliente, cuja sessão é independente do painel e por
+estabelecimento. Ícones de instalação atualizados. Escopo e verificações em
+docs/MARCA_FLAIR_2026-09-06.md. Sem promoção produtiva ou mudança de banco.
+
 ## 2026-09-06 — refinamento autorizado do menu e calendário no PR #79
 
-O topo passa a exibir somente o monograma EF. Menu recolhível com preferência
+O topo passa a exibir somente o símbolo (Flair, após a escolha acima). Menu recolhível com preferência
 local, calendário lateral com seleção de datas e semanas, versão móvel em
 janela e fotos/nomes preservados na grade. O responsável autorizou lilás/roxo
 como acento no tema claro: seleção e foco, mantendo marfim/grafite e ações

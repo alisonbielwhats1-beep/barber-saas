@@ -8,7 +8,9 @@ adicionar essa família à interface administrativa.
 
 ## Implementação
 
-- Topo com o monograma aprovado, sem lettering nem subtítulo repetido.
+- Topo com o símbolo aprovado, sem lettering nem subtítulo repetido. A escolha
+  posterior da proposta 3 substitui o monograma EF pela marca Flair; veja
+  `docs/MARCA_FLAIR_2026-09-06.md`.
 - Menu de 224 px recolhível para 72 px, com preferência local persistida.
   Ícones continuam nomeados e têm tooltip; troca de estabelecimento, busca,
   conta, tema e saída permanecem acessíveis.

@@ -33,4 +33,31 @@ describe("Everflair entrance", () => {
     navigation.path = "/";
     expect(render(<BrandIntro />).container.querySelector(".ef-intro")).toBeNull();
   });
+  it("shows the client entrance even after the admin entrance and keeps it once within the salon", () => {
+    const view = render(<BrandIntro />);
+    act(() => vi.advanceTimersByTime(1400));
+    navigation.path = "/book/studio-flair";
+    view.rerender(<BrandIntro />);
+    expect(view.container.querySelector('.ef-intro[data-audience="client"]')).not.toBeNull();
+    act(() => vi.advanceTimersByTime(700));
+    navigation.path = "/book/studio-flair/agendar";
+    view.rerender(<BrandIntro />);
+    act(() => vi.advanceTimersByTime(700));
+    expect(view.container.querySelector(".ef-intro")).toBeNull();
+    view.unmount();
+    expect(render(<BrandIntro />).container.querySelector(".ef-intro")).toBeNull();
+  });
+  it("does not share the client's introduction with another establishment", () => {
+    navigation.path = "/book/studio-a";
+    const view = render(<BrandIntro />);
+    act(() => vi.advanceTimersByTime(1400));
+    navigation.path = "/book/studio-b";
+    view.rerender(<BrandIntro />);
+    expect(view.container.querySelector('.ef-intro[data-audience="client"]')).not.toBeNull();
+  });
+  it("leaves the app usable when session storage is unavailable", () => {
+    const storage = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => { throw new Error("Storage disabled"); });
+    expect(render(<BrandIntro />).container.querySelector(".ef-intro")).toBeNull();
+    storage.mockRestore();
+  });
 });

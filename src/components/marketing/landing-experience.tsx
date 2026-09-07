@@ -14,6 +14,7 @@ import { PricingComparison } from "./pricing-comparison";
 import "./marketing.css";
 import "./refinement.css";
 import "./conversion.css";
+import "./flair.css";
 
 const resources = [
   { icon: Layers, title: "Pacotes de serviços", text: "Organize sessões e acompanhe o uso dos pacotes contratados. Disponível a partir do plano Fundador." },

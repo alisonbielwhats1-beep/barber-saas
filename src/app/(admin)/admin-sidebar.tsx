@@ -28,7 +28,7 @@ export function AdminSidebar({ current, memberships, role, plan, unreadNotificat
   return (
     <aside aria-label="Menu do estabelecimento" data-collapsed={collapsed} className={`admin-sidebar hidden shrink-0 flex-col border-r border-border lg:flex print:hidden ${collapsed ? "w-[72px]" : "w-56"}`}>
       <div className={`flex shrink-0 items-center p-3 ${collapsed ? "flex-col gap-1" : "justify-between"}`}>
-        <span role="img" aria-label="Everflair — símbolo EF" className="grid h-11 w-11 place-items-center text-[hsl(var(--selection-foreground))]">
+        <span role="img" aria-label="Everflair — símbolo Flair" className="grid h-11 w-11 place-items-center text-[hsl(var(--selection-foreground))]">
           <BrandMark className="!h-8 !w-8" />
         </span>
         <button type="button" onClick={toggle} aria-label={label} title={label} aria-expanded={!collapsed} aria-controls="admin-navigation" className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-card-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">

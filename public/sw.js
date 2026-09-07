@@ -1,4 +1,4 @@
-const CACHE = "everflair-shell-v3";
+const CACHE = "everflair-shell-v4";
 const OFFLINE_URL = "/offline";
 const STATIC_SHELL = [
   OFFLINE_URL,

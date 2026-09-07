@@ -4,29 +4,31 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { BrandLogo } from "./brand";
 
-const SESSION_KEY = "everflair:intro:v1";
+const SESSION_KEY = "everflair:intro:flair:v2";
 
 /** A short brand entrance, independent of authentication and data loading. */
 export function BrandIntro() {
   const pathname = usePathname();
-  const [visible, setVisible] = useState(false);
-  const eligible = pathname?.startsWith("/book/") || pathname === "/login" ||
+  const [visibleKey, setVisibleKey] = useState<string | null>(null);
+  const clientSlug = pathname?.match(/^\/book\/([^/]+)(?:\/|$)/)?.[1];
+  const eligible = Boolean(clientSlug) || pathname === "/login" ||
     /^\/(dashboard|agenda|hoje|clientes|profissionais|servicos|produtos|configuracoes|relatorios|marketing|pacotes|pagamentos)(\/|$)/.test(pathname ?? "");
+  const sessionKey = eligible ? `${SESSION_KEY}:${clientSlug ? `client:${clientSlug}` : "admin"}` : null;
 
   useEffect(() => {
-    if (!eligible) return;
+    if (!sessionKey) return;
     const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
     try {
-      if (sessionStorage.getItem(SESSION_KEY)) return;
+      if (sessionStorage.getItem(sessionKey)) return;
     } catch {
       // Storage disabled: do not interrupt the user's navigation with an intro.
       return;
     }
     if (motion.matches) return;
-    setVisible(true);
+    setVisibleKey(sessionKey);
     const dismiss = () => {
-      setVisible(false);
-      try { sessionStorage.setItem(SESSION_KEY, "seen"); } catch {}
+      setVisibleKey(null);
+      try { sessionStorage.setItem(sessionKey, "seen"); } catch {}
     };
     const timeout = window.setTimeout(dismiss, 1400);
     window.addEventListener("pointerdown", dismiss, { once: true });
@@ -38,10 +40,10 @@ export function BrandIntro() {
       window.removeEventListener("keydown", dismiss);
       motion.removeEventListener("change", dismiss);
     };
-  }, [eligible]);
+  }, [sessionKey]);
 
-  if (!visible || !eligible) return null;
-  return <div className="ef-intro" aria-hidden="true">
+  if (!sessionKey || visibleKey !== sessionKey) return null;
+  return <div key={sessionKey} className="ef-intro" data-audience={clientSlug ? "client" : "admin"} aria-hidden="true">
     <div className="ef-intro-light" />
     <BrandLogo decorative className="ef-intro-logo" />
   </div>;
