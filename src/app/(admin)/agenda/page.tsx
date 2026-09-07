@@ -4,6 +4,8 @@ import { AgendaBoard, type Appointment, type Professional } from "./agenda-board
 import type { ServiceOption, ClientOption } from "./appointment-form";
 import { dateKeyInTimeZone, isDateKey, calendarGridRangeInTimeZone } from "@/lib/time";
 import { AutoRefresh } from "@/components/auto-refresh";
+import { OpeningPanel } from "./opening-panel";
+import { FlexibleQueuePanel } from "./flexible-panel";
 
 function jsonRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -27,16 +29,16 @@ function waitlistServiceName(value: unknown): string {
 export default async function AgendaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string }>;
+  searchParams: Promise<{ date?: string; appointment?: string }>;
 }) {
   const ctx = await getTenantContext();
   const { salonId, role } = ctx;
-  const { date: selectedDate } = await searchParams;
+  const { date: selectedDate, appointment: selectedAppointment } = await searchParams;
 
   // Sequencial de propósito: pooler com connection_limit=1 em serverless —
   // 5 queries em Promise.all estouravam o timeout do pool (P2024). Dentro de
   // withTenant, as 5 passam a usar uma única conexão em vez de 5 aquisições.
-  const { salon, dateStr, prosRaw, apptsRaw, waitlistRaw, services, clients } = await withTenant(ctx, async (tx) => {
+  const { salon, dateStr, prosRaw, apptsRaw, waitlistRaw, services, clients, blocks, openings } = await withTenant(ctx, async (tx) => {
     const salon = await tx.salon.findUnique({
       where: { id: salonId },
       select: { name: true, timezone: true },
@@ -85,13 +87,15 @@ export default async function AgendaPage({
         status: true,
         notes: true,
         isOverbooked: true,
+        seriesId: true,
+        dependentName: true,
         version: true,
         payment: { select: { id: true } },
         client: { select: { name: true, phone: true } },
         service: { select: { id: true, name: true, colorHex: true } },
         serviceItems: {
           orderBy: { position: "asc" },
-          select: { serviceId: true, serviceName: true },
+          select: { serviceId: true, serviceName: true, durationMin: true, processingMin: true, finishingMin: true },
         },
         events: {
           orderBy: { createdAt: "desc" },
@@ -152,7 +156,17 @@ export default async function AgendaPage({
           orderBy: { name: "asc" },
           take: 300,
         });
-    return { salon, dateStr, prosRaw, apptsRaw, waitlistRaw, services, clients };
+    const blocks = await tx.timeOff.findMany({
+      where: { professional: { salonId, ...(professionalId ? { id: professionalId } : {}) }, startAt: { lt: range.to }, endAt: { gt: range.from } },
+      select: { id: true, professionalId: true, startAt: true, endAt: true, reason: true },
+      orderBy: { startAt: "asc" },
+    });
+    const openings = await tx.professionalOpening.findMany({
+      where: { salonId, ...(professionalId ? { professionalId } : {}), dateKey: { gte: dateKeyInTimeZone(range.from, salon.timezone), lt: dateKeyInTimeZone(range.to, salon.timezone) } },
+      select: { id: true, professionalId: true, dateKey: true, startMinutes: true, endMinutes: true, reason: true },
+      orderBy: [{ dateKey: "asc" }, { startMinutes: "asc" }],
+    });
+    return { salon, dateStr, prosRaw, apptsRaw, waitlistRaw, services, clients, blocks, openings };
   });
 
   // Fila de espera por agendamento (só quem ainda não foi atendido) — pro
@@ -179,8 +193,9 @@ export default async function AgendaPage({
     id: p.id,
     name: p.user.name,
     colorHex: p.colorHex,
+    avatarUrl: p.user.avatarUrl,
     serviceIds: p.services.map((s) => s.serviceId),
-    workingHours: p.workingHours,
+    workingHours: [...p.workingHours, ...openings.filter(o => o.professionalId === p.id)],
   }));
 
   const appointments: Appointment[] = apptsRaw.map((a) => {
@@ -210,7 +225,7 @@ export default async function AgendaPage({
       priceCents: a.priceCents,
       status: a.status,
       notes: a.notes,
-      clientName: a.client.name,
+      clientName: a.dependentName ? `${a.dependentName} (titular: ${a.client.name})` : a.client.name,
       clientPhone: a.client.phone,
       serviceIds: a.serviceItems.length > 0
         ? a.serviceItems.map((item) => item.serviceId)
@@ -223,6 +238,8 @@ export default async function AgendaPage({
       waitlistNext: waiting[0]?.name ?? null,
       waitlist: waiting.map((entry, index) => ({ ...entry, position: index + 1 })),
       isOverbooked: a.isOverbooked,
+      seriesId: a.seriesId,
+      stages: a.serviceItems.map(s => ({ name: s.serviceName, durationMin: s.durationMin, processingMin: s.processingMin, finishingMin: s.finishingMin })),
       version: a.version,
       hasPayment: Boolean(a.payment),
       pendingReschedule: a.rescheduleProposals[0]
@@ -243,6 +260,9 @@ export default async function AgendaPage({
     <>
       <AutoRefresh intervalMs={30_000} />
       <AgendaBoard
+        operations={(role === "OWNER" || role === "MANAGER") ? <><OpeningPanel date={dateStr} timezone={salon.timezone} professionals={professionals} openings={openings} /><FlexibleQueuePanel /></> : undefined}
+        initialAppointmentId={selectedAppointment}
+        availabilityBlocks={blocks.map(b => ({ ...b, startAt: b.startAt.toISOString(), endAt: b.endAt.toISOString() }))}
         date={dateStr}
         salonName={salon?.name ?? "seu salão"}
         timezone={salon.timezone}
@@ -254,6 +274,7 @@ export default async function AgendaPage({
         canCreate={role !== "PROFESSIONAL"}
         canCancel={role === "OWNER" || role === "MANAGER"}
       />
+
     </>
   );
 }

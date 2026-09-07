@@ -1,5 +1,94 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-07 — publicação autorizada do PR #79; banco 018/019 aplicado
+
+O responsável autorizou explicitamente o merge, deploy em produção e atualização
+do GitHub. Esta autorização sucede os limites de homologação registrados abaixo.
+As migrations manuais 018 e 019 foram aplicadas no projeto `barber-saas`
+(`vshnatkzxdekkvqttvbv`) às 02:59 UTC, após preflight e backup lógico criptografado.
+As verificações passaram; os registros anteriores permaneceram idênticos e as
+sete tabelas novas têm RLS ENABLE/FORCE. `app_runtime` continua sem BYPASSRLS.
+
+A aplicação desta entrega é publicada pelo merge do PR #79 em `master`, com
+build Production pela integração Git da Vercel. Na preparação deste registro,
+o deployment anterior ainda era `dpl_8KS5HHN5NoaBPSAGDXSnhjGuxBm6` (`a66a98b`).
+O resultado final do merge/deploy e a conferência posterior serão registrados
+no PR #79: https://github.com/alisonbielwhats1-beep/barber-saas/pull/79.
+Evidências, recuperação e escopo em `docs/RELEASE_PRODUCAO_2026-09-07.md`.
+Não reaplicar 018/019. Nenhum teste ou seed foi executado em Production.
+
+## 2026-09-06 — marca Flair escolhida, em revisão no PR #79
+
+O responsável escolheu a proposta 3 (Flair), substituindo o monograma EF.
+A nova marca compartilhada também aparece na landing, com lilás discreto, e
+na entrada animada do cliente, cuja sessão é independente do painel e por
+estabelecimento. Ícones de instalação atualizados. Escopo e verificações em
+docs/MARCA_FLAIR_2026-09-06.md. Sem promoção produtiva ou mudança de banco.
+
+## 2026-09-06 — refinamento autorizado do menu e calendário no PR #79
+
+O topo passa a exibir somente o símbolo (Flair, após a escolha acima). Menu recolhível com preferência
+local, calendário lateral com seleção de datas e semanas, versão móvel em
+janela e fotos/nomes preservados na grade. O responsável autorizou lilás/roxo
+como acento no tema claro: seleção e foco, mantendo marfim/grafite e ações
+verdes/vermelhas. Esta decisão substitui a restrição histórica dessa família de
+cor na interface. Escopo e validação em docs/NAVEGACAO_CALENDARIO_2026-09-06.md.
+Sem mudança de banco nem promoção produtiva; checks por versão no PR #79.
+
+## 2026-09-06 — pendências implementadas no PR #79, sem promoção produtiva
+
+Na branch codex/product-experience / PR #79: seleção de bloqueios na grade,
+recorrência, bloqueios semana/mês/lista, edição de séries com revisão de conflitos,
+fila flexível FIFO, sugestões de encaixe, variantes e etapas de serviços,
+reservas exclusivas de salas/equipamentos, dependentes e cuidados/fotos privados.
+Dashboard/relatórios indicam próximas ações e pacotes têm filtros de vencimento.
+Migration 019 aditiva executada com backup/restauração, preflight, reaplicação,
+preservação dos registros, RLS e constraints no PostgreSQL descartável do GitHub.
+Os 7 testes PostgreSQL de recursos, fila, dependentes e cuidados passaram.
+Não há alteração produtiva nem atualização do Codespace.
+144 arquivos / 687 testes locais passaram; TypeScript, lint e build passaram.
+A verificação de navegador cobre 18 áreas em desktop claro e mobile escuro.
+As falhas de contraste, rótulos, datas entre fusos e distribuição móvel encontradas
+foram corrigidas no mesmo PR. O run `34071775481` (`87f4ccb`) passou integralmente:
+40 verificações autenticadas (36 visuais/acessíveis), 31 testes públicos e todos
+os jobs de banco. Zero violações nas regras axe executadas, erros de runtime ou
+overflow da página nas 36 verificações. Refinamentos posteriores de leitura móvel
+são acompanhados pelos checks da versão corrente do PR.
+Checklist completo em docs/EVOLUCAO_PRODUTO_2026-09-06.md; plano de banco em
+docs/MIGRATION_019_RECURSOS_CUIDADOS.md. Este registro substitui as pendências
+históricas abaixo; promoção produtiva permanece sujeita a aprovação separada.
+
+## 2026-09-06 — evolução de produto em implementação, sem deploy
+
+- Incremento 018 em validação: expediente adicional por data e registro real de
+  chegada. Autorização do responsável para validar no ambiente GitHub; CI usa
+  PostgreSQL 16 descartável e dados fictícios. Plano em
+  `docs/MIGRATION_018_EXPEDIENTE_CHEGADA.md`. Não aplicar em Production.
+
+- Branch `codex/product-experience`, baseada em `origin/master` `a66a98b`.
+- Bloqueios por profissional/intervalo na agenda, cancelamento separado das
+  reservas selecionadas, capacidade corrigida, comunicação manual explícita,
+  atalhos e refinamentos de interface. Catálogo consultável antes do login;
+  autenticação obrigatória para reservar e entrar na fila permanece no servidor.
+- Escopo implementado e pendências das 12 frentes em
+  `docs/EVOLUCAO_PRODUTO_2026-09-06.md`. O programa completo não está concluído.
+- Direção visual adicional autorizada pelo responsável: entrada animada Everflair,
+  retratos com nomes abaixo na agenda diária e tema claro em marfim/pedra/grafite.
+  Os efeitos seguem as cores da marca, sem reproduzir a paleta Fresha.
+- Lint, TypeScript, 681 testes e build local passaram. Não houve teste produtivo
+  nem promoção desta branch. CI e schema-smoke da etapa visual `d665f44` passaram.
+- O run GitHub `34059744513`, commit `10055ef`, validou a migration 018 no
+  PostgreSQL descartável: backup/restauração, reaplicação, preservação dos
+  registros e RLS sem BYPASSRLS. Testes PostgreSQL de concorrência passaram.
+  A jornada encontrou seletor ambíguo, corrigido com associação explícita de rótulo.
+- O run `34060782156`, commit `b78aa88`, passou integralmente: check,
+  schema-smoke, login/isolamento, reserva pública, chegada, expediente extra,
+  bloqueio sem cancelamento e rollbacks. Capturas confirmaram ações verdes e
+  vermelhas e cartões legíveis; a captura do tema claro foi estabilizada para
+  aguardar o fim da transição de cores. Resultados por versão ficam nos checks
+  do PR #79. O Codespace de demonstração não foi alterado.
+
+
 ## Revisão mais recente — restauração da referência 6fd3d21
 
 O usuário rejeitou a proposta de fundos verdes. A demonstração retorna a

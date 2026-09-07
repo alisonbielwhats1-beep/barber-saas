@@ -25,7 +25,6 @@ import {
   dateKeyInTimeZone,
   localDateTimeToUtc,
   wallClockMinutesInTimeZone,
-  weekdayInTimeZone,
 } from "./time";
 import {
   businessRecipients,
@@ -34,6 +33,7 @@ import {
   type InternalNotificationRecipient,
 } from "./appointment-events";
 import { writeAuditLog } from "./audit";
+import { workingHoursForDate } from "./working-hours";
 import {
   lockOperationalResources,
   lockProductMutations,
@@ -49,6 +49,9 @@ import {
 } from "./waitlist";
 
 export type ServiceSnapshot = {
+  processingMin?: number;
+  finishingMin?: number;
+  physicalResourceId?: string | null;
   id: string;
   name: string;
   durationMin: number;
@@ -76,6 +79,7 @@ type AppointmentIdentity =
   | { clientId?: never; guest: { name: string; phone: string | null } };
 
 export type CreateAppointmentInput = AppointmentIdentity & {
+  dependentId?: string;
   salonId: string;
   professionalId: string;
   serviceIds: string[];
@@ -263,7 +267,7 @@ async function loadServiceSnapshots(
   const serviceIds = normalizeServiceIds(rawServiceIds);
   const services = await tx.service.findMany({
     where: { salonId, id: { in: serviceIds }, active: true },
-    select: { id: true, name: true, durationMin: true, priceCents: true },
+    select: { id: true, name: true, durationMin: true, priceCents: true, processingMin: true, finishingMin: true, physicalResourceId: true },
   });
   if (services.length !== serviceIds.length) {
     throw new AppointmentError("SERVICE_INVALID");
@@ -360,17 +364,13 @@ async function availabilityViolation(
   );
   if (startDate !== endDate) return "OUTSIDE_WORKING_HOURS";
 
-  const weekday = weekdayInTimeZone(input.startAt, input.salon.timezone);
   const startMinutes = wallClockMinutesInTimeZone(input.startAt, input.salon.timezone);
   // O limite exclusivo 00:00 pertence ao fim do dia anterior (1440), não
   // ao início da jornada. O teste por endAt - 1ms acima permite esse limite.
   const endMinutes = dateKeyInTimeZone(input.endAt, input.salon.timezone) !== startDate
     ? 1440
     : wallClockMinutesInTimeZone(input.endAt, input.salon.timezone);
-  const workingHours = await tx.workingHours.findMany({
-    where: { salonId: input.salonId, professionalId: input.professionalId, weekday },
-    select: { startMinutes: true, endMinutes: true },
-  });
+  const workingHours = await workingHoursForDate(tx, input.salonId, input.professionalId, startDate);
   const insideWorkingHours = workingHours.some(
     (working) =>
       startMinutes >= working.startMinutes && endMinutes <= working.endMinutes,
@@ -515,12 +515,14 @@ async function inspectAvailabilityUsingServices(
         });
     const durationMin = services.reduce((sum, service) => sum + service.durationMin, 0);
     const endAt = addMinutes(startAt, durationMin);
-    const violation = await availabilityViolation(tx, {
+    let violation = await availabilityViolation(tx, {
       ...input,
       salon,
       startAt,
       endAt,
     });
+    const resourceIds = services.flatMap(s => s.physicalResourceId ? [s.physicalResourceId] : []);
+    if (!violation && resourceIds.length && await tx.resourceBooking.findFirst({ where: { salonId: input.salonId, resourceId: { in: resourceIds }, active: true, startAt: { lt: endAt }, endAt: { gt: startAt }, ...(input.excludeAppointmentId ? { appointmentId: { not: input.excludeAppointmentId } } : {}) }, select: { appointmentId: true } })) violation = "SLOT_TAKEN";
     return { violation, startAt, endAt, timezone: salon.timezone, services: priced.services };
   } catch (error) {
     return toAppointmentError(error);
@@ -598,6 +600,7 @@ function eventPayload(input: {
       id: service.id,
       name: service.name,
       durationMin: service.durationMin,
+      processingMin: service.processingMin ?? 0, finishingMin: service.finishingMin ?? 0,
       priceCents: service.priceCents,
     })),
     actor: {
@@ -621,6 +624,7 @@ export async function createAppointment(
     serviceIds,
     startLocal: input.startLocal,
     clientId: input.clientId ?? null,
+    ...(input.dependentId ? { dependentId: input.dependentId } : {}),
     guest: input.guest ?? null,
     origin: input.origin,
     notes: input.notes ?? null,
@@ -704,6 +708,8 @@ export async function createAppointment(
     if (!owned) throw new AppointmentError("FORBIDDEN");
   }
 
+  const dependent = input.dependentId ? await tx.clientDependent.findFirst({ where: { id: input.dependentId, clientId, salonId: input.salonId, active: true }, select: { id: true, name: true } }) : null;
+  if (input.dependentId && !dependent) throw new AppointmentError("FORBIDDEN");
   const priceCents = inspected.services.reduce(
     (sum, service) => sum + service.priceCents,
     0,
@@ -712,6 +718,7 @@ export async function createAppointment(
     data: {
       salonId: input.salonId,
       clientId,
+      ...(dependent ? { dependentId: dependent.id, dependentName: dependent.name } : {}),
       professionalId: input.professionalId,
       serviceId: inspected.services[0]!.id,
       startAt: inspected.startAt,
@@ -744,6 +751,7 @@ export async function createAppointment(
       position,
       serviceName: service.name,
       durationMin: service.durationMin,
+      processingMin: service.processingMin ?? 0, finishingMin: service.finishingMin ?? 0,
       priceCents: service.priceCents,
     })),
   });
@@ -822,12 +830,12 @@ async function loadMutableAppointment(tx: Tx, salonId: string, appointmentId: st
         select: {
           serviceId: true,
           serviceName: true,
-          durationMin: true,
+          durationMin: true, processingMin: true, finishingMin: true,
           priceCents: true,
         },
       },
       service: {
-        select: { id: true, name: true, durationMin: true, priceCents: true },
+        select: { id: true, name: true, durationMin: true, priceCents: true, processingMin: true, finishingMin: true, physicalResourceId: true },
       },
     },
   });
@@ -862,6 +870,7 @@ function previousServices(
       id: item.serviceId,
       name: item.serviceName,
       durationMin: item.durationMin,
+      processingMin: item.processingMin ?? 0, finishingMin: item.finishingMin ?? 0,
       priceCents: item.priceCents,
     }));
   }
@@ -1013,6 +1022,7 @@ export async function rescheduleAppointment(
       serviceId: service.id,
       serviceName: service.name,
       durationMin: service.durationMin,
+      processingMin: service.processingMin ?? 0, finishingMin: service.finishingMin ?? 0,
       priceCents: service.priceCents,
     })),
   };
@@ -1066,6 +1076,10 @@ export async function rescheduleAppointment(
     0,
   );
 
+  // Preserve the physical allocation when only moving the visit. A catalog edit
+  // must not silently replace a room that was already reserved.
+  await tx.$queryRaw`SELECT set_config('app.preserve_resource_snapshot', ${preservesExistingServices ? appointment.id : ""}, true), set_config('app.reset_resource_snapshot', ${preservesExistingServices ? "" : appointment.id}, true)`;
+
   const updated = await tx.appointment.updateMany({
     where: {
       id: appointment.id,
@@ -1082,6 +1096,8 @@ export async function rescheduleAppointment(
       timezone: inspected.timezone,
       status: "CONFIRMED",
       reminderSentAt: null,
+      checkedInAt: null,
+      checkedInById: null,
       notes: input.notes === undefined ? appointment.notes : input.notes,
       version: { increment: 1 },
       isOverbooked: inspected.violation === "SLOT_TAKEN" && override.overridden,
@@ -1109,9 +1125,12 @@ export async function rescheduleAppointment(
       position,
       serviceName: service.name,
       durationMin: service.durationMin,
+      processingMin: service.processingMin ?? 0, finishingMin: service.finishingMin ?? 0,
       priceCents: service.priceCents,
     })),
   });
+
+  await tx.$queryRaw`SELECT set_config('app.preserve_resource_snapshot', '', true), set_config('app.reset_resource_snapshot', '', true)`;
 
   const recipients = await recipientsForEvent(tx, {
     salonId: input.salonId,

@@ -203,6 +203,11 @@ representação adicional, nunca a autorização.
 
 ## Cliente convidado e conta
 
+Atualização autorizada na solicitação de evolução de produto de 06/09/2026:
+o catálogo público pode ser consultado antes do login. Criar reserva, entrar
+na fila e consultar dados pessoais continuam exigindo sessão do estabelecimento
+validada no servidor. Esta decisão não autoriza reservas anônimas.
+
 Não unir cadastros automaticamente apenas pelo telefone digitado, pois números
 podem ser compartilhados, reciclados ou informados incorretamente.
 

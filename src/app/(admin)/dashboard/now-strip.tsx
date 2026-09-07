@@ -159,7 +159,7 @@ export function NowStrip({
 
         {outOfStock > 0 ? (
           <Link
-            href="/produtos"
+            href="/produtos?filter=restock"
             className="flex min-h-11 items-center gap-2 rounded-xl border border-warning/30 bg-warning/10 px-3.5 py-2 text-[13px] font-medium text-warning transition-colors hover:border-warning/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <AlertTriangle aria-hidden="true" className="h-4 w-4 shrink-0" />

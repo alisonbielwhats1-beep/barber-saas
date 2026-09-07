@@ -34,14 +34,19 @@ export function LembretesPanel({
 }) {
   const [list, setList] = useState(initial);
   const [pending, startTransition] = useTransition();
+  const [opened, setOpened] = useState<string[]>([]);
+  const [error, setError] = useState("");
 
   function send(id: string, phone: string | null, name: string, when: string) {
     window.open(waLink(phone, name, salonName, when), "_blank", "noopener");
+    setOpened(previous => [...previous, id]);
+  }
+  function confirmSent(id: string) {
     startTransition(async () => {
       try {
         await markReminderSent(id);
         setList((prev) => prev.filter((r) => r.id !== id));
-      } catch {}
+      } catch { setError("Não foi possível registrar o envio. Tente novamente."); }
     });
   }
 
@@ -49,12 +54,13 @@ export function LembretesPanel({
     return (
       <div className="flex items-center gap-2 rounded-xl bg-surface-1 px-4 py-3 text-[13px] text-muted-foreground">
         <CheckCircle2 className="h-4 w-4 text-primary" />
-        Todos os clientes de amanhã foram lembrados.
+        Nenhum lembrete pendente nesta lista.
       </div>
     );
 
   return (
     <div className="space-y-1">
+      {error && <p role="alert" className="text-sm text-danger">{error}</p>}
       {list.map((r) => {
         const when = formatInTimeZone(new Date(r.startAt), timezone, "HH:mm", { locale: ptBR });
         return (
@@ -71,13 +77,14 @@ export function LembretesPanel({
                 {r.serviceName} · {r.proName}
               </p>
             </div>
+            {opened.includes(r.id) && <button type="button" disabled={pending} onClick={() => confirmSent(r.id)} className="min-h-11 rounded-lg border border-border px-2 text-xs">Confirmar envio manual</button>}
             <button
               disabled={pending}
               onClick={() => send(r.id, r.clientPhone, r.clientName, when)}
               className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-primary/10 px-3 py-1.5 text-[12px] font-medium text-primary transition hover:bg-primary/15 disabled:opacity-50"
             >
               <MessageCircle className="h-3.5 w-3.5" />
-              Enviar
+              Abrir WhatsApp
             </button>
           </div>
         );

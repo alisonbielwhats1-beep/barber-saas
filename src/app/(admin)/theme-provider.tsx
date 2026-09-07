@@ -33,20 +33,20 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>("dark");
 
   useEffect(() => {
+    let initial: Theme = "dark";
     try {
-      if (localStorage.getItem("admin-theme") === "light") setTheme("light");
+      if (localStorage.getItem("admin-theme") === "light") initial = "light";
     } catch {}
+    setTheme(initial);
+    applyTheme(initial);
     // Saiu do admin (navegação client-side): não vazar o tema para outras áreas
     return () => document.documentElement.removeAttribute("data-theme");
   }, []);
 
-  useEffect(() => {
-    applyTheme(theme);
-  }, [theme]);
-
   const toggle = useCallback(() => {
     setTheme((t) => {
       const next = t === "dark" ? "light" : "dark";
+      applyTheme(next);
       try {
         localStorage.setItem("admin-theme", next);
       } catch {}

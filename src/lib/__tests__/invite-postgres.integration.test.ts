@@ -173,6 +173,7 @@ describePostgres("convites com PostgreSQL real", () => {
     await prisma.service.update({
       where: { id: serviceId },
       data: { active: false },
+      select: { id: true },
     });
 
     await expect(

@@ -1,0 +1,31 @@
+/* Approved Flair accents. Keep large surfaces, typography and CTAs neutral. */
+.ef-marketing {
+  --mk-flair: var(--ef-lilac);
+  --mk-flair-tint: var(--ef-lilac-soft);
+  --mk-flair-line: #d8cce9;
+}
+.ef-marketing[data-atmosphere="dark"] {
+  --mk-flair: var(--ef-lilac-light);
+  --mk-flair-tint: #34303e;
+  --mk-flair-line: #5f5272;
+}
+.ef-marketing .mk-brand { color: var(--mk-flair); }
+.ef-marketing[data-segment="espaco-misto"] .mk-header .mk-brand { color: var(--ef-lilac-light); }
+.ef-marketing :is(a, button, summary, input):focus-visible { outline-color: var(--mk-flair); }
+.ef-marketing .mk-status-dot { background: var(--mk-flair); }
+.ef-marketing .sc-veil {
+  background:
+    radial-gradient(ellipse at 78% 15%, #c7b4e533, transparent 48%),
+    linear-gradient(var(--mk-canvas) 0%, transparent 48%);
+}
+.ef-marketing .sc-segment-controls button[aria-pressed="true"] {
+  color: var(--mk-flair);
+  background: var(--mk-flair-tint);
+  box-shadow: inset 0 0 0 1px var(--mk-flair-line);
+}
+.ef-marketing .pc-cards article[data-featured="true"] {
+  border-color: var(--mk-flair-line);
+  background: linear-gradient(145deg, var(--mk-flair-tint), var(--mk-surface) 75%);
+}
+.ef-marketing .mk-resource-list article > svg { color: var(--mk-flair); }
+.ef-marketing .mk-faq details[open] summary > svg { color: var(--mk-flair); }

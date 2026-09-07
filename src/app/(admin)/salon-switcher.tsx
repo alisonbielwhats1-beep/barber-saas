@@ -19,9 +19,11 @@ type Salon = { id: string; name: string; role: string };
 export function SalonSwitcher({
   current,
   memberships,
+  compact = false,
 }: {
   current: Salon;
   memberships: Salon[];
+  compact?: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -35,10 +37,10 @@ export function SalonSwitcher({
   }
 
   const trigger = (
-    <div className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px]">
-      <Store className="h-3 w-3 shrink-0 text-primary" />
-      <span className="flex-1 truncate font-medium text-foreground">{current.name}</span>
-      {memberships.length > 1 && (
+    <div className={`flex min-h-11 w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] ${compact ? "justify-center" : ""}`}>
+      <Store className="h-4 w-4 shrink-0 text-foreground" />
+      <span className={compact ? "sr-only" : "flex-1 truncate font-medium text-foreground"}>{current.name}</span>
+      {!compact && memberships.length > 1 && (
         <ChevronsUpDown className="h-3 w-3 shrink-0 text-muted-foreground" />
       )}
     </div>
@@ -46,7 +48,7 @@ export function SalonSwitcher({
 
   if (memberships.length <= 1) {
     return (
-      <div className="rounded-md border border-border bg-muted/30">
+      <div title={current.name} className="rounded-md border border-border bg-muted/30">
         {trigger}
       </div>
     );
@@ -55,6 +57,7 @@ export function SalonSwitcher({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
+        title={current.name}
         className={cn(
           "w-full rounded-md border border-border bg-muted/30 transition hover:bg-muted disabled:opacity-60",
           pending && "opacity-60",

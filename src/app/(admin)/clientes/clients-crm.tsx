@@ -22,7 +22,7 @@ type Segment = "all" | "vip" | "birthday" | "lapsed" | "recurring";
 type HistoryItem = { id: string; startAt: string; priceCents: number; status: string; serviceName: string; serviceColor: string | null; proName: string };
 const HISTORY_PREVIEW_COUNT = 3;
 
-const GENDER_COLOR = { MALE: "#3B9EFF", FEMALE: "#E85D9E" } as const;
+const GENDER_COLOR = { MALE: "info", FEMALE: "marketing" } as const;
 
 function GenderBadge({ gender, source }: { gender: "MALE" | "FEMALE" | "OTHER" | null; source: "confirmed" | "inferred" | null }) {
   if (gender !== "MALE" && gender !== "FEMALE") return null;
@@ -34,9 +34,9 @@ function GenderBadge({ gender, source }: { gender: "MALE" | "FEMALE" | "OTHER" |
       title={source === "inferred" ? `${label} (estimado pelo nome, confira em Editar)` : label}
       className="grid h-3.5 w-3.5 shrink-0 place-items-center rounded-full text-[8px] font-bold leading-none"
       style={{
-        color,
-        background: `${color}20`,
-        border: source === "inferred" ? `1px dashed ${color}90` : `1px solid transparent`,
+        color: `hsl(var(--${color}))`,
+        background: `hsl(var(--${color}) / 0.10)`,
+        border: source === "inferred" ? `1px dashed hsl(var(--${color}) / 0.5)` : `1px solid transparent`,
       }}
     >
       {letter}
@@ -145,10 +145,10 @@ export function ClientsCrm({
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar cliente ou telefone…" className="w-48 bg-transparent text-[13px] placeholder:text-muted-foreground focus:outline-none" />
         </div>
         <Seg active={segment === "all"} onClick={() => setSegment("all")}>Todos ({clients.length})</Seg>
-        <Seg active={segment === "vip"} onClick={() => setSegment("vip")} icon={Crown} accent="#F4C430">VIP ({counts.vip})</Seg>
-        <Seg active={segment === "birthday"} onClick={() => setSegment("birthday")} icon={Cake} accent="#EC4899">Aniversariantes ({counts.birthday})</Seg>
-        <Seg active={segment === "lapsed"} onClick={() => setSegment("lapsed")} icon={Clock} accent="#EF4444">Sumidos {lapsedClientDays}d+ ({counts.lapsed})</Seg>
-        <Seg active={segment === "recurring"} onClick={() => setSegment("recurring")} icon={Repeat} accent="#A855F7">Recorrentes ({counts.recurring})</Seg>
+        <Seg active={segment === "vip"} onClick={() => setSegment("vip")} icon={Crown} accent="warning">VIP ({counts.vip})</Seg>
+        <Seg active={segment === "birthday"} onClick={() => setSegment("birthday")} icon={Cake} accent="marketing">Aniversariantes ({counts.birthday})</Seg>
+        <Seg active={segment === "lapsed"} onClick={() => setSegment("lapsed")} icon={Clock} accent="danger">Sumidos {lapsedClientDays}d+ ({counts.lapsed})</Seg>
+        <Seg active={segment === "recurring"} onClick={() => setSegment("recurring")} icon={Repeat} accent="info">Recorrentes ({counts.recurring})</Seg>
         {canManage && <button onClick={() => setImportOpen((open) => !open)} className="ml-auto inline-flex min-h-11 items-center gap-1.5 rounded-full border border-border bg-card px-3 text-[12px] font-medium text-muted-foreground"><FileUp className="h-3.5 w-3.5" /> Importar planilha</button>}
       </div>
 
@@ -168,8 +168,8 @@ export function ClientsCrm({
                   <div className="flex items-center gap-1.5">
                     <p className="truncate text-[13px] font-medium">{c.name}</p>
                     <GenderBadge gender={c.genderDisplay} source={c.genderSource} />
-                    {c.isVip && <Crown className="h-3 w-3 shrink-0 text-[#F4C430]" />}
-                    {c.birthdayThisMonth && <Cake className="h-3 w-3 shrink-0 text-[#EC4899]" />}
+                    {c.isVip && <Crown className="h-3 w-3 shrink-0 text-warning" />}
+                    {c.birthdayThisMonth && <Cake className="h-3 w-3 shrink-0 text-marketing" />}
                   </div>
                   <p className="truncate text-[11px] text-muted-foreground">
                     {c.visits} {c.visits === 1 ? "atendimento" : "atendimentos"}{c.favoritePro ? ` · ${c.favoritePro.split(" ")[0]}` : ""}
@@ -184,7 +184,7 @@ export function ClientsCrm({
                       </span>
                     )}
                     {c.possibleDuplicates.length > 0 && (
-                      <span className="rounded-full bg-amber-400/10 px-1.5 py-0.5 text-[9px] text-amber-300">
+                      <span className="rounded-full bg-warning/10 px-1.5 py-0.5 text-[9px] text-warning">
                         Possível duplicata
                       </span>
                     )}
@@ -203,7 +203,7 @@ export function ClientsCrm({
               </div>
               {c.isLapsed && <span className="hidden shrink-0 rounded-full bg-danger/10 px-2 py-0.5 text-[10px] font-semibold text-danger lg:inline">Sumido</span>}
               {c.phone && (
-                <a href={waLink(c.phone, c.name.split(" ")[0], salonName)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#25D366]/15 text-[#25D366] transition hover:bg-[#25D366]/25" title="WhatsApp">
+                <a href={waLink(c.phone, c.name.split(" ")[0], salonName)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-success/10 text-success transition hover:bg-success/20" title="WhatsApp">
                   <MessageCircle className="h-4 w-4" />
                 </a>
               )}
@@ -226,7 +226,7 @@ export function ClientsCrm({
                     <DialogTitle className="flex items-center gap-2 text-lg">
                       {detail.name}
                       <GenderBadge gender={detail.genderDisplay} source={detail.genderSource} />
-                      {detail.isVip && <Crown className="h-4 w-4 text-[#F4C430]" />}
+                      {detail.isVip && <Crown className="h-4 w-4 text-warning" />}
                     </DialogTitle>
                     <p className="text-[12px] text-muted-foreground">
                       {detail.phone ?? detail.email ?? "sem contato"} · {detail.accountStatus === "registered" ? "conta criada" : "sem conta"}
@@ -270,9 +270,9 @@ export function ClientsCrm({
               {detail.possibleDuplicates.length > 0 && canManage && (
                 <div className="rounded-xl border border-amber-400/30 bg-amber-400/5 p-3">
                   <div className="flex items-start gap-2">
-                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
                     <div>
-                      <p className="text-[12px] font-semibold text-amber-200">Possível cadastro duplicado</p>
+                      <p className="text-[12px] font-semibold text-warning">Possível cadastro duplicado</p>
                       <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
                         A coincidência de telefone ou e-mail não confirma que seja a mesma pessoa. Escolha o cadastro que deve permanecer e preserve o histórico.
                       </p>
@@ -288,7 +288,7 @@ export function ClientsCrm({
                               {candidate.phone ?? candidate.email ?? "sem contato"} · {candidate.visits} {candidate.visits === 1 ? "atendimento" : "atendimentos"} · {candidate.hasAccount ? "conta criada" : "sem conta"}
                             </p>
                           </div>
-                          <span className="shrink-0 text-[10px] text-amber-300">{candidate.matchReasons.map(duplicateReasonLabel).join(" + ")}</span>
+                          <span className="shrink-0 text-[10px] text-warning">{candidate.matchReasons.map(duplicateReasonLabel).join(" + ")}</span>
                         </div>
                         <div className="mt-2 flex gap-2">
                           <button
@@ -380,6 +380,7 @@ export function ClientsCrm({
                           <p className="text-[10px] text-muted-foreground">{formatInTimeZone(new Date(h.startAt), timezone, "d MMM yyyy · HH:mm", { locale: ptBR })} · {h.proName.split(" ")[0]}</p>
                         </div>
                         <p className="text-[12px] font-semibold">{formatMoney(h.priceCents)}</p>
+                        <a className="inline-flex min-h-11 items-center text-xs underline" href={`/agenda?date=${formatInTimeZone(new Date(h.startAt), timezone, "yyyy-MM-dd")}&appointment=${h.id}`}>Ver visita</a>
                       </div>
                     ))}
                   </div>
@@ -439,7 +440,7 @@ function duplicateReasonLabel(reason: "email" | "phone"): string {
 
 function Seg({ active, onClick, children, icon: Icon, accent }: { active: boolean; onClick: () => void; children: React.ReactNode; icon?: typeof Crown; accent?: string }) {
   return (
-    <button onClick={onClick} className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors ${active ? "border-primary/40 bg-primary/10 text-foreground" : "border-border bg-card text-muted-foreground hover:text-foreground"}`} style={active && accent ? { borderColor: `${accent}66`, color: accent, background: `${accent}14` } : undefined}>
+    <button onClick={onClick} aria-pressed={active} className={`inline-flex min-h-11 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[12px] font-medium transition-colors ${active ? "border-primary/40 bg-primary/10 text-foreground" : "border-border bg-card text-muted-foreground hover:text-foreground"}`} style={active && accent ? { borderColor: `hsl(var(--${accent}) / 0.4)`, color: `hsl(var(--${accent}))`, background: `hsl(var(--${accent}) / 0.08)` } : undefined}>
       {Icon && <Icon className="h-3.5 w-3.5" />} {children}
     </button>
   );

@@ -1,15 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarDays, Check, CheckCircle2, CircleAlert, Clock3, Loader2, MessageCircle, Phone, Play, UserX, type LucideIcon } from "lucide-react";
 import { formatInTimeZone } from "date-fns-tz";
 import { formatMoney } from "@/lib/utils";
 import { buildAppointmentWhatsAppLink } from "@/lib/whatsapp";
 import { isValidPhoneBR, normalizePhone } from "@/lib/phone";
-import { STATUS, nextActions, type ApptStatus } from "../agenda/agenda-status";
+import { ACTION_LABELS, STATUS, nextActions, statusActionClasses, type ApptStatus } from "../agenda/agenda-status";
 import { markReminderSent, updateAppointmentStatus } from "../agenda/actions";
+import { registerArrival } from "./actions";
 
 export type TodayAppointment = {
   id: string;
@@ -17,6 +18,7 @@ export type TodayAppointment = {
   endAt: string;
   status: string;
   version: number;
+  checkedInAt?: string | null;
   priceCents: number;
   hasPayment: boolean;
   clientName: string;
@@ -26,13 +28,6 @@ export type TodayAppointment = {
 };
 
 type Filter = "all" | "attention" | "active" | "completed";
-
-const ACTION_LABELS: Partial<Record<ApptStatus, string>> = {
-  CONFIRMED: "Confirmar presença",
-  IN_PROGRESS: "Iniciar atendimento",
-  COMPLETED: "Concluir atendimento",
-  NO_SHOW: "Marcar no-show",
-};
 
 const ACTION_ICONS: Partial<Record<ApptStatus, typeof Check>> = {
   CONFIRMED: Check,
@@ -59,9 +54,27 @@ export function HojeView({
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [reminderId, setReminderId] = useState<string | null>(null);
   const [sentReminderIds, setSentReminderIds] = useState<Set<string>>(new Set());
+  const [openedReminderIds, setOpenedReminderIds] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const now = Date.now();
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  function arrive(appointment: TodayAppointment) {
+    setError(null);
+    setPendingId(appointment.id);
+    startTransition(async () => {
+      try {
+        const result = await registerArrival({ appointmentId: appointment.id, expectedVersion: appointment.version });
+        if (result.error) setError(result.error);
+        else router.refresh();
+      } catch { setError("Não foi possível registrar a chegada. Tente novamente."); }
+      finally { setPendingId(null); }
+    });
+  }
 
   const counts = useMemo(() => ({
     total: appointments.length,
@@ -109,6 +122,10 @@ export function HojeView({
     if (!link) return;
 
     window.open(link, "_blank", "noopener,noreferrer");
+    setOpenedReminderIds(previous => new Set(previous).add(appointment.id));
+  }
+
+  function confirmReminder(appointment: TodayAppointment) {
     setReminderId(appointment.id);
     startTransition(async () => {
       try {
@@ -166,11 +183,11 @@ export function HojeView({
 
               return (
                 <article key={appointment.id} className="rounded-2xl border border-border bg-surface-1 p-4 transition-colors hover:border-border-strong">
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
-                    <div className="flex items-start gap-3 lg:w-48 lg:shrink-0">
-                      <span className="w-14 shrink-0 text-xl font-semibold tabular-nums">{formatInTimeZone(start, timezone, "HH:mm")}</span>
+                  <div className="grid gap-4 sm:grid-cols-[auto_minmax(0,1fr)] 2xl:grid-cols-[auto_minmax(220px,1fr)_auto] 2xl:items-center">
+                    <div className="flex items-start gap-3 sm:w-48">
+                      <span className="w-16 shrink-0 whitespace-nowrap text-xl font-semibold tabular-nums">{formatInTimeZone(start, timezone, "HH:mm")}</span>
                       <div className="min-w-0">
-                        <span className="inline-flex rounded-full px-2 py-1 text-[10px] font-semibold" style={{ background: `${status?.color ?? "#94A3B8"}1c`, color: status?.color ?? "#94A3B8" }}>
+                        <span className={`inline-flex rounded-full px-2 py-1 text-[10px] font-semibold ${status?.badgeClass ?? "bg-muted text-muted-foreground"}`}>
                           {status?.label ?? appointment.status}
                         </span>
                         <p className="mt-1 text-xs text-muted-foreground">{formatInTimeZone(new Date(appointment.endAt), timezone, "HH:mm")}</p>
@@ -179,9 +196,12 @@ export function HojeView({
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-base font-semibold">{appointment.clientName}</p>
                       <p className="mt-1 truncate text-sm text-muted-foreground">{appointment.serviceName} · {appointment.professionalName}</p>
+                      {appointment.checkedInAt && <p className="mt-1 text-xs font-medium text-success">Chegou às {formatInTimeZone(new Date(appointment.checkedInAt), timezone, "HH:mm")}{["PENDING", "CONFIRMED"].includes(appointment.status) ? ` · aguardando ${Math.max(0, Math.floor((now - Date.parse(appointment.checkedInAt)) / 60000))} min` : ""}</p>}
                       <p className="mt-1 text-xs text-muted-foreground">{formatMoney(appointment.priceCents, currency)}{appointment.hasPayment ? " · recebido" : ""}</p>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                    <div className="flex flex-wrap items-center gap-2 sm:col-span-2 2xl:col-span-1 2xl:max-w-[660px] 2xl:justify-end">
+                      {!appointment.checkedInAt && ["PENDING", "CONFIRMED"].includes(appointment.status) && date === formatInTimeZone(now, timezone, "yyyy-MM-dd") && <button type="button" disabled={pending} onClick={() => arrive(appointment)} className="min-h-11 rounded-lg border border-success/40 bg-success/10 px-3 text-xs font-semibold text-success">Registrar chegada</button>}
+                      {openedReminderIds.has(appointment.id) && !sentReminderIds.has(appointment.id) && <button type="button" disabled={pending} onClick={() => confirmReminder(appointment)} className="min-h-11 rounded-lg border border-border px-3 text-xs">Confirmar envio manual</button>}
                       <button
                         type="button"
                         disabled={!appointment.clientPhone || pending || reminderId === appointment.id}
@@ -192,8 +212,8 @@ export function HojeView({
                           : `${appointment.clientName} está sem telefone cadastrado`}
                         className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl transition disabled:cursor-not-allowed disabled:opacity-40 ${
                           sentReminderIds.has(appointment.id)
-                            ? "bg-[#25D366]/25 text-[#25D366]"
-                            : "bg-[#25D366]/15 text-[#25D366] hover:bg-[#25D366]/25"
+                            ? "bg-success/15 text-success"
+                            : "bg-success/10 text-success hover:bg-success/15"
                         }`}
                       >
                         {reminderId === appointment.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageCircle className="h-4 w-4" aria-hidden="true" />}
@@ -217,7 +237,7 @@ export function HojeView({
                             type="button"
                             disabled={pending || pendingId === appointment.id}
                             onClick={() => runStatus(appointment, action)}
-                            className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-3.5 text-xs font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
+                            className={`inline-flex min-h-11 items-center gap-2 rounded-xl px-3.5 text-xs font-semibold transition disabled:opacity-50 ${statusActionClasses(action)}`}
                           >
                             {pendingId === appointment.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" aria-hidden="true" />}
                             {actionLabel}

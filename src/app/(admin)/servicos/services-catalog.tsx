@@ -31,6 +31,11 @@ import { toggleServiceActive, deleteService, duplicateService } from "./actions"
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 
 export type ServiceCard = {
+  variantGroup?: string | null;
+  variantLabel?: string | null;
+  processingMin?: number;
+  finishingMin?: number;
+  physicalResourceId?: string | null;
   id: string;
   name: string;
   description: string | null;
@@ -110,12 +115,13 @@ export function ServicesCatalog({
     <div className="space-y-4">
       {/* Barra de ferramentas */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5">
+        <div className="flex min-h-11 items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5">
           <Search className="h-3.5 w-3.5 text-muted-foreground" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar serviço…"
+            aria-label="Buscar serviço"
             className="w-44 bg-transparent text-[13px] placeholder:text-muted-foreground focus:outline-none"
           />
         </div>
@@ -125,7 +131,8 @@ export function ServicesCatalog({
             <button
               key={c}
               onClick={() => setCategory(c)}
-              className={`rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors ${
+              aria-pressed={activeCategory === c}
+              className={`min-h-11 rounded-lg border px-3 py-1.5 text-[12px] font-medium transition-colors ${
                 activeCategory === c
                   ? "border-primary/40 bg-primary/10 text-foreground"
                   : "border-border bg-card text-muted-foreground hover:text-foreground"
@@ -139,8 +146,9 @@ export function ServicesCatalog({
         <div className="ml-auto flex items-center gap-2">
           <select
             value={sort}
+            aria-label="Ordenar serviços"
             onChange={(e) => setSort(e.target.value as Sort)}
-            className="h-9 rounded-full border border-border bg-card px-3 text-[12px] text-muted-foreground focus:outline-none"
+            className="h-11 rounded-lg border border-border bg-card px-3 text-[12px] text-muted-foreground focus:outline-none"
           >
             {canSeeFinancial && <option value="popular">Mais vendidos</option>}
             <option value="price">Maior preço</option>
@@ -153,7 +161,8 @@ export function ServicesCatalog({
             <button
               onClick={() => setView("grid")}
               title="Vista em grade (com imagens)"
-              className={`grid h-7 w-7 place-items-center rounded-full transition-colors ${
+              aria-pressed={view === "grid"}
+              className={`grid h-11 w-11 place-items-center rounded-lg transition-colors ${
                 view === "grid" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -162,7 +171,8 @@ export function ServicesCatalog({
             <button
               onClick={() => setView("list")}
               title="Vista em lista (compacta)"
-              className={`grid h-7 w-7 place-items-center rounded-full transition-colors ${
+              aria-pressed={view === "list"}
+              className={`grid h-11 w-11 place-items-center rounded-lg transition-colors ${
                 view === "list" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -274,7 +284,7 @@ function CategoryGroupList({
     <div className="overflow-hidden rounded-2xl border border-border bg-card">
       {/* Cabeçalho de texto simples */}
       <div className="border-b border-border bg-surface-1 px-4 py-2">
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/70">
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
           {cat}
         </p>
       </div>
@@ -373,7 +383,7 @@ function ActionsMenu({ s }: { s: ServiceCard }) {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-card-hover hover:text-foreground">
+          <button aria-label={`Mais opções para ${s.name}`} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-card-hover hover:text-foreground">
             {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
           </button>
         </DropdownMenuTrigger>

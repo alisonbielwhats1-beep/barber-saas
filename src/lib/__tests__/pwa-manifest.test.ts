@@ -39,7 +39,7 @@ describe("manifesto instalavel", () => {
   it("atualiza o cache offline e inclui os ícones de instalação", () => {
     const serviceWorker = readFileSync(resolve(process.cwd(), "public", "sw.js"), "utf8");
 
-    expect(serviceWorker).toContain('const CACHE = "everflair-shell-v3"');
+    expect(serviceWorker).toContain('const CACHE = "everflair-shell-v4"');
     expect(serviceWorker).toContain('"/icon-192.png"');
     expect(serviceWorker).toContain('"/icon-512.png"');
     expect(serviceWorker).toContain('"/icon-maskable-512.png"');

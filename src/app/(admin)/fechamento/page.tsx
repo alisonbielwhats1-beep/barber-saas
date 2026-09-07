@@ -25,7 +25,7 @@ const STATUS_LABELS: Record<string, string> = {
   CONFIRMED: "Confirmado",
   IN_PROGRESS: "Em atendimento",
   COMPLETED: "Concluído",
-  NO_SHOW: "No-show",
+  NO_SHOW: "Não compareceu",
   CANCELLED: "Cancelado",
 };
 
@@ -217,7 +217,7 @@ export default async function FechamentoPage({
           <h2 className="text-base font-semibold">Pendências antes de fechar</h2>
           <div className="mt-4 space-y-3 text-sm">
             <AttentionRow label="Atendimentos sem recebimento" value={`${summary.pendingPaymentCount} · ${formatMoney(summary.pendingPaymentCents, salon.currency)}`} danger={summary.pendingPaymentCount > 0} />
-            <AttentionRow label="No-show" value={String(summary.noShowCount)} danger={summary.noShowCount > 0} />
+            <AttentionRow label="Não compareceram" value={String(summary.noShowCount)} danger={summary.noShowCount > 0} />
             <AttentionRow label="Cancelamentos" value={String(summary.cancelledCount)} />
           </div>
           {summary.pendingPaymentCount > 0 && (
@@ -326,9 +326,9 @@ function AttentionRow({ label, value, danger }: { label: string; value: string; 
     <div className="flex items-center justify-between gap-3 rounded-xl bg-surface-1 px-3 py-2.5">
       <span className="flex min-w-0 items-center gap-2">
         {danger ? <CircleAlert className="h-4 w-4 shrink-0 text-warning" aria-hidden="true" /> : <CheckCircle2 className="h-4 w-4 shrink-0 text-success" aria-hidden="true" />}
-        <span className="truncate">{label}</span>
+        <span className="text-sm leading-snug">{label}</span>
       </span>
-      <strong className={danger ? "text-warning" : ""}>{value}</strong>
+      <strong className={`shrink-0 whitespace-nowrap text-right text-sm ${danger ? "text-warning" : ""}`}>{value}</strong>
     </div>
   );
 }

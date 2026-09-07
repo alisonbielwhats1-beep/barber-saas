@@ -72,6 +72,7 @@ export async function GET(req: NextRequest) {
         startAt: true,
         endAt: true,
         priceCents: true,
+        dependentName: true,
         status: true,
         service: { select: { name: true, colorHex: true } },
         professional: { select: { user: { select: { name: true } } } },

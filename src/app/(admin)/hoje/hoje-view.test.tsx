@@ -68,7 +68,7 @@ describe("HojeView", () => {
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: "Confirmar presença" }));
+    await user.click(screen.getByRole("button", { name: "Confirmar reserva" }));
 
     await waitFor(() => expect(statusAction.update).toHaveBeenCalledWith(
       "appt-pending",
@@ -116,6 +116,8 @@ describe("HojeView", () => {
       "_blank",
       "noopener,noreferrer",
     );
+    expect(statusAction.reminder).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Confirmar envio manual" }));
     await waitFor(() => expect(statusAction.reminder).toHaveBeenCalledWith("appt-pending"));
   });
 });

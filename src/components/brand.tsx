@@ -1,4 +1,4 @@
-/** The approved lettering and monogram share a monochrome alpha mask. */
+/** The selected Flair symbol and lettering use theme-aware alpha masks. */
 export function BrandLogo({ className = "", decorative = false }: { className?: string; decorative?: boolean }) {
   return <span className={`ef-logo ${className}`} role={decorative ? undefined : "img"} aria-label={decorative ? undefined : "Everflair"} aria-hidden={decorative || undefined} />;
 }

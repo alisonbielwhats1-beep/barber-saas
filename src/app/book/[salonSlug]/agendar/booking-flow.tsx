@@ -20,6 +20,9 @@ import {
   Zap,
 } from "lucide-react";
 import { formatMoney, formatDuration } from "@/lib/utils";
+import { bestFitSlots } from "@/lib/slot-fit";
+import { DependentPicker } from "./dependent-picker";
+import { FlexiblePanel } from "./flexible-panel";
 import { useCart } from "@/lib/cart";
 import { friendlyError } from "@/lib/booking-errors";
 import { effectivePublicBookingLeadDays } from "@/lib/pricing";
@@ -148,6 +151,8 @@ export function BookingFlow({
     ),
   ];
   const [serviceIds, setServiceIds] = useState<string[]>(validInitialServiceIds);
+  const [dependentId, setDependentId] = useState("");
+  const [dependentName, setDependentName] = useState("");
   const [choosingServices, setChoosingServices] = useState(validInitialServiceIds.length === 0);
   const [serviceQuery, setServiceQuery] = useState("");
   const [serviceCategory, setServiceCategory] = useState<string | null>(null);
@@ -530,6 +535,7 @@ export function BookingFlow({
               startLocal,
               idempotencyKey,
               expectedTotalCents: totalServicePrice + cart.totalCents,
+              ...(dependentId ? { dependentId } : {}),
               cartItems: cart.items.map((item) => ({
                 productId: item.productId,
                 quantity: item.quantity,
@@ -1112,7 +1118,7 @@ export function BookingFlow({
             Sem horários livres neste dia. Tente outra data.
           </p>
         ) : (
-          <div className="grid grid-cols-4 gap-2">
+          <><div className="mb-3 rounded-xl border border-success/30 bg-success/5 p-3"><p className="mb-2 text-xs font-medium">Sugestões de encaixe</p><div className="flex flex-wrap gap-2">{bestFitSlots(slots).map(s => <button key={s} type="button" onClick={() => setSlot(s)} aria-pressed={slot === s} className="min-h-11 rounded-lg border border-success/40 px-3 text-sm">{s}</button>)}</div><p className="mt-2 text-xs text-muted-foreground">Horários que aproveitam intervalos menores da agenda. Você também pode escolher abaixo.</p></div><div className="grid grid-cols-4 gap-2">
             {slots.map((s) => {
               const selected = s === slot;
               const popular = s === popularSlot;
@@ -1141,7 +1147,7 @@ export function BookingFlow({
                 </button>
               );
             })}
-          </div>
+          </div></>
         )}
         {popularSlot && slots.includes(popularSlot) && (
           <p className="mt-2 flex items-center gap-1 text-[11px] text-muted-foreground">
@@ -1252,13 +1258,16 @@ export function BookingFlow({
       )}
 
       {/* Identidade da conta que será vinculada à reserva. */}
+      {!rescheduleId && proId && serviceIds.length > 0 && <FlexiblePanel key={`${proId}:${serviceIds.join()}`} salonId={salonId} professionalId={proId} serviceIds={serviceIds} date={format(date, "yyyy-MM-dd")} />}
+      {!rescheduleId && <DependentPicker salonId={salonId} value={dependentId} onChange={(id, name) => { setDependentId(id); setDependentName(name); idempotencyKeyRef.current = null; }} />}
       {slot && (
         <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4">
           <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary/20 text-sm font-semibold text-primary">
             {clientSession.name.split(" ").map((n) => n[0]).slice(0, 2).join("")}
           </div>
           <div>
-            <p className="text-sm font-medium">{clientSession.name}</p>
+            <p className="text-sm font-medium">{dependentName || clientSession.name}</p>
+            {dependentName && <p className="text-xs text-muted-foreground">Titular: {clientSession.name}</p>}
             <p className="text-xs text-muted-foreground">{clientSession.email}</p>
           </div>
         </div>
@@ -1305,6 +1314,7 @@ export function BookingFlow({
       </div>
       {reviewing && selectedProfessional && slot && (
         <BookingReview
+          beneficiaryName={dependentName}
           salonName={salonName}
           salonAddress={salonAddress}
           serviceName={serviceName}
@@ -1327,6 +1337,7 @@ export function BookingFlow({
 }
 
 function BookingReview({
+  beneficiaryName,
   salonName,
   salonAddress,
   serviceName,
@@ -1343,6 +1354,7 @@ function BookingReview({
   onConfirm,
   rescheduling,
 }: {
+  beneficiaryName?: string;
   salonName: string;
   salonAddress: string | null;
   serviceName: string;
@@ -1369,6 +1381,7 @@ function BookingReview({
         </DialogDescription>
         <dl className="mt-5 divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card px-4">
           <ReviewRow label="Serviços" value={serviceName} />
+          {beneficiaryName && <ReviewRow label="Pessoa atendida" value={beneficiaryName} />}
           <ReviewRow label="Profissional" value={professionalName} />
           <ReviewRow
             label="Data e hora"

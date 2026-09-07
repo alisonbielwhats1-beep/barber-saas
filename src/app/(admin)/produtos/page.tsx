@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { PackageOpen, Plus } from "lucide-react";
 import { canUsePlanFeature } from "@/lib/plan-entitlements";
 
-export default async function ProdutosPage() {
+export default async function ProdutosPage({ searchParams }: { searchParams: Promise<{ filter?: string }> }) {
+  const { filter } = await searchParams;
   const ctx = await requireRole(MANAGEMENT_ROLES);
   const { salonId } = ctx;
 
@@ -94,7 +95,7 @@ export default async function ProdutosPage() {
           /> : <p className="mx-auto mt-5 max-w-sm text-[12px] text-primary">Faça upgrade para liberar o catálogo e o controle de estoque.</p>}
         </div>
       ) : (
-        <ProductsCatalog enabled={inventoryEnabled} products={cards} movements={movements.map((movement) => ({
+        <ProductsCatalog initialFilter={filter === "restock" ? "restock" : "all"} enabled={inventoryEnabled} products={cards} movements={movements.map((movement) => ({
           id: movement.id,
           actorName: movement.actorName,
           reason: movement.reason,

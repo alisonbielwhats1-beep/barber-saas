@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { Children, cloneElement, isValidElement, useId, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -144,7 +144,7 @@ export function SalonSettingsForm({ salon }: { salon: Salon }) {
           <Field label="Antecedência mínima (horas)">
             <Input name="cancelPolicyHours" type="number" min={0} max={168} defaultValue={salon.cancelPolicyHours} />
           </Field>
-          <Field label="Taxa de no-show (R$)">
+          <Field label="Taxa por não comparecimento (R$)">
             <Input name="noShowFee" type="number" min={0} step="0.01" defaultValue={(salon.noShowFeeCents / 100).toFixed(2)} />
           </Field>
         </div>
@@ -208,10 +208,11 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  const id = useId();
   return (
     <div>
-      <label className="mb-1 block text-[13px] font-medium">{label}</label>
-      {children}
+      <label htmlFor={id} className="mb-1 block text-[13px] font-medium">{label}</label>
+      {Children.toArray(children).map((child, index) => index === 0 && isValidElement<{ id?: string }>(child) ? cloneElement(child, { id }) : child)}
     </div>
   );
 }

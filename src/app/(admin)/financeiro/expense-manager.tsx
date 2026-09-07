@@ -16,7 +16,7 @@ import { IconButton } from "@/components/ui/icon-button";
 import { Plus, Check, Clock, Trash2, Loader2 } from "lucide-react";
 import { toast } from "@/components/ui/toast";
 import { formatMoney } from "@/lib/utils";
-import { format } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 import { ptBR } from "date-fns/locale";
 import { createExpense, toggleExpensePaid, deleteExpense } from "./actions";
 
@@ -32,7 +32,7 @@ export type ExpenseRow = {
 
 const CATEGORIES = ["Aluguel", "Energia", "Água", "Produtos", "Marketing", "Software", "Salários", "Impostos", "Manutenção", "Outros"];
 
-export function ExpenseManager({ expenses }: { expenses: ExpenseRow[] }) {
+export function ExpenseManager({ expenses, timezone }: { expenses: ExpenseRow[]; timezone: string }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
@@ -101,7 +101,7 @@ export function ExpenseManager({ expenses }: { expenses: ExpenseRow[] }) {
           {expenses.map((e) => {
             const paid = !!e.paidAt;
             return (
-              <div key={e.id} className="flex items-center gap-3 px-5 py-3">
+              <div key={e.id} className="grid grid-cols-[44px_minmax(0,1fr)_44px] items-start gap-x-3 gap-y-2 px-5 py-3 sm:flex sm:items-center">
                 <IconButton
                   label={paid ? `Marcar ${e.description} como pendente` : `Marcar ${e.description} como paga`}
                   onClick={() => act(() => toggleExpensePaid(e.id))}
@@ -115,27 +115,27 @@ export function ExpenseManager({ expenses }: { expenses: ExpenseRow[] }) {
                   {paid ? <Check className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
                 </IconButton>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[13px] font-medium">{e.description}</p>
+                  <p className="break-words text-[13px] font-medium">{e.description}</p>
                   <p className="text-[11px] text-muted-foreground">
                     {e.category} · {e.kind === "FIXED" ? "Fixa" : "Variável"} · vence{" "}
-                    {format(new Date(e.dueDate), "d MMM", { locale: ptBR })}
+                    {formatInTimeZone(new Date(e.dueDate), "UTC", "d MMM", { locale: ptBR })}
                   </p>
-                </div>
                 <span
-                  className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                  className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                     paid ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
                   }`}
                 >
                   {paid ? "Paga" : "Pendente"}
                 </span>
-                <p className="w-24 shrink-0 text-right text-[13px] font-semibold">
+                </div>
+                <p className="col-start-2 row-start-2 shrink-0 text-[13px] font-semibold sm:ml-auto sm:text-right">
                   {formatMoney(e.amountCents)}
                 </p>
                 <IconButton
                   label={`Excluir despesa ${e.description}`}
                   onClick={() => act(() => deleteExpense(e.id))}
                   disabled={pending}
-                  className="shrink-0 rounded-full hover:bg-danger/10 hover:text-danger"
+                  className="col-start-3 row-start-1 shrink-0 rounded-full hover:bg-danger/10 hover:text-danger"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </IconButton>
@@ -158,31 +158,31 @@ export function ExpenseManager({ expenses }: { expenses: ExpenseRow[] }) {
           </DialogHeader>
           <form onSubmit={onSubmit} className="grid gap-4">
             <div>
-              <label className="mb-1 block text-sm font-medium">Descrição</label>
-              <Input name="description" required placeholder="Ex.: Aluguel do ponto" />
+              <label htmlFor="expense-description" className="mb-1 block text-sm font-medium">Descrição</label>
+              <Input id="expense-description" name="description" required placeholder="Ex.: Aluguel do ponto" />
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
-                <label className="mb-1 block text-sm font-medium">Valor (R$)</label>
-                <Input name="amount" required inputMode="decimal" placeholder="0,00" />
+                <label htmlFor="expense-amount" className="mb-1 block text-sm font-medium">Valor (R$)</label>
+                <Input id="expense-amount" name="amount" required inputMode="decimal" placeholder="0,00" />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium">Vencimento</label>
-                <Input name="dueDate" type="date" required defaultValue={format(new Date(), "yyyy-MM-dd")} />
+                <label htmlFor="expense-dueDate" className="mb-1 block text-sm font-medium">Vencimento</label>
+                <Input id="expense-dueDate" name="dueDate" type="date" required defaultValue={formatInTimeZone(new Date(), timezone, "yyyy-MM-dd")} />
               </div>
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
-                <label className="mb-1 block text-sm font-medium">Categoria</label>
-                <select name="category" className="flex min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm">
+                <label htmlFor="expense-category" className="mb-1 block text-sm font-medium">Categoria</label>
+                <select id="expense-category" name="category" className="flex min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm">
                   {CATEGORIES.map((c) => (
                     <option key={c} value={c}>{c}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium">Tipo</label>
-                <select name="kind" className="flex min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm">
+                <label htmlFor="expense-kind" className="mb-1 block text-sm font-medium">Tipo</label>
+                <select id="expense-kind" name="kind" className="flex min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm">
                   <option value="VARIABLE">Variável</option>
                   <option value="FIXED">Fixa</option>
                 </select>

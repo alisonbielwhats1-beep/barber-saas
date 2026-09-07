@@ -1,6 +1,7 @@
 import { getTenantContext } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
 import { ServiceForm } from "./service-form";
+import { ResourcePanel } from "./resource-panel";
 import { ServicesCatalog, type ServiceCard } from "./services-catalog";
 
 export default async function ServicosPage() {
@@ -19,6 +20,7 @@ export default async function ServicosPage() {
         id: true, name: true, description: true, durationMin: true,
         priceCents: true, costCents: true, category: true, imageUrl: true,
         colorHex: true, active: true,
+        variantGroup: true, variantLabel: true, processingMin: true, finishingMin: true, physicalResourceId: true,
         _count: { select: { professionals: true } },
       },
     });
@@ -38,6 +40,7 @@ export default async function ServicosPage() {
 
   const cards: ServiceCard[] = services.map((s) => ({
     id: s.id,
+    variantGroup: s.variantGroup, variantLabel: s.variantLabel, processingMin: s.processingMin, finishingMin: s.finishingMin, physicalResourceId: s.physicalResourceId,
     name: s.name,
     description: s.description,
     durationMin: s.durationMin,
@@ -63,6 +66,7 @@ export default async function ServicosPage() {
         </div>
         {canManage && <ServiceForm />}
       </header>
+      {canManage && <ResourcePanel />}
 
       {cards.length === 0 ? (
         <div className="rounded-2xl border border-border bg-card p-12 text-center text-[13px] text-muted-foreground">

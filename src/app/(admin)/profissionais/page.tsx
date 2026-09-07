@@ -1,3 +1,4 @@
+import { contrastForeground } from "@/lib/color-contrast";
 import { emailInvitesEnabled } from "@/lib/email-invites-feature";
 import { getTenantContext } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
@@ -150,14 +151,14 @@ export default async function ProfissionaisPage() {
                         <div
                           aria-label={`Iniciais de ${p.name}`}
                           className="grid place-items-center rounded-full text-base font-semibold text-black/80"
-                          style={{ height: 52, width: 52, background: p.colorHex ?? "#2ECC8B" }}
+                          style={{ height: 52, width: 52, background: p.colorHex ?? "#2ECC8B", color: contrastForeground(p.colorHex ?? "#2ECC8B") }}
                         >
                           {p.name.split(" ").map((name) => name[0]).slice(0, 2).join("")}
                         </div>
                       )}
                     />
                   ) : (
-                    <div className="grid place-items-center rounded-full text-base font-semibold text-black/80" style={{ height: 52, width: 52, background: p.colorHex ?? "#2ECC8B" }}>
+                    <div className="grid place-items-center rounded-full text-base font-semibold text-black/80" style={{ height: 52, width: 52, background: p.colorHex ?? "#2ECC8B", color: contrastForeground(p.colorHex ?? "#2ECC8B") }}>
                       {p.name.split(" ").map((n) => n[0]).slice(0, 2).join("")}
                     </div>
                   )}
@@ -170,7 +171,7 @@ export default async function ProfissionaisPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <h3 className="truncate text-[15px] font-semibold">{p.name}</h3>
-                    {canSeeFinancial && p.rank === 1 && p.revenue > 0 && <Trophy className="h-3.5 w-3.5 shrink-0 text-[#F4C430]" />}
+                    {canSeeFinancial && p.rank === 1 && p.revenue > 0 && <Trophy className="h-3.5 w-3.5 shrink-0 text-warning" />}
                   </div>
                   <p className="truncate text-[12px] text-muted-foreground">{p.bio || p.email}</p>
                   <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
@@ -195,10 +196,10 @@ export default async function ProfissionaisPage() {
                 <div className="mb-1.5 flex items-center justify-between text-[11px]">
                   <span className="flex items-center gap-1 text-muted-foreground"><Target className="h-3 w-3" /> Meta do período</span>
                   <span className="font-medium">
-                    {formatMoney(p.revenue)} <span className="text-muted-foreground">/ {formatMoney(p.goalCents)}</span>
+                    {p.goalCents > 0 ? <>{formatMoney(p.revenue)} <span className="text-muted-foreground">/ {formatMoney(p.goalCents)}</span></> : "Meta não definida"}
                   </span>
                 </div>
-                <div className="h-2 overflow-hidden rounded-full bg-muted">
+                {p.goalCents > 0 && <div className="h-2 overflow-hidden rounded-full bg-muted">
                   <div
                     className="h-full rounded-full transition-all"
                     style={{
@@ -207,19 +208,19 @@ export default async function ProfissionaisPage() {
                     }}
                   />
                 </div>
-                <p className="mt-1 text-right text-[10px] text-muted-foreground">
-                  {(p.goalPct * 100).toFixed(0)}% da meta{p.goalPct >= 1 ? " · atingida" : ""}
+                }<p className="mt-1 text-right text-[10px] text-muted-foreground">
+                  {p.goalCents > 0 ? `${(p.goalPct * 100).toFixed(0)}% da meta${p.goalPct >= 1 ? " · atingida" : ""}` : "Defina uma meta ao editar o profissional"}
                 </p>
               </div>}
 
               {/* Métricas */}
-              <div className={`mt-3 grid gap-2 ${canSeeFinancial ? "grid-cols-3" : "grid-cols-2"}`}>
+              <div className={`mt-3 grid grid-cols-2 gap-2 ${canSeeFinancial ? "sm:grid-cols-3" : ""}`}>
                 <Stat icon={CalendarCheck} label="Atendimentos" value={p.appointments.toString()} />
                 {canSeeFinancial && <Stat icon={Receipt} label="Ticket médio" value={formatMoney(p.avgTicket)} />}
                 {canSeeFinancial && <Stat icon={CircleDollarSign} label="Comissão" value={formatMoney(p.commissionCents)} />}
                 <Stat icon={Repeat} label="Taxa retorno" value={`${(p.returnRate * 100).toFixed(0)}%`} />
                 <Stat icon={Timer} label="Tempo médio" value={formatDuration(p.avgDuration || 0)} />
-                <Stat icon={UserX} label="No-show" value={p.noShow.toString()} accent={p.noShow > 0 ? "#EF4444" : undefined} />
+                <Stat icon={UserX} label="Faltas" value={p.noShow.toString()} accent={p.noShow > 0 ? "#EF4444" : undefined} />
               </div>
 
               {/* Ações */}
@@ -259,8 +260,8 @@ function Overview({ icon: Icon, accent, label, value }: { icon: IconType; accent
         <Icon className="h-4 w-4" />
       </span>
       <div className="min-w-0">
-        <p className="text-lg font-semibold leading-none tracking-tight">{value}</p>
-        <p className="mt-1 truncate text-[11px] text-muted-foreground">{label}</p>
+        <p className="text-sm font-semibold leading-tight tracking-tight sm:text-lg">{value}</p>
+        <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{label}</p>
       </div>
     </div>
   );

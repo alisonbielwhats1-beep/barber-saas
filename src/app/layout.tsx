@@ -38,7 +38,9 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" className={inter.variable}>
+    // The admin's pre-paint script intentionally restores data-theme on this
+    // element. Hydration checks remain active for all rendered children.
+    <html lang="pt-BR" className={inter.variable} data-scroll-behavior="smooth" suppressHydrationWarning>
       <body>
         <a className="skip-link" href="#main-content">
           Pular para o conteúdo principal

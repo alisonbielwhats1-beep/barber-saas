@@ -45,6 +45,7 @@ import { AutoRefresh } from "@/components/auto-refresh";
 import { NowStrip } from "./now-strip";
 import { getMarketingSettings } from "@/lib/marketing-settings";
 import { SetupGuide, PlanInterestNotice } from "@/components/setup-guide";
+import { Opportunities } from "./opportunities";
 
 const MALE_COLOR = "#3B9EFF";
 const FEMALE_COLOR = "#E85D9E";
@@ -226,6 +227,7 @@ export default async function DashboardPage({
 
       <PlanInterestNotice intent={planIntent} currentPlan={salonData.plan} />
       <SetupGuide steps={steps} />
+      {(role === "OWNER" || role === "MANAGER") && <Opportunities />}
 
       {/* ── Faixa Agora: operação antes da análise ─────────── */}
       <NowStrip
@@ -305,7 +307,7 @@ export default async function DashboardPage({
       {/* ── Rankings ───────────────────────────────────────── */}
       <section className="grid gap-4 lg:grid-cols-2">
         <Panel>
-          <PanelTitle icon={Scissors}>Serviços mais vendidos</PanelTitle>
+          <PanelTitle icon={Scissors}>Serviços por faturamento</PanelTitle>
           <div className="mt-4 space-y-4">
             {m.topServices.length === 0 ? (
               <Empty title="Sem dados neste período" />
@@ -337,7 +339,7 @@ export default async function DashboardPage({
         </Panel>
 
         <Panel>
-          <PanelTitle icon={Trophy}>Performance da equipe</PanelTitle>
+          <PanelTitle icon={Trophy}>Faturamento por profissional</PanelTitle>
           <div className="mt-3 space-y-1">
             {m.proPerf.length === 0 ? (
               <Empty title="Sem atendimentos concluídos" />
@@ -403,7 +405,7 @@ export default async function DashboardPage({
               />
               <StatTile
                 icon={UserX}
-                label="No-show"
+                label="Não compareceram"
                 value={m.noShow.toString()}
                 hint={m.noShowRate != null ? `${Math.round(m.noShowRate * 100)}% do período` : undefined}
                 tone={m.noShow > 0 ? "danger" : "neutral"}
@@ -594,7 +596,7 @@ function MiniStat({
       </span>
       <div className="min-w-0">
         <p className="text-lg font-semibold leading-none tracking-tight">{value}</p>
-        <p className="mt-1 truncate text-[11px] text-muted-foreground">{label}</p>
+        <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{label}</p>
       </div>
     </div>
   );

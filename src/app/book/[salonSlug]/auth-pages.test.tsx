@@ -37,6 +37,7 @@ describe("client auth routes", () => {
     mocks.withSalonBySlug.mockImplementation(
       async (_slug: string, callback: (_tx: unknown, salonId: string) => unknown) =>
         callback({
+          salon: { findUnique: vi.fn().mockResolvedValue({ name: "Studio B" }) },
           clientProfile: {
             findFirst: vi.fn().mockResolvedValue({
               id: "client-b",

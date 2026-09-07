@@ -9,6 +9,7 @@ import { RangeFilter } from "../dashboard/range-filter";
 import { ReportActions, type ReportSection } from "./report-actions";
 import { calculateRetentionMetrics } from "@/lib/operational-flows";
 import { getMarketingSettings } from "@/lib/marketing-settings";
+import { Opportunities } from "../dashboard/opportunities";
 
 const VALID: RangeKey[] = ["today", "yesterday", "7d", "15d", "30d", "90d", "year"];
 
@@ -107,6 +108,7 @@ export default async function RelatoriosPage({
           <ReportActions sections={sections} filename={`relatorio-${range}`} />
         </div>
       </header>
+      {(ctx.role === "OWNER" || ctx.role === "MANAGER") && <Opportunities />}
 
       {/* Comparativo com período anterior */}
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -187,7 +189,7 @@ function Table({ title, headers, rows, empty }: { title: string; headers: string
       {rows.length === 0 ? (
         <p className="p-8 text-center text-[13px] text-muted-foreground">{empty}</p>
       ) : (
-        <div className="overflow-x-auto">
+        <div role="region" aria-label={title} tabIndex={0} className="overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
           <table className="w-full text-[13px]">
             <thead>
               <tr className="border-b border-border">

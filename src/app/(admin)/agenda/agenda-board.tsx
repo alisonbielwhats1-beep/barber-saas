@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -17,6 +17,7 @@ import {
   Clock,
   Loader2,
   AlertTriangle,
+  Ban,
 } from "lucide-react";
 import {
   format,
@@ -39,17 +40,23 @@ import { STATUS, STATUS_ORDER } from "./agenda-status";
 import { moveAppointment } from "./actions";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { layoutOverlappingIntervals } from "./agenda-layout";
+import { AvailabilityPanel, type AvailabilityBlock, type BlockSelection } from "./availability-panel";
+import { ImageWithFallback } from "@/components/ui/image-with-fallback";
+import { DateNavigator } from "./date-navigator";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const DAY_START = 8 * 60;
 const DAY_END = 21 * 60;
 const SLOT_MIN = 30;
 const PX_PER_MIN = 1.7;
 const COL_WIDTH = 200;
-const HEADER_H = 56;
+const HEADER_H = 88;
 
 type ViewKind = "day" | "week" | "month" | "list";
 
 export type Appointment = {
+  stages?: { name: string; durationMin: number; processingMin: number; finishingMin: number }[];
+  seriesId?: string | null;
   id: string;
   professionalId: string;
   startAt: string;
@@ -100,6 +107,7 @@ export type Professional = {
   id: string;
   name: string;
   colorHex: string | null;
+  avatarUrl?: string | null;
   serviceIds: string[];
   workingHours?: { startMinutes: number; endMinutes: number }[];
 };
@@ -142,6 +150,9 @@ function ymd(d: Date) {
 }
 
 export function AgendaBoard({
+  operations,
+  initialAppointmentId,
+  availabilityBlocks = [],
   date,
   salonName,
   timezone,
@@ -153,6 +164,9 @@ export function AgendaBoard({
   canCreate,
   canCancel,
 }: {
+  initialAppointmentId?: string;
+  availabilityBlocks?: AvailabilityBlock[];
+  operations?: ReactNode;
   date: string;
   salonName: string;
   timezone: string;
@@ -170,8 +184,13 @@ export function AgendaBoard({
   const [proFilter, setProFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("not_cancelled");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(true);
+  const [mobileCalendarOpen, setMobileCalendarOpen] = useState(false);
+  const mobileCalendarTrigger = useRef<HTMLButtonElement>(null);
+  const [blockMode, setBlockMode] = useState(false);
+  const [blockSelection, setBlockSelection] = useState<(BlockSelection & { key: string }) | undefined>();
   const [search, setSearch] = useState("");
-  const [detail, setDetail] = useState<Appointment | null>(null);
+  const [detail, setDetail] = useState<Appointment | null>(() => appointments.find(a => a.id === initialAppointmentId) ?? null);
   const [createAt, setCreateAt] = useState<{ startLocal: string; proId: string } | null>(null);
   const [moveProposal, setMoveProposal] = useState<{
     appointment: Appointment;
@@ -290,12 +309,18 @@ export function AgendaBoard({
         ? format(dateObj, "MMMM yyyy", { locale: ptBR })
         : format(dateObj, "d 'de' MMMM", { locale: ptBR });
   const navigationUnit = view === "week" ? "semana" : view === "month" || view === "list" ? "mês" : "dia";
+  function selectCalendarDate(next: string) {
+    startTransition(() => router.push(`/agenda?date=${next}`, { scroll: false }));
+    setMobileCalendarOpen(false);
+  }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3">
       <header className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1 rounded-full border border-border bg-surface-1 p-1">
+          <button type="button" aria-label={calendarOpen ? "Recolher calendário" : "Abrir calendário"} aria-expanded={calendarOpen} aria-controls="agenda-date-panel" onClick={() => setCalendarOpen(!calendarOpen)} className="hidden h-11 w-11 shrink-0 place-items-center rounded-lg border border-border bg-card text-[hsl(var(--selection-foreground))] xl:grid"><CalendarDays size={18} /></button>
+          <button ref={mobileCalendarTrigger} type="button" aria-label="Abrir calendário" aria-haspopup="dialog" onClick={() => setMobileCalendarOpen(true)} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-border bg-card xl:hidden"><CalendarDays size={18} /></button>
+          <div className="flex items-center gap-1 rounded-lg border border-border bg-surface-1 p-1">
             <button
               type="button"
               onClick={() => goDate(-1)}
@@ -308,7 +333,7 @@ export function AgendaBoard({
               type="button"
               onClick={goToday}
               aria-label="Ir para hoje"
-              className="min-h-11 rounded-full px-3 py-1 text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+              className="min-h-11 rounded-lg px-3 py-1 text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
               Hoje
             </button>
@@ -321,17 +346,17 @@ export function AgendaBoard({
               <ChevronRight aria-hidden="true" className="h-4 w-4" />
             </button>
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
               {format(dateObj, "EEEE", { locale: ptBR })}
             </p>
-            <h1 className="text-xl font-semibold tracking-tight first-letter:uppercase">{rangeLabel}</h1>
+            <h1 className="text-base font-semibold tracking-tight first-letter:uppercase sm:text-xl">{rangeLabel}</h1>
           </div>
           {pending && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
         </div>
 
         <div className="flex items-center gap-2">
-          <div role="group" aria-label="Visualização da agenda" className="flex items-center gap-0.5 rounded-full border border-border bg-surface-1 p-1">
+          <div role="group" aria-label="Visualização da agenda" className="flex items-center gap-0.5 rounded-lg border border-border bg-surface-1 p-1">
             <ViewBtn active={view === "day"} onClick={() => setView("day")} icon={CalendarDays} label="Dia" />
             <ViewBtn active={view === "week"} onClick={() => setView("week")} icon={CalendarRange} label="Semana" />
             <ViewBtn active={view === "month"} onClick={() => setView("month")} icon={Grid3x3} label="Mês" />
@@ -341,7 +366,7 @@ export function AgendaBoard({
             <button
               onClick={() => openSlot(professionals[0]?.id ?? "", DAY_START)}
               disabled={professionals.length === 0}
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-[13px] font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-40"
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-[13px] font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-40"
             >
               <Plus className="h-4 w-4" />
               Novo
@@ -350,6 +375,16 @@ export function AgendaBoard({
         </div>
       </header>
 
+      <div className="flex items-start gap-4">
+        {calendarOpen && <aside id="agenda-date-panel" aria-label="Navegar por datas" className="sticky top-0 hidden w-64 shrink-0 xl:block"><DateNavigator date={date} today={today} onSelect={selectCalendarDate} /></aside>}
+        <div className="min-w-0 flex-1 space-y-3">
+
+      {operations && <details className="rounded-lg border border-border bg-card px-3"><summary className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-medium"><CalendarRange size={16} />Expediente e fila de espera</summary><div className="grid items-start gap-3 pb-3 xl:grid-cols-2">{operations}</div></details>}
+      <div className="grid items-start gap-2 xl:grid-cols-[1fr_auto]">
+      {canCancel && <AvailabilityPanel key={blockSelection?.key ?? date} date={date} timezone={timezone} professionals={professionals} blocks={availabilityBlocks} selection={blockSelection} />}
+      {canCancel && view === "day" && <div className="flex flex-wrap items-center gap-3"><button type="button" aria-pressed={blockMode} onClick={() => setBlockMode(!blockMode)} className={`inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm ${blockMode ? "border-danger bg-danger/10 text-danger" : "border-border"}`}><Ban size={16} />{blockMode ? "Sair da seleção de bloqueio" : "Selecionar intervalo na grade"}</button>{blockMode && <p className="text-xs text-muted-foreground">Arraste no horário de um profissional ou toque no início e no fim. Enter seleciona pelo teclado; Escape cancela.</p>}</div>}
+
+      </div>
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <DayKpi icon={CalendarDays} accent="#3B9EFF" label="Agendamentos (dia)" value={kpis.total.toString()} />
         <DayKpi icon={Clock} accent="#A855F7" label="Em atendimento" value={kpis.inProgress.toString()} />
@@ -358,7 +393,7 @@ export function AgendaBoard({
       </section>
 
       <section className="flex flex-wrap items-center gap-2">
-        <div className="flex min-h-11 items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 max-sm:w-full">
+        <div className="flex min-h-11 items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 max-sm:w-full">
           <Search aria-hidden="true" className="h-3.5 w-3.5 text-muted-foreground" />
           <input
             value={search}
@@ -368,7 +403,7 @@ export function AgendaBoard({
             className="min-w-0 flex-1 bg-transparent text-[13px] placeholder:text-muted-foreground focus:outline-none sm:w-44"
           />
         </div>
-        <button type="button" aria-expanded={filtersOpen} aria-controls="agenda-filters" onClick={() => setFiltersOpen(!filtersOpen)} className="min-h-11 rounded-full border border-border px-4 text-sm sm:hidden">
+        <button type="button" aria-expanded={filtersOpen} aria-controls="agenda-filters" onClick={() => setFiltersOpen(!filtersOpen)} className="min-h-11 rounded-lg border border-border px-4 text-sm sm:hidden">
           Filtros{proFilter !== "all" || statusFilter !== "not_cancelled" ? " · ativos" : ""}
         </button>
         <div id="agenda-filters" className={`${filtersOpen ? "flex" : "hidden"} flex-wrap items-center gap-2 sm:flex`}>
@@ -400,7 +435,7 @@ export function AgendaBoard({
       )}
 
       {(awaitingAcceptance > 0 || cancelledWithQueue > 0) && (
-        <div className="flex flex-col gap-2 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-[12px] text-amber-800 dark:text-amber-300 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2 rounded-2xl border border-amber-500/30 bg-warning/10 px-4 py-3 text-[12px] text-warning sm:flex-row sm:items-center sm:justify-between">
           <p>
             {awaitingAcceptance > 0 && `${awaitingAcceptance} alteração(ões) aguardando aceite do cliente.`}
             {awaitingAcceptance > 0 && cancelledWithQueue > 0 && " "}
@@ -420,6 +455,9 @@ export function AgendaBoard({
         </div>
       ) : view === "day" ? (
         <DayView
+          blockMode={blockMode}
+          onBlockSelection={selection => { setBlockSelection({ ...selection, key: crypto.randomUUID() }); setBlockMode(false); }}
+          blocks={availabilityBlocks}
           date={date}
           professionals={shownPros}
           appointments={dayAppts}
@@ -438,9 +476,10 @@ export function AgendaBoard({
         />
       ) : view === "week" ? (
         <WeekView
+          blocks={availabilityBlocks.filter(b => shownPros.some(p => p.id === b.professionalId))}
           professionals={shownPros}
           dateObj={dateObj}
-          firstProId={professionals[0]?.id ?? ""}
+          firstProId={shownPros[0]?.id ?? ""}
           appointments={filteredAll}
           timezone={timezone}
           nowMin={nowMin}
@@ -451,6 +490,7 @@ export function AgendaBoard({
         />
       ) : view === "month" ? (
         <MonthView
+          blocks={availabilityBlocks.filter(b => shownPros.some(p => p.id === b.professionalId))}
           dateObj={dateObj}
           appointments={filteredAll}
           timezone={timezone}
@@ -459,7 +499,7 @@ export function AgendaBoard({
           onOpenDetail={setDetail}
         />
       ) : (
-        <ListView appointments={filteredAll} professionals={professionals} timezone={timezone} onOpenDetail={setDetail} />
+        <div className="space-y-3"><BlockList blocks={availabilityBlocks.filter(b => shownPros.some(p => p.id === b.professionalId))} professionals={shownPros} timezone={timezone} /><ListView appointments={filteredAll} professionals={professionals} timezone={timezone} onOpenDetail={setDetail} /></div>
       )}
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-muted-foreground">
@@ -470,6 +510,15 @@ export function AgendaBoard({
           </span>
         ))}
       </div>
+
+        </div>
+      </div>
+      <Dialog open={mobileCalendarOpen} onOpenChange={setMobileCalendarOpen}>
+        <DialogContent aria-describedby={undefined} onCloseAutoFocus={event => { event.preventDefault(); mobileCalendarTrigger.current?.focus(); }} className="max-h-[calc(100dvh-2rem)] w-[calc(100%_-_2rem)] max-w-sm overflow-y-auto p-4">
+          <DialogHeader className="pr-10"><DialogTitle>Escolher data</DialogTitle></DialogHeader>
+          <DateNavigator date={date} today={today} onSelect={selectCalendarDate} />
+        </DialogContent>
+      </Dialog>
 
       {createAt && (
         <AppointmentDialog
@@ -538,6 +587,9 @@ export function AgendaBoard({
 /* ─────────────────────────── Day view ─────────────────────────── */
 
 function DayView({
+  blockMode,
+  onBlockSelection,
+  blocks,
   date,
   professionals,
   appointments,
@@ -547,6 +599,9 @@ function DayView({
   onOpenDetail,
   onMove,
 }: {
+  blockMode: boolean;
+  onBlockSelection: (selection: BlockSelection) => void;
+  blocks: AvailabilityBlock[];
   date: string;
   professionals: Professional[];
   appointments: Appointment[];
@@ -563,6 +618,25 @@ function DayView({
   const [drag, setDrag] = useState<
     { id: string; x: number; y: number; started: boolean } | null
   >(null);
+  const selection = useRef<{ proId: string; start: number; end: number } | null>(null);
+  const [selectionView, setSelectionView] = useState<{ proId: string; start: number; end: number } | null>(null);
+  const suppressClick = useRef(false);
+  function selectInterval(proId: string, minutes: number, finish: boolean) {
+    if (!blockMode) return;
+    const current = selection.current;
+    if (!current || current.proId !== proId) {
+      selection.current = { proId, start: minutes, end: minutes };
+      setSelectionView(selection.current);
+    } else if (finish) {
+      const from = Math.min(current.start, minutes);
+      const to = Math.min(1439, Math.max(current.start, minutes) + SLOT_MIN);
+      selection.current = null; setSelectionView(null);
+      onBlockSelection({ professionalId: proId, startLocal: `${date}T${minutesToHHMM(from)}`, endLocal: `${date}T${minutesToHHMM(to)}` });
+    } else {
+      selection.current = { ...current, end: minutes }; setSelectionView(selection.current);
+    }
+  }
+  useEffect(() => { selection.current = null; setSelectionView(null); }, [blockMode, date]);
 
   const slots: number[] = [];
   for (let m = dayStart; m < dayEnd; m += SLOT_MIN) slots.push(m);
@@ -620,7 +694,7 @@ function DayView({
   }, [drag, date, onMove, dayStart, dayEnd]);
 
   return (
-    <div className="overflow-x-auto rounded-2xl border border-border bg-card">
+    <div className="max-h-[72dvh] overflow-auto rounded-xl border border-border bg-card">
       <div className="flex w-full" style={{ minWidth: 56 + professionals.length * COL_WIDTH }} ref={bodyRef}>
         <div className="w-14 shrink-0 border-r border-border bg-surface-1">
           <div style={{ height: HEADER_H }} className="border-b border-border" />
@@ -636,23 +710,38 @@ function DayView({
           const placements = appointmentPlacements(proAppts, timezone);
           return (
             <div key={pro.id} data-pro-col data-pro-id={pro.id} className="relative shrink-0 border-r border-border last:border-r-0" style={{ flex: 1, minWidth: COL_WIDTH }}>
-              <div style={{ height: HEADER_H }} className="sticky top-0 z-10 flex items-center gap-2 border-b border-border bg-card px-3">
-                <span className="grid h-7 w-7 place-items-center rounded-full text-[10px] font-semibold text-black/80" style={{ background: pro.colorHex ?? "#2ECC8B" }}>
-                  {initials(pro.name)}
+              <div style={{ height: HEADER_H }} className="sticky top-0 z-10 flex flex-col items-center justify-center gap-1.5 border-b border-border bg-card px-3">
+                <span className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-muted text-xs font-semibold text-foreground">
+                  {pro.avatarUrl ? <ImageWithFallback src={pro.avatarUrl} alt="" width={44} height={44} sizes="44px" className="h-full w-full object-cover" fallback={<span>{initials(pro.name)}</span>} /> : initials(pro.name)}
                 </span>
-                <span className="truncate text-[13px] font-medium">{pro.name}</span>
+                <span className="w-full truncate text-center text-xs font-medium" title={pro.name}>{pro.name}</span>
               </div>
 
               <div className="relative" style={{ height: totalH }}>
                 {slots.map((m) => (
                   <button
                     key={m}
-                    onClick={() => onOpenSlot(pro.id, m)}
+                    onPointerDown={e => { if (blockMode && e.pointerType === "mouse" && e.button === 0) { suppressClick.current = false; selectInterval(pro.id, m, false); } }}
+                    onPointerEnter={e => { if (blockMode && e.buttons === 1 && selection.current?.proId === pro.id) { suppressClick.current = selection.current.start !== m; selectInterval(pro.id, m, false); } }}
+                    onPointerUp={() => { if (blockMode && suppressClick.current) selectInterval(pro.id, m, true); }}
+                    onKeyDown={e => { if (e.key === "Escape") { selection.current = null; setSelectionView(null); } }}
+                    onClick={() => { if (suppressClick.current) { suppressClick.current = false; return; } if (blockMode) selectInterval(pro.id, m, !!selection.current); else onOpenSlot(pro.id, m); }}
                     style={{ height: SLOT_MIN * PX_PER_MIN }}
                     className="block w-full border-b border-border/40 transition hover:bg-primary/5"
-                    aria-label={`Agendar ${minutesToHHMM(m)} com ${pro.name}`}
+                    aria-label={`${blockMode ? "Selecionar bloqueio" : "Agendar"} ${minutesToHHMM(m)} com ${pro.name}`}
                   />
                 ))}
+                {selectionView?.proId === pro.id && <div className="pointer-events-none absolute inset-x-0 z-20 border-2 border-danger bg-danger/20" style={{ top: (Math.min(selectionView.start, selectionView.end) - dayStart) * PX_PER_MIN, height: (Math.abs(selectionView.end - selectionView.start) + SLOT_MIN) * PX_PER_MIN }} />}
+
+                {blocks.filter(b => b.professionalId === pro.id).map(block => {
+                  const firstDate = formatInTimeZone(new Date(block.startAt), timezone, "yyyy-MM-dd");
+                  const lastDate = formatInTimeZone(new Date(block.endAt), timezone, "yyyy-MM-dd");
+                  if (firstDate > date || lastDate < date) return null;
+                  const start = Math.max(dayStart, firstDate < date ? 0 : minutesOf(block.startAt, timezone));
+                  const end = Math.min(dayEnd, lastDate > date ? 1440 : minutesOf(block.endAt, timezone));
+                  if (end <= start) return null;
+                  return <div key={block.id} className="pointer-events-none absolute inset-x-0 overflow-hidden border-y border-border bg-muted/80 px-2 py-1 text-xs text-muted-foreground" style={{ top: (start - dayStart) * PX_PER_MIN, height: (end - start) * PX_PER_MIN, backgroundImage: "repeating-linear-gradient(135deg, transparent, transparent 6px, hsl(var(--border) / .35) 6px, hsl(var(--border) / .35) 7px)" }}><span className="rounded bg-card px-1">Bloqueado · {block.reason ?? "Indisponível"}</span></div>;
+                })}
 
                 {nowMin != null && nowMin >= dayStart && nowMin <= dayEnd && (
                   <div className="pointer-events-none absolute inset-x-0 z-20 flex items-center" style={{ top: (nowMin - dayStart) * PX_PER_MIN }}>
@@ -700,8 +789,9 @@ function DayView({
                     >
                       <p className="truncate font-semibold text-foreground">{a.clientName}</p>
                       <p className="truncate text-[11px] text-muted-foreground">{a.serviceName}</p>
+                      {height >= 70 && <p className="truncate text-[10px] font-medium">{cfg.label}</p>}
                       {a.pendingReschedule && (
-                        <span className="mt-1 inline-flex rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700 dark:text-amber-300">
+                        <span className="mt-1 inline-flex rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-warning">
                           Aguardando aceite
                         </span>
                       )}
@@ -744,6 +834,7 @@ function DayView({
 /* ─────────────────────────── Week view ─────────────────────────── */
 
 function WeekView({
+  blocks,
   professionals,
   dateObj,
   firstProId,
@@ -755,6 +846,7 @@ function WeekView({
   onOpenDetail,
   onOpenDay,
 }: {
+  blocks: AvailabilityBlock[];
   professionals: Professional[];
   dateObj: Date;
   firstProId: string;
@@ -777,7 +869,7 @@ function WeekView({
   const colW = 150;
 
   return (
-    <div className="overflow-x-auto rounded-2xl border border-border bg-card">
+    <div className="max-h-[72dvh] overflow-auto rounded-xl border border-border bg-card">
       <div className="flex w-full" style={{ minWidth: 56 + days.length * colW }}>
         <div className="w-14 shrink-0 border-r border-border bg-surface-1">
           <div style={{ height: HEADER_H }} className="border-b border-border" />
@@ -814,10 +906,12 @@ function WeekView({
               </button>
 
               <div className="relative" style={{ height: totalH }}>
+                {blocks.map(block => <BlockOverlay key={block.id} block={block} date={dStr} timezone={timezone} start={dayStart} end={dayEnd} name={professionals.find(p => p.id === block.professionalId)?.name} />)}
                 {slots.map((m) => (
                   <button
                     key={m}
                     onClick={() => onOpenSlot(firstProId, m, dStr)}
+                    aria-label={`Agendar ${dStr} às ${minutesToHHMM(m)}`}
                     style={{ height: SLOT_MIN * PX_PER_MIN }}
                     className="block w-full border-b border-border/40 transition hover:bg-primary/5"
                   />
@@ -848,7 +942,7 @@ function WeekView({
                       onClick={() => onOpenDetail(a)}
                       aria-label={`${formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")}, ${a.clientName}, ${a.serviceName}${placement.conflict ? ", conflito de horário" : ""}`}
                       title={placement.conflict ? "Conflito de horário detectado — revise este atendimento" : undefined}
-                      className={`absolute overflow-hidden rounded-md border-l-[3px] px-1.5 py-1 text-left text-[10px] shadow-sm transition hover:shadow-md ${
+                      className={`absolute z-[2] overflow-hidden rounded-md border-l-[3px] px-1.5 py-1 text-left text-[10px] shadow-sm transition hover:shadow-md ${
                         placement.conflict ? "ring-1 ring-danger/60" : ""
                       }`}
                       style={{
@@ -878,6 +972,7 @@ function WeekView({
 /* ─────────────────────────── Month view ─────────────────────────── */
 
 function MonthView({
+  blocks,
   dateObj,
   appointments,
   timezone,
@@ -885,6 +980,7 @@ function MonthView({
   onOpenDay,
   onOpenDetail,
 }: {
+  blocks: AvailabilityBlock[];
   dateObj: Date;
   appointments: Appointment[];
   timezone: string;
@@ -934,7 +1030,7 @@ function MonthView({
               type="button"
               key={dStr}
               onClick={() => onOpenDay(dStr)}
-              aria-label={`${dateLabel}, ${appointmentLabel}${isToday ? ", hoje" : ""}${inMonth ? "" : ", fora do mês atual"}`}
+              aria-label={`${dateLabel}, ${appointmentLabel}, ${blocksOnDate(blocks, dStr, timezone).length} bloqueios${isToday ? ", hoje" : ""}${inMonth ? "" : ", fora do mês atual"}`}
               aria-current={isToday ? "date" : undefined}
               className={`relative flex min-h-12 min-w-0 flex-col items-center justify-center border-b border-r border-border px-0.5 py-1 transition-colors hover:bg-card-hover focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring [&:nth-child(7n)]:border-r-0 ${
                 inMonth ? "" : "bg-surface-1/40 text-muted-foreground/50"
@@ -951,6 +1047,7 @@ function MonthView({
                 {format(day, "d")}
               </span>
               <span className="mt-0.5 flex h-1.5 items-center justify-center gap-0.5" aria-hidden="true">
+                {blocksOnDate(blocks, dStr, timezone).length > 0 && <Ban className="h-3 w-3 text-danger" />}
                 {dayAppts.slice(0, 3).map((appointment) => {
                   const cfg = STATUS[appointment.status as keyof typeof STATUS] ?? STATUS.CONFIRMED;
                   return <span key={appointment.id} className="h-1.5 w-1.5 rounded-full" style={{ background: cfg.color }} />;
@@ -988,6 +1085,7 @@ function MonthView({
                 {format(day, "d")}
               </button>
               <div className="space-y-0.5">
+                {blocksOnDate(blocks, dStr, timezone).length > 0 && <button onClick={() => onOpenDay(dStr)} className="flex min-h-8 items-center gap-1 rounded bg-muted px-1 text-xs"><Ban size={12} />{blocksOnDate(blocks, dStr, timezone).length} bloqueio(s)</button>}
                 {dayAppts.slice(0, 3).map((a) => {
                   const cfg = STATUS[a.status as keyof typeof STATUS] ?? STATUS.CONFIRMED;
                   return (
@@ -1082,7 +1180,7 @@ function ListView({
                   {a.waitlistCount} na fila
                 </span>
               )}
-              <span className="hidden shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold sm:inline" style={{ background: `${cfg.color}22`, color: cfg.color }}>
+              <span className={`hidden shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold sm:inline ${cfg.badgeClass}`}>
                 {cfg.label}
               </span>
               <p className="w-20 shrink-0 text-right text-[13px] font-semibold">{formatMoney(a.priceCents)}</p>
@@ -1096,6 +1194,25 @@ function ListView({
 
 /* ─────────────────────────── Bits ─────────────────────────── */
 
+function blocksOnDate(blocks: AvailabilityBlock[], date: string, timezone: string) {
+  return blocks.filter(b => formatInTimeZone(new Date(b.startAt), timezone, "yyyy-MM-dd") <= date && formatInTimeZone(new Date(+new Date(b.endAt) - 1), timezone, "yyyy-MM-dd") >= date);
+}
+
+function BlockOverlay({ block, date, timezone, start, end, name }: { block: AvailabilityBlock; date: string; timezone: string; start: number; end: number; name?: string }) {
+  if (!blocksOnDate([block], date, timezone).length) return null;
+  const first = formatInTimeZone(new Date(block.startAt), timezone, "yyyy-MM-dd");
+  const last = formatInTimeZone(new Date(block.endAt), timezone, "yyyy-MM-dd");
+  const from = Math.max(start, first < date ? 0 : minutesOf(block.startAt, timezone));
+  const to = Math.min(end, last > date ? 1440 : minutesOf(block.endAt, timezone));
+  if (to <= from) return null;
+  return <div className="pointer-events-none absolute inset-x-0 z-[1] overflow-hidden border-y border-border bg-muted/70 p-1 text-[10px]" style={{ top: (from - start) * PX_PER_MIN, height: (to - from) * PX_PER_MIN, backgroundImage: "repeating-linear-gradient(135deg, transparent, transparent 6px, hsl(var(--border) / .35) 6px, hsl(var(--border) / .35) 7px)" }}>Bloqueado · {name} · {block.reason ?? "Indisponível"}</div>;
+}
+
+function BlockList({ blocks, professionals, timezone }: { blocks: AvailabilityBlock[]; professionals: Professional[]; timezone: string }) {
+  if (!blocks.length) return null;
+  return <section aria-label="Bloqueios do período" className="rounded-xl border border-border bg-muted/40 p-3"><h2 className="mb-2 flex items-center gap-2 text-sm font-semibold"><Ban size={16} />Bloqueios do período</h2><ul className="divide-y divide-border">{blocks.map(b => <li key={b.id} className="py-2 text-sm"><strong>{professionals.find(p => p.id === b.professionalId)?.name}</strong> · {formatInTimeZone(new Date(b.startAt), timezone, "dd/MM HH:mm")} — {formatInTimeZone(new Date(b.endAt), timezone, "dd/MM HH:mm")}<p className="text-xs text-muted-foreground">{b.reason ?? "Indisponível"}</p></li>)}</ul></section>;
+}
+
 function ViewBtn({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: typeof List; label: string }) {
   return (
     <button
@@ -1103,7 +1220,7 @@ function ViewBtn({ active, onClick, icon: Icon, label }: { active: boolean; onCl
       onClick={onClick}
       aria-label={`Visualização ${label}`}
       aria-pressed={active}
-      className={`inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+      className={`inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
         active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
       }`}
     >
@@ -1119,7 +1236,7 @@ function FilterChip({ active, onClick, children, icon: Icon, dot }: { active: bo
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`inline-flex min-h-11 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+      className={`inline-flex min-h-11 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
         active ? "border-primary/40 bg-primary/10 text-foreground" : "border-border bg-card text-muted-foreground hover:text-foreground"
       }`}
     >
@@ -1137,8 +1254,8 @@ function DayKpi({ icon: Icon, accent, label, value }: { icon: typeof Clock; acce
         <Icon className="h-4 w-4" />
       </span>
       <div className="min-w-0">
-        <p className="text-lg font-semibold leading-none tracking-tight">{value}</p>
-        <p className="mt-1 truncate text-[11px] text-muted-foreground">{label}</p>
+        <p className="break-words text-base font-semibold leading-tight tracking-tight sm:text-lg">{value}</p>
+        <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{label}</p>
       </div>
     </div>
   );

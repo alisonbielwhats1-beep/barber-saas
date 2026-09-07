@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { withSalonBySlug } from "@/lib/prisma-tenant";
 import { getClientSessionForSalonSlug } from "@/lib/client-session-tenant";
 import { clientHomePath, safeClientReturnTo } from "@/lib/client-routes";
 import { CadastroForm } from "./cadastro-form";
@@ -16,13 +17,15 @@ export default async function CadastroPage({
 
   const session = await getClientSessionForSalonSlug(salonSlug);
   if (session) redirect(homePath);
+  const salon = await withSalonBySlug(salonSlug, (tx, salonId) => tx.salon.findUnique({ where: { id: salonId }, select: { name: true } }));
+  if (!salon) notFound();
 
   return (
     <main className="flex min-h-[100dvh] flex-col items-center justify-center px-5 py-10">
       <div className="w-full max-w-sm space-y-6">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-widest text-primary">
-            Sua conta
+            {salon.name}
           </p>
           <h1 className="mt-1 text-2xl font-semibold">Criar conta</h1>
           <p className="mt-1 text-sm text-muted-foreground">

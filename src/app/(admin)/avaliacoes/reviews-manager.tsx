@@ -26,7 +26,7 @@ function Stars({ rating }: { rating: number }) {
         <Star
           key={index}
           aria-hidden="true"
-          className={`h-3.5 w-3.5 ${index < rating ? "text-amber-400" : "text-muted-foreground/25"}`}
+          className={`h-3.5 w-3.5 ${index < rating ? "text-warning" : "text-muted-foreground/25"}`}
           fill={index < rating ? "currentColor" : "none"}
         />
       ))}
@@ -77,10 +77,10 @@ export function ReviewsManager({
   return (
     <div className="space-y-6">
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Kpi label="Nota média" value={summary.average.toFixed(1).replace(".", ",")} accent="text-amber-300" />
+        <Kpi label="Nota média" value={summary.average.toFixed(1).replace(".", ",")} accent="text-warning" />
         <Kpi label="Publicadas" value={String(summary.count)} accent="text-primary" />
         <Kpi label="Ocultas nesta lista" value={String(hiddenCount)} accent="text-muted-foreground" />
-        <Kpi label="Comentários" value={String(reviews.filter((review) => Boolean(review.comment)).length)} accent="text-sky-300" />
+        <Kpi label="Comentários" value={String(reviews.filter((review) => Boolean(review.comment)).length)} accent="text-info" />
       </section>
 
       <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">

@@ -1,10 +1,9 @@
-import { BrandLogo } from "@/components/brand";
 import { getTenantContext } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
 import { SidebarFooter } from "./sidebar-footer";
 import { SalonSwitcher } from "./salon-switcher";
-import { SidebarNav } from "./sidebar-nav";
-import { CommandPalette, OpenCommandPaletteButton } from "./command-palette";
+import { AdminSidebar } from "./admin-sidebar";
+import { CommandPalette } from "./command-palette";
 import { Toaster } from "@/components/ui/toast";
 import { ThemeProvider } from "./theme-provider";
 import { MobileNav } from "./mobile-nav";
@@ -61,38 +60,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     />
     <div className="admin-shell flex h-dvh overflow-hidden text-foreground">
       {/* ── Sidebar ─────────────────────────────────────── */}
-      <aside className="admin-sidebar scrollbar-dark hidden w-56 shrink-0 flex-col overflow-y-auto border-r border-border lg:flex print:hidden">
-        {/* Logo */}
-        <div className="flex h-14 shrink-0 items-center gap-2.5 px-4">
-          <div className="min-w-0">
-            <BrandLogo className="ef-admin-logo" />
-            <span className="mt-1 block text-[9px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-              Painel de operação
-            </span>
-          </div>
-        </div>
-
-        {/* Salon switcher */}
-        <div className="shrink-0 px-3 pb-2">
-          <SalonSwitcher current={currentSalon} memberships={membershipList} />
-        </div>
-
-        <div className="shrink-0 px-3 pb-3">
-          <OpenCommandPaletteButton />
-        </div>
-
-        <div className="mx-3 mb-3 h-px bg-border" />
-
-        {/* Navigation */}
-        <SidebarNav role={role} unreadNotifications={unreadNotifications} isPlatformAdmin={platformAdmin} />
-
-        {/* User footer */}
-        <SidebarFooter plan={salon?.plan ?? "FREE"} />
-      </aside>
+      <AdminSidebar current={currentSalon} memberships={membershipList} role={role} plan={salon?.plan ?? "FREE"} unreadNotifications={unreadNotifications} isPlatformAdmin={platformAdmin} />
 
       {/* ── Main content ─────────────────────────────────── */}
       <main id="main-content" tabIndex={-1} className="admin-main scrollbar-dark min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
-        <div className="mx-auto w-full min-w-0 max-w-[1400px] p-4 pb-24 sm:p-6 md:p-8 lg:pb-8">{children}</div>
+        <div className="mx-auto w-full min-w-0 max-w-[1680px] p-4 pb-24 sm:p-5 md:p-6 lg:pb-6">{children}</div>
       </main>
 
       <MobileNav role={role} unreadNotifications={unreadNotifications} isPlatformAdmin={platformAdmin}

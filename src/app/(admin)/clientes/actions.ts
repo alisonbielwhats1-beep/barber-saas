@@ -235,6 +235,8 @@ export async function mergeClients(sourceId: string, targetId: string) {
     const targetPasswordHash = target.passwordHash ?? source.passwordHash;
     const targetUserId = target.userId ?? source.userId;
 
+    await tx.clientDependent.updateMany({ where: { salonId: ctx.salonId, clientId: source.id }, data: { clientId: target.id } });
+    await tx.flexibleWaitlist.updateMany({ where: { salonId: ctx.salonId, clientId: source.id }, data: { clientId: target.id } });
     await tx.appointment.updateMany({
       where: { salonId: ctx.salonId, clientId: source.id },
       data: { clientId: target.id },

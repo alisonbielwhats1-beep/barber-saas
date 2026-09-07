@@ -45,12 +45,16 @@ import {
 } from "./actions";
 import {
   STATUS,
+  ACTION_LABELS,
+  statusActionClasses,
   canOpenAppointmentCheckout,
   nextActions,
   type ApptStatus,
 } from "./agenda-status";
 import { ComandaPanel } from "./comanda-panel";
 import type { Appointment } from "./agenda-board";
+import { SeriesEditor } from "./series-editor";
+import { CarePanel } from "./care-panel";
 
 const HISTORY_PREVIEW_COUNT = 3;
 
@@ -277,8 +281,7 @@ export function AppointmentDetail({
               </DialogTitle>
             </div>
             <span
-              className="rounded-full px-2.5 py-1 text-[11px] font-semibold"
-              style={{ background: `${cfg.color}22`, color: cfg.color }}
+              className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${cfg.badgeClass}`}
             >
               {cfg.label}
             </span>
@@ -380,14 +383,17 @@ export function AppointmentDetail({
           {/* ── DETAIL VIEW ──────────────────────────────────── */}
           {view === "detail" && (
             <>
+              {canCancel && appt.seriesId && <SeriesEditor appointmentId={appt.id} />}
+              {(canCancel || !canCreate) && <CarePanel appointmentId={appt.id} timezone={timezone} writable={["IN_PROGRESS", "COMPLETED"].includes(appt.status)} />}
               <div className="space-y-2.5 text-sm">
                 <Row icon={Scissors} label={appt.serviceName} />
+                {appt.stages?.filter(s => s.processingMin || s.finishingMin).map((s, i) => <div key={i} className="rounded-lg border border-border p-3 text-xs"><strong>{s.name}</strong><div className="mt-2 flex overflow-hidden rounded-md" aria-label="Etapas do atendimento"><span className="bg-success/20 p-2" style={{ flex: s.durationMin - s.processingMin - s.finishingMin }}>Execução {s.durationMin - s.processingMin - s.finishingMin} min</span>{s.processingMin > 0 && <span className="bg-warning/20 p-2" style={{ flex: s.processingMin }}>Processamento {s.processingMin} min</span>}{s.finishingMin > 0 && <span className="bg-info/20 p-2" style={{ flex: s.finishingMin }}>Finalização {s.finishingMin} min</span>}</div></div>)}
                 <Row
                   icon={Clock}
                   label={`${formatInTimeZone(start, timezone, "HH:mm")} – ${formatInTimeZone(end, timezone, "HH:mm")} · ${formatInTimeZone(start, timezone, "EEEE, d MMM", { locale: ptBR })}`}
                 />
                 {appt.pendingReschedule && (
-                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-amber-700 dark:text-amber-300">
+                  <div className="rounded-lg border border-amber-500/30 bg-warning/10 px-3 py-2.5 text-warning">
                     <p className="text-[12px] font-semibold">Aguardando aceite do cliente</p>
                     <p className="mt-1 text-[11px] leading-relaxed">
                       Novo horário: {formatInTimeZone(new Date(appt.pendingReschedule.targetStartAt), timezone, "dd/MM/yyyy 'às' HH:mm")} · {appt.pendingReschedule.targetProfessionalName}.
@@ -422,7 +428,7 @@ export function AppointmentDetail({
                   </div>
                 )}
                 {appt.waitlistCount > 0 && (
-                  <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-amber-700 dark:text-amber-400">
+                  <div className="rounded-lg border border-amber-500/20 bg-warning/10 p-3 text-warning">
                     <p className="flex items-center gap-1.5 font-semibold">
                       <Users className="h-4 w-4" />
                       Fila de espera · {appt.waitlistCount}
@@ -577,11 +583,10 @@ export function AppointmentDetail({
                           }),
                         )
                       }
-                      className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-medium text-white transition hover:opacity-90 disabled:opacity-50"
-                      style={{ background: target.color }}
+                      className={`inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-medium transition disabled:opacity-50 ${statusActionClasses(s)}`}
                     >
                       <Icon className="h-4 w-4" />
-                      {target.label}
+                      {ACTION_LABELS[s] ?? target.label}
                     </button>
                   );
                 })}
@@ -602,7 +607,7 @@ export function AppointmentDetail({
                   href={waLink(appt.clientPhone, appt.clientName, salonName, whenLabel)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#25D366]/15 px-3 py-2 text-[13px] font-medium text-[#25D366] transition hover:bg-[#25D366]/25"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-success/10 px-3 py-2 text-[13px] font-medium text-success transition hover:bg-success/15"
                 >
                   <MessageCircle className="h-4 w-4" />
                   WhatsApp
@@ -684,7 +689,7 @@ export function AppointmentDetail({
                     O registro será preservado, o horário liberado e o cliente do agendamento notificado.
                   </p>
                   {appt.waitlistCount > 0 && (
-                    <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px] font-medium text-amber-700 dark:text-amber-400">
+                    <p className="rounded-lg border border-amber-500/30 bg-warning/10 px-3 py-2 text-[12px] font-medium text-warning">
                       A fila permanecerá ativa. Depois de cancelar, use “Promover” na primeira posição para liberar o horário com segurança.
                     </p>
                   )}
