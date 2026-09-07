@@ -6,8 +6,11 @@ que todos os itens abaixo já estão implementados na Fase 1.
 
 ## Aparência administrativa — revisão de 07/09/2026
 
-Fundos escuros em grafite neutro, sem roxo dominante. O tema claro preserva
-marfim/pedra. Botões principais verdes, próximo atendimento verde, execução azul,
+Fundos escuros em grafite neutro, sem roxo dominante. Após nova solicitação,
+o tema claro substitui marfim/pedra por cinza quase branco frio (`#F6F7F9`),
+cartões brancos, contornos suaves e sombras discretas para separar os painéis.
+Campos mantêm bordas mais definidas e foco visível.
+Botões principais verdes, próximo atendimento verde, execução azul,
 pendências âmbar e avisos críticos vermelhos. Lilás restrito à marca e seleção.
 Cores de serviços continuam sendo categorias, sem substituir os estados.
 Após revisão do tema claro, o próximo atendimento recebe verde sólido da

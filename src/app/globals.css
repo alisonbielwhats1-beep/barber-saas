@@ -94,21 +94,22 @@
 
   /* ─── Admin: Light theme (toggled via ThemeProvider) ───────────────────── */
   [data-theme="admin-light"] {
-    --background: 40 33% 95%;         /* marfim Everflair #F6F3ED */
-    --surface-1: 40 24% 94%;
+    --background: 220 20% 97%;       /* branco frio, sem tonalidade bege */
+    --surface-1: 220 20% 98%;
     --foreground: 218 10% 15%;        /* grafite Everflair #23262B */
 
-    --card: 40 33% 99%;
+    --card: 0 0% 100%;
     --card-foreground: 218 10% 15%;
-    --card-hover: 40 22% 94%;
-    --elevated: 40 33% 99%;
+    --card-hover: 220 20% 97%;
+    --elevated: 0 0% 100%;
 
-    --muted: 35 18% 90%;              /* pedra em tom suave */
+    --muted: 220 14% 94%;
     --muted-foreground: 218 7% 38%;
 
-    --border: 35 14% 81%;
-    --border-strong: 35 9% 66%;
-    --input: 35 12% 76%;
+    --border: 220 14% 90%;
+    --border-strong: 220 10% 69%;
+    --input: 220 10% 58%;
+    --panel-shadow: 0 2px 4px rgb(22 34 52 / 0.04), 0 8px 24px -8px rgb(22 34 52 / 0.12);
     --ring: 158 71% 24%;
     /* Lilás autorizado como acento de navegação; ações operacionais mantêm semântica. */
     --selection: 263 65% 95%;
@@ -120,7 +121,7 @@
     --primary: 158 71% 24%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 35 18% 90%;
+    --secondary: 220 14% 94%;
     --secondary-foreground: 218 10% 23%;
 
     --accent: 158 71% 24%;
@@ -349,6 +350,46 @@
 
   [data-theme="admin-dark"] .admin-sidebar {
     background: hsl(var(--surface-1));
+  }
+
+  /* Clean light canvas: depth separates panels instead of dark outlines. */
+  [data-theme="admin-light"] .admin-shell,
+  [data-theme="admin-light"] .admin-main {
+    background: hsl(var(--background));
+  }
+
+  [data-theme="admin-light"] .admin-sidebar {
+    background: hsl(var(--card));
+    box-shadow: 6px 0 24px -16px rgb(22 34 52 / 0.18);
+  }
+
+  [data-theme="admin-light"] .admin-main :where(
+    .bg-card.border.rounded-lg,
+    .bg-card.border.rounded-xl,
+    .bg-card.border.rounded-2xl,
+    .bg-card.border.rounded-3xl,
+    .shadow-premium
+  ):not(button):not(input):not(textarea):not(select):not(:has(> input)) {
+    --tw-shadow: var(--panel-shadow);
+    box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+  }
+
+  [data-theme="admin-light"] [role="dialog"]:not([data-theme="salon-dark"]) {
+    --tw-shadow: 0 8px 24px rgb(22 34 52 / 0.1), 0 24px 64px -16px rgb(22 34 52 / 0.22);
+    box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+  }
+
+  [data-theme="admin-light"] .admin-main :where(input:not([type="checkbox"]):not([type="radio"]), textarea, select):not(:focus) {
+    border-color: hsl(var(--input));
+  }
+
+  [data-theme="admin-light"] .admin-main .border:has(> input.bg-transparent) {
+    border-color: hsl(var(--input));
+  }
+
+  [data-theme="admin-light"] .admin-main .border:has(> input.bg-transparent):focus-within {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
   }
 
   /* Light operations: one solid priority, with smaller semantic accents. */

@@ -1,5 +1,14 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-07 — tema claro com fundo neutro e profundidade, em revisão
+
+No PR #80, o tema claro substitui a base marfim/pedra por cinza quase branco
+frio, cartões e menu brancos, bordas suaves e sombras discretas nos painéis.
+Diálogos têm elevação maior; campos preservam identificação e foco. A decisão
+substitui o marfim registrado nas revisões anteriores, mantendo cores
+operacionais e profissionais. Implementação em `src/app/globals.css` e escopo
+em `docs/CORES_E_APRESENTACAO_2026-09-07.md`. Sem banco ou deploy produtivo.
+
 ## 2026-09-07 — agenda com cores por profissional, em revisão
 
 No PR #80, fundo/faixa dos cartões passam a identificar o profissional,

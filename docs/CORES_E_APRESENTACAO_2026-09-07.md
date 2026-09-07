@@ -3,7 +3,7 @@
 ## Direção solicitada
 
 O responsável rejeitou roxo dominante e fundos coloridos no painel. A revisão
-usa grafite neutro no escuro e marfim/pedra no claro. Verde identifica controles
+usa grafite neutro no escuro e cinza quase branco frio no claro. Verde identifica controles
 principais e próximo atendimento; azul identifica execução e volumes; âmbar,
 confirmações pendentes e reposição; vermelho, horários ultrapassados que precisam
 de revisão. Lilás permanece na marca e na seleção de navegação/calendário.
@@ -43,7 +43,7 @@ quando o próximo horário ainda aguarda confirmação.
 Indicadores do dashboard e próximas ações recebem acentos verdes, azuis,
 âmbar e cobre, com números e ícones mais definidos. Execução, pendências e
 horários ultrapassados têm fundos semânticos suaves mais visíveis. Superfícies
-marfim/pedra e bordas do tema claro têm separação mais perceptível. O cobre
+claras e bordas do tema claro têm separação mais perceptível. O cobre
 substitui a associação nominal da ocupação com marketing/roxo.
 
 Os ícones dos indicadores da agenda deixam de usar hexadecimais fixos e passam
@@ -62,6 +62,25 @@ ficam no PR #80. Nenhuma promoção produtiva nesta revisão.
 Na conferência em 1280 px, o ticket médio quebrava os centavos em outra linha.
 Os quatro indicadores principais passam a ter a mesma largura no desktop,
 preservando a leitura completa do valor e a escala tipográfica existente.
+
+## Tema claro — fundo e profundidade
+
+Nova revisão solicitada pelo responsável substitui a base marfim/pedra:
+
+- Fundo `hsl(220 20% 97%)`, aproximadamente `#F6F7F9`, sem o efeito de cor
+  ambiente. Cartões, menu e diálogos brancos.
+- Bordas neutras `hsl(220 14% 90%)` nos painéis. A separação passa a combinar
+  diferença de superfície e sombra, sem contornos escuros dominantes.
+- Sombra de painel em duas camadas: `0 2px 4px` a 4% e `0 8px 24px -8px`
+  a 12%. Aplicada aos contêineres de cartão existentes, preservando foco.
+- Menu com sombra lateral discreta; diálogos com elevação maior.
+- Campos usam borda própria, mais definida que a dos painéis; o foco continua
+  seguindo os estilos dos controles.
+- Verde de prioridade, cores semânticas e cores por profissional preservados.
+  Alteração restrita ao tema administrativo claro; sem banco ou novos pacotes.
+
+Arquivo: `src/app/globals.css`. Conferência visual local no dashboard e agenda;
+lint, TypeScript, testes e build/contraste em CI registrados por commit no PR #80.
 
 ## Conta de apresentação autorizada no Supabase
 
