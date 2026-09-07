@@ -1,19 +1,27 @@
 # Status atual canônico — Salon SaaS
 
-## 2026-09-06 — continuação das pendências, migration 019 em validação
+## 2026-09-06 — pendências implementadas no PR #79, sem promoção produtiva
 
 Na branch codex/product-experience / PR #79: seleção de bloqueios na grade,
 recorrência, bloqueios semana/mês/lista, edição de séries com revisão de conflitos,
 fila flexível FIFO, sugestões de encaixe, variantes e etapas de serviços,
 reservas exclusivas de salas/equipamentos, dependentes e cuidados/fotos privados.
 Dashboard/relatórios indicam próximas ações e pacotes têm filtros de vencimento.
-Migration 019 aditiva preparada com backup, preflight, RLS, constraints e rollback
-não destrutivo para PostgreSQL descartável do GitHub. Ainda não executada remotamente
-nesta revisão. Não há alteração produtiva nem atualização do Codespace.
-143 arquivos / 684 testes locais passaram; TypeScript, lint e build passaram na
-primeira rodada. A verificação de navegador cobre as áreas administrativas em
-desktop claro e mobile escuro; evidências finais serão registradas após o CI.
-Plano em docs/MIGRATION_019_RECURSOS_CUIDADOS.md.
+Migration 019 aditiva executada com backup/restauração, preflight, reaplicação,
+preservação dos registros, RLS e constraints no PostgreSQL descartável do GitHub.
+Os 7 testes PostgreSQL de recursos, fila, dependentes e cuidados passaram.
+Não há alteração produtiva nem atualização do Codespace.
+144 arquivos / 687 testes locais passaram; TypeScript, lint e build passaram.
+A verificação de navegador cobre 18 áreas em desktop claro e mobile escuro.
+As falhas de contraste, rótulos, datas entre fusos e distribuição móvel encontradas
+foram corrigidas no mesmo PR. O run `34071775481` (`87f4ccb`) passou integralmente:
+40 verificações autenticadas (36 visuais/acessíveis), 31 testes públicos e todos
+os jobs de banco. Zero violações nas regras axe executadas, erros de runtime ou
+overflow da página nas 36 verificações. Refinamentos posteriores de leitura móvel
+são acompanhados pelos checks da versão corrente do PR.
+Checklist completo em docs/EVOLUCAO_PRODUTO_2026-09-06.md; plano de banco em
+docs/MIGRATION_019_RECURSOS_CUIDADOS.md. Este registro substitui as pendências
+históricas abaixo; promoção produtiva permanece sujeita a aprovação separada.
 
 ## 2026-09-06 — evolução de produto em implementação, sem deploy
 
