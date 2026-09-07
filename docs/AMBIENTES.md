@@ -6,6 +6,14 @@ usar o projeto Supabase de produção.
 
 ## Atualização de 6 de setembro de 2026 — demonstração no GitHub
 
+Atualização posterior, 07/09: o responsável solicitou uma conta de apresentação
+persistente no Supabase produtivo, como um novo cliente. A provisão aditiva foi
+concluída após preflight e backup, preservando os registros anteriores. Esse
+tenant não substitui homologação nem autoriza testes/migrations em Production.
+Escopo em `CORES_E_APRESENTACAO_2026-09-07.md`. O Codespace anteriormente citado
+não está disponível nesta tarefa; a revisão visual usa PostgreSQL local sintético
+e os testes automatizados usam o PostgreSQL descartável do GitHub Actions.
+
 Atualização posterior, 07/09: o responsável autorizou o deploy e merge do PR #79
 em produção. As migrations 018/019 foram aplicadas manualmente ao projeto
 produtivo identificado, após homologação no GitHub, preflight, backup e plano

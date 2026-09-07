@@ -247,7 +247,7 @@ export default async function DashboardPage({
         <section className="rounded-2xl border border-border bg-card p-5">
           <div className="mb-3 flex items-center justify-between">
             <PanelTitle icon={Bell}>Lembretes de amanhã</PanelTitle>
-            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
+            <span className="rounded-full bg-warning/10 px-2 py-0.5 text-[11px] font-semibold text-warning">
               {reminders.length} sem lembrete
             </span>
           </div>

@@ -4,6 +4,15 @@ Estas decisões consolidam as respostas do responsável pelo produto e as
 recomendações técnicas adotadas. Elas orientam a implementação; não significam
 que todos os itens abaixo já estão implementados na Fase 1.
 
+## Aparência administrativa — revisão de 07/09/2026
+
+Fundos escuros em grafite neutro, sem roxo dominante. O tema claro preserva
+marfim/pedra. Botões principais verdes, próximo atendimento verde, execução azul,
+pendências âmbar e avisos críticos vermelhos. Lilás restrito à marca e seleção.
+Cores de serviços continuam sendo categorias, sem substituir os estados.
+O menu expandido exibe símbolo e nome; recolhido, somente símbolo. Controle de
+tema no topo, inclusive no celular. Ver `CORES_E_APRESENTACAO_2026-09-07.md`.
+
 ## Permissões
 
 Matriz recomendada, baseada em privilégio mínimo:

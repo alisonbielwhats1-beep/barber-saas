@@ -1,5 +1,25 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-07 — PR #79 publicado; revisão de cores e conta de apresentação
+
+O PR #79 foi integrado em `master` no commit
+`dc2baf4085cfbef4701488c5b0ae2dcb4eb1c2a8`. O deployment Production
+`dpl_2rbpUGEszdKX5bBX7LvesPpEtiC8` foi confirmado READY. Isso conclui a publicação
+registrada como em preparação abaixo.
+
+A revisão seguinte está em `codex/color-and-demo`, ainda sem promoção produtiva:
+fundos neutros, controles verdes e estados semânticos; marca com nome no menu
+expandido e seletor de aparência no topo. O responsável rejeitou o uso dominante
+de roxo; lilás fica limitado à marca e seleção. Essa decisão substitui a proposta
+intermediária de controles roxos.
+
+Por solicitação explícita de criação no Supabase como novo cliente, a conta
+persistente `Everflair Studio · Demonstração` foi criada em Production com dados
+fictícios e credenciais privadas. Não é ambiente de teste. Houve preflight,
+backup criptografado e confirmação de preservação dos registros anteriores nas
+19 tabelas envolvidas; nenhuma migration ou mudança de RLS. Escopo e evidências
+em `docs/CORES_E_APRESENTACAO_2026-09-07.md`.
+
 ## 2026-09-07 — publicação autorizada do PR #79; banco 018/019 aplicado
 
 O responsável autorizou explicitamente o merge, deploy em produção e atualização

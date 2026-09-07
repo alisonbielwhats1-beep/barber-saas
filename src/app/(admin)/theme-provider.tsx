@@ -20,8 +20,7 @@ const ThemeCtx = createContext<ThemeContextValue>({ theme: "dark", toggle: () =>
 
 function applyTheme(t: Theme) {
   const el = document.documentElement;
-  if (t === "light") el.setAttribute("data-theme", "admin-light");
-  else el.removeAttribute("data-theme");
+  el.setAttribute("data-theme", t === "light" ? "admin-light" : "admin-dark");
 }
 
 /**

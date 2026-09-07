@@ -2,7 +2,6 @@
 
 import { signOut, useSession } from "next-auth/react";
 import { LogOut } from "lucide-react";
-import { ThemeToggle } from "./theme-toggle";
 import { PwaInstallButton } from "@/components/pwa-install-button";
 
 export function SidebarFooter({ plan, compact = false }: { plan: string; compact?: boolean }) {
@@ -28,7 +27,6 @@ export function SidebarFooter({ plan, compact = false }: { plan: string; compact
       </div>
       <div className={`flex items-center ${compact ? "flex-col" : "justify-end gap-1"}`}>
         <PwaInstallButton />
-        <ThemeToggle />
         <button
           onClick={() => signOut({ callbackUrl: "/" })}
           title="Sair"

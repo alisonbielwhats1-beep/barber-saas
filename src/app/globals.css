@@ -58,39 +58,70 @@
     color-scheme: dark;
   }
 
+  /* Flair controls: color is scoped to the admin, including portalled dialogs. */
+  [data-theme="admin-dark"] {
+    --background: 240 5% 8%;
+    --surface-1: 240 5% 11%;
+    --foreground: 240 8% 96%;
+    --card: 240 5% 13%;
+    --card-foreground: 240 8% 96%;
+    --card-hover: 240 5% 17%;
+    --elevated: 240 5% 19%;
+    --muted: 240 4% 21%;
+    --muted-foreground: 240 5% 73%;
+    --border: 240 5% 25%;
+    --border-strong: 240 5% 37%;
+    --input: 240 5% 28%;
+    --primary: 155 52% 65%;
+    --primary-foreground: 158 48% 12%;
+    --secondary: 240 5% 21%;
+    --secondary-foreground: 240 8% 96%;
+    --accent: 155 52% 65%;
+    --accent-foreground: 158 48% 12%;
+    --ring: 155 52% 65%;
+    --selection: 262 27% 24%;
+    --selection-foreground: 264 65% 88%;
+    --selection-solid: 264 54% 73%;
+    --selection-on-solid: 258 35% 14%;
+    --destructive: 0 67% 45%;
+    --destructive-foreground: 0 0% 100%;
+    color: hsl(var(--foreground));
+    color-scheme: dark;
+  }
+
   /* ─── Admin: Light theme (toggled via ThemeProvider) ───────────────────── */
   [data-theme="admin-light"] {
     --background: 40 33% 95%;         /* marfim Everflair #F6F3ED */
-    --surface-1: 40 33% 98%;          /* marfim elevado, quase branco */
+    --surface-1: 40 20% 97%;
     --foreground: 218 10% 15%;        /* grafite Everflair #23262B */
 
     --card: 40 33% 99%;
     --card-foreground: 218 10% 15%;
-    --card-hover: 40 25% 96%;
+    --card-hover: 40 22% 94%;
     --elevated: 40 33% 99%;
 
     --muted: 35 18% 90%;              /* pedra em tom suave */
     --muted-foreground: 218 7% 38%;
 
-    --border: 35 18% 85%;
-    --border-strong: 35 18% 68%;
-    --input: 40 33% 99%;
-    --ring: 263 36% 45%;
+    --border: 35 12% 84%;
+    --border-strong: 35 9% 66%;
+    --input: 35 12% 76%;
+    --ring: 158 71% 24%;
     /* Lilás autorizado como acento de navegação; ações operacionais mantêm semântica. */
     --selection: 263 65% 95%;
     --selection-foreground: 263 38% 38%;
     --selection-solid: 263 36% 45%;
     --selection-on-solid: 0 0% 100%;
 
-    /* Ações em grafite, com contraste sobre o marfim. */
-    --primary: 218 10% 15%;           /* grafite para ações e texto legíveis */
-    --primary-foreground: 40 33% 95%;
+    /* Verde nos controles; lilás fica restrito à marca e à seleção. */
+    --primary: 158 71% 24%;
+    --primary-foreground: 0 0% 100%;
 
     --secondary: 35 18% 90%;
-    --secondary-foreground: 218 10% 15%;
+    --secondary-foreground: 218 10% 23%;
 
-    --accent: 22 41% 52%;
-    --accent-foreground: 218 10% 15%;
+    --accent: 158 71% 24%;
+    --accent-foreground: 0 0% 100%;
 
     /* Semantic — slightly deeper for light bg legibility */
     --success: 152 55% 30%;
@@ -292,6 +323,16 @@
   .admin-main {
     background:
       linear-gradient(180deg, hsl(var(--surface-1) / 0.18), transparent 18rem);
+  }
+
+  /* Dark surfaces stay neutral; lilac belongs to the brand and selection only. */
+  [data-theme="admin-dark"] .admin-shell,
+  [data-theme="admin-dark"] .admin-main {
+    background: hsl(var(--background));
+  }
+
+  [data-theme="admin-dark"] .admin-sidebar {
+    background: hsl(var(--surface-1));
   }
 
   /* Ritmo visual comum da landing: espaçamento, superfície e hierarquia. */
