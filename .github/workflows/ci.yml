@@ -218,6 +218,22 @@ jobs:
           npx prisma db execute --file tests/fixtures/018-preservation-after.sql --url "$DIRECT_URL"
           npx prisma db execute --file tests/fixtures/018-rls-check.sql --url "$DIRECT_URL"
           npx prisma generate
+      - name: Back up and restore the 018 predecessor before product migration
+        run: |
+          docker exec ${{ job.services.postgres.id }} pg_dump -U postgres -d salon_schema_ci > "$RUNNER_TEMP/pre019.sql"
+          test -s "$RUNNER_TEMP/pre019.sql"
+          docker exec ${{ job.services.postgres.id }} createdb -U postgres salon_restore019_ci
+          docker exec -i ${{ job.services.postgres.id }} psql -U postgres -d salon_restore019_ci -v ON_ERROR_STOP=1 < "$RUNNER_TEMP/pre019.sql" > /dev/null
+          npx prisma db execute --file tests/fixtures/019-preservation-before.sql --url "$DIRECT_URL"
+      - name: Preflight, apply, reapply and verify product migration 019
+        run: |
+          npx prisma db execute --file prisma/sql/manual/019_product_depth.preflight.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/019_product_depth.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/019_product_depth.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/019_product_depth.verify.sql --url "$DIRECT_URL"
+          npx prisma db execute --file tests/fixtures/019-preservation-after.sql --url "$DIRECT_URL"
+          npx prisma generate
+          npx vitest run src/lib/__tests__/product-depth-postgres.integration.test.ts
       - name: Prove appointment and comanda concurrency with PostgreSQL, plus public access locking
         run: npm run test:appointment-integration
       - name: Prove tenant-isolated password recovery with PostgreSQL
@@ -241,6 +257,8 @@ jobs:
           retention-days: 7
       - name: Prove non-destructive openings and check-in rollback
         run: |
+          npx prisma db execute --file prisma/sql/manual/019_product_depth.rollback.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/019_product_depth.verify.sql --url "$DIRECT_URL"
           npx prisma db execute --file prisma/sql/manual/018_openings_checkin.rollback.sql --url "$DIRECT_URL"
           npx prisma db execute --file prisma/sql/manual/018_openings_checkin.verify.sql --url "$DIRECT_URL"
       - name: Prove non-destructive Phase 2 rollback SQL

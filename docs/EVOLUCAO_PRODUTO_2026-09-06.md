@@ -23,6 +23,31 @@ Não representa implantação nem conclusão do programa completo.
 
 ## Itens ainda abertos da solicitação
 
+### Continuação autorizada — 019 em validação
+
+As pendências abaixo receberam implementação nesta continuação, mas a validação
+remota ainda está em andamento. Não representam publicação em produção.
+
+| Frente | Entrega candidata |
+|---|---|
+| Agenda | Gesto de seleção, alternativa por teclado/toque, recorrência semanal/quinzenal/4 semanas, bloqueios semana/mês/lista |
+| Séries | Revisão de ocorrências futuras, seleção, conflitos e resultado individual; cliente com conta mantém aceite |
+| Fila | Preferências de datas/horários, retirada pelo cliente e confirmação pela equipe respeitando FIFO compatível |
+| Encaixes | Sugestões priorizam a borda dos menores intervalos disponíveis |
+| Serviços | Grupo/variação, processamento/finalização e snapshots por atendimento |
+| Recursos | Cadastro de cada sala/equipamento, vínculo ao serviço, exclusão concorrente no banco, liberação por cancelamento |
+| Cuidados | Anotações imutáveis e fotos privadas normalizadas por visita; dono/gerente e profissional do atendimento |
+| Beneficiário | Pessoas vinculadas ao titular, reserva com nome separado e preservação do snapshot |
+| Indicadores | Próximas ações em dashboard/relatórios; vencimento e saldo de sessões em pacotes; acesso à visita pelo CRM |
+| Validação | PostgreSQL, RLS sem bypass, jornadas com dependente/fila/recurso/foto e varredura desktop/mobile de 16 áreas |
+
+Limites explícitos desta versão: etapas ocupam o profissional durante toda a
+duração; cada serviço pode exigir um recurso físico exclusivo, com capacidade
+representada por unidades cadastradas separadamente. Fila flexível é por
+profissional e titular, com confirmação manual. Séries exibem resultados por
+ocorrência, sem prometer atomicidade do lote. Fotos de até 800 KB são normalizadas
+e ficam privadas no banco; nenhuma imagem de cuidado entra no bucket público.
+
 ### Direção visual solicitada com referências Fresha
 
 - Ajuste solicitado posteriormente: ações de confirmar/iniciar/concluir usam

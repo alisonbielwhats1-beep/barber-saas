@@ -15,13 +15,20 @@ const serviceInput = z.object({
   category: z.string().optional().nullable(),
   imageUrl: z.string().url().optional().or(z.literal("")).nullable(),
   colorHex: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional().nullable(),
-});
+  variantGroup: z.string().trim().max(100).optional().nullable(),
+  variantLabel: z.string().trim().max(100).optional().nullable(),
+  processingMin: z.coerce.number().int().min(0).max(599).default(0),
+  finishingMin: z.coerce.number().int().min(0).max(599).default(0),
+  physicalResourceId: z.string().optional().nullable(),
+}).refine(d => d.processingMin + d.finishingMin < d.durationMin, "Execução deve durar pelo menos um minuto dentro da duração total.");
 
 export type ServiceInput = z.infer<typeof serviceInput>;
 
 function toData(data: ServiceInput) {
   return {
-    name: data.name,
+    name: data.variantGroup && data.variantLabel ? `${data.variantGroup} — ${data.variantLabel}` : data.name,
+    variantGroup: data.variantGroup || null, variantLabel: data.variantLabel || null,
+    processingMin: data.processingMin, finishingMin: data.finishingMin, physicalResourceId: data.physicalResourceId || null,
     description: data.description ?? null,
     durationMin: data.durationMin,
     priceCents: data.priceCents,
@@ -44,6 +51,7 @@ export async function createService(input: ServiceInput) {
   assertAllowedStoredImageUrl(data.imageUrl, ctx.salonId);
 
   const salon = await withTenant(ctx, async (tx) => {
+    if (data.physicalResourceId && !await tx.physicalResource.findFirst({ where: { id: data.physicalResourceId, salonId: ctx.salonId, active: true } })) throw new Error("Recurso inválido ou inativo.");
     await tx.service.create({
       data: { ...toData(data), salonId: ctx.salonId },
     });
@@ -61,6 +69,7 @@ export async function updateService(id: string, input: ServiceInput) {
   // Filtro por salonId protege cross-tenant mesmo com id vindo do cliente —
   // e, sob RLS, a policy da tabela reforça o mesmo filtro por trás.
   const salon = await withTenant(ctx, async (tx) => {
+    if (data.physicalResourceId && !await tx.physicalResource.findFirst({ where: { id: data.physicalResourceId, salonId: ctx.salonId, active: true } })) throw new Error("Recurso inválido ou inativo.");
     await tx.service.updateMany({
       where: { id, salonId: ctx.salonId },
       data: toData(data),
@@ -80,6 +89,7 @@ export async function duplicateService(id: string) {
       select: {
         name: true, description: true, durationMin: true, priceCents: true,
         costCents: true, category: true, imageUrl: true, colorHex: true,
+        variantGroup: true, variantLabel: true, processingMin: true, finishingMin: true, physicalResourceId: true,
       },
     });
     if (!svc) throw new Error("Serviço não encontrado");

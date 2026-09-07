@@ -102,6 +102,7 @@ export async function POST(req: NextRequest) {
         appointment: {
           salonId: booking.salonId,
           professionalId: booking.professionalId,
+          dependentId: booking.dependentId,
           serviceIds: booking.serviceIds,
           startLocal: booking.startLocal,
           notes: booking.notes,

@@ -9,6 +9,7 @@ import {
 import { checkBookingWindow, bufferedWindow } from "@/lib/scheduling";
 import { priceServicesForDate } from "@/lib/pricing";
 import { workingHoursForDate } from "@/lib/working-hours";
+import { bestFitSlots } from "@/lib/slot-fit";
 import {
   InvalidTimeZoneError,
   InvalidWallClockError,
@@ -97,7 +98,7 @@ export async function GET(req: NextRequest) {
 
       const services = await tx.service.findMany({
         where: { id: { in: serviceIds }, salonId, active: true },
-        select: { id: true, durationMin: true, priceCents: true },
+        select: { id: true, durationMin: true, priceCents: true, physicalResourceId: true },
       });
       if (services.length !== serviceIds.length) return null;
       const priced = await priceServicesForDate(tx, {
@@ -139,6 +140,8 @@ export async function GET(req: NextRequest) {
         select: { id: true, startAt: true, endAt: true },
         orderBy: { startAt: "asc" },
       });
+      const resourceIds = services.flatMap(s => s.physicalResourceId ? [s.physicalResourceId] : []);
+      const resourceBookings = resourceIds.length ? await tx.resourceBooking.findMany({ where: { salonId, resourceId: { in: resourceIds }, active: true, startAt: { lt: to }, endAt: { gt: from } }, select: { startAt: true, endAt: true } }) : [];
       const history = await tx.appointment.findMany({
         where: {
           salonId,
@@ -166,7 +169,7 @@ export async function GET(req: NextRequest) {
         closures,
         timeOffs,
         appointments,
-        history,
+        history, resourceBookings,
       };
     });
 
@@ -215,7 +218,7 @@ export async function GET(req: NextRequest) {
           );
           return cursor < buffered.to && slotEnd > buffered.from;
         });
-        if (blockedByClosure || blockedByTimeOff || blockedByAppointment) continue;
+        if (blockedByClosure || blockedByTimeOff || blockedByAppointment || result.resourceBookings.some(b => cursor < b.endAt && slotEnd > b.startAt)) continue;
         slots.add(hhmmInTimeZone(cursor, result.salon.timezone));
       }
     }
@@ -249,6 +252,7 @@ export async function GET(req: NextRequest) {
       {
         slots: availableSlots,
         popularSlot,
+        bestFitSlots: bestFitSlots(availableSlots),
         occupied,
         timezone: result.salon.timezone,
         servicePrices: result.services.map((service) => ({

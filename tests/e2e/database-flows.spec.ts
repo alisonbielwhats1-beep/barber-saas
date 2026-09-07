@@ -74,9 +74,20 @@ test.describe("@database jornadas críticas no PostgreSQL descartável", () => {
     }
 
     expect(foundSlot).toBe(true);
+    await page.getByText("Agendar para outra pessoa", { exact: true }).click();
+    await page.getByLabel("Nome da pessoa").fill("Dependente E2E");
+    await page.getByLabel("Vínculo", { exact: true }).fill("Filho");
+    await page.getByRole("button", { name: "Adicionar pessoa", exact: true }).click();
+    await expect(page.getByLabel("Quem será atendido?")).toContainText("Dependente E2E");
+    await page.getByText("Lista de espera por período", { exact: true }).click();
+    await page.getByRole("button", { name: "Solicitar encaixe no período" }).click();
+    await expect(page.getByText("Pedido registrado. Acompanhe a confirmação em seus agendamentos.")).toBeVisible();
+    await page.screenshot({ path: test.info().outputPath("cliente-dependente-fila.png"), fullPage: true, animations: "disabled" });
     await page.getByRole("button", { name: "Revisar reserva" }).click();
     await page.getByRole("button", { name: "Confirmar reserva" }).click();
     await expect(page.getByRole("heading", { name: "Reserva confirmada" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Ver minhas reservas" })).toBeVisible();
+    await page.getByRole("link", { name: "Ver minhas reservas" }).click();
+    await expect(page.getByText("Atendimento para Dependente E2E")).toBeVisible();
   });
 });

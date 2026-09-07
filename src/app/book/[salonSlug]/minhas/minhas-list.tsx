@@ -25,6 +25,7 @@ import { ReviewDialog } from "./review-dialog";
 import type { ClientSession } from "@/lib/client-auth";
 
 type Appt = {
+  dependentName?: string | null;
   id: string;
   startAt: string;
   endAt: string;
@@ -634,6 +635,7 @@ function ApptCard({
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="font-medium">{serviceName}</p>
+          {a.dependentName && <p className="text-sm font-semibold">Atendimento para {a.dependentName}</p>}
           <p className="text-xs text-muted-foreground">com {a.professional.user.name}</p>
         </div>
         <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold ${statusTone}`}>

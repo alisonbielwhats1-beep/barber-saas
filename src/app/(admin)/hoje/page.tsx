@@ -37,6 +37,7 @@ export default async function HojePage({
         status: true,
         version: true,
         checkedInAt: true,
+        dependentName: true,
         priceCents: true,
         payment: { select: { id: true } },
         client: { select: { name: true, phone: true } },
@@ -58,7 +59,7 @@ export default async function HojePage({
       checkedInAt: appointment.checkedInAt?.toISOString() ?? null,
       priceCents: appointment.priceCents,
       hasPayment: Boolean(appointment.payment),
-      clientName: appointment.client.name,
+      clientName: appointment.dependentName ? `${appointment.dependentName} (titular: ${appointment.client.name})` : appointment.client.name,
       clientPhone: appointment.client.phone,
       professionalName: appointment.professional.user.name,
       serviceName: appointment.serviceItems.length > 0

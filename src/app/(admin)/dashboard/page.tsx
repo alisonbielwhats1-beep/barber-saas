@@ -45,6 +45,7 @@ import { AutoRefresh } from "@/components/auto-refresh";
 import { NowStrip } from "./now-strip";
 import { getMarketingSettings } from "@/lib/marketing-settings";
 import { SetupGuide, PlanInterestNotice } from "@/components/setup-guide";
+import { Opportunities } from "./opportunities";
 
 const MALE_COLOR = "#3B9EFF";
 const FEMALE_COLOR = "#E85D9E";
@@ -226,6 +227,7 @@ export default async function DashboardPage({
 
       <PlanInterestNotice intent={planIntent} currentPlan={salonData.plan} />
       <SetupGuide steps={steps} />
+      {(role === "OWNER" || role === "MANAGER") && <Opportunities />}
 
       {/* ── Faixa Agora: operação antes da análise ─────────── */}
       <NowStrip

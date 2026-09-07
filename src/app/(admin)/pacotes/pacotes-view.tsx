@@ -42,7 +42,7 @@ const SUB_STATUS: Record<string, { label: string; color: string }> = {
 };
 
 export function PacotesView({
-  packages, purchases, plans, subscriptions, clients, services, enabled = true,
+  packages, purchases, plans, subscriptions, clients, services, enabled = true, initialFilter = "all",
 }: {
   packages: PackageRow[];
   purchases: PurchaseRow[];
@@ -51,12 +51,16 @@ export function PacotesView({
   clients: { id: string; name: string }[];
   services: { id: string; name: string }[];
   enabled?: boolean;
+  initialFilter?: "all" | "expiring";
 }) {
   const [tab, setTab] = useState<"packages" | "plans">("packages");
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [picker, setPicker] = useState<{ title: string; onConfirm: (clientId: string) => Promise<void> } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [purchaseFilter, setPurchaseFilter] = useState<string>(initialFilter);
+  const now = Date.now();
+  const filteredPurchases = purchases.filter(p => purchaseFilter === "all" || (purchaseFilter === "expiring" && p.status === "ACTIVE" && p.sessionsUsed < p.sessionsTotal && +new Date(p.expiresAt) >= now && +new Date(p.expiresAt) <= now + 7 * 86400000) || (purchaseFilter === "low" && p.status === "ACTIVE" && p.sessionsTotal - p.sessionsUsed > 0 && p.sessionsTotal - p.sessionsUsed <= 2) || (purchaseFilter === "expired" && (p.status === "EXPIRED" || (p.status === "ACTIVE" && +new Date(p.expiresAt) < now))));
 
   function run(fn: () => Promise<void>) {
     setError(null);
@@ -126,11 +130,12 @@ export function PacotesView({
 
           {/* Pacotes vendidos */}
           <SectionHead title="Pacotes vendidos" />
-          {purchases.length === 0 ? (
-            <Empty title="Nenhum pacote vendido ainda." />
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Filtrar pacotes vendidos">{[["all", "Todos"], ["expiring", "Vencem em 7 dias"], ["low", "Até 2 sessões restantes"], ["expired", "Vencidos"]].map(([value, label]) => <button key={value} type="button" aria-pressed={purchaseFilter === value} onClick={() => setPurchaseFilter(value!)} className={`min-h-11 rounded-lg border px-3 text-xs ${purchaseFilter === value ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}>{label}</button>)}</div>
+          {filteredPurchases.length === 0 ? (
+            <Empty title="Nenhum pacote neste filtro." />
           ) : (
             <div className="overflow-hidden rounded-2xl border border-border bg-card">
-              {purchases.map((pur) => {
+              {filteredPurchases.map((pur) => {
                 const cfg = PKG_STATUS[pur.status] ?? PKG_STATUS.ACTIVE;
                 const remaining = pur.sessionsTotal - pur.sessionsUsed;
                 return (
@@ -138,6 +143,7 @@ export function PacotesView({
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[13px] font-medium">{pur.clientName}</p>
                       <p className="truncate text-[11px] text-muted-foreground">{pur.packageName} · vence {format(new Date(pur.expiresAt), "d MMM yyyy", { locale: ptBR })}</p>
+                      <p className="mt-1 text-xs font-medium text-success">{remaining} de {pur.sessionsTotal} sessões restantes</p>
                     </div>
                     <div className="hidden w-28 sm:block">
                       <div className="mb-1 flex justify-between text-[10px] text-muted-foreground">
@@ -150,7 +156,7 @@ export function PacotesView({
                     <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: `${cfg.color}1f`, color: cfg.color }}>{cfg.label}</span>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <button disabled={!enabled} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-card-hover hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40">
+                        <button aria-label="Ações" disabled={!enabled} className="grid min-h-11 min-w-11 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-card-hover hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40">
                           {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
                         </button>
                       </DropdownMenuTrigger>
@@ -243,7 +249,7 @@ export function PacotesView({
                     <p className="hidden text-[12px] text-muted-foreground sm:block">{formatMoney(s.priceCents)}/{s.interval === "ANNUAL" ? "ano" : "mês"}</p>
                     <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: `${cfg.color}1f`, color: cfg.color }}>{cfg.label}</span>
                     {s.status === "ACTIVE" && (
-                      <button onClick={() => run(() => cancelSubscription(s.id))} disabled={!enabled || pending} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted-foreground hover:text-danger" title="Cancelar assinatura">
+                      <button onClick={() => run(() => cancelSubscription(s.id))} disabled={!enabled || pending} className="grid min-h-11 min-w-11 shrink-0 place-items-center rounded-lg text-muted-foreground hover:text-danger" title="Cancelar assinatura">
                         <Ban className="h-3.5 w-3.5" />
                       </button>
                     )}

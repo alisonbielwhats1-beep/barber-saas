@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ ctx: { salonId: "salon-a", userId: "owner", role: "OWNER" }, tx: {
+  $queryRaw: vi.fn(), auditLog: { findFirst: vi.fn() },
   professional: { findMany: vi.fn() }, salon: { findUniqueOrThrow: vi.fn() },
   timeOff: { findFirst: vi.fn(), create: vi.fn(), deleteMany: vi.fn() },
   appointment: { findMany: vi.fn() }, user: { findUnique: vi.fn() },

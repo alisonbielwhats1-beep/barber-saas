@@ -17,6 +17,7 @@ import {
   Clock,
   Loader2,
   AlertTriangle,
+  Ban,
 } from "lucide-react";
 import {
   format,
@@ -39,7 +40,7 @@ import { STATUS, STATUS_ORDER } from "./agenda-status";
 import { moveAppointment } from "./actions";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { layoutOverlappingIntervals } from "./agenda-layout";
-import type { AvailabilityBlock } from "./availability-panel";
+import { AvailabilityPanel, type AvailabilityBlock, type BlockSelection } from "./availability-panel";
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 
 const DAY_START = 8 * 60;
@@ -52,6 +53,8 @@ const HEADER_H = 88;
 type ViewKind = "day" | "week" | "month" | "list";
 
 export type Appointment = {
+  stages?: { name: string; durationMin: number; processingMin: number; finishingMin: number }[];
+  seriesId?: string | null;
   id: string;
   professionalId: string;
   startAt: string;
@@ -177,6 +180,8 @@ export function AgendaBoard({
   const [proFilter, setProFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("not_cancelled");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [blockMode, setBlockMode] = useState(false);
+  const [blockSelection, setBlockSelection] = useState<(BlockSelection & { key: string }) | undefined>();
   const [search, setSearch] = useState("");
   const [detail, setDetail] = useState<Appointment | null>(() => appointments.find(a => a.id === initialAppointmentId) ?? null);
   const [createAt, setCreateAt] = useState<{ startLocal: string; proId: string } | null>(null);
@@ -357,6 +362,9 @@ export function AgendaBoard({
         </div>
       </header>
 
+      {canCancel && <AvailabilityPanel key={blockSelection?.key ?? date} date={date} timezone={timezone} professionals={professionals} blocks={availabilityBlocks} selection={blockSelection} />}
+      {canCancel && view === "day" && <div className="flex flex-wrap items-center gap-3"><button type="button" aria-pressed={blockMode} onClick={() => setBlockMode(!blockMode)} className={`inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm ${blockMode ? "border-danger bg-danger/10 text-danger" : "border-border"}`}><Ban size={16} />{blockMode ? "Sair da seleção de bloqueio" : "Selecionar intervalo na grade"}</button>{blockMode && <p className="text-xs text-muted-foreground">Arraste no horário de um profissional ou toque no início e no fim. Enter seleciona pelo teclado; Escape cancela.</p>}</div>}
+
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <DayKpi icon={CalendarDays} accent="#3B9EFF" label="Agendamentos (dia)" value={kpis.total.toString()} />
         <DayKpi icon={Clock} accent="#A855F7" label="Em atendimento" value={kpis.inProgress.toString()} />
@@ -427,6 +435,8 @@ export function AgendaBoard({
         </div>
       ) : view === "day" ? (
         <DayView
+          blockMode={blockMode}
+          onBlockSelection={selection => { setBlockSelection({ ...selection, key: crypto.randomUUID() }); setBlockMode(false); }}
           blocks={availabilityBlocks}
           date={date}
           professionals={shownPros}
@@ -446,9 +456,10 @@ export function AgendaBoard({
         />
       ) : view === "week" ? (
         <WeekView
+          blocks={availabilityBlocks.filter(b => shownPros.some(p => p.id === b.professionalId))}
           professionals={shownPros}
           dateObj={dateObj}
-          firstProId={professionals[0]?.id ?? ""}
+          firstProId={shownPros[0]?.id ?? ""}
           appointments={filteredAll}
           timezone={timezone}
           nowMin={nowMin}
@@ -459,6 +470,7 @@ export function AgendaBoard({
         />
       ) : view === "month" ? (
         <MonthView
+          blocks={availabilityBlocks.filter(b => shownPros.some(p => p.id === b.professionalId))}
           dateObj={dateObj}
           appointments={filteredAll}
           timezone={timezone}
@@ -467,7 +479,7 @@ export function AgendaBoard({
           onOpenDetail={setDetail}
         />
       ) : (
-        <ListView appointments={filteredAll} professionals={professionals} timezone={timezone} onOpenDetail={setDetail} />
+        <div className="space-y-3"><BlockList blocks={availabilityBlocks.filter(b => shownPros.some(p => p.id === b.professionalId))} professionals={shownPros} timezone={timezone} /><ListView appointments={filteredAll} professionals={professionals} timezone={timezone} onOpenDetail={setDetail} /></div>
       )}
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-muted-foreground">
@@ -546,6 +558,8 @@ export function AgendaBoard({
 /* ─────────────────────────── Day view ─────────────────────────── */
 
 function DayView({
+  blockMode,
+  onBlockSelection,
   blocks,
   date,
   professionals,
@@ -556,6 +570,8 @@ function DayView({
   onOpenDetail,
   onMove,
 }: {
+  blockMode: boolean;
+  onBlockSelection: (selection: BlockSelection) => void;
   blocks: AvailabilityBlock[];
   date: string;
   professionals: Professional[];
@@ -573,6 +589,25 @@ function DayView({
   const [drag, setDrag] = useState<
     { id: string; x: number; y: number; started: boolean } | null
   >(null);
+  const selection = useRef<{ proId: string; start: number; end: number } | null>(null);
+  const [selectionView, setSelectionView] = useState<{ proId: string; start: number; end: number } | null>(null);
+  const suppressClick = useRef(false);
+  function selectInterval(proId: string, minutes: number, finish: boolean) {
+    if (!blockMode) return;
+    const current = selection.current;
+    if (!current || current.proId !== proId) {
+      selection.current = { proId, start: minutes, end: minutes };
+      setSelectionView(selection.current);
+    } else if (finish) {
+      const from = Math.min(current.start, minutes);
+      const to = Math.min(1439, Math.max(current.start, minutes) + SLOT_MIN);
+      selection.current = null; setSelectionView(null);
+      onBlockSelection({ professionalId: proId, startLocal: `${date}T${minutesToHHMM(from)}`, endLocal: `${date}T${minutesToHHMM(to)}` });
+    } else {
+      selection.current = { ...current, end: minutes }; setSelectionView(selection.current);
+    }
+  }
+  useEffect(() => { selection.current = null; setSelectionView(null); }, [blockMode, date]);
 
   const slots: number[] = [];
   for (let m = dayStart; m < dayEnd; m += SLOT_MIN) slots.push(m);
@@ -657,12 +692,17 @@ function DayView({
                 {slots.map((m) => (
                   <button
                     key={m}
-                    onClick={() => onOpenSlot(pro.id, m)}
+                    onPointerDown={e => { if (blockMode && e.pointerType === "mouse" && e.button === 0) { suppressClick.current = false; selectInterval(pro.id, m, false); } }}
+                    onPointerEnter={e => { if (blockMode && e.buttons === 1 && selection.current?.proId === pro.id) { suppressClick.current = selection.current.start !== m; selectInterval(pro.id, m, false); } }}
+                    onPointerUp={() => { if (blockMode && suppressClick.current) selectInterval(pro.id, m, true); }}
+                    onKeyDown={e => { if (e.key === "Escape") { selection.current = null; setSelectionView(null); } }}
+                    onClick={() => { if (suppressClick.current) { suppressClick.current = false; return; } if (blockMode) selectInterval(pro.id, m, !!selection.current); else onOpenSlot(pro.id, m); }}
                     style={{ height: SLOT_MIN * PX_PER_MIN }}
                     className="block w-full border-b border-border/40 transition hover:bg-primary/5"
-                    aria-label={`Agendar ${minutesToHHMM(m)} com ${pro.name}`}
+                    aria-label={`${blockMode ? "Selecionar bloqueio" : "Agendar"} ${minutesToHHMM(m)} com ${pro.name}`}
                   />
                 ))}
+                {selectionView?.proId === pro.id && <div className="pointer-events-none absolute inset-x-0 z-20 border-2 border-danger bg-danger/20" style={{ top: (Math.min(selectionView.start, selectionView.end) - dayStart) * PX_PER_MIN, height: (Math.abs(selectionView.end - selectionView.start) + SLOT_MIN) * PX_PER_MIN }} />}
 
                 {blocks.filter(b => b.professionalId === pro.id).map(block => {
                   const firstDate = formatInTimeZone(new Date(block.startAt), timezone, "yyyy-MM-dd");
@@ -765,6 +805,7 @@ function DayView({
 /* ─────────────────────────── Week view ─────────────────────────── */
 
 function WeekView({
+  blocks,
   professionals,
   dateObj,
   firstProId,
@@ -776,6 +817,7 @@ function WeekView({
   onOpenDetail,
   onOpenDay,
 }: {
+  blocks: AvailabilityBlock[];
   professionals: Professional[];
   dateObj: Date;
   firstProId: string;
@@ -835,10 +877,12 @@ function WeekView({
               </button>
 
               <div className="relative" style={{ height: totalH }}>
+                {blocks.map(block => <BlockOverlay key={block.id} block={block} date={dStr} timezone={timezone} start={dayStart} end={dayEnd} name={professionals.find(p => p.id === block.professionalId)?.name} />)}
                 {slots.map((m) => (
                   <button
                     key={m}
                     onClick={() => onOpenSlot(firstProId, m, dStr)}
+                    aria-label={`Agendar ${dStr} às ${minutesToHHMM(m)}`}
                     style={{ height: SLOT_MIN * PX_PER_MIN }}
                     className="block w-full border-b border-border/40 transition hover:bg-primary/5"
                   />
@@ -869,7 +913,7 @@ function WeekView({
                       onClick={() => onOpenDetail(a)}
                       aria-label={`${formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")}, ${a.clientName}, ${a.serviceName}${placement.conflict ? ", conflito de horário" : ""}`}
                       title={placement.conflict ? "Conflito de horário detectado — revise este atendimento" : undefined}
-                      className={`absolute overflow-hidden rounded-md border-l-[3px] px-1.5 py-1 text-left text-[10px] shadow-sm transition hover:shadow-md ${
+                      className={`absolute z-[2] overflow-hidden rounded-md border-l-[3px] px-1.5 py-1 text-left text-[10px] shadow-sm transition hover:shadow-md ${
                         placement.conflict ? "ring-1 ring-danger/60" : ""
                       }`}
                       style={{
@@ -899,6 +943,7 @@ function WeekView({
 /* ─────────────────────────── Month view ─────────────────────────── */
 
 function MonthView({
+  blocks,
   dateObj,
   appointments,
   timezone,
@@ -906,6 +951,7 @@ function MonthView({
   onOpenDay,
   onOpenDetail,
 }: {
+  blocks: AvailabilityBlock[];
   dateObj: Date;
   appointments: Appointment[];
   timezone: string;
@@ -955,7 +1001,7 @@ function MonthView({
               type="button"
               key={dStr}
               onClick={() => onOpenDay(dStr)}
-              aria-label={`${dateLabel}, ${appointmentLabel}${isToday ? ", hoje" : ""}${inMonth ? "" : ", fora do mês atual"}`}
+              aria-label={`${dateLabel}, ${appointmentLabel}, ${blocksOnDate(blocks, dStr, timezone).length} bloqueios${isToday ? ", hoje" : ""}${inMonth ? "" : ", fora do mês atual"}`}
               aria-current={isToday ? "date" : undefined}
               className={`relative flex min-h-12 min-w-0 flex-col items-center justify-center border-b border-r border-border px-0.5 py-1 transition-colors hover:bg-card-hover focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring [&:nth-child(7n)]:border-r-0 ${
                 inMonth ? "" : "bg-surface-1/40 text-muted-foreground/50"
@@ -972,6 +1018,7 @@ function MonthView({
                 {format(day, "d")}
               </span>
               <span className="mt-0.5 flex h-1.5 items-center justify-center gap-0.5" aria-hidden="true">
+                {blocksOnDate(blocks, dStr, timezone).length > 0 && <Ban className="h-3 w-3 text-danger" />}
                 {dayAppts.slice(0, 3).map((appointment) => {
                   const cfg = STATUS[appointment.status as keyof typeof STATUS] ?? STATUS.CONFIRMED;
                   return <span key={appointment.id} className="h-1.5 w-1.5 rounded-full" style={{ background: cfg.color }} />;
@@ -1009,6 +1056,7 @@ function MonthView({
                 {format(day, "d")}
               </button>
               <div className="space-y-0.5">
+                {blocksOnDate(blocks, dStr, timezone).length > 0 && <button onClick={() => onOpenDay(dStr)} className="flex min-h-8 items-center gap-1 rounded bg-muted px-1 text-xs"><Ban size={12} />{blocksOnDate(blocks, dStr, timezone).length} bloqueio(s)</button>}
                 {dayAppts.slice(0, 3).map((a) => {
                   const cfg = STATUS[a.status as keyof typeof STATUS] ?? STATUS.CONFIRMED;
                   return (
@@ -1116,6 +1164,25 @@ function ListView({
 }
 
 /* ─────────────────────────── Bits ─────────────────────────── */
+
+function blocksOnDate(blocks: AvailabilityBlock[], date: string, timezone: string) {
+  return blocks.filter(b => formatInTimeZone(new Date(b.startAt), timezone, "yyyy-MM-dd") <= date && formatInTimeZone(new Date(+new Date(b.endAt) - 1), timezone, "yyyy-MM-dd") >= date);
+}
+
+function BlockOverlay({ block, date, timezone, start, end, name }: { block: AvailabilityBlock; date: string; timezone: string; start: number; end: number; name?: string }) {
+  if (!blocksOnDate([block], date, timezone).length) return null;
+  const first = formatInTimeZone(new Date(block.startAt), timezone, "yyyy-MM-dd");
+  const last = formatInTimeZone(new Date(block.endAt), timezone, "yyyy-MM-dd");
+  const from = Math.max(start, first < date ? 0 : minutesOf(block.startAt, timezone));
+  const to = Math.min(end, last > date ? 1440 : minutesOf(block.endAt, timezone));
+  if (to <= from) return null;
+  return <div className="pointer-events-none absolute inset-x-0 z-[1] overflow-hidden border-y border-border bg-muted/70 p-1 text-[10px]" style={{ top: (from - start) * PX_PER_MIN, height: (to - from) * PX_PER_MIN, backgroundImage: "repeating-linear-gradient(135deg, transparent, transparent 6px, hsl(var(--border) / .35) 6px, hsl(var(--border) / .35) 7px)" }}>Bloqueado · {name} · {block.reason ?? "Indisponível"}</div>;
+}
+
+function BlockList({ blocks, professionals, timezone }: { blocks: AvailabilityBlock[]; professionals: Professional[]; timezone: string }) {
+  if (!blocks.length) return null;
+  return <section aria-label="Bloqueios do período" className="rounded-xl border border-border bg-muted/40 p-3"><h2 className="mb-2 flex items-center gap-2 text-sm font-semibold"><Ban size={16} />Bloqueios do período</h2><ul className="divide-y divide-border">{blocks.map(b => <li key={b.id} className="py-2 text-sm"><strong>{professionals.find(p => p.id === b.professionalId)?.name}</strong> · {formatInTimeZone(new Date(b.startAt), timezone, "dd/MM HH:mm")} — {formatInTimeZone(new Date(b.endAt), timezone, "dd/MM HH:mm")}<p className="text-xs text-muted-foreground">{b.reason ?? "Indisponível"}</p></li>)}</ul></section>;
+}
 
 function ViewBtn({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: typeof List; label: string }) {
   return (

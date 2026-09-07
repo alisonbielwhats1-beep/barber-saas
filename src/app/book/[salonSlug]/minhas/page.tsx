@@ -87,6 +87,7 @@ export default async function MinhasPage({
         startAt: true,
         endAt: true,
         priceCents: true,
+        dependentName: true,
         status: true,
         version: true,
         _count: {

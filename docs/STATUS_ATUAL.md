@@ -1,5 +1,20 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-06 — continuação das pendências, migration 019 em validação
+
+Na branch codex/product-experience / PR #79: seleção de bloqueios na grade,
+recorrência, bloqueios semana/mês/lista, edição de séries com revisão de conflitos,
+fila flexível FIFO, sugestões de encaixe, variantes e etapas de serviços,
+reservas exclusivas de salas/equipamentos, dependentes e cuidados/fotos privados.
+Dashboard/relatórios indicam próximas ações e pacotes têm filtros de vencimento.
+Migration 019 aditiva preparada com backup, preflight, RLS, constraints e rollback
+não destrutivo para PostgreSQL descartável do GitHub. Ainda não executada remotamente
+nesta revisão. Não há alteração produtiva nem atualização do Codespace.
+143 arquivos / 684 testes locais passaram; TypeScript, lint e build passaram na
+primeira rodada. A verificação de navegador cobre as áreas administrativas em
+desktop claro e mobile escuro; evidências finais serão registradas após o CI.
+Plano em docs/MIGRATION_019_RECURSOS_CUIDADOS.md.
+
 ## 2026-09-06 — evolução de produto em implementação, sem deploy
 
 - Incremento 018 em validação: expediente adicional por data e registro real de

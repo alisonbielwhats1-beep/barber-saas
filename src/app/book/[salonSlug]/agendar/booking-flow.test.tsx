@@ -381,3 +381,6 @@ describe("BookingFlow availability", () => {
     expect(vi.getTimerCount()).toBe(activeTimers - 1);
   });
 });
+
+vi.mock("./dependent-actions", () => ({ listDependents: async () => [], createDependent: vi.fn(), archiveDependent: vi.fn() }));
+vi.mock("./flexible-actions", () => ({ myFlexibleWaitlist: async () => [], requestFlexibleWaitlist: vi.fn(), cancelFlexibleRequest: vi.fn() }));

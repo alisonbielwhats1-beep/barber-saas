@@ -253,6 +253,12 @@ model Salon {
   reviews             ClientReview[]
   pricingRules        ServicePricingRule[]
   rescheduleProposals RescheduleProposal[]
+  resources PhysicalResource[]
+  resourceBookings ResourceBooking[]
+  dependents ClientDependent[]
+  careEntries CareEntry[]
+  flexibleWaitlist FlexibleWaitlist[]
+  flexibleWaitlistServices FlexibleWaitlistService[]
 
   @@index([accessStatus, accessRequestedAt])
 }
@@ -529,6 +535,7 @@ model Professional {
   timeOffs        TimeOff[]
   portfolio       PortfolioItem[]
   rescheduleProposals RescheduleProposal[] @relation("RescheduleProposalProfessional")
+  flexibleWaitlist FlexibleWaitlist[]
 
   @@unique([id, salonId], map: "Professional_id_salonId_key")
   @@index([salonId])
@@ -546,6 +553,13 @@ model Service {
   imageUrl    String?
   colorHex    String?
   active      Boolean @default(true)
+  variantGroup String?
+  variantLabel String?
+  processingMin Int @default(0)
+  finishingMin Int @default(0)
+  physicalResourceId String?
+  physicalResource PhysicalResource? @relation(fields: [physicalResourceId, salonId], references: [id, salonId], onDelete: Restrict)
+  flexibleWaitlistServices FlexibleWaitlistService[]
 
   salon            Salon                 @relation(fields: [salonId], references: [id], onDelete: Cascade)
   professionals    ProfessionalService[]
@@ -642,6 +656,8 @@ model ClientProfile {
   subscriptions   ClientSubscription[]
   waitlistEntries WaitlistEntry[]
   reviews         ClientReview[]
+  dependents      ClientDependent[]
+  flexibleWaitlist FlexibleWaitlist[]
 
   @@unique([salonId, email])
   @@unique([id, salonId], map: "ClientProfile_id_salonId_key")
@@ -685,6 +701,11 @@ model Appointment {
   // independente, editável/cancelável isoladamente — só o agrupamento visual
   // depende do seriesId.
   seriesId               String?
+  dependentId            String?
+  dependentName          String?
+  dependent              ClientDependent? @relation(fields: [dependentId, clientId, salonId], references: [id, clientId, salonId], onDelete: Restrict)
+  careEntries            CareEntry[]
+  resourceBookings       ResourceBooking[]
   createdAt              DateTime              @default(now()) @db.Timestamptz(3)
   updatedAt              DateTime              @updatedAt @db.Timestamptz(3)
 
@@ -745,6 +766,8 @@ model AppointmentService {
   serviceName   String
   durationMin   Int
   priceCents    Int
+  processingMin Int @default(0)
+  finishingMin Int @default(0)
 
   appointment Appointment @relation(fields: [appointmentId, salonId], references: [id, salonId], onDelete: Cascade, map: "AppointmentService_appointment_tenant_fkey")
   salon       Salon       @relation(fields: [salonId], references: [id], onDelete: Cascade)
@@ -1024,4 +1047,92 @@ model Payment {
   paidAt        DateTime      @default(now()) @db.Timestamptz(3)
 
   appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+}
+
+model PhysicalResource {
+  id String @id @default(cuid())
+  salonId String
+  name String
+  kind String
+  active Boolean @default(true)
+  salon Salon @relation(fields: [salonId], references: [id], onDelete: Restrict)
+  services Service[]
+  bookings ResourceBooking[]
+  @@unique([id, salonId])
+  @@unique([salonId, name])
+}
+
+model ResourceBooking {
+  appointmentId String
+  resourceId String
+  salonId String
+  startAt DateTime @db.Timestamptz(3)
+  endAt DateTime @db.Timestamptz(3)
+  active Boolean
+  resource PhysicalResource @relation(fields: [resourceId, salonId], references: [id, salonId], onDelete: Restrict)
+  appointment Appointment @relation(fields: [appointmentId, salonId], references: [id, salonId], onDelete: Restrict)
+  salon Salon @relation(fields: [salonId], references: [id], onDelete: Restrict)
+  @@id([appointmentId, resourceId])
+  @@index([salonId, resourceId, startAt])
+}
+
+model ClientDependent {
+  id String @id @default(cuid())
+  salonId String
+  clientId String
+  name String
+  relationship String
+  active Boolean @default(true)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  client ClientProfile @relation(fields: [clientId, salonId], references: [id, salonId], onDelete: Restrict)
+  salon Salon @relation(fields: [salonId], references: [id], onDelete: Restrict)
+  appointments Appointment[]
+  @@unique([id, clientId, salonId])
+  @@index([salonId, clientId])
+}
+
+model CareEntry {
+  id String @id @default(cuid())
+  salonId String
+  appointmentId String
+  authorId String
+  authorName String
+  body String
+  photo Bytes?
+  photoConsent Boolean @default(false)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  appointment Appointment @relation(fields: [appointmentId, salonId], references: [id, salonId], onDelete: Restrict)
+  salon Salon @relation(fields: [salonId], references: [id], onDelete: Restrict)
+  @@index([salonId, appointmentId, createdAt])
+}
+
+model FlexibleWaitlist {
+  id String @id @default(cuid())
+  salonId String
+  clientId String
+  professionalId String
+  fromDate String @db.VarChar(10)
+  toDate String @db.VarChar(10)
+  startMinutes Int
+  endMinutes Int
+  status String @default("WAITING")
+  fulfilledAppointmentId String?
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  client ClientProfile @relation(fields: [clientId, salonId], references: [id, salonId], onDelete: Restrict)
+  salon Salon @relation(fields: [salonId], references: [id], onDelete: Restrict)
+  professional Professional @relation(fields: [professionalId, salonId], references: [id, salonId], onDelete: Restrict)
+  services FlexibleWaitlistService[]
+  @@unique([id, salonId])
+  @@index([salonId, professionalId, status, createdAt])
+}
+
+model FlexibleWaitlistService {
+  waitlistId String
+  salonId String
+  serviceId String
+  waitlist FlexibleWaitlist @relation(fields: [waitlistId, salonId], references: [id, salonId], onDelete: Restrict)
+  service Service @relation(fields: [serviceId, salonId], references: [id, salonId], onDelete: Restrict)
+  salon Salon @relation(fields: [salonId], references: [id], onDelete: Restrict)
+  @@id([waitlistId, serviceId])
+  @@index([salonId])
 }

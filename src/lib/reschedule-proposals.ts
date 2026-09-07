@@ -22,6 +22,8 @@ import { toLocalDateTime } from "./time";
 const TARGET_SERVICE_LIMIT = 10;
 
 type ProposalSnapshot = {
+  processingMin?: number;
+  finishingMin?: number;
   id: string;
   name: string;
   durationMin: number;
@@ -48,6 +50,8 @@ function proposalSnapshot(value: unknown): ServiceSnapshot | null {
     name: item.name,
     durationMin,
     priceCents,
+    processingMin: typeof item.processingMin === "number" ? item.processingMin : 0,
+    finishingMin: typeof item.finishingMin === "number" ? item.finishingMin : 0,
   };
 }
 
@@ -166,10 +170,10 @@ export async function requestStaffReschedule(
       version: true,
       timezone: true,
       notes: true,
-      service: { select: { id: true, name: true, durationMin: true, priceCents: true } },
+      service: { select: { id: true, name: true, durationMin: true, priceCents: true, processingMin: true, finishingMin: true } },
       serviceItems: {
         orderBy: { position: "asc" },
-        select: { serviceId: true, serviceName: true, durationMin: true, priceCents: true },
+        select: { serviceId: true, serviceName: true, durationMin: true, priceCents: true, processingMin: true, finishingMin: true },
       },
       client: {
         select: {
@@ -244,6 +248,7 @@ export async function requestStaffReschedule(
         id: service.serviceId,
         name: service.serviceName,
         durationMin: service.durationMin,
+    processingMin: service.processingMin ?? 0, finishingMin: service.finishingMin ?? 0,
         priceCents: service.priceCents,
       }))
     : [appointment.service];
@@ -290,6 +295,7 @@ export async function requestStaffReschedule(
     id: service.id,
     name: service.name,
     durationMin: service.durationMin,
+    processingMin: service.processingMin ?? 0, finishingMin: service.finishingMin ?? 0,
     priceCents: service.priceCents,
   }));
   const targetPriceCents = targetServices.reduce((sum, service) => sum + service.priceCents, 0);
@@ -409,10 +415,10 @@ export async function respondToRescheduleProposal(
           version: true,
           timezone: true,
           priceCents: true,
-          service: { select: { id: true, name: true, durationMin: true, priceCents: true } },
+          service: { select: { id: true, name: true, durationMin: true, priceCents: true, processingMin: true, finishingMin: true } },
           serviceItems: {
             orderBy: { position: "asc" },
-            select: { serviceId: true, serviceName: true, durationMin: true, priceCents: true },
+            select: { serviceId: true, serviceName: true, durationMin: true, priceCents: true, processingMin: true, finishingMin: true },
           },
         },
       },
@@ -457,6 +463,7 @@ export async function respondToRescheduleProposal(
           id: service.serviceId,
           name: service.serviceName,
           durationMin: service.durationMin,
+    processingMin: service.processingMin ?? 0, finishingMin: service.finishingMin ?? 0,
           priceCents: service.priceCents,
         }))
       : [proposal.appointment.service];

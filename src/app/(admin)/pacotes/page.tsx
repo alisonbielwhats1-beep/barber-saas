@@ -6,7 +6,8 @@ import { Layers, CircleDollarSign, BadgePercent, TrendingUp } from "lucide-react
 import { PacotesView } from "./pacotes-view";
 import { canUsePlanFeature } from "@/lib/plan-entitlements";
 
-export default async function PacotesPage() {
+export default async function PacotesPage({ searchParams }: { searchParams: Promise<{ filter?: string }> }) {
+  const { filter } = await searchParams;
   const ctx = await requireRole(MANAGEMENT_ROLES);
   const { salonId } = ctx;
 
@@ -115,6 +116,7 @@ export default async function PacotesPage() {
       </section>
 
       <PacotesView
+        initialFilter={filter === "expiring" ? "expiring" : "all"}
         packages={packageRows}
         purchases={purchaseRows}
         plans={planRows}

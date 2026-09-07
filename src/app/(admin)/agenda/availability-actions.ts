@@ -1,10 +1,11 @@
 "use server";
 
 import { z } from "zod";
+import { createHash } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { assertRole, getTenantContext } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
-import { localDateTimeToUtc } from "@/lib/time";
+import { availabilityOccurrences } from "@/lib/availability-recurrence";
 import { lockOperationalResources } from "@/lib/inventory-lock";
 import { writeAuditLog } from "@/lib/audit";
 import { updateAppointmentStatusReliably } from "@/lib/appointment-service";
@@ -15,6 +16,8 @@ const inputSchema = z.object({
   startLocal: z.string().min(16).max(16),
   endLocal: z.string().min(16).max(16),
   reason: z.string().trim().min(3).max(200),
+  everyWeeks: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(4)]).optional(),
+  count: z.number().int().min(1).max(52).optional(),
 });
 
 export async function previewAvailabilityBlock(input: z.infer<typeof inputSchema>) {
@@ -23,16 +26,15 @@ export async function previewAvailabilityBlock(input: z.infer<typeof inputSchema
   const parsed = inputSchema.safeParse(input);
   if (!parsed.success) return { error: "Preencha profissionais, início, fim e motivo." };
   const data = parsed.data;
+  if ((data.count ?? 1) * new Set(data.professionalIds).size > 200) return { error: "Selecione até 200 bloqueios por pedido. Reduza profissionais ou ocorrências." };
   try {
     const affected = await withTenant(ctx, async tx => {
       const ids = [...new Set(data.professionalIds)];
       const pros = await tx.professional.findMany({ where: { salonId: ctx.salonId, id: { in: ids }, active: true }, select: { id: true } });
       if (pros.length !== ids.length) throw new Error("Profissional inválido para este estabelecimento.");
       const salon = await tx.salon.findUniqueOrThrow({ where: { id: ctx.salonId }, select: { timezone: true } });
-      const startAt = localDateTimeToUtc(data.startLocal, salon.timezone);
-      const endAt = localDateTimeToUtc(data.endLocal, salon.timezone);
-      if (endAt <= startAt || +endAt - +startAt > 366 * 86400000) throw new Error("Informe um intervalo válido de até um ano.");
-      return tx.appointment.findMany({ where: { salonId: ctx.salonId, professionalId: { in: ids }, startAt: { lt: endAt }, endAt: { gt: startAt }, status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] } }, select: { id: true, version: true, startAt: true, client: { select: { name: true } } }, orderBy: { startAt: "asc" } });
+      const intervals = availabilityOccurrences(data.startLocal, data.endLocal, salon.timezone, data.everyWeeks, data.count);
+      return tx.appointment.findMany({ where: { salonId: ctx.salonId, professionalId: { in: ids }, OR: intervals.map(({ startAt, endAt }) => ({ startAt: { lt: endAt }, endAt: { gt: startAt } })), status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] } }, select: { id: true, version: true, startAt: true, client: { select: { name: true } } }, orderBy: { startAt: "asc" } });
     });
     return { affected: affected.map(a => ({ id: a.id, name: a.client.name, startAt: a.startAt.toISOString() })) };
   } catch { return { error: "Não foi possível revisar. Confira profissionais e o intervalo informado." }; }
@@ -44,19 +46,23 @@ export async function blockAvailability(input: z.infer<typeof inputSchema>) {
   const parsed = inputSchema.safeParse(input);
   if (!parsed.success) return { error: "Selecione profissionais, início, fim e um motivo de pelo menos 3 caracteres." };
   const data = parsed.data;
+  if ((data.count ?? 1) * new Set(data.professionalIds).size > 200) return { error: "Selecione até 200 bloqueios por pedido. Reduza profissionais ou ocorrências." };
   try {
     const affected = await withTenant(ctx, async tx => {
       const ids = [...new Set(data.professionalIds)].sort();
+      await tx.$queryRaw`SELECT 1 FROM pg_advisory_xact_lock(hashtextextended(${`availability-request:${ctx.salonId}:${data.id}`}, 0))`;
+      const fingerprint = createHash("sha256").update(JSON.stringify({ ...data, professionalIds: ids, everyWeeks: data.everyWeeks ?? 0, count: data.count ?? 1 })).digest("hex");
+      const request = await tx.auditLog.findFirst({ where: { salonId: ctx.salonId, action: "AVAILABILITY_REQUEST", entityId: data.id }, select: { reason: true } });
+      if (request && request.reason !== fingerprint) throw new Error("O pedido mudou. Feche e abra o formulário para tentar novamente.");
       const pros = await tx.professional.findMany({ where: { salonId: ctx.salonId, id: { in: ids }, active: true }, select: { id: true } });
       if (pros.length !== ids.length) throw new Error("Profissional inválido para este estabelecimento.");
       await lockOperationalResources(tx, { professionalIds: ids });
       const salon = await tx.salon.findUniqueOrThrow({ where: { id: ctx.salonId }, select: { timezone: true } });
-      const startAt = localDateTimeToUtc(data.startLocal, salon.timezone);
-      const endAt = localDateTimeToUtc(data.endLocal, salon.timezone);
-      if (endAt <= startAt || endAt.getTime() - startAt.getTime() > 366 * 86400000) throw new Error("Informe um intervalo válido de até um ano.");
+      const intervals = availabilityOccurrences(data.startLocal, data.endLocal, salon.timezone, data.everyWeeks, data.count);
       // Stable ids make a retry harmless; a changed payload with the same id fails closed.
-      for (const id of ids) {
-        const blockId = `${data.id}:${id}`;
+      for (const id of request ? [] : ids) {
+       for (const [index, { startAt, endAt }] of intervals.entries()) {
+        const blockId = `${data.id}:${id}${index ? `:${index}` : ""}`;
         const previous = await tx.timeOff.findFirst({ where: { id: blockId, professional: { salonId: ctx.salonId } } });
         if (previous) {
           if (+previous.startAt !== +startAt || +previous.endAt !== +endAt || previous.reason !== data.reason) throw new Error("O pedido mudou. Feche e abra o formulário para tentar novamente.");
@@ -64,8 +70,10 @@ export async function blockAvailability(input: z.infer<typeof inputSchema>) {
         }
         await tx.timeOff.create({ data: { id: blockId, professionalId: id, startAt, endAt, reason: data.reason } });
         await writeAuditLog(tx, { salonId: ctx.salonId, userId: ctx.userId, actorName: "Equipe", action: "AVAILABILITY_BLOCKED", entityType: "TimeOff", entityId: blockId, reason: data.reason, metadata: { professionalId: id, startAt: startAt.toISOString(), endAt: endAt.toISOString() } });
+       }
       }
-      return tx.appointment.findMany({ where: { salonId: ctx.salonId, professionalId: { in: ids }, startAt: { lt: endAt }, endAt: { gt: startAt }, status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] } }, select: { id: true, version: true, startAt: true, client: { select: { name: true } } }, orderBy: { startAt: "asc" } });
+      if (!request) await writeAuditLog(tx, { salonId: ctx.salonId, userId: ctx.userId, actorName: "Equipe", action: "AVAILABILITY_REQUEST", entityType: "TimeOff", entityId: data.id, reason: fingerprint, metadata: { occurrences: intervals.length, professionalIds: ids } });
+      return tx.appointment.findMany({ where: { salonId: ctx.salonId, professionalId: { in: ids }, OR: intervals.map(({ startAt, endAt }) => ({ startAt: { lt: endAt }, endAt: { gt: startAt } })), status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] } }, select: { id: true, version: true, startAt: true, client: { select: { name: true } } }, orderBy: { startAt: "asc" } });
     });
     revalidatePath("/agenda");
     revalidatePath("/dashboard");

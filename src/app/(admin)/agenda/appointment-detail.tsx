@@ -53,6 +53,8 @@ import {
 } from "./agenda-status";
 import { ComandaPanel } from "./comanda-panel";
 import type { Appointment } from "./agenda-board";
+import { SeriesEditor } from "./series-editor";
+import { CarePanel } from "./care-panel";
 
 const HISTORY_PREVIEW_COUNT = 3;
 
@@ -382,8 +384,11 @@ export function AppointmentDetail({
           {/* ── DETAIL VIEW ──────────────────────────────────── */}
           {view === "detail" && (
             <>
+              {canCancel && appt.seriesId && <SeriesEditor appointmentId={appt.id} />}
+              {(canCancel || !canCreate) && <CarePanel appointmentId={appt.id} timezone={timezone} writable={["IN_PROGRESS", "COMPLETED"].includes(appt.status)} />}
               <div className="space-y-2.5 text-sm">
                 <Row icon={Scissors} label={appt.serviceName} />
+                {appt.stages?.filter(s => s.processingMin || s.finishingMin).map((s, i) => <div key={i} className="rounded-lg border border-border p-3 text-xs"><strong>{s.name}</strong><div className="mt-2 flex overflow-hidden rounded-md" aria-label="Etapas do atendimento"><span className="bg-success/20 p-2" style={{ flex: s.durationMin - s.processingMin - s.finishingMin }}>Execução {s.durationMin - s.processingMin - s.finishingMin} min</span>{s.processingMin > 0 && <span className="bg-warning/20 p-2" style={{ flex: s.processingMin }}>Processamento {s.processingMin} min</span>}{s.finishingMin > 0 && <span className="bg-info/20 p-2" style={{ flex: s.finishingMin }}>Finalização {s.finishingMin} min</span>}</div></div>)}
                 <Row
                   icon={Clock}
                   label={`${formatInTimeZone(start, timezone, "HH:mm")} – ${formatInTimeZone(end, timezone, "HH:mm")} · ${formatInTimeZone(start, timezone, "EEEE, d MMM", { locale: ptBR })}`}

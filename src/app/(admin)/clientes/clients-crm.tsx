@@ -380,6 +380,7 @@ export function ClientsCrm({
                           <p className="text-[10px] text-muted-foreground">{formatInTimeZone(new Date(h.startAt), timezone, "d MMM yyyy · HH:mm", { locale: ptBR })} · {h.proName.split(" ")[0]}</p>
                         </div>
                         <p className="text-[12px] font-semibold">{formatMoney(h.priceCents)}</p>
+                        <a className="inline-flex min-h-11 items-center text-xs underline" href={`/agenda?date=${formatInTimeZone(new Date(h.startAt), timezone, "yyyy-MM-dd")}&appointment=${h.id}`}>Ver visita</a>
                       </div>
                     ))}
                   </div>

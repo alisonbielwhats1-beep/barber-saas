@@ -4,8 +4,8 @@ import { AgendaBoard, type Appointment, type Professional } from "./agenda-board
 import type { ServiceOption, ClientOption } from "./appointment-form";
 import { dateKeyInTimeZone, isDateKey, calendarGridRangeInTimeZone } from "@/lib/time";
 import { AutoRefresh } from "@/components/auto-refresh";
-import { AvailabilityPanel } from "./availability-panel";
 import { OpeningPanel } from "./opening-panel";
+import { FlexibleQueuePanel } from "./flexible-panel";
 
 function jsonRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -87,13 +87,15 @@ export default async function AgendaPage({
         status: true,
         notes: true,
         isOverbooked: true,
+        seriesId: true,
+        dependentName: true,
         version: true,
         payment: { select: { id: true } },
         client: { select: { name: true, phone: true } },
         service: { select: { id: true, name: true, colorHex: true } },
         serviceItems: {
           orderBy: { position: "asc" },
-          select: { serviceId: true, serviceName: true },
+          select: { serviceId: true, serviceName: true, durationMin: true, processingMin: true, finishingMin: true },
         },
         events: {
           orderBy: { createdAt: "desc" },
@@ -223,7 +225,7 @@ export default async function AgendaPage({
       priceCents: a.priceCents,
       status: a.status,
       notes: a.notes,
-      clientName: a.client.name,
+      clientName: a.dependentName ? `${a.dependentName} (titular: ${a.client.name})` : a.client.name,
       clientPhone: a.client.phone,
       serviceIds: a.serviceItems.length > 0
         ? a.serviceItems.map((item) => item.serviceId)
@@ -236,6 +238,8 @@ export default async function AgendaPage({
       waitlistNext: waiting[0]?.name ?? null,
       waitlist: waiting.map((entry, index) => ({ ...entry, position: index + 1 })),
       isOverbooked: a.isOverbooked,
+      seriesId: a.seriesId,
+      stages: a.serviceItems.map(s => ({ name: s.serviceName, durationMin: s.durationMin, processingMin: s.processingMin, finishingMin: s.finishingMin })),
       version: a.version,
       hasPayment: Boolean(a.payment),
       pendingReschedule: a.rescheduleProposals[0]
@@ -255,8 +259,8 @@ export default async function AgendaPage({
   return (
     <>
       <AutoRefresh intervalMs={30_000} />
+      {(role === "OWNER" || role === "MANAGER") && <FlexibleQueuePanel />}
       {(role === "OWNER" || role === "MANAGER") && <OpeningPanel date={dateStr} timezone={salon.timezone} professionals={professionals} openings={openings} />}
-      {(role === "OWNER" || role === "MANAGER") && <AvailabilityPanel date={dateStr} timezone={salon.timezone} professionals={professionals} blocks={blocks.map(b => ({ ...b, startAt: b.startAt.toISOString(), endAt: b.endAt.toISOString() }))} />}
       <AgendaBoard
         initialAppointmentId={selectedAppointment}
         availabilityBlocks={blocks.map(b => ({ ...b, startAt: b.startAt.toISOString(), endAt: b.endAt.toISOString() }))}

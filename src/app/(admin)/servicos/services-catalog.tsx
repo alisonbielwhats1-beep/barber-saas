@@ -31,6 +31,11 @@ import { toggleServiceActive, deleteService, duplicateService } from "./actions"
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 
 export type ServiceCard = {
+  variantGroup?: string | null;
+  variantLabel?: string | null;
+  processingMin?: number;
+  finishingMin?: number;
+  physicalResourceId?: string | null;
   id: string;
   name: string;
   description: string | null;

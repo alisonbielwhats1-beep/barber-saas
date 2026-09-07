@@ -10,16 +10,21 @@ import { blockAvailability, removeAvailabilityBlock, cancelSelectedAppointments,
 
 export type AvailabilityBlock = { id: string; professionalId: string; startAt: string; endAt: string; reason: string | null };
 
-export function AvailabilityPanel({ date, timezone, professionals, blocks }: {
+export type BlockSelection = { professionalId: string; startLocal: string; endLocal: string };
+
+export function AvailabilityPanel({ date, timezone, professionals, blocks, selection }: {
   date: string; timezone: string; professionals: { id: string; name: string }[]; blocks: AvailabilityBlock[];
+  selection?: BlockSelection;
 }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(!!selection);
   const [pending, startTransition] = useTransition();
-  const [requestId, setRequestId] = useState("");
-  const [selected, setSelected] = useState<string[]>([]);
-  const [start, setStart] = useState(`${date}T12:00`);
-  const [end, setEnd] = useState(`${date}T13:00`);
+  const [requestId, setRequestId] = useState(() => selection ? crypto.randomUUID() : "");
+  const [selected, setSelected] = useState<string[]>(selection ? [selection.professionalId] : []);
+  const [start, setStart] = useState(selection?.startLocal ?? `${date}T12:00`);
+  const [end, setEnd] = useState(selection?.endLocal ?? `${date}T13:00`);
+  const [everyWeeks, setEveryWeeks] = useState<0 | 1 | 2 | 4>(0);
+  const [count, setCount] = useState(4);
   const [reason, setReason] = useState("");
   const [preview, setPreview] = useState<{ id: string; name: string; startAt: string }[] | null>(null);
   const [error, setError] = useState("");
@@ -28,6 +33,7 @@ export function AvailabilityPanel({ date, timezone, professionals, blocks }: {
   const [cancelResults, setCancelResults] = useState<{ id: string; success: boolean; error?: string }[]>([]);
   const field = "mt-1 min-h-11 w-full rounded-lg border border-border bg-background px-3 text-sm";
   function begin() {
+    setEveryWeeks(0); setCount(4);
     setRequestId(crypto.randomUUID()); setStart(`${date}T12:00`); setEnd(`${date}T13:00`);
     setSelected(professionals.map(p => p.id)); setAffected(null); setToCancel([]); setCancelResults([]); setPreview(null); setError(""); setReason(""); setOpen(true);
   }
@@ -67,12 +73,12 @@ export function AvailabilityPanel({ date, timezone, professionals, blocks }: {
         event.preventDefault(); setError(""); startTransition(async () => {
           try {
           if (preview === null) {
-            const review = await previewAvailabilityBlock({ id: requestId, professionalIds: selected, startLocal: start, endLocal: end, reason });
+            const review = await previewAvailabilityBlock({ id: requestId, professionalIds: selected, startLocal: start, endLocal: end, reason, everyWeeks, count: everyWeeks ? count : 1 });
             if ("error" in review) setError(review.error ?? "Não foi possível revisar.");
             else setPreview(review.affected);
             return;
           }
-          const result = await blockAvailability({ id: requestId, professionalIds: selected, startLocal: start, endLocal: end, reason });
+          const result = await blockAvailability({ id: requestId, professionalIds: selected, startLocal: start, endLocal: end, reason, everyWeeks, count: everyWeeks ? count : 1 });
           if ("error" in result) setError(result.error ?? "Não foi possível bloquear.");
           else { setAffected(result.affected); router.refresh(); }
           } catch { setError("Não foi possível confirmar o bloqueio. Tente novamente."); }
@@ -83,6 +89,8 @@ export function AvailabilityPanel({ date, timezone, professionals, blocks }: {
           <button type="button" className="min-h-11 rounded-lg border border-border px-3 text-sm" onClick={() => { setPreview(null); setStart(`${date}T00:00`); setEnd(`${addCalendarDays(date, 1)}T00:00`); }}>Dia inteiro</button>
           <label className="block text-sm">Início<input required type="datetime-local" value={start} onChange={e => setStart(e.target.value)} className={field} /></label>
           <label className="block text-sm">Fim<input required type="datetime-local" value={end} onChange={e => setEnd(e.target.value)} className={field} /></label>
+          <label className="block text-sm">Repetir<select value={everyWeeks} onChange={e => setEveryWeeks(Number(e.target.value) as 0 | 1 | 2 | 4)} className={field}><option value={0}>Não repetir</option><option value={1}>Toda semana</option><option value={2}>A cada duas semanas</option><option value={4}>A cada quatro semanas</option></select></label>
+          {everyWeeks > 0 && <label className="block text-sm">Número de ocorrências<input type="number" required min={2} max={52} value={count} onChange={e => setCount(Number(e.target.value))} className={field} /><span className="text-xs text-muted-foreground">Inclui o primeiro período. Cada ocorrência pode ser reaberta separadamente.</span></label>}
           <label className="block text-sm">Motivo<input required minLength={3} maxLength={200} value={reason} onChange={e => setReason(e.target.value)} placeholder="Ex.: almoço, férias ou reunião" className={field} /></label>
         </fieldset>
         {preview !== null && <div role="status" className="rounded-lg border border-border p-3 text-sm"><strong>{preview.length} reserva(s) no intervalo</strong><ul>{preview.map(a => <li key={a.id}>{a.name} · {formatInTimeZone(new Date(a.startAt), timezone, "dd/MM HH:mm")}</li>)}</ul><p className="mt-2 text-xs text-muted-foreground">Estas reservas serão mantidas. A lista será atualizada ao confirmar.</p></div>}
