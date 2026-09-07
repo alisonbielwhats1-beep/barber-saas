@@ -6,6 +6,12 @@ usar o projeto Supabase de produção.
 
 ## Atualização de 6 de setembro de 2026 — demonstração no GitHub
 
+Atualização posterior, 07/09: o responsável autorizou o deploy e merge do PR #79
+em produção. As migrations 018/019 foram aplicadas manualmente ao projeto
+produtivo identificado, após homologação no GitHub, preflight, backup e plano
+de rollback. Evidências em `RELEASE_PRODUCAO_2026-09-07.md`. Essa publicação não
+autoriza testes, seed, cópia de dados para desenvolvimento ou migrations futuras.
+
 Por decisão do proprietário, não foi criado outro projeto Supabase. A demonstração usa o Codespace `glorious-enigma-jjv6v4rvrv49f544r`, branch `codex/everflair-demo`, PostgreSQL e Redis locais isolados e somente dados fictícios. A aplicação usa uma role de runtime sem BYPASSRLS. Credenciais ficam exclusivamente em `.demo/`, ignoradas pelo Git. O acesso público da porta da aplicação depende de autorização; banco e Redis permanecem privados.
 
 A proposta de um segundo Supabase descrita abaixo é histórica e não foi executada. Os dois projetos Supabase existentes continuam destinados às aplicações de produção. O Codespace pode hibernar e não substitui hospedagem de produção.

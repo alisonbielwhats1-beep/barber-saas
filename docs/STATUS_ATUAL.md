@@ -1,5 +1,22 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-07 — publicação autorizada do PR #79; banco 018/019 aplicado
+
+O responsável autorizou explicitamente o merge, deploy em produção e atualização
+do GitHub. Esta autorização sucede os limites de homologação registrados abaixo.
+As migrations manuais 018 e 019 foram aplicadas no projeto `barber-saas`
+(`vshnatkzxdekkvqttvbv`) às 02:59 UTC, após preflight e backup lógico criptografado.
+As verificações passaram; os registros anteriores permaneceram idênticos e as
+sete tabelas novas têm RLS ENABLE/FORCE. `app_runtime` continua sem BYPASSRLS.
+
+A aplicação desta entrega é publicada pelo merge do PR #79 em `master`, com
+build Production pela integração Git da Vercel. Na preparação deste registro,
+o deployment anterior ainda era `dpl_8KS5HHN5NoaBPSAGDXSnhjGuxBm6` (`a66a98b`).
+O resultado final do merge/deploy e a conferência posterior serão registrados
+no PR #79: https://github.com/alisonbielwhats1-beep/barber-saas/pull/79.
+Evidências, recuperação e escopo em `docs/RELEASE_PRODUCAO_2026-09-07.md`.
+Não reaplicar 018/019. Nenhum teste ou seed foi executado em Production.
+
 ## 2026-09-06 — marca Flair escolhida, em revisão no PR #79
 
 O responsável escolheu a proposta 3 (Flair), substituindo o monograma EF.

@@ -1,14 +1,20 @@
 # Evolução 019 — recursos físicos, serviços e cuidados
 
-Implementada na branch codex/product-experience; não aplicada em produção.
-Autorização: realizar as pendências da auditoria e validar mudanças de banco no GitHub.
+Aplicada em produção após autorização posterior de merge/deploy do responsável,
+versão Supabase `20260907025941`, em 07/09/2026. Não reaplicar.
+Evidências do preflight, backup e verificações em `RELEASE_PRODUCAO_2026-09-07.md`.
+Autorização original: realizar as pendências e validar no GitHub; sucedida pela
+autorização explícita desta publicação produtiva.
 
 O incremento adiciona recursos físicos com reserva exclusiva por intervalo,
 variantes/etapas de serviços, dependentes vinculados ao titular, anotações e
 fotos privadas por visita e pedidos flexíveis de lista de espera.
 
-Somente PostgreSQL 16 descartável do schema-smoke, identificado como
-salon_schema_ci. Não executar SQL nos projetos Supabase existentes.
+A homologação usa somente PostgreSQL 16 descartável do schema-smoke, identificado
+como salon_schema_ci. O preflight versionado mantém essa barreira de CI.
+Para a publicação autorizada foi executado preflight produtivo separado, somente
+leitura, pelo conector direcionado ao project ref confirmado; não se alterou a
+barreira do CI nem se usou Production como ambiente de teste.
 
 Antes de aplicar: preflight somente leitura, backup e restauração de dados
 fictícios. Depois: reaplicação, preservação de registros, constraints, RLS,

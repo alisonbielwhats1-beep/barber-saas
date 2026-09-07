@@ -1,6 +1,10 @@
 # Migration 018 — expediente extra e chegada
 
-Escopo autorizado: validação no GitHub com dados fictícios. Não autoriza execução produtiva.
+Atualização de 07/09/2026: execução produtiva posteriormente autorizada pelo
+responsável e concluída, versão Supabase `20260907025919`. Preflight, backup,
+preservação dos registros e verificações aprovados. Não reaplicar.
+Evidências em `RELEASE_PRODUCAO_2026-09-07.md`. O procedimento e os limites
+históricos abaixo documentam a homologação anterior com dados fictícios.
 
 ## Comportamento
 
@@ -54,7 +58,7 @@ três jornadas autenticadas e todos os rollbacks. Capturas em `browser-evidence`
 com dados fictícios. O ajuste posterior de captura espera o fim da transição
 de tema; conferir os checks do PR #79 para resultados de cada versão.
 
-Sem promoção produtiva. Codespace `glorious-enigma-jjv6v4rvrv49f544r` documentado
+Na homologação original não houve promoção produtiva. Codespace `glorious-enigma-jjv6v4rvrv49f544r` documentado
 como demonstração, mas a credencial gh desta sessão não tem escopo codespace.
 GitHub Actions é descartável por job e não atualiza automaticamente a demonstração.
 Recorrência, edição de séries, recursos físicos e demais frentes continuam no
