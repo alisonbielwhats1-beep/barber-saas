@@ -258,7 +258,7 @@ export default async function DashboardPage({
       {/* ── Hero KPIs ──────────────────────────────────────── */}
       <section className="stagger grid gap-3 sm:grid-cols-2 xl:grid-cols-12">
         <HeroKpi
-          className="xl:col-span-4"
+          className="xl:col-span-3"
           featured
           accent="primary"
           icon={Wallet}
@@ -284,7 +284,7 @@ export default async function DashboardPage({
           hint={`${Math.round(m.occupancy.idleMinutes / 60)}h ociosas`}
         />
         <HeroKpi
-          className="xl:col-span-2"
+          className="xl:col-span-3"
           accent="warning"
           icon={Receipt}
           label="Ticket médio"

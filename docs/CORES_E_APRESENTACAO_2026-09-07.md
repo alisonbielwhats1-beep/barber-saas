@@ -59,6 +59,10 @@ contra o verde sólido; selo de confirmação mantém texto escuro sobre fundo
 claro. Conferência visual e verificações automatizadas da versão corrente
 ficam no PR #80. Nenhuma promoção produtiva nesta revisão.
 
+Na conferência em 1280 px, o ticket médio quebrava os centavos em outra linha.
+Os quatro indicadores principais passam a ter a mesma largura no desktop,
+preservando a leitura completa do valor e a escala tipográfica existente.
+
 ## Conta de apresentação autorizada no Supabase
 
 Os totais iniciais abaixo registram a primeira provisão. A complementação
