@@ -83,6 +83,9 @@
     --selection-foreground: 264 65% 88%;
     --selection-solid: 264 54% 73%;
     --selection-on-solid: 258 35% 14%;
+    /* Texto de status sobre cartões e fundos semânticos suaves. */
+    --info: 213 92% 66%;
+    --danger: 0 78% 68%;
     --destructive: 0 67% 45%;
     --destructive-foreground: 0 0% 100%;
     color: hsl(var(--foreground));
