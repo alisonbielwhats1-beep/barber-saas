@@ -216,10 +216,17 @@ BEGIN
  RETURN NEW;
 END $$;
 CREATE OR REPLACE FUNCTION product_update_resources() RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path = public, pg_temp AS $$
+DECLARE allocation record;
 BEGIN
  IF current_setting('app.reset_resource_snapshot', true) = NEW.id THEN
   UPDATE "ResourceBooking" SET active=false, retired=true WHERE "appointmentId"=NEW.id AND "salonId"=NEW."salonId";
   RETURN NEW;
+ END IF;
+ IF NEW.status::text IN ('PENDING','CONFIRMED','IN_PROGRESS') AND (NEW."startAt" IS DISTINCT FROM OLD."startAt" OR NEW."endAt" IS DISTINCT FROM OLD."endAt") THEN
+  FOR allocation IN SELECT "resourceId" FROM "ResourceBooking" WHERE "appointmentId"=NEW.id AND "salonId"=NEW."salonId" AND NOT retired ORDER BY "resourceId" LOOP
+   PERFORM id FROM "PhysicalResource" WHERE id=allocation."resourceId" AND "salonId"=NEW."salonId" AND active FOR SHARE;
+   IF NOT FOUND THEN RAISE EXCEPTION 'Resource unavailable' USING ERRCODE='23514'; END IF;
+  END LOOP;
  END IF;
  UPDATE "ResourceBooking" SET "startAt"=NEW."startAt", "endAt"=NEW."endAt", active=NEW.status::text IN ('PENDING','CONFIRMED','IN_PROGRESS') WHERE "appointmentId"=NEW.id AND "salonId"=NEW."salonId" AND NOT retired;
  RETURN NEW;
