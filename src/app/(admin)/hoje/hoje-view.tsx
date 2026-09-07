@@ -144,7 +144,7 @@ export function HojeView({
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <SummaryCard icon={CalendarDays} label="Agendamentos" value={String(counts.total)} />
         <SummaryCard icon={CircleAlert} label="A confirmar" value={String(counts.attention)} tone={counts.attention > 0 ? "warning" : "neutral"} />
-        <SummaryCard icon={Clock3} label="Em atendimento" value={String(counts.inProgress)} tone="primary" />
+        <SummaryCard icon={Clock3} label="Em atendimento" value={String(counts.inProgress)} tone="info" />
         <SummaryCard icon={CheckCircle2} label="Concluídos" value={String(counts.completed)} tone="success" />
       </section>
 
@@ -272,12 +272,12 @@ function SummaryCard({
   icon: LucideIcon;
   label: string;
   value: string;
-  tone?: "neutral" | "primary" | "success" | "warning";
+  tone?: "neutral" | "info" | "success" | "warning";
 }) {
-  const toneClass = tone === "primary" ? "text-primary" : tone === "success" ? "text-success" : tone === "warning" ? "text-warning" : "text-foreground";
+  const toneClass = tone === "info" ? "text-info" : tone === "success" ? "text-success" : tone === "warning" ? "text-warning" : "text-foreground";
   return (
     <div className="rounded-2xl border border-border bg-card p-4">
-      <Icon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+      <Icon className={`h-4 w-4 ${tone === "neutral" ? "text-muted-foreground" : toneClass}`} aria-hidden="true" />
       <p className={`mt-3 text-2xl font-semibold tracking-tight ${toneClass}`}>{value}</p>
       <p className="mt-1 text-xs text-muted-foreground">{label}</p>
     </div>

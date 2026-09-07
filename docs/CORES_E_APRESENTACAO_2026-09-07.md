@@ -23,6 +23,8 @@ O seletor de aparência fica no topo do menu e no cabeçalho móvel. A preferên
   cor do serviço. O próximo horário é o mais próximo entre os cartões exibidos
   ainda não iniciados. Horário ultrapassado não altera status nem declara falta.
 - Testes de prioridade temporal e navegação acessível em ambos os temas.
+- `agenda/agenda-status.ts`, `agenda/agenda-board.tsx` e `hoje/hoje-view.tsx`:
+  confirmado verde e em atendimento azul também na agenda, detalhes e tela Hoje.
 
 Lint, TypeScript e 146 arquivos / 696 testes locais passaram. Conferência visual
 local autenticada confirmou as superfícies e os destaques nos dois temas.

@@ -387,7 +387,7 @@ export function AgendaBoard({
       </div>
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <DayKpi icon={CalendarDays} accent="#3B9EFF" label="Agendamentos (dia)" value={kpis.total.toString()} />
-        <DayKpi icon={Clock} accent="#A855F7" label="Em atendimento" value={kpis.inProgress.toString()} />
+        <DayKpi icon={Clock} accent={STATUS.IN_PROGRESS.color} label="Em atendimento" value={kpis.inProgress.toString()} />
         <DayKpi icon={CircleDollarSign} accent="#2ECC8B" label="Receita realizada" value={formatMoney(kpis.realized)} />
         <DayKpi icon={CircleDollarSign} accent="#F59E0B" label="Receita prevista" value={formatMoney(kpis.forecast)} />
       </section>
