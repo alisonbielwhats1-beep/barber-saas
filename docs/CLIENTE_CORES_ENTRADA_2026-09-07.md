@@ -27,6 +27,9 @@ substituir botões marfim e dar cor aos contatos e ao bloco das reservas.
 - `src/components/brand-intro.tsx`, `brand.css`, `brand-intro.test.tsx`:
   movimento e ciclo de entrada, inclusive StrictMode e navegação interna.
 - `src/app/globals.css`: tokens exclusivos do aplicativo do cliente.
+- `src/components/ui/dialog.tsx` e `client-shell.tsx`: contexto de tema
+  preservado nos portais de revisão, avaliação, cancelamento e instalação.
+  As janelas do painel continuam herdando o tema administrativo.
 - `src/app/book/[salonSlug]/client-theme.css`, `layout.tsx`, `page.tsx`,
   `bottom-nav.tsx`, `minhas/minhas-list.tsx`: superfícies e estados.
 - `tests/e2e/flair-brand.spec.ts`: entrada real, duração, nova abertura e

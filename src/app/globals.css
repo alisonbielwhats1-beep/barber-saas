@@ -251,6 +251,7 @@
     --destructive-foreground: 230 12% 8%;
 
     --radius: 1rem;
+    color: hsl(var(--foreground));
     color-scheme: dark;
   }
 

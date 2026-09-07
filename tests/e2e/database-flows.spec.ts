@@ -85,6 +85,7 @@ test.describe("@database jornadas críticas no PostgreSQL descartável", () => {
     await expect(page.getByText("Pedido registrado. Acompanhe a confirmação em seus agendamentos.")).toBeVisible();
     await page.screenshot({ path: test.info().outputPath("cliente-dependente-fila.png"), fullPage: true, animations: "disabled" });
     await page.getByRole("button", { name: "Revisar reserva" }).click();
+    await expect(page.getByRole("dialog")).toHaveAttribute("data-theme", "salon-dark");
     await page.getByRole("button", { name: "Confirmar reserva" }).click();
     await expect(page.getByRole("heading", { name: "Reserva confirmada" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Ver minhas reservas" })).toBeVisible();
