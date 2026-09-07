@@ -1,0 +1,24 @@
+name: Auditoria semanal de dependências
+
+on:
+  schedule:
+    - cron: '23 12 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    if: github.repository == 'alisonbielwhats1-beep/barber-saas' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Conferir vulnerabilidades conhecidas das dependências produtivas
+        run: npm audit --omit=dev --audit-level=high

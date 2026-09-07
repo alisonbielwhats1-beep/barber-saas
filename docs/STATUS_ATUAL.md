@@ -1,5 +1,21 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-07 — PR #81 publicado; operação gratuita em preparação
+
+O PR #81 foi integrado no commit `f92fa0468efeae2b950e404508b5f15f3c901bdd`.
+Production `dpl_3M8Xo1kFJ4CNFNh9E4xqM5oaTupg` foi confirmado READY no domínio
+oficial, com páginas públicas e acesso respondendo 200 e link Google Maps presente.
+Evidência: https://github.com/alisonbielwhats1-beep/barber-saas/pull/81#issuecomment-5567178873.
+Isso conclui o estado histórico “em revisão” da responsividade abaixo.
+
+O responsável solicitou implementar as medidas gratuitas de operação.
+`codex/free-operations` prepara monitor de disponibilidade e auditoria semanal
+no GitHub, ensaio completo de restauração sintética e procedimento de incidente.
+Ativação e evidências serão registradas no PR da entrega. Sem compra ou migration.
+O envio Resend continua pendente: usuário sem domínio e nenhum domínio cadastrado
+na conta conectada. Não foi ativado remetente de teste para clientes.
+Escopo e limites: `docs/OPERACAO_GRATUITA_2026-09-07.md`.
+
 ## 2026-09-07 — PR #80 publicado; responsividade do cliente em revisão
 
 O PR #80 foi integrado em `master` no commit
