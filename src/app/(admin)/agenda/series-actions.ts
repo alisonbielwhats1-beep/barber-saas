@@ -4,7 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { getTenantContext, assertRole } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
-import { inspectAppointmentAvailability } from "@/lib/appointment-service";
+import { inspectAppointmentAvailabilityWithServiceSnapshots } from "@/lib/appointment-service";
 import { requestStaffReschedule } from "@/lib/reschedule-proposals";
 import { addCalendarDays, toLocalDateTime } from "@/lib/time";
 
@@ -16,16 +16,18 @@ export async function previewSeriesEdit(input: z.infer<typeof edit>) {
     const source = await tx.appointment.findFirst({ where: { salonId: ctx.salonId, id: data.appointmentId }, select: { seriesId: true, startAt: true } });
     if (!source?.seriesId) throw new Error("Este atendimento não pertence a uma série.");
     const salon = await tx.salon.findUniqueOrThrow({ where: { id: ctx.salonId }, select: { timezone: true } });
-    const items = await tx.appointment.findMany({ where: { salonId: ctx.salonId, seriesId: source.seriesId, startAt: { gte: source.startAt, gt: new Date() }, status: { in: ["PENDING", "CONFIRMED"] } }, include: { serviceItems: { orderBy: { position: "asc" } }, client: { select: { name: true } } }, orderBy: { startAt: "asc" }, take: 53 });
+    const items = await tx.appointment.findMany({ where: { salonId: ctx.salonId, seriesId: source.seriesId, startAt: { gte: source.startAt, gt: new Date() }, status: { in: ["PENDING", "CONFIRMED"] } }, include: { serviceItems: { orderBy: { position: "asc" } }, service: { select: { name: true } }, client: { select: { name: true } }, resourceBookings: { where: { retired: false }, select: { resourceId: true } } }, orderBy: { startAt: "asc" }, take: 53 });
     if (items.length > 52) throw new Error("Revise a série em grupos de até 52 ocorrências.");
     const result = [];
     for (const item of items) {
       const startLocal = `${addCalendarDays(toLocalDateTime(item.startAt, salon.timezone).slice(0, 10), data.shiftDays)}T${data.time}`;
       let conflict: string | null = null;
       try {
-        const inspection = await inspectAppointmentAvailability(tx, { salonId: ctx.salonId, professionalId: item.professionalId, serviceIds: item.serviceItems.length ? item.serviceItems.map(s => s.serviceId) : [item.serviceId], startLocal, excludeAppointmentId: item.id, enforceBookingWindow: false });
+        const serviceSnapshots = item.serviceItems.length ? item.serviceItems.map(s => ({ id: s.serviceId, name: s.serviceName, durationMin: s.durationMin, priceCents: s.priceCents, processingMin: s.processingMin, finishingMin: s.finishingMin })) : [{ id: item.serviceId, name: item.service.name, durationMin: Math.round((+item.endAt - +item.startAt) / 60000), priceCents: item.priceCents }];
+        const inspection = await inspectAppointmentAvailabilityWithServiceSnapshots(tx, { salonId: ctx.salonId, professionalId: item.professionalId, currentProfessionalId: item.professionalId, serviceSnapshots, startLocal, excludeAppointmentId: item.id, enforceBookingWindow: false });
         if (inspection.startAt <= new Date()) conflict = "Horário passado";
         else if (inspection.violation) conflict = "Indisponível: conflito, bloqueio ou fora do expediente";
+        else if (item.resourceBookings.length && await tx.resourceBooking.findFirst({ where: { salonId: ctx.salonId, resourceId: { in: item.resourceBookings.map(r => r.resourceId) }, active: true, appointmentId: { not: item.id }, startAt: { lt: inspection.endAt }, endAt: { gt: inspection.startAt } }, select: { appointmentId: true } })) conflict = "Sala ou equipamento já reservado";
       } catch { conflict = "Não foi possível validar este horário"; }
       result.push({ id: item.id, version: item.version, name: item.client.name, before: toLocalDateTime(item.startAt, salon.timezone), startLocal, conflict });
     }

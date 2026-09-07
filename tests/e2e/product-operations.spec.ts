@@ -58,6 +58,8 @@ test.describe("@database operação diária e expediente", () => {
       const blocking = page.getByRole("dialog");
       await blocking.getByLabel("Início", { exact: true }).fill(`${date}T${startTime}`);
       await blocking.getByLabel("Fim", { exact: true }).fill(`${date}T${endTime}`);
+      await blocking.getByLabel("Repetir", { exact: true }).selectOption("1");
+      await blocking.getByLabel("Número de ocorrências").fill("2");
       await blocking.getByLabel("Motivo").fill(`Reunião CI ${suffix}`);
       await blocking.getByRole("button", { name: "Revisar bloqueio" }).click();
       await expect(blocking.getByRole("status")).toContainText(clientName);
@@ -65,6 +67,7 @@ test.describe("@database operação diária e expediente", () => {
       await blocking.getByRole("button", { name: "Confirmar bloqueio" }).click();
       await expect(blocking.getByRole("status")).toContainText("Disponibilidade bloqueada");
       expect((await db.appointment.findUniqueOrThrow({ where: { id: appointment.id } })).status).toBe("CONFIRMED");
+      expect(await db.timeOff.count({ where: { professionalId: professional.id, reason: `Reunião CI ${suffix}` } })).toBe(2);
       await blocking.getByRole("button", { name: "Concluir", exact: true }).click();
       await page.screenshot({ path: test.info().outputPath("agenda-desktop.png"), fullPage: true, animations: "disabled" });
       await page.getByRole("button", { name: "Mudar para tema claro" }).click();
@@ -74,6 +77,16 @@ test.describe("@database operação diária e expediente", () => {
       const expectedForeground = await page.locator("body").evaluate(el => getComputedStyle(el).color);
       await expect.poll(() => page.getByRole("button", { name: "Todos profissionais", exact: true }).evaluate(el => getComputedStyle(el).color)).toBe(expectedForeground);
       await page.screenshot({ path: test.info().outputPath("agenda-light-desktop.png"), fullPage: true, animations: "disabled" });
+      await page.getByRole("button", { name: "Selecionar intervalo na grade" }).click();
+      await page.getByRole("button", { name: `Selecionar bloqueio 09:00 com ${professionalName}`, exact: true }).press("Enter");
+      await page.getByRole("button", { name: `Selecionar bloqueio 09:30 com ${professionalName}`, exact: true }).press("Enter");
+      const selection = page.getByRole("dialog");
+      await expect(selection.getByLabel("Início", { exact: true })).toHaveValue(`${date}T09:00`);
+      await expect(selection.getByLabel("Fim", { exact: true })).toHaveValue(`${date}T10:00`);
+      await page.keyboard.press("Escape");
+      await page.getByRole("button", { name: "Visualização Lista", exact: true }).click();
+      await expect(page.getByRole("region", { name: "Bloqueios do período" })).toContainText(`Reunião CI ${suffix}`);
+      await page.getByRole("button", { name: "Visualização Dia", exact: true }).click();
       await page.setViewportSize({ width: 390, height: 844 });
       await page.screenshot({ path: test.info().outputPath("agenda-mobile.png"), fullPage: true, animations: "disabled" });
     } finally {
