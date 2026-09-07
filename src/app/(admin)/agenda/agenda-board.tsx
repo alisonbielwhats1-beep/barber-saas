@@ -1230,8 +1230,8 @@ function DayKpi({ icon: Icon, accent, label, value }: { icon: typeof Clock; acce
         <Icon className="h-4 w-4" />
       </span>
       <div className="min-w-0">
-        <p className="text-lg font-semibold leading-none tracking-tight">{value}</p>
-        <p className="mt-1 truncate text-[11px] text-muted-foreground">{label}</p>
+        <p className="break-words text-base font-semibold leading-tight tracking-tight sm:text-lg">{value}</p>
+        <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{label}</p>
       </div>
     </div>
   );
