@@ -214,7 +214,7 @@ export default async function ProfissionaisPage() {
               </div>}
 
               {/* Métricas */}
-              <div className={`mt-3 grid gap-2 ${canSeeFinancial ? "grid-cols-3" : "grid-cols-2"}`}>
+              <div className={`mt-3 grid grid-cols-2 gap-2 ${canSeeFinancial ? "sm:grid-cols-3" : ""}`}>
                 <Stat icon={CalendarCheck} label="Atendimentos" value={p.appointments.toString()} />
                 {canSeeFinancial && <Stat icon={Receipt} label="Ticket médio" value={formatMoney(p.avgTicket)} />}
                 {canSeeFinancial && <Stat icon={CircleDollarSign} label="Comissão" value={formatMoney(p.commissionCents)} />}
@@ -260,8 +260,8 @@ function Overview({ icon: Icon, accent, label, value }: { icon: IconType; accent
         <Icon className="h-4 w-4" />
       </span>
       <div className="min-w-0">
-        <p className="text-lg font-semibold leading-none tracking-tight">{value}</p>
-        <p className="mt-1 truncate text-[11px] text-muted-foreground">{label}</p>
+        <p className="text-sm font-semibold leading-tight tracking-tight sm:text-lg">{value}</p>
+        <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{label}</p>
       </div>
     </div>
   );

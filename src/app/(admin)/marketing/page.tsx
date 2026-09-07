@@ -108,13 +108,13 @@ export default async function MarketingPage() {
               <Sparkles className="h-3.5 w-3.5" /> Foco da semana
             </span>
             <h2 className="mt-4 max-w-xl text-xl font-semibold tracking-tight sm:text-2xl">
-              Reative {lapsed.length} {lapsed.length === 1 ? "cliente que já conhece" : "clientes que já conhecem"} seu trabalho.
+              {lapsed.length > 0 ? <>Reative {lapsed.length} {lapsed.length === 1 ? "cliente que já conhece" : "clientes que já conhecem"} seu trabalho.</> : "Nenhum cliente precisa de resgate agora."}
             </h2>
             <p className="mt-2 max-w-xl text-[12px] leading-relaxed text-muted-foreground">
-              Eles estão há pelo menos {settings.lapsedClientDays} dias sem voltar. Se cada um repetir uma visita no ticket médio anterior, a oportunidade estimada é de <strong className="text-foreground">{formatMoney(estimatedReturn)}</strong>.
+              {lapsed.length > 0 ? <>Eles estão há pelo menos {settings.lapsedClientDays} dias sem voltar. Se cada um repetir uma visita no ticket médio anterior, a oportunidade estimada é de <strong className="text-foreground">{formatMoney(estimatedReturn)}</strong>.</> : <>Não há clientes na faixa de {settings.lapsedClientDays} dias sem retorno. Confira as campanhas de aniversário, avaliações e indicações.</>}
             </p>
             <a href="#campanhas" className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 text-[12px] font-semibold text-primary-foreground">
-              Preparar resgate <ArrowRight className="h-4 w-4" />
+              {lapsed.length > 0 ? "Preparar resgate" : "Ver campanhas"} <ArrowRight className="h-4 w-4" />
             </a>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-1">
@@ -195,7 +195,7 @@ function Kpi({ icon: Icon, accent, label, value }: { icon: React.ComponentType<{
   return (
     <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3.5">
       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg" style={{ background: `${accent}1f`, color: accent }}><Icon className="h-4 w-4" /></span>
-      <div className="min-w-0"><p className="text-lg font-semibold leading-none tracking-tight">{value}</p><p className="mt-1 truncate text-[11px] text-muted-foreground">{label}</p></div>
+      <div className="min-w-0"><p className="text-lg font-semibold leading-none tracking-tight">{value}</p><p className="mt-1 text-[11px] leading-snug text-muted-foreground">{label}</p></div>
     </div>
   );
 }

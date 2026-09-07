@@ -101,7 +101,7 @@ export function ExpenseManager({ expenses, timezone }: { expenses: ExpenseRow[];
           {expenses.map((e) => {
             const paid = !!e.paidAt;
             return (
-              <div key={e.id} className="flex items-center gap-3 px-5 py-3">
+              <div key={e.id} className="grid grid-cols-[44px_minmax(0,1fr)_44px] items-start gap-x-3 gap-y-2 px-5 py-3 sm:flex sm:items-center">
                 <IconButton
                   label={paid ? `Marcar ${e.description} como pendente` : `Marcar ${e.description} como paga`}
                   onClick={() => act(() => toggleExpensePaid(e.id))}
@@ -115,27 +115,27 @@ export function ExpenseManager({ expenses, timezone }: { expenses: ExpenseRow[];
                   {paid ? <Check className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
                 </IconButton>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[13px] font-medium">{e.description}</p>
+                  <p className="break-words text-[13px] font-medium">{e.description}</p>
                   <p className="text-[11px] text-muted-foreground">
                     {e.category} · {e.kind === "FIXED" ? "Fixa" : "Variável"} · vence{" "}
                     {formatInTimeZone(new Date(e.dueDate), "UTC", "d MMM", { locale: ptBR })}
                   </p>
-                </div>
                 <span
-                  className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                  className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                     paid ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
                   }`}
                 >
                   {paid ? "Paga" : "Pendente"}
                 </span>
-                <p className="w-24 shrink-0 text-right text-[13px] font-semibold">
+                </div>
+                <p className="col-start-2 row-start-2 shrink-0 text-[13px] font-semibold sm:ml-auto sm:text-right">
                   {formatMoney(e.amountCents)}
                 </p>
                 <IconButton
                   label={`Excluir despesa ${e.description}`}
                   onClick={() => act(() => deleteExpense(e.id))}
                   disabled={pending}
-                  className="shrink-0 rounded-full hover:bg-danger/10 hover:text-danger"
+                  className="col-start-3 row-start-1 shrink-0 rounded-full hover:bg-danger/10 hover:text-danger"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </IconButton>
