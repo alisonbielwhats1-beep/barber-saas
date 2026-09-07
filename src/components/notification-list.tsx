@@ -150,7 +150,7 @@ export function NotificationList({
                       {TITLES[notification.template] ?? "Atualização do agendamento"}
                     </Link>
                     {notification.template === "appointment.reschedule_requested" && scope === "client" && (
-                      <p className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-300">
+                      <p className="mt-1 text-xs font-medium text-warning">
                         Abra suas reservas para responder.
                       </p>
                     )}

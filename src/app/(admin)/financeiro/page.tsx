@@ -164,11 +164,11 @@ export default async function FinanceiroPage({
             <DreRow label="= Lucro bruto" value={formatMoney(m.grossProfit)} divider />
             <DreRow label="(−) Despesas fixas" value={`- ${formatMoney(m.expenseFixed)}`} muted />
             <DreRow label="(−) Despesas variáveis" value={`- ${formatMoney(m.expenseVar)}`} muted />
-            <DreRow label="= Lucro líquido" value={formatMoney(m.netProfit)} divider strong accent={m.netProfit >= 0 ? "#2ECC8B" : "#EF4444"} />
+            <DreRow label="= Lucro líquido" value={formatMoney(m.netProfit)} divider strong accent={m.netProfit >= 0 ? "hsl(var(--success))" : "hsl(var(--danger))"} />
           </div>
           <div className="mt-4 rounded-xl bg-surface-1 px-3 py-2.5">
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Margem líquida</p>
-            <p className="mt-0.5 text-lg font-semibold" style={{ color: m.margin >= 0 ? "#2ECC8B" : "#EF4444" }}>
+            <p className={`mt-0.5 text-lg font-semibold ${m.margin >= 0 ? "text-success" : "text-danger"}`}>
               {(m.margin * 100).toFixed(1)}%
             </p>
           </div>
@@ -249,14 +249,9 @@ export default async function FinanceiroPage({
 type IconType = React.ComponentType<{ className?: string }>;
 
 function Hero({ accent, icon: Icon, label, value, hint, featured = false }: { accent: string; icon: IconType; label: string; value: string; hint?: string; featured?: boolean }) {
-  const isNegativeResult = label === "Resultado líquido" && accent.toUpperCase() === "#EF4444";
-  const iconTone = featured
-    ? "bg-primary/10 text-primary"
-    : label === "Resultado líquido"
-      ? isNegativeResult
-        ? "bg-danger/10 text-danger"
-        : "bg-success/10 text-success"
-      : "bg-muted text-muted-foreground";
+  const iconTone = accent === "#2ECC8B" ? "bg-success/10 text-success"
+    : accent === "#EF4444" ? "bg-danger/10 text-danger"
+    : "bg-info/10 text-info";
 
   return (
     <div className={`card-interactive rounded-2xl border bg-card p-5 ${featured ? "border-primary/30" : "border-border"}`}>

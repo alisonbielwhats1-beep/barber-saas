@@ -420,7 +420,7 @@ export function AgendaBoard({
       )}
 
       {(awaitingAcceptance > 0 || cancelledWithQueue > 0) && (
-        <div className="flex flex-col gap-2 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-[12px] text-amber-800 dark:text-amber-300 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2 rounded-2xl border border-amber-500/30 bg-warning/10 px-4 py-3 text-[12px] text-warning sm:flex-row sm:items-center sm:justify-between">
           <p>
             {awaitingAcceptance > 0 && `${awaitingAcceptance} alteração(ões) aguardando aceite do cliente.`}
             {awaitingAcceptance > 0 && cancelledWithQueue > 0 && " "}
@@ -767,7 +767,7 @@ function DayView({
                       <p className="truncate text-[11px] text-muted-foreground">{a.serviceName}</p>
                       {height >= 70 && <p className="truncate text-[10px] font-medium">{cfg.label}</p>}
                       {a.pendingReschedule && (
-                        <span className="mt-1 inline-flex rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700 dark:text-amber-300">
+                        <span className="mt-1 inline-flex rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-warning">
                           Aguardando aceite
                         </span>
                       )}

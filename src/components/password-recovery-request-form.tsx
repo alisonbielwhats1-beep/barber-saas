@@ -40,7 +40,7 @@ export function PasswordRecoveryRequestForm({
 
   if (!enabled) {
     return (
-      <p role="status" className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
+      <p role="status" className="rounded-xl bg-warning/10 px-4 py-3 text-sm text-warning">
         A recuperação por e-mail está temporariamente indisponível. Fale com o suporte.
       </p>
     );

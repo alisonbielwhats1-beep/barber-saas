@@ -42,6 +42,7 @@ for (const mode of ["desktop-light", "mobile-dark"]) {
         page.on("pageerror", e => runtime.push(e.message));
         await page.goto(`/${route}`, { timeout: 60_000 });
         await expect(page.locator("main h1").first()).toBeVisible({ timeout: 30_000 });
+        await expect(page.locator("main .animate-shimmer")).toHaveCount(0, { timeout: 30_000 });
         await page.screenshot({ path: test.info().outputPath(`${mode}-${route}.png`), animations: "disabled", timeout: 20_000 });
         const results = await test.step("Examinar acessibilidade", () => new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze(), { timeout: 45_000 });
         const overflow = await page.evaluate(() => Math.max(0, document.documentElement.scrollWidth - innerWidth));

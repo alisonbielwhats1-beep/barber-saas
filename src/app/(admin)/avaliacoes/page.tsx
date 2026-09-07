@@ -20,7 +20,7 @@ export default async function ReviewsPage() {
   return (
     <div className="space-y-6">
       <PageHeader kicker="Reputação" title="Avaliações">
-        <span className="inline-flex items-center gap-2 rounded-full border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-xs font-medium text-amber-300">
+        <span className="inline-flex items-center gap-2 rounded-full border border-amber-400/25 bg-warning/10 px-3 py-2 text-xs font-medium text-warning">
           {result.reviewData.summary.average.toFixed(1).replace(".", ",")} · nota média
         </span>
       </PageHeader>

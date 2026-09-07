@@ -394,7 +394,7 @@ export function AppointmentDetail({
                   label={`${formatInTimeZone(start, timezone, "HH:mm")} – ${formatInTimeZone(end, timezone, "HH:mm")} · ${formatInTimeZone(start, timezone, "EEEE, d MMM", { locale: ptBR })}`}
                 />
                 {appt.pendingReschedule && (
-                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-amber-700 dark:text-amber-300">
+                  <div className="rounded-lg border border-amber-500/30 bg-warning/10 px-3 py-2.5 text-warning">
                     <p className="text-[12px] font-semibold">Aguardando aceite do cliente</p>
                     <p className="mt-1 text-[11px] leading-relaxed">
                       Novo horário: {formatInTimeZone(new Date(appt.pendingReschedule.targetStartAt), timezone, "dd/MM/yyyy 'às' HH:mm")} · {appt.pendingReschedule.targetProfessionalName}.
@@ -429,7 +429,7 @@ export function AppointmentDetail({
                   </div>
                 )}
                 {appt.waitlistCount > 0 && (
-                  <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-amber-700 dark:text-amber-400">
+                  <div className="rounded-lg border border-amber-500/20 bg-warning/10 p-3 text-warning">
                     <p className="flex items-center gap-1.5 font-semibold">
                       <Users className="h-4 w-4" />
                       Fila de espera · {appt.waitlistCount}
@@ -690,7 +690,7 @@ export function AppointmentDetail({
                     O registro será preservado, o horário liberado e o cliente do agendamento notificado.
                   </p>
                   {appt.waitlistCount > 0 && (
-                    <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px] font-medium text-amber-700 dark:text-amber-400">
+                    <p className="rounded-lg border border-amber-500/30 bg-warning/10 px-3 py-2 text-[12px] font-medium text-warning">
                       A fila permanecerá ativa. Depois de cancelar, use “Promover” na primeira posição para liberar o horário com segurança.
                     </p>
                   )}
