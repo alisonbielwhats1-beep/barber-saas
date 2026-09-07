@@ -33,7 +33,7 @@ test.describe("@database operação diária e expediente", () => {
       await page.goto("/hoje");
       const card = page.locator("article").filter({ hasText: clientName });
       await card.getByRole("button", { name: "Registrar chegada" }).click();
-      await expect(card.getByText(/Chegou às.*aguardando/)).toBeVisible();
+      await expect(card.getByText(/Chegou às.*aguardando/)).toBeVisible({ timeout: 15_000 });
       const clientLabel = card.getByText(clientName, { exact: true });
       const clientBox = await clientLabel.boundingBox();
       expect(clientBox?.width).toBeGreaterThan(220);

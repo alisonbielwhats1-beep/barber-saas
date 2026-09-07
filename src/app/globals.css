@@ -42,6 +42,10 @@
     /* Ações operacionais: verde solicitado e vermelho, com texto branco legível. */
     --action-positive: #126949;
     --action-critical: #b91c1c;
+    --selection: 240 5% 18%;
+    --selection-foreground: 40 33% 95%;
+    --selection-solid: 40 33% 95%;
+    --selection-on-solid: 218 10% 15%;
 
     --destructive: 0 78% 60%;
     --destructive-foreground: 0 0% 100%;
@@ -71,7 +75,12 @@
     --border: 35 18% 85%;
     --border-strong: 35 18% 68%;
     --input: 40 33% 99%;
-    --ring: 218 10% 30%;
+    --ring: 263 36% 45%;
+    /* Lilás autorizado como acento de navegação; ações operacionais mantêm semântica. */
+    --selection: 263 65% 95%;
+    --selection-foreground: 263 38% 38%;
+    --selection-solid: 263 36% 45%;
+    --selection-on-solid: 0 0% 100%;
 
     /* Ações em grafite, com contraste sobre o marfim. */
     --primary: 218 10% 15%;           /* grafite para ações e texto legíveis */

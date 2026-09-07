@@ -1,5 +1,15 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-06 — refinamento autorizado do menu e calendário no PR #79
+
+O topo passa a exibir somente o monograma EF. Menu recolhível com preferência
+local, calendário lateral com seleção de datas e semanas, versão móvel em
+janela e fotos/nomes preservados na grade. O responsável autorizou lilás/roxo
+como acento no tema claro: seleção e foco, mantendo marfim/grafite e ações
+verdes/vermelhas. Esta decisão substitui a restrição histórica dessa família de
+cor na interface. Escopo e validação em docs/NAVEGACAO_CALENDARIO_2026-09-06.md.
+Sem mudança de banco nem promoção produtiva; checks por versão no PR #79.
+
 ## 2026-09-06 — pendências implementadas no PR #79, sem promoção produtiva
 
 Na branch codex/product-experience / PR #79: seleção de bloqueios na grade,

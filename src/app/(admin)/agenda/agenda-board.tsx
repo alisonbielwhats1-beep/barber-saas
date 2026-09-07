@@ -42,6 +42,8 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { layoutOverlappingIntervals } from "./agenda-layout";
 import { AvailabilityPanel, type AvailabilityBlock, type BlockSelection } from "./availability-panel";
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
+import { DateNavigator } from "./date-navigator";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const DAY_START = 8 * 60;
 const DAY_END = 21 * 60;
@@ -182,6 +184,9 @@ export function AgendaBoard({
   const [proFilter, setProFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("not_cancelled");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(true);
+  const [mobileCalendarOpen, setMobileCalendarOpen] = useState(false);
+  const mobileCalendarTrigger = useRef<HTMLButtonElement>(null);
   const [blockMode, setBlockMode] = useState(false);
   const [blockSelection, setBlockSelection] = useState<(BlockSelection & { key: string }) | undefined>();
   const [search, setSearch] = useState("");
@@ -304,11 +309,17 @@ export function AgendaBoard({
         ? format(dateObj, "MMMM yyyy", { locale: ptBR })
         : format(dateObj, "d 'de' MMMM", { locale: ptBR });
   const navigationUnit = view === "week" ? "semana" : view === "month" || view === "list" ? "mês" : "dia";
+  function selectCalendarDate(next: string) {
+    startTransition(() => router.push(`/agenda?date=${next}`, { scroll: false }));
+    setMobileCalendarOpen(false);
+  }
 
   return (
     <div className="space-y-3">
       <header className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex items-center gap-3">
+          <button type="button" aria-label={calendarOpen ? "Recolher calendário" : "Abrir calendário"} aria-expanded={calendarOpen} aria-controls="agenda-date-panel" onClick={() => setCalendarOpen(!calendarOpen)} className="hidden h-11 w-11 shrink-0 place-items-center rounded-lg border border-border bg-card text-[hsl(var(--selection-foreground))] xl:grid"><CalendarDays size={18} /></button>
+          <button ref={mobileCalendarTrigger} type="button" aria-label="Abrir calendário" aria-haspopup="dialog" onClick={() => setMobileCalendarOpen(true)} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-border bg-card xl:hidden"><CalendarDays size={18} /></button>
           <div className="flex items-center gap-1 rounded-lg border border-border bg-surface-1 p-1">
             <button
               type="button"
@@ -335,11 +346,11 @@ export function AgendaBoard({
               <ChevronRight aria-hidden="true" className="h-4 w-4" />
             </button>
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
               {format(dateObj, "EEEE", { locale: ptBR })}
             </p>
-            <h1 className="text-xl font-semibold tracking-tight first-letter:uppercase">{rangeLabel}</h1>
+            <h1 className="text-base font-semibold tracking-tight first-letter:uppercase sm:text-xl">{rangeLabel}</h1>
           </div>
           {pending && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
         </div>
@@ -363,6 +374,10 @@ export function AgendaBoard({
           )}
         </div>
       </header>
+
+      <div className="flex items-start gap-4">
+        {calendarOpen && <aside id="agenda-date-panel" aria-label="Navegar por datas" className="sticky top-0 hidden w-64 shrink-0 xl:block"><DateNavigator date={date} today={today} onSelect={selectCalendarDate} /></aside>}
+        <div className="min-w-0 flex-1 space-y-3">
 
       {operations && <details className="rounded-lg border border-border bg-card px-3"><summary className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-medium"><CalendarRange size={16} />Expediente e fila de espera</summary><div className="grid items-start gap-3 pb-3 xl:grid-cols-2">{operations}</div></details>}
       <div className="grid items-start gap-2 xl:grid-cols-[1fr_auto]">
@@ -495,6 +510,15 @@ export function AgendaBoard({
           </span>
         ))}
       </div>
+
+        </div>
+      </div>
+      <Dialog open={mobileCalendarOpen} onOpenChange={setMobileCalendarOpen}>
+        <DialogContent aria-describedby={undefined} onCloseAutoFocus={event => { event.preventDefault(); mobileCalendarTrigger.current?.focus(); }} className="max-h-[calc(100dvh-2rem)] w-[calc(100%_-_2rem)] max-w-sm overflow-y-auto p-4">
+          <DialogHeader className="pr-10"><DialogTitle>Escolher data</DialogTitle></DialogHeader>
+          <DateNavigator date={date} today={today} onSelect={selectCalendarDate} />
+        </DialogContent>
+      </Dialog>
 
       {createAt && (
         <AppointmentDialog

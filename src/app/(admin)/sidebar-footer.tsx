@@ -5,7 +5,7 @@ import { LogOut } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
 import { PwaInstallButton } from "@/components/pwa-install-button";
 
-export function SidebarFooter({ plan }: { plan: string }) {
+export function SidebarFooter({ plan, compact = false }: { plan: string; compact?: boolean }) {
   const { data: session } = useSession();
   const name = session?.user?.name ?? "Usuário";
   const initials = name
@@ -16,15 +16,17 @@ export function SidebarFooter({ plan }: { plan: string }) {
     .toUpperCase();
 
   return (
-    <div className="shrink-0 border-t border-border px-3 py-3">
-      <div className="flex items-center gap-2.5">
-        <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary/15 text-[11px] font-semibold text-accent">
+    <div className="shrink-0 space-y-2 border-t border-border px-3 py-3">
+      <div className={`flex items-center gap-2.5 ${compact ? "justify-center" : ""}`}>
+        <div title={`${name} · ${plan}`} className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[hsl(var(--selection))] text-[11px] font-semibold text-[hsl(var(--selection-foreground))]">
           {initials}
         </div>
-        <div className="min-w-0 flex-1">
+        <div className={compact ? "sr-only" : "min-w-0 flex-1"}>
           <p className="truncate text-[13px] font-medium leading-none">{name}</p>
           <p className="mt-0.5 text-[11px] text-muted-foreground">{plan}</p>
         </div>
+      </div>
+      <div className={`flex items-center ${compact ? "flex-col" : "justify-end gap-1"}`}>
         <PwaInstallButton />
         <ThemeToggle />
         <button

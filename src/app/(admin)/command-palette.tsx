@@ -232,7 +232,7 @@ export function CommandPalette({ role }: { role: string }) {
  * nenhum. Dispara um CustomEvent em vez de levantar estado entre irmãos
  * (CommandPalette é montado à parte, em (admin)/layout.tsx).
  */
-export function OpenCommandPaletteButton() {
+export function OpenCommandPaletteButton({ compact = false }: { compact?: boolean }) {
   const [shortcut, setShortcut] = useState<"⌘K" | "Ctrl K">("Ctrl K");
 
   useEffect(() => {
@@ -243,12 +243,13 @@ export function OpenCommandPaletteButton() {
     <button
       onClick={(event) => requestCommandPaletteOpen(event.currentTarget)}
       aria-haspopup="dialog"
+      aria-label="Buscar"
+      title={compact ? `Buscar (${shortcut})` : undefined}
       data-command-palette-trigger="true"
       className="flex min-h-11 w-full items-center gap-2.5 rounded-lg border border-border bg-surface-1 px-2.5 text-[12px] text-muted-foreground transition hover:border-border-strong hover:text-foreground"
     >
-      <Search className="h-3.5 w-3.5 shrink-0" />
-      <span className="flex-1 text-left">Buscar</span>
-      <kbd className="rounded border border-border px-1 py-0.5 text-[10px]">{shortcut}</kbd>
+      <Search className={`h-4 w-4 shrink-0 ${compact ? "mx-auto" : ""}`} />
+      {!compact && <><span className="flex-1 text-left">Buscar</span><kbd className="rounded border border-border px-1 py-0.5 text-[10px]">{shortcut}</kbd></>}
     </button>
   );
 }

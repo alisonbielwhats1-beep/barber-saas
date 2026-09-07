@@ -111,18 +111,20 @@ export function SidebarNav({
   role,
   unreadNotifications = 0,
   isPlatformAdmin = false,
+  collapsed = false,
 }: {
   role: string;
   unreadNotifications?: number;
   isPlatformAdmin?: boolean;
+  collapsed?: boolean;
 }) {
   const pathname = usePathname();
 
   return (
-    <nav aria-label="Navegação principal" className="flex-1 space-y-4 px-3 pb-4">
+    <nav id="admin-navigation" aria-label="Navegação principal" className={`scrollbar-dark min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 pb-4 ${collapsed ? "space-y-2" : "space-y-4"}`}>
       {visibleGroups(role).map((group) => (
         <div key={group.title}>
-          <p className="mb-1 px-2.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+          <p className={collapsed ? "sr-only" : "mb-1 px-2.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground"}>
             {group.title}
           </p>
           <div className="space-y-0.5">
@@ -131,6 +133,7 @@ export function SidebarNav({
                 key={item.href}
                 item={item}
                 pathname={pathname}
+                collapsed={collapsed}
                 badgeCount={item.href === "/notificacoes" ? unreadNotifications : 0}
               />
             ))}
@@ -143,6 +146,7 @@ export function SidebarNav({
           <NavRow
             item={{ href: "/configuracoes", label: "Configurações", icon: Settings }}
             pathname={pathname}
+            collapsed={collapsed}
           />
         </div>
       )}
@@ -151,6 +155,7 @@ export function SidebarNav({
           <NavRow
             item={{ href: "/plataforma/solicitacoes", label: "Administração", icon: ShieldCheck }}
             pathname={pathname}
+            collapsed={collapsed}
           />
         </div>
       )}
@@ -162,10 +167,12 @@ function NavRow({
   item,
   pathname,
   badgeCount = 0,
+  collapsed = false,
 }: {
   item: Item;
   pathname: string;
   badgeCount?: number;
+  collapsed?: boolean;
 }) {
   const { href, label, icon: Icon, soon } = item;
   const active = pathname === href || pathname.startsWith(href + "/");
@@ -190,19 +197,21 @@ function NavRow({
       href={href}
       prefetch={false}
       aria-current={active ? "page" : undefined}
+      title={collapsed ? label : undefined}
+      aria-label={collapsed ? label : undefined}
       className={cn(
         "relative flex min-h-11 items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         active
-          ? "bg-primary/10 font-medium text-foreground"
+          ? "bg-[hsl(var(--selection))] font-medium text-[hsl(var(--selection-foreground))]"
           : "text-muted-foreground hover:bg-card-hover hover:text-foreground",
       )}
     >
       {active && (
-        <span className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-primary" />
+        <span className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-[hsl(var(--selection-foreground))]" />
       )}
-      <Icon className={cn("h-3.5 w-3.5 shrink-0", active && "text-primary")} />
-      <span className="min-w-0 flex-1 truncate">{label}</span>
-      <UnreadBadge count={badgeCount} />
+      <Icon className={cn("shrink-0", collapsed ? "mx-auto h-[18px] w-[18px]" : "h-3.5 w-3.5")} />
+      <span className={collapsed ? "sr-only" : "min-w-0 flex-1 truncate"}>{label}</span>
+      <span className={collapsed ? "absolute right-0 top-0" : undefined}><UnreadBadge count={badgeCount} /></span>
     </Link>
   );
 }

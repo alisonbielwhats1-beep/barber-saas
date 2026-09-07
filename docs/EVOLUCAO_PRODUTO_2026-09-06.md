@@ -95,6 +95,11 @@ e ficam privadas no banco; nenhuma imagem de cuidado entra no bucket público.
 
 ### Direção visual solicitada com referências Fresha
 
+Atualização posterior: o responsável autorizou lilás/roxo nas seleções e foco
+do tema claro, monograma EF no topo, menu recolhível e calendário lateral.
+Detalhes em `docs/NAVEGACAO_CALENDARIO_2026-09-06.md`. Esta direção substitui a
+restrição de cor da primeira proposta descrita abaixo.
+
 - Ajuste solicitado posteriormente: ações de confirmar/iniciar/concluir usam
   verde #126949; marcar falta usa vermelho #B91C1C, ambos com texto branco e
   contraste superior a 6:1. “No-show” foi traduzido para “Não compareceu”/“Faltas”
