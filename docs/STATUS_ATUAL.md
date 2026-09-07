@@ -1,5 +1,15 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-07 — conta de apresentação enriquecida
+
+Por solicitação explícita, a demonstração persistente foi ampliada para
+5 profissionais com fotos, 60 clientes, 20 serviços, 15 produtos ilustrados,
+12 itens de portfólio e 1.802 agendamentos entre 24/07 e 07/10/2026.
+Público feminino e masculino têm cadastro e histórico para os indicadores.
+Também foram complementados recebimentos, despesas e pacotes fictícios.
+Detalhes, totais e evidências: `docs/DADOS_APRESENTACAO_2026-09-07.md`.
+Nenhuma migration ou promoção de código; PR #80 permanece em revisão.
+
 ## 2026-09-07 — PR #79 publicado; revisão de cores e conta de apresentação
 
 O PR #79 foi integrado em `master` no commit

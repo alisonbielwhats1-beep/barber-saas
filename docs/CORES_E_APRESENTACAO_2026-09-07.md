@@ -34,6 +34,11 @@ Esta revisão visual ainda não foi promovida a Production.
 
 ## Conta de apresentação autorizada no Supabase
 
+Os totais iniciais abaixo registram a primeira provisão. A complementação
+posterior solicitada pelo responsável está documentada em
+`docs/DADOS_APRESENTACAO_2026-09-07.md`: 5 profissionais com fotos,
+60 clientes e 1.802 agendamentos, além do catálogo e indicadores preenchidos.
+
 Após pedir usuário/senha com operação preenchida, o responsável especificou:
 “crie no banco do supabase mesmo, como se fosse um novo cliente”. Foi provisionado
 um estabelecimento novo e isolado, `Everflair Studio · Demonstração`, no projeto
