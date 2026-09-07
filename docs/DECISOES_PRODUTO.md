@@ -27,6 +27,11 @@ contatos recebem cores reconhecíveis. Reservas confirmadas têm bloco verde,
 canceladas vermelho, pendentes âmbar e em atendimento azul. Texto e ícone
 continuam explicitando o estado. Ver `CLIENTE_CORES_ENTRADA_2026-09-07.md`.
 
+O ícone de instalação usa o símbolo Flair do Everflair em lilás claro sobre
+grafite, compartilhado entre painel e estabelecimentos. Não usa iniciais nem
+a foto do salão. Nome e destino do atalho continuam identificando o
+estabelecimento. Ver `ICONE_INSTALACAO_2026-09-07.md`.
+
 ## Cores da agenda por profissional — revisão de 07/09/2026
 
 Por solicitação do responsável, a cor principal dos cartões identifica o

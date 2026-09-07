@@ -24,7 +24,7 @@ test("@static Flair mantém contraste e lilás discreto na landing", async ({ pa
   expect(errors).toEqual([]);
 });
 
-test("@database Flair abre o app do cliente independentemente do painel", async ({ page }) => {
+test("@database Flair abre o app do cliente independentemente do painel", async ({ page, request }) => {
   test.skip(!process.env.RUN_DATABASE_E2E, "Somente PostgreSQL descartável do CI.");
   test.setTimeout(60_000);
   await page.setViewportSize({ width: 390, height: 844 });
@@ -57,4 +57,16 @@ test("@database Flair abre o app do cliente independentemente do painel", async 
   await page.evaluate(() => sessionStorage.clear());
   await page.reload();
   await expect(page.locator(".ef-intro")).toHaveCount(0);
+
+  // The client keeps its own installed destination but uses the Everflair
+  // install tile, including the explicit Apple fallback in the rendered HTML.
+  const appleIcon = await page.locator('link[rel="apple-touch-icon"]').getAttribute("href");
+  expect(appleIcon).toContain("apple-touch-icon-180.png?v=flair-dark-1");
+  expect((await request.get(appleIcon!)).headers()["content-type"]).toContain("image/png");
+  const manifestHref = await page.locator('link[rel="manifest"]').getAttribute("href");
+  expect(manifestHref).toBe("/book/luna-hair/manifest.webmanifest");
+  const manifest = await (await request.get(manifestHref!)).json();
+  expect(manifest.start_url).toBe("/book/luna-hair/welcome");
+  expect(manifest.background_color).toBe("#131315");
+  expect(manifest.icons.every((icon: { src: string }) => icon.src.includes("v=flair-dark-1"))).toBe(true);
 });

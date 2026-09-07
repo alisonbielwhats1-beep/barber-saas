@@ -1,5 +1,16 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-07 — publicação do PR #80 autorizada, em preparação
+
+O responsável autorizou atualizar o GitHub, integrar e publicar em produção
+as revisões do PR #80. A entrega inclui temas, cores por profissional,
+experiência do cliente e ícone de instalação Flair lilás sobre grafite.
+Escopo adicional em `docs/ICONE_INSTALACAO_2026-09-07.md`. O ícone substitui
+a versão marfim anterior. Não há migration nem escrita de dados nesta release.
+Publicação ocorrerá após CI/Preview do commit final; o resultado verificável
+de merge, deployment e conferência será registrado no PR #80. Até lá,
+Production continua no commit `dc2baf4085cfbef4701488c5b0ae2dcb4eb1c2a8`.
+
 ## 2026-09-07 — tema claro com fundo neutro e profundidade, em revisão
 
 No PR #80, o tema claro substitui a base marfim/pedra por cinza quase branco

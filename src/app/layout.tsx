@@ -3,7 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import "@/components/brand.css";
 import { Providers } from "./providers";
-import { PWA_APPLE_ICON } from "@/lib/pwa-icons";
+import { PWA_APPLE_ICON, PWA_FAVICON } from "@/lib/pwa-icons";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
 
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     "Agenda online, clientes, equipe e gestão para barbearias, salões, manicures, estética e espaços multisserviços.",
   manifest: "/manifest.webmanifest",
   icons: {
-    icon: "/icon.svg",
+    icon: PWA_FAVICON,
     apple: PWA_APPLE_ICON,
   },
   appleWebApp: {
