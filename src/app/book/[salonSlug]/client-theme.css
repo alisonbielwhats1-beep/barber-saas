@@ -1,0 +1,74 @@
+/* Client actions and reservation states stay independent of the admin theme. */
+[data-theme="salon-dark"] .client-booking-cta {
+  background: #126949;
+  color: #fff;
+  border: 1px solid #368967;
+  box-shadow: 0 12px 32px -20px #19875f;
+  transition: background-color 180ms ease;
+}
+[data-theme="salon-dark"] .client-booking-cta:hover { background: #0f5b40; }
+[data-theme="salon-dark"] .client-booking-cta-action {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+.client-contact-icon {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+  border-radius: .7rem;
+}
+.client-contact-icon[data-channel="whatsapp"] { background: #123e2c; color: #25d366; }
+.client-contact-icon[data-channel="instagram"] {
+  background: linear-gradient(145deg, #6434b8, #bc2864 60%, #a44519);
+  color: #fff;
+}
+.client-contact-icon[data-channel="phone"] { background: #183549; color: #8dc7ff; }
+.client-contact-icon[data-channel="website"] { background: #342747; color: #d4b9f4; }
+.client-contact-icon[data-channel="content"] { background: #3f3024; color: #edbd8e; }
+.client-location-icon { color: #f5a293; }
+.client-hours-icon { color: #a9ceff; }
+.client-payment-icon { color: #d4b9f4; }
+
+[data-theme="salon-dark"] .client-reservation {
+  --reservation-color: var(--muted-foreground);
+  background: hsl(var(--card));
+  border-color: hsl(var(--border));
+  border-left: 4px solid hsl(var(--reservation-color));
+}
+[data-theme="salon-dark"] .client-reservation[data-status="CONFIRMED"] {
+  --reservation-color: var(--success);
+  background: #123d2e;
+  border-color: #368967;
+}
+[data-theme="salon-dark"] .client-reservation:is([data-status="CANCELLED"], [data-status="NO_SHOW"]) {
+  --reservation-color: var(--danger);
+  background: #3d2228;
+  border-color: #97515c;
+}
+[data-theme="salon-dark"] .client-reservation[data-status="PENDING"] {
+  --reservation-color: var(--warning);
+  background: #3d3020;
+  border-color: #8f7343;
+}
+[data-theme="salon-dark"] .client-reservation[data-status="IN_PROGRESS"] {
+  --reservation-color: var(--info);
+  background: #173448;
+  border-color: #487fa2;
+}
+[data-theme="salon-dark"] .client-reservation[data-status="COMPLETED"] {
+  --reservation-color: var(--success);
+}
+.client-reservation {
+  --muted-foreground: 40 12% 82%;
+}
+.client-reservation-status {
+  background: hsl(var(--reservation-color));
+  color: #15251e;
+}
+.client-reservation-total { color: hsl(var(--reservation-color)); }
+.client-reservation-details { background: rgb(0 0 0 / .16); }
+@media (forced-colors: active) {
+  .client-contact-icon, .client-reservation-status { forced-color-adjust: auto; }
+}

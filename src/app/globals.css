@@ -230,21 +230,28 @@
 
     --border: 230 8% 18%;
     --input: 230 8% 18%;
-    --ring: 35 18% 81%;
+    --ring: 155 52% 65%;
 
-    --primary: 40 33% 95%;
-    --primary-foreground: 218 10% 15%;
+    --primary: 155 52% 65%;
+    --primary-foreground: 158 48% 12%;
 
     --secondary: 230 8% 15%;
     --secondary-foreground: 40 30% 96%;
 
-    --accent: 22 41% 52%;
-    --accent-foreground: 218 10% 15%;
+    --accent: 264 54% 73%;
+    --accent-foreground: 258 35% 14%;
+    --success: 155 52% 65%;
+    --info: 213 92% 72%;
+    --warning: 38 90% 70%;
+    --danger: 0 85% 78%;
+    --selection: 262 27% 24%;
+    --selection-foreground: 264 65% 88%;
 
     --destructive: 0 72% 62%;
     --destructive-foreground: 230 12% 8%;
 
     --radius: 1rem;
+    color-scheme: dark;
   }
 
   * {

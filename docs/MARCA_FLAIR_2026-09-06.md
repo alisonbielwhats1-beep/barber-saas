@@ -1,5 +1,10 @@
 # Marca Flair — direção 3 escolhida pelo responsável
 
+Atualização de 07/09: a entrada clara e curta do cliente descrita abaixo foi
+substituída por grafite com luzes móveis verde/lilás e 2,2 segundos, a cada
+nova abertura do aplicativo. A regra administrativa permanece inalterada.
+Ver `CLIENTE_CORES_ENTRADA_2026-09-07.md` e o status canônico.
+
 A proposta 3 substitui o monograma EF anterior: símbolo de duas curvas e
 lettering arredondado Everflair. O responsável também solicitou aplicação na
 landing com lilás discreto e entrada animada no aplicativo do cliente.

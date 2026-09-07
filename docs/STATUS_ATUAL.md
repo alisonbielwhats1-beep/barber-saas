@@ -1,5 +1,14 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-07 — aplicativo do cliente com entrada e cores, em revisão
+
+No PR #80, entrada do cliente com fundo grafite e luzes móveis verde/lilás;
+botões e CTA verdes, ícones de contato coloridos e reservas com bloco verde,
+vermelho, âmbar ou azul conforme o estado. Nova abertura repete a animação;
+navegação interna não repete. Substitui a entrada clara discreta de 1,4 segundo
+descrita no registro histórico da marca. Escopo e verificações em
+`docs/CLIENTE_CORES_ENTRADA_2026-09-07.md`. Sem banco ou deploy produtivo.
+
 ## 2026-09-07 — tema claro com prioridade mais definida, em revisão
 
 No PR #80, o próximo atendimento passa a usar verde sólido da marca no tema

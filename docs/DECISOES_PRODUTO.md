@@ -16,6 +16,14 @@ mais presentes; cobre diferencia ocupação. Os fundos gerais continuam neutros.
 O menu expandido exibe símbolo e nome; recolhido, somente símbolo. Controle de
 tema no topo, inclusive no celular. Ver `CORES_E_APRESENTACAO_2026-09-07.md`.
 
+## Aparência do aplicativo do cliente — revisão de 07/09/2026
+
+Por solicitação do responsável, a entrada do cliente usa fundo grafite com
+movimento verde/lilás e marca clara. Agendamento e botões principais verdes;
+contatos recebem cores reconhecíveis. Reservas confirmadas têm bloco verde,
+canceladas vermelho, pendentes âmbar e em atendimento azul. Texto e ícone
+continuam explicitando o estado. Ver `CLIENTE_CORES_ENTRADA_2026-09-07.md`.
+
 ## Permissões
 
 Matriz recomendada, baseada em privilégio mínimo:

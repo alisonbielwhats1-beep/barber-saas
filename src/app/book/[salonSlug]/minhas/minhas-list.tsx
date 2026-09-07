@@ -612,14 +612,6 @@ function ApptCard({
             : a.status === "PENDING"
               ? "Pendente"
               : "Confirmado";
-  const statusTone =
-    a.status === "CANCELLED" || a.status === "NO_SHOW"
-      ? "bg-danger/10 text-danger"
-      : a.status === "PENDING"
-        ? "bg-warning/10 text-warning"
-        : a.status === "COMPLETED"
-          ? "bg-muted text-muted-foreground"
-          : "bg-primary/15 text-primary";
   const dateKey = formatInTimeZone(start, timezone, "yyyy-MM-dd");
   const todayKey = formatInTimeZone(new Date(), timezone, "yyyy-MM-dd");
   const tomorrowKey = formatInTimeZone(addDays(new Date(), 1), timezone, "yyyy-MM-dd");
@@ -631,19 +623,19 @@ function ApptCard({
       : CheckCircle2;
 
   return (
-    <article className={`rounded-2xl border p-4 ${featured ? "border-primary/40 bg-primary/[0.06] shadow-premium" : "border-border bg-card"}`}>
+    <article data-status={a.status} className={`client-reservation rounded-2xl border p-4 ${featured ? "shadow-premium" : ""}`}>
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="font-medium">{serviceName}</p>
           {a.dependentName && <p className="text-sm font-semibold">Atendimento para {a.dependentName}</p>}
           <p className="text-xs text-muted-foreground">com {a.professional.user.name}</p>
         </div>
-        <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold ${statusTone}`}>
+        <span className="client-reservation-status inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold">
           <StatusIcon aria-hidden="true" className="h-3 w-3" />
           {statusLabel}
         </span>
       </div>
-      <div className={`mt-4 rounded-xl p-3 ${featured ? "bg-background/70" : "bg-muted/25"}`}>
+      <div className="client-reservation-details mt-4 rounded-xl p-3">
         <p className="text-lg font-semibold capitalize">
           {relativeDate ? `${relativeDate}, ` : ""}{formatInTimeZone(start, timezone, "HH:mm")}
         </p>
@@ -700,7 +692,7 @@ function ApptCard({
         </details>
       )}
       <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <span className="text-sm font-semibold text-primary">
+        <span className="client-reservation-total text-sm font-semibold">
           Total {formatMoney(total, currency)}
         </span>
         {actions}

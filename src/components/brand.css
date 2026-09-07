@@ -52,13 +52,40 @@
   filter: drop-shadow(0 2px 16px var(--ef-graphite));
   animation: ef-intro-wordmark 1100ms cubic-bezier(.22,1,.36,1) both;
 }
-.ef-intro[data-audience="client"] { background: var(--ef-ivory); color: var(--ef-lilac); }
+.ef-intro[data-audience="client"] {
+  background: #111b19;
+  color: var(--ef-ivory);
+  animation-duration: 2200ms;
+}
 .ef-intro[data-audience="client"] .ef-intro-light {
   background:
-    radial-gradient(ellipse at 32% 58%, var(--ef-lilac-light), transparent 46%),
-    radial-gradient(ellipse at 72% 40%, var(--ef-lilac-soft), transparent 48%);
+    radial-gradient(ellipse at 20% 75%, #19875f, transparent 48%),
+    radial-gradient(ellipse at 85% 20%, var(--ef-lilac), transparent 42%);
+  animation: ef-client-aurora 2200ms cubic-bezier(.25,.5,.4,1) both;
 }
-.ef-intro[data-audience="client"] .ef-intro-logo { filter: none; }
+.ef-intro-orbit {
+  position: absolute;
+  width: min(85vw, 560px);
+  aspect-ratio: 1;
+  border: 1px solid rgb(143 213 179 / .25);
+  border-radius: 50%;
+  box-shadow: 0 0 70px rgb(25 135 95 / .16), inset 0 0 70px rgb(25 135 95 / .1);
+  animation: ef-client-orbit 2200ms ease-out both;
+}
+.ef-intro[data-audience="client"] .ef-intro-logo {
+  filter: drop-shadow(0 4px 20px #111b19);
+  animation-duration: 1500ms;
+}
+@keyframes ef-client-aurora {
+  0% { transform: translate(-12%, 12%) rotate(-18deg) scale(1.15); opacity: .5; }
+  55% { opacity: .9; }
+  100% { transform: translate(10%, -10%) rotate(16deg) scale(1); opacity: .7; }
+}
+@keyframes ef-client-orbit {
+  0% { transform: scale(.65); opacity: 0; }
+  40% { opacity: 1; }
+  100% { transform: scale(1.1); opacity: 0; }
+}
 @keyframes ef-intro-light {
   from { transform: scale(1.18) translate(-3%, 3%); opacity: .25; }
   to { transform: scale(1) translate(3%, -3%); opacity: .58; }

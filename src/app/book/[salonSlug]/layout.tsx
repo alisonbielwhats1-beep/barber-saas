@@ -3,6 +3,7 @@ import { getClientSession } from "@/lib/client-auth";
 import { withSalonBySlug } from "@/lib/prisma-tenant";
 import { resolveClientSessionInTenant } from "@/lib/public-appointment";
 import { ClientShell } from "./client-shell";
+import "./client-theme.css";
 
 /**
  * O mesmo gate transacional da página protege os metadados: um salão suspenso
