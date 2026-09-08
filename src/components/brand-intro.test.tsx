@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { StrictMode } from "react";
+import { renderToString } from "react-dom/server";
 import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const navigation = vi.hoisted(() => ({ path: "/login" }));
@@ -12,6 +13,12 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 describe("Everflair entrance", () => {
+  it("inclui a entrada do cliente no HTML inicial, antes de executar efeitos", () => {
+    navigation.path = "/book/studio-a/welcome";
+    const html = renderToString(<BrandIntro />);
+    expect(html).toContain('data-audience="client"');
+    expect(html).toContain('ef-intro-logo');
+  });
   it("finishes under StrictMode and only appears once per session", () => {
     const first = render(<StrictMode><BrandIntro /></StrictMode>);
     expect(first.container.querySelector(".ef-intro")).not.toBeNull();

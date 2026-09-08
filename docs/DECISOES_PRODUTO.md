@@ -21,6 +21,15 @@ tema no topo, inclusive no celular. Ver `CORES_E_APRESENTACAO_2026-09-07.md`.
 
 ## Aparência do aplicativo do cliente — revisão de 07/09/2026
 
+Revisão autorizada em 08/09: seletor claro/escuro no topo do cliente, preferência
+independente do painel e restaurada antes da primeira pintura. Marca menor nas
+telas de acesso; animação deve aparecer antes do acesso, nunca depois de uma
+piscada de login. Catálogo e disponibilidade consultáveis sem conta; autenticação
+continua obrigatória para confirmar, entrar em fila ou consultar dados pessoais.
+Lista compacta de serviços por categoria, progresso, resumo e retorno preservado;
+avaliação do salão em destaque após atendimento concluído. Ver
+`CLIENTE_AGENDAMENTO_CLARO_2026-09-08.md`.
+
 Por solicitação do responsável, a entrada do cliente usa fundo grafite com
 movimento verde/lilás e marca clara. Agendamento e botões principais verdes;
 contatos recebem cores reconhecíveis. Reservas confirmadas têm bloco verde,

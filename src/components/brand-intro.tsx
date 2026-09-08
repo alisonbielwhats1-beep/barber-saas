@@ -9,12 +9,14 @@ const SESSION_KEY = "everflair:intro:flair:v2";
 /** A short brand entrance, independent of authentication and data loading. */
 export function BrandIntro() {
   const pathname = usePathname();
-  const [visibleKey, setVisibleKey] = useState<string | null>(null);
   const clientEntrances = useRef(new Set<string>());
   const clientSlug = pathname?.match(/^\/book\/([^/]+)(?:\/|$)/)?.[1];
   const eligible = Boolean(clientSlug) || pathname === "/login" ||
     /^\/(dashboard|agenda|hoje|clientes|profissionais|servicos|produtos|configuracoes|relatorios|marketing|pacotes|pagamentos)(\/|$)/.test(pathname ?? "");
   const sessionKey = eligible ? `${SESSION_KEY}:${clientSlug ? `client:${clientSlug}` : "admin"}` : null;
+  // Render the client entrance in the initial HTML, before hydration can expose
+  // the access screen. CSS dismisses it even when JavaScript is unavailable.
+  const [visibleKey, setVisibleKey] = useState<string | null>(() => clientSlug ? sessionKey : null);
 
   useEffect(() => {
     if (!sessionKey) return;
@@ -29,7 +31,7 @@ export function BrandIntro() {
         return;
       }
     }
-    if (motion.matches) return;
+    if (motion.matches) { setVisibleKey(null); return; }
     setVisibleKey(sessionKey);
     const dismiss = () => {
       setVisibleKey(null);

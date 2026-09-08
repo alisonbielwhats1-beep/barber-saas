@@ -18,12 +18,14 @@ export default async function AgendarPage({
     pro?: string;
     reschedule?: string;
     version?: string;
+    date?: string;
+    slot?: string;
   }>;
 }) {
   const [{ salonSlug }, query] = await Promise.all([params, searchParams]);
   const returnTo = clientBookingReturnTo(salonSlug, query);
   const clientSession = await getClientSession();
-  if (!clientSession) {
+  if (!clientSession && query.reschedule) {
     redirect(`/book/${salonSlug}/welcome?returnTo=${encodeURIComponent(returnTo)}`);
   }
   const initialServiceIds = [
@@ -87,7 +89,7 @@ export default async function AgendarPage({
   });
   if (!result) notFound();
   const { salon, counts, validSession } = result;
-  if (!validSession) {
+  if (!validSession && query.reschedule) {
     redirect(`/book/${salonSlug}/welcome?returnTo=${encodeURIComponent(returnTo)}`);
   }
 
@@ -132,6 +134,8 @@ export default async function AgendarPage({
       services={services}
       initialServiceIds={initialServiceIds}
       initialProId={query.pro ?? null}
+      initialDateKey={query.date}
+      initialSlot={query.slot}
       rescheduleId={query.reschedule ?? null}
       rescheduleVersion={query.version ? Number(query.version) : undefined}
       clientSession={validSession}

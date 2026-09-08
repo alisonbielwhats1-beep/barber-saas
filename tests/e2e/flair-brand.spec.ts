@@ -37,7 +37,7 @@ test("@database Flair abre o app do cliente independentemente do painel", async 
   await page.goto("/book/luna-hair/welcome");
   const intro = page.locator('.ef-intro[data-audience="client"]');
   await expect(intro).toBeAttached();
-  await expect(intro).toHaveCSS("background-color", "rgb(17, 27, 25)");
+  await expect(intro).toHaveCSS("background-color", "rgb(19, 19, 21)");
   const light = intro.locator(".ef-intro-light");
   await expect(light).toHaveCSS("animation-name", "ef-client-aurora");
   await expect(light).toHaveCSS("animation-duration", "2.2s");

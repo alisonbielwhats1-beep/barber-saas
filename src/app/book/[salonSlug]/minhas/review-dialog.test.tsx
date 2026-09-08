@@ -30,7 +30,7 @@ describe("ReviewDialog", () => {
     const user = userEvent.setup();
     render(<ReviewDialog salonSlug="studio-a" appointmentId="appt-1" serviceName="Corte" />);
 
-    await user.click(screen.getByRole("button", { name: "Avaliar atendimento" }));
+    await user.click(screen.getByRole("button", { name: "Avaliar salão" }));
 
     expect(screen.getByRole("button", { name: "Publicar avaliação" })).toBeDisabled();
     expect(mocks.submitClientReview).not.toHaveBeenCalled();
@@ -41,7 +41,7 @@ describe("ReviewDialog", () => {
     const user = userEvent.setup();
     render(<ReviewDialog salonSlug="studio-a" appointmentId="appt-1" serviceName="Corte" />);
 
-    await user.click(screen.getByRole("button", { name: "Avaliar atendimento" }));
+    await user.click(screen.getByRole("button", { name: "Avaliar salão" }));
     await user.click(screen.getByRole("radio", { name: "5 estrelas" }));
     await user.type(screen.getByLabelText(/Comentário/), "Excelente atendimento");
     await user.click(screen.getByRole("button", { name: "Publicar avaliação" }));
@@ -51,5 +51,19 @@ describe("ReviewDialog", () => {
       { appointmentId: "appt-1", rating: 5, comment: "Excelente atendimento" },
     ));
     expect(mocks.refresh).toHaveBeenCalledOnce();
+  });
+
+  it("permite escolher a nota com setas e informa que a avaliação é pública", async () => {
+    const user = userEvent.setup();
+    render(<ReviewDialog salonSlug="studio-a" appointmentId="appt-1" serviceName="Corte" salonName="Studio A" />);
+    await user.click(screen.getByRole("button", { name: "Avaliar salão" }));
+    expect(screen.getByText(/serão públicos/)).toBeInTheDocument();
+    const first = screen.getByRole("radio", { name: "1 estrela" });
+    first.focus();
+    await user.keyboard("{ArrowRight}");
+    expect(screen.getByRole("radio", { name: "2 estrelas" })).toHaveFocus();
+    expect(screen.getByRole("radio", { name: "2 estrelas" })).toHaveAttribute("aria-checked", "true");
+    await user.keyboard("{End}");
+    expect(screen.getByRole("radio", { name: "5 estrelas" })).toHaveFocus();
   });
 });

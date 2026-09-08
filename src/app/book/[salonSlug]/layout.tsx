@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { getClientSession } from "@/lib/client-auth";
 import { withSalonBySlug } from "@/lib/prisma-tenant";
 import { resolveClientSessionInTenant } from "@/lib/public-appointment";
@@ -35,10 +36,8 @@ export async function generateMetadata({
 }
 
 /**
- * Route layout do lado cliente. Aplica o tema `salon-dark` via data-attribute
- * na div raiz — as CSS variables em globals.css `[data-theme="salon-dark"]`
- * ganham daquele ponto pra baixo. A jornada pública usa a mesma paleta neutra da operação,
- * com cores semânticas reservadas aos status.
+ * The server restores the client's appearance cookie before the first paint.
+ * ClientShell scopes tokens and portals independently from the admin theme.
  *
  * Mantém a leitura confortável no celular e amplia progressivamente a área
  * útil em tablets e desktops, sem transformar a jornada em uma página esticada.
@@ -50,7 +49,8 @@ export default async function BookLayout({
   children: React.ReactNode;
   params: Promise<{ salonSlug: string }>;
 }) {
-  const [{ salonSlug }, session] = await Promise.all([params, getClientSession()]);
+  const [{ salonSlug }, session, cookieStore] = await Promise.all([params, getClientSession(), cookies()]);
+  const initialTheme = cookieStore.get("everflair-client-theme")?.value === "light" ? "salon-light" : "salon-dark";
   const shellData = await withSalonBySlug(salonSlug, async (tx, salonId) => {
     const effectiveSession = await resolveClientSessionInTenant(tx, session, salonId);
     const unreadNotifications = effectiveSession
@@ -67,13 +67,8 @@ export default async function BookLayout({
   });
 
   return (
-    <div
-      data-theme="salon-dark"
-      className="min-h-dvh bg-background text-foreground"
-    >
-      <ClientShell salonSlug={salonSlug} unreadNotifications={shellData?.unreadNotifications ?? 0}>
+      <ClientShell initialTheme={initialTheme} salonSlug={salonSlug} unreadNotifications={shellData?.unreadNotifications ?? 0}>
         {children}
       </ClientShell>
-    </div>
   );
 }

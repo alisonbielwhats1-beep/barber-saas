@@ -3,12 +3,15 @@ import { expect, test } from "@playwright/test";
 
 test("@database entrada do cliente mantém marca e controles inteiros em telas estreitas e baixas", async ({ page }) => {
   test.skip(!process.env.RUN_DATABASE_E2E, "Somente PostgreSQL descartável do CI.");
-  test.setTimeout(180_000);
+  test.setTimeout(240_000);
   await page.emulateMedia({ reducedMotion: "reduce" });
   for (const [width, height] of [[320, 568], [390, 844], [844, 390], [1280, 800]]) {
     await page.setViewportSize({ width, height });
     for (const route of ["welcome", "login", "cadastro", ""]) {
       await page.goto(`/book/luna-hair${route ? `/${route}` : ""}`);
+      for (const theme of ["light", "dark"]) {
+      const toggle = page.getByRole("button", { name: theme === "light" ? "Usar tema claro" : "Usar tema escuro" });
+      if (await toggle.count()) await toggle.click();
       const logo = page.locator(".client-brand-logo");
       await expect(logo).toBeVisible();
       const bounds = await logo.boundingBox();
@@ -24,7 +27,8 @@ test("@database entrada do cliente mantém marca e controles inteiros em telas e
         expect(fontSize).toBeGreaterThanOrEqual(16);
       }
       expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations).toEqual([]);
-      if (width <= 390) await page.screenshot({ path: test.info().outputPath(`cliente-${route || "home"}-${width}.png`), fullPage: true });
+      if (width <= 390) await page.screenshot({ path: test.info().outputPath(`cliente-${route || "home"}-${width}-${theme}.png`), fullPage: true });
+      }
     }
   }
 });

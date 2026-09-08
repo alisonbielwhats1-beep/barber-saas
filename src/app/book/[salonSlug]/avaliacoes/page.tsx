@@ -48,7 +48,7 @@ export default async function PublicReviewsPage({
         </section>
       ) : (
         <div className="rounded-3xl border border-border bg-card p-8 text-center">
-          <Star aria-hidden="true" className="mx-auto h-8 w-8 text-amber-400" />
+          <Star aria-hidden="true" className="mx-auto h-8 w-8 text-warning" />
           <p className="mt-3 font-medium">Ainda não há avaliações</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Depois dos primeiros atendimentos concluídos, os comentários aparecerão nesta página.

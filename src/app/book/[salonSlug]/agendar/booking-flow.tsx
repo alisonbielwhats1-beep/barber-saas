@@ -9,13 +9,9 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  Gem,
   Search,
   ShoppingBag,
-  Scissors,
-  Sparkles,
   Star,
-  Waves,
   X,
   Zap,
 } from "lucide-react";
@@ -29,6 +25,7 @@ import { effectivePublicBookingLeadDays } from "@/lib/pricing";
 import type { ClientSession } from "@/lib/client-auth";
 import {
   addMonths,
+  addDays,
   eachDayOfInterval,
   endOfMonth,
   format,
@@ -54,6 +51,8 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 import { SalonLocationLink } from "../salon-location-link";
+import { clientBookingReturnTo } from "@/lib/client-routes";
+import { isDateKey } from "@/lib/time";
 
 type Pro = {
   id: string;
@@ -90,16 +89,6 @@ type Service = {
   professionals: Pro[];
 };
 
-/** Ícone do serviço por categoria — evita a tesoura fixa para todo segmento. */
-function iconForService(category: string | null) {
-  const n = (category ?? "").toLowerCase();
-  if (n.includes("unha")) return Gem;
-  if (n.includes("massagem") || n.includes("pele") || n.includes("depila") || n.includes("estetic"))
-    return Waves;
-  if (n.includes("maquiagem") || n.includes("sobrancelha")) return Sparkles;
-  return Scissors;
-}
-
 /** Reserva confirmada — dados congelados para o boarding pass e o .ics */
 type Booked = {
   startAt: Date;
@@ -121,6 +110,8 @@ export function BookingFlow({
   services,
   initialServiceIds,
   initialProId = null,
+  initialDateKey,
+  initialSlot,
   rescheduleId = null,
   rescheduleVersion,
   clientSession,
@@ -136,15 +127,24 @@ export function BookingFlow({
   services: Service[];
   initialServiceIds: string[];
   initialProId?: string | null;
+  initialDateKey?: string;
+  initialSlot?: string;
   /** Se vier de "Minhas reservas → Remarcar": id da reserva a atualizar em
    *  vez de criar uma nova. Ver `submit()`. */
   rescheduleId?: string | null;
   rescheduleVersion?: number;
-  clientSession: ClientSession;
+  clientSession: ClientSession | null;
 }) {
   const router = useRouter();
   const { salonSlug } = useParams<{ salonSlug: string }>();
   const cart = useCart(salonSlug);
+  const publicLeadDays = effectivePublicBookingLeadDays(maxBookingLeadDays ?? 60);
+  const maxBookingDate = addDays(new Date(`${todayDate}T12:00:00`), publicLeadDays);
+  const maxBookingDateKey = format(maxBookingDate, "yyyy-MM-dd");
+  const initialDate = initialDateKey && isDateKey(initialDateKey) && initialDateKey >= todayDate &&
+    initialDateKey <= maxBookingDateKey
+    ? initialDateKey : todayDate;
+  const restoredQuerySlot = initialDate === initialDateKey && initialSlot && /^([01]\d|2[0-3]):[0-5]\d$/.test(initialSlot) ? initialSlot : null;
   const validInitialServiceIds = [
     ...new Set(
       initialServiceIds.filter((id) => services.some((service) => service.id === id)),
@@ -156,6 +156,7 @@ export function BookingFlow({
   const [choosingServices, setChoosingServices] = useState(validInitialServiceIds.length === 0);
   const [serviceQuery, setServiceQuery] = useState("");
   const [serviceCategory, setServiceCategory] = useState<string | null>(null);
+  const [selectionMessage, setSelectionMessage] = useState<string | null>(null);
   const [proId, setProId] = useState<string | null>(() => {
     if (!initialProId || validInitialServiceIds.length === 0) return null;
     const selected = services.filter((service) => validInitialServiceIds.includes(service.id));
@@ -166,11 +167,11 @@ export function BookingFlow({
       ? initialProId
       : null;
   });
-  const [date, setDate] = useState<Date>(() => new Date(`${todayDate}T12:00:00`));
+  const [date, setDate] = useState<Date>(() => new Date(`${initialDate}T12:00:00`));
   const [viewMonth, setViewMonth] = useState<Date>(() =>
-    startOfMonth(new Date(`${todayDate}T12:00:00`)),
+    startOfMonth(new Date(`${initialDate}T12:00:00`)),
   );
-  const [slot, setSlot] = useState<string | null>(null);
+  const [slot, setSlot] = useState<string | null>(restoredQuerySlot);
   const [slots, setSlots] = useState<string[]>([]);
   const [slotsVersion, setSlotsVersion] = useState(0);
   const [popularSlot, setPopularSlot] = useState<string | null>(null);
@@ -213,6 +214,9 @@ export function BookingFlow({
     () => filterServiceOptions(services, serviceQuery, serviceCategory),
     [services, serviceQuery, serviceCategory],
   );
+  const serviceGroups = useMemo(() => getServiceCategories(visibleServices).map(category => ({
+    category, services: visibleServices.filter(service => serviceCategoryLabel(service) === category),
+  })), [visibleServices]);
   const eligibleProfessionals = useMemo(() => {
     return eligibleProfessionalsForServices(selectedServices);
   }, [selectedServices]);
@@ -225,10 +229,6 @@ export function BookingFlow({
     (sum, service) => sum + (servicePrices[service.id] ?? service.priceCents),
     0,
   );
-  const publicLeadDays = effectivePublicBookingLeadDays(maxBookingLeadDays ?? 60);
-  const maxBookingDate = new Date(`${todayDate}T12:00:00`);
-  maxBookingDate.setDate(maxBookingDate.getDate() + publicLeadDays);
-  const maxBookingDateKey = format(maxBookingDate, "yyyy-MM-dd");
   const selectedProfessional = eligibleProfessionals.find(
     (professional) => professional.id === proId,
   ) ?? null;
@@ -249,7 +249,10 @@ export function BookingFlow({
   }, [eligibleProfessionals, proId]);
 
   // Slot a restaurar depois que a grade de horários carregar.
-  const pendingSlotRef = useRef<PendingAvailabilitySlot | null>(null);
+  const pendingSlotRef = useRef<PendingAvailabilitySlot | null>(restoredQuerySlot && proId ? {
+    slot: restoredQuerySlot,
+    queryKey: availabilityQueryKey(salonId, proId, validInitialServiceIds, initialDate),
+  } : null);
 
   function invalidatePendingSlot() {
     pendingSlotRef.current = null;
@@ -260,7 +263,7 @@ export function BookingFlow({
     try {
       // Remedia versões antigas que persistiam telefone de visitante.
       localStorage.removeItem(`salon-phone:${salonSlug}`);
-      const key = `booking-state:${salonSlug}`;
+      const key = `booking-state:${salonSlug}${rescheduleId ? `:${rescheduleId}` : ""}`;
       const raw = sessionStorage.getItem(key);
       if (!raw) return;
       sessionStorage.removeItem(key);
@@ -278,6 +281,10 @@ export function BookingFlow({
       const validIds = restoredIds.filter((id) =>
         services.some((service) => service.id === id),
       );
+      if (validInitialServiceIds.length > 0 && (
+        validIds.length !== validInitialServiceIds.length ||
+        validInitialServiceIds.some(id => !validIds.includes(id))
+      )) return;
       if (validIds.length > 0) {
         setServiceIds([...new Set(validIds)]);
         setChoosingServices(false);
@@ -322,7 +329,7 @@ export function BookingFlow({
     if (!bookingStateReady) return;
     try {
       sessionStorage.setItem(
-        `booking-state:${salonSlug}`,
+        `booking-state:${salonSlug}${rescheduleId ? `:${rescheduleId}` : ""}`,
         JSON.stringify({
           serviceIds,
           proId,
@@ -335,7 +342,7 @@ export function BookingFlow({
     } catch {
       // A URL com os serviços ainda preserva o retorno do fluxo de login.
     }
-  }, [bookingStateReady, date, proId, salonSlug, serviceIds, slot, waitlistTarget]);
+  }, [bookingStateReady, date, proId, rescheduleId, salonSlug, serviceIds, slot, waitlistTarget]);
 
   useEffect(() => {
     if (retryUntilMs === null) return;
@@ -503,6 +510,7 @@ export function BookingFlow({
 
   async function submit() {
     if (selectedServices.length === 0 || !proId || !slot) return;
+    if (!clientSession) { goToLogin(); return; }
     setLoading(true);
     setError(null);
     const startLocal = `${format(date, "yyyy-MM-dd")}T${slot}`;
@@ -551,7 +559,7 @@ export function BookingFlow({
         const pro = eligibleProfessionals.find((professional) => professional.id === proId);
         if (!rescheduleId) cart.clear();
         try {
-          sessionStorage.removeItem(`booking-state:${salonSlug}`);
+          sessionStorage.removeItem(`booking-state:${salonSlug}${rescheduleId ? `:${rescheduleId}` : ""}`);
         } catch {}
         setBooked({
           startAt: confirmedStart,
@@ -585,6 +593,7 @@ export function BookingFlow({
 
   async function joinWaitlist() {
     if (!waitlistTarget || !proId || serviceIds.length === 0) return;
+    if (!clientSession) { goToLogin(); return; }
     setWaitlistLoading(true);
     setWaitlistError(null);
     try {
@@ -633,6 +642,11 @@ export function BookingFlow({
     }
   }
 
+  function goToLogin() {
+    const returnTo = clientBookingReturnTo(salonSlug, { services: serviceIds.join(","), pro: proId ?? undefined, date: format(date, "yyyy-MM-dd"), slot: slot ?? undefined, reschedule: rescheduleId ?? undefined, version: rescheduleVersion?.toString() });
+    router.push(`/book/${salonSlug}/login?returnTo=${encodeURIComponent(returnTo)}`);
+  }
+
   if (booked) {
     return (
       <BoardingPass
@@ -648,7 +662,8 @@ export function BookingFlow({
     return (
       <>
         <section className="animate-fade-in min-h-dvh space-y-6 px-5 pb-32 pt-6">
-          <FlowHeader title="Escolha os serviços" onBack={() => router.push(`/book/${salonSlug}`)} />
+          <FlowHeader title="Escolha os serviços" subtitle="Escolha um ou mais serviços para o mesmo atendimento." onBack={() => router.push(`/book/${salonSlug}`)} />
+          <BookingProgress current={0} />
         {selectedServices.length > 0 && (
           <div
             aria-live="polite"
@@ -667,6 +682,7 @@ export function BookingFlow({
               onClick={() => {
                 invalidatePendingSlot();
                 setServiceIds([]);
+                setSelectionMessage(null);
                 setProId(null);
                 setSlot(null);
               }}
@@ -704,32 +720,16 @@ export function BookingFlow({
           </label>
 
           {serviceCategories.length > 1 && (
-            <div
-              className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-              aria-label="Filtrar por categoria"
-            >
-              {[null, ...serviceCategories].map((category) => {
-                const active = serviceCategory === category;
-                return (
-                  <button
-                    key={category ?? "all"}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => {
-                      setServiceCategory(category);
-                      setServiceQuery("");
-                    }}
-                    className={`min-h-11 shrink-0 rounded-full border px-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                      active
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "border-border bg-card text-muted-foreground hover:border-primary/60 hover:text-foreground"
-                    }`}
-                  >
-                    {category ?? "Todos"}
-                  </button>
-                );
-              })}
-            </div>
+            <label className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="font-medium">Categoria</span>
+              <select aria-label="Ver categorias" value={serviceCategory ?? ""} onChange={event => {
+                setServiceCategory(event.target.value || null);
+                setServiceQuery("");
+              }} className="min-h-11 min-w-0 flex-1 rounded-xl border border-border bg-card px-3 text-base">
+                <option value="">Todas as categorias</option>
+                {serviceCategories.map(category => <option key={category} value={category}>{category}</option>)}
+              </select>
+            </label>
           )}
         </div>
 
@@ -751,6 +751,7 @@ export function BookingFlow({
           )}
         </div>
 
+        {selectionMessage && <p role="status" className="rounded-xl bg-warning/10 p-3 text-sm text-warning">{selectionMessage}</p>}
         {visibleServices.length === 0 ? (
           <div className="rounded-3xl border border-border bg-card p-8 text-center">
             <Search className="mx-auto h-6 w-6 text-muted-foreground" />
@@ -760,74 +761,52 @@ export function BookingFlow({
             </p>
           </div>
         ) : (
-        <div className="grid grid-cols-1 gap-3 min-[390px]:grid-cols-2">
-          {visibleServices.map((s) => {
-            const Icon = iconForService(s.category);
-            const selected = serviceIds.includes(s.id);
-            return (
-            <button
-              key={s.id}
-              type="button"
-              aria-pressed={selected}
-              onClick={() => {
-                invalidatePendingSlot();
-                setProId(null);
-                setSlot(null);
-                setServiceIds((current) =>
-                  current.includes(s.id)
-                    ? current.filter((id) => id !== s.id)
-                    : [...current, s.id],
-                );
-              }}
-              className={`relative flex min-h-36 w-full flex-col rounded-2xl border bg-card p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                selected ? "border-primary bg-primary/5 ring-2 ring-primary/30" : "border-border hover:border-primary"
-              }`}
-            >
-              <div className="flex w-full items-start justify-between gap-3">
-                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-primary/10">
-                  <Icon aria-hidden="true" className="h-4 w-4 text-primary" />
-                </div>
-                <span className={`grid h-6 w-6 place-items-center rounded-full border ${
-                  selected ? "border-primary bg-primary text-primary-foreground" : "border-border"
-                }`}>
-                  {selected && <Check className="h-3.5 w-3.5" />}
-                </span>
+        <div className="space-y-6">
+          {serviceGroups.map(group => (
+            <section key={group.category} aria-label={group.category}>
+              <h2 className="mb-2 text-sm font-semibold">{group.category} <span className="ml-1 font-normal text-muted-foreground">{group.services.length}</span></h2>
+              <div className="client-service-list">
+                {group.services.map(service => {
+                  const selected = serviceIds.includes(service.id);
+                  const compatible = selected || eligibleProfessionalsForServices([...selectedServices, service]).length > 0;
+                  return <button key={service.id} type="button" aria-pressed={selected} className="client-service-row" onClick={() => {
+                    if (!selected && selectedServices.length >= 10) {
+                      setSelectionMessage("Você pode escolher até 10 serviços por atendimento."); return;
+                    }
+                    setSelectionMessage(!compatible ? "Essa combinação não tem um profissional em comum. Remova um serviço ou agende os atendimentos separadamente." : null);
+                    invalidatePendingSlot(); setProId(null); setSlot(null);
+                    setServiceIds(current => selected ? current.filter(id => id !== service.id) : [...current, service.id]);
+                  }}>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-semibold leading-snug">{service.name.replace(/^Combo Fem:/i, "Combo feminino:").replace(/^Combo Masc:/i, "Combo masculino:")}</span>
+                      {service.description && <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">{service.description}</span>}
+                      <span className="mt-1.5 block text-sm text-muted-foreground">{formatDuration(service.durationMin)}</span>
+                      {!compatible && <span className="mt-1 block text-xs font-medium text-warning">Exige outro atendimento</span>}
+                    </span>
+                    <span className="shrink-0 text-right text-sm font-semibold">{formatMoney(service.priceCents, currency)}</span>
+                    <span aria-hidden="true" className={`grid h-6 w-6 shrink-0 place-items-center rounded-md border ${selected ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground"}`}>
+                      {selected && <Check className="h-4 w-4" />}
+                    </span>
+                  </button>;
+                })}
               </div>
-              <p className="mt-3 break-words font-medium leading-snug">{s.name}</p>
-              {s.description && (
-                <p className="mt-1 break-words text-xs leading-relaxed text-muted-foreground">
-                  {s.description}
-                </p>
-              )}
-              <div className="mt-auto flex w-full items-end justify-between gap-2 pt-4">
-                <div>
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                    {serviceCategoryLabel(s)}
-                  </p>
-                  <p className="text-xs text-muted-foreground">{formatDuration(s.durationMin)}</p>
-                </div>
-                <p className="text-sm font-semibold text-primary">
-                  {formatMoney(s.priceCents, currency)}
-                </p>
-              </div>
-            </button>
-            );
-          })}
+            </section>
+          ))}
         </div>
         )}
         </section>
-        <div data-booking-tray className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-[480px] border-t border-border/70 bg-background/95 px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_24px_rgba(0,0,0,0.18)] backdrop-blur md:max-w-4xl md:px-6 lg:max-w-6xl lg:rounded-t-2xl lg:px-8">
+        <div data-booking-tray className="client-booking-tray">
           <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
-            <span>{formatDuration(totalDuration)}</span>
+            <span>{selectedServices.length} selecionado{selectedServices.length === 1 ? "" : "s"} · {formatDuration(totalDuration)}</span>
             <span>{formatMoney(totalServicePrice, currency)}</span>
           </div>
           <button
             type="button"
             disabled={selectedServices.length === 0 || eligibleProfessionals.length === 0}
-            onClick={() => setChoosingServices(false)}
+            onClick={() => { setChoosingServices(false); window.scrollTo({ top: 0, behavior: "instant" }); }}
             className="min-h-12 w-full rounded-full bg-primary px-5 py-3 text-base font-semibold text-primary-foreground disabled:opacity-40"
           >
-            Continuar com {selectedServices.length} {selectedServices.length === 1 ? "serviço" : "serviços"}
+            {selectedServices.length === 0 ? "Selecione um serviço para continuar" : eligibleProfessionals.length === 1 ? "Escolher horário" : "Escolher profissional"}
           </button>
           {selectedServices.length > 0 && eligibleProfessionals.length === 0 && (
             <p className="mt-2 text-center text-xs text-destructive">
@@ -845,9 +824,14 @@ export function BookingFlow({
       <FlowHeader
         title="Agendamento"
         onBack={() => setChoosingServices(true)}
-        subtitle={`${serviceName} · ${formatDuration(totalDuration)}`}
+        subtitle={salonName}
       />
 
+      <BookingProgress current={reviewing ? 3 : proId ? 2 : 1} />
+      <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4">
+        <div className="min-w-0 flex-1"><p className="text-sm font-medium">{serviceName}</p><p className="mt-1 text-xs text-muted-foreground">{formatDuration(totalDuration)} · {formatMoney(totalServicePrice, currency)}</p></div>
+        {!rescheduleId && <button type="button" className="min-h-11 shrink-0 px-2 text-sm font-semibold text-primary" onClick={() => setChoosingServices(true)}>Alterar serviços</button>}
+      </div>
       {/* Escolher profissional — cards com prova social real */}
       <div>
         <h3 className="mb-1 text-sm font-semibold">
@@ -1054,7 +1038,7 @@ export function BookingFlow({
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-semibold">Horário disponível</h3>
           {!slotsLoading && slots.length > 0 && slots.length <= 6 && (
-            <span className="flex items-center gap-1 text-[11px] font-medium text-amber-400">
+            <span className="flex items-center gap-1 text-[11px] font-medium text-warning">
               <Zap className="h-3 w-3 fill-current" />
               Últimos horários do dia
             </span>
@@ -1135,7 +1119,7 @@ export function BookingFlow({
         )}
         {popularSlot && slots.includes(popularSlot) && (
           <p className="mt-2 flex items-center gap-1 text-[11px] text-muted-foreground">
-            <Zap className="h-3 w-3 fill-current text-amber-400" />
+            <Zap className="h-3 w-3 fill-current text-warning" />
             {popularSlot} é o horário mais pedido — costuma esgotar primeiro.
           </p>
         )}
@@ -1242,9 +1226,9 @@ export function BookingFlow({
       )}
 
       {/* Identidade da conta que será vinculada à reserva. */}
-      {!rescheduleId && proId && serviceIds.length > 0 && <FlexiblePanel key={`${proId}:${serviceIds.join()}`} salonId={salonId} professionalId={proId} serviceIds={serviceIds} date={format(date, "yyyy-MM-dd")} />}
-      {!rescheduleId && <DependentPicker salonId={salonId} value={dependentId} onChange={(id, name) => { setDependentId(id); setDependentName(name); idempotencyKeyRef.current = null; }} />}
-      {slot && (
+      {clientSession && !rescheduleId && proId && serviceIds.length > 0 && <FlexiblePanel key={`${proId}:${serviceIds.join()}`} salonId={salonId} professionalId={proId} serviceIds={serviceIds} date={format(date, "yyyy-MM-dd")} />}
+      {clientSession && !rescheduleId && <DependentPicker salonId={salonId} value={dependentId} onChange={(id, name) => { setDependentId(id); setDependentName(name); idempotencyKeyRef.current = null; }} />}
+      {slot && clientSession && (
         <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4">
           <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary/20 text-sm font-semibold text-primary">
             {clientSession.name.split(" ").map((n) => n[0]).slice(0, 2).join("")}
@@ -1276,7 +1260,8 @@ export function BookingFlow({
       )}
 
       </section>
-      <div data-booking-tray className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-[480px] border-t border-border/70 bg-background/95 px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_24px_rgba(0,0,0,0.18)] backdrop-blur md:max-w-4xl md:px-6 lg:max-w-6xl lg:rounded-t-2xl lg:px-8">
+      <div data-booking-tray className="client-booking-tray">
+        <p role="status" className="mb-2 flex flex-wrap justify-between gap-1 text-xs text-muted-foreground"><span>{!proId ? "Escolha um profissional" : !slot ? "Escolha uma data e um horário" : `${format(date, "dd/MM")} às ${slot} · ${formatDuration(totalDuration)}`}</span><strong className="text-foreground">{formatMoney(totalServicePrice + cart.totalCents, currency)}</strong></p>
         <button
           onClick={handleConfirmClick}
           disabled={
@@ -1314,6 +1299,7 @@ export function BookingFlow({
           onBack={() => setReviewing(false)}
           onConfirm={submit}
           rescheduling={Boolean(rescheduleId)}
+          requiresLogin={!clientSession}
         />
       )}
     </>
@@ -1337,6 +1323,7 @@ function BookingReview({
   onBack,
   onConfirm,
   rescheduling,
+  requiresLogin,
 }: {
   beneficiaryName?: string;
   salonName: string;
@@ -1354,12 +1341,14 @@ function BookingReview({
   onBack: () => void;
   onConfirm: () => void;
   rescheduling: boolean;
+  requiresLogin: boolean;
 }) {
   return (
     <Dialog open onOpenChange={(open) => !open && !loading && onBack()}>
       <DialogContent className="bottom-0 top-auto max-h-[calc(100dvh-1rem)] max-w-[480px] -translate-y-0 gap-0 overflow-y-auto rounded-b-none rounded-t-3xl bg-background p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2 sm:rounded-3xl">
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">{salonName}</p>
         <DialogTitle className="mt-1 text-xl">Revise sua reserva</DialogTitle>
+        <div className="mt-4"><BookingProgress current={3} /></div>
         <DialogDescription className="sr-only">
           Confira serviços, profissional, data, duração e total antes de confirmar.
         </DialogDescription>
@@ -1383,6 +1372,7 @@ function BookingReview({
         <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
           Cancelamento ou remarcação pelo app até {cancelPolicyHours}h antes do horário.
         </p>
+        {requiresLogin && <p className="mt-4 rounded-xl bg-primary/10 p-3 text-sm text-primary">Entre ou crie sua conta para confirmar. Suas escolhas serão mantidas; o horário será verificado novamente.</p>}
         <div className="mt-5 grid grid-cols-2 gap-3">
           <button
             type="button"
@@ -1398,7 +1388,7 @@ function BookingReview({
             disabled={loading}
             className="min-h-12 rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-50"
           >
-            {loading ? "Confirmando…" : rescheduling ? "Confirmar remarcação" : "Confirmar reserva"}
+            {loading ? "Confirmando…" : requiresLogin ? "Entrar e continuar" : rescheduling ? "Confirmar remarcação" : "Confirmar reserva"}
           </button>
         </div>
       </DialogContent>
@@ -1464,7 +1454,7 @@ function BoardingPass({
         Reserva confirmada
       </h1>
       <p className="animate-rise mt-1 text-sm text-muted-foreground [animation-delay:220ms]">
-        Te esperamos lá 👇
+        Seu horário está reservado. Acompanhe tudo em Minhas reservas.
       </p>
 
       {/* Cartão */}
@@ -1531,14 +1521,14 @@ function BoardingPass({
       <div className="animate-rise mt-8 flex w-full max-w-sm flex-col gap-2 [animation-delay:450ms]">
         <button
           onClick={downloadIcs}
-          className="flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-3.5 text-sm font-semibold text-primary-foreground"
+          className="flex items-center justify-center gap-2 rounded-full border border-border bg-card px-6 py-3.5 text-sm font-semibold"
         >
           <CalendarPlus className="h-4 w-4" />
           Adicionar ao calendário
         </button>
         <Link
           href={`/book/${salonSlug}/minhas`}
-          className="rounded-full border border-border bg-card px-6 py-3.5 text-center text-sm font-medium"
+          className="rounded-full bg-primary px-6 py-3.5 text-center text-sm font-semibold text-primary-foreground"
         >
           Ver minhas reservas
         </Link>
@@ -1577,4 +1567,10 @@ function FlowHeader({
       </div>
     </header>
   );
+}
+
+function BookingProgress({ current }: { current: number }) {
+  return <nav aria-label="Etapas do agendamento"><ol className="grid grid-cols-4 gap-2">
+    {["Serviços", "Profissional", "Horário", "Confirmar"].map((label, index) => <li key={label} aria-current={index === current ? "step" : undefined} className={`border-t-2 pt-2 text-[11px] sm:text-xs ${index <= current ? "border-primary font-semibold text-primary" : "border-border text-muted-foreground"}`}><span className="sr-only">Etapa {index + 1}: </span>{label}</li>)}
+  </ol></nav>;
 }

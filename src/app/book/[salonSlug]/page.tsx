@@ -367,7 +367,7 @@ export default async function ClientHome({
       />
 
       {(whatsappHref || phoneHref || instagramHandle || siteUrl || blogUrl) && (
-        <section aria-labelledby="contact-title" className="rounded-3xl border border-border bg-card p-4">
+        <section id="contato" aria-labelledby="contact-title" className="rounded-3xl border border-border bg-card p-4">
           <div className="mb-3">
             <p id="contact-title" className="text-sm font-semibold">Fale com o Studio</p>
             <p className="mt-1 text-xs text-muted-foreground">Canais oficiais do salão</p>

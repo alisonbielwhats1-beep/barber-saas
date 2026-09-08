@@ -55,7 +55,7 @@ test.describe("@database jornadas críticas no PostgreSQL descartável", () => {
     });
     await expect(page.locator('button[aria-pressed] img')).toHaveCount(0);
     await page.getByRole("button", { name: /Corte feminino/ }).click();
-    await page.getByRole("button", { name: "Continuar com 1 serviço" }).click();
+    await page.getByRole("button", { name: /Escolher (profissional|horário)/ }).click();
     await page.getByRole("button", { name: /Camila/ }).click();
 
     const dateButtons = page.locator('button[aria-label*=" de "]');

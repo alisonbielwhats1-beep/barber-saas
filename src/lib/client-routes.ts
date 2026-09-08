@@ -15,6 +15,8 @@ export type ClientBookingQuery = {
   pro?: string;
   reschedule?: string;
   version?: string;
+  date?: string;
+  slot?: string;
 };
 
 export function clientBookingPath(salonSlug: string): string {
@@ -32,6 +34,8 @@ export function clientBookingReturnTo(
   if (query.pro) params.set("pro", query.pro.slice(0, 120));
   if (query.reschedule) params.set("reschedule", query.reschedule.slice(0, 120));
   if (query.version) params.set("version", query.version.slice(0, 20));
+  if (query.date && /^\d{4}-\d{2}-\d{2}$/.test(query.date)) params.set("date", query.date);
+  if (query.slot && /^([01]\d|2[0-3]):[0-5]\d$/.test(query.slot)) params.set("slot", query.slot);
   const encoded = params.toString();
   return `${clientBookingPath(salonSlug)}${encoded ? `?${encoded}` : ""}`;
 }
