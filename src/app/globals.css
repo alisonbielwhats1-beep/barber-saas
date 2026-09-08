@@ -256,6 +256,36 @@
     color-scheme: dark;
   }
 
+  [data-theme="salon-light"] {
+    --background: 220 20% 97%;
+    --foreground: 225 12% 15%;
+    --card: 0 0% 100%;
+    --card-hover: 155 30% 95%;
+    --card-foreground: 225 12% 15%;
+    --muted: 220 16% 93%;
+    --muted-foreground: 220 10% 40%;
+    --border: 220 14% 86%;
+    --input: 220 14% 80%;
+    --ring: 158 71% 24%;
+    --primary: 158 71% 24%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 16% 93%;
+    --secondary-foreground: 225 12% 15%;
+    --accent: 263 36% 45%;
+    --accent-foreground: 0 0% 100%;
+    --success: 158 71% 24%;
+    --info: 213 73% 37%;
+    --warning: 32 90% 30%;
+    --danger: 0 65% 40%;
+    --selection: 264 50% 95%;
+    --selection-foreground: 263 36% 40%;
+    --destructive: 0 65% 40%;
+    --destructive-foreground: 0 0% 100%;
+    --radius: 1rem;
+    color: hsl(var(--foreground));
+    color-scheme: light;
+  }
+
   * {
     @apply border-border;
   }
@@ -374,7 +404,7 @@
     box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
   }
 
-  [data-theme="admin-light"] [role="dialog"]:not([data-theme="salon-dark"]) {
+  [data-theme="admin-light"] [role="dialog"]:not([data-theme^="salon-"]) {
     --tw-shadow: 0 8px 24px rgb(22 34 52 / 0.1), 0 24px 64px -16px rgb(22 34 52 / 0.22);
     box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
   }

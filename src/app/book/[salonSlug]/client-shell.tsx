@@ -1,9 +1,9 @@
 "use client";
 
-import { createContext, useContext } from "react";
+import { createContext, useContext, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell } from "lucide-react";
+import { Bell, Moon, Sun } from "lucide-react";
 import { BottomNav } from "./bottom-nav";
 import { UnreadBadge } from "@/components/unread-badge";
 import { cn } from "@/lib/utils";
@@ -21,17 +21,28 @@ export function ClientShell({
   children,
   salonSlug,
   unreadNotifications,
+  initialTheme = "salon-dark",
 }: {
   children: React.ReactNode;
   salonSlug: string;
   unreadNotifications: number;
+  initialTheme?: "salon-dark" | "salon-light";
 }) {
   const pathname = usePathname();
   const hideNavigation = hidesPrimaryNavigation(pathname);
+  const [theme, setTheme] = useState(initialTheme);
+  function toggleTheme() {
+    const next = theme === "salon-dark" ? "salon-light" : "salon-dark";
+    setTheme(next);
+    try {
+      document.cookie = `everflair-client-theme=${next === "salon-light" ? "light" : "dark"}; Path=/; Max-Age=31536000; SameSite=Lax${location.protocol === "https:" ? "; Secure" : ""}`;
+    } catch { /* The current view still changes when persistence is blocked. */ }
+  }
 
   return (
     <UnreadNotificationsContext.Provider value={unreadNotifications}>
-      <DialogThemeProvider value="salon-dark">
+      <DialogThemeProvider value={theme}>
+      <div data-theme={theme} className="client-app min-h-dvh bg-background text-foreground">
       <div
         id="main-content"
         tabIndex={-1}
@@ -40,11 +51,18 @@ export function ClientShell({
           !hideNavigation && "pb-[calc(6.75rem+env(safe-area-inset-bottom))]",
         )}
       >
+        <div className="client-appearance-bar">
+          <button type="button" onClick={toggleTheme} aria-label={theme === "salon-dark" ? "Usar tema claro" : "Usar tema escuro"} className="inline-flex min-h-11 items-center gap-2 rounded-full px-3 text-xs font-medium text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            {theme === "salon-dark" ? <Sun className="h-4 w-4" aria-hidden="true" /> : <Moon className="h-4 w-4" aria-hidden="true" />}
+            {theme === "salon-dark" ? "Tema claro" : "Tema escuro"}
+          </button>
+        </div>
         {children}
       </div>
       {!hideNavigation && (
         <BottomNav salonSlug={salonSlug} unreadNotifications={unreadNotifications} />
       )}
+      </div>
       </DialogThemeProvider>
     </UnreadNotificationsContext.Provider>
   );

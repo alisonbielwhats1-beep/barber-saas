@@ -9,7 +9,7 @@ export function ReviewStars({ rating, size = "h-4 w-4" }: { rating: number; size
         <Star
           key={index}
           aria-hidden="true"
-          className={`${size} ${index < Math.round(rating) ? "text-amber-400" : "text-muted-foreground/25"}`}
+          className={`${size} ${index < Math.round(rating) ? "text-warning" : "text-muted-foreground/25"}`}
           fill={index < Math.round(rating) ? "currentColor" : "none"}
         />
       ))}
@@ -74,7 +74,7 @@ export function ReviewsSection({
     <section id="avaliacoes" aria-labelledby="reviews-title" className="space-y-3">
       <div className="flex items-end justify-between gap-3">
         <div>
-          <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-400">
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-warning">
             Experiências reais
           </p>
           <h2 id="reviews-title" className="text-base font-semibold">Avaliações</h2>
@@ -89,7 +89,7 @@ export function ReviewsSection({
 
       <div className="rounded-3xl border border-amber-400/20 bg-gradient-to-br from-amber-400/10 via-card to-card p-5">
         <div className="flex items-center gap-4">
-          <div className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-amber-400/15 text-2xl font-semibold text-amber-300">
+          <div className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-amber-400/15 text-2xl font-semibold text-warning">
             {summary.average.toFixed(1).replace(".", ",")}
           </div>
           <div>
@@ -98,7 +98,7 @@ export function ReviewsSection({
               {summary.count} {summary.count === 1 ? "avaliação" : "avaliações"} verificadas
             </p>
           </div>
-          <MessageSquareQuote aria-hidden="true" className="ml-auto h-5 w-5 text-amber-400/70" />
+          <MessageSquareQuote aria-hidden="true" className="ml-auto h-5 w-5 text-warning/70" />
         </div>
       </div>
 

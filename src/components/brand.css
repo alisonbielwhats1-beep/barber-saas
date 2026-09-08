@@ -53,14 +53,15 @@
   animation: ef-intro-wordmark 1100ms cubic-bezier(.22,1,.36,1) both;
 }
 .ef-intro[data-audience="client"] {
-  background: #111b19;
+  background: #131315;
   color: var(--ef-ivory);
   animation-duration: 2200ms;
+  pointer-events: auto;
 }
 .ef-intro[data-audience="client"] .ef-intro-light {
   background:
-    radial-gradient(ellipse at 20% 75%, #19875f, transparent 48%),
-    radial-gradient(ellipse at 85% 20%, var(--ef-lilac), transparent 42%);
+    radial-gradient(ellipse at 30% 65%, #126949, transparent 42%),
+    radial-gradient(ellipse at 75% 35%, #69499c, transparent 38%);
   animation: ef-client-aurora 2200ms cubic-bezier(.25,.5,.4,1) both;
 }
 .ef-intro-orbit {
@@ -73,13 +74,20 @@
   animation: ef-client-orbit 2200ms ease-out both;
 }
 .ef-intro[data-audience="client"] .ef-intro-logo {
-  filter: drop-shadow(0 4px 20px #111b19);
-  animation-duration: 1500ms;
+  width: clamp(172px, 48vw, 260px);
+  height: clamp(44px, 12vw, 66px);
+  color: #e9def7;
+  filter: drop-shadow(0 4px 24px #131315);
+  animation: ef-client-signature 1700ms cubic-bezier(.22,1,.36,1) both;
+}
+@keyframes ef-client-signature {
+  0% { opacity: .15; transform: translateY(10px) scale(.92); filter: blur(5px); }
+  45%, 100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
 }
 @keyframes ef-client-aurora {
   0% { transform: translate(-12%, 12%) rotate(-18deg) scale(1.15); opacity: .5; }
-  55% { opacity: .9; }
-  100% { transform: translate(10%, -10%) rotate(16deg) scale(1); opacity: .7; }
+  55% { opacity: .55; }
+  100% { transform: translate(10%, -10%) rotate(16deg) scale(1); opacity: .35; }
 }
 @keyframes ef-client-orbit {
   0% { transform: scale(.65); opacity: 0; }

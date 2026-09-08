@@ -17,10 +17,14 @@ export function ReviewDialog({
   salonSlug,
   appointmentId,
   serviceName,
+  salonName,
+  emphasized = false,
 }: {
   salonSlug: string;
   appointmentId: string;
   serviceName: string;
+  salonName?: string;
+  emphasized?: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -61,17 +65,17 @@ export function ReviewDialog({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex min-h-11 items-center gap-1.5 rounded-xl px-2 text-xs font-semibold text-amber-400 transition-colors hover:bg-amber-400/10"
+        className={`inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm font-semibold transition-colors ${emphasized ? "bg-primary text-primary-foreground hover:bg-primary/90" : "text-warning hover:bg-warning/10"}`}
       >
-        <Star aria-hidden="true" className="h-3.5 w-3.5" /> Avaliar atendimento
+        <Star aria-hidden="true" className="h-4 w-4" /> Avaliar salão
       </button>
 
       <Dialog open={open} onOpenChange={close}>
         <DialogContent className="max-h-[calc(100dvh-1rem)] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Como foi seu atendimento?</DialogTitle>
+            <DialogTitle>Como foi sua experiência{salonName ? ` no ${salonName}` : " no salão"}?</DialogTitle>
             <DialogDescription>
-              Sua avaliação verificada ajuda outras pessoas a escolherem {serviceName}.
+              Atendimento: {serviceName}. Sua nota e seu comentário serão públicos, com seu nome abreviado.
             </DialogDescription>
           </DialogHeader>
 
@@ -89,12 +93,23 @@ export function ReviewDialog({
                       role="radio"
                       aria-checked={value === rating}
                       aria-label={`${value} ${value === 1 ? "estrela" : "estrelas"}`}
+                      tabIndex={value === (rating || 1) ? 0 : -1}
                       onClick={() => setRating(value)}
+                      onKeyDown={event => {
+                        let next: number;
+                        if (event.key === "ArrowRight" || event.key === "ArrowDown") next = value === 5 ? 1 : value + 1;
+                        else if (event.key === "ArrowLeft" || event.key === "ArrowUp") next = value === 1 ? 5 : value - 1;
+                        else if (event.key === "Home") next = 1;
+                        else if (event.key === "End") next = 5;
+                        else return;
+                        event.preventDefault(); setRating(next);
+                        event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="radio"]')[next - 1]?.focus();
+                      }}
                       className="grid h-11 w-11 place-items-center rounded-xl transition hover:bg-amber-400/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       <Star
                         aria-hidden="true"
-                        className={`h-6 w-6 ${selected ? "text-amber-400" : "text-muted-foreground/35"}`}
+                        className={`h-6 w-6 ${selected ? "text-warning" : "text-muted-foreground"}`}
                         fill={selected ? "currentColor" : "none"}
                       />
                     </button>

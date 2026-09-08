@@ -1,5 +1,19 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-08 — jornada do cliente em revisão; PR #82 publicado
+
+PR #82 integrado no commit `aca303b349dbc864af40fcefc6b52a146f4bbf71`,
+Production `dpl_BsuGoh4eDd6uisZ1FWeMnDxP57Xo` READY. Operação gratuita foi
+ativada conforme evidência: https://github.com/alisonbielwhats1-beep/barber-saas/pull/82#issuecomment-5576103545.
+Isso conclui o registro de preparação abaixo. E-mail continua sem remetente
+verificado, sem ativação de envio para clientes.
+
+Nova revisão autorizada: catálogo compacto, consulta antes do login, retorno
+com escolhas preservadas, entrada menor, animação presente desde o HTML inicial,
+tema claro/escuro independente no cliente e convite destacado para avaliação.
+Escopo: `docs/CLIENTE_AGENDAMENTO_CLARO_2026-09-08.md`. Branch
+`codex/client-booking-clarity`, sem banco ou promoção produtiva nesta revisão.
+
 ## 2026-09-07 — PR #81 publicado; operação gratuita em preparação
 
 O PR #81 foi integrado no commit `f92fa0468efeae2b950e404508b5f15f3c901bdd`.
@@ -317,7 +331,7 @@ test pós-deploy está em `docs/FASE_0_PRODUCTION_READINESS.md`.
 - notificações internas e lista de espera vinculada ao horário;
 - próxima reserva destacada, com data relativa, duração e endereço;
 - cor de marca aplicada em toda a experiência pública;
-- fotos dos serviços usadas na vitrine e como capa das categorias;
+- serviços e categorias sem fotos na jornada, conforme revisão publicada no PR #81;
 - catálogo de produtos e portfólio público.
 
 ### Confiabilidade da agenda

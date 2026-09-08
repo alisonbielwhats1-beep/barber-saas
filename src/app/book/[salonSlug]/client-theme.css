@@ -4,6 +4,7 @@
   padding-left: max(0px, env(safe-area-inset-left, 0px));
   padding-right: max(0px, env(safe-area-inset-right, 0px));
 }
+.client-appearance-bar { display: flex; justify-content: flex-end; padding: .25rem 1rem 0; }
 .client-brand-logo.ef-logo {
   width: min(166px, 100%);
   height: 42px;
@@ -24,12 +25,14 @@
   margin-inline: auto;
   padding: 1.5rem 1rem max(1.5rem, env(safe-area-inset-bottom, 0px));
 }
-.client-access-brand { margin-bottom: 1.5rem; text-align: center; }
+.client-access-brand { margin-bottom: 1.5rem; text-align: left; padding-inline: .25rem; }
+.client-access-brand .client-brand-logo { width: 120px; height: 31px; }
+.client-access-brand p { font-weight: 500; color: hsl(var(--foreground)); }
 .client-access-card {
   min-width: 0;
   padding: clamp(1.25rem, 4vw, 2rem);
   border: 1px solid hsl(var(--border));
-  border-radius: 1.5rem;
+  border-radius: 1.25rem;
   background: hsl(var(--card));
   box-shadow: 0 16px 48px -24px rgb(0 0 0 / .6);
 }
@@ -58,15 +61,15 @@
   .client-shell { padding-inline: max(2rem, env(safe-area-inset-left, 0px)) max(2rem, env(safe-area-inset-right, 0px)); }
 }
 
-[data-theme="salon-dark"] .client-booking-cta {
+.client-app .client-booking-cta {
   background: #126949;
   color: #fff;
   border: 1px solid #368967;
   box-shadow: 0 12px 32px -20px #19875f;
   transition: background-color 180ms ease;
 }
-[data-theme="salon-dark"] .client-booking-cta:hover { background: #0f5b40; }
-[data-theme="salon-dark"] .client-booking-cta-action {
+.client-app .client-booking-cta:hover { background: #0f5b40; }
+.client-app .client-booking-cta-action {
   background: hsl(var(--primary));
   color: hsl(var(--primary-foreground));
 }
@@ -128,6 +131,34 @@
 }
 .client-reservation-total { color: hsl(var(--reservation-color)); }
 .client-reservation-details { background: rgb(0 0 0 / .16); }
+[data-theme="salon-light"] .client-brand-logo { color: #69499c; }
+[data-theme="salon-light"] .client-access-card { box-shadow: 0 12px 40px -20px rgb(35 43 60 / .2); }
+[data-theme="salon-light"] .client-location-icon { color: #a63e32; }
+[data-theme="salon-light"] .client-hours-icon { color: #2563a6; }
+[data-theme="salon-light"] .client-payment-icon { color: #69499c; }
+[data-theme="salon-light"] .client-reservation {
+  --muted-foreground: 220 10% 36%;
+  --reservation-color: var(--muted-foreground);
+  border-left: 4px solid hsl(var(--reservation-color));
+  box-shadow: 0 6px 20px -12px rgb(35 43 60 / .18);
+}
+[data-theme="salon-light"] .client-reservation[data-status="CONFIRMED"] { --reservation-color: var(--success); background: #e2f3e9; border-color: #8cbba0; }
+[data-theme="salon-light"] .client-reservation:is([data-status="CANCELLED"], [data-status="NO_SHOW"]) { --reservation-color: var(--danger); background: #fcebec; border-color: #d6a1a7; }
+[data-theme="salon-light"] .client-reservation[data-status="PENDING"] { --reservation-color: var(--warning); background: #fff3db; border-color: #d6b572; }
+[data-theme="salon-light"] .client-reservation[data-status="IN_PROGRESS"] { --reservation-color: var(--info); background: #e5f0fc; border-color: #95b5d9; }
+[data-theme="salon-light"] .client-reservation[data-status="COMPLETED"] { --reservation-color: var(--success); }
+[data-theme="salon-light"] .client-reservation-status { color: #fff; }
+[data-theme="salon-light"] .client-reservation-details { background: rgb(255 255 255 / .65); }
+.client-service-list { overflow: hidden; border: 1px solid hsl(var(--border)); border-radius: 1rem; background: hsl(var(--card)); }
+.client-service-row { display: flex; width: 100%; align-items: center; gap: 1rem; padding: 1rem; text-align: left; }
+.client-service-row + .client-service-row { border-top: 1px solid hsl(var(--border) / .65); }
+.client-service-row[aria-pressed="true"] { background: hsl(var(--primary) / .09); box-shadow: inset 3px 0 hsl(var(--primary)); }
+.client-service-row:focus-visible { outline-offset: -3px; }
+.client-service-row:hover { background: hsl(var(--primary) / .06); }
+[data-theme="salon-light"] .client-service-list { box-shadow: 0 8px 24px -18px rgb(35 43 60 / .24); }
+.client-booking-tray { position: fixed; inset-inline: 0; bottom: 0; z-index: 40; width: 100%; max-width: 480px; margin-inline: auto; padding: .75rem max(1rem, env(safe-area-inset-right)) max(.75rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left)); background: hsl(var(--card)); border-top: 1px solid hsl(var(--border)); box-shadow: 0 -8px 28px -20px rgb(0 0 0 / .3); }
+@media (min-width: 768px) { .client-booking-tray { max-width: 56rem; padding-inline: 1.5rem; } }
+@media (min-width: 1024px) { .client-booking-tray { max-width: 72rem; padding-inline: 2rem; border-radius: 1rem 1rem 0 0; } }
 @media (forced-colors: active) {
   .client-contact-icon, .client-reservation-status { forced-color-adjust: auto; }
 }

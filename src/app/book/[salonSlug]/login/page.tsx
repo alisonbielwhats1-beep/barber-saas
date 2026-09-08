@@ -20,7 +20,7 @@ export default async function LoginPage({
   if (session) redirect(homePath);
 
   return (
-    <ClientAccessLayout eyebrow="Sua conta" title="Entrar" description="Acesse para agendar e acompanhar suas reservas.">
+    <ClientAccessLayout eyebrow="Sua conta" title="Entrar" description={homePath.startsWith(`/book/${salonSlug}/agendar`) ? "Entre para continuar seu agendamento. Você revisará os dados antes de confirmar." : "Acesse para agendar e acompanhar suas reservas."}>
       <div className="space-y-6">
         <LoginForm salonSlug={salonSlug} returnTo={homePath} passwordReset={query.senha === "alterada"} />
 

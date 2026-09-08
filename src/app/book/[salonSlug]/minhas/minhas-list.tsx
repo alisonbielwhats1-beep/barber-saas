@@ -118,6 +118,7 @@ export function MinhasList({
   const [proposalRejectTarget, setProposalRejectTarget] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pastExpanded, setPastExpanded] = useState(false);
+  const [reviewDismissed, setReviewDismissed] = useState(false);
   const cancelKeys = useRef(new Map<string, string>());
 
   const activeStatuses = new Set(["PENDING", "CONFIRMED", "IN_PROGRESS"]);
@@ -132,6 +133,7 @@ export function MinhasList({
       !activeStatuses.has(appointment.status) || isPast(new Date(appointment.endAt)),
   );
   const [nextAppointment, ...laterAppointments] = upcoming;
+  const reviewAppointment = past.find(appointment => appointment.status === "COMPLETED" && !appointment.review);
 
   function respondToProposal(proposalId: string, decision: "ACCEPT" | "REJECT") {
     setError(null);
@@ -168,7 +170,8 @@ export function MinhasList({
       new Date(appointment.startAt).getTime() - Date.now() >=
       cancelPolicyHours * 60 * 60 * 1_000;
     return (
-      <div className="flex items-center gap-1">
+      <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-1">
         <button
           type="button"
           onClick={() => goRemark(appointment)}
@@ -187,6 +190,8 @@ export function MinhasList({
         >
           <XCircle aria-hidden="true" className="h-3.5 w-3.5" /> Cancelar
         </button>
+      </div>
+      {!canChange && <p className="max-w-sm text-xs leading-relaxed text-muted-foreground">O prazo para alterar pelo aplicativo terminou ({cancelPolicyHours}h antes). Para remarcar ou cancelar, entre em contato com o salão. <Link href={`/book/${salonSlug}#contato`} className="inline-flex min-h-11 items-center font-semibold underline">Ver contato do salão</Link></p>}
       </div>
     );
   }
@@ -315,7 +320,7 @@ export function MinhasList({
       {pendingProposals.length > 0 && (
         <section aria-labelledby="pending-proposals-title" className="space-y-3">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-500">Ação necessária</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-warning">Ação necessária</p>
             <h2 id="pending-proposals-title" className="text-base font-semibold">O estabelecimento sugeriu uma alteração</h2>
             <p className="mt-1 text-sm text-muted-foreground">Confira o novo horário e aceite ou recuse cada solicitação.</p>
           </div>
@@ -326,7 +331,7 @@ export function MinhasList({
             return (
               <article key={proposal.id} className="rounded-2xl border border-amber-500/35 bg-amber-500/5 p-4" aria-busy={pending}>
                 <div className="flex items-start gap-3">
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-amber-500/15 text-amber-600">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-amber-500/15 text-warning">
                     <Clock3 aria-hidden="true" className="h-5 w-5" />
                   </span>
                   <div className="min-w-0 flex-1">
@@ -394,6 +399,19 @@ export function MinhasList({
         <Section title="Próximas reservas" empty="Nenhuma reserva futura.">{null}</Section>
       )}
 
+      {reviewAppointment && !reviewDismissed && (
+        <section aria-labelledby="review-prompt-title" className="rounded-2xl border border-primary/25 bg-primary/5 p-5">
+          <p className="text-xs font-semibold text-primary">Após seu atendimento</p>
+          <h2 id="review-prompt-title" className="mt-1 text-lg font-semibold">Como foi sua experiência no {salonName}?</h2>
+          <p className="mt-2 text-sm text-muted-foreground">{reviewAppointment.serviceItems.map(service => service.serviceName).join(" + ") || reviewAppointment.service.name} · {formatInTimeZone(new Date(reviewAppointment.startAt), timezone, "dd/MM")} · com {reviewAppointment.professional.user.name}</p>
+          <p className="mt-1 text-xs text-muted-foreground">Dê sua nota. O comentário é opcional.</p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <ReviewDialog emphasized salonSlug={salonSlug} salonName={salonName} appointmentId={reviewAppointment.id} serviceName={reviewAppointment.serviceItems.map(service => service.serviceName).join(" + ") || reviewAppointment.service.name} />
+            <button type="button" className="min-h-11 rounded-xl px-3 text-sm text-muted-foreground hover:bg-muted" onClick={() => setReviewDismissed(true)}>Agora não</button>
+          </div>
+        </section>
+      )}
+
       {laterAppointments.length > 0 && (
         <Section title="Outras reservas" empty="">
           {laterAppointments.map((appointment) => (
@@ -418,7 +436,7 @@ export function MinhasList({
                 <p className="font-medium">{entry.serviceName}</p>
                 <p className="text-xs text-muted-foreground">com {entry.professionalName}</p>
               </div>
-              <span className="shrink-0 rounded-full bg-amber-500/15 px-2.5 py-1 text-[11px] font-semibold text-amber-600">
+              <span className="shrink-0 rounded-full bg-amber-500/15 px-2.5 py-1 text-[11px] font-semibold text-warning">
                 Fila #{entry.position}
               </span>
             </div>
@@ -505,6 +523,7 @@ export function MinhasList({
                 {a.status === "COMPLETED" && !a.review && (
                   <ReviewDialog
                     salonSlug={salonSlug}
+                    salonName={salonName}
                     appointmentId={a.id}
                     serviceName={a.serviceItems.length > 0
                       ? a.serviceItems.map((service) => service.serviceName).join(" + ")
@@ -512,7 +531,7 @@ export function MinhasList({
                   />
                 )}
                 {a.status === "COMPLETED" && a.review && (
-                  <span className="inline-flex min-h-11 items-center gap-1.5 px-2 text-xs text-amber-400">
+                  <span className="inline-flex min-h-11 items-center gap-1.5 px-2 text-xs text-warning">
                     <span aria-hidden="true">★</span> Avaliado · {a.review.rating}/5
                   </span>
                 )}
@@ -610,7 +629,7 @@ function ApptCard({
           : a.status === "IN_PROGRESS"
             ? "Em atendimento"
             : a.status === "PENDING"
-              ? "Pendente"
+              ? "Aguardando confirmação"
               : "Confirmado";
   const dateKey = formatInTimeZone(start, timezone, "yyyy-MM-dd");
   const todayKey = formatInTimeZone(new Date(), timezone, "yyyy-MM-dd");
@@ -624,8 +643,9 @@ function ApptCard({
 
   return (
     <article data-status={a.status} className={`client-reservation rounded-2xl border p-4 ${featured ? "shadow-premium" : ""}`}>
-      <div className="flex items-start justify-between gap-2">
-        <div>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          {featured && <><p className="text-2xl font-semibold">{relativeDate ? `${relativeDate}, ` : ""}{formatInTimeZone(start, timezone, "HH:mm")}</p><p className="mb-3 mt-1 text-sm capitalize text-muted-foreground">{formatInTimeZone(start, timezone, "EEEE, d 'de' MMMM", { locale: ptBR })}</p></>}
           <p className="font-medium">{serviceName}</p>
           {a.dependentName && <p className="text-sm font-semibold">Atendimento para {a.dependentName}</p>}
           <p className="text-xs text-muted-foreground">com {a.professional.user.name}</p>
@@ -636,13 +656,13 @@ function ApptCard({
         </span>
       </div>
       <div className="client-reservation-details mt-4 rounded-xl p-3">
-        <p className="text-lg font-semibold capitalize">
+        {!featured && <><p className="text-lg font-semibold capitalize">
           {relativeDate ? `${relativeDate}, ` : ""}{formatInTimeZone(start, timezone, "HH:mm")}
         </p>
         <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
           <CalendarDays aria-hidden="true" className="h-3.5 w-3.5" />
           {formatInTimeZone(start, timezone, "EEEE, d 'de' MMMM", { locale: ptBR })}
-        </p>
+        </p></>}
         <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
           <Clock3 aria-hidden="true" className="h-3.5 w-3.5" />
           {durationMinutes} min · {salonName}

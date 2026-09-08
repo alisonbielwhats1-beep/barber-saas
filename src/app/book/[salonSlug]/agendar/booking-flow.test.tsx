@@ -98,6 +98,33 @@ afterEach(() => {
 });
 
 describe("BookingFlow availability", () => {
+  it("consulta horários sem conta e pede login antes de confirmar, preservando a escolha", async () => {
+    const fetcher = vi.fn().mockResolvedValue(availability(["10:00"]));
+    vi.stubGlobal("fetch", fetcher);
+    const user = userEvent.setup();
+    render(<BookingFlow {...baseProps} clientSession={null} />);
+    await user.click(await screen.findByRole("button", { name: "Horário 10:00" }));
+    await user.click(screen.getByRole("button", { name: "Revisar reserva" }));
+    await user.click(screen.getByRole("button", { name: "Entrar e continuar" }));
+    const path = navigation.push.mock.calls[0]![0] as string;
+    const returned = new URL(path, "https://example.test").searchParams.get("returnTo")!;
+    expect(returned).toContain("services=service-1");
+    expect(returned).toContain("pro=pro-1");
+    expect(returned).toContain("date=2026-08-13");
+    expect(returned).toContain("slot=10%3A00");
+    expect(fetcher.mock.calls.every(call => !call[1]?.method || call[1].method === "GET")).toBe(true);
+    expect(screen.queryByText("Agendar para outra pessoa")).not.toBeInTheDocument();
+  });
+
+  it("revalida o horário recebido pelo retorno do login mesmo sem storage", async () => {
+    const response = deferredResponse();
+    vi.stubGlobal("fetch", vi.fn().mockReturnValue(response.promise));
+    render(<BookingFlow {...baseProps} initialProId="pro-1" initialDateKey="2026-08-13" initialSlot="10:00" />);
+    expect(screen.getByRole("button", { name: "Revisar reserva" })).toBeDisabled();
+    response.resolve(availability(["11:00"]));
+    await screen.findByRole("button", { name: "Horário 11:00" });
+    expect(screen.getByRole("button", { name: "Revisar reserva" })).toBeDisabled();
+  });
   it("ignora promises fora de ordem ao trocar a data", async () => {
     const first = deferredResponse();
     const second = deferredResponse();

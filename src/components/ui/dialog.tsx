@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 export const Dialog = DialogPrimitive.Root;
 export const DialogTrigger = DialogPrimitive.Trigger;
 export const DialogClose = DialogPrimitive.Close;
-const DialogThemeContext = React.createContext<"salon-dark" | undefined>(undefined);
+const DialogThemeContext = React.createContext<"salon-dark" | "salon-light" | undefined>(undefined);
 export const DialogThemeProvider = DialogThemeContext.Provider;
 
 export const DialogContent = React.forwardRef<

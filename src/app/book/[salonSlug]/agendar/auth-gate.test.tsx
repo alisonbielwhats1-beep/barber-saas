@@ -29,17 +29,28 @@ describe("gate de autenticação do agendamento", () => {
     });
   });
 
-  it("envia visitante para entrar/criar conta sem consultar ou mutar o tenant", async () => {
+  it("preserva autenticação obrigatória para remarcar", async () => {
     await expect(AgendarPage({
       params: Promise.resolve({ salonSlug: "studio-a" }),
       searchParams: Promise.resolve({
         services: "service-a,service-b",
         pro: "pro-a",
+        reschedule: "appt-a",
       }),
     })).rejects.toThrow(
-      "NEXT_REDIRECT:/book/studio-a/welcome?returnTo=%2Fbook%2Fstudio-a%2Fagendar%3Fservices%3Dservice-a%252Cservice-b%26pro%3Dpro-a",
+      "NEXT_REDIRECT:/book/studio-a/welcome?returnTo=%2Fbook%2Fstudio-a%2Fagendar%3Fservices%3Dservice-a%252Cservice-b%26pro%3Dpro-a%26reschedule%3Dappt-a",
     );
 
     expect(mocks.withSalonBySlug).not.toHaveBeenCalled();
+  });
+
+  it("permite explorar catálogo com sessão nula, dentro do gate do salão aprovado", async () => {
+    mocks.withSalonBySlug.mockResolvedValue({ salon: {
+      id: "salon-a", name: "Studio A", services: [], currency: "BRL", timezone: "America/Sao_Paulo",
+    }, counts: [], validSession: null });
+    const result = await AgendarPage({ params: Promise.resolve({ salonSlug: "studio-a" }), searchParams: Promise.resolve({}) });
+    expect(mocks.withSalonBySlug).toHaveBeenCalledWith("studio-a", expect.any(Function));
+    expect(mocks.redirect).not.toHaveBeenCalled();
+    expect(result.props.clientSession).toBeNull();
   });
 });
