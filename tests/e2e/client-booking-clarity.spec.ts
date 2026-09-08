@@ -1,6 +1,18 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
+test("@database serviços do salão preservam contraste ao passar o mouse no tema claro", async ({ page }) => {
+  test.skip(!process.env.RUN_DATABASE_E2E, "Somente PostgreSQL descartável.");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/book/luna-hair");
+  await page.getByRole("button", { name: "Usar tema claro" }).click();
+  const service = page.locator('a[href*="/agendar?service="]').first();
+  await service.hover();
+  await expect(service).toHaveCSS("background-color", "rgb(238, 246, 243)");
+  expect((await new AxeBuilder({ page }).include('a[href*="/agendar?service="]').withTags(["wcag2aa"]).analyze()).violations).toEqual([]);
+  await page.screenshot({ path: test.info().outputPath("servico-hover-claro.png") });
+});
+
 test("@database catálogo sem login mantém escolha, contraste e leitura nos dois temas", async ({ page }) => {
   test.skip(!process.env.RUN_DATABASE_E2E, "Somente PostgreSQL descartável.");
   test.setTimeout(120_000);

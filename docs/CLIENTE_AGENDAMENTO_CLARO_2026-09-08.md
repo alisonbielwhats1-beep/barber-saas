@@ -38,6 +38,11 @@ serviço pago ou operação de teste em Production.
 
 ## Verificação
 
+- Correção após revisão do responsável: a lista de serviços da página do salão
+  herdava `--card-hover` escuro no tema claro, escurecendo a linha ao passar o
+  mouse. O tema claro agora define verde muito suave para essa superfície;
+  regressão de navegador confere a cor efetiva e o contraste durante hover.
+
 - Lint, TypeScript e suíte Vitest; novas regressões cobrem HTML inicial da
   animação, tema/portais, catálogo público e autenticação antes de confirmar,
   revalidação de horário no retorno e teclado das avaliações.
