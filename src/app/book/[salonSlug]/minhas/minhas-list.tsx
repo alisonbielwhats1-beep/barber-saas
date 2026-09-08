@@ -406,7 +406,7 @@ export function MinhasList({
           <p className="mt-2 text-sm text-muted-foreground">{reviewAppointment.serviceItems.map(service => service.serviceName).join(" + ") || reviewAppointment.service.name} · {formatInTimeZone(new Date(reviewAppointment.startAt), timezone, "dd/MM")} · com {reviewAppointment.professional.user.name}</p>
           <p className="mt-1 text-xs text-muted-foreground">Dê sua nota. O comentário é opcional.</p>
           <div className="mt-4 flex flex-wrap gap-3">
-            <ReviewDialog salonSlug={salonSlug} salonName={salonName} appointmentId={reviewAppointment.id} serviceName={reviewAppointment.serviceItems.map(service => service.serviceName).join(" + ") || reviewAppointment.service.name} />
+            <ReviewDialog emphasized salonSlug={salonSlug} salonName={salonName} appointmentId={reviewAppointment.id} serviceName={reviewAppointment.serviceItems.map(service => service.serviceName).join(" + ") || reviewAppointment.service.name} />
             <button type="button" className="min-h-11 rounded-xl px-3 text-sm text-muted-foreground hover:bg-muted" onClick={() => setReviewDismissed(true)}>Agora não</button>
           </div>
         </section>

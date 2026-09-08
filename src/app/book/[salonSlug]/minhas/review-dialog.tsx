@@ -18,11 +18,13 @@ export function ReviewDialog({
   appointmentId,
   serviceName,
   salonName,
+  emphasized = false,
 }: {
   salonSlug: string;
   appointmentId: string;
   serviceName: string;
   salonName?: string;
+  emphasized?: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -63,7 +65,7 @@ export function ReviewDialog({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+        className={`inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm font-semibold transition-colors ${emphasized ? "bg-primary text-primary-foreground hover:bg-primary/90" : "text-warning hover:bg-warning/10"}`}
       >
         <Star aria-hidden="true" className="h-4 w-4" /> Avaliar salão
       </button>
