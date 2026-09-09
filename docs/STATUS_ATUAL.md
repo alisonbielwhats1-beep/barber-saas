@@ -10,6 +10,13 @@ como uma terça-feira iniciando às 14h sem pausa, serão substituídos; folgas 
 reservas continuam preservadas. Esta revisão está somente na branch local e não
 foi publicada.
 
+A mesma revisão corrige a leitura visual da agenda diária: períodos fora da
+jornada e pausas passam a receber o rótulo “Fora do expediente” com tracejado,
+separado dos bloqueios explícitos. Dono e gerente continuam vendo todos os
+profissionais; o papel profissional continua limitado à própria agenda. O motor
+de disponibilidade já respeitava essas jornadas, portanto não houve alteração
+na regra de agendamento nem no banco.
+
 ## 2026-09-09 — correção operacional de jornadas; interface publicada
 
 Correção posterior do responsável: abertura **09h**, fechamento **21h**, pausa

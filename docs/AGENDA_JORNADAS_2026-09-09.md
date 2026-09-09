@@ -69,6 +69,10 @@ Os arquivos de recuperação permanecem em `artifacts/`, fora do Git.
   e tenant no servidor e registra antes/depois na auditoria.
 - Profissionais aponta para esse mesmo local; ajustes individuais continuam possíveis.
 - Novos dias no editor individual começam com a referência atual do salão.
+- Na visão diária, intervalos fora da jornada e entre turnos recebem tracejado e
+  o rótulo “Fora do expediente”. Bloqueios cadastrados continuam identificados
+  separadamente como “Bloqueado”. Essa apresentação é igual para dono/gerente;
+  profissionais continuam vendo apenas a própria agenda por regra de acesso.
 - O formulário de políticas deixa de sobrescrever horários com valores desatualizados.
 - Salvar jornada invalida também as páginas do cliente, configurações e operação.
 - A remarcação mostra duração e término previsto no fuso do salão, explica quando

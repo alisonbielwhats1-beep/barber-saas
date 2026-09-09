@@ -68,7 +68,7 @@ export default async function AgendaPage({
         colorHex: true,
         user: { select: { name: true, avatarUrl: true } },
         services: { select: { serviceId: true } },
-        workingHours: { select: { startMinutes: true, endMinutes: true } },
+        workingHours: { select: { weekday: true, startMinutes: true, endMinutes: true } },
       },
       orderBy: { user: { name: "asc" } },
     });

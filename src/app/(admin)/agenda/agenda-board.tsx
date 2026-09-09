@@ -45,6 +45,7 @@ import { AvailabilityPanel, type AvailabilityBlock, type BlockSelection } from "
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 import { DateNavigator } from "./date-navigator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { unavailableScheduleIntervals, type VisualWorkingHours } from "./schedule-visibility";
 
 const DAY_START = 8 * 60;
 const DAY_END = 21 * 60;
@@ -111,7 +112,7 @@ export type Professional = {
   colorHex: string | null;
   avatarUrl?: string | null;
   serviceIds: string[];
-  workingHours?: { startMinutes: number; endMinutes: number }[];
+  workingHours?: VisualWorkingHours[];
 };
 
 function minutesOf(iso: string, timezone: string) {
@@ -742,6 +743,25 @@ function DayView({
                   />
                 ))}
                 {selectionView?.proId === pro.id && <div className="pointer-events-none absolute inset-x-0 z-20 border-2 border-danger bg-danger/20" style={{ top: (Math.min(selectionView.start, selectionView.end) - dayStart) * PX_PER_MIN, height: (Math.abs(selectionView.end - selectionView.start) + SLOT_MIN) * PX_PER_MIN }} />}
+
+                {unavailableScheduleIntervals(pro.workingHours ?? [], date, dayStart, dayEnd).map((interval) => {
+                  const height = (interval.endMinutes - interval.startMinutes) * PX_PER_MIN;
+                  return (
+                    <div
+                      key={`schedule-${interval.startMinutes}-${interval.endMinutes}`}
+                      role="note"
+                      aria-label={`Fora do expediente de ${pro.name}: ${minutesToHHMM(interval.startMinutes)}–${minutesToHHMM(interval.endMinutes)}`}
+                      className="pointer-events-none absolute inset-x-0 overflow-hidden border-y border-border/70 bg-muted/45 px-2 py-1 text-[10px] text-muted-foreground"
+                      style={{
+                        top: (interval.startMinutes - dayStart) * PX_PER_MIN,
+                        height,
+                        backgroundImage: "repeating-linear-gradient(135deg, transparent, transparent 6px, hsl(var(--border) / .28) 6px, hsl(var(--border) / .28) 7px)",
+                      }}
+                    >
+                      {height >= 34 && <span className="rounded bg-card/90 px-1">Fora do expediente</span>}
+                    </div>
+                  );
+                })}
 
                 {blocks.filter(b => b.professionalId === pro.id).map(block => {
                   const firstDate = formatInTimeZone(new Date(block.startAt), timezone, "yyyy-MM-dd");
