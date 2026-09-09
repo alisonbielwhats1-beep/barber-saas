@@ -94,61 +94,50 @@
 .client-payment-icon { color: #d4b9f4; }
 
 [data-theme="salon-dark"] .client-reservation {
-  --reservation-color: var(--muted-foreground);
+  --reservation-color: 40 8% 68%;
   background: hsl(var(--card));
   border-color: hsl(var(--border));
-  border-left: 4px solid hsl(var(--reservation-color));
+  border-left: 3px solid hsl(var(--reservation-color));
 }
-[data-theme="salon-dark"] .client-reservation[data-status="CONFIRMED"] {
-  --reservation-color: var(--success);
-  background: #123d2e;
-  border-color: #368967;
-}
-[data-theme="salon-dark"] .client-reservation:is([data-status="CANCELLED"], [data-status="NO_SHOW"]) {
-  --reservation-color: var(--danger);
-  background: #3d2228;
-  border-color: #97515c;
-}
-[data-theme="salon-dark"] .client-reservation[data-status="PENDING"] {
-  --reservation-color: var(--warning);
-  background: #3d3020;
-  border-color: #8f7343;
-}
-[data-theme="salon-dark"] .client-reservation[data-status="IN_PROGRESS"] {
-  --reservation-color: var(--info);
-  background: #173448;
-  border-color: #487fa2;
-}
-[data-theme="salon-dark"] .client-reservation[data-status="COMPLETED"] {
-  --reservation-color: var(--success);
-}
-.client-reservation {
-  --muted-foreground: 40 12% 82%;
+[data-theme="salon-dark"] .client-reservation[data-tone="success"] { --reservation-color: 154 50% 61%; }
+[data-theme="salon-dark"] .client-reservation[data-tone="danger"] { --reservation-color: 355 67% 67%; }
+[data-theme="salon-dark"] .client-reservation[data-tone="warning"] { --reservation-color: 39 72% 64%; }
+[data-theme="salon-dark"] .client-reservation[data-tone="info"] { --reservation-color: 205 68% 67%; }
+[data-theme="salon-dark"] .client-reservation[data-tone="complete"] { --reservation-color: 40 18% 69%; }
+[data-theme="salon-dark"] .client-reservation-featured {
+  background: linear-gradient(145deg, hsl(var(--card)), hsl(154 34% 15% / .42));
+  box-shadow: 0 18px 44px -30px hsl(154 50% 45% / .7);
 }
 .client-reservation-status {
-  background: hsl(var(--reservation-color));
-  color: #15251e;
+  border: 1px solid hsl(var(--reservation-color) / .24);
+  background: hsl(var(--reservation-color) / .12);
+  color: hsl(var(--reservation-color));
 }
-.client-reservation-total { color: hsl(var(--reservation-color)); }
-.client-reservation-details { background: rgb(0 0 0 / .16); }
+.client-reservation-total { color: hsl(var(--foreground)); }
+.client-reservation-details {
+  border: 1px solid hsl(var(--border) / .65);
+  background: hsl(var(--muted) / .38);
+}
 [data-theme="salon-light"] .client-brand-logo { color: #69499c; }
 [data-theme="salon-light"] .client-access-card { box-shadow: 0 12px 40px -20px rgb(35 43 60 / .2); }
 [data-theme="salon-light"] .client-location-icon { color: #a63e32; }
 [data-theme="salon-light"] .client-hours-icon { color: #2563a6; }
 [data-theme="salon-light"] .client-payment-icon { color: #69499c; }
 [data-theme="salon-light"] .client-reservation {
-  --muted-foreground: 220 10% 36%;
-  --reservation-color: var(--muted-foreground);
-  border-left: 4px solid hsl(var(--reservation-color));
+  --reservation-color: 220 8% 48%;
+  border-left: 3px solid hsl(var(--reservation-color));
   box-shadow: 0 6px 20px -12px rgb(35 43 60 / .18);
 }
-[data-theme="salon-light"] .client-reservation[data-status="CONFIRMED"] { --reservation-color: var(--success); background: #e2f3e9; border-color: #8cbba0; }
-[data-theme="salon-light"] .client-reservation:is([data-status="CANCELLED"], [data-status="NO_SHOW"]) { --reservation-color: var(--danger); background: #fcebec; border-color: #d6a1a7; }
-[data-theme="salon-light"] .client-reservation[data-status="PENDING"] { --reservation-color: var(--warning); background: #fff3db; border-color: #d6b572; }
-[data-theme="salon-light"] .client-reservation[data-status="IN_PROGRESS"] { --reservation-color: var(--info); background: #e5f0fc; border-color: #95b5d9; }
-[data-theme="salon-light"] .client-reservation[data-status="COMPLETED"] { --reservation-color: var(--success); }
-[data-theme="salon-light"] .client-reservation-status { color: #fff; }
-[data-theme="salon-light"] .client-reservation-details { background: rgb(255 255 255 / .65); }
+[data-theme="salon-light"] .client-reservation[data-tone="success"] { --reservation-color: 154 71% 24%; }
+[data-theme="salon-light"] .client-reservation[data-tone="danger"] { --reservation-color: 355 61% 43%; }
+[data-theme="salon-light"] .client-reservation[data-tone="warning"] { --reservation-color: 34 78% 37%; }
+[data-theme="salon-light"] .client-reservation[data-tone="info"] { --reservation-color: 207 67% 38%; }
+[data-theme="salon-light"] .client-reservation[data-tone="complete"] { --reservation-color: 35 18% 39%; }
+[data-theme="salon-light"] .client-reservation-featured {
+  background: linear-gradient(145deg, hsl(var(--card)), hsl(154 45% 94% / .7));
+  box-shadow: 0 16px 36px -26px hsl(154 71% 24% / .45);
+}
+[data-theme="salon-light"] .client-reservation-details { background: hsl(var(--muted) / .34); }
 .client-service-list { overflow: hidden; border: 1px solid hsl(var(--border)); border-radius: 1rem; background: hsl(var(--card)); }
 .client-service-row { display: flex; width: 100%; align-items: center; gap: 1rem; padding: 1rem; text-align: left; }
 .client-service-row + .client-service-row { border-top: 1px solid hsl(var(--border) / .65); }

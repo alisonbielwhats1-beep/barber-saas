@@ -93,7 +93,9 @@ test.describe("@database jornadas críticas no PostgreSQL descartável", () => {
     await page.getByRole("link", { name: "Ver minhas reservas" }).click();
     await expect(page.getByText("Atendimento para Dependente E2E")).toBeVisible();
     await page.setViewportSize({ width: 390, height: 844 });
-    await expect(page.locator('.client-reservation[data-status="CONFIRMED"]')).toHaveCSS("background-color", "rgb(18, 61, 46)");
+    const confirmedReservation = page.locator('.client-reservation[data-status="CONFIRMED"]');
+    await expect(confirmedReservation).toHaveAttribute("data-tone", "success");
+    await expect(confirmedReservation).not.toHaveCSS("background-color", "rgb(18, 61, 46)");
     expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations).toEqual([]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
     await page.screenshot({ path: test.info().outputPath("cliente-reserva-confirmada.png"), fullPage: true, animations: "disabled" });
