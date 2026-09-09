@@ -117,6 +117,7 @@ export function MinhasList({
   const [waitlistCancelTarget, setWaitlistCancelTarget] = useState<string | null>(null);
   const [proposalRejectTarget, setProposalRejectTarget] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [appointmentView, setAppointmentView] = useState<"upcoming" | "history">("upcoming");
   const [pastExpanded, setPastExpanded] = useState(false);
   const [reviewDismissed, setReviewDismissed] = useState(false);
   const cancelKeys = useRef(new Map<string, string>());
@@ -379,86 +380,198 @@ export function MinhasList({
         </section>
       )}
 
-      {nextAppointment ? (
-        <section aria-labelledby="next-appointment-title">
-          <div className="mb-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">Próxima</p>
-            <h2 id="next-appointment-title" className="text-base font-semibold">Seu próximo atendimento</h2>
-          </div>
-          <ApptCard
-            a={nextAppointment}
-            currency={currency}
-            timezone={timezone}
-            salonName={salonName}
-            salonAddress={salonAddress}
-            featured
-            actions={appointmentActions(nextAppointment)}
-          />
-        </section>
-      ) : (
-        <Section title="Próximas reservas" empty="Nenhuma reserva futura.">{null}</Section>
-      )}
+      <div
+        role="tablist"
+        aria-label="Reservas por período"
+        className="grid grid-cols-2 rounded-2xl border border-border bg-muted/35 p-1"
+      >
+        <button
+          type="button"
+          role="tab"
+          id="appointments-upcoming-tab"
+          aria-selected={appointmentView === "upcoming"}
+          aria-controls="appointments-upcoming-panel"
+          onClick={() => setAppointmentView("upcoming")}
+          className={`flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold transition ${appointmentView === "upcoming" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+        >
+          Próximos
+          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary">{upcoming.length}</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          id="appointments-history-tab"
+          aria-selected={appointmentView === "history"}
+          aria-controls="appointments-history-panel"
+          onClick={() => setAppointmentView("history")}
+          className={`flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold transition ${appointmentView === "history" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+        >
+          Histórico
+          <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">{past.length}</span>
+        </button>
+      </div>
 
-      {reviewAppointment && !reviewDismissed && (
-        <section aria-labelledby="review-prompt-title" className="rounded-2xl border border-primary/25 bg-primary/5 p-5">
-          <p className="text-xs font-semibold text-primary">Após seu atendimento</p>
-          <h2 id="review-prompt-title" className="mt-1 text-lg font-semibold">Como foi sua experiência no {salonName}?</h2>
-          <p className="mt-2 text-sm text-muted-foreground">{reviewAppointment.serviceItems.map(service => service.serviceName).join(" + ") || reviewAppointment.service.name} · {formatInTimeZone(new Date(reviewAppointment.startAt), timezone, "dd/MM")} · com {reviewAppointment.professional.user.name}</p>
-          <p className="mt-1 text-xs text-muted-foreground">Dê sua nota. O comentário é opcional.</p>
-          <div className="mt-4 flex flex-wrap gap-3">
-            <ReviewDialog emphasized salonSlug={salonSlug} salonName={salonName} appointmentId={reviewAppointment.id} serviceName={reviewAppointment.serviceItems.map(service => service.serviceName).join(" + ") || reviewAppointment.service.name} />
-            <button type="button" className="min-h-11 rounded-xl px-3 text-sm text-muted-foreground hover:bg-muted" onClick={() => setReviewDismissed(true)}>Agora não</button>
-          </div>
-        </section>
-      )}
-
-      {laterAppointments.length > 0 && (
-        <Section title="Outras reservas" empty="">
-          {laterAppointments.map((appointment) => (
-            <ApptCard
-              key={appointment.id}
-              a={appointment}
-              currency={currency}
-              timezone={timezone}
-              salonName={salonName}
-              salonAddress={salonAddress}
-              actions={appointmentActions(appointment)}
-            />
-          ))}
-        </Section>
-      )}
-
-      {waitlistEntries.length > 0 && <Section title="Filas de espera" empty="">
-        {waitlistEntries.map((entry) => (
-          <article key={entry.id} className="rounded-2xl border border-amber-500/25 bg-amber-500/5 p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="font-medium">{entry.serviceName}</p>
-                <p className="text-xs text-muted-foreground">com {entry.professionalName}</p>
+      {appointmentView === "upcoming" ? (
+        <div
+          role="tabpanel"
+          id="appointments-upcoming-panel"
+          aria-labelledby="appointments-upcoming-tab"
+          className="space-y-6"
+        >
+          {nextAppointment ? (
+            <section aria-labelledby="next-appointment-title">
+              <div className="mb-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">Próxima</p>
+                <h2 id="next-appointment-title" className="text-base font-semibold">Seu próximo atendimento</h2>
               </div>
-              <span className="shrink-0 rounded-full bg-amber-500/15 px-2.5 py-1 text-[11px] font-semibold text-warning">
-                Fila #{entry.position}
-              </span>
-            </div>
-            <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
-              <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
-              {formatInTimeZone(new Date(entry.startAt), entry.timezone, "dd 'de' MMM · HH:mm", { locale: ptBR })}
-            </p>
-            <p className="mt-3 flex gap-2 text-xs leading-relaxed text-muted-foreground">
-              <Users className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-              Se a vaga ficar livre e você for o primeiro, sua visita será confirmada automaticamente.
-            </p>
-            <button
-              type="button"
-              disabled={pending}
-              onClick={() => setWaitlistCancelTarget(entry.id)}
-              className="mt-3 min-h-11 text-xs font-medium text-danger disabled:opacity-50"
-            >
-              Sair somente desta fila
-            </button>
-          </article>
-        ))}
-      </Section>}
+              <ApptCard
+                a={nextAppointment}
+                currency={currency}
+                timezone={timezone}
+                salonName={salonName}
+                salonAddress={salonAddress}
+                featured
+                actions={appointmentActions(nextAppointment)}
+              />
+            </section>
+          ) : (
+            <section className="rounded-2xl border border-border bg-card p-5 text-center" aria-labelledby="no-upcoming-title">
+              <CalendarDays aria-hidden="true" className="mx-auto h-6 w-6 text-muted-foreground" />
+              <h2 id="no-upcoming-title" className="mt-3 font-semibold">Nenhum atendimento agendado</h2>
+              <p className="mt-1 text-sm text-muted-foreground">Quando você reservar, o próximo horário aparecerá aqui.</p>
+              <Link href={`/book/${salonSlug}/agendar`} className="client-booking-cta mt-4 inline-flex min-h-11 items-center justify-center rounded-xl px-4 text-sm font-semibold">
+                Agendar atendimento
+              </Link>
+            </section>
+          )}
+
+          {laterAppointments.length > 0 && (
+            <Section title="Depois" empty="">
+              {laterAppointments.map((appointment) => (
+                <ApptCard
+                  key={appointment.id}
+                  a={appointment}
+                  currency={currency}
+                  timezone={timezone}
+                  salonName={salonName}
+                  salonAddress={salonAddress}
+                  actions={appointmentActions(appointment)}
+                />
+              ))}
+            </Section>
+          )}
+
+          {waitlistEntries.length > 0 && <Section title="Filas de espera" empty="">
+            {waitlistEntries.map((entry) => (
+              <article key={entry.id} className="rounded-2xl border border-amber-500/25 bg-amber-500/5 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-medium">{entry.serviceName}</p>
+                    <p className="text-xs text-muted-foreground">com {entry.professionalName}</p>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-amber-500/15 px-2.5 py-1 text-[11px] font-semibold text-warning">
+                    Fila #{entry.position}
+                  </span>
+                </div>
+                <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
+                  {formatInTimeZone(new Date(entry.startAt), entry.timezone, "dd 'de' MMM · HH:mm", { locale: ptBR })}
+                </p>
+                <p className="mt-3 flex gap-2 text-xs leading-relaxed text-muted-foreground">
+                  <Users className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  Se a vaga ficar livre e você for o primeiro, sua visita será confirmada automaticamente.
+                </p>
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => setWaitlistCancelTarget(entry.id)}
+                  className="mt-3 min-h-11 text-xs font-medium text-danger disabled:opacity-50"
+                >
+                  Sair somente desta fila
+                </button>
+              </article>
+            ))}
+          </Section>}
+        </div>
+      ) : (
+        <div
+          role="tabpanel"
+          id="appointments-history-panel"
+          aria-labelledby="appointments-history-tab"
+          className="space-y-6"
+        >
+          {reviewAppointment && !reviewDismissed && (
+            <section aria-labelledby="review-prompt-title" className="rounded-2xl border border-primary/25 bg-primary/5 p-5">
+              <p className="text-xs font-semibold text-primary">Sua última visita</p>
+              <h2 id="review-prompt-title" className="mt-1 text-lg font-semibold">Como foi sua experiência no {salonName}?</h2>
+              <p className="mt-2 text-sm text-muted-foreground">{reviewAppointment.serviceItems.map(service => service.serviceName).join(" + ") || reviewAppointment.service.name} · {formatInTimeZone(new Date(reviewAppointment.startAt), timezone, "dd/MM")} · com {reviewAppointment.professional.user.name}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Dê sua nota. O comentário é opcional.</p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <ReviewDialog emphasized salonSlug={salonSlug} salonName={salonName} appointmentId={reviewAppointment.id} serviceName={reviewAppointment.serviceItems.map(service => service.serviceName).join(" + ") || reviewAppointment.service.name} />
+                <button type="button" className="min-h-11 rounded-xl px-3 text-sm text-muted-foreground hover:bg-muted" onClick={() => setReviewDismissed(true)}>Agora não</button>
+              </div>
+            </section>
+          )}
+
+          <Section
+            title="Atendimentos anteriores"
+            empty="Sem histórico ainda."
+            action={
+              past.length > PAST_PREVIEW_COUNT ? (
+                <button
+                  type="button"
+                  onClick={() => setPastExpanded((open) => !open)}
+                  className="min-h-11 text-xs font-medium text-primary hover:underline"
+                >
+                  {pastExpanded ? "Ver menos" : `Ver tudo (${past.length})`}
+                </button>
+              ) : undefined
+            }
+          >
+            {(pastExpanded ? past : past.slice(0, PAST_PREVIEW_COUNT)).map((a) => (
+              <ApptCard
+                key={a.id}
+                a={a}
+                currency={currency}
+                timezone={timezone}
+                salonName={salonName}
+                salonAddress={salonAddress}
+                history
+                actions={
+                  <div className="flex flex-wrap items-center gap-2">
+                    {a.status === "COMPLETED" && !a.review && (
+                      <ReviewDialog
+                        salonSlug={salonSlug}
+                        salonName={salonName}
+                        appointmentId={a.id}
+                        serviceName={a.serviceItems.length > 0
+                          ? a.serviceItems.map((service) => service.serviceName).join(" + ")
+                          : a.service.name}
+                      />
+                    )}
+                    {a.status === "COMPLETED" && a.review && (
+                      <span className="inline-flex min-h-11 items-center gap-1.5 px-2 text-xs text-warning">
+                        <span aria-hidden="true">★</span> Avaliado · {a.review.rating}/5
+                      </span>
+                    )}
+                    <Link
+                      href={`/book/${salonSlug}/agendar?services=${encodeURIComponent(
+                        (a.serviceItems.length > 0
+                          ? a.serviceItems.map((service) => service.serviceId)
+                          : [a.service.id]
+                        ).join(","),
+                      )}`}
+                      className="flex min-h-11 items-center gap-1 rounded-xl px-2 text-xs text-muted-foreground transition-colors hover:bg-secondary/70 hover:text-primary"
+                    >
+                      <Repeat className="h-3.5 w-3.5" aria-hidden="true" /> Agendar de novo
+                    </Link>
+                  </div>
+                }
+              />
+            ))}
+          </Section>
+        </div>
+      )}
 
       <ConfirmDialog
         open={cancelTarget !== null}
@@ -494,73 +607,6 @@ export function MinhasList({
         pending={pending}
       />
 
-      {/* History */}
-      <Section
-        title="Histórico"
-        empty="Sem histórico ainda."
-        action={
-          past.length > PAST_PREVIEW_COUNT ? (
-            <button
-              type="button"
-              onClick={() => setPastExpanded((open) => !open)}
-              className="text-xs font-medium text-primary hover:underline"
-            >
-              {pastExpanded ? "Ver menos" : `Ver tudo (${past.length})`}
-            </button>
-          ) : undefined
-        }
-      >
-        {(pastExpanded ? past : past.slice(0, PAST_PREVIEW_COUNT)).map((a) => (
-          <ApptCard
-            key={a.id}
-            a={a}
-            currency={currency}
-            timezone={timezone}
-            salonName={salonName}
-            salonAddress={salonAddress}
-            actions={
-              <div className="flex flex-wrap items-center gap-2">
-                {a.status === "COMPLETED" && !a.review && (
-                  <ReviewDialog
-                    salonSlug={salonSlug}
-                    salonName={salonName}
-                    appointmentId={a.id}
-                    serviceName={a.serviceItems.length > 0
-                      ? a.serviceItems.map((service) => service.serviceName).join(" + ")
-                      : a.service.name}
-                  />
-                )}
-                {a.status === "COMPLETED" && a.review && (
-                  <span className="inline-flex min-h-11 items-center gap-1.5 px-2 text-xs text-warning">
-                    <span aria-hidden="true">★</span> Avaliado · {a.review.rating}/5
-                  </span>
-                )}
-                <Link
-                  href={`/book/${salonSlug}/agendar?services=${encodeURIComponent(
-                    (a.serviceItems.length > 0
-                      ? a.serviceItems.map((service) => service.serviceId)
-                      : [a.service.id]
-                    ).join(","),
-                  )}`}
-                  className="flex min-h-11 items-center gap-1 rounded-xl px-2 text-xs text-muted-foreground transition-colors hover:bg-secondary/70 hover:text-primary"
-                >
-                  <Repeat className="h-3.5 w-3.5" aria-hidden="true" /> Agendar de novo
-                </Link>
-              </div>
-            }
-          />
-        ))}
-      </Section>
-
-      {/* CTA if no appointments */}
-      {appointments.length === 0 && waitlistEntries.length === 0 && (
-        <Link
-          href={`/book/${salonSlug}/agendar`}
-          className="block rounded-2xl border border-primary/30 bg-primary/5 p-5 text-center text-sm font-medium text-primary"
-        >
-          Fazer meu primeiro agendamento →
-        </Link>
-      )}
     </>
   );
 }
@@ -601,6 +647,7 @@ function ApptCard({
   salonName,
   salonAddress,
   featured = false,
+  history = false,
   actions,
 }: {
   a: Appt;
@@ -609,6 +656,7 @@ function ApptCard({
   salonName: string;
   salonAddress: string | null;
   featured?: boolean;
+  history?: boolean;
   actions?: React.ReactNode;
 }) {
   const start = new Date(a.startAt);
@@ -619,7 +667,11 @@ function ApptCard({
     ? a.serviceItems.map((service) => service.serviceName).join(" + ")
     : a.service.name;
 
-  const statusLabel =
+  const ended = isPast(new Date(a.endAt));
+  const isUnclosedPast = history && ended && ["PENDING", "CONFIRMED", "IN_PROGRESS"].includes(a.status);
+  const statusLabel = isUnclosedPast
+    ? "Atendimento passado"
+    :
     a.status === "CANCELLED"
       ? "Cancelado"
       : a.status === "COMPLETED"
@@ -631,18 +683,33 @@ function ApptCard({
             : a.status === "PENDING"
               ? "Aguardando confirmação"
               : "Confirmado";
+  const statusTone = isUnclosedPast
+    ? "neutral"
+    : a.status === "CANCELLED" || a.status === "NO_SHOW"
+      ? "danger"
+      : a.status === "PENDING"
+        ? "warning"
+        : a.status === "IN_PROGRESS"
+          ? "info"
+          : a.status === "COMPLETED"
+            ? "complete"
+            : "success";
   const dateKey = formatInTimeZone(start, timezone, "yyyy-MM-dd");
   const todayKey = formatInTimeZone(new Date(), timezone, "yyyy-MM-dd");
   const tomorrowKey = formatInTimeZone(addDays(new Date(), 1), timezone, "yyyy-MM-dd");
   const relativeDate = dateKey === todayKey ? "Hoje" : dateKey === tomorrowKey ? "Amanhã" : null;
-  const StatusIcon = a.status === "PENDING"
+  const StatusIcon = isUnclosedPast || a.status === "PENDING"
     ? Clock3
     : a.status === "CANCELLED" || a.status === "NO_SHOW"
       ? AlertCircle
       : CheckCircle2;
 
   return (
-    <article data-status={a.status} className={`client-reservation rounded-2xl border p-4 ${featured ? "shadow-premium" : ""}`}>
+    <article
+      data-status={a.status}
+      data-tone={statusTone}
+      className={`client-reservation rounded-2xl border p-4 ${featured ? "client-reservation-featured shadow-premium" : ""}`}
+    >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           {featured && <><p className="text-2xl font-semibold">{relativeDate ? `${relativeDate}, ` : ""}{formatInTimeZone(start, timezone, "HH:mm")}</p><p className="mb-3 mt-1 text-sm capitalize text-muted-foreground">{formatInTimeZone(start, timezone, "EEEE, d 'de' MMMM", { locale: ptBR })}</p></>}
