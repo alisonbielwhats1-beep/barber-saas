@@ -96,4 +96,5 @@ entrega própria com validação; não considerar a auditoria aprovada/zerada.
 
 A correção de configuração e a interface descrita originalmente foram publicadas
 pelo PR #84. A separação posterior entre horário do salão e cópia opcional para
-a equipe permanece em revisão local, sem nova promoção produtiva.
+a equipe, junto da indicação visual de períodos indisponíveis, teve sua publicação
+autorizada pelo responsável pelo produto.

@@ -1,14 +1,14 @@
 # Status atual canônico — Salon SaaS
 
-## 2026-09-09 — horários do salão separados das jornadas; revisão local
+## 2026-09-09 — horários do salão separados das jornadas
 
 A configuração deixa de selecionar toda a equipe por padrão. O horário geral do
 estabelecimento agora pode ser salvo sozinho, sem tocar nas jornadas individuais.
 Substituir horários de profissionais exige ativar uma opção separada, escolher
 cada pessoa e revisar o antes/depois. A interface avisa que horários especiais,
 como uma terça-feira iniciando às 14h sem pausa, serão substituídos; folgas e
-reservas continuam preservadas. Esta revisão está somente na branch local e não
-foi publicada.
+reservas continuam preservadas. A publicação desta revisão foi autorizada pelo
+responsável pelo produto.
 
 A mesma revisão corrige a leitura visual da agenda diária: períodos fora da
 jornada e pausas passam a receber o rótulo “Fora do expediente” com tracejado,
@@ -16,6 +16,10 @@ separado dos bloqueios explícitos. Dono e gerente continuam vendo todos os
 profissionais; o papel profissional continua limitado à própria agenda. O motor
 de disponibilidade já respeitava essas jornadas, portanto não houve alteração
 na regra de agendamento nem no banco.
+
+No Studio Martinelli, Anderson acumula os papéis de proprietário e profissional.
+Como proprietário, visualiza a equipe inteira; como profissional cadastrado,
+continua com jornada, bloqueios e coluna próprios na agenda.
 
 ## 2026-09-09 — correção operacional de jornadas; interface publicada
 
