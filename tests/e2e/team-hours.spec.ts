@@ -11,7 +11,7 @@ test.describe("@database expediente compartilhado", () => {
     assertSafeDatabaseOperation(process.env, { operation: "e2e-team-hours" });
     const db = new PrismaClient();
     const suffix = crypto.randomUUID();
-    const name = `Jornada CI ${suffix.slice(0, 6)}`;
+    const name = `Alex · Teste ${suffix.slice(0, 6)}`;
     const salon = await db.salon.findUniqueOrThrow({ where: { slug: "luna-hair" } });
     const date = addCalendarDays(dateKeyInTimeZone(new Date(), salon.timezone), 7);
     const weekday = weekdayOfDateKey(date);
@@ -31,17 +31,17 @@ test.describe("@database expediente compartilhado", () => {
       await expect(manager).toBeVisible();
       for (const box of await manager.locator('form input[type="checkbox"]').all()) await box.uncheck();
       await manager.getByLabel(name, { exact: true }).check();
-      await manager.getByLabel("Abertura do salão", { exact: true }).fill("06:00");
+      await manager.getByLabel("Abertura do salão", { exact: true }).fill("09:00");
       await manager.getByLabel(/Fechamento do salão/).fill("21:00");
       await manager.getByLabel("Incluir pausa diária nos dias de trabalho").check();
       await manager.getByLabel("Início da pausa").fill("12:30");
       await manager.getByLabel("Fim da pausa").fill("15:00");
       await manager.getByRole("button", { name: "Revisar expediente" }).click();
-      await expect(manager.getByText(/06:00–12:30 · 15:00–21:00/)).toBeVisible();
+      await expect(manager.getByText(/09:00–12:30 · 15:00–21:00/)).toBeVisible();
       await manager.getByRole("button", { name: "Confirmar e aplicar expediente" }).click();
       await expect(manager.getByRole("status")).toContainText("Expediente salvo", { timeout: 20_000 });
       const hours = await db.workingHours.findMany({ where: { salonId: salon.id, professionalId: pro.id }, orderBy: { startMinutes: "asc" } });
-      expect(hours.map(h => [h.weekday, h.startMinutes, h.endMinutes])).toEqual([[weekday, 360, 750], [weekday, 900, 1260]]);
+      expect(hours.map(h => [h.weekday, h.startMinutes, h.endMinutes])).toEqual([[weekday, 540, 750], [weekday, 900, 1260]]);
       const response = await page.request.get(`/api/availability?salonId=${salon.id}&professionalId=${pro.id}&serviceId=${service.id}&date=${date}`);
       expect(response.status()).toBe(200);
       const data = await response.json();
@@ -52,7 +52,9 @@ test.describe("@database expediente compartilhado", () => {
         await manager.scrollIntoViewIfNeeded();
         expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
         expect((await new AxeBuilder({ page }).include("#jornadas").withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations).toEqual([]);
+        await page.evaluate(() => { const label = document.createElement("div"); label.id = "test-evidence-label"; label.textContent = "AMBIENTE DE TESTES · DADOS FICTÍCIOS"; label.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:9999;text-align:center;background:#fff;color:#111;font:12px sans-serif;padding:6px"; document.body.append(label); });
         await page.screenshot({ path: test.info().outputPath(`team-hours-${viewport.width}.png`), animations: "disabled" });
+        await page.locator("#test-evidence-label").evaluate(el => el.remove());
       }
     } finally {
       await db.salon.update({ where: { id: salon.id }, data: { openMinutes: salon.openMinutes, closeMinutes: salon.closeMinutes } });

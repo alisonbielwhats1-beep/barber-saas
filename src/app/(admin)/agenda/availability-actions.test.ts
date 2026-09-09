@@ -24,6 +24,13 @@ beforeEach(() => {
   mocks.tx.user.findUnique.mockResolvedValue({ name: "Dono" });
 });
 describe("availability operations", () => {
+  it("creates Monday-to-Friday pauses and enforces the actual expanded limit", async () => {
+    expect(await blockAvailability({ ...input, weekdays: [1, 2, 3, 4, 5], untilDate: "2026-09-13" })).toMatchObject({ success: true });
+    expect(mocks.tx.timeOff.create).toHaveBeenCalledTimes(5);
+    mocks.tx.timeOff.create.mockClear();
+    expect(await blockAvailability({ ...input, weekdays: [0, 1, 2, 3, 4, 5, 6], untilDate: "2027-09-01" })).toHaveProperty("error");
+    expect(mocks.tx.timeOff.create).not.toHaveBeenCalled();
+  });
   it("creates weekly occurrences while preserving the original local hour", async () => {
     expect(await blockAvailability({ ...input, everyWeeks: 1, count: 2 })).toMatchObject({ success: true });
     expect(mocks.tx.timeOff.create).toHaveBeenCalledTimes(2);

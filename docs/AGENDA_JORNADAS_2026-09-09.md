@@ -2,6 +2,40 @@
 
 Base: `9f4ee3d` / `master`. Branch: `codex/fix-scheduling-hours`.
 
+## Confirmação posterior e pausas recorrentes
+
+O responsável corrigiu a abertura para **09h** (fechamento 21h, pausa 12h30–15h).
+A correção produtiva foi aplicada somente ao tenant identificado e aos dois
+profissionais, preservando folgas, bloqueios e os 46 agendamentos atuais por
+checksum. Novo backup/rollback privado e AuditLog
+`schedule-opening-correction-2026-09-09-martinelli`. Isso substitui os 06h do
+registro histórico a seguir; não reaplicar o primeiro reparo.
+
+A agenda oferece “Pausa recorrente” para subtrair um intervalo da jornada nos
+dias escolhidos, sem data final. Preserva outras pausas, folgas e horários fora
+dos dias selecionados. Seleção de toda a equipe abrange os profissionais atuais;
+novos profissionais continuam exigindo jornada própria. Expedientes adicionais
+por data continuam como exceções explícitas. Para encurtar/remover uma pausa, o
+atalho leva ao editor central de jornadas, evitando restaurar disponibilidade
+que já estava bloqueada por outra razão.
+
+Revisão mostra antes/depois por profissional e dia. Servidor verifica papel e
+tenant e exige hash da configuração e pedido revisados, revalidado sob lock;
+alteração concorrente exige nova revisão. Nenhuma reserva é cancelada/remarcada.
+
+“Bloquear horário ou dia” mantém bloqueio pontual e recorrências anteriores,
+adicionando dias da semana até data final inclusiva. Expansão usa datas civis no
+fuso do salão e limita o pedido real a 200 bloqueios. Revisão mostra quantidade,
+primeiro/último período e reservas afetadas. Operações permanecem idempotentes.
+Em Configurações, “Novo bloqueio” vira “Fechar um dia”, com botão arredondado e
+indicação explícita de que almoço recorrente é configurado na agenda.
+
+Novos testes cobrem segunda a sexta, fins de semana, folgas, intervalos já
+existentes, limite de expansão, DST, revisão obsoleta, papéis, tenant e falhas.
+E2E usa banco descartável, API real e formulários em 390px/1440px; screenshots
+recebem identificação “AMBIENTE DE TESTES · DADOS FICTÍCIOS”. Não são cadastros
+do Martinelli. Sem migration ou publicação produtiva da interface nesta etapa.
+
 ## Diagnóstico e correção operacional
 
 A leitura autorizada identificou uma referência de salão 09h–22h, mas jornadas

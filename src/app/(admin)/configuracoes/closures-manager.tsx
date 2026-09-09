@@ -59,21 +59,22 @@ export function ClosuresManager({
 
   return (
     <div className="rounded-2xl border border-border bg-card p-5">
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <CalendarOff className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-[13px] font-semibold">Bloqueios do salão</h3>
+          <h3 className="text-[13px] font-semibold">Fechamentos por data</h3>
         </div>
         {canManage && (
-          <Button type="button" size="sm" variant="outline" onClick={() => setOpen((o) => !o)}>
+          <Button type="button" size="sm" variant="outline" className="min-h-11 rounded-full px-4" onClick={() => setOpen((o) => !o)}>
             <Plus className="mr-1 h-3.5 w-3.5" />
-            Novo bloqueio
+            Fechar um dia
           </Button>
         )}
       </div>
       <p className="mb-4 text-[12px] text-muted-foreground">
         Feriado, reforma, viagem — impede novo agendamento (do cliente e do admin) no período. Não
         cancela reservas que já existiam antes do bloqueio.
+        {" "}Para almoço ou outra pausa semanal, use <a href="/agenda" className="underline">Pausa recorrente na agenda</a>.
       </p>
 
       {open && (

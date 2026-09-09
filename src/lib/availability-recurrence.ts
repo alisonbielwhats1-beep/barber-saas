@@ -1,7 +1,22 @@
-import { addCalendarDays, localDateTimeToUtc } from "@/lib/time";
+import { addCalendarDays, isDateKey, localDateTimeToUtc, weekdayOfDateKey } from "@/lib/time";
+
+export type WeekdayRecurrence = { weekdays: number[]; untilDate: string };
 
 /** Expand civil dates before converting each occurrence: DST must not shift the hour. */
-export function availabilityOccurrences(startLocal: string, endLocal: string, timezone: string, everyWeeks = 0, count = 1) {
+export function availabilityOccurrences(startLocal: string, endLocal: string, timezone: string, everyWeeks = 0, count = 1, days?: WeekdayRecurrence) {
+  if (days) {
+    const firstDate = startLocal.slice(0, 10);
+    if (everyWeeks !== 0 || count !== 1 || !isDateKey(firstDate) || !isDateKey(days.untilDate) || days.untilDate < firstDate || days.untilDate > addCalendarDays(firstDate, 365) || !days.weekdays.length || days.weekdays.some(d => !Number.isInteger(d) || d < 0 || d > 6)) throw new Error("Escolha dias da semana e uma data final em até um ano.");
+    // A repeating daily pause must not accidentally become a multi-day closure.
+    if (endLocal.slice(0, 10) !== firstDate || endLocal.slice(11) <= startLocal.slice(11)) throw new Error("Para repetir por dias da semana, início e fim devem estar no mesmo dia.");
+    const intervals: { startAt: Date; endAt: Date }[] = [];
+    for (let date = firstDate; date <= days.untilDate; date = addCalendarDays(date, 1)) {
+      if (!days.weekdays.includes(weekdayOfDateKey(date))) continue;
+      intervals.push({ startAt: localDateTimeToUtc(`${date}T${startLocal.slice(11)}`, timezone), endAt: localDateTimeToUtc(`${date}T${endLocal.slice(11)}`, timezone) });
+    }
+    if (!intervals.length) throw new Error("Nenhum dos dias escolhidos está nesse período.");
+    return intervals;
+  }
   if (![0, 1, 2, 4].includes(everyWeeks) || !Number.isInteger(count) || count < 1 || count > 52 || (everyWeeks === 0 && count !== 1)) {
     throw new Error("Escolha até 52 ocorrências semanais, quinzenais ou a cada quatro semanas.");
   }

@@ -2,6 +2,17 @@
 
 ## 2026-09-09 — correção operacional de jornadas; interface em revisão
 
+Correção posterior do responsável: abertura **09h**, fechamento **21h**, pausa
+**12h30–15h**. A referência do salão e as manhãs dos dois profissionais foram
+atualizadas com novo preflight, backup, rollback condicional e auditoria. Os 46
+agendamentos presentes no momento dessa correção foram preservados por checksum.
+Essa confirmação substitui a abertura 06h registrada historicamente abaixo.
+
+A mesma branch amplia a agenda com pausa semanal sem data final, seleção de
+dias (todos, segunda a sexta, sábado e domingo ou personalizados) e bloqueios
+temporários por dias até uma data final. Interface ainda não promovida.
+Capturas de validação usam dados fictícios e devem ser identificadas como teste.
+
 O responsável confirmou pausa comum 12h30–15h e fechamento às 21h para o
 estabelecimento reportado. Configuração corrigida em transação, com backup,
 auditoria e checksum confirmando os 44 agendamentos preservados. Abertura às
