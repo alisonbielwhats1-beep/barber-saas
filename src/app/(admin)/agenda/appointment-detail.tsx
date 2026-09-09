@@ -30,7 +30,8 @@ import {
   AlertTriangle,
   History,
 } from "lucide-react";
-import { formatMoney } from "@/lib/utils";
+import { formatMoney, formatDuration } from "@/lib/utils";
+import { localDateTimeToUtc } from "@/lib/time";
 import { isValidPhoneBR, normalizePhone } from "@/lib/phone";
 import { ptBR } from "date-fns/locale";
 import { formatInTimeZone } from "date-fns-tz";
@@ -187,6 +188,12 @@ export function AppointmentDetail({
   const cfg = STATUS[appt.status as keyof typeof STATUS] ?? STATUS.CONFIRMED;
   const whenLabel = formatInTimeZone(start, timezone, "d 'de' MMMM 'às' HH:mm", { locale: ptBR });
   const clientPhoneHref = telLink(appt.clientPhone);
+  const durationMin = Math.round((end.getTime() - start.getTime()) / 60_000);
+  let editEndLabel: string | null = null;
+  try {
+    const proposedStart = localDateTimeToUtc(`${editDate}T${editTime}`, timezone);
+    editEndLabel = formatInTimeZone(new Date(proposedStart.getTime() + durationMin * 60_000), timezone, "HH:mm 'de' dd/MM");
+  } catch { /* Campos incompletos permanecem editáveis, sem permitir envio. */ }
 
   const now = new Date();
   const isCompletedAwaitingPayment = appt.status === "COMPLETED" && !appt.hasPayment;
@@ -241,19 +248,23 @@ export function AppointmentDetail({
     if (!appt) return;
     setError(null);
     startTransition(async () => {
-      const result = await editAppointment({
-        id: appt.id,
-        professionalId: appt.professionalId,
-        serviceIds: appt.serviceIds,
-        startLocal: `${editDate}T${editTime}`,
-        notes: editNotes || null,
-        idempotencyKey: mutationKey("edit"),
-        expectedVersion: appt.version,
-      });
-      if ("error" in result) {
-        setError(result.error);
-      } else {
-        onClose();
+      try {
+        const result = await editAppointment({
+          id: appt.id,
+          professionalId: appt.professionalId,
+          serviceIds: appt.serviceIds,
+          startLocal: `${editDate}T${editTime}`,
+          notes: editNotes || null,
+          idempotencyKey: mutationKey("edit"),
+          expectedVersion: appt.version,
+        });
+        if ("error" in result) {
+          setError(result.error);
+        } else {
+          onClose();
+        }
+      } catch {
+        setError("Não foi possível salvar. Confira sua conexão e tente novamente; suas alterações foram mantidas.");
       }
     });
   }
@@ -310,10 +321,13 @@ export function AppointmentDetail({
                   </label>
                   <input
                     type="date"
+                    aria-label="Data do agendamento"
+                    disabled={pending}
                     value={editDate}
                     onChange={(e) => {
                       mutationKeys.current.delete("edit");
                       setEditDate(e.target.value);
+                      setError(null);
                     }}
                     className="w-full rounded-lg border border-border bg-surface-1 px-3 py-2 text-[13px] focus:outline-none focus:ring-1 focus:ring-primary"
                   />
@@ -324,21 +338,32 @@ export function AppointmentDetail({
                   </label>
                   <input
                     type="time"
+                    aria-label="Horário do agendamento"
+                    disabled={pending}
                     value={editTime}
                     onChange={(e) => {
                       mutationKeys.current.delete("edit");
                       setEditTime(e.target.value);
+                      setError(null);
                     }}
                     className="w-full rounded-lg border border-border bg-surface-1 px-3 py-2 text-[13px] focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
               </div>
 
+              <p role="status" className="rounded-lg border border-border bg-muted/40 p-3 text-sm">
+                Duração atual: <strong>{formatDuration(durationMin)}</strong>.
+                {editEndLabel ? <> Término previsto: <strong>{editEndLabel}</strong>.</> : " Informe uma data e um horário válidos."}
+                <span className="mt-1 block text-xs text-muted-foreground">O atendimento inteiro precisa caber no expediente, sem atravessar pausas. Duração e disponibilidade serão confirmadas ao salvar.</span>
+              </p>
+
               <div>
                 <label className="mb-1 block text-[11px] font-medium text-muted-foreground">
                   Observações
                 </label>
                 <textarea
+                  aria-label="Observações do agendamento"
+                  disabled={pending}
                   value={editNotes}
                   onChange={(e) => {
                     mutationKeys.current.delete("edit");
@@ -351,14 +376,14 @@ export function AppointmentDetail({
               </div>
 
               {error && (
-                <p className="rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger">
+                <p role="alert" className="rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger">
                   {error}
                 </p>
               )}
 
               <div className="flex gap-2 pt-1">
                 <button
-                  disabled={pending}
+                  disabled={pending || !editEndLabel}
                   onClick={saveEdit}
                   className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-[13px] font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
                 >

@@ -89,7 +89,7 @@ export async function getTeamPerformance(
       serviceCount: p.services.length,
       serviceIds: p.services.map((s) => s.serviceId),
       workingHours: p.workingHours,
-      workingDays: p.workingHours.length,
+      workingDays: new Set(p.workingHours.map(hours => hours.weekday)).size,
       revenue,
       appointments: count,
       avgTicket: count > 0 ? revenue / count : 0,

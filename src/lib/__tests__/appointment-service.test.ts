@@ -182,3 +182,30 @@ describe("working hours at midnight", () => {
     expect(result.violation).toBe(violation);
   });
 });
+
+describe("jornada com pausa diária e atendimento longo", () => {
+  it.each([
+    ["16:15", 210, null, "19:45"], ["16:30", 210, null, "20:00"],
+    ["18:00", 30, null, "18:30"], ["20:30", 30, null, "21:00"],
+    ["20:45", 30, "OUTSIDE_WORKING_HOURS", "21:15"],
+    ["12:00", 30, null, "12:30"], ["12:15", 30, "OUTSIDE_WORKING_HOURS", "12:45"],
+    ["14:30", 30, "OUTSIDE_WORKING_HOURS", "15:00"], ["15:00", 30, null, "15:30"],
+    ["06:00", 30, null, "06:30"], ["05:45", 30, "OUTSIDE_WORKING_HOURS", "06:15"],
+  ])("%s com %s minutos → %s", async (time, durationMin, violation, endTime) => {
+    const { tx, raw } = schedulingTx();
+    raw.service.findMany.mockResolvedValue([{ id: "service-a", name: "Serviço de teste", durationMin: Number(durationMin), priceCents: 10000 }]);
+    raw.professionalService.findMany.mockResolvedValue([{ serviceId: "service-a" }]);
+    raw.workingHours.findMany.mockResolvedValue([{ startMinutes: 360, endMinutes: 750 }, { startMinutes: 900, endMinutes: 1260 }]);
+    const result = await inspectAppointmentAvailability(tx, { salonId: "salon-a", professionalId: "professional-a", serviceIds: ["service-a"], startLocal: `2030-09-11T${time}`, enforceBookingWindow: false });
+    expect(result.violation).toBe(violation);
+    const { hhmmInTimeZone } = await import("../time");
+    expect(hhmmInTimeZone(result.endAt, "America/Sao_Paulo")).toBe(endTime);
+  });
+  it("reproduz a causa: jornada encerrando às 18h bloqueia serviço de 3h30 às 16h15", async () => {
+    const { tx, raw } = schedulingTx();
+    raw.service.findMany.mockResolvedValue([{ id: "service-a", name: "Serviço de teste", durationMin: 210, priceCents: 10000 }]);
+    raw.professionalService.findMany.mockResolvedValue([{ serviceId: "service-a" }]);
+    const result = await inspectAppointmentAvailability(tx, { salonId: "salon-a", professionalId: "professional-a", serviceIds: ["service-a"], startLocal: "2030-09-11T16:15", enforceBookingWindow: false });
+    expect(result.violation).toBe("OUTSIDE_WORKING_HOURS");
+  });
+});

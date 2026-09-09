@@ -26,8 +26,6 @@ const salonInput = z.object({
   phone: z.string().optional().nullable(),
   timezone: z.string().refine(isValidTimeZone, "Fuso horário IANA inválido"),
   currency: z.string().min(1),
-  openMinutes: z.coerce.number().int().min(0).max(1440),
-  closeMinutes: z.coerce.number().int().min(0).max(1440),
   cancelPolicyHours: z.coerce.number().int().min(0).max(168),
   noShowFeeCents: z.coerce.number().int().min(0),
   minBookingLeadMinutes: z.coerce.number().int().min(0).max(10_080), // até 7 dias
@@ -39,7 +37,6 @@ export async function updateSalonSettings(input: z.infer<typeof salonInput>) {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER"]);
   const data = salonInput.parse(input);
-  if (data.closeMinutes <= data.openMinutes) throw new Error("Fechamento deve ser depois da abertura");
 
   await withTenant(ctx, (tx) =>
     tx.salon.update({
@@ -50,8 +47,6 @@ export async function updateSalonSettings(input: z.infer<typeof salonInput>) {
         phone: data.phone ?? null,
         timezone: data.timezone,
         currency: data.currency,
-        openMinutes: data.openMinutes,
-        closeMinutes: data.closeMinutes,
         cancelPolicyHours: data.cancelPolicyHours,
         noShowFeeCents: data.noShowFeeCents,
         minBookingLeadMinutes: data.minBookingLeadMinutes,
@@ -62,6 +57,8 @@ export async function updateSalonSettings(input: z.infer<typeof salonInput>) {
   );
   revalidatePath("/configuracoes");
   revalidatePath("/dashboard");
+  revalidatePath("/agenda");
+  revalidatePath("/book", "layout");
 }
 
 const pricingRuleInput = z.object({
