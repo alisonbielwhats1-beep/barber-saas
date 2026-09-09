@@ -1045,6 +1045,8 @@ export function BookingFlow({
           )}
         </div>
 
+        <p className="mb-3 text-xs text-muted-foreground">Os horários consideram a duração de {formatDuration(totalDuration)}, as pausas e a jornada do profissional. O último início disponível pode ser anterior ao fechamento.</p>
+
         {!proId ? (
           <p className="rounded-2xl border border-border bg-card px-4 py-6 text-center text-sm text-muted-foreground">
             Escolha um profissional para ver os horários.

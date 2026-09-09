@@ -1,5 +1,18 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-09 — correção operacional de jornadas; interface em revisão
+
+O responsável confirmou pausa comum 12h30–15h e fechamento às 21h para o
+estabelecimento reportado. Configuração corrigida em transação, com backup,
+auditoria e checksum confirmando os 44 agendamentos preservados. Abertura às
+06h conforme solicitação inicial; dias de folga mantidos. Um atendimento futuro
+na pausa continua exigindo revisão humana, sem remarcação automática.
+
+A branch `codex/fix-scheduling-hours`, baseada em `master` `9f4ee3d`, centraliza
+expediente/equipe/pausas e esclarece duração/término ao remarcar. Escopo, testes
+e limites em `AGENDA_JORNADAS_2026-09-09.md`. A configuração já está corrigida;
+o código da interface ainda não foi promovido. Nenhuma migration.
+
 ## 2026-09-08 — jornada do cliente em revisão; PR #82 publicado
 
 PR #82 integrado no commit `aca303b349dbc864af40fcefc6b52a146f4bbf71`,

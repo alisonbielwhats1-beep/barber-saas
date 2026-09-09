@@ -18,7 +18,7 @@ import {
   Target,
 } from "lucide-react";
 import { ProfessionalForm } from "./professional-form";
-import { WorkingHoursForm } from "./working-hours-form";
+import Link from "next/link";
 import { ToggleActiveButton } from "./toggle-active-button";
 import { PendingInvites } from "./pending-invites";
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
@@ -240,7 +240,7 @@ export default async function ProfissionaisPage() {
                     serviceIds: p.serviceIds,
                   }}
                 />
-                <WorkingHoursForm professionalId={p.id} professionalName={p.name} current={p.workingHours} />
+                <Link href="/configuracoes#jornadas" className="inline-flex min-h-11 items-center rounded-md px-3 text-sm hover:bg-muted">Jornada e pausas</Link>
                 <ToggleActiveButton id={p.id} active={p.active} />
               </div>}
             </div>

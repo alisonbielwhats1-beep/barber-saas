@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,12 +24,13 @@ type Row = { weekday: number; enabled: boolean; intervals: { start: string; end:
 
 function buildRows(
   current: { weekday: number; startMinutes: number; endMinutes: number }[],
+  salonHours?: { openMinutes: number; closeMinutes: number },
 ): Row[] {
   return Array.from({ length: 7 }, (_, weekday) => {
     const existing = current.filter((c) => c.weekday === weekday).sort((a, b) => a.startMinutes - b.startMinutes);
     return {
       weekday, enabled: existing.length > 0,
-      intervals: (existing.length ? existing : [{ startMinutes: 540, endMinutes: 1080 }]).map((interval) => ({
+      intervals: (existing.length ? existing : [{ startMinutes: salonHours?.openMinutes ?? 540, endMinutes: salonHours?.closeMinutes ?? 1080 }]).map((interval) => ({
         start: minutesToHHMM(interval.startMinutes), end: minutesToHHMM(interval.endMinutes),
       })),
     };
@@ -39,13 +41,16 @@ export function WorkingHoursForm({
   professionalId,
   professionalName,
   current,
+  salonHours,
 }: {
   professionalId: string;
   professionalName: string;
   current: { weekday: number; startMinutes: number; endMinutes: number }[];
+  salonHours?: { openMinutes: number; closeMinutes: number };
 }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [rows, setRows] = useState<Row[]>(buildRows(current));
+  const [rows, setRows] = useState<Row[]>(buildRows(current, salonHours));
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -72,6 +77,7 @@ export function WorkingHoursForm({
           })) : []),
         );
         setOpen(false);
+        router.refresh();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Erro ao salvar");
       }
@@ -83,7 +89,7 @@ export function WorkingHoursForm({
       open={open}
       onOpenChange={(o) => {
         setOpen(o);
-        if (o) setRows(buildRows(current));
+        if (o) { setRows(buildRows(current, salonHours)); setError(null); }
       }}
     >
       <DialogTrigger asChild>
@@ -95,7 +101,7 @@ export function WorkingHoursForm({
         <DialogHeader>
           <DialogTitle>Horários de {professionalName}</DialogTitle>
           <DialogDescription>
-            Defina um ou mais intervalos por dia para preservar pausas e almoço. Fim às 00:00 significa meia-noite ao encerrar o dia.
+            Estes intervalos definem os horários disponíveis para reserva. Para uma pausa das 12h30 às 15h, encerre o primeiro intervalo às 12h30 e inicie o próximo às 15h. Fim às 00:00 significa meia-noite ao encerrar o dia.
           </DialogDescription>
         </DialogHeader>
 
@@ -139,7 +145,7 @@ export function WorkingHoursForm({
                 title="Aplicar este horário em todos os dias"
                 className="w-full text-xs sm:ml-auto sm:w-auto"
               >
-                Copiar
+                Copiar intervalos para os outros dias
               </Button>
             </div>
           ))}

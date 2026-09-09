@@ -62,7 +62,7 @@ function appointmentActionMessage(error: unknown): string {
     INVALID_TIMEZONE: "O fuso do estabelecimento precisa ser corrigido",
     TOO_SOON: "Horário fora da antecedência mínima",
     TOO_FAR: "Horário além do limite de agendamento",
-    OUTSIDE_WORKING_HOURS: "Horário fora da jornada do profissional",
+    OUTSIDE_WORKING_HOURS: "O atendimento completo não cabe na jornada do profissional, incluindo sua duração e as pausas. Revise o horário de término e o expediente em Configurações → Agenda.",
     PROFESSIONAL_UNAVAILABLE: "O profissional está indisponível nesse período",
     SALON_CLOSED: "O estabelecimento está fechado nesse período",
     SLOT_TAKEN: "Horário já ocupado",

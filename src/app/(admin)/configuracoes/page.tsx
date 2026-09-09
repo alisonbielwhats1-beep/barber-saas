@@ -12,6 +12,7 @@ import { ProfileForm } from "./profile-form";
 import { getPlanEntitlement } from "@/lib/plan-entitlements";
 import { SettingsSectionNav } from "./settings-section-nav";
 import { PricingRulesManager } from "./pricing-rules-manager";
+import { TeamHoursManager } from "./team-hours-manager";
 
 const PLAN_LABEL: Record<string, string> = {
   FREE: "Grátis",
@@ -25,7 +26,7 @@ export default async function ConfiguracoesPage() {
   const { salonId, userId, role } = ctx;
   const invitesEnabled = emailInvitesEnabled();
 
-  const { salon, profile, memberships, pendingInvites, closures, pricingRules, setupCounts } = await withTenant(ctx, async (tx) => {
+  const { salon, profile, memberships, pendingInvites, closures, pricingRules, setupCounts, teamHours } = await withTenant(ctx, async (tx) => {
     const salon = await tx.salon.findUnique({
       where: { id: salonId },
       select: {
@@ -95,7 +96,8 @@ export default async function ConfiguracoesPage() {
     const professionalCount = await tx.professional.count({ where: { salonId, active: true } });
     const clientCount = await tx.clientProfile.count({ where: { salonId } });
     const productCount = await tx.product.count({ where: { salonId, active: true } });
-    return { salon, profile, memberships, pendingInvites, closures, pricingRules, setupCounts: { serviceCount, professionalCount, clientCount, productCount } };
+    const teamHours = await tx.professional.findMany({ where: { salonId, active: true }, select: { id: true, user: { select: { name: true } }, workingHours: { select: { weekday: true, startMinutes: true, endMinutes: true }, orderBy: [{ weekday: "asc" }, { startMinutes: "asc" }] } }, orderBy: { user: { name: "asc" } } });
+    return { salon, profile, memberships, pendingInvites, closures, pricingRules, teamHours, setupCounts: { serviceCount, professionalCount, clientCount, productCount } };
   });
 
   if (!salon || !profile) return null;
@@ -152,6 +154,7 @@ export default async function ConfiguracoesPage() {
         </section>
 
         <section id="agenda" className="scroll-mt-24">
+          <TeamHoursManager openMinutes={salon.openMinutes} closeMinutes={salon.closeMinutes} professionals={teamHours.map(p => ({ id: p.id, name: p.user.name, workingHours: p.workingHours }))} />
           <SalonSettingsForm salon={salon} />
           <div className="mt-6">
             <PricingRulesManager

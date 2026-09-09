@@ -36,14 +36,6 @@ const TIMEZONES = [
   "UTC",
 ];
 
-function toHHMM(min: number) {
-  return `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
-}
-function toMin(hhmm: string) {
-  const [h, m] = hhmm.split(":").map(Number);
-  return h * 60 + m;
-}
-
 export function SalonSettingsForm({ salon }: { salon: Salon }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -61,8 +53,6 @@ export function SalonSettingsForm({ salon }: { salon: Salon }) {
       phone: (f.get("phone") as string) || null,
       timezone: String(f.get("timezone")),
       currency: String(f.get("currency")),
-      openMinutes: toMin(String(f.get("open"))),
-      closeMinutes: toMin(String(f.get("close"))),
       cancelPolicyHours: Number(f.get("cancelPolicyHours")),
       noShowFeeCents: Math.round(Number(f.get("noShowFee") || 0) * 100),
       minBookingLeadMinutes: Number(f.get("minBookingLeadMinutes")),
@@ -125,20 +115,6 @@ export function SalonSettingsForm({ salon }: { salon: Salon }) {
         </Field>
       </Section>
 
-      <Section title="Horário de funcionamento (padrão)">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="Abertura">
-            <Input name="open" type="time" defaultValue={toHHMM(salon.openMinutes)} />
-          </Field>
-          <Field label="Fechamento">
-            <Input name="close" type="time" defaultValue={toHHMM(salon.closeMinutes)} />
-          </Field>
-        </div>
-        <p className="text-[11px] text-muted-foreground">
-          Referência do salão. A disponibilidade real vem da jornada de cada profissional (em Profissionais → Horários).
-        </p>
-      </Section>
-
       <Section title="Política de cancelamento">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Antecedência mínima (horas)">
@@ -178,7 +154,7 @@ export function SalonSettingsForm({ salon }: { salon: Salon }) {
           Controla o que o cliente vê ao marcar sozinho pela página pública. Por segurança, o app
           limita a janela pública a no máximo 60 dias. O intervalo entre
           atendimentos reserva um tempo de preparo/limpeza para cada profissional entre um
-          horário e o próximo — não afeta agendamentos feitos por você no painel.
+          horário e o próximo, tanto no aplicativo do cliente quanto no painel.
         </p>
       </Section>
 

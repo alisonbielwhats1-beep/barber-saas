@@ -271,6 +271,9 @@ export async function setWorkingHours(
   });
   revalidatePath("/profissionais");
   revalidatePath("/agenda");
+  revalidatePath("/configuracoes");
+  revalidatePath("/hoje");
+  revalidatePath("/book", "layout");
 }
 
 export async function setProfessionalServices(
