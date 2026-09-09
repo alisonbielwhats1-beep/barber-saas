@@ -3,6 +3,17 @@ import { z } from "zod";
 export const WEEKDAY_LABELS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 export type WeeklyHours = { weekday: number; startMinutes: number; endMinutes: number };
 
+export const salonHoursInput = z.object({
+  openMinutes: z.number().int().min(0).max(1439),
+  closeMinutes: z.number().int().min(1).max(1440),
+  confirmed: z.literal(true),
+}).superRefine((value, ctx) => {
+  if (value.closeMinutes <= value.openMinutes) {
+    ctx.addIssue({ code: "custom", message: "Fechamento deve ser depois da abertura." });
+  }
+});
+export type SalonHoursInput = z.infer<typeof salonHoursInput>;
+
 export const teamScheduleInput = z.object({
   professionalIds: z.array(z.string().min(1).max(100)).min(1).max(100),
   openMinutes: z.number().int().min(0).max(1439),

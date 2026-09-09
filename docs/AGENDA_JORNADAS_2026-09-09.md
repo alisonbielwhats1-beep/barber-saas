@@ -59,11 +59,20 @@ Os arquivos de recuperação permanecem em `artifacts/`, fora do Git.
 ## Interface e regras
 
 - Configurações → Agenda concentra expediente, pausas e jornadas individuais.
+- O horário geral do estabelecimento pode ser salvo isoladamente e não altera
+  jornadas individuais. Nenhum profissional vem selecionado por padrão.
+- Copiar o horário geral para a equipe é uma ação separada e opcional. Ela exige
+  ativação explícita, seleção nominal e revisão do antes/depois; a interface avisa
+  que horários especiais e pausas diferentes serão substituídos.
 - Aplicação conjunta salva a referência do salão e os intervalos selecionados na
   mesma transação. Preserva os dias de folga, exige revisão explícita, valida papel
   e tenant no servidor e registra antes/depois na auditoria.
 - Profissionais aponta para esse mesmo local; ajustes individuais continuam possíveis.
 - Novos dias no editor individual começam com a referência atual do salão.
+- Na visão diária, intervalos fora da jornada e entre turnos recebem tracejado e
+  o rótulo “Fora do expediente”. Bloqueios cadastrados continuam identificados
+  separadamente como “Bloqueado”. Essa apresentação é igual para dono/gerente;
+  profissionais continuam vendo apenas a própria agenda por regra de acesso.
 - O formulário de políticas deixa de sobrescrever horários com valores desatualizados.
 - Salvar jornada invalida também as páginas do cliente, configurações e operação.
 - A remarcação mostra duração e término previsto no fuso do salão, explica quando
@@ -85,5 +94,7 @@ dois altos, três moderados): Next/sharp, js-yaml e ferramentas Vitest. Nenhuma
 dependência foi adicionada nesta correção. Atualizações de segurança exigem uma
 entrega própria com validação; não considerar a auditoria aprovada/zerada.
 
-A correção de configuração acima já foi aplicada. A nova interface ainda depende
-de CI/Preview e promoção explícita do código para produção.
+A correção de configuração e a interface descrita originalmente foram publicadas
+pelo PR #84. A separação posterior entre horário do salão e cópia opcional para
+a equipe, junto da indicação visual de períodos indisponíveis, teve sua publicação
+autorizada pelo responsável pelo produto.

@@ -1,6 +1,27 @@
 # Status atual canônico — Salon SaaS
 
-## 2026-09-09 — correção operacional de jornadas; interface em revisão
+## 2026-09-09 — horários do salão separados das jornadas
+
+A configuração deixa de selecionar toda a equipe por padrão. O horário geral do
+estabelecimento agora pode ser salvo sozinho, sem tocar nas jornadas individuais.
+Substituir horários de profissionais exige ativar uma opção separada, escolher
+cada pessoa e revisar o antes/depois. A interface avisa que horários especiais,
+como uma terça-feira iniciando às 14h sem pausa, serão substituídos; folgas e
+reservas continuam preservadas. A publicação desta revisão foi autorizada pelo
+responsável pelo produto.
+
+A mesma revisão corrige a leitura visual da agenda diária: períodos fora da
+jornada e pausas passam a receber o rótulo “Fora do expediente” com tracejado,
+separado dos bloqueios explícitos. Dono e gerente continuam vendo todos os
+profissionais; o papel profissional continua limitado à própria agenda. O motor
+de disponibilidade já respeitava essas jornadas, portanto não houve alteração
+na regra de agendamento nem no banco.
+
+No Studio Martinelli, Anderson acumula os papéis de proprietário e profissional.
+Como proprietário, visualiza a equipe inteira; como profissional cadastrado,
+continua com jornada, bloqueios e coluna próprios na agenda.
+
+## 2026-09-09 — correção operacional de jornadas; interface publicada
 
 Correção posterior do responsável: abertura **09h**, fechamento **21h**, pausa
 **12h30–15h**. A referência do salão e as manhãs dos dois profissionais foram
@@ -8,9 +29,10 @@ atualizadas com novo preflight, backup, rollback condicional e auditoria. Os 46
 agendamentos presentes no momento dessa correção foram preservados por checksum.
 Essa confirmação substitui a abertura 06h registrada historicamente abaixo.
 
-A mesma branch amplia a agenda com pausa semanal sem data final, seleção de
+A mesma branch ampliou a agenda com pausa semanal sem data final, seleção de
 dias (todos, segunda a sexta, sábado e domingo ou personalizados) e bloqueios
-temporários por dias até uma data final. Interface ainda não promovida.
+temporários por dias até uma data final. O PR #84 foi integrado em `master` no
+commit `78e902b5bd49d5dec57aabe8d3128c4573e186fe` e publicado em Production.
 Capturas de validação usam dados fictícios e devem ser identificadas como teste.
 
 O responsável confirmou pausa comum 12h30–15h e fechamento às 21h para o
@@ -21,8 +43,8 @@ na pausa continua exigindo revisão humana, sem remarcação automática.
 
 A branch `codex/fix-scheduling-hours`, baseada em `master` `9f4ee3d`, centraliza
 expediente/equipe/pausas e esclarece duração/término ao remarcar. Escopo, testes
-e limites em `AGENDA_JORNADAS_2026-09-09.md`. A configuração já está corrigida;
-o código da interface ainda não foi promovido. Nenhuma migration.
+e limites em `AGENDA_JORNADAS_2026-09-09.md`. A configuração e essa interface
+foram publicadas pelo PR #84. Nenhuma migration.
 
 ## 2026-09-08 — jornada do cliente em revisão; PR #82 publicado
 

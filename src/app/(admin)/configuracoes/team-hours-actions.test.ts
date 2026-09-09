@@ -9,7 +9,7 @@ vi.mock("@/lib/tenant", () => ({ getTenantContext: async () => mocks.ctx, assert
 vi.mock("@/lib/prisma-tenant", () => ({ withTenant: async (_ctx: unknown, callback: (tx: typeof mocks.tx) => unknown) => callback(mocks.tx) }));
 vi.mock("@/lib/inventory-lock", () => ({ lockOperationalResources: mocks.lock }));
 vi.mock("@/lib/audit", () => ({ writeAuditLog: mocks.audit }));
-import { saveTeamHours } from "./team-hours-actions";
+import { saveSalonHours, saveTeamHours } from "./team-hours-actions";
 
 const input = { professionalIds: ["pro-b", "pro-a"], openMinutes: 360, closeMinutes: 1260, pause: { startMinutes: 750, endMinutes: 900 }, confirmed: true as const };
 beforeEach(() => {
@@ -18,6 +18,32 @@ beforeEach(() => {
   mocks.tx.salon.findUniqueOrThrow.mockResolvedValue({ slug: "studio-test", openMinutes: 540, closeMinutes: 1320 });
   mocks.tx.workingHours.findMany.mockResolvedValue([{ professionalId: "pro-a", weekday: 0, startMinutes: 540, endMinutes: 1080 }, { professionalId: "pro-b", weekday: 2, startMinutes: 540, endMinutes: 1080 }]);
 });
+
+describe("horário geral do estabelecimento", () => {
+  it("atualiza o salão sem tocar nas jornadas individuais", async () => {
+    await saveSalonHours({ openMinutes: 540, closeMinutes: 1260, confirmed: true });
+    expect(mocks.tx.salon.update).toHaveBeenCalledWith({
+      where: { id: "salon-a" },
+      data: { openMinutes: 540, closeMinutes: 1260 },
+    });
+    expect(mocks.tx.workingHours.deleteMany).not.toHaveBeenCalled();
+    expect(mocks.tx.workingHours.createMany).not.toHaveBeenCalled();
+    expect(mocks.audit).toHaveBeenCalledWith(mocks.tx, expect.objectContaining({
+      action: "SALON_OPENING_HOURS_UPDATED",
+      metadata: {
+        before: { openMinutes: 540, closeMinutes: 1320 },
+        after: { openMinutes: 540, closeMinutes: 1260 },
+      },
+    }));
+  });
+
+  it("rejeita papel sem permissão antes de ler ou gravar", async () => {
+    mocks.ctx.role = "PROFESSIONAL";
+    await expect(saveSalonHours({ openMinutes: 540, closeMinutes: 1260, confirmed: true })).rejects.toThrow("Forbidden");
+    expect(mocks.tx.salon.findUniqueOrThrow).not.toHaveBeenCalled();
+  });
+});
+
 describe("aplicação conjunta do expediente", () => {
   it("salva salão e jornadas na mesma transação, preserva folgas e audita antes/depois", async () => {
     await saveTeamHours(input);

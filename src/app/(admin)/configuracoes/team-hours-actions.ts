@@ -5,7 +5,49 @@ import { assertRole, getTenantContext } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
 import { lockOperationalResources } from "@/lib/inventory-lock";
 import { writeAuditLog } from "@/lib/audit";
-import { replaceDailyShifts, teamScheduleInput, type TeamScheduleInput } from "@/lib/team-schedule";
+import {
+  replaceDailyShifts,
+  salonHoursInput,
+  teamScheduleInput,
+  type SalonHoursInput,
+  type TeamScheduleInput,
+} from "@/lib/team-schedule";
+
+const REVALIDATE_PATHS = ["/configuracoes", "/profissionais", "/agenda", "/hoje", "/dashboard"];
+
+export async function saveSalonHours(input: SalonHoursInput) {
+  const ctx = await getTenantContext();
+  assertRole(ctx, ["OWNER", "MANAGER"]);
+  const parsed = salonHoursInput.safeParse(input);
+  if (!parsed.success) throw new Error(parsed.error.issues[0].message);
+  const data = parsed.data;
+  const slug = await withTenant(ctx, async tx => {
+    const salon = await tx.salon.findUniqueOrThrow({
+      where: { id: ctx.salonId },
+      select: { slug: true, openMinutes: true, closeMinutes: true },
+    });
+    await tx.salon.update({
+      where: { id: ctx.salonId },
+      data: { openMinutes: data.openMinutes, closeMinutes: data.closeMinutes },
+    });
+    await writeAuditLog(tx, {
+      salonId: ctx.salonId,
+      userId: ctx.userId,
+      actorName: "Equipe",
+      action: "SALON_OPENING_HOURS_UPDATED",
+      entityType: "Salon",
+      entityId: ctx.salonId,
+      reason: "Horário geral do estabelecimento atualizado sem alterar jornadas individuais.",
+      metadata: {
+        before: { openMinutes: salon.openMinutes, closeMinutes: salon.closeMinutes },
+        after: { openMinutes: data.openMinutes, closeMinutes: data.closeMinutes },
+      },
+    });
+    return salon.slug;
+  });
+  for (const path of REVALIDATE_PATHS) revalidatePath(path);
+  revalidatePath(`/book/${slug}`, "layout");
+}
 
 export async function saveTeamHours(input: TeamScheduleInput) {
   const ctx = await getTenantContext();
@@ -31,6 +73,6 @@ export async function saveTeamHours(input: TeamScheduleInput) {
     });
     return salon.slug;
   });
-  for (const path of ["/configuracoes", "/profissionais", "/agenda", "/hoje", "/dashboard"]) revalidatePath(path);
+  for (const path of REVALIDATE_PATHS) revalidatePath(path);
   revalidatePath(`/book/${slug}`, "layout");
 }
