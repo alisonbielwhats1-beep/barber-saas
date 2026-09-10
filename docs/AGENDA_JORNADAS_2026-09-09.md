@@ -108,8 +108,9 @@ restrito à própria agenda e aos clientes ligados aos próprios atendimentos.
 
 A exceção não autoriza horário antes/depois do expediente, folga, bloqueio,
 fechamento do salão nem conflito com outro cliente. Overbooking permanece uma
-permissão separada de dono/gerente. Toda criação durante pausa registra o motivo
-no evento imutável do agendamento e em `AuditLog`, sem migration de banco.
+permissão separada de dono/gerente. Toda criação durante pausa exige confirmação
+explícita e registra a exceção no evento imutável do agendamento e em `AuditLog`;
+o motivo é opcional para reduzir atrito operacional, sem migration de banco.
 
 ## Ações rápidas na agenda móvel
 

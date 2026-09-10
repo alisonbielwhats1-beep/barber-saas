@@ -11,8 +11,8 @@ horário. Papéis sem permissão continuam impedidos de alterar o bloqueio e o
 servidor preserva validação de papel, tenant, lock e auditoria.
 
 A criação manual durante pausa semanal também corrige a primeira tentativa: o
-servidor devolve a pausa detectada para que a tela solicite o motivo, em vez de
-encerrar o fluxo com um erro de motivo ausente. Bloqueios pontuais continuam
+servidor devolve a pausa detectada para que a tela peça confirmação explícita,
+sem obrigar o preenchimento de motivo. Bloqueios pontuais continuam
 inegociáveis enquanto existirem; devem ser reabertos antes do agendamento.
 Nenhuma migration, dado produtivo ou regra do Booksite foi alterada.
 
