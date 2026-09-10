@@ -1,6 +1,6 @@
 # Status atual canônico — Salon SaaS
 
-## 2026-09-10 — agenda com prioridade à grade em revisão
+## 2026-09-10 — agenda com prioridade à grade (PR #89)
 
 A revisão `codex/agenda-fullscreen` retira cards de indicadores e legendas
 redundantes da Agenda. Data e visualizações ficam em uma barra compacta; busca
@@ -9,8 +9,9 @@ própria, cabeçalhos menores e calendário lateral inicialmente recolhido. O �
 reúne também pausa recorrente, seleção de intervalo e gestão de expediente,
 bloqueios e fila. Nenhuma regra de acesso ou banco foi alterada.
 Validação visual local usa exclusivamente dados fictícios em 320, 390 e 1440px.
-Esta revisão ainda não foi publicada; CI/Preview e publicação serão registrados
-no PR. Escopo detalhado em `AGENDA_JORNADAS_2026-09-09.md`.
+Promoção condicionada à aprovação de CI/Preview; commit, deploy e verificação
+produtiva são registrados no PR #89. Escopo detalhado em
+`AGENDA_JORNADAS_2026-09-09.md`.
 
 ## 2026-09-10 — ações rápidas da agenda publicadas
 
