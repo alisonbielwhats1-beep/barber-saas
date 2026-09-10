@@ -1,5 +1,14 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-10 — atualização de dependências de segurança, em validação local
+
+Na branch `codex/security-dependency-updates`, Next.js e seus pacotes alinhados
+foram atualizados de `15.5.22` para `15.5.25`, `sharp` de `0.35.3` para
+`0.35.4`, Vitest e cobertura de `4.1.10` para `4.1.11`, e `js-yaml` foi fixado
+em `4.3.2` por override. O `npm audit` completo e somente de produção retornam
+zero vulnerabilidades. Esta entrega não contém migration, alteração de dados,
+deploy ou mudança de configuração do Supabase/Vercel.
+
 ## 2026-09-10 — agenda com prioridade à grade (PR #89)
 
 A revisão `codex/agenda-fullscreen` retira cards de indicadores e legendas
