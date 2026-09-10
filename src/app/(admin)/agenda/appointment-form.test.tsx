@@ -54,7 +54,7 @@ function mount() {
 }
 
 describe("formulário de encaixe durante pausa", () => {
-  it("pede motivo e confirma explicitamente a exceção", async () => {
+  it("confirma explicitamente a exceção sem obrigar um motivo", async () => {
     mount();
     fireEvent.click(screen.getByRole("checkbox", { name: /Corte/ }));
     const clientSelect = document.querySelector<HTMLSelectElement>('select[name="clientId"]');
@@ -64,9 +64,7 @@ describe("formulário de encaixe durante pausa", () => {
 
     expect(await screen.findByText("Pausa do profissional")).toBeInTheDocument();
     expect(screen.queryByText("Repetir agendamento")).not.toBeInTheDocument();
-    fireEvent.change(screen.getByPlaceholderText("Motivo da exceção (obrigatório)"), {
-      target: { value: "Cliente só pode vir no almoço" },
-    });
+    expect(screen.getByPlaceholderText("Motivo da exceção (opcional)")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Agendar durante a pausa" }));
 
     await waitFor(() => expect(mocks.create).toHaveBeenCalledTimes(2));
@@ -74,8 +72,9 @@ describe("formulário de encaixe durante pausa", () => {
       professionalId: "professional-a",
       clientId: "client-a",
       startLocal: "2030-09-11T13:30",
-      overbookReason: "Cliente só pode vir no almoço",
+      overrideConfirmed: true,
     }));
+    expect(mocks.create.mock.calls[1]![0]).not.toHaveProperty("overbookReason");
     await waitFor(() => expect(mocks.onOpenChange).toHaveBeenCalledWith(false));
   });
 });

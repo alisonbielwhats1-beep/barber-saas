@@ -9,8 +9,9 @@ import { WeeklyPausePanel } from "./weekly-pause-panel";
 import { WeekdayPicker } from "@/components/weekday-picker";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { blockAvailability, removeAvailabilityBlock, cancelSelectedAppointments, previewAvailabilityBlock } from "./availability-actions";
+import type { AvailabilityBlock } from "./availability-block";
 
-export type AvailabilityBlock = { id: string; professionalId: string; startAt: string; endAt: string; reason: string | null };
+export type { AvailabilityBlock } from "./availability-block";
 
 export type BlockSelection = { professionalId: string; startLocal: string; endLocal: string };
 

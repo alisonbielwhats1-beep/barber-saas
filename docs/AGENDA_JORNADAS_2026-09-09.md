@@ -108,8 +108,9 @@ restrito à própria agenda e aos clientes ligados aos próprios atendimentos.
 
 A exceção não autoriza horário antes/depois do expediente, folga, bloqueio,
 fechamento do salão nem conflito com outro cliente. Overbooking permanece uma
-permissão separada de dono/gerente. Toda criação durante pausa registra o motivo
-no evento imutável do agendamento e em `AuditLog`, sem migration de banco.
+permissão separada de dono/gerente. Toda criação durante pausa exige confirmação
+explícita e registra a exceção no evento imutável do agendamento e em `AuditLog`;
+o motivo é opcional para reduzir atrito operacional, sem migration de banco.
 
 ## Ações rápidas na agenda móvel
 
@@ -150,3 +151,24 @@ Testes de navegador verificam altura da grade, posição do “+”, ausência d
 overflow da página e fluxos operacionais com banco descartável. Capturas locais
 em 320×568, 390×844 e 1440×844 usam somente dados fictícios. Sem migration ou
 teste de escrita em Production.
+
+## Gestão direta de bloqueios — revisão de 10/09/2026
+
+O bloqueio passa a capturar o toque na própria grade, sem abrir por engano o
+formulário de um horário livre. Dono e gerente podem abrir seus detalhes nas
+visões diária, semanal e em lista, conferir profissional, período e motivo e
+escolher “Reabrir horário”. A reabertura exige uma segunda confirmação, mantém
+a trilha `AVAILABILITY_REOPENED` e continua validando papel e tenant no servidor.
+Papéis sem permissão veem o bloqueio, mas não atravessam a camada para criar um
+agendamento naquele intervalo.
+
+Depois da reabertura de um intervalo menor que um dia, “Agendar neste horário”
+encaminha diretamente ao formulário manual. Uma folga de dia inteiro não recebe
+esse atalho. A ação não cria uma exceção silenciosa sobre `TimeOff`: o bloqueio
+deixa de existir antes de o horário voltar a aceitar reservas.
+
+Na pausa semanal, a detecção inicial volta a informar
+`WORKING_HOURS_BREAK` mesmo quando o papel já possui autorização. Assim a tela
+consegue solicitar o motivo e executar a confirmação auditada na segunda etapa.
+Fechamento, folga, bloqueio pontual, limite da jornada e conflito com outro
+cliente continuam regras separadas. Sem migration ou alteração em Production.
