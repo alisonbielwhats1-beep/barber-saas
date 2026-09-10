@@ -70,6 +70,7 @@ export type AvailabilityViolation =
   | "TOO_SOON"
   | "TOO_FAR"
   | "OUTSIDE_WORKING_HOURS"
+  | "WORKING_HOURS_BREAK"
   | "PROFESSIONAL_UNAVAILABLE"
   | "SALON_CLOSED"
   | "SLOT_TAKEN";
@@ -91,6 +92,8 @@ export type CreateAppointmentInput = AppointmentIdentity & {
   enforceBookingWindow: boolean;
   overrideReason?: string | null;
   canOverride?: boolean;
+  /** Permite à criação manual atravessar somente uma pausa entre turnos. */
+  canOverrideWorkingHoursBreak?: boolean;
   seriesId?: string | null;
   idempotencyContext?: unknown;
   /** Ativa a cota comercial para as entradas públicas e do painel. */
@@ -375,7 +378,17 @@ async function availabilityViolation(
     (working) =>
       startMinutes >= working.startMinutes && endMinutes <= working.endMinutes,
   );
-  if (!insideWorkingHours) return "OUTSIDE_WORKING_HOURS";
+  let workingHoursViolation: AvailabilityViolation | null = null;
+  if (!insideWorkingHours) {
+    const firstStart = Math.min(...workingHours.map((working) => working.startMinutes));
+    const lastEnd = Math.max(...workingHours.map((working) => working.endMinutes));
+    const insideDailyEnvelope =
+      workingHours.length > 1 &&
+      startMinutes >= firstStart &&
+      endMinutes <= lastEnd;
+    if (!insideDailyEnvelope) return "OUTSIDE_WORKING_HOURS";
+    workingHoursViolation = "WORKING_HOURS_BREAK";
+  }
 
   const closure = await tx.salonClosure.findFirst({
     where: {
@@ -396,6 +409,7 @@ async function availabilityViolation(
     select: { id: true },
   });
   if (timeOff) return "PROFESSIONAL_UNAVAILABLE";
+  if (workingHoursViolation) return workingHoursViolation;
 
   const buffered = bufferedWindow(
     input.startAt,
@@ -532,16 +546,25 @@ async function inspectAvailabilityUsingServices(
 function requireOverrideReason(input: {
   violation: AvailabilityViolation | null;
   canOverride?: boolean;
+  canOverrideWorkingHoursBreak?: boolean;
   overrideReason?: string | null;
 }): { overridden: boolean; reason: string | null } {
   if (!input.violation) return { overridden: false, reason: null };
-  // "Encaixe" significa aceitar sobreposição deliberada. Fechamento,
-  // ausência do profissional e horário de trabalho continuam inegociáveis.
-  if (input.violation !== "SLOT_TAKEN") {
+  // As duas exceções são deliberadas e auditáveis, mas independentes:
+  // overbooking não autoriza pausa e autorização de pausa não autoriza
+  // conflito com outro cliente. Fechamento, folga e limites externos da
+  // jornada continuam inegociáveis.
+  if (
+    input.violation !== "SLOT_TAKEN" &&
+    input.violation !== "WORKING_HOURS_BREAK"
+  ) {
     throw new AppointmentError(input.violation);
   }
   const reason = input.overrideReason?.trim() ?? "";
-  if (!input.canOverride) throw new AppointmentError(input.violation);
+  const allowed = input.violation === "SLOT_TAKEN"
+    ? input.canOverride
+    : input.canOverrideWorkingHoursBreak;
+  if (!allowed) throw new AppointmentError(input.violation);
   if (reason.length < 3) throw new AppointmentError("REASON_REQUIRED");
   return { overridden: true, reason };
 }
@@ -680,6 +703,7 @@ export async function createAppointment(
   const override = requireOverrideReason({
     violation: inspected.violation,
     canOverride: input.canOverride,
+    canOverrideWorkingHoursBreak: input.canOverrideWorkingHoursBreak,
     overrideReason: input.overrideReason,
   });
 
@@ -793,7 +817,9 @@ export async function createAppointment(
       salonId: input.salonId,
       userId: input.actor.id ?? null,
       actorName: input.actor.name,
-      action: "APPOINTMENT_OVERRIDE_CREATE",
+      action: inspected.violation === "WORKING_HOURS_BREAK"
+        ? "APPOINTMENT_BREAK_OVERRIDE_CREATE"
+        : "APPOINTMENT_OVERRIDE_CREATE",
       entityType: "Appointment",
       entityId: appointment.id,
       reason: override.reason,

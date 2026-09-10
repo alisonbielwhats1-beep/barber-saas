@@ -64,6 +64,7 @@ function schedulingTx() {
       create: vi.fn().mockResolvedValue({ id: "event-a" }),
     },
     notificationOutbox: { createMany: vi.fn().mockResolvedValue({ count: 2 }) },
+    auditLog: { create: vi.fn().mockResolvedValue({ id: "audit-a" }) },
   };
   return { tx: tx as unknown as Tx, raw: tx, appointmentCreate };
 }
@@ -188,8 +189,8 @@ describe("jornada com pausa diária e atendimento longo", () => {
     ["16:15", 210, null, "19:45"], ["16:30", 210, null, "20:00"],
     ["18:00", 30, null, "18:30"], ["20:30", 30, null, "21:00"],
     ["20:45", 30, "OUTSIDE_WORKING_HOURS", "21:15"],
-    ["12:00", 30, null, "12:30"], ["12:15", 30, "OUTSIDE_WORKING_HOURS", "12:45"],
-    ["14:30", 30, "OUTSIDE_WORKING_HOURS", "15:00"], ["15:00", 30, null, "15:30"],
+    ["12:00", 30, null, "12:30"], ["12:15", 30, "WORKING_HOURS_BREAK", "12:45"],
+    ["14:30", 30, "WORKING_HOURS_BREAK", "15:00"], ["15:00", 30, null, "15:30"],
     ["06:00", 30, null, "06:30"], ["05:45", 30, "OUTSIDE_WORKING_HOURS", "06:15"],
   ])("%s com %s minutos → %s", async (time, durationMin, violation, endTime) => {
     const { tx, raw } = schedulingTx();
@@ -207,5 +208,140 @@ describe("jornada com pausa diária e atendimento longo", () => {
     raw.professionalService.findMany.mockResolvedValue([{ serviceId: "service-a" }]);
     const result = await inspectAppointmentAvailability(tx, { salonId: "salon-a", professionalId: "professional-a", serviceIds: ["service-a"], startLocal: "2030-09-11T16:15", enforceBookingWindow: false });
     expect(result.violation).toBe("OUTSIDE_WORKING_HOURS");
+  });
+
+  it("distingue a pausa dos limites externos da jornada", async () => {
+    const { tx, raw } = schedulingTx();
+    raw.service.findMany.mockResolvedValue([
+      { id: "service-a", name: "Corte", durationMin: 30, priceCents: 5_000 },
+    ]);
+    raw.professionalService.findMany.mockResolvedValue([{ serviceId: "service-a" }]);
+    raw.workingHours.findMany.mockResolvedValue([
+      { startMinutes: 9 * 60, endMinutes: 12 * 60 + 30 },
+      { startMinutes: 15 * 60, endMinutes: 21 * 60 },
+    ]);
+
+    const duringBreak = await inspectAppointmentAvailability(tx, {
+      salonId: "salon-a",
+      professionalId: "professional-a",
+      serviceIds: ["service-a"],
+      startLocal: "2030-09-11T13:30",
+      enforceBookingWindow: false,
+    });
+    const beforeOpening = await inspectAppointmentAvailability(tx, {
+      salonId: "salon-a",
+      professionalId: "professional-a",
+      serviceIds: ["service-a"],
+      startLocal: "2030-09-11T08:30",
+      enforceBookingWindow: false,
+    });
+
+    expect(duringBreak.violation).toBe("WORKING_HOURS_BREAK");
+    expect(beforeOpening.violation).toBe("OUTSIDE_WORKING_HOURS");
+  });
+
+  it("permite exceção auditada na pausa sem transformar em overbooking", async () => {
+    const { tx, raw, appointmentCreate } = schedulingTx();
+    raw.service.findMany.mockResolvedValue([
+      { id: "service-a", name: "Corte", durationMin: 30, priceCents: 5_000 },
+    ]);
+    raw.professionalService.findMany.mockResolvedValue([{ serviceId: "service-a" }]);
+    raw.workingHours.findMany.mockResolvedValue([
+      { startMinutes: 9 * 60, endMinutes: 12 * 60 + 30 },
+      { startMinutes: 15 * 60, endMinutes: 21 * 60 },
+    ]);
+    const baseInput = {
+      salonId: "salon-a",
+      professionalId: "professional-a",
+      serviceIds: ["service-a"],
+      startLocal: "2030-09-11T13:30",
+      origin: "ADMIN" as const,
+      actor: { type: "STAFF" as const, id: "owner-a", name: "Dono" },
+      idempotencyKey: "11111111-1111-4111-8111-111111111111",
+      enforceBookingWindow: false,
+      clientId: "client-a",
+    };
+
+    await expect(createAppointment(tx, baseInput)).rejects.toMatchObject({
+      code: "WORKING_HOURS_BREAK",
+    });
+    expect(appointmentCreate).not.toHaveBeenCalled();
+
+    const result = await createAppointment(tx, {
+      ...baseInput,
+      overrideReason: "Cliente só pode vir no almoço",
+      canOverrideWorkingHoursBreak: true,
+    });
+
+    expect(result.duplicate).toBe(false);
+    expect(appointmentCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ isOverbooked: false }),
+      select: expect.any(Object),
+    });
+    expect(raw.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: "APPOINTMENT_BREAK_OVERRIDE_CREATE",
+        reason: "Cliente só pode vir no almoço",
+        salonId: "salon-a",
+      }),
+    });
+    expect(raw.appointmentEvent.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ reason: "Cliente só pode vir no almoço" }),
+      }),
+    );
+  });
+
+  it("não deixa a autorização de pausa abrir horário antes do expediente", async () => {
+    const { tx, raw } = schedulingTx();
+    raw.service.findMany.mockResolvedValue([
+      { id: "service-a", name: "Corte", durationMin: 30, priceCents: 5_000 },
+    ]);
+    raw.professionalService.findMany.mockResolvedValue([{ serviceId: "service-a" }]);
+    raw.workingHours.findMany.mockResolvedValue([
+      { startMinutes: 9 * 60, endMinutes: 12 * 60 + 30 },
+      { startMinutes: 15 * 60, endMinutes: 21 * 60 },
+    ]);
+
+    await expect(createAppointment(tx, {
+      salonId: "salon-a",
+      professionalId: "professional-a",
+      serviceIds: ["service-a"],
+      startLocal: "2030-09-11T08:30",
+      origin: "ADMIN",
+      actor: { type: "STAFF", id: "owner-a", name: "Dono" },
+      idempotencyKey: "11111111-1111-4111-8111-111111111111",
+      enforceBookingWindow: false,
+      clientId: "client-a",
+      overrideReason: "Abertura excepcional",
+      canOverrideWorkingHoursBreak: true,
+    })).rejects.toMatchObject({ code: "OUTSIDE_WORKING_HOURS" });
+  });
+
+  it("não deixa a pausa mascarar folga ou bloqueio do profissional", async () => {
+    const { tx, raw } = schedulingTx();
+    raw.service.findMany.mockResolvedValue([
+      { id: "service-a", name: "Corte", durationMin: 30, priceCents: 5_000 },
+    ]);
+    raw.professionalService.findMany.mockResolvedValue([{ serviceId: "service-a" }]);
+    raw.workingHours.findMany.mockResolvedValue([
+      { startMinutes: 9 * 60, endMinutes: 12 * 60 + 30 },
+      { startMinutes: 15 * 60, endMinutes: 21 * 60 },
+    ]);
+    raw.timeOff.findFirst.mockResolvedValue({ id: "time-off-a" });
+
+    await expect(createAppointment(tx, {
+      salonId: "salon-a",
+      professionalId: "professional-a",
+      serviceIds: ["service-a"],
+      startLocal: "2030-09-11T13:30",
+      origin: "ADMIN",
+      actor: { type: "STAFF", id: "owner-a", name: "Dono" },
+      idempotencyKey: "11111111-1111-4111-8111-111111111111",
+      enforceBookingWindow: false,
+      clientId: "client-a",
+      overrideReason: "Cliente só pode vir no almoço",
+      canOverrideWorkingHoursBreak: true,
+    })).rejects.toMatchObject({ code: "PROFESSIONAL_UNAVAILABLE" });
   });
 });

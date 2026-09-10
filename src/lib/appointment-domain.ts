@@ -28,6 +28,7 @@ export type AppointmentErrorCode =
   | "TOO_SOON"
   | "TOO_FAR"
   | "OUTSIDE_WORKING_HOURS"
+  | "WORKING_HOURS_BREAK"
   | "PROFESSIONAL_UNAVAILABLE"
   | "SALON_CLOSED"
   | "SLOT_TAKEN"

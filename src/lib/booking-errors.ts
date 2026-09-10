@@ -23,6 +23,7 @@ export const ERROR_PT: Record<string, string> = {
   TOO_SOON: "Esse horário está dentro da antecedência mínima do estabelecimento.",
   TOO_FAR: "Esse horário está além do período disponível para agendamento.",
   OUTSIDE_WORKING_HOURS: "O horário está fora da jornada desse profissional.",
+  WORKING_HOURS_BREAK: "Esse horário faz parte da pausa do profissional. Escolha outro horário.",
   PROFESSIONAL_UNAVAILABLE: "O profissional não está disponível nesse período.",
   SALON_CLOSED: "O estabelecimento está fechado nessa data.",
   INVALID_LOCAL_TIME: "Esse horário não existe ou é ambíguo no fuso do estabelecimento.",

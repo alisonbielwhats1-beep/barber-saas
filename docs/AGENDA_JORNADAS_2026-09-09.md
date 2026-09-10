@@ -98,3 +98,15 @@ A correção de configuração e a interface descrita originalmente foram public
 pelo PR #84. A separação posterior entre horário do salão e cópia opcional para
 a equipe, junto da indicação visual de períodos indisponíveis, teve sua publicação
 autorizada pelo responsável pelo produto.
+
+## Encaixe manual durante pausa
+
+A pausa continua indisponível no agendamento público. Na agenda interna, o dono
+ou o próprio profissional pode escolher um horário dentro da pausa, revisar a
+exceção e confirmar o encaixe com motivo obrigatório. O profissional continua
+restrito à própria agenda e aos clientes ligados aos próprios atendimentos.
+
+A exceção não autoriza horário antes/depois do expediente, folga, bloqueio,
+fechamento do salão nem conflito com outro cliente. Overbooking permanece uma
+permissão separada de dono/gerente. Toda criação durante pausa registra o motivo
+no evento imutável do agendamento e em `AuditLog`, sem migration de banco.

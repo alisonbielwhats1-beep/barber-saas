@@ -11,7 +11,11 @@ import {
   updateAppointmentStatusReliably,
 } from "@/lib/appointment-service";
 import { requestStaffReschedule } from "@/lib/reschedule-proposals";
-import { isAppointmentError } from "@/lib/appointment-domain";
+import {
+  AppointmentError,
+  isAppointmentError,
+  type AppointmentErrorCode,
+} from "@/lib/appointment-domain";
 import { closeComandaReliably } from "@/lib/comanda-service";
 import { recordAppointmentEvent } from "@/lib/appointment-events";
 import {
@@ -28,8 +32,12 @@ import {
 
 /** Papéis que podem forçar overbooking — decisão de política, não operacional. */
 const OVERBOOK_ROLES = ["OWNER", "MANAGER"] as const;
+/** Pausa recorrente: dono ou o próprio profissional podem abrir exceção. */
+const BREAK_OVERRIDE_ROLES = ["OWNER", "PROFESSIONAL"] as const;
 
-export type ActionResult = { error: string } | { success: true };
+export type ActionResult =
+  | { error: string; code?: AppointmentErrorCode }
+  | { success: true };
 
 const createInput = z.object({
   professionalId: z.string(),
@@ -55,7 +63,7 @@ function appointmentActionMessage(error: unknown): string {
   }
   const messages: Partial<Record<typeof error.code, string>> = {
     NOT_FOUND: "Agendamento não encontrado",
-    FORBIDDEN: "Você não tem permissão para alterar este agendamento",
+    FORBIDDEN: "Você não tem permissão para este agendamento",
     SERVICE_INVALID: "Serviço inválido",
     PRO_SERVICE_MISMATCH: "Este profissional não realiza todos os serviços",
     INVALID_LOCAL_TIME: "Data ou horário inválido para o fuso do estabelecimento",
@@ -63,6 +71,7 @@ function appointmentActionMessage(error: unknown): string {
     TOO_SOON: "Horário fora da antecedência mínima",
     TOO_FAR: "Horário além do limite de agendamento",
     OUTSIDE_WORKING_HOURS: "O atendimento completo não cabe na jornada do profissional, incluindo sua duração e as pausas. Revise o horário de término e o expediente em Configurações → Agenda.",
+    WORKING_HOURS_BREAK: "Este horário fica dentro de uma pausa do profissional",
     PROFESSIONAL_UNAVAILABLE: "O profissional está indisponível nesse período",
     SALON_CLOSED: "O estabelecimento está fechado nesse período",
     SLOT_TAKEN: "Horário já ocupado",
@@ -89,18 +98,37 @@ function appointmentActionMessage(error: unknown): string {
  *  - não há conflito de horário — a menos que `overbookReason` esteja
  *    preenchido e a role permita (OWNER/MANAGER), caso em que o
  *    agendamento nasce com `isOverbooked=true` e uma entrada em `AuditLog`
+ *  - pausas entre turnos podem ser ignoradas, com motivo e auditoria, somente
+ *    pelo OWNER ou pelo próprio PROFESSIONAL
  */
 export async function createAppointmentManually(
   input: z.infer<typeof createInput>,
 ): Promise<ActionResult> {
   const ctx = await getTenantContext();
-  assertRole(ctx, ["OWNER", "MANAGER", "RECEPTIONIST"]);
+  assertRole(ctx, ["OWNER", "MANAGER", "RECEPTIONIST", "PROFESSIONAL"]);
   const data = createInput.parse(input);
   const canOverbook = (OVERBOOK_ROLES as readonly string[]).includes(ctx.role);
+  const canOverrideWorkingHoursBreak = (BREAK_OVERRIDE_ROLES as readonly string[])
+    .includes(ctx.role);
   if (!data.clientId && !data.clientName) return { error: "Informe um cliente" };
 
   try {
     await withTenant(ctx, async (tx) => {
+      const ownProfessionalId = await permittedProfessionalId(tx, ctx);
+      if (ownProfessionalId && ownProfessionalId !== data.professionalId) {
+        throw new AppointmentError("FORBIDDEN");
+      }
+      if (ownProfessionalId && data.clientId) {
+        const linkedClient = await tx.clientProfile.findFirst({
+          where: {
+            id: data.clientId,
+            salonId: ctx.salonId,
+            appointments: { some: { professionalId: ownProfessionalId } },
+          },
+          select: { id: true },
+        });
+        if (!linkedClient) throw new AppointmentError("FORBIDDEN");
+      }
       const actor = {
         type: "STAFF" as const,
         id: ctx.userId,
@@ -118,6 +146,7 @@ export async function createAppointmentManually(
         enforceBookingWindow: false,
         enforcePlanLimits: true,
         canOverride: canOverbook,
+        canOverrideWorkingHoursBreak,
         overrideReason: data.overbookReason,
         ...(data.clientId
           ? { clientId: data.clientId }
@@ -130,7 +159,10 @@ export async function createAppointmentManually(
       });
     });
   } catch (error) {
-    return { error: appointmentActionMessage(error) };
+    return {
+      error: appointmentActionMessage(error),
+      ...(isAppointmentError(error) ? { code: error.code } : {}),
+    };
   }
 
   revalidatePath("/agenda");
@@ -556,6 +588,7 @@ export async function duplicateAppointment(
             "SALON_CLOSED",
             "PROFESSIONAL_UNAVAILABLE",
             "OUTSIDE_WORKING_HOURS",
+            "WORKING_HOURS_BREAK",
           ].includes(error.code));
       if (!unavailable) return { error: appointmentActionMessage(error) };
     }
@@ -799,6 +832,7 @@ export async function createRecurringAppointments(
             "SALON_CLOSED",
             "PROFESSIONAL_UNAVAILABLE",
             "OUTSIDE_WORKING_HOURS",
+            "WORKING_HOURS_BREAK",
           ].includes(error.code));
       if (skippable) {
         skipped.push(startLocal);

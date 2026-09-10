@@ -38,6 +38,8 @@ export function AppointmentDialog({
   services,
   clients,
   canOverbook,
+  canOverrideBreak,
+  canRepeat,
   timezone,
 }: {
   open: boolean;
@@ -48,6 +50,8 @@ export function AppointmentDialog({
   services: ServiceOption[];
   clients: ClientOption[];
   canOverbook: boolean;
+  canOverrideBreak: boolean;
+  canRepeat: boolean;
   timezone: string;
 }) {
   const [pending, startTransition] = useTransition();
@@ -57,8 +61,10 @@ export function AppointmentDialog({
   const [repeat, setRepeat] = useState(false);
   const [frequency, setFrequency] = useState<"WEEKLY" | "BIWEEKLY">("WEEKLY");
   const [occurrences, setOccurrences] = useState(4);
-  const [conflict, setConflict] = useState(false);
-  const [overbookReason, setOverbookReason] = useState("");
+  const [overrideConflict, setOverrideConflict] = useState<
+    "SLOT_TAKEN" | "WORKING_HOURS_BREAK" | null
+  >(null);
+  const [overrideReason, setOverrideReason] = useState("");
   const [seriesResult, setSeriesResult] = useState<{ created: number; skipped: number } | null>(null);
   const [lastFormData, setLastFormData] = useState<FormData | null>(null);
   const idempotencyKeyRef = useRef<string | null>(null);
@@ -97,7 +103,7 @@ export function AppointmentDialog({
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
-    setConflict(false);
+    setOverrideConflict(null);
     const form = new FormData(e.currentTarget);
     if (form.getAll("serviceIds").length === 0) {
       setError("Selecione pelo menos um serviço");
@@ -126,8 +132,11 @@ export function AppointmentDialog({
     startTransition(async () => {
       const result = await createAppointmentManually(payload);
       if ("error" in result) {
-        if (result.error === "Horário já ocupado" && canOverbook) {
-          setConflict(true);
+        if (
+          (result.code === "SLOT_TAKEN" && canOverbook) ||
+          (result.code === "WORKING_HOURS_BREAK" && canOverrideBreak)
+        ) {
+          setOverrideConflict(result.code);
         } else {
           setError(result.error);
         }
@@ -137,10 +146,10 @@ export function AppointmentDialog({
     });
   }
 
-  function onOverbookConfirm() {
-    if (!lastFormData || overbookReason.trim().length < 3) return;
+  function onOverrideConfirm() {
+    if (!lastFormData || overrideReason.trim().length < 3) return;
     setError(null);
-    const payload = buildPayload(lastFormData, overbookReason.trim());
+    const payload = buildPayload(lastFormData, overrideReason.trim());
     startTransition(async () => {
       const result = await createAppointmentManually(payload);
       if ("error" in result) {
@@ -186,7 +195,7 @@ export function AppointmentDialog({
           onSubmit={onSubmit}
           onChange={() => {
             idempotencyKeyRef.current = null;
-            setConflict(false);
+            setOverrideConflict(null);
           }}
           className="grid gap-4"
         >
@@ -282,7 +291,7 @@ export function AppointmentDialog({
             <Input name="notes" placeholder="Ex.: cliente pediu franja curta" />
           </div>
 
-          <div className="rounded-md border border-border p-3">
+          {canRepeat && <div className="rounded-md border border-border p-3">
             <label className="flex items-center gap-2 text-sm font-medium">
               <input
                 type="checkbox"
@@ -327,33 +336,45 @@ export function AppointmentDialog({
                 </p>
               </div>
             )}
-          </div>
+          </div>}
 
-          {conflict && !repeat && (
+          {overrideConflict && !repeat && (
             <div className="rounded-md border border-danger/40 bg-danger/5 p-3">
               <p className="flex items-center gap-1.5 text-sm font-medium text-danger">
                 <AlertTriangle className="h-4 w-4" />
-                Horário já ocupado
+                {overrideConflict === "WORKING_HOURS_BREAK"
+                  ? "Pausa do profissional"
+                  : "Horário já ocupado"}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Você pode encaixar mesmo assim (overbooking). A ação fica registrada na trilha de
-                auditoria — informe o motivo.
+                {overrideConflict === "WORKING_HOURS_BREAK"
+                  ? "Você pode criar este encaixe manual durante a pausa. A exceção ficará registrada na auditoria — informe o motivo."
+                  : "Você pode encaixar mesmo assim (overbooking). A ação fica registrada na trilha de auditoria — informe o motivo."}
               </p>
+              <label htmlFor="appointment-override-reason" className="mt-2 block text-xs font-medium">
+                Motivo da exceção
+              </label>
               <Input
-                value={overbookReason}
-                onChange={(e) => setOverbookReason(e.target.value)}
-                placeholder="Motivo do encaixe (obrigatório)"
+                id="appointment-override-reason"
+                value={overrideReason}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  setOverrideReason(e.target.value);
+                }}
+                placeholder="Motivo da exceção (obrigatório)"
                 className="mt-2"
               />
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={pending || overbookReason.trim().length < 3}
-                onClick={onOverbookConfirm}
+                disabled={pending || overrideReason.trim().length < 3}
+                onClick={onOverrideConfirm}
                 className="mt-2 border-danger/40 text-danger hover:bg-danger/10"
               >
-                Encaixar mesmo assim
+                {overrideConflict === "WORKING_HOURS_BREAK"
+                  ? "Agendar durante a pausa"
+                  : "Encaixar mesmo assim"}
               </Button>
             </div>
           )}
