@@ -110,3 +110,17 @@ A exceção não autoriza horário antes/depois do expediente, folga, bloqueio,
 fechamento do salão nem conflito com outro cliente. Overbooking permanece uma
 permissão separada de dono/gerente. Toda criação durante pausa registra o motivo
 no evento imutável do agendamento e em `AuditLog`, sem migration de banco.
+
+## Ações rápidas na agenda móvel
+
+A agenda ganha um botão “+” flutuante acima da navegação inferior, inspirado no
+fluxo mostrado pelo responsável em vídeo. Ele permanece acessível durante a
+rolagem e reúne “Novo agendamento”, “Novo bloqueio de horário” e “Adicionar
+folga”. No desktop, o mesmo menu ocupa o lugar do antigo botão “Novo”.
+
+O bloqueio abre na data atualmente selecionada. A folga reutiliza o mesmo fluxo
+seguro já existente, mas começa como dia inteiro, com motivo “Folga”, e ainda
+exige escolha de profissionais, revisão e confirmação. Os itens respeitam os
+papéis atuais: dono/gerente gerenciam disponibilidade; profissional e recepção
+veem somente a criação de agendamento permitida. Nenhuma regra de servidor,
+migration ou dado produtivo é alterado por esse atalho.
