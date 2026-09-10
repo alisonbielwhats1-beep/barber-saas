@@ -240,7 +240,7 @@ describe("jornada com pausa diária e atendimento longo", () => {
     expect(beforeOpening.violation).toBe("OUTSIDE_WORKING_HOURS");
   });
 
-  it("permite exceção auditada na pausa sem transformar em overbooking", async () => {
+  it("permite exceção auditada na pausa com motivo opcional", async () => {
     const { tx, raw, appointmentCreate } = schedulingTx();
     raw.service.findMany.mockResolvedValue([
       { id: "service-a", name: "Corte", durationMin: 30, priceCents: 5_000 },
@@ -269,8 +269,8 @@ describe("jornada com pausa diária e atendimento longo", () => {
 
     const result = await createAppointment(tx, {
       ...baseInput,
-      overrideReason: "Cliente só pode vir no almoço",
       canOverrideWorkingHoursBreak: true,
+      overrideConfirmed: true,
     });
 
     expect(result.duplicate).toBe(false);
@@ -281,13 +281,13 @@ describe("jornada com pausa diária e atendimento longo", () => {
     expect(raw.auditLog.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         action: "APPOINTMENT_BREAK_OVERRIDE_CREATE",
-        reason: "Cliente só pode vir no almoço",
+        reason: null,
         salonId: "salon-a",
       }),
     });
     expect(raw.appointmentEvent.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ reason: "Cliente só pode vir no almoço" }),
+        data: expect.objectContaining({ reason: null }),
       }),
     );
   });

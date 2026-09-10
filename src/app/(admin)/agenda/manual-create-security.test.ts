@@ -44,7 +44,7 @@ const input = {
   clientId: "client-a",
   startLocal: "2030-09-11T13:30",
   idempotencyKey: "11111111-1111-4111-8111-111111111111",
-  overbookReason: "Cliente só pode vir no almoço",
+  overrideConfirmed: true as const,
 };
 
 beforeEach(() => {
@@ -70,6 +70,7 @@ describe("criação manual durante pausa", () => {
         salonId: "salon-a",
         canOverride: true,
         canOverrideWorkingHoursBreak: true,
+        overrideConfirmed: true,
       }),
     );
   });
