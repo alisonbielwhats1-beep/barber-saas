@@ -43,6 +43,20 @@ for (const mode of ["desktop-light", "mobile-dark"]) {
         await page.goto(`/${route}`, { timeout: 60_000 });
         await expect(page.getByRole("heading", { level: 1 })).toBeVisible({ timeout: 30_000 });
         await expect(page.locator("main .animate-shimmer")).toHaveCount(0, { timeout: 30_000 });
+        if (route === "agenda") {
+          const viewport = page.viewportSize()!;
+          const grid = await page.locator(".agenda-grid").boundingBox();
+          expect(grid!.height).toBeGreaterThan(viewport.height * 0.7);
+          expect(grid!.y + grid!.height).toBeLessThanOrEqual(viewport.height);
+          if (mode.startsWith("mobile")) {
+            const action = page.getByRole("button", { name: "Abrir ações rápidas da agenda" });
+            await expect(action).toBeInViewport();
+            const box = await action.boundingBox();
+            expect(box!.width).toBe(44);
+            expect(box!.y).toBeGreaterThan(viewport.height - 150);
+            expect(box!.y + box!.height).toBeLessThan(viewport.height - 60);
+          }
+        }
         await page.screenshot({ path: test.info().outputPath(`${mode}-${route}.png`), animations: "disabled", timeout: 20_000 });
         const results = await test.step("Examinar acessibilidade", () => new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze(), { timeout: 45_000 });
         const overflow = await page.evaluate(() => Math.max(0, document.documentElement.scrollWidth - innerWidth));

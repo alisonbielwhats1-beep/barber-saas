@@ -5,12 +5,22 @@
   overflow: hidden;
 }
 .admin-main:has(.agenda-workspace) > header { flex-shrink: 0; }
-.admin-main > div:has(> .agenda-workspace) {
+.admin-main > div:has(.agenda-workspace) {
   display: flex;
   flex: 1;
   min-height: 0;
   max-width: none;
   padding: 8px 8px calc(64px + env(safe-area-inset-bottom));
+}
+/* The route template must fill its parent too. Its entrance transform would
+   otherwise make the floating action relative to the template, not the screen. */
+.admin-main .animate-fade-in:has(> .agenda-workspace) {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  animation: none;
+  transform: none;
 }
 .agenda-workspace { display: flex; flex: 1; min-height: 0; min-width: 0; flex-direction: column; gap: 8px; }
 .agenda-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; flex-shrink: 0; }
@@ -31,7 +41,7 @@
   .agenda-date-controls { display: none; }
 }
 @media (min-width: 1024px) {
-  .admin-main > div:has(> .agenda-workspace) { padding: 12px; }
+  .admin-main > div:has(.agenda-workspace) { padding: 12px; }
   .agenda-toolbar { gap: 8px; }
   .agenda-date-controls h1 { font-size: 18px; }
   .agenda-grid > div { padding-bottom: 8px; }
