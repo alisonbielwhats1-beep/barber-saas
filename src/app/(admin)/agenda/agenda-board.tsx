@@ -40,6 +40,7 @@ import { moveAppointment } from "./actions";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { layoutOverlappingIntervals } from "./agenda-layout";
 import { AvailabilityPanel, type AvailabilityBlock, type AvailabilityPreset, type BlockSelection } from "./availability-panel";
+import { AvailabilityBlockDialog, AvailabilityBlockTrigger } from "./availability-block";
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 import { DateNavigator } from "./date-navigator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -206,6 +207,7 @@ export function AgendaBoard({
   const [blockMode, setBlockMode] = useState(false);
   const [blockSelection, setBlockSelection] = useState<(BlockSelection & { key: string }) | undefined>();
   const [availabilityLaunch, setAvailabilityLaunch] = useState<{ key: string; preset: AvailabilityPreset } | undefined>();
+  const [selectedAvailabilityBlock, setSelectedAvailabilityBlock] = useState<AvailabilityBlock | null>(null);
   const [search, setSearch] = useState("");
   const [detail, setDetail] = useState<Appointment | null>(() => appointments.find(a => a.id === initialAppointmentId) ?? null);
   const [createAt, setCreateAt] = useState<{ startLocal: string; proId: string } | null>(null);
@@ -497,6 +499,7 @@ export function AgendaBoard({
           timezone={timezone}
           nowMin={nowMin}
           onOpenSlot={openSlot}
+          onOpenBlock={canCancel ? setSelectedAvailabilityBlock : undefined}
           onOpenDetail={setDetail}
           onMove={(appointment, professionalId, startLocal) =>
             setMoveProposal({
@@ -518,6 +521,7 @@ export function AgendaBoard({
           nowMin={nowMin}
           today={today}
           onOpenSlot={openSlot}
+          onOpenBlock={canCancel ? setSelectedAvailabilityBlock : undefined}
           onOpenDetail={setDetail}
           onOpenDay={goToDay}
         />
@@ -532,7 +536,7 @@ export function AgendaBoard({
           onOpenDetail={setDetail}
         />
       ) : (
-        <div className="space-y-3"><BlockList blocks={availabilityBlocks.filter(b => shownPros.some(p => p.id === b.professionalId))} professionals={shownPros} timezone={timezone} /><ListView appointments={filteredAll} professionals={professionals} timezone={timezone} onOpenDetail={setDetail} /></div>
+        <div className="space-y-3"><BlockList blocks={availabilityBlocks.filter(b => shownPros.some(p => p.id === b.professionalId))} professionals={shownPros} timezone={timezone} onOpenBlock={canCancel ? setSelectedAvailabilityBlock : undefined} /><ListView appointments={filteredAll} professionals={professionals} timezone={timezone} onOpenDetail={setDetail} /></div>
       )}
 
       </div>
@@ -563,6 +567,23 @@ export function AgendaBoard({
           canOverrideBreak={canOverrideBreak}
           canRepeat={canRepeat}
           timezone={timezone}
+        />
+      )}
+
+      {selectedAvailabilityBlock && canCancel && (
+        <AvailabilityBlockDialog
+          key={selectedAvailabilityBlock.id}
+          open
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen) setSelectedAvailabilityBlock(null);
+          }}
+          block={selectedAvailabilityBlock}
+          professionalName={professionals.find((professional) => professional.id === selectedAvailabilityBlock.professionalId)?.name ?? "Profissional"}
+          timezone={timezone}
+          onSchedule={canCreate ? (target) => {
+            setSelectedAvailabilityBlock(null);
+            setCreateAt({ startLocal: target.startLocal, proId: target.professionalId });
+          } : undefined}
         />
       )}
 
@@ -623,6 +644,7 @@ function DayView({
   timezone,
   nowMin,
   onOpenSlot,
+  onOpenBlock,
   onOpenDetail,
   onMove,
 }: {
@@ -635,6 +657,7 @@ function DayView({
   timezone: string;
   nowMin: number | null;
   onOpenSlot: (proId: string, minutes: number, dayStr?: string) => void;
+  onOpenBlock?: (block: AvailabilityBlock) => void;
   onOpenDetail: (a: Appointment) => void;
   onMove: (appointment: Appointment, proId: string, startLocal: string) => void;
 }) {
@@ -786,7 +809,7 @@ function DayView({
                   const start = Math.max(dayStart, firstDate < date ? 0 : minutesOf(block.startAt, timezone));
                   const end = Math.min(dayEnd, lastDate > date ? 1440 : minutesOf(block.endAt, timezone));
                   if (end <= start) return null;
-                  return <div key={block.id} className="pointer-events-none absolute inset-x-0 overflow-hidden border-y border-border bg-muted/80 px-2 py-1 text-xs text-muted-foreground" style={{ top: (start - dayStart) * PX_PER_MIN, height: (end - start) * PX_PER_MIN, backgroundImage: "repeating-linear-gradient(135deg, transparent, transparent 6px, hsl(var(--border) / .35) 6px, hsl(var(--border) / .35) 7px)" }}><span className="rounded bg-card px-1">Bloqueado · {block.reason ?? "Indisponível"}</span></div>;
+                  return <AvailabilityBlockTrigger key={block.id} block={block} professionalName={pro.name} timezone={timezone} onOpen={onOpenBlock} className="absolute inset-x-0 z-[1] px-2 py-1 text-xs" style={{ top: (start - dayStart) * PX_PER_MIN, height: (end - start) * PX_PER_MIN }} />;
                 })}
 
                 {nowMin != null && nowMin >= dayStart && nowMin <= dayEnd && (
@@ -820,7 +843,7 @@ function DayView({
                       aria-label={`${a.clientName}, ${a.serviceName}, ${formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")}, ${pro.name}, ${cfg.label}.${placement.conflict ? " Conflito de horário detectado." : ""} Abrir detalhes`}
                       data-appointment-professional={a.professionalId}
                       title={placement.conflict && !a.isOverbooked ? "Conflito de horário detectado — revise este atendimento" : undefined}
-                      className={`group absolute cursor-pointer touch-pan-y select-none rounded-lg border-l-[3px] p-2 text-left text-xs shadow-sm transition focus-visible:z-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:cursor-grab ${
+                      className={`group absolute z-[2] cursor-pointer touch-pan-y select-none rounded-lg border-l-[3px] p-2 text-left text-xs shadow-sm transition focus-visible:z-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:cursor-grab ${
                         placement.conflict ? "ring-1 ring-danger/60" : ""
                       } ${
                         isDragging ? "z-30 opacity-70 ring-2 ring-primary" : "hover:shadow-md"
@@ -890,6 +913,7 @@ function WeekView({
   nowMin,
   today,
   onOpenSlot,
+  onOpenBlock,
   onOpenDetail,
   onOpenDay,
 }: {
@@ -902,6 +926,7 @@ function WeekView({
   nowMin: number | null;
   today: string;
   onOpenSlot: (proId: string, minutes: number, dayStr?: string) => void;
+  onOpenBlock?: (block: AvailabilityBlock) => void;
   onOpenDetail: (a: Appointment) => void;
   onOpenDay: (d: string) => void;
 }) {
@@ -953,7 +978,7 @@ function WeekView({
               </button>
 
               <div className="relative" style={{ height: totalH }}>
-                {blocks.map(block => <BlockOverlay key={block.id} block={block} date={dStr} timezone={timezone} start={dayStart} end={dayEnd} name={professionals.find(p => p.id === block.professionalId)?.name} />)}
+                {blocks.map(block => <BlockOverlay key={block.id} block={block} date={dStr} timezone={timezone} start={dayStart} end={dayEnd} name={professionals.find(p => p.id === block.professionalId)?.name} onOpen={onOpenBlock} />)}
                 {slots.map((m) => (
                   <button
                     key={m}
@@ -1247,19 +1272,22 @@ function blocksOnDate(blocks: AvailabilityBlock[], date: string, timezone: strin
   return blocks.filter(b => formatInTimeZone(new Date(b.startAt), timezone, "yyyy-MM-dd") <= date && formatInTimeZone(new Date(+new Date(b.endAt) - 1), timezone, "yyyy-MM-dd") >= date);
 }
 
-function BlockOverlay({ block, date, timezone, start, end, name }: { block: AvailabilityBlock; date: string; timezone: string; start: number; end: number; name?: string }) {
+function BlockOverlay({ block, date, timezone, start, end, name, onOpen }: { block: AvailabilityBlock; date: string; timezone: string; start: number; end: number; name?: string; onOpen?: (block: AvailabilityBlock) => void }) {
   if (!blocksOnDate([block], date, timezone).length) return null;
   const first = formatInTimeZone(new Date(block.startAt), timezone, "yyyy-MM-dd");
   const last = formatInTimeZone(new Date(block.endAt), timezone, "yyyy-MM-dd");
   const from = Math.max(start, first < date ? 0 : minutesOf(block.startAt, timezone));
   const to = Math.min(end, last > date ? 1440 : minutesOf(block.endAt, timezone));
   if (to <= from) return null;
-  return <div className="pointer-events-none absolute inset-x-0 z-[1] overflow-hidden border-y border-border bg-muted/70 p-1 text-[10px]" style={{ top: (from - start) * PX_PER_MIN, height: (to - from) * PX_PER_MIN, backgroundImage: "repeating-linear-gradient(135deg, transparent, transparent 6px, hsl(var(--border) / .35) 6px, hsl(var(--border) / .35) 7px)" }}>Bloqueado · {name} · {block.reason ?? "Indisponível"}</div>;
+  return <AvailabilityBlockTrigger block={block} professionalName={name ?? "Profissional"} timezone={timezone} onOpen={onOpen} className="absolute inset-x-0 z-[1] p-1 text-[10px]" style={{ top: (from - start) * PX_PER_MIN, height: (to - from) * PX_PER_MIN }} />;
 }
 
-function BlockList({ blocks, professionals, timezone }: { blocks: AvailabilityBlock[]; professionals: Professional[]; timezone: string }) {
+function BlockList({ blocks, professionals, timezone, onOpenBlock }: { blocks: AvailabilityBlock[]; professionals: Professional[]; timezone: string; onOpenBlock?: (block: AvailabilityBlock) => void }) {
   if (!blocks.length) return null;
-  return <section aria-label="Bloqueios do período" className="rounded-xl border border-border bg-muted/40 p-3"><h2 className="mb-2 flex items-center gap-2 text-sm font-semibold"><Ban size={16} />Bloqueios do período</h2><ul className="divide-y divide-border">{blocks.map(b => <li key={b.id} className="py-2 text-sm"><strong>{professionals.find(p => p.id === b.professionalId)?.name}</strong> · {formatInTimeZone(new Date(b.startAt), timezone, "dd/MM HH:mm")} — {formatInTimeZone(new Date(b.endAt), timezone, "dd/MM HH:mm")}<p className="text-xs text-muted-foreground">{b.reason ?? "Indisponível"}</p></li>)}</ul></section>;
+  return <section aria-label="Bloqueios do período" className="rounded-xl border border-border bg-muted/40 p-3"><h2 className="mb-2 flex items-center gap-2 text-sm font-semibold"><Ban size={16} />Bloqueios do período</h2><ul className="divide-y divide-border">{blocks.map(b => {
+    const content = <><strong>{professionals.find(p => p.id === b.professionalId)?.name}</strong> · {formatInTimeZone(new Date(b.startAt), timezone, "dd/MM HH:mm")} — {formatInTimeZone(new Date(b.endAt), timezone, "dd/MM HH:mm")}<p className="text-xs text-muted-foreground">{b.reason ?? "Indisponível"}</p></>;
+    return <li key={b.id} className="py-1 text-sm">{onOpenBlock ? <button type="button" onClick={() => onOpenBlock(b)} className="min-h-11 w-full rounded-lg px-2 py-1 text-left transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{content}</button> : <div className="px-2 py-1">{content}</div>}</li>;
+  })}</ul></section>;
 }
 
 function ViewBtn({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: typeof List; label: string }) {

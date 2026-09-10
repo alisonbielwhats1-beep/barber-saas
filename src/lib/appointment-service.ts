@@ -560,11 +560,14 @@ function requireOverrideReason(input: {
   ) {
     throw new AppointmentError(input.violation);
   }
-  const reason = input.overrideReason?.trim() ?? "";
   const allowed = input.violation === "SLOT_TAKEN"
     ? input.canOverride
     : input.canOverrideWorkingHoursBreak;
   if (!allowed) throw new AppointmentError(input.violation);
+  // A primeira tentativa serve como detecção para a interface abrir a revisão
+  // da exceção. Só valide o motivo depois que o operador o enviar de fato.
+  if (input.overrideReason == null) throw new AppointmentError(input.violation);
+  const reason = input.overrideReason.trim();
   if (reason.length < 3) throw new AppointmentError("REASON_REQUIRED");
   return { overridden: true, reason };
 }
