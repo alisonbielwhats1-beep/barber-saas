@@ -33,7 +33,8 @@ test.describe("@database pausas recorrentes", () => {
       await page.getByRole("button", { name: "Entrar", exact: true }).click();
       await expect(page).toHaveURL(/\/(hoje|dashboard)$/, { timeout: 30_000 });
       await page.goto(`/agenda?date=${monday}`);
-      await page.getByRole("button", { name: "Pausa recorrente", exact: true }).click();
+      await page.getByRole("button", { name: "Abrir ações rápidas da agenda" }).click();
+      await page.getByRole("menuitem", { name: "Pausa recorrente", exact: true }).click();
       const dialog = page.getByRole("dialog");
       for (const checkbox of await dialog.getByRole("checkbox").all()) await checkbox.uncheck();
       await dialog.getByLabel(name, { exact: true }).check();
@@ -56,8 +57,10 @@ test.describe("@database pausas recorrentes", () => {
       expect(await slots(monday)).toContain("14:30");
       expect(await slots(saturday)).toContain("12:30");
       await dialog.getByRole("button", { name: "Concluir" }).click();
+      await expect(page.getByRole("button", { name: "Abrir ações rápidas da agenda" })).toBeFocused();
       await page.setViewportSize({ width: 390, height: 844 });
-      await page.getByRole("button", { name: "Bloquear horário ou dia" }).click();
+      await page.getByRole("button", { name: "Abrir ações rápidas da agenda" }).click();
+      await page.getByRole("menuitem", { name: /Novo bloqueio de horário/ }).click();
       for (const checkbox of await dialog.getByRole("checkbox").all()) await checkbox.uncheck();
       await dialog.getByLabel(name, { exact: true }).check();
       await dialog.getByLabel("Início", { exact: true }).fill(`${monday}T12:30`);

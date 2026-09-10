@@ -1,0 +1,38 @@
+/* The agenda owns the remaining viewport; only the time grid scrolls. */
+.admin-main:has(.agenda-workspace) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.admin-main:has(.agenda-workspace) > header { flex-shrink: 0; }
+.admin-main > div:has(> .agenda-workspace) {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  max-width: none;
+  padding: 8px 8px calc(64px + env(safe-area-inset-bottom));
+}
+.agenda-workspace { display: flex; flex: 1; min-height: 0; min-width: 0; flex-direction: column; gap: 8px; }
+.agenda-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; flex-shrink: 0; }
+.agenda-date-controls { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.agenda-date-controls h1 { font-size: 14px; }
+.agenda-date-controls > div > p { display: none; }
+.agenda-view-controls { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.agenda-body { display: flex; flex: 1; min-height: 0; min-width: 0; gap: 12px; }
+.agenda-body > aside { overflow-y: auto; }
+.agenda-content { display: flex; flex: 1; min-height: 0; min-width: 0; flex-direction: column; gap: 6px; }
+.agenda-canvas { flex: 1; min-height: 0; min-width: 0; overflow: auto; }
+.agenda-grid { height: 100%; overscroll-behavior: contain; }
+.agenda-grid > div { padding-bottom: 72px; }
+.agenda-grid [data-pro-col] { scroll-margin-top: 64px; }
+@media (max-width: 639px) {
+  .agenda-toolbar { flex-wrap: nowrap; gap: 4px; }
+  .agenda-view-controls { gap: 8px; }
+  .agenda-date-controls { display: none; }
+}
+@media (min-width: 1024px) {
+  .admin-main > div:has(> .agenda-workspace) { padding: 12px; }
+  .agenda-toolbar { gap: 8px; }
+  .agenda-date-controls h1 { font-size: 18px; }
+  .agenda-grid > div { padding-bottom: 8px; }
+}

@@ -46,16 +46,20 @@ test.describe("@database operação diária e expediente", () => {
       await page.getByRole("button", { name: "Mudar para tema escuro" }).click();
 
       await page.goto(`/agenda?date=${date}`);
-      await page.getByText("Expediente e fila de espera", { exact: true }).click();
+      await page.getByRole("button", { name: "Abrir ações rápidas da agenda" }).click();
+      await page.getByRole("menuitem", { name: "Expediente e bloqueios", exact: true }).click();
       await page.getByRole("button", { name: "Liberar expediente extra", exact: true }).click();
-      const opening = page.getByRole("dialog");
+      const opening = page.getByRole("dialog", { name: "Liberar expediente extra", exact: true });
       await opening.getByLabel("Profissional", { exact: true }).selectOption(professional.id);
       await opening.getByLabel("Motivo").fill(`Abertura CI ${suffix}`);
       await opening.getByRole("button", { name: "Salvar expediente extra" }).click();
       await expect(opening).not.toBeVisible();
       expect(await db.professionalOpening.count({ where: { professionalId: professional.id, dateKey: date } })).toBe(1);
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("dialog", { name: "Expediente e bloqueios" })).not.toBeVisible();
 
-      await page.getByRole("button", { name: "Bloquear horário ou dia" }).click();
+      await page.getByRole("button", { name: "Abrir ações rápidas da agenda" }).click();
+      await page.getByRole("menuitem", { name: /Novo bloqueio de horário/ }).click();
       const blocking = page.getByRole("dialog");
       await blocking.getByLabel("Início", { exact: true }).fill(`${date}T${startTime}`);
       await blocking.getByLabel("Fim", { exact: true }).fill(`${date}T${endTime}`);
@@ -76,9 +80,10 @@ test.describe("@database operação diária e expediente", () => {
       // Wait for inherited color transitions; changing the root attribute alone
       // can leave button text in its old theme during the screenshot.
       const expectedForeground = await page.locator("body").evaluate(el => getComputedStyle(el).color);
-      await expect.poll(() => page.getByRole("button", { name: "Todos profissionais", exact: true }).evaluate(el => getComputedStyle(el).color)).toBe(expectedForeground);
+      await expect.poll(() => page.getByRole("button", { name: "Buscar e filtrar agenda", exact: true }).evaluate(el => getComputedStyle(el).color)).toBe(expectedForeground);
       await page.screenshot({ path: test.info().outputPath("agenda-light-desktop.png"), fullPage: true, animations: "disabled" });
-      await page.getByRole("button", { name: "Selecionar intervalo na grade" }).click();
+      await page.getByRole("button", { name: "Abrir ações rápidas da agenda" }).click();
+      await page.getByRole("menuitem", { name: "Selecionar intervalo na grade" }).click();
       await page.getByRole("button", { name: `Selecionar bloqueio 09:00 com ${professionalName}`, exact: true }).press("Enter");
       await page.getByRole("button", { name: `Selecionar bloqueio 09:30 com ${professionalName}`, exact: true }).press("Enter");
       const selection = page.getByRole("dialog");
