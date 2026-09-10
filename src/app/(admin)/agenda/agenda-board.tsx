@@ -332,10 +332,10 @@ export function AgendaBoard({
       <header className="agenda-toolbar">
         <div className="flex min-w-0 items-center gap-2 sm:hidden">
           <button type="button" onClick={() => goDate(-1)} aria-label={`Ir para ${navigationUnit} anterior`} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg hover:bg-muted"><ChevronLeft aria-hidden="true" size={16} /></button>
-          <button ref={compactCalendarTrigger} type="button" aria-label="Abrir calendário" aria-haspopup="dialog" onClick={() => setMobileCalendarOpen(true)} className="min-h-11 min-w-11 rounded-lg text-sm font-semibold">
+          <h1><button ref={compactCalendarTrigger} type="button" aria-label="Abrir calendário" aria-haspopup="dialog" onClick={() => setMobileCalendarOpen(true)} className="min-h-11 min-w-11 rounded-lg text-sm font-semibold">
             <span className="block whitespace-nowrap">{format(dateObj, view === "month" || view === "list" ? "MMM yy" : "d MMM", { locale: ptBR })}</span>
             <span className="block text-[10px] font-normal text-muted-foreground">{format(dateObj, "EEE", { locale: ptBR })}</span>
-          </button>
+          </button></h1>
           <button type="button" onClick={() => goDate(1)} aria-label={`Ir para próximo ${navigationUnit}`} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg hover:bg-muted"><ChevronRight aria-hidden="true" size={16} /></button>
         </div>
         <div className="agenda-date-controls">
