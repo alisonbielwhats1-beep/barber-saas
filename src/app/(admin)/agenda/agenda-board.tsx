@@ -164,6 +164,8 @@ export function AgendaBoard({
   services,
   clients,
   canOverbook,
+  canOverrideBreak,
+  canRepeat,
   canCreate,
   canCancel,
 }: {
@@ -178,6 +180,8 @@ export function AgendaBoard({
   services: ServiceOption[];
   clients: ClientOption[];
   canOverbook: boolean;
+  canOverrideBreak: boolean;
+  canRepeat: boolean;
   canCreate: boolean;
   canCancel: boolean;
 }) {
@@ -546,6 +550,8 @@ export function AgendaBoard({
           services={services}
           clients={clients}
           canOverbook={canOverbook}
+          canOverrideBreak={canOverrideBreak}
+          canRepeat={canRepeat}
           timezone={timezone}
         />
       )}

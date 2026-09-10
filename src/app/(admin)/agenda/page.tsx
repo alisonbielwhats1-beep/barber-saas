@@ -148,14 +148,17 @@ export default async function AgendaPage({
       select: { id: true, name: true, durationMin: true, priceCents: true },
       orderBy: { name: "asc" },
     });
-    const clients = role === "PROFESSIONAL"
-      ? []
-      : await tx.clientProfile.findMany({
-          where: { salonId },
-          select: { id: true, name: true, phone: true },
-          orderBy: { name: "asc" },
-          take: 300,
-        });
+    const clients = await tx.clientProfile.findMany({
+      where: {
+        salonId,
+        ...(role === "PROFESSIONAL"
+          ? { appointments: { some: { professionalId: professionalId! } } }
+          : {}),
+      },
+      select: { id: true, name: true, phone: true },
+      orderBy: { name: "asc" },
+      take: 300,
+    });
     const blocks = await tx.timeOff.findMany({
       where: { professional: { salonId, ...(professionalId ? { id: professionalId } : {}) }, startAt: { lt: range.to }, endAt: { gt: range.from } },
       select: { id: true, professionalId: true, startAt: true, endAt: true, reason: true },
@@ -271,7 +274,9 @@ export default async function AgendaPage({
         services={services as ServiceOption[]}
         clients={clients as ClientOption[]}
         canOverbook={role === "OWNER" || role === "MANAGER"}
-        canCreate={role !== "PROFESSIONAL"}
+        canOverrideBreak={role === "OWNER" || role === "PROFESSIONAL"}
+        canRepeat={role !== "PROFESSIONAL"}
+        canCreate
         canCancel={role === "OWNER" || role === "MANAGER"}
       />
 
