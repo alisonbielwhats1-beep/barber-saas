@@ -1,5 +1,21 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-10 — bloqueios acionáveis e encaixe na pausa, em validação local
+
+Na branch `codex/agenda-block-management`, os bloqueios da agenda deixam de ser
+uma camada visual que repassa o toque ao horário vazio. Dono e gerente abrem os
+detalhes diretamente nas visões diária, semanal e em lista, revisam profissional,
+período e motivo e confirmam explicitamente a reabertura. Após reabrir um
+intervalo menor que um dia, a interface oferece iniciar o agendamento naquele
+horário. Papéis sem permissão continuam impedidos de alterar o bloqueio e o
+servidor preserva validação de papel, tenant, lock e auditoria.
+
+A criação manual durante pausa semanal também corrige a primeira tentativa: o
+servidor devolve a pausa detectada para que a tela solicite o motivo, em vez de
+encerrar o fluxo com um erro de motivo ausente. Bloqueios pontuais continuam
+inegociáveis enquanto existirem; devem ser reabertos antes do agendamento.
+Nenhuma migration, dado produtivo ou regra do Booksite foi alterada.
+
 ## 2026-09-10 — agenda com prioridade à grade (PR #89)
 
 A revisão `codex/agenda-fullscreen` retira cards de indicadores e legendas
