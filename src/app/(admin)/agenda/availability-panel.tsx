@@ -14,23 +14,29 @@ export type AvailabilityBlock = { id: string; professionalId: string; startAt: s
 
 export type BlockSelection = { professionalId: string; startLocal: string; endLocal: string };
 
-export function AvailabilityPanel({ date, timezone, professionals, blocks, selection }: {
+export type AvailabilityPreset = "interval" | "day";
+
+export function AvailabilityPanel({ date, timezone, professionals, blocks, selection, initialPreset }: {
   date: string; timezone: string; professionals: { id: string; name: string }[]; blocks: AvailabilityBlock[];
   selection?: BlockSelection;
+  initialPreset?: AvailabilityPreset;
 }) {
+  const startsAsDayOff = initialPreset === "day";
+  const startsOpen = Boolean(selection || initialPreset);
   const router = useRouter();
-  const [open, setOpen] = useState(!!selection);
+  const [open, setOpen] = useState(startsOpen);
+  const [activePreset, setActivePreset] = useState<AvailabilityPreset>(initialPreset ?? "interval");
   const [pending, startTransition] = useTransition();
-  const [requestId, setRequestId] = useState(() => selection ? crypto.randomUUID() : "");
-  const [selected, setSelected] = useState<string[]>(selection ? [selection.professionalId] : []);
-  const [start, setStart] = useState(selection?.startLocal ?? `${date}T12:00`);
-  const [end, setEnd] = useState(selection?.endLocal ?? `${date}T13:00`);
+  const [requestId, setRequestId] = useState(() => startsOpen ? crypto.randomUUID() : "");
+  const [selected, setSelected] = useState<string[]>(selection ? [selection.professionalId] : initialPreset ? professionals.map(p => p.id) : []);
+  const [start, setStart] = useState(selection?.startLocal ?? (startsAsDayOff ? `${date}T00:00` : `${date}T12:00`));
+  const [end, setEnd] = useState(selection?.endLocal ?? (startsAsDayOff ? `${addCalendarDays(date, 1)}T00:00` : `${date}T13:00`));
   const [everyWeeks, setEveryWeeks] = useState<0 | 1 | 2 | 4>(0);
   const [count, setCount] = useState(4);
   const [repeatDays, setRepeatDays] = useState(false);
   const [weekdays, setWeekdays] = useState([1, 2, 3, 4, 5]);
   const [untilDate, setUntilDate] = useState(addCalendarDays(date, 30));
-  const [reason, setReason] = useState("");
+  const [reason, setReason] = useState(startsAsDayOff ? "Folga" : "");
   const [preview, setPreview] = useState<{ id: string; name: string; startAt: string }[] | null>(null);
   const [summary, setSummary] = useState<{ occurrences: number; first: string; last: string } | null>(null);
   const [error, setError] = useState("");
@@ -38,16 +44,18 @@ export function AvailabilityPanel({ date, timezone, professionals, blocks, selec
   const [toCancel, setToCancel] = useState<string[]>([]);
   const [cancelResults, setCancelResults] = useState<{ id: string; success: boolean; error?: string }[]>([]);
   const field = "mt-1 min-h-11 w-full rounded-lg border border-border bg-background px-3 text-sm";
-  function begin() {
+  function begin(preset: AvailabilityPreset = "interval") {
+    const dayOff = preset === "day";
+    setActivePreset(preset);
     setRepeatDays(false); setWeekdays([1, 2, 3, 4, 5]); setUntilDate(addCalendarDays(date, 30));
     setEveryWeeks(0); setCount(4);
-    setRequestId(crypto.randomUUID()); setStart(`${date}T12:00`); setEnd(`${date}T13:00`);
-    setSelected(professionals.map(p => p.id)); setAffected(null); setToCancel([]); setCancelResults([]); setPreview(null); setError(""); setReason(""); setOpen(true);
+    setRequestId(crypto.randomUUID()); setStart(dayOff ? `${date}T00:00` : `${date}T12:00`); setEnd(dayOff ? `${addCalendarDays(date, 1)}T00:00` : `${date}T13:00`);
+    setSelected(professionals.map(p => p.id)); setAffected(null); setToCancel([]); setCancelResults([]); setPreview(null); setError(""); setReason(dayOff ? "Folga" : ""); setOpen(true);
   }
   return <section aria-label="Disponibilidade da equipe" className="mb-3 rounded-xl border border-border bg-card px-3 py-2">
     <div className="flex flex-wrap items-center justify-between gap-2">
       <div><p className="text-sm font-medium">Pausas e disponibilidade</p><a href="/configuracoes#jornadas" className="inline-flex min-h-11 items-center text-xs text-muted-foreground underline">Consultar expediente e jornadas</a></div>
-      <div className="flex flex-wrap gap-2"><WeeklyPausePanel professionals={professionals} /><button type="button" onClick={begin} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border px-4 text-sm font-medium hover:bg-muted"><Ban size={16} /> Bloquear horário ou dia</button></div>
+      <div className="flex flex-wrap gap-2"><WeeklyPausePanel professionals={professionals} /><button type="button" onClick={() => begin()} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border px-4 text-sm font-medium hover:bg-muted"><Ban size={16} /> Bloquear horário ou dia</button></div>
     </div>
     {blocks.length > 0 && <details><summary className="flex min-h-11 cursor-pointer items-center text-xs">Ver {blocks.length} bloqueio(s) do período</summary><ul className="mt-2 divide-y divide-border">{blocks.map(block => <li key={block.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-xs">
       <span><strong>{professionals.find(p => p.id === block.professionalId)?.name}</strong> · {formatInTimeZone(new Date(block.startAt), timezone, "dd/MM HH:mm")} — {formatInTimeZone(new Date(block.endAt), timezone, "dd/MM HH:mm")} · {block.reason ?? "Indisponível"}</span>
@@ -57,7 +65,7 @@ export function AvailabilityPanel({ date, timezone, professionals, blocks, selec
       }}>Reabrir período</button>
     </li>)}</ul></details>}
     {error && !open && <p role="alert" className="text-sm text-danger">{error}</p>}
-    <Dialog open={open} onOpenChange={value => { if (!pending) setOpen(value); }}><DialogContent className="max-h-[85dvh] overflow-y-auto"><DialogHeader><DialogTitle>Bloquear disponibilidade</DialogTitle></DialogHeader>
+    <Dialog open={open} onOpenChange={value => { if (!pending) setOpen(value); }}><DialogContent className="max-h-[85dvh] overflow-y-auto"><DialogHeader><DialogTitle>{activePreset === "day" ? "Adicionar folga" : "Bloquear disponibilidade"}</DialogTitle></DialogHeader>
       {affected !== null ? <div className="space-y-3"><p role="status">Disponibilidade bloqueada. {affected.length} reserva(s) continuam ativas.</p>
         {affected.length > 0 && <><p className="text-sm text-muted-foreground">Abra cada reserva na agenda para propor outro horário ou cancelar com motivo.</p><ul className="space-y-2">{affected.map(a => <li key={a.id}><a className="inline-flex min-h-11 items-center underline" href={`/agenda?date=${formatInTimeZone(new Date(a.startAt), timezone, "yyyy-MM-dd")}&appointment=${a.id}`}>{a.name} · {formatInTimeZone(new Date(a.startAt), timezone, "dd/MM HH:mm")}</a></li>)}</ul></>}
         {affected.length > 0 && <fieldset disabled={pending} className="space-y-2"><legend className="text-sm font-medium">Cancelar reservas selecionadas</legend>

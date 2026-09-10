@@ -1,5 +1,25 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-10 — ações rápidas da agenda em revisão
+
+Com base nos três áudios e no vídeo do responsável, a agenda passa a oferecer um
+botão “+” flutuante no celular, acima da barra inferior, com três ações: novo
+agendamento, novo bloqueio de horário e adicionar folga. O desktop usa o mesmo
+menu no lugar do botão “Novo”. Bloqueio e folga reutilizam o fluxo auditado já
+existente; a folga abre como dia inteiro e continua exigindo revisão. Permissões
+de servidor permanecem inalteradas. Branch `codex/agenda-quick-actions`, ainda
+sem publicação em Production e sem alteração de banco.
+
+## 2026-09-09 — encaixe manual durante pausa publicado
+
+O PR #87 foi integrado em `master` no commit
+`7b7e0351dd65be46b4efeaecb1d6cb0304ddfac7` e publicado no deploy
+`dpl_5Jjd5oMenY5enANJ1bQfteaHBHiG`, estado `READY`. Dono ou o próprio
+profissional podem criar um agendamento durante uma pausa semanal com motivo e
+auditoria; o Booksite continua bloqueando o horário para clientes. A publicação
+passou pelos dois jobs do CI e pelo smoke somente leitura no domínio oficial.
+Nenhuma migration ou escrita manual no banco foi necessária.
+
 ## 2026-09-09 — horários do salão separados das jornadas
 
 A configuração deixa de selecionar toda a equipe por padrão. O horário geral do

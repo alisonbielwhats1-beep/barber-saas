@@ -10,7 +10,6 @@ import {
   CalendarRange,
   Grid3x3,
   List,
-  Plus,
   Search,
   Users,
   CircleDollarSign,
@@ -41,11 +40,12 @@ import { professionalColors } from "./professional-colors";
 import { moveAppointment } from "./actions";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { layoutOverlappingIntervals } from "./agenda-layout";
-import { AvailabilityPanel, type AvailabilityBlock, type BlockSelection } from "./availability-panel";
+import { AvailabilityPanel, type AvailabilityBlock, type AvailabilityPreset, type BlockSelection } from "./availability-panel";
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 import { DateNavigator } from "./date-navigator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { unavailableScheduleIntervals, type VisualWorkingHours } from "./schedule-visibility";
+import { AgendaQuickActions } from "./agenda-quick-actions";
 
 const DAY_START = 8 * 60;
 const DAY_END = 21 * 60;
@@ -199,6 +199,7 @@ export function AgendaBoard({
   const mobileCalendarTrigger = useRef<HTMLButtonElement>(null);
   const [blockMode, setBlockMode] = useState(false);
   const [blockSelection, setBlockSelection] = useState<(BlockSelection & { key: string }) | undefined>();
+  const [availabilityLaunch, setAvailabilityLaunch] = useState<{ key: string; preset: AvailabilityPreset } | undefined>();
   const [search, setSearch] = useState("");
   const [detail, setDetail] = useState<Appointment | null>(() => appointments.find(a => a.id === initialAppointmentId) ?? null);
   const [createAt, setCreateAt] = useState<{ startLocal: string; proId: string } | null>(null);
@@ -297,6 +298,11 @@ export function AgendaBoard({
     if (!canCreate) return;
     setCreateAt({ startLocal: `${dayStr}T${minutesToHHMM(minutes)}`, proId });
   }
+  function openAvailability(preset: AvailabilityPreset) {
+    if (!canCancel) return;
+    setBlockSelection(undefined);
+    setAvailabilityLaunch({ key: crypto.randomUUID(), preset });
+  }
   function refresh() {
     startTransition(() => router.refresh());
   }
@@ -372,16 +378,14 @@ export function AgendaBoard({
             <ViewBtn active={view === "month"} onClick={() => setView("month")} icon={Grid3x3} label="Mês" />
             <ViewBtn active={view === "list"} onClick={() => setView("list")} icon={List} label="Lista" />
           </div>
-          {canCreate && (
-            <button
-              onClick={() => openSlot(professionals[0]?.id ?? "", DAY_START)}
-              disabled={professionals.length === 0}
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-[13px] font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-40"
-            >
-              <Plus className="h-4 w-4" />
-              Novo
-            </button>
-          )}
+          <AgendaQuickActions
+            canCreateAppointment={canCreate}
+            canManageAvailability={canCancel}
+            disabled={professionals.length === 0}
+            onNewAppointment={() => openSlot(professionals[0]?.id ?? "", DAY_START)}
+            onNewBlock={() => openAvailability("interval")}
+            onNewDayOff={() => openAvailability("day")}
+          />
         </div>
       </header>
 
@@ -391,7 +395,7 @@ export function AgendaBoard({
 
       {operations && <details className="rounded-lg border border-border bg-card px-3"><summary className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-medium"><CalendarRange size={16} />Expediente e fila de espera</summary><div className="grid items-start gap-3 pb-3 xl:grid-cols-2">{operations}</div></details>}
       <div className="grid items-start gap-2 xl:grid-cols-[1fr_auto]">
-      {canCancel && <AvailabilityPanel key={blockSelection?.key ?? date} date={date} timezone={timezone} professionals={professionals} blocks={availabilityBlocks} selection={blockSelection} />}
+      {canCancel && <AvailabilityPanel key={blockSelection?.key ?? availabilityLaunch?.key ?? date} date={date} timezone={timezone} professionals={professionals} blocks={availabilityBlocks} selection={blockSelection} initialPreset={availabilityLaunch?.preset} />}
       {canCancel && view === "day" && <div className="flex flex-wrap items-center gap-3"><button type="button" aria-pressed={blockMode} onClick={() => setBlockMode(!blockMode)} className={`inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm ${blockMode ? "border-danger bg-danger/10 text-danger" : "border-border"}`}><Ban size={16} />{blockMode ? "Sair da seleção de bloqueio" : "Selecionar intervalo na grade"}</button>{blockMode && <p className="text-xs text-muted-foreground">Arraste no horário de um profissional ou toque no início e no fim. Enter seleciona pelo teclado; Escape cancela.</p>}</div>}
 
       </div>
@@ -466,7 +470,7 @@ export function AgendaBoard({
       ) : view === "day" ? (
         <DayView
           blockMode={blockMode}
-          onBlockSelection={selection => { setBlockSelection({ ...selection, key: crypto.randomUUID() }); setBlockMode(false); }}
+          onBlockSelection={selection => { setAvailabilityLaunch(undefined); setBlockSelection({ ...selection, key: crypto.randomUUID() }); setBlockMode(false); }}
           blocks={availabilityBlocks}
           date={date}
           professionals={shownPros}
