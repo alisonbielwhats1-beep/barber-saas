@@ -74,7 +74,11 @@ export function AppointmentDialog({
     proNow?.serviceIds.includes(s.id),
   );
 
-  function buildPayload(form: FormData, overbookReasonValue?: string) {
+  function buildPayload(
+    form: FormData,
+    overbookReasonValue?: string,
+    overrideConfirmed = false,
+  ) {
     const idempotencyKey = idempotencyKeyRef.current ?? crypto.randomUUID();
     idempotencyKeyRef.current = idempotencyKey;
     const serviceIds = form.getAll("serviceIds").map(String).filter(Boolean);
@@ -97,7 +101,11 @@ export function AppointmentDialog({
             idempotencyKey,
             notes: (form.get("notes") as string) || null,
           };
-    return overbookReasonValue ? { ...base, overbookReason: overbookReasonValue } : base;
+    return {
+      ...base,
+      ...(overbookReasonValue ? { overbookReason: overbookReasonValue } : {}),
+      ...(overrideConfirmed ? { overrideConfirmed: true as const } : {}),
+    };
   }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -147,9 +155,11 @@ export function AppointmentDialog({
   }
 
   function onOverrideConfirm() {
-    if (!lastFormData || overrideReason.trim().length < 3) return;
+    if (!lastFormData) return;
+    const reason = overrideReason.trim();
+    if (overrideConflict === "SLOT_TAKEN" && reason.length < 3) return;
     setError(null);
-    const payload = buildPayload(lastFormData, overrideReason.trim());
+    const payload = buildPayload(lastFormData, reason || undefined, true);
     startTransition(async () => {
       const result = await createAppointmentManually(payload);
       if ("error" in result) {
@@ -348,11 +358,11 @@ export function AppointmentDialog({
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 {overrideConflict === "WORKING_HOURS_BREAK"
-                  ? "Você pode criar este encaixe manual durante a pausa. A exceção ficará registrada na auditoria — informe o motivo."
+                  ? "Você pode criar este encaixe manual durante a pausa. Confirme abaixo; o motivo é opcional."
                   : "Você pode encaixar mesmo assim (overbooking). A ação fica registrada na trilha de auditoria — informe o motivo."}
               </p>
               <label htmlFor="appointment-override-reason" className="mt-2 block text-xs font-medium">
-                Motivo da exceção
+                Motivo da exceção{overrideConflict === "WORKING_HOURS_BREAK" ? " (opcional)" : ""}
               </label>
               <Input
                 id="appointment-override-reason"
@@ -361,14 +371,18 @@ export function AppointmentDialog({
                   e.stopPropagation();
                   setOverrideReason(e.target.value);
                 }}
-                placeholder="Motivo da exceção (obrigatório)"
+                placeholder={overrideConflict === "WORKING_HOURS_BREAK"
+                  ? "Motivo da exceção (opcional)"
+                  : "Motivo da exceção (obrigatório)"}
                 className="mt-2"
               />
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={pending || overrideReason.trim().length < 3}
+                disabled={pending || (
+                  overrideConflict === "SLOT_TAKEN" && overrideReason.trim().length < 3
+                )}
                 onClick={onOverrideConfirm}
                 className="mt-2 border-danger/40 text-danger hover:bg-danger/10"
               >

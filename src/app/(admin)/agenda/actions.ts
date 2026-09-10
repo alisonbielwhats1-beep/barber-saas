@@ -53,7 +53,8 @@ const createInput = z.object({
   // Overbooking deliberado: só tem efeito se houver conflito real E a role
   // permitir (checado no servidor, nunca confiando só no que o cliente
   // manda) — sem conflito, este flag simplesmente não muda nada.
-  overbookReason: z.string().trim().min(3).max(200).optional(),
+  overbookReason: z.string().trim().max(200).optional(),
+  overrideConfirmed: z.literal(true).optional(),
 });
 
 function appointmentActionMessage(error: unknown): string {
@@ -98,8 +99,8 @@ function appointmentActionMessage(error: unknown): string {
  *  - não há conflito de horário — a menos que `overbookReason` esteja
  *    preenchido e a role permita (OWNER/MANAGER), caso em que o
  *    agendamento nasce com `isOverbooked=true` e uma entrada em `AuditLog`
- *  - pausas entre turnos podem ser ignoradas, com motivo e auditoria, somente
- *    pelo OWNER ou pelo próprio PROFESSIONAL
+ *  - pausas entre turnos podem ser ignoradas após confirmação explícita, com
+ *    motivo opcional e auditoria, somente pelo OWNER ou próprio PROFESSIONAL
  */
 export async function createAppointmentManually(
   input: z.infer<typeof createInput>,
@@ -148,6 +149,7 @@ export async function createAppointmentManually(
         canOverride: canOverbook,
         canOverrideWorkingHoursBreak,
         overrideReason: data.overbookReason,
+        overrideConfirmed: data.overrideConfirmed,
         ...(data.clientId
           ? { clientId: data.clientId }
           : {

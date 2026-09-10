@@ -91,6 +91,8 @@ export type CreateAppointmentInput = AppointmentIdentity & {
   idempotencyKey: string;
   enforceBookingWindow: boolean;
   overrideReason?: string | null;
+  /** Confirma conscientemente uma exceção cujo motivo pode ser opcional. */
+  overrideConfirmed?: boolean;
   canOverride?: boolean;
   /** Permite à criação manual atravessar somente uma pausa entre turnos. */
   canOverrideWorkingHoursBreak?: boolean;
@@ -548,6 +550,7 @@ function requireOverrideReason(input: {
   canOverride?: boolean;
   canOverrideWorkingHoursBreak?: boolean;
   overrideReason?: string | null;
+  overrideConfirmed?: boolean;
 }): { overridden: boolean; reason: string | null } {
   if (!input.violation) return { overridden: false, reason: null };
   // As duas exceções são deliberadas e auditáveis, mas independentes:
@@ -560,14 +563,17 @@ function requireOverrideReason(input: {
   ) {
     throw new AppointmentError(input.violation);
   }
-  const allowed = input.violation === "SLOT_TAKEN"
-    ? input.canOverride
-    : input.canOverrideWorkingHoursBreak;
-  if (!allowed) throw new AppointmentError(input.violation);
-  // A primeira tentativa serve como detecção para a interface abrir a revisão
-  // da exceção. Só valide o motivo depois que o operador o enviar de fato.
-  if (input.overrideReason == null) throw new AppointmentError(input.violation);
-  const reason = input.overrideReason.trim();
+  if (input.violation === "WORKING_HOURS_BREAK") {
+    // A confirmação continua explícita para evitar encaixes acidentais, mas o
+    // motivo é opcional para manter a operação rápida no balcão.
+    if (!input.canOverrideWorkingHoursBreak || !input.overrideConfirmed) {
+      throw new AppointmentError(input.violation);
+    }
+    return { overridden: true, reason: input.overrideReason?.trim() || null };
+  }
+
+  if (!input.canOverride) throw new AppointmentError(input.violation);
+  const reason = input.overrideReason?.trim() ?? "";
   if (reason.length < 3) throw new AppointmentError("REASON_REQUIRED");
   return { overridden: true, reason };
 }
@@ -708,6 +714,7 @@ export async function createAppointment(
     canOverride: input.canOverride,
     canOverrideWorkingHoursBreak: input.canOverrideWorkingHoursBreak,
     overrideReason: input.overrideReason,
+    overrideConfirmed: input.overrideConfirmed,
   });
 
   let clientId = input.clientId;
