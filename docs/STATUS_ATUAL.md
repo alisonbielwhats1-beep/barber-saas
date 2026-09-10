@@ -1,14 +1,29 @@
 # Status atual canônico — Salon SaaS
 
-## 2026-09-10 — ações rápidas da agenda em revisão
+## 2026-09-10 — agenda com prioridade à grade (PR #89)
+
+A revisão `codex/agenda-fullscreen` retira cards de indicadores e legendas
+redundantes da Agenda. Data e visualizações ficam em uma barra compacta; busca
+e filtros abrem sob demanda. A grade usa a altura restante da tela, com rolagem
+própria, cabeçalhos menores e calendário lateral inicialmente recolhido. O “+”
+reúne também pausa recorrente, seleção de intervalo e gestão de expediente,
+bloqueios e fila. Nenhuma regra de acesso ou banco foi alterada.
+Validação visual local usa exclusivamente dados fictícios em 320, 390 e 1440px.
+Promoção condicionada à aprovação de CI/Preview; commit, deploy e verificação
+produtiva são registrados no PR #89. Escopo detalhado em
+`AGENDA_JORNADAS_2026-09-09.md`.
+
+## 2026-09-10 — ações rápidas da agenda publicadas
 
 Com base nos três áudios e no vídeo do responsável, a agenda passa a oferecer um
 botão “+” flutuante no celular, acima da barra inferior, com três ações: novo
 agendamento, novo bloqueio de horário e adicionar folga. O desktop usa o mesmo
 menu no lugar do botão “Novo”. Bloqueio e folga reutilizam o fluxo auditado já
 existente; a folga abre como dia inteiro e continua exigindo revisão. Permissões
-de servidor permanecem inalteradas. Branch `codex/agenda-quick-actions`, ainda
-sem publicação em Production e sem alteração de banco.
+de servidor permanecem inalteradas. PR #88 integrado no commit
+`16ac54c4aa1b997c2dfccb532a879d5de604d5f2`, deploy
+`dpl_76nmwbNzfVhvXmsTfYXk3pp5e1bj` confirmado `READY` em Production após CI e
+smoke somente leitura. Sem alteração de banco.
 
 ## 2026-09-09 — encaixe manual durante pausa publicado
 

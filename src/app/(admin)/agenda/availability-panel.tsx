@@ -16,10 +16,12 @@ export type BlockSelection = { professionalId: string; startLocal: string; endLo
 
 export type AvailabilityPreset = "interval" | "day";
 
-export function AvailabilityPanel({ date, timezone, professionals, blocks, selection, initialPreset }: {
+export function AvailabilityPanel({ date, timezone, professionals, blocks, selection, initialPreset, dialogOnly = false, restoreFocus }: {
   date: string; timezone: string; professionals: { id: string; name: string }[]; blocks: AvailabilityBlock[];
   selection?: BlockSelection;
   initialPreset?: AvailabilityPreset;
+  dialogOnly?: boolean;
+  restoreFocus?: () => void;
 }) {
   const startsAsDayOff = initialPreset === "day";
   const startsOpen = Boolean(selection || initialPreset);
@@ -52,7 +54,8 @@ export function AvailabilityPanel({ date, timezone, professionals, blocks, selec
     setRequestId(crypto.randomUUID()); setStart(dayOff ? `${date}T00:00` : `${date}T12:00`); setEnd(dayOff ? `${addCalendarDays(date, 1)}T00:00` : `${date}T13:00`);
     setSelected(professionals.map(p => p.id)); setAffected(null); setToCancel([]); setCancelResults([]); setPreview(null); setError(""); setReason(dayOff ? "Folga" : ""); setOpen(true);
   }
-  return <section aria-label="Disponibilidade da equipe" className="mb-3 rounded-xl border border-border bg-card px-3 py-2">
+  return <section aria-label="Disponibilidade da equipe" className={dialogOnly ? "contents" : "mb-3 rounded-xl border border-border bg-card px-3 py-2"}>
+    {!dialogOnly && <>
     <div className="flex flex-wrap items-center justify-between gap-2">
       <div><p className="text-sm font-medium">Pausas e disponibilidade</p><a href="/configuracoes#jornadas" className="inline-flex min-h-11 items-center text-xs text-muted-foreground underline">Consultar expediente e jornadas</a></div>
       <div className="flex flex-wrap gap-2"><WeeklyPausePanel professionals={professionals} /><button type="button" onClick={() => begin()} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border px-4 text-sm font-medium hover:bg-muted"><Ban size={16} /> Bloquear horário ou dia</button></div>
@@ -65,7 +68,8 @@ export function AvailabilityPanel({ date, timezone, professionals, blocks, selec
       }}>Reabrir período</button>
     </li>)}</ul></details>}
     {error && !open && <p role="alert" className="text-sm text-danger">{error}</p>}
-    <Dialog open={open} onOpenChange={value => { if (!pending) setOpen(value); }}><DialogContent className="max-h-[85dvh] overflow-y-auto"><DialogHeader><DialogTitle>{activePreset === "day" ? "Adicionar folga" : "Bloquear disponibilidade"}</DialogTitle></DialogHeader>
+    </>}
+    <Dialog open={open} onOpenChange={value => { if (!pending) setOpen(value); }}><DialogContent onCloseAutoFocus={restoreFocus ? event => { event.preventDefault(); restoreFocus(); } : undefined} className="max-h-[85dvh] overflow-y-auto"><DialogHeader><DialogTitle>{activePreset === "day" ? "Adicionar folga" : "Bloquear disponibilidade"}</DialogTitle></DialogHeader>
       {affected !== null ? <div className="space-y-3"><p role="status">Disponibilidade bloqueada. {affected.length} reserva(s) continuam ativas.</p>
         {affected.length > 0 && <><p className="text-sm text-muted-foreground">Abra cada reserva na agenda para propor outro horário ou cancelar com motivo.</p><ul className="space-y-2">{affected.map(a => <li key={a.id}><a className="inline-flex min-h-11 items-center underline" href={`/agenda?date=${formatInTimeZone(new Date(a.startAt), timezone, "yyyy-MM-dd")}&appointment=${a.id}`}>{a.name} · {formatInTimeZone(new Date(a.startAt), timezone, "dd/MM HH:mm")}</a></li>)}</ul></>}
         {affected.length > 0 && <fieldset disabled={pending} className="space-y-2"><legend className="text-sm font-medium">Cancelar reservas selecionadas</legend>

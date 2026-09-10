@@ -124,3 +124,29 @@ exige escolha de profissionais, revisão e confirmação. Os itens respeitam os
 papéis atuais: dono/gerente gerenciam disponibilidade; profissional e recepção
 veem somente a criação de agendamento permitida. Nenhuma regra de servidor,
 migration ou dado produtivo é alterado por esse atalho.
+
+## Agenda em primeiro plano — revisão de distribuição
+
+A pedido do responsável, a agenda deixa de funcionar como um painel de
+indicadores: remove os quatro cards e as legendas inferiores. Profissionais
+continuam identificados por nome/cor no cabeçalho e cada atendimento mantém seu
+status escrito. Data, navegação e visualizações ocupam uma barra compacta;
+busca/filtros abrem em diálogo, com indicação de filtro ativo no botão.
+Após conferir a nova referência em vídeo, o mobile mantém data, seletor de
+visualização e filtros na mesma linha, sem empilhamento. O “+” foi reduzido a
+44px, com sombra discreta e área de toque preservada; em 390×844 a grade começa
+em y=121 e ocupa 659px de altura na captura sintética.
+
+A grade diária/semanal preenche a altura restante do viewport, com rolagem
+própria e cabeçalhos de 64px. Colunas diárias a partir de 148px permitem dois
+profissionais em celulares comuns; equipes maiores mantêm rolagem horizontal.
+O calendário lateral começa recolhido no desktop. Mês e lista continuam
+disponíveis. O botão “+” permanece acima da navegação inferior e reúne pausa
+recorrente, bloqueio, folga, seleção de intervalo (visão diária) e gestão de
+expediente/fila. Formulários mantêm revisão, confirmação e permissões anteriores.
+
+A navegação por teclado devolve o foco aos controles que abriram os diálogos.
+Testes de navegador verificam altura da grade, posição do “+”, ausência de
+overflow da página e fluxos operacionais com banco descartável. Capturas locais
+em 320×568, 390×844 e 1440×844 usam somente dados fictícios. Sem migration ou
+teste de escrita em Production.
