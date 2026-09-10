@@ -292,6 +292,32 @@ describe("jornada com pausa diária e atendimento longo", () => {
     );
   });
 
+  it("devolve a pausa detectada antes de pedir o motivo da exceção", async () => {
+    const { tx, raw, appointmentCreate } = schedulingTx();
+    raw.service.findMany.mockResolvedValue([
+      { id: "service-a", name: "Corte", durationMin: 30, priceCents: 5_000 },
+    ]);
+    raw.professionalService.findMany.mockResolvedValue([{ serviceId: "service-a" }]);
+    raw.workingHours.findMany.mockResolvedValue([
+      { startMinutes: 9 * 60, endMinutes: 12 * 60 + 30 },
+      { startMinutes: 15 * 60, endMinutes: 21 * 60 },
+    ]);
+
+    await expect(createAppointment(tx, {
+      salonId: "salon-a",
+      professionalId: "professional-a",
+      serviceIds: ["service-a"],
+      startLocal: "2030-09-11T13:30",
+      origin: "ADMIN",
+      actor: { type: "STAFF", id: "owner-a", name: "Dono" },
+      idempotencyKey: "11111111-1111-4111-8111-111111111111",
+      enforceBookingWindow: false,
+      clientId: "client-a",
+      canOverrideWorkingHoursBreak: true,
+    })).rejects.toMatchObject({ code: "WORKING_HOURS_BREAK" });
+    expect(appointmentCreate).not.toHaveBeenCalled();
+  });
+
   it("não deixa a autorização de pausa abrir horário antes do expediente", async () => {
     const { tx, raw } = schedulingTx();
     raw.service.findMany.mockResolvedValue([
