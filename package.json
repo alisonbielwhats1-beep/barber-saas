@@ -9,7 +9,7 @@
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "next start",
-    "lint": "eslint src prisma scripts tests playwright.config.ts --ext .js,.jsx,.ts,.tsx",
+    "lint": "eslint src packages prisma scripts tests playwright.config.ts --ext .js,.jsx,.ts,.tsx",
     "typecheck": "tsc --noEmit --incremental false",
     "check:runtime": "tsx scripts/assert-runtime-contract.ts",
     "generate:pwa-icons": "tsx scripts/generate-pwa-icons.ts",
@@ -60,7 +60,8 @@
     "server-only": "0.0.1",
     "tailwind-merge": "^2.5.2",
     "tailwindcss-animate": "^1.0.7",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "@everflare/agents": "file:packages/hq-agents"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",
@@ -94,5 +95,8 @@
       "postcss": "8.5.25",
       "sharp": "0.35.4"
     }
-  }
+  },
+  "workspaces": [
+    "packages/*"
+  ]
 }
