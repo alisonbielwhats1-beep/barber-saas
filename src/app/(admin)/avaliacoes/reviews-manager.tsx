@@ -21,7 +21,7 @@ type ModerationReview = {
 
 function Stars({ rating }: { rating: number }) {
   return (
-    <span className="inline-flex items-center gap-0.5" aria-label={`Nota ${rating} de 5`}>
+    <span role="img" className="inline-flex items-center gap-0.5" aria-label={`Nota ${rating} de 5`}>
       {Array.from({ length: 5 }, (_, index) => (
         <Star
           key={index}
