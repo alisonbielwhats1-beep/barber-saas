@@ -6,10 +6,12 @@
   "exports": {
     ".": "./src/index.ts",
     "./catalog": "./src/catalog.ts",
-    "./policy": "./src/policy.ts"
+    "./policy": "./src/policy.ts",
+    "./chief": "./src/chief.ts"
   },
   "dependencies": {
     "@openai/agents": "0.18.0",
+    "openai": "7.15.0",
     "zod": "^4.0.0"
   }
 }

@@ -81,7 +81,7 @@ export async function detail(tx: Tx, entity: string, id: string) {
   if(entity==="subscriptions") sections.payments=await repo.related(tx,"payments","subscriptionId",id);
   return { record, account, sections };
 }
-export async function dashboard(tx: Tx) {
+export async function dashboardMetrics(tx: Tx) {
  const [metrics] = await tx.$queryRaw<Record<string,number>[]>`
  SELECT
  (SELECT count(*)::int FROM hq_leads) AS leads,
@@ -107,6 +107,10 @@ export async function dashboard(tx: Tx) {
  (SELECT count(*)::int FROM hq_activities WHERE "createdAt" >= CURRENT_TIMESTAMP - interval '7 days') AS activities,
  (SELECT count(*)::int FROM hq_subscriptions WHERE status='Teste' AND "trialEnd"=(CURRENT_TIMESTAMP AT TIME ZONE 'America/Sao_Paulo')::date + 1) AS "trialsTomorrow"
  `;
+ return metrics;
+}
+export async function dashboard(tx: Tx) {
+ const metrics = await dashboardMetrics(tx);
  const popular = await tx.$queryRaw<{id:string;title:string;count:number;first:string|null;last:string|null}[]>`SELECT f.id,f.title,count(fc.id)::int AS count,min(fc."createdAt")::text AS first,max(fc."createdAt")::text AS last FROM hq_feature_requests f LEFT JOIN hq_feature_request_customers fc ON fc."featureId"=f.id GROUP BY f.id ORDER BY count(fc.id) DESC,f."createdAt" DESC LIMIT 5`;
  const recent = (await repo.list(tx,"activities")).rows.slice(0,10);
  return {metrics,popular,recent};

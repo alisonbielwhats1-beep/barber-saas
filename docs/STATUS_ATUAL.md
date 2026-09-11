@@ -1,5 +1,15 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-11 — Agente Chefe: piloto de leitura em implementação
+
+Pedido posterior autoriza conectar dados do HQ, modelo e histórico com limite
+de consumo. Escopo em HQ_CHEFE_PILOTO.md, no PR #94. Laboratório anterior
+b09d4ec passou no CI 34553915666 e Preview, incluindo a correção de teclado.
+Piloto reutiliza withHq e métricas do dashboard; acrescenta migration aditiva
+022 para execuções/reservas. Não aplicada em Production. HQ_CHIEF_ENABLED
+permanece false até configuração da chave, orçamento e publicação autorizada.
+Nenhuma chamada paga ou mensagem enviada nesta implementação.
+
 ## 2026-09-10 — agentes: laboratório em desenvolvimento
 
 Branch codex/hq-agents-foundation, atualizada com PR #93. Escopo em

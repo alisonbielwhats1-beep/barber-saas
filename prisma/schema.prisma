@@ -1,4 +1,26 @@
 // Salon SaaS — Multi-tenant schema
+model HqAgentRun {
+  id String @id @db.Uuid
+  actorId String
+  actor User @relation("HqAgentActor", fields: [actorId], references: [id], onDelete: Restrict)
+  question String
+  answer String?
+  snapshot Json
+  sources Json
+  status String
+  errorCode String?
+  model String
+  promptVersion String
+  chargeMicros Int
+  inputTokens Int?
+  outputTokens Int?
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  finishedAt DateTime? @db.Timestamptz(3)
+  @@index([createdAt], map: "hq_agent_runs_created_idx")
+  @@index([actorId, createdAt], map: "hq_agent_runs_actor_created_idx")
+  @@map("hq_agent_runs")
+}
+
 model HqAccounts {
   id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name String
@@ -458,6 +480,7 @@ enum Gender {
 
 model User {
   hqActivities HqActivities[] @relation("HqActivityActor")
+  hqAgentRuns HqAgentRun[] @relation("HqAgentActor")
   id                     String       @id @default(cuid())
   email                  String       @unique
   name                   String

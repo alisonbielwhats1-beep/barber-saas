@@ -11,7 +11,8 @@ test.describe("@database Everflare HQ",()=>{
   assertSafeDatabaseOperation(process.env,{operation:"hq-browser-fixture"});
   const db=new PrismaClient();
   email=crypto.randomUUID()+"@hq.example.test";
-  await db.user.create({data:{email,name:"Responsável HQ",platformRole:"SUPER_ADMIN",passwordHash:await bcrypt.hash(password,10),passwordSetAt:new Date()}});
+  const admin=await db.user.create({data:{email,name:"Responsável HQ",platformRole:"SUPER_ADMIN",passwordHash:await bcrypt.hash(password,10),passwordSetAt:new Date()}});
+  await db.hqAgentRun.create({data:{id:crypto.randomUUID(),actorId:admin.id,question:"Resumo sintético persistente do Chefe",answer:"Resposta fictícia do teste de histórico. Nenhum serviço externo foi utilizado.",snapshot:{synthetic:true},sources:[{label:"Financeiro",href:"/hq/finance"}],status:"completed",model:"synthetic-browser",promptVersion:"ci",chargeMicros:0,inputTokens:1,outputTokens:1,finishedAt:new Date()}});
   await db.$disconnect();
  });
  test("bloqueia visitante e proprietário comum",async({page})=>{
@@ -65,6 +66,10 @@ test.describe("@database Everflare HQ",()=>{
   await page.getByRole("button",{name:"Entrar",exact:true}).click();
   await expect(page).toHaveURL(/\/plataforma/,{timeout:30000});
   await page.goto("/hq/agents");
+  await expect(page.getByRole("button",{name:"Consultar Chefe",exact:true})).toBeDisabled();
+  await expect(page.getByText("Resumo sintético persistente do Chefe",{exact:true})).toBeVisible();
+  await page.reload();
+  await expect(page.getByText("Resumo sintético persistente do Chefe",{exact:true})).toBeVisible();
   await expect(page.getByText("Simulação local · sem consumo de IA",{exact:true})).toBeVisible();
   await page.getByLabel("Cenário de validação").selectOption("hours");
   await page.getByRole("button",{name:"Executar cenário",exact:true}).click();
