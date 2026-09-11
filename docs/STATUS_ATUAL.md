@@ -6,9 +6,12 @@ Central privada em /hq, separada dos salões e do Booksite. Auditoria e
 arquitetura em EVERFLARE_HQ.md; validação e recuperação em HQ_RELEASE_2026-09-10.md.
 O responsável autorizou usar o Supabase existente como destino da entrega.
 Testes permanecem no PostgreSQL descartável. CI 34546774574 passou com migration
-020, preservação, RLS e jornadas em quatro resoluções. A migration produtiva
-e a publicação ainda não foram realizadas neste registro. HQ_ENABLED=false
-até a ativação; billing 011 permanece desativado e nenhum agente foi implementado.
+020, preservação, RLS e jornadas em quatro resoluções. Migration 020 aplicada
+no Supabase produtivo sob versão 20260911004924 após preflight e recuperação
+delimitada: 14 tabelas com ENABLE/FORCE RLS, 18 FKs, nenhum grant público,
+contagens anteriores preservadas. Publicação do código aguarda CI final.
+HQ_ENABLED será ativado em Production; billing 011 permanece desativado
+e nenhum agente foi implementado. Evidências de publicação no PR #92.
 
 ## 2026-09-10 — bloqueios acionáveis e encaixe na pausa (PR #90)
 

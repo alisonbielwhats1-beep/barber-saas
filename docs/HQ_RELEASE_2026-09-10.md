@@ -44,5 +44,13 @@ Rollback: HQ_ENABLED=false, voltar código anterior, preservar tabelas/históric
 para roll-forward. Não executar DROP, reset, db push ou restauração automática.
 
 ## Execução
-Aplicação produtiva e publicação ainda pendentes de registro verificável.
-
+Migration aplicada pelo conector Supabase às 00:49 UTC de 11/09/2026:
+versão 20260911004924, nome everflare_hq_020. Verificação às 00:49:43 UTC:
+14 tabelas com ENABLE/FORCE RLS, 18 FKs, zero grants para anon/authenticated,
+zero UPDATE/DELETE/TRUNCATE para app_runtime na timeline e zero contas HQ.
+Contagens de 29 usuários, 13 salões e 2230 agendamentos preservadas;
+fingerprint User permaneceu aa43adcdf4913912637eac281a5dcc07.
+Advisors sem achados nos objetos HQ. Avisos legados permanecem nas funções
+app_current_salon/user/invite_token (search_path) e extensão btree_gist em public.
+Build local Next.js 15.5.25 aprovado após atualização de master.
+Publicação do código será registrada no PR #92 após o CI final e deploy READY.
