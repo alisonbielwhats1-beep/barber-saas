@@ -34,7 +34,7 @@ atendimento; uma evolução para negociar e lançar valores finais por serviço
 exige um fluxo próprio. Não tratar o valor inicial como promessa de preço final.
 Os serviços legados e seus agendamentos continuam FIXED.
 
-## Migration 020
+## Migration 021
 
 Quatro colunas novas: `Service.priceType/priceNote` e
 `AppointmentService.priceType/priceNote`. Tipo textual com default constante
@@ -48,10 +48,10 @@ Antes de Production:
    produtivos para este checkout. A execução produtiva requer autorização explícita.
 2. Backup nativo ou dump criptografado, com restauração ensaiada; registrar hora,
    responsável e contagens. O CI prova backup/restore apenas com dados sintéticos.
-3. Executar `020_variable_service_prices.preflight.sql` somente leitura. Comparar
+3. Executar `021_variable_service_prices.preflight.sql` somente leitura. Comparar
    colunas/constraints existentes e RLS/grants; abortar em qualquer divergência.
-4. Após testes descartáveis e homologação autorizada, aplicar `020...sql` uma vez.
-5. Executar `020...verify.sql`, comparar preços e contagens anteriores e publicar
+4. Após testes descartáveis e homologação autorizada, aplicar `021...sql` uma vez.
+5. Executar `021...verify.sql`, comparar preços e contagens anteriores e publicar
    somente o código com CI aprovado. A versão nova exige estas colunas.
 6. Verificar home, serviços, reserva e configurações; verificar erros de runtime.
 
@@ -72,3 +72,9 @@ não apaga nem reclassifica reservas. Não aplicar a migration 011 de billing.
   pelo cliente, histórico após editar catálogo, axe e capturas com dados fictícios.
 - Resultados e links de CI/Preview serão registrados no PR. Production permanece
   sem alterações nesta preparação.
+
+## Publicação autorizada em 11/09/2026
+
+O responsável autorizou aplicar a migration e publicar. A numeração passou para
+021 porque a migration 020 de HQ foi integrada e aplicada em outra entrega.
+A integração com master passa novamente pelo CI antes da execução produtiva.
