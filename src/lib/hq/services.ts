@@ -147,6 +147,13 @@ export async function execute(tx: Tx, actorId: string, command: Command): Promis
   }
   const saved = old ? await repo.update(tx, entity, old.id, values) : await repo.insert(tx, entity, values);
   const accountId = await accountFor(tx, entity, saved);
+  if (old && (entity === "bugs" || entity === "features")) {
+    const links = await repo.related(tx, entity === "bugs" ? "bugCustomers" : "featureCustomers", entity === "bugs" ? "bugId" : "featureId", saved.id);
+    for (const link of links) {
+      const customer = await repo.find(tx, "customers", String(link.customerId));
+      await activity(tx, actorId, String(customer.accountId), entity === "bugs" ? "Bug" : "Feature Request", `${definition(entity).singular}: ${saved.title} · ${saved.status}`, entity, saved.id, { previous: old, current: saved });
+    }
+  }
   await activity(tx, actorId, accountId, entity === "tickets" ? "Suporte" : entity === "bugCustomers" ? "Bug" : entity === "featureCustomers" ? "Feature Request" : "Mudança de status", `${definition(entity).singular} ${old ? "atualizado" : "criado"}.`, entity, saved.id, { previous: old, current: saved });
   if (entity === "leads" && !old) {
     await repo.insert(tx, "opportunities", { accountId, title: "Nova oportunidade", valueCents: values.quotedCents, probability: 0, stage: "Novo Lead" });

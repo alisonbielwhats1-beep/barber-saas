@@ -91,7 +91,7 @@ export async function dashboard(tx: Tx) {
  (SELECT count(*)::int FROM hq_opportunities WHERE stage NOT IN ('Fechado','Perdido')) AS opportunities,
  (SELECT count(*)::int FROM hq_customers WHERE status='Ativo') AS active,
  (SELECT count(*)::int FROM hq_customers WHERE status='Teste') AS trial,
- (SELECT count(*)::int FROM hq_customers c WHERE status='Inadimplente' OR EXISTS(SELECT 1 FROM hq_subscriptions s JOIN hq_payments p ON p."subscriptionId"=s.id WHERE s."customerId"=c.id AND p.status='Pendente' AND p."dueDate" < (CURRENT_TIMESTAMP AT TIME ZONE 'America/Sao_Paulo')::date)) AS delinquent,
+ (SELECT count(*)::int FROM hq_customers c WHERE status='Inadimplente' OR EXISTS (SELECT 1 FROM hq_subscriptions s WHERE s."customerId"=c.id AND s.status='Inadimplente') OR EXISTS(SELECT 1 FROM hq_subscriptions s JOIN hq_payments p ON p."subscriptionId"=s.id WHERE s."customerId"=c.id AND p.status='Pendente' AND p."dueDate" < (CURRENT_TIMESTAMP AT TIME ZONE 'America/Sao_Paulo')::date)) AS delinquent,
  (SELECT count(*)::int FROM hq_customers WHERE status='Cancelado') AS cancelled,
  (SELECT COALESCE(sum(("amountCents"-"discountCents") / CASE WHEN interval='Anual' THEN 12.0 ELSE 1 END),0)::float8 FROM hq_subscriptions WHERE status IN ('Ativo','Inadimplente')) AS mrr,
  (SELECT COALESCE(sum("amountCents"),0)::float8 FROM hq_payments WHERE status='Pago' AND date_trunc('month',"paidDate")=date_trunc('month',CURRENT_TIMESTAMP AT TIME ZONE 'America/Sao_Paulo')) AS received,

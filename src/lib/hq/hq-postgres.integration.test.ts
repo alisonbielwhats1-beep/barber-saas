@@ -127,6 +127,7 @@ pg("HQ 020 — CRUD, relacionamentos e RLS reais",()=>{
   expect(profile.sections.bugs).toHaveLength(1);
   expect(profile.sections.tickets).toHaveLength(2);
   expect(profile.sections.feedbacks[0].bugId).toBe(bug.id);
+  expect(profile.sections.activities.some(a=>a.kind==="Bug"&&String(a.description).includes("Resolvido"))).toBe(true);
  });
  it("busca pelo estabelecimento nas cobranças e separa follow-ups vencidos",async()=>{
   const l=await lead();const account=await scope(adminId,tx=>repo.find(tx,"accounts",String(l.accountId)));

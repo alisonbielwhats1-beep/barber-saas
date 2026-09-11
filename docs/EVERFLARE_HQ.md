@@ -2,6 +2,11 @@
 Data: 10/09/2026. Base auditada: origin/master 16ac54c. Branch codex/everflare-hq.
 Esta entrega não representa publicação em produção.
 
+Atualização posterior à proposta: o responsável autorizou usar o projeto
+existente como destino. A migration 020 foi aplicada e verificada; testes
+continuam no CI descartável. O registro de execução em HQ_RELEASE_2026-09-10.md
+substitui os requisitos de staging e os estados planejados abaixo.
+
 ## Auditoria antes da implementação
 Next.js 15.5, React 18, TypeScript, Prisma 5, NextAuth Credentials/JWT,
 Supabase PostgreSQL com app_runtime sem BYPASSRLS e transações com GUCs locais.
@@ -64,4 +69,3 @@ reaplica e exercita RLS com role NOBYPASSRLS. Rollback: desabilitar HQ_ENABLED,
 voltar código anterior e preservar integralmente as tabelas para roll-forward.
 Produção exige preflight, backup, staging validado e aprovação de promoção.
 Não executar db push ou seed produtivos.
-
