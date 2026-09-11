@@ -156,7 +156,7 @@ export default async function ProfissionaisPage() {
                     </div>
                   )}
                   {canSeeFinancial && p.rank <= 3 && p.revenue > 0 && (
-                    <span className="absolute -right-1.5 -top-1.5 grid h-6 w-6 place-items-center rounded-full text-[10px] font-bold text-black shadow" style={{ background: MEDAL[p.rank - 1] }}>
+                    <span className="absolute -right-1.5 -top-1.5 hidden md:grid h-6 w-6 place-items-center rounded-full text-[10px] font-bold text-black shadow" style={{ background: MEDAL[p.rank - 1] }}>
                       {p.rank}
                     </span>
                   )}
@@ -164,27 +164,29 @@ export default async function ProfissionaisPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <h3 className="break-words text-[15px] font-semibold">{p.name}</h3>
-                    {canSeeFinancial && p.rank === 1 && p.revenue > 0 && <Trophy className="h-3.5 w-3.5 shrink-0 text-warning" />}
+                    {canSeeFinancial && p.rank === 1 && p.revenue > 0 && <Trophy className="hidden md:block h-3.5 w-3.5 shrink-0 text-warning" />}
                   </div>
-                  <p className="break-words text-[12px] text-muted-foreground">{p.bio || p.email}</p>
+                  <p className="hidden md:block break-words text-[12px] text-muted-foreground">{p.bio || p.email}</p>
                   <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
                     {canSeeFinancial && (
                       <>
-                        <span>Comissão <strong className="text-foreground">{p.commissionPct}%</strong></span>
-                        <span>·</span>
+                        <span className="hidden md:inline">Comissão <strong className="text-foreground">{p.commissionPct}%</strong></span>
+                        <span className="hidden md:inline">·</span>
                       </>
                     )}
                     <span>{p.serviceCount} serviços</span>
-                    <span>·</span>
-                    <span>{p.workingDays} dias/sem</span>
+                    <span className="hidden md:inline">·</span>
+                    <span className="hidden md:inline">{p.workingDays} dias/sem</span>
+                    <span className={`md:hidden ${p.active ? "text-success" : "text-muted-foreground"}`}>{p.active ? "Ativo" : "Inativo"}</span>
                   </div>
                 </div>
-                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${p.active ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}>
+                <span className={`hidden md:block shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${p.active ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}>
                   {p.active ? "Ativo" : "Inativo"}
                 </span>
               </div>
 
               <MobilePerformance>
+              <div className="space-y-1 break-words text-xs text-muted-foreground md:hidden"><p>{p.bio || p.email}</p><p>{p.workingDays} dias/sem{canSeeFinancial ? ` · Comissão ${p.commissionPct}%` : ""}</p></div>
               {/* Meta */}
               {canSeeFinancial && <div className="mt-4 rounded-xl bg-surface-1 p-3">
                 <div className="mb-1.5 flex items-center justify-between text-[11px]">
