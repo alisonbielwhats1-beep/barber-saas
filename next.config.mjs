@@ -30,6 +30,7 @@ const contentSecurityPolicy = [
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  transpilePackages: ["@everflare/agents"],
   devIndicators: process.env.CI ? false : undefined,
   reactStrictMode: true,
   async headers() {

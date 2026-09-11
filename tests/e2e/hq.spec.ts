@@ -57,4 +57,28 @@ test.describe("@database Everflare HQ",()=>{
   }
   expect(errors).toEqual([]);
  });
+ test("valida laboratório SDK sem dados ou serviços externos",async({page})=>{
+  test.setTimeout(120000);
+  await page.goto("/login");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Senha",{exact:true}).fill(password);
+  await page.getByRole("button",{name:"Entrar",exact:true}).click();
+  await expect(page).toHaveURL(/\/plataforma/,{timeout:30000});
+  await page.goto("/hq/agents");
+  await expect(page.getByText("Simulação local · sem consumo de IA",{exact:true})).toBeVisible();
+  await page.getByLabel("Cenário de validação").selectOption("hours");
+  await page.getByRole("button",{name:"Executar cenário",exact:true}).click();
+  await expect(page.getByRole("region",{name:"Resultado da execução"})).toContainText("KB-DEMO-001");
+  await page.getByRole("button",{name:"Validar os 7 cenários",exact:true}).click();
+  await expect(page.getByRole("button",{name:"Executar cenário",exact:true})).toBeEnabled({timeout:30000});
+  await expect(page.getByRole("cell",{name:"Conforme esperado",exact:true})).toHaveCount(8);
+  await expect(page.getByRole("cell",{name:"Revisar",exact:true})).toHaveCount(0);
+  await page.setViewportSize({width:390,height:844});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1)).toBe(false);
+  const audit=await new AxeBuilder({page}).include(".hq").withTags(["wcag2a","wcag2aa","wcag21aa"]).analyze();
+  expect(audit.violations).toEqual([]);
+  await page.screenshot({path:test.info().outputPath("hq-agents-results-mobile.png"),fullPage:true,animations:"disabled"});
+  await page.getByRole("button",{name:"Limpar resultados",exact:true}).click();
+  await expect(page.getByText("Nenhuma execução nesta sessão.",{exact:true})).toBeVisible();
+ });
 });
