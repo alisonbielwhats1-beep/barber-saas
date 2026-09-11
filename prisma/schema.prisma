@@ -1,4 +1,298 @@
 // Salon SaaS — Multi-tenant schema
+model HqAccounts {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name String
+  business String
+  phone String?
+  whatsapp String?
+  instagram String?
+  email String?
+  city String?
+  segment String?
+  source String?
+  owner String?
+  notes String?
+  risk String @default("Baixo")
+  priority String @default("Baixa")
+  nextAction String?
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  @@index([createdAt])
+  @@index([name])
+  @@index([business])
+  @@index([city])
+  @@index([segment])
+  @@index([risk])
+  @@index([priority])
+  leads_accountId HqLeads? @relation("leads_accountId")
+  customers_accountId HqCustomers? @relation("customers_accountId")
+  opportunities_accountId HqOpportunities[] @relation("opportunities_accountId")
+  activities_accountId HqActivities[] @relation("activities_accountId")
+  followups_accountId HqFollowups[] @relation("followups_accountId")
+  @@map("hq_accounts")
+}
+
+model HqLeads {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  accountId String @db.Uuid
+  interest String?
+  needs String?
+  suggestedPlan String?
+  quotedCents Int @default(0)
+  temperature String @default("Frio")
+  status String @default("Aberto")
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  @@unique([accountId])
+  accountIdRelation HqAccounts @relation("leads_accountId", fields: [accountId], references: [id], onDelete: Restrict)
+  @@index([createdAt])
+  @@index([accountId])
+  @@index([temperature])
+  @@index([status])
+  @@map("hq_leads")
+}
+
+model HqCustomers {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  accountId String @db.Uuid
+  status String @default("Teste")
+  startedAt DateTime? @db.Date
+  paymentMethod String?
+  satisfaction String @default("Não avaliada")
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  @@unique([accountId])
+  accountIdRelation HqAccounts @relation("customers_accountId", fields: [accountId], references: [id], onDelete: Restrict)
+  @@index([createdAt])
+  @@index([accountId])
+  @@index([status])
+  subscriptions_customerId HqSubscriptions[] @relation("subscriptions_customerId")
+  tickets_customerId HqTickets[] @relation("tickets_customerId")
+  bugCustomers_customerId HqBugCustomers[] @relation("bugCustomers_customerId")
+  featureCustomers_customerId HqFeatureCustomers[] @relation("featureCustomers_customerId")
+  feedbacks_customerId HqFeedbacks[] @relation("feedbacks_customerId")
+  @@map("hq_customers")
+}
+
+model HqOpportunities {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  accountId String @db.Uuid
+  title String
+  stage String @default("Novo Lead")
+  valueCents Int @default(0)
+  probability Int @default(0)
+  stageChangedAt DateTime @db.Timestamptz(3) @default(now())
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  accountIdRelation HqAccounts @relation("opportunities_accountId", fields: [accountId], references: [id], onDelete: Restrict)
+  @@index([createdAt])
+  @@index([accountId])
+  @@index([stage])
+  @@map("hq_opportunities")
+}
+
+model HqSubscriptions {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customerId String @db.Uuid
+  plan String
+  amountCents Int @default(0)
+  discountCents Int @default(0)
+  interval String @default("Mensal")
+  startedAt DateTime @db.Date
+  nextBillingAt DateTime @db.Date
+  status String @default("Teste")
+  trialEnd DateTime? @db.Date
+  cancelledAt DateTime? @db.Timestamptz(3)
+  provider String?
+  externalId String?
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  customerIdRelation HqCustomers @relation("subscriptions_customerId", fields: [customerId], references: [id], onDelete: Restrict)
+  @@index([createdAt])
+  @@index([customerId])
+  @@index([nextBillingAt])
+  @@index([status])
+  payments_subscriptionId HqPayments[] @relation("payments_subscriptionId")
+  @@map("hq_subscriptions")
+}
+
+model HqPayments {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  subscriptionId String @db.Uuid
+  reference DateTime @db.Date
+  dueDate DateTime @db.Date
+  amountCents Int @default(0)
+  status String @default("Pendente")
+  paidDate DateTime? @db.Date
+  method String?
+  notes String?
+  externalId String?
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  @@unique([subscriptionId, reference])
+  subscriptionIdRelation HqSubscriptions @relation("payments_subscriptionId", fields: [subscriptionId], references: [id], onDelete: Restrict)
+  @@index([createdAt])
+  @@index([subscriptionId])
+  @@index([dueDate])
+  @@index([status])
+  @@map("hq_payments")
+}
+
+model HqActivities {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  accountId String? @db.Uuid
+  kind String @default("WhatsApp")
+  description String
+  actorId String?
+  entityType String?
+  entityId String?
+  metadata Json?
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  accountIdRelation HqAccounts? @relation("activities_accountId", fields: [accountId], references: [id], onDelete: Restrict)
+  actor User? @relation("HqActivityActor", fields: [actorId], references: [id], onDelete: Restrict)
+  @@index([createdAt])
+  @@index([accountId])
+  feedbacks_activityId HqFeedbacks[] @relation("feedbacks_activityId")
+  @@map("hq_activities")
+}
+
+model HqFollowups {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  accountId String @db.Uuid
+  title String
+  dueAt DateTime @db.Timestamptz(3)
+  status String @default("Pendente")
+  notes String?
+  owner String?
+  completedAt DateTime? @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  accountIdRelation HqAccounts @relation("followups_accountId", fields: [accountId], references: [id], onDelete: Restrict)
+  @@index([createdAt])
+  @@index([accountId])
+  @@index([dueAt])
+  @@index([status])
+  @@map("hq_followups")
+}
+
+model HqTickets {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customerId String @db.Uuid
+  title String
+  description String
+  category String @default("Dúvida")
+  priority String @default("Baixa")
+  status String @default("Aberto")
+  resolution String?
+  owner String?
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  customerIdRelation HqCustomers @relation("tickets_customerId", fields: [customerId], references: [id], onDelete: Restrict)
+  @@index([createdAt])
+  @@index([customerId])
+  @@index([priority])
+  @@index([status])
+  feedbacks_ticketId HqFeedbacks[] @relation("feedbacks_ticketId")
+  @@map("hq_support_tickets")
+}
+
+model HqBugs {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title String
+  description String
+  evidence String?
+  priority String @default("Baixa")
+  impact String?
+  status String @default("Aberto")
+  version String?
+  resolution String?
+  resolvedAt DateTime? @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  @@index([createdAt])
+  @@index([priority])
+  @@index([status])
+  bugCustomers_bugId HqBugCustomers[] @relation("bugCustomers_bugId")
+  feedbacks_bugId HqFeedbacks[] @relation("feedbacks_bugId")
+  @@map("hq_bugs")
+}
+
+model HqFeatures {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title String
+  description String
+  category String?
+  status String @default("Recebida")
+  priority String @default("Baixa")
+  impact String?
+  normalizedTitle String
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  @@unique([normalizedTitle])
+  @@index([createdAt])
+  @@index([status])
+  @@index([priority])
+  featureCustomers_featureId HqFeatureCustomers[] @relation("featureCustomers_featureId")
+  feedbacks_featureId HqFeedbacks[] @relation("feedbacks_featureId")
+  @@map("hq_feature_requests")
+}
+
+model HqBugCustomers {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bugId String @db.Uuid
+  customerId String @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  @@unique([bugId, customerId])
+  bugIdRelation HqBugs @relation("bugCustomers_bugId", fields: [bugId], references: [id], onDelete: Restrict)
+  customerIdRelation HqCustomers @relation("bugCustomers_customerId", fields: [customerId], references: [id], onDelete: Restrict)
+  @@index([createdAt])
+  @@index([bugId])
+  @@index([customerId])
+  @@map("hq_bug_customers")
+}
+
+model HqFeatureCustomers {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  featureId String @db.Uuid
+  customerId String @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  @@unique([featureId, customerId])
+  featureIdRelation HqFeatures @relation("featureCustomers_featureId", fields: [featureId], references: [id], onDelete: Restrict)
+  customerIdRelation HqCustomers @relation("featureCustomers_customerId", fields: [customerId], references: [id], onDelete: Restrict)
+  @@index([createdAt])
+  @@index([featureId])
+  @@index([customerId])
+  @@map("hq_feature_request_customers")
+}
+
+model HqFeedbacks {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customerId String @db.Uuid
+  kind String @default("Elogio")
+  description String
+  activityId String? @db.Uuid
+  ticketId String? @db.Uuid
+  bugId String? @db.Uuid
+  featureId String? @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  customerIdRelation HqCustomers @relation("feedbacks_customerId", fields: [customerId], references: [id], onDelete: Restrict)
+  activityIdRelation HqActivities? @relation("feedbacks_activityId", fields: [activityId], references: [id], onDelete: Restrict)
+  ticketIdRelation HqTickets? @relation("feedbacks_ticketId", fields: [ticketId], references: [id], onDelete: Restrict)
+  bugIdRelation HqBugs? @relation("feedbacks_bugId", fields: [bugId], references: [id], onDelete: Restrict)
+  featureIdRelation HqFeatures? @relation("feedbacks_featureId", fields: [featureId], references: [id], onDelete: Restrict)
+  @@index([createdAt])
+  @@index([customerId])
+  @@index([activityId])
+  @@index([ticketId])
+  @@index([bugId])
+  @@index([featureId])
+  @@map("hq_feedbacks")
+}
+
 // Estratégia: single-database, single-schema, isolamento via `salonId` em cada
 // tabela tenant-scoped + `Membership` (usuário ↔ salão com role).
 
@@ -163,6 +457,7 @@ enum Gender {
 // ─── Identidade & Tenant ────────────────────────────────────────────────────
 
 model User {
+  hqActivities HqActivities[] @relation("HqActivityActor")
   id                     String       @id @default(cuid())
   email                  String       @unique
   name                   String
