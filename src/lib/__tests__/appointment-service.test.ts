@@ -70,6 +70,36 @@ function schedulingTx() {
 }
 
 describe("motor central de agendamentos", () => {
+  it("confirma bloqueio e sobreposição separadamente, mantendo o bloqueio público", async () => {
+    const { tx, raw, appointmentCreate } = schedulingTx();
+    raw.timeOff.findFirst.mockResolvedValue({ id: "block-a" });
+    raw.appointment.findFirst.mockResolvedValue({ id: "busy-a" });
+    const input = {
+      salonId: "salon-a", professionalId: "professional-a", clientId: "client-a",
+      serviceIds: ["service-a", "service-b"], startLocal: "2030-09-11T10:15",
+      origin: "ADMIN" as const, actor: { type: "STAFF" as const, id: "owner-a", name: "Dono" },
+      idempotencyKey: crypto.randomUUID(), enforceBookingWindow: false, canOverride: true, canOverrideTimeOff: true,
+    };
+    await expect(createAppointment(tx, input)).rejects.toMatchObject({ code: "PROFESSIONAL_UNAVAILABLE" });
+    await expect(createAppointment(tx, { ...input, timeOffOverrideReason: "Encaixe no bloqueio" })).rejects.toMatchObject({ code: "SLOT_TAKEN" });
+    expect(appointmentCreate).not.toHaveBeenCalled();
+    await createAppointment(tx, { ...input, timeOffOverrideReason: "Encaixe no bloqueio", overrideReason: "Atender em paralelo" });
+    expect(appointmentCreate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ isOverbooked: true }) }));
+    expect(raw.auditLog.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ action: "APPOINTMENT_BLOCK_OVERRIDE_CREATE" }) }));
+    expect(raw.auditLog.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ action: "APPOINTMENT_OVERRIDE_CREATE" }) }));
+    await expect(createAppointment(tx, { ...input, origin: "PUBLIC", actor: { type: "CLIENT", id: "client-a", name: "Cliente" }, timeOffOverrideReason: "Não autorizado" })).rejects.toMatchObject({ code: "PROFESSIONAL_UNAVAILABLE" });
+  });
+
+  it("a exceção de bloqueio não ignora fechamento do salão", async () => {
+    const { tx, raw, appointmentCreate } = schedulingTx();
+    raw.salonClosure.findFirst.mockResolvedValue({ id: "closure-a" });
+    await expect(createAppointment(tx, {
+      salonId: "salon-a", professionalId: "professional-a", clientId: "client-a", serviceIds: ["service-a", "service-b"], startLocal: "2030-09-11T10:15",
+      origin: "ADMIN", actor: { type: "STAFF", id: "owner-a", name: "Dono" }, idempotencyKey: crypto.randomUUID(), enforceBookingWindow: false,
+      canOverride: true, canOverrideTimeOff: true, timeOffOverrideReason: "Encaixe solicitado",
+    })).rejects.toMatchObject({ code: "SALON_CLOSED" });
+    expect(appointmentCreate).not.toHaveBeenCalled();
+  });
   it("impede profissional de transferir atendimento para outro profissional", async () => {
     await expect(
       rescheduleAppointment({} as Tx, {

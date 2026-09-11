@@ -61,8 +61,8 @@ test.describe("@database operação diária e expediente", () => {
       await page.getByRole("button", { name: "Abrir ações rápidas da agenda" }).click();
       await page.getByRole("menuitem", { name: /Novo bloqueio de horário/ }).click();
       const blocking = page.getByRole("dialog");
-      await blocking.getByLabel("Início", { exact: true }).fill(`${date}T${startTime}`);
-      await blocking.getByLabel("Fim", { exact: true }).fill(`${date}T${endTime}`);
+      await blocking.getByLabel("Hora de início", { exact: true }).fill(startTime);
+      await blocking.getByLabel("Hora de fim", { exact: true }).fill(endTime);
       await blocking.getByLabel("Repetir", { exact: true }).selectOption("1");
       await blocking.getByLabel("Número de ocorrências").fill("2");
       await blocking.getByLabel("Motivo").fill(`Reunião CI ${suffix}`);
@@ -87,8 +87,8 @@ test.describe("@database operação diária e expediente", () => {
       await page.getByRole("button", { name: `Selecionar bloqueio 09:00 com ${professionalName}`, exact: true }).press("Enter");
       await page.getByRole("button", { name: `Selecionar bloqueio 09:30 com ${professionalName}`, exact: true }).press("Enter");
       const selection = page.getByRole("dialog");
-      await expect(selection.getByLabel("Início", { exact: true })).toHaveValue(`${date}T09:00`);
-      await expect(selection.getByLabel("Fim", { exact: true })).toHaveValue(`${date}T10:00`);
+      await expect(selection.getByLabel("Hora de início", { exact: true })).toHaveValue("09:00");
+      await expect(selection.getByLabel("Hora de fim", { exact: true })).toHaveValue("10:00");
       await page.keyboard.press("Escape");
       await page.getByRole("button", { name: "Visualização Lista", exact: true }).click();
       await expect(page.getByRole("region", { name: "Bloqueios do período" })).toContainText(`Reunião CI ${suffix}`);

@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => {
     user: { findUnique: vi.fn() },
     professional: { findFirst: vi.fn() },
     clientProfile: { findFirst: vi.fn() },
+    appointment: { findFirst: vi.fn() },
   };
   return {
     context,
@@ -36,7 +37,7 @@ vi.mock("@/lib/appointment-service", () => ({
 }));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
 
-import { createAppointmentManually } from "./actions";
+import { createAppointmentManually, getLastAppointmentServices } from "./actions";
 
 const input = {
   professionalId: "professional-own",
@@ -46,6 +47,33 @@ const input = {
   idempotencyKey: "11111111-1111-4111-8111-111111111111",
   overrideConfirmed: true as const,
 };
+
+describe("última reserva para preenchimento manual", () => {
+  it("consulta apenas o tenant ativo, sem futuro, cancelados ou dependentes", async () => {
+    mocks.tx.appointment.findFirst.mockResolvedValue({ serviceId: "old", serviceItems: [{ serviceId: "a" }, { serviceId: "b" }] });
+    expect(await getLastAppointmentServices("client-a")).toEqual({ serviceIds: ["a", "b"] });
+    expect(mocks.withTenant).toHaveBeenCalledWith(mocks.context, expect.any(Function));
+    expect(mocks.tx.appointment.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: { salonId: "salon-a", clientId: "client-a", dependentId: null,
+        startAt: { lte: expect.any(Date) }, status: { in: ["COMPLETED", "CONFIRMED", "IN_PROGRESS"] } },
+    }));
+  });
+
+  it("profissional consulta apenas os próprios atendimentos", async () => {
+    mocks.context.role = "PROFESSIONAL";
+    mocks.tx.appointment.findFirst.mockResolvedValue(null);
+    expect(await getLastAppointmentServices("client-other")).toEqual({ serviceIds: [] });
+    expect(mocks.tx.appointment.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ salonId: "salon-a", professionalId: "professional-own" }),
+    }));
+  });
+
+  it("nega acesso a papel não autorizado", async () => {
+    mocks.context.role = "CLIENT";
+    await expect(getLastAppointmentServices("client-a")).rejects.toThrow("FORBIDDEN_ROLE");
+    expect(mocks.tx.appointment.findFirst).not.toHaveBeenCalled();
+  });
+});
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -62,6 +90,11 @@ beforeEach(() => {
 });
 
 describe("criação manual durante pausa", () => {
+  it.each(["OWNER", "MANAGER", "RECEPTIONIST", "PROFESSIONAL"])("deriva a exceção de bloqueio no servidor para %s", async role => {
+    mocks.context.role = role;
+    await createAppointmentManually({ ...input, timeOffOverrideReason: "Encaixe solicitado" });
+    expect(mocks.createAppointment).toHaveBeenCalledWith(mocks.tx, expect.objectContaining({ canOverrideTimeOff: ["OWNER", "MANAGER"].includes(role) }));
+  });
   it("autoriza o dono a confirmar a exceção", async () => {
     await expect(createAppointmentManually(input)).resolves.toEqual({ success: true });
     expect(mocks.createAppointment).toHaveBeenCalledWith(

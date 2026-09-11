@@ -1,12 +1,15 @@
 # Status atual canônico — Salon SaaS
 
-## 2026-09-11 — Suporte assistido em preparação
+## 2026-09-11 — Suporte assistido: publicação autorizada
 
 Branch codex/hq-support-pilot: base técnica versionada e fluxo de rascunho por
 cliente, com revisão manual para resposta, ticket ou associação a bug/feature.
 Reutiliza hq_agent_runs, timeline e orçamento do Chefe; sem nova migration.
-Escopo e validação em HQ_SUPORTE_PILOTO.md. HQ_SUPPORT_ENABLED ausente/false
-em Production até publicação autorizada; nenhum WhatsApp ou envio implementado.
+Escopo e validação em HQ_SUPORTE_PILOTO.md. Publicação e ativação autorizadas
+pelo responsável; HQ_SUPPORT_ENABLED=true configurada somente em Production,
+aguardando o novo deploy. CI 34566197862 passou com 86 jornadas; integração
+com a atualização de agenda do PR #96 será validada novamente. Resultado
+final do deploy e conferência será registrado no PR #97. Sem WhatsApp ou envio.
 
 ## 2026-09-11 — piloto do Agente Chefe publicado e ativado
 
@@ -22,6 +25,15 @@ Primeira consulta operacional concluída e persistida: 542 tokens de entrada,
 Evidências e limites em HQ_CHEFE_RELEASE_2026-09-11.md. Este registro substitui
 o estado de implementação abaixo; laboratório continua fictício e separado.
 
+## 2026-09-11 — criação manual com horário editável, publicação autorizada
+
+Branch `codex/client-booksy-improvements`: o formulário aberto pelo “+” ou pela
+grade permite escolher data e hora por minuto, inclusive para séries, e oferece
+reutilização dos serviços da última reserva. Bloqueio aceita digitação direta
+de minutos; dono/gerente podem confirmar atendimento dentro de TimeOff sem
+removê-lo, e sobreposição exige confirmação separada. Histórico respeita tenant/papel;
+preços e disponibilidade continuam validados no servidor. Escopo e validação
+em `AGENDAMENTO_MANUAL_2026-09-11.md`. Publicação do PR #96 autorizada pelo responsável; sem migration desta entrega. Resultado do deploy será registrado no PR.
 ## 2026-09-11 — Agente Chefe: piloto de leitura em implementação
 
 Pedido posterior autoriza conectar dados do HQ, modelo e histórico com limite

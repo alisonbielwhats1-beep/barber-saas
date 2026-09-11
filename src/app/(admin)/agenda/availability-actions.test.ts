@@ -24,6 +24,17 @@ beforeEach(() => {
   mocks.tx.user.findUnique.mockResolvedValue({ name: "Dono" });
 });
 describe("availability operations", () => {
+  it("preserves 18:45–19:30 and excludes an appointment ending exactly at 18:45", async () => {
+    const appointment = { id: "adjacent", version: 1, startAt: new Date("2026-09-12T18:00:00Z"), endAt: new Date("2026-09-12T21:45:00Z"), client: { name: "Cliente sintético" } };
+    mocks.tx.appointment.findMany.mockImplementation(async ({ where }) =>
+      where.OR.some((interval: { startAt: { lt: Date }; endAt: { gt: Date } }) => appointment.startAt < interval.startAt.lt && appointment.endAt > interval.endAt.gt) ? [appointment] : []);
+    const adjacent = { ...input, startLocal: "2026-09-12T18:45", endLocal: "2026-09-12T19:30" };
+    expect(await previewAvailabilityBlock(adjacent)).toMatchObject({ affected: [] });
+    expect(await blockAvailability(adjacent)).toMatchObject({ success: true, affected: [] });
+    expect(mocks.tx.timeOff.create).toHaveBeenCalledWith({ data: expect.objectContaining({ startAt: new Date("2026-09-12T21:45:00Z"), endAt: new Date("2026-09-12T22:30:00Z") }) });
+    expect(await previewAvailabilityBlock({ ...adjacent, startLocal: "2026-09-12T18:40" })).toMatchObject({ affected: [{ id: "adjacent" }] });
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
   it("creates Monday-to-Friday pauses and enforces the actual expanded limit", async () => {
     expect(await blockAvailability({ ...input, weekdays: [1, 2, 3, 4, 5], untilDate: "2026-09-13" })).toMatchObject({ success: true });
     expect(mocks.tx.timeOff.create).toHaveBeenCalledTimes(5);
