@@ -1,5 +1,6 @@
 "use client";
 
+import { MobileListTools } from "@/components/mobile-list-tools";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -140,21 +141,28 @@ export function ClientsCrm({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5">
+        <div className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 md:flex-none">
           <Search className="h-3.5 w-3.5 text-muted-foreground" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar cliente ou telefone…" className="w-48 bg-transparent text-[13px] placeholder:text-muted-foreground focus:outline-none" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Buscar cliente ou telefone" placeholder="Buscar cliente ou telefone…" className="w-full min-w-0 md:w-48 bg-transparent text-[13px] placeholder:text-muted-foreground focus:outline-none" />
         </div>
+        <MobileListTools label={segment === "all" ? "Filtros" : "Filtrado"}>
+        <select aria-label="Filtrar clientes" value={segment} onChange={e => setSegment(e.target.value as Segment)} className="min-h-11 min-w-0 flex-1 rounded-lg border border-border bg-card px-3 text-sm md:hidden">
+          <option value="all">Todos ({clients.length})</option><option value="vip">VIP ({counts.vip})</option><option value="birthday">Aniversariantes ({counts.birthday})</option><option value="lapsed">Sumidos {lapsedClientDays}d+ ({counts.lapsed})</option><option value="recurring">Recorrentes ({counts.recurring})</option>
+        </select>
+        <div className="hidden flex-wrap gap-2 md:flex">
         <Seg active={segment === "all"} onClick={() => setSegment("all")}>Todos ({clients.length})</Seg>
         <Seg active={segment === "vip"} onClick={() => setSegment("vip")} icon={Crown} accent="warning">VIP ({counts.vip})</Seg>
         <Seg active={segment === "birthday"} onClick={() => setSegment("birthday")} icon={Cake} accent="marketing">Aniversariantes ({counts.birthday})</Seg>
         <Seg active={segment === "lapsed"} onClick={() => setSegment("lapsed")} icon={Clock} accent="danger">Sumidos {lapsedClientDays}d+ ({counts.lapsed})</Seg>
         <Seg active={segment === "recurring"} onClick={() => setSegment("recurring")} icon={Repeat} accent="info">Recorrentes ({counts.recurring})</Seg>
+        </div>
         {canManage && <button onClick={() => setImportOpen((open) => !open)} className="ml-auto inline-flex min-h-11 items-center gap-1.5 rounded-full border border-border bg-card px-3 text-[12px] font-medium text-muted-foreground"><FileUp className="h-3.5 w-3.5" /> Importar planilha</button>}
+        </MobileListTools>
       </div>
 
       {importOpen && <div className="rounded-2xl border border-primary/25 bg-primary/5 p-4"><div className="mb-3 flex items-start justify-between"><div><p className="text-[13px] font-semibold">Importar clientes por CSV</p><p className="text-[11px] text-muted-foreground">Colunas aceitas: nome, telefone, email e aniversario. Duplicados são ignorados.</p></div><button onClick={() => setImportOpen(false)} aria-label="Fechar importação"><X className="h-4 w-4 text-muted-foreground" /></button></div><input type="file" accept=".csv,text/csv" onChange={(event) => { const file = event.target.files?.[0]; if (file) void file.text().then(setCsv); }} className="mb-3 block w-full text-[11px] text-muted-foreground file:mr-3 file:rounded-lg file:border-0 file:bg-card file:px-3 file:py-2 file:text-[11px] file:font-medium" /><textarea value={csv} onChange={(event) => setCsv(event.target.value)} rows={4} placeholder={'nome,telefone,email,aniversario\nAna,11999990000,ana@email.com,1990-08-20'} className="w-full rounded-xl border border-border bg-background px-3 py-2 text-[12px] outline-none" /><button onClick={importCsv} disabled={pending || !csv.trim()} className="mt-3 inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-[12px] font-semibold text-primary-foreground disabled:opacity-50">{pending && <Loader2 className="h-4 w-4 animate-spin" />} Importar clientes</button></div>}
 
-      <div className="overflow-hidden rounded-2xl border border-border bg-card">
+      <div aria-label="Lista de clientes" className="overflow-hidden rounded-2xl border border-border bg-card">
         {shown.length === 0 ? (
           <div className="p-12 text-center text-[13px] text-muted-foreground">Nenhum cliente neste filtro.</div>
         ) : (
@@ -166,7 +174,7 @@ export function ClientsCrm({
                 </span>
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <p className="truncate text-[13px] font-medium">{c.name}</p>
+                    <p className="min-w-0 break-words text-[13px] font-medium md:truncate">{c.name}</p>
                     <GenderBadge gender={c.genderDisplay} source={c.genderSource} />
                     {c.isVip && <Crown className="h-3 w-3 shrink-0 text-warning" />}
                     {c.birthdayThisMonth && <Cake className="h-3 w-3 shrink-0 text-marketing" />}

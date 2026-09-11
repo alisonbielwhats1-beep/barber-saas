@@ -10,6 +10,20 @@ voláteis na página; não são histórico persistente nem prova de qualidade de
 Isolamento de Zod 4 em workspace preserva Zod 3 do produto. Promoção ainda
 não realizada; validação final será registrada no PR desta entrega.
 
+## 2026-09-11 — listas mobile em revisão
+
+Branch `codex/mobile-list-cleanup`: clientes, serviços, avaliações e profissionais
+priorizam listas no celular, com filtros compactos e desempenho recolhido.
+Escopo e evidências em `MOBILE_LISTAS_2026-09-11.md`. Sem migration ou produção.
+
+## 2026-09-11 — PR #93 publicado
+
+Preços variáveis e configurações por assunto publicados no commit
+`e3e8ad5ab02929f7c5fb040dc73b63be9b320021`, deployment Production
+`dpl_HUfPHn6EmaLGewYN2NKJW5N2SqBg` READY. CI 34550786407 aprovado; sonda,
+catálogo e agendamento responderam normalmente, sem erros de runtime na janela
+verificada. Conclui a preparação registrada abaixo. Evidências no PR #93.
+
 ## 2026-09-11 — preços variáveis e configurações: publicação autorizada
 
 PR #93 implementa Fixo / A partir de, explicação para o cliente e snapshots
@@ -771,3 +785,4 @@ Concluir a candidata de prontidão comercial sem alterar Production:
 - A liberação pública da porta 3000 foi bloqueada pela revisão automática; solicitação de autorização explícita pendente. Não contornar essa decisão. Verificação pelo localhost do Codespace: seis fluxos aprovados, dez telas capturadas, zero erros de runtime; ajustes de contraste e semântica aplicados a partir do axe.
 - Não houve CI remoto nesta branch nem promoção produtiva. Testes PostgreSQL abrangentes e revisão de release permanecem necessários antes de promover.
 - Esta rodada não encerra os 32 itens da auditoria. Escopo e pendências: `docs/REFINAMENTO_OPERACIONAL_2026-09-06.md`.
+

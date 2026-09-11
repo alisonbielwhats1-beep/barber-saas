@@ -57,17 +57,17 @@ export default async function ServicosPage() {
   }));
 
   return (
-    <div className="space-y-6">
+    <div className="flex min-w-0 flex-col gap-3 md:gap-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="mb-1 text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+          <p className="mb-1 hidden md:block text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
             Catálogo
           </p>
-          <h1 className="text-[26px] font-semibold tracking-tight">Serviços</h1>
+          <h1 className="text-2xl md:text-[26px] font-semibold tracking-tight">Serviços</h1>
         </div>
         {canManage && <ServiceForm />}
       </header>
-      {canManage && <ResourcePanel />}
+      {canManage && <div className="order-last md:order-none"><ResourcePanel /></div>}
 
       {cards.length === 0 ? (
         <div className="rounded-2xl border border-border bg-card p-12 text-center text-[13px] text-muted-foreground">
