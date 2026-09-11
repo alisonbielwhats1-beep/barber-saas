@@ -1,3 +1,4 @@
+import { priceSnapshot } from "./service-price";
 import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import type { Tx } from "./prisma-tenant";
@@ -28,6 +29,8 @@ type ProposalSnapshot = {
   name: string;
   durationMin: number;
   priceCents: number;
+  priceType?: string;
+  priceNote?: string | null;
 };
 
 function proposalSnapshot(value: unknown): ServiceSnapshot | null {
@@ -55,6 +58,7 @@ function proposalSnapshot(value: unknown): ServiceSnapshot | null {
     name: item.name,
     durationMin,
     priceCents,
+    ...priceSnapshot({ priceType: typeof item.priceType === "string" ? item.priceType : undefined, priceNote: typeof item.priceNote === "string" ? item.priceNote : null }),
     processingMin,
     finishingMin,
   };
@@ -175,10 +179,10 @@ export async function requestStaffReschedule(
       version: true,
       timezone: true,
       notes: true,
-      service: { select: { id: true, name: true, durationMin: true, priceCents: true, processingMin: true, finishingMin: true } },
+      service: { select: { id: true, name: true, durationMin: true, priceCents: true, priceType: true, priceNote: true, processingMin: true, finishingMin: true } },
       serviceItems: {
         orderBy: { position: "asc" },
-        select: { serviceId: true, serviceName: true, durationMin: true, priceCents: true, processingMin: true, finishingMin: true },
+        select: { serviceId: true, serviceName: true, durationMin: true, priceCents: true, priceType: true, priceNote: true, processingMin: true, finishingMin: true },
       },
       client: {
         select: {
@@ -255,8 +259,9 @@ export async function requestStaffReschedule(
         durationMin: service.durationMin,
     processingMin: service.processingMin ?? 0, finishingMin: service.finishingMin ?? 0,
         priceCents: service.priceCents,
+        ...priceSnapshot(service),
       }))
-    : [appointment.service];
+    : [{ ...appointment.service, ...priceSnapshot({}) }];
   const requestedServiceIds = [...new Set(input.serviceIds)];
   const preservesHistoricalServices =
     historicalServices.length === requestedServiceIds.length &&
@@ -302,6 +307,7 @@ export async function requestStaffReschedule(
     durationMin: service.durationMin,
     processingMin: service.processingMin ?? 0, finishingMin: service.finishingMin ?? 0,
     priceCents: service.priceCents,
+    ...priceSnapshot(service),
   }));
   const targetPriceCents = targetServices.reduce((sum, service) => sum + service.priceCents, 0);
   const reason = input.reason?.trim() || "Alteração solicitada pelo estabelecimento";
@@ -420,10 +426,10 @@ export async function respondToRescheduleProposal(
           version: true,
           timezone: true,
           priceCents: true,
-          service: { select: { id: true, name: true, durationMin: true, priceCents: true, processingMin: true, finishingMin: true } },
+          service: { select: { id: true, name: true, durationMin: true, priceCents: true, priceType: true, priceNote: true, processingMin: true, finishingMin: true } },
           serviceItems: {
             orderBy: { position: "asc" },
-            select: { serviceId: true, serviceName: true, durationMin: true, priceCents: true, processingMin: true, finishingMin: true },
+            select: { serviceId: true, serviceName: true, durationMin: true, priceCents: true, priceType: true, priceNote: true, processingMin: true, finishingMin: true },
           },
         },
       },
@@ -470,6 +476,7 @@ export async function respondToRescheduleProposal(
           durationMin: service.durationMin,
     processingMin: service.processingMin ?? 0, finishingMin: service.finishingMin ?? 0,
           priceCents: service.priceCents,
+          ...priceSnapshot(service),
         }))
       : [proposal.appointment.service];
     const payload = rejectPayload({

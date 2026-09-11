@@ -1,3 +1,4 @@
+import { priceSnapshot } from "./service-price";
 import { randomUUID } from "node:crypto";
 import type { AppointmentActorType } from "@prisma/client";
 import type { Tx } from "./prisma-tenant";
@@ -21,6 +22,8 @@ export type ReleasedAppointmentSlot = {
     serviceName: string;
     durationMin: number;
     priceCents: number;
+    priceType?: string;
+    priceNote?: string | null;
   }>;
 };
 
@@ -126,7 +129,7 @@ export async function joinWaitlist(
       active: true,
       professionals: { some: { professionalId: input.professionalId } },
     },
-    select: { id: true, name: true, durationMin: true, priceCents: true },
+    select: { id: true, name: true, durationMin: true, priceCents: true, priceType: true, priceNote: true },
   });
   if (requestedServices.length !== serviceIds.length) {
     const existingServices = await tx.service.count({
@@ -144,6 +147,7 @@ export async function joinWaitlist(
       serviceName: service.name,
       durationMin: service.durationMin,
       priceCents: service.priceCents,
+      ...priceSnapshot(service),
     };
   });
   const priced = await priceServicesForDate(tx, {
@@ -154,6 +158,7 @@ export async function joinWaitlist(
       name: service.serviceName,
       durationMin: service.durationMin,
       priceCents: service.priceCents,
+      ...priceSnapshot(service),
     })),
   });
   const serviceSnapshots = priced.services.map((service) => ({
@@ -161,6 +166,7 @@ export async function joinWaitlist(
     serviceName: service.name,
     durationMin: service.durationMin,
     priceCents: service.priceCents,
+    ...priceSnapshot(service),
   }));
   const durationMin = serviceSnapshots.reduce((total, service) => total + service.durationMin, 0);
   const priceCents = serviceSnapshots.reduce((total, service) => total + service.priceCents, 0);
@@ -412,6 +418,7 @@ function serviceSnapshotsFromJson(value: unknown): ReleasedAppointmentSlot["serv
       serviceName: candidate.serviceName,
       durationMin: candidate.durationMin as number,
       priceCents: candidate.priceCents as number,
+      ...priceSnapshot({ priceType: typeof candidate.priceType === "string" ? candidate.priceType : undefined, priceNote: typeof candidate.priceNote === "string" ? candidate.priceNote : null }),
     };
   });
   return services.every((service) => service !== null)
@@ -497,11 +504,11 @@ async function loadReleasedSlot(
           serviceId: true,
           serviceName: true,
           durationMin: true,
-          priceCents: true,
+          priceCents: true, priceType: true, priceNote: true,
         },
       },
       service: {
-        select: { id: true, name: true, durationMin: true, priceCents: true },
+        select: { id: true, name: true, durationMin: true, priceCents: true, priceType: true, priceNote: true },
       },
     },
   });
@@ -624,6 +631,7 @@ export async function fulfillWaitlistOnCancel(
       serviceName: service.serviceName,
       durationMin: service.durationMin,
       priceCents: service.priceCents,
+      ...priceSnapshot(service),
       position,
     })),
   });

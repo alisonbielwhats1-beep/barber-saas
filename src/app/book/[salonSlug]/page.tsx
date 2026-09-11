@@ -194,7 +194,7 @@ export default async function ClientHome({
           id: true,
           name: true,
           description: true,
-          priceCents: true,
+          priceCents: true, priceType: true, priceNote: true,
           durationMin: true,
           category: true,
           imageUrl: true,

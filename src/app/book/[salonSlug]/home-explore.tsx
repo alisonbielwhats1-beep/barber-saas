@@ -1,10 +1,12 @@
 "use client";
+import { servicePriceLabel } from "@/lib/service-price";
+import { ServicePriceNote } from "@/components/service-price";
 
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 
 import { Search, ChevronRight } from "lucide-react";
-import { formatMoney, formatDuration } from "@/lib/utils";
+import { formatDuration } from "@/lib/utils";
 
 
 type Service = {
@@ -12,6 +14,8 @@ type Service = {
   name: string;
   description: string | null;
   priceCents: number;
+  priceType?: string;
+  priceNote?: string | null;
   durationMin: number;
   category: string | null;
   imageUrl: string | null;
@@ -184,13 +188,14 @@ export function HomeExplore({
                         {s.description}
                       </p>
                     )}
+                    <ServicePriceNote service={s} />
                     <p className="mt-0.5 text-[12px] text-muted-foreground">
                       {formatDuration(s.durationMin)}
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
-                    <p className="text-[14px] font-bold text-primary">
-                      {formatMoney(s.priceCents, currency)}
+                    <p className="max-w-32 text-right text-[14px] font-bold text-primary">
+                      {servicePriceLabel(s, currency)}
                     </p>
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </div>
