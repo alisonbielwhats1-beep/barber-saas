@@ -88,7 +88,7 @@ export function AgentLab() {
     <section className="hq-panel">
       <div className="hq-actions"><h2>Execuções desta sessão</h2>{results.length > 0 && <button className="hq-button secondary" disabled={pending} onClick={() => setResults([])}>Limpar resultados</button>}</div>
       <p>Até 20 resultados nesta página. Ao recarregar ou sair, eles são descartados e não entram no histórico do CRM.</p>
-      {results.length > 0 ? <div className="hq-table-wrap"><table><thead><tr><th>Cenário</th><th>Resultado</th><th>Validação técnica</th></tr></thead><tbody>
+      {results.length > 0 ? <div className="hq-table-wrap" tabIndex={0} role="region" aria-label="Histórico de simulações"><table><thead><tr><th>Cenário</th><th>Resultado</th><th>Validação técnica</th></tr></thead><tbody>
         {results.map(result => <tr key={result.id}><td>{scenarios.find(s => s.id === result.scenarioId)?.title}</td><td>{statusLabels[result.status]}</td><td>{result.passed ? "Conforme esperado" : "Revisar"}</td></tr>)}
       </tbody></table></div> : <p>Nenhuma execução nesta sessão.</p>}
     </section>
