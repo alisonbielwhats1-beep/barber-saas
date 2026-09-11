@@ -270,6 +270,20 @@ jobs:
           npx prisma db execute --file prisma/sql/manual/021_variable_service_prices.verify.sql --url "$DIRECT_URL"
           npx prisma db execute --file tests/fixtures/021-preservation-after.sql --url "$DIRECT_URL"
           npx vitest run src/lib/__tests__/product-depth-postgres.integration.test.ts src/lib/__tests__/variable-price-postgres.integration.test.ts
+      - name: Validate additive chief history and budget under RLS
+        run: |
+          docker exec ${{ job.services.postgres.id }} pg_dump -U postgres -d salon_schema_ci > "$RUNNER_TEMP/pre022.sql"
+          test -s "$RUNNER_TEMP/pre022.sql"
+          docker exec ${{ job.services.postgres.id }} createdb -U postgres salon_restore022_ci
+          docker exec -i ${{ job.services.postgres.id }} psql -U postgres -d salon_restore022_ci -v ON_ERROR_STOP=1 < "$RUNNER_TEMP/pre022.sql" > /dev/null
+          npx prisma db execute --file tests/fixtures/022-preservation-before.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/022_hq_chief.preflight.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/022_hq_chief.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/022_hq_chief.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/022_hq_chief.verify.sql --url "$DIRECT_URL"
+          npx prisma db execute --file tests/fixtures/022-preservation-after.sql --url "$DIRECT_URL"
+          npx vitest run src/lib/hq/chief-postgres.integration.test.ts
+          npx prisma db execute --file prisma/sql/manual/022_hq_chief.rollback.sql --url "$DIRECT_URL"
       - name: Prove appointment and comanda concurrency with PostgreSQL, plus public access locking
         run: npm run test:appointment-integration
       - name: Prove tenant-isolated password recovery with PostgreSQL

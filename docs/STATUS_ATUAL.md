@@ -1,6 +1,7 @@
 # Status atual canônico — Salon SaaS
 
-## 2026-09-11 — criação manual com horário editável, em revisão
+<<<<<<< HEAD
+## 2026-09-11 — criação manual com horário editável, publicação autorizada
 
 Branch `codex/client-booksy-improvements`: o formulário aberto pelo “+” ou pela
 grade permite escolher data e hora por minuto, inclusive para séries, e oferece
@@ -8,7 +9,28 @@ reutilização dos serviços da última reserva. Bloqueio aceita digitação dir
 de minutos; dono/gerente podem confirmar atendimento dentro de TimeOff sem
 removê-lo, e sobreposição exige confirmação separada. Histórico respeita tenant/papel;
 preços e disponibilidade continuam validados no servidor. Escopo e validação
-em `AGENDAMENTO_MANUAL_2026-09-11.md`. Sem migration ou promoção produtiva.
+em `AGENDAMENTO_MANUAL_2026-09-11.md`. Publicação do PR #96 autorizada pelo responsável; sem migration desta entrega. Resultado do deploy será registrado no PR.
+=======
+## 2026-09-11 — Agente Chefe: piloto de leitura em implementação
+
+Pedido posterior autoriza conectar dados do HQ, modelo e histórico com limite
+de consumo. Escopo em HQ_CHEFE_PILOTO.md, no PR #94. Laboratório anterior
+b09d4ec passou no CI 34553915666 e Preview, incluindo a correção de teclado.
+Piloto reutiliza withHq e métricas do dashboard; acrescenta migration aditiva
+022 para execuções/reservas. Não aplicada em Production. HQ_CHIEF_ENABLED
+permanece false até configuração da chave, orçamento e publicação autorizada.
+Nenhuma chamada paga ou mensagem enviada nesta implementação.
+
+## 2026-09-10 — agentes: laboratório em desenvolvimento
+
+Branch codex/hq-agents-foundation, atualizada com PR #93. Escopo em
+HQ_AGENTES_ARQUITETURA.md. /hq/agents passa a ter sete cenários fictícios de
+Chefe/Suporte, usando Agents SDK 0.18.0 com modelo local determinístico.
+Sem chamadas OpenAI, WhatsApp, alteração de dados ou migration. Resultados
+voláteis na página; não são histórico persistente nem prova de qualidade de IA.
+Isolamento de Zod 4 em workspace preserva Zod 3 do produto. Promoção ainda
+não realizada; validação final será registrada no PR desta entrega.
+>>>>>>> origin/master
 
 ## 2026-09-11 — listas mobile em revisão
 
@@ -36,7 +58,7 @@ e 2.234 vínculos de agendamento foram preservados por checksum. CI final da
 integração em validação; resultado de merge/deploy e conferência no PR #93.
 Escopo e recuperação em `PRECOS_VARIAVEIS_CONFIGURACOES_2026-09-10.md`.
 
-## 2026-09-10 — Everflare HQ em validação no PR #92
+## 2026-09-10 — Everflare HQ publicado no PR #92
 
 Central privada em /hq, separada dos salões e do Booksite. Auditoria e
 arquitetura em EVERFLARE_HQ.md; validação e recuperação em HQ_RELEASE_2026-09-10.md.
@@ -45,9 +67,11 @@ Testes permanecem no PostgreSQL descartável. CI 34546774574 passou com migratio
 020, preservação, RLS e jornadas em quatro resoluções. Migration 020 aplicada
 no Supabase produtivo sob versão 20260911004924 após preflight e recuperação
 delimitada: 14 tabelas com ENABLE/FORCE RLS, 18 FKs, nenhum grant público,
-contagens anteriores preservadas. Publicação do código aguarda CI final.
-HQ_ENABLED será ativado em Production; billing 011 permanece desativado
-e nenhum agente foi implementado. Evidências de publicação no PR #92.
+contagens anteriores preservadas. CI final 34548342951 aprovado: 793 testes,
+9 integrações HQ e 81 jornadas de navegador. Merge 433afcba2c726aa10c16b60aad0ee5ba68324b0b;
+Production dpl_4yohwk8oZzBvEANWfLwkpw7GpJsf READY. HQ_ENABLED=true;
+billing 011 permanece desativado. A versão publicada pelo PR #92 ainda não
+executa agentes. Evidências de publicação e smoke somente leitura no PR #92.
 
 ## 2026-09-10 — bloqueios acionáveis e encaixe na pausa (PR #90)
 
