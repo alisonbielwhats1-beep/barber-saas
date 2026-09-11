@@ -60,4 +60,3 @@ Fontes:
 - https://developers.openai.com/api/docs/models/gpt-5.6-luna
 - https://developers.openai.com/api/docs/guides/agents
 - https://supabase.com/docs/guides/database/postgres/row-level-security
-

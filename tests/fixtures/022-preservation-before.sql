@@ -6,4 +6,3 @@ DO $$ DECLARE tab record; checksum text; BEGIN
   INSERT INTO test_022_before VALUES(tab.tablename,checksum);
  END LOOP;
 END $$;
-

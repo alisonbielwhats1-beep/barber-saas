@@ -795,4 +795,3 @@ Concluir a candidata de prontidão comercial sem alterar Production:
 - A liberação pública da porta 3000 foi bloqueada pela revisão automática; solicitação de autorização explícita pendente. Não contornar essa decisão. Verificação pelo localhost do Codespace: seis fluxos aprovados, dez telas capturadas, zero erros de runtime; ajustes de contraste e semântica aplicados a partir do axe.
 - Não houve CI remoto nesta branch nem promoção produtiva. Testes PostgreSQL abrangentes e revisão de release permanecem necessários antes de promover.
 - Esta rodada não encerra os 32 itens da auditoria. Escopo e pendências: `docs/REFINAMENTO_OPERACIONAL_2026-09-06.md`.
-

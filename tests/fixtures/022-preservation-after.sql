@@ -5,4 +5,3 @@ DO $$ DECLARE tab record; checksum text; BEGIN
  END LOOP;
 END $$;
 DROP TABLE test_022_before;
-

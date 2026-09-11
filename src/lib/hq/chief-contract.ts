@@ -16,4 +16,3 @@ export const chiefSuggestions = [
   "Há tickets abertos?",
   "Como está o financeiro?",
 ] as const;
-

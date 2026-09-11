@@ -6,4 +6,3 @@ DO $$ BEGIN
  IF EXISTS (SELECT 1 FROM information_schema.role_table_grants WHERE table_name='hq_agent_runs' AND grantee='app_runtime' AND privilege_type='DELETE') THEN RAISE EXCEPTION 'DELETE indevido'; END IF;
 END $$;
 SELECT count(*) AS preserved_runs FROM public.hq_agent_runs;
-

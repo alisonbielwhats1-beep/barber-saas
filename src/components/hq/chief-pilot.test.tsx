@@ -29,4 +29,3 @@ it("protege clique concorrente e mantém o UUID após falha de transporte",async
  expect(f.ask.mock.calls[0][0]).toEqual(f.ask.mock.calls[1][0]);
  expect(screen.getByRole("alert")).toHaveTextContent("Em andamento");
 });
-

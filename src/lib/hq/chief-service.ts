@@ -48,4 +48,3 @@ export async function askChief(input: unknown): Promise<{ok:true;run:ChiefRun}|{
   return {ok:false,error:error instanceof HqError?error.message:"Não foi possível concluir a consulta. Atualize o histórico antes de tentar novamente; uma reserva pode estar pendente."};
  }
 }
-

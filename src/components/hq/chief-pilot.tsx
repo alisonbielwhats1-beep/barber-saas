@@ -55,4 +55,3 @@ export function ChiefPilot({initial}:{initial:ChiefState}) {
   {state.nextCursor&&<button className="hq-button secondary" disabled={pending} onClick={()=>refresh(state.nextCursor!)}>Consultas anteriores</button>}
  </section>;
 }
-

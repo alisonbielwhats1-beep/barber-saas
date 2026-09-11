@@ -48,4 +48,3 @@ export async function finishChief(tx: Tx,id:string,actorId:string,result: {answe
  if(!rows[0]) throw new HqError("A execução não pôde ser finalizada. Atualize o histórico; a reserva foi preservada.");
  return rows[0].data;
 }
-

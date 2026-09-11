@@ -11,4 +11,3 @@ describe("configuração do piloto",()=>{
   expect(chiefConfig({HQ_CHIEF_ENABLED:"true",HQ_CHIEF_MONTHLY_USD:"5",OPENAI_API_KEY:"fake"}).budgetMicros).toBe(5000000);
  });
 });
-

@@ -39,4 +39,3 @@ DO $$ BEGIN
  END IF;
 END $$;
 COMMIT;
-

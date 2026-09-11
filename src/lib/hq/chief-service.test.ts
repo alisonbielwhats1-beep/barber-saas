@@ -46,4 +46,3 @@ describe("Chefe — autorização e orquestração",()=>{
   expect(JSON.stringify(result)).not.toContain("secret-error");
  });
 });
-

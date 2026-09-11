@@ -82,4 +82,3 @@ pg("Chefe 022 — persistência, concorrência e RLS PostgreSQL",()=>{
   expect(await prisma.hqAccounts.findUnique({where:{id:account.id}})).toEqual(before);
  });
 });
-
