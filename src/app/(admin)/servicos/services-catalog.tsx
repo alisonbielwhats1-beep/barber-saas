@@ -1,4 +1,5 @@
 "use client";
+import { MobileListTools } from "@/components/mobile-list-tools";
 import { servicePriceLabel } from "@/lib/service-price";
 
 import { useMemo, useState, useTransition } from "react";
@@ -118,18 +119,20 @@ export function ServicesCatalog({
     <div className="space-y-4">
       {/* Barra de ferramentas */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex min-h-11 items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5">
+        <div className="flex min-h-11 min-w-0 flex-1 md:flex-none items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5">
           <Search className="h-3.5 w-3.5 text-muted-foreground" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar serviço…"
             aria-label="Buscar serviço"
-            className="w-44 bg-transparent text-[13px] placeholder:text-muted-foreground focus:outline-none"
+            className="w-full min-w-0 md:w-44 bg-transparent text-[13px] placeholder:text-muted-foreground focus:outline-none"
           />
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5">
+        <MobileListTools label={activeCategory === "all" ? "Filtros" : "Filtrado"}>
+        <select aria-label="Categoria do serviço" value={activeCategory} onChange={e => setCategory(e.target.value)} className="min-h-11 w-full min-w-0 rounded-lg border border-border bg-card px-3 text-sm md:hidden">{categories.map(c => <option key={c} value={c}>{c === "all" ? "Todas as categorias" : c}</option>)}</select>
+        <div className="hidden flex-wrap items-center gap-1.5 md:flex">
           {categories.map((c) => (
             <button
               key={c}
@@ -160,7 +163,7 @@ export function ServicesCatalog({
           </select>
 
           {/* Toggle grade / lista */}
-          <div className="flex items-center gap-0.5 rounded-full border border-border bg-surface-1 p-1">
+          <div className="hidden md:flex items-center gap-0.5 rounded-full border border-border bg-surface-1 p-1">
             <button
               onClick={() => setView("grid")}
               title="Vista em grade (com imagens)"
@@ -183,6 +186,7 @@ export function ServicesCatalog({
             </button>
           </div>
         </div>
+        </MobileListTools>
       </div>
 
       {filtered.length === 0 ? (
@@ -190,7 +194,7 @@ export function ServicesCatalog({
           Nenhum serviço encontrado.
         </div>
       ) : (
-        <div className="space-y-3">
+        <div aria-label="Lista de serviços" className="overflow-hidden rounded-2xl border border-border md:space-y-3 md:rounded-none md:border-0">
           {groups.map(({ cat, items }) =>
             view === "grid" ? (
               <CategoryGroupGrid
@@ -234,9 +238,9 @@ function CategoryGroupGrid({
   const categoryImage = normalizeImageUrl(items.find((item) => item.imageUrl)?.imageUrl) ?? bannerForCategory(cat);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-card">
+    <div className="overflow-hidden border-b border-border bg-card last:border-b-0 md:rounded-2xl md:border md:last:border-b">
       {/* Banner discreto: identifica a categoria sem dominar a operação. */}
-      <div className="relative h-32 w-full overflow-hidden sm:h-36">
+      <div className="relative hidden h-36 w-full overflow-hidden md:block">
         <ImageWithFallback
           src={categoryImage}
           fallbackSrc={bannerForCategory(cat)}
@@ -284,9 +288,9 @@ function CategoryGroupList({
   canSeeFinancial: boolean;
 }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-card">
+    <div className="overflow-hidden border-b border-border bg-card last:border-b-0 md:rounded-2xl md:border md:last:border-b">
       {/* Cabeçalho de texto simples */}
-      <div className="border-b border-border bg-surface-1 px-4 py-2">
+      <div className="hidden border-b border-border bg-surface-1 px-4 py-2 md:block">
         <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
           {cat}
         </p>
@@ -322,7 +326,7 @@ function ServiceRow({
       }`}
     >
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[13px] font-medium leading-tight">{s.name}</p>
+        <p className="break-words text-[13px] font-medium leading-snug md:truncate">{s.name}</p>
         <p className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
           <span className="flex items-center gap-1">
             <Clock className="h-3 w-3" />
@@ -354,7 +358,7 @@ function ServiceRow({
         <p className="text-[10px] text-muted-foreground">vendas</p>
       </div>}
 
-      <p className="w-20 shrink-0 text-right text-[13px] font-semibold">
+      <p className="w-[4.5rem] md:w-20 shrink-0 text-right text-[13px] font-semibold">
         {servicePriceLabel(s)}
       </p>
 

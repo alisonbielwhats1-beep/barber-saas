@@ -1,5 +1,19 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-11 — listas mobile em revisão
+
+Branch `codex/mobile-list-cleanup`: clientes, serviços, avaliações e profissionais
+priorizam listas no celular, com filtros compactos e desempenho recolhido.
+Escopo e evidências em `MOBILE_LISTAS_2026-09-11.md`. Sem migration ou produção.
+
+## 2026-09-11 — PR #93 publicado
+
+Preços variáveis e configurações por assunto publicados no commit
+`e3e8ad5ab02929f7c5fb040dc73b63be9b320021`, deployment Production
+`dpl_HUfPHn6EmaLGewYN2NKJW5N2SqBg` READY. CI 34550786407 aprovado; sonda,
+catálogo e agendamento responderam normalmente, sem erros de runtime na janela
+verificada. Conclui a preparação registrada abaixo. Evidências no PR #93.
+
 ## 2026-09-11 — preços variáveis e configurações: publicação autorizada
 
 PR #93 implementa Fixo / A partir de, explicação para o cliente e snapshots
