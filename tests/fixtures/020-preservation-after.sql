@@ -3,7 +3,7 @@ BEGIN
   IF EXISTS (
     SELECT 1 FROM migration020_test.records b FULL JOIN (
       SELECT 'Service'::text AS kind, id, to_jsonb(s) - 'priceType' - 'priceNote' AS payload, "priceType", "priceNote" FROM public."Service" s
-      UNION ALL SELECT 'AppointmentService', id, to_jsonb(s) - 'priceType' - 'priceNote', "priceType", "priceNote" FROM public."AppointmentService" s
+      UNION ALL SELECT 'AppointmentService', jsonb_build_array("appointmentId", position)::text, to_jsonb(s) - 'priceType' - 'priceNote', "priceType", "priceNote" FROM public."AppointmentService" s
     ) a USING (kind, id)
     WHERE a.payload IS DISTINCT FROM b.payload OR a."priceType" IS DISTINCT FROM 'FIXED' OR a."priceNote" IS NOT NULL
   ) THEN RAISE EXCEPTION '020: legacy records changed'; END IF;
