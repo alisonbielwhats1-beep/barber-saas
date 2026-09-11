@@ -26,21 +26,22 @@ test.describe("@database Everflare HQ",()=>{
  test("cria lead, converte cliente e valida telas em quatro resoluções",async({page})=>{
   test.setTimeout(300000);
   const errors:string[]=[];page.on("pageerror",e=>errors.push(e.message));
+  const business="Estúdio Aurora HQ "+crypto.randomUUID().slice(0,8);
   await page.goto("/login");await page.getByLabel("Email").fill(email);
   await page.getByLabel("Senha",{exact:true}).fill(password);
   await page.getByRole("button",{name:"Entrar",exact:true}).click();
   await expect(page).toHaveURL(/\/plataforma/,{timeout:30000});
   await page.goto("/hq/leads/new");
   await page.getByLabel("Nome *",{exact:true}).fill("Marina HQ sintética");
-  await page.getByLabel("Estabelecimento *",{exact:true}).fill("Estúdio Aurora HQ");
+  await page.getByLabel("Estabelecimento *",{exact:true}).fill(business);
   await page.getByLabel("E-mail",{exact:true}).fill("marina@hq.example.test");
   await page.getByRole("button",{name:"Salvar lead",exact:true}).click();
   await expect(page).toHaveURL(/\/hq\/leads\/[0-9a-f-]{36}$/,{timeout:20000});
-  await expect(page.getByRole("heading",{name:"Estúdio Aurora HQ",exact:true})).toBeVisible();
+  await expect(page.getByRole("heading",{name:business,exact:true})).toBeVisible();
   await page.getByRole("button",{name:"Converter em cliente",exact:true}).click();
-  await expect(page.getByText("Convertido",{exact:true})).toBeVisible();
-  await page.goto("/hq/customers?q=Estúdio+Aurora+HQ");
-  await page.getByRole("link",{name:"Estúdio Aurora HQ",exact:true}).click();
+  await expect(page.locator(".hq-profile").getByText("Convertido",{exact:true})).toBeVisible();
+  await page.goto("/hq/customers?q="+encodeURIComponent(business));
+  await page.getByRole("link",{name:business,exact:true}).click();
   const profile=new URL(page.url()).pathname;
   await expect(page.getByRole("heading",{name:"Histórico completo"})).toBeVisible();
   await expect(page.getByText("Lead convertido em cliente. Histórico preservado.")).toBeVisible();
@@ -57,4 +58,3 @@ test.describe("@database Everflare HQ",()=>{
   expect(errors).toEqual([]);
  });
 });
-
