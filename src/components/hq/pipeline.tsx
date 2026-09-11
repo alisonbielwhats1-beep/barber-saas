@@ -1,0 +1,15 @@
+"use client";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { stages,money,type Row } from "@/lib/hq/catalog";
+import { hqCommand } from "@/app/hq/actions";
+import { displayDate, Badge } from "./shared";
+export function Pipeline({rows}:{rows:Row[]}) {
+ const router=useRouter();const[busy,setBusy]=useState(false);const[error,setError]=useState("");const[drag,setDrag]=useState<string|null>(null);const[search,setSearch]=useState("");
+ const filtered=rows.filter(r=>(String(r.business)+" "+String(r.name)+" "+String(r.title)).toLowerCase().includes(search.toLowerCase()));
+ const open=rows.filter(r=>r.stage!=="Fechado"&&r.stage!=="Perdido");const closed=rows.filter(r=>r.stage==="Fechado").length;const decided=rows.filter(r=>r.stage==="Fechado"||r.stage==="Perdido").length;
+ async function move(id:string,stage:string){if(busy)return;setBusy(true);setError("");try{const r=await hqCommand({type:"move",id,stage});if(!r.ok)setError(r.error);else router.refresh();}catch{setError("Não foi possível mover. Atualize a página para conferir a etapa.");}finally{setBusy(false);setDrag(null);}}
+ return <><div className="hq-metrics"><div className="hq-metric">Potencial aberto<strong>{money(open.reduce((a,r)=>a+Number(r.valueCents),0))}</strong></div><div className="hq-metric">Oportunidades abertas<strong>{open.length}</strong></div><div className="hq-metric">Conversão · ganhas / decididas<strong>{decided?Math.round(closed/decided*100):0}%</strong></div><div className="hq-metric">Paradas há 14 dias<strong>{open.filter(r=>Date.parse(String(r.stageChangedAt))<Date.now()-14*86400000).length}</strong></div></div><label>Buscar oportunidade<input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Estabelecimento, contato ou título"/></label><p><small>Arraste um card ou use o seletor de etapa. Fechar uma oportunidade não converte o cadastro automaticamente.</small></p>{error&&<p role="alert" className="hq-error">{error}</p>}<div className="hq-kanban" aria-label="Pipeline comercial" aria-busy={busy}>{stages.map(stage=><section className="hq-column" key={stage} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(drag)void move(drag,stage);}}><div className="hq-column-header">{stage}<span>{filtered.filter(r=>r.stage===stage).length}</span></div>{filtered.filter(r=>r.stage===stage).map(row=><article className="hq-deal" key={row.id} draggable={!busy} onDragStart={()=>setDrag(row.id)} onDragEnd={()=>setDrag(null)}><Link href={"/hq/opportunities/"+row.id}><strong>{row.business}</strong></Link><small>{row.name}</small><p><Badge value={row.temperature??"Frio"}/></p><strong>{money(Number(row.valueCents))}</strong><p>Último contato: {displayDate(row.lastContact)}<br/>Próximo: {displayDate(row.nextContact)}</p><label>Etapa<select aria-label={"Etapa de "+row.business} disabled={busy} value={String(row.stage)} onChange={e=>void move(row.id,e.target.value)}>{stages.map(s=><option key={s}>{s}</option>)}</select></label></article>)}</section>)}</div></>;
+}
+

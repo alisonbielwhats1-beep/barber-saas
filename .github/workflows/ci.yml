@@ -113,6 +113,7 @@ jobs:
       NEXTAUTH_URL: http://127.0.0.1:3100
       RUN_POSTGRES_INTEGRATION: "1"
       RUN_DATABASE_E2E: "1"
+      HQ_ENABLED: "true"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -235,20 +236,39 @@ jobs:
           npx prisma db execute --file prisma/sql/manual/019_product_depth.verify.sql --url "$DIRECT_URL"
           npx prisma db execute --file tests/fixtures/019-preservation-after.sql --url "$DIRECT_URL"
           npx prisma generate
-      - name: Back up, restore and snapshot predecessor for variable prices
+      - name: Back up and restore synthetic predecessor before HQ migration
         run: |
           docker exec ${{ job.services.postgres.id }} pg_dump -U postgres -d salon_schema_ci > "$RUNNER_TEMP/pre020.sql"
           test -s "$RUNNER_TEMP/pre020.sql"
           docker exec ${{ job.services.postgres.id }} createdb -U postgres salon_restore020_ci
           docker exec -i ${{ job.services.postgres.id }} psql -U postgres -d salon_restore020_ci -v ON_ERROR_STOP=1 < "$RUNNER_TEMP/pre020.sql" > /dev/null
-          npx prisma db execute --file tests/fixtures/020-preservation-before.sql --url "$DIRECT_URL"
+          docker exec -i ${{ job.services.postgres.id }} psql -X -A -t -U postgres -d salon_schema_ci -v ON_ERROR_STOP=1 < tests/fixtures/020-preservation-fingerprint.sql > "$RUNNER_TEMP/pre020-fingerprint.txt"
+      - name: Preflight, apply, reapply and verify HQ 020 and predecessor preservation
+        run: |
+          npx prisma db execute --file prisma/sql/manual/020_everflare_hq.preflight.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/020_everflare_hq.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/020_everflare_hq.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/020_everflare_hq.verify.sql --url "$DIRECT_URL"
+          docker exec -i ${{ job.services.postgres.id }} psql -X -A -t -U postgres -d salon_schema_ci -v ON_ERROR_STOP=1 < tests/fixtures/020-preservation-fingerprint.sql > "$RUNNER_TEMP/post020-fingerprint.txt"
+          diff -u "$RUNNER_TEMP/pre020-fingerprint.txt" "$RUNNER_TEMP/post020-fingerprint.txt"
+          npx prisma generate
+          npx vitest run src/lib/hq/hq-postgres.integration.test.ts
+          npx prisma db execute --file prisma/sql/manual/020_everflare_hq.rollback.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/020_everflare_hq.verify.sql --url "$DIRECT_URL"
+      - name: Back up, restore and snapshot predecessor for variable prices
+        run: |
+          docker exec ${{ job.services.postgres.id }} pg_dump -U postgres -d salon_schema_ci > "$RUNNER_TEMP/pre021.sql"
+          test -s "$RUNNER_TEMP/pre021.sql"
+          docker exec ${{ job.services.postgres.id }} createdb -U postgres salon_restore021_ci
+          docker exec -i ${{ job.services.postgres.id }} psql -U postgres -d salon_restore021_ci -v ON_ERROR_STOP=1 < "$RUNNER_TEMP/pre021.sql" > /dev/null
+          npx prisma db execute --file tests/fixtures/021-preservation-before.sql --url "$DIRECT_URL"
       - name: Verify variable price upgrade, reapplication and preservation
         run: |
-          npx prisma db execute --file prisma/sql/manual/020_variable_service_prices.preflight.sql --url "$DIRECT_URL"
-          npx prisma db execute --file prisma/sql/manual/020_variable_service_prices.sql --url "$DIRECT_URL"
-          npx prisma db execute --file prisma/sql/manual/020_variable_service_prices.sql --url "$DIRECT_URL"
-          npx prisma db execute --file prisma/sql/manual/020_variable_service_prices.verify.sql --url "$DIRECT_URL"
-          npx prisma db execute --file tests/fixtures/020-preservation-after.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/021_variable_service_prices.preflight.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/021_variable_service_prices.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/021_variable_service_prices.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/021_variable_service_prices.verify.sql --url "$DIRECT_URL"
+          npx prisma db execute --file tests/fixtures/021-preservation-after.sql --url "$DIRECT_URL"
           npx vitest run src/lib/__tests__/product-depth-postgres.integration.test.ts src/lib/__tests__/variable-price-postgres.integration.test.ts
       - name: Prove appointment and comanda concurrency with PostgreSQL, plus public access locking
         run: npm run test:appointment-integration
@@ -266,6 +286,8 @@ jobs:
           diff -u "$RUNNER_TEMP/source-fingerprint.txt" "$RUNNER_TEMP/restored-fingerprint.txt"
       - name: Build the production application for browser tests
         run: npm run build
+      - name: Verify variable price recovery inventory
+        run: npx prisma db execute --file prisma/sql/manual/021_variable_service_prices.rollback.sql --url "$DIRECT_URL"
       - name: Install browser engines
         run: npx playwright install --with-deps chromium firefox webkit
       - name: Validate public pages across browser engines
@@ -281,8 +303,6 @@ jobs:
             playwright-report
             test-results
           retention-days: 7
-      - name: Verify variable price recovery inventory
-        run: npx prisma db execute --file prisma/sql/manual/020_variable_service_prices.rollback.sql --url "$DIRECT_URL"
       - name: Prove non-destructive openings and check-in rollback
         run: |
           npx prisma db execute --file prisma/sql/manual/019_product_depth.rollback.sql --url "$DIRECT_URL"

@@ -12,6 +12,7 @@ import {
 } from "@/lib/runtime-environment";
 
 const PROTECTED_PATH_PREFIXES = [
+  "/hq",
   "/hoje",
   "/dashboard",
   "/agenda",
