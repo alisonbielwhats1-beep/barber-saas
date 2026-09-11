@@ -71,7 +71,13 @@ export async function detail(tx: Tx, entity: string, id: string) {
     }
   }
   if(entity==="bugs") sections.bugCustomers=await repo.related(tx,"bugCustomers","bugId",id);
-  if(entity==="features") sections.featureCustomers=await repo.related(tx,"featureCustomers","featureId",id);
+  if(entity==="features") {
+    sections.featureCustomers=await repo.related(tx,"featureCustomers","featureId",id);
+    const dates=sections.featureCustomers.map(r=>r.createdAt).sort();
+    record.interestedCustomers=dates.length;
+    record.firstRequest=dates[0]??null;
+    record.lastRequest=dates.at(-1)??null;
+  }
   if(entity==="subscriptions") sections.payments=await repo.related(tx,"payments","subscriptionId",id);
   return { record, account, sections };
 }

@@ -123,7 +123,10 @@ export async function execute(tx: Tx, actorId: string, command: Command): Promis
   if (entity === "followups") values.completedAt = values.status === "Concluído" ? old?.completedAt ?? new Date().toISOString() : null;
   if (entity === "opportunities" && values.stage !== old?.stage) values.stageChangedAt = new Date().toISOString();
   if (entity === "bugs") values.resolvedAt = ["Resolvido", "Fechado"].includes(String(values.status)) ? old?.resolvedAt ?? new Date().toISOString() : null;
-  if (entity === "features") values.normalizedTitle = normalizedTitle(String(values.title));
+  if (entity === "features") {
+    values.normalizedTitle = normalizedTitle(String(values.title));
+    if (values.normalizedTitle.length < 3) throw new HqError("Informe um título descritivo para a feature.");
+  }
   if (entity === "activities") {
     values.actorId = actorId;
     return repo.insert(tx, entity, values);
@@ -150,4 +153,3 @@ export async function execute(tx: Tx, actorId: string, command: Command): Promis
   }
   return saved;
 }
-

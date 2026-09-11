@@ -43,7 +43,13 @@ export async function list(tx: Tx, entity: string, params: { q?: string; status?
   const def = definition(entity);
   const statusKey = def.fields.find(f => f.key === "status" || f.key === "stage")?.key;
   const texts = def.fields.filter(f => ["text","textarea","email","select"].includes(f.type) && !f.readonly);
-  const search = q && texts.length ? Prisma.sql`AND (${Prisma.join(texts.map(f => Prisma.sql`t.${column(entity, f.key)} ILIKE ${"%" + q.slice(0, 200) + "%"}`), " OR ")})` : Prisma.empty;
+  const pattern = "%" + q.slice(0, 200) + "%";
+  const matches = texts.map(f => Prisma.sql`t.${column(entity, f.key)} ILIKE ${pattern}`);
+  const accountMatch = Prisma.sql`(a.name ILIKE ${pattern} OR a.business ILIKE ${pattern})`;
+  if (def.fields.some(f => f.key === "accountId")) matches.push(Prisma.sql`EXISTS (SELECT 1 FROM hq_accounts a WHERE a.id=t."accountId" AND ${accountMatch})`);
+  if (def.fields.some(f => f.key === "customerId")) matches.push(Prisma.sql`EXISTS (SELECT 1 FROM hq_customers c JOIN hq_accounts a ON a.id=c."accountId" WHERE c.id=t."customerId" AND ${accountMatch})`);
+  if (entity === "payments") matches.push(Prisma.sql`EXISTS (SELECT 1 FROM hq_subscriptions s JOIN hq_customers c ON c.id=s."customerId" JOIN hq_accounts a ON a.id=c."accountId" WHERE s.id=t."subscriptionId" AND ${accountMatch})`);
+  const search = q && matches.length ? Prisma.sql`AND (${Prisma.join(matches, " OR ")})` : Prisma.empty;
   const filter = status && statusKey ? Prisma.sql`AND ${column(entity, statusKey)} = ${status}` : Prisma.empty;
   const date = Prisma.sql`(CURRENT_TIMESTAMP AT TIME ZONE 'America/Sao_Paulo')::date`;
   const due = entity === "followups" ? Prisma.sql`("dueAt" AT TIME ZONE 'America/Sao_Paulo')::date` : Prisma.sql`"dueDate"`;
