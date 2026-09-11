@@ -34,16 +34,18 @@ function Stars({ rating }: { rating: number }) {
   );
 }
 
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium" }).format(new Date(value));
+function formatDate(value: string, timezone: string) {
+  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeZone: timezone }).format(new Date(value));
 }
 
 export function ReviewsManager({
   salonName,
+  timezone,
   summary,
   reviews,
 }: {
   salonName: string;
+  timezone: string;
   summary: ReviewSummary;
   reviews: ModerationReview[];
 }) {
@@ -142,7 +144,7 @@ export function ReviewsManager({
                   </span>
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {review.serviceName} · atendimento de {formatDate(review.appointmentStartAt)}
+                  {review.serviceName} · atendimento de {formatDate(review.appointmentStartAt, timezone)}
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-3">

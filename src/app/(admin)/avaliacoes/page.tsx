@@ -9,7 +9,7 @@ export default async function ReviewsPage() {
   const ctx = await requireRole(MANAGEMENT_ROLES);
   const result = await withTenant(ctx, async (tx) => {
     const [salon, reviewData] = await Promise.all([
-      tx.salon.findUnique({ where: { id: ctx.salonId }, select: { name: true } }),
+      tx.salon.findUnique({ where: { id: ctx.salonId }, select: { name: true, timezone: true } }),
       getReviewModerationData(tx, ctx.salonId),
     ]);
     return salon ? { salon, reviewData } : null;
@@ -29,6 +29,7 @@ export default async function ReviewsPage() {
       </p>
       <ReviewsManager
         salonName={result.salon.name}
+        timezone={result.salon.timezone}
         summary={result.reviewData.summary}
         reviews={result.reviewData.reviews}
       />
