@@ -1,5 +1,15 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-11 — criação manual com horário editável, em revisão
+
+Branch `codex/client-booksy-improvements`: o formulário aberto pelo “+” ou pela
+grade permite escolher data e hora por minuto, inclusive para séries, e oferece
+reutilização dos serviços da última reserva. Bloqueio aceita digitação direta
+de minutos; dono/gerente podem confirmar atendimento dentro de TimeOff sem
+removê-lo, e sobreposição exige confirmação separada. Histórico respeita tenant/papel;
+preços e disponibilidade continuam validados no servidor. Escopo e validação
+em `AGENDAMENTO_MANUAL_2026-09-11.md`. Sem migration ou promoção produtiva.
+
 ## 2026-09-11 — listas mobile em revisão
 
 Branch `codex/mobile-list-cleanup`: clientes, serviços, avaliações e profissionais

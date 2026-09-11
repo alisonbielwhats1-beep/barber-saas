@@ -63,8 +63,10 @@ test.describe("@database pausas recorrentes", () => {
       await page.getByRole("menuitem", { name: /Novo bloqueio de horário/ }).click();
       for (const checkbox of await dialog.getByRole("checkbox").all()) await checkbox.uncheck();
       await dialog.getByLabel(name, { exact: true }).check();
-      await dialog.getByLabel("Início", { exact: true }).fill(`${monday}T12:30`);
-      await dialog.getByLabel("Fim", { exact: true }).fill(`${monday}T14:30`);
+      await dialog.getByLabel("Hora de início", { exact: true }).fill("12:30");
+      await dialog.getByLabel("Data de início", { exact: true }).fill(monday);
+      await dialog.getByLabel("Data de fim", { exact: true }).fill(monday);
+      await dialog.getByLabel("Hora de fim", { exact: true }).fill("14:30");
       await dialog.getByLabel("Repetir", { exact: true }).selectOption("days");
       await dialog.getByRole("button", { name: "Sábado e domingo" }).click();
       await dialog.getByLabel("Repetir até").fill(sunday);

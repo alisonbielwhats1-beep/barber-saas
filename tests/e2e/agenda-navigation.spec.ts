@@ -5,6 +5,67 @@ import { ptBR } from "date-fns/locale";
 
 test.describe("@database navegação compacta e calendário", () => {
   test.skip(!process.env.RUN_DATABASE_E2E, "Somente ambiente isolado com dados fictícios.");
+  test("novo agendamento permite editar minutos pelo menu + em desktop e celular", async ({ page }) => {
+    test.setTimeout(120_000);
+    const errors: string[] = [];
+    page.on("pageerror", error => errors.push(error.message));
+    await page.goto("/login");
+    await page.getByLabel("Email").fill("dono@lunahair.com");
+    await page.getByLabel("Senha", { exact: true }).fill("demo1234");
+    await page.getByRole("button", { name: "Entrar", exact: true }).click();
+    await expect(page).toHaveURL(/\/(hoje|dashboard)$/, { timeout: 30_000 });
+    for (const width of [1440, 390, 320]) {
+      await page.setViewportSize({ width, height: 844 });
+      await page.goto("/agenda?date=2030-09-11");
+      await page.getByRole("button", { name: "Abrir ações rápidas da agenda" }).click();
+      await page.getByRole("menuitem", { name: /Novo agendamento/ }).click();
+      const form = page.getByRole("dialog", { name: "Novo agendamento" });
+      await form.getByLabel("Data", { exact: true }).fill("2030-09-12");
+      for (const time of ["09:15", "10:45", "11:50"]) {
+        await form.getByLabel("Hora de início").fill(time);
+        await expect(form.getByLabel("Hora de início")).toHaveValue(time);
+      }
+      await expect(form.getByLabel("Data", { exact: true })).toHaveValue("2030-09-12");
+      expect(await form.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+      expect((await new AxeBuilder({ page }).include('[role="dialog"]').withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations).toEqual([]);
+      await form.screenshot({ path: test.info().outputPath(`agendamento-hora-livre-sintetico-${width}.png`) });
+      await page.keyboard.press("Escape");
+      await expect(form).not.toBeVisible();
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.getByRole("button", { name: "Abrir ações rápidas da agenda" }).click();
+    await page.getByRole("menuitem", { name: /Novo bloqueio de horário/ }).click();
+    const directBlock = page.getByRole("dialog", { name: "Bloquear disponibilidade" });
+    await directBlock.getByLabel("Data de início", { exact: true }).fill("2030-09-12");
+    await directBlock.getByLabel("Data de fim", { exact: true }).fill("2030-09-12");
+    await directBlock.getByLabel("Hora de início", { exact: true }).fill("18:45");
+    await directBlock.getByLabel("Hora de fim", { exact: true }).fill("19:30");
+    await expect(directBlock.getByLabel("Hora de início", { exact: true })).toHaveValue("18:45");
+    await directBlock.getByLabel("Motivo", { exact: true }).fill("Bloqueio sintético pelo menu +");
+    await directBlock.getByRole("button", { name: "Revisar bloqueio" }).click();
+    await expect(directBlock.getByText(/12\/09 18:45/)).toBeVisible();
+    await directBlock.screenshot({ path: test.info().outputPath("bloqueio-1845-menu-mobile-sintetico.png") });
+    await directBlock.getByRole("button", { name: "Confirmar bloqueio" }).click();
+    await expect(directBlock.getByText(/Disponibilidade bloqueada/)).toBeVisible();
+    await directBlock.getByRole("button", { name: "Concluir", exact: true }).click();
+    // Independent grid regression: the pointer retains the five-minute segment.
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.getByRole("button", { name: "Abrir ações rápidas da agenda" }).click();
+    await page.getByRole("menuitem", { name: /Selecionar intervalo/ }).click();
+    const row = page.getByRole("button", { name: /^Selecionar bloqueio 18:30 com / }).first();
+    await row.scrollIntoViewIfNeeded();
+    const box = await row.boundingBox();
+    await row.click({ position: { x: box!.width / 2, y: box!.height * 0.55 } });
+    const block = page.getByRole("dialog", { name: "Bloquear disponibilidade" });
+    await expect(block.getByLabel("Hora de início", { exact: true })).toHaveValue("18:45");
+    await block.getByLabel("Hora de fim", { exact: true }).fill("19:30");
+    await block.getByLabel("Motivo", { exact: true }).fill("Bloqueio sintético após atendimento");
+    await block.getByRole("button", { name: "Revisar bloqueio" }).click();
+    await expect(block.getByText("0 reserva(s) no intervalo", { exact: true })).toBeVisible();
+    await block.getByRole("button", { name: "Confirmar bloqueio" }).click();
+    await expect(block.getByText("Disponibilidade bloqueada. 0 reserva(s) continuam ativas.", { exact: true })).toBeVisible();
+    expect(errors).toEqual([]);
+  });
   test("recolhe e restaura o menu, muda a data e abre o calendário no celular", async ({ page }) => {
     test.setTimeout(120_000);
     const runtime: string[] = [];

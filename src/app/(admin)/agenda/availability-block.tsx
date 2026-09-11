@@ -221,6 +221,9 @@ export function AvailabilityBlockDialog({
                   <Button type="button" variant="outline" onClick={() => changeOpen(false)}>
                     Fechar
                   </Button>
+                  {onSchedule && <Button type="button" onClick={scheduleNow}>
+                    Agendar mantendo bloqueio
+                  </Button>}
                   <Button type="button" variant="destructive" onClick={() => setStep("confirm")}>
                     Reabrir horário
                   </Button>

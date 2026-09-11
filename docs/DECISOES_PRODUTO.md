@@ -76,6 +76,14 @@ Toda leitura e escrita deve validar `salonId`, papel e, quando aplicável,
 
 ## Override
 
+Atualização autorizada em 11/09/2026 pelos áudios e pedido de flexibilidade:
+na criação manual, dono/gerente podem agendar dentro de TimeOff (bloqueio/folga)
+com confirmação e motivo, preservando o bloqueio para o público e registrando
+auditoria. Havendo também sobreposição ou pausa, cada exceção exige confirmação
+própria. Criar um bloqueio pode cobrir reservas existentes, sem cancelá-las.
+Não altera a restrição de fechamento absoluto, limites da jornada, permissões
+do autoatendimento nem o fluxo de remarcação. Ver `AGENDAMENTO_MANUAL_2026-09-11.md`.
+
 Override é uma exceção deliberada a uma regra operacional, por exemplo agendar
 fora do horário de trabalho ou com antecedência menor que a política normal.
 
@@ -101,7 +109,8 @@ Decisão recomendada:
 - encaixe deliberado está disponível apenas na criação manual para
   dono/gerente, depois de um conflito real, com confirmação, motivo e
   auditoria;
-- encaixe não ignora fechamento, folga, jornada ou isolamento de tenant;
+- encaixe não ignora fechamento, jornada ou isolamento de tenant; bloqueio/folga
+  exige a confirmação adicional de TimeOff descrita acima;
 - lista de espera é a opção preferencial;
 - nunca disponível no aplicativo do cliente.
 
