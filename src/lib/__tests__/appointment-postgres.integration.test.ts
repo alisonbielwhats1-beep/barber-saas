@@ -79,6 +79,23 @@ async function fixture() {
 }
 
 describePostgres("concorrência real de agendamentos", () => {
+  it("preserva bloqueio, audita exceção manual e mantém restrição pública com retry idempotente", async () => {
+    const data = await fixture();
+    const block = await prisma.timeOff.create({ data: { professionalId: data.professionalId, startAt: new Date("2032-08-05T13:15:00Z"), endAt: new Date("2032-08-05T14:00:00Z"), reason: "Bloqueio sintético" } });
+    const input = {
+      salonId: data.salonId, professionalId: data.professionalId, clientId: data.clients[0]!.id,
+      serviceIds: [data.serviceId], startLocal: "2032-08-05T10:15", origin: "ADMIN" as const,
+      actor: { type: "STAFF" as const, id: data.professionalUserId, name: "CI" },
+      idempotencyKey: crypto.randomUUID(), enforceBookingWindow: false,
+    };
+    await expect(withSalon(data.salonId, tx => createAppointment(tx, input))).rejects.toMatchObject({ code: "PROFESSIONAL_UNAVAILABLE" });
+    const allowed = { ...input, canOverrideTimeOff: true, timeOffOverrideReason: "Atendimento excepcional" };
+    const first = await withSalon(data.salonId, tx => createAppointment(tx, allowed));
+    expect((await withSalon(data.salonId, tx => createAppointment(tx, allowed))).duplicate).toBe(true);
+    expect(await prisma.timeOff.findUnique({ where: { id: block.id } })).toEqual(block);
+    expect(await prisma.auditLog.count({ where: { salonId: data.salonId, entityId: first.appointment.id, action: "APPOINTMENT_BLOCK_OVERRIDE_CREATE" } })).toBe(1);
+    await expect(withSalon(data.salonId, tx => createAppointment(tx, { ...input, idempotencyKey: crypto.randomUUID(), origin: "PUBLIC", actor: { type: "CLIENT", id: data.clients[1]!.id, name: "CI" } }))).rejects.toMatchObject({ code: "PROFESSIONAL_UNAVAILABLE" });
+  });
   it("abertura extra permite reserva fora da jornada, preservando bloqueios e a data", async () => {
     const data = await fixture();
     const create = (startLocal: string) => withSalon(data.salonId, tx => createAppointment(tx, {

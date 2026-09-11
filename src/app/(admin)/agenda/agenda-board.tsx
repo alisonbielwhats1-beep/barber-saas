@@ -47,6 +47,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { unavailableScheduleIntervals, type VisualWorkingHours } from "./schedule-visibility";
 import { AgendaQuickActions } from "./agenda-quick-actions";
 import { WeeklyPausePanel } from "./weekly-pause-panel";
+import { minuteAtSlotPointer } from "./agenda-slot-pointer";
 import "./agenda-workspace.css";
 
 const DAY_START = 8 * 60;
@@ -668,22 +669,26 @@ function DayView({
   const [drag, setDrag] = useState<
     { id: string; x: number; y: number; started: boolean } | null
   >(null);
-  const selection = useRef<{ proId: string; start: number; end: number } | null>(null);
-  const [selectionView, setSelectionView] = useState<{ proId: string; start: number; end: number } | null>(null);
+  const selection = useRef<{ proId: string; start: number; end: number; step: number } | null>(null);
+  const [selectionView, setSelectionView] = useState<{ proId: string; start: number; end: number; step: number } | null>(null);
   const suppressClick = useRef(false);
-  function selectInterval(proId: string, minutes: number, finish: boolean) {
+  function pointerMinute(event: React.MouseEvent<HTMLElement> | React.PointerEvent<HTMLElement>, slotStart: number) {
+    const rect = event.currentTarget.getBoundingClientRect();
+    return minuteAtSlotPointer(slotStart, event.clientY, rect.top, rect.height, SLOT_MIN);
+  }
+  function selectInterval(proId: string, minutes: number, finish: boolean, step = SLOT_MIN) {
     if (!blockMode) return;
     const current = selection.current;
     if (!current || current.proId !== proId) {
-      selection.current = { proId, start: minutes, end: minutes };
+      selection.current = { proId, start: minutes, end: minutes, step };
       setSelectionView(selection.current);
     } else if (finish) {
       const from = Math.min(current.start, minutes);
-      const to = Math.min(1439, Math.max(current.start, minutes) + SLOT_MIN);
+      const to = Math.min(1439, Math.max(current.start, minutes) + step);
       selection.current = null; setSelectionView(null);
       onBlockSelection({ professionalId: proId, startLocal: `${date}T${minutesToHHMM(from)}`, endLocal: `${date}T${minutesToHHMM(to)}` });
     } else {
-      selection.current = { ...current, end: minutes }; setSelectionView(selection.current);
+      selection.current = { ...current, end: minutes, step }; setSelectionView(selection.current);
     }
   }
   useEffect(() => { selection.current = null; setSelectionView(null); }, [blockMode, date]);
@@ -771,17 +776,17 @@ function DayView({
                 {slots.map((m) => (
                   <button
                     key={m}
-                    onPointerDown={e => { if (blockMode && e.pointerType === "mouse" && e.button === 0) { suppressClick.current = false; selectInterval(pro.id, m, false); } }}
-                    onPointerEnter={e => { if (blockMode && e.buttons === 1 && selection.current?.proId === pro.id) { suppressClick.current = selection.current.start !== m; selectInterval(pro.id, m, false); } }}
-                    onPointerUp={() => { if (blockMode && suppressClick.current) selectInterval(pro.id, m, true); }}
+                    onPointerDown={e => { if (blockMode && e.pointerType === "mouse" && e.button === 0) { suppressClick.current = false; selectInterval(pro.id, pointerMinute(e, m), false, 5); } }}
+                    onPointerMove={e => { if (blockMode && e.pointerType === "mouse" && e.buttons === 1 && selection.current?.proId === pro.id) { const minute = pointerMinute(e, m); suppressClick.current = selection.current.start !== minute; selectInterval(pro.id, minute, false, 5); } }}
+                    onPointerUp={e => { if (blockMode && suppressClick.current) selectInterval(pro.id, pointerMinute(e, m), true, 5); }}
                     onKeyDown={e => { if (e.key === "Escape") { selection.current = null; setSelectionView(null); } }}
-                    onClick={() => { if (suppressClick.current) { suppressClick.current = false; return; } if (blockMode) selectInterval(pro.id, m, !!selection.current); else onOpenSlot(pro.id, m); }}
+                    onClick={e => { if (suppressClick.current) { suppressClick.current = false; return; } const minute = e.detail === 0 ? m : pointerMinute(e, m); if (blockMode) selectInterval(pro.id, minute, !!selection.current, e.detail === 0 ? SLOT_MIN : 5); else onOpenSlot(pro.id, m); }}
                     style={{ height: SLOT_MIN * PX_PER_MIN }}
                     className="block w-full border-b border-border/40 transition hover:bg-primary/5"
                     aria-label={`${blockMode ? "Selecionar bloqueio" : "Agendar"} ${minutesToHHMM(m)} com ${pro.name}`}
                   />
                 ))}
-                {selectionView?.proId === pro.id && <div className="pointer-events-none absolute inset-x-0 z-20 border-2 border-danger bg-danger/20" style={{ top: (Math.min(selectionView.start, selectionView.end) - dayStart) * PX_PER_MIN, height: (Math.abs(selectionView.end - selectionView.start) + SLOT_MIN) * PX_PER_MIN }} />}
+                {selectionView?.proId === pro.id && <div className="pointer-events-none absolute inset-x-0 z-20 border-2 border-danger bg-danger/20" style={{ top: (Math.min(selectionView.start, selectionView.end) - dayStart) * PX_PER_MIN, height: (Math.abs(selectionView.end - selectionView.start) + selectionView.step) * PX_PER_MIN }} />}
 
                 {unavailableScheduleIntervals(pro.workingHours ?? [], date, dayStart, dayEnd).map((interval) => {
                   const height = (interval.endMinutes - interval.startMinutes) * PX_PER_MIN;

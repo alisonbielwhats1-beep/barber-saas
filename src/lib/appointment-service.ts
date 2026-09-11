@@ -99,6 +99,9 @@ export type CreateAppointmentInput = AppointmentIdentity & {
   canOverride?: boolean;
   /** Permite à criação manual atravessar somente uma pausa entre turnos. */
   canOverrideWorkingHoursBreak?: boolean;
+  canOverrideTimeOff?: boolean;
+  timeOffOverrideReason?: string | null;
+  workingHoursBreakReason?: string | null;
   seriesId?: string | null;
   idempotencyContext?: unknown;
   /** Ativa a cota comercial para as entradas públicas e do painel. */
@@ -353,6 +356,8 @@ async function availabilityViolation(
     salon: SalonSchedulingSettings;
     excludeAppointmentId?: string;
     enforceBookingWindow: boolean;
+    skipTimeOff?: boolean;
+    skipWorkingHoursBreak?: boolean;
     now?: Date;
   },
 ): Promise<AvailabilityViolation | null> {
@@ -413,8 +418,8 @@ async function availabilityViolation(
     },
     select: { id: true },
   });
-  if (timeOff) return "PROFESSIONAL_UNAVAILABLE";
-  if (workingHoursViolation) return workingHoursViolation;
+  if (timeOff && !input.skipTimeOff) return "PROFESSIONAL_UNAVAILABLE";
+  if (workingHoursViolation && !input.skipWorkingHoursBreak) return workingHoursViolation;
 
   const buffered = bufferedWindow(
     input.startAt,
@@ -446,6 +451,8 @@ export async function inspectAppointmentAvailability(
     startLocal: string;
     excludeAppointmentId?: string;
     enforceBookingWindow: boolean;
+    skipTimeOff?: boolean;
+    skipWorkingHoursBreak?: boolean;
     now?: Date;
   },
 ): Promise<{
@@ -511,6 +518,8 @@ async function inspectAvailabilityUsingServices(
     startLocal: string;
     excludeAppointmentId?: string;
     enforceBookingWindow: boolean;
+    skipTimeOff?: boolean;
+    skipWorkingHoursBreak?: boolean;
     now?: Date;
     applyPricing?: boolean;
   },
@@ -665,6 +674,8 @@ export async function createAppointment(
     origin: input.origin,
     notes: input.notes ?? null,
     overrideReason: input.overrideReason?.trim() ?? null,
+    ...(input.timeOffOverrideReason ? { timeOffOverrideReason: input.timeOffOverrideReason.trim() } : {}),
+    ...(input.workingHoursBreakReason ? { workingHoursBreakReason: input.workingHoursBreakReason.trim() } : {}),
     actor: { type: input.actor.type, id: input.actor.id ?? null },
     context: input.idempotencyContext ?? null,
   });
@@ -705,14 +716,33 @@ export async function createAppointment(
     });
   }
 
-  const inspected = await inspectAppointmentAvailability(tx, {
+  const inspectionInput = {
     salonId: input.salonId,
     professionalId: input.professionalId,
     serviceIds,
     startLocal: input.startLocal,
     enforceBookingWindow: input.enforceBookingWindow,
     now: input.now,
-  });
+  };
+  let inspected = await inspectAppointmentAvailability(tx, inspectionInput);
+  const operationalOverrides: AvailabilityViolation[] = [];
+  const manualStaff = input.origin === "ADMIN" && input.actor.type === "STAFF";
+  if (inspected.violation === "PROFESSIONAL_UNAVAILABLE" && manualStaff && input.canOverrideTimeOff && (input.timeOffOverrideReason?.trim().length ?? 0) >= 3) {
+    operationalOverrides.push("PROFESSIONAL_UNAVAILABLE");
+    inspected = await inspectAppointmentAvailability(tx, { ...inspectionInput, skipTimeOff: true });
+  }
+  if (inspected.violation === "WORKING_HOURS_BREAK" && manualStaff && input.canOverrideWorkingHoursBreak && input.overrideConfirmed) {
+    operationalOverrides.push("WORKING_HOURS_BREAK");
+    inspected = await inspectAppointmentAvailability(tx, {
+      ...inspectionInput,
+      skipTimeOff: operationalOverrides.includes("PROFESSIONAL_UNAVAILABLE"),
+      skipWorkingHoursBreak: true,
+    });
+  }
+  // Report the conflict first so the UI can ask for a deliberate overbooking reason.
+  if (inspected.violation === "SLOT_TAKEN" && input.canOverride && !input.overrideReason?.trim()) {
+    throw new AppointmentError("SLOT_TAKEN");
+  }
   const override = requireOverrideReason({
     violation: inspected.violation,
     canOverride: input.canOverride,
@@ -720,6 +750,7 @@ export async function createAppointment(
     overrideReason: input.overrideReason,
     overrideConfirmed: input.overrideConfirmed,
   });
+  const recordedReason = override.reason ?? input.timeOffOverrideReason?.trim() ?? input.workingHoursBreakReason?.trim() ?? input.overrideReason?.trim() ?? null;
 
   let clientId = input.clientId;
   if (!clientId) {
@@ -820,26 +851,29 @@ export async function createAppointment(
     correlationId,
     idempotencyKey: `${input.idempotencyKey}:created`,
     requestFingerprint: fingerprint,
-    reason: override.reason,
+    reason: recordedReason,
     newValue: payload,
     recipients,
     template: "appointment.created",
     payload,
   });
 
-  if (override.overridden) {
+  for (const violation of [...operationalOverrides, ...(override.overridden && inspected.violation ? [inspected.violation] : [])]) {
     await writeAuditLog(tx, {
       salonId: input.salonId,
       userId: input.actor.id ?? null,
       actorName: input.actor.name,
-      action: inspected.violation === "WORKING_HOURS_BREAK"
+      action: violation === "WORKING_HOURS_BREAK"
         ? "APPOINTMENT_BREAK_OVERRIDE_CREATE"
+        : violation === "PROFESSIONAL_UNAVAILABLE" ? "APPOINTMENT_BLOCK_OVERRIDE_CREATE"
         : "APPOINTMENT_OVERRIDE_CREATE",
       entityType: "Appointment",
       entityId: appointment.id,
-      reason: override.reason,
+      reason: violation === "PROFESSIONAL_UNAVAILABLE" ? input.timeOffOverrideReason!.trim()
+        : violation === "WORKING_HOURS_BREAK" ? (input.workingHoursBreakReason?.trim() || input.overrideReason?.trim() || null)
+        : override.reason,
       metadata: {
-        violation: inspected.violation,
+        violation,
         professionalId: input.professionalId,
         startAt: inspected.startAt.toISOString(),
       },

@@ -55,6 +55,8 @@ const createInput = z.object({
   // manda) — sem conflito, este flag simplesmente não muda nada.
   overbookReason: z.string().trim().max(200).optional(),
   overrideConfirmed: z.literal(true).optional(),
+  timeOffOverrideReason: z.string().trim().min(3).max(200).optional(),
+  workingHoursBreakReason: z.string().trim().max(200).optional(),
 });
 
 function appointmentActionMessage(error: unknown): string {
@@ -148,6 +150,9 @@ export async function createAppointmentManually(
         enforcePlanLimits: true,
         canOverride: canOverbook,
         canOverrideWorkingHoursBreak,
+        canOverrideTimeOff: canOverbook,
+        timeOffOverrideReason: data.timeOffOverrideReason,
+        workingHoursBreakReason: data.workingHoursBreakReason,
         overrideReason: data.overbookReason,
         overrideConfirmed: data.overrideConfirmed,
         ...(data.clientId
@@ -176,6 +181,41 @@ export async function createAppointmentManually(
 async function actorName(tx: Tx, userId: string): Promise<string> {
   const user = await tx.user.findUnique({ where: { id: userId }, select: { name: true } });
   return user?.name ?? "Usuário";
+}
+
+/** Sugestão apenas: preço, duração e disponibilidade são recalculados ao salvar. */
+export async function getLastAppointmentServices(clientId: string): Promise<
+  { serviceIds: string[] } | { error: string }
+> {
+  const ctx = await getTenantContext();
+  assertRole(ctx, ["OWNER", "MANAGER", "RECEPTIONIST", "PROFESSIONAL"]);
+  const parsed = z.string().min(1).max(100).safeParse(clientId);
+  if (!parsed.success) return { error: "Selecione um cliente" };
+  try {
+    return await withTenant(ctx, async (tx) => {
+      const professionalId = await permittedProfessionalId(tx, ctx);
+      const last = await tx.appointment.findFirst({
+        where: {
+          salonId: ctx.salonId,
+          clientId: parsed.data,
+          ...(professionalId ? { professionalId } : {}),
+          dependentId: null,
+          startAt: { lte: new Date() },
+          status: { in: ["COMPLETED", "CONFIRMED", "IN_PROGRESS"] },
+        },
+        orderBy: [{ startAt: "desc" }, { id: "desc" }],
+        select: {
+          serviceId: true,
+          serviceItems: { orderBy: { position: "asc" }, select: { serviceId: true } },
+        },
+      });
+      return { serviceIds: last
+        ? (last.serviceItems.length ? last.serviceItems.map(item => item.serviceId) : [last.serviceId])
+        : [] };
+    });
+  } catch {
+    return { error: "Não foi possível consultar a última reserva. Tente novamente." };
+  }
 }
 
 async function permittedProfessionalId(

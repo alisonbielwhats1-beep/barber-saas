@@ -1,5 +1,11 @@
 # Expediente, pausas e agendamento — 09/09/2026
 
+Atualização de 11/09/2026, candidata em revisão: por solicitação de flexibilidade,
+dono/gerente podem confirmar criação dentro de TimeOff sem reabri-lo. O bloqueio
+permanece para o público; motivo e auditoria são obrigatórios, e sobreposição é
+confirmada separadamente. Esta atualização substitui a exigência histórica de
+reabrir bloqueios antes de qualquer criação. Detalhes em `AGENDAMENTO_MANUAL_2026-09-11.md`.
+
 Base: `9f4ee3d` / `master`. Branch: `codex/fix-scheduling-hours`.
 
 ## Confirmação posterior e pausas recorrentes
@@ -103,7 +109,7 @@ autorizada pelo responsável pelo produto.
 
 A pausa continua indisponível no agendamento público. Na agenda interna, o dono
 ou o próprio profissional pode escolher um horário dentro da pausa, revisar a
-exceção e confirmar o encaixe com motivo obrigatório. O profissional continua
+exceção e confirmar o encaixe com motivo opcional. O profissional continua
 restrito à própria agenda e aos clientes ligados aos próprios atendimentos.
 
 A exceção não autoriza horário antes/depois do expediente, folga, bloqueio,
@@ -169,6 +175,6 @@ deixa de existir antes de o horário voltar a aceitar reservas.
 
 Na pausa semanal, a detecção inicial volta a informar
 `WORKING_HOURS_BREAK` mesmo quando o papel já possui autorização. Assim a tela
-consegue solicitar o motivo e executar a confirmação auditada na segunda etapa.
+consegue oferecer o motivo opcional e executar a confirmação auditada na segunda etapa.
 Fechamento, folga, bloqueio pontual, limite da jornada e conflito com outro
 cliente continuam regras separadas. Sem migration ou alteração em Production.

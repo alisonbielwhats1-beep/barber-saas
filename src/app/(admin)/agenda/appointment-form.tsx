@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -13,7 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { AlertTriangle, Repeat } from "lucide-react";
-import { createAppointmentManually, createRecurringAppointments } from "./actions";
+import { createAppointmentManually, createRecurringAppointments, getLastAppointmentServices } from "./actions";
 import { formatMoney, formatDuration } from "@/lib/utils";
 
 export type ProOption = {
@@ -54,30 +54,84 @@ export function AppointmentDialog({
   canRepeat: boolean;
   timezone: string;
 }) {
-  const [pending, startTransition] = useTransition();
+  const [pending, setPending] = useState(false);
+  const submitting = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedProId, setSelectedProId] = useState(professionalId);
+  const [date, setDate] = useState(slotStartLocal.slice(0, 10));
+  const [time, setTime] = useState(slotStartLocal.slice(11, 16));
+  const [clientId, setClientId] = useState("");
+  const [selectedServices, setSelectedServices] = useState<string[]>([]);
+  const [loadingLast, setLoadingLast] = useState(false);
+  const [lastMessage, setLastMessage] = useState<string | null>(null);
+  const lastRequest = useRef(0);
   const [mode, setMode] = useState<"existing" | "new">("existing");
   const [repeat, setRepeat] = useState(false);
   const [frequency, setFrequency] = useState<"WEEKLY" | "BIWEEKLY">("WEEKLY");
   const [occurrences, setOccurrences] = useState(4);
   const [overrideConflict, setOverrideConflict] = useState<
-    "SLOT_TAKEN" | "WORKING_HOURS_BREAK" | null
+    "SLOT_TAKEN" | "WORKING_HOURS_BREAK" | "PROFESSIONAL_UNAVAILABLE" | null
   >(null);
   const [overrideReason, setOverrideReason] = useState("");
   const [seriesResult, setSeriesResult] = useState<{ created: number; skipped: number } | null>(null);
   const [lastFormData, setLastFormData] = useState<FormData | null>(null);
   const idempotencyKeyRef = useRef<string | null>(null);
+  const confirmedExceptions = useRef<{ break?: boolean; breakReason?: string; blockReason?: string; overbookReason?: string }>({});
 
   const proNow = professionals.find((p) => p.id === selectedProId);
   const availableServices = services.filter((s) =>
     proNow?.serviceIds.includes(s.id),
   );
 
+  function resetAttempt() {
+    idempotencyKeyRef.current = null;
+    confirmedExceptions.current = {};
+    setOverrideConflict(null);
+    setError(null);
+  }
+
+  function runMutation(action: () => Promise<void>) {
+    if (submitting.current) return;
+    submitting.current = true;
+    lastRequest.current++;
+    setLoadingLast(false);
+    setPending(true);
+    void action().catch(() => {
+      setError("Não foi possível confirmar. Confira sua conexão e tente novamente; suas escolhas foram mantidas.");
+    }).finally(() => {
+      submitting.current = false;
+      setPending(false);
+    });
+  }
+
+  async function useLastServices() {
+    const request = ++lastRequest.current;
+    setLoadingLast(true);
+    setLastMessage(null);
+    try {
+      const result = await getLastAppointmentServices(clientId);
+      if (request !== lastRequest.current) return;
+      if ("error" in result) { setLastMessage(result.error); return; }
+      if (!result.serviceIds.length) {
+        setLastMessage("Nenhuma reserva anterior encontrada. Escolha os serviços abaixo.");
+        return;
+      }
+      if (result.serviceIds.some(id => !availableServices.some(service => service.id === id))) {
+        setLastMessage("A última reserva contém serviços indisponíveis para este profissional. Escolha os serviços abaixo.");
+        return;
+      }
+      setSelectedServices(result.serviceIds);
+      resetAttempt();
+      setLastMessage("Serviços da última reserva selecionados. Confira os valores atuais e escolha a data e a hora.");
+    } catch {
+      if (request === lastRequest.current) setLastMessage("Não foi possível consultar a última reserva. Tente novamente.");
+    } finally {
+      if (request === lastRequest.current) setLoadingLast(false);
+    }
+  }
+
   function buildPayload(
     form: FormData,
-    overbookReasonValue?: string,
-    overrideConfirmed = false,
   ) {
     const idempotencyKey = idempotencyKeyRef.current ?? crypto.randomUUID();
     idempotencyKeyRef.current = idempotencyKey;
@@ -88,7 +142,7 @@ export function AppointmentDialog({
             professionalId: selectedProId,
             serviceIds,
             clientId: String(form.get("clientId")),
-            startLocal: slotStartLocal,
+            startLocal: `${String(form.get("date"))}T${String(form.get("time"))}`,
             idempotencyKey,
             notes: (form.get("notes") as string) || null,
           }
@@ -97,14 +151,16 @@ export function AppointmentDialog({
             serviceIds,
             clientName: String(form.get("clientName")),
             clientPhone: (form.get("clientPhone") as string) || null,
-            startLocal: slotStartLocal,
+            startLocal: `${String(form.get("date"))}T${String(form.get("time"))}`,
             idempotencyKey,
             notes: (form.get("notes") as string) || null,
           };
     return {
       ...base,
-      ...(overbookReasonValue ? { overbookReason: overbookReasonValue } : {}),
-      ...(overrideConfirmed ? { overrideConfirmed: true as const } : {}),
+      ...(confirmedExceptions.current.overbookReason ? { overbookReason: confirmedExceptions.current.overbookReason } : {}),
+      ...(confirmedExceptions.current.blockReason ? { timeOffOverrideReason: confirmedExceptions.current.blockReason } : {}),
+      ...(confirmedExceptions.current.break ? { overrideConfirmed: true as const } : {}),
+      ...(confirmedExceptions.current.breakReason ? { workingHoursBreakReason: confirmedExceptions.current.breakReason } : {}),
     };
   }
 
@@ -121,7 +177,7 @@ export function AppointmentDialog({
 
     if (repeat) {
       const payload = buildPayload(form);
-      startTransition(async () => {
+      runMutation(async () => {
         const result = await createRecurringAppointments({
           ...payload,
           frequency,
@@ -137,11 +193,12 @@ export function AppointmentDialog({
     }
 
     const payload = buildPayload(form);
-    startTransition(async () => {
+    runMutation(async () => {
       const result = await createAppointmentManually(payload);
       if ("error" in result) {
         if (
           (result.code === "SLOT_TAKEN" && canOverbook) ||
+          (result.code === "PROFESSIONAL_UNAVAILABLE" && canOverbook) ||
           (result.code === "WORKING_HOURS_BREAK" && canOverrideBreak)
         ) {
           setOverrideConflict(result.code);
@@ -157,20 +214,28 @@ export function AppointmentDialog({
   function onOverrideConfirm() {
     if (!lastFormData) return;
     const reason = overrideReason.trim();
-    if (overrideConflict === "SLOT_TAKEN" && reason.length < 3) return;
+    if (overrideConflict !== "WORKING_HOURS_BREAK" && reason.length < 3) return;
     setError(null);
-    const payload = buildPayload(lastFormData, reason || undefined, true);
-    startTransition(async () => {
+    if (overrideConflict === "WORKING_HOURS_BREAK") { confirmedExceptions.current.break = true; confirmedExceptions.current.breakReason = reason || undefined; }
+    if (overrideConflict === "PROFESSIONAL_UNAVAILABLE") confirmedExceptions.current.blockReason = reason;
+    if (overrideConflict === "SLOT_TAKEN") confirmedExceptions.current.overbookReason = reason;
+    const payload = buildPayload(lastFormData);
+    runMutation(async () => {
       const result = await createAppointmentManually(payload);
       if ("error" in result) {
-        setError(result.error);
+        if ((result.code === "SLOT_TAKEN" && canOverbook) ||
+          (result.code === "PROFESSIONAL_UNAVAILABLE" && canOverbook) ||
+          (result.code === "WORKING_HOURS_BREAK" && canOverrideBreak)) {
+          setOverrideConflict(result.code);
+          setOverrideReason("");
+        } else setError(result.error);
       } else {
         onOpenChange(false);
       }
     });
   }
 
-  const startLabel = `${slotStartLocal.slice(8, 10)}/${slotStartLocal.slice(5, 7)}/${slotStartLocal.slice(0, 4)} às ${slotStartLocal.slice(11)} (${timezone})`;
+  const startLabel = `${date.slice(8, 10)}/${date.slice(5, 7)}/${date.slice(0, 4)} às ${time}`;
 
   if (seriesResult) {
     return (
@@ -198,29 +263,111 @@ export function AppointmentDialog({
       <DialogContent className="max-h-[85dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Novo agendamento</DialogTitle>
-          <DialogDescription>Início: {startLabel}</DialogDescription>
+          <DialogDescription>Escolha cliente, serviços, data e hora do atendimento.</DialogDescription>
         </DialogHeader>
 
         <form
           onSubmit={onSubmit}
-          onChange={() => {
-            idempotencyKeyRef.current = null;
-            setOverrideConflict(null);
-          }}
+          onChange={resetAttempt}
           className="grid gap-4"
         >
+          <fieldset disabled={pending} className="grid min-w-0 gap-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="min-w-0">
+              <label htmlFor="appointment-date" className="mb-1 block text-sm font-medium">Data</label>
+              <Input id="appointment-date" name="date" type="date" required value={date}
+                onChange={e => setDate(e.target.value)} className="min-w-0" />
+            </div>
+            <div className="min-w-0">
+              <label htmlFor="appointment-time" className="mb-1 block text-sm font-medium">Hora de início</label>
+              <Input id="appointment-time" name="time" type="time" step={60} required value={time}
+                onChange={e => setTime(e.target.value)} aria-describedby="appointment-time-help" />
+            </div>
+          </div>
+          <p id="appointment-time-help" className="-mt-2 text-xs text-muted-foreground">
+            Você pode informar qualquer minuto, como 09:15 ou 11:50. Horário do estabelecimento ({timezone}).
+          </p>
           <div>
-            <label className="mb-1 block text-sm font-medium">Profissional</label>
+            <label htmlFor="appointment-professional" className="mb-1 block text-sm font-medium">Profissional</label>
             <select
+              id="appointment-professional"
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
               value={selectedProId}
-              onChange={(e) => setSelectedProId(e.target.value)}
+              onChange={(e) => {
+                setSelectedProId(e.target.value);
+                setSelectedServices([]);
+                lastRequest.current++;
+                setLoadingLast(false);
+                setLastMessage(null);
+              }}
             >
               {professionals.map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>
           </div>
+
+          <div className="flex items-center gap-2 text-sm">
+            <button
+              type="button"
+              onClick={() => { setMode("existing"); resetAttempt(); }}
+              className={`rounded-md px-3 py-1 ${mode === "existing" ? "bg-primary text-primary-foreground" : "bg-muted"}`}
+            >
+              Cliente existente
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMode("new"); resetAttempt(); lastRequest.current++;
+                setLoadingLast(false); setLastMessage(null);
+              }}
+              className={`rounded-md px-3 py-1 ${mode === "new" ? "bg-primary text-primary-foreground" : "bg-muted"}`}
+            >
+              Novo cliente
+            </button>
+          </div>
+
+          {mode === "existing" ? (
+            <div>
+              <label htmlFor="appointment-client" className="mb-1 block text-sm font-medium">Cliente</label>
+              <select
+                id="appointment-client"
+                name="clientId"
+                value={clientId}
+                onChange={e => {
+                  setClientId(e.target.value);
+                  lastRequest.current++;
+                  setLoadingLast(false);
+                  setLastMessage(null);
+                }}
+                required
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="">Selecione…</option>
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}{c.phone ? ` — ${c.phone}` : ""}
+                  </option>
+                ))}
+              </select>
+              {clientId && <Button type="button" variant="outline" className="mt-2 w-full"
+                disabled={loadingLast} onClick={useLastServices}>
+                {loadingLast ? "Consultando…" : "Usar serviços da última reserva"}
+              </Button>}
+              {lastMessage && <p role="status" className="mt-2 text-sm text-muted-foreground">{lastMessage}</p>}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label htmlFor="appointment-client-name" className="mb-1 block text-sm font-medium">Nome</label>
+                <Input id="appointment-client-name" name="clientName" required />
+              </div>
+              <div>
+                <label htmlFor="appointment-client-phone" className="mb-1 block text-sm font-medium">WhatsApp</label>
+                <Input id="appointment-client-phone" name="clientPhone" placeholder="(11) 91234-5678" />
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="mb-1 block text-sm font-medium">Serviços</label>
@@ -234,6 +381,14 @@ export function AppointmentDialog({
                     type="checkbox"
                     name="serviceIds"
                     value={service.id}
+                    checked={selectedServices.includes(service.id)}
+                    onChange={e => {
+                      lastRequest.current++;
+                      setLoadingLast(false);
+                      setLastMessage(null);
+                      setSelectedServices(current => e.target.checked
+                        ? [...current, service.id] : current.filter(id => id !== service.id));
+                    }}
                     className="h-4 w-4"
                   />
                   <span className="min-w-0 flex-1 text-sm">{service.name}</span>
@@ -250,55 +405,9 @@ export function AppointmentDialog({
             )}
           </div>
 
-          <div className="flex items-center gap-2 text-sm">
-            <button
-              type="button"
-              onClick={() => setMode("existing")}
-              className={`rounded-md px-3 py-1 ${mode === "existing" ? "bg-primary text-primary-foreground" : "bg-muted"}`}
-            >
-              Cliente existente
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("new")}
-              className={`rounded-md px-3 py-1 ${mode === "new" ? "bg-primary text-primary-foreground" : "bg-muted"}`}
-            >
-              Novo cliente
-            </button>
-          </div>
-
-          {mode === "existing" ? (
-            <div>
-              <label className="mb-1 block text-sm font-medium">Cliente</label>
-              <select
-                name="clientId"
-                required
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-              >
-                <option value="">Selecione…</option>
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}{c.phone ? ` — ${c.phone}` : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div>
-                <label className="mb-1 block text-sm font-medium">Nome</label>
-                <Input name="clientName" required />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium">WhatsApp</label>
-                <Input name="clientPhone" placeholder="(11) 91234-5678" />
-              </div>
-            </div>
-          )}
-
           <div>
-            <label className="mb-1 block text-sm font-medium">Observações</label>
-            <Input name="notes" placeholder="Ex.: cliente pediu franja curta" />
+            <label htmlFor="appointment-notes" className="mb-1 block text-sm font-medium">Observações</label>
+            <Input id="appointment-notes" name="notes" placeholder="Ex.: cliente pediu franja curta" />
           </div>
 
           {canRepeat && <div className="rounded-md border border-border p-3">
@@ -315,10 +424,11 @@ export function AppointmentDialog({
             {repeat && (
               <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                  <label htmlFor="appointment-frequency" className="mb-1 block text-xs font-medium text-muted-foreground">
                     Frequência
                   </label>
                   <select
+                    id="appointment-frequency"
                     value={frequency}
                     onChange={(e) => setFrequency(e.target.value as "WEEKLY" | "BIWEEKLY")}
                     className="flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
@@ -328,10 +438,11 @@ export function AppointmentDialog({
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                  <label htmlFor="appointment-occurrences" className="mb-1 block text-xs font-medium text-muted-foreground">
                     Nº de ocorrências
                   </label>
                   <Input
+                    id="appointment-occurrences"
                     type="number"
                     min={2}
                     max={24}
@@ -354,11 +465,13 @@ export function AppointmentDialog({
                 <AlertTriangle className="h-4 w-4" />
                 {overrideConflict === "WORKING_HOURS_BREAK"
                   ? "Pausa do profissional"
+                  : overrideConflict === "PROFESSIONAL_UNAVAILABLE" ? "Horário bloqueado"
                   : "Horário já ocupado"}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 {overrideConflict === "WORKING_HOURS_BREAK"
                   ? "Você pode criar este encaixe manual durante a pausa. Confirme abaixo; o motivo é opcional."
+                  : overrideConflict === "PROFESSIONAL_UNAVAILABLE" ? "Você pode agendar neste bloqueio. O bloqueio será mantido para os clientes e a exceção ficará registrada. Informe o motivo."
                   : "Você pode encaixar mesmo assim (overbooking). A ação fica registrada na trilha de auditoria — informe o motivo."}
               </p>
               <label htmlFor="appointment-override-reason" className="mt-2 block text-xs font-medium">
@@ -381,13 +494,14 @@ export function AppointmentDialog({
                 variant="outline"
                 size="sm"
                 disabled={pending || (
-                  overrideConflict === "SLOT_TAKEN" && overrideReason.trim().length < 3
+                  overrideConflict !== "WORKING_HOURS_BREAK" && overrideReason.trim().length < 3
                 )}
                 onClick={onOverrideConfirm}
                 className="mt-2 border-danger/40 text-danger hover:bg-danger/10"
               >
                 {overrideConflict === "WORKING_HOURS_BREAK"
                   ? "Agendar durante a pausa"
+                  : overrideConflict === "PROFESSIONAL_UNAVAILABLE" ? "Agendar mantendo o bloqueio"
                   : "Encaixar mesmo assim"}
               </Button>
             </div>
@@ -407,6 +521,8 @@ export function AppointmentDialog({
               {pending ? "Agendando…" : repeat ? "Criar série" : "Confirmar"}
             </Button>
           </DialogFooter>
+          <p className="text-xs text-muted-foreground">Início: {startLabel}. Disponibilidade e valores são conferidos ao confirmar.</p>
+          </fieldset>
         </form>
       </DialogContent>
     </Dialog>
