@@ -16,6 +16,7 @@ describe("Chefe — contrato real do SDK com transporte fictício",()=>{
   const requestBody=JSON.parse(String(call[1].body));
   expect(requestBody.model).toBe("gpt-5.6-luna");expect(requestBody.store).toBe(false);
   expect(requestBody.max_output_tokens).toBe(1200);
+  expect(requestBody.service_tier).toBe("default");
   expect(requestBody.tools??[]).toEqual([]);
   expect(String(call[0])).toBe("https://api.openai.com/v1/responses");
  });
@@ -32,4 +33,3 @@ describe("Chefe — contrato real do SDK com transporte fictício",()=>{
   expect(estimateChiefMicros(100,20)).toBe(49);
  });
 });
-

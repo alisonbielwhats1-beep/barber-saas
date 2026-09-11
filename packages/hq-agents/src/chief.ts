@@ -28,7 +28,7 @@ export async function completeChief(input: { question: string; snapshot: string;
   const provider = new OpenAIProvider({ openAIClient: client, useResponses: true });
   const agent = new Agent({
     name: "Agente Chefe", instructions: chiefInstructions, model: CHIEF_MODEL,
-    modelSettings: { maxTokens: 1200, store: false, reasoning: { effort: "none" } },
+    modelSettings: { maxTokens: 1200, store: false, reasoning: { effort: "none" }, providerData: { service_tier: "default" } },
   });
   const runner = new Runner({ modelProvider: provider, tracingDisabled: true });
   const result = await runner.run(agent, message, { maxTurns: 1, signal: AbortSignal.timeout(45000) });
@@ -41,4 +41,3 @@ export function estimateChiefMicros(inputTokens: number, outputTokens: number) {
   // Micros de USD; entrada inclui margem conservadora de cache write, sem descontos.
   return Math.ceil(inputTokens * 0.25 + outputTokens * 1.2);
 }
-
