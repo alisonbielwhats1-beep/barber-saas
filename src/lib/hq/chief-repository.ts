@@ -15,16 +15,16 @@ export async function committed(tx: Tx) {
  return row.amount;
 }
 export async function chiefHistory(tx: Tx, cursor?: string) {
- const rows = await tx.$queryRaw<{data:ChiefRun}[]>(Prisma.sql`SELECT to_jsonb(t) AS data FROM (SELECT ${projection} FROM hq_agent_runs WHERE true ${cursor ? Prisma.sql`AND ("createdAt",id)<(SELECT "createdAt",id FROM hq_agent_runs WHERE id=${cursor}::uuid)` : Prisma.empty} ORDER BY "createdAt" DESC,id DESC LIMIT 31) t`);
+ const rows = await tx.$queryRaw<{data:ChiefRun}[]>(Prisma.sql`SELECT to_jsonb(t) AS data FROM (SELECT ${projection} FROM hq_agent_runs WHERE COALESCE(snapshot->>'kind','chief')='chief' ${cursor ? Prisma.sql`AND ("createdAt",id)<(SELECT "createdAt",id FROM hq_agent_runs WHERE id=${cursor}::uuid)` : Prisma.empty} ORDER BY "createdAt" DESC,id DESC LIMIT 31) t`);
  return {runs:rows.slice(0,30).map(r=>r.data),nextCursor:rows.length>30?rows[29].data.id:null};
 }
-export async function reserveChief(tx: Tx, input: { id:string; actorId:string; question:string; snapshot:unknown; sources:ChiefSource[]; budgetMicros:number }) {
+export async function reserveChief(tx: Tx, input: { id:string; actorId:string; question:string; snapshot:unknown; sources:ChiefSource[]; budgetMicros:number; contextKey?:string; promptVersion?:string }) {
  // Global, incluindo todas as instâncias serverless e administradores.
  await tx.$executeRaw`SELECT pg_advisory_xact_lock(872223,1)`;
  await tx.$executeRaw`UPDATE hq_agent_runs SET status='failed',"errorCode"='interrupted',"finishedAt"=CURRENT_TIMESTAMP WHERE status='running' AND "createdAt"<CURRENT_TIMESTAMP-interval '90 seconds'`;
- const existing = await tx.$queryRaw<{data:ChiefRun}[]>(Prisma.sql`SELECT to_jsonb(t) AS data FROM (SELECT ${projection} FROM hq_agent_runs WHERE id=${input.id}::uuid) t`);
+ const existing = await tx.$queryRaw<{data:ChiefRun;contextKey:string}[]>(Prisma.sql`SELECT to_jsonb(t)-'snapshot' AS data,COALESCE(snapshot->>'requestContext','chief') AS "contextKey" FROM (SELECT ${projection},snapshot FROM hq_agent_runs WHERE id=${input.id}::uuid) t`);
  if (existing[0]) {
-  if (existing[0].data.actorId!==input.actorId || existing[0].data.question!==input.question) throw new HqError("Identificador já utilizado em outra solicitação.");
+  if (existing[0].data.actorId!==input.actorId || existing[0].data.question!==input.question || existing[0].contextKey!==(input.contextKey??"chief")) throw new HqError("Identificador já utilizado em outra solicitação.");
   return {created:false,run:existing[0].data};
  }
  const [limits] = await tx.$queryRaw<{daily:number;active:number}[]>`SELECT (SELECT count(*)::int FROM hq_agent_runs WHERE "createdAt">=date_trunc('day',CURRENT_TIMESTAMP AT TIME ZONE 'UTC') AT TIME ZONE 'UTC') AS daily,(SELECT count(*)::int FROM hq_agent_runs WHERE status='running') AS active`;
@@ -33,7 +33,7 @@ export async function reserveChief(tx: Tx, input: { id:string; actorId:string; q
  if (await committed(tx)+CHIEF_RESERVATION_MICROS>input.budgetMicros) throw new HqError("O orçamento mensal não comporta uma nova consulta.");
  const rows = await tx.$queryRaw<{data:ChiefRun}[]>(Prisma.sql`WITH inserted AS (
  INSERT INTO hq_agent_runs (id,"actorId",question,snapshot,sources,status,model,"promptVersion","chargeMicros") VALUES
- (${input.id}::uuid,${input.actorId},${input.question},${JSON.stringify(input.snapshot)}::jsonb,${JSON.stringify(input.sources)}::jsonb,'running',${CHIEF_MODEL},${CHIEF_VERSION},${CHIEF_RESERVATION_MICROS}) RETURNING ${projection}) SELECT to_jsonb(t) AS data FROM inserted t`);
+ (${input.id}::uuid,${input.actorId},${input.question},${JSON.stringify(input.snapshot)}::jsonb,${JSON.stringify(input.sources)}::jsonb,'running',${CHIEF_MODEL},${input.promptVersion??CHIEF_VERSION},${CHIEF_RESERVATION_MICROS}) RETURNING ${projection}) SELECT to_jsonb(t) AS data FROM inserted t`);
  return {created:true,run:rows[0].data};
 }
 export async function finishChief(tx: Tx,id:string,actorId:string,result: {answer:string;inputTokens:number;outputTokens:number;chargeMicros:number}|null) {

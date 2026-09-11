@@ -36,7 +36,7 @@ export function AgentLab() {
   }
 
   return <>
-    <header className="hq-heading"><div><span className="hq-agent-eyebrow">EVERFLARE HQ · FASE 1</span><h1>Agentes</h1><p>Estruture sua equipe e valide os fluxos antes da ativação.</p></div><span className="hq-agent-pill">Laboratório disponível</span></header>
+    <header className="hq-heading"><div><span className="hq-agent-eyebrow">EVERFLARE HQ · LABORATÓRIO</span><h1>Agentes</h1><p>Use os pilotos acima para operar. Os cenários abaixo são demonstrações com dados fictícios.</p></div><span className="hq-agent-pill">Laboratório disponível</span></header>
     <section className="hq-panel hq-agent-notice" aria-label="Modo de operação">
       <strong>Simulação local · sem consumo de IA</strong>
       <p>Os cenários usam respostas programadas e contas fictícias. Validam o SDK e suas permissões; não medem a qualidade do Luna. Nenhum dado de cliente é consultado ou alterado e nenhuma mensagem é enviada.</p>
@@ -93,8 +93,8 @@ export function AgentLab() {
       </tbody></table></div> : <p>Nenhuma execução nesta sessão.</p>}
     </section>
     <section className="hq-panel"><h2>Caminho para ativação</h2><ol className="hq-agent-roadmap">
-      <li><strong>Agora · Fundação e permissões</strong><span>SDK, cenários fictícios e validação técnica.</span></li>
-      <li><strong>Depois · Dados e piloto com Luna</strong><span>Vínculo com os salões, sinais mínimos de uso, histórico persistente, base revisada e orçamento.</span></li>
+      <li><strong>Fundação · SDK e permissões</strong><span>Cenários fictícios para verificar limites e encaminhamentos.</span></li>
+      <li><strong>Pilotos · Chefe e Suporte</strong><span>Consulta do HQ, base de conhecimento, rascunhos revisados e orçamento compartilhado. Disponibilidade indicada em cada piloto.</span></li>
       <li><strong>Em seguida · WhatsApp</strong><span>Texto, prints e áudio; caixa de entrada com opção de assumir a conversa.</span></li>
       <li><strong>Por último · Autonomia gradual</strong><span>Qualidade medida, ações autorizadas e controle de custos.</span></li>
     </ol></section>

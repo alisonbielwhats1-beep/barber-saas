@@ -81,6 +81,12 @@
 .hq-mobile-nav {display:none}
 .hq-agent-eyebrow {font-size:11px;letter-spacing:.08em;color:var(--hq-muted)}
 .hq-chief {margin-bottom:32px}
+.hq-knowledge {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:18px;margin-top:24px}
+.hq-knowledge article {scroll-margin-top:24px;overflow-wrap:anywhere}
+.hq-support-draft {border-top:1px solid var(--hq-line);padding-top:20px;margin-top:24px;overflow-wrap:anywhere}
+.hq-support-draft form {display:grid;gap:14px;margin-block:12px}
+.hq-support-fields {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));gap:16px}
+.hq-support-draft input,.hq-support-draft select,.hq-chief>label select {display:block;width:100%;margin-top:6px;min-width:0}
 .hq-chief textarea {display:block;width:100%;margin:8px 0;resize:vertical}
 .hq-chief-history {list-style:none;padding:0;display:grid;gap:18px}
 .hq-chief-history>li {border-top:1px solid var(--hq-line);padding-top:18px;overflow-wrap:anywhere}

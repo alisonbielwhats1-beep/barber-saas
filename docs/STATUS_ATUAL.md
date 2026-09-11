@@ -1,5 +1,27 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-11 — Suporte assistido em preparação
+
+Branch codex/hq-support-pilot: base técnica versionada e fluxo de rascunho por
+cliente, com revisão manual para resposta, ticket ou associação a bug/feature.
+Reutiliza hq_agent_runs, timeline e orçamento do Chefe; sem nova migration.
+Escopo e validação em HQ_SUPORTE_PILOTO.md. HQ_SUPPORT_ENABLED ausente/false
+em Production até publicação autorizada; nenhum WhatsApp ou envio implementado.
+
+## 2026-09-11 — piloto do Agente Chefe publicado e ativado
+
+O responsável salvou a chave na Vercel, adquiriu créditos e autorizou prosseguir.
+PR #94 integrado em d2e9647aebed57543af70dc16ad265089391ab34; Production
+dpl_4GPX5ebXCvT6YHmCiFQLydRCSLHg READY. HQ_CHIEF_ENABLED=true e orçamento
+HQ_CHIEF_MONTHLY_USD=2, somente Production. Chave permanece Secret na Vercel.
+Migration 022 aplicada uma vez no projeto vshnatkzxdekkvqttvbv, versão
+20260911044105, após preflight e recuperação criptografada do escopo aditivo.
+RLS ENABLE/FORCE, políticas e grants verificados; CRM preservado por checksum.
+Primeira consulta operacional concluída e persistida: 542 tokens de entrada,
+207 de saída, estimativa de US$ 0,000384. Nenhuma mensagem WhatsApp enviada.
+Evidências e limites em HQ_CHEFE_RELEASE_2026-09-11.md. Este registro substitui
+o estado de implementação abaixo; laboratório continua fictício e separado.
+
 ## 2026-09-11 — Agente Chefe: piloto de leitura em implementação
 
 Pedido posterior autoriza conectar dados do HQ, modelo e histórico com limite
