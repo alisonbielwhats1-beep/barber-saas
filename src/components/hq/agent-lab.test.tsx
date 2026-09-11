@@ -10,7 +10,7 @@ it("mantém controles bloqueados durante resposta assíncrona e permite tentar a
   let finish!: (value: { ok: false; error: string }) => void;
   simulate.mockReturnValue(new Promise(resolve => { finish = resolve; }));
   render(<AgentLab />);
-  const button = screen.getByRole("button", { name: "Executar cenário", exact: true });
+  const button = screen.getByRole("button", { name: "Executar cenário" });
   fireEvent.click(button);
   expect(screen.getByRole("button", { name: "Executando…" })).toBeDisabled();
   expect(screen.getByLabelText("Cenário de validação")).toBeDisabled();
@@ -18,7 +18,7 @@ it("mantém controles bloqueados durante resposta assíncrona e permite tentar a
   expect(simulate).toHaveBeenCalledTimes(1);
   await act(async () => finish({ ok: false, error: "Falha demonstrativa" }));
   expect(screen.getByRole("alert")).toHaveTextContent("Falha demonstrativa");
-  expect(screen.getByRole("button", { name: "Executar cenário", exact: true })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Executar cenário" })).toBeEnabled();
 });
 
 it("explica a simulação e não oferece entrada livre nem envio de mídia", () => {
