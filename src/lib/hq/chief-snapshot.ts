@@ -24,11 +24,10 @@ export async function chiefSnapshot(tx: Tx) {
  const tickets = await tx.$queryRaw<{data:Record<string,unknown>}[]>`
  SELECT to_jsonb(t) AS data FROM (SELECT t.id,left(a.business,100) AS business,t.category,t.priority,t.status,t."createdAt",count(*) OVER()::int AS total FROM hq_support_tickets t JOIN hq_customers c ON c.id=t."customerId" JOIN hq_accounts a ON a.id=c."accountId" WHERE t.status NOT IN ('Resolvido','Fechado') ORDER BY CASE t.priority WHEN 'Crítica' THEN 0 WHEN 'Alta' THEN 1 ELSE 2 END,t."createdAt",t.id LIMIT 10) t`;
  const [coverage] = await tx.$queryRaw<{subscriptions:number;payments:number}[]>`SELECT (SELECT count(*)::int FROM hq_subscriptions) AS subscriptions,(SELECT count(*)::int FROM hq_payments) AS payments`;
- const list = (rows: {data:Record<string,unknown>}[]) => ({total:Number(rows[0]?.data.total??0),items:rows.map(({data})=>{const {total: _total,...item}=data;return item;}),limited:Number(rows[0]?.data.total??0)>10});
+ const list = (rows: {data:Record<string,unknown>}[]) => ({total:Number(rows[0]?.data.total??0),items:rows.map(({data})=>Object.fromEntries(Object.entries(data).filter(([key])=>key!=="total"))),limited:Number(rows[0]?.data.total??0)>10});
  return {
   generatedAt: new Date().toISOString(), timezone:"America/Sao_Paulo", currency:"BRL",
   caveats:["Somente cadastros do HQ; sem telemetria de uso do produto.","Listas de até 10 registros. Não são listas completas se limited=true.","Financeiro reflete somente assinaturas e pagamentos registrados; valores em centavos."],
   metrics, attention:list(attention), overdueFollowups:list(followups), openTickets:list(tickets), financialCoverage:coverage,
  };
 }
-
