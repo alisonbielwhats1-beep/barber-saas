@@ -12,7 +12,7 @@ vi.mock("@/lib/prisma-tenant", () => ({ withTenant: async (_ctx: unknown, callba
 vi.mock("@/lib/inventory-lock", () => ({ lockOperationalResources: mocks.lock }));
 vi.mock("@/lib/audit", () => ({ writeAuditLog: mocks.audit }));
 vi.mock("@/lib/appointment-service", () => ({ updateAppointmentStatusReliably: mocks.update }));
-import { blockAvailability, cancelSelectedAppointments, previewAvailabilityBlock } from "./availability-actions";
+import { blockAvailability, cancelSelectedAppointments, previewAvailabilityBlock, removeAvailabilityBlock } from "./availability-actions";
 
 const input = { id: "550e8400-e29b-41d4-a716-446655440000", professionalIds: ["pro-a"], startLocal: "2026-09-07T12:00", endLocal: "2026-09-07T13:00", reason: "Almoço" };
 beforeEach(() => {
@@ -51,6 +51,18 @@ describe("availability operations", () => {
     mocks.ctx.role = "RECEPTIONIST";
     await expect(blockAvailability(input)).rejects.toThrow("Forbidden");
     expect(mocks.tx.timeOff.create).not.toHaveBeenCalled();
+  });
+  it("rejects reopening by reception before reading or mutating a block", async () => {
+    mocks.ctx.role = "RECEPTIONIST";
+    await expect(removeAvailabilityBlock("block-a")).rejects.toThrow("Forbidden");
+    expect(mocks.tx.timeOff.findFirst).not.toHaveBeenCalled();
+    expect(mocks.tx.timeOff.deleteMany).not.toHaveBeenCalled();
+  });
+  it("does not reopen a block outside the active tenant", async () => {
+    mocks.tx.timeOff.findFirst.mockResolvedValue(null);
+    await expect(removeAvailabilityBlock("block-other-tenant")).resolves.toBeUndefined();
+    expect(mocks.tx.timeOff.deleteMany).not.toHaveBeenCalled();
+    expect(mocks.audit).not.toHaveBeenCalled();
   });
   it("rejects professionals from another tenant", async () => {
     mocks.tx.professional.findMany.mockResolvedValue([]);

@@ -108,8 +108,9 @@ restrito à própria agenda e aos clientes ligados aos próprios atendimentos.
 
 A exceção não autoriza horário antes/depois do expediente, folga, bloqueio,
 fechamento do salão nem conflito com outro cliente. Overbooking permanece uma
-permissão separada de dono/gerente. Toda criação durante pausa registra o motivo
-no evento imutável do agendamento e em `AuditLog`, sem migration de banco.
+permissão separada de dono/gerente. Toda criação durante pausa exige confirmação
+explícita e registra a exceção no evento imutável do agendamento e em `AuditLog`;
+o motivo é opcional para reduzir atrito operacional, sem migration de banco.
 
 ## Ações rápidas na agenda móvel
 
@@ -124,3 +125,50 @@ exige escolha de profissionais, revisão e confirmação. Os itens respeitam os
 papéis atuais: dono/gerente gerenciam disponibilidade; profissional e recepção
 veem somente a criação de agendamento permitida. Nenhuma regra de servidor,
 migration ou dado produtivo é alterado por esse atalho.
+
+## Agenda em primeiro plano — revisão de distribuição
+
+A pedido do responsável, a agenda deixa de funcionar como um painel de
+indicadores: remove os quatro cards e as legendas inferiores. Profissionais
+continuam identificados por nome/cor no cabeçalho e cada atendimento mantém seu
+status escrito. Data, navegação e visualizações ocupam uma barra compacta;
+busca/filtros abrem em diálogo, com indicação de filtro ativo no botão.
+Após conferir a nova referência em vídeo, o mobile mantém data, seletor de
+visualização e filtros na mesma linha, sem empilhamento. O “+” foi reduzido a
+44px, com sombra discreta e área de toque preservada; em 390×844 a grade começa
+em y=121 e ocupa 659px de altura na captura sintética.
+
+A grade diária/semanal preenche a altura restante do viewport, com rolagem
+própria e cabeçalhos de 64px. Colunas diárias a partir de 148px permitem dois
+profissionais em celulares comuns; equipes maiores mantêm rolagem horizontal.
+O calendário lateral começa recolhido no desktop. Mês e lista continuam
+disponíveis. O botão “+” permanece acima da navegação inferior e reúne pausa
+recorrente, bloqueio, folga, seleção de intervalo (visão diária) e gestão de
+expediente/fila. Formulários mantêm revisão, confirmação e permissões anteriores.
+
+A navegação por teclado devolve o foco aos controles que abriram os diálogos.
+Testes de navegador verificam altura da grade, posição do “+”, ausência de
+overflow da página e fluxos operacionais com banco descartável. Capturas locais
+em 320×568, 390×844 e 1440×844 usam somente dados fictícios. Sem migration ou
+teste de escrita em Production.
+
+## Gestão direta de bloqueios — revisão de 10/09/2026
+
+O bloqueio passa a capturar o toque na própria grade, sem abrir por engano o
+formulário de um horário livre. Dono e gerente podem abrir seus detalhes nas
+visões diária, semanal e em lista, conferir profissional, período e motivo e
+escolher “Reabrir horário”. A reabertura exige uma segunda confirmação, mantém
+a trilha `AVAILABILITY_REOPENED` e continua validando papel e tenant no servidor.
+Papéis sem permissão veem o bloqueio, mas não atravessam a camada para criar um
+agendamento naquele intervalo.
+
+Depois da reabertura de um intervalo menor que um dia, “Agendar neste horário”
+encaminha diretamente ao formulário manual. Uma folga de dia inteiro não recebe
+esse atalho. A ação não cria uma exceção silenciosa sobre `TimeOff`: o bloqueio
+deixa de existir antes de o horário voltar a aceitar reservas.
+
+Na pausa semanal, a detecção inicial volta a informar
+`WORKING_HOURS_BREAK` mesmo quando o papel já possui autorização. Assim a tela
+consegue solicitar o motivo e executar a confirmação auditada na segunda etapa.
+Fechamento, folga, bloqueio pontual, limite da jornada e conflito com outro
+cliente continuam regras separadas. Sem migration ou alteração em Production.

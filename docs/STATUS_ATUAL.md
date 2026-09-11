@@ -1,14 +1,57 @@
 # Status atual canônico — Salon SaaS
 
-## 2026-09-10 — ações rápidas da agenda em revisão
+## 2026-09-10 — bloqueios acionáveis e encaixe na pausa (PR #90)
+
+Na branch `codex/agenda-block-management`, os bloqueios da agenda deixam de ser
+uma camada visual que repassa o toque ao horário vazio. Dono e gerente abrem os
+detalhes diretamente nas visões diária, semanal e em lista, revisam profissional,
+período e motivo e confirmam explicitamente a reabertura. Após reabrir um
+intervalo menor que um dia, a interface oferece iniciar o agendamento naquele
+horário. Papéis sem permissão continuam impedidos de alterar o bloqueio e o
+servidor preserva validação de papel, tenant, lock e auditoria.
+
+A criação manual durante pausa semanal também corrige a primeira tentativa: o
+servidor devolve a pausa detectada para que a tela peça confirmação explícita,
+sem obrigar o preenchimento de motivo. Bloqueios pontuais continuam
+inegociáveis enquanto existirem; devem ser reabertos antes do agendamento.
+Nenhuma migration, dado produtivo ou regra do Booksite foi alterada.
+Publicação em produção autorizada; resultado final será registrado no PR #90.
+
+## 2026-09-10 — dependências de segurança publicadas (PR #91)
+
+O PR #91 foi integrado em `master` no commit
+`2b96063a042863a8c1ac3b94edbea9446401eb54` e o deploy Production foi
+confirmado `SUCCESS` pela Vercel. Next.js e seus pacotes alinhados foram
+atualizados de `15.5.22` para `15.5.25`, `sharp` de `0.35.3` para
+`0.35.4`, Vitest e cobertura de `4.1.10` para `4.1.11`, e `js-yaml` foi fixado
+em `4.3.2` por override. O `npm audit` completo e somente de produção retornam
+zero vulnerabilidades. Esta entrega não contém migration, alteração de dados
+ou mudança de configuração do Supabase/Vercel.
+
+## 2026-09-10 — agenda com prioridade à grade (PR #89)
+
+A revisão `codex/agenda-fullscreen` retira cards de indicadores e legendas
+redundantes da Agenda. Data e visualizações ficam em uma barra compacta; busca
+e filtros abrem sob demanda. A grade usa a altura restante da tela, com rolagem
+própria, cabeçalhos menores e calendário lateral inicialmente recolhido. O “+”
+reúne também pausa recorrente, seleção de intervalo e gestão de expediente,
+bloqueios e fila. Nenhuma regra de acesso ou banco foi alterada.
+Validação visual local usa exclusivamente dados fictícios em 320, 390 e 1440px.
+Promoção condicionada à aprovação de CI/Preview; commit, deploy e verificação
+produtiva são registrados no PR #89. Escopo detalhado em
+`AGENDA_JORNADAS_2026-09-09.md`.
+
+## 2026-09-10 — ações rápidas da agenda publicadas
 
 Com base nos três áudios e no vídeo do responsável, a agenda passa a oferecer um
 botão “+” flutuante no celular, acima da barra inferior, com três ações: novo
 agendamento, novo bloqueio de horário e adicionar folga. O desktop usa o mesmo
 menu no lugar do botão “Novo”. Bloqueio e folga reutilizam o fluxo auditado já
 existente; a folga abre como dia inteiro e continua exigindo revisão. Permissões
-de servidor permanecem inalteradas. Branch `codex/agenda-quick-actions`, ainda
-sem publicação em Production e sem alteração de banco.
+de servidor permanecem inalteradas. PR #88 integrado no commit
+`16ac54c4aa1b997c2dfccb532a879d5de604d5f2`, deploy
+`dpl_76nmwbNzfVhvXmsTfYXk3pp5e1bj` confirmado `READY` em Production após CI e
+smoke somente leitura. Sem alteração de banco.
 
 ## 2026-09-09 — encaixe manual durante pausa publicado
 

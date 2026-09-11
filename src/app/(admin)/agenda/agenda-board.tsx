@@ -12,8 +12,7 @@ import {
   List,
   Search,
   Users,
-  CircleDollarSign,
-  Clock,
+  SlidersHorizontal,
   Loader2,
   AlertTriangle,
   Ban,
@@ -41,18 +40,20 @@ import { moveAppointment } from "./actions";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { layoutOverlappingIntervals } from "./agenda-layout";
 import { AvailabilityPanel, type AvailabilityBlock, type AvailabilityPreset, type BlockSelection } from "./availability-panel";
+import { AvailabilityBlockDialog, AvailabilityBlockTrigger } from "./availability-block";
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 import { DateNavigator } from "./date-navigator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { unavailableScheduleIntervals, type VisualWorkingHours } from "./schedule-visibility";
 import { AgendaQuickActions } from "./agenda-quick-actions";
+import { WeeklyPausePanel } from "./weekly-pause-panel";
+import "./agenda-workspace.css";
 
 const DAY_START = 8 * 60;
 const DAY_END = 21 * 60;
 const SLOT_MIN = 30;
 const PX_PER_MIN = 1.7;
-const COL_WIDTH = 200;
-const HEADER_H = 88;
+const HEADER_H = 64;
 
 type ViewKind = "day" | "week" | "month" | "list";
 
@@ -194,12 +195,19 @@ export function AgendaBoard({
   const [proFilter, setProFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("not_cancelled");
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [calendarOpen, setCalendarOpen] = useState(true);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [operationsOpen, setOperationsOpen] = useState(false);
+  const [pauseLaunch, setPauseLaunch] = useState<string>();
   const [mobileCalendarOpen, setMobileCalendarOpen] = useState(false);
   const mobileCalendarTrigger = useRef<HTMLButtonElement>(null);
+  const compactCalendarTrigger = useRef<HTMLButtonElement>(null);
+  const quickActionTrigger = useRef<HTMLButtonElement>(null);
+  const filterTrigger = useRef<HTMLButtonElement>(null);
+  const restoreQuickActionFocus = () => quickActionTrigger.current?.focus();
   const [blockMode, setBlockMode] = useState(false);
   const [blockSelection, setBlockSelection] = useState<(BlockSelection & { key: string }) | undefined>();
   const [availabilityLaunch, setAvailabilityLaunch] = useState<{ key: string; preset: AvailabilityPreset } | undefined>();
+  const [selectedAvailabilityBlock, setSelectedAvailabilityBlock] = useState<AvailabilityBlock | null>(null);
   const [search, setSearch] = useState("");
   const [detail, setDetail] = useState<Appointment | null>(() => appointments.find(a => a.id === initialAppointmentId) ?? null);
   const [createAt, setCreateAt] = useState<{ startLocal: string; proId: string } | null>(null);
@@ -266,16 +274,7 @@ export function AgendaBoard({
     [filteredAll, date, timezone],
   );
 
-  const kpis = useMemo(() => {
-    const sum = (pred: (a: Appointment) => boolean) =>
-      dayAppts.filter(pred).reduce((s, a) => s + a.priceCents, 0);
-    return {
-      total: dayAppts.length,
-      inProgress: dayAppts.filter((a) => a.status === "IN_PROGRESS").length,
-      realized: sum((a) => a.status === "COMPLETED"),
-      forecast: sum((a) => ["PENDING", "CONFIRMED", "IN_PROGRESS"].includes(a.status)),
-    };
-  }, [dayAppts]);
+
   const awaitingAcceptance = appointments.filter((a) => a.pendingReschedule !== null).length;
   const cancelledWithQueue = appointments.filter((a) => a.status === "CANCELLED" && a.waitlistCount > 0).length;
 
@@ -331,9 +330,17 @@ export function AgendaBoard({
   }
 
   return (
-    <div className="space-y-3">
-      <header className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-        <div className="flex items-center gap-3">
+    <div className="agenda-workspace" aria-busy={pending}>
+      <header className="agenda-toolbar">
+        <div className="flex min-w-0 items-center gap-2 sm:hidden">
+          <button type="button" onClick={() => goDate(-1)} aria-label={`Ir para ${navigationUnit} anterior`} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg hover:bg-muted"><ChevronLeft aria-hidden="true" size={16} /></button>
+          <h1><button ref={compactCalendarTrigger} type="button" aria-label="Abrir calendário" aria-haspopup="dialog" onClick={() => setMobileCalendarOpen(true)} className="min-h-11 min-w-11 rounded-lg text-sm font-semibold">
+            <span className="block whitespace-nowrap">{format(dateObj, view === "month" || view === "list" ? "MMM yy" : "d MMM", { locale: ptBR })}</span>
+            <span className="block text-[10px] font-normal text-muted-foreground">{format(dateObj, "EEE", { locale: ptBR })}</span>
+          </button></h1>
+          <button type="button" onClick={() => goDate(1)} aria-label={`Ir para próximo ${navigationUnit}`} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg hover:bg-muted"><ChevronRight aria-hidden="true" size={16} /></button>
+        </div>
+        <div className="agenda-date-controls">
           <button type="button" aria-label={calendarOpen ? "Recolher calendário" : "Abrir calendário"} aria-expanded={calendarOpen} aria-controls="agenda-date-panel" onClick={() => setCalendarOpen(!calendarOpen)} className="hidden h-11 w-11 shrink-0 place-items-center rounded-lg border border-border bg-card text-[hsl(var(--selection-foreground))] xl:grid"><CalendarDays size={18} /></button>
           <button ref={mobileCalendarTrigger} type="button" aria-label="Abrir calendário" aria-haspopup="dialog" onClick={() => setMobileCalendarOpen(true)} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-border bg-card xl:hidden"><CalendarDays size={18} /></button>
           <div className="flex items-center gap-1 rounded-lg border border-border bg-surface-1 p-1">
@@ -371,42 +378,44 @@ export function AgendaBoard({
           {pending && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
         </div>
 
-        <div className="flex items-center gap-2">
-          <div role="group" aria-label="Visualização da agenda" className="flex items-center gap-0.5 rounded-lg border border-border bg-surface-1 p-1">
+        <div className="agenda-view-controls">
+          <select aria-label="Visualização da agenda" value={view} onChange={event => setView(event.target.value as ViewKind)} className="h-11 w-[94px] min-w-0 rounded-lg border border-border bg-card px-2 text-xs sm:hidden">
+            <option value="day">Dia</option>
+            <option value="week">Semana</option>
+            <option value="month">Mês</option>
+            <option value="list">Lista</option>
+          </select>
+          <button ref={filterTrigger} type="button" onClick={() => setFiltersOpen(true)} aria-label="Buscar e filtrar agenda" aria-haspopup="dialog" className="relative grid h-11 w-11 place-items-center rounded-lg border border-border"><SlidersHorizontal size={18} />{(proFilter !== "all" || statusFilter !== "not_cancelled" || search) && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-primary" />}</button>
+          <div role="group" aria-label="Visualização da agenda" className="hidden items-center gap-0.5 rounded-lg border border-border bg-surface-1 p-1 sm:flex">
             <ViewBtn active={view === "day"} onClick={() => setView("day")} icon={CalendarDays} label="Dia" />
             <ViewBtn active={view === "week"} onClick={() => setView("week")} icon={CalendarRange} label="Semana" />
             <ViewBtn active={view === "month"} onClick={() => setView("month")} icon={Grid3x3} label="Mês" />
             <ViewBtn active={view === "list"} onClick={() => setView("list")} icon={List} label="Lista" />
           </div>
           <AgendaQuickActions
+            triggerRef={quickActionTrigger}
             canCreateAppointment={canCreate}
             canManageAvailability={canCancel}
             disabled={professionals.length === 0}
-            onNewAppointment={() => openSlot(professionals[0]?.id ?? "", DAY_START)}
+            onNewAppointment={() => openSlot(shownPros[0]?.id ?? "", DAY_START)}
             onNewBlock={() => openAvailability("interval")}
             onNewDayOff={() => openAvailability("day")}
+            onWeeklyPause={() => setPauseLaunch(crypto.randomUUID())}
+            onManageAvailability={() => setOperationsOpen(true)}
+            onSelectBlock={view === "day" ? () => setBlockMode(true) : undefined}
           />
         </div>
       </header>
 
-      <div className="flex items-start gap-4">
+      <div className="agenda-body">
         {calendarOpen && <aside id="agenda-date-panel" aria-label="Navegar por datas" className="sticky top-0 hidden w-64 shrink-0 xl:block"><DateNavigator date={date} today={today} onSelect={selectCalendarDate} /></aside>}
-        <div className="min-w-0 flex-1 space-y-3">
+        <div className="agenda-content">
 
-      {operations && <details className="rounded-lg border border-border bg-card px-3"><summary className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-medium"><CalendarRange size={16} />Expediente e fila de espera</summary><div className="grid items-start gap-3 pb-3 xl:grid-cols-2">{operations}</div></details>}
-      <div className="grid items-start gap-2 xl:grid-cols-[1fr_auto]">
-      {canCancel && <AvailabilityPanel key={blockSelection?.key ?? availabilityLaunch?.key ?? date} date={date} timezone={timezone} professionals={professionals} blocks={availabilityBlocks} selection={blockSelection} initialPreset={availabilityLaunch?.preset} />}
-      {canCancel && view === "day" && <div className="flex flex-wrap items-center gap-3"><button type="button" aria-pressed={blockMode} onClick={() => setBlockMode(!blockMode)} className={`inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm ${blockMode ? "border-danger bg-danger/10 text-danger" : "border-border"}`}><Ban size={16} />{blockMode ? "Sair da seleção de bloqueio" : "Selecionar intervalo na grade"}</button>{blockMode && <p className="text-xs text-muted-foreground">Arraste no horário de um profissional ou toque no início e no fim. Enter seleciona pelo teclado; Escape cancela.</p>}</div>}
 
-      </div>
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <DayKpi icon={CalendarDays} accent="info" label="Agendamentos (dia)" value={kpis.total.toString()} />
-        <DayKpi icon={Clock} accent="info" label="Em atendimento" value={kpis.inProgress.toString()} />
-        <DayKpi icon={CircleDollarSign} accent="success" label="Receita realizada" value={formatMoney(kpis.realized)} />
-        <DayKpi icon={CircleDollarSign} accent="warning" label="Receita prevista" value={formatMoney(kpis.forecast)} />
-      </section>
-
-      <section className="flex flex-wrap items-center gap-2">
+      <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
+        <DialogContent aria-describedby={undefined} onCloseAutoFocus={event => { event.preventDefault(); filterTrigger.current?.focus(); }} className="max-h-[85dvh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Buscar e filtrar agenda</DialogTitle></DialogHeader>
+      <div className="space-y-4">
         <div className="flex min-h-11 items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 max-sm:w-full">
           <Search aria-hidden="true" className="h-3.5 w-3.5 text-muted-foreground" />
           <input
@@ -417,10 +426,7 @@ export function AgendaBoard({
             className="min-w-0 flex-1 bg-transparent text-[13px] placeholder:text-muted-foreground focus:outline-none sm:w-44"
           />
         </div>
-        <button type="button" aria-expanded={filtersOpen} aria-controls="agenda-filters" onClick={() => setFiltersOpen(!filtersOpen)} className="min-h-11 rounded-lg border border-border px-4 text-sm sm:hidden">
-          Filtros{proFilter !== "all" || statusFilter !== "not_cancelled" ? " · ativos" : ""}
-        </button>
-        <div id="agenda-filters" className={`${filtersOpen ? "flex" : "hidden"} flex-wrap items-center gap-2 sm:flex`}>
+        <div id="agenda-filters" className="flex flex-wrap items-center gap-2">
         <FilterChip active={proFilter === "all"} onClick={() => setProFilter("all")} icon={Users}>
           Todos profissionais
         </FilterChip>
@@ -442,8 +448,22 @@ export function AgendaBoard({
           </FilterChip>
         ))}
         </div>
-      </section>
+      </div>
 
+
+          <button type="button" onClick={() => setFiltersOpen(false)} className="min-h-11 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground">Ver agenda</button>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={operationsOpen} onOpenChange={setOperationsOpen}>
+        <DialogContent aria-describedby={undefined} onCloseAutoFocus={event => { event.preventDefault(); restoreQuickActionFocus(); }} className="max-h-[85dvh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader><DialogTitle>Expediente e bloqueios</DialogTitle></DialogHeader>
+          {canCancel && <AvailabilityPanel date={date} timezone={timezone} professionals={professionals} blocks={availabilityBlocks} />}
+          {operations}
+        </DialogContent>
+      </Dialog>
+      {canCancel && (availabilityLaunch || blockSelection) && <AvailabilityPanel dialogOnly restoreFocus={restoreQuickActionFocus} key={blockSelection?.key ?? availabilityLaunch?.key} date={date} timezone={timezone} professionals={professionals} blocks={availabilityBlocks} selection={blockSelection} initialPreset={availabilityLaunch?.preset} />}
+      {canCancel && pauseLaunch && <WeeklyPausePanel key={pauseLaunch} professionals={professionals} initialOpen hideTrigger restoreFocus={restoreQuickActionFocus} />}
+      {blockMode && view === "day" && <div className="flex shrink-0 items-center justify-between gap-2 rounded-lg bg-muted px-3 text-xs"><p>Toque no início e no fim do intervalo. Escape cancela.</p><button type="button" onClick={() => setBlockMode(false)} className="min-h-11 shrink-0 px-2 font-medium">Sair da seleção de bloqueio</button></div>}
       {actionError && (
         <p className="rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger">{actionError}</p>
       )}
@@ -463,6 +483,7 @@ export function AgendaBoard({
         </div>
       )}
 
+      <div className="agenda-canvas">
       {professionals.length === 0 ? (
         <div className="rounded-2xl border border-border bg-card p-16 text-center text-sm text-muted-foreground">
           Cadastre profissionais para ver a agenda.
@@ -478,6 +499,7 @@ export function AgendaBoard({
           timezone={timezone}
           nowMin={nowMin}
           onOpenSlot={openSlot}
+          onOpenBlock={canCancel ? setSelectedAvailabilityBlock : undefined}
           onOpenDetail={setDetail}
           onMove={(appointment, professionalId, startLocal) =>
             setMoveProposal({
@@ -499,6 +521,7 @@ export function AgendaBoard({
           nowMin={nowMin}
           today={today}
           onOpenSlot={openSlot}
+          onOpenBlock={canCancel ? setSelectedAvailabilityBlock : undefined}
           onOpenDetail={setDetail}
           onOpenDay={goToDay}
         />
@@ -513,27 +536,14 @@ export function AgendaBoard({
           onOpenDetail={setDetail}
         />
       ) : (
-        <div className="space-y-3"><BlockList blocks={availabilityBlocks.filter(b => shownPros.some(p => p.id === b.professionalId))} professionals={shownPros} timezone={timezone} /><ListView appointments={filteredAll} professionals={professionals} timezone={timezone} onOpenDetail={setDetail} /></div>
+        <div className="space-y-3"><BlockList blocks={availabilityBlocks.filter(b => shownPros.some(p => p.id === b.professionalId))} professionals={shownPros} timezone={timezone} onOpenBlock={canCancel ? setSelectedAvailabilityBlock : undefined} /><ListView appointments={filteredAll} professionals={professionals} timezone={timezone} onOpenDetail={setDetail} /></div>
       )}
 
-      <div aria-label="Cores dos profissionais" className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-muted-foreground">
-        <span className="font-semibold">Cores por profissional</span>
-        {shownPros.map(pro => <span key={pro.id} className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="h-2.5 w-2.5 rounded-full" style={{ background: pro.colorHex ?? undefined }} />{pro.name}</span>)}
       </div>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-muted-foreground">
-        <span className="font-semibold">Status dos atendimentos</span>
-        {STATUS_ORDER.map((s) => (
-          <span key={s} className="inline-flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full" style={{ background: STATUS[s].color }} />
-            {STATUS[s].label}
-          </span>
-        ))}
-      </div>
-
         </div>
       </div>
       <Dialog open={mobileCalendarOpen} onOpenChange={setMobileCalendarOpen}>
-        <DialogContent aria-describedby={undefined} onCloseAutoFocus={event => { event.preventDefault(); mobileCalendarTrigger.current?.focus(); }} className="max-h-[calc(100dvh-2rem)] w-[calc(100%_-_2rem)] max-w-sm overflow-y-auto p-4">
+        <DialogContent aria-describedby={undefined} onCloseAutoFocus={event => { event.preventDefault(); (window.matchMedia("(max-width: 639px)").matches ? compactCalendarTrigger : mobileCalendarTrigger).current?.focus(); }} className="max-h-[calc(100dvh-2rem)] w-[calc(100%_-_2rem)] max-w-sm overflow-y-auto p-4">
           <DialogHeader className="pr-10"><DialogTitle>Escolher data</DialogTitle></DialogHeader>
           <DateNavigator date={date} today={today} onSelect={selectCalendarDate} />
         </DialogContent>
@@ -557,6 +567,23 @@ export function AgendaBoard({
           canOverrideBreak={canOverrideBreak}
           canRepeat={canRepeat}
           timezone={timezone}
+        />
+      )}
+
+      {selectedAvailabilityBlock && canCancel && (
+        <AvailabilityBlockDialog
+          key={selectedAvailabilityBlock.id}
+          open
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen) setSelectedAvailabilityBlock(null);
+          }}
+          block={selectedAvailabilityBlock}
+          professionalName={professionals.find((professional) => professional.id === selectedAvailabilityBlock.professionalId)?.name ?? "Profissional"}
+          timezone={timezone}
+          onSchedule={canCreate ? (target) => {
+            setSelectedAvailabilityBlock(null);
+            setCreateAt({ startLocal: target.startLocal, proId: target.professionalId });
+          } : undefined}
         />
       )}
 
@@ -617,6 +644,7 @@ function DayView({
   timezone,
   nowMin,
   onOpenSlot,
+  onOpenBlock,
   onOpenDetail,
   onMove,
 }: {
@@ -629,6 +657,7 @@ function DayView({
   timezone: string;
   nowMin: number | null;
   onOpenSlot: (proId: string, minutes: number, dayStr?: string) => void;
+  onOpenBlock?: (block: AvailabilityBlock) => void;
   onOpenDetail: (a: Appointment) => void;
   onMove: (appointment: Appointment, proId: string, startLocal: string) => void;
 }) {
@@ -715,8 +744,8 @@ function DayView({
   }, [drag, date, onMove, dayStart, dayEnd]);
 
   return (
-    <div className="max-h-[72dvh] overflow-auto rounded-xl border border-border bg-card">
-      <div className="flex w-full" style={{ minWidth: 56 + professionals.length * COL_WIDTH }} ref={bodyRef}>
+    <div className="agenda-grid overflow-auto rounded-xl border border-border bg-card">
+      <div className="flex w-full" style={{ minWidth: 56 + professionals.length * 148 }} ref={bodyRef}>
         <div className="w-14 shrink-0 border-r border-border bg-surface-1">
           <div style={{ height: HEADER_H }} className="border-b border-border" />
           {slots.map((m) => (
@@ -730,9 +759,9 @@ function DayView({
           const proAppts = appointments.filter((a) => a.professionalId === pro.id);
           const placements = appointmentPlacements(proAppts, timezone);
           return (
-            <div key={pro.id} data-pro-col data-pro-id={pro.id} className="relative shrink-0 border-r border-border last:border-r-0" style={{ flex: 1, minWidth: COL_WIDTH }}>
+            <div key={pro.id} data-pro-col data-pro-id={pro.id} className="relative shrink-0 border-r border-border last:border-r-0" style={{ flex: 1, minWidth: 148 }}>
               <div data-professional-color={pro.colorHex} style={{ height: HEADER_H, borderBottom: `3px solid ${pro.colorHex}` }} className="sticky top-0 z-10 flex flex-col items-center justify-center gap-1.5 bg-card px-3">
-                <span style={{ borderColor: pro.colorHex ?? undefined }} className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full border-2 bg-muted text-xs font-semibold text-foreground">
+                <span style={{ borderColor: pro.colorHex ?? undefined }} className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full border-2 bg-muted text-xs font-semibold text-foreground">
                   {pro.avatarUrl ? <ImageWithFallback src={pro.avatarUrl} alt="" width={44} height={44} sizes="44px" className="h-full w-full object-cover" fallback={<span>{initials(pro.name)}</span>} /> : initials(pro.name)}
                 </span>
                 <span className="w-full truncate text-center text-xs font-medium" title={pro.name}>{pro.name}</span>
@@ -780,7 +809,7 @@ function DayView({
                   const start = Math.max(dayStart, firstDate < date ? 0 : minutesOf(block.startAt, timezone));
                   const end = Math.min(dayEnd, lastDate > date ? 1440 : minutesOf(block.endAt, timezone));
                   if (end <= start) return null;
-                  return <div key={block.id} className="pointer-events-none absolute inset-x-0 overflow-hidden border-y border-border bg-muted/80 px-2 py-1 text-xs text-muted-foreground" style={{ top: (start - dayStart) * PX_PER_MIN, height: (end - start) * PX_PER_MIN, backgroundImage: "repeating-linear-gradient(135deg, transparent, transparent 6px, hsl(var(--border) / .35) 6px, hsl(var(--border) / .35) 7px)" }}><span className="rounded bg-card px-1">Bloqueado · {block.reason ?? "Indisponível"}</span></div>;
+                  return <AvailabilityBlockTrigger key={block.id} block={block} professionalName={pro.name} timezone={timezone} onOpen={onOpenBlock} className="absolute inset-x-0 z-[1] px-2 py-1 text-xs" style={{ top: (start - dayStart) * PX_PER_MIN, height: (end - start) * PX_PER_MIN }} />;
                 })}
 
                 {nowMin != null && nowMin >= dayStart && nowMin <= dayEnd && (
@@ -814,7 +843,7 @@ function DayView({
                       aria-label={`${a.clientName}, ${a.serviceName}, ${formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")}, ${pro.name}, ${cfg.label}.${placement.conflict ? " Conflito de horário detectado." : ""} Abrir detalhes`}
                       data-appointment-professional={a.professionalId}
                       title={placement.conflict && !a.isOverbooked ? "Conflito de horário detectado — revise este atendimento" : undefined}
-                      className={`group absolute cursor-pointer touch-pan-y select-none rounded-lg border-l-[3px] p-2 text-left text-xs shadow-sm transition focus-visible:z-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:cursor-grab ${
+                      className={`group absolute z-[2] cursor-pointer touch-pan-y select-none rounded-lg border-l-[3px] p-2 text-left text-xs shadow-sm transition focus-visible:z-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:cursor-grab ${
                         placement.conflict ? "ring-1 ring-danger/60" : ""
                       } ${
                         isDragging ? "z-30 opacity-70 ring-2 ring-primary" : "hover:shadow-md"
@@ -884,6 +913,7 @@ function WeekView({
   nowMin,
   today,
   onOpenSlot,
+  onOpenBlock,
   onOpenDetail,
   onOpenDay,
 }: {
@@ -896,6 +926,7 @@ function WeekView({
   nowMin: number | null;
   today: string;
   onOpenSlot: (proId: string, minutes: number, dayStr?: string) => void;
+  onOpenBlock?: (block: AvailabilityBlock) => void;
   onOpenDetail: (a: Appointment) => void;
   onOpenDay: (d: string) => void;
 }) {
@@ -910,7 +941,7 @@ function WeekView({
   const colW = 150;
 
   return (
-    <div className="max-h-[72dvh] overflow-auto rounded-xl border border-border bg-card">
+    <div className="agenda-grid overflow-auto rounded-xl border border-border bg-card">
       <div className="flex w-full" style={{ minWidth: 56 + days.length * colW }}>
         <div className="w-14 shrink-0 border-r border-border bg-surface-1">
           <div style={{ height: HEADER_H }} className="border-b border-border" />
@@ -947,7 +978,7 @@ function WeekView({
               </button>
 
               <div className="relative" style={{ height: totalH }}>
-                {blocks.map(block => <BlockOverlay key={block.id} block={block} date={dStr} timezone={timezone} start={dayStart} end={dayEnd} name={professionals.find(p => p.id === block.professionalId)?.name} />)}
+                {blocks.map(block => <BlockOverlay key={block.id} block={block} date={dStr} timezone={timezone} start={dayStart} end={dayEnd} name={professionals.find(p => p.id === block.professionalId)?.name} onOpen={onOpenBlock} />)}
                 {slots.map((m) => (
                   <button
                     key={m}
@@ -1241,19 +1272,22 @@ function blocksOnDate(blocks: AvailabilityBlock[], date: string, timezone: strin
   return blocks.filter(b => formatInTimeZone(new Date(b.startAt), timezone, "yyyy-MM-dd") <= date && formatInTimeZone(new Date(+new Date(b.endAt) - 1), timezone, "yyyy-MM-dd") >= date);
 }
 
-function BlockOverlay({ block, date, timezone, start, end, name }: { block: AvailabilityBlock; date: string; timezone: string; start: number; end: number; name?: string }) {
+function BlockOverlay({ block, date, timezone, start, end, name, onOpen }: { block: AvailabilityBlock; date: string; timezone: string; start: number; end: number; name?: string; onOpen?: (block: AvailabilityBlock) => void }) {
   if (!blocksOnDate([block], date, timezone).length) return null;
   const first = formatInTimeZone(new Date(block.startAt), timezone, "yyyy-MM-dd");
   const last = formatInTimeZone(new Date(block.endAt), timezone, "yyyy-MM-dd");
   const from = Math.max(start, first < date ? 0 : minutesOf(block.startAt, timezone));
   const to = Math.min(end, last > date ? 1440 : minutesOf(block.endAt, timezone));
   if (to <= from) return null;
-  return <div className="pointer-events-none absolute inset-x-0 z-[1] overflow-hidden border-y border-border bg-muted/70 p-1 text-[10px]" style={{ top: (from - start) * PX_PER_MIN, height: (to - from) * PX_PER_MIN, backgroundImage: "repeating-linear-gradient(135deg, transparent, transparent 6px, hsl(var(--border) / .35) 6px, hsl(var(--border) / .35) 7px)" }}>Bloqueado · {name} · {block.reason ?? "Indisponível"}</div>;
+  return <AvailabilityBlockTrigger block={block} professionalName={name ?? "Profissional"} timezone={timezone} onOpen={onOpen} className="absolute inset-x-0 z-[1] p-1 text-[10px]" style={{ top: (from - start) * PX_PER_MIN, height: (to - from) * PX_PER_MIN }} />;
 }
 
-function BlockList({ blocks, professionals, timezone }: { blocks: AvailabilityBlock[]; professionals: Professional[]; timezone: string }) {
+function BlockList({ blocks, professionals, timezone, onOpenBlock }: { blocks: AvailabilityBlock[]; professionals: Professional[]; timezone: string; onOpenBlock?: (block: AvailabilityBlock) => void }) {
   if (!blocks.length) return null;
-  return <section aria-label="Bloqueios do período" className="rounded-xl border border-border bg-muted/40 p-3"><h2 className="mb-2 flex items-center gap-2 text-sm font-semibold"><Ban size={16} />Bloqueios do período</h2><ul className="divide-y divide-border">{blocks.map(b => <li key={b.id} className="py-2 text-sm"><strong>{professionals.find(p => p.id === b.professionalId)?.name}</strong> · {formatInTimeZone(new Date(b.startAt), timezone, "dd/MM HH:mm")} — {formatInTimeZone(new Date(b.endAt), timezone, "dd/MM HH:mm")}<p className="text-xs text-muted-foreground">{b.reason ?? "Indisponível"}</p></li>)}</ul></section>;
+  return <section aria-label="Bloqueios do período" className="rounded-xl border border-border bg-muted/40 p-3"><h2 className="mb-2 flex items-center gap-2 text-sm font-semibold"><Ban size={16} />Bloqueios do período</h2><ul className="divide-y divide-border">{blocks.map(b => {
+    const content = <><strong>{professionals.find(p => p.id === b.professionalId)?.name}</strong> · {formatInTimeZone(new Date(b.startAt), timezone, "dd/MM HH:mm")} — {formatInTimeZone(new Date(b.endAt), timezone, "dd/MM HH:mm")}<p className="text-xs text-muted-foreground">{b.reason ?? "Indisponível"}</p></>;
+    return <li key={b.id} className="py-1 text-sm">{onOpenBlock ? <button type="button" onClick={() => onOpenBlock(b)} className="min-h-11 w-full rounded-lg px-2 py-1 text-left transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{content}</button> : <div className="px-2 py-1">{content}</div>}</li>;
+  })}</ul></section>;
 }
 
 function ViewBtn({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: typeof List; label: string }) {
@@ -1287,19 +1321,5 @@ function FilterChip({ active, onClick, children, icon: Icon, dot }: { active: bo
       {dot && <span className="h-2 w-2 rounded-full" style={{ background: dot }} />}
       {children}
     </button>
-  );
-}
-
-function DayKpi({ icon: Icon, accent, label, value }: { icon: typeof Clock; accent: "info" | "success" | "warning"; label: string; value: string }) {
-  return (
-    <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg" style={{ background: `hsl(var(--${accent}) / 0.12)`, color: `hsl(var(--${accent}))` }}>
-        <Icon className="h-4 w-4" />
-      </span>
-      <div className="min-w-0">
-        <p className="break-words text-base font-semibold leading-tight tracking-tight sm:text-lg">{value}</p>
-        <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{label}</p>
-      </div>
-    </div>
   );
 }

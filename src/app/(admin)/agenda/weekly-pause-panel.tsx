@@ -10,9 +10,9 @@ import { WeekdayPicker } from "@/components/weekday-picker";
 import { scheduleLabel, WEEKDAY_LABELS } from "@/lib/team-schedule";
 import { previewWeeklyPause, saveWeeklyPause } from "./weekly-pause-actions";
 
-export function WeeklyPausePanel({ professionals }: { professionals: { id: string; name: string }[] }) {
+export function WeeklyPausePanel({ professionals, initialOpen = false, hideTrigger = false, restoreFocus }: { professionals: { id: string; name: string }[]; initialOpen?: boolean; hideTrigger?: boolean; restoreFocus?: () => void }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initialOpen);
   const [pending, transition] = useTransition();
   const [days, setDays] = useState([1, 2, 3, 4, 5]);
   const [selected, setSelected] = useState(professionals.map(p => p.id));
@@ -24,8 +24,8 @@ export function WeeklyPausePanel({ professionals }: { professionals: { id: strin
   const toMinutes = (time: string) => { const [h, m] = time.split(":").map(Number); return h * 60 + m; };
   const invalidate = () => { setReview(null); setError(""); };
   return <>
-    <Button type="button" variant="outline" className="rounded-full" onClick={() => { setSelected(professionals.map(p => p.id)); setSaved(false); invalidate(); setOpen(true); }}><Coffee size={16} className="mr-2" />Pausa recorrente</Button>
-    <Dialog open={open} onOpenChange={value => { if (!pending) setOpen(value); }}><DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-xl"><DialogHeader><DialogTitle>Pausa recorrente</DialogTitle><DialogDescription>Reserve o almoço ou outra pausa na jornada semanal, sem precisar bloquear cada data.</DialogDescription></DialogHeader>
+    {!hideTrigger && <Button type="button" variant="outline" className="rounded-full" onClick={() => { setSelected(professionals.map(p => p.id)); setSaved(false); invalidate(); setOpen(true); }}><Coffee size={16} className="mr-2" />Pausa recorrente</Button>}
+    <Dialog open={open} onOpenChange={value => { if (!pending) setOpen(value); }}><DialogContent onCloseAutoFocus={restoreFocus ? event => { event.preventDefault(); restoreFocus(); } : undefined} className="max-h-[85dvh] overflow-y-auto sm:max-w-xl"><DialogHeader><DialogTitle>Pausa recorrente</DialogTitle><DialogDescription>Reserve o almoço ou outra pausa na jornada semanal, sem precisar bloquear cada data.</DialogDescription></DialogHeader>
       {saved ? <div className="space-y-4"><p role="status">Pausa semanal salva. Os novos agendamentos já respeitam a jornada atualizada.</p><p className="text-sm text-muted-foreground">Reservas existentes foram mantidas. Confira na agenda as que coincidirem com a pausa.</p><Button onClick={() => setOpen(false)}>Concluir</Button></div> : <form className="space-y-4" onChange={invalidate} onSubmit={event => {
         event.preventDefault(); setError("");
         const input = { professionalIds: selected, weekdays: days, startMinutes: toMinutes(start), endMinutes: toMinutes(end) };
