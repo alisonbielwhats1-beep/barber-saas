@@ -1,3 +1,5 @@
+import { fileURLToPath } from "node:url";
+
 const storageRemotePattern = (() => {
   try {
     const hostname = new URL(process.env.SUPABASE_URL ?? "").hostname;
@@ -30,6 +32,7 @@ const contentSecurityPolicy = [
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  outputFileTracingRoot: fileURLToPath(new URL(".", import.meta.url)),
   transpilePackages: ["@everflare/agents"],
   devIndicators: process.env.CI ? false : undefined,
   reactStrictMode: true,
