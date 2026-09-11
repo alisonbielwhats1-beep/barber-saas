@@ -214,6 +214,7 @@ describe("preenchimento automático da lista de espera", () => {
           serviceName: "Corte",
           durationMin: 30,
           priceCents: 5_000,
+          priceType: "FIXED", priceNote: null,
         }],
       }),
       select: {

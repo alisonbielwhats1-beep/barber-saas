@@ -7,7 +7,7 @@ export type AvailabilityResult = {
   slots: string[];
   popularSlot: string | null;
   occupied: AvailabilitySlot[];
-  servicePrices?: Array<{ id: string; priceCents: number }>;
+  servicePrices?: Array<{ id: string; priceCents: number; priceType?: string; priceNote?: string | null }>;
   pricing?: {
     label: string;
     targetType: "WEEKDAY" | "DATE";
@@ -130,9 +130,11 @@ export async function requestAvailability(
       (item) => item && typeof item === "object" &&
         typeof (item as Record<string, unknown>).id === "string" &&
         Number.isInteger((item as Record<string, unknown>).priceCents) &&
-        ((item as Record<string, unknown>).priceCents as number) >= 0,
+        ((item as Record<string, unknown>).priceCents as number) >= 0 &&
+        ((item as Record<string, unknown>).priceType === undefined || ["FIXED", "FROM"].includes(String((item as Record<string, unknown>).priceType))) &&
+        ((item as Record<string, unknown>).priceNote == null || (typeof (item as Record<string, unknown>).priceNote === "string" && ((item as Record<string, unknown>).priceNote as string).length <= 240)),
     )
-      ? (payload.servicePrices as Array<{ id: string; priceCents: number }>)
+      ? (payload.servicePrices as Array<{ id: string; priceCents: number; priceType?: string; priceNote?: string | null }>)
       : undefined;
     const rawPricing = payload.pricing;
     const pricing = rawPricing === null || rawPricing === undefined

@@ -85,6 +85,17 @@ export default async function AgendarPage({
       _count: { _all: true },
     });
     const validSession = await resolveClientSessionInTenant(tx, clientSession, salonId);
+    if (query.reschedule && validSession) {
+      const reservation = await tx.appointment.findFirst({
+        where: { id: query.reschedule, salonId, clientId: validSession.clientId },
+        select: { serviceItems: { select: { serviceId: true, priceCents: true, priceType: true, priceNote: true, durationMin: true } } },
+      });
+      if (!reservation) return null;
+      for (const item of reservation.serviceItems) {
+        const service = salon.services.find(service => service.id === item.serviceId);
+        if (service) Object.assign(service, { priceCents: item.priceCents, priceType: item.priceType, priceNote: item.priceNote, durationMin: item.durationMin });
+      }
+    }
     return { salon, counts, validSession };
   });
   if (!result) notFound();
@@ -104,6 +115,7 @@ export default async function AgendarPage({
     name: s.name,
     description: s.description,
     priceCents: s.priceCents,
+    priceType: s.priceType, priceNote: s.priceNote,
     durationMin: s.durationMin,
     colorHex: s.colorHex,
     category: s.category,

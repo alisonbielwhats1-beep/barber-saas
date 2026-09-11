@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { priceSnapshot } from "@/lib/service-price";
 import { z } from "zod";
 import { assertRole, getTenantContext } from "@/lib/tenant";
 import { withTenant, type Tx } from "@/lib/prisma-tenant";
@@ -11,6 +12,8 @@ const serviceInput = z.object({
   description: z.string().optional().nullable(),
   durationMin: z.coerce.number().int().min(5).max(600),
   priceCents: z.coerce.number().int().min(0),
+  priceType: z.enum(["FIXED", "FROM"]).default("FIXED"),
+  priceNote: z.string().trim().max(240).nullable().optional(),
   costCents: z.coerce.number().int().min(0).default(0),
   category: z.string().optional().nullable(),
   imageUrl: z.string().url().optional().or(z.literal("")).nullable(),
@@ -38,6 +41,7 @@ function toData(data: ServiceInput) {
     description: data.description ?? null,
     durationMin: data.durationMin,
     priceCents: data.priceCents,
+    ...priceSnapshot(data),
     costCents: data.costCents,
     category: data.category ?? null,
     imageUrl: data.imageUrl || null,
@@ -93,7 +97,7 @@ export async function duplicateService(id: string) {
     const svc = await tx.service.findFirst({
       where: { id, salonId: ctx.salonId },
       select: {
-        name: true, description: true, durationMin: true, priceCents: true,
+        name: true, description: true, durationMin: true, priceCents: true, priceType: true, priceNote: true,
         costCents: true, category: true, imageUrl: true, colorHex: true,
         variantGroup: true, variantLabel: true, processingMin: true, finishingMin: true, physicalResourceId: true,
       },

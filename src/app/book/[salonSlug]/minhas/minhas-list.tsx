@@ -1,4 +1,6 @@
 "use client";
+import { hasVariablePrice } from "@/lib/service-price";
+import { VariablePriceNotice } from "@/components/service-price";
 
 import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
@@ -34,7 +36,7 @@ type Appt = {
   version: number;
   _count: { waitlistEntries: number };
   service: { id: string; name: string; colorHex: string | null };
-  serviceItems: { serviceId: string; serviceName: string }[];
+  serviceItems: { serviceId: string; serviceName: string; priceType?: string; priceNote?: string | null }[];
   events: Array<{
     id: string;
     eventType: string;
@@ -84,6 +86,8 @@ type PendingProposal = {
     name: string;
     durationMin: number;
     priceCents: number;
+    priceType?: string;
+    priceNote?: string | null;
   }>;
   reason: string | null;
 };
@@ -353,9 +357,10 @@ export function MinhasList({
                   </div>
                 </div>
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-                  <span>Novo valor: <strong className="text-foreground">{formatMoney(proposal.targetPriceCents, currency)}</strong></span>
+                  <span>{hasVariablePrice(proposal.targetServices) ? "Novo valor inicial: " : "Novo valor: "}<strong className="text-foreground">{formatMoney(proposal.targetPriceCents, currency)}</strong></span>
                   {proposal.reason && <span>Motivo: {proposal.reason}</span>}
                 </div>
+                <VariablePriceNotice services={proposal.targetServices} />
                 <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                   <button
                     type="button"
@@ -661,6 +666,7 @@ function ApptCard({
 }) {
   const start = new Date(a.startAt);
   const productsTotal = a.products.reduce((s, p) => s + p.quantity * p.priceCentsUnit, 0);
+  const variablePrice = hasVariablePrice(a.serviceItems);
   const total = a.priceCents + productsTotal;
   const durationMinutes = Math.max(0, Math.round((new Date(a.endAt).getTime() - start.getTime()) / 60_000));
   const serviceName = a.serviceItems.length > 0
@@ -736,6 +742,7 @@ function ApptCard({
         </p>
         {featured && <SalonLocationLink address={salonAddress} className="mt-1 text-xs leading-relaxed" />}
       </div>
+      <VariablePriceNotice services={a.serviceItems} />
       {a.products.length > 0 && (
         <div className="mt-3 space-y-1 rounded-lg bg-muted/40 p-2 text-xs">
           {a.products.map((p, i) => (
@@ -775,7 +782,7 @@ function ApptCard({
       )}
       <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <span className="client-reservation-total text-sm font-semibold">
-          Total {formatMoney(total, currency)}
+          {variablePrice ? "Valor inicial: " : "Total "}{formatMoney(total, currency)}
         </span>
         {actions}
       </div>

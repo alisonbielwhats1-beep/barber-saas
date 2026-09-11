@@ -1,4 +1,6 @@
 "use client";
+import { servicePriceLabel, hasVariablePrice, priceSnapshot, type PriceDetails } from "@/lib/service-price";
+import { ServicePriceNote, VariablePriceNotice } from "@/components/service-price";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -82,6 +84,8 @@ type Service = {
   name: string;
   description: string | null;
   priceCents: number;
+  priceType?: string;
+  priceNote?: string | null;
   durationMin: number;
   colorHex: string | null;
   category: string | null;
@@ -175,6 +179,7 @@ export function BookingFlow({
   const [slots, setSlots] = useState<string[]>([]);
   const [slotsVersion, setSlotsVersion] = useState(0);
   const [popularSlot, setPopularSlot] = useState<string | null>(null);
+  const [priceTerms, setPriceTerms] = useState<Record<string, PriceDetails>>({});
   const [servicePrices, setServicePrices] = useState<Record<string, number>>(() =>
     Object.fromEntries(services.map((service) => [service.id, service.priceCents])),
   );
@@ -225,6 +230,8 @@ export function BookingFlow({
     (sum, service) => sum + service.durationMin,
     0,
   );
+  const quotedServices = selectedServices.map(service => ({ ...service, ...priceTerms[service.id] }));
+  const variablePrice = hasVariablePrice(quotedServices);
   const totalServicePrice = selectedServices.reduce(
     (sum, service) => sum + (servicePrices[service.id] ?? service.priceCents),
     0,
@@ -419,6 +426,7 @@ export function BookingFlow({
     requestAvailability(`/api/availability?${params}`, { signal: controller.signal })
       .then((result) => {
         if (availabilityRequestRef.current !== requestId) return;
+        if (!rescheduleId) setPriceTerms(Object.fromEntries((result.servicePrices ?? []).map(service => [service.id, { ...priceSnapshot(service) }])));
         setSlots(result.slots);
         setPopularSlot(result.popularSlot);
         setOccupied(result.occupied);
@@ -428,10 +436,10 @@ export function BookingFlow({
         setServicePrices(Object.fromEntries(
           selectedServices.map((service) => [
             service.id,
-            returnedPrices.get(service.id) ?? service.priceCents,
+            rescheduleId ? service.priceCents : returnedPrices.get(service.id) ?? service.priceCents,
           ]),
         ));
-        setPricingLabel(result.pricing?.label ?? null);
+        setPricingLabel(rescheduleId ? null : result.pricing?.label ?? null);
         // Fluxo returnTo: re-seleciona o horário salvo se ainda estiver livre
         setSlot((current) => {
           const pending = pendingSlotRef.current;
@@ -482,7 +490,7 @@ export function BookingFlow({
         if (availabilityRequestRef.current === requestId) setSlotsLoading(false);
       });
     return () => controller.abort();
-  }, [salonId, services, selectedServices, serviceIds, proId, date, slotsVersion]);
+  }, [salonId, services, selectedServices, serviceIds, proId, date, slotsVersion, rescheduleId]);
 
   // A mesma tentativa reutiliza a chave em caso de falha de rede. Alterar a
   // escolha cria uma nova tentativa lógica e, portanto, uma nova chave.
@@ -542,6 +550,7 @@ export function BookingFlow({
               professionalId: proId,
               startLocal,
               idempotencyKey,
+              expectedPriceTerms: quotedServices.map(service => ({ id: service.id, ...priceSnapshot(service) })),
               expectedTotalCents: totalServicePrice + cart.totalCents,
               ...(dependentId ? { dependentId } : {}),
               cartItems: cart.items.map((item) => ({
@@ -779,11 +788,12 @@ export function BookingFlow({
                   }}>
                     <span className="min-w-0 flex-1">
                       <span className="block text-sm font-semibold leading-snug">{service.name.replace(/^Combo Fem:/i, "Combo feminino:").replace(/^Combo Masc:/i, "Combo masculino:")}</span>
+                      <ServicePriceNote service={service} />
                       {service.description && <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">{service.description}</span>}
                       <span className="mt-1.5 block text-sm text-muted-foreground">{formatDuration(service.durationMin)}</span>
                       {!compatible && <span className="mt-1 block text-xs font-medium text-warning">Exige outro atendimento</span>}
                     </span>
-                    <span className="shrink-0 text-right text-sm font-semibold">{formatMoney(service.priceCents, currency)}</span>
+                    <span className="max-w-28 shrink-0 text-right text-sm font-semibold">{servicePriceLabel(service, currency)}</span>
                     <span aria-hidden="true" className={`grid h-6 w-6 shrink-0 place-items-center rounded-md border ${selected ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground"}`}>
                       {selected && <Check className="h-4 w-4" />}
                     </span>
@@ -798,7 +808,7 @@ export function BookingFlow({
         <div data-booking-tray className="client-booking-tray">
           <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
             <span>{selectedServices.length} selecionado{selectedServices.length === 1 ? "" : "s"} · {formatDuration(totalDuration)}</span>
-            <span>{formatMoney(totalServicePrice, currency)}</span>
+            <span>{variablePrice ? "A partir de " : ""}{formatMoney(totalServicePrice, currency)}</span>
           </div>
           <button
             type="button"
@@ -829,9 +839,10 @@ export function BookingFlow({
 
       <BookingProgress current={reviewing ? 3 : proId ? 2 : 1} />
       <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4">
-        <div className="min-w-0 flex-1"><p className="text-sm font-medium">{serviceName}</p><p className="mt-1 text-xs text-muted-foreground">{formatDuration(totalDuration)} · {formatMoney(totalServicePrice, currency)}</p></div>
+        <div className="min-w-0 flex-1"><p className="text-sm font-medium">{serviceName}</p><p className="mt-1 text-xs text-muted-foreground">{formatDuration(totalDuration)} · {variablePrice ? "A partir de " : ""}{formatMoney(totalServicePrice, currency)}</p></div>
         {!rescheduleId && <button type="button" className="min-h-11 shrink-0 px-2 text-sm font-semibold text-primary" onClick={() => setChoosingServices(true)}>Alterar serviços</button>}
       </div>
+      <VariablePriceNotice services={quotedServices} />
       {/* Escolher profissional — cards com prova social real */}
       <div>
         <h3 className="mb-1 text-sm font-semibold">
@@ -1263,7 +1274,7 @@ export function BookingFlow({
 
       </section>
       <div data-booking-tray className="client-booking-tray">
-        <p role="status" className="mb-2 flex flex-wrap justify-between gap-1 text-xs text-muted-foreground"><span>{!proId ? "Escolha um profissional" : !slot ? "Escolha uma data e um horário" : `${format(date, "dd/MM")} às ${slot} · ${formatDuration(totalDuration)}`}</span><strong className="text-foreground">{formatMoney(totalServicePrice + cart.totalCents, currency)}</strong></p>
+        <p role="status" className="mb-2 flex flex-wrap justify-between gap-1 text-xs text-muted-foreground"><span>{!proId ? "Escolha um profissional" : !slot ? "Escolha uma data e um horário" : `${format(date, "dd/MM")} às ${slot} · ${formatDuration(totalDuration)}`}</span><strong className="text-foreground">{variablePrice ? "A partir de " : ""}{formatMoney(totalServicePrice + cart.totalCents, currency)}</strong></p>
         <button
           onClick={handleConfirmClick}
           disabled={
@@ -1294,6 +1305,7 @@ export function BookingFlow({
           slot={slot}
           durationMin={totalDuration}
           totalCents={totalServicePrice + cart.totalCents}
+          priceServices={quotedServices}
           pricingLabel={pricingLabel}
           currency={currency}
           cancelPolicyHours={cancelPolicyHours}
@@ -1319,6 +1331,7 @@ function BookingReview({
   durationMin,
   totalCents,
   pricingLabel,
+  priceServices,
   currency,
   cancelPolicyHours,
   loading,
@@ -1337,6 +1350,7 @@ function BookingReview({
   durationMin: number;
   totalCents: number;
   pricingLabel: string | null;
+  priceServices: Service[];
   currency: string;
   cancelPolicyHours: number;
   loading: boolean;
@@ -1363,8 +1377,9 @@ function BookingReview({
             value={`${format(date, "EEEE, d 'de' MMMM", { locale: ptBR })} às ${slot}`}
           />
           <ReviewRow label="Duração" value={formatDuration(durationMin)} />
-          <ReviewRow label="Total" value={formatMoney(totalCents, currency)} strong />
+          <ReviewRow label={hasVariablePrice(priceServices) ? "Valor inicial" : "Total"} value={formatMoney(totalCents, currency)} strong />
         </dl>
+        <VariablePriceNotice services={priceServices} />
         {pricingLabel && (
           <p className="mt-3 rounded-xl bg-warning/10 px-3 py-2 text-xs font-medium text-warning">
             {pricingLabel} aplicado ao valor dos serviços.

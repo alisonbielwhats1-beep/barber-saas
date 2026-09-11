@@ -1,3 +1,4 @@
+import { priceSnapshot } from "./service-price";
 import { createHash, randomUUID } from "node:crypto";
 import { addMinutes } from "date-fns";
 import type {
@@ -56,6 +57,8 @@ export type ServiceSnapshot = {
   name: string;
   durationMin: number;
   priceCents: number;
+  priceType?: string;
+  priceNote?: string | null;
 };
 
 type SalonSchedulingSettings = {
@@ -272,7 +275,7 @@ async function loadServiceSnapshots(
   const serviceIds = normalizeServiceIds(rawServiceIds);
   const services = await tx.service.findMany({
     where: { salonId, id: { in: serviceIds }, active: true },
-    select: { id: true, name: true, durationMin: true, priceCents: true, processingMin: true, finishingMin: true, physicalResourceId: true },
+    select: { id: true, name: true, durationMin: true, priceCents: true, priceType: true, priceNote: true, processingMin: true, finishingMin: true, physicalResourceId: true },
   });
   if (services.length !== serviceIds.length) {
     throw new AppointmentError("SERVICE_INVALID");
@@ -634,6 +637,7 @@ function eventPayload(input: {
       durationMin: service.durationMin,
       processingMin: service.processingMin ?? 0, finishingMin: service.finishingMin ?? 0,
       priceCents: service.priceCents,
+      ...priceSnapshot(service),
     })),
     actor: {
       type: input.actor.type,
@@ -787,6 +791,7 @@ export async function createAppointment(
       durationMin: service.durationMin,
       processingMin: service.processingMin ?? 0, finishingMin: service.finishingMin ?? 0,
       priceCents: service.priceCents,
+      ...priceSnapshot(service),
     })),
   });
 
@@ -867,11 +872,11 @@ async function loadMutableAppointment(tx: Tx, salonId: string, appointmentId: st
           serviceId: true,
           serviceName: true,
           durationMin: true, processingMin: true, finishingMin: true,
-          priceCents: true,
+          priceCents: true, priceType: true, priceNote: true,
         },
       },
       service: {
-        select: { id: true, name: true, durationMin: true, priceCents: true, processingMin: true, finishingMin: true, physicalResourceId: true },
+        select: { id: true, name: true, durationMin: true, priceCents: true, priceType: true, priceNote: true, processingMin: true, finishingMin: true, physicalResourceId: true },
       },
     },
   });
@@ -908,9 +913,10 @@ function previousServices(
       durationMin: item.durationMin,
       processingMin: item.processingMin ?? 0, finishingMin: item.finishingMin ?? 0,
       priceCents: item.priceCents,
+      ...priceSnapshot(item),
     }));
   }
-  return [appointment.service];
+  return [{ ...appointment.service, ...priceSnapshot({}) }];
 }
 
 async function validateServiceSnapshotOverride(
@@ -1060,6 +1066,7 @@ export async function rescheduleAppointment(
       durationMin: service.durationMin,
       processingMin: service.processingMin ?? 0, finishingMin: service.finishingMin ?? 0,
       priceCents: service.priceCents,
+      ...priceSnapshot(service),
     })),
   };
   const preservesExistingServices =
@@ -1163,6 +1170,7 @@ export async function rescheduleAppointment(
       durationMin: service.durationMin,
       processingMin: service.processingMin ?? 0, finishingMin: service.finishingMin ?? 0,
       priceCents: service.priceCents,
+      ...priceSnapshot(service),
     })),
   });
 

@@ -235,7 +235,21 @@ jobs:
           npx prisma db execute --file prisma/sql/manual/019_product_depth.verify.sql --url "$DIRECT_URL"
           npx prisma db execute --file tests/fixtures/019-preservation-after.sql --url "$DIRECT_URL"
           npx prisma generate
-          npx vitest run src/lib/__tests__/product-depth-postgres.integration.test.ts
+      - name: Back up, restore and snapshot predecessor for variable prices
+        run: |
+          docker exec ${{ job.services.postgres.id }} pg_dump -U postgres -d salon_schema_ci > "$RUNNER_TEMP/pre020.sql"
+          test -s "$RUNNER_TEMP/pre020.sql"
+          docker exec ${{ job.services.postgres.id }} createdb -U postgres salon_restore020_ci
+          docker exec -i ${{ job.services.postgres.id }} psql -U postgres -d salon_restore020_ci -v ON_ERROR_STOP=1 < "$RUNNER_TEMP/pre020.sql" > /dev/null
+          npx prisma db execute --file tests/fixtures/020-preservation-before.sql --url "$DIRECT_URL"
+      - name: Verify variable price upgrade, reapplication and preservation
+        run: |
+          npx prisma db execute --file prisma/sql/manual/020_variable_service_prices.preflight.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/020_variable_service_prices.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/020_variable_service_prices.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/020_variable_service_prices.verify.sql --url "$DIRECT_URL"
+          npx prisma db execute --file tests/fixtures/020-preservation-after.sql --url "$DIRECT_URL"
+          npx vitest run src/lib/__tests__/product-depth-postgres.integration.test.ts src/lib/__tests__/variable-price-postgres.integration.test.ts
       - name: Prove appointment and comanda concurrency with PostgreSQL, plus public access locking
         run: npm run test:appointment-integration
       - name: Prove tenant-isolated password recovery with PostgreSQL
@@ -267,6 +281,8 @@ jobs:
             playwright-report
             test-results
           retention-days: 7
+      - name: Verify variable price recovery inventory
+        run: npx prisma db execute --file prisma/sql/manual/020_variable_service_prices.rollback.sql --url "$DIRECT_URL"
       - name: Prove non-destructive openings and check-in rollback
         run: |
           npx prisma db execute --file prisma/sql/manual/019_product_depth.rollback.sql --url "$DIRECT_URL"

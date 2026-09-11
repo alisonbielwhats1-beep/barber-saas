@@ -121,17 +121,16 @@ export default async function ConfiguracoesPage() {
         <h1 className="text-[26px] font-semibold tracking-tight">Configurações</h1>
       </header>
 
-      <SetupChecklist items={[
+      <SettingsSectionNav>
+      <section id="primeiros-passos"><SetupChecklist items={[
         { label: "Cadastrar serviços e preços", done: setupCounts.serviceCount > 0 },
         { label: "Cadastrar ao menos um profissional", done: setupCounts.professionalCount > 0 },
         { label: "Adicionar ou importar clientes", done: setupCounts.clientCount > 0 },
         { label: "Cadastrar produtos e estoque", done: setupCounts.productCount > 0 },
         { label: "Completar marca e WhatsApp", done: Boolean(salon.logoUrl && salon.whatsapp && salon.description) },
-      ]} />
+      ]} /></section>
 
-      <SettingsSectionNav />
 
-      <div className="space-y-6">
         <section id="perfil" className="scroll-mt-24">
           <ProfileForm profile={profile} />
         </section>
@@ -153,10 +152,11 @@ export default async function ConfiguracoesPage() {
           />
         </section>
 
-        <section id="agenda" className="scroll-mt-24">
+        <section id="horarios" className="scroll-mt-24">
           <TeamHoursManager openMinutes={salon.openMinutes} closeMinutes={salon.closeMinutes} professionals={teamHours.map(p => ({ id: p.id, name: p.user.name, workingHours: p.workingHours }))} />
-          <SalonSettingsForm salon={salon} />
-          <div className="mt-6">
+        </section>
+        <section id="agenda"><SalonSettingsForm salon={salon} /></section>
+        <section id="precos">
             <PricingRulesManager
               canManage={role === "OWNER" || role === "MANAGER"}
               rules={pricingRules.map((rule) => ({
@@ -166,8 +166,8 @@ export default async function ConfiguracoesPage() {
                 date: rule.date?.toISOString() ?? null,
               }))}
             />
-          </div>
-          <div className="mt-6">
+        </section>
+        <section id="fechamentos">
             <ClosuresManager
               timezone={salon.timezone}
               closures={closures.map((c): Closure => ({
@@ -178,7 +178,6 @@ export default async function ConfiguracoesPage() {
               }))}
               canManage={role === "OWNER" || role === "MANAGER"}
             />
-          </div>
         </section>
 
         <section id="notificacoes" aria-labelledby="settings-notifications-title" className="scroll-mt-24 rounded-2xl border border-border bg-card p-5">
@@ -201,7 +200,7 @@ export default async function ConfiguracoesPage() {
           </div>
         </section>
 
-        <div className="grid gap-6 lg:grid-cols-5">
+
           <section id="seguranca" aria-labelledby="settings-security-title" className="scroll-mt-24 lg:col-span-3">
             <h2 id="settings-security-title" className="sr-only">Segurança e acessos</h2>
             <AccessManager
@@ -242,8 +241,7 @@ export default async function ConfiguracoesPage() {
               </p>
             </div>
           </section>
-        </div>
-      </div>
+      </SettingsSectionNav>
     </div>
   );
 }

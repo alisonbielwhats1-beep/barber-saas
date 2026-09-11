@@ -98,7 +98,7 @@ export async function GET(req: NextRequest) {
 
       const services = await tx.service.findMany({
         where: { id: { in: serviceIds }, salonId, active: true },
-        select: { id: true, durationMin: true, priceCents: true, physicalResourceId: true },
+        select: { id: true, durationMin: true, priceCents: true, priceType: true, priceNote: true, physicalResourceId: true },
       });
       if (services.length !== serviceIds.length) return null;
       const priced = await priceServicesForDate(tx, {
@@ -257,7 +257,7 @@ export async function GET(req: NextRequest) {
         timezone: result.salon.timezone,
         servicePrices: result.services.map((service) => ({
           id: service.id,
-          priceCents: service.priceCents,
+          priceCents: service.priceCents, priceType: service.priceType, priceNote: service.priceNote,
         })),
         pricing: result.pricing,
       },

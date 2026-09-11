@@ -1,5 +1,14 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-10 — preços variáveis e configurações em implementação
+
+Na branch `codex/variable-prices-settings`, serviços ganham Fixo / A partir de,
+aviso explícito ao cliente e snapshots dos termos. Configurações abre com busca
+e tópicos navegáveis. A migration aditiva 020 será validada no PostgreSQL
+descartável; não foi aplicada em Production. Publicação depende de CI, revisão
+e autorização de migration/deploy. Escopo, limites e recuperação em
+`docs/PRECOS_VARIAVEIS_CONFIGURACOES_2026-09-10.md`.
+
 ## 2026-09-10 — bloqueios acionáveis e encaixe na pausa (PR #90)
 
 Na branch `codex/agenda-block-management`, os bloqueios da agenda deixam de ser

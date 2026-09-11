@@ -1,3 +1,4 @@
+import { priceSnapshot } from "./service-price";
 import { AppointmentError } from "./appointment-domain";
 import { writeAuditLog } from "./audit";
 import {
@@ -23,6 +24,7 @@ type OmitFromEach<T, Key extends PropertyKey> = T extends unknown
 
 export type CreateAppointmentWithProductsInput = {
   expectedTotalCents?: number;
+  expectedPriceTerms?: Array<{ id: string; priceType: string; priceNote: string | null }>;
   appointment: OmitFromEach<CreateAppointmentInput, "idempotencyContext">;
   productReservation: {
     actorName: string;
@@ -279,15 +281,20 @@ export async function createAppointmentWithProductReservation(
       items,
     });
   }
-  if (!created.duplicate && input.expectedTotalCents !== undefined) {
+  if (!created.duplicate && (input.expectedTotalCents !== undefined || input.expectedPriceTerms !== undefined || input.appointment.origin === "PUBLIC")) {
     const snapshot = await tx.appointment.findFirst({
       where: { id: created.appointment.id, salonId: input.appointment.salonId },
-      select: { priceCents: true, products: { select: { quantity: true, priceCentsUnit: true } } },
+      select: { serviceItems: { select: { serviceId: true, priceType: true, priceNote: true } }, priceCents: true, products: { select: { quantity: true, priceCentsUnit: true } } },
     });
     if (!snapshot) throw new AppointmentError("NOT_FOUND");
     const total = snapshot.priceCents + snapshot.products.reduce((sum, item) => sum + item.quantity * item.priceCentsUnit, 0);
     // The caller owns a transaction: throwing rolls back appointment, stock and outbox together.
-    if (total !== input.expectedTotalCents) throw new AppointmentError("PRICE_CHANGED");
+    if (input.expectedTotalCents !== undefined && total !== input.expectedTotalCents) throw new AppointmentError("PRICE_CHANGED");
+    const terms = (snapshot.serviceItems ?? []).map(item => ({ id: item.serviceId, ...priceSnapshot(item) }));
+    const expected = input.expectedPriceTerms;
+    if (expected ? terms.length !== expected.length || terms.some(term => !expected.some(item => item.id === term.id && item.priceType === term.priceType && item.priceNote === term.priceNote)) : terms.some(term => term.priceType === "FROM")) {
+      throw new AppointmentError("PRICE_CHANGED");
+    }
   }
   return created;
 }
