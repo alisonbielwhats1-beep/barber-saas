@@ -18,7 +18,7 @@ export default async function ServicosPage() {
       orderBy: { name: "asc" },
       select: {
         id: true, name: true, description: true, durationMin: true,
-        priceCents: true, costCents: true, category: true, imageUrl: true,
+        priceCents: true, priceType: true, priceNote: true, costCents: true, category: true, imageUrl: true,
         colorHex: true, active: true,
         variantGroup: true, variantLabel: true, processingMin: true, finishingMin: true, physicalResourceId: true,
         _count: { select: { professionals: true } },
@@ -45,6 +45,7 @@ export default async function ServicosPage() {
     description: s.description,
     durationMin: s.durationMin,
     priceCents: s.priceCents,
+    priceType: s.priceType, priceNote: s.priceNote,
     costCents: canSeeFinancial ? s.costCents : 0,
     category: s.category,
     imageUrl: s.imageUrl,

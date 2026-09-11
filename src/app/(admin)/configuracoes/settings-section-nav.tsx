@@ -1,96 +1,86 @@
 "use client";
 
-import {
-  Bell,
-  CalendarClock,
-  Crown,
-  Palette,
-  ShieldCheck,
-  UserRound,
-  type LucideIcon,
-} from "lucide-react";
-import { useEffect, useState } from "react";
+import { Children, isValidElement, useEffect, useRef, useState, type ReactNode } from "react";
+import { ArrowLeft, Bell, CalendarClock, ChevronRight, Crown, DoorClosed, ListChecks, Palette, Search, ShieldCheck, SlidersHorizontal, UserRound, Wallet, X } from "lucide-react";
 
-const SECTIONS: Array<{ id: string; label: string; icon: LucideIcon }> = [
-  { id: "perfil", label: "Perfil", icon: UserRound },
-  { id: "aparencia", label: "Aparência", icon: Palette },
-  { id: "agenda", label: "Agenda", icon: CalendarClock },
-  { id: "notificacoes", label: "Notificações", icon: Bell },
-  { id: "seguranca", label: "Segurança", icon: ShieldCheck },
-  { id: "plano", label: "Plano", icon: Crown },
+const SECTIONS = [
+  { id: "aparencia", label: "Aparência e vitrine", detail: "Logo, capa, cores e informações públicas", group: "Meu estabelecimento", keywords: "marca foto instagram whatsapp pagamento", icon: Palette },
+  { id: "agenda", label: "Dados e regras de agendamento", detail: "Contato, antecedência, intervalos e cancelamento", group: "Meu estabelecimento", keywords: "nome endereço telefone moeda fuso politica", icon: SlidersHorizontal },
+  { id: "horarios", label: "Horários de funcionamento", detail: "Expediente do salão e jornada da equipe", group: "Agenda e atendimento", keywords: "horario pausa abertura fechamento profissional", icon: CalendarClock },
+  { id: "precos", label: "Preços por dia", detail: "Acréscimos por dia da semana ou data especial", group: "Agenda e atendimento", keywords: "valor feriado preço tarifa", icon: Wallet },
+  { id: "fechamentos", label: "Fechamentos do salão", detail: "Dias e períodos sem atendimento", group: "Agenda e atendimento", keywords: "bloqueio folga ferias fechar", icon: DoorClosed },
+  { id: "perfil", label: "Meu perfil", detail: "Nome, e-mail e dados pessoais", group: "Conta e acesso", keywords: "usuario avatar foto telefone", icon: UserRound },
+  { id: "seguranca", label: "Segurança e acessos", detail: "Equipe, permissões e convites", group: "Conta e acesso", keywords: "acesso gerente recepcao membro convite", icon: ShieldCheck },
+  { id: "notificacoes", label: "Notificações", detail: "Central de avisos e atualizações", group: "Conta e acesso", keywords: "lembrete alerta mensagem", icon: Bell },
+  { id: "plano", label: "Meu plano", detail: "Recursos e limites do plano atual", group: "Conta e acesso", keywords: "assinatura faturamento", icon: Crown },
+  { id: "primeiros-passos", label: "Primeiros passos", detail: "Confira o que falta configurar", group: "Conta e acesso", keywords: "checklist iniciar cadastro", icon: ListChecks },
 ];
 
-export function SettingsSectionNav() {
-  const [activeSection, setActiveSection] = useState(SECTIONS[0].id);
+function normalize(value: string) {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR");
+}
+
+/** Preserve mounted forms when returning to search, including unsaved edits. */
+export function SettingsSectionNav({ children }: { children: ReactNode }) {
+  const [active, setActive] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const heading = useRef<HTMLHeadingElement>(null);
+  const lastLink = useRef<string | null>(null);
+  const search = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const validIds = new Set(SECTIONS.map((section) => section.id));
-    const syncFromHash = () => {
-      const id = window.location.hash.slice(1);
-      if (validIds.has(id)) setActiveSection(id);
+    const sync = () => {
+      const hash = window.location.hash.slice(1);
+      const id = hash === "jornadas" ? "horarios" : hash;
+      setActive(SECTIONS.some(section => section.id === id) ? id : null);
     };
-
-    syncFromHash();
-    window.addEventListener("hashchange", syncFromHash);
-
-    if (typeof IntersectionObserver === "undefined") {
-      return () => window.removeEventListener("hashchange", syncFromHash);
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
-        if (visible) setActiveSection(visible.target.id);
-      },
-      { rootMargin: "-18% 0px -62% 0px", threshold: [0, 0.1] },
-    );
-
-    for (const section of SECTIONS) {
-      const target = document.getElementById(section.id);
-      if (target) observer.observe(target);
-    }
-
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("hashchange", syncFromHash);
-    };
+    sync();
+    window.addEventListener("hashchange", sync);
+    window.addEventListener("popstate", sync);
+    return () => { window.removeEventListener("hashchange", sync); window.removeEventListener("popstate", sync); };
   }, []);
 
-  function handleNavigate(event: React.MouseEvent<HTMLAnchorElement>, id: string) {
-    const target = document.getElementById(id);
-    if (!target) return;
+  useEffect(() => {
+    if (active) heading.current?.focus();
+    else if (lastLink.current) document.getElementById(`settings-link-${lastLink.current}`)?.focus();
+  }, [active]);
 
-    event.preventDefault();
-    setActiveSection(id);
-    window.history.pushState(null, "", `#${id}`);
-    target.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+  function navigate(id: string | null) {
+    if (id) lastLink.current = id;
+    window.history.pushState(null, "", `${window.location.pathname}${window.location.search}${id ? `#${id}` : ""}`);
+    setActive(id);
   }
 
-  return (
-    <nav
-      aria-label="Seções de configurações"
-      className="sticky top-0 z-20 -mx-1 overflow-x-auto rounded-2xl border border-border bg-background/95 p-1.5 shadow-sm backdrop-blur sm:mx-0"
-    >
-      <div className="flex min-w-max items-center gap-1">
-        {SECTIONS.map(({ id, label, icon: Icon }) => (
-          <a
-            key={id}
-            href={`#${id}`}
-            aria-current={activeSection === id ? "location" : undefined}
-            onClick={(event) => handleNavigate(event, id)}
-            className={`inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-              activeSection === id
-                ? "bg-card text-foreground shadow-sm"
-                : "text-muted-foreground hover:bg-card-hover hover:text-foreground"
-            }`}
-          >
-            <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />
-            {label}
-          </a>
-        ))}
+  const selected = SECTIONS.find(section => section.id === active);
+  const terms = normalize(query).trim().split(/\s+/).filter(Boolean);
+  const matches = SECTIONS.filter(section => terms.every(term => normalize(`${section.label} ${section.detail} ${section.keywords} ${section.group}`).includes(term)));
+
+  return <div>
+    <div hidden={Boolean(active)}>
+      <div className="relative mb-6">
+        <Search aria-hidden="true" className="pointer-events-none absolute left-3.5 top-3.5 h-5 w-5 text-muted-foreground" />
+        <input ref={search} type="search" aria-label="Buscar configuração" placeholder="Buscar configuração" value={query} onChange={event => setQuery(event.target.value)} className="min-h-12 w-full rounded-xl border border-border bg-card pl-11 pr-12 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+        {query && <button type="button" aria-label="Limpar busca" onClick={() => { setQuery(""); search.current?.focus(); }} className="absolute right-0 top-0 grid h-12 w-12 place-items-center rounded-xl focus-visible:ring-2 focus-visible:ring-ring"><X aria-hidden="true" className="h-4 w-4" /></button>}
       </div>
-    </nav>
-  );
+      <nav aria-label="Seções de configurações" className="grid gap-6 lg:grid-cols-2">
+        {[...new Set(matches.map(section => section.group))].map(group => <section key={group}>
+          <h2 className="mb-2 text-sm font-semibold">{group}</h2>
+          <div className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
+            {matches.filter(section => section.group === group).map(({ id, label, detail, icon: Icon }) => <a key={id} id={`settings-link-${id}`} href={`#${id}`} onClick={event => { event.preventDefault(); navigate(id); }} className="flex min-h-20 items-center gap-3 px-4 py-3 transition-colors hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
+              <Icon aria-hidden="true" className="h-5 w-5 shrink-0 text-muted-foreground" />
+              <span className="min-w-0 flex-1"><span className="block text-sm font-medium">{label}</span><span className="mt-1 block text-xs leading-relaxed text-muted-foreground">{detail}</span></span>
+              <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
+            </a>)}
+          </div>
+        </section>)}
+      </nav>
+      {query && <p role="status" className="mt-4 text-sm text-muted-foreground">{matches.length ? `${matches.length} opções encontradas` : "Nenhuma configuração encontrada. Tente buscar por horário, preço ou perfil."}</p>}
+    </div>
+    {selected && <div className="mb-5">
+      <button type="button" onClick={() => navigate(null)} className="mb-3 inline-flex min-h-11 items-center gap-2 rounded-lg pr-3 text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring"><ArrowLeft aria-hidden="true" className="h-4 w-4" />Todas as configurações</button>
+      <h2 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">{selected.label}</h2>
+      <p className="mt-1 text-sm text-muted-foreground">{selected.detail}</p>
+    </div>}
+    {Children.map(children, child => isValidElement<{ id?: string }>(child) ? <div hidden={child.props.id !== active}>{child}</div> : null)}
+  </div>;
 }

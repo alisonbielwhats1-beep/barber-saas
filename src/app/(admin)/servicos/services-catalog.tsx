@@ -1,4 +1,5 @@
 "use client";
+import { servicePriceLabel } from "@/lib/service-price";
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -41,6 +42,8 @@ export type ServiceCard = {
   description: string | null;
   durationMin: number;
   priceCents: number;
+  priceType?: string;
+  priceNote?: string | null;
   costCents: number;
   category: string | null;
   imageUrl: string | null;
@@ -352,7 +355,7 @@ function ServiceRow({
       </div>}
 
       <p className="w-20 shrink-0 text-right text-[13px] font-semibold">
-        {formatMoney(s.priceCents)}
+        {servicePriceLabel(s)}
       </p>
 
       {canManage && <ActionsMenu s={s} />}

@@ -239,9 +239,9 @@ histórico e não faz parte do rollback.
 - um segundo tenant não acessa o agendamento;
 - fluxo mobile com muitos serviços, safe area, zoom e texto ampliado.
 
-O repositório ainda não possui Playwright. Não foi adicionada uma dependência
-sem um banco de Preview seguro disponível; esses cenários permanecem como gate
-obrigatório da homologação e devem virar automação E2E na etapa seguinte.
+O repositório atualmente possui Playwright com jornadas públicas e autenticadas
+no PostgreSQL descartável do CI, conforme `docs/STATUS_ATUAL.md`. A homologação
+continua exigindo ambiente separado e inequivocamente identificado.
 
 ## Limites deliberados
 

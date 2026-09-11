@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BookingFlow } from "./booking-flow";
@@ -411,3 +411,19 @@ describe("BookingFlow availability", () => {
 
 vi.mock("./dependent-actions", () => ({ listDependents: async () => [], createDependent: vi.fn(), archiveDependent: vi.fn() }));
 vi.mock("./flexible-actions", () => ({ myFlexibleWaitlist: async () => [], requestFlexibleWaitlist: vi.fn(), cancelFlexibleRequest: vi.fn() }));
+
+describe("Preço variável na revisão", () => {
+  it("informa valor inicial e motivo também em uma reserva mista", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(availability(["10:00"])));
+    const user = userEvent.setup();
+    const services = [{ ...baseProps.services[0]!, priceType: "FROM", priceNote: "Varia conforme o comprimento." }, { ...baseProps.services[0]!, id: "service-2", name: "Sobrancelha", priceCents: 2000 }];
+    render(<BookingFlow {...baseProps} services={services} initialServiceIds={["service-1", "service-2"]} />);
+    await user.click(await screen.findByRole("button", { name: "Horário 10:00" }));
+    await user.click(screen.getByRole("button", { name: "Revisar reserva" }));
+    const review = within(screen.getByRole("dialog"));
+    expect(review.getByText("Valor inicial")).toBeVisible();
+    expect(review.getByText("O valor final pode ser maior")).toBeVisible();
+    expect(review.getByText(/Varia conforme o comprimento/)).toBeVisible();
+    expect(review.queryByText("Total")).not.toBeInTheDocument();
+  });
+});

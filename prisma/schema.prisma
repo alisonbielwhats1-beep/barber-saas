@@ -843,6 +843,8 @@ model Service {
   description String?
   durationMin Int
   priceCents  Int
+  priceType String @default("FIXED")
+  priceNote String?
   costCents   Int     @default(0)
   category    String?
   imageUrl    String?
@@ -1061,6 +1063,8 @@ model AppointmentService {
   serviceName   String
   durationMin   Int
   priceCents    Int
+  priceType String @default("FIXED")
+  priceNote String?
   processingMin Int @default(0)
   finishingMin Int @default(0)
 

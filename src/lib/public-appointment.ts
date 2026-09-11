@@ -25,6 +25,7 @@ export const publicAppointmentSchema = z
       .transform(normalizePhone)
       .optional(),
     notes: z.string().max(1_000).optional(),
+    expectedPriceTerms: z.array(z.object({ id: z.string().min(1), priceType: z.enum(["FIXED", "FROM"]), priceNote: z.string().max(240).nullable() })).min(1).max(10).optional(),
     expectedTotalCents: z.number().int().min(0).max(100_000_000).optional(),
     cartItems: z.array(cartItemSchema).max(30).optional().default([]),
   })

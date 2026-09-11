@@ -1,42 +1,43 @@
 // @vitest-environment jsdom
-
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
 import { SettingsSectionNav } from "./settings-section-nav";
 
-afterEach(cleanup);
-
-describe("SettingsSectionNav", () => {
-  it("oferece navegação nomeada por domínio e alvos de toque amplos", () => {
-    render(<SettingsSectionNav />);
-
-    expect(screen.getByRole("navigation", { name: "Seções de configurações" })).toBeInTheDocument();
-    for (const section of ["perfil", "aparencia", "agenda", "notificacoes", "seguranca", "plano"]) {
-      const link = screen.getByRole("link", { name: new RegExp(section === "aparencia" ? "Aparência" : section === "notificacoes" ? "Notificações" : section === "seguranca" ? "Segurança" : section[0].toUpperCase() + section.slice(1), "i") });
-      expect(link).toHaveAttribute("href", `#${section}`);
-      expect(link.className).toContain("min-h-11");
-    }
-  });
-
-  it("centraliza a seção escolhida em vez de deixar o alvo preso no rodapé", () => {
-    const target = document.createElement("section");
-    target.id = "agenda";
-    const scrollIntoView = vi.fn();
-    target.scrollIntoView = scrollIntoView;
-    document.body.appendChild(target);
-
-    render(<SettingsSectionNav />);
-    const link = screen.getByRole("link", { name: "Agenda" });
+afterEach(() => { cleanup(); window.history.replaceState(null, "", "/configuracoes"); });
+function setup() {
+  return render(<SettingsSectionNav><section id="perfil"><input aria-label="Nome pessoal" defaultValue="Ana" /></section><section id="horarios"><p>Formulário de horários</p></section></SettingsSectionNav>);
+}
+describe("Configurações por tópico", () => {
+  it("busca sem acento, abre um tópico e preserva alterações e busca ao voltar", () => {
+    setup();
+    expect(screen.getByLabelText("Nome pessoal")).not.toBeVisible();
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "perfil" } });
+    const link = screen.getByRole("link", { name: /Meu perfil/ });
     fireEvent.click(link);
-
-    expect(scrollIntoView).toHaveBeenCalledWith({
-      behavior: "smooth",
-      block: "center",
-      inline: "nearest",
-    });
-    expect(link).toHaveAttribute("aria-current", "location");
-
-    target.remove();
-    window.history.replaceState(null, "", "/configuracoes");
+    expect(screen.getByRole("heading", { name: "Meu perfil" })).toHaveFocus();
+    fireEvent.change(screen.getByLabelText("Nome pessoal"), { target: { value: "Ana Maria" } });
+    fireEvent.click(screen.getByRole("button", { name: "Todas as configurações" }));
+    expect(link).toHaveFocus();
+    expect(screen.getByRole("searchbox")).toHaveValue("perfil");
+    fireEvent.click(link);
+    expect(screen.getByLabelText("Nome pessoal")).toHaveValue("Ana Maria");
+    fireEvent.click(screen.getByRole("button", { name: "Todas as configurações" }));
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "horario" } });
+    expect(screen.getByRole("link", { name: /Horários de funcionamento/ })).toBeVisible();
+    expect(screen.queryByRole("link", { name: /Meu perfil/ })).not.toBeInTheDocument();
+  });
+  it("oferece recuperação da busca vazia", () => {
+    setup(); fireEvent.change(screen.getByRole("searchbox"), { target: { value: "xyzxyz" } });
+    expect(screen.getByRole("status")).toHaveTextContent("Nenhuma configuração encontrada");
+    fireEvent.click(screen.getByRole("button", { name: "Limpar busca" }));
+    expect(screen.getByRole("searchbox")).toHaveFocus();
+    expect(screen.getByRole("link", { name: /Segurança e acessos/ })).toBeVisible();
+  });
+  it("respeita links antigos e navegação do navegador", () => {
+    window.history.replaceState(null, "", "/configuracoes#jornadas"); setup();
+    expect(screen.getByText("Formulário de horários")).toBeVisible();
+    act(() => { window.history.replaceState(null, "", "/configuracoes"); window.dispatchEvent(new PopStateEvent("popstate")); });
+    expect(screen.getByText("Formulário de horários")).not.toBeVisible();
+    expect(screen.getByRole("searchbox")).toBeVisible();
   });
 });

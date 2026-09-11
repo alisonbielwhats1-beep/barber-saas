@@ -99,6 +99,7 @@ export async function POST(req: NextRequest) {
 
       return createAppointmentWithProductReservation(tx, {
         expectedTotalCents: booking.expectedTotalCents,
+        expectedPriceTerms: booking.expectedPriceTerms,
         appointment: {
           salonId: booking.salonId,
           professionalId: booking.professionalId,

@@ -1,0 +1,111 @@
+import { expect, test } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
+import { PrismaClient } from "@prisma/client";
+import { assertSafeDatabaseOperation } from "../../src/lib/database-safety";
+import { addCalendarDays, dateKeyInTimeZone } from "../../src/lib/time";
+
+test.describe("@database preços variáveis e configurações", () => {
+  test.skip(!process.env.RUN_DATABASE_E2E, "Somente PostgreSQL descartável.");
+
+  test("configurações: busca, tópico, voltar e links antigos em mobile e desktop", async ({ page }) => {
+    test.setTimeout(180_000);
+    assertSafeDatabaseOperation(process.env, { operation: "settings-browser" });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("/login");
+    await page.getByLabel("Email").fill("dono@lunahair.com");
+    await page.getByLabel("Senha", { exact: true }).fill("demo1234");
+    await page.getByRole("button", { name: "Entrar", exact: true }).click();
+    await expect(page).toHaveURL(/\/(hoje|dashboard)$/, { timeout: 30_000 });
+    for (const width of [320, 390, 1280]) {
+      await page.setViewportSize({ width, height: 844 });
+      await page.goto("/configuracoes");
+      await expect(page.getByRole("searchbox", { name: "Buscar configuração" })).toBeVisible();
+      await expect(page.locator("#perfil")).not.toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
+      expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations).toEqual([]);
+      await page.screenshot({ path: test.info().outputPath(`configuracoes-${width}.png`), fullPage: true });
+      await page.getByRole("searchbox").fill("horario");
+      await page.getByRole("link", { name: /Horários de funcionamento/ }).click();
+      await expect(page.locator("#jornadas")).toBeVisible();
+      await expect(page.locator("#perfil")).not.toBeVisible();
+      await page.getByRole("button", { name: "Todas as configurações" }).click();
+      await expect(page.getByRole("searchbox")).toHaveValue("horario");
+      await page.goBack();
+      await expect(page.locator("#jornadas")).toBeVisible();
+    }
+    await page.goto("/configuracoes#jornadas");
+    await expect(page.locator("#jornadas")).toBeVisible();
+  });
+
+  test("dono cadastra preço inicial; cliente vê aviso, reserva e mantém histórico", async ({ page }) => {
+    test.setTimeout(240_000);
+    assertSafeDatabaseOperation(process.env, { operation: "variable-price-browser" });
+    const db = new PrismaClient();
+    const suffix = crypto.randomUUID().slice(0, 8);
+    const name = `Progressiva CI ${suffix}`;
+    const note = "O valor pode ser maior conforme o comprimento do cabelo.";
+    const errors: string[] = [];
+    page.on("pageerror", error => errors.push(error.message));
+    try {
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.emulateMedia({ reducedMotion: "reduce" });
+      await page.goto("/login");
+      await page.getByLabel("Email").fill("dono@lunahair.com");
+      await page.getByLabel("Senha", { exact: true }).fill("demo1234");
+      await page.getByRole("button", { name: "Entrar", exact: true }).click();
+      await expect(page).toHaveURL(/\/(hoje|dashboard)$/, { timeout: 30_000 });
+      await page.goto("/servicos");
+      await page.getByRole("button", { name: "Novo serviço", exact: true }).click();
+      const dialog = page.getByRole("dialog");
+      await dialog.getByLabel("Nome", { exact: true }).fill(name);
+      await dialog.getByLabel("Tipo de preço").selectOption("FROM");
+      await dialog.getByLabel("Valor inicial (R$)", { exact: true }).fill("180");
+      await dialog.getByLabel("Explicação para o cliente").fill(note);
+      await dialog.getByLabel("Valor inicial (R$)", { exact: true }).scrollIntoViewIfNeeded();
+      await expect(dialog.getByText(/A partir de R\$/)).toBeVisible();
+      await page.screenshot({ path: test.info().outputPath("dono-preco-inicial.png") });
+      await dialog.getByRole("button", { name: "Criar", exact: true }).click();
+      await expect(dialog).not.toBeVisible();
+      const salon = await db.salon.findUniqueOrThrow({ where: { slug: "luna-hair" } });
+      const service = await db.service.findFirstOrThrow({ where: { salonId: salon.id, name } });
+      expect(service).toMatchObject({ priceType: "FROM", priceNote: note, priceCents: 18000 });
+      const user = await db.user.create({ data: { name: `Profissional CI ${suffix}`, email: `${suffix}@example.test`, passwordHash: "fixture-only" } });
+      const pro = await db.professional.create({ data: { salonId: salon.id, userId: user.id, services: { create: { serviceId: service.id } } } });
+      const date = addCalendarDays(dateKeyInTimeZone(new Date(), salon.timezone), 2);
+      await db.professionalOpening.create({ data: { salonId: salon.id, professionalId: pro.id, dateKey: date, startMinutes: 480, endMinutes: 1200, reason: "Teste isolado" } });
+      await page.goto("/book/luna-hair");
+      const card = page.locator(`a[href$="service=${service.id}"]`);
+      await expect(card).toContainText("A partir de");
+      await expect(card).toContainText(note);
+      await page.goto(`/book/luna-hair/agendar?service=${service.id}&date=${date}`);
+      await page.getByRole("button", { name: "Horário 10:00", exact: true }).click();
+      await page.getByRole("button", { name: "Revisar reserva" }).click();
+      const review = page.getByRole("dialog");
+      await expect(review.getByText("Valor inicial", { exact: true })).toBeVisible();
+      await expect(review.getByText("O valor final pode ser maior")).toBeVisible();
+      expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations).toEqual([]);
+      await page.screenshot({ path: test.info().outputPath("cliente-revisao-preco-inicial.png") });
+      await page.getByRole("button", { name: "Entrar e continuar" }).click();
+      await expect(page).toHaveURL(/\/login\?returnTo=/);
+      const returnTo = new URL(page.url()).searchParams.get("returnTo")!;
+      await page.goto(`/book/luna-hair/cadastro?returnTo=${encodeURIComponent(returnTo)}`);
+      await page.getByLabel("Nome completo").fill(`Cliente preço ${suffix}`);
+      await page.getByLabel(/WhatsApp/).fill("11912345678");
+      await page.getByLabel("E-mail").fill(`client-${suffix}@example.test`);
+      await page.getByLabel("Senha", { exact: true }).fill("senha-e2e-123");
+      await page.getByLabel("Confirmar senha").fill("senha-e2e-123");
+      await page.getByRole("button", { name: "Criar conta" }).click();
+      await expect(page).toHaveURL(/\/agendar\?/, { timeout: 30_000 });
+      await page.getByRole("button", { name: "Revisar reserva" }).click();
+      await page.getByRole("button", { name: "Confirmar reserva" }).click();
+      await expect(page.getByRole("heading", { name: "Reserva confirmada" })).toBeVisible();
+      await db.service.update({ where: { id: service.id }, data: { priceType: "FIXED", priceNote: null, priceCents: 25000 } });
+      await page.getByRole("link", { name: "Ver minhas reservas" }).click();
+      const reservation = page.locator(".client-reservation").filter({ hasText: name });
+      await expect(reservation).toContainText("Valor inicial");
+      await expect(reservation).toContainText(note);
+      await page.screenshot({ path: test.info().outputPath("cliente-historico-preservado.png"), fullPage: true });
+      expect(errors).toEqual([]);
+    } finally { await db.$disconnect(); }
+  });
+});

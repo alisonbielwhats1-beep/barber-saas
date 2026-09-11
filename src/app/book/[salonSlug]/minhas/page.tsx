@@ -1,3 +1,4 @@
+import { priceSnapshot } from "@/lib/service-price";
 import { redirect } from "next/navigation";
 import { withSalonBySlug } from "@/lib/prisma-tenant";
 import { getClientSession } from "@/lib/client-auth";
@@ -29,6 +30,8 @@ function proposalServices(value: unknown): Array<{
   name: string;
   durationMin: number;
   priceCents: number;
+  priceType?: string;
+  priceNote?: string | null;
 }> {
   if (!Array.isArray(value)) return [];
   return value.flatMap((item) => {
@@ -46,6 +49,7 @@ function proposalServices(value: unknown): Array<{
       name: record.name,
       durationMin: record.durationMin,
       priceCents: record.priceCents,
+      ...priceSnapshot({ priceType: typeof record.priceType === "string" ? record.priceType : undefined, priceNote: typeof record.priceNote === "string" ? record.priceNote : null }),
     }];
   });
 }
@@ -100,7 +104,7 @@ export default async function MinhasPage({
         service: { select: { id: true, name: true, colorHex: true } },
         serviceItems: {
           orderBy: { position: "asc" },
-          select: { serviceId: true, serviceName: true },
+          select: { serviceId: true, serviceName: true, priceType: true, priceNote: true },
         },
         professional: { select: { id: true, user: { select: { name: true } } } },
         events: {
