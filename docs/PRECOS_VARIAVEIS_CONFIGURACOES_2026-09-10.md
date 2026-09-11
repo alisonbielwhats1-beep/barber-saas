@@ -78,3 +78,35 @@ não apaga nem reclassifica reservas. Não aplicar a migration 011 de billing.
 O responsável autorizou aplicar a migration e publicar. A numeração passou para
 021 porque a migration 020 de HQ foi integrada e aplicada em outra entrega.
 A integração com master passa novamente pelo CI antes da execução produtiva.
+
+## Migration produtiva verificada
+
+Em 11/09 às 01:27 UTC, após autorização explícita, a migration 021 foi aplicada
+pelo conector Supabase ao projeto `barber-saas` / `vshnatkzxdekkvqttvbv`, versão
+`20260911012714` / `product_021_variable_service_prices`. Preflight confirmou
+colunas ausentes, identidade, constraints e runtime sem BYPASSRLS.
+A integração com HQ 020 já passou pelas etapas de banco do CI 34550526778.
+
+Backup delimitado às duas tabelas afetadas, com registros e metadados de schema,
+criptografado no banco com OpenPGP/AES-256 antes de sair pelo conector. Arquivo
+fora do Git em `%USERPROFILE%/.codex/backups/everflair/production-2026-09-11-pr93/`,
+ACL restrita ao usuário e SYSTEM; chave em `../production-2026-09-07/keys`.
+Decifragem somente em memória confirmou formato, contagens e SHA-256:
+`3f9f36e8dd063d1ef1ff8cff9a16570863e3a655258c70c8d424d3713fac5951`, 721837 bytes.
+A restauração funcional usa exclusivamente dados sintéticos no schema-smoke.
+
+Verify passou; ENABLE/FORCE RLS e grants permaneceram iguais. Todos os registros
+legados ficaram FIXED/null. Fingerprints JSONB das colunas anteriores iguais:
+
+| Tabela | Registros | MD5 antes/depois |
+|---|---:|---|
+| Service | 160 | fd7bde037ac77a9371c09acf8e744f57 |
+| AppointmentService | 2234 | 7cd1cc5a619fdcf64b7146a3308236d7 |
+
+Nenhum seed, teste de escrita ou reaplicação de migration anterior foi executado
+em Production. Recuperação continua por código anterior mantendo colunas;
+após adoção de FROM, preferir roll-forward para não ocultar condições de preço.
+A publicação usa merge em master e build Production pela integração Git da
+Vercel, após aprovação do CI/Preview final. Evidência final de merge, deployment,
+rotas e runtime será registrada no PR #93; os registros anteriores deste arquivo
+que dizem "não aplicada" descrevem a preparação, concluída por esta seção.

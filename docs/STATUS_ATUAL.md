@@ -6,7 +6,10 @@ PR #93 implementa Fixo / A partir de, explicação para o cliente e snapshots
 preservados nas reservas. Configurações abre com busca e tópicos navegáveis.
 O responsável autorizou migration e publicação em Production. Como a 020 de HQ
 já foi aplicada pelo PR #92, esta entrega usa a migration aditiva 021.
-Integração com master e CI final em validação; 021 ainda não aplicada.
+A migration 021 foi aplicada no projeto produtivo `vshnatkzxdekkvqttvbv`,
+versão `20260911012714`, após backup criptografado e preflight. Os 160 serviços
+e 2.234 vínculos de agendamento foram preservados por checksum. CI final da
+integração em validação; resultado de merge/deploy e conferência no PR #93.
 Escopo e recuperação em `PRECOS_VARIAVEIS_CONFIGURACOES_2026-09-10.md`.
 
 ## 2026-09-10 — Everflare HQ em validação no PR #92
