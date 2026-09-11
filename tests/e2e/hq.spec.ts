@@ -6,13 +6,16 @@ import { assertSafeDatabaseOperation } from "../../src/lib/database-safety";
 
 test.describe("@database Everflare HQ",()=>{
  test.skip(!process.env.RUN_DATABASE_E2E,"Somente CI descartável.");
- let email:string;const password="hq-synthetic-2026-password";
+ let email:string,supportCustomerId:string;const password="hq-synthetic-2026-password";
  test.beforeAll(async()=>{
   assertSafeDatabaseOperation(process.env,{operation:"hq-browser-fixture"});
   const db=new PrismaClient();
   email=crypto.randomUUID()+"@hq.example.test";
   const admin=await db.user.create({data:{email,name:"Responsável HQ",platformRole:"SUPER_ADMIN",passwordHash:await bcrypt.hash(password,10),passwordSetAt:new Date()}});
   await db.hqAgentRun.create({data:{id:crypto.randomUUID(),actorId:admin.id,question:"Resumo sintético persistente do Chefe",answer:"Resposta fictícia do teste de histórico. Nenhum serviço externo foi utilizado.",snapshot:{synthetic:true},sources:[{label:"Financeiro",href:"/hq/finance"}],status:"completed",model:"synthetic-browser",promptVersion:"ci",chargeMicros:0,inputTokens:1,outputTokens:1,finishedAt:new Date()}});
+  const account=await db.hqAccounts.create({data:{name:"Suporte CI",business:"Estúdio Suporte E2E"}});
+  const customer=await db.hqCustomers.create({data:{accountId:account.id,status:"Ativo"}});supportCustomerId=customer.id;
+  await db.hqAgentRun.create({data:{id:crypto.randomUUID(),actorId:admin.id,question:"Dúvida sintética de expediente",answer:JSON.stringify({reply:"Confira a jornada do profissional.",title:"Expediente",category:"Dúvida",recommendation:"reply",needsHuman:false,reason:"Fonte técnica sintética",articleIds:["horarios"]}),snapshot:{kind:"support",requestContext:"support:"+customer.id,customerId:customer.id,accountId:account.id},sources:[{label:"Expediente",href:"/hq/agents/knowledge#horarios"}],status:"completed",model:"synthetic-browser",promptVersion:"ci",chargeMicros:0,inputTokens:1,outputTokens:1,finishedAt:new Date()}});
   await db.$disconnect();
  });
  test("bloqueia visitante e proprietário comum",async({page})=>{
@@ -48,7 +51,7 @@ test.describe("@database Everflare HQ",()=>{
   await expect(page.getByText("Lead convertido em cliente. Histórico preservado.")).toBeVisible();
   for(const viewport of [{width:1440,height:1000},{width:1024,height:900},{width:768,height:1024},{width:390,height:844}]){
    await page.setViewportSize(viewport);
-   for(const route of ["/hq/dashboard","/hq/cmm","/hq/pipeline","/hq/finance",profile,"/hq/support","/hq/product","/hq/agents"]){
+   for(const route of ["/hq/dashboard","/hq/cmm","/hq/pipeline","/hq/finance",profile,"/hq/support","/hq/product","/hq/agents","/hq/agents/support","/hq/agents/knowledge"]){
     await page.goto(route);await expect(page.locator(".hq-main h1")).toBeVisible();
     expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1)).toBe(false);
     const audit=await new AxeBuilder({page}).include(".hq").withTags(["wcag2a","wcag2aa","wcag21aa"]).analyze();
@@ -57,6 +60,18 @@ test.describe("@database Everflare HQ",()=>{
    }
   }
   expect(errors).toEqual([]);
+ });
+ test("revisa suporte por cliente sem enviar mensagem ou consumir IA",async({page})=>{
+  await page.goto("/login");await page.getByLabel("Email").fill(email);await page.getByLabel("Senha",{exact:true}).fill(password);await page.getByRole("button",{name:"Entrar",exact:true}).click();await expect(page).toHaveURL(/\/plataforma/,{timeout:30000});
+  await page.goto("/hq/agents/support");await page.getByLabel("Cliente do Everflare").selectOption(supportCustomerId);
+  await expect(page.getByText("Dúvida sintética de expediente",{exact:true})).toBeVisible();await expect(page.getByRole("button",{name:"Gerar rascunho de suporte"})).toBeDisabled();
+  await page.getByText("Revisar e decidir",{exact:true}).click();await page.getByLabel("Texto revisado").fill("Orientação revisada do teste sintético.");await page.getByLabel("Decisão").selectOption("ticket");
+  await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1)).toBe(false);
+  const audit=await new AxeBuilder({page}).include(".hq").withTags(["wcag2a","wcag2aa","wcag21aa"]).analyze();expect(audit.violations).toEqual([]);
+  await page.screenshot({path:test.info().outputPath("support-review-mobile.png"),fullPage:true,animations:"disabled"});
+  await page.getByRole("button",{name:"Confirmar decisão revisada"}).click();await expect(page.getByText(/Revisão registrada/)).toBeVisible();
+  await page.reload();await page.getByLabel("Cliente do Everflare").selectOption(supportCustomerId);await expect(page.getByText(/Revisão registrada/)).toBeVisible();await expect(page.getByText("Revisar e decidir",{exact:true})).toHaveCount(0);
+  await page.goto("/hq/customers/"+supportCustomerId);await expect(page.getByText(/Suporte revisado pelo administrador/)).toBeVisible();
  });
  test("valida laboratório SDK sem dados ou serviços externos",async({page})=>{
   test.setTimeout(120000);

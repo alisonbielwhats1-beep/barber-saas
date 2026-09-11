@@ -4,6 +4,7 @@ import type {Tx} from "@/lib/prisma-tenant";
 import {assertSafeDatabaseOperation} from "@/lib/database-safety";
 import {reserveChief,finishChief,chiefHistory,committed} from "./chief-repository";
 import {chiefSnapshot,chiefSources} from "./chief-snapshot";
+import {supportContext,supportHistory,reviewSupport} from "./support-repository";
 vi.mock("server-only",()=>({}));
 const pg=process.env.RUN_POSTGRES_INTEGRATION==="1"?describe:describe.skip;
 let admin:string,normal:string;
@@ -23,6 +24,9 @@ pg("Chefe 022 — persistência, concorrência e RLS PostgreSQL",()=>{
   await prisma.$executeRawUnsafe('GRANT USAGE ON SCHEMA public TO chief_test_runtime');
   await prisma.$executeRawUnsafe('GRANT SELECT ON ALL TABLES IN SCHEMA public TO chief_test_runtime');
   await prisma.$executeRawUnsafe('GRANT INSERT,UPDATE ON hq_agent_runs TO chief_test_runtime');
+  await prisma.$executeRawUnsafe('GRANT INSERT,UPDATE ON hq_support_tickets,hq_bug_customers,hq_feature_request_customers TO chief_test_runtime');
+  await prisma.$executeRawUnsafe('GRANT UPDATE ON hq_bugs,hq_feature_requests TO chief_test_runtime');
+  await prisma.$executeRawUnsafe('GRANT INSERT ON hq_activities TO chief_test_runtime');
   await prisma.$executeRawUnsafe('GRANT EXECUTE ON FUNCTION hq_is_admin() TO chief_test_runtime');
   const users=await Promise.all(["SUPER_ADMIN","USER"].map(platformRole=>prisma.user.create({data:{email:crypto.randomUUID()+"@chief.example.test",name:"Chefe CI",passwordHash:"synthetic",platformRole:platformRole as "SUPER_ADMIN"|"USER"}})));
   [admin,normal]=users.map(u=>u.id);
@@ -80,5 +84,54 @@ pg("Chefe 022 — persistência, concorrência e RLS PostgreSQL",()=>{
   expect(snapshot.openTickets.total).toBeGreaterThan(0);
   expect(snapshot.openTickets.items.length).toBeLessThanOrEqual(10);
   expect(await prisma.hqAccounts.findUnique({where:{id:account.id}})).toEqual(before);
+ });
+ async function supportFixture(){
+  const account=await prisma.hqAccounts.create({data:{name:"Privado",business:"Suporte sintético",phone:"PRIVATE-PHONE",notes:"PRIVATE-NOTE"}});
+  const customer=await prisma.hqCustomers.create({data:{accountId:account.id,status:"Ativo"}});
+  const id=crypto.randomUUID(),contextKey="support:"+customer.id;
+  const request={...input(id,2000000),question:"Como ajustar a jornada?",snapshot:{kind:"support",requestContext:contextKey,customerId:customer.id,accountId:account.id},contextKey,promptVersion:"support-test"};
+  await scope(admin,tx=>reserveChief(tx,request));
+  await scope(admin,tx=>finishChief(tx,id,admin,{answer:JSON.stringify({reply:"Confira o expediente.",title:"Expediente",category:"Dúvida",recommendation:"reply",needsHuman:false,reason:"Fonte",articleIds:["horarios"]}),inputTokens:100,outputTokens:20,chargeMicros:49}));
+  return {account,customer,request,review:{runId:id,customerId:customer.id,decision:"ticket",text:"Texto revisado pelo administrador",title:"Revisão da jornada",category:"Suporte",priority:"Média"}};
+ }
+ it("Suporte separa histórico, revalida contexto no replay e compartilha orçamento",async()=>{
+  const f=await supportFixture();
+  expect((await scope(admin,chiefHistory)).runs).toHaveLength(0);
+  expect((await scope(admin,tx=>supportHistory(tx,f.customer.id))).runs).toHaveLength(1);
+  expect(await scope(admin,committed)).toBe(49);
+  const replay=await scope(admin,tx=>reserveChief(tx,f.request));expect(replay.created).toBe(false);expect(replay.run).not.toHaveProperty("snapshot");
+  await expect(scope(admin,tx=>reserveChief(tx,{...f.request,contextKey:"support:other"}))).rejects.toThrow("Identificador");
+  const serialized=JSON.stringify(await scope(admin,tx=>supportContext(tx,f.customer.id)));
+  expect(serialized).not.toContain("PRIVATE");
+ });
+ it("Suporte registra um único ticket e uma revisão sob chamadas concorrentes",async()=>{
+  const f=await supportFixture();
+  const results=await Promise.all([scope(admin,tx=>reviewSupport(tx,admin,f.review)),scope(admin,tx=>reviewSupport(tx,admin,f.review))]);
+  expect(results[0].targetId).toBe(results[1].targetId);
+  expect(await prisma.hqTickets.count({where:{customerId:f.customer.id}})).toBe(1);
+  const ticket=await prisma.hqTickets.findFirst({where:{customerId:f.customer.id}});
+  expect(ticket?.description).toContain(f.request.question);
+  expect(ticket?.description).toContain(f.review.text);
+  expect(await prisma.hqActivities.count({where:{entityType:"support_review",entityId:f.request.id}})).toBe(1);
+  expect((await scope(admin,tx=>supportHistory(tx,f.customer.id))).runs[0].review?.decision).toBe("ticket");
+  expect((await scope(admin,tx=>reviewSupport(tx,admin,{...f.review,decision:"reply",text:"tentativa de sobrescrever"}))).text).toBe(f.review.text);
+ });
+ it("Suporte bloqueia revisão de outra conta e role comum, sem deixar efeitos parciais",async()=>{
+  const f=await supportFixture();
+  await expect(scope(admin,tx=>reviewSupport(tx,admin,{...f.review,customerId:crypto.randomUUID()}))).rejects.toThrow("cliente");
+  await expect(scope(normal,tx=>reviewSupport(tx,normal,f.review))).rejects.toThrow();
+  expect((await scope(normal,tx=>supportHistory(tx,f.customer.id))).runs).toEqual([]);
+  await expect(scope(admin,tx=>reviewSupport(tx,admin,{...f.review,decision:"bug",existingId:crypto.randomUUID()}))).rejects.toThrow();
+  expect(await prisma.hqTickets.count({where:{customerId:f.customer.id}})).toBe(0);
+  expect(await prisma.hqActivities.count({where:{entityType:"support_review",entityId:f.request.id}})).toBe(0);
+ });
+ it("Suporte associa feature existente sem duplicar e mantém aprovação manual na timeline",async()=>{
+  const f=await supportFixture();
+  const feature=await prisma.hqFeatures.create({data:{title:"Comissão sintética",normalizedTitle:crypto.randomUUID(),description:"Somente CI"}});
+  const review={...f.review,decision:"feature",existingId:feature.id};
+  await scope(admin,tx=>reviewSupport(tx,admin,review));await scope(admin,tx=>reviewSupport(tx,admin,review));
+  expect(await prisma.hqFeatureCustomers.count({where:{customerId:f.customer.id,featureId:feature.id}})).toBe(1);
+  const activity=await prisma.hqActivities.findFirst({where:{entityType:"support_review",entityId:f.request.id}});
+  expect(activity?.accountId).toBe(f.account.id);expect(activity?.description).toContain(f.review.text);
  });
 });
