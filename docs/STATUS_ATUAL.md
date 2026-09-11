@@ -1,5 +1,15 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-10 — Everflare HQ em validação no PR #92
+
+Central privada em /hq, separada dos salões e do Booksite. Auditoria e
+arquitetura em EVERFLARE_HQ.md; validação e recuperação em HQ_RELEASE_2026-09-10.md.
+O responsável autorizou usar o Supabase existente como destino da entrega.
+Testes permanecem no PostgreSQL descartável. CI 34546774574 passou com migration
+020, preservação, RLS e jornadas em quatro resoluções. A migration produtiva
+e a publicação ainda não foram realizadas neste registro. HQ_ENABLED=false
+até a ativação; billing 011 permanece desativado e nenhum agente foi implementado.
+
 ## 2026-09-10 — bloqueios acionáveis e encaixe na pausa (PR #90)
 
 Na branch `codex/agenda-block-management`, os bloqueios da agenda deixam de ser

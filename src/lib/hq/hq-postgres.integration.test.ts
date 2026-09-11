@@ -107,4 +107,32 @@ pg("HQ 020 — CRUD, relacionamentos e RLS reais",()=>{
   const cmm=await scope(adminId,tx=>queries.accounts(tx));
   expect(new Set(cmm.rows.map(r=>r.id)).size).toBe(cmm.rows.length);
  });
+ it("mantém suporte, bug compartilhado e feedback no perfil correto",async()=>{
+  const l=await lead();const customer=await run({type:"convert",id:l.id});
+  const ticketValues=fields("tickets",{customerId:customer.id,title:"Dúvida de agenda",description:"Como organizar a semana?",category:"Dúvida",priority:"Média"});
+  const ticket=await run({type:"save",entity:"tickets",values:ticketValues});
+  const resolved=await run({type:"save",entity:"tickets",id:ticket.id,values:{...ticketValues,status:"Resolvido",resolution:"Orientação registrada"}});
+  expect(resolved.resolution).toBe("Orientação registrada");
+  const bugValues=fields("bugs",{title:"Falha sintética "+crypto.randomUUID(),description:"Problema isolado para teste",priority:"Crítica"});
+  const bug=await run({type:"save",entity:"bugs",values:bugValues});
+  await run({type:"save",entity:"bugCustomers",values:{bugId:bug.id,customerId:customer.id}});
+  const feedback=await run({type:"save",entity:"feedbacks",values:fields("feedbacks",{customerId:customer.id,kind:"Reclamação",description:"Relato do mesmo problema"})});
+  await run({type:"feedback",id:feedback.id,target:"bugs",existingId:bug.id});
+  const generated=await run({type:"feedback",id:feedback.id,target:"tickets"});
+  expect(generated.customerId).toBe(customer.id);
+  expect((await run({type:"feedback",id:feedback.id,target:"tickets"})).id).toBe(generated.id);
+  const closed=await run({type:"save",entity:"bugs",id:bug.id,values:{...bugValues,status:"Resolvido",resolution:"Correção sintética"}});
+  expect(closed.resolvedAt).toBeTruthy();
+  const profile=await scope(adminId,tx=>queries.detail(tx,"customers",customer.id));
+  expect(profile.sections.bugs).toHaveLength(1);
+  expect(profile.sections.tickets).toHaveLength(2);
+  expect(profile.sections.feedbacks[0].bugId).toBe(bug.id);
+ });
+ it("busca pelo estabelecimento nas cobranças e separa follow-ups vencidos",async()=>{
+  const l=await lead();const account=await scope(adminId,tx=>repo.find(tx,"accounts",String(l.accountId)));
+  const f=await run({type:"save",entity:"followups",values:fields("followups",{accountId:l.accountId,title:"Contato pendente",dueAt:"2020-01-01T10:00"})});
+  const result=await scope(adminId,tx=>repo.list(tx,"followups",{q:String(account.business),bucket:"overdue"}));
+  expect(result.rows.map(r=>r.id)).toContain(f.id);
+  expect((await scope(adminId,tx=>repo.list(tx,"followups",{q:String(account.business),bucket:"upcoming"}))).rows).toHaveLength(0);
+ });
 });
