@@ -18,13 +18,13 @@ export default async function ReviewsPage() {
   if (!result) return null;
 
   return (
-    <div className="space-y-6">
-      <PageHeader kicker="Reputação" title="Avaliações">
+    <div className="min-w-0 space-y-3 md:space-y-6">
+      <PageHeader compact kicker="Reputação" title="Avaliações">
         <span className="inline-flex items-center gap-2 rounded-full border border-amber-400/25 bg-warning/10 px-3 py-2 text-xs font-medium text-warning">
           {result.reviewData.summary.average.toFixed(1).replace(".", ",")} · nota média
         </span>
       </PageHeader>
-      <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
+      <p className="hidden md:block max-w-2xl text-sm leading-relaxed text-muted-foreground">
         Veja o que os clientes dizem depois de atendimentos concluídos. Você pode ocultar um comentário inadequado, mas o histórico fica preservado para auditoria.
       </p>
       <ReviewsManager

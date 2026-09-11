@@ -75,15 +75,15 @@ export function ReviewsManager({
   }
 
   return (
-    <div className="space-y-6">
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div className="space-y-3 md:space-y-6">
+      <section className="hidden grid-cols-2 gap-3 md:grid lg:grid-cols-4">
         <Kpi label="Nota média" value={summary.average.toFixed(1).replace(".", ",")} accent="text-warning" />
         <Kpi label="Publicadas" value={String(summary.count)} accent="text-primary" />
         <Kpi label="Ocultas nesta lista" value={String(hiddenCount)} accent="text-muted-foreground" />
         <Kpi label="Comentários" value={String(reviews.filter((review) => Boolean(review.comment)).length)} accent="text-info" />
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
+      <section className="hidden gap-4 md:grid lg:grid-cols-[minmax(0,1fr)_260px]">
         <div className="rounded-2xl border border-border bg-card p-5">
           <div className="flex items-center justify-between gap-3">
             <div>
@@ -120,6 +120,10 @@ export function ReviewsManager({
         </div>
       </section>
 
+      <div className="flex items-center gap-3 md:hidden">
+        <span className="text-xs text-muted-foreground">{summary.count} publicadas</span>
+        <select aria-label="Filtrar avaliações" value={filter} onChange={e => setFilter(e.target.value as typeof filter)} className="ml-auto min-h-11 min-w-0 rounded-lg border border-border bg-card px-3 text-sm"><option value="ALL">Todas ({reviews.length})</option><option value="PUBLISHED">Publicadas ({publishedCount})</option><option value="HIDDEN">Ocultas ({hiddenCount})</option></select>
+      </div>
       <section aria-label="Lista de avaliações" className="space-y-3">
         {shown.length === 0 ? (
           <div className="rounded-2xl border border-border bg-card p-10 text-center">
@@ -132,7 +136,7 @@ export function ReviewsManager({
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="font-semibold">{review.clientName}</p>
+                  <p className="break-words font-semibold">{review.clientName}</p>
                   <span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${review.status === "PUBLISHED" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
                     {review.status === "PUBLISHED" ? "Visível na vitrine" : "Oculta"}
                   </span>
@@ -147,7 +151,7 @@ export function ReviewsManager({
                   type="button"
                   disabled={pendingId === review.id}
                   onClick={() => moderate(review)}
-                  className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-border px-3 text-xs font-medium text-muted-foreground transition hover:border-primary/40 hover:text-primary disabled:opacity-50"
+                  className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-border px-3 text-xs font-medium text-muted-foreground transition hover:border-primary/40 hover:text-primary disabled:opacity-50"
                 >
                   {review.status === "PUBLISHED" ? <EyeOff aria-hidden="true" className="h-3.5 w-3.5" /> : <Eye aria-hidden="true" className="h-3.5 w-3.5" />}
                   {pendingId === review.id ? "Salvando…" : review.status === "PUBLISHED" ? "Ocultar" : "Publicar"}
@@ -155,7 +159,7 @@ export function ReviewsManager({
               </div>
             </div>
             {review.comment ? (
-              <p className="mt-4 rounded-xl bg-muted/25 p-3 text-sm leading-relaxed text-muted-foreground">“{review.comment}”</p>
+              <p className="mt-3 break-words text-sm md:rounded-xl md:bg-muted/25 md:p-3 leading-relaxed text-muted-foreground">“{review.comment}”</p>
             ) : (
               <p className="mt-4 text-xs italic text-muted-foreground">Cliente deixou somente a nota.</p>
             )}

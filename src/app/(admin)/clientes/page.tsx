@@ -39,12 +39,12 @@ export default async function ClientesPage() {
   const totalLtv = clients.reduce((s, c) => s + c.totalSpent, 0);
 
   return (
-    <div className="space-y-6">
-      <PageHeader kicker="CRM" title="Clientes">
+    <div className="min-w-0 space-y-3 md:space-y-6">
+      <PageHeader compact kicker="CRM" title="Clientes">
         {role !== "PROFESSIONAL" && <ClientForm />}
       </PageHeader>
 
-      <section className="stagger grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <section className="stagger hidden grid-cols-2 gap-3 md:grid lg:grid-cols-4">
         <Kpi icon={Users} accent="#3B9EFF" label="Base de clientes" value={clients.length.toString()} hint={`${formatMoney(totalLtv)} em LTV`} />
         <Kpi icon={Crown} accent="#F4C430" label="Clientes VIP" value={vip.toString()} />
         <Kpi icon={Cake} accent="#EC4899" label="Aniversariantes do mês" value={birthday.toString()} />
