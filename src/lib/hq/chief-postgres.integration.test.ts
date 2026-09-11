@@ -109,6 +109,9 @@ pg("Chefe 022 — persistência, concorrência e RLS PostgreSQL",()=>{
   const results=await Promise.all([scope(admin,tx=>reviewSupport(tx,admin,f.review)),scope(admin,tx=>reviewSupport(tx,admin,f.review))]);
   expect(results[0].targetId).toBe(results[1].targetId);
   expect(await prisma.hqTickets.count({where:{customerId:f.customer.id}})).toBe(1);
+  const ticket=await prisma.hqTickets.findFirst({where:{customerId:f.customer.id}});
+  expect(ticket?.description).toContain(f.request.question);
+  expect(ticket?.description).toContain(f.review.text);
   expect(await prisma.hqActivities.count({where:{entityType:"support_review",entityId:f.request.id}})).toBe(1);
   expect((await scope(admin,tx=>supportHistory(tx,f.customer.id))).runs[0].review?.decision).toBe("ticket");
   expect((await scope(admin,tx=>reviewSupport(tx,admin,{...f.review,decision:"reply",text:"tentativa de sobrescrever"}))).text).toBe(f.review.text);

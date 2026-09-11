@@ -31,7 +31,7 @@ export async function supportHistory(tx:Tx,customerId:string,cursor?:string) {
 export async function reviewSupport(tx:Tx,actorId:string,raw:unknown):Promise<SupportReview> {
  const input=supportReviewSchema.parse(raw);
  // Run lock serializes both replay and target creation; all writes share this transaction.
- const [run]=await tx.$queryRaw<{status:string;snapshot:{kind?:string;customerId?:string;accountId?:string};answer:string|null}[]>`SELECT status,snapshot,answer FROM hq_agent_runs WHERE id=${input.runId}::uuid FOR UPDATE`;
+ const [run]=await tx.$queryRaw<{status:string;question:string;snapshot:{kind?:string;customerId?:string;accountId?:string};answer:string|null}[]>`SELECT status,question,snapshot,answer FROM hq_agent_runs WHERE id=${input.runId}::uuid FOR UPDATE`;
  if(!run||run.snapshot.kind!=="support"||run.snapshot.customerId!==input.customerId)throw new HqError("Rascunho não pertence ao cliente selecionado.");
  const context=await supportContext(tx,input.customerId);
  if(context.accountId!==run.snapshot.accountId)throw new HqError("O vínculo da conta mudou. Gere outro rascunho.");
@@ -41,7 +41,7 @@ export async function reviewSupport(tx:Tx,actorId:string,raw:unknown):Promise<Su
  supportDraftSchema.parse(JSON.parse(run.answer));
  let targetId:string|null=null,targetType:string|null=null;
  if(input.decision==="ticket") {
-  const ticket=await execute(tx,actorId,{type:"save",entity:"tickets",values:{customerId:input.customerId,title:input.title,description:input.text,category:input.category,priority:input.priority,status:"Aberto",resolution:null,owner:null}});
+  const ticket=await execute(tx,actorId,{type:"save",entity:"tickets",values:{customerId:input.customerId,title:input.title,description:"Dúvida informada:\n"+run.question+"\n\nTexto revisado:\n"+input.text,category:input.category,priority:input.priority,status:"Aberto",resolution:null,owner:null}});
   targetId=ticket.id;targetType="tickets";
  }else if(input.decision==="bug"||input.decision==="feature") {
   if(!input.existingId)throw new HqError("Escolha um item existente após revisar os similares no Produto.");
