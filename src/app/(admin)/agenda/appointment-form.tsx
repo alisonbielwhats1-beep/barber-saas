@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { searchAppointmentClients } from "./client-search-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -62,6 +63,30 @@ export function AppointmentDialog({
   const [date, setDate] = useState(slotStartLocal.slice(0, 10));
   const [time, setTime] = useState(slotStartLocal.slice(11, 16));
   const [clientId, setClientId] = useState("");
+  const [clientQuery, setClientQuery] = useState("");
+  const [clientResults, setClientResults] = useState<ClientOption[]>([]);
+  const [chosenClient, setChosenClient] = useState<ClientOption | null>(null);
+  const [searchingClients, setSearchingClients] = useState(false);
+  const [clientSearchError, setClientSearchError] = useState("");
+  useEffect(() => {
+    let active = true;
+    const term = clientQuery.trim();
+    setClientResults([]);
+    setClientSearchError("");
+    setSearchingClients(term.length >= 2);
+    if (term.length < 2) return;
+    const timer = setTimeout(() => {
+      void searchAppointmentClients(term).then(result => {
+        if (active) setClientResults(result);
+      }).catch(() => {
+        if (active) setClientSearchError("Não foi possível pesquisar. Tente digitar novamente.");
+      }).finally(() => { if (active) setSearchingClients(false); });
+    }, 250);
+    return () => { active = false; clearTimeout(timer); };
+  }, [clientQuery]);
+  const matchingClients = clientQuery.trim().length >= 2 ? clientResults : clients;
+  const clientOptions = chosenClient && !matchingClients.some(c => c.id === chosenClient.id)
+    ? [chosenClient, ...matchingClients] : matchingClients;
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [loadingLast, setLoadingLast] = useState(false);
   const [lastMessage, setLastMessage] = useState<string | null>(null);
@@ -334,6 +359,16 @@ export function AppointmentDialog({
 
           {mode === "existing" ? (
             <div>
+              <label htmlFor="appointment-client-search" className="mb-1 block text-sm font-medium">Pesquisar cliente</label>
+              <Input id="appointment-client-search" type="search" maxLength={100} value={clientQuery}
+                placeholder="Digite nome ou telefone" autoComplete="off"
+                onChange={e => { e.stopPropagation(); setClientQuery(e.target.value); }}
+                aria-describedby="appointment-client-search-status" />
+              <p id="appointment-client-search-status" role="status" className="my-2 text-xs text-muted-foreground">
+                {clientSearchError || (searchingClients ? "Pesquisando…" : clientQuery.trim().length >= 2
+                  ? matchingClients.length ? `${matchingClients.length} resultado(s).${matchingClients.length === 50 ? " Refine a busca para encontrar outros clientes." : ""}` : "Nenhum cliente encontrado."
+                  : "Digite pelo menos 2 caracteres para buscar em todos os clientes disponíveis.")}
+              </p>
               <label htmlFor="appointment-client" className="mb-1 block text-sm font-medium">Cliente</label>
               <select
                 id="appointment-client"
@@ -341,6 +376,7 @@ export function AppointmentDialog({
                 value={clientId}
                 onChange={e => {
                   setClientId(e.target.value);
+                  setChosenClient(clientOptions.find(c => c.id === e.target.value) ?? null);
                   lastRequest.current++;
                   setLoadingLast(false);
                   setLastMessage(null);
@@ -349,7 +385,7 @@ export function AppointmentDialog({
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
               >
                 <option value="">Selecione…</option>
-                {clients.map((c) => (
+                {clientOptions.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}{c.phone ? ` — ${c.phone}` : ""}
                   </option>

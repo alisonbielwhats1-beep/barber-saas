@@ -163,6 +163,8 @@ export async function requestStaffReschedule(
     reason?: string | null;
     canFinishAfterHours?: boolean;
     afterHoursReason?: string | null;
+    canOverbook?: boolean;
+    overbookReason?: string | null;
   },
 ): Promise<StaffRescheduleResult> {
   await lockAppointmentOperationalScope(tx, {
@@ -215,6 +217,7 @@ export async function requestStaffReschedule(
   const currentIds = appointment.serviceItems.length ? appointment.serviceItems.map(item => item.serviceId) : [appointment.service.id];
   const sameServices = currentIds.length === input.serviceIds.length && currentIds.every((id, index) => id === input.serviceIds[index]);
   const afterHoursReason = input.canFinishAfterHours && (input.afterHoursReason?.trim().length ?? 0) >= 3 ? input.afterHoursReason!.trim() : null;
+  const overbookReason = input.actor.type === "STAFF" && input.canOverbook && (input.overbookReason?.trim().length ?? 0) >= 3 ? input.overbookReason!.trim() : null;
   if (!hasClientAccount || (isSameSlot && sameServices)) {
     const direct = await rescheduleAppointment(tx, {
       salonId: input.salonId,
@@ -230,6 +233,8 @@ export async function requestStaffReschedule(
       enforceClientPolicy: false,
       canFinishAfterHours: Boolean(afterHoursReason),
       afterHoursReason,
+      canOverride: Boolean(overbookReason),
+      overrideReason: overbookReason,
     });
     return { ...direct, requiresAcceptance: false };
   }
@@ -242,6 +247,7 @@ export async function requestStaffReschedule(
     notes: input.notes ?? null,
     reason: input.reason?.trim() ?? null,
     ...(afterHoursReason ? { afterHoursReason } : {}),
+    ...(overbookReason ? { overbookReason } : {}),
     expectedVersion: input.expectedVersion ?? null,
   });
   const existing = await tx.rescheduleProposal.findFirst({
@@ -289,7 +295,7 @@ export async function requestStaffReschedule(
         excludeAppointmentId: appointment.id, enforceBookingWindow: false,
         skipAfterHours: Boolean(afterHoursReason),
       });
-  if (inspected.violation) throw new AppointmentError(inspected.violation);
+  if (inspected.violation && !(inspected.violation === "SLOT_TAKEN" && overbookReason)) throw new AppointmentError(inspected.violation);
 
   const professional = await tx.professional.findFirst({
     where: { id: input.professionalId, salonId: input.salonId },
@@ -305,7 +311,7 @@ export async function requestStaffReschedule(
     ...priceSnapshot(service),
   }));
   const targetPriceCents = targetServices.reduce((sum, service) => sum + service.priceCents, 0);
-  const reason = [input.reason?.trim() || "Alteração solicitada pelo estabelecimento", afterHoursReason ? `Término após o expediente autorizado: ${afterHoursReason}` : null].filter(Boolean).join(". ");
+  const reason = [input.reason?.trim() || "Alteração solicitada pelo estabelecimento", afterHoursReason ? `Término após o expediente autorizado: ${afterHoursReason}` : null, overbookReason ? `Encaixe com sobreposição autorizado: ${overbookReason}` : null].filter(Boolean).join(". ");
 
   await tx.rescheduleProposal.updateMany({
     where: { salonId: input.salonId, appointmentId: appointment.id, status: "PENDING" },
@@ -513,8 +519,10 @@ export async function respondToRescheduleProposal(
 
   // Read only the server-persisted authorization, never the client's response payload.
   let afterHoursReason: string | undefined;
+  let overbookReason: string | undefined;
   try {
     const request = JSON.parse(proposal.requestFingerprint ?? "{}");
+    if (proposal.requestedById && typeof request.overbookReason === "string" && request.overbookReason.trim().length >= 3 && request.overbookReason.trim().length <= 200) overbookReason = request.overbookReason.trim();
     if (proposal.requestedById && typeof request.afterHoursReason === "string" && request.afterHoursReason.trim().length >= 3) afterHoursReason = request.afterHoursReason.trim();
   } catch { /* Legacy proposals have no after-hours authorization. */ }
   const snapshots = proposalSnapshots(proposal.targetServices);
@@ -533,6 +541,8 @@ export async function respondToRescheduleProposal(
     proposalId: proposal.id,
     canFinishAfterHours: Boolean(afterHoursReason),
     afterHoursReason,
+    canOverride: Boolean(overbookReason),
+    overrideReason: overbookReason,
   });
   await tx.rescheduleProposal.updateMany({
     where: { id: proposal.id, salonId: input.salonId, status: "PENDING" },

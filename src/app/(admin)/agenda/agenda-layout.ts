@@ -12,6 +12,17 @@ export type AgendaPlacement = {
   conflict: boolean;
 };
 
+/** Blocks occupy their own lane without labelling a preserved visit as a booking conflict. */
+export function layoutAppointmentsAndBlocks(appointments: readonly AgendaInterval[], blocks: readonly AgendaInterval[]) {
+  const conflicts = layoutOverlappingIntervals(appointments);
+  const result = layoutOverlappingIntervals([...appointments, ...blocks.map(block => ({ ...block, id: `block:${block.id}` }))]);
+  for (const appointment of appointments) {
+    const placement = result.get(appointment.id);
+    if (placement) placement.conflict = conflicts.get(appointment.id)?.conflict ?? false;
+  }
+  return result;
+}
+
 /**
  * Divide intervalos que realmente se sobrepõem em colunas visuais.
  *

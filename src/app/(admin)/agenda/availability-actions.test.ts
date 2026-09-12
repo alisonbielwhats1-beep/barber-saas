@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ ctx: { salonId: "salon-a", userId: "owner", role: "OWNER" }, tx: {
   $queryRaw: vi.fn(), auditLog: { findFirst: vi.fn() },
   professional: { findMany: vi.fn() }, salon: { findUniqueOrThrow: vi.fn() },
-  timeOff: { findFirst: vi.fn(), create: vi.fn(), deleteMany: vi.fn() },
+  timeOff: { findFirst: vi.fn(), create: vi.fn(), deleteMany: vi.fn(), updateMany: vi.fn() },
   appointment: { findMany: vi.fn() }, user: { findUnique: vi.fn() },
 }, lock: vi.fn(), audit: vi.fn(), update: vi.fn() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -12,7 +12,7 @@ vi.mock("@/lib/prisma-tenant", () => ({ withTenant: async (_ctx: unknown, callba
 vi.mock("@/lib/inventory-lock", () => ({ lockOperationalResources: mocks.lock }));
 vi.mock("@/lib/audit", () => ({ writeAuditLog: mocks.audit }));
 vi.mock("@/lib/appointment-service", () => ({ updateAppointmentStatusReliably: mocks.update }));
-import { blockAvailability, cancelSelectedAppointments, previewAvailabilityBlock, removeAvailabilityBlock } from "./availability-actions";
+import { updateAvailabilityBlock, blockAvailability, cancelSelectedAppointments, previewAvailabilityBlock, removeAvailabilityBlock } from "./availability-actions";
 
 const input = { id: "550e8400-e29b-41d4-a716-446655440000", professionalIds: ["pro-a"], startLocal: "2026-09-07T12:00", endLocal: "2026-09-07T13:00", reason: "Almoço" };
 beforeEach(() => {
@@ -97,5 +97,45 @@ describe("availability operations", () => {
     const result = await cancelSelectedAppointments({ reason: "Ausência", appointments: [{ id: "a", version: 1, requestId: input.id }, { id: "b", version: 2, requestId: "550e8400-e29b-41d4-a716-446655440001" }] });
     expect(result).toMatchObject([{ id: "a", success: true }, { id: "b", success: false }]);
     expect(mocks.update).toHaveBeenCalledWith(mocks.tx, expect.objectContaining({ salonId: "salon-a", expectedVersion: 2, status: "CANCELLED" }));
+  });
+});
+
+const existingBlock = { id: "block-a", professionalId: "pro-a", startAt: new Date("2026-09-12T13:30:00Z"), endAt: new Date("2026-09-12T23:00:00Z"), reason: "Ausência" };
+const editBlock = { id: "block-a", requestId: input.id, expectedStartAt: existingBlock.startAt.toISOString(), expectedEndAt: existingBlock.endAt.toISOString(), expectedReason: existingBlock.reason, startLocal: "2026-09-12T08:30", endLocal: "2026-09-13T00:00", reason: "" };
+describe("edição auditada de bloqueios", () => {
+  it("permite fora da jornada até meia-noite e motivo vazio, preservando reservas", async () => {
+    expect(await blockAvailability({ ...input, startLocal: editBlock.startLocal, endLocal: editBlock.endLocal, reason: "" })).toMatchObject({ success: true });
+    mocks.tx.timeOff.findFirst.mockResolvedValue(existingBlock);
+    mocks.tx.timeOff.updateMany.mockResolvedValue({ count: 1 });
+    expect(await updateAvailabilityBlock(editBlock)).toMatchObject({ success: true, duplicate: false });
+    expect(mocks.tx.timeOff.updateMany).toHaveBeenCalledWith({ where: expect.objectContaining({ id: "block-a", professional: { salonId: "salon-a" }, reason: "Ausência" }), data: { startAt: new Date("2026-09-12T11:30:00Z"), endAt: new Date("2026-09-13T03:00:00Z"), reason: "" } });
+    expect(mocks.audit).toHaveBeenCalledWith(mocks.tx, expect.objectContaining({ action: "AVAILABILITY_UPDATED", metadata: expect.objectContaining({ before: expect.objectContaining({ reason: "Ausência" }), after: expect.objectContaining({ reason: "" }) }) }));
+    expect(mocks.update).not.toHaveBeenCalled();
+    expect(mocks.tx.timeOff.deleteMany).not.toHaveBeenCalled();
+  });
+  it.each(["RECEPTIONIST", "PROFESSIONAL", "CLIENT"])("recusa %s antes de consultar", async role => {
+    mocks.ctx.role = role;
+    await expect(updateAvailabilityBlock(editBlock)).rejects.toThrow("Forbidden");
+    expect(mocks.tx.timeOff.findFirst).not.toHaveBeenCalled();
+  });
+  it("recusa outro tenant, exclusão concorrente, alteração concorrente e intervalo invertido", async () => {
+    expect(await updateAvailabilityBlock(editBlock)).toHaveProperty("error");
+    mocks.tx.timeOff.findFirst.mockResolvedValueOnce(existingBlock).mockResolvedValueOnce(null);
+    expect(await updateAvailabilityBlock(editBlock)).toHaveProperty("error");
+    mocks.tx.timeOff.findFirst.mockResolvedValue({ ...existingBlock, reason: "Outra alteração" });
+    expect(await updateAvailabilityBlock(editBlock)).toHaveProperty("error");
+    mocks.tx.timeOff.findFirst.mockResolvedValue(existingBlock);
+    expect(await updateAvailabilityBlock({ ...editBlock, endLocal: "2026-09-12T07:00" })).toHaveProperty("error");
+    expect(mocks.tx.timeOff.updateMany).not.toHaveBeenCalled();
+  });
+  it("retry idêntico não repete auditoria nem atualização", async () => {
+    mocks.tx.timeOff.findFirst.mockResolvedValue(existingBlock);
+    mocks.tx.timeOff.updateMany.mockResolvedValue({ count: 1 });
+    await updateAvailabilityBlock(editBlock);
+    const request = mocks.audit.mock.calls.find(call => call[1].action === "AVAILABILITY_EDIT_REQUEST")![1];
+    mocks.tx.auditLog.findFirst.mockResolvedValue({ reason: request.reason });
+    expect(await updateAvailabilityBlock(editBlock)).toMatchObject({ duplicate: true });
+    expect(await updateAvailabilityBlock({ ...editBlock, reason: "Mudou" })).toHaveProperty("error");
+    expect(mocks.tx.timeOff.updateMany).toHaveBeenCalledOnce();
   });
 });

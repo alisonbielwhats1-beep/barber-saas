@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({
   create: vi.fn(),
   createRecurring: vi.fn(),
   onOpenChange: vi.fn(),
-  last: vi.fn(),
+  last: vi.fn(), search: vi.fn(),
 }));
 
 vi.mock("./actions", () => ({
@@ -14,6 +14,8 @@ vi.mock("./actions", () => ({
   createRecurringAppointments: mocks.createRecurring,
   getLastAppointmentServices: mocks.last,
 }));
+
+vi.mock("./client-search-actions", () => ({ searchAppointmentClients: mocks.search }));
 
 import { AppointmentDialog } from "./appointment-form";
 
@@ -204,4 +206,23 @@ describe("serviços da última reserva", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Usar serviços da última reserva" })).toBeEnabled());
     expect(screen.getByRole("checkbox", { name: /Corte/ })).not.toBeChecked();
   });
+});
+
+it("pesquisa além da lista inicial, descarta resposta antiga e preserva cliente selecionado", async () => {
+  let old!: (value: { id: string; name: string; phone: null }[]) => void;
+  mocks.search.mockReturnValueOnce(new Promise(r => { old = r; })).mockResolvedValueOnce([{ id: "remote", name: "Gilberto", phone: null }]);
+  mount();
+  fireEvent.change(screen.getByLabelText("Pesquisar cliente"), { target: { value: "Ana" } });
+  await waitFor(() => expect(mocks.search).toHaveBeenCalledWith("Ana"));
+  fireEvent.change(screen.getByLabelText("Pesquisar cliente"), { target: { value: "Gil" } });
+  await screen.findByRole("option", { name: "Gilberto" });
+  old([{ id: "stale", name: "Ana antiga", phone: null }]);
+  await waitFor(() => expect(screen.queryByRole("option", { name: "Ana antiga" })).not.toBeInTheDocument());
+  fireEvent.change(screen.getByLabelText("Cliente", { exact: true }), { target: { value: "remote" } });
+  fireEvent.change(screen.getByLabelText("Pesquisar cliente"), { target: { value: "" } });
+  expect(screen.getByLabelText("Cliente", { exact: true })).toHaveValue("remote");
+  fireEvent.click(screen.getByRole("checkbox", { name: /Corte/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
+  await waitFor(() => expect(mocks.create).toHaveBeenCalled());
+  expect(mocks.create.mock.calls[0][0]).toMatchObject({ clientId: "remote" });
 });

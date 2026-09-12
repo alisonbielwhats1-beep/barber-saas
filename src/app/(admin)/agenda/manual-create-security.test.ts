@@ -193,3 +193,10 @@ describe("permissão de término após expediente", () => {
     expect(mocks.requestStaffReschedule).toHaveBeenCalledWith(mocks.tx, expect.objectContaining({ salonId: "salon-a", serviceIds: ["service-b"], canFinishAfterHours: ["OWNER", "MANAGER"].includes(role) }));
   });
 });
+
+it.each(["OWNER", "MANAGER", "RECEPTIONIST", "PROFESSIONAL"])("deriva encaixe na edição do papel real: %s", async role => {
+  mocks.context.role = role;
+  mocks.requestStaffReschedule.mockResolvedValue({ requiresAcceptance: false });
+  await editAppointment({ id: "a", professionalId: "professional-own", serviceIds: ["service-a"], startLocal: input.startLocal, idempotencyKey: input.idempotencyKey, overbookReason: "Intervalo combinado" });
+  expect(mocks.requestStaffReschedule).toHaveBeenCalledWith(mocks.tx, expect.objectContaining({ canOverbook: ["OWNER", "MANAGER"].includes(role), overbookReason: "Intervalo combinado", salonId: "salon-a" }));
+});

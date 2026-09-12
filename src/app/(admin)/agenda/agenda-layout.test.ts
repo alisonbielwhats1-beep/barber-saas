@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { layoutOverlappingIntervals } from "./agenda-layout";
+import { layoutOverlappingIntervals, layoutAppointmentsAndBlocks } from "./agenda-layout";
 
 describe("layoutOverlappingIntervals", () => {
   it("mantém atendimentos adjacentes ocupando a coluna inteira", () => {
@@ -33,4 +33,12 @@ describe("layoutOverlappingIntervals", () => {
     expect(placements.get("middle")?.conflict).toBe(true);
     expect(placements.get("last")?.conflict).toBe(true);
   });
+});
+
+it("separa bloqueio de reservas sem inventar conflito entre clientes", () => {
+  const placements = layoutAppointmentsAndBlocks([{ id: "a", start: 600, end: 630 }, { id: "b", start: 700, end: 730 }], [{ id: "off", start: 500, end: 1000 }]);
+  expect(placements.get("block:off")?.widthPct).toBe(50);
+  expect(placements.get("a")).toMatchObject({ widthPct: 50, conflict: false });
+  expect(placements.get("a")?.leftPct).not.toBe(placements.get("block:off")?.leftPct);
+  expect(placements.get("b")?.leftPct).toBe(placements.get("a")?.leftPct);
 });

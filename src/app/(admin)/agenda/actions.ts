@@ -644,6 +644,7 @@ export async function duplicateAppointment(
 }
 
 const editInput = z.object({
+  overbookReason: z.string().trim().min(3).max(200).optional(),
   afterHoursReason: z.string().trim().min(3).max(200).optional(),
   id: z.string(),
   professionalId: z.string(),
@@ -672,6 +673,8 @@ export async function editAppointment(input: z.infer<typeof editInput>): Promise
         throw new Error("Você só pode remarcar seus próprios atendimentos");
       }
       return requestStaffReschedule(tx, {
+        canOverbook: (OVERBOOK_ROLES as readonly string[]).includes(ctx.role),
+        overbookReason: data.overbookReason,
         canFinishAfterHours: (OVERBOOK_ROLES as readonly string[]).includes(ctx.role),
         afterHoursReason: data.afterHoursReason,
         salonId: ctx.salonId,

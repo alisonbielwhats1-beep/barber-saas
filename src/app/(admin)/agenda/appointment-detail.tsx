@@ -201,6 +201,9 @@ export function AppointmentDetail({
   const [serviceSearch, setServiceSearch] = useState("");
   const [afterHours, setAfterHours] = useState(false);
   const [afterHoursReason, setAfterHoursReason] = useState("");
+  const [overbook, setOverbook] = useState(false);
+  const [overbookReason, setOverbookReason] = useState("");
+  const confirmedEditExceptions = useRef<{ afterHoursReason?: string; overbookReason?: string }>({});
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
 
   if (!appt) return null;
@@ -264,6 +267,9 @@ export function AppointmentDetail({
     mutationKeys.current.delete("edit");
     setAfterHours(false);
     setAfterHoursReason("");
+    setOverbook(false);
+    setOverbookReason("");
+    confirmedEditExceptions.current = {};
     setError(null);
   }
 
@@ -280,8 +286,10 @@ export function AppointmentDetail({
     setView("edit");
   }
 
-  function saveEdit(confirmAfterHours = false) {
+  function saveEdit(confirmAfterHours = false, confirmOverbook = false) {
     if (!appt) return;
+    if (confirmAfterHours) confirmedEditExceptions.current.afterHoursReason = afterHoursReason.trim();
+    if (confirmOverbook) confirmedEditExceptions.current.overbookReason = overbookReason.trim();
     setError(null);
     runMutation(async () => {
       try {
@@ -289,7 +297,7 @@ export function AppointmentDetail({
           id: appt.id,
           professionalId: baseline.professionalId,
           serviceIds: editServices,
-          ...(confirmAfterHours ? { afterHoursReason: afterHoursReason.trim() } : {}),
+          ...confirmedEditExceptions.current,
           startLocal: `${editDate}T${editTime}`,
           notes: editNotes || null,
           idempotencyKey: mutationKey("edit"),
@@ -298,6 +306,7 @@ export function AppointmentDetail({
         if ("error" in result) {
           setError(result.error);
           if (result.code === "AFTER_WORKING_HOURS" && canCancel) setAfterHours(true);
+          if (result.code === "SLOT_TAKEN" && canCancel) { setAfterHours(false); setOverbook(true); }
         } else {
           setSavedMessage(result.requiresAcceptance ? "Alteração enviada. A reserva original permanece até o cliente aceitar os novos serviços e horário." : "Agendamento atualizado.");
         }
@@ -447,9 +456,16 @@ export function AppointmentDetail({
                 <input id="edit-after-hours-reason" maxLength={200} disabled={pending} value={afterHoursReason} onChange={event => { mutationKeys.current.delete("edit"); setAfterHoursReason(event.target.value); }} className="w-full rounded-lg border border-border bg-surface-1 p-2 text-sm" />
                 <button disabled={pending || afterHoursReason.trim().length < 3} onClick={() => saveEdit(true)} className="min-h-11 rounded-lg border border-border px-3 text-sm disabled:opacity-50">Confirmar término após o expediente</button>
               </div>}
+              {overbook && <div className="space-y-2 rounded-lg border border-warning/50 p-3">
+                <p className="text-sm font-medium">Encaixar neste horário ocupado?</p>
+                <p className="text-xs text-muted-foreground">Os dois atendimentos serão mantidos. Confirme o encaixe e informe o motivo; para cliente com conta, a mudança continua dependendo do aceite.</p>
+                <label htmlFor="edit-overbook-reason" className="block text-xs">Motivo do encaixe</label>
+                <input id="edit-overbook-reason" maxLength={200} disabled={pending} value={overbookReason} onChange={event => { mutationKeys.current.delete("edit"); setOverbookReason(event.target.value); }} className="w-full rounded-lg border border-border bg-surface-1 p-2 text-sm" />
+                <button disabled={pending || overbookReason.trim().length < 3} onClick={() => saveEdit(false, true)} className="min-h-11 rounded-lg border border-border px-3 text-sm disabled:opacity-50">Confirmar encaixe</button>
+              </div>}
               <div className="flex gap-2 pt-1">
                 <button
-                  disabled={pending || afterHours || !editEndLabel || !editServices.length || (servicesChanged && unknownService)}
+                  disabled={pending || afterHours || overbook || !editEndLabel || !editServices.length || (servicesChanged && unknownService)}
                   onClick={() => saveEdit()}
                   className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-[13px] font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
                 >

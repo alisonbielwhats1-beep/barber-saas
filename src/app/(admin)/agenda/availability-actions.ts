@@ -15,7 +15,7 @@ const inputSchema = z.object({
   professionalIds: z.array(z.string().min(1)).min(1).max(100),
   startLocal: z.string().min(16).max(16),
   endLocal: z.string().min(16).max(16),
-  reason: z.string().trim().min(3).max(200),
+  reason: z.string().trim().max(200),
   everyWeeks: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(4)]).optional(),
   count: z.number().int().min(1).max(52).optional(),
   weekdays: z.array(z.number().int().min(0).max(6)).min(1).max(7).optional(),
@@ -32,7 +32,7 @@ export async function previewAvailabilityBlock(input: z.infer<typeof inputSchema
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER"]);
   const parsed = inputSchema.safeParse(input);
-  if (!parsed.success) return { error: "Preencha profissionais, início, fim e motivo." };
+  if (!parsed.success) return { error: "Confira profissionais, início, fim e o limite de 200 caracteres do motivo opcional." };
   const data = parsed.data;
   if ((data.count ?? 1) * new Set(data.professionalIds).size > 200) return { error: "Selecione até 200 bloqueios por pedido. Reduza profissionais ou ocorrências." };
   try {
@@ -53,7 +53,7 @@ export async function blockAvailability(input: z.infer<typeof inputSchema>) {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER"]);
   const parsed = inputSchema.safeParse(input);
-  if (!parsed.success) return { error: "Selecione profissionais, início, fim e um motivo de pelo menos 3 caracteres." };
+  if (!parsed.success) return { error: "Confira profissionais, início, fim e o limite de 200 caracteres do motivo opcional." };
   const data = parsed.data;
   if ((data.count ?? 1) * new Set(data.professionalIds).size > 200) return { error: "Selecione até 200 bloqueios por pedido. Reduza profissionais ou ocorrências." };
   try {
@@ -126,10 +126,56 @@ export async function removeAvailabilityBlock(id: string) {
     const block = await tx.timeOff.findFirst({ where: { id, professional: { salonId: ctx.salonId } } });
     if (!block) return;
     await lockOperationalResources(tx, { professionalIds: [block.professionalId] });
+    const current = await tx.timeOff.findFirst({ where: { id, professional: { salonId: ctx.salonId } } });
+    if (!current) return;
     await tx.timeOff.deleteMany({ where: { id, professional: { salonId: ctx.salonId } } });
-    await writeAuditLog(tx, { salonId: ctx.salonId, userId: ctx.userId, actorName: "Equipe", action: "AVAILABILITY_REOPENED", entityType: "TimeOff", entityId: id, reason: block.reason, metadata: { startAt: block.startAt.toISOString(), endAt: block.endAt.toISOString(), professionalId: block.professionalId } });
+    await writeAuditLog(tx, { salonId: ctx.salonId, userId: ctx.userId, actorName: "Equipe", action: "AVAILABILITY_REOPENED", entityType: "TimeOff", entityId: id, reason: current.reason, metadata: { startAt: current.startAt.toISOString(), endAt: current.endAt.toISOString(), professionalId: current.professionalId } });
   });
   revalidatePath("/agenda");
   revalidatePath("/dashboard");
   revalidatePath("/book", "layout");
+}
+
+const editBlockSchema = z.object({
+  id: z.string().min(1).max(200), requestId: z.string().uuid(),
+  expectedStartAt: z.string().datetime(), expectedEndAt: z.string().datetime(),
+  expectedReason: z.string().max(200).nullable(),
+  startLocal: z.string().length(16), endLocal: z.string().length(16),
+  reason: z.string().trim().max(200),
+});
+
+/** Edits one occurrence, under the same professional lock as booking/reopening. */
+export async function updateAvailabilityBlock(input: z.infer<typeof editBlockSchema>) {
+  const ctx = await getTenantContext();
+  assertRole(ctx, ["OWNER", "MANAGER"]);
+  const parsed = editBlockSchema.safeParse(input);
+  if (!parsed.success) return { error: "Confira o início, fim e motivo do bloqueio." };
+  const data = parsed.data;
+  try {
+    const result = await withTenant(ctx, async tx => {
+      await tx.$queryRaw`SELECT 1 FROM pg_advisory_xact_lock(hashtextextended(${`availability-edit:${ctx.salonId}:${data.requestId}`}, 0))`;
+      const block = await tx.timeOff.findFirst({ where: { id: data.id, professional: { salonId: ctx.salonId } } });
+      if (!block) throw new Error("Bloqueio não encontrado. Atualize a agenda.");
+      await lockOperationalResources(tx, { professionalIds: [block.professionalId] });
+      const fingerprint = createHash("sha256").update(JSON.stringify(data)).digest("hex");
+      const previous = await tx.auditLog.findFirst({ where: { salonId: ctx.salonId, action: "AVAILABILITY_EDIT_REQUEST", entityId: data.requestId } });
+      if (previous) {
+        if (previous.reason !== fingerprint) throw new Error("O pedido mudou. Reabra o bloqueio para revisar.");
+        return { success: true as const, duplicate: true };
+      }
+      const current = await tx.timeOff.findFirst({ where: { id: data.id, professional: { salonId: ctx.salonId } } });
+      if (!current || current.startAt.toISOString() !== data.expectedStartAt || current.endAt.toISOString() !== data.expectedEndAt || current.reason !== data.expectedReason) {
+        throw new Error("Este bloqueio foi alterado ou reaberto. Atualize a agenda antes de editar.");
+      }
+      const salon = await tx.salon.findUniqueOrThrow({ where: { id: ctx.salonId }, select: { timezone: true } });
+      const [{ startAt, endAt }] = availabilityOccurrences(data.startLocal, data.endLocal, salon.timezone);
+      const updated = await tx.timeOff.updateMany({ where: { id: data.id, professional: { salonId: ctx.salonId }, startAt: current.startAt, endAt: current.endAt, reason: current.reason }, data: { startAt, endAt, reason: data.reason } });
+      if (updated.count !== 1) throw new Error("Este bloqueio mudou. Atualize a agenda.");
+      await writeAuditLog(tx, { salonId: ctx.salonId, userId: ctx.userId, actorName: "Equipe", action: "AVAILABILITY_UPDATED", entityType: "TimeOff", entityId: data.id, reason: data.reason, metadata: { professionalId: current.professionalId, before: { startAt: current.startAt.toISOString(), endAt: current.endAt.toISOString(), reason: current.reason }, after: { startAt: startAt.toISOString(), endAt: endAt.toISOString(), reason: data.reason } } });
+      await writeAuditLog(tx, { salonId: ctx.salonId, userId: ctx.userId, actorName: "Equipe", action: "AVAILABILITY_EDIT_REQUEST", entityType: "TimeOff", entityId: data.requestId, reason: fingerprint });
+      return { success: true as const, duplicate: false };
+    });
+    revalidatePath("/agenda"); revalidatePath("/dashboard"); revalidatePath("/book", "layout");
+    return result;
+  } catch (error) { return { error: error instanceof Error ? error.message : "Não foi possível alterar o bloqueio." }; }
 }

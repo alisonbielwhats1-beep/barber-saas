@@ -1,5 +1,7 @@
 "use client";
 
+import { BlockDateTime } from "./block-date-time";
+import { AvailabilityBlockDialog } from "./availability-block";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Ban, Loader2 } from "lucide-react";
@@ -17,22 +19,6 @@ export type BlockSelection = { professionalId: string; startLocal: string; endLo
 
 export type AvailabilityPreset = "interval" | "day";
 
-function BlockDateTime({ label, value, onChange, className }: {
-  label: string; value: string; onChange: (value: string) => void; className: string;
-}) {
-  const suffix = label === "Início" ? "início" : "fim";
-  const [typing, setTyping] = useState(false);
-  return <div className="grid grid-cols-2 gap-3">
-    <label className="min-w-0 text-sm">Data de {suffix}<input required type="date" value={value.slice(0, 10)} onChange={e => onChange(`${e.target.value}T${value.slice(11)}`)} className={`${className} min-w-0`} /></label>
-    <div className="min-w-0"><label className="text-sm">Hora de {suffix}<input required type={typing ? "text" : "time"} step={60} inputMode={typing ? "numeric" : undefined} placeholder="HH:mm" pattern="([01][0-9]|2[0-3]):[0-5][0-9]" maxLength={5} value={value.slice(11)} onChange={e => {
-      if (!typing) { onChange(`${value.slice(0, 10)}T${e.target.value}`); return; }
-      const digits = e.target.value.replace(/\D/g, "").slice(0, 4);
-      const time = digits.length > 2 ? `${digits.slice(0, 2)}:${digits.slice(2)}` : digits;
-      onChange(`${value.slice(0, 10)}T${time}`);
-    }} className={className} /></label><button type="button" className="min-h-11 text-xs text-muted-foreground underline" onClick={() => setTyping(!typing)}>{typing ? `Usar seletor de ${suffix}` : `Digitar hora de ${suffix}`}</button></div>
-  </div>;
-}
-
 export function AvailabilityPanel({ date, timezone, professionals, blocks, selection, initialPreset, dialogOnly = false, restoreFocus }: {
   date: string; timezone: string; professionals: { id: string; name: string }[]; blocks: AvailabilityBlock[];
   selection?: BlockSelection;
@@ -43,6 +29,7 @@ export function AvailabilityPanel({ date, timezone, professionals, blocks, selec
   const startsAsDayOff = initialPreset === "day";
   const startsOpen = Boolean(selection || initialPreset);
   const router = useRouter();
+  const [editingBlock, setEditingBlock] = useState<AvailabilityBlock | null>(null);
   const [open, setOpen] = useState(startsOpen);
   const [activePreset, setActivePreset] = useState<AvailabilityPreset>(initialPreset ?? "interval");
   const [pending, setPending] = useState(false);
@@ -61,6 +48,7 @@ export function AvailabilityPanel({ date, timezone, professionals, blocks, selec
   const [summary, setSummary] = useState<{ occurrences: number; first: string; last: string } | null>(null);
   const [error, setError] = useState("");
   const [affected, setAffected] = useState<{ id: string; version: number; name: string; startAt: string }[] | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
   const [toCancel, setToCancel] = useState<string[]>([]);
   const [cancelResults, setCancelResults] = useState<{ id: string; success: boolean; error?: string }[]>([]);
   const field = "mt-1 min-h-11 w-full rounded-lg border border-border bg-background px-3 text-sm";
@@ -85,7 +73,8 @@ export function AvailabilityPanel({ date, timezone, professionals, blocks, selec
       <div className="flex flex-wrap gap-2"><WeeklyPausePanel professionals={professionals} /><button type="button" onClick={() => begin()} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border px-4 text-sm font-medium hover:bg-muted"><Ban size={16} /> Bloquear horário ou dia</button></div>
     </div>
     {blocks.length > 0 && <details><summary className="flex min-h-11 cursor-pointer items-center text-xs">Ver {blocks.length} bloqueio(s) do período</summary><ul className="mt-2 divide-y divide-border">{blocks.map(block => <li key={block.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-xs">
-      <span><strong>{professionals.find(p => p.id === block.professionalId)?.name}</strong> · {formatInTimeZone(new Date(block.startAt), timezone, "dd/MM HH:mm")} — {formatInTimeZone(new Date(block.endAt), timezone, "dd/MM HH:mm")} · {block.reason ?? "Indisponível"}</span>
+      <span><strong>{professionals.find(p => p.id === block.professionalId)?.name}</strong> · {formatInTimeZone(new Date(block.startAt), timezone, "dd/MM HH:mm")} — {formatInTimeZone(new Date(block.endAt), timezone, "dd/MM HH:mm")} · {block.reason || "Indisponível"}</span>
+      <button type="button" className="min-h-11 rounded-lg px-3 underline" onClick={() => setEditingBlock(block)}>Editar bloqueio</button>
       <button type="button" disabled={pending} className="min-h-11 rounded-lg px-3 underline disabled:opacity-50" onClick={() => {
         if (!window.confirm("Reabrir este período? Reservas canceladas não serão restauradas.")) return;
         startTransition(async () => { try { await removeAvailabilityBlock(block.id); router.refresh(); } catch { setError("Não foi possível reabrir o período."); } });
@@ -93,17 +82,19 @@ export function AvailabilityPanel({ date, timezone, professionals, blocks, selec
     </li>)}</ul></details>}
     {error && !open && <p role="alert" className="text-sm text-danger">{error}</p>}
     </>}
+    {editingBlock && <AvailabilityBlockDialog key={editingBlock.id} open block={editingBlock} professionalName={professionals.find(p => p.id === editingBlock.professionalId)?.name ?? "Profissional"} timezone={timezone} onOpenChange={value => { if (!value) setEditingBlock(null); }} />}
     <Dialog open={open} onOpenChange={value => { if (!pending) setOpen(value); }}><DialogContent onCloseAutoFocus={restoreFocus ? event => { event.preventDefault(); restoreFocus(); } : undefined} className="max-h-[85dvh] overflow-y-auto"><DialogHeader><DialogTitle>{activePreset === "day" ? "Adicionar folga" : "Bloquear disponibilidade"}</DialogTitle></DialogHeader>
       {affected !== null ? <div className="space-y-3"><p role="status">Disponibilidade bloqueada. {affected.length} reserva(s) continuam ativas.</p>
         {affected.length > 0 && <><p className="text-sm text-muted-foreground">Abra cada reserva na agenda para propor outro horário ou cancelar com motivo.</p><ul className="space-y-2">{affected.map(a => <li key={a.id}><a className="inline-flex min-h-11 items-center underline" href={`/agenda?date=${formatInTimeZone(new Date(a.startAt), timezone, "yyyy-MM-dd")}&appointment=${a.id}`}>{a.name} · {formatInTimeZone(new Date(a.startAt), timezone, "dd/MM HH:mm")}</a></li>)}</ul></>}
         {affected.length > 0 && <fieldset disabled={pending} className="space-y-2"><legend className="text-sm font-medium">Cancelar reservas selecionadas</legend>
           {affected.map(a => <label key={a.id} className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" disabled={cancelResults.some(r => r.id === a.id && r.success)} checked={toCancel.includes(a.id)} onChange={e => setToCancel(e.target.checked ? [...toCancel, a.id] : toCancel.filter(id => id !== a.id))} />{a.name} · {formatInTimeZone(new Date(a.startAt), timezone, "dd/MM HH:mm")}</label>)}
-          <p className="text-xs text-muted-foreground">Motivo: {reason}. O histórico será preservado e a fila não será promovida automaticamente.</p>
-          <button type="button" disabled={!toCancel.length || pending} className="min-h-11 rounded-lg bg-danger px-3 text-sm text-white disabled:opacity-50" onClick={() => {
-            if (!window.confirm(`Cancelar ${toCancel.length} reserva(s) selecionada(s)? Motivo: ${reason}`)) return;
+          <p className="text-xs text-muted-foreground">Motivo: {cancelReason}. O histórico será preservado e a fila não será promovida automaticamente.</p>
+          <label className="block text-sm">Motivo do cancelamento<input minLength={3} maxLength={200} value={cancelReason} onChange={e => setCancelReason(e.target.value)} className={field} /></label>
+          <button type="button" disabled={!toCancel.length || pending || cancelReason.trim().length < 3} className="min-h-11 rounded-lg bg-danger px-3 text-sm text-white disabled:opacity-50" onClick={() => {
+            if (!window.confirm(`Cancelar ${toCancel.length} reserva(s) selecionada(s)? Motivo: ${cancelReason}`)) return;
             startTransition(async () => {
               try {
-                const results = await cancelSelectedAppointments({ reason, appointments: affected.filter(a => toCancel.includes(a.id)).map(a => ({ id: a.id, version: a.version, requestId: crypto.randomUUID() })) });
+                const results = await cancelSelectedAppointments({ reason: cancelReason, appointments: affected.filter(a => toCancel.includes(a.id)).map(a => ({ id: a.id, version: a.version, requestId: crypto.randomUUID() })) });
                 setCancelResults(results); setToCancel([]); router.refresh();
               } catch { setError("Não foi possível concluir. Revise as reservas antes de tentar novamente."); }
             });
@@ -123,7 +114,7 @@ export function AvailabilityPanel({ date, timezone, professionals, blocks, selec
           }
           const result = await blockAvailability({ id: requestId, professionalIds: selected, startLocal: start, endLocal: end, reason, everyWeeks: repeatDays ? 0 : everyWeeks, count: !repeatDays && everyWeeks ? count : 1, ...(repeatDays ? { weekdays, untilDate } : {}) });
           if ("error" in result) setError(result.error ?? "Não foi possível bloquear.");
-          else { setAffected(result.affected); router.refresh(); }
+          else { setAffected(result.affected); setCancelReason(reason); router.refresh(); }
           } catch { setError("Não foi possível confirmar o bloqueio. Tente novamente."); }
         });
       }}>
@@ -132,11 +123,11 @@ export function AvailabilityPanel({ date, timezone, professionals, blocks, selec
           <button type="button" className="min-h-11 rounded-lg border border-border px-3 text-sm" onClick={() => { setPreview(null); setStart(`${date}T00:00`); setEnd(`${addCalendarDays(date, 1)}T00:00`); }}>Dia inteiro</button>
           <BlockDateTime label="Início" value={start} onChange={setStart} className={field} />
           <BlockDateTime label="Fim" value={end} onChange={setEnd} className={field} />
-          <p className="text-xs text-muted-foreground">Escolha qualquer minuto, como 18:45. Um bloqueio pode começar exatamente quando o atendimento termina.</p>
+          <p className="text-xs text-muted-foreground">Escolha qualquer minuto, inclusive fora do expediente. Para terminar à meia-noite, use 00:00 do dia seguinte. Reservas existentes são mantidas.</p>
           <label className="block text-sm">Repetir<select aria-label="Repetir" value={repeatDays ? "days" : everyWeeks} onChange={e => { setRepeatDays(e.target.value === "days"); if (e.target.value !== "days") setEveryWeeks(Number(e.target.value) as 0 | 1 | 2 | 4); }} className={field}><option value={0}>Não repetir</option><option value="days">Nos dias da semana que eu escolher</option><option value={1}>Toda semana, neste mesmo dia</option><option value={2}>A cada duas semanas</option><option value={4}>A cada quatro semanas</option></select></label>
           {repeatDays && <><WeekdayPicker value={weekdays} onChange={days => { setPreview(null); setWeekdays(days); }} /><label className="block text-sm">Repetir até<input required type="date" min={start.slice(0, 10)} value={untilDate} onChange={e => setUntilDate(e.target.value)} className={field} /></label><p className="text-xs text-muted-foreground">Repete o mesmo horário nos dias escolhidos, incluindo a data final. Para uma rotina sem data final, use “Pausa recorrente”.</p></>}
           {!repeatDays && everyWeeks > 0 && <label className="block text-sm">Número de ocorrências<input type="number" required min={2} max={52} value={count} onChange={e => setCount(Number(e.target.value))} className={field} /><span className="text-xs text-muted-foreground">Inclui o primeiro período. Cada ocorrência pode ser reaberta separadamente.</span></label>}
-          <label className="block text-sm">Motivo<input required minLength={3} maxLength={200} value={reason} onChange={e => setReason(e.target.value)} placeholder="Ex.: almoço, férias ou reunião" className={field} /></label>
+          <label className="block text-sm">Motivo (opcional)<input maxLength={200} value={reason} onChange={e => setReason(e.target.value)} placeholder="Ex.: almoço, férias ou reunião" className={field} /></label>
         </fieldset>
         {preview !== null && <div role="status" className="rounded-xl border border-primary/30 bg-primary/5 p-3 text-sm">{summary && <p className="mb-2">{summary.occurrences} período(s) por profissional · {formatInTimeZone(new Date(summary.first), timezone, "dd/MM HH:mm")} até {formatInTimeZone(new Date(summary.last), timezone, "dd/MM HH:mm")}</p>}<strong>{preview.length} reserva(s) no intervalo</strong><ul>{preview.map(a => <li key={a.id}>{a.name} · {formatInTimeZone(new Date(a.startAt), timezone, "dd/MM HH:mm")}</li>)}</ul><p className="mt-2 text-xs text-muted-foreground">Estas reservas serão mantidas. A lista será atualizada ao confirmar.</p></div>}
         <p className="text-xs text-muted-foreground">Horários no fuso {timezone}. Reservas existentes serão preservadas e listadas após o bloqueio.</p>

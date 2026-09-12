@@ -79,6 +79,39 @@ async function fixture() {
 }
 
 describePostgres("concorrência real de agendamentos", () => {
+  it("encaixe na remarcação exige autorização, preserva vizinho e persiste no aceite", async () => {
+    const data = await fixture();
+    const actor = { type: "STAFF" as const, id: data.professionalUserId, name: "Dono CI" };
+    const create = (clientId: string, time: string) => withSalon(data.salonId, tx => createAppointment(tx, {
+      salonId: data.salonId, professionalId: data.professionalId, clientId, serviceIds: [data.serviceId], startLocal: `2032-08-05T${time}`,
+      origin: "ADMIN", actor, idempotencyKey: crypto.randomUUID(), enforceBookingWindow: false,
+    }));
+    const neighbor = await create(data.clients[0]!.id, "10:00");
+    const neighborBefore = await prisma.appointment.findUniqueOrThrow({ where: { id: neighbor.appointment.id } });
+    const guest = await create(data.clients[1]!.id, "11:00");
+    const change = { salonId: data.salonId, appointmentId: guest.appointment.id, professionalId: data.professionalId,
+      serviceIds: [data.serviceId], startLocal: "2032-08-05T10:15", actor, expectedVersion: 1, idempotencyKey: crypto.randomUUID() };
+    await expect(withSalon(data.salonId, tx => requestStaffReschedule(tx, change))).rejects.toMatchObject({ code: "SLOT_TAKEN" });
+    await expect(withSalon(data.salonId, tx => requestStaffReschedule(tx, { ...change, overbookReason: "Sem permissão", canOverbook: false }))).rejects.toMatchObject({ code: "SLOT_TAKEN" });
+    const allowed = { ...change, canOverbook: true, overbookReason: "Intervalo da coloração" };
+    expect(await withSalon(data.salonId, tx => requestStaffReschedule(tx, allowed))).toMatchObject({ requiresAcceptance: false });
+    expect(await withSalon(data.salonId, tx => requestStaffReschedule(tx, allowed))).toMatchObject({ duplicate: true });
+    expect(await prisma.appointment.findUniqueOrThrow({ where: { id: guest.appointment.id }, select: { isOverbooked: true, version: true } })).toEqual({ isOverbooked: true, version: 2 });
+    const clientId = data.clients[2]!.id;
+    await prisma.clientProfile.update({ where: { id: clientId }, data: { passwordHash: "synthetic-account" } });
+    const account = await create(clientId, "12:00");
+    const proposed = { ...allowed, appointmentId: account.appointment.id, idempotencyKey: crypto.randomUUID() };
+    const proposal = await withSalon(data.salonId, tx => requestStaffReschedule(tx, proposed));
+    if (!proposal.requiresAcceptance) throw new Error("O cliente deve aceitar");
+    expect(await prisma.appointment.findUniqueOrThrow({ where: { id: account.appointment.id }, select: { startAt: true, version: true } })).toEqual({ startAt: new Date("2032-08-05T15:00:00Z"), version: 1 });
+    await expect(withSalon(data.salonId, tx => rescheduleAppointment(tx, { ...change, appointmentId: account.appointment.id, actor: { type: "CLIENT", id: clientId, name: "Cliente" }, expectedClientId: clientId, enforceClientPolicy: true, canOverride: true, overrideReason: "Forjado", now: new Date("2032-08-01T00:00:00Z") }))).rejects.toMatchObject({ code: "SLOT_TAKEN" });
+    const respond = () => withSalon(data.salonId, tx => respondToRescheduleProposal(tx, { salonId: data.salonId, proposalId: proposal.proposalId, clientId, decision: "ACCEPT" }));
+    expect(await respond()).toMatchObject({ status: "ACCEPTED", duplicate: false });
+    expect(await respond()).toMatchObject({ status: "ACCEPTED", duplicate: true });
+    expect(await prisma.appointment.findUniqueOrThrow({ where: { id: account.appointment.id }, select: { isOverbooked: true, version: true } })).toEqual({ isOverbooked: true, version: 2 });
+    expect(await prisma.appointment.findUniqueOrThrow({ where: { id: neighbor.appointment.id } })).toEqual(neighborBefore);
+    expect(await prisma.auditLog.count({ where: { salonId: data.salonId, action: "APPOINTMENT_OVERBOOK_RESCHEDULE" } })).toBe(2);
+  });
   it("remarca duas vezes no domingo, libera as vagas anteriores e preserva os vizinhos", async () => {
     const data = await fixture();
     await prisma.workingHours.create({ data: { salonId: data.salonId, professionalId: data.professionalId, weekday: 0, startMinutes: 540, endMinutes: 1080 } });
