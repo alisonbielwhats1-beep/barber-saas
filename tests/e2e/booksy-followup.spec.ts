@@ -88,6 +88,7 @@ test("@database busca completa, encaixe ao editar e bloqueio editável até meia
     const changed = await db.timeOff.findFirstOrThrow({ where: { professional: { salonId: salon.id }, reason: `Editado ${suffix}` } });
     // Only the clicked occurrence changes; the original booking rows remain byte-for-byte equal.
     expect(changed.startAt).toEqual(new Date(`${date}T11:45:00Z`));
+    expect(changed.id).toBe(block.id);
     expect(changed.endAt).toEqual(new Date(`${nextDate}T03:00:00Z`));
     expect(await db.timeOff.count({ where: { id: changed.id } })).toBe(1);
     expect(await db.timeOff.findUnique({ where: { id: block.id } })).not.toBeNull();

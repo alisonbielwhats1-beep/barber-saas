@@ -32,7 +32,7 @@ pessoais não foram copiados ao repositório nem enviados a serviços externos.
 
 Bloqueio sem motivo não autoriza cancelar reservas sem motivo: cancelamento
 mantém campo próprio obrigatório. Nenhuma migration, serviço pago, mensagem
-externa ou alteração em Production faz parte desta entrega.
+externa ou alteração de dados em Production faz parte desta entrega.
 
 ## Arquivos e validação
 
@@ -50,4 +50,8 @@ meia-noite, acessibilidade e capturas em 320/390/1440 px. Tudo com dados
 sintéticos em banco descartável. Resultados finais serão registrados no PR.
 
 Rollback: reverter o código; manter os registros, propostas e auditorias.
-Autorização de publicação produtiva é uma etapa separada após CI/Preview.
+Publicação em Production autorizada pelo responsável nesta tarefa em
+12/09/2026 ("suba em produção"), condicionada à conclusão de CI/Preview.
+Lint, TypeScript, 907 testes Vitest e build passaram localmente. A revisão
+das capturas motivou campos de data/hora em largura total no celular e
+largura mínima por atendimento/bloqueio na grade com rolagem interna.

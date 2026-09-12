@@ -126,7 +126,7 @@ export function AvailabilityBlockDialog({
     new Date(block.endAt).getTime() - new Date(block.startAt).getTime() < 24 * 60 * 60 * 1000;
 
   function changeOpen(nextOpen: boolean) {
-    if (pending) return;
+    if (submitting.current) return;
     if (!nextOpen) {
       setStep("details");
       setError("");

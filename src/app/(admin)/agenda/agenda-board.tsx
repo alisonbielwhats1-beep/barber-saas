@@ -770,7 +770,7 @@ function DayView({
           const proAppts = appointments.filter((a) => a.professionalId === pro.id);
           const placements = appointmentPlacements(proAppts, timezone, blocks.filter(b => b.professionalId === pro.id), date);
           return (
-            <div key={pro.id} data-pro-col data-pro-id={pro.id} className="relative shrink-0 border-r border-border last:border-r-0" style={{ flex: 1, minWidth: 148 }}>
+            <div key={pro.id} data-pro-col data-pro-id={pro.id} className="relative shrink-0 border-r border-border last:border-r-0" style={{ flex: 1, minWidth: Math.max(148, ...[...placements.values()].map(p => p.columns * 112)) }}>
               <div data-professional-color={pro.colorHex} style={{ height: HEADER_H, borderBottom: `3px solid ${pro.colorHex}` }} className="sticky top-0 z-10 flex flex-col items-center justify-center gap-1.5 bg-card px-3">
                 <span style={{ borderColor: pro.colorHex ?? undefined }} className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full border-2 bg-muted text-xs font-semibold text-foreground">
                   {pro.avatarUrl ? <ImageWithFallback src={pro.avatarUrl} alt="" width={44} height={44} sizes="44px" className="h-full w-full object-cover" fallback={<span>{initials(pro.name)}</span>} /> : initials(pro.name)}
@@ -854,7 +854,7 @@ function DayView({
                       aria-label={`${a.clientName}, ${a.serviceName}, ${formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")}, ${pro.name}, ${cfg.label}.${placement.conflict ? " Conflito de horário detectado." : ""} Abrir detalhes`}
                       data-appointment-professional={a.professionalId} data-colorful-appointment
                       title={placement.conflict && !a.isOverbooked ? "Conflito de horário detectado — revise este atendimento" : undefined}
-                      className={`group absolute z-[2] cursor-pointer touch-pan-y select-none rounded-lg border-l-[3px] p-2 text-left text-xs shadow-sm transition focus-visible:z-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:cursor-grab ${
+                      className={`group absolute z-[2] overflow-hidden cursor-pointer touch-pan-y select-none rounded-lg border-l-[3px] p-2 text-left text-xs shadow-sm transition focus-visible:z-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:cursor-grab ${
                         placement.conflict ? "ring-1 ring-danger/60" : ""
                       } ${
                         isDragging ? "z-30 opacity-70 ring-2 ring-primary" : "hover:shadow-md"
@@ -877,7 +877,7 @@ function DayView({
                         </span>
                       )}
                       {height >= 70 && (
-                        <p className="mt-0.5 text-[10px] font-medium text-foreground">
+                        <p className="mt-0.5 truncate text-[10px] font-medium text-foreground">
                           {formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")} · {formatMoney(a.priceCents)}
                         </p>
                       )}
@@ -968,7 +968,7 @@ function WeekView({
           );
           const placements = appointmentPlacements(dayAppts, timezone, blocks, dStr);
           return (
-            <div key={dStr} className="relative shrink-0 border-r border-border last:border-r-0" style={{ flex: 1, minWidth: colW }}>
+            <div key={dStr} className="relative shrink-0 border-r border-border last:border-r-0" style={{ flex: 1, minWidth: Math.max(colW, ...[...placements.values()].map(p => p.columns * 112)) }}>
               <button
                 onClick={() => onOpenDay(dStr)}
                 style={{ height: HEADER_H }}

@@ -6,7 +6,7 @@ export function BlockDateTime({ label, value, onChange, className }: {
 }) {
   const suffix = label === "Início" ? "início" : "fim";
   const [typing, setTyping] = useState(false);
-  return <div className="grid grid-cols-2 gap-3">
+  return <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
     <label className="min-w-0 text-sm">Data de {suffix}<input required type="date" value={value.slice(0, 10)} onChange={e => onChange(`${e.target.value}T${value.slice(11)}`)} className={`${className} min-w-0`} /></label>
     <div className="min-w-0"><label className="text-sm">Hora de {suffix}<input required type={typing ? "text" : "time"} step={60} inputMode={typing ? "numeric" : undefined} placeholder="HH:mm" pattern="([01][0-9]|2[0-3]):[0-5][0-9]" maxLength={5} value={value.slice(11)} onChange={e => {
       if (!typing) { onChange(`${value.slice(0, 10)}T${e.target.value}`); return; }
