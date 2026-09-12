@@ -1,5 +1,22 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-12 — laboratório com continuidade e Chief condicional
+
+Evolução autorizada na mesma branch/PR #100: Triage na entrada, especialista
+mantido com histórico e Chief apenas por revisão/decisão. Sales/Customer Success
+respondem ao cliente; demais análises e Chief ficam internas. Pendências não
+executam aprovações. Catálogo público vem da mesma fonte da landing, sem dados
+de salões. Estado opaco por administrador, até seis mensagens, apenas na página.
+Escopo e limites em `HQ_ATENDIMENTO_CONVERSA_2026-09-12.md`. Os sete formatos
+salvos foram conferidos por leitura; não foram alterados. 116 testes específicos,
+1.023 testes gerais, lint, TypeScript, build e navegador local passaram. Três
+etapas reais da conversa (preços, continuidade e Chief) comprovadas na tela/API;
+suporte comprovado por recuperação somente leitura de dois turnos concluídos.
+Seis sessões auditadas. Continuação observada em 15,074s, sem garantia de SLA.
+Cota temporária ampliada com autorização para 24 até 19h05 Brasília, já atingida
+e agora preservada localmente entre reinícios. Sem WhatsApp, migration, CRM ou
+Production. Detalhes e limites da validação no documento da fase.
+
 ## 2026-09-12 — orquestrador de sete agentes, conexão real local comprovada
 
 Branch `codex/hq-saved-agent-orchestrator`, base `5cca634`; recorte anterior

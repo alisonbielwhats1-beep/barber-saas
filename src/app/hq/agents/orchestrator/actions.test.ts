@@ -1,5 +1,6 @@
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
-const f = vi.hoisted(() => ({ access: vi.fn(), limit: vi.fn(), run: vi.fn() }));
+const f = vi.hoisted(() => ({ access: vi.fn(), limit: vi.fn(), run: vi.fn(), local: vi.fn() }));
+vi.mock("@/lib/hq/orchestrator-local-quota", () => ({ reserveLocalOrchestratorAttempt: f.local }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/hq/access", () => ({ withHq: f.access }));
 vi.mock("@/lib/rate-limit", () => ({ checkRateLimit: f.limit }));
@@ -12,7 +13,10 @@ beforeEach(() => {
   vi.resetAllMocks();
   vi.stubEnv("HQ_ORCHESTRATOR_ENABLED", "true"); vi.stubEnv("APP_ENV", "development");
   vi.stubEnv("VERCEL_ENV", ""); vi.stubEnv("OPENAI_API_KEY", "synthetic-secret");
+  vi.stubEnv("NEXTAUTH_SECRET", "synthetic-auth-secret-for-local-tests-only");
   vi.stubEnv("HQ_ORCHESTRATOR_DIAGNOSTIC_UNTIL", "");
+  vi.stubEnv("HQ_ORCHESTRATOR_DIAGNOSTIC_LIMIT", "");
+  f.local.mockResolvedValue("reserved");
   f.access.mockImplementation(async callback => callback({}, "admin_test"));
   f.limit.mockResolvedValue({ allowed: true, source: "local" });
   f.run.mockResolvedValue({ ok: true, steps: [], answer: "Final" });
@@ -21,6 +25,16 @@ it("temporarily permits twenty locally while preserving the same project counter
   vi.stubEnv("HQ_ORCHESTRATOR_DIAGNOSTIC_UNTIL", new Date(Date.now() + 3600000).toISOString());
   await testOrchestrator("teste");
   expect(f.limit).toHaveBeenCalledWith(expect.objectContaining({ namespace: "hq-orchestrator-day", limit: 20, windowSeconds: 86400 }));
+});
+it("permits the explicitly authorized twenty-four only within the local diagnostic window", () => {
+  const env = { APP_ENV: "development", HQ_ORCHESTRATOR_DIAGNOSTIC_UNTIL: new Date(Date.now() + 3600000).toISOString(), HQ_ORCHESTRATOR_DIAGNOSTIC_LIMIT: "24" };
+  expect(orchestratorConfig(env).dailyLimit).toBe(24);
+  expect(orchestratorConfig({ ...env, VERCEL_ENV: "preview" }).dailyLimit).toBe(10);
+  expect(orchestratorConfig({ ...env, HQ_ORCHESTRATOR_DIAGNOSTIC_UNTIL: "" }).dailyLimit).toBe(10);
+});
+it("refuses real inference when the persistent local quota is exhausted", async () => {
+  f.local.mockResolvedValue("daily");
+  expect((await testOrchestrator("teste")).ok).toBe(false); expect(f.run).not.toHaveBeenCalled();
 });
 it.each(["expired", "too-far", "invalid", "hosted", "staging"])("retains ten when diagnostic allowance is %s", mode => {
   const until = mode === "invalid" ? "invalid" : new Date(Date.now() + (mode === "expired" ? -1 : mode === "too-far" ? 90000000 : 3600000)).toISOString();
@@ -87,4 +101,30 @@ it("does not infer when the project daily quota is exhausted", async () => {
   const result = await testOrchestrator("teste");
   expect(result.error).toContain("Limite de testes atingido");
   expect(f.run).not.toHaveBeenCalled();
+});
+
+it("rejects arbitrary history, IDs and malformed tokens before quotas or inference", async () => {
+  for (const options of [{ history: [] }, { agentId: "agent_arbitrary" }, { conversationToken: "fake" }, { mode: "production" }]) {
+    expect((await testOrchestrator("teste", options)).ok).toBe(false);
+  }
+  expect(f.run).not.toHaveBeenCalled(); expect(f.limit).not.toHaveBeenCalled();
+});
+it("seals state, restores it only for the same administrator and passes current public knowledge", async () => {
+  const conversation = { mode: "customer", triage: { target_agent: "SALES", event_type: "NEW_LEAD", priority: "LOW", requires_human_approval: false }, triageOutput: "raw", pendingApproval: false, history: [{ message: "Olá", agent: "SALES", output: "Como posso ajudar?" }] };
+  f.run.mockResolvedValueOnce({ ok: true, steps: [], answer: "Como posso ajudar?", conversation });
+  const first = await testOrchestrator("Olá");
+  expect(first.conversationToken).toBeTruthy(); expect(first).not.toHaveProperty("conversation");
+  expect(first.conversationToken).not.toContain("Como posso ajudar");
+  await testOrchestrator("Quais os planos?", { conversationToken: first.conversationToken });
+  expect(f.run.mock.calls[1][0].conversation).toEqual(conversation);
+  expect(f.run.mock.calls[1][0].knowledge).toMatchObject({ product: "Everflair", founderAvailability: "not_checked" });
+  f.access.mockImplementation(async callback => callback({}, "other_admin"));
+  expect((await testOrchestrator("teste", { conversationToken: first.conversationToken })).ok).toBe(false);
+  expect(f.run).toHaveBeenCalledTimes(2);
+});
+it("blocks a pending conversation before consuming quota even if reclassification is requested", async () => {
+  f.run.mockResolvedValueOnce({ ok: true, steps: [], conversation: { mode: "customer", pendingApproval: true, history: [] } });
+  const first = await testOrchestrator("teste"); f.limit.mockClear();
+  expect((await testOrchestrator("aprovado", { conversationToken: first.conversationToken, intent: "reclassify" })).ok).toBe(false);
+  expect(f.limit).not.toHaveBeenCalled(); expect(f.run).toHaveBeenCalledTimes(1);
 });

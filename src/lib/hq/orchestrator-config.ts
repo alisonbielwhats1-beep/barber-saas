@@ -6,7 +6,8 @@ export function orchestratorConfig(env: Record<string, string | undefined> = pro
   const diagnosticUntil = Date.parse(env.HQ_ORCHESTRATOR_DIAGNOSTIC_UNTIL ?? "");
   const remainingDiagnosticMs = diagnosticUntil - Date.now();
   const dailyLimit = env.APP_ENV === "development" && !env.VERCEL_ENV &&
-    remainingDiagnosticMs > 0 && remainingDiagnosticMs <= 86400000 ? 20 : 10;
+    remainingDiagnosticMs > 0 && remainingDiagnosticMs <= 86400000
+      ? env.HQ_ORCHESTRATOR_DIAGNOSTIC_LIMIT === "24" ? 24 : 20 : 10;
   const apiKey = env.OPENAI_API_KEY?.trim() ?? "";
   const project = env.HQ_ORCHESTRATOR_PROJECT_ID?.trim() || orchestratorProject;
   const agentIds = {

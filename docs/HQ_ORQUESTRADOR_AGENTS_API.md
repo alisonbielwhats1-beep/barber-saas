@@ -1,6 +1,16 @@
 # Orquestrador interno de sete agentes salvos
 
-## Estado verificável — 12/09/2026
+## Revisão atual — conversa e Chief condicional
+
+O responsável aprovou a evolução descrita em
+[Conversa com responsável](HQ_ATENDIMENTO_CONVERSA_2026-09-12.md).
+Ela substitui o fluxo obrigatório de três etapas abaixo: especialista pode
+responder diretamente, histórico permanece com ele e Chief responde ao fundador
+quando houver revisão. Os parágrafos de fluxo/validação abaixo registram o recorte
+anterior comprovado, não a validação da nova conversa. Segurança, ambiente e IDs
+permanecem; a revisão acrescenta estado opaco e catálogo público da landing.
+
+## Histórico verificável do fluxo anterior — 12/09/2026
 
 Branch local `codex/hq-saved-agent-orchestrator`, base `5cca634`.
 O recorte anterior veio do pacote `b10fb69`, na branch
@@ -86,7 +96,7 @@ O comando valida a configuração e consulta somente os sete agentes. Não cria
 agentes ou sessões, não exibe prompts/credenciais/erros brutos e retorna exit 1
 se não comprovar todos os acessos. Leitura bem-sucedida não prova execução.
 
-## Fluxo e contrato
+## Fluxo e contrato anteriores (substituídos pela revisão acima)
 
 1. `withHq` revalida SUPER_ADMIN; a transação termina antes da API.
 2. Validar ativação, ambiente, mensagem e limites. IDs vêm somente do servidor.

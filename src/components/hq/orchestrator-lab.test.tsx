@@ -5,74 +5,78 @@ const run = vi.hoisted(() => vi.fn());
 vi.mock("@/app/hq/agents/orchestrator/actions", () => ({ testOrchestrator: run }));
 import { OrchestratorLab } from "./orchestrator-lab";
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
-it("discloses the temporary server-provided diagnostic allowance", () => {
+async function send(message = "Olá") {
+  fireEvent.change(screen.getByLabelText("Mensagem"), { target: { value: message } });
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: "Testar fluxo" })));
+}
+const completed = (overrides = {}) => ({ ok: true, answer: "Qual erro aparece?", responder: "CUSTOMER_SUCCESS", conversationToken: "opaque", triage: { target_agent: "CUSTOMER_SUCCESS", event_type: "SUPPORT_REQUEST", priority: "MEDIUM", requires_human_approval: false }, steps: [
+  { agent: "TRIAGE", agentId: "agent_t", sessionId: "sess_t", invoked: true, status: "completed", durationMs: 20, detail: "Recebido" },
+  { agent: "CUSTOMER_SUCCESS", agentId: "agent_cs", sessionId: "sess_cs", invoked: true, status: "completed", durationMs: 20, detail: "Recebido" },
+  { agent: "CHIEF", agentId: "agent_c", status: "skipped", durationMs: 0, detail: "Sem revisão necessária" },
+], ...overrides });
+it("discloses temporary quota and lists seven configured agents", () => {
   render(<OrchestratorLab ready reason="" dailyLimit={20} />);
-  expect(screen.getByText(/até 20 por 24 horas/)).toHaveTextContent("ampliação temporária para diagnóstico");
+  expect(screen.getByText(/até 20 por 24 horas/)).toHaveTextContent("ampliação temporária");
+  expect(screen.getByRole("list", { name: "Sete agentes disponíveis para encaminhamento" }).querySelectorAll("li")).toHaveLength(7);
+  expect(screen.getByText(/não comprova acesso à API/)).toBeVisible();
 });
-it("explains missing configuration and prevents invocation", () => {
+it("prevents inference without configuration", () => {
   render(<OrchestratorLab ready={false} reason="Configure a chave" />);
-  expect(screen.getByText("Configure a chave")).toBeVisible();
-  expect(screen.getByRole("button", { name: "Testar fluxo" })).toBeDisabled();
+  expect(screen.getByText("Configure a chave")).toBeVisible(); expect(screen.getByRole("button", { name: "Testar fluxo" })).toBeDisabled();
 });
-it("prevents duplicate submits and renders final answer and skipped agent", async () => {
+it("prevents duplicate submits and disables reset while busy", async () => {
   let finish!: (value: unknown) => void;
   run.mockReturnValue(new Promise(resolve => { finish = resolve; }));
   render(<OrchestratorLab ready reason="" />);
   fireEvent.change(screen.getByLabelText("Mensagem"), { target: { value: "Olá" } });
-  const button = screen.getByRole("button", { name: "Testar fluxo" });
-  fireEvent.click(button); fireEvent.click(button);
-  expect(run).toHaveBeenCalledTimes(1);
-  expect(screen.getByLabelText("Mensagem")).toBeDisabled();
-  await act(async () => finish({ ok: true, answer: "Resposta consolidada", steps: [
-    { agent: "TRIAGE", agentId: "agent_t", status: "completed", durationMs: 20, output: "Triagem", detail: "Recebido" },
-    { agent: "PRODUCT", agentId: "agent_p", status: "skipped", durationMs: 0, detail: "Outro assunto" },
-    { agent: "CHIEF", agentId: "agent_c", status: "completed", durationMs: 20, output: "Resposta consolidada", detail: "Recebido" },
-  ] }));
-  expect(screen.getByText("Product · Não acionado")).toBeVisible();
-  expect(screen.getByText("Chief · Concluído")).toBeVisible();
-  expect(screen.getAllByText("Resposta consolidada")[0]).toBeVisible();
-  expect(button).toBeEnabled();
+  const button = screen.getByRole("button", { name: "Testar fluxo" }); fireEvent.click(button); fireEvent.click(button);
+  expect(run).toHaveBeenCalledTimes(1); expect(screen.getByRole("button", { name: "Nova conversa" })).toBeDisabled();
+  await act(async () => finish(completed()));
+  expect(screen.getByText("Chief · Não acionado")).toBeVisible(); expect(screen.getByRole("list", { name: "Histórico da conversa" })).toHaveTextContent("Qual erro aparece?");
 });
-it("shows failures without a stale final answer and allows another test", async () => {
-  run.mockRejectedValue(new Error("network"));
-  render(<OrchestratorLab ready reason="" />);
-  fireEvent.change(screen.getByLabelText("Mensagem"), { target: { value: "Teste" } });
-  await act(async () => fireEvent.click(screen.getByRole("button", { name: "Testar fluxo" })));
-  expect(screen.getByRole("alert")).toHaveTextContent("Não foi possível receber");
-  expect(screen.getByRole("button", { name: "Testar fluxo" })).toBeEnabled();
+it("continues using only an opaque token, and preserves chat history", async () => {
+  run.mockResolvedValueOnce(completed()).mockResolvedValueOnce(completed({ answer: "Entendi o erro.", continued: true }));
+  render(<OrchestratorLab ready reason="" />); await send("Não salva"); await send("Horário indisponível");
+  expect(run.mock.calls[1]).toEqual(["Horário indisponível", { mode: "customer", intent: "continue", conversationToken: "opaque" }]);
+  expect(screen.getByText("Responsável mantido:")).toBeVisible();
+  const history = screen.getByRole("list", { name: "Histórico da conversa" }); expect(history).toHaveTextContent("Não salva"); expect(history).toHaveTextContent("Horário indisponível");
+  expect(screen.getByLabelText("Origem da simulação")).toBeDisabled();
 });
-it("lists all seven agents before a run without claiming connection", () => {
-  render(<OrchestratorLab ready reason="" />);
-  const list = screen.getByRole("list", { name: "Sete agentes disponíveis para encaminhamento" });
-  expect(list.querySelectorAll("li")).toHaveLength(7);
-  for (const name of ["Triage", "Sales", "Customer Success", "Product", "Operations", "Marketing", "Chief"]) {
-    expect(list).toHaveTextContent(name);
-  }
-  expect(screen.getByText(/não comprova acesso à API/)).toBeVisible();
+it.each(["reclassify", "review"])("offers explicit %s without arbitrary routing", async intent => {
+  run.mockResolvedValue(completed()); render(<OrchestratorLab ready reason="" />); await send();
+  fireEvent.change(screen.getByLabelText("Como tratar esta mensagem"), { target: { value: intent } }); await send("Outro assunto");
+  expect(run.mock.calls[1][1]).toEqual({ mode: "customer", intent, conversationToken: "opaque" });
 });
-it.each(["SALES", "CUSTOMER_SUCCESS", "PRODUCT", "OPERATIONS", "MARKETING", "CHIEF"])("shows selected %s, pending approval and actual invocations", async target => {
-  run.mockResolvedValue({ ok: true, answer: "Aguardando revisão", triage: { target_agent: target, event_type: "OTHER", priority: "HIGH", requires_human_approval: true }, steps: [
-    { agent: "TRIAGE", agentId: "agent_t", sessionId: "sess_t", invoked: true, status: "completed", durationMs: 250, output: "Triagem", detail: "Recebido" },
-    ...(target === "CHIEF" ? [] : [{ agent: target, agentId: "agent_s", sessionId: "sess_s", invoked: true, status: "completed", durationMs: 500, output: "Análise", detail: "Recebido" }]),
-    { agent: "CHIEF", agentId: "agent_c", sessionId: "sess_c", invoked: true, status: "completed", durationMs: 500, output: "Aguardando revisão", detail: "Recebido" },
-  ] });
-  render(<OrchestratorLab ready reason="" />);
-  fireEvent.change(screen.getByLabelText("Mensagem"), { target: { value: "Teste" } });
-  await act(async () => fireEvent.click(screen.getByRole("button", { name: "Testar fluxo" })));
-  expect(screen.getByText("Destino selecionado por Triage:")).toBeVisible();
-  expect(screen.getByText("Aprovação humana pendente.")).toBeVisible();
-  expect(screen.getByText(/Sessão: sess_t/)).toBeInTheDocument();
-  if (target === "CHIEF") expect(screen.getByText(/direto, sem especialista/)).toBeVisible();
+it("shows founder report and pending approval separately, without customer reply", async () => {
+  run.mockResolvedValue(completed({ answer: undefined, chiefReport: "Avalie a compensação solicitada.", pendingApproval: true, reviewReason: "Requer sua decisão" }));
+  render(<OrchestratorLab ready reason="" />); await send();
+  expect(screen.getByText("Aprovação humana pendente.")).toBeVisible(); expect(screen.getByRole("heading", { name: "Chief · para você" })).toBeVisible();
+  expect(screen.getByLabelText("Mensagem")).toBeDisabled(); expect(screen.getByRole("list", { name: "Histórico da conversa" })).not.toHaveTextContent("Atendimento Everflair");
 });
-it("clears a previous final answer when the following run fails", async () => {
-  run.mockResolvedValueOnce({ ok: true, answer: "Resposta anterior", steps: [] })
-    .mockResolvedValueOnce({ ok: false, answer: "Parcial inválida", steps: [], error: "Fluxo interrompido" });
-  render(<OrchestratorLab ready reason="" />);
-  fireEvent.change(screen.getByLabelText("Mensagem"), { target: { value: "Teste" } });
-  await act(async () => fireEvent.click(screen.getByRole("button", { name: "Testar fluxo" })));
-  expect(screen.getByText("Resposta anterior")).toBeVisible();
-  await act(async () => fireEvent.click(screen.getByRole("button", { name: "Testar fluxo" })));
-  expect(screen.queryByText("Resposta anterior")).not.toBeInTheDocument();
-  expect(screen.queryByText("Parcial inválida")).not.toBeInTheDocument();
-  expect(screen.getByRole("alert")).toHaveTextContent("Fluxo interrompido");
+it("renders internal JSON only in the analysis area", async () => {
+  run.mockResolvedValue(completed({ answer: undefined, internalReport: '{"problema":"Análise interna"}', responder: "PRODUCT" }));
+  render(<OrchestratorLab ready reason="" />); await send();
+  expect(screen.getByRole("heading", { name: "Análise do especialista · uso interno" })).toBeVisible();
+  expect(screen.getByText("Esta etapa produziu uma análise interna; não há mensagem para o cliente.")).toBeVisible();
+});
+it("preserves previous history but never publishes a failed partial answer", async () => {
+  run.mockResolvedValueOnce(completed()).mockResolvedValueOnce({ ok: false, answer: "Parcial inválida", steps: [{ agent: "CUSTOMER_SUCCESS", invoked: true, status: "failed", durationMs: 10, detail: "Falhou" }], error: "Fluxo interrompido" });
+  render(<OrchestratorLab ready reason="" />); await send(); await send("Outra informação");
+  expect(screen.queryByText("Parcial inválida")).not.toBeInTheDocument(); expect(screen.getByRole("alert")).toHaveTextContent("Fluxo interrompido");
+  expect(screen.getByRole("list", { name: "Histórico da conversa" })).toHaveTextContent("Qual erro aparece?"); expect(screen.getByLabelText("Mensagem")).toBeDisabled();
+});
+it("blocks automatic continuation after an uncertain network result", async () => {
+  run.mockRejectedValue(new Error("network")); render(<OrchestratorLab ready reason="" />); await send();
+  expect(screen.getByRole("alert")).toHaveTextContent("sessões na OpenAI"); expect(screen.getByLabelText("Mensagem")).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "Nova conversa" })); expect(screen.getByLabelText("Mensagem")).toBeEnabled();
+});
+it("starts a new conversation without carrying old history or token", async () => {
+  run.mockResolvedValue(completed()); render(<OrchestratorLab ready reason="" />); await send();
+  fireEvent.click(screen.getByRole("button", { name: "Nova conversa" })); expect(screen.queryByRole("list", { name: "Histórico da conversa" })).not.toBeInTheDocument();
+  await send(); expect(run.mock.calls[1][1]).not.toHaveProperty("conversationToken");
+});
+it("stops at six turns", async () => {
+  run.mockResolvedValue(completed()); render(<OrchestratorLab ready reason="" />);
+  for (let n = 0; n < 6; n++) await send(`Mensagem ${n}`);
+  expect(screen.getByLabelText("Mensagem")).toBeDisabled(); expect(run).toHaveBeenCalledTimes(6);
 });
