@@ -14,6 +14,8 @@ operacionais. Não reproduzir mídia ou dados pessoais do cliente na aplicação
   rolagem e mantém o X acessível durante a rolagem.
 - Fechamento: varredura local encontrou excedente de 64px em 320px e 24px em
   360px. Colunas com mínimo zero permitem acomodar conteúdo e formulário.
+- Compartilhar: WebKit revelou excedente de 7px em 320px. Grades permitem
+  encolher e mensagens com URLs longas quebram dentro do cartão.
 - Cadastro: campos controlados só ficam disponíveis depois da inicialização
   dos seus handlers. Na checagem em WebKit, preencher antes dessa etapa fez
   o nome desaparecer; a proteção impede aceitar texto antes de poder mantê-lo.
