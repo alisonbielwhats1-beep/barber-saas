@@ -14,8 +14,9 @@ export const DialogThemeProvider = DialogThemeContext.Provider;
 export const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => {
+>(({ className, children, style, onScroll, ...props }, ref) => {
   const theme = React.useContext(DialogThemeContext);
+  const closeButton = React.useRef<HTMLButtonElement>(null);
   return (
   <DialogPrimitive.Portal>
     <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
@@ -23,7 +24,7 @@ export const DialogContent = React.forwardRef<
       ref={ref}
       data-theme={theme}
       className={cn(
-        "fixed left-1/2 top-1/2 z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border border-border bg-card p-6 pr-16 shadow-2xl",
+        "fixed left-1/2 top-1/2 z-50 grid min-h-0 min-w-0 w-full max-w-lg overflow-y-auto overscroll-contain -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border border-border bg-card p-6 pr-16 shadow-2xl",
         "data-[state=open]:animate-in data-[state=closed]:animate-out",
         "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
         "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
@@ -31,12 +32,28 @@ export const DialogContent = React.forwardRef<
         className,
       )}
       {...props}
+      style={{
+        ...style,
+        top: "calc(var(--app-viewport-top, 0px) + (var(--app-viewport-height, 100dvh) + var(--safe-top, 0px) - var(--safe-bottom, 0px)) / 2)",
+        left: "calc(var(--app-viewport-left, 0px) + (var(--app-viewport-width, 100vw) + var(--safe-left, 0px) - var(--safe-right, 0px)) / 2)",
+        transform: "translate(-50%, -50%)",
+        width: "calc(var(--app-viewport-width, 100vw) - var(--safe-left, 0px) - var(--safe-right, 0px) - 1rem)",
+        maxHeight: "calc(var(--app-viewport-height, 100dvh) - var(--safe-top, 0px) - var(--safe-bottom, 0px) - 1rem)",
+        scrollPaddingBlock: "3.5rem 1rem",
+      }}
+      onScroll={event => {
+        if (event.target === event.currentTarget && closeButton.current) {
+          closeButton.current.style.transform = `translateY(${event.currentTarget.scrollTop}px)`;
+        }
+        onScroll?.(event);
+      }}
     >
       {children}
       <DialogPrimitive.Close
+        ref={closeButton}
         type="button"
         aria-label="Fechar janela"
-        className="absolute right-2 top-2 grid h-11 w-11 place-items-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="absolute right-2 top-2 z-10 grid h-11 w-11 place-items-center rounded-full bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <X aria-hidden="true" className="h-4 w-4" />
         <span className="sr-only">Fechar</span>

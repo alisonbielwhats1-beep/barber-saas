@@ -1,7 +1,8 @@
 "use client";
 
 import { MobileListTools } from "@/components/mobile-list-tools";
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -15,7 +16,7 @@ import { format } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { ptBR } from "date-fns/locale";
 import { ClientForm } from "./client-form";
-import { fetchClientHistory, importClientsCsv, mergeClients, redeemLoyaltyReward } from "./actions";
+import { deleteClient, restoreClient, fetchClientHistory, importClientsCsv, mergeClients, redeemLoyaltyReward } from "./actions";
 import { toast } from "@/components/ui/toast";
 import type { ClientRow } from "@/lib/crm";
 
@@ -57,15 +58,38 @@ export function ClientsCrm({
   salonName,
   timezone,
   canManage,
+  canDelete = false,
+  showExcluded = false,
   lapsedClientDays,
 }: {
   clients: ClientRow[];
   salonName: string;
   timezone: string;
   canManage: boolean;
+  canDelete?: boolean;
+  showExcluded?: boolean;
   lapsedClientDays: number;
 }) {
   const router = useRouter();
+  const [visibilityTarget, setVisibilityTarget] = useState<ClientRow | null>(null);
+  const [savingVisibility, setSavingVisibility] = useState(false);
+  const visibilityLock = useRef(false);
+  async function saveVisibility() {
+    if (!visibilityTarget || visibilityLock.current) return;
+    visibilityLock.current = true;
+    setSavingVisibility(true);
+    try {
+      await (showExcluded ? restoreClient : deleteClient)(visibilityTarget.id);
+      setVisibilityTarget(null);
+      toast(showExcluded ? "Cliente restaurado à lista." : "Cliente excluído da lista. O acesso foi preservado.");
+      router.refresh();
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "Não foi possível atualizar a lista.", "error");
+    } finally {
+      visibilityLock.current = false;
+      setSavingVisibility(false);
+    }
+  }
   const [pending, startTransition] = useTransition();
   const [search, setSearch] = useState("");
   const [segment, setSegment] = useState<Segment>("all");
@@ -140,6 +164,10 @@ export function ClientsCrm({
 
   return (
     <div className="space-y-4">
+      {canDelete && <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-muted-foreground">{showExcluded ? "Clientes excluídos da lista. O acesso e o histórico continuam preservados." : "Clientes da lista ativa."}</p>
+        <Link href={showExcluded ? "/clientes" : "/clientes?status=excluded"} className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-sm">{showExcluded ? "Ver clientes ativos" : "Ver clientes excluídos"}</Link>
+      </div>}
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 md:flex-none">
           <Search className="h-3.5 w-3.5 text-muted-foreground" />
@@ -243,7 +271,8 @@ export function ClientsCrm({
                 </div>
               </DialogHeader>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {canDelete && <button type="button" className="min-h-11 rounded-lg border border-border px-3 text-sm" onClick={() => { setVisibilityTarget(detail); setDetail(null); }}>{showExcluded ? "Restaurar à lista" : "Excluir da lista"}</button>}
                 {detail.phone && (
                   <a href={waLink(detail.phone, detail.name.split(" ")[0], salonName)} target="_blank" rel="noopener noreferrer" className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#25D366]/15 px-3 py-2 text-[13px] font-medium text-[#25D366] transition hover:bg-[#25D366]/25">
                     <MessageCircle className="h-4 w-4" /> WhatsApp
@@ -398,6 +427,17 @@ export function ClientsCrm({
               </div>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!visibilityTarget} onOpenChange={(open) => { if (!open && !visibilityLock.current) setVisibilityTarget(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>{showExcluded ? "Restaurar cliente à lista?" : "Excluir cliente da lista?"}</DialogTitle></DialogHeader>
+          <p className="break-words text-sm text-muted-foreground">{visibilityTarget?.name}: {showExcluded ? "voltará a aparecer na lista ativa." : "deixará de aparecer na lista ativa e poderá ser restaurado."} A conta de acesso, os agendamentos, os pagamentos e o histórico serão preservados.</p>
+          <div className="flex flex-wrap justify-end gap-2">
+            <button type="button" disabled={savingVisibility} onClick={() => setVisibilityTarget(null)} className="min-h-11 rounded-lg border border-border px-3 text-sm">Cancelar</button>
+            <button type="button" disabled={savingVisibility} onClick={() => void saveVisibility()} className="min-h-11 rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground disabled:opacity-50">{savingVisibility ? "Salvando…" : showExcluded ? "Confirmar restauração" : "Confirmar exclusão da lista"}</button>
+          </div>
         </DialogContent>
       </Dialog>
 

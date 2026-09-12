@@ -6,6 +6,12 @@ que todos os itens abaixo já estão implementados na Fase 1.
 
 ## Aparência administrativa — revisão de 07/09/2026
 
+Decisão de 12/09/2026 para clientes: somente o proprietário pode excluir um
+cliente da lista ativa e restaurá-lo. Excluir da lista não revoga acesso,
+não impede novos agendamentos e não apaga perfil, pagamentos ou histórico.
+O responsável confirmou: “Só excluir da lista, preservando o acesso”.
+As operações são tenant-scoped e registradas na auditoria.
+
 Fundos escuros em grafite neutro, sem roxo dominante. Após nova solicitação,
 o tema claro substitui marfim/pedra por cinza quase branco frio (`#F6F7F9`),
 cartões brancos, contornos suaves e sombras discretas para separar os painéis.

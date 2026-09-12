@@ -188,7 +188,7 @@ export default async function FechamentoPage({
         <Metric icon={CalendarCheck2} label="Atendimentos concluídos" value={String(summary.completedCount)} />
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(18rem,0.6fr)]">
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(18rem,0.6fr)]">
         <div className="rounded-2xl border border-border bg-card p-5">
           <div className="flex items-center justify-between gap-3">
             <div>
@@ -245,7 +245,7 @@ export default async function FechamentoPage({
         closed={result.closing}
       />
 
-      <section className="grid gap-4 lg:grid-cols-2">
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className="rounded-2xl border border-border bg-card">
           <div className="border-b border-border px-5 py-4">
             <h2 className="text-base font-semibold">Movimentos do dia</h2>

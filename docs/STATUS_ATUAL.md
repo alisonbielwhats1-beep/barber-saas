@@ -1,5 +1,15 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-12 — exclusão da lista e responsividade em revisão
+
+O PR #98 também inclui exclusão/restauração de clientes pelo proprietário,
+somente na lista do CRM. Conforme decisão expressa, o acesso do cliente e
+seus agendamentos/histórico permanecem intactos. Usa eventos de auditoria
+existentes, sem migration. Cabeçalhos respeitam áreas seguras e as janelas
+acompanham a área visível com teclado/zoom; fechamento recebe grade móvel.
+Escopo e evidências em `RESPONSIVIDADE_E_LISTA_2026-09-12.md`.
+Ainda não publicado; a validação desta ampliação está em andamento.
+
 ## 2026-09-11 — pedidos de edição, término e cadastro em revisão
 
 Branch `codex/client-feedback-fixes`, base `cb3babc`: seleção de serviços no

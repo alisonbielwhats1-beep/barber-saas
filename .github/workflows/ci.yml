@@ -288,6 +288,8 @@ jobs:
         run: npm run test:appointment-integration
       - name: Prove tenant-isolated password recovery with PostgreSQL
         run: npm run test:password-recovery-integration
+      - name: Prove client list exclusion preserves access and history
+        run: npx vitest run src/lib/__tests__/client-list-postgres.integration.test.ts
       - name: Restore the complete current synthetic database and compare every table
         run: |
           docker exec ${{ job.services.postgres.id }} pg_dump -U postgres -d salon_schema_ci > "$RUNNER_TEMP/current-synthetic.sql"
