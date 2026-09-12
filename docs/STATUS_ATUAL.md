@@ -1,7 +1,7 @@
 # Status atual canônico — Salon SaaS
 
 
-## 2026-09-12 — busca, bloqueios e encaixe na remarcação em revisão
+## 2026-09-12 — busca, bloqueios e encaixe: publicação autorizada
 
 Branch `codex/booksy-client-followup`, base `ad0f654` (PR #98 integrado).
 Os quatro vídeos e dois áudios desta solicitação originam busca de clientes
@@ -9,8 +9,10 @@ no servidor, edição individual de bloqueios, motivo opcional para bloquear,
 separação visual de bloqueios/reservas e encaixe deliberado também na edição.
 Este último substitui a limitação histórica de overbooking só na criação:
 dono/gerente confirmam com motivo, preservando aceite e auditoria.
-Escopo e verificação em `BOOKSY_PEDIDOS_2026-09-12.md`. Sem migration ou deploy
-produtivo nesta entrega; resultados de CI e Preview ficam no PR.
+Escopo e verificação em `BOOKSY_PEDIDOS_2026-09-12.md`. Sem migration.
+O responsável autorizou "suba em produção" nesta tarefa. Publicação após
+CI/Preview do PR #99; commit implantado e conferência final ficam no PR.
+Lint, TypeScript, 907 testes Vitest e build passaram localmente.
 
 ## 2026-09-12 — telefone e remarcação em revisão
 
