@@ -48,6 +48,8 @@ import { unavailableScheduleIntervals, type VisualWorkingHours } from "./schedul
 import { AgendaQuickActions } from "./agenda-quick-actions";
 import { WeeklyPausePanel } from "./weekly-pause-panel";
 import { minuteAtSlotPointer } from "./agenda-slot-pointer";
+import { AgendaWeekStrip } from "./agenda-week-strip";
+import { AgendaTimeScale } from "./agenda-time-scale";
 import "./agenda-workspace.css";
 
 const DAY_START = 8 * 60;
@@ -409,6 +411,8 @@ export function AgendaBoard({
         </div>
       </header>
 
+      {view === "day" && <AgendaWeekStrip date={date} today={today} onSelect={goToDay} />}
+
       <div className="agenda-body">
         {calendarOpen && <aside id="agenda-date-panel" aria-label="Navegar por datas" className="sticky top-0 hidden w-64 shrink-0 xl:block"><DateNavigator date={date} today={today} onSelect={selectCalendarDate} /></aside>}
         <div className="agenda-content">
@@ -755,11 +759,7 @@ function DayView({
       <div className="flex w-full" style={{ minWidth: 56 + professionals.length * 148 }} ref={bodyRef}>
         <div className="w-14 shrink-0 border-r border-border bg-surface-1">
           <div style={{ height: HEADER_H }} className="border-b border-border" />
-          {slots.map((m) => (
-            <div key={m} style={{ height: SLOT_MIN * PX_PER_MIN }} className="px-2 pt-1 text-[10px] text-muted-foreground">
-              {minutesToHHMM(m)}
-            </div>
-          ))}
+          <AgendaTimeScale start={dayStart} end={dayEnd} pixelsPerMinute={PX_PER_MIN} />
         </div>
 
         {professionals.map((pro) => {
@@ -784,7 +784,7 @@ function DayView({
                     onKeyDown={e => { if (e.key === "Escape") { selection.current = null; setSelectionView(null); } }}
                     onClick={e => { if (suppressClick.current) { suppressClick.current = false; return; } const minute = e.detail === 0 ? m : pointerMinute(e, m); if (blockMode) selectInterval(pro.id, minute, !!selection.current, e.detail === 0 ? SLOT_MIN : 5); else onOpenSlot(pro.id, m); }}
                     style={{ height: SLOT_MIN * PX_PER_MIN }}
-                    className="block w-full border-b border-border/40 transition hover:bg-primary/5"
+                    className={`agenda-half-hour block w-full border-t transition hover:bg-primary/5 ${m % 60 === 0 ? "border-border" : "border-dashed border-border/60"}`}
                     aria-label={`${blockMode ? "Selecionar bloqueio" : "Agendar"} ${minutesToHHMM(m)} com ${pro.name}`}
                   />
                 ))}
@@ -952,11 +952,7 @@ function WeekView({
       <div className="flex w-full" style={{ minWidth: 56 + days.length * colW }}>
         <div className="w-14 shrink-0 border-r border-border bg-surface-1">
           <div style={{ height: HEADER_H }} className="border-b border-border" />
-          {slots.map((m) => (
-            <div key={m} style={{ height: SLOT_MIN * PX_PER_MIN }} className="px-2 pt-1 text-[10px] text-muted-foreground">
-              {minutesToHHMM(m)}
-            </div>
-          ))}
+          <AgendaTimeScale start={dayStart} end={dayEnd} pixelsPerMinute={PX_PER_MIN} />
         </div>
 
         {days.map((day) => {
@@ -992,7 +988,7 @@ function WeekView({
                     onClick={() => onOpenSlot(firstProId, m, dStr)}
                     aria-label={`Agendar ${dStr} às ${minutesToHHMM(m)}`}
                     style={{ height: SLOT_MIN * PX_PER_MIN }}
-                    className="block w-full border-b border-border/40 transition hover:bg-primary/5"
+                    className={`agenda-half-hour block w-full border-t transition hover:bg-primary/5 ${m % 60 === 0 ? "border-border" : "border-dashed border-border/60"}`}
                   />
                 ))}
 

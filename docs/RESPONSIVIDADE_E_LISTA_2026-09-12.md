@@ -27,8 +27,9 @@ operacionais. Não reproduzir mídia ou dados pessoais do cliente na aplicação
 
 `client-list-visibility.ts` usa eventos append-only existentes, com trava por
 tenant/cliente compartilhada com a mesclagem e envio idempotente. Não há
-DELETE de perfil, revogação de sessão ou migration. A filtragem está limitada
-à página do CRM; os fluxos de agendamento continuam usando o mesmo perfil.
+DELETE de perfil, revogação de sessão ou migration. Pedido posterior ampliou
+a filtragem ao seletor manual da agenda (AGENDA_CLIENTES_2026-09-12.md).
+O acesso e o autoagendamento do cliente continuam usando o mesmo perfil.
 
 `ViewportMetrics` publica medidas do navegador sem renderizar novamente a
 árvore a cada evento. `DialogContent` usa essas medidas e rolagem interna.

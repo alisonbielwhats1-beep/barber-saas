@@ -1,5 +1,14 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-12 — semana, minutos e seletor de clientes em revisão
+
+O PR #98 recebe a faixa de domingo a sábado na agenda diária, régua de quinze
+minutos, identificação explícita de contas nas duplicatas e filtragem de
+clientes mesclados/excluídos no seletor manual. Acesso do cliente preservado.
+Escopo em `AGENDA_CLIENTES_2026-09-12.md`; sem migration ou publicação.
+O commit anterior 3576b7f passou no CI 34674872601 e Preview. Esta ampliação
+requer nova validação integral, cujo resultado ficará no PR.
+
 ## 2026-09-12 — exclusão da lista e responsividade em revisão
 
 O PR #98 também inclui exclusão/restauração de clientes pelo proprietário,

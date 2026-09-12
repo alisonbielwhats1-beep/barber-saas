@@ -265,8 +265,9 @@ export function ClientsCrm({
                       {detail.isVip && <Crown className="h-4 w-4 text-warning" />}
                     </DialogTitle>
                     <p className="text-[12px] text-muted-foreground">
-                      {detail.phone ?? detail.email ?? "sem contato"} · {detail.accountStatus === "registered" ? "conta criada" : "sem conta"}
+                      {detail.phone ?? detail.email ?? "sem contato"}
                     </p>
+                    <AccountBadge registered={detail.accountStatus === "registered"} />
                   </div>
                 </div>
               </DialogHeader>
@@ -315,6 +316,13 @@ export function ClientsCrm({
                       </p>
                     </div>
                   </div>
+                  <div className="mt-3 rounded-lg border border-border bg-card p-3">
+                    <p className="text-[10px] uppercase text-muted-foreground">Cadastro aberto</p>
+                    <p className="break-words text-xs font-semibold">{detail.name}</p>
+                    <p className="break-all text-xs text-muted-foreground">{detail.email ?? "Sem e-mail"}</p>
+                    <AccountBadge registered={detail.accountStatus === "registered"} />
+                  </div>
+                  <p className="mt-2 text-xs text-muted-foreground">Se apenas um cadastro tem conta criada, prefira mantê-lo para conservar o mesmo acesso.</p>
                   <div className="mt-3 space-y-2">
                     {detail.possibleDuplicates.map((candidate) => (
                       <div key={candidate.id} className="rounded-lg border border-border bg-card px-3 py-2">
@@ -322,25 +330,27 @@ export function ClientsCrm({
                           <div className="min-w-0">
                             <p className="truncate text-[12px] font-semibold">{candidate.name}</p>
                             <p className="text-[10px] text-muted-foreground">
-                              {candidate.phone ?? candidate.email ?? "sem contato"} · {candidate.visits} {candidate.visits === 1 ? "atendimento" : "atendimentos"} · {candidate.hasAccount ? "conta criada" : "sem conta"}
+                              {candidate.phone ?? "Sem telefone"} · {candidate.visits} {candidate.visits === 1 ? "atendimento" : "atendimentos"}
                             </p>
+                            <p className="break-all text-xs text-muted-foreground">{candidate.email ?? "Sem e-mail"}</p>
+                            <AccountBadge registered={candidate.hasAccount} />
                           </div>
                           <span className="shrink-0 text-[10px] text-warning">{candidate.matchReasons.map(duplicateReasonLabel).join(" + ")}</span>
                         </div>
-                        <div className="mt-2 flex gap-2">
+                        <div className="mt-2 flex flex-wrap gap-2">
                           <button
                             type="button"
                             onClick={() => setMergeCandidate({ source: candidateToRow(candidate, detail), target: detail })}
                             className="min-h-9 flex-1 rounded-lg border border-border px-2 text-[11px] font-medium hover:border-primary/60"
                           >
-                            Manter este cadastro
+                            Manter cadastro aberto{detail.accountStatus === "registered" && !candidate.hasAccount ? " (recomendado)" : ""}
                           </button>
                           <button
                             type="button"
                             onClick={() => setMergeCandidate({ source: detail, target: candidateToRow(candidate, detail) })}
                             className="min-h-9 flex-1 rounded-lg bg-primary/10 px-2 text-[11px] font-semibold text-primary hover:bg-primary/20"
                           >
-                            Usar o outro
+                            Manter esta duplicata{candidate.hasAccount && detail.accountStatus !== "registered" ? " (recomendado)" : ""}
                           </button>
                         </div>
                       </div>
@@ -451,6 +461,14 @@ export function ClientsCrm({
               <p className="text-sm leading-relaxed text-muted-foreground">
                 O histórico de <strong className="text-foreground">{mergeCandidate.source.name}</strong> será incorporado a <strong className="text-foreground">{mergeCandidate.target.name}</strong>. O cadastro de origem ficará preservado como mesclado e não aparecerá mais na lista.
               </p>
+              <div className="space-y-2 rounded-xl border border-border p-3 text-sm">
+                <p className="font-semibold">Cadastro que ficará: {mergeCandidate.target.name}</p>
+                <p className="break-all text-muted-foreground">{mergeCandidate.target.email ?? "Sem e-mail"}</p>
+                <AccountBadge registered={mergeCandidate.target.accountStatus === "registered"} />
+                <p className="pt-2 font-semibold">Cadastro incorporado: {mergeCandidate.source.name}</p>
+                <p className="break-all text-muted-foreground">{mergeCandidate.source.email ?? "Sem e-mail"}</p>
+                <AccountBadge registered={mergeCandidate.source.accountStatus === "registered"} />
+              </div>
               <div className="rounded-xl border border-amber-400/30 bg-amber-400/5 px-3 py-2 text-[11px] leading-relaxed text-amber-100">
                 Agendamentos, pacotes, assinaturas e pontos serão mantidos. Essa ação fica registrada na auditoria.
               </div>
@@ -480,6 +498,10 @@ function candidateToRow(candidate: ClientRow["possibleDuplicates"][number], curr
     accountStatus: candidate.hasAccount ? "registered" : "guest",
     possibleDuplicates: [],
   };
+}
+
+function AccountBadge({ registered }: { registered: boolean }) {
+  return <span className={`mt-1 inline-flex rounded-full px-2 py-1 text-[11px] font-semibold ${registered ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}>{registered ? "Conta criada · acesso ao aplicativo" : "Sem conta criada"}</span>;
 }
 
 function duplicateReasonLabel(reason: "email" | "phone"): string {

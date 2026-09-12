@@ -12,6 +12,11 @@ não impede novos agendamentos e não apaga perfil, pagamentos ou histórico.
 O responsável confirmou: “Só excluir da lista, preservando o acesso”.
 As operações são tenant-scoped e registradas na auditoria.
 
+Complemento solicitado em 12/09: perfis excluídos da lista e já mesclados não
+aparecem no seletor de cliente para agendamento manual. A exclusão da lista
+continua preservando acesso e autoagendamento do cliente. Duplicatas mostram
+qual perfil tem conta, recomendando mantê-lo quando só um possui acesso.
+
 Fundos escuros em grafite neutro, sem roxo dominante. Após nova solicitação,
 o tema claro substitui marfim/pedra por cinza quase branco frio (`#F6F7F9`),
 cartões brancos, contornos suaves e sombras discretas para separar os painéis.

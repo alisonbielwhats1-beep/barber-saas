@@ -117,6 +117,7 @@ export async function deleteClient(id: string) {
   const clientId = z.string().trim().min(1).max(100).parse(id);
   await withTenant(ctx, tx => setClientListVisibility(tx, { salonId: ctx.salonId, userId: ctx.userId, clientId, hidden: true }));
   revalidatePath("/clientes");
+  revalidatePath("/agenda");
 }
 
 export async function restoreClient(id: string) {
@@ -125,6 +126,7 @@ export async function restoreClient(id: string) {
   const clientId = z.string().trim().min(1).max(100).parse(id);
   await withTenant(ctx, tx => setClientListVisibility(tx, { salonId: ctx.salonId, userId: ctx.userId, clientId, hidden: false }));
   revalidatePath("/clientes");
+  revalidatePath("/agenda");
 }
 
 export async function importClientsCsv(csv: string) {
@@ -295,6 +297,7 @@ export async function mergeClients(sourceId: string, targetId: string) {
   });
   revalidatePath("/clientes");
   revalidatePath("/marketing");
+  revalidatePath("/agenda");
   revalidatePath("/dashboard");
   return { success: true as const };
 }
