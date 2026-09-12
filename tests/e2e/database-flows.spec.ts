@@ -91,6 +91,7 @@ test.describe("@database jornadas críticas no PostgreSQL descartável", () => {
     await expect(page.getByRole("heading", { name: "Reserva confirmada" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Ver minhas reservas" })).toBeVisible();
     await page.getByRole("link", { name: "Ver minhas reservas" }).click();
+    await expect(page).toHaveURL(/\/book\/luna-hair\/minhas$/, { timeout: 30_000 });
     await expect(page.getByText("Atendimento para Dependente E2E")).toBeVisible();
     await page.setViewportSize({ width: 390, height: 844 });
     const confirmedReservation = page.locator('.client-reservation[data-status="CONFIRMED"]');

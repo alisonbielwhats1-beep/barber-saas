@@ -37,3 +37,5 @@ visível durante a rolagem horizontal. O CI anterior 34676357950 falhou em
 um timeout do servidor dev na jornada de preço variável; a nova execução
 usa heap explícito de 4096MB no servidor das jornadas autenticadas. Isso
 não substitui aguardar o novo CI integral nem validação em aparelho físico.
+
+O CI f2e431f confirmou as novas jornadas de telefone e remarcação, mas falhou em uma asserção antiga de altura da agenda e navegações com reinício do servidor dev por memória. A revisão visual agora inclui a faixa semanal (limitada a 70px) no espaço útil, preservando o limite inferior e demais verificações; passou localmente em claro/escuro. Jornadas e auditoria visual usam servidores novos separados, sem retirar testes. As transições para Minhas reservas aguardam a URL antes de validar o conteúdo. O resultado integral da revisão seguinte fica registrado no PR.

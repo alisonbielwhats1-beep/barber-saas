@@ -311,7 +311,7 @@ jobs:
       - name: Validate authenticated critical journeys
         env:
           NODE_OPTIONS: --max-old-space-size=4096
-        run: npm run test:e2e:database -- --grep-invert "matriz de enquadramento"
+        run: npm run test:e2e:database -- --grep-invert "matriz de enquadramento|revisão visual"
       - name: Preserve browser evidence from synthetic tests
         if: always()
         uses: actions/upload-artifact@v4
@@ -321,8 +321,19 @@ jobs:
             playwright-report
             test-results
           retention-days: 7
-      # Reinicia o servidor dev antes da matriz extensa para não acumular a
-      # compilação de todas as jornadas anteriores no mesmo processo.
+      # Cada grupo recebe um servidor novo para não acumular compilações dev.
+      # A divisão mantém todas as jornadas e suas asserções de acessibilidade.
+      - name: Validate visual accessibility with a fresh server
+        run: npm run test:e2e:database -- --grep "@database revisão visual"
+      - name: Preserve visual accessibility evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-accessibility-evidence
+          path: |
+            playwright-report
+            test-results
+          retention-days: 7
       - name: Validate complete responsive matrix with a fresh server
         run: npm run test:e2e:database -- --grep "@database matriz de enquadramento"
       - name: Preserve responsive matrix evidence

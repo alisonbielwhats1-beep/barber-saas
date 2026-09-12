@@ -46,7 +46,9 @@ for (const mode of ["desktop-light", "mobile-dark"]) {
         if (route === "agenda") {
           const viewport = page.viewportSize()!;
           const grid = await page.locator(".agenda-grid").boundingBox();
-          expect(grid!.height).toBeGreaterThan(viewport.height * 0.7);
+          const week = await page.getByRole("navigation", { name: "Dias da semana da agenda" }).boundingBox();
+          expect(week!.height).toBeLessThanOrEqual(70);
+          expect(grid!.height + week!.height).toBeGreaterThan(viewport.height * 0.7);
           expect(grid!.y + grid!.height).toBeLessThanOrEqual(viewport.height);
           if (mode.startsWith("mobile")) {
             const action = page.getByRole("button", { name: "Abrir ações rápidas da agenda" });

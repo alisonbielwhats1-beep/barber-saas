@@ -101,6 +101,7 @@ test.describe("@database preços variáveis e configurações", () => {
       await expect(page.getByRole("heading", { name: "Reserva confirmada" })).toBeVisible({ timeout: 30_000 });
       await db.service.update({ where: { id: service.id }, data: { priceType: "FIXED", priceNote: null, priceCents: 25000 } });
       await page.getByRole("link", { name: "Ver minhas reservas" }).click();
+      await expect(page).toHaveURL(/\/book\/luna-hair\/minhas$/, { timeout: 30_000 });
       const reservation = page.locator(".client-reservation").filter({ hasText: name });
       await expect(reservation).toContainText("Valor inicial");
       await expect(reservation).toContainText(note);
