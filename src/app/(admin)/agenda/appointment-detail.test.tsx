@@ -92,3 +92,24 @@ describe("edição dos serviços e resposta da agenda", () => {
     expect(mocks.edit.mock.calls[1][0]).toMatchObject({ afterHoursReason: "Autorizado no balcão", serviceIds: ["cut", "beard"] });
   });
 });
+
+it("mantém confirmações independentes de término e encaixe e invalida após editar horário", async () => {
+  mocks.edit.mockResolvedValueOnce({ error: "Após expediente", code: "AFTER_WORKING_HOURS" })
+    .mockResolvedValueOnce({ error: "Ocupado", code: "SLOT_TAKEN" }).mockResolvedValueOnce({ error: "Falha temporária" });
+  mount();
+  fireEvent.click(screen.getByRole("button", { name: "Salvar alterações" }));
+  await screen.findByLabelText("Motivo da exceção");
+  fireEvent.change(screen.getByLabelText("Motivo da exceção"), { target: { value: "Terminar depois" } });
+  fireEvent.click(screen.getByRole("button", { name: "Confirmar término após o expediente" }));
+  const confirm = await screen.findByRole("button", { name: "Confirmar encaixe" });
+  expect(confirm).toBeDisabled();
+  fireEvent.change(screen.getByLabelText("Motivo do encaixe"), { target: { value: "Intervalo da coloração" } });
+  fireEvent.click(confirm);
+  await screen.findByText("Falha temporária");
+  expect(mocks.edit.mock.calls[2][0]).toMatchObject({ afterHoursReason: "Terminar depois", overbookReason: "Intervalo da coloração" });
+  fireEvent.change(screen.getByLabelText("Horário do agendamento"), { target: { value: "15:00" } });
+  fireEvent.click(screen.getByRole("button", { name: "Salvar alterações" }));
+  await waitFor(() => expect(mocks.edit).toHaveBeenCalledTimes(4));
+  expect(mocks.edit.mock.calls[3][0]).not.toHaveProperty("overbookReason");
+  expect(mocks.edit.mock.calls[3][0]).not.toHaveProperty("afterHoursReason");
+});

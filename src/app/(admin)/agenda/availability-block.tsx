@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, type CSSProperties } from "react";
+import { useRef, useState, type CSSProperties } from "react";
 import { formatInTimeZone } from "date-fns-tz";
 import { Ban, CalendarPlus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
-import { removeAvailabilityBlock } from "./availability-actions";
+import { removeAvailabilityBlock, updateAvailabilityBlock } from "./availability-actions";
+import { BlockDateTime } from "./block-date-time";
 
 export type AvailabilityBlock = {
   id: string;
@@ -54,7 +55,7 @@ export function AvailabilityBlockTrigger({
   className?: string;
   style?: CSSProperties;
 }) {
-  const reason = block.reason ?? "Indisponível";
+  const reason = block.reason || "Indisponível";
   const content = <>Bloqueado · {reason}</>;
   const sharedClassName = `overflow-hidden border-y border-border bg-muted/80 text-left text-muted-foreground ${className}`;
   const sharedStyle = {
@@ -107,10 +108,20 @@ export function AvailabilityBlockDialog({
   onSchedule?: (target: AvailabilityBlockScheduleTarget) => void;
 }) {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
-  const [step, setStep] = useState<"details" | "confirm" | "reopened">("details");
+  const [pending, setPending] = useState(false);
+  const submitting = useRef(false);
+  const requestId = useRef<string | null>(null);
+  const [step, setStep] = useState<"details" | "edit" | "confirm" | "reopened" | "updated">("details");
+  const [editStart, setEditStart] = useState(() => formatInTimeZone(new Date(block.startAt), timezone, "yyyy-MM-dd'T'HH:mm"));
+  const [editEnd, setEditEnd] = useState(() => formatInTimeZone(new Date(block.endAt), timezone, "yyyy-MM-dd'T'HH:mm"));
+  const [editReason, setEditReason] = useState(block.reason ?? "");
   const [error, setError] = useState("");
-  const reason = block.reason ?? "Indisponível";
+  const reason = block.reason || "Indisponível";
+  function startTransition(action: () => Promise<void>) {
+    if (submitting.current) return;
+    submitting.current = true; setPending(true);
+    void action().finally(() => { submitting.current = false; setPending(false); });
+  }
   const canScheduleAfterReopening = Boolean(onSchedule) &&
     new Date(block.endAt).getTime() - new Date(block.startAt).getTime() < 24 * 60 * 60 * 1000;
 
@@ -156,7 +167,30 @@ export function AvailabilityBlockDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {step === "reopened" ? (
+        {step === "edit" ? <form className="space-y-4" onChange={() => { requestId.current = null; setError(""); }} onSubmit={event => {
+          event.preventDefault(); setError("");
+          startTransition(async () => {
+            try {
+              requestId.current ??= crypto.randomUUID();
+              const result = await updateAvailabilityBlock({ id: block.id, requestId: requestId.current,
+                expectedStartAt: block.startAt, expectedEndAt: block.endAt, expectedReason: block.reason,
+                startLocal: editStart, endLocal: editEnd, reason: editReason });
+              if ("error" in result) setError(result.error);
+              else { setStep("updated"); router.refresh(); }
+            } catch { setError("Não foi possível alterar. Suas escolhas foram mantidas; tente novamente."); }
+          });
+        }}>
+          <p className="text-sm">{professionalName} · Alterar somente este bloqueio</p>
+          <p className="text-xs text-muted-foreground">Atual: {dateTimeRange(block, timezone)}. As outras ocorrências e todas as reservas serão mantidas.</p>
+          <fieldset disabled={pending} className="space-y-3">
+            <BlockDateTime label="Início" value={editStart} onChange={setEditStart} className="mt-1 min-h-11 w-full rounded-lg border border-input bg-background px-3 text-sm" />
+            <BlockDateTime label="Fim" value={editEnd} onChange={setEditEnd} className="mt-1 min-h-11 w-full rounded-lg border border-input bg-background px-3 text-sm" />
+            <label className="block text-sm">Motivo (opcional)<input maxLength={200} value={editReason} onChange={event => setEditReason(event.target.value)} className="mt-1 min-h-11 w-full rounded-lg border border-input bg-background px-3 text-sm" /></label>
+          </fieldset>
+          <p className="text-xs text-muted-foreground">Pode incluir horários fora do expediente. Meia-noite corresponde a 00:00 do dia seguinte. Fuso: {timezone}.</p>
+          {error && <p role="alert" className="text-sm text-danger">{error}</p>}
+          <DialogFooter><Button type="button" variant="outline" disabled={pending} onClick={() => setStep("details")}>Voltar</Button><Button disabled={pending}>{pending ? "Salvando…" : "Salvar bloqueio"}</Button></DialogFooter>
+        </form> : step === "updated" ? <div className="space-y-4"><p role="status">Bloqueio atualizado. Reservas preservadas e alteração registrada.</p><Button onClick={() => changeOpen(false)}>Concluir</Button></div> : step === "reopened" ? (
           <div className="space-y-4">
             <div role="status" className="rounded-xl border border-primary/30 bg-primary/10 p-4">
               <p className="font-semibold text-foreground">Horário reaberto</p>
@@ -221,6 +255,7 @@ export function AvailabilityBlockDialog({
                   <Button type="button" variant="outline" onClick={() => changeOpen(false)}>
                     Fechar
                   </Button>
+                  <Button type="button" variant="outline" onClick={() => { setError(""); setStep("edit"); }}>Editar bloqueio</Button>
                   {onSchedule && <Button type="button" onClick={scheduleNow}>
                     Agendar mantendo bloqueio
                   </Button>}

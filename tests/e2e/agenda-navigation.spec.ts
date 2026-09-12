@@ -41,7 +41,7 @@ test.describe("@database navegação compacta e calendário", () => {
     await directBlock.getByLabel("Hora de início", { exact: true }).fill("18:45");
     await directBlock.getByLabel("Hora de fim", { exact: true }).fill("19:30");
     await expect(directBlock.getByLabel("Hora de início", { exact: true })).toHaveValue("18:45");
-    await directBlock.getByLabel("Motivo", { exact: true }).fill("Bloqueio sintético pelo menu +");
+    await directBlock.getByLabel("Motivo (opcional)", { exact: true }).fill("Bloqueio sintético pelo menu +");
     await directBlock.getByRole("button", { name: "Revisar bloqueio" }).click();
     await expect(directBlock.getByText(/12\/09 18:45/)).toBeVisible();
     await directBlock.screenshot({ path: test.info().outputPath("bloqueio-1845-menu-mobile-sintetico.png") });
@@ -59,7 +59,7 @@ test.describe("@database navegação compacta e calendário", () => {
     const block = page.getByRole("dialog", { name: "Bloquear disponibilidade" });
     await expect(block.getByLabel("Hora de início", { exact: true })).toHaveValue("18:45");
     await block.getByLabel("Hora de fim", { exact: true }).fill("19:30");
-    await block.getByLabel("Motivo", { exact: true }).fill("Bloqueio sintético após atendimento");
+    await block.getByLabel("Motivo (opcional)", { exact: true }).fill("Bloqueio sintético após atendimento");
     await block.getByRole("button", { name: "Revisar bloqueio" }).click();
     await expect(block.getByText("0 reserva(s) no intervalo", { exact: true })).toBeVisible();
     await block.getByRole("button", { name: "Confirmar bloqueio" }).click();

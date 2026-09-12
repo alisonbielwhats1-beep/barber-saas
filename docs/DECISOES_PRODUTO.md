@@ -118,6 +118,13 @@ Decisão:
 
 ## Overbooking
 
+Atualização de 12/09/2026: o vídeo de 01:02:44 pede encaixe também ao editar uma
+reserva existente. Dono/gerente podem confirmar a sobreposição com motivo,
+sem apagar a reserva vizinha. Cliente com conta continua recebendo proposta;
+a autorização fica persistida no servidor e é revalidada no aceite. Público,
+recepção e profissional não ganham essa exceção. Bloqueios, pausas, fechamento
+e recursos continuam independentes. Ver `BOOKSY_PEDIDOS_2026-09-12.md`.
+
 Overbooking é manter dois atendimentos sobrepostos para o mesmo profissional.
 Isso é diferente de dois profissionais atenderem no mesmo horário.
 
@@ -125,7 +132,7 @@ Decisão recomendada:
 
 - desabilitado por padrão;
 - conflito acidental sempre bloqueado no banco;
-- encaixe deliberado está disponível apenas na criação manual para
+- encaixe deliberado está disponível na criação manual e edição para
   dono/gerente, depois de um conflito real, com confirmação, motivo e
   auditoria;
 - encaixe não ignora fechamento, jornada ou isolamento de tenant; bloqueio/folga
@@ -349,3 +356,10 @@ Na Fase 2 foi mantido o enum legado compatível
 cancelamento do cliente e do estabelecimento está preservada em metadados de
 ator e evento; “remarcado” já é evento imutável. `checked_in` e a expansão do
 enum ficam para uma migration própria, sem reescrever o histórico existente.
+
+## Bloqueios — complemento de 12/09/2026
+
+Dono/gerente podem criar e editar bloqueios fora do expediente, inclusive até
+00:00 do dia seguinte. O motivo do bloqueio é opcional. Alterar um bloqueio
+mantém seu ID, registra antes/depois e preserva reservas e outras ocorrências.
+Cancelamento de reserva continua separado, com motivo obrigatório.

@@ -35,8 +35,8 @@ confirmação e motivo. A solicitação adicional de flexibilidade autoriza dono
 gerente a criar dentro de bloqueios/folgas, com motivo, mantendo o TimeOff e
 registrando auditoria. Se também existir outro atendimento, a confirmação de
 sobreposição é separada. Fechamento do salão e limites da jornada permanecem.
-Não foi ampliado o override de remarcações: a política
-vigente limita overbooking à criação manual.
+A limitação histórica de overbooking à criação foi ampliada pelo pedido de
+12/09: veja `BOOKSY_PEDIDOS_2026-09-12.md` para a edição com confirmação.
 
 ## Investigação do áudio adicional de 01:18
 

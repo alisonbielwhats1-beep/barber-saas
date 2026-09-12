@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   refresh: vi.fn(),
-  remove: vi.fn(),
+  remove: vi.fn(), update: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -14,7 +14,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("./availability-actions", () => ({
-  removeAvailabilityBlock: mocks.remove,
+  removeAvailabilityBlock: mocks.remove, updateAvailabilityBlock: mocks.update,
 }));
 
 import { AvailabilityBlockDialog, AvailabilityBlockTrigger } from "./availability-block";
@@ -91,4 +91,20 @@ describe("gestão do bloqueio pela grade", () => {
     });
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
+});
+
+it("edita o período com precisão, mantém envio pendente e não reabre", async () => {
+  const user = userEvent.setup();
+  let resolve!: (result: { success: true }) => void;
+  mocks.update.mockReturnValue(new Promise(r => { resolve = r; }));
+  render(<AvailabilityBlockDialog open onOpenChange={vi.fn()} block={block} professionalName="Alex" timezone="America/Sao_Paulo" />);
+  await user.click(screen.getByRole("button", { name: "Editar bloqueio" }));
+  expect(screen.getByLabelText("Hora de início")).toHaveValue("13:30");
+  await user.clear(screen.getByLabelText("Motivo (opcional)"));
+  await user.click(screen.getByRole("button", { name: "Salvar bloqueio" }));
+  expect(screen.getByRole("button", { name: "Salvando…" })).toBeDisabled();
+  expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ id: "block-a", expectedStartAt: block.startAt, expectedReason: "Almoço", startLocal: "2030-09-11T13:30", reason: "" }));
+  resolve({ success: true });
+  await screen.findByText(/Bloqueio atualizado/);
+  expect(mocks.remove).not.toHaveBeenCalled();
 });

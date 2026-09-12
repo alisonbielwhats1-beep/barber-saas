@@ -37,7 +37,7 @@ describe("atalhos de disponibilidade", () => {
     fireEvent.click(screen.getByRole("button", { name: "Digitar hora de início" }));
     fireEvent.change(screen.getByLabelText("Hora de início"), { target: { value: "1845" } });
     fireEvent.change(screen.getByLabelText("Hora de fim"), { target: { value: "19:30" } });
-    fireEvent.change(screen.getByLabelText("Motivo"), { target: { value: "Pausa após atendimento" } });
+    fireEvent.change(screen.getByLabelText("Motivo (opcional)"), { target: { value: "Pausa após atendimento" } });
     expect(screen.getByLabelText("Hora de início")).toHaveValue("18:45");
     fireEvent.click(screen.getByRole("button", { name: "Revisar bloqueio" }));
     await screen.findByRole("button", { name: "Confirmar bloqueio" });
@@ -74,7 +74,7 @@ describe("atalhos de disponibilidade", () => {
     expect(screen.getByRole("dialog", { name: "Adicionar folga" })).toBeInTheDocument();
     expect(screen.getByLabelText("Hora de início")).toHaveValue("00:00");
     expect(screen.getByLabelText("Hora de fim")).toHaveValue("00:00");
-    expect(screen.getByLabelText("Motivo")).toHaveValue("Folga");
+    expect(screen.getByLabelText("Motivo (opcional)")).toHaveValue("Folga");
     expect(screen.getByRole("button", { name: "Revisar bloqueio" })).toBeInTheDocument();
     expect(screen.getAllByRole("checkbox", { checked: true })).toHaveLength(2);
   });

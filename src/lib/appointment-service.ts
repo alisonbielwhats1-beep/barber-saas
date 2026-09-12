@@ -1184,7 +1184,7 @@ export async function rescheduleAppointment(
   }
   const override = requireOverrideReason({
     violation: inspected.violation,
-    canOverride: input.canOverride,
+    canOverride: input.canOverride && !input.enforceClientPolicy && (input.actor.type === "STAFF" || Boolean(input.proposalId)),
     overrideReason: input.overrideReason,
   });
   const newPrice = inspected.services.reduce(
@@ -1287,7 +1287,7 @@ export async function rescheduleAppointment(
     correlationId: randomUUID(),
     idempotencyKey: eventKey,
     requestFingerprint: fingerprint,
-    reason: input.afterHoursReason?.trim() || override.reason,
+    reason: [input.afterHoursReason?.trim(), override.reason].filter(Boolean).join(". ") || null,
     previousValue,
     newValue: payload,
     recipients,
@@ -1299,6 +1299,9 @@ export async function rescheduleAppointment(
 
   if (afterHoursOverridden) {
     await writeAuditLog(tx, { salonId: input.salonId, userId: input.actor.type === "STAFF" ? input.actor.id ?? null : null, actorName: input.actor.name, action: "APPOINTMENT_AFTER_HOURS_RESCHEDULE", entityType: "Appointment", entityId: appointment.id, reason: input.afterHoursReason!.trim(), metadata: { startAt: inspected.startAt.toISOString(), endAt: inspected.endAt.toISOString(), proposalId: input.proposalId ?? null } });
+  }
+  if (inspected.violation === "SLOT_TAKEN" && override.overridden) {
+    await writeAuditLog(tx, { salonId: input.salonId, userId: input.actor.type === "STAFF" ? input.actor.id ?? null : null, actorName: input.actor.name, action: "APPOINTMENT_OVERBOOK_RESCHEDULE", entityType: "Appointment", entityId: appointment.id, reason: override.reason, metadata: { startAt: inspected.startAt.toISOString(), endAt: inspected.endAt.toISOString(), proposalId: input.proposalId ?? null } });
   }
 
   const releasedOriginalSlot =
