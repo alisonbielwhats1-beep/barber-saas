@@ -8,11 +8,15 @@ O recorte anterior veio do pacote `b10fb69`, na branch
 Os 42 testes originais passaram neste PC antes da ampliação.
 
 Implementado: Triage → um especialista selecionado → Chief, ou Triage → Chief.
-Os sete destinos estão configurados. **A conexão real ainda não foi comprovada**:
-a leitura dos sete IDs retornou HTTP 403, indicando `api.agents.read`, inclusive
-após nova verificação da chave. Um ensaio autenticado em 12/09 às 19:25 UTC também
-foi recusado ao solicitar a sessão de Triage. Nenhuma sessão foi confirmada,
-os demais agentes não foram acionados e não houve resposta final real.
+Os sete destinos estão configurados. **A leitura real dos sete IDs foi comprovada**
+em 12/09 às 19:36 e novamente às 19:42 UTC, no projeto informado. A chave local
+confere com o arquivo configurado pelo responsável, sem expor seu conteúdo.
+**A execução real permanece pendente**: seis tentativas autenticadas pararam
+ao solicitar a sessão de Triage. Às 19:38, o retorno indicou `api.agents.write`;
+às 19:46, o acesso continuou recusado, sem identificador adicional de permissão,
+inclusive após nova confirmação de liberação pelo responsável.
+Nenhuma sessão foi confirmada, os demais agentes não foram acionados e não houve
+resposta final real. As tentativas foram contadas no limite diário, mesmo recusadas.
 
 Sem Production, WhatsApp, novas dependências ou migration. Twilio e `./whatsapp`
 continuam preservados no pacote de transferência original; não foram incorporados.
@@ -21,7 +25,7 @@ somente o export `./orchestrator` ao pacote de agentes e um comando de verifica�
 
 ## Ambiente local efetivamente iniciado
 
-- Aplicativo: `http://127.0.0.1:3017/hq/agents/orchestrator`.
+- Aplicativo: `http://localhost:3017/hq/agents/orchestrator`.
 - Checkout: `D:/Projetos/barber-saas-hq-orchestrator`.
 - PostgreSQL 16 exclusivo: `127.0.0.1:55439/hq_orchestrator_test`.
 - Preflight comprovou banco vazio; somente dois usuários fictícios foram criados.
@@ -133,9 +137,10 @@ POST direto à Server Action sem sessão foi bloqueado (307 para login), e com
 usuário comum foi recusado no servidor (303 para dashboard).
 Esses testes usam respostas fictícias e não comprovam conexão real.
 
-Após ajustar permissões no painel, leituras pontuais de Product e Sales foram
-aceitas em rodadas diferentes, mas o conjunto de sete ainda retornou falhas 403.
-Essas observações parciais não são uma conexão estável validada.
+Após ajustar permissões no painel, duas rodadas aceitaram a leitura dos sete
+agentes. Isso comprova acesso aos recursos salvos, mas não execução de sessões.
+O teste adicional do diagnóstico seguro passou: 83 testes específicos no total;
+a permissão ausente pode aparecer na tela, sem expor o erro bruto do fornecedor.
 
 ```powershell
 npm run lint

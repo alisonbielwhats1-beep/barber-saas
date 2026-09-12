@@ -185,3 +185,9 @@ it.each([401, 403])("explains denied access %s without exposing the provider bod
   expect(JSON.stringify(result)).not.toContain("secret-provider-body");
   expect(f.create).toHaveBeenCalledTimes(1);
 });
+it("reports only the missing Agents API permission from a denied request", async () => {
+  f.create.mockRejectedValue(Object.assign(new Error("secret-provider-body api.agents.sessions.write"), { status: 403 }));
+  const result = await runOrchestrator(input());
+  expect(result.steps[0].detail).toContain("api.agents.sessions.write");
+  expect(JSON.stringify(result)).not.toContain("secret-provider-body");
+});

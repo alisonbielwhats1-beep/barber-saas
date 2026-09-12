@@ -5,11 +5,13 @@
 Branch `codex/hq-saved-agent-orchestrator`, base `5cca634`; recorte anterior
 recuperado do pacote de transferência `b10fb69` e ampliado para Triage → um
 especialista selecionado → Chief, ou Chief direto. Nenhum agente/modelo/prompt
-salvo foi recriado. Tela autenticada em `http://127.0.0.1:3017/hq/agents/orchestrator`,
+salvo foi recriado. Tela autenticada em `http://localhost:3017/hq/agents/orchestrator`,
 com PostgreSQL local exclusivo e usuários fictícios; sem Production/WhatsApp.
-Leitura real dos sete agentes negada com HTTP 403 (`api.agents.read`); um ensaio
-autenticado também falhou ao solicitar a sessão de Triage, sem sessão confirmada.
-Conexão/fluxo real ainda não comprovados. Escopo, testes e evidências em
+Leitura real dos sete agentes comprovada em duas rodadas (19:36 e 19:42 UTC).
+Execução ainda recusada ao solicitar a sessão de Triage; uma tentativa indicou
+`api.agents.write`. Seis tentativas contabilizadas, nenhuma sessão confirmada;
+última recusa às 19:46 UTC, após nova confirmação de liberação pelo responsável.
+Fluxo real ainda não comprovado. Escopo, testes e evidências em
 `HQ_ORQUESTRADOR_AGENTS_API.md`. Não representa publicação ou migration produtiva.
 
 
