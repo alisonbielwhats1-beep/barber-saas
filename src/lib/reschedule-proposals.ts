@@ -161,6 +161,8 @@ export async function requestStaffReschedule(
     expectedVersion?: number;
     permittedProfessionalId?: string;
     reason?: string | null;
+    canFinishAfterHours?: boolean;
+    afterHoursReason?: string | null;
   },
 ): Promise<StaffRescheduleResult> {
   await lockAppointmentOperationalScope(tx, {
@@ -177,6 +179,7 @@ export async function requestStaffReschedule(
       startAt: true,
       endAt: true,
       version: true,
+      status: true,
       timezone: true,
       notes: true,
       service: { select: { id: true, name: true, durationMin: true, priceCents: true, priceType: true, priceNote: true, processingMin: true, finishingMin: true } },
@@ -209,7 +212,10 @@ export async function requestStaffReschedule(
   const hasClientAccount = Boolean(
     appointment.client.passwordHash || appointment.client.user?.passwordHash,
   );
-  if (!hasClientAccount || isSameSlot) {
+  const currentIds = appointment.serviceItems.length ? appointment.serviceItems.map(item => item.serviceId) : [appointment.service.id];
+  const sameServices = currentIds.length === input.serviceIds.length && currentIds.every((id, index) => id === input.serviceIds[index]);
+  const afterHoursReason = input.canFinishAfterHours && (input.afterHoursReason?.trim().length ?? 0) >= 3 ? input.afterHoursReason!.trim() : null;
+  if (!hasClientAccount || (isSameSlot && sameServices)) {
     const direct = await rescheduleAppointment(tx, {
       salonId: input.salonId,
       appointmentId: input.appointmentId,
@@ -222,6 +228,8 @@ export async function requestStaffReschedule(
       expectedVersion: input.expectedVersion,
       permittedProfessionalId: input.permittedProfessionalId,
       enforceClientPolicy: false,
+      canFinishAfterHours: Boolean(afterHoursReason),
+      afterHoursReason,
     });
     return { ...direct, requiresAcceptance: false };
   }
@@ -233,6 +241,7 @@ export async function requestStaffReschedule(
     startLocal: input.startLocal,
     notes: input.notes ?? null,
     reason: input.reason?.trim() ?? null,
+    ...(afterHoursReason ? { afterHoursReason } : {}),
     expectedVersion: input.expectedVersion ?? null,
   });
   const existing = await tx.rescheduleProposal.findFirst({
@@ -248,6 +257,7 @@ export async function requestStaffReschedule(
     }
     return { requiresAcceptance: true, proposalId: existing.id, duplicate: true };
   }
+  if (!["PENDING", "CONFIRMED"].includes(appointment.status) || appointment.startAt.getTime() <= Date.now()) throw new AppointmentError("ALREADY_STARTED");
   if (input.expectedVersion !== undefined && appointment.version !== input.expectedVersion) {
     throw new AppointmentError("VERSION_CONFLICT");
   }
@@ -266,34 +276,19 @@ export async function requestStaffReschedule(
   const preservesHistoricalServices =
     historicalServices.length === requestedServiceIds.length &&
     historicalServices.every((service) => requestedServiceIds.includes(service.id));
-  let inspected;
-  try {
-    inspected = await inspectAppointmentAvailability(tx, {
-      salonId: input.salonId,
-      professionalId: input.professionalId,
-      serviceIds: input.serviceIds,
-      startLocal: input.startLocal,
-      excludeAppointmentId: appointment.id,
-      enforceBookingWindow: false,
-    });
-  } catch (error) {
-    if (
-      !preservesHistoricalServices ||
-      !(error instanceof AppointmentError) ||
-      !["SERVICE_INVALID", "PRO_SERVICE_MISMATCH"].includes(error.code)
-    ) {
-      throw error;
-    }
-    inspected = await inspectAppointmentAvailabilityWithServiceSnapshots(tx, {
-      salonId: input.salonId,
-      professionalId: input.professionalId,
-      currentProfessionalId: appointment.professionalId,
-      serviceSnapshots: historicalServices,
-      startLocal: input.startLocal,
-      excludeAppointmentId: appointment.id,
-      enforceBookingWindow: false,
-    });
-  }
+  const inspected = preservesHistoricalServices
+    ? await inspectAppointmentAvailabilityWithServiceSnapshots(tx, {
+        salonId: input.salonId, professionalId: input.professionalId,
+        currentProfessionalId: appointment.professionalId, serviceSnapshots: historicalServices,
+        startLocal: input.startLocal, excludeAppointmentId: appointment.id,
+        enforceBookingWindow: false, skipAfterHours: Boolean(afterHoursReason),
+      })
+    : await inspectAppointmentAvailability(tx, {
+        salonId: input.salonId, professionalId: input.professionalId,
+        serviceIds: input.serviceIds, startLocal: input.startLocal,
+        excludeAppointmentId: appointment.id, enforceBookingWindow: false,
+        skipAfterHours: Boolean(afterHoursReason),
+      });
   if (inspected.violation) throw new AppointmentError(inspected.violation);
 
   const professional = await tx.professional.findFirst({
@@ -310,7 +305,7 @@ export async function requestStaffReschedule(
     ...priceSnapshot(service),
   }));
   const targetPriceCents = targetServices.reduce((sum, service) => sum + service.priceCents, 0);
-  const reason = input.reason?.trim() || "Alteração solicitada pelo estabelecimento";
+  const reason = [input.reason?.trim() || "Alteração solicitada pelo estabelecimento", afterHoursReason ? `Término após o expediente autorizado: ${afterHoursReason}` : null].filter(Boolean).join(". ");
 
   await tx.rescheduleProposal.updateMany({
     where: { salonId: input.salonId, appointmentId: appointment.id, status: "PENDING" },
@@ -407,6 +402,8 @@ export async function respondToRescheduleProposal(
       appointmentId: true,
       status: true,
       sourceVersion: true,
+      requestFingerprint: true,
+      requestedById: true,
       targetProfessionalId: true,
       targetStartAt: true,
       targetEndAt: true,
@@ -514,6 +511,12 @@ export async function respondToRescheduleProposal(
     return { status: "REJECTED", duplicate: false, appointment: currentResult };
   }
 
+  // Read only the server-persisted authorization, never the client's response payload.
+  let afterHoursReason: string | undefined;
+  try {
+    const request = JSON.parse(proposal.requestFingerprint ?? "{}");
+    if (proposal.requestedById && typeof request.afterHoursReason === "string" && request.afterHoursReason.trim().length >= 3) afterHoursReason = request.afterHoursReason.trim();
+  } catch { /* Legacy proposals have no after-hours authorization. */ }
   const snapshots = proposalSnapshots(proposal.targetServices);
   const result = await rescheduleAppointment(tx, {
     salonId: input.salonId,
@@ -528,6 +531,8 @@ export async function respondToRescheduleProposal(
     notes: proposal.targetNotes,
     serviceSnapshotsOverride: snapshots,
     proposalId: proposal.id,
+    canFinishAfterHours: Boolean(afterHoursReason),
+    afterHoursReason,
   });
   await tx.rescheduleProposal.updateMany({
     where: { id: proposal.id, salonId: input.salonId, status: "PENDING" },

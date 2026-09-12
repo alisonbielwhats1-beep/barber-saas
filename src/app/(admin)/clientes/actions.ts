@@ -7,6 +7,7 @@ import { withTenant } from "@/lib/prisma-tenant";
 import { getClientHistory } from "@/lib/crm";
 import { serializeClientCareProfile } from "@/lib/client-care-profile";
 import { writeAuditLog } from "@/lib/audit";
+import { setClientListVisibility } from "@/lib/client-list-visibility";
 import { calculateLoyaltyBalance, parseClientCsv } from "@/lib/operational-flows";
 import { isValidPhoneBR } from "@/lib/phone";
 import {
@@ -112,22 +113,20 @@ export async function updateClient(id: string, input: ClientInput) {
 
 export async function deleteClient(id: string) {
   const ctx = await getTenantContext();
-  assertRole(ctx, ["OWNER", "MANAGER"]);
-  await withTenant(ctx, async (tx) => {
-    const client = await tx.clientProfile.findFirst({
-      where: { id, salonId: ctx.salonId, mergedIntoId: null },
-      select: {
-        id: true,
-        _count: { select: { appointments: true, packages: true, subscriptions: true, waitlistEntries: true } },
-      },
-    });
-    if (!client) return;
-    if (Object.values(client._count).some((count) => count > 0)) {
-      throw new Error("Clientes com histórico não podem ser excluídos. Use a mesclagem ou mantenha o cadastro.");
-    }
-    await tx.clientProfile.deleteMany({ where: { id: client.id, salonId: ctx.salonId, mergedIntoId: null } });
-  });
+  assertRole(ctx, ["OWNER"]);
+  const clientId = z.string().trim().min(1).max(100).parse(id);
+  await withTenant(ctx, tx => setClientListVisibility(tx, { salonId: ctx.salonId, userId: ctx.userId, clientId, hidden: true }));
   revalidatePath("/clientes");
+  revalidatePath("/agenda");
+}
+
+export async function restoreClient(id: string) {
+  const ctx = await getTenantContext();
+  assertRole(ctx, ["OWNER"]);
+  const clientId = z.string().trim().min(1).max(100).parse(id);
+  await withTenant(ctx, tx => setClientListVisibility(tx, { salonId: ctx.salonId, userId: ctx.userId, clientId, hidden: false }));
+  revalidatePath("/clientes");
+  revalidatePath("/agenda");
 }
 
 export async function importClientsCsv(csv: string) {
@@ -298,6 +297,7 @@ export async function mergeClients(sourceId: string, targetId: string) {
   });
   revalidatePath("/clientes");
   revalidatePath("/marketing");
+  revalidatePath("/agenda");
   revalidatePath("/dashboard");
   return { success: true as const };
 }

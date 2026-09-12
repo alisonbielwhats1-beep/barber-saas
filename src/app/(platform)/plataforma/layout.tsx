@@ -10,9 +10,9 @@ export default async function PlatformLayout({ children }: { children: React.Rea
   const billingEnabled = isPlatformBillingEnabled();
 
   return (
-    <div className="min-h-dvh bg-background text-foreground">
+    <div className="min-h-dvh bg-background text-foreground" style={{ padding: "var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left)" }}>
       <header className="border-b border-border bg-card/80 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-5 py-4">
           <div className="flex items-center gap-3">
             <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary/15 text-primary">
               <ShieldCheck className="h-5 w-5" />

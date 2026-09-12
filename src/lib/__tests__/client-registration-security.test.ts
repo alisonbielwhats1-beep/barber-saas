@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   clientFindFirst: vi.fn(),
   clientFindMany: vi.fn(),
   clientCreate: vi.fn(),
+  auditCreate: vi.fn(),
 }));
 
 vi.mock("bcryptjs", () => ({
@@ -37,6 +38,7 @@ import {
 } from "@/app/book/[salonSlug]/auth-actions";
 
 const tx = {
+  auditLog: { create: mocks.auditCreate },
   clientProfile: {
     findFirst: mocks.clientFindFirst,
     findMany: mocks.clientFindMany,
@@ -45,10 +47,59 @@ const tx = {
 };
 
 describe("registerClient — validação no servidor", () => {
+  const registration = { name: "Cliente", phone: "11912345678", email: "client@example.test", password: "123456", confirmPassword: "123456" };
+  const existing = { id: "existing", name: "Nome preservado", email: "client@example.test", passwordHash: "old-hash", sessionVersion: 2 };
+
+  it("retoma cadastro persistido com a senha correta, sem duplicar ou sobrescrever perfil", async () => {
+    mocks.clientFindMany.mockResolvedValue([existing]);
+    mocks.clientFindFirst.mockResolvedValue(existing);
+    mocks.compare.mockResolvedValue(true);
+    await expect(registerClient("studio-a", registration, "/book/studio-a/agendar")).rejects.toThrow("NEXT_REDIRECT");
+    expect(mocks.clientCreate).not.toHaveBeenCalled();
+    expect(mocks.setClientSession).toHaveBeenCalledWith({ clientId: "existing", salonId: "salon-a", name: "Nome preservado", email: existing.email, sessionVersion: 2 });
+    expect(mocks.checkRateLimit).toHaveBeenCalledWith(expect.objectContaining({ namespace: "client-login-account" }));
+    expect(mocks.redirect).toHaveBeenCalledWith("/book/studio-a/agendar");
+  });
+
+  it("não toma conta existente com outra senha nem reivindica perfil sem senha", async () => {
+    mocks.clientFindMany.mockResolvedValue([existing]);
+    mocks.clientFindFirst.mockResolvedValue(existing);
+    expect(await registerClient("studio-a", registration)).toMatchObject({ code: "ACCOUNT_ACCESS" });
+    expect(mocks.setClientSession).not.toHaveBeenCalled();
+    mocks.clientFindMany.mockResolvedValue([{ ...existing, passwordHash: null }]);
+    expect(await registerClient("studio-a", registration)).toMatchObject({ error: expect.stringContaining("reserva sem conta") });
+    expect(mocks.clientCreate).not.toHaveBeenCalled();
+    expect(mocks.setClientSession).not.toHaveBeenCalled();
+  });
+
+  it("respeita bloqueio do login ao retomar cadastro", async () => {
+    mocks.clientFindMany.mockResolvedValue([existing]);
+    mocks.checkRateLimit.mockImplementation(async ({ namespace }: { namespace: string }) => ({ allowed: namespace !== "client-login-account", source: "local" }));
+    expect(await registerClient("studio-a", registration)).toMatchObject({ error: expect.stringContaining("Muitas tentativas") });
+    expect(mocks.compare).not.toHaveBeenCalled();
+    expect(mocks.setClientSession).not.toHaveBeenCalled();
+  });
+
+  it("recupera corrida de INSERT pela autenticação sem criar duplicata", async () => {
+    mocks.clientCreate.mockRejectedValueOnce({ code: "P2002" });
+    mocks.clientFindFirst.mockResolvedValue(existing);
+    mocks.compare.mockResolvedValue(true);
+    await expect(registerClient("studio-a", registration)).rejects.toThrow("NEXT_REDIRECT");
+    expect(mocks.setClientSession).toHaveBeenCalledOnce();
+  });
+
+  it("distingue falha da sessão após persistência e audita a criação sem credenciais", async () => {
+    mocks.setClientSession.mockRejectedValueOnce(new Error("cookie failure"));
+    expect(await registerClient("studio-a", registration)).toMatchObject({ code: "ACCOUNT_ACCESS", error: expect.stringContaining("Sua conta foi criada") });
+    expect(mocks.auditCreate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ action: "CLIENT_ACCOUNT_REGISTERED", metadata: { source: "PUBLIC_REGISTRATION" } }) }));
+    expect(JSON.stringify(mocks.auditCreate.mock.calls)).not.toContain("123456");
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.checkRateLimit.mockResolvedValue({ allowed: true, source: "local" });
     mocks.isApprovedSalonSlug.mockResolvedValue(true);
+    mocks.auditCreate.mockResolvedValue({ id: "audit-a" });
+    mocks.setClientSession.mockResolvedValue(undefined);
     mocks.hash.mockResolvedValue("password-hash");
     mocks.compare.mockResolvedValue(false);
     mocks.clientFindFirst.mockResolvedValue(null);
@@ -66,7 +117,7 @@ describe("registerClient — validação no servidor", () => {
   it("rejeita senhas divergentes antes do limiter e do bcrypt", async () => {
     const result = await registerClient("studio-a", {
       name: "Maria Silva",
-      phone: "",
+      phone: "11912345678",
       email: "maria@example.com",
       password: "123456",
       confirmPassword: "654321",
@@ -79,17 +130,18 @@ describe("registerClient — validação no servidor", () => {
   });
 
   it.each([
-    { name: "A", phone: "", email: "valid@example.com", password: "123456" },
+    { name: "Cliente", phone: "", email: "valid@example.com", password: "123456", confirmPassword: "123456" },
+    { name: "A", phone: "11912345678", email: "valid@example.com", password: "123456" },
     { name: "Cliente", phone: "119123", email: "valid@example.com", password: "123456" },
     { name: "Cliente", phone: "119123456789", email: "valid@example.com", password: "123456" },
     { name: "Cliente", phone: "+1 (212) 555-0100", email: "valid@example.com", password: "123456" },
     { name: "Cliente", phone: "abc (11) 91234-5678", email: "valid@example.com", password: "123456" },
     { name: "Cliente", phone: "(20) 91234-5678", email: "valid@example.com", password: "123456" },
     { name: "Cliente", phone: "(11) 9333-4444", email: "valid@example.com", password: "123456" },
-    { name: "Cliente", phone: "", email: "invalid", password: "123456" },
-    { name: "Cliente", phone: "", email: "valid@example.com", password: "12345" },
-    { name: "Cliente", phone: "", email: "valid@example.com", password: "x".repeat(129) },
-    { name: "Cliente", phone: "", email: "valid@example.com", password: "é".repeat(37) },
+    { name: "Cliente", phone: "11912345678", email: "invalid", password: "123456" },
+    { name: "Cliente", phone: "11912345678", email: "valid@example.com", password: "12345" },
+    { name: "Cliente", phone: "11912345678", email: "valid@example.com", password: "x".repeat(129) },
+    { name: "Cliente", phone: "11912345678", email: "valid@example.com", password: "é".repeat(37) },
   ])("rejeita payload inválido antes do bcrypt e do banco", async (payload) => {
     await expect(registerClient("studio-a", payload)).resolves.toEqual({
       error: "Não foi possível criar a conta com os dados informados.",
@@ -103,7 +155,7 @@ describe("registerClient — validação no servidor", () => {
   it("rejeita slug fora do formato antes do limiter e do bcrypt", async () => {
     const result = await registerClient("../studio-a", {
       name: "Maria Silva",
-      phone: "",
+      phone: "11912345678",
       email: "maria@example.com",
       password: "123456",
     });
@@ -173,7 +225,7 @@ describe("registerClient — validação no servidor", () => {
     );
     const result = await registerClient("studio-a", {
       name: "Maria Silva",
-      phone: "",
+      phone: "11912345678",
       email: "maria@example.com",
       password: "123456",
       confirmPassword: "123456",
@@ -190,7 +242,7 @@ describe("registerClient — validação no servidor", () => {
 
     const result = await registerClient("studio-a", {
       name: "Maria Silva",
-      phone: "",
+      phone: "11912345678",
       email: "maria@example.com",
       password: "123456",
       confirmPassword: "123456",
@@ -206,7 +258,7 @@ describe("registerClient — validação no servidor", () => {
 
     const result = await registerClient("studio-a", {
       name: "Maria Silva",
-      phone: "",
+      phone: "11912345678",
       email: "maria@example.com",
       password: "123456",
       confirmPassword: "123456",
@@ -225,7 +277,7 @@ describe("registerClient — validação no servidor", () => {
 
     const result = await registerClient("studio-a", {
       name: "Maria Silva",
-      phone: "",
+      phone: "11912345678",
       email: "maria@example.com",
       password: "123456",
       confirmPassword: "123456",
@@ -244,7 +296,7 @@ describe("registerClient — validação no servidor", () => {
         "studio-a",
         {
           name: "Maria Silva",
-          phone: "",
+          phone: "11912345678",
           email: "maria@example.com",
           password: "123456",
           confirmPassword: "123456",
@@ -262,7 +314,7 @@ describe("registerClient — validação no servidor", () => {
         "studio-a",
         {
           name: "Maria Silva",
-          phone: "",
+          phone: "11912345678",
           email: "maria@example.com",
           password: "123456",
           confirmPassword: "123456",

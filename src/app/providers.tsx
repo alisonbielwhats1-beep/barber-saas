@@ -3,6 +3,7 @@
 import { SessionProvider } from "next-auth/react";
 import { PwaRegister } from "@/components/pwa-register";
 import { BrandIntro } from "@/components/brand-intro";
+import { ViewportMetrics } from "@/components/viewport-metrics";
 
 /**
  * A sessão é JWT (`strategy: "jwt"` em lib/auth.ts), então revalidar não traz
@@ -14,6 +15,7 @@ import { BrandIntro } from "@/components/brand-intro";
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider refetchOnWindowFocus={false} refetchInterval={0}>
+      <ViewportMetrics />
       <PwaRegister />
       <BrandIntro />
       {children}

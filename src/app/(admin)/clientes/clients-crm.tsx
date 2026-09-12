@@ -1,7 +1,8 @@
 "use client";
 
 import { MobileListTools } from "@/components/mobile-list-tools";
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -15,7 +16,7 @@ import { format } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { ptBR } from "date-fns/locale";
 import { ClientForm } from "./client-form";
-import { fetchClientHistory, importClientsCsv, mergeClients, redeemLoyaltyReward } from "./actions";
+import { deleteClient, restoreClient, fetchClientHistory, importClientsCsv, mergeClients, redeemLoyaltyReward } from "./actions";
 import { toast } from "@/components/ui/toast";
 import type { ClientRow } from "@/lib/crm";
 
@@ -57,19 +58,43 @@ export function ClientsCrm({
   salonName,
   timezone,
   canManage,
+  canDelete = false,
+  showExcluded = false,
   lapsedClientDays,
 }: {
   clients: ClientRow[];
   salonName: string;
   timezone: string;
   canManage: boolean;
+  canDelete?: boolean;
+  showExcluded?: boolean;
   lapsedClientDays: number;
 }) {
   const router = useRouter();
+  const [visibilityTarget, setVisibilityTarget] = useState<ClientRow | null>(null);
+  const [savingVisibility, setSavingVisibility] = useState(false);
+  const visibilityLock = useRef(false);
+  async function saveVisibility() {
+    if (!visibilityTarget || visibilityLock.current) return;
+    visibilityLock.current = true;
+    setSavingVisibility(true);
+    try {
+      await (showExcluded ? restoreClient : deleteClient)(visibilityTarget.id);
+      setVisibilityTarget(null);
+      toast(showExcluded ? "Cliente restaurado à lista." : "Cliente excluído da lista. O acesso foi preservado.");
+      router.refresh();
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "Não foi possível atualizar a lista.", "error");
+    } finally {
+      visibilityLock.current = false;
+      setSavingVisibility(false);
+    }
+  }
   const [pending, startTransition] = useTransition();
   const [search, setSearch] = useState("");
   const [segment, setSegment] = useState<Segment>("all");
-  const [detail, setDetail] = useState<ClientRow | null>(null);
+  const [selectedDetail, setDetail] = useState<ClientRow | null>(null);
+  const detail = selectedDetail ? clients.find(client => client.id === selectedDetail.id) ?? selectedDetail : null;
   const [history, setHistory] = useState<HistoryItem[] | null>(null);
   const [loadingHist, setLoadingHist] = useState(false);
   const [historyExpanded, setHistoryExpanded] = useState(false);
@@ -140,6 +165,10 @@ export function ClientsCrm({
 
   return (
     <div className="space-y-4">
+      {canDelete && <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-muted-foreground">{showExcluded ? "Clientes excluídos da lista. O acesso e o histórico continuam preservados." : "Clientes da lista ativa."}</p>
+        <Link href={showExcluded ? "/clientes" : "/clientes?status=excluded"} className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-sm">{showExcluded ? "Ver clientes ativos" : "Ver clientes excluídos"}</Link>
+      </div>}
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 md:flex-none">
           <Search className="h-3.5 w-3.5 text-muted-foreground" />
@@ -237,13 +266,15 @@ export function ClientsCrm({
                       {detail.isVip && <Crown className="h-4 w-4 text-warning" />}
                     </DialogTitle>
                     <p className="text-[12px] text-muted-foreground">
-                      {detail.phone ?? detail.email ?? "sem contato"} · {detail.accountStatus === "registered" ? "conta criada" : "sem conta"}
+                      {detail.phone ?? detail.email ?? "sem contato"}
                     </p>
+                    <AccountBadge registered={detail.accountStatus === "registered"} />
                   </div>
                 </div>
               </DialogHeader>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {canDelete && <button type="button" className="min-h-11 rounded-lg border border-border px-3 text-sm" onClick={() => { setVisibilityTarget(detail); setDetail(null); }}>{showExcluded ? "Restaurar à lista" : "Excluir da lista"}</button>}
                 {detail.phone && (
                   <a href={waLink(detail.phone, detail.name.split(" ")[0], salonName)} target="_blank" rel="noopener noreferrer" className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#25D366]/15 px-3 py-2 text-[13px] font-medium text-[#25D366] transition hover:bg-[#25D366]/25">
                     <MessageCircle className="h-4 w-4" /> WhatsApp
@@ -286,6 +317,13 @@ export function ClientsCrm({
                       </p>
                     </div>
                   </div>
+                  <div className="mt-3 rounded-lg border border-border bg-card p-3">
+                    <p className="text-[10px] uppercase text-muted-foreground">Cadastro aberto</p>
+                    <p className="break-words text-xs font-semibold">{detail.name}</p>
+                    <p className="break-all text-xs text-muted-foreground">{detail.email ?? "Sem e-mail"}</p>
+                    <AccountBadge registered={detail.accountStatus === "registered"} />
+                  </div>
+                  <p className="mt-2 text-xs text-muted-foreground">Se apenas um cadastro tem conta criada, prefira mantê-lo para conservar o mesmo acesso.</p>
                   <div className="mt-3 space-y-2">
                     {detail.possibleDuplicates.map((candidate) => (
                       <div key={candidate.id} className="rounded-lg border border-border bg-card px-3 py-2">
@@ -293,25 +331,27 @@ export function ClientsCrm({
                           <div className="min-w-0">
                             <p className="truncate text-[12px] font-semibold">{candidate.name}</p>
                             <p className="text-[10px] text-muted-foreground">
-                              {candidate.phone ?? candidate.email ?? "sem contato"} · {candidate.visits} {candidate.visits === 1 ? "atendimento" : "atendimentos"} · {candidate.hasAccount ? "conta criada" : "sem conta"}
+                              {candidate.phone ?? "Sem telefone"} · {candidate.visits} {candidate.visits === 1 ? "atendimento" : "atendimentos"}
                             </p>
+                            <p className="break-all text-xs text-muted-foreground">{candidate.email ?? "Sem e-mail"}</p>
+                            <AccountBadge registered={candidate.hasAccount} />
                           </div>
                           <span className="shrink-0 text-[10px] text-warning">{candidate.matchReasons.map(duplicateReasonLabel).join(" + ")}</span>
                         </div>
-                        <div className="mt-2 flex gap-2">
+                        <div className="mt-2 flex flex-wrap gap-2">
                           <button
                             type="button"
                             onClick={() => setMergeCandidate({ source: candidateToRow(candidate, detail), target: detail })}
                             className="min-h-9 flex-1 rounded-lg border border-border px-2 text-[11px] font-medium hover:border-primary/60"
                           >
-                            Manter este cadastro
+                            Manter cadastro aberto{detail.accountStatus === "registered" && !candidate.hasAccount ? " (recomendado)" : ""}
                           </button>
                           <button
                             type="button"
                             onClick={() => setMergeCandidate({ source: detail, target: candidateToRow(candidate, detail) })}
                             className="min-h-9 flex-1 rounded-lg bg-primary/10 px-2 text-[11px] font-semibold text-primary hover:bg-primary/20"
                           >
-                            Usar o outro
+                            Manter esta duplicata{candidate.hasAccount && detail.accountStatus !== "registered" ? " (recomendado)" : ""}
                           </button>
                         </div>
                       </div>
@@ -401,6 +441,17 @@ export function ClientsCrm({
         </DialogContent>
       </Dialog>
 
+      <Dialog open={!!visibilityTarget} onOpenChange={(open) => { if (!open && !visibilityLock.current) setVisibilityTarget(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>{showExcluded ? "Restaurar cliente à lista?" : "Excluir cliente da lista?"}</DialogTitle></DialogHeader>
+          <p className="break-words text-sm text-muted-foreground">{visibilityTarget?.name}: {showExcluded ? "voltará a aparecer na lista ativa." : "deixará de aparecer na lista ativa e poderá ser restaurado."} A conta de acesso, os agendamentos, os pagamentos e o histórico serão preservados.</p>
+          <div className="flex flex-wrap justify-end gap-2">
+            <button type="button" disabled={savingVisibility} onClick={() => setVisibilityTarget(null)} className="min-h-11 rounded-lg border border-border px-3 text-sm">Cancelar</button>
+            <button type="button" disabled={savingVisibility} onClick={() => void saveVisibility()} className="min-h-11 rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground disabled:opacity-50">{savingVisibility ? "Salvando…" : showExcluded ? "Confirmar restauração" : "Confirmar exclusão da lista"}</button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={!!mergeCandidate} onOpenChange={(open) => !open && setMergeCandidate(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -411,6 +462,14 @@ export function ClientsCrm({
               <p className="text-sm leading-relaxed text-muted-foreground">
                 O histórico de <strong className="text-foreground">{mergeCandidate.source.name}</strong> será incorporado a <strong className="text-foreground">{mergeCandidate.target.name}</strong>. O cadastro de origem ficará preservado como mesclado e não aparecerá mais na lista.
               </p>
+              <div className="space-y-2 rounded-xl border border-border p-3 text-sm">
+                <p className="font-semibold">Cadastro que ficará: {mergeCandidate.target.name}</p>
+                <p className="break-all text-muted-foreground">{mergeCandidate.target.email ?? "Sem e-mail"}</p>
+                <AccountBadge registered={mergeCandidate.target.accountStatus === "registered"} />
+                <p className="pt-2 font-semibold">Cadastro incorporado: {mergeCandidate.source.name}</p>
+                <p className="break-all text-muted-foreground">{mergeCandidate.source.email ?? "Sem e-mail"}</p>
+                <AccountBadge registered={mergeCandidate.source.accountStatus === "registered"} />
+              </div>
               <div className="rounded-xl border border-amber-400/30 bg-amber-400/5 px-3 py-2 text-[11px] leading-relaxed text-amber-100">
                 Agendamentos, pacotes, assinaturas e pontos serão mantidos. Essa ação fica registrada na auditoria.
               </div>
@@ -440,6 +499,10 @@ function candidateToRow(candidate: ClientRow["possibleDuplicates"][number], curr
     accountStatus: candidate.hasAccount ? "registered" : "guest",
     possibleDuplicates: [],
   };
+}
+
+function AccountBadge({ registered }: { registered: boolean }) {
+  return <span className={`mt-1 inline-flex rounded-full px-2 py-1 text-[11px] font-semibold ${registered ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}>{registered ? "Conta criada · acesso ao aplicativo" : "Sem conta criada"}</span>;
 }
 
 function duplicateReasonLabel(reason: "email" | "phone"): string {

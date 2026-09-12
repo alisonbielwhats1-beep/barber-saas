@@ -1,5 +1,41 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-12 — telefone e remarcação em revisão
+
+Continuação autorizada do PR #98: cores mais visíveis por profissional,
+telefone obrigatório no cadastro público, alerta para contas sem telefone e
+correção da consulta de disponibilidade ao remarcar a própria reserva.
+Escopo e diagnóstico em `TELEFONE_REMARCACAO_2026-09-12.md`. Sem publicação.
+
+## 2026-09-12 — semana, minutos e seletor de clientes em revisão
+
+O PR #98 recebe a faixa de domingo a sábado na agenda diária, régua de quinze
+minutos, identificação explícita de contas nas duplicatas e filtragem de
+clientes mesclados/excluídos no seletor manual. Acesso do cliente preservado.
+Escopo em `AGENDA_CLIENTES_2026-09-12.md`; sem migration ou publicação.
+O commit anterior 3576b7f passou no CI 34674872601 e Preview. Esta ampliação
+requer nova validação integral, cujo resultado ficará no PR.
+
+## 2026-09-12 — exclusão da lista e responsividade em revisão
+
+O PR #98 também inclui exclusão/restauração de clientes pelo proprietário,
+somente na lista do CRM. Conforme decisão expressa, o acesso do cliente e
+seus agendamentos/histórico permanecem intactos. Usa eventos de auditoria
+existentes, sem migration. Cabeçalhos respeitam áreas seguras e as janelas
+acompanham a área visível com teclado/zoom; fechamento recebe grade móvel.
+Escopo e evidências em `RESPONSIVIDADE_E_LISTA_2026-09-12.md`.
+Ainda não publicado; a validação desta ampliação está em andamento.
+
+## 2026-09-11 — pedidos de edição, término e cadastro em revisão
+
+Branch `codex/client-feedback-fixes`, base `cb3babc`: seleção de serviços no
+detalhe, aceite de mudança dos serviços, estado assíncrono de envio, exceção
+pontual de término após o último turno para dono/gerente e recuperação de
+cadastro repetido por autenticação da senha existente. Escopo, diagnóstico
+somente leitura e verificação em `PEDIDOS_CLIENTE_2026-09-11.md`.
+Sem migration, escrita manual em Production ou publicação desta entrega.
+Esta revisão amplia o limite de término descrito no PR #96 sem mudar a jornada.
+
 ## 2026-09-11 — Suporte assistido: publicação autorizada
 
 Branch codex/hq-support-pilot: base técnica versionada e fluxo de rascunho por

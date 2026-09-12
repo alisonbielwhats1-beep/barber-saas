@@ -1,5 +1,9 @@
 # Agendamento manual — pedidos do cliente em 11/09/2026
 
+Atualização posterior: `PEDIDOS_CLIENTE_2026-09-11.md` amplia a edição dos
+serviços e permite término após o último turno com confirmação de dono/gerente.
+Substitui a restrição de término abaixo, preservando a configuração da jornada.
+
 Base: `origin/master` `30be4b7`. Branch: `codex/client-booksy-improvements`.
 
 Os dois áudios e o vídeo fornecidos mostram um problema específico: o menu “+”

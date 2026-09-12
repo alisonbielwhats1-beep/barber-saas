@@ -5,6 +5,8 @@ import { withSalonBySlug } from "@/lib/prisma-tenant";
 import { resolveClientSessionInTenant } from "@/lib/public-appointment";
 import { ClientShell } from "./client-shell";
 import { PWA_APPLE_ICON, PWA_FAVICON } from "@/lib/pwa-icons";
+import { isValidPhoneBR } from "@/lib/phone";
+import { PhoneAlert } from "./phone-alert";
 import "./client-theme.css";
 
 /**
@@ -63,11 +65,13 @@ export default async function BookLayout({
           },
         })
       : 0;
-    return { unreadNotifications };
+    const profile = effectiveSession ? await tx.clientProfile.findFirst({ where: { id: effectiveSession.clientId, salonId, mergedIntoId: null }, select: { phone: true } }) : null;
+    return { unreadNotifications, needsPhone: !!effectiveSession && !isValidPhoneBR(profile?.phone ?? "") };
   });
 
   return (
       <ClientShell initialTheme={initialTheme} salonSlug={salonSlug} unreadNotifications={shellData?.unreadNotifications ?? 0}>
+        {shellData?.needsPhone && <PhoneAlert salonSlug={salonSlug} />}
         {children}
       </ClientShell>
   );

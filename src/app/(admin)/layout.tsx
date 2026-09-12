@@ -60,7 +60,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         __html: `try{document.documentElement.setAttribute("data-theme",localStorage.getItem("admin-theme")==="light"?"admin-light":"admin-dark")}catch(e){document.documentElement.setAttribute("data-theme","admin-dark")}`,
       }}
     />
-    <div className="admin-shell flex h-dvh overflow-hidden text-foreground">
+    <div className="admin-shell flex h-dvh overflow-hidden text-foreground" style={{ paddingTop: "var(--safe-top)", paddingLeft: "var(--safe-left)", paddingRight: "var(--safe-right)" }}>
       {/* ── Sidebar ─────────────────────────────────────── */}
       <AdminSidebar current={currentSalon} memberships={membershipList} role={role} plan={salon?.plan ?? "FREE"} unreadNotifications={unreadNotifications} isPlatformAdmin={platformAdmin} />
 

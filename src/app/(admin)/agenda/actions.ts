@@ -37,7 +37,7 @@ const BREAK_OVERRIDE_ROLES = ["OWNER", "PROFESSIONAL"] as const;
 
 export type ActionResult =
   | { error: string; code?: AppointmentErrorCode }
-  | { success: true };
+  | { success: true; requiresAcceptance?: boolean };
 
 const createInput = z.object({
   professionalId: z.string(),
@@ -57,6 +57,7 @@ const createInput = z.object({
   overrideConfirmed: z.literal(true).optional(),
   timeOffOverrideReason: z.string().trim().min(3).max(200).optional(),
   workingHoursBreakReason: z.string().trim().max(200).optional(),
+  afterHoursReason: z.string().trim().min(3).max(200).optional(),
 });
 
 function appointmentActionMessage(error: unknown): string {
@@ -74,6 +75,7 @@ function appointmentActionMessage(error: unknown): string {
     TOO_SOON: "Horário fora da antecedência mínima",
     TOO_FAR: "Horário além do limite de agendamento",
     OUTSIDE_WORKING_HOURS: "O atendimento completo não cabe na jornada do profissional, incluindo sua duração e as pausas. Revise o horário de término e o expediente em Configurações → Agenda.",
+    AFTER_WORKING_HOURS: "O atendimento termina após o expediente. Dono ou gerente podem confirmar uma exceção sem mudar o fechamento.",
     WORKING_HOURS_BREAK: "Este horário fica dentro de uma pausa do profissional",
     PROFESSIONAL_UNAVAILABLE: "O profissional está indisponível nesse período",
     SALON_CLOSED: "O estabelecimento está fechado nesse período",
@@ -151,6 +153,8 @@ export async function createAppointmentManually(
         canOverride: canOverbook,
         canOverrideWorkingHoursBreak,
         canOverrideTimeOff: canOverbook,
+        canFinishAfterHours: canOverbook,
+        afterHoursReason: data.afterHoursReason,
         timeOffOverrideReason: data.timeOffOverrideReason,
         workingHoursBreakReason: data.workingHoursBreakReason,
         overrideReason: data.overbookReason,
@@ -630,6 +634,7 @@ export async function duplicateAppointment(
             "SALON_CLOSED",
             "PROFESSIONAL_UNAVAILABLE",
             "OUTSIDE_WORKING_HOURS",
+            "AFTER_WORKING_HOURS",
             "WORKING_HOURS_BREAK",
           ].includes(error.code));
       if (!unavailable) return { error: appointmentActionMessage(error) };
@@ -639,6 +644,7 @@ export async function duplicateAppointment(
 }
 
 const editInput = z.object({
+  afterHoursReason: z.string().trim().min(3).max(200).optional(),
   id: z.string(),
   professionalId: z.string(),
   serviceIds: z.array(z.string().min(1)).min(1).max(10),
@@ -651,8 +657,8 @@ const editInput = z.object({
 });
 
 /**
- * Edita data/hora e observações de um agendamento existente.
- * Mantém o profissional e a duração original; verifica conflitos.
+ * Edita serviços, data/hora e observações mantendo o agendamento.
+ * Recalcula serviços alterados e solicita aceite quando necessário.
  */
 export async function editAppointment(input: z.infer<typeof editInput>): Promise<ActionResult> {
   const ctx = await getTenantContext();
@@ -660,12 +666,14 @@ export async function editAppointment(input: z.infer<typeof editInput>): Promise
   const data = editInput.parse(input);
 
   try {
-    await withTenant(ctx, async (tx) => {
+    const result = await withTenant(ctx, async (tx) => {
       const ownProfessionalId = await permittedProfessionalId(tx, ctx);
       if (ownProfessionalId && data.professionalId !== ownProfessionalId) {
         throw new Error("Você só pode remarcar seus próprios atendimentos");
       }
-      await requestStaffReschedule(tx, {
+      return requestStaffReschedule(tx, {
+        canFinishAfterHours: (OVERBOOK_ROLES as readonly string[]).includes(ctx.role),
+        afterHoursReason: data.afterHoursReason,
         salonId: ctx.salonId,
         appointmentId: data.id,
         professionalId: data.professionalId,
@@ -683,14 +691,14 @@ export async function editAppointment(input: z.infer<typeof editInput>): Promise
         reason: "Alteração solicitada pelo estabelecimento",
       });
     });
+    revalidatePath("/agenda");
+    revalidatePath("/hoje");
+    revalidatePath("/dashboard");
+    revalidatePath("/book", "layout");
+    return { success: true, requiresAcceptance: result.requiresAcceptance };
   } catch (error) {
-    return { error: appointmentActionMessage(error) };
+    return { error: appointmentActionMessage(error), ...(isAppointmentError(error) ? { code: error.code } : {}) };
   }
-  revalidatePath("/agenda");
-  revalidatePath("/hoje");
-  revalidatePath("/dashboard");
-  revalidatePath("/book", "layout");
-  return { success: true };
 }
 
 const moveInput = z.object({
@@ -874,6 +882,7 @@ export async function createRecurringAppointments(
             "SALON_CLOSED",
             "PROFESSIONAL_UNAVAILABLE",
             "OUTSIDE_WORKING_HOURS",
+            "AFTER_WORKING_HOURS",
             "WORKING_HOURS_BREAK",
           ].includes(error.code));
       if (skippable) {

@@ -117,7 +117,7 @@ export function SharePage({ salon, bookingUrl }: { salon: Salon; bookingUrl: str
       </div>
 
       {/* Link + QR — grid 2 colunas */}
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
 
         {/* ── Link ─────────────────────────────────────────────────── */}
         <div className="flex flex-col rounded-2xl border border-border bg-card p-5">
@@ -252,7 +252,7 @@ export function SharePage({ salon, bookingUrl }: { salon: Salon; bookingUrl: str
         </div>
 
         <div className="mt-4 rounded-xl border border-border bg-surface-1 px-4 py-3">
-          <p className="whitespace-pre-line text-[13px] leading-relaxed text-muted-foreground">
+          <p className="whitespace-pre-line text-[13px] leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">
             {waMessage}
           </p>
         </div>
@@ -277,7 +277,7 @@ export function SharePage({ salon, bookingUrl }: { salon: Salon; bookingUrl: str
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className="rounded-2xl border border-border bg-card p-5">
           <div className="flex items-center gap-2">
             <span className="grid h-8 w-8 place-items-center rounded-lg bg-[#3B9EFF]/15 text-[#3B9EFF]"><UserPlus className="h-4 w-4" /></span>
@@ -286,7 +286,7 @@ export function SharePage({ salon, bookingUrl }: { salon: Salon; bookingUrl: str
               <p className="text-[11px] text-muted-foreground">Para clientes fiéis encaminharem a amigos</p>
             </div>
           </div>
-          <p className="mt-4 whitespace-pre-line rounded-xl border border-border bg-surface-1 p-3 text-[13px] text-muted-foreground">{referralMessage}</p>
+          <p className="mt-4 whitespace-pre-line rounded-xl border border-border bg-surface-1 p-3 text-[13px] text-muted-foreground [overflow-wrap:anywhere]">{referralMessage}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             <a href={`https://wa.me/?text=${encodeURIComponent(referralMessage)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-xl bg-[var(--action-positive)] px-4 py-2.5 text-[13px] font-medium text-white">
               <Share2 className="h-3.5 w-3.5" /> Abrir WhatsApp
@@ -305,7 +305,7 @@ export function SharePage({ salon, bookingUrl }: { salon: Salon; bookingUrl: str
               <p className="text-[11px] text-muted-foreground">Sem gateway e sem tarifa do Everflair</p>
             </div>
           </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_120px]">
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_120px]">
             <label className="text-[11px] text-muted-foreground">Chave Pix
               <input value={pixKey} onChange={(event) => setPixKey(event.target.value)} placeholder="CPF, telefone, e-mail ou chave" className="mt-1 h-10 w-full rounded-lg border border-border bg-background px-3 text-[13px] text-foreground" />
             </label>

@@ -15,7 +15,7 @@ const cartMock = vi.hoisted(() => ({
 
 vi.mock("next/navigation", () => ({
   useParams: () => ({ salonSlug: "studio-teste" }),
-  useRouter: () => ({ push: navigation.push }),
+  useRouter: () => ({ push: navigation.push, refresh: vi.fn() }),
 }));
 vi.mock("next/image", () => ({
   default: () => <span data-testid="next-image" />,

@@ -70,7 +70,7 @@ describe("client auth regressions", () => {
     await expect(
       registerClient("studio-a", {
         name: "Maria Silva",
-        phone: "",
+        phone: "11912345678",
         email: "maria@example.com",
         password: "123456",
         confirmPassword: "123456",

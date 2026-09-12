@@ -95,7 +95,7 @@ export function ClosingForm({
           O sistema registrou {formatMoney(cashReceivedCents, currency)} em dinheiro. Compare com o valor contado antes de concluir.
         </p>
       </div>
-      <div className="mt-4 grid gap-4 sm:grid-cols-[minmax(0,18rem)_1fr]">
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
         <div>
           <label htmlFor="declared-cash" className="mb-1.5 block text-sm font-medium">
             Dinheiro contado <span className="font-normal text-muted-foreground">(opcional)</span>

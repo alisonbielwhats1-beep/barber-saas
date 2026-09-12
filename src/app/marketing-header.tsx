@@ -46,12 +46,14 @@ export function MarketingHeader() {
     <>
     <a
       href="#main-content"
-      className="fixed left-4 top-3 z-[70] inline-flex min-h-11 -translate-y-20 items-center rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-lg transition-transform focus:translate-y-0 focus:outline-none focus:ring-2 focus:ring-white"
+      style={{ left: "calc(1rem + var(--safe-left))", top: "calc(.75rem + var(--safe-top))" }}
+      className="fixed left-4 top-3 z-[70] inline-flex min-h-11 -translate-y-[calc(5rem+var(--safe-top))] items-center rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-lg transition-transform focus:translate-y-0 focus:outline-none focus:ring-2 focus:ring-white"
     >
       Pular para o conteúdo
     </a>
     <header
       id="top"
+      style={{ padding: "var(--safe-top) var(--safe-right) 0 var(--safe-left)" }}
       data-theme="marketing-dark"
       className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-[#23262b]/95 text-foreground shadow-[0_8px_30px_-24px_rgba(5,12,9,0.8)] backdrop-blur-xl"
     >
@@ -99,7 +101,7 @@ export function MarketingHeader() {
         irmão do header, ele usa a viewport de verdade e cobre 100% do
         conteúdo por trás. */}
     {open && (
-      <nav id="menu-mobile-marketing" aria-label="Navegação mobile" data-theme="marketing-dark" className="fixed inset-x-0 top-16 bottom-0 z-40 overflow-y-auto border-t border-white/10 bg-[#23262b] px-6 pb-6 pt-2 md:hidden">
+      <nav id="menu-mobile-marketing" aria-label="Navegação mobile" data-theme="marketing-dark" style={{ top: "calc(4rem + var(--safe-top))", paddingLeft: "calc(1.5rem + var(--safe-left))", paddingRight: "calc(1.5rem + var(--safe-right))", paddingBottom: "calc(1.5rem + var(--safe-bottom))" }} className="fixed inset-x-0 top-16 bottom-0 z-40 overflow-y-auto border-t border-white/10 bg-[#23262b] px-6 pb-6 pt-2 md:hidden">
         <div className="flex flex-col gap-1">
           {NAV_LINKS.map((l) => (
             <a

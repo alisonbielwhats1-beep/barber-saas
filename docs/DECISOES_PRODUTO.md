@@ -6,6 +6,17 @@ que todos os itens abaixo já estão implementados na Fase 1.
 
 ## Aparência administrativa — revisão de 07/09/2026
 
+Decisão de 12/09/2026 para clientes: somente o proprietário pode excluir um
+cliente da lista ativa e restaurá-lo. Excluir da lista não revoga acesso,
+não impede novos agendamentos e não apaga perfil, pagamentos ou histórico.
+O responsável confirmou: “Só excluir da lista, preservando o acesso”.
+As operações são tenant-scoped e registradas na auditoria.
+
+Complemento solicitado em 12/09: perfis excluídos da lista e já mesclados não
+aparecem no seletor de cliente para agendamento manual. A exclusão da lista
+continua preservando acesso e autoagendamento do cliente. Duplicatas mostram
+qual perfil tem conta, recomendando mantê-lo quando só um possui acesso.
+
 Fundos escuros em grafite neutro, sem roxo dominante. Após nova solicitação,
 o tema claro substitui marfim/pedra por cinza quase branco frio (`#F6F7F9`),
 cartões brancos, contornos suaves e sombras discretas para separar os painéis.
@@ -75,6 +86,14 @@ Toda leitura e escrita deve validar `salonId`, papel e, quando aplicável,
 `professionalId` no servidor. Ocultar um botão não é autorização.
 
 ## Override
+
+Atualização do pedido de correções de 11/09/2026: dono/gerente podem confirmar
+uma reserva com início dentro do último turno e término após ele, no mesmo dia,
+sem mudar o fechamento cadastrado. Exige motivo e auditoria; vale para criação
+e edição, com autorização persistida se houver aceite do cliente. Não autoriza
+início após o expediente, dia sem jornada, fechamento explícito nem dispensa
+outras restrições. Detalhes em `PEDIDOS_CLIENTE_2026-09-11.md`. Esta exceção
+substitui apenas a proibição de extrapolar o término nas decisões anteriores.
 
 Atualização autorizada em 11/09/2026 pelos áudios e pedido de flexibilidade:
 na criação manual, dono/gerente podem agendar dentro de TimeOff (bloqueio/folga)
@@ -266,6 +285,11 @@ Essa regra é de domínio no servidor; esconder a ação na interface é apenas 
 representação adicional, nunca a autorização.
 
 ## Cliente convidado e conta
+
+Pedido de 12/09/2026: telefone válido com DDD é obrigatório no cadastro público.
+Contas antigas sem telefone recebem alerta para preenchimento no aplicativo;
+o acesso é preservado e o número atualizado fica disponível ao estabelecimento.
+Isso não autoriza vincular/mesclar automaticamente perfis pelo telefone.
 
 Atualização autorizada na solicitação de evolução de produto de 06/09/2026:
 o catálogo público pode ser consultado antes do login. Criar reserva, entrar

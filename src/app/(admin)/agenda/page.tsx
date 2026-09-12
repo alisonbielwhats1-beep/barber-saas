@@ -6,6 +6,7 @@ import { dateKeyInTimeZone, isDateKey, calendarGridRangeInTimeZone } from "@/lib
 import { AutoRefresh } from "@/components/auto-refresh";
 import { OpeningPanel } from "./opening-panel";
 import { FlexibleQueuePanel } from "./flexible-panel";
+import { hiddenClientIds } from "@/lib/client-list-visibility";
 
 function jsonRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -145,12 +146,15 @@ export default async function AgendaPage({
     });
     const services = await tx.service.findMany({
       where: { salonId, active: true },
-      select: { id: true, name: true, durationMin: true, priceCents: true },
+      select: { id: true, name: true, durationMin: true, priceCents: true, priceType: true },
       orderBy: { name: "asc" },
     });
+    const hiddenClients = await hiddenClientIds(tx, salonId);
     const clients = await tx.clientProfile.findMany({
       where: {
         salonId,
+        mergedIntoId: null,
+        id: { notIn: [...hiddenClients] },
         ...(role === "PROFESSIONAL"
           ? { appointments: { some: { professionalId: professionalId! } } }
           : {}),

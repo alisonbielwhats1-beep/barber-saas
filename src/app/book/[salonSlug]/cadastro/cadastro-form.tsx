@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { safeClientReturnTo, clientHomePath } from "@/lib/client-routes";
 import { Loader2 } from "lucide-react";
 import { PasswordInput } from "@/components/ui/password-input";
 import { formatPhoneBR, isValidPhoneBR } from "@/lib/phone";
@@ -14,15 +16,21 @@ export function CadastroForm({
   returnTo?: string;
 }) {
   const [name, setName] = useState("");
+  const [ready, setReady] = useState(false);
+  useEffect(() => setReady(true), []);
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const submitting = useRef(false);
+  const [accountAccess, setAccountAccess] = useState(false);
+  const destination = safeClientReturnTo(salonSlug, returnTo, clientHomePath(salonSlug));
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (submitting.current) return;
     if (password.length < 6) {
       setError("A senha deve ter pelo menos 6 caracteres");
       return;
@@ -31,11 +39,13 @@ export function CadastroForm({
       setError("As senhas não coincidem.");
       return;
     }
-    if (phone && !isValidPhoneBR(phone)) {
+    if (!isValidPhoneBR(phone)) {
       setError("WhatsApp inválido — use DDD + número, ex.: (11) 91234-5678");
       return;
     }
     setError(null);
+    setAccountAccess(false);
+    submitting.current = true;
     setPending(true);
     void (async () => {
       try {
@@ -44,10 +54,14 @@ export function CadastroForm({
           { name, phone, email, password, confirmPassword },
           returnTo,
         );
-        if (result?.error) setError(result.error);
+        if (result?.error) {
+          setError(result.error);
+          setAccountAccess(result.code === "ACCOUNT_ACCESS");
+        }
       } catch {
-        setError("Não foi possível criar sua conta. Verifique a conexão e tente novamente.");
+        setError("Não recebemos a confirmação. Tente novamente com a mesma senha; se a conta já foi criada, concluiremos seu acesso.");
       } finally {
+        submitting.current = false;
         setPending(false);
       }
     })();
@@ -55,6 +69,7 @@ export function CadastroForm({
 
   return (
     <form method="post" onSubmit={submit} className="space-y-4">
+      <fieldset disabled={!ready || pending} aria-busy={!ready || pending} className="min-w-0 space-y-4">
       <div>
         <label htmlFor="client-name" className="mb-1.5 block text-[13px] font-medium text-muted-foreground">
           Nome completo
@@ -76,13 +91,13 @@ export function CadastroForm({
 
       <div>
         <label htmlFor="client-phone" className="mb-1.5 block text-[13px] font-medium text-muted-foreground">
-          WhatsApp{" "}
-          <span className="font-normal text-muted-foreground">(opcional)</span>
+          WhatsApp (obrigatório)
         </label>
         <input
           id="client-phone"
           name="phone"
           type="tel"
+          required
           inputMode="tel"
           value={phone}
           onChange={(e) => setPhone(formatPhoneBR(e.target.value))}
@@ -145,6 +160,12 @@ export function CadastroForm({
           {error}
         </p>
       )}
+      {accountAccess && (
+        <div className="flex flex-wrap gap-4 text-sm">
+          <Link className="underline" href={`/book/${salonSlug}/login?returnTo=${encodeURIComponent(destination)}`}>Entrar</Link>
+          <Link className="underline" href={`/book/${salonSlug}/recuperar-senha`}>Recuperar acesso</Link>
+        </div>
+      )}
 
       <button
         type="submit"
@@ -154,6 +175,7 @@ export function CadastroForm({
         {pending && <Loader2 className="h-4 w-4 animate-spin" />}
         {pending ? "Criando conta…" : "Criar conta"}
       </button>
+      </fieldset>
     </form>
   );
 }

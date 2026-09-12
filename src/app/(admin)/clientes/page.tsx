@@ -7,10 +7,13 @@ import { PageHeader } from "@/components/page-header";
 import { ClientForm } from "./client-form";
 import { ClientsCrm } from "./clients-crm";
 import { getMarketingSettings } from "@/lib/marketing-settings";
+import { hiddenClientIds } from "@/lib/client-list-visibility";
+import { AutoRefresh } from "@/components/auto-refresh";
 
-export default async function ClientesPage() {
+export default async function ClientesPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
   const ctx = await getTenantContext();
   const { salonId, role } = ctx;
+  const showExcluded = role === "OWNER" && (await searchParams).status === "excluded";
   const { clients, salon, marketingSettings } = await withTenant(ctx, async (tx) => {
     const marketingSettings = await getMarketingSettings(tx, salonId);
     const professional = role === "PROFESSIONAL"
@@ -19,13 +22,15 @@ export default async function ClientesPage() {
           select: { id: true },
         })
       : null;
-    const clients = role === "PROFESSIONAL" && !professional
+    const allClients = role === "PROFESSIONAL" && !professional
       ? []
       : await getClientList(tx, salonId, {
           professionalId: professional?.id,
           includeCommercialData: role !== "PROFESSIONAL",
           lapsedClientDays: marketingSettings.lapsedClientDays,
         });
+    const hiddenIds = await hiddenClientIds(tx, salonId);
+    const clients = allClients.filter(client => hiddenIds.has(client.id) === showExcluded);
     const salon = await tx.salon.findUnique({
       where: { id: salonId },
       select: { name: true, timezone: true },
@@ -40,6 +45,7 @@ export default async function ClientesPage() {
 
   return (
     <div className="min-w-0 space-y-3 md:space-y-6">
+      <AutoRefresh intervalMs={15_000} />
       <PageHeader compact kicker="CRM" title="Clientes">
         {role !== "PROFESSIONAL" && <ClientForm />}
       </PageHeader>
@@ -56,6 +62,8 @@ export default async function ClientesPage() {
         salonName={salon?.name ?? "nosso salão"}
         timezone={salon?.timezone ?? "America/Sao_Paulo"}
         canManage={role !== "PROFESSIONAL"}
+        canDelete={role === "OWNER"}
+        showExcluded={showExcluded}
         lapsedClientDays={marketingSettings.lapsedClientDays}
       />
     </div>

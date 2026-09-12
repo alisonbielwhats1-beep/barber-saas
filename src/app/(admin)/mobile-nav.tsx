@@ -196,7 +196,7 @@ export function MobileNav({
         </DialogContent>
 
       {/* Barra inferior */}
-      <nav className="fixed inset-x-0 bottom-0 z-50 flex border-t border-border bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden print:hidden">
+      <nav style={{ paddingLeft: "var(--safe-left)", paddingRight: "var(--safe-right)" }} className="fixed inset-x-0 bottom-0 z-50 flex border-t border-border bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden print:hidden">
         {PRIMARY.filter((item) => !item.roles || item.roles.includes(role)).map((item) => {
           const active = !open && isActive(item.href);
           return (

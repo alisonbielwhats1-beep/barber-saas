@@ -14,6 +14,28 @@ vi.mock("../auth-actions", () => ({
 }));
 
 describe("CadastroForm", () => {
+  it("bloqueia envio repetido e preserva os dados após resposta perdida", async () => {
+    let reject!: (error: Error) => void;
+    mocks.registerClient.mockReturnValue(new Promise((_resolve, r) => { reject = r; }));
+    render(<CadastroForm salonSlug="studio-a" />);
+    fireEvent.change(screen.getByLabelText("Nome completo"), { target: { value: "Cliente sintético" } });
+    fireEvent.change(screen.getByLabelText(/WhatsApp/), { target: { value: "11912345678" } });
+    fireEvent.change(screen.getByLabelText("E-mail"), { target: { value: "test@example.test" } });
+    fireEvent.change(screen.getByLabelText("Senha", { exact: true }), { target: { value: "123456" } });
+    fireEvent.change(screen.getByLabelText("Confirmar senha"), { target: { value: "123456" } });
+    const form = screen.getByRole("button", { name: "Criar conta" }).closest("form")!;
+    fireEvent.submit(form);
+    fireEvent.submit(form);
+    expect(mocks.registerClient).toHaveBeenCalledOnce();
+    expect(screen.getByLabelText("E-mail")).toBeDisabled();
+    reject(new Error("network"));
+    await screen.findByText(/Não recebemos a confirmação/);
+    expect(screen.getByLabelText("Senha", { exact: true })).toHaveValue("123456");
+    mocks.registerClient.mockResolvedValueOnce({ error: "Acesso pendente", code: "ACCOUNT_ACCESS" });
+    fireEvent.submit(form);
+    await screen.findByRole("link", { name: "Entrar" });
+    expect(screen.getByRole("link", { name: "Recuperar acesso" })).toHaveAttribute("href", "/book/studio-a/recuperar-senha");
+  });
   beforeEach(() => {
     mocks.registerClient.mockReset();
   });
@@ -24,6 +46,7 @@ describe("CadastroForm", () => {
 
   async function fillRequiredFields(user: ReturnType<typeof userEvent.setup>) {
     await user.type(screen.getByPlaceholderText("Seu nome"), "Ana Silva");
+    await user.type(screen.getByLabelText(/WhatsApp/), "11912345678");
     await user.type(screen.getByPlaceholderText("seu@email.com"), "ana@example.com");
   }
 

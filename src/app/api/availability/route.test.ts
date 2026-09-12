@@ -1,12 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-const mocks = vi.hoisted(() => ({ tx: {
+const mocks = vi.hoisted(() => ({ session: vi.fn(), resolve: vi.fn(), tx: {
   salon: { findUnique: vi.fn() }, service: { findMany: vi.fn() }, professionalService: { findMany: vi.fn() },
   servicePricingRule: { findFirst: vi.fn() }, workingHours: { findMany: vi.fn() }, professionalOpening: { findMany: vi.fn() },
-  salonClosure: { findMany: vi.fn() }, timeOff: { findMany: vi.fn() }, appointment: { findMany: vi.fn() }, resourceBooking: { findMany: vi.fn() },
+  salonClosure: { findMany: vi.fn() }, timeOff: { findMany: vi.fn() }, appointment: { findMany: vi.fn(), findFirst: vi.fn() }, resourceBooking: { findMany: vi.fn() },
 } }));
 vi.mock("@/lib/prisma-tenant", () => ({ withApprovedSalon: async (_id: string, callback: (tx: typeof mocks.tx) => unknown) => callback(mocks.tx) }));
+vi.mock("@/lib/client-auth", () => ({ getClientSession: mocks.session }));
+vi.mock("@/lib/public-appointment", () => ({ resolveClientSessionInTenant: mocks.resolve }));
 vi.mock("@/lib/rate-limit", () => ({ clientIp: () => "test", checkRateLimit: async () => ({ allowed: true }), rateLimitHeaders: () => ({}) }));
 import { GET } from "./route";
 
@@ -23,6 +25,26 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe("horários publicados ao cliente", () => {
+  it("exclui somente a própria reserva e recurso durante remarcação autenticada", async () => {
+    mocks.session.mockResolvedValue({ clientId: "client-a", salonId: "salon-a" });
+    mocks.resolve.mockResolvedValue({ clientId: "client-a" });
+    mocks.tx.appointment.findFirst.mockResolvedValue({ id: "own" });
+    mocks.tx.service.findMany.mockResolvedValue([{ id: "service-a", durationMin: 30, priceCents: 5000, physicalResourceId: "room" }]);
+    const response = await GET(new NextRequest("http://localhost/api/availability?salonId=salon-a&professionalId=pro-a&serviceId=service-a&date=2030-09-11&rescheduleId=own"));
+    expect(response.status).toBe(200);
+    expect(mocks.tx.appointment.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ id: "own", salonId: "salon-a", clientId: "client-a" }) }));
+    expect(mocks.tx.appointment.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ id: { not: "own" } }) }));
+    expect(mocks.tx.resourceBooking.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ appointmentId: { not: "own" } }) }));
+  });
+  it("não permite usar exclusão sem sessão ou com reserva de outra pessoa", async () => {
+    const url = "http://localhost/api/availability?salonId=salon-a&professionalId=pro-a&serviceId=service-a&date=2030-09-11&rescheduleId=other";
+    mocks.resolve.mockResolvedValue(null);
+    expect((await GET(new NextRequest(url))).status).toBe(404);
+    mocks.resolve.mockResolvedValue({ clientId: "client-a" });
+    mocks.tx.appointment.findFirst.mockResolvedValue(null);
+    expect((await GET(new NextRequest(url))).status).toBe(404);
+    expect(mocks.tx.appointment.findMany).not.toHaveBeenCalled();
+  });
   it("oferece manhã/noite, impede atravessar a pausa e exige terminar até 21h", async () => {
     const response = await request();
     const data = await response.json();

@@ -423,6 +423,7 @@ export function BookingFlow({
       serviceId: serviceIds.join(","),
       date: format(date, "yyyy-MM-dd"),
     });
+    if (rescheduleId) params.set("rescheduleId", rescheduleId);
     requestAvailability(`/api/availability?${params}`, { signal: controller.signal })
       .then((result) => {
         if (availabilityRequestRef.current !== requestId) return;
@@ -577,6 +578,7 @@ export function BookingFlow({
           durationMin: totalDuration,
           proName: pro?.name ?? "",
         });
+        router.refresh();
       } else {
         setReviewing(false);
         setError(friendlyError(responseBody.error));
