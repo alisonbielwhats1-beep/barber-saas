@@ -14,6 +14,9 @@ operacionais. Não reproduzir mídia ou dados pessoais do cliente na aplicação
   rolagem e mantém o X acessível durante a rolagem.
 - Fechamento: varredura local encontrou excedente de 64px em 320px e 24px em
   360px. Colunas com mínimo zero permitem acomodar conteúdo e formulário.
+- Cadastro: campos controlados só ficam disponíveis depois da inicialização
+  dos seus handlers. Na checagem em WebKit, preencher antes dessa etapa fez
+  o nome desaparecer; a proteção impede aceitar texto antes de poder mantê-lo.
 - Cliente: OWNER exclui apenas da lista; pode acessar Clientes excluídos e
   restaurar. Outros papéis não recebem a ação e são recusados pelo servidor.
   Conta, senha, sessão, agendamentos, pagamentos e histórico são preservados.

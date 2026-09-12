@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { safeClientReturnTo, clientHomePath } from "@/lib/client-routes";
 import { Loader2 } from "lucide-react";
@@ -16,6 +16,8 @@ export function CadastroForm({
   returnTo?: string;
 }) {
   const [name, setName] = useState("");
+  const [ready, setReady] = useState(false);
+  useEffect(() => setReady(true), []);
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -67,7 +69,7 @@ export function CadastroForm({
 
   return (
     <form method="post" onSubmit={submit} className="space-y-4">
-      <fieldset disabled={pending} className="min-w-0 space-y-4">
+      <fieldset disabled={!ready || pending} aria-busy={!ready || pending} className="min-w-0 space-y-4">
       <div>
         <label htmlFor="client-name" className="mb-1.5 block text-[13px] font-medium text-muted-foreground">
           Nome completo
