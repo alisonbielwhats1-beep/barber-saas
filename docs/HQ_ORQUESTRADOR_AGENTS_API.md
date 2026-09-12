@@ -7,21 +7,19 @@ O recorte anterior veio do pacote `b10fb69`, na branch
 `codex/transferencia-orquestrador`. Os 14 SHA-256 do manifesto conferiram.
 Os 42 testes originais passaram neste PC antes da ampliação.
 
-Implementado: Triage → um especialista selecionado → Chief, ou Triage → Chief.
-Os sete destinos estão configurados. **A leitura real dos sete IDs foi comprovada**
-em 12/09 às 19:36 e novamente às 19:42 UTC, no projeto informado. A chave local
-confere com o arquivo configurado pelo responsável, sem expor seu conteúdo.
-**A execução real permanece pendente**: oito tentativas autenticadas pararam
-ao solicitar a sessão de Triage. Às 19:38, o retorno indicou `api.agents.write`;
-às 19:46, o acesso continuou recusado, sem identificador adicional de permissão,
-inclusive após nova confirmação de liberação pelo responsável.
-Após a captura mostrando Agents → Write, a tentativa das 19:50 UTC retornou
-HTTP 403, código `forbidden`, com referência ao modelo. A consulta somente
-leitura das 19:51 UTC confirmou que todos os sete agentes usam `gpt-5.6-luna`.
-É necessário conferir o acesso a esse modelo no projeto; a causa administrativa
-exata ainda não foi comprovada. Os modelos salvos foram preservados.
-Nenhuma sessão foi confirmada, os demais agentes não foram acionados e não houve
-resposta final real. As tentativas foram contadas no limite diário, mesmo recusadas.
+**Implementado e validado com API real:** Triage → um especialista selecionado →
+Chief, ou Triage → Chief. Os sete agentes foram executados com sucesso nos seis
+caminhos possíveis, mantendo os IDs, instruções, modelos e formatos salvos.
+Foram verificadas 17 sessões dos fluxos concluídos diretamente na OpenAI,
+incluindo os dados recebidos por Chief e as restrições de capacidades.
+
+Os ajustes de permissão foram feitos pelo responsável no painel: Agents → Write,
+modelo gpt-5.6-luna permitido no projeto e List models → Read. As primeiras
+chamadas reais concluídas ocorreram após esses ajustes; a propagação simultânea
+não permite atribuir o desbloqueio exclusivamente a uma permissão.
+
+Histórico, durações, sessões e cancelamento real comprovado em
+[Validação real de 12/09](HQ_ORQUESTRADOR_VALIDACAO_2026-09-12.md).
 
 Sem Production, WhatsApp, novas dependências ou migration. Twilio e `./whatsapp`
 continuam preservados no pacote de transferência original; não foram incorporados.
@@ -128,6 +126,10 @@ A saída do modelo e a mensagem do usuário nunca podem escolher IDs arbitrário
 - Uma execução por minuto por administrador; dez por janela de 24h por projeto.
   Preview exige limitador distribuído. Desenvolvimento aceita o limitador local
   existente, que reinicia com o processo; não é um teto financeiro mensal.
+- Exceção autorizada neste diagnóstico: `HQ_ORCHESTRATOR_DIAGNOSTIC_UNTIL` com
+  expiração ISO futura de no máximo 24h permite até 20 somente em development
+  sem VERCEL_ENV. Mantém o contador existente, retorna a dez ao expirar e informa
+  a cota temporária na tela. Valor vazio/inválido/expirado conserva dez.
 - Production bloqueado por APP_ENV e VERCEL_ENV, mesmo com a flag ativa.
 - Durante o fluxo, banco somente para autorização; sem dados de clientes,
   escrita em banco ou persistência no CRM. Resultados voláteis na página;
@@ -135,20 +137,19 @@ A saída do modelo e a mensagem do usuário nunca podem escolher IDs arbitrário
 
 ## Validação
 
-Revisão final: lint e TypeScript passaram; os 989 testes gerais em 183 arquivos
-passaram, incluindo 82 testes específicos do orquestrador. Build completo passou.
-O navegador também confirmou login pelo formulário e retorno à nova rota.
-POST direto à Server Action sem sessão foi bloqueado (307 para login), e com
-usuário comum foi recusado no servidor (303 para dashboard).
-Esses testes usam respostas fictícias e não comprovam conexão real.
+Lint e TypeScript passaram; os 1.002 testes gerais em 183 arquivos passaram,
+incluindo 95 testes específicos. O build Next.js final
+passou em checkout isolado, mantendo o laboratório aberto. O wrapper npm run build
+encontrou bloqueio Windows ao regenerar a DLL Prisma em uso pelo servidor;
+npx next build concluiu usando o cliente já gerado e schema idêntico (SHA-256 conferido).
+O navegador confirmou login pelo formulário, retorno à nova rota e ausência de
+overflow em 390px. POST direto à Server Action sem sessão foi bloqueado (307 para
+login), e com usuário comum foi recusado no servidor (303 para dashboard).
 
-Após ajustar permissões no painel, duas rodadas aceitaram a leitura dos sete
-agentes. Isso comprova acesso aos recursos salvos, mas não execução de sessões.
-Os testes adicionais cobrem o diagnóstico seguro de permissões e recusa referente
-ao modelo, sem expor a mensagem bruta. A verificação somente leitura também
-informa o modelo já salvo em cada agente;
-a permissão ausente pode aparecer na tela, sem expor o erro bruto do fornecedor.
-Após esse ajuste, lint, TypeScript e os 86 testes específicos passaram.
+Separadamente dos testes simulados, seis ensaios reais concluíram os cinco
+especialistas e Chief direto. A auditoria das sessões confirmou transmissão
+completa dos resultados a Chief e ferramentas/delegação desativadas. Um ensaio
+mais amplo de Marketing atingiu 45 segundos e teve cancelamento remoto confirmado.
 
 ```powershell
 npm run lint
@@ -158,10 +159,9 @@ npm test -- --maxWorkers=2
 npm run build
 ```
 
-Após liberar a API, ensaiar mensagens fictícias dos cinco especialistas e Chief
-direto, respeitando um minuto entre execuções e dez por 24h. Conferir o destino
-realmente selecionado; não alterar os agentes para fabricar classificações.
-Até resolver as permissões, a operação real permanece pendente.
+Os ensaios reais foram concluídos. Novos testes devem respeitar a cota restante
+e o prazo; os seis resultados comprovados não garantem que toda mensagem futura
+conclua antes de 45 segundos.
 
 ## Documentação oficial consultada
 

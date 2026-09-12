@@ -16,7 +16,7 @@ export async function testOrchestrator(message: unknown): Promise<OrchestratorRe
   try {
     for (const rule of [
       { namespace: "hq-orchestrator-minute", identifier: actorId, limit: 1, windowSeconds: 60 },
-      { namespace: "hq-orchestrator-day", identifier: config.project, limit: 10, windowSeconds: 86400 },
+      { namespace: "hq-orchestrator-day", identifier: config.project, limit: config.dailyLimit, windowSeconds: 86400 },
     ]) {
       const limit = await checkRateLimit({ ...rule, failClosed: true });
       if ((process.env.VERCEL_ENV && limit.source !== "distributed") || !limit.allowed) {

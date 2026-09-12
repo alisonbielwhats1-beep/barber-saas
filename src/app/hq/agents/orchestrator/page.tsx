@@ -7,7 +7,7 @@ export const maxDuration = 60;
 
 export default async function OrchestratorPage() {
   await withHq(async () => undefined);
-  const { ready, reason } = orchestratorConfig();
+  const { ready, reason, dailyLimit } = orchestratorConfig();
   return <><nav className="hq-panel hq-actions"><Link href="/hq/agents">Voltar aos agentes</Link></nav>
-    <OrchestratorLab ready={ready} reason={reason} /></>;
+    <OrchestratorLab ready={ready} reason={reason} dailyLimit={dailyLimit} /></>;
 }

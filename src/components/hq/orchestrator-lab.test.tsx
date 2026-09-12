@@ -5,6 +5,10 @@ const run = vi.hoisted(() => vi.fn());
 vi.mock("@/app/hq/agents/orchestrator/actions", () => ({ testOrchestrator: run }));
 import { OrchestratorLab } from "./orchestrator-lab";
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
+it("discloses the temporary server-provided diagnostic allowance", () => {
+  render(<OrchestratorLab ready reason="" dailyLimit={20} />);
+  expect(screen.getByText(/até 20 por 24 horas/)).toHaveTextContent("ampliação temporária para diagnóstico");
+});
 it("explains missing configuration and prevents invocation", () => {
   render(<OrchestratorLab ready={false} reason="Configure a chave" />);
   expect(screen.getByText("Configure a chave")).toBeVisible();

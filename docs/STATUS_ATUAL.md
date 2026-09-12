@@ -1,20 +1,21 @@
 # Status atual canônico — Salon SaaS
 
-## 2026-09-12 — orquestrador de sete agentes, somente local
+## 2026-09-12 — orquestrador de sete agentes, conexão real local comprovada
 
 Branch `codex/hq-saved-agent-orchestrator`, base `5cca634`; recorte anterior
-recuperado do pacote de transferência `b10fb69` e ampliado para Triage → um
-especialista selecionado → Chief, ou Chief direto. Nenhum agente/modelo/prompt
-salvo foi recriado. Tela autenticada em `http://localhost:3017/hq/agents/orchestrator`,
-com PostgreSQL local exclusivo e usuários fictícios; sem Production/WhatsApp.
-Leitura real dos sete agentes comprovada em duas rodadas (19:36 e 19:42 UTC).
-Execução ainda recusada ao solicitar a sessão de Triage; uma tentativa indicou
-`api.agents.write`. Oito tentativas contabilizadas, nenhuma sessão confirmada.
-Às 19:50 UTC, após captura mostrando Agents → Write, a recusa 403 `forbidden`
-fez referência ao modelo. Os sete agentes salvos usam `gpt-5.6-luna`; é necessário
-conferir o acesso a esse modelo no projeto. Nenhuma configuração salva foi alterada.
-Fluxo real ainda não comprovado. Escopo, testes e evidências em
-`HQ_ORQUESTRADOR_AGENTS_API.md`. Não representa publicação ou migration produtiva.
+recuperado do pacote `b10fb69` e ampliado para Triage → um especialista → Chief,
+ou Chief direto. Seis ensaios reais concluíram os cinco especialistas e o caminho
+direto: todos os sete IDs executados, 17 sessões dos fluxos bem-sucedidos auditadas.
+Chief recebeu mensagem original, classificação e resultados completos.
+Instruções, modelo gpt-5.6-luna e formatos salvos preservados; ferramentas externas
+e delegação desativadas. Cancelamento remoto por prazo também foi comprovado.
+
+Tela autenticada em `http://localhost:3017/hq/agents/orchestrator`, banco local
+exclusivo e usuários fictícios. O responsável autorizou até 20 tentativas/24h
+temporariamente, somente local, até 12/09 às 22:05:17 UTC; foram usadas 19.
+Limite normal dez, uma por minuto, prazo 45s. Sem Production, WhatsApp ou migration
+produtiva. Testes e sessões em `HQ_ORQUESTRADOR_VALIDACAO_2026-09-12.md`;
+configuração e limites em `HQ_ORQUESTRADOR_AGENTS_API.md`. PR #100 em rascunho.
 
 
 ## 2026-09-12 — busca, bloqueios e encaixe: publicação autorizada

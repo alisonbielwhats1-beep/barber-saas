@@ -12,9 +12,20 @@ beforeEach(() => {
   vi.resetAllMocks();
   vi.stubEnv("HQ_ORCHESTRATOR_ENABLED", "true"); vi.stubEnv("APP_ENV", "development");
   vi.stubEnv("VERCEL_ENV", ""); vi.stubEnv("OPENAI_API_KEY", "synthetic-secret");
+  vi.stubEnv("HQ_ORCHESTRATOR_DIAGNOSTIC_UNTIL", "");
   f.access.mockImplementation(async callback => callback({}, "admin_test"));
   f.limit.mockResolvedValue({ allowed: true, source: "local" });
   f.run.mockResolvedValue({ ok: true, steps: [], answer: "Final" });
+});
+it("temporarily permits twenty locally while preserving the same project counter", async () => {
+  vi.stubEnv("HQ_ORCHESTRATOR_DIAGNOSTIC_UNTIL", new Date(Date.now() + 3600000).toISOString());
+  await testOrchestrator("teste");
+  expect(f.limit).toHaveBeenCalledWith(expect.objectContaining({ namespace: "hq-orchestrator-day", limit: 20, windowSeconds: 86400 }));
+});
+it.each(["expired", "too-far", "invalid", "hosted", "staging"])("retains ten when diagnostic allowance is %s", mode => {
+  const until = mode === "invalid" ? "invalid" : new Date(Date.now() + (mode === "expired" ? -1 : mode === "too-far" ? 90000000 : 3600000)).toISOString();
+  const env = { APP_ENV: mode === "staging" ? "staging" : "development", VERCEL_ENV: mode === "hosted" ? "preview" : "", HQ_ORCHESTRATOR_DIAGNOSTIC_UNTIL: until };
+  expect(orchestratorConfig(env).dailyLimit).toBe(10);
 });
 afterEach(() => vi.unstubAllEnvs());
 it("preserves authorization denial before config, limits or API", async () => {

@@ -7,7 +7,7 @@ import type { OrchestratorResult } from "@everflare/agents/orchestrator";
 const names = { TRIAGE: "Triage", SALES: "Sales", CUSTOMER_SUCCESS: "Customer Success", PRODUCT: "Product", OPERATIONS: "Operations", MARKETING: "Marketing", CHIEF: "Chief" };
 const statuses = { completed: "Concluído", failed: "Falhou", skipped: "Não acionado" };
 
-export function OrchestratorLab({ ready, reason }: { ready: boolean; reason: string }) {
+export function OrchestratorLab({ ready, reason, dailyLimit = 10 }: { ready: boolean; reason: string; dailyLimit?: number }) {
   const [message, setMessage] = useState("");
   const [pending, setPending] = useState(false);
   const [result, setResult] = useState<OrchestratorResult | null>(null);
@@ -41,7 +41,7 @@ export function OrchestratorLab({ ready, reason }: { ready: boolean; reason: str
           <textarea id="orchestrator-message" value={message} onChange={event => setMessage(event.target.value)}
             rows={6} maxLength={2000} required disabled={!ready || pending}
             placeholder="Exemplo: ao tentar remarcar um agendamento, a tela trava." aria-describedby="orchestrator-limit" />
-          <p id="orchestrator-limit">{message.length}/2.000 caracteres · 1 teste por minuto por administrador · até 10 por 24 horas no projeto</p>
+          <p id="orchestrator-limit">{message.length}/2.000 caracteres · 1 teste por minuto por administrador · até {dailyLimit} por 24 horas no projeto{dailyLimit > 10 && " · ampliação temporária para diagnóstico"}</p>
           <button className="hq-button" type="submit" disabled={!ready || pending || !message.trim()}>{pending ? "Executando fluxo…" : "Testar fluxo"}</button>
         </form>
         <p role="status" aria-live="polite">{pending ? "Aguardando os agentes. O passo a passo aparecerá ao concluir. Prazo de 45 segundos, mais até 2 segundos para solicitar cancelamento." : result?.ok ? "Fluxo concluído." : ""}</p>
