@@ -6,6 +6,8 @@
 .hq h3 {font-weight:650;font-size:15px}
 .hq p {color:var(--hq-muted)}
 .hq small {color:var(--hq-muted);font-size:12px}
+.hq-orchestrator-agents {display:flex;flex-wrap:wrap;gap:8px;margin:12px 0;list-style:none;padding:0}
+.hq-orchestrator-decision {border-left:3px solid var(--hq-green);padding:4px 14px;margin:12px 0;background:#eaf4ef;overflow-wrap:anywhere}
 .hq a,.hq button,.hq input,.hq select,.hq textarea,.hq summary {outline-offset:4px}
 .hq :focus-visible {outline:2px solid #126949}
 .hq-sidebar {background:#fff;border-right:1px solid var(--hq-line);padding:28px 16px;display:flex;flex-direction:column;gap:28px;position:sticky;top:0;height:100dvh;overflow-y:auto}

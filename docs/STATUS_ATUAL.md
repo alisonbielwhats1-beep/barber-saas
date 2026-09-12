@@ -1,5 +1,62 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-12 — sugestões com limite de coleta validadas localmente
+
+Na mesma branch/PR #100, o responsável autorizou interromper perguntas repetidas:
+Product avalia sugestões externas classificadas FEATURE_REQUEST; Customer Success
+esclarece em até duas rodadas e Chief recebe a recomendação, mesmo com incertezas.
+Estado e encerramento controlados no servidor, modelos/prompts salvos preservados.
+1.051 testes simulados, lint, TypeScript e build passaram. Ensaio final real na
+tela: entrada Triage/CS, avaliação Product/CS e Chief sozinho após duas rodadas,
+reutilizando a análise Product e recebendo a mensagem mais recente. A etapa final
+levou 20,029s, sem terceira chamada CS. Cinco sessões auditadas; 45/50 tentativas
+usadas no encerramento. Escopo em `HQ_ATENDIMENTO_CONVERSA_2026-09-12.md`.
+Sem Production, WhatsApp, migration, ticket ou notificação ao fundador.
+
+## 2026-09-12 — limite local ampliado para cinquenta
+
+O responsável autorizou manter até 50 tentativas/24h no laboratório local,
+substituindo o teto temporário de 24. Configuração explícita
+`HQ_ORCHESTRATOR_LOCAL_DAILY_LIMIT=50`, somente development sem hospedagem;
+não depende da expiração do diagnóstico. Contador anterior preservado, uma
+tentativa/minuto e prazo de 45s mantidos. Não altera Preview/Production.
+Verificação da configuração sem consumir inferência: 1.029 testes, lint,
+TypeScript e build completos passaram; navegador autenticado confirmou 50.
+
+## 2026-09-12 — laboratório com continuidade e Chief condicional
+
+Evolução autorizada na mesma branch/PR #100: Triage na entrada, especialista
+mantido com histórico e Chief apenas por revisão/decisão. Sales/Customer Success
+respondem ao cliente; demais análises e Chief ficam internas. Pendências não
+executam aprovações. Catálogo público vem da mesma fonte da landing, sem dados
+de salões. Estado opaco por administrador, até seis mensagens, apenas na página.
+Escopo e limites em `HQ_ATENDIMENTO_CONVERSA_2026-09-12.md`. Os sete formatos
+salvos foram conferidos por leitura; não foram alterados. 116 testes específicos,
+1.023 testes gerais, lint, TypeScript, build e navegador local passaram. Três
+etapas reais da conversa (preços, continuidade e Chief) comprovadas na tela/API;
+suporte comprovado por recuperação somente leitura de dois turnos concluídos.
+Seis sessões auditadas. Continuação observada em 15,074s, sem garantia de SLA.
+Cota temporária ampliada com autorização para 24 até 19h05 Brasília, já atingida
+e agora preservada localmente entre reinícios. Sem WhatsApp, migration, CRM ou
+Production. Detalhes e limites da validação no documento da fase.
+
+## 2026-09-12 — orquestrador de sete agentes, conexão real local comprovada
+
+Branch `codex/hq-saved-agent-orchestrator`, base `5cca634`; recorte anterior
+recuperado do pacote `b10fb69` e ampliado para Triage → um especialista → Chief,
+ou Chief direto. Seis ensaios reais concluíram os cinco especialistas e o caminho
+direto: todos os sete IDs executados, 17 sessões dos fluxos bem-sucedidos auditadas.
+Chief recebeu mensagem original, classificação e resultados completos.
+Instruções, modelo gpt-5.6-luna e formatos salvos preservados; ferramentas externas
+e delegação desativadas. Cancelamento remoto por prazo também foi comprovado.
+
+Tela autenticada em `http://localhost:3017/hq/agents/orchestrator`, banco local
+exclusivo e usuários fictícios. O responsável autorizou até 20 tentativas/24h
+temporariamente, somente local, até 12/09 às 22:05:17 UTC; foram usadas 19.
+Limite normal dez, uma por minuto, prazo 45s. Sem Production, WhatsApp ou migration
+produtiva. Testes e sessões em `HQ_ORQUESTRADOR_VALIDACAO_2026-09-12.md`;
+configuração e limites em `HQ_ORQUESTRADOR_AGENTS_API.md`. PR #100 em rascunho.
+
 
 ## 2026-09-12 — busca, bloqueios e encaixe: publicação autorizada
 

@@ -8,7 +8,8 @@
     "./catalog": "./src/catalog.ts",
     "./policy": "./src/policy.ts",
     "./chief": "./src/chief.ts",
-    "./support": "./src/support.ts"
+    "./support": "./src/support.ts",
+    "./orchestrator": "./src/orchestrator.ts"
   },
   "dependencies": {
     "@openai/agents": "0.18.0",

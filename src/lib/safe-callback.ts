@@ -19,6 +19,7 @@ const ALLOWED_EXACT_PATHS = new Set([
   "/plataforma",
   "/plataforma/cobrancas",
   "/plataforma/solicitacoes",
+  "/hq/agents/orchestrator",
 ]);
 
 const INVITE_PATH = /^\/convite\/[A-Za-z0-9_-]{20,256}$/;
