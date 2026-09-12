@@ -19,6 +19,7 @@ describe("CadastroForm", () => {
     mocks.registerClient.mockReturnValue(new Promise((_resolve, r) => { reject = r; }));
     render(<CadastroForm salonSlug="studio-a" />);
     fireEvent.change(screen.getByLabelText("Nome completo"), { target: { value: "Cliente sintético" } });
+    fireEvent.change(screen.getByLabelText(/WhatsApp/), { target: { value: "11912345678" } });
     fireEvent.change(screen.getByLabelText("E-mail"), { target: { value: "test@example.test" } });
     fireEvent.change(screen.getByLabelText("Senha", { exact: true }), { target: { value: "123456" } });
     fireEvent.change(screen.getByLabelText("Confirmar senha"), { target: { value: "123456" } });
@@ -45,6 +46,7 @@ describe("CadastroForm", () => {
 
   async function fillRequiredFields(user: ReturnType<typeof userEvent.setup>) {
     await user.type(screen.getByPlaceholderText("Seu nome"), "Ana Silva");
+    await user.type(screen.getByLabelText(/WhatsApp/), "11912345678");
     await user.type(screen.getByPlaceholderText("seu@email.com"), "ana@example.com");
   }
 

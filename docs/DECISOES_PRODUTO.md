@@ -286,6 +286,11 @@ representação adicional, nunca a autorização.
 
 ## Cliente convidado e conta
 
+Pedido de 12/09/2026: telefone válido com DDD é obrigatório no cadastro público.
+Contas antigas sem telefone recebem alerta para preenchimento no aplicativo;
+o acesso é preservado e o número atualizado fica disponível ao estabelecimento.
+Isso não autoriza vincular/mesclar automaticamente perfis pelo telefone.
+
 Atualização autorizada na solicitação de evolução de produto de 06/09/2026:
 o catálogo público pode ser consultado antes do login. Criar reserva, entrar
 na fila e consultar dados pessoais continuam exigindo sessão do estabelecimento

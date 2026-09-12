@@ -79,6 +79,30 @@ async function fixture() {
 }
 
 describePostgres("concorrência real de agendamentos", () => {
+  it("remarca duas vezes no domingo, libera as vagas anteriores e preserva os vizinhos", async () => {
+    const data = await fixture();
+    await prisma.workingHours.create({ data: { salonId: data.salonId, professionalId: data.professionalId, weekday: 0, startMinutes: 540, endMinutes: 1080 } });
+    const now = new Date("2032-08-01T12:00:00Z");
+    const make = (clientId: string, time: string) => withSalon(data.salonId, tx => createAppointment(tx, {
+      salonId: data.salonId, professionalId: data.professionalId, clientId, serviceIds: [data.serviceId], startLocal: `2032-08-08T${time}`,
+      actor: { type: "STAFF", id: data.professionalUserId, name: "Teste" }, origin: "ADMIN", idempotencyKey: crypto.randomUUID(), enforceBookingWindow: false, now,
+    }));
+    const own = await make(data.clients[0]!.id, "12:00");
+    const neighbor = await make(data.clients[1]!.id, "11:00");
+    const before = await prisma.appointment.findUniqueOrThrow({ where: { id: neighbor.appointment.id } });
+    const move = (time: string, version: number) => withSalon(data.salonId, tx => rescheduleAppointment(tx, {
+      salonId: data.salonId, appointmentId: own.appointment.id, professionalId: data.professionalId, startLocal: `2032-08-08T${time}`,
+      actor: { type: "CLIENT", id: data.clients[0]!.id, name: "Cliente A" }, expectedClientId: data.clients[0]!.id,
+      expectedVersion: version, enforceClientPolicy: true, idempotencyKey: crypto.randomUUID(), now,
+    }));
+    expect((await move("10:30", 1)).appointment).toMatchObject({ id: own.appointment.id, version: 2 });
+    await make(data.clients[2]!.id, "12:00");
+    await expect(move("11:00", 2)).rejects.toMatchObject({ code: "SLOT_TAKEN" });
+    expect((await move("09:30", 2)).appointment).toMatchObject({ id: own.appointment.id, version: 3 });
+    await make(data.clients[3]!.id, "10:30");
+    expect(await prisma.appointment.findUniqueOrThrow({ where: { id: neighbor.appointment.id } })).toEqual(before);
+    expect(await prisma.appointment.count({ where: { salonId: data.salonId, clientId: data.clients[0]!.id } })).toBe(1);
+  });
   it("alterar apenas serviços pede aceite e preserva autorização pontual após expediente", async () => {
     const data = await fixture();
     const clientId = data.clients[0]!.id;

@@ -8,6 +8,7 @@ import { ClientForm } from "./client-form";
 import { ClientsCrm } from "./clients-crm";
 import { getMarketingSettings } from "@/lib/marketing-settings";
 import { hiddenClientIds } from "@/lib/client-list-visibility";
+import { AutoRefresh } from "@/components/auto-refresh";
 
 export default async function ClientesPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
   const ctx = await getTenantContext();
@@ -44,6 +45,7 @@ export default async function ClientesPage({ searchParams }: { searchParams: Pro
 
   return (
     <div className="min-w-0 space-y-3 md:space-y-6">
+      <AutoRefresh intervalMs={15_000} />
       <PageHeader compact kicker="CRM" title="Clientes">
         {role !== "PROFESSIONAL" && <ClientForm />}
       </PageHeader>

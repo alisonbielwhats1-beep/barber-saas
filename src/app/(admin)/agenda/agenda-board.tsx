@@ -757,7 +757,7 @@ function DayView({
   return (
     <div className="agenda-grid overflow-auto rounded-xl border border-border bg-card">
       <div className="flex w-full" style={{ minWidth: 56 + professionals.length * 148 }} ref={bodyRef}>
-        <div className="w-14 shrink-0 border-r border-border bg-surface-1">
+        <div className="sticky left-0 z-20 w-14 shrink-0 border-r border-border bg-surface-1">
           <div style={{ height: HEADER_H }} className="border-b border-border" />
           <AgendaTimeScale start={dayStart} end={dayEnd} pixelsPerMinute={PX_PER_MIN} />
         </div>
@@ -848,7 +848,7 @@ function DayView({
                         if (!drag?.started) onOpenDetail(a);
                       }}
                       aria-label={`${a.clientName}, ${a.serviceName}, ${formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")}, ${pro.name}, ${cfg.label}.${placement.conflict ? " Conflito de horário detectado." : ""} Abrir detalhes`}
-                      data-appointment-professional={a.professionalId}
+                      data-appointment-professional={a.professionalId} data-colorful-appointment
                       title={placement.conflict && !a.isOverbooked ? "Conflito de horário detectado — revise este atendimento" : undefined}
                       className={`group absolute z-[2] cursor-pointer touch-pan-y select-none rounded-lg border-l-[3px] p-2 text-left text-xs shadow-sm transition focus-visible:z-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:cursor-grab ${
                         placement.conflict ? "ring-1 ring-danger/60" : ""
@@ -861,7 +861,7 @@ function DayView({
                         left: `calc(${placement.leftPct}% + 4px)`,
                         width: `calc(${placement.widthPct}% - 8px)`,
                         borderLeftColor: a.professionalColor,
-                        background: `color-mix(in srgb, ${a.professionalColor} 18%, hsl(var(--card)))`,
+                        background: `color-mix(in srgb, ${a.professionalColor} 60%, white)`,
                       }}
                     >
                       <p className="flex items-center gap-1.5 font-semibold text-foreground"><span aria-hidden="true" title={cfg.label} className="h-2 w-2 shrink-0 rounded-full" style={{ background: cfg.color }} /><span className="truncate">{a.clientName}</span></p>
@@ -950,7 +950,7 @@ function WeekView({
   return (
     <div className="agenda-grid overflow-auto rounded-xl border border-border bg-card">
       <div className="flex w-full" style={{ minWidth: 56 + days.length * colW }}>
-        <div className="w-14 shrink-0 border-r border-border bg-surface-1">
+        <div className="sticky left-0 z-20 w-14 shrink-0 border-r border-border bg-surface-1">
           <div style={{ height: HEADER_H }} className="border-b border-border" />
           <AgendaTimeScale start={dayStart} end={dayEnd} pixelsPerMinute={PX_PER_MIN} />
         </div>
@@ -1016,7 +1016,7 @@ function WeekView({
                       key={a.id}
                       onClick={() => onOpenDetail(a)}
                       aria-label={`${formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")}, ${a.clientName}, ${a.serviceName}, ${professionals.find(p => p.id === a.professionalId)?.name ?? "Profissional"}, ${cfg.label}${placement.conflict ? ", conflito de horário" : ""}`}
-                      data-appointment-professional={a.professionalId}
+                      data-appointment-professional={a.professionalId} data-colorful-appointment
                       title={placement.conflict ? "Conflito de horário detectado — revise este atendimento" : undefined}
                       className={`absolute z-[2] overflow-hidden rounded-md border-l-[3px] px-1.5 py-1 text-left text-[10px] shadow-sm transition hover:shadow-md ${
                         placement.conflict ? "ring-1 ring-danger/60" : ""
@@ -1027,7 +1027,7 @@ function WeekView({
                         left: `calc(${placement.leftPct}% + 3px)`,
                         width: `calc(${placement.widthPct}% - 6px)`,
                         borderLeftColor: a.professionalColor,
-                        background: `color-mix(in srgb, ${a.professionalColor} 18%, hsl(var(--card)))`,
+                        background: `color-mix(in srgb, ${a.professionalColor} 60%, white)`,
                       }}
                     >
                       <p className="truncate font-semibold">{formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")} {a.clientName.split(" ")[0]}</p>
@@ -1170,9 +1170,9 @@ function MonthView({
                       key={a.id}
                       onClick={() => onOpenDetail(a)}
                       aria-label={`${formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")}, ${a.clientName}, ${a.serviceName}, ${cfg.label}`}
-                      data-appointment-professional={a.professionalId}
+                      data-appointment-professional={a.professionalId} data-colorful-appointment
                       className="flex min-h-6 w-full items-center gap-1 truncate rounded px-1 py-1 text-left text-[11px] transition hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      style={{ background: `color-mix(in srgb, ${a.professionalColor} 18%, hsl(var(--card)))` }}
+                      style={{ background: `color-mix(in srgb, ${a.professionalColor} 60%, white)`, color: "#111827" }}
                     >
                       <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: a.professionalColor }} />
                       <span className="truncate">{formatInTimeZone(new Date(a.startAt), timezone, "HH:mm")} {a.clientName.split(" ")[0]}</span>

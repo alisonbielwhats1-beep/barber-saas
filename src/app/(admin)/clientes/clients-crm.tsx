@@ -93,7 +93,8 @@ export function ClientsCrm({
   const [pending, startTransition] = useTransition();
   const [search, setSearch] = useState("");
   const [segment, setSegment] = useState<Segment>("all");
-  const [detail, setDetail] = useState<ClientRow | null>(null);
+  const [selectedDetail, setDetail] = useState<ClientRow | null>(null);
+  const detail = selectedDetail ? clients.find(client => client.id === selectedDetail.id) ?? selectedDetail : null;
   const [history, setHistory] = useState<HistoryItem[] | null>(null);
   const [loadingHist, setLoadingHist] = useState(false);
   const [historyExpanded, setHistoryExpanded] = useState(false);

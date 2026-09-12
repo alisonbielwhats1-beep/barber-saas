@@ -1,5 +1,12 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-12 — telefone e remarcação em revisão
+
+Continuação autorizada do PR #98: cores mais visíveis por profissional,
+telefone obrigatório no cadastro público, alerta para contas sem telefone e
+correção da consulta de disponibilidade ao remarcar a própria reserva.
+Escopo e diagnóstico em `TELEFONE_REMARCACAO_2026-09-12.md`. Sem publicação.
+
 ## 2026-09-12 — semana, minutos e seletor de clientes em revisão
 
 O PR #98 recebe a faixa de domingo a sábado na agenda diária, régua de quinze

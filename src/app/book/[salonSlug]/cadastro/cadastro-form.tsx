@@ -39,7 +39,7 @@ export function CadastroForm({
       setError("As senhas não coincidem.");
       return;
     }
-    if (phone && !isValidPhoneBR(phone)) {
+    if (!isValidPhoneBR(phone)) {
       setError("WhatsApp inválido — use DDD + número, ex.: (11) 91234-5678");
       return;
     }
@@ -91,13 +91,13 @@ export function CadastroForm({
 
       <div>
         <label htmlFor="client-phone" className="mb-1.5 block text-[13px] font-medium text-muted-foreground">
-          WhatsApp{" "}
-          <span className="font-normal text-muted-foreground">(opcional)</span>
+          WhatsApp (obrigatório)
         </label>
         <input
           id="client-phone"
           name="phone"
           type="tel"
+          required
           inputMode="tel"
           value={phone}
           onChange={(e) => setPhone(formatPhoneBR(e.target.value))}

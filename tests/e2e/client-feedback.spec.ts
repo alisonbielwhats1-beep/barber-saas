@@ -62,6 +62,7 @@ test.describe("@database pedidos de serviços, fechamento e cadastro", () => {
     const fill = async (password: string) => {
       await page.goto("/book/luna-hair/cadastro");
       await page.getByLabel("Nome completo").fill("Cadastro sintético");
+      await page.getByLabel(/WhatsApp/).fill("11912345678");
       await page.getByLabel("E-mail", { exact: true }).fill(email);
       await page.getByLabel("Senha", { exact: true }).fill(password);
       await page.getByLabel("Confirmar senha", { exact: true }).fill(password);

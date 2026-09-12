@@ -309,6 +309,8 @@ jobs:
       - name: Validate public pages across browser engines
         run: npm run test:e2e:static
       - name: Validate authenticated critical journeys
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
         run: npm run test:e2e:database -- --grep-invert "matriz de enquadramento"
       - name: Preserve browser evidence from synthetic tests
         if: always()

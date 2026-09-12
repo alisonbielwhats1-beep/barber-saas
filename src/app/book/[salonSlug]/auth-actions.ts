@@ -49,8 +49,8 @@ const registrationSchema = z
       .string()
       .trim()
       .max(32)
-      .refine((value) => value.length === 0 || isValidPhoneBR(value))
-      .transform((value) => value.length === 0 ? null : normalizePhone(value)),
+      .refine(isValidPhoneBR, "Informe um telefone válido com DDD.")
+      .transform(normalizePhone),
     email: z.string().trim().toLowerCase().email().max(254),
     // bcrypt ignora silenciosamente bytes depois do 72º; rejeitamos em vez
     // de aceitar duas senhas visivelmente diferentes como equivalentes.

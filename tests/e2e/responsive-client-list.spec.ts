@@ -137,6 +137,7 @@ test("@database matriz de enquadramento das telas públicas e do estabelecimento
     await inspect(route);
   await page.goto("/book/luna-hair/cadastro");
   await page.getByLabel("Nome completo").fill("Cliente da matriz responsiva");
+  await page.getByLabel(/WhatsApp/).fill("11912345678");
   await page.getByLabel("E-mail", { exact: true }).fill(`responsive-${crypto.randomUUID()}@example.test`);
   await page.getByLabel("Senha", { exact: true }).fill("responsive-test-2026");
   await page.getByLabel("Confirmar senha", { exact: true }).fill("responsive-test-2026");

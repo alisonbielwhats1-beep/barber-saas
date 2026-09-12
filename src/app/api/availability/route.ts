@@ -10,6 +10,8 @@ import { checkBookingWindow, bufferedWindow } from "@/lib/scheduling";
 import { priceServicesForDate } from "@/lib/pricing";
 import { workingHoursForDate } from "@/lib/working-hours";
 import { bestFitSlots } from "@/lib/slot-fit";
+import { getClientSession } from "@/lib/client-auth";
+import { resolveClientSessionInTenant } from "@/lib/public-appointment";
 import {
   InvalidTimeZoneError,
   InvalidWallClockError,
@@ -65,6 +67,7 @@ export async function GET(req: NextRequest) {
     ),
   ];
   const date = url.searchParams.get("date");
+  const rescheduleId = url.searchParams.get("rescheduleId");
   if (
     !salonId ||
     !professionalId ||
@@ -77,7 +80,17 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    const session = rescheduleId ? await getClientSession() : null;
     const result = await withApprovedSalon(salonId, async (tx) => {
+      if (rescheduleId) {
+        const client = await resolveClientSessionInTenant(tx, session, salonId);
+        if (!client) return null;
+        const ownReservation = await tx.appointment.findFirst({
+          where: { id: rescheduleId, salonId, clientId: client.clientId, status: { in: ["PENDING", "CONFIRMED"] } },
+          select: { id: true },
+        });
+        if (!ownReservation) return null;
+      }
       const salon = await tx.salon.findUnique({
         where: { id: salonId },
         select: {
@@ -133,6 +146,7 @@ export async function GET(req: NextRequest) {
         where: {
           salonId,
           professionalId,
+          ...(rescheduleId ? { id: { not: rescheduleId } } : {}),
           startAt: { lt: to },
           endAt: { gt: from },
           status: { in: [...ACTIVE_STATUSES] },
@@ -141,7 +155,7 @@ export async function GET(req: NextRequest) {
         orderBy: { startAt: "asc" },
       });
       const resourceIds = services.flatMap(s => s.physicalResourceId ? [s.physicalResourceId] : []);
-      const resourceBookings = resourceIds.length ? await tx.resourceBooking.findMany({ where: { salonId, resourceId: { in: resourceIds }, active: true, startAt: { lt: to }, endAt: { gt: from } }, select: { startAt: true, endAt: true } }) : [];
+      const resourceBookings = resourceIds.length ? await tx.resourceBooking.findMany({ where: { salonId, resourceId: { in: resourceIds }, active: true, startAt: { lt: to }, endAt: { gt: from }, ...(rescheduleId ? { appointmentId: { not: rescheduleId } } : {}) }, select: { startAt: true, endAt: true } }) : [];
       const history = await tx.appointment.findMany({
         where: {
           salonId,

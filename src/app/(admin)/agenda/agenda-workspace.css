@@ -36,6 +36,8 @@
 .agenda-grid > div { padding-bottom: 72px; }
 .agenda-grid [data-pro-col] { scroll-margin-top: 64px; }
 .agenda-half-hour { position: relative; }
+.agenda-grid [data-colorful-appointment] { color: #111827; }
+.agenda-grid [data-colorful-appointment] p { color: #111827; }
 .agenda-half-hour::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px dashed hsl(var(--border) / .6); pointer-events: none; }
 @media (max-width: 639px) {
   .agenda-toolbar { flex-wrap: nowrap; gap: 4px; }
