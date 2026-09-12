@@ -31,6 +31,7 @@ import {
   History,
 } from "lucide-react";
 import { formatMoney, formatDuration } from "@/lib/utils";
+import { servicePriceLabel } from "@/lib/service-price";
 import { localDateTimeToUtc } from "@/lib/time";
 import { isValidPhoneBR, normalizePhone } from "@/lib/phone";
 import { ptBR } from "date-fns/locale";
@@ -399,7 +400,7 @@ export function AppointmentDetail({
                         invalidateEdit();
                         setEditServices(event.target.checked ? [...editServices, service.id] : editServices.filter(id => id !== service.id));
                       }} />
-                      <span>{service.name}<span className="block text-xs text-muted-foreground">{formatDuration(service.durationMin)} · {formatMoney(service.priceCents)}</span></span>
+                      <span>{service.name}<span className="block text-xs text-muted-foreground">{formatDuration(service.durationMin)} · {servicePriceLabel(service)}</span></span>
                     </label>
                   ))}
                 </div>
@@ -410,7 +411,7 @@ export function AppointmentDetail({
               <p role="status" className="rounded-lg border border-border bg-muted/40 p-3 text-sm">
                 Duração {servicesChanged ? "prevista" : "atual"}: <strong>{formatDuration(previewDuration)}</strong>.
                 {editEndLabel ? <> Término previsto: <strong>{editEndLabel}</strong>.</> : " Informe uma data e um horário válidos."}
-                <span className="mt-1 block text-xs text-muted-foreground">Valor {servicesChanged ? "base dos serviços" : "atual"}: {formatMoney(previewPrice)}. {servicesChanged ? "Valores e duração serão recalculados no servidor, incluindo regras do dia e preços a partir de. " : ""}Alterações de serviços ou horário para cliente com conta serão enviadas para aceite. O original permanece até a confirmação.</span>
+                <span className="mt-1 block text-xs text-muted-foreground">Valor {servicesChanged ? "base dos serviços" : "atual"}: {formatMoney(previewPrice)}. {servicesChanged ? "O total final considera as regras do dia; serviços com preço a partir de podem variar. " : ""}Alterações de serviços ou horário para cliente com conta serão enviadas para aceite. O original permanece até a confirmação.</span>
               </p>
 
               <div>
@@ -445,7 +446,7 @@ export function AppointmentDetail({
               </div>}
               <div className="flex gap-2 pt-1">
                 <button
-                  disabled={pending || !editEndLabel || !editServices.length || (servicesChanged && unknownService)}
+                  disabled={pending || afterHours || !editEndLabel || !editServices.length || (servicesChanged && unknownService)}
                   onClick={() => saveEdit()}
                   className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-[13px] font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
                 >

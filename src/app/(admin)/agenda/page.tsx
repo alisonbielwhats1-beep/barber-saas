@@ -145,7 +145,7 @@ export default async function AgendaPage({
     });
     const services = await tx.service.findMany({
       where: { salonId, active: true },
-      select: { id: true, name: true, durationMin: true, priceCents: true },
+      select: { id: true, name: true, durationMin: true, priceCents: true, priceType: true },
       orderBy: { name: "asc" },
     });
     const clients = await tx.clientProfile.findMany({

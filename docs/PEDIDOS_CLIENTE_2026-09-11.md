@@ -22,6 +22,8 @@ Sem migration, alteração de configuração do salão ou escrita manual produti
   que criou a conta, nem que prove falha de rede. A primeira tentativa ter
   persistido antes de uma repetição é uma hipótese compatível, não fato provado.
   Nenhuma senha/hash, token ou dado pessoal é reproduzido neste documento.
+  A consulta de logs Vercel no intervalo 21h50–22h05 falhou com
+  `ExceedsBillingLimitError`; isso não equivale à ausência de erros na aplicação.
 
 ## Comportamento
 
@@ -65,7 +67,8 @@ snapshots de preço/duração, idempotência, jornada preservada e auditoria.
 Playwright: criação/edição reais em 390px, inspeção de edição em 320/390/1440px,
 axe e screenshots sintéticas; cadastro repetido sem cookie e senha inválida.
 
-Resultados finais de lint, TypeScript, Vitest, build, CI e Preview serão
+Localmente, lint, TypeScript, 176 arquivos/875 testes Vitest e build passaram.
+Resultados finais de CI e Preview serão
 registrados no PR. Publicação produtiva depende da aprovação da entrega.
 Rollback de código: promover a versão anterior; manter eventos e auditorias.
 Não apagar nem alterar contas reais para contornar o problema de acesso.

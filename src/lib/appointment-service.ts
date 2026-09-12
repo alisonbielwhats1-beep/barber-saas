@@ -587,8 +587,8 @@ function requireOverrideReason(input: {
   if (!input.violation) return { overridden: false, reason: null };
   // As duas exceções são deliberadas e auditáveis, mas independentes:
   // overbooking não autoriza pausa e autorização de pausa não autoriza
-  // conflito com outro cliente. Fechamento, folga e limites externos da
-  // jornada continuam inegociáveis.
+  // conflito com outro cliente. TimeOff e término após o último turno
+  // são avaliados separadamente antes desta etapa; fechamento é bloqueado.
   if (
     input.violation !== "SLOT_TAKEN" &&
     input.violation !== "WORKING_HOURS_BREAK"

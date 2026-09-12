@@ -26,6 +26,7 @@ export type ServiceOption = {
   name: string;
   durationMin: number;
   priceCents: number;
+  priceType?: string;
 };
 export type ClientOption = { id: string; name: string; phone: string | null };
 
