@@ -211,6 +211,7 @@ export function AgendaBoard({
   const [selectedAvailabilityBlock, setSelectedAvailabilityBlock] = useState<AvailabilityBlock | null>(null);
   const [search, setSearch] = useState("");
   const [detail, setDetail] = useState<Appointment | null>(() => appointments.find(a => a.id === initialAppointmentId) ?? null);
+  const currentDetail = detail ? appointments.find(appointment => appointment.id === detail.id) ?? detail : null;
   const [createAt, setCreateAt] = useState<{ startLocal: string; proId: string } | null>(null);
   const [moveProposal, setMoveProposal] = useState<{
     appointment: Appointment;
@@ -590,8 +591,8 @@ export function AgendaBoard({
 
       <AppointmentDetail
         key={detail?.id ?? "empty"}
-        appt={detail}
-        services={services.filter(service => professionals.find(pro => pro.id === detail?.professionalId)?.serviceIds.includes(service.id))}
+        appt={currentDetail}
+        services={services.filter(service => professionals.find(pro => pro.id === currentDetail?.professionalId)?.serviceIds.includes(service.id))}
         salonName={salonName}
         timezone={timezone}
         canCreate={canCreate}

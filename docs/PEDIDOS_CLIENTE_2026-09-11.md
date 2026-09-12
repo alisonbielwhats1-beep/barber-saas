@@ -12,6 +12,9 @@ Sem migration, alteração de configuração do salão ou escrita manual produti
 - O detalhe usava transição React para acompanhar callbacks assíncronos.
   Agora o estado acompanha a Promise inteira e um ref impede envios duplicados.
   Não foi reproduzido o travamento específico no aparelho do cliente.
+  A jornada real revelou detalhe antigo ao reabrir antes do refresh terminar.
+  O painel agora resolve o atendimento selecionado pelos dados atuais; a edição
+  mantém a versão inicial para continuar recusando sobrescritas concorrentes.
 - O motor rejeitava qualquer término além da jornada. O pedido é uma exceção
   pontual ao término; não é alteração do expediente nem início após fechar.
 - A investigação autorizada somente leitura no projeto `barber-saas`

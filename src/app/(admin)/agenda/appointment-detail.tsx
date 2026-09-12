@@ -197,6 +197,7 @@ export function AppointmentDetail({
   const [editTime, setEditTime] = useState(() => formatInTimeZone(start, timezone, "HH:mm"));
   const [editNotes, setEditNotes] = useState(appt?.notes ?? "");
   const [editServices, setEditServices] = useState(appt?.serviceIds ?? []);
+  const [editBaseline, setEditBaseline] = useState(appt);
   const [serviceSearch, setServiceSearch] = useState("");
   const [afterHours, setAfterHours] = useState(false);
   const [afterHoursReason, setAfterHoursReason] = useState("");
@@ -207,12 +208,12 @@ export function AppointmentDetail({
   const cfg = STATUS[appt.status as keyof typeof STATUS] ?? STATUS.CONFIRMED;
   const whenLabel = formatInTimeZone(start, timezone, "d 'de' MMMM 'às' HH:mm", { locale: ptBR });
   const clientPhoneHref = telLink(appt.clientPhone);
-  const durationMin = Math.round((end.getTime() - start.getTime()) / 60_000);
-  const servicesChanged = editServices.length !== appt.serviceIds.length || editServices.some((id, i) => id !== appt.serviceIds[i]);
+  const baseline = editBaseline ?? appt;
+  const servicesChanged = editServices.length !== baseline.serviceIds.length || editServices.some((id, i) => id !== baseline.serviceIds[i]);
   const selectedCatalog = editServices.map(id => services.find(service => service.id === id));
   const unknownService = selectedCatalog.some(service => !service);
-  const previewDuration = servicesChanged ? selectedCatalog.reduce((total, service) => total + (service?.durationMin ?? 0), 0) : durationMin;
-  const previewPrice = servicesChanged ? selectedCatalog.reduce((total, service) => total + (service?.priceCents ?? 0), 0) : appt.priceCents;
+  const previewDuration = servicesChanged ? selectedCatalog.reduce((total, service) => total + (service?.durationMin ?? 0), 0) : Math.round((new Date(baseline.endAt).getTime() - new Date(baseline.startAt).getTime()) / 60_000);
+  const previewPrice = servicesChanged ? selectedCatalog.reduce((total, service) => total + (service?.priceCents ?? 0), 0) : baseline.priceCents;
   let editEndLabel: string | null = null;
   try {
     const proposedStart = localDateTimeToUtc(`${editDate}T${editTime}`, timezone);
@@ -272,6 +273,7 @@ export function AppointmentDetail({
     setEditTime(formatInTimeZone(start, timezone, "HH:mm"));
     setEditNotes(appt.notes ?? "");
     setEditServices(appt.serviceIds);
+    setEditBaseline(appt);
     setServiceSearch("");
     setSavedMessage(null);
     invalidateEdit();
@@ -285,13 +287,13 @@ export function AppointmentDetail({
       try {
         const result = await editAppointment({
           id: appt.id,
-          professionalId: appt.professionalId,
+          professionalId: baseline.professionalId,
           serviceIds: editServices,
           ...(confirmAfterHours ? { afterHoursReason: afterHoursReason.trim() } : {}),
           startLocal: `${editDate}T${editTime}`,
           notes: editNotes || null,
           idempotencyKey: mutationKey("edit"),
-          expectedVersion: appt.version,
+          expectedVersion: baseline.version,
         });
         if ("error" in result) {
           setError(result.error);

@@ -14,7 +14,7 @@ test.describe("@database pedidos de serviços, fechamento e cadastro", () => {
     await page.getByLabel("Senha", { exact: true }).fill("demo1234");
     await page.getByRole("button", { name: "Entrar", exact: true }).click();
     await expect(page).toHaveURL(/\/(hoje|dashboard)$/, { timeout: 30_000 });
-    await page.goto("/agenda?date=2032-08-05");
+    await page.goto(`/agenda?date=${test.info().retry ? "2032-08-06" : "2032-08-05"}`);
     await page.getByRole("button", { name: "Abrir ações rápidas da agenda" }).click();
     await page.getByRole("menuitem", { name: /Novo agendamento/ }).click();
     const form = page.getByRole("dialog", { name: "Novo agendamento" });
@@ -68,7 +68,7 @@ test.describe("@database pedidos de serviços, fechamento e cadastro", () => {
     await expect(page).toHaveURL(/\/book\/luna-hair$/, { timeout: 30_000 });
     await context.clearCookies();
     await fill("WrongPassword1234");
-    await expect(page.getByRole("alert")).toContainText("Não foi possível acessar com esta senha");
+    await expect(page.getByRole("alert").filter({ hasText: "Não foi possível acessar com esta senha" })).toBeVisible();
     expect((await context.cookies()).some(cookie => cookie.name === "client_token")).toBe(false);
     await page.getByLabel("Senha", { exact: true }).fill("Synthetic1234");
     await page.getByLabel("Confirmar senha", { exact: true }).fill("Synthetic1234");

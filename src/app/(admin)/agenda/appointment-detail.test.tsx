@@ -27,6 +27,17 @@ beforeEach(() => { vi.clearAllMocks(); mocks.edit.mockReset(); });
 afterEach(cleanup);
 
 describe("edição dos serviços e resposta da agenda", () => {
+  it("mantém a versão do início da edição quando chega uma atualização concorrente", async () => {
+    mocks.edit.mockResolvedValue({ error: "O agendamento mudou", code: "VERSION_CONFLICT" });
+    const props = { salonName: "Salão fictício", timezone: "America/Sao_Paulo", canCreate: true, canCancel: true, onClose: mocks.close };
+    const { rerender } = render(<AppointmentDetail {...props} appt={appt} />);
+    fireEvent.click(screen.getByRole("button", { name: /Editar/ }));
+    rerender(<AppointmentDetail {...props} appt={{ ...appt, version: 2, professionalId: "outro" }} />);
+    fireEvent.click(screen.getByRole("button", { name: "Salvar alterações" }));
+    await screen.findByText("O agendamento mudou");
+    expect(mocks.edit.mock.calls[0][0]).toMatchObject({ expectedVersion: 1, professionalId: "pro" });
+  });
+
   it("adiciona serviços, recalcula duração e mantém bloqueio de envio até a resposta", async () => {
     let resolve!: (value: { success: true; requiresAcceptance: true }) => void;
     mocks.edit.mockReturnValue(new Promise(r => { resolve = r; }));
