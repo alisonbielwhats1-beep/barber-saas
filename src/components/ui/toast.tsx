@@ -181,7 +181,7 @@ export function Toaster() {
 
       <ol
         aria-label="Notificações"
-        className="pointer-events-none fixed bottom-4 left-4 right-4 z-[200] flex flex-col gap-2 print:hidden sm:bottom-5 sm:left-auto sm:right-5 sm:w-full sm:max-w-xs"
+        className="pointer-events-none fixed bottom-[calc(1rem+var(--safe-bottom))] left-[calc(1rem+var(--safe-left))] right-[calc(1rem+var(--safe-right))] z-[200] flex flex-col gap-2 print:hidden sm:bottom-[calc(1.25rem+var(--safe-bottom))] sm:left-auto sm:right-[calc(1.25rem+var(--safe-right))] sm:w-full sm:max-w-xs"
       >
         {items.map((item) => {
           const { icon: Icon, color } = CFG[item.kind];

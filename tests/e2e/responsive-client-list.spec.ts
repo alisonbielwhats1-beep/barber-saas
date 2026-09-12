@@ -1,5 +1,47 @@
 import { expect, test } from "@playwright/test";
 
+test("@database ações fixas respeitam o recorte em paisagem", async ({ page }) => {
+  test.skip(!process.env.RUN_DATABASE_E2E, "Somente dados fictícios.");
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 844, height: 390 });
+  await page.goto("/login");
+  await page.getByLabel("Email").fill("dono@lunahair.com");
+  await page.getByLabel("Senha", { exact: true }).fill("demo1234");
+  await page.getByRole("button", { name: "Entrar", exact: true }).click();
+  await expect(page).toHaveURL(/\/(hoje|dashboard)$/, { timeout: 30_000 });
+  await page.getByRole("link", { name: "Agenda", exact: true }).click();
+  const action = page.getByRole("button", { name: "Abrir ações rápidas da agenda" });
+  await expect(action).toBeVisible();
+  await page.evaluate(() => {
+    document.documentElement.style.setProperty("--safe-left", "44px");
+    document.documentElement.style.setProperty("--safe-right", "44px");
+  });
+  const box = (await action.boundingBox())!;
+  expect(box.x + box.width).toBeLessThanOrEqual(800);
+  await page.screenshot({ path: test.info().outputPath("agenda-paisagem-area-segura.png") });
+});
+
+test("@static cabeçalho institucional mantém controles na área segura", async ({ page }) => {
+  for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/contato");
+    const top = viewport.width === 390 ? 59 : 0;
+    const side = viewport.width === 844 ? 44 : 0;
+    await page.evaluate(({ top, side }) => {
+      document.documentElement.style.setProperty("--safe-top", `${top}px`);
+      document.documentElement.style.setProperty("--safe-left", `${side}px`);
+      document.documentElement.style.setProperty("--safe-right", `${side}px`);
+    }, { top, side });
+    const controls = page.locator("header a:visible, header button:visible");
+    for (const control of await controls.all()) {
+      const box = (await control.boundingBox())!;
+      expect(box.y).toBeGreaterThanOrEqual(top);
+      expect(box.x).toBeGreaterThanOrEqual(side);
+      expect(box.x + box.width).toBeLessThanOrEqual(viewport.width - side);
+    }
+  }
+});
+
 test("@database excluir da lista, restaurar e fechar formulário com teclado", async ({ page }) => {
   test.skip(!process.env.RUN_DATABASE_E2E, "Dados fictícios em banco descartável.");
   test.setTimeout(180_000);

@@ -30,7 +30,11 @@ DELETE de perfil, revogação de sessão ou migration. A filtragem está limitad
 
 `ViewportMetrics` publica medidas do navegador sem renderizar novamente a
 árvore a cada evento. `DialogContent` usa essas medidas e rolagem interna.
-Landing, login, painel, plataforma e HQ respeitam as áreas seguras.
+Landing, login, painel, páginas institucionais, plataforma e HQ respeitam as
+áreas seguras. Ações flutuantes da agenda e notificações também se afastam
+do recorte lateral e da área inferior; links de pular conteúdo permanecem
+ocultos até receber foco. Teste reproduziu o botão da agenda terminando em
+832px quando o limite seguro era 800px; após ajuste, passou em paisagem.
 Campos compartilhados permitem encolher dentro de grades/flex.
 
 ## Verificação e limites

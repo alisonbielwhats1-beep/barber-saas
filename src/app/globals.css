@@ -329,10 +329,10 @@
 
   .skip-link {
     position: fixed;
-    left: 1rem;
-    top: 0;
+    left: calc(1rem + var(--safe-left));
+    top: var(--safe-top);
     z-index: 300;
-    transform: translateY(-150%);
+    transform: translateY(calc(-150% - var(--safe-top)));
     border-radius: 9999px;
     background: hsl(var(--primary));
     color: hsl(var(--primary-foreground));

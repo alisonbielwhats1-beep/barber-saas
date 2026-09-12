@@ -46,7 +46,7 @@ export function AgendaQuickActions({
           type="button"
           disabled={disabled}
           aria-label="Abrir ações rápidas da agenda"
-          className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-3 z-40 inline-flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-40 lg:static lg:z-auto lg:h-auto lg:w-auto lg:min-h-11 lg:gap-1.5 lg:rounded-lg lg:px-4 lg:py-2 lg:text-[13px] lg:font-semibold lg:shadow-none print:hidden"
+          className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-[calc(.75rem+var(--safe-right))] z-40 inline-flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-40 lg:static lg:z-auto lg:h-auto lg:w-auto lg:min-h-11 lg:gap-1.5 lg:rounded-lg lg:px-4 lg:py-2 lg:text-[13px] lg:font-semibold lg:shadow-none print:hidden"
         >
           <Plus aria-hidden="true" className="h-5 w-5 lg:h-4 lg:w-4" />
           <span className="sr-only lg:not-sr-only">Novo</span>
