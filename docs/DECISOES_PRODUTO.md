@@ -76,6 +76,14 @@ Toda leitura e escrita deve validar `salonId`, papel e, quando aplicável,
 
 ## Override
 
+Atualização do pedido de correções de 11/09/2026: dono/gerente podem confirmar
+uma reserva com início dentro do último turno e término após ele, no mesmo dia,
+sem mudar o fechamento cadastrado. Exige motivo e auditoria; vale para criação
+e edição, com autorização persistida se houver aceite do cliente. Não autoriza
+início após o expediente, dia sem jornada, fechamento explícito nem dispensa
+outras restrições. Detalhes em `PEDIDOS_CLIENTE_2026-09-11.md`. Esta exceção
+substitui apenas a proibição de extrapolar o término nas decisões anteriores.
+
 Atualização autorizada em 11/09/2026 pelos áudios e pedido de flexibilidade:
 na criação manual, dono/gerente podem agendar dentro de TimeOff (bloqueio/folga)
 com confirmação e motivo, preservando o bloqueio para o público e registrando

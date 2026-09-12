@@ -79,6 +79,46 @@ async function fixture() {
 }
 
 describePostgres("concorrência real de agendamentos", () => {
+  it("alterar apenas serviços pede aceite e preserva autorização pontual após expediente", async () => {
+    const data = await fixture();
+    const clientId = data.clients[0]!.id;
+    await prisma.clientProfile.update({ where: { id: clientId }, data: { passwordHash: "synthetic-account" } });
+    const extra = await prisma.service.create({ data: { salonId: data.salonId, name: "Barba sintética", durationMin: 15, priceCents: 2000, professionals: { create: { professionalId: data.professionalId } } } });
+    const actor = { type: "STAFF" as const, id: data.professionalUserId, name: "Dono CI" };
+    const original = await withSalon(data.salonId, tx => createAppointment(tx, {
+      salonId: data.salonId, professionalId: data.professionalId, clientId, serviceIds: [data.serviceId], startLocal: "2032-08-05T17:30",
+      origin: "ADMIN", actor, idempotencyKey: crypto.randomUUID(), enforceBookingWindow: false,
+    }));
+    const change = { salonId: data.salonId, appointmentId: original.appointment.id, professionalId: data.professionalId,
+      serviceIds: [data.serviceId, extra.id], startLocal: "2032-08-05T17:30", actor, idempotencyKey: crypto.randomUUID(), expectedVersion: 1 };
+    await expect(withSalon(data.salonId, tx => requestStaffReschedule(tx, change))).rejects.toMatchObject({ code: "AFTER_WORKING_HOURS" });
+    const authorized = { ...change, canFinishAfterHours: true, afterHoursReason: "Autorização pontual sintética" };
+    const proposal = await withSalon(data.salonId, tx => requestStaffReschedule(tx, authorized));
+    if (!proposal.requiresAcceptance) throw new Error("aceite obrigatório para serviços alterados");
+    expect(await withSalon(data.salonId, tx => requestStaffReschedule(tx, authorized))).toMatchObject({ duplicate: true, proposalId: proposal.proposalId });
+    expect(await prisma.appointment.findUniqueOrThrow({ where: { id: original.appointment.id }, select: { version: true, priceCents: true, endAt: true } })).toEqual({ version: 1, priceCents: 5000, endAt: new Date("2032-08-05T21:00:00Z") });
+    // Catalog changes must not change the quote the client accepts.
+    await prisma.service.update({ where: { id: extra.id }, data: { priceCents: 9900, durationMin: 60 } });
+    const accepted = await withSalon(data.salonId, tx => respondToRescheduleProposal(tx, { salonId: data.salonId, proposalId: proposal.proposalId, clientId, decision: "ACCEPT" }));
+    expect(accepted.status).toBe("ACCEPTED");
+    expect(await prisma.appointment.findUniqueOrThrow({ where: { id: original.appointment.id }, select: { version: true, priceCents: true, endAt: true } })).toEqual({ version: 2, priceCents: 7000, endAt: new Date("2032-08-05T21:15:00Z") });
+    expect(await prisma.auditLog.count({ where: { salonId: data.salonId, entityId: original.appointment.id, action: "APPOINTMENT_AFTER_HOURS_RESCHEDULE" } })).toBe(1);
+    expect(await withSalon(data.salonId, tx => respondToRescheduleProposal(tx, { salonId: data.salonId, proposalId: proposal.proposalId, clientId, decision: "ACCEPT" }))).toMatchObject({ duplicate: true });
+    expect(await prisma.workingHours.findMany({ where: { salonId: data.salonId }, select: { endMinutes: true } })).toEqual([{ endMinutes: 1080 }]);
+  });
+
+  it("criação após expediente mantém jornada e público bloqueados com retry idempotente", async () => {
+    const data = await fixture();
+    const input = { salonId: data.salonId, professionalId: data.professionalId, clientId: data.clients[0]!.id,
+      serviceIds: [data.serviceId], startLocal: "2032-08-05T17:45", origin: "ADMIN" as const,
+      actor: { type: "STAFF" as const, id: data.professionalUserId, name: "CI" }, idempotencyKey: crypto.randomUUID(), enforceBookingWindow: false,
+      canFinishAfterHours: true, afterHoursReason: "Exceção no balcão" };
+    const result = await withSalon(data.salonId, tx => createAppointment(tx, input));
+    expect(result.appointment.endAt).toEqual(new Date("2032-08-05T21:15:00Z"));
+    expect(await withSalon(data.salonId, tx => createAppointment(tx, input))).toMatchObject({ duplicate: true });
+    await expect(withSalon(data.salonId, tx => createAppointment(tx, { ...input, idempotencyKey: crypto.randomUUID(), origin: "PUBLIC", actor: { type: "CLIENT", id: data.clients[0]!.id, name: "CI" } }))).rejects.toMatchObject({ code: "AFTER_WORKING_HOURS" });
+    expect(await prisma.auditLog.count({ where: { salonId: data.salonId, action: "APPOINTMENT_AFTER_HOURS_CREATE" } })).toBe(1);
+  });
   it("preserva bloqueio, audita exceção manual e mantém restrição pública com retry idempotente", async () => {
     const data = await fixture();
     const block = await prisma.timeOff.create({ data: { professionalId: data.professionalId, startAt: new Date("2032-08-05T13:15:00Z"), endAt: new Date("2032-08-05T14:00:00Z"), reason: "Bloqueio sintético" } });

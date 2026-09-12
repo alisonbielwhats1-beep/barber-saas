@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import Link from "next/link";
+import { safeClientReturnTo, clientHomePath } from "@/lib/client-routes";
 import { Loader2 } from "lucide-react";
 import { PasswordInput } from "@/components/ui/password-input";
 import { formatPhoneBR, isValidPhoneBR } from "@/lib/phone";
@@ -20,9 +22,13 @@ export function CadastroForm({
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const submitting = useRef(false);
+  const [accountAccess, setAccountAccess] = useState(false);
+  const destination = safeClientReturnTo(salonSlug, returnTo, clientHomePath(salonSlug));
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (submitting.current) return;
     if (password.length < 6) {
       setError("A senha deve ter pelo menos 6 caracteres");
       return;
@@ -36,6 +42,8 @@ export function CadastroForm({
       return;
     }
     setError(null);
+    setAccountAccess(false);
+    submitting.current = true;
     setPending(true);
     void (async () => {
       try {
@@ -44,10 +52,14 @@ export function CadastroForm({
           { name, phone, email, password, confirmPassword },
           returnTo,
         );
-        if (result?.error) setError(result.error);
+        if (result?.error) {
+          setError(result.error);
+          setAccountAccess(result.code === "ACCOUNT_ACCESS");
+        }
       } catch {
-        setError("Não foi possível criar sua conta. Verifique a conexão e tente novamente.");
+        setError("Não recebemos a confirmação. Tente novamente com a mesma senha; se a conta já foi criada, concluiremos seu acesso.");
       } finally {
+        submitting.current = false;
         setPending(false);
       }
     })();
@@ -55,6 +67,7 @@ export function CadastroForm({
 
   return (
     <form method="post" onSubmit={submit} className="space-y-4">
+      <fieldset disabled={pending} className="min-w-0 space-y-4">
       <div>
         <label htmlFor="client-name" className="mb-1.5 block text-[13px] font-medium text-muted-foreground">
           Nome completo
@@ -145,6 +158,12 @@ export function CadastroForm({
           {error}
         </p>
       )}
+      {accountAccess && (
+        <div className="flex flex-wrap gap-4 text-sm">
+          <Link className="underline" href={`/book/${salonSlug}/login?returnTo=${encodeURIComponent(destination)}`}>Entrar</Link>
+          <Link className="underline" href={`/book/${salonSlug}/recuperar-senha`}>Recuperar acesso</Link>
+        </div>
+      )}
 
       <button
         type="submit"
@@ -154,6 +173,7 @@ export function CadastroForm({
         {pending && <Loader2 className="h-4 w-4 animate-spin" />}
         {pending ? "Criando conta…" : "Criar conta"}
       </button>
+      </fieldset>
     </form>
   );
 }

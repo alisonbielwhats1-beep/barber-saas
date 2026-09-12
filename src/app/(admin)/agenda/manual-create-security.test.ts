@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => {
     context,
     tx,
     createAppointment: vi.fn(),
+    requestStaffReschedule: vi.fn(),
     withTenant: vi.fn(async (
       _context: typeof context,
       callback: (value: typeof tx) => unknown,
@@ -35,9 +36,10 @@ vi.mock("@/lib/appointment-service", () => ({
   createAppointment: mocks.createAppointment,
   updateAppointmentStatusReliably: vi.fn(),
 }));
+vi.mock("@/lib/reschedule-proposals", () => ({ requestStaffReschedule: mocks.requestStaffReschedule }));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
 
-import { createAppointmentManually, getLastAppointmentServices } from "./actions";
+import { createAppointmentManually, getLastAppointmentServices, editAppointment } from "./actions";
 
 const input = {
   professionalId: "professional-own",
@@ -177,5 +179,17 @@ describe("criação manual durante pausa", () => {
         canOverrideWorkingHoursBreak: false,
       }),
     );
+  });
+});
+
+
+describe("permissão de término após expediente", () => {
+  it.each(["OWNER", "MANAGER", "RECEPTIONIST", "PROFESSIONAL"])("resolve permissão no servidor para %s", async role => {
+    mocks.context.role = role;
+    mocks.requestStaffReschedule.mockResolvedValue({ requiresAcceptance: true });
+    await createAppointmentManually({ ...input, afterHoursReason: "Cliente combinado" });
+    expect(mocks.createAppointment).toHaveBeenCalledWith(mocks.tx, expect.objectContaining({ canFinishAfterHours: ["OWNER", "MANAGER"].includes(role), afterHoursReason: "Cliente combinado" }));
+    expect(await editAppointment({ id: "appointment-a", professionalId: "professional-own", serviceIds: ["service-b"], startLocal: input.startLocal, idempotencyKey: input.idempotencyKey, afterHoursReason: "Cliente combinado" })).toEqual({ success: true, requiresAcceptance: true });
+    expect(mocks.requestStaffReschedule).toHaveBeenCalledWith(mocks.tx, expect.objectContaining({ salonId: "salon-a", serviceIds: ["service-b"], canFinishAfterHours: ["OWNER", "MANAGER"].includes(role) }));
   });
 });

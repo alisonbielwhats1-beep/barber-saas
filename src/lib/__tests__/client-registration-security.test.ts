@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   clientFindFirst: vi.fn(),
   clientFindMany: vi.fn(),
   clientCreate: vi.fn(),
+  auditCreate: vi.fn(),
 }));
 
 vi.mock("bcryptjs", () => ({
@@ -37,6 +38,7 @@ import {
 } from "@/app/book/[salonSlug]/auth-actions";
 
 const tx = {
+  auditLog: { create: mocks.auditCreate },
   clientProfile: {
     findFirst: mocks.clientFindFirst,
     findMany: mocks.clientFindMany,
@@ -45,10 +47,59 @@ const tx = {
 };
 
 describe("registerClient — validação no servidor", () => {
+  const registration = { name: "Cliente", phone: "", email: "client@example.test", password: "123456", confirmPassword: "123456" };
+  const existing = { id: "existing", name: "Nome preservado", email: "client@example.test", passwordHash: "old-hash", sessionVersion: 2 };
+
+  it("retoma cadastro persistido com a senha correta, sem duplicar ou sobrescrever perfil", async () => {
+    mocks.clientFindMany.mockResolvedValue([existing]);
+    mocks.clientFindFirst.mockResolvedValue(existing);
+    mocks.compare.mockResolvedValue(true);
+    await expect(registerClient("studio-a", registration, "/book/studio-a/agendar")).rejects.toThrow("NEXT_REDIRECT");
+    expect(mocks.clientCreate).not.toHaveBeenCalled();
+    expect(mocks.setClientSession).toHaveBeenCalledWith({ clientId: "existing", salonId: "salon-a", name: "Nome preservado", email: existing.email, sessionVersion: 2 });
+    expect(mocks.checkRateLimit).toHaveBeenCalledWith(expect.objectContaining({ namespace: "client-login-account" }));
+    expect(mocks.redirect).toHaveBeenCalledWith("/book/studio-a/agendar");
+  });
+
+  it("não toma conta existente com outra senha nem reivindica perfil sem senha", async () => {
+    mocks.clientFindMany.mockResolvedValue([existing]);
+    mocks.clientFindFirst.mockResolvedValue(existing);
+    expect(await registerClient("studio-a", registration)).toMatchObject({ code: "ACCOUNT_ACCESS" });
+    expect(mocks.setClientSession).not.toHaveBeenCalled();
+    mocks.clientFindMany.mockResolvedValue([{ ...existing, passwordHash: null }]);
+    expect(await registerClient("studio-a", registration)).toMatchObject({ error: expect.stringContaining("reserva sem conta") });
+    expect(mocks.clientCreate).not.toHaveBeenCalled();
+    expect(mocks.setClientSession).not.toHaveBeenCalled();
+  });
+
+  it("respeita bloqueio do login ao retomar cadastro", async () => {
+    mocks.clientFindMany.mockResolvedValue([existing]);
+    mocks.checkRateLimit.mockImplementation(async ({ namespace }: { namespace: string }) => ({ allowed: namespace !== "client-login-account", source: "local" }));
+    expect(await registerClient("studio-a", registration)).toMatchObject({ error: expect.stringContaining("Muitas tentativas") });
+    expect(mocks.compare).not.toHaveBeenCalled();
+    expect(mocks.setClientSession).not.toHaveBeenCalled();
+  });
+
+  it("recupera corrida de INSERT pela autenticação sem criar duplicata", async () => {
+    mocks.clientCreate.mockRejectedValueOnce({ code: "P2002" });
+    mocks.clientFindFirst.mockResolvedValue(existing);
+    mocks.compare.mockResolvedValue(true);
+    await expect(registerClient("studio-a", registration)).rejects.toThrow("NEXT_REDIRECT");
+    expect(mocks.setClientSession).toHaveBeenCalledOnce();
+  });
+
+  it("distingue falha da sessão após persistência e audita a criação sem credenciais", async () => {
+    mocks.setClientSession.mockRejectedValueOnce(new Error("cookie failure"));
+    expect(await registerClient("studio-a", registration)).toMatchObject({ code: "ACCOUNT_ACCESS", error: expect.stringContaining("Sua conta foi criada") });
+    expect(mocks.auditCreate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ action: "CLIENT_ACCOUNT_REGISTERED", metadata: { source: "PUBLIC_REGISTRATION" } }) }));
+    expect(JSON.stringify(mocks.auditCreate.mock.calls)).not.toContain("123456");
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.checkRateLimit.mockResolvedValue({ allowed: true, source: "local" });
     mocks.isApprovedSalonSlug.mockResolvedValue(true);
+    mocks.auditCreate.mockResolvedValue({ id: "audit-a" });
+    mocks.setClientSession.mockResolvedValue(undefined);
     mocks.hash.mockResolvedValue("password-hash");
     mocks.compare.mockResolvedValue(false);
     mocks.clientFindFirst.mockResolvedValue(null);

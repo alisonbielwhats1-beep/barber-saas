@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -53,6 +53,7 @@ import {
   type ApptStatus,
 } from "./agenda-status";
 import { ComandaPanel } from "./comanda-panel";
+import type { ServiceOption } from "./appointment-form";
 import type { Appointment } from "./agenda-board";
 import { SeriesEditor } from "./series-editor";
 import { CarePanel } from "./care-panel";
@@ -158,6 +159,7 @@ export function AppointmentDetail({
   timezone,
   canCreate,
   canCancel,
+  services = [],
   onClose,
 }: {
   appt: Appointment | null;
@@ -165,9 +167,20 @@ export function AppointmentDetail({
   timezone: string;
   canCreate: boolean;
   canCancel: boolean;
+  services?: ServiceOption[];
   onClose: () => void;
 }) {
-  const [pending, startTransition] = useTransition();
+  const [pending, setPending] = useState(false);
+  const submitting = useRef(false);
+  function runMutation(action: () => Promise<void>) {
+    if (submitting.current) return;
+    submitting.current = true;
+    setPending(true);
+    void action().catch(() => setError("Não foi possível concluir. Confira sua conexão e tente novamente.")).finally(() => {
+      submitting.current = false;
+      setPending(false);
+    });
+  }
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<ViewMode>("detail");
   const [cancelMode, setCancelMode] = useState(false);
@@ -182,6 +195,11 @@ export function AppointmentDetail({
   const [editDate, setEditDate] = useState(() => formatInTimeZone(start, timezone, "yyyy-MM-dd"));
   const [editTime, setEditTime] = useState(() => formatInTimeZone(start, timezone, "HH:mm"));
   const [editNotes, setEditNotes] = useState(appt?.notes ?? "");
+  const [editServices, setEditServices] = useState(appt?.serviceIds ?? []);
+  const [serviceSearch, setServiceSearch] = useState("");
+  const [afterHours, setAfterHours] = useState(false);
+  const [afterHoursReason, setAfterHoursReason] = useState("");
+  const [savedMessage, setSavedMessage] = useState<string | null>(null);
 
   if (!appt) return null;
 
@@ -189,10 +207,15 @@ export function AppointmentDetail({
   const whenLabel = formatInTimeZone(start, timezone, "d 'de' MMMM 'às' HH:mm", { locale: ptBR });
   const clientPhoneHref = telLink(appt.clientPhone);
   const durationMin = Math.round((end.getTime() - start.getTime()) / 60_000);
+  const servicesChanged = editServices.length !== appt.serviceIds.length || editServices.some((id, i) => id !== appt.serviceIds[i]);
+  const selectedCatalog = editServices.map(id => services.find(service => service.id === id));
+  const unknownService = selectedCatalog.some(service => !service);
+  const previewDuration = servicesChanged ? selectedCatalog.reduce((total, service) => total + (service?.durationMin ?? 0), 0) : durationMin;
+  const previewPrice = servicesChanged ? selectedCatalog.reduce((total, service) => total + (service?.priceCents ?? 0), 0) : appt.priceCents;
   let editEndLabel: string | null = null;
   try {
     const proposedStart = localDateTimeToUtc(`${editDate}T${editTime}`, timezone);
-    editEndLabel = formatInTimeZone(new Date(proposedStart.getTime() + durationMin * 60_000), timezone, "HH:mm 'de' dd/MM");
+    editEndLabel = formatInTimeZone(new Date(proposedStart.getTime() + previewDuration * 60_000), timezone, "HH:mm 'de' dd/MM");
   } catch { /* Campos incompletos permanecem editáveis, sem permitir envio. */ }
 
   const now = new Date();
@@ -221,7 +244,7 @@ export function AppointmentDetail({
 
   function run(fn: () => Promise<{ error: string } | { success: true } | void>) {
     setError(null);
-    startTransition(async () => {
+    runMutation(async () => {
       try {
         const result = await fn();
         if (result && "error" in result) {
@@ -235,24 +258,35 @@ export function AppointmentDetail({
     });
   }
 
+  function invalidateEdit() {
+    mutationKeys.current.delete("edit");
+    setAfterHours(false);
+    setAfterHoursReason("");
+    setError(null);
+  }
+
   function openEdit() {
     if (!appt) return;
     setEditDate(formatInTimeZone(start, timezone, "yyyy-MM-dd"));
     setEditTime(formatInTimeZone(start, timezone, "HH:mm"));
     setEditNotes(appt.notes ?? "");
-    setError(null);
+    setEditServices(appt.serviceIds);
+    setServiceSearch("");
+    setSavedMessage(null);
+    invalidateEdit();
     setView("edit");
   }
 
-  function saveEdit() {
+  function saveEdit(confirmAfterHours = false) {
     if (!appt) return;
     setError(null);
-    startTransition(async () => {
+    runMutation(async () => {
       try {
         const result = await editAppointment({
           id: appt.id,
           professionalId: appt.professionalId,
-          serviceIds: appt.serviceIds,
+          serviceIds: editServices,
+          ...(confirmAfterHours ? { afterHoursReason: afterHoursReason.trim() } : {}),
           startLocal: `${editDate}T${editTime}`,
           notes: editNotes || null,
           idempotencyKey: mutationKey("edit"),
@@ -260,8 +294,9 @@ export function AppointmentDetail({
         });
         if ("error" in result) {
           setError(result.error);
+          if (result.code === "AFTER_WORKING_HOURS" && canCancel) setAfterHours(true);
         } else {
-          onClose();
+          setSavedMessage(result.requiresAcceptance ? "Alteração enviada. A reserva original permanece até o cliente aceitar os novos serviços e horário." : "Agendamento atualizado.");
         }
       } catch {
         setError("Não foi possível salvar. Confira sua conexão e tente novamente; suas alterações foram mantidas.");
@@ -270,15 +305,16 @@ export function AppointmentDetail({
   }
 
   return (
-    <Dialog open={!!appt} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[calc(100dvh-1rem)] max-w-md gap-0 overflow-y-auto overscroll-contain p-0 pb-[env(safe-area-inset-bottom)]">
+    <Dialog open={!!appt} onOpenChange={(o) => !o && !submitting.current && onClose()}>
+      <DialogContent onEscapeKeyDown={(event) => { if (submitting.current) event.preventDefault(); }} onPointerDownOutside={(event) => { if (submitting.current) event.preventDefault(); }} className="max-h-[calc(100dvh-1rem)] max-w-md gap-0 overflow-y-auto overscroll-contain p-0 pb-[env(safe-area-inset-bottom)]">
         <div className="h-1.5 w-full" style={{ background: cfg.color }} />
 
         <div className="p-5">
           <DialogHeader className="mb-4 flex-row items-center justify-between space-y-0">
             <div className="flex items-center gap-2">
-              {view !== "detail" && (
+              {view !== "detail" && !savedMessage && (
                 <button
+                  disabled={pending}
                   onClick={() => { setView("detail"); setError(null); }}
                   className="text-muted-foreground hover:text-foreground"
                 >
@@ -307,7 +343,8 @@ export function AppointmentDetail({
           )}
 
           {/* ── EDIT MODE ─────────────────────────────────────── */}
-          {view === "edit" && (
+          {savedMessage && <div className="space-y-3"><p role="status" className="rounded-lg bg-success/10 p-3 text-sm">{savedMessage}</p><button className="min-h-11 rounded-lg bg-primary px-4 text-primary-foreground" onClick={onClose}>Concluir</button></div>}
+          {view === "edit" && !savedMessage && (
             <div className="space-y-3">
               <p className="text-[12px] font-medium text-muted-foreground">
                 Editando agendamento de{" "}
@@ -325,7 +362,7 @@ export function AppointmentDetail({
                     disabled={pending}
                     value={editDate}
                     onChange={(e) => {
-                      mutationKeys.current.delete("edit");
+                      invalidateEdit();
                       setEditDate(e.target.value);
                       setError(null);
                     }}
@@ -342,7 +379,7 @@ export function AppointmentDetail({
                     disabled={pending}
                     value={editTime}
                     onChange={(e) => {
-                      mutationKeys.current.delete("edit");
+                      invalidateEdit();
                       setEditTime(e.target.value);
                       setError(null);
                     }}
@@ -351,10 +388,29 @@ export function AppointmentDetail({
                 </div>
               </div>
 
+              <fieldset disabled={pending} className="min-w-0 space-y-2">
+                <legend className="text-sm font-semibold">Serviços do agendamento</legend>
+                <input aria-label="Buscar serviços para editar" type="search" value={serviceSearch} onChange={event => setServiceSearch(event.target.value)} placeholder="Buscar serviço" className="w-full rounded-lg border border-border bg-surface-1 px-3 py-2 text-sm" />
+                <p className="text-xs text-muted-foreground">Desmarque para substituir ou marque outros para adicionar. Até 10 serviços.</p>
+                <div className="max-h-52 overflow-y-auto rounded-lg border border-border">
+                  {services.filter(service => service.name.toLocaleLowerCase("pt-BR").includes(serviceSearch.toLocaleLowerCase("pt-BR"))).map(service => (
+                    <label key={service.id} className="flex min-h-11 cursor-pointer items-start gap-2 border-b border-border p-3 text-sm last:border-0">
+                      <input type="checkbox" className="mt-1" checked={editServices.includes(service.id)} disabled={!editServices.includes(service.id) && editServices.length >= 10} onChange={event => {
+                        invalidateEdit();
+                        setEditServices(event.target.checked ? [...editServices, service.id] : editServices.filter(id => id !== service.id));
+                      }} />
+                      <span>{service.name}<span className="block text-xs text-muted-foreground">{formatDuration(service.durationMin)} · {formatMoney(service.priceCents)}</span></span>
+                    </label>
+                  ))}
+                </div>
+                {unknownService && <p className="text-xs text-warning">Há serviços históricos fora do catálogo. Para alterar os serviços, selecione uma nova combinação disponível. <button type="button" className="underline" onClick={() => { invalidateEdit(); setEditServices(editServices.filter(id => services.some(service => service.id === id))); }}>Remover serviços indisponíveis da seleção</button></p>}
+                <p className="text-xs">{editServices.length} serviço(s) selecionado(s).</p>
+              </fieldset>
+
               <p role="status" className="rounded-lg border border-border bg-muted/40 p-3 text-sm">
-                Duração atual: <strong>{formatDuration(durationMin)}</strong>.
+                Duração {servicesChanged ? "prevista" : "atual"}: <strong>{formatDuration(previewDuration)}</strong>.
                 {editEndLabel ? <> Término previsto: <strong>{editEndLabel}</strong>.</> : " Informe uma data e um horário válidos."}
-                <span className="mt-1 block text-xs text-muted-foreground">O atendimento inteiro precisa caber no expediente, sem atravessar pausas. Duração e disponibilidade serão confirmadas ao salvar.</span>
+                <span className="mt-1 block text-xs text-muted-foreground">Valor {servicesChanged ? "base dos serviços" : "atual"}: {formatMoney(previewPrice)}. {servicesChanged ? "Valores e duração serão recalculados no servidor, incluindo regras do dia e preços a partir de. " : ""}Alterações de serviços ou horário para cliente com conta serão enviadas para aceite. O original permanece até a confirmação.</span>
               </p>
 
               <div>
@@ -366,7 +422,7 @@ export function AppointmentDetail({
                   disabled={pending}
                   value={editNotes}
                   onChange={(e) => {
-                    mutationKeys.current.delete("edit");
+                    invalidateEdit();
                     setEditNotes(e.target.value);
                   }}
                   rows={3}
@@ -381,10 +437,16 @@ export function AppointmentDetail({
                 </p>
               )}
 
+              {afterHours && <div className="space-y-2 rounded-lg border border-warning/50 p-3">
+                <p className="text-sm">Permitir término após o expediente apenas nesta reserva? O fechamento do salão permanece igual.</p>
+                <label htmlFor="edit-after-hours-reason" className="block text-xs">Motivo da exceção</label>
+                <input id="edit-after-hours-reason" maxLength={200} disabled={pending} value={afterHoursReason} onChange={event => { mutationKeys.current.delete("edit"); setAfterHoursReason(event.target.value); }} className="w-full rounded-lg border border-border bg-surface-1 p-2 text-sm" />
+                <button disabled={pending || afterHoursReason.trim().length < 3} onClick={() => saveEdit(true)} className="min-h-11 rounded-lg border border-border px-3 text-sm disabled:opacity-50">Confirmar término após o expediente</button>
+              </div>}
               <div className="flex gap-2 pt-1">
                 <button
-                  disabled={pending || !editEndLabel}
-                  onClick={saveEdit}
+                  disabled={pending || !editEndLabel || !editServices.length || (servicesChanged && unknownService)}
+                  onClick={() => saveEdit()}
                   className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-[13px] font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
                 >
                   {pending ? (
@@ -395,6 +457,7 @@ export function AppointmentDetail({
                   Salvar alterações
                 </button>
                 <button
+                  disabled={pending}
                   onClick={() => { setView("detail"); setError(null); }}
                   className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-4 py-2.5 text-[13px] text-muted-foreground transition hover:text-foreground"
                 >
@@ -672,7 +735,7 @@ export function AppointmentDetail({
                   </button>
                 ) : canCreate && appt.status === "COMPLETED" && appt.hasPayment ? (
                   <button
-                    onClick={() => startTransition(async () => {
+                    onClick={() => runMutation(async () => {
                       try {
                         const receipt = await getComandaData(appt.id);
                         printReceipt(receipt, salonName, timezone);

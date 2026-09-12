@@ -591,6 +591,7 @@ export function AgendaBoard({
       <AppointmentDetail
         key={detail?.id ?? "empty"}
         appt={detail}
+        services={services.filter(service => professionals.find(pro => pro.id === detail?.professionalId)?.serviceIds.includes(service.id))}
         salonName={salonName}
         timezone={timezone}
         canCreate={canCreate}

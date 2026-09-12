@@ -1,5 +1,15 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-11 — pedidos de edição, término e cadastro em revisão
+
+Branch `codex/client-feedback-fixes`, base `cb3babc`: seleção de serviços no
+detalhe, aceite de mudança dos serviços, estado assíncrono de envio, exceção
+pontual de término após o último turno para dono/gerente e recuperação de
+cadastro repetido por autenticação da senha existente. Escopo, diagnóstico
+somente leitura e verificação em `PEDIDOS_CLIENTE_2026-09-11.md`.
+Sem migration, escrita manual em Production ou publicação desta entrega.
+Esta revisão amplia o limite de término descrito no PR #96 sem mudar a jornada.
+
 ## 2026-09-11 — Suporte assistido: publicação autorizada
 
 Branch codex/hq-support-pilot: base técnica versionada e fluxo de rascunho por

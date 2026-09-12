@@ -144,7 +144,7 @@ export async function loginClient(
   try {
     found = await withSalonBySlug(normalizedSlug, (tx, salonId) =>
       tx.clientProfile.findFirst({
-        where: { salonId, email: normalizedEmail, mergedIntoId: null },
+        where: { salonId, email: { equals: normalizedEmail, mode: "insensitive" }, mergedIntoId: null },
         select: { id: true, name: true, email: true, passwordHash: true, sessionVersion: true },
       }).then((client) => ({ salonId, client })),
     );
@@ -186,7 +186,7 @@ export async function registerClient(
     confirmPassword?: string;
   },
   returnTo?: string | null,
-): Promise<{ error: string }> {
+): Promise<{ error: string; code?: "ACCOUNT_ACCESS" }> {
   const parsedSlug = salonSlugSchema.safeParse(salonSlug);
   if (!parsedSlug.success) return { error: REGISTRATION_ERROR };
   const normalizedSlug = parsedSlug.data;
@@ -268,6 +268,16 @@ export async function registerClient(
         },
         select: { id: true, sessionVersion: true },
       });
+      await writeAuditLog(tx, {
+        salonId,
+        userId: null,
+        actorName: registration.name,
+        action: "CLIENT_ACCOUNT_REGISTERED",
+        entityType: "ClientProfile",
+        entityId: client.id,
+        reason: "Cadastro público com senha",
+        metadata: { source: "PUBLIC_REGISTRATION" },
+      });
       if (matches.length > 0) {
         await writeAuditLog(tx, {
           salonId,
@@ -291,23 +301,36 @@ export async function registerClient(
     });
   } catch (error) {
     if (error instanceof Error && error.message === "CLIENT_ACCOUNT_EXISTS") {
-      return { error: "Este e-mail já possui uma conta. Entre com ela ou fale com o suporte do estabelecimento." };
+      // A previous submission may have committed before its response/cookie arrived.
+      // Reuse the normal login and its rate limits; never replace the stored password.
+      const login = await loginClient(normalizedSlug, registration.email, registration.password, returnTo);
+      return { error: login.error === "E-mail ou senha incorretos"
+        ? "Não foi possível acessar com esta senha. Se você acabou de se cadastrar, use a senha da primeira tentativa. Você também pode recuperar o acesso ou falar com o estabelecimento."
+        : login.error, code: "ACCOUNT_ACCESS" };
     }
     if (error instanceof Error && error.message === "CLIENT_EMAIL_ALREADY_USED_BY_GUEST") {
       return { error: "Este e-mail já está em uma reserva sem conta. Peça ao salão para vincular seu histórico com segurança." };
     }
-    if (isUniqueConflict(error)) return { error: REGISTRATION_ERROR };
+    if (isUniqueConflict(error)) {
+      // Covers simultaneous submissions without creating a second profile.
+      const login = await loginClient(normalizedSlug, registration.email, registration.password, returnTo);
+      return { error: login.error === "E-mail ou senha incorretos" ? REGISTRATION_ERROR : login.error };
+    }
     return { error: "Não foi possível criar a conta agora. Tente novamente." };
   }
   if (!result) return { error: "Salão não encontrado" };
 
-  await setClientSession({
+  try {
+    await setClientSession({
     clientId: result.clientId,
     salonId: result.salonId,
     name: registration.name,
     email: registration.email,
     sessionVersion: result.sessionVersion,
-  });
+    });
+  } catch {
+    return { error: "Sua conta foi criada, mas não foi possível concluir o acesso. Tente novamente com a mesma senha ou toque em Entrar.", code: "ACCOUNT_ACCESS" };
+  }
 
   redirect(safeClientReturnTo(normalizedSlug, returnTo, clientHomePath(normalizedSlug)));
 }
