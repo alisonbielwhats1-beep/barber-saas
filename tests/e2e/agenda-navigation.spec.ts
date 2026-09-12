@@ -130,8 +130,10 @@ test.describe("@database navegação compacta e calendário", () => {
     await expect(sidebar).toHaveAttribute("data-collapsed", "false");
     await page.setViewportSize({ width: 390, height: 844 });
     const gridBox = await page.locator(".agenda-grid").boundingBox();
-    expect(gridBox!.y).toBeLessThan(145);
-    expect(gridBox!.height).toBeGreaterThan(620);
+    const weekStrip = await page.getByRole("navigation", { name: "Dias da semana da agenda" }).boundingBox();
+    expect(weekStrip!.height).toBeLessThanOrEqual(70);
+    expect(gridBox!.y - weekStrip!.height - 8).toBeLessThan(145);
+    expect(gridBox!.height + weekStrip!.height + 8).toBeGreaterThan(620);
     const quickActionBox = await page.getByRole("button", { name: "Abrir ações rápidas da agenda" }).boundingBox();
     expect(quickActionBox!.y).toBeGreaterThan(700);
     expect(quickActionBox!.width).toBe(44);
