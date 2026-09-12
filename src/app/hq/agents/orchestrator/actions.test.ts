@@ -16,6 +16,7 @@ beforeEach(() => {
   vi.stubEnv("NEXTAUTH_SECRET", "synthetic-auth-secret-for-local-tests-only");
   vi.stubEnv("HQ_ORCHESTRATOR_DIAGNOSTIC_UNTIL", "");
   vi.stubEnv("HQ_ORCHESTRATOR_DIAGNOSTIC_LIMIT", "");
+  vi.stubEnv("HQ_ORCHESTRATOR_LOCAL_DAILY_LIMIT", "");
   f.local.mockResolvedValue("reserved");
   f.access.mockImplementation(async callback => callback({}, "admin_test"));
   f.limit.mockResolvedValue({ allowed: true, source: "local" });
@@ -25,6 +26,18 @@ it("temporarily permits twenty locally while preserving the same project counter
   vi.stubEnv("HQ_ORCHESTRATOR_DIAGNOSTIC_UNTIL", new Date(Date.now() + 3600000).toISOString());
   await testOrchestrator("teste");
   expect(f.limit).toHaveBeenCalledWith(expect.objectContaining({ namespace: "hq-orchestrator-day", limit: 20, windowSeconds: 86400 }));
+});
+it("allows fifty locally after diagnostic expiry while keeping both consumption guards", async () => {
+  vi.stubEnv("HQ_ORCHESTRATOR_LOCAL_DAILY_LIMIT", "50");
+  vi.stubEnv("HQ_ORCHESTRATOR_DIAGNOSTIC_UNTIL", "2020-01-01T00:00:00Z");
+  await testOrchestrator("teste");
+  expect(f.limit).toHaveBeenCalledWith(expect.objectContaining({ namespace: "hq-orchestrator-day", limit: 50 }));
+  expect(f.limit).toHaveBeenCalledWith(expect.objectContaining({ namespace: "hq-orchestrator-minute", limit: 1 }));
+  expect(f.local).toHaveBeenCalledWith("proj_48Zf5hXOzoiiCnIEJ4Rb3vN4", "admin_test", 50);
+});
+it.each(["hosted", "staging", "production", "invalid"])("does not apply fifty to %s configuration", mode => {
+  const env = { APP_ENV: mode === "staging" || mode === "production" ? mode : "development", VERCEL_ENV: mode === "hosted" ? "preview" : "", HQ_ORCHESTRATOR_LOCAL_DAILY_LIMIT: mode === "invalid" ? "500" : "50" };
+  expect(orchestratorConfig(env).dailyLimit).toBe(10);
 });
 it("permits the explicitly authorized twenty-four only within the local diagnostic window", () => {
   const env = { APP_ENV: "development", HQ_ORCHESTRATOR_DIAGNOSTIC_UNTIL: new Date(Date.now() + 3600000).toISOString(), HQ_ORCHESTRATOR_DIAGNOSTIC_LIMIT: "24" };

@@ -1,5 +1,15 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-12 — limite local ampliado para cinquenta
+
+O responsável autorizou manter até 50 tentativas/24h no laboratório local,
+substituindo o teto temporário de 24. Configuração explícita
+`HQ_ORCHESTRATOR_LOCAL_DAILY_LIMIT=50`, somente development sem hospedagem;
+não depende da expiração do diagnóstico. Contador anterior preservado, uma
+tentativa/minuto e prazo de 45s mantidos. Não altera Preview/Production.
+Verificação da configuração sem consumir inferência: 1.029 testes, lint,
+TypeScript e build completos passaram; navegador autenticado confirmou 50.
+
 ## 2026-09-12 — laboratório com continuidade e Chief condicional
 
 Evolução autorizada na mesma branch/PR #100: Triage na entrada, especialista

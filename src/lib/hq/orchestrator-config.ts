@@ -2,12 +2,14 @@ import "server-only";
 import { orchestratorAgentIds, orchestratorProject, validAgentIds } from "@everflare/agents/orchestrator";
 
 export function orchestratorConfig(env: Record<string, string | undefined> = process.env) {
-  // Time-boxed local diagnostic allowance; hosted environments always retain ten.
+  // Explicit local allowance; hosted environments always retain ten.
   const diagnosticUntil = Date.parse(env.HQ_ORCHESTRATOR_DIAGNOSTIC_UNTIL ?? "");
   const remainingDiagnosticMs = diagnosticUntil - Date.now();
-  const dailyLimit = env.APP_ENV === "development" && !env.VERCEL_ENV &&
+  const diagnosticLimit = env.APP_ENV === "development" && !env.VERCEL_ENV &&
     remainingDiagnosticMs > 0 && remainingDiagnosticMs <= 86400000
       ? env.HQ_ORCHESTRATOR_DIAGNOSTIC_LIMIT === "24" ? 24 : 20 : 10;
+  const dailyLimit = env.APP_ENV === "development" && !env.VERCEL_ENV &&
+    env.HQ_ORCHESTRATOR_LOCAL_DAILY_LIMIT === "50" ? 50 : diagnosticLimit;
   const apiKey = env.OPENAI_API_KEY?.trim() ?? "";
   const project = env.HQ_ORCHESTRATOR_PROJECT_ID?.trim() || orchestratorProject;
   const agentIds = {

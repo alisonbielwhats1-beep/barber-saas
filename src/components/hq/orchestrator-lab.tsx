@@ -78,7 +78,7 @@ export function OrchestratorLab({ ready, reason, dailyLimit = 10 }: { ready: boo
           <textarea id="orchestrator-message" value={message} onChange={event => setMessage(event.target.value)}
             rows={6} maxLength={2000} required disabled={!ready || pending || blocked}
             placeholder="Exemplo: ao tentar remarcar um agendamento, a tela trava." aria-describedby="orchestrator-limit" />
-          <p id="orchestrator-limit">{message.length}/2.000 caracteres · 1 teste por minuto por administrador · até {dailyLimit} por 24 horas no projeto{dailyLimit > 10 && " · ampliação temporária para diagnóstico"}</p>
+          <p id="orchestrator-limit">{message.length}/2.000 caracteres · 1 teste por minuto por administrador · até {dailyLimit} por 24 horas no projeto{dailyLimit === 50 ? " · limite ampliado do laboratório" : dailyLimit > 10 && " · ampliação temporária para diagnóstico"}</p>
           <button className="hq-button" type="submit" disabled={!ready || pending || blocked || !message.trim()}>{pending ? "Executando fluxo…" : "Testar fluxo"}</button>
         </form>
         <p role="status" aria-live="polite">{pending ? "Aguardando os agentes. O passo a passo aparecerá ao concluir. Prazo de 45 segundos, mais até 2 segundos para solicitar cancelamento." : result?.ok ? "Fluxo concluído." : ""}</p>

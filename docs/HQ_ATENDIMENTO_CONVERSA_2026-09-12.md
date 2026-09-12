@@ -1,5 +1,20 @@
 # Conversa com responsável e revisão condicional
 
+## Atualização do limite local
+
+Após os ensaios abaixo, o responsável autorizou manter 50 tentativas por janela
+de 24h no laboratório. `HQ_ORCHESTRATOR_LOCAL_DAILY_LIMIT=50` prevalece sobre
+o diagnóstico temporário apenas em development sem VERCEL_ENV. Contador anterior
+preservado; uma tentativa/minuto, seis mensagens por conversa e 45s por mensagem
+continuam. Esta atualização substitui o teto de 24 e sua expiração descritos no
+histórico; ambientes hospedados continuam com dez. Nenhuma inferência é necessária
+para verificar a mudança de cota.
+
+Validação do ajuste: `npm run lint`, `npx tsc --noEmit --incremental false`,
+`npm test -- --maxWorkers=2` (1.029 testes) e `npm run build` passaram. O navegador
+autenticado confirmou cinquenta, com bloqueios de anônimo/usuário comum preservados.
+Nenhuma inferência consumida; o registro de uso anterior não foi reiniciado.
+
 ## Escopo autorizado
 
 O responsável aprovou a evolução do laboratório: Triage na entrada, continuidade

@@ -20,6 +20,11 @@ it("discloses temporary quota and lists seven configured agents", () => {
   expect(screen.getByRole("list", { name: "Sete agentes disponíveis para encaminhamento" }).querySelectorAll("li")).toHaveLength(7);
   expect(screen.getByText(/não comprova acesso à API/)).toBeVisible();
 });
+it("shows the authorized fifty without claiming it expires with diagnostic allowance", () => {
+  render(<OrchestratorLab ready reason="" dailyLimit={50} />);
+  expect(screen.getByText(/até 50 por 24 horas/)).toHaveTextContent("limite ampliado do laboratório");
+  expect(screen.queryByText(/ampliação temporária/)).not.toBeInTheDocument();
+});
 it("prevents inference without configuration", () => {
   render(<OrchestratorLab ready={false} reason="Configure a chave" />);
   expect(screen.getByText("Configure a chave")).toBeVisible(); expect(screen.getByRole("button", { name: "Testar fluxo" })).toBeDisabled();
