@@ -185,9 +185,15 @@ it.each([401, 403])("explains denied access %s without exposing the provider bod
   expect(JSON.stringify(result)).not.toContain("secret-provider-body");
   expect(f.create).toHaveBeenCalledTimes(1);
 });
-it("reports only the missing Agents API permission from a denied request", async () => {
-  f.create.mockRejectedValue(Object.assign(new Error("secret-provider-body api.agents.sessions.write"), { status: 403 }));
+it.each(["api.agents.sessions.write", "api.agent_sessions.write", "api.responses.write"])("reports only the missing API permission %s from a denied request", async permission => {
+  f.create.mockRejectedValue(Object.assign(new Error(`secret-provider-body ${permission}`), { status: 403 }));
   const result = await runOrchestrator(input());
-  expect(result.steps[0].detail).toContain("api.agents.sessions.write");
+  expect(result.steps[0].detail).toContain(permission);
+  expect(JSON.stringify(result)).not.toContain("secret-provider-body");
+});
+it("explains model-related access denial without exposing the provider message", async () => {
+  f.create.mockRejectedValue(Object.assign(new Error("secret-provider-body Model unavailable"), { status: 403 }));
+  const result = await runOrchestrator(input());
+  expect(result.steps[0].detail).toContain("A recusa faz referência ao modelo");
   expect(JSON.stringify(result)).not.toContain("secret-provider-body");
 });

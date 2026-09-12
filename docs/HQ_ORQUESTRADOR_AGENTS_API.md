@@ -11,10 +11,15 @@ Implementado: Triage → um especialista selecionado → Chief, ou Triage → Ch
 Os sete destinos estão configurados. **A leitura real dos sete IDs foi comprovada**
 em 12/09 às 19:36 e novamente às 19:42 UTC, no projeto informado. A chave local
 confere com o arquivo configurado pelo responsável, sem expor seu conteúdo.
-**A execução real permanece pendente**: seis tentativas autenticadas pararam
+**A execução real permanece pendente**: oito tentativas autenticadas pararam
 ao solicitar a sessão de Triage. Às 19:38, o retorno indicou `api.agents.write`;
 às 19:46, o acesso continuou recusado, sem identificador adicional de permissão,
 inclusive após nova confirmação de liberação pelo responsável.
+Após a captura mostrando Agents → Write, a tentativa das 19:50 UTC retornou
+HTTP 403, código `forbidden`, com referência ao modelo. A consulta somente
+leitura das 19:51 UTC confirmou que todos os sete agentes usam `gpt-5.6-luna`.
+É necessário conferir o acesso a esse modelo no projeto; a causa administrativa
+exata ainda não foi comprovada. Os modelos salvos foram preservados.
 Nenhuma sessão foi confirmada, os demais agentes não foram acionados e não houve
 resposta final real. As tentativas foram contadas no limite diário, mesmo recusadas.
 
@@ -139,8 +144,11 @@ Esses testes usam respostas fictícias e não comprovam conexão real.
 
 Após ajustar permissões no painel, duas rodadas aceitaram a leitura dos sete
 agentes. Isso comprova acesso aos recursos salvos, mas não execução de sessões.
-O teste adicional do diagnóstico seguro passou: 83 testes específicos no total;
+Os testes adicionais cobrem o diagnóstico seguro de permissões e recusa referente
+ao modelo, sem expor a mensagem bruta. A verificação somente leitura também
+informa o modelo já salvo em cada agente;
 a permissão ausente pode aparecer na tela, sem expor o erro bruto do fornecedor.
+Após esse ajuste, lint, TypeScript e os 86 testes específicos passaram.
 
 ```powershell
 npm run lint

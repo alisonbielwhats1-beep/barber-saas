@@ -136,8 +136,11 @@ export async function runOrchestrator(input: {
           step.detail = "A OpenAI recusou o acesso. Confira a chave, o projeto e as permissões da Agents API no servidor.";
           // Expose only a permission identifier, never the provider's raw error/body.
           const permission = "message" in error && typeof error.message === "string"
-            ? error.message.match(/\bapi\.agents(?:\.[a-z_]+){1,4}\b/)?.[0] : undefined;
+            ? error.message.match(/\bapi(?:\.[a-z_]{1,40}){2,5}\b/)?.[0] : undefined;
           if (permission) step.detail += ` Permissão necessária: ${permission}.`;
+          else if ("message" in error && typeof error.message === "string" && /\bmodel\b/i.test(error.message)) {
+            step.detail += " A recusa faz referência ao modelo. Confira o acesso ao modelo configurado no agente salvo.";
+          }
         }
       }
       throw error;

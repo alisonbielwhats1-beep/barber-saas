@@ -19,7 +19,7 @@ async function main() {
     const agentId = config.agentIds[agent];
     try {
       const saved = await client.beta.agents.retrieve(agentId);
-      return { agent, agentId, accessible: saved.id === agentId };
+      return { agent, agentId, model: saved.model, accessible: saved.id === agentId };
     } catch (error) {
       const status = error instanceof OpenAI.APIError ? error.status : undefined;
       return { agent, agentId, accessible: false, status,

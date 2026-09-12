@@ -9,8 +9,10 @@ salvo foi recriado. Tela autenticada em `http://localhost:3017/hq/agents/orchest
 com PostgreSQL local exclusivo e usuários fictícios; sem Production/WhatsApp.
 Leitura real dos sete agentes comprovada em duas rodadas (19:36 e 19:42 UTC).
 Execução ainda recusada ao solicitar a sessão de Triage; uma tentativa indicou
-`api.agents.write`. Seis tentativas contabilizadas, nenhuma sessão confirmada;
-última recusa às 19:46 UTC, após nova confirmação de liberação pelo responsável.
+`api.agents.write`. Oito tentativas contabilizadas, nenhuma sessão confirmada.
+Às 19:50 UTC, após captura mostrando Agents → Write, a recusa 403 `forbidden`
+fez referência ao modelo. Os sete agentes salvos usam `gpt-5.6-luna`; é necessário
+conferir o acesso a esse modelo no projeto. Nenhuma configuração salva foi alterada.
 Fluxo real ainda não comprovado. Escopo, testes e evidências em
 `HQ_ORQUESTRADOR_AGENTS_API.md`. Não representa publicação ou migration produtiva.
 
