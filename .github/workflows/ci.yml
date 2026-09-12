@@ -309,12 +309,25 @@ jobs:
       - name: Validate public pages across browser engines
         run: npm run test:e2e:static
       - name: Validate authenticated critical journeys
-        run: npm run test:e2e:database
+        run: npm run test:e2e:database -- --grep-invert "matriz de enquadramento"
       - name: Preserve browser evidence from synthetic tests
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: browser-evidence
+          path: |
+            playwright-report
+            test-results
+          retention-days: 7
+      # Reinicia o servidor dev antes da matriz extensa para não acumular a
+      # compilação de todas as jornadas anteriores no mesmo processo.
+      - name: Validate complete responsive matrix with a fresh server
+        run: npm run test:e2e:database -- --grep "@database matriz de enquadramento"
+      - name: Preserve responsive matrix evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: responsive-matrix-evidence
           path: |
             playwright-report
             test-results

@@ -86,7 +86,7 @@ test.describe("@database preços variáveis e configurações", () => {
       expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations).toEqual([]);
       await page.screenshot({ path: test.info().outputPath("cliente-revisao-preco-inicial.png") });
       await page.getByRole("button", { name: "Entrar e continuar" }).click();
-      await expect(page).toHaveURL(/\/login\?returnTo=/);
+      await expect(page).toHaveURL(/\/login\?returnTo=/, { timeout: 30_000 });
       const returnTo = new URL(page.url()).searchParams.get("returnTo")!;
       await page.goto(`/book/luna-hair/cadastro?returnTo=${encodeURIComponent(returnTo)}`);
       await page.getByLabel("Nome completo").fill(`Cliente preço ${suffix}`);
@@ -98,7 +98,7 @@ test.describe("@database preços variáveis e configurações", () => {
       await expect(page).toHaveURL(/\/agendar\?/, { timeout: 30_000 });
       await page.getByRole("button", { name: "Revisar reserva" }).click();
       await page.getByRole("button", { name: "Confirmar reserva" }).click();
-      await expect(page.getByRole("heading", { name: "Reserva confirmada" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Reserva confirmada" })).toBeVisible({ timeout: 30_000 });
       await db.service.update({ where: { id: service.id }, data: { priceType: "FIXED", priceNote: null, priceCents: 25000 } });
       await page.getByRole("link", { name: "Ver minhas reservas" }).click();
       const reservation = page.locator(".client-reservation").filter({ hasText: name });

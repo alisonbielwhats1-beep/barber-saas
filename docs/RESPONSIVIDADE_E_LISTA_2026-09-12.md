@@ -53,8 +53,8 @@ de perfil, sessão, reserva futura, atendimento concluído e pagamento.
 As três novas jornadas passaram em Chromium na matriz inicial de 33 páginas;
 o teste foi ampliado para incluir minhas reservas, notificações e carrinho
 com conta de cliente autenticada. O cenário de exclusão/teclado e a landing
-também passaram em WebKit. A matriz maior em WebKit está sendo repetida
-após reinício automático do servidor de desenvolvimento por limite de memória.
+também passaram em WebKit. A matriz completa de 36 páginas em WebKit passou
+após corrigir 7px de overflow na tela de compartilhamento em 320px.
 As duas jornadas anteriores de pedidos do cliente passaram novamente.
 O fluxo de criação/conversão e matriz de dez telas do HQ passou em quatro
 resoluções após aquecimento do servidor. A primeira execução do HQ sofreu
@@ -67,3 +67,10 @@ dados específicos, teclado nativo e configurações particulares do aparelho
 exigem validação adicional; não se afirma compatibilidade universal com base
 apenas na ausência de overflow da página. A matriz verifica também controles
 fora da largura visível, exceto regiões que permitem rolagem horizontal.
+
+
+CI 34673671053: check aprovado; 58 jornadas autenticadas passaram, a matriz
+passou no retry após reinício do dev por memória e a jornada de preço variável
+encerrou a espera de 5s ainda em Confirmando. A matriz agora executa com
+servidor novo; navegação/autorização de reserva aguardam até 30s, mantendo
+as mesmas asserções. Nova execução integral é necessária antes da promoção.
