@@ -44,12 +44,15 @@ test.describe("@database pedidos de serviços, fechamento e cadastro", () => {
     detail = page.getByRole("dialog", { name: client });
     await expect(detail.getByText("Escova modelada + Hidratação profunda", { exact: true })).toBeVisible();
     await detail.getByRole("button", { name: /Editar/ }).click();
+    const accessibilityFailures = [];
     for (const width of [390, 320, 1440]) {
       await page.setViewportSize({ width, height: 844 });
       expect(await detail.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
-      expect((await new AxeBuilder({ page }).include('[role="dialog"]').withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations).toEqual([]);
+      const violations = (await new AxeBuilder({ page }).include('[role="dialog"]').withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations;
+      if (violations.length) accessibilityFailures.push({ width, violations });
       await detail.screenshot({ path: test.info().outputPath(`servicos-edicao-sintetica-${width}.png`) });
     }
+    expect(accessibilityFailures).toEqual([]);
     expect(errors).toEqual([]);
   });
 

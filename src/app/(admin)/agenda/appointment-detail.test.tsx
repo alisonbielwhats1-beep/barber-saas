@@ -22,6 +22,7 @@ function mount() {
     { id: "beard", name: "Barba", durationMin: 15, priceCents: 2000 },
   ]} />);
   fireEvent.click(screen.getByRole("button", { name: /Editar/ }));
+  expect(screen.getByRole("button", { name: "Voltar aos detalhes do agendamento" })).toBeInTheDocument();
 }
 beforeEach(() => { vi.clearAllMocks(); mocks.edit.mockReset(); });
 afterEach(cleanup);

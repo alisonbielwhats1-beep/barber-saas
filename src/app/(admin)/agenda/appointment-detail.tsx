@@ -319,6 +319,7 @@ export function AppointmentDetail({
                 <button
                   disabled={pending}
                   onClick={() => { setView("detail"); setError(null); }}
+                  aria-label="Voltar aos detalhes do agendamento"
                   className="text-muted-foreground hover:text-foreground"
                 >
                   <ArrowLeft className="h-4 w-4" />
