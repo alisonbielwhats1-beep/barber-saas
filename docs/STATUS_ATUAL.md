@@ -1,5 +1,17 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-12 — orquestrador de sete agentes, somente local
+
+Branch `codex/hq-saved-agent-orchestrator`, base `5cca634`; recorte anterior
+recuperado do pacote de transferência `b10fb69` e ampliado para Triage → um
+especialista selecionado → Chief, ou Chief direto. Nenhum agente/modelo/prompt
+salvo foi recriado. Tela autenticada em `http://127.0.0.1:3017/hq/agents/orchestrator`,
+com PostgreSQL local exclusivo e usuários fictícios; sem Production/WhatsApp.
+Leitura real dos sete agentes negada com HTTP 403 (`api.agents.read`); um ensaio
+autenticado também falhou ao solicitar a sessão de Triage, sem sessão confirmada.
+Conexão/fluxo real ainda não comprovados. Escopo, testes e evidências em
+`HQ_ORQUESTRADOR_AGENTS_API.md`. Não representa publicação ou migration produtiva.
+
 
 ## 2026-09-12 — busca, bloqueios e encaixe: publicação autorizada
 

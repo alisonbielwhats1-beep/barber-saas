@@ -31,6 +31,7 @@ describe("callback após login", () => {
   it("aceita caminho interno permitido iniciado por uma única barra", () => {
     expect(sanitizeAuthCallback("/dashboard")).toBe("/dashboard");
     expect(sanitizeAuthCallback("/plataforma")).toBe("/plataforma");
+    expect(sanitizeAuthCallback("/hq/agents/orchestrator")).toBe("/hq/agents/orchestrator");
     expect(sanitizeAuthCallback("/agenda?date=2030-01-01")).toBe(
       "/agenda?date=2030-01-01",
     );

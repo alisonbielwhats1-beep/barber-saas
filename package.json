@@ -12,6 +12,7 @@
     "lint": "eslint src packages prisma scripts tests playwright.config.ts --ext .js,.jsx,.ts,.tsx",
     "typecheck": "tsc --noEmit --incremental false",
     "check:runtime": "tsx scripts/assert-runtime-contract.ts",
+    "hq:check-agents": "node --conditions=react-server --import tsx scripts/check-hq-orchestrator-access.ts",
     "generate:pwa-icons": "tsx scripts/generate-pwa-icons.ts",
     "db:generate": "prisma generate",
     "db:safety-check": "tsx scripts/assert-safe-database.ts --operation=safety-check",
