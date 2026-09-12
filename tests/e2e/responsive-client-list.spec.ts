@@ -13,6 +13,7 @@ test("@database excluir da lista, restaurar e fechar formulário com teclado", a
   await page.getByRole("button", { name: "Novo cliente", exact: true }).click();
   const form = page.getByRole("dialog", { name: "Novo cliente" });
   await expect(form).toBeVisible();
+  expect(await form.evaluate(el => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
   await page.evaluate(() => {
     const viewport = window.visualViewport!;
     Object.defineProperty(viewport, "height", { configurable: true, value: 280 });
@@ -31,7 +32,7 @@ test("@database excluir da lista, restaurar e fechar formulário com teclado", a
   await expect(form).not.toBeVisible();
   await page.reload();
   const row = page.getByLabel("Lista de clientes").locator("button").first();
-  const label = (await row.innerText()).split("\n")[1] || (await row.innerText()).split("\n")[0];
+  const label = await row.locator("p").first().innerText();
   await row.click();
   await page.getByRole("button", { name: "Excluir da lista", exact: true }).click();
   await page.getByRole("button", { name: "Confirmar exclusão da lista" }).click();
@@ -41,7 +42,7 @@ test("@database excluir da lista, restaurar e fechar formulário com teclado", a
   await page.getByRole("button", { name: "Restaurar à lista", exact: true }).click();
   await page.getByRole("button", { name: "Confirmar restauração" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.getByLabel("Lista de clientes")).toContainText("Nenhum cliente");
+  await expect(page.getByLabel("Lista de clientes").locator("button").filter({ hasText: label })).toHaveCount(0);
 });
 
 test("@static entrada da landing respeita área segura em retrato e paisagem", async ({ page }) => {
