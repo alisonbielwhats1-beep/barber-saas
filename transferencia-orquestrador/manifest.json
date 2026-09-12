@@ -1,0 +1,58 @@
+[
+  {
+    "path": "app/packages/hq-agents/src/orchestrator.ts",
+    "sha256": "529ABE315797F0CF6AC07D4F041D2F4BF60B37CB847AD37A2BB4D95F403B659B"
+  },
+  {
+    "path": "app/src/lib/hq/orchestrator-config.ts",
+    "sha256": "9A81B7C86380C1516FDFAB700CA71E500A3566CFAA5075ED1300AD69E49C39D3"
+  },
+  {
+    "path": "app/src/app/hq/agents/orchestrator/actions.ts",
+    "sha256": "2DCA8C34309DADCCE97EC2F6B1C879360D2A1269A057FF8792345B495B4AA194"
+  },
+  {
+    "path": "app/src/app/hq/agents/orchestrator/actions.test.ts",
+    "sha256": "959044E302BA4EF268EB1F80BD1675FD52AA3EA93421E63B8AA30F622E0AA55C"
+  },
+  {
+    "path": "app/src/app/hq/agents/orchestrator/page.tsx",
+    "sha256": "CA4E833F484C764F3BF50AF0C73053AE386A631353712E9DE29D26AF12616A60"
+  },
+  {
+    "path": "app/src/components/hq/orchestrator-lab.tsx",
+    "sha256": "D9F5D5F62F43E1E6E56D2AB5050F7595A993A247902CEE604ECDD295C7A977EA"
+  },
+  {
+    "path": "app/src/components/hq/orchestrator-lab.test.tsx",
+    "sha256": "82CECE760CF271DF4AAC95BBAB8B9AF66CCA0191DB1DD7B15016A659CF26C856"
+  },
+  {
+    "path": "app/src/lib/hq/orchestrator.test.ts",
+    "sha256": "4EB247ACB7CABA7BE4CEDDF74BF7C4EDDD09CDAB300429C190FC91001CEB2100"
+  },
+  {
+    "path": "app/src/app/hq/agents/page.tsx",
+    "sha256": "90B536F630392865E2D2F3CF93A77335773F67DAF07FD886B1B58D41B79E1DBF"
+  },
+  {
+    "path": "app/package.json",
+    "sha256": "4B4F634F05AF2386950439CC1F5FC72BE1BE173555C3CD11DA1207206DF2613F"
+  },
+  {
+    "path": "app/packages/hq-agents/package.json",
+    "sha256": "626621FD50B247F4527686C738271897EE92762EEBCFC4EC0857EE88ADAF5D63"
+  },
+  {
+    "path": "app/package-lock.json",
+    "sha256": "4F8B5265AD289405C9B118086D120D4F8632C431A9C5B1A4F96082FD6CBA5927"
+  },
+  {
+    "path": "app/.env.example",
+    "sha256": "89FCD2D2251A5F96E511E531F5EFD64B70D67749BBA36E0B3ABD700CAB598A8F"
+  },
+  {
+    "path": "app/docs/HQ_ORQUESTRADOR_AGENTS_API.md",
+    "sha256": "90242EE53FE415243201B8F425783003F244100E3632169A06D49B7EEF397FE9"
+  }
+]

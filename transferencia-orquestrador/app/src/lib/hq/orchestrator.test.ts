@@ -1,0 +1,102 @@
+import { beforeEach, expect, it, vi } from "vitest";
+const f = vi.hoisted(() => ({ create: vi.fn(), cancel: vi.fn(), abort: vi.fn(), client: vi.fn() }));
+vi.mock("openai", () => ({ default: class {
+  beta = { agents: { sessions: { create: f.create, events: { create: f.cancel } } } };
+  constructor(options: unknown) { f.client(options); }
+} }));
+import { runOrchestrator, orchestratorAgentIds } from "@everflare/agents/orchestrator";
+const input = () => ({ message: "Minha agenda está travando", apiKey: "synthetic", signal: new AbortController().signal });
+const decision = (target = "PRODUCT", event = "BUG_REPORT") => JSON.stringify({
+  target_agent: target, event_type: event, priority: "HIGH", requires_human_approval: false,
+});
+function stream(text: string, ending = "agent.session.turn.completed") {
+  return { controller: { abort: f.abort }, async *[Symbol.asyncIterator]() {
+    yield { type: "agent.session.created", session: { id: "sess_test" } };
+    yield { type: "agent.session.turn.item.done", item: { type: "message", phase: "commentary", status: "completed", content: [{ text: "PRIVATE_REASONING" }] } };
+    yield { type: "agent.session.turn.item.done", item: { type: "message", phase: "final_answer", status: "completed", content: [{ text }] } };
+    if (ending) yield { type: ending, turn: { subagent_id: null } };
+  } };
+}
+beforeEach(() => { vi.resetAllMocks(); f.cancel.mockResolvedValue(undefined); });
+
+it("calls only the three saved IDs in order and sends results to Chief", async () => {
+  f.create.mockResolvedValueOnce(stream(decision())).mockResolvedValueOnce(stream("Análise do produto"))
+    .mockResolvedValueOnce(stream("Resposta final"));
+  const result = await runOrchestrator(input());
+  expect(result.ok).toBe(true);
+  expect(result.answer).toBe("Resposta final");
+  expect(result.steps.map(step => [step.agent, step.status])).toEqual([
+    ["TRIAGE", "completed"], ["PRODUCT", "completed"], ["CHIEF", "completed"],
+  ]);
+  expect(f.create.mock.calls.map(([body]) => body.agent_id)).toEqual(Object.values(orchestratorAgentIds));
+  for (const [body] of f.create.mock.calls) {
+    expect(body).toMatchObject({ stream: true, environment: { type: "none" }, vault_ids: [],
+      agent: { tools: null, multi_agent: { enabled: false } } });
+    expect(body.agent).not.toHaveProperty("instructions");
+    expect(body.agent).not.toHaveProperty("model");
+    expect(body.agent).not.toHaveProperty("text");
+  }
+  expect(JSON.parse(f.create.mock.calls[2][0].input)).toMatchObject({
+    message: input().message, triage: JSON.parse(decision()), triage_output: decision(), product: "Análise do produto",
+  });
+  expect(JSON.stringify(result)).not.toContain("PRIVATE_REASONING");
+  expect(f.client).toHaveBeenCalledWith(expect.objectContaining({ maxRetries: 0 }));
+  expect(f.cancel).not.toHaveBeenCalled();
+});
+it.each(["SALES", "CUSTOMER_SUCCESS", "CHIEF", "OPERATIONS", "MARKETING"])("skips Product for non-product %s requests", async target => {
+  f.create.mockResolvedValueOnce(stream(decision(target, "OTHER"))).mockResolvedValueOnce(stream("Resposta"));
+  const result = await runOrchestrator(input());
+  expect(result.ok).toBe(true);
+  expect(result.steps[1].status).toBe("skipped");
+  expect(f.create.mock.calls.map(([body]) => body.agent_id)).toEqual([orchestratorAgentIds.TRIAGE, orchestratorAgentIds.CHIEF]);
+  expect(JSON.parse(f.create.mock.calls[1][0].input).product).toBeNull();
+});
+it.each(["BUG_REPORT", "FEATURE_REQUEST"])("routes %s to Product even if triage names CS", async event => {
+  f.create.mockResolvedValueOnce(stream(decision("CUSTOMER_SUCCESS", event)))
+    .mockResolvedValueOnce(stream("Produto")).mockResolvedValueOnce(stream("Chief"));
+  expect((await runOrchestrator(input())).ok).toBe(true);
+  expect(f.create.mock.calls[1][0].agent_id).toBe(orchestratorAgentIds.PRODUCT);
+});
+it.each(["não é JSON", '{"target_agent":"ADMIN"}', '{}'])("stops after invalid triage: %s", async text => {
+  f.create.mockResolvedValueOnce(stream(text));
+  const result = await runOrchestrator(input());
+  expect(result.ok).toBe(false);
+  expect(result.steps.map(step => step.status)).toEqual(["failed", "skipped", "skipped"]);
+  expect(result.steps[0].output).toBeUndefined();
+  expect(f.create).toHaveBeenCalledTimes(1);
+});
+it.each(["agent.session.turn.failed", "agent.session.requires_action", "agent.session.turn.cancelled", "error", ""])("cancels and stops on %s", async ending => {
+  f.create.mockResolvedValueOnce(stream(decision())).mockResolvedValueOnce(stream("Partial", ending));
+  const result = await runOrchestrator(input());
+  expect(result.ok).toBe(false);
+  expect(result.steps.map(step => step.status)).toEqual(["completed", "failed", "skipped"]);
+  expect(f.create).toHaveBeenCalledTimes(2);
+  expect(f.cancel).toHaveBeenCalledWith("sess_test", { events: [{ type: "agent.session.input.cancel" }] }, expect.objectContaining({ maxRetries: 0 }));
+});
+it("retains the trace when Chief fails and does not expose provider errors", async () => {
+  f.create.mockResolvedValueOnce(stream(decision())).mockResolvedValueOnce(stream("Produto"))
+    .mockRejectedValueOnce(new Error("secret-provider-body"));
+  const result = await runOrchestrator(input());
+  expect(result.steps.map(step => step.status)).toEqual(["completed", "completed", "failed"]);
+  expect(result.answer).toBeUndefined();
+  expect(JSON.stringify(result)).not.toContain("secret-provider-body");
+});
+it("reports unconfirmed remote cancellation", async () => {
+  f.create.mockResolvedValueOnce(stream("x", "error")); f.cancel.mockRejectedValue(new Error("network"));
+  const result = await runOrchestrator(input());
+  expect(result.steps[0].detail).toContain("Não foi possível confirmar");
+});
+it.each(["", " ", "x".repeat(2001)])("rejects invalid message before network", async message => {
+  expect((await runOrchestrator({ ...input(), message })).ok).toBe(false);
+  expect(f.create).not.toHaveBeenCalled();
+});
+it("does not start a session after the deadline", async () => {
+  const controller = new AbortController(); controller.abort();
+  const result = await runOrchestrator({ ...input(), signal: controller.signal });
+  expect(result.ok).toBe(false); expect(f.create).not.toHaveBeenCalled();
+});
+it.each(["", "x".repeat(12001)])("rejects empty or oversized output", async text => {
+  f.create.mockResolvedValueOnce(stream(text));
+  expect((await runOrchestrator(input())).ok).toBe(false);
+  expect(f.create).toHaveBeenCalledTimes(1);
+});
