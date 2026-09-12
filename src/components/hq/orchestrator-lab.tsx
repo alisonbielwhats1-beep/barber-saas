@@ -17,7 +17,8 @@ export function OrchestratorLab({ ready, reason, dailyLimit = 10 }: { ready: boo
   const [intent, setIntent] = useState<ConversationIntent>("continue");
   const [uncertain, setUncertain] = useState(false);
   const busy = useRef(false);
-  const blocked = uncertain || history.length >= 6 || !!history.at(-1)?.result.pendingApproval;
+  const featurePrepared = history.at(-1)?.result.featureIntake?.status === "prepared";
+  const blocked = uncertain || history.length >= 6 || !!history.at(-1)?.result.pendingApproval || featurePrepared;
   function reset() {
     if (busy.current) return;
     setConversationToken(undefined); setHistory([]); setResult(null); setMessage(""); setIntent("continue"); setUncertain(false);
@@ -73,7 +74,7 @@ export function OrchestratorLab({ ready, reason, dailyLimit = 10 }: { ready: boo
           {!!conversationToken && <><label className="hq-agent-label" htmlFor="orchestrator-intent">Como tratar esta mensagem</label>
             <select id="orchestrator-intent" value={intent} disabled={pending || blocked} onChange={event => setIntent(event.target.value as ConversationIntent)}>
               <option value="continue">Continuar com o responsável</option><option value="reclassify">Mudou de assunto · reclassificar</option><option value="review">Pedir revisão de Chief</option>
-            </select><p>A continuidade não reclassifica a mensagem. Use reclassificação para um novo assunto ou revisão para uma decisão. Sales e Customer Success não sinalizam escalonamento automático no formato salvo.</p></>}
+            </select><p>Sugestões classificadas como melhoria passam por Product. Customer Success pode pedir esclarecimentos em até duas rodadas; depois Chief prepara a recomendação para você, mesmo com dúvidas restantes. Para outro assunto, use reclassificação.</p></>}
           <label className="hq-agent-label" htmlFor="orchestrator-message">Mensagem</label>
           <textarea id="orchestrator-message" value={message} onChange={event => setMessage(event.target.value)}
             rows={6} maxLength={2000} required disabled={!ready || pending || blocked}
@@ -83,13 +84,18 @@ export function OrchestratorLab({ ready, reason, dailyLimit = 10 }: { ready: boo
         </form>
         <p role="status" aria-live="polite">{pending ? "Aguardando os agentes. O passo a passo aparecerá ao concluir. Prazo de 45 segundos, mais até 2 segundos para solicitar cancelamento." : result?.ok ? "Fluxo concluído." : ""}</p>
         {result?.error && <p role="alert">{result.error}</p>}
-        {blocked && <p>Esta simulação não pode continuar: há aprovação pendente, resultado incerto ou o limite de seis mensagens foi atingido. Nova conversa inicia outro cenário, sem aprovar ou executar a pendência anterior.</p>}
+        {blocked && <p>{featurePrepared ? "Coleta encerrada. A recomendação está disponível para sua avaliação nesta página. Nova conversa inicia outro assunto." : "Esta simulação não pode continuar: há aprovação pendente, resultado incerto ou o limite de seis mensagens foi atingido. Nova conversa inicia outro cenário, sem aprovar ou executar a pendência anterior."}</p>}
       </section>
       <section className="hq-panel" aria-label="Resultado do fluxo" aria-busy={pending}>
         <h2>Resultado da mensagem atual</h2>
         {result?.triage && <div className="hq-orchestrator-decision">
-          <p><strong>{result.continued ? "Responsável mantido:" : "Destino selecionado por Triage:"}</strong> {names[result.triage.target_agent]}{result.triage.target_agent === "CHIEF" && " (direto, sem especialista)"}</p>
+          <p><strong>{result.featureIntake ? "Classificação de entrada:" : result.continued ? "Responsável mantido:" : "Destino selecionado por Triage:"}</strong> {names[result.triage.target_agent]}{result.triage.target_agent === "CHIEF" && " (direto, sem especialista)"}</p>
           <p>Prioridade: {result.triage.priority} · Evento: {result.triage.event_type}</p>
+        </div>}
+        {result?.ok && result.featureIntake && <div className="hq-orchestrator-decision" role="status">
+          <strong>{result.featureIntake.status === "prepared" ? "Sugestão pronta para sua avaliação" : "Esclarecimento da sugestão"}</strong>
+          <p>Rodadas de esclarecimento: {result.featureIntake.clarificationRounds}/2.</p>
+          <p>{result.featureIntake.status === "prepared" ? "Product organizou a melhoria e Chief preparou a recomendação abaixo. Ela fica somente nesta página, sem criação de ticket, notificação externa ou compromisso de implementação." : "Customer Success coleta o contexto. Product avalia a próxima resposta antes de permitir outra rodada de esclarecimento."}</p>
         </div>}
         {(result?.pendingApproval || result?.triage?.requires_human_approval) && <div className="hq-orchestrator-decision" role="status"><strong>Aprovação humana pendente.</strong><p>{result.reviewReason}</p><p>Nenhuma aprovação, ação ou transferência foi executada. Esta pendência é apenas uma simulação nesta página.</p></div>}
         <h3>Resposta para o cliente</h3>
@@ -98,7 +104,7 @@ export function OrchestratorLab({ ready, reason, dailyLimit = 10 }: { ready: boo
         {result?.ok && result.internalReport && <><h3>Análise do especialista · uso interno</h3><pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{result.internalReport}</pre></>}
         {result?.ok && result.chiefReport && <><h3>Chief · para você</h3><p>{result.reviewReason}</p><blockquote style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{result.chiefReport}</blockquote></>}
         <h3>Agentes acionados</h3>
-        <p>{result?.steps.length ? result.steps.filter(step => step.sessionId).map(step => names[step.agent]).join(" → ") || "Nenhuma sessão confirmada." : "Triage → responsável selecionado → Chief quando houver revisão"}</p>
+        <p>{result?.steps.length ? result.steps.filter(step => step.sessionId).sort((a, b) => (a.invocationOrder ?? 0) - (b.invocationOrder ?? 0)).map(step => names[step.agent]).join(" → ") || "Nenhuma sessão confirmada." : "Triage → responsável selecionado → Chief quando houver revisão"}</p>
         {!!result?.steps.length && <><h3>Resultado de cada agente</h3><ol className="hq-agent-trace">{result.steps.map(step => <li key={step.agent}>
             <strong>{names[step.agent]} · {statuses[step.status]}</strong>
             <p>{step.detail} {step.status !== "skipped" && `${(step.durationMs / 1000).toFixed(1)} s`}</p>

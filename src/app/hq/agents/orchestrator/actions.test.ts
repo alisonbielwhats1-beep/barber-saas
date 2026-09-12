@@ -141,3 +141,10 @@ it("blocks a pending conversation before consuming quota even if reclassificatio
   expect((await testOrchestrator("aprovado", { conversationToken: first.conversationToken, intent: "reclassify" })).ok).toBe(false);
   expect(f.limit).not.toHaveBeenCalled(); expect(f.run).toHaveBeenCalledTimes(1);
 });
+it("blocks a prepared suggestion before consuming either quota or starting inference", async () => {
+  f.run.mockResolvedValueOnce({ ok: true, steps: [], conversation: { mode: "customer", pendingApproval: false, history: [], featureIntake: { status: "prepared", clarificationRounds: 2 } } });
+  const first = await testOrchestrator("teste"); f.limit.mockClear(); f.local.mockClear();
+  const result = await testOrchestrator("mais perguntas", { conversationToken: first.conversationToken });
+  expect(result.ok).toBe(false); expect(result.error).toContain("recomendação");
+  expect(f.limit).not.toHaveBeenCalled(); expect(f.local).not.toHaveBeenCalled(); expect(f.run).toHaveBeenCalledTimes(1);
+});

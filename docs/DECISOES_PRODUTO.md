@@ -6,6 +6,12 @@ que todos os itens abaixo já estão implementados na Fase 1.
 
 ## Orquestrador interno — revisão de 12/09/2026
 
+Complemento autorizado: sugestões externas classificadas como melhoria recebem
+avaliação de Product e até duas rodadas de esclarecimento por Customer Success.
+Com contexto suficiente ou após o limite, Chief prepara a recomendação para o
+fundador, incluindo incertezas. O backend garante o limite; prompts/modelos/formatos
+salvos permanecem. Resultado volátil no laboratório, sem ticket ou notificação.
+
 O responsável aprovou substituir Chief obrigatório em toda mensagem por Triage
 na entrada, continuidade com o especialista e Chief por revisão/decisão. O recorte
 continua no laboratório local: respostas ao cliente separadas de análises internas,

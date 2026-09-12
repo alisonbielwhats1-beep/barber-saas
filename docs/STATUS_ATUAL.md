@@ -1,5 +1,18 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-12 — sugestões com limite de coleta validadas localmente
+
+Na mesma branch/PR #100, o responsável autorizou interromper perguntas repetidas:
+Product avalia sugestões externas classificadas FEATURE_REQUEST; Customer Success
+esclarece em até duas rodadas e Chief recebe a recomendação, mesmo com incertezas.
+Estado e encerramento controlados no servidor, modelos/prompts salvos preservados.
+1.051 testes simulados, lint, TypeScript e build passaram. Ensaio final real na
+tela: entrada Triage/CS, avaliação Product/CS e Chief sozinho após duas rodadas,
+reutilizando a análise Product e recebendo a mensagem mais recente. A etapa final
+levou 20,029s, sem terceira chamada CS. Cinco sessões auditadas; 45/50 tentativas
+usadas no encerramento. Escopo em `HQ_ATENDIMENTO_CONVERSA_2026-09-12.md`.
+Sem Production, WhatsApp, migration, ticket ou notificação ao fundador.
+
 ## 2026-09-12 — limite local ampliado para cinquenta
 
 O responsável autorizou manter até 50 tentativas/24h no laboratório local,

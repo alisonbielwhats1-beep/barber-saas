@@ -85,3 +85,24 @@ it("stops at six turns", async () => {
   for (let n = 0; n < 6; n++) await send(`Mensagem ${n}`);
   expect(screen.getByLabelText("Mensagem")).toBeDisabled(); expect(run).toHaveBeenCalledTimes(6);
 });
+it("shows the clarification budget and actual Product-before-CS execution order", async () => {
+  run.mockResolvedValue(completed({ featureIntake: { status: "collecting", clarificationRounds: 1 }, steps: [
+    { agent: "TRIAGE", sessionId: "sess_t", status: "completed", durationMs: 10, invocationOrder: 0 },
+    { agent: "CUSTOMER_SUCCESS", sessionId: "sess_cs", status: "completed", durationMs: 10, invocationOrder: 2 },
+    { agent: "PRODUCT", sessionId: "sess_p", status: "completed", durationMs: 10, invocationOrder: 1 },
+  ] }));
+  render(<OrchestratorLab ready reason="" />); await send();
+  expect(screen.getByText("Rodadas de esclarecimento: 1/2.")).toBeVisible();
+  expect(screen.getByText("Triage → Product → Customer Success")).toBeVisible();
+  expect(screen.getByLabelText("Mensagem")).toBeEnabled();
+});
+it("closes collection when a recommendation is ready without claiming a ticket or customer reply", async () => {
+  run.mockResolvedValue(completed({ answer: undefined, featureIntake: { status: "prepared", clarificationRounds: 2 }, internalReport: "Análise Product", chiefReport: "Recomendação para o fundador" }));
+  render(<OrchestratorLab ready reason="" />); await send();
+  expect(screen.getByText("Sugestão pronta para sua avaliação")).toBeVisible();
+  expect(screen.getByText(/sem criação de ticket, notificação externa/)).toBeVisible();
+  expect(screen.getByLabelText("Mensagem")).toBeDisabled();
+  expect(screen.getByRole("list", { name: "Histórico da conversa" })).not.toHaveTextContent("Atendimento Everflair");
+  fireEvent.click(screen.getByRole("button", { name: "Nova conversa" }));
+  expect(screen.getByLabelText("Mensagem")).toBeEnabled();
+});

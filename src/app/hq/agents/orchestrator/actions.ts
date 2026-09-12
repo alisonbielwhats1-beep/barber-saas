@@ -33,6 +33,9 @@ export async function testOrchestrator(message: unknown, options: unknown = {}):
   } catch {
     return { ok: false, steps: [], error: "Conversa inválida ou expirada. Inicie uma nova simulação." };
   }
+  if (conversation?.featureIntake?.status === "prepared") {
+    return { ok: false, steps: [], error: "A recomendação desta sugestão já está pronta para sua avaliação. Inicie outra conversa para um novo assunto." };
+  }
   if (conversation && (conversation.history.length >= 6 || conversation.pendingApproval)) {
     return { ok: false, steps: [], error: conversation.pendingApproval
       ? "Esta simulação aguarda aprovação humana. Nenhuma decisão foi executada. Inicie outra conversa para um novo teste."

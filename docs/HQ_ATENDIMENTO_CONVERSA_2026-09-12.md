@@ -1,5 +1,110 @@
 # Conversa com responsável e revisão condicional
 
+## Sugestões com coleta limitada — atualização de 12/09
+
+O responsável autorizou encerrar perguntas repetidas e preparar a recomendação
+para o fundador. Em conversas externas classificadas como `FEATURE_REQUEST`,
+com destino Customer Success ou Product, a entrada usa Triage → Customer Success.
+Após a primeira resposta do cliente, o backend consulta Product antes de
+permitir outra rodada. Usa `dados_necessarios` do formato salvo: lista vazia
+permite Chief; lista não vazia permite Customer Success por até duas rodadas
+na conversa. Não conta interrogações nem deduz
+roteamento a partir de texto livre. Duas rodadas podem conter mais de duas
+perguntas individuais: as instruções salvas continuam controlando a redação.
+
+Após duas rodadas, Chief recebe a análise Product já concluída, o histórico e a
+última mensagem para preparar a recomendação mesmo com dados faltantes. A análise
+é identificada como anterior, sem fingir uma nova sessão Product. A tela mostra
+essa reutilização. Sem análise anterior válida, ou em reclassificação explícita,
+Product é consultado novamente. Aprovação, risco crítico ou pedido de Chief por Product
+antecipam a revisão. As incertezas permanecem no JSON de Product enviado ao Chief.
+O contador e o encerramento viajam no token autenticado; reclassificar a mesma
+sugestão não zera a coleta. Conversas antigas de melhoria contam as respostas CS
+já presentes no histórico de forma conservadora. Após sucesso, a coleta fica
+encerrada no servidor antes de qualquer nova reserva de consumo.
+
+Primeira mensagem normal: Triage → CS. Segunda: Product → CS ou Product → Chief.
+Após a segunda rodada de coleta: Chief com análise Product da rodada anterior.
+Uma classificação que já exige aprovação pode usar Triage → Product → Chief;
+reclassificação explícita também pode usar três sessões. O máximo de três sessões
+e 45s compartilhados permanece. A decisão de
+informação suficiente depende da avaliação do agente e não equivale a uma
+especificação completa. Falhas não publicam recomendação nem avançam o estado.
+
+A tela mostra as rodadas, a ordem real das chamadas, a análise Product e Chief
+para o fundador. Ao concluir a recomendação não gera uma nova resposta de CS:
+há apenas análise interna. Nenhum ticket, caixa de entrada persistente,
+notificação, promessa de implementação ou aprovação executada. O resultado
+permanece somente na página. Prompts, modelos e formatos OpenAI não foram alterados.
+
+O gatilho é a classificação validada `FEATURE_REQUEST`, não palavras-chave na
+mensagem. Outros assuntos mantêm o fluxo anterior. Se Triage classificar uma
+sugestão em outro evento, esta regra não dispara; mudança de assunto continua
+dependendo da reclassificação explícita. Este laboratório não é atendimento externo.
+
+O primeiro ensaio real com três agentes na entrada esgotou 45s: Triage 14,745s,
+Product 22,043s e Chief interrompido com cancelamento solicitado. Essa medição
+motivou distribuir a coleta em mensagens, com duas sessões no caminho normal.
+Não houve retry automático; o ensaio seguinte valida a implementação corrigida.
+Evidência: `.demo/feature-first-timeout.json`. Um ensaio posterior de PDF também
+esgotou o prazo ao repetir Product (21,363s) antes de Chief. O fluxo final reutiliza
+a análise anterior após duas rodadas, preservando a última mensagem no contexto
+de Chief. Evidência do timeout: `.demo/feature-final-results.json`.
+
+Um ensaio intermediário concluiu seis sessões na API, com triagem/histórico/
+análise completos e capacidades restritas auditadas; a última resposta do navegador
+não pôde ser confirmada pelo coletor. Não conta como sucesso integral na tela.
+Evidências: `.demo/feature-real-audit.json` e `.demo/feature-real-verified.json`.
+O responsável alterou Verbosity de Customer Success para Low durante os testes;
+Reasoning effort permaneceu Medium. A chamada seguinte herdou Low, comprovado
+na auditoria, sem override de sessão. Validação final abaixo.
+
+### Validação final da coleta limitada
+
+- `npm test -- --maxWorkers=2`: 1.051 testes em 186 arquivos passaram.
+- `npm run lint` e `npx tsc --noEmit --incremental false`: passaram.
+- `npm run build` completo passou no checkout isolado; após o ajuste final de
+  reutilização, `npx next build` passou novamente, incluindo tipos e geração.
+  Nenhuma mudança de dependência, schema ou Prisma nesta revisão.
+- 133 testes específicos de orquestrador, ação e tela passaram. Incluem cap,
+  análise anterior identificada, mensagem nova/histórico completos, falhas,
+  encerramento antes das cotas e reclassificação sem reutilização indevida.
+- Navegador: home 200, SUPER_ADMIN, sete agentes, cota 50, bloqueios de anônimo/
+  usuário comum, sem erros nem overflow em 390px. Relatório final de Chief visível
+  e campo de continuação bloqueado após preparar a recomendação.
+
+Ensaio real final com sugestão fictícia de PDF mensal:
+
+| Mensagem | Chamadas desta mensagem | Tempo das etapas |
+|---|---|---|
+| Sugestão inicial | Triage → Customer Success | 32,913s |
+| Escopo do PDF | Product → Customer Success | 31,614s |
+| Encerrar a coleta e avaliar | Chief, com Product anterior | 20,029s |
+
+Nenhuma terceira chamada Customer Success. Rodadas contam respostas de coleta,
+inclusive quando o texto não contém perguntas; não representam contagem semântica
+de perguntas. Sem resposta adicional ao cliente na etapa final: recomendação interna
+visível para o fundador. As duas primeiras respostas e a última mensagem foram
+incluídas no contexto; cinco sessões auditadas preservaram instruções/modelo/formato
+e restrições. O caminho antecipado por dados suficientes foi simulado, não comprovado
+por este ensaio real. Tempos observados não são SLA: os timeouts anteriores mostram
+a importância de evitar repetir Product, e ainda pode haver falha de prazo.
+
+Sessões finais, em ordem:
+
+- `sess_093a361970ed565d006aa5d21a10788191a8c6cbbc9ff600cd`
+- `sess_0e92e2d7bc333da2006aa5d22d238c8191a4ccadd96fe742f9`
+- `sess_088ffed86c8bc6e2006aa5d258f31081918f03ca7c041b5ba2`
+- `sess_0cf5b196d09277e3006aa5d269b54481918db9bb77a3e06e22`
+- `sess_0a50bac0feddce7c006aa5d2965ff48191ada74b6afe5f997a`
+
+Evidências: `.demo/feature-reuse-results.json`, `.demo/feature-reuse-audit.json`,
+`.demo/feature-reuse-ready.png`, `.demo/tests-feature-reuse-full.log`,
+`.demo/build-feature-reuse.log` e `.demo/browser-feature-final.log`.
+Contador preservado: 45/50 tentativas usadas ao término, sem aumentar o teto.
+O CI anterior de `c60e57d` passou integralmente (34720490755), mas não valida este
+novo commit. PR #100 continua em rascunho; sem promoção produtiva.
+
 ## Atualização do limite local
 
 Após os ensaios abaixo, o responsável autorizou manter 50 tentativas por janela
@@ -49,8 +154,9 @@ Os seis ensaios reais do fluxo anterior não validam automaticamente esta revis�
   incerto impede continuação na tela e orienta conferir a sessão antes de repetir.
 
 Sales/Customer Success retornam apenas texto, sem campo de escalonamento. Por isso
-o laboratório não tenta deduzir um encaminhamento a partir de sua prosa. A seleção
-de reclassificação/revisão é explícita. Detecção automática de mudança de assunto,
+o laboratório não tenta deduzir um encaminhamento a partir de sua prosa. Sugestões
+seguem a regra adicional acima, controlada pelo backend com a avaliação Product.
+A seleção geral de reclassificação/revisão é explícita. Detecção automática de mudança de assunto,
 risco surgido no meio da conversa ou encaminhamento por esses dois agentes exige
 um contrato adicional e avaliação antes de atendimento externo. Destinos diferentes
 de Chief sugeridos por especialistas internos são recomendações, não execução.

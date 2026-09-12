@@ -20,6 +20,7 @@ export type AgentStep = {
   status: "completed" | "failed" | "skipped";
   durationMs: number;
   invoked?: boolean;
+  invocationOrder?: number;
   sessionId?: string;
   output?: string;
   detail: string;
@@ -37,8 +38,10 @@ export type OrchestratorResult = {
   pendingApproval?: boolean;
   continued?: boolean;
   conversationToken?: string;
+  featureIntake?: FeatureIntake;
 };
 
+export type FeatureIntake = { clarificationRounds: number; status: "collecting" | "prepared" };
 export type ConversationMode = "customer" | "internal";
 export type ConversationIntent = "continue" | "reclassify" | "review";
 export type OrchestratorConversation = {
@@ -46,7 +49,8 @@ export type OrchestratorConversation = {
   triage: TriageDecision;
   triageOutput: string;
   pendingApproval: boolean;
-  history: { message: string; agent: OrchestratorAgent; output: string; chiefReport?: string }[];
+  featureIntake?: FeatureIntake;
+  history: { message: string; agent: OrchestratorAgent; output: string; chiefReport?: string; productAssessment?: string }[];
 };
 
 const triageSchema = z.object({
@@ -131,6 +135,9 @@ export async function runOrchestrator(input: {
   }
   const ids = input.agentIds ?? orchestratorAgentIds;
   if (!validAgentIds(ids)) return { ok: false, steps, error: "Confira os sete IDs distintos dos agentes no servidor." };
+  if (input.conversation?.featureIntake?.status === "prepared") {
+    return { ok: false, steps, error: "A recomendação desta sugestão já está pronta para sua avaliação. Inicie outra conversa para um novo assunto." };
+  }
   if (input.conversation && (input.conversation.history.length >= 6 || input.conversation.pendingApproval)) {
     return { ok: false, steps, error: input.conversation.pendingApproval
       ? "Esta simulação tem aprovação pendente. Nenhuma decisão foi executada. Inicie outra conversa para um novo teste."
@@ -150,6 +157,7 @@ export async function runOrchestrator(input: {
   };
   async function run(agent: OrchestratorAgent, payload: object, validate?: (output: string) => void) {
     const step = steps.find(candidate => candidate.agent === agent)!;
+    step.invocationOrder = steps.filter(candidate => candidate.invocationOrder !== undefined).length;
     step.status = "failed";
     step.detail = "";
     const start = Date.now();
@@ -183,6 +191,7 @@ export async function runOrchestrator(input: {
   let triage: TriageDecision | undefined;
   let pendingApproval = false;
   let reviewReason: string | undefined;
+  let featureIntake: FeatureIntake | undefined;
   try {
     const continued = !!input.conversation && input.intent !== "reclassify";
     const triageOutput = continued ? input.conversation!.triageOutput
@@ -199,9 +208,45 @@ export async function runOrchestrator(input: {
     reviewReason = pendingApproval ? "A classificação exige aprovação humana ou indica risco crítico."
       : target === "CHIEF" ? "Chief foi selecionado pela triagem."
       : input.intent === "review" ? "Revisão solicitada explicitamente pelo administrador do laboratório." : undefined;
-    const specialist = target === "CHIEF" || input.intent === "review" ? null : {
-      agent: target,
-      output: await run(target, { ...context, triage, triage_output: triageOutput }, output => readSpecialistOutput(target, output)),
+    // Product's existing structured format supplies missing information. Never
+    // infer a handoff or readiness from Customer Success's free-form prose.
+    const featureFlow = context.source === "external_customer" && triage.event_type === "FEATURE_REQUEST" &&
+      (target === "CUSTOMER_SUCCESS" || target === "PRODUCT") && input.intent !== "review";
+    let productAssessment: { agent: "PRODUCT"; output: string } | undefined;
+    if (featureFlow) {
+      const rounds = input.conversation?.featureIntake?.clarificationRounds ??
+        context.history.filter(turn => turn.agent === "CUSTOMER_SUCCESS").length;
+      featureIntake = { clarificationRounds: 1, status: "collecting" };
+      // Keep normal entry to two sessions under the shared deadline. Product
+      // evaluates the customer's first clarification, before another CS turn.
+      if (rounds > 0 || pendingApproval) {
+        const previousAssessment = rounds >= 2 && input.intent !== "reclassify"
+          ? context.history.at(-1)?.productAssessment : undefined;
+        if (previousAssessment) {
+          featureAssessmentSchema.parse(JSON.parse(previousAssessment));
+          productAssessment = { agent: "PRODUCT", output: previousAssessment };
+          const productStep = steps.find(step => step.agent === "PRODUCT")!;
+          productStep.output = previousAssessment;
+          productStep.detail = "Análise de Product reutilizada da rodada anterior, sem nova sessão. Chief recebe também a última mensagem e o histórico completo.";
+        } else productAssessment = { agent: "PRODUCT", output: await run("PRODUCT", {
+          ...context, triage, triage_output: triageOutput,
+          feature_intake: { clarification_rounds: rounds, maximum_clarification_rounds: 2 },
+        }, output => featureAssessmentSchema.parse(JSON.parse(output))) };
+        const assessment = featureAssessmentSchema.parse(JSON.parse(productAssessment.output));
+        const ready = assessment.dados_necessarios.length === 0 || rounds >= 2 || pendingApproval ||
+          assessment.requires_human_approval || assessment.target_agent === "CHIEF";
+        featureIntake = { clarificationRounds: Math.min(rounds + (ready ? 0 : 1), 2), status: ready ? "prepared" : "collecting" };
+        if (ready) reviewReason = rounds >= 2
+          ? "Sugestão encaminhada para análise após duas rodadas de esclarecimento. As dúvidas restantes acompanham a recomendação."
+          : "Sugestão encaminhada para avaliação interna com a análise de Product.";
+      }
+    }
+    const specialist = featureFlow && featureIntake?.status === "prepared" ? productAssessment!
+      : target === "CHIEF" || input.intent === "review" ? null : {
+      agent: featureFlow ? "CUSTOMER_SUCCESS" as const : target,
+      output: await run(featureFlow ? "CUSTOMER_SUCCESS" : target, { ...context, triage, triage_output: triageOutput,
+        ...(productAssessment ? { product_assessment: productAssessment, feature_intake: featureIntake } : {}) },
+        output => readSpecialistOutput(featureFlow ? "CUSTOMER_SUCCESS" : target, output)),
     };
     const parsedSpecialist = specialist ? readSpecialistOutput(specialist.agent, specialist.output) : undefined;
     if (parsedSpecialist?.requiresApproval) {
@@ -211,19 +256,24 @@ export async function runOrchestrator(input: {
       reviewReason = "O especialista solicitou revisão de Chief.";
     }
     const chiefReport = reviewReason ? await run("CHIEF", { ...context, triage, triage_output: triageOutput, specialist,
+      ...(featureIntake ? { feature_intake: featureIntake,
+        product_assessment_source: steps.find(step => step.agent === "PRODUCT")!.invoked ? "current_message" : "previous_turn" } : {}),
       review_reason: reviewReason, requires_human_approval: pendingApproval,
       requested_output: "Prepare uma análise interna para o fundador conforme suas instruções salvas. Considere os resultados completos e o histórico. Explicite decisões pendentes; não afirme aprovação, transferência ou execução." }) : undefined;
     if (!reviewReason) steps.find(step => step.agent === "CHIEF")!.detail = "Não houve indicação de revisão ou aprovação nesta etapa.";
     if (input.intent === "review" && target !== "CHIEF") steps.find(step => step.agent === target)!.detail = "Revisão direta de Chief com o histórico; especialista não repetido.";
+    if (featureIntake && !productAssessment) steps.find(step => step.agent === "PRODUCT")!.detail = "Product avaliará a próxima resposta do cliente antes de permitir outra rodada de esclarecimento.";
+    if (featureIntake?.status === "prepared") steps.find(step => step.agent === "CUSTOMER_SUCCESS")!.detail = "Coleta encerrada; Product e Chief preparam a recomendação sem novas perguntas ao cliente.";
     const answer = !pendingApproval && parsedSpecialist?.customerText ? specialist?.output : undefined;
     const conversation: OrchestratorConversation = {
-      mode: input.conversation?.mode ?? input.mode ?? "customer", triage, triageOutput, pendingApproval,
+      mode: input.conversation?.mode ?? input.mode ?? "customer", triage, triageOutput, pendingApproval, featureIntake,
       history: [...context.history, { message: context.message, agent: specialist?.agent ?? "CHIEF",
-        output: specialist?.output ?? chiefReport!, ...(chiefReport ? { chiefReport } : {}) }],
+        output: specialist?.output ?? chiefReport!, ...(chiefReport ? { chiefReport } : {}),
+        ...(productAssessment ? { productAssessment: productAssessment.output } : {}) }],
     };
     return { ok: true, steps, answer, triage, responder: specialist?.agent ?? "CHIEF",
-      internalReport: parsedSpecialist && !parsedSpecialist.customerText ? specialist?.output : undefined,
-      chiefReport, reviewReason, pendingApproval, continued, conversation };
+      internalReport: productAssessment?.output ?? (parsedSpecialist && !parsedSpecialist.customerText ? specialist?.output : undefined),
+      chiefReport, reviewReason, pendingApproval, continued, featureIntake, conversation };
   } catch {
     const failed = steps.find(step => step.status === "failed");
     if (failed && !failed.detail) failed.detail = input.signal.aborted
@@ -233,6 +283,13 @@ export async function runOrchestrator(input: {
     return { ok: false, steps, triage, pendingApproval, reviewReason, error: "O fluxo foi interrompido. Consulte a etapa com falha; não houve repetição automática." };
   }
 }
+
+const featureAssessmentSchema = z.object({
+  target_agent: z.enum(["PRODUCT", "CUSTOMER_SUCCESS", "CHIEF"]),
+  requires_human_approval: z.boolean(),
+  problema: z.string().trim().min(1),
+  dados_necessarios: z.array(z.string().trim().min(1)),
+});
 
 // Validate only the routing contract of the existing saved formats. No format override.
 function readSpecialistOutput(agent: Exclude<OrchestratorAgent, "TRIAGE" | "CHIEF">, output: string) {

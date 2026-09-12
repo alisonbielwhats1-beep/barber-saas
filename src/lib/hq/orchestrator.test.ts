@@ -182,3 +182,110 @@ it("supports server registry overrides", async () => {
   expect((await runOrchestrator({ ...input(), agentIds: ids })).ok).toBe(true);
   expect(f.create.mock.calls.map(([body]) => body.agent_id)).toEqual([ids.TRIAGE, ids.MARKETING]);
 });
+
+const featureDecision = () => JSON.stringify({ ...JSON.parse(decision()), event_type: "FEATURE_REQUEST" });
+const assessment = (missing: string[] = [], overrides = {}) => JSON.stringify({
+  target_agent: "PRODUCT", requires_human_approval: false, problema: "Agente virtual na agenda",
+  dados_necessarios: missing, ...overrides,
+});
+const featureConversation = (rounds: number): OrchestratorConversation => ({
+  ...conversation(), triage: JSON.parse(featureDecision()), triageOutput: featureDecision(),
+  featureIntake: { clarificationRounds: rounds, status: "collecting" },
+  history: Array.from({ length: rounds }, (_, n) => ({ message: `Contexto ${n}`, agent: "CUSTOMER_SUCCESS", output: `Pergunta ${n}` })),
+});
+it("prepares a clear feature after the first clarification without another customer question", async () => {
+  f.create.mockResolvedValueOnce(stream(assessment()))
+    .mockResolvedValueOnce(stream("Recomendação para avaliar, sem promessa de implementação."));
+  const result = await runOrchestrator({ ...input(), conversation: featureConversation(1) });
+  expect(result.ok).toBe(true); expect(result.featureIntake).toEqual({ status: "prepared", clarificationRounds: 1 });
+  expect(f.create.mock.calls.map(([body]) => body.agent_id)).toEqual([orchestratorAgentIds.PRODUCT, orchestratorAgentIds.CHIEF]);
+  expect(result.answer).toBeUndefined(); expect(result.internalReport).toBe(assessment());
+  expect(result.chiefReport).toContain("Recomendação");
+  expect(JSON.parse(f.create.mock.calls[1][0].input)).toMatchObject({ triage_output: featureDecision(), specialist: { agent: "PRODUCT", output: assessment() } });
+});
+it("starts intake with only Triage and Customer Success within the shared deadline", async () => {
+  f.create.mockResolvedValueOnce(stream(featureDecision()))
+    .mockResolvedValueOnce(stream("Qual tarefa você gostaria de automatizar?"));
+  const result = await runOrchestrator(input());
+  expect(result.featureIntake).toEqual({ status: "collecting", clarificationRounds: 1 });
+  expect(result.answer).toContain("automatizar"); expect(result.chiefReport).toBeUndefined();
+  expect(f.create.mock.calls.map(([body]) => body.agent_id)).toEqual([orchestratorAgentIds.TRIAGE, orchestratorAgentIds.CUSTOMER_SUCCESS]);
+});
+it.each([1, 2])("escalates as soon as Product has no missing data after %s clarification rounds", async rounds => {
+  f.create.mockResolvedValueOnce(stream(assessment())).mockResolvedValueOnce(stream("Avalie a melhoria"));
+  const result = await runOrchestrator({ ...input(), conversation: featureConversation(rounds) });
+  expect(result.featureIntake).toEqual({ status: "prepared", clarificationRounds: rounds });
+  expect(f.create).toHaveBeenCalledTimes(2);
+});
+it("allows the second clarification but never a third, even if data remain missing", async () => {
+  const missing = assessment(["Canal", "Regras de aprovação"]);
+  f.create.mockResolvedValueOnce(stream(missing)).mockResolvedValueOnce(stream("Em qual canal?"));
+  const second = await runOrchestrator({ ...input(), conversation: featureConversation(1) });
+  expect(second.featureIntake).toEqual({ status: "collecting", clarificationRounds: 2 });
+  expect(JSON.parse(f.create.mock.calls[1][0].input).product_assessment.output).toBe(missing);
+  expect(second.conversation?.history.at(-1)?.productAssessment).toBe(missing);
+  f.create.mockResolvedValueOnce(stream("Recomendo avaliar, com dúvidas pendentes."));
+  const final = await runOrchestrator({ ...input(), message: "Dentro do Everflair", conversation: second.conversation });
+  expect(final.featureIntake).toEqual({ status: "prepared", clarificationRounds: 2 });
+  expect(f.create.mock.calls.slice(2).map(([body]) => body.agent_id)).toEqual([orchestratorAgentIds.CHIEF]);
+  expect(JSON.parse(f.create.mock.calls[2][0].input)).toMatchObject({
+    history: second.conversation!.history, message: "Dentro do Everflair", specialist: { output: missing }, product_assessment_source: "previous_turn",
+  });
+  expect(final.steps.find(s => s.agent === "PRODUCT")).toMatchObject({ status: "skipped", invoked: false, output: missing });
+  expect(final.answer).toBeUndefined(); expect(final.reviewReason).toContain("duas rodadas");
+});
+it("does not reuse an old Product assessment after an explicit reclassification", async () => {
+  const state = featureConversation(2); state.history[1].productAssessment = assessment(["Old question"]);
+  f.create.mockResolvedValueOnce(stream(featureDecision())).mockResolvedValueOnce(stream(assessment(["New context"])))
+    .mockResolvedValueOnce(stream("Recomendação atualizada"));
+  const result = await runOrchestrator({ ...input(), conversation: state, intent: "reclassify" });
+  expect(result.ok).toBe(true); expect(f.create).toHaveBeenCalledTimes(3);
+  expect(JSON.parse(f.create.mock.calls[2][0].input)).toMatchObject({ specialist: { output: assessment(["New context"]) }, product_assessment_source: "current_message" });
+});
+it("applies the cap to existing feature conversations created before this change", async () => {
+  const old = featureConversation(4); delete old.featureIntake;
+  f.create.mockResolvedValueOnce(stream(assessment(["Falta detalhe"]))).mockResolvedValueOnce(stream("Recomendação"));
+  const result = await runOrchestrator({ ...input(), conversation: old });
+  expect(result.featureIntake).toEqual({ status: "prepared", clarificationRounds: 2 });
+  expect(f.create).toHaveBeenCalledTimes(2);
+});
+it.each(["review", "continue", "reclassify"] as const)("does not repeat a prepared feature via %s", async intent => {
+  const state = featureConversation(2); state.featureIntake!.status = "prepared";
+  expect((await runOrchestrator({ ...input(), conversation: state, intent })).ok).toBe(false);
+  expect(f.create).not.toHaveBeenCalled();
+});
+it.each([{}, { dados_necessarios: "unknown" }, { dados_necessarios: [""] }, { target_agent: "agent_arbitrary" }])("fails closed on invalid feature assessment %j", async invalid => {
+  f.create.mockResolvedValueOnce(stream(JSON.stringify(invalid)));
+  const result = await runOrchestrator({ ...input(), conversation: featureConversation(1) }); expect(result.ok).toBe(false); expect(result.conversation).toBeUndefined();
+  expect(f.create).toHaveBeenCalledTimes(1); expect(result.steps.find(s => s.agent === "PRODUCT")?.status).toBe("failed");
+});
+it("prioritizes Product approval over more questions, even with missing information", async () => {
+  f.create.mockResolvedValueOnce(stream(assessment(["Canal"], { requires_human_approval: true })))
+    .mockResolvedValueOnce(stream("Aguarda sua aprovação"));
+  const result = await runOrchestrator({ ...input(), conversation: featureConversation(1) }); expect(result.pendingApproval).toBe(true); expect(result.answer).toBeUndefined();
+  expect(result.featureIntake?.status).toBe("prepared"); expect(f.create).toHaveBeenCalledTimes(2);
+});
+it("does not publish a prepared recommendation or advance intake when Chief fails", async () => {
+  f.create.mockResolvedValueOnce(stream(assessment())).mockRejectedValueOnce(new Error("private-provider-error"));
+  const result = await runOrchestrator({ ...input(), conversation: featureConversation(2) });
+  expect(result.ok).toBe(false); expect(result.featureIntake).toBeUndefined(); expect(result.chiefReport).toBeUndefined(); expect(result.conversation).toBeUndefined();
+  expect(result.steps.find(s => s.agent === "PRODUCT")?.output).toBe(assessment());
+});
+it("reclassification to Sales ends feature intake and keeps the full history", async () => {
+  f.create.mockResolvedValueOnce(stream(decision("SALES"))).mockResolvedValueOnce(stream("Preços públicos"));
+  const result = await runOrchestrator({ ...input(), conversation: featureConversation(1), intent: "reclassify" });
+  expect(result.featureIntake).toBeUndefined(); expect(result.responder).toBe("SALES"); expect(f.create).toHaveBeenCalledTimes(2);
+});
+it("reclassifying the same feature cannot reset the clarification budget", async () => {
+  f.create.mockResolvedValueOnce(stream(featureDecision())).mockResolvedValueOnce(stream(assessment(["Detalhe"])))
+    .mockResolvedValueOnce(stream("Recomendação com incertezas"));
+  const result = await runOrchestrator({ ...input(), conversation: featureConversation(2), intent: "reclassify" });
+  expect(result.featureIntake).toEqual({ status: "prepared", clarificationRounds: 2 });
+  expect(f.create).toHaveBeenCalledTimes(3);
+});
+it("does not activate external feature intake on internal Product requests", async () => {
+  f.create.mockResolvedValueOnce(stream(JSON.stringify({ ...JSON.parse(featureDecision()), target_agent: "PRODUCT" })))
+    .mockResolvedValueOnce(stream(outputFor("PRODUCT")));
+  const result = await runOrchestrator({ ...input(), mode: "internal" });
+  expect(result.featureIntake).toBeUndefined(); expect(f.create).toHaveBeenCalledTimes(2);
+});
