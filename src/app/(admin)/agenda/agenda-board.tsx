@@ -346,7 +346,7 @@ export function AgendaBoard({
   return (
     <div className="agenda-workspace" aria-busy={pending}>
       <header className="agenda-toolbar">
-        <AgendaColorSelect value={colorMode} onChange={setColorMode} />
+        <div className="hidden sm:block"><AgendaColorSelect value={colorMode} onChange={setColorMode} /></div>
         <div className="flex min-w-0 items-center gap-2 sm:hidden">
           <button type="button" onClick={() => goDate(-1)} aria-label={`Ir para ${navigationUnit} anterior`} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg hover:bg-muted"><ChevronLeft aria-hidden="true" size={16} /></button>
           <h1><button ref={compactCalendarTrigger} type="button" aria-label="Abrir calendário" aria-haspopup="dialog" onClick={() => setMobileCalendarOpen(true)} className="min-h-11 min-w-11 rounded-lg text-sm font-semibold">
@@ -433,6 +433,7 @@ export function AgendaBoard({
         <DialogContent aria-describedby={undefined} onCloseAutoFocus={event => { event.preventDefault(); filterTrigger.current?.focus(); }} className="max-h-[85dvh] overflow-y-auto">
           <DialogHeader><DialogTitle>Buscar e filtrar agenda</DialogTitle></DialogHeader>
       <div className="space-y-4">
+        <div className="sm:hidden"><AgendaColorSelect value={colorMode} onChange={setColorMode} /></div>
         <div className="flex min-h-11 items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 max-sm:w-full">
           <Search aria-hidden="true" className="h-3.5 w-3.5 text-muted-foreground" />
           <input

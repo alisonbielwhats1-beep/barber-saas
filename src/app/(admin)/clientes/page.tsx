@@ -58,7 +58,6 @@ export default async function ClientesPage({ searchParams }: { searchParams: Pro
         <Kpi icon={Clock} accent="#EF4444" label={`Sumidos (${marketingSettings.lapsedClientDays}d+)`} value={lapsed.toString()} />
       </section>
 
-      {!showExcluded && ["OWNER", "MANAGER"].includes(role) && <ReturnOpportunities />}
       <ClientsCrm
         clients={clients}
         salonName={salon?.name ?? "nosso salão"}
@@ -68,6 +67,7 @@ export default async function ClientesPage({ searchParams }: { searchParams: Pro
         showExcluded={showExcluded}
         lapsedClientDays={marketingSettings.lapsedClientDays}
       />
+      {!showExcluded && ["OWNER", "MANAGER"].includes(role) && <ReturnOpportunities />}
     </div>
   );
 }

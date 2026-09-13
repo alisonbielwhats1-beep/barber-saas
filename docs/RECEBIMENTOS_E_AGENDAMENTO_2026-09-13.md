@@ -94,3 +94,10 @@ Verificação adicional local: configurações de sugestões/complementos persis
 cores persistiram após reload e entre Agenda/Hoje; sessão sintética de cliente
 restaurou três serviços pelo atendimento de sempre. A jornada Playwright cobre
 a persistência das cores; seletor permanece desabilitado até a hidratação.
+
+Revisão com a base `d970b11` (PR #102): 924 testes em 183 arquivos passaram.
+As cinco jornadas locais de navegação, listas mobile, operação diária e recebimentos
+passaram após manter retornos abaixo da lista de clientes e mover cores para os
+filtros no celular. O teste de paleta agora escolhe o modo profissional e aguarda
+a transição visual. O CI executa as jornadas autenticadas em duas partes, cada
+qual com um novo servidor dev, evitando reinício por memória no meio da operação.

@@ -327,7 +327,11 @@ jobs:
       - name: Validate authenticated critical journeys
         env:
           NODE_OPTIONS: --max-old-space-size=4096
-        run: npm run test:e2e:database -- --grep-invert "matriz de enquadramento|revisão visual"
+        # Cada metade encerra seu servidor dev: evita reinício por memória
+        # no meio de uma interação, sem remover jornadas da suíte.
+        run: |
+          npm run test:e2e:database -- --grep-invert "matriz de enquadramento|revisão visual" --shard=1/2
+          npm run test:e2e:database -- --grep-invert "matriz de enquadramento|revisão visual" --shard=2/2
       - name: Preserve browser evidence from synthetic tests
         if: always()
         uses: actions/upload-artifact@v4
