@@ -19,6 +19,7 @@ it("mantém os horários preenchidos quando o salvamento falha e permite tentar 
   expect(await screen.findByRole("alert")).toHaveTextContent("Não foi possível salvar");
   expect(screen.getByLabelText("Segunda início 1")).toHaveValue("10:00");
   expect(m.progress).not.toHaveBeenCalled();
+  await waitFor(() => expect(screen.getByRole("button", { name: "Salvar e continuar" })).toBeEnabled());
   fireEvent.click(screen.getByRole("button", { name: "Salvar e continuar" }));
   await waitFor(() => expect(m.hours).toHaveBeenCalledTimes(2));
   expect(m.hours.mock.calls[1][0]).toContainEqual({ weekday: 1, startMinutes: 600, endMinutes: 1080 });
@@ -27,7 +28,7 @@ it("adiar persiste a etapa sem exigir conclusão", async () => {
   show(2);
   fireEvent.click(screen.getByRole("button", { name: "Fazer depois" }));
   await waitFor(() => expect(m.progress).toHaveBeenCalledWith({ step: 2, status: "deferred" }));
-  expect(m.push).toHaveBeenCalledWith("/dashboard");
+  await waitFor(() => expect(m.push).toHaveBeenCalledWith("/dashboard"));
 });
 it("mantém os controles desabilitados enquanto aguarda a gravação", async () => {
   let finish!: () => void;
@@ -49,5 +50,5 @@ it("explica o link e oferece cópia manual se a área de transferência falhar",
   expect(screen.getByRole("link", { name: /Abrir aplicativo/ })).toHaveAttribute("target", "_blank");
   fireEvent.click(screen.getByRole("button", { name: "Copiar link" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("Selecione o link acima e copie");
-  expect(screen.getByRole("button", { name: "Continuar depois no painel" })).toBeEnabled();
+  await waitFor(() => expect(screen.getByRole("button", { name: "Continuar depois no painel" })).toBeEnabled());
 });
