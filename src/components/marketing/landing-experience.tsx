@@ -17,7 +17,7 @@ import "./conversion.css";
 import "./flair.css";
 
 const resources = [
-  { icon: Layers, title: "Pacotes de serviços", text: "Organize sessões e acompanhe o uso dos pacotes contratados. Disponível a partir do plano Fundador." },
+  { icon: Layers, title: "Pacotes de serviços", text: "Organize sessões e acompanhe o uso dos pacotes contratados. Disponível em todos os planos pagos." },
   { icon: Images, title: "Seu portfólio online", text: "Apresente seus trabalhos na página do estabelecimento e ajude o cliente a conhecer o seu estilo." },
   { icon: Users, title: "Clientes e histórico", text: "Conheça os atendimentos anteriores e mantenha as informações de cada cliente organizadas." },
   { icon: Package, title: "Serviços, produtos e estoque", text: "Organize seu catálogo, acompanhe movimentações e reúna serviços e produtos na comanda." },
@@ -64,14 +64,14 @@ export function LandingExperience({ billingAvailable = false }: { billingAvailab
         <ClientAppShowcase />
       </ProductScene>
       <PricingComparison segmentId={segment.id} billingAvailable={billingAvailable} />
-      <CapabilityShowcase billingAvailable={billingAvailable} />
+      <CapabilityShowcase />
 
       <section id="operacao" className="mk-resources mk-wrap">
         <div className="mk-resource-heading"><h2>O cuidado vai além<br /><span>da agenda.</span></h2><p>Uma base para administrar {segment.name}, sem perder os detalhes que tornam cada atendimento único.</p><a href="#planos" className="mk-text-link">Encontrar meu plano <ArrowUpRight size={18} aria-hidden="true" /></a></div>
         <div className="mk-resource-list">{resources.map((item) => <article key={item.title}><item.icon size={22} strokeWidth={1.5} aria-hidden="true" /><div><h3>{item.title}</h3><p>{billingAvailable && item.title === "Pacotes de serviços" ? "Organize sessões e acompanhe o uso dos pacotes contratados. Disponível em todos os planos pagos." : item.text}</p></div></article>)}</div>
       </section>
 
-      <section className="mk-faq mk-wrap"><h2>Antes de começar.</h2><div>{questions.map(([question, answer]) => <details key={question}><summary>{question}<Plus size={19} aria-hidden="true" /></summary><p>{billingAvailable && question === "Posso controlar o financeiro?" ? "Sim. Você acompanha receitas, despesas, comissões e relatórios dos atendimentos. A assinatura do Everflair é paga separadamente pelo Mercado Pago." : answer}</p></details>)}</div></section>
+      <section className="mk-faq mk-wrap"><h2>Antes de começar.</h2><div>{questions.map(([question, answer]) => <details key={question}><summary>{question}<Plus size={19} aria-hidden="true" /></summary><p>{question === "Posso controlar o financeiro?" ? "Sim. Você acompanha receitas, despesas, comissões e relatórios dos atendimentos. Os pagamentos dos seus clientes são registrados na operação; a assinatura do Everflair é uma contratação separada." : question === "O que acontece depois do cadastro?" ? (billingAvailable ? "Você configura seu espaço, serviços, profissionais e horários. Após a aprovação do estabelecimento, revise seu plano e pague no Mercado Pago. O plano pago só é ativado após a confirmação financeira." : "Você pode criar e configurar seu espaço sem cobrança. A contratação dos novos planos está em preparação; escolher um plano não ativa uma assinatura.") : answer}</p></details>)}</div></section>
       <section className="mk-close"><div className="mk-wrap"><p>Seu próximo atendimento começa com uma boa organização.</p><h2>Cuide do seu talento.<br /><span>A gente organiza o resto.</span></h2><Link href={signupHref(segment.id)} className="mk-button">Criar meu espaço <ArrowUpRight size={20} aria-hidden="true" /></Link></div></section>
       <footer className="mk-footer mk-wrap"><div><MarketingBrand /><p>Seu talento. Seu negócio. Novas possibilidades.</p></div><nav aria-label="Links institucionais"><Link href="/contato">Contato</Link><Link href="/termos">Termos de uso</Link><Link href="/privacidade">Privacidade</Link><Link href="/login">Entrar</Link></nav><span>© {new Date().getFullYear()} Everflair</span></footer>
     </main>

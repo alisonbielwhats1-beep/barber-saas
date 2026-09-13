@@ -2,7 +2,9 @@
 
 Implementação autorizada em 12/09/2026, branch `codex/mercadopago-subscriptions`.
 Base `5cca634` (PR #99). Migration 023 aditiva, **não aplicada em Production**.
-A interface de escolha/checkout ainda precisa ser conectada às APIs desta entrega.
+A interface de escolha e o portal estão conectados às APIs no PR #101.
+A landing exibe o catálogo aprovado mesmo com cobrança desligada; nesse caso,
+a escolha segue como interesse para cadastro, sem criar assinatura.
 
 ## Cinco fases e comportamento entregue
 
@@ -155,7 +157,8 @@ inventário de rollback passaram sem alterar dados. CI/Preview ficam no PR.
 A revisão final encontrou reinício do servidor de desenvolvimento por memória
 durante as jornadas existentes, além do limite de 30 minutos do job. O CI passa
 a executar essas jornadas em duas metades, cada uma com servidor novo, mantendo
-todos os testes e artefatos separados. O limite do job passa a 40 minutos; o
+todos os testes e artefatos separados. O limite do job passa a 45 minutos após
+a integração com a master; o
 resultado da nova execução fica no PR, sem alterar o runtime da aplicação.
 O fixture do histórico HQ usa texto único por execução/retry, preservando os
 registros anteriores sem tornar o seletor ambíguo; o login desse teste aguarda

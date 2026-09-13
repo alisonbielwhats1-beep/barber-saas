@@ -21,6 +21,15 @@ it("rejects malformed selection and foreign checkout destinations", () => {
  for (const value of ["javascript:alert(1)", "https://www.mercadopago.com.br.evil.test/", "https://user@www.mercadopago.com.br/", "http://www.mercadopago.com.br/"]) expect(safeCheckout(value)).toBeNull();
  expect(safeCheckout("https://www.mercadopago.com.br/subscriptions/checkout?id=1")).toContain("https://www.mercadopago.com.br/");
 });
+it("keeps the approved annual offer selectable while checkout is unavailable", () => {
+ render(<PlanPicker marketing billingAvailable={false} segment="barbearia" />);
+ fireEvent.click(screen.getByLabelText(/Anual/));
+ fireEvent.change(screen.getByLabelText("Agendas adicionais às 10 incluídas"), { target: { value: "2" } });
+ expect(screen.getByRole("link", { name: "Escolher Equipe Max" })).toHaveAttribute("href", "/signup?billingPlan=TEAM_MAX&cycle=ANNUAL&extraAgendas=2&segment=barbearia");
+ expect(screen.getByText(/1\.726,80/)).toBeVisible();
+ expect(screen.getByText(/Economize.*432,00/)).toBeVisible();
+ expect(screen.queryByText(/A renovação é automática/)).toBeNull();
+});
 it("never shows a paid plan merely from pending authorization", async () => {
  vi.stubGlobal("fetch", vi.fn(async () => reply(sub))); portal();
  expect(await screen.findByText("Aguardando pagamento")).toBeVisible();

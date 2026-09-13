@@ -1,5 +1,23 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-13 — proposta dos planos na landing e homologação retomada
+
+Por solicitação do responsável, a landing mostra Individual, Equipe,
+Equipe Plus e Equipe Max independentemente da ativação da cobrança. Catálogo
+mensal/anual, economia anual e adicionais usam os mesmos valores do backend.
+Com checkout desativado, a escolha segue para cadastro como interesse, sem
+cobrança ou promessa de ativação. Recursos e FAQ deixam de anunciar Fundador.
+O PR #101 incorpora `origin/master` com o domínio oficial e o timeout de CI.
+Lint, TypeScript, 940 testes e build passaram; 27 integrações PostgreSQL
+passaram em banco sintético separado com a migration HQ real.
+
+Na repetição do checkout, foi observada sessão da conta fictícia do vendedor
+`3683184919`, enquanto o contrato aponta para o comprador `3683184927`.
+A troca para a conta compradora exige sua autenticação, ainda pendente.
+Isso é um diagnóstico de sessão, não prova de aprovação ou de correção do
+checkout. Nenhuma migration ou ativação em Production foi realizada.
+Detalhes e resultados finais em `MERCADOPAGO_PORTAL_HQ.md` e no PR #101.
+
 ## 2026-09-13 — Codespace identificado e webhook espontâneo de cancelamento
 
 Identificado e iniciado o Codespace `glorious-enigma-jjv6v4rvrv49f544r` da conta

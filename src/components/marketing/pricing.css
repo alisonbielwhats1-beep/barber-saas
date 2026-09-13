@@ -1,4 +1,27 @@
 .pc-section { padding-block: 95px 60px; }
+.pc-capacity-note { border-left: 2px solid var(--mk-accent); padding-left: 26px; }
+.pc-capacity-note strong { font-size: 19px; font-weight: 500; }
+.pc-capacity-note p { margin-top: 14px; color: var(--mk-soft); font-size: 14px; line-height: 1.8; }
+.pc-cycle { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 28px; }
+.pc-cycle label { border-color: var(--mk-line); color: var(--mk-soft); min-height: 48px; }
+.pc-cycle label[data-selected=true] { background: var(--mk-tint); border-color: var(--mk-accent); color: var(--mk-ink); }
+.pc-cycle input { accent-color: var(--mk-accent); }
+.pc-cycle label:focus-within { outline: 2px solid var(--mk-accent); outline-offset: 3px; }
+.pc-billing .pc-cards .pc-plan { padding: 28px 20px; }
+.pc-billing .pc-plan-kind { font-size: 10px; line-height: 1.6; letter-spacing: .07em; }
+.pc-billing .pc-cards h3 { font-size: 25px; }
+.pc-billing .pc-cards .pc-price { font-size: 31px; font-weight: 600; letter-spacing: -.04em; }
+.pc-billing .text-muted-foreground { color: var(--mk-soft); }
+.pc-billing .pc-saving { color: var(--mk-accent); font-size: 12px; line-height: 1.7; }
+.pc-billing input[type=number] { margin-top: 8px; background: var(--mk-surface); border-color: var(--mk-line); color: var(--mk-ink); min-height: 44px; }
+.pc-billing .pc-cards .mk-button { width: 100%; min-height: 46px; font-size: 13px; }
+.pc-included { margin-top: 32px; border-block: 1px solid var(--mk-line); padding-block: 26px; }
+.pc-included h3 { font-size: 19px; }
+.pc-included ul { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 18px 24px; margin-top: 22px; }
+.pc-included li { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; line-height: 1.6; color: var(--mk-soft); }
+.pc-included svg { flex: none; margin-top: 3px; color: var(--mk-accent); }
+@media(max-width: 1100px) { .pc-billing .pc-cards { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media(max-width: 700px) { .pc-included ul { grid-template-columns: 1fr; } .pc-billing .pc-cards { grid-template-columns: 1fr; } .pc-billing .pc-cards .pc-plan { padding: 26px; } .pc-cycle { flex-direction: column; } .pc-billing .pc-cards .pc-price { font-size: 34px !important; } }
 .pc-heading { display: grid; grid-template-columns: 1.5fr 1fr; gap: 80px; align-items: center; margin-bottom: 45px; }
 .pc-heading .mk-eyebrow { justify-content: flex-start; margin-bottom: 22px; font-size: 9px; }
 .pc-heading > div > p:last-child { margin-top: 24px; font-size: 14px; color: var(--mk-soft); line-height: 1.8; max-width: 48ch; }

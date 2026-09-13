@@ -18,7 +18,7 @@ import Link from "next/link";
 import { billingIntentHref, billingMoney, type BillingIntent } from "@/lib/billing/presentation";
 import { quoteContract } from "@/lib/billing/catalog";
 
-export function SignupForm({ initialSegment, planIntent, billingIntent }: { initialSegment?: SegmentId; planIntent?: MarketingPlanKey; billingIntent?: BillingIntent }) {
+export function SignupForm({ initialSegment, planIntent, billingIntent, billingAvailable = true }: { initialSegment?: SegmentId; planIntent?: MarketingPlanKey; billingIntent?: BillingIntent; billingAvailable?: boolean }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -74,8 +74,8 @@ export function SignupForm({ initialSegment, planIntent, billingIntent }: { init
     <form className="space-y-4" onSubmit={onSubmit}>
       {billingQuote && billingIntent ? <aside className="es-plan-intent" aria-label="Seu plano de interesse">
         <div><strong>{billingQuote.label} · {billingQuote.agendaLimit} agendas</strong><span>{billingMoney(billingQuote.amountCents)} {billingQuote.cycle === "ANNUAL" ? "a cada 12 meses" : "por mês"}</span></div>
-        <p>Primeiro crie seu espaço. Em seguida, revise a contratação e pague no Mercado Pago. Não há cobrança neste cadastro.</p>
-        <Link href={`/login?callbackUrl=${encodeURIComponent(billingIntentHref(billingIntent))}`}>Já tenho conta · entrar para contratar</Link>
+        <p>{billingAvailable ? "Primeiro crie seu espaço. Em seguida, revise a contratação e pague no Mercado Pago. Não há cobrança neste cadastro." : "Este é seu plano de interesse. A contratação online está em preparação. Você pode criar seu espaço agora, sem cobrança ou ativação de assinatura."}</p>
+        <Link href={`/login?callbackUrl=${encodeURIComponent(billingIntentHref(billingIntent, billingAvailable ? "/contratar" : "/assinatura"))}`}>Já tenho conta · entrar</Link>
       </aside> : <aside className="es-plan-intent" aria-label="Seu plano de interesse">
         <div><strong>{plan ? `Seu interesse: ${plan.title}` : "Comece no plano Grátis"}</strong>{plan && <span>{plan.price}{plan.plan !== "FREE" && "/mês"} · {plan.professionals}</span>}</div>
         <p>{plan && plan.plan !== "FREE" ? "Sua conta começa grátis. Depois, confirme disponibilidade e upgrade com a plataforma. Nenhuma cobrança é feita neste cadastro." : "1 agenda e 30 agendamentos por mês. Configure seu espaço antes de decidir por um upgrade."}</p>

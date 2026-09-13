@@ -11,7 +11,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
   const plan = resolvePlanIntent(query.plan);
   return (
     <EstablishmentShell initialSegment={selected?.id}>
-      <SignupForm initialSegment={selected ? SIGNUP_SEGMENTS[selected.id] : undefined} planIntent={plan ? MARKETING_PLAN_KEYS[plan.plan] : undefined} billingIntent={billingEnabled() ? resolveBillingIntent(query) : undefined} />
+      <SignupForm initialSegment={selected ? SIGNUP_SEGMENTS[selected.id] : undefined} planIntent={plan ? MARKETING_PLAN_KEYS[plan.plan] : undefined} billingIntent={resolveBillingIntent(query)} billingAvailable={billingEnabled()} />
     </EstablishmentShell>
   );
 }
