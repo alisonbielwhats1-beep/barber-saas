@@ -6,7 +6,7 @@ Branch `codex/mercadopago-plan-changes`. Ainda não publicada nem habilitada.
 ## Ampliação: cancelamento livre e período pago
 
 Pedido posterior do responsável: deixar o cancelamento claro e validar acesso
-até o vencimento original. Configurações passa a mostrar “Gerenciar ou cancelar
+até o vencimento original. Configurações → Meu plano passa a mostrar “Gerenciar ou cancelar
 assinatura”. No portal, “Cancelar renovação” abre uma confirmação com data/hora
 exata no fuso do salão, sem motivo obrigatório ou contato com suporte. O OWNER
 também encontra esse portal na tela de acesso suspenso, sem desbloquear operação.

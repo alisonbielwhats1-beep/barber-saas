@@ -63,6 +63,8 @@ test.describe("@database troca de planos", () => {
       expect((await db.billingSubscription.findUniqueOrThrow({ where: { id: sub.id } })).cancelRequestedAt).toBeNull();
       await annual.getByRole("button", { name: "Voltar", exact: true }).click();
       await page.goto("/configuracoes");
+      await page.getByRole("searchbox", { name: "Buscar configuração" }).fill("cancelar");
+      await page.getByRole("link", { name: /Meu plano Assinatura, recursos e cancelamento da renovação/ }).click();
       await page.getByRole("link", { name: "Gerenciar ou cancelar assinatura", exact: true }).click();
       await expect(page).toHaveURL(/\/assinatura$/);
       await db.salon.update({ where: { id: salon.id }, data: { accessStatus: "SUSPENDED" } });
