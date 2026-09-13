@@ -1,5 +1,38 @@
 # Decisões de produto para as próximas fases
 
+## 13/09/2026 — cancelamento livre da renovação
+
+O proprietário pode cancelar pelo aplicativo, sem motivo obrigatório, suporte
+ou aprovação administrativa. Confirmar encerra as recorrências vinculadas no
+Mercado Pago, incluindo uma substituta futura de troca mensal/anual. A tela só
+declara conclusão após confirmação do provedor; falhas conservam a intenção e
+continuam sendo tentadas pela fila. O cancelamento não solicita estorno.
+
+O período já pago permanece: contratação mensal em 13/09 e cancelamento em
+20/09 mantém todos os recursos contratados até o vencimento original em 13/10;
+na contratação anual, até 13/09 do ano seguinte. Vale o instante exato da
+expiração, exibido no fuso do estabelecimento. Não acrescentar carência após
+um período cancelado nem apagar agendamentos, pagamentos ou histórico.
+Suspensão administrativa não é desfeita pelo pagamento ou cancelamento, mas
+o proprietário continua podendo encerrar a cobrança na tela de acesso bloqueado.
+
+## 13/09/2026 — upgrade proporcional e troca na renovação
+
+O responsável confirmou: “Sim, seguir essa regra”. No mesmo ciclo, aumento
+de capacidade com aumento de preço libera o plano após pagamento da diferença
+proporcional ao tempo restante, preservando vencimento. Vale para todos os
+planos e agendas adicionais. Reduções e qualquer mudança mensal/anual ficam
+para a próxima renovação, após pagamento correspondente. Profissionais ativos
+e convites pendentes devem caber no destino; a troca reserva esse limite.
+Os termos anteriores e o histórico financeiro são preservados. O proprietário
+revê cobrança adicional, próxima recorrência e vigência antes de confirmar.
+Trocar o ciclo exige nova autorização: a recorrência anterior é encerrada
+antes de liberar o link novo, preservando acesso já pago. A tela explica que
+abandonar essa autorização interrompe a renovação automática ao fim do período.
+Esta decisão substitui a ausência de prorrata/trocas no escopo inicial abaixo.
+Não existe aprovação manual para cliente novo: cadastro aprovado e plano pago
+liberado automaticamente por confirmação financeira. Suspensão é independente.
+
 ## 13/09/2026 — composição aprovada dos planos na landing
 
 Retomada da referência visual aprovada na conversa “Avaliar integração com

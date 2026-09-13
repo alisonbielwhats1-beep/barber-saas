@@ -1,16 +1,46 @@
 # Status atual canônico — Salon SaaS
 
-## 2026-09-13 — guia de configuração inicial em revisão
+## 2026-09-13 — revisão do cancelamento incorporada ao PR #105
+
+Solicitação posterior valida cancelamento livre, fim da recorrência no provedor
+e preservação integral do período pago. A indicação de renovação agora considera
+também assinaturas futuras vinculadas; o pedido encerra a cadeia mesmo quando a
+recorrência antiga já foi cancelada ou a troca está em revisão. O botão permanece
+acessível ao OWNER no painel e na tela de acesso bloqueado, sem liberar operação
+suspensa. Confirmação mostra o prazo exato e não promete conclusão antecipada.
+
+A revisão `c967d03` passou integralmente no CI `34777515646` e Preview,
+incluindo cancelamento e oito capturas inspecionadas. A integração do guia
+de início de `origin/master` exige rodada correspondente; evidências no PR e em
+`MERCADOPAGO_TROCA_PLANOS.md`. Nenhuma publicação, flag ou SQL produtivo novo.
+
+## 2026-09-13 — trocas de planos em validação, ainda não publicadas
+
+O responsável aprovou upgrades no mesmo ciclo após pagamento da diferença
+proporcional, mantendo vencimento; reduções e mudanças mensal/anual ficam
+para a próxima renovação. A branch `codex/mercadopago-plan-changes` implementa
+cotação pelo servidor, revisão de termos, cobrança complementar, limite de
+agendas e reconciliação. Migration 025 somente em PostgreSQL sintético local;
+nenhuma alteração produtiva desta entrega. Flags novas permanecem desativadas
+em Production. Escopo, evidências e pendências em `MERCADOPAGO_TROCA_PLANOS.md`.
+PR #105 em revisão. Compra fictícia do Individual, diferença para Equipe 5 e
+autorização anual futura passaram no Mercado Pago, com acesso/valor/vencimento
+conferidos. Recorrências fictícias canceladas ao fim da homologação.
+Cadastro novo já cria estabelecimento aprovado automaticamente; o pagamento
+libera o plano pago sem aprovação manual. Suspensão administrativa permanece.
+
+## 2026-09-13 — guia de configuração inicial incorporado à branch principal
 
 Branch `codex/initial-setup`, base `f89652b`: primeira entrada guiada em quatro
 etapas, com horários, serviços, profissionais e explicação do aplicativo/link
 do cliente. Responsivo, adiável e retomável por estabelecimento; conclusão
 independe da primeira reserva. Jornadas existentes e contratação preservadas.
-Escopo e evidências em `CONFIGURACAO_INICIAL_2026-09-13.md`. Sem migration ou
-publicação produtiva. Esta tela substitui o checklist como primeira recepção;
+Escopo e evidências em `CONFIGURACAO_INICIAL_2026-09-13.md`. Sem migration.
+PR #106 integrado em `678cecb`; implantação produtiva desse guia não conferida
+nesta revisão de billing. Esta tela substitui o checklist como primeira recepção;
 o dashboard mantém um atalho para retomar o guia.
 
-## 2026-09-13 — liberação Mercado Pago autorizada, em preparação
+## 2026-09-13 — Mercado Pago disponível em produção
 
 O responsável autorizou concluir as etapas para disponibilizar cobrança em
 produção. Preflight produtivo e backup delimitado criptografado concluídos;
@@ -19,10 +49,16 @@ As migrations `mercadopago_billing_023` (`20260913155322`) e `billing_hq_024`
 (`20260913155342`) foram aplicadas e verificadas no projeto produtivo
 `vshnatkzxdekkvqttvbv`, preservando os dados anteriores e FORCE RLS.
 O reconciliador tem chave exclusiva na Vercel Production e no GitHub,
-com recuperação criptografada; o agendamento continua explicitamente false.
+com recuperação criptografada; o agendamento foi ativado e sua execução passou.
 Staging `6122e6e`: build, schema e 27 integrações passaram em banco sintético.
-Ainda não houve merge nem ativação financeira produtiva.
-A validação da conta principal Mercado Pago pelo titular está pendente.
+PR #101 integrado em `f89652b`; CI `34767093377` passou integralmente.
+Deployment final `dpl_361VijpX2UCrkfaP63FYsNEMgzny`, READY e associado a
+`https://everflair.com.br`. Billing/HQ em modo live, checkout liberado.
+O titular validou a conta e ativou credenciais da aplicação `5276100300886`;
+API confirmou vendedor brasileiro real `478386806`. Webhook definitivo salvo.
+Home, catálogo anual, cadastro com escolha preservada e worker autenticado
+foram conferidos. Consulta de logs do deployment não retornou erros.
+Não foi realizada compra real; a homologação financeira usou contas fictícias.
 Destinos, evidências e limites em `RELEASE_MERCADOPAGO_2026-09-13.md`.
 
 ## 2026-09-13 — integração das entregas em revisão

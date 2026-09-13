@@ -1,0 +1,85 @@
+import { expect, test } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
+import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
+import { randomUUID } from "node:crypto";
+import { assertSafeDatabaseOperation } from "../../src/lib/database-safety";
+
+test.describe("@database troca de planos", () => {
+  test.skip(!process.env.RUN_DATABASE_E2E || process.env.MERCADOPAGO_PLAN_CHANGES_ENABLED !== "true", "Dedicated synthetic billing browser step only.");
+  test("proprietário revisa preço proporcional e ciclo em mobile e desktop sem antecipar acesso", async ({ page }) => {
+    test.setTimeout(180_000);
+    assertSafeDatabaseOperation(process.env, { operation: "billing-change-browser" });
+    const db = new PrismaClient();
+    const email = `${randomUUID()}@billing.example.test`, password = "synthetic-billing-ui-2026";
+    const errors: string[] = [];
+    page.on("pageerror", error => errors.push(error.message));
+    try {
+      const user = await db.user.create({ data: { name: "Proprietário fictício", email, passwordHash: await bcrypt.hash(password, 10), passwordSetAt: new Date() } });
+      const salon = await db.salon.create({ data: { name: "Estúdio de homologação", slug: randomUUID(), accessStatus: "APPROVED", plan: "PRO" } });
+      await db.membership.create({ data: { salonId: salon.id, userId: user.id, role: "OWNER" } });
+      const start = new Date(Date.now() - 10 * 86400000), end = new Date(Date.now() + 20 * 86400000);
+      const sub = await db.billingSubscription.create({ data: { salonId: salon.id, requestKey: randomUUID(), fingerprint: "synthetic-browser", catalogVersion: "2026-09-13", planCode: "INDIVIDUAL", cycle: "MONTHLY", amountCents: 5990, agendaLimit: 1, intervalMonths: 1, mode: "test", collectorId: "123", payerEmail: email, legacyPlan: "FREE", providerId: `synthetic-${randomUUID()}`, providerStatus: "authorized", paidThrough: end } });
+      await db.billingCharge.create({ data: { salonId: salon.id, subscriptionId: sub.id, providerInvoiceId: `synthetic-${randomUUID()}`, amountCents: 5990, periodStart: start, periodEnd: end, paidAt: start, providerUpdatedAt: start, status: "approved" } });
+      await page.goto("/login");
+      await page.getByLabel("Email").fill(email);
+      await page.getByLabel("Senha", { exact: true }).fill(password);
+      await page.getByRole("button", { name: "Entrar", exact: true }).click();
+      await expect(page).toHaveURL(/\/(hoje|dashboard|onboarding\/configuracao)$/, { timeout: 30_000 });
+      await page.emulateMedia({ reducedMotion: "reduce" });
+      for (const width of [320, 390, 1280]) {
+        await page.setViewportSize({ width, height: 844 });
+        await page.goto("/assinatura");
+        await page.getByRole("button", { name: "Cancelar renovação", exact: true }).click();
+        const cancellation = page.getByRole("dialog", { name: "Cancelar a renovação?", exact: true });
+        await expect(cancellation).toContainText("todos os recursos do seu plano pago até");
+        await expect(cancellation).toContainText(new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeStyle: "short", timeZone: "America/Sao_Paulo" }).format(end));
+        await expect(cancellation).toContainText("cobrança recorrente no Mercado Pago");
+        expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations).toEqual([]);
+        await page.screenshot({ path: test.info().outputPath(`cancellation-review-${width}.png`), fullPage: true });
+        await cancellation.getByRole("button", { name: "Manter assinatura", exact: true }).click();
+        await page.getByRole("button", { name: "Escolher outro plano" }).click();
+        await page.getByRole("button", { name: "Escolher Equipe · 5 agendas", exact: true }).click();
+        const dialog = page.getByRole("dialog", { name: "Revisar troca de plano" });
+        await expect(dialog).toBeVisible();
+        await expect(dialog).toContainText("R$ 26,67");
+        await expect(dialog).toContainText("R$ 99,90 por mês");
+        await expect(dialog).toContainText("O vencimento permanece igual");
+        expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
+        expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations).toEqual([]);
+        await page.screenshot({ path: test.info().outputPath(`upgrade-review-${width}.png`), fullPage: true });
+        await dialog.getByRole("button", { name: "Voltar", exact: true }).click();
+      }
+      await page.getByRole("radio", { name: /Anual/ }).check();
+      await page.getByRole("button", { name: "Escolher Equipe · 5 agendas", exact: true }).click();
+      const annual = page.getByRole("dialog", { name: "Revisar troca de plano" });
+      await expect(annual).toContainText("R$ 0");
+      await expect(annual).toContainText("R$ 959 a cada 12 meses");
+      await expect(annual).toContainText("não haverá renovação automática");
+      await page.screenshot({ path: test.info().outputPath("cycle-review-desktop.png"), fullPage: true });
+      expect(await db.billingPlanChange.count({ where: { subscriptionId: sub.id, confirmedAt: { not: null } } })).toBe(0);
+      expect((await db.billingSubscription.findUniqueOrThrow({ where: { id: sub.id } })).paidThrough).toEqual(end);
+      expect(await db.billingCharge.count({ where: { subscriptionId: sub.id } })).toBe(1);
+      expect((await db.billingSubscription.findUniqueOrThrow({ where: { id: sub.id } })).cancelRequestedAt).toBeNull();
+      await annual.getByRole("button", { name: "Voltar", exact: true }).click();
+      await page.goto("/configuracoes");
+      await page.getByRole("searchbox", { name: "Buscar configuração" }).fill("cancelar");
+      await page.getByRole("link", { name: /Meu plano Assinatura, recursos e cancelamento da renovação/ }).click();
+      await page.getByRole("link", { name: "Gerenciar ou cancelar assinatura", exact: true }).click();
+      await expect(page).toHaveURL(/\/assinatura$/);
+      await db.salon.update({ where: { id: salon.id }, data: { accessStatus: "SUSPENDED" } });
+      await page.goto("/assinatura");
+      await expect(page).toHaveURL(/\/onboarding\/acesso$/);
+      await page.getByText("Gerenciar ou cancelar assinatura", { exact: true }).click();
+      await page.getByRole("button", { name: "Cancelar renovação", exact: true }).click();
+      await expect(page.getByRole("dialog")).toContainText("A restrição administrativa do painel é independente");
+      await expect(page.getByRole("button", { name: "Escolher outro plano" })).toHaveCount(0);
+      await page.screenshot({ path: test.info().outputPath("cancellation-blocked-owner.png"), fullPage: true });
+      await page.getByRole("button", { name: "Manter assinatura", exact: true }).click();
+      await db.membership.updateMany({ where: { salonId: salon.id, userId: user.id }, data: { role: "MANAGER" } });
+      await page.reload();
+      await expect(page.getByText("Gerenciar ou cancelar assinatura", { exact: true })).toHaveCount(0);
+      expect(errors).toEqual([]);
+    } finally { await db.$disconnect(); }
+  });
+});

@@ -184,9 +184,9 @@ Túnel e proxy temporários encerrados. A aplicação principal não foi alterad
 O responsável autorizou disponibilizar em produção. As migrations Billing 023
 e HQ 024 foram aplicadas e verificadas em produção, após backup criptografado,
 preflight e homologação. O Codespace agora tem checkout/banco próprios na
-versão `6122e6e`, build e 27 integrações aprovados. Cobrança e agendamento
-continuam desligados, aguardando configuração principal do Mercado Pago e
-conclusão da promoção. O estado acima das tentativas anteriores é histórico;
+versão `6122e6e`, build e 27 integrações aprovados. A configuração da conta
+principal e a promoção foram concluídas; PR #101 integrado, billing live,
+checkout e agendamento ativos no domínio oficial. O estado acima das tentativas anteriores é histórico;
 o acompanhamento atual está em `RELEASE_MERCADOPAGO_2026-09-13.md`.
 
 ## Liberação e operação

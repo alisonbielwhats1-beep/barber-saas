@@ -12,7 +12,7 @@ const SECTIONS = [
   { id: "perfil", label: "Meu perfil", detail: "Nome, e-mail e dados pessoais", group: "Conta e acesso", keywords: "usuario avatar foto telefone", icon: UserRound },
   { id: "seguranca", label: "Segurança e acessos", detail: "Equipe, permissões e convites", group: "Conta e acesso", keywords: "acesso gerente recepcao membro convite", icon: ShieldCheck },
   { id: "notificacoes", label: "Notificações", detail: "Central de avisos e atualizações", group: "Conta e acesso", keywords: "lembrete alerta mensagem", icon: Bell },
-  { id: "plano", label: "Meu plano", detail: "Recursos e limites do plano atual", group: "Conta e acesso", keywords: "assinatura faturamento", icon: Crown },
+  { id: "plano", label: "Meu plano", detail: "Assinatura, recursos e cancelamento da renovação", group: "Conta e acesso", keywords: "assinatura faturamento cancelar cobrança recorrente", icon: Crown },
   { id: "primeiros-passos", label: "Primeiros passos", detail: "Confira o que falta configurar", group: "Conta e acesso", keywords: "checklist iniciar cadastro", icon: ListChecks },
 ];
 

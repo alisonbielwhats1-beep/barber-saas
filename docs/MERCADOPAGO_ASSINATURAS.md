@@ -48,11 +48,12 @@ Adicional acima de dez agendas, somente Equipe Max: R$ 15,00/mês ou
 R$ 144,00/ano por agenda. Até cem adicionais por contrato. Todos os planos
 pagos habilitam os mesmos recursos. Catálogo `2026-09-13` em
 `src/lib/billing/catalog.ts`. O total anual é cobrado de uma vez por ano.
-Não há migração automática de contas antigas, alteração de plano no meio do
-ciclo, prorrata, reembolso automático, SMS ou WhatsApp nesta entrega.
+O PR #101 não incluiu alteração de plano/prorrata. A implementação posterior
+está em `MERCADOPAGO_TROCA_PLANOS.md`, ainda sem ativação produtiva.
+Não há migração automática de contas antigas, reembolso automático, SMS ou WhatsApp.
 
-Fluxo previsto: escolher plano → autenticar/cadastrar conta → criar estabelecimento
-→ aprovação administrativa existente → contratar/pagar → confirmar pagamento e
+Fluxo: escolher plano → autenticar/cadastrar conta → criar estabelecimento
+automaticamente aprovado → contratar/pagar → confirmar pagamento e
 liberar capacidade. O backend já existente continua permitindo seu acesso legado
 antes do primeiro pagamento; nenhuma assinatura paga é liberada antecipadamente.
 Contas sem contrato mantêm regras antigas. O campo legado Salon.plan passa a PRO

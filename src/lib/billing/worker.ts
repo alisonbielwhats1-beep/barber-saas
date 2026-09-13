@@ -6,6 +6,10 @@ import { BillingError } from "./catalog";
 import { billingConfig } from "./config";
 import * as mp from "./provider";
 import { applyInvoice, applyRemoteSubscription, enqueue, ensureCreated, parseReference, validateRemote, subscriptionLock } from "./service";
+import { changesEnabled } from "./change-terms";
+import { parseUpgradeReference } from "./change-provider";
+import { applyUpgradePayment } from "./change-payments";
+import { syncPlanChanges } from "./change-worker";
 
 /** The only global scope is dispatch metadata, not subscriptions, payments or tenant records. */
 async function queueScope<T>(fn: (tx: Tx) => Promise<T>) {
@@ -22,6 +26,18 @@ export async function receiveWebhook(topic: string, resourceId: string, notifica
   else if (topic === "subscription_authorized_payment") remote = await mp.getSubscription((await mp.getInvoice(resourceId)).preapproval_id);
   else if (topic === "payment") {
     const payment = await mp.getPayment(resourceId);
+    if (payment.external_reference?.startsWith("efu:") && changesEnabled()) {
+      const ref = parseUpgradeReference(payment.external_reference);
+      await withSalon(ref.salonId, async tx => {
+        await subscriptionLock(tx, ref.salonId);
+        const change = await tx.billingPlanChange.findFirst({ where: { id: ref.id, salonId: ref.salonId }, include: { subscription: true } });
+        if (!change || payment.collector_id !== change.subscription.collectorId) throw new BillingError("UNKNOWN_CHANGE", 404);
+        const key = createHash("sha256").update(`${topic}:${resourceId}:${notificationKey}`).digest("hex");
+        await tx.billingInbox.upsert({ where: { id: key }, update: {}, create: { id: key, salonId: ref.salonId, subscriptionId: change.subscriptionId, topic, resourceId } });
+        await enqueue(tx, change.subscription);
+      });
+      return;
+    }
     if (!payment.external_reference?.startsWith("ef:")) return;
     const ref = parseReference(payment.external_reference);
     const sub = await withSalon(ref.salonId, tx => tx.billingSubscription.findUnique({ where: { id: ref.id } }));
@@ -54,14 +70,25 @@ export async function syncSubscription(salonId: string, id: string) {
   if (wasUncreated) return true;
   let remote = await mp.getSubscription(sub.providerId);
   validateRemote(sub, remote, false);
-  if (sub.cancelRequestedAt && !["cancelled", "canceled"].includes(remote.status)) {
-    // PUT is an idempotent target state; a lost response is resolved by GET on the next attempt.
-    await mp.mpRequest(`/preapproval/${encodeURIComponent(sub.providerId)}`, "PUT", { status: "cancelled" });
-    remote = await mp.getSubscription(sub.providerId);
+  const stopRenewal = async () => {
+    if (!sub.cancelRequestedAt) return false;
+    const needed = !["cancelled", "canceled"].includes(remote.status);
+    // PUT is an idempotent target state; a lost response is resolved by GET on retry.
+    if (needed) {
+      await mp.mpRequest(`/preapproval/${encodeURIComponent(sub.providerId!)}`, "PUT", { status: "cancelled" });
+      remote = await mp.getSubscription(sub.providerId!);
+    }
     if (!["cancelled", "canceled"].includes(remote.status)) throw new BillingError("CANCELLATION_NOT_CONFIRMED", 503);
     await applyRemoteSubscription(sub, remote);
-    return true;
-  }
+    return needed;
+  };
+  if (await stopRenewal()) return true;
+  // Stopping charges takes priority over reconciliation of an unrelated plan change.
+  await syncPlanChanges(sub);
+  sub = await withSalon(salonId, tx => tx.billingSubscription.findUniqueOrThrow({ where: { id } }));
+  if (!sub.providerId) throw new BillingError("SUBSCRIPTION_NOT_READY", 503);
+  remote = await mp.getSubscription(sub.providerId!);
+  if (await stopRenewal()) return true;
   await applyRemoteSubscription(sub, remote);
   const inbox = await withSalon(salonId, tx => tx.billingInbox.findMany({ where: { subscriptionId: id, processedAt: null }, orderBy: { receivedAt: "asc" }, take: 1 }));
   for (const item of inbox) {
@@ -69,6 +96,14 @@ export async function syncSubscription(salonId: string, id: string) {
       const invoice = await mp.getInvoice(item.resourceId);
       await applyInvoice(sub, remote, invoice, invoice.payment?.id ? await mp.getPayment(invoice.payment.id) : null);
     } else if (item.topic === "payment") {
+      const payment = await mp.getPayment(item.resourceId);
+      if (changesEnabled() && payment.external_reference?.startsWith("efu:")) {
+        const ref = parseUpgradeReference(payment.external_reference);
+        const change = await withSalon(salonId, tx => tx.billingPlanChange.findFirstOrThrow({ where: { id: ref.id, salonId, subscriptionId: id } }));
+        await applyUpgradePayment(sub, change, remote, payment);
+        await withSalon(salonId, async tx => { await subscriptionLock(tx, salonId); await tx.billingInbox.update({ where: { id: item.id }, data: { processedAt: new Date() } }); });
+        return true;
+      }
       const known = await withSalon(salonId, tx => tx.billingCharge.findFirst({ where: { subscriptionId: id, providerPaymentId: item.resourceId } }));
       if (known) {
         const invoice = await mp.getInvoice(known.providerInvoiceId);
@@ -91,7 +126,8 @@ export async function syncSubscription(salonId: string, id: string) {
   const nextOffset = sub.invoiceOffset + invoices.length;
   const more = invoices.length > 0 && nextOffset < page.paging.total;
   await withSalon(salonId, async tx => { await subscriptionLock(tx, salonId); return tx.billingSubscription.update({ where: { id }, data: { lastSyncedAt: new Date(), invoiceOffset: more ? nextOffset : 0 } }); });
-  return more || inbox.length === 1;
+  const pending = changesEnabled() ? await withSalon(salonId, tx => tx.billingPlanChange.findFirst({ where: { subscriptionId: id, salonId, state: { in: ["PREPARING", "AWAITING_PAYMENT", "APPLYING", "CANCEL_REQUESTED"] } }, select: { id: true } })) : null;
+  return more || inbox.length === 1 || Boolean(pending);
 }
 
 export async function runBillingWorker(limit = 2) {

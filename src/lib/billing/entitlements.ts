@@ -1,6 +1,8 @@
 import type { Tx } from "../prisma-tenant";
 import { getPlanEntitlement, PlanLimitError, type PlanEntitlement } from "../plan-entitlements";
 import { accessState } from "./catalog";
+import { changesEnabled, currentTerms, pendingChangeStates } from "./change-terms";
+import { billingTermsSchema } from "./change-rules";
 
 /** Read inside the caller's tenant transaction. Flag off never queries unapplied tables. */
 export async function effectiveEntitlement(tx: Tx, salonId: string, legacyPlan: string, now = new Date()): Promise<PlanEntitlement> {
@@ -14,7 +16,11 @@ export async function effectiveEntitlement(tx: Tx, salonId: string, legacyPlan: 
   }
   const state = accessState(sub, now);
   if (["RESTRICTED", "EXPIRED"].includes(state)) throw new PlanLimitError("Regularize a assinatura para criar reservas ou adicionar agendas.");
-  return { label: sub.planCode, priceCents: sub.amountCents, maxProfessionals: sub.agendaLimit, monthlyAppointments: null,
+  const terms = await currentTerms(tx, sub);
+  const pending = changesEnabled() ? await tx.billingPlanChange.findFirst({ where: { salonId, subscriptionId: sub.id, state: { in: pendingChangeStates }, kind: { in: ["SCHEDULED", "CYCLE"] } } }) : null;
+  // Reserve an accepted lower capacity so later invitations cannot invalidate the scheduled change.
+  const capacity = pending ? Math.min(terms.agendaLimit, billingTermsSchema.parse(pending.toTerms).agendaLimit) : terms.agendaLimit;
+  return { label: terms.plan, priceCents: terms.amountCents, maxProfessionals: capacity, monthlyAppointments: null,
     features: { MARKETING: true, INVENTORY: true, PACKAGES: true } };
 }
 

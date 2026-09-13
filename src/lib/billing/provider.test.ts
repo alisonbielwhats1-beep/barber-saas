@@ -2,8 +2,13 @@ import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { createHmac } from "node:crypto";
 vi.mock("server-only",()=>({}));
 import { billingConfig } from "./config";
-import { verifyWebhook, checkoutUrl, mpRequest, listInvoices } from "./provider";
+import { verifyWebhook, checkoutUrl, mpRequest, listInvoices, subscriptionSchema } from "./provider";
 describe("Mercado Pago trust boundaries",()=>{
+  it("accepts the provider's null pending-charge summary without accepting negative counters", () => {
+    const remote = { id: "sub", collector_id: "123", external_reference: "ef:test:sub", status: "authorized", last_modified: "2026-09-13T17:42:31.000Z", summarized: { pending_charge_quantity: null }, auto_recurring: { frequency: 1, frequency_type: "months", currency_id: "BRL", transaction_amount: 59.9 } };
+    expect(subscriptionSchema.parse(remote).summarized?.pending_charge_quantity).toBeNull();
+    expect(subscriptionSchema.safeParse({ ...remote, summarized: { pending_charge_quantity: -1 } }).success).toBe(false);
+  });
   beforeEach(()=>{vi.stubEnv("MERCADOPAGO_BILLING_ENABLED","true");vi.stubEnv("MERCADOPAGO_MODE","test");vi.stubEnv("MERCADOPAGO_COLLECTOR_ID","123");vi.stubEnv("MERCADOPAGO_ACCESS_TOKEN","test-only");vi.stubEnv("MERCADOPAGO_WEBHOOK_SECRET","test-secret");vi.stubEnv("APP_ENV","test");vi.stubEnv("NEXTAUTH_URL","http://localhost:3000");});
   afterEach(()=>{vi.unstubAllEnvs();vi.unstubAllGlobals();});
   it("rejects missing configuration and test/live crossover",()=>{

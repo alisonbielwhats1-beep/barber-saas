@@ -12,6 +12,7 @@ import { ThemeToggle } from "./theme-toggle";
 import { BrandLogo } from "@/components/brand";
 import { billingEnabled } from "@/lib/billing/config";
 import { BILLING_PLANS } from "@/lib/billing/catalog";
+import { currentTerms } from "@/lib/billing/change-terms";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const ctx = await getTenantContext();
@@ -41,9 +42,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             readAt: null,
           },
         }),
-        billingEnabled() ? tx.billingSubscription.findFirst({ where: { salonId, current: true, paidThrough: { not: null } }, select: { planCode: true } }) : null,
+        billingEnabled() ? tx.billingSubscription.findFirst({ where: { salonId, current: true, paidThrough: { not: null } } }) : null,
       ]);
-      return { salon, memberships, unreadNotifications, subscription };
+      return { salon, memberships, unreadNotifications, subscription: subscription ? { planCode: (await currentTerms(tx, subscription)).plan } : null };
     }),
   ]);
   const { salon, memberships, unreadNotifications, subscription } = adminData;
