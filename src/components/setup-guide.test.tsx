@@ -19,6 +19,11 @@ it("retira o guia quando todas as tarefas foram concluídas", () => {
   const { container } = render(<SetupGuide steps={steps.map(step => ({ ...step, done: true }))} />);
   expect(container).toBeEmptyDOMElement();
 });
+it("retoma a etapa salva mesmo quando uma etapa anterior foi pulada", () => {
+  render(<SetupGuide steps={steps} resumeHref="/onboarding/configuracao" />);
+  expect(screen.getByRole("heading")).toHaveTextContent("Continue de onde parou");
+  expect(screen.getByRole("link", { name: /Continuar configuração/ })).toHaveAttribute("href", "/onboarding/configuracao");
+});
 it("distingue interesse em Pro do plano realmente ativo", () => {
   const { rerender } = render(<PlanInterestNotice currentPlan="FREE" intent="pro" />);
   expect(screen.getByText(/Seu plano ativo é o Grátis/)).toBeVisible();

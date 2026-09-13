@@ -17,6 +17,7 @@ import { firstAccessHref, resolvePlanIntent, type MarketingPlanKey } from "@/lib
 import Link from "next/link";
 import { billingCapacityLabel, billingIntentHref, billingMoney, type BillingIntent } from "@/lib/billing/presentation";
 import { quoteContract } from "@/lib/billing/catalog";
+import { setupEntryHref } from "@/lib/initial-setup";
 
 export function SignupForm({ initialSegment, planIntent, billingIntent, billingAvailable = true }: { initialSegment?: SegmentId; planIntent?: MarketingPlanKey; billingIntent?: BillingIntent; billingAvailable?: boolean }) {
   const router = useRouter();
@@ -62,7 +63,7 @@ export function SignupForm({ initialSegment, planIntent, billingIntent, billingA
           setError("Conta criada, mas não foi possível entrar automaticamente. Use o login.");
           return;
         }
-        router.push(billingIntent ? billingIntentHref(billingIntent, "/assinatura") : firstAccessHref(planIntent));
+        router.push(billingIntent ? billingIntentHref(billingIntent, "/assinatura") : setupEntryHref(firstAccessHref(planIntent)));
         router.refresh();
       } catch {
         setError("Não foi possível concluir agora. Verifique sua conexão e tente novamente.");

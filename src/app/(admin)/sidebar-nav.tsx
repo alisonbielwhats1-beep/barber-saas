@@ -99,6 +99,7 @@ export const GROUPS: { title: string; items: Item[] }[] = [
     items: [
       { href: "/marketing",     label: "Marketing",     icon: Megaphone, roles: MARKETING_ROLES },
       { href: "/compartilhar",  label: "Compartilhar",  icon: Share2 },
+      { href: "/onboarding/configuracao", label: "Guia de início", icon: Settings, roles: MANAGEMENT_ROLES },
     ],
   },
 ];

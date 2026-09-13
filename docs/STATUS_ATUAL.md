@@ -1,5 +1,15 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-13 — guia de configuração inicial em revisão
+
+Branch `codex/initial-setup`, base `f89652b`: primeira entrada guiada em quatro
+etapas, com horários, serviços, profissionais e explicação do aplicativo/link
+do cliente. Responsivo, adiável e retomável por estabelecimento; conclusão
+independe da primeira reserva. Jornadas existentes e contratação preservadas.
+Escopo e evidências em `CONFIGURACAO_INICIAL_2026-09-13.md`. Sem migration ou
+publicação produtiva. Esta tela substitui o checklist como primeira recepção;
+o dashboard mantém um atalho para retomar o guia.
+
 ## 2026-09-13 — liberação Mercado Pago autorizada, em preparação
 
 O responsável autorizou concluir as etapas para disponibilizar cobrança em
