@@ -220,7 +220,7 @@ export default async function DashboardPage({
       </PageHeader>
 
       <PlanInterestNotice intent={planIntent} currentPlan={salonData.plan} />
-      <SetupGuide steps={steps} />
+      <SetupGuide steps={steps} resumeHref={setup.status === "new" ? undefined : SETUP_PATH} />
       {(role === "OWNER" || role === "MANAGER") && <Opportunities />}
 
       {/* ── Faixa Agora: operação antes da análise ─────────── */}
