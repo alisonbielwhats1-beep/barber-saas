@@ -128,8 +128,12 @@ export async function applyRemoteSubscription(sub: BillingSubscription, remote: 
   return withSalon(sub.salonId, async tx => {
     await subscriptionLock(tx, sub.salonId);
     const current = await tx.billingSubscription.findUniqueOrThrow({ where: { id: sub.id } });
-    if (current.providerUpdatedAt && current.providerUpdatedAt >= new Date(remote.last_modified)) return current;
     const cancelled = ["cancelled", "canceled"].includes(remote.status);
+    const remoteUpdatedAt = new Date(remote.last_modified);
+    // A terminal cancellation may share the provider's timestamp precision with
+    // the previous snapshot. Never lose its acknowledgement or revive it on replay.
+    if (current.providerUpdatedAt && (current.providerUpdatedAt > remoteUpdatedAt ||
+      (current.providerUpdatedAt.getTime() === remoteUpdatedAt.getTime() && (!cancelled || current.cancelledAt)))) return current;
     const updated = await tx.billingSubscription.update({ where: { id: sub.id }, data: {
       ...(termsChanged ? { reviewRequired: true } : {}),
       providerId: remote.id, providerStatus: remote.status, providerUpdatedAt: new Date(remote.last_modified),

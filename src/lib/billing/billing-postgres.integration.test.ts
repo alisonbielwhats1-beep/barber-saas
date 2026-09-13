@@ -360,6 +360,14 @@ pg("automatic billing with PostgreSQL and runtime FORCE RLS", () => {
     await changes.confirmPlanChange(fixture.ctx, change.id);
     return { ...fixture, change, changes };
   }
+  it("acknowledges cancellation at equal provider timestamps without replaying authorization", async () => {
+    const f = await paidFixture();
+    await service.requestCancellation(f.ctx, f.sub.id);
+    await service.applyRemoteSubscription(f.sub, { ...f.remote, status: "cancelled" });
+    await service.applyRemoteSubscription(f.sub, f.remote);
+    expect(await admin.billingSubscription.findUniqueOrThrow({ where: { id: f.sub.id } })).toMatchObject({ providerStatus: "cancelled", paidThrough: f.sub.paidThrough });
+    expect((await admin.billingSubscription.findUniqueOrThrow({ where: { id: f.sub.id } })).cancelledAt).not.toBeNull();
+  });
   function upgradePayment(change: { id: string; salonId: string; amountDueCents: number }) {
     const at = new Date().toISOString();
     return { id: randomUUID(), collector_id: "123", payer: { id: "456" }, currency_id: "BRL", transaction_amount: change.amountDueCents / 100, status: "approved", date_approved: at, date_last_updated: at, live_mode: false, external_reference: `efu:${change.salonId}:${change.id}` };

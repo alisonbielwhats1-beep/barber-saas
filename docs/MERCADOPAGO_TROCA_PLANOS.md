@@ -85,11 +85,11 @@ Preview, homologação e autorização para o SQL aditivo com backup/rollback.
 
 ## Evidências obtidas e limites
 
-Em 13/09, 60 testes PostgreSQL passaram no banco sintético isolado
+Em 13/09, 61 testes PostgreSQL passaram no banco sintético isolado
 `billing_changes_full_20260913`, com as migrations reais 023/024/025 e runtime
 sem BYPASSRLS. Incluem todas as 12 combinações de aumento entre os quatro planos
 nos dois ciclos, upgrades sucessivos, pagamento duplicado, estorno, recuperação
-de POST/PUT perdido, cotação/OWNER/tenant, invitação pendente e renovação agendada.
+de POST/PUT perdido, cotação/OWNER/tenant, convite pendente e renovação agendada.
 Matriz pura cobre 64 combinações de plano/ciclo, adicionais até cem, preços
 persistidos e meses de 28/29/30/31 dias e anos de 365/366 dias.
 
@@ -102,9 +102,34 @@ o código arredonda para o próximo segundo para nunca antecipar cobrança.
 A busca das preferências retornou zero imediatamente e um resultado após
 indexação; retries mantêm a reserva e recuperam o mesmo ID, sem novo POST.
 
-Compra completa de upgrade no provedor e autorização do ciclo futuro ainda
-dependem da sessão do comprador fictício. CI/Preview e publicação ainda
-pendentes. Resultados de testes simulados não comprovam uma cobrança externa.
+Compra fictícia completa conferida em 13/09, comprador `3683184927`:
+
+- Individual mensal `0bf9337100f845cd854999e6cc24bcd2`, pagamento
+  `177860783825`, R$ 59,90 aprovado. PaidThrough `2026-10-13T17:42:29Z`.
+- Upgrade para Equipe 5, pagamento `178835370434`, R$ 40 aprovado. Cotação
+  `033946b2-7825-47d9-ae60-f549923e78a3` APPLIED, cinco agendas, próxima
+  recorrência R$ 99,90, mesmo paidThrough. HQ registra R$ 99,90 recebidos no
+  total (59,90 + 40), sem duplicidade.
+- Troca futura para Equipe 10 anual: antiga cancelada antes de liberar o link;
+  substituta `23558ea405944f5cbe4ae4017d7dc78e` autorizada com início
+  `2026-10-13T17:42:29Z`. GET confirmou zero faturas e estado SCHEDULED;
+  capacidade vigente continuou cinco. O checkout exibiu início em 13 de outubro.
+- Cancelamento da troca futura confirmado no provedor; ambas as recorrências
+  fictícias estão canceladas, histórico e período pago preservados.
+
+A resposta externa após pagamento usa `summarized.pending_charge_quantity=null`;
+parser corrigido e regressão adicionada. As suítes PG configuram permissões no
+mesmo schema; executam sequencialmente para evitar disputa de GRANT entre seus
+setups. Isso não reduz os testes de concorrência executados dentro das suítes.
+
+Lint, TypeScript, 1.033 testes e build passaram antes da última regressão
+adicionada; rodada final pelo CI/Preview pendente. A última rodada local passou
+61 integrações + seis testes do provider. Revisão visual local teve início de
+servidor bloqueado pela revisão automática; jornada dedicada de revisão de
+cotação 320/390/1280 px, acessibilidade e capturas foi acrescentada ao CI.
+Não foi feita compra real nem esperada uma renovação futura externa. Essa
+renovação é exercitada por relógio controlado no PostgreSQL sintético.
+Não se declara pagamento externo de todas as combinações apenas por mocks.
 
 ## Matriz de verificação
 

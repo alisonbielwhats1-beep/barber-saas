@@ -9,6 +9,9 @@ cotação pelo servidor, revisão de termos, cobrança complementar, limite de
 agendas e reconciliação. Migration 025 somente em PostgreSQL sintético local;
 nenhuma alteração produtiva desta entrega. Flags novas permanecem desativadas
 em Production. Escopo, evidências e pendências em `MERCADOPAGO_TROCA_PLANOS.md`.
+PR #105 em revisão. Compra fictícia do Individual, diferença para Equipe 5 e
+autorização anual futura passaram no Mercado Pago, com acesso/valor/vencimento
+conferidos. Recorrências fictícias canceladas ao fim da homologação.
 Cadastro novo já cria estabelecimento aprovado automaticamente; o pagamento
 libera o plano pago sem aprovação manual. Suspensão administrativa permanece.
 
