@@ -58,7 +58,13 @@ Unitários cobrem acesso por papel, IDs de outro estabelecimento, gratuidade,
 preservação de jornada, capacidade, adiamento e conclusão sem reserva.
 Navegador usa banco sintético dedicado e verifica 320, 390, 768 e 1440px,
 temas claro/escuro, axe, retomada e disponibilidade real da API após configuração.
-Os resultados finais serão registrados nesta seção e no PR.
+Lint e TypeScript passaram. `npm test`: 191 arquivos e 972 testes aprovados.
+`npm run build`: aprovado. A jornada completa Chromium passou, incluindo
+retomada sem etapa na URL, 12 combinações de tela/tema sem overflow nem
+violações axe e confirmação de horários pela API pública. O teste mede as
+cores após a transição de tema e aguarda o salvamento antes de sair.
+Evidências locais em `test-results/initial-setup-*`; CI, outros navegadores
+e Preview serão registrados no PR #106.
 
 Desenvolvimento local isolado: PostgreSQL em 127.0.0.1:55439; nenhum dado
 produtivo copiado. CI/schema-smoke mantém PostgreSQL descartável e migrations

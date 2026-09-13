@@ -156,6 +156,9 @@ test.describe("@database configuração inicial", () => {
                 .analyze()
             ).violations,
           ).toEqual([]);
+          await page.getByRole("heading", { level: 1 }).focus();
+          await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+          await page.screenshot({ path: test.info().outputPath(`aplicativo-${theme}-${width}.png`), animations: "disabled" });
           await page.screenshot({
             path: test.info().outputPath(`compartilhar-${theme}-${width}.png`),
             fullPage: true,
