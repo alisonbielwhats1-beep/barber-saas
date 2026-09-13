@@ -1,4 +1,5 @@
 "use client";
+import { ServiceRepeater } from "@/components/service-repeater";
 
 import { useRef, useState } from "react";
 import {
@@ -416,6 +417,7 @@ export function AppointmentDetail({
                     </label>
                   ))}
                 </div>
+                <ServiceRepeater ids={editServices} services={services} onChange={ids => { invalidateEdit(); setEditServices(ids); }} />
                 {unknownService && <p className="text-xs text-warning">Há serviços históricos fora do catálogo. Para alterar os serviços, selecione uma nova combinação disponível. <button type="button" className="underline" onClick={() => { invalidateEdit(); setEditServices(editServices.filter(id => services.some(service => service.id === id))); }}>Remover serviços indisponíveis da seleção</button></p>}
                 <p className="text-xs">{editServices.length} serviço(s) selecionado(s).</p>
               </fieldset>

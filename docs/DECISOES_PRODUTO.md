@@ -1,5 +1,33 @@
 # Decisões de produto para as próximas fases
 
+## Recebimentos e agendamento — decisão de 13/09/2026
+
+- Financeiro reúne pendências pelo dia do atendimento e recebimentos com recibos.
+  Hoje oferece baixa rápida; somente Financeiro mostra o histórico de dias.
+- Data do recebimento começa sempre em ontem no fuso do salão e pode ser alterada.
+  Seleção confirma pagamentos; desmarcar mantém a pendência. Concluir atendimento
+  sem pagamento não lança receita. Baixa de atendimento não concluído exige
+  confirmação explícita de que foi realizado.
+- Extras de serviço e acréscimos com motivo são registrados no pagamento, sem
+  mudar o preço reservado ou o catálogo. Receita recebida usa o valor final.
+- Remover abas Pagamentos e Fechamento e abertura/fechamento operacional de caixa.
+  Remover sinais fictícios de 30%, que só alteravam auditoria sem compensação
+  financeira. Preservar históricos existentes; não adicionar cobrança automática.
+- Até dez itens, inclusive serviços repetidos, na mesma reserva, consecutivos
+  com o mesmo profissional. Dono/gerente mantêm encaixe explícito com motivo.
+- Cores por serviço (padrão), categoria, status ou profissional; preferência local
+  por salão e usuário. Rótulo de status permanece. Vários serviços usam o primeiro.
+- Último atendimento concluído preenche nova seleção, com preços/disponibilidade
+  atuais. Complementos são opcionais e usam serviços reais do catálogo.
+- Gestão configura retorno padrão/por serviço e destaque dos melhores encaixes.
+  Todos os horários disponíveis continuam acessíveis. Retornos são estimativas,
+  não notificações automáticas; contatos dependem de ação humana.
+- Oferta da fila é iniciada pela gestão, respeita ordem compatível e tem prazo de
+  5–60 minutos. Aceite do titular confirma uma única reserva; recusa/expiração
+  libera a vaga. A gestão pode ofertar ao próximo compatível ou retirar uma oferta.
+  O pedido recusado continua elegível para outros horários.
+
+
 Estas decisões consolidam as respostas do responsável pelo produto e as
 recomendações técnicas adotadas. Elas orientam a implementação; não significam
 que todos os itens abaixo já estão implementados na Fase 1.

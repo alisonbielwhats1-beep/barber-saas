@@ -5,6 +5,7 @@ import { formatMoney } from "@/lib/utils";
 import { Users, Crown, Cake, Clock } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { ClientForm } from "./client-form";
+import { ReturnOpportunities } from "./return-opportunities";
 import { ClientsCrm } from "./clients-crm";
 import { getMarketingSettings } from "@/lib/marketing-settings";
 import { hiddenClientIds } from "@/lib/client-list-visibility";
@@ -57,6 +58,7 @@ export default async function ClientesPage({ searchParams }: { searchParams: Pro
         <Kpi icon={Clock} accent="#EF4444" label={`Sumidos (${marketingSettings.lapsedClientDays}d+)`} value={lapsed.toString()} />
       </section>
 
+      {!showExcluded && ["OWNER", "MANAGER"].includes(role) && <ReturnOpportunities />}
       <ClientsCrm
         clients={clients}
         salonName={salon?.name ?? "nosso salão"}

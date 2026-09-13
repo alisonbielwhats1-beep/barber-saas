@@ -1,5 +1,20 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-13 — recebimentos e agendamento em implementação/revisão
+
+Branch `codex/booking-receipts-experience`, base `5cca634` (PR #99).
+A solicitação reúne baixa em lote, ajustes antes de receber, serviços repetidos,
+preferência de cores, atendimento de sempre, complementos, retorno previsto,
+sugestões de horários e oferta de fila com aceite.
+Pagamentos e Fechamento deixam a navegação: as rotas antigas redirecionam ao
+Financeiro. Abertura/fechamento de caixa e sinais sugeridos automaticamente em
+30% deixam esta experiência; registros históricos permanecem preservados.
+Esta decisão substitui a navegação financeira separada descrita em fases anteriores.
+Detalhes e evidências em `RECEBIMENTOS_E_AGENDAMENTO_2026-09-13.md`.
+A migration manual 023 está em validação. **Nenhum deploy ou SQL produtivo
+foi autorizado ou executado nesta entrega.** CI/Preview serão registrados no PR.
+
+
 
 ## 2026-09-12 — busca, bloqueios e encaixe: publicação autorizada
 

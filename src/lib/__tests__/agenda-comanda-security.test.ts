@@ -8,7 +8,8 @@ const mocks = vi.hoisted(() => {
   };
   const tx = {
     appointment: { findFirst: vi.fn() },
-    product: { findMany: vi.fn() },
+    service: { findMany: vi.fn().mockResolvedValue([]) },
+        product: { findMany: vi.fn() },
     user: { findUnique: vi.fn() },
   };
   return {
@@ -47,7 +48,7 @@ const receipt = {
   startAt: new Date("2030-01-10T15:00:00.000Z"),
   version: 1,
   priceCents: 5_000,
-  salon: { currency: "BRL" },
+  salon: { currency: "BRL", timezone: "America/Sao_Paulo" },
   client: { name: "Cliente A" },
   service: { name: "Corte", priceCents: 6_000 },
   serviceItems: [{ serviceName: "Corte snapshot", priceCents: 5_000 }],

@@ -1,3 +1,5 @@
+import { RecentReceipts } from "./recent-receipts";
+import { ReceiptWorkspace } from "./receipt-workspace";
 import Link from "next/link";
 import { requireRole, FINANCE_ROLES } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
@@ -88,6 +90,9 @@ export default async function FinanceiroPage({
         </div>
         <RangeFilter current={range} />
       </header>
+
+      <ReceiptWorkspace history />
+      <RecentReceipts />
 
       {/* Posição financeira: uma leitura curta antes do detalhamento. */}
       <section aria-labelledby="finance-position-title" className="space-y-3">

@@ -1,5 +1,7 @@
 "use client";
 
+import { AgendaColorSelect, useAgendaColorMode } from "@/components/agenda-color-select";
+import { appointmentColor } from "@/lib/agenda-colors";
 import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -24,6 +26,9 @@ export type TodayAppointment = {
   clientName: string;
   clientPhone: string | null;
   professionalName: string;
+  professionalColor?: string | null;
+  serviceColor?: string | null;
+  category?: string | null;
   serviceName: string;
 };
 
@@ -37,18 +42,21 @@ const ACTION_ICONS: Partial<Record<ApptStatus, typeof Check>> = {
 };
 
 export function HojeView({
+  colorScope,
   date,
   salonName = "o estabelecimento",
   timezone,
   currency,
   appointments,
 }: {
+  colorScope: string;
   date: string;
   salonName?: string;
   timezone: string;
   currency: string;
   appointments: TodayAppointment[];
 }) {
+  const [colorMode, setColorMode] = useAgendaColorMode(colorScope);
   const router = useRouter();
   const [filter, setFilter] = useState<Filter>("all");
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -156,6 +164,7 @@ export function HojeView({
             <h2 className="text-base font-semibold">Atendimentos do dia</h2>
             <p className="mt-1 text-sm text-muted-foreground">A próxima ação aparece em cada cartão.</p>
           </div>
+          <AgendaColorSelect value={colorMode} onChange={setColorMode} />
           <div className="flex flex-wrap gap-2" role="group" aria-label="Filtrar atendimentos">
             <FilterButton active={filter === "all"} onClick={() => setFilter("all")}>Todos {counts.total}</FilterButton>
             <FilterButton active={filter === "attention"} onClick={() => setFilter("attention")}>A confirmar {counts.attention}</FilterButton>
@@ -182,7 +191,7 @@ export function HojeView({
               const status = STATUS[appointment.status as ApptStatus];
 
               return (
-                <article key={appointment.id} className="rounded-2xl border border-border bg-surface-1 p-4 transition-colors hover:border-border-strong">
+                <article key={appointment.id} style={{ borderLeftWidth: 5, borderLeftColor: appointmentColor(colorMode, { professional: appointment.professionalColor ?? "#6B9FA8", service: appointment.serviceColor, category: appointment.category, status: STATUS[appointment.status as ApptStatus]?.color ?? "#64748B" }), background: `color-mix(in srgb, ${appointmentColor(colorMode, { professional: appointment.professionalColor ?? "#6B9FA8", service: appointment.serviceColor, category: appointment.category, status: STATUS[appointment.status as ApptStatus]?.color ?? "#64748B" })} 10%, hsl(var(--card)))` }} className="rounded-2xl border border-border bg-surface-1 p-4 transition-colors hover:border-border-strong">
                   <div className="grid gap-4 sm:grid-cols-[auto_minmax(0,1fr)] 2xl:grid-cols-[auto_minmax(220px,1fr)_auto] 2xl:items-center">
                     <div className="flex items-start gap-3 sm:w-48">
                       <span className="w-16 shrink-0 whitespace-nowrap text-xl font-semibold tabular-nums">{formatInTimeZone(start, timezone, "HH:mm")}</span>

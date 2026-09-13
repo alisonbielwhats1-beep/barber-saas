@@ -35,6 +35,8 @@ import { minutesToHHMM, formatMoney } from "@/lib/utils";
 import { AppointmentDialog, type ProOption, type ServiceOption, type ClientOption } from "./appointment-form";
 import { AppointmentDetail } from "./appointment-detail";
 import { STATUS, STATUS_ORDER } from "./agenda-status";
+import { appointmentColor } from "@/lib/agenda-colors";
+import { AgendaColorSelect, useAgendaColorMode } from "@/components/agenda-color-select";
 import { professionalColors } from "./professional-colors";
 import { moveAppointment } from "./actions";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -75,6 +77,7 @@ export type Appointment = {
   clientPhone: string | null;
   serviceName: string;
   serviceColor: string | null;
+  serviceCategory?: string | null;
   waitlistCount: number;
   waitlistNext: string | null;
   waitlist: Array<{
@@ -161,6 +164,7 @@ function ymd(d: Date) {
 }
 
 export function AgendaBoard({
+  colorScope,
   operations,
   initialAppointmentId,
   availabilityBlocks = [],
@@ -177,6 +181,7 @@ export function AgendaBoard({
   canCreate,
   canCancel,
 }: {
+  colorScope: string;
   initialAppointmentId?: string;
   availabilityBlocks?: AvailabilityBlock[];
   operations?: ReactNode;
@@ -193,9 +198,10 @@ export function AgendaBoard({
   canCreate: boolean;
   canCancel: boolean;
 }) {
+  const [colorMode, setColorMode] = useAgendaColorMode(colorScope);
   const colors = useMemo(() => professionalColors(roster), [roster]);
   const professionals = useMemo(() => roster.map(pro => ({ ...pro, colorHex: colors.get(pro.id)! })), [roster, colors]);
-  const appointments = useMemo(() => rawAppointments.map(appointment => ({ ...appointment, professionalColor: colors.get(appointment.professionalId) ?? "#6B9FA8" })), [rawAppointments, colors]);
+  const appointments = useMemo(() => rawAppointments.map(appointment => ({ ...appointment, professionalColor: appointmentColor(colorMode, { professional: colors.get(appointment.professionalId) ?? "#6B9FA8", service: appointment.serviceColor, category: appointment.serviceCategory, status: STATUS[appointment.status as keyof typeof STATUS]?.color ?? "#6B9FA8" }) })), [rawAppointments, colors, colorMode]);
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [view, setView] = useState<ViewKind>("day");
@@ -340,6 +346,7 @@ export function AgendaBoard({
   return (
     <div className="agenda-workspace" aria-busy={pending}>
       <header className="agenda-toolbar">
+        <AgendaColorSelect value={colorMode} onChange={setColorMode} />
         <div className="flex min-w-0 items-center gap-2 sm:hidden">
           <button type="button" onClick={() => goDate(-1)} aria-label={`Ir para ${navigationUnit} anterior`} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg hover:bg-muted"><ChevronLeft aria-hidden="true" size={16} /></button>
           <h1><button ref={compactCalendarTrigger} type="button" aria-label="Abrir calendário" aria-haspopup="dialog" onClick={() => setMobileCalendarOpen(true)} className="min-h-11 min-w-11 rounded-lg text-sm font-semibold">
@@ -467,11 +474,11 @@ export function AgendaBoard({
       <Dialog open={operationsOpen} onOpenChange={setOperationsOpen}>
         <DialogContent aria-describedby={undefined} onCloseAutoFocus={event => { event.preventDefault(); restoreQuickActionFocus(); }} className="max-h-[85dvh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader><DialogTitle>Expediente e bloqueios</DialogTitle></DialogHeader>
-          {canCancel && <AvailabilityPanel date={date} timezone={timezone} professionals={professionals} blocks={availabilityBlocks} />}
+          {canCancel && <AvailabilityPanel date={date} timezone={timezone} professionals={professionals} blocks={availabilityBlocks.filter(b => b.kind !== "OFFER")} />}
           {operations}
         </DialogContent>
       </Dialog>
-      {canCancel && (availabilityLaunch || blockSelection) && <AvailabilityPanel dialogOnly restoreFocus={restoreQuickActionFocus} key={blockSelection?.key ?? availabilityLaunch?.key} date={date} timezone={timezone} professionals={professionals} blocks={availabilityBlocks} selection={blockSelection} initialPreset={availabilityLaunch?.preset} />}
+      {canCancel && (availabilityLaunch || blockSelection) && <AvailabilityPanel dialogOnly restoreFocus={restoreQuickActionFocus} key={blockSelection?.key ?? availabilityLaunch?.key} date={date} timezone={timezone} professionals={professionals} blocks={availabilityBlocks.filter(b => b.kind !== "OFFER")} selection={blockSelection} initialPreset={availabilityLaunch?.preset} />}
       {canCancel && pauseLaunch && <WeeklyPausePanel key={pauseLaunch} professionals={professionals} initialOpen hideTrigger restoreFocus={restoreQuickActionFocus} />}
       {blockMode && view === "day" && <div className="flex shrink-0 items-center justify-between gap-2 rounded-lg bg-muted px-3 text-xs"><p>Toque no início e no fim do intervalo. Escape cancela.</p><button type="button" onClick={() => setBlockMode(false)} className="min-h-11 shrink-0 px-2 font-medium">Sair da seleção de bloqueio</button></div>}
       {actionError && (

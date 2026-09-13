@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const mocks = vi.hoisted(() => ({ session: vi.fn(), resolve: vi.fn(), tx: {
-  salon: { findUnique: vi.fn() }, service: { findMany: vi.fn() }, professionalService: { findMany: vi.fn() },
+  waitlistOffer: { findMany: vi.fn() }, salon: { findUnique: vi.fn() }, service: { findMany: vi.fn() }, professionalService: { findMany: vi.fn() },
   servicePricingRule: { findFirst: vi.fn() }, workingHours: { findMany: vi.fn() }, professionalOpening: { findMany: vi.fn() },
   salonClosure: { findMany: vi.fn() }, timeOff: { findMany: vi.fn() }, appointment: { findMany: vi.fn(), findFirst: vi.fn() }, resourceBooking: { findMany: vi.fn() },
 } }));
@@ -20,7 +20,7 @@ beforeEach(() => {
   mocks.tx.servicePricingRule.findFirst.mockResolvedValue(null);
   mocks.tx.professionalService.findMany.mockResolvedValue([{ serviceId: "service-a" }]);
   mocks.tx.workingHours.findMany.mockResolvedValue([{ startMinutes: 360, endMinutes: 750 }, { startMinutes: 900, endMinutes: 1260 }]);
-  for (const model of [mocks.tx.professionalOpening, mocks.tx.salonClosure, mocks.tx.timeOff, mocks.tx.appointment, mocks.tx.resourceBooking]) model.findMany.mockResolvedValue([]);
+  for (const model of [mocks.tx.professionalOpening, mocks.tx.salonClosure, mocks.tx.timeOff, mocks.tx.appointment, mocks.tx.resourceBooking, mocks.tx.waitlistOffer]) model.findMany.mockResolvedValue([]);
 });
 afterEach(() => vi.useRealTimers());
 

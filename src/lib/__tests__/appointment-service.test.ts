@@ -33,6 +33,7 @@ function schedulingTx() {
         { id: "service-a", name: "Corte", durationMin: 30, priceCents: 5_000 },
       ]),
     },
+    waitlistOffer: { findFirst: vi.fn().mockResolvedValue(null) },
     servicePricingRule: {
       findFirst: vi.fn().mockResolvedValue(null),
     },
