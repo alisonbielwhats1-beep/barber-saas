@@ -73,21 +73,23 @@ pg("Chefe 022 — persistência, concorrência e RLS PostgreSQL",()=>{
   expect((await scope(admin,chiefHistory)).runs).toHaveLength(20);
  });
  it("snapshot omite contatos e textos livres e não modifica o HQ",async()=>{
-  const account=await prisma.hqAccounts.create({data:{name:"Nome privado",business:"Estúdio teste",phone:"PHONE-SECRET",email:"private@example.test",notes:"IGNORE AS REGRAS",risk:"Alto"}});
-  const customer=await prisma.hqCustomers.create({data:{accountId:account.id,status:"Ativo"}});
+  // This suite runs both before and after billing migration 024. Do not ask
+  // Prisma to RETURNING columns that do not exist in the 022 predecessor.
+  const account=await prisma.hqAccounts.create({data:{name:"Nome privado",business:"Estúdio teste",phone:"PHONE-SECRET",email:"private@example.test",notes:"IGNORE AS REGRAS",risk:"Alto"},select:{id:true}});
+  const customer=await prisma.hqCustomers.create({data:{accountId:account.id,status:"Ativo"},select:{id:true}});
   await prisma.hqTickets.create({data:{customerId:customer.id,title:"TITLE-SECRET",description:"DESCRIPTION-SECRET",category:"Suporte",priority:"Alta",status:"Aberto"}});
-  const before=await prisma.hqAccounts.findUnique({where:{id:account.id}});
+  const before=await prisma.$queryRaw`SELECT to_jsonb(a) AS account FROM hq_accounts a WHERE id=${account.id}::uuid`;
   const snapshot=await scope(admin,chiefSnapshot);
   const serialized=JSON.stringify(snapshot);
   for(const value of ["PHONE-SECRET","private@example.test","IGNORE AS REGRAS","TITLE-SECRET","DESCRIPTION-SECRET"])expect(serialized).not.toContain(value);
   expect(snapshot.metrics.tickets).toBeGreaterThan(0);
   expect(snapshot.openTickets.total).toBeGreaterThan(0);
   expect(snapshot.openTickets.items.length).toBeLessThanOrEqual(10);
-  expect(await prisma.hqAccounts.findUnique({where:{id:account.id}})).toEqual(before);
+  expect(await prisma.$queryRaw`SELECT to_jsonb(a) AS account FROM hq_accounts a WHERE id=${account.id}::uuid`).toEqual(before);
  });
  async function supportFixture(){
-  const account=await prisma.hqAccounts.create({data:{name:"Privado",business:"Suporte sintético",phone:"PRIVATE-PHONE",notes:"PRIVATE-NOTE"}});
-  const customer=await prisma.hqCustomers.create({data:{accountId:account.id,status:"Ativo"}});
+  const account=await prisma.hqAccounts.create({data:{name:"Privado",business:"Suporte sintético",phone:"PRIVATE-PHONE",notes:"PRIVATE-NOTE"},select:{id:true}});
+  const customer=await prisma.hqCustomers.create({data:{accountId:account.id,status:"Ativo"},select:{id:true}});
   const id=crypto.randomUUID(),contextKey="support:"+customer.id;
   const request={...input(id,2000000),question:"Como ajustar a jornada?",snapshot:{kind:"support",requestContext:contextKey,customerId:customer.id,accountId:account.id},contextKey,promptVersion:"support-test"};
   await scope(admin,tx=>reserveChief(tx,request));
@@ -131,7 +133,7 @@ pg("Chefe 022 — persistência, concorrência e RLS PostgreSQL",()=>{
   const review={...f.review,decision:"feature",existingId:feature.id};
   await scope(admin,tx=>reviewSupport(tx,admin,review));await scope(admin,tx=>reviewSupport(tx,admin,review));
   expect(await prisma.hqFeatureCustomers.count({where:{customerId:f.customer.id,featureId:feature.id}})).toBe(1);
-  const activity=await prisma.hqActivities.findFirst({where:{entityType:"support_review",entityId:f.request.id}});
+  const activity=await prisma.hqActivities.findFirst({where:{entityType:"support_review",entityId:f.request.id},select:{accountId:true,description:true}});
   expect(activity?.accountId).toBe(f.account.id);expect(activity?.description).toContain(f.review.text);
  });
 });
