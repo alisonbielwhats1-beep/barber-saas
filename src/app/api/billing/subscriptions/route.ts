@@ -26,8 +26,9 @@ export async function GET(request: Request) {
       if (!sub) return null;
       return { id: sub.id, plan: sub.planCode, cycle: sub.cycle, amountCents: sub.amountCents, agendaLimit: sub.agendaLimit,
         state: accessState(sub), paidThrough: sub.paidThrough, cancelRequestedAt: sub.cancelRequestedAt, cancelledAt: sub.cancelledAt,
+        nextPaymentAt: sub.nextPaymentAt, providerStatus: sub.providerStatus, lastSyncedAt: sub.lastSyncedAt,
         reviewRequired: sub.reviewRequired, checkoutUrl: sub.cancelRequestedAt || sub.cancelledAt ? null : sub.checkoutUrl,
-        charges: sub.charges.map(c => ({ id: c.id, amountCents: c.amountCents, status: c.status, periodStart: c.periodStart, periodEnd: c.periodEnd, paidAt: c.paidAt })) };
+        charges: sub.charges.map(c => ({ id: c.id, amountCents: c.amountCents, refundedCents: c.refundedCents, status: c.status, periodStart: c.periodStart, periodEnd: c.periodEnd, paidAt: c.paidAt })) };
     });
     return billingJson({ subscription: result });
   } catch (e) { return billingFailure(e); }

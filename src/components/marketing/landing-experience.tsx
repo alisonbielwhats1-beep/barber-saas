@@ -32,7 +32,7 @@ const questions = [
   ["O que acontece depois do cadastro?", "Você cria sua conta e entra imediatamente no plano Grátis. Um guia orienta a configuração de serviços, profissionais e horários. Você pode incluir sugestões de serviços no cadastro ou montar seu catálogo depois."],
 ];
 
-export function LandingExperience() {
+export function LandingExperience({ billingAvailable = false }: { billingAvailable?: boolean }) {
   const { segment, selectSegment, ready } = useMarketingSegment();
   const [menuOpen, setMenuOpen] = useState(false);
   const root = useRef<HTMLElement>(null);
@@ -63,15 +63,15 @@ export function LandingExperience() {
       <ProductScene segmentId={segment.id}>
         <ClientAppShowcase />
       </ProductScene>
-      <PricingComparison segmentId={segment.id} />
-      <CapabilityShowcase />
+      <PricingComparison segmentId={segment.id} billingAvailable={billingAvailable} />
+      <CapabilityShowcase billingAvailable={billingAvailable} />
 
       <section id="operacao" className="mk-resources mk-wrap">
         <div className="mk-resource-heading"><h2>O cuidado vai além<br /><span>da agenda.</span></h2><p>Uma base para administrar {segment.name}, sem perder os detalhes que tornam cada atendimento único.</p><a href="#planos" className="mk-text-link">Encontrar meu plano <ArrowUpRight size={18} aria-hidden="true" /></a></div>
-        <div className="mk-resource-list">{resources.map((item) => <article key={item.title}><item.icon size={22} strokeWidth={1.5} aria-hidden="true" /><div><h3>{item.title}</h3><p>{item.text}</p></div></article>)}</div>
+        <div className="mk-resource-list">{resources.map((item) => <article key={item.title}><item.icon size={22} strokeWidth={1.5} aria-hidden="true" /><div><h3>{item.title}</h3><p>{billingAvailable && item.title === "Pacotes de serviços" ? "Organize sessões e acompanhe o uso dos pacotes contratados. Disponível em todos os planos pagos." : item.text}</p></div></article>)}</div>
       </section>
 
-      <section className="mk-faq mk-wrap"><h2>Antes de começar.</h2><div>{questions.map(([question, answer]) => <details key={question}><summary>{question}<Plus size={19} aria-hidden="true" /></summary><p>{answer}</p></details>)}</div></section>
+      <section className="mk-faq mk-wrap"><h2>Antes de começar.</h2><div>{questions.map(([question, answer]) => <details key={question}><summary>{question}<Plus size={19} aria-hidden="true" /></summary><p>{billingAvailable && question === "Posso controlar o financeiro?" ? "Sim. Você acompanha receitas, despesas, comissões e relatórios dos atendimentos. A assinatura do Everflair é paga separadamente pelo Mercado Pago." : answer}</p></details>)}</div></section>
       <section className="mk-close"><div className="mk-wrap"><p>Seu próximo atendimento começa com uma boa organização.</p><h2>Cuide do seu talento.<br /><span>A gente organiza o resto.</span></h2><Link href={signupHref(segment.id)} className="mk-button">Criar meu espaço <ArrowUpRight size={20} aria-hidden="true" /></Link></div></section>
       <footer className="mk-footer mk-wrap"><div><MarketingBrand /><p>Seu talento. Seu negócio. Novas possibilidades.</p></div><nav aria-label="Links institucionais"><Link href="/contato">Contato</Link><Link href="/termos">Termos de uso</Link><Link href="/privacidade">Privacidade</Link><Link href="/login">Entrar</Link></nav><span>© {new Date().getFullYear()} Everflair</span></footer>
     </main>

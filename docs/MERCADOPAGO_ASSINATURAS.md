@@ -128,7 +128,8 @@ usando o mesmo segredo/URL por engano.
    Os testes com provedor simulado não substituem essa homologação.
 5. Conferir PR, CI/schema-smoke/Preview, configuração e plano operacional. Só
    promover após aprovação. Depois verificar home, APIs e runtime sem dados
-   sensíveis em logs. Conectar frontend em entrega própria antes de oferecer
+   sensíveis em logs. A ampliação do PR #101 conecta o frontend e adiciona a
+   migration 024/HQ; seguir também `MERCADOPAGO_PORTAL_HQ.md` antes de oferecer
    contratação aos clientes.
 
 Rollback operacional: pausar checkout; manter webhook/reconciliador e canais de
@@ -183,8 +184,9 @@ No servidor Next.js local, as APIs rejeitaram ausência de sessão/assinatura co
 uma notificação e uma fatura. Falhas transitórias/429 do provedor permaneceram
 retentáveis, sem concessão duplicada. O servidor e o cluster local foram encerrados.
 
-Limite da evidência: o pagamento mensal foi recuperado pela reconciliação; ainda
-falta entrega externa de webhook com assinatura autêntica em staging configurado.
+Limite desta evidência de 12/09: o pagamento mensal foi recuperado pela
+reconciliação. A atualização de 13/09 em `MERCADOPAGO_PORTAL_HQ.md` registra
+entrega externa assinada do simulador oficial, sem staging persistente.
 Renovação futura, recusa financeira, anual pago e chargeback foram exercitados
 com provedor simulado e banco real. O Preview compila com cobrança desligada e
 permanece sob as barreiras de ambiente existentes; não substitui esse staging.

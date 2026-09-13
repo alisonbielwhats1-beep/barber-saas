@@ -54,6 +54,7 @@ export async function execute(tx: Tx, actorId: string, command: Command): Promis
     const paidDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(v => !Number.isNaN(Date.parse(v)) && new Date(v).toISOString().slice(0,10) === v && v <= today(), "Data de pagamento inválida.").parse(command.paidDate);
     const method = z.string().trim().min(1).max(100).parse(command.method);
     const payment = await repo.find(tx, "payments", command.id, true);
+    if (payment.billingChargeId) throw new HqError("Cobrança sincronizada pelo Mercado Pago. Aguarde a confirmação automática.");
     if (payment.status === "Pago") return payment;
     if (payment.status !== "Pendente") throw new HqError("Pagamento cancelado não pode ser confirmado.");
     const updated = await repo.update(tx, "payments", payment.id, { status: "Pago", paidDate, method });
@@ -87,8 +88,24 @@ export async function execute(tx: Tx, actorId: string, command: Command): Promis
   definition(entity);
   if (["bugCustomers", "featureCustomers"].includes(entity) && command.id) throw new HqError("Associações preservam o histórico.");
   if (entity === "activities" && command.id) throw new HqError("O histórico é imutável.");
-  const values = parseValues(entity, command.values);
   const old = command.id ? await repo.find(tx, entity, command.id, true) : null;
+  if (old?.billingSubscriptionId || old?.billingChargeId) throw new HqError("Dados financeiros gerenciados automaticamente pelo Mercado Pago.");
+  const input = z.record(z.unknown()).parse(command.values);
+  if (entity === "customers" && old) {
+    const account = await repo.find(tx, "accounts", String(old.accountId));
+    // Disabled form fields are omitted. Restore authoritative values before validation.
+    if (account.billingSalonId) for (const key of ["status", "startedAt", "paymentMethod"]) input[key] = old[key];
+  }
+  const values = parseValues(entity, input);
+  if (entity === "subscriptions") {
+    const customer = await repo.find(tx, "customers", String(old?.customerId ?? values.customerId));
+    const account = await repo.find(tx, "accounts", String(customer.accountId));
+    if (account.billingSalonId) throw new HqError("As assinaturas deste cliente são gerenciadas pelo Mercado Pago.");
+  }
+  if (entity === "payments") {
+    const subscription = await repo.find(tx, "subscriptions", String(old?.subscriptionId ?? values.subscriptionId));
+    if (subscription.billingSubscriptionId) throw new HqError("As cobranças desta assinatura são sincronizadas automaticamente.");
+  }
 
   // Uma relação existente não pode ser transferida silenciosamente para outra conta.
   if (old) for (const field of definition(entity).fields) {

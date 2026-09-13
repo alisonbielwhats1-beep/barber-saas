@@ -1,5 +1,29 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-13 — portal de assinatura e integração HQ em revisão
+
+O PR #101 inclui escolha mensal/anual, continuidade no cadastro/login,
+portal `/assinatura` exclusivo do proprietário e sincronização de pagamentos,
+plano, período e capacidade com HQ/CRM/CMM. Confirmação financeira permanece
+no backend; retorno do checkout não libera o plano. Estornos parciais mostram
+o valor devolvido e reduzem a receita recebida; histórico é preservado.
+
+Migration 024 aditiva validada em PostgreSQL local com RLS, sem aplicação
+produtiva. `MERCADOPAGO_HQ_SYNC_ENABLED` é opt-in e permanece desligada junto
+da contratação e do reconciliador em Production. A 011 também segue desligada.
+Lint, TypeScript, 930 testes unitários/componentes, 27 integrações PostgreSQL
+e build passaram nesta ampliação. CI/schema-smoke e Preview serão registrados
+no PR para o commit final.
+
+O simulador oficial da aplicação fictícia enviou webhook externo com HMAC
+autêntico, aceito com HTTP 200 e consulta ao provedor; a cobrança fictícia
+previamente aprovada apareceu automaticamente no HQ. Não há staging persistente
+classificado: foi usado ingresso HTTPS temporário restrito ao webhook e banco
+local sintético. O novo checkout ficou com confirmação desabilitada no Mercado
+Pago; sua assinatura pendente foi cancelada, sem pagamento novo. URLs de teste
+removidos e ingresso temporário encerrado. A notificação nativa no celular não
+foi comprovada. Escopo, evidências e limites em `MERCADOPAGO_PORTAL_HQ.md`.
+
 ## 2026-09-12 — backend Mercado Pago em revisão, desativado
 
 Branch `codex/mercadopago-subscriptions`, base `5cca634` (PR #99): contratação
@@ -10,7 +34,8 @@ APIs e roteiro de liberação em `MERCADOPAGO_ASSINATURAS.md`.
 Migration 023 validada somente no PostgreSQL local descartável, não aplicada em
 Production. MERCADOPAGO_BILLING_ENABLED e execução agendada seguem desativadas;
 PLATFORM_BILLING_ENABLED permanece false e 011 não foi aplicada. Checkout no
-frontend e webhook externo em staging ainda pendentes. No teste com contas
+frontend e webhook externo ainda pendentes nesta etapa histórica; a ampliação
+de 13/09 acima registra o estado mais recente. No teste com contas
 fictícias, criação, aprovação mensal, liberação e cancelamento foram confirmados
 pelo Mercado Pago; contrato anual também criado e cancelado ainda pendente.
 Detalhes e limites dessa evidência no documento da entrega. PR #101 em revisão.

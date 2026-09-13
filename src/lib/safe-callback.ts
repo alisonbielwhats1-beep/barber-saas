@@ -3,6 +3,8 @@ export const DEFAULT_AUTH_CALLBACK = "/pos-login";
 const ALLOWED_EXACT_PATHS = new Set([
   "/",
   "/agenda",
+  "/assinatura",
+  "/contratar",
   "/clientes",
   "/compartilhar",
   "/configuracoes",

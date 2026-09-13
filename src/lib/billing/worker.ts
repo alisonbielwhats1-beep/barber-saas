@@ -1,4 +1,5 @@
 import "server-only";
+import { syncBillingToHq } from "./hq-sync";
 import { createHash } from "node:crypto";
 import { withSalon, type Tx } from "../prisma-tenant";
 import { BillingError } from "./catalog";
@@ -109,7 +110,7 @@ export async function runBillingWorker(limit = 2) {
     if (!job) break;
     let error: string | null = null;
     let more = false;
-    try { more = await syncSubscription(job.salonId, job.subscriptionId); result.processed++; }
+    try { more = await syncSubscription(job.salonId, job.subscriptionId); more = await syncBillingToHq(job.salonId, job.subscriptionId) || more; result.processed++; }
     catch (e) { error = e instanceof BillingError ? e.code : "PROCESSING_FAILED"; result.failed++; }
     await queueScope(async tx => {
       const current = await tx.billingQueue.findUniqueOrThrow({ where: { subscriptionId: job.subscriptionId } });

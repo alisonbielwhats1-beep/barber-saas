@@ -31,8 +31,9 @@ describe("billing HTTP boundaries", () => {
     expect(await response.text()).not.toContain("secret-provider-body");
     expect(billingFailure(new BillingError("OWNER_REQUIRED",403)).status).toBe(403);
   });
-  it("provider return only explains confirmation; it does not grant a plan",async()=>{
-    const response=await returnFromProvider();
-    expect(await response.json()).toEqual({message:expect.stringContaining("confirmação do pagamento")});
+  it("provider return redirects to authenticated tracking and discards untrusted payment claims",async()=>{
+    const response=await returnFromProvider(new Request("http://localhost:3000/api/billing/return?status=approved&salonId=foreign"));
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe("http://localhost:3000/assinatura");
   });
 });

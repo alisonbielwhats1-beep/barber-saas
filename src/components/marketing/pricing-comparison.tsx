@@ -4,11 +4,17 @@ import { PLAN_ENTITLEMENTS, PLAN_PRICING_ROWS } from "@/lib/plan-entitlements";
 import { MARKETING_PLAN_KEYS } from "@/lib/marketing-plan";
 import { signupHref, type MarketingSegmentId } from "./segments";
 import "./pricing.css";
+import { PlanPicker } from "@/components/billing/plan-picker";
 
 const included = ["Agenda e agendamento online", "Clientes, serviços e profissionais", "Página pública e aplicativo do cliente", "Financeiro e relatórios operacionais", "Notificações e histórico de atendimento"];
 const optional = [{ label: "Produtos e estoque", key: "INVENTORY" as const }, { label: "Pacotes", key: "PACKAGES" as const }, { label: "Marketing e campanhas", key: "MARKETING" as const }];
 
-export function PricingComparison({ segmentId }: { segmentId: MarketingSegmentId }) {
+export function PricingComparison({ segmentId, billingAvailable = false }: { segmentId: MarketingSegmentId; billingAvailable?: boolean }) {
+  if (billingAvailable) return <section id="planos" className="pc-section mk-wrap" aria-labelledby="pricing-title">
+    <div className="pc-heading"><div><p className="mk-eyebrow">ESCOLHA A CAPACIDADE DO SEU ESPAÇO</p><h2 id="pricing-title">Seu plano. Seu próximo passo.</h2><p>Os mesmos recursos em todos os planos pagos. Escolha o número de agendas e a cobrança mensal ou anual.</p></div></div>
+    <PlanPicker segment={segmentId} />
+    <p className="pc-next">Escolha o plano, crie sua conta e seu estabelecimento ou entre na conta existente. Revise a contratação e pague no Mercado Pago. A liberação acontece após a confirmação do pagamento.</p>
+  </section>;
   return <section id="planos" className="pc-section mk-wrap" aria-labelledby="pricing-title">
     <div className="pc-heading"><div><p className="mk-eyebrow">CLAREZA PARA ESCOLHER</p><h2 id="pricing-title">Seu espaço. Seu ritmo.<br /><span>Um plano que acompanha.</span></h2><p>Comece grátis. Compare a capacidade e escolha o próximo passo quando fizer sentido para sua equipe.</p></div><aside className="pc-founder"><span>OFERTA DE LANÇAMENTO</span><strong>{PLAN_PRICING_ROWS[1].price}<small>/mês</small></strong><p>Fundador para os 10 primeiros estabelecimentos, sujeito à disponibilidade.</p></aside></div>
     <div className="pc-cards">{PLAN_PRICING_ROWS.map(plan => <article key={plan.plan} data-featured={plan.plan === "PRO"}><span className="pc-plan-kind">{plan.plan === "FREE" ? "PARA COMEÇAR" : plan.plan === "STARTER" ? "SUJEITO À DISPONIBILIDADE" : plan.plan === "PRO" ? "PARA SUA OPERAÇÃO" : "PARA MAIS TALENTOS"}</span><h3>{plan.title}</h3><p className="pc-price">{plan.price}<small>{plan.plan !== "FREE" && "/mês"}</small></p><p className="pc-capacity">{plan.professionals}</p><p className="pc-detail">{plan.detail}</p><Link href={signupHref(segmentId, MARKETING_PLAN_KEYS[plan.plan])} className={`mk-button ${plan.plan === "PRO" ? "" : "mk-button-outline"}`} aria-label={plan.plan === "FREE" ? "Começar no plano Grátis" : `Começar com interesse no ${plan.title}`}>{plan.plan === "FREE" ? "Começar grátis" : `Escolher ${plan.title}`}<ArrowUpRight size={16} aria-hidden="true" /></Link></article>)}</div>

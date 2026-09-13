@@ -13,6 +13,7 @@ import { getPlanEntitlement } from "@/lib/plan-entitlements";
 import { SettingsSectionNav } from "./settings-section-nav";
 import { PricingRulesManager } from "./pricing-rules-manager";
 import { TeamHoursManager } from "./team-hours-manager";
+import { billingEnabled } from "@/lib/billing/config";
 
 const PLAN_LABEL: Record<string, string> = {
   FREE: "Grátis",
@@ -223,13 +224,13 @@ export default async function ConfiguracoesPage() {
                   <Crown aria-hidden="true" className="h-5 w-5" />
                 </span>
                 <div>
-                  <h2 id="settings-plan-title" className="text-[13px] font-semibold">Plano {PLAN_LABEL[salon.plan] ?? salon.plan}</h2>
+                  <h2 id="settings-plan-title" className="text-[13px] font-semibold">{billingEnabled() ? "Plano e assinatura" : `Plano ${PLAN_LABEL[salon.plan] ?? salon.plan}`}</h2>
                   <p className="mt-1 text-[11px] text-muted-foreground">
-                    {salon.plan === "FREE"
+                    {billingEnabled() ? "Consulte o plano contratado, as agendas e o período pago no acompanhamento da assinatura." : salon.plan === "FREE"
                       ? `1 agenda · até ${entitlement.monthlyAppointments} agendamentos por mês`
                       : `${entitlement.maxProfessionals} agendas incluídas · sem taxa por cliente`}
                   </p>
-                  {salon.plan !== "FREE" && entitlement.priceCents > 0 && (
+                  {!billingEnabled() && salon.plan !== "FREE" && entitlement.priceCents > 0 && (
                     <p className="mt-1 text-[11px] font-medium text-primary">
                       R$ {(entitlement.priceCents / 100).toFixed(2).replace(".", ",")}/mês
                     </p>
@@ -237,7 +238,7 @@ export default async function ConfiguracoesPage() {
                 </div>
               </div>
               <p className="mt-5 rounded-xl border border-border bg-card/70 px-3 py-2.5 text-[11px] leading-relaxed text-muted-foreground">
-                A gestão do plano e da assinatura fica protegida e será liberada somente quando o faturamento estiver configurado.
+                {billingEnabled() && role === "OWNER" ? <Link className="font-medium underline" href="/assinatura">Gerenciar plano, pagamentos e renovação</Link> : "A gestão do plano e da assinatura fica protegida e será liberada somente quando o faturamento estiver configurado."}
               </p>
             </div>
           </section>

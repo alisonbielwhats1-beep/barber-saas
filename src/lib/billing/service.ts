@@ -127,6 +127,7 @@ export async function applyRemoteSubscription(sub: BillingSubscription, remote: 
     const updated = await tx.billingSubscription.update({ where: { id: sub.id }, data: {
       ...(termsChanged ? { reviewRequired: true } : {}),
       providerId: remote.id, providerStatus: remote.status, providerUpdatedAt: new Date(remote.last_modified),
+      ...(remote.next_payment_date !== undefined ? { nextPaymentAt: remote.next_payment_date ? new Date(remote.next_payment_date) : null } : {}),
       ...(remote.init_point ? { checkoutUrl: mp.checkoutUrl(remote.init_point) } : {}),
       ...(cancelled && !current.cancelledAt ? { cancelledAt: new Date(remote.last_modified) } : {}),
     } });
@@ -158,6 +159,8 @@ export async function applyInvoice(sub: BillingSubscription, remote: mp.RemoteSu
   // Accept that combination only after the API confirms the configured seller is a test_user.
   if (payment?.live_mode && sub.mode === "test") await mp.verifySellerAccount();
   const status = payment ? ((payment.transaction_amount_refunded ?? 0) > 0 ? "refunded" : payment.status) : "pending";
+  const refundedCents = Math.round((payment?.transaction_amount_refunded ?? 0) * 100);
+  if (!Number.isSafeInteger(refundedCents) || refundedCents < 0 || refundedCents > sub.amountCents) throw new BillingError("PAYMENT_MISMATCH");
   const updatedAt = new Date(payment?.date_last_updated ?? invoice.last_modified);
   const start = new Date(invoice.debit_date);
   const end = periodEnd(start, sub.intervalMonths);
@@ -172,10 +175,10 @@ export async function applyInvoice(sub: BillingSubscription, remote: mp.RemoteSu
     if (status === "approved" && (!paidAt || start > new Date(Date.now() + 86400000))) throw new BillingError("INVALID_PAID_PERIOD");
     await tx.billingCharge.upsert({ where: { providerInvoiceId: invoice.id },
       create: { salonId: sub.salonId, subscriptionId: sub.id, providerInvoiceId: invoice.id, providerPaymentId: payment?.id, amountCents: sub.amountCents,
-        periodStart: start, periodEnd: end, status, paidAt, providerUpdatedAt: updatedAt },
-      update: { providerPaymentId: payment?.id, status, paidAt, providerUpdatedAt: updatedAt },
+        periodStart: start, periodEnd: end, status, paidAt, refundedCents, providerUpdatedAt: updatedAt },
+      update: { providerPaymentId: payment?.id, status, paidAt, refundedCents, providerUpdatedAt: updatedAt },
     });
-    await event(tx, sub, `invoice:${invoice.id}:${updatedAt.toISOString()}:${status}`, "PAYMENT_UPDATED", `${invoice.id}:payment:${payment?.id ?? "none"}:${status}`);
+    await event(tx, sub, `invoice:${invoice.id}:${updatedAt.toISOString()}:${status}`, "PAYMENT_UPDATED", `${invoice.id}:payment:${payment?.id ?? "none"}:${status}:refunded_cents:${refundedCents}`);
     if (["refunded", "charged_back"].includes(status)) {
       await tx.billingSubscription.update({ where: { id: sub.id }, data: { reviewRequired: true } });
     } else if (status === "approved") {
