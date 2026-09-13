@@ -139,6 +139,11 @@ test.describe("@database configuração inicial", () => {
               document.documentElement.setAttribute("data-theme", value),
             theme,
           );
+          // Measure the selected theme after its color transitions settle.
+          await page.evaluate(async () => {
+            await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+            await Promise.all(document.getAnimations().map(animation => animation.finished.catch(() => {})));
+          });
           expect(
             await page.evaluate(
               () => document.documentElement.scrollWidth - innerWidth,
