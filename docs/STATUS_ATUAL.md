@@ -9,8 +9,9 @@ recorrência antiga já foi cancelada ou a troca está em revisão. O botão per
 acessível ao OWNER no painel e na tela de acesso bloqueado, sem liberar operação
 suspensa. Confirmação mostra o prazo exato e não promete conclusão antecipada.
 
-A versão anterior `b6f3e9b` passou integralmente no CI `34773937424` e Preview.
-Esta ampliação requer nova rodada; evidências no PR e em
+A revisão `c967d03` passou integralmente no CI `34777515646` e Preview,
+incluindo cancelamento e oito capturas inspecionadas. A integração do guia
+de início de `origin/master` exige rodada correspondente; evidências no PR e em
 `MERCADOPAGO_TROCA_PLANOS.md`. Nenhuma publicação, flag ou SQL produtivo novo.
 
 ## 2026-09-13 — trocas de planos em validação, ainda não publicadas
@@ -27,6 +28,17 @@ autorização anual futura passaram no Mercado Pago, com acesso/valor/vencimento
 conferidos. Recorrências fictícias canceladas ao fim da homologação.
 Cadastro novo já cria estabelecimento aprovado automaticamente; o pagamento
 libera o plano pago sem aprovação manual. Suspensão administrativa permanece.
+
+## 2026-09-13 — guia de configuração inicial incorporado à branch principal
+
+Branch `codex/initial-setup`, base `f89652b`: primeira entrada guiada em quatro
+etapas, com horários, serviços, profissionais e explicação do aplicativo/link
+do cliente. Responsivo, adiável e retomável por estabelecimento; conclusão
+independe da primeira reserva. Jornadas existentes e contratação preservadas.
+Escopo e evidências em `CONFIGURACAO_INICIAL_2026-09-13.md`. Sem migration.
+PR #106 integrado em `678cecb`; implantação produtiva desse guia não conferida
+nesta revisão de billing. Esta tela substitui o checklist como primeira recepção;
+o dashboard mantém um atalho para retomar o guia.
 
 ## 2026-09-13 — Mercado Pago disponível em produção
 

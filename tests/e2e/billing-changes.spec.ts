@@ -25,7 +25,7 @@ test.describe("@database troca de planos", () => {
       await page.getByLabel("Email").fill(email);
       await page.getByLabel("Senha", { exact: true }).fill(password);
       await page.getByRole("button", { name: "Entrar", exact: true }).click();
-      await expect(page).toHaveURL(/\/(hoje|dashboard)$/, { timeout: 30_000 });
+      await expect(page).toHaveURL(/\/(hoje|dashboard|onboarding\/configuracao)$/, { timeout: 30_000 });
       await page.emulateMedia({ reducedMotion: "reduce" });
       for (const width of [320, 390, 1280]) {
         await page.setViewportSize({ width, height: 844 });

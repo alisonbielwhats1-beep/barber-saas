@@ -3,7 +3,9 @@ import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/tenant";
 import { DASHBOARD_ROLES } from "@/lib/role-permissions";
 import { getDashboardMetrics, RANGE_LABELS, type RangeKey } from "@/lib/dashboard";
-import { withSalon } from "@/lib/prisma-tenant";
+import { withSalon, withTenant } from "@/lib/prisma-tenant";
+import { getInitialSetup } from "@/lib/initial-setup-server";
+import { SETUP_PATH, setupChecks, shouldStartSetup } from "@/lib/initial-setup";
 import { formatMoney, formatDuration } from "@/lib/utils";
 import {
   addCalendarDays,
@@ -81,10 +83,13 @@ export default async function DashboardPage({
 }: {
   searchParams: Promise<{ range?: string; plan?: string }>;
 }) {
-  const { salonId, role } = await requireRole(DASHBOARD_ROLES);
+  const ctx = await requireRole(DASHBOARD_ROLES);
+  const { salonId, role } = ctx;
   // A recepção tem a operação do dia; nunca consultar métricas gerenciais
   // para depois apenas escondê-las no JSX.
   if (role === "RECEPTIONIST") redirect("/hoje");
+  const setup = await withTenant(ctx, tx => getInitialSetup(tx, ctx));
+  if (shouldStartSetup(setup, role)) redirect(SETUP_PATH);
   const { range: selectedRange, plan: planIntent } = await searchParams;
   const range: RangeKey = VALID.includes(selectedRange as RangeKey)
     ? (selectedRange as RangeKey)
@@ -150,7 +155,7 @@ export default async function DashboardPage({
     getDashboardMetrics(salonId, range, timezone, marketingSettings.lapsedClientDays),
   );
 
-  const [todayAppts, svcCount, proCount] =
+  const [todayAppts] =
     await withDatabaseRetry("summary", () =>
       Promise.all([
         withSalon(salonId, (tx) =>
@@ -173,16 +178,8 @@ export default async function DashboardPage({
             },
           }),
         ),
-        withSalon(salonId, (tx) => tx.service.count({ where: { salonId, active: true } })),
-        withSalon(salonId, (tx) => tx.professional.count({ where: { salonId, active: true } })),
       ]),
     );
-  const [whCount, apptCount] = await withDatabaseRetry("setup", () =>
-    Promise.all([
-      withSalon(salonId, (tx) => tx.workingHours.count({ where: { professional: { salonId } } })),
-      withSalon(salonId, (tx) => tx.appointment.count({ where: { salonId } })),
-    ]),
-  );
   const salonName = salonData.name;
   const genderTotal = m.gender.male.revenue + m.gender.female.revenue + m.gender.other.revenue + m.gender.unknown.revenue;
 
@@ -196,12 +193,9 @@ export default async function DashboardPage({
     salonName,
   }));
 
-  const steps = [
-    { done: svcCount > 0, label: "Criar seus serviços", href: "/servicos" },
-    { done: proCount > 0, label: "Cadastrar profissionais", href: "/profissionais" },
-    { done: whCount > 0, label: "Definir horários de trabalho", href: "/profissionais" },
-    { done: apptCount > 0, label: "Receber o primeiro agendamento", href: "/compartilhar" },
-  ];
+  const checks = setupChecks(setup);
+  const steps = ["Definir horários", "Revisar serviços", "Configurar profissionais", "Conhecer o aplicativo do cliente"]
+    .map((label, i) => ({ done: checks[i], label, href: `${SETUP_PATH}?step=${i}` }));
 
 
   return (
@@ -226,7 +220,7 @@ export default async function DashboardPage({
       </PageHeader>
 
       <PlanInterestNotice intent={planIntent} currentPlan={salonData.plan} />
-      <SetupGuide steps={steps} />
+      <SetupGuide steps={steps} resumeHref={setup.status === "new" ? undefined : SETUP_PATH} />
       {(role === "OWNER" || role === "MANAGER") && <Opportunities />}
 
       {/* ── Faixa Agora: operação antes da análise ─────────── */}

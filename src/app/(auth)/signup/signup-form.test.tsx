@@ -16,7 +16,7 @@ it("preserva Pro como interesse sem enviá-lo como plano concedido", async () =>
   render(<SignupForm initialSegment="barbearia" planIntent="pro" />);
   expect(screen.getByText("Seu interesse: Pro")).toBeVisible();
   completeForm();
-  await waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/dashboard?welcome=1&plan=pro"));
+  await waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/onboarding/configuracao?next=%2Fdashboard%3Fwelcome%3D1%26plan%3Dpro"));
   const payload = mocks.signup.mock.calls[0][0];
   expect(payload.serviceNames).toEqual([]);
   expect(payload.segmentId).toBe("barbearia");
@@ -29,6 +29,11 @@ it("inclui serviços sugeridos somente quando a pessoa escolhe incluí-los", asy
   completeForm();
   await waitFor(() => expect(mocks.signup).toHaveBeenCalled());
   expect(mocks.signup.mock.calls[0][0].serviceNames.length).toBeGreaterThan(0);
+});
+it("preserva a contratação escolhida antes de oferecer o guia", async () => {
+  render(<SignupForm billingIntent={{ plan: "INDIVIDUAL", cycle: "ANNUAL", extraAgendas: 0 }} />);
+  completeForm();
+  await waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/assinatura?billingPlan=INDIVIDUAL&cycle=ANNUAL&extraAgendas=0"));
 });
 it("mantém os dados e o contexto do plano após falha de cadastro", async () => {
   mocks.signup.mockResolvedValue({ ok: false, error: "Tente novamente." });
