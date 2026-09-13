@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { PlanPicker } from "./plan-picker";
 import { BILLING_PLANS, quoteContract } from "@/lib/billing/catalog";
-import { billingErrors, billingMoney, safeCheckout, type BillingIntent, type SubscriptionView } from "@/lib/billing/presentation";
+import { billingCapacityLabel, billingErrors, billingMoney, safeCheckout, type BillingIntent, type SubscriptionView } from "@/lib/billing/presentation";
 
 const states: Record<string, string> = { UNPAID: "Aguardando pagamento", ACTIVE: "Plano ativo", VERIFYING: "Conferindo renovação", GRACE: "Pagamento em atraso · período de carência", RESTRICTED: "Regularização necessária", EXPIRED: "Período encerrado" };
 const chargeStates: Record<string, string> = { approved: "Pago", pending: "Aguardando", in_process: "Em processamento", rejected: "Recusado", cancelled: "Cancelado", refunded: "Estornado", charged_back: "Contestado" };
@@ -100,7 +100,7 @@ export function SubscriptionPortal({ salonId, email, timezone, initial }: { salo
     </section>}
     <p className="text-sm text-muted-foreground">Precisa de ajuda? <Link href="/contato" className="underline">Fale com a plataforma</Link>.</p>
     <Dialog open={Boolean(choice)} onOpenChange={open => { if (!open && !busy) setChoice(null); }}><DialogContent><DialogTitle>Confirmar contratação</DialogTitle><DialogDescription>Revise o valor antes de seguir para o pagamento seguro no Mercado Pago.</DialogDescription>
-      {quote && <><p className="font-semibold">{quote.label} · {quote.agendaLimit} agendas</p><p className="text-2xl font-semibold">{billingMoney(quote.amountCents)}</p><p className="text-sm">Cobrança automática {quote.cycle === "ANNUAL" ? "a cada 12 meses, pelo valor total acima" : "mensal, pelo valor acima"}. O primeiro período só será liberado após a confirmação do pagamento. Você poderá cancelar a renovação no portal.</p></>}
+      {quote && <><p className="font-semibold">{billingCapacityLabel(quote.plan, quote.agendaLimit)}</p><p className="text-2xl font-semibold">{billingMoney(quote.amountCents)}</p><p className="text-sm">Cobrança automática {quote.cycle === "ANNUAL" ? "a cada 12 meses, pelo valor total acima" : "mensal, pelo valor acima"}. O primeiro período só será liberado após a confirmação do pagamento. Você poderá cancelar a renovação no portal.</p></>}
       <Button disabled={busy} onClick={() => void subscribe()}>{busy ? "Preparando pagamento…" : "Ir para pagamento"}</Button><Button variant="outline" disabled={busy} onClick={() => setChoice(null)}>Voltar aos planos</Button>
     </DialogContent></Dialog>
     <Dialog open={cancelOpen} onOpenChange={open => { if (!busy) setCancelOpen(open); }}><DialogContent><DialogTitle>Cancelar a renovação?</DialogTitle><DialogDescription>Vamos solicitar o cancelamento ao Mercado Pago. Após a confirmação, não haverá novas renovações. O período já pago e seu histórico serão preservados; esta ação não solicita estorno.</DialogDescription>

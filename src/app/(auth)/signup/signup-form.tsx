@@ -15,7 +15,7 @@ import { signup } from "./actions";
 import type { SegmentId } from "@/lib/segments";
 import { firstAccessHref, resolvePlanIntent, type MarketingPlanKey } from "@/lib/marketing-plan";
 import Link from "next/link";
-import { billingIntentHref, billingMoney, type BillingIntent } from "@/lib/billing/presentation";
+import { billingCapacityLabel, billingIntentHref, billingMoney, type BillingIntent } from "@/lib/billing/presentation";
 import { quoteContract } from "@/lib/billing/catalog";
 
 export function SignupForm({ initialSegment, planIntent, billingIntent, billingAvailable = true }: { initialSegment?: SegmentId; planIntent?: MarketingPlanKey; billingIntent?: BillingIntent; billingAvailable?: boolean }) {
@@ -73,7 +73,7 @@ export function SignupForm({ initialSegment, planIntent, billingIntent, billingA
   return (
     <form className="space-y-4" onSubmit={onSubmit}>
       {billingQuote && billingIntent ? <aside className="es-plan-intent" aria-label="Seu plano de interesse">
-        <div><strong>{billingQuote.label} · {billingQuote.agendaLimit} agendas</strong><span>{billingMoney(billingQuote.amountCents)} {billingQuote.cycle === "ANNUAL" ? "a cada 12 meses" : "por mês"}</span></div>
+        <div><strong>{billingCapacityLabel(billingQuote.plan, billingQuote.agendaLimit)}</strong><span>{billingMoney(billingQuote.amountCents)} {billingQuote.cycle === "ANNUAL" ? "a cada 12 meses" : "por mês"}</span></div>
         <p>{billingAvailable ? "Primeiro crie seu espaço. Em seguida, revise a contratação e pague no Mercado Pago. Não há cobrança neste cadastro." : "Este é seu plano de interesse. A contratação online está em preparação. Você pode criar seu espaço agora, sem cobrança ou ativação de assinatura."}</p>
         <Link href={`/login?callbackUrl=${encodeURIComponent(billingIntentHref(billingIntent, billingAvailable ? "/contratar" : "/assinatura"))}`}>Já tenho conta · entrar</Link>
       </aside> : <aside className="es-plan-intent" aria-label="Seu plano de interesse">

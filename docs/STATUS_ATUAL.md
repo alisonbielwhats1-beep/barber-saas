@@ -2,14 +2,18 @@
 
 ## 2026-09-13 — proposta dos planos na landing e homologação retomada
 
-Por solicitação do responsável, a landing mostra Individual, Equipe,
-Equipe Plus e Equipe Max independentemente da ativação da cobrança. Catálogo
+Por solicitação do responsável, a landing segue a referência aprovada com
+Individual, Essencial, Equipe (seletor 5/10 agendas) e Everflair IA “Em breve”,
+independentemente da ativação da cobrança. IA é ilustrativa e não contratável. Catálogo
 mensal/anual, economia anual e adicionais usam os mesmos valores do backend.
 Com checkout desativado, a escolha segue para cadastro como interesse, sem
 cobrança ou promessa de ativação. Recursos e FAQ deixam de anunciar Fundador.
 O PR #101 incorpora `origin/master` com o domínio oficial e o timeout de CI.
-Lint, TypeScript, 940 testes e build passaram; 27 integrações PostgreSQL
+Lint, TypeScript, 941 testes e build passaram; 27 integrações PostgreSQL
 passaram em banco sintético separado com a migration HQ real.
+Pedido posterior clareou o violeta e arredondou os anuais para R$ 599, R$ 779,
+R$ 959 e R$ 1.439, no catálogo 2026-09-13. Contratos anteriores preservam
+seus valores persistidos. Referência aprovada e comparação em `design-qa.md`.
 
 Após autenticação do comprador fictício `3683184927` e abertura de checkout
 novo, o cartão oficial de teste aprovou os ciclos mensal e anual do Equipe

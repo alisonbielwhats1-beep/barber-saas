@@ -32,16 +32,20 @@ a escolha segue como interesse para cadastro, sem criar assinatura.
 
 ## Regras comerciais aprovadas
 
+Na composição pública aprovada, o código TEAM é apresentado como Essencial;
+TEAM_PLUS e TEAM_MAX ficam no card Equipe, com seletor de 5 ou 10 agendas.
+Everflair IA ocupa o quarto card como “Em breve”, sem preço ou contratação.
+
 | Plano | Agendas | Mensal | Anual total, recorrência a cada 12 meses |
 | --- | ---: | ---: | ---: |
-| Individual | 1 | R$ 59,90 | R$ 598,80 |
-| Equipe | 3 | R$ 79,90 | R$ 778,80 |
-| Equipe Plus | 5 | R$ 99,90 | R$ 958,80 |
-| Equipe Max | 10 | R$ 149,90 | R$ 1.438,80 |
+| Individual | 1 | R$ 59,90 | R$ 599 |
+| Essencial | 3 | R$ 79,90 | R$ 779 |
+| Equipe · 5 agendas | 5 | R$ 99,90 | R$ 959 |
+| Equipe · 10 agendas | 10 | R$ 149,90 | R$ 1.439 |
 
 Adicional acima de dez agendas, somente Equipe Max: R$ 15,00/mês ou
 R$ 144,00/ano por agenda. Até cem adicionais por contrato. Todos os planos
-pagos habilitam os mesmos recursos. Catálogo `2026-09-12` em
+pagos habilitam os mesmos recursos. Catálogo `2026-09-13` em
 `src/lib/billing/catalog.ts`. O total anual é cobrado de uma vez por ano.
 Não há migração automática de contas antigas, alteração de plano no meio do
 ciclo, prorrata, reembolso automático, SMS ou WhatsApp nesta entrega.

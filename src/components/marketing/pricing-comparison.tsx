@@ -1,6 +1,6 @@
 import { Check } from "lucide-react";
 import type { MarketingSegmentId } from "./segments";
-import { PlanPicker } from "@/components/billing/plan-picker";
+import { MarketingPlans } from "./marketing-plans";
 import "./pricing.css";
 
 const included = ["Agendamento online e aplicativo do cliente", "Financeiro, relatórios e comissões", "Clientes e histórico de atendimento", "Produtos, estoque e pacotes", "Marketing e portfólio", "Agendamentos ilimitados"];
@@ -11,7 +11,7 @@ export function PricingComparison({ segmentId, billingAvailable = false }: { seg
       <h2 id="pricing-title">Todos os recursos.<br /><span>O tamanho da sua equipe.</span></h2>
       <p>De quem atende sozinho a quem cuida de uma equipe inteira. Escolha quantas agendas seu espaço precisa e como prefere pagar.</p>
     </div><aside className="pc-capacity-note"><strong>O que muda é a capacidade.</strong><p>Cada agenda organiza os horários de um profissional. Todos os planos pagos incluem os mesmos recursos para cuidar da sua operação.</p></aside></div>
-    <PlanPicker segment={segmentId} marketing billingAvailable={billingAvailable} />
+    <MarketingPlans segment={segmentId} billingAvailable={billingAvailable} />
     <div className="pc-included"><h3>Já faz parte de todos os planos</h3><ul>{included.map(item => <li key={item}><Check size={17} aria-hidden="true" />{item}</li>)}</ul></div>
     <p className="pc-next">{billingAvailable
       ? "Escolha seu plano e crie seu espaço ou entre na sua conta. Após a aprovação do estabelecimento, revise a contratação e pague no Mercado Pago. Seu plano é liberado após a confirmação do pagamento."

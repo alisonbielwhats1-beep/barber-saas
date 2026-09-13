@@ -1,6 +1,10 @@
-import { contractInput, type BILLING_PLANS } from "./catalog";
+import { contractInput, BILLING_PLANS } from "./catalog";
 
 export type BillingIntent = { plan: keyof typeof BILLING_PLANS; cycle: "MONTHLY" | "ANNUAL"; extraAgendas: number };
+export function billingCapacityLabel(plan: BillingIntent["plan"], agendas: number) {
+  const label = plan === "TEAM_PLUS" || plan === "TEAM_MAX" ? "Equipe" : BILLING_PLANS[plan].label;
+  return `${label} · ${agendas} ${agendas === 1 ? "agenda" : "agendas"}`;
+}
 export function resolveBillingIntent(query: { billingPlan?: unknown; cycle?: unknown; extraAgendas?: unknown }): BillingIntent | undefined {
   if (typeof query.billingPlan !== "string") return undefined;
   const parsed = contractInput.safeParse({ plan: query.billingPlan, cycle: query.cycle ?? "MONTHLY",
@@ -11,7 +15,7 @@ export function billingIntentQuery(intent: BillingIntent) {
   return new URLSearchParams({ billingPlan: intent.plan, cycle: intent.cycle, extraAgendas: String(intent.extraAgendas) }).toString();
 }
 export const billingIntentHref = (intent: BillingIntent, path = "/contratar") => `${path}?${billingIntentQuery(intent)}`;
-export const billingMoney = (cents: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
+export const billingMoney = (cents: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: cents % 100 === 0 ? 0 : 2, maximumFractionDigits: 2 }).format(cents / 100);
 export function safeCheckout(value: string | null) {
   if (!value) return null;
   try { const url = new URL(value); return url.protocol === "https:" && url.hostname === "www.mercadopago.com.br" && !url.username && !url.password && !url.port ? url.href : null; }

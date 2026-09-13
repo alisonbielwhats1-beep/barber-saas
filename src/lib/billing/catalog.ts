@@ -1,17 +1,17 @@
 import { z } from "zod";
 
-export const CATALOG_VERSION = "2026-09-12";
+export const CATALOG_VERSION = "2026-09-13";
 export const BILLING_PLANS = {
-  INDIVIDUAL: { label: "Individual", agendas: 1, monthly: 5990, annual: 59880 },
-  TEAM: { label: "Equipe", agendas: 3, monthly: 7990, annual: 77880 },
-  TEAM_PLUS: { label: "Equipe Plus", agendas: 5, monthly: 9990, annual: 95880 },
-  TEAM_MAX: { label: "Equipe Max", agendas: 10, monthly: 14990, annual: 143880 },
+  INDIVIDUAL: { label: "Individual", agendas: 1, monthly: 5990, annual: 59900 },
+  TEAM: { label: "Essencial", agendas: 3, monthly: 7990, annual: 77900 },
+  TEAM_PLUS: { label: "Equipe · 5 agendas", agendas: 5, monthly: 9990, annual: 95900 },
+  TEAM_MAX: { label: "Equipe · 10 agendas", agendas: 10, monthly: 14990, annual: 143900 },
 } as const;
 export const contractInput = z.object({
   plan: z.enum(["INDIVIDUAL", "TEAM", "TEAM_PLUS", "TEAM_MAX"]),
   cycle: z.enum(["MONTHLY", "ANNUAL"]),
   extraAgendas: z.number().int().min(0).max(100).default(0),
-}).strict().refine(v => v.plan === "TEAM_MAX" || v.extraAgendas === 0, "Adicionais exigem Equipe Max.");
+}).strict().refine(v => v.plan === "TEAM_MAX" || v.extraAgendas === 0, "Adicionais exigem Equipe com 10 agendas.");
 
 export function quoteContract(value: unknown) {
   const input = contractInput.parse(value);

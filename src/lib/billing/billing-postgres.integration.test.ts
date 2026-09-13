@@ -143,7 +143,7 @@ pg("automatic billing with PostgreSQL and runtime FORCE RLS", () => {
     const account = await admin.hqAccounts.findUniqueOrThrow({ where: { billingSalonId: salonId } });
     expect(account.business).toBe("a");
     const hqSub = await admin.hqSubscriptions.findUniqueOrThrow({ where: { billingSubscriptionId: subscriptionId } });
-    expect(hqSub).toMatchObject({ plan: "Equipe Plus", amountCents: 9990, interval: "Mensal", billingAgendaLimit: 5, billingPaidThrough: periodEnd(now, 1) });
+    expect(hqSub).toMatchObject({ plan: "Equipe · 5 agendas", amountCents: 9990, interval: "Mensal", billingAgendaLimit: 5, billingPaidThrough: periodEnd(now, 1) });
     expect(await admin.hqPayments.findMany({ where: { subscriptionId: hqSub.id } })).toMatchObject([{ status: "Pago", amountCents: 9990 }]);
     const events = await admin.hqActivities.count({ where: { accountId: account.id } });
     await admin.hqAccounts.update({ where: { id: account.id }, data: { notes: "Contato comercial preservado" } });
@@ -229,7 +229,7 @@ pg("automatic billing with PostgreSQL and runtime FORCE RLS", () => {
     loseCreateResponse = false;
     const before = postCount;
     const sub = await service.contract({ salonId: salon.id, userId: ownerId }, { plan: "INDIVIDUAL", cycle: "ANNUAL" }, key);
-    expect(sub.providerId).not.toBeNull(); expect(postCount).toBe(before); expect(sub.amountCents).toBe(59880);
+    expect(sub.providerId).not.toBeNull(); expect(postCount).toBe(before); expect(sub.amountCents).toBe(59900);
     expect(quoteContract({ plan: "INDIVIDUAL", cycle: "ANNUAL" }).intervalMonths).toBe(12);
   });
   it("claims dispatch leases under FORCE RLS and retries safely", async () => {
@@ -297,7 +297,7 @@ pg("automatic billing with PostgreSQL and runtime FORCE RLS", () => {
     const hqSub = await admin.hqSubscriptions.findUniqueOrThrow({ where: { billingSubscriptionId: sub.id } });
     expect(hqSub).toMatchObject({ interval: "Anual", amountCents: sub.amountCents, billingAgendaLimit: 12, billingPaidThrough: periodEnd(now, 12) });
     const [metric] = await admin.$queryRaw<{ mrr: number }[]>`SELECT ("amountCents"/12.0)::float8 AS mrr FROM hq_subscriptions WHERE id=${hqSub.id}::uuid`;
-    expect(metric.mrr).toBe(sub.amountCents / 12);
+    expect(metric.mrr).toBeCloseTo(sub.amountCents / 12, 6);
   });
   it("retries seller verification without trapping a contract whose POST was never attempted", async () => {
     const salon = await admin.salon.create({ data: { name: "seller-unavailable", slug: randomUUID(), accessStatus: "APPROVED" } });

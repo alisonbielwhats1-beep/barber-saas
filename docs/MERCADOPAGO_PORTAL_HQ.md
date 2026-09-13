@@ -155,12 +155,16 @@ mensal em `2026-09-13T14:46:42.891Z` e anual em
 “Cancelada · acesso até o fim pago”. O cancelamento anual também entregou
 webhook espontâneo, request `0c26b0be-9ffd-4bd8-b509-3da8205f5833`, HTTP 200.
 
-A landing agora apresenta os quatro planos aprovados mesmo com cobrança
-desativada: mensal/anual, economia e adicionais calculados pelo catálogo
-único. Nesse estado, o CTA preserva a escolha no cadastro sem ativar cobrança.
+A landing segue a referência visual aprovada: Individual, Essencial, Equipe
+com seletor 5/10 agendas e Everflair IA “Em breve”. A IA não tem preço nem
+contratação. Mensal/anual, economia e adicionais são calculados pelo catálogo
+único; códigos financeiros e valores mensais foram preservados. Pedido posterior
+arredondou o anual para R$ 599/R$ 779/R$ 959/R$ 1.439 no catálogo 2026-09-13,
+sem alterar preços persistidos em contratos anteriores. Nesse estado,
+o CTA preserva a escolha no cadastro sem ativar cobrança.
 Navegador conferiu desktop e celular de 390px; uma regra antiga que colocava
 preço e nome em colunas no celular foi corrigida para manter os cards legíveis.
-`npm run lint`, `npx tsc --noEmit --incremental false`, `npm test` (940 testes)
+`npm run lint`, `npx tsc --noEmit --incremental false`, `npm test` (941 testes)
 e `npm run build` passaram. Build requer as variáveis obrigatórias de sessão;
 foram usados valores sintéticos locais. As 27 integrações billing/HQ passaram
 em novo banco descartável com migration HQ real e 024 verificada.
@@ -170,6 +174,10 @@ O job `check` passou; `schema-smoke` será registrado no PR ao terminar.
 Produção segue sem 023/024, flags e reconciliador desativados. O teste local
 comprova a jornada financeira e supera a pendência anterior de novo pagamento;
 não constitui staging persistente nem prova push na conta oficial do iPhone.
+
+Limpeza final: URLs de teste e produção da aplicação fictícia removidos com
+Redefinir; ambos os campos foram verificados vazios e os eventos desmarcados.
+Túnel e proxy temporários encerrados. A aplicação principal não foi alterada.
 
 ## Liberação e operação
 
