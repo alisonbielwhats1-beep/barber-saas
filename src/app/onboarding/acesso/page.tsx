@@ -5,6 +5,8 @@ import { Clock3, ShieldCheck, XCircle } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { withUser } from "@/lib/prisma-tenant";
 import { AccessStatusActions } from "./access-status-actions";
+import { billingEnabled } from "@/lib/billing/config";
+import { SubscriptionPortal } from "@/components/billing/subscription-portal";
 
 const STATUS_CONTENT = {
   PENDING: {
@@ -40,8 +42,9 @@ export default async function AccessStatusPage() {
       where: { userId: session.user.id },
       select: {
         salonId: true,
+        role: true,
         salon: {
-          select: { name: true, accessStatus: true, accessRequestedAt: true },
+          select: { name: true, timezone: true, accessStatus: true, accessRequestedAt: true },
         },
       },
     }),
@@ -56,6 +59,7 @@ export default async function AccessStatusPage() {
 
   const content = STATUS_CONTENT[membership.salon.accessStatus];
   const Icon = content.icon;
+  const billingUser = billingEnabled() && membership.role === "OWNER" ? await withUser(session.user.id, tx => tx.user.findUniqueOrThrow({ where: { id: session.user.id }, select: { email: true } })) : null;
 
   return (
     <main id="main-content" tabIndex={-1} className="grid min-h-dvh place-items-center bg-background px-5 py-10 outline-none">
@@ -84,6 +88,7 @@ export default async function AccessStatusPage() {
           acesso aparecerá automaticamente após a aprovação.
         </p>
         <AccessStatusActions />
+        {billingUser && <details className="mt-6 border-t border-border pt-5"><summary className="cursor-pointer py-2 font-medium underline">Gerenciar ou cancelar assinatura</summary><div className="mt-4"><p className="mb-4 text-sm text-muted-foreground">O cancelamento da cobrança continua disponível mesmo com o painel bloqueado.</p><SubscriptionPortal salonId={membership.salonId} email={billingUser.email} timezone={membership.salon.timezone} accessBlocked /></div></details>}
       </section>
     </main>
   );

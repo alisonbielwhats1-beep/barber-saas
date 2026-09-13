@@ -1,5 +1,18 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-13 — revisão do cancelamento incorporada ao PR #105
+
+Solicitação posterior valida cancelamento livre, fim da recorrência no provedor
+e preservação integral do período pago. A indicação de renovação agora considera
+também assinaturas futuras vinculadas; o pedido encerra a cadeia mesmo quando a
+recorrência antiga já foi cancelada ou a troca está em revisão. O botão permanece
+acessível ao OWNER no painel e na tela de acesso bloqueado, sem liberar operação
+suspensa. Confirmação mostra o prazo exato e não promete conclusão antecipada.
+
+A versão anterior `b6f3e9b` passou integralmente no CI `34773937424` e Preview.
+Esta ampliação requer nova rodada; evidências no PR e em
+`MERCADOPAGO_TROCA_PLANOS.md`. Nenhuma publicação, flag ou SQL produtivo novo.
+
 ## 2026-09-13 — trocas de planos em validação, ainda não publicadas
 
 O responsável aprovou upgrades no mesmo ciclo após pagamento da diferença

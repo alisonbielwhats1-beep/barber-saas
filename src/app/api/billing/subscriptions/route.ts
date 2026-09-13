@@ -6,6 +6,7 @@ import { accessState } from "@/lib/billing/catalog";
 import { ownerContext, readBillingBody, billingJson, billingFailure } from "@/lib/billing/http";
 import { runBillingWorker } from "@/lib/billing/worker";
 import { currentTerms, changesEnabled, changeView, pendingChangeStates } from "@/lib/billing/change-terms";
+import { cancellationSubscriptions, renewalCancellationStatus } from "@/lib/billing/cancellation";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -30,6 +31,7 @@ export async function GET(request: Request) {
       return { id: sub.id, plan: terms.plan, cycle: terms.cycle, amountCents: terms.amountCents, agendaLimit: terms.agendaLimit,
         changesAvailable: changesEnabled(), change: change ? changeView(change) : null, changePending: change ? pendingChangeStates.includes(change.state) : false,
         state: accessState(sub), paidThrough: sub.paidThrough, cancelRequestedAt: sub.cancelRequestedAt, cancelledAt: sub.cancelledAt,
+        renewalCancellationStatus: renewalCancellationStatus(await cancellationSubscriptions(tx, sub), change?.kind === "CYCLE" && change.state === "PREPARING"),
         nextPaymentAt: sub.nextPaymentAt, providerStatus: sub.providerStatus, lastSyncedAt: sub.lastSyncedAt,
         reviewRequired: sub.reviewRequired, checkoutUrl: sub.cancelRequestedAt || sub.cancelledAt ? null : sub.checkoutUrl,
         charges: sub.charges.map(c => ({ id: c.id, amountCents: c.amountCents, refundedCents: c.refundedCents, status: c.status, periodStart: c.periodStart, periodEnd: c.periodEnd, paidAt: c.paidAt })) };

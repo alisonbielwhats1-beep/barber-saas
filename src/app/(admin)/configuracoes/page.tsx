@@ -227,7 +227,7 @@ export default async function ConfiguracoesPage() {
                 <div>
                   <h2 id="settings-plan-title" className="text-[13px] font-semibold">{billingEnabled() ? "Plano e assinatura" : `Plano ${PLAN_LABEL[salon.plan] ?? salon.plan}`}</h2>
                   <p className="mt-1 text-[11px] text-muted-foreground">
-                    {billingEnabled() ? "Consulte o plano contratado, as agendas e o período pago no acompanhamento da assinatura." : salon.plan === "FREE"
+                    {billingEnabled() ? "Consulte seu plano, pagamentos e período de acesso. Você pode cancelar a renovação a qualquer momento, sem perder o período já pago." : salon.plan === "FREE"
                       ? `1 agenda · até ${entitlement.monthlyAppointments} agendamentos por mês`
                       : `${entitlement.maxProfessionals} agendas incluídas · sem taxa por cliente`}
                   </p>
@@ -239,7 +239,7 @@ export default async function ConfiguracoesPage() {
                 </div>
               </div>
               <p className="mt-5 rounded-xl border border-border bg-card/70 px-3 py-2.5 text-[11px] leading-relaxed text-muted-foreground">
-                {billingEnabled() && role === "OWNER" ? <Link className="font-medium underline" href="/assinatura">Gerenciar plano, pagamentos e renovação</Link> : "A gestão do plano e da assinatura fica protegida e será liberada somente quando o faturamento estiver configurado."}
+                {billingEnabled() && role === "OWNER" ? <Link className="font-medium underline" href="/assinatura">Gerenciar ou cancelar assinatura</Link> : "A gestão do plano e da assinatura fica protegida e será liberada somente quando o faturamento estiver configurado."}
               </p>
             </div>
           </section>

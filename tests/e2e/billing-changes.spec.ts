@@ -30,6 +30,14 @@ test.describe("@database troca de planos", () => {
       for (const width of [320, 390, 1280]) {
         await page.setViewportSize({ width, height: 844 });
         await page.goto("/assinatura");
+        await page.getByRole("button", { name: "Cancelar renovação", exact: true }).click();
+        const cancellation = page.getByRole("dialog", { name: "Cancelar a renovação?", exact: true });
+        await expect(cancellation).toContainText("todos os recursos do seu plano pago até");
+        await expect(cancellation).toContainText(new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeStyle: "short", timeZone: "America/Sao_Paulo" }).format(end));
+        await expect(cancellation).toContainText("cobrança recorrente no Mercado Pago");
+        expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations).toEqual([]);
+        await page.screenshot({ path: test.info().outputPath(`cancellation-review-${width}.png`), fullPage: true });
+        await cancellation.getByRole("button", { name: "Manter assinatura", exact: true }).click();
         await page.getByRole("button", { name: "Escolher outro plano" }).click();
         await page.getByRole("button", { name: "Escolher Equipe · 5 agendas", exact: true }).click();
         const dialog = page.getByRole("dialog", { name: "Revisar troca de plano" });
@@ -52,6 +60,23 @@ test.describe("@database troca de planos", () => {
       expect(await db.billingPlanChange.count({ where: { subscriptionId: sub.id, confirmedAt: { not: null } } })).toBe(0);
       expect((await db.billingSubscription.findUniqueOrThrow({ where: { id: sub.id } })).paidThrough).toEqual(end);
       expect(await db.billingCharge.count({ where: { subscriptionId: sub.id } })).toBe(1);
+      expect((await db.billingSubscription.findUniqueOrThrow({ where: { id: sub.id } })).cancelRequestedAt).toBeNull();
+      await annual.getByRole("button", { name: "Voltar", exact: true }).click();
+      await page.goto("/configuracoes");
+      await page.getByRole("link", { name: "Gerenciar ou cancelar assinatura", exact: true }).click();
+      await expect(page).toHaveURL(/\/assinatura$/);
+      await db.salon.update({ where: { id: salon.id }, data: { accessStatus: "SUSPENDED" } });
+      await page.goto("/assinatura");
+      await expect(page).toHaveURL(/\/onboarding\/acesso$/);
+      await page.getByText("Gerenciar ou cancelar assinatura", { exact: true }).click();
+      await page.getByRole("button", { name: "Cancelar renovação", exact: true }).click();
+      await expect(page.getByRole("dialog")).toContainText("A restrição administrativa do painel é independente");
+      await expect(page.getByRole("button", { name: "Escolher outro plano" })).toHaveCount(0);
+      await page.screenshot({ path: test.info().outputPath("cancellation-blocked-owner.png"), fullPage: true });
+      await page.getByRole("button", { name: "Manter assinatura", exact: true }).click();
+      await db.membership.updateMany({ where: { salonId: salon.id, userId: user.id }, data: { role: "MANAGER" } });
+      await page.reload();
+      await expect(page.getByText("Gerenciar ou cancelar assinatura", { exact: true })).toHaveCount(0);
       expect(errors).toEqual([]);
     } finally { await db.$disconnect(); }
   });

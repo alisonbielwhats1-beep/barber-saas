@@ -68,21 +68,27 @@ export async function syncSubscription(salonId: string, id: string) {
     throw new BillingError("SUBSCRIPTION_NOT_READY", 503);
   }
   if (wasUncreated) return true;
-  let changeError: unknown;
-  try { await syncPlanChanges(sub); } catch (error) { changeError = error; }
-  sub = await withSalon(salonId, tx => tx.billingSubscription.findUniqueOrThrow({ where: { id } }));
-  if (!sub.providerId) throw new BillingError("SUBSCRIPTION_NOT_READY", 503);
   let remote = await mp.getSubscription(sub.providerId);
   validateRemote(sub, remote, false);
-  if (sub.cancelRequestedAt && !["cancelled", "canceled"].includes(remote.status)) {
-    // PUT is an idempotent target state; a lost response is resolved by GET on the next attempt.
-    await mp.mpRequest(`/preapproval/${encodeURIComponent(sub.providerId)}`, "PUT", { status: "cancelled" });
-    remote = await mp.getSubscription(sub.providerId);
+  const stopRenewal = async () => {
+    if (!sub.cancelRequestedAt) return false;
+    const needed = !["cancelled", "canceled"].includes(remote.status);
+    // PUT is an idempotent target state; a lost response is resolved by GET on retry.
+    if (needed) {
+      await mp.mpRequest(`/preapproval/${encodeURIComponent(sub.providerId!)}`, "PUT", { status: "cancelled" });
+      remote = await mp.getSubscription(sub.providerId!);
+    }
     if (!["cancelled", "canceled"].includes(remote.status)) throw new BillingError("CANCELLATION_NOT_CONFIRMED", 503);
     await applyRemoteSubscription(sub, remote);
-    return true;
-  }
-  if (changeError) throw changeError;
+    return needed;
+  };
+  if (await stopRenewal()) return true;
+  // Stopping charges takes priority over reconciliation of an unrelated plan change.
+  await syncPlanChanges(sub);
+  sub = await withSalon(salonId, tx => tx.billingSubscription.findUniqueOrThrow({ where: { id } }));
+  if (!sub.providerId) throw new BillingError("SUBSCRIPTION_NOT_READY", 503);
+  remote = await mp.getSubscription(sub.providerId!);
+  if (await stopRenewal()) return true;
   await applyRemoteSubscription(sub, remote);
   const inbox = await withSalon(salonId, tx => tx.billingInbox.findMany({ where: { subscriptionId: id, processedAt: null }, orderBy: { receivedAt: "asc" }, take: 1 }));
   for (const item of inbox) {

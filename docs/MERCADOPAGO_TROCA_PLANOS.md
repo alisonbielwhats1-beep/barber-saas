@@ -3,6 +3,43 @@
 Implementação solicitada pelo responsável após a publicação do PR #101.
 Branch `codex/mercadopago-plan-changes`. Ainda não publicada nem habilitada.
 
+## Ampliação: cancelamento livre e período pago
+
+Pedido posterior do responsável: deixar o cancelamento claro e validar acesso
+até o vencimento original. Configurações passa a mostrar “Gerenciar ou cancelar
+assinatura”. No portal, “Cancelar renovação” abre uma confirmação com data/hora
+exata no fuso do salão, sem motivo obrigatório ou contato com suporte. O OWNER
+também encontra esse portal na tela de acesso suspenso, sem desbloquear operação.
+
+O pedido sob lock de tenant inclui todas as assinaturas substitutas vinculadas,
+mesmo em revisão ou já promovidas após uma página antiga ter sido aberta. Cada
+uma recebe intenção durável e fila própria. Cancelar cobranças tem prioridade
+sobre conciliação de troca de plano. A UI diferencia disponível, pendente e
+confirmado considerando a cadeia inteira; cancelar a antiga não significa que
+a futura foi encerrada. Um preço conhecido remanescente em uma recorrência
+cancelada não invalida a leitura das faturas históricas, que continuam conferidas
+individualmente por período e termos imutáveis.
+
+Regressões PostgreSQL cobrem todos os quatro planos nos dois ciclos, adicionais
+no Max, contratação no dia 13 e cancelamento no dia 20, acesso até o último
+milissegundo pago e expiração sem carência. Incluem duplicidade de clique,
+OWNER/tenant, suspensão, checkout pausado, resposta perdida, redução/upgrade
+pendentes e substituta anual autorizada em SCHEDULED/REVIEW. A cadeia fica
+pendente enquanto qualquer recorrência aguarda confirmação do provedor.
+
+Rodada local: 80 integrações PostgreSQL e seis testes do provider passaram;
+1.036 testes unitários/componentes, lint, TypeScript e build passaram. Nova validação
+CI/Preview, capturas de cancelamento em 320/390/1280 px e acesso do OWNER suspenso
+pertencem ao commit desta ampliação e terão resultado registrado no PR #105.
+Sem nova migration além da 025 já preparada, ainda não aplicada em Production.
+
+Conferência externa em 13/09: repetição do cancelamento da cadeia fictícia
+`0bf9337100f845cd854999e6cc24bcd2` / `23558ea405944f5cbe4ae4017d7dc78e` manteve
+ambas canceladas no Mercado Pago e zero faturas na substituta. A indicação local
+ficou PENDING enquanto faltava registrar o GET da substituta e passou a CANCELLED
+após sua conciliação, preservando cinco agendas, duas cobranças históricas e
+paidThrough `2026-10-13T17:42:29Z`. Nenhuma nova compra ou cobrança real.
+
 ## Decisão comercial confirmada
 
 - Todos os planos pagos podem passar para uma capacidade maior, incluindo
@@ -128,13 +165,13 @@ parser corrigido e regressão adicionada. As suítes PG configuram permissões n
 mesmo schema; executam sequencialmente para evitar disputa de GRANT entre seus
 setups. Isso não reduz os testes de concorrência executados dentro das suítes.
 
-Lint, TypeScript, 1.034 testes e build passaram na rodada local final, assim como
-66 integrações PostgreSQL + seis testes do provider. Rodada final pelo CI/Preview
-pendente. Revisão visual local teve início de
+Na versão anterior `b6f3e9b`, lint, TypeScript, 1.034 testes e build passaram,
+assim como 66 integrações PostgreSQL + seis testes do provider. CI final
+`34773937424` passou integralmente e Preview ficou READY. Revisão visual local teve início de
 servidor bloqueado pela revisão automática; jornada dedicada de revisão de
 cotação 320/390/1280 px, acessibilidade e capturas foi acrescentada ao CI.
 A jornada passou no CI `34772979366` às `18:02:41Z` em `7b054b6`.
-A versão final ainda exige a conclusão do CI correspondente ao seu commit.
+A ampliação de cancelamento acima exige novo CI correspondente ao seu commit.
 Não foi feita compra real nem esperada uma renovação futura externa. Essa
 renovação é exercitada por relógio controlado no PostgreSQL sintético.
 Não se declara pagamento externo de todas as combinações apenas por mocks.

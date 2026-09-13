@@ -26,6 +26,7 @@ export type SubscriptionView = {
   id: string; plan: string; cycle: string; amountCents: number; agendaLimit: number;
   state: string; paidThrough: string | null; nextPaymentAt: string | null;
   cancelRequestedAt: string | null; cancelledAt: string | null; reviewRequired: boolean;
+  renewalCancellationStatus?: "AVAILABLE" | "PENDING" | "CANCELLED";
   checkoutUrl: string | null; providerStatus: string; lastSyncedAt: string | null;
   changesAvailable?: boolean; changePending?: boolean; change?: PlanChangeView | null;
   charges: { id: string; amountCents: number; refundedCents: number; status: string; periodStart: string; periodEnd: string; paidAt: string | null }[];

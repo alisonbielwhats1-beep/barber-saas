@@ -336,14 +336,14 @@ pg("automatic billing with PostgreSQL and runtime FORCE RLS", () => {
     expect(postCount).toBe(before + 1);
   });
 
-  async function paidFixture(plan: "INDIVIDUAL" | "TEAM" | "TEAM_PLUS" | "TEAM_MAX" = "INDIVIDUAL", cycle: "MONTHLY" | "ANNUAL" = "MONTHLY") {
+  async function paidFixture(plan: "INDIVIDUAL" | "TEAM" | "TEAM_PLUS" | "TEAM_MAX" = "INDIVIDUAL", cycle: "MONTHLY" | "ANNUAL" = "MONTHLY", paidStart?: Date, extraAgendas = 0) {
     vi.stubEnv("MERCADOPAGO_PLAN_CHANGES_ENABLED", "true");
     const salon = await admin.salon.create({ data: { name: "change fixture", slug: randomUUID(), accessStatus: "APPROVED" } });
     await admin.membership.create({ data: { salonId: salon.id, userId: ownerId, role: "OWNER" } });
     const ctx = { salonId: salon.id, userId: ownerId };
-    const sub = await service.contract(ctx, { plan, cycle }, randomUUID());
+    const sub = await service.contract(ctx, { plan, cycle, extraAgendas }, randomUUID());
     const remote = (await import("./provider")).subscriptionSchema.parse(remoteFor(sub.providerId!));
-    const at = new Date(); const start = new Date(at.getTime() - 10 * 86400000);
+    const at = new Date(); const start = paidStart ?? new Date(at.getTime() - 10 * 86400000);
     Object.assign(remote, { status: "authorized", last_modified: at.toISOString(), next_payment_date: periodEnd(start, sub.intervalMonths).toISOString() });
     remotes.set(sub.providerId!, remote);
     await service.applyRemoteSubscription(sub, remote);
@@ -360,6 +360,86 @@ pg("automatic billing with PostgreSQL and runtime FORCE RLS", () => {
     await changes.confirmPlanChange(fixture.ctx, change.id);
     return { ...fixture, change, changes };
   }
+  it.each((["INDIVIDUAL", "TEAM", "TEAM_PLUS", "TEAM_MAX"] as const).flatMap(plan => (["MONTHLY", "ANNUAL"] as const).map(cycle => ({ plan, cycle }))))("cancels $plan $cycle on day 20, retaining every paid entitlement until its original day 13", async ({ plan, cycle }) => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      const start = new Date("2026-09-13T23:00:00Z"); vi.setSystemTime(start);
+      const f = await paidFixture(plan, cycle, start, plan === "TEAM_MAX" ? 2 : 0);
+      const end = new Date(cycle === "MONTHLY" ? "2026-10-13T23:00:00Z" : "2027-09-13T23:00:00Z");
+      expect(f.sub.paidThrough).toEqual(end);
+      vi.setSystemTime(new Date("2026-09-20T23:00:00Z"));
+      await Promise.all([service.requestCancellation(f.ctx, f.sub.id), service.requestCancellation(f.ctx, f.sub.id)]);
+      await worker.syncSubscription(f.ctx.salonId, f.sub.id);
+      expect(remoteFor(f.sub.providerId!).status).toBe("cancelled");
+      const cancelled = await admin.billingSubscription.findUniqueOrThrow({ where: { id: f.sub.id } });
+      expect(cancelled.cancelledAt).not.toBeNull(); expect(cancelled.paidThrough).toEqual(end);
+      expect(await admin.billingEvent.count({ where: { subscriptionId: f.sub.id, type: "CANCEL_REQUESTED" } })).toBe(1);
+      expect(await admin.billingCharge.count({ where: { subscriptionId: f.sub.id, status: "approved" } })).toBe(1);
+      for (const at of [new Date(), new Date(end.getTime() - 1)]) {
+        expect(await scope.withSalon(f.ctx.salonId, tx => effectiveEntitlement(tx, f.ctx.salonId, "PRO", at))).toMatchObject({ maxProfessionals: f.sub.agendaLimit, priceCents: f.sub.amountCents, features: { MARKETING: true, INVENTORY: true, PACKAGES: true } });
+      }
+      expect(accessState(cancelled, end)).toBe("EXPIRED");
+      await expect(scope.withSalon(f.ctx.salonId, tx => effectiveEntitlement(tx, f.ctx.salonId, "PRO", end))).rejects.toThrow("Regularize");
+    } finally { vi.useRealTimers(); }
+  });
+  it("allows cancellation while suspended and checkout is paused, but requires ownership and tenant", async () => {
+    const f = await paidFixture();
+    await admin.salon.update({ where: { id: f.ctx.salonId }, data: { accessStatus: "SUSPENDED" } });
+    vi.stubEnv("MERCADOPAGO_CHECKOUT_PAUSED", "true"); vi.stubEnv("MERCADOPAGO_PLAN_CHANGES_PAUSED", "true");
+    try {
+      await expect(service.requestCancellation({ ...f.ctx, userId: otherId }, f.sub.id)).rejects.toThrow("OWNER_REQUIRED");
+      await expect(service.requestCancellation(context(), f.sub.id)).rejects.toThrow("NOT_FOUND");
+      await service.requestCancellation(f.ctx, f.sub.id); await worker.syncSubscription(f.ctx.salonId, f.sub.id);
+      expect(remoteFor(f.sub.providerId!).status).toBe("cancelled");
+      expect((await admin.salon.findUniqueOrThrow({ where: { id: f.ctx.salonId } })).accessStatus).toBe("SUSPENDED");
+    } finally { vi.stubEnv("MERCADOPAGO_CHECKOUT_PAUSED", "false"); vi.stubEnv("MERCADOPAGO_PLAN_CHANGES_PAUSED", "false"); }
+  });
+  it.each(["UPGRADE", "SCHEDULED"])("cancels renewal together with an unpaid %s without removing current capacity", async kind => {
+    const f = await paidFixture(kind === "UPGRADE" ? "INDIVIDUAL" : "TEAM_MAX"), changes = await import("./changes");
+    const quote = await changes.createChangeQuote(f.ctx, { plan: kind === "UPGRADE" ? "TEAM_PLUS" : "INDIVIDUAL", cycle: "MONTHLY" }, randomUUID());
+    await changes.confirmPlanChange(f.ctx, quote.id); await worker.syncSubscription(f.ctx.salonId, f.sub.id);
+    await service.requestCancellation(f.ctx, f.sub.id);
+    await worker.syncSubscription(f.ctx.salonId, f.sub.id); await worker.syncSubscription(f.ctx.salonId, f.sub.id);
+    expect(remoteFor(f.sub.providerId!).status).toBe("cancelled");
+    expect((await admin.billingPlanChange.findUniqueOrThrow({ where: { id: quote.id } })).state).toBe("CANCELLED");
+    expect(await scope.withSalon(f.ctx.salonId, tx => effectiveEntitlement(tx, f.ctx.salonId, "PRO"))).toMatchObject({ maxProfessionals: f.sub.agendaLimit });
+    expect((await admin.billingSubscription.findUniqueOrThrow({ where: { id: f.sub.id } })).reviewRequired).toBe(false);
+  });
+  it("confirms a lost cancellation PUT response by GET without granting another period", async () => {
+    const f = await paidFixture(); await service.requestCancellation(f.ctx, f.sub.id);
+    loseUpdateResponse = true;
+    try { await expect(worker.syncSubscription(f.ctx.salonId, f.sub.id)).rejects.toThrow("PROVIDER_UNAVAILABLE"); }
+    finally { loseUpdateResponse = false; }
+    expect(remoteFor(f.sub.providerId!).status).toBe("cancelled");
+    await worker.syncSubscription(f.ctx.salonId, f.sub.id);
+    const sub = await admin.billingSubscription.findUniqueOrThrow({ where: { id: f.sub.id } });
+    expect(sub.cancelledAt).not.toBeNull(); expect(sub.paidThrough).toEqual(f.sub.paidThrough);
+  });
+  it.each(["SCHEDULED", "REVIEW"])("cancels a future authorized recurrence in %s even though the old recurrence is already cancelled", async state => {
+    const f = await paidFixture(), changes = await import("./changes"), cancellation = await import("./cancellation");
+    const quote = await changes.createChangeQuote(f.ctx, { plan: "TEAM_MAX", cycle: "ANNUAL" }, randomUUID());
+    await changes.confirmPlanChange(f.ctx, quote.id); await worker.syncSubscription(f.ctx.salonId, f.sub.id);
+    const change = await admin.billingPlanChange.findUniqueOrThrow({ where: { id: quote.id } });
+    const next = await admin.billingSubscription.findUniqueOrThrow({ where: { id: change.replacementSubscriptionId! } });
+    Object.assign(remoteFor(next.providerId!), { status: "authorized", last_modified: new Date().toISOString() });
+    await worker.syncSubscription(f.ctx.salonId, next.id); await worker.syncSubscription(f.ctx.salonId, f.sub.id);
+    await admin.billingPlanChange.update({ where: { id: change.id }, data: { state } });
+    if (state === "REVIEW") await admin.billingSubscription.update({ where: { id: next.id }, data: { reviewRequired: true } });
+    const status = () => scope.withSalon(f.ctx.salonId, async tx => cancellation.renewalCancellationStatus(await cancellation.cancellationSubscriptions(tx, await tx.billingSubscription.findUniqueOrThrow({ where: { id: f.sub.id } }))));
+    expect(await status()).toBe("AVAILABLE");
+    expect(await service.requestCancellation(f.ctx, f.sub.id)).toMatchObject({ status: "CANCELLATION_PENDING" });
+    expect(await status()).toBe("PENDING");
+    refuseCancellation = true;
+    try { await expect(worker.syncSubscription(f.ctx.salonId, next.id)).rejects.toThrow("PROVIDER_UNAVAILABLE"); }
+    finally { refuseCancellation = false; }
+    expect(await status()).toBe("PENDING");
+    await worker.syncSubscription(f.ctx.salonId, next.id);
+    expect(remoteFor(next.providerId!).status).toBe("cancelled");
+    expect(await status()).toBe("CANCELLED");
+    expect((await admin.billingSubscription.findUniqueOrThrow({ where: { id: f.sub.id } })).paidThrough).toEqual(f.sub.paidThrough);
+    expect(await admin.billingCharge.count({ where: { subscriptionId: next.id } })).toBe(0);
+    expect(await scope.withSalon(f.ctx.salonId, tx => effectiveEntitlement(tx, f.ctx.salonId, "PRO"))).toMatchObject({ maxProfessionals: 1 });
+  });
   it("acknowledges cancellation at equal provider timestamps without replaying authorization", async () => {
     const f = await paidFixture();
     await service.requestCancellation(f.ctx, f.sub.id);
@@ -576,6 +656,11 @@ pg("automatic billing with PostgreSQL and runtime FORCE RLS", () => {
       expect((await admin.billingSubscription.findUniqueOrThrow({ where: { id: f.sub.id } })).current).toBe(false);
       expect((await admin.billingPlanChange.findUniqueOrThrow({ where: { id: quote.id } })).state).toBe("APPLIED");
       expect(await scope.withSalon(f.ctx.salonId, tx => effectiveEntitlement(tx, f.ctx.salonId, "PRO"))).toMatchObject({ maxProfessionals: 10, priceCents: 143900 });
+      const paidEnd = (await admin.billingSubscription.findUniqueOrThrow({ where: { id: next.id } })).paidThrough;
+      await service.requestCancellation(f.ctx, f.sub.id); // A page opened before promotion still refers to the old ID.
+      await worker.syncSubscription(f.ctx.salonId, next.id);
+      expect(remoteFor(next.providerId!).status).toBe("cancelled");
+      expect((await admin.billingSubscription.findUniqueOrThrow({ where: { id: next.id } })).paidThrough).toEqual(paidEnd);
     } finally { vi.useRealTimers(); }
   });
 });

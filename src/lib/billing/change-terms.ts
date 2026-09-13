@@ -22,6 +22,14 @@ export async function allowedRemoteTerms(sub: BillingSubscription, remote: Remot
   if (!changesEnabled()) return remoteMatchesTerms(remote, originalTerms(sub));
   const { withSalon } = await import("../prisma-tenant");
   return withSalon(sub.salonId, async tx => {
+    if (["cancelled", "canceled"].includes(remote.status)) {
+      if (remoteMatchesTerms(remote, originalTerms(sub))) return true;
+      // Cancelling the recurrence leaves its last configured price at Mercado Pago.
+      // A cancelled scheduled change must not make that known price look foreign.
+      // Individual invoices still validate their own period and immutable terms.
+      const history = await tx.billingPlanChange.findMany({ where: { subscriptionId: sub.id, salonId: sub.salonId, kind: { not: "CYCLE" }, providerStartedAt: { not: null } } });
+      return history.some(change => remoteMatchesTerms(remote, billingTermsSchema.parse(change.toTerms)) || remoteMatchesTerms(remote, billingTermsSchema.parse(change.fromTerms)));
+    }
     const revision = await tx.billingPlanChange.findFirst({ where: { subscriptionId: sub.id, salonId: sub.salonId, kind: { not: "CYCLE" }, providerStartedAt: { not: null }, cancelledAt: null }, orderBy: [{ quotedAt: "desc" }, { id: "desc" }] });
     if (!revision) return remoteMatchesTerms(remote, originalTerms(sub));
     const target = billingTermsSchema.parse(revision.toTerms);

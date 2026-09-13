@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { SubscriptionPortal } from "./subscription-portal";
 import { PlanPicker } from "./plan-picker";
@@ -76,7 +76,7 @@ it("reuses the idempotency key after an uncertain request", async () => {
  expect(keys).toHaveLength(2); expect(keys[0]).toBe(keys[1]);
 });
 it("cancellation asks for review and waits for server confirmation while preserving paid access", async () => {
- let current = { ...sub, state: "ACTIVE", paidThrough: "2099-10-13T00:00:00Z" };
+ let current = { ...sub, state: "ACTIVE", paidThrough: "2099-10-13T12:00:00Z" };
  const writes = vi.fn();
  vi.stubGlobal("fetch", vi.fn(async (_url: string, init?: RequestInit) => {
    if (init?.method === "POST") { writes(); current = { ...current, cancelRequestedAt: "2026-09-13T12:00:00Z" }; return new Response("{}"); }
@@ -84,8 +84,38 @@ it("cancellation asks for review and waits for server confirmation while preserv
  }));
  portal(); fireEvent.click(await screen.findByRole("button", { name: "Cancelar renovação" }));
  expect(writes).not.toHaveBeenCalled();
+ expect(screen.getByRole("dialog")).toHaveTextContent(/13 de out. de 2099, 09:00/);
+ expect(screen.getByRole("dialog")).toHaveTextContent("todos os recursos");
  fireEvent.click(screen.getByRole("button", { name: "Confirmar cancelamento" }));
  expect(await screen.findByText("Cancelamento em confirmação")).toBeVisible();
  expect(screen.queryByText("Renovação cancelada")).toBeNull();
  expect(screen.getByText("Acesso pago até")).toBeVisible();
+});
+it("keeps cancellation visible for a future recurrence and only announces completion after all confirmations", async () => {
+ let current: SubscriptionView = { ...sub, state: "ACTIVE", paidThrough: "2099-10-13T12:00:00Z", cancelledAt: "2026-09-13T12:00:00Z", cancelRequestedAt: "2026-09-13T12:00:00Z", renewalCancellationStatus: "AVAILABLE" };
+ vi.stubGlobal("fetch", vi.fn(async (_url: string, init?: RequestInit) => {
+   if (init?.method === "POST") { current = { ...current, renewalCancellationStatus: "PENDING" }; return new Response("{}", { status: 202 }); }
+   return reply(current);
+ }));
+ portal(); fireEvent.click(await screen.findByRole("button", { name: "Cancelar renovação" }));
+ expect(screen.queryByText("Renovação cancelada")).toBeNull();
+ expect(screen.getByRole("dialog")).toHaveTextContent("incluindo uma nova assinatura agendada");
+ fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Confirmar cancelamento" }));
+ expect(await screen.findByText("Cancelamento em confirmação")).toBeVisible();
+ expect(screen.queryByText("Renovação cancelada")).toBeNull();
+ current = { ...current, renewalCancellationStatus: "CANCELLED" };
+ fireEvent.click(screen.getByRole("button", { name: "Atualizar situação" }));
+ expect(await screen.findByText("Renovação cancelada")).toBeVisible();
+ expect(screen.queryByText("Cancelamento em confirmação")).toBeNull();
+ expect(screen.getByText(/Você continua usando o plano até/)).toHaveTextContent("13 de out. de 2099, 09:00");
+ expect(screen.queryByRole("button", { name: "Cancelar renovação" })).toBeNull();
+});
+it("allows leaving cancellation review without submitting a reason or changing the subscription", async () => {
+ const fetcher = vi.fn(async () => reply({ ...sub, state: "ACTIVE", paidThrough: "2099-09-13T12:00:00Z", cycle: "ANNUAL" }));
+ vi.stubGlobal("fetch", fetcher); portal();
+ fireEvent.click(await screen.findByRole("button", { name: "Cancelar renovação" }));
+ expect(screen.getByRole("dialog")).toHaveTextContent("13 de set. de 2099, 09:00");
+ expect(within(screen.getByRole("dialog")).queryByRole("textbox")).toBeNull();
+ fireEvent.click(screen.getByRole("button", { name: "Manter assinatura" }));
+ expect(screen.queryByRole("dialog")).toBeNull(); expect(fetcher).toHaveBeenCalledTimes(1);
 });

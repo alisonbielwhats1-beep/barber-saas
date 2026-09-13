@@ -13,7 +13,7 @@ const states: Record<string, string> = { UNPAID: "Aguardando pagamento", ACTIVE:
 const chargeStates: Record<string, string> = { approved: "Pago", pending: "Aguardando", in_process: "Em processamento", rejected: "Recusado", cancelled: "Cancelado", refunded: "Estornado", charged_back: "Contestado" };
 const dateLabel = (value: string | null, timezone: string) => value ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeZone: timezone }).format(new Date(value)) : "Ainda não confirmado";
 
-export function SubscriptionPortal({ salonId, email, timezone, initial }: { salonId: string; email: string; timezone: string; initial?: BillingIntent }) {
+export function SubscriptionPortal({ salonId, email, timezone, initial, accessBlocked = false }: { salonId: string; email: string; timezone: string; initial?: BillingIntent; accessBlocked?: boolean }) {
   const [subscription, setSubscription] = useState<SubscriptionView | null>();
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -33,7 +33,10 @@ export function SubscriptionPortal({ salonId, email, timezone, initial }: { salo
     } catch (e) { if (!(e instanceof Error && e.name === "AbortError")) report(null); }
   }, [endpoint, report]);
   useEffect(() => { const controller = new AbortController(); void refresh(controller.signal); return () => controller.abort(); }, [refresh]);
-  const pollingId = subscription && (subscription.changePending || (!(subscription.state === "ACTIVE" && !subscription.cancelRequestedAt) && !subscription.cancelledAt)) ? subscription.id : null;
+  const renewalStatus = subscription?.renewalCancellationStatus ?? (subscription?.cancelledAt ? "CANCELLED" : subscription?.cancelRequestedAt ? "PENDING" : "AVAILABLE");
+  const accessUntil = subscription?.paidThrough ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeStyle: "short", timeZone: timezone }).format(new Date(subscription.paidThrough)) : null;
+  const paidAccessMessage = accessBlocked ? `O período pago permanece registrado até ${accessUntil}. A restrição administrativa do painel é independente do cancelamento.` : `Você continua usando o plano até ${accessUntil}.`;
+  const pollingId = subscription && (subscription.changePending || renewalStatus === "PENDING" || (!(subscription.state === "ACTIVE" && !subscription.cancelRequestedAt) && !subscription.cancelledAt)) ? subscription.id : null;
   useEffect(() => {
     if (!pollingId) return;
     const controller = new AbortController(); const deadline = Date.now() + 5 * 60_000;
@@ -68,11 +71,11 @@ export function SubscriptionPortal({ salonId, email, timezone, initial }: { salo
       const response = await fetch(`/api/billing/cancel?salonId=${encodeURIComponent(salonId)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subscriptionId: subscription.id }) });
       const body = await response.json();
       if (!response.ok) { report(body.error); return; }
-      setCancelOpen(false); setMessage("Pedido de cancelamento recebido. Aguarde a confirmação do Mercado Pago."); await refresh();
-    } catch { report(null); }
+      setCancelOpen(false); setMessage(null); await refresh();
+    } catch { await refresh(); report("PROVIDER_UNAVAILABLE"); }
     finally { inFlight.current = false; setBusy(false); }
   }
-  const canChoose = subscription === null || Boolean(subscription?.cancelledAt && (!subscription.paidThrough || new Date(subscription.paidThrough) <= new Date()));
+  const canChoose = subscription === null || Boolean(renewalStatus === "CANCELLED" && subscription?.cancelledAt && (!subscription.paidThrough || new Date(subscription.paidThrough) <= new Date()));
   const quote = choice ? quoteContract(choice) : null;
   const checkout = subscription ? safeCheckout(subscription.checkoutUrl) : null;
   return <div className="space-y-6">
@@ -81,22 +84,25 @@ export function SubscriptionPortal({ salonId, email, timezone, initial }: { salo
     <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-muted-foreground">Conta para contratação: <span className="break-all">{email}</span></p><Button variant="outline" disabled={busy} onClick={() => void refresh()}>Atualizar situação</Button></div>
     {subscription === undefined && <p role="status">{error ? "O acompanhamento está indisponível. Use Atualizar situação para tentar novamente." : "Consultando sua assinatura…"}</p>}
     {subscription && <section className="space-y-5 rounded-xl border border-border bg-surface-1 p-5" aria-labelledby="current-subscription">
-      <div><p role="status" className="text-sm font-medium">{subscription.cancelledAt ? "Renovação cancelada" : subscription.cancelRequestedAt ? "Cancelamento em confirmação" : states[subscription.state] ?? "Acompanhando assinatura"}</p>
+      <div><p role="status" className="text-sm font-medium">{renewalStatus === "CANCELLED" ? "Renovação cancelada" : renewalStatus === "PENDING" ? "Cancelamento em confirmação" : states[subscription.state] ?? "Acompanhando assinatura"}</p>
         <h2 id="current-subscription" className="mt-2 text-xl font-semibold">{BILLING_PLANS[subscription.plan as keyof typeof BILLING_PLANS]?.label ?? subscription.plan}</h2>
         <p className="mt-1">{billingMoney(subscription.amountCents)} / {subscription.cycle === "ANNUAL" ? "12 meses" : "mês"} · {subscription.agendaLimit} agendas</p></div>
-      <dl className="grid gap-4 sm:grid-cols-2"><div><dt className="text-sm text-muted-foreground">Acesso pago até</dt><dd className="mt-1 font-medium">{dateLabel(subscription.paidThrough, timezone)}</dd></div>
+      <dl className="grid gap-4 sm:grid-cols-2"><div><dt className="text-sm text-muted-foreground">Acesso pago até</dt><dd className="mt-1 font-medium">{accessUntil ?? "Ainda não confirmado"}</dd></div>
         {!subscription.cancelledAt && <div><dt className="text-sm text-muted-foreground">Próxima cobrança prevista</dt><dd className="mt-1 font-medium">{dateLabel(subscription.nextPaymentAt ?? subscription.paidThrough, timezone)}</dd></div>}</dl>
-      {subscription.cancelledAt && <p className="text-sm">A renovação foi cancelada no Mercado Pago. {subscription.state === "ACTIVE" ? "Você continua usando o plano até o fim do período pago." : "Não há novas renovações desta assinatura."}</p>}
+      {renewalStatus === "CANCELLED" && <p className="text-sm">A renovação foi cancelada no Mercado Pago, incluindo qualquer recorrência futura vinculada. {subscription.state === "ACTIVE" ? paidAccessMessage : "Não há novas renovações desta assinatura."} Seus agendamentos e histórico permanecem preservados.</p>}
+      {renewalStatus === "PENDING" && <p className="text-sm">Seu pedido foi registrado. Estamos confirmando o encerramento das cobranças recorrentes no Mercado Pago; esta página acompanha a confirmação. {subscription.state === "ACTIVE" && paidAccessMessage}</p>}
       {subscription.state === "UNPAID" && !subscription.cancelledAt && <p className="text-sm">Seu plano será liberado assim que o Mercado Pago confirmar o pagamento. Esta página acompanha a confirmação automaticamente.</p>}
       {subscription.state === "VERIFYING" && <p className="text-sm">Estamos aguardando a confirmação da renovação pelo Mercado Pago. Atualize a situação em instantes.</p>}
       {["GRACE", "RESTRICTED"].includes(subscription.state) && <p className="text-sm">Confira a cobrança e a forma de pagamento na sua conta Mercado Pago. Após o pagamento confirmado, o acesso é regularizado automaticamente. Seus agendamentos e histórico permanecem preservados.</p>}
       {subscription.reviewRequired && <p role="status" className="text-sm">Há uma ocorrência financeira em revisão. Entre em contato com a plataforma para acompanhar.</p>}
       <div className="flex flex-wrap gap-3">{checkout && subscription.state === "UNPAID" && !subscription.cancelRequestedAt && !subscription.cancelledAt && <a href={checkout} className="inline-flex min-h-11 items-center rounded-lg bg-primary px-4 py-2 font-medium text-primary-foreground">Continuar pagamento no Mercado Pago</a>}
-        {!subscription.cancelRequestedAt && !subscription.cancelledAt && <Button variant="outline" disabled={busy} onClick={() => setCancelOpen(true)}>Cancelar renovação</Button>}
+        {renewalStatus === "AVAILABLE" && <Button variant="outline" disabled={busy} onClick={() => setCancelOpen(true)}>Cancelar renovação</Button>}
         {["GRACE", "RESTRICTED"].includes(subscription.state) && <a href="https://www.mercadopago.com.br/" target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center underline">Abrir Mercado Pago</a>}</div>
+      {renewalStatus === "AVAILABLE" && <p className="text-sm text-muted-foreground">Você pode cancelar a renovação aqui a qualquer momento, sem precisar falar com o suporte. {accessBlocked ? "O período pago e seu histórico serão preservados." : "O plano continua disponível até o fim do período pago."}</p>}
     </section>}
-    {canChoose && <section aria-labelledby="choose-subscription"><h2 id="choose-subscription" className="mb-4 text-xl font-semibold">Escolha seu plano</h2><PlanPicker initial={initial} disabled={busy} onChoose={setChoice} /></section>}
-    {subscription?.changesAvailable && <PlanChangePanel salonId={salonId} subscription={subscription} timezone={timezone} onRefresh={refresh} />}
+    {!accessBlocked && canChoose && <section aria-labelledby="choose-subscription"><h2 id="choose-subscription" className="mb-4 text-xl font-semibold">Escolha seu plano</h2><PlanPicker initial={initial} disabled={busy} onChoose={setChoice} /></section>}
+    {!accessBlocked && subscription?.changesAvailable && <PlanChangePanel salonId={salonId} subscription={subscription} timezone={timezone} onRefresh={refresh} />}
+    {accessBlocked && subscription === null && <p className="text-sm">Nenhuma assinatura recorrente foi encontrada para este estabelecimento.</p>}
     {subscription && <section aria-labelledby="subscription-payments"><h2 id="subscription-payments" className="mb-3 text-lg font-semibold">Histórico de cobranças</h2>
       {!subscription.charges.length ? <p className="text-sm text-muted-foreground">Nenhuma cobrança registrada ainda.</p> : <ul className="divide-y divide-border rounded-xl border border-border">{subscription.charges.map(charge => <li key={charge.id} className="flex flex-wrap items-center justify-between gap-3 p-4"><div><p className="font-medium">{billingMoney(charge.amountCents)} · {charge.refundedCents > 0 && charge.refundedCents < charge.amountCents ? "Estorno parcial" : chargeStates[charge.status] ?? "Em conferência"}</p><p className="text-sm text-muted-foreground">{dateLabel(charge.periodStart, timezone)} a {dateLabel(charge.periodEnd, timezone)}</p>{charge.refundedCents > 0 && <p className="text-sm text-muted-foreground">Estornado: {billingMoney(charge.refundedCents)}</p>}</div>{charge.paidAt && <p className="text-sm">Pago em {dateLabel(charge.paidAt, timezone)}</p>}</li>)}</ul>}
     </section>}
@@ -105,7 +111,8 @@ export function SubscriptionPortal({ salonId, email, timezone, initial }: { salo
       {quote && <><p className="font-semibold">{billingCapacityLabel(quote.plan, quote.agendaLimit)}</p><p className="text-2xl font-semibold">{billingMoney(quote.amountCents)}</p><p className="text-sm">Cobrança automática {quote.cycle === "ANNUAL" ? "a cada 12 meses, pelo valor total acima" : "mensal, pelo valor acima"}. O primeiro período só será liberado após a confirmação do pagamento. Você poderá cancelar a renovação no portal.</p></>}
       <Button disabled={busy} onClick={() => void subscribe()}>{busy ? "Preparando pagamento…" : "Ir para pagamento"}</Button><Button variant="outline" disabled={busy} onClick={() => setChoice(null)}>Voltar aos planos</Button>
     </DialogContent></Dialog>
-    <Dialog open={cancelOpen} onOpenChange={open => { if (!busy) setCancelOpen(open); }}><DialogContent><DialogTitle>Cancelar a renovação?</DialogTitle><DialogDescription>Vamos solicitar o cancelamento ao Mercado Pago. Após a confirmação, não haverá novas renovações. O período já pago e seu histórico serão preservados; esta ação não solicita estorno.</DialogDescription>
+    <Dialog open={cancelOpen} onOpenChange={open => { if (!busy) setCancelOpen(open); }}><DialogContent><DialogTitle>Cancelar a renovação?</DialogTitle><DialogDescription>Vamos encerrar a cobrança recorrente no Mercado Pago, incluindo uma nova assinatura agendada por troca de plano. Após a confirmação, não haverá novas renovações. Esta ação não solicita estorno.</DialogDescription>
+      <p className="text-sm">{subscription?.state === "ACTIVE" && accessUntil ? accessBlocked ? paidAccessMessage : `Você continua usando todos os recursos do seu plano pago até ${accessUntil}, mesmo cancelando agora.` : "O cancelamento preserva seu histórico e qualquer período já pago."} Seus agendamentos e dados não serão apagados.</p>
       <Button disabled={busy} onClick={() => void cancel()}>{busy ? "Enviando pedido…" : "Confirmar cancelamento"}</Button><Button variant="outline" disabled={busy} onClick={() => setCancelOpen(false)}>Manter assinatura</Button>
     </DialogContent></Dialog>
   </div>;

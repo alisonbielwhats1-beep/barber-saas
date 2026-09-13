@@ -6,6 +6,7 @@ import { BILLING_PLANS, BillingError, periodEnd, quoteContract } from "./catalog
 import { billingConfig } from "./config";
 import * as mp from "./provider";
 import { allowedRemoteTerms, changesEnabled, invoiceTerms } from "./change-terms";
+import { cancellationSubscriptions, renewalCancellationStatus } from "./cancellation";
 
 export const referenceFor = (s: { salonId: string; id: string }) => `ef:${s.salonId}:${s.id}`;
 export function parseReference(value: string) {
@@ -48,6 +49,7 @@ export async function contract(ctx: { salonId: string; userId: string }, input: 
     if (salon.accessStatus !== "APPROVED") throw new BillingError("SALON_NOT_APPROVED", 403);
     const active = await tx.billingSubscription.findFirst({ where: { salonId: ctx.salonId, current: true } });
     if (active && (!active.cancelledAt || (active.paidThrough && active.paidThrough > new Date()))) throw new BillingError("SUBSCRIPTION_EXISTS");
+    if (active && renewalCancellationStatus(await cancellationSubscriptions(tx, active)) !== "CANCELLED") throw new BillingError("SUBSCRIPTION_EXISTS");
     // Same lock used by professional creation/reactivation; pending invitations reserve capacity.
     await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended(${`professional-capacity:${ctx.salonId}`}, 0))`;
     const count = await tx.professional.count({ where: { salonId: ctx.salonId, active: true } });
@@ -157,11 +159,14 @@ export async function requestCancellation(ctx: { salonId: string; userId: string
     await subscriptionLock(tx, ctx.salonId);
     const sub = await tx.billingSubscription.findFirst({ where: { id, salonId: ctx.salonId } });
     if (!sub) throw new BillingError("NOT_FOUND", 404);
-    if (changesEnabled()) await tx.billingPlanChange.updateMany({ where: { subscriptionId: id, salonId: ctx.salonId, state: { in: ["PREPARING", "AWAITING_PAYMENT", "SCHEDULED"] }, paidAt: null }, data: { state: "CANCEL_REQUESTED" } });
-    if (!sub.cancelRequestedAt) await tx.billingSubscription.update({ where: { id }, data: { cancelRequestedAt: new Date() } });
-    await event(tx, sub, "cancel-request", "CANCEL_REQUESTED", `owner:${ctx.userId}`);
-    await enqueue(tx, sub);
-    return { status: sub.cancelledAt ? "CANCELLED" : "CANCELLATION_PENDING", paidThrough: sub.paidThrough };
+    const targets = await cancellationSubscriptions(tx, sub);
+    if (changesEnabled()) await tx.billingPlanChange.updateMany({ where: { subscriptionId: { in: targets.map(target => target.id) }, salonId: ctx.salonId, state: { in: ["PREPARING", "AWAITING_PAYMENT", "SCHEDULED"] }, paidAt: null }, data: { state: "CANCEL_REQUESTED", checkoutUrl: null } });
+    for (const target of targets) {
+      if (!target.cancelRequestedAt) await tx.billingSubscription.update({ where: { id: target.id }, data: { cancelRequestedAt: new Date() } });
+      await event(tx, target, "cancel-request", "CANCEL_REQUESTED", `owner:${ctx.userId}`);
+      await enqueue(tx, target);
+    }
+    return { status: renewalCancellationStatus(targets) === "CANCELLED" ? "CANCELLED" : "CANCELLATION_PENDING", paidThrough: sub.paidThrough };
   });
 }
 

@@ -1,5 +1,21 @@
 # Decisões de produto para as próximas fases
 
+## 13/09/2026 — cancelamento livre da renovação
+
+O proprietário pode cancelar pelo aplicativo, sem motivo obrigatório, suporte
+ou aprovação administrativa. Confirmar encerra as recorrências vinculadas no
+Mercado Pago, incluindo uma substituta futura de troca mensal/anual. A tela só
+declara conclusão após confirmação do provedor; falhas conservam a intenção e
+continuam sendo tentadas pela fila. O cancelamento não solicita estorno.
+
+O período já pago permanece: contratação mensal em 13/09 e cancelamento em
+20/09 mantém todos os recursos contratados até o vencimento original em 13/10;
+na contratação anual, até 13/09 do ano seguinte. Vale o instante exato da
+expiração, exibido no fuso do estabelecimento. Não acrescentar carência após
+um período cancelado nem apagar agendamentos, pagamentos ou histórico.
+Suspensão administrativa não é desfeita pelo pagamento ou cancelamento, mas
+o proprietário continua podendo encerrar a cobrança na tela de acesso bloqueado.
+
 ## 13/09/2026 — upgrade proporcional e troca na renovação
 
 O responsável confirmou: “Sim, seguir essa regra”. No mesmo ciclo, aumento
