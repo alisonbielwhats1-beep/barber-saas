@@ -10,6 +10,8 @@ import { MobileNav } from "./mobile-nav";
 import { isPlatformAdmin } from "@/lib/platform-admin";
 import { ThemeToggle } from "./theme-toggle";
 import { BrandLogo } from "@/components/brand";
+import { billingEnabled } from "@/lib/billing/config";
+import { BILLING_PLANS } from "@/lib/billing/catalog";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const ctx = await getTenantContext();
@@ -22,7 +24,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const [platformAdmin, adminData] = await Promise.all([
     isPlatformAdmin(userId),
     withTenant(ctx, async (tx) => {
-      const [salon, memberships, unreadNotifications] = await Promise.all([
+      const [salon, memberships, unreadNotifications, subscription] = await Promise.all([
         tx.salon.findUnique({
           where: { id: salonId },
           select: { name: true, plan: true },
@@ -39,11 +41,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             readAt: null,
           },
         }),
+        billingEnabled() ? tx.billingSubscription.findFirst({ where: { salonId, current: true, paidThrough: { not: null } }, select: { planCode: true } }) : null,
       ]);
-      return { salon, memberships, unreadNotifications };
+      return { salon, memberships, unreadNotifications, subscription };
     }),
   ]);
-  const { salon, memberships, unreadNotifications } = adminData;
+  const { salon, memberships, unreadNotifications, subscription } = adminData;
+  const planLabel = subscription ? BILLING_PLANS[subscription.planCode as keyof typeof BILLING_PLANS]?.label ?? subscription.planCode : salon?.plan ?? "FREE";
 
   const membershipList = memberships.map((m) => ({
     id: m.salon.id,
@@ -62,7 +66,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     />
     <div className="admin-shell flex h-dvh overflow-hidden text-foreground" style={{ paddingTop: "var(--safe-top)", paddingLeft: "var(--safe-left)", paddingRight: "var(--safe-right)" }}>
       {/* ── Sidebar ─────────────────────────────────────── */}
-      <AdminSidebar current={currentSalon} memberships={membershipList} role={role} plan={salon?.plan ?? "FREE"} unreadNotifications={unreadNotifications} isPlatformAdmin={platformAdmin} />
+      <AdminSidebar current={currentSalon} memberships={membershipList} role={role} plan={planLabel} unreadNotifications={unreadNotifications} isPlatformAdmin={platformAdmin} />
 
       {/* ── Main content ─────────────────────────────────── */}
       <main id="main-content" tabIndex={-1} className="admin-main scrollbar-dark min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
@@ -74,7 +78,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       </main>
 
       <MobileNav role={role} unreadNotifications={unreadNotifications} isPlatformAdmin={platformAdmin}
-        accountControls={<div className="space-y-4"><SalonSwitcher current={currentSalon} memberships={membershipList} /><SidebarFooter plan={salon?.plan ?? "FREE"} /></div>}
+        accountControls={<div className="space-y-4"><SalonSwitcher current={currentSalon} memberships={membershipList} /><SidebarFooter plan={planLabel} /></div>}
       />
       <CommandPalette role={role} />
       <Toaster />

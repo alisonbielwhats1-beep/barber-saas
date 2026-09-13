@@ -15,14 +15,17 @@ import { signup } from "./actions";
 import type { SegmentId } from "@/lib/segments";
 import { firstAccessHref, resolvePlanIntent, type MarketingPlanKey } from "@/lib/marketing-plan";
 import Link from "next/link";
+import { billingCapacityLabel, billingIntentHref, billingMoney, type BillingIntent } from "@/lib/billing/presentation";
+import { quoteContract } from "@/lib/billing/catalog";
 
-export function SignupForm({ initialSegment, planIntent }: { initialSegment?: SegmentId; planIntent?: MarketingPlanKey }) {
+export function SignupForm({ initialSegment, planIntent, billingIntent, billingAvailable = true }: { initialSegment?: SegmentId; planIntent?: MarketingPlanKey; billingIntent?: BillingIntent; billingAvailable?: boolean }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const selection = useSegmentSelection(initialSegment);
   const [includeServices, setIncludeServices] = useState(false);
   const plan = resolvePlanIntent(planIntent);
+  const billingQuote = billingIntent ? quoteContract(billingIntent) : null;
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -59,7 +62,7 @@ export function SignupForm({ initialSegment, planIntent }: { initialSegment?: Se
           setError("Conta criada, mas não foi possível entrar automaticamente. Use o login.");
           return;
         }
-        router.push(firstAccessHref(planIntent));
+        router.push(billingIntent ? billingIntentHref(billingIntent, "/assinatura") : firstAccessHref(planIntent));
         router.refresh();
       } catch {
         setError("Não foi possível concluir agora. Verifique sua conexão e tente novamente.");
@@ -69,11 +72,15 @@ export function SignupForm({ initialSegment, planIntent }: { initialSegment?: Se
 
   return (
     <form className="space-y-4" onSubmit={onSubmit}>
-      <aside className="es-plan-intent" aria-label="Seu plano de interesse">
+      {billingQuote && billingIntent ? <aside className="es-plan-intent" aria-label="Seu plano de interesse">
+        <div><strong>{billingCapacityLabel(billingQuote.plan, billingQuote.agendaLimit)}</strong><span>{billingMoney(billingQuote.amountCents)} {billingQuote.cycle === "ANNUAL" ? "a cada 12 meses" : "por mês"}</span></div>
+        <p>{billingAvailable ? "Primeiro crie seu espaço. Em seguida, revise a contratação e pague no Mercado Pago. Não há cobrança neste cadastro." : "Este é seu plano de interesse. A contratação online está em preparação. Você pode criar seu espaço agora, sem cobrança ou ativação de assinatura."}</p>
+        <Link href={`/login?callbackUrl=${encodeURIComponent(billingIntentHref(billingIntent, billingAvailable ? "/contratar" : "/assinatura"))}`}>Já tenho conta · entrar</Link>
+      </aside> : <aside className="es-plan-intent" aria-label="Seu plano de interesse">
         <div><strong>{plan ? `Seu interesse: ${plan.title}` : "Comece no plano Grátis"}</strong>{plan && <span>{plan.price}{plan.plan !== "FREE" && "/mês"} · {plan.professionals}</span>}</div>
         <p>{plan && plan.plan !== "FREE" ? "Sua conta começa grátis. Depois, confirme disponibilidade e upgrade com a plataforma. Nenhuma cobrança é feita neste cadastro." : "1 agenda e 30 agendamentos por mês. Configure seu espaço antes de decidir por um upgrade."}</p>
         <Link href="/#planos">Rever planos</Link>
-      </aside>
+      </aside>}
       <fieldset className="space-y-4"><legend>01 · SEU NEGÓCIO</legend>
       <div className="space-y-1.5">
         <label htmlFor="salonName" className="text-sm font-medium">Nome do estabelecimento</label>

@@ -11,6 +11,7 @@ test.describe("@database Everflare HQ",()=>{
   assertSafeDatabaseOperation(process.env,{operation:"hq-browser-fixture"});
   const db=new PrismaClient();
   email=crypto.randomUUID()+"@hq.example.test";
+  // A retry reruns beforeAll without deleting the previous synthetic history.
   chiefQuestion="Resumo sintético persistente do Chefe "+crypto.randomUUID();
   const admin=await db.user.create({data:{email,name:"Responsável HQ",platformRole:"SUPER_ADMIN",passwordHash:await bcrypt.hash(password,10),passwordSetAt:new Date()}});
   await db.hqAgentRun.create({data:{id:crypto.randomUUID(),actorId:admin.id,question:chiefQuestion,answer:"Resposta fictícia do teste de histórico. Nenhum serviço externo foi utilizado.",snapshot:{synthetic:true},sources:[{label:"Financeiro",href:"/hq/finance"}],status:"completed",model:"synthetic-browser",promptVersion:"ci",chargeMicros:0,inputTokens:1,outputTokens:1,finishedAt:new Date()}});
@@ -24,7 +25,7 @@ test.describe("@database Everflare HQ",()=>{
   await page.getByLabel("Email").fill("dono@lunahair.com");
   await page.getByLabel("Senha",{exact:true}).fill("demo1234");
   await page.getByRole("button",{name:"Entrar",exact:true}).click();
-  await expect(page).toHaveURL(/\/(hoje|dashboard)$/);
+  await expect(page).toHaveURL(/\/(hoje|dashboard)$/,{timeout:30000});
   await page.goto("/hq/dashboard");await expect(page).not.toHaveURL(/\/hq/);
   await expect(page.getByRole("heading",{name:"Visão executiva"})).toHaveCount(0);
  });

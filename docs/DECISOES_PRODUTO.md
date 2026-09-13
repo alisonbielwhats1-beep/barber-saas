@@ -1,5 +1,35 @@
 # Decisões de produto para as próximas fases
 
+## 13/09/2026 — composição aprovada dos planos na landing
+
+Retomada da referência visual aprovada na conversa “Avaliar integração com
+Mercado Pago”: quatro cards, Individual, Essencial, Equipe e Everflair IA.
+Equipe reúne as opções de 5 e 10 agendas em um seletor, com degradê violeta
+suave, clareado a pedido do responsável para #634b7f a #80629b.
+IA permanece “Em breve”, com prévia ilustrativa,
+cadeado e botão desativado, sem preço, contratação ou promessa de lançamento.
+Os códigos internos INDIVIDUAL/TEAM/TEAM_PLUS/TEAM_MAX e capacidades
+permanecem iguais. A pedido do responsável, os totais anuais passam a valores
+inteiros: R$ 599, R$ 779, R$ 959 e R$ 1.439. Catálogo 2026-09-13, aplicável
+somente a novas contratações; os preços persistidos nos contratos anteriores
+continuam sendo a fonte da cobrança. Mensais e adicional anual de R$ 144
+permanecem iguais. Os nomes públicos são Individual, Essencial, Equipe · 5
+agendas e Equipe · 10 agendas. Adicionais só na opção de 10 agendas.
+Preço/consumo da futura IA não estão definidos nem incluídos na assinatura.
+
+## 12/09/2026 — assinaturas Mercado Pago autorizadas para implementação
+
+Catálogo, periodicidade mensal/anual, capacidades e preços aprovados estão em
+`MERCADOPAGO_ASSINATURAS.md`. Preço anual é total cobrado a cada doze meses;
+todos os planos pagos têm os mesmos recursos. Pagamento aprovado libera o
+período; autorização do cartão/assinatura e retorno do checkout não liberam.
+Falha confirmada permite carência de cinco dias, depois restringe novas reservas
+e agendas, preservando histórico e atendimento existente. Cancelamento impede
+renovações após confirmação do provedor e preserva acesso ao período pago.
+Sem conversão automática de contratos antigos, prorrata ou mudança no meio do
+ciclo nesta entrega. Aprovação/suspensão administrativa permanece independente.
+Implementar e revisar não autoriza migration ou ativação em Production.
+
 ## Recebimentos e agendamento — decisão de 13/09/2026
 
 - Financeiro reúne pendências pelo dia do atendimento e recebimentos com recibos.

@@ -32,6 +32,8 @@ pg("HQ 020 — CRUD, relacionamentos e RLS reais",()=>{
   await prisma.$executeRawUnsafe('GRANT USAGE ON SCHEMA public TO hq_test_runtime');
   await prisma.$executeRawUnsafe('GRANT SELECT ON "User" TO hq_test_runtime');
   await prisma.$executeRawUnsafe("GRANT EXECUTE ON FUNCTION hq_is_admin() TO hq_test_runtime");
+  // Migration 024 policies refer to billing sources; mirror app_runtime's read grants.
+  for (const table of ["BillingSubscription", "BillingCharge", "BillingEvent"]) await prisma.$executeRawUnsafe(`DO $$ BEGIN IF to_regclass('public."${table}"') IS NOT NULL THEN GRANT SELECT ON "${table}" TO hq_test_runtime; END IF; END $$`);
   for(const [key,d] of Object.entries((await import("./catalog")).definitions)) {
    await prisma.$executeRawUnsafe('GRANT SELECT, INSERT'+(key==="activities"?"":", UPDATE")+' ON '+d.table+' TO hq_test_runtime');
   }

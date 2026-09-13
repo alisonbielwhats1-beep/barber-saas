@@ -23,6 +23,8 @@ model HqAgentRun {
 
 model HqAccounts {
   id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  billingSalonId String? @unique
+  billingSalon Salon? @relation(fields: [billingSalonId], references: [id], onDelete: Restrict)
   name String
   business String
   phone String?
@@ -115,6 +117,11 @@ model HqOpportunities {
 
 model HqSubscriptions {
   id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  billingSubscriptionId String? @unique @db.Uuid
+  billingSubscription BillingSubscription? @relation(fields: [billingSubscriptionId], references: [id], onDelete: Restrict)
+  billingState String?
+  billingPaidThrough DateTime? @db.Timestamptz(3)
+  billingAgendaLimit Int?
   customerId String @db.Uuid
   plan String
   amountCents Int @default(0)
@@ -140,6 +147,11 @@ model HqSubscriptions {
 
 model HqPayments {
   id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  billingChargeId String? @unique @db.Uuid
+  billingCharge BillingCharge? @relation(fields: [billingChargeId], references: [id], onDelete: Restrict)
+  billingUpdatedAt DateTime? @db.Timestamptz(3)
+  billingStatus String?
+  billingRefundedCents Int?
   subscriptionId String @db.Uuid
   reference DateTime @db.Date
   dueDate DateTime @db.Date
@@ -151,7 +163,8 @@ model HqPayments {
   externalId String?
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz(3)
-  @@unique([subscriptionId, reference])
+  // Manual-only uniqueness is enforced by migration 024's partial index.
+  @@index([subscriptionId, reference])
   subscriptionIdRelation HqSubscriptions @relation("payments_subscriptionId", fields: [subscriptionId], references: [id], onDelete: Restrict)
   @@index([createdAt])
   @@index([subscriptionId])
@@ -162,6 +175,8 @@ model HqPayments {
 
 model HqActivities {
   id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  billingEventId String? @unique @db.Uuid
+  billingEvent BillingEvent? @relation(fields: [billingEventId], references: [id], onDelete: Restrict)
   accountId String? @db.Uuid
   kind String @default("WhatsApp")
   description String
@@ -509,6 +524,8 @@ model User {
 }
 
 model Salon {
+  hqBillingAccount HqAccounts?
+  billingSubscriptions BillingSubscription[]
   id                String            @id @default(cuid())
   slug              String            @unique
   name              String
@@ -579,6 +596,107 @@ model Salon {
   flexibleWaitlistServices FlexibleWaitlistService[]
 
   @@index([accessStatus, accessRequestedAt])
+}
+
+// Automatic SaaS billing. Legacy manual invoices and appointment payments are independent.
+model BillingSubscription {
+  hqSubscription HqSubscriptions?
+  id String @id @default(uuid()) @db.Uuid
+  salonId String
+  requestKey String
+  fingerprint String
+  current Boolean @default(true)
+  catalogVersion String
+  planCode String
+  cycle String
+  amountCents Int
+  agendaLimit Int
+  intervalMonths Int
+  currency String @default("BRL")
+  mode String
+  collectorId String
+  payerEmail String
+  legacyPlan Plan
+  providerId String? @unique
+  providerStatus String @default("pending")
+  providerUpdatedAt DateTime? @db.Timestamptz(3)
+  checkoutUrl String?
+  creationStartedAt DateTime? @db.Timestamptz(3)
+  cancelRequestedAt DateTime? @db.Timestamptz(3)
+  cancelledAt DateTime? @db.Timestamptz(3)
+  paidThrough DateTime? @db.Timestamptz(3)
+  nextPaymentAt DateTime? @db.Timestamptz(3)
+  delinquentSince DateTime? @db.Timestamptz(3)
+  reviewRequired Boolean @default(false)
+  lastSyncedAt DateTime? @db.Timestamptz(3)
+  invoiceOffset Int @default(0)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  salon Salon @relation(fields: [salonId], references: [id], onDelete: Restrict)
+  charges BillingCharge[]
+  events BillingEvent[]
+  inbox BillingInbox[]
+  queue BillingQueue?
+  @@unique([salonId, requestKey])
+  @@unique([salonId, id])
+  @@index([salonId, current])
+}
+
+model BillingCharge {
+  hqPayment HqPayments?
+  id String @id @default(uuid()) @db.Uuid
+  salonId String
+  subscriptionId String @db.Uuid
+  providerInvoiceId String @unique
+  providerPaymentId String? @unique
+  amountCents Int
+  refundedCents Int @default(0)
+  periodStart DateTime @db.Timestamptz(3)
+  periodEnd DateTime @db.Timestamptz(3)
+  status String
+  paidAt DateTime? @db.Timestamptz(3)
+  providerUpdatedAt DateTime @db.Timestamptz(3)
+  subscription BillingSubscription @relation(fields: [salonId, subscriptionId], references: [salonId, id], onDelete: Restrict)
+  @@index([salonId, subscriptionId, periodStart])
+}
+
+model BillingEvent {
+  hqActivity HqActivities?
+  id String @id @default(uuid()) @db.Uuid
+  salonId String
+  subscriptionId String @db.Uuid
+  key String
+  type String
+  detail String
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  subscription BillingSubscription @relation(fields: [salonId, subscriptionId], references: [salonId, id], onDelete: Restrict)
+  @@unique([subscriptionId, key])
+  @@index([salonId, createdAt])
+}
+
+model BillingInbox {
+  id String @id
+  salonId String
+  subscriptionId String @db.Uuid
+  topic String
+  resourceId String
+  receivedAt DateTime @default(now()) @db.Timestamptz(3)
+  processedAt DateTime? @db.Timestamptz(3)
+  subscription BillingSubscription @relation(fields: [salonId, subscriptionId], references: [salonId, id], onDelete: Restrict)
+  @@index([salonId, subscriptionId, processedAt])
+}
+
+// Global dispatch metadata only. Processing always re-enters withSalon.
+model BillingQueue {
+  subscriptionId String @id @db.Uuid
+  salonId String
+  nextAttemptAt DateTime @default(now()) @db.Timestamptz(3)
+  leaseUntil DateTime? @db.Timestamptz(3)
+  attempts Int @default(0)
+  lastError String?
+  subscription BillingSubscription @relation(fields: [salonId, subscriptionId], references: [salonId, id], onDelete: Restrict)
+  @@index([nextAttemptAt, leaseUntil])
+  @@unique([salonId, subscriptionId])
 }
 
 /// Histórico imutável das decisões de acesso da plataforma. Não é tenant-scoped:

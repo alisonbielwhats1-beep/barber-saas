@@ -13,6 +13,7 @@ import {
 
 const PROTECTED_PATH_PREFIXES = [
   "/hq",
+  "/assinatura",
   "/hoje",
   "/dashboard",
   "/agenda",

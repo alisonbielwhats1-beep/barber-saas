@@ -1,3 +1,4 @@
+import { effectiveEntitlement } from "./billing/entitlements";
 import { createHash, randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
 import type { Prisma, Role } from "@prisma/client";
@@ -346,7 +347,7 @@ export async function createUserInvite(
         (invite) => normalizeEmail(invite.email) !== email,
       ).length;
       assertProfessionalCapacity({
-        plan: salon.plan,
+        plan: await effectiveEntitlement(tx, input.salonId, salon.plan),
         activeProfessionals,
         pendingProfessionalInvites: pendingForOtherEmails,
       });
@@ -767,7 +768,7 @@ async function createProfessionalFromInvite(
       where: { salonId: invite.salonId, active: true },
     });
     assertProfessionalCapacity({
-      plan: salon.plan,
+      plan: await effectiveEntitlement(tx, invite.salonId, salon.plan),
       activeProfessionals,
     });
   }

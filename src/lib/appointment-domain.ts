@@ -20,6 +20,7 @@ export const RESCHEDULABLE_APPOINTMENT_STATUSES = [
 export type AppointmentErrorCode =
   | "NOT_FOUND"
   | "FORBIDDEN"
+  | "BILLING_REQUIRED"
   | "SERVICE_INVALID"
   | "PRICE_CHANGED"
   | "PRO_SERVICE_MISMATCH"

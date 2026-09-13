@@ -55,7 +55,8 @@ export class PlanLimitError extends Error {
   }
 }
 
-export function getPlanEntitlement(plan: Plan | string | null | undefined): PlanEntitlement {
+export function getPlanEntitlement(plan: Plan | string | PlanEntitlement | null | undefined): PlanEntitlement {
+  if (typeof plan === "object" && plan !== null) return plan;
   return PLAN_ENTITLEMENTS[(plan as Plan) ?? "FREE"] ?? PLAN_ENTITLEMENTS.FREE;
 }
 
@@ -76,7 +77,7 @@ export function assertPlanFeature(
 }
 
 export function assertProfessionalCapacity(input: {
-  plan: Plan | string | null | undefined;
+  plan: Plan | string | PlanEntitlement | null | undefined;
   activeProfessionals: number;
   pendingProfessionalInvites?: number;
 }): void {
@@ -89,7 +90,7 @@ export function assertProfessionalCapacity(input: {
 }
 
 export function assertMonthlyAppointmentCapacity(input: {
-  plan: Plan | string | null | undefined;
+  plan: Plan | string | PlanEntitlement | null | undefined;
   appointmentsThisMonth: number;
 }): void {
   const limit = getPlanEntitlement(input.plan).monthlyAppointments;
