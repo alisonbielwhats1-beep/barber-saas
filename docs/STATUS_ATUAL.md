@@ -2,7 +2,7 @@
 
 ## 2026-09-13 — recebimentos e agendamento em implementação/revisão
 
-Branch `codex/booking-receipts-experience`, base `5cca634` (PR #99).
+Branch `codex/booking-receipts-experience`, base inicial `5cca634` (PR #99), atualizada com `d970b11` (PR #102).
 A solicitação reúne baixa em lote, ajustes antes de receber, serviços repetidos,
 preferência de cores, atendimento de sempre, complementos, retorno previsto,
 sugestões de horários e oferta de fila com aceite.
@@ -14,6 +14,19 @@ Detalhes e evidências em `RECEBIMENTOS_E_AGENDAMENTO_2026-09-13.md`.
 A migration manual 023 está em validação. **Nenhum deploy ou SQL produtivo
 foi autorizado ou executado nesta entrega.** CI/Preview serão registrados no PR #103.
 
+## 2026-09-13 — domínio oficial do cliente, publicação autorizada
+
+O responsável autorizou manter o link antigo e passar a divulgar o novo.
+Vercel confirmou `everflair.com.br` e `salon-saas-ruby.vercel.app` como
+Production com configuração válida; home e vitrine retornaram 200 em ambos.
+O domínio oficial atual é **https://everflair.com.br**; referências abaixo
+à URL oficial Vercel são históricas. O domínio antigo permanece disponível.
+
+Branch `codex/customer-official-domain`, base `5cca634`: Compartilhar/QR Code
+e Marketing passam a consultar `PUBLIC_BOOKING_URL`, sem alterar
+`NEXTAUTH_URL`, secrets, cookies, manifestos ou dados. A publicação ocorrerá
+após lint, TypeScript, testes, build, CI e Preview; resultado final no PR.
+Plano e recuperação em `DOMINIO_CLIENTE_2026-09-13.md`. Sem migration.
 
 
 ## 2026-09-12 — busca, bloqueios e encaixe: publicação autorizada
