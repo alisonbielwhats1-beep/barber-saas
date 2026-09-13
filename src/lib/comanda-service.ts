@@ -16,6 +16,7 @@ import {
 } from "./appointment-domain";
 import type { Tx } from "./prisma-tenant";
 import { lockProductMutations } from "./inventory-lock";
+import { receiptAdjustmentsSchema, receiptDate, type ReceiptExtra } from "./receipt-adjustments";
 
 export type ComandaRole = "OWNER" | "MANAGER" | "RECEPTIONIST";
 
@@ -32,6 +33,11 @@ export type CloseComandaInput = {
   method: PaymentMethod;
   notes?: string | null;
   now?: Date;
+  extraServiceIds?: string[];
+  surchargeCents?: number;
+  adjustmentReason?: string;
+  receivedDate?: string;
+  expectedTotalCents?: number;
 };
 
 export type ComandaErrorCode =
@@ -73,6 +79,11 @@ function requestFingerprint(input: CloseComandaInput, productLines: CloseComanda
     productLines,
     method: input.method,
     notes: input.notes ?? null,
+    extraServiceIds: input.extraServiceIds ?? [],
+    surchargeCents: input.surchargeCents ?? 0,
+    adjustmentReason: input.adjustmentReason ?? "",
+    receivedDate: input.receivedDate ?? null,
+    expectedTotalCents: input.expectedTotalCents ?? null,
   })).digest("hex");
 }
 
@@ -91,6 +102,10 @@ export async function closeComandaReliably(
   input: CloseComandaInput,
 ): Promise<{ duplicate: boolean; paymentId: string }> {
   assertComandaDiscountAllowed(input.role, input.discountCents);
+  const adjustments = receiptAdjustmentsSchema.parse(input);
+  if (input.role === "RECEPTIONIST" && (adjustments.surchargeCents || adjustments.extraServiceIds.length || adjustments.receivedDate)) {
+    throw new Error("Ajustes de serviço e data exigem proprietário ou gerente.");
+  }
   const productLines = normalizeProductLines(input.productLines)
     .sort((a, b) => a.productId.localeCompare(b.productId));
   if (productLines.some((line) => line.quantity > 999)) {
@@ -115,7 +130,7 @@ export async function closeComandaReliably(
       status: true,
       startAt: true,
       priceCents: true,
-      salon: { select: { currency: true } },
+      salon: { select: { currency: true, timezone: true } },
       payment: { select: { id: true } },
       products: {
         orderBy: [{ productId: "asc" }, { priceCentsUnit: "asc" }, { id: "asc" }],
@@ -170,6 +185,17 @@ export async function closeComandaReliably(
       "O pagamento deste agendamento já foi registrado",
     );
   }
+  const extras = adjustments.extraServiceIds.length ? await tx.service.findMany({
+    where: { salonId: input.salonId, id: { in: adjustments.extraServiceIds }, active: true },
+    select: { id: true, name: true, priceCents: true },
+  }) : [];
+  if (extras.length !== new Set(adjustments.extraServiceIds).size) throw new Error("Serviço adicional indisponível. Revise a comanda.");
+  const extraById = new Map(extras.map(s => [s.id, s]));
+  const extraServices: ReceiptExtra[] = adjustments.extraServiceIds.map(id => {
+    const service = extraById.get(id)!;
+    return { serviceId: id, serviceName: service.name, priceCents: service.priceCents };
+  });
+  const extraCents = extraServices.reduce((sum, s) => sum + s.priceCents, 0);
   const existingByProduct = new Map<string, typeof appointment.products>();
   for (const existing of appointment.products) {
     const rows = existingByProduct.get(existing.productId) ?? [];
@@ -241,11 +267,15 @@ export async function closeComandaReliably(
   }
 
   const totals = calculateComandaTotals({
-    serviceCents: appointment.priceCents,
+    serviceCents: appointment.priceCents + extraCents + adjustments.surchargeCents,
     productLines: pricedLines,
     discountCents: input.discountCents,
   });
   const now = input.now ?? new Date();
+  const paidAt = receiptDate(adjustments.receivedDate, appointment.salon.timezone, now);
+  if (input.expectedTotalCents !== undefined && input.expectedTotalCents !== totals.totalCents) {
+    throw new Error("O total mudou. Atualize e revise a comanda antes de receber.");
+  }
   if (appointment.status === "COMPLETED") {
     if (appointment.version !== input.expectedVersion) {
       throw new AppointmentError("VERSION_CONFLICT");
@@ -336,7 +366,11 @@ export async function closeComandaReliably(
       method: input.method,
       notes: input.notes ?? null,
       currency: appointment.salon.currency,
-      paidAt: new Date(),
+      paidAt,
+      extraServices,
+      surchargeCents: adjustments.surchargeCents,
+      adjustmentReason: adjustments.adjustmentReason || null,
+      recordedAt: now,
     },
     select: { id: true },
   });
@@ -355,6 +389,12 @@ export async function closeComandaReliably(
       requestFingerprint: fingerprint,
       paymentId: payment.id,
       previousStatus: appointment.status,
+      originalServiceCents: appointment.priceCents,
+      extraServices,
+      surchargeCents: adjustments.surchargeCents,
+      adjustmentReason: adjustments.adjustmentReason,
+      receivedDate: adjustments.receivedDate ?? null,
+      paidAt: paidAt.toISOString(),
       amountCents: totals.totalCents,
       discountCents: totals.discountCents,
       method: input.method,

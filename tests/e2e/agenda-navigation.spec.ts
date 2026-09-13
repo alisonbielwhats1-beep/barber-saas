@@ -80,6 +80,11 @@ test.describe("@database navegação compacta e calendário", () => {
     await expect(page).toHaveURL(/\/(hoje|dashboard)$/, { timeout: 30_000 });
     await page.goto("/agenda");
     await expect(page.locator("[data-appointment-professional]").first()).toBeVisible();
+    await page.getByRole("combobox", { name: "Colorir agenda por" }).selectOption("professional");
+    await expect.poll(() => page.locator("[data-pro-col]").evaluateAll(columns => columns.every(column => {
+      const color = getComputedStyle(column.querySelector("[data-professional-color]")!).borderBottomColor;
+      return [...column.querySelectorAll("[data-appointment-professional]")].every(card => getComputedStyle(card).borderLeftColor === color);
+    }))).toBe(true);
     const professionalPalette = await page.locator("[data-pro-col]").evaluateAll(columns => columns.map(column => {
       const header = column.querySelector("[data-professional-color]")!;
       const color = getComputedStyle(header).borderBottomColor;

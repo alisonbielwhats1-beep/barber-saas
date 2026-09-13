@@ -16,6 +16,8 @@ import {
   isAppointmentError,
   type AppointmentErrorCode,
 } from "@/lib/appointment-domain";
+import { dateKeyInTimeZone } from "@/lib/time";
+import { defaultReceivedDate } from "@/lib/receipt-adjustments";
 import { closeComandaReliably } from "@/lib/comanda-service";
 import { recordAppointmentEvent } from "@/lib/appointment-events";
 import {
@@ -315,7 +317,7 @@ export async function getComandaData(id: string) {
         startAt: true,
         version: true,
         priceCents: true,
-        salon: { select: { currency: true } },
+        salon: { select: { currency: true, timezone: true } },
         client: { select: { name: true } },
         service: { select: { name: true, priceCents: true } },
         serviceItems: {
@@ -341,6 +343,7 @@ export async function getComandaData(id: string) {
             notes: true,
             currency: true,
             paidAt: true,
+            recordedAt: true, extraServices: true, surchargeCents: true, adjustmentReason: true,
           },
         },
       },
@@ -368,6 +371,10 @@ export async function getComandaData(id: string) {
     return {
       ...appointment,
       currency: salon.currency,
+      timezone: salon.timezone,
+      receivedDate: defaultReceivedDate(salon.timezone),
+      today: dateKeyInTimeZone(new Date(), salon.timezone),
+      availableServices: await tx.service.findMany({ where: { salonId: ctx.salonId, active: true }, select: { id: true, name: true, priceCents: true }, orderBy: { name: "asc" } }),
       availableProducts: availableProducts.map((product) => ({
         ...product,
         reservedQuantity: reservedByProduct.get(product.id) ?? 0,
@@ -422,6 +429,11 @@ export async function removeWaitlistEntry(
 }
 
 const comandaInput = z.object({
+  extraServiceIds: z.array(z.string().min(1)).max(30).optional(),
+  surchargeCents: z.number().int().min(0).max(100_000_000).optional(),
+  adjustmentReason: z.string().trim().max(300).optional(),
+  receivedDate: z.string().optional(),
+  expectedTotalCents: z.number().int().min(0).max(100_000_000).optional(),
   id: z.string(),
   idempotencyKey: z.string().uuid(),
   expectedVersion: z.number().int().positive(),
@@ -451,6 +463,7 @@ export async function closeComanda(
         appointmentId: data.id,
         idempotencyKey: data.idempotencyKey,
         expectedVersion: data.expectedVersion,
+        extraServiceIds: data.extraServiceIds, surchargeCents: data.surchargeCents, adjustmentReason: data.adjustmentReason, receivedDate: data.receivedDate, expectedTotalCents: data.expectedTotalCents,
         discountCents: data.discountCents,
         productLines: data.productLines,
         method: data.method,

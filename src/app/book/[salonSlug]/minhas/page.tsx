@@ -1,3 +1,4 @@
+import { WaitlistOffers } from "../waitlist-offers";
 import { priceSnapshot } from "@/lib/service-price";
 import { redirect } from "next/navigation";
 import { withSalonBySlug } from "@/lib/prisma-tenant";
@@ -273,6 +274,7 @@ export default async function MinhasPage({
         <p className="mt-1 text-sm text-muted-foreground">{salon.name}</p>
       </header>
 
+      <WaitlistOffers salonSlug={salonSlug} />
       <MinhasList
         appointments={serialized}
         pendingProposals={serializedProposals}

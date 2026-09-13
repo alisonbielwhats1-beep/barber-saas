@@ -15,7 +15,7 @@ export async function Opportunities() {
     return { unpaid, expiring: expiring.filter(p => p.sessionsUsed < p.sessionsTotal).length, waitlist };
   });
   const items = [
-    { icon: Receipt, title: "Concluídos sem recebimento", value: String(data.unpaid._count._all), detail: `${formatMoney(data.unpaid._sum.priceCents ?? 0)} em serviços; confira descontos e comanda`, href: "/fechamento", color: "text-warning", tone: "warning" },
+    { icon: Receipt, title: "Concluídos sem recebimento", value: String(data.unpaid._count._all), detail: `${formatMoney(data.unpaid._sum.priceCents ?? 0)} em serviços; confira descontos e comanda`, href: "/financeiro", color: "text-warning", tone: "warning" },
     { icon: CalendarClock, title: "Pacotes próximos do vencimento", value: String(data.expiring), detail: "Com sessões restantes e vencimento nos próximos 7 dias", href: "/pacotes?filter=expiring", color: "text-info", tone: "info" },
     { icon: Users, title: "Pedidos de encaixe ativos", value: String(data.waitlist), detail: "Revise os períodos e confirme vagas pela ordem da fila", href: "/agenda", color: "text-success", tone: "success" },
   ];

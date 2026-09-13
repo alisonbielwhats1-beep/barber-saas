@@ -93,7 +93,7 @@ export default async function AgendaPage({
         version: true,
         payment: { select: { id: true } },
         client: { select: { name: true, phone: true } },
-        service: { select: { id: true, name: true, colorHex: true } },
+        service: { select: { id: true, name: true, colorHex: true, category: true } },
         serviceItems: {
           orderBy: { position: "asc" },
           select: { serviceId: true, serviceName: true, durationMin: true, processingMin: true, finishingMin: true },
@@ -168,12 +168,13 @@ export default async function AgendaPage({
       select: { id: true, professionalId: true, startAt: true, endAt: true, reason: true },
       orderBy: { startAt: "asc" },
     });
+    const offerBlocks = await tx.waitlistOffer.findMany({ where: { salonId, ...(professionalId ? { professionalId } : {}), status: "OFFERED", expiresAt: { gt: new Date() }, startAt: { lt: range.to }, endAt: { gt: range.from } }, select: { id: true, professionalId: true, startAt: true, endAt: true } });
     const openings = await tx.professionalOpening.findMany({
       where: { salonId, ...(professionalId ? { professionalId } : {}), dateKey: { gte: dateKeyInTimeZone(range.from, salon.timezone), lt: dateKeyInTimeZone(range.to, salon.timezone) } },
       select: { id: true, professionalId: true, dateKey: true, startMinutes: true, endMinutes: true, reason: true },
       orderBy: [{ dateKey: "asc" }, { startMinutes: "asc" }],
     });
-    return { salon, dateStr, prosRaw, apptsRaw, waitlistRaw, services, clients, blocks, openings };
+    return { salon, dateStr, prosRaw, apptsRaw, waitlistRaw, services, clients, blocks: [...blocks, ...offerBlocks.map(o => ({ ...o, kind: "OFFER" as const, reason: "Aguardando aceite do cliente" }))], openings };
   });
 
   // Fila de espera por agendamento (só quem ainda não foi atendido) — pro
@@ -241,6 +242,7 @@ export default async function AgendaPage({
         ? a.serviceItems.map((item) => item.serviceName).join(" + ")
         : a.service.name,
       serviceColor: a.service.colorHex,
+      serviceCategory: a.service.category,
       waitlistCount: waiting.length,
       waitlistNext: waiting[0]?.name ?? null,
       waitlist: waiting.map((entry, index) => ({ ...entry, position: index + 1 })),
@@ -267,6 +269,7 @@ export default async function AgendaPage({
     <>
       <AutoRefresh intervalMs={30_000} />
       <AgendaBoard
+        colorScope={`${ctx.salonId}:${ctx.userId}`}
         operations={(role === "OWNER" || role === "MANAGER") ? <><OpeningPanel date={dateStr} timezone={salon.timezone} professionals={professionals} openings={openings} /><FlexibleQueuePanel /></> : undefined}
         initialAppointmentId={selectedAppointment}
         availabilityBlocks={blocks.map(b => ({ ...b, startAt: b.startAt.toISOString(), endAt: b.endAt.toISOString() }))}

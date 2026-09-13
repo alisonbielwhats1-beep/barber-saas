@@ -5,6 +5,7 @@ import { formatMoney } from "@/lib/utils";
 import { Users, Crown, Cake, Clock } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { ClientForm } from "./client-form";
+import { ReturnOpportunities } from "./return-opportunities";
 import { ClientsCrm } from "./clients-crm";
 import { getMarketingSettings } from "@/lib/marketing-settings";
 import { hiddenClientIds } from "@/lib/client-list-visibility";
@@ -66,6 +67,7 @@ export default async function ClientesPage({ searchParams }: { searchParams: Pro
         showExcluded={showExcluded}
         lapsedClientDays={marketingSettings.lapsedClientDays}
       />
+      {!showExcluded && ["OWNER", "MANAGER"].includes(role) && <ReturnOpportunities />}
     </div>
   );
 }

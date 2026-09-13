@@ -1,4 +1,5 @@
 "use client";
+import { ServiceRepeater } from "@/components/service-repeater";
 
 import { useEffect, useRef, useState } from "react";
 import { searchAppointmentClients } from "./client-search-actions";
@@ -412,6 +413,8 @@ export function AppointmentDialog({
 
           <div>
             <label className="mb-1 block text-sm font-medium">Serviços</label>
+            {selectedServices.map((id, index) => <input key={`${id}-${index}`} type="hidden" name="serviceIds" value={id} />)}
+            <ServiceRepeater ids={selectedServices} services={services} onChange={ids => { resetAttempt(); setSelectedServices(ids); }} />
             <div className="max-h-48 space-y-2 overflow-y-auto rounded-md border border-input p-2">
               {availableServices.map((service) => (
                 <label
@@ -420,9 +423,9 @@ export function AppointmentDialog({
                 >
                   <input
                     type="checkbox"
-                    name="serviceIds"
                     value={service.id}
                     checked={selectedServices.includes(service.id)}
+                    disabled={!selectedServices.includes(service.id) && selectedServices.length >= 10}
                     onChange={e => {
                       lastRequest.current++;
                       setLoadingLast(false);
