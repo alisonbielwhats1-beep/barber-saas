@@ -156,6 +156,10 @@ durante as jornadas existentes, além do limite de 30 minutos do job. O CI passa
 a executar essas jornadas em duas metades, cada uma com servidor novo, mantendo
 todos os testes e artefatos separados. O limite do job passa a 40 minutos; o
 resultado da nova execução fica no PR, sem alterar o runtime da aplicação.
+O fixture do histórico HQ usa texto único por execução/retry, preservando os
+registros anteriores sem tornar o seletor ambíguo; o login desse teste aguarda
+até 30 segundos, como as demais jornadas com compilação a frio. A divisão
+mantém os 26 casos autenticados, 13 por execução.
 
 Homologação parcial com a API e checkout do Mercado Pago (12/09, horário de
 Brasília): contrato mensal Equipe Plus R$ 99,90 criado pelo serviço real usando
