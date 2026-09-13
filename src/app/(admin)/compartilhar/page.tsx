@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { getTenantContext } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
+import { getPublicBookingUrl } from "@/lib/public-booking-url";
 import { SharePage } from "./share-page";
 
 export default async function CompartilharPage() {
@@ -14,13 +15,10 @@ export default async function CompartilharPage() {
     }),
   );
 
-  // Usa NEXTAUTH_URL como URL canônica (evita URLs de preview da Vercel).
-  // Localmente: http://localhost:3001 — produção: https://salon-saas-ruby.vercel.app
-  const nextAuthUrl = process.env.NEXTAUTH_URL?.replace(/\/$/, "");
+  // Divulgação pode usar o domínio oficial sem mudar autenticação ou cookies.
   const host = (await headers()).get("host") ?? "salon-saas-ruby.vercel.app";
   const protocol = host.includes("localhost") ? "http" : "https";
-  const baseUrl = nextAuthUrl ?? `${protocol}://${host}`;
-  const bookingUrl = `${baseUrl}/book/${salon.slug}`;
+  const bookingUrl = getPublicBookingUrl(salon.slug, `${protocol}://${host}`);
 
   return <SharePage salon={salon} bookingUrl={bookingUrl} />;
 }
