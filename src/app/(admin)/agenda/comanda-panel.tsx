@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, Loader2, Minus, Package, Plus, Printer, Scissors } from "lucide-react";
+import { receiptExtras } from "@/lib/receipt-adjustments";
+import { formatInTimeZone } from "date-fns-tz";
 import { formatMoney } from "@/lib/utils";
 import { calculateComandaTotals, reconcileReservedProduct } from "@/lib/comanda";
 import { getComandaData, closeComanda } from "./actions";
@@ -34,8 +36,18 @@ export function ComandaPanel({
   const [method, setMethod] = useState<Method>("PIX");
   const [notes, setNotes] = useState("");
   const [productQuantities, setProductQuantities] = useState<Record<string, number>>({});
+  const [extraServiceIds, setExtraServiceIds] = useState<string[]>([]);
+  const [surcharge, setSurcharge] = useState("");
+  const [reason, setReason] = useState("");
+  const [receivedDate, setReceivedDate] = useState("");
   const [confirmed, setConfirmed] = useState(false);
-  const [pending, startTransition] = useTransition();
+  const [pending, setPending] = useState(false);
+  const busy = useRef(false);
+  async function startTransition(work: () => Promise<void>) {
+    if (busy.current) return;
+    busy.current = true; setPending(true);
+    try { await work(); } finally { busy.current = false; setPending(false); }
+  }
   const [error, setError] = useState<string | null>(null);
   const idempotencyKeyRef = useRef<string | null>(null);
 
@@ -43,6 +55,8 @@ export function ComandaPanel({
     getComandaData(apptId)
       .then((d) => {
         setData(d);
+        setReceivedDate(d.receivedDate);
+        if (d.payment) setConfirmed(true);
         if (d.payment) {
           setDiscountCents(d.payment.discountCents);
           if (d.payment.discountCents > 0) {
@@ -89,8 +103,10 @@ export function ComandaPanel({
       };
     })
     .filter((product) => product.quantity > 0);
+  const surchargeCents = /^\d+(?:[,.]\d{0,2})?$/.test(surcharge) ? Math.round(Number(surcharge.replace(",", ".")) * 100) : surcharge === "" ? 0 : NaN;
+  const extraCents = extraServiceIds.reduce((sum, id) => sum + (data.availableServices.find(s => s.id === id)?.priceCents ?? 0), 0);
   const totals = calculateComandaTotals({
-    serviceCents: data.priceCents,
+    serviceCents: data.priceCents + extraCents + (Number.isFinite(surchargeCents) ? surchargeCents : 0),
     productLines: selectedProducts.flatMap((product) => product.pricedLines),
     discountCents,
   });
@@ -118,6 +134,7 @@ export function ComandaPanel({
 
   function submit() {
     setError(null);
+    if (!Number.isSafeInteger(surchargeCents) || (surchargeCents > 0 && reason.trim().length < 3)) { setError("Confira o acréscimo e informe seu motivo."); return; }
     startTransition(async () => {
       try {
         const idempotencyKey = idempotencyKeyRef.current ?? crypto.randomUUID();
@@ -126,6 +143,7 @@ export function ComandaPanel({
           id: apptId,
           idempotencyKey,
           expectedVersion,
+          extraServiceIds, surchargeCents, adjustmentReason: reason, receivedDate: data?.canDiscount ? receivedDate : undefined, expectedTotalCents: total,
           discountCents,
           productLines: selectedProducts.map((product) => ({ productId: product.id, quantity: product.quantity })),
           method,
@@ -169,6 +187,9 @@ export function ComandaPanel({
         <div className="space-y-2 rounded-xl border border-border p-4 text-[13px]">
           {receiptServices.map((service, index) => <div key={`${service.serviceName}-${index}`} className="flex justify-between"><span>{service.serviceName}</span><strong>{formatMoney(service.priceCents, displayCurrency)}</strong></div>)}
           {data.products.map((product) => <div key={product.id} className="flex justify-between text-muted-foreground print:text-neutral-700"><span>{product.quantity}× {product.productName}</span><span>{formatMoney(product.quantity * product.priceCentsUnit, displayCurrency)}</span></div>)}
+          {receiptExtras(payment.extraServices).map((extra, index) => <div key={`extra-${index}`} className="flex justify-between"><span>Extra · {extra.serviceName}</span><span>{formatMoney(extra.priceCents, displayCurrency)}</span></div>)}
+          {payment.surchargeCents > 0 && <div className="flex justify-between gap-2"><span>Acréscimo · {payment.adjustmentReason}</span><span>{formatMoney(payment.surchargeCents, displayCurrency)}</span></div>}
+          <p className="text-xs">Recebido em {formatInTimeZone(payment.paidAt, data.timezone, "dd/MM/yyyy")} · registrado em {formatInTimeZone(payment.recordedAt, data.timezone, "dd/MM/yyyy HH:mm")}</p>
           {payment.discountCents > 0 && <div className="flex justify-between text-muted-foreground print:text-neutral-700"><span>Desconto</span><span>- {formatMoney(payment.discountCents, displayCurrency)}</span></div>}
           <div className="flex justify-between border-t border-border pt-2 text-base"><span>Total recebido</span><strong>{formatMoney(payment.amountCents, displayCurrency)}</strong></div>
           <div className="flex justify-between text-muted-foreground print:text-neutral-700"><span>Forma</span><span>{METHODS.find((item) => item.value === payment.method)?.label ?? payment.method}</span></div>
@@ -183,7 +204,7 @@ export function ComandaPanel({
   }
 
   return (
-    <div className="space-y-4">
+    <fieldset disabled={pending} className="min-w-0 space-y-4">
       {/* Serviço */}
       <div className="space-y-1.5">
         <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -200,6 +221,7 @@ export function ComandaPanel({
         </div>
       </div>
 
+      {data.canDiscount && <fieldset disabled={pending} className="space-y-3 rounded-xl border border-border p-3"><legend className="px-1 text-sm font-semibold">Revisar recebimento</legend><label className="grid gap-1 text-sm">Data do recebimento<input type="date" max={data.today} value={receivedDate} onChange={e => { idempotencyKeyRef.current = null; setReceivedDate(e.target.value); }} className="min-h-11 rounded-lg border border-border bg-background px-3" /></label><p className="text-xs text-muted-foreground">Começa em ontem. Altere se recebeu em outro dia.</p><label className="grid gap-1 text-sm">Adicionar serviço realizado<select value="" disabled={extraServiceIds.length >= 30} onChange={e => { if (e.target.value) { idempotencyKeyRef.current = null; setExtraServiceIds(ids => [...ids, e.target.value]); } }} className="min-h-11 rounded-lg border border-border bg-background px-3"><option value="">Escolher serviço…</option>{data.availableServices.map(s => <option key={s.id} value={s.id}>{s.name} · {formatMoney(s.priceCents, displayCurrency)}</option>)}</select></label>{extraServiceIds.map((id, i) => <div key={`${id}-${i}`} className="flex items-center justify-between text-sm"><span>{data.availableServices.find(s => s.id === id)?.name}</span><button type="button" className="min-h-11 px-3" onClick={() => { idempotencyKeyRef.current = null; setExtraServiceIds(ids => ids.filter((_, index) => index !== i)); }}>Remover extra</button></div>)}<label className="grid gap-1 text-sm">Acréscimo (R$)<input inputMode="decimal" placeholder="0,00" value={surcharge} onChange={e => { idempotencyKeyRef.current = null; setSurcharge(e.target.value); }} className="min-h-11 rounded-lg border border-border bg-background px-3" /></label>{surchargeCents > 0 && <label className="grid gap-1 text-sm">Motivo do acréscimo<input value={reason} maxLength={300} onChange={e => { idempotencyKeyRef.current = null; setReason(e.target.value); }} className="min-h-11 rounded-lg border border-border bg-background px-3" /></label>}</fieldset>}
       {/* Produtos */}
       {data.availableProducts.length > 0 && (
         <div className="space-y-1.5">
@@ -320,6 +342,6 @@ export function ComandaPanel({
         )}
         Confirmar pagamento · {formatMoney(total, displayCurrency)}
       </button>
-    </div>
+    </fieldset>
   );
 }

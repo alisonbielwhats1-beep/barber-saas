@@ -1,3 +1,4 @@
+import { WaitlistOffers } from "./waitlist-offers";
 import { readableForeground } from "@/lib/color";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -27,6 +28,7 @@ import { ClientNotificationLink } from "./client-shell";
 import { getClientSession } from "@/lib/client-auth";
 import { resolveClientSessionInTenant } from "@/lib/public-appointment";
 import { CartBadge } from "./cart-badge";
+import { UsualBooking } from "./usual-booking";
 import { HomeExplore } from "./home-explore";
 import { ReviewsSection } from "./reviews-section";
 import { BrandLogo } from "@/components/brand";
@@ -519,6 +521,8 @@ export default async function ClientHome({
       )}
 
       {/* Busca + categorias + grid (interativo) */}
+      <WaitlistOffers salonSlug={salonSlug} />
+      <UsualBooking salonSlug={salonSlug} />
       <HomeExplore
         salonSlug={salonSlug}
         currency={salon.currency}

@@ -253,7 +253,7 @@ export async function lockAppointmentOperationalScope(
 }
 
 function normalizeServiceIds(serviceIds: string[]): string[] {
-  const normalized = [...new Set(serviceIds.filter(Boolean))];
+  const normalized = serviceIds.filter(Boolean);
   if (normalized.length === 0 || normalized.length > 10) {
     throw new AppointmentError("SERVICE_INVALID");
   }
@@ -286,7 +286,7 @@ async function loadServiceSnapshots(
     where: { salonId, id: { in: serviceIds }, active: true },
     select: { id: true, name: true, durationMin: true, priceCents: true, priceType: true, priceNote: true, processingMin: true, finishingMin: true, physicalResourceId: true },
   });
-  if (services.length !== serviceIds.length) {
+  if (services.length !== new Set(serviceIds).size) {
     throw new AppointmentError("SERVICE_INVALID");
   }
 
@@ -297,7 +297,7 @@ async function loadServiceSnapshots(
     },
     select: { serviceId: true },
   });
-  if (links.length !== serviceIds.length) {
+  if (links.length !== new Set(serviceIds).size) {
     throw new AppointmentError("PRO_SERVICE_MISMATCH");
   }
 
@@ -336,7 +336,7 @@ async function assertHistoricalServicesCanMove(
     },
     select: { serviceId: true },
   });
-  if (links.length !== input.serviceIds.length) {
+  if (links.length !== new Set(input.serviceIds).size) {
     throw new AppointmentError("PRO_SERVICE_MISMATCH");
   }
 }
@@ -572,6 +572,7 @@ async function inspectAvailabilityUsingServices(
     });
     const resourceIds = services.flatMap(s => s.physicalResourceId ? [s.physicalResourceId] : []);
     if (!violation && resourceIds.length && await tx.resourceBooking.findFirst({ where: { salonId: input.salonId, resourceId: { in: resourceIds }, active: true, startAt: { lt: endAt }, endAt: { gt: startAt }, ...(input.excludeAppointmentId ? { appointmentId: { not: input.excludeAppointmentId } } : {}) }, select: { appointmentId: true } })) violation = "SLOT_TAKEN";
+    if (!violation && await tx.waitlistOffer.findFirst({ where: { salonId: input.salonId, status: "OFFERED", expiresAt: { gt: input.now ?? new Date() }, OR: [{ professionalId: input.professionalId, startAt: { lt: addMinutes(endAt, salon.bufferMinutes) }, endAt: { gt: addMinutes(startAt, -salon.bufferMinutes) } }, { resourceIds: { hasSome: resourceIds }, startAt: { lt: endAt }, endAt: { gt: startAt } }] }, select: { id: true } })) violation = "SLOT_TAKEN";
     return { violation, startAt, endAt, timezone: salon.timezone, services: priced.services };
   } catch (error) {
     return toAppointmentError(error);
@@ -1001,7 +1002,7 @@ async function validateServiceSnapshotOverride(
     throw new AppointmentError("SERVICE_INVALID");
   }
   const ids = input.snapshots.map((service) => service.id);
-  if (new Set(ids).size !== ids.length || input.snapshots.some((service) =>
+  if (input.snapshots.some((service) =>
     !service.id || !service.name || !Number.isInteger(service.durationMin) || service.durationMin <= 0 ||
     !Number.isInteger(service.priceCents) || service.priceCents < 0,
   )) {
@@ -1011,7 +1012,7 @@ async function validateServiceSnapshotOverride(
     where: { salonId: input.salonId, id: { in: ids } },
     select: { id: true },
   });
-  if (services.length !== ids.length) throw new AppointmentError("SERVICE_INVALID");
+  if (services.length !== new Set(ids).size) throw new AppointmentError("SERVICE_INVALID");
   await assertHistoricalServicesCanMove(tx, {
     salonId: input.salonId,
     currentProfessionalId: input.currentProfessionalId,
@@ -1141,7 +1142,7 @@ export async function rescheduleAppointment(
   };
   const preservesExistingServices =
     previousServiceSnapshots.length === serviceIds.length &&
-    previousServiceSnapshots.every((service) => serviceIds.includes(service.id));
+    previousServiceSnapshots.every((service, index) => serviceIds[index] === service.id);
   let schedulingSnapshots: ServiceSnapshot[];
   let applyPricing = true;
   if (input.serviceSnapshotsOverride) {

@@ -17,6 +17,7 @@ import { removeAvailabilityBlock, updateAvailabilityBlock } from "./availability
 import { BlockDateTime } from "./block-date-time";
 
 export type AvailabilityBlock = {
+  kind?: "OFFER";
   id: string;
   professionalId: string;
   startAt: string;
@@ -55,6 +56,7 @@ export function AvailabilityBlockTrigger({
   className?: string;
   style?: CSSProperties;
 }) {
+  if (block.kind === "OFFER") return <div className={`overflow-hidden rounded-lg border border-dashed border-primary/50 bg-primary/10 px-2 py-1 text-xs ${className}`} style={style} role="note" aria-label={`Oferta da fila para ${professionalName}, ${dateTimeRange(block, timezone)}`}><strong>Oferta da fila</strong><span className="block">{timeRange(block, timezone)}</span><span className="block">{block.reason}</span></div>;
   const reason = block.reason || "Indisponível";
   const content = <>Bloqueado · {reason}</>;
   const sharedClassName = `overflow-hidden border-y border-border bg-muted/80 text-left text-muted-foreground ${className}`;

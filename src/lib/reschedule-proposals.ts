@@ -73,9 +73,6 @@ function proposalSnapshots(value: unknown): ServiceSnapshot[] {
     throw new AppointmentError("SERVICE_INVALID");
   }
   const result = snapshots as ServiceSnapshot[];
-  if (new Set(result.map((snapshot) => snapshot.id)).size !== result.length) {
-    throw new AppointmentError("SERVICE_INVALID");
-  }
   return result;
 }
 
@@ -278,10 +275,10 @@ export async function requestStaffReschedule(
         ...priceSnapshot(service),
       }))
     : [{ ...appointment.service, ...priceSnapshot({}) }];
-  const requestedServiceIds = [...new Set(input.serviceIds)];
+  const requestedServiceIds = [...input.serviceIds];
   const preservesHistoricalServices =
     historicalServices.length === requestedServiceIds.length &&
-    historicalServices.every((service) => requestedServiceIds.includes(service.id));
+    historicalServices.every((service, index) => requestedServiceIds[index] === service.id);
   const inspected = preservesHistoricalServices
     ? await inspectAppointmentAvailabilityWithServiceSnapshots(tx, {
         salonId: input.salonId, professionalId: input.professionalId,

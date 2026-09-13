@@ -1,4 +1,5 @@
 "use client";
+import { ServiceRepeater } from "@/components/service-repeater";
 import { servicePriceLabel, hasVariablePrice, priceSnapshot, type PriceDetails } from "@/lib/service-price";
 import { ServicePriceNote, VariablePriceNotice } from "@/components/service-price";
 
@@ -103,6 +104,8 @@ type Booked = {
 };
 
 export function BookingFlow({
+  addons = {},
+  slotMode = "FIT",
   salonId,
   salonName,
   salonAddress,
@@ -120,6 +123,8 @@ export function BookingFlow({
   rescheduleVersion,
   clientSession,
 }: {
+  addons?: Record<string, string[]>;
+  slotMode?: "ALL" | "FIT";
   salonId: string;
   salonName: string;
   salonAddress: string | null;
@@ -149,11 +154,7 @@ export function BookingFlow({
     initialDateKey <= maxBookingDateKey
     ? initialDateKey : todayDate;
   const restoredQuerySlot = initialDate === initialDateKey && initialSlot && /^([01]\d|2[0-3]):[0-5]\d$/.test(initialSlot) ? initialSlot : null;
-  const validInitialServiceIds = [
-    ...new Set(
-      initialServiceIds.filter((id) => services.some((service) => service.id === id)),
-    ),
-  ];
+  const validInitialServiceIds = initialServiceIds.filter(id => services.some(service => service.id === id)).slice(0, 10);
   const [serviceIds, setServiceIds] = useState<string[]>(validInitialServiceIds);
   const [dependentId, setDependentId] = useState("");
   const [dependentName, setDependentName] = useState("");
@@ -163,7 +164,7 @@ export function BookingFlow({
   const [selectionMessage, setSelectionMessage] = useState<string | null>(null);
   const [proId, setProId] = useState<string | null>(() => {
     if (!initialProId || validInitialServiceIds.length === 0) return null;
-    const selected = services.filter((service) => validInitialServiceIds.includes(service.id));
+    const selected = validInitialServiceIds.map(id => services.find(service => service.id === id)!);
     return selected.length === validInitialServiceIds.length &&
       selected.every((service) =>
         service.professionals.some((professional) => professional.id === initialProId),
@@ -211,7 +212,7 @@ export function BookingFlow({
   const retryUntilRef = useRef<number | null>(null);
 
   const selectedServices = useMemo(
-    () => services.filter((service) => serviceIds.includes(service.id)),
+    () => serviceIds.map(id => services.find(service => service.id === id)!).filter(Boolean),
     [services, serviceIds],
   );
   const serviceCategories = useMemo(() => getServiceCategories(services), [services]);
@@ -290,10 +291,10 @@ export function BookingFlow({
       );
       if (validInitialServiceIds.length > 0 && (
         validIds.length !== validInitialServiceIds.length ||
-        validInitialServiceIds.some(id => !validIds.includes(id))
+        validInitialServiceIds.some((id, index) => validIds[index] !== id)
       )) return;
       if (validIds.length > 0) {
-        setServiceIds([...new Set(validIds)]);
+        setServiceIds(validIds.slice(0, 10));
         setChoosingServices(false);
       }
       if (s.proId) setProId(s.proId);
@@ -314,7 +315,7 @@ export function BookingFlow({
           queryKey: availabilityQueryKey(
             salonId,
             s.proId,
-            [...new Set(validIds)],
+            validIds.slice(0, 10),
             s.date,
           ),
         };
@@ -675,6 +676,8 @@ export function BookingFlow({
         <section className="animate-fade-in min-h-dvh space-y-6 px-5 pb-32 pt-6">
           <FlowHeader title="Escolha os serviços" subtitle="Escolha um ou mais serviços para o mesmo atendimento." onBack={() => router.push(`/book/${salonSlug}`)} />
           <BookingProgress current={0} />
+        {serviceIds.length > 0 && serviceIds.length < 10 && <div className="space-y-2 rounded-xl border border-border p-3"><p className="text-sm font-medium">Complementos opcionais</p>{[...new Set(serviceIds.flatMap(id => addons[id] ?? []))].filter(id => !serviceIds.includes(id)).map(id => services.find(service => service.id === id)).filter(Boolean).map(service => service && <button key={service.id} type="button" className="mr-2 min-h-11 rounded-lg border border-border px-3 text-sm" onClick={() => { invalidatePendingSlot(); setServiceIds(ids => [...ids, service.id]); setProId(null); setSlot(null); }}>Adicionar {service.name} · {service.durationMin} min · {formatMoney(service.priceCents, currency)}</button>)}</div>}
+        <ServiceRepeater ids={serviceIds} services={services} onChange={ids => { invalidatePendingSlot(); setServiceIds(ids); setProId(null); setSlot(null); }} />
         {selectedServices.length > 0 && (
           <div
             aria-live="polite"
@@ -1101,7 +1104,7 @@ export function BookingFlow({
             Sem horários livres neste dia. Tente outra data.
           </p>
         ) : (
-          <><div className="mb-3 rounded-xl border border-success/30 bg-success/5 p-3"><p className="mb-2 text-xs font-medium">Sugestões de encaixe</p><div className="flex flex-wrap gap-2">{bestFitSlots(slots).map(s => <button key={s} type="button" onClick={() => setSlot(s)} aria-pressed={slot === s} className="min-h-11 rounded-lg border border-success/40 px-3 text-sm">{s}</button>)}</div><p className="mt-2 text-xs text-muted-foreground">Horários que aproveitam intervalos menores da agenda. Você também pode escolher abaixo.</p></div><div className="grid grid-cols-4 gap-2">
+          <>{slotMode === "FIT" && <div className="mb-3 rounded-xl border border-success/30 bg-success/5 p-3"><p className="mb-2 text-xs font-medium">Sugestões de encaixe</p><div className="flex flex-wrap gap-2">{bestFitSlots(slots).map(s => <button key={s} type="button" onClick={() => setSlot(s)} aria-pressed={slot === s} className="min-h-11 rounded-lg border border-success/40 px-3 text-sm">{s}</button>)}</div><p className="mt-2 text-xs text-muted-foreground">Horários que aproveitam intervalos menores da agenda. Você também pode escolher abaixo.</p></div>}<div className="grid grid-cols-4 gap-2">
             {slots.map((s) => {
               const selected = s === slot;
               const popular = s === popularSlot;

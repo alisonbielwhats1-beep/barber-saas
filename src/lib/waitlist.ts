@@ -119,7 +119,7 @@ export async function joinWaitlist(
   });
   if (!appointment) throw new WaitlistError("NOT_FOUND");
 
-  const serviceIds = [...new Set(input.serviceIds)];
+  const serviceIds = [...input.serviceIds];
   if (serviceIds.length === 0 || serviceIds.length > 10) {
     throw new WaitlistError("SERVICE_INVALID");
   }
@@ -132,12 +132,12 @@ export async function joinWaitlist(
     },
     select: { id: true, name: true, durationMin: true, priceCents: true, priceType: true, priceNote: true },
   });
-  if (requestedServices.length !== serviceIds.length) {
+  if (requestedServices.length !== new Set(serviceIds).size) {
     const existingServices = await tx.service.count({
       where: { id: { in: serviceIds }, salonId: input.salonId, active: true },
     });
     throw new WaitlistError(
-      existingServices === serviceIds.length ? "PRO_SERVICE_MISMATCH" : "SERVICE_INVALID",
+      existingServices === new Set(serviceIds).size ? "PRO_SERVICE_MISMATCH" : "SERVICE_INVALID",
     );
   }
   const servicesById = new Map(requestedServices.map((service) => [service.id, service]));

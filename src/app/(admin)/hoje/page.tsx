@@ -1,3 +1,4 @@
+import { ReceiptWorkspace } from "../financeiro/receipt-workspace";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, CalendarRange } from "lucide-react";
 import { ptBR } from "date-fns/locale";
@@ -41,8 +42,8 @@ export default async function HojePage({
         priceCents: true,
         payment: { select: { id: true } },
         client: { select: { name: true, phone: true } },
-        professional: { select: { id: true, user: { select: { name: true } } } },
-        service: { select: { name: true } },
+        professional: { select: { id: true, colorHex: true, user: { select: { name: true } } } },
+        service: { select: { name: true, colorHex: true, category: true } },
         serviceItems: {
           orderBy: { position: "asc" },
           select: { serviceName: true },
@@ -62,6 +63,7 @@ export default async function HojePage({
       clientName: appointment.dependentName ? `${appointment.dependentName} (titular: ${appointment.client.name})` : appointment.client.name,
       clientPhone: appointment.client.phone,
       professionalName: appointment.professional.user.name,
+      professionalColor: appointment.professional.colorHex, serviceColor: appointment.service.colorHex, category: appointment.service.category,
       serviceName: appointment.serviceItems.length > 0
         ? appointment.serviceItems.map((service) => service.serviceName).join(" + ")
         : appointment.service.name,
@@ -105,7 +107,10 @@ export default async function HojePage({
         </div>
       </header>
 
+      {["OWNER", "MANAGER"].includes(ctx.role) && <ReceiptWorkspace date={result.dateKey} />}
+
       <HojeView
+        colorScope={`${ctx.salonId}:${ctx.userId}`}
         date={result.dateKey}
         salonName={result.salon.name}
         timezone={result.salon.timezone}

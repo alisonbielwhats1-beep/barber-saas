@@ -16,8 +16,6 @@ import {
   Layers,
   Megaphone,
   FileBarChart,
-  CreditCard,
-  ClipboardCheck,
   Share2,
   Bell,
   ShieldCheck,
@@ -93,8 +91,6 @@ export const GROUPS: { title: string; items: Item[] }[] = [
     title: "Financeiro",
     items: [
       { href: "/financeiro", label: "Financeiro", icon: Wallet, roles: FINANCIAL_ROLES },
-      { href: "/fechamento", label: "Fechamento", icon: ClipboardCheck, roles: FINANCIAL_ROLES },
-      { href: "/pagamentos", label: "Pagamentos", icon: CreditCard, roles: FINANCIAL_ROLES },
       { href: "/relatorios", label: "Relatórios", icon: FileBarChart, roles: FINANCIAL_ROLES },
     ],
   },

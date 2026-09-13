@@ -47,7 +47,7 @@ describe("gate de autenticação do agendamento", () => {
   it("permite explorar catálogo com sessão nula, dentro do gate do salão aprovado", async () => {
     mocks.withSalonBySlug.mockResolvedValue({ salon: {
       id: "salon-a", name: "Studio A", services: [], currency: "BRL", timezone: "America/Sao_Paulo",
-    }, counts: [], validSession: null });
+    }, counts: [], preferences: { addons: {}, slotMode: "FIT" }, validSession: null });
     const result = await AgendarPage({ params: Promise.resolve({ salonSlug: "studio-a" }), searchParams: Promise.resolve({}) });
     expect(mocks.withSalonBySlug).toHaveBeenCalledWith("studio-a", expect.any(Function));
     expect(mocks.redirect).not.toHaveBeenCalled();

@@ -1214,7 +1214,6 @@ model AppointmentService {
   service     Service     @relation(fields: [serviceId, salonId], references: [id, salonId], map: "AppointmentService_service_tenant_fkey")
 
   @@id([appointmentId, position])
-  @@unique([appointmentId, serviceId])
   @@index([salonId, appointmentId])
   @@index([serviceId])
 }
@@ -1481,6 +1480,10 @@ model Payment {
   appointmentId String        @unique
   amountCents   Int
   discountCents Int           @default(0)
+  extraServices Json          @default("[]")
+  surchargeCents Int          @default(0)
+  adjustmentReason String?
+  recordedAt    DateTime      @default(now()) @db.Timestamptz(3)
   method        PaymentMethod
   notes         String?
   currency      String
@@ -1563,6 +1566,8 @@ model FlexibleWaitlist {
   salon Salon @relation(fields: [salonId], references: [id], onDelete: Restrict)
   professional Professional @relation(fields: [professionalId, salonId], references: [id, salonId], onDelete: Restrict)
   services FlexibleWaitlistService[]
+  serviceIds String[] @default([])
+  offers WaitlistOffer[]
   @@unique([id, salonId])
   @@index([salonId, professionalId, status, createdAt])
 }
@@ -1576,4 +1581,23 @@ model FlexibleWaitlistService {
   salon Salon @relation(fields: [salonId], references: [id], onDelete: Restrict)
   @@id([waitlistId, serviceId])
   @@index([salonId])
+}
+
+model WaitlistOffer {
+  id String @id @default(cuid())
+  salonId String
+  waitlistId String
+  professionalId String
+  startAt DateTime @db.Timestamptz(3)
+  endAt DateTime @db.Timestamptz(3)
+  expiresAt DateTime @db.Timestamptz(3)
+  status String @default("OFFERED")
+  serviceIds String[]
+  resourceIds String[]
+  serviceSnapshots Json @default("[]")
+  priceCents Int
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  appointmentId String?
+  waitlist FlexibleWaitlist @relation(fields: [waitlistId, salonId], references: [id, salonId], onDelete: Restrict)
+  @@index([salonId, professionalId, status, expiresAt])
 }

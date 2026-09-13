@@ -1,5 +1,17 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-13 — integração das entregas em revisão
+
+O PR #101 incorpora o PR #103 (`afe5f9b`) e preserva as jornadas de recebimentos
+e agendamento junto aos planos e à cobrança Mercado Pago. Os dois conjuntos
+usaram o prefixo manual 023 em branches independentes: `023_receipts_booking`
+foi aplicado em produção pelo PR #103; `023_mercadopago_billing` e
+`024_billing_hq` permanecem não aplicados e desativados. Identificar sempre
+o nome completo do arquivo; o prefixo numérico isolado não comprova aplicação.
+O CI preserva os testes e backups separados das duas entregas.
+Os resultados abaixo de 941 testes e 27 integrações referem-se a `efe16a4`,
+antes desta incorporação. A versão integrada exige nova rodada de validação.
+
 ## 2026-09-13 — proposta dos planos na landing e homologação retomada
 
 Por solicitação do responsável, a landing segue a referência aprovada com
@@ -83,6 +95,25 @@ de 13/09 acima registra o estado mais recente. No teste com contas
 fictícias, criação, aprovação mensal, liberação e cancelamento foram confirmados
 pelo Mercado Pago; contrato anual também criado e cancelado ainda pendente.
 Detalhes e limites dessa evidência no documento da entrega. PR #101 em revisão.
+
+## 2026-09-13 — recebimentos e agendamento: publicação autorizada
+
+Branch `codex/booking-receipts-experience`, base inicial `5cca634` (PR #99), atualizada com `d970b11` (PR #102).
+A solicitação reúne baixa em lote, ajustes antes de receber, serviços repetidos,
+preferência de cores, atendimento de sempre, complementos, retorno previsto,
+sugestões de horários e oferta de fila com aceite.
+Pagamentos e Fechamento deixam a navegação: as rotas antigas redirecionam ao
+Financeiro. Abertura/fechamento de caixa e sinais sugeridos automaticamente em
+30% deixam esta experiência; registros históricos permanecem preservados.
+Esta decisão substitui a navegação financeira separada descrita em fases anteriores.
+Detalhes e evidências em `RECEBIMENTOS_E_AGENDAMENTO_2026-09-13.md`.
+O responsável autorizou "faça o deploy em produção" após a aprovação do PR #103.
+CI 34745748168 aprovado: 924 testes unitários, PostgreSQL e 102 testes de navegador.
+Migration 023 aplicada no projeto `vshnatkzxdekkvqttvbv`, versão `20260913142553`,
+após preflight e backup criptografado com decifragem/checksum verificados.
+Os 1.191 pagamentos (14.589.500 centavos) e 2.276 itens de serviço foram preservados
+por checksum. RLS ENABLE/FORCE, três guardas e backfill foram verificados.
+O deploy segue a integração do PR #103; commit e conferência final ficam no PR.
 
 ## 2026-09-13 — domínio oficial do cliente, publicação autorizada
 

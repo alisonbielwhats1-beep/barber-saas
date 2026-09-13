@@ -7,12 +7,11 @@ function source(path: string) {
 }
 
 describe("superficies dos novos fluxos operacionais", () => {
-  it("habilita pagamentos na navegacao e oferece abertura e fechamento de caixa", () => {
+  it("consolida pagamentos e fechamento no financeiro", () => {
     const sidebar = source("src/app/(admin)/sidebar-nav.tsx");
-    const payments = source("src/app/(admin)/pagamentos/page.tsx");
-    expect(sidebar).toContain('{ href: "/pagamentos", label: "Pagamentos", icon: CreditCard, roles: FINANCIAL_ROLES }');
-    expect(payments).toContain("Abertura e fechamento");
-    expect(payments).toContain("Recebimentos recentes");
+    expect(sidebar).not.toContain('href: "/pagamentos"');
+    expect(sidebar).not.toContain('href: "/fechamento"');
+    for (const path of ["pagamentos", "fechamento"]) expect(source(`src/app/(admin)/${path}/page.tsx`)).toContain('redirect("/financeiro")');
   });
 
   it("mostra historico de campanhas e registra interacao manual", () => {

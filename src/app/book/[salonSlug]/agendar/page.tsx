@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { withSalonBySlug } from "@/lib/prisma-tenant";
 import { getClientSession } from "@/lib/client-auth";
 import { resolveClientSessionInTenant } from "@/lib/public-appointment";
+import { getBookingPreferences } from "@/lib/booking-preferences";
 import { BookingFlow } from "./booking-flow";
 import { dateKeyInTimeZone } from "@/lib/time";
 import { normalizeImageUrl } from "@/lib/images";
@@ -28,15 +29,7 @@ export default async function AgendarPage({
   if (!clientSession && query.reschedule) {
     redirect(`/book/${salonSlug}/welcome?returnTo=${encodeURIComponent(returnTo)}`);
   }
-  const initialServiceIds = [
-    ...new Set(
-      (query.services ?? query.service ?? "")
-        .split(",")
-        .map((id) => id.trim())
-        .filter(Boolean)
-        .slice(0, 10),
-    ),
-  ];
+  const initialServiceIds = (query.services ?? query.service ?? "").split(",").map(id => id.trim()).filter(Boolean).slice(0, 10);
   const result = await withSalonBySlug(salonSlug, async (tx, salonId) => {
     const salon = await tx.salon.findUnique({
       where: { id: salonId },
@@ -96,7 +89,7 @@ export default async function AgendarPage({
         if (service) Object.assign(service, { priceCents: item.priceCents, priceType: item.priceType, priceNote: item.priceNote, durationMin: item.durationMin });
       }
     }
-    return { salon, counts, validSession };
+    return { salon, counts, validSession, preferences: await getBookingPreferences(tx, salonId) };
   });
   if (!result) notFound();
   const { salon, counts, validSession } = result;
@@ -144,6 +137,8 @@ export default async function AgendarPage({
       maxBookingLeadDays={salon.maxBookingLeadDays}
       todayDate={dateKeyInTimeZone(new Date(), salon.timezone)}
       services={services}
+      addons={result.preferences.addons}
+      slotMode={result.preferences.slotMode}
       initialServiceIds={initialServiceIds}
       initialProId={query.pro ?? null}
       initialDateKey={query.date}

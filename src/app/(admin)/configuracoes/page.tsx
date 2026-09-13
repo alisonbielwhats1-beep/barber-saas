@@ -4,6 +4,7 @@ import { MANAGEMENT_ROLES } from "@/lib/role-permissions";
 import { withTenant } from "@/lib/prisma-tenant";
 import { emailInvitesEnabled } from "@/lib/email-invites-feature";
 import { ArrowRight, Bell, Check, Circle, Crown, ListChecks } from "lucide-react";
+import { BookingPreferencesPanel } from "./booking-preferences-panel";
 import { SalonSettingsForm } from "./salon-settings-form";
 import { AccessManager, type Member } from "./access-manager";
 import { BrandingForm } from "./branding-form";
@@ -156,7 +157,7 @@ export default async function ConfiguracoesPage() {
         <section id="horarios" className="scroll-mt-24">
           <TeamHoursManager openMinutes={salon.openMinutes} closeMinutes={salon.closeMinutes} professionals={teamHours.map(p => ({ id: p.id, name: p.user.name, workingHours: p.workingHours }))} />
         </section>
-        <section id="agenda"><SalonSettingsForm salon={salon} /></section>
+        <section id="agenda" className="space-y-6"><SalonSettingsForm salon={salon} /><BookingPreferencesPanel /></section>
         <section id="precos">
             <PricingRulesManager
               canManage={role === "OWNER" || role === "MANAGER"}

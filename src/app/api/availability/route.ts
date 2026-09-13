@@ -58,14 +58,7 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const salonId = url.searchParams.get("salonId");
   const professionalId = url.searchParams.get("professionalId");
-  const serviceIds = [
-    ...new Set(
-      url.searchParams
-        .getAll("serviceId")
-        .flatMap((value) => value.split(","))
-        .filter(Boolean),
-    ),
-  ];
+  const serviceIds = url.searchParams.getAll("serviceId").flatMap(value => value.split(",")).filter(Boolean);
   const date = url.searchParams.get("date");
   const rescheduleId = url.searchParams.get("rescheduleId");
   if (
@@ -113,11 +106,11 @@ export async function GET(req: NextRequest) {
         where: { id: { in: serviceIds }, salonId, active: true },
         select: { id: true, durationMin: true, priceCents: true, priceType: true, priceNote: true, physicalResourceId: true },
       });
-      if (services.length !== serviceIds.length) return null;
+      if (services.length !== new Set(serviceIds).size) return null;
       const priced = await priceServicesForDate(tx, {
         salonId,
         dateKey: date,
-        services,
+        services: serviceIds.map(id => services.find(service => service.id === id)!),
       });
 
       const professionalLinks = await tx.professionalService.findMany({
@@ -127,7 +120,7 @@ export async function GET(req: NextRequest) {
         },
         select: { serviceId: true },
       });
-      if (professionalLinks.length !== serviceIds.length) return null;
+      if (professionalLinks.length !== new Set(serviceIds).size) return null;
 
       const workingHours = await workingHoursForDate(tx, salonId, professionalId, date);
       const closures = await tx.salonClosure.findMany({
@@ -156,6 +149,8 @@ export async function GET(req: NextRequest) {
       });
       const resourceIds = services.flatMap(s => s.physicalResourceId ? [s.physicalResourceId] : []);
       const resourceBookings = resourceIds.length ? await tx.resourceBooking.findMany({ where: { salonId, resourceId: { in: resourceIds }, active: true, startAt: { lt: to }, endAt: { gt: from }, ...(rescheduleId ? { appointmentId: { not: rescheduleId } } : {}) }, select: { startAt: true, endAt: true } }) : [];
+      const offerHolds = await tx.waitlistOffer.findMany({ where: { salonId, status: "OFFERED", expiresAt: { gt: requestNow }, startAt: { lt: to }, endAt: { gt: from }, OR: [{ professionalId }, { resourceIds: { hasSome: resourceIds } }] }, select: { startAt: true, endAt: true, professionalId: true } });
+      resourceBookings.push(...offerHolds.map(o => o.professionalId === professionalId ? { startAt: addMinutes(o.startAt, -salon.bufferMinutes), endAt: addMinutes(o.endAt, salon.bufferMinutes) } : o));
       const history = await tx.appointment.findMany({
         where: {
           salonId,

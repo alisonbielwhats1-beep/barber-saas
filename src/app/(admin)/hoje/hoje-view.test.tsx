@@ -60,7 +60,7 @@ describe("HojeView", () => {
   it("oferece a próxima ação e atualiza a agenda depois do status", async () => {
     const user = userEvent.setup();
     render(
-      <HojeView
+      <HojeView colorScope="test-salon:test-user"
         date="2026-08-20"
         timezone="America/Sao_Paulo"
         currency="BRL"
@@ -81,7 +81,7 @@ describe("HojeView", () => {
   it("filtra encerrados sem esconder o total do dia", async () => {
     const user = userEvent.setup();
     render(
-      <HojeView
+      <HojeView colorScope="test-salon:test-user"
         date="2026-08-20"
         timezone="America/Sao_Paulo"
         currency="BRL"
@@ -100,7 +100,7 @@ describe("HojeView", () => {
     const user = userEvent.setup();
     const open = vi.spyOn(window, "open").mockImplementation(() => null);
     render(
-      <HojeView
+      <HojeView colorScope="test-salon:test-user"
         date="2026-08-20"
         salonName="Luna Hair Studio"
         timezone="America/Sao_Paulo"
