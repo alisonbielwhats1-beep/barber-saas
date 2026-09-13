@@ -132,6 +132,13 @@ sensíveis.
 
 ## Fase 7 — billing e monetização
 
+Atualização de 12/09/2026: backend Mercado Pago autorizado e implementado em
+revisão na branch `codex/mercadopago-subscriptions`. Catálogo e regras aprovadas,
+contratos, confirmação, entitlements, renovação/cancelamento e reconciliação em
+`MERCADOPAGO_ASSINATURAS.md`. Ativação comercial, frontend e homologação completa
+continuam pendentes. A lista abaixo representa o escopo global da fase, mais
+amplo que essa entrega de backend.
+
 O controle **manual** de cobranças já está preparado no código, protegido por
 `PLATFORM_BILLING_ENABLED=false`. A migration `011_platform_billing` não foi
 aplicada em Production. Os itens abaixo continuam necessários antes de billing

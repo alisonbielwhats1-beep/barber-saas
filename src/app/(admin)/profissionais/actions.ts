@@ -1,4 +1,5 @@
 "use server";
+import { effectiveEntitlement } from "@/lib/billing/entitlements";
 
 import { lockOperationalResources } from "@/lib/inventory-lock";
 
@@ -212,7 +213,7 @@ export async function toggleProfessionalActive(id: string) {
         const activeProfessionals = await tx.professional.count({
           where: { salonId: ctx.salonId, active: true },
         });
-        assertProfessionalCapacity({ plan: salon.plan, activeProfessionals });
+        assertProfessionalCapacity({ plan: await effectiveEntitlement(tx, ctx.salonId, salon.plan), activeProfessionals });
       }
     }
     await tx.professional.updateMany({ where: { id, salonId: ctx.salonId }, data: { active: !p.active } });

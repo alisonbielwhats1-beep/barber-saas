@@ -4,6 +4,28 @@ Este documento define a separação de ambientes do Salon SaaS. A regra central
 é simples: nenhum teste, seed, preview ou migration de desenvolvimento pode
 usar o projeto Supabase de produção.
 
+## Atualização de 13 de setembro de 2026 — Codespace identificado
+
+O Codespace `glorious-enigma-jjv6v4rvrv49f544r` foi localizado na conta
+`alisonbielwhats1-beep` e iniciado pelo navegador. O proprietário autorizou
+confiar somente na pasta `/workspaces/barber-saas` para o inventário. Branch
+`codex/everflair-demo`, commit `106ac11`, checkout limpo. Consulta somente leitura
+confirmou banco `everflair_demo` em `127.0.0.1:5432`, usuário `app_runtime`,
+`rolsuper=false` e `rolbypassrls=false`.
+
+A aplicação antiga está na porta 3000, rotulada Everflair Demo, com visibilidade
+**Private** e endereço
+`https://glorious-enigma-jjv6v4rvrv49f544r-3000.app.github.dev/`. A abertura pelo
+navegador retornou HTTP 401 no encaminhamento privado. Não houve mudança de
+visibilidade, schema, dados ou versão implantada. Esse ambiente de demonstração
+foi identificado; ainda não contém o PR #101 nem oferece um endpoint público
+durável para webhooks. Os dois projetos Supabase existentes continuam reservados
+para produção e não foram usados nos testes.
+
+O CLI GitHub continua sem escopo `codespace`; o acesso acima foi pelo navegador
+autenticado na conta proprietária. A evidência externa do billing é registrada em
+`MERCADOPAGO_PORTAL_HQ.md` e usa banco local sintético distinto desse Codespace.
+
 ## Atualização de 6 de setembro de 2026 — demonstração no GitHub
 
 Atualização posterior, 07/09: o responsável solicitou uma conta de apresentação
@@ -197,9 +219,10 @@ Rollback nunca deve apagar dados recém-criados sem exportação e autorização
   autenticação ou operação continuam bloqueados no middleware.
 - Ambientes GitHub `test`, `staging` e `production`: gerenciados separadamente
   nas configurações do repositório.
-- A conta já possui dois projetos Supabase ativos; a classificação segura entre
-  produção e homologação e o ajuste das variáveis Vercel Preview estão
-  pendentes. Nenhum terceiro projeto foi criado.
+- A conta já possui dois projetos Supabase ativos, ambos destinados a produção.
+  Nenhum terceiro projeto foi criado. O Codespace de demonstração foi
+  identificado em 13/09 conforme atualização acima; não há Supabase de staging
+  nem Preview autenticável de billing configurado.
 - A wave1 implantada pelos PRs #50/#51 adiciona testes PostgreSQL de
   concorrência de agenda, comanda/estoque e lock de aprovação versus suspensão
   ao `schema-smoke`; a execução no CI remoto foi comprovada em PostgreSQL 16,

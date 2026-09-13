@@ -1,5 +1,65 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-13 — Codespace identificado e webhook espontâneo de cancelamento
+
+Identificado e iniciado o Codespace `glorious-enigma-jjv6v4rvrv49f544r` da conta
+`alisonbielwhats1-beep`: branch `codex/everflair-demo`, commit `106ac11`, limpo.
+Consulta somente leitura confirmou banco local `everflair_demo` e runtime
+`app_runtime` sem superusuário/BYPASSRLS. A aplicação na porta 3000 está privada
+e sua abertura no navegador retornou 401. O PR #101 não foi implantado ali;
+schema, dados e visibilidade não foram alterados. Os dois Supabase existentes
+continuam destinados a produção. Inventário em `AMBIENTES.md`.
+
+Nova assinatura fictícia `4c2d1646473e4a9ea8d91dfc89109c46` ficou com confirmação
+desabilitada no checkout e foi cancelada sem pagamento. O cancelamento gerou
+webhook espontâneo `subscription_preapproval` às `2026-09-13T05:10:38.895Z`,
+HMAC válido, HTTP 200 e inbox posteriormente processada sem erro. Foi usado
+ingresso temporário e banco sintético local. Aprovação de novo pagamento por
+esse caminho e push no iPhone da conta oficial permanecem **não validados**.
+Evidências em `MERCADOPAGO_PORTAL_HQ.md`. Nenhuma ativação produtiva autorizada
+ou realizada nesta verificação.
+
+## 2026-09-13 — portal de assinatura e integração HQ em revisão
+
+O PR #101 inclui escolha mensal/anual, continuidade no cadastro/login,
+portal `/assinatura` exclusivo do proprietário e sincronização de pagamentos,
+plano, período e capacidade com HQ/CRM/CMM. Confirmação financeira permanece
+no backend; retorno do checkout não libera o plano. Estornos parciais mostram
+o valor devolvido e reduzem a receita recebida; histórico é preservado.
+
+Migration 024 aditiva validada em PostgreSQL local com RLS, sem aplicação
+produtiva. `MERCADOPAGO_HQ_SYNC_ENABLED` é opt-in e permanece desligada junto
+da contratação e do reconciliador em Production. A 011 também segue desligada.
+Lint, TypeScript, 930 testes unitários/componentes, 27 integrações PostgreSQL
+e build passaram nesta ampliação. CI/schema-smoke e Preview serão registrados
+no PR para o commit final.
+
+O simulador oficial da aplicação fictícia enviou webhook externo com HMAC
+autêntico, aceito com HTTP 200 e consulta ao provedor; a cobrança fictícia
+previamente aprovada apareceu automaticamente no HQ. Não há staging persistente
+classificado: foi usado ingresso HTTPS temporário restrito ao webhook e banco
+local sintético. O novo checkout ficou com confirmação desabilitada no Mercado
+Pago; sua assinatura pendente foi cancelada, sem pagamento novo. URLs de teste
+removidos e ingresso temporário encerrado. A notificação nativa no celular não
+foi comprovada. Escopo, evidências e limites em `MERCADOPAGO_PORTAL_HQ.md`.
+
+## 2026-09-12 — backend Mercado Pago em revisão, desativado
+
+Branch `codex/mercadopago-subscriptions`, base `5cca634` (PR #99): contratação
+mensal/anual, confirmação financeira, liberação por período, carência de cinco
+dias, renovação, cancelamento e fila de reconciliação implementados. Contratos
+legados preservados; suspensão administrativa independente. Detalhes, preços,
+APIs e roteiro de liberação em `MERCADOPAGO_ASSINATURAS.md`.
+Migration 023 validada somente no PostgreSQL local descartável, não aplicada em
+Production. MERCADOPAGO_BILLING_ENABLED e execução agendada seguem desativadas;
+PLATFORM_BILLING_ENABLED permanece false e 011 não foi aplicada. Checkout no
+frontend e webhook externo ainda pendentes nesta etapa histórica; a ampliação
+de 13/09 acima registra o estado mais recente. No teste com contas
+fictícias, criação, aprovação mensal, liberação e cancelamento foram confirmados
+pelo Mercado Pago; contrato anual também criado e cancelado ainda pendente.
+Detalhes e limites dessa evidência no documento da entrega. PR #101 em revisão.
+
+
 
 ## 2026-09-12 — busca, bloqueios e encaixe: publicação autorizada
 

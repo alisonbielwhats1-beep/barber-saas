@@ -89,7 +89,7 @@ jobs:
   schema-smoke:
     runs-on: ubuntu-latest
     environment: test
-    timeout-minutes: 30
+    timeout-minutes: 40
     services:
       postgres:
         image: postgres:16-alpine
@@ -284,6 +284,35 @@ jobs:
           npx prisma db execute --file tests/fixtures/022-preservation-after.sql --url "$DIRECT_URL"
           npx vitest run src/lib/hq/chief-postgres.integration.test.ts
           npx prisma db execute --file prisma/sql/manual/022_hq_chief.rollback.sql --url "$DIRECT_URL"
+      - name: Validate automatic billing upgrade, RLS, retries and paid access
+        run: |
+          docker exec ${{ job.services.postgres.id }} pg_dump -U postgres -d salon_schema_ci > "$RUNNER_TEMP/pre023.sql"
+          test -s "$RUNNER_TEMP/pre023.sql"
+          docker exec ${{ job.services.postgres.id }} createdb -U postgres salon_restore023_ci
+          docker exec -i ${{ job.services.postgres.id }} psql -U postgres -d salon_restore023_ci -v ON_ERROR_STOP=1 < "$RUNNER_TEMP/pre023.sql" > /dev/null
+          docker exec -i ${{ job.services.postgres.id }} psql -X -A -t -U postgres -d salon_schema_ci -v ON_ERROR_STOP=1 < tests/fixtures/023-preservation-fingerprint.sql > "$RUNNER_TEMP/pre023-fingerprint.txt"
+          npx prisma db execute --file prisma/sql/manual/023_mercadopago_billing.preflight.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/023_mercadopago_billing.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/023_mercadopago_billing.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/023_mercadopago_billing.verify.sql --url "$DIRECT_URL"
+          docker exec -i ${{ job.services.postgres.id }} psql -X -A -t -U postgres -d salon_schema_ci -v ON_ERROR_STOP=1 < tests/fixtures/023-preservation-fingerprint.sql > "$RUNNER_TEMP/post023-fingerprint.txt"
+          diff -u "$RUNNER_TEMP/pre023-fingerprint.txt" "$RUNNER_TEMP/post023-fingerprint.txt"
+          docker exec ${{ job.services.postgres.id }} pg_dump -U postgres -d salon_schema_ci > "$RUNNER_TEMP/pre024.sql"
+          test -s "$RUNNER_TEMP/pre024.sql"
+          docker exec ${{ job.services.postgres.id }} createdb -U postgres salon_restore024_ci
+          docker exec -i ${{ job.services.postgres.id }} psql -U postgres -d salon_restore024_ci -v ON_ERROR_STOP=1 < "$RUNNER_TEMP/pre024.sql" > /dev/null
+          docker exec -i ${{ job.services.postgres.id }} psql -X -A -t -U postgres -d salon_schema_ci -v ON_ERROR_STOP=1 < tests/fixtures/024-preservation-fingerprint.sql > "$RUNNER_TEMP/pre024-fingerprint.txt"
+          docker exec -i ${{ job.services.postgres.id }} psql -X -A -t -U postgres -d salon_restore024_ci -v ON_ERROR_STOP=1 < tests/fixtures/024-preservation-fingerprint.sql > "$RUNNER_TEMP/restored024-fingerprint.txt"
+          diff -u "$RUNNER_TEMP/pre024-fingerprint.txt" "$RUNNER_TEMP/restored024-fingerprint.txt"
+          npx prisma db execute --file prisma/sql/manual/024_billing_hq.preflight.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/024_billing_hq.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/024_billing_hq.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/024_billing_hq.verify.sql --url "$DIRECT_URL"
+          docker exec -i ${{ job.services.postgres.id }} psql -X -A -t -U postgres -d salon_schema_ci -v ON_ERROR_STOP=1 < tests/fixtures/024-preservation-fingerprint.sql > "$RUNNER_TEMP/post024-fingerprint.txt"
+          diff -u "$RUNNER_TEMP/pre024-fingerprint.txt" "$RUNNER_TEMP/post024-fingerprint.txt"
+          npx vitest run src/lib/billing/billing-postgres.integration.test.ts src/lib/hq/hq-postgres.integration.test.ts
+          npx prisma db execute --file prisma/sql/manual/024_billing_hq.rollback.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/023_mercadopago_billing.rollback.sql --url "$DIRECT_URL"
       - name: Prove appointment and comanda concurrency with PostgreSQL, plus public access locking
         run: npm run test:appointment-integration
       - name: Prove tenant-isolated password recovery with PostgreSQL
@@ -311,7 +340,11 @@ jobs:
       - name: Validate authenticated critical journeys
         env:
           NODE_OPTIONS: --max-old-space-size=4096
-        run: npm run test:e2e:database -- --grep-invert "matriz de enquadramento|revisão visual"
+        # Each invocation closes its dev server before the next shard starts.
+        # Keep every journey without accumulating all route compilations in one process.
+        run: |
+          PLAYWRIGHT_HTML_OUTPUT_DIR=playwright-report/auth-shard-1 npm run test:e2e:database -- --grep-invert "matriz de enquadramento|revisão visual" --shard=1/2 --output=test-results/auth-shard-1
+          PLAYWRIGHT_HTML_OUTPUT_DIR=playwright-report/auth-shard-2 npm run test:e2e:database -- --grep-invert "matriz de enquadramento|revisão visual" --shard=2/2 --output=test-results/auth-shard-2
       - name: Preserve browser evidence from synthetic tests
         if: always()
         uses: actions/upload-artifact@v4

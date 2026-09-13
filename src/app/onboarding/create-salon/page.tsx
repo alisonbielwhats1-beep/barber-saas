@@ -4,6 +4,8 @@ import { EstablishmentShell } from "@/components/marketing/establishment-shell";
 import { withUser } from "@/lib/prisma-tenant";
 import { authOptions } from "@/lib/auth";
 import { CreateSalonForm } from "./create-salon-form";
+import { billingIntentHref, resolveBillingIntent } from "@/lib/billing/presentation";
+import { billingEnabled } from "@/lib/billing/config";
 
 /**
  * Destino do redirect em `getTenantContext()` para usuário sem membership.
@@ -16,7 +18,9 @@ import { CreateSalonForm } from "./create-salon-form";
  *    sem nenhuma membership).
  * O texto atende os dois sem afirmar qual é o caso.
  */
-export default async function CreateSalonPage() {
+export default async function CreateSalonPage({ searchParams }: { searchParams: Promise<{ billingPlan?: string; cycle?: string; extraAgendas?: string }> }) {
+  const intent = billingEnabled() ? resolveBillingIntent(await searchParams) : undefined;
+  const next = intent ? billingIntentHref(intent, "/assinatura") : "/dashboard";
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/login");
 
@@ -26,7 +30,7 @@ export default async function CreateSalonPage() {
   const memberships = await withUser(session.user.id, (tx) =>
     tx.membership.count({ where: { userId: session.user.id } }),
   );
-  if (memberships > 0) redirect("/dashboard");
+  if (memberships > 0) redirect(next);
 
-  return (<EstablishmentShell onboarding><CreateSalonForm /></EstablishmentShell>);
+  return (<EstablishmentShell onboarding><CreateSalonForm nextHref={next} /></EstablishmentShell>);
 }

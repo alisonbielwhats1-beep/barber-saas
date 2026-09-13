@@ -826,6 +826,16 @@ export const definitions: Record<string, EntityDefinition> = {
     ]
   }
 };
+// Source fields are visible, but cannot be submitted through manual HQ commands.
+definitions.subscriptions.fields = [...definitions.subscriptions.fields,
+ {key:"billingState",label:"Situação no Mercado Pago",type:"text",readonly:true},
+ {key:"billingPaidThrough",label:"Acesso pago até",type:"datetime",readonly:true},
+ {key:"billingAgendaLimit",label:"Agendas contratadas",type:"number",readonly:true},
+];
+definitions.payments.fields = [...definitions.payments.fields,
+ {key:"billingStatus",label:"Situação no Mercado Pago",type:"text",readonly:true},
+ {key:"billingRefundedCents",label:"Valor estornado",type:"money",readonly:true},
+];
 export const stages = ["Novo Lead","Contatado","Interessado","Demonstração","Teste Grátis","Negociação","Fechado","Perdido"] as const;
 export type Row = { id: string; createdAt: string; updatedAt: string; [key: string]: string | number | null };
 export const entityKeys = Object.keys(definitions);

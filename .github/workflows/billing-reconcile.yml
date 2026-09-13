@@ -1,0 +1,36 @@
+name: Billing reconciliation
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/5 * * * *'
+permissions: {}
+concurrency:
+  group: billing-reconciliation
+  cancel-in-progress: false
+jobs:
+  reconcile:
+    if: vars.BILLING_RECONCILIATION_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Run authenticated reconciliation
+        env:
+          BILLING_URL: ${{ secrets.BILLING_RECONCILIATION_URL }}
+          BILLING_SECRET: ${{ secrets.BILLING_CRON_SECRET }}
+        run: |
+          node --input-type=module <<'JS'
+          const url = new URL(process.env.BILLING_URL);
+          if (url.protocol !== 'https:' || url.pathname !== '/api/cron/billing' || url.username || url.password || !process.env.BILLING_SECRET) throw new Error('Invalid billing worker configuration');
+          const started = Date.now();
+          let processed = 0, failed = 0;
+          for (let attempt = 0; attempt < 50 && Date.now() - started < 200000; attempt++) {
+            const response = await fetch(url, {headers:{authorization:`Bearer ${process.env.BILLING_SECRET}`},redirect:'error',signal:AbortSignal.timeout(55000)});
+            if (!response.ok) throw new Error(`Billing worker HTTP ${response.status}`);
+            const result = await response.json();
+            processed += result.processed ?? 0;
+            failed += result.failed ?? 0;
+            if (result.disabled || !(result.processed + result.failed)) break;
+          }
+          console.log(JSON.stringify({processed,failed}));
+          if (failed) throw new Error('Billing reconciliation requires attention; inspect the protected HQ endpoint');
+          JS

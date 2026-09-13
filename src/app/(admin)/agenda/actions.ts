@@ -67,6 +67,7 @@ function appointmentActionMessage(error: unknown): string {
   }
   const messages: Partial<Record<typeof error.code, string>> = {
     NOT_FOUND: "Agendamento não encontrado",
+    BILLING_REQUIRED: "Regularize a assinatura do estabelecimento para criar novas reservas.",
     FORBIDDEN: "Você não tem permissão para este agendamento",
     SERVICE_INVALID: "Serviço inválido",
     PRO_SERVICE_MISMATCH: "Este profissional não realiza todos os serviços",

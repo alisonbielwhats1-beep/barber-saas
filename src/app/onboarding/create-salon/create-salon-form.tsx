@@ -12,7 +12,7 @@ import {
 } from "@/components/segment-service-picker";
 import { createSalon } from "./actions";
 
-export function CreateSalonForm() {
+export function CreateSalonForm({ nextHref = "/dashboard" }: { nextHref?: string }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -34,7 +34,7 @@ export function CreateSalonForm() {
           setError(res.error);
           return;
         }
-        router.push("/dashboard");
+        router.push(nextHref);
         router.refresh();
       } catch {
         setError("Não foi possível concluir agora. Verifique sua conexão e tente novamente.");
