@@ -1,7 +1,8 @@
 # Mercado Pago — backend de assinaturas recorrentes
 
 Implementação autorizada em 12/09/2026, branch `codex/mercadopago-subscriptions`.
-Base `5cca634` (PR #99). Migration 023 aditiva, **não aplicada em Production**.
+Base `5cca634` (PR #99). Migration 023 aditiva, aplicada em Production em
+13/09 após autorização, backup e homologação; ver `RELEASE_MERCADOPAGO_2026-09-13.md`.
 A interface de escolha e o portal estão conectados às APIs no PR #101.
 A landing exibe o catálogo aprovado mesmo com cobrança desligada; nesse caso,
 a escolha segue como interesse para cadastro, sem criar assinatura.
@@ -72,7 +73,7 @@ a capacidade efetiva vem do contrato, não desse enum legado.
 - `POST /api/webhooks/mercadopago`: tópicos `subscription_preapproval`,
   `subscription_authorized_payment`, `payment`; assinatura obrigatória.
   Responde sucesso somente após persistir a notificação relevante.
-- `GET /api/cron/billing`: Bearer CRON_SECRET; processa uma unidade limitada
+- `GET /api/cron/billing`: Bearer BILLING_CRON_SECRET (fallback CRON_SECRET); processa uma unidade limitada
   por chamada, com lease de cinco minutos e timeout remoto de seis segundos.
 - `GET /api/hq/billing?cursor=UUID`: withHq, paginação de cinquenta contratos;
   status, fila, tentativas e revisão financeira, sem endpoints de edição no HQ.

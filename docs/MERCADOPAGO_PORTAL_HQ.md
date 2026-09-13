@@ -179,6 +179,16 @@ Limpeza final: URLs de teste e produção da aplicação fictícia removidos com
 Redefinir; ambos os campos foram verificados vazios e os eventos desmarcados.
 Túnel e proxy temporários encerrados. A aplicação principal não foi alterada.
 
+## Atualização da liberação de 13/09
+
+O responsável autorizou disponibilizar em produção. As migrations Billing 023
+e HQ 024 foram aplicadas e verificadas em produção, após backup criptografado,
+preflight e homologação. O Codespace agora tem checkout/banco próprios na
+versão `6122e6e`, build e 27 integrações aprovados. Cobrança e agendamento
+continuam desligados, aguardando configuração principal do Mercado Pago e
+conclusão da promoção. O estado acima das tentativas anteriores é histórico;
+o acompanhamento atual está em `RELEASE_MERCADOPAGO_2026-09-13.md`.
+
 ## Liberação e operação
 
 1. Manter contratação, `MERCADOPAGO_HQ_SYNC_ENABLED` e cron desativados em

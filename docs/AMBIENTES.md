@@ -4,7 +4,17 @@ Este documento define a separação de ambientes do Salon SaaS. A regra central
 é simples: nenhum teste, seed, preview ou migration de desenvolvimento pode
 usar o projeto Supabase de produção.
 
-## Atualização de 13 de setembro de 2026 — Codespace identificado
+## Atualização de 13 de setembro de 2026 — staging Billing preparado
+
+O Codespace existente ganhou checkout separado `/workspaces/everflair-billing-staging`
+no commit `6122e6e`, banco sintético `everflair_billing_staging` em loopback e
+runtime `app_runtime` sem superusuário/BYPASSRLS. A demonstração antiga e sua
+porta privada 3000 foram preservadas. Build, verificações das migrations
+Billing/HQ e 27 integrações passaram; os testes executaram em cópia sintética
+separada `everflair_billing_validation_20260913`. Nenhum dado produtivo foi copiado.
+Detalhes e limites em `RELEASE_MERCADOPAGO_2026-09-13.md`.
+
+## Histórico de 13 de setembro de 2026 — Codespace identificado
 
 O Codespace `glorious-enigma-jjv6v4rvrv49f544r` foi localizado na conta
 `alisonbielwhats1-beep` e iniciado pelo navegador. O proprietário autorizou

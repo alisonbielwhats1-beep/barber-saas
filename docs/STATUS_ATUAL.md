@@ -5,8 +5,13 @@
 O responsável autorizou concluir as etapas para disponibilizar cobrança em
 produção. Preflight produtivo e backup delimitado criptografado concluídos;
 checkout e banco próprios de homologação preparados no Codespace existente.
-O reconciliador ganha chave exclusiva, preservando a chave dos lembretes.
-Ainda não houve migration Billing/HQ, merge ou ativação financeira produtiva.
+As migrations `mercadopago_billing_023` (`20260913155322`) e `billing_hq_024`
+(`20260913155342`) foram aplicadas e verificadas no projeto produtivo
+`vshnatkzxdekkvqttvbv`, preservando os dados anteriores e FORCE RLS.
+O reconciliador tem chave exclusiva na Vercel Production e no GitHub,
+com recuperação criptografada; o agendamento continua explicitamente false.
+Staging `6122e6e`: build, schema e 27 integrações passaram em banco sintético.
+Ainda não houve merge nem ativação financeira produtiva.
 A validação da conta principal Mercado Pago pelo titular está pendente.
 Destinos, evidências e limites em `RELEASE_MERCADOPAGO_2026-09-13.md`.
 
