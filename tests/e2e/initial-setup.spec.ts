@@ -97,6 +97,7 @@ test.describe("@database configuração inicial", () => {
         "Quem vai atender?",
       );
       // Resume without a step in the URL: the saved tenant state is the source.
+      await expect(page.getByRole("button", { name: "Fazer depois", exact: true })).toBeEnabled();
       await page.goto("/onboarding/configuracao");
       await expect(page.getByRole("heading", { level: 1 })).toHaveText(
         "Quem vai atender?",

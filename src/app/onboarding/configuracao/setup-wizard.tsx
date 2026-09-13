@@ -81,7 +81,10 @@ export function SetupWizard({
 }) {
   const router = useRouter();
   const [step, setStep] = useState(initialStep);
-  const [pending, startTransition] = useTransition();
+  const [refreshing, startTransition] = useTransition();
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  const pending = saving || refreshing;
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const heading = useRef<HTMLHeadingElement>(null);
@@ -91,20 +94,26 @@ export function SetupWizard({
     heading.current?.focus();
   }, [step]);
   const run: Run = (work) => {
+    if (savingRef.current || refreshing) return;
+    savingRef.current = true;
+    setSaving(true);
     setError("");
     setMessage("");
-    startTransition(async () => {
+    void (async () => {
       try {
         await work();
-        router.refresh();
+        startTransition(() => router.refresh());
       } catch (e) {
         setError(
           e instanceof Error
             ? e.message
             : "Não foi possível salvar. Tente novamente.",
         );
+      } finally {
+        savingRef.current = false;
+        setSaving(false);
       }
-    });
+    })();
   };
   async function move(next: number) {
     await saveSetupProgress({ step: next, status: "active" });
