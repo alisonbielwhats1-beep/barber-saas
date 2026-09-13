@@ -71,9 +71,9 @@ e a extensão `btree_gist`
 [no schema public](https://supabase.com/docs/guides/database/database-linter?lint=0014_extension_in_public).
 Esses objetos não foram alterados por 023/024.
 
-## Configuração em preparação
+## Configuração produtiva concluída
 
-O inventário Vercel não encontrou credenciais ou flags Mercado Pago.
+O inventário inicial Vercel não encontrou credenciais ou flags Mercado Pago.
 Segredos existentes são sensíveis e não exportáveis; não foram copiados.
 O reconciliador passa a aceitar `BILLING_CRON_SECRET` próprio, mantendo
 `CRON_SECRET` como fallback para instalações anteriores. Quando há chave
@@ -82,20 +82,52 @@ própria, a chave dos lembretes não autoriza cobrança. Testes cobrem essa sepa
 `BILLING_CRON_SECRET` foi salvo como Secret somente em Vercel Production e no
 GitHub, com cópia criptografada de recuperação no diretório do backup.
 `BILLING_RECONCILIATION_URL` aponta para `https://everflair.com.br/api/cron/billing`.
-A variável GitHub `BILLING_RECONCILIATION_ENABLED` foi fixada em `false`.
+A variável GitHub `BILLING_RECONCILIATION_ENABLED` ficou inicialmente `false`
+e foi ativada após a conferência do primeiro deploy. Execução
+`34768836941` passou com zero unidades processadas e zero falhas.
 
 A aplicação principal Mercado Pago é `5276100300886`, Everflair, na conta
-do responsável. O acesso às credenciais de produção solicitou validação pelo
-titular no Chrome. Aguardando essa validação; nenhum token de teste será usado
-em produção. Endpoint produtivo previsto: `/api/webhooks/mercadopago`.
+do responsável. O titular concluiu a validação, o aceite dos termos e a
+ativação inicial. `/users/me` confirmou `478386806`, site MLB e ausência de
+`test_user` às 16:06:52 UTC. Token e assinatura secreta foram salvos como
+Secret exclusivamente em Vercel Production, com cópias criptografadas cuja
+decifragem foi conferida em memória. Arquivos intermediários em texto claro
+foram removidos. Nenhum token de teste foi configurado em produção.
 
-## Estado desta preparação
+Webhook salvo no modo de produção:
+`https://everflair.com.br/api/webhooks/mercadopago`, eventos Planos e
+assinaturas e Pagamentos (legacy). Modo de teste sem endpoint. A configuração
+usa `MERCADOPAGO_MODE=live`, billing/HQ enabled e `NEXTAUTH_URL=https://everflair.com.br`.
+O faturamento manual 011 continua desativado.
+
+## Publicação e verificação final
 
 CI de `8f068f7`, run `34765355842`, concluiu `check` e `schema-smoke`
 com sucesso. A inclusão da chave dedicada passou localmente em lint,
 TypeScript sem cache, 955 testes (188 arquivos) e build completo.
 
-O schema produtivo está preparado e a chave do reconciliador configurada.
-Ainda não houve merge, ativação do cron nem liberação de cobranças reais.
-O resultado final de CI, staging, configuração e deploy deve ser registrado
-antes de declarar a liberação concluída.
+CI final `34767093377`, head `4603377`: check e schema-smoke SUCCESS,
+incluindo upgrade/restauração, jornadas autenticadas, acessibilidade,
+responsividade e rollback. PR #101 saiu de draft e foi integrado por squash
+em `f89652b278ba5a5c46d5c7ae8e295bc1c2c45476`, às 16:21:58 UTC.
+Árvore do merge idêntica ao head aprovado.
+
+Primeiro deploy `dpl_2cXMFUYT3rxDG2LxNigopkyNM67T` READY com checkout pausado.
+Home 200, cron sem chave 401 e autorizado 200, zero falhas. Em seguida,
+`MERCADOPAGO_CHECKOUT_PAUSED=false` foi salvo e a mesma versão recompilada.
+Deploy final `dpl_361VijpX2UCrkfaP63FYsNEMgzny` READY, associado ao domínio
+oficial e aliases antigos. CLI confirmou a configuração live e origem canônica.
+
+Verificação do deploy final em 16:34:13 UTC: home 200, IA em breve,
+cron sem chave 401, cron autorizado 200, processed=0 e failed=0. A consulta
+de logs de erro do deployment não retornou entradas. Nova execução GitHub
+`34768983145`, já após o deploy final, também passou. Navegador confirmou
+anuais R$ 599/779/959/1.439, IA bloqueada e Individual anual preservado no
+cadastro. Nenhum cadastro de teste, compra real ou cobrança fictícia foi
+criado em produção. A jornada financeira foi homologada fora de produção;
+esta conferência final não equivale a uma compra real ou push no iPhone.
+
+O checkout e o reconciliador estão disponíveis. Para rollback financeiro,
+pausar novas contratações e preservar worker/webhook/cancelamento enquanto
+existirem contratos remotos; nunca apagar histórico ou simplesmente
+reverter a aplicação sobre recorrências ativas.
