@@ -1,7 +1,8 @@
 # Troca de planos — 13/09/2026
 
 Implementação solicitada pelo responsável após a publicação do PR #101.
-Branch `codex/mercadopago-plan-changes`. Ainda não publicada nem habilitada.
+PR #105 publicado e habilitado em Production em 13/09/2026, commit `ae4f1ff`.
+Registro definitivo em `RELEASE_TROCA_PLANOS_2026-09-13.md`.
 
 ## Ampliação: cancelamento livre e período pago
 
@@ -27,11 +28,11 @@ OWNER/tenant, suspensão, checkout pausado, resposta perdida, redução/upgrade
 pendentes e substituta anual autorizada em SCHEDULED/REVIEW. A cadeia fica
 pendente enquanto qualquer recorrência aguarda confirmação do provedor.
 
-Rodada local: 80 integrações PostgreSQL e seis testes do provider passaram;
-1.036 testes unitários/componentes, lint, TypeScript e build passaram. Nova validação
-CI/Preview, capturas de cancelamento em 320/390/1280 px e acesso do OWNER suspenso
-pertencem ao commit desta ampliação e terão resultado registrado no PR #105.
-Sem nova migration além da 025 já preparada, ainda não aplicada em Production.
+Rodada final local: 80 integrações PostgreSQL e seis testes do provider passaram;
+1.055 testes unitários/componentes, lint, TypeScript e build passaram. CI final
+`34779262829` e Preview passaram em `e62acb5`, incluindo capturas de cancelamento
+em 320/390/1280 px e acesso do OWNER suspenso. Evidências no PR #105.
+Migration 025 aplicada e verificada em Production na liberação autorizada.
 
 Conferência externa em 13/09: repetição do cancelamento da cadeia fictícia
 `0bf9337100f845cd854999e6cc24bcd2` / `23558ea405944f5cbe4ae4017d7dc78e` manteve
@@ -119,7 +120,7 @@ reconciliador, pausar novas solicitações; não apagar a tabela.
 homologação. Depois da primeira troca, manter essa flag e código de leitura.
 `MERCADOPAGO_PLAN_CHANGES_PAUSED=true` bloqueia cotações/confirmações novas sem
 interromper pagamentos, cancelamentos, termos vigentes e reconciliação.
-Production ainda não recebeu a migration nem as flags desta entrega.
+Production recebeu a migration e as flags: ENABLED=true, PAUSED=false.
 
 CI/schema-smoke inclui predecessor populado, backup, restauração, comparação
 por fingerprints, aplicação e reaplicação da 025, verificação RLS e suítes PG.
@@ -171,7 +172,8 @@ assim como 66 integrações PostgreSQL + seis testes do provider. CI final
 servidor bloqueado pela revisão automática; jornada dedicada de revisão de
 cotação 320/390/1280 px, acessibilidade e capturas foi acrescentada ao CI.
 A jornada passou no CI `34772979366` às `18:02:41Z` em `7b054b6`.
-A ampliação de cancelamento acima exige novo CI correspondente ao seu commit.
+A ampliação de cancelamento e a integração do guia inicial passaram no CI final
+`34779262829`, conforme registro de liberação.
 Não foi feita compra real nem esperada uma renovação futura externa. Essa
 renovação é exercitada por relógio controlado no PostgreSQL sintético.
 Não se declara pagamento externo de todas as combinações apenas por mocks.
@@ -182,7 +184,7 @@ Em `2026-09-13T17:57:09Z`, SQL Editor confirmou projeto `barber-saas`, ref
 `vshnatkzxdekkvqttvbv`, branch main PRODUCTION, transação `READ ONLY`.
 Billing/HQ com FORCE RLS, app_runtime sem superuser/BYPASSRLS, colunas das
 023/024 presentes. Zero assinaturas e cobranças; tabela/função 025 ausentes.
-Nenhuma migration desta entrega foi aplicada.
+Naquele preflight, nenhuma migration desta entrega havia sido aplicada.
 
 Registro de recuperação às `17:58:40Z`: metadados das cinco tabelas Billing,
 63 colunas, 13 constraints, 18 índices, 14 policies e 84 grants. Sem dados de
@@ -190,8 +192,10 @@ clientes; não é dump completo do projeto nem backup de dados do HQ, que a 025
 não modifica. Criptografado e decifrado integralmente em memória para verificação
 em `C:/Users/Usuário/.codex/backups/everflair/production-2026-09-13-pr105/`.
 Manifesto SHA256 `fc1ec769c1ce02749c729b3a5ed96c7fbc39c0d7076b6a90ffb39b486dfe6261`.
-Revalidar o preflight antes de aplicar; preservar a tabela e o reconciliador no
-rollback. Aplicação da 025 e promoção aguardam aprovação final após o CI.
+Preflight revalidado às `20:56:41Z`, com o mesmo escopo vazio de contratos e
+cobranças. Após autorização explícita para publicação, a 025 foi aplicada;
+verificação às `20:59:39Z` confirmou objetos, FORCE RLS e grants esperados.
+Preservar a tabela e o reconciliador no rollback.
 
 ## Matriz de verificação
 

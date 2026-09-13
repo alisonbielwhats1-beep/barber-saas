@@ -1,5 +1,31 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-13 — trocas de plano e cancelamento publicados em produção
+
+Publicação expressamente autorizada pelo responsável. PR #105 integrado em
+`ae4f1ff0022f8b506133e72d221cfaec1276873d`; deployment
+`dpl_A1twXWZs5PbumZGnRB5KzsTHBven` READY e associado a
+`https://everflair.com.br`. Inclui o guia inicial do PR #106.
+Migration manual `025_billing_plan_changes.sql` aplicada no projeto
+`vshnatkzxdekkvqttvbv`, após preflight e conferência do backup delimitado.
+Verificação às `20:59:39Z`: FORCE RLS, três FKs, três policies, trigger de
+imutabilidade e permissões do runtime corretos; nenhum contrato ou cobrança
+preexistente alterado. Não foi atribuída versão de migration Prisma/Supabase.
+
+Production tem `MERCADOPAGO_PLAN_CHANGES_ENABLED=true` e
+`MERCADOPAGO_PLAN_CHANGES_PAUSED=false`. Upgrade no mesmo ciclo exige pagamento
+proporcional e mantém vencimento; reduções e trocas de ciclo ficam para a
+renovação. Cancelamento pelo OWNER encerra todas as recorrências vinculadas e
+preserva o período pago. A UI só confirma após reconhecimento pelo provedor.
+
+Head validado `e62acb5`: CI `34779262829` completo, schema-smoke e Preview
+aprovados; lint, TypeScript, 1.055 testes, 86 testes PostgreSQL/provider e build
+passaram. Conferência produtiva às `21:06Z`: home 200 com IA “Em breve”, portal
+redireciona ao login e APIs exigem autenticação; worker autenticado 200, zero
+processados e zero falhas. Consulta de logs não retornou erros. Sem compra real.
+Detalhes e recuperação em `RELEASE_TROCA_PLANOS_2026-09-13.md`.
+As entradas anteriores abaixo registram etapas históricas desta entrega.
+
 ## 2026-09-13 — revisão do cancelamento incorporada ao PR #105
 
 Solicitação posterior valida cancelamento livre, fim da recorrência no provedor
