@@ -38,6 +38,12 @@ com a mesma conta. Nenhum cadastro, agendamento ou histórico é migrado/apagado
 
 ## Recuperação
 
+O CI `34741675923` aprovou o job principal, jornadas públicas/autenticadas e
+acessibilidade, mas atingiu o limite de 30 minutos durante a matriz responsiva.
+O teto de `schema-smoke` foi ampliado para 45 minutos, preservando todos os
+testes e asserções. Isso não representa aprovação da matriz interrompida;
+é necessária uma execução completa antes da publicação.
+
 Reverter o PR/promover o deployment anterior retorna a geração do link antigo.
 A nova variável é inerte no código anterior. Nenhuma alteração de banco ou
 DNS precisa ser revertida. Manter os dois domínios em Production.
