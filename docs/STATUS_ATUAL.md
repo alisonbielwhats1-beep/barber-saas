@@ -1,5 +1,24 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-13 — Codespace identificado e webhook espontâneo de cancelamento
+
+Identificado e iniciado o Codespace `glorious-enigma-jjv6v4rvrv49f544r` da conta
+`alisonbielwhats1-beep`: branch `codex/everflair-demo`, commit `106ac11`, limpo.
+Consulta somente leitura confirmou banco local `everflair_demo` e runtime
+`app_runtime` sem superusuário/BYPASSRLS. A aplicação na porta 3000 está privada
+e sua abertura no navegador retornou 401. O PR #101 não foi implantado ali;
+schema, dados e visibilidade não foram alterados. Os dois Supabase existentes
+continuam destinados a produção. Inventário em `AMBIENTES.md`.
+
+Nova assinatura fictícia `4c2d1646473e4a9ea8d91dfc89109c46` ficou com confirmação
+desabilitada no checkout e foi cancelada sem pagamento. O cancelamento gerou
+webhook espontâneo `subscription_preapproval` às `2026-09-13T05:10:38.895Z`,
+HMAC válido, HTTP 200 e inbox posteriormente processada sem erro. Foi usado
+ingresso temporário e banco sintético local. Aprovação de novo pagamento por
+esse caminho e push no iPhone da conta oficial permanecem **não validados**.
+Evidências em `MERCADOPAGO_PORTAL_HQ.md`. Nenhuma ativação produtiva autorizada
+ou realizada nesta verificação.
+
 ## 2026-09-13 — portal de assinatura e integração HQ em revisão
 
 O PR #101 inclui escolha mensal/anual, continuidade no cadastro/login,

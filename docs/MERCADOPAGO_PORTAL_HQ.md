@@ -24,7 +24,8 @@ confirmação financeira. Base: backend 1c014f0, CI 34733943942 aprovado.
 
 ## Homologação externa
 
-Os dois projetos Supabase disponíveis não estão classificados como staging.
+Os dois projetos Supabase disponíveis estão reservados para produção, conforme
+`AMBIENTES.md`; nenhum deles é staging.
 Preparar banco local sintético com runtime sem BYPASSRLS e endereço HTTPS
 temporário limitado ao webhook. Usar aplicação/contas/cartões fictícios e
 assinatura original enviada pelo Mercado Pago. Preservar configuração anterior
@@ -81,6 +82,44 @@ provedor em `2026-09-13T04:14:10.696Z`, sem período pago. Os dois URLs temporá
 foram removidos com a opção Redefinir da aplicação fictícia, e túnel/proxy foram
 encerrados. A aplicação principal 5276100300886 não foi alterada. Nenhum segredo
 foi versionado. A notificação nativa no celular não foi validada neste teste.
+
+## Nova verificação de 13/09 — ambiente e evento espontâneo
+
+Codespace de demonstração identificado e iniciado: `glorious-enigma-jjv6v4rvrv49f544r`,
+branch `codex/everflair-demo`, commit `106ac11`, sem alterações no checkout.
+Consulta somente leitura confirmou `everflair_demo`, host `127.0.0.1:5432`,
+role `app_runtime` sem superusuário/BYPASSRLS. A porta 3000 está **Private**;
+a abertura da aplicação pelo navegador retornou 401. Não foram alterados schema,
+dados, versão ou visibilidade. Detalhes em `AMBIENTES.md`. O PR #101 ainda não
+está implantado nesse ambiente e o encaminhamento privado não recebe webhooks
+externos sem autenticação do GitHub.
+
+Uma segunda tentativa local criou a assinatura fictícia mensal Equipe Plus
+`4c2d1646473e4a9ea8d91dfc89109c46`, R$ 99,90, entre o vendedor `3683184919` e o
+comprador `3683184927`. A revisão do checkout continuou com Confirmar
+desabilitado após preenchimento do cartão oficial de teste. Nenhum novo
+pagamento foi aprovado. Cancelamento confirmado no provedor em
+`2026-09-13T05:10:36.896Z`, sem período pago.
+
+Esse cancelamento gerou uma notificação **espontânea**, sem simulador:
+`subscription_preapproval`, request ID `9a3ba333-32e9-47cf-85c1-d6f2a1800bbe`,
+recebida em `2026-09-13T05:10:38.895Z`, com HMAC válido e HTTP **200**.
+Inbox processada em `2026-09-13T05:12:55.939Z`, sem erro na fila, após execução
+do reconciliador. Isso comprova entrega espontânea e processamento de um evento
+de assinatura; **não** comprova aprovação de nova cobrança nem atualização de
+receita decorrente dela. A homologação de novo pagamento segue pendente.
+
+Ao terminar, os URLs de teste e produção da aplicação **fictícia** foram
+removidos por Redefinir e os tópicos ficaram desmarcados. Túnel, proxy, servidor
+Next local e cluster local foram encerrados; nenhuma porta 3067/3068/55487
+permaneceu ouvindo. A aplicação principal não foi alterada. O CI do código
+`c4767db` (run `34738007836`) ainda estava em fila, sem resultado; esta revisão
+posterior altera somente documentação e passou em `git diff --check`.
+
+O responsável informou que o iPhone usa sua conta **oficial** do Mercado Pago.
+O pagamento entre contas fictícias não comprova push nessa conta. A conferência
+das permissões e da chegada do aviso no aparelho depende do responsável;
+nenhuma notificação no celular foi observada pelo agente.
 
 ## Liberação e operação
 
