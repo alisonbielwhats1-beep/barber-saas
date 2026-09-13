@@ -36,8 +36,11 @@ export async function applyUpgradePayment(sub: BillingSubscription, change: Bill
     if (status === "approved" && paidAt) {
       if (fresh.providerPaymentId && fresh.providerPaymentId !== payment.id) error = "UPGRADE_DUPLICATE_PAYMENT";
       else if (!fresh.paidAt) {
-        if (paidAt < fresh.quotedAt || paidAt > fresh.expiresAt || new Date() >= fresh.periodEnd || ["CANCELLED", "CANCEL_REQUESTED", "EXPIRED", "REVIEW"].includes(fresh.state)) error = "UPGRADE_PAYMENT_OUTSIDE_QUOTE";
-        else if (!current.current || current.paidThrough?.getTime() !== fresh.periodEnd.getTime() || !sameTerms(await currentTerms(tx, current), billingTermsSchema.parse(fresh.fromTerms))) error = "CHANGE_QUOTE_STALE";
+        // Provider payment dates have second precision. A delayed notification of
+        // an in-time payment remains valid after quote expiry if nothing superseded it.
+        if (paidAt.getTime() < Math.floor(fresh.quotedAt.getTime() / 1000) * 1000 || paidAt > fresh.expiresAt || new Date() >= fresh.periodEnd || ["CANCELLED", "CANCEL_REQUESTED", "REVIEW"].includes(fresh.state)) error = "UPGRADE_PAYMENT_OUTSIDE_QUOTE";
+        else if (!current.current || current.reviewRequired || current.paidThrough?.getTime() !== fresh.periodEnd.getTime() || !sameTerms(await currentTerms(tx, current), billingTermsSchema.parse(fresh.fromTerms)) ||
+          await tx.billingPlanChange.findFirst({ where: { subscriptionId: sub.id, id: { not: fresh.id }, state: { in: ["PREPARING", "AWAITING_PAYMENT", "APPLYING", "SCHEDULED", "CANCEL_REQUESTED", "REVIEW"] } }, select: { id: true } })) error = "CHANGE_QUOTE_STALE";
         else {
           await tx.billingPlanChange.update({ where: { id: change.id }, data: { providerPaymentId: payment.id, paidAt, activatedAt: new Date(), state: "APPLYING", lastError: null } });
           await tx.billingEvent.upsert({ where: { subscriptionId_key: { subscriptionId: sub.id, key: `change:${change.id}:activated` } }, update: {}, create: { salonId: sub.salonId, subscriptionId: sub.id, key: `change:${change.id}:activated`, type: "PLAN_UPGRADED", detail: `${change.id}:payment:${payment.id}` } });

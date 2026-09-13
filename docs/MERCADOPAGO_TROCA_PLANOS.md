@@ -30,7 +30,10 @@ faturas antigas são conferidas contra a revisão válida na sua data de débito
   usa o valor efetivamente contratado e o tempo restante do período pago,
   arredondando para cima no máximo um centavo. Novo upgrade parte do último
   plano pago. Nenhum adicional concede outro mês ou ano.
-- Uma troca confirmada pendente por salão, com índice único e lock por tenant.
+- Uma troca confirmada em execução por salão, com índice único e lock por tenant.
+  Ocorrências históricas REVIEW ficam fora desse índice para não impedir o
+  registro de um estorno enquanto existe outra troca. Review bloqueia novos
+  pedidos e congela trocas em execução até conferência, preservando o livro.
   Confirmação revalida plano, vencimento e capacidade sob os mesmos locks de
   criação de profissionais/convites. Apenas OWNER pode operar.
 - Upgrade cria preferência Checkout Pro exclusiva (`efu:salonId:changeId`).
@@ -49,6 +52,9 @@ faturas antigas são conferidas contra a revisão válida na sua data de débito
 - Pagamento duplicado, estorno, chargeback ou quitação fora da cotação gera
   `REVIEW`, preserva cobranças e sinaliza conferência. Não há reembolso automático.
   Renovação/alteração pode exigir intervenção nessa situação excepcional.
+- Notificação tardia de pagamento aprovado dentro do prazo pode ativar uma
+  cotação expirada se os termos e o período ainda forem válidos e nenhuma outra
+  troca a tiver substituído. Caso contrário, preserva a cobrança para revisão.
 - Cancelamento é durável. Cobrança complementar não paga pode ser expirada;
   preço agendado pode ser restaurado antes do vencimento, com confirmação.
   Pagamento aprovado não pode ser desfeito pelo botão de cancelar a troca.
@@ -85,7 +91,7 @@ Preview, homologação e autorização para o SQL aditivo com backup/rollback.
 
 ## Evidências obtidas e limites
 
-Em 13/09, 61 testes PostgreSQL passaram no banco sintético isolado
+Em 13/09, 66 testes PostgreSQL passaram no banco sintético isolado
 `billing_changes_full_20260913`, com as migrations reais 023/024/025 e runtime
 sem BYPASSRLS. Incluem todas as 12 combinações de aumento entre os quatro planos
 nos dois ciclos, upgrades sucessivos, pagamento duplicado, estorno, recuperação
@@ -122,14 +128,33 @@ parser corrigido e regressão adicionada. As suítes PG configuram permissões n
 mesmo schema; executam sequencialmente para evitar disputa de GRANT entre seus
 setups. Isso não reduz os testes de concorrência executados dentro das suítes.
 
-Lint, TypeScript, 1.033 testes e build passaram antes da última regressão
-adicionada; rodada final pelo CI/Preview pendente. A última rodada local passou
-61 integrações + seis testes do provider. Revisão visual local teve início de
+Lint, TypeScript, 1.034 testes e build passaram na rodada local final, assim como
+66 integrações PostgreSQL + seis testes do provider. Rodada final pelo CI/Preview
+pendente. Revisão visual local teve início de
 servidor bloqueado pela revisão automática; jornada dedicada de revisão de
 cotação 320/390/1280 px, acessibilidade e capturas foi acrescentada ao CI.
+A jornada passou no CI `34772979366` às `18:02:41Z` em `7b054b6`.
+A versão final ainda exige a conclusão do CI correspondente ao seu commit.
 Não foi feita compra real nem esperada uma renovação futura externa. Essa
 renovação é exercitada por relógio controlado no PostgreSQL sintético.
 Não se declara pagamento externo de todas as combinações apenas por mocks.
+
+## Preflight produtivo e recuperação preparados
+
+Em `2026-09-13T17:57:09Z`, SQL Editor confirmou projeto `barber-saas`, ref
+`vshnatkzxdekkvqttvbv`, branch main PRODUCTION, transação `READ ONLY`.
+Billing/HQ com FORCE RLS, app_runtime sem superuser/BYPASSRLS, colunas das
+023/024 presentes. Zero assinaturas e cobranças; tabela/função 025 ausentes.
+Nenhuma migration desta entrega foi aplicada.
+
+Registro de recuperação às `17:58:40Z`: metadados das cinco tabelas Billing,
+63 colunas, 13 constraints, 18 índices, 14 policies e 84 grants. Sem dados de
+clientes; não é dump completo do projeto nem backup de dados do HQ, que a 025
+não modifica. Criptografado e decifrado integralmente em memória para verificação
+em `C:/Users/Usuário/.codex/backups/everflair/production-2026-09-13-pr105/`.
+Manifesto SHA256 `fc1ec769c1ce02749c729b3a5ed96c7fbc39c0d7076b6a90ffb39b486dfe6261`.
+Revalidar o preflight antes de aplicar; preservar a tabela e o reconciliador no
+rollback. Aplicação da 025 e promoção aguardam aprovação final após o CI.
 
 ## Matriz de verificação
 

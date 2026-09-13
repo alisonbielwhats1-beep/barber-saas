@@ -131,22 +131,37 @@ async function syncCycle(sub: BillingSubscription, change: BillingPlanChange) {
   });
 }
 
+async function syncSupplementalPayments(sub: BillingSubscription, change: BillingPlanChange, remote: mp.RemoteSubscription) {
+  const payments = await upgradePayments(change);
+  const known = await withSalon(sub.salonId, tx => tx.billingCharge.findMany({ where: { subscriptionId: sub.id, providerPaymentId: { in: payments.map(p => p.id) } }, select: { providerPaymentId: true, providerUpdatedAt: true, status: true } }));
+  const payment = payments.find(p => { const prior = known.find(c => c.providerPaymentId === p.id); return !prior || prior.providerUpdatedAt < new Date(p.date_last_updated) || (p.status === "approved" && ["pending", "in_process", "rejected", "cancelled"].includes(prior.status)); });
+  if (payment) await applyUpgradePayment(sub, change, remote, payment);
+  await update(change, { updatedAt: new Date() });
+}
+
 /** Runs under the existing per-subscription dispatch lease; network stays outside transactions. */
 export async function syncPlanChanges(sub: BillingSubscription): Promise<void> {
   if (!changesEnabled() || !sub.providerId) return;
-  const change = await withSalon(sub.salonId, async tx => await tx.billingPlanChange.findFirst({ where: { subscriptionId: sub.id, salonId: sub.salonId, state: { in: pendingChangeStates }, confirmedAt: { not: null } }, orderBy: { quotedAt: "asc" } })
+  const change = await withSalon(sub.salonId, async tx => await tx.billingPlanChange.findFirst({ where: { subscriptionId: sub.id, salonId: sub.salonId, state: { in: pendingChangeStates.filter(state => state !== "REVIEW") }, confirmedAt: { not: null } }, orderBy: { quotedAt: "asc" } })
     ?? await tx.billingPlanChange.findFirst({ where: { subscriptionId: sub.id, salonId: sub.salonId, kind: "UPGRADE", creationStartedAt: { not: null }, confirmedAt: { not: null } }, orderBy: [{ updatedAt: "asc" }, { id: "asc" }] }));
   if (!change) return;
+  if (sub.reviewRequired && ["PREPARING", "AWAITING_PAYMENT", "APPLYING", "SCHEDULED"].includes(change.state)) { await review(change, "SUBSCRIPTION_REVIEW_REQUIRED"); return; }
   const remote = await mp.getSubscription(sub.providerId);
   validateRemote(sub, remote, false);
+  if (change.state === "SCHEDULED") {
+    // A scheduled annual change can wait months. Continue recovery of historical
+    // supplemental payments instead of starving it until the next renewal.
+    const historical = await withSalon(sub.salonId, tx => tx.billingPlanChange.findFirst({ where: { subscriptionId: sub.id, salonId: sub.salonId, id: { not: change.id }, kind: "UPGRADE", creationStartedAt: { not: null }, confirmedAt: { not: null } }, orderBy: [{ updatedAt: "asc" }, { id: "asc" }] }));
+    if (historical) {
+      await syncSupplementalPayments(sub, historical, remote);
+      const reviewed = await withSalon(sub.salonId, tx => tx.billingSubscription.findUniqueOrThrow({ where: { id: sub.id }, select: { reviewRequired: true } }));
+      if (reviewed.reviewRequired) { await review(change, "SUBSCRIPTION_REVIEW_REQUIRED"); return; }
+    }
+  }
   if (change.kind === "CYCLE") { if (change.state !== "REVIEW") await syncCycle(sub, change); return; }
   if (change.kind === "UPGRADE" && change.creationStartedAt) {
-    const payments = await upgradePayments(change);
-    const known = await withSalon(sub.salonId, tx => tx.billingCharge.findMany({ where: { subscriptionId: sub.id, providerPaymentId: { in: payments.map(p => p.id) } }, select: { providerPaymentId: true, providerUpdatedAt: true, status: true } }));
-    const payment = payments.find(p => { const prior = known.find(c => c.providerPaymentId === p.id); return !prior || prior.providerUpdatedAt < new Date(p.date_last_updated) || (p.status === "approved" && ["pending", "in_process", "rejected", "cancelled"].includes(prior.status)); });
-    if (payment) await applyUpgradePayment(sub, change, remote, payment);
     // Rotate historical supplemental charges for missed refund/duplicate webhooks.
-    await update(change, { updatedAt: new Date() });
+    await syncSupplementalPayments(sub, change, remote);
   }
   const fresh = await withSalon(sub.salonId, tx => tx.billingPlanChange.findUniqueOrThrow({ where: { id: change.id } }));
   if (["REVIEW", "CANCELLED", "EXPIRED"].includes(fresh.state)) return;

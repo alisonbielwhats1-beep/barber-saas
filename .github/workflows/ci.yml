@@ -377,6 +377,13 @@ jobs:
           MERCADOPAGO_ACCESS_TOKEN: synthetic-no-external-payments
           MERCADOPAGO_WEBHOOK_SECRET: synthetic-no-webhooks
         run: npm run test:e2e:database -- --grep "@database troca de planos"
+      - name: Preserve billing review browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: billing-review-evidence
+          path: test-results
+          retention-days: 7
       - name: Validate authenticated critical journeys
         env:
           NODE_OPTIONS: --max-old-space-size=4096

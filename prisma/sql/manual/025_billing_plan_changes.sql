@@ -37,8 +37,12 @@ CREATE TABLE IF NOT EXISTS "BillingPlanChange" (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS "BillingPlanChange_salonId_requestKey_key" ON "BillingPlanChange"("salonId","requestKey");
 CREATE INDEX IF NOT EXISTS "BillingPlanChange_salonId_subscriptionId_quotedAt_idx" ON "BillingPlanChange"("salonId","subscriptionId","quotedAt");
-CREATE UNIQUE INDEX IF NOT EXISTS "BillingPlanChange_one_pending" ON "BillingPlanChange"("salonId")
- WHERE "state" IN ('PREPARING','AWAITING_PAYMENT','APPLYING','SCHEDULED','CANCEL_REQUESTED','REVIEW');
+-- Historical payments can require review while another change is in flight.
+-- Review blocks new requests via subscription.reviewRequired, but must never
+-- prevent recording a refund or duplicate charge on an older change.
+DROP INDEX IF EXISTS "BillingPlanChange_one_pending";
+CREATE UNIQUE INDEX "BillingPlanChange_one_pending" ON "BillingPlanChange"("salonId")
+ WHERE "state" IN ('PREPARING','AWAITING_PAYMENT','APPLYING','SCHEDULED','CANCEL_REQUESTED');
 
 CREATE OR REPLACE FUNCTION public.billing_change_preserve_quote() RETURNS trigger
 LANGUAGE plpgsql SET search_path=pg_catalog,public AS $$

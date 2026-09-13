@@ -438,6 +438,48 @@ pg("automatic billing with PostgreSQL and runtime FORCE RLS", () => {
     expect((await admin.billingSubscription.findUniqueOrThrow({ where: { id: f.sub.id } })).paidThrough).toEqual(f.sub.paidThrough);
     expect((await admin.billingSubscription.findUniqueOrThrow({ where: { id: f.sub.id } })).reviewRequired).toBe(true);
   });
+  it("preserves a historical reversal while a new upgrade is pending, and freezes the new request", async () => {
+    const f = await paidFixture(), changes = await import("./changes"), { syncPlanChanges } = await import("./change-worker"), { applyUpgradePayment } = await import("./change-payments");
+    const first = await changes.createChangeQuote(f.ctx, { plan: "TEAM_PLUS", cycle: "MONTHLY" }, randomUUID());
+    await changes.confirmPlanChange(f.ctx, first.id); const paid = upgradePayment(first);
+    await applyUpgradePayment(f.sub, first, f.remote, paid); await syncPlanChanges(f.sub);
+    const second = await changes.createChangeQuote(f.ctx, { plan: "TEAM_MAX", cycle: "MONTHLY" }, randomUUID()); await changes.confirmPlanChange(f.ctx, second.id);
+    await applyUpgradePayment(f.sub, first, f.remote, { ...paid, status: "refunded", transaction_amount_refunded: paid.transaction_amount, date_last_updated: new Date(Date.now() + 1000).toISOString() });
+    expect((await admin.billingCharge.findUniqueOrThrow({ where: { providerPaymentId: paid.id } })).status).toBe("refunded");
+    await syncPlanChanges(await admin.billingSubscription.findUniqueOrThrow({ where: { id: f.sub.id } }));
+    expect(await admin.billingPlanChange.count({ where: { subscriptionId: f.sub.id, state: "REVIEW" } })).toBe(2);
+    expect((await admin.billingPlanChange.findUniqueOrThrow({ where: { id: second.id } })).activatedAt).toBeNull();
+    await expect(changes.createChangeQuote(f.ctx, { plan: "TEAM_MAX", cycle: "ANNUAL" }, randomUUID())).rejects.toThrow("CHANGE_REQUIRES_ACTIVE_SUBSCRIPTION");
+  });
+  it.each([false, true])("reconciles in-time payment after quote expiry, superseded=%s", async superseded => {
+    const f = await upgradeFixture(), { applyUpgradePayment } = await import("./change-payments");
+    const paid = upgradePayment(f.change);
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(f.change.expiresAt.getTime() + 60000);
+      await admin.billingPlanChange.update({ where: { id: f.change.id }, data: { state: "EXPIRED" } });
+      if (superseded) { const next = await f.changes.createChangeQuote(f.ctx, { plan: "TEAM", cycle: "MONTHLY" }, randomUUID()); await f.changes.confirmPlanChange(f.ctx, next.id); }
+      await applyUpgradePayment(f.sub, f.change, f.remote, paid);
+      expect((await admin.billingPlanChange.findUniqueOrThrow({ where: { id: f.change.id } })).state).toBe(superseded ? "REVIEW" : "APPLYING");
+      expect((await admin.billingCharge.findUniqueOrThrow({ where: { providerPaymentId: paid.id } })).status).toBe("approved");
+    } finally { vi.useRealTimers(); }
+  });
+  it("recovers an old supplemental refund without a webhook while waiting for a scheduled renewal", async () => {
+    const f = await upgradeFixture(), { applyUpgradePayment } = await import("./change-payments"), { syncPlanChanges } = await import("./change-worker");
+    await syncPlanChanges(f.sub);
+    const paid = upgradePayment(f.change); await applyUpgradePayment(f.sub, f.change, f.remote, paid); await syncPlanChanges(f.sub);
+    const later = await f.changes.createChangeQuote(f.ctx, { plan: "TEAM_PLUS", cycle: "MONTHLY" }, randomUUID());
+    await f.changes.confirmPlanChange(f.ctx, later.id); await syncPlanChanges(f.sub);
+    payments.set(paid.id, { ...paid, status: "refunded", transaction_amount_refunded: paid.transaction_amount, date_last_updated: new Date(Date.now() + 1000).toISOString() });
+    await syncPlanChanges(f.sub);
+    expect((await admin.billingCharge.findUniqueOrThrow({ where: { providerPaymentId: paid.id } })).status).toBe("refunded");
+    expect((await admin.billingPlanChange.findUniqueOrThrow({ where: { id: later.id } })).state).toBe("REVIEW");
+  });
+  it("accepts the provider's second precision for a payment in the quote's opening second", async () => {
+    const f = await upgradeFixture(), { applyUpgradePayment } = await import("./change-payments");
+    await applyUpgradePayment(f.sub, f.change, f.remote, { ...upgradePayment(f.change), date_approved: new Date(Math.floor(f.change.quotedAt.getTime() / 1000) * 1000).toISOString() });
+    expect((await admin.billingPlanChange.findUniqueOrThrow({ where: { id: f.change.id } })).state).toBe("APPLYING");
+  });
   it("schedules a downgrade, preserves original invoice terms and cancels the scheduled price", async () => {
     const f = await paidFixture("TEAM_MAX"), changes = await import("./changes"), { syncPlanChanges } = await import("./change-worker");
     const quote = await changes.createChangeQuote(f.ctx, { plan: "TEAM_PLUS", cycle: "MONTHLY" }, randomUUID());
