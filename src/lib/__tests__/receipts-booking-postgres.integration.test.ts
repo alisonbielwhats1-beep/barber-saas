@@ -316,6 +316,56 @@ pg("recebimentos e reservas 023 no PostgreSQL", () => {
       withSalon(f.salon.id, (tx) => createAppointment(tx, f.input())),
     ).resolves.toHaveProperty("appointment");
   });
+  it("rejects changed terms without consuming the offer or creating a reservation", async () => {
+    const f = await fixture();
+    const id = crypto.randomUUID();
+    await withSalon(f.salon.id, (tx) =>
+      joinFlexibleWaitlist(tx, f.salon.id, f.clients[0]!.id, {
+        id,
+        professionalId: f.professionals[0]!.id,
+        serviceIds: [f.service.id],
+        fromDate: f.date,
+        toDate: f.date,
+        startMinutes: 540,
+        endMinutes: 1100,
+      }),
+    );
+    const offered = await withSalon(f.salon.id, (tx) =>
+      promoteFlexible(
+        tx,
+        { salonId: f.salon.id, userId: f.users[0]!.id },
+        id,
+        `${f.date}T10:00`,
+        9000,
+        15,
+      ),
+    );
+    await prisma.service.update({
+      where: { id: f.service.id },
+      data: { priceCents: 10000 },
+    });
+    await expect(
+      withSalon(f.salon.id, (tx) =>
+        respondToOffer(
+          tx,
+          f.salon.id,
+          f.clients[0]!.id,
+          offered.offerId!,
+          true,
+        ),
+      ),
+    ).rejects.toThrow("condições mudaram");
+    expect(
+      (
+        await prisma.waitlistOffer.findUniqueOrThrow({
+          where: { id: offered.offerId! },
+        })
+      ).status,
+    ).toBe("OFFERED");
+    expect(
+      await prisma.appointment.count({ where: { salonId: f.salon.id } }),
+    ).toBe(0);
+  });
   it("isolates offers with RLS and rejects foreign tenant FKs", async () => {
     const f = await fixture();
     const other = await fixture();

@@ -98,6 +98,31 @@ export async function respondToOffer(
     enforcePlanLimits: true,
     actor: { type: "CLIENT", id: clientId, name: fresh.waitlist.client.name },
   });
+  // O catálogo pode mudar entre a conferência e a criação. Validar os snapshots
+  // realmente gravados antes de confirmar a transação mantém os termos aceitos.
+  const bookedServices = await tx.appointmentService.findMany({
+    where: { salonId, appointmentId: result.appointment.id },
+    orderBy: { position: "asc" },
+  });
+  const bookedResources = await tx.resourceBooking.findMany({
+    where: { salonId, appointmentId: result.appointment.id, active: true },
+    select: { resourceId: true },
+    orderBy: { resourceId: "asc" },
+  });
+  const bookedSnapshots = offerSnapshots(
+    bookedServices.map((s) => ({ ...s, id: s.serviceId, name: s.serviceName })),
+  );
+  if (
+    +result.appointment.endAt !== +fresh.endAt ||
+    JSON.stringify(bookedSnapshots) !==
+      JSON.stringify(readOfferSnapshots(fresh.serviceSnapshots)) ||
+    bookedResources.map((r) => r.resourceId).join() !==
+      [...fresh.resourceIds].sort().join()
+  ) {
+    throw new Error(
+      "As condições mudaram. Peça ao estabelecimento uma nova oferta.",
+    );
+  }
   await tx.waitlistOffer.update({
     where: { id },
     data: { appointmentId: result.appointment.id },

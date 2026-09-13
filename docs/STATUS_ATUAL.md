@@ -12,7 +12,7 @@ Financeiro. Abertura/fechamento de caixa e sinais sugeridos automaticamente em
 Esta decisão substitui a navegação financeira separada descrita em fases anteriores.
 Detalhes e evidências em `RECEBIMENTOS_E_AGENDAMENTO_2026-09-13.md`.
 A migration manual 023 está em validação. **Nenhum deploy ou SQL produtivo
-foi autorizado ou executado nesta entrega.** CI/Preview serão registrados no PR.
+foi autorizado ou executado nesta entrega.** CI/Preview serão registrados no PR #103.
 
 
 

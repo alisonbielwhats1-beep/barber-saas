@@ -64,7 +64,7 @@ Não oferecer a mesma vaga novamente ao pedido que recusou/expirou.
 - `npm run lint`, `npx tsc --noEmit --incremental false` e `npm run build`: aprovados.
 - `npm test`: 914 testes em 182 arquivos aprovados, incluindo data padrão, extras,
   seleção, erro parcial e bloqueio de double submit na baixa.
-- PostgreSQL 16 isolado em loopback: 5 testes novos de reservas/recebimentos/ofertas,
+- PostgreSQL 16 isolado em loopback: 6 testes novos de reservas/recebimentos/ofertas,
   16 de comanda e 11 de recursos/preços existentes passaram em execuções focadas.
 - Migration 023: preflight, aplicação, reaplicação e verify passaram localmente;
   backup do predecessor restaurado em banco separado. Nenhuma conexão produtiva.
@@ -85,3 +85,7 @@ Após gravação de serviços repetidos, rollback para código que deduplica ser
 023.rollback.sql é um inventário de recuperação, não um apagamento de histórico.
 Preview da Vercel continua limitado à landing pelo guard; jornadas autenticadas
 são verificadas apenas no PostgreSQL local/CI sintético.
+
+PR de revisão: https://github.com/alisonbielwhats1-beep/barber-saas/pull/103.
+O aceite confere também os snapshots realmente gravados, revertendo a transação
+se o catálogo mudar durante a confirmação.
