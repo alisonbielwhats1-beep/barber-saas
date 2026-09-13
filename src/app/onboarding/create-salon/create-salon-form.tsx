@@ -11,6 +11,7 @@ import {
   useSegmentSelection,
 } from "@/components/segment-service-picker";
 import { createSalon } from "./actions";
+import { setupEntryHref } from "@/lib/initial-setup";
 
 export function CreateSalonForm({ nextHref = "/dashboard" }: { nextHref?: string }) {
   const router = useRouter();
@@ -34,7 +35,7 @@ export function CreateSalonForm({ nextHref = "/dashboard" }: { nextHref?: string
           setError(res.error);
           return;
         }
-        router.push(nextHref);
+        router.push(nextHref.startsWith("/assinatura?") ? nextHref : setupEntryHref(nextHref));
         router.refresh();
       } catch {
         setError("Não foi possível concluir agora. Verifique sua conexão e tente novamente.");

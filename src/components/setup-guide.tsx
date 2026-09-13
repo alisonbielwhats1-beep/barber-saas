@@ -4,10 +4,10 @@ import { resolvePlanIntent } from "@/lib/marketing-plan";
 
 export type SetupStep = { done: boolean; label: string; href: string };
 const instructions = [
-  "Cadastre o que você oferece e revise preço e duração de cada serviço.",
-  "Adicione quem atende e associe os serviços realizados por cada profissional.",
-  "Configure os dias e horários disponíveis no cadastro do profissional.",
-  "Confira sua página e compartilhe o link para receber a primeira reserva.",
+  "Escolha os dias e períodos de atendimento do estabelecimento.",
+  "Confira o preço e a duração dos serviços que seus clientes podem agendar.",
+  "Associe os serviços a quem atende e confira a jornada de cada profissional.",
+  "Conheça o aplicativo do cliente e veja onde copiar o link para compartilhar.",
 ];
 
 export function PlanInterestNotice({ intent, currentPlan }: { intent?: string; currentPlan: string | undefined }) {
