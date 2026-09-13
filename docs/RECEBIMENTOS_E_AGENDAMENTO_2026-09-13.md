@@ -1,7 +1,8 @@
 # Recebimentos e experiência de agendamento — 13/09/2026
 
 Base: origin/master `5cca634`. Branch: `codex/booking-receipts-experience`.
-Solicitação autoriza implementar e validar; publicação e SQL produtivo permanecem etapas separadas.
+Solicitação inicial autorizou implementar e validar. Após revisão e CI completos,
+o responsável autorizou a publicação em produção, incluindo a migration 023 necessária.
 
 ## Escopo e critérios de aceite
 
@@ -101,3 +102,38 @@ passaram após manter retornos abaixo da lista de clientes e mover cores para os
 filtros no celular. O teste de paleta agora escolhe o modo profissional e aguarda
 a transição visual. O CI executa as jornadas autenticadas em duas partes, cada
 qual com um novo servidor dev, evitando reinício por memória no meio da operação.
+
+## Liberação autorizada em 13/09/2026
+
+O pedido "faça o deploy em produção" autoriza a liberação do PR #103.
+CI 34745748168 aprovado: 924 testes unitários, upgrade/reaplicação/preservação,
+concorrência/RLS, restauração e 102 testes de navegador. Preview READY, protegido
+pelo SSO da Vercel. A revisão visual local adicional teve 37 testes aprovados.
+
+Migration `receipts_booking_023`, versão `20260913142553`, aplicada uma única vez
+em `barber-saas` / `vshnatkzxdekkvqttvbv`, PostgreSQL 17.6, sa-east-1.
+Preflight confirmou predecessor e runtime NOSUPERUSER/NOBYPASSRLS. Apenas a 023
+foi aplicada, com lock_timeout de 5 segundos e statement_timeout de 60 segundos.
+Verify confirmou RLS ENABLE/FORCE, política tenant, três guardas, remoção da
+unicidade por serviço/reserva, ausência de grants públicos e backfill sem divergências.
+
+Preservação antes/depois: 1.191 pagamentos, 14.589.500 centavos recebidos, 2.276
+itens de serviço e nenhuma entrada da fila flexível. Checksums das colunas legadas:
+Payment `e6c27701a7628a9b4712dac0d37368a3`;
+AppointmentService `d9577088fffa5c19360ab3d6a0fb5055`;
+FlexibleWaitlist `d41d8cd98f00b204e9800998ecf8427e`.
+Advisors não apontaram novos achados; permanecem avisos preexistentes de search_path
+nas funções de contexto e de btree_gist em public.
+
+Backup delimitado de Payment, AppointmentService, FlexibleWaitlist e metadados
+das estruturas afetadas, criptografado ainda no servidor, mantido fora do Git em
+`.codex/backups/everflair/production-2026-09-13-pr103/affected-tables.pgp`.
+Não é dump completo do projeto. A decifragem integral em memória confirmou 1.143.721
+bytes e SHA256 `feef8f12885b2642e96e0f1fae1b30f51cade724d7dfa5248738ffd49747215e`.
+Chaves de recuperação preservadas em `production-2026-09-07/keys`, no mesmo diretório
+de backups. Nenhum dado produtivo foi restaurado em desenvolvimento ou teste.
+A recuperação mantém schema/dados e usa código compatível após gravação de repetições.
+
+O merge/deploy e a verificação somente leitura da home, Financeiro, Hoje, Booksite
+e logs de runtime serão registrados no PR #103. Não executar baixas ou reservas de
+teste em Production.

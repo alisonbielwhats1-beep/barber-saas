@@ -1,6 +1,6 @@
 # Status atual canônico — Salon SaaS
 
-## 2026-09-13 — recebimentos e agendamento em implementação/revisão
+## 2026-09-13 — recebimentos e agendamento: publicação autorizada
 
 Branch `codex/booking-receipts-experience`, base inicial `5cca634` (PR #99), atualizada com `d970b11` (PR #102).
 A solicitação reúne baixa em lote, ajustes antes de receber, serviços repetidos,
@@ -11,8 +11,13 @@ Financeiro. Abertura/fechamento de caixa e sinais sugeridos automaticamente em
 30% deixam esta experiência; registros históricos permanecem preservados.
 Esta decisão substitui a navegação financeira separada descrita em fases anteriores.
 Detalhes e evidências em `RECEBIMENTOS_E_AGENDAMENTO_2026-09-13.md`.
-A migration manual 023 está em validação. **Nenhum deploy ou SQL produtivo
-foi autorizado ou executado nesta entrega.** CI/Preview serão registrados no PR #103.
+O responsável autorizou "faça o deploy em produção" após a aprovação do PR #103.
+CI 34745748168 aprovado: 924 testes unitários, PostgreSQL e 102 testes de navegador.
+Migration 023 aplicada no projeto `vshnatkzxdekkvqttvbv`, versão `20260913142553`,
+após preflight e backup criptografado com decifragem/checksum verificados.
+Os 1.191 pagamentos (14.589.500 centavos) e 2.276 itens de serviço foram preservados
+por checksum. RLS ENABLE/FORCE, três guardas e backfill foram verificados.
+O deploy segue a integração do PR #103; commit e conferência final ficam no PR.
 
 ## 2026-09-13 — domínio oficial do cliente, publicação autorizada
 
