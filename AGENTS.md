@@ -35,7 +35,8 @@ recente e a contradição deve ser corrigida no mesmo PR.
 - NextAuth Credentials + sessão JWT.
 - Tailwind/Radix, Vitest e CI com PostgreSQL 16 descartável.
 - Multi-tenant por `salonId` + `Membership` + RLS/GUCs no PostgreSQL.
-- Produção: `https://salon-saas-ruby.vercel.app`, branch `master`.
+- Produção: `https://everflair.com.br`, branch `master`; o endereço antigo
+  `https://salon-saas-ruby.vercel.app` permanece disponível.
 - Administrador global: `PlatformRole.SUPER_ADMIN`, rota `/plataforma`.
 - `PLATFORM_BILLING_ENABLED` permanece `false` até a migration manual `011`
   ser validada fora de Production e aplicada com autorização.

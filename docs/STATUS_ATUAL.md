@@ -1,5 +1,19 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-13 — domínio oficial do cliente, publicação autorizada
+
+O responsável autorizou manter o link antigo e passar a divulgar o novo.
+Vercel confirmou `everflair.com.br` e `salon-saas-ruby.vercel.app` como
+Production com configuração válida; home e vitrine retornaram 200 em ambos.
+O domínio oficial atual é **https://everflair.com.br**; referências abaixo
+à URL oficial Vercel são históricas. O domínio antigo permanece disponível.
+
+Branch `codex/customer-official-domain`, base `5cca634`: Compartilhar/QR Code
+e Marketing passam a consultar `PUBLIC_BOOKING_URL`, sem alterar
+`NEXTAUTH_URL`, secrets, cookies, manifestos ou dados. A publicação ocorrerá
+após lint, TypeScript, testes, build, CI e Preview; resultado final no PR.
+Plano e recuperação em `DOMINIO_CLIENTE_2026-09-13.md`. Sem migration.
+
 
 ## 2026-09-12 — busca, bloqueios e encaixe: publicação autorizada
 
