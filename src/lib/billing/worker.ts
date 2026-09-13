@@ -78,6 +78,8 @@ export async function syncSubscription(salonId: string, id: string) {
       }
     }
     await withSalon(salonId, async tx => { await subscriptionLock(tx, salonId); return tx.billingInbox.update({ where: { id: item.id }, data: { processedAt: new Date() } }); });
+    // One inbox resource OR one periodic invoice per call bounds provider latency.
+    return true;
   }
   // A bounded page per invocation, with a durable cursor for long-lived annual/monthly contracts.
   const page = await mp.listInvoices(sub.providerId, sub.invoiceOffset);

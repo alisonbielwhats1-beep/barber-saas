@@ -45,6 +45,13 @@ export function parseProvider<S extends z.ZodTypeAny>(schema: S, value: unknown)
   if (!result.success) throw new BillingError("PROVIDER_INVALID_RESPONSE", 503);
   return result.data;
 }
+export async function verifySellerAccount() {
+  const config = billingConfig();
+  const account = parseProvider(z.object({ id, site_id: z.string(), tags: z.array(z.string()) }), await mpRequest("/users/me"));
+  if (account.id !== config.collectorId || account.site_id !== "MLB" || account.tags.includes("test_user") !== (config.mode === "test")) {
+    throw new BillingError("SELLER_ACCOUNT_MISMATCH", 503);
+  }
+}
 const safeId = (value: string) => {
   if (!/^[a-zA-Z0-9_-]{1,100}$/.test(value)) throw new BillingError("INVALID_RESOURCE", 400);
   return encodeURIComponent(value);
@@ -56,7 +63,8 @@ export async function searchSubscriptions(reference: string) {
   return parseProvider(z.object({ results: z.array(subscriptionSchema) }), await mpRequest(`/preapproval/search?external_reference=${encodeURIComponent(reference)}`)).results.filter(s => s.external_reference === reference);
 }
 export async function listInvoices(subscriptionId: string, offset = 0) {
-  return parseProvider(z.object({ results: z.array(invoiceSchema), paging: z.object({ total: z.number().int() }) }), await mpRequest(`/authorized_payments/search?preapproval_id=${safeId(subscriptionId)}&limit=50&offset=${offset}`));
+  // Use the provider's default page size; explicit limits are rejected by this API.
+  return parseProvider(z.object({ results: z.array(invoiceSchema), paging: z.object({ total: z.number().int() }) }), await mpRequest(`/authorized_payments/search?preapproval_id=${safeId(subscriptionId)}&offset=${offset}`));
 }
 export function checkoutUrl(value: string) {
   const url = new URL(value);

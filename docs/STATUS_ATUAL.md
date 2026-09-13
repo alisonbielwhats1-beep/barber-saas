@@ -10,7 +10,10 @@ APIs e roteiro de liberação em `MERCADOPAGO_ASSINATURAS.md`.
 Migration 023 validada somente no PostgreSQL local descartável, não aplicada em
 Production. MERCADOPAGO_BILLING_ENABLED e execução agendada seguem desativadas;
 PLATFORM_BILLING_ENABLED permanece false e 011 não foi aplicada. Checkout no
-frontend e homologação completa com comprador fictício ainda pendentes.
+frontend e webhook externo em staging ainda pendentes. No teste com contas
+fictícias, criação, aprovação mensal, liberação e cancelamento foram confirmados
+pelo Mercado Pago; contrato anual também criado e cancelado ainda pendente.
+Detalhes e limites dessa evidência no documento da entrega. PR #101 em revisão.
 
 
 

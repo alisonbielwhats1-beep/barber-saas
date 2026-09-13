@@ -2,7 +2,7 @@ import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { createHmac } from "node:crypto";
 vi.mock("server-only",()=>({}));
 import { billingConfig } from "./config";
-import { verifyWebhook, checkoutUrl, mpRequest } from "./provider";
+import { verifyWebhook, checkoutUrl, mpRequest, listInvoices } from "./provider";
 describe("Mercado Pago trust boundaries",()=>{
   beforeEach(()=>{vi.stubEnv("MERCADOPAGO_BILLING_ENABLED","true");vi.stubEnv("MERCADOPAGO_MODE","test");vi.stubEnv("MERCADOPAGO_COLLECTOR_ID","123");vi.stubEnv("MERCADOPAGO_ACCESS_TOKEN","test-only");vi.stubEnv("MERCADOPAGO_WEBHOOK_SECRET","test-secret");vi.stubEnv("APP_ENV","test");vi.stubEnv("NEXTAUTH_URL","http://localhost:3000");});
   afterEach(()=>{vi.unstubAllEnvs();vi.unstubAllGlobals();});
@@ -25,5 +25,16 @@ describe("Mercado Pago trust boundaries",()=>{
   it("never repeats a failed POST or leaks the provider response",async()=>{
     const fetch=vi.fn().mockResolvedValue(new Response('{"access_token":"sensitive"}',{status:500}));vi.stubGlobal("fetch",fetch);
     await expect(mpRequest("/preapproval","POST",{})).rejects.toThrow("PROVIDER_UNAVAILABLE");expect(fetch).toHaveBeenCalledTimes(1);
+  });
+  it("uses the provider default invoice page size and retains the durable offset",async()=>{
+    vi.stubGlobal("fetch",vi.fn(async(input:string)=>{
+      const url=new URL(input);
+      // Observed sandbox contract: explicit limit=20 and limit=50 return HTTP 400.
+      if(url.searchParams.has("limit"))return new Response('{"message":"Invalid value for limit"}',{status:400});
+      expect(url.searchParams.get("preapproval_id")).toBe("subscription-id");
+      expect(url.searchParams.get("offset")).toBe("21");
+      return new Response('{"results":[],"paging":{"total":21}}');
+    }));
+    await expect(listInvoices("subscription-id",21)).resolves.toEqual({results:[],paging:{total:21}});
   });
 });

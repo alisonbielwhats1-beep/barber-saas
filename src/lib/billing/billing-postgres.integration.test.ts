@@ -121,15 +121,30 @@ pg("automatic billing with PostgreSQL and runtime FORCE RLS", () => {
     expect(await admin.billingEvent.count({ where: { subscriptionId, type: "PAYMENT_UPDATED" } })).toBe(1);
     expect(await scope.withSalon(salonId, tx => effectiveEntitlement(tx, salonId, "PRO"))).toMatchObject({ maxProfessionals: 5, monthlyAppointments: null });
   });
-  it("rejects wrong amount, currency, seller, payer or environment without granting a period", async () => {
+  it("rejects wrong amount, currency, seller or payer without granting a period", async () => {
     const sub = await admin.billingSubscription.findUniqueOrThrow({ where: { id: subscriptionId } });
     const mp = await import("./provider");
     const remote = mp.subscriptionSchema.parse(remoteFor(providerId));
     const invoice = mp.invoiceSchema.parse(invoices.get(invoiceId));
     const payment = mp.paymentSchema.parse(payments.get(paymentId));
-    for (const change of [{ transaction_amount: 1 }, { currency_id: "USD" }, { collector_id: "999" }, { payer: { id: "other" } }, { live_mode: true }]) {
+    for (const change of [{ transaction_amount: 1 }, { currency_id: "USD" }, { collector_id: "999" }, { payer: { id: "other" } }]) {
       await expect(service.applyInvoice(sub, remote, invoice, { ...payment, ...change })).rejects.toThrow("PAYMENT_MISMATCH");
     }
+  });
+  it("accepts live_mode test payments only after verifying a test seller, and rejects sandbox payments in live mode", async () => {
+    const sub = await admin.billingSubscription.findUniqueOrThrow({ where: { id: subscriptionId } });
+    const mp = await import("./provider");
+    const remote = mp.subscriptionSchema.parse(remoteFor(providerId));
+    const invoice = mp.invoiceSchema.parse(invoices.get(invoiceId));
+    const payment = mp.paymentSchema.parse(payments.get(paymentId));
+    await expect(service.applyInvoice(sub, remote, invoice, { ...payment, live_mode: true })).resolves.toBeUndefined();
+    const originalFetch = globalThis.fetch;
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: 123, site_id: "MLB", tags: [] }))));
+    await expect(service.applyInvoice(sub, remote, invoice, { ...payment, live_mode: true })).rejects.toThrow("SELLER_ACCOUNT_MISMATCH");
+    vi.stubGlobal("fetch", originalFetch);
+    vi.stubEnv("APP_ENV", "production"); vi.stubEnv("MERCADOPAGO_MODE", "live"); vi.stubEnv("NEXTAUTH_URL", "https://billing.example.test");
+    try { await expect(service.applyInvoice({ ...sub, mode: "live" }, remote, invoice, payment)).rejects.toThrow("PAYMENT_MISMATCH"); }
+    finally { vi.stubEnv("APP_ENV", "test"); vi.stubEnv("MERCADOPAGO_MODE", "test"); vi.stubEnv("NEXTAUTH_URL", "http://localhost:3000"); }
   });
   it("records refunds for review without deleting history or reactivating suspended salons", async () => {
     await admin.salon.update({ where: { id: salonId }, data: { accessStatus: "SUSPENDED" } });
@@ -217,5 +232,18 @@ pg("automatic billing with PostgreSQL and runtime FORCE RLS", () => {
     expect((await admin.billingSubscription.findUniqueOrThrow({ where: { id: sub.id } })).paidThrough).toEqual(periodEnd(now, 12));
     expect(await scope.withSalon(salon.id, tx => effectiveEntitlement(tx, salon.id, "PRO"))).toMatchObject({ maxProfessionals: 12 });
     expect((await admin.salon.findUniqueOrThrow({ where: { id: salon.id } })).accessStatus).toBe("SUSPENDED");
+  });
+  it("retries seller verification without trapping a contract whose POST was never attempted", async () => {
+    const salon = await admin.salon.create({ data: { name: "seller-unavailable", slug: randomUUID(), accessStatus: "APPROVED" } });
+    await admin.membership.create({ data: { salonId: salon.id, userId: ownerId, role: "OWNER" } });
+    const ctx = { salonId: salon.id, userId: ownerId }, key = randomUUID();
+    const originalFetch = globalThis.fetch, before = postCount;
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{}", { status: 503 })));
+    try { await expect(service.contract(ctx, { plan: "TEAM", cycle: "MONTHLY" }, key)).rejects.toThrow("PROVIDER_UNAVAILABLE"); }
+    finally { vi.stubGlobal("fetch", originalFetch); }
+    expect(postCount).toBe(before);
+    expect((await admin.billingSubscription.findFirstOrThrow({ where: { salonId: salon.id } })).creationStartedAt).toBeNull();
+    expect((await service.contract(ctx, { plan: "TEAM", cycle: "MONTHLY" }, key)).providerId).not.toBeNull();
+    expect(postCount).toBe(before + 1);
   });
 });

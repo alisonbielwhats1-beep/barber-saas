@@ -73,6 +73,11 @@ export async function ensureCreated(sub: BillingSubscription) {
   if (sub.providerId || sub.cancelledAt) return;
   const config = billingConfig();
   if (sub.mode !== config.mode || sub.collectorId !== config.collectorId) throw new BillingError("BILLING_ENVIRONMENT_MISMATCH", 503);
+  // A failed read-only preflight must not make a POST that never happened look uncertain.
+  if (!sub.creationStartedAt && !sub.cancelRequestedAt) {
+    if (process.env.MERCADOPAGO_CHECKOUT_PAUSED === "true") throw new BillingError("CHECKOUT_PAUSED", 503);
+    await mp.verifySellerAccount();
+  }
   // Atomically reserve ONE attempt. Uncertain requests are recovered by reference, never blindly repeated.
   const reserved = await withSalon(sub.salonId, async tx => {
     await subscriptionLock(tx, sub.salonId);
@@ -94,8 +99,6 @@ export async function ensureCreated(sub: BillingSubscription) {
     if (matches.length !== 1) throw new BillingError("CREATION_REQUIRES_RECONCILIATION", 503);
     remote = matches[0];
   } else {
-    const account = await mp.mpRequest("/users/me") as { id?: number; site_id?: string; tags?: string[] };
-    if (String(account.id) !== config.collectorId || account.site_id !== "MLB" || (account.tags?.includes("test_user") === true) !== (config.mode === "test")) throw new BillingError("SELLER_ACCOUNT_MISMATCH", 503);
     remote = mp.parseProvider(mp.subscriptionSchema, await mp.mpRequest("/preapproval", "POST", {
       reason: `Everflair ${sub.planCode} ${sub.cycle}`, external_reference: referenceFor(sub), payer_email: sub.payerEmail,
       auto_recurring: { frequency: sub.intervalMonths, frequency_type: "months", transaction_amount: sub.amountCents / 100, currency_id: "BRL" },
@@ -149,8 +152,11 @@ export async function requestCancellation(ctx: { salonId: string; userId: string
 export async function applyInvoice(sub: BillingSubscription, remote: mp.RemoteSubscription, invoice: mp.RemoteInvoice, payment: mp.RemotePayment | null) {
   validateRemote(sub, remote);
   if (invoice.preapproval_id !== remote.id || invoice.currency_id !== sub.currency || Math.round(invoice.transaction_amount * 100) !== sub.amountCents) throw new BillingError("INVOICE_MISMATCH");
-  if (payment && (payment.id !== invoice.payment?.id || payment.collector_id !== sub.collectorId || payment.currency_id !== sub.currency || Math.round(payment.transaction_amount * 100) !== sub.amountCents || payment.live_mode !== (sub.mode === "live") ||
+  if (payment && (payment.id !== invoice.payment?.id || payment.collector_id !== sub.collectorId || payment.currency_id !== sub.currency || Math.round(payment.transaction_amount * 100) !== sub.amountCents || (sub.mode === "live" && !payment.live_mode) ||
     (remote.payer_id && payment.payer?.id !== remote.payer_id))) throw new BillingError("PAYMENT_MISMATCH");
+  // Test-user subscriptions created with their APP_USR credentials report live_mode=true.
+  // Accept that combination only after the API confirms the configured seller is a test_user.
+  if (payment?.live_mode && sub.mode === "test") await mp.verifySellerAccount();
   const status = payment ? ((payment.transaction_amount_refunded ?? 0) > 0 ? "refunded" : payment.status) : "pending";
   const updatedAt = new Date(payment?.date_last_updated ?? invoice.last_modified);
   const start = new Date(invoice.debit_date);

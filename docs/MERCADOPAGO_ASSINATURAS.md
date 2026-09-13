@@ -96,9 +96,11 @@ Configuração no ambiente de destino, sem versionar valores:
 
 Antes do primeiro POST, /users/me deve confirmar país MLB, vendedor esperado e
 tag test_user coerente com o ambiente. Prefixo do token sozinho não prova isso.
-Não usar e-mail da conta principal como comprador fictício. A tentativa de criar
-comprador fictício com o vendedor de teste retornou HTTP 403 em 12/09; nenhuma
-cobrança real foi realizada. A homologação completa no Mercado Pago está pendente.
+Não usar e-mail da conta principal como comprador fictício. O comprador existente
+foi confirmado no perfil, e os testes abaixo usaram somente contas/cartão fictícios.
+Nenhuma cobrança real foi realizada. Pagamentos de test_user com suas credenciais
+APP_USR podem retornar live_mode=true: nesse caso a API /users/me deve confirmar
+novamente o vendedor fictício. Em modo live, pagamento live_mode=false é rejeitado.
 
 O workflow `billing-reconcile.yml` usa o GitHub Actions existente, desligado por
 padrão. Configurar, após homologação/autorização, variável de repositório
@@ -139,15 +141,37 @@ exigem conciliação individual; jamais refazer POST sem confirmar inexistência
 
 ## Evidências e fontes
 
-Suíte dedicada local: 27 testes passaram, incluindo doze integrações PostgreSQL
+Suíte dedicada local: 30 testes passaram, incluindo catorze integrações PostgreSQL
 com role sem BYPASSRLS. Cobertura: duplicidade, isolamento, autorização, erros do
 provedor, assinatura HMAC, limites HTTP, carência/regularização, recorrência mensal
 e anual, capacidade, cancelamento, suspensão e preservação de eventos.
 Checks locais completos: `npm run lint`, `npx tsc --noEmit --incremental false`,
-`npm test` (922 testes em 183 arquivos) e `npm run build` passaram. Backup do
+`npm test` (923 testes em 183 arquivos) e `npm run build` passaram. Backup do
 PostgreSQL descartável restaurado em segundo banco; fingerprints de todas as
 tabelas conferidos. Preflight, reaplicação idempotente da 023, verify RLS e
 inventário de rollback passaram sem alterar dados. CI/Preview ficam no PR.
+
+Homologação parcial com a API e checkout do Mercado Pago (12/09, horário de
+Brasília): contrato mensal Equipe Plus R$ 99,90 criado pelo serviço real usando
+o PostgreSQL local com role sem BYPASSRLS. Checkout confirmou transação fictícia
+`178756343420`; a API confirmou vendedor `3683184919`, comprador `3683184927`,
+BRL/99,90 e aprovação. Reconciliação persistiu uma única fatura e paidThrough
+`2026-10-13T00:51:57.000Z`. Cancelamento confirmado no provedor às
+`2026-09-13T00:54:41.965Z`, preservando o período e o histórico.
+Assinatura anual Equipe Plus criada com R$ 958,80/frequência 12 meses e cancelada
+ainda pendente, sem cobrança. Ambas encerradas no provedor após os testes.
+
+O teste real encontrou e corrigiu: parâmetros limit=20/50 rejeitados na busca
+de faturas (agora usa paginação padrão com offset) e live_mode=true em pagamentos
+entre test_users (agora exige comprovação adicional do vendedor). Regressões
+cobertas por testes. Falha no GET de verificação do vendedor não reserva um POST
+que nunca aconteceu; falha depois do POST permanece sujeita à reconciliação.
+
+Limite da evidência: o pagamento mensal foi recuperado pela reconciliação; ainda
+falta entrega externa de webhook com assinatura autêntica em staging configurado.
+Renovação futura, recusa financeira, anual pago e chargeback foram exercitados
+com provedor simulado e banco real. O Preview compila com cobrança desligada e
+permanece sob as barreiras de ambiente existentes; não substitui esse staging.
 
 Referências oficiais consultadas em 12/09/2026:
 
