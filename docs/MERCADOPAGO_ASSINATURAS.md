@@ -166,6 +166,12 @@ de faturas (agora usa paginação padrão com offset) e live_mode=true em pagame
 entre test_users (agora exige comprovação adicional do vendedor). Regressões
 cobertas por testes. Falha no GET de verificação do vendedor não reserva um POST
 que nunca aconteceu; falha depois do POST permanece sujeita à reconciliação.
+O checkout passa a apresentar nome do plano e periodicidade em português
+(por exemplo, “Everflair Equipe Plus — mensal”), em vez dos códigos internos.
+No servidor Next.js local, as APIs rejeitaram ausência de sessão/assinatura com
+401 e aceitaram notificações assinadas localmente com 200; replays preservaram
+uma notificação e uma fatura. Falhas transitórias/429 do provedor permaneceram
+retentáveis, sem concessão duplicada. O servidor e o cluster local foram encerrados.
 
 Limite da evidência: o pagamento mensal foi recuperado pela reconciliação; ainda
 falta entrega externa de webhook com assinatura autêntica em staging configurado.

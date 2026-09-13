@@ -2,7 +2,7 @@ import "server-only";
 import { createHash, randomUUID } from "node:crypto";
 import type { BillingSubscription } from "@prisma/client";
 import { withSalon, withTenant, type Tx } from "../prisma-tenant";
-import { BillingError, periodEnd, quoteContract } from "./catalog";
+import { BILLING_PLANS, BillingError, periodEnd, quoteContract } from "./catalog";
 import { billingConfig } from "./config";
 import * as mp from "./provider";
 
@@ -100,7 +100,7 @@ export async function ensureCreated(sub: BillingSubscription) {
     remote = matches[0];
   } else {
     remote = mp.parseProvider(mp.subscriptionSchema, await mp.mpRequest("/preapproval", "POST", {
-      reason: `Everflair ${sub.planCode} ${sub.cycle}`, external_reference: referenceFor(sub), payer_email: sub.payerEmail,
+      reason: `Everflair ${BILLING_PLANS[sub.planCode as keyof typeof BILLING_PLANS].label} — ${sub.cycle === "ANNUAL" ? "anual" : "mensal"}`, external_reference: referenceFor(sub), payer_email: sub.payerEmail,
       auto_recurring: { frequency: sub.intervalMonths, frequency_type: "months", transaction_amount: sub.amountCents / 100, currency_id: "BRL" },
       back_url: `${config.baseUrl}/api/billing/return`, status: "pending",
     }));
