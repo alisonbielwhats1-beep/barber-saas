@@ -121,7 +121,7 @@ export default async function FinanceiroPage({
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
             {m.receivable > 0 && (
-              <Link href="/agenda" className="group flex min-h-11 items-center gap-3 rounded-xl border border-info/25 bg-info/5 px-3.5 py-3 transition-colors hover:border-info/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <Link href="#recebimentos" className="group flex min-h-11 items-center gap-3 rounded-xl border border-info/25 bg-info/5 px-3.5 py-3 transition-colors hover:border-info/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <ArrowDownCircle className="h-4 w-4 shrink-0 text-info" />
                 <span className="min-w-0 flex-1">
                   <span className="block text-[12px] font-medium">Atendimentos a receber</span>

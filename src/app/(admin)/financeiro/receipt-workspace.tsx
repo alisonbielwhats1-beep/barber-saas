@@ -219,7 +219,7 @@ export function ReceiptWorkspace({
     });
   }
   return (
-    <section className="rounded-2xl border border-border bg-card p-4 sm:p-5">
+    <section id="recebimentos" className="scroll-mt-24 rounded-2xl border border-border bg-card p-4 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold">
