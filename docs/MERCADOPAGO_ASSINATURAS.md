@@ -97,7 +97,7 @@ Configuração no ambiente de destino, sem versionar valores:
 | MERCADOPAGO_COLLECTOR_ID | identificador numérico conferido em /users/me |
 | MERCADOPAGO_WEBHOOK_SECRET | segredo da aplicação que assina notificações |
 | NEXTAUTH_URL | origem canônica HTTPS, localhost permitido em teste |
-| CRON_SECRET | proteção do reconciliador |
+| BILLING_CRON_SECRET | proteção exclusiva do reconciliador; CRON_SECRET é fallback legado |
 | MERCADOPAGO_CHECKOUT_PAUSED | true impede novas contratações; mantém processamento |
 
 Antes do primeiro POST, /users/me deve confirmar país MLB, vendedor esperado e
@@ -111,8 +111,10 @@ novamente o vendedor fictício. Em modo live, pagamento live_mode=false é rejei
 O workflow `billing-reconcile.yml` usa o GitHub Actions existente, desligado por
 padrão. Configurar, após homologação/autorização, variável de repositório
 `BILLING_RECONCILIATION_ENABLED=true`, secrets `BILLING_RECONCILIATION_URL`
-(HTTPS terminando em /api/cron/billing) e `BILLING_CRON_SECRET` igual ao CRON_SECRET
-do destino. A cada cinco minutos drena até cinquenta unidades em janela de 200s;
+(HTTPS terminando em /api/cron/billing) e `BILLING_CRON_SECRET` igual ao
+`BILLING_CRON_SECRET` do destino. Isso preserva a chave dos lembretes; instalações
+anteriores sem chave exclusiva ainda usam `CRON_SECRET`. A cada cinco minutos
+drena até cinquenta unidades em janela de 200s;
 uma chamada ainda pode durar 55s. Sem sobreposição. Agendamento do GitHub pode
 atrasar; webhooks também disparam processamento. Antes de ampliar volume, medir
 idade da fila pelo HQ e dimensionar a execução; não há SLA de cinco minutos.

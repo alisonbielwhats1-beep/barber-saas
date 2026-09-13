@@ -1,5 +1,15 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-13 — liberação Mercado Pago autorizada, em preparação
+
+O responsável autorizou concluir as etapas para disponibilizar cobrança em
+produção. Preflight produtivo e backup delimitado criptografado concluídos;
+checkout e banco próprios de homologação preparados no Codespace existente.
+O reconciliador ganha chave exclusiva, preservando a chave dos lembretes.
+Ainda não houve migration Billing/HQ, merge ou ativação financeira produtiva.
+A validação da conta principal Mercado Pago pelo titular está pendente.
+Destinos, evidências e limites em `RELEASE_MERCADOPAGO_2026-09-13.md`.
+
 ## 2026-09-13 — integração das entregas em revisão
 
 O PR #101 incorpora o PR #103 (`afe5f9b`) e preserva as jornadas de recebimentos
