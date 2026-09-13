@@ -89,3 +89,8 @@ são verificadas apenas no PostgreSQL local/CI sintético.
 PR de revisão: https://github.com/alisonbielwhats1-beep/barber-saas/pull/103.
 O aceite confere também os snapshots realmente gravados, revertendo a transação
 se o catálogo mudar durante a confirmação.
+
+Verificação adicional local: configurações de sugestões/complementos persistiram;
+cores persistiram após reload e entre Agenda/Hoje; sessão sintética de cliente
+restaurou três serviços pelo atendimento de sempre. A jornada Playwright cobre
+a persistência das cores; seletor permanece desabilitado até a hidratação.

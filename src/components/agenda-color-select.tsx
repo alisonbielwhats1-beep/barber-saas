@@ -33,6 +33,8 @@ export function AgendaColorSelect({
   value: AgendaColorMode;
   onChange: (mode: AgendaColorMode) => void;
 }) {
+  const [ready, setReady] = useState(false);
+  useEffect(() => setReady(true), []);
   return (
     <label className="flex min-h-11 items-center gap-2 text-xs">
       <span title="Reservas com vários serviços usam a cor do primeiro serviço ou de sua categoria">
@@ -41,6 +43,7 @@ export function AgendaColorSelect({
       <select
         className="min-h-11 max-w-36 rounded-lg border border-border bg-card px-2 text-sm"
         aria-label="Colorir agenda por"
+        disabled={!ready}
         value={value}
         onChange={(e) => onChange(e.target.value as AgendaColorMode)}
       >

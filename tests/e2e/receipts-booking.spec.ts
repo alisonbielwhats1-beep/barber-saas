@@ -147,6 +147,22 @@ test("@database baixa por dia com extras, ontem, seleção e recibo na mesma tel
     await receipt.screenshot({
       path: test.info().outputPath("recibo-extras.png"),
     });
+    await page.goto("/agenda");
+    await page.getByLabel("Colorir agenda por").selectOption("category");
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          Object.entries(localStorage).some(
+            ([key, value]) =>
+              key.startsWith("agenda-colors:v1:") && value === "category",
+          ),
+        ),
+      )
+      .toBe(true);
+    await page.reload();
+    await expect(page.getByLabel("Colorir agenda por")).toHaveValue("category");
+    await page.goto("/hoje");
+    await expect(page.getByLabel("Colorir agenda por")).toHaveValue("category");
     expect(errors).toEqual([]);
   } finally {
     await db.$disconnect();
