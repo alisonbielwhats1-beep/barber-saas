@@ -151,6 +151,12 @@ PostgreSQL descartável restaurado em segundo banco; fingerprints de todas as
 tabelas conferidos. Preflight, reaplicação idempotente da 023, verify RLS e
 inventário de rollback passaram sem alterar dados. CI/Preview ficam no PR.
 
+A revisão final encontrou reinício do servidor de desenvolvimento por memória
+durante as jornadas existentes, além do limite de 30 minutos do job. O CI passa
+a executar essas jornadas em duas metades, cada uma com servidor novo, mantendo
+todos os testes e artefatos separados. O limite do job passa a 40 minutos; o
+resultado da nova execução fica no PR, sem alterar o runtime da aplicação.
+
 Homologação parcial com a API e checkout do Mercado Pago (12/09, horário de
 Brasília): contrato mensal Equipe Plus R$ 99,90 criado pelo serviço real usando
 o PostgreSQL local com role sem BYPASSRLS. Checkout confirmou transação fictícia
