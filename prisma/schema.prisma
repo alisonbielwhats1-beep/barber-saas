@@ -509,6 +509,7 @@ model User {
 }
 
 model Salon {
+  billingSubscriptions BillingSubscription[]
   id                String            @id @default(cuid())
   slug              String            @unique
   name              String
@@ -579,6 +580,102 @@ model Salon {
   flexibleWaitlistServices FlexibleWaitlistService[]
 
   @@index([accessStatus, accessRequestedAt])
+}
+
+// Automatic SaaS billing. Legacy manual invoices and appointment payments are independent.
+model BillingSubscription {
+  id String @id @default(uuid()) @db.Uuid
+  salonId String
+  requestKey String
+  fingerprint String
+  current Boolean @default(true)
+  catalogVersion String
+  planCode String
+  cycle String
+  amountCents Int
+  agendaLimit Int
+  intervalMonths Int
+  currency String @default("BRL")
+  mode String
+  collectorId String
+  payerEmail String
+  legacyPlan Plan
+  providerId String? @unique
+  providerStatus String @default("pending")
+  providerUpdatedAt DateTime? @db.Timestamptz(3)
+  checkoutUrl String?
+  creationStartedAt DateTime? @db.Timestamptz(3)
+  cancelRequestedAt DateTime? @db.Timestamptz(3)
+  cancelledAt DateTime? @db.Timestamptz(3)
+  paidThrough DateTime? @db.Timestamptz(3)
+  delinquentSince DateTime? @db.Timestamptz(3)
+  reviewRequired Boolean @default(false)
+  lastSyncedAt DateTime? @db.Timestamptz(3)
+  invoiceOffset Int @default(0)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  salon Salon @relation(fields: [salonId], references: [id], onDelete: Restrict)
+  charges BillingCharge[]
+  events BillingEvent[]
+  inbox BillingInbox[]
+  queue BillingQueue?
+  @@unique([salonId, requestKey])
+  @@unique([salonId, id])
+  @@index([salonId, current])
+}
+
+model BillingCharge {
+  id String @id @default(uuid()) @db.Uuid
+  salonId String
+  subscriptionId String @db.Uuid
+  providerInvoiceId String @unique
+  providerPaymentId String? @unique
+  amountCents Int
+  periodStart DateTime @db.Timestamptz(3)
+  periodEnd DateTime @db.Timestamptz(3)
+  status String
+  paidAt DateTime? @db.Timestamptz(3)
+  providerUpdatedAt DateTime @db.Timestamptz(3)
+  subscription BillingSubscription @relation(fields: [salonId, subscriptionId], references: [salonId, id], onDelete: Restrict)
+  @@index([salonId, subscriptionId, periodStart])
+}
+
+model BillingEvent {
+  id String @id @default(uuid()) @db.Uuid
+  salonId String
+  subscriptionId String @db.Uuid
+  key String
+  type String
+  detail String
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  subscription BillingSubscription @relation(fields: [salonId, subscriptionId], references: [salonId, id], onDelete: Restrict)
+  @@unique([subscriptionId, key])
+  @@index([salonId, createdAt])
+}
+
+model BillingInbox {
+  id String @id
+  salonId String
+  subscriptionId String @db.Uuid
+  topic String
+  resourceId String
+  receivedAt DateTime @default(now()) @db.Timestamptz(3)
+  processedAt DateTime? @db.Timestamptz(3)
+  subscription BillingSubscription @relation(fields: [salonId, subscriptionId], references: [salonId, id], onDelete: Restrict)
+  @@index([salonId, subscriptionId, processedAt])
+}
+
+// Global dispatch metadata only. Processing always re-enters withSalon.
+model BillingQueue {
+  subscriptionId String @id @db.Uuid
+  salonId String
+  nextAttemptAt DateTime @default(now()) @db.Timestamptz(3)
+  leaseUntil DateTime? @db.Timestamptz(3)
+  attempts Int @default(0)
+  lastError String?
+  subscription BillingSubscription @relation(fields: [salonId, subscriptionId], references: [salonId, id], onDelete: Restrict)
+  @@index([nextAttemptAt, leaseUntil])
+  @@unique([salonId, subscriptionId])
 }
 
 /// Histórico imutável das decisões de acesso da plataforma. Não é tenant-scoped:

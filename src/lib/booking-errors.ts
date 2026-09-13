@@ -16,6 +16,7 @@ export const ERROR_PT: Record<string, string> = {
   GUEST_DATA_REQUIRED: "Preencha seu nome e WhatsApp para confirmar.",
   AUTH_REQUIRED: "Sua sessão expirou — entre novamente para confirmar.",
   NOT_FOUND: "Reserva não encontrada.",
+  BILLING_REQUIRED: "O estabelecimento precisa regularizar a assinatura para receber novas reservas.",
   FORBIDDEN: "Essa reserva não pertence à sua conta.",
   ALREADY_CLOSED: "Essa reserva já foi encerrada.",
   ALREADY_STARTED: "O atendimento já começou e não pode mais ser alterado.",

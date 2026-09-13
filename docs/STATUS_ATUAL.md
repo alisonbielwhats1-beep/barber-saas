@@ -1,5 +1,18 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-12 — backend Mercado Pago em revisão, desativado
+
+Branch `codex/mercadopago-subscriptions`, base `5cca634` (PR #99): contratação
+mensal/anual, confirmação financeira, liberação por período, carência de cinco
+dias, renovação, cancelamento e fila de reconciliação implementados. Contratos
+legados preservados; suspensão administrativa independente. Detalhes, preços,
+APIs e roteiro de liberação em `MERCADOPAGO_ASSINATURAS.md`.
+Migration 023 validada somente no PostgreSQL local descartável, não aplicada em
+Production. MERCADOPAGO_BILLING_ENABLED e execução agendada seguem desativadas;
+PLATFORM_BILLING_ENABLED permanece false e 011 não foi aplicada. Checkout no
+frontend e homologação completa com comprador fictício ainda pendentes.
+
+
 
 ## 2026-09-12 — busca, bloqueios e encaixe: publicação autorizada
 

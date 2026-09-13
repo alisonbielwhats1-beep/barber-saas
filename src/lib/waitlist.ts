@@ -1,3 +1,4 @@
+import { canPromoteBillingWaitlist } from "./billing/entitlements";
 import { priceSnapshot } from "./service-price";
 import { randomUUID } from "node:crypto";
 import type { AppointmentActorType } from "@prisma/client";
@@ -542,6 +543,7 @@ export async function fulfillWaitlistOnCancel(
   salonId: string,
   releasedSlot?: ReleasedAppointmentSlot,
 ): Promise<{ appointmentId: string; clientId: string } | null> {
+  if (!(await canPromoteBillingWaitlist(tx, salonId))) return null;
   await lockWaitlist(tx, appointmentId);
 
   const entry = await tx.waitlistEntry.findFirst({

@@ -1,5 +1,19 @@
 # Decisões de produto para as próximas fases
 
+## 12/09/2026 — assinaturas Mercado Pago autorizadas para implementação
+
+Catálogo, periodicidade mensal/anual, capacidades e preços aprovados estão em
+`MERCADOPAGO_ASSINATURAS.md`. Preço anual é total cobrado a cada doze meses;
+todos os planos pagos têm os mesmos recursos. Pagamento aprovado libera o
+período; autorização do cartão/assinatura e retorno do checkout não liberam.
+Falha confirmada permite carência de cinco dias, depois restringe novas reservas
+e agendas, preservando histórico e atendimento existente. Cancelamento impede
+renovações após confirmação do provedor e preserva acesso ao período pago.
+Sem conversão automática de contratos antigos, prorrata ou mudança no meio do
+ciclo nesta entrega. Aprovação/suspensão administrativa permanece independente.
+Implementar e revisar não autoriza migration ou ativação em Production.
+
+
 Estas decisões consolidam as respostas do responsável pelo produto e as
 recomendações técnicas adotadas. Elas orientam a implementação; não significam
 que todos os itens abaixo já estão implementados na Fase 1.

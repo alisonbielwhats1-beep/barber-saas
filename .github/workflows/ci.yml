@@ -284,6 +284,21 @@ jobs:
           npx prisma db execute --file tests/fixtures/022-preservation-after.sql --url "$DIRECT_URL"
           npx vitest run src/lib/hq/chief-postgres.integration.test.ts
           npx prisma db execute --file prisma/sql/manual/022_hq_chief.rollback.sql --url "$DIRECT_URL"
+      - name: Validate automatic billing upgrade, RLS, retries and paid access
+        run: |
+          docker exec ${{ job.services.postgres.id }} pg_dump -U postgres -d salon_schema_ci > "$RUNNER_TEMP/pre023.sql"
+          test -s "$RUNNER_TEMP/pre023.sql"
+          docker exec ${{ job.services.postgres.id }} createdb -U postgres salon_restore023_ci
+          docker exec -i ${{ job.services.postgres.id }} psql -U postgres -d salon_restore023_ci -v ON_ERROR_STOP=1 < "$RUNNER_TEMP/pre023.sql" > /dev/null
+          docker exec -i ${{ job.services.postgres.id }} psql -X -A -t -U postgres -d salon_schema_ci -v ON_ERROR_STOP=1 < tests/fixtures/023-preservation-fingerprint.sql > "$RUNNER_TEMP/pre023-fingerprint.txt"
+          npx prisma db execute --file prisma/sql/manual/023_mercadopago_billing.preflight.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/023_mercadopago_billing.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/023_mercadopago_billing.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/023_mercadopago_billing.verify.sql --url "$DIRECT_URL"
+          docker exec -i ${{ job.services.postgres.id }} psql -X -A -t -U postgres -d salon_schema_ci -v ON_ERROR_STOP=1 < tests/fixtures/023-preservation-fingerprint.sql > "$RUNNER_TEMP/post023-fingerprint.txt"
+          diff -u "$RUNNER_TEMP/pre023-fingerprint.txt" "$RUNNER_TEMP/post023-fingerprint.txt"
+          npx vitest run src/lib/billing/billing-postgres.integration.test.ts
+          npx prisma db execute --file prisma/sql/manual/023_mercadopago_billing.rollback.sql --url "$DIRECT_URL"
       - name: Prove appointment and comanda concurrency with PostgreSQL, plus public access locking
         run: npm run test:appointment-integration
       - name: Prove tenant-isolated password recovery with PostgreSQL

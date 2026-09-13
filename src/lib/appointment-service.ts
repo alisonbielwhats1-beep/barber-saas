@@ -1,3 +1,4 @@
+import { assertBillingReservation, effectiveEntitlement } from "./billing/entitlements";
 import { priceSnapshot } from "./service-price";
 import { createHash, randomUUID } from "node:crypto";
 import { addMinutes } from "date-fns";
@@ -41,7 +42,7 @@ import {
 } from "./inventory-lock";
 import {
   assertMonthlyAppointmentCapacity,
-  getPlanEntitlement,
+  PlanLimitError,
 } from "./plan-entitlements";
 import {
   fulfillWaitlistOnCancel,
@@ -187,7 +188,7 @@ async function enforceAppointmentPlanLimit(
     select: { plan: true, timezone: true },
   });
   if (!salon) throw new AppointmentError("NOT_FOUND");
-  if (getPlanEntitlement(salon.plan).monthlyAppointments === null) return;
+  if ((await effectiveEntitlement(tx, input.salonId, salon.plan, input.now)).monthlyAppointments === null) return;
 
   const monthKey = dateKeyInTimeZone(input.now, salon.timezone).slice(0, 7);
   const [year, month] = monthKey.split("-").map(Number);
@@ -729,6 +730,9 @@ export async function createAppointment(
     }
     return { appointment: existing, duplicate: true };
   }
+
+  try { await assertBillingReservation(tx, input.salonId, input.now ?? new Date()); }
+  catch (e) { if (e instanceof PlanLimitError) throw new AppointmentError("BILLING_REQUIRED"); throw e; }
 
   if (input.enforcePlanLimits) {
     await enforceAppointmentPlanLimit(tx, {
@@ -1723,7 +1727,7 @@ export async function updateAppointmentStatusReliably(
 
 export function appointmentErrorStatus(code: AppointmentErrorCode): number {
   if (code === "NOT_FOUND") return 404;
-  if (code === "FORBIDDEN") return 403;
+  if (code === "FORBIDDEN" || code === "BILLING_REQUIRED") return 403;
   if (
     code === "SERVICE_INVALID" ||
     code === "PRO_SERVICE_MISMATCH" ||
