@@ -89,7 +89,9 @@ jobs:
   schema-smoke:
     runs-on: ubuntu-latest
     environment: test
-    timeout-minutes: 40
+    # A suíte completa inclui jornadas, acessibilidade e matriz responsiva.
+    # Em runners mais lentos, 30 minutos interrompiam a última etapa.
+    timeout-minutes: 45
     services:
       postgres:
         image: postgres:16-alpine

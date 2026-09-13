@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { getClientList } from "@/lib/crm";
 import { getMarketingSettings } from "@/lib/marketing-settings";
+import { getPublicBookingUrl } from "@/lib/public-booking-url";
 import { summarizeCampaignDeliveries } from "@/lib/operational-flows";
 import { withTenant } from "@/lib/prisma-tenant";
 import { MARKETING_ROLES } from "@/lib/role-permissions";
@@ -149,7 +150,7 @@ export default async function MarketingPage() {
           vips={vips}
           attended={attended}
           salonName={salon?.name ?? "nosso salão"}
-          bookingUrl={`${(process.env.NEXTAUTH_URL ?? "https://salon-saas-ruby.vercel.app").replace(/\/$/, "")}/book/${salon?.slug ?? ""}`}
+          bookingUrl={getPublicBookingUrl(salon?.slug ?? "")}
           googleReviewUrl={settings.googleReviewUrl}
           lapsedClientDays={settings.lapsedClientDays}
           enabled={marketingEnabled}

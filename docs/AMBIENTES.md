@@ -93,6 +93,14 @@ Referências oficiais:
 
 ## Variáveis por ambiente
 
+`PUBLIC_BOOKING_URL` é uma origem opcional para divulgação (Compartilhar,
+QR Code e Marketing), separada de `NEXTAUTH_URL`. Em Production, o domínio
+oficial validado em 13/09/2026 é `https://everflair.com.br`; o endereço
+`https://salon-saas-ruby.vercel.app` permanece associado ao mesmo projeto,
+sem redirecionamento obrigatório. Em desenvolvimento/CI, deixar a variável
+ausente ou usar loopback. Não copiar configuração produtiva para Preview.
+Alterações nessa variável exigem novo deployment para entrar em vigor.
+
 ### Desenvolvimento local
 
 Use um `.env` criado localmente a partir de `.env.example`; nunca use um arquivo
