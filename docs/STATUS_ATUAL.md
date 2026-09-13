@@ -11,11 +11,14 @@ O PR #101 incorpora `origin/master` com o domínio oficial e o timeout de CI.
 Lint, TypeScript, 940 testes e build passaram; 27 integrações PostgreSQL
 passaram em banco sintético separado com a migration HQ real.
 
-Na repetição do checkout, foi observada sessão da conta fictícia do vendedor
-`3683184919`, enquanto o contrato aponta para o comprador `3683184927`.
-A troca para a conta compradora exige sua autenticação, ainda pendente.
-Isso é um diagnóstico de sessão, não prova de aprovação ou de correção do
-checkout. Nenhuma migration ou ativação em Production foi realizada.
+Após autenticação do comprador fictício `3683184927` e abertura de checkout
+novo, o cartão oficial de teste aprovou os ciclos mensal e anual do Equipe
+Plus. Webhooks espontâneos assinados, consulta ao provedor, cobrança única,
+cinco agendas e projeção no HQ foram verificados. As duas renovações foram
+canceladas no provedor, preservando histórico e acesso até 13/10/2026 e
+13/09/2027, respectivamente. Isso supera a pendência das tentativas anteriores
+registradas abaixo. Nenhuma cobrança real, migration ou ativação em Production
+foi realizada. Staging persistente e push no iPhone seguem não validados.
 Detalhes e resultados finais em `MERCADOPAGO_PORTAL_HQ.md` e no PR #101.
 
 ## 2026-09-13 — Codespace identificado e webhook espontâneo de cancelamento

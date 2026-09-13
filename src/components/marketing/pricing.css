@@ -22,6 +22,11 @@
 .pc-included svg { flex: none; margin-top: 3px; color: var(--mk-accent); }
 @media(max-width: 1100px) { .pc-billing .pc-cards { grid-template-columns: repeat(2,minmax(0,1fr)); } }
 @media(max-width: 700px) { .pc-included ul { grid-template-columns: 1fr; } .pc-billing .pc-cards { grid-template-columns: 1fr; } .pc-billing .pc-cards .pc-plan { padding: 26px; } .pc-cycle { flex-direction: column; } .pc-billing .pc-cards .pc-price { font-size: 34px !important; } }
+@media(max-width: 700px) {
+  .mk .pc-billing .pc-cards article { display: flex; flex-direction: column; gap: 0; }
+  .mk .pc-billing .pc-cards h3 { margin-top: 12px; }
+  .mk .pc-billing .pc-cards .pc-price { margin-top: 22px; text-align: left; font-size: 34px !important; }
+}
 .pc-heading { display: grid; grid-template-columns: 1.5fr 1fr; gap: 80px; align-items: center; margin-bottom: 45px; }
 .pc-heading .mk-eyebrow { justify-content: flex-start; margin-bottom: 22px; font-size: 9px; }
 .pc-heading > div > p:last-child { margin-top: 24px; font-size: 14px; color: var(--mk-soft); line-height: 1.8; max-width: 48ch; }

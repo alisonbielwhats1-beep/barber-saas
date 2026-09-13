@@ -121,6 +121,56 @@ O pagamento entre contas fictícias não comprova push nessa conta. A conferênc
 das permissões e da chegada do aviso no aparelho depende do responsável;
 nenhuma notificação no celular foi observada pelo agente.
 
+## Homologação de 13/09 — novos pagamentos mensal e anual aprovados
+
+Após o responsável autenticar o comprador fictício `3683184927`, foi aberto
+checkout novo para cada contrato, usando o Visa oficial de teste final 5682.
+O vendedor é a conta fictícia `3683184919`, aplicação `1966622971462001`.
+O cartão Mastercard manteve a confirmação desabilitada na tentativa anterior;
+a troca de sessão, isoladamente, não foi comprovada como causa única.
+Nenhum cartão real ou valor monetário real foi usado.
+
+| Ciclo Equipe Plus | Contrato fictício | Pagamento fictício | Valor | Período confirmado até |
+| --- | --- | --- | --- | --- |
+| Mensal | `7a8556aaef87441284448655c946dd03` | `177835351817` | R$ 99,90 | `2026-10-13T14:40:47Z` |
+| Anual | `21a657e7de7144cd9e5697f512944fb1` | `177836251323` | R$ 958,80 | `2027-09-13T14:46:01Z` |
+
+Nos dois casos foram recebidos eventos **espontâneos**, sem simulador, dos
+tópicos `payment`, `subscription_preapproval` e `subscription_authorized_payment`.
+O ingresso local restrito ao webhook preservou HMAC e request ID; os eventos
+aceitos retornaram HTTP 200. Mensal: requests
+`cce0ccfa-4cbe-4594-ac0a-124bbbf103fb`, `aa4ee3da-94ee-4226-8a13-e35380372b98`
+e `c89b023e-b64b-41f2-945c-000ba43f4e6b`, entre 14:40:49 e 14:41:07 UTC.
+Anual: `30b3c7fb-1f38-4add-9e7f-fa7807f16cdb`,
+`2a6ad855-f7d8-49e4-9972-e0976ffbc337` e
+`2c07f381-81c2-4c08-9196-23ff90942acf`, entre 14:46:03 e 14:46:04 UTC.
+Uma notificação anual adicional retornou 503; sua causa não foi registrada
+no ingresso. As três inboxes foram processadas e o reconciliador terminou
+sem falhas, com exatamente uma cobrança aprovada por contrato.
+
+Consulta ao banco sintético confirmou cinco agendas, valor/período corretos,
+`reviewRequired=false` e o mesmo estado no HQ. O worker confirmou cancelamento
+mensal em `2026-09-13T14:46:42.891Z` e anual em
+`2026-09-13T14:46:44.754Z`, preservando cobrança e período. HQ passou a
+“Cancelada · acesso até o fim pago”. O cancelamento anual também entregou
+webhook espontâneo, request `0c26b0be-9ffd-4bd8-b509-3da8205f5833`, HTTP 200.
+
+A landing agora apresenta os quatro planos aprovados mesmo com cobrança
+desativada: mensal/anual, economia e adicionais calculados pelo catálogo
+único. Nesse estado, o CTA preserva a escolha no cadastro sem ativar cobrança.
+Navegador conferiu desktop e celular de 390px; uma regra antiga que colocava
+preço e nome em colunas no celular foi corrigida para manter os cards legíveis.
+`npm run lint`, `npx tsc --noEmit --incremental false`, `npm test` (940 testes)
+e `npm run build` passaram. Build requer as variáveis obrigatórias de sessão;
+foram usados valores sintéticos locais. As 27 integrações billing/HQ passaram
+em novo banco descartável com migration HQ real e 024 verificada.
+
+O Preview `dpl_DmxG3njXTKEWFmfUTPKAqbGADxub`, commit `d4e1e27`, ficou READY.
+O job `check` passou; `schema-smoke` será registrado no PR ao terminar.
+Produção segue sem 023/024, flags e reconciliador desativados. O teste local
+comprova a jornada financeira e supera a pendência anterior de novo pagamento;
+não constitui staging persistente nem prova push na conta oficial do iPhone.
+
 ## Liberação e operação
 
 1. Manter contratação, `MERCADOPAGO_HQ_SYNC_ENABLED` e cron desativados em
