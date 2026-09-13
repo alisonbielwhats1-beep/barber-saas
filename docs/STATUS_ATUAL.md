@@ -1,6 +1,6 @@
 # Status atual canônico — Salon SaaS
 
-## 2026-09-13 — liberação Mercado Pago autorizada, em preparação
+## 2026-09-13 — Mercado Pago disponível em produção
 
 O responsável autorizou concluir as etapas para disponibilizar cobrança em
 produção. Preflight produtivo e backup delimitado criptografado concluídos;
@@ -9,10 +9,16 @@ As migrations `mercadopago_billing_023` (`20260913155322`) e `billing_hq_024`
 (`20260913155342`) foram aplicadas e verificadas no projeto produtivo
 `vshnatkzxdekkvqttvbv`, preservando os dados anteriores e FORCE RLS.
 O reconciliador tem chave exclusiva na Vercel Production e no GitHub,
-com recuperação criptografada; o agendamento continua explicitamente false.
+com recuperação criptografada; o agendamento foi ativado e sua execução passou.
 Staging `6122e6e`: build, schema e 27 integrações passaram em banco sintético.
-Ainda não houve merge nem ativação financeira produtiva.
-A validação da conta principal Mercado Pago pelo titular está pendente.
+PR #101 integrado em `f89652b`; CI `34767093377` passou integralmente.
+Deployment final `dpl_361VijpX2UCrkfaP63FYsNEMgzny`, READY e associado a
+`https://everflair.com.br`. Billing/HQ em modo live, checkout liberado.
+O titular validou a conta e ativou credenciais da aplicação `5276100300886`;
+API confirmou vendedor brasileiro real `478386806`. Webhook definitivo salvo.
+Home, catálogo anual, cadastro com escolha preservada e worker autenticado
+foram conferidos. Consulta de logs do deployment não retornou erros.
+Não foi realizada compra real; a homologação financeira usou contas fictícias.
 Destinos, evidências e limites em `RELEASE_MERCADOPAGO_2026-09-13.md`.
 
 ## 2026-09-13 — integração das entregas em revisão
