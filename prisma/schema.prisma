@@ -637,9 +637,46 @@ model BillingSubscription {
   events BillingEvent[]
   inbox BillingInbox[]
   queue BillingQueue?
+  planChanges BillingPlanChange[] @relation("ChangeSource")
+  replacementFor BillingPlanChange? @relation("ChangeReplacement")
   @@unique([salonId, requestKey])
   @@unique([salonId, id])
   @@index([salonId, current])
+}
+
+model BillingPlanChange {
+  id String @id @default(uuid()) @db.Uuid
+  salonId String
+  subscriptionId String @db.Uuid
+  requestKey String
+  actorUserId String
+  kind String
+  state String @default("QUOTED")
+  fromTerms Json
+  toTerms Json
+  amountDueCents Int
+  periodStart DateTime @db.Timestamptz(3)
+  periodEnd DateTime @db.Timestamptz(3)
+  effectiveAt DateTime @db.Timestamptz(3)
+  quotedAt DateTime @default(now()) @db.Timestamptz(3)
+  expiresAt DateTime @db.Timestamptz(3)
+  confirmedAt DateTime? @db.Timestamptz(3)
+  creationStartedAt DateTime? @db.Timestamptz(3)
+  preferenceId String? @unique
+  checkoutUrl String?
+  providerPaymentId String? @unique
+  paidAt DateTime? @db.Timestamptz(3)
+  activatedAt DateTime? @db.Timestamptz(3)
+  providerStartedAt DateTime? @db.Timestamptz(3)
+  providerSyncedAt DateTime? @db.Timestamptz(3)
+  cancelledAt DateTime? @db.Timestamptz(3)
+  replacementSubscriptionId String? @unique @db.Uuid
+  lastError String?
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  subscription BillingSubscription @relation("ChangeSource", fields: [salonId, subscriptionId], references: [salonId, id], onDelete: Restrict)
+  replacement BillingSubscription? @relation("ChangeReplacement", fields: [replacementSubscriptionId], references: [id], onDelete: Restrict)
+  @@unique([salonId, requestKey])
+  @@index([salonId, subscriptionId, quotedAt])
 }
 
 model BillingCharge {

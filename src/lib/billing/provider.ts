@@ -10,7 +10,8 @@ export const subscriptionSchema = z.object({
   id, collector_id: id, external_reference: z.string(), status: z.enum(["pending", "authorized", "paused", "cancelled", "canceled"]),
   init_point: z.string().url().optional(), payer_id: id.optional(), last_modified: date,
   next_payment_date: date.nullable().optional(),
-  auto_recurring: z.object({ frequency: z.number().int(), frequency_type: z.string(), currency_id: z.string(), transaction_amount: z.coerce.number() }),
+  summarized: z.object({ pending_charge_quantity: z.number().int().optional() }).optional(),
+  auto_recurring: z.object({ frequency: z.number().int(), frequency_type: z.string(), currency_id: z.string(), transaction_amount: z.coerce.number(), start_date: date.optional() }),
 });
 export const invoiceSchema = z.object({ id, preapproval_id: id, debit_date: date,
   currency_id: z.string(), transaction_amount: z.coerce.number(), last_modified: date,

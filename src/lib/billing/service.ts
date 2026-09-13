@@ -5,6 +5,7 @@ import { withSalon, withTenant, type Tx } from "../prisma-tenant";
 import { BILLING_PLANS, BillingError, periodEnd, quoteContract } from "./catalog";
 import { billingConfig } from "./config";
 import * as mp from "./provider";
+import { allowedRemoteTerms, changesEnabled, invoiceTerms } from "./change-terms";
 
 export const referenceFor = (s: { salonId: string; id: string }) => `ef:${s.salonId}:${s.id}`;
 export function parseReference(value: string) {
@@ -73,6 +74,7 @@ export async function ensureCreated(sub: BillingSubscription) {
   if (sub.providerId || sub.cancelledAt) return;
   const config = billingConfig();
   if (sub.mode !== config.mode || sub.collectorId !== config.collectorId) throw new BillingError("BILLING_ENVIRONMENT_MISMATCH", 503);
+  const replacement = changesEnabled() ? await withSalon(sub.salonId, tx => tx.billingPlanChange.findFirst({ where: { replacementSubscriptionId: sub.id, salonId: sub.salonId } })) : null;
   // A failed read-only preflight must not make a POST that never happened look uncertain.
   if (!sub.creationStartedAt && !sub.cancelRequestedAt) {
     if (process.env.MERCADOPAGO_CHECKOUT_PAUSED === "true") throw new BillingError("CHECKOUT_PAUSED", 503);
@@ -88,6 +90,10 @@ export async function ensureCreated(sub: BillingSubscription) {
       return "cancelled";
     }
     if (current.creationStartedAt) return "recover";
+    if (replacement && (replacement.periodEnd <= new Date() || ["CANCEL_REQUESTED", "CANCELLED", "EXPIRED"].includes(replacement.state))) {
+      await tx.billingSubscription.update({ where: { id: sub.id }, data: { cancelledAt: new Date(), providerStatus: "cancelled" } });
+      return "cancelled";
+    }
     if (process.env.MERCADOPAGO_CHECKOUT_PAUSED === "true") throw new BillingError("CHECKOUT_PAUSED", 503);
     await tx.billingSubscription.update({ where: { id: sub.id }, data: { creationStartedAt: new Date() } });
     return "create";
@@ -101,7 +107,8 @@ export async function ensureCreated(sub: BillingSubscription) {
   } else {
     remote = mp.parseProvider(mp.subscriptionSchema, await mp.mpRequest("/preapproval", "POST", {
       reason: `Everflair ${BILLING_PLANS[sub.planCode as keyof typeof BILLING_PLANS].label} — ${sub.cycle === "ANNUAL" ? "anual" : "mensal"}`, external_reference: referenceFor(sub), payer_email: sub.payerEmail,
-      auto_recurring: { frequency: sub.intervalMonths, frequency_type: "months", transaction_amount: sub.amountCents / 100, currency_id: "BRL" },
+      // Mercado Pago persists start_date to whole seconds. Round forward, never before paid expiry.
+      auto_recurring: { frequency: sub.intervalMonths, frequency_type: "months", transaction_amount: sub.amountCents / 100, currency_id: "BRL", ...(replacement ? { start_date: new Date(Math.ceil(replacement.periodEnd.getTime() / 1000) * 1000).toISOString() } : {}) },
       back_url: `${config.baseUrl}/api/billing/return`, status: "pending",
     }));
   }
@@ -117,8 +124,7 @@ export function validateRemote(sub: BillingSubscription, remote: mp.RemoteSubscr
 }
 export async function applyRemoteSubscription(sub: BillingSubscription, remote: mp.RemoteSubscription) {
   validateRemote(sub, remote, false);
-  let termsChanged = false;
-  try { validateRemote(sub, remote); } catch { termsChanged = true; }
+  const termsChanged = !(await allowedRemoteTerms(sub, remote));
   return withSalon(sub.salonId, async tx => {
     await subscriptionLock(tx, sub.salonId);
     const current = await tx.billingSubscription.findUniqueOrThrow({ where: { id: sub.id } });
@@ -132,6 +138,10 @@ export async function applyRemoteSubscription(sub: BillingSubscription, remote: 
       ...(cancelled && !current.cancelledAt ? { cancelledAt: new Date(remote.last_modified) } : {}),
     } });
     await event(tx, sub, `subscription:${remote.last_modified}:${remote.status}`, "SUBSCRIPTION_UPDATED", remote.status);
+    if (changesEnabled()) {
+      const source = await tx.billingPlanChange.findFirst({ where: { replacementSubscriptionId: sub.id, salonId: sub.salonId } });
+      if (source) await enqueue(tx, { id: source.subscriptionId, salonId: sub.salonId });
+    }
     return updated;
   });
 }
@@ -143,6 +153,7 @@ export async function requestCancellation(ctx: { salonId: string; userId: string
     await subscriptionLock(tx, ctx.salonId);
     const sub = await tx.billingSubscription.findFirst({ where: { id, salonId: ctx.salonId } });
     if (!sub) throw new BillingError("NOT_FOUND", 404);
+    if (changesEnabled()) await tx.billingPlanChange.updateMany({ where: { subscriptionId: id, salonId: ctx.salonId, state: { in: ["PREPARING", "AWAITING_PAYMENT", "SCHEDULED"] }, paidAt: null }, data: { state: "CANCEL_REQUESTED" } });
     if (!sub.cancelRequestedAt) await tx.billingSubscription.update({ where: { id }, data: { cancelRequestedAt: new Date() } });
     await event(tx, sub, "cancel-request", "CANCEL_REQUESTED", `owner:${ctx.userId}`);
     await enqueue(tx, sub);
@@ -151,22 +162,26 @@ export async function requestCancellation(ctx: { salonId: string; userId: string
 }
 
 export async function applyInvoice(sub: BillingSubscription, remote: mp.RemoteSubscription, invoice: mp.RemoteInvoice, payment: mp.RemotePayment | null) {
-  validateRemote(sub, remote);
-  if (invoice.preapproval_id !== remote.id || invoice.currency_id !== sub.currency || Math.round(invoice.transaction_amount * 100) !== sub.amountCents) throw new BillingError("INVOICE_MISMATCH");
-  if (payment && (payment.id !== invoice.payment?.id || payment.collector_id !== sub.collectorId || payment.currency_id !== sub.currency || Math.round(payment.transaction_amount * 100) !== sub.amountCents || (sub.mode === "live" && !payment.live_mode) ||
+  validateRemote(sub, remote, false);
+  if (!(await allowedRemoteTerms(sub, remote))) throw new BillingError("PROVIDER_CONTRACT_MISMATCH");
+  if (invoice.preapproval_id !== remote.id || invoice.currency_id !== sub.currency) throw new BillingError("INVOICE_MISMATCH");
+  if (payment && (payment.id !== invoice.payment?.id || payment.collector_id !== sub.collectorId || payment.currency_id !== sub.currency || (sub.mode === "live" && !payment.live_mode) ||
     (remote.payer_id && payment.payer?.id !== remote.payer_id))) throw new BillingError("PAYMENT_MISMATCH");
   // Test-user subscriptions created with their APP_USR credentials report live_mode=true.
   // Accept that combination only after the API confirms the configured seller is a test_user.
   if (payment?.live_mode && sub.mode === "test") await mp.verifySellerAccount();
   const status = payment ? ((payment.transaction_amount_refunded ?? 0) > 0 ? "refunded" : payment.status) : "pending";
   const refundedCents = Math.round((payment?.transaction_amount_refunded ?? 0) * 100);
-  if (!Number.isSafeInteger(refundedCents) || refundedCents < 0 || refundedCents > sub.amountCents) throw new BillingError("PAYMENT_MISMATCH");
   const updatedAt = new Date(payment?.date_last_updated ?? invoice.last_modified);
   const start = new Date(invoice.debit_date);
-  const end = periodEnd(start, sub.intervalMonths);
   return withSalon(sub.salonId, async tx => {
     await subscriptionLock(tx, sub.salonId);
     const current = await tx.billingSubscription.findUniqueOrThrow({ where: { id: sub.id } });
+    const terms = await invoiceTerms(tx, current, start);
+    const end = periodEnd(start, terms.intervalMonths);
+    if (Math.round(invoice.transaction_amount * 100) !== terms.amountCents) throw new BillingError("INVOICE_MISMATCH");
+    if (payment && Math.round(payment.transaction_amount * 100) !== terms.amountCents) throw new BillingError("PAYMENT_MISMATCH");
+    if (!Number.isSafeInteger(refundedCents) || refundedCents < 0 || refundedCents > terms.amountCents) throw new BillingError("PAYMENT_MISMATCH");
     const prior = await tx.billingCharge.findUnique({ where: { providerInvoiceId: invoice.id } });
     if (prior && prior.providerUpdatedAt >= updatedAt && !(status === "approved" && ["pending", "in_process", "rejected", "cancelled"].includes(prior.status))) return;
     // Never turn an already approved invoice back into pending due to a stale invoice notification.
@@ -174,7 +189,7 @@ export async function applyInvoice(sub: BillingSubscription, remote: mp.RemoteSu
     const paidAt = payment?.date_approved ? new Date(payment.date_approved) : null;
     if (status === "approved" && (!paidAt || start > new Date(Date.now() + 86400000))) throw new BillingError("INVALID_PAID_PERIOD");
     await tx.billingCharge.upsert({ where: { providerInvoiceId: invoice.id },
-      create: { salonId: sub.salonId, subscriptionId: sub.id, providerInvoiceId: invoice.id, providerPaymentId: payment?.id, amountCents: sub.amountCents,
+      create: { salonId: sub.salonId, subscriptionId: sub.id, providerInvoiceId: invoice.id, providerPaymentId: payment?.id, amountCents: terms.amountCents,
         periodStart: start, periodEnd: end, status, paidAt, refundedCents, providerUpdatedAt: updatedAt },
       update: { providerPaymentId: payment?.id, status, paidAt, refundedCents, providerUpdatedAt: updatedAt },
     });
@@ -189,6 +204,11 @@ export async function applyInvoice(sub: BillingSubscription, remote: mp.RemoteSu
       // Legacy feature flags stay compatible. Capacity and paid access come from this contract.
       // Does not change accessStatus: administrative suspension always wins.
       if (current.current) await tx.salon.update({ where: { id: sub.salonId }, data: { plan: "PRO" } });
+      if (changesEnabled() && start <= new Date()) {
+        await tx.billingPlanChange.updateMany({ where: { subscriptionId: sub.id, salonId: sub.salonId, kind: "SCHEDULED", state: "SCHEDULED", providerSyncedAt: { not: null }, periodEnd: { lte: start } }, data: { state: "APPLIED", activatedAt: new Date(), paidAt } });
+        const source = await tx.billingPlanChange.findFirst({ where: { replacementSubscriptionId: sub.id, salonId: sub.salonId } });
+        if (source) await enqueue(tx, { id: source.subscriptionId, salonId: sub.salonId });
+      }
     } else if (["rejected", "cancelled"].includes(status) && current.paidThrough && start >= current.paidThrough && start <= new Date()) {
       const failedSince = current.delinquentSince && current.delinquentSince < start ? current.delinquentSince : start;
       await tx.billingSubscription.update({ where: { id: sub.id }, data: { delinquentSince: failedSince } });

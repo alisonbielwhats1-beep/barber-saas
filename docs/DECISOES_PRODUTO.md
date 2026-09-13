@@ -1,5 +1,22 @@
 # Decisões de produto para as próximas fases
 
+## 13/09/2026 — upgrade proporcional e troca na renovação
+
+O responsável confirmou: “Sim, seguir essa regra”. No mesmo ciclo, aumento
+de capacidade com aumento de preço libera o plano após pagamento da diferença
+proporcional ao tempo restante, preservando vencimento. Vale para todos os
+planos e agendas adicionais. Reduções e qualquer mudança mensal/anual ficam
+para a próxima renovação, após pagamento correspondente. Profissionais ativos
+e convites pendentes devem caber no destino; a troca reserva esse limite.
+Os termos anteriores e o histórico financeiro são preservados. O proprietário
+revê cobrança adicional, próxima recorrência e vigência antes de confirmar.
+Trocar o ciclo exige nova autorização: a recorrência anterior é encerrada
+antes de liberar o link novo, preservando acesso já pago. A tela explica que
+abandonar essa autorização interrompe a renovação automática ao fim do período.
+Esta decisão substitui a ausência de prorrata/trocas no escopo inicial abaixo.
+Não existe aprovação manual para cliente novo: cadastro aprovado e plano pago
+liberado automaticamente por confirmação financeira. Suspensão é independente.
+
 ## 13/09/2026 — composição aprovada dos planos na landing
 
 Retomada da referência visual aprovada na conversa “Avaliar integração com

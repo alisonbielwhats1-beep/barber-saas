@@ -5,6 +5,7 @@ import { assertOwner, contract } from "@/lib/billing/service";
 import { accessState } from "@/lib/billing/catalog";
 import { ownerContext, readBillingBody, billingJson, billingFailure } from "@/lib/billing/http";
 import { runBillingWorker } from "@/lib/billing/worker";
+import { currentTerms, changesEnabled, changeView, pendingChangeStates } from "@/lib/billing/change-terms";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -24,7 +25,10 @@ export async function GET(request: Request) {
       await assertOwner(tx, ctx);
       const sub = await tx.billingSubscription.findFirst({ where: { salonId: ctx.salonId, current: true }, include: { charges: { take: 24, orderBy: { periodStart: "desc" } } } });
       if (!sub) return null;
-      return { id: sub.id, plan: sub.planCode, cycle: sub.cycle, amountCents: sub.amountCents, agendaLimit: sub.agendaLimit,
+      const terms = await currentTerms(tx, sub);
+      const change = changesEnabled() ? await tx.billingPlanChange.findFirst({ where: { subscriptionId: sub.id, salonId: ctx.salonId, confirmedAt: { not: null } }, orderBy: [{ quotedAt: "desc" }, { id: "desc" }] }) : null;
+      return { id: sub.id, plan: terms.plan, cycle: terms.cycle, amountCents: terms.amountCents, agendaLimit: terms.agendaLimit,
+        changesAvailable: changesEnabled(), change: change ? changeView(change) : null, changePending: change ? pendingChangeStates.includes(change.state) : false,
         state: accessState(sub), paidThrough: sub.paidThrough, cancelRequestedAt: sub.cancelRequestedAt, cancelledAt: sub.cancelledAt,
         nextPaymentAt: sub.nextPaymentAt, providerStatus: sub.providerStatus, lastSyncedAt: sub.lastSyncedAt,
         reviewRequired: sub.reviewRequired, checkoutUrl: sub.cancelRequestedAt || sub.cancelledAt ? null : sub.checkoutUrl,

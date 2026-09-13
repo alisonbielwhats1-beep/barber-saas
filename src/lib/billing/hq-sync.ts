@@ -4,6 +4,7 @@ import { dateKeyInTimeZone } from "@/lib/time";
 import { accessState, BILLING_PLANS, BillingError } from "./catalog";
 import { subscriptionLock } from "./service";
 import { billingConfig } from "./config";
+import { currentTerms } from "./change-terms";
 
 const accountingDate = (date: Date) => new Date(`${dateKeyInTimeZone(date, "America/Sao_Paulo")}T00:00:00.000Z`);
 const accessLabels: Record<string, string> = { ACTIVE: "Plano ativo", VERIFYING: "Conferindo renovação", GRACE: "Atraso em carência", RESTRICTED: "Regularização necessária", EXPIRED: "Período encerrado", UNPAID: "Aguardando pagamento" };
@@ -36,11 +37,12 @@ export async function syncBillingToHq(salonId: string, id: string): Promise<bool
       update: sub.current ? { status: customerStatus, paymentMethod: "Mercado Pago" } : {},
     });
     const previous = await tx.hqSubscriptions.findUnique({ where: { billingSubscriptionId: id } });
-    const values = { plan: BILLING_PLANS[sub.planCode as keyof typeof BILLING_PLANS].label,
-      amountCents: sub.amountCents, discountCents: 0, interval: sub.intervalMonths === 12 ? "Anual" : "Mensal",
+    const terms = await currentTerms(tx, sub);
+    const values = { plan: BILLING_PLANS[terms.plan].label,
+      amountCents: terms.amountCents, discountCents: 0, interval: terms.intervalMonths === 12 ? "Anual" : "Mensal",
       startedAt: accountingDate(sub.createdAt), nextBillingAt: accountingDate(sub.nextPaymentAt ?? sub.paidThrough),
       status: subscriptionStatus, cancelledAt: sub.cancelledAt, provider: config.mode === "test" ? "Mercado Pago · teste" : "Mercado Pago",
-      externalId: sub.providerId, billingState, billingPaidThrough: sub.paidThrough, billingAgendaLimit: sub.agendaLimit,
+      externalId: sub.providerId, billingState, billingPaidThrough: sub.paidThrough, billingAgendaLimit: terms.agendaLimit,
     };
     const hqSub = await tx.hqSubscriptions.upsert({ where: { billingSubscriptionId: id },
       create: { billingSubscriptionId: id, customerId: customer.id, ...values }, update: values,

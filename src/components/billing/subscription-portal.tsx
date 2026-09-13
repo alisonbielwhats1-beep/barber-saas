@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { PlanPicker } from "./plan-picker";
+import { PlanChangePanel } from "./plan-change-panel";
 import { BILLING_PLANS, quoteContract } from "@/lib/billing/catalog";
 import { billingCapacityLabel, billingErrors, billingMoney, safeCheckout, type BillingIntent, type SubscriptionView } from "@/lib/billing/presentation";
 
@@ -32,7 +33,7 @@ export function SubscriptionPortal({ salonId, email, timezone, initial }: { salo
     } catch (e) { if (!(e instanceof Error && e.name === "AbortError")) report(null); }
   }, [endpoint, report]);
   useEffect(() => { const controller = new AbortController(); void refresh(controller.signal); return () => controller.abort(); }, [refresh]);
-  const pollingId = subscription && !(subscription.state === "ACTIVE" && !subscription.cancelRequestedAt) && !subscription.cancelledAt ? subscription.id : null;
+  const pollingId = subscription && (subscription.changePending || (!(subscription.state === "ACTIVE" && !subscription.cancelRequestedAt) && !subscription.cancelledAt)) ? subscription.id : null;
   useEffect(() => {
     if (!pollingId) return;
     const controller = new AbortController(); const deadline = Date.now() + 5 * 60_000;
@@ -95,6 +96,7 @@ export function SubscriptionPortal({ salonId, email, timezone, initial }: { salo
         {["GRACE", "RESTRICTED"].includes(subscription.state) && <a href="https://www.mercadopago.com.br/" target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center underline">Abrir Mercado Pago</a>}</div>
     </section>}
     {canChoose && <section aria-labelledby="choose-subscription"><h2 id="choose-subscription" className="mb-4 text-xl font-semibold">Escolha seu plano</h2><PlanPicker initial={initial} disabled={busy} onChoose={setChoice} /></section>}
+    {subscription?.changesAvailable && <PlanChangePanel salonId={salonId} subscription={subscription} timezone={timezone} onRefresh={refresh} />}
     {subscription && <section aria-labelledby="subscription-payments"><h2 id="subscription-payments" className="mb-3 text-lg font-semibold">Histórico de cobranças</h2>
       {!subscription.charges.length ? <p className="text-sm text-muted-foreground">Nenhuma cobrança registrada ainda.</p> : <ul className="divide-y divide-border rounded-xl border border-border">{subscription.charges.map(charge => <li key={charge.id} className="flex flex-wrap items-center justify-between gap-3 p-4"><div><p className="font-medium">{billingMoney(charge.amountCents)} · {charge.refundedCents > 0 && charge.refundedCents < charge.amountCents ? "Estorno parcial" : chargeStates[charge.status] ?? "Em conferência"}</p><p className="text-sm text-muted-foreground">{dateLabel(charge.periodStart, timezone)} a {dateLabel(charge.periodEnd, timezone)}</p>{charge.refundedCents > 0 && <p className="text-sm text-muted-foreground">Estornado: {billingMoney(charge.refundedCents)}</p>}</div>{charge.paidAt && <p className="text-sm">Pago em {dateLabel(charge.paidAt, timezone)}</p>}</li>)}</ul>}
     </section>}

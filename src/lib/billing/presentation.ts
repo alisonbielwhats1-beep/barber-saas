@@ -1,4 +1,5 @@
 import { contractInput, BILLING_PLANS } from "./catalog";
+import type { BillingTerms } from "./change-rules";
 
 export type BillingIntent = { plan: keyof typeof BILLING_PLANS; cycle: "MONTHLY" | "ANNUAL"; extraAgendas: number };
 export function billingCapacityLabel(plan: BillingIntent["plan"], agendas: number) {
@@ -26,9 +27,19 @@ export type SubscriptionView = {
   state: string; paidThrough: string | null; nextPaymentAt: string | null;
   cancelRequestedAt: string | null; cancelledAt: string | null; reviewRequired: boolean;
   checkoutUrl: string | null; providerStatus: string; lastSyncedAt: string | null;
+  changesAvailable?: boolean; changePending?: boolean; change?: PlanChangeView | null;
   charges: { id: string; amountCents: number; refundedCents: number; status: string; periodStart: string; periodEnd: string; paidAt: string | null }[];
 };
+export type PlanChangeView = { id: string; kind: string; state: string; from: BillingTerms; to: BillingTerms; amountDueCents: number; effectiveAt: string; periodEnd: string; expiresAt: string; paidAt: string | null; activatedAt: string | null; checkoutUrl: string | null; lastError: string | null };
 export const billingErrors: Record<string, string> = {
+  PLAN_CHANGES_DISABLED: "A troca de planos ainda não está disponível.",
+  PLAN_UNCHANGED: "Este já é seu plano e sua capacidade atuais.",
+  PLAN_CHANGE_PENDING: "Já existe uma troca em andamento. Acompanhe a confirmação antes de solicitar outra.",
+  CHANGE_REQUIRES_ACTIVE_SUBSCRIPTION: "A troca exige assinatura ativa, com pagamento confirmado e sem cancelamento ou pendência financeira.",
+  CHANGE_QUOTE_EXPIRED: "A cotação expirou. Escolha o plano novamente para calcular o valor atualizado.",
+  CHANGE_QUOTE_STALE: "Sua assinatura mudou desde a cotação. Atualize a situação e escolha o plano novamente.",
+  CHANGE_CANNOT_CANCEL: "Esta troca já recebeu pagamento ou está em revisão. Acompanhe a situação ou entre em contato.",
+  CHANGE_RENEWAL_IN_PROGRESS: "Há uma renovação em processamento. Aguarde a confirmação para trocar de plano.",
   UNAUTHORIZED: "Sua sessão expirou. Entre novamente para continuar.",
   OWNER_REQUIRED: "Somente o proprietário pode gerenciar a assinatura.",
   SALON_NOT_APPROVED: "O estabelecimento precisa estar com o acesso aprovado para contratar.",

@@ -1,5 +1,17 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-13 — trocas de planos em validação, ainda não publicadas
+
+O responsável aprovou upgrades no mesmo ciclo após pagamento da diferença
+proporcional, mantendo vencimento; reduções e mudanças mensal/anual ficam
+para a próxima renovação. A branch `codex/mercadopago-plan-changes` implementa
+cotação pelo servidor, revisão de termos, cobrança complementar, limite de
+agendas e reconciliação. Migration 025 somente em PostgreSQL sintético local;
+nenhuma alteração produtiva desta entrega. Flags novas permanecem desativadas
+em Production. Escopo, evidências e pendências em `MERCADOPAGO_TROCA_PLANOS.md`.
+Cadastro novo já cria estabelecimento aprovado automaticamente; o pagamento
+libera o plano pago sem aprovação manual. Suspensão administrativa permanece.
+
 ## 2026-09-13 — Mercado Pago disponível em produção
 
 O responsável autorizou concluir as etapas para disponibilizar cobrança em
