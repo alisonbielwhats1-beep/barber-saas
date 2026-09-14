@@ -8,8 +8,8 @@ import { Toaster } from "@/components/ui/toast";
 import { ThemeProvider } from "./theme-provider";
 import { MobileNav } from "./mobile-nav";
 import { isPlatformAdmin } from "@/lib/platform-admin";
-import { ThemeToggle } from "./theme-toggle";
-import { BrandLogo } from "@/components/brand";
+import { AdminMobileHeader } from "./admin-mobile-header";
+import { getPlanEntitlement } from "@/lib/plan-entitlements";
 import { billingEnabled } from "@/lib/billing/config";
 import { billingCapacityLabel } from "@/lib/billing/presentation";
 import { currentTerms } from "@/lib/billing/change-terms";
@@ -49,7 +49,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     }),
   ]);
   const { salon, memberships, unreadNotifications, subscription } = adminData;
-  const legacyPlanLabels = { FREE: "Gratuito", STARTER: "Starter", PRO: "Pro", ENTERPRISE: "Enterprise" };
+  const legacyPlanLabels = { FREE: "Gratuito", STARTER: "Starter", PRO: getPlanEntitlement("PRO").label, ENTERPRISE: "Enterprise" };
   const planLabel = subscription ? billingCapacityLabel(subscription.plan, subscription.agendaLimit) : legacyPlanLabels[salon?.plan ?? "FREE"];
   const currentPlanLabel = subscription || (salon && salon.plan !== "FREE") ? planLabel : null;
 
@@ -77,10 +77,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         {role === "OWNER" && <header aria-label="Plano do estabelecimento" className="hidden min-h-16 items-center justify-end border-b border-border bg-surface-1 px-6 py-2 lg:flex print:hidden">
           <PlanShortcut plan={currentPlanLabel} href={billingEnabled() ? "/assinatura" : "/configuracoes#plano"} />
         </header>}
-        <header role="region" className="flex items-center justify-between border-b border-border bg-surface-1 px-4 py-2 lg:hidden" aria-label="Marca e aparência">
-          <BrandLogo className="!h-9 !w-[142px] text-[hsl(var(--selection-foreground))]" />
-          <ThemeToggle />
-        </header>
+        <AdminMobileHeader role={role} plan={currentPlanLabel} planHref={billingEnabled() ? "/assinatura" : "/configuracoes#plano"} />
         <div className="mx-auto w-full min-w-0 max-w-[1680px] p-4 pb-24 sm:p-5 md:p-6 lg:pb-6">{children}</div>
       </main>
 

@@ -38,6 +38,25 @@ com sombra; não copia marca ou ativos do Fresha.
 
 ## Ambiente e verificação
 
+### Complemento solicitado — nome e atalho dos planos
+
+O nome de apresentação do plano legado `PRO` passa a “Essencial”, alinhado ao
+catálogo de contratação. Preço de R$ 79,90, três agendas, permissões e enum
+continuam os mesmos. A padronização inclui painel, configuração, cadastro e
+administração da plataforma; não converte nem ativa contratos existentes.
+
+O proprietário vê o atalho âmbar também no topo mobile, junto à marca e ao tema:
+nome do plano e “Alterar plano” em duas linhas, alvo de toque de 44 px. O desktop
+preserva seu atalho. Ambos usam o mesmo destino e as mesmas regras do servidor;
+sem contratação habilitada, abrem Meu plano nas configurações. Não há alteração
+de elegibilidade, cobrança, dados de clientes, serviços, equipe ou agendamentos.
+
+As orientações de frontend-design e UI/UX Pro Max levaram à variante compacta
+do componente existente, preservando a altura útil da agenda e o contraste nos
+dois temas. Nenhum dado do Studio Martinelli foi alterado ou usado nos testes.
+
+### Evidências do ambiente isolado
+
 Checkout isolado `D:/Projetos/barber-saas-mobile-guided`, branch
 `codex/mobile-guided-experience`, base `origin/master` `a78a0b2`.
 Alterações anteriores em `codex/scrollcraft-barber-saas` preservadas.
@@ -49,13 +68,16 @@ nessa cópia vazia. Nenhum schema, segredo ou registro produtivo copiado.
 Validação local em 14/09:
 
 - `npm run lint` e `npx tsc --noEmit --incremental false`: aprovados.
-- `npm test`: 205 arquivos, 1.100 testes aprovados.
+- `npm test`: 206 arquivos, 1.106 testes aprovados, incluindo apresentação
+  Essencial sem mudar limites e atalho mobile restrito ao proprietário.
 - `npx vitest run src/lib/__tests__/visits-postgres.integration.test.ts`, com
   `RUN_POSTGRES_INTEGRATION=1` no banco sintético: 10 testes aprovados.
 - `npx playwright test tests/e2e/mobile-guided.spec.ts --project=chromium
   --project=webkit --workers=1`: 2 jornadas aprovadas. Inclui 90 serviços,
   edição persistida, busca sem acentos, tutorial, ambos os temas, disponibilidade
   por profissional, dois atendimentos confirmados, foco e auditorias axe.
+  Complemento de planos: atalho no topo, destino real, mínimo de 44 px,
+  visibilidade em 320/390/844/1280 px e enum PRO preservado, nos dois navegadores.
 - Jornada existente `initial-setup.spec.ts`, Chromium: aprovada.
 - Jornada existente `multi-visits.spec.ts`, Chromium: aprovada, incluindo
   reservas públicas, painel, remarcação, recusa, folga e acesso profissional.

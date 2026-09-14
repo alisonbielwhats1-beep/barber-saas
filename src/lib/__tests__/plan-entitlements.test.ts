@@ -9,6 +9,12 @@ import {
 } from "../plan-entitlements";
 
 describe("limites comerciais dos planos", () => {
+  it("padroniza somente o nome do PRO legado sem mudar preço, capacidade ou recursos", () => {
+    expect(getPlanEntitlement("PRO")).toEqual({
+      label: "Essencial", priceCents: 7990, maxProfessionals: 3,
+      monthlyAppointments: null, features: { MARKETING: true, INVENTORY: true, PACKAGES: true },
+    });
+  });
   it("mantém os limites do Grátis pequenos, mas utilizáveis", () => {
     expect(getPlanEntitlement("FREE")).toMatchObject({
       maxProfessionals: 1,

@@ -52,7 +52,7 @@ export default async function PlatformOverviewPage() {
     { label: "Estabelecimentos", value: total, icon: Building2 },
     { label: "Aguardando análise", value: countStatus("PENDING"), icon: Clock3 },
     { label: "Ativos", value: countStatus("APPROVED"), icon: CheckCircle2 },
-    { label: "Plano Pro", value: countPlan("PRO"), icon: Crown },
+    { label: "Plano Essencial", value: countPlan("PRO"), icon: Crown },
     { label: "Suspensos", value: countStatus("SUSPENDED"), icon: ShieldAlert },
   ];
 

@@ -25,7 +25,11 @@ O proprietário vê um atalho âmbar com ícone de coroa, legível nos temas cla
 e escuro. Sem plano pago, mostra “Ativar plano”; com plano, exibe o nome e a
 capacidade vigentes ao lado de “Alterar plano”. Usa os termos confirmados pelo
 servidor, incluindo agendas adicionais, e abre o portal de assinatura existente.
-Planos legados mantêm seu nome. Contratação desabilitada leva à seção Meu plano.
+Na entrega #108, planos legados mantinham seu nome. O complemento em revisão no
+PR #110 padroniza apenas a apresentação de `PRO` como “Essencial” e leva o mesmo
+atalho ao topo mobile, com nome e “Alterar plano” em duas linhas. Enum, preço,
+capacidade, assinatura e dados existentes não mudam.
+Contratação desabilitada leva à seção Meu plano.
 Nenhuma cobrança é iniciada pelo atalho; cotação, confirmação, permissões e
 flags da troca continuam sendo validadas pelo fluxo de assinatura existente.
 O componente foi inspecionado em 1280 px nos dois temas, sem overflow e sem

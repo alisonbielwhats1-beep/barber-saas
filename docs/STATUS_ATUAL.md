@@ -8,6 +8,9 @@ em painéis inferiores, visita em três etapas com horários explícitos e mensa
 do motor de disponibilidade identificando item e motivo. Tutorial mobile opcional,
 com animação, sombra, preferência por usuário/salão e replay; não anuncia arraste
 de reservas no toque, que ainda não existe. Escopo em `MOBILE_GUIADO_2026-09-14.md`.
+Complemento solicitado: nome visível de `PRO` padronizado como “Essencial” e
+atalho de planos no topo mobile para o proprietário, nos dois temas. Apenas
+apresentação: enum, preços, limites, assinatura, cobrança e dados preservados.
 Validação somente local/sintética. Sem nova migration ou publicação produtiva.
 
 ## 2026-09-14 — PR #108 publicado após CI

@@ -64,7 +64,7 @@ export default async function PlatformBillingPage() {
         <Metric label="Em aberto" value={money.format(open.reduce((sum, item) => sum + item.amountCents, 0) / 100)} icon={Clock3} />
         <Metric label="Vencido" value={money.format(overdue.reduce((sum, item) => sum + item.amountCents, 0) / 100)} icon={TriangleAlert} />
         <Metric label="Recebido" value={money.format(paid.reduce((sum, item) => sum + item.amountCents, 0) / 100)} icon={CheckCircle2} />
-        <Metric label="Estabelecimentos Pro" value={String(salons.length)} icon={ReceiptText} />
+        <Metric label="Estabelecimentos Essencial" value={String(salons.length)} icon={ReceiptText} />
       </section>
 
       {invoices.length === 0 ? (

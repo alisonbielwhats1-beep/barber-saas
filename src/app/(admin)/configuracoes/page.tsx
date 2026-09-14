@@ -19,7 +19,7 @@ import { billingEnabled } from "@/lib/billing/config";
 const PLAN_LABEL: Record<string, string> = {
   FREE: "Grátis",
   STARTER: "Fundador",
-  PRO: "Pro",
+  PRO: "Essencial",
   ENTERPRISE: "Equipe",
 };
 

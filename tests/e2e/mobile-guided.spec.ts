@@ -121,6 +121,11 @@ test("@database mobile guiado: catálogo grande, tutorial, busca e horários exp
         expect(
           await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth + 1),
         ).toBe(true);
+      // Aguarda a pintura após alternar tema/viewport antes de medir contraste.
+      await page.screenshot({
+        path: test.info().outputPath(`${name}.png`),
+        animations: "disabled",
+      });
       expect(
         (
           await new AxeBuilder({ page })
@@ -128,10 +133,6 @@ test("@database mobile guiado: catálogo grande, tutorial, busca e horários exp
             .analyze()
         ).violations,
       ).toEqual([]);
-      await page.screenshot({
-        path: test.info().outputPath(`${name}.png`),
-        animations: "disabled",
-      });
     };
     await audit("servicos-dark-390");
     await page.getByLabel("Pesquisar serviços").fill("pe e mao");
@@ -176,6 +177,66 @@ test("@database mobile guiado: catálogo grande, tutorial, busca e horários exp
     ).toBe("none");
     await audit("tutorial-dark-390");
     await page.getByRole("button", { name: "Pular tutorial" }).click();
+    // Somente dados sintéticos: o enum PRO continua intacto; muda apenas o rótulo.
+    for (const theme of ["dark", "light"] as const) {
+      await page.setViewportSize({ width: 390, height: 844 });
+      if (theme === "light") {
+        await page
+          .getByRole("button", { name: "Mudar para tema claro" })
+          .click();
+        await expect(page.locator("html")).toHaveAttribute(
+          "data-theme",
+          "admin-light",
+        );
+      }
+      for (const width of [320, 390, 844, 1280]) {
+        await page.setViewportSize({
+          width,
+          height: width === 844 ? 390 : 844,
+        });
+        const shortcut = page.getByRole("link", {
+          name: "Plano atual: Essencial. Alterar plano",
+          exact: true,
+        });
+        await expect(shortcut).toBeVisible();
+        await expect(shortcut).toHaveAttribute("href", "/configuracoes#plano");
+        const bounds = await shortcut.boundingBox();
+        expect(bounds!.height).toBeGreaterThanOrEqual(44);
+        expect(bounds!.y).toBeLessThan(80);
+        expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
+        const mobileHeader = page.getByRole("region", {
+          name: "Marca e aparência",
+          includeHidden: true,
+        });
+        if (width < 1024) {
+          await expect(mobileHeader).toBeVisible();
+          await expect(mobileHeader.getByText("Alterar plano")).toBeVisible();
+        } else {
+          await expect(mobileHeader).toBeHidden();
+        }
+        await expect(page.locator(".admin-shell")).toHaveCSS(
+          "color",
+          theme === "light" ? "rgb(34, 37, 42)" : "rgb(244, 244, 246)",
+        );
+        await audit(`planos-${theme}-${width}`);
+      }
+    }
+    expect(
+      (await db.salon.findUniqueOrThrow({ where: { id: salon.id } })).plan,
+    ).toBe("PRO");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page
+      .getByRole("link", {
+        name: "Plano atual: Essencial. Alterar plano",
+        exact: true,
+      })
+      .click();
+    await expect(page).toHaveURL(/\/configuracoes#plano$/);
+    await expect(
+      page.getByRole("heading", { name: "Configurações", exact: true }),
+    ).toBeVisible();
+    await page.goto(`/agenda?date=${date}`);
+    await page.getByRole("button", { name: "Mudar para tema escuro" }).click();
     await page
       .getByRole("button", { name: "Abrir ações rápidas da agenda" })
       .click();
