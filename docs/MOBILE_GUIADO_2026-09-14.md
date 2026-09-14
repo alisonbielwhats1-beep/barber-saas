@@ -47,7 +47,9 @@ continuam os mesmos. A padronização inclui painel, configuração, cadastro e
 administração da plataforma; não converte nem ativa contratos existentes.
 
 O proprietário vê o atalho âmbar também no topo mobile, junto à marca e ao tema:
-nome do plano e “Alterar plano” em duas linhas, alvo de toque de 44 px. O desktop
+nome do plano e “Alterar plano” em duas linhas, alvo de toque de 44 px. A pedido
+do responsável antes da publicação, usa largura natural (sem esticar pela barra),
+ícone de 16 px e espaçamento menor; a variante Essencial mede até 128 px. O desktop
 preserva seu atalho. Ambos usam o mesmo destino e as mesmas regras do servidor;
 sem contratação habilitada, abrem Meu plano nas configurações. Não há alteração
 de elegibilidade, cobrança, dados de clientes, serviços, equipe ou agendamentos.

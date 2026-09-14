@@ -15,9 +15,9 @@ export function PlanShortcut({
       href={href}
       aria-label={plan ? `Plano atual: ${plan}. Alterar plano` : "Ativar plano"}
       title={plan ? `${plan} · Alterar plano` : "Ativar plano"}
-      className={`inline-flex min-h-11 max-w-full items-center rounded-full bg-amber-300 text-slate-950 shadow-sm transition-colors hover:bg-amber-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${compact ? "w-full min-w-0 gap-2 px-3 py-1" : "gap-3 px-4 py-2"}`}
+      className={`inline-flex min-h-11 max-w-full items-center rounded-full bg-amber-300 text-slate-950 shadow-sm transition-colors hover:bg-amber-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${compact ? "min-w-0 gap-1.5 px-2.5 py-1" : "gap-3 px-4 py-2"}`}
     >
-      <Crown className="h-5 w-5 shrink-0" aria-hidden="true" />
+      <Crown className={`${compact ? "h-4 w-4" : "h-5 w-5"} shrink-0`} aria-hidden="true" />
       {plan ? (
         compact ? (
           <span className="min-w-0 text-left leading-4">

@@ -209,6 +209,7 @@ test("@database mobile guiado: catálogo grande, tutorial, busca e horários exp
           includeHidden: true,
         });
         if (width < 1024) {
+          expect(bounds!.width).toBeLessThanOrEqual(128);
           await expect(mobileHeader).toBeVisible();
           await expect(mobileHeader.getByText("Alterar plano")).toBeVisible();
         } else {

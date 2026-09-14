@@ -24,7 +24,7 @@ export function AdminMobileHeader({
       {owner && (
         <div
           aria-label="Plano do estabelecimento"
-          className="ml-auto min-w-0 max-w-52 flex-1"
+          className="ml-auto min-w-0 max-w-40"
         >
           <PlanShortcut compact plan={plan} href={planHref} />
         </div>
