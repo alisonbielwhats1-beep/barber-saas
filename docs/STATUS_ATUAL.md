@@ -5,12 +5,14 @@
 Branch `codex/multi-professional-visits`, base `ae4f1ff`: cliente e equipe montam
 uma visita com serviços/profissionais diferentes e confirmação transacional única.
 Profissionais podem criar/editar atendimentos próprios em folgas, intervalos e fora
-do expediente, com motivo; proposta ao cliente conserva essa autorização. Grade
+do expediente, com motivo. A edição já ocupa o novo horário e libera o anterior;
+o cliente aceita ou recusa depois. Recusa sinaliza a reserva e avisa a equipe,
+sem restaurar automaticamente a origem. Grade
 passa a exibir bloqueios após o fechamento e oferece visualização do dia inteiro.
 Simultaneidade pública depende de combinações habilitadas pela gestão.
 Sem migration ou alteração produtiva. Escopo, persistência, limites e evidências
 em `VISITAS_MULTIPROFISSIONAIS_2026-09-13.md`.
-PR #109 em revisão. Validação local: 1.084 testes, 44 integrações PostgreSQL,
+PR #109 em revisão. Validação local: 1.084 testes, 47 integrações PostgreSQL,
 lint, TypeScript, build e jornada responsiva de cliente/dono/profissional aprovados.
 O profissional também cria, edita e reabre as próprias folgas/bloqueios;
 reservas existentes permanecem. CI e Preview precisam concluir antes da promoção.

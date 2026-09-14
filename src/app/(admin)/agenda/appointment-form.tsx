@@ -302,7 +302,7 @@ export function AppointmentDialog({
           <DialogDescription>Escolha cliente, serviços, data e hora do atendimento.</DialogDescription>
         </DialogHeader>
 
-        <Button type="button" variant="outline" onClick={() => setVisitMode(true)}>Adicionar serviços com profissionais diferentes</Button>
+        <Button type="button" variant="outline" className="h-auto min-h-11 w-full whitespace-normal px-3 py-2" onClick={() => setVisitMode(true)}>Adicionar serviços com profissionais diferentes</Button>
         <form
           onSubmit={onSubmit}
           onChange={resetAttempt}

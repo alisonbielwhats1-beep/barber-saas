@@ -292,7 +292,7 @@ pg("visitas transacionais com PostgreSQL real", () => {
       }),
     ).toBe(2);
   });
-  it("edição de serviço e folga conserva autorização até aceite e mantém o mesmo ID", async () => {
+  it("edição em folga aplica serviços e horário imediatamente, aceite mantém o mesmo ID", async () => {
     const f = await fixture();
     const created = await withSalon(f.salon.id, (tx) =>
       createAppointment(tx, {
@@ -325,7 +325,7 @@ pg("visitas transacionais com PostgreSQL real", () => {
     const prior = await prisma.appointment.findUniqueOrThrow({
       where: { id: created.appointment.id },
     });
-    expect(prior.startAt.toISOString()).toContain("18:00:00");
+    expect(prior.startAt.toISOString()).toContain("00:00:00");
     await withSalon(f.salon.id, (tx) =>
       respondToRescheduleProposal(tx, {
         salonId: f.salon.id,
@@ -342,4 +342,52 @@ pg("visitas transacionais com PostgreSQL real", () => {
     expect(after.startAt.toISOString()).toContain("00:00:00");
     expect(after.id).toBe(created.appointment.id);
   });
+  it("remarcação protege destino, libera origem e retries/aceite não duplicam nem recalculam", async () => {
+    const f = await fixture();
+    const booking = { ...f.base, professionalId: f.pros[0]!.id, serviceIds: [f.services[0]!.id], origin: "ADMIN" as const, enforceBookingWindow: false };
+    const original = await withSalon(f.salon.id, tx => createAppointment(tx, booking));
+    const request = { salonId: f.salon.id, appointmentId: original.appointment.id, professionalId: f.pros[0]!.id, serviceIds: [f.services[0]!.id], startLocal: `${f.date}T18:30`, actor: { type: "STAFF" as const, id: f.users[0]!.id, name: "Profissional" }, idempotencyKey: crypto.randomUUID(), expectedVersion: 1 };
+    const replies = await Promise.all([0, 1].map(() => withSalon(f.salon.id, tx => requestStaffReschedule(tx, request))));
+    expect(replies.filter(r => r.duplicate)).toHaveLength(1);
+    const proposal = replies[0]!;
+    if (!proposal.requiresAcceptance) throw Error("Proposal expected");
+    const before = await prisma.appointment.findUniqueOrThrow({ where: { id: original.appointment.id } });
+    expect(before.version).toBe(2);
+    await expect(withSalon(f.salon.id, tx => createAppointment(tx, { ...booking, startLocal: request.startLocal, idempotencyKey: crypto.randomUUID() }))).rejects.toMatchObject({ code: "SLOT_TAKEN" });
+    await withSalon(f.salon.id, tx => createAppointment(tx, { ...booking, idempotencyKey: crypto.randomUUID() }));
+    await prisma.service.update({ where: { id: f.services[0]!.id }, data: { priceCents: 9000 } });
+    await prisma.professionalOpening.deleteMany({ where: { salonId: f.salon.id } });
+    const response = { salonId: f.salon.id, proposalId: proposal.proposalId, clientId: f.client.id, decision: "ACCEPT" as const };
+    const accepted = await Promise.all([0, 1].map(() => withSalon(f.salon.id, tx => respondToRescheduleProposal(tx, response))));
+    expect(accepted.filter(r => r.duplicate)).toHaveLength(1);
+    const after = await prisma.appointment.findUniqueOrThrow({ where: { id: original.appointment.id } });
+    expect(after).toEqual(before);
+    expect(await prisma.appointmentEvent.count({ where: { appointmentId: original.appointment.id, idempotencyKey: `reschedule-proposal:${proposal.proposalId}:accepted` } })).toBe(1);
+  });
+
+  it("nova remarcação invalida resposta antiga; recusa mantém o destino sem ressuscitar a origem", async () => {
+    const f = await fixture();
+    const original = await withSalon(f.salon.id, tx => createAppointment(tx, { ...f.base, professionalId: f.pros[0]!.id, serviceIds: [f.services[0]!.id], origin: "ADMIN", enforceBookingWindow: false }));
+    const request = { salonId: f.salon.id, appointmentId: original.appointment.id, professionalId: f.pros[0]!.id, serviceIds: [f.services[0]!.id], startLocal: `${f.date}T18:30`, actor: { type: "STAFF" as const, id: f.users[0]!.id, name: "Profissional" }, idempotencyKey: crypto.randomUUID(), expectedVersion: 1 };
+    const first = await withSalon(f.salon.id, tx => requestStaffReschedule(tx, request));
+    const second = await withSalon(f.salon.id, tx => requestStaffReschedule(tx, { ...request, startLocal: `${f.date}T19:00`, expectedVersion: 2, idempotencyKey: crypto.randomUUID() }));
+    if (!first.requiresAcceptance || !second.requiresAcceptance) throw Error("Proposal expected");
+    const response = { salonId: f.salon.id, proposalId: second.proposalId, clientId: f.client.id, decision: "REJECT" as const };
+    await expect(withSalon(f.salon.id, tx => respondToRescheduleProposal(tx, { ...response, clientId: "another-client" }))).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(await withSalon(f.salon.id, tx => respondToRescheduleProposal(tx, { ...response, proposalId: first.proposalId, decision: "ACCEPT" }))).toMatchObject({ status: "CANCELLED", duplicate: true });
+    const before = await prisma.appointment.findUniqueOrThrow({ where: { id: original.appointment.id } });
+    expect(await withSalon(f.salon.id, tx => respondToRescheduleProposal(tx, response))).toMatchObject({ status: "REJECTED", duplicate: false });
+    expect(await prisma.appointment.findUniqueOrThrow({ where: { id: original.appointment.id } })).toEqual(before);
+    expect(await prisma.notificationOutbox.count({ where: { appointmentId: original.appointment.id, template: "appointment.reschedule_rejected", recipientId: f.users[0]!.id } })).toBe(1);
+  });
+
+  it("proposta anterior à mudança continua aplicando a reserva somente no aceite", async () => {
+    const f = await fixture();
+    const original = await withSalon(f.salon.id, tx => createAppointment(tx, { ...f.base, professionalId: f.pros[0]!.id, serviceIds: [f.services[0]!.id], origin: "ADMIN", enforceBookingWindow: false }));
+    const targetStartAt = new Date(original.appointment.startAt.getTime() + 3600000);
+    const legacy = await prisma.rescheduleProposal.create({ data: { salonId: f.salon.id, appointmentId: original.appointment.id, requestedById: f.users[0]!.id, targetProfessionalId: f.pros[0]!.id, sourceVersion: 1, targetStartAt, targetEndAt: new Date(targetStartAt.getTime() + 1800000), targetTimezone: f.salon.timezone, targetPriceCents: 5000, targetServices: [{ id: f.services[0]!.id, name: "Serviço original", durationMin: 30, priceCents: 5000 }], idempotencyKey: crypto.randomUUID(), requestFingerprint: "{}" } });
+    const accepted = await withSalon(f.salon.id, tx => respondToRescheduleProposal(tx, { salonId: f.salon.id, proposalId: legacy.id, clientId: f.client.id, decision: "ACCEPT" }));
+    expect(accepted.appointment).toMatchObject({ id: original.appointment.id, startAt: targetStartAt, version: 2 });
+  });
+
 });

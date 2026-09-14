@@ -54,7 +54,7 @@ describe("edição dos serviços e resposta da agenda", () => {
     fireEvent.click(screen.getByRole("button", { name: "Salvar alterações" }));
     expect(mocks.edit).toHaveBeenCalledOnce();
     resolve({ success: true, requiresAcceptance: true });
-    await screen.findByText(/A reserva original permanece/);
+    await screen.findByText(/O novo horário já está reservado/);
     fireEvent.click(screen.getByRole("button", { name: "Concluir" }));
     expect(mocks.close).toHaveBeenCalledOnce();
   });

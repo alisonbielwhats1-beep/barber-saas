@@ -71,6 +71,7 @@ type WaitlistItem = {
 };
 
 type PendingProposal = {
+  appliedImmediately?: boolean;
   id: string;
   appointmentId: string;
   currentStartAt: string;
@@ -328,7 +329,7 @@ export function MinhasList({
         <section aria-labelledby="pending-proposals-title" className="space-y-3">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-warning">Ação necessária</p>
-            <h2 id="pending-proposals-title" className="text-base font-semibold">O estabelecimento sugeriu uma alteração</h2>
+            <h2 id="pending-proposals-title" className="text-base font-semibold">Confirme a alteração do estabelecimento</h2>
             <p className="mt-1 text-sm text-muted-foreground">Confira o novo horário e aceite ou recuse cada solicitação.</p>
           </div>
           {pendingProposals.map((proposal) => {
@@ -347,13 +348,13 @@ export function MinhasList({
                   </div>
                 </div>
                 <div className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
-                  <div className="rounded-xl bg-background/60 p-3">
+                  {!proposal.appliedImmediately && <div className="rounded-xl bg-background/60 p-3">
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Atual</p>
                     <p className="mt-1 font-medium">{formatInTimeZone(currentStart, proposal.currentTimezone, "dd/MM/yyyy 'às' HH:mm")}</p>
                     <p className="mt-1 text-xs text-muted-foreground">com {proposal.currentProfessionalName}</p>
-                  </div>
+                  </div>}
                   <div className="rounded-xl border border-primary/25 bg-primary/5 p-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">Novo horário</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">{proposal.appliedImmediately ? "Horário já reservado para você" : "Novo horário"}</p>
                     <p className="mt-1 font-medium">{formatInTimeZone(targetStart, proposal.targetTimezone, "dd/MM/yyyy 'às' HH:mm")}</p>
                     <p className="mt-1 text-xs text-muted-foreground">com {proposal.targetProfessionalName}</p>
                   </div>
@@ -362,6 +363,7 @@ export function MinhasList({
                   <span>{hasVariablePrice(proposal.targetServices) ? "Novo valor inicial: " : "Novo valor: "}<strong className="text-foreground">{formatMoney(proposal.targetPriceCents, currency)}</strong></span>
                   {proposal.reason && <span>Motivo: {proposal.reason}</span>}
                 </div>
+                {proposal.appliedImmediately && <p className="mt-3 text-xs text-muted-foreground">O horário anterior foi liberado. Este novo horário já está reservado enquanto você responde.</p>}
                 <VariablePriceNotice services={proposal.targetServices} />
                 <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                   <button
@@ -609,7 +611,7 @@ export function MinhasList({
         open={proposalRejectTarget !== null}
         onOpenChange={(open) => !open && setProposalRejectTarget(null)}
         title="Recusar alteração?"
-        description="O horário atual continuará reservado. O estabelecimento será avisado da sua recusa."
+        description={pendingProposals.find(p => p.id === proposalRejectTarget)?.appliedImmediately ? "O estabelecimento será avisado para combinar outra opção. O novo horário continuará reservado até a equipe ajustar; o horário antigo não será restaurado." : "O horário atual continuará reservado. O estabelecimento será avisado da sua recusa."}
         confirmLabel="Recusar alteração"
         onConfirm={() => proposalRejectTarget && respondToProposal(proposalRejectTarget, "REJECT")}
         pending={pending}
@@ -796,6 +798,7 @@ function ApptCard({
 function clientEventTitle(eventType: string): string {
   return {
     CREATED: "Reserva criada",
+    RESCHEDULE_ACCEPTED: "Cliente aceitou a alteração",
     RESCHEDULED: "Reserva remarcada",
     STATUS_CHANGED: "Status atualizado",
     CANCELLED: "Reserva cancelada",

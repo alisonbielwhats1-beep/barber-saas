@@ -280,6 +280,41 @@ test("@database visita conjunta no cliente e no painel, folga e bloqueio após e
         () => document.documentElement.scrollWidth <= innerWidth + 1,
       ),
     ).toBe(true);
+    // Staff move takes effect before the client opens the confirmation.
+    await page.getByRole("button", { name: new RegExp(`${client.name}, Corte, .*Anderson.*Abrir detalhes`) }).first().click();
+    const editDialog = page.getByRole("dialog");
+    await editDialog.getByRole("button", { name: /Editar/ }).click();
+    await editDialog.getByLabel("Horário do agendamento").fill("18:30");
+    await editDialog.getByRole("button", { name: "Salvar alterações" }).click();
+    await expect(editDialog.getByText(/O novo horário já está reservado/)).toBeVisible();
+    await editDialog.getByRole("button", { name: "Concluir", exact: true }).click();
+    const pendingMove = await db.rescheduleProposal.findFirstOrThrow({ where: { salonId: salon.id, status: "PENDING" }, include: { appointment: true } });
+    expect(pendingMove.appointment.startAt).toEqual(localDateTimeToUtc(`${date}T18:30`, salon.timezone));
+    expect(pendingMove.appointment.version).toBe(2);
+    await expect(page.getByRole("button", { name: new RegExp(`${client.name}, Corte, 18:30, Anderson`) })).toBeVisible();
+    const clientContext = await page.context().browser()!.newContext({ baseURL, viewport: { width: 390, height: 900 } });
+    try {
+      await clientContext.addCookies([{ name: "client_token", value: token, url: baseURL! }]);
+      const clientPage = await clientContext.newPage();
+      await clientPage.goto(`/book/${salon.slug}/minhas`);
+      await expect(clientPage.getByText("Horário já reservado para você")).toBeVisible();
+      await expect(clientPage.getByText(/O horário anterior foi liberado/)).toBeVisible();
+      expect((await new AxeBuilder({ page: clientPage }).include('[aria-labelledby="pending-proposals-title"]').withTags(["wcag2a", "wcag2aa"]).analyze()).violations).toEqual([]);
+      await expect(clientPage.locator(".ef-intro")).toHaveCount(0);
+      await clientPage.locator('[aria-labelledby="pending-proposals-title"]').screenshot({ path: test.info().outputPath("remarcacao-reservada-390.png") });
+      await clientPage.getByRole("button", { name: "Recusar", exact: true }).click();
+      await expect(clientPage.getByRole("dialog")).toContainText("o horário antigo não será restaurado");
+      await clientPage.getByRole("button", { name: "Recusar alteração", exact: true }).click();
+      await expect(clientPage.getByText("Horário já reservado para você")).toHaveCount(0);
+      expect(await db.appointment.findUniqueOrThrow({ where: { id: pendingMove.appointmentId } })).toEqual(pendingMove.appointment);
+      await page.reload();
+      const refusedCard = page.getByRole("button", { name: new RegExp(`${client.name}, Corte, 18:30, Anderson`) });
+      await expect(refusedCard).toContainText("Alteração recusada");
+      await refusedCard.click();
+      await expect(page.getByText("Cliente recusou a alteração · entre em contato")).toBeVisible();
+    } finally {
+      await clientContext.close();
+    }
     await context.clearCookies();
     await page.goto("/login");
     await page.getByLabel("Email").fill(user.email);

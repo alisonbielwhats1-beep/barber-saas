@@ -311,7 +311,7 @@ export function AppointmentDetail({
           if (["AFTER_WORKING_HOURS", "OUTSIDE_WORKING_HOURS", "WORKING_HOURS_BREAK", "PROFESSIONAL_UNAVAILABLE"].includes(result.code ?? "") && (canOverrideSchedule || canCancel)) setAfterHours(true);
           if (result.code === "SLOT_TAKEN" && canCancel) { setAfterHours(false); setOverbook(true); }
         } else {
-          setSavedMessage(result.requiresAcceptance ? "Alteração enviada. A reserva original permanece até o cliente aceitar os novos serviços e horário." : "Agendamento atualizado.");
+          setSavedMessage(result.requiresAcceptance ? "Agendamento atualizado. O novo horário já está reservado; aguardando a resposta do cliente." : "Agendamento atualizado.");
         }
       } catch {
         setError("Não foi possível salvar. Confira sua conexão e tente novamente; suas alterações foram mantidas.");
@@ -427,7 +427,7 @@ export function AppointmentDetail({
               <p role="status" className="rounded-lg border border-border bg-muted/40 p-3 text-sm">
                 Duração {servicesChanged ? "prevista" : "atual"}: <strong>{formatDuration(previewDuration)}</strong>.
                 {editEndLabel ? <> Término previsto: <strong>{editEndLabel}</strong>.</> : " Informe uma data e um horário válidos."}
-                <span className="mt-1 block text-xs text-muted-foreground">Valor {servicesChanged ? "base dos serviços" : "atual"}: {formatMoney(previewPrice)}. {servicesChanged ? "O total final considera as regras do dia; serviços com preço a partir de podem variar. " : ""}Alterações de serviços ou horário para cliente com conta serão enviadas para aceite. O original permanece até a confirmação.</span>
+                <span className="mt-1 block text-xs text-muted-foreground">Valor {servicesChanged ? "base dos serviços" : "atual"}: {formatMoney(previewPrice)}. {servicesChanged ? "O total final considera as regras do dia; serviços com preço a partir de podem variar. " : ""}Ao salvar, os serviços e o horário serão atualizados imediatamente. O novo horário ficará reservado enquanto o cliente aceita ou recusa.</span>
               </p>
 
               <div>
@@ -462,7 +462,7 @@ export function AppointmentDetail({
               </div>}
               {overbook && <div className="space-y-2 rounded-lg border border-warning/50 p-3">
                 <p className="text-sm font-medium">Encaixar neste horário ocupado?</p>
-                <p className="text-xs text-muted-foreground">Os dois atendimentos serão mantidos. Confirme o encaixe e informe o motivo; para cliente com conta, a mudança continua dependendo do aceite.</p>
+                <p className="text-xs text-muted-foreground">Os dois atendimentos serão mantidos. Confirme o encaixe e informe o motivo; para cliente com conta, o horário já fica reservado enquanto aguarda a resposta.</p>
                 <label htmlFor="edit-overbook-reason" className="block text-xs">Motivo do encaixe</label>
                 <input id="edit-overbook-reason" maxLength={200} disabled={pending} value={overbookReason} onChange={event => { mutationKeys.current.delete("edit"); setOverbookReason(event.target.value); }} className="w-full rounded-lg border border-border bg-surface-1 p-2 text-sm" />
                 <button disabled={pending || overbookReason.trim().length < 3} onClick={() => saveEdit(false, true)} className="min-h-11 rounded-lg border border-border px-3 text-sm disabled:opacity-50">Confirmar encaixe</button>
@@ -506,7 +506,7 @@ export function AppointmentDetail({
                 />
                 {appt.pendingReschedule && (
                   <div className="rounded-lg border border-amber-500/30 bg-warning/10 px-3 py-2.5 text-warning">
-                    <p className="text-[12px] font-semibold">Aguardando aceite do cliente</p>
+                    <p className="text-[12px] font-semibold">{appt.pendingReschedule.status === "REJECTED" ? "Cliente recusou a alteração · entre em contato" : "Aguardando aceite do cliente"}</p>
                     <p className="mt-1 text-[11px] leading-relaxed">
                       Novo horário: {formatInTimeZone(new Date(appt.pendingReschedule.targetStartAt), timezone, "dd/MM/yyyy 'às' HH:mm")} · {appt.pendingReschedule.targetProfessionalName}.
                     </p>
@@ -858,6 +858,7 @@ export function AppointmentDetail({
 function eventTitle(eventType: string): string {
   return {
     CREATED: "Agendamento criado",
+    RESCHEDULE_ACCEPTED: "Cliente aceitou a alteração",
     RESCHEDULED: "Agendamento remarcado",
     RESCHEDULE_REQUESTED: "Alteração aguardando aceite",
     RESCHEDULE_REJECTED: "Cliente recusou a alteração",

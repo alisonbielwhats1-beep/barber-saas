@@ -92,6 +92,7 @@ export type Appointment = {
   serviceIds: string[];
   hasPayment: boolean;
   pendingReschedule: {
+    status?: string;
     id: string;
     targetStartAt: string;
     targetEndAt: string;
@@ -285,7 +286,7 @@ export function AgendaBoard({
   );
 
 
-  const awaitingAcceptance = appointments.filter((a) => a.pendingReschedule !== null).length;
+  const awaitingAcceptance = appointments.filter((a) => a.pendingReschedule && a.pendingReschedule.status !== "REJECTED").length;
   const cancelledWithQueue = appointments.filter((a) => a.status === "CANCELLED" && a.waitlistCount > 0).length;
 
   function goDate(offset: number) {
@@ -881,7 +882,7 @@ function DayView({
                       {height >= 90 && <span style={{ backgroundColor: "hsl(var(--card))" }} className={`inline-flex max-w-full truncate rounded px-1 text-[10px] font-medium ${cfg.badgeClass}`}>{cfg.label}</span>}
                       {a.pendingReschedule && (
                         <span className="mt-1 inline-flex rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-warning">
-                          Aguardando aceite
+                          {a.pendingReschedule.status === "REJECTED" ? "Alteração recusada" : "Aguardando aceite"}
                         </span>
                       )}
                       {height >= 70 && (
