@@ -1,7 +1,9 @@
 # Fase — navegação desktop, equipe e configurações
 
-Atualizado em **13/09/2026**. Entrega em revisão no PR #108, com Preview Vercel.
-Nada desta fase foi aplicado em Production ou no Supabase.
+Atualizado em **14/09/2026**. Entrega no PR #108, com Preview Vercel e promoção
+explicitamente autorizada pelo responsável. Schema produtivo preparado; publicação
+do código aguarda os checks finais e o merge. O resultado final será registrado
+no PR: https://github.com/alisonbielwhats1-beep/barber-saas/pull/108.
 
 ## Objetivo
 
@@ -60,11 +62,37 @@ anuláveis em `UserInvite`:
 Não há backfill, reescrita, remoção de dados, alteração de RLS ou mudança de
 constraint. O inventário afetado contém somente a tabela `UserInvite`.
 
-Os arquivos `preflight.sql` e `verify.sql` são somente leitura. Antes de uma
-execução fora do CI descartável, é obrigatório identificar inequivocamente o
-projeto e confirmar que não se trata de Production. A migration deve passar no
-PostgreSQL efêmero do `schema-smoke` e depois em homologação separada antes de
-qualquer pedido de promoção.
+Os arquivos `preflight.sql` e `verify.sql` são somente leitura. Desenvolvimento
+e homologação devem identificar inequivocamente um alvo não produtivo. A execução
+produtiva descrita abaixo é uma promoção específica autorizada, não um ambiente
+de testes nem autorização para migrations futuras.
+
+## Preparação produtiva autorizada — 14/09/2026
+
+- PR #109 já publicado em `225c9c9`; incorporado ao #108 em `779e09e`.
+- CI completo da revisão anterior `bf1ff5c`: run `34798368695` aprovado; a revisão
+  integrada passou no job `check` do run `34800544049`, incluindo os testes
+  PostgreSQL. A promoção do código aguarda a rodada final completa.
+- Projeto confirmado pelo dashboard: `barber-saas`, `main PRODUCTION`, ref
+  `vshnatkzxdekkvqttvbv`. Preflight: um convite, 24 colunas, novas colunas ausentes.
+- Backup delimitado aos dados e metadados de `UserInvite`, criptografado no banco
+  com a chave pública de recuperação existente antes da saída dos dados. Arquivos
+  fora do Git, com ACL restrita ao usuário do Windows e SYSTEM:
+  `C:/Users/Usuário/.codex/backups/everflair/production-2026-09-14-pr108/`.
+  Chaves preservadas em `../production-2026-09-07/keys`.
+- Decifragem em memória, JSON, escopo, contagem e SHA-256 conferidos às
+  03:01:04 UTC. Conteúdo: 35.667 bytes; SHA-256
+  `2b9913f570f7dfd809702b705af2ffd3976381f4c3cb694896f4f84682c9039c`.
+  Nenhum dado decifrado foi gravado em arquivo, log, CI ou banco de teste.
+- Migration aplicada em transação com limites de lock/execução, comparação
+  integral das colunas anteriores e registro em `_prisma_migrations`. Checksum
+  do SQL versionado: `476fe74a179309a8f9cb894b093eea7f690a1cd6e92fff328bf98130640f9ee8`.
+- Verificação: `pendingPhone` e `pendingAvatarUrl` presentes como `text NULL`.
+  Sem seed, reset, db push, backfill, alteração de flags ou reaplicação de SQL antigo.
+
+O backup é delimitado, não um dump integral do projeto. Recuperação de dados
+exige autorização específica e preservação das escritas posteriores; o rollback
+normal é de código, conservando as colunas e o histórico.
 
 ## Rollback
 
@@ -89,8 +117,8 @@ autorizado por este documento.
 - matriz visual em 375, 768, 1024, 1280 e 1440 px, nos temas claro e escuro:
   sem rolagem horizontal e sem sobreposição entre conteúdo e navegação;
 - formulário de novo profissional inspecionado em 1440 px;
-- PostgreSQL e Docker não estão disponíveis nesta máquina. Por isso, a
-  migration ainda depende do `schema-smoke` com PostgreSQL 16 descartável e
-  não foi executada contra nenhum banco remoto.
+- PostgreSQL e Docker não estão disponíveis nesta máquina. A homologação de
+  banco usa PostgreSQL 16 descartável no GitHub Actions; a execução produtiva
+  posterior e autorizada está registrada acima.
 - os jobs `check` e `schema-smoke` executam preflight, migration e verificação
   em seus bancos PostgreSQL descartáveis antes dos testes de integração.
