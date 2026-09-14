@@ -1,7 +1,7 @@
 # Fase — navegação desktop, equipe e configurações
 
-Atualizado em **13/09/2026**. Este documento descreve uma entrega local. Nada
-desta fase foi aplicado em Production, Vercel ou Supabase.
+Atualizado em **13/09/2026**. Entrega em revisão no PR #108, com Preview Vercel.
+Nada desta fase foi aplicado em Production ou no Supabase.
 
 ## Objetivo
 
@@ -12,6 +12,21 @@ desta fase foi aplicado em Production, Vercel ou Supabase.
 - reorganizar o índice de Configurações em cards no desktop, preservando o
   comportamento mobile existente;
 - incluir foto, nome, sobrenome, e-mail e telefone no cadastro do profissional.
+- destacar no topo desktop o plano do estabelecimento e o acesso à contratação
+  ou alteração de plano, conforme pedido complementar do responsável.
+
+## Acesso aos planos no topo
+
+O proprietário vê um atalho âmbar com ícone de coroa, legível nos temas claro
+e escuro. Sem plano pago, mostra “Ativar plano”; com plano, exibe o nome e a
+capacidade vigentes ao lado de “Alterar plano”. Usa os termos confirmados pelo
+servidor, incluindo agendas adicionais, e abre o portal de assinatura existente.
+Planos legados mantêm seu nome. Contratação desabilitada leva à seção Meu plano.
+Nenhuma cobrança é iniciada pelo atalho; cotação, confirmação, permissões e
+flags da troca continuam sendo validadas pelo fluxo de assinatura existente.
+O componente foi inspecionado em 1280 px nos dois temas, sem overflow e sem
+violações WCAG 2 A/AA e 2.1 AA apontadas pelo axe. Esta é evidência visual local
+com dados fictícios, não uma contratação ou troca financeira real.
 
 ## Direção visual
 
