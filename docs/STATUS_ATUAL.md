@@ -1,6 +1,6 @@
 # Status atual canônico — Salon SaaS
 
-## 2026-09-14 — experiência mobile em revisão
+## 2026-09-14 — experiência mobile: publicação autorizada
 
 Branch `codex/mobile-guided-experience`, baseada em `a78a0b2`: catálogo inicial
 compacto e pesquisável com edição individual, seleção de serviços/profissionais
@@ -11,7 +11,12 @@ de reservas no toque, que ainda não existe. Escopo em `MOBILE_GUIADO_2026-09-14
 Complemento solicitado: nome visível de `PRO` padronizado como “Essencial” e
 atalho de planos no topo mobile para o proprietário, nos dois temas. Apenas
 apresentação: enum, preços, limites, assinatura, cobrança e dados preservados.
-Validação somente local/sintética. Sem nova migration ou publicação produtiva.
+O responsável autorizou finalizar e publicar o PR #110 em produção. Validação
+local/sintética: lint, TypeScript, 1.106 testes, build e jornadas Chromium/WebKit
+aprovados. Promoção condicionada ao CI e Preview da revisão final. Sem migration
+nova, alteração de flags, cobrança ou escrita manual de dados produtivos.
+Commit implantado, deployment e conferência somente leitura serão registrados
+no PR: https://github.com/alisonbielwhats1-beep/barber-saas/pull/110.
 
 ## 2026-09-14 — PR #108 publicado após CI
 

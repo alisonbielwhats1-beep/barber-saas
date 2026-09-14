@@ -4,7 +4,8 @@
 
 Pedido autorizado: aplicar padrões mobile-first, divulgação progressiva,
 busca em listas longas, bottom sheets e tutorial contextual inspirado nas imagens
-fornecidas. Não inclui deploy produtivo nem reconstrução de todas as telas.
+fornecidas. Não inclui reconstrução de todas as telas. A publicação produtiva
+foi autorizada posteriormente pelo responsável, conforme registro de release abaixo.
 
 Antes: o guia montava um formulário completo para cada serviço; a visita usava
 selects nativos extensos, horário vazio com regra implícita e erro de disponibilidade
@@ -95,12 +96,19 @@ ao horário em paisagem. A rolagem agora é uma região separada do rodapé; o t
 confere que o campo não está encoberto e que a mensagem termina acima do botão.
 O texto da exceção de jornada usa contraste normal, com borda de alerta.
 
-CI, Preview e publicação são estados distintos; a publicação produtiva depende
-de aprovação posterior. Resultados remotos serão vinculados no PR.
+## Publicação autorizada
+
+O responsável solicitou: “Finalizar, suba essas alterações em produção”. O PR
+#110 será integrado somente após CI e Preview aprovados na revisão final.
+Release exclusivamente de código, sem SQL, migration, seed, alteração de flags,
+cobranças ou dados de clientes. Home, rotas alteradas e runtime serão conferidos
+somente por leitura; nenhum teste de escrita no Studio Martinelli.
+O resultado final (commit, deployment e verificações) será registrado no PR:
+https://github.com/alisonbielwhats1-beep/barber-saas/pull/110.
 
 ## Recuperação e limites
 
 Sem migration nova. Reverter este PR restaura a interface anterior; serviços e
 reservas gravados continuam compatíveis. A preferência local do tutorial é inerte
-na versão anterior. Não houve alteração de flags, cobrança, e-mail ou Production.
+na versão anterior. A publicação não altera flags, cobrança, e-mail ou dados.
 Emulação de navegador não equivale a teste físico de teclado/gestos no iPhone.
