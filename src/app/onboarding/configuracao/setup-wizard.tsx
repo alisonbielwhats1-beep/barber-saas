@@ -13,10 +13,21 @@ import {
   Scissors,
   Smartphone,
   Users,
+  ChevronRight,
+  Plus,
+  Search,
 } from "lucide-react";
 import { BrandLogo } from "@/components/brand";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { normalizeSearch } from "@/components/ui/search-picker";
+import { formatMoney } from "@/lib/utils";
 import { ThemeProvider } from "@/app/(admin)/theme-provider";
 import { ThemeToggle } from "@/app/(admin)/theme-toggle";
 import { WorkingHoursForm } from "@/app/(admin)/profissionais/working-hours-form";
@@ -60,7 +71,7 @@ const titles = [
 ];
 const descriptions = [
   "Escolha os dias e períodos de atendimento. Depois, você poderá usar esses horários na agenda de cada profissional.",
-  "Confira os serviços sugeridos ou adicione os seus. O preço e a duração aparecem para o cliente ao agendar.",
+  "Busque um serviço e toque para revisar preço e duração. Adicione outros quando precisar.",
   "Associe os serviços a quem os realiza e confira a jornada. Se você também atende, pode usar sua própria conta.",
   "Este é o link que você entrega aos clientes. Ele abre sua página de agendamento no celular ou no computador.",
 ];
@@ -135,7 +146,7 @@ export function SetupWizard({
   }
   return (
     <ThemeProvider>
-      <div className="setup-shell">
+      <div className="setup-shell" data-setup-step={step}>
         <header className="setup-header">
           <BrandLogo className="!h-9 !w-[142px]" />
           <div className="flex items-center gap-2">
@@ -189,7 +200,7 @@ export function SetupWizard({
             </p>
           </aside>
           <main id="main-content" className="setup-main" tabIndex={-1}>
-            <div className="mb-7">
+            <div className="setup-introduction mb-7">
               <p className="mb-3 text-sm text-muted-foreground">
                 Etapa {step + 1} de 4 · {steps[step].title}
               </p>
@@ -201,7 +212,7 @@ export function SetupWizard({
               </p>
             </div>
             <div
-              className="mb-6 h-1 rounded-full bg-muted"
+              className="setup-progress mb-6 h-1 rounded-full bg-muted"
               role="progressbar"
               aria-label="Etapas concluídas"
               aria-valuemin={0}
@@ -242,32 +253,19 @@ export function SetupWizard({
             )}
             {step === 1 && (
               <section aria-label="Seus serviços" className="space-y-4">
-                {data.services.map((service) => (
-                  <ServiceEditor
-                    key={`${service.id}-${service.name}-${service.priceCents}-${service.durationMin}`}
-                    service={service}
-                    run={run}
-                    pending={pending}
-                    onSaved={() =>
-                      setMessage(
-                        "Serviço salvo. Você pode adicionar outro ou continuar.",
-                      )
-                    }
-                  />
-                ))}
-                <ServiceEditor
-                  key={`new-${data.services.length}`}
+                <SetupServiceCatalog
+                  services={data.services}
                   run={run}
                   pending={pending}
                   onSaved={() =>
                     setMessage(
-                      "Serviço adicionado. Agora associe um profissional a ele.",
+                      "Serviço salvo. Você pode revisar outro ou continuar.",
                     )
                   }
                 />
                 <Button
                   disabled={pending}
-                  className="w-full sm:w-auto"
+                  className="sticky bottom-3 z-10 w-full shadow-lg sm:static sm:w-auto"
                   onClick={() => run(() => move(2))}
                 >
                   Continuar para profissionais
@@ -729,6 +727,183 @@ function HoursStep({
   );
 }
 
+export function SetupServiceCatalog({
+  services,
+  run,
+  pending,
+  onSaved,
+}: {
+  services: SetupService[];
+  run: Run;
+  pending: boolean;
+  onSaved: () => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [onlyPending, setOnlyPending] = useState(false);
+  const [editing, setEditing] = useState<SetupService | "new" | null>(null);
+  const [dirty, setDirty] = useState(false);
+  const [discard, setDiscard] = useState(false);
+  const filtered = services.filter(
+    (service) =>
+      (!onlyPending || !service.reviewed) &&
+      normalizeSearch(service.name).includes(normalizeSearch(query)),
+  );
+  const close = () => {
+    setEditing(null);
+    setDirty(false);
+    setDiscard(false);
+  };
+  return (
+    <>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">
+          {services.filter((s) => s.reviewed).length} de {services.length}{" "}
+          revisados
+        </p>
+        <Button
+          variant="outline"
+          disabled={pending}
+          onClick={() => setEditing("new")}
+        >
+          <Plus size={16} aria-hidden />
+          Novo serviço
+        </Button>
+      </div>
+      <label className="flex min-h-12 items-center gap-2 rounded-xl border border-border bg-card px-3">
+        <Search size={18} aria-hidden className="text-muted-foreground" />
+        <span className="sr-only">Pesquisar serviços</span>
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Buscar pelo nome do serviço"
+          className="min-w-0 flex-1 bg-transparent py-3 text-base outline-none"
+        />
+      </label>
+      <div
+        className="flex gap-2"
+        role="group"
+        aria-label="Filtrar revisão de serviços"
+      >
+        {[
+          [false, "Todos"],
+          [true, "A revisar"],
+        ].map(([filter, label]) => (
+          <button
+            key={String(label)}
+            type="button"
+            aria-pressed={onlyPending === filter}
+            onClick={() => setOnlyPending(Boolean(filter))}
+            className="min-h-11 rounded-full border border-border px-4 text-sm aria-pressed:bg-foreground aria-pressed:text-background"
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <p role="status" className="text-xs text-muted-foreground">
+        {filtered.length} serviços. Toque para revisar preço e duração.
+      </p>
+      <div
+        className="max-h-[42dvh] overflow-y-auto overscroll-contain rounded-2xl border border-border bg-card"
+        aria-label="Lista de serviços"
+      >
+        {filtered.map((service) => (
+          <button
+            type="button"
+            disabled={pending}
+            key={service.id}
+            onClick={() => setEditing(service)}
+            className="flex min-h-20 w-full items-center gap-3 border-b border-border p-4 text-left last:border-0 hover:bg-muted focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+          >
+            <span className="min-w-0 flex-1">
+              <strong className="block break-words text-sm font-medium">
+                {service.name}
+              </strong>
+              <span className="mt-1 block text-xs text-muted-foreground">
+                {service.durationMin} min · {formatMoney(service.priceCents)}
+              </span>
+              <span
+                className={`mt-1 block text-xs ${service.reviewed ? "text-primary" : "text-warning"}`}
+              >
+                {service.reviewed
+                  ? "Serviço revisado"
+                  : "Revisar preço e duração"}
+              </span>
+            </span>
+            <ChevronRight
+              size={18}
+              aria-hidden
+              className="shrink-0 text-muted-foreground"
+            />
+          </button>
+        ))}
+        {!filtered.length && (
+          <p className="p-5 text-sm text-muted-foreground">
+            {services.length
+              ? "Nenhum serviço neste filtro. Limpe a busca ou escolha Todos."
+              : "Adicione seu primeiro serviço para começar."}
+          </p>
+        )}
+      </div>
+      <Dialog
+        open={editing !== null}
+        onOpenChange={(open) => {
+          if (!open && !pending) {
+            if (dirty) setDiscard(true);
+            else close();
+          }
+        }}
+      >
+        <DialogContent
+          mobileSheet
+          aria-describedby="setup-service-description"
+          className="p-4 pt-6 sm:p-6"
+          onInteractOutside={(e) => e.preventDefault()}
+        >
+          <DialogTitle className="pr-10 text-xl">
+            {editing === "new" ? "Novo serviço" : "Revisar serviço"}
+          </DialogTitle>
+          <DialogDescription id="setup-service-description">
+            Confira os dados que seu cliente verá ao agendar.
+          </DialogDescription>
+          {editing && (
+            <div onChange={() => setDirty(true)}>
+              <ServiceEditor
+                key={editing === "new" ? "new" : editing.id}
+                service={editing === "new" ? undefined : editing}
+                run={run}
+                pending={pending}
+                onSaved={() => {
+                  close();
+                  onSaved();
+                }}
+              />
+            </div>
+          )}
+          {discard && (
+            <div
+              role="alert"
+              className="space-y-2 rounded-xl border border-border p-3 text-sm"
+            >
+              <p>Você tem alterações não salvas.</p>
+              <Button
+                disabled={pending}
+                variant="outline"
+                onClick={() => setDiscard(false)}
+              >
+                Continuar editando
+              </Button>
+              <Button disabled={pending} variant="ghost" onClick={close}>
+                Descartar alterações
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 function ServiceEditor({
   service,
   run,
@@ -743,23 +918,33 @@ function ServiceEditor({
   const [free, setFree] = useState(
     (service?.reviewed && service.priceCents === 0) || false,
   );
+  const [saveError, setSaveError] = useState("");
   return (
     <form
-      className="setup-panel"
+      className="setup-service-editor"
       onSubmit={(e) => {
         e.preventDefault();
         const f = new FormData(e.currentTarget);
         run(async () => {
-          await saveSetupService({
-            id: service?.id,
-            name: String(f.get("name")),
-            durationMin: Number(f.get("duration")),
-            priceCents: Math.round(
-              Number(String(f.get("price")).replace(",", ".")) * 100,
-            ),
-            freeConfirmed: free,
-          });
-          onSaved();
+          setSaveError("");
+          try {
+            await saveSetupService({
+              id: service?.id,
+              name: String(f.get("name")),
+              durationMin: Number(f.get("duration")),
+              priceCents: Math.round(
+                Number(String(f.get("price")).replace(",", ".")) * 100,
+              ),
+              freeConfirmed: free,
+            });
+            onSaved();
+          } catch (error) {
+            setSaveError(
+              error instanceof Error
+                ? error.message
+                : "Não foi possível salvar. Tente novamente.",
+            );
+          }
         });
       }}
     >
@@ -820,8 +1005,13 @@ function ServiceEditor({
           />
           Se o preço for zero, confirmo que este serviço é gratuito.
         </label>
-        <Button type="submit" variant="outline" className="w-full sm:w-auto">
-          {service ? "Salvar serviço" : "Adicionar serviço"}
+        {saveError && (
+          <p role="alert" className="text-sm text-danger">
+            {saveError}
+          </p>
+        )}
+        <Button type="submit" className="w-full">
+          {pending ? "Salvando…" : service ? "Salvar serviço" : "Adicionar serviço"}
         </Button>
       </fieldset>
     </form>

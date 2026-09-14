@@ -53,6 +53,7 @@ import { WeeklyPausePanel } from "./weekly-pause-panel";
 import { minuteAtSlotPointer } from "./agenda-slot-pointer";
 import { AgendaWeekStrip } from "./agenda-week-strip";
 import { AgendaTimeScale } from "./agenda-time-scale";
+import { AgendaMobileGuide } from "./agenda-mobile-guide";
 import "./agenda-workspace.css";
 
 const DAY_START = 8 * 60;
@@ -392,6 +393,7 @@ export function AgendaBoard({
         </div>
 
         <div className="agenda-view-controls">
+          <AgendaMobileGuide scope={colorScope} canCreate={canCreate} autoStart={!initialAppointmentId} />
           <select aria-label="Visualização da agenda" value={view} onChange={event => setView(event.target.value as ViewKind)} className="h-11 w-[94px] min-w-0 rounded-lg border border-border bg-card px-2 text-xs sm:hidden">
             <option value="day">Dia</option>
             <option value="week">Semana</option>

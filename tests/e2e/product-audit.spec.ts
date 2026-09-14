@@ -41,6 +41,9 @@ for (const mode of ["desktop-light", "mobile-dark"]) {
         const runtime: string[] = [];
         page.on("pageerror", e => runtime.push(e.message));
         await page.goto(`/${route}`, { timeout: 60_000 });
+        if (route === "agenda" && mode.startsWith("mobile")) {
+          await page.getByRole("button", { name: "Pular tutorial", exact: true }).click();
+        }
         await expect(page.getByRole("heading", { level: 1 })).toBeVisible({ timeout: 30_000 });
         await expect(page.locator("main .animate-shimmer")).toHaveCount(0, { timeout: 30_000 });
         if (route === "agenda") {

@@ -45,7 +45,7 @@ export async function notifyPlatformAdminOfSignup(input: {
             <h1 style="font-size:22px">Novo pedido de acesso</h1>
             <p><strong>${salon}</strong> acabou de solicitar acesso ao Everflair.</p>
             <p>Responsável: ${owner}<br>E-mail: ${email}</p>
-            <p>O estabelecimento continua bloqueado até você escolher o plano Grátis ou Pro.</p>
+            <p>O estabelecimento continua bloqueado até você escolher o plano Grátis ou Essencial.</p>
             <p style="margin:28px 0"><a href="${escapeHtml(adminUrl)}" style="background:#171717;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;display:inline-block">Analisar solicitação</a></p>
           </div>
         `.trim(),

@@ -36,6 +36,7 @@ test("@database semana, minutos e seleção sem clientes mesclados ou excluídos
     await page.getByRole("button", { name: "Confirmar exclusão da lista" }).click();
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await page.goto("/agenda?date=2026-09-12");
+    await page.getByRole("button", { name: "Pular tutorial", exact: true }).click();
     const week = page.getByRole("navigation", { name: "Dias da semana da agenda" });
     await expect(week.getByRole("button")).toHaveCount(7);
     await expect(week.getByRole("button").first()).toHaveText(/dom\.?6/);

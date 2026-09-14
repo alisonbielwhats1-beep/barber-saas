@@ -1,9 +1,11 @@
 # Fase — navegação desktop, equipe e configurações
 
 Atualizado em **14/09/2026**. Entrega no PR #108, com Preview Vercel e promoção
-explicitamente autorizada pelo responsável. Schema produtivo preparado; publicação
-do código aguarda os checks finais e o merge. O resultado final será registrado
-no PR: https://github.com/alisonbielwhats1-beep/barber-saas/pull/108.
+explicitamente autorizada pelo responsável. Publicado em `a78a0b2`, após CI
+`34801262205`, Production `dpl_HSg1kevPyCeDpV6Er1fhVKHRHLTC` READY.
+O resultado final está registrado em
+https://github.com/alisonbielwhats1-beep/barber-saas/pull/108#issuecomment-5658675856.
+Os registros de preparação abaixo são históricos. Não reaplicar a migration.
 
 ## Objetivo
 
@@ -23,7 +25,11 @@ O proprietário vê um atalho âmbar com ícone de coroa, legível nos temas cla
 e escuro. Sem plano pago, mostra “Ativar plano”; com plano, exibe o nome e a
 capacidade vigentes ao lado de “Alterar plano”. Usa os termos confirmados pelo
 servidor, incluindo agendas adicionais, e abre o portal de assinatura existente.
-Planos legados mantêm seu nome. Contratação desabilitada leva à seção Meu plano.
+Na entrega #108, planos legados mantinham seu nome. O complemento em revisão no
+PR #110 padroniza apenas a apresentação de `PRO` como “Essencial” e leva o mesmo
+atalho ao topo mobile, com nome e “Alterar plano” em duas linhas. Enum, preço,
+capacidade, assinatura e dados existentes não mudam.
+Contratação desabilitada leva à seção Meu plano.
 Nenhuma cobrança é iniciada pelo atalho; cotação, confirmação, permissões e
 flags da troca continuam sendo validadas pelo fluxo de assinatura existente.
 O componente foi inspecionado em 1280 px nos dois temas, sem overflow e sem

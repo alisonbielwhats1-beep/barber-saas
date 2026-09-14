@@ -110,7 +110,7 @@ export function ApprovalControls({ salonId, salonName, status, currentPlan }: Pr
               />
               <PlanOption
                 active={plan === "PRO"}
-                title="Pro"
+                title="Essencial"
                 description="Até 3 agendas e recursos completos para a operação."
                 onClick={() => setPlan("PRO")}
               />

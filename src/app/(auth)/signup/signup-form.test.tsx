@@ -12,9 +12,9 @@ function completeForm() {
   for (const [name, value] of [["Nome do estabelecimento", "Espaço de teste"], ["Seu nome", "Pessoa Teste"], ["Email", "teste@example.com"], ["Senha", "senha-de-teste"], ["Confirmar senha", "senha-de-teste"]]) fireEvent.change(screen.getByLabelText(name, { exact: true }), { target: { value } });
   fireEvent.submit(screen.getByRole("button", { name: "Criar meu espaço" }).closest("form")!);
 }
-it("preserva Pro como interesse sem enviá-lo como plano concedido", async () => {
+it("mostra Essencial e preserva PRO como interesse, sem conceder o plano", async () => {
   render(<SignupForm initialSegment="barbearia" planIntent="pro" />);
-  expect(screen.getByText("Seu interesse: Pro")).toBeVisible();
+  expect(screen.getByText("Seu interesse: Essencial")).toBeVisible();
   completeForm();
   await waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/onboarding/configuracao?next=%2Fdashboard%3Fwelcome%3D1%26plan%3Dpro"));
   const payload = mocks.signup.mock.calls[0][0];

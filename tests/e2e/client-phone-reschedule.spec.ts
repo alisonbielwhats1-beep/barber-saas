@@ -63,6 +63,7 @@ test("@database telefone pendente e remarcações preservam vagas e outros clien
     await page.getByLabel("Lista de clientes").getByRole("button").first().click();
     await expect(page.getByRole("dialog")).toContainText("11987654321");
     await page.goto(`/agenda?date=${date}`);
+    await page.getByRole("button", { name: "Pular tutorial", exact: true }).click();
     for (const width of [390, 1440]) {
       await page.setViewportSize({ width, height: 844 });
       await page.locator(`[data-appointment-professional="${pro.id}"]`).first().scrollIntoViewIfNeeded();

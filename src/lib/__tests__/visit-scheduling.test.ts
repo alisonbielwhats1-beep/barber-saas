@@ -102,6 +102,25 @@ describe("uma visita com profissionais diferentes", () => {
     });
     expect(findVisitPlan(day, choices, 900)).toBeNull();
   });
+  it("explica o item bloqueado sem enfraquecer a validação", () => {
+    const day = fixture();
+    const reasons: string[] = [];
+    const explicit = [{ serviceId: "hair", professionalId: "anderson" }, { serviceId: "nails", professionalId: "tati" }];
+    day.hours.set("tati", [{ startMinutes: 540, endMinutes: 720 }]);
+    const onBlocked = (index: number, reason: string) => reasons.push(`${index}:${reason}`);
+    expect(findVisitPlan(day, explicit, 900, { manual: true, onBlocked })).toBeNull();
+    expect(reasons[0]).toContain("1:"); expect(reasons[0]).toContain("09:00–12:00");
+    expect(findVisitPlan(day, explicit, 900, { manual: true, overrideSchedule: true })).not.toBeNull();
+    day.appointments.push({ professionalId: "tati", startAt: new Date("2026-10-04T18:00:00Z"), endAt: new Date("2026-10-04T20:00:00Z") });
+    reasons.length = 0;
+    expect(findVisitPlan(day, explicit, 900, { manual: true, overrideSchedule: true, onBlocked })).toBeNull();
+    expect(reasons[0]).toContain("Já existe atendimento");
+    day.appointments = [];
+    day.closures.push({ startAt: new Date("2026-10-04T18:00:00Z"), endAt: new Date("2026-10-04T23:00:00Z") });
+    reasons.length = 0;
+    expect(findVisitPlan(day, explicit, 900, { manual: true, overrideSchedule: true, onBlocked })).toBeNull();
+    expect(reasons[0]).toContain("salão está fechado");
+  });
   it("respeita a preferência e nunca atribui serviço incompatível", () => {
     expect(
       findVisitPlan(

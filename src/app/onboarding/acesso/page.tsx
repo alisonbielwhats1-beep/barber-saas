@@ -13,7 +13,7 @@ const STATUS_CONTENT = {
     icon: Clock3,
     title: "Solicitação recebida",
     description:
-      "Seu estabelecimento está aguardando análise. Assim que o acesso for liberado como Grátis ou Pro, você poderá entrar no painel.",
+      "Seu estabelecimento está aguardando análise. Assim que o acesso for liberado como Grátis ou Essencial, você poderá entrar no painel.",
     badge: "Em análise",
   },
   REJECTED: {

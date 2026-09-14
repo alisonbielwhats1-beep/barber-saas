@@ -15,6 +15,7 @@ test.describe("@database pedidos de serviços, fechamento e cadastro", () => {
     await page.getByRole("button", { name: "Entrar", exact: true }).click();
     await expect(page).toHaveURL(/\/(hoje|dashboard)$/, { timeout: 30_000 });
     await page.goto(`/agenda?date=${test.info().retry ? "2032-08-06" : "2032-08-05"}`);
+    await page.getByRole("button", { name: "Pular tutorial", exact: true }).click();
     await page.getByRole("button", { name: "Abrir ações rápidas da agenda" }).click();
     await page.getByRole("menuitem", { name: /Novo agendamento/ }).click();
     const form = page.getByRole("dialog", { name: "Novo agendamento" });

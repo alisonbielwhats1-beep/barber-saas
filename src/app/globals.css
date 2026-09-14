@@ -2,6 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Sheets follow the visual viewport (including the mobile keyboard). */
+@media (max-width: 767px) {
+  [data-mobile-sheet="true"] {
+    top: calc(var(--app-viewport-top, 0px) + var(--app-viewport-height, 100dvh) - var(--safe-bottom, 0px)) !important;
+    transform: translate(-50%, -100%) !important;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    padding-bottom: max(1rem, var(--safe-bottom, 0px));
+    animation: none !important;
+  }
+}
+input:is([type="time"], [type="date"]) { min-width: 0; max-width: 100%; }
+input:is([type="time"], [type="date"])::-webkit-date-and-time-value { text-align: left; }
+@media (prefers-reduced-motion: reduce) {
+  [role="dialog"], [data-state] { animation-duration: 0.01ms !important; }
+}
+
 @layer base {
   /* ─── Admin: Dark Premium — paleta semântica 2026 ───────────────────────── */
   :root {
