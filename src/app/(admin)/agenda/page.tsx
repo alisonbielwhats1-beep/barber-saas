@@ -112,11 +112,12 @@ export default async function AgendaPage({
           },
         },
         rescheduleProposals: {
-          where: { status: "PENDING" },
           orderBy: { createdAt: "desc" },
           take: 1,
           select: {
             id: true,
+            status: true,
+            sourceVersion: true,
             targetStartAt: true,
             targetEndAt: true,
             targetPriceCents: true,
@@ -214,7 +215,7 @@ export default async function AgendaPage({
       const actor = jsonRecord(newValue.actor);
       return {
         id: event.id,
-        eventType: event.eventType,
+        eventType: newValue.response === "ACCEPTED" ? "RESCHEDULE_ACCEPTED" : event.eventType,
         actorType: event.actorType,
         actorName: optionalString(actor.name),
         reason: event.reason,
@@ -251,9 +252,10 @@ export default async function AgendaPage({
       stages: a.serviceItems.map(s => ({ name: s.serviceName, durationMin: s.durationMin, processingMin: s.processingMin, finishingMin: s.finishingMin })),
       version: a.version,
       hasPayment: Boolean(a.payment),
-      pendingReschedule: a.rescheduleProposals[0]
+      pendingReschedule: a.rescheduleProposals[0] && ["PENDING", "REJECTED"].includes(a.rescheduleProposals[0].status) && a.rescheduleProposals[0].sourceVersion === a.version
         ? {
             id: a.rescheduleProposals[0].id,
+            status: a.rescheduleProposals[0].status,
             targetStartAt: a.rescheduleProposals[0].targetStartAt.toISOString(),
             targetEndAt: a.rescheduleProposals[0].targetEndAt.toISOString(),
             targetPriceCents: a.rescheduleProposals[0].targetPriceCents,
@@ -281,10 +283,11 @@ export default async function AgendaPage({
         services={services as ServiceOption[]}
         clients={clients as ClientOption[]}
         canOverbook={role === "OWNER" || role === "MANAGER"}
-        canOverrideBreak={role === "OWNER" || role === "PROFESSIONAL"}
+        canOverrideBreak={role === "OWNER" || role === "MANAGER" || role === "PROFESSIONAL"}
         canRepeat={role !== "PROFESSIONAL"}
         canCreate
         canCancel={role === "OWNER" || role === "MANAGER"}
+        canManageAvailability={role === "OWNER" || role === "MANAGER" || role === "PROFESSIONAL"}
       />
 
     </>

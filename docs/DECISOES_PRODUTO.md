@@ -1,5 +1,26 @@
 # Decisões de produto para as próximas fases
 
+## Visitas e autonomia — decisão de 13/09/2026
+
+- Cliente e equipe podem reservar vários serviços com profissionais diferentes
+  em uma jornada e uma confirmação; a visita inteira deve ser gravada ou recusada.
+- Até dez serviços, com seleção de profissional por item. O padrão é sequência;
+  simultaneidade pública depende de combinações habilitadas pelo salão e de
+  profissionais diferentes. A equipe pode definir horários próprios por item.
+- Profissional tem autonomia para criar/editar os próprios atendimentos em folga,
+  intervalo, bloqueio pessoal e fora do expediente, com confirmação e motivo.
+  Dono/gerente também. Recepção mantém a jornada normal. Isso amplia a exceção
+  anterior de apenas terminar após o expediente; não concede acesso à agenda de
+  outro profissional nem autorização de sobreposição ao profissional.
+- Profissional pode registrar, editar e reabrir suas próprias folgas/bloqueios,
+  inclusive recorrentes. Reservas existentes permanecem; bloquear não cancela.
+- Fechamento geral do salão permanece bloqueado. Alterações da equipe são
+  aplicadas imediatamente com resposta posterior do cliente (decisão abaixo).
+  O histórico é preservado. Bloqueios após expediente devem
+  aparecer na grade, com opção de visualizar o dia inteiro.
+- Cadastro público no salão já deve aparecer ao dono antes da primeira reserva,
+  mantendo as regras existentes de clientes ocultados/unificados.
+
 ## 13/09/2026 — cancelamento livre da renovação
 
 O proprietário pode cancelar pelo aplicativo, sem motivo obrigatório, suporte
@@ -338,10 +359,14 @@ Estratégia sem novo custo obrigatório:
 - falha de notificação não desfaz o agendamento e permanece disponível para
   nova tentativa.
 
-Para uma alteração de horário iniciada pela equipe, cliente com conta recebe
-uma proposta interna com horário, profissional, serviços e preço congelados.
-Aceitar atualiza o mesmo agendamento e registra o aceite; recusar mantém o
-horário original e registra a decisão. Cliente sem conta criado pela equipe
+Atualização autorizada pelo áudio de 13/09/2026 às 21h29: a alteração de horário
+ou serviços feita pela equipe atualiza imediatamente o mesmo agendamento,
+reserva o destino e libera a origem. Cliente com conta recebe pedido de resposta
+com os termos congelados. Aceitar registra a concordância sem mover ou cobrar
+novamente. Recusar avisa a equipe e sinaliza a reserva, mantendo o novo horário
+protegido até ajuste ou cancelamento explícito; não restaura o horário antigo
+(nem cancela automaticamente). Solicitações criadas antes desta versão conservam
+a regra original de mover somente no aceite. Cliente sem conta criado pela equipe
 segue no fluxo direto e deve ser contatado pela equipe. Nenhum WhatsApp/SMS automático é
 adicionado.
 

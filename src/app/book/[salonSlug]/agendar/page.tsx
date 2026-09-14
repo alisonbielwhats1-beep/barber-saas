@@ -138,6 +138,7 @@ export default async function AgendarPage({
       todayDate={dateKeyInTimeZone(new Date(), salon.timezone)}
       services={services}
       addons={result.preferences.addons}
+      simultaneousPairs={result.preferences.simultaneousPairs}
       slotMode={result.preferences.slotMode}
       initialServiceIds={initialServiceIds}
       initialProId={query.pro ?? null}

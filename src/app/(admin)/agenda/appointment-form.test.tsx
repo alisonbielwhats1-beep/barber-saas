@@ -64,19 +64,19 @@ describe("formulário de encaixe durante pausa", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: /Corte/ }));
     fireEvent.change(document.querySelector('select[name="clientId"]')!, { target: { value: "client-a" } });
     fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
-    await screen.findByText("Término após o expediente");
-    const confirm = screen.getByRole("button", { name: "Agendar com término após o expediente" });
+    await screen.findByText("Fora do expediente / folga");
+    const confirm = screen.getByRole("button", { name: "Agendar fora do expediente" });
     expect(confirm).toBeDisabled();
     fireEvent.change(screen.getByLabelText("Motivo da exceção"), { target: { value: "Cliente combinado" } });
     fireEvent.click(confirm);
     await waitFor(() => expect(mocks.create).toHaveBeenCalledTimes(2));
-    expect(mocks.create.mock.calls[1][0]).toMatchObject({ afterHoursReason: "Cliente combinado" });
+    expect(mocks.create.mock.calls[1][0]).toMatchObject({ scheduleOverrideReason: "Cliente combinado" });
     await screen.findByText("Falha temporária");
     fireEvent.change(document.querySelector('input[name="time"]')!, { target: { value: "16:45" } });
     mocks.create.mockResolvedValueOnce({ success: true });
     fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
     await waitFor(() => expect(mocks.create).toHaveBeenCalledTimes(3));
-    expect(mocks.create.mock.calls[2][0]).not.toHaveProperty("afterHoursReason");
+    expect(mocks.create.mock.calls[2][0]).not.toHaveProperty("scheduleOverrideReason");
   });
   it("confirma explicitamente a exceção sem obrigar um motivo", async () => {
     mount();

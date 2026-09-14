@@ -1,3 +1,5 @@
+import { isImmediateReschedule } from "@/lib/reschedule-mode";
+import { visitGroupsForAppointments } from "@/lib/visit-scheduling";
 import { WaitlistOffers } from "../waitlist-offers";
 import { priceSnapshot } from "@/lib/service-price";
 import { redirect } from "next/navigation";
@@ -166,6 +168,7 @@ export default async function MinhasPage({
       select: {
         id: true,
         appointmentId: true,
+        requestFingerprint: true,
         targetStartAt: true,
         targetEndAt: true,
         targetTimezone: true,
@@ -206,6 +209,7 @@ export default async function MinhasPage({
       salon,
       session: effectiveSession,
       appointments,
+      visitGroups: await visitGroupsForAppointments(tx, salonId, appointments.map(a => a.id)),
       pendingProposals,
       waitlistEntries: waitlistEntries.map((entry) => ({
         ...entry,
@@ -219,6 +223,7 @@ export default async function MinhasPage({
   // Serialize Date objects — can't pass them directly to client components
   const serialized = appointments.map((a) => ({
     ...a,
+    visitId: result.visitGroups[a.id] ?? null,
     startAt: a.startAt.toISOString(),
     endAt: a.endAt.toISOString(),
     status: a.status as string,
@@ -237,7 +242,7 @@ export default async function MinhasPage({
       const actor = jsonRecord(newValue.actor);
       return {
         id: event.id,
-        eventType: event.eventType as string,
+        eventType: newValue.response === "ACCEPTED" ? "RESCHEDULE_ACCEPTED" : event.eventType as string,
         actorType: event.actorType as string,
         actorName: optionalString(actor.name),
         reason: event.reason,
@@ -250,6 +255,7 @@ export default async function MinhasPage({
   const serializedProposals = pendingProposals.map((proposal) => ({
     id: proposal.id,
     appointmentId: proposal.appointmentId,
+    appliedImmediately: isImmediateReschedule(proposal.requestFingerprint),
     currentStartAt: proposal.appointment.startAt.toISOString(),
     currentEndAt: proposal.appointment.endAt.toISOString(),
     currentTimezone: proposal.appointment.timezone,

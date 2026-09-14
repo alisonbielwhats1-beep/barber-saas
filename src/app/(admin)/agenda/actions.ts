@@ -35,7 +35,7 @@ import {
 /** Papéis que podem forçar overbooking — decisão de política, não operacional. */
 const OVERBOOK_ROLES = ["OWNER", "MANAGER"] as const;
 /** Pausa recorrente: dono ou o próprio profissional podem abrir exceção. */
-const BREAK_OVERRIDE_ROLES = ["OWNER", "PROFESSIONAL"] as const;
+const BREAK_OVERRIDE_ROLES = ["OWNER", "MANAGER", "PROFESSIONAL"] as const;
 
 export type ActionResult =
   | { error: string; code?: AppointmentErrorCode }
@@ -59,6 +59,7 @@ const createInput = z.object({
   overrideConfirmed: z.literal(true).optional(),
   timeOffOverrideReason: z.string().trim().min(3).max(200).optional(),
   workingHoursBreakReason: z.string().trim().max(200).optional(),
+  scheduleOverrideReason: z.string().trim().min(3).max(200).optional(),
   afterHoursReason: z.string().trim().min(3).max(200).optional(),
 });
 
@@ -153,6 +154,8 @@ export async function createAppointmentManually(
         idempotencyKey: data.idempotencyKey,
         enforceBookingWindow: false,
         enforcePlanLimits: true,
+        canOverrideSchedule: ["OWNER", "MANAGER", "PROFESSIONAL"].includes(ctx.role),
+        scheduleOverrideReason: data.scheduleOverrideReason,
         canOverride: canOverbook,
         canOverrideWorkingHoursBreak,
         canOverrideTimeOff: canOverbook,
@@ -659,6 +662,7 @@ export async function duplicateAppointment(
 
 const editInput = z.object({
   overbookReason: z.string().trim().min(3).max(200).optional(),
+  scheduleOverrideReason: z.string().trim().min(3).max(200).optional(),
   afterHoursReason: z.string().trim().min(3).max(200).optional(),
   id: z.string(),
   professionalId: z.string(),
@@ -687,6 +691,8 @@ export async function editAppointment(input: z.infer<typeof editInput>): Promise
         throw new Error("Você só pode remarcar seus próprios atendimentos");
       }
       return requestStaffReschedule(tx, {
+        canOverrideSchedule: ["OWNER", "MANAGER", "PROFESSIONAL"].includes(ctx.role),
+        scheduleOverrideReason: data.scheduleOverrideReason,
         canOverbook: (OVERBOOK_ROLES as readonly string[]).includes(ctx.role),
         overbookReason: data.overbookReason,
         canFinishAfterHours: (OVERBOOK_ROLES as readonly string[]).includes(ctx.role),

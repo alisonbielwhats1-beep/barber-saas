@@ -30,7 +30,7 @@ function expandBlock(data: z.infer<typeof inputSchema>, timezone: string) {
 
 export async function previewAvailabilityBlock(input: z.infer<typeof inputSchema>) {
   const ctx = await getTenantContext();
-  assertRole(ctx, ["OWNER", "MANAGER"]);
+  assertRole(ctx, ["OWNER", "MANAGER", "PROFESSIONAL"]);
   const parsed = inputSchema.safeParse(input);
   if (!parsed.success) return { error: "Confira profissionais, início, fim e o limite de 200 caracteres do motivo opcional." };
   const data = parsed.data;
@@ -38,7 +38,7 @@ export async function previewAvailabilityBlock(input: z.infer<typeof inputSchema
   try {
     const review = await withTenant(ctx, async tx => {
       const ids = [...new Set(data.professionalIds)];
-      const pros = await tx.professional.findMany({ where: { salonId: ctx.salonId, id: { in: ids }, active: true }, select: { id: true } });
+      const pros = await tx.professional.findMany({ where: { salonId: ctx.salonId, id: { in: ids }, active: true, ...(ctx.role === "PROFESSIONAL" ? { userId: ctx.userId } : {}) }, select: { id: true } });
       if (pros.length !== ids.length) throw new Error("Profissional inválido para este estabelecimento.");
       const salon = await tx.salon.findUniqueOrThrow({ where: { id: ctx.salonId }, select: { timezone: true } });
       const intervals = expandBlock(data, salon.timezone);
@@ -51,7 +51,7 @@ export async function previewAvailabilityBlock(input: z.infer<typeof inputSchema
 
 export async function blockAvailability(input: z.infer<typeof inputSchema>) {
   const ctx = await getTenantContext();
-  assertRole(ctx, ["OWNER", "MANAGER"]);
+  assertRole(ctx, ["OWNER", "MANAGER", "PROFESSIONAL"]);
   const parsed = inputSchema.safeParse(input);
   if (!parsed.success) return { error: "Confira profissionais, início, fim e o limite de 200 caracteres do motivo opcional." };
   const data = parsed.data;
@@ -63,7 +63,7 @@ export async function blockAvailability(input: z.infer<typeof inputSchema>) {
       const fingerprint = createHash("sha256").update(JSON.stringify({ ...data, professionalIds: ids, everyWeeks: data.everyWeeks ?? 0, count: data.count ?? 1 })).digest("hex");
       const request = await tx.auditLog.findFirst({ where: { salonId: ctx.salonId, action: "AVAILABILITY_REQUEST", entityId: data.id }, select: { reason: true } });
       if (request && request.reason !== fingerprint) throw new Error("O pedido mudou. Feche e abra o formulário para tentar novamente.");
-      const pros = await tx.professional.findMany({ where: { salonId: ctx.salonId, id: { in: ids }, active: true }, select: { id: true } });
+      const pros = await tx.professional.findMany({ where: { salonId: ctx.salonId, id: { in: ids }, active: true, ...(ctx.role === "PROFESSIONAL" ? { userId: ctx.userId } : {}) }, select: { id: true } });
       if (pros.length !== ids.length) throw new Error("Profissional inválido para este estabelecimento.");
       await lockOperationalResources(tx, { professionalIds: ids });
       const salon = await tx.salon.findUniqueOrThrow({ where: { id: ctx.salonId }, select: { timezone: true } });
@@ -72,7 +72,7 @@ export async function blockAvailability(input: z.infer<typeof inputSchema>) {
       for (const id of request ? [] : ids) {
        for (const [index, { startAt, endAt }] of intervals.entries()) {
         const blockId = `${data.id}:${id}${index ? `:${index}` : ""}`;
-        const previous = await tx.timeOff.findFirst({ where: { id: blockId, professional: { salonId: ctx.salonId } } });
+        const previous = await tx.timeOff.findFirst({ where: { id: blockId, professional: { salonId: ctx.salonId, ...(ctx.role === "PROFESSIONAL" ? { userId: ctx.userId } : {}) } } });
         if (previous) {
           if (+previous.startAt !== +startAt || +previous.endAt !== +endAt || previous.reason !== data.reason) throw new Error("O pedido mudou. Feche e abra o formulário para tentar novamente.");
           continue;
@@ -121,14 +121,14 @@ export async function cancelSelectedAppointments(input: z.infer<typeof cancellat
 
 export async function removeAvailabilityBlock(id: string) {
   const ctx = await getTenantContext();
-  assertRole(ctx, ["OWNER", "MANAGER"]);
+  assertRole(ctx, ["OWNER", "MANAGER", "PROFESSIONAL"]);
   await withTenant(ctx, async tx => {
-    const block = await tx.timeOff.findFirst({ where: { id, professional: { salonId: ctx.salonId } } });
+    const block = await tx.timeOff.findFirst({ where: { id, professional: { salonId: ctx.salonId, ...(ctx.role === "PROFESSIONAL" ? { userId: ctx.userId } : {}) } } });
     if (!block) return;
     await lockOperationalResources(tx, { professionalIds: [block.professionalId] });
-    const current = await tx.timeOff.findFirst({ where: { id, professional: { salonId: ctx.salonId } } });
+    const current = await tx.timeOff.findFirst({ where: { id, professional: { salonId: ctx.salonId, ...(ctx.role === "PROFESSIONAL" ? { userId: ctx.userId } : {}) } } });
     if (!current) return;
-    await tx.timeOff.deleteMany({ where: { id, professional: { salonId: ctx.salonId } } });
+    await tx.timeOff.deleteMany({ where: { id, professional: { salonId: ctx.salonId, ...(ctx.role === "PROFESSIONAL" ? { userId: ctx.userId } : {}) } } });
     await writeAuditLog(tx, { salonId: ctx.salonId, userId: ctx.userId, actorName: "Equipe", action: "AVAILABILITY_REOPENED", entityType: "TimeOff", entityId: id, reason: current.reason, metadata: { startAt: current.startAt.toISOString(), endAt: current.endAt.toISOString(), professionalId: current.professionalId } });
   });
   revalidatePath("/agenda");
@@ -147,14 +147,14 @@ const editBlockSchema = z.object({
 /** Edits one occurrence, under the same professional lock as booking/reopening. */
 export async function updateAvailabilityBlock(input: z.infer<typeof editBlockSchema>) {
   const ctx = await getTenantContext();
-  assertRole(ctx, ["OWNER", "MANAGER"]);
+  assertRole(ctx, ["OWNER", "MANAGER", "PROFESSIONAL"]);
   const parsed = editBlockSchema.safeParse(input);
   if (!parsed.success) return { error: "Confira o início, fim e motivo do bloqueio." };
   const data = parsed.data;
   try {
     const result = await withTenant(ctx, async tx => {
       await tx.$queryRaw`SELECT 1 FROM pg_advisory_xact_lock(hashtextextended(${`availability-edit:${ctx.salonId}:${data.requestId}`}, 0))`;
-      const block = await tx.timeOff.findFirst({ where: { id: data.id, professional: { salonId: ctx.salonId } } });
+      const block = await tx.timeOff.findFirst({ where: { id: data.id, professional: { salonId: ctx.salonId, ...(ctx.role === "PROFESSIONAL" ? { userId: ctx.userId } : {}) } } });
       if (!block) throw new Error("Bloqueio não encontrado. Atualize a agenda.");
       await lockOperationalResources(tx, { professionalIds: [block.professionalId] });
       const fingerprint = createHash("sha256").update(JSON.stringify(data)).digest("hex");
@@ -163,13 +163,13 @@ export async function updateAvailabilityBlock(input: z.infer<typeof editBlockSch
         if (previous.reason !== fingerprint) throw new Error("O pedido mudou. Reabra o bloqueio para revisar.");
         return { success: true as const, duplicate: true };
       }
-      const current = await tx.timeOff.findFirst({ where: { id: data.id, professional: { salonId: ctx.salonId } } });
+      const current = await tx.timeOff.findFirst({ where: { id: data.id, professional: { salonId: ctx.salonId, ...(ctx.role === "PROFESSIONAL" ? { userId: ctx.userId } : {}) } } });
       if (!current || current.startAt.toISOString() !== data.expectedStartAt || current.endAt.toISOString() !== data.expectedEndAt || current.reason !== data.expectedReason) {
         throw new Error("Este bloqueio foi alterado ou reaberto. Atualize a agenda antes de editar.");
       }
       const salon = await tx.salon.findUniqueOrThrow({ where: { id: ctx.salonId }, select: { timezone: true } });
       const [{ startAt, endAt }] = availabilityOccurrences(data.startLocal, data.endLocal, salon.timezone);
-      const updated = await tx.timeOff.updateMany({ where: { id: data.id, professional: { salonId: ctx.salonId }, startAt: current.startAt, endAt: current.endAt, reason: current.reason }, data: { startAt, endAt, reason: data.reason } });
+      const updated = await tx.timeOff.updateMany({ where: { id: data.id, professional: { salonId: ctx.salonId, ...(ctx.role === "PROFESSIONAL" ? { userId: ctx.userId } : {}) }, startAt: current.startAt, endAt: current.endAt, reason: current.reason }, data: { startAt, endAt, reason: data.reason } });
       if (updated.count !== 1) throw new Error("Este bloqueio mudou. Atualize a agenda.");
       await writeAuditLog(tx, { salonId: ctx.salonId, userId: ctx.userId, actorName: "Equipe", action: "AVAILABILITY_UPDATED", entityType: "TimeOff", entityId: data.id, reason: data.reason, metadata: { professionalId: current.professionalId, before: { startAt: current.startAt.toISOString(), endAt: current.endAt.toISOString(), reason: current.reason }, after: { startAt: startAt.toISOString(), endAt: endAt.toISOString(), reason: data.reason } } });
       await writeAuditLog(tx, { salonId: ctx.salonId, userId: ctx.userId, actorName: "Equipe", action: "AVAILABILITY_EDIT_REQUEST", entityType: "TimeOff", entityId: data.requestId, reason: fingerprint });

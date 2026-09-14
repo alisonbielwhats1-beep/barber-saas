@@ -1,3 +1,4 @@
+import { isImmediateReschedule } from "./reschedule-mode";
 import { priceSnapshot } from "./service-price";
 import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
@@ -140,7 +141,7 @@ export type StaffRescheduleResult =
 
 /**
  * Para clientes com conta, uma alteração iniciada pela equipe vira uma
- * solicitação pendente. Visitantes continuam no fluxo direto, pois não têm
+ * remarcação imediata com confirmação pendente. Visitantes continuam no fluxo direto, pois não têm
  * sessão para responder; a equipe pode contatá-los pelo atalho de telefone ou
  * WhatsApp da agenda.
  */
@@ -158,6 +159,8 @@ export async function requestStaffReschedule(
     expectedVersion?: number;
     permittedProfessionalId?: string;
     reason?: string | null;
+    canOverrideSchedule?: boolean;
+    scheduleOverrideReason?: string | null;
     canFinishAfterHours?: boolean;
     afterHoursReason?: string | null;
     canOverbook?: boolean;
@@ -213,8 +216,39 @@ export async function requestStaffReschedule(
   );
   const currentIds = appointment.serviceItems.length ? appointment.serviceItems.map(item => item.serviceId) : [appointment.service.id];
   const sameServices = currentIds.length === input.serviceIds.length && currentIds.every((id, index) => id === input.serviceIds[index]);
+  const scheduleOverrideReason = input.actor.type === "STAFF" && input.canOverrideSchedule && (input.scheduleOverrideReason?.trim().length ?? 0) >= 3 ? input.scheduleOverrideReason!.trim() : null;
   const afterHoursReason = input.canFinishAfterHours && (input.afterHoursReason?.trim().length ?? 0) >= 3 ? input.afterHoursReason!.trim() : null;
   const overbookReason = input.actor.type === "STAFF" && input.canOverbook && (input.overbookReason?.trim().length ?? 0) >= 3 ? input.overbookReason!.trim() : null;
+  const fingerprint = JSON.stringify({
+    applicationMode: "IMMEDIATE",
+    appointmentId: input.appointmentId,
+    professionalId: input.professionalId,
+    serviceIds: input.serviceIds,
+    startLocal: input.startLocal,
+    notes: input.notes ?? null,
+    reason: input.reason?.trim() ?? null,
+    ...(scheduleOverrideReason ? { scheduleOverrideReason } : {}),
+    ...(afterHoursReason ? { afterHoursReason } : {}),
+    ...(overbookReason ? { overbookReason } : {}),
+    expectedVersion: input.expectedVersion ?? null,
+  });
+  const existing = await tx.rescheduleProposal.findFirst({
+    where: { salonId: input.salonId, idempotencyKey: input.idempotencyKey },
+    select: { id: true, requestFingerprint: true, status: true },
+  });
+  if (existing) {
+    // A retry of a pre-release request keeps its original behavior.
+    const comparableFingerprint = isImmediateReschedule(existing.requestFingerprint)
+      ? fingerprint
+      : JSON.stringify(JSON.parse(fingerprint), Object.keys(JSON.parse(fingerprint)).filter(key => key !== "applicationMode"));
+    if (existing.requestFingerprint !== comparableFingerprint) {
+      throw new AppointmentError("IDEMPOTENCY_MISMATCH");
+    }
+    if (existing.status === "PENDING") {
+      return { requiresAcceptance: true, proposalId: existing.id, duplicate: true };
+    }
+    return { requiresAcceptance: true, proposalId: existing.id, duplicate: true };
+  }
   if (!hasClientAccount || (isSameSlot && sameServices)) {
     const direct = await rescheduleAppointment(tx, {
       salonId: input.salonId,
@@ -228,6 +262,8 @@ export async function requestStaffReschedule(
       expectedVersion: input.expectedVersion,
       permittedProfessionalId: input.permittedProfessionalId,
       enforceClientPolicy: false,
+      canOverrideSchedule: Boolean(scheduleOverrideReason),
+      scheduleOverrideReason,
       canFinishAfterHours: Boolean(afterHoursReason),
       afterHoursReason,
       canOverride: Boolean(overbookReason),
@@ -236,30 +272,6 @@ export async function requestStaffReschedule(
     return { ...direct, requiresAcceptance: false };
   }
 
-  const fingerprint = JSON.stringify({
-    appointmentId: input.appointmentId,
-    professionalId: input.professionalId,
-    serviceIds: input.serviceIds,
-    startLocal: input.startLocal,
-    notes: input.notes ?? null,
-    reason: input.reason?.trim() ?? null,
-    ...(afterHoursReason ? { afterHoursReason } : {}),
-    ...(overbookReason ? { overbookReason } : {}),
-    expectedVersion: input.expectedVersion ?? null,
-  });
-  const existing = await tx.rescheduleProposal.findFirst({
-    where: { salonId: input.salonId, idempotencyKey: input.idempotencyKey },
-    select: { id: true, requestFingerprint: true, status: true },
-  });
-  if (existing) {
-    if (existing.requestFingerprint !== fingerprint) {
-      throw new AppointmentError("IDEMPOTENCY_MISMATCH");
-    }
-    if (existing.status === "PENDING") {
-      return { requiresAcceptance: true, proposalId: existing.id, duplicate: true };
-    }
-    return { requiresAcceptance: true, proposalId: existing.id, duplicate: true };
-  }
   if (!["PENDING", "CONFIRMED"].includes(appointment.status) || appointment.startAt.getTime() <= Date.now()) throw new AppointmentError("ALREADY_STARTED");
   if (input.expectedVersion !== undefined && appointment.version !== input.expectedVersion) {
     throw new AppointmentError("VERSION_CONFLICT");
@@ -284,13 +296,13 @@ export async function requestStaffReschedule(
         salonId: input.salonId, professionalId: input.professionalId,
         currentProfessionalId: appointment.professionalId, serviceSnapshots: historicalServices,
         startLocal: input.startLocal, excludeAppointmentId: appointment.id,
-        enforceBookingWindow: false, skipAfterHours: Boolean(afterHoursReason),
+        enforceBookingWindow: false, skipAfterHours: Boolean(afterHoursReason), skipSchedule: Boolean(scheduleOverrideReason),
       })
     : await inspectAppointmentAvailability(tx, {
         salonId: input.salonId, professionalId: input.professionalId,
         serviceIds: input.serviceIds, startLocal: input.startLocal,
         excludeAppointmentId: appointment.id, enforceBookingWindow: false,
-        skipAfterHours: Boolean(afterHoursReason),
+        skipAfterHours: Boolean(afterHoursReason), skipSchedule: Boolean(scheduleOverrideReason),
       });
   if (inspected.violation && !(inspected.violation === "SLOT_TAKEN" && overbookReason)) throw new AppointmentError(inspected.violation);
 
@@ -310,13 +322,24 @@ export async function requestStaffReschedule(
   const targetPriceCents = targetServices.reduce((sum, service) => sum + service.priceCents, 0);
   const reason = [input.reason?.trim() || "Alteração solicitada pelo estabelecimento", afterHoursReason ? `Término após o expediente autorizado: ${afterHoursReason}` : null, overbookReason ? `Encaixe com sobreposição autorizado: ${overbookReason}` : null].filter(Boolean).join(". ");
 
-  await tx.rescheduleProposal.updateMany({
-    where: { salonId: input.salonId, appointmentId: appointment.id, status: "PENDING" },
-    data: {
-      status: "CANCELLED",
-      responseReason: "Substituída por uma solicitação mais recente.",
-      respondedAt: new Date(),
-    },
+  const moved = await rescheduleAppointment(tx, {
+    salonId: input.salonId,
+    appointmentId: appointment.id,
+    professionalId: input.professionalId,
+    serviceSnapshotsOverride: inspected.services,
+    startLocal: input.startLocal,
+    notes: input.notes,
+    actor: input.actor,
+    idempotencyKey: `staff-reschedule:${input.idempotencyKey}`,
+    expectedVersion: appointment.version,
+    permittedProfessionalId: input.permittedProfessionalId,
+    enforceClientPolicy: false,
+    canOverrideSchedule: Boolean(scheduleOverrideReason),
+    scheduleOverrideReason,
+    canFinishAfterHours: Boolean(afterHoursReason),
+    afterHoursReason,
+    canOverride: Boolean(overbookReason),
+    overrideReason: overbookReason,
   });
   const proposal = await tx.rescheduleProposal.create({
     data: {
@@ -324,7 +347,7 @@ export async function requestStaffReschedule(
       appointmentId: appointment.id,
       requestedById: input.actor.id ?? null,
       targetProfessionalId: input.professionalId,
-      sourceVersion: appointment.version,
+      sourceVersion: moved.appointment.version,
       targetStartAt: inspected.startAt,
       targetEndAt: inspected.endAt,
       targetTimezone: inspected.timezone,
@@ -424,6 +447,7 @@ export async function respondToRescheduleProposal(
           startAt: true,
           endAt: true,
           version: true,
+          status: true,
           timezone: true,
           priceCents: true,
           service: { select: { id: true, name: true, durationMin: true, priceCents: true, priceType: true, priceNote: true, processingMin: true, finishingMin: true } },
@@ -460,6 +484,14 @@ export async function respondToRescheduleProposal(
     id: input.clientId,
     name: "Cliente",
   };
+  const immediate = isImmediateReschedule(proposal.requestFingerprint);
+  if (immediate && (
+    appointment.version !== proposal.sourceVersion ||
+    appointment.professionalId !== proposal.targetProfessionalId ||
+    appointment.startAt.getTime() !== proposal.targetStartAt.getTime() ||
+    appointment.endAt.getTime() !== proposal.targetEndAt.getTime() ||
+    !["PENDING", "CONFIRMED"].includes(appointment.status)
+  )) throw new AppointmentError("VERSION_CONFLICT");
   if (input.decision === "REJECT") {
     const responseReason = input.reason?.trim() || "Cliente recusou a alteração de horário.";
     const updated = await tx.rescheduleProposal.updateMany({
@@ -514,11 +546,42 @@ export async function respondToRescheduleProposal(
     return { status: "REJECTED", duplicate: false, appointment: currentResult };
   }
 
+  if (immediate) {
+    // The reservation already occupies the destination. Accepting only records
+    // the client's response; it must not move it or reprice it a second time.
+    const responseReason = input.reason?.trim() || "Cliente aceitou a alteração de horário.";
+    await tx.rescheduleProposal.updateMany({
+      where: { id: proposal.id, salonId: input.salonId, status: "PENDING" },
+      data: { status: "ACCEPTED", responseReason, respondedAt: new Date() },
+    });
+    const payload = {
+      ...targetPayload({
+        proposalId: proposal.id, appointmentId: appointment.id,
+        currentStartAt: appointment.startAt, targetStartAt: appointment.startAt,
+        targetEndAt: appointment.endAt, timezone: appointment.timezone,
+        professionalId: appointment.professionalId, professionalName: "",
+        services: proposalSnapshots(proposal.targetServices), actor, reason: responseReason,
+      }),
+      eventType: "RESCHEDULED", response: "ACCEPTED", applicationMode: "IMMEDIATE",
+    } satisfies Prisma.InputJsonValue;
+    await recordAppointmentEvent(tx, {
+      salonId: input.salonId, appointmentId: appointment.id, eventType: "RESCHEDULED",
+      actor, correlationId: randomUUID(),
+      idempotencyKey: `reschedule-proposal:${proposal.id}:accepted`,
+      requestFingerprint: proposal.id, reason: responseReason, newValue: payload,
+      recipients: await businessRecipients(tx, input.salonId, appointment.professionalId),
+      template: "appointment.reschedule_accepted", payload,
+    });
+    return { status: "ACCEPTED", duplicate: false, appointment: currentResult };
+  }
+
   // Read only the server-persisted authorization, never the client's response payload.
+  let scheduleOverrideReason: string | null = null;
   let afterHoursReason: string | undefined;
   let overbookReason: string | undefined;
   try {
     const request = JSON.parse(proposal.requestFingerprint ?? "{}");
+    if (proposal.requestedById && typeof request.scheduleOverrideReason === "string" && request.scheduleOverrideReason.trim().length >= 3 && request.scheduleOverrideReason.trim().length <= 200) scheduleOverrideReason = request.scheduleOverrideReason.trim();
     if (proposal.requestedById && typeof request.overbookReason === "string" && request.overbookReason.trim().length >= 3 && request.overbookReason.trim().length <= 200) overbookReason = request.overbookReason.trim();
     if (proposal.requestedById && typeof request.afterHoursReason === "string" && request.afterHoursReason.trim().length >= 3) afterHoursReason = request.afterHoursReason.trim();
   } catch { /* Legacy proposals have no after-hours authorization. */ }
@@ -536,6 +599,8 @@ export async function respondToRescheduleProposal(
     notes: proposal.targetNotes,
     serviceSnapshotsOverride: snapshots,
     proposalId: proposal.id,
+    canOverrideSchedule: Boolean(scheduleOverrideReason),
+    scheduleOverrideReason,
     canFinishAfterHours: Boolean(afterHoursReason),
     afterHoursReason,
     canOverride: Boolean(overbookReason),

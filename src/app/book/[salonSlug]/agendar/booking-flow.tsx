@@ -1,4 +1,5 @@
 "use client";
+import { VisitBooking } from "./visit-booking";
 import { ServiceRepeater } from "@/components/service-repeater";
 import { servicePriceLabel, hasVariablePrice, priceSnapshot, type PriceDetails } from "@/lib/service-price";
 import { ServicePriceNote, VariablePriceNotice } from "@/components/service-price";
@@ -105,6 +106,7 @@ type Booked = {
 
 export function BookingFlow({
   addons = {},
+  simultaneousPairs = [],
   slotMode = "FIT",
   salonId,
   salonName,
@@ -124,6 +126,7 @@ export function BookingFlow({
   clientSession,
 }: {
   addons?: Record<string, string[]>;
+  simultaneousPairs?: [string, string][];
   slotMode?: "ALL" | "FIT";
   salonId: string;
   salonName: string;
@@ -376,7 +379,7 @@ export function BookingFlow({
   // Disponibilidade real: working hours + time-offs + agendamentos existentes
   useEffect(() => {
     const requestId = ++availabilityRequestRef.current;
-    if (selectedServices.length === 0 || !proId) {
+    if (selectedServices.length === 0 || !proId || (!rescheduleId && selectedServices.length > 1)) {
       setSlots([]);
       setPopularSlot(null);
       setOccupied([]);
@@ -670,11 +673,13 @@ export function BookingFlow({
   }
 
   // Seleção explícita permite combinar serviços antes do profissional.
+  if (!rescheduleId && !choosingServices && selectedServices.length > 1) return <VisitBooking key={serviceIds.join(",")} salonId={salonId} salonSlug={salonSlug} salonName={salonName} services={services} serviceIds={serviceIds} simultaneousPairs={simultaneousPairs} today={todayDate} maxDate={maxBookingDateKey} currency={currency} authenticated={!!clientSession} cancelPolicyHours={cancelPolicyHours} onBack={() => setChoosingServices(true)} />;
+
   if (choosingServices) {
     return (
       <>
         <section className="animate-fade-in min-h-dvh space-y-6 px-5 pb-32 pt-6">
-          <FlowHeader title="Escolha os serviços" subtitle="Escolha um ou mais serviços para o mesmo atendimento." onBack={() => router.push(`/book/${salonSlug}`)} />
+          <FlowHeader title="Escolha os serviços" subtitle="Escolha os serviços da sua visita, mesmo com profissionais diferentes." onBack={() => router.push(`/book/${salonSlug}`)} />
           <BookingProgress current={0} />
         {serviceIds.length > 0 && serviceIds.length < 10 && <div className="space-y-2 rounded-xl border border-border p-3"><p className="text-sm font-medium">Complementos opcionais</p>{[...new Set(serviceIds.flatMap(id => addons[id] ?? []))].filter(id => !serviceIds.includes(id)).map(id => services.find(service => service.id === id)).filter(Boolean).map(service => service && <button key={service.id} type="button" className="mr-2 min-h-11 rounded-lg border border-border px-3 text-sm" onClick={() => { invalidatePendingSlot(); setServiceIds(ids => [...ids, service.id]); setProId(null); setSlot(null); }}>Adicionar {service.name} · {service.durationMin} min · {formatMoney(service.priceCents, currency)}</button>)}</div>}
         <ServiceRepeater ids={serviceIds} services={services} onChange={ids => { invalidatePendingSlot(); setServiceIds(ids); setProId(null); setSlot(null); }} />
@@ -782,12 +787,12 @@ export function BookingFlow({
               <div className="client-service-list">
                 {group.services.map(service => {
                   const selected = serviceIds.includes(service.id);
-                  const compatible = selected || eligibleProfessionalsForServices([...selectedServices, service]).length > 0;
+                  const compatible = rescheduleId ? selected || eligibleProfessionalsForServices([...selectedServices, service]).length > 0 : service.professionals.length > 0;
                   return <button key={service.id} type="button" aria-pressed={selected} className="client-service-row" onClick={() => {
                     if (!selected && selectedServices.length >= 10) {
                       setSelectionMessage("Você pode escolher até 10 serviços por atendimento."); return;
                     }
-                    setSelectionMessage(!compatible ? "Essa combinação não tem um profissional em comum. Remova um serviço ou agende os atendimentos separadamente." : null);
+                    setSelectionMessage(!compatible ? rescheduleId ? "Na remarcação, escolha serviços que possam ser feitos pelo mesmo profissional. Para uma nova visita, use Agendar." : "Este serviço ainda não tem um profissional disponível." : null);
                     invalidatePendingSlot(); setProId(null); setSlot(null);
                     setServiceIds(current => selected ? current.filter(id => id !== service.id) : [...current, service.id]);
                   }}>
@@ -796,7 +801,7 @@ export function BookingFlow({
                       <ServicePriceNote service={service} />
                       {service.description && <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">{service.description}</span>}
                       <span className="mt-1.5 block text-sm text-muted-foreground">{formatDuration(service.durationMin)}</span>
-                      {!compatible && <span className="mt-1 block text-xs font-medium text-warning">Exige outro atendimento</span>}
+                      {!compatible && <span className="mt-1 block text-xs font-medium text-warning">Sem profissional disponível</span>}
                     </span>
                     <span className="max-w-28 shrink-0 text-right text-sm font-semibold">{servicePriceLabel(service, currency)}</span>
                     <span aria-hidden="true" className={`grid h-6 w-6 shrink-0 place-items-center rounded-md border ${selected ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground"}`}>
@@ -817,15 +822,15 @@ export function BookingFlow({
           </div>
           <button
             type="button"
-            disabled={selectedServices.length === 0 || eligibleProfessionals.length === 0}
+            disabled={selectedServices.length === 0 || selectedServices.some(service => service.professionals.length === 0) || Boolean(rescheduleId && eligibleProfessionals.length === 0)}
             onClick={() => { setChoosingServices(false); window.scrollTo({ top: 0, behavior: "instant" }); }}
             className="min-h-12 w-full rounded-full bg-primary px-5 py-3 text-base font-semibold text-primary-foreground disabled:opacity-40"
           >
-            {selectedServices.length === 0 ? "Selecione um serviço para continuar" : eligibleProfessionals.length === 1 ? "Escolher horário" : "Escolher profissional"}
+            {selectedServices.length === 0 ? "Selecione um serviço para continuar" : !rescheduleId && selectedServices.length > 1 ? "Organizar minha visita" : eligibleProfessionals.length === 1 ? "Escolher horário" : "Escolher profissional"}
           </button>
-          {selectedServices.length > 0 && eligibleProfessionals.length === 0 && (
+          {selectedServices.some(service => service.professionals.length === 0) && (
             <p className="mt-2 text-center text-xs text-destructive">
-              Nenhum profissional realiza todos os serviços selecionados.
+              Um dos serviços ainda não tem profissional disponível.
             </p>
           )}
         </div>

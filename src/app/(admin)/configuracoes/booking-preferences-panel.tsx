@@ -156,6 +156,14 @@ export function BookingPreferencesPanel() {
             Complementos usam os preços e durações cadastrados e são escolhidos
             pelo cliente.
           </p>
+          <fieldset className="max-h-64 overflow-y-auto rounded-lg border border-border p-3">
+            <legend className="px-2 text-sm font-semibold">Pode ser feito ao mesmo tempo com</legend>
+            <p className="mb-2 text-xs text-muted-foreground">Autoriza o cliente a combinar estes serviços simultaneamente, com profissionais diferentes e disponíveis.</p>
+            {data.services.filter(s => s.id !== service).map(s => <label key={s.id} className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={(preferences.simultaneousPairs ?? []).some(pair => pair.includes(service) && pair.includes(s.id))} onChange={e => {
+              const remaining = (preferences.simultaneousPairs ?? []).filter(pair => !(pair.includes(service) && pair.includes(s.id)));
+              setData({ ...data, preferences: { ...preferences, simultaneousPairs: e.target.checked ? [...remaining, [service, s.id]] : remaining } });
+            }} />{s.name}</label>)}
+          </fieldset>
         </>
       )}
       {message && (
