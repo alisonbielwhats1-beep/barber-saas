@@ -1,4 +1,5 @@
 "use client";
+import { agendaRange } from "./agenda-range";
 
 import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
@@ -55,7 +56,6 @@ import { AgendaTimeScale } from "./agenda-time-scale";
 import "./agenda-workspace.css";
 
 const DAY_START = 8 * 60;
-const DAY_END = 21 * 60;
 const SLOT_MIN = 30;
 const PX_PER_MIN = 1.7;
 const HEADER_H = 64;
@@ -92,6 +92,7 @@ export type Appointment = {
   serviceIds: string[];
   hasPayment: boolean;
   pendingReschedule: {
+    status?: string;
     id: string;
     targetStartAt: string;
     targetEndAt: string;
@@ -134,13 +135,6 @@ function endMinutes(appointment: Appointment, timezone: string) {
   return end === 0 && new Date(appointment.endAt) > new Date(appointment.startAt) ? 1440 : end;
 }
 
-function visibleHours(appointments: Appointment[], timezone: string, professionals: Professional[] = []) {
-  const hours = professionals.flatMap((professional) => professional.workingHours ?? []);
-  const starts = [...hours.map((h) => h.startMinutes), ...appointments.map((a) => minutesOf(a.startAt, timezone))];
-  const ends = [...hours.map((h) => h.endMinutes), ...appointments.map((a) => endMinutes(a, timezone))];
-  return { start: Math.max(0, Math.floor(Math.min(DAY_START, ...starts) / 30) * 30),
-    end: Math.min(1440, Math.ceil(Math.max(DAY_END, ...ends) / 30) * 30) };
-}
 
 function appointmentPlacements(appointments: Appointment[], timezone: string, blocks: AvailabilityBlock[], date: string) {
   return layoutAppointmentsAndBlocks(
@@ -180,6 +174,7 @@ export function AgendaBoard({
   canRepeat,
   canCreate,
   canCancel,
+  canManageAvailability = canCancel,
 }: {
   colorScope: string;
   initialAppointmentId?: string;
@@ -197,11 +192,13 @@ export function AgendaBoard({
   canRepeat: boolean;
   canCreate: boolean;
   canCancel: boolean;
+  canManageAvailability?: boolean;
 }) {
   const [colorMode, setColorMode] = useAgendaColorMode(colorScope);
   const colors = useMemo(() => professionalColors(roster), [roster]);
   const professionals = useMemo(() => roster.map(pro => ({ ...pro, colorHex: colors.get(pro.id)! })), [roster, colors]);
   const appointments = useMemo(() => rawAppointments.map(appointment => ({ ...appointment, professionalColor: appointmentColor(colorMode, { professional: colors.get(appointment.professionalId) ?? "#6B9FA8", service: appointment.serviceColor, category: appointment.serviceCategory, status: STATUS[appointment.status as keyof typeof STATUS]?.color ?? "#6B9FA8" }) })), [rawAppointments, colors, colorMode]);
+  const [fullDay, setFullDay] = useState(false);
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [view, setView] = useState<ViewKind>("day");
@@ -289,7 +286,7 @@ export function AgendaBoard({
   );
 
 
-  const awaitingAcceptance = appointments.filter((a) => a.pendingReschedule !== null).length;
+  const awaitingAcceptance = appointments.filter((a) => a.pendingReschedule && a.pendingReschedule.status !== "REJECTED").length;
   const cancelledWithQueue = appointments.filter((a) => a.status === "CANCELLED" && a.waitlistCount > 0).length;
 
   function goDate(offset: number) {
@@ -312,7 +309,7 @@ export function AgendaBoard({
     setCreateAt({ startLocal: `${dayStr}T${minutesToHHMM(minutes)}`, proId });
   }
   function openAvailability(preset: AvailabilityPreset) {
-    if (!canCancel) return;
+    if (!canManageAvailability) return;
     setBlockSelection(undefined);
     setAvailabilityLaunch({ key: crypto.randomUUID(), preset });
   }
@@ -346,6 +343,7 @@ export function AgendaBoard({
   return (
     <div className="agenda-workspace" aria-busy={pending}>
       <header className="agenda-toolbar">
+        <button type="button" aria-pressed={fullDay} onClick={() => setFullDay(value => !value)} className="min-h-11 rounded-lg border border-border px-2 text-xs">{fullDay ? "Horários habituais" : "Mostrar dia inteiro"}</button>
         <div className="hidden sm:block"><AgendaColorSelect value={colorMode} onChange={setColorMode} /></div>
         <div className="flex min-w-0 items-center gap-2 sm:hidden">
           <button type="button" onClick={() => goDate(-1)} aria-label={`Ir para ${navigationUnit} anterior`} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg hover:bg-muted"><ChevronLeft aria-hidden="true" size={16} /></button>
@@ -410,12 +408,12 @@ export function AgendaBoard({
           <AgendaQuickActions
             triggerRef={quickActionTrigger}
             canCreateAppointment={canCreate}
-            canManageAvailability={canCancel}
+            canManageAvailability={canManageAvailability}
             disabled={professionals.length === 0}
             onNewAppointment={() => openSlot(shownPros[0]?.id ?? "", DAY_START)}
             onNewBlock={() => openAvailability("interval")}
             onNewDayOff={() => openAvailability("day")}
-            onWeeklyPause={() => setPauseLaunch(crypto.randomUUID())}
+            onWeeklyPause={canCancel ? () => setPauseLaunch(crypto.randomUUID()) : undefined}
             onManageAvailability={() => setOperationsOpen(true)}
             onSelectBlock={view === "day" ? () => setBlockMode(true) : undefined}
           />
@@ -475,11 +473,11 @@ export function AgendaBoard({
       <Dialog open={operationsOpen} onOpenChange={setOperationsOpen}>
         <DialogContent aria-describedby={undefined} onCloseAutoFocus={event => { event.preventDefault(); restoreQuickActionFocus(); }} className="max-h-[85dvh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader><DialogTitle>Expediente e bloqueios</DialogTitle></DialogHeader>
-          {canCancel && <AvailabilityPanel date={date} timezone={timezone} professionals={professionals} blocks={availabilityBlocks.filter(b => b.kind !== "OFFER")} />}
+          {canManageAvailability && <AvailabilityPanel canCancelAppointments={canCancel} date={date} timezone={timezone} professionals={professionals} blocks={availabilityBlocks.filter(b => b.kind !== "OFFER")} />}
           {operations}
         </DialogContent>
       </Dialog>
-      {canCancel && (availabilityLaunch || blockSelection) && <AvailabilityPanel dialogOnly restoreFocus={restoreQuickActionFocus} key={blockSelection?.key ?? availabilityLaunch?.key} date={date} timezone={timezone} professionals={professionals} blocks={availabilityBlocks.filter(b => b.kind !== "OFFER")} selection={blockSelection} initialPreset={availabilityLaunch?.preset} />}
+      {canManageAvailability && (availabilityLaunch || blockSelection) && <AvailabilityPanel canCancelAppointments={canCancel} dialogOnly restoreFocus={restoreQuickActionFocus} key={blockSelection?.key ?? availabilityLaunch?.key} date={date} timezone={timezone} professionals={professionals} blocks={availabilityBlocks.filter(b => b.kind !== "OFFER")} selection={blockSelection} initialPreset={availabilityLaunch?.preset} />}
       {canCancel && pauseLaunch && <WeeklyPausePanel key={pauseLaunch} professionals={professionals} initialOpen hideTrigger restoreFocus={restoreQuickActionFocus} />}
       {blockMode && view === "day" && <div className="flex shrink-0 items-center justify-between gap-2 rounded-lg bg-muted px-3 text-xs"><p>Toque no início e no fim do intervalo. Escape cancela.</p><button type="button" onClick={() => setBlockMode(false)} className="min-h-11 shrink-0 px-2 font-medium">Sair da seleção de bloqueio</button></div>}
       {actionError && (
@@ -507,7 +505,7 @@ export function AgendaBoard({
           Cadastre profissionais para ver a agenda.
         </div>
       ) : view === "day" ? (
-        <DayView
+        <DayView fullDay={fullDay}
           blockMode={blockMode}
           onBlockSelection={selection => { setAvailabilityLaunch(undefined); setBlockSelection({ ...selection, key: crypto.randomUUID() }); setBlockMode(false); }}
           blocks={availabilityBlocks}
@@ -517,7 +515,7 @@ export function AgendaBoard({
           timezone={timezone}
           nowMin={nowMin}
           onOpenSlot={openSlot}
-          onOpenBlock={canCancel ? setSelectedAvailabilityBlock : undefined}
+          onOpenBlock={canManageAvailability ? setSelectedAvailabilityBlock : undefined}
           onOpenDetail={setDetail}
           onMove={(appointment, professionalId, startLocal) =>
             setMoveProposal({
@@ -529,7 +527,7 @@ export function AgendaBoard({
           }
         />
       ) : view === "week" ? (
-        <WeekView
+        <WeekView fullDay={fullDay}
           blocks={availabilityBlocks.filter(b => shownPros.some(p => p.id === b.professionalId))}
           professionals={shownPros}
           dateObj={dateObj}
@@ -539,7 +537,7 @@ export function AgendaBoard({
           nowMin={nowMin}
           today={today}
           onOpenSlot={openSlot}
-          onOpenBlock={canCancel ? setSelectedAvailabilityBlock : undefined}
+          onOpenBlock={canManageAvailability ? setSelectedAvailabilityBlock : undefined}
           onOpenDetail={setDetail}
           onOpenDay={goToDay}
         />
@@ -554,7 +552,7 @@ export function AgendaBoard({
           onOpenDetail={setDetail}
         />
       ) : (
-        <div className="space-y-3"><BlockList blocks={availabilityBlocks.filter(b => shownPros.some(p => p.id === b.professionalId))} professionals={shownPros} timezone={timezone} onOpenBlock={canCancel ? setSelectedAvailabilityBlock : undefined} /><ListView appointments={filteredAll} professionals={professionals} timezone={timezone} onOpenDetail={setDetail} /></div>
+        <div className="space-y-3"><BlockList blocks={availabilityBlocks.filter(b => shownPros.some(p => p.id === b.professionalId))} professionals={shownPros} timezone={timezone} onOpenBlock={canManageAvailability ? setSelectedAvailabilityBlock : undefined} /><ListView appointments={filteredAll} professionals={professionals} timezone={timezone} onOpenDetail={setDetail} /></div>
       )}
 
       </div>
@@ -588,7 +586,7 @@ export function AgendaBoard({
         />
       )}
 
-      {selectedAvailabilityBlock && canCancel && (
+      {selectedAvailabilityBlock && canManageAvailability && (
         <AvailabilityBlockDialog
           key={selectedAvailabilityBlock.id}
           open
@@ -605,7 +603,7 @@ export function AgendaBoard({
         />
       )}
 
-      <AppointmentDetail
+      <AppointmentDetail canOverrideSchedule={canOverrideBreak || canOverbook}
         key={detail?.id ?? "empty"}
         appt={currentDetail}
         services={services.filter(service => professionals.find(pro => pro.id === currentDetail?.professionalId)?.serviceIds.includes(service.id))}
@@ -654,6 +652,7 @@ export function AgendaBoard({
 /* ─────────────────────────── Day view ─────────────────────────── */
 
 function DayView({
+  fullDay,
   blockMode,
   onBlockSelection,
   blocks,
@@ -669,6 +668,7 @@ function DayView({
 }: {
   blockMode: boolean;
   onBlockSelection: (selection: BlockSelection) => void;
+  fullDay: boolean;
   blocks: AvailabilityBlock[];
   date: string;
   professionals: Professional[];
@@ -680,7 +680,8 @@ function DayView({
   onOpenDetail: (a: Appointment) => void;
   onMove: (appointment: Appointment, proId: string, startLocal: string) => void;
 }) {
-  const { start: dayStart, end: dayEnd } = visibleHours(appointments, timezone, professionals);
+  const visibleBlocks = blocks.filter(b => professionals.some(p => p.id === b.professionalId) && formatInTimeZone(new Date(b.startAt), timezone, 'yyyy-MM-dd') <= date && formatInTimeZone(new Date(new Date(b.endAt).getTime() - 1), timezone, 'yyyy-MM-dd') >= date);
+  const { start: dayStart, end: dayEnd } = agendaRange(appointments, visibleBlocks, professionals.flatMap(p => p.workingHours ?? []), timezone, fullDay);
   const bodyRef = useRef<HTMLDivElement>(null);
   const apptById = useRef(new Map<string, Appointment>());
   apptById.current = new Map(appointments.map((a) => [a.id, a]));
@@ -881,7 +882,7 @@ function DayView({
                       {height >= 90 && <span style={{ backgroundColor: "hsl(var(--card))" }} className={`inline-flex max-w-full truncate rounded px-1 text-[10px] font-medium ${cfg.badgeClass}`}>{cfg.label}</span>}
                       {a.pendingReschedule && (
                         <span className="mt-1 inline-flex rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-warning">
-                          Aguardando aceite
+                          {a.pendingReschedule.status === "REJECTED" ? "Alteração recusada" : "Aguardando aceite"}
                         </span>
                       )}
                       {height >= 70 && (
@@ -923,6 +924,7 @@ function DayView({
 /* ─────────────────────────── Week view ─────────────────────────── */
 
 function WeekView({
+  fullDay,
   blocks,
   professionals,
   dateObj,
@@ -936,6 +938,7 @@ function WeekView({
   onOpenDetail,
   onOpenDay,
 }: {
+  fullDay: boolean;
   blocks: AvailabilityBlock[];
   professionals: Professional[];
   dateObj: Date;
@@ -953,7 +956,7 @@ function WeekView({
     start: startOfWeek(dateObj, { weekStartsOn: 1 }),
     end: endOfWeek(dateObj, { weekStartsOn: 1 }),
   });
-  const { start: dayStart, end: dayEnd } = visibleHours(appointments, timezone, professionals);
+  const { start: dayStart, end: dayEnd } = agendaRange(appointments, blocks, professionals.flatMap(p => p.workingHours ?? []), timezone, fullDay);
   const slots: number[] = [];
   for (let m = dayStart; m < dayEnd; m += SLOT_MIN) slots.push(m);
   const totalH = (dayEnd - dayStart) * PX_PER_MIN;

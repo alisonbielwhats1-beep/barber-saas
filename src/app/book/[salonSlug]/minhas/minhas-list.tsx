@@ -27,6 +27,7 @@ import { SalonLocationLink } from "../salon-location-link";
 import type { ClientSession } from "@/lib/client-auth";
 
 type Appt = {
+  visitId?: string | null;
   dependentName?: string | null;
   id: string;
   startAt: string;
@@ -70,6 +71,7 @@ type WaitlistItem = {
 };
 
 type PendingProposal = {
+  appliedImmediately?: boolean;
   id: string;
   appointmentId: string;
   currentStartAt: string;
@@ -137,7 +139,8 @@ export function MinhasList({
     (appointment) =>
       !activeStatuses.has(appointment.status) || isPast(new Date(appointment.endAt)),
   );
-  const [nextAppointment, ...laterAppointments] = upcoming;
+  const visitGroups = [...new Set(upcoming.flatMap(a => a.visitId ? [a.visitId] : []))].map(id => ({ id, appointments: upcoming.filter(a => a.visitId === id) }));
+  const [nextAppointment, ...laterAppointments] = upcoming.filter(a => !a.visitId);
   const reviewAppointment = past.find(appointment => appointment.status === "COMPLETED" && !appointment.review);
 
   function respondToProposal(proposalId: string, decision: "ACCEPT" | "REJECT") {
@@ -326,7 +329,7 @@ export function MinhasList({
         <section aria-labelledby="pending-proposals-title" className="space-y-3">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-warning">Ação necessária</p>
-            <h2 id="pending-proposals-title" className="text-base font-semibold">O estabelecimento sugeriu uma alteração</h2>
+            <h2 id="pending-proposals-title" className="text-base font-semibold">Confirme a alteração do estabelecimento</h2>
             <p className="mt-1 text-sm text-muted-foreground">Confira o novo horário e aceite ou recuse cada solicitação.</p>
           </div>
           {pendingProposals.map((proposal) => {
@@ -345,13 +348,13 @@ export function MinhasList({
                   </div>
                 </div>
                 <div className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
-                  <div className="rounded-xl bg-background/60 p-3">
+                  {!proposal.appliedImmediately && <div className="rounded-xl bg-background/60 p-3">
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Atual</p>
                     <p className="mt-1 font-medium">{formatInTimeZone(currentStart, proposal.currentTimezone, "dd/MM/yyyy 'às' HH:mm")}</p>
                     <p className="mt-1 text-xs text-muted-foreground">com {proposal.currentProfessionalName}</p>
-                  </div>
+                  </div>}
                   <div className="rounded-xl border border-primary/25 bg-primary/5 p-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">Novo horário</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">{proposal.appliedImmediately ? "Horário já reservado para você" : "Novo horário"}</p>
                     <p className="mt-1 font-medium">{formatInTimeZone(targetStart, proposal.targetTimezone, "dd/MM/yyyy 'às' HH:mm")}</p>
                     <p className="mt-1 text-xs text-muted-foreground">com {proposal.targetProfessionalName}</p>
                   </div>
@@ -360,6 +363,7 @@ export function MinhasList({
                   <span>{hasVariablePrice(proposal.targetServices) ? "Novo valor inicial: " : "Novo valor: "}<strong className="text-foreground">{formatMoney(proposal.targetPriceCents, currency)}</strong></span>
                   {proposal.reason && <span>Motivo: {proposal.reason}</span>}
                 </div>
+                {proposal.appliedImmediately && <p className="mt-3 text-xs text-muted-foreground">O horário anterior foi liberado. Este novo horário já está reservado enquanto você responde.</p>}
                 <VariablePriceNotice services={proposal.targetServices} />
                 <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                   <button
@@ -423,6 +427,7 @@ export function MinhasList({
           aria-labelledby="appointments-upcoming-tab"
           className="space-y-6"
         >
+          {visitGroups.map(group => <section key={group.id} aria-label="Minha visita" className="space-y-3 rounded-2xl border border-primary/30 bg-primary/5 p-4"><h2 className="font-semibold">Minha visita · {formatInTimeZone(new Date(group.appointments[0]!.startAt), timezone, "dd/MM")}</h2><p className="text-sm text-muted-foreground">{group.appointments.length} atendimento(s) · {formatMoney(group.appointments.reduce((sum, a) => sum + a.priceCents, 0), currency)}</p>{group.appointments.map(a => <ApptCard key={a.id} a={a} currency={currency} timezone={timezone} salonName={salonName} salonAddress={salonAddress} actions={appointmentActions(a)} />)}</section>)}
           {nextAppointment ? (
             <section aria-labelledby="next-appointment-title">
               <div className="mb-3">
@@ -439,7 +444,7 @@ export function MinhasList({
                 actions={appointmentActions(nextAppointment)}
               />
             </section>
-          ) : (
+          ) : visitGroups.length ? null : (
             <section className="rounded-2xl border border-border bg-card p-5 text-center" aria-labelledby="no-upcoming-title">
               <CalendarDays aria-hidden="true" className="mx-auto h-6 w-6 text-muted-foreground" />
               <h2 id="no-upcoming-title" className="mt-3 font-semibold">Nenhum atendimento agendado</h2>
@@ -606,7 +611,7 @@ export function MinhasList({
         open={proposalRejectTarget !== null}
         onOpenChange={(open) => !open && setProposalRejectTarget(null)}
         title="Recusar alteração?"
-        description="O horário atual continuará reservado. O estabelecimento será avisado da sua recusa."
+        description={pendingProposals.find(p => p.id === proposalRejectTarget)?.appliedImmediately ? "O estabelecimento será avisado para combinar outra opção. O novo horário continuará reservado até a equipe ajustar; o horário antigo não será restaurado." : "O horário atual continuará reservado. O estabelecimento será avisado da sua recusa."}
         confirmLabel="Recusar alteração"
         onConfirm={() => proposalRejectTarget && respondToProposal(proposalRejectTarget, "REJECT")}
         pending={pending}
@@ -793,6 +798,7 @@ function ApptCard({
 function clientEventTitle(eventType: string): string {
   return {
     CREATED: "Reserva criada",
+    RESCHEDULE_ACCEPTED: "Cliente aceitou a alteração",
     RESCHEDULED: "Reserva remarcada",
     STATUS_CHANGED: "Status atualizado",
     CANCELLED: "Reserva cancelada",

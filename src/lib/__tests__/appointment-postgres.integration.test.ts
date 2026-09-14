@@ -103,8 +103,8 @@ describePostgres("concorrência real de agendamentos", () => {
     const proposed = { ...allowed, appointmentId: account.appointment.id, idempotencyKey: crypto.randomUUID() };
     const proposal = await withSalon(data.salonId, tx => requestStaffReschedule(tx, proposed));
     if (!proposal.requiresAcceptance) throw new Error("O cliente deve aceitar");
-    expect(await prisma.appointment.findUniqueOrThrow({ where: { id: account.appointment.id }, select: { startAt: true, version: true } })).toEqual({ startAt: new Date("2032-08-05T15:00:00Z"), version: 1 });
-    await expect(withSalon(data.salonId, tx => rescheduleAppointment(tx, { ...change, appointmentId: account.appointment.id, actor: { type: "CLIENT", id: clientId, name: "Cliente" }, expectedClientId: clientId, enforceClientPolicy: true, canOverride: true, overrideReason: "Forjado", now: new Date("2032-08-01T00:00:00Z") }))).rejects.toMatchObject({ code: "SLOT_TAKEN" });
+    expect(await prisma.appointment.findUniqueOrThrow({ where: { id: account.appointment.id }, select: { startAt: true, version: true } })).toEqual({ startAt: new Date("2032-08-05T13:15:00Z"), version: 2 });
+    await expect(withSalon(data.salonId, tx => rescheduleAppointment(tx, { ...change, expectedVersion: 2, startLocal: "2032-08-05T10:00", appointmentId: account.appointment.id, actor: { type: "CLIENT", id: clientId, name: "Cliente" }, expectedClientId: clientId, enforceClientPolicy: true, canOverride: true, overrideReason: "Forjado", now: new Date("2032-08-01T00:00:00Z") }))).rejects.toMatchObject({ code: "SLOT_TAKEN" });
     const respond = () => withSalon(data.salonId, tx => respondToRescheduleProposal(tx, { salonId: data.salonId, proposalId: proposal.proposalId, clientId, decision: "ACCEPT" }));
     expect(await respond()).toMatchObject({ status: "ACCEPTED", duplicate: false });
     expect(await respond()).toMatchObject({ status: "ACCEPTED", duplicate: true });
@@ -153,7 +153,7 @@ describePostgres("concorrência real de agendamentos", () => {
     const proposal = await withSalon(data.salonId, tx => requestStaffReschedule(tx, authorized));
     if (!proposal.requiresAcceptance) throw new Error("aceite obrigatório para serviços alterados");
     expect(await withSalon(data.salonId, tx => requestStaffReschedule(tx, authorized))).toMatchObject({ duplicate: true, proposalId: proposal.proposalId });
-    expect(await prisma.appointment.findUniqueOrThrow({ where: { id: original.appointment.id }, select: { version: true, priceCents: true, endAt: true } })).toEqual({ version: 1, priceCents: 5000, endAt: new Date("2032-08-05T21:00:00Z") });
+    expect(await prisma.appointment.findUniqueOrThrow({ where: { id: original.appointment.id }, select: { version: true, priceCents: true, endAt: true } })).toEqual({ version: 2, priceCents: 7000, endAt: new Date("2032-08-05T21:15:00Z") });
     // Catalog changes must not change the quote the client accepts.
     await prisma.service.update({ where: { id: extra.id }, data: { priceCents: 9900, durationMin: 60 } });
     const accepted = await withSalon(data.salonId, tx => respondToRescheduleProposal(tx, { salonId: data.salonId, proposalId: proposal.proposalId, clientId, decision: "ACCEPT" }));
@@ -543,7 +543,7 @@ describePostgres("concorrência real de agendamentos", () => {
     ).rejects.toMatchObject({ code: "IDEMPOTENCY_MISMATCH" });
   });
 
-  it("mantém o horário até o aceite e registra aceite ou recusa da proposta", async () => {
+  it("ocupa o novo horário antes do aceite e registra aceite ou recusa sem mover novamente", async () => {
     const data = await fixture();
     const suffix = crypto.randomUUID();
     const [acceptedClient, rejectedClient] = await Promise.all([
@@ -596,7 +596,7 @@ describePostgres("concorrência real de agendamentos", () => {
     expect(await prisma.appointment.findUniqueOrThrow({
       where: { id: original.appointment.id },
       select: { version: true, startAt: true },
-    })).toEqual({ version: 1, startAt: new Date("2032-08-05T13:00:00.000Z") });
+    })).toEqual({ version: 2, startAt: new Date("2032-08-05T14:00:00.000Z") });
 
     const accepted = await withSalon(data.salonId, (tx) =>
       respondToRescheduleProposal(tx, {
@@ -618,7 +618,7 @@ describePostgres("concorrência real de agendamentos", () => {
         appointmentId: original.appointment.id,
         template: { in: ["appointment.reschedule_requested", "appointment.reschedule_accepted"] },
       },
-    })).toBe(3);
+    })).toBe(2);
 
     const rejectAppointment = await withSalon(data.salonId, (tx) =>
       createAppointment(tx, {
@@ -656,7 +656,7 @@ describePostgres("concorrência real de agendamentos", () => {
       }),
     );
     expect(rejected).toMatchObject({ status: "REJECTED", duplicate: false });
-    expect(rejected.appointment.startAt.toISOString()).toBe("2032-08-05T15:00:00.000Z");
+    expect(rejected.appointment.startAt.toISOString()).toBe("2032-08-05T16:00:00.000Z");
     expect(await prisma.rescheduleProposal.findUniqueOrThrow({
       where: { id: rejectedRequest.proposalId },
       select: { status: true, responseReason: true },

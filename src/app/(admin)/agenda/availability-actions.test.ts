@@ -24,6 +24,20 @@ beforeEach(() => {
   mocks.tx.user.findUnique.mockResolvedValue({ name: "Dono" });
 });
 describe("availability operations", () => {
+  it('permite ao profissional bloquear a própria folga e mantém reservas existentes',async()=>{
+    mocks.ctx.role='PROFESSIONAL';
+    expect(await blockAvailability({...input,startLocal:'2026-09-07T00:00',endLocal:'2026-09-08T00:00'})).toMatchObject({success:true});
+    expect(mocks.tx.professional.findMany).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({salonId:'salon-a',userId:'owner',id:{in:['pro-a']}})}));
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+  it('profissional não bloqueia outra agenda, não reabre outro bloqueio e não cancela em lote',async()=>{
+    mocks.ctx.role='PROFESSIONAL';mocks.tx.professional.findMany.mockResolvedValue([]);
+    expect(await previewAvailabilityBlock(input)).toHaveProperty('error');
+    expect(await blockAvailability(input)).toHaveProperty('error');expect(mocks.tx.timeOff.create).not.toHaveBeenCalled();
+    await removeAvailabilityBlock('other-block');
+    expect(mocks.tx.timeOff.findFirst).toHaveBeenCalledWith({where:{id:'other-block',professional:{salonId:'salon-a',userId:'owner'}}});expect(mocks.tx.timeOff.deleteMany).not.toHaveBeenCalled();
+    await expect(cancelSelectedAppointments({reason:'Folga',appointments:[{id:'a',version:1,requestId:input.id}]})).rejects.toThrow('Forbidden');
+  });
   it("preserves 18:45–19:30 and excludes an appointment ending exactly at 18:45", async () => {
     const appointment = { id: "adjacent", version: 1, startAt: new Date("2026-09-12T18:00:00Z"), endAt: new Date("2026-09-12T21:45:00Z"), client: { name: "Cliente sintético" } };
     mocks.tx.appointment.findMany.mockImplementation(async ({ where }) =>
@@ -113,10 +127,17 @@ describe("edição auditada de bloqueios", () => {
     expect(mocks.update).not.toHaveBeenCalled();
     expect(mocks.tx.timeOff.deleteMany).not.toHaveBeenCalled();
   });
-  it.each(["RECEPTIONIST", "PROFESSIONAL", "CLIENT"])("recusa %s antes de consultar", async role => {
+  it.each(["RECEPTIONIST", "CLIENT"])("recusa %s antes de consultar", async role => {
     mocks.ctx.role = role;
     await expect(updateAvailabilityBlock(editBlock)).rejects.toThrow("Forbidden");
     expect(mocks.tx.timeOff.findFirst).not.toHaveBeenCalled();
+  });
+  it('profissional edita e reabre somente bloqueios da própria agenda',async()=>{
+    mocks.ctx.role='PROFESSIONAL';mocks.tx.timeOff.findFirst.mockResolvedValue(existingBlock);mocks.tx.timeOff.updateMany.mockResolvedValue({count:1});
+    expect(await updateAvailabilityBlock(editBlock)).toMatchObject({success:true});
+    expect(mocks.tx.timeOff.updateMany).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({professional:{salonId:'salon-a',userId:'owner'}})}));
+    await removeAvailabilityBlock(existingBlock.id);
+    expect(mocks.tx.timeOff.deleteMany).toHaveBeenCalledWith({where:{id:existingBlock.id,professional:{salonId:'salon-a',userId:'owner'}}});
   });
   it("recusa outro tenant, exclusão concorrente, alteração concorrente e intervalo invertido", async () => {
     expect(await updateAvailabilityBlock(editBlock)).toHaveProperty("error");

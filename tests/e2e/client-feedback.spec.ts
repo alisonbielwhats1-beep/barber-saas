@@ -24,9 +24,9 @@ test.describe("@database pedidos de serviços, fechamento e cadastro", () => {
     await form.locator('input[name="clientName"]').fill(client);
     await form.getByRole("checkbox", { name: /Corte feminino/ }).check();
     await form.getByRole("button", { name: "Confirmar", exact: true }).click();
-    await expect(form.getByText("Término após o expediente", { exact: true })).toBeVisible();
+    await expect(form.getByText("Fora do expediente / folga", { exact: true })).toBeVisible();
     await form.getByLabel("Motivo da exceção").fill("Exceção sintética após 19h");
-    await form.getByRole("button", { name: "Agendar com término após o expediente" }).click();
+    await form.getByRole("button", { name: "Agendar fora do expediente" }).click();
     await expect(form).not.toBeVisible();
     await page.getByText(client, { exact: true }).first().click();
     let detail = page.getByRole("dialog", { name: client });
@@ -37,7 +37,7 @@ test.describe("@database pedidos de serviços, fechamento e cadastro", () => {
     await expect(detail.getByText(/1h45/)).toBeVisible();
     await detail.getByRole("button", { name: "Salvar alterações" }).click();
     await detail.getByLabel("Motivo da exceção").fill("Novos serviços combinados");
-    await detail.getByRole("button", { name: "Confirmar término após o expediente" }).click();
+    await detail.getByRole("button", { name: "Confirmar exceção de jornada" }).click();
     await expect(detail.getByText("Agendamento atualizado.")).toBeVisible();
     await detail.getByRole("button", { name: "Concluir" }).click();
     await page.getByText(client, { exact: true }).first().click();

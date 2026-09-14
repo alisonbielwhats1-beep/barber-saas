@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BookingFlow } from "./booking-flow";
@@ -413,17 +413,17 @@ vi.mock("./dependent-actions", () => ({ listDependents: async () => [], createDe
 vi.mock("./flexible-actions", () => ({ myFlexibleWaitlist: async () => [], requestFlexibleWaitlist: vi.fn(), cancelFlexibleRequest: vi.fn() }));
 
 describe("Preço variável na revisão", () => {
-  it("informa valor inicial e motivo também em uma reserva mista", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(availability(["10:00"])));
+  it("informa valor inicial e motivo também na visita com vários serviços", async () => {
+    const item = {serviceId:"service-1",serviceName:"Corte",professionalId:"pro-1",professionalName:"Alex",startLocal:"2026-08-13T10:00",endLocal:"2026-08-13T10:30",durationMin:30,priceCents:5000,priceType:"FROM",priceNote:"Varia conforme o comprimento."};
+    const plan = {items:[item,{...item,serviceId:"service-2",serviceName:"Sobrancelha",priceType:"FIXED",priceNote:null,startLocal:"2026-08-13T10:30",endLocal:"2026-08-13T11:00",priceCents:2000}],totalCents:7000,startLocal:item.startLocal,endLocal:"2026-08-13T11:00",quote:"a".repeat(64)};
+    vi.stubGlobal("fetch", vi.fn().mockImplementation(async () => new Response(JSON.stringify({plans:[plan]}))));
     const user = userEvent.setup();
     const services = [{ ...baseProps.services[0]!, priceType: "FROM", priceNote: "Varia conforme o comprimento." }, { ...baseProps.services[0]!, id: "service-2", name: "Sobrancelha", priceCents: 2000 }];
     render(<BookingFlow {...baseProps} services={services} initialServiceIds={["service-1", "service-2"]} />);
-    await user.click(await screen.findByRole("button", { name: "Horário 10:00" }));
-    await user.click(screen.getByRole("button", { name: "Revisar reserva" }));
-    const review = within(screen.getByRole("dialog"));
-    expect(review.getByText("Valor inicial")).toBeVisible();
-    expect(review.getByText("O valor final pode ser maior")).toBeVisible();
-    expect(review.getByText(/Varia conforme o comprimento/)).toBeVisible();
-    expect(review.queryByText("Total")).not.toBeInTheDocument();
+    await user.click(await screen.findByRole("button", {name:/10:00.*11:00/}));
+    await user.click(screen.getByRole("button", {name:"Revisar minha visita"}));
+    expect(screen.getByText("O valor final pode ser maior")).toBeVisible();
+    expect(screen.getAllByText(/Varia conforme o comprimento/).length).toBeGreaterThan(0);
+    expect(screen.getByText("Total a partir de")).toBeVisible();
   });
 });

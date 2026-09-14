@@ -47,7 +47,7 @@ export async function applySeriesEdit(input: z.infer<typeof apply>) {
         if (!appointment) throw new Error("Ocorrência alterada ou já iniciada");
         return requestStaffReschedule(tx, { salonId: ctx.salonId, appointmentId: appointment.id, professionalId: appointment.professionalId, serviceIds: appointment.serviceItems.length ? appointment.serviceItems.map(s => s.serviceId) : [appointment.serviceId], startLocal: item.startLocal, expectedVersion: item.version, idempotencyKey: item.requestId, reason: data.reason, actor: { type: "STAFF", id: ctx.userId, name: "Equipe" } });
       });
-      results.push({ id: item.id, success: true, message: result.requiresAcceptance ? "Proposta enviada para aceite no aplicativo" : "Reagendado" });
+      results.push({ id: item.id, success: true, message: result.requiresAcceptance ? "Horário atualizado; aguardando resposta no aplicativo" : "Reagendado" });
     } catch { results.push({ id: item.id, success: false, message: "Mantido: horário indisponível ou ocorrência alterada. Revise individualmente." }); }
   }
   revalidatePath("/agenda"); revalidatePath("/hoje"); revalidatePath("/book", "layout");

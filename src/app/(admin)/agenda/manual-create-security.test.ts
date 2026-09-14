@@ -167,7 +167,7 @@ describe("criação manual durante pausa", () => {
   it.each([
     ["MANAGER", true],
     ["RECEPTIONIST", false],
-  ])("não concede a exceção de pausa para %s", async (role, canOverbook) => {
+  ])("resolve a exceção de pausa no servidor para %s", async (role, canOverbook) => {
     mocks.context.role = role;
 
     await createAppointmentManually(input);
@@ -176,7 +176,7 @@ describe("criação manual durante pausa", () => {
       mocks.tx,
       expect.objectContaining({
         canOverride: canOverbook,
-        canOverrideWorkingHoursBreak: false,
+        canOverrideWorkingHoursBreak: role === "MANAGER",
       }),
     );
   });

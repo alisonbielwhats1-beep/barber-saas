@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { Tx } from "./prisma-tenant";
 
 export const bookingPreferencesSchema = z.object({
+  simultaneousPairs: z.array(z.tuple([z.string().min(1), z.string().min(1)]).refine(pair => pair[0] !== pair[1])).max(100).default([]),
   slotMode: z.enum(["ALL", "FIT"]).default("FIT"),
   returnDays: z.number().int().min(1).max(365).default(30),
   serviceReturnDays: z.record(z.number().int().min(1).max(365)).default({}),
