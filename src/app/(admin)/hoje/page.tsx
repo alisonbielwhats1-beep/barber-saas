@@ -16,6 +16,7 @@ export default async function HojePage({
 }) {
   const ctx = await requireRole(DASHBOARD_ROLES);
   const { date: requestedDate } = await searchParams;
+  const initialNow = new Date();
 
   const result = await withTenant(ctx, async (tx) => {
     const salon = await tx.salon.findUnique({
@@ -24,7 +25,7 @@ export default async function HojePage({
     });
     if (!salon) throw new Error("Estabelecimento não encontrado");
 
-    const todayKey = dateKeyInTimeZone(new Date(), salon.timezone);
+    const todayKey = dateKeyInTimeZone(initialNow, salon.timezone);
     const dateKey = requestedDate && isDateKey(requestedDate) ? requestedDate : todayKey;
     const from = startOfDateInTimeZone(dateKey, salon.timezone);
     const to = startOfDateInTimeZone(addCalendarDays(dateKey, 1), salon.timezone);
@@ -112,6 +113,7 @@ export default async function HojePage({
       <HojeView
         colorScope={`${ctx.salonId}:${ctx.userId}`}
         date={result.dateKey}
+        initialNowMs={initialNow.getTime()}
         salonName={result.salon.name}
         timezone={result.salon.timezone}
         currency={result.salon.currency}
