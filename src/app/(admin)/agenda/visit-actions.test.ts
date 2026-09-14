@@ -62,8 +62,9 @@ describe("autonomia na própria agenda", () => {
         ...input(),
         choices: [{ serviceId: "hair", professionalId: "other" }],
       }),
-    ).rejects.toThrow();
+    ).resolves.toMatchObject({ error: expect.stringContaining("Seu acesso não permite") });
     expect(m.load).not.toHaveBeenCalled();
+    expect(m.create).not.toHaveBeenCalled();
   });
   it("não permite cliente fora do escopo do profissional", async () => {
     m.client.mockResolvedValue(null);

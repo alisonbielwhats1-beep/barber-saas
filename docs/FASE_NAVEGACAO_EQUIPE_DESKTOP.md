@@ -1,9 +1,11 @@
 # Fase — navegação desktop, equipe e configurações
 
 Atualizado em **14/09/2026**. Entrega no PR #108, com Preview Vercel e promoção
-explicitamente autorizada pelo responsável. Schema produtivo preparado; publicação
-do código aguarda os checks finais e o merge. O resultado final será registrado
-no PR: https://github.com/alisonbielwhats1-beep/barber-saas/pull/108.
+explicitamente autorizada pelo responsável. Publicado em `a78a0b2`, após CI
+`34801262205`, Production `dpl_HSg1kevPyCeDpV6Er1fhVKHRHLTC` READY.
+O resultado final está registrado em
+https://github.com/alisonbielwhats1-beep/barber-saas/pull/108#issuecomment-5658675856.
+Os registros de preparação abaixo são históricos. Não reaplicar a migration.
 
 ## Objetivo
 

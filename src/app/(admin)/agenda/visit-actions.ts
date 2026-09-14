@@ -15,6 +15,36 @@ import { AppointmentError, isAppointmentError } from "@/lib/appointment-domain";
 import { isValidPhoneBR } from "@/lib/phone";
 import type { TenantContext } from "@/lib/tenant";
 
+function visitErrorMessage(error: unknown) {
+  if (!isAppointmentError(error))
+    return "Não foi possível concluir a visita agora. Suas escolhas foram mantidas; tente novamente.";
+  const messages: Partial<Record<typeof error.code, string>> = {
+    PRICE_CHANGED: "O valor ou a duração mudou. Revise a visita novamente.",
+    SLOT_TAKEN:
+      "A disponibilidade mudou desde a revisão. Nenhum serviço foi confirmado. Revise a visita para identificar o bloqueio e escolher outro horário.",
+    SALON_CLOSED:
+      "O salão está fechado nesse período. Escolha outro horário ou data.",
+    FORBIDDEN:
+      "Seu acesso não permite agendar este cliente ou profissional. Volte e confira a seleção com a gestão.",
+    SERVICE_INVALID:
+      "Um serviço não está mais disponível. Volte e escolha outro serviço.",
+    PRO_SERVICE_MISMATCH:
+      "O profissional não realiza um dos serviços. Confira a seleção de profissionais.",
+    BILLING_REQUIRED:
+      "O plano do estabelecimento não permite criar novas reservas neste momento. Peça ao proprietário para conferir a assinatura.",
+    INVALID_LOCAL_TIME:
+      "Confira a data e o início da visita no horário do estabelecimento.",
+    PROFESSIONAL_UNAVAILABLE:
+      "Há uma folga ou bloqueio neste horário. Escolha outro início ou confirme uma exceção, se seu acesso permitir.",
+    OUTSIDE_WORKING_HOURS:
+      "O atendimento não cabe no expediente. Ajuste o início ou confirme uma exceção de jornada, se autorizado.",
+  };
+  return (
+    messages[error.code] ??
+    "A disponibilidade mudou. Nenhum serviço foi confirmado. Revise a visita antes de tentar novamente."
+  );
+}
+
 const schema = z
   .object({
     choices: visitChoicesSchema,
@@ -72,34 +102,65 @@ async function authorize(
 export async function previewStaffVisit(raw: unknown) {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER", "RECEPTIONIST", "PROFESSIONAL"]);
-  const data = schema.parse(raw);
-  return withTenant(ctx, async (tx) => {
-    await authorize(tx, ctx, data);
-    const day = await loadVisitDay(
-      tx,
-      ctx.salonId,
-      data.startLocal.slice(0, 10),
-      data.choices,
-    );
-    const plan = findVisitPlan(
-      day,
-      data.choices,
-      Number(data.startLocal.slice(11, 13)) * 60 +
-        Number(data.startLocal.slice(14, 16)),
-      { manual: true, overrideSchedule: !!data.scheduleOverrideReason },
-    );
-    if (!plan)
-      return {
-        error:
-          "Um serviço não cabe neste horário. Confira folgas, expediente, bloqueios e atendimentos existentes.",
-      };
-    return { plan, quote: visitQuote(plan) };
-  });
+  const parsed = schema.safeParse(raw);
+  if (!parsed.success)
+    return {
+      error:
+        "Confira cliente, serviços, data e horário. Se marcou uma exceção, informe um motivo com pelo menos três caracteres.",
+    };
+  const data = parsed.data;
+  try {
+    return await withTenant(ctx, async (tx) => {
+      await authorize(tx, ctx, data);
+      const day = await loadVisitDay(
+        tx,
+        ctx.salonId,
+        data.startLocal.slice(0, 10),
+        data.choices,
+      );
+      const issues: { index: number; reason: string }[] = [];
+      const plan = findVisitPlan(
+        day,
+        data.choices,
+        Number(data.startLocal.slice(11, 13)) * 60 +
+          Number(data.startLocal.slice(14, 16)),
+        {
+          manual: true,
+          overrideSchedule: !!data.scheduleOverrideReason,
+          onBlocked: (index, reason) => issues.push({ index, reason }),
+        },
+      );
+      if (!plan) {
+        const issue = issues[0];
+        const choice = issue && data.choices[issue.index];
+        const service =
+          choice && day.services.find((s) => s.id === choice.serviceId);
+        const professional = service?.professionals.find(
+          (p) => p.professional.id === choice?.professionalId,
+        )?.professional;
+        return {
+          error: issue
+            ? `Serviço ${issue.index + 1} · ${service?.name ?? "Serviço"}${professional ? ` · ${professional.user.name}` : ""}: ${issue.reason}`
+            : "Não foi possível combinar os horários. Revise os serviços e tente outro início.",
+          serviceIndex: issue?.index,
+        };
+      }
+      return { plan, quote: visitQuote(plan) };
+    });
+  } catch (error) {
+    return { error: visitErrorMessage(error) };
+  }
 }
 export async function confirmStaffVisit(raw: unknown) {
   const ctx = await getTenantContext();
   assertRole(ctx, ["OWNER", "MANAGER", "RECEPTIONIST", "PROFESSIONAL"]);
-  const data = schema.parse(raw);
+  const parsed = schema.safeParse(raw);
+  if (!parsed.success)
+    return {
+      error:
+        "Os dados da visita estão incompletos. Volte, confira o cliente e os horários e revise novamente.",
+    };
+  const data = parsed.data;
   if (!data.quote || (!data.clientId && !data.clientName))
     return { error: "Selecione o cliente e revise a visita." };
   try {
@@ -121,10 +182,7 @@ export async function confirmStaffVisit(raw: unknown) {
     return { success: true, ...result };
   } catch (error) {
     return {
-      error:
-        isAppointmentError(error) && error.code === "PRICE_CHANGED"
-          ? "O valor ou a duração mudou. Revise a visita novamente."
-          : "A visita não foi confirmada. Confira os horários de todos os profissionais.",
+      error: visitErrorMessage(error),
     };
   }
 }

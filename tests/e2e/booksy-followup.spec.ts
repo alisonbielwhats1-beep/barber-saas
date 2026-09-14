@@ -26,6 +26,7 @@ test("@database busca completa, encaixe ao editar e bloqueio editável até meia
     await page.getByRole("button", { name: "Entrar", exact: true }).click();
     await expect(page).toHaveURL(/\/(hoje|dashboard)$/, { timeout: 30_000 });
     await page.goto(`/agenda?date=${date}`);
+    await page.getByRole("button", { name: "Pular tutorial", exact: true }).click();
     const openCreate = async () => {
       await page.getByRole("button", { name: "Abrir ações rápidas da agenda" }).click();
       await page.getByRole("menuitem", { name: /Novo agendamento/ }).click();

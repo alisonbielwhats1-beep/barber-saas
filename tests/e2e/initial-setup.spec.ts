@@ -81,6 +81,7 @@ test.describe("@database configuração inicial", () => {
       await expect(page.getByRole("heading", { level: 1 })).toHaveText(
         "O que você oferece?",
       );
+      await page.getByRole("button", { name: "Novo serviço", exact: true }).click();
       await page.getByLabel("Nome do serviço").fill("Corte teste");
       await page.getByLabel("Duração (min)").fill("30");
       await page.getByLabel("Preço (R$)").fill("45,00");

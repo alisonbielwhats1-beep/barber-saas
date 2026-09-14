@@ -2,9 +2,9 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { SetupData } from "@/lib/initial-setup";
-const m = vi.hoisted(() => ({ hours: vi.fn(), progress: vi.fn(), push: vi.fn(), refresh: vi.fn(), copy: vi.fn() }));
+const m = vi.hoisted(() => ({ service: vi.fn(), hours: vi.fn(), progress: vi.fn(), push: vi.fn(), refresh: vi.fn(), copy: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: m.push, refresh: m.refresh }) }));
-vi.mock("./actions", () => ({ saveSetupHours: m.hours, saveSetupProgress: m.progress, saveSetupContact: vi.fn(), saveSetupProfessional: vi.fn(), saveSetupService: vi.fn(), enableMySetupAgenda: vi.fn() }));
+vi.mock("./actions", () => ({ saveSetupHours: m.hours, saveSetupProgress: m.progress, saveSetupContact: vi.fn(), saveSetupProfessional: vi.fn(), saveSetupService: m.service, enableMySetupAgenda: vi.fn() }));
 vi.mock("@/app/(admin)/profissionais/working-hours-form", () => ({ WorkingHoursForm: () => null }));
 import { SetupWizard } from "./setup-wizard";
 const data: SetupData = { salon: { name: "Espaço teste", slug: "teste", address: null, phone: null, timezone: "America/Sao_Paulo", openMinutes: 540, closeMinutes: 1080 }, userName: "Alex", userId: "owner", hours: [], services: [], professionals: [], hoursConfirmed: false, status: "new", step: 0, hasAppointments: false };
@@ -29,6 +29,24 @@ it("adiar persiste a etapa sem exigir conclusão", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Fazer depois" }));
   await waitFor(() => expect(m.progress).toHaveBeenCalledWith({ step: 2, status: "deferred" }));
   await waitFor(() => expect(m.push).toHaveBeenCalledWith("/dashboard"));
+});
+it("catálogo grande usa busca e abre só um editor; falha conserva dados e explica dentro da janela", async () => {
+  m.service.mockRejectedValueOnce(new Error("Confirme que este serviço é gratuito."));
+  const services = Array.from({ length: 90 }, (_, i) => ({ id: String(i), name: i === 80 ? "Pé e Mão" : `Corte ${i}`, durationMin: 30, priceCents: 5000, reviewed: i < 40 }));
+  render(<SetupWizard data={{ ...data, services }} initialStep={1} bookingUrl="https://example.test" nextHref="/dashboard" canCreateSelf />);
+  expect(screen.queryByLabelText("Nome do serviço")).toBeNull();
+  fireEvent.change(screen.getByLabelText("Pesquisar serviços"), { target: { value: "pe e mao" } });
+  fireEvent.click(screen.getByRole("button", { name: /Pé e Mão/ }));
+  expect(screen.getAllByLabelText("Nome do serviço")).toHaveLength(1);
+  fireEvent.change(screen.getByLabelText("Preço (R$)"), { target: { value: "0" } });
+  fireEvent.click(screen.getByRole("button", { name: "Salvar serviço" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Confirme que este serviço é gratuito.");
+  expect(screen.getByLabelText("Preço (R$)")).toHaveValue("0");
+  await waitFor(() => expect(screen.getByRole("button", { name: "Salvar serviço" })).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", { name: "Fechar janela" }));
+  expect(screen.getByText("Você tem alterações não salvas.")).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "Continuar editando" }));
+  expect(screen.getByLabelText("Preço (R$)")).toHaveValue("0");
 });
 it("mantém os controles desabilitados enquanto aguarda a gravação", async () => {
   let finish!: () => void;

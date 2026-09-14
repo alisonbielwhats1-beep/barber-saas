@@ -13,8 +13,8 @@ export const DialogThemeProvider = DialogThemeContext.Provider;
 
 export const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, style, onScroll, ...props }, ref) => {
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & { mobileSheet?: boolean }
+>(({ className, children, style, onScroll, mobileSheet = false, ...props }, ref) => {
   const theme = React.useContext(DialogThemeContext);
   const closeButton = React.useRef<HTMLButtonElement>(null);
   return (
@@ -23,6 +23,7 @@ export const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       data-theme={theme}
+      data-mobile-sheet={mobileSheet || undefined}
       className={cn(
         "fixed left-1/2 top-1/2 z-50 grid min-h-0 min-w-0 w-full max-w-lg overflow-y-auto overscroll-contain -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border border-border bg-card p-6 pr-16 shadow-2xl",
         "data-[state=open]:animate-in data-[state=closed]:animate-out",

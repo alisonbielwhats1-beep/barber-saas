@@ -213,15 +213,14 @@ test("@database visita conjunta no cliente e no painel, folga e bloqueio após e
     });
     await dialog.getByRole('combobox', {name:'Cliente', exact:true}).selectOption(client.id);
     await dialog.getByLabel("Início", { exact: true }).fill("21:00");
-    await dialog
-      .getByRole('combobox', {name:'Serviço 1', exact:true})
-      .selectOption(services[0]!.id);
+    await dialog.getByRole("button", { name: "Escolher serviços", exact: true }).click();
+    await dialog.getByRole("button", { name: "Serviço 1", exact: true }).click();
+    await page.getByRole("dialog", { name: "Serviço 1", exact: true }).getByRole("button", { name: /Corte/ }).click();
     await dialog
       .getByRole("button", { name: "Adicionar outro serviço" })
       .click();
-    await dialog
-      .getByRole('combobox', {name:'Serviço 2', exact:true})
-      .selectOption(services[1]!.id);
+    await dialog.getByRole("button", { name: "Serviço 2", exact: true }).click();
+    await page.getByRole("dialog", { name: "Serviço 2", exact: true }).getByRole("button", { name: /Unhas/ }).click();
     await dialog
       .getByLabel("Agendar em folga, intervalo ou fora do expediente")
       .check();
@@ -308,6 +307,8 @@ test("@database visita conjunta no cliente e no painel, folga e bloqueio após e
       await expect(clientPage.getByText("Horário já reservado para você")).toHaveCount(0);
       expect(await db.appointment.findUniqueOrThrow({ where: { id: pendingMove.appointmentId } })).toEqual(pendingMove.appointment);
       await page.reload();
+      // First mobile entry: the new guide is dismissible and must not hide the reservation.
+      await page.getByRole("button", { name: "Pular tutorial", exact: true }).click();
       const refusedCard = page.getByRole("button", { name: new RegExp(`${client.name}, Corte, 18:30, Anderson`) });
       await expect(refusedCard).toContainText("Alteração recusada");
       await refusedCard.click();
@@ -322,6 +323,7 @@ test("@database visita conjunta no cliente e no painel, folga e bloqueio após e
     await page.getByRole("button", { name: "Entrar", exact: true }).click();
     await expect(page).not.toHaveURL(/\/login/, { timeout: 30000 });
     await page.goto(`/agenda?date=${dayoff}`);
+    await page.getByRole("button", { name: "Pular tutorial", exact: true }).click();
     await page
       .getByRole("button", { name: "Abrir ações rápidas da agenda" })
       .click();

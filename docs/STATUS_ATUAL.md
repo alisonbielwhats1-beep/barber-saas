@@ -1,5 +1,26 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-14 — experiência mobile em revisão
+
+Branch `codex/mobile-guided-experience`, baseada em `a78a0b2`: catálogo inicial
+compacto e pesquisável com edição individual, seleção de serviços/profissionais
+em painéis inferiores, visita em três etapas com horários explícitos e mensagens
+do motor de disponibilidade identificando item e motivo. Tutorial mobile opcional,
+com animação, sombra, preferência por usuário/salão e replay; não anuncia arraste
+de reservas no toque, que ainda não existe. Escopo em `MOBILE_GUIADO_2026-09-14.md`.
+Validação somente local/sintética. Sem nova migration ou publicação produtiva.
+
+## 2026-09-14 — PR #108 publicado após CI
+
+O PR #108 foi integrado em `a78a0b2f36ec4a5863ceb43c21fa67b1e2e853b7`,
+preservando o PR #109. CI `34801262205` aprovado. Production
+`dpl_HSg1kevPyCeDpV6Er1fhVKHRHLTC` READY, GitHub deployment `6430003288`
+confirmado às 03:39:11 UTC. Home, login, health, configurações, equipe e portal
+de assinatura foram conferidos sem escrita; consulta de runtime sem erros.
+Registro final: https://github.com/alisonbielwhats1-beep/barber-saas/pull/108#issuecomment-5658675856.
+Isso conclui a preparação histórica abaixo. A migration de convites já foi
+aplicada; não reaplicar. Convites por e-mail continuam desativados.
+
 ## 2026-09-14 — PR #109 publicado; promoção do PR #108 autorizada
 
 O PR #109 foi integrado em `225c9c9` e seu deployment Production foi confirmado
@@ -13,10 +34,9 @@ somente `20260913110000_professional_invite_profile_fields`: duas colunas `text`
 anuláveis, sem backfill ou remoção. Os dados anteriores foram comparados dentro
 da transação; RLS/FORCE RLS e a role `app_runtime` permanecem protegidos.
 
-A aplicação #108 ainda depende da conclusão dos checks finais e do merge para
-Production. Evidências e rollback em `FASE_NAVEGACAO_EQUIPE_DESKTOP.md`; o resultado
-final da publicação será registrado no PR #108. Não confundir aplicação do schema
-com publicação do código. Nenhuma compra ou teste de escrita em produção.
+A preparação foi concluída pela publicação registrada acima. Evidências e rollback
+em `FASE_NAVEGACAO_EQUIPE_DESKTOP.md` e no comentário final do PR #108.
+Nenhuma compra ou teste de escrita em produção.
 
 ## 2026-09-13 — visitas com vários profissionais em validação
 

@@ -33,6 +33,7 @@ test.describe("@database pausas recorrentes", () => {
       await page.getByRole("button", { name: "Entrar", exact: true }).click();
       await expect(page).toHaveURL(/\/(hoje|dashboard)$/, { timeout: 30_000 });
       await page.goto(`/agenda?date=${monday}`);
+      await page.getByRole("button", { name: "Pular tutorial", exact: true }).click();
       await page.getByRole("button", { name: "Abrir ações rápidas da agenda" }).click();
       await page.getByRole("menuitem", { name: "Pausa recorrente", exact: true }).click();
       const dialog = page.getByRole("dialog");

@@ -241,6 +241,7 @@ export function findVisitPlan(
     manual?: boolean;
     overrideSchedule?: boolean;
     budget?: { remaining: number };
+    onBlocked?: (index: number, reason: string) => void;
   } = {},
 ): VisitPlan | null {
   const budget = options.budget ?? { remaining: 20000 };
@@ -259,7 +260,11 @@ export function findVisitPlan(
       return null;
     const choice = choices[index]!,
       service = day.services.find((s) => s.id === choice.serviceId);
-    if (!service) return null;
+    if (!service) { options.onBlocked?.(index, "Este serviço não está mais disponível. Escolha outro serviço."); return null; }
+    const blocked = (reason: string) => options.onBlocked?.(index, reason);
+    if (!service.professionals.some(p => !choice.professionalId || p.professional.id === choice.professionalId)) {
+      blocked("O profissional não realiza este serviço. Escolha um profissional compatível."); return null;
+    }
     const priced = day.priced.find((s) => s.id === service.id)!;
     const start =
       choice.offsetMin === undefined
@@ -268,15 +273,16 @@ export function findVisitPlan(
           : startMinute
         : startMinute + choice.offsetMin;
     const end = start + service.durationMin;
-    if (start < 0 || end > 1440) return null;
+    if (start < 0 || end > 1440) { blocked("O serviço termina no dia seguinte. Antecipe o início para terminar até 24:00."); return null; }
     const startLocal = localAt(day.date, start),
       a = localDateTimeToUtc(startLocal, day.salon.timezone),
       b = new Date(a.getTime() + service.durationMin * 60000);
     const endLocal = toLocalDateTime(b, day.salon.timezone);
     if (!options.manual && checkBookingWindow(a, day.salon, day.now))
       return null;
-    if (day.closures.some((c) => overlap(a, b, c.startAt, c.endAt)))
-      return null;
+    if (day.closures.some((c) => overlap(a, b, c.startAt, c.endAt))) {
+      blocked("O salão está fechado neste período. Escolha outra data ou horário; a exceção de jornada não libera o fechamento do salão."); return null;
+    }
     for (const { professional: pro } of service.professionals) {
       if (choice.professionalId && choice.professionalId !== pro.id) continue;
       if (
@@ -288,23 +294,28 @@ export function findVisitPlan(
             (c) =>
               c.professionalId === pro.id && overlap(a, b, c.startAt, c.endAt),
           ))
-      )
+      ) {
+        const blockedPeriod = day.blocks.find(c => c.professionalId === pro.id && overlap(a, b, c.startAt, c.endAt));
+        const hours = day.hours.get(pro.id) ?? [];
+        const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+        blocked(blockedPeriod
+          ? "Há uma folga ou bloqueio pessoal neste período. Escolha outro horário ou, se autorizado, confirme a exceção de jornada com um motivo."
+          : `${hours.length ? `O serviço não cabe nos períodos de trabalho: ${hours.map(h => `${hhmm(h.startMinutes)}–${hhmm(h.endMinutes)}`).join(", ")}.` : "O profissional não tem expediente neste dia."} Ajuste o início ou, se autorizado, confirme a exceção de jornada com um motivo.`);
         continue;
+      }
       if (
         day.appointments.some((c) => {
           const w = bufferedWindow(c.startAt, c.endAt, day.salon.bufferMinutes);
           return c.professionalId === pro.id && overlap(a, b, w.from, w.to);
         })
-      )
-        continue;
+      ) { blocked("Já existe atendimento neste período, incluindo o intervalo de preparação. Escolha outro início ou profissional. A exceção de jornada não libera sobreposição."); continue; }
       if (
         day.resourceBookings.some(
           (c) =>
             c.resourceId === service.physicalResourceId &&
             overlap(a, b, c.startAt, c.endAt),
         )
-      )
-        continue;
+      ) { blocked("A sala ou equipamento deste serviço está reservado. Escolha outro horário."); continue; }
       if (
         day.offers.some((c) => {
           const w =
@@ -318,8 +329,7 @@ export function findVisitPlan(
             overlap(a, b, w.from, w.to)
           );
         })
-      )
-        continue;
+      ) { blocked("O horário ou recurso está reservado por uma oferta da fila. Escolha outro horário ou aguarde a oferta expirar."); continue; }
       let invalid = false;
       // Buffer belongs between appointments, never between service items of
       // the same continuous appointment (including the third item onward).
@@ -349,6 +359,7 @@ export function findVisitPlan(
               start < oldEnd + day.salon.bufferMinutes &&
               end > oldStart - day.salon.bufferMinutes))
         ) {
+          blocked(`O horário conflita com o serviço ${j + 1} desta visita para o mesmo profissional. Use sequência ou outro profissional, respeitando o intervalo de preparação.`);
           invalid = true;
           break;
         }
@@ -358,6 +369,7 @@ export function findVisitPlan(
             service.physicalResourceId &&
             service.physicalResourceId === oldService.physicalResourceId
           ) {
+            blocked(`O serviço ${j + 1} desta visita usa a mesma sala ou equipamento. Organize os serviços em sequência.`);
             invalid = true;
             break;
           }
