@@ -100,5 +100,6 @@ Capturas em `test-results` são publicadas como evidência pelo CI. Inspeção v
 local confirmou resumo público, revisão do painel em 320 pixels e bloqueio 21–23h
 na grade móvel. CI/Preview do PR ainda precisam concluir antes de publicação.
 
+A revisão está no [PR #109](https://github.com/alisonbielwhats1-beep/barber-saas/pull/109).
 A autorização de implementação não promove automaticamente a produção. A
 publicação segue revisão, CI/Preview e aprovação do responsável.

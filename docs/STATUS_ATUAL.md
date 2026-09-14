@@ -10,6 +10,10 @@ passa a exibir bloqueios após o fechamento e oferece visualização do dia inte
 Simultaneidade pública depende de combinações habilitadas pela gestão.
 Sem migration ou alteração produtiva. Escopo, persistência, limites e evidências
 em `VISITAS_MULTIPROFISSIONAIS_2026-09-13.md`.
+PR #109 em revisão. Validação local: 1.084 testes, 44 integrações PostgreSQL,
+lint, TypeScript, build e jornada responsiva de cliente/dono/profissional aprovados.
+O profissional também cria, edita e reabre as próprias folgas/bloqueios;
+reservas existentes permanecem. CI e Preview precisam concluir antes da promoção.
 
 O PR #105 já integra `origin/master` em `ae4f1ff`; as seções abaixo registram a
 situação anterior à integração. Esta entrega não verifica nem modifica a implantação
