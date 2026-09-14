@@ -62,14 +62,14 @@ export function SettingsSectionNav({ children }: { children: ReactNode }) {
         <input ref={search} type="search" aria-label="Buscar configuração" placeholder="Buscar configuração" value={query} onChange={event => setQuery(event.target.value)} className="min-h-12 w-full rounded-xl border border-border bg-card pl-11 pr-12 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring" />
         {query && <button type="button" aria-label="Limpar busca" onClick={() => { setQuery(""); search.current?.focus(); }} className="absolute right-0 top-0 grid h-12 w-12 place-items-center rounded-xl focus-visible:ring-2 focus-visible:ring-ring"><X aria-hidden="true" className="h-4 w-4" /></button>}
       </div>
-      <nav aria-label="Seções de configurações" className="grid gap-6 lg:grid-cols-2">
+      <nav aria-label="Seções de configurações" className="grid gap-6 lg:block lg:space-y-8">
         {[...new Set(matches.map(section => section.group))].map(group => <section key={group}>
-          <h2 className="mb-2 text-sm font-semibold">{group}</h2>
-          <div className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
-            {matches.filter(section => section.group === group).map(({ id, label, detail, icon: Icon }) => <a key={id} id={`settings-link-${id}`} href={`#${id}`} onClick={event => { event.preventDefault(); navigate(id); }} className="flex min-h-20 items-center gap-3 px-4 py-3 transition-colors hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
-              <Icon aria-hidden="true" className="h-5 w-5 shrink-0 text-muted-foreground" />
-              <span className="min-w-0 flex-1"><span className="block text-sm font-medium">{label}</span><span className="mt-1 block text-xs leading-relaxed text-muted-foreground">{detail}</span></span>
-              <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <h2 className="mb-2 text-sm font-semibold lg:mb-3 lg:text-[13px] lg:uppercase lg:tracking-wider lg:text-muted-foreground">{group}</h2>
+          <div className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card lg:grid lg:grid-cols-2 lg:gap-4 lg:divide-y-0 lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent xl:grid-cols-3">
+            {matches.filter(section => section.group === group).map(({ id, label, detail, icon: Icon }) => <a key={id} id={`settings-link-${id}`} href={`#${id}`} onClick={event => { event.preventDefault(); navigate(id); }} className="group relative flex min-h-20 items-center gap-3 px-4 py-3 transition-colors hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring lg:min-h-40 lg:flex-col lg:items-start lg:justify-between lg:rounded-2xl lg:border lg:border-border lg:bg-card lg:p-5 lg:hover:border-border-strong lg:hover:bg-card-hover">
+              <span className="contents lg:grid lg:h-11 lg:w-11 lg:shrink-0 lg:place-items-center lg:rounded-xl lg:bg-primary/10 lg:text-primary"><Icon aria-hidden="true" className="h-5 w-5 shrink-0 text-muted-foreground lg:text-primary" /></span>
+              <span className="min-w-0 flex-1 lg:flex lg:flex-col lg:justify-end"><span className="block text-sm font-medium lg:text-base lg:font-semibold">{label}</span><span className="mt-1 block text-xs leading-relaxed text-muted-foreground lg:max-w-[30ch] lg:text-[13px]">{detail}</span></span>
+              <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 lg:absolute lg:right-5 lg:top-5" />
             </a>)}
           </div>
         </section>)}

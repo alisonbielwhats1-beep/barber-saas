@@ -19,6 +19,8 @@ export type InviteRole =
 
 export type ProfessionalInviteData = {
   bio?: string | null;
+  phone?: string | null;
+  avatarUrl?: string | null;
   colorHex?: string | null;
   commissionPct?: number;
   monthlyGoalCents?: number;
@@ -392,6 +394,8 @@ export async function createUserInvite(
         lastSendAttemptAt: now,
         sendAttempts: 1,
         pendingBio: professional?.bio ?? null,
+        pendingPhone: professional?.phone ?? null,
+        pendingAvatarUrl: professional?.avatarUrl ?? null,
         pendingColorHex: professional?.colorHex ?? null,
         pendingCommissionPct: professional?.commissionPct,
         pendingMonthlyGoalCents: professional?.monthlyGoalCents,
@@ -745,6 +749,8 @@ async function createProfessionalFromInvite(
     salonId: string;
     role: Role;
     pendingBio: string | null;
+    pendingPhone: string | null;
+    pendingAvatarUrl: string | null;
     pendingColorHex: string | null;
     pendingCommissionPct: Prisma.Decimal | null;
     pendingMonthlyGoalCents: number | null;
@@ -860,6 +866,8 @@ async function acceptInviteTransaction(input: {
           data: {
             email: invite.email,
             name: invite.name,
+            phone: invite.pendingPhone,
+            avatarUrl: invite.pendingAvatarUrl,
             passwordHash: input.passwordHash!,
             passwordSetAt: input.now,
           },

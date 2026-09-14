@@ -6,15 +6,21 @@ import { Users, Crown, Cake, Clock } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { ClientForm } from "./client-form";
 import { ReturnOpportunities } from "./return-opportunities";
-import { ClientsCrm } from "./clients-crm";
+import { ClientsCrm, type ClientSegment } from "./clients-crm";
 import { getMarketingSettings } from "@/lib/marketing-settings";
 import { hiddenClientIds } from "@/lib/client-list-visibility";
 import { AutoRefresh } from "@/components/auto-refresh";
 
-export default async function ClientesPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
+const CLIENT_SEGMENTS = new Set<ClientSegment>(["all", "vip", "birthday", "lapsed", "recurring"]);
+
+export default async function ClientesPage({ searchParams }: { searchParams: Promise<{ status?: string; segment?: string }> }) {
   const ctx = await getTenantContext();
   const { salonId, role } = ctx;
-  const showExcluded = role === "OWNER" && (await searchParams).status === "excluded";
+  const params = await searchParams;
+  const showExcluded = role === "OWNER" && params.status === "excluded";
+  const initialSegment = CLIENT_SEGMENTS.has(params.segment as ClientSegment)
+    ? (params.segment as ClientSegment)
+    : "all";
   const { clients, salon, marketingSettings } = await withTenant(ctx, async (tx) => {
     const marketingSettings = await getMarketingSettings(tx, salonId);
     const professional = role === "PROFESSIONAL"
@@ -59,6 +65,7 @@ export default async function ClientesPage({ searchParams }: { searchParams: Pro
       </section>
 
       <ClientsCrm
+        key={`${showExcluded ? "excluded" : "active"}-${initialSegment}`}
         clients={clients}
         salonName={salon?.name ?? "nosso salão"}
         timezone={salon?.timezone ?? "America/Sao_Paulo"}
@@ -66,6 +73,7 @@ export default async function ClientesPage({ searchParams }: { searchParams: Pro
         canDelete={role === "OWNER"}
         showExcluded={showExcluded}
         lapsedClientDays={marketingSettings.lapsedClientDays}
+        initialSegment={initialSegment}
       />
       {!showExcluded && ["OWNER", "MANAGER"].includes(role) && <ReturnOpportunities />}
     </div>

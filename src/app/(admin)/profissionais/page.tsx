@@ -229,6 +229,7 @@ export default async function ProfissionaisPage() {
                     id: p.id,
                     name: p.name,
                     email: p.email,
+                    phone: p.phone,
                     bio: p.bio,
                     colorHex: p.colorHex,
                     avatarUrl: p.avatarUrl,

@@ -17,10 +17,13 @@ import {
 } from "@/lib/invitations";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { assertProfessionalCapacity } from "@/lib/plan-entitlements";
+import { isValidPhoneBR, normalizePhone } from "@/lib/phone";
 
 const professionalInput = z.object({
   name: z.string().min(2),
   email: z.string().email(),
+  phone: z.string().trim().max(32).refine((value) => value.length === 0 || isValidPhoneBR(value), "Informe um telefone válido com DDD.").optional().nullable(),
+  avatarUrl: z.string().url("URL da foto inválida").optional().nullable().or(z.literal("")),
   bio: z.string().optional().nullable(),
   colorHex: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional().nullable(),
   commissionPct: z.coerce.number().min(0).max(100).default(0),
@@ -47,6 +50,7 @@ export async function createProfessional(
   assertEmailInvitesEnabled();
   const data = professionalInput.parse(input);
   const email = data.email.toLowerCase().trim();
+  assertAllowedStoredImageUrl(data.avatarUrl, ctx.salonId);
   const requestHeaders = await headers();
   const limited = await checkRateLimit({
     namespace: "create-professional-invite",
@@ -71,6 +75,8 @@ export async function createProfessional(
     role: "PROFESSIONAL",
     professional: {
       bio: data.bio ?? null,
+      phone: data.phone ? normalizePhone(data.phone) : null,
+      avatarUrl: data.avatarUrl?.trim() || null,
       colorHex: data.colorHex ?? null,
       commissionPct: data.commissionPct,
       monthlyGoalCents: data.monthlyGoalCents,
@@ -136,6 +142,7 @@ export async function cancelProfessionalInvite(inviteId: string) {
 
 const updateInput = z.object({
   name: z.string().min(2),
+  phone: z.string().trim().max(32).refine((value) => value.length === 0 || isValidPhoneBR(value), "Informe um telefone válido com DDD.").optional().nullable(),
   bio: z.string().optional().nullable(),
   colorHex: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional().nullable(),
   commissionPct: z.coerce.number().min(0).max(100),
@@ -179,6 +186,7 @@ export async function updateProfessional(
       where: { id: pro.userId },
       data: {
         name: data.name,
+        phone: data.phone ? normalizePhone(data.phone) : null,
         ...(avatarUrl !== undefined ? { avatarUrl } : {}),
       },
     });

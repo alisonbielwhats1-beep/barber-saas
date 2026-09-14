@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { BrandLogo, BrandMark } from "@/components/brand";
 import { ThemeToggle } from "./theme-toggle";
-import { SidebarNav } from "./sidebar-nav";
+import { DesktopContextNav, SidebarNav } from "./sidebar-nav";
 import { SidebarFooter } from "./sidebar-footer";
 import { SalonSwitcher } from "./salon-switcher";
 import { OpenCommandPaletteButton } from "./command-palette";
@@ -15,19 +15,12 @@ export function AdminSidebar({ current, memberships, role, plan, unreadNotificat
   current: Salon; memberships: Salon[]; role: string; plan: string;
   unreadNotifications: number; isPlatformAdmin: boolean;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
-  useEffect(() => {
-    try { setCollapsed(localStorage.getItem("admin-sidebar-collapsed") === "true"); } catch { /* Optional preference. */ }
-  }, []);
-  function toggle() {
-    setCollapsed(value => {
-      try { localStorage.setItem("admin-sidebar-collapsed", String(!value)); } catch { /* Navigation remains usable. */ }
-      return !value;
-    });
-  }
+  const [collapsed, setCollapsed] = useState(true);
+  function toggle() { setCollapsed((value) => !value); }
   const label = collapsed ? "Expandir menu" : "Recolher menu";
   return (
-    <aside aria-label="Menu do estabelecimento" data-collapsed={collapsed} className={`admin-sidebar hidden shrink-0 flex-col border-r border-border lg:flex print:hidden ${collapsed ? "w-[72px]" : "w-56"}`}>
+    <div className="hidden shrink-0 lg:flex print:hidden">
+    <aside aria-label="Menu do estabelecimento" data-collapsed={collapsed} className={`admin-sidebar flex shrink-0 flex-col border-r border-border transition-[width] duration-200 motion-reduce:transition-none ${collapsed ? "w-[72px]" : "w-56"}`}>
       <div className={`flex shrink-0 items-center p-3 ${collapsed ? "flex-col gap-1" : "justify-between"}`}>
         {collapsed ? (
           <span role="img" aria-label="Everflair — símbolo Flair" className="grid h-11 w-11 place-items-center text-[hsl(var(--selection-foreground))]">
@@ -49,5 +42,7 @@ export function AdminSidebar({ current, memberships, role, plan, unreadNotificat
       <SidebarNav role={role} unreadNotifications={unreadNotifications} isPlatformAdmin={isPlatformAdmin} collapsed={collapsed} />
       <SidebarFooter plan={plan} compact={collapsed} />
     </aside>
+    {collapsed && <DesktopContextNav role={role} />}
+    </div>
   );
 }
