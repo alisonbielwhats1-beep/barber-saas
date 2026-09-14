@@ -77,3 +77,5 @@ autorizado por este documento.
 - PostgreSQL e Docker não estão disponíveis nesta máquina. Por isso, a
   migration ainda depende do `schema-smoke` com PostgreSQL 16 descartável e
   não foi executada contra nenhum banco remoto.
+- os jobs `check` e `schema-smoke` executam preflight, migration e verificação
+  em seus bancos PostgreSQL descartáveis antes dos testes de integração.
