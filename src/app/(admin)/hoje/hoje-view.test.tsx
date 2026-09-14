@@ -62,6 +62,7 @@ describe("HojeView", () => {
     render(
       <HojeView colorScope="test-salon:test-user"
         date="2026-08-20"
+        initialNowMs={Date.parse("2026-08-20T13:00:00.000Z")}
         timezone="America/Sao_Paulo"
         currency="BRL"
         appointments={appointments}
@@ -83,6 +84,7 @@ describe("HojeView", () => {
     render(
       <HojeView colorScope="test-salon:test-user"
         date="2026-08-20"
+        initialNowMs={Date.parse("2026-08-20T13:00:00.000Z")}
         timezone="America/Sao_Paulo"
         currency="BRL"
         appointments={appointments}
@@ -102,6 +104,7 @@ describe("HojeView", () => {
     render(
       <HojeView colorScope="test-salon:test-user"
         date="2026-08-20"
+        initialNowMs={Date.parse("2026-08-20T13:00:00.000Z")}
         salonName="Luna Hair Studio"
         timezone="America/Sao_Paulo"
         currency="BRL"

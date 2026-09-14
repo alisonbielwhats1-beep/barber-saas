@@ -96,11 +96,12 @@ test.describe("@database navegação compacta e calendário", () => {
     expect(professionalPalette.every(pro => pro.matches)).toBe(true);
     await page.goto("/agenda?date=2026-09-06");
     const darkSidebar = page.getByRole("complementary", { name: "Menu do estabelecimento" });
-    await expect(darkSidebar.getByRole("img", { name: "Everflair", exact: true })).toBeVisible();
+    await expect(darkSidebar).toHaveAttribute("data-collapsed", "true");
+    await expect(darkSidebar.getByRole("img", { name: "Everflair — símbolo Flair" })).toBeVisible();
     const themeBox = await darkSidebar.getByRole("button", { name: "Mudar para tema claro" }).boundingBox();
     const navBox = await darkSidebar.getByRole("navigation", { name: "Navegação principal" }).boundingBox();
     expect(themeBox!.y + themeBox!.height).toBeLessThan(navBox!.y);
-    await page.screenshot({ path: test.info().outputPath("agenda-flair-escuro-expandido.png"), animations: "disabled" });
+    await page.screenshot({ path: test.info().outputPath("agenda-flair-escuro-recolhido.png"), animations: "disabled" });
     expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations).toEqual([]);
     await page.getByRole("button", { name: "Mudar para tema claro" }).click();
     const lightPalette = await page.locator("[data-pro-col]").evaluateAll(columns => columns.map(column => ({
@@ -108,6 +109,8 @@ test.describe("@database navegação compacta e calendário", () => {
     })));
     expect(lightPalette).toEqual(professionalPalette.map(({ id, color }) => ({ id, color })));
     const sidebar = page.getByRole("complementary", { name: "Menu do estabelecimento" });
+    await page.getByRole("button", { name: "Expandir menu", exact: true }).click();
+    await expect(sidebar).toHaveAttribute("data-collapsed", "false");
     await expect(sidebar.getByRole("img", { name: "Everflair", exact: true })).toBeVisible();
     await expect(sidebar.getByText("Painel de operação")).toHaveCount(0);
     await page.getByRole("button", { name: "Recolher menu", exact: true }).click();

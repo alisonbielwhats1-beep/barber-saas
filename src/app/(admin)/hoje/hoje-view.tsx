@@ -44,6 +44,7 @@ const ACTION_ICONS: Partial<Record<ApptStatus, typeof Check>> = {
 export function HojeView({
   colorScope,
   date,
+  initialNowMs,
   salonName = "o estabelecimento",
   timezone,
   currency,
@@ -51,6 +52,7 @@ export function HojeView({
 }: {
   colorScope: string;
   date: string;
+  initialNowMs: number;
   salonName?: string;
   timezone: string;
   currency: string;
@@ -65,7 +67,7 @@ export function HojeView({
   const [openedReminderIds, setOpenedReminderIds] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const [now, setNow] = useState(() => Date.now());
+  const [now, setNow] = useState(initialNowMs);
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 30_000);
     return () => window.clearInterval(timer);

@@ -236,6 +236,8 @@ function professionalInput(email = "new@example.com") {
     role: "PROFESSIONAL" as const,
     professional: {
       bio: "Especialista",
+      phone: "11912345678",
+      avatarUrl: "https://example.com/profile.jpg",
       colorHex: "#112233",
       commissionPct: 42,
       monthlyGoalCents: 900_000,
@@ -265,6 +267,8 @@ describe("persistência transacional de convites", () => {
       expect.objectContaining({
         tokenHash: hashInviteToken(tokenA),
         pendingBio: "Especialista",
+        pendingPhone: "11912345678",
+        pendingAvatarUrl: "https://example.com/profile.jpg",
         pendingColorHex: "#112233",
         pendingCommissionPct: 42,
         pendingMonthlyGoalCents: 900_000,
@@ -417,6 +421,8 @@ describe("persistência transacional de convites", () => {
     ]);
     expect(state.professionalServices).toHaveLength(2);
     const user = state.users.find((row) => row.email === "new@example.com")!;
+    expect(user.phone).toBe("11912345678");
+    expect(user.avatarUrl).toBe("https://example.com/profile.jpg");
     expect(user.passwordSetAt).toEqual(acceptedAt);
     expect(await bcrypt.compare("uma-senha-segura", user.passwordHash)).toBe(true);
   }, 10_000);

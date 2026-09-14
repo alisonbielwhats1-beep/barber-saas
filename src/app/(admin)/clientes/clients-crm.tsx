@@ -20,7 +20,7 @@ import { deleteClient, restoreClient, fetchClientHistory, importClientsCsv, merg
 import { toast } from "@/components/ui/toast";
 import type { ClientRow } from "@/lib/crm";
 
-type Segment = "all" | "vip" | "birthday" | "lapsed" | "recurring";
+export type ClientSegment = "all" | "vip" | "birthday" | "lapsed" | "recurring";
 type HistoryItem = { id: string; startAt: string; priceCents: number; status: string; serviceName: string; serviceColor: string | null; proName: string };
 const HISTORY_PREVIEW_COUNT = 3;
 
@@ -61,6 +61,7 @@ export function ClientsCrm({
   canDelete = false,
   showExcluded = false,
   lapsedClientDays,
+  initialSegment = "all",
 }: {
   clients: ClientRow[];
   salonName: string;
@@ -69,6 +70,7 @@ export function ClientsCrm({
   canDelete?: boolean;
   showExcluded?: boolean;
   lapsedClientDays: number;
+  initialSegment?: ClientSegment;
 }) {
   const router = useRouter();
   const [visibilityTarget, setVisibilityTarget] = useState<ClientRow | null>(null);
@@ -92,7 +94,7 @@ export function ClientsCrm({
   }
   const [pending, startTransition] = useTransition();
   const [search, setSearch] = useState("");
-  const [segment, setSegment] = useState<Segment>("all");
+  const [segment, setSegment] = useState<ClientSegment>(initialSegment);
   const [selectedDetail, setDetail] = useState<ClientRow | null>(null);
   const detail = selectedDetail ? clients.find(client => client.id === selectedDetail.id) ?? selectedDetail : null;
   const [history, setHistory] = useState<HistoryItem[] | null>(null);
@@ -175,7 +177,7 @@ export function ClientsCrm({
           <input value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Buscar cliente ou telefone" placeholder="Buscar cliente ou telefone…" className="w-full min-w-0 md:w-48 bg-transparent text-[13px] placeholder:text-muted-foreground focus:outline-none" />
         </div>
         <MobileListTools label={segment === "all" ? "Filtros" : "Filtrado"}>
-        <select aria-label="Filtrar clientes" value={segment} onChange={e => setSegment(e.target.value as Segment)} className="min-h-11 min-w-0 flex-1 rounded-lg border border-border bg-card px-3 text-sm md:hidden">
+        <select aria-label="Filtrar clientes" value={segment} onChange={e => setSegment(e.target.value as ClientSegment)} className="min-h-11 min-w-0 flex-1 rounded-lg border border-border bg-card px-3 text-sm md:hidden">
           <option value="all">Todos ({clients.length})</option><option value="vip">VIP ({counts.vip})</option><option value="birthday">Aniversariantes ({counts.birthday})</option><option value="lapsed">Sumidos {lapsedClientDays}d+ ({counts.lapsed})</option><option value="recurring">Recorrentes ({counts.recurring})</option>
         </select>
         <div className="hidden flex-wrap gap-2 md:flex">

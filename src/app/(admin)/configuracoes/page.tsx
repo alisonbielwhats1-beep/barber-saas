@@ -120,7 +120,10 @@ export default async function ConfiguracoesPage() {
         <p className="mb-1 text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
           Ajustes
         </p>
-        <h1 className="text-[26px] font-semibold tracking-tight">Configurações</h1>
+        <h1 className="text-[26px] font-semibold tracking-tight lg:text-3xl">Configurações</h1>
+        <p className="mt-2 hidden max-w-2xl text-sm text-muted-foreground lg:block">
+          Organize o estabelecimento, a agenda e os acessos da equipe por área.
+        </p>
       </header>
 
       <SettingsSectionNav>

@@ -5,6 +5,7 @@ import { CheckCircle2, MailWarning, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { Input } from "@/components/ui/input";
+import { formatPhoneBR } from "@/lib/phone";
 import {
   Dialog,
   DialogClose,
@@ -27,6 +28,7 @@ type EditablePro = {
   id: string;
   name: string;
   email: string;
+  phone: string | null;
   bio: string | null;
   colorHex: string | null;
   avatarUrl: string | null;
@@ -53,6 +55,7 @@ export function ProfessionalForm({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState(professional?.avatarUrl ?? "");
+  const [phone, setPhone] = useState(formatPhoneBR(professional?.phone ?? ""));
   const [inviteResult, setInviteResult] = useState<{
     email: string;
     status: "SENT" | "FAILED";
@@ -74,8 +77,11 @@ export function ProfessionalForm({
     e.preventDefault();
     setError(null);
     const form = new FormData(e.currentTarget);
+    const firstName = String(form.get("firstName") ?? "").trim();
+    const lastName = String(form.get("lastName") ?? "").trim();
     const commonPayload = {
-      name: String(form.get("name")),
+      name: [firstName, lastName].filter(Boolean).join(" "),
+      phone,
       bio: (form.get("bio") as string) || null,
       colorHex: (form.get("colorHex") as string) || null,
       commissionPct: Number(form.get("commissionPct") ?? 0),
@@ -91,6 +97,7 @@ export function ProfessionalForm({
           const result = await createProfessional({
             ...commonPayload,
             email: String(form.get("email")),
+            avatarUrl,
             serviceIds: Array.from(selected),
           });
           setInviteResult({
@@ -133,7 +140,7 @@ export function ProfessionalForm({
           </Button>
         ))}
       </DialogTrigger>
-      <DialogContent className="max-h-[85dvh] overflow-y-auto">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>{editing ? "Editar profissional" : "Novo profissional"}</DialogTitle>
           <DialogDescription>
@@ -173,49 +180,54 @@ export function ProfessionalForm({
             </DialogFooter>
           </div>
         ) : (
-        <form onSubmit={onSubmit} className="grid gap-4">
-          <div>
-            <label className="mb-1 block text-sm font-medium">Nome</label>
-            <Input name="name" defaultValue={professional?.name} required autoFocus />
-          </div>
-
-          {!editing && (
-            <>
-              <div>
-                <label className="mb-1 block text-sm font-medium">Email</label>
-                <Input name="email" type="email" required />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                O acesso será liberado por um link de uso único. Nenhuma senha
-                temporária será criada ou exibida.
-              </p>
-            </>
-          )}
-
-          {editing ? (
-            <div className="rounded-xl border border-border bg-muted/20 p-3">
-              <p className="text-sm font-medium">Foto de perfil</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Aparece para os clientes ao escolher o profissional e na equipe do salão.
-              </p>
-              <div className="mt-3 max-w-40">
-                <ImageUpload
-                  value={avatarUrl}
-                  onChange={setAvatarUrl}
-                  folder="profiles"
-                  aspectRatio="square"
-                />
+        <form onSubmit={onSubmit} className="grid gap-6">
+          <section aria-labelledby="professional-personal-data" className="grid gap-4 rounded-2xl border border-border bg-surface-1/50 p-4 sm:grid-cols-[9rem_1fr] sm:p-5">
+            <div>
+              <h3 id="professional-personal-data" className="text-sm font-semibold">Perfil</h3>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Dados que identificam o profissional para a equipe e para os clientes.</p>
+              <div className="mt-4 max-w-36">
+                <ImageUpload value={avatarUrl} onChange={setAvatarUrl} folder="profiles" aspectRatio="square" />
               </div>
             </div>
-          ) : (
-            <p className="text-xs text-muted-foreground">
-              Depois de aceitar o convite, o profissional também poderá adicionar a foto em Configurações &gt; Meu perfil.
-            </p>
-          )}
+
+            <div className="grid content-start gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="professional-first-name" className="mb-1 block text-sm font-medium">Nome <span aria-hidden="true">*</span></label>
+                <Input id="professional-first-name" name="firstName" defaultValue={professional?.name.trim().split(/\s+/)[0] ?? ""} required autoFocus />
+              </div>
+              <div>
+                <label htmlFor="professional-last-name" className="mb-1 block text-sm font-medium">Sobrenome</label>
+                <Input id="professional-last-name" name="lastName" defaultValue={professional?.name.trim().split(/\s+/).slice(1).join(" ") ?? ""} />
+              </div>
+              <div>
+                <label htmlFor="professional-email" className="mb-1 block text-sm font-medium">E-mail <span aria-hidden="true">*</span></label>
+                <Input id="professional-email" name="email" type="email" defaultValue={professional?.email} disabled={editing} required={!editing} autoComplete="email" />
+              </div>
+              <div>
+                <label htmlFor="professional-phone" className="mb-1 block text-sm font-medium">Número de telefone</label>
+                <div className="flex min-h-11 overflow-hidden rounded-md border border-input bg-background focus-within:ring-2 focus-within:ring-ring">
+                  <span className="grid min-w-14 place-items-center border-r border-border px-3 text-sm text-muted-foreground">+55</span>
+                  <input id="professional-phone" name="phone" type="tel" inputMode="tel" autoComplete="tel" value={phone} onChange={(event) => setPhone(formatPhoneBR(event.target.value))} placeholder="(11) 91234-5678" className="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm outline-none" />
+                </div>
+              </div>
+              <p className="text-xs leading-relaxed text-muted-foreground sm:col-span-2">
+                {editing
+                  ? "O e-mail de acesso não pode ser alterado por aqui. A pessoa pode atualizar foto e telefone no próprio perfil."
+                  : "O profissional receberá um link de uso único e criará a própria senha. Se a conta já existir, os dados pessoais dela serão preservados."}
+              </p>
+            </div>
+          </section>
+
+          <section aria-labelledby="professional-work-data" className="grid gap-4">
+            <div>
+              <h3 id="professional-work-data" className="text-sm font-semibold">Trabalho no estabelecimento</h3>
+              <p className="mt-1 text-xs text-muted-foreground">Defina apresentação, agenda, comissão e serviços.</p>
+            </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium">Bio</label>
+            <label htmlFor="professional-bio" className="mb-1 block text-sm font-medium">Apresentação</label>
             <Input
+              id="professional-bio"
               name="bio"
               defaultValue={professional?.bio ?? ""}
               placeholder="Especialista em coloração"
@@ -223,8 +235,9 @@ export function ProfessionalForm({
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-sm font-medium">Comissão (%)</label>
+              <label htmlFor="professional-commission" className="mb-1 block text-sm font-medium">Comissão (%)</label>
               <Input
+                id="professional-commission"
                 name="commissionPct"
                 type="number"
                 min={0}
@@ -234,8 +247,9 @@ export function ProfessionalForm({
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Cor na agenda</label>
+              <label htmlFor="professional-calendar-color" className="mb-1 block text-sm font-medium">Cor na agenda</label>
               <Input
+                id="professional-calendar-color"
                 name="colorHex"
                 type="color"
                 defaultValue={professional?.colorHex ?? "#2ECC8B"}
@@ -244,8 +258,9 @@ export function ProfessionalForm({
             </div>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Meta mensal (R$)</label>
+            <label htmlFor="professional-monthly-goal" className="mb-1 block text-sm font-medium">Meta mensal (R$)</label>
             <Input
+              id="professional-monthly-goal"
               name="goal"
               type="number"
               min={0}
@@ -285,6 +300,7 @@ export function ProfessionalForm({
               </div>
             </div>
           </div>
+          </section>
 
           {error && (
             <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">

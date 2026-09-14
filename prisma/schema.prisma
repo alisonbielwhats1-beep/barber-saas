@@ -953,6 +953,8 @@ model UserInvite {
   providerMessageId         String?
   lastErrorCode             String?
   pendingBio                String?
+  pendingPhone              String?
+  pendingAvatarUrl          String?
   pendingColorHex           String?
   pendingCommissionPct      Decimal?             @db.Decimal(5, 2)
   pendingMonthlyGoalCents   Int?

@@ -11,8 +11,9 @@ import { isPlatformAdmin } from "@/lib/platform-admin";
 import { ThemeToggle } from "./theme-toggle";
 import { BrandLogo } from "@/components/brand";
 import { billingEnabled } from "@/lib/billing/config";
-import { BILLING_PLANS } from "@/lib/billing/catalog";
+import { billingCapacityLabel } from "@/lib/billing/presentation";
 import { currentTerms } from "@/lib/billing/change-terms";
+import { PlanShortcut } from "./plan-shortcut";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const ctx = await getTenantContext();
@@ -44,11 +45,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         }),
         billingEnabled() ? tx.billingSubscription.findFirst({ where: { salonId, current: true, paidThrough: { not: null } } }) : null,
       ]);
-      return { salon, memberships, unreadNotifications, subscription: subscription ? { planCode: (await currentTerms(tx, subscription)).plan } : null };
+      return { salon, memberships, unreadNotifications, subscription: subscription ? await currentTerms(tx, subscription) : null };
     }),
   ]);
   const { salon, memberships, unreadNotifications, subscription } = adminData;
-  const planLabel = subscription ? BILLING_PLANS[subscription.planCode as keyof typeof BILLING_PLANS]?.label ?? subscription.planCode : salon?.plan ?? "FREE";
+  const legacyPlanLabels = { FREE: "Gratuito", STARTER: "Starter", PRO: "Pro", ENTERPRISE: "Enterprise" };
+  const planLabel = subscription ? billingCapacityLabel(subscription.plan, subscription.agendaLimit) : legacyPlanLabels[salon?.plan ?? "FREE"];
+  const currentPlanLabel = subscription || (salon && salon.plan !== "FREE") ? planLabel : null;
 
   const membershipList = memberships.map((m) => ({
     id: m.salon.id,
@@ -71,6 +74,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
       {/* ── Main content ─────────────────────────────────── */}
       <main id="main-content" tabIndex={-1} className="admin-main scrollbar-dark min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
+        {role === "OWNER" && <header aria-label="Plano do estabelecimento" className="hidden min-h-16 items-center justify-end border-b border-border bg-surface-1 px-6 py-2 lg:flex print:hidden">
+          <PlanShortcut plan={currentPlanLabel} href={billingEnabled() ? "/assinatura" : "/configuracoes#plano"} />
+        </header>}
         <header role="region" className="flex items-center justify-between border-b border-border bg-surface-1 px-4 py-2 lg:hidden" aria-label="Marca e aparência">
           <BrandLogo className="!h-9 !w-[142px] text-[hsl(var(--selection-foreground))]" />
           <ThemeToggle />

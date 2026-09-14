@@ -1,5 +1,23 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-14 — PR #109 publicado; promoção do PR #108 autorizada
+
+O PR #109 foi integrado em `225c9c9` e seu deployment Production foi confirmado
+com sucesso às 02:18:57 UTC (GitHub deployment `6429253723`). A seção de validação
+abaixo é histórica. O PR #108 incorpora essa versão e preserva suas jornadas.
+
+O responsável autorizou explicitamente o deploy do PR #108. A preparação
+produtiva confirmou o projeto Supabase `vshnatkzxdekkvqttvbv`, realizou backup
+lógico criptografado de `UserInvite`, validou sua decifragem em memória e aplicou
+somente `20260913110000_professional_invite_profile_fields`: duas colunas `text`
+anuláveis, sem backfill ou remoção. Os dados anteriores foram comparados dentro
+da transação; RLS/FORCE RLS e a role `app_runtime` permanecem protegidos.
+
+A aplicação #108 ainda depende da conclusão dos checks finais e do merge para
+Production. Evidências e rollback em `FASE_NAVEGACAO_EQUIPE_DESKTOP.md`; o resultado
+final da publicação será registrado no PR #108. Não confundir aplicação do schema
+com publicação do código. Nenhuma compra ou teste de escrita em produção.
+
 ## 2026-09-13 — visitas com vários profissionais em validação
 
 Branch `codex/multi-professional-visits`, base `ae4f1ff`: cliente e equipe montam
