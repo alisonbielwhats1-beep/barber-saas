@@ -1,5 +1,20 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-13 — visitas com vários profissionais em validação
+
+Branch `codex/multi-professional-visits`, base `ae4f1ff`: cliente e equipe montam
+uma visita com serviços/profissionais diferentes e confirmação transacional única.
+Profissionais podem criar/editar atendimentos próprios em folgas, intervalos e fora
+do expediente, com motivo; proposta ao cliente conserva essa autorização. Grade
+passa a exibir bloqueios após o fechamento e oferece visualização do dia inteiro.
+Simultaneidade pública depende de combinações habilitadas pela gestão.
+Sem migration ou alteração produtiva. Escopo, persistência, limites e evidências
+em `VISITAS_MULTIPROFISSIONAIS_2026-09-13.md`.
+
+O PR #105 já integra `origin/master` em `ae4f1ff`; as seções abaixo registram a
+situação anterior à integração. Esta entrega não verifica nem modifica a implantação
+produtiva das trocas de planos.
+
 ## 2026-09-13 — revisão do cancelamento incorporada ao PR #105
 
 Solicitação posterior valida cancelamento livre, fim da recorrência no provedor

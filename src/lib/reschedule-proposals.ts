@@ -158,6 +158,8 @@ export async function requestStaffReschedule(
     expectedVersion?: number;
     permittedProfessionalId?: string;
     reason?: string | null;
+    canOverrideSchedule?: boolean;
+    scheduleOverrideReason?: string | null;
     canFinishAfterHours?: boolean;
     afterHoursReason?: string | null;
     canOverbook?: boolean;
@@ -213,6 +215,7 @@ export async function requestStaffReschedule(
   );
   const currentIds = appointment.serviceItems.length ? appointment.serviceItems.map(item => item.serviceId) : [appointment.service.id];
   const sameServices = currentIds.length === input.serviceIds.length && currentIds.every((id, index) => id === input.serviceIds[index]);
+  const scheduleOverrideReason = input.actor.type === "STAFF" && input.canOverrideSchedule && (input.scheduleOverrideReason?.trim().length ?? 0) >= 3 ? input.scheduleOverrideReason!.trim() : null;
   const afterHoursReason = input.canFinishAfterHours && (input.afterHoursReason?.trim().length ?? 0) >= 3 ? input.afterHoursReason!.trim() : null;
   const overbookReason = input.actor.type === "STAFF" && input.canOverbook && (input.overbookReason?.trim().length ?? 0) >= 3 ? input.overbookReason!.trim() : null;
   if (!hasClientAccount || (isSameSlot && sameServices)) {
@@ -228,6 +231,8 @@ export async function requestStaffReschedule(
       expectedVersion: input.expectedVersion,
       permittedProfessionalId: input.permittedProfessionalId,
       enforceClientPolicy: false,
+      canOverrideSchedule: Boolean(scheduleOverrideReason),
+      scheduleOverrideReason,
       canFinishAfterHours: Boolean(afterHoursReason),
       afterHoursReason,
       canOverride: Boolean(overbookReason),
@@ -243,6 +248,7 @@ export async function requestStaffReschedule(
     startLocal: input.startLocal,
     notes: input.notes ?? null,
     reason: input.reason?.trim() ?? null,
+    ...(scheduleOverrideReason ? { scheduleOverrideReason } : {}),
     ...(afterHoursReason ? { afterHoursReason } : {}),
     ...(overbookReason ? { overbookReason } : {}),
     expectedVersion: input.expectedVersion ?? null,
@@ -284,13 +290,13 @@ export async function requestStaffReschedule(
         salonId: input.salonId, professionalId: input.professionalId,
         currentProfessionalId: appointment.professionalId, serviceSnapshots: historicalServices,
         startLocal: input.startLocal, excludeAppointmentId: appointment.id,
-        enforceBookingWindow: false, skipAfterHours: Boolean(afterHoursReason),
+        enforceBookingWindow: false, skipAfterHours: Boolean(afterHoursReason), skipSchedule: Boolean(scheduleOverrideReason),
       })
     : await inspectAppointmentAvailability(tx, {
         salonId: input.salonId, professionalId: input.professionalId,
         serviceIds: input.serviceIds, startLocal: input.startLocal,
         excludeAppointmentId: appointment.id, enforceBookingWindow: false,
-        skipAfterHours: Boolean(afterHoursReason),
+        skipAfterHours: Boolean(afterHoursReason), skipSchedule: Boolean(scheduleOverrideReason),
       });
   if (inspected.violation && !(inspected.violation === "SLOT_TAKEN" && overbookReason)) throw new AppointmentError(inspected.violation);
 
@@ -515,10 +521,12 @@ export async function respondToRescheduleProposal(
   }
 
   // Read only the server-persisted authorization, never the client's response payload.
+  let scheduleOverrideReason: string | null = null;
   let afterHoursReason: string | undefined;
   let overbookReason: string | undefined;
   try {
     const request = JSON.parse(proposal.requestFingerprint ?? "{}");
+    if (proposal.requestedById && typeof request.scheduleOverrideReason === "string" && request.scheduleOverrideReason.trim().length >= 3 && request.scheduleOverrideReason.trim().length <= 200) scheduleOverrideReason = request.scheduleOverrideReason.trim();
     if (proposal.requestedById && typeof request.overbookReason === "string" && request.overbookReason.trim().length >= 3 && request.overbookReason.trim().length <= 200) overbookReason = request.overbookReason.trim();
     if (proposal.requestedById && typeof request.afterHoursReason === "string" && request.afterHoursReason.trim().length >= 3) afterHoursReason = request.afterHoursReason.trim();
   } catch { /* Legacy proposals have no after-hours authorization. */ }
@@ -536,6 +544,8 @@ export async function respondToRescheduleProposal(
     notes: proposal.targetNotes,
     serviceSnapshotsOverride: snapshots,
     proposalId: proposal.id,
+    canOverrideSchedule: Boolean(scheduleOverrideReason),
+    scheduleOverrideReason,
     canFinishAfterHours: Boolean(afterHoursReason),
     afterHoursReason,
     canOverride: Boolean(overbookReason),

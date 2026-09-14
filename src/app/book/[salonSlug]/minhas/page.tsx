@@ -1,3 +1,4 @@
+import { visitGroupsForAppointments } from "@/lib/visit-scheduling";
 import { WaitlistOffers } from "../waitlist-offers";
 import { priceSnapshot } from "@/lib/service-price";
 import { redirect } from "next/navigation";
@@ -206,6 +207,7 @@ export default async function MinhasPage({
       salon,
       session: effectiveSession,
       appointments,
+      visitGroups: await visitGroupsForAppointments(tx, salonId, appointments.map(a => a.id)),
       pendingProposals,
       waitlistEntries: waitlistEntries.map((entry) => ({
         ...entry,
@@ -219,6 +221,7 @@ export default async function MinhasPage({
   // Serialize Date objects — can't pass them directly to client components
   const serialized = appointments.map((a) => ({
     ...a,
+    visitId: result.visitGroups[a.id] ?? null,
     startAt: a.startAt.toISOString(),
     endAt: a.endAt.toISOString(),
     status: a.status as string,

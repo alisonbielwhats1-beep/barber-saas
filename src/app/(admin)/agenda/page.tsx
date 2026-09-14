@@ -281,10 +281,11 @@ export default async function AgendaPage({
         services={services as ServiceOption[]}
         clients={clients as ClientOption[]}
         canOverbook={role === "OWNER" || role === "MANAGER"}
-        canOverrideBreak={role === "OWNER" || role === "PROFESSIONAL"}
+        canOverrideBreak={role === "OWNER" || role === "MANAGER" || role === "PROFESSIONAL"}
         canRepeat={role !== "PROFESSIONAL"}
         canCreate
         canCancel={role === "OWNER" || role === "MANAGER"}
+        canManageAvailability={role === "OWNER" || role === "MANAGER" || role === "PROFESSIONAL"}
       />
 
     </>

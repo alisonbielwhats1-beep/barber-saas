@@ -36,6 +36,7 @@ export async function saveBookingPreferences(raw: BookingPreferences) {
         ...Object.keys(data.addons),
         ...Object.values(data.addons).flat(),
         ...Object.keys(data.serviceReturnDays),
+        ...data.simultaneousPairs.flat(),
       ]),
     ];
     const count = await tx.service.count({

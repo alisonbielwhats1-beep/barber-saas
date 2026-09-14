@@ -19,10 +19,11 @@ export type BlockSelection = { professionalId: string; startLocal: string; endLo
 
 export type AvailabilityPreset = "interval" | "day";
 
-export function AvailabilityPanel({ date, timezone, professionals, blocks, selection, initialPreset, dialogOnly = false, restoreFocus }: {
+export function AvailabilityPanel({ date, timezone, professionals, blocks, selection, initialPreset, dialogOnly = false, restoreFocus, canCancelAppointments = true }: {
   date: string; timezone: string; professionals: { id: string; name: string }[]; blocks: AvailabilityBlock[];
   selection?: BlockSelection;
   initialPreset?: AvailabilityPreset;
+  canCancelAppointments?: boolean;
   dialogOnly?: boolean;
   restoreFocus?: () => void;
 }) {
@@ -86,7 +87,7 @@ export function AvailabilityPanel({ date, timezone, professionals, blocks, selec
     <Dialog open={open} onOpenChange={value => { if (!pending) setOpen(value); }}><DialogContent onCloseAutoFocus={restoreFocus ? event => { event.preventDefault(); restoreFocus(); } : undefined} className="max-h-[85dvh] overflow-y-auto"><DialogHeader><DialogTitle>{activePreset === "day" ? "Adicionar folga" : "Bloquear disponibilidade"}</DialogTitle></DialogHeader>
       {affected !== null ? <div className="space-y-3"><p role="status">Disponibilidade bloqueada. {affected.length} reserva(s) continuam ativas.</p>
         {affected.length > 0 && <><p className="text-sm text-muted-foreground">Abra cada reserva na agenda para propor outro horário ou cancelar com motivo.</p><ul className="space-y-2">{affected.map(a => <li key={a.id}><a className="inline-flex min-h-11 items-center underline" href={`/agenda?date=${formatInTimeZone(new Date(a.startAt), timezone, "yyyy-MM-dd")}&appointment=${a.id}`}>{a.name} · {formatInTimeZone(new Date(a.startAt), timezone, "dd/MM HH:mm")}</a></li>)}</ul></>}
-        {affected.length > 0 && <fieldset disabled={pending} className="space-y-2"><legend className="text-sm font-medium">Cancelar reservas selecionadas</legend>
+        {canCancelAppointments && affected.length > 0 && <fieldset disabled={pending} className="space-y-2"><legend className="text-sm font-medium">Cancelar reservas selecionadas</legend>
           {affected.map(a => <label key={a.id} className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" disabled={cancelResults.some(r => r.id === a.id && r.success)} checked={toCancel.includes(a.id)} onChange={e => setToCancel(e.target.checked ? [...toCancel, a.id] : toCancel.filter(id => id !== a.id))} />{a.name} · {formatInTimeZone(new Date(a.startAt), timezone, "dd/MM HH:mm")}</label>)}
           <p className="text-xs text-muted-foreground">Motivo: {cancelReason}. O histórico será preservado e a fila não será promovida automaticamente.</p>
           <label className="block text-sm">Motivo do cancelamento<input minLength={3} maxLength={200} value={cancelReason} onChange={e => setCancelReason(e.target.value)} className={field} /></label>

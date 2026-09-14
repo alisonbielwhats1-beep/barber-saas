@@ -1,4 +1,5 @@
 "use client";
+import { StaffVisitDialog } from "./visit-form";
 import { ServiceRepeater } from "@/components/service-repeater";
 
 import { useEffect, useRef, useState } from "react";
@@ -57,6 +58,7 @@ export function AppointmentDialog({
   canRepeat: boolean;
   timezone: string;
 }) {
+  const [visitMode, setVisitMode] = useState(false);
   const [pending, setPending] = useState(false);
   const submitting = useRef(false);
   const [error, setError] = useState<string | null>(null);
@@ -97,13 +99,13 @@ export function AppointmentDialog({
   const [frequency, setFrequency] = useState<"WEEKLY" | "BIWEEKLY">("WEEKLY");
   const [occurrences, setOccurrences] = useState(4);
   const [overrideConflict, setOverrideConflict] = useState<
-    "AFTER_WORKING_HOURS" | "SLOT_TAKEN" | "WORKING_HOURS_BREAK" | "PROFESSIONAL_UNAVAILABLE" | null
+    "OUTSIDE_WORKING_HOURS" | "AFTER_WORKING_HOURS" | "SLOT_TAKEN" | "WORKING_HOURS_BREAK" | "PROFESSIONAL_UNAVAILABLE" | null
   >(null);
   const [overrideReason, setOverrideReason] = useState("");
   const [seriesResult, setSeriesResult] = useState<{ created: number; skipped: number } | null>(null);
   const [lastFormData, setLastFormData] = useState<FormData | null>(null);
   const idempotencyKeyRef = useRef<string | null>(null);
-  const confirmedExceptions = useRef<{ afterHoursReason?: string; break?: boolean; breakReason?: string; blockReason?: string; overbookReason?: string }>({});
+  const confirmedExceptions = useRef<{ scheduleReason?: string; afterHoursReason?: string; break?: boolean; breakReason?: string; blockReason?: string; overbookReason?: string }>({});
 
   const proNow = professionals.find((p) => p.id === selectedProId);
   const availableServices = services.filter((s) =>
@@ -184,6 +186,7 @@ export function AppointmentDialog({
           };
     return {
       ...base,
+      ...(confirmedExceptions.current.scheduleReason ? { scheduleOverrideReason: confirmedExceptions.current.scheduleReason } : {}),
       ...(confirmedExceptions.current.afterHoursReason ? { afterHoursReason: confirmedExceptions.current.afterHoursReason } : {}),
       ...(confirmedExceptions.current.overbookReason ? { overbookReason: confirmedExceptions.current.overbookReason } : {}),
       ...(confirmedExceptions.current.blockReason ? { timeOffOverrideReason: confirmedExceptions.current.blockReason } : {}),
@@ -225,12 +228,12 @@ export function AppointmentDialog({
       const result = await createAppointmentManually(payload);
       if ("error" in result) {
         if (
-          (result.code === "AFTER_WORKING_HOURS" && canOverbook) ||
+          (["OUTSIDE_WORKING_HOURS", "AFTER_WORKING_HOURS", "PROFESSIONAL_UNAVAILABLE"].includes(result.code ?? "") && (canOverbook || canOverrideBreak)) ||
           (result.code === "SLOT_TAKEN" && canOverbook) ||
           (result.code === "PROFESSIONAL_UNAVAILABLE" && canOverbook) ||
           (result.code === "WORKING_HOURS_BREAK" && canOverrideBreak)
         ) {
-          setOverrideConflict(result.code);
+          setOverrideConflict(result.code as Exclude<typeof overrideConflict, null>);
         } else {
           setError(result.error);
         }
@@ -247,17 +250,17 @@ export function AppointmentDialog({
     setError(null);
     if (overrideConflict === "WORKING_HOURS_BREAK") { confirmedExceptions.current.break = true; confirmedExceptions.current.breakReason = reason || undefined; }
     if (overrideConflict === "PROFESSIONAL_UNAVAILABLE") confirmedExceptions.current.blockReason = reason;
-    if (overrideConflict === "AFTER_WORKING_HOURS") confirmedExceptions.current.afterHoursReason = reason;
+    if (["OUTSIDE_WORKING_HOURS", "AFTER_WORKING_HOURS", "PROFESSIONAL_UNAVAILABLE"].includes(overrideConflict ?? "")) confirmedExceptions.current.scheduleReason = reason;
     if (overrideConflict === "SLOT_TAKEN") confirmedExceptions.current.overbookReason = reason;
     const payload = buildPayload(lastFormData);
     runMutation(async () => {
       const result = await createAppointmentManually(payload);
       if ("error" in result) {
-        if ((result.code === "AFTER_WORKING_HOURS" && canOverbook) ||
+        if ((["OUTSIDE_WORKING_HOURS", "AFTER_WORKING_HOURS", "PROFESSIONAL_UNAVAILABLE"].includes(result.code ?? "") && (canOverbook || canOverrideBreak)) ||
           (result.code === "SLOT_TAKEN" && canOverbook) ||
           (result.code === "PROFESSIONAL_UNAVAILABLE" && canOverbook) ||
           (result.code === "WORKING_HOURS_BREAK" && canOverrideBreak)) {
-          setOverrideConflict(result.code);
+          setOverrideConflict(result.code as Exclude<typeof overrideConflict, null>);
           setOverrideReason("");
         } else setError(result.error);
       } else {
@@ -267,6 +270,8 @@ export function AppointmentDialog({
   }
 
   const startLabel = `${date.slice(8, 10)}/${date.slice(5, 7)}/${date.slice(0, 4)} às ${time}`;
+
+  if (visitMode) return <StaffVisitDialog open={open} onOpenChange={onOpenChange} onBack={() => setVisitMode(false)} professionals={professionals} services={services} clients={clients} slotStartLocal={slotStartLocal} canOverride={canOverbook || canOverrideBreak} />;
 
   if (seriesResult) {
     return (
@@ -297,6 +302,7 @@ export function AppointmentDialog({
           <DialogDescription>Escolha cliente, serviços, data e hora do atendimento.</DialogDescription>
         </DialogHeader>
 
+        <Button type="button" variant="outline" onClick={() => setVisitMode(true)}>Adicionar serviços com profissionais diferentes</Button>
         <form
           onSubmit={onSubmit}
           onChange={resetAttempt}
@@ -507,14 +513,14 @@ export function AppointmentDialog({
             <div className="rounded-md border border-danger/40 bg-danger/5 p-3">
               <p className="flex items-center gap-1.5 text-sm font-medium text-danger">
                 <AlertTriangle className="h-4 w-4" />
-                {overrideConflict === "AFTER_WORKING_HOURS" ? "Término após o expediente"
+                {["OUTSIDE_WORKING_HOURS", "AFTER_WORKING_HOURS"].includes(overrideConflict ?? "") ? "Fora do expediente / folga"
                   : overrideConflict === "WORKING_HOURS_BREAK"
                   ? "Pausa do profissional"
                   : overrideConflict === "PROFESSIONAL_UNAVAILABLE" ? "Horário bloqueado"
                   : "Horário já ocupado"}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {overrideConflict === "AFTER_WORKING_HOURS" ? "Confirme este atendimento terminando após o expediente. O horário de fechamento e a disponibilidade pública serão mantidos. Informe o motivo."
+                {["OUTSIDE_WORKING_HOURS", "AFTER_WORKING_HOURS"].includes(overrideConflict ?? "") ? "Este horário está fora da jornada. Confirme a exceção para este atendimento e informe o motivo."
                   : overrideConflict === "WORKING_HOURS_BREAK"
                   ? "Você pode criar este encaixe manual durante a pausa. Confirme abaixo; o motivo é opcional."
                   : overrideConflict === "PROFESSIONAL_UNAVAILABLE" ? "Você pode agendar neste bloqueio. O bloqueio será mantido para os clientes e a exceção ficará registrada. Informe o motivo."
@@ -545,7 +551,7 @@ export function AppointmentDialog({
                 onClick={onOverrideConfirm}
                 className="mt-2 border-danger/40 text-danger hover:bg-danger/10"
               >
-                {overrideConflict === "AFTER_WORKING_HOURS" ? "Agendar com término após o expediente"
+                {["OUTSIDE_WORKING_HOURS", "AFTER_WORKING_HOURS"].includes(overrideConflict ?? "") ? "Agendar fora do expediente"
                   : overrideConflict === "WORKING_HOURS_BREAK"
                   ? "Agendar durante a pausa"
                   : overrideConflict === "PROFESSIONAL_UNAVAILABLE" ? "Agendar mantendo o bloqueio"

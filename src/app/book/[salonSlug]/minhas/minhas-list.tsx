@@ -27,6 +27,7 @@ import { SalonLocationLink } from "../salon-location-link";
 import type { ClientSession } from "@/lib/client-auth";
 
 type Appt = {
+  visitId?: string | null;
   dependentName?: string | null;
   id: string;
   startAt: string;
@@ -137,7 +138,8 @@ export function MinhasList({
     (appointment) =>
       !activeStatuses.has(appointment.status) || isPast(new Date(appointment.endAt)),
   );
-  const [nextAppointment, ...laterAppointments] = upcoming;
+  const visitGroups = [...new Set(upcoming.flatMap(a => a.visitId ? [a.visitId] : []))].map(id => ({ id, appointments: upcoming.filter(a => a.visitId === id) }));
+  const [nextAppointment, ...laterAppointments] = upcoming.filter(a => !a.visitId);
   const reviewAppointment = past.find(appointment => appointment.status === "COMPLETED" && !appointment.review);
 
   function respondToProposal(proposalId: string, decision: "ACCEPT" | "REJECT") {
@@ -423,6 +425,7 @@ export function MinhasList({
           aria-labelledby="appointments-upcoming-tab"
           className="space-y-6"
         >
+          {visitGroups.map(group => <section key={group.id} aria-label="Minha visita" className="space-y-3 rounded-2xl border border-primary/30 bg-primary/5 p-4"><h2 className="font-semibold">Minha visita · {formatInTimeZone(new Date(group.appointments[0]!.startAt), timezone, "dd/MM")}</h2><p className="text-sm text-muted-foreground">{group.appointments.length} atendimento(s) · {formatMoney(group.appointments.reduce((sum, a) => sum + a.priceCents, 0), currency)}</p>{group.appointments.map(a => <ApptCard key={a.id} a={a} currency={currency} timezone={timezone} salonName={salonName} salonAddress={salonAddress} actions={appointmentActions(a)} />)}</section>)}
           {nextAppointment ? (
             <section aria-labelledby="next-appointment-title">
               <div className="mb-3">
@@ -439,7 +442,7 @@ export function MinhasList({
                 actions={appointmentActions(nextAppointment)}
               />
             </section>
-          ) : (
+          ) : visitGroups.length ? null : (
             <section className="rounded-2xl border border-border bg-card p-5 text-center" aria-labelledby="no-upcoming-title">
               <CalendarDays aria-hidden="true" className="mx-auto h-6 w-6 text-muted-foreground" />
               <h2 id="no-upcoming-title" className="mt-3 font-semibold">Nenhum atendimento agendado</h2>

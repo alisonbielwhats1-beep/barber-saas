@@ -1,5 +1,25 @@
 # Decisões de produto para as próximas fases
 
+## Visitas e autonomia — decisão de 13/09/2026
+
+- Cliente e equipe podem reservar vários serviços com profissionais diferentes
+  em uma jornada e uma confirmação; a visita inteira deve ser gravada ou recusada.
+- Até dez serviços, com seleção de profissional por item. O padrão é sequência;
+  simultaneidade pública depende de combinações habilitadas pelo salão e de
+  profissionais diferentes. A equipe pode definir horários próprios por item.
+- Profissional tem autonomia para criar/editar os próprios atendimentos em folga,
+  intervalo, bloqueio pessoal e fora do expediente, com confirmação e motivo.
+  Dono/gerente também. Recepção mantém a jornada normal. Isso amplia a exceção
+  anterior de apenas terminar após o expediente; não concede acesso à agenda de
+  outro profissional nem autorização de sobreposição ao profissional.
+- Profissional pode registrar, editar e reabrir suas próprias folgas/bloqueios,
+  inclusive recorrentes. Reservas existentes permanecem; bloquear não cancela.
+- Fechamento geral do salão permanece bloqueado. Aceite do cliente e histórico
+  de alterações permanecem no fluxo existente. Bloqueios após expediente devem
+  aparecer na grade, com opção de visualizar o dia inteiro.
+- Cadastro público no salão já deve aparecer ao dono antes da primeira reserva,
+  mantendo as regras existentes de clientes ocultados/unificados.
+
 ## 13/09/2026 — cancelamento livre da renovação
 
 O proprietário pode cancelar pelo aplicativo, sem motivo obrigatório, suporte

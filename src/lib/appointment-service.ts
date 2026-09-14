@@ -104,6 +104,8 @@ export type CreateAppointmentInput = AppointmentIdentity & {
   canOverrideTimeOff?: boolean;
   timeOffOverrideReason?: string | null;
   workingHoursBreakReason?: string | null;
+  canOverrideSchedule?: boolean;
+  scheduleOverrideReason?: string | null;
   canFinishAfterHours?: boolean;
   afterHoursReason?: string | null;
   seriesId?: string | null;
@@ -126,6 +128,8 @@ export type AppointmentMutationResult = {
 };
 
 export type RescheduleAppointmentInput = {
+  canOverrideSchedule?: boolean;
+  scheduleOverrideReason?: string | null;
   canFinishAfterHours?: boolean;
   afterHoursReason?: string | null;
   salonId: string;
@@ -364,6 +368,7 @@ async function availabilityViolation(
     enforceBookingWindow: boolean;
     skipTimeOff?: boolean;
     skipWorkingHoursBreak?: boolean;
+    skipSchedule?: boolean;
     skipAfterHours?: boolean;
     now?: Date;
   },
@@ -411,7 +416,7 @@ async function availabilityViolation(
     if (finishesAfterHours) {
       workingHoursViolation = "AFTER_WORKING_HOURS";
     } else {
-      if (!insideDailyEnvelope) return "OUTSIDE_WORKING_HOURS";
+      if (!insideDailyEnvelope && !input.skipSchedule) return "OUTSIDE_WORKING_HOURS";
       workingHoursViolation = "WORKING_HOURS_BREAK";
     }
   }
@@ -434,9 +439,9 @@ async function availabilityViolation(
     },
     select: { id: true },
   });
-  if (timeOff && !input.skipTimeOff) return "PROFESSIONAL_UNAVAILABLE";
-  if (workingHoursViolation === "WORKING_HOURS_BREAK" && !input.skipWorkingHoursBreak) return workingHoursViolation;
-  if (workingHoursViolation === "AFTER_WORKING_HOURS" && !input.skipAfterHours) return workingHoursViolation;
+  if (timeOff && !input.skipTimeOff && !input.skipSchedule) return "PROFESSIONAL_UNAVAILABLE";
+  if (workingHoursViolation === "WORKING_HOURS_BREAK" && !input.skipWorkingHoursBreak && !input.skipSchedule) return workingHoursViolation;
+  if (workingHoursViolation === "AFTER_WORKING_HOURS" && !input.skipAfterHours && !input.skipSchedule) return workingHoursViolation;
 
   const buffered = bufferedWindow(
     input.startAt,
@@ -470,6 +475,7 @@ export async function inspectAppointmentAvailability(
     enforceBookingWindow: boolean;
     skipTimeOff?: boolean;
     skipWorkingHoursBreak?: boolean;
+    skipSchedule?: boolean;
     skipAfterHours?: boolean;
     now?: Date;
   },
@@ -505,6 +511,7 @@ export async function inspectAppointmentAvailabilityWithServiceSnapshots(
     professionalId: string;
     currentProfessionalId: string;
     serviceSnapshots: ServiceSnapshot[];
+    skipSchedule?: boolean;
     skipAfterHours?: boolean;
     startLocal: string;
     excludeAppointmentId?: string;
@@ -527,6 +534,7 @@ export async function inspectAppointmentAvailabilityWithServiceSnapshots(
     now: input.now,
     applyPricing: false,
     skipAfterHours: input.skipAfterHours,
+    skipSchedule: input.skipSchedule,
   }, input.serviceSnapshots);
 }
 
@@ -540,6 +548,7 @@ async function inspectAvailabilityUsingServices(
     enforceBookingWindow: boolean;
     skipTimeOff?: boolean;
     skipWorkingHoursBreak?: boolean;
+    skipSchedule?: boolean;
     skipAfterHours?: boolean;
     now?: Date;
     applyPricing?: boolean;
@@ -696,6 +705,7 @@ export async function createAppointment(
     origin: input.origin,
     notes: input.notes ?? null,
     overrideReason: input.overrideReason?.trim() ?? null,
+    ...(input.scheduleOverrideReason ? { scheduleOverrideReason: input.scheduleOverrideReason.trim() } : {}),
     ...(input.afterHoursReason ? { afterHoursReason: input.afterHoursReason.trim() } : {}),
     ...(input.timeOffOverrideReason ? { timeOffOverrideReason: input.timeOffOverrideReason.trim() } : {}),
     ...(input.workingHoursBreakReason ? { workingHoursBreakReason: input.workingHoursBreakReason.trim() } : {}),
@@ -749,6 +759,7 @@ export async function createAppointment(
     startLocal: input.startLocal,
     enforceBookingWindow: input.enforceBookingWindow,
     now: input.now,
+    skipSchedule: input.origin === "ADMIN" && input.actor.type === "STAFF" && input.canOverrideSchedule === true && (input.scheduleOverrideReason?.trim().length ?? 0) >= 3,
     skipAfterHours: input.origin === "ADMIN" && input.actor.type === "STAFF" && input.canFinishAfterHours === true && (input.afterHoursReason?.trim().length ?? 0) >= 3,
   };
   let inspected = await inspectAppointmentAvailability(tx, { ...inspectionInput, skipAfterHours: false });
@@ -784,7 +795,7 @@ export async function createAppointment(
     overrideReason: input.overrideReason,
     overrideConfirmed: input.overrideConfirmed,
   });
-  const recordedReason = input.afterHoursReason?.trim() ?? override.reason ?? input.timeOffOverrideReason?.trim() ?? input.workingHoursBreakReason?.trim() ?? input.overrideReason?.trim() ?? null;
+  const recordedReason = input.scheduleOverrideReason?.trim() ?? input.afterHoursReason?.trim() ?? override.reason ?? input.timeOffOverrideReason?.trim() ?? input.workingHoursBreakReason?.trim() ?? input.overrideReason?.trim() ?? null;
 
   let clientId = input.clientId;
   if (!clientId) {
@@ -860,6 +871,11 @@ export async function createAppointment(
     })),
   });
 
+  if (inspectionInput.skipSchedule) await writeAuditLog(tx, {
+    salonId: input.salonId, userId: input.actor.id ?? null, actorName: input.actor.name,
+    action: "APPOINTMENT_SCHEDULE_OVERRIDE_CREATE", entityType: "Appointment", entityId: appointment.id,
+    reason: input.scheduleOverrideReason, metadata: { professionalId: input.professionalId, startLocal: input.startLocal },
+  });
   const correlationId = randomUUID();
   const recipients = await recipientsForEvent(tx, {
     salonId: input.salonId,
@@ -1079,6 +1095,7 @@ export async function rescheduleAppointment(
     startLocal: input.startLocal,
     notes: input.notes ?? null,
     overrideReason: input.overrideReason?.trim() ?? null,
+    ...(input.scheduleOverrideReason ? { scheduleOverrideReason: input.scheduleOverrideReason.trim() } : {}),
     ...(input.afterHoursReason ? { afterHoursReason: input.afterHoursReason.trim() } : {}),
     actor: { type: input.actor.type, id: input.actor.id ?? null },
     expectedVersion: input.expectedVersion ?? null,
@@ -1179,6 +1196,7 @@ export async function rescheduleAppointment(
     enforceBookingWindow: input.enforceClientPolicy,
     now: input.now,
     applyPricing,
+    skipSchedule: !input.enforceClientPolicy && (input.actor.type === "STAFF" || Boolean(input.proposalId)) && input.canOverrideSchedule === true && (input.scheduleOverrideReason?.trim().length ?? 0) >= 3,
   };
   let inspected = await inspectAvailabilityUsingServices(tx, inspectionInput, schedulingSnapshots);
   const afterHoursOverridden = inspected.violation === "AFTER_WORKING_HOURS" &&
@@ -1292,7 +1310,7 @@ export async function rescheduleAppointment(
     correlationId: randomUUID(),
     idempotencyKey: eventKey,
     requestFingerprint: fingerprint,
-    reason: [input.afterHoursReason?.trim(), override.reason].filter(Boolean).join(". ") || null,
+    reason: [input.scheduleOverrideReason?.trim(), input.afterHoursReason?.trim(), override.reason].filter(Boolean).join(". ") || null,
     previousValue,
     newValue: payload,
     recipients,
