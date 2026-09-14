@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { PrismaClient } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import { assertSafeDatabaseOperation } from "../database-safety";
+import { dateKeyInTimeZone } from '../time';
 import { effectiveEntitlement } from "./entitlements";
 import { accessState, periodEnd, quoteContract } from "./catalog";
 import { canPromoteBillingWaitlist } from "./entitlements";
@@ -188,7 +189,8 @@ pg("automatic billing with PostgreSQL and runtime FORCE RLS", () => {
   it("refuses manual confirmation of a Mercado Pago receipt in HQ", async () => {
     const payment = await admin.hqPayments.findFirstOrThrow({ where: { billingCharge: { subscriptionId } } });
     const { execute } = await import("../hq/services");
-    await expect(admin.$transaction(tx => execute(tx, ownerId, { type: "pay", id: payment.id, paidDate: now.toISOString().slice(0, 10), method: "manual" }))).rejects.toThrow("Mercado Pago");
+    // HQ validates the business date in São Paulo. UTC may already be tomorrow.
+    await expect(admin.$transaction(tx => execute(tx, ownerId, { type: "pay", id: payment.id, paidDate: dateKeyInTimeZone(now, 'America/Sao_Paulo'), method: "manual" }))).rejects.toThrow("Mercado Pago");
   });
   it("allows customer follow-up edits with omitted financial fields and ignores forged financial values", async () => {
     const account = await admin.hqAccounts.findUniqueOrThrow({ where: { billingSalonId: salonId } });

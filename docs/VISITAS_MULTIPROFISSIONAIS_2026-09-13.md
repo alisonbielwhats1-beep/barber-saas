@@ -100,6 +100,13 @@ Capturas em `test-results` são publicadas como evidência pelo CI. Inspeção v
 local confirmou resumo público, revisão do painel em 320 pixels e bloqueio 21–23h
 na grade móvel. CI/Preview do PR ainda precisam concluir antes de publicação.
 
+O CI `34795351030` aprovou lint, tipos, testes unitários, build e Preview, mas
+identificou uma fixture antiga de billing que usava o dia UTC como data de
+pagamento. Entre 21h e 24h em São Paulo, a data era futura e impedia testar a
+recusa de confirmação manual do Mercado Pago. A fixture passa a usar o fuso
+do HQ; nenhuma regra financeira mudou. Os 62 testes PostgreSQL de billing
+passaram localmente após essa correção.
+
 A revisão está no [PR #109](https://github.com/alisonbielwhats1-beep/barber-saas/pull/109).
 A autorização de implementação não promove automaticamente a produção. A
 publicação segue revisão, CI/Preview e aprovação do responsável.
