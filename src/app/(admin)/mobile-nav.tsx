@@ -101,7 +101,9 @@ export function MobileNav({
     <>
       {/* Painel "Mais" — todos os módulos agrupados */}
       <Dialog open={open} onOpenChange={setMobileOpen}>
-        <DialogContent
+        {/* Unmount immediately: resizing to lg during an exit animation must not
+            leave Radix's aria-hidden/focus lock attached to the page. */}
+        {open && <DialogContent
           className="inset-0 z-[60] flex h-dvh max-h-none w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 bg-background p-0 pr-0 lg:hidden"
           onCloseAutoFocus={(event) => {
             if (!paletteRequestPendingRef.current) return;
@@ -193,7 +195,7 @@ export function MobileNav({
               </Link>
             )}
           </div>
-        </DialogContent>
+        </DialogContent>}
 
       {/* Barra inferior */}
       <nav style={{ paddingLeft: "var(--safe-left)", paddingRight: "var(--safe-right)" }} className="fixed inset-x-0 bottom-0 z-50 flex border-t border-border bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden print:hidden">
