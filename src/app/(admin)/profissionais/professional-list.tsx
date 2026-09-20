@@ -15,7 +15,7 @@ export function ProfessionalList({ entries, additionalTools }: { entries: Entry[
   const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const shown = entries.filter(entry => normalize(entry.name).includes(normalize(search.trim())));
   return <div className="min-w-0 space-y-3">
-    <div className="admin-catalog-tools"><MobileListTools label="Buscar e filtrar profissionais">    <label className="flex min-h-12 items-center gap-2 rounded-xl border border-border bg-card px-3 focus-within:ring-2 focus-within:ring-ring md:max-w-sm"><Search aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" /><input aria-label="Buscar profissional" placeholder="Buscar profissional…" value={search} onChange={e => setSearch(e.target.value)} className="min-w-0 flex-1 bg-transparent text-sm outline-none" /></label>{additionalTools}</MobileListTools></div>
+    <div className="admin-catalog-tools"><label className="flex min-h-12 items-center gap-2 rounded-xl border border-border bg-card px-3 focus-within:ring-2 focus-within:ring-ring w-full md:max-w-sm"><Search aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" /><input aria-label="Buscar profissional" placeholder="Buscar profissional…" value={search} onChange={e => setSearch(e.target.value)} className="min-w-0 flex-1 bg-transparent text-sm outline-none" /></label>{additionalTools && <MobileListTools label="Indicadores da equipe">{additionalTools}</MobileListTools>}</div>
     <p role="status" className="sr-only">{shown.length} de {entries.length} profissionais</p>
     <div aria-label="Lista de profissionais" className="overflow-hidden">{shown.map(entry => {
       const color = entry.colorHex ?? "#2ECC8B";

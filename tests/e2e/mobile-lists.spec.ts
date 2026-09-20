@@ -82,9 +82,8 @@ test.describe("@database listas mobile compactas", () => {
             await profile.getByRole("tab", { name: "Resumo", exact: true }).click();
             await expect(profile.getByText("Ticket médio")).toBeVisible();
             await profile.getByRole("button", { name: "Fechar janela", exact: true }).click();
-            await page.getByRole("button", {name:"Buscar e filtrar profissionais"}).click();
+            await expect(page.getByLabel("Buscar profissional")).toBeVisible();
             await page.getByLabel("Buscar profissional").fill("inexistente");
-            await page.getByRole("button", {name:"Aplicar filtros",exact:true}).click();
             await expect(page.getByText("Nenhum profissional encontrado.")).toBeVisible();
           }
           if (route === "avaliacoes") {

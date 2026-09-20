@@ -107,7 +107,7 @@ Clientes remove o contêiner de card da lista. Segmentos VIP/aniversariantes/
 sumidos/recorrentes e indicadores/retornos ficam em Filtros, com seleção ativa
 visível ao retornar. Excluídos não são renomeados como inativos. Produtos mostra
 categorias reais; reposição/falta ficam no painel de filtros. Serviços e equipe
-usam linhas sem moldura externa. Equipe mantém busca e indicadores no painel.
+usam linhas sem moldura externa. Equipe mantém busca visível abaixo do título; indicadores continuam no painel.
 
 Financeiro prioriza Recebido/A receber, gráfico e distribuição dos pagamentos.
 Operações de recebimento, despesas e composição permanecem no detalhamento.
