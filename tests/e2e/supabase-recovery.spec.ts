@@ -4,12 +4,12 @@ import { PrismaClient } from "@prisma/client";
 
 test.describe("Supabase Auth + local SMTP recovery", () => {
   test.skip(process.env.RUN_SUPABASE_E2E !== "1", "Requires isolated Supabase CLI and Mailpit");
-  test.describe.configure({ mode: "serial" });
+  test.describe.configure({ mode: "serial", timeout: 90_000 });
   const db = new PrismaClient();
   const password = "InicialSegura123";
   let salonId: string;
   let ownerId: string;
-  const slug = "recovery-synthetic";
+  const slug = `recovery-synthetic-${Date.now()}`;
   const accounts: Record<string, { email: string; authId: string }> = {};
   let provider: ReturnType<typeof createClient>;
 
@@ -72,6 +72,12 @@ test.describe("Supabase Auth + local SMTP recovery", () => {
       await page.goto(link);
       await page.reload();
       await expect(page.getByRole("heading", { name: "Criar nova senha" })).toBeVisible();
+      await page.getByLabel("Nova senha", { exact: true }).fill("somenteletras");
+      await page.getByLabel("Confirmar nova senha", { exact: true }).fill("somenteletras");
+      await page.getByRole("button", { name: "Atualizar senha" }).click();
+      await expect(page.getByRole("alert")).toContainText("número");
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await page.screenshot({ path: `test-results/${app}-recovery-form.png`, fullPage: true });
       await page.getByLabel("Nova senha", { exact: true }).fill("NovaSegura123");
       await page.getByLabel("Confirmar nova senha", { exact: true }).fill("OutraSegura123");
       await page.getByRole("button", { name: "Atualizar senha" }).click();

@@ -12,7 +12,7 @@ vi.mock("@/lib/prisma-tenant", () => ({ withSalonBySlug: async (slug: string, fn
   fn({ clientProfile: { findFirst: m.profile } }, `id-${slug}`) }));
 import { updateSupabasePassword, requestSupabaseRecovery, INVALID_RECOVERY, recoveryRateKey } from "../supabase-recovery";
 const session = { access_token: "provider-access", refresh_token: "provider-refresh", identityId: "identity", version: 0 };
-const token = "a".repeat(64);
+const token = "a".repeat(56);
 describe("Supabase recovery authority and isolation", () => {
   beforeEach(() => {
     vi.clearAllMocks(); vi.stubEnv("NEXTAUTH_SECRET", "test-only"); vi.stubEnv("NEXTAUTH_URL", "http://127.0.0.1:3100");
@@ -66,5 +66,20 @@ describe("Supabase recovery authority and isolation", () => {
     await expect(requestSupabaseRecovery("unknown@example.test", "studio-a")).resolves.toBeUndefined();
     expect(m.reset).toHaveBeenCalledWith("unknown@example.test", { redirectTo: "http://127.0.0.1:3100/book/studio-a/redefinir-senha" });
     expect(warning).toHaveBeenCalledWith("auth_recovery_request_failed", { category: "provider" }); warning.mockRestore();
+  });
+  it("revokes application sessions durably before invoking the external password change", async () => {
+    m.updateUser.mockImplementation(async () => {
+      expect(m.version).toHaveBeenCalledOnce();
+      throw new Error("transport outcome unknown");
+    });
+    await expect(updateSupabasePassword({ token, password: "NovaSenha123" })).rejects.toThrow("transport outcome unknown");
+    expect(m.signOut).not.toHaveBeenCalled();
+  });
+  it.each([429, 422])("uses actionable generic feedback after a definite provider refusal (%s)", async status => {
+    m.updateUser.mockResolvedValue({ error: { status, code: "weak_password", message: "internal-provider-detail" } });
+    const result = await updateSupabasePassword({ token, password: "NovaSenha123" });
+    expect(result.ok).toBe(false);
+    expect(JSON.stringify(result)).not.toContain("internal-provider-detail");
+    expect(m.remove).not.toHaveBeenCalled();
   });
 });

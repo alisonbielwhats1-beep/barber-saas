@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { encode, decode } from "next-auth/jwt";
 import { createHash } from "node:crypto";
 import { createAuthClient, providerSession, validateProviderSession, type ProviderSession } from "./supabase-auth";
-import { recoveryRedirect, recoveryPath } from "./supabase-auth-config";
+import { recoveryRedirect, recoveryPath, isProviderTokenHash } from "./supabase-auth-config";
 import { prisma } from "./prisma";
 import { withSalonBySlug } from "./prisma-tenant";
 import { clientCookieIsSecure } from "./client-cookie";
@@ -52,7 +52,7 @@ export async function updateSupabasePassword(input: { token: string; password: s
   let stored = await readRecovery(input.salonSlug);
   if (stored && input.token && stored.tokenDigest !== recoveryRateKey(input.token)) stored = null;
   if (!stored) {
-    if (!/^[a-f0-9]{64}$/i.test(input.token)) return { ok: false, error: INVALID_RECOVERY } as const;
+    if (!isProviderTokenHash(input.token)) return { ok: false, error: INVALID_RECOVERY } as const;
     const client = createAuthClient();
     const { data, error } = await client.auth.verifyOtp({ token_hash: input.token, type: "recovery" });
     if (error || !data.session) return { ok: false, error: INVALID_RECOVERY } as const;

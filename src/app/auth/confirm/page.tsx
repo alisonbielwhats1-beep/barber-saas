@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { AuthShell } from "@/components/auth-shell";
 import { Button } from "@/components/ui/button";
 import { createAuthClient } from "@/lib/supabase-auth";
-import { recoveryRedirect } from "@/lib/supabase-auth-config";
+import { recoveryRedirect, isProviderTokenHash } from "@/lib/supabase-auth-config";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { headers } from "next/headers";
 import Link from "next/link";
@@ -15,7 +15,7 @@ export default async function ConfirmEmail({ searchParams }: { searchParams: Pro
   async function confirm() {
     "use server";
     const limited = await checkRateLimit({ namespace: "auth-confirm-ip", identifier: clientIp(await headers()), limit: 10, windowSeconds: 3600, failClosed: true });
-    if (!limited.allowed || !/^[a-f0-9]{64}$/i.test(query.token_hash ?? "")) redirect("/auth/confirm?error=invalid");
+    if (!limited.allowed || !isProviderTokenHash(query.token_hash)) redirect("/auth/confirm?error=invalid");
     let destination = recoveryRedirect().replace("redefinir-senha", "login");
     try {
       const requested = new URL(query.next ?? destination);

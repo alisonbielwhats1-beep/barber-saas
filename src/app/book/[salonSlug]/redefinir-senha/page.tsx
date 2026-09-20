@@ -5,7 +5,7 @@ import { PasswordResetForm } from "@/components/password-reset-form";
 import { ClientAccessLayout } from "../client-access-layout";
 import { withSalonBySlug } from "@/lib/prisma-tenant";
 import { hasRecoverySession } from "@/lib/supabase-recovery";
-import { supabaseAuthEnabled } from "@/lib/supabase-auth-config";
+import { supabaseAuthEnabled, isProviderTokenHash } from "@/lib/supabase-auth-config";
 
 export const metadata: Metadata = { title: "Criar nova senha | Everflair", robots: { index: false, follow: false }, referrer: "no-referrer" };
 export default async function ResetPasswordPage({ params, searchParams }: {
@@ -15,7 +15,7 @@ export default async function ResetPasswordPage({ params, searchParams }: {
   const [{ salonSlug }, query] = await Promise.all([params, searchParams]);
   const salon = await withSalonBySlug(salonSlug, (tx, salonId) => tx.salon.findUnique({ where: { id: salonId }, select: { name: true } }));
   if (!salon) notFound();
-  const token = query.type === "recovery" && /^[a-f0-9]{64}$/i.test(query.token_hash ?? "") ? query.token_hash! : "";
+  const token = query.type === "recovery" && isProviderTokenHash(query.token_hash) ? query.token_hash : "";
   const ready = supabaseAuthEnabled() && !query.error && (!!token || await hasRecoverySession(salonSlug));
   return <ClientAccessLayout salonName={salon.name} eyebrow="Sua conta" title="Criar nova senha" description="Defina sua nova senha para voltar a acessar sua conta.">
     <PasswordResetForm token={token} salonSlug={salonSlug} provider ready={!!ready} />

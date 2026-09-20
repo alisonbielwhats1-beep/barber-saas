@@ -8,6 +8,11 @@ suite("Supabase identity mapping in PostgreSQL", () => {
   const id = randomUUID();
   beforeAll(async () => {
     assertSafeDatabaseOperation(process.env, { operation: "identity-integration-test" });
+    // Standalone PostgreSQL CI does not pre-create the Supabase API roles.
+    await db.$executeRawUnsafe(`DO $$ BEGIN
+      IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='anon') THEN CREATE ROLE anon NOLOGIN; END IF;
+      IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='authenticated') THEN CREATE ROLE authenticated NOLOGIN; END IF;
+    END $$`);
     await db.authIdentity.create({ data: { id } });
   });
   afterAll(async () => { await db.authIdentity.delete({ where: { id } }); await db.$disconnect(); });

@@ -33,6 +33,11 @@ export function recoveryPath(salonSlug?: string) {
   return salonSlug ? `/book/${salonSlug}/redefinir-senha` : "/redefinir-senha";
 }
 
+/** Opaque provider value: only bound URL-safe input; verifyOtp decides validity. */
+export function isProviderTokenHash(value: unknown): value is string {
+  return typeof value === "string" && /^[A-Za-z0-9_-]{20,256}$/.test(value);
+}
+
 export function recoveryRedirect(salonSlug?: string, env: Record<string, string | undefined> = process.env) {
   const origin = salonSlug ? env.CLIENT_APP_URL || env.NEXTAUTH_URL : env.OWNER_APP_URL || env.NEXTAUTH_URL;
   const url = new URL(origin ?? "");
