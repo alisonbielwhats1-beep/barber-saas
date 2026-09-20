@@ -57,7 +57,7 @@ export default async function ServicosPage() {
   }));
 
   return (
-    <div className="flex min-w-0 flex-col gap-3 md:gap-6">
+    <div className="admin-directory-page flex min-w-0 flex-col gap-3 pb-20 md:gap-6 md:pb-0">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="mb-1 hidden md:block text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
@@ -67,7 +67,7 @@ export default async function ServicosPage() {
         </div>
         {canManage && <ServiceForm />}
       </header>
-      {canManage && <div className="order-last md:order-none"><ResourcePanel /></div>}
+      {canManage && <div className="order-last"><ResourcePanel /></div>}
 
       {cards.length === 0 ? (
         <div className="rounded-2xl border border-border bg-card p-12 text-center text-[13px] text-muted-foreground">

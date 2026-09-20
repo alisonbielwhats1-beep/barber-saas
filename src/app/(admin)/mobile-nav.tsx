@@ -10,7 +10,6 @@ import {
   Users,
   MoreHorizontal,
   Settings,
-  Bell,
   ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -44,7 +43,6 @@ const PRIMARY: Array<{
   { href: "/hoje", label: "Hoje", icon: CalendarClock, roles: DASHBOARD_ROLES },
   { href: "/agenda", label: "Agenda", icon: CalendarDays },
   { href: "/clientes", label: "Clientes", icon: Users },
-  { href: "/notificacoes", label: "Alertas", icon: Bell },
 ];
 
 export function MobileNav({
@@ -94,6 +92,8 @@ export function MobileNav({
     return () => desktop.removeEventListener("change", closeOnDesktop);
   }, []);
 
+  useEffect(() => { openRef.current = false; setOpen(false); }, [pathname]);
+
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + "/");
 
@@ -101,7 +101,9 @@ export function MobileNav({
     <>
       {/* Painel "Mais" — todos os módulos agrupados */}
       <Dialog open={open} onOpenChange={setMobileOpen}>
-        <DialogContent
+        {/* Unmount immediately: resizing to lg during an exit animation must not
+            leave Radix's aria-hidden/focus lock attached to the page. */}
+        {open && <DialogContent
           className="inset-0 z-[60] flex h-dvh max-h-none w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 bg-background p-0 pr-0 lg:hidden"
           onCloseAutoFocus={(event) => {
             if (!paletteRequestPendingRef.current) return;
@@ -193,7 +195,7 @@ export function MobileNav({
               </Link>
             )}
           </div>
-        </DialogContent>
+        </DialogContent>}
 
       {/* Barra inferior */}
       <nav style={{ paddingLeft: "var(--safe-left)", paddingRight: "var(--safe-right)" }} className="fixed inset-x-0 bottom-0 z-50 flex border-t border-border bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden print:hidden">
@@ -227,10 +229,10 @@ export function MobileNav({
             aria-label="Abrir todos os módulos"
             className={cn(
               "flex min-h-14 flex-1 flex-col items-center gap-1 pb-3 pt-2.5 text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
-              open ? "text-primary" : "text-muted-foreground",
+              (open || !PRIMARY.some(item => pathname === item.href || pathname.startsWith(`${item.href}/`))) ? "text-primary" : "text-muted-foreground",
             )}
           >
-            <MoreHorizontal className="h-5 w-5" strokeWidth={open ? 2.4 : 2} />
+            <span className="relative"><MoreHorizontal className="h-5 w-5" strokeWidth={open || !PRIMARY.some(item => pathname === item.href || pathname.startsWith(`${item.href}/`)) ? 2.4 : 2} /><UnreadBadge count={unreadNotifications} className="absolute -right-3 -top-2" /></span>
             Mais
           </button>
         </DialogTrigger>

@@ -1,6 +1,7 @@
 "use client";
+import { useFormOperation } from "../use-form-operation";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
+} from "../form-dialog";
 import { setWorkingHours } from "./actions";
 import { minutesToHHMM, hhmmToMinutes } from "@/lib/utils";
 
@@ -51,7 +52,7 @@ export function WorkingHoursForm({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [rows, setRows] = useState<Row[]>(buildRows(current, salonHours));
-  const [pending, startTransition] = useTransition();
+  const [pending, startTransition] = useFormOperation();
   const [error, setError] = useState<string | null>(null);
 
   function updateRow(i: number, patch: Partial<Row>) {
@@ -85,7 +86,7 @@ export function WorkingHoursForm({
   }
 
   return (
-    <Dialog
+    <Dialog pending={pending} dirtyKey={JSON.stringify(rows)}
       open={open}
       onOpenChange={(o) => {
         setOpen(o);

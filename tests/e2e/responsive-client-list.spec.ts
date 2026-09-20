@@ -76,11 +76,14 @@ test("@database excluir da lista, restaurar e fechar formulário com teclado", a
   const row = page.getByLabel("Lista de clientes").locator("button").first();
   const label = await row.locator("p").first().innerText();
   await row.click();
+  await page.getByRole("tab", {name:"Preferências",exact:true}).click();
   await page.getByRole("button", { name: "Excluir da lista", exact: true }).click();
   await page.getByRole("button", { name: "Confirmar exclusão da lista" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.getByRole("button", { name: "Filtros de clientes", exact:true }).click();
   await page.getByRole("link", { name: "Ver clientes excluídos" }).click();
   await page.getByLabel("Lista de clientes").locator("button").filter({ hasText: label }).first().click();
+  await page.getByRole("tab", {name:"Preferências",exact:true}).click();
   await page.getByRole("button", { name: "Restaurar à lista", exact: true }).click();
   await page.getByRole("button", { name: "Confirmar restauração" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);

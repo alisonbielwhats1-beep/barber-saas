@@ -1,6 +1,7 @@
 "use client";
+import { useFormOperation } from "../use-form-operation";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +9,7 @@ import { ImageUpload } from "@/components/ui/image-upload";
 import {
   Dialog, DialogClose, DialogContent, DialogDescription,
   DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
-} from "@/components/ui/dialog";
+} from "../form-dialog";
 import { createPortfolioItem } from "./actions";
 
 type Pro = { id: string; name: string };
@@ -21,7 +22,7 @@ export function PortfolioForm({
   lockedProfessional?: Pro;
 }) {
   const [open, setOpen] = useState(false);
-  const [pending, startTransition] = useTransition();
+  const [pending, startTransition] = useFormOperation();
   const [error, setError] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState("");
 
@@ -55,7 +56,7 @@ export function PortfolioForm({
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog pending={pending} dirtyKey={imageUrl} open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button><Plus className="h-4 w-4" /> Adicionar foto</Button>
       </DialogTrigger>
@@ -75,8 +76,8 @@ export function PortfolioForm({
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Legenda</label>
-            <Input name="caption" placeholder="Corte em degradê + acabamento navalhado" autoFocus />
+            <label htmlFor="portfolio-form-caption" className="mb-1 block text-sm font-medium">Legenda</label>
+            <Input id="portfolio-form-caption" name="caption" placeholder="Corte em degradê + acabamento navalhado" autoFocus />
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium">Feito por</label>
@@ -85,7 +86,7 @@ export function PortfolioForm({
                 {lockedProfessional.name}
               </div>
             ) : (
-              <select
+              <select aria-label="Feito por"
                 name="professionalId"
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
               >
@@ -96,7 +97,7 @@ export function PortfolioForm({
               </select>
             )}
           </div>
-          {error && <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
+          {error && <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
           <DialogFooter>
             <DialogClose asChild><Button variant="outline" type="button">Cancelar</Button></DialogClose>
             <Button type="submit" disabled={pending}>{pending ? "Enviando…" : "Publicar"}</Button>

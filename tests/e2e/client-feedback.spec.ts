@@ -18,13 +18,17 @@ test.describe("@database pedidos de serviços, fechamento e cadastro", () => {
     await page.getByRole("button", { name: "Pular tutorial", exact: true }).click();
     await page.getByRole("button", { name: "Abrir ações rápidas da agenda" }).click();
     await page.getByRole("menuitem", { name: /Novo agendamento/ }).click();
-    const form = page.getByRole("dialog", { name: "Novo agendamento" });
+    const form = page.getByRole("dialog");
+    await form.getByRole("button", {name:"Alterar data, horário e profissional"}).click();
     await form.getByLabel("Hora de início").fill("18:30");
+    await form.getByRole("button", {name:"Aplicar",exact:true}).click();
     await form.getByRole("button", { name: "Novo cliente", exact: true }).click();
     const client = `Feedback sintético ${Date.now()}`;
     await form.locator('input[name="clientName"]').fill(client);
+    await form.getByRole("button", {name:"Continuar",exact:true}).click();
     await form.getByRole("checkbox", { name: /Corte feminino/ }).check();
-    await form.getByRole("button", { name: "Confirmar", exact: true }).click();
+    await form.getByRole("button", { name: "Revisar", exact: true }).click();
+    await form.getByRole("button", { name: "Confirmar agendamento", exact: true }).click();
     await expect(form.getByText("Fora do expediente / folga", { exact: true })).toBeVisible();
     await form.getByLabel("Motivo da exceção").fill("Exceção sintética após 19h");
     await form.getByRole("button", { name: "Agendar fora do expediente" }).click();
@@ -36,6 +40,7 @@ test.describe("@database pedidos de serviços, fechamento e cadastro", () => {
     await detail.getByRole("checkbox", { name: /Escova modelada/ }).check();
     await detail.getByRole("checkbox", { name: /Hidratação profunda/ }).check();
     await expect(detail.getByText(/1h45/)).toBeVisible();
+    await detail.getByRole("button", { name: "Revisar alterações" }).click();
     await detail.getByRole("button", { name: "Salvar alterações" }).click();
     await detail.getByLabel("Motivo da exceção").fill("Novos serviços combinados");
     await detail.getByRole("button", { name: "Confirmar exceção de jornada" }).click();

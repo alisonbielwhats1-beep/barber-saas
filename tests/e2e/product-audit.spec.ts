@@ -1,3 +1,4 @@
+import { changeAdminTheme } from "./admin-presentation-helpers";
 import { expect, test, type BrowserContext } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { assertSafeDatabaseOperation } from "../../src/lib/database-safety";
@@ -21,7 +22,7 @@ for (const mode of ["desktop-light", "mobile-dark"]) {
         await page.getByRole("button", { name: "Entrar", exact: true }).click();
         await expect(page).toHaveURL(/\/(hoje|dashboard)$/, { timeout: 30_000 });
         if (mode.endsWith("light")) {
-          await page.getByRole("button", { name: "Mudar para tema claro" }).click({ timeout: 15_000 });
+          await changeAdminTheme(page, "claro");
           await expect(page.locator("html")).toHaveAttribute("data-theme", "admin-light");
         }
         state = await context.storageState();

@@ -40,6 +40,7 @@
 .agenda-grid [data-colorful-appointment] p { color: #111827; }
 .agenda-half-hour::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px dashed hsl(var(--border) / .6); pointer-events: none; }
 @media (max-width: 639px) {
+  .agenda-workspace { --agenda-column-min: clamp(112px, calc((100vw - 74px) / 2), 148px); }
   .agenda-toolbar { flex-wrap: nowrap; gap: 4px; }
   .agenda-view-controls { gap: 8px; }
   .agenda-date-controls { display: none; }
@@ -50,3 +51,13 @@
   .agenda-date-controls h1 { font-size: 18px; }
   .agenda-grid > div { padding-bottom: 8px; }
 }
+
+.agenda-mobile-views > button { border: 1px solid hsl(var(--border)); }
+.agenda-mobile-views > button[aria-pressed=true] { background: hsl(var(--primary)); border-color: transparent; color: hsl(var(--primary-foreground)); }
+@media (max-width: 639px) {
+  .agenda-toolbar h1 button { text-transform: capitalize; }
+  .agenda-toolbar button[aria-label="Buscar e filtrar agenda"] { border: 0; }
+  .agenda-mobile-views { padding-bottom: 8px; border-bottom: 1px solid hsl(var(--border)); }
+}
+/* Appointment backgrounds are deliberately light; pending labels need dark ink too. */
+.agenda-grid [data-colorful-appointment] .text-warning { color: #111827; }

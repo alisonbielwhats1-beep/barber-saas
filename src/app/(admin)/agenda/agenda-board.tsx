@@ -15,6 +15,7 @@ import {
   Users,
   SlidersHorizontal,
   Loader2,
+  Bell,
   AlertTriangle,
   Ban,
 } from "lucide-react";
@@ -33,6 +34,7 @@ import {
 import { ptBR } from "date-fns/locale";
 import { formatInTimeZone } from "date-fns-tz";
 import { minutesToHHMM, formatMoney } from "@/lib/utils";
+import { calendarGridRangeInTimeZone } from "@/lib/time";
 import { AppointmentDialog, type ProOption, type ServiceOption, type ClientOption } from "./appointment-form";
 import { AppointmentDetail } from "./appointment-detail";
 import { STATUS, STATUS_ORDER } from "./agenda-status";
@@ -46,7 +48,7 @@ import { AvailabilityPanel, type AvailabilityBlock, type AvailabilityPreset, typ
 import { AvailabilityBlockDialog, AvailabilityBlockTrigger } from "./availability-block";
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 import { DateNavigator } from "./date-navigator";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { unavailableScheduleIntervals, type VisualWorkingHours } from "./schedule-visibility";
 import { AgendaQuickActions } from "./agenda-quick-actions";
 import { WeeklyPausePanel } from "./weekly-pause-panel";
@@ -162,6 +164,8 @@ export function AgendaBoard({
   colorScope,
   operations,
   initialAppointmentId,
+  initialClientId,
+  initialProfessionalId,
   availabilityBlocks = [],
   date,
   salonName,
@@ -179,6 +183,8 @@ export function AgendaBoard({
 }: {
   colorScope: string;
   initialAppointmentId?: string;
+  initialClientId?: string;
+  initialProfessionalId?: string;
   availabilityBlocks?: AvailabilityBlock[];
   operations?: ReactNode;
   date: string;
@@ -203,7 +209,7 @@ export function AgendaBoard({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [view, setView] = useState<ViewKind>("day");
-  const [proFilter, setProFilter] = useState<string>("all");
+  const [proFilter, setProFilter] = useState<string[]>(() => roster.some(pro => pro.id === initialProfessionalId) ? [initialProfessionalId!] : []);
   const [statusFilter, setStatusFilter] = useState<string>("not_cancelled");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -222,7 +228,7 @@ export function AgendaBoard({
   const [search, setSearch] = useState("");
   const [detail, setDetail] = useState<Appointment | null>(() => appointments.find(a => a.id === initialAppointmentId) ?? null);
   const currentDetail = detail ? appointments.find(appointment => appointment.id === detail.id) ?? detail : null;
-  const [createAt, setCreateAt] = useState<{ startLocal: string; proId: string } | null>(null);
+  const [createAt, setCreateAt] = useState<{ startLocal: string; proId: string; clientId?: string } | null>(() => canCreate && initialClientId && clients.some(client => client.id === initialClientId) && roster.length ? {startLocal:`${date}T08:00`,proId:roster[0].id,clientId:initialClientId} : null);
   const [moveProposal, setMoveProposal] = useState<{
     appointment: Appointment;
     professionalId: string;
@@ -254,7 +260,7 @@ export function AgendaBoard({
     name: p.name,
     serviceIds: p.serviceIds,
   }));
-  const shownPros = proFilter === "all" ? professionals : professionals.filter((p) => p.id === proFilter);
+  const shownPros = proFilter.length === 0 ? professionals : professionals.filter((p) => proFilter.includes(p.id));
 
   // Filtros de profissional/status/busca aplicados a qualquer subconjunto
   const applyFilters = useMemo(() => {
@@ -271,7 +277,7 @@ export function AgendaBoard({
           statusFilter !== "not_cancelled" &&
           a.status !== statusFilter
         ) return false;
-        if (proFilter !== "all" && a.professionalId !== proFilter) return false;
+        if (proFilter.length > 0 && !proFilter.includes(a.professionalId)) return false;
         if (q && !a.clientName.toLowerCase().includes(q) && !(a.clientPhone ?? "").includes(q)) return false;
         return true;
       });
@@ -289,6 +295,22 @@ export function AgendaBoard({
 
   const awaitingAcceptance = appointments.filter((a) => a.pendingReschedule && a.pendingReschedule.status !== "REJECTED").length;
   const cancelledWithQueue = appointments.filter((a) => a.status === "CANCELLED" && a.waitlistCount > 0).length;
+  const activeFilterCount = Number(proFilter.length > 0) + Number(statusFilter !== "not_cancelled") + Number(Boolean(search.trim()));
+  const filterSummary = [
+    proFilter.length > 0 ? professionals.filter(pro => proFilter.includes(pro.id)).map(pro => pro.name).join(", ") : null,
+    statusFilter !== "not_cancelled"
+      ? statusFilter === "all" ? "Todos os status" : STATUS[statusFilter as keyof typeof STATUS]?.label
+      : null,
+    search.trim() ? `Busca: ${search.trim()}` : null,
+  ].filter(Boolean).join(" · ");
+  const loadedRange = calendarGridRangeInTimeZone(date, timezone);
+  const noticesPeriod = `${formatInTimeZone(loadedRange.from, timezone, "dd/MM")} a ${formatInTimeZone(new Date(loadedRange.to.getTime() - 1), timezone, "dd/MM/yyyy")}`;
+
+  function clearFilters() {
+    setProFilter([]);
+    setStatusFilter("not_cancelled");
+    setSearch("");
+  }
 
   function goDate(offset: number) {
     const targetDate = view === "month" || view === "list"
@@ -344,13 +366,13 @@ export function AgendaBoard({
   return (
     <div className="agenda-workspace" aria-busy={pending}>
       <header className="agenda-toolbar">
-        <button type="button" aria-pressed={fullDay} onClick={() => setFullDay(value => !value)} className="min-h-11 rounded-lg border border-border px-2 text-xs">{fullDay ? "Horários habituais" : "Mostrar dia inteiro"}</button>
+        <button type="button" aria-pressed={fullDay} onClick={() => setFullDay(value => !value)} className="hidden min-h-11 rounded-lg border border-border px-2 text-xs sm:block">{fullDay ? "Horários habituais" : "Mostrar dia inteiro"}</button>
         <div className="hidden sm:block"><AgendaColorSelect value={colorMode} onChange={setColorMode} /></div>
         <div className="flex min-w-0 items-center gap-2 sm:hidden">
           <button type="button" onClick={() => goDate(-1)} aria-label={`Ir para ${navigationUnit} anterior`} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg hover:bg-muted"><ChevronLeft aria-hidden="true" size={16} /></button>
           <h1><button ref={compactCalendarTrigger} type="button" aria-label="Abrir calendário" aria-haspopup="dialog" onClick={() => setMobileCalendarOpen(true)} className="min-h-11 min-w-11 rounded-lg text-sm font-semibold">
-            <span className="block whitespace-nowrap">{format(dateObj, view === "month" || view === "list" ? "MMM yy" : "d MMM", { locale: ptBR })}</span>
-            <span className="block text-[10px] font-normal text-muted-foreground">{format(dateObj, "EEE", { locale: ptBR })}</span>
+            <span className="block whitespace-nowrap">{format(dateObj, "MMMM yyyy", { locale: ptBR })}</span>
+
           </button></h1>
           <button type="button" onClick={() => goDate(1)} aria-label={`Ir para próximo ${navigationUnit}`} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg hover:bg-muted"><ChevronRight aria-hidden="true" size={16} /></button>
         </div>
@@ -393,14 +415,20 @@ export function AgendaBoard({
         </div>
 
         <div className="agenda-view-controls">
-          <AgendaMobileGuide scope={colorScope} canCreate={canCreate} autoStart={!initialAppointmentId} />
-          <select aria-label="Visualização da agenda" value={view} onChange={event => setView(event.target.value as ViewKind)} className="h-11 w-[94px] min-w-0 rounded-lg border border-border bg-card px-2 text-xs sm:hidden">
-            <option value="day">Dia</option>
-            <option value="week">Semana</option>
-            <option value="month">Mês</option>
-            <option value="list">Lista</option>
-          </select>
-          <button ref={filterTrigger} type="button" onClick={() => setFiltersOpen(true)} aria-label="Buscar e filtrar agenda" aria-haspopup="dialog" className="relative grid h-11 w-11 place-items-center rounded-lg border border-border"><SlidersHorizontal size={18} />{(proFilter !== "all" || statusFilter !== "not_cancelled" || search) && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-primary" />}</button>
+          <AgendaMobileGuide scope={colorScope} canCreate={canCreate} autoStart={!initialAppointmentId && !initialClientId} />
+          {(awaitingAcceptance > 0 || cancelledWithQueue > 0) && <Dialog><DialogTrigger asChild><button type="button" aria-label="Avisos do período" className="relative grid h-11 w-11 shrink-0 place-items-center rounded-full"><Bell size={17} aria-hidden /><span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-warning" /></button></DialogTrigger><DialogContent aria-describedby={undefined}><DialogHeader><DialogTitle>Avisos do período</DialogTitle></DialogHeader><div className="space-y-3 text-sm">          <p className="font-medium">{noticesPeriod} · independente dos filtros</p>
+          <p>
+            {awaitingAcceptance > 0 && `${awaitingAcceptance} alteração(ões) aguardando aceite do cliente.`}
+            {awaitingAcceptance > 0 && cancelledWithQueue > 0 && " "}
+            {cancelledWithQueue > 0 && `${cancelledWithQueue} fila(s) têm horário liberado para promoção manual.`}
+          </p>
+          {awaitingAcceptance > 0 && (
+            <Link href="/notificacoes" className="inline-flex min-h-11 items-center font-semibold underline underline-offset-2">
+              Ver central de avisos
+            </Link>
+          )}
+</div></DialogContent></Dialog>}
+          <button ref={filterTrigger} type="button" onClick={() => setFiltersOpen(true)} aria-label="Buscar e filtrar agenda" aria-describedby={activeFilterCount > 0 ? "agenda-active-filters" : undefined} aria-haspopup="dialog" className="relative grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-border"><SlidersHorizontal size={18} aria-hidden="true" />{activeFilterCount > 0 && <span aria-hidden="true" className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">{activeFilterCount}</span>}</button>
           <div role="group" aria-label="Visualização da agenda" className="hidden items-center gap-0.5 rounded-lg border border-border bg-surface-1 p-1 sm:flex">
             <ViewBtn active={view === "day"} onClick={() => setView("day")} icon={CalendarDays} label="Dia" />
             <ViewBtn active={view === "week"} onClick={() => setView("week")} icon={CalendarRange} label="Semana" />
@@ -423,6 +451,19 @@ export function AgendaBoard({
       </header>
 
       {view === "day" && <AgendaWeekStrip date={date} today={today} onSelect={goToDay} />}
+      <div role="group" aria-label="Visualização da agenda" className="agenda-mobile-views flex gap-2 sm:hidden">
+        {([['day','Dia'],['week','Semana'],['list','Lista']] as const).map(([kind,label]) => <button key={kind} type="button" aria-pressed={view === kind} onClick={() => setView(kind)} className="min-h-9 flex-1 rounded-full text-xs font-medium">{label}</button>)}
+      </div>
+
+      {activeFilterCount > 0 && (
+        <div className="flex shrink-0 items-center gap-2 rounded-lg bg-surface-1 px-3 text-xs">
+          <p id="agenda-active-filters" className="min-w-0 flex-1 break-words">
+            <span className="font-medium">{activeFilterCount} filtro{activeFilterCount > 1 ? "s" : ""} ativo{activeFilterCount > 1 ? "s" : ""}</span>
+            <span className="text-muted-foreground"> · {filterSummary}</span>
+          </p>
+          <button type="button" onClick={() => { clearFilters(); filterTrigger.current?.focus(); }} className="min-h-11 shrink-0 px-2 font-medium text-primary">Limpar filtros</button>
+        </div>
+      )}
 
       <div className="agenda-body">
         {calendarOpen && <aside id="agenda-date-panel" aria-label="Navegar por datas" className="sticky top-0 hidden w-64 shrink-0 xl:block"><DateNavigator date={date} today={today} onSelect={selectCalendarDate} /></aside>}
@@ -431,9 +472,13 @@ export function AgendaBoard({
 
       <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
         <DialogContent aria-describedby={undefined} onCloseAutoFocus={event => { event.preventDefault(); filterTrigger.current?.focus(); }} className="max-h-[85dvh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Buscar e filtrar agenda</DialogTitle></DialogHeader>
+          <DialogHeader className="pr-10"><DialogTitle>Buscar e filtrar agenda</DialogTitle></DialogHeader>
       <div className="space-y-4">
-        <div className="sm:hidden"><AgendaColorSelect value={colorMode} onChange={setColorMode} /></div>
+        <div className="space-y-3 sm:hidden">
+          <AgendaColorSelect value={colorMode} onChange={setColorMode} />
+          <button type="button" aria-pressed={view === "month"} onClick={() => {setView("month"); setFiltersOpen(false);}} className="min-h-11 rounded-lg border border-border px-3 text-sm">Visualização mensal</button>
+          <button type="button" aria-pressed={fullDay} onClick={() => setFullDay(value => !value)} className="min-h-11 w-full rounded-lg border border-border px-3 text-left text-sm">{fullDay ? "Horários habituais" : "Mostrar dia inteiro"}</button>
+        </div>
         <div className="flex min-h-11 items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 max-sm:w-full">
           <Search aria-hidden="true" className="h-3.5 w-3.5 text-muted-foreground" />
           <input
@@ -445,12 +490,12 @@ export function AgendaBoard({
           />
         </div>
         <div id="agenda-filters" className="flex flex-wrap items-center gap-2">
-        <FilterChip active={proFilter === "all"} onClick={() => setProFilter("all")} icon={Users}>
+        <FilterChip active={proFilter.length === 0} onClick={() => setProFilter([])} icon={Users}>
           Todos profissionais
         </FilterChip>
         {professionals.map((p) => (
-          <FilterChip key={p.id} active={proFilter === p.id} onClick={() => setProFilter(p.id)} dot={p.colorHex ?? "#2ECC8B"}>
-            {p.name.split(" ")[0]}
+          <FilterChip key={p.id} active={proFilter.includes(p.id)} onClick={() => setProFilter(current => current.includes(p.id) ? current.filter(id => id !== p.id) : [...current, p.id])} dot={p.colorHex ?? "#2ECC8B"}>
+            {p.name}
           </FilterChip>
         ))}
         <span className="mx-1 h-4 w-px bg-border" />
@@ -469,7 +514,10 @@ export function AgendaBoard({
       </div>
 
 
-          <button type="button" onClick={() => setFiltersOpen(false)} className="min-h-11 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground">Ver agenda</button>
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" disabled={activeFilterCount === 0} onClick={clearFilters} className="min-h-11 rounded-lg border border-border px-3 text-sm disabled:opacity-50">Limpar filtros</button>
+            <button type="button" onClick={() => setFiltersOpen(false)} className="min-h-11 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground">Ver agenda</button>
+          </div>
         </DialogContent>
       </Dialog>
       <Dialog open={operationsOpen} onOpenChange={setOperationsOpen}>
@@ -486,21 +534,8 @@ export function AgendaBoard({
         <p className="rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger">{actionError}</p>
       )}
 
-      {(awaitingAcceptance > 0 || cancelledWithQueue > 0) && (
-        <div className="flex flex-col gap-2 rounded-2xl border border-amber-500/30 bg-warning/10 px-4 py-3 text-[12px] text-warning sm:flex-row sm:items-center sm:justify-between">
-          <p>
-            {awaitingAcceptance > 0 && `${awaitingAcceptance} alteração(ões) aguardando aceite do cliente.`}
-            {awaitingAcceptance > 0 && cancelledWithQueue > 0 && " "}
-            {cancelledWithQueue > 0 && `${cancelledWithQueue} fila(s) têm horário liberado para promoção manual.`}
-          </p>
-          {awaitingAcceptance > 0 && (
-            <Link href="/notificacoes" className="inline-flex min-h-11 items-center font-semibold underline underline-offset-2">
-              Ver central de avisos
-            </Link>
-          )}
-        </div>
-      )}
 
+      {view === "day" && shownPros.length > 2 && <p className="sr-only">{shownPros.length} profissionais · role a grade para os lados para ver a equipe.</p>}
       <div className="agenda-canvas">
       {professionals.length === 0 ? (
         <div className="rounded-2xl border border-border bg-card p-16 text-center text-sm text-muted-foreground">
@@ -569,6 +604,7 @@ export function AgendaBoard({
 
       {createAt && (
         <AppointmentDialog
+          initialClient={clients.find(client => client.id === createAt.clientId)}
           open={!!createAt}
           onOpenChange={(o) => {
             if (!o) {
@@ -608,6 +644,7 @@ export function AgendaBoard({
       <AppointmentDetail canOverrideSchedule={canOverrideBreak || canOverbook}
         key={detail?.id ?? "empty"}
         appt={currentDetail}
+        professionalName={professionals.find(pro => pro.id === currentDetail?.professionalId)?.name}
         services={services.filter(service => professionals.find(pro => pro.id === currentDetail?.professionalId)?.serviceIds.includes(service.id))}
         salonName={salonName}
         timezone={timezone}
@@ -771,7 +808,7 @@ function DayView({
 
   return (
     <div className="agenda-grid overflow-auto rounded-xl border border-border bg-card">
-      <div className="flex w-full" style={{ minWidth: 56 + professionals.length * 148 }} ref={bodyRef}>
+      <div className="flex w-full" style={{ minWidth: `calc(56px + ${professionals.length} * var(--agenda-column-min, 148px))` }} ref={bodyRef}>
         <div className="sticky left-0 z-20 w-14 shrink-0 border-r border-border bg-surface-1">
           <div style={{ height: HEADER_H }} className="border-b border-border" />
           <AgendaTimeScale start={dayStart} end={dayEnd} pixelsPerMinute={PX_PER_MIN} />
@@ -781,7 +818,7 @@ function DayView({
           const proAppts = appointments.filter((a) => a.professionalId === pro.id);
           const placements = appointmentPlacements(proAppts, timezone, blocks.filter(b => b.professionalId === pro.id), date);
           return (
-            <div key={pro.id} data-pro-col data-pro-id={pro.id} className="relative shrink-0 border-r border-border last:border-r-0" style={{ flex: 1, minWidth: Math.max(148, ...[...placements.values()].map(p => p.columns * 112)) }}>
+            <div key={pro.id} data-pro-col data-pro-id={pro.id} className="relative shrink-0 border-r border-border last:border-r-0" style={{ flex: 1, minWidth: `max(var(--agenda-column-min, 148px), ${Math.max(0, ...[...placements.values()].filter(p => p.columns > 1).map(p => p.columns * 112))}px)` }}>
               <div data-professional-color={pro.colorHex} style={{ height: HEADER_H, borderBottom: `3px solid ${pro.colorHex}` }} className="sticky top-0 z-10 flex flex-col items-center justify-center gap-1.5 bg-card px-3">
                 <span style={{ borderColor: pro.colorHex ?? undefined }} className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full border-2 bg-muted text-xs font-semibold text-foreground">
                   {pro.avatarUrl ? <ImageWithFallback src={pro.avatarUrl} alt="" width={44} height={44} sizes="44px" className="h-full w-full object-cover" fallback={<span>{initials(pro.name)}</span>} /> : initials(pro.name)}

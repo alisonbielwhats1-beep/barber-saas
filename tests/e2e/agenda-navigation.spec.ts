@@ -1,3 +1,4 @@
+import { changeAdminTheme } from "./admin-presentation-helpers";
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { addDays, format, parseISO } from "date-fns";
@@ -20,7 +21,8 @@ test.describe("@database navegação compacta e calendário", () => {
       if (width === 390) await page.getByRole("button", { name: "Pular tutorial", exact: true }).click();
       await page.getByRole("button", { name: "Abrir ações rápidas da agenda" }).click();
       await page.getByRole("menuitem", { name: /Novo agendamento/ }).click();
-      const form = page.getByRole("dialog", { name: "Novo agendamento" });
+      const form = page.getByRole("dialog");
+      await form.getByRole("button", {name:"Alterar data, horário e profissional"}).click();
       await form.getByLabel("Data", { exact: true }).fill("2030-09-12");
       for (const time of ["09:15", "10:45", "11:50"]) {
         await form.getByLabel("Hora de início").fill(time);
@@ -104,7 +106,7 @@ test.describe("@database navegação compacta e calendário", () => {
     expect(themeBox!.y + themeBox!.height).toBeLessThan(navBox!.y);
     await page.screenshot({ path: test.info().outputPath("agenda-flair-escuro-recolhido.png"), animations: "disabled" });
     expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations).toEqual([]);
-    await page.getByRole("button", { name: "Mudar para tema claro" }).click();
+    await changeAdminTheme(page, "claro");
     const lightPalette = await page.locator("[data-pro-col]").evaluateAll(columns => columns.map(column => ({
       id: column.getAttribute("data-pro-id"), color: getComputedStyle(column.querySelector("[data-professional-color]")!).borderBottomColor,
     })));
@@ -147,17 +149,19 @@ test.describe("@database navegação compacta e calendário", () => {
     expect(quickActionBox!.y).toBeGreaterThan(700);
     expect(quickActionBox!.width).toBe(44);
     const dateControl = await page.getByRole("button", { name: "Abrir calendário", exact: true }).boundingBox();
-    const viewControl = await page.getByRole("combobox", { name: "Visualização da agenda" }).boundingBox();
+    const viewControl = await page.getByRole("button", { name: "Dia", exact:true }).boundingBox();
     const filterControl = await page.getByRole("button", { name: "Buscar e filtrar agenda" }).boundingBox();
-    expect(Math.abs(dateControl!.y - viewControl!.y)).toBeLessThanOrEqual(4);
-    expect(Math.abs(filterControl!.y - viewControl!.y)).toBeLessThanOrEqual(4);
+    expect(viewControl!.y).toBeGreaterThan(dateControl!.y);
+    expect(Math.abs(filterControl!.y - dateControl!.y)).toBeLessThanOrEqual(4);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.getByRole("button", { name: "Buscar e filtrar agenda" }).click();
     const filters = page.getByRole("dialog", { name: "Buscar e filtrar agenda" });
     await expect(filters.getByRole("button", { name: "Todos profissionais" })).toBeVisible();
     await filters.getByRole("button", { name: "Ver agenda", exact: true }).click();
     await expect(page.getByRole("button", { name: "Buscar e filtrar agenda" })).toBeFocused();
-    await expect(page.getByRole("region", { name: "Marca e aparência" }).getByRole("button", { name: "Mudar para tema escuro" })).toBeVisible();
+    await page.getByRole("button", { name: "Abrir todos os módulos" }).click();
+    await expect(page.getByRole("dialog").getByRole("button", {name:"Mudar para tema escuro"})).toBeVisible();
+    await page.getByRole("dialog").getByRole("button", {name:"Fechar janela",exact:true}).click();
     await page.getByRole("button", { name: "Abrir calendário", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Escolher data" });
     await expect(dialog).toBeVisible();

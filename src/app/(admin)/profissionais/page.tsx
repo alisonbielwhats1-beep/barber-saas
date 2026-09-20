@@ -1,5 +1,5 @@
 import { ProfessionalList } from "./professional-list";
-import { MobilePerformance } from "@/components/mobile-list-tools";
+import { ProfessionalProfileTabs } from "./professional-profile-tabs";
 import { contrastForeground } from "@/lib/color-contrast";
 import { emailInvitesEnabled } from "@/lib/email-invites-feature";
 import { getTenantContext } from "@/lib/tenant";
@@ -91,7 +91,7 @@ export default async function ProfissionaisPage() {
   const periodLabel = `${formatInTimeZone(perf.period.from, timezone, "d", { locale: ptBR })}–${formatInTimeZone(periodEnd, timezone, "d", { locale: ptBR })} de ${monthLabel}`;
 
   return (
-    <div className="min-w-0 space-y-3 md:space-y-6">
+    <div className="admin-directory-page flex min-w-0 flex-col gap-3 pb-20 md:gap-6 md:pb-0">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="mb-1 hidden md:block text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
@@ -104,9 +104,16 @@ export default async function ProfissionaisPage() {
         {canManageTeam && <ProfessionalForm services={services} invitesEnabled={invitesEnabled} />}
       </header>
 
-      {/* Overview da equipe */}
+      {perf.pros.length === 0 ? (
+        <div className="rounded-2xl border border-border bg-card p-12 text-center text-[13px] text-muted-foreground">
+          {isProfessional
+            ? "Seu perfil profissional não está ativo neste estabelecimento."
+            : "Sem profissionais cadastrados. Adicione o primeiro no botão acima."}
+        </div>
+      ) : (
+        <ProfessionalList additionalTools={<div className="w-full">
       {!isProfessional && (
-        <section className={`hidden md:grid grid-cols-2 gap-3 ${canSeeFinancial ? "lg:grid-cols-4" : "lg:grid-cols-2"}`}>
+        <details className="order-last rounded-xl border border-border p-3"><summary className="min-h-11 cursor-pointer py-3 text-sm">Indicadores da equipe · {periodLabel}</summary><section className={`grid grid-cols-2 gap-3 pt-3 ${canSeeFinancial ? "lg:grid-cols-4" : "lg:grid-cols-2"}`}>
           <Overview icon={Users} accent="#3B9EFF" label="Equipe ativa" value={perf.team.activeCount.toString()} />
           {canSeeFinancial && (
             <Overview icon={CircleDollarSign} accent="#2ECC8B" label="Receita do período" value={formatMoney(perf.team.revenue)} />
@@ -115,22 +122,15 @@ export default async function ProfissionaisPage() {
           {canSeeFinancial && (
             <Overview icon={Receipt} accent="#F59E0B" label="Ticket médio" value={formatMoney(perf.team.avgTicket)} />
           )}
-        </section>
+        </section></details>
       )}
 
 
 
-      {perf.pros.length === 0 ? (
-        <div className="rounded-2xl border border-border bg-card p-12 text-center text-[13px] text-muted-foreground">
-          {isProfessional
-            ? "Seu perfil profissional não está ativo neste estabelecimento."
-            : "Sem profissionais cadastrados. Adicione o primeiro no botão acima."}
-        </div>
-      ) : (
-        <ProfessionalList entries={perf.pros.map((p) => ({ id: p.id, name: p.name, content: (
-            <div key={p.id} className={`card-interactive min-w-0 rounded-2xl border border-border bg-card p-3 md:p-5 ${!p.active ? "opacity-60" : ""}`}>
+</div>} entries={perf.pros.map((p) => ({ id: p.id, name: p.name, subtitle: p.bio || `${p.serviceCount} serviços`, active: p.active, avatarUrl: p.avatarUrl, colorHex: p.colorHex, content: (
+            <div key={p.id} className={`min-w-0 ${!p.active ? "opacity-60" : ""}`}>
               {/* Cabeçalho */}
-              <div className="flex items-start gap-3">
+              <div className="professional-profile-heading flex flex-col items-center gap-3 text-center">
                 <div className="relative shrink-0">
                   {normalizeImageUrl(p.avatarUrl) ? (
                     <ImageWithFallback
@@ -162,11 +162,11 @@ export default async function ProfissionaisPage() {
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-center gap-2">
                     <h3 className="break-words text-[15px] font-semibold">{p.name}</h3>
                     {canSeeFinancial && p.rank === 1 && p.revenue > 0 && <Trophy className="hidden md:block h-3.5 w-3.5 shrink-0 text-warning" />}
                   </div>
-                  <p className="hidden md:block break-words text-[12px] text-muted-foreground">{p.bio || p.email}</p>
+                  <p className="break-words text-[12px] text-muted-foreground">{p.bio || p.email}</p>
                   <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
                     {canSeeFinancial && (
                       <>
@@ -185,7 +185,7 @@ export default async function ProfissionaisPage() {
                 </span>
               </div>
 
-              <MobilePerformance>
+              <ProfessionalProfileTabs summary={<>
               <div className="space-y-1 break-words text-xs text-muted-foreground md:hidden"><p>{p.bio || p.email}</p><p>{p.workingDays} dias/sem{canSeeFinancial ? ` · Comissão ${p.commissionPct}%` : ""}</p></div>
               {/* Meta */}
               {canSeeFinancial && <div className="mt-4 rounded-xl bg-surface-1 p-3">
@@ -210,7 +210,7 @@ export default async function ProfissionaisPage() {
               </div>}
 
               {/* Métricas */}
-              <div className={`mt-3 grid grid-cols-2 gap-2 ${canSeeFinancial ? "sm:grid-cols-3" : ""}`}>
+              <div className="mt-3 space-y-1">
                 <Stat icon={CalendarCheck} label="Atendimentos" value={p.appointments.toString()} />
                 {canSeeFinancial && <Stat icon={Receipt} label="Ticket médio" value={formatMoney(p.avgTicket)} />}
                 {canSeeFinancial && <Stat icon={CircleDollarSign} label="Comissão" value={formatMoney(p.commissionCents)} />}
@@ -219,10 +219,11 @@ export default async function ProfissionaisPage() {
                 <Stat icon={UserX} label="Faltas" value={p.noShow.toString()} accent={p.noShow > 0 ? "#EF4444" : undefined} />
               </div>
 
-              </MobilePerformance>
+              </>} services={<div className="divide-y divide-border">{services.filter(service => p.serviceIds.includes(service.id)).map(service => <div key={service.id} className="py-3 text-sm">{service.name}</div>)}{p.serviceIds.length === 0 && <p className="text-sm text-muted-foreground">Nenhum serviço vinculado.</p>}</div>} agenda={<div className="space-y-3"><p className="text-sm text-muted-foreground">{p.workingDays} dias de trabalho por semana</p><Link href={`/agenda?professional=${encodeURIComponent(p.id)}`} className="flex min-h-11 items-center justify-center rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground">Ver agenda</Link>{canManageTeam && <Link href={`/configuracoes?professional=${encodeURIComponent(p.id)}#jornadas`} className="flex min-h-11 items-center text-sm">Jornada e pausas</Link>}</div>} />
               {/* Ações */}
-              {canManageTeam && <div className="mt-4 flex flex-wrap items-center gap-1 border-t border-border pt-3">
+              {canManageTeam && <div className="professional-profile-actions mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-3">
                 <ProfessionalForm
+                  trigger={<button type="button" className="min-h-12 rounded-lg px-4 font-semibold">Editar profissional</button>}
                   services={services}
                   invitesEnabled={invitesEnabled}
                   professional={{
@@ -238,8 +239,7 @@ export default async function ProfissionaisPage() {
                     serviceIds: p.serviceIds,
                   }}
                 />
-                <Link href="/configuracoes#jornadas" className="inline-flex min-h-11 items-center rounded-md px-3 text-sm hover:bg-muted">Jornada e pausas</Link>
-                <ToggleActiveButton id={p.id} active={p.active} />
+                <details className="w-full admin-detail-section"><summary>Outras opções</summary><ToggleActiveButton id={p.id} active={p.active} /></details>
               </div>}
             </div>
           )}))} />
@@ -275,7 +275,7 @@ function Overview({ icon: Icon, accent, label, value }: { icon: IconType; accent
 
 function Stat({ icon: Icon, label, value, accent }: { icon: IconType; label: string; value: string; accent?: string }) {
   return (
-    <div className="rounded-lg bg-surface-1 p-2.5">
+    <div className="flex items-center justify-between gap-3 border-b border-border/50 py-3">
       <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
         <Icon className="h-3 w-3" /> {label}
       </span>

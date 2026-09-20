@@ -5,7 +5,7 @@ import { ptBR } from "date-fns/locale";
 
 export function AgendaWeekStrip({ date, today, onSelect }: { date: string; today: string; onSelect: (date: string) => void }) {
   const start = startOfWeek(parseISO(`${date}T12:00:00`), { weekStartsOn: 0 });
-  return <nav aria-label="Dias da semana da agenda" className="grid shrink-0 grid-cols-7 rounded-xl border border-border bg-card p-1">
+  return <nav aria-label="Dias da semana da agenda" className="grid shrink-0 grid-cols-7 p-1">
     {Array.from({ length: 7 }, (_, index) => {
       const day = addDays(start, index);
       const key = format(day, "yyyy-MM-dd");

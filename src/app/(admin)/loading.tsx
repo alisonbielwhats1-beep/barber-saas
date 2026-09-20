@@ -1,34 +1,15 @@
+"use client";
+import { usePathname } from "next/navigation";
+
 export default function AdminLoading() {
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="space-y-2">
-          <div className="h-3 w-24 animate-shimmer rounded" />
-          <div className="h-7 w-48 animate-shimmer rounded" />
-        </div>
-        <div className="h-9 w-40 animate-shimmer rounded-full" />
-      </div>
-
-      {/* KPI row */}
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="rounded-2xl border border-border bg-card p-5">
-            <div className="mb-4 flex items-center justify-between">
-              <div className="h-3 w-20 animate-shimmer rounded" />
-              <div className="h-8 w-8 animate-shimmer rounded-lg" />
-            </div>
-            <div className="h-7 w-28 animate-shimmer rounded" />
-          </div>
-        ))}
-      </div>
-
-      {/* Panels */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="h-72 animate-shimmer rounded-2xl lg:col-span-2" />
-        <div className="h-72 animate-shimmer rounded-2xl" />
-      </div>
-      <div className="h-48 animate-shimmer rounded-2xl" />
-    </div>
-  );
+  const pathname = usePathname();
+  const directory = ["/clientes", "/servicos", "/produtos", "/profissionais"].includes(pathname);
+  const agenda = pathname === "/agenda";
+  return <div role="status" aria-label="Carregando conteúdo" className="space-y-4">
+    <span className="sr-only">Carregando conteúdo…</span>
+    <div aria-hidden="true" className="h-7 w-40 animate-shimmer rounded" />
+    {directory ? <div aria-hidden="true" className="space-y-3"><div className="h-11 max-w-xl animate-shimmer rounded" />{Array.from({length: 5}, (_, i) => <div key={i} className="h-16 animate-shimmer rounded" />)}</div>
+      : agenda ? <div aria-hidden="true" className="space-y-3"><div className="h-20 animate-shimmer rounded" /><div className="h-[60dvh] animate-shimmer rounded" /></div>
+      : <div aria-hidden="true" className="grid gap-4 md:grid-cols-2"><div className="h-48 animate-shimmer rounded" /><div className="h-48 animate-shimmer rounded" /></div>}
+  </div>;
 }

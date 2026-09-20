@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useTransition } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useFormOperation } from "@/app/(admin)/use-form-operation";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Bell, CheckCheck, Clock3, Loader2 } from "lucide-react";
@@ -62,7 +63,9 @@ export function NotificationList({
   salonSlug?: string;
 }) {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const [pending, startTransition] = useFormOperation();
+  const [error, setError] = useState<string | null>(null);
+  const operation = useRef(false);
   const unread = notifications.filter((notification) => !notification.readAt).length;
 
   useEffect(() => {
@@ -70,24 +73,25 @@ export function NotificationList({
     return () => window.clearInterval(id);
   }, [router]);
 
-  function markRead(id: string) {
+  function run(action: () => Promise<unknown>) {
+    if (operation.current) return;
+    operation.current = true; setError(null);
     startTransition(async () => {
-      if (scope === "staff") await markStaffNotificationRead(id);
-      else await markClientNotificationRead(salonSlug!, id);
-      router.refresh();
+      try { await action(); router.refresh(); }
+      catch { setError("Não foi possível atualizar as notificações. Tente a ação novamente."); }
+      finally { operation.current = false; }
     });
   }
-
+  function markRead(id: string) {
+    run(() => scope === "staff" ? markStaffNotificationRead(id) : markClientNotificationRead(salonSlug!, id));
+  }
   function markAll() {
-    startTransition(async () => {
-      if (scope === "staff") await markAllStaffNotificationsRead();
-      else await markAllClientNotificationsRead(salonSlug!);
-      router.refresh();
-    });
+    run(() => scope === "staff" ? markAllStaffNotificationsRead() : markAllClientNotificationsRead(salonSlug!));
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" aria-busy={pending}>
+      {error && <p role="alert" className="text-sm text-danger">{error}</p>}
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
           {unread === 0 ? "Tudo lido" : `${unread} ${unread === 1 ? "não lida" : "não lidas"}`}
@@ -131,8 +135,8 @@ export function NotificationList({
               : null;
             const href = scope === "staff"
               ? startAt
-                ? `/agenda?date=${formatInTimeZone(startAt, timezone, "yyyy-MM-dd")}`
-                : "/agenda"
+                ? `/agenda?date=${formatInTimeZone(startAt, timezone, "yyyy-MM-dd")}${typeof notification.payload.appointmentId === "string" ? `&appointment=${encodeURIComponent(notification.payload.appointmentId)}` : ""}&from=notificacoes`
+                : `/agenda?from=notificacoes${typeof notification.payload.appointmentId === "string" ? `&appointment=${encodeURIComponent(notification.payload.appointmentId)}` : ""}`
               : `/book/${salonSlug}/minhas`;
             return (
               <article

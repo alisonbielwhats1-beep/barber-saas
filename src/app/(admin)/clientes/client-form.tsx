@@ -1,19 +1,21 @@
 "use client";
+import { toast } from "@/components/ui/toast";
+import { useFormOperation } from "../use-form-operation";
 
-import { useState, useTransition } from "react";
-import { Plus } from "lucide-react";
+import { FormSection } from "../form-section";
+import { TaskForm } from "../task-form";
+import { useRef, useState } from "react";
+import { Plus, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
+} from "../form-dialog";
 import { createClient, updateClient } from "./actions";
 
 type Props = {
@@ -34,11 +36,14 @@ type Props = {
 export function ClientForm({ client }: Props) {
   const editing = !!client;
   const [open, setOpen] = useState(false);
-  const [pending, startTransition] = useTransition();
+  const [pending, startTransition] = useFormOperation();
+  const submitting = useRef(false);
   const [error, setError] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (submitting.current) return;
+    submitting.current = true;
     setError(null);
     const form = new FormData(e.currentTarget);
     const payload = {
@@ -57,59 +62,63 @@ export function ClientForm({ client }: Props) {
       try {
         if (editing) await updateClient(client!.id, payload);
         else await createClient(payload);
+        toast("Cadastro salvo", "success");
         setOpen(false);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Erro ao salvar");
-      }
+      } finally { submitting.current = false; }
     });
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog pending={pending} open={open} onOpenChange={next => { setOpen(next); if (next) setError(null); }}>
       <DialogTrigger asChild>
         {editing ? (
-          <Button variant="ghost" size="sm">Editar</Button>
+          <Button variant="ghost" size="sm"><Pencil className="h-4 w-4" aria-hidden />Editar</Button>
         ) : (
-          <Button>
-            <Plus className="h-4 w-4" /> Novo cliente
+          <Button className="admin-client-create" aria-label="Novo cliente">
+            <Plus className="h-5 w-5" aria-hidden /> <span className="hidden md:inline">Novo cliente</span>
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-h-[calc(100dvh-1rem)] overflow-y-auto">
+      <DialogContent className="admin-form-dialog admin-guided-dialog">
         <DialogHeader>
           <DialogTitle>{editing ? "Editar cliente" : "Novo cliente"}</DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="sr-only">
             Só o nome é obrigatório. Os demais campos ajudam a personalizar o atendimento.
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={onSubmit} className="grid gap-4">
+        <TaskForm onSubmit={onSubmit} pending={pending} error={error} submitLabel={editing ? "Salvar cliente" : "Cadastrar cliente"}>
           <div>
-            <label className="mb-1 block text-sm font-medium">Nome</label>
-            <Input name="name" defaultValue={client?.name} required autoFocus />
+          <div>
+            <label htmlFor="client-form-name" className="mb-1 block text-sm font-medium">Nome</label>
+            <Input id="client-form-name" aria-label="Nome" name="name" autoComplete="name" defaultValue={client?.name} required autoFocus />
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-sm font-medium">WhatsApp</label>
-              <Input
-                name="phone"
+              <label htmlFor="client-form-phone" className="mb-1 block text-sm font-medium">WhatsApp</label>
+              <Input id="client-form-phone" aria-label="WhatsApp"
+                name="phone" type="tel" autoComplete="tel"
                 defaultValue={client?.phone ?? ""}
                 placeholder="(11) 91234-5678"
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Email</label>
-              <Input
-                name="email"
+              <label htmlFor="client-form-email" className="mb-1 block text-sm font-medium">Email</label>
+              <Input id="client-form-email" aria-label="Email"
+                name="email" autoComplete="email"
                 type="email"
                 defaultValue={client?.email ?? ""}
               />
             </div>
           </div>
+          </div>
+          <FormSection title="Informações complementares" description="Aniversário, preferências e observações">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-sm font-medium">Aniversário</label>
-              <Input
+              <label htmlFor="client-form-birthday" className="mb-1 block text-sm font-medium">Aniversário</label>
+              <Input id="client-form-birthday" aria-label="Aniversário"
                 name="birthday"
                 type="date"
                 defaultValue={
@@ -120,8 +129,8 @@ export function ClientForm({ client }: Props) {
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Gênero</label>
-              <select name="gender" defaultValue={client?.gender ?? ""} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+              <label htmlFor="client-form-gender" className="mb-1 block text-sm font-medium">Gênero</label>
+              <select id="client-form-gender" aria-label="Gênero" name="gender" defaultValue={client?.gender ?? ""} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
                 <option value="">Não informado</option>
                 <option value="FEMALE">Feminino</option>
                 <option value="MALE">Masculino</option>
@@ -130,8 +139,8 @@ export function ClientForm({ client }: Props) {
             </div>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Alergias e restrições</label>
-            <textarea
+            <label htmlFor="client-form-allergies" className="mb-1 block text-sm font-medium">Alergias e restrições</label>
+            <textarea id="client-form-allergies" aria-label="Alergias e restrições"
               name="allergies"
               defaultValue={client?.allergies ?? ""}
               rows={2}
@@ -140,8 +149,8 @@ export function ClientForm({ client }: Props) {
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Preferências de atendimento</label>
-            <textarea
+            <label htmlFor="client-form-preferences" className="mb-1 block text-sm font-medium">Preferências de atendimento</label>
+            <textarea id="client-form-preferences" aria-label="Preferências de atendimento"
               name="preferences"
               defaultValue={client?.preferences ?? ""}
               rows={2}
@@ -150,8 +159,8 @@ export function ClientForm({ client }: Props) {
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Observações internas</label>
-            <textarea
+            <label htmlFor="client-form-notes" className="mb-1 block text-sm font-medium">Observações internas</label>
+            <textarea id="client-form-notes" aria-label="Observações internas"
               name="notes"
               defaultValue={client?.notes ?? ""}
               rows={2}
@@ -166,20 +175,8 @@ export function ClientForm({ client }: Props) {
               <span className="mt-0.5 block text-xs text-muted-foreground">O consentimento pode ser removido a qualquer momento.</span>
             </span>
           </label>
-          {error && (
-            <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {error}
-            </p>
-          )}
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline" type="button">Cancelar</Button>
-            </DialogClose>
-            <Button type="submit" disabled={pending}>
-              {pending ? "Salvando…" : editing ? "Salvar" : "Criar"}
-            </Button>
-          </DialogFooter>
-        </form>
+          </FormSection>
+        </TaskForm>
       </DialogContent>
     </Dialog>
   );

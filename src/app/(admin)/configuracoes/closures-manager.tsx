@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState } from "react";
+import { useFormOperation } from "../use-form-operation";
 import { useRouter } from "next/navigation";
 import { ptBR } from "date-fns/locale";
 import { formatInTimeZone } from "date-fns-tz";
@@ -32,19 +33,22 @@ export function ClosuresManager({
   timezone: string;
 }) {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const [pending, startTransition] = useFormOperation();
+  const formRef = useRef<HTMLFormElement>(null);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function run(fn: () => Promise<{ error: string } | { success: true }>) {
+  function run(fn: () => Promise<{ error: string } | { success: true }>, resetDraft = false) {
     setError(null);
     startTransition(async () => {
+      try {
       const result = await fn();
       if ("error" in result) setError(result.error);
       else {
-        setOpen(false);
+        if (resetDraft) { setOpen(false); formRef.current?.reset(); }
         router.refresh();
       }
+      } catch { setError("Não foi possível atualizar o fechamento. Tente novamente."); }
     });
   }
 
@@ -54,7 +58,7 @@ export function ClosuresManager({
     const startDate = String(f.get("startDate"));
     const endDate = String(f.get("endDate") || startDate);
     const reason = (f.get("reason") as string) || null;
-    run(() => createSalonClosure({ startDate, endDate, reason }));
+    run(() => createSalonClosure({ startDate, endDate, reason }), true);
   }
 
   return (
@@ -65,7 +69,7 @@ export function ClosuresManager({
           <h3 className="text-[13px] font-semibold">Fechamentos por data</h3>
         </div>
         {canManage && (
-          <Button type="button" size="sm" variant="outline" className="min-h-11 rounded-full px-4" onClick={() => setOpen((o) => !o)}>
+          <Button type="button" size="sm" variant="outline" disabled={pending} className="min-h-11 rounded-full px-4" onClick={() => setOpen((o) => !o)}>
             <Plus className="mr-1 h-3.5 w-3.5" />
             Fechar um dia
           </Button>
@@ -77,31 +81,31 @@ export function ClosuresManager({
         {" "}Para almoço ou outra pausa semanal, use <a href="/agenda" className="underline">Pausa recorrente na agenda</a>.
       </p>
 
-      {open && (
-        <form onSubmit={onSubmit} className="mb-4 grid gap-3 rounded-xl border border-border p-4 sm:grid-cols-2">
+      <div hidden={!open}>
+        <form ref={formRef} onSubmit={onSubmit} aria-busy={pending} className="mb-4 grid gap-3 rounded-xl border border-border p-4 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-[12px] font-medium">De</label>
-            <Input name="startDate" type="date" required />
+            <label htmlFor="closures-manager-startDate" className="mb-1 block text-[12px] font-medium">De</label>
+            <Input id="closures-manager-startDate" name="startDate" type="date" required />
           </div>
           <div>
-            <label className="mb-1 block text-[12px] font-medium">Até</label>
-            <Input name="endDate" type="date" />
+            <label htmlFor="closures-manager-endDate" className="mb-1 block text-[12px] font-medium">Até</label>
+            <Input id="closures-manager-endDate" name="endDate" type="date" />
           </div>
           <div className="sm:col-span-2">
-            <label className="mb-1 block text-[12px] font-medium">Motivo (opcional)</label>
-            <Input name="reason" placeholder="Ex.: Feriado de Corpus Christi" maxLength={200} />
+            <label htmlFor="closures-manager-reason" className="mb-1 block text-[12px] font-medium">Motivo (opcional)</label>
+            <Input id="closures-manager-reason" name="reason" placeholder="Ex.: Feriado de Corpus Christi" maxLength={200} />
           </div>
-          {error && <p className="text-[12px] text-destructive sm:col-span-2">{error}</p>}
+          {error && <p role="alert" className="text-[12px] text-destructive sm:col-span-2">{error}</p>}
           <div className="flex gap-2 sm:col-span-2">
             <Button type="submit" size="sm" disabled={pending}>
               {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Bloquear"}
             </Button>
-            <Button type="button" size="sm" variant="outline" onClick={() => setOpen(false)}>
-              Cancelar
+            <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => setOpen(false)}>
+              Recolher
             </Button>
           </div>
         </form>
-      )}
+      </div>
 
       {closures.length === 0 ? (
         <p className="text-[12px] text-muted-foreground">Nenhum bloqueio futuro cadastrado.</p>

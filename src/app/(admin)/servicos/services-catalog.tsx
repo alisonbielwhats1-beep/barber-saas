@@ -16,6 +16,10 @@ import {
   LayoutGrid,
   List,
   Loader2,
+  Scissors,
+  Paintbrush,
+  Hand,
+  Sparkles,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -116,9 +120,9 @@ export function ServicesCatalog({
   }, [filtered, sort]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       {/* Barra de ferramentas */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="admin-catalog-tools flex flex-wrap items-center gap-2">
         <div className="flex min-h-11 min-w-0 flex-1 md:flex-none items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5">
           <Search className="h-3.5 w-3.5 text-muted-foreground" />
           <input
@@ -130,25 +134,20 @@ export function ServicesCatalog({
           />
         </div>
 
-        <MobileListTools label={activeCategory === "all" ? "Filtros" : "Filtrado"}>
-        <select aria-label="Categoria do serviço" value={activeCategory} onChange={e => setCategory(e.target.value)} className="min-h-11 w-full min-w-0 rounded-lg border border-border bg-card px-3 text-sm md:hidden">{categories.map(c => <option key={c} value={c}>{c === "all" ? "Todas as categorias" : c}</option>)}</select>
-        <div className="hidden flex-wrap items-center gap-1.5 md:flex">
+        <div className="service-category-filters order-last flex w-full items-center gap-1.5 overflow-x-auto" role="group" aria-label="Categorias de serviços">
           {categories.map((c) => (
             <button
               key={c}
               onClick={() => setCategory(c)}
               aria-pressed={activeCategory === c}
-              className={`min-h-11 rounded-lg border px-3 py-1.5 text-[12px] font-medium transition-colors ${
-                activeCategory === c
-                  ? "border-primary/40 bg-primary/10 text-foreground"
-                  : "border-border bg-card text-muted-foreground hover:text-foreground"
-              }`}
+              className="min-h-9 shrink-0 rounded-full px-0 text-[12px] font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
             >
-              {c === "all" ? "Todas" : c}
+              <span className={`inline-flex min-h-9 items-center rounded-full border px-3 transition-colors ${activeCategory === c ? "border-transparent bg-primary text-primary-foreground" : "border-border text-muted-foreground hover:text-foreground"}`}>{c === "all" ? "Todas" : c}</span>
             </button>
           ))}
         </div>
 
+        <MobileListTools label="Mais opções">
         <div className="ml-auto flex items-center gap-2">
           <select
             value={sort}
@@ -194,7 +193,7 @@ export function ServicesCatalog({
           Nenhum serviço encontrado.
         </div>
       ) : (
-        <div aria-label="Lista de serviços" className="overflow-hidden rounded-2xl border border-border md:space-y-3 md:rounded-none md:border-0">
+        <div aria-label="Lista de serviços" className="overflow-hidden">
           {groups.map(({ cat, items }) =>
             view === "grid" ? (
               <CategoryGroupGrid
@@ -238,7 +237,7 @@ function CategoryGroupGrid({
   const categoryImage = normalizeImageUrl(items.find((item) => item.imageUrl)?.imageUrl) ?? bannerForCategory(cat);
 
   return (
-    <div className="overflow-hidden border-b border-border bg-card last:border-b-0 md:rounded-2xl md:border md:last:border-b">
+    <div className="overflow-hidden border-b border-border/50 last:border-b-0">
       {/* Banner discreto: identifica a categoria sem dominar a operação. */}
       <div className="relative hidden h-36 w-full overflow-hidden md:block">
         <ImageWithFallback
@@ -288,7 +287,7 @@ function CategoryGroupList({
   canSeeFinancial: boolean;
 }) {
   return (
-    <div className="overflow-hidden border-b border-border bg-card last:border-b-0 md:rounded-2xl md:border md:last:border-b">
+    <div className="overflow-hidden border-b border-border/50 last:border-b-0">
       {/* Cabeçalho de texto simples */}
       <div className="hidden border-b border-border bg-surface-1 px-4 py-2 md:block">
         <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
@@ -309,6 +308,18 @@ function CategoryGroupList({
 
 /* ── Linha de serviço (compartilhada entre as duas vistas) ─────────────── */
 
+function ServiceIcon({ service }: { service: ServiceCard }) {
+  const label = `${service.category ?? ""} ${service.name}`.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const [Icon, background, color] = /unha|manicure|pedicure/.test(label)
+    ? [Hand, "#C9E0FA", "#275685"] as const
+    : /color|quim|tint/.test(label)
+      ? [Paintbrush, "#DDD0F0", "#644183"] as const
+      : /corte|barba|cabelo/.test(label)
+        ? [Scissors, "#BFEBDD", "#195E4A"] as const
+        : [Sparkles, "#DDD0F0", "#644183"] as const;
+  return <span aria-hidden="true" className="grid h-9 w-9 shrink-0 place-items-center rounded-xl" style={{ background, color }}><Icon className="h-[18px] w-[18px]" strokeWidth={1.8} /></span>;
+}
+
 function ServiceRow({
   s,
   canManage,
@@ -321,10 +332,11 @@ function ServiceRow({
   const m = margin(s);
   return (
     <div
-      className={`flex items-center gap-3 border-b border-border px-4 py-3 last:border-0 ${
+      className={`flex items-center gap-2.5 border-b border-border py-3 sm:px-4 last:border-0 ${
         !s.active ? "opacity-50" : ""
       }`}
     >
+      <ServiceIcon service={s} />
       <div className="min-w-0 flex-1">
         <p className="break-words text-[13px] font-medium leading-snug md:truncate">{s.name}</p>
         <p className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">

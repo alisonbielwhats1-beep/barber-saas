@@ -1,5 +1,29 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-20 — correções confirmadas de UX, candidata não implantada
+
+Branch `codex/ux-confirmed-fixes`, incremental sobre a candidata do PR #111:
+confirmação de Pacotes, proteção de rascunhos, formulários diretos, estados de
+histórico, contexto de navegação e hierarquia operacional. Backend e regras
+preservados. Escopo, evidências e limites em
+`CORRECOES_UX_CONFIRMADAS_2026-09-20.md`. Não altera o estado de Production.
+
+## 2026-09-20 — revisão visual do PR #111, ainda não implantada
+
+Após comparação com a referência, a candidata reduz filtros e cabeçalhos,
+reorganiza Financeiro/Relatórios e perfis de cliente/profissional. Fotos de
+profissionais usam o cadastro existente; não há fotos fictícias nem alteração
+de backend. Evidências e limites em `REFORMULACAO_UX_PAINEL_2026-09.md`.
+Esta revisão não foi promovida a Production.
+
+## 2026-09-19 — reformulação do painel em desenvolvimento
+
+O responsável ampliou o pedido da Agenda para todas as abas do painel de
+estabelecimento mostradas na referência. PR #111 preserva backend, APIs,
+permissões e dados; não foi integrado nem publicado. Escopo e evidências em
+`REFORMULACAO_UX_PAINEL_2026-09.md`. O estado implantado continua sendo o
+registrado abaixo; esta seção não afirma mudança produtiva.
+
 ## 2026-09-14 — experiência mobile: publicação autorizada
 
 Branch `codex/mobile-guided-experience`, baseada em `a78a0b2`: catálogo inicial

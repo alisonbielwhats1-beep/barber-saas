@@ -1,3 +1,4 @@
+import { changeAdminTheme } from "./admin-presentation-helpers";
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { PrismaClient } from "@prisma/client";
@@ -40,7 +41,7 @@ test.describe("@database listas mobile compactas", () => {
     await page.getByRole("button", { name: "Entrar", exact: true }).click();
     await expect(page).toHaveURL(/\/(hoje|dashboard)$/, { timeout: 30000 });
     for (const theme of ["dark", "light"]) {
-      if (theme === "light") await page.getByRole("button", { name: "Mudar para tema claro" }).click();
+      if (theme === "light") await changeAdminTheme(page, "claro");
       for (const width of [320, 390, 430]) {
         await page.setViewportSize({ width, height: 844 });
         for (const [route, label] of [["clientes", "Lista de clientes"], ["servicos", "Lista de serviços"], ["profissionais", "Lista de profissionais"], ["avaliacoes", "Lista de avaliações"]]) {
@@ -58,29 +59,30 @@ test.describe("@database listas mobile compactas", () => {
             await page.getByLabel("Buscar cliente ou telefone").fill("inexistente");
             await expect(page.getByText("Nenhum cliente neste filtro.")).toBeVisible();
             await page.getByLabel("Buscar cliente ou telefone").fill("Ana");
-            await page.getByRole("button", { name: "Filtros", exact: true }).click();
-            await page.getByLabel("Filtrar clientes").selectOption("birthday");
+            await page.getByRole("button", { name: "Filtros de clientes", exact:true }).click();
+            await page.getByRole("dialog").getByRole("button", {name:/^Aniversariantes/}).click();
+            await page.getByRole("button", {name:"Aplicar filtros",exact:true}).click();
             await expect(page.getByText("Nenhum cliente neste filtro.")).toBeVisible();
-            await page.getByLabel("Filtrar clientes").selectOption("all");
+            await page.getByRole("button", { name: "Aniversariantes ×", exact: true }).click();
             await expect(list.getByText("Ana Carolina de Albuquerque")).toBeVisible();
           }
           if (route === "servicos") {
             await expect(list.getByText(/A partir de/)).toHaveCount(12);
-            await page.getByRole("button", { name: "Filtros", exact: true }).click();
-            await page.getByLabel("Categoria do serviço").selectOption("Categoria 2 com nome comprido");
+            await page.getByRole("button", { name: "Categoria 2 com nome comprido", exact: true }).click();
             await expect(list.getByText(/A partir de/)).toHaveCount(1);
-            await page.getByRole("button", { name: "Filtrado", exact: true }).click();
-            await expect(page.getByLabel("Categoria do serviço")).not.toBeVisible();
             await list.getByRole("button", { name: /Mais opções/ }).click();
             await expect(page.getByRole("menuitem", { name: "Editar", exact: true })).toBeVisible();
             await page.keyboard.press("Escape");
           }
           if (route === "profissionais") {
             await expect(list.getByText(professionalName, { exact: true })).toBeVisible();
+            await list.getByRole("button", { name: new RegExp(professionalName) }).click();
+            const profile = page.getByRole("dialog", {name: `Perfil de ${professionalName}`});
             await expect(list.getByText("Ticket médio")).not.toBeVisible();
-            await list.getByRole("button", { name: "Desempenho", exact: true }).click();
-            await expect(list.getByText("Ticket médio")).toBeVisible();
-            await list.getByRole("button", { name: "Desempenho", exact: true }).click();
+            await profile.getByRole("tab", { name: "Resumo", exact: true }).click();
+            await expect(profile.getByText("Ticket médio")).toBeVisible();
+            await profile.getByRole("button", { name: "Fechar janela", exact: true }).click();
+            await expect(page.getByLabel("Buscar profissional")).toBeVisible();
             await page.getByLabel("Buscar profissional").fill("inexistente");
             await expect(page.getByText("Nenhum profissional encontrado.")).toBeVisible();
           }

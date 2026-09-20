@@ -1,3 +1,5 @@
+import Link from "next/link";
+import type { Prisma } from "@prisma/client";
 import { getTenantContext } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
 import { AgendaBoard, type Appointment, type Professional } from "./agenda-board";
@@ -30,11 +32,11 @@ function waitlistServiceName(value: unknown): string {
 export default async function AgendaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string; appointment?: string }>;
+  searchParams: Promise<{ date?: string; appointment?: string; client?: string; professional?: string; from?: string }>;
 }) {
   const ctx = await getTenantContext();
   const { salonId, role } = ctx;
-  const { date: selectedDate, appointment: selectedAppointment } = await searchParams;
+  const { date: selectedDate, appointment: selectedAppointment, client: selectedClient, professional: selectedProfessional, from } = await searchParams;
 
   // Sequencial de propósito: pooler com connection_limit=1 em serverless —
   // 5 queries em Promise.all estouravam o timeout do pool (P2024). Dentro de
@@ -151,19 +153,29 @@ export default async function AgendaPage({
       orderBy: { name: "asc" },
     });
     const hiddenClients = await hiddenClientIds(tx, salonId);
-    const clients = await tx.clientProfile.findMany({
-      where: {
+    const visibleClientsWhere: Prisma.ClientProfileWhereInput = {
         salonId,
         mergedIntoId: null,
         id: { notIn: [...hiddenClients] },
         ...(role === "PROFESSIONAL"
           ? { appointments: { some: { professionalId: professionalId! } } }
           : {}),
-      },
+      };
+    const clients = await tx.clientProfile.findMany({
+      where: visibleClientsWhere,
       select: { id: true, name: true, phone: true },
       orderBy: { name: "asc" },
       take: 300,
     });
+    // Deep links can target a visible client outside the initial 300-row list.
+    // Reuse exactly the same tenant, role, merge and visibility restrictions.
+    if (typeof selectedClient === "string" && selectedClient && !clients.some(client => client.id === selectedClient)) {
+      const selected = await tx.clientProfile.findFirst({
+        where: { AND: [visibleClientsWhere, { id: selectedClient }] },
+        select: { id: true, name: true, phone: true },
+      });
+      if (selected) clients.unshift(selected);
+    }
     const blocks = await tx.timeOff.findMany({
       where: { professional: { salonId, ...(professionalId ? { id: professionalId } : {}) }, startAt: { lt: range.to }, endAt: { gt: range.from } },
       select: { id: true, professionalId: true, startAt: true, endAt: true, reason: true },
@@ -270,10 +282,13 @@ export default async function AgendaPage({
   return (
     <>
       <AutoRefresh intervalMs={30_000} />
+      {(from === "hoje" || from === "notificacoes") && <Link href={from === "hoje" ? `/hoje?date=${dateStr}` : "/notificacoes"} className="inline-flex min-h-11 items-center text-sm text-muted-foreground underline">{from === "hoje" ? "Voltar ao dia" : "Voltar às notificações"}</Link>}
       <AgendaBoard
         colorScope={`${ctx.salonId}:${ctx.userId}`}
         operations={(role === "OWNER" || role === "MANAGER") ? <><OpeningPanel date={dateStr} timezone={salon.timezone} professionals={professionals} openings={openings} /><FlexibleQueuePanel /></> : undefined}
         initialAppointmentId={selectedAppointment}
+        initialClientId={selectedClient}
+        initialProfessionalId={selectedProfessional}
         availabilityBlocks={blocks.map(b => ({ ...b, startAt: b.startAt.toISOString(), endAt: b.endAt.toISOString() }))}
         date={dateStr}
         salonName={salon?.name ?? "seu salão"}

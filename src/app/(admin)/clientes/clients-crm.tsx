@@ -1,5 +1,7 @@
 "use client";
+import { Button } from "@/components/ui/button";
 
+import { Root as Tabs, List as TabsList, Trigger as TabsTrigger, Content as TabsContent } from "@radix-ui/react-tabs";
 import { MobileListTools } from "@/components/mobile-list-tools";
 import { useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
@@ -8,7 +10,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Search, MessageCircle, Crown, Cake, Clock, Star, Scissors, User,
+  Search, CalendarPlus, Phone, MessageCircle, Crown, Cake, Clock, Star, Scissors, User, ChevronRight,
   CircleDollarSign, Repeat, Layers, Loader2, ShieldCheck, HeartPulse, FileUp, Gift, X, GitMerge, AlertTriangle,
 } from "lucide-react";
 import { formatMoney } from "@/lib/utils";
@@ -62,6 +64,7 @@ export function ClientsCrm({
   showExcluded = false,
   lapsedClientDays,
   initialSegment = "all",
+  additionalTools,
 }: {
   clients: ClientRow[];
   salonName: string;
@@ -71,6 +74,7 @@ export function ClientsCrm({
   showExcluded?: boolean;
   lapsedClientDays: number;
   initialSegment?: ClientSegment;
+  additionalTools?: React.ReactNode;
 }) {
   const router = useRouter();
   const [visibilityTarget, setVisibilityTarget] = useState<ClientRow | null>(null);
@@ -99,6 +103,8 @@ export function ClientsCrm({
   const detail = selectedDetail ? clients.find(client => client.id === selectedDetail.id) ?? selectedDetail : null;
   const [history, setHistory] = useState<HistoryItem[] | null>(null);
   const [loadingHist, setLoadingHist] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const historyRequest = useRef(0);
   const [historyExpanded, setHistoryExpanded] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [csv, setCsv] = useState("");
@@ -142,64 +148,68 @@ export function ClientsCrm({
   }), [clients]);
 
   const shown = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = search.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
     return clients.filter((c) => {
       if (segment === "vip" && !c.isVip) return false;
       if (segment === "birthday" && !c.birthdayThisMonth) return false;
       if (segment === "lapsed" && !c.isLapsed) return false;
       if (segment === "recurring" && c.visits < 2) return false;
-      if (q && !c.name.toLowerCase().includes(q) && !(c.phone ?? "").includes(q)) return false;
+      if (q && !c.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().includes(q) && !(q.replace(/\D/g, "") && (c.phone ?? "").replace(/\D/g, "").includes(q.replace(/\D/g, "")))) return false;
       return true;
     });
   }, [clients, search, segment]);
 
   async function openDetail(c: ClientRow) {
+    const request = ++historyRequest.current;
     setDetail(c);
+    setHistoryError(null);
     setHistory(null);
     setHistoryExpanded(false);
     setLoadingHist(true);
     try {
-      setHistory(await fetchClientHistory(c.id));
+      const items = await fetchClientHistory(c.id);
+      if (request === historyRequest.current) setHistory(items);
+    } catch {
+      if (request === historyRequest.current) setHistoryError("Não foi possível carregar os atendimentos.");
     } finally {
-      setLoadingHist(false);
+      if (request === historyRequest.current) setLoadingHist(false);
     }
   }
 
   return (
-    <div className="space-y-4">
-      {canDelete && <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground">{showExcluded ? "Clientes excluídos da lista. O acesso e o histórico continuam preservados." : "Clientes da lista ativa."}</p>
-        <Link href={showExcluded ? "/clientes" : "/clientes?status=excluded"} className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-sm">{showExcluded ? "Ver clientes ativos" : "Ver clientes excluídos"}</Link>
-      </div>}
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="client-directory space-y-4 pb-16 md:pb-0">
+      <div className="admin-catalog-tools flex flex-wrap items-center gap-2">
         <div className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 md:flex-none">
           <Search className="h-3.5 w-3.5 text-muted-foreground" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Buscar cliente ou telefone" placeholder="Buscar cliente ou telefone…" className="w-full min-w-0 md:w-48 bg-transparent text-[13px] placeholder:text-muted-foreground focus:outline-none" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Buscar cliente ou telefone" placeholder="Buscar clientes…" className="w-full min-w-0 md:w-48 bg-transparent text-[13px] placeholder:text-muted-foreground focus:outline-none" />
         </div>
-        <MobileListTools label={segment === "all" ? "Filtros" : "Filtrado"}>
-        <select aria-label="Filtrar clientes" value={segment} onChange={e => setSegment(e.target.value as ClientSegment)} className="min-h-11 min-w-0 flex-1 rounded-lg border border-border bg-card px-3 text-sm md:hidden">
-          <option value="all">Todos ({clients.length})</option><option value="vip">VIP ({counts.vip})</option><option value="birthday">Aniversariantes ({counts.birthday})</option><option value="lapsed">Sumidos {lapsedClientDays}d+ ({counts.lapsed})</option><option value="recurring">Recorrentes ({counts.recurring})</option>
-        </select>
-        <div className="hidden flex-wrap gap-2 md:flex">
-        <Seg active={segment === "all"} onClick={() => setSegment("all")}>Todos ({clients.length})</Seg>
-        <Seg active={segment === "vip"} onClick={() => setSegment("vip")} icon={Crown} accent="warning">VIP ({counts.vip})</Seg>
-        <Seg active={segment === "birthday"} onClick={() => setSegment("birthday")} icon={Cake} accent="marketing">Aniversariantes ({counts.birthday})</Seg>
-        <Seg active={segment === "lapsed"} onClick={() => setSegment("lapsed")} icon={Clock} accent="danger">Sumidos {lapsedClientDays}d+ ({counts.lapsed})</Seg>
-        <Seg active={segment === "recurring"} onClick={() => setSegment("recurring")} icon={Repeat} accent="info">Recorrentes ({counts.recurring})</Seg>
+        {segment !== "all" && <div className="order-3 flex w-full gap-2 overflow-x-auto" role="group" aria-label="Filtros de clientes">
+          <Seg active onClick={() => setSegment("all")}>{({vip:"VIP",birthday:"Aniversariantes",lapsed:"Sumidos",recurring:"Recorrentes"})[segment]} ×</Seg>
+        </div>}
+        <MobileListTools label="Filtros de clientes">
+        <div className="flex w-full flex-wrap gap-2">
+          <Seg active={segment === "all"} onClick={() => setSegment("all")}>Todos</Seg>
+          <Seg active={segment === "vip"} onClick={() => setSegment("vip")}>VIP ({counts.vip})</Seg>
+          <Seg active={segment === "birthday"} onClick={() => setSegment("birthday")}>Aniversariantes ({counts.birthday})</Seg>
+          <Seg active={segment === "lapsed"} onClick={() => setSegment("lapsed")}>Sumidos {lapsedClientDays}d+ ({counts.lapsed})</Seg>
+          <Seg active={segment === "recurring"} onClick={() => setSegment("recurring")}>Recorrentes ({counts.recurring})</Seg>
         </div>
+        {additionalTools}
+        {canDelete && <Link href={showExcluded ? "/clientes" : "/clientes?status=excluded"} className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-sm">{showExcluded ? "Ver clientes ativos" : "Ver clientes excluídos"}</Link>}
         {canManage && <button onClick={() => setImportOpen((open) => !open)} className="ml-auto inline-flex min-h-11 items-center gap-1.5 rounded-full border border-border bg-card px-3 text-[12px] font-medium text-muted-foreground"><FileUp className="h-3.5 w-3.5" /> Importar planilha</button>}
         </MobileListTools>
       </div>
 
+      {showExcluded && <p className="text-xs text-muted-foreground">Clientes excluídos da lista. O acesso e o histórico continuam preservados.</p>}
       {importOpen && <div className="rounded-2xl border border-primary/25 bg-primary/5 p-4"><div className="mb-3 flex items-start justify-between"><div><p className="text-[13px] font-semibold">Importar clientes por CSV</p><p className="text-[11px] text-muted-foreground">Colunas aceitas: nome, telefone, email e aniversario. Duplicados são ignorados.</p></div><button onClick={() => setImportOpen(false)} aria-label="Fechar importação"><X className="h-4 w-4 text-muted-foreground" /></button></div><input type="file" accept=".csv,text/csv" onChange={(event) => { const file = event.target.files?.[0]; if (file) void file.text().then(setCsv); }} className="mb-3 block w-full text-[11px] text-muted-foreground file:mr-3 file:rounded-lg file:border-0 file:bg-card file:px-3 file:py-2 file:text-[11px] file:font-medium" /><textarea value={csv} onChange={(event) => setCsv(event.target.value)} rows={4} placeholder={'nome,telefone,email,aniversario\nAna,11999990000,ana@email.com,1990-08-20'} className="w-full rounded-xl border border-border bg-background px-3 py-2 text-[12px] outline-none" /><button onClick={importCsv} disabled={pending || !csv.trim()} className="mt-3 inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-[12px] font-semibold text-primary-foreground disabled:opacity-50">{pending && <Loader2 className="h-4 w-4 animate-spin" />} Importar clientes</button></div>}
 
-      <div aria-label="Lista de clientes" className="overflow-hidden rounded-2xl border border-border bg-card">
+      <div aria-label="Lista de clientes" className="overflow-hidden">
         {shown.length === 0 ? (
           <div className="p-12 text-center text-[13px] text-muted-foreground">Nenhum cliente neste filtro.</div>
         ) : (
           shown.map((c) => (
-            <div key={c.id} className="flex items-center gap-3 border-b border-border px-4 py-3 last:border-0 hover:bg-card-hover">
-              <button onClick={() => openDetail(c)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+            <div key={c.id} className="flex items-center gap-3 border-b border-border/50 px-0 py-2 last:border-0 hover:bg-card-hover">
+              <button onClick={() => openDetail(c)} className="flex min-h-12 min-w-0 flex-1 items-center gap-3 text-left">
                 <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-[12px] font-semibold text-black/80" style={{ background: c.loyaltyColor }}>
                   {c.name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase()}
                 </span>
@@ -210,10 +220,11 @@ export function ClientsCrm({
                     {c.isVip && <Crown className="h-3 w-3 shrink-0 text-warning" />}
                     {c.birthdayThisMonth && <Cake className="h-3 w-3 shrink-0 text-marketing" />}
                   </div>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{c.phone || "Sem telefone"}</p>
                   <p className="truncate text-[11px] text-muted-foreground">
                     {c.visits} {c.visits === 1 ? "atendimento" : "atendimentos"}{c.favoritePro ? ` · ${c.favoritePro.split(" ")[0]}` : ""}
                   </p>
-                  <div className="mt-1 flex flex-wrap gap-1">
+                  <div className="mt-1 hidden flex-wrap gap-1 md:flex">
                     <span className="rounded-full bg-muted px-1.5 py-0.5 text-[9px] text-muted-foreground">
                       {c.accountStatus === "registered" ? "Conta criada" : "Sem conta"}
                     </span>
@@ -230,6 +241,7 @@ export function ClientsCrm({
                   </div>
                 </div>
               </button>
+              <button type="button" aria-label={`Ver detalhes de ${c.name}`} onClick={() => openDetail(c)} className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-muted-foreground md:hidden"><ChevronRight size={18} aria-hidden /></button>
               <div className="hidden w-24 text-right sm:block">
                 <p className="text-[13px] font-semibold">{formatMoney(c.totalSpent)}</p>
                 <p className="text-[10px] text-muted-foreground">LTV</p>
@@ -242,7 +254,7 @@ export function ClientsCrm({
               </div>
               {c.isLapsed && <span className="hidden shrink-0 rounded-full bg-danger/10 px-2 py-0.5 text-[10px] font-semibold text-danger lg:inline">Sumido</span>}
               {c.phone && (
-                <a href={waLink(c.phone, c.name.split(" ")[0], salonName)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-success/10 text-success transition hover:bg-success/20" title="WhatsApp">
+                <a href={waLink(c.phone, c.name.split(" ")[0], salonName)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="hidden h-11 w-11 shrink-0 place-items-center rounded-lg bg-success/10 md:grid text-success transition hover:bg-success/20" title="WhatsApp">
                   <MessageCircle className="h-4 w-4" />
                 </a>
               )}
@@ -253,7 +265,7 @@ export function ClientsCrm({
 
       {/* Drawer de detalhe */}
       <Dialog open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>
-        <DialogContent className="max-h-[88dvh] max-w-lg overflow-y-auto">
+        <DialogContent className="admin-client-detail max-h-[88dvh] max-w-lg overflow-y-auto">
           {detail && (
             <>
               <DialogHeader>
@@ -270,18 +282,20 @@ export function ClientsCrm({
                     <p className="text-[12px] text-muted-foreground">
                       {detail.phone ?? detail.email ?? "sem contato"}
                     </p>
-                    <AccountBadge registered={detail.accountStatus === "registered"} />
+                    <p className="mt-1 text-xs text-muted-foreground">Cliente desde {formatInTimeZone(new Date(detail.createdAt),timezone,"MMM yyyy",{locale:ptBR})} · {detail.visits} atendimentos</p><AccountBadge registered={detail.accountStatus === "registered"} />
                   </div>
                 </div>
               </DialogHeader>
 
-              <div className="flex flex-wrap items-center gap-2">
-                {canDelete && <button type="button" className="min-h-11 rounded-lg border border-border px-3 text-sm" onClick={() => { setVisibilityTarget(detail); setDetail(null); }}>{showExcluded ? "Restaurar à lista" : "Excluir da lista"}</button>}
+              <div className="client-profile-actions flex flex-wrap items-center justify-center gap-2">
+                {detail.phone && <a href={`tel:${detail.phone}`} className="flex min-h-11 items-center gap-2 rounded-full border border-border px-3 text-sm"><Phone className="h-4 w-4" />Ligar</a>}
+
                 {detail.phone && (
                   <a href={waLink(detail.phone, detail.name.split(" ")[0], salonName)} target="_blank" rel="noopener noreferrer" className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#25D366]/15 px-3 py-2 text-[13px] font-medium text-[#25D366] transition hover:bg-[#25D366]/25">
                     <MessageCircle className="h-4 w-4" /> WhatsApp
                   </a>
                 )}
+                {canManage && !showExcluded && <Link href={`/agenda?client=${encodeURIComponent(detail.id)}`} className="flex min-h-11 items-center rounded-full border border-border px-3 text-sm"><CalendarPlus className="h-4 w-4" aria-hidden />Novo ag.</Link>}
                 {canManage && (
                   <ClientForm
                     client={{
@@ -299,6 +313,11 @@ export function ClientsCrm({
                   />
                 )}
               </div>
+
+              <Tabs defaultValue="summary"><TabsList className="grid w-full grid-cols-3"><TabsTrigger value="summary">Resumo</TabsTrigger><TabsTrigger value="history">Histórico</TabsTrigger><TabsTrigger value="preferences">Preferências</TabsTrigger></TabsList><TabsContent value="summary" className="space-y-4">
+              <section className="rounded-lg bg-surface-1 p-4"><h3 className="text-xs text-muted-foreground">Próximo agendamento</h3><p className="mt-2 text-sm font-semibold">{detail.nextAppointmentAt ? formatInTimeZone(new Date(detail.nextAppointmentAt), timezone, "EEE, d MMM · HH:mm", {locale:ptBR}) : "Nenhum agendamento futuro"}</p></section>
+              <section><h3 className="mb-2 text-sm font-semibold">Últimos atendimentos</h3>{historyError ? <div role="alert"><p>{historyError}</p><Button type="button" variant="outline" onClick={() => openDetail(detail)}>Tentar novamente</Button></div> : loadingHist ? <p role="status" className="text-xs text-muted-foreground">Carregando…</p> : history?.length ? history.slice(0,3).map(item=><div key={item.id} className="flex items-center justify-between gap-3 border-b border-border/50 py-3 text-xs"><span>{formatInTimeZone(new Date(item.startAt),timezone,"dd/MM/yyyy")}</span><span className="min-w-0 flex-1 truncate">{item.serviceName}</span><span>{formatMoney(item.priceCents)}</span></div>) : <p className="text-xs text-muted-foreground">Sem atendimentos registrados.</p>}</section>
+              <details className="admin-detail-section"><summary>Informações e fidelidade</summary><div className="space-y-4 pt-3">
 
               <div className="grid grid-cols-2 gap-2">
                 <DStat icon={CircleDollarSign} label="LTV total" value={formatMoney(detail.totalSpent)} />
@@ -323,7 +342,7 @@ export function ClientsCrm({
                     <p className="text-[10px] uppercase text-muted-foreground">Cadastro aberto</p>
                     <p className="break-words text-xs font-semibold">{detail.name}</p>
                     <p className="break-all text-xs text-muted-foreground">{detail.email ?? "Sem e-mail"}</p>
-                    <AccountBadge registered={detail.accountStatus === "registered"} />
+                    <p className="mt-1 text-xs text-muted-foreground">Cliente desde {formatInTimeZone(new Date(detail.createdAt),timezone,"MMM yyyy",{locale:ptBR})} · {detail.visits} atendimentos</p><AccountBadge registered={detail.accountStatus === "registered"} />
                   </div>
                   <p className="mt-2 text-xs text-muted-foreground">Se apenas um cadastro tem conta criada, prefira mantê-lo para conservar o mesmo acesso.</p>
                   <div className="mt-3 space-y-2">
@@ -384,6 +403,8 @@ export function ClientsCrm({
                 <div className="mt-2 flex items-center justify-between gap-2"><p className="text-[10px] text-muted-foreground">Cada atendimento concluído vale 1 ponto.</p>{canManage && <button onClick={() => redeem(detail)} disabled={pending || !detail.canRedeemLoyaltyReward} className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg bg-primary/10 px-2.5 text-[10px] font-semibold text-primary disabled:opacity-40"><Gift className="h-3.5 w-3.5" /> Resgatar recompensa</button>}</div>
               </div>
 
+              </div></details></TabsContent><TabsContent value="preferences" className="space-y-4">                {canDelete && <button type="button" className="min-h-11 rounded-lg border border-border px-3 text-sm" onClick={() => { setVisibilityTarget(detail); setDetail(null); }}>{showExcluded ? "Restaurar à lista" : "Excluir da lista"}</button>}
+              {!detail.allergies && !detail.preferences && !detail.consentGiven && !detail.notes && <p className="py-4 text-sm text-muted-foreground">Nenhuma preferência registrada. Use Editar para complementar o cadastro.</p>}
               {(detail.allergies || detail.preferences || detail.consentGiven) && (
                 <div className="space-y-2 rounded-xl border border-border bg-card px-3 py-3 text-[12px]">
                   {detail.allergies && <Info icon={HeartPulse} label="Alergias e restrições" value={detail.allergies} wrap />}
@@ -404,6 +425,7 @@ export function ClientsCrm({
                 </div>
               )}
 
+              </TabsContent><TabsContent value="history">
               {/* Histórico */}
               <div>
                 <div className="mb-2 flex items-center justify-between">
@@ -418,7 +440,7 @@ export function ClientsCrm({
                     </button>
                   )}
                 </div>
-                {loadingHist ? (
+                {historyError ? (<div role="alert"><p>{historyError}</p><Button type="button" variant="outline" onClick={() => openDetail(detail)}>Tentar novamente</Button></div>) : loadingHist ? (
                   <div className="flex items-center gap-2 py-4 text-[12px] text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Carregando…</div>
                 ) : history && history.length > 0 ? (
                   <div className="space-y-1.5">
@@ -438,6 +460,7 @@ export function ClientsCrm({
                   <p className="py-2 text-[12px] text-muted-foreground">Sem atendimentos registrados.</p>
                 )}
               </div>
+              </TabsContent></Tabs>
             </>
           )}
         </DialogContent>

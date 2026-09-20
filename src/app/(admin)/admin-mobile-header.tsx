@@ -1,3 +1,5 @@
+"use client";
+import { usePathname } from "next/navigation";
 import { BrandLogo } from "@/components/brand";
 import { PlanShortcut } from "./plan-shortcut";
 import { ThemeToggle } from "./theme-toggle";
@@ -11,7 +13,9 @@ export function AdminMobileHeader({
   plan: string | null;
   planHref: string;
 }) {
+  const pathname = usePathname();
   const owner = role === "OWNER";
+  if (pathname !== "/hoje") return null;
   return (
     <header
       role="region"

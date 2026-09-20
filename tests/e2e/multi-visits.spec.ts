@@ -203,17 +203,18 @@ test("@database visita conjunta no cliente e no painel, folga e bloqueio após e
       .getByRole("button", { name: "Abrir ações rápidas da agenda" })
       .click();
     await page.getByRole("menuitem", { name: /Novo agendamento/ }).click();
-    await page
-      .getByRole("button", {
-        name: "Adicionar serviços com profissionais diferentes",
-      })
-      .click();
+    const simple = page.getByRole("dialog");
+    await simple.getByLabel("Pesquisar cliente").fill(client.name);
+    await simple.getByRole("button").filter({hasText:client.name}).click();
+    await simple.getByRole("button", {name:"Alterar data, horário e profissional"}).click();
+    await simple.getByLabel("Hora de início").fill("21:00");
+    await simple.getByRole("button", {name:"Aplicar",exact:true}).click();
+    await simple.getByRole("button", {name:"Continuar",exact:true}).click();
+    await simple.getByRole("checkbox").first().check();
+    await simple.getByRole("button", {name:"Adicionar outro profissional",exact:true}).click();
     const dialog = page.getByRole("dialog", {
-      name: "Uma visita, vários serviços",
+      name: "Novo agendamento",
     });
-    await dialog.getByRole('combobox', {name:'Cliente', exact:true}).selectOption(client.id);
-    await dialog.getByLabel("Início", { exact: true }).fill("21:00");
-    await dialog.getByRole("button", { name: "Escolher serviços", exact: true }).click();
     await dialog.getByRole("button", { name: "Serviço 1", exact: true }).click();
     await page.getByRole("dialog", { name: "Serviço 1", exact: true }).getByRole("button", { name: /Corte/ }).click();
     await dialog
@@ -221,6 +222,7 @@ test("@database visita conjunta no cliente e no painel, folga e bloqueio após e
       .click();
     await dialog.getByRole("button", { name: "Serviço 2", exact: true }).click();
     await page.getByRole("dialog", { name: "Serviço 2", exact: true }).getByRole("button", { name: /Unhas/ }).click();
+    await dialog.getByText("Exceção de horário", {exact:true}).click();
     await dialog
       .getByLabel("Agendar em folga, intervalo ou fora do expediente")
       .check();
@@ -284,6 +286,7 @@ test("@database visita conjunta no cliente e no painel, folga e bloqueio após e
     const editDialog = page.getByRole("dialog");
     await editDialog.getByRole("button", { name: /Editar/ }).click();
     await editDialog.getByLabel("Horário do agendamento").fill("18:30");
+    await editDialog.getByRole("button", { name: "Revisar alterações" }).click();
     await editDialog.getByRole("button", { name: "Salvar alterações" }).click();
     await expect(editDialog.getByText(/O novo horário já está reservado/)).toBeVisible();
     await editDialog.getByRole("button", { name: "Concluir", exact: true }).click();

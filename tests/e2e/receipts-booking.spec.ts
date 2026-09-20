@@ -59,6 +59,7 @@ test("@database baixa por dia com extras, ontem, seleção e recibo na mesma tel
     await page.getByRole("button", { name: "Entrar", exact: true }).click();
     await expect(page).toHaveURL(/\/(hoje|dashboard)$/, { timeout: 30000 });
     await page.goto("/financeiro");
+    await page.getByRole("link", { name: "Recebimentos", exact: true }).click();
     await expect(
       page.getByRole("heading", { name: "Recebimentos por dia" }),
     ).toBeVisible();

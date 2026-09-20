@@ -1,6 +1,7 @@
 "use client";
+import { useFormOperation } from "../use-form-operation";
 
-import { useState, useTransition } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Layers, BadgePercent, Power, Trash2, ShoppingCart, MinusCircle,
@@ -10,7 +11,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose,
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { formatMoney } from "@/lib/utils";
@@ -55,18 +56,24 @@ export function PacotesView({
 }) {
   const [tab, setTab] = useState<"packages" | "plans">("packages");
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
-  const [picker, setPicker] = useState<{ title: string; onConfirm: (clientId: string) => Promise<void> } | null>(null);
+  const [pending, startTransition] = useFormOperation();
+  const [picker, setPicker] = useState<{ title: string; summary: string; onConfirm: (clientId: string) => Promise<void> } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const operation = useRef(false);
+  const [confirmation, setConfirmation] = useState<{ title: string; summary: string; action: () => Promise<void> } | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [purchaseFilter, setPurchaseFilter] = useState<string>(initialFilter);
   const now = Date.now();
   const filteredPurchases = purchases.filter(p => purchaseFilter === "all" || (purchaseFilter === "expiring" && p.status === "ACTIVE" && p.sessionsUsed < p.sessionsTotal && +new Date(p.expiresAt) >= now && +new Date(p.expiresAt) <= now + 7 * 86400000) || (purchaseFilter === "low" && p.status === "ACTIVE" && p.sessionsTotal - p.sessionsUsed > 0 && p.sessionsTotal - p.sessionsUsed <= 2) || (purchaseFilter === "expired" && (p.status === "EXPIRED" || (p.status === "ACTIVE" && +new Date(p.expiresAt) < now))));
 
   function run(fn: () => Promise<void>) {
-    setError(null);
+    if (operation.current) return;
+    operation.current = true;
+    setError(null); setSuccess(null);
     startTransition(async () => {
-      try { await fn(); router.refresh(); }
-      catch (e) { setError(e instanceof Error ? e.message : "Erro"); }
+      try { await fn(); setConfirmation(null); setPicker(null); setSuccess("Operação concluída."); router.refresh(); }
+      catch (e) { setError(e instanceof Error ? e.message : "Não foi possível concluir. Tente novamente."); }
+      finally { operation.current = false; }
     });
   }
 
@@ -77,7 +84,8 @@ export function PacotesView({
         <TabBtn active={tab === "plans"} onClick={() => setTab("plans")} icon={BadgePercent} label="Planos" />
       </div>
 
-      {error && <p className="rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger">{error}</p>}
+      {success && <p role="status" className="text-sm text-success">{success}</p>}
+      {error && !picker && !confirmation && <p role="alert" className="rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger">{error}</p>}
 
       {tab === "packages" ? (
         <>
@@ -110,7 +118,7 @@ export function PacotesView({
                   <div className="mt-4 flex items-center gap-2 border-t border-border pt-3">
                     <button
                       disabled={!enabled}
-                      onClick={() => setPicker({ title: `Vender "${p.name}"`, onConfirm: (cid) => sellPackage(p.id, cid) })}
+                      onClick={() => setPicker({ title: `Vender "${p.name}"`, summary: `${formatMoney(p.priceCents)} · ${p.sessions} sessões · validade ${p.validityDays} dias`, onConfirm: (cid) => sellPackage(p.id, cid) })}
                       className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-[12px] font-semibold text-primary-foreground transition hover:opacity-90"
                     >
                       <ShoppingCart className="h-3.5 w-3.5" /> Vender
@@ -119,7 +127,7 @@ export function PacotesView({
                       onEdit={<PackageForm services={services} pkg={p} trigger={<DropdownMenuItem onSelect={(e) => e.preventDefault()}>Editar</DropdownMenuItem>} />}
                       onToggle={() => run(() => togglePackageActive(p.id))}
                       active={p.active}
-                      onDelete={() => run(() => deletePackage(p.id))}
+                      onDelete={() => setConfirmation({ title: "Excluir oferta", summary: p.name, action: () => deletePackage(p.id) })}
                       pending={pending}
                     />}
                   </div>
@@ -161,7 +169,7 @@ export function PacotesView({
                         </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onSelect={() => run(() => consumePackageSession(pur.id))} disabled={remaining <= 0 || pur.status !== "ACTIVE"}>
+                        <DropdownMenuItem onSelect={() => setConfirmation({ title: "Confirmar uso de sessão", summary: `${pur.clientName} · ${pur.packageName} · ${remaining} sessões restantes`, action: () => consumePackageSession(pur.id) })} disabled={remaining <= 0 || pur.status !== "ACTIVE"}>
                           <MinusCircle className="mr-2 h-3.5 w-3.5" /> Usar sessão
                         </DropdownMenuItem>
                         {pur.status === "FROZEN" ? (
@@ -173,11 +181,11 @@ export function PacotesView({
                             <Snowflake className="mr-2 h-3.5 w-3.5" /> Congelar
                           </DropdownMenuItem>
                         )}
-                        <DropdownMenuItem onSelect={() => run(() => renewPurchase(pur.id))}>
+                        <DropdownMenuItem onSelect={() => setConfirmation({ title: "Confirmar renovação", summary: `${pur.clientName} · ${pur.packageName}`, action: () => renewPurchase(pur.id) })}>
                           <RefreshCw className="mr-2 h-3.5 w-3.5" /> Renovar
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onSelect={() => run(() => setPurchaseStatus(pur.id, "CANCELLED"))} className="text-danger focus:text-danger">
+                        <DropdownMenuItem onSelect={() => setConfirmation({ title: "Cancelar pacote", summary: `${pur.clientName} · ${pur.packageName}. O histórico será preservado.`, action: () => setPurchaseStatus(pur.id, "CANCELLED") })} className="text-danger focus:text-danger">
                           <Ban className="mr-2 h-3.5 w-3.5" /> Cancelar
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -214,7 +222,7 @@ export function PacotesView({
                   <div className="mt-4 flex items-center gap-2 border-t border-border pt-3">
                     <button
                       disabled={!enabled}
-                      onClick={() => setPicker({ title: `Assinar "${p.name}"`, onConfirm: (cid) => subscribeClient(p.id, cid) })}
+                      onClick={() => setPicker({ title: `Assinar "${p.name}"`, summary: `${formatMoney(p.priceCents)}/${p.interval === "ANNUAL" ? "ano" : "mês"} · ${p.benefits ?? ""}`, onConfirm: (cid) => subscribeClient(p.id, cid) })}
                       className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-[12px] font-semibold text-primary-foreground transition hover:opacity-90"
                     >
                       <ShoppingCart className="h-3.5 w-3.5" /> Assinar
@@ -223,7 +231,7 @@ export function PacotesView({
                       onEdit={<PlanForm plan={p} trigger={<DropdownMenuItem onSelect={(e) => e.preventDefault()}>Editar</DropdownMenuItem>} />}
                       onToggle={() => run(() => togglePlanActive(p.id))}
                       active={p.active}
-                      onDelete={() => run(() => deletePlan(p.id))}
+                      onDelete={() => setConfirmation({ title: "Excluir plano", summary: p.name, action: () => deletePlan(p.id) })}
                       pending={pending}
                     />}
                   </div>
@@ -249,7 +257,7 @@ export function PacotesView({
                     <p className="hidden text-[12px] text-muted-foreground sm:block">{formatMoney(s.priceCents)}/{s.interval === "ANNUAL" ? "ano" : "mês"}</p>
                     <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: `${cfg.color}1f`, color: cfg.color }}>{cfg.label}</span>
                     {s.status === "ACTIVE" && (
-                      <button onClick={() => run(() => cancelSubscription(s.id))} disabled={!enabled || pending} className="grid min-h-11 min-w-11 shrink-0 place-items-center rounded-lg text-muted-foreground hover:text-danger" title="Cancelar assinatura">
+                      <button onClick={() => setConfirmation({ title: "Cancelar assinatura", summary: `${s.clientName} · ${s.planName}. O histórico será preservado.`, action: () => cancelSubscription(s.id) })} disabled={!enabled || pending} className="grid min-h-11 min-w-11 shrink-0 place-items-center rounded-lg text-muted-foreground hover:text-danger" title="Cancelar assinatura">
                         <Ban className="h-3.5 w-3.5" />
                       </button>
                     )}
@@ -262,41 +270,39 @@ export function PacotesView({
       )}
 
       {/* Seletor de cliente para vender/assinar */}
-      <ClientPicker
-        open={!!picker}
-        title={picker?.title ?? ""}
-        clients={clients}
-        onClose={() => setPicker(null)}
-        onConfirm={(cid) => {
-          const p = picker;
-          setPicker(null);
-          if (p) run(() => p.onConfirm(cid));
-        }}
-      />
+      {picker && <ClientPicker
+        open title={picker.title} summary={picker.summary} clients={clients} pending={pending} error={error}
+        onClose={() => { if (!operation.current) { setPicker(null); setError(null); } }}
+        onConfirm={(cid) => run(() => picker.onConfirm(cid))}
+      />}
+      <Dialog open={!!confirmation} onOpenChange={next => { if (!next && !operation.current) { setConfirmation(null); setError(null); } }}>
+        <DialogContent><DialogHeader><DialogTitle>{confirmation?.title}</DialogTitle><DialogDescription>{confirmation?.summary}</DialogDescription></DialogHeader>
+          {error && <p role="alert" className="text-sm text-danger">{error}</p>}
+          <DialogFooter><Button type="button" variant="outline" disabled={pending} onClick={() => setConfirmation(null)}>Voltar</Button><Button type="button" disabled={pending} onClick={() => confirmation && run(confirmation.action)}>{pending ? "Processando…" : "Confirmar operação"}</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
-function ClientPicker({ open, title, clients, onClose, onConfirm }: { open: boolean; title: string; clients: { id: string; name: string }[]; onClose: () => void; onConfirm: (clientId: string) => void }) {
+function ClientPicker({ open, title, summary, clients, pending, error, onClose, onConfirm }: { open: boolean; title: string; summary: string; clients: { id: string; name: string }[]; pending: boolean; error: string | null; onClose: () => void; onConfirm: (clientId: string) => void }) {
   const [q, setQ] = useState("");
-  const filtered = clients.filter((c) => c.name.toLowerCase().includes(q.toLowerCase())).slice(0, 30);
-  return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[80dvh] overflow-hidden">
-        <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar cliente…" className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none" autoFocus />
-        <div className="max-h-72 space-y-1 overflow-y-auto">
-          {filtered.map((c) => (
-            <button key={c.id} onClick={() => onConfirm(c.id)} className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[13px] transition hover:bg-card-hover">
-              {c.name}<Check className="h-4 w-4 text-muted-foreground opacity-0" />
-            </button>
-          ))}
-          {filtered.length === 0 && <p className="py-6 text-center text-[13px] text-muted-foreground">Nenhum cliente.</p>}
-        </div>
-        <DialogFooter><DialogClose asChild><Button variant="outline" type="button">Fechar</Button></DialogClose></DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
+  const [selected, setSelected] = useState<string | null>(null);
+  const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const filtered = clients.filter(c => normalize(c.name).includes(normalize(q))).slice(0, 30);
+  return <Dialog open={open} onOpenChange={o => !o && onClose()}>
+    <DialogContent className="max-h-[80dvh] overflow-y-auto">
+      <DialogHeader><DialogTitle>{title}</DialogTitle><DialogDescription>{summary}</DialogDescription></DialogHeader>
+      <input aria-label="Buscar cliente" value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar cliente…" disabled={pending} className="min-h-11 w-full rounded-lg border border-border bg-background px-3 text-sm" autoFocus />
+      <div className="max-h-72 space-y-1 overflow-y-auto" role="group" aria-label="Selecionar cliente">
+        {filtered.map(c => <button type="button" key={c.id} disabled={pending} aria-pressed={selected === c.id} onClick={() => setSelected(c.id)} className="flex min-h-11 w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm hover:bg-card-hover focus-visible:ring-2 focus-visible:ring-ring">{c.name}{selected === c.id && <Check aria-hidden className="h-4 w-4 text-primary" />}</button>)}
+        {filtered.length === 0 && <p role="status" className="py-4 text-sm">Nenhum cliente encontrado.</p>}
+      </div>
+      {selected && <p role="status" className="text-sm">Cliente: <strong>{clients.find(c => c.id === selected)?.name}</strong>. Confira os dados antes de confirmar.</p>}
+      {error && <p role="alert" className="text-sm text-danger">{error}</p>}
+      <DialogFooter><DialogClose asChild><Button variant="outline" type="button" disabled={pending}>Voltar</Button></DialogClose><Button type="button" disabled={!selected || pending} onClick={() => selected && onConfirm(selected)}>{pending ? "Processando…" : "Confirmar operação"}</Button></DialogFooter>
+    </DialogContent>
+  </Dialog>;
 }
 
 function OfferMenu({ onEdit, onToggle, active, onDelete, pending }: { onEdit: React.ReactNode; onToggle: () => void; active: boolean; onDelete: () => void; pending: boolean }) {

@@ -32,7 +32,7 @@ describe("Configurações por tópico", () => {
     fireEvent.click(screen.getByRole("button", { name: "Limpar busca" }));
     expect(screen.getByRole("searchbox")).toHaveFocus();
     expect(screen.getByRole("link", { name: /Segurança e acessos/ })).toBeVisible();
-    expect(screen.getByRole("link", { name: /Segurança e acessos/ })).toHaveClass("lg:min-h-40", "lg:border");
+    expect(screen.getByRole("link", { name: /Segurança e acessos/ })).toHaveAttribute("href", "#seguranca");
   });
   it("respeita links antigos e navegação do navegador", () => {
     window.history.replaceState(null, "", "/configuracoes#jornadas"); setup();

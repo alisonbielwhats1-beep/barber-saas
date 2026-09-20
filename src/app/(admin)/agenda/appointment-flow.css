@@ -1,0 +1,58 @@
+.appointment-flow-dialog {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+  gap: 0;
+  height: min(800px, calc(var(--app-viewport-height, 100dvh) - 2rem));
+  max-width: 42rem;
+}
+.appointment-flow-header { flex-shrink: 0; padding: 20px 20px 16px; border-bottom: 1px solid hsl(var(--border)); }
+.appointment-flow-body { min-height: 0; min-width: 0; flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 16px 20px; scroll-padding-block: 16px; }
+.appointment-flow-footer { flex-shrink: 0; padding: 12px 20px max(16px, env(safe-area-inset-bottom)); border-top: 1px solid hsl(var(--border)); background: hsl(var(--card)); }
+.appointment-flow-dialog input[type=date], .appointment-flow-dialog input[type=time] { min-width: 0; width: 100%; max-width: 100%; font-size: 16px; min-height: 44px; }
+@media (max-width: 639px) {
+  .appointment-flow-dialog { height: calc(var(--app-viewport-height, 100dvh) - 1rem); }
+  .appointment-flow-header { padding-inline: 16px; }
+  .appointment-flow-body { padding-inline: 16px; }
+  .appointment-flow-footer { padding-inline: 16px; }
+}
+
+/* Agenda-only layout: shared theme tokens keep both panel themes intact. */
+.appointment-flow-dialog { max-width: 34rem; border-radius: 20px; background: hsl(var(--card)); }
+.appointment-flow-header { padding-top: 24px; gap: 16px; }
+.appointment-flow-header > h2 { font-size: 16px; line-height: 24px; }
+.appointment-flow-body h2 { font-size: 18px; line-height: 26px; }
+.appointment-flow-body :is(button, input, textarea, select):focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+.appointment-steps { display: flex; padding: 4px 12px 0; font-size: 11px; }
+.appointment-step { position: relative; display: flex; flex: 1; min-width: 0; flex-direction: column; align-items: center; gap: 8px; }
+.appointment-step:not(:last-child)::after { content: ''; position: absolute; height: 1px; background: hsl(var(--border)); top: 14px; left: calc(50% + 20px); right: calc(-50% + 20px); }
+.appointment-step[data-complete=true]::after { background: hsl(var(--primary)); }
+.appointment-step-number { border: 1px solid hsl(var(--border)); font-size: 11px; }
+.appointment-client-list { max-height: min(320px, 40dvh); background: hsl(var(--surface-1)); }
+.appointment-service-list { overflow: hidden; background: hsl(var(--surface-1)); }
+.appointment-service-option[data-selected=true] { background: hsl(var(--primary) / .08); }
+.appointment-service-option input { border-radius: 50%; }
+.appointment-visit-card { background: hsl(var(--surface-1)); }
+.appointment-visit-card [aria-haspopup=dialog] { min-height: 44px; font-size: 14px; background: hsl(var(--card)); border-radius: 10px; }
+.appointment-visit-card > div:first-child { font-size: 10px; letter-spacing: .06em; }
+.appointment-visit-card > div:first-child > span:last-child { font-variant-numeric: tabular-nums; letter-spacing: 0; color: hsl(var(--foreground)); }
+.appointment-summary-row h3 { font-size: 11px; letter-spacing: .03em; }
+.appointment-flow-footer button { border-radius: 12px; }
+.appointment-discard-dialog { height: auto; max-width: 26rem; }
+.appointment-discard-dialog .appointment-flow-body:has(> fieldset[hidden]) { display: none; }
+.appointment-detail-dialog input:is([type=date],[type=time]), .appointment-detail-dialog textarea { font-size: 16px; min-width: 0; min-height: 44px; }
+.appointment-detail-dialog { border-radius: 20px; grid-template-columns: minmax(0, 1fr); }
+.appointment-detail-dialog > div, .appointment-detail-dialog .grid > * { min-width: 0; }
+.appointment-detail-dialog span.flex { flex-wrap: wrap; }
+.appointment-detail-dialog :is(input,textarea) { max-width: 100%; min-width: 0; }
+@media (max-width: 639px) {
+  .appointment-flow-dialog { border-radius: 16px; }
+  .appointment-discard-dialog { height: auto; }
+}
+@media (max-height: 500px) {
+  .appointment-flow-header { padding-block: 10px; }
+  .appointment-steps { padding: 0; }
+  .appointment-step { gap: 3px; }
+  .appointment-flow-footer { padding-block: 8px; }
+}

@@ -5,11 +5,12 @@ import { requireRole, FINANCE_ROLES } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
 import { getFinanceMetrics } from "@/lib/finance";
 import { RANGE_LABELS, type RangeKey } from "@/lib/dashboard";
-import { formatPeriodLabel } from "@/lib/time";
+import { dateKeyInTimeZone, formatPeriodLabel, isDateKey } from "@/lib/time";
+import type { FinanceCalendarPeriod } from "@/lib/finance-period";
+import { FinancePeriodFilter } from "./finance-period-filter";
 import { formatMoney } from "@/lib/utils";
 import {
   Wallet,
-  TrendingDown,
   PiggyBank,
   Percent,
   Scissors,
@@ -35,24 +36,27 @@ const VALID: RangeKey[] = ["today", "yesterday", "7d", "15d", "30d", "90d", "yea
 export default async function FinanceiroPage({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string }>;
+  searchParams: Promise<{ range?: string; period?: string; date?: string }>;
 }) {
   // Financeiro do salão inteiro: só dono/gerente. Profissional e recepcionista
   // são redirecionados — antes bastava abrir a URL para ver o DRE completo.
   const ctx = await requireRole(FINANCE_ROLES);
   const { salonId } = ctx;
-  const { range: selectedRange } = await searchParams;
+  const { range: selectedRange, period: selectedPeriod, date: selectedDate } = await searchParams;
   const range: RangeKey = VALID.includes(selectedRange as RangeKey)
     ? (selectedRange as RangeKey)
     : "30d";
 
-  const { m, expenseRows, timezone } = await withTenant(ctx, async (tx) => {
+  const { m, expenseRows, timezone, calendar, referenceDate } = await withTenant(ctx, async (tx) => {
     const salon = await tx.salon.findUnique({
       where: { id: salonId },
       select: { timezone: true },
     });
     if (!salon) throw new Error("Estabelecimento não encontrado");
-    const m = await getFinanceMetrics(tx, salonId, range, salon.timezone);
+    const referenceDate = typeof selectedDate === "string" && isDateKey(selectedDate) ? selectedDate : dateKeyInTimeZone(new Date(), salon.timezone);
+    const mode = selectedPeriod === "day" || selectedPeriod === "week" || selectedPeriod === "month" ? selectedPeriod : null;
+    const calendar: FinanceCalendarPeriod | undefined = mode ? { mode, date: referenceDate } : VALID.includes(selectedRange as RangeKey) ? undefined : { mode: selectedDate ? "day" : "month", date: referenceDate };
+    const m = await getFinanceMetrics(tx, salonId, range, salon.timezone, calendar);
     const expenses = await tx.expense.findMany({
       where: { salonId, dueDate: { gte: m.bounds.from, lt: m.bounds.to } },
       select: { id: true, description: true, category: true, kind: true, amountCents: true, dueDate: true, paidAt: true },
@@ -67,12 +71,12 @@ export default async function FinanceiroPage({
       dueDate: e.dueDate.toISOString(),
       paidAt: e.paidAt ? e.paidAt.toISOString() : null,
     })) as ExpenseRow[];
-    return { m, expenseRows, timezone: salon.timezone };
+    return { m, expenseRows, timezone: salon.timezone, calendar, referenceDate };
   });
   const received = m.byMethod.reduce((sum, item) => sum + item.value, 0);
 
   return (
-    <div className="space-y-6">
+    <div className="admin-summary-page finance-workspace mx-auto w-full max-w-7xl space-y-4">
       <AutoRefresh intervalMs={120_000} />
       {/* Header */}
       <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -80,7 +84,7 @@ export default async function FinanceiroPage({
           <div className="mb-1 flex items-center gap-2">
             <span className="flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
               <Wallet className="h-3 w-3" />
-              {RANGE_LABELS[range]}
+              {calendar ? {day:"Dia",week:"Semana",month:"Mês"}[calendar.mode] : RANGE_LABELS[range]}
             </span>
             <span className="text-[11px] text-muted-foreground">
               {formatPeriodLabel(m.period.from, m.period.to, timezone)}
@@ -88,27 +92,31 @@ export default async function FinanceiroPage({
           </div>
           <h1 className="text-[26px] font-semibold tracking-tight">Financeiro</h1>
         </div>
-        <RangeFilter current={range} />
       </header>
-
-      <ReceiptWorkspace history />
-      <RecentReceipts />
-
-      {/* Posição financeira: uma leitura curta antes do detalhamento. */}
-      <section aria-labelledby="finance-position-title" className="space-y-3">
-        <div>
-          <h2 id="finance-position-title" className="text-[15px] font-semibold">Posição do período</h2>
-          <p className="mt-1 text-[12px] text-muted-foreground">
-            Recebido considera a data do pagamento. A receber mostra atendimentos concluídos sem pagamento. Reservas futuras são uma previsão.
-          </p>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Hero featured accent="#2ECC8B" icon={Wallet} label="Recebido" value={formatMoney(received)} hint={`${formatMoney(m.revenue)} realizado · ${m.byMethod.length} formas`} />
-          <Hero accent="#3B9EFF" icon={ArrowDownCircle} label="A receber" value={formatMoney(m.receivable)} hint="Concluídos sem pagamento registrado" />
-          <Hero accent="#EF4444" icon={TrendingDown} label="Despesas" value={formatMoney(m.expenseTotal)} hint={`${formatMoney(m.expenseFixed)} fixas · ${formatMoney(m.expenseVar)} variáveis`} />
-          <Hero accent={m.netProfit >= 0 ? "#2ECC8B" : "#EF4444"} icon={PiggyBank} label="Resultado estimado" value={formatMoney(m.netProfit)} hint={`Margem líquida ${(m.margin * 100).toFixed(0)}%`} />
-        </div>
+      <FinancePeriodFilter mode={calendar?.mode ?? null} date={referenceDate} label={formatPeriodLabel(m.period.from, m.period.to, timezone)} />
+      <section aria-label="Resumo financeiro" className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <Hero featured accent="#2ECC8B" icon={Wallet} label="Recebido" value={formatMoney(received)} />
+        <Hero accent="#3B9EFF" icon={ArrowDownCircle} label="A receber" value={formatMoney(m.receivable)} hint="Total em aberto" />
+        <Hero accent="#C8A2C8" icon={ArrowUpCircle} label="Despesas do período" value={formatMoney(m.expenseTotal)} />
+        <Hero accent="#2ECC8B" icon={Activity} label="Resultado operacional" value={formatMoney(m.netProfit)} />
       </section>
+      <nav aria-label="Operações financeiras" className="flex flex-wrap gap-3"><Link href="#recebimentos" className="inline-flex min-h-11 items-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground">Recebimentos</Link><Link href="#despesas" className="inline-flex min-h-11 items-center rounded-lg border border-border px-4 text-sm">Despesas</Link></nav>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      <section aria-label="Fluxo de caixa do período" className="space-y-2">
+        <div className="h-44"><CashflowChart data={m.cashflow} /></div>
+        <div className="flex gap-4 text-xs text-muted-foreground"><Legend color="#2ECC8B" label="Entradas" /><Legend color="#EF4444" label="Saídas" /><Legend color="#3B9EFF" label="Saldo" /></div>
+      </section>
+      <section aria-labelledby="payment-methods-title" className="space-y-3">
+        <h2 id="payment-methods-title" className="text-sm font-semibold">Forma de pagamento</h2>
+        {m.byMethod.length === 0 ? <Empty title="Sem pagamentos registrados" /> : m.byMethod.map(method => <div key={method.method} className="flex items-center gap-3 text-sm"><span className="h-3 w-3 rounded" style={{background:method.color}} /><span className="flex-1">{method.label}</span><span>{received > 0 ? Math.round(method.value / received * 100) : 0}%</span></div>)}
+      </section>
+      </div>
+      <ReceiptWorkspace history />
+      <section id="despesas" className="scroll-mt-24"><ExpenseManager expenses={expenseRows} timezone={timezone} /></section>
+      <details className="admin-detail-section">
+        <summary>Análises e detalhamento</summary>
+        <div className="space-y-6 pt-4">
+      <details className="admin-detail-section"><summary>Outros períodos</summary><RangeFilter current={range} compact clearCalendar /></details>
 
       {(m.receivable > 0 || m.payable > 0) && (
         <section aria-labelledby="finance-pending-title" className="rounded-2xl border border-border bg-card p-4 sm:p-5">
@@ -144,21 +152,10 @@ export default async function FinanceiroPage({
         </section>
       )}
 
-      {/* Fluxo de caixa + DRE */}
-      <section className="grid gap-4 lg:grid-cols-3">
-        <Panel className="lg:col-span-2">
-          <PanelTitle icon={Activity}>Fluxo de caixa</PanelTitle>
-          <p className="mt-1 text-xs text-muted-foreground">Entradas e despesas efetivamente pagas no período. Não inclui reservas nem despesas em aberto.</p>
-          <div className="mt-4 h-64">
-            <CashflowChart data={m.cashflow} />
-          </div>
-          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
-            <Legend color="#2ECC8B" label="Entradas" />
-            <Legend color="#EF4444" label="Saídas" />
-            <Legend color="#3B9EFF" label="Saldo" />
-          </div>
-        </Panel>
+      <RecentReceipts />
 
+      {/* Fluxo de caixa + DRE */}
+      <section className="max-w-3xl">
         {/* Resultado operacional */}
         <Panel>
           <PanelTitle icon={Layers}>Resultado operacional</PanelTitle>
@@ -242,10 +239,8 @@ export default async function FinanceiroPage({
         </div>
       </details>
 
-      {/* Gestão de despesas */}
-      <section id="despesas" className="scroll-mt-24">
-        <ExpenseManager expenses={expenseRows} timezone={timezone} />
-      </section>
+        </div>
+      </details>
     </div>
   );
 }
@@ -259,14 +254,14 @@ function Hero({ accent, icon: Icon, label, value, hint, featured = false }: { ac
     : "bg-info/10 text-info";
 
   return (
-    <div className={`card-interactive rounded-2xl border bg-card p-5 ${featured ? "border-primary/30" : "border-border"}`}>
+    <div className={`min-w-0 rounded-lg border bg-card p-3 ${featured ? "border-primary/30" : "border-border"}`}>
       <div className="flex items-center justify-between">
         <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{label}</span>
-        <span className={`grid h-8 w-8 place-items-center rounded-lg ${iconTone}`}>
+        <span className={`hidden sm:grid h-8 w-8 place-items-center rounded-lg ${iconTone}`}>
           <Icon className="h-4 w-4" />
         </span>
       </div>
-      <p className="mt-3 text-[26px] font-semibold leading-none tracking-tight">{value}</p>
+      <p className="mt-2 text-[clamp(15px,4.4vw,24px)] font-semibold leading-tight tracking-tight tabular-nums break-words">{value}</p>
       {hint && <p className="mt-2 text-[11px] text-muted-foreground">{hint}</p>}
     </div>
   );

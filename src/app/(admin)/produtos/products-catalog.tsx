@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { MobileListTools } from "@/components/mobile-list-tools";
 import { useRouter } from "next/navigation";
 import {
   Search,
@@ -18,6 +19,7 @@ import {
   PackageSearch,
   ClipboardList,
   PackagePlus,
+  ChevronDown,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -27,7 +29,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { formatMoney } from "@/lib/utils";
-import { imageForProduct, resolveProductImage } from "@/lib/images";
+import { resolveProductImage } from "@/lib/images";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "@/components/ui/toast";
@@ -62,6 +64,8 @@ export type StockMovement = { id: string; actorName: string; reason: string | nu
 
 export function ProductsCatalog({ products, movements, enabled = true, initialFilter = "all" }: { products: ProductCard[]; movements: StockMovement[]; enabled?: boolean; initialFilter?: Filter }) {
   const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("all");
+  const categories = Array.from(new Set(products.map(p => p.category).filter(Boolean))) as string[];
   const [filter, setFilter] = useState<Filter>(initialFilter);
 
   const restockCount = products.filter((p) => p.stock <= p.minStock).length;
@@ -69,16 +73,17 @@ export function ProductsCatalog({ products, movements, enabled = true, initialFi
   const shown = useMemo(() => {
     const q = search.trim().toLowerCase();
     return products.filter((p) => {
+      if (category !== "all" && p.category !== category) return false;
       if (filter === "restock" && p.stock > p.minStock) return false;
       if (filter === "out" && p.stock > 0) return false;
       if (q && !p.name.toLowerCase().includes(q) && !(p.brand ?? "").toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [products, search, filter]);
+  }, [products, search, filter, category]);
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="space-y-2">
+      <div className="admin-catalog-tools flex flex-wrap items-center gap-2">
         <div className="flex min-h-11 items-center gap-2 rounded-full border border-border bg-card px-3">
           <Search className="h-3.5 w-3.5 text-muted-foreground" />
           <input
@@ -89,11 +94,24 @@ export function ProductsCatalog({ products, movements, enabled = true, initialFi
             className="w-44 bg-transparent text-[13px] placeholder:text-muted-foreground focus:outline-none"
           />
         </div>
-        <Chip active={filter === "all"} onClick={() => setFilter("all")}>Todos</Chip>
+        <MobileListTools label="Filtros de produtos">        <Chip active={filter === "all"} onClick={() => setFilter("all")}>Todos</Chip>
         <Chip active={filter === "restock"} onClick={() => setFilter("restock")} accent="#F59E0B">
           Repor {restockCount > 0 && `(${restockCount})`}
         </Chip>
         <Chip active={filter === "out"} onClick={() => setFilter("out")} accent="#EF4444">Em falta</Chip>
+      <details className="w-full overflow-hidden rounded-xl border border-border bg-card">
+        <summary className="flex min-h-11 cursor-pointer items-center gap-2 px-3 py-2 text-[13px] font-semibold"><ClipboardList aria-hidden="true" className="h-4 w-4 text-primary" />Histórico de movimentações</summary>
+        {movements.length === 0 ? <p className="p-8 text-center text-[12px] text-muted-foreground">As entradas, perdas e inventários aparecerão aqui.</p> : movements.slice(0, 15).map((movement) => {
+          const delta = Number(movement.metadata?.delta ?? 0);
+          return <div key={movement.id} className="flex items-center gap-3 border-b border-border px-4 py-3 last:border-0 sm:px-5"><span className={`grid h-8 w-8 place-items-center rounded-lg text-[12px] font-bold ${delta >= 0 ? "bg-success/10 text-success" : "bg-danger/10 text-danger"}`}>{delta >= 0 ? `+${delta}` : delta}</span><div className="min-w-0 flex-1"><p className="truncate text-[12px] font-medium">{String(movement.metadata?.productName ?? "Produto")}</p><p className="truncate text-[10px] text-muted-foreground">{movement.reason ?? "Sem motivo"} · {movement.actorName}</p></div><p className="text-[10px] text-muted-foreground">{format(new Date(movement.createdAt), "dd/MM · HH:mm", { locale: ptBR })}</p></div>;
+        })}
+      </details>
+        </MobileListTools>
+        <div className="order-last flex w-full gap-2 overflow-x-auto" role="group" aria-label="Categorias de produtos">
+          <Chip active={category === "all"} onClick={() => setCategory("all")}>Todos</Chip>
+          {categories.map(c => <Chip key={c} active={category === c} onClick={() => setCategory(c)}>{c}</Chip>)}
+          {filter !== "all" && <Chip active onClick={() => setFilter("all")}>{filter === "out" ? "Em falta" : "Repor"} ×</Chip>}
+        </div>
       </div>
 
       {shown.length === 0 ? (
@@ -103,27 +121,21 @@ export function ProductsCatalog({ products, movements, enabled = true, initialFi
           <p className="mt-1 text-[12px] text-muted-foreground">Ajuste a busca ou limpe os filtros para ver o catálogo.</p>
           <button
             type="button"
-            onClick={() => { setSearch(""); setFilter("all"); }}
+            onClick={() => { setSearch(""); setFilter("all"); setCategory("all"); }}
             className="mt-4 min-h-11 rounded-lg border border-border px-4 text-[13px] font-medium transition hover:bg-card-hover"
           >
             Limpar filtros
           </button>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div aria-label="Lista de produtos" className="overflow-hidden">
           {shown.map((p) => (
             <ProductCardView key={p.id} p={p} enabled={enabled} />
           ))}
         </div>
       )}
 
-      <div className="overflow-hidden rounded-2xl border border-border bg-card">
-        <div className="flex items-center gap-2 border-b border-border px-5 py-3.5"><ClipboardList className="h-4 w-4 text-primary" /><h2 className="text-[13px] font-semibold">Histórico de movimentações</h2></div>
-        {movements.length === 0 ? <p className="p-8 text-center text-[12px] text-muted-foreground">As entradas, perdas e inventários aparecerão aqui.</p> : movements.slice(0, 15).map((movement) => {
-          const delta = Number(movement.metadata?.delta ?? 0);
-          return <div key={movement.id} className="flex items-center gap-3 border-b border-border px-4 py-3 last:border-0 sm:px-5"><span className={`grid h-8 w-8 place-items-center rounded-lg text-[12px] font-bold ${delta >= 0 ? "bg-success/10 text-success" : "bg-danger/10 text-danger"}`}>{delta >= 0 ? `+${delta}` : delta}</span><div className="min-w-0 flex-1"><p className="truncate text-[12px] font-medium">{String(movement.metadata?.productName ?? "Produto")}</p><p className="truncate text-[10px] text-muted-foreground">{movement.reason ?? "Sem motivo"} · {movement.actorName}</p></div><p className="text-[10px] text-muted-foreground">{format(new Date(movement.createdAt), "dd/MM · HH:mm", { locale: ptBR })}</p></div>;
-        })}
-      </div>
+
     </div>
   );
 }
@@ -164,47 +176,34 @@ function ProductCardView({ p, enabled }: { p: ProductCard; enabled: boolean }) {
   }
 
   return (
-    <div className={`card-interactive overflow-hidden rounded-2xl border border-border bg-card ${!p.active ? "opacity-60" : ""}`}>
-      <div className="relative aspect-video w-full overflow-hidden bg-muted">
-        <ImageWithFallback
+    <div className={`border-b border-border last:border-0 ${!p.active ? "opacity-60" : ""}`}>
+      <details className="group">
+      <summary className="flex min-h-20 cursor-pointer list-none items-center gap-3 px-4 py-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+        <span className="relative grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-xl bg-muted">
+        {p.imageUrl ? <ImageWithFallback
           src={imageSrc}
-          fallbackSrc={imageForProduct(0)}
-          alt={p.name}
+          fallback={<PackageSearch aria-hidden="true" className="h-5 w-5 text-muted-foreground" />}
+          alt=""
           fill
-          sizes="(max-width:768px) 100vw, 33vw"
+          sizes="48px"
           className="object-cover"
-        />
-        <div className="absolute left-2 top-2 flex gap-1.5">
-          {p.topSeller && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-marketing/90 px-2 py-0.5 text-[10px] font-semibold text-white">
-              <Flame className="h-3 w-3" /> Mais vendido
-            </span>
-          )}
-        </div>
-        {p.stock === 0 ? (
-          <span className="absolute right-2 top-2 rounded-full bg-danger/90 px-2 py-0.5 text-[10px] font-semibold text-white">Sem estoque</span>
-        ) : needRestock ? (
-          <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-warning/90 px-2 py-0.5 text-[10px] font-semibold text-black">
-            <AlertTriangle className="h-3 w-3" /> Repor
+        /> : <PackageSearch aria-hidden="true" className="h-5 w-5 text-muted-foreground" />}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block break-words text-sm font-medium">{p.name}</span>
+          <span className="mt-1 block text-xs text-muted-foreground">{formatMoney(p.priceCents)}{p.brand ? ` · ${p.brand}` : ""}</span>
+          <span className={`mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs ${needRestock ? "text-warning" : "text-muted-foreground"}`}>
+            <span>Estoque: {p.stock}</span>
+            {needRestock && <span className="inline-flex items-center gap-1"><AlertTriangle className="h-3 w-3" />{p.stock === 0 ? "Em falta" : "Repor"}</span>}
+            {!p.active && <span>Pausado</span>}
+            {p.topSeller && <span className="inline-flex items-center gap-1 text-primary"><Flame className="h-3 w-3" />Mais vendido</span>}
           </span>
-        ) : null}
-        {!p.active && (
-          <div className="absolute inset-0 grid place-items-center bg-background/60">
-            <span className="rounded-full bg-muted px-2.5 py-1 text-[11px] text-muted-foreground">Pausado</span>
-          </div>
-        )}
-      </div>
-
-      <div className="p-4">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="truncate text-[13px] font-medium">{p.name}</p>
-            <p className="text-[11px] text-muted-foreground">{p.brand ?? p.category ?? "—"}</p>
-          </div>
-          <p className="shrink-0 text-[13px] font-semibold">{formatMoney(p.priceCents)}</p>
-        </div>
-
-        <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+        </span>
+        <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="border-t border-border bg-surface-1/30 p-4">
+        {p.category && <p className="mb-3 text-xs text-muted-foreground">{p.category}</p>}
+        <div className="grid grid-cols-3 gap-2 text-center">
           <Metric label="Margem" value={margin === null ? "—" : `${(margin * 100).toFixed(0)}%`} accent={margin === null ? undefined : margin >= 0.45 ? "#2ECC8B" : margin >= 0.25 ? "#F59E0B" : "#EF4444"} />
           <Metric label={profit === null ? "Custo" : "Resultado/un"} value={profit === null ? "não informado" : formatMoney(profit)} />
           <Metric label="Vendidos" value={p.sold.toString()} />
@@ -239,7 +238,7 @@ function ProductCardView({ p, enabled }: { p: ProductCard; enabled: boolean }) {
               <Plus className="h-3.5 w-3.5" />
             </button>
           </div>
-          <button disabled={!enabled} onClick={() => setStockDialog(true)} className="mt-2 inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-border text-[11px] font-medium text-muted-foreground transition hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"><PackagePlus className="h-3.5 w-3.5" /> Movimentar estoque</button>
+          <button disabled={!enabled} onClick={() => setStockDialog(true)} className="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg border border-border text-[11px] font-medium text-muted-foreground transition hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"><PackagePlus className="h-3.5 w-3.5" /> Movimentar estoque</button>
         </div>
 
         <div className="mt-3 flex items-center justify-between border-t border-border pt-3 text-[11px] text-muted-foreground">
@@ -281,8 +280,9 @@ function ProductCardView({ p, enabled }: { p: ProductCard; enabled: boolean }) {
           </DropdownMenu>
         </div>
       </div>
+      </details>
       <Dialog open={stockDialog} onOpenChange={setStockDialog}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="admin-form-dialog max-w-sm">
           <DialogHeader><DialogTitle>Movimentar estoque</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div><label htmlFor={`kind-${p.id}`} className="mb-1 block text-[11px] font-medium text-muted-foreground">Tipo</label><select id={`kind-${p.id}`} value={stockKind} onChange={(event) => setStockKind(event.target.value as typeof stockKind)} className="h-11 w-full rounded-xl border border-border bg-background px-3 text-[13px]"><option value="PURCHASE">Entrada por compra</option><option value="LOSS">Perda ou descarte</option><option value="INVENTORY">Correção de inventário</option><option value="ADJUSTMENT">Outro ajuste</option></select></div>
@@ -323,7 +323,7 @@ function Chip({ active, onClick, children, accent }: { active: boolean; onClick:
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`min-h-11 rounded-full border px-3 text-[12px] font-medium transition-colors ${
+      className={`min-h-9 rounded-full border px-3 text-[12px] font-medium transition-colors ${
         active ? "border-primary/40 bg-primary/10 text-foreground" : "border-border bg-card text-muted-foreground hover:text-foreground"
       }`}
       style={active && accent ? { borderColor: `${accent}66`, color: accent, background: `${accent}14` } : undefined}
