@@ -103,7 +103,12 @@ export async function withTenant<T>(
 export async function withSalon<T>(
   salonId: string,
   fn: (tx: Tx) => Promise<T>,
+  existingTransaction?: Tx,
 ): Promise<T> {
+  if (existingTransaction) {
+    await setGuc(existingTransaction, "app.current_salon", salonId);
+    return fn(existingTransaction);
+  }
   return prisma.$transaction(async (tx) => {
     await setGuc(tx, "app.current_salon", salonId);
     return fn(tx);

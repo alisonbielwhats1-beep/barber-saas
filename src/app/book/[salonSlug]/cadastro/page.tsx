@@ -4,6 +4,7 @@ import { withSalonBySlug } from "@/lib/prisma-tenant";
 import { getClientSessionForSalonSlug } from "@/lib/client-session-tenant";
 import { clientHomePath, safeClientReturnTo } from "@/lib/client-routes";
 import { CadastroForm } from "./cadastro-form";
+import { supabaseAuthEnabled } from "@/lib/supabase-auth-config";
 import { ClientAccessLayout } from "../client-access-layout";
 
 export default async function CadastroPage({
@@ -24,7 +25,7 @@ export default async function CadastroPage({
   return (
     <ClientAccessLayout salonName={salon.name} eyebrow="Primeira vez por aqui?" title="Criar conta" description="Cadastre-se para reservar seu horário e ter seus atendimentos sempre à mão.">
       <div className="space-y-6">
-        <CadastroForm salonSlug={salonSlug} returnTo={homePath} />
+        <CadastroForm provider={supabaseAuthEnabled()} salonSlug={salonSlug} returnTo={homePath} />
 
         <p className="text-center text-sm text-muted-foreground">
           Já tem conta?{" "}

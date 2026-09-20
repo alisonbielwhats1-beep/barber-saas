@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { PasswordRecoveryRequestForm } from "@/components/password-recovery-request-form";
 import { passwordRecoveryEmailEnabled } from "@/lib/password-recovery-feature";
 import { withSalonBySlug } from "@/lib/prisma-tenant";
+import { ClientAccessLayout } from "../client-access-layout";
 
 export const metadata: Metadata = {
   title: "Recuperar senha",
@@ -22,25 +23,16 @@ export default async function ClientRecoverPasswordPage({
   if (!salon) notFound();
 
   return (
-    <main className="flex min-h-[100dvh] flex-col items-center justify-center px-5 py-10">
-      <div className="w-full max-w-sm space-y-6">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-primary">{salon.name}</p>
-          <h1 className="mt-1 text-2xl font-semibold">Recuperar senha</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Informe o e-mail da sua conta. A resposta não confirma se o cadastro existe.
-          </p>
-        </div>
+    <ClientAccessLayout salonName={salon.name} eyebrow="Sua conta" title="Recuperar senha" description="Digite seu e-mail e enviaremos um link para você criar uma nova senha.">
         <PasswordRecoveryRequestForm
           salonSlug={salonSlug}
           enabled={passwordRecoveryEmailEnabled()}
         />
         <div className="text-center">
-          <Link href={`/book/${salonSlug}/login`} className="text-xs text-muted-foreground hover:text-foreground">
-            ← Voltar para entrar
+          <Link href={`/book/${salonSlug}/login`} className="inline-flex min-h-11 items-center text-sm font-medium text-primary underline">
+            Voltar para o login
           </Link>
         </div>
-      </div>
-    </main>
+    </ClientAccessLayout>
   );
 }

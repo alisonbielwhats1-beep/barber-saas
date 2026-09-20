@@ -5,6 +5,7 @@ import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { PasswordInput } from "@/components/ui/password-input";
 import { acceptInvite } from "./actions";
+import Link from "next/link";
 
 export function InviteForm({
   token,
@@ -16,6 +17,7 @@ export function InviteForm({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [confirmationRequired, setConfirmationRequired] = useState(false);
 
   function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -37,6 +39,7 @@ export function InviteForm({
         return;
       }
       setSuccess(true);
+      if (result.confirmationRequired) { setConfirmationRequired(true); return; }
       if (result.newAccount && result.email && password) {
         const signedIn = await signIn("credentials", {
           email: result.email,
@@ -57,8 +60,8 @@ export function InviteForm({
 
   if (success) {
     return (
-      <p className="rounded-lg bg-success/10 px-3 py-2 text-sm text-success">
-        Convite aceito. Preparando seu painel…
+      <p role="status" className="rounded-lg bg-success/10 px-3 py-2 text-sm text-success">
+        {confirmationRequired ? <>Convite aceito. Confirme seu e-mail pelo link recebido e depois <Link href="/login" className="underline">entre na sua conta</Link>.</> : "Convite aceito. Preparando seu painel…"}
       </p>
     );
   }

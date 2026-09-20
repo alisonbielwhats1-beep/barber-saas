@@ -1,11 +1,13 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   compare: vi.fn(),
   checkRateLimit: vi.fn(),
   findUnique: vi.fn(),
   update: vi.fn(),
+  authenticate: vi.fn(),
 }));
+vi.mock("@/lib/supabase-auth", () => ({ authenticatePassword: mocks.authenticate, validateProviderSession: vi.fn() }));
 
 vi.mock("bcryptjs", () => ({
   default: { compare: mocks.compare },
@@ -35,6 +37,7 @@ const authorize = (
 ).options.authorize;
 
 describe("login da equipe", () => {
+  afterEach(() => vi.unstubAllEnvs());
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.checkRateLimit.mockResolvedValue({ allowed: true, source: "local" });
@@ -107,5 +110,20 @@ describe("login da equipe", () => {
     });
 
     expect(token.uid).toBeUndefined();
+  });
+  it("preserves the current password before voluntary recovery even when Supabase is enabled", async () => {
+    vi.stubEnv("AUTH_PROVIDER", "supabase");
+    mocks.findUnique.mockResolvedValue({ id: "legacy-user", email: "owner@example.com", name: "Owner", passwordHash: "existing-hash", passwordSetAt: new Date(), sessionVersion: 0, authIdentityId: null });
+    mocks.compare.mockResolvedValue(true);
+    expect(await authorize({ email: "owner@example.com", password: "senha-atual" }, { headers: {} })).toMatchObject({ id: "legacy-user" });
+    expect(mocks.authenticate).not.toHaveBeenCalled();
+    expect(mocks.compare).toHaveBeenCalledWith("senha-atual", "existing-hash");
+  });
+  it("never falls back to the previous password after the identity is migrated", async () => {
+    vi.stubEnv("AUTH_PROVIDER", "supabase");
+    mocks.findUnique.mockResolvedValue({ id: "migrated-user", email: "owner@example.com", authIdentityId: "provider-id", passwordHash: "unused-old-hash" });
+    mocks.authenticate.mockResolvedValue(null);
+    expect(await authorize({ email: "owner@example.com", password: "senha-antiga" }, { headers: {} })).toBeNull();
+    expect(mocks.compare).not.toHaveBeenCalled();
   });
 });

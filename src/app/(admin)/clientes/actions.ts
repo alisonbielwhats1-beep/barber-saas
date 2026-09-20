@@ -212,6 +212,7 @@ export async function mergeClients(sourceId: string, targetId: string) {
         phoneNormalized: true,
         email: true,
         passwordHash: true,
+        authIdentityId: true,
         userId: true,
         birthday: true,
         gender: true,
@@ -224,7 +225,7 @@ export async function mergeClients(sourceId: string, targetId: string) {
     const target = profiles.find((profile) => profile.id === input.targetId);
     if (!source || !target) throw new Error("Cadastro não encontrado neste salão.");
     if (source.mergedIntoId || target.mergedIntoId) throw new Error("Um dos cadastros já foi mesclado.");
-    if (source.passwordHash && target.passwordHash) {
+    if ((source.passwordHash || source.authIdentityId) && (target.passwordHash || target.authIdentityId)) {
       throw new Error("Os dois cadastros possuem conta. Para segurança, o suporte precisa confirmar qual acesso manter.");
     }
 
@@ -257,6 +258,7 @@ export async function mergeClients(sourceId: string, targetId: string) {
       data: {
         email: null,
         passwordHash: null,
+        authIdentityId: null,
         userId: null,
         mergedIntoId: target.id,
         mergedAt: new Date(),
@@ -269,6 +271,7 @@ export async function mergeClients(sourceId: string, targetId: string) {
         phoneNormalized: targetPhoneNormalized,
         email: targetEmail,
         passwordHash: targetPasswordHash,
+        authIdentityId: target.authIdentityId ?? source.authIdentityId,
         userId: targetUserId,
         birthday: target.birthday ?? source.birthday,
         gender: target.gender ?? source.gender,
