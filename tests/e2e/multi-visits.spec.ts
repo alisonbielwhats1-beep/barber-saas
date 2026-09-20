@@ -213,7 +213,7 @@ test("@database visita conjunta no cliente e no painel, folga e bloqueio após e
     await simple.getByRole("checkbox").first().check();
     await simple.getByRole("button", {name:"Adicionar outro profissional",exact:true}).click();
     const dialog = page.getByRole("dialog", {
-      name: "Uma visita, vários serviços",
+      name: "Novo agendamento",
     });
     await dialog.getByRole("button", { name: "Serviço 1", exact: true }).click();
     await page.getByRole("dialog", { name: "Serviço 1", exact: true }).getByRole("button", { name: /Corte/ }).click();

@@ -252,7 +252,7 @@ test("@database mobile guiado: catálogo grande, tutorial, busca e horários exp
     await simple.getByRole("checkbox").first().check();
     await simple.getByRole("button", {name:"Adicionar outro profissional",exact:true}).click();
     const visit = page.getByRole("dialog", {
-      name: "Uma visita, vários serviços",
+      name: "Novo agendamento",
       exact: true,
     });
     await visit.getByRole("button", { name: "Serviço 1", exact: true }).click();
