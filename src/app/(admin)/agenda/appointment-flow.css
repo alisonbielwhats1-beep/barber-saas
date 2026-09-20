@@ -42,7 +42,10 @@
 .appointment-discard-dialog { height: auto; max-width: 26rem; }
 .appointment-discard-dialog .appointment-flow-body:has(> fieldset[hidden]) { display: none; }
 .appointment-detail-dialog input:is([type=date],[type=time]), .appointment-detail-dialog textarea { font-size: 16px; min-width: 0; min-height: 44px; }
-.appointment-detail-dialog { border-radius: 20px; }
+.appointment-detail-dialog { border-radius: 20px; grid-template-columns: minmax(0, 1fr); }
+.appointment-detail-dialog > div, .appointment-detail-dialog .grid > * { min-width: 0; }
+.appointment-detail-dialog span.flex { flex-wrap: wrap; }
+.appointment-detail-dialog :is(input,textarea) { max-width: 100%; min-width: 0; }
 @media (max-width: 639px) {
   .appointment-flow-dialog { border-radius: 16px; }
   .appointment-discard-dialog { height: auto; }

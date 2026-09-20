@@ -331,7 +331,7 @@ export function AppointmentDetail({
 
         <div className="p-5">
           <DialogHeader className="mb-4 pr-8 flex-row items-center justify-between space-y-0">
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 items-center gap-2">
               {view !== "detail" && !savedMessage && (
                 <button
                   disabled={pending}
@@ -342,7 +342,7 @@ export function AppointmentDetail({
                   <ArrowLeft className="h-4 w-4" />
                 </button>
               )}
-              <DialogTitle className="text-lg">
+              <DialogTitle className="min-w-0 break-words text-lg">
                 {view === "comanda"
                   ? isCompletedAwaitingPayment ? "Registrar recebimento" : "Fechar comanda"
                   : appt.clientName}

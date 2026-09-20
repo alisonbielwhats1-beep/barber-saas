@@ -52,10 +52,10 @@ test("@database semana, minutos e seleção sem clientes mesclados ou excluídos
     await expect(page).toHaveURL(/date=2026-09-06/);
     await page.getByRole("button", { name: "Abrir ações rápidas da agenda" }).click();
     await page.getByRole("menuitem", { name: /Novo agendamento/ }).click();
-    const clients = page.getByLabel("Cliente", { exact: true });
-    await expect(clients.locator(`option[value="${account.id}"]`)).toHaveCount(1);
-    await expect(clients.locator(`option[value="${guest.id}"]`)).toHaveCount(0);
-    await expect(clients.locator(`option[value="${hidden.id}"]`)).toHaveCount(0);
+    const clients = page.getByLabel("Clientes encontrados", { exact: true });
+    await expect(clients.getByRole("button", { name: new RegExp(account.name) })).toHaveCount(1);
+    await expect(clients.getByRole("button", { name: new RegExp(guest.name) })).toHaveCount(0);
+    await expect(clients.getByRole("button", { name: new RegExp(hidden.name) })).toHaveCount(0);
     expect(await db.clientProfile.findUnique({ where: { id: guest.id }, select: { mergedIntoId: true } })).toEqual({ mergedIntoId: account.id });
     expect(await db.clientProfile.findUnique({ where: { id: account.id }, select: { passwordHash: true } })).toEqual({ passwordHash: "synthetic-account-hash" });
   } finally {
