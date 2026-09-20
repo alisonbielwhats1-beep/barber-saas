@@ -63,7 +63,7 @@ test.describe("@database listas mobile compactas", () => {
             await page.getByRole("dialog").getByRole("button", {name:/^Aniversariantes/}).click();
             await page.getByRole("button", {name:"Aplicar filtros",exact:true}).click();
             await expect(page.getByText("Nenhum cliente neste filtro.")).toBeVisible();
-            await page.getByRole("button", { name: /^Todos/ }).click();
+            await page.getByRole("button", { name: "Aniversariantes ×", exact: true }).click();
             await expect(list.getByText("Ana Carolina de Albuquerque")).toBeVisible();
           }
           if (route === "servicos") {
