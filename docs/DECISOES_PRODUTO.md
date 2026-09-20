@@ -1,5 +1,14 @@
 # Decisões de produto para as próximas fases
 
+## 20/09/2026 — identidade única e recuperação Supabase
+
+O responsável aprovou uma identidade/senha por e-mail entre painel e clientes,
+mantendo perfis, históricos e autorizações separados. A candidata usa Supabase
+Auth com SMTP Resend; substitui o recovery próprio apenas quando ativada.
+A orientação posterior exige não afetar produção nem clientes. Não implica
+autorização para importar contas ou exigir confirmação em massa agora.
+Plano e impacto em `FASE_SUPABASE_AUTH_RECOVERY.md`.
+
 ## Visitas e autonomia — decisão de 13/09/2026
 
 - Cliente e equipe podem reservar vários serviços com profissionais diferentes

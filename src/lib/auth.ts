@@ -6,6 +6,8 @@ import { checkRateLimit, clientIp } from "./rate-limit";
 import { safeNextAuthRedirect } from "./safe-callback";
 import { bcryptPasswordSchema } from "./password";
 import { z } from "zod";
+import { supabaseAuthEnabled } from "./supabase-auth-config";
+import { authenticatePassword, validateProviderSession, type ProviderSession } from "./supabase-auth";
 
 const DUMMY_ADMIN_PASSWORD_HASH =
   "$2a$10$EpwUuprmRRoDuqmTMprHZO/QYoydyJx0wblP26vSqDEMK1BhV/K1K";
@@ -71,6 +73,19 @@ export const authOptions: NextAuthOptions = {
         ]);
         if (!ipLimit.allowed || !accountLimit.allowed) return null;
 
+        if (supabaseAuthEnabled()) {
+          try {
+            const authenticated = await authenticatePassword(email, password);
+            if (!authenticated) return null;
+            const user = await prisma.user.findUnique({
+              where: { authIdentityId: authenticated.user.id },
+              select: { id: true, email: true, name: true, avatarUrl: true, sessionVersion: true },
+            });
+            if (!user) return null;
+            return { ...user, image: user.avatarUrl, providerSession: authenticated.session };
+          } catch { return null; }
+        }
+
         const user = await prisma.user.findUnique({
           where: { email },
           select: {
@@ -114,8 +129,14 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.uid = (user as { id: string }).id;
         token.sessionVersion = (user as { sessionVersion?: number }).sessionVersion ?? 0;
+        if (supabaseAuthEnabled()) token.providerSession = (user as { providerSession?: ProviderSession }).providerSession;
       } else if (token.uid) {
         try {
+          if (supabaseAuthEnabled()) {
+            const verified = token.providerSession ? await validateProviderSession(token.providerSession as ProviderSession) : null;
+            if (!verified) { token.uid = undefined; token.providerSession = undefined; return token; }
+            token.providerSession = verified.session;
+          }
           const current = await prisma.user.findUnique({
             where: { id: token.uid },
             select: { sessionVersion: true },
@@ -135,6 +156,16 @@ export const authOptions: NextAuthOptions = {
         (session.user as { id?: string }).id = typeof token.uid === "string" ? token.uid : "";
       }
       return session;
+    },
+  },
+  events: {
+    async signOut({ token }) {
+      if (supabaseAuthEnabled() && token?.providerSession) {
+        const { createAuthClient } = await import("./supabase-auth");
+        const client = createAuthClient();
+        const { error } = await client.auth.setSession(token.providerSession as ProviderSession);
+        if (!error) await client.auth.signOut({ scope: "local" });
+      }
     },
   },
 };

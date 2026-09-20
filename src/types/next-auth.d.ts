@@ -16,5 +16,6 @@ declare module "next-auth/jwt" {
   interface JWT {
     uid?: string;
     sessionVersion?: number;
+    providerSession?: import("@/lib/supabase-auth").ProviderSession;
   }
 }

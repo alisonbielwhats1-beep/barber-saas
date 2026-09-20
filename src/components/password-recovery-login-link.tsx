@@ -16,9 +16,8 @@ export function PasswordRecoveryLoginLink({
 
   return (
     <p className={className}>
-      Esqueceu a senha?{" "}
-      <Link href={href} className="font-medium text-primary transition hover:underline">
-        Recuperar por e-mail
+      <Link href={href} className="inline-flex min-h-11 items-center font-medium text-primary transition hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        Esqueci minha senha
       </Link>
     </p>
   );

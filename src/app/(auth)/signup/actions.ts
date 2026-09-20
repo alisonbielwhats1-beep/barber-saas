@@ -9,6 +9,9 @@ import { uniqueSalonSlug } from "@/lib/slug";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { resolveSalonSetup } from "@/lib/salon-setup";
 import { bcryptPasswordSchema } from "@/lib/password";
+import { supabaseAuthEnabled, recoveryRedirect } from "@/lib/supabase-auth-config";
+import { registerProviderAccount } from "@/lib/supabase-auth";
+import { newAuthPasswordSchema } from "@/lib/recovery-validation";
 
 const ownerPasswordSchema = bcryptPasswordSchema(
   6,
@@ -50,13 +53,17 @@ export type SignupInput = z.infer<typeof signupInput>;
  *  - validação Zod
  */
 export async function signup(input: SignupInput): Promise<
-  { ok: true; slug: string } | { ok: false; error: string }
+  { ok: true; slug: string; confirmationRequired?: boolean } | { ok: false; error: string }
 > {
   const parsed = signupInput.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
   }
   const data = parsed.data;
+  if (supabaseAuthEnabled()) {
+    const valid = newAuthPasswordSchema.safeParse(data.password);
+    if (!valid.success) return { ok: false, error: valid.error.issues[0].message };
+  }
   const email = data.email.toLowerCase().trim();
   const requestHeaders = await headers();
   const limited = await checkRateLimit({
@@ -85,7 +92,13 @@ export async function signup(input: SignupInput): Promise<
   if (!resolved.ok) return { ok: false, error: resolved.error };
   const { segmentId, services } = resolved.setup;
 
-  const passwordHash = await bcrypt.hash(data.password, 10);
+  let provider: { identityId: string; confirmationRequired: boolean } | undefined;
+  if (supabaseAuthEnabled()) {
+    try {
+      provider = await registerProviderAccount(email, data.password, recoveryRedirect().replace("redefinir-senha", "login"));
+    } catch { return { ok: false, error: "Não foi possível criar a conta com os dados informados." }; }
+  }
+  const passwordHash = provider ? null : await bcrypt.hash(data.password, 10);
   const passwordSetAt = new Date();
   const slug = await uniqueSalonSlug(data.salonName);
 
@@ -93,7 +106,7 @@ export async function signup(input: SignupInput): Promise<
     const salonId = await prisma.$transaction(async (tx) => {
       // User não é tenant-scoped (sem RLS) — sem GUC necessária até aqui.
       const user = await tx.user.create({
-        data: { email, name: data.ownerName, passwordHash, passwordSetAt },
+        data: { email, name: data.ownerName, passwordHash, passwordSetAt, authIdentityId: provider?.identityId },
         select: { id: true },
       });
       const salon = await tx.salon.create({
@@ -146,5 +159,5 @@ export async function signup(input: SignupInput): Promise<
     };
   }
 
-  return { ok: true, slug };
+  return { ok: true, slug, ...(provider ? { confirmationRequired: provider.confirmationRequired } : {}) };
 }

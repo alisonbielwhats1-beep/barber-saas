@@ -54,6 +54,10 @@ export function SignupForm({ initialSegment, planIntent, billingIntent, billingA
           return;
         }
         // Auto-login logo após criar.
+        if (res.confirmationRequired) {
+          setError("Conta criada. Confirme seu e-mail pelo link recebido e depois entre com sua senha.");
+          return;
+        }
         const signInRes = await signIn("credentials", {
           email: payload.email,
           password: payload.password,

@@ -13,8 +13,8 @@ export default function RecoverPasswordPage() {
   return (
     <AuthShell
       title="Recuperar senha"
-      description="Informe o e-mail usado para acessar o painel. Por segurança, a resposta não confirma se a conta existe."
-      footer={<Link href="/login" className="font-medium text-primary hover:underline">Voltar para entrar</Link>}
+      description="Digite seu e-mail e enviaremos um link para você criar uma nova senha."
+      footer={<Link href="/login" className="inline-flex min-h-11 items-center font-medium text-primary hover:underline">Voltar para o login</Link>}
     >
       <PasswordRecoveryRequestForm enabled={passwordRecoveryEmailEnabled()} />
     </AuthShell>

@@ -76,6 +76,11 @@ jobs:
         run: npx prisma db execute --file prisma/sql/manual/017_password_recovery.preflight.sql --url "$DIRECT_URL"
       - name: Apply password recovery schema
         run: npx prisma db execute --file prisma/sql/manual/017_password_recovery.sql --url "$DIRECT_URL"
+      - name: Validate additive Supabase identity migration
+        run: |
+          npx prisma db execute --file prisma/migrations/20260920191414_supabase_auth_identity/preflight.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/migrations/20260920191414_supabase_auth_identity/migration.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/migrations/20260920191414_supabase_auth_identity/verify.sql --url "$DIRECT_URL"
       - name: Prepare tenant helper for platform approval migration
         run: >-
           npx prisma db execute
@@ -142,6 +147,11 @@ jobs:
         run: npx prisma db execute --file prisma/sql/manual/017_password_recovery.preflight.sql --url "$DIRECT_URL"
       - name: Prove idempotent password recovery schema
         run: npx prisma db execute --file prisma/sql/manual/017_password_recovery.sql --url "$DIRECT_URL"
+      - name: Validate additive Supabase identity migration
+        run: |
+          npx prisma db execute --file prisma/migrations/20260920191414_supabase_auth_identity/preflight.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/migrations/20260920191414_supabase_auth_identity/migration.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/migrations/20260920191414_supabase_auth_identity/verify.sql --url "$DIRECT_URL"
       - name: Prepare tenant helper for Phase 2 migration
         run: >-
           npx prisma db execute
@@ -359,7 +369,9 @@ jobs:
         # concurrency assertions inside each test continue to run concurrently.
         run: npm run test:appointment-integration -- --no-file-parallelism
       - name: Prove tenant-isolated password recovery with PostgreSQL
-        run: npm run test:password-recovery-integration
+        run: |
+          npm run test:password-recovery-integration
+          npx vitest run src/lib/__tests__/supabase-identity-postgres.integration.test.ts
       - name: Prove client list exclusion preserves access and history
         run: npx vitest run src/lib/__tests__/client-list-postgres.integration.test.ts
       - name: Validate atomic visits, concurrent reservations and schedule exceptions

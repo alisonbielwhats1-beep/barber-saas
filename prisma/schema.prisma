@@ -493,6 +493,14 @@ enum Gender {
 
 // ─── Identidade & Tenant ────────────────────────────────────────────────────
 
+// Global authentication identity, like User. Holds no passwords or provider tokens.
+model AuthIdentity {
+  id             String @id @db.Uuid
+  sessionVersion Int @default(0)
+  users          User[]
+  clients        ClientProfile[]
+}
+
 model User {
   hqActivities HqActivities[] @relation("HqActivityActor")
   hqAgentRuns HqAgentRun[] @relation("HqAgentActor")
@@ -500,7 +508,9 @@ model User {
   email                  String       @unique
   name                   String
   phone                  String?
-  passwordHash           String
+  passwordHash           String?
+  authIdentityId         String? @unique @db.Uuid
+  authIdentity           AuthIdentity? @relation(fields: [authIdentityId], references: [id])
   passwordSetAt          DateTime?
   passwordResetTokenHash String?      @unique @db.VarChar(64)
   passwordResetExpiresAt DateTime?    @db.Timestamptz(3)
@@ -1114,6 +1124,8 @@ model ClientProfile {
   phoneNormalized        String?
   email                  String?
   passwordHash           String?
+  authIdentityId         String? @db.Uuid
+  authIdentity           AuthIdentity? @relation(fields: [authIdentityId], references: [id])
   passwordResetTokenHash String?   @unique @db.VarChar(64)
   passwordResetExpiresAt DateTime? @db.Timestamptz(3)
   sessionVersion         Int       @default(0)
@@ -1137,6 +1149,7 @@ model ClientProfile {
   flexibleWaitlist FlexibleWaitlist[]
 
   @@unique([salonId, email])
+  @@unique([salonId, authIdentityId])
   @@unique([id, salonId], map: "ClientProfile_id_salonId_key")
   @@index([salonId])
   @@index([salonId, createdAt])

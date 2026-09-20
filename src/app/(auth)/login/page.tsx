@@ -7,13 +7,8 @@ export default function LoginPage() {
   return (
     <PremiumLoginShell>
       <Suspense fallback={null}>
-        <LoginForm />
+        <LoginForm recoveryLink={<PasswordRecoveryLoginLink href="/recuperar-senha" supportHref="/contato" className="text-sm" />} />
       </Suspense>
-      <PasswordRecoveryLoginLink
-        href="/recuperar-senha"
-        supportHref="/contato"
-        className="mt-4 text-center text-[12px] text-foreground/70"
-      />
     </PremiumLoginShell>
   );
 }

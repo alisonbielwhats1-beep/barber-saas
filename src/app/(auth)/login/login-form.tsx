@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { sanitizeAuthCallback } from "@/lib/safe-callback";
 
-export function LoginForm() {
+export function LoginForm({ recoveryLink }: { recoveryLink?: React.ReactNode }) {
   const router = useRouter();
   const params = useSearchParams();
   const callbackUrl = sanitizeAuthCallback(params.get("callbackUrl"));
@@ -44,7 +44,7 @@ export function LoginForm() {
     <form method="post" className="space-y-4" onSubmit={onSubmit} noValidate>
       {passwordReset && (
         <p role="status" className="rounded-md bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300">
-          Senha alterada. Entre novamente.
+          Senha atualizada com sucesso. Entre novamente.
         </p>
       )}
       <div className="space-y-1.5">
@@ -72,6 +72,7 @@ export function LoginForm() {
         aria-describedby={error ? "login-error" : undefined}
         required
       />
+      {recoveryLink}
       {error && (
         <p id="login-error" role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {error}

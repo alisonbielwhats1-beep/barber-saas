@@ -12,6 +12,10 @@ import {
   issueClientPasswordReset,
 } from "@/lib/password-recovery";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
+import { supabaseAuthEnabled, authConfig, recoveryRedirect } from "@/lib/supabase-auth-config";
+import { passwordRecoveryEmailEnabled } from "@/lib/password-recovery-feature";
+import { newAuthPasswordSchema } from "@/lib/recovery-validation";
+import { requestSupabaseRecovery, updateSupabasePassword } from "@/lib/supabase-recovery";
 
 const GENERIC_REQUEST_MESSAGE =
   "Se existir uma conta com este e-mail, você receberá um link válido por 1 hora.";
@@ -30,7 +34,7 @@ const passwordSchema = bcryptPasswordSchema(
   "A senha precisa ter pelo menos 6 caracteres.",
 );
 
-type RequestResult = { ok: true; message: string };
+type RequestResult = { ok: true; message: string } | { ok: false; message: string };
 type ResetResult = { ok: true } | { ok: false; error: string };
 
 async function waitForUniformResponse(startedAt: number): Promise<void> {
@@ -63,6 +67,7 @@ async function requestAllowed(namespace: string, account: string): Promise<boole
 }
 
 export async function requestAdminPasswordReset(email: string): Promise<RequestResult> {
+  if (supabaseAuthEnabled()) return requestProviderReset(email);
   const startedAt = Date.now();
   const parsed = emailSchema.safeParse(email);
   try {
@@ -80,6 +85,7 @@ export async function requestClientPasswordReset(
   salonSlug: string,
   email: string,
 ): Promise<RequestResult> {
+  if (supabaseAuthEnabled()) return requestProviderReset(email, salonSlug);
   const startedAt = Date.now();
   const parsed = z.object({ salonSlug: salonSlugSchema, email: emailSchema }).safeParse({
     salonSlug,
@@ -146,6 +152,7 @@ export async function resetAdminPassword(input: {
   password: string;
   confirmPassword: string;
 }): Promise<ResetResult> {
+  if (supabaseAuthEnabled()) return resetProviderPassword(input);
   const parsed = parseResetInput(input);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? INVALID_LINK_MESSAGE };
@@ -165,6 +172,7 @@ export async function resetClientPassword(
   salonSlug: string,
   input: { token: string; password: string; confirmPassword: string },
 ): Promise<ResetResult> {
+  if (supabaseAuthEnabled()) return resetProviderPassword(input, salonSlug);
   const parsedSlug = salonSlugSchema.safeParse(salonSlug);
   const parsed = parseResetInput(input);
   if (!parsedSlug.success || !parsed.success) {
@@ -190,4 +198,40 @@ export async function resetClientPassword(
   } catch {
     return { ok: false, error: "Não foi possível alterar a senha agora. Tente novamente." };
   }
+}
+
+async function requestProviderReset(email: string, salonSlug?: string): Promise<RequestResult> {
+  const startedAt = Date.now();
+  try {
+    if (!passwordRecoveryEmailEnabled()) return { ok: false, message: "A recuperação por e-mail está temporariamente indisponível. Tente novamente mais tarde." };
+    authConfig();
+    recoveryRedirect(salonSlug);
+    const parsed = emailSchema.safeParse(email);
+    if (!parsed.success || (salonSlug !== undefined && !salonSlugSchema.safeParse(salonSlug).success)) {
+      return { ok: false, message: "Informe um e-mail válido." };
+    }
+    // One global IP bucket, independent of account existence and slug rotation.
+    const limit = await checkRateLimit({ namespace: "supabase-recovery-ip", identifier: clientIp(await headers()),
+      limit: 5, windowSeconds: 3600, failClosed: true });
+    if (!limit.allowed) return { ok: false, message: limit.source === "unavailable"
+      ? "Não foi possível solicitar o e-mail agora. Tente novamente mais tarde."
+      : "Muitas solicitações. Aguarde uma hora antes de tentar novamente." };
+    await requestSupabaseRecovery(parsed.data, salonSlug);
+    return { ok: true, message: "Se existir uma conta associada a este e-mail, você receberá um link para redefinir sua senha." };
+  } catch {
+    return { ok: false, message: "Não foi possível solicitar o e-mail agora. Tente novamente mais tarde." };
+  } finally { await waitForUniformResponse(startedAt); }
+}
+
+async function resetProviderPassword(input: { token: string; password: string; confirmPassword: string }, salonSlug?: string): Promise<ResetResult> {
+  const parsed = z.object({ token: z.string().max(64), password: newAuthPasswordSchema, confirmPassword: z.string().max(72) })
+    .refine(value => value.password === value.confirmPassword, { message: "As senhas não coincidem." }).safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
+  if (salonSlug !== undefined && !salonSlugSchema.safeParse(salonSlug).success) return { ok: false, error: INVALID_LINK_MESSAGE };
+  try {
+    if (!(await resetAllowed("supabase-recovery-update", parsed.data.token))) {
+      return { ok: false, error: "Muitas tentativas. Aguarde antes de tentar novamente." };
+    }
+    return await updateSupabasePassword({ token: parsed.data.token, password: parsed.data.password, salonSlug });
+  } catch { return { ok: false, error: "Não foi possível atualizar a senha agora. Tente novamente." }; }
 }
