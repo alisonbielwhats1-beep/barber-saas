@@ -13,12 +13,17 @@ function fixture({ role = "SUPER_ADMIN", status = "SUSPENDED", count = 0n, team 
     $queryRaw: vi.fn(async (query: unknown) => {
       const sql = Array.isArray(query) ? query.join("") : (query as { sql: string }).sql;
       if (sql.includes("pg_constraint")) return [{ schema: "public", table, column: "salonId" }];
-      return [{ count }];
+      return [{ table, count }];
     }),
   };
   return { tx: tx as unknown as Tx, mocks: tx };
 }
 describe("exclusão restrita a cadastro vazio", () => {
+  it("blocks unreviewed dependencies even when their read policy could return no rows", async () => {
+    const { tx, mocks } = fixture({ table: "UnknownPrivateData", count: 0n });
+    await expect(removeEmptySalon(tx, "admin", "salon", "teste")).rejects.toThrow("Exclusão bloqueada");
+    expect(mocks.salon.delete).not.toHaveBeenCalled();
+  });
   it.each(["ClientProfile", "Appointment", "BillingSubscription", "hq_accounts", "FutureHistory"])("preserva qualquer vínculo em %s", async table => {
     const { tx, mocks } = fixture({ table, count: 1n });
     await expect(removeEmptySalon(tx, "admin", "salon", "teste")).rejects.toThrow("Exclusão bloqueada");

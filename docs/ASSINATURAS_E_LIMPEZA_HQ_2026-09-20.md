@@ -34,7 +34,9 @@ Arquivar não muda acesso, cancela cobranças ou apaga dados. A trilha reutiliza
 Exclusão definitiva exige SUPER_ADMIN revalidado na transação, acesso suspenso ou
 recusado e digitação do slug exato. Uma consulta às FKs reais do banco bloqueia
 qualquer vínculo, inclusive clientes, assinaturas canceladas, atendimentos,
-serviços, profissionais, auditorias operacionais e tabelas futuras. As únicas
+serviços, profissionais e auditorias operacionais. Uma dependência futura não
+revisada bloqueia a exclusão mesmo que sua consulta aparente estar vazia sob RLS.
+As únicas
 exceções são vínculo OWNER, horários de configuração e decisões administrativas;
 estas decisões são copiadas para a auditoria independente do HQ antes da exclusão.
 Membros de equipe bloqueiam a operação. Contas `User` não são excluídas.
@@ -54,5 +56,7 @@ bloqueio de exclusão com clientes, digitação exata e confirmação de histór
 Testes de domínio incluem usuário comum, cadastro ativo e vínculos futuros.
 Integração PostgreSQL no schema-smoke exercita role NOBYPASSRLS, exclusão de cadastro
 sintético vazio, preservação de usuário/cliente e restauração do histórico.
-Resultados finais de lint, TypeScript, unitários, build e CI serão registrados no PR.
+Lint, TypeScript, 1.172 testes unitários e build passaram localmente. O reforço
+posterior de dependências desconhecidas e as confirmações passaram em 25 testes
+direcionados. Resultados finais do CI serão registrados no PR.
 Não usar Production para testar exclusão. Promoção depende de aprovação.

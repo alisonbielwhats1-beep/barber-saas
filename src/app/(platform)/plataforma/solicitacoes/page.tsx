@@ -109,12 +109,12 @@ export default async function AccessRequestsPage({ searchParams }: { searchParam
                       </p>
                     )}
                   </div>
-                  <div className="flex flex-wrap gap-2"><ApprovalControls
+                  <div className="flex flex-wrap gap-2">{!historical && <ApprovalControls
                     salonId={salon.id}
                     salonName={salon.name}
                     status={salon.accessStatus}
                     currentPlan={salon.plan}
-                  />{isHqEnabled() && <DeleteSalonControl salonId={salon.id} salonName={salon.name} archived={historical} />}</div>
+                  />}{isHqEnabled() && <DeleteSalonControl salonId={salon.id} salonName={salon.name} archived={historical} />}</div>
                 </div>
               </article>
             );

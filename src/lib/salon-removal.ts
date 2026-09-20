@@ -5,6 +5,17 @@ import { setSalonGuc } from "./prisma-tenant";
 // These are the only registration records that may disappear with an empty salon.
 // Access decisions are copied into the independent HQ audit before deletion.
 const registrationTables = new Set(["Membership", "WorkingHours", "SalonAccessEvent"]);
+// Unknown dependencies fail closed: a future table may have a different read
+// policy, and an RLS-filtered zero must never authorize a cascading deletion.
+const inspectedTables = new Set([
+  "BillingSubscription", "hq_accounts", "Professional", "Service", "ClientProfile",
+  "Appointment", "Product", "AppointmentProduct", "PortfolioItem", "Expense", "ProfessionalOpening",
+  "Package", "MembershipPlan", "UserInvite", "WaitlistEntry", "SalonClosure",
+  "AuditLog", "AppointmentService", "AppointmentEvent", "NotificationOutbox",
+  "PlatformInvoice", "ClientReview", "ServicePricingRule", "RescheduleProposal",
+  "PhysicalResource", "ResourceBooking", "ClientDependent", "CareEntry",
+  "FlexibleWaitlist", "FlexibleWaitlistService",
+]);
 const identifier = (value: string) => Prisma.raw('"' + value.replaceAll('"', '""') + '"');
 
 export async function inspectSalonRemoval(tx: Tx, actorId: string, salonId: string) {
@@ -24,10 +35,18 @@ export async function inspectSalonRemoval(tx: Tx, actorId: string, salonId: stri
     JOIN pg_attribute target ON target.attrelid=c.confrelid AND target.attnum=keys.remote_key
     WHERE c.contype='f' AND c.confrelid='public."Salon"'::regclass AND target.attname='id'`;
   const blockers: { table: string; count: number }[] = [];
+  const checks: Prisma.Sql[] = [];
   for (const dependency of dependencies) {
     if (dependency.schema === "public" && registrationTables.has(dependency.table)) continue;
-    const rows = await tx.$queryRaw<{ count: bigint }[]>(Prisma.sql`SELECT count(*) AS count FROM ${identifier(dependency.schema)}.${identifier(dependency.table)} WHERE ${identifier(dependency.column)} = ${salonId}`);
-    if (rows[0].count > 0n) blockers.push({ table: dependency.table, count: Number(rows[0].count) });
+    if (dependency.schema !== "public" || !inspectedTables.has(dependency.table)) {
+      blockers.push({ table: dependency.table, count: -1 });
+      continue;
+    }
+    checks.push(Prisma.sql`SELECT ${dependency.table}::text AS table, count(*) AS count FROM ${identifier(dependency.schema)}.${identifier(dependency.table)} WHERE ${identifier(dependency.column)} = ${salonId}`);
+  }
+  if (checks.length) {
+    const rows = await tx.$queryRaw<{ table: string; count: bigint }[]>(Prisma.join(checks, " UNION ALL "));
+    blockers.push(...rows.filter(row => row.count > 0n).map(row => ({ table: row.table, count: Number(row.count) })));
   }
   const team = await tx.membership.count({ where: { salonId, role: { not: "OWNER" } } });
   if (team) blockers.push({ table: "Membership", count: team });
