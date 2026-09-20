@@ -1,8 +1,10 @@
 "use client";
+import { toast } from "@/components/ui/toast";
+import { useFormOperation } from "../use-form-operation";
 
 import { FormSection } from "../form-section";
-import { FormWizard } from "../form-wizard";
-import { useState, useTransition } from "react";
+import { TaskForm } from "../task-form";
+import { useRef, useState } from "react";
 import { DEFAULT_PRICE_NOTE, PRICE_AGREEMENT_NOTE, servicePriceLabel } from "@/lib/service-price";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,7 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
+} from "../form-dialog";
 import { createService, updateService } from "./actions";
 import { listResources } from "./resource-actions";
 
@@ -49,21 +51,31 @@ export function ServiceForm({ service, trigger }: Props) {
   const [price, setPrice] = useState(service ? (service.priceCents / 100).toFixed(2) : "");
   const editing = !!service;
   const [open, setOpen] = useState(false);
-  const [pending, startTransition] = useTransition();
+  const [pending, startTransition] = useFormOperation();
+  const submitting = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState(service?.imageUrl ?? "");
   const [resources, setResources] = useState<Awaited<ReturnType<typeof listResources>>>([]);
   const [resourceId, setResourceId] = useState(service?.physicalResourceId ?? "");
 
+  const [resourceError, setResourceError] = useState(false);
+  const [loadingResources, setLoadingResources] = useState(false);
+  async function loadResources() {
+    setResourceError(false); setLoadingResources(true);
+    try { setResources(await listResources()); } catch { setResourceError(true); }
+    finally { setLoadingResources(false); }
+  }
   function handleOpenChange(v: boolean) {
     setOpen(v);
     if (v) { setPriceType(service?.priceType ?? "FIXED"); setPriceNote(service?.priceNote ?? DEFAULT_PRICE_NOTE); setPrice(service ? (service.priceCents / 100).toFixed(2) : ""); }
     if (v) setImageUrl(service?.imageUrl ?? "");
-    if (v) listResources().then(setResources).catch(() => setError("Não foi possível carregar salas e equipamentos. Feche e tente novamente."));
+    if (v) { setError(null); setResourceId(service?.physicalResourceId ?? ""); void loadResources(); }
   }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (submitting.current) return;
+    submitting.current = true;
     setError(null);
     const form = new FormData(e.currentTarget);
     const payload = {
@@ -84,15 +96,16 @@ export function ServiceForm({ service, trigger }: Props) {
       try {
         if (editing) await updateService(service!.id, payload);
         else await createService(payload);
+        toast("Cadastro salvo", "success");
         setOpen(false);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Erro ao salvar");
-      }
+      } finally { submitting.current = false; }
     });
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog dirtyKey={JSON.stringify([imageUrl, resourceId, priceType, price, priceNote])} pending={pending} open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         {trigger ?? (editing ? (
           <Button variant="ghost" size="sm">Editar</Button>
@@ -110,20 +123,20 @@ export function ServiceForm({ service, trigger }: Props) {
           </DialogDescription>
         </DialogHeader>
 
-        <FormWizard labels={["Principal", "Avançado"]} onSubmit={onSubmit} pending={pending} error={error} submitLabel={editing ? "Salvar serviço" : "Cadastrar serviço"}>
+        <TaskForm onSubmit={onSubmit} pending={pending} error={error} submitLabel={editing ? "Salvar serviço" : "Cadastrar serviço"}>
           <div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Nome</label>
-            <Input aria-label="Nome" name="name" defaultValue={service?.name} required autoFocus />
+            <label htmlFor="service-form-name" className="mb-1 block text-sm font-medium">Nome</label>
+            <Input id="service-form-name" aria-label="Nome" name="name" defaultValue={service?.name} required autoFocus />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Descrição</label>
-            <Input aria-label="Descrição" name="description" defaultValue={service?.description ?? ""} />
+            <label htmlFor="service-form-description" className="mb-1 block text-sm font-medium">Descrição</label>
+            <Input id="service-form-description" aria-label="Descrição" name="description" defaultValue={service?.description ?? ""} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-sm font-medium">Categoria</label>
-              <Input
+              <label htmlFor="service-form-category" className="mb-1 block text-sm font-medium">Categoria</label>
+              <Input id="service-form-category"
                 aria-label="Categoria" name="category"
                 list="service-categories"
                 defaultValue={service?.category ?? "Corte"}
@@ -134,8 +147,8 @@ export function ServiceForm({ service, trigger }: Props) {
               </datalist>
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Duração (min)</label>
-              <Input aria-label="Duração (min)" name="durationMin" type="number" min={5} step={5} defaultValue={service?.durationMin ?? 60} required />
+              <label htmlFor="service-form-durationMin" className="mb-1 block text-sm font-medium">Duração (min)</label>
+              <Input id="service-form-durationMin" aria-label="Duração (min)" name="durationMin" type="number" min={5} step={5} defaultValue={service?.durationMin ?? 60} required />
             </div>
           </div>
           <label className="block text-sm font-medium">Tipo de preço
@@ -149,8 +162,8 @@ export function ServiceForm({ service, trigger }: Props) {
               <Input aria-label={priceType === "FROM" ? "Valor inicial (R$)" : "Preço (R$)"} name="price" type="number" min={0} step="0.01" value={price} onChange={e => setPrice(e.target.value)} required />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Custo (R$)</label>
-              <Input aria-label="Custo (R$)" name="cost" type="number" min={0} step="0.01" defaultValue={service ? (service.costCents / 100).toFixed(2) : "0.00"} />
+              <label htmlFor="service-form-cost" className="mb-1 block text-sm font-medium">Custo (R$)</label>
+              <Input id="service-form-cost" aria-label="Custo (R$)" name="cost" type="number" min={0} step="0.01" defaultValue={service ? (service.costCents / 100).toFixed(2) : "0.00"} />
             </div>
           </div>
           {priceType === "FROM" && <>
@@ -165,10 +178,10 @@ export function ServiceForm({ service, trigger }: Props) {
             </div>
           </>}
           </div>
+          <FormSection title="Configurações avançadas" description="Cor, foto, variantes e recursos">
           <div>
-          <div>
-            <label className="mb-1 block text-sm font-medium">Cor</label>
-            <Input aria-label="Cor" name="colorHex" type="color" defaultValue={service?.colorHex ?? "#2ECC8B"} className="h-10 w-20 cursor-pointer p-1" />
+            <label htmlFor="service-form-colorHex" className="mb-1 block text-sm font-medium">Cor</label>
+            <Input id="service-form-colorHex" aria-label="Cor" name="colorHex" type="color" defaultValue={service?.colorHex ?? "#2ECC8B"} className="h-10 w-20 cursor-pointer p-1" />
           </div>
           <FormSection title="Imagem do serviço" description="Opcional">          <div>
             <label className="mb-1 block text-sm font-medium">Foto do serviço (opcional)</label>
@@ -182,9 +195,11 @@ export function ServiceForm({ service, trigger }: Props) {
             <label className="text-sm">Variação<Input name="variantLabel" defaultValue={service?.variantLabel ?? ""} placeholder="Ex.: Cabelo longo" maxLength={100} /></label>
           </div>
           <fieldset className="space-y-3 rounded-xl border border-border p-3"><legend className="px-1 text-sm font-medium">Etapas do atendimento</legend><p className="text-xs text-muted-foreground">A duração total inclui execução, processamento e finalização. O profissional e o recurso ficam reservados durante todo o atendimento.</p><label className="block text-sm">Processamento (min)<Input name="processingMin" type="number" min={0} max={599} defaultValue={service?.processingMin ?? 0} /></label><label className="block text-sm">Finalização (min)<Input name="finishingMin" type="number" min={0} max={599} defaultValue={service?.finishingMin ?? 0} /></label></fieldset>
-          <label className="block text-sm">Sala ou equipamento necessário<select name="physicalResourceId" value={resourceId} onChange={e => setResourceId(e.target.value)} className="mt-1 min-h-11 w-full rounded-lg border border-border bg-background px-3"><option value="">Nenhum</option>{resourceId && !resources.some(r => r.id === resourceId) && <option value={resourceId}>Recurso atual (carregando…)</option>}{resources.map(r => <option key={r.id} value={r.id} disabled={!r.active}>{r.name}{r.active ? "" : " (inativo)"}</option>)}</select></label>
-          </div>
-        </FormWizard>
+          {loadingResources && <p role="status" className="text-xs">Carregando salas e equipamentos…</p>}
+          {resourceError && <div role="alert"><p className="text-sm text-danger">Não foi possível carregar salas e equipamentos. A seleção atual foi preservada.</p><Button type="button" variant="outline" onClick={loadResources}>Tentar novamente</Button></div>}
+          <label className="block text-sm">Sala ou equipamento necessário<select name="physicalResourceId" value={resourceId} onChange={e => setResourceId(e.target.value)} className="mt-1 min-h-11 w-full rounded-lg border border-border bg-background px-3"><option value="">Nenhum</option>{resourceId && !resources.some(r => r.id === resourceId) && <option value={resourceId}>Recurso atual</option>}{resources.map(r => <option key={r.id} value={r.id} disabled={!r.active}>{r.name}{r.active ? "" : " (inativo)"}</option>)}</select></label>
+          </FormSection>
+        </TaskForm>
       </DialogContent>
     </Dialog>
   );

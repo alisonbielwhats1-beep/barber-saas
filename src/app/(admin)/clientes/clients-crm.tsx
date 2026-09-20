@@ -1,4 +1,5 @@
 "use client";
+import { Button } from "@/components/ui/button";
 
 import { Root as Tabs, List as TabsList, Trigger as TabsTrigger, Content as TabsContent } from "@radix-ui/react-tabs";
 import { MobileListTools } from "@/components/mobile-list-tools";
@@ -102,6 +103,8 @@ export function ClientsCrm({
   const detail = selectedDetail ? clients.find(client => client.id === selectedDetail.id) ?? selectedDetail : null;
   const [history, setHistory] = useState<HistoryItem[] | null>(null);
   const [loadingHist, setLoadingHist] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const historyRequest = useRef(0);
   const [historyExpanded, setHistoryExpanded] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [csv, setCsv] = useState("");
@@ -145,26 +148,31 @@ export function ClientsCrm({
   }), [clients]);
 
   const shown = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = search.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
     return clients.filter((c) => {
       if (segment === "vip" && !c.isVip) return false;
       if (segment === "birthday" && !c.birthdayThisMonth) return false;
       if (segment === "lapsed" && !c.isLapsed) return false;
       if (segment === "recurring" && c.visits < 2) return false;
-      if (q && !c.name.toLowerCase().includes(q) && !(c.phone ?? "").includes(q)) return false;
+      if (q && !c.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().includes(q) && !(q.replace(/\D/g, "") && (c.phone ?? "").replace(/\D/g, "").includes(q.replace(/\D/g, "")))) return false;
       return true;
     });
   }, [clients, search, segment]);
 
   async function openDetail(c: ClientRow) {
+    const request = ++historyRequest.current;
     setDetail(c);
+    setHistoryError(null);
     setHistory(null);
     setHistoryExpanded(false);
     setLoadingHist(true);
     try {
-      setHistory(await fetchClientHistory(c.id));
+      const items = await fetchClientHistory(c.id);
+      if (request === historyRequest.current) setHistory(items);
+    } catch {
+      if (request === historyRequest.current) setHistoryError("Não foi possível carregar os atendimentos.");
     } finally {
-      setLoadingHist(false);
+      if (request === historyRequest.current) setLoadingHist(false);
     }
   }
 
@@ -308,7 +316,7 @@ export function ClientsCrm({
 
               <Tabs defaultValue="summary"><TabsList className="grid w-full grid-cols-3"><TabsTrigger value="summary">Resumo</TabsTrigger><TabsTrigger value="history">Histórico</TabsTrigger><TabsTrigger value="preferences">Preferências</TabsTrigger></TabsList><TabsContent value="summary" className="space-y-4">
               <section className="rounded-lg bg-surface-1 p-4"><h3 className="text-xs text-muted-foreground">Próximo agendamento</h3><p className="mt-2 text-sm font-semibold">{detail.nextAppointmentAt ? formatInTimeZone(new Date(detail.nextAppointmentAt), timezone, "EEE, d MMM · HH:mm", {locale:ptBR}) : "Nenhum agendamento futuro"}</p></section>
-              <section><h3 className="mb-2 text-sm font-semibold">Últimos atendimentos</h3>{loadingHist ? <p className="text-xs text-muted-foreground">Carregando…</p> : history?.length ? history.slice(0,3).map(item=><div key={item.id} className="flex items-center justify-between gap-3 border-b border-border/50 py-3 text-xs"><span>{formatInTimeZone(new Date(item.startAt),timezone,"dd/MM/yyyy")}</span><span className="min-w-0 flex-1 truncate">{item.serviceName}</span><span>{formatMoney(item.priceCents)}</span></div>) : <p className="text-xs text-muted-foreground">Sem atendimentos registrados.</p>}</section>
+              <section><h3 className="mb-2 text-sm font-semibold">Últimos atendimentos</h3>{historyError ? <div role="alert"><p>{historyError}</p><Button type="button" variant="outline" onClick={() => openDetail(detail)}>Tentar novamente</Button></div> : loadingHist ? <p role="status" className="text-xs text-muted-foreground">Carregando…</p> : history?.length ? history.slice(0,3).map(item=><div key={item.id} className="flex items-center justify-between gap-3 border-b border-border/50 py-3 text-xs"><span>{formatInTimeZone(new Date(item.startAt),timezone,"dd/MM/yyyy")}</span><span className="min-w-0 flex-1 truncate">{item.serviceName}</span><span>{formatMoney(item.priceCents)}</span></div>) : <p className="text-xs text-muted-foreground">Sem atendimentos registrados.</p>}</section>
               <details className="admin-detail-section"><summary>Informações e fidelidade</summary><div className="space-y-4 pt-3">
 
               <div className="grid grid-cols-2 gap-2">
@@ -432,7 +440,7 @@ export function ClientsCrm({
                     </button>
                   )}
                 </div>
-                {loadingHist ? (
+                {historyError ? (<div role="alert"><p>{historyError}</p><Button type="button" variant="outline" onClick={() => openDetail(detail)}>Tentar novamente</Button></div>) : loadingHist ? (
                   <div className="flex items-center gap-2 py-4 text-[12px] text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Carregando…</div>
                 ) : history && history.length > 0 ? (
                   <div className="space-y-1.5">

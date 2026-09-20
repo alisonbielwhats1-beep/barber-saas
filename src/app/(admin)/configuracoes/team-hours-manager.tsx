@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +34,14 @@ export function TeamHoursManager({
   professionals: Professional[];
 }) {
   const router = useRouter();
+  const [focusedProfessional, setFocusedProfessional] = useState<string | null>(null);
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("professional");
+    if (professionals.some(pro => pro.id === id)) {
+      setFocusedProfessional(id);
+      requestAnimationFrame(() => document.getElementById(`hours-${id}`)?.scrollIntoView({ block: "nearest" }));
+    }
+  }, [professionals]);
   const commonPause = commonDailyPause(professionals.map((professional) => professional.workingHours));
   const [open, setOpen] = useState(scheduleTime(openMinutes));
   const [close, setClose] = useState(closeMinutes === 1440 ? "00:00" : scheduleTime(closeMinutes));
@@ -112,7 +120,7 @@ export function TeamHoursManager({
           Use “Horários” para dias diferentes, como um profissional começar às 14h na terça-feira e trabalhar sem pausa nesse dia.
         </p>
         {professionals.map((professional) => (
-          <details key={professional.id} className="rounded-xl border border-border p-3">
+          <details key={professional.id} id={`hours-${professional.id}`} open={focusedProfessional === professional.id || undefined} className="rounded-xl border border-border p-3">
             <summary className="cursor-pointer py-1 font-medium">
               {professional.name}
               <span className="ml-2 text-xs font-normal text-muted-foreground">Ver dias e horários</span>

@@ -76,7 +76,7 @@ export default async function FinanceiroPage({
   const received = m.byMethod.reduce((sum, item) => sum + item.value, 0);
 
   return (
-    <div className="admin-summary-page space-y-4">
+    <div className="admin-summary-page finance-workspace mx-auto w-full max-w-7xl space-y-4">
       <AutoRefresh intervalMs={120_000} />
       {/* Header */}
       <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -94,12 +94,14 @@ export default async function FinanceiroPage({
         </div>
       </header>
       <FinancePeriodFilter mode={calendar?.mode ?? null} date={referenceDate} label={formatPeriodLabel(m.period.from, m.period.to, timezone)} />
-      <section aria-label="Resumo financeiro" className="grid grid-cols-2 gap-3">
+      <section aria-label="Resumo financeiro" className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <Hero featured accent="#2ECC8B" icon={Wallet} label="Recebido" value={formatMoney(received)} />
         <Hero accent="#3B9EFF" icon={ArrowDownCircle} label="A receber" value={formatMoney(m.receivable)} hint="Total em aberto" />
         <Hero accent="#C8A2C8" icon={ArrowUpCircle} label="Despesas do período" value={formatMoney(m.expenseTotal)} />
         <Hero accent="#2ECC8B" icon={Activity} label="Resultado operacional" value={formatMoney(m.netProfit)} />
       </section>
+      <nav aria-label="Operações financeiras" className="flex flex-wrap gap-3"><Link href="#recebimentos" className="inline-flex min-h-11 items-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground">Recebimentos</Link><Link href="#despesas" className="inline-flex min-h-11 items-center rounded-lg border border-border px-4 text-sm">Despesas</Link></nav>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
       <section aria-label="Fluxo de caixa do período" className="space-y-2">
         <div className="h-44"><CashflowChart data={m.cashflow} /></div>
         <div className="flex gap-4 text-xs text-muted-foreground"><Legend color="#2ECC8B" label="Entradas" /><Legend color="#EF4444" label="Saídas" /><Legend color="#3B9EFF" label="Saldo" /></div>
@@ -108,8 +110,11 @@ export default async function FinanceiroPage({
         <h2 id="payment-methods-title" className="text-sm font-semibold">Forma de pagamento</h2>
         {m.byMethod.length === 0 ? <Empty title="Sem pagamentos registrados" /> : m.byMethod.map(method => <div key={method.method} className="flex items-center gap-3 text-sm"><span className="h-3 w-3 rounded" style={{background:method.color}} /><span className="flex-1">{method.label}</span><span>{received > 0 ? Math.round(method.value / received * 100) : 0}%</span></div>)}
       </section>
+      </div>
+      <ReceiptWorkspace history />
+      <section id="despesas" className="scroll-mt-24"><ExpenseManager expenses={expenseRows} timezone={timezone} /></section>
       <details className="admin-detail-section">
-        <summary>Recebimentos, despesas e detalhamento</summary>
+        <summary>Análises e detalhamento</summary>
         <div className="space-y-6 pt-4">
       <details className="admin-detail-section"><summary>Outros períodos</summary><RangeFilter current={range} compact clearCalendar /></details>
 
@@ -147,24 +152,10 @@ export default async function FinanceiroPage({
         </section>
       )}
 
-      <ReceiptWorkspace history />
       <RecentReceipts />
 
       {/* Fluxo de caixa + DRE */}
-      <section className="grid gap-4 lg:grid-cols-3">
-        <Panel className="lg:col-span-2">
-          <PanelTitle icon={Activity}>Fluxo de caixa</PanelTitle>
-          <p className="mt-1 text-xs text-muted-foreground">Entradas e despesas efetivamente pagas no período. Não inclui reservas nem despesas em aberto.</p>
-          <div className="mt-4 h-64">
-            <CashflowChart data={m.cashflow} />
-          </div>
-          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
-            <Legend color="#2ECC8B" label="Entradas" />
-            <Legend color="#EF4444" label="Saídas" />
-            <Legend color="#3B9EFF" label="Saldo" />
-          </div>
-        </Panel>
-
+      <section className="max-w-3xl">
         {/* Resultado operacional */}
         <Panel>
           <PanelTitle icon={Layers}>Resultado operacional</PanelTitle>
@@ -248,10 +239,6 @@ export default async function FinanceiroPage({
         </div>
       </details>
 
-      {/* Gestão de despesas */}
-      <section id="despesas" className="scroll-mt-24">
-        <ExpenseManager expenses={expenseRows} timezone={timezone} />
-      </section>
         </div>
       </details>
     </div>

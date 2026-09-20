@@ -96,6 +96,22 @@ export default async function MarketingPage() {
         </section>
       )}
 
+      <div id="campanhas" className="scroll-mt-4">
+        <MarketingCampaigns
+          allClients={clients.map(toTarget)}
+          birthdays={birthdays}
+          lapsed={lapsed}
+          vips={vips}
+          attended={attended}
+          salonName={salon?.name ?? "nosso salão"}
+          bookingUrl={getPublicBookingUrl(salon?.slug ?? "")}
+          googleReviewUrl={settings.googleReviewUrl}
+          lapsedClientDays={settings.lapsedClientDays}
+          enabled={marketingEnabled}
+        />
+      </div>
+
+      <details className="admin-detail-section"><summary>Indicadores, orientações e configurações</summary><div className="space-y-4 py-4">
       <section className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-3">
         <Kpi icon={Cake} accent="#EC4899" label="Aniversariantes" value={birthdays.length.toString()} />
         <Kpi icon={Clock} accent="#EF4444" label={`Sumidos · ${settings.lapsedClientDays}d+`} value={lapsed.length.toString()} />
@@ -142,20 +158,8 @@ export default async function MarketingPage() {
         <p className="text-[12px] text-muted-foreground">Escolha uma campanha, revise a mensagem e abra o WhatsApp do destinatário. O sistema registra a preparação para você acompanhar a execução.</p>
       </div>
 
-      <div id="campanhas" className="scroll-mt-4">
-        <MarketingCampaigns
-          allClients={clients.map(toTarget)}
-          birthdays={birthdays}
-          lapsed={lapsed}
-          vips={vips}
-          attended={attended}
-          salonName={salon?.name ?? "nosso salão"}
-          bookingUrl={getPublicBookingUrl(salon?.slug ?? "")}
-          googleReviewUrl={settings.googleReviewUrl}
-          lapsedClientDays={settings.lapsedClientDays}
-          enabled={marketingEnabled}
-        />
-      </div>
+
+      </div></details>
 
       <section className="overflow-hidden rounded-2xl border border-border bg-card">
         <div className="flex flex-col gap-3 border-b border-border px-5 py-4 sm:flex-row sm:items-center sm:justify-between">

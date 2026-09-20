@@ -1,5 +1,13 @@
 # Reformulação visual do painel — setembro de 2026
 
+## Revisão posterior — correções confirmadas de 20/09
+
+A autorização mais recente substitui as etapas artificiais de Cliente, Serviço
+e Produto por essencial + complementares sob demanda. A Agenda mantém suas
+três etapas aprovadas. Esta decisão prevalece sobre descrições anteriores de
+wizards nesses cadastros. Implementação e validação consolidadas em
+`CORRECOES_UX_CONFIRMADAS_2026-09-20.md`; nenhuma publicação produtiva.
+
 ## Escopo autorizado
 
 O pedido inicial limitava-se à Agenda. O responsável aprovou a implementação,

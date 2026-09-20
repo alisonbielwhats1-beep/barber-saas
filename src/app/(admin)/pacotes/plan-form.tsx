@@ -1,6 +1,8 @@
 "use client";
+import { toast } from "@/components/ui/toast";
+import { useFormOperation } from "../use-form-operation";
 
-import { useState, useTransition } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import {
   Dialog, DialogClose, DialogContent, DialogDescription,
   DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
-} from "@/components/ui/dialog";
+} from "../form-dialog";
 import { createPlan, updatePlan } from "./actions";
 
 export type PlanEditable = {
@@ -25,11 +27,14 @@ export function PlanForm({ plan, trigger }: { plan?: PlanEditable; trigger?: Rea
   const router = useRouter();
   const editing = !!plan;
   const [open, setOpen] = useState(false);
-  const [pending, startTransition] = useTransition();
+  const [pending, startTransition] = useFormOperation();
+  const submitting = useRef(false);
   const [error, setError] = useState<string | null>(null);
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (submitting.current) return;
+    submitting.current = true;
     setError(null);
     const f = new FormData(e.currentTarget);
     const payload = {
@@ -44,16 +49,17 @@ export function PlanForm({ plan, trigger }: { plan?: PlanEditable; trigger?: Rea
       try {
         if (editing) await updatePlan(plan!.id, payload);
         else await createPlan(payload);
+        toast("Cadastro salvo", "success");
         setOpen(false);
         router.refresh();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Erro ao salvar");
-      }
+      } finally { submitting.current = false; }
     });
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog pending={pending} open={open} onOpenChange={next => { setOpen(next); if (next) setError(null); }}>
       <DialogTrigger asChild>
         {trigger ?? (editing ? <Button variant="ghost" size="sm">Editar</Button> : <Button><Plus className="h-4 w-4" /> Novo plano</Button>)}
       </DialogTrigger>
@@ -64,35 +70,35 @@ export function PlanForm({ plan, trigger }: { plan?: PlanEditable; trigger?: Rea
         </DialogHeader>
         <form onSubmit={onSubmit} className="grid gap-4">
           <div>
-            <label className="mb-1 block text-sm font-medium">Nome</label>
-            <Input name="name" defaultValue={plan?.name} required autoFocus placeholder="Ex.: Clube VIP Mensal" />
+            <label htmlFor="plan-form-name" className="mb-1 block text-sm font-medium">Nome</label>
+            <Input id="plan-form-name" name="name" defaultValue={plan?.name} required autoFocus placeholder="Ex.: Clube VIP Mensal" />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Descrição</label>
-            <Input name="description" defaultValue={plan?.description ?? ""} />
+            <label htmlFor="plan-form-description" className="mb-1 block text-sm font-medium">Descrição</label>
+            <Input id="plan-form-description" name="description" defaultValue={plan?.description ?? ""} />
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
-              <label className="mb-1 block text-sm font-medium">Preço (R$)</label>
-              <Input name="price" type="number" min={0} step="0.01" defaultValue={plan ? (plan.priceCents / 100).toFixed(2) : ""} required />
+              <label htmlFor="plan-form-price" className="mb-1 block text-sm font-medium">Preço (R$)</label>
+              <Input id="plan-form-price" name="price" type="number" min={0} step="0.01" defaultValue={plan ? (plan.priceCents / 100).toFixed(2) : ""} required />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Cobrança</label>
-              <select name="interval" defaultValue={plan?.interval ?? "MONTHLY"} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+              <label htmlFor="plan-form-interval" className="mb-1 block text-sm font-medium">Cobrança</label>
+              <select id="plan-form-interval" name="interval" defaultValue={plan?.interval ?? "MONTHLY"} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
                 <option value="MONTHLY">Mensal</option>
                 <option value="ANNUAL">Anual</option>
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Desconto (%)</label>
-              <Input name="discountPct" type="number" min={0} max={100} defaultValue={plan?.discountPct ?? 0} />
+              <label htmlFor="plan-form-discountPct" className="mb-1 block text-sm font-medium">Desconto (%)</label>
+              <Input id="plan-form-discountPct" name="discountPct" type="number" min={0} max={100} defaultValue={plan?.discountPct ?? 0} />
             </div>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Benefícios</label>
-            <Input name="benefits" defaultValue={plan?.benefits ?? ""} placeholder="Cortes ilimitados; 10% off produtos…" />
+            <label htmlFor="plan-form-benefits" className="mb-1 block text-sm font-medium">Benefícios</label>
+            <Input id="plan-form-benefits" name="benefits" defaultValue={plan?.benefits ?? ""} placeholder="Cortes ilimitados; 10% off produtos…" />
           </div>
-          {error && <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
+          {error && <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
           <DialogFooter>
             <DialogClose asChild><Button variant="outline" type="button">Cancelar</Button></DialogClose>
             <Button type="submit" disabled={pending}>{pending ? "Salvando…" : editing ? "Salvar" : "Criar"}</Button>

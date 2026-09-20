@@ -115,3 +115,12 @@
 .client-profile-actions > :is(a,button) > svg { width: 40px; height: 40px; padding: 10px; border: 1px solid hsl(var(--primary) / .5); border-radius: 50%; color: hsl(var(--primary)); }
 
 .admin-catalog-tools > .service-category-filters > button { background: transparent; border: 0; padding: 0; }
+
+/* Direct task forms: no wizard-height whitespace, useful reading widths on desktop. */
+.admin-guided-dialog:has(.admin-task-form) { height: auto; }
+.admin-task-form .admin-wizard-body { flex: 0 1 auto; }
+.admin-task-form .admin-wizard-body > div { display: grid; gap: 16px; }
+@media (min-width: 1024px) {
+  .admin-directory-page { max-width: 80rem; margin-inline: auto; }
+  .client-directory { max-width: 72rem; }
+}

@@ -1,7 +1,8 @@
 "use client";
+import { useFormOperation } from "../use-form-operation";
 
 import { FormSection } from "../form-section";
-import { useState, useTransition } from "react";
+import { useRef, useState } from "react";
 import { CheckCircle2, MailWarning, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ImageUpload } from "@/components/ui/image-upload";
@@ -16,7 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
+} from "../form-dialog";
 import {
   createProfessional,
   updateProfessional,
@@ -51,9 +52,13 @@ export function ProfessionalForm({
   professional,
   trigger,
 }: Props) {
+  const [serviceSearch, setServiceSearch] = useState("");
+  const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const visibleServices = services.filter(service => normalize(service.name).includes(normalize(serviceSearch)));
   const editing = !!professional;
   const [open, setOpen] = useState(false);
-  const [pending, startTransition] = useTransition();
+  const [pending, startTransition] = useFormOperation();
+  const submitting = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState(professional?.avatarUrl ?? "");
   const [phone, setPhone] = useState(formatPhoneBR(professional?.phone ?? ""));
@@ -76,6 +81,8 @@ export function ProfessionalForm({
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (submitting.current) return;
+    submitting.current = true;
     setError(null);
     const form = new FormData(e.currentTarget);
     const firstName = String(form.get("firstName") ?? "").trim();
@@ -110,16 +117,22 @@ export function ProfessionalForm({
         setOpen(false);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Erro ao salvar");
-      }
+      } finally { submitting.current = false; }
     });
   }
 
   return (
     <Dialog
+      pending={pending}
+      dirtyKey={JSON.stringify([avatarUrl, phone, Array.from(selected).sort()])}
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
         if (next) {
+          setPhone(formatPhoneBR(professional?.phone ?? ""));
+          setAvatarUrl(professional?.avatarUrl ?? "");
+          setSelected(new Set(professional?.serviceIds ?? services.map(s => s.id)));
+          setServiceSearch("");
           setInviteResult(null);
           setError(null);
         }
@@ -176,9 +189,7 @@ export function ProfessionalForm({
               </p>
             </div>
             <DialogFooter data-form-footer>
-              <DialogClose asChild>
-                <Button type="button" variant="outline">Concluir</Button>
-              </DialogClose>
+              <Button type="button" variant="outline" onClick={() => setOpen(false)}>Concluir</Button>
             </DialogFooter>
           </div>
         ) : (
@@ -274,14 +285,16 @@ export function ProfessionalForm({
 
           <div>
             <div>
-              <p className="mb-2 text-sm font-medium">Serviços que realiza</p>
+              <p className="mb-2 text-sm font-medium">Serviços que realiza · {selected.size} selecionados</p>
+              {services.length > 6 && <Input data-draft-ignore aria-label="Buscar serviços do profissional" type="search" value={serviceSearch} onChange={e => setServiceSearch(e.target.value)} placeholder="Buscar serviços…" />}
+              {services.length > 0 && visibleServices.length === 0 && <p role="status" className="text-sm">Nenhum serviço encontrado. As seleções foram mantidas.</p>}
               <div className="grid gap-1 rounded-md border p-3 sm:grid-cols-2">
                 {services.length === 0 && (
                   <p className="text-sm text-muted-foreground">
                     Cadastre serviços primeiro.
                   </p>
                 )}
-                {services.map((s) => (
+                {visibleServices.map((s) => (
                   <label
                     key={s.id}
                     className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 transition hover:bg-muted/60"
@@ -305,7 +318,7 @@ export function ProfessionalForm({
           </FormSection>
 
           {error && (
-            <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
               {error}
             </p>
           )}

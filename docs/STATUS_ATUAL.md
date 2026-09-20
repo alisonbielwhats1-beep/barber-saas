@@ -1,5 +1,13 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-20 — correções confirmadas de UX, candidata não implantada
+
+Branch `codex/ux-confirmed-fixes`, incremental sobre a candidata do PR #111:
+confirmação de Pacotes, proteção de rascunhos, formulários diretos, estados de
+histórico, contexto de navegação e hierarquia operacional. Backend e regras
+preservados. Escopo, evidências e limites em
+`CORRECOES_UX_CONFIRMADAS_2026-09-20.md`. Não altera o estado de Production.
+
 ## 2026-09-20 — revisão visual do PR #111, ainda não implantada
 
 Após comparação com a referência, a candidata reduz filtros e cabeçalhos,

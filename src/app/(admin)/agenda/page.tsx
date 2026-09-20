@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Prisma } from "@prisma/client";
 import { getTenantContext } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
@@ -31,11 +32,11 @@ function waitlistServiceName(value: unknown): string {
 export default async function AgendaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string; appointment?: string; client?: string; professional?: string }>;
+  searchParams: Promise<{ date?: string; appointment?: string; client?: string; professional?: string; from?: string }>;
 }) {
   const ctx = await getTenantContext();
   const { salonId, role } = ctx;
-  const { date: selectedDate, appointment: selectedAppointment, client: selectedClient, professional: selectedProfessional } = await searchParams;
+  const { date: selectedDate, appointment: selectedAppointment, client: selectedClient, professional: selectedProfessional, from } = await searchParams;
 
   // Sequencial de propósito: pooler com connection_limit=1 em serverless —
   // 5 queries em Promise.all estouravam o timeout do pool (P2024). Dentro de
@@ -281,6 +282,7 @@ export default async function AgendaPage({
   return (
     <>
       <AutoRefresh intervalMs={30_000} />
+      {(from === "hoje" || from === "notificacoes") && <Link href={from === "hoje" ? `/hoje?date=${dateStr}` : "/notificacoes"} className="inline-flex min-h-11 items-center text-sm text-muted-foreground underline">{from === "hoje" ? "Voltar ao dia" : "Voltar às notificações"}</Link>}
       <AgendaBoard
         colorScope={`${ctx.salonId}:${ctx.userId}`}
         operations={(role === "OWNER" || role === "MANAGER") ? <><OpeningPanel date={dateStr} timezone={salon.timezone} professionals={professionals} openings={openings} /><FlexibleQueuePanel /></> : undefined}

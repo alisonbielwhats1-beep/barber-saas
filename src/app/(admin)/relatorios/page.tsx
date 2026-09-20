@@ -92,7 +92,7 @@ export default async function RelatoriosPage({
   ];
 
   return (
-    <div className="admin-summary-page space-y-6">
+    <div className="admin-summary-page mx-auto w-full max-w-7xl space-y-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <div className="mb-1 flex items-center gap-2">
@@ -110,6 +110,7 @@ export default async function RelatoriosPage({
       </header>
 
 
+      <p className="text-sm text-muted-foreground" aria-label="Período do relatório">{periodLabel}</p>
       {/* Comparativo com período anterior */}
       <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <Compare label="Faturamento" value={formatMoney(m.revenue.value)} change={m.revenue.change} />
@@ -127,7 +128,8 @@ export default async function RelatoriosPage({
           rows={m.proPerf.map((p) => [p.name, p.appointments.toString(), formatMoney(p.revenueCents), formatMoney(p.commissionCents)])}
           empty="Sem atendimentos concluídos" />
 
-      </div>      <details className="admin-detail-section"><summary>Retenção de clientes</summary><div className="space-y-4 pt-4">      {(ctx.role === "OWNER" || ctx.role === "MANAGER") && <Opportunities />}
+      </div>
+      <details className="admin-detail-section"><summary>Resultado financeiro e operação</summary><div className="space-y-4 pt-4">
 
       {/* Resumo financeiro */}
       <section className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-2 sm:grid-cols-3 xl:grid-cols-6">
@@ -139,12 +141,6 @@ export default async function RelatoriosPage({
         <Mini label="Tempo médio" value={formatDuration(m.avgDuration || 0)} />
       </section>
 
-      <section className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-2 sm:grid-cols-3">
-        <Mini label="Clientes que retornaram" value={`${retention.returningClientRatePct}%`} />
-        <Mini label="Intervalo médio entre visitas" value={`${retention.averageDaysBetweenVisits} dias`} />
-        <Mini label="Clientes inativos há 60+ dias" value={retention.lapsedClients.toString()} />
-      </section>
-
         <Table title="Receita por forma de pagamento" headers={["Forma", "Valor"]}
           rows={fin.byMethod.map((x) => [x.label, formatMoney(x.value)])}
           empty="Sem pagamentos registrados" />
@@ -154,6 +150,15 @@ export default async function RelatoriosPage({
             ["Feminino", m.gender.female.count.toString(), formatMoney(m.gender.female.revenue)],
           ]}
           empty="Sem dados" /></div></details>
+      <details className="admin-detail-section"><summary>Retenção de clientes</summary><div className="space-y-4 pt-4">
+      <section className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-2 sm:grid-cols-3">
+        <Mini label="Clientes que retornaram" value={`${retention.returningClientRatePct}%`} />
+        <Mini label="Intervalo médio entre visitas" value={`${retention.averageDaysBetweenVisits} dias`} />
+        <Mini label={`Clientes inativos há ${marketingSettings.lapsedClientDays}+ dias`} value={retention.lapsedClients.toString()} />
+      </section>
+
+      {(ctx.role === "OWNER" || ctx.role === "MANAGER") && <Opportunities />}
+      </div></details>
       <details className="admin-detail-section"><summary>Exportar relatório</summary><div className="py-3"><ReportActions sections={sections} filename={`relatorio-${range}`} /></div></details>
 
     </div>

@@ -1,7 +1,9 @@
 "use client";
+import { useFormOperation } from "../use-form-operation";
 
-import { Children, cloneElement, isValidElement, useId, useState, useTransition } from "react";
+import { Children, cloneElement, isValidElement, useId, useState } from "react";
 import { useRouter } from "next/navigation";
+import { FormSection } from "../form-section";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Check, Loader2 } from "lucide-react";
@@ -38,7 +40,7 @@ const TIMEZONES = [
 
 export function SalonSettingsForm({ salon }: { salon: Salon }) {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const [pending, startTransition] = useFormOperation();
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -85,7 +87,7 @@ export function SalonSettingsForm({ salon }: { salon: Salon }) {
         </Field>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Telefone / WhatsApp">
-            <Input name="phone" defaultValue={salon.phone ?? ""} placeholder="(11) 90000-0000" />
+            <Input name="phone" type="tel" autoComplete="tel" defaultValue={salon.phone ?? ""} placeholder="(11) 90000-0000" />
           </Field>
           <Field label="Moeda">
             <select name="currency" defaultValue={salon.currency} className="flex min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm">
@@ -115,7 +117,7 @@ export function SalonSettingsForm({ salon }: { salon: Salon }) {
         </Field>
       </Section>
 
-      <Section title="Política de cancelamento">
+      <FormSection title="Política de cancelamento">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Antecedência mínima (horas)">
             <Input name="cancelPolicyHours" type="number" min={0} max={168} defaultValue={salon.cancelPolicyHours} />
@@ -124,9 +126,9 @@ export function SalonSettingsForm({ salon }: { salon: Salon }) {
             <Input name="noShowFee" type="number" min={0} step="0.01" defaultValue={(salon.noShowFeeCents / 100).toFixed(2)} />
           </Field>
         </div>
-      </Section>
+      </FormSection>
 
-      <Section title="Janela de agendamento online">
+      <FormSection title="Janela de agendamento online">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="Antecedência mínima (minutos)">
             <Input
@@ -156,9 +158,9 @@ export function SalonSettingsForm({ salon }: { salon: Salon }) {
           atendimentos reserva um tempo de preparo/limpeza para cada profissional entre um
           horário e o próximo, tanto no aplicativo do cliente quanto no painel.
         </p>
-      </Section>
+      </FormSection>
 
-      {error && <p className="rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger">{error}</p>}
+      {error && <p role="alert" className="rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger">{error}</p>}
 
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={pending}>
@@ -176,7 +178,7 @@ export function SalonSettingsForm({ salon }: { salon: Salon }) {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-border bg-card p-5">
+    <div className="space-y-3">
       <h3 className="mb-4 text-[13px] font-semibold">{title}</h3>
       <div className="space-y-3">{children}</div>
     </div>

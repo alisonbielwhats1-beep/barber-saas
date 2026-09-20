@@ -1,8 +1,10 @@
 "use client";
+import { toast } from "@/components/ui/toast";
+import { useFormOperation } from "../use-form-operation";
 
 import { FormSection } from "../form-section";
-import { FormWizard } from "../form-wizard";
-import { useState, useTransition } from "react";
+import { TaskForm } from "../task-form";
+import { useRef, useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +12,7 @@ import { ImageUpload } from "@/components/ui/image-upload";
 import {
   Dialog, DialogContent, DialogDescription,
   DialogHeader, DialogTitle, DialogTrigger,
-} from "@/components/ui/dialog";
+} from "../form-dialog";
 import { createProduct, updateProduct } from "./actions";
 import { format } from "date-fns";
 
@@ -33,7 +35,8 @@ type Product = {
 export function ProductForm({ product, trigger }: { product?: Product; trigger?: React.ReactNode }) {
   const editing = !!product;
   const [open, setOpen] = useState(false);
-  const [pending, startTransition] = useTransition();
+  const [pending, startTransition] = useFormOperation();
+  const submitting = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState(product?.imageUrl ?? "");
 
@@ -44,6 +47,8 @@ export function ProductForm({ product, trigger }: { product?: Product; trigger?:
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (submitting.current) return;
+    submitting.current = true;
     setError(null);
     const form = new FormData(e.currentTarget);
     const payload = {
@@ -64,15 +69,16 @@ export function ProductForm({ product, trigger }: { product?: Product; trigger?:
       try {
         if (editing) await updateProduct(product!.id, payload);
         else await createProduct(payload);
+        toast("Cadastro salvo", "success");
         setOpen(false);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Erro ao salvar");
-      }
+      } finally { submitting.current = false; }
     });
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog dirtyKey={imageUrl} pending={pending} open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         {trigger ?? (editing ? (
           <Button variant="ghost" size="sm">Editar</Button>
@@ -86,66 +92,68 @@ export function ProductForm({ product, trigger }: { product?: Product; trigger?:
           <DialogDescription className="sr-only">Custo, fornecedor e estoque mínimo alimentam margem e reposição.</DialogDescription>
         </DialogHeader>
 
-        <FormWizard labels={["Básico", "Venda", "Estoque"]} onSubmit={onSubmit} pending={pending} error={error} submitLabel={editing ? "Salvar produto" : "Cadastrar produto"}>
+        <TaskForm onSubmit={onSubmit} pending={pending} error={error} submitLabel={editing ? "Salvar produto" : "Cadastrar produto"}>
           <div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Nome</label>
-            <Input aria-label="Nome" name="name" defaultValue={product?.name} required autoFocus />
+            <label htmlFor="product-form-name" className="mb-1 block text-sm font-medium">Nome</label>
+            <Input id="product-form-name" aria-label="Nome" name="name" defaultValue={product?.name} required autoFocus />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-sm font-medium">Marca</label>
-              <Input aria-label="Marca" name="brand" defaultValue={product?.brand ?? ""} />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium">Categoria</label>
-              <Input aria-label="Categoria" name="category" defaultValue={product?.category ?? ""} placeholder="Pomada, óleo…" />
-            </div>
-          </div>
-
-          <FormSection title="Foto do produto" description="Opcional"><ImageUpload value={imageUrl} onChange={setImageUrl} folder="products" aspectRatio="square" /></FormSection>
-          <label className="text-sm">Descrição<Input name="description" defaultValue={product?.description ?? ""} /></label>
           </div>
           <div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-sm font-medium">Preço venda (R$)</label>
-              <Input aria-label="Preço venda (R$)" name="price" type="number" min={0} step="0.01" defaultValue={product ? (product.priceCents / 100).toFixed(2) : ""} required />
+              <label htmlFor="product-form-price" className="mb-1 block text-sm font-medium">Preço venda (R$)</label>
+              <Input id="product-form-price" aria-label="Preço venda (R$)" name="price" type="number" min={0} step="0.01" defaultValue={product ? (product.priceCents / 100).toFixed(2) : ""} required />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Custo (R$)</label>
-              <Input aria-label="Custo (R$)" name="cost" type="number" min={0} step="0.01" defaultValue={product ? (product.costCents / 100).toFixed(2) : "0.00"} />
+              <label htmlFor="product-form-cost" className="mb-1 block text-sm font-medium">Custo (R$)</label>
+              <Input id="product-form-cost" aria-label="Custo (R$)" name="cost" type="number" min={0} step="0.01" defaultValue={product ? (product.costCents / 100).toFixed(2) : "0.00"} />
             </div>
           </div>
           </div>
           <div>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
             <div>
-              <label className="mb-1 block text-sm font-medium">Estoque</label>
-              <Input aria-label="Estoque" disabled={!!product} aria-describedby={product ? "stock-help" : undefined} name="stock" type="number" min={0} step={1} defaultValue={product?.stock ?? 10} required />
+              <label htmlFor="product-form-stock" className="mb-1 block text-sm font-medium">Estoque</label>
+              <Input id="product-form-stock" aria-label="Estoque" disabled={!!product} aria-describedby={product ? "stock-help" : undefined} name="stock" type="number" min={0} step={1} defaultValue={product?.stock ?? ""} placeholder="Informe a quantidade" required />
               {product && <p id="stock-help" className="text-xs text-muted-foreground">Ajuste o saldo pela opção Movimentar estoque.</p>}
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Mínimo</label>
-              <Input aria-label="Mínimo" name="minStock" type="number" min={0} step={1} defaultValue={product?.minStock ?? 4} />
+              <label htmlFor="product-form-minStock" className="mb-1 block text-sm font-medium">Mínimo</label>
+              <Input id="product-form-minStock" aria-label="Mínimo" name="minStock" type="number" min={0} step={1} defaultValue={product?.minStock ?? 4} />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Validade</label>
-              <Input aria-label="Validade" name="expiresAt" type="date" defaultValue={product?.expiresAt ? format(new Date(product.expiresAt), "yyyy-MM-dd") : ""} />
+              <label htmlFor="product-form-expiresAt" className="mb-1 block text-sm font-medium">Validade</label>
+              <Input id="product-form-expiresAt" aria-label="Validade" name="expiresAt" type="date" defaultValue={product?.expiresAt ? format(new Date(product.expiresAt), "yyyy-MM-dd") : ""} />
             </div>
           </div>
-          <FormSection title="Fornecedor e identificação" defaultOpen={editing}>          <div className="grid grid-cols-2 gap-3">
+          <FormSection title="Fornecedor e identificação">          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-sm font-medium">Fornecedor</label>
-              <Input aria-label="Fornecedor" name="supplier" defaultValue={product?.supplier ?? ""} />
+              <label htmlFor="product-form-supplier" className="mb-1 block text-sm font-medium">Fornecedor</label>
+              <Input id="product-form-supplier" aria-label="Fornecedor" name="supplier" defaultValue={product?.supplier ?? ""} />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Código de barras</label>
-              <Input aria-label="Código de barras" name="barcode" defaultValue={product?.barcode ?? ""} />
+              <label htmlFor="product-form-barcode" className="mb-1 block text-sm font-medium">Código de barras</label>
+              <Input id="product-form-barcode" aria-label="Código de barras" name="barcode" defaultValue={product?.barcode ?? ""} />
             </div>
           </div></FormSection>
           </div>
-        </FormWizard>
+          <FormSection title="Detalhes do produto" description="Marca, categoria, foto e descrição">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="product-form-brand" className="mb-1 block text-sm font-medium">Marca</label>
+              <Input id="product-form-brand" aria-label="Marca" name="brand" defaultValue={product?.brand ?? ""} />
+            </div>
+            <div>
+              <label htmlFor="product-form-category" className="mb-1 block text-sm font-medium">Categoria</label>
+              <Input id="product-form-category" aria-label="Categoria" name="category" defaultValue={product?.category ?? ""} placeholder="Pomada, óleo…" />
+            </div>
+          </div>
+
+          <div><ImageUpload value={imageUrl} onChange={setImageUrl} folder="products" aspectRatio="square" /></div>
+          <label className="text-sm">Descrição<Input name="description" defaultValue={product?.description ?? ""} /></label>
+          </FormSection>
+        </TaskForm>
       </DialogContent>
     </Dialog>
   );

@@ -255,7 +255,7 @@ export function HojeView({
                           </button>
                         );
                       })}
-                      <Link href={`/agenda?date=${date}`} className="inline-flex min-h-11 items-center justify-center rounded-xl border border-border px-3.5 text-xs font-medium text-muted-foreground transition hover:bg-card-hover hover:text-foreground">
+                      <Link href={`/agenda?date=${date}&appointment=${encodeURIComponent(appointment.id)}&from=hoje`} className="inline-flex min-h-11 items-center justify-center rounded-xl border border-border px-3.5 text-xs font-medium text-muted-foreground transition hover:bg-card-hover hover:text-foreground">
                         Ver detalhes
                       </Link>
                     </div>

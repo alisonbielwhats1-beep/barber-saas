@@ -14,6 +14,7 @@ export function FormWizard({ labels, children, onSubmit, pending, error, submitL
   const sections = Children.toArray(children);
   function changeStep(next: number) {
     setStep(next);
+    requestAnimationFrame(() => body.current?.querySelector<HTMLElement>(`[data-wizard-step="${next}"]`)?.focus());
     if (body.current) body.current.scrollTop = 0;
   }
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -38,7 +39,7 @@ export function FormWizard({ labels, children, onSubmit, pending, error, submitL
       <span>{label}</span>
     </li>)}</ol>
     <div ref={body} className="admin-wizard-body">
-      {sections.map((section, index) => <div key={index} data-wizard-step={index} hidden={step !== index}>{section}</div>)}
+      {sections.map((section, index) => <div key={index} data-wizard-step={index} tabIndex={-1} aria-label={labels[index]} hidden={step !== index}>{section}</div>)}
       {error && <p role="alert" className="mt-4 rounded-xl border border-danger/30 p-3 text-sm text-danger">{error}</p>}
     </div>
     <div className="admin-wizard-footer">

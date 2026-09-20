@@ -1,19 +1,22 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
+import { useFormOperation } from "../use-form-operation";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { deletePortfolioItem } from "./actions";
 
 export function DeleteButton({ id }: { id: string }) {
-  const [pending, startTransition] = useTransition();
+  const [pending, startTransition] = useFormOperation();
+  const [error, setError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   function remove() {
     startTransition(async () => {
-      await deletePortfolioItem(id);
-      setConfirmOpen(false);
+      setError(null);
+      try { await deletePortfolioItem(id); setConfirmOpen(false); }
+      catch { setError("Não foi possível remover a foto. Tente novamente."); }
     });
   }
 
@@ -35,7 +38,7 @@ export function DeleteButton({ id }: { id: string }) {
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
         title="Remover foto do portfólio?"
-        description="Essa foto deixará de aparecer no portfólio público. Essa ação não pode ser desfeita."
+        description={error ?? "Essa foto deixará de aparecer no portfólio público. Essa ação não pode ser desfeita."}
         confirmLabel="Remover foto"
         onConfirm={remove}
         pending={pending}

@@ -1,6 +1,7 @@
 "use client";
+import { useFormOperation } from "../use-form-operation";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Dialog,
@@ -9,7 +10,7 @@ import {
   DialogTitle,
   DialogFooter,
   DialogClose,
-} from "@/components/ui/dialog";
+} from "../form-dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
@@ -34,7 +35,7 @@ const CATEGORIES = ["Aluguel", "Energia", "Água", "Produtos", "Marketing", "Sof
 
 export function ExpenseManager({ expenses, timezone }: { expenses: ExpenseRow[]; timezone: string }) {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const [pending, startTransition] = useFormOperation();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -151,7 +152,7 @@ export function ExpenseManager({ expenses, timezone }: { expenses: ExpenseRow[];
         </div>
       )}
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog pending={pending} open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[calc(100dvh-1rem)] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Nova despesa</DialogTitle>

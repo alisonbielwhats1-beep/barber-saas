@@ -229,10 +229,10 @@ export function MobileNav({
             aria-label="Abrir todos os módulos"
             className={cn(
               "flex min-h-14 flex-1 flex-col items-center gap-1 pb-3 pt-2.5 text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
-              open ? "text-primary" : "text-muted-foreground",
+              (open || !PRIMARY.some(item => pathname === item.href || pathname.startsWith(`${item.href}/`))) ? "text-primary" : "text-muted-foreground",
             )}
           >
-            <span className="relative"><MoreHorizontal className="h-5 w-5" strokeWidth={open ? 2.4 : 2} /><UnreadBadge count={unreadNotifications} className="absolute -right-3 -top-2" /></span>
+            <span className="relative"><MoreHorizontal className="h-5 w-5" strokeWidth={open || !PRIMARY.some(item => pathname === item.href || pathname.startsWith(`${item.href}/`)) ? 2.4 : 2} /><UnreadBadge count={unreadNotifications} className="absolute -right-3 -top-2" /></span>
             Mais
           </button>
         </DialogTrigger>

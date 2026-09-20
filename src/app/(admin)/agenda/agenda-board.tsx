@@ -209,7 +209,7 @@ export function AgendaBoard({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [view, setView] = useState<ViewKind>("day");
-  const [proFilter, setProFilter] = useState<string>(() => roster.some(pro => pro.id === initialProfessionalId) ? initialProfessionalId! : "all");
+  const [proFilter, setProFilter] = useState<string[]>(() => roster.some(pro => pro.id === initialProfessionalId) ? [initialProfessionalId!] : []);
   const [statusFilter, setStatusFilter] = useState<string>("not_cancelled");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -260,7 +260,7 @@ export function AgendaBoard({
     name: p.name,
     serviceIds: p.serviceIds,
   }));
-  const shownPros = proFilter === "all" ? professionals : professionals.filter((p) => p.id === proFilter);
+  const shownPros = proFilter.length === 0 ? professionals : professionals.filter((p) => proFilter.includes(p.id));
 
   // Filtros de profissional/status/busca aplicados a qualquer subconjunto
   const applyFilters = useMemo(() => {
@@ -277,7 +277,7 @@ export function AgendaBoard({
           statusFilter !== "not_cancelled" &&
           a.status !== statusFilter
         ) return false;
-        if (proFilter !== "all" && a.professionalId !== proFilter) return false;
+        if (proFilter.length > 0 && !proFilter.includes(a.professionalId)) return false;
         if (q && !a.clientName.toLowerCase().includes(q) && !(a.clientPhone ?? "").includes(q)) return false;
         return true;
       });
@@ -295,9 +295,9 @@ export function AgendaBoard({
 
   const awaitingAcceptance = appointments.filter((a) => a.pendingReschedule && a.pendingReschedule.status !== "REJECTED").length;
   const cancelledWithQueue = appointments.filter((a) => a.status === "CANCELLED" && a.waitlistCount > 0).length;
-  const activeFilterCount = Number(proFilter !== "all") + Number(statusFilter !== "not_cancelled") + Number(Boolean(search.trim()));
+  const activeFilterCount = Number(proFilter.length > 0) + Number(statusFilter !== "not_cancelled") + Number(Boolean(search.trim()));
   const filterSummary = [
-    proFilter !== "all" ? professionals.find(pro => pro.id === proFilter)?.name : null,
+    proFilter.length > 0 ? professionals.filter(pro => proFilter.includes(pro.id)).map(pro => pro.name).join(", ") : null,
     statusFilter !== "not_cancelled"
       ? statusFilter === "all" ? "Todos os status" : STATUS[statusFilter as keyof typeof STATUS]?.label
       : null,
@@ -307,7 +307,7 @@ export function AgendaBoard({
   const noticesPeriod = `${formatInTimeZone(loadedRange.from, timezone, "dd/MM")} a ${formatInTimeZone(new Date(loadedRange.to.getTime() - 1), timezone, "dd/MM/yyyy")}`;
 
   function clearFilters() {
-    setProFilter("all");
+    setProFilter([]);
     setStatusFilter("not_cancelled");
     setSearch("");
   }
@@ -490,12 +490,12 @@ export function AgendaBoard({
           />
         </div>
         <div id="agenda-filters" className="flex flex-wrap items-center gap-2">
-        <FilterChip active={proFilter === "all"} onClick={() => setProFilter("all")} icon={Users}>
+        <FilterChip active={proFilter.length === 0} onClick={() => setProFilter([])} icon={Users}>
           Todos profissionais
         </FilterChip>
         {professionals.map((p) => (
-          <FilterChip key={p.id} active={proFilter === p.id} onClick={() => setProFilter(p.id)} dot={p.colorHex ?? "#2ECC8B"}>
-            {p.name.split(" ")[0]}
+          <FilterChip key={p.id} active={proFilter.includes(p.id)} onClick={() => setProFilter(current => current.includes(p.id) ? current.filter(id => id !== p.id) : [...current, p.id])} dot={p.colorHex ?? "#2ECC8B"}>
+            {p.name}
           </FilterChip>
         ))}
         <span className="mx-1 h-4 w-px bg-border" />
