@@ -82,7 +82,7 @@ export function ProductsCatalog({ products, movements, enabled = true, initialFi
   }, [products, search, filter, category]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       <div className="admin-catalog-tools flex flex-wrap items-center gap-2">
         <div className="flex min-h-11 items-center gap-2 rounded-full border border-border bg-card px-3">
           <Search className="h-3.5 w-3.5 text-muted-foreground" />
@@ -98,7 +98,15 @@ export function ProductsCatalog({ products, movements, enabled = true, initialFi
         <Chip active={filter === "restock"} onClick={() => setFilter("restock")} accent="#F59E0B">
           Repor {restockCount > 0 && `(${restockCount})`}
         </Chip>
-        <Chip active={filter === "out"} onClick={() => setFilter("out")} accent="#EF4444">Em falta</Chip></MobileListTools>
+        <Chip active={filter === "out"} onClick={() => setFilter("out")} accent="#EF4444">Em falta</Chip>
+      <details className="w-full overflow-hidden rounded-xl border border-border bg-card">
+        <summary className="flex min-h-11 cursor-pointer items-center gap-2 px-3 py-2 text-[13px] font-semibold"><ClipboardList aria-hidden="true" className="h-4 w-4 text-primary" />Histórico de movimentações</summary>
+        {movements.length === 0 ? <p className="p-8 text-center text-[12px] text-muted-foreground">As entradas, perdas e inventários aparecerão aqui.</p> : movements.slice(0, 15).map((movement) => {
+          const delta = Number(movement.metadata?.delta ?? 0);
+          return <div key={movement.id} className="flex items-center gap-3 border-b border-border px-4 py-3 last:border-0 sm:px-5"><span className={`grid h-8 w-8 place-items-center rounded-lg text-[12px] font-bold ${delta >= 0 ? "bg-success/10 text-success" : "bg-danger/10 text-danger"}`}>{delta >= 0 ? `+${delta}` : delta}</span><div className="min-w-0 flex-1"><p className="truncate text-[12px] font-medium">{String(movement.metadata?.productName ?? "Produto")}</p><p className="truncate text-[10px] text-muted-foreground">{movement.reason ?? "Sem motivo"} · {movement.actorName}</p></div><p className="text-[10px] text-muted-foreground">{format(new Date(movement.createdAt), "dd/MM · HH:mm", { locale: ptBR })}</p></div>;
+        })}
+      </details>
+        </MobileListTools>
         <div className="order-last flex w-full gap-2 overflow-x-auto" role="group" aria-label="Categorias de produtos">
           <Chip active={category === "all"} onClick={() => setCategory("all")}>Todos</Chip>
           {categories.map(c => <Chip key={c} active={category === c} onClick={() => setCategory(c)}>{c}</Chip>)}
@@ -127,13 +135,7 @@ export function ProductsCatalog({ products, movements, enabled = true, initialFi
         </div>
       )}
 
-      <div className="overflow-hidden rounded-2xl border border-border bg-card">
-        <div className="flex items-center gap-2 border-b border-border px-5 py-3.5"><ClipboardList className="h-4 w-4 text-primary" /><h2 className="text-[13px] font-semibold">Histórico de movimentações</h2></div>
-        {movements.length === 0 ? <p className="p-8 text-center text-[12px] text-muted-foreground">As entradas, perdas e inventários aparecerão aqui.</p> : movements.slice(0, 15).map((movement) => {
-          const delta = Number(movement.metadata?.delta ?? 0);
-          return <div key={movement.id} className="flex items-center gap-3 border-b border-border px-4 py-3 last:border-0 sm:px-5"><span className={`grid h-8 w-8 place-items-center rounded-lg text-[12px] font-bold ${delta >= 0 ? "bg-success/10 text-success" : "bg-danger/10 text-danger"}`}>{delta >= 0 ? `+${delta}` : delta}</span><div className="min-w-0 flex-1"><p className="truncate text-[12px] font-medium">{String(movement.metadata?.productName ?? "Produto")}</p><p className="truncate text-[10px] text-muted-foreground">{movement.reason ?? "Sem motivo"} · {movement.actorName}</p></div><p className="text-[10px] text-muted-foreground">{format(new Date(movement.createdAt), "dd/MM · HH:mm", { locale: ptBR })}</p></div>;
-        })}
-      </div>
+
     </div>
   );
 }
@@ -321,7 +323,7 @@ function Chip({ active, onClick, children, accent }: { active: boolean; onClick:
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`min-h-11 rounded-full border px-3 text-[12px] font-medium transition-colors ${
+      className={`min-h-9 rounded-full border px-3 text-[12px] font-medium transition-colors ${
         active ? "border-primary/40 bg-primary/10 text-foreground" : "border-border bg-card text-muted-foreground hover:text-foreground"
       }`}
       style={active && accent ? { borderColor: `${accent}66`, color: accent, background: `${accent}14` } : undefined}
