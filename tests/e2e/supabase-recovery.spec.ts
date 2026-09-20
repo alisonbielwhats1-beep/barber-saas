@@ -61,6 +61,10 @@ test.describe("Supabase Auth + local SMTP recovery", () => {
       const prefix = app === "owner" ? "" : `/book/${slug}`;
       await page.goto(`${prefix}/login`);
       await page.getByRole("link", { name: "Esqueci minha senha", exact: true }).click();
+      // Both customer screens label their input E-mail. Wait for the route
+      // transition so automation cannot fill the departing login field.
+      await expect(page).toHaveURL(new RegExp(`${prefix}/recuperar-senha$`));
+      await expect(page.getByRole("heading", { name: "Recuperar senha", exact: true })).toBeVisible();
       await page.getByLabel("E-mail", { exact: true }).fill(`missing-${app}@example.test`);
       await page.getByRole("button", { name: "Enviar link de recuperação" }).click();
       await expect(page.getByRole("status")).toContainText("Se existir uma conta associada");
