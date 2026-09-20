@@ -35,3 +35,21 @@
 .admin-form-dialog input[type=color] { width: 5rem; max-width: 100%; }
 .admin-form-section > summary > span { min-width: 0; overflow-wrap: anywhere; }
 .admin-form-section > summary > svg { flex-shrink: 0; }
+.client-directory .admin-catalog-tools > div:has(> input) { flex-basis: 100%; border-radius: 12px; }
+.client-directory [aria-label="Filtros de clientes"] > button { flex-shrink: 0; }
+@media (max-width: 767px) {
+  .admin-client-create { position: fixed; right: 20px; bottom: calc(84px + env(safe-area-inset-bottom)); z-index: 30; width: 52px; height: 52px; padding: 0; border-radius: 50%; box-shadow: 0 6px 20px hsl(var(--background) / .3); }
+}
+.admin-page-layout:has(.client-directory) { animation: none; transform: none; }
+.admin-client-detail { padding: 24px; border-radius: 20px; grid-template-columns: minmax(0, 1fr); }
+.admin-client-detail > div:first-child { padding-right: 20px; }
+.admin-client-detail [role=tablist] { height: auto; padding: 4px; border-radius: 12px; }
+.admin-client-detail [role=tab] { min-height: 44px; padding-inline: 6px; font-size: 12px; }
+.admin-client-detail [role=tabpanel] { min-width: 0; }
+@media (max-width: 639px) { .admin-client-detail { padding: 16px; } }
+.admin-client-detail [role=tablist] { background: hsl(var(--surface-1)); gap: 4px; }
+.admin-client-detail [role=tab] { border-radius: 9px; color: hsl(var(--muted-foreground)); }
+.admin-client-detail [role=tab][data-state=active] { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+.admin-client-detail [role=tab]:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+.admin-client-detail [role=tabpanel] { padding-top: 16px; }
+.client-directory .admin-catalog-tools > div:has(> input) { flex: 1; flex-basis: 0; width: auto; }

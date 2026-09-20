@@ -69,3 +69,13 @@ de cotação do servidor. Não declarar a prévia como homologação de persist�
 Sem merge ou publicação em produção nesta entrega. CI e Preview devem passar
 antes da revisão final; promoção depende de autorização. Rollback por reversão
 dos commits de interface, sem operação no banco.
+
+## Complemento — estrutura de Clientes
+
+O responsável confirmou manter clientes sem foto nesta entrega; não há campo
+persistido para avatar no cadastro atual. Não foi reaproveitada foto de prontuário.
+A lista passou a exibir nome, telefone e visitas; filtros existentes em chips,
+atalho flutuante de cadastro no celular e detalhes em Resumo/Histórico/Preferências.
+Clientes excluídos permanecem uma condição de visibilidade da lista, sem serem
+renomeados como contas inativas ou perderem acesso. Recuperação/importação seguem
+em Mais opções, com as mesmas permissões e ações existentes.

@@ -71,8 +71,8 @@ export function ClientForm({ client }: Props) {
         {editing ? (
           <Button variant="ghost" size="sm">Editar</Button>
         ) : (
-          <Button>
-            <Plus className="h-4 w-4" /> Novo cliente
+          <Button className="admin-client-create" aria-label="Novo cliente">
+            <Plus className="h-5 w-5" aria-hidden /> <span className="hidden md:inline">Novo cliente</span>
           </Button>
         )}
       </DialogTrigger>

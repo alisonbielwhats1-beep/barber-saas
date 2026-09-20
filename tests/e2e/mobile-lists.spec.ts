@@ -58,10 +58,9 @@ test.describe("@database listas mobile compactas", () => {
             await page.getByLabel("Buscar cliente ou telefone").fill("inexistente");
             await expect(page.getByText("Nenhum cliente neste filtro.")).toBeVisible();
             await page.getByLabel("Buscar cliente ou telefone").fill("Ana");
-            await page.getByRole("button", { name: "Filtros", exact: true }).click();
-            await page.getByLabel("Filtrar clientes").selectOption("birthday");
+            await page.getByRole("button", { name: /^Aniversariantes/ }).click();
             await expect(page.getByText("Nenhum cliente neste filtro.")).toBeVisible();
-            await page.getByLabel("Filtrar clientes").selectOption("all");
+            await page.getByRole("button", { name: /^Todos/ }).click();
             await expect(list.getByText("Ana Carolina de Albuquerque")).toBeVisible();
           }
           if (route === "servicos") {
