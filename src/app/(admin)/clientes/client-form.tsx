@@ -2,7 +2,7 @@
 
 import { FormWizard } from "../form-wizard";
 import { useState, useTransition } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -67,7 +67,7 @@ export function ClientForm({ client }: Props) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {editing ? (
-          <Button variant="ghost" size="sm">Editar</Button>
+          <Button variant="ghost" size="sm"><Pencil className="h-4 w-4" aria-hidden />Editar</Button>
         ) : (
           <Button className="admin-client-create" aria-label="Novo cliente">
             <Plus className="h-5 w-5" aria-hidden /> <span className="hidden md:inline">Novo cliente</span>

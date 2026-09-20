@@ -165,6 +165,7 @@ export function AgendaBoard({
   operations,
   initialAppointmentId,
   initialClientId,
+  initialProfessionalId,
   availabilityBlocks = [],
   date,
   salonName,
@@ -183,6 +184,7 @@ export function AgendaBoard({
   colorScope: string;
   initialAppointmentId?: string;
   initialClientId?: string;
+  initialProfessionalId?: string;
   availabilityBlocks?: AvailabilityBlock[];
   operations?: ReactNode;
   date: string;
@@ -207,7 +209,7 @@ export function AgendaBoard({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [view, setView] = useState<ViewKind>("day");
-  const [proFilter, setProFilter] = useState<string>("all");
+  const [proFilter, setProFilter] = useState<string>(() => roster.some(pro => pro.id === initialProfessionalId) ? initialProfessionalId! : "all");
   const [statusFilter, setStatusFilter] = useState<string>("not_cancelled");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -413,7 +415,7 @@ export function AgendaBoard({
         </div>
 
         <div className="agenda-view-controls">
-          <AgendaMobileGuide scope={colorScope} canCreate={canCreate} autoStart={!initialAppointmentId} />
+          <AgendaMobileGuide scope={colorScope} canCreate={canCreate} autoStart={!initialAppointmentId && !initialClientId} />
           {(awaitingAcceptance > 0 || cancelledWithQueue > 0) && <Dialog><DialogTrigger asChild><button type="button" aria-label="Avisos do período" className="relative grid h-11 w-11 shrink-0 place-items-center rounded-full"><Bell size={17} aria-hidden /><span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-warning" /></button></DialogTrigger><DialogContent aria-describedby={undefined}><DialogHeader><DialogTitle>Avisos do período</DialogTitle></DialogHeader><div className="space-y-3 text-sm">          <p className="font-medium">{noticesPeriod} · independente dos filtros</p>
           <p>
             {awaitingAcceptance > 0 && `${awaitingAcceptance} alteração(ões) aguardando aceite do cliente.`}

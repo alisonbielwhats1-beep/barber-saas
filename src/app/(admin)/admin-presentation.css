@@ -110,3 +110,6 @@
  .admin-professional-detail { height: 100dvh; max-height: 100dvh; width: 100%; max-width: none; border: 0; border-radius: 0; overflow-y: auto; }
  .professional-edit-dialog { height: 100dvh; max-height: 100dvh; width: 100%; border-radius: 0; border: 0; }
 }
+
+.client-profile-actions > :is(a,button) { display: flex; flex: 1; min-width: 56px; flex-direction: column; justify-content: center; gap: 6px; border: 0; background: transparent; padding: 0; font-size: 11px; color: hsl(var(--foreground)); }
+.client-profile-actions > :is(a,button) > svg { width: 40px; height: 40px; padding: 10px; border: 1px solid hsl(var(--primary) / .5); border-radius: 50%; color: hsl(var(--primary)); }

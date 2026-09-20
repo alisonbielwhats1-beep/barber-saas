@@ -9,7 +9,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Search, Phone, MessageCircle, Crown, Cake, Clock, Star, Scissors, User, ChevronRight,
+  Search, CalendarPlus, Phone, MessageCircle, Crown, Cake, Clock, Star, Scissors, User, ChevronRight,
   CircleDollarSign, Repeat, Layers, Loader2, ShieldCheck, HeartPulse, FileUp, Gift, X, GitMerge, AlertTriangle,
 } from "lucide-react";
 import { formatMoney } from "@/lib/utils";
@@ -288,7 +288,7 @@ export function ClientsCrm({
                     <MessageCircle className="h-4 w-4" /> WhatsApp
                   </a>
                 )}
-                {canManage && !showExcluded && <Link href={`/agenda?client=${encodeURIComponent(detail.id)}`} className="flex min-h-11 items-center rounded-full border border-border px-3 text-sm">Novo ag.</Link>}
+                {canManage && !showExcluded && <Link href={`/agenda?client=${encodeURIComponent(detail.id)}`} className="flex min-h-11 items-center rounded-full border border-border px-3 text-sm"><CalendarPlus className="h-4 w-4" aria-hidden />Novo ag.</Link>}
                 {canManage && (
                   <ClientForm
                     client={{

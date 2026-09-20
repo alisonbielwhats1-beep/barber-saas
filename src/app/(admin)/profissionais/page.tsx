@@ -219,10 +219,11 @@ export default async function ProfissionaisPage() {
                 <Stat icon={UserX} label="Faltas" value={p.noShow.toString()} accent={p.noShow > 0 ? "#EF4444" : undefined} />
               </div>
 
-              </>} services={<div className="divide-y divide-border">{services.filter(service => p.serviceIds.includes(service.id)).map(service => <div key={service.id} className="py-3 text-sm">{service.name}</div>)}{p.serviceIds.length === 0 && <p className="text-sm text-muted-foreground">Nenhum serviço vinculado.</p>}</div>} agenda={<div className="space-y-3"><p className="text-sm text-muted-foreground">{p.workingDays} dias de trabalho por semana</p><Link href="/agenda" className="flex min-h-11 items-center justify-center rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground">Ver agenda</Link>{canManageTeam && <Link href="/configuracoes#jornadas" className="flex min-h-11 items-center text-sm">Jornada e pausas</Link>}</div>} />
+              </>} services={<div className="divide-y divide-border">{services.filter(service => p.serviceIds.includes(service.id)).map(service => <div key={service.id} className="py-3 text-sm">{service.name}</div>)}{p.serviceIds.length === 0 && <p className="text-sm text-muted-foreground">Nenhum serviço vinculado.</p>}</div>} agenda={<div className="space-y-3"><p className="text-sm text-muted-foreground">{p.workingDays} dias de trabalho por semana</p><Link href={`/agenda?professional=${encodeURIComponent(p.id)}`} className="flex min-h-11 items-center justify-center rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground">Ver agenda</Link>{canManageTeam && <Link href="/configuracoes#jornadas" className="flex min-h-11 items-center text-sm">Jornada e pausas</Link>}</div>} />
               {/* Ações */}
               {canManageTeam && <div className="professional-profile-actions mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-3">
                 <ProfessionalForm
+                  trigger={<button type="button" className="min-h-12 rounded-lg px-4 font-semibold">Editar profissional</button>}
                   services={services}
                   invitesEnabled={invitesEnabled}
                   professional={{
@@ -238,8 +239,7 @@ export default async function ProfissionaisPage() {
                     serviceIds: p.serviceIds,
                   }}
                 />
-                <Link href="/configuracoes#jornadas" className="inline-flex min-h-11 items-center rounded-md px-3 text-sm hover:bg-muted">Jornada e pausas</Link>
-                <ToggleActiveButton id={p.id} active={p.active} />
+                <details className="w-full admin-detail-section"><summary>Outras opções</summary><ToggleActiveButton id={p.id} active={p.active} /></details>
               </div>}
             </div>
           )}))} />

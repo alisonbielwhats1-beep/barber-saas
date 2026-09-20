@@ -30,11 +30,11 @@ function waitlistServiceName(value: unknown): string {
 export default async function AgendaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string; appointment?: string; client?: string }>;
+  searchParams: Promise<{ date?: string; appointment?: string; client?: string; professional?: string }>;
 }) {
   const ctx = await getTenantContext();
   const { salonId, role } = ctx;
-  const { date: selectedDate, appointment: selectedAppointment, client: selectedClient } = await searchParams;
+  const { date: selectedDate, appointment: selectedAppointment, client: selectedClient, professional: selectedProfessional } = await searchParams;
 
   // Sequencial de propósito: pooler com connection_limit=1 em serverless —
   // 5 queries em Promise.all estouravam o timeout do pool (P2024). Dentro de
@@ -275,6 +275,7 @@ export default async function AgendaPage({
         operations={(role === "OWNER" || role === "MANAGER") ? <><OpeningPanel date={dateStr} timezone={salon.timezone} professionals={professionals} openings={openings} /><FlexibleQueuePanel /></> : undefined}
         initialAppointmentId={selectedAppointment}
         initialClientId={selectedClient}
+        initialProfessionalId={selectedProfessional}
         availabilityBlocks={blocks.map(b => ({ ...b, startAt: b.startAt.toISOString(), endAt: b.endAt.toISOString() }))}
         date={dateStr}
         salonName={salon?.name ?? "seu salão"}
