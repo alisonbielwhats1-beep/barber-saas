@@ -496,6 +496,7 @@ enum Gender {
 // Global authentication identity, like User. Holds no passwords or provider tokens.
 model AuthIdentity {
   id             String @id @db.Uuid
+  email          String? @unique
   sessionVersion Int @default(0)
   users          User[]
   clients        ClientProfile[]

@@ -142,28 +142,14 @@ export async function loginClient(
     name: string;
     email: string | null;
     passwordHash: string | null;
+    authIdentityId: string | null;
     sessionVersion: number;
   } | null } | null;
-  if (supabaseAuthEnabled()) {
-    let authenticated;
-    let mapped;
-    try {
-      authenticated = await authenticatePassword(normalizedEmail, validatedPassword);
-      if (!authenticated) return { error: "E-mail ou senha incorretos" };
-      mapped = await withSalonBySlug(normalizedSlug, (tx, salonId) =>
-        tx.clientProfile.findFirst({ where: { salonId, authIdentityId: authenticated!.user.id, mergedIntoId: null },
-          select: { id: true, name: true, email: true, sessionVersion: true } }).then(client => ({ salonId, client })));
-      if (!mapped?.client) return { error: "E-mail ou senha incorretos" };
-      await setClientSession({ clientId: mapped.client.id, salonId: mapped.salonId, name: mapped.client.name,
-        email: authenticated.user.email!, sessionVersion: mapped.client.sessionVersion, providerSession: authenticated.session });
-    } catch { return { error: "Não foi possível entrar agora. Tente novamente." }; }
-    redirect(safeClientReturnTo(normalizedSlug, validatedReturnTo, clientHomePath(normalizedSlug)));
-  }
   try {
     found = await withSalonBySlug(normalizedSlug, (tx, salonId) =>
       tx.clientProfile.findFirst({
         where: { salonId, email: { equals: normalizedEmail, mode: "insensitive" }, mergedIntoId: null },
-        select: { id: true, name: true, email: true, passwordHash: true, sessionVersion: true },
+        select: { id: true, name: true, email: true, passwordHash: true, authIdentityId: true, sessionVersion: true },
       }).then((client) => ({ salonId, client })),
     );
   } catch {
@@ -174,6 +160,16 @@ export async function loginClient(
     return { error: "Salão não encontrado" };
   }
   const { salonId, client } = found;
+
+  if (supabaseAuthEnabled() && client?.authIdentityId) {
+    try {
+      const authenticated = await authenticatePassword(normalizedEmail, validatedPassword);
+      if (!authenticated || authenticated.user.id !== client.authIdentityId) return { error: "E-mail ou senha incorretos" };
+      await setClientSession({ clientId: client.id, salonId, name: client.name, email: authenticated.user.email!,
+        sessionVersion: client.sessionVersion, providerSession: authenticated.session });
+    } catch { return { error: "Não foi possível entrar agora. Tente novamente." }; }
+    redirect(safeClientReturnTo(normalizedSlug, validatedReturnTo, clientHomePath(normalizedSlug)));
+  }
 
   const valid = await bcrypt.compare(
     validatedPassword,

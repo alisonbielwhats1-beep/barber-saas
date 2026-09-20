@@ -73,19 +73,6 @@ export const authOptions: NextAuthOptions = {
         ]);
         if (!ipLimit.allowed || !accountLimit.allowed) return null;
 
-        if (supabaseAuthEnabled()) {
-          try {
-            const authenticated = await authenticatePassword(email, password);
-            if (!authenticated) return null;
-            const user = await prisma.user.findUnique({
-              where: { authIdentityId: authenticated.user.id },
-              select: { id: true, email: true, name: true, avatarUrl: true, sessionVersion: true },
-            });
-            if (!user) return null;
-            return { ...user, image: user.avatarUrl, providerSession: authenticated.session };
-          } catch { return null; }
-        }
-
         const user = await prisma.user.findUnique({
           where: { email },
           select: {
@@ -96,8 +83,17 @@ export const authOptions: NextAuthOptions = {
             passwordSetAt: true,
             sessionVersion: true,
             avatarUrl: true,
+            authIdentityId: true,
           },
         });
+        if (supabaseAuthEnabled() && user?.authIdentityId) {
+          try {
+            const authenticated = await authenticatePassword(email, password);
+            if (!authenticated || authenticated.user.id !== user.authIdentityId) return null;
+            return { id: user.id, email: user.email, name: user.name, image: user.avatarUrl,
+              sessionVersion: user.sessionVersion, providerSession: authenticated.session };
+          } catch { return null; }
+        }
         const valid = await bcrypt.compare(
           password,
           user?.passwordHash ?? DUMMY_ADMIN_PASSWORD_HASH,
@@ -132,15 +128,17 @@ export const authOptions: NextAuthOptions = {
         if (supabaseAuthEnabled()) token.providerSession = (user as { providerSession?: ProviderSession }).providerSession;
       } else if (token.uid) {
         try {
-          if (supabaseAuthEnabled()) {
-            const verified = token.providerSession ? await validateProviderSession(token.providerSession as ProviderSession) : null;
-            if (!verified) { token.uid = undefined; token.providerSession = undefined; return token; }
-            token.providerSession = verified.session;
-          }
           const current = await prisma.user.findUnique({
             where: { id: token.uid },
-            select: { sessionVersion: true },
+            select: { sessionVersion: true, authIdentityId: true },
           });
+          if (supabaseAuthEnabled()) {
+            if (token.providerSession) {
+              const verified = await validateProviderSession(token.providerSession as ProviderSession);
+              if (!verified || verified.user.id !== current?.authIdentityId) { token.uid = undefined; token.providerSession = undefined; return token; }
+              token.providerSession = verified.session;
+            } else if (current?.authIdentityId) { token.uid = undefined; return token; }
+          }
           if (!current || current.sessionVersion !== (token.sessionVersion ?? 0)) {
             token.uid = undefined;
           }

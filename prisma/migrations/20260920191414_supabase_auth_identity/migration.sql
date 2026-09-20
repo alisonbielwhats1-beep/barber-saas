@@ -3,6 +3,7 @@
 BEGIN;
 CREATE TABLE "AuthIdentity" (
   "id" uuid PRIMARY KEY,
+  "email" text UNIQUE,
   "sessionVersion" integer NOT NULL DEFAULT 0 CHECK ("sessionVersion" >= 0)
 );
 ALTER TABLE "AuthIdentity" ENABLE ROW LEVEL SECURITY;

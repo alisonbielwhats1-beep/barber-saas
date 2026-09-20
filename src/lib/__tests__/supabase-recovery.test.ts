@@ -4,6 +4,7 @@ const m = vi.hoisted(() => ({ verifyOtp: vi.fn(), updateUser: vi.fn(), setSessio
   read: vi.fn(), save: vi.fn(), remove: vi.fn(), decode: vi.fn() }));
 vi.mock("next/headers", () => ({ cookies: async () => ({ get: m.read, set: m.save, delete: m.remove }) }));
 vi.mock("next-auth/jwt", () => ({ encode: async () => "encrypted-provider-session", decode: m.decode }));
+vi.mock("@/lib/legacy-supabase-transition", () => ({ prepareLegacyRecovery: vi.fn(), completeRecoveryMigration: vi.fn() }));
 vi.mock("@/lib/supabase-auth", () => ({ createAuthClient: () => ({ auth: { verifyOtp: m.verifyOtp, updateUser: m.updateUser,
   setSession: m.setSession, signOut: m.signOut, resetPasswordForEmail: m.reset } }), providerSession: m.providerSession, validateProviderSession: m.validate }));
 vi.mock("@/lib/prisma", () => ({ prisma: { user: { findFirst: m.user },
@@ -18,7 +19,7 @@ describe("Supabase recovery authority and isolation", () => {
     vi.clearAllMocks(); vi.stubEnv("NEXTAUTH_SECRET", "test-only"); vi.stubEnv("NEXTAUTH_URL", "http://127.0.0.1:3100");
     m.decode.mockResolvedValue(null); m.find.mockResolvedValue({ id: "identity", sessionVersion: 0 });
     m.verifyOtp.mockResolvedValue({ data: { session: {} }, error: null }); m.providerSession.mockResolvedValue(session);
-    m.validate.mockResolvedValue({ session, user: { id: "identity" } }); m.user.mockResolvedValue({ id: "owner" });
+    m.validate.mockResolvedValue({ session, user: { id: "identity", email: "verified@example.test" } }); m.user.mockResolvedValue({ id: "owner" });
     m.profile.mockResolvedValue({ id: "profile" }); m.setSession.mockResolvedValue({ error: null });
     m.updateUser.mockResolvedValue({ error: null }); m.signOut.mockResolvedValue({ error: null }); m.reset.mockResolvedValue({ error: null });
   });
@@ -29,7 +30,8 @@ describe("Supabase recovery authority and isolation", () => {
     expect(m.updateUser).toHaveBeenCalledWith({ password: "NovaSenha123" });
     expect(m.version).toHaveBeenCalledWith({ where: { id: "identity" }, data: { sessionVersion: { increment: 1 } } });
     expect(m.signOut).toHaveBeenCalledWith({ scope: "global" }); expect(m.remove).toHaveBeenCalled();
-    if (salonSlug) expect(m.profile).toHaveBeenCalledWith(expect.objectContaining({ where: { salonId: "id-studio-a", authIdentityId: "identity", mergedIntoId: null } }));
+    if (salonSlug) expect(m.profile).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ salonId: "id-studio-a", mergedIntoId: null,
+      OR: expect.arrayContaining([{ authIdentityId: "identity" }]) }) }));
   });
   it("never updates a profile from a different salon or creates permission by email", async () => {
     m.profile.mockResolvedValue(null);

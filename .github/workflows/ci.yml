@@ -372,6 +372,7 @@ jobs:
         run: |
           npm run test:password-recovery-integration
           npx vitest run src/lib/__tests__/supabase-identity-postgres.integration.test.ts
+          npx vitest run src/lib/__tests__/legacy-auth-transition.integration.test.ts
       - name: Prove client list exclusion preserves access and history
         run: npx vitest run src/lib/__tests__/client-list-postgres.integration.test.ts
       - name: Validate atomic visits, concurrent reservations and schedule exceptions

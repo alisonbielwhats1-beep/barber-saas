@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 test.describe("Supabase Auth + local SMTP recovery", () => {
   test.skip(process.env.RUN_SUPABASE_E2E !== "1", "Requires isolated Supabase CLI and Mailpit");
@@ -128,18 +129,41 @@ test.describe("Supabase Auth + local SMTP recovery", () => {
     await expect(page.locator('p[role="alert"]')).toContainText("inválido, expirou ou já foi utilizado");
   });
 
-  test("unverified legacy identity proves email ownership through recovery and shares one password across apps", async ({ page }) => {
+  test("legacy passwords and reservations stay intact until voluntary recovery completes", async ({ page, browser }) => {
     const email = `legacy-${Date.now()}@example.test`;
-    const created = await provider.auth.admin.createUser({ email, password, email_confirm: false });
-    if (created.error || !created.data.user) throw new Error("Synthetic legacy identity failed");
-    const id = created.data.user.id;
-    await db.authIdentity.create({ data: { id } });
-    await db.user.create({ data: { email, name: "Identidade compartilhada", authIdentityId: id } });
-    await db.clientProfile.create({ data: { salonId, email, name: "Mesmo e-mail", authIdentityId: id } });
+    const ownerHash = await bcrypt.hash("DonoAtual123", 10);
+    const clientHash = await bcrypt.hash("ClienteAtual123", 10);
+    const owner = await db.user.create({ data: { email, name: "Identidade compartilhada", passwordHash: ownerHash } });
+    await db.membership.create({ data: { userId: owner.id, salonId, role: "OWNER" } });
+    const profile = await db.clientProfile.create({ data: { salonId, email, name: "Mesmo e-mail", phone: "11911112222", notes: "Histórico preservado", passwordHash: clientHash } });
+    const professional = await db.professional.create({ data: { salonId, userId: owner.id } });
+    const service = await db.service.create({ data: { salonId, name: "Serviço preservado", durationMin: 30, priceCents: 7000 } });
+    const reservation = await db.appointment.create({ data: { salonId, clientId: profile.id, professionalId: professional.id,
+      serviceId: service.id, startAt: new Date("2027-01-10T14:00:00Z"), endAt: new Date("2027-01-10T14:30:00Z"), priceCents: 7000, status: "CONFIRMED" } });
+    const previousOwnerContext = await browser.newContext();
+    const oldOwnerPage = await previousOwnerContext.newPage();
+    await oldOwnerPage.goto("http://127.0.0.1:3100/login");
+    await oldOwnerPage.getByLabel("Email", { exact: true }).fill(email);
+    await oldOwnerPage.getByLabel("Senha", { exact: true }).fill("DonoAtual123");
+    await oldOwnerPage.getByRole("button", { name: "Entrar", exact: true }).click();
+    await expect(oldOwnerPage).not.toHaveURL(/\/login/);
+    await page.goto(`/book/${slug}/login`);
+    await page.getByLabel("E-mail", { exact: true }).fill(email);
+    await page.getByLabel("Senha", { exact: true }).fill("ClienteAtual123");
+    await page.getByRole("button", { name: "Entrar", exact: true }).click();
+    await expect(page).not.toHaveURL(/\/login/);
+    expect((await db.user.findUniqueOrThrow({ where: { id: owner.id } })).authIdentityId).toBeNull();
+    expect((await db.clientProfile.findUniqueOrThrow({ where: { id: profile.id } })).passwordHash).toBe(clientHash);
+
+    await page.goto("/recuperar-senha");
+    await page.getByLabel("E-mail", { exact: true }).fill(email);
+    await page.getByRole("button", { name: "Enviar link de recuperação" }).click();
+    await expect(page.getByRole("status")).toContainText("Se existir uma conta associada");
+    // Requesting or ignoring a link must not change credentials or revoke sessions.
+    expect((await db.user.findUniqueOrThrow({ where: { id: owner.id } })).passwordHash).toBe(ownerHash);
+    expect((await db.clientProfile.findUniqueOrThrow({ where: { id: profile.id } })).authIdentityId).toBeNull();
+    expect((await (await oldOwnerPage.request.get("http://127.0.0.1:3100/api/auth/session")).json()).user.id).toBe(owner.id);
     const client = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_AUTH_PUBLISHABLE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
-    expect((await client.auth.signInWithPassword({ email, password })).error).toBeTruthy();
-    const sent = await client.auth.resetPasswordForEmail(email, { redirectTo: "http://127.0.0.1:3100/redefinir-senha" });
-    expect(sent.error).toBeNull();
     await page.goto(await recoveryLink(email));
     await page.getByLabel("Nova senha", { exact: true }).fill("Compartilhada123");
     await page.getByLabel("Confirmar nova senha", { exact: true }).fill("Compartilhada123");
@@ -153,15 +177,30 @@ test.describe("Supabase Auth + local SMTP recovery", () => {
     await page.getByLabel("Senha", { exact: true }).fill("Compartilhada123");
     await page.getByRole("button", { name: "Entrar", exact: true }).click();
     await expect(page).not.toHaveURL(/\/login/);
-    expect((await db.authIdentity.findUniqueOrThrow({ where: { id } })).sessionVersion).toBe(1);
+    const migratedOwner = await db.user.findUniqueOrThrow({ where: { id: owner.id } });
+    const migratedClient = await db.clientProfile.findUniqueOrThrow({ where: { id: profile.id } });
+    expect(migratedOwner.authIdentityId).toBe(signedIn.data.user!.id);
+    expect(migratedClient.authIdentityId).toBe(migratedOwner.authIdentityId);
+    expect(migratedClient.passwordHash).toBeNull();
+    expect(migratedOwner.passwordHash).toBeNull();
+    expect(migratedClient.name).toBe(profile.name);
+    expect(migratedClient.phone).toBe(profile.phone);
+    expect(migratedClient.notes).toBe(profile.notes);
+    expect(await db.appointment.findUniqueOrThrow({ where: { id: reservation.id } })).toEqual(reservation);
+    expect((await (await oldOwnerPage.request.get("http://127.0.0.1:3100/api/auth/session")).json()).user.id).toBe("");
+    await previousOwnerContext.close();
   });
 
   test("rate limit has the same feedback for an unknown email", async ({ page }) => {
+    await page.setExtraHTTPHeaders({ "x-vercel-forwarded-for": "192.0.2.51" });
     await page.goto("/recuperar-senha");
-    for (let index = 0; index < 2; index++) {
+    for (let index = 0; index < 6; index++) {
       await page.getByLabel("E-mail", { exact: true }).fill(`unknown-limit-${index}@example.test`);
       await page.getByRole("button", { name: "Enviar link de recuperação" }).click();
-      if (index === 0) await expect(page.getByRole("status")).toContainText("Se existir uma conta associada");
+      if (index < 5) {
+        await expect(page.getByRole("button", { name: "Enviar link de recuperação" })).toBeEnabled();
+        await expect(page.getByRole("status")).toContainText("Se existir uma conta associada");
+      }
     }
     await expect(page.locator('p[role="alert"]')).toContainText("Muitas solicitações");
   });

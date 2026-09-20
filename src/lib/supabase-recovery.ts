@@ -7,6 +7,7 @@ import { recoveryRedirect, recoveryPath, isProviderTokenHash } from "./supabase-
 import { prisma } from "./prisma";
 import { withSalonBySlug } from "./prisma-tenant";
 import { clientCookieIsSecure } from "./client-cookie";
+import { prepareLegacyRecovery, completeRecoveryMigration } from "./legacy-supabase-transition";
 
 export const INVALID_RECOVERY = "Este link é inválido, expirou ou já foi utilizado. Solicite um novo e-mail.";
 const COOKIE = "everflair_recovery";
@@ -42,7 +43,8 @@ export async function hasRecoverySession(salonSlug?: string) {
 /** The provider response is never used to disclose whether an address has an account. */
 export async function requestSupabaseRecovery(email: string, salonSlug?: string) {
   const client = createAuthClient();
-  // No account lookup: known/unknown addresses take the same application path.
+  try { await prepareLegacyRecovery(email, salonSlug); }
+  catch { console.warn("auth_recovery_prepare_failed", { category: "provider" }); }
   const { error } = await client.auth.resetPasswordForEmail(email, { redirectTo: recoveryRedirect(salonSlug) });
   // Account-specific throttles and SMTP delivery failures must not enumerate users.
   if (error) console.warn("auth_recovery_request_failed", { category: "provider" });
@@ -63,11 +65,17 @@ export async function updateSupabasePassword(input: { token: string; password: s
   }
   const validated = await validateProviderSession(stored);
   if (!validated) return { ok: false, error: INVALID_RECOVERY } as const;
-  // Identity mapping, not email or user-editable metadata, grants access to the app.
+  const verifiedEmail = validated.user.email?.trim().toLowerCase();
+  if (!verifiedEmail) return { ok: false, error: INVALID_RECOVERY } as const;
+  // Existing legacy accounts are linked only after official proof of mailbox
+  // ownership. Guest profiles and user-editable metadata grant no permissions.
+  const identityFilter = { OR: [{ authIdentityId: stored.identityId }, {
+    authIdentityId: null, email: { equals: verifiedEmail, mode: "insensitive" as const }, passwordHash: { not: null },
+  }] };
   const permitted = input.salonSlug
     ? await withSalonBySlug(input.salonSlug, (tx, salonId) => tx.clientProfile.findFirst({
-        where: { salonId, authIdentityId: stored!.identityId, mergedIntoId: null }, select: { id: true } }))
-    : await prisma.user.findFirst({ where: { authIdentityId: stored.identityId }, select: { id: true } });
+        where: { salonId, ...identityFilter, mergedIntoId: null }, select: { id: true } }))
+    : await prisma.user.findFirst({ where: identityFilter, select: { id: true } });
   if (!permitted) return { ok: false, error: INVALID_RECOVERY } as const;
   await saveRecovery({ ...validated.session, context: stored.context, tokenDigest: stored.tokenDigest });
   const client = createAuthClient();
@@ -95,6 +103,7 @@ export async function updateSupabasePassword(input: { token: string; password: s
         ? "Escolha uma senha diferente da atual, com pelo menos 10 caracteres, letras e números."
         : "Não foi possível atualizar a senha agora. Tente novamente." } as const;
   }
+  await completeRecoveryMigration(stored.identityId, verifiedEmail, stored.version + 1);
   (await cookies()).delete(COOKIE);
   await client.auth.signOut({ scope: "global" });
   return { ok: true } as const;

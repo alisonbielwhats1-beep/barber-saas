@@ -4,6 +4,7 @@ import { clientCookieIsSecure } from "./client-cookie";
 import { encode, decode } from "next-auth/jwt";
 import { supabaseAuthEnabled } from "./supabase-auth-config";
 import { validateProviderSession, type ProviderSession } from "./supabase-auth";
+import { withSalon } from "./prisma-tenant";
 
 // Sem fallback: um segredo padrão público tornaria toda sessão de cliente forjável.
 function requireSecret(): Uint8Array {
@@ -25,8 +26,7 @@ export type ClientSession = {
 };
 
 export async function signClientToken(payload: ClientSession): Promise<string> {
-  if (supabaseAuthEnabled()) {
-    if (!payload.providerSession) throw new Error("SUPABASE_SESSION_REQUIRED");
+  if (supabaseAuthEnabled() && payload.providerSession) {
     return encode({ token: payload, secret: process.env.NEXTAUTH_SECRET!, maxAge: MAX_AGE });
   }
   return new SignJWT(payload as Record<string, unknown>)
@@ -37,7 +37,7 @@ export async function signClientToken(payload: ClientSession): Promise<string> {
 
 export async function verifyClientToken(token: string): Promise<ClientSession | null> {
   try {
-    if (supabaseAuthEnabled()) {
+    if (supabaseAuthEnabled() && token.split(".").length === 5) {
       const payload = await decode({ token, secret: process.env.NEXTAUTH_SECRET! });
       if (!payload || typeof payload.clientId !== "string" || typeof payload.salonId !== "string" ||
           typeof payload.name !== "string" || typeof payload.email !== "string" || !payload.providerSession) return null;
@@ -55,6 +55,13 @@ export async function verifyClientToken(token: string): Promise<ClientSession | 
       typeof payload.email !== "string" ||
       (payload.sessionVersion !== undefined && typeof payload.sessionVersion !== "number")
     ) return null;
+    if (supabaseAuthEnabled()) {
+      const profile = await withSalon(payload.salonId, tx => tx.clientProfile.findFirst({
+        where: { id: payload.clientId as string, salonId: payload.salonId as string, mergedIntoId: null },
+        select: { authIdentityId: true, sessionVersion: true },
+      }));
+      if (!profile || profile.authIdentityId || profile.sessionVersion !== (payload.sessionVersion ?? 0)) return null;
+    }
     return payload as unknown as ClientSession;
   } catch {
     return null;

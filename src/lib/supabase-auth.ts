@@ -20,6 +20,17 @@ export function createAuthClient() {
   });
 }
 
+/** Server-only, used to prepare an account without altering any legacy login. */
+export function createAuthAdminClient() {
+  const { url } = authConfig();
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!key) throw new Error("AUTH_ADMIN_CONFIGURATION_MISSING");
+  return createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    global: { fetch: (input, init) => fetch(input, { ...init, signal: AbortSignal.timeout(12_000), cache: "no-store" }) },
+  });
+}
+
 export async function providerSession(session: Session): Promise<ProviderSession> {
   const identity = await prisma.authIdentity.findUnique({ where: { id: session.user.id } });
   if (!identity) throw new Error("AUTH_IDENTITY_NOT_MIGRATED");
@@ -55,12 +66,12 @@ export async function registerProviderAccount(email: string, password: string, r
   const signedIn = await client.auth.signInWithPassword({ email, password });
   if (!signedIn.error && signedIn.data.session && signedIn.data.user.email_confirmed_at) {
     await prisma.authIdentity.upsert({ where: { id: signedIn.data.user.id },
-      create: { id: signedIn.data.user.id }, update: {} });
+      create: { id: signedIn.data.user.id, email }, update: { email } });
     return { identityId: signedIn.data.user.id, confirmationRequired: false };
   }
   const { data, error } = await client.auth.signUp({ email, password, options: { emailRedirectTo: redirectTo } });
   // Supabase can return an obfuscated user for an existing address. Never bind that ID.
   if (error || !data.user || !data.user.identities?.length) throw new Error("AUTH_REGISTRATION_FAILED");
-  await prisma.authIdentity.upsert({ where: { id: data.user.id }, create: { id: data.user.id }, update: {} });
+  await prisma.authIdentity.upsert({ where: { id: data.user.id }, create: { id: data.user.id, email }, update: { email } });
   return { identityId: data.user.id, confirmationRequired: !data.session };
 }

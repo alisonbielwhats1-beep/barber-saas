@@ -12,9 +12,10 @@ O dono/equipe entra em `/login`; clientes entram em `/book/[salonSlug]/login`.
 As experiências usam PremiumLoginShell/AuthShell e ClientAccessLayout,
 respectivamente. Membership, salonId, sessionVersion, RLS e GUCs autorizam o
 acesso. O responsável aprovou **uma identidade e uma senha por e-mail**, com
-perfis, históricos e permissões separados. Depois pediu preservar produção e
-clientes: nenhum deploy, importação de usuários ou alteração do Auth produtivo
-foi executado nesta fase.
+perfis, históricos e permissões separados. A decisão final aprova publicação
+com transição voluntária: manter cada senha atual até a pessoa concluir uma
+recuperação, quando a nova senha vale para os acessos daquele e-mail. Nenhum
+deploy, importação em massa ou alteração do Auth produtivo foi executado ainda.
 
 Inventário somente leitura: 31 usuários de painel, 83 perfis com senha, 111
 e-mails normalizados distintos e nenhum usuário no Supabase Auth. Ambos os
@@ -22,9 +23,15 @@ projetos remotos disponíveis são produtivos; testes usam banco local/CI.
 
 ## Implementação
 
-- `supabase-auth.ts`: único verificador de senha no modo Supabase. Não há
-  fallback para bcrypt após recusa/erro do provedor. NextAuth e o cookie do
-  cliente permanecem como transporte criptografado da sessão oficial.
+- `supabase-auth.ts`: verificador oficial para contas vinculadas ao Supabase.
+  Contas antigas sem vínculo continuam usando bcrypt; não há fallback para
+  bcrypt após recusa/erro do provedor em uma conta já vinculada. NextAuth e o
+  cookie do cliente transportam a sessão oficial ou a sessão legada ainda válida.
+- `legacy-supabase-transition.ts`: provisiona identidade sem senha somente na
+  solicitação de recuperação de uma conta existente. Mantém hashes e vínculos
+  antigos intactos até `verifyOtp` comprovar o e-mail e `updateUser` ter sucesso.
+  Em seguida, uma transação vincula os perfis registrados e remove os hashes
+  antigos. Perfis convidados, IDs, reservas e histórico não são alterados.
 - `supabase-recovery.ts`: `resetPasswordForEmail`, `verifyOtp(type: recovery)` e
   `updateUser`. Nenhuma senha/token próprio é persistido no banco nesse modo.
   O cookie temporário contém apenas sessão oficial cifrada, contexto e digest
@@ -95,32 +102,38 @@ outro SPF na mesma origem. Validar pelo painel após propagação DNS.
 | `AUTH_EMAIL_ENABLED` | `true` somente após configuração e validação de SMTP |
 | `SUPABASE_URL` | URL do mesmo projeto que contém os dados |
 | `SUPABASE_AUTH_PUBLISHABLE_KEY` | publishable/anon key; somente ambiente servidor |
+| `SUPABASE_SERVICE_ROLE_KEY` | já usada no servidor para Storage; também provisiona a identidade Auth sob demanda |
 | `OWNER_APP_URL` | `https://everflair.com.br` |
 | `CLIENT_APP_URL` | `https://everflair.com.br` (mesma origem hoje) |
 | `NEXTAUTH_URL`, `NEXTAUTH_SECRET` | manter configuração existente |
 
-Upstash/rate limit permanece obrigatório em produção. Chave service role só
-é necessária no processo offline de importação; não inserir como dependência
-do runtime de login/recovery. Resend API key de SMTP não vai ao frontend ou Git.
+Upstash/rate limit permanece obrigatório em produção. A chave service role é
+exclusiva do servidor, usada apenas para preparar a conta oficial sem senha;
+login, validação de tokens e troca de senha usam a API oficial com chave pública.
+Resend API key de SMTP não vai ao frontend ou Git.
 `RESEND_API_KEY`/`EMAIL_FROM` existentes continuam destinados aos demais e-mails.
 
-## Migração e impacto que impede ativação silenciosa
+## Transição voluntária aprovada
 
-O schema é aditivo; `AUTH_PROVIDER=legacy` preserva a autenticação existente.
-Não ativar sem migrar todos os vínculos. `scripts/migrate-supabase-auth.ts`
-executa inventário sem PII por padrão; `--apply` importa via Auth Admin API,
-preservando hashes bcrypt quando há uma única conta e IDs/histórico do domínio.
-E-mails compartilhados precisam definir uma senha única pelo recovery.
-IDs determinísticos + marcador de migração permitem retry sem anexar identidades
-alheias apenas por coincidência de e-mail. Conflitos interrompem a importação.
+O schema é aditivo; `AUTH_PROVIDER=legacy` preserva a autenticação existente
+durante a preparação. Aplicar a migration antes de publicar o código, pois
+as consultas passam a reconhecer `authIdentityId` mesmo com a flag desligada.
+Não existe importação em massa. A ativação `AUTH_PROVIDER=supabase` preserva
+login e sessões de contas sem vínculo oficial, incluindo senhas diferentes
+para um mesmo e-mail. Não exige confirmação ou troca obrigatória.
 
-Cadastros antigos não possuem prova de confirmação de e-mail. O importador
-**não os marca como verificados**: a ativação exige confirmação/recuperação e
-novo login, portanto pode afetar clientes. Essa etapa exige plano de transição
-aprovado; o pedido de não afetar clientes impede ativá-la agora sem resolver
-esse impacto. Para produção o script também exige target inequívoco,
-`AUTH_MIGRATION_APPROVAL=APPROVED_IDENTITY_IMPORT_WITH_BACKUP` e
-`AUTH_MIGRATION_BACKUP_REFERENCE`. Esses valores não substituem autorização.
+Solicitar um link reserva um UUID em `AuthIdentity` e cria no provedor uma
+identidade sem senha, não confirmada. Não copia hashes nem gera senhas. A chave
+única de e-mail torna a reserva idempotente; conflitos com contas externas não
+são adotados silenciosamente. Pedir ou ignorar o link mantém o acesso antigo.
+
+Somente depois de comprovar posse do e-mail pelo token oficial e salvar a nova
+senha, uma transação vincula contas registradas desse e-mail. Cada alteração
+tenant usa `withSalon` e a mesma transação. Os IDs, Membership, reservas, notas
+e históricos permanecem; convidados sem credencial não ganham acesso. Versões
+de sessão invalidam o acesso antigo desse e-mail após a troca voluntária.
+Uma falha antes do vínculo mantém as credenciais legadas e exige nova tentativa;
+o aplicativo não declara sucesso sem concluir a transição.
 
 Antes da ativação, rollback é manter o provider legado e o schema aditivo.
 Depois da primeira senha alterada no Supabase, **não retornar ao bcrypt**:
@@ -135,6 +148,9 @@ alteração no provedor, login correto, replay, expiração, refresh e acesso di
 em desktop/mobile. Isso não equivale a entrega real por Resend.
 
 Testes unitários cobrem configuração, isolamento, mensagens genéricas e
-invalidação; integração PostgreSQL cobre RLS/concorrência. Resultados finais
+invalidação; integração PostgreSQL cobre RLS/concorrência e transição atômica.
+O E2E também usa senhas antigas diferentes para dono/cliente com o mesmo e-mail,
+compara a reserva inteira antes/depois e verifica que solicitar o link não muda
+hashes, vínculos nem sessão. Resultados finais
 e limitações são registrados no PR. Não declarar produção pronta antes de
-DNS verificado, SMTP configurado, migração aprovada e entrega real demonstrada.
+DNS verificado, SMTP configurado, migration aditiva validada e entrega real demonstrada.
