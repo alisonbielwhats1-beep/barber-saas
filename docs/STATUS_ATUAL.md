@@ -1,5 +1,17 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-20 — aviso transitório no login do cliente corrigido em revisão
+
+PR #116 incorpora uma correção de apresentação: o catch do formulário tratava
+`NEXT_REDIRECT` como falha de conexão depois de autenticar com sucesso, exibindo
+um alerta vermelho antes da navegação. `unstable_rethrow` devolve esse controle
+ao Next.js; credenciais inválidas e falhas reais continuam com feedback.
+Reproduzido em PostgreSQL descartável com captura das inserções transitórias
+no DOM; após a correção, jornadas 390px/1440px passaram sem o falso alerta.
+O mesmo observador cobre os logins com senha recuperada no CI Supabase.
+Sem mudança de senha, sessão, regras de autorização, dados ou schema. Correção
+ainda não publicada; aguarda CI/Preview da revisão. Produção abaixo permanece.
+
 ## 2026-09-20 — recuperação Supabase publicada com transição voluntária
 
 PR #115 integrado em `f4d4ebbbac65ecd2f4d23cf89304a196658d646e`.

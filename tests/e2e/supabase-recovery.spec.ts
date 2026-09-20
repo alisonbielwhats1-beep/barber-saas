@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { submitLoginWithoutErrorFlash } from "./helpers/login-feedback";
 
 test.describe("Supabase Auth + local SMTP recovery", () => {
   test.skip(process.env.RUN_SUPABASE_E2E !== "1", "Requires isolated Supabase CLI and Mailpit");
@@ -96,8 +97,7 @@ test.describe("Supabase Auth + local SMTP recovery", () => {
       await expect(page.getByRole("status")).toContainText("Senha atualizada com sucesso");
       await page.getByLabel(/E-?mail/i).fill(accounts[app].email);
       await page.getByLabel("Senha", { exact: true }).fill("NovaSegura123");
-      await page.getByRole("button", { name: "Entrar", exact: true }).click();
-      await expect(page).not.toHaveURL(/\/login/);
+      await submitLoginWithoutErrorFlash(page);
       if (app === "owner") {
         const response = await page.request.get("/api/auth/session");
         expect((await response.json()).user.id).toBe(ownerId);
@@ -150,8 +150,7 @@ test.describe("Supabase Auth + local SMTP recovery", () => {
     await page.goto(`/book/${slug}/login`);
     await page.getByLabel("E-mail", { exact: true }).fill(email);
     await page.getByLabel("Senha", { exact: true }).fill("ClienteAtual123");
-    await page.getByRole("button", { name: "Entrar", exact: true }).click();
-    await expect(page).not.toHaveURL(/\/login/);
+    await submitLoginWithoutErrorFlash(page);
     expect((await db.user.findUniqueOrThrow({ where: { id: owner.id } })).authIdentityId).toBeNull();
     expect((await db.clientProfile.findUniqueOrThrow({ where: { id: profile.id } })).passwordHash).toBe(clientHash);
 
@@ -175,8 +174,7 @@ test.describe("Supabase Auth + local SMTP recovery", () => {
     await page.goto(`/book/${slug}/login`);
     await page.getByLabel(/E-?mail/i).fill(email);
     await page.getByLabel("Senha", { exact: true }).fill("Compartilhada123");
-    await page.getByRole("button", { name: "Entrar", exact: true }).click();
-    await expect(page).not.toHaveURL(/\/login/);
+    await submitLoginWithoutErrorFlash(page);
     const migratedOwner = await db.user.findUniqueOrThrow({ where: { id: owner.id } });
     const migratedClient = await db.clientProfile.findUniqueOrThrow({ where: { id: profile.id } });
     expect(migratedOwner.authIdentityId).toBe(signedIn.data.user!.id);

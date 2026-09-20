@@ -1,5 +1,12 @@
 # Recuperação por Supabase Auth — publicada em 20/09/2026
 
+Complemento em revisão no PR #116: falso alerta de conexão no login do cliente
+era causado pelo catch interceptando o redirecionamento de sucesso do Next.js.
+Tratamento com `unstable_rethrow`, mantendo feedback de erros reais. Regressão
+capturada no navegador antes da correção, ausente depois em 390px/1440px;
+observador de alertas transitórios também aplicado ao E2E Supabase pós-recovery.
+Não muda autenticação ou dados; publicação desse complemento ainda pendente.
+
 PR #115, commit `f4d4ebbbac65ecd2f4d23cf89304a196658d646e`, deployment Production
 `dpl_J6DY6d7jgtzUmMDjgig8zwxLdu5P` READY. Health confirmou versão e banco saudável;
 home e seis rotas de autenticação/recovery dos dois aplicativos HTTP 200.
