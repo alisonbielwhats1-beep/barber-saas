@@ -192,7 +192,8 @@ export async function requestStaffReschedule(
       client: {
         select: {
           passwordHash: true,
-          user: { select: { passwordHash: true } },
+          authIdentityId: true,
+          user: { select: { passwordHash: true, authIdentityId: true } },
         },
       },
     },
@@ -212,7 +213,7 @@ export async function requestStaffReschedule(
   // Salva o caso comum de editar somente observações sem abrir uma aprovação
   // de horário que não tem nenhuma mudança para o cliente analisar.
   const hasClientAccount = Boolean(
-    appointment.client.passwordHash || appointment.client.user?.passwordHash,
+    appointment.client.passwordHash || appointment.client.authIdentityId || appointment.client.user?.passwordHash || appointment.client.user?.authIdentityId,
   );
   const currentIds = appointment.serviceItems.length ? appointment.serviceItems.map(item => item.serviceId) : [appointment.service.id];
   const sameServices = currentIds.length === input.serviceIds.length && currentIds.every((id, index) => id === input.serviceIds[index]);

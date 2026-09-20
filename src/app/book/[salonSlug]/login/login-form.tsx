@@ -9,10 +9,12 @@ export function LoginForm({
   salonSlug,
   passwordReset = false,
   returnTo,
+  recoveryLink,
 }: {
   salonSlug: string;
   passwordReset?: boolean;
   returnTo?: string;
+  recoveryLink?: React.ReactNode;
 }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -39,7 +41,7 @@ export function LoginForm({
     <form method="post" onSubmit={submit} className="space-y-4">
       {passwordReset && (
         <p role="status" className="rounded-xl bg-success/10 px-4 py-2.5 text-[13px] text-success">
-          Senha alterada. Entre novamente.
+          Senha atualizada com sucesso. Entre novamente.
         </p>
       )}
       <div>
@@ -71,6 +73,8 @@ export function LoginForm({
         className="h-auto rounded-2xl border-border bg-card px-4 py-3 focus-visible:border-primary focus-visible:ring-0 focus-visible:ring-offset-0"
         labelClassName="text-[13px] text-muted-foreground"
       />
+
+      {recoveryLink}
 
       {error && (
         <p role="alert" className="rounded-xl bg-destructive/10 px-4 py-2.5 text-[13px] text-destructive">

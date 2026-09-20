@@ -23,7 +23,7 @@ describe("atalho de recuperação de senha no login", () => {
     );
 
     expect(markup).toContain('href="/recuperar-senha"');
-    expect(markup).toContain("Recuperar por e-mail");
+    expect(markup).toContain("Esqueci minha senha");
   });
 
   it("oferece suporte explícito quando solicitado sem prometer envio indisponível", () => {

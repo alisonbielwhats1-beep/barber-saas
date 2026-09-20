@@ -22,11 +22,8 @@ export default async function LoginPage({
   return (
     <ClientAccessLayout eyebrow="Sua conta" title="Entrar" description={homePath.startsWith(`/book/${salonSlug}/agendar`) ? "Entre para continuar seu agendamento. Você revisará os dados antes de confirmar." : "Acesse para agendar e acompanhar suas reservas."}>
       <div className="space-y-6">
-        <LoginForm salonSlug={salonSlug} returnTo={homePath} passwordReset={query.senha === "alterada"} />
-
-        <PasswordRecoveryLoginLink
-          href={`/book/${salonSlug}/recuperar-senha`}
-        />
+        <LoginForm salonSlug={salonSlug} returnTo={homePath} passwordReset={query.senha === "alterada"}
+          recoveryLink={<PasswordRecoveryLoginLink href={`/book/${salonSlug}/recuperar-senha`} className="text-sm" />} />
 
         <p className="text-center text-sm text-muted-foreground">
           Primeira vez?{" "}

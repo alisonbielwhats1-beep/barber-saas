@@ -10,6 +10,8 @@ import {
   isSafePreviewSessionProbe,
   isUnconfiguredVercelPreview,
 } from "@/lib/runtime-environment";
+import { supabaseAuthEnabled } from "@/lib/supabase-auth-config";
+import { refreshClientCookie } from "@/lib/supabase-client-cookie-refresh";
 
 const PROTECTED_PATH_PREFIXES = [
   "/hq",
@@ -98,7 +100,23 @@ export default function middleware(
   }
 
   if (isProtectedPath(request.nextUrl.pathname)) {
+    if (supabaseAuthEnabled()) return refreshClientCookie(request, true,
+      async refreshed => await authMiddleware(refreshed as NextRequestWithAuth, event));
     return authMiddleware(request as NextRequestWithAuth, event);
+  }
+
+  if (request.nextUrl.pathname.includes("redefinir-senha") || request.nextUrl.pathname.startsWith("/auth/confirm")) {
+    const response = NextResponse.next();
+    response.headers.set("Cache-Control", "private, no-store");
+    response.headers.set("Referrer-Policy", "no-referrer");
+    response.headers.set("X-Robots-Tag", "noindex, nofollow");
+    return response;
+  }
+  if (supabaseAuthEnabled() && request.nextUrl.pathname.startsWith("/api/")) {
+    return refreshClientCookie(request, true, refreshed => refreshClientCookie(refreshed));
+  }
+  if (supabaseAuthEnabled() && request.nextUrl.pathname.startsWith("/book/")) {
+    return refreshClientCookie(request);
   }
 
   return NextResponse.next();

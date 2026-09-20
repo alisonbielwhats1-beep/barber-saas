@@ -60,7 +60,7 @@ export async function getClientList(
         : {}),
     },
     select: {
-      id: true, name: true, phone: true, phoneNormalized: true, email: true, passwordHash: true, birthday: true, gender: true, notes: true, createdAt: true,
+      id: true, name: true, phone: true, phoneNormalized: true, email: true, passwordHash: true, authIdentityId: true, birthday: true, gender: true, notes: true, createdAt: true,
       appointments: {
         where: {
           status: "COMPLETED",
@@ -169,7 +169,7 @@ export async function getClientList(
       name: c.name,
       phone: c.phone,
       email: c.email,
-      accountStatus: c.passwordHash ? "registered" as const : "guest" as const,
+      accountStatus: c.passwordHash || c.authIdentityId ? "registered" as const : "guest" as const,
       gender: c.gender,
       // Gênero exibido na lista: confirmado pela equipe tem prioridade;
       // sem isso, estimado pelo nome (genderSource distingue os dois pra UI

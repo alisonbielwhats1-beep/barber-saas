@@ -1,6 +1,9 @@
 import { effectiveEntitlement } from "./billing/entitlements";
 import { createHash, randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
+import { supabaseAuthEnabled, recoveryRedirect } from "./supabase-auth-config";
+import { registerProviderAccount } from "./supabase-auth";
+import { newAuthPasswordSchema } from "./recovery-validation";
 import type { Prisma, Role } from "@prisma/client";
 import { buildInviteEmail } from "./invite-email";
 import { defaultMailer, MailDeliveryError, type Mailer } from "./mailer";
@@ -722,7 +725,7 @@ export async function getInviteView(
 }
 
 type AcceptanceResult =
-  | { ok: true; email: string }
+  | { ok: true; email: string; confirmationRequired?: boolean }
   | {
       ok: false;
       reason:
@@ -813,6 +816,7 @@ async function acceptInviteTransaction(input: {
   token: string;
   actorUserId?: string;
   passwordHash?: string;
+  authIdentityId?: string;
   now: Date;
 }): Promise<AcceptanceResult> {
   const tokenHash = hashInviteToken(input.token);
@@ -832,7 +836,7 @@ async function acceptInviteTransaction(input: {
 
       const isNewAccount =
         invite.emailVerificationRequired || invite.userId === null;
-      if (isNewAccount !== Boolean(input.passwordHash)) {
+      if (isNewAccount !== Boolean(input.passwordHash || input.authIdentityId)) {
         return { ok: false, reason: "INVALID" } as const;
       }
       if (!isNewAccount && input.actorUserId !== invite.userId) {
@@ -868,7 +872,8 @@ async function acceptInviteTransaction(input: {
             name: invite.name,
             phone: invite.pendingPhone,
             avatarUrl: invite.pendingAvatarUrl,
-            passwordHash: input.passwordHash!,
+            passwordHash: input.passwordHash ?? null,
+            authIdentityId: input.authIdentityId,
             passwordSetAt: input.now,
           },
           select: { id: true },
@@ -939,6 +944,7 @@ export async function acceptNewUserInvite(input: {
     tx.userInvite.findUnique({
       where: { tokenHash },
       select: {
+        email: true,
         role: true,
         userId: true,
         emailVerificationRequired: true,
@@ -958,6 +964,14 @@ export async function acceptNewUserInvite(input: {
     return { ok: false, reason: "INVALID" };
   }
 
+  if (supabaseAuthEnabled()) {
+    if (!newAuthPasswordSchema.safeParse(input.password).success) return { ok: false, reason: "INVALID" };
+    try {
+      const account = await registerProviderAccount(invite.email, input.password, recoveryRedirect().replace("redefinir-senha", "login"));
+      const result = await acceptInviteTransaction({ token: input.token, authIdentityId: account.identityId, now });
+      return result.ok ? { ...result, confirmationRequired: account.confirmationRequired } : result;
+    } catch { return { ok: false, reason: "CONFLICT" }; }
+  }
   const passwordHash = await bcrypt.hash(input.password, 12);
   return acceptInviteTransaction({
     token: input.token,

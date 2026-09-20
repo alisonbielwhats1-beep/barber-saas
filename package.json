@@ -33,6 +33,7 @@
     "test:appointment-integration": "vitest run src/lib/__tests__/appointment-postgres.integration.test.ts src/lib/__tests__/comanda-postgres.integration.test.ts src/lib/__tests__/public-salon-lock-postgres.integration.test.ts src/lib/__tests__/public-salon-runtime-rls-postgres.integration.test.ts"
   },
   "dependencies": {
+    "@everflare/agents": "file:packages/hq-agents",
     "@hookform/resolvers": "^3.9.0",
     "@next/env": "15.5.25",
     "@prisma/client": "^5.20.0",
@@ -44,7 +45,7 @@
     "@radix-ui/react-slot": "^1.1.0",
     "@radix-ui/react-tabs": "^1.1.0",
     "@radix-ui/react-toast": "^1.2.1",
-    "@supabase/supabase-js": "^2.110.7",
+    "@supabase/supabase-js": "2.110.7",
     "bcryptjs": "^2.4.3",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
@@ -60,8 +61,7 @@
     "server-only": "0.0.1",
     "tailwind-merge": "^2.5.2",
     "tailwindcss-animate": "^1.0.7",
-    "zod": "^3.23.8",
-    "@everflare/agents": "file:packages/hq-agents"
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",

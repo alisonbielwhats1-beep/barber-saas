@@ -6,6 +6,8 @@ import { checkRateLimit, clientIp } from "./rate-limit";
 import { safeNextAuthRedirect } from "./safe-callback";
 import { bcryptPasswordSchema } from "./password";
 import { z } from "zod";
+import { supabaseAuthEnabled } from "./supabase-auth-config";
+import { authenticatePassword, validateProviderSession, type ProviderSession } from "./supabase-auth";
 
 const DUMMY_ADMIN_PASSWORD_HASH =
   "$2a$10$EpwUuprmRRoDuqmTMprHZO/QYoydyJx0wblP26vSqDEMK1BhV/K1K";
@@ -81,13 +83,22 @@ export const authOptions: NextAuthOptions = {
             passwordSetAt: true,
             sessionVersion: true,
             avatarUrl: true,
+            authIdentityId: true,
           },
         });
+        if (supabaseAuthEnabled() && user?.authIdentityId) {
+          try {
+            const authenticated = await authenticatePassword(email, password);
+            if (!authenticated || authenticated.user.id !== user.authIdentityId) return null;
+            return { id: user.id, email: user.email, name: user.name, image: user.avatarUrl,
+              sessionVersion: user.sessionVersion, providerSession: authenticated.session };
+          } catch { return null; }
+        }
         const valid = await bcrypt.compare(
           password,
           user?.passwordHash ?? DUMMY_ADMIN_PASSWORD_HASH,
         );
-        if (!user || !valid) return null;
+        if (!user?.passwordHash || !valid) return null;
         // Backfill seguro e gradual: uma senha só é marcada como configurada
         // depois que seu conhecimento foi comprovado por login bem-sucedido.
         if (user.passwordSetAt === null) {
@@ -114,12 +125,20 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.uid = (user as { id: string }).id;
         token.sessionVersion = (user as { sessionVersion?: number }).sessionVersion ?? 0;
+        if (supabaseAuthEnabled()) token.providerSession = (user as { providerSession?: ProviderSession }).providerSession;
       } else if (token.uid) {
         try {
           const current = await prisma.user.findUnique({
             where: { id: token.uid },
-            select: { sessionVersion: true },
+            select: { sessionVersion: true, authIdentityId: true },
           });
+          if (supabaseAuthEnabled()) {
+            if (token.providerSession) {
+              const verified = await validateProviderSession(token.providerSession as ProviderSession);
+              if (!verified || verified.user.id !== current?.authIdentityId) { token.uid = undefined; token.providerSession = undefined; return token; }
+              token.providerSession = verified.session;
+            } else if (current?.authIdentityId) { token.uid = undefined; return token; }
+          }
           if (!current || current.sessionVersion !== (token.sessionVersion ?? 0)) {
             token.uid = undefined;
           }
@@ -135,6 +154,16 @@ export const authOptions: NextAuthOptions = {
         (session.user as { id?: string }).id = typeof token.uid === "string" ? token.uid : "";
       }
       return session;
+    },
+  },
+  events: {
+    async signOut({ token }) {
+      if (supabaseAuthEnabled() && token?.providerSession) {
+        const { createAuthClient } = await import("./supabase-auth");
+        const client = createAuthClient();
+        const { error } = await client.auth.setSession(token.providerSession as ProviderSession);
+        if (!error) await client.auth.signOut({ scope: "local" });
+      }
     },
   },
 };

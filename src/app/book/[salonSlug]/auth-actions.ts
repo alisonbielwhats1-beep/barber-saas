@@ -16,6 +16,9 @@ import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { clientIdentityData, findPotentialClientMatches } from "@/lib/client-identity";
 import { writeAuditLog } from "@/lib/audit";
 import { bcryptPasswordSchema } from "@/lib/password";
+import { supabaseAuthEnabled, recoveryRedirect } from "@/lib/supabase-auth-config";
+import { authenticatePassword, registerProviderAccount } from "@/lib/supabase-auth";
+import { newAuthPasswordSchema } from "@/lib/recovery-validation";
 
 const salonSlugSchema = z
   .string()
@@ -139,13 +142,14 @@ export async function loginClient(
     name: string;
     email: string | null;
     passwordHash: string | null;
+    authIdentityId: string | null;
     sessionVersion: number;
   } | null } | null;
   try {
     found = await withSalonBySlug(normalizedSlug, (tx, salonId) =>
       tx.clientProfile.findFirst({
         where: { salonId, email: { equals: normalizedEmail, mode: "insensitive" }, mergedIntoId: null },
-        select: { id: true, name: true, email: true, passwordHash: true, sessionVersion: true },
+        select: { id: true, name: true, email: true, passwordHash: true, authIdentityId: true, sessionVersion: true },
       }).then((client) => ({ salonId, client })),
     );
   } catch {
@@ -156,6 +160,16 @@ export async function loginClient(
     return { error: "Salão não encontrado" };
   }
   const { salonId, client } = found;
+
+  if (supabaseAuthEnabled() && client?.authIdentityId) {
+    try {
+      const authenticated = await authenticatePassword(normalizedEmail, validatedPassword);
+      if (!authenticated || authenticated.user.id !== client.authIdentityId) return { error: "E-mail ou senha incorretos" };
+      await setClientSession({ clientId: client.id, salonId, name: client.name, email: authenticated.user.email!,
+        sessionVersion: client.sessionVersion, providerSession: authenticated.session });
+    } catch { return { error: "Não foi possível entrar agora. Tente novamente." }; }
+    redirect(safeClientReturnTo(normalizedSlug, validatedReturnTo, clientHomePath(normalizedSlug)));
+  }
 
   const valid = await bcrypt.compare(
     validatedPassword,
@@ -186,7 +200,7 @@ export async function registerClient(
     confirmPassword?: string;
   },
   returnTo?: string | null,
-): Promise<{ error: string; code?: "ACCOUNT_ACCESS" }> {
+): Promise<{ error: string; code?: "ACCOUNT_ACCESS" | "CONFIRM_EMAIL" }> {
   const parsedSlug = salonSlugSchema.safeParse(salonSlug);
   if (!parsedSlug.success) return { error: REGISTRATION_ERROR };
   const normalizedSlug = parsedSlug.data;
@@ -201,6 +215,10 @@ export async function registerClient(
     return { error: mismatch?.message ?? REGISTRATION_ERROR };
   }
   const registration = parsed.data;
+  if (supabaseAuthEnabled()) {
+    const valid = newAuthPasswordSchema.safeParse(registration.password);
+    if (!valid.success) return { error: valid.error.issues[0].message };
+  }
   const identity = clientIdentityData(registration);
 
   const requestHeaders = await headers();
@@ -243,14 +261,20 @@ export async function registerClient(
 
   // Hash fora da transação: bcrypt é CPU-bound e não depende de nada lido do
   // banco — não faz sentido segurar a conexão presa nesse tempo.
-  const passwordHash = await bcrypt.hash(registration.password, 10);
+  let provider: { identityId: string; confirmationRequired: boolean } | undefined;
+  if (supabaseAuthEnabled()) {
+    try {
+      provider = await registerProviderAccount(registration.email, registration.password, recoveryRedirect(normalizedSlug).replace("redefinir-senha", "login"));
+    } catch { return { error: REGISTRATION_ERROR, code: "ACCOUNT_ACCESS" }; }
+  }
+  const passwordHash = provider ? null : await bcrypt.hash(registration.password, 10);
 
   let result: RegistrationResult;
   try {
     result = await withSalonBySlug(normalizedSlug, async (tx, salonId) => {
       const matches = await findPotentialClientMatches(tx, salonId, identity);
       const emailMatch = matches.find((candidate) => candidate.email?.toLowerCase() === identity.email);
-      if (emailMatch?.passwordHash) {
+      if (emailMatch?.passwordHash || emailMatch?.authIdentityId) {
         throw new Error("CLIENT_ACCOUNT_EXISTS");
       }
       if (emailMatch) {
@@ -264,6 +288,7 @@ export async function registerClient(
           phoneNormalized: identity.phoneNormalized,
           email: identity.email,
           passwordHash,
+          authIdentityId: provider?.identityId,
           gender: null,
         },
         select: { id: true, sessionVersion: true },
@@ -319,6 +344,9 @@ export async function registerClient(
     return { error: "Não foi possível criar a conta agora. Tente novamente." };
   }
   if (!result) return { error: "Salão não encontrado" };
+
+  if (provider?.confirmationRequired) return { error: "Conta criada. Confirme seu e-mail pelo link recebido e depois entre com sua senha.", code: "CONFIRM_EMAIL" };
+  if (provider) return loginClient(normalizedSlug, registration.email, registration.password, returnTo);
 
   try {
     await setClientSession({

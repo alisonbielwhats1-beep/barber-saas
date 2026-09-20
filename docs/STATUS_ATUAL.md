@@ -12,6 +12,19 @@ não grava pagamentos. Lint, TypeScript, 1.132 testes e build aprovados; fluxo
 sintético conferido no navegador, inclusive 320 px, sem erros de console.
 Não publicado em Production. Detalhes em `RECEBIMENTOS_E_AGENDAMENTO_2026-09-13.md`.
 
+## 2026-09-20 — Supabase Auth/recovery em validação isolada
+
+Branch `codex/supabase-password-recovery`: candidata para os dois aplicativos,
+com uma identidade por e-mail autorizada pelo responsável. Produção mantém
+NextAuth Credentials/bcrypt e sessões atuais; nenhum import/deploy/ativação
+produtiva foi realizado. Subdomínio `auth.everflair.com.br` cadastrado no Resend,
+com DNS verificado (status Verified), sem alterar o site. O responsável aprovou
+publicação com transição voluntária: cada acesso mantém sua senha e sessão
+antigas até concluir a recuperação. Depois, a nova senha vale para os acessos
+daquele e-mail; IDs, reservas, histórico e permissões são preservados. Não há
+importação ou confirmação obrigatória em massa. Configuração e critérios de
+ativação em `FASE_SUPABASE_AUTH_RECOVERY.md`; SMTP e implantação ainda pendentes.
+
 ## 2026-09-20 — painel publicado; atalho mensal mobile em revisão
 
 PRs #111 e #112 integrados em `cb111ad9b87e773c2dec34834ccfb24e6023aafc`.

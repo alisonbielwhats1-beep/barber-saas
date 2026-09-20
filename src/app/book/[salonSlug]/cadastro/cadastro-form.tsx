@@ -11,9 +11,11 @@ import { registerClient } from "../auth-actions";
 export function CadastroForm({
   salonSlug,
   returnTo,
+  provider = false,
 }: {
   salonSlug: string;
   returnTo?: string;
+  provider?: boolean;
 }) {
   const [name, setName] = useState("");
   const [ready, setReady] = useState(false);
@@ -26,13 +28,14 @@ export function CadastroForm({
   const [pending, setPending] = useState(false);
   const submitting = useRef(false);
   const [accountAccess, setAccountAccess] = useState(false);
+  const [confirmationRequired, setConfirmationRequired] = useState(false);
   const destination = safeClientReturnTo(salonSlug, returnTo, clientHomePath(salonSlug));
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
     if (submitting.current) return;
-    if (password.length < 6) {
-      setError("A senha deve ter pelo menos 6 caracteres");
+    if (password.length < (provider ? 10 : 6)) {
+      setError(`A senha deve ter pelo menos ${provider ? 10 : 6} caracteres`);
       return;
     }
     if (password !== confirmPassword) {
@@ -56,7 +59,8 @@ export function CadastroForm({
         );
         if (result?.error) {
           setError(result.error);
-          setAccountAccess(result.code === "ACCOUNT_ACCESS");
+          setAccountAccess(result.code === "ACCOUNT_ACCESS" || result.code === "CONFIRM_EMAIL");
+          setConfirmationRequired(result.code === "CONFIRM_EMAIL");
         }
       } catch {
         setError("Não recebemos a confirmação. Tente novamente com a mesma senha; se a conta já foi criada, concluiremos seu acesso.");
@@ -133,10 +137,10 @@ export function CadastroForm({
         value={password}
         onChange={(event) => setPassword(event.target.value)}
         required
-        minLength={6}
+        minLength={provider ? 10 : 6}
         maxLength={72}
         autoComplete="new-password"
-        placeholder="Mínimo 6 caracteres"
+        placeholder={provider ? "Mínimo 10 caracteres" : "Mínimo 6 caracteres"}
         className="h-auto rounded-2xl border-border bg-card px-4 py-3 focus-visible:border-primary focus-visible:ring-0 focus-visible:ring-offset-0"
         labelClassName="text-[13px] text-muted-foreground"
       />
@@ -147,7 +151,7 @@ export function CadastroForm({
         value={confirmPassword}
         onChange={(event) => setConfirmPassword(event.target.value)}
         required
-        minLength={6}
+        minLength={provider ? 10 : 6}
         maxLength={72}
         autoComplete="new-password"
         placeholder="Digite a senha novamente"
@@ -155,8 +159,9 @@ export function CadastroForm({
         labelClassName="text-[13px] text-muted-foreground"
       />
 
+      {provider && <p className="text-xs text-muted-foreground">Use pelo menos 10 caracteres, com letras e números.</p>}
       {error && (
-        <p role="alert" className="rounded-xl bg-red-500/10 px-4 py-2.5 text-[13px] text-red-500">
+        <p role={confirmationRequired ? "status" : "alert"} className={confirmationRequired ? "text-sm text-success" : "rounded-xl bg-red-500/10 px-4 py-2.5 text-[13px] text-red-500"}>
           {error}
         </p>
       )}
@@ -169,7 +174,7 @@ export function CadastroForm({
 
       <button
         type="submit"
-        disabled={pending}
+        disabled={pending || confirmationRequired}
         className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-primary py-3.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-60"
       >
         {pending && <Loader2 className="h-4 w-4 animate-spin" />}

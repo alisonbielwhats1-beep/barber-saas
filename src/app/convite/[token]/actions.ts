@@ -66,7 +66,7 @@ export async function acceptInvite(input: {
   password?: string;
   confirmPassword?: string;
 }): Promise<
-  | { ok: true; newAccount: boolean; email?: string }
+  | { ok: true; newAccount: boolean; email?: string; confirmationRequired?: boolean }
   | { ok: false; error: string }
 > {
   if (!emailInvitesEnabled()) {
@@ -121,7 +121,7 @@ export async function acceptInvite(input: {
       password: parsed.data.password!,
     });
     if (!result.ok) return { ok: false, error: messageFor(result.reason) };
-    return { ok: true, newAccount: true, email: result.email };
+    return { ok: true, newAccount: true, email: result.email, ...(result.confirmationRequired ? { confirmationRequired: true } : {}) };
   }
 
   const session = await getServerSession(authOptions);

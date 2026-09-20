@@ -62,6 +62,7 @@ export type PotentialClientMatch = {
   phone: string | null;
   email: string | null;
   passwordHash: string | null;
+  authIdentityId?: string | null;
   phoneNormalized: string | null;
   mergedIntoId: string | null;
   createdAt: Date;
@@ -103,6 +104,7 @@ export async function findPotentialClientMatches(
       phone: true,
       email: true,
       passwordHash: true,
+      authIdentityId: true,
       phoneNormalized: true,
       mergedIntoId: true,
       createdAt: true,
