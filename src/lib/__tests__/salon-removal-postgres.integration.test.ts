@@ -24,6 +24,11 @@ suite("safe empty salon deletion and reversible history with PostgreSQL", () => 
   }
   beforeAll(async () => {
     assertSafeDatabaseOperation(process.env, { operation: "salon-removal-integration" });
+    // Model the legacy production dependency absent from Prisma. Synthetic only.
+    await db.$executeRawUnsafe('CREATE TABLE IF NOT EXISTS "ProductSale" (id text PRIMARY KEY, "salonId" text NOT NULL REFERENCES "Salon"(id) ON DELETE CASCADE)');
+    await db.$executeRawUnsafe('ALTER TABLE "ProductSale" ENABLE ROW LEVEL SECURITY');
+    await db.$executeRawUnsafe('ALTER TABLE "ProductSale" FORCE ROW LEVEL SECURITY');
+    await db.$executeRawUnsafe('CREATE POLICY removal_legacy_tenant ON "ProductSale" USING ("salonId"=current_setting(\'app.current_salon\',true))');
     await db.$executeRawUnsafe("DO $$ BEGIN CREATE ROLE salon_removal_ci NOSUPERUSER NOBYPASSRLS; EXCEPTION WHEN duplicate_object THEN NULL; END $$");
     await db.$executeRawUnsafe("GRANT USAGE ON SCHEMA public TO salon_removal_ci");
     await db.$executeRawUnsafe("GRANT SELECT ON ALL TABLES IN SCHEMA public TO salon_removal_ci");
@@ -68,5 +73,12 @@ suite("safe empty salon deletion and reversible history with PostgreSQL", () => 
     expect(await scope(adminId, archivedSalonIds)).not.toContain(target.id);
     expect(await db.clientProfile.findUnique({ where: { id: client.id } })).toEqual(client);
     expect(await db.salon.findUnique({ where: { id: target.id } })).toEqual(target);
+  });
+  it("preserves legacy product sales not modeled by Prisma", async () => {
+    const target = await salon();
+    const saleId = crypto.randomUUID();
+    await db.$executeRaw`INSERT INTO "ProductSale" (id,"salonId") VALUES (${saleId},${target.id})`;
+    await expect(scope(adminId, tx => removeEmptySalon(tx, adminId, target.id, target.slug))).rejects.toThrow("Exclusão bloqueada");
+    expect(await db.$queryRaw`SELECT id FROM "ProductSale" WHERE id=${saleId}`).toEqual([{ id: saleId }]);
   });
 });

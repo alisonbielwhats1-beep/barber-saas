@@ -46,6 +46,12 @@ serializando inserções concorrentes com FK. Erro de permissão, tabela ou cons
 reverte a operação; não é interpretado como cadastro vazio. Nenhuma RLS é removida,
 nenhuma role de runtime ganha privilégios e não há migration nesta entrega.
 
+Consulta somente leitura confirmou a dependência legada `ProductSale`, ausente
+do Prisma, com isolamento por `app_current_salon()` e SELECT já concedido ao
+runtime. Ela entra na inspeção quando presente; qualquer venda impede exclusão.
+Há reprodução sintética dessa dependência no teste PostgreSQL. O schema produtivo
+e suas permissões não foram alterados.
+
 O responsável identificou seu cliente ativo e a conta de demonstração como dados
 a preservar. Nenhum estabelecimento real foi arquivado ou excluído nesta tarefa.
 

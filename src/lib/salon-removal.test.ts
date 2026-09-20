@@ -24,7 +24,7 @@ describe("exclusão restrita a cadastro vazio", () => {
     await expect(removeEmptySalon(tx, "admin", "salon", "teste")).rejects.toThrow("Exclusão bloqueada");
     expect(mocks.salon.delete).not.toHaveBeenCalled();
   });
-  it.each(["ClientProfile", "Appointment", "BillingSubscription", "hq_accounts", "FutureHistory"])("preserva qualquer vínculo em %s", async table => {
+  it.each(["ClientProfile", "Appointment", "BillingSubscription", "ProductSale", "hq_accounts", "FutureHistory"])("preserva qualquer vínculo em %s", async table => {
     const { tx, mocks } = fixture({ table, count: 1n });
     await expect(removeEmptySalon(tx, "admin", "salon", "teste")).rejects.toThrow("Exclusão bloqueada");
     expect(mocks.salon.delete).not.toHaveBeenCalled();

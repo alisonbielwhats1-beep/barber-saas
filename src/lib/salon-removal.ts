@@ -9,7 +9,7 @@ const registrationTables = new Set(["Membership", "WorkingHours", "SalonAccessEv
 // policy, and an RLS-filtered zero must never authorize a cascading deletion.
 const inspectedTables = new Set([
   "BillingSubscription", "hq_accounts", "Professional", "Service", "ClientProfile",
-  "Appointment", "Product", "AppointmentProduct", "PortfolioItem", "Expense", "ProfessionalOpening",
+  "Appointment", "Product", "ProductSale", "AppointmentProduct", "PortfolioItem", "Expense", "ProfessionalOpening",
   "Package", "MembershipPlan", "UserInvite", "WaitlistEntry", "SalonClosure",
   "AuditLog", "AppointmentService", "AppointmentEvent", "NotificationOutbox",
   "PlatformInvoice", "ClientReview", "ServicePricingRule", "RescheduleProposal",
