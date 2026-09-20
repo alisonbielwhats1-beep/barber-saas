@@ -1,5 +1,35 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-20 — recuperação Supabase publicada com transição voluntária
+
+PR #115 integrado em `f4d4ebbbac65ecd2f4d23cf89304a196658d646e`.
+Production `dpl_J6DY6d7jgtzUmMDjgig8zwxLdu5P` READY em `everflair.com.br`:
+health HTTP 200, versão `f4d4ebbbac65` e banco saudável. Home, login e rotas de
+recuperação/redefinição dos dois aplicativos responderam HTTP 200. Consulta de
+runtime após a solicitação real sem erros/warnings. CI `35534983210` e jornadas
+Supabase Auth/SMTP isoladas `35534983208` aprovados antes da publicação.
+
+Supabase Auth com SMTP Resend está ativo para novas contas e recuperação.
+**Contas antigas continuam usando as senhas atuais.** Somente salvar uma nova
+senha pelo link oficial vincula os acessos daquele e-mail ao Supabase. Pedir ou
+ignorar o e-mail não muda senha, sessão, reservas ou permissões. Não há migração
+em massa. RLS/FORCE RLS e `app_runtime` sem BYPASSRLS permanecem preservados.
+
+Domínio Resend verificado, SMTP/templates/redirects configurados e variáveis
+salvas somente em Vercel Production. Migration aditiva já aplicada, histórico
+Supabase `20260920204453_supabase_auth_identity`: **não reaplicar**. Backup
+delimitado criptografado verificado e comparação integral dos registros na
+transação de implantação. Permanecem 31 usuários, 195 perfis, 30 memberships e
+2.321 reservas. A recuperação solicitada para o responsável criou uma identidade
+sem senha; zero perfis foram migrados e as credenciais antigas continuam intactas.
+
+Entrega real confirmada como Delivered pelo Resend às 17:53 BRT, e-mail
+`01a0c098-79f4-7489-b532-3caf44c5e28d`, remetente `acesso@auth.everflair.com.br`,
+botão retornando a `/redefinir-senha`. Nenhum token ou secret foi versionado.
+Fluxos completos e falhas foram testados em ambiente isolado; em produção houve
+somente conferência de leitura e a solicitação real autorizada pelo responsável,
+sem alterar sua senha. Evidências e rollback em `FASE_SUPABASE_AUTH_RECOVERY.md`.
+
 ## 2026-09-20 — Supabase Auth/recovery em validação isolada
 
 Branch `codex/supabase-password-recovery`: candidata para os dois aplicativos,
@@ -11,7 +41,14 @@ publicação com transição voluntária: cada acesso mantém sua senha e sessã
 antigas até concluir a recuperação. Depois, a nova senha vale para os acessos
 daquele e-mail; IDs, reservas, histórico e permissões são preservados. Não há
 importação ou confirmação obrigatória em massa. Configuração e critérios de
-ativação em `FASE_SUPABASE_AUTH_RECOVERY.md`; SMTP e implantação ainda pendentes.
+ativação em `FASE_SUPABASE_AUTH_RECOVERY.md`; implantação ainda pendente.
+Retornos e política de senha foram preparados no Supabase; origens/chave pública
+salvas somente em Vercel Production para o próximo deployment. Backup delimitado
+de usuários/clientes criptografado e verificado. SMTP e templates salvos.
+Migration aditiva aplicada às 20:44 UTC, histórico Supabase `20260920204453`;
+comparação integral confirmou registros/hashes preservados. Zero identidades
+vinculadas; 31 usuários, 195 perfis, 30 memberships e 2.321 reservas mantidos.
+Flags Supabase salvas para o próximo deployment, sem mudar o runtime atual.
 
 ## 2026-09-20 — painel publicado; atalho mensal mobile em revisão
 
