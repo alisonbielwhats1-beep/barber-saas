@@ -1,5 +1,6 @@
 # Status atual canônico — Salon SaaS
 
+<<<<<<< HEAD
 ## 2026-09-20 — recebimentos de vários dias em revisão
 
 Branch `codex/recebimentos-multiplos-dias`: Financeiro permite selecionar até
@@ -10,6 +11,22 @@ atendimento desmarcado permanece pendente ao receber três; selecionar dias
 não grava pagamentos. Lint, TypeScript, 1.132 testes e build aprovados; fluxo
 sintético conferido no navegador, inclusive 320 px, sem erros de console.
 Não publicado em Production. Detalhes em `RECEBIMENTOS_E_AGENDAMENTO_2026-09-13.md`.
+=======
+## 2026-09-20 — painel publicado; atalho mensal mobile em revisão
+
+PRs #111 e #112 integrados em `cb111ad9b87e773c2dec34834ccfb24e6023aafc`.
+Production `dpl_CmJ9HYUtnJgyrgawXPhE58nPM9BB` READY em `everflair.com.br`:
+home/login HTTP 200, Agenda sem sessão direcionada ao login e health com banco
+saudável e versão `cb111ad9b87e`. Sem migrations ou testes de escrita produtivos.
+
+A correção posterior em `codex/agenda-month-mobile` restaura o botão Mês junto
+de Dia/Semana/Lista no celular, reutilizando a visualização mensal existente.
+Esse ajuste ainda não está publicado; não modifica grade, regras ou backend.
+O mesmo PR #113 torna “Adicionar outro profissional” acessível no início da
+etapa Serviços, mesmo sem serviço selecionado, preservando o fluxo de visita,
+o contexto e a revisão obrigatória. Testes cobrem especialidades diferentes
+e a preservação de uma seleção anterior; nenhuma API ou regra foi alterada.
+>>>>>>> origin/codex/agenda-month-mobile
 
 ## 2026-09-20 — correções confirmadas de UX, candidata não implantada
 

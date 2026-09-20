@@ -377,6 +377,10 @@ export function AppointmentDialog({
             {step === 1 && <>
               <div className="flex items-center justify-between gap-3 text-sm"><p className="min-w-0 break-words"><span className="text-muted-foreground">Cliente · </span>{clientLabel}</p><button type="button" onClick={() => setStep(0)} aria-label="Alterar cliente" className="min-h-11 shrink-0 px-2 text-primary">Alterar</button></div>
               <h2 className="text-xl font-semibold">Escolha os serviços</h2>
+              {professionals.length > 1 && <div className="space-y-2">
+                <Button type="button" variant="outline" className="h-auto min-h-11 w-full whitespace-normal" disabled={repeat || Boolean(notes.trim())} onClick={() => setVisitMode(true)}>{visitDraft ? "Retomar serviços com profissionais diferentes" : "Adicionar outro profissional"}</Button>
+                {(repeat || notes.trim()) && <p className="text-xs text-muted-foreground">A visita com profissionais diferentes não recebe recorrência ou observações neste fluxo. Mantenha este agendamento ou remova essas opções para continuar.</p>}
+              </div>}
               {mode === "existing" && clientId && <Button type="button" variant="outline" className="h-auto min-h-11 w-full whitespace-normal" disabled={loadingLast} onClick={useLastServices}>{loadingLast ? "Consultando…" : "Usar serviços da última reserva"}</Button>}
               {lastMessage && <p role="status" className="text-sm text-muted-foreground">{lastMessage}</p>}
               <Input aria-label="Buscar serviço" type="search" value={serviceQuery} onChange={e => { e.stopPropagation(); setServiceQuery(e.target.value); }} placeholder="Buscar serviço" />
@@ -388,10 +392,6 @@ export function AppointmentDialog({
                 {!availableServices.filter(service => normalizeSearch(service.name).includes(normalizeSearch(serviceQuery))).length && <p className="p-4 text-sm text-muted-foreground">Nenhum serviço encontrado para este profissional. Altere a busca ou o profissional.</p>}
               </div>
               {selectedServices.length > 0 && <details className="rounded-xl border border-border p-3"><summary className="min-h-11 cursor-pointer py-3 text-sm font-medium">Quantidade e ordem dos serviços</summary><ServiceRepeater ids={selectedServices} services={services} onChange={ids => { lastRequest.current++; setLoadingLast(false); setSelectedServices(ids); resetAttempt(); }} /></details>}
-              {selectedServices.length > 0 && professionals.length > 1 && <div className="space-y-2">
-                <Button type="button" variant="outline" className="h-auto min-h-11 w-full whitespace-normal" disabled={repeat || Boolean(notes.trim())} onClick={() => setVisitMode(true)}>{visitDraft ? "Retomar serviços com profissionais diferentes" : "Adicionar outro profissional"}</Button>
-                {(repeat || notes.trim()) && <p className="text-xs text-muted-foreground">A visita com profissionais diferentes não recebe recorrência ou observações neste fluxo. Mantenha este agendamento ou remova essas opções para continuar.</p>}
-              </div>}
               <details className="rounded-xl border border-border p-3"><summary className="min-h-11 cursor-pointer py-3 text-sm font-medium">Observações{notes ? " · preenchidas" : ""}</summary><Input name="notes" aria-label="Observações" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Preferências para este atendimento" /></details>
               {canRepeat && <details className="rounded-xl border border-border p-3"><summary className="min-h-11 cursor-pointer py-3 text-sm font-medium">Recorrência{repeat ? " · ativa" : ""}</summary>
                 <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={repeat} onChange={e => setRepeat(e.target.checked)} /><Repeat size={16} aria-hidden />Repetir agendamento</label>
