@@ -59,3 +59,5 @@
   .agenda-toolbar button[aria-label="Buscar e filtrar agenda"] { border: 0; }
   .agenda-mobile-views { padding-bottom: 8px; border-bottom: 1px solid hsl(var(--border)); }
 }
+/* Appointment backgrounds are deliberately light; pending labels need dark ink too. */
+.agenda-grid [data-colorful-appointment] .text-warning { color: #111827; }
