@@ -29,6 +29,7 @@ suite("safe empty salon deletion and reversible history with PostgreSQL", () => 
     await db.$executeRawUnsafe("GRANT SELECT ON ALL TABLES IN SCHEMA public TO salon_removal_ci");
     await db.$executeRawUnsafe('GRANT DELETE, UPDATE ON "Salon" TO salon_removal_ci');
     await db.$executeRawUnsafe("GRANT INSERT ON hq_activities TO salon_removal_ci");
+    await db.$executeRawUnsafe("GRANT EXECUTE ON FUNCTION public.hq_is_admin() TO salon_removal_ci");
     await db.$executeRawUnsafe('ALTER TABLE "Salon" ENABLE ROW LEVEL SECURITY');
     await db.$executeRawUnsafe('ALTER TABLE "Salon" FORCE ROW LEVEL SECURITY');
     await db.$executeRawUnsafe('CREATE POLICY salon_removal_ci_read ON "Salon" FOR SELECT TO salon_removal_ci USING (true)');
