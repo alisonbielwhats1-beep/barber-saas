@@ -1,5 +1,26 @@
 # Recebimentos e experiência de agendamento — 13/09/2026
 
+## Complemento de 20/09/2026 — seleção de vários dias
+
+O responsável esclareceu que “quatro serviços, realizar três” significa quatro
+atendimentos separados. A interface agora reúne até 31 dias selecionados em uma
+conferência, reutilizando `getReceiptDay` com concorrência limitada a quatro
+consultas. Se qualquer dia falhar, não mostra um lote incompleto e oferece retry.
+As datas de atendimento aparecem em cada linha; a data de recebimento comum
+permanece explícita, inicialmente ontem, conforme a decisão vigente.
+
+Forma individual aparece em cada atendimento; aplicar a mesma forma ao lote é
+opcional e afeta somente os selecionados. Desmarcar preserva a pendência. Baixas
+continuam limitadas a 100 linhas, com confirmação de realização quando necessária,
+versionamento, chave por linha, retry e prevenção de envio duplicado existentes.
+Não introduz pagamento parcial dentro de uma comanda nem alteração de backend.
+
+Testes cobrem três de quatro, formas distintas, seleção entre dias, aplicação
+em lote sem afetar desmarcados, falha de carregamento/retry e envio idempotente.
+Validação local: lint, TypeScript, 1.132 testes e build; navegador sintético com
+dois dias, três baixas simuladas e quarto pendente, sem overflow em 320 px ou
+erros de console. Não é homologação com banco nem publicação em produção.
+
 Base: origin/master `5cca634`. Branch: `codex/booking-receipts-experience`.
 Solicitação inicial autorizou implementar e validar. Após revisão e CI completos,
 o responsável autorizou a publicação em produção, incluindo a migration 023 necessária.

@@ -417,8 +417,9 @@ jobs:
         # Each invocation closes its dev server before the next shard starts.
         # Keep every journey without accumulating all route compilations in one process.
         run: |
-          PLAYWRIGHT_HTML_OUTPUT_DIR=playwright-report/auth-shard-1 npm run test:e2e:database -- --grep-invert "matriz de enquadramento|revisão visual" --shard=1/2 --output=test-results/auth-shard-1
-          PLAYWRIGHT_HTML_OUTPUT_DIR=playwright-report/auth-shard-2 npm run test:e2e:database -- --grep-invert "matriz de enquadramento|revisão visual" --shard=2/2 --output=test-results/auth-shard-2
+          for shard in 1 2 3 4; do
+            PLAYWRIGHT_HTML_OUTPUT_DIR=playwright-report/auth-shard-$shard npm run test:e2e:database -- --grep-invert "matriz de enquadramento|revisão visual" --shard=$shard/4 --output=test-results/auth-shard-$shard
+          done
       - name: Preserve browser evidence from synthetic tests
         if: always()
         uses: actions/upload-artifact@v4
