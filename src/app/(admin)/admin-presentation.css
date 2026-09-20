@@ -41,7 +41,7 @@
   .admin-client-create { position: fixed; right: 20px; bottom: calc(84px + env(safe-area-inset-bottom)); z-index: 30; width: 52px; height: 52px; padding: 0; border-radius: 50%; box-shadow: 0 6px 20px hsl(var(--background) / .3); }
 }
 .admin-page-layout:has(.client-directory, .admin-directory-page) { animation: none; transform: none; }
-.admin-client-detail { padding: 24px; border-radius: 20px; grid-template-columns: minmax(0, 1fr); }
+.admin-client-detail { padding: 24px; border-radius: 20px; grid-template-columns: minmax(0, 1fr); align-content: start; gap: 16px; }
 .admin-client-detail > div:first-child { padding-right: 20px; }
 .admin-client-detail [role=tablist] { height: auto; padding: 4px; border-radius: 12px; }
 .admin-client-detail [role=tab] { min-height: 44px; padding-inline: 6px; font-size: 12px; }
@@ -98,7 +98,7 @@
 @media (max-width: 639px) {
  .admin-guided-dialog { height: var(--app-viewport-height, 100dvh); max-height: 100dvh; width: 100%; max-width: none; border: 0; border-radius: 0; }
  .admin-guided-dialog > div:first-child { text-align: center; padding-left: 48px; }
- .admin-client-detail { width: 100%; max-width: none; height: 100dvh; max-height: 100dvh; border: 0; border-radius: 0; }
+ .admin-client-detail { width: 100%; max-width: none; height: auto; max-height: 100dvh; border-radius: 16px; }
  .admin-client-detail > div:first-child > div:first-child { flex-direction: column; align-items: center; text-align: center; }
  .admin-client-detail > div:first-child h2 { justify-content: center; }
 }
