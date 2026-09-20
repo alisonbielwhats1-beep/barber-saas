@@ -63,6 +63,66 @@ beforeEach(() => {
   });
 });
 describe("baixa em lote", () => {
+  it("receives only three of four appointments with independent payment methods", async () => {
+    const user = userEvent.setup();
+    const value = await mocks.day();
+    mocks.day.mockResolvedValue({ ...value, rows: [row("Ana"), row("Bruno"), row("Carla"), row("Daniel")] });
+    mocks.receive.mockResolvedValue([]);
+    render(<ReceiptWorkspace date="2026-09-12" />);
+    await user.click(screen.getByText("Registrar recebimentos"));
+    await screen.findByLabelText("Selecionar Daniel");
+    await user.click(screen.getByLabelText("Selecionar Daniel"));
+    await user.selectOptions(screen.getByLabelText(/Forma de pagamento de Bruno/), "CASH");
+    await user.selectOptions(screen.getByLabelText(/Forma de pagamento de Carla/), "CREDIT_CARD");
+    await user.click(screen.getByRole("button", { name: /Dar baixa em 3/ }));
+    await waitFor(() => expect(mocks.receive).toHaveBeenCalledTimes(1));
+    expect(mocks.receive.mock.calls[0][0].rows).toEqual([
+      expect.objectContaining({ id: "Ana", method: "PIX" }),
+      expect.objectContaining({ id: "Bruno", method: "CASH" }),
+      expect.objectContaining({ id: "Carla", method: "CREDIT_CARD" }),
+    ]);
+    expect(screen.getByLabelText("Selecionar Daniel")).not.toBeChecked();
+  });
+
+  it("combines selected days without paying on selection and keeps line methods independent of optional bulk application", async () => {
+    const user = userEvent.setup();
+    const value = await mocks.day();
+    mocks.days.mockResolvedValue({ today: "2026-09-13", days: ["2026-09-12", "2026-09-11"].map(date => ({ date, count: 2, pendingCount: 2, received: 0, pending: 10000 })) });
+    mocks.day.mockImplementation(async (date: string) => ({ ...value, rows: [row(`${date}-A`), row(`${date}-B`)].map(r => ({ ...r, startAt: `${date}T15:00:00Z` })) }));
+    mocks.receive.mockResolvedValue([]);
+    render(<ReceiptWorkspace history />);
+    await user.click(await screen.findByLabelText("Selecionar dia 12/09/2026"));
+    await user.click(screen.getByLabelText("Selecionar dia 11/09/2026"));
+    expect(mocks.receive).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Conferir 2 dia(s) selecionado(s)" }));
+    await screen.findByLabelText("Selecionar 2026-09-12-B");
+    await user.click(screen.getByLabelText("Selecionar 2026-09-12-B"));
+    await user.selectOptions(screen.getByLabelText(/Aplicar a mesma forma/), "CASH");
+    await user.selectOptions(screen.getByLabelText(/Forma de pagamento de 2026-09-11-A/), "DEBIT_CARD");
+    expect(screen.getByLabelText(/Forma de pagamento de 2026-09-12-B/)).toHaveValue("PIX");
+    await user.click(screen.getByRole("button", { name: /Dar baixa em 3/ }));
+    await waitFor(() => expect(mocks.receive).toHaveBeenCalledTimes(1));
+    expect(mocks.receive.mock.calls[0][0]).toMatchObject({ receivedDate: "2026-09-12", rows: [
+      { id: "2026-09-11-A", method: "DEBIT_CARD" },
+      { id: "2026-09-11-B", method: "CASH" },
+      { id: "2026-09-12-A", method: "CASH" },
+    ] });
+  });
+
+  it("does not show a partial list when a day fails and retries all selected days", async () => {
+    const user = userEvent.setup();
+    const value = await mocks.day();
+    mocks.day.mockRejectedValueOnce(new Error("network"));
+    render(<ReceiptWorkspace date="2026-09-12" />);
+    await user.click(screen.getByText("Registrar recebimentos"));
+    await screen.findByRole("alert");
+    expect(screen.queryByLabelText("Selecionar Ana")).not.toBeInTheDocument();
+    mocks.day.mockResolvedValue(value);
+    await user.click(screen.getByRole("button", { name: "Tentar novamente" }));
+    await screen.findByLabelText("Selecionar Ana");
+    expect(mocks.receive).not.toHaveBeenCalled();
+  });
+
   it("starts with yesterday, preserves unchecked appointments and submits reviewed extra values", async () => {
     const user = userEvent.setup();
     render(<ReceiptWorkspace date="2026-09-12" />);

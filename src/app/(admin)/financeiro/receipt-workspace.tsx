@@ -53,6 +53,8 @@ export function ReceiptWorkspace({
   const [days, setDays] = useState<DayHistory | null>(null);
   const [endDate, setEndDate] = useState<string>();
   const [openDate, setOpenDate] = useState<string | null>(null);
+  const [selectedDays, setSelectedDays] = useState<string[]>([]);
+  const [openedDays, setOpenedDays] = useState<string[]>([]);
   const [data, setData] = useState<DayData | null>(null);
   const [edits, setEdits] = useState<Record<string, Edit>>({});
   const [receivedDate, setReceivedDate] = useState("");
@@ -91,9 +93,13 @@ export function ReceiptWorkspace({
     };
   }, [history, endDate, refresh]);
 
-  function open(day: string) {
+  function open(day: string | string[]) {
+    if (busy.current) return;
+    const dates = [...new Set(typeof day === "string" ? [day] : day)].sort();
+    if (!dates.length || dates.length > 31) return;
     const id = ++request.current;
-    setOpenDate(day);
+    setOpenDate(dates[0]!);
+    setOpenedDays(dates);
     setData(null);
     setError(null);
     setSummary("");
@@ -101,8 +107,17 @@ export function ReceiptWorkspace({
     setFinalize(false);
     startTransition(async () => {
       try {
-        const value = await getReceiptDay(day);
+        // Reuse the tenant-scoped daily query with bounded concurrency.
+        const loaded: DayData[] = [];
+        for (let i = 0; i < dates.length; i += 4) {
+          loaded.push(...await Promise.all(dates.slice(i, i + 4).map(getReceiptDay)));
+        }
         if (id !== request.current) return;
+        const value: DayData = {
+          ...loaded[0]!,
+          rows: loaded.flatMap((entry) => entry.rows).sort((a, b) => a.startAt.localeCompare(b.startAt) || a.id.localeCompare(b.id)),
+          paid: loaded.flatMap((entry) => entry.paid),
+        };
         setData(value);
         setReceivedDate(value.receivedDate);
         setEdits(
@@ -123,7 +138,7 @@ export function ReceiptWorkspace({
       } catch {
         if (id === request.current)
           setError(
-            "Não foi possível carregar os recebimentos. Feche e tente novamente.",
+            "Não foi possível carregar todos os dias. Nenhum recebimento foi registrado. Tente novamente.",
           );
       }
     });
@@ -207,7 +222,7 @@ export function ReceiptWorkspace({
           ),
         );
         setSummary(
-          `${success.size} recebimento(s) registrado(s). ${results.length - success.size} pendência(s) para revisar.`,
+          `${success.size} recebimento(s) registrado(s). ${results.length - success.size} falha(s) na baixa. Atendimentos não selecionados continuam pendentes.`,
         );
         setRefresh((v) => v + 1);
         router.refresh();
@@ -227,7 +242,7 @@ export function ReceiptWorkspace({
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
             {history
-              ? "Pendências pelo dia do atendimento. O caixa considera a data do recebimento."
+              ? "Selecione um ou mais dias e confira cada atendimento antes de dar baixa. O caixa considera a data do recebimento."
               : "Selecione atendimentos e registre os pagamentos de uma vez."}
           </p>
         </div>
@@ -243,11 +258,17 @@ export function ReceiptWorkspace({
       {history && (
         <>
           <div className="my-4 flex flex-wrap gap-2">
+            <button type="button" className={`${field} bg-primary text-primary-foreground`}
+              disabled={pending || !selectedDays.length} onClick={() => open(selectedDays)}>
+              Conferir {selectedDays.length} dia(s) selecionado(s)
+            </button>
+            {selectedDays.length > 0 && <button type="button" className={field} disabled={pending}
+              onClick={() => setSelectedDays([])}>Limpar dias</button>}
             <button
               className={field}
               disabled={pending || !days}
               onClick={() =>
-                setEndDate(addCalendarDays(days!.days[30]!.date, -1))
+                setEndDate(addCalendarDays(days!.days[days!.days.length - 1]!.date, -1))
               }
             >
               Dias anteriores
@@ -276,15 +297,25 @@ export function ReceiptWorkspace({
               </button>
             )}
           </div>
+          <p className="mb-2 text-xs text-muted-foreground">Até 31 dias e 100 atendimentos por baixa. Selecionar um dia não registra pagamentos.</p>
           {!days ? (
             <p role="status">Carregando dias…</p>
           ) : (
             <div className="max-h-[28rem] overflow-y-auto divide-y divide-border">
               {days.days.map((day) => (
+                <div key={day.date} className="flex items-center gap-2">
+                  <label className="flex min-h-11 min-w-11 items-center justify-center">
+                    <input type="checkbox" className="h-5 w-5 accent-primary"
+                      aria-label={`Selecionar dia ${dateLabel(day.date)}`}
+                      checked={selectedDays.includes(day.date)}
+                      disabled={pending || (!selectedDays.includes(day.date) && (!day.pendingCount || selectedDays.length >= 31))}
+                      onChange={(event) => setSelectedDays(current => event.target.checked
+                        ? [...current, day.date] : current.filter(value => value !== day.date))} />
+                  </label>
                 <button
-                  key={day.date}
                   className="flex min-h-16 w-full items-center justify-between gap-3 px-2 py-3 text-left hover:bg-card-hover"
                   onClick={() => open(day.date)}
+                  disabled={pending}
                   aria-label={`Abrir recebimentos de ${dateLabel(day.date)}`}
                 >
                   <span>
@@ -322,6 +353,7 @@ export function ReceiptWorkspace({
                     )}
                   </span>
                 </button>
+                </div>
               ))}
             </div>
           )}
@@ -344,11 +376,11 @@ export function ReceiptWorkspace({
         <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>
-              Recebimentos · {openDate && dateLabel(openDate)}
+              Recebimentos · {openedDays.length > 1 ? `${openedDays.length} dias selecionados` : openDate && dateLabel(openDate)}
             </DialogTitle>
             <DialogDescription>
               Confira os valores e selecione apenas os atendimentos pagos.
-              Desmarcar mantém a pendência.
+              Desmarcar mantém a pendência. Cada atendimento pode ter sua própria forma de pagamento.
             </DialogDescription>
           </DialogHeader>
           {error && (
@@ -362,7 +394,8 @@ export function ReceiptWorkspace({
             </p>
           )}
           {!data ? (
-            <p role="status">Carregando…</p>
+            error ? <button type="button" className={field} disabled={pending} onClick={() => open(openedDays)}>Tentar novamente</button>
+              : <p role="status">Carregando…</p>
           ) : (
             <fieldset
               disabled={pending}
@@ -391,9 +424,9 @@ export function ReceiptWorkspace({
                   />
                 </label>
                 <label className="grid gap-1 text-sm">
-                  Forma para os selecionados
+                  Aplicar a mesma forma aos selecionados (opcional)
                   <select
-                    defaultValue=""
+                    value=""
                     className={field}
                     onChange={(e) => {
                       for (const row of selected)
@@ -415,7 +448,7 @@ export function ReceiptWorkspace({
               </div>
               <p className="text-xs text-muted-foreground">
                 A data começa em ontem. Altere se o dinheiro foi recebido em
-                outro dia.
+                outro dia. Essa data será usada para todos os recebimentos selecionados.
               </p>
               <div className="flex flex-wrap items-center gap-3">
                 <button
@@ -452,18 +485,19 @@ export function ReceiptWorkspace({
               </div>
               <div className="space-y-3 pr-1 sm:max-h-[45vh] sm:overflow-y-auto">
                 {data.rows.length === 0 && (
-                  <p>Nenhum recebimento pendente neste dia.</p>
+                  <p>Nenhum recebimento pendente nos dias escolhidos.</p>
                 )}
                 {data.rows.map((row) => {
                   const e = edits[row.id]!;
                   return (
                     <article
                       key={row.id}
-                      className="rounded-xl border border-border p-3"
+                      className={`rounded-xl border p-3 ${e.selected ? "border-primary" : "border-border"}`}
                     >
                       <div className="flex items-start gap-3">
+                        <label className="flex min-h-11 min-w-11 items-center justify-center">
                         <input
-                          className="mt-1 h-5 w-5"
+                          className="h-5 w-5 accent-primary"
                           aria-label={`Selecionar ${row.name}`}
                           type="checkbox"
                           disabled={!row.eligible}
@@ -472,12 +506,13 @@ export function ReceiptWorkspace({
                             edit(row.id, { selected: event.target.checked })
                           }
                         />
+                        </label>
                         <div className="min-w-0 flex-1">
                           <p className="font-semibold">
                             {formatInTimeZone(
                               row.startAt,
                               data.timezone,
-                              "HH:mm",
+                              "dd/MM/yyyy · HH:mm",
                             )}{" "}
                             · {row.name}
                           </p>
@@ -491,12 +526,14 @@ export function ReceiptWorkspace({
                                 ? "Requer confirmação de finalização"
                                 : "Concluído · aguardando pagamento"}
                           </p>
+                          <p className="mt-1 text-xs font-medium">{e.selected ? "Selecionado para baixa" : "Fora desta baixa · permanece pendente"}</p>
                         </div>
                       </div>
                       <div className="mt-3 flex flex-wrap items-end gap-2">
                         <label className="grid gap-1 text-xs">
-                          Forma
+                          Forma de pagamento deste atendimento
                           <select
+                            aria-label={`Forma de pagamento de ${row.name} · ${formatInTimeZone(row.startAt, data.timezone, "dd/MM/yyyy HH:mm")}`}
                             className={field}
                             value={e.method}
                             onChange={(event) =>
@@ -603,7 +640,7 @@ export function ReceiptWorkspace({
                           <button
                             className="underline"
                             type="button"
-                            onClick={() => open(openDate!)}
+                            onClick={() => open(openedDays)}
                           >
                             Atualizar lista
                           </button>
@@ -613,10 +650,11 @@ export function ReceiptWorkspace({
                   );
                 })}
               </div>
+              {selected.length > 100 && <p role="alert" className="text-sm text-danger">Selecione no máximo 100 atendimentos por baixa. Desmarque os demais para continuar.</p>}
               <button
                 type="button"
                 onClick={submit}
-                disabled={!selected.length || !Number.isFinite(totalCents)}
+                disabled={!selected.length || selected.length > 100 || !Number.isFinite(totalCents) || (selected.some(row => row.status !== "COMPLETED") && !finalize)}
                 className="min-h-12 w-full rounded-xl bg-primary px-4 font-semibold text-primary-foreground disabled:opacity-50"
               >
                 {pending
@@ -626,7 +664,7 @@ export function ReceiptWorkspace({
               {data.paid.length > 0 && (
                 <details>
                   <summary className="min-h-11 cursor-pointer text-sm font-semibold">
-                    Já recebidos neste dia de atendimento ({data.paid.length})
+                    {openedDays.length > 1 ? "Já recebidos nos dias escolhidos" : "Já recebidos neste dia de atendimento"} ({data.paid.length})
                   </summary>
                   {data.paid.map((p) => (
                     <div

@@ -42,6 +42,17 @@ Fluxos completos e falhas foram testados em ambiente isolado; em produção houv
 somente conferência de leitura e a solicitação real autorizada pelo responsável,
 sem alterar sua senha. Evidências e rollback em `FASE_SUPABASE_AUTH_RECOVERY.md`.
 
+## 2026-09-20 — recebimentos de vários dias em revisão
+
+Branch `codex/recebimentos-multiplos-dias`: Financeiro permite selecionar até
+31 dias e conferir até 100 atendimentos por baixa, com exclusão individual e
+forma de pagamento independente por atendimento. Reutiliza as consultas e a
+baixa existentes, sem API, schema, regras ou dados alterados. O quarto
+atendimento desmarcado permanece pendente ao receber três; selecionar dias
+não grava pagamentos. Lint, TypeScript, 1.132 testes e build aprovados; fluxo
+sintético conferido no navegador, inclusive 320 px, sem erros de console.
+Não publicado em Production. Detalhes em `RECEBIMENTOS_E_AGENDAMENTO_2026-09-13.md`.
+
 ## 2026-09-20 — Supabase Auth/recovery em validação isolada
 
 Branch `codex/supabase-password-recovery`: candidata para os dois aplicativos,
@@ -76,6 +87,7 @@ O mesmo PR #113 torna “Adicionar outro profissional” acessível no início d
 etapa Serviços, mesmo sem serviço selecionado, preservando o fluxo de visita,
 o contexto e a revisão obrigatória. Testes cobrem especialidades diferentes
 e a preservação de uma seleção anterior; nenhuma API ou regra foi alterada.
+
 
 ## 2026-09-20 — correções confirmadas de UX, candidata não implantada
 
