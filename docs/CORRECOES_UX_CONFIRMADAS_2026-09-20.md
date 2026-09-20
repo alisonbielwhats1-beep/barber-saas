@@ -128,6 +128,14 @@ integrados fora de produção. Não iniciar outro redesign ou microetapas.
 
 ## Inventário de arquivos alterados
 
+### Entrega local e impedimento remoto
+
+Implementação registrada no commit `65a7246`. O push da branch foi recusado
+pelo GitHub com HTTP 403: a conta autenticada `AlisonBSilva24` não tem permissão
+de escrita no repositório `alisonbielwhats1-beep/barber-saas`. Nenhum PR novo,
+CI remoto ou Preview dessa branch foi criado; não houve deploy. Nenhuma troca
+de credenciais ou contorno de permissão foi realizada.
+
 - `docs/CORRECOES_UX_CONFIRMADAS_2026-09-20.md`
 - `docs/REFORMULACAO_UX_PAINEL_2026-09.md`
 - `docs/STATUS_ATUAL.md`
