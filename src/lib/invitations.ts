@@ -725,7 +725,7 @@ export async function getInviteView(
 }
 
 type AcceptanceResult =
-  | { ok: true; email: string }
+  | { ok: true; email: string; confirmationRequired?: boolean }
   | {
       ok: false;
       reason:
@@ -968,7 +968,8 @@ export async function acceptNewUserInvite(input: {
     if (!newAuthPasswordSchema.safeParse(input.password).success) return { ok: false, reason: "INVALID" };
     try {
       const account = await registerProviderAccount(invite.email, input.password, recoveryRedirect().replace("redefinir-senha", "login"));
-      return acceptInviteTransaction({ token: input.token, authIdentityId: account.identityId, now });
+      const result = await acceptInviteTransaction({ token: input.token, authIdentityId: account.identityId, now });
+      return result.ok ? { ...result, confirmationRequired: account.confirmationRequired } : result;
     } catch { return { ok: false, reason: "CONFLICT" }; }
   }
   const passwordHash = await bcrypt.hash(input.password, 12);

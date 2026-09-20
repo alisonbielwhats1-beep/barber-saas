@@ -19,10 +19,11 @@ import { billingCapacityLabel, billingIntentHref, billingMoney, type BillingInte
 import { quoteContract } from "@/lib/billing/catalog";
 import { setupEntryHref } from "@/lib/initial-setup";
 
-export function SignupForm({ initialSegment, planIntent, billingIntent, billingAvailable = true }: { initialSegment?: SegmentId; planIntent?: MarketingPlanKey; billingIntent?: BillingIntent; billingAvailable?: boolean }) {
+export function SignupForm({ initialSegment, planIntent, billingIntent, billingAvailable = true, provider = false }: { initialSegment?: SegmentId; planIntent?: MarketingPlanKey; billingIntent?: BillingIntent; billingAvailable?: boolean; provider?: boolean }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [confirmationRequired, setConfirmationRequired] = useState(false);
   const selection = useSegmentSelection(initialSegment);
   const [includeServices, setIncludeServices] = useState(false);
   const plan = resolvePlanIntent(planIntent);
@@ -55,7 +56,7 @@ export function SignupForm({ initialSegment, planIntent, billingIntent, billingA
         }
         // Auto-login logo após criar.
         if (res.confirmationRequired) {
-          setError("Conta criada. Confirme seu e-mail pelo link recebido e depois entre com sua senha.");
+          setConfirmationRequired(true);
           return;
         }
         const signInRes = await signIn("credentials", {
@@ -122,7 +123,7 @@ export function SignupForm({ initialSegment, planIntent, billingIntent, billingA
         id="password"
         name="password"
         label="Senha"
-        minLength={6}
+        minLength={provider ? 10 : 6}
         autoComplete="new-password"
         required
       />
@@ -130,18 +131,19 @@ export function SignupForm({ initialSegment, planIntent, billingIntent, billingA
         id="confirmPassword"
         name="confirmPassword"
         label="Confirmar senha"
-        minLength={6}
+        minLength={provider ? 10 : 6}
         autoComplete="new-password"
         required
       />
-      <p className="text-xs text-muted-foreground">Mínimo 6 caracteres.</p>
+      <p className="text-xs text-muted-foreground">{provider ? "Use pelo menos 10 caracteres, com letras e números." : "Mínimo 6 caracteres."}</p>
       </fieldset>
       {error && (
         <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {error}
         </p>
       )}
-      <Button type="submit" className="w-full" disabled={pending}>
+      {confirmationRequired && <p role="status" className="text-sm text-success">Conta criada. Confirme seu e-mail pelo link recebido e depois <Link className="underline" href="/login">entre com sua senha</Link>.</p>}
+      <Button type="submit" className="w-full" disabled={pending || confirmationRequired}>
         {pending ? "Criando seu espaço…" : "Criar meu espaço"}
       </Button>
       <p className="es-next-help">Depois de entrar, um guia ajuda a configurar serviços, profissionais e horários.</p>

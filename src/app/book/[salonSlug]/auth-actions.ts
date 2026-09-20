@@ -204,7 +204,7 @@ export async function registerClient(
     confirmPassword?: string;
   },
   returnTo?: string | null,
-): Promise<{ error: string; code?: "ACCOUNT_ACCESS" }> {
+): Promise<{ error: string; code?: "ACCOUNT_ACCESS" | "CONFIRM_EMAIL" }> {
   const parsedSlug = salonSlugSchema.safeParse(salonSlug);
   if (!parsedSlug.success) return { error: REGISTRATION_ERROR };
   const normalizedSlug = parsedSlug.data;
@@ -349,7 +349,7 @@ export async function registerClient(
   }
   if (!result) return { error: "Salão não encontrado" };
 
-  if (provider?.confirmationRequired) return { error: "Conta criada. Confirme seu e-mail pelo link recebido e depois entre com sua senha.", code: "ACCOUNT_ACCESS" };
+  if (provider?.confirmationRequired) return { error: "Conta criada. Confirme seu e-mail pelo link recebido e depois entre com sua senha.", code: "CONFIRM_EMAIL" };
   if (provider) return loginClient(normalizedSlug, registration.email, registration.password, returnTo);
 
   try {
