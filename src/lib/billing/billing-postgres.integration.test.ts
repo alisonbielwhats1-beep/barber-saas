@@ -88,7 +88,9 @@ pg("automatic billing with PostgreSQL and runtime FORCE RLS", () => {
         postCount++;
         const data = JSON.parse(String(init.body));
         const id = randomUUID();
-        body = { ...data, id, collector_id: 123, payer_id: 456, last_modified: now.toISOString(), init_point: `https://www.mercadopago.com.br/subscriptions/checkout?preapproval_id=${id}` };
+        // Controlled-date scenarios must not inherit a newer wall-clock snapshot.
+        const createdAt = vi.getMockedSystemTime() ?? now;
+        body = { ...data, id, collector_id: 123, payer_id: 456, last_modified: createdAt.toISOString(), init_point: `https://www.mercadopago.com.br/subscriptions/checkout?preapproval_id=${id}` };
         remotes.set(id, body as Record<string, unknown>);
         if (loseCreateResponse) throw new Error("Simulated lost POST response");
       } else if (path === "/preapproval/search") body = { results: [...remotes.values()].filter(s => s.external_reference === url.searchParams.get("external_reference")) };
