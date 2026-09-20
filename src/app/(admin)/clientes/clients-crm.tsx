@@ -175,10 +175,9 @@ export function ClientsCrm({
           <Search className="h-3.5 w-3.5 text-muted-foreground" />
           <input value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Buscar cliente ou telefone" placeholder="Buscar clientes…" className="w-full min-w-0 md:w-48 bg-transparent text-[13px] placeholder:text-muted-foreground focus:outline-none" />
         </div>
-        <div className="order-3 flex w-full gap-2 overflow-x-auto" role="group" aria-label="Filtros de clientes">
-          <Seg active={segment === "all"} onClick={() => setSegment("all")}>Todos</Seg>
-          {segment !== "all" && <Seg active onClick={() => setSegment("all")}>{({vip:"VIP",birthday:"Aniversariantes",lapsed:"Sumidos",recurring:"Recorrentes"})[segment]} ×</Seg>}
-        </div>
+        {segment !== "all" && <div className="order-3 flex w-full gap-2 overflow-x-auto" role="group" aria-label="Filtros de clientes">
+          <Seg active onClick={() => setSegment("all")}>{({vip:"VIP",birthday:"Aniversariantes",lapsed:"Sumidos",recurring:"Recorrentes"})[segment]} ×</Seg>
+        </div>}
         <MobileListTools label="Filtros de clientes">
         <div className="flex w-full flex-wrap gap-2">
           <Seg active={segment === "all"} onClick={() => setSegment("all")}>Todos</Seg>
