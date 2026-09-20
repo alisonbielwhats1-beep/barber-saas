@@ -126,3 +126,7 @@ até confirmação. Cadastro em duas etapas conserva todos os campos existentes.
 Os testes de navegação acompanham os novos acessos. A impressão de relatórios
 expande o detalhamento e restaura o estado depois de imprimir. A revisão é
 frontend: não modifica domínio, APIs, Prisma, permissões ou dados produtivos.
+
+A barra mobile mantém Hoje, Agenda, Clientes e Mais, conforme acesso do papel.
+Alertas continuam em Mais, com contador de não lidos no botão. O atalho de
+Agenda no perfil profissional já abre o filtro desse profissional visível.

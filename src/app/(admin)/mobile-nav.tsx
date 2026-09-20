@@ -10,7 +10,6 @@ import {
   Users,
   MoreHorizontal,
   Settings,
-  Bell,
   ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -44,7 +43,6 @@ const PRIMARY: Array<{
   { href: "/hoje", label: "Hoje", icon: CalendarClock, roles: DASHBOARD_ROLES },
   { href: "/agenda", label: "Agenda", icon: CalendarDays },
   { href: "/clientes", label: "Clientes", icon: Users },
-  { href: "/notificacoes", label: "Alertas", icon: Bell },
 ];
 
 export function MobileNav({
@@ -232,7 +230,7 @@ export function MobileNav({
               open ? "text-primary" : "text-muted-foreground",
             )}
           >
-            <MoreHorizontal className="h-5 w-5" strokeWidth={open ? 2.4 : 2} />
+            <span className="relative"><MoreHorizontal className="h-5 w-5" strokeWidth={open ? 2.4 : 2} /><UnreadBadge count={unreadNotifications} className="absolute -right-3 -top-2" /></span>
             Mais
           </button>
         </DialogTrigger>
