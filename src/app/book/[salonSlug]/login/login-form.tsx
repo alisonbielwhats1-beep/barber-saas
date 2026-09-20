@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { unstable_rethrow } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { PasswordInput } from "@/components/ui/password-input";
 import { loginClient } from "../auth-actions";
@@ -29,7 +30,9 @@ export function LoginForm({
       try {
         const result = await loginClient(salonSlug, email, password, returnTo);
         if (result?.error) setError(result.error);
-      } catch {
+      } catch (error) {
+        // Successful Server Actions redirect through Next.js control flow.
+        unstable_rethrow(error);
         setError("Não foi possível entrar agora. Verifique sua conexão e tente novamente.");
       } finally {
         setPending(false);

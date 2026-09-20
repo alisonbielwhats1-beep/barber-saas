@@ -63,4 +63,20 @@ describe("LoginForm", () => {
     resolve({});
     await waitFor(() => expect(screen.getByRole("button", { name: "Entrar" })).toBeEnabled());
   });
+
+  it("mantém feedback e permite repetir quando há uma falha real de conexão", async () => {
+    mocks.loginClient.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    const user = userEvent.setup();
+    render(<LoginForm salonSlug="studio-a" />);
+    await user.type(screen.getByLabelText("E-mail"), "cliente@example.com");
+    await user.type(screen.getByLabelText("Senha", { exact: true }), "senha-segura");
+    await user.click(screen.getByRole("button", { name: "Entrar" }));
+    await expect(screen.findByRole("alert")).resolves.toHaveTextContent("Verifique sua conexão");
+    expect(screen.getByRole("button", { name: "Entrar" })).toBeEnabled();
+    expect(screen.getByLabelText("E-mail")).toHaveValue("cliente@example.com");
+    expect(screen.getByLabelText("Senha", { exact: true })).toHaveValue("senha-segura");
+    mocks.loginClient.mockResolvedValueOnce({});
+    await user.click(screen.getByRole("button", { name: "Entrar" }));
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+  });
 });
