@@ -1,14 +1,15 @@
 "use client";
 
 import { FormSection } from "../form-section";
+import { FormWizard } from "../form-wizard";
 import { useState, useTransition } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ImageUpload } from "@/components/ui/image-upload";
 import {
-  Dialog, DialogClose, DialogContent, DialogDescription,
-  DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog, DialogContent, DialogDescription,
+  DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import { createProduct, updateProduct } from "./actions";
 import { format } from "date-fns";
@@ -76,17 +77,17 @@ export function ProductForm({ product, trigger }: { product?: Product; trigger?:
         {trigger ?? (editing ? (
           <Button variant="ghost" size="sm">Editar</Button>
         ) : (
-          <Button size="lg"><Plus className="h-4 w-4" /> Novo produto</Button>
+          <Button size="lg" className="admin-directory-create" aria-label="Novo produto"><Plus className="h-5 w-5" /> <span className="hidden md:inline">Novo produto</span></Button>
         ))}
       </DialogTrigger>
-      <DialogContent className="admin-form-dialog max-h-[85dvh] overflow-y-auto">
+      <DialogContent className="admin-form-dialog admin-guided-dialog">
         <DialogHeader>
           <DialogTitle>{editing ? "Editar produto" : "Novo produto"}</DialogTitle>
-          <DialogDescription>Custo, fornecedor e estoque mínimo alimentam margem e reposição.</DialogDescription>
+          <DialogDescription className="sr-only">Custo, fornecedor e estoque mínimo alimentam margem e reposição.</DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={onSubmit} className="grid gap-4">
-
+        <FormWizard labels={["Básico", "Venda", "Estoque"]} onSubmit={onSubmit} pending={pending} error={error} submitLabel={editing ? "Salvar produto" : "Cadastrar produto"}>
+          <div>
           <div>
             <label className="mb-1 block text-sm font-medium">Nome</label>
             <Input aria-label="Nome" name="name" defaultValue={product?.name} required autoFocus />
@@ -102,6 +103,10 @@ export function ProductForm({ product, trigger }: { product?: Product; trigger?:
             </div>
           </div>
 
+          <FormSection title="Foto do produto" description="Opcional"><ImageUpload value={imageUrl} onChange={setImageUrl} folder="products" aspectRatio="square" /></FormSection>
+          <label className="text-sm">Descrição<Input name="description" defaultValue={product?.description ?? ""} /></label>
+          </div>
+          <div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-sm font-medium">Preço venda (R$)</label>
@@ -112,6 +117,8 @@ export function ProductForm({ product, trigger }: { product?: Product; trigger?:
               <Input aria-label="Custo (R$)" name="cost" type="number" min={0} step="0.01" defaultValue={product ? (product.costCents / 100).toFixed(2) : "0.00"} />
             </div>
           </div>
+          </div>
+          <div>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
             <div>
               <label className="mb-1 block text-sm font-medium">Estoque</label>
@@ -127,10 +134,6 @@ export function ProductForm({ product, trigger }: { product?: Product; trigger?:
               <Input aria-label="Validade" name="expiresAt" type="date" defaultValue={product?.expiresAt ? format(new Date(product.expiresAt), "yyyy-MM-dd") : ""} />
             </div>
           </div>
-          <FormSection title="Foto do produto" description="Opcional">          <div>
-            <label className="mb-1 block text-sm font-medium">Foto do produto</label>
-            <ImageUpload value={imageUrl} onChange={setImageUrl} folder="products" aspectRatio="square" />
-          </div></FormSection>
           <FormSection title="Fornecedor e identificação" defaultOpen={editing}>          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-sm font-medium">Fornecedor</label>
@@ -141,12 +144,8 @@ export function ProductForm({ product, trigger }: { product?: Product; trigger?:
               <Input aria-label="Código de barras" name="barcode" defaultValue={product?.barcode ?? ""} />
             </div>
           </div></FormSection>
-          {error && <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
-          <DialogFooter data-form-footer>
-            <DialogClose asChild><Button variant="outline" type="button">Cancelar</Button></DialogClose>
-            <Button type="submit" disabled={pending}>{pending ? "Salvando…" : editing ? "Salvar" : "Criar"}</Button>
-          </DialogFooter>
-        </form>
+          </div>
+        </FormWizard>
       </DialogContent>
     </Dialog>
   );

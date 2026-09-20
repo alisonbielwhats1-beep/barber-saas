@@ -18,6 +18,7 @@ import {
   PackageSearch,
   ClipboardList,
   PackagePlus,
+  ChevronDown,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -27,7 +28,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { formatMoney } from "@/lib/utils";
-import { imageForProduct, resolveProductImage } from "@/lib/images";
+import { resolveProductImage } from "@/lib/images";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "@/components/ui/toast";
@@ -110,7 +111,7 @@ export function ProductsCatalog({ products, movements, enabled = true, initialFi
           </button>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div aria-label="Lista de produtos" className="overflow-hidden rounded-2xl border border-border bg-card">
           {shown.map((p) => (
             <ProductCardView key={p.id} p={p} enabled={enabled} />
           ))}
@@ -164,47 +165,34 @@ function ProductCardView({ p, enabled }: { p: ProductCard; enabled: boolean }) {
   }
 
   return (
-    <div className={`card-interactive overflow-hidden rounded-2xl border border-border bg-card ${!p.active ? "opacity-60" : ""}`}>
-      <div className="relative aspect-video w-full overflow-hidden bg-muted">
-        <ImageWithFallback
+    <div className={`border-b border-border last:border-0 ${!p.active ? "opacity-60" : ""}`}>
+      <details className="group">
+      <summary className="flex min-h-20 cursor-pointer list-none items-center gap-3 px-4 py-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+        <span className="relative grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-xl bg-muted">
+        {p.imageUrl ? <ImageWithFallback
           src={imageSrc}
-          fallbackSrc={imageForProduct(0)}
-          alt={p.name}
+          fallback={<PackageSearch aria-hidden="true" className="h-5 w-5 text-muted-foreground" />}
+          alt=""
           fill
-          sizes="(max-width:768px) 100vw, 33vw"
+          sizes="48px"
           className="object-cover"
-        />
-        <div className="absolute left-2 top-2 flex gap-1.5">
-          {p.topSeller && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-marketing/90 px-2 py-0.5 text-[10px] font-semibold text-white">
-              <Flame className="h-3 w-3" /> Mais vendido
-            </span>
-          )}
-        </div>
-        {p.stock === 0 ? (
-          <span className="absolute right-2 top-2 rounded-full bg-danger/90 px-2 py-0.5 text-[10px] font-semibold text-white">Sem estoque</span>
-        ) : needRestock ? (
-          <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-warning/90 px-2 py-0.5 text-[10px] font-semibold text-black">
-            <AlertTriangle className="h-3 w-3" /> Repor
+        /> : <PackageSearch aria-hidden="true" className="h-5 w-5 text-muted-foreground" />}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block break-words text-sm font-medium">{p.name}</span>
+          <span className="mt-1 block text-xs text-muted-foreground">{formatMoney(p.priceCents)}{p.brand ? ` · ${p.brand}` : ""}</span>
+          <span className={`mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs ${needRestock ? "text-warning" : "text-muted-foreground"}`}>
+            <span>Estoque: {p.stock}</span>
+            {needRestock && <span className="inline-flex items-center gap-1"><AlertTriangle className="h-3 w-3" />{p.stock === 0 ? "Em falta" : "Repor"}</span>}
+            {!p.active && <span>Pausado</span>}
+            {p.topSeller && <span className="inline-flex items-center gap-1 text-primary"><Flame className="h-3 w-3" />Mais vendido</span>}
           </span>
-        ) : null}
-        {!p.active && (
-          <div className="absolute inset-0 grid place-items-center bg-background/60">
-            <span className="rounded-full bg-muted px-2.5 py-1 text-[11px] text-muted-foreground">Pausado</span>
-          </div>
-        )}
-      </div>
-
-      <div className="p-4">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="truncate text-[13px] font-medium">{p.name}</p>
-            <p className="text-[11px] text-muted-foreground">{p.brand ?? p.category ?? "—"}</p>
-          </div>
-          <p className="shrink-0 text-[13px] font-semibold">{formatMoney(p.priceCents)}</p>
-        </div>
-
-        <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+        </span>
+        <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="border-t border-border bg-surface-1/30 p-4">
+        {p.category && <p className="mb-3 text-xs text-muted-foreground">{p.category}</p>}
+        <div className="grid grid-cols-3 gap-2 text-center">
           <Metric label="Margem" value={margin === null ? "—" : `${(margin * 100).toFixed(0)}%`} accent={margin === null ? undefined : margin >= 0.45 ? "#2ECC8B" : margin >= 0.25 ? "#F59E0B" : "#EF4444"} />
           <Metric label={profit === null ? "Custo" : "Resultado/un"} value={profit === null ? "não informado" : formatMoney(profit)} />
           <Metric label="Vendidos" value={p.sold.toString()} />
@@ -239,7 +227,7 @@ function ProductCardView({ p, enabled }: { p: ProductCard; enabled: boolean }) {
               <Plus className="h-3.5 w-3.5" />
             </button>
           </div>
-          <button disabled={!enabled} onClick={() => setStockDialog(true)} className="mt-2 inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-border text-[11px] font-medium text-muted-foreground transition hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"><PackagePlus className="h-3.5 w-3.5" /> Movimentar estoque</button>
+          <button disabled={!enabled} onClick={() => setStockDialog(true)} className="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg border border-border text-[11px] font-medium text-muted-foreground transition hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"><PackagePlus className="h-3.5 w-3.5" /> Movimentar estoque</button>
         </div>
 
         <div className="mt-3 flex items-center justify-between border-t border-border pt-3 text-[11px] text-muted-foreground">
@@ -281,8 +269,9 @@ function ProductCardView({ p, enabled }: { p: ProductCard; enabled: boolean }) {
           </DropdownMenu>
         </div>
       </div>
+      </details>
       <Dialog open={stockDialog} onOpenChange={setStockDialog}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="admin-form-dialog max-w-sm">
           <DialogHeader><DialogTitle>Movimentar estoque</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div><label htmlFor={`kind-${p.id}`} className="mb-1 block text-[11px] font-medium text-muted-foreground">Tipo</label><select id={`kind-${p.id}`} value={stockKind} onChange={(event) => setStockKind(event.target.value as typeof stockKind)} className="h-11 w-full rounded-xl border border-border bg-background px-3 text-[13px]"><option value="PURCHASE">Entrada por compra</option><option value="LOSS">Perda ou descarte</option><option value="INVENTORY">Correção de inventário</option><option value="ADJUSTMENT">Outro ajuste</option></select></div>

@@ -65,21 +65,20 @@ test.describe("@database listas mobile compactas", () => {
           }
           if (route === "servicos") {
             await expect(list.getByText(/A partir de/)).toHaveCount(12);
-            await page.getByRole("button", { name: "Filtros", exact: true }).click();
-            await page.getByLabel("Categoria do serviço").selectOption("Categoria 2 com nome comprido");
+            await page.getByRole("button", { name: "Categoria 2 com nome comprido", exact: true }).click();
             await expect(list.getByText(/A partir de/)).toHaveCount(1);
-            await page.getByRole("button", { name: "Filtrado", exact: true }).click();
-            await expect(page.getByLabel("Categoria do serviço")).not.toBeVisible();
             await list.getByRole("button", { name: /Mais opções/ }).click();
             await expect(page.getByRole("menuitem", { name: "Editar", exact: true })).toBeVisible();
             await page.keyboard.press("Escape");
           }
           if (route === "profissionais") {
             await expect(list.getByText(professionalName, { exact: true })).toBeVisible();
+            await list.getByRole("button", { name: new RegExp(professionalName) }).click();
+            const profile = page.getByRole("dialog", {name: `Perfil de ${professionalName}`});
             await expect(list.getByText("Ticket médio")).not.toBeVisible();
-            await list.getByRole("button", { name: "Desempenho", exact: true }).click();
-            await expect(list.getByText("Ticket médio")).toBeVisible();
-            await list.getByRole("button", { name: "Desempenho", exact: true }).click();
+            await profile.getByRole("button", { name: "Desempenho", exact: true }).click();
+            await expect(profile.getByText("Ticket médio")).toBeVisible();
+            await profile.getByRole("button", { name: "Fechar janela", exact: true }).click();
             await page.getByLabel("Buscar profissional").fill("inexistente");
             await expect(page.getByText("Nenhum profissional encontrado.")).toBeVisible();
           }

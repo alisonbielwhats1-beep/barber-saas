@@ -64,7 +64,8 @@ test.describe("@database preços variáveis e configurações", () => {
       await dialog.getByLabel("Valor inicial (R$)", { exact: true }).scrollIntoViewIfNeeded();
       await expect(dialog.getByText(/A partir de R\$/)).toBeVisible();
       await page.screenshot({ path: test.info().outputPath("dono-preco-inicial.png") });
-      await dialog.getByRole("button", { name: "Criar", exact: true }).click();
+      await dialog.getByRole("button", { name: "Continuar", exact: true }).click();
+      await dialog.getByRole("button", { name: "Cadastrar serviço", exact: true }).click();
       await expect(dialog).not.toBeVisible();
       const salon = await db.salon.findUniqueOrThrow({ where: { slug: "luna-hair" } });
       const service = await db.service.findFirstOrThrow({ where: { salonId: salon.id, name } });

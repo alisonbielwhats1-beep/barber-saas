@@ -1,16 +1,14 @@
 "use client";
 
-import { FormSection } from "../form-section";
+import { FormWizard } from "../form-wizard";
 import { useState, useTransition } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -76,15 +74,16 @@ export function ClientForm({ client }: Props) {
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="admin-form-dialog max-h-[calc(100dvh-1rem)] overflow-y-auto">
+      <DialogContent className="admin-form-dialog admin-guided-dialog">
         <DialogHeader>
           <DialogTitle>{editing ? "Editar cliente" : "Novo cliente"}</DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="sr-only">
             Só o nome é obrigatório. Os demais campos ajudam a personalizar o atendimento.
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={onSubmit} className="grid gap-4">
+        <FormWizard labels={["Essencial", "Complementar"]} onSubmit={onSubmit} pending={pending} error={error} submitLabel={editing ? "Salvar cliente" : "Cadastrar cliente"}>
+          <div>
           <div>
             <label className="mb-1 block text-sm font-medium">Nome</label>
             <Input aria-label="Nome" name="name" defaultValue={client?.name} required autoFocus />
@@ -107,7 +106,8 @@ export function ClientForm({ client }: Props) {
               />
             </div>
           </div>
-          <FormSection title="Informações complementares" description="Aniversário, preferências e consentimento" defaultOpen={editing}>
+          </div>
+          <div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-medium">Aniversário</label>
@@ -168,21 +168,8 @@ export function ClientForm({ client }: Props) {
               <span className="mt-0.5 block text-xs text-muted-foreground">O consentimento pode ser removido a qualquer momento.</span>
             </span>
           </label>
-          </FormSection>
-          {error && (
-            <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {error}
-            </p>
-          )}
-          <DialogFooter data-form-footer>
-            <DialogClose asChild>
-              <Button variant="outline" type="button">Cancelar</Button>
-            </DialogClose>
-            <Button type="submit" disabled={pending}>
-              {pending ? "Salvando…" : editing ? "Salvar" : "Criar"}
-            </Button>
-          </DialogFooter>
-        </form>
+          </div>
+        </FormWizard>
       </DialogContent>
     </Dialog>
   );

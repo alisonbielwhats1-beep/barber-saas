@@ -130,15 +130,13 @@ export function ServicesCatalog({
           />
         </div>
 
-        <MobileListTools label={activeCategory === "all" ? "Filtros" : "Filtrado"}>
-        <select aria-label="Categoria do serviço" value={activeCategory} onChange={e => setCategory(e.target.value)} className="min-h-11 w-full min-w-0 rounded-lg border border-border bg-card px-3 text-sm md:hidden">{categories.map(c => <option key={c} value={c}>{c === "all" ? "Todas as categorias" : c}</option>)}</select>
-        <div className="hidden flex-wrap items-center gap-1.5 md:flex">
+        <div className="order-last flex w-full items-center gap-1.5 overflow-x-auto pb-1" role="group" aria-label="Categorias de serviços">
           {categories.map((c) => (
             <button
               key={c}
               onClick={() => setCategory(c)}
               aria-pressed={activeCategory === c}
-              className={`min-h-11 rounded-lg border px-3 py-1.5 text-[12px] font-medium transition-colors ${
+              className={`min-h-11 shrink-0 rounded-lg border px-3 py-1.5 text-[12px] font-medium transition-colors ${
                 activeCategory === c
                   ? "border-primary/40 bg-primary/10 text-foreground"
                   : "border-border bg-card text-muted-foreground hover:text-foreground"
@@ -149,6 +147,7 @@ export function ServicesCatalog({
           ))}
         </div>
 
+        <MobileListTools label="Mais opções">
         <div className="ml-auto flex items-center gap-2">
           <select
             value={sort}

@@ -130,6 +130,7 @@ export function ProfessionalForm({
           <Button variant="ghost" size="sm">Editar</Button>
         ) : (
           <Button
+            className="admin-directory-create" aria-label="Adicionar"
             disabled={!invitesEnabled}
             title={
               invitesEnabled
@@ -137,7 +138,7 @@ export function ProfessionalForm({
                 : "Convites por e-mail temporariamente indisponíveis"
             }
           >
-            <Plus className="h-4 w-4" /> Adicionar
+            <Plus className="h-5 w-5" /> <span className="hidden md:inline">Adicionar</span>
           </Button>
         ))}
       </DialogTrigger>

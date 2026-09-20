@@ -1,6 +1,7 @@
 "use client";
 
 import { FormSection } from "../form-section";
+import { FormWizard } from "../form-wizard";
 import { useState, useTransition } from "react";
 import { DEFAULT_PRICE_NOTE, PRICE_AGREEMENT_NOTE, servicePriceLabel } from "@/lib/service-price";
 import { Plus } from "lucide-react";
@@ -9,10 +10,8 @@ import { Input } from "@/components/ui/input";
 import { ImageUpload } from "@/components/ui/image-upload";
 import {
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -98,21 +97,21 @@ export function ServiceForm({ service, trigger }: Props) {
         {trigger ?? (editing ? (
           <Button variant="ghost" size="sm">Editar</Button>
         ) : (
-          <Button>
-            <Plus className="h-4 w-4" /> Novo serviço
+          <Button className="admin-directory-create" aria-label="Novo serviço">
+            <Plus className="h-5 w-5" /> <span className="hidden md:inline">Novo serviço</span>
           </Button>
         ))}
       </DialogTrigger>
-      <DialogContent className="admin-form-dialog max-h-[85dvh] overflow-y-auto">
+      <DialogContent className="admin-form-dialog admin-guided-dialog">
         <DialogHeader>
           <DialogTitle>{editing ? "Editar serviço" : "Novo serviço"}</DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="sr-only">
             Custo é usado para calcular margem e lucro (não aparece para o cliente).
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={onSubmit} className="grid gap-4">
-
+        <FormWizard labels={["Principal", "Avançado"]} onSubmit={onSubmit} pending={pending} error={error} submitLabel={editing ? "Salvar serviço" : "Cadastrar serviço"}>
+          <div>
           <div>
             <label className="mb-1 block text-sm font-medium">Nome</label>
             <Input aria-label="Nome" name="name" defaultValue={service?.name} required autoFocus />
@@ -165,6 +164,8 @@ export function ServiceForm({ service, trigger }: Props) {
               <p className="mt-2 text-xs text-muted-foreground">{PRICE_AGREEMENT_NOTE}</p>
             </div>
           </>}
+          </div>
+          <div>
           <div>
             <label className="mb-1 block text-sm font-medium">Cor</label>
             <Input aria-label="Cor" name="colorHex" type="color" defaultValue={service?.colorHex ?? "#2ECC8B"} className="h-10 w-20 cursor-pointer p-1" />
@@ -176,25 +177,14 @@ export function ServiceForm({ service, trigger }: Props) {
             </p>
             <ImageUpload value={imageUrl} onChange={setImageUrl} folder="services" aspectRatio="landscape" />
           </div></FormSection>
-          <FormSection title="Etapas, variantes e recursos" description="Configuração avançada do atendimento" defaultOpen={editing}>          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <label className="text-sm">Grupo de variantes<Input name="variantGroup" defaultValue={service?.variantGroup ?? ""} placeholder="Ex.: Coloração" maxLength={100} /></label>
             <label className="text-sm">Variação<Input name="variantLabel" defaultValue={service?.variantLabel ?? ""} placeholder="Ex.: Cabelo longo" maxLength={100} /></label>
           </div>
           <fieldset className="space-y-3 rounded-xl border border-border p-3"><legend className="px-1 text-sm font-medium">Etapas do atendimento</legend><p className="text-xs text-muted-foreground">A duração total inclui execução, processamento e finalização. O profissional e o recurso ficam reservados durante todo o atendimento.</p><label className="block text-sm">Processamento (min)<Input name="processingMin" type="number" min={0} max={599} defaultValue={service?.processingMin ?? 0} /></label><label className="block text-sm">Finalização (min)<Input name="finishingMin" type="number" min={0} max={599} defaultValue={service?.finishingMin ?? 0} /></label></fieldset>
           <label className="block text-sm">Sala ou equipamento necessário<select name="physicalResourceId" value={resourceId} onChange={e => setResourceId(e.target.value)} className="mt-1 min-h-11 w-full rounded-lg border border-border bg-background px-3"><option value="">Nenhum</option>{resourceId && !resources.some(r => r.id === resourceId) && <option value={resourceId}>Recurso atual (carregando…)</option>}{resources.map(r => <option key={r.id} value={r.id} disabled={!r.active}>{r.name}{r.active ? "" : " (inativo)"}</option>)}</select></label>
-</FormSection>
-          {error && (
-            <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>
-          )}
-          <DialogFooter data-form-footer>
-            <DialogClose asChild>
-              <Button variant="outline" type="button">Cancelar</Button>
-            </DialogClose>
-            <Button type="submit" disabled={pending}>
-              {pending ? "Salvando…" : editing ? "Salvar" : "Criar"}
-            </Button>
-          </DialogFooter>
-        </form>
+          </div>
+        </FormWizard>
       </DialogContent>
     </Dialog>
   );

@@ -91,7 +91,7 @@ export default async function ProfissionaisPage() {
   const periodLabel = `${formatInTimeZone(perf.period.from, timezone, "d", { locale: ptBR })}–${formatInTimeZone(periodEnd, timezone, "d", { locale: ptBR })} de ${monthLabel}`;
 
   return (
-    <div className="min-w-0 space-y-3 md:space-y-6">
+    <div className="admin-directory-page flex min-w-0 flex-col gap-3 pb-20 md:gap-6 md:pb-0">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="mb-1 hidden md:block text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
@@ -106,7 +106,7 @@ export default async function ProfissionaisPage() {
 
       {/* Overview da equipe */}
       {!isProfessional && (
-        <section className={`hidden md:grid grid-cols-2 gap-3 ${canSeeFinancial ? "lg:grid-cols-4" : "lg:grid-cols-2"}`}>
+        <details className="order-last rounded-xl border border-border p-3"><summary className="min-h-11 cursor-pointer py-3 text-sm">Indicadores da equipe · {periodLabel}</summary><section className={`grid grid-cols-2 gap-3 pt-3 ${canSeeFinancial ? "lg:grid-cols-4" : "lg:grid-cols-2"}`}>
           <Overview icon={Users} accent="#3B9EFF" label="Equipe ativa" value={perf.team.activeCount.toString()} />
           {canSeeFinancial && (
             <Overview icon={CircleDollarSign} accent="#2ECC8B" label="Receita do período" value={formatMoney(perf.team.revenue)} />
@@ -115,7 +115,7 @@ export default async function ProfissionaisPage() {
           {canSeeFinancial && (
             <Overview icon={Receipt} accent="#F59E0B" label="Ticket médio" value={formatMoney(perf.team.avgTicket)} />
           )}
-        </section>
+        </section></details>
       )}
 
 
@@ -127,8 +127,8 @@ export default async function ProfissionaisPage() {
             : "Sem profissionais cadastrados. Adicione o primeiro no botão acima."}
         </div>
       ) : (
-        <ProfessionalList entries={perf.pros.map((p) => ({ id: p.id, name: p.name, content: (
-            <div key={p.id} className={`card-interactive min-w-0 rounded-2xl border border-border bg-card p-3 md:p-5 ${!p.active ? "opacity-60" : ""}`}>
+        <ProfessionalList entries={perf.pros.map((p) => ({ id: p.id, name: p.name, subtitle: p.bio || `${p.serviceCount} serviços`, active: p.active, avatarUrl: p.avatarUrl, colorHex: p.colorHex, content: (
+            <div key={p.id} className={`min-w-0 ${!p.active ? "opacity-60" : ""}`}>
               {/* Cabeçalho */}
               <div className="flex items-start gap-3">
                 <div className="relative shrink-0">

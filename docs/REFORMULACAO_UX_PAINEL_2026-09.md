@@ -35,7 +35,7 @@ As alterações preexistentes no checkout original foram preservadas.
 - Clientes: busca e formulário padronizados; informações complementares agrupadas.
 - Serviços: dados principais antes de imagens/variantes/recursos, todos os campos
   originais continuam no formulário. Valores variáveis permanecem identificados.
-- Produtos: nome, preço e estoque priorizados; foto e fornecedor sob demanda.
+- Produtos: lista compacta com nome, preço e estoque; controles completos de movimentação e edição nos detalhes expansíveis. Foto e fornecedor sob demanda no cadastro; ícone neutro quando não há imagem.
 - Profissionais: busca com contagem, cadastro com perfil e dados de trabalho.
 - Financeiro: posição do período antes da operação de recebimentos; valores e
   consultas inalterados. Relatórios: indicadores antes de oportunidades e grids
@@ -56,7 +56,7 @@ restaura a origem. Não há edição ou cancelamento coletivo de visita novo.
 ## Validação e limites
 
 Os resultados específicos do commit final e CI serão registrados no PR.
-A suíte local passou com 208 arquivos / 1.113 testes, incluindo preservação do
+A suíte local passou com 209 arquivos / 1.115 testes, incluindo preservação do
 rascunho, seleção do 13º profissional, horários simultâneos, confirmação pela cotação do servidor, idempotência, exceções e campos recolhidos.
 Lint, TypeScript e build aprovados; ajustes posteriores de CSS exigem conferência
 responsiva correspondente. A matriz visual local usa 320, 390, 768 e 1280 px.
@@ -79,4 +79,18 @@ atalho flutuante de cadastro no celular e detalhes em Resumo/Histórico/Preferê
 Clientes excluídos permanecem uma condição de visibilidade da lista, sem serem
 renomeados como contas inativas ou perderem acesso. Recuperação/importação seguem
 em Mais opções, com as mesmas permissões e ações existentes.
+## Ajuste explícito à estrutura da referência
 
+Após a revisão do responsável, Clientes, Serviços, Produtos e Profissionais
+passam diretamente do título para busca/filtros/lista, sem KPIs superiores em
+nenhuma largura. Indicadores existentes ficam recolhidos abaixo da lista.
+Cadastro pelo botão flutuante no celular; categorias de serviços sempre visíveis.
+Profissionais abre o perfil a partir da linha, preservando edição, convites,
+comissão, jornada e ativação. Produtos usa linhas com estoque e detalhes expansíveis.
+
+Cliente usa Essencial → Complementar; Produto usa Básico → Venda → Estoque.
+Serviço usa Principal → Avançado: o contrato atual não vincula profissionais na
+criação; esse vínculo permanece no cadastro do profissional. Não foram inventados
+filtros de cliente ativo/inativo, que não existem no contrato atual. Campos e
+validações existentes permanecem. FormWizard mantém os campos montados, valida
+cada etapa e somente grava no fim; dois testes cobrem retenção e envio completo.

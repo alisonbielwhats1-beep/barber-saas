@@ -18,9 +18,10 @@ test.describe("@database recursos e cuidados privados", () => {
       await page.getByRole("button", { name: "Novo serviço", exact: true }).click();
       const dialog = page.getByRole("dialog"); await dialog.getByLabel("Nome", { exact: true }).fill(`Tratamento CI ${suffix}`);
       await dialog.getByLabel("Duração (min)", { exact: true }).fill("60"); await dialog.getByLabel("Preço (R$)", { exact: true }).fill("90");
+      await dialog.getByRole("button", { name: "Continuar", exact: true }).click();
       await dialog.getByLabel("Processamento (min)").fill("20"); await dialog.getByLabel("Finalização (min)").fill("10");
       await dialog.getByLabel("Sala ou equipamento necessário").selectOption({ label: resourceName });
-      await dialog.getByRole("button", { name: "Criar", exact: true }).click(); await expect(dialog).not.toBeVisible();
+      await dialog.getByRole("button", { name: "Cadastrar serviço", exact: true }).click(); await expect(dialog).not.toBeVisible();
       const salon = await db.salon.findUniqueOrThrow({ where: { slug: "luna-hair" } });
       const service = await db.service.findFirstOrThrow({ where: { salonId: salon.id, name: `Tratamento CI ${suffix}` } });
       expect(service).toMatchObject({ processingMin: 20, finishingMin: 10 }); expect(service.physicalResourceId).toBeTruthy();
