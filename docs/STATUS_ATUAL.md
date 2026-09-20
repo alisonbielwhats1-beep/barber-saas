@@ -10,6 +10,10 @@ saudável e versão `cb111ad9b87e`. Sem migrations ou testes de escrita produtiv
 A correção posterior em `codex/agenda-month-mobile` restaura o botão Mês junto
 de Dia/Semana/Lista no celular, reutilizando a visualização mensal existente.
 Esse ajuste ainda não está publicado; não modifica grade, regras ou backend.
+O mesmo PR #113 torna “Adicionar outro profissional” acessível no início da
+etapa Serviços, mesmo sem serviço selecionado, preservando o fluxo de visita,
+o contexto e a revisão obrigatória. Testes cobrem especialidades diferentes
+e a preservação de uma seleção anterior; nenhuma API ou regra foi alterada.
 
 ## 2026-09-20 — correções confirmadas de UX, candidata não implantada
 
