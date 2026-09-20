@@ -1,5 +1,13 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-20 — revisão visual do PR #111, ainda não implantada
+
+Após comparação com a referência, a candidata reduz filtros e cabeçalhos,
+reorganiza Financeiro/Relatórios e perfis de cliente/profissional. Fotos de
+profissionais usam o cadastro existente; não há fotos fictícias nem alteração
+de backend. Evidências e limites em `REFORMULACAO_UX_PAINEL_2026-09.md`.
+Esta revisão não foi promovida a Production.
+
 ## 2026-09-19 — reformulação do painel em desenvolvimento
 
 O responsável ampliou o pedido da Agenda para todas as abas do painel de

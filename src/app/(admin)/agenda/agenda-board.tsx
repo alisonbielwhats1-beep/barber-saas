@@ -7,7 +7,6 @@ import Link from "next/link";
 import {
   ChevronLeft,
   ChevronRight,
-  ChevronDown,
   CalendarDays,
   CalendarRange,
   Grid3x3,
@@ -16,6 +15,7 @@ import {
   Users,
   SlidersHorizontal,
   Loader2,
+  Bell,
   AlertTriangle,
   Ban,
 } from "lucide-react";
@@ -48,7 +48,7 @@ import { AvailabilityPanel, type AvailabilityBlock, type AvailabilityPreset, typ
 import { AvailabilityBlockDialog, AvailabilityBlockTrigger } from "./availability-block";
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 import { DateNavigator } from "./date-navigator";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { unavailableScheduleIntervals, type VisualWorkingHours } from "./schedule-visibility";
 import { AgendaQuickActions } from "./agenda-quick-actions";
 import { WeeklyPausePanel } from "./weekly-pause-panel";
@@ -164,6 +164,7 @@ export function AgendaBoard({
   colorScope,
   operations,
   initialAppointmentId,
+  initialClientId,
   availabilityBlocks = [],
   date,
   salonName,
@@ -181,6 +182,7 @@ export function AgendaBoard({
 }: {
   colorScope: string;
   initialAppointmentId?: string;
+  initialClientId?: string;
   availabilityBlocks?: AvailabilityBlock[];
   operations?: ReactNode;
   date: string;
@@ -224,7 +226,7 @@ export function AgendaBoard({
   const [search, setSearch] = useState("");
   const [detail, setDetail] = useState<Appointment | null>(() => appointments.find(a => a.id === initialAppointmentId) ?? null);
   const currentDetail = detail ? appointments.find(appointment => appointment.id === detail.id) ?? detail : null;
-  const [createAt, setCreateAt] = useState<{ startLocal: string; proId: string } | null>(null);
+  const [createAt, setCreateAt] = useState<{ startLocal: string; proId: string; clientId?: string } | null>(() => canCreate && initialClientId && clients.some(client => client.id === initialClientId) && roster.length ? {startLocal:`${date}T08:00`,proId:roster[0].id,clientId:initialClientId} : null);
   const [moveProposal, setMoveProposal] = useState<{
     appointment: Appointment;
     professionalId: string;
@@ -367,8 +369,8 @@ export function AgendaBoard({
         <div className="flex min-w-0 items-center gap-2 sm:hidden">
           <button type="button" onClick={() => goDate(-1)} aria-label={`Ir para ${navigationUnit} anterior`} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg hover:bg-muted"><ChevronLeft aria-hidden="true" size={16} /></button>
           <h1><button ref={compactCalendarTrigger} type="button" aria-label="Abrir calendário" aria-haspopup="dialog" onClick={() => setMobileCalendarOpen(true)} className="min-h-11 min-w-11 rounded-lg text-sm font-semibold">
-            <span className="block whitespace-nowrap">{format(dateObj, view === "month" || view === "list" ? "MMM yy" : "d MMM", { locale: ptBR })}</span>
-            <span className="block text-[10px] font-normal text-muted-foreground">{format(dateObj, "EEE", { locale: ptBR })}</span>
+            <span className="block whitespace-nowrap">{format(dateObj, "MMMM yyyy", { locale: ptBR })}</span>
+
           </button></h1>
           <button type="button" onClick={() => goDate(1)} aria-label={`Ir para próximo ${navigationUnit}`} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg hover:bg-muted"><ChevronRight aria-hidden="true" size={16} /></button>
         </div>
@@ -412,12 +414,18 @@ export function AgendaBoard({
 
         <div className="agenda-view-controls">
           <AgendaMobileGuide scope={colorScope} canCreate={canCreate} autoStart={!initialAppointmentId} />
-          <select aria-label="Visualização da agenda" value={view} onChange={event => setView(event.target.value as ViewKind)} className="h-11 w-20 min-w-0 rounded-lg border border-border bg-card px-2 text-xs sm:hidden">
-            <option value="day">Dia</option>
-            <option value="week">Semana</option>
-            <option value="month">Mês</option>
-            <option value="list">Lista</option>
-          </select>
+          {(awaitingAcceptance > 0 || cancelledWithQueue > 0) && <Dialog><DialogTrigger asChild><button type="button" aria-label="Avisos do período" className="relative grid h-11 w-11 shrink-0 place-items-center rounded-full"><Bell size={17} aria-hidden /><span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-warning" /></button></DialogTrigger><DialogContent aria-describedby={undefined}><DialogHeader><DialogTitle>Avisos do período</DialogTitle></DialogHeader><div className="space-y-3 text-sm">          <p className="font-medium">{noticesPeriod} · independente dos filtros</p>
+          <p>
+            {awaitingAcceptance > 0 && `${awaitingAcceptance} alteração(ões) aguardando aceite do cliente.`}
+            {awaitingAcceptance > 0 && cancelledWithQueue > 0 && " "}
+            {cancelledWithQueue > 0 && `${cancelledWithQueue} fila(s) têm horário liberado para promoção manual.`}
+          </p>
+          {awaitingAcceptance > 0 && (
+            <Link href="/notificacoes" className="inline-flex min-h-11 items-center font-semibold underline underline-offset-2">
+              Ver central de avisos
+            </Link>
+          )}
+</div></DialogContent></Dialog>}
           <button ref={filterTrigger} type="button" onClick={() => setFiltersOpen(true)} aria-label="Buscar e filtrar agenda" aria-describedby={activeFilterCount > 0 ? "agenda-active-filters" : undefined} aria-haspopup="dialog" className="relative grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-border"><SlidersHorizontal size={18} aria-hidden="true" />{activeFilterCount > 0 && <span aria-hidden="true" className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">{activeFilterCount}</span>}</button>
           <div role="group" aria-label="Visualização da agenda" className="hidden items-center gap-0.5 rounded-lg border border-border bg-surface-1 p-1 sm:flex">
             <ViewBtn active={view === "day"} onClick={() => setView("day")} icon={CalendarDays} label="Dia" />
@@ -441,6 +449,9 @@ export function AgendaBoard({
       </header>
 
       {view === "day" && <AgendaWeekStrip date={date} today={today} onSelect={goToDay} />}
+      <div role="group" aria-label="Visualização da agenda" className="agenda-mobile-views flex gap-2 sm:hidden">
+        {([['day','Dia'],['week','Semana'],['list','Lista']] as const).map(([kind,label]) => <button key={kind} type="button" aria-pressed={view === kind} onClick={() => setView(kind)} className="min-h-11 flex-1 rounded-full text-xs font-medium">{label}</button>)}
+      </div>
 
       {activeFilterCount > 0 && (
         <div className="flex shrink-0 items-center gap-2 rounded-lg bg-surface-1 px-3 text-xs">
@@ -463,6 +474,7 @@ export function AgendaBoard({
       <div className="space-y-4">
         <div className="space-y-3 sm:hidden">
           <AgendaColorSelect value={colorMode} onChange={setColorMode} />
+          <button type="button" aria-pressed={view === "month"} onClick={() => {setView("month"); setFiltersOpen(false);}} className="min-h-11 rounded-lg border border-border px-3 text-sm">Visualização mensal</button>
           <button type="button" aria-pressed={fullDay} onClick={() => setFullDay(value => !value)} className="min-h-11 w-full rounded-lg border border-border px-3 text-left text-sm">{fullDay ? "Horários habituais" : "Mostrar dia inteiro"}</button>
         </div>
         <div className="flex min-h-11 items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 max-sm:w-full">
@@ -520,30 +532,8 @@ export function AgendaBoard({
         <p className="rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger">{actionError}</p>
       )}
 
-      {(awaitingAcceptance > 0 || cancelledWithQueue > 0) && (
-        <details className="group shrink-0 rounded-lg border border-amber-500/30 bg-warning/10 text-[12px] text-warning">
-          <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
-            <AlertTriangle size={16} aria-hidden="true" className="shrink-0" />
-            <span className="min-w-0 flex-1">Avisos do período · {awaitingAcceptance} aguardando aceite · {cancelledWithQueue} fila(s)</span>
-            <ChevronDown size={16} aria-hidden="true" className="shrink-0 transition-transform group-open:rotate-180" />
-          </summary>
-          <div className="max-h-40 space-y-2 overflow-y-auto border-t border-amber-500/20 px-3 py-2">
-          <p className="font-medium">{noticesPeriod} · independente dos filtros</p>
-          <p>
-            {awaitingAcceptance > 0 && `${awaitingAcceptance} alteração(ões) aguardando aceite do cliente.`}
-            {awaitingAcceptance > 0 && cancelledWithQueue > 0 && " "}
-            {cancelledWithQueue > 0 && `${cancelledWithQueue} fila(s) têm horário liberado para promoção manual.`}
-          </p>
-          {awaitingAcceptance > 0 && (
-            <Link href="/notificacoes" className="inline-flex min-h-11 items-center font-semibold underline underline-offset-2">
-              Ver central de avisos
-            </Link>
-          )}
-          </div>
-        </details>
-      )}
 
-      {view === "day" && shownPros.length > 2 && <p className="text-xs text-muted-foreground">{shownPros.length} profissionais · role a grade para os lados para ver a equipe.</p>}
+      {view === "day" && shownPros.length > 2 && <p className="sr-only">{shownPros.length} profissionais · role a grade para os lados para ver a equipe.</p>}
       <div className="agenda-canvas">
       {professionals.length === 0 ? (
         <div className="rounded-2xl border border-border bg-card p-16 text-center text-sm text-muted-foreground">
@@ -612,6 +602,7 @@ export function AgendaBoard({
 
       {createAt && (
         <AppointmentDialog
+          initialClient={clients.find(client => client.id === createAt.clientId)}
           open={!!createAt}
           onOpenChange={(o) => {
             if (!o) {

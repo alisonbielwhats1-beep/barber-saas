@@ -9,7 +9,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Search, MessageCircle, Crown, Cake, Clock, Star, Scissors, User, ChevronRight,
+  Search, Phone, MessageCircle, Crown, Cake, Clock, Star, Scissors, User, ChevronRight,
   CircleDollarSign, Repeat, Layers, Loader2, ShieldCheck, HeartPulse, FileUp, Gift, X, GitMerge, AlertTriangle,
 } from "lucide-react";
 import { formatMoney } from "@/lib/utils";
@@ -63,6 +63,7 @@ export function ClientsCrm({
   showExcluded = false,
   lapsedClientDays,
   initialSegment = "all",
+  additionalTools,
 }: {
   clients: ClientRow[];
   salonName: string;
@@ -72,6 +73,7 @@ export function ClientsCrm({
   showExcluded?: boolean;
   lapsedClientDays: number;
   initialSegment?: ClientSegment;
+  additionalTools?: React.ReactNode;
 }) {
   const router = useRouter();
   const [visibilityTarget, setVisibilityTarget] = useState<ClientRow | null>(null);
@@ -171,16 +173,21 @@ export function ClientsCrm({
       <div className="admin-catalog-tools flex flex-wrap items-center gap-2">
         <div className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 md:flex-none">
           <Search className="h-3.5 w-3.5 text-muted-foreground" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Buscar cliente ou telefone" placeholder="Buscar cliente ou telefone…" className="w-full min-w-0 md:w-48 bg-transparent text-[13px] placeholder:text-muted-foreground focus:outline-none" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Buscar cliente ou telefone" placeholder="Buscar clientes…" className="w-full min-w-0 md:w-48 bg-transparent text-[13px] placeholder:text-muted-foreground focus:outline-none" />
         </div>
-        <div className="order-3 flex w-full gap-2 overflow-x-auto pb-1" role="group" aria-label="Filtros de clientes">
-          <Seg active={segment === "all"} onClick={() => setSegment("all")}>Todos ({clients.length})</Seg>
+        <div className="order-3 flex w-full gap-2 overflow-x-auto" role="group" aria-label="Filtros de clientes">
+          <Seg active={segment === "all"} onClick={() => setSegment("all")}>Todos</Seg>
+          {segment !== "all" && <Seg active onClick={() => setSegment("all")}>{({vip:"VIP",birthday:"Aniversariantes",lapsed:"Sumidos",recurring:"Recorrentes"})[segment]} ×</Seg>}
+        </div>
+        <MobileListTools label="Filtros de clientes">
+        <div className="flex w-full flex-wrap gap-2">
+          <Seg active={segment === "all"} onClick={() => setSegment("all")}>Todos</Seg>
           <Seg active={segment === "vip"} onClick={() => setSegment("vip")}>VIP ({counts.vip})</Seg>
           <Seg active={segment === "birthday"} onClick={() => setSegment("birthday")}>Aniversariantes ({counts.birthday})</Seg>
           <Seg active={segment === "lapsed"} onClick={() => setSegment("lapsed")}>Sumidos {lapsedClientDays}d+ ({counts.lapsed})</Seg>
           <Seg active={segment === "recurring"} onClick={() => setSegment("recurring")}>Recorrentes ({counts.recurring})</Seg>
         </div>
-        <MobileListTools label="Mais opções">
+        {additionalTools}
         {canDelete && <Link href={showExcluded ? "/clientes" : "/clientes?status=excluded"} className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-sm">{showExcluded ? "Ver clientes ativos" : "Ver clientes excluídos"}</Link>}
         {canManage && <button onClick={() => setImportOpen((open) => !open)} className="ml-auto inline-flex min-h-11 items-center gap-1.5 rounded-full border border-border bg-card px-3 text-[12px] font-medium text-muted-foreground"><FileUp className="h-3.5 w-3.5" /> Importar planilha</button>}
         </MobileListTools>
@@ -189,13 +196,13 @@ export function ClientsCrm({
       {showExcluded && <p className="text-xs text-muted-foreground">Clientes excluídos da lista. O acesso e o histórico continuam preservados.</p>}
       {importOpen && <div className="rounded-2xl border border-primary/25 bg-primary/5 p-4"><div className="mb-3 flex items-start justify-between"><div><p className="text-[13px] font-semibold">Importar clientes por CSV</p><p className="text-[11px] text-muted-foreground">Colunas aceitas: nome, telefone, email e aniversario. Duplicados são ignorados.</p></div><button onClick={() => setImportOpen(false)} aria-label="Fechar importação"><X className="h-4 w-4 text-muted-foreground" /></button></div><input type="file" accept=".csv,text/csv" onChange={(event) => { const file = event.target.files?.[0]; if (file) void file.text().then(setCsv); }} className="mb-3 block w-full text-[11px] text-muted-foreground file:mr-3 file:rounded-lg file:border-0 file:bg-card file:px-3 file:py-2 file:text-[11px] file:font-medium" /><textarea value={csv} onChange={(event) => setCsv(event.target.value)} rows={4} placeholder={'nome,telefone,email,aniversario\nAna,11999990000,ana@email.com,1990-08-20'} className="w-full rounded-xl border border-border bg-background px-3 py-2 text-[12px] outline-none" /><button onClick={importCsv} disabled={pending || !csv.trim()} className="mt-3 inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-[12px] font-semibold text-primary-foreground disabled:opacity-50">{pending && <Loader2 className="h-4 w-4 animate-spin" />} Importar clientes</button></div>}
 
-      <div aria-label="Lista de clientes" className="overflow-hidden rounded-2xl border border-border bg-card">
+      <div aria-label="Lista de clientes" className="overflow-hidden">
         {shown.length === 0 ? (
           <div className="p-12 text-center text-[13px] text-muted-foreground">Nenhum cliente neste filtro.</div>
         ) : (
           shown.map((c) => (
-            <div key={c.id} className="flex items-center gap-3 border-b border-border px-4 py-3 last:border-0 hover:bg-card-hover">
-              <button onClick={() => openDetail(c)} className="flex min-h-14 min-w-0 flex-1 items-center gap-3 text-left">
+            <div key={c.id} className="flex items-center gap-3 border-b border-border/50 px-0 py-2 last:border-0 hover:bg-card-hover">
+              <button onClick={() => openDetail(c)} className="flex min-h-12 min-w-0 flex-1 items-center gap-3 text-left">
                 <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-[12px] font-semibold text-black/80" style={{ background: c.loyaltyColor }}>
                   {c.name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase()}
                 </span>
@@ -268,18 +275,20 @@ export function ClientsCrm({
                     <p className="text-[12px] text-muted-foreground">
                       {detail.phone ?? detail.email ?? "sem contato"}
                     </p>
-                    <AccountBadge registered={detail.accountStatus === "registered"} />
+                    <p className="mt-1 text-xs text-muted-foreground">Cliente desde {formatInTimeZone(new Date(detail.createdAt),timezone,"MMM yyyy",{locale:ptBR})} · {detail.visits} atendimentos</p><AccountBadge registered={detail.accountStatus === "registered"} />
                   </div>
                 </div>
               </DialogHeader>
 
-              <div className="flex flex-wrap items-center gap-2">
-                {canDelete && <button type="button" className="min-h-11 rounded-lg border border-border px-3 text-sm" onClick={() => { setVisibilityTarget(detail); setDetail(null); }}>{showExcluded ? "Restaurar à lista" : "Excluir da lista"}</button>}
+              <div className="client-profile-actions flex flex-wrap items-center justify-center gap-2">
+                {detail.phone && <a href={`tel:${detail.phone}`} className="flex min-h-11 items-center gap-2 rounded-full border border-border px-3 text-sm"><Phone className="h-4 w-4" />Ligar</a>}
+
                 {detail.phone && (
                   <a href={waLink(detail.phone, detail.name.split(" ")[0], salonName)} target="_blank" rel="noopener noreferrer" className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#25D366]/15 px-3 py-2 text-[13px] font-medium text-[#25D366] transition hover:bg-[#25D366]/25">
                     <MessageCircle className="h-4 w-4" /> WhatsApp
                   </a>
                 )}
+                {canManage && !showExcluded && <Link href={`/agenda?client=${encodeURIComponent(detail.id)}`} className="flex min-h-11 items-center rounded-full border border-border px-3 text-sm">Novo ag.</Link>}
                 {canManage && (
                   <ClientForm
                     client={{
@@ -299,6 +308,10 @@ export function ClientsCrm({
               </div>
 
               <Tabs defaultValue="summary"><TabsList className="grid w-full grid-cols-3"><TabsTrigger value="summary">Resumo</TabsTrigger><TabsTrigger value="history">Histórico</TabsTrigger><TabsTrigger value="preferences">Preferências</TabsTrigger></TabsList><TabsContent value="summary" className="space-y-4">
+              <section className="rounded-lg bg-surface-1 p-4"><h3 className="text-xs text-muted-foreground">Próximo agendamento</h3><p className="mt-2 text-sm font-semibold">{detail.nextAppointmentAt ? formatInTimeZone(new Date(detail.nextAppointmentAt), timezone, "EEE, d MMM · HH:mm", {locale:ptBR}) : "Nenhum agendamento futuro"}</p></section>
+              <section><h3 className="mb-2 text-sm font-semibold">Últimos atendimentos</h3>{loadingHist ? <p className="text-xs text-muted-foreground">Carregando…</p> : history?.length ? history.slice(0,3).map(item=><div key={item.id} className="flex items-center justify-between gap-3 border-b border-border/50 py-3 text-xs"><span>{formatInTimeZone(new Date(item.startAt),timezone,"dd/MM/yyyy")}</span><span className="min-w-0 flex-1 truncate">{item.serviceName}</span><span>{formatMoney(item.priceCents)}</span></div>) : <p className="text-xs text-muted-foreground">Sem atendimentos registrados.</p>}</section>
+              <details className="admin-detail-section"><summary>Informações e fidelidade</summary><div className="space-y-4 pt-3">
+
               <div className="grid grid-cols-2 gap-2">
                 <DStat icon={CircleDollarSign} label="LTV total" value={formatMoney(detail.totalSpent)} />
                 <DStat icon={Star} label="Ticket médio" value={formatMoney(detail.avgTicket)} />
@@ -322,7 +335,7 @@ export function ClientsCrm({
                     <p className="text-[10px] uppercase text-muted-foreground">Cadastro aberto</p>
                     <p className="break-words text-xs font-semibold">{detail.name}</p>
                     <p className="break-all text-xs text-muted-foreground">{detail.email ?? "Sem e-mail"}</p>
-                    <AccountBadge registered={detail.accountStatus === "registered"} />
+                    <p className="mt-1 text-xs text-muted-foreground">Cliente desde {formatInTimeZone(new Date(detail.createdAt),timezone,"MMM yyyy",{locale:ptBR})} · {detail.visits} atendimentos</p><AccountBadge registered={detail.accountStatus === "registered"} />
                   </div>
                   <p className="mt-2 text-xs text-muted-foreground">Se apenas um cadastro tem conta criada, prefira mantê-lo para conservar o mesmo acesso.</p>
                   <div className="mt-3 space-y-2">
@@ -383,7 +396,7 @@ export function ClientsCrm({
                 <div className="mt-2 flex items-center justify-between gap-2"><p className="text-[10px] text-muted-foreground">Cada atendimento concluído vale 1 ponto.</p>{canManage && <button onClick={() => redeem(detail)} disabled={pending || !detail.canRedeemLoyaltyReward} className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg bg-primary/10 px-2.5 text-[10px] font-semibold text-primary disabled:opacity-40"><Gift className="h-3.5 w-3.5" /> Resgatar recompensa</button>}</div>
               </div>
 
-              </TabsContent><TabsContent value="preferences" className="space-y-4">
+              </div></details></TabsContent><TabsContent value="preferences" className="space-y-4">                {canDelete && <button type="button" className="min-h-11 rounded-lg border border-border px-3 text-sm" onClick={() => { setVisibilityTarget(detail); setDetail(null); }}>{showExcluded ? "Restaurar à lista" : "Excluir da lista"}</button>}
               {!detail.allergies && !detail.preferences && !detail.consentGiven && !detail.notes && <p className="py-4 text-sm text-muted-foreground">Nenhuma preferência registrada. Use Editar para complementar o cadastro.</p>}
               {(detail.allergies || detail.preferences || detail.consentGiven) && (
                 <div className="space-y-2 rounded-xl border border-border bg-card px-3 py-3 text-[12px]">

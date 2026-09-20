@@ -94,3 +94,35 @@ criação; esse vínculo permanece no cadastro do profissional. Não foram inven
 filtros de cliente ativo/inativo, que não existem no contrato atual. Campos e
 validações existentes permanecem. FormWizard mantém os campos montados, valida
 cada etapa e somente grava no fim; dois testes cobrem retenção e envio completo.
+
+
+## Revisão de estrutura — 20/09/2026
+
+A revisão remove a faixa de marca/plano das páginas internas no mobile; marca fica
+em Hoje e plano/tema ficam acessíveis em Mais. Agenda mostra mês, semana de datas
+e Dia/Semana/Lista. Avisos passam para um ícone com painel, sem faixa ocupando a
+grade. Visualização mensal, cores e dia inteiro continuam acessíveis nos filtros.
+
+Clientes remove o contêiner de card da lista. Segmentos VIP/aniversariantes/
+sumidos/recorrentes e indicadores/retornos ficam em Filtros, com seleção ativa
+visível ao retornar. Excluídos não são renomeados como inativos. Produtos mostra
+categorias reais; reposição/falta ficam no painel de filtros. Serviços e equipe
+usam linhas sem moldura externa. Equipe mantém busca e indicadores no painel.
+
+Financeiro prioriza Recebido/A receber, gráfico e distribuição dos pagamentos.
+Operações de recebimento, despesas e composição permanecem no detalhamento.
+Relatórios mostra faturamento/agendamentos/ticket/novos clientes e acessos aos
+relatórios específicos. Seleção usa os períodos realmente suportados pelas
+consultas atuais: não simula meses de calendário para resultados de 30 dias.
+
+Perfil profissional usa Resumo/Serviços/Agenda, foto real de avatarUrl e edição
+com o controle de imagem existente. Não insere retratos fictícios nem altera o
+armazenamento. Cadastro de foto de cliente continua fora do escopo. Cliente
+prioriza próximo agendamento e histórico; informações/fidelidade permanecem no
+resumo expandido, exclusão/restauração em Preferências. Novo ag. abre a Agenda
+com um cliente visível do tenant pré-selecionado, ainda editável e sem escrita
+até confirmação. Cadastro em duas etapas conserva todos os campos existentes.
+
+Os testes de navegação acompanham os novos acessos. A impressão de relatórios
+expande o detalhamento e restaura o estado depois de imprimir. A revisão é
+frontend: não modifica domínio, APIs, Prisma, permissões ou dados produtivos.

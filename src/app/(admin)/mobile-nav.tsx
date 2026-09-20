@@ -94,6 +94,8 @@ export function MobileNav({
     return () => desktop.removeEventListener("change", closeOnDesktop);
   }, []);
 
+  useEffect(() => { openRef.current = false; setOpen(false); }, [pathname]);
+
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + "/");
 

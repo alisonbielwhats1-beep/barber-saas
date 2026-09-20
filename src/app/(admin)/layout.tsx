@@ -14,6 +14,7 @@ import { getPlanEntitlement } from "@/lib/plan-entitlements";
 import { billingEnabled } from "@/lib/billing/config";
 import { billingCapacityLabel } from "@/lib/billing/presentation";
 import { currentTerms } from "@/lib/billing/change-terms";
+import { ThemeToggle } from "./theme-toggle";
 import { PlanShortcut } from "./plan-shortcut";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -83,7 +84,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       </main>
 
       <MobileNav role={role} unreadNotifications={unreadNotifications} isPlatformAdmin={platformAdmin}
-        accountControls={<div className="space-y-4"><SalonSwitcher current={currentSalon} memberships={membershipList} /><SidebarFooter plan={planLabel} /></div>}
+        accountControls={<div className="space-y-4"><div className="flex items-center justify-between gap-3">{role === "OWNER" && <PlanShortcut compact plan={currentPlanLabel} href={billingEnabled() ? "/assinatura" : "/configuracoes#plano"} />}<ThemeToggle /></div><SalonSwitcher current={currentSalon} memberships={membershipList} /><SidebarFooter plan={planLabel} /></div>}
       />
       <CommandPalette role={role} />
       <Toaster />

@@ -48,7 +48,9 @@ export function AppointmentDialog({
   canOverrideBreak,
   canRepeat,
   timezone,
+  initialClient,
 }: {
+  initialClient?: ClientOption;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   slotStartLocal: string;
@@ -84,10 +86,10 @@ export function AppointmentDialog({
   const [selectedProId, setSelectedProId] = useState(professionalId);
   const [date, setDate] = useState(slotStartLocal.slice(0, 10));
   const [time, setTime] = useState(slotStartLocal.slice(11, 16));
-  const [clientId, setClientId] = useState("");
+  const [clientId, setClientId] = useState(initialClient?.id ?? "");
   const [clientQuery, setClientQuery] = useState("");
   const [clientResults, setClientResults] = useState<ClientOption[]>([]);
-  const [chosenClient, setChosenClient] = useState<ClientOption | null>(null);
+  const [chosenClient, setChosenClient] = useState<ClientOption | null>(initialClient ?? null);
   const [searchingClients, setSearchingClients] = useState(false);
   const [clientSearchError, setClientSearchError] = useState("");
   useEffect(() => {

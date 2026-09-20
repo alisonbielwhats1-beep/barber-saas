@@ -9,7 +9,6 @@ import { formatPeriodLabel } from "@/lib/time";
 import { formatMoney } from "@/lib/utils";
 import {
   Wallet,
-  TrendingDown,
   PiggyBank,
   Percent,
   Scissors,
@@ -72,7 +71,7 @@ export default async function FinanceiroPage({
   const received = m.byMethod.reduce((sum, item) => sum + item.value, 0);
 
   return (
-    <div className="space-y-6">
+    <div className="admin-summary-page space-y-6">
       <AutoRefresh intervalMs={120_000} />
       {/* Header */}
       <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -88,26 +87,26 @@ export default async function FinanceiroPage({
           </div>
           <h1 className="text-[26px] font-semibold tracking-tight">Financeiro</h1>
         </div>
-        <RangeFilter current={range} />
+        <RangeFilter current={range} compact />
       </header>
 
 
 
-      {/* Posição financeira: uma leitura curta antes do detalhamento. */}
-      <section aria-labelledby="finance-position-title" className="space-y-3">
-        <div>
-          <h2 id="finance-position-title" className="text-[15px] font-semibold">Posição do período</h2>
-          <p className="mt-1 text-[12px] text-muted-foreground">
-            Recebido considera a data do pagamento. A receber mostra atendimentos concluídos sem pagamento. Reservas futuras são uma previsão.
-          </p>
-        </div>
-        <div className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-2 xl:grid-cols-4">
-          <Hero featured accent="#2ECC8B" icon={Wallet} label="Recebido" value={formatMoney(received)} hint={`${formatMoney(m.revenue)} realizado · ${m.byMethod.length} formas`} />
-          <Hero accent="#3B9EFF" icon={ArrowDownCircle} label="A receber" value={formatMoney(m.receivable)} hint="Concluídos sem pagamento registrado" />
-          <Hero accent="#EF4444" icon={TrendingDown} label="Despesas" value={formatMoney(m.expenseTotal)} hint={`${formatMoney(m.expenseFixed)} fixas · ${formatMoney(m.expenseVar)} variáveis`} />
-          <Hero accent={m.netProfit >= 0 ? "#2ECC8B" : "#EF4444"} icon={PiggyBank} label="Resultado estimado" value={formatMoney(m.netProfit)} hint={`Margem líquida ${(m.margin * 100).toFixed(0)}%`} />
-        </div>
+      <section aria-label="Resumo financeiro" className="grid grid-cols-2 gap-3">
+        <Hero featured accent="#2ECC8B" icon={Wallet} label="Recebido" value={formatMoney(received)} />
+        <Hero accent="#3B9EFF" icon={ArrowDownCircle} label="A receber" value={formatMoney(m.receivable)} />
       </section>
+      <section aria-label="Fluxo de caixa do período" className="space-y-2">
+        <div className="h-44"><CashflowChart data={m.cashflow} /></div>
+        <div className="flex gap-4 text-xs text-muted-foreground"><Legend color="#2ECC8B" label="Entradas" /><Legend color="#EF4444" label="Saídas" /><Legend color="#3B9EFF" label="Saldo" /></div>
+      </section>
+      <section aria-labelledby="payment-methods-title" className="space-y-3">
+        <h2 id="payment-methods-title" className="text-sm font-semibold">Forma de pagamento</h2>
+        {m.byMethod.length === 0 ? <Empty title="Sem pagamentos registrados" /> : m.byMethod.map(method => <div key={method.method} className="flex items-center gap-3 text-sm"><span className="h-3 w-3 rounded" style={{background:method.color}} /><span className="flex-1">{method.label}</span><span>{received > 0 ? Math.round(method.value / received * 100) : 0}%</span></div>)}
+      </section>
+      <details className="admin-detail-section">
+        <summary>Recebimentos, despesas e detalhamento</summary>
+        <div className="space-y-6 pt-4">
 
       {(m.receivable > 0 || m.payable > 0) && (
         <section aria-labelledby="finance-pending-title" className="rounded-2xl border border-border bg-card p-4 sm:p-5">
@@ -248,6 +247,8 @@ export default async function FinanceiroPage({
       <section id="despesas" className="scroll-mt-24">
         <ExpenseManager expenses={expenseRows} timezone={timezone} />
       </section>
+        </div>
+      </details>
     </div>
   );
 }
@@ -261,14 +262,14 @@ function Hero({ accent, icon: Icon, label, value, hint, featured = false }: { ac
     : "bg-info/10 text-info";
 
   return (
-    <div className={`card-interactive rounded-2xl border bg-card p-5 ${featured ? "border-primary/30" : "border-border"}`}>
+    <div className={`min-w-0 rounded-lg border bg-card p-3 ${featured ? "border-primary/30" : "border-border"}`}>
       <div className="flex items-center justify-between">
         <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{label}</span>
-        <span className={`grid h-8 w-8 place-items-center rounded-lg ${iconTone}`}>
+        <span className={`hidden sm:grid h-8 w-8 place-items-center rounded-lg ${iconTone}`}>
           <Icon className="h-4 w-4" />
         </span>
       </div>
-      <p className="mt-3 text-[26px] font-semibold leading-none tracking-tight">{value}</p>
+      <p className="mt-2 text-[clamp(15px,4.4vw,24px)] font-semibold leading-tight tracking-tight tabular-nums break-words">{value}</p>
       {hint && <p className="mt-2 text-[11px] text-muted-foreground">{hint}</p>}
     </div>
   );

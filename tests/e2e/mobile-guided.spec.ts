@@ -1,3 +1,4 @@
+import { changeAdminTheme } from "./admin-presentation-helpers";
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { PrismaClient } from "@prisma/client";
@@ -152,7 +153,7 @@ test("@database mobile guiado: catálogo grande, tutorial, busca e horários exp
         .priceCents,
     ).toBe(12500);
     await page.getByLabel("Pesquisar serviços").fill("");
-    await page.getByRole("button", { name: "Mudar para tema claro" }).click();
+    await changeAdminTheme(page, "claro");
     await page.waitForTimeout(350);
     await audit("servicos-light-390");
     await page.goto(`/agenda?date=${date}`);
@@ -167,7 +168,7 @@ test("@database mobile guiado: catálogo grande, tutorial, busca e horários exp
       .click();
     await page.reload();
     await expect(page.getByRole("dialog")).toHaveCount(0);
-    await page.getByRole("button", { name: "Mudar para tema escuro" }).click();
+    await changeAdminTheme(page, "escuro");
     await page.getByRole("button", { name: "Como usar a agenda" }).click();
     await page.emulateMedia({ reducedMotion: "reduce" });
     expect(
@@ -181,9 +182,7 @@ test("@database mobile guiado: catálogo grande, tutorial, busca e horários exp
     for (const theme of ["dark", "light"] as const) {
       await page.setViewportSize({ width: 390, height: 844 });
       if (theme === "light") {
-        await page
-          .getByRole("button", { name: "Mudar para tema claro" })
-          .click();
+        await changeAdminTheme(page, "claro");
         await expect(page.locator("html")).toHaveAttribute(
           "data-theme",
           "admin-light",
@@ -194,6 +193,7 @@ test("@database mobile guiado: catálogo grande, tutorial, busca e horários exp
           width,
           height: width === 844 ? 390 : 844,
         });
+        if (width < 1024) await page.getByRole("button", {name:"Abrir todos os módulos"}).click();
         const shortcut = page.getByRole("link", {
           name: "Plano atual: Essencial. Alterar plano",
           exact: true,
@@ -202,7 +202,7 @@ test("@database mobile guiado: catálogo grande, tutorial, busca e horários exp
         await expect(shortcut).toHaveAttribute("href", "/configuracoes#plano");
         const bounds = await shortcut.boundingBox();
         expect(bounds!.height).toBeGreaterThanOrEqual(44);
-        expect(bounds!.y).toBeLessThan(80);
+        expect(bounds!.y).toBeLessThan(180);
         expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
         const mobileHeader = page.getByRole("region", {
           name: "Marca e aparência",
@@ -210,8 +210,8 @@ test("@database mobile guiado: catálogo grande, tutorial, busca e horários exp
         });
         if (width < 1024) {
           expect(bounds!.width).toBeLessThanOrEqual(128);
-          await expect(mobileHeader).toBeVisible();
-          await expect(mobileHeader.getByText("Alterar plano")).toBeVisible();
+          await expect(mobileHeader).toBeHidden();
+          await expect(page.getByRole("dialog").getByText("Alterar plano", {exact:true})).toBeVisible();
         } else {
           await expect(mobileHeader).toBeHidden();
         }
@@ -220,12 +220,14 @@ test("@database mobile guiado: catálogo grande, tutorial, busca e horários exp
           theme === "light" ? "rgb(34, 37, 42)" : "rgb(244, 244, 246)",
         );
         await audit(`planos-${theme}-${width}`);
+        if (width < 1024) await page.getByRole("dialog").getByRole("button", {name:"Fechar janela",exact:true}).click();
       }
     }
     expect(
       (await db.salon.findUniqueOrThrow({ where: { id: salon.id } })).plan,
     ).toBe("PRO");
     await page.setViewportSize({ width: 390, height: 844 });
+    await page.getByRole("button", {name:"Abrir todos os módulos"}).click();
     await page
       .getByRole("link", {
         name: "Plano atual: Essencial. Alterar plano",
@@ -237,7 +239,7 @@ test("@database mobile guiado: catálogo grande, tutorial, busca e horários exp
       page.getByRole("heading", { name: "Configurações", exact: true }),
     ).toBeVisible();
     await page.goto(`/agenda?date=${date}`);
-    await page.getByRole("button", { name: "Mudar para tema escuro" }).click();
+    await changeAdminTheme(page, "escuro");
     await page
       .getByRole("button", { name: "Abrir ações rápidas da agenda" })
       .click();

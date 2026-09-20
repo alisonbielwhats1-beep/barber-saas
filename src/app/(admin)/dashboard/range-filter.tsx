@@ -8,7 +8,7 @@ import { RANGE_LABELS, type RangeKey } from "@/lib/dashboard";
 
 const ORDER: RangeKey[] = ["today", "yesterday", "7d", "15d", "30d", "90d", "year"];
 
-export function RangeFilter({ current }: { current: RangeKey }) {
+export function RangeFilter({ current, compact = false }: { current: RangeKey; compact?: boolean }) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -19,6 +19,13 @@ export function RangeFilter({ current }: { current: RangeKey }) {
     sp.set("range", range);
     startTransition(() => router.push(`${pathname}?${sp}`, { scroll: false }));
   }
+
+  if (compact) return <div className="flex min-h-11 w-full items-center gap-2 rounded-lg bg-surface-1 px-3">
+    <select aria-label="Período" value={current} disabled={pending} onChange={event => select(event.target.value as RangeKey)} className="min-h-11 w-full bg-transparent text-center text-sm font-medium">
+      {ORDER.map(range => <option key={range} value={range}>{RANGE_LABELS[range]}</option>)}
+    </select>
+    {pending && <Loader2 className="h-4 w-4 animate-spin" aria-label="Atualizando período" />}
+  </div>;
 
   return (
     <div className="flex min-w-0 max-w-full items-center gap-2">

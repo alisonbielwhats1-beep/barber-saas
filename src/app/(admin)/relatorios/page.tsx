@@ -92,7 +92,7 @@ export default async function RelatoriosPage({
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="admin-summary-page space-y-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <div className="mb-1 flex items-center gap-2">
@@ -104,21 +104,30 @@ export default async function RelatoriosPage({
           <h1 className="text-[26px] font-semibold tracking-tight">Relatórios</h1>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <RangeFilter current={range} />
-          <ReportActions sections={sections} filename={`relatorio-${range}`} />
+          <RangeFilter current={range} compact />
+
         </div>
       </header>
 
 
       {/* Comparativo com período anterior */}
-      <section className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-2 xl:grid-cols-4">
-        <Compare label="Receita" value={formatMoney(m.revenue.value)} change={m.revenue.change} />
-        <Compare label="Atendimentos" value={m.appointments.value.toString()} change={m.appointments.change} />
+      <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <Compare label="Faturamento" value={formatMoney(m.revenue.value)} change={m.revenue.change} />
+        <Compare label="Agendamentos" value={m.appointments.value.toString()} change={m.appointments.change} />
         <Compare label="Ticket médio" value={formatMoney(m.avgTicket.value)} change={m.avgTicket.change} />
-        <Compare label="Lucro líquido" value={formatMoney(fin.netProfit)} />
+        <Compare label="Novos clientes" value={m.clients.new.toString()} />
       </section>
 
-      {(ctx.role === "OWNER" || ctx.role === "MANAGER") && <Opportunities />}
+      {/* Tabelas */}
+      <div className="grid gap-0 lg:grid-cols-2 lg:gap-4">
+        <Table title="Serviços mais vendidos" headers={["Serviço", "Qtd", "Receita"]}
+          rows={m.topServices.map((s) => [s.name, s.count.toString(), formatMoney(s.revenueCents)])}
+          empty="Sem dados no período" />
+        <Table title="Desempenho por profissional" headers={["Profissional", "Atend.", "Receita", "Comissão"]}
+          rows={m.proPerf.map((p) => [p.name, p.appointments.toString(), formatMoney(p.revenueCents), formatMoney(p.commissionCents)])}
+          empty="Sem atendimentos concluídos" />
+
+      </div>      <details className="admin-detail-section"><summary>Retenção de clientes</summary><div className="space-y-4 pt-4">      {(ctx.role === "OWNER" || ctx.role === "MANAGER") && <Opportunities />}
 
       {/* Resumo financeiro */}
       <section className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-2 sm:grid-cols-3 xl:grid-cols-6">
@@ -136,14 +145,6 @@ export default async function RelatoriosPage({
         <Mini label="Clientes inativos há 60+ dias" value={retention.lapsedClients.toString()} />
       </section>
 
-      {/* Tabelas */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Table title="Serviços mais vendidos" headers={["Serviço", "Qtd", "Receita"]}
-          rows={m.topServices.map((s) => [s.name, s.count.toString(), formatMoney(s.revenueCents)])}
-          empty="Sem dados no período" />
-        <Table title="Performance da equipe" headers={["Profissional", "Atend.", "Receita", "Comissão"]}
-          rows={m.proPerf.map((p) => [p.name, p.appointments.toString(), formatMoney(p.revenueCents), formatMoney(p.commissionCents)])}
-          empty="Sem atendimentos concluídos" />
         <Table title="Receita por forma de pagamento" headers={["Forma", "Valor"]}
           rows={fin.byMethod.map((x) => [x.label, formatMoney(x.value)])}
           empty="Sem pagamentos registrados" />
@@ -152,24 +153,25 @@ export default async function RelatoriosPage({
             ["Masculino", m.gender.male.count.toString(), formatMoney(m.gender.male.revenue)],
             ["Feminino", m.gender.female.count.toString(), formatMoney(m.gender.female.revenue)],
           ]}
-          empty="Sem dados" />
-      </div>
+          empty="Sem dados" /></div></details>
+      <details className="admin-detail-section"><summary>Exportar relatório</summary><div className="py-3"><ReportActions sections={sections} filename={`relatorio-${range}`} /></div></details>
+
     </div>
   );
 }
 
 function Compare({ label, value, change }: { label: string; value: string; change?: number | null }) {
   return (
-    <div className="rounded-2xl border border-border bg-card p-5">
+    <div className="min-w-0 rounded-lg bg-card p-3">
       <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className="mt-2 text-2xl font-semibold tracking-tight">{value}</p>
+      <p className="mt-2 break-words text-lg font-semibold tracking-tight">{value}</p>
       {change != null ? (
-        <span className={`mt-1.5 inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-semibold ${change >= 0 ? "bg-success/10 text-success" : "bg-danger/10 text-danger"}`}>
+        <span className={`mt-1.5 hidden sm:inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-semibold ${change >= 0 ? "bg-success/10 text-success" : "bg-danger/10 text-danger"}`}>
           {change >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
           {Math.abs(change * 100).toFixed(0)}% vs período anterior
         </span>
       ) : (
-        <span className="mt-1.5 block text-[11px] text-muted-foreground">no período</span>
+        <span className="mt-1.5 hidden sm:block text-[11px] text-muted-foreground">no período</span>
       )}
     </div>
   );
@@ -186,8 +188,8 @@ function Mini({ label, value }: { label: string; value: string }) {
 
 function Table({ title, headers, rows, empty }: { title: string; headers: string[]; rows: string[][]; empty: string }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-card">
-      <div className="border-b border-border px-5 py-3 text-[13px] font-semibold">{title}</div>
+    <details className="admin-detail-section">
+      <summary>{title}</summary>
       {rows.length === 0 ? (
         <p className="p-8 text-center text-[13px] text-muted-foreground">{empty}</p>
       ) : (
@@ -212,6 +214,6 @@ function Table({ title, headers, rows, empty }: { title: string; headers: string
           </table>
         </div>
       )}
-    </div>
+    </details>
   );
 }

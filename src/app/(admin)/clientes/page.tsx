@@ -66,9 +66,7 @@ export default async function ClientesPage({ searchParams }: { searchParams: Pro
         canDelete={role === "OWNER"}
         showExcluded={showExcluded}
         lapsedClientDays={marketingSettings.lapsedClientDays}
-        initialSegment={initialSegment}
-      />
-      <details className="rounded-xl border border-border p-3">
+        additionalTools={<div className="w-full space-y-3">      <details className="rounded-xl border border-border p-3">
         <summary className="min-h-11 cursor-pointer py-3 text-sm">Indicadores da base de clientes</summary>
         <section className="grid grid-cols-2 gap-3 pt-3 lg:grid-cols-4">
           <Kpi icon={Users} accent="#3B9EFF" label="Base de clientes" value={clients.length.toString()} hint={`${formatMoney(totalLtv)} em LTV`} />
@@ -77,7 +75,10 @@ export default async function ClientesPage({ searchParams }: { searchParams: Pro
           <Kpi icon={Clock} accent="#EF4444" label={`Sumidos (${marketingSettings.lapsedClientDays}d+)`} value={lapsed.toString()} />
         </section>
       </details>
-      {!showExcluded && ["OWNER", "MANAGER"].includes(role) && <ReturnOpportunities />}
+      {!showExcluded && ["OWNER", "MANAGER"].includes(role) && <ReturnOpportunities />}</div>}
+        initialSegment={initialSegment}
+      />
+
     </div>
   );
 }

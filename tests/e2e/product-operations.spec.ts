@@ -1,3 +1,4 @@
+import { changeAdminTheme } from "./admin-presentation-helpers";
 import { expect, test } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
 import { formatInTimeZone } from "date-fns-tz";
@@ -40,10 +41,10 @@ test.describe("@database operação diária e expediente", () => {
       expect((await db.appointment.findUniqueOrThrow({ where: { id: appointment.id } })).checkedInAt).not.toBeNull();
       await page.screenshot({ path: test.info().outputPath("hoje-chegada-desktop.png"), fullPage: true, animations: "disabled" });
       await card.screenshot({ path: test.info().outputPath("acoes-atendimento-dark.png"), animations: "disabled" });
-      await page.getByRole("button", { name: "Mudar para tema claro" }).click();
+      await changeAdminTheme(page, "claro");
       await expect(page.locator("html")).toHaveAttribute("data-theme", "admin-light");
       await card.screenshot({ path: test.info().outputPath("acoes-atendimento-light.png"), animations: "disabled" });
-      await page.getByRole("button", { name: "Mudar para tema escuro" }).click();
+      await changeAdminTheme(page, "escuro");
 
       await page.goto(`/agenda?date=${date}`);
       await page.getByRole("button", { name: "Abrir ações rápidas da agenda" }).click();
@@ -75,7 +76,7 @@ test.describe("@database operação diária e expediente", () => {
       expect(await db.timeOff.count({ where: { professionalId: professional.id, reason: `Reunião CI ${suffix}` } })).toBe(2);
       await blocking.getByRole("button", { name: "Concluir", exact: true }).click();
       await page.screenshot({ path: test.info().outputPath("agenda-desktop.png"), fullPage: true, animations: "disabled" });
-      await page.getByRole("button", { name: "Mudar para tema claro" }).click();
+      await changeAdminTheme(page, "claro");
       await expect(page.locator("html")).toHaveAttribute("data-theme", "admin-light");
       // Wait for inherited color transitions; changing the root attribute alone
       // can leave button text in its old theme during the screenshot.

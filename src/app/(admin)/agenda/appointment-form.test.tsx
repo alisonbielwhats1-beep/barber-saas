@@ -47,10 +47,11 @@ function confirmBooking() {
   if(review) fireEvent.click(review);
   fireEvent.click(screen.getByRole("button", {name:"Confirmar agendamento"}));
 }
-function mount(canRepeat = false, canOverbook = false, extraProfessionals = 0) {
+function mount(canRepeat = false, canOverbook = false, extraProfessionals = 0, prefill = false) {
   render(
     <AppointmentDialog
       open
+      initialClient={prefill ? {id:"client-a",name:"Cliente A",phone:null} : undefined}
       onOpenChange={mocks.onOpenChange}
       slotStartLocal="2030-09-11T13:30"
       professionalId="professional-a"
@@ -273,4 +274,14 @@ it("pesquisa e seleciona um profissional além dos dois primeiros", async () => 
   expect(screen.getByRole("checkbox",{name:/Corte/})).toBeChecked();
   confirmBooking();
   await waitFor(()=>expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({professionalId:"pro-11",serviceIds:["service-a"]})));
+});
+
+it("abre o cliente vindo do perfil sem gravar e permite trocar antes de confirmar", () => {
+  mount(false, false, 0, true);
+  expect(screen.getByRole("button", {name:/Cliente A/})).toHaveAttribute("aria-pressed", "true");
+  fireEvent.click(screen.getByRole("button", {name:/Cliente B/}));
+  fireEvent.click(screen.getByRole("button", {name:"Continuar"}));
+  fireEvent.click(screen.getByRole("button", {name:"Alterar cliente"}));
+  expect(screen.getByRole("button", {name:/Cliente B/})).toHaveAttribute("aria-pressed", "true");
+  expect(mocks.create).not.toHaveBeenCalled();
 });

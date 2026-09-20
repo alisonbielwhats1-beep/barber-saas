@@ -142,10 +142,10 @@ export function ProfessionalForm({
           </Button>
         ))}
       </DialogTrigger>
-      <DialogContent className="admin-form-dialog max-h-[90dvh] overflow-y-auto sm:max-w-3xl">
+      <DialogContent className="admin-form-dialog professional-edit-dialog max-h-[90dvh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>{editing ? "Editar profissional" : "Novo profissional"}</DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="sr-only">
             {editing
               ? "Ajuste dados, comissão e quais serviços esse profissional realiza."
               : "Se o email já existe, o profissional é vinculado sem duplicar conta."}

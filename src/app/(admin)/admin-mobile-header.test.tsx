@@ -6,6 +6,7 @@ import { AdminMobileHeader } from "./admin-mobile-header";
 vi.mock("./theme-toggle", () => ({
   ThemeToggle: () => <button>Mudar tema</button>,
 }));
+vi.mock("next/navigation", () => ({ usePathname: () => "/hoje" }));
 afterEach(cleanup);
 it("mostra Essencial e acesso à assinatura no topo do proprietário", () => {
   render(

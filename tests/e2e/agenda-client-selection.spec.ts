@@ -23,6 +23,7 @@ test("@database semana, minutos e seleção sem clientes mesclados ou excluídos
     await page.goto("/clientes");
     await page.getByLabel("Lista de clientes").locator("button").filter({ hasText: guest.name }).click();
     const detail = page.getByRole("dialog");
+    await detail.getByText("Informações e fidelidade", {exact:true}).click();
     await expect(detail.getByText("Conta criada · acesso ao aplicativo", { exact: true })).toBeVisible();
     await expect(detail.getByText("Sem conta criada", { exact: true }).first()).toBeVisible();
     await detail.screenshot({ path: test.info().outputPath("duplicatas-conta-sintetica.png") });
@@ -32,6 +33,7 @@ test("@database semana, minutos e seleção sem clientes mesclados ou excluídos
     await merge.getByRole("button", { name: "Confirmar mesclagem", exact: true }).click();
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await page.getByLabel("Lista de clientes").locator("button").filter({ hasText: hidden.name }).click();
+    await page.getByRole("tab", {name:"Preferências",exact:true}).click();
     await page.getByRole("button", { name: "Excluir da lista", exact: true }).click();
     await page.getByRole("button", { name: "Confirmar exclusão da lista" }).click();
     await expect(page.getByRole("dialog")).toHaveCount(0);

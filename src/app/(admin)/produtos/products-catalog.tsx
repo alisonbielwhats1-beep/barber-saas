@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { MobileListTools } from "@/components/mobile-list-tools";
 import { useRouter } from "next/navigation";
 import {
   Search,
@@ -63,6 +64,8 @@ export type StockMovement = { id: string; actorName: string; reason: string | nu
 
 export function ProductsCatalog({ products, movements, enabled = true, initialFilter = "all" }: { products: ProductCard[]; movements: StockMovement[]; enabled?: boolean; initialFilter?: Filter }) {
   const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("all");
+  const categories = Array.from(new Set(products.map(p => p.category).filter(Boolean))) as string[];
   const [filter, setFilter] = useState<Filter>(initialFilter);
 
   const restockCount = products.filter((p) => p.stock <= p.minStock).length;
@@ -70,12 +73,13 @@ export function ProductsCatalog({ products, movements, enabled = true, initialFi
   const shown = useMemo(() => {
     const q = search.trim().toLowerCase();
     return products.filter((p) => {
+      if (category !== "all" && p.category !== category) return false;
       if (filter === "restock" && p.stock > p.minStock) return false;
       if (filter === "out" && p.stock > 0) return false;
       if (q && !p.name.toLowerCase().includes(q) && !(p.brand ?? "").toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [products, search, filter]);
+  }, [products, search, filter, category]);
 
   return (
     <div className="space-y-4">
@@ -90,11 +94,16 @@ export function ProductsCatalog({ products, movements, enabled = true, initialFi
             className="w-44 bg-transparent text-[13px] placeholder:text-muted-foreground focus:outline-none"
           />
         </div>
-        <Chip active={filter === "all"} onClick={() => setFilter("all")}>Todos</Chip>
+        <MobileListTools label="Filtros de produtos">        <Chip active={filter === "all"} onClick={() => setFilter("all")}>Todos</Chip>
         <Chip active={filter === "restock"} onClick={() => setFilter("restock")} accent="#F59E0B">
           Repor {restockCount > 0 && `(${restockCount})`}
         </Chip>
-        <Chip active={filter === "out"} onClick={() => setFilter("out")} accent="#EF4444">Em falta</Chip>
+        <Chip active={filter === "out"} onClick={() => setFilter("out")} accent="#EF4444">Em falta</Chip></MobileListTools>
+        <div className="order-last flex w-full gap-2 overflow-x-auto" role="group" aria-label="Categorias de produtos">
+          <Chip active={category === "all"} onClick={() => setCategory("all")}>Todos</Chip>
+          {categories.map(c => <Chip key={c} active={category === c} onClick={() => setCategory(c)}>{c}</Chip>)}
+          {filter !== "all" && <Chip active onClick={() => setFilter("all")}>{filter === "out" ? "Em falta" : "Repor"} ×</Chip>}
+        </div>
       </div>
 
       {shown.length === 0 ? (
@@ -104,14 +113,14 @@ export function ProductsCatalog({ products, movements, enabled = true, initialFi
           <p className="mt-1 text-[12px] text-muted-foreground">Ajuste a busca ou limpe os filtros para ver o catálogo.</p>
           <button
             type="button"
-            onClick={() => { setSearch(""); setFilter("all"); }}
+            onClick={() => { setSearch(""); setFilter("all"); setCategory("all"); }}
             className="mt-4 min-h-11 rounded-lg border border-border px-4 text-[13px] font-medium transition hover:bg-card-hover"
           >
             Limpar filtros
           </button>
         </div>
       ) : (
-        <div aria-label="Lista de produtos" className="overflow-hidden rounded-2xl border border-border bg-card">
+        <div aria-label="Lista de produtos" className="overflow-hidden">
           {shown.map((p) => (
             <ProductCardView key={p.id} p={p} enabled={enabled} />
           ))}

@@ -193,7 +193,7 @@ export function ServicesCatalog({
           Nenhum serviço encontrado.
         </div>
       ) : (
-        <div aria-label="Lista de serviços" className="overflow-hidden rounded-2xl border border-border md:space-y-3 md:rounded-none md:border-0">
+        <div aria-label="Lista de serviços" className="overflow-hidden">
           {groups.map(({ cat, items }) =>
             view === "grid" ? (
               <CategoryGroupGrid
@@ -237,7 +237,7 @@ function CategoryGroupGrid({
   const categoryImage = normalizeImageUrl(items.find((item) => item.imageUrl)?.imageUrl) ?? bannerForCategory(cat);
 
   return (
-    <div className="overflow-hidden border-b border-border bg-card last:border-b-0 md:rounded-2xl md:border md:last:border-b">
+    <div className="overflow-hidden border-b border-border/50 last:border-b-0">
       {/* Banner discreto: identifica a categoria sem dominar a operação. */}
       <div className="relative hidden h-36 w-full overflow-hidden md:block">
         <ImageWithFallback
@@ -287,7 +287,7 @@ function CategoryGroupList({
   canSeeFinancial: boolean;
 }) {
   return (
-    <div className="overflow-hidden border-b border-border bg-card last:border-b-0 md:rounded-2xl md:border md:last:border-b">
+    <div className="overflow-hidden border-b border-border/50 last:border-b-0">
       {/* Cabeçalho de texto simples */}
       <div className="hidden border-b border-border bg-surface-1 px-4 py-2 md:block">
         <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
