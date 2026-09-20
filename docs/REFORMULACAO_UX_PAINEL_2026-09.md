@@ -56,8 +56,8 @@ restaura a origem. Não há edição ou cancelamento coletivo de visita novo.
 ## Validação e limites
 
 Os resultados específicos do commit final e CI serão registrados no PR.
-A suíte local passou com 207 arquivos / 1.110 testes, incluindo preservação do
-rascunho, seleção do 13º profissional, idempotência, exceções e campos recolhidos.
+A suíte local passou com 208 arquivos / 1.113 testes, incluindo preservação do
+rascunho, seleção do 13º profissional, horários simultâneos, confirmação pela cotação do servidor, idempotência, exceções e campos recolhidos.
 Lint, TypeScript e build aprovados; ajustes posteriores de CSS exigem conferência
 responsiva correspondente. A matriz visual local usa 320, 390, 768 e 1280 px.
 
@@ -79,3 +79,4 @@ atalho flutuante de cadastro no celular e detalhes em Resumo/Histórico/Preferê
 Clientes excluídos permanecem uma condição de visibilidade da lista, sem serem
 renomeados como contas inativas ou perderem acesso. Recuperação/importação seguem
 em Mais opções, com as mesmas permissões e ações existentes.
+
