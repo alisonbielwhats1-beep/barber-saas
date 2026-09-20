@@ -6,7 +6,7 @@ Branch `codex/supabase-password-recovery`: candidata para os dois aplicativos,
 com uma identidade por e-mail autorizada pelo responsável. Produção mantém
 NextAuth Credentials/bcrypt e sessões atuais; nenhum import/deploy/ativação
 produtiva foi realizado. Subdomínio `auth.everflair.com.br` cadastrado no Resend,
-com verificação DNS pendente. Configuração, impacto de migração e critérios de
+com DNS verificado (status Verified), sem alterar o site. Configuração, impacto de migração e critérios de
 ativação em `FASE_SUPABASE_AUTH_RECOVERY.md`. A instrução mais recente é
 preservar produção/clientes; não ativar silenciosamente a migração.
 

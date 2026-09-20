@@ -4,7 +4,7 @@ import { PrismaClient } from "@prisma/client";
 
 test.describe("Supabase Auth + local SMTP recovery", () => {
   test.skip(process.env.RUN_SUPABASE_E2E !== "1", "Requires isolated Supabase CLI and Mailpit");
-  test.describe.configure({ mode: "serial", timeout: 90_000 });
+  test.describe.configure({ mode: "serial", timeout: 90_000, retries: 0 });
   const db = new PrismaClient();
   const password = "InicialSegura123";
   let salonId: string;
@@ -75,13 +75,16 @@ test.describe("Supabase Auth + local SMTP recovery", () => {
       await page.getByLabel("Nova senha", { exact: true }).fill("somenteletras");
       await page.getByLabel("Confirmar nova senha", { exact: true }).fill("somenteletras");
       await page.getByRole("button", { name: "Atualizar senha" }).click();
-      await expect(page.getByRole("alert")).toContainText("número");
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-      await page.screenshot({ path: `test-results/${app}-recovery-form.png`, fullPage: true });
+      await expect(page.locator('p[role="alert"]')).toContainText("número");
+      for (const width of [390, 768, 1440]) {
+        await page.setViewportSize({ width, height: 900 });
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+        await page.screenshot({ path: `test-results/${app}-recovery-form-${width}.png`, fullPage: true });
+      }
       await page.getByLabel("Nova senha", { exact: true }).fill("NovaSegura123");
       await page.getByLabel("Confirmar nova senha", { exact: true }).fill("OutraSegura123");
       await page.getByRole("button", { name: "Atualizar senha" }).click();
-      await expect(page.getByRole("alert")).toContainText("As senhas não coincidem");
+      await expect(page.locator('p[role="alert"]')).toContainText("As senhas não coincidem");
       await page.getByLabel("Confirmar nova senha", { exact: true }).fill("NovaSegura123");
       await page.getByRole("button", { name: "Atualizar senha" }).click();
       await expect(page).toHaveURL(new RegExp(`${prefix}/login\\?senha=alterada$`));
@@ -102,9 +105,9 @@ test.describe("Supabase Auth + local SMTP recovery", () => {
       await page.getByLabel("Nova senha", { exact: true }).fill("TerceiraSegura123");
       await page.getByLabel("Confirmar nova senha", { exact: true }).fill("TerceiraSegura123");
       await page.getByRole("button", { name: "Atualizar senha" }).click();
-      await expect(page.getByRole("alert")).toContainText("inválido, expirou ou já foi utilizado");
+      await expect(page.locator('p[role="alert"]')).toContainText("inválido, expirou ou já foi utilizado");
       await page.goto(`${prefix}/redefinir-senha`);
-      await expect(page.getByRole("alert")).toContainText("inválido");
+      await expect(page.locator('p[role="alert"]')).toContainText("inválido");
       await expect(page.getByLabel("Nova senha", { exact: true })).toHaveCount(0);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       await page.screenshot({ path: `test-results/${app}-recovery-invalid.png`, fullPage: true });
@@ -118,6 +121,44 @@ test.describe("Supabase Auth + local SMTP recovery", () => {
     await page.getByLabel("Nova senha", { exact: true }).fill("ExpiradaSenha123");
     await page.getByLabel("Confirmar nova senha", { exact: true }).fill("ExpiradaSenha123");
     await page.getByRole("button", { name: "Atualizar senha" }).click();
-    await expect(page.getByRole("alert")).toContainText("inválido, expirou ou já foi utilizado");
+    await expect(page.locator('p[role="alert"]')).toContainText("inválido, expirou ou já foi utilizado");
+  });
+
+  test("unverified legacy identity proves email ownership through recovery and shares one password across apps", async ({ page }) => {
+    const email = `legacy-${Date.now()}@example.test`;
+    const created = await provider.auth.admin.createUser({ email, password, email_confirm: false });
+    if (created.error || !created.data.user) throw new Error("Synthetic legacy identity failed");
+    const id = created.data.user.id;
+    await db.authIdentity.create({ data: { id } });
+    await db.user.create({ data: { email, name: "Identidade compartilhada", authIdentityId: id } });
+    await db.clientProfile.create({ data: { salonId, email, name: "Mesmo e-mail", authIdentityId: id } });
+    const client = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_AUTH_PUBLISHABLE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
+    expect((await client.auth.signInWithPassword({ email, password })).error).toBeTruthy();
+    const sent = await client.auth.resetPasswordForEmail(email, { redirectTo: "http://127.0.0.1:3100/redefinir-senha" });
+    expect(sent.error).toBeNull();
+    await page.goto(await recoveryLink(email));
+    await page.getByLabel("Nova senha", { exact: true }).fill("Compartilhada123");
+    await page.getByLabel("Confirmar nova senha", { exact: true }).fill("Compartilhada123");
+    await page.getByRole("button", { name: "Atualizar senha" }).click();
+    await expect(page).toHaveURL(/\/login\?senha=alterada$/);
+    const signedIn = await client.auth.signInWithPassword({ email, password: "Compartilhada123" });
+    expect(signedIn.error).toBeNull();
+    expect(signedIn.data.user?.email_confirmed_at).toBeTruthy();
+    await page.goto(`/book/${slug}/login`);
+    await page.getByLabel(/E-?mail/i).fill(email);
+    await page.getByLabel("Senha", { exact: true }).fill("Compartilhada123");
+    await page.getByRole("button", { name: "Entrar", exact: true }).click();
+    await expect(page).not.toHaveURL(/\/login/);
+    expect((await db.authIdentity.findUniqueOrThrow({ where: { id } })).sessionVersion).toBe(1);
+  });
+
+  test("rate limit has the same feedback for an unknown email", async ({ page }) => {
+    await page.goto("/recuperar-senha");
+    for (let index = 0; index < 2; index++) {
+      await page.getByLabel("E-mail", { exact: true }).fill(`unknown-limit-${index}@example.test`);
+      await page.getByRole("button", { name: "Enviar link de recuperação" }).click();
+      if (index === 0) await expect(page.getByRole("status")).toContainText("Se existir uma conta associada");
+    }
+    await expect(page.locator('p[role="alert"]')).toContainText("Muitas solicitações");
   });
 });

@@ -69,7 +69,9 @@ projetos remotos disponíveis são produtivos; testes usam banco local/CI.
 
 Criado em 20/09/2026, por solicitação explícita: `auth.everflair.com.br`, região
 São Paulo. ID `fb07cf16-a2ad-46f8-a482-c9168a31a5ee`. Registros salvos no
-Registro.br e conferidos após reabrir a zona; Resend aguarda propagação DNS.
+Registro.br e conferidos após reabrir a zona. O DNS autoritativo publicou os
+registros e o painel Resend confirmou **Verified**. SMTP do Supabase ainda não
+foi alterado. O A principal e CNAME www permanecem com os mesmos valores.
 DNS autoritativo consultado: `e.sec.dns.br` / `f.sec.dns.br` (Registro.br).
 
 Adicionar somente estes registros na zona `everflair.com.br`, sem mudar A,

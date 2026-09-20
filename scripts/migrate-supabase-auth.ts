@@ -2,9 +2,7 @@
 import { createHash } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { PrismaClient, type Prisma } from "@prisma/client";
-import { withSalon } from "../src/lib/prisma-tenant";
 import { assertSafeDatabaseOperation } from "../src/lib/database-safety";
-import { prisma as tenantDb } from "../src/lib/prisma";
 
 const apply = process.argv.includes("--apply");
 const production = process.env.APP_ENV === "production";
@@ -37,6 +35,10 @@ if (production) {
 const db = new PrismaClient({ log: [] });
 type Source = { kind: "user" | "client"; id: string; salonId?: string; email: string; passwordHash: string; authIdentityId: string | null };
 async function main() {
+  // Reuse tenant helpers with this isolated, nonlogging client. Never log hash
+  // parameters through the development application's default query logger.
+  (globalThis as unknown as { prisma: PrismaClient }).prisma = db;
+  const { withSalon } = await import("../src/lib/prisma-tenant");
   const sources: Source[] = [];
   const users = await db.user.findMany({ select: { id: true, email: true, passwordHash: true, authIdentityId: true } });
   for (const user of users) if (user.passwordHash) sources.push({ ...user, passwordHash: user.passwordHash, kind: "user" });
@@ -98,4 +100,4 @@ async function main() {
   console.log("Identity import completed. Credentials/history preserved. Provider activation is a separate step.");
 }
 main().catch(() => { console.error("Identity import stopped. Review the approved target and migration state; no automatic rollback performed."); process.exitCode = 1; })
-  .finally(async () => { await db.$disconnect(); await tenantDb.$disconnect(); });
+  .finally(() => db.$disconnect());

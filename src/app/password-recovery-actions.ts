@@ -224,7 +224,7 @@ async function requestProviderReset(email: string, salonSlug?: string): Promise<
 }
 
 async function resetProviderPassword(input: { token: string; password: string; confirmPassword: string }, salonSlug?: string): Promise<ResetResult> {
-  const parsed = z.object({ token: z.string().max(64), password: newAuthPasswordSchema, confirmPassword: z.string().max(72) })
+  const parsed = z.object({ token: z.string().max(256), password: newAuthPasswordSchema, confirmPassword: z.string().max(72) })
     .refine(value => value.password === value.confirmPassword, { message: "As senhas não coincidem." }).safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
   if (salonSlug !== undefined && !salonSlugSchema.safeParse(salonSlug).success) return { ok: false, error: INVALID_LINK_MESSAGE };

@@ -102,7 +102,7 @@ export const authOptions: NextAuthOptions = {
           password,
           user?.passwordHash ?? DUMMY_ADMIN_PASSWORD_HASH,
         );
-        if (!user || !valid) return null;
+        if (!user?.passwordHash || !valid) return null;
         // Backfill seguro e gradual: uma senha só é marcada como configurada
         // depois que seu conhecimento foi comprovado por login bem-sucedido.
         if (user.passwordSetAt === null) {
