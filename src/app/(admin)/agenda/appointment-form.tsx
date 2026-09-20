@@ -109,8 +109,8 @@ export function AppointmentDialog({
     return () => { active = false; clearTimeout(timer); };
   }, [clientQuery]);
   const matchingClients = clientQuery.trim().length >= 2 ? clientResults : clients;
-  const clientOptions = chosenClient && !matchingClients.some(c => c.id === chosenClient.id)
-    ? [chosenClient, ...matchingClients] : matchingClients;
+  const clientOptions = chosenClient
+    ? [chosenClient, ...matchingClients.filter(client => client.id !== chosenClient.id)] : matchingClients;
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [loadingLast, setLoadingLast] = useState(false);
   const [lastMessage, setLastMessage] = useState<string | null>(null);

@@ -13,6 +13,7 @@ test("@database semana, minutos e seleção sem clientes mesclados ou excluídos
   const account = await db.clientProfile.create({ data: { salonId: salon.id, name: `AAA Conta ${suffix}`, email: `${suffix}@example.test`, phone, phoneNormalized: phone, passwordHash: "synthetic-account-hash" } });
   const guest = await db.clientProfile.create({ data: { salonId: salon.id, name: `AAA Manual ${suffix}`, phone, phoneNormalized: phone } });
   const hidden = await db.clientProfile.create({ data: { salonId: salon.id, name: `AAA Excluído ${suffix}` } });
+  const prefillIds = Array.from({length:301}, (_,i) => `prefill-${suffix}-${i}`);
   try {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/login");
@@ -37,6 +38,15 @@ test("@database semana, minutos e seleção sem clientes mesclados ou excluídos
     await page.getByRole("button", { name: "Excluir da lista", exact: true }).click();
     await page.getByRole("button", { name: "Confirmar exclusão da lista" }).click();
     await expect(page.getByRole("dialog")).toHaveCount(0);
+    await db.clientProfile.createMany({data:prefillIds.map((id,i)=>({id,salonId:salon.id,name:`000 Pré-seleção ${suffix} ${i}`}))});
+    await page.goto(`/agenda?date=2026-09-12&client=${account.id}`);
+    const prefill = page.getByRole("dialog", {name:"Novo agendamento",exact:true});
+    await expect(prefill.getByRole("button", {name:new RegExp(account.name)})).toHaveAttribute("aria-pressed","true");
+    await prefill.getByRole("button", {name:"Fechar janela",exact:true}).click();
+    await page.getByRole("button", {name:"Descartar",exact:true}).click();
+    await page.goto(`/agenda?date=2026-09-12&client=${hidden.id}`);
+    await expect(page.getByRole("dialog", {name:"Novo agendamento",exact:true})).toHaveCount(0);
+    await db.clientProfile.deleteMany({where:{salonId:salon.id,id:{in:prefillIds}}});
     await page.goto("/agenda?date=2026-09-12");
     await page.getByRole("button", { name: "Pular tutorial", exact: true }).click();
     const week = page.getByRole("navigation", { name: "Dias da semana da agenda" });
@@ -61,6 +71,7 @@ test("@database semana, minutos e seleção sem clientes mesclados ou excluídos
     expect(await db.clientProfile.findUnique({ where: { id: guest.id }, select: { mergedIntoId: true } })).toEqual({ mergedIntoId: account.id });
     expect(await db.clientProfile.findUnique({ where: { id: account.id }, select: { passwordHash: true } })).toEqual({ passwordHash: "synthetic-account-hash" });
   } finally {
+    await db.clientProfile.deleteMany({where:{salonId:salon.id,id:{in:prefillIds}}});
     await db.auditLog.deleteMany({ where: { salonId: salon.id, entityId: { in: [account.id, guest.id, hidden.id] } } });
     await db.clientProfile.delete({ where: { id: guest.id } });
     await db.clientProfile.deleteMany({ where: { salonId: salon.id, id: { in: [account.id, hidden.id] } } });

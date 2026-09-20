@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { getTenantContext } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
 import { AgendaBoard, type Appointment, type Professional } from "./agenda-board";
@@ -151,19 +152,29 @@ export default async function AgendaPage({
       orderBy: { name: "asc" },
     });
     const hiddenClients = await hiddenClientIds(tx, salonId);
-    const clients = await tx.clientProfile.findMany({
-      where: {
+    const visibleClientsWhere: Prisma.ClientProfileWhereInput = {
         salonId,
         mergedIntoId: null,
         id: { notIn: [...hiddenClients] },
         ...(role === "PROFESSIONAL"
           ? { appointments: { some: { professionalId: professionalId! } } }
           : {}),
-      },
+      };
+    const clients = await tx.clientProfile.findMany({
+      where: visibleClientsWhere,
       select: { id: true, name: true, phone: true },
       orderBy: { name: "asc" },
       take: 300,
     });
+    // Deep links can target a visible client outside the initial 300-row list.
+    // Reuse exactly the same tenant, role, merge and visibility restrictions.
+    if (typeof selectedClient === "string" && selectedClient && !clients.some(client => client.id === selectedClient)) {
+      const selected = await tx.clientProfile.findFirst({
+        where: { AND: [visibleClientsWhere, { id: selectedClient }] },
+        select: { id: true, name: true, phone: true },
+      });
+      if (selected) clients.unshift(selected);
+    }
     const blocks = await tx.timeOff.findMany({
       where: { professional: { salonId, ...(professionalId ? { id: professionalId } : {}) }, startAt: { lt: range.to }, endAt: { gt: range.from } },
       select: { id: true, professionalId: true, startAt: true, endAt: true, reason: true },
