@@ -173,3 +173,12 @@ de credenciais ou contorno de permissão foi realizada.
 - `src/app/(admin)/use-form-operation.ts`
 - `src/app/(admin)/ux-confirmed-fixes.test.tsx`
 - `src/components/notification-list.tsx`
+
+### Retomada da entrega remota
+
+Após autenticação explícita do responsável, a conta ativa passou a ser
+`alisonbielwhats1-beep` e o push de `codex/ux-confirmed-fixes` foi concluído.
+O erro 403 registrado acima está resolvido. A revisão é incremental sobre
+`codex/agenda-ux-mobile` (PR #111 ainda aberto), sem merge ou publicação em
+Production. CI e Preview devem ser conferidos no PR; os resultados locais
+registrados acima permanecem os da implementação validada.
