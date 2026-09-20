@@ -4,7 +4,7 @@ import { formatInTimeZone } from "date-fns-tz";
 import { assertSafeDatabaseOperation } from "../../src/lib/database-safety";
 test.describe("@database recursos e cuidados privados", () => {
   test.skip(!process.env.RUN_DATABASE_E2E, "Somente dados fictícios.");
-  test("cadastra recurso, serviço por etapas e anotação com foto privada", async ({ page }) => {
+  test("cadastra recurso, serviço com detalhes sob demanda e anotação com foto privada", async ({ page }) => {
     test.setTimeout(240_000);
     assertSafeDatabaseOperation(process.env, { operation: "product-depth-browser" });
     const db = new PrismaClient(); const suffix = crypto.randomUUID().slice(0, 8);
@@ -18,7 +18,8 @@ test.describe("@database recursos e cuidados privados", () => {
       await page.getByRole("button", { name: "Novo serviço", exact: true }).click();
       const dialog = page.getByRole("dialog"); await dialog.getByLabel("Nome", { exact: true }).fill(`Tratamento CI ${suffix}`);
       await dialog.getByLabel("Duração (min)", { exact: true }).fill("60"); await dialog.getByLabel("Preço (R$)", { exact: true }).fill("90");
-      await dialog.getByRole("button", { name: "Continuar", exact: true }).click();
+      await expect(dialog.getByRole("button", { name: "Continuar", exact: true })).toHaveCount(0);
+      await dialog.getByText("Configurações avançadas", { exact: true }).click();
       await dialog.getByLabel("Processamento (min)").fill("20"); await dialog.getByLabel("Finalização (min)").fill("10");
       await dialog.getByLabel("Sala ou equipamento necessário").selectOption({ label: resourceName });
       await dialog.getByRole("button", { name: "Cadastrar serviço", exact: true }).click(); await expect(dialog).not.toBeVisible();
