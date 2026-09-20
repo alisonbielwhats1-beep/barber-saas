@@ -91,8 +91,7 @@ export default async function FinanceiroPage({
         <RangeFilter current={range} />
       </header>
 
-      <ReceiptWorkspace history />
-      <RecentReceipts />
+
 
       {/* Posição financeira: uma leitura curta antes do detalhamento. */}
       <section aria-labelledby="finance-position-title" className="space-y-3">
@@ -102,7 +101,7 @@ export default async function FinanceiroPage({
             Recebido considera a data do pagamento. A receber mostra atendimentos concluídos sem pagamento. Reservas futuras são uma previsão.
           </p>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-2 xl:grid-cols-4">
           <Hero featured accent="#2ECC8B" icon={Wallet} label="Recebido" value={formatMoney(received)} hint={`${formatMoney(m.revenue)} realizado · ${m.byMethod.length} formas`} />
           <Hero accent="#3B9EFF" icon={ArrowDownCircle} label="A receber" value={formatMoney(m.receivable)} hint="Concluídos sem pagamento registrado" />
           <Hero accent="#EF4444" icon={TrendingDown} label="Despesas" value={formatMoney(m.expenseTotal)} hint={`${formatMoney(m.expenseFixed)} fixas · ${formatMoney(m.expenseVar)} variáveis`} />
@@ -143,6 +142,9 @@ export default async function FinanceiroPage({
           </div>
         </section>
       )}
+
+      <ReceiptWorkspace history />
+      <RecentReceipts />
 
       {/* Fluxo de caixa + DRE */}
       <section className="grid gap-4 lg:grid-cols-3">

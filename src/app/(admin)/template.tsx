@@ -3,5 +3,5 @@
  * (fade + slide sutil) tocar em toda troca de rota, não só na primeira carga.
  */
 export default function AdminTemplate({ children }: { children: React.ReactNode }) {
-  return <div className="animate-fade-in">{children}</div>;
+  return <div className="admin-page-layout animate-fade-in">{children}</div>;
 }

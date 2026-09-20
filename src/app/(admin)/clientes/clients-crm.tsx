@@ -171,7 +171,7 @@ export function ClientsCrm({
         <p className="text-sm text-muted-foreground">{showExcluded ? "Clientes excluídos da lista. O acesso e o histórico continuam preservados." : "Clientes da lista ativa."}</p>
         <Link href={showExcluded ? "/clientes" : "/clientes?status=excluded"} className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-sm">{showExcluded ? "Ver clientes ativos" : "Ver clientes excluídos"}</Link>
       </div>}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="admin-catalog-tools flex flex-wrap items-center gap-2">
         <div className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 md:flex-none">
           <Search className="h-3.5 w-3.5 text-muted-foreground" />
           <input value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Buscar cliente ou telefone" placeholder="Buscar cliente ou telefone…" className="w-full min-w-0 md:w-48 bg-transparent text-[13px] placeholder:text-muted-foreground focus:outline-none" />

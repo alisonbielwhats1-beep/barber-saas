@@ -242,20 +242,19 @@ test("@database mobile guiado: catálogo grande, tutorial, busca e horários exp
       .getByRole("button", { name: "Abrir ações rápidas da agenda" })
       .click();
     await page.getByRole("menuitem", { name: /Novo agendamento/ }).click();
-    await page
-      .getByRole("button", {
-        name: "Adicionar serviços com profissionais diferentes",
-      })
-      .click();
+    const simple = page.getByRole("dialog");
+    await simple.getByLabel("Pesquisar cliente").fill(client.name);
+    await simple.getByRole("button").filter({hasText:client.name}).click();
+    await simple.getByRole("button", {name:"Alterar data, horário e profissional"}).click();
+    await simple.getByLabel("Hora de início").fill("09:00");
+    await simple.getByRole("button", {name:"Aplicar",exact:true}).click();
+    await simple.getByRole("button", {name:"Continuar",exact:true}).click();
+    await simple.getByRole("checkbox").first().check();
+    await simple.getByRole("button", {name:"Adicionar outro profissional",exact:true}).click();
     const visit = page.getByRole("dialog", {
       name: "Uma visita, vários serviços",
       exact: true,
     });
-    await visit
-      .getByRole("combobox", { name: "Cliente", exact: true })
-      .selectOption(client.id);
-    await visit.getByLabel("Início", { exact: true }).fill("09:00");
-    await visit.getByRole("button", { name: "Escolher serviços" }).click();
     await visit.getByRole("button", { name: "Serviço 1", exact: true }).click();
     const picker = page.getByRole("dialog", { name: "Serviço 1", exact: true });
     await picker.getByRole("searchbox").fill("barba");

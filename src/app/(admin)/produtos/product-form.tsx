@@ -1,5 +1,6 @@
 "use client";
 
+import { FormSection } from "../form-section";
 import { useState, useTransition } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -78,68 +79,70 @@ export function ProductForm({ product, trigger }: { product?: Product; trigger?:
           <Button size="lg"><Plus className="h-4 w-4" /> Novo produto</Button>
         ))}
       </DialogTrigger>
-      <DialogContent className="max-h-[85dvh] overflow-y-auto">
+      <DialogContent className="admin-form-dialog max-h-[85dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{editing ? "Editar produto" : "Novo produto"}</DialogTitle>
           <DialogDescription>Custo, fornecedor e estoque mínimo alimentam margem e reposição.</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={onSubmit} className="grid gap-4">
-          <div>
-            <label className="mb-1 block text-sm font-medium">Foto do produto</label>
-            <ImageUpload value={imageUrl} onChange={setImageUrl} folder="products" aspectRatio="square" />
-          </div>
+
           <div>
             <label className="mb-1 block text-sm font-medium">Nome</label>
-            <Input name="name" defaultValue={product?.name} required autoFocus />
+            <Input aria-label="Nome" name="name" defaultValue={product?.name} required autoFocus />
           </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-sm font-medium">Marca</label>
-              <Input name="brand" defaultValue={product?.brand ?? ""} />
+              <Input aria-label="Marca" name="brand" defaultValue={product?.brand ?? ""} />
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium">Categoria</label>
-              <Input name="category" defaultValue={product?.category ?? ""} placeholder="Pomada, óleo…" />
+              <Input aria-label="Categoria" name="category" defaultValue={product?.category ?? ""} placeholder="Pomada, óleo…" />
             </div>
           </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-sm font-medium">Fornecedor</label>
-              <Input name="supplier" defaultValue={product?.supplier ?? ""} />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium">Código de barras</label>
-              <Input name="barcode" defaultValue={product?.barcode ?? ""} />
-            </div>
-          </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-sm font-medium">Preço venda (R$)</label>
-              <Input name="price" type="number" min={0} step="0.01" defaultValue={product ? (product.priceCents / 100).toFixed(2) : ""} required />
+              <Input aria-label="Preço venda (R$)" name="price" type="number" min={0} step="0.01" defaultValue={product ? (product.priceCents / 100).toFixed(2) : ""} required />
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium">Custo (R$)</label>
-              <Input name="cost" type="number" min={0} step="0.01" defaultValue={product ? (product.costCents / 100).toFixed(2) : "0.00"} />
+              <Input aria-label="Custo (R$)" name="cost" type="number" min={0} step="0.01" defaultValue={product ? (product.costCents / 100).toFixed(2) : "0.00"} />
             </div>
           </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
             <div>
               <label className="mb-1 block text-sm font-medium">Estoque</label>
-              <Input disabled={!!product} aria-describedby={product ? "stock-help" : undefined} name="stock" type="number" min={0} step={1} defaultValue={product?.stock ?? 10} required />
+              <Input aria-label="Estoque" disabled={!!product} aria-describedby={product ? "stock-help" : undefined} name="stock" type="number" min={0} step={1} defaultValue={product?.stock ?? 10} required />
               {product && <p id="stock-help" className="text-xs text-muted-foreground">Ajuste o saldo pela opção Movimentar estoque.</p>}
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium">Mínimo</label>
-              <Input name="minStock" type="number" min={0} step={1} defaultValue={product?.minStock ?? 4} />
+              <Input aria-label="Mínimo" name="minStock" type="number" min={0} step={1} defaultValue={product?.minStock ?? 4} />
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium">Validade</label>
-              <Input name="expiresAt" type="date" defaultValue={product?.expiresAt ? format(new Date(product.expiresAt), "yyyy-MM-dd") : ""} />
+              <Input aria-label="Validade" name="expiresAt" type="date" defaultValue={product?.expiresAt ? format(new Date(product.expiresAt), "yyyy-MM-dd") : ""} />
             </div>
           </div>
+          <FormSection title="Foto do produto" description="Opcional">          <div>
+            <label className="mb-1 block text-sm font-medium">Foto do produto</label>
+            <ImageUpload value={imageUrl} onChange={setImageUrl} folder="products" aspectRatio="square" />
+          </div></FormSection>
+          <FormSection title="Fornecedor e identificação" defaultOpen={editing}>          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-sm font-medium">Fornecedor</label>
+              <Input aria-label="Fornecedor" name="supplier" defaultValue={product?.supplier ?? ""} />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium">Código de barras</label>
+              <Input aria-label="Código de barras" name="barcode" defaultValue={product?.barcode ?? ""} />
+            </div>
+          </div></FormSection>
           {error && <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
-          <DialogFooter>
+          <DialogFooter data-form-footer>
             <DialogClose asChild><Button variant="outline" type="button">Cancelar</Button></DialogClose>
             <Button type="submit" disabled={pending}>{pending ? "Salvando…" : editing ? "Salvar" : "Criar"}</Button>
           </DialogFooter>

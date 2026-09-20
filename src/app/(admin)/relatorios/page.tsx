@@ -103,23 +103,25 @@ export default async function RelatoriosPage({
           </div>
           <h1 className="text-[26px] font-semibold tracking-tight">Relatórios</h1>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <RangeFilter current={range} />
           <ReportActions sections={sections} filename={`relatorio-${range}`} />
         </div>
       </header>
-      {(ctx.role === "OWNER" || ctx.role === "MANAGER") && <Opportunities />}
+
 
       {/* Comparativo com período anterior */}
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-2 xl:grid-cols-4">
         <Compare label="Receita" value={formatMoney(m.revenue.value)} change={m.revenue.change} />
         <Compare label="Atendimentos" value={m.appointments.value.toString()} change={m.appointments.change} />
         <Compare label="Ticket médio" value={formatMoney(m.avgTicket.value)} change={m.avgTicket.change} />
         <Compare label="Lucro líquido" value={formatMoney(fin.netProfit)} />
       </section>
 
+      {(ctx.role === "OWNER" || ctx.role === "MANAGER") && <Opportunities />}
+
       {/* Resumo financeiro */}
-      <section className="grid gap-3 sm:grid-cols-3 xl:grid-cols-6">
+      <section className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-2 sm:grid-cols-3 xl:grid-cols-6">
         <Mini label="Receita serviços" value={formatMoney(fin.serviceRevenue)} />
         <Mini label="Receita produtos" value={formatMoney(fin.productRevenue)} />
         <Mini label="Despesas" value={formatMoney(fin.expenseTotal)} />
@@ -128,7 +130,7 @@ export default async function RelatoriosPage({
         <Mini label="Tempo médio" value={formatDuration(m.avgDuration || 0)} />
       </section>
 
-      <section className="grid gap-3 sm:grid-cols-3">
+      <section className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-2 sm:grid-cols-3">
         <Mini label="Clientes que retornaram" value={`${retention.returningClientRatePct}%`} />
         <Mini label="Intervalo médio entre visitas" value={`${retention.averageDaysBetweenVisits} dias`} />
         <Mini label="Clientes inativos há 60+ dias" value={retention.lapsedClients.toString()} />

@@ -8,6 +8,8 @@ import {
 } from "@/components/ui/dialog";
 import { VisitSummary } from "@/components/visit-summary";
 import { SearchPicker } from "@/components/ui/search-picker";
+import { AppointmentSteps, ClientChoice } from "./appointment-flow-ui";
+import "./appointment-flow.css";
 import {
   displayMinutes,
   staffVisitTimes,
@@ -25,6 +27,10 @@ import type {
 } from "./appointment-form";
 const field =
   "min-h-11 w-full min-w-0 rounded-lg border border-border bg-background px-3 text-base";
+export type StaffVisitDraft = {
+  date: string; time: string; rows: StaffVisitRow[]; clientId: string;
+  newClient: boolean; name: string; phone: string; chosen: ClientOption | null;
+};
 export function StaffVisitDialog({
   open,
   onOpenChange,
@@ -34,30 +40,35 @@ export function StaffVisitDialog({
   clients,
   slotStartLocal,
   canOverride,
+  initialDraft,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onBack: () => void;
+  onBack: (draft: StaffVisitDraft) => void;
+  initialDraft?: StaffVisitDraft;
   professionals: ProOption[];
   services: ServiceOption[];
   clients: ClientOption[];
   slotStartLocal: string;
   canOverride: boolean;
 }) {
-  const [date, setDate] = useState(slotStartLocal.slice(0, 10)),
-    [time, setTime] = useState(slotStartLocal.slice(11, 16)),
-    [rows, setRows] = useState<StaffVisitRow[]>([
+  const [date, setDate] = useState(initialDraft?.date ?? slotStartLocal.slice(0, 10)),
+    [time, setTime] = useState(initialDraft?.time ?? slotStartLocal.slice(11, 16)),
+    [rows, setRows] = useState<StaffVisitRow[]>(initialDraft?.rows.length ? initialDraft.rows : [
       { serviceId: "", professionalId: "", time: "" },
     ]);
-  const [stage, setStage] = useState<"client" | "services">("client");
+  const [stage, setStage] = useState<"client" | "services">(initialDraft && (initialDraft.clientId || initialDraft.name) ? "services" : "client");
   const times = staffVisitTimes(rows, time, services);
-  const [clientId, setClientId] = useState(""),
-    [newClient, setNewClient] = useState(false),
-    [name, setName] = useState(""),
-    [phone, setPhone] = useState(""),
+  const [clientId, setClientId] = useState(initialDraft?.clientId ?? ""),
+    [newClient, setNewClient] = useState(initialDraft?.newClient ?? false),
+    [name, setName] = useState(initialDraft?.name ?? ""),
+    [phone, setPhone] = useState(initialDraft?.phone ?? ""),
     [query, setQuery] = useState(""),
     [results, setResults] = useState<ClientOption[]>(clients),
-    [chosen, setChosen] = useState<ClientOption | null>(null);
+    [chosen, setChosen] = useState<ClientOption | null>(initialDraft?.chosen ?? null);
+  const [searchingClients, setSearchingClients] = useState(false);
+  const [clientSearchError, setClientSearchError] = useState("");
+  const [discarding, setDiscarding] = useState(false);
   const [override, setOverride] = useState(false),
     [reason, setReason] = useState(""),
     [error, setError] = useState(""),
@@ -73,12 +84,15 @@ export function StaffVisitDialog({
   useEffect(() => {
     titleRef.current?.focus();
     if (bodyRef.current) bodyRef.current.scrollTop = 0;
-  }, [stage, quote]);
+  }, [stage, quote, discarding]);
   useEffect(() => {
     if (error) errorRef.current?.scrollIntoView?.({ block: "nearest" });
   }, [error]);
   useEffect(() => {
     let live = true;
+    setClientSearchError("");
+    setResults(query.trim().length < 2 ? clients : []);
+    setSearchingClients(query.trim().length >= 2);
     const timer = setTimeout(() => {
       if (query.trim().length < 2) {
         setResults(clients);
@@ -89,8 +103,8 @@ export function StaffVisitDialog({
           if (live) setResults(items);
         })
         .catch(() => {
-          if (live) setError("Não foi possível pesquisar clientes.");
-        });
+          if (live) setClientSearchError("Não foi possível pesquisar clientes. Tente novamente.");
+        }).finally(() => { if (live) setSearchingClients(false); });
     }, 250);
     return () => {
       live = false;
@@ -198,42 +212,36 @@ export function StaffVisitDialog({
     <Dialog
       open={open}
       onOpenChange={(value) => {
-        if (!pending) onOpenChange(value);
+        if (!pending) { if (!value) setDiscarding(true); else onOpenChange(value); }
       }}
     >
       <DialogContent
         mobileSheet
         aria-label="Uma visita, vários serviços"
         aria-describedby={undefined}
-        className="flex max-h-[90dvh] max-w-lg flex-col overflow-hidden p-4 pt-6 sm:p-6"
+        className={`appointment-flow-dialog ${discarding ? "appointment-discard-dialog" : ""}`}
       >
-        <DialogHeader className="shrink-0">
+        <DialogHeader className="appointment-flow-header">
           <DialogTitle
             ref={titleRef}
             tabIndex={-1}
             className="pr-10 outline-none"
           >
-            Uma visita, vários serviços
+            {discarding ? "Descartar agendamento?" : "Novo agendamento"}
           </DialogTitle>
-          <p className="pt-2 text-sm text-muted-foreground">
-            {quote
-              ? "3 de 3 · Conferir e confirmar"
-              : stage === "client"
-                ? "1 de 3 · Cliente e início"
-                : "2 de 3 · Organizar serviços"}
-          </p>
+          {!discarding && <AppointmentSteps step={quote ? 2 : stage === "client" ? 0 : 1} />}
         </DialogHeader>
         <div
           ref={bodyRef}
-          className="min-h-0 min-w-0 overflow-y-auto overscroll-contain px-1"
+          className="appointment-flow-body"
           role="region"
           aria-label="Dados da visita"
         >
-          <fieldset disabled={pending} className="min-w-0 space-y-4 pb-1">
+          <fieldset disabled={pending || discarding} hidden={discarding} className="min-w-0 space-y-4 pb-1">
             <button
               type="button"
               className="min-h-11 text-sm text-primary"
-              onClick={onBack}
+              onClick={() => onBack({ date, time, rows, clientId, newClient, name, phone, chosen })}
             >
               ← Agendamento simples ou recorrente
             </button>
@@ -279,37 +287,7 @@ export function StaffVisitDialog({
                       </>
                     ) : (
                       <>
-                        <label className="grid gap-1 text-sm">
-                          Pesquisar cliente
-                          <input
-                            className={field}
-                            value={query}
-                            onChange={(e) => setQuery(e.target.value)}
-                            placeholder="Nome ou telefone"
-                          />
-                        </label>
-                        <label className="grid gap-1 text-sm">
-                          Cliente
-                          <select
-                            className={field}
-                            value={clientId}
-                            onChange={(e) => {
-                              reset();
-                              setClientId(e.target.value);
-                              setChosen(
-                                options.find((c) => c.id === e.target.value) ??
-                                  null,
-                              );
-                            }}
-                          >
-                            <option value="">Selecione</option>
-                            {options.map((c) => (
-                              <option key={c.id} value={c.id}>
-                                {c.name}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
+                        <ClientChoice query={query} onQuery={setQuery} options={options} selected={clientId} searching={searchingClients} error={clientSearchError} onSelect={client => { reset(); setClientId(client.id); setChosen(client); }} />
                       </>
                     )}
                     <div className="grid grid-cols-2 gap-3">
@@ -369,13 +347,12 @@ export function StaffVisitDialog({
                       </span>
                     </button>
                     <p className="text-sm text-muted-foreground">
-                      Os horários seguem em sequência. Abra “Ajustar horário”
-                      para atender ao mesmo tempo ou escolher outro início.
+                      Serviços em sequência. Use “Ajustar horário” para mudar o início ou atender em paralelo.
                     </p>
                     {rows.map((row, i) => (
                       <div
                         key={i}
-                        className="min-w-0 space-y-3 rounded-2xl border border-border p-3"
+                        className="appointment-visit-card min-w-0 space-y-3 rounded-2xl border border-border p-3"
                       >
                         <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
                           <span>ATENDIMENTO {i + 1}</span>
@@ -439,7 +416,7 @@ export function StaffVisitDialog({
                                   : "",
                             })
                           }
-                          className="block min-h-11 text-left text-sm font-medium text-primary"
+                          className="block min-h-11 text-left text-xs font-medium text-primary"
                         >
                           {row.customTime
                             ? "Usar sequência automática"
@@ -495,7 +472,7 @@ export function StaffVisitDialog({
                       </button>
                     )}
                     {canOverride && (
-                      <>
+                      <details className="rounded-xl border border-border p-3"><summary className="min-h-11 cursor-pointer py-3 text-sm font-medium">Exceção de horário{override ? " · ativa" : ""}</summary>
                         <label className="flex min-h-11 items-center gap-2 text-sm">
                           <input
                             type="checkbox"
@@ -521,7 +498,7 @@ export function StaffVisitDialog({
                             />
                           </label>
                         )}
-                      </>
+                      </details>
                     )}
                   </>
                 )}
@@ -562,7 +539,8 @@ export function StaffVisitDialog({
             )}
           </fieldset>
         </div>
-        <div className="shrink-0 border-t border-border bg-card pt-3">
+        <div className="appointment-flow-footer">
+          {discarding ? <div className="space-y-3"><p className="text-sm">As escolhas não confirmadas serão descartadas.</p><div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => setDiscarding(false)} className={field}>Continuar editando</button><button type="button" onClick={() => onOpenChange(false)} className="min-h-12 rounded-xl bg-danger px-3 text-white">Descartar</button></div></div> :
           <button
             type="button"
             disabled={pending}
@@ -576,7 +554,7 @@ export function StaffVisitDialog({
                 : stage === "client"
                   ? "Escolher serviços"
                   : "Revisar visita"}
-          </button>
+          </button>}
         </div>
       </DialogContent>
     </Dialog>

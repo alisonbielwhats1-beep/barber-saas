@@ -40,6 +40,7 @@
 .agenda-grid [data-colorful-appointment] p { color: #111827; }
 .agenda-half-hour::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px dashed hsl(var(--border) / .6); pointer-events: none; }
 @media (max-width: 639px) {
+  .agenda-workspace { --agenda-column-min: clamp(112px, calc((100vw - 74px) / 2), 148px); }
   .agenda-toolbar { flex-wrap: nowrap; gap: 4px; }
   .agenda-view-controls { gap: 8px; }
   .agenda-date-controls { display: none; }

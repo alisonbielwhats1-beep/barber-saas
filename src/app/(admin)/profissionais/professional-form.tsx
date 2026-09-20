@@ -1,5 +1,6 @@
 "use client";
 
+import { FormSection } from "../form-section";
 import { useState, useTransition } from "react";
 import { CheckCircle2, MailWarning, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -140,7 +141,7 @@ export function ProfessionalForm({
           </Button>
         ))}
       </DialogTrigger>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-3xl">
+      <DialogContent className="admin-form-dialog max-h-[90dvh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>{editing ? "Editar profissional" : "Novo profissional"}</DialogTitle>
           <DialogDescription>
@@ -173,7 +174,7 @@ export function ProfessionalForm({
                   : "Confira a configuração do e-mail e use “Reenviar convite” no card pendente. Nenhum acesso foi ativado."}
               </p>
             </div>
-            <DialogFooter>
+            <DialogFooter data-form-footer>
               <DialogClose asChild>
                 <Button type="button" variant="outline">Concluir</Button>
               </DialogClose>
@@ -218,7 +219,7 @@ export function ProfessionalForm({
             </div>
           </section>
 
-          <section aria-labelledby="professional-work-data" className="grid gap-4">
+          <FormSection title="Trabalho no estabelecimento" description="Apresentação, comissão, agenda e serviços" defaultOpen>
             <div>
               <h3 id="professional-work-data" className="text-sm font-semibold">Trabalho no estabelecimento</h3>
               <p className="mt-1 text-xs text-muted-foreground">Defina apresentação, agenda, comissão e serviços.</p>
@@ -300,14 +301,14 @@ export function ProfessionalForm({
               </div>
             </div>
           </div>
-          </section>
+          </FormSection>
 
           {error && (
             <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
               {error}
             </p>
           )}
-          <DialogFooter>
+          <DialogFooter data-form-footer>
             <DialogClose asChild>
               <Button variant="outline" type="button">Cancelar</Button>
             </DialogClose>

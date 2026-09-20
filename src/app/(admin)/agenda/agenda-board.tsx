@@ -543,6 +543,7 @@ export function AgendaBoard({
         </details>
       )}
 
+      {view === "day" && shownPros.length > 2 && <p className="text-xs text-muted-foreground">{shownPros.length} profissionais · role a grade para os lados para ver a equipe.</p>}
       <div className="agenda-canvas">
       {professionals.length === 0 ? (
         <div className="rounded-2xl border border-border bg-card p-16 text-center text-sm text-muted-foreground">
@@ -650,6 +651,7 @@ export function AgendaBoard({
       <AppointmentDetail canOverrideSchedule={canOverrideBreak || canOverbook}
         key={detail?.id ?? "empty"}
         appt={currentDetail}
+        professionalName={professionals.find(pro => pro.id === currentDetail?.professionalId)?.name}
         services={services.filter(service => professionals.find(pro => pro.id === currentDetail?.professionalId)?.serviceIds.includes(service.id))}
         salonName={salonName}
         timezone={timezone}
@@ -813,7 +815,7 @@ function DayView({
 
   return (
     <div className="agenda-grid overflow-auto rounded-xl border border-border bg-card">
-      <div className="flex w-full" style={{ minWidth: 56 + professionals.length * 148 }} ref={bodyRef}>
+      <div className="flex w-full" style={{ minWidth: `calc(56px + ${professionals.length} * var(--agenda-column-min, 148px))` }} ref={bodyRef}>
         <div className="sticky left-0 z-20 w-14 shrink-0 border-r border-border bg-surface-1">
           <div style={{ height: HEADER_H }} className="border-b border-border" />
           <AgendaTimeScale start={dayStart} end={dayEnd} pixelsPerMinute={PX_PER_MIN} />
@@ -823,7 +825,7 @@ function DayView({
           const proAppts = appointments.filter((a) => a.professionalId === pro.id);
           const placements = appointmentPlacements(proAppts, timezone, blocks.filter(b => b.professionalId === pro.id), date);
           return (
-            <div key={pro.id} data-pro-col data-pro-id={pro.id} className="relative shrink-0 border-r border-border last:border-r-0" style={{ flex: 1, minWidth: Math.max(148, ...[...placements.values()].map(p => p.columns * 112)) }}>
+            <div key={pro.id} data-pro-col data-pro-id={pro.id} className="relative shrink-0 border-r border-border last:border-r-0" style={{ flex: 1, minWidth: `max(var(--agenda-column-min, 148px), ${Math.max(0, ...[...placements.values()].filter(p => p.columns > 1).map(p => p.columns * 112))}px)` }}>
               <div data-professional-color={pro.colorHex} style={{ height: HEADER_H, borderBottom: `3px solid ${pro.colorHex}` }} className="sticky top-0 z-10 flex flex-col items-center justify-center gap-1.5 bg-card px-3">
                 <span style={{ borderColor: pro.colorHex ?? undefined }} className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full border-2 bg-muted text-xs font-semibold text-foreground">
                   {pro.avatarUrl ? <ImageWithFallback src={pro.avatarUrl} alt="" width={44} height={44} sizes="44px" className="h-full w-full object-cover" fallback={<span>{initials(pro.name)}</span>} /> : initials(pro.name)}

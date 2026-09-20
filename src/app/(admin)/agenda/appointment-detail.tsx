@@ -1,4 +1,5 @@
 "use client";
+import "./appointment-flow.css";
 import { ServiceRepeater } from "@/components/service-repeater";
 
 import { useRef, useState } from "react";
@@ -158,6 +159,7 @@ type ViewMode = "detail" | "edit" | "comanda";
 export function AppointmentDetail({
   appt,
   salonName,
+  professionalName,
   timezone,
   canCreate,
   canCancel,
@@ -166,6 +168,7 @@ export function AppointmentDetail({
   onClose,
 }: {
   appt: Appointment | null;
+  professionalName?: string;
   salonName: string;
   timezone: string;
   canCreate: boolean;
@@ -187,6 +190,7 @@ export function AppointmentDetail({
   }
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<ViewMode>("detail");
+  const [editReview, setEditReview] = useState(false);
   const [cancelMode, setCancelMode] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [removeWaitlistId, setRemoveWaitlistId] = useState<string | null>(null);
@@ -267,6 +271,7 @@ export function AppointmentDetail({
   }
 
   function invalidateEdit() {
+    setEditReview(false);
     mutationKeys.current.delete("edit");
     setAfterHours(false);
     setAfterHoursReason("");
@@ -321,18 +326,18 @@ export function AppointmentDetail({
 
   return (
     <Dialog open={!!appt} onOpenChange={(o) => !o && !submitting.current && onClose()}>
-      <DialogContent onEscapeKeyDown={(event) => { if (submitting.current) event.preventDefault(); }} onPointerDownOutside={(event) => { if (submitting.current) event.preventDefault(); }} className="max-h-[calc(100dvh-1rem)] max-w-md gap-0 overflow-y-auto overscroll-contain p-0 pb-[env(safe-area-inset-bottom)]">
+      <DialogContent onEscapeKeyDown={(event) => { if (submitting.current) event.preventDefault(); }} onPointerDownOutside={(event) => { if (submitting.current) event.preventDefault(); }} className="appointment-detail-dialog max-h-[calc(100dvh-1rem)] max-w-md gap-0 overflow-y-auto overscroll-contain p-0 pb-[env(safe-area-inset-bottom)]">
         <div className="h-1.5 w-full" style={{ background: cfg.color }} />
 
         <div className="p-5">
-          <DialogHeader className="mb-4 flex-row items-center justify-between space-y-0">
+          <DialogHeader className="mb-4 pr-8 flex-row items-center justify-between space-y-0">
             <div className="flex items-center gap-2">
               {view !== "detail" && !savedMessage && (
                 <button
                   disabled={pending}
                   onClick={() => { setView("detail"); setError(null); }}
                   aria-label="Voltar aos detalhes do agendamento"
-                  className="text-muted-foreground hover:text-foreground"
+                  className="grid min-h-11 min-w-11 place-items-center text-muted-foreground hover:text-foreground"
                 >
                   <ArrowLeft className="h-4 w-4" />
                 </button>
@@ -467,10 +472,18 @@ export function AppointmentDetail({
                 <input id="edit-overbook-reason" maxLength={200} disabled={pending} value={overbookReason} onChange={event => { mutationKeys.current.delete("edit"); setOverbookReason(event.target.value); }} className="w-full rounded-lg border border-border bg-surface-1 p-2 text-sm" />
                 <button disabled={pending || overbookReason.trim().length < 3} onClick={() => saveEdit(false, true)} className="min-h-11 rounded-lg border border-border px-3 text-sm disabled:opacity-50">Confirmar encaixe</button>
               </div>}
+              {editReview && <section aria-label="Revisão das alterações" className="rounded-xl border border-border bg-surface-1 p-3 text-sm" hidden={!editReview}>
+                <h3 className="font-semibold">Confira antes de salvar</h3>
+                <p className="mt-2 text-muted-foreground">Antes: {formatInTimeZone(new Date(baseline.startAt), timezone, "dd/MM/yyyy · HH:mm")} · {baseline.serviceName} · {formatMoney(baseline.priceCents)}</p>
+                <p className="mt-2">Depois: {editDate.split("-").reverse().join("/")} · {editTime} — {editEndLabel}</p>
+                <p>{servicesChanged ? selectedCatalog.map(service => service?.name).join(" + ") : baseline.serviceName} · {formatMoney(previewPrice)}{servicesChanged ? " (estimativa)" : ""}</p>
+                {professionalName && <p>{professionalName}</p>}
+                {editNotes && <p className="mt-2 break-words">{editNotes}</p>}
+              </section>}
               <div className="flex gap-2 pt-1">
                 <button
                   disabled={pending || afterHours || overbook || !editEndLabel || !editServices.length || (servicesChanged && unknownService)}
-                  onClick={() => saveEdit()}
+                  onClick={() => { if (editReview) saveEdit(); else setEditReview(true); }}
                   className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-[13px] font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
                 >
                   {pending ? (
@@ -478,7 +491,7 @@ export function AppointmentDetail({
                   ) : (
                     <Save className="h-3.5 w-3.5" />
                   )}
-                  Salvar alterações
+                  {editReview ? "Salvar alterações" : "Revisar alterações"}
                 </button>
                 <button
                   disabled={pending}
@@ -495,9 +508,11 @@ export function AppointmentDetail({
           {/* ── DETAIL VIEW ──────────────────────────────────── */}
           {view === "detail" && (
             <>
+              <div hidden={cancelMode}>
               {canCancel && appt.seriesId && <SeriesEditor appointmentId={appt.id} />}
               {(canCancel || !canCreate) && <CarePanel appointmentId={appt.id} timezone={timezone} writable={["IN_PROGRESS", "COMPLETED"].includes(appt.status)} />}
               <div className="space-y-2.5 text-sm">
+                {professionalName && <Row icon={User} label={professionalName} />}
                 <Row icon={Scissors} label={appt.serviceName} />
                 {appt.stages?.filter(s => s.processingMin || s.finishingMin).map((s, i) => <div key={i} className="rounded-lg border border-border p-3 text-xs"><strong>{s.name}</strong><div className="mt-2 flex overflow-hidden rounded-md" aria-label="Etapas do atendimento"><span className="bg-success/20 p-2" style={{ flex: s.durationMin - s.processingMin - s.finishingMin }}>Execução {s.durationMin - s.processingMin - s.finishingMin} min</span>{s.processingMin > 0 && <span className="bg-warning/20 p-2" style={{ flex: s.processingMin }}>Processamento {s.processingMin} min</span>}{s.finishingMin > 0 && <span className="bg-info/20 p-2" style={{ flex: s.finishingMin }}>Finalização {s.finishingMin} min</span>}</div></div>)}
                 <Row
@@ -707,15 +722,15 @@ export function AppointmentDetail({
               {/* Utility actions */}
               <div className="mt-3 grid grid-cols-1 gap-2 border-t border-border pt-3 min-[420px]:grid-cols-2">
                 {isMutable && (
-                  <button
+                  <><button
                     onClick={openEdit}
                     className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg bg-primary/10 px-3 py-2 text-[13px] font-medium text-primary transition hover:bg-primary/20"
                   >
                     <Pencil className="h-4 w-4" />
                     Editar
-                  </button>
+                  </button><button onClick={openEdit} className="min-h-11 rounded-lg border border-border px-3 text-sm">Reagendar</button></>
                 )}
-                <a
+                {clientPhoneHref && <a
                   href={waLink(appt.clientPhone, appt.clientName, salonName, whenLabel)}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -723,7 +738,7 @@ export function AppointmentDetail({
                 >
                   <MessageCircle className="h-4 w-4" />
                   WhatsApp
-                </a>
+                </a>}
                 {telLink(appt.clientPhone) && (
                   <a
                     href={telLink(appt.clientPhone)!}
@@ -778,14 +793,16 @@ export function AppointmentDetail({
                 ) : null}
               </div>
 
+              </div>
               {/* Cancel */}
               {isMutable && canCancel && (cancelMode ? (
                 <div className="mt-3 space-y-2 rounded-lg border border-danger/40 bg-danger/5 p-3">
+                  <h3 className="text-base font-semibold">Cancelar este agendamento?</h3><p className="text-sm">{appt.clientName} · {whenLabel}<br />{professionalName} · {appt.serviceName}</p>{error && <p role="alert" className="text-sm text-danger">{error}</p>}
                   <label className="block text-[12px] font-medium text-danger" htmlFor="cancel-reason">
                     Motivo do cancelamento
                   </label>
                   <textarea
-                    id="cancel-reason"
+                    id="cancel-reason" disabled={pending}
                     value={cancelReason}
                     onChange={(event) => {
                       mutationKeys.current.delete("cancel");
@@ -808,7 +825,7 @@ export function AppointmentDetail({
                   <div className="flex gap-2">
                     <button
                       type="button"
-                      onClick={() => { setCancelMode(false); setCancelReason(""); }}
+                      disabled={pending} onClick={() => { setCancelMode(false); setCancelReason(""); }}
                       className="min-h-11 flex-1 rounded-lg border border-border px-3 text-sm"
                     >
                       Voltar

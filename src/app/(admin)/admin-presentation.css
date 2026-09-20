@@ -1,0 +1,37 @@
+/* Shared presentation for the establishment panel. No domain or public-site rules. */
+.admin-page-layout { min-width: 0; }
+.admin-page-layout > :not(.agenda-workspace) > header { gap: 16px; padding-bottom: 16px; border-bottom: 1px solid hsl(var(--border)); }
+.admin-page-layout > :not(.agenda-workspace) > header h1 { font-size: clamp(22px, 2vw, 28px); line-height: 1.25; }
+.admin-page-layout > :not(.agenda-workspace) > header button { border-radius: 12px; min-height: 44px; }
+.admin-page-layout input[type=search] { font-size: 16px; min-height: 44px; }
+.admin-page-layout :is(input,textarea,select):focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+.admin-page-layout [role=tablist] { gap: 4px; padding: 4px; border-radius: 12px; background: hsl(var(--surface-1)); }
+.admin-page-layout [role=tab] { min-height: 44px; border-radius: 9px; }
+.admin-form-dialog { padding: 24px; border-radius: 20px; gap: 20px; }
+.admin-form-dialog > div:first-child { padding-right: 28px; }
+.admin-form-dialog form { gap: 16px; }
+.admin-form-dialog :is(input:not([type=checkbox]):not([type=radio]):not([type=color]),select,textarea) { min-height: 44px; font-size: 16px; border-radius: 10px; background: hsl(var(--surface-1)); }
+.admin-form-dialog label { font-size: 13px; }
+.admin-form-dialog [data-form-footer] { position: sticky; bottom: -24px; z-index: 1; margin: 0 -24px -24px; padding: 16px 24px max(16px, env(safe-area-inset-bottom)); background: hsl(var(--card)); border-top: 1px solid hsl(var(--border)); }
+.admin-form-dialog [data-form-footer] button { min-height: 44px; border-radius: 12px; }
+.admin-form-section { min-width: 0; border: 1px solid hsl(var(--border)); border-radius: 12px; background: hsl(var(--surface-1) / .35); }
+.admin-form-section > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; padding: 12px; font-size: 13px; cursor: pointer; list-style: none; }
+.admin-form-section > summary::-webkit-details-marker { display: none; }
+.admin-form-section[open] > summary > svg { transform: rotate(180deg); }
+.admin-form-section > div { border-top: 1px solid hsl(var(--border)); padding: 16px 12px; }
+.admin-form-section summary:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; border-radius: 12px; }
+.admin-catalog-tools { position: sticky; top: 0; z-index: 10; background: hsl(var(--background)); padding-block: 8px; }
+@media (max-width: 639px) {
+  .admin-page-layout > :not(.agenda-workspace) > header { gap: 12px; padding-bottom: 12px; }
+  .admin-page-layout > :not(.agenda-workspace) > header > div > p:first-child:not(:only-child) { font-size: 10px; letter-spacing: .06em; }
+  .admin-form-dialog { padding: 16px; border-radius: 16px; }
+  .admin-form-dialog [data-form-footer] { bottom: -16px; margin-inline: -16px; margin-bottom: -16px; padding-inline: 16px; }
+  .admin-catalog-tools > div:has(input) { width: 100%; border-radius: 12px; }
+  .admin-catalog-tools input { width: 100%; min-width: 0; flex: 1; }
+}
+.admin-form-dialog { grid-template-columns: minmax(0, 1fr); }
+.admin-form-dialog :is(form, section, fieldset, .grid) { min-width: 0; }
+.admin-form-dialog .grid > * { min-width: 0; }
+.admin-form-dialog input[type=color] { width: 5rem; max-width: 100%; }
+.admin-form-section > summary > span { min-width: 0; overflow-wrap: anywhere; }
+.admin-form-section > summary > svg { flex-shrink: 0; }

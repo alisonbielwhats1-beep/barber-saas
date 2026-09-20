@@ -20,7 +20,8 @@ test.describe("@database navegação compacta e calendário", () => {
       if (width === 390) await page.getByRole("button", { name: "Pular tutorial", exact: true }).click();
       await page.getByRole("button", { name: "Abrir ações rápidas da agenda" }).click();
       await page.getByRole("menuitem", { name: /Novo agendamento/ }).click();
-      const form = page.getByRole("dialog", { name: "Novo agendamento" });
+      const form = page.getByRole("dialog");
+      await form.getByRole("button", {name:"Alterar data, horário e profissional"}).click();
       await form.getByLabel("Data", { exact: true }).fill("2030-09-12");
       for (const time of ["09:15", "10:45", "11:50"]) {
         await form.getByLabel("Hora de início").fill(time);

@@ -118,7 +118,7 @@ export function ServicesCatalog({
   return (
     <div className="space-y-4">
       {/* Barra de ferramentas */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="admin-catalog-tools flex flex-wrap items-center gap-2">
         <div className="flex min-h-11 min-w-0 flex-1 md:flex-none items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5">
           <Search className="h-3.5 w-3.5 text-muted-foreground" />
           <input

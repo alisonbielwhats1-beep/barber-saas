@@ -1,5 +1,6 @@
 "use client";
 
+import { FormSection } from "../form-section";
 import { useState, useTransition } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -75,7 +76,7 @@ export function ClientForm({ client }: Props) {
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-h-[calc(100dvh-1rem)] overflow-y-auto">
+      <DialogContent className="admin-form-dialog max-h-[calc(100dvh-1rem)] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{editing ? "Editar cliente" : "Novo cliente"}</DialogTitle>
           <DialogDescription>
@@ -86,12 +87,12 @@ export function ClientForm({ client }: Props) {
         <form onSubmit={onSubmit} className="grid gap-4">
           <div>
             <label className="mb-1 block text-sm font-medium">Nome</label>
-            <Input name="name" defaultValue={client?.name} required autoFocus />
+            <Input aria-label="Nome" name="name" defaultValue={client?.name} required autoFocus />
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-medium">WhatsApp</label>
-              <Input
+              <Input aria-label="WhatsApp"
                 name="phone"
                 defaultValue={client?.phone ?? ""}
                 placeholder="(11) 91234-5678"
@@ -99,17 +100,18 @@ export function ClientForm({ client }: Props) {
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium">Email</label>
-              <Input
+              <Input aria-label="Email"
                 name="email"
                 type="email"
                 defaultValue={client?.email ?? ""}
               />
             </div>
           </div>
+          <FormSection title="Informações complementares" description="Aniversário, preferências e consentimento" defaultOpen={editing}>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-medium">Aniversário</label>
-              <Input
+              <Input aria-label="Aniversário"
                 name="birthday"
                 type="date"
                 defaultValue={
@@ -121,7 +123,7 @@ export function ClientForm({ client }: Props) {
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium">Gênero</label>
-              <select name="gender" defaultValue={client?.gender ?? ""} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+              <select aria-label="Gênero" name="gender" defaultValue={client?.gender ?? ""} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
                 <option value="">Não informado</option>
                 <option value="FEMALE">Feminino</option>
                 <option value="MALE">Masculino</option>
@@ -131,7 +133,7 @@ export function ClientForm({ client }: Props) {
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium">Alergias e restrições</label>
-            <textarea
+            <textarea aria-label="Alergias e restrições"
               name="allergies"
               defaultValue={client?.allergies ?? ""}
               rows={2}
@@ -141,7 +143,7 @@ export function ClientForm({ client }: Props) {
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium">Preferências de atendimento</label>
-            <textarea
+            <textarea aria-label="Preferências de atendimento"
               name="preferences"
               defaultValue={client?.preferences ?? ""}
               rows={2}
@@ -151,7 +153,7 @@ export function ClientForm({ client }: Props) {
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium">Observações internas</label>
-            <textarea
+            <textarea aria-label="Observações internas"
               name="notes"
               defaultValue={client?.notes ?? ""}
               rows={2}
@@ -166,12 +168,13 @@ export function ClientForm({ client }: Props) {
               <span className="mt-0.5 block text-xs text-muted-foreground">O consentimento pode ser removido a qualquer momento.</span>
             </span>
           </label>
+          </FormSection>
           {error && (
             <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
               {error}
             </p>
           )}
-          <DialogFooter>
+          <DialogFooter data-form-footer>
             <DialogClose asChild>
               <Button variant="outline" type="button">Cancelar</Button>
             </DialogClose>

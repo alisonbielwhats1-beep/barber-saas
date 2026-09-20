@@ -16,6 +16,11 @@ const appt: Appointment = {
   serviceName: "Corte", serviceColor: null, waitlistCount: 0, waitlistNext: null, waitlist: [], isOverbooked: false,
   version: 1, serviceIds: ["cut"], hasPayment: false, pendingReschedule: null, events: [],
 };
+function save() {
+  const review = screen.queryByRole("button", { name: "Revisar alterações" });
+  if (review) fireEvent.click(review);
+  fireEvent.click(screen.getByRole("button", { name: "Salvar alterações" }));
+}
 function mount() {
   render(<AppointmentDetail appt={appt} salonName="Salão fictício" timezone="America/Sao_Paulo" canCreate canCancel onClose={mocks.close} services={[
     { id: "cut", name: "Corte", durationMin: 30, priceCents: 5000 },
@@ -34,7 +39,7 @@ describe("edição dos serviços e resposta da agenda", () => {
     const { rerender } = render(<AppointmentDetail {...props} appt={appt} />);
     fireEvent.click(screen.getByRole("button", { name: /Editar/ }));
     rerender(<AppointmentDetail {...props} appt={{ ...appt, version: 2, professionalId: "outro" }} />);
-    fireEvent.click(screen.getByRole("button", { name: "Salvar alterações" }));
+    save();
     await screen.findByText("O agendamento mudou");
     expect(mocks.edit.mock.calls[0][0]).toMatchObject({ expectedVersion: 1, professionalId: "pro" });
   });
@@ -46,12 +51,12 @@ describe("edição dos serviços e resposta da agenda", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: /Barba/ }));
     expect(screen.getByText(/45min/)).toBeInTheDocument();
     expect(screen.getByText(/18:15 de 05\/08/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Salvar alterações" }));
+    save();
     await waitFor(() => expect(mocks.edit).toHaveBeenCalledOnce());
     expect(mocks.edit.mock.calls[0][0]).toMatchObject({ serviceIds: ["cut", "beard"], expectedVersion: 1 });
     expect(screen.getByLabelText("Horário do agendamento")).toBeDisabled();
     expect(screen.getByRole("button", { name: "Salvar alterações" })).toBeDisabled();
-    fireEvent.click(screen.getByRole("button", { name: "Salvar alterações" }));
+    save();
     expect(mocks.edit).toHaveBeenCalledOnce();
     resolve({ success: true, requiresAcceptance: true });
     await screen.findByText(/O novo horário já está reservado/);
@@ -63,18 +68,18 @@ describe("edição dos serviços e resposta da agenda", () => {
     mocks.edit.mockRejectedValue(new Error("network"));
     mount();
     fireEvent.click(screen.getByRole("checkbox", { name: /Corte/ }));
-    expect(screen.getByRole("button", { name: "Salvar alterações" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Revisar alterações" })).toBeDisabled();
     fireEvent.click(screen.getByRole("checkbox", { name: /Barba/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Salvar alterações" }));
+    save();
     await screen.findByRole("alert");
     const first = mocks.edit.mock.calls[0][0];
     expect(first.serviceIds).toEqual(["beard"]);
-    fireEvent.click(screen.getByRole("button", { name: "Salvar alterações" }));
+    save();
     await waitFor(() => expect(mocks.edit).toHaveBeenCalledTimes(2));
     expect(mocks.edit.mock.calls[1][0].idempotencyKey).toBe(first.idempotencyKey);
     await waitFor(() => expect(screen.getByLabelText("Horário do agendamento")).not.toBeDisabled());
     fireEvent.change(screen.getByLabelText("Horário do agendamento"), { target: { value: "17:15" } });
-    fireEvent.click(screen.getByRole("button", { name: "Salvar alterações" }));
+    save();
     await waitFor(() => expect(mocks.edit).toHaveBeenCalledTimes(3));
     expect(mocks.edit.mock.calls[2][0].idempotencyKey).not.toBe(first.idempotencyKey);
   });
@@ -83,7 +88,7 @@ describe("edição dos serviços e resposta da agenda", () => {
     mocks.edit.mockResolvedValueOnce({ error: "Após expediente", code: "AFTER_WORKING_HOURS" }).mockResolvedValueOnce({ success: true });
     mount();
     fireEvent.click(screen.getByRole("checkbox", { name: /Barba/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Salvar alterações" }));
+    save();
     const confirm = await screen.findByRole("button", { name: "Confirmar exceção de jornada" });
     expect(confirm).toBeDisabled();
     fireEvent.change(screen.getByLabelText("Motivo da exceção"), { target: { value: "Autorizado no balcão" } });
@@ -97,7 +102,7 @@ it("mantém confirmações independentes de término e encaixe e invalida após 
   mocks.edit.mockResolvedValueOnce({ error: "Após expediente", code: "AFTER_WORKING_HOURS" })
     .mockResolvedValueOnce({ error: "Ocupado", code: "SLOT_TAKEN" }).mockResolvedValueOnce({ error: "Falha temporária" });
   mount();
-  fireEvent.click(screen.getByRole("button", { name: "Salvar alterações" }));
+  save();
   await screen.findByLabelText("Motivo da exceção");
   fireEvent.change(screen.getByLabelText("Motivo da exceção"), { target: { value: "Terminar depois" } });
   fireEvent.click(screen.getByRole("button", { name: "Confirmar exceção de jornada" }));
@@ -108,7 +113,7 @@ it("mantém confirmações independentes de término e encaixe e invalida após 
   await screen.findByText("Falha temporária");
   expect(mocks.edit.mock.calls[2][0]).toMatchObject({ scheduleOverrideReason: "Terminar depois", overbookReason: "Intervalo da coloração" });
   fireEvent.change(screen.getByLabelText("Horário do agendamento"), { target: { value: "15:00" } });
-  fireEvent.click(screen.getByRole("button", { name: "Salvar alterações" }));
+  save();
   await waitFor(() => expect(mocks.edit).toHaveBeenCalledTimes(4));
   expect(mocks.edit.mock.calls[3][0]).not.toHaveProperty("overbookReason");
   expect(mocks.edit.mock.calls[3][0]).not.toHaveProperty("scheduleOverrideReason");

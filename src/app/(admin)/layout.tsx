@@ -1,3 +1,4 @@
+import "./admin-presentation.css";
 import { getTenantContext } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
 import { SidebarFooter } from "./sidebar-footer";

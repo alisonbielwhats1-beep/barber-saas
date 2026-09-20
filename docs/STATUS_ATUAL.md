@@ -1,5 +1,13 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-19 — reformulação do painel em desenvolvimento
+
+O responsável ampliou o pedido da Agenda para todas as abas do painel de
+estabelecimento mostradas na referência. PR #111 preserva backend, APIs,
+permissões e dados; não foi integrado nem publicado. Escopo e evidências em
+`REFORMULACAO_UX_PAINEL_2026-09.md`. O estado implantado continua sendo o
+registrado abaixo; esta seção não afirma mudança produtiva.
+
 ## 2026-09-14 — experiência mobile: publicação autorizada
 
 Branch `codex/mobile-guided-experience`, baseada em `a78a0b2`: catálogo inicial

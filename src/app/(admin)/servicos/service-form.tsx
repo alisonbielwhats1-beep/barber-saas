@@ -1,5 +1,6 @@
 "use client";
 
+import { FormSection } from "../form-section";
 import { useState, useTransition } from "react";
 import { DEFAULT_PRICE_NOTE, PRICE_AGREEMENT_NOTE, servicePriceLabel } from "@/lib/service-price";
 import { Plus } from "lucide-react";
@@ -102,7 +103,7 @@ export function ServiceForm({ service, trigger }: Props) {
           </Button>
         ))}
       </DialogTrigger>
-      <DialogContent className="max-h-[85dvh] overflow-y-auto">
+      <DialogContent className="admin-form-dialog max-h-[85dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{editing ? "Editar serviço" : "Novo serviço"}</DialogTitle>
           <DialogDescription>
@@ -111,13 +112,7 @@ export function ServiceForm({ service, trigger }: Props) {
         </DialogHeader>
 
         <form onSubmit={onSubmit} className="grid gap-4">
-          <div>
-            <label className="mb-1 block text-sm font-medium">Foto do serviço (opcional)</label>
-            <p className="mb-2 text-xs leading-relaxed text-muted-foreground">
-              A primeira foto cadastrada em uma categoria também representa essa categoria na vitrine.
-            </p>
-            <ImageUpload value={imageUrl} onChange={setImageUrl} folder="services" aspectRatio="landscape" />
-          </div>
+
           <div>
             <label className="mb-1 block text-sm font-medium">Nome</label>
             <Input aria-label="Nome" name="name" defaultValue={service?.name} required autoFocus />
@@ -126,13 +121,7 @@ export function ServiceForm({ service, trigger }: Props) {
             <label className="mb-1 block text-sm font-medium">Descrição</label>
             <Input aria-label="Descrição" name="description" defaultValue={service?.description ?? ""} />
           </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <label className="text-sm">Grupo de variantes<Input name="variantGroup" defaultValue={service?.variantGroup ?? ""} placeholder="Ex.: Coloração" maxLength={100} /></label>
-            <label className="text-sm">Variação<Input name="variantLabel" defaultValue={service?.variantLabel ?? ""} placeholder="Ex.: Cabelo longo" maxLength={100} /></label>
-          </div>
-          <fieldset className="space-y-3 rounded-xl border border-border p-3"><legend className="px-1 text-sm font-medium">Etapas do atendimento</legend><p className="text-xs text-muted-foreground">A duração total inclui execução, processamento e finalização. O profissional e o recurso ficam reservados durante todo o atendimento.</p><label className="block text-sm">Processamento (min)<Input name="processingMin" type="number" min={0} max={599} defaultValue={service?.processingMin ?? 0} /></label><label className="block text-sm">Finalização (min)<Input name="finishingMin" type="number" min={0} max={599} defaultValue={service?.finishingMin ?? 0} /></label></fieldset>
-          <label className="block text-sm">Sala ou equipamento necessário<select name="physicalResourceId" value={resourceId} onChange={e => setResourceId(e.target.value)} className="mt-1 min-h-11 w-full rounded-lg border border-border bg-background px-3"><option value="">Nenhum</option>{resourceId && !resources.some(r => r.id === resourceId) && <option value={resourceId}>Recurso atual (carregando…)</option>}{resources.map(r => <option key={r.id} value={r.id} disabled={!r.active}>{r.name}{r.active ? "" : " (inativo)"}</option>)}</select></label>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-sm font-medium">Categoria</label>
               <Input
@@ -155,7 +144,7 @@ export function ServiceForm({ service, trigger }: Props) {
               <option value="FIXED">Fixo</option><option value="FROM">A partir de</option>
             </select>
           </label>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-sm font-medium">{priceType === "FROM" ? "Valor inicial (R$)" : "Preço (R$)"}</label>
               <Input aria-label={priceType === "FROM" ? "Valor inicial (R$)" : "Preço (R$)"} name="price" type="number" min={0} step="0.01" value={price} onChange={e => setPrice(e.target.value)} required />
@@ -180,10 +169,24 @@ export function ServiceForm({ service, trigger }: Props) {
             <label className="mb-1 block text-sm font-medium">Cor</label>
             <Input aria-label="Cor" name="colorHex" type="color" defaultValue={service?.colorHex ?? "#2ECC8B"} className="h-10 w-20 cursor-pointer p-1" />
           </div>
+          <FormSection title="Imagem do serviço" description="Opcional">          <div>
+            <label className="mb-1 block text-sm font-medium">Foto do serviço (opcional)</label>
+            <p className="mb-2 text-xs leading-relaxed text-muted-foreground">
+              A primeira foto cadastrada em uma categoria também representa essa categoria na vitrine.
+            </p>
+            <ImageUpload value={imageUrl} onChange={setImageUrl} folder="services" aspectRatio="landscape" />
+          </div></FormSection>
+          <FormSection title="Etapas, variantes e recursos" description="Configuração avançada do atendimento" defaultOpen={editing}>          <div className="grid grid-cols-2 gap-3">
+            <label className="text-sm">Grupo de variantes<Input name="variantGroup" defaultValue={service?.variantGroup ?? ""} placeholder="Ex.: Coloração" maxLength={100} /></label>
+            <label className="text-sm">Variação<Input name="variantLabel" defaultValue={service?.variantLabel ?? ""} placeholder="Ex.: Cabelo longo" maxLength={100} /></label>
+          </div>
+          <fieldset className="space-y-3 rounded-xl border border-border p-3"><legend className="px-1 text-sm font-medium">Etapas do atendimento</legend><p className="text-xs text-muted-foreground">A duração total inclui execução, processamento e finalização. O profissional e o recurso ficam reservados durante todo o atendimento.</p><label className="block text-sm">Processamento (min)<Input name="processingMin" type="number" min={0} max={599} defaultValue={service?.processingMin ?? 0} /></label><label className="block text-sm">Finalização (min)<Input name="finishingMin" type="number" min={0} max={599} defaultValue={service?.finishingMin ?? 0} /></label></fieldset>
+          <label className="block text-sm">Sala ou equipamento necessário<select name="physicalResourceId" value={resourceId} onChange={e => setResourceId(e.target.value)} className="mt-1 min-h-11 w-full rounded-lg border border-border bg-background px-3"><option value="">Nenhum</option>{resourceId && !resources.some(r => r.id === resourceId) && <option value={resourceId}>Recurso atual (carregando…)</option>}{resources.map(r => <option key={r.id} value={r.id} disabled={!r.active}>{r.name}{r.active ? "" : " (inativo)"}</option>)}</select></label>
+</FormSection>
           {error && (
             <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>
           )}
-          <DialogFooter>
+          <DialogFooter data-form-footer>
             <DialogClose asChild>
               <Button variant="outline" type="button">Cancelar</Button>
             </DialogClose>

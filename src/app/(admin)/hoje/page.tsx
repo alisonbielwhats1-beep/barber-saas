@@ -82,6 +82,7 @@ export default async function HojePage({
   const dateLabel = formatInTimeZone(date, result.salon.timezone, "EEEE, d 'de' MMMM", { locale: ptBR });
   const previousDate = addCalendarDays(result.dateKey, -1);
   const nextDate = addCalendarDays(result.dateKey, 1);
+  const nextAppointment = result.rows.find(item => ["PENDING", "CONFIRMED"].includes(item.status) && new Date(item.startAt).getTime() >= initialNow.getTime());
   return (
     <div className="space-y-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -108,6 +109,11 @@ export default async function HojePage({
         </div>
       </header>
 
+      {nextAppointment && <section aria-label="Próximo atendimento" className="rounded-2xl border border-primary/30 bg-primary/10 p-4 sm:p-5">
+        <p className="text-xs font-medium text-primary">Próximo atendimento</p>
+        <div className="mt-3 flex items-start justify-between gap-3"><div className="min-w-0"><h2 className="break-words text-lg font-semibold">{nextAppointment.clientName}</h2><p className="mt-1 text-sm text-muted-foreground">{nextAppointment.serviceName}</p><p className="mt-1 text-xs text-muted-foreground">Com {nextAppointment.professionalName}</p></div><p className="shrink-0 text-xl font-semibold tabular-nums">{formatInTimeZone(new Date(nextAppointment.startAt), result.salon.timezone, "HH:mm")}</p></div>
+        <Link href={"/agenda?date=" + result.dateKey} className="mt-4 flex min-h-11 items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground">Ver agenda do dia</Link>
+      </section>}
       {["OWNER", "MANAGER"].includes(ctx.role) && <ReceiptWorkspace date={result.dateKey} />}
 
       <HojeView
