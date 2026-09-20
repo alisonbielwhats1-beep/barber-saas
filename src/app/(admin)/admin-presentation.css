@@ -56,6 +56,7 @@
 .admin-directory-page > header > div > p { display: none; }
 @media (max-width: 767px) {
   .admin-directory-create { position: fixed; right: max(20px, var(--safe-right, 0px)); bottom: calc(84px + env(safe-area-inset-bottom)); z-index: 30; width: 52px; height: 52px; padding: 0; border-radius: 50%; box-shadow: 0 6px 20px hsl(var(--background) / .3); }
+  .admin-page-layout header button:is(.admin-client-create, .admin-directory-create) { border-radius: 50%; }
 }
 .admin-professional-detail { padding-top: 48px; }
 .admin-guided-dialog { display: flex; flex-direction: column; gap: 0; overflow: hidden; padding: 0; height: min(760px, calc(var(--app-viewport-height, 100dvh) - 1rem)); max-width: 34rem; }
