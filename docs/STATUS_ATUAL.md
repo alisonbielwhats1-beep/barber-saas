@@ -1,5 +1,18 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-20 — auditoria de billing e limpeza do HQ em implementação
+
+Auditoria somente leitura identificou Production em `13cb2a333a66`, billing live
+com checkout e trocas habilitados; `BillingPlanChange` existe no banco. Isso
+substitui as pendências históricas abaixo sobre a disponibilidade das trocas,
+sem afirmar execução de migration nesta tarefa. Nenhuma compra foi realizada.
+
+Branch `codex/billing-selection-tenant-removal`: seleção de plano durante tentativa
+pendente, orientação do checkout e exclusão restrita a cadastros vazios, com opção
+reversível de histórico no HQ. Backend de proporcionalidade preservado. Nenhum
+estabelecimento real foi excluído/arquivado; sem migration ou publicação.
+Escopo e validação em `ASSINATURAS_E_LIMPEZA_HQ_2026-09-20.md`.
+
 
 ## 2026-09-20 — recebimentos de vários dias em revisão
 

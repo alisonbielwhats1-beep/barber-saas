@@ -2,6 +2,10 @@ import { Building2, CheckCircle2, Clock3, ShieldAlert, XCircle } from "lucide-re
 import { getPlatformAdminContext } from "@/lib/platform-admin";
 import { withUser } from "@/lib/prisma-tenant";
 import { ApprovalControls } from "./approval-controls";
+import { DeleteSalonControl } from "./delete-controls";
+import { isHqEnabled, withHq } from "@/lib/hq/access";
+import { archivedSalonIds } from "@/lib/salon-history";
+import Link from "next/link";
 
 const STATUS = {
   PENDING: { label: "Pendente", icon: Clock3, className: "text-amber-400" },
@@ -10,10 +14,13 @@ const STATUS = {
   SUSPENDED: { label: "Suspenso", icon: ShieldAlert, className: "text-orange-400" },
 } as const;
 
-export default async function AccessRequestsPage() {
+export default async function AccessRequestsPage({ searchParams }: { searchParams: Promise<{ view?: string }> }) {
   const admin = await getPlatformAdminContext();
+  const historical = (await searchParams).view === "history";
+  const archived = isHqEnabled() ? await withHq(tx => archivedSalonIds(tx)) : [];
   const salons = await withUser(admin.userId, (tx) =>
     tx.salon.findMany({
+      where: { id: historical ? { in: archived } : { notIn: archived } },
       select: {
         id: true,
         name: true,
@@ -63,6 +70,7 @@ export default async function AccessRequestsPage() {
           <p className="text-xs text-muted-foreground">aguardando análise</p>
         </div>
       </header>
+      <nav aria-label="Lista de estabelecimentos" className="flex gap-4 text-sm"><Link href="/plataforma/solicitacoes" aria-current={!historical ? "page" : undefined} className="underline">Lista principal</Link><Link href="/plataforma/solicitacoes?view=history" aria-current={historical ? "page" : undefined} className="underline">Histórico</Link></nav>
 
       {ordered.length === 0 ? (
         <div className="rounded-3xl border border-dashed border-border p-12 text-center">
@@ -101,12 +109,12 @@ export default async function AccessRequestsPage() {
                       </p>
                     )}
                   </div>
-                  <ApprovalControls
+                  <div className="flex flex-wrap gap-2"><ApprovalControls
                     salonId={salon.id}
                     salonName={salon.name}
                     status={salon.accessStatus}
                     currentPlan={salon.plan}
-                  />
+                  />{isHqEnabled() && <DeleteSalonControl salonId={salon.id} salonName={salon.name} archived={historical} />}</div>
                 </div>
               </article>
             );

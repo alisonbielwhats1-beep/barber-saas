@@ -3,7 +3,7 @@ import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { PlanPicker } from "./plan-picker";
-import { billingCapacityLabel, billingErrors, billingMoney, safeCheckout, type BillingIntent, type PlanChangeView, type SubscriptionView } from "@/lib/billing/presentation";
+import { billingCapacityLabel, billingErrors, billingMoney, resolveBillingIntent, safeCheckout, type BillingIntent, type PlanChangeView, type SubscriptionView } from "@/lib/billing/presentation";
 
 const labels: Record<string, string> = { PREPARING: "Preparando a troca", AWAITING_PAYMENT: "Aguardando você no Mercado Pago", APPLYING: "Pagamento confirmado · atualizando renovação", SCHEDULED: "Troca agendada", APPLIED: "Troca concluída", CANCEL_REQUESTED: "Cancelamento da troca em confirmação", CANCELLED: "Troca cancelada", EXPIRED: "Cotação expirada", REVIEW: "Troca em revisão" };
 export function PlanChangePanel({ salonId, subscription, timezone, onRefresh }: { salonId: string; subscription: SubscriptionView; timezone: string; onRefresh: () => Promise<void> }) {
@@ -54,7 +54,8 @@ export function PlanChangePanel({ salonId, subscription, timezone, onRefresh }: 
         {subscription.changePending && !change.paidAt && change.state !== "REVIEW" && change.state !== "CANCEL_REQUESTED" && <Button variant="outline" disabled={busy} onClick={() => setCancelOpen(true)}>Cancelar esta troca</Button>}</div>
     </div>}
     {eligible && <Button variant="outline" disabled={busy} onClick={() => setChoosing(!choosing)}>{choosing ? "Fechar seleção" : "Escolher outro plano"}</Button>}
-    {eligible && choosing && <PlanPicker disabled={busy} onChoose={selection => void preview(selection)} />}
+    {!eligible && !subscription.changePending && <p className="text-sm text-muted-foreground">{subscription.state === "UNPAID" ? "A contratação ainda não foi paga. Use a seleção de planos acima para substituir a tentativa pendente; a diferença proporcional só se aplica a um período pago." : "A troca aguarda uma assinatura paga e ativa, sem cancelamento ou ocorrência financeira em revisão. Confira a situação da assinatura acima."}</p>}
+    {eligible && choosing && <PlanPicker initial={resolveBillingIntent({ billingPlan: subscription.plan, cycle: subscription.cycle, extraAgendas: subscription.plan === "TEAM_MAX" ? Math.max(0, subscription.agendaLimit - 10) : 0 })} disabled={busy} onChoose={selection => void preview(selection)} />}
     <Dialog open={Boolean(quote)} onOpenChange={open => { if (!open && !busy) setQuote(null); }}><DialogContent><DialogTitle>Revisar troca de plano</DialogTitle><DialogDescription>Confira os valores e quando a mudança entra em vigor.</DialogDescription>
       {quote && <div className="space-y-4"><p className="font-medium">{billingCapacityLabel(quote.from.plan, quote.from.agendaLimit)} → {billingCapacityLabel(quote.to.plan, quote.to.agendaLimit)}</p>
         <dl className="space-y-3"><div><dt className="text-sm text-muted-foreground">Cobrança adicional agora</dt><dd className="text-2xl font-semibold">{billingMoney(quote.amountDueCents)}</dd></div><div><dt className="text-sm text-muted-foreground">Nova recorrência a partir de {date(quote.periodEnd)}</dt><dd>{billingMoney(quote.to.amountCents)} {quote.to.cycle === "ANNUAL" ? "a cada 12 meses" : "por mês"}</dd></div></dl>

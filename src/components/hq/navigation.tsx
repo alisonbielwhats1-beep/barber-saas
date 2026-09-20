@@ -7,6 +7,6 @@ const items = [
 ] as const;
 export function HqNavigation() {
  const pathname=usePathname();
- return <nav aria-label="Everflare HQ">{items.map(([slug,title,Icon])=><Link key={slug} href={"/hq/"+slug} aria-current={pathname.startsWith("/hq/"+slug)?"page":undefined}><Icon size={18} aria-hidden="true"/>{title}</Link>)}<Link href="/plataforma"><ShieldCheck size={18}/>Gestão da plataforma<ArrowUpRight size={14}/></Link></nav>;
+ return <nav aria-label="Everflare HQ">{items.map(([slug,title,Icon])=><Link key={slug} href={"/hq/"+slug} aria-current={pathname.startsWith("/hq/"+slug)?"page":undefined}><Icon size={18} aria-hidden="true"/>{title}</Link>)}<Link href="/plataforma/solicitacoes"><ShieldCheck size={18}/>Estabelecimentos e histórico<ArrowUpRight size={14}/></Link><Link href="/plataforma"><ShieldCheck size={18}/>Gestão da plataforma<ArrowUpRight size={14}/></Link></nav>;
 }
 

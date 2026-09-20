@@ -360,7 +360,7 @@ jobs:
           npx prisma db execute --file prisma/sql/manual/025_billing_plan_changes.verify.sql --url "$DIRECT_URL"
           docker exec -i ${{ job.services.postgres.id }} psql -X -A -t -U postgres -d salon_schema_ci -v ON_ERROR_STOP=1 < tests/fixtures/025-preservation-fingerprint.sql > "$RUNNER_TEMP/post025-fingerprint.txt"
           diff -u "$RUNNER_TEMP/pre025-fingerprint.txt" "$RUNNER_TEMP/post025-fingerprint.txt"
-          npx vitest run --no-file-parallelism src/lib/billing/billing-postgres.integration.test.ts src/lib/hq/hq-postgres.integration.test.ts src/lib/hq/chief-postgres.integration.test.ts
+          npx vitest run --no-file-parallelism src/lib/billing/billing-postgres.integration.test.ts src/lib/hq/hq-postgres.integration.test.ts src/lib/hq/chief-postgres.integration.test.ts src/lib/__tests__/salon-removal-postgres.integration.test.ts
           npx prisma db execute --file prisma/sql/manual/025_billing_plan_changes.rollback.sql --url "$DIRECT_URL"
           npx prisma db execute --file prisma/sql/manual/024_billing_hq.rollback.sql --url "$DIRECT_URL"
           npx prisma db execute --file prisma/sql/manual/023_mercadopago_billing.rollback.sql --url "$DIRECT_URL"
