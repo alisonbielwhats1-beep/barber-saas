@@ -664,7 +664,7 @@ export function ReceiptWorkspace({
               {data.paid.length > 0 && (
                 <details>
                   <summary className="min-h-11 cursor-pointer text-sm font-semibold">
-                    Já recebidos nos dias escolhidos ({data.paid.length})
+                    {openedDays.length > 1 ? "Já recebidos nos dias escolhidos" : "Já recebidos neste dia de atendimento"} ({data.paid.length})
                   </summary>
                   {data.paid.map((p) => (
                     <div
