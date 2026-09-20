@@ -451,7 +451,7 @@ export function AgendaBoard({
       </header>
 
       {view === "day" && <AgendaWeekStrip date={date} today={today} onSelect={goToDay} />}
-      <div role="group" aria-label="Visualização da agenda" className="agenda-mobile-views flex gap-2 sm:hidden">
+      <div role="group" aria-label="Visualização da agenda" className="agenda-mobile-views mx-auto flex w-full max-w-[18rem] gap-1.5 sm:hidden">
         {([['day','Dia'],['week','Semana'],['list','Lista']] as const).map(([kind,label]) => <button key={kind} type="button" aria-pressed={view === kind} onClick={() => setView(kind)} className="min-h-11 flex-1 rounded-full text-xs font-medium">{label}</button>)}
       </div>
 
