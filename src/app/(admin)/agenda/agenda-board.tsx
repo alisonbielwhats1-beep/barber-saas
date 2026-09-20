@@ -7,6 +7,7 @@ import Link from "next/link";
 import {
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   CalendarDays,
   CalendarRange,
   Grid3x3,
@@ -33,6 +34,7 @@ import {
 import { ptBR } from "date-fns/locale";
 import { formatInTimeZone } from "date-fns-tz";
 import { minutesToHHMM, formatMoney } from "@/lib/utils";
+import { calendarGridRangeInTimeZone } from "@/lib/time";
 import { AppointmentDialog, type ProOption, type ServiceOption, type ClientOption } from "./appointment-form";
 import { AppointmentDetail } from "./appointment-detail";
 import { STATUS, STATUS_ORDER } from "./agenda-status";
@@ -289,6 +291,22 @@ export function AgendaBoard({
 
   const awaitingAcceptance = appointments.filter((a) => a.pendingReschedule && a.pendingReschedule.status !== "REJECTED").length;
   const cancelledWithQueue = appointments.filter((a) => a.status === "CANCELLED" && a.waitlistCount > 0).length;
+  const activeFilterCount = Number(proFilter !== "all") + Number(statusFilter !== "not_cancelled") + Number(Boolean(search.trim()));
+  const filterSummary = [
+    proFilter !== "all" ? professionals.find(pro => pro.id === proFilter)?.name : null,
+    statusFilter !== "not_cancelled"
+      ? statusFilter === "all" ? "Todos os status" : STATUS[statusFilter as keyof typeof STATUS]?.label
+      : null,
+    search.trim() ? `Busca: ${search.trim()}` : null,
+  ].filter(Boolean).join(" · ");
+  const loadedRange = calendarGridRangeInTimeZone(date, timezone);
+  const noticesPeriod = `${formatInTimeZone(loadedRange.from, timezone, "dd/MM")} a ${formatInTimeZone(new Date(loadedRange.to.getTime() - 1), timezone, "dd/MM/yyyy")}`;
+
+  function clearFilters() {
+    setProFilter("all");
+    setStatusFilter("not_cancelled");
+    setSearch("");
+  }
 
   function goDate(offset: number) {
     const targetDate = view === "month" || view === "list"
@@ -344,7 +362,7 @@ export function AgendaBoard({
   return (
     <div className="agenda-workspace" aria-busy={pending}>
       <header className="agenda-toolbar">
-        <button type="button" aria-pressed={fullDay} onClick={() => setFullDay(value => !value)} className="min-h-11 rounded-lg border border-border px-2 text-xs">{fullDay ? "Horários habituais" : "Mostrar dia inteiro"}</button>
+        <button type="button" aria-pressed={fullDay} onClick={() => setFullDay(value => !value)} className="hidden min-h-11 rounded-lg border border-border px-2 text-xs sm:block">{fullDay ? "Horários habituais" : "Mostrar dia inteiro"}</button>
         <div className="hidden sm:block"><AgendaColorSelect value={colorMode} onChange={setColorMode} /></div>
         <div className="flex min-w-0 items-center gap-2 sm:hidden">
           <button type="button" onClick={() => goDate(-1)} aria-label={`Ir para ${navigationUnit} anterior`} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg hover:bg-muted"><ChevronLeft aria-hidden="true" size={16} /></button>
@@ -394,13 +412,13 @@ export function AgendaBoard({
 
         <div className="agenda-view-controls">
           <AgendaMobileGuide scope={colorScope} canCreate={canCreate} autoStart={!initialAppointmentId} />
-          <select aria-label="Visualização da agenda" value={view} onChange={event => setView(event.target.value as ViewKind)} className="h-11 w-[94px] min-w-0 rounded-lg border border-border bg-card px-2 text-xs sm:hidden">
+          <select aria-label="Visualização da agenda" value={view} onChange={event => setView(event.target.value as ViewKind)} className="h-11 w-20 min-w-0 rounded-lg border border-border bg-card px-2 text-xs sm:hidden">
             <option value="day">Dia</option>
             <option value="week">Semana</option>
             <option value="month">Mês</option>
             <option value="list">Lista</option>
           </select>
-          <button ref={filterTrigger} type="button" onClick={() => setFiltersOpen(true)} aria-label="Buscar e filtrar agenda" aria-haspopup="dialog" className="relative grid h-11 w-11 place-items-center rounded-lg border border-border"><SlidersHorizontal size={18} />{(proFilter !== "all" || statusFilter !== "not_cancelled" || search) && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-primary" />}</button>
+          <button ref={filterTrigger} type="button" onClick={() => setFiltersOpen(true)} aria-label="Buscar e filtrar agenda" aria-describedby={activeFilterCount > 0 ? "agenda-active-filters" : undefined} aria-haspopup="dialog" className="relative grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-border"><SlidersHorizontal size={18} aria-hidden="true" />{activeFilterCount > 0 && <span aria-hidden="true" className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">{activeFilterCount}</span>}</button>
           <div role="group" aria-label="Visualização da agenda" className="hidden items-center gap-0.5 rounded-lg border border-border bg-surface-1 p-1 sm:flex">
             <ViewBtn active={view === "day"} onClick={() => setView("day")} icon={CalendarDays} label="Dia" />
             <ViewBtn active={view === "week"} onClick={() => setView("week")} icon={CalendarRange} label="Semana" />
@@ -424,6 +442,16 @@ export function AgendaBoard({
 
       {view === "day" && <AgendaWeekStrip date={date} today={today} onSelect={goToDay} />}
 
+      {activeFilterCount > 0 && (
+        <div className="flex shrink-0 items-center gap-2 rounded-lg bg-surface-1 px-3 text-xs">
+          <p id="agenda-active-filters" className="min-w-0 flex-1 break-words">
+            <span className="font-medium">{activeFilterCount} filtro{activeFilterCount > 1 ? "s" : ""} ativo{activeFilterCount > 1 ? "s" : ""}</span>
+            <span className="text-muted-foreground"> · {filterSummary}</span>
+          </p>
+          <button type="button" onClick={() => { clearFilters(); filterTrigger.current?.focus(); }} className="min-h-11 shrink-0 px-2 font-medium text-primary">Limpar filtros</button>
+        </div>
+      )}
+
       <div className="agenda-body">
         {calendarOpen && <aside id="agenda-date-panel" aria-label="Navegar por datas" className="sticky top-0 hidden w-64 shrink-0 xl:block"><DateNavigator date={date} today={today} onSelect={selectCalendarDate} /></aside>}
         <div className="agenda-content">
@@ -431,9 +459,12 @@ export function AgendaBoard({
 
       <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
         <DialogContent aria-describedby={undefined} onCloseAutoFocus={event => { event.preventDefault(); filterTrigger.current?.focus(); }} className="max-h-[85dvh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Buscar e filtrar agenda</DialogTitle></DialogHeader>
+          <DialogHeader className="pr-10"><DialogTitle>Buscar e filtrar agenda</DialogTitle></DialogHeader>
       <div className="space-y-4">
-        <div className="sm:hidden"><AgendaColorSelect value={colorMode} onChange={setColorMode} /></div>
+        <div className="space-y-3 sm:hidden">
+          <AgendaColorSelect value={colorMode} onChange={setColorMode} />
+          <button type="button" aria-pressed={fullDay} onClick={() => setFullDay(value => !value)} className="min-h-11 w-full rounded-lg border border-border px-3 text-left text-sm">{fullDay ? "Horários habituais" : "Mostrar dia inteiro"}</button>
+        </div>
         <div className="flex min-h-11 items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 max-sm:w-full">
           <Search aria-hidden="true" className="h-3.5 w-3.5 text-muted-foreground" />
           <input
@@ -469,7 +500,10 @@ export function AgendaBoard({
       </div>
 
 
-          <button type="button" onClick={() => setFiltersOpen(false)} className="min-h-11 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground">Ver agenda</button>
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" disabled={activeFilterCount === 0} onClick={clearFilters} className="min-h-11 rounded-lg border border-border px-3 text-sm disabled:opacity-50">Limpar filtros</button>
+            <button type="button" onClick={() => setFiltersOpen(false)} className="min-h-11 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground">Ver agenda</button>
+          </div>
         </DialogContent>
       </Dialog>
       <Dialog open={operationsOpen} onOpenChange={setOperationsOpen}>
@@ -487,7 +521,14 @@ export function AgendaBoard({
       )}
 
       {(awaitingAcceptance > 0 || cancelledWithQueue > 0) && (
-        <div className="flex flex-col gap-2 rounded-2xl border border-amber-500/30 bg-warning/10 px-4 py-3 text-[12px] text-warning sm:flex-row sm:items-center sm:justify-between">
+        <details className="group shrink-0 rounded-lg border border-amber-500/30 bg-warning/10 text-[12px] text-warning">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+            <AlertTriangle size={16} aria-hidden="true" className="shrink-0" />
+            <span className="min-w-0 flex-1">Avisos do período · {awaitingAcceptance} aguardando aceite · {cancelledWithQueue} fila(s)</span>
+            <ChevronDown size={16} aria-hidden="true" className="shrink-0 transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="max-h-40 space-y-2 overflow-y-auto border-t border-amber-500/20 px-3 py-2">
+          <p className="font-medium">{noticesPeriod} · independente dos filtros</p>
           <p>
             {awaitingAcceptance > 0 && `${awaitingAcceptance} alteração(ões) aguardando aceite do cliente.`}
             {awaitingAcceptance > 0 && cancelledWithQueue > 0 && " "}
@@ -498,7 +539,8 @@ export function AgendaBoard({
               Ver central de avisos
             </Link>
           )}
-        </div>
+          </div>
+        </details>
       )}
 
       <div className="agenda-canvas">
