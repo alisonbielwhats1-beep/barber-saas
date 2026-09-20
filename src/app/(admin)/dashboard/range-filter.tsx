@@ -8,7 +8,7 @@ import { RANGE_LABELS, type RangeKey } from "@/lib/dashboard";
 
 const ORDER: RangeKey[] = ["today", "yesterday", "7d", "15d", "30d", "90d", "year"];
 
-export function RangeFilter({ current, compact = false }: { current: RangeKey; compact?: boolean }) {
+export function RangeFilter({ current, compact = false, clearCalendar = false }: { current: RangeKey; compact?: boolean; clearCalendar?: boolean }) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -17,6 +17,7 @@ export function RangeFilter({ current, compact = false }: { current: RangeKey; c
   function select(range: RangeKey) {
     const sp = new URLSearchParams(params);
     sp.set("range", range);
+    if (clearCalendar) { sp.delete("period"); sp.delete("date"); }
     startTransition(() => router.push(`${pathname}?${sp}`, { scroll: false }));
   }
 

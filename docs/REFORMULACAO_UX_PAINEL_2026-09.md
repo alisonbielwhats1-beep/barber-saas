@@ -130,3 +130,17 @@ frontend: não modifica domínio, APIs, Prisma, permissões ou dados produtivos.
 A barra mobile mantém Hoje, Agenda, Clientes e Mais, conforme acesso do papel.
 Alertas continuam em Mais, com contador de não lidos no botão. O atalho de
 Agenda no perfil profissional já abre o filtro desse profissional visível.
+
+## Filtros de calendário do Financeiro — revisão visual
+
+A pedido do responsável, Financeiro acrescenta Dia, Semana e Mês de calendário,
+data de referência e navegação anterior/próximo. A semana segue domingo a sábado,
+como a Agenda. Os limites são calculados no fuso do salão, com fim exclusivo;
+links legados com range continuam válidos em Outros períodos.
+A consulta financeira aceita esses limites opcionais. Fórmulas, status,
+autorização, isolamento por tenant, APIs, escrita e schema permanecem iguais.
+Não se trata de renomear 30 dias como mês. Relatórios conserva seus períodos atuais.
+Despesas do período e resultado operacional, já calculados, passam ao resumo;
+A receber mantém a semântica existente de total em aberto.
+Testes cobrem limites de data, semana entre anos, mês bissexto, horário de verão
+e aplicação dos limites nas consultas de caixa/despesa sem ampliar o tenant.

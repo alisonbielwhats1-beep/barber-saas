@@ -5,7 +5,9 @@ import { requireRole, FINANCE_ROLES } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
 import { getFinanceMetrics } from "@/lib/finance";
 import { RANGE_LABELS, type RangeKey } from "@/lib/dashboard";
-import { formatPeriodLabel } from "@/lib/time";
+import { dateKeyInTimeZone, formatPeriodLabel, isDateKey } from "@/lib/time";
+import type { FinanceCalendarPeriod } from "@/lib/finance-period";
+import { FinancePeriodFilter } from "./finance-period-filter";
 import { formatMoney } from "@/lib/utils";
 import {
   Wallet,
@@ -34,24 +36,27 @@ const VALID: RangeKey[] = ["today", "yesterday", "7d", "15d", "30d", "90d", "yea
 export default async function FinanceiroPage({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string }>;
+  searchParams: Promise<{ range?: string; period?: string; date?: string }>;
 }) {
   // Financeiro do salão inteiro: só dono/gerente. Profissional e recepcionista
   // são redirecionados — antes bastava abrir a URL para ver o DRE completo.
   const ctx = await requireRole(FINANCE_ROLES);
   const { salonId } = ctx;
-  const { range: selectedRange } = await searchParams;
+  const { range: selectedRange, period: selectedPeriod, date: selectedDate } = await searchParams;
   const range: RangeKey = VALID.includes(selectedRange as RangeKey)
     ? (selectedRange as RangeKey)
     : "30d";
 
-  const { m, expenseRows, timezone } = await withTenant(ctx, async (tx) => {
+  const { m, expenseRows, timezone, calendar, referenceDate } = await withTenant(ctx, async (tx) => {
     const salon = await tx.salon.findUnique({
       where: { id: salonId },
       select: { timezone: true },
     });
     if (!salon) throw new Error("Estabelecimento não encontrado");
-    const m = await getFinanceMetrics(tx, salonId, range, salon.timezone);
+    const referenceDate = typeof selectedDate === "string" && isDateKey(selectedDate) ? selectedDate : dateKeyInTimeZone(new Date(), salon.timezone);
+    const mode = selectedPeriod === "day" || selectedPeriod === "week" || selectedPeriod === "month" ? selectedPeriod : null;
+    const calendar: FinanceCalendarPeriod | undefined = mode ? { mode, date: referenceDate } : VALID.includes(selectedRange as RangeKey) ? undefined : { mode: selectedDate ? "day" : "month", date: referenceDate };
+    const m = await getFinanceMetrics(tx, salonId, range, salon.timezone, calendar);
     const expenses = await tx.expense.findMany({
       where: { salonId, dueDate: { gte: m.bounds.from, lt: m.bounds.to } },
       select: { id: true, description: true, category: true, kind: true, amountCents: true, dueDate: true, paidAt: true },
@@ -66,12 +71,12 @@ export default async function FinanceiroPage({
       dueDate: e.dueDate.toISOString(),
       paidAt: e.paidAt ? e.paidAt.toISOString() : null,
     })) as ExpenseRow[];
-    return { m, expenseRows, timezone: salon.timezone };
+    return { m, expenseRows, timezone: salon.timezone, calendar, referenceDate };
   });
   const received = m.byMethod.reduce((sum, item) => sum + item.value, 0);
 
   return (
-    <div className="admin-summary-page space-y-6">
+    <div className="admin-summary-page space-y-4">
       <AutoRefresh intervalMs={120_000} />
       {/* Header */}
       <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -79,7 +84,7 @@ export default async function FinanceiroPage({
           <div className="mb-1 flex items-center gap-2">
             <span className="flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
               <Wallet className="h-3 w-3" />
-              {RANGE_LABELS[range]}
+              {calendar ? {day:"Dia",week:"Semana",month:"Mês"}[calendar.mode] : RANGE_LABELS[range]}
             </span>
             <span className="text-[11px] text-muted-foreground">
               {formatPeriodLabel(m.period.from, m.period.to, timezone)}
@@ -87,14 +92,13 @@ export default async function FinanceiroPage({
           </div>
           <h1 className="text-[26px] font-semibold tracking-tight">Financeiro</h1>
         </div>
-        <RangeFilter current={range} compact />
       </header>
-
-
-
+      <FinancePeriodFilter mode={calendar?.mode ?? null} date={referenceDate} label={formatPeriodLabel(m.period.from, m.period.to, timezone)} />
       <section aria-label="Resumo financeiro" className="grid grid-cols-2 gap-3">
         <Hero featured accent="#2ECC8B" icon={Wallet} label="Recebido" value={formatMoney(received)} />
-        <Hero accent="#3B9EFF" icon={ArrowDownCircle} label="A receber" value={formatMoney(m.receivable)} />
+        <Hero accent="#3B9EFF" icon={ArrowDownCircle} label="A receber" value={formatMoney(m.receivable)} hint="Total em aberto" />
+        <Hero accent="#C8A2C8" icon={ArrowUpCircle} label="Despesas do período" value={formatMoney(m.expenseTotal)} />
+        <Hero accent="#2ECC8B" icon={Activity} label="Resultado operacional" value={formatMoney(m.netProfit)} />
       </section>
       <section aria-label="Fluxo de caixa do período" className="space-y-2">
         <div className="h-44"><CashflowChart data={m.cashflow} /></div>
@@ -107,6 +111,7 @@ export default async function FinanceiroPage({
       <details className="admin-detail-section">
         <summary>Recebimentos, despesas e detalhamento</summary>
         <div className="space-y-6 pt-4">
+      <details className="admin-detail-section"><summary>Outros períodos</summary><RangeFilter current={range} compact clearCalendar /></details>
 
       {(m.receivable > 0 || m.payable > 0) && (
         <section aria-labelledby="finance-pending-title" className="rounded-2xl border border-border bg-card p-4 sm:p-5">

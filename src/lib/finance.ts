@@ -1,4 +1,5 @@
 import type { Tx } from "./prisma-tenant";
+import { resolveFinanceCalendar, type FinanceCalendarPeriod } from "./finance-period";
 import { resolveRange, type RangeKey } from "./dashboard";
 import { getProfessionalPerformance } from "./kpis";
 import {
@@ -40,9 +41,10 @@ export async function getFinanceMetrics(
   salonId: string,
   range: RangeKey,
   timezone = DEFAULT_TIMEZONE,
+  calendar?: FinanceCalendarPeriod,
 ) {
   const now = new Date();
-  const resolved = resolveRange(range, timezone, now);
+  const resolved = calendar ? resolveFinanceCalendar(calendar, timezone) : resolveRange(range, timezone, now);
   const { from, to } = resolved;
 
   // Sequencial de propósito: o pooler do Postgres roda com connection_limit=1
