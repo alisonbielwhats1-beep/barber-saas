@@ -48,7 +48,7 @@ export function ClientForm({ client }: Props) {
     const form = new FormData(e.currentTarget);
     const payload = {
       name: String(form.get("name")),
-      phone: (form.get("phone") as string) || null,
+      phone: String(form.get("phone") ?? ""),
       email: (form.get("email") as string) || null,
       birthday: (form.get("birthday") as string) || null,
       gender: (form.get("gender") as "MALE" | "FEMALE" | "OTHER") || null,
@@ -85,7 +85,7 @@ export function ClientForm({ client }: Props) {
         <DialogHeader>
           <DialogTitle>{editing ? "Editar cliente" : "Novo cliente"}</DialogTitle>
           <DialogDescription className="sr-only">
-            Só o nome é obrigatório. Os demais campos ajudam a personalizar o atendimento.
+            Nome e WhatsApp são obrigatórios. Os demais campos ajudam a personalizar o atendimento.
           </DialogDescription>
         </DialogHeader>
 
@@ -97,11 +97,12 @@ export function ClientForm({ client }: Props) {
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <label htmlFor="client-form-phone" className="mb-1 block text-sm font-medium">WhatsApp</label>
+              <label htmlFor="client-form-phone" className="mb-1 block text-sm font-medium">WhatsApp *</label>
               <Input id="client-form-phone" aria-label="WhatsApp"
                 name="phone" type="tel" autoComplete="tel"
                 defaultValue={client?.phone ?? ""}
                 placeholder="(11) 91234-5678"
+                required
               />
             </div>
             <div>
