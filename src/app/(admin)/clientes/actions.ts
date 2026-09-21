@@ -31,7 +31,7 @@ export async function fetchClientHistory(clientId: string) {
 
 const clientInput = z.object({
   name: z.string().min(2),
-  phone: z.string().trim().max(32).refine((value) => value.length === 0 || isValidPhoneBR(value), "WhatsApp inválido").optional().nullable(),
+  phone: z.string().trim().min(1, "WhatsApp é obrigatório").max(32).refine(isValidPhoneBR, "WhatsApp inválido"),
   email: z.string().email().optional().or(z.literal("")).nullable(),
   birthday: z.string().optional().nullable(),
   gender: z.enum(["MALE", "FEMALE", "OTHER"]).optional().nullable(),
