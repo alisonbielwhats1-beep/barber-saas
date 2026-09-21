@@ -416,10 +416,12 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=4096
         # Each invocation closes its dev server before the next shard starts.
         # Keep every journey without accumulating all route compilations in one process.
+        # The multi-visit journey compiles both apps and gets its own fresh server.
         run: |
           for shard in 1 2 3 4; do
-            PLAYWRIGHT_HTML_OUTPUT_DIR=playwright-report/auth-shard-$shard npm run test:e2e:database -- --grep-invert "matriz de enquadramento|revisão visual" --shard=$shard/4 --output=test-results/auth-shard-$shard
+            PLAYWRIGHT_HTML_OUTPUT_DIR=playwright-report/auth-shard-$shard npm run test:e2e:database -- --grep-invert "matriz de enquadramento|revisão visual|@database visita conjunta" --shard=$shard/4 --output=test-results/auth-shard-$shard
           done
+          PLAYWRIGHT_HTML_OUTPUT_DIR=playwright-report/multi-visits npm run test:e2e:database -- --grep "@database visita conjunta" --output=test-results/multi-visits
       - name: Preserve browser evidence from synthetic tests
         if: always()
         uses: actions/upload-artifact@v4

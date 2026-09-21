@@ -160,7 +160,7 @@ test("@database visita conjunta no cliente e no painel, folga e bloqueio após e
     await page.getByRole("link", { name: "Ver minha visita" }).click();
     await expect(
       page.getByRole("region", { name: "Minha visita", exact: true }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 30000 });
     expect(
       await db.appointment.count({
         where: { salonId: salon.id, clientId: client.id },
