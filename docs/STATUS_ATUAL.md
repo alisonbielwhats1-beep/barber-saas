@@ -1,6 +1,21 @@
 # Status atual canônico — Salon SaaS
 
-## 2026-09-20 — aviso transitório no login do cliente corrigido em revisão
+## 2026-09-20 — publicação de billing e limpeza do HQ autorizada
+
+Auditoria somente leitura identificou Production em `13cb2a333a66`, billing live
+com checkout e trocas habilitados; `BillingPlanChange` existe no banco. Isso
+substitui as pendências históricas abaixo sobre a disponibilidade das trocas,
+sem afirmar execução de migration nesta tarefa. Nenhuma compra foi realizada.
+
+Branch `codex/billing-selection-tenant-removal`: seleção de plano durante tentativa
+pendente, orientação do checkout e exclusão restrita a cadastros vazios, com opção
+reversível de histórico no HQ. Backend de proporcionalidade preservado. Nenhum
+estabelecimento real foi excluído/arquivado; sem migration ou publicação.
+Escopo e validação em `ASSINATURAS_E_LIMPEZA_HQ_2026-09-20.md`.
+O responsável autorizou publicar o PR #117. Promoção aguarda a validação da
+revisão integrada à versão atual; não inclui excluir ou arquivar cadastros reais.
+
+## 2026-09-20 — aviso transitório no login do cliente corrigido
 
 PR #116 incorpora uma correção de apresentação: o catch do formulário tratava
 `NEXT_REDIRECT` como falha de conexão depois de autenticar com sucesso, exibindo
@@ -9,8 +24,9 @@ ao Next.js; credenciais inválidas e falhas reais continuam com feedback.
 Reproduzido em PostgreSQL descartável com captura das inserções transitórias
 no DOM; após a correção, jornadas 390px/1440px passaram sem o falso alerta.
 O mesmo observador cobre os logins com senha recuperada no CI Supabase.
-Sem mudança de senha, sessão, regras de autorização, dados ou schema. Correção
-ainda não publicada; aguarda CI/Preview da revisão. Produção abaixo permanece.
+Sem mudança de senha, sessão, regras de autorização, dados ou schema. PR #116
+integrado em `9b92138ec766`; health produtivo confirmou essa versão com banco
+saudável antes da promoção do PR #117.
 
 ## 2026-09-20 — recuperação Supabase publicada com transição voluntária
 

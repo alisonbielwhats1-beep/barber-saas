@@ -1,5 +1,11 @@
 # Troca de planos — 13/09/2026
 
+Atualização de 20/09/2026: consulta somente leitura confirmou código produtivo
+`13cb2a333a66`, tabela `BillingPlanChange` presente e flag de trocas habilitada.
+As afirmações abaixo de não publicação são históricas. Esta auditoria não aplicou
+migrations. A correção de seleção pendente está documentada em
+`ASSINATURAS_E_LIMPEZA_HQ_2026-09-20.md` e ainda não foi publicada.
+
 Implementação solicitada pelo responsável após a publicação do PR #101.
 Branch `codex/mercadopago-plan-changes`. Ainda não publicada nem habilitada.
 

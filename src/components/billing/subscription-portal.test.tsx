@@ -40,7 +40,35 @@ it("never shows a paid plan merely from pending authorization", async () => {
  vi.stubGlobal("fetch", vi.fn(async () => reply(sub))); portal();
  expect(await screen.findByText("Aguardando pagamento")).toBeVisible();
  expect(screen.queryByText("Plano ativo")).toBeNull();
- expect(screen.queryByRole("button", { name: "Escolher Equipe · 5 agendas" })).toBeNull();
+ expect(screen.getByRole("button", { name: "Escolher Equipe · 5 agendas" })).toBeVisible();
+});
+it("compares pending plans without creating another subscription until cancellation is confirmed", async () => {
+ let current: SubscriptionView = { ...sub };
+ const fetcher = vi.fn(async (url: string, init?: RequestInit) => {
+   if (init?.method === "POST") {
+     expect(url).toContain("/api/billing/cancel");
+     current = { ...current, cancelRequestedAt: "2026-09-20T12:00:00Z", renewalCancellationStatus: "PENDING" };
+     return new Response("{}");
+   }
+   return reply(current);
+ });
+ vi.stubGlobal("fetch", fetcher); portal();
+ fireEvent.click(await screen.findByRole("button", { name: "Escolher Essencial" }));
+ expect(screen.queryByRole("button", { name: "Ir para pagamento" })).toBeNull();
+ expect(fetcher).toHaveBeenCalledTimes(1);
+ fireEvent.click(screen.getByRole("button", { name: "Confirmar cancelamento da tentativa anterior" }));
+ await screen.findByText("Cancelamento em confirmação");
+ expect(screen.queryByRole("button", { name: "Ir para pagamento" })).toBeNull();
+ current = { ...current, cancelledAt: "2026-09-20T12:01:00Z", renewalCancellationStatus: "CANCELLED" };
+ fireEvent.click(screen.getByRole("button", { name: "Atualizar situação" }));
+ expect(await screen.findByRole("button", { name: "Ir para pagamento" })).toBeEnabled();
+ expect(screen.getByRole("dialog")).toHaveTextContent("Essencial");
+ expect(fetcher.mock.calls.filter(c => c[1]?.method === "POST")).toHaveLength(1);
+});
+it("does not offer a replacement when a pending subscription has a financial review", async () => {
+ vi.stubGlobal("fetch", vi.fn(async () => reply({ ...sub, reviewRequired: true }))); portal();
+ await screen.findByText("Aguardando pagamento");
+ expect(screen.queryByRole("button", { name: "Escolher Essencial" })).toBeNull();
 });
 it("shows the actual refunded amount without describing a partial refund as a full refund", async () => {
  vi.stubGlobal("fetch", vi.fn(async () => reply({ ...sub, charges: [{ id: "charge", amountCents: 9990, refundedCents: 2000, status: "refunded", periodStart: "2026-09-13T12:00:00Z", periodEnd: "2026-10-13T12:00:00Z", paidAt: "2026-09-13T12:00:00Z" }] })));

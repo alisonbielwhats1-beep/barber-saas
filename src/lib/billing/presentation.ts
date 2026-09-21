@@ -33,6 +33,8 @@ export type SubscriptionView = {
 };
 export type PlanChangeView = { id: string; kind: string; state: string; from: BillingTerms; to: BillingTerms; amountDueCents: number; effectiveAt: string; periodEnd: string; expiresAt: string; paidAt: string | null; activatedAt: string | null; checkoutUrl: string | null; lastError: string | null };
 export const billingErrors: Record<string, string> = {
+  PROVIDER_REJECTED: "O Mercado Pago não aceitou a solicitação. Confira os dados no checkout e se a conta compradora é diferente da conta recebedora. Atualize a situação antes de tentar novamente.",
+  SELLER_ACCOUNT_MISMATCH: "A conta recebedora precisa ser conferida pela plataforma. Entre em contato com o suporte.",
   PLAN_CHANGES_DISABLED: "A troca de planos ainda não está disponível.",
   PLAN_UNCHANGED: "Este já é seu plano e sua capacidade atuais.",
   PLAN_CHANGE_PENDING: "Já existe uma troca em andamento. Acompanhe a confirmação antes de solicitar outra.",
