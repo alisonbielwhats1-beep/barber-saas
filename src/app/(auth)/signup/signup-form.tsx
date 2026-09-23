@@ -36,12 +36,17 @@ export function SignupForm({ initialSegment, planIntent, billingIntent, billingA
     const payload = {
       ownerName: String(form.get("ownerName")),
       email: String(form.get("email")),
+      confirmEmail: String(form.get("confirmEmail")),
       password: String(form.get("password")),
       confirmPassword: String(form.get("confirmPassword")),
       salonName: String(form.get("salonName")),
       segmentId: selection.segmentId,
       serviceNames: includeServices ? selection.serviceNames : [],
     };
+    if (payload.email.trim().toLowerCase() !== payload.confirmEmail.trim().toLowerCase()) {
+      setError("Os e-mails não coincidem.");
+      return;
+    }
     if (payload.password !== payload.confirmPassword) {
       setError("As senhas não coincidem.");
       return;
@@ -118,6 +123,10 @@ export function SignupForm({ initialSegment, planIntent, billingIntent, billingA
       <div className="space-y-1.5">
         <label htmlFor="email" className="text-sm font-medium">Email</label>
         <Input id="email" name="email" type="email" placeholder="voce@exemplo.com" autoComplete="email" required />
+      </div>
+      <div className="space-y-1.5">
+        <label htmlFor="confirmEmail" className="text-sm font-medium">Confirmar e-mail</label>
+        <Input id="confirmEmail" name="confirmEmail" type="email" placeholder="Digite seu e-mail novamente" autoComplete="off" required />
       </div>
       <PasswordInput
         id="password"
