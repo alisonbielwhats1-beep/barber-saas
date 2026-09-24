@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useFormOperation } from "@/app/(admin)/use-form-operation";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Bell, CheckCheck, Clock3, Loader2 } from "lucide-react";
+import { Bell, BellRing, CheckCheck, Clock3, Loader2 } from "lucide-react";
 import { formatInTimeZone } from "date-fns-tz";
 import { ptBR } from "date-fns/locale";
 import {
@@ -35,6 +35,7 @@ const TITLES: Record<string, string> = {
   "appointment.status_changed": "Status atualizado",
   "appointment.waitlist_fulfilled": "Vaga confirmada pela lista de espera",
   "appointment.reminder": "Lembrete de agendamento",
+  "appointment.reminder.today": "Seu atendimento é hoje ✨",
 };
 
 function serviceLabel(payload: Record<string, unknown>): string | null {
@@ -133,6 +134,7 @@ export function NotificationList({
             const reason = typeof notification.payload.reason === "string"
               ? notification.payload.reason
               : null;
+            const isClientReminder = scope === "client" && ["appointment.reminder", "appointment.reminder.today"].includes(notification.template);
             const href = scope === "staff"
               ? startAt
                 ? `/agenda?date=${formatInTimeZone(startAt, timezone, "yyyy-MM-dd")}${typeof notification.payload.appointmentId === "string" ? `&appointment=${encodeURIComponent(notification.payload.appointmentId)}` : ""}&from=notificacoes`
@@ -142,14 +144,15 @@ export function NotificationList({
               <article
                 key={notification.id}
                 className={`rounded-2xl border p-4 ${
-                  notification.readAt ? "border-border bg-card" : "border-primary/40 bg-primary/5"
+                  isClientReminder ? "border-violet-400/45 bg-violet-500/10" : notification.readAt ? "border-border bg-card" : "border-primary/40 bg-primary/5"
                 }`}
               >
                 <div className="flex items-start gap-3">
-                  <span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
-                    <Bell className="h-4 w-4" />
+                  <span className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full ${isClientReminder ? "bg-violet-500/20 text-violet-500" : "bg-primary/10 text-primary"}`}>
+                    {isClientReminder ? <BellRing className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
                   </span>
                   <div className="min-w-0 flex-1">
+                    {isClientReminder && <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.16em] text-violet-500">EverFlair lembra você</p>}
                     <Link href={href} className="font-medium hover:text-primary">
                       {TITLES[notification.template] ?? "Atualização do agendamento"}
                     </Link>
@@ -157,6 +160,9 @@ export function NotificationList({
                       <p className="mt-1 text-xs font-medium text-warning">
                         Abra suas reservas para responder.
                       </p>
+                    )}
+                    {isClientReminder && (
+                      <p className="mt-1 text-xs font-medium text-violet-500">{notification.template === "appointment.reminder.today" ? "Hoje é o dia ✨" : "Amanhã é seu momento ✨"}</p>
                     )}
                     {previousStartAt && startAt ? (
                       <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">

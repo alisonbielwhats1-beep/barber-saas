@@ -27,3 +27,31 @@ self.addEventListener("fetch", (event) => {
   if (event.request.mode !== "navigate") return;
   event.respondWith(fetch(event.request).catch(() => caches.match(OFFLINE_URL)));
 });
+
+self.addEventListener("push", (event) => {
+  let message = {};
+  try { message = event.data?.json() || {}; } catch { /* Ignore malformed payload. */ }
+  const title = typeof message.title === "string" ? message.title : "Seu lembrete EverFlair";
+  const body = typeof message.body === "string" ? message.body : "Confira seu agendamento no aplicativo.";
+  const url = typeof message.url === "string" && /^\/book\/[a-z0-9-]+\/minhas$/.test(message.url)
+    ? message.url : "/";
+  event.waitUntil(self.registration.showNotification(title, {
+    body,
+    icon: "/icon-192.png",
+    badge: "/icon-192.png",
+    tag: typeof message.tag === "string" ? message.tag : "everflair-reminder",
+    renotify: false,
+    data: { url },
+  }));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = event.notification.data?.url || "/";
+  event.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (windows) => {
+    const target = new URL(url, self.location.origin).href;
+    const existing = windows.find(client => client.url === target);
+    if (existing) return existing.focus();
+    return self.clients.openWindow(target);
+  }));
+});

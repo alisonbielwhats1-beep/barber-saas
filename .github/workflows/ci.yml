@@ -364,6 +364,16 @@ jobs:
           npx prisma db execute --file prisma/sql/manual/025_billing_plan_changes.rollback.sql --url "$DIRECT_URL"
           npx prisma db execute --file prisma/sql/manual/024_billing_hq.rollback.sql --url "$DIRECT_URL"
           npx prisma db execute --file prisma/sql/manual/023_mercadopago_billing.rollback.sql --url "$DIRECT_URL"
+      - name: Validate client push subscription migration and tenant constraints
+        run: |
+          docker exec ${{ job.services.postgres.id }} pg_dump -U postgres -d salon_schema_ci > "$RUNNER_TEMP/pre026.sql"
+          test -s "$RUNNER_TEMP/pre026.sql"
+          npx prisma db execute --file prisma/sql/manual/026_client_push_reminders.preflight.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/026_client_push_reminders.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/026_client_push_reminders.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/026_client_push_reminders.verify.sql --url "$DIRECT_URL"
+          npx vitest run src/lib/__tests__/client-reminder-postgres.integration.test.ts
+          npx prisma db execute --file prisma/sql/manual/026_client_push_reminders.rollback.sql --url "$DIRECT_URL"
       - name: Prove appointment and comanda concurrency with PostgreSQL, plus public access locking
         # The runtime RLS fixture alters shared policies. Keep files isolated;
         # concurrency assertions inside each test continue to run concurrently.

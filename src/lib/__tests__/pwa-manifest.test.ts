@@ -65,5 +65,7 @@ describe("manifesto instalavel", () => {
     }
     expect(serviceWorker).toContain("self.skipWaiting()");
     expect(serviceWorker).toContain("self.clients.claim()");
+    expect(serviceWorker).toContain('self.addEventListener("push"');
+    expect(serviceWorker).toContain('self.addEventListener("notificationclick"');
   });
 });
