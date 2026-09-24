@@ -4,7 +4,9 @@
 
 Branch local `codex/service-reminder-push`: candidata para aviso de véspera e
 do dia, push consentido no PWA do cliente e e-mail opcional pelo Resend já
-existente. A comanda desta candidata registra valor final e motivo por serviço
+existente. A home mostra a ativação também a contas antigas com app instalado,
+enquanto o aparelho ainda não estiver vinculado; a permissão só é pedida após
+o toque do cliente. A comanda desta candidata registra valor final e motivo por serviço
 "A partir de" no fechamento, preserva o valor inicial e reflete o final no
 pagamento e na receita. As migrations manuais 026/027 estão apenas versionadas.
 Nenhum SQL, chave, flag ou deploy desta candidata foi aplicado em Production.

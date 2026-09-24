@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { BellRing, Mail, ShieldCheck, Smartphone } from "lucide-react";
+import Link from "next/link";
 
 type State = "checking" | "ready" | "active" | "denied" | "install" | "unsupported" | "unavailable";
 
@@ -21,7 +22,10 @@ function publicKeyBytes(key: string) {
   return Uint8Array.from(decoded, char => char.charCodeAt(0));
 }
 
-export function PushPermissionCard({ salonSlug }: { salonSlug: string }) {
+export function PushPermissionCard({ salonSlug, placement = "notifications" }: {
+  salonSlug: string;
+  placement?: "notifications" | "home";
+}) {
   const [state, setState] = useState<State>("checking");
   const [publicKey, setPublicKey] = useState("");
   const [busy, setBusy] = useState(false);
@@ -92,6 +96,29 @@ export function PushPermissionCard({ salonSlug }: { salonSlug: string }) {
       setState("ready");
     } catch { setError("Não foi possível desativar neste aparelho. Tente novamente."); }
     finally { setBusy(false); }
+  }
+
+  // Returning clients land on the home screen from their installed app. Show
+  // the invitation there only while this device still needs to be linked.
+  // The browser permission prompt remains behind the client's button tap.
+  if (placement === "home") {
+    if (state !== "ready") return null;
+    return <section className="relative overflow-hidden rounded-2xl border border-[#8055cb]/35 bg-[#17141f] p-4 text-white shadow-[0_18px_45px_-30px_rgba(128,85,203,0.8)]" aria-label="Lembretes no celular">
+      <div aria-hidden="true" className="pointer-events-none absolute -right-8 -top-12 h-32 w-32 rounded-full bg-[#8055cb]/20 blur-3xl" />
+      <div className="relative flex items-start gap-3">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#8055cb]/25 text-[#d8bfff]"><BellRing className="h-5 w-5" /></span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#bda0ee]">Lembretes EverFlair</p>
+          <h2 className="mt-1 text-base font-semibold">Receba avisos dos seus horários</h2>
+          <p className="mt-1 text-sm leading-relaxed text-white/75">Ative neste aparelho para reservas futuras, inclusive as que você já marcou.</p>
+        </div>
+      </div>
+      <div className="relative mt-4 flex flex-wrap items-center gap-3">
+        <button type="button" disabled={busy} onClick={enable} className="min-h-11 rounded-xl bg-[#a476ee] px-4 text-sm font-semibold text-[#180d28] hover:bg-[#b88fff] disabled:opacity-60">{busy ? "Ativando…" : "Ativar lembretes"}</button>
+        <Link href={`/book/${salonSlug}/notificacoes`} className="inline-flex min-h-11 items-center text-sm font-medium text-white/75 underline underline-offset-4 hover:text-white">Como funciona</Link>
+      </div>
+      {error && <p role="alert" className="relative mt-3 text-sm text-rose-200">{error}</p>}
+    </section>;
   }
 
   return <section className="relative overflow-hidden rounded-3xl border border-[#8055cb]/35 bg-[#17141f] p-5 text-white shadow-[0_18px_45px_-30px_rgba(128,85,203,0.8)]">

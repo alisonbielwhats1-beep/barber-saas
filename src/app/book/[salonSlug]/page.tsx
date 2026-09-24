@@ -35,6 +35,7 @@ import { BrandLogo } from "@/components/brand";
 import { SalonLocationLink } from "./salon-location-link";
 import { PwaInstallCard } from "@/components/pwa-install-card";
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
+import { PushPermissionCard } from "./notificacoes/push-permission-card";
 
 // Capa determinística por salão — mesmo salão, mesma foto
 function heroForSalon(slug: string) {
@@ -318,6 +319,8 @@ export default async function ClientHome({
       )}
 
       <PwaInstallCard salonName={salon.name} storageKey={salonSlug} compact />
+
+      {salon.hasValidClientSession && <PushPermissionCard salonSlug={salonSlug} placement="home" />}
 
       {/* Hero — capa do salão */}
       <div className="relative flex min-h-48 items-end overflow-hidden rounded-3xl sm:min-h-56 lg:min-h-72">

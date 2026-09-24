@@ -20,9 +20,13 @@ aplicada em Production nesta tarefa.
   salão define o fuso IANA; cancelamento/remarcação bloqueia entrega externa
   de um aviso antigo. Lembrete manual pelo WhatsApp não suprime os automáticos.
 - Push no celular exige consentimento explícito. O cliente abre a tela de
-  notificações, ativa o aparelho e pode desativá-lo no mesmo lugar. iPhone
-  precisa de app adicionado à Tela de Início. O service worker exibe o aviso
-  com ícone EverFlair e abre `Minhas visitas` ao toque.
+  notificações, ativa o aparelho e pode desativá-lo no mesmo lugar. Clientes
+  que já têm conta e app instalado também veem o convite na home ao abrir o
+  app, enquanto o aparelho ainda não estiver vinculado. O botão pede a
+  permissão do sistema somente após o toque; o convite some quando o vínculo
+  fica ativo. Reservas futuras já existentes entram nas próximas rodadas dos
+  lembretes. iPhone precisa de app adicionado à Tela de Início. O service
+  worker exibe o aviso com ícone EverFlair e abre `Minhas visitas` ao toque.
 - A página confere se o aparelho está vinculado ao perfil logado naquele salão.
   O navegador compartilha a assinatura entre salões no mesmo domínio; por isso,
   desativar um salão revoga apenas seu vínculo no banco e preserva os demais.
@@ -93,12 +97,15 @@ inventário. Não foi aplicada em Production.
 
 - `npm run lint`: aprovado.
 - `npx tsc --noEmit --incremental false`: aprovado.
-- `npm test`: 218 arquivos e 1.185 testes aprovados após repetir sem build
+- `npm test`: 219 arquivos e 1.188 testes aprovados após repetir sem build
   concorrente. A primeira execução simultânea ao build atingiu o timeout de
   cinco segundos em um teste de varredura de arquivos; a repetição passou.
 - `npx vitest run src/lib/__tests__/cron-security.test.ts src/lib/__tests__/client-reminders.test.ts`:
   aprovado, incluindo a rota do dia. Uma segunda execução dirigida com
   `pwa-manifest.test.ts` totalizou 17 testes aprovados.
+- O teste do convite na home do app instalado passou: cliente antigo pode
+  ativar após o toque, conta já vinculada não recebe convite repetido e a
+  home não oferece ativação enquanto a flag estiver desligada.
 - `npx prisma validate`: aprovado com URLs sintéticas locais; não conectou ao banco.
 - `npm run build`: aprovado após fornecer variáveis sintéticas locais e permitir
   o download da fonte Inter. Gerou 62 páginas estáticas e as duas rotas de cron.
