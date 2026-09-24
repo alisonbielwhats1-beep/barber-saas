@@ -37,7 +37,9 @@ type Appt = {
   version: number;
   _count: { waitlistEntries: number };
   service: { id: string; name: string; colorHex: string | null };
-  serviceItems: { serviceId: string; serviceName: string; priceType?: string; priceNote?: string | null }[];
+  serviceItems: { serviceId: string; serviceName: string; priceCents: number; priceType?: string;
+    priceNote?: string | null; finalPriceCents: number | null; finalPriceReason: string | null }[];
+  payment: { amountCents: number } | null;
   events: Array<{
     id: string;
     eventType: string;
@@ -427,7 +429,7 @@ export function MinhasList({
           aria-labelledby="appointments-upcoming-tab"
           className="space-y-6"
         >
-          {visitGroups.map(group => <section key={group.id} aria-label="Minha visita" className="space-y-3 rounded-2xl border border-primary/30 bg-primary/5 p-4"><h2 className="font-semibold">Minha visita · {formatInTimeZone(new Date(group.appointments[0]!.startAt), timezone, "dd/MM")}</h2><p className="text-sm text-muted-foreground">{group.appointments.length} atendimento(s) · {formatMoney(group.appointments.reduce((sum, a) => sum + a.priceCents, 0), currency)}</p>{group.appointments.map(a => <ApptCard key={a.id} a={a} currency={currency} timezone={timezone} salonName={salonName} salonAddress={salonAddress} actions={appointmentActions(a)} />)}</section>)}
+          {visitGroups.map(group => <section key={group.id} aria-label="Minha visita" className="space-y-3 rounded-2xl border border-primary/30 bg-primary/5 p-4"><h2 className="font-semibold">Minha visita · {formatInTimeZone(new Date(group.appointments[0]!.startAt), timezone, "dd/MM")}</h2><p className="text-sm text-muted-foreground">{group.appointments.length} atendimento(s) · {formatMoney(group.appointments.reduce((sum, a) => sum + (a.payment?.amountCents ?? a.priceCents), 0), currency)}</p>{group.appointments.map(a => <ApptCard key={a.id} a={a} currency={currency} timezone={timezone} salonName={salonName} salonAddress={salonAddress} actions={appointmentActions(a)} />)}</section>)}
           {nextAppointment ? (
             <section aria-labelledby="next-appointment-title">
               <div className="mb-3">
@@ -672,7 +674,8 @@ function ApptCard({
   const start = new Date(a.startAt);
   const productsTotal = a.products.reduce((s, p) => s + p.quantity * p.priceCentsUnit, 0);
   const variablePrice = hasVariablePrice(a.serviceItems);
-  const total = a.priceCents + productsTotal;
+  const total = a.payment?.amountCents ?? a.priceCents + productsTotal;
+  const finalizedServices = a.serviceItems.filter(service => service.priceType === "FROM" && service.finalPriceCents !== null);
   const durationMinutes = Math.max(0, Math.round((new Date(a.endAt).getTime() - start.getTime()) / 60_000));
   const serviceName = a.serviceItems.length > 0
     ? a.serviceItems.map((service) => service.serviceName).join(" + ")
@@ -747,7 +750,14 @@ function ApptCard({
         </p>
         {featured && <SalonLocationLink address={salonAddress} className="mt-1 text-xs leading-relaxed" />}
       </div>
-      <VariablePriceNotice services={a.serviceItems} />
+      {!a.payment && <VariablePriceNotice services={a.serviceItems} />}
+      {a.payment && finalizedServices.length > 0 && <div className="mt-3 space-y-1 rounded-xl border border-violet-400/35 bg-violet-500/5 p-3 text-xs">
+        <p className="font-semibold">Valor final dos serviços</p>
+        {finalizedServices.map((service, index) => <p key={`${service.serviceId}-${index}`}>
+          {service.serviceName}: {formatMoney(service.priceCents, currency)} inicial → {formatMoney(service.finalPriceCents!, currency)} final
+          {service.finalPriceReason ? ` · ${service.finalPriceReason}` : ""}
+        </p>)}
+      </div>}
       {a.products.length > 0 && (
         <div className="mt-3 space-y-1 rounded-lg bg-muted/40 p-2 text-xs">
           {a.products.map((p, i) => (
@@ -787,7 +797,7 @@ function ApptCard({
       )}
       <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <span className="client-reservation-total text-sm font-semibold">
-          {variablePrice ? "Valor inicial: " : "Total "}{formatMoney(total, currency)}
+          {a.payment ? "Total pago: " : variablePrice ? "Valor inicial: " : "Total "}{formatMoney(total, currency)}
         </span>
         {actions}
       </div>

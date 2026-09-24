@@ -291,6 +291,12 @@ jobs:
           npx prisma db execute --file prisma/sql/manual/021_variable_service_prices.sql --url "$DIRECT_URL"
           npx prisma db execute --file prisma/sql/manual/021_variable_service_prices.verify.sql --url "$DIRECT_URL"
           npx prisma db execute --file tests/fixtures/021-preservation-after.sql --url "$DIRECT_URL"
+      - name: Validate final price columns on the historical reservation snapshot
+        run: |
+          npx prisma db execute --file prisma/sql/manual/027_variable_service_final_prices.preflight.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/027_variable_service_final_prices.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/027_variable_service_final_prices.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/027_variable_service_final_prices.verify.sql --url "$DIRECT_URL"
 
       - name: Validate additive chief history and budget under RLS
         run: |
@@ -319,7 +325,9 @@ jobs:
           npx prisma db execute --file prisma/sql/manual/023_receipts_booking.verify.sql --url "$DIRECT_URL"
           npx prisma db execute --file tests/fixtures/023-preservation-after.sql --url "$DIRECT_URL"
           npx vitest run src/lib/__tests__/receipts-booking-postgres.integration.test.ts src/lib/__tests__/product-depth-postgres.integration.test.ts src/lib/__tests__/variable-price-postgres.integration.test.ts
+          npx vitest run src/lib/__tests__/final-service-price-postgres.integration.test.ts
           npx prisma db execute --file prisma/sql/manual/023_receipts_booking.rollback.sql --url "$DIRECT_URL"
+          npx prisma db execute --file prisma/sql/manual/027_variable_service_final_prices.rollback.sql --url "$DIRECT_URL"
       - name: Validate automatic billing upgrade, RLS, retries and paid access
         run: |
           docker exec ${{ job.services.postgres.id }} pg_dump -U postgres -d salon_schema_ci > "$RUNNER_TEMP/pre023.sql"

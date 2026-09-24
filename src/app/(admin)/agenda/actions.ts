@@ -326,7 +326,8 @@ export async function getComandaData(id: string) {
         service: { select: { name: true, priceCents: true } },
         serviceItems: {
           orderBy: { position: "asc" },
-          select: { serviceName: true, priceCents: true },
+          select: { position: true, serviceName: true, priceCents: true, priceType: true,
+            finalPriceCents: true, finalPriceReason: true },
         },
         products: {
           orderBy: [{ productId: "asc" }, { priceCentsUnit: "asc" }, { id: "asc" }],
@@ -433,6 +434,11 @@ export async function removeWaitlistEntry(
 }
 
 const comandaInput = z.object({
+  finalServicePrices: z.array(z.object({
+    position: z.number().int().min(0),
+    finalPriceCents: z.number().int().min(0).max(100_000_000),
+    reason: z.string().trim().max(240).optional(),
+  })).max(30).optional(),
   extraServiceIds: z.array(z.string().min(1)).max(30).optional(),
   surchargeCents: z.number().int().min(0).max(100_000_000).optional(),
   adjustmentReason: z.string().trim().max(300).optional(),
@@ -467,7 +473,7 @@ export async function closeComanda(
         appointmentId: data.id,
         idempotencyKey: data.idempotencyKey,
         expectedVersion: data.expectedVersion,
-        extraServiceIds: data.extraServiceIds, surchargeCents: data.surchargeCents, adjustmentReason: data.adjustmentReason, receivedDate: data.receivedDate, expectedTotalCents: data.expectedTotalCents,
+        extraServiceIds: data.extraServiceIds, surchargeCents: data.surchargeCents, adjustmentReason: data.adjustmentReason, finalServicePrices: data.finalServicePrices, receivedDate: data.receivedDate, expectedTotalCents: data.expectedTotalCents,
         discountCents: data.discountCents,
         productLines: data.productLines,
         method: data.method,

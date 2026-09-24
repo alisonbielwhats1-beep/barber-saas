@@ -1262,6 +1262,8 @@ model AppointmentService {
   priceCents    Int
   priceType String @default("FIXED")
   priceNote String?
+  finalPriceCents Int?
+  finalPriceReason String?
   processingMin Int @default(0)
   finishingMin Int @default(0)
 

@@ -1,4 +1,4 @@
-# Lembretes do cliente no celular — candidata local
+# Lembretes no celular e valor final por serviço — candidata local
 
 Branch `codex/service-reminder-push`, baseada em `origin/master` `27255eb`.
 Uma leitura remota confirmou que esse também era o HEAD de `master` em
@@ -11,9 +11,10 @@ aplicada em Production nesta tarefa.
   serviço, valor inicial e justificativa. O cliente vê o valor inicial e que o
   preço final pode subir e será combinado antes do atendimento. Os termos da
   reserva ficam congelados mesmo se o catálogo mudar. Migration 021 já consta
-  como aplicada e não deve ser reaplicada. A comanda atual permite ao
-  dono/gerente lançar um acréscimo com motivo no fechamento, mas ainda não
-  registra um valor final individual em cada serviço variável.
+  como aplicada e não deve ser reaplicada. Nesta candidata, a comanda recebe
+  o valor final de cada serviço variável e o motivo quando houver aumento.
+  O pagamento e a receita de serviços usam a diferença; o preço inicial da
+  reserva permanece no snapshot. Recibo e histórico do cliente mostram ambos.
 - O cron atual cria apenas aviso interno de véspera. A candidata mantém essa
   chave histórica e acrescenta um aviso interno no dia do agendamento. O
   salão define o fuso IANA; cancelamento/remarcação bloqueia entrega externa
@@ -60,13 +61,21 @@ Preflight, forward, verify e rollback não destrutivo estão em
 aplicar SQL em Production para testar. Rollback funcional desliga as flags e
 reverte o código, preservando assinaturas e outbox.
 
+`027_variable_service_final_prices` acrescenta duas colunas opcionais ao
+snapshot `AppointmentService` e uma constraint: só serviços `FROM` aceitam
+valor final, nunca abaixo do inicial, com motivo quando houver aumento. O
+fechamento valida posição do item, papel e preço no servidor sob o lock da
+reserva; atualiza snapshot, total do agendamento, pagamento e auditoria na
+mesma transação. A migration 027 também tem preflight/verify/rollback de
+inventário. Não foi aplicada em Production.
+
 ## Ativação revisável
 
 1. Abrir PR e aguardar CI completo, incluindo `schema-smoke`, PostgreSQL 16
-   descartável com a migration 026 e Preview. Confirmar novamente
+   descartável com as migrations 026/027 e Preview. Confirmar novamente
    `origin/master` antes da integração.
 2. Após autorização para staging, identificar o projeto separado, fazer
-   backup/restore de dados sintéticos, executar preflight, aplicar 026 uma vez
+   backup/restore de dados sintéticos, executar preflight, aplicar 026/027 uma vez
    e verificar RLS/grants/contagens.
 3. Gerar chaves VAPID fora do Git e configurar somente no ambiente seguro:
    `CLIENT_PUSH_ENABLED`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`,
@@ -84,7 +93,9 @@ reverte o código, preservando assinaturas e outbox.
 
 - `npm run lint`: aprovado.
 - `npx tsc --noEmit --incremental false`: aprovado.
-- `npm test`: 218 arquivos e 1.183 testes aprovados.
+- `npm test`: 218 arquivos e 1.185 testes aprovados após repetir sem build
+  concorrente. A primeira execução simultânea ao build atingiu o timeout de
+  cinco segundos em um teste de varredura de arquivos; a repetição passou.
 - `npx vitest run src/lib/__tests__/cron-security.test.ts src/lib/__tests__/client-reminders.test.ts`:
   aprovado, incluindo a rota do dia. Uma segunda execução dirigida com
   `pwa-manifest.test.ts` totalizou 17 testes aprovados.
@@ -92,5 +103,7 @@ reverte o código, preservando assinaturas e outbox.
 - `npm run build`: aprovado após fornecer variáveis sintéticas locais e permitir
   o download da fonte Inter. Gerou 62 páginas estáticas e as duas rotas de cron.
 - A integração PostgreSQL/migration 026 está configurada no `schema-smoke` do
-  CI. Não foi executada localmente: o Docker CLI está instalado, mas o daemon
-  não está disponível. Nenhum ambiente remoto foi usado para testes.
+  CI. A migration 027 e o teste do valor final da comanda também estão no
+  `schema-smoke`. Não foram executados localmente: o Docker CLI está instalado,
+  mas o daemon não está disponível. Nenhum ambiente remoto foi usado para
+  testes locais.
