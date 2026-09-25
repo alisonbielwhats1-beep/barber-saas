@@ -5,6 +5,19 @@ vi.mock("../kpis", () => ({ getProfessionalPerformance: vi.fn().mockResolvedValu
 import { getFinanceMetrics } from "../finance";
 
 describe("finance: separate realization, cash and forecast", () => {
+  it("counts only the 35 received for a 55 service discounted by 20", async () => {
+    const tx = {
+      appointment: { findMany: vi.fn().mockResolvedValueOnce([{ priceCents: 5500 }]).mockResolvedValue([]) },
+      appointmentProduct: { findMany: vi.fn().mockResolvedValue([]) },
+      expense: { findMany: vi.fn().mockResolvedValue([]) },
+      payment: { findMany: vi.fn().mockResolvedValue([{ amountCents: 3500, method: "PIX", paidAt: new Date("2026-09-02T10:00:00Z") }]) },
+    } as unknown as Tx;
+    const metrics = await getFinanceMetrics(tx, "salon-a", "30d");
+    expect(metrics.revenue).toBe(5500);
+    expect(metrics.byMethod.reduce((sum, method) => sum + method.value, 0)).toBe(3500);
+    expect(metrics.cashflow.reduce((sum, day) => sum + day.inflow, 0)).toBe(3500);
+    expect(metrics.receivable).toBe(0);
+  });
   it("applies selected month boundaries to receipts and expenses without changing tenant scope", async () => {
     const paymentQuery = vi.fn().mockResolvedValue([]);
     const expenseQuery = vi.fn().mockResolvedValue([]);

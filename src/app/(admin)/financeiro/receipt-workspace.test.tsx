@@ -63,6 +63,45 @@ beforeEach(() => {
   });
 });
 describe("baixa em lote", () => {
+  it("receives 35 for a 55 service with a 20 discount and leaves unchecked appointments pending", async () => {
+    const user = userEvent.setup();
+    const value = await mocks.day();
+    mocks.day.mockResolvedValue({ ...value, rows: [{ ...row("Ana"), baseCents: 5500 }, row("Bruno")] });
+    mocks.receive.mockResolvedValue([{ id: "Ana", success: true, message: "Recebido" }]);
+    render(<ReceiptWorkspace date="2026-09-12" />);
+    await user.click(screen.getByText("Registrar recebimentos"));
+    await screen.findByLabelText("Selecionar Ana");
+    await user.click(screen.getByLabelText("Selecionar Bruno"));
+    const ana = screen.getByLabelText("Selecionar Ana").closest("article")!;
+    await user.type(within(ana).getByLabelText("Desconto (R$)"), "20,00");
+    expect(within(ana).getByText(/Total/)).toHaveTextContent(/35,00/);
+    await user.click(screen.getByRole("button", { name: /Dar baixa em 1.*35,00/ }));
+    await waitFor(() => expect(mocks.receive).toHaveBeenCalledWith(expect.objectContaining({
+      rows: [expect.objectContaining({ id: "Ana", discountCents: 2000, surchargeCents: 0, expectedTotalCents: 3500 })],
+    })));
+    expect(screen.getByLabelText("Selecionar Bruno")).not.toBeChecked();
+  });
+
+  it("rejects an excessive discount and allows a full discount", async () => {
+    const user = userEvent.setup();
+    mocks.receive.mockResolvedValue([]);
+    render(<ReceiptWorkspace date="2026-09-12" />);
+    await user.click(screen.getByText("Registrar recebimentos"));
+    await screen.findByLabelText("Selecionar Ana");
+    const ana = screen.getByLabelText("Selecionar Ana").closest("article")!;
+    const discount = within(ana).getByLabelText("Desconto (R$)");
+    await user.type(discount, "50,01");
+    await user.click(screen.getByRole("button", { name: /Dar baixa em 1/ }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("o desconto não pode superar");
+    expect(mocks.receive).not.toHaveBeenCalled();
+    await user.clear(discount);
+    await user.type(discount, "50,00");
+    await user.click(screen.getByRole("button", { name: /Dar baixa em 1/ }));
+    await waitFor(() => expect(mocks.receive).toHaveBeenCalledWith(expect.objectContaining({
+      rows: [expect.objectContaining({ discountCents: 5000, expectedTotalCents: 0 })],
+    })));
+  });
+
   it("receives only three of four appointments with independent payment methods", async () => {
     const user = userEvent.setup();
     const value = await mocks.day();
@@ -144,6 +183,7 @@ describe("baixa em lote", () => {
       "extra",
     );
     await user.type(within(ana).getByLabelText("Acréscimo (R$)"), "10,50");
+    await user.type(within(ana).getByLabelText("Desconto (R$)"), "5,25");
     await user.type(
       within(ana).getByLabelText("Motivo do acréscimo de Ana"),
       "Acabamento especial",
@@ -162,7 +202,8 @@ describe("baixa em lote", () => {
               id: "Ana",
               extraServiceIds: ["extra"],
               surchargeCents: 1050,
-              expectedTotalCents: 8050,
+              discountCents: 525,
+              expectedTotalCents: 7525,
             }),
           ],
         }),

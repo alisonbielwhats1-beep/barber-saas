@@ -91,6 +91,7 @@ test("@database baixa por dia com extras, ontem, seleção e recibo na mesma tel
       })
       .selectOption(service.id);
     await row.getByLabel("Acréscimo (R$)").fill("15,50");
+    await row.getByLabel("Desconto (R$)").fill("20,00");
     await row
       .getByLabel(`Motivo do acréscimo de ${clients[0]!.name}`)
       .fill("Acabamento combinado");
@@ -120,7 +121,9 @@ test("@database baixa por dia com extras, ontem, seleção e recibo na mesma tel
     const paid = await db.payment.findUniqueOrThrow({
       where: { appointmentId: appointments[0]!.id },
     });
-    expect(paid.amountCents).toBe(6550 + service.priceCents);
+    expect(paid.amountCents).toBe(4550 + service.priceCents);
+    expect(paid.discountCents).toBe(2000);
+    expect((await db.appointment.findUniqueOrThrow({ where: { id: appointments[0]!.id } })).priceCents).toBe(5000);
     expect(dateKeyInTimeZone(paid.paidAt, salon.timezone)).toBe(date);
     expect(
       await db.payment.findUnique({
@@ -139,6 +142,7 @@ test("@database baixa por dia com extras, ontem, seleção e recibo na mesma tel
       .filter({ hasText: clients[0]!.name });
     await paidRow.getByRole("button", { name: "Ver recibo" }).click();
     const receipt = page.getByRole("dialog", { name: "Recibo do atendimento" });
+    await expect(receipt.getByText("Desconto", { exact: true })).toBeVisible();
     await expect(
       receipt.getByText("Acréscimo · Acabamento combinado"),
     ).toBeVisible();
