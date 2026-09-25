@@ -1,9 +1,9 @@
-# Lembretes no celular e valor final por serviço — candidata local
+# Lembretes no celular e valor final por serviço — publicado
 
-Branch `codex/service-reminder-push`, baseada em `origin/master` `27255eb`.
-Uma leitura remota confirmou que esse também era o HEAD de `master` em
-24/09/2026. Nenhuma migration, flag ou chave foi
-aplicada em Production nesta tarefa.
+Branch `codex/service-reminder-push`, baseada em `origin/master` `27255eb`,
+integrada pelo PR #121 em `a663bdbd3a40`. As migrations 026/027, as chaves
+VAPID e a flag de push foram aplicadas em Production após autorização explícita.
+Evidências da publicação em `RELEASE_CLIENT_PUSH_FINAL_PRICES_2026-09-24.md`.
 
 ## Pedido e comportamento
 
@@ -11,11 +11,11 @@ aplicada em Production nesta tarefa.
   serviço, valor inicial e justificativa. O cliente vê o valor inicial e que o
   preço final pode subir e será combinado antes do atendimento. Os termos da
   reserva ficam congelados mesmo se o catálogo mudar. Migration 021 já consta
-  como aplicada e não deve ser reaplicada. Nesta candidata, a comanda recebe
+  como aplicada e não deve ser reaplicada. Nesta entrega, a comanda recebe
   o valor final de cada serviço variável e o motivo quando houver aumento.
   O pagamento e a receita de serviços usam a diferença; o preço inicial da
   reserva permanece no snapshot. Recibo e histórico do cliente mostram ambos.
-- O cron atual cria apenas aviso interno de véspera. A candidata mantém essa
+- O cron anterior criava apenas aviso interno de véspera. A entrega mantém essa
   chave histórica e acrescenta um aviso interno no dia do agendamento. O
   salão define o fuso IANA; cancelamento/remarcação bloqueia entrega externa
   de um aviso antigo. Lembrete manual pelo WhatsApp não suprime os automáticos.
@@ -71,27 +71,24 @@ valor final, nunca abaixo do inicial, com motivo quando houver aumento. O
 fechamento valida posição do item, papel e preço no servidor sob o lock da
 reserva; atualiza snapshot, total do agendamento, pagamento e auditoria na
 mesma transação. A migration 027 também tem preflight/verify/rollback de
-inventário. Não foi aplicada em Production.
+inventário. Foi aplicada e verificada em Production em 25/09/2026 UTC.
 
-## Ativação revisável
+## Ativação e limites da verificação
 
-1. Abrir PR e aguardar CI completo, incluindo `schema-smoke`, PostgreSQL 16
-   descartável com as migrations 026/027 e Preview. Confirmar novamente
-   `origin/master` antes da integração.
-2. Após autorização para staging, identificar o projeto separado, fazer
-   backup/restore de dados sintéticos, executar preflight, aplicar 026/027 uma vez
-   e verificar RLS/grants/contagens.
-3. Gerar chaves VAPID fora do Git e configurar somente no ambiente seguro:
-   `CLIENT_PUSH_ENABLED`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`,
-   `VAPID_SUBJECT`. Configurar `CLIENT_REMINDER_EMAIL_ENABLED` só depois de
-   testar o remetente Resend existente. Não imprimir a chave privada em logs.
-4. Testar instalação, consentimento, recebimento e toque em Android e iPhone
-   reais; conferir véspera/dia, remarcação, cancelamento, deduplicação,
-   expiração do endpoint e fallback de e-mail.
-5. Solicitar aprovação para integrar e publicar. Aplicação em Production requer
-   preflight, identificação inequívoca, backup, rollback e autorização
-   explícita. Só então ativar as flags e conferir cron, home, tela do cliente
-   e erros de runtime.
+1. PR #121 passou no CI completo, incluindo `schema-smoke` com PostgreSQL 16
+   descartável e Preview. `origin/master` permaneceu no commit homologado.
+2. Não havia staging persistente separado disponível. O banco descartável do CI
+   validou aplicação, RLS e rollback com dados sintéticos; isso não comprova
+   entrega em aparelhos reais. Production não foi usada como ambiente de teste.
+3. Chaves VAPID foram geradas e guardadas criptografadas fora do Git;
+   `CLIENT_PUSH_ENABLED`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` e
+   `VAPID_SUBJECT` estão somente em Vercel Production. O fallback automático
+   por e-mail não foi ativado porque o envio não foi validado nesta entrega.
+4. Após a autorização de deploy, preflight, backup, rollback e identidade do
+   projeto foram conferidos antes das migrations 026/027. O release Production
+   foi verificado por GETs públicos e erros de runtime. Instalação, consentimento,
+   recebimento e toque em Android e iPhone reais ainda exigem observação com
+   aparelhos dos usuários; a entrega push não foi declarada comprovada.
 
 ## Verificações locais
 
