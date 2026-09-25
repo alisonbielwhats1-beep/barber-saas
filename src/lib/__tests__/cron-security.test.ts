@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   appointmentFindMany: vi.fn(),
   queryRaw: vi.fn(),
   executeRaw: vi.fn(),
+  recordEvent: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -20,7 +21,12 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
+vi.mock("@/lib/appointment-events", () => ({
+  recordAppointmentEvent: mocks.recordEvent,
+}));
+
 import { GET } from "@/app/api/cron/reminders/route";
+import { GET as GETToday } from "@/app/api/cron/reminders/today/route";
 
 const originalSecret = process.env.CRON_SECRET;
 
@@ -36,6 +42,7 @@ describe("GET /api/cron/reminders — fail closed", () => {
     mocks.queryRaw.mockImplementation(
       async (_query: TemplateStringsArray, salonId: string) => [{ id: salonId }],
     );
+    mocks.recordEvent.mockResolvedValue({ id: "event-a", created: true });
   });
 
   afterEach(() => {
@@ -86,7 +93,7 @@ describe("GET /api/cron/reminders — fail closed", () => {
     expect(response.status).toBe(200);
     expect(mocks.salonFindMany).toHaveBeenCalledWith({
       where: { accessStatus: "APPROVED" },
-      select: { id: true, timezone: true },
+      select: { id: true, timezone: true, name: true, slug: true },
       orderBy: { id: "asc" },
     });
     expect(mocks.queryRaw).toHaveBeenCalledTimes(2);
@@ -110,5 +117,31 @@ describe("GET /api/cron/reminders — fail closed", () => {
     // RLS de UPDATE consiga revalidar o salão. O callback permanece fechado.
     expect(mocks.executeRaw).toHaveBeenCalledOnce();
     await expect(response.json()).resolves.toEqual({ generated: 0, count: 0 });
+  });
+
+  it("gera o lembrete do dia com chave e texto distintos antes do atendimento", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2032-08-05T10:00:00Z"));
+    try {
+      process.env.CRON_SECRET = "test-secret";
+      mocks.salonFindMany.mockResolvedValue([{ id: "salon-a", timezone: "America/Sao_Paulo", name: "Ateliê", slug: "atelie" }]);
+      mocks.appointmentFindMany.mockResolvedValue([{
+        id: "appointment-a", clientId: "client-a", professionalId: "pro-a",
+        startAt: new Date("2032-08-05T14:00:00Z"), endAt: new Date("2032-08-05T15:00:00Z"),
+        timezone: "America/Sao_Paulo", client: { name: "Cliente A" },
+        professional: { user: { name: "Profissional A" } },
+        service: { name: "Corte" }, serviceItems: [],
+      }]);
+      const response = await GETToday(request("Bearer test-secret"));
+      expect(response.status).toBe(200);
+      expect(mocks.appointmentFindMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: expect.objectContaining({ startAt: { gte: new Date("2032-08-05T10:00:00Z"), lt: new Date("2032-08-06T03:00:00Z") } }),
+      }));
+      expect(mocks.recordEvent).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+        idempotencyKey: "reminder:today:2032-08-05", template: "appointment.reminder.today",
+        payload: expect.objectContaining({ reminderPhase: "today", salonName: "Ateliê" }),
+      }));
+      await expect(response.json()).resolves.toEqual({ generated: 1, count: 1 });
+    } finally { vi.useRealTimers(); }
   });
 });

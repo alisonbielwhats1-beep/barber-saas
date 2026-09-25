@@ -4,6 +4,7 @@ import { NotificationList, type NotificationRow } from "@/components/notificatio
 import { getClientSession } from "@/lib/client-auth";
 import { withSalonBySlug } from "@/lib/prisma-tenant";
 import { resolveClientSessionInTenant } from "@/lib/public-appointment";
+import { PushPermissionCard } from "./push-permission-card";
 
 function payloadRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -72,6 +73,8 @@ export default async function ClientNotificationsPage({
           <h1 className="text-2xl font-semibold">Notificações</h1>
         </div>
       </header>
+
+      <PushPermissionCard salonSlug={salonSlug} />
 
       <NotificationList
         notifications={notifications}

@@ -44,11 +44,12 @@ function appointment({
     }],
     professional: { id: "professional-1", user: { name: "Tatiane" } },
     products: [],
+    payment: null,
     review: null,
   };
 }
 
-function mount(appointments: ReturnType<typeof appointment>[]) {
+function mount(appointments: React.ComponentProps<typeof MinhasList>["appointments"]) {
   render(
     <MinhasList
       appointments={appointments}
@@ -106,5 +107,18 @@ describe("MinhasList", () => {
 
     expect(screen.getByText("Atendimento passado")).toBeVisible();
     expect(screen.getByText("Atendimento sem fechamento").closest("article")).toHaveAttribute("data-tone", "neutral");
+  });
+
+  it("mostra o valor final pago sem apagar o preço inicial do serviço", () => {
+    mount([{ ...appointment({ id: "paid", startAt: "2026-09-08T13:00:00Z", status: "COMPLETED", serviceName: "Progressiva" }),
+      priceCents: 40000, payment: { amountCents: 40000 },
+      serviceItems: [{ serviceId: "progressiva", serviceName: "Progressiva", priceCents: 30000,
+        priceType: "FROM", priceNote: "Conforme comprimento.", finalPriceCents: 40000,
+        finalPriceReason: "Cabelo mais comprido" }],
+    }]);
+    fireEvent.click(screen.getByRole("tab", { name: /Histórico 1/ }));
+    expect(screen.getByText(/R\$\s*300,00 inicial/)).toBeVisible();
+    expect(screen.getByText(/Total pago: R\$\s*400,00/)).toBeVisible();
+    expect(screen.queryByText("O valor final pode ser maior")).not.toBeInTheDocument();
   });
 });

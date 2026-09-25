@@ -1,5 +1,19 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-24 — lembretes no celular e valor final por serviço em preparação
+
+Branch local `codex/service-reminder-push`: candidata para aviso de véspera e
+do dia, push consentido no PWA do cliente e e-mail opcional pelo Resend já
+existente. A home mostra a ativação também a contas antigas com app instalado,
+enquanto o aparelho ainda não estiver vinculado; a permissão só é pedida após
+o toque do cliente. A comanda desta candidata registra valor final e motivo por serviço
+"A partir de" no fechamento, preserva o valor inicial e reflete o final no
+pagamento e na receita. As migrations manuais 026/027 estão apenas versionadas.
+Nenhum SQL, chave, flag ou deploy desta candidata foi aplicado em Production.
+O fluxo de apresentação "A partir de" já existe na versão atual e a migration
+021 foi aplicada em 11/09; não reaplicar. Escopo, limitações e rollout em
+`docs/LEMBRETES_CLIENTE_PUSH_2026-09-24.md`.
+
 ## 2026-09-20 — publicação de billing e limpeza do HQ autorizada
 
 Auditoria somente leitura identificou Production em `13cb2a333a66`, billing live
