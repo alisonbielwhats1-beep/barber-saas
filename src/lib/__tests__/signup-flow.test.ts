@@ -38,6 +38,7 @@ import { signup } from "@/app/(auth)/signup/actions";
 const VALID = {
   ownerName: "Dono Teste",
   email: "dono@example.com",
+  confirmEmail: "dono@example.com",
   password: "senha-segura",
   confirmPassword: "senha-segura",
   salonName: "Studio Teste",
@@ -97,6 +98,25 @@ describe("signup", () => {
     expect(mocks.checkRateLimit).not.toHaveBeenCalled();
     expect(mocks.userFindUnique).not.toHaveBeenCalled();
     expect(mocks.transaction).not.toHaveBeenCalled();
+  });
+
+  it("rejeita e-mails divergentes antes do limiter e do banco", async () => {
+    const result = await signup({
+      ...VALID,
+      confirmEmail: "outra-pessoa@example.com",
+    });
+
+    expect(result).toEqual({ ok: false, error: "Os e-mails não coincidem." });
+    expect(mocks.checkRateLimit).not.toHaveBeenCalled();
+    expect(mocks.userFindUnique).not.toHaveBeenCalled();
+    expect(mocks.transaction).not.toHaveBeenCalled();
+  });
+
+  it("aceita a confirmação do e-mail sem diferenciar maiúsculas", async () => {
+    await expect(signup({ ...VALID, confirmEmail: "Dono@Example.com" })).resolves.toEqual({
+      ok: true,
+      slug: "studio-teste",
+    });
   });
 
   it.each(["x".repeat(73), "é".repeat(37)])(

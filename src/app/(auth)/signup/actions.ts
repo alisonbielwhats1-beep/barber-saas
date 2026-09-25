@@ -22,6 +22,7 @@ const signupInput = z
   .object({
     ownerName: z.string().trim().min(2, "Nome muito curto").max(120, "Nome muito longo"),
     email: z.string().trim().toLowerCase().email("Email inválido").max(254, "Email muito longo"),
+    confirmEmail: z.string().trim().toLowerCase().email("Confirmação de email inválida").max(254, "Email muito longo"),
     password: ownerPasswordSchema,
     confirmPassword: ownerPasswordSchema,
     salonName: z.string().trim().min(2, "Nome do salão muito curto").max(120, "Nome do salão muito longo"),
@@ -32,6 +33,10 @@ const signupInput = z
   .refine((input) => input.password === input.confirmPassword, {
     path: ["confirmPassword"],
     message: "As senhas não coincidem.",
+  })
+  .refine((input) => input.email === input.confirmEmail, {
+    path: ["confirmEmail"],
+    message: "Os e-mails não coincidem.",
   });
 
 export type SignupInput = z.infer<typeof signupInput>;
