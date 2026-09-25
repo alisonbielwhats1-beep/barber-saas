@@ -5,6 +5,13 @@
 > Para saber o que está em Production e quais migrations estão pendentes, use
 > `docs/STATUS_ATUAL.md`.
 
+> **Nota de 24/09/2026:** as seções antigas de billing e recuperação abaixo
+> registram planejamento histórico. Assinaturas Mercado Pago foram publicadas
+> e Supabase Auth/recovery entrou em Production em 20/09 com transição
+> voluntária. A migration `011` se refere à cobrança manual legada e continua
+> distinta do billing Mercado Pago. Consulte o topo de `docs/STATUS_ATUAL.md`
+> e o [blueprint](blueprint/README.md) antes de transformar esta lista em tarefa.
+
 Este plano substitui a ambiguidade entre as “7 fases” históricas do painel e o
 programa atual do produto. O roadmap antigo registra entregas visuais já
 existentes; as fases abaixo organizam o trabalho daqui para frente.

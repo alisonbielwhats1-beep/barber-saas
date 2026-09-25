@@ -32,14 +32,16 @@ recente e a contradição deve ser corrigida no mesmo PR.
 - Next.js 15.5 App Router, React 18, TypeScript estrito.
 - Prisma 5 + PostgreSQL/Supabase; runtime usa pooler e migrations usam conexão
   direta quando autorizadas.
-- NextAuth Credentials + sessão JWT.
+- NextAuth Credentials + sessão JWT; acessos vinculados usam Supabase Auth
+  após recuperação voluntária, e contas legadas preservam a senha anterior.
 - Tailwind/Radix, Vitest e CI com PostgreSQL 16 descartável.
 - Multi-tenant por `salonId` + `Membership` + RLS/GUCs no PostgreSQL.
 - Produção: `https://everflair.com.br`, branch `master`; o endereço antigo
   `https://salon-saas-ruby.vercel.app` permanece disponível.
 - Administrador global: `PlatformRole.SUPER_ADMIN`, rota `/plataforma`.
-- `PLATFORM_BILLING_ENABLED` permanece `false` até a migration manual `011`
-  ser validada fora de Production e aplicada com autorização.
+- `PLATFORM_BILLING_ENABLED` protege apenas a cobrança manual legada da
+  migration `011`, ainda não aplicada. Assinaturas Mercado Pago foram
+  publicadas separadamente; veja o topo de `docs/STATUS_ATUAL.md`.
 
 ## Banco e migrations
 
