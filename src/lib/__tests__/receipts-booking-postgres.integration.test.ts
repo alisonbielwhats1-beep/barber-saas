@@ -177,14 +177,14 @@ pg("recebimentos e reservas 023 no PostgreSQL", () => {
       appointmentId: a.id,
       idempotencyKey: crypto.randomUUID(),
       expectedVersion: 1,
-      discountCents: 0,
+      discountCents: 2000,
       productLines: [],
       method: "PIX" as const,
       extraServiceIds: [f.service.id, f.service.id],
       surchargeCents: 1500,
       adjustmentReason: "Acabamento extra",
       receivedDate,
-      expectedTotalCents: 28500,
+      expectedTotalCents: 26500,
       now,
     };
     await expect(
@@ -195,6 +195,10 @@ pg("recebimentos e reservas 023 no PostgreSQL", () => {
     expect(await prisma.payment.count({ where: { appointmentId: a.id } })).toBe(
       0,
     );
+    await expect(withSalon(f.salon.id, (tx) =>
+      closeComandaReliably(tx, { ...input, discountCents: 28501, expectedTotalCents: 0 }),
+    )).rejects.toThrow("O desconto não pode superar");
+    expect(await prisma.payment.count({ where: { appointmentId: a.id } })).toBe(0);
     const results = await Promise.all(
       [0, 1].map(() =>
         withSalon(f.salon.id, (tx) => closeComandaReliably(tx, input)),
@@ -204,7 +208,8 @@ pg("recebimentos e reservas 023 no PostgreSQL", () => {
     const payment = await prisma.payment.findUniqueOrThrow({
       where: { appointmentId: a.id },
     });
-    expect(payment.amountCents).toBe(28500);
+    expect(payment.amountCents).toBe(26500);
+    expect(payment.discountCents).toBe(2000);
     expect(payment.extraServices).toHaveLength(2);
     expect(dateKeyInTimeZone(payment.paidAt, f.salon.timezone)).toBe(
       receivedDate,
