@@ -18,6 +18,41 @@ existente, sem migration; oferta de plano menor antes de cancelar. Integração
 PostgreSQL local com 023/024/025 e role sem BYPASSRLS: 66 testes aprovados.
 `pg_cron` não foi aplicado (exige SQL em Production e autorização).
 
+## 2026-09-27 — guia de início reformulado (Marfim & Lilás)
+
+Branch `codex/configuracao-guiada`: `/onboarding/configuracao` deixa de ser um
+formulário por etapa e passa a guiar uma decisão por vez — boas-vindas no primeiro
+acesso, dias por toque, formato do horário (direto, com almoço ou dia a dia),
+revisão de serviços um por vez com prévia do que o cliente vê, "Eu mesmo atendo"
+já sugerindo serviços e horários, e prévia do app com link, WhatsApp e checklist.
+Paleta aprovada pelo responsável: base neutra, ação marfim (grafite no tema claro),
+lilás só em ícones/seleção/progresso e verde apenas para concluído; ícones com
+animação leve que respeita "reduzir movimento". Mesmas server actions, validações,
+papéis e persistência de progresso; sem migration. Proposta visual em
+`https://claude.ai/artifact/N6eYXUfPiu5aZc2AfTyKn2`. Conferido em banco local
+descartável (Docker), 375 px e 1280 px, temas claro e escuro, sem erros de console.
+
+## 2026-09-27 — nome opcional sobre a capa e conta cortesia provisionada
+
+Branch `codex/capa-nome-opcional`: em Configurações → Aparência, quem usa capa
+própria pode desmarcar "Mostrar o nome do estabelecimento sobre a capa" quando a
+imagem já traz o nome. O título permanece para leitores de tela; selo e degradê
+somem e a capa passa a 16:9. Sem capa própria o nome sempre aparece (o servidor
+força `true`). Migration manual aditiva `028_cover_show_name` (coluna booleana
+`NOT NULL DEFAULT true`, sem reescrita de tabela), com preflight/verify/rollback
+não destrutivo e validação no CI. Autorizada pelo responsável e **aplicada em
+Production** (`vshnatkzxdekkvqttvbv`) em 27/09, antes do deploy desta branch:
+preflight somente leitura, coluna criada sem reescrita, 12 salões com `true`,
+RLS ENABLE/FORCE preservado e `app_runtime` com SELECT/UPDATE na coluna.
+Não reaplicar. O código anterior ignora a coluna, então o deploy pode ser revertido.
+
+A pedido do responsável, foi provisionada em Production, por SQL aditivo em uma
+transação com preflight, a conta cortesia `bianca-reflexologia`: OWNER único,
+plano PRO/APPROVED sem `BillingSubscription` (sem cobrança), jornada de terça e
+evento `SalonAccessEvent` registrando a cortesia. Contagens conferidas antes e
+depois (+1 usuário, salão, membership, profissional e jornada; reservas intactas).
+Credenciais não são documentadas. Rollback: suspender somente esse salão.
+
 ## 2026-09-24 — lembretes no celular e valor final por serviço em preparação
 
 Branch local `codex/service-reminder-push`: candidata para aviso de véspera e
