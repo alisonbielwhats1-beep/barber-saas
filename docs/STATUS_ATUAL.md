@@ -1,18 +1,27 @@
 # Status atual canônico — Salon SaaS
 
-## 2026-09-24 — lembretes no celular e valor final por serviço em preparação
+## 2026-09-24 — valor final e lembretes push publicados
 
-Branch local `codex/service-reminder-push`: candidata para aviso de véspera e
-do dia, push consentido no PWA do cliente e e-mail opcional pelo Resend já
-existente. A home mostra a ativação também a contas antigas com app instalado,
-enquanto o aparelho ainda não estiver vinculado; a permissão só é pedida após
-o toque do cliente. A comanda desta candidata registra valor final e motivo por serviço
-"A partir de" no fechamento, preserva o valor inicial e reflete o final no
-pagamento e na receita. As migrations manuais 026/027 estão apenas versionadas.
-Nenhum SQL, chave, flag ou deploy desta candidata foi aplicado em Production.
-O fluxo de apresentação "A partir de" já existe na versão atual e a migration
-021 foi aplicada em 11/09; não reaplicar. Escopo, limitações e rollout em
-`docs/LEMBRETES_CLIENTE_PUSH_2026-09-24.md`.
+PR #121 integrado em `a663bdbd3a40`; Production Vercel
+`dpl_6c2h9EvsTUgrSUzf4b1pxkjY5X3d` READY em `everflair.com.br`.
+As migrations manuais 026/027 foram aplicadas uma vez no projeto Supabase
+`vshnatkzxdekkvqttvbv`, com preflight, backup criptografado, verificação de
+RLS/grants/constraints e preservação dos 2.380 snapshots anteriores.
+As chaves VAPID e `CLIENT_PUSH_ENABLED=true` estão restritas a Vercel Production;
+o fallback automático por e-mail continua desligado.
+
+O salão escolhe quais serviços usam **A partir de** e o cliente vê o preço
+inicial e o aviso de possível reajuste. A comanda registra valor final e motivo
+quando houver aumento; pagamento e receita usam o valor final. O app do cliente,
+inclusive para contas antigas com PWA instalado, oferece ativação voluntária do
+push na home e na tela de notificações. Sem o toque e a permissão do cliente,
+nenhum push chega àquele aparelho. Os crons de véspera e do dia estão publicados.
+Home, booksite Martinelli e health responderam 200 na versão nova; rotas push e
+cron recusaram GET sem credenciais, e não havia erros de runtime na janela
+verificada. A entrega em aparelhos Android/iPhone reais ainda não foi observada;
+não tratá-la como comprovada. Migration 021 já tinha sido aplicada em 11/09;
+não reaplicar. Evidências e limitações em
+`docs/RELEASE_CLIENT_PUSH_FINAL_PRICES_2026-09-24.md`.
 
 ## 2026-09-20 — publicação de billing e limpeza do HQ autorizada
 
