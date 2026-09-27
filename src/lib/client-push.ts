@@ -75,7 +75,7 @@ export async function sendClientPush(input: {
       url: input.url,
       tag: input.tag,
       icon: "/icon-192.png",
-      badge: "/icon-192.png",
+      badge: "/badge-96.png",
     }),
     {
       vapidDetails: {
@@ -84,7 +84,9 @@ export async function sendClientPush(input: {
         privateKey: process.env.VAPID_PRIVATE_KEY!,
       },
       TTL: Math.max(0, Math.min(24 * 60 * 60, Math.floor(input.ttlSeconds))),
-      urgency: "normal",
+      // Lembretes têm hora marcada: "high" evita que o Android os segure
+      // no modo de economia de bateria até a próxima janela de manutenção.
+      urgency: "high",
     },
   );
 }

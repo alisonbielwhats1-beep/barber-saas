@@ -25,17 +25,9 @@ describe("PwaInstallCard", () => {
     });
   });
 
-  it("persiste a instalação aceita pelo prompt do navegador", async () => {
+  it("oculta o convite após o aceite, mas só persiste com appinstalled", async () => {
     const user = userEvent.setup();
-    const prompt = vi.fn().mockResolvedValue(undefined);
-    const installEvent = new Event("beforeinstallprompt", { cancelable: true }) as Event & {
-      prompt: () => Promise<void>;
-      userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
-    };
-    Object.defineProperty(installEvent, "prompt", { value: prompt });
-    Object.defineProperty(installEvent, "userChoice", {
-      value: Promise.resolve({ outcome: "accepted" as const }),
-    });
+    const { event: installEvent, prompt } = createInstallEvent("accepted");
 
     render(<PwaInstallCard salonName="Studio A" storageKey="studio-a" />);
     window.dispatchEvent(installEvent);
@@ -45,8 +37,31 @@ describe("PwaInstallCard", () => {
 
     await waitFor(() => {
       expect(prompt).toHaveBeenCalledOnce();
-      expect(localStorage.getItem(pwaInstallStorageKey("studio-a"))).toBe("installed");
       expect(screen.queryByRole("region", { name: "Instalar aplicativo" })).not.toBeInTheDocument();
     });
+    expect(localStorage.getItem(pwaInstallStorageKey("studio-a"))).toBeNull();
+
+    window.dispatchEvent(new Event("appinstalled"));
+    await waitFor(() => {
+      expect(localStorage.getItem(pwaInstallStorageKey("studio-a"))).toBe("installed");
+    });
+  });
+
+  it("dá nova chance quando o navegador ainda oferece a instalação", async () => {
+    localStorage.setItem(pwaInstallStorageKey("studio-a"), "installed");
+    const { event: installEvent } = createInstallEvent("accepted");
+
+    render(<PwaInstallCard salonName="Studio A" storageKey="studio-a" />);
+    window.dispatchEvent(installEvent);
+
+    expect(await screen.findByRole("button", { name: "Instalar aplicativo" })).toBeInTheDocument();
   });
 });
+
+function createInstallEvent(outcome: "accepted" | "dismissed") {
+  const prompt = vi.fn().mockResolvedValue(undefined);
+  const event = new Event("beforeinstallprompt", { cancelable: true });
+  Object.defineProperty(event, "prompt", { value: prompt });
+  Object.defineProperty(event, "userChoice", { value: Promise.resolve({ outcome }) });
+  return { event, prompt };
+}
