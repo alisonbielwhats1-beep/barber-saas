@@ -186,6 +186,7 @@ export default async function ClientHome({
       segment: true,
       description: true,
       coverUrl: true,
+      coverShowName: true,
       instagram: true,
       whatsapp: true,
       paymentMethods: true,
@@ -258,6 +259,9 @@ export default async function ClientHome({
   const segment = isSegmentId(salon.segment) ? getSegment(salon.segment) : null;
   const coverFallback = segment?.accentImage || heroForSalon(salonSlug);
   const coverSrc = normalizeImageUrl(salon.coverUrl) || coverFallback;
+  // Capa própria que já traz o nome: o título continua disponível a leitores
+  // de tela, mas some visualmente junto com o selo e o degradê de contraste.
+  const coverNameVisible = !normalizeImageUrl(salon.coverUrl) || salon.coverShowName;
   const services = salon.services.map((service) => ({
     ...service,
     imageUrl: normalizeImageUrl(service.imageUrl),
@@ -323,7 +327,13 @@ export default async function ClientHome({
       {salon.hasValidClientSession && <PushPermissionCard salonSlug={salonSlug} placement="home" />}
 
       {/* Hero — capa do salão */}
-      <div className="relative flex min-h-48 items-end overflow-hidden rounded-3xl sm:min-h-56 lg:min-h-72">
+      <div
+        className={`relative flex items-end overflow-hidden rounded-3xl ${
+          coverNameVisible
+            ? "min-h-48 sm:min-h-56 lg:min-h-72"
+            : "aspect-[16/9] max-h-[28rem] w-full"
+        }`}
+      >
         <ImageWithFallback
           src={coverSrc}
           fallbackSrc={coverFallback}
@@ -334,8 +344,10 @@ export default async function ClientHome({
           sizes="(max-width: 640px) calc(100vw - 2rem), (max-width: 1024px) calc(100vw - 3rem), 1088px"
           className="object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
-        <div className="relative min-w-0 w-full p-5">
+        {coverNameVisible && (
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+        )}
+        <div className={coverNameVisible ? "relative min-w-0 w-full p-5" : "sr-only"}>
           {/* Badge de segmento — dado real escolhido pelo dono, no lugar do
               rótulo genérico que havia antes. Sem segmento definido, mantém
               o texto anterior; não some nada para quem não personalizou. */}

@@ -158,6 +158,7 @@ const brandingInput = z.object({
   segment: z.string().max(40).optional().nullable(),
   description: z.string().max(600).optional().nullable(),
   coverUrl: z.string().url("URL de capa inválida").optional().nullable().or(z.literal("")),
+  coverShowName: z.boolean().optional(),
   logoUrl: z.string().url("URL da foto de perfil inválida").optional().nullable().or(z.literal("")),
   themeColorHex: z
     .string()
@@ -228,6 +229,8 @@ export async function updateSalonBranding(input: BrandingInput) {
         segment: orNull(data.segment),
         description: orNull(data.description),
         coverUrl: orNull(data.coverUrl),
+        // Sem capa própria o nome sempre aparece: a imagem padrão não o contém.
+        coverShowName: data.coverUrl ? (data.coverShowName ?? true) : true,
         logoUrl: orNull(data.logoUrl),
         themeColorHex: orNull(data.themeColorHex),
         // Guardamos só dígitos: o link wa.me não aceita máscara.

@@ -1,5 +1,23 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-27 — nome opcional sobre a capa e conta cortesia provisionada
+
+Branch `codex/capa-nome-opcional`: em Configurações → Aparência, quem usa capa
+própria pode desmarcar "Mostrar o nome do estabelecimento sobre a capa" quando a
+imagem já traz o nome. O título permanece para leitores de tela; selo e degradê
+somem e a capa passa a 16:9. Sem capa própria o nome sempre aparece (o servidor
+força `true`). Migration manual aditiva `028_cover_show_name` (coluna booleana
+`NOT NULL DEFAULT true`, sem reescrita de tabela), com preflight/verify/rollback
+não destrutivo e validação no CI. Precisa ser aplicada em Production **antes**
+do deploy desta branch, pois a vitrine passa a ler a coluna.
+
+A pedido do responsável, foi provisionada em Production, por SQL aditivo em uma
+transação com preflight, a conta cortesia `bianca-reflexologia`: OWNER único,
+plano PRO/APPROVED sem `BillingSubscription` (sem cobrança), jornada de terça e
+evento `SalonAccessEvent` registrando a cortesia. Contagens conferidas antes e
+depois (+1 usuário, salão, membership, profissional e jornada; reservas intactas).
+Credenciais não são documentadas. Rollback: suspender somente esse salão.
+
 ## 2026-09-24 — lembretes no celular e valor final por serviço em preparação
 
 Branch local `codex/service-reminder-push`: candidata para aviso de véspera e
