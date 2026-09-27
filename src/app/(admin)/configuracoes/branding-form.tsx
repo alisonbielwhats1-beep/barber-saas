@@ -17,6 +17,7 @@ export type Branding = {
   segment: string | null;
   description: string | null;
   coverUrl: string | null;
+  coverShowName: boolean;
   logoUrl: string | null;
   themeColorHex: string | null;
   instagram: string | null;
@@ -42,6 +43,7 @@ export function BrandingForm({ branding }: { branding: Branding }) {
   const [segment, setSegment] = useState(branding.segment ?? "");
   const [color, setColor] = useState(branding.themeColorHex ?? "");
   const [coverUrl, setCoverUrl] = useState(normalizeImageUrl(branding.coverUrl) ?? "");
+  const [coverShowName, setCoverShowName] = useState(branding.coverShowName);
   const [logoUrl, setLogoUrl] = useState(normalizeImageUrl(branding.logoUrl) ?? "");
   const [methods, setMethods] = useState<string[]>(
     branding.paymentMethods ? branding.paymentMethods.split(",").filter(Boolean) : [],
@@ -63,6 +65,7 @@ export function BrandingForm({ branding }: { branding: Branding }) {
           segment: segment || null,
           description: String(f.get("description") ?? ""),
           coverUrl,
+          coverShowName,
           logoUrl,
           themeColorHex: color || null,
           instagram: String(f.get("instagram") ?? ""),
@@ -174,6 +177,22 @@ export function BrandingForm({ branding }: { branding: Branding }) {
               folder="branding"
               aspectRatio="landscape"
             />
+            {coverUrl && (
+              <label className="mt-3 flex min-h-11 items-start gap-3 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-5 w-5 shrink-0"
+                  checked={coverShowName}
+                  onChange={(e) => setCoverShowName(e.target.checked)}
+                />
+                <span>
+                  Mostrar o nome do estabelecimento sobre a capa
+                  <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                    Desmarque se a sua imagem já traz o nome, para não aparecer duas vezes.
+                  </span>
+                </span>
+              </label>
+            )}
           </div>
         </Field>
 
