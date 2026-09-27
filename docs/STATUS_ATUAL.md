@@ -1,5 +1,19 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-27 — guia de início reformulado (Marfim & Lilás)
+
+Branch `codex/configuracao-guiada`: `/onboarding/configuracao` deixa de ser um
+formulário por etapa e passa a guiar uma decisão por vez — boas-vindas no primeiro
+acesso, dias por toque, formato do horário (direto, com almoço ou dia a dia),
+revisão de serviços um por vez com prévia do que o cliente vê, "Eu mesmo atendo"
+já sugerindo serviços e horários, e prévia do app com link, WhatsApp e checklist.
+Paleta aprovada pelo responsável: base neutra, ação marfim (grafite no tema claro),
+lilás só em ícones/seleção/progresso e verde apenas para concluído; ícones com
+animação leve que respeita "reduzir movimento". Mesmas server actions, validações,
+papéis e persistência de progresso; sem migration. Proposta visual em
+`https://claude.ai/artifact/N6eYXUfPiu5aZc2AfTyKn2`. Conferido em banco local
+descartável (Docker), 375 px e 1280 px, temas claro e escuro, sem erros de console.
+
 ## 2026-09-27 — nome opcional sobre a capa e conta cortesia provisionada
 
 Branch `codex/capa-nome-opcional`: em Configurações → Aparência, quem usa capa
