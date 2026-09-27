@@ -1,6 +1,7 @@
 "use client";
 import { usePathname } from "next/navigation";
 import { BrandLogo } from "@/components/brand";
+import type { PlanBadge } from "@/lib/billing/presentation";
 import { PlanShortcut } from "./plan-shortcut";
 import { ThemeToggle } from "./theme-toggle";
 
@@ -10,7 +11,7 @@ export function AdminMobileHeader({
   planHref,
 }: {
   role: string;
-  plan: string | null;
+  plan: PlanBadge;
   planHref: string;
 }) {
   const pathname = usePathname();
@@ -30,7 +31,7 @@ export function AdminMobileHeader({
           aria-label="Plano do estabelecimento"
           className="ml-auto min-w-0 max-w-40"
         >
-          <PlanShortcut compact plan={plan} href={planHref} />
+          <PlanShortcut compact {...plan} href={planHref} />
         </div>
       )}
       <ThemeToggle />
