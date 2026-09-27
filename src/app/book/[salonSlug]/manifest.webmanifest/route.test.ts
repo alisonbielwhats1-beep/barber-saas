@@ -35,7 +35,7 @@ describe("manifesto instalável do salão", () => {
     expect(response.headers.get("content-type")).toContain("application/manifest+json");
     expect(manifest.name).toBe("Studio Atual — agendamento online");
     expect(manifest.start_url).toBe("/book/studio-a/welcome");
-    expect(manifest.scope).toBe("/book/studio-a/");
+    expect(manifest.scope).toBe("/book/studio-a");
     expect(manifest.id).toBe("/book/studio-a");
     expect(manifest.background_color).toBe("#131315");
     expect(manifest.theme_color).toBe("#131315");
