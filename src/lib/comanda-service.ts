@@ -311,6 +311,9 @@ export async function closeComandaReliably(
     productLines: pricedLines,
     discountCents: input.discountCents,
   });
+  if (input.discountCents > totals.subtotalCents) {
+    throw new Error("O desconto não pode superar o total do atendimento.");
+  }
   const now = input.now ?? new Date();
   const paidAt = receiptDate(adjustments.receivedDate, appointment.salon.timezone, now);
   if (input.expectedTotalCents !== undefined && input.expectedTotalCents !== totals.totalCents) {

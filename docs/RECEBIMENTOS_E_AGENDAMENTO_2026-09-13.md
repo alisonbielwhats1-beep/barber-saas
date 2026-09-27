@@ -1,5 +1,28 @@
 # Recebimentos e experiência de agendamento — 13/09/2026
 
+## Complemento de 25/09/2026 — desconto na baixa
+
+Pedido confirmado: serviço de R$ 55 com desconto de R$ 20 registra R$ 35
+recebidos. Hoje/Financeiro oferecem desconto em reais por atendimento, com
+total atualizado antes de confirmar e composição com extras/acréscimos.
+Permissões OWNER/MANAGER, transação por linha, idempotência e linhas desmarcadas
+permanecem preservadas. O contrato aceita clientes antigos sem desconto (zero).
+Valores negativos/fracionários em centavos são rejeitados no contrato; desconto
+acima do subtotal é recusado no núcleo transacional, antes de qualquer gravação.
+Desconto integral é permitido. Não existe alteração retroativa de pagamentos.
+
+Payment guarda `amountCents` líquido e `discountCents`; recibo e auditoria
+existentes mantêm o detalhamento, sem mudar preço reservado nem catálogo.
+Caixa e formas de pagamento já somam Payment pela data recebida. Relatórios
+agora destacam “Recebido após descontos”, também no CSV; a receita bruta e as
+comissões estimadas por data do atendimento conservam suas regras e são
+identificadas como tal. Não foi criado rateio novo de desconto por serviço/produto.
+
+Esta atualização substitui a restrição histórica de descontos apenas na comanda
+individual. Não requer schema/migration. Implementação em worktree isolado
+baseado em `origin/master` a663bdb, sem alteração de Production. Validação e
+checks do PR serão registrados após a execução.
+
 ## Complemento de 20/09/2026 — seleção de vários dias
 
 O responsável esclareceu que “quatro serviços, realizar três” significa quatro

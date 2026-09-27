@@ -56,6 +56,7 @@ export default async function RelatoriosPage({
   );
 
   const periodLabel = formatPeriodLabel(m.period.from, m.period.to, timezone);
+  const receivedCents = fin.byMethod.reduce((sum, method) => sum + method.value, 0);
 
   // Seções exportáveis (CSV)
   const sections: ReportSection[] = [
@@ -63,7 +64,8 @@ export default async function RelatoriosPage({
       title: "Resumo",
       headers: ["Indicador", "Valor"],
       rows: [
-        ["Receita", (m.revenue.value / 100).toFixed(2)],
+        ["Receita bruta de serviços realizados", (m.revenue.value / 100).toFixed(2)],
+        ["Recebido após descontos", (receivedCents / 100).toFixed(2)],
         ["Despesas", (fin.expenseTotal / 100).toFixed(2)],
         ["Lucro líquido", (fin.netProfit / 100).toFixed(2)],
         ["Atendimentos", m.appointments.value],
@@ -113,11 +115,12 @@ export default async function RelatoriosPage({
       <p className="text-sm text-muted-foreground" aria-label="Período do relatório">{periodLabel}</p>
       {/* Comparativo com período anterior */}
       <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <Compare label="Faturamento" value={formatMoney(m.revenue.value)} change={m.revenue.change} />
+        <Compare label="Recebido após descontos" value={formatMoney(receivedCents)} />
         <Compare label="Agendamentos" value={m.appointments.value.toString()} change={m.appointments.change} />
         <Compare label="Ticket médio" value={formatMoney(m.avgTicket.value)} change={m.avgTicket.change} />
         <Compare label="Novos clientes" value={m.clients.new.toString()} />
       </section>
+      <p className="text-xs text-muted-foreground">Recebido considera a data do pagamento, com acréscimos e descontos. As análises de serviços e comissões estimadas usam os valores brutos por data do atendimento.</p>
 
       {/* Tabelas */}
       <div className="grid gap-0 lg:grid-cols-2 lg:gap-4">

@@ -1,5 +1,15 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-25 — desconto por atendimento em revisão
+
+Branch `codex/desconto-fechamento`: a baixa em Hoje/Financeiro aceita desconto
+em reais por atendimento, junto ao acréscimo existente. O total revisado é
+persistido em Payment; desconto, preço original e auditoria são preservados.
+Desconto acima do total é recusado no servidor. Relatórios e CSV destacam o
+recebido líquido pela data do pagamento; análises operacionais brutas continuam
+identificadas separadamente. Sem migration ou publicação produtiva nesta etapa.
+Escopo e evidências em `RECEBIMENTOS_E_AGENDAMENTO_2026-09-13.md`.
+
 ## 2026-09-24 — lembretes no celular e valor final por serviço em preparação
 
 Branch local `codex/service-reminder-push`: candidata para aviso de véspera e
