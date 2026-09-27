@@ -8,8 +8,11 @@ imagem já traz o nome. O título permanece para leitores de tela; selo e degrad
 somem e a capa passa a 16:9. Sem capa própria o nome sempre aparece (o servidor
 força `true`). Migration manual aditiva `028_cover_show_name` (coluna booleana
 `NOT NULL DEFAULT true`, sem reescrita de tabela), com preflight/verify/rollback
-não destrutivo e validação no CI. Precisa ser aplicada em Production **antes**
-do deploy desta branch, pois a vitrine passa a ler a coluna.
+não destrutivo e validação no CI. Autorizada pelo responsável e **aplicada em
+Production** (`vshnatkzxdekkvqttvbv`) em 27/09, antes do deploy desta branch:
+preflight somente leitura, coluna criada sem reescrita, 12 salões com `true`,
+RLS ENABLE/FORCE preservado e `app_runtime` com SELECT/UPDATE na coluna.
+Não reaplicar. O código anterior ignora a coluna, então o deploy pode ser revertido.
 
 A pedido do responsável, foi provisionada em Production, por SQL aditivo em uma
 transação com preflight, a conta cortesia `bianca-reflexologia`: OWNER único,
