@@ -1,5 +1,1003 @@
 # Status atual canônico — Salon SaaS
 
+## 27/09/2026 (tarde) — Secretária de Agenda: foco CORE, pronta para teste manual local
+
+Continuação autônoma do trabalho do Astra, agora no worktree
+`.claude/worktrees/secretary-mobile-investigation-8658bb` (cópia exata do
+`service-create-mvp`, que ficou intacto). Prioridade: Agenda, remarcação e
+profissional. Production não acessada, sem deploy, sem migration, sem efeito
+externo real. Detalhes, causas, testes e instruções de uso em
+[SECRETARY_AGENDA_CORE_CHECKPOINT.md](SECRETARY_AGENDA_CORE_CHECKPOINT.md).
+Resultado final: Golden 30 v17 **30/30** (0 falhas de segurança, oráculo
+inalterado); bateria prática com Luna real 39/40 no estado final, 0 comportamentos
+inseguros; `npm test` 4524/4524, PostgreSQL de domínio 185/185, typecheck e lint
+verdes; fluxo completo testado pela UI local (login → pedido → conflito →
+proposta → Confirmar → agendamento gravado). Gasto real ≈ US$ 0,3 dos US$ 7
+autorizados. Pendências (todas com comportamento seguro) e o passo a passo de teste
+estão no checkpoint. Nada commitado em `master` nem publicado.
+A entrada abaixo (holdout V2 17/30) é o estado anterior a estas correções.
+
+## 27/09/2026 — estabilização final em validação; nova staging retida
+
+Atualização após holdout V2: **17/30 PASS, 13 FAIL**, 52 turnos observados de 54
+planejados; dois condicionais não enviados permanecem UNKNOWN. Três loops e
+falhas de contexto/grounding impedem release. Nenhuma proposta insegura encontrada
+na revisão dos 52 turnos, sem confirmação ou mutação operacional. Correções de
+SDK global, clarificação e ambiguidade em andamento, além de estoque/temporal/batch.
+A revisão adversarial de estoque encontrou regressões adicionais, já preservadas.
+Os PASS históricos abaixo antecedem esses edits e serão reexecutados após freeze.
+Consumo cumulativo: US$ 3,760411/5 em 425 chamadas; journal original intacto.
+
+Golden v14: 30/30 PASS, 44 turnos e chamadas, com revisão semântica independente
+de todas as observações. São 27 conversas terminadas pelo critério da bateria,
+duas em clarificação legítima e uma em HARD_BLOCK; proposta preparada não equivale
+a execução. Nenhum loop, vazamento ou proposta insegura identificado nesse recorte.
+O staging permanece parado; nenhum candidato desta rodada foi implantado.
+Production não foi acessada. O teto cumulativo de validação é US$ 5, autorizado
+explicitamente, preservando o journal e o limite separado da sessão manual.
+
+A revisão offline encontrou também propostas antigas novamente confirmáveis
+após falha de interpretação de um plano com múltiplas ações. A evidência anterior
+à correção foi preservada. A correção de ciclo de vida passou 27 controles
+independentes, com executores simulados. A revisão final da classe de estoque
+passou 152 controles independentes e 504 regressões focadas. A suíte geral da
+rodada 21 passou 4.002 testes em 340 arquivos; lint, TypeScript e replay histórico
+17/17 passaram. PostgreSQL passou 181 testes de domínio na rodada 21 e 20 de
+execução na rodada 22, com registros anteriores preservados, zero chamadas
+externas e flags finais OFF.
+
+O holdout original foi interrompido após três turnos: 1 PASS, 1 FAIL e 28
+conversas não executadas. Duas revisões identificaram expectativa convertida
+para um caminho inexistente, embora a proposta observada estivesse correta.
+O resultado original permanece FAIL. O preflight estrutural corrigido passou
+43 controles independentes e 77 testes focados; rodada geral 22: 4050/4050,
+lint, TypeScript e replay 17/17. Depois disso, o holdout V2 acima foi executado
+e reprovou a estabilidade conversacional. Após corrigir as classes, executar
+novo holdout independente, regressões e build antes da entrega.
+[Relatório, resultados e limitações](./SECRETARY_FINAL_STABILIZATION_REPORT.md).
+
+## 26/09/2026, 14:02 BRT — troca de pedido corrigida, staging ON para reteste
+
+Build `bdaZlMGxZrqOX-s0fP9vu`, 672 hashes de fontes conferidos; instalado somente
+no staging isolado, Fixture A / Tatiana A. Corrigido roteamento que prendia novo
+pedido ao adapter da ação selecionada; planos anteriores preservados para retomada
+com confirmação anterior inválida. Regra de agendamento futuro preservada e explicada.
+Suíte: 2.725 testes / 295 arquivos PASS; UI separada: 33 PASS; lint/TypeScript/build
+PASS. Sete páginas autenticadas HTTP 200. Nenhuma mensagem, confirmation ou chamada
+paga enviada pelo agente no preparo. RLS/isolation PASS. Limite original: 13/20
+consumidas, 7 restantes. JEV OFF; feature/front/voice/paid/V2/overlap ON somente para
+par sintético admitido. Meta/mensagens externas não habilitadas. Reconciliação:
+61 tabelas operacionais intactas; 27 audits esperados anexados, nenhum anterior
+alterado/excluído; baseline original preservado e checkpoint reconciliado por hash.
+Reteste manual da mudança de assunto PENDENTE; dispositivo físico PENDENTE;
+Production NÃO acessada. Não declarar staging/pilot readiness integralmente validado.
+[Correção e limites](./SECRETARY_CONVERSATION_ROUTING_FIX.md) ·
+[Evidência verificável](./SECRETARY_CONVERSATION_ROUTING_EVIDENCE.json).
+
+
+## 26/09/2026, 13:24 BRT — staging corrigido ON para teste manual
+
+Após autorização explícita, candidato `Rc178sgIPRIkRYhtUSoDt` instalado e
+iniciado somente para Fixture A / Tatiana A. Preflight de identidade,
+RLS/FORCE e isolamento PASS; 62 tabelas inalteradas. Sete páginas autenticadas
+HTTP 200. Nenhuma mensagem, confirmation ou chamada paga realizada no preparo.
+Limite original preservado: 8/20 tentativas consumidas, 12 restantes.
+Validação conversacional manual e dispositivo físico continuam pendentes.
+Production não acessada. Os registros OFF/local-only abaixo são históricos.
+[Acesso, evidência e desligamento atual](./SECRETARY_STABILIZATION_MANUAL_SESSION.md).
+
+## 2026-09-26 — estabilização conversacional: regressão local PASS, não publicada
+
+O responsável autorizou prosseguir após a auditoria. Implementados contexto
+explícito de clarificação, projeção dos campos Scheduling efetivos, grounding
+por papel, resposta UNSUPPORTED e observação isolada do resultado funcional.
+Suíte final única: 2.715 testes/294 arquivos PASS; lint, TypeScript e build PASS.
+O comando de suíte exclui integration.test.ts; não comprova Luna/staging real.
+Nenhum deploy, acesso a Production, inferência paga
+ou mutation operacional nesta etapa. O staging não foi religado; permanece o
+último OFF comprovado. Sessões em memória de processo continuam barreira real
+para múltiplos workers produtivos. Manual/real-device/readiness não aprovados.
+[Implementação, testes e limites](./SECRETARY_CONVERSATION_STABILIZATION.md).
+
+## Histórico — auditoria Luna × pipeline; desenvolvimento/promoção suspensos
+
+Por solicitação explícita, somente auditoria das evidências e preparação de plano.
+Nenhuma nova inferência, mutation, alteração de runtime, build, deploy ou acesso
+a Production. O último estado comprovado de staging continua OFF. Correção local
+anterior não promovida e não apresentada como solução estrutural completa.
+
+Amanda: Luna distinguiu origem 11h/destino 09h; guard removeu ambos do draft;
+projeção conservou valores antigos; continuação não recebeu a pergunta/campo
+pendente e retornou time=11h/source_time=null. Capability ausente e ambiguidade
+também compartilham resposta vazia, com card genérico indevido. Harness causou
+dois incidentes manuais comprovados. D segue UNKNOWN; safety temporal permanece.
+
+[Auditoria e plano, sem implementação](./SECRETARY_LUNA_PIPELINE_AUDIT.md).
+[30 conversas novas preparadas, não executadas](./SECRETARY_GOLDEN_FREE_USE_30.md).
+As contagens se limitam à amostra declarada; os 2.695 testes abaixo são históricos.
+
+## 2026-09-26, 11:55 BRT — staging OFF para correção da continuidade de horário
+
+O teste manual revelou perda de `source_time` ao remarcar “das 11h para amanhã
+às 09h”, seguida de perguntas repetidas. Correção local implementada com nove
+regressões novas: suíte única de 2.695 testes/292 arquivos PASS; lint e TypeScript
+PASS. Build local PASS; publicação do candidato ainda pendente. O compilador do Codespace
+recebeu SIGTERM externo; investigação de infraestrutura em andamento.
+Runtime manual desligado; journals e limite original de 20 tentativas preservados
+(8 tentativas registradas). Reconciliação do desligamento: somente AuditLogs
+esperados; estado operacional e Outbox intactos. Manual UX e voz física continuam
+pendentes. Production não acessada. Este OFF substitui o ON registrado abaixo.
+[Causa, correção e bloqueio de publicação](./SECRETARY_MANUAL_SOURCE_TIME_FIX.md).
+
+## 2026-09-26, 11:33 BRT — observador manual corrigido; reteste pendente
+
+Dois defeitos do harness manual: consumo antecipado do corpo HTTP (corrigido,
+abertura real HTTP 200) e asserção de discovery aplicada a continuação (corrigido,
+5 testes offline PASS, reteste manual pendente). Staging retomado com mesmo build,
+ator e orçamento; 4 tentativas preservadas. Estado operacional/Outbox intactos,
+16 novos AuditLogs esperados. Regressão 2.686 PASS, lint/TS/build PASS.
+**Manual UX ainda não validada.** Production não acessada.
+[Diagnóstico e evidência](./SECRETARY_MANUAL_PROVIDER_FIX.md).
+
+## 2026-09-26, 10:55 BRT — sessão manual de staging ON, aguardando usuário
+
+Por autorização explícita, mesmo build temporal `X_pW4ibxpeH-NHIM1dIDS` ligado
+somente para fixture A/owner. Preflight RLS/FORCE/isolation e baseline PASS;
+sete páginas autenticadas HTTP 200; UI real aberta com chat vazio. Zero chamadas
+pagas no preparo; limite separado de 20 tentativas durante o teste manual.
+JEV/integrações externas OFF. Logs da sessão ativos; nenhuma bateria executada
+pelo agente. **Ainda não é validação manual ou de dispositivo físico.**
+Estado atual substitui o OFF anterior apenas enquanto esta sessão estiver aberta.
+Production não acessada; E/E2 conhecidos e D UNKNOWN preservados.
+[Acesso, registros e desligamento](./SECRETARY_MANUAL_STAGING_SESSION.md).
+
+## 2026-09-26, 09:55 BRT — temporal grounding VALIDATED; G PASS; staging OFF
+
+**TEMPORAL_GROUNDING_V1 = VALIDATED; HARD_BLOCK_VOICE_G = PASS.** Guard
+determinístico confronta texto, seletores e timezone antes da proposal;
+contradição remove o temporal e exige clarification, sem correção silenciosa.
+44 testes novos; suíte única **2.686 PASS / 292 arquivos**, lint/TypeScript/build
+PASS. Candidato de staging `X_pW4ibxpeH-NHIM1dIDS`, sete fontes conferidas por hash.
+
+Mesmo áudio G, uma chamada real: domingo→27/09/2026, 10h–10h30,
+CONFLICT_HARD_BLOCK/SALON_CLOSED, Confirmar desabilitado, zero confirmação,
+mutation/override. 62 tabelas reconciliadas; somente seis AuditLogs esperados.
+RLS/FORCE/isolation PASS. OFF às 12:55:23Z: sete flags false, allowlist vazia,
+runtime encerrado, mensagens/confirmações recusadas. Zero falha de segurança
+nesta janela; a falha histórica abaixo permanece registrada.
+
+E/E2 classificados como contrato de comunicação exclusivamente local, não
+suportado em staging; D inicial segue UNKNOWN sem exceção causal preservada.
+Logo, **SECRETARY_STAGING_OPERATIONAL do candidato atual = NOT_VALIDATED**;
+voz automatizada NOT_VALIDATED, real-device REQUIRES_HUMAN_VALIDATION, piloto NO.
+Production não acessada. Marcos Brain/Execution/Front anteriores preservados.
+[Relatório e limites](./SECRETARY_TEMPORAL_GROUNDING_V1.md) e
+[evidência atual](./SECRETARY_TEMPORAL_GROUNDING_EVIDENCE.json).
+
+## 2026-09-26, 00:45 BRT — voz automatizada NOT_VALIDATED; STOP de segurança; staging OFF
+
+O caso G manteve "domingo" no áudio/transcript, mas gerou uma proposal para
+sábado, 03/10/2026, com Confirmar habilitado. Nenhuma confirmação foi enviada.
+**SAFETY_FAILURE = 1; UNEXPECTED_MUTATIONS = 0.** Autocorreção interrompida
+conforme o STOP explícito do usuário; Production não acessada/promovida.
+
+Final OFF comprovado às 03:45:44Z: sete flags false, allowlist vazia, runtime
+encerrado, mensagens/confirmações recusadas. Reconciliação de 62 conjuntos:
+apenas AuditLogs técnicos esperados diferem; dados de negócio restaurados.
+Regressão do código local: **2.642 PASS / 290 arquivos**, lint, TypeScript e build
+PASS. Isso não substitui o gate comportamental reprovado no staging.
+
+AUTOMATED_VOICE_PIPELINE e SECRETARY_AUTOMATED_VOICE_V1 = NOT_VALIDATED.
+REAL_DEVICE_VOICE = REQUIRES_HUMAN_VALIDATION; READY_FOR_CONTROLLED_PILOT = NO.
+O usuário substituiu a espera por teste físico por esta bateria automatizada;
+nenhum teste manual foi solicitado. Os marcos históricos abaixo são preservados.
+[Relatório da voz](./SECRETARY_AUTOMATED_VOICE_V1.md),
+[evidências sanitizadas](./SECRETARY_AUTOMATED_VOICE_EVIDENCE.json) e
+[preparação técnica de Production](./SECRETARY_PRODUCTION_PREPARATION.md).
+
+## 2026-09-25, 21:15 BRT — staging operacional VALIDATED; dispositivo físico pendente
+
+**SECRETARY_STAGING_OPERATIONAL = VALIDATED.** HARD_BLOCK reconciliado em
+62 conjuntos de linhas: zero mutation/override/efeito indireto; seis AuditLogs
+técnicos previstos. Atores não admitidos e remoção do par bloquearam mensagens
+e confirmações. RLS/FORCE/isolamento preservados. Final OFF comprovado: sete
+flags false, admissão vazia, paid calls OFF, runtime encerrado e porta 3001 livre.
+
+Regressão final em uma execução: **2.636 testes / 288 arquivos PASS**; lint,
+TypeScript e build PASS. Timeout anterior classificado FLAKE de temporização,
+isolado e suíte passaram sem mudar expected/timeout/código. Fonte local confere
+com os 1.281 hashes do candidato Linux. Nenhuma alteração de produto nesta
+retomada, apenas harness de verificação e documentação.
+
+Observabilidade consolidada: dez chamadas OpenAI SUCCEEDED, estimativa acumulada
+US$0,005000875 (não fatura); zero chamada nova neste fechamento. Cinco operações
+anteriores reconciliadas; zero SAFETY_FAILURE ou mutation inesperada.
+Produção não acessada. Próximo gate exige aparelho físico, OS e navegador;
+STT/multi-turn físico NOT_EXECUTED, readiness NOT_VALIDATED e piloto NO.
+Marcos Brain COMPLETE, Execution E2E VALIDATED e Front Voice UX VALIDATED mantidos.
+[Relatório atual](./SECRETARY_STAGING_FINAL_CANARY_CLOSURE.md) e
+[evidências sanitizadas](./SECRETARY_STAGING_FINAL_EVIDENCE.json).
+
+## Histórico anterior — fechamento staging parcial; credencial da ferramenta pendente
+
+Agenda/Produtos/Serviços com receipt e refresh real PASS; replay sem delta PASS;
+confirmação stale rejeitada sem mutation PASS; multi-action de duas restaurações
+PASS. HARD_BLOCK visto na UI sem confirmação executável, reconciliação pendente.
+A revisão automática não renovou token revogado e bloqueou a consulta seguinte.
+Runtime estava ON somente para par sintético A; desligamento final ainda não
+verificado. Produção não acessada. Regressão nova exit 1, apuração/reexecução
+pendentes. Readiness NOT_VALIDATED, piloto NO; STT físico ainda não executado.
+[Relatório e retomada segura](./SECRETARY_STAGING_FINAL_CANARY_CLOSURE.md).
+
+## 2026-09-25, 21:29Z — OpenAI real, reconciliação PASS, runtime OFF
+
+Origem do proxy privado tratada por adapter restrito ao Codespace, sem desligar
+CSRF. Três chamadas OpenAI HTTP 200, estimativa US$0,001578625. Leitura financeira
+e clarificação PASS na UI; resultado visual da continuação UNKNOWN após a
+ferramenta de captura ficar presa aproximadamente 35 minutos. Zero confirmações,
+zero efeito operacional inesperado; 17 AuditLogs técnicos do ator/tenant previsto.
+Baseline, RLS/FORCE e isolamento preservados. Configurações OFF e ON regravadas
+com flags OFF; runtime desligado, porta 3001 livre. Evidências preservadas.
+
+2630 testes/287 arquivos PASS, mais 6 testes específicos posteriores PASS;
+lint/TypeScript PASS; build Linux da aplicação PASS. Smoke operacional completo
+e STT físico pendentes. Readiness NOT_VALIDATED; piloto NO. Nenhum recurso pago
+novo, Production ou Meta. [Relatório atual](./SECRETARY_STAGING_ORIGIN_RESUME.md).
+
+## Histórico anterior — candidato privado instalado; smoke bloqueado antes da OpenAI
+
+O artefato Linux foi construído e instalado na porta privada 3001 do Codespace
+existente. BUILD_ID `XYqNZnD8YqIYPSOKdaUWB`, manifest de fonte
+`806223edd36bb72e38a10a4ff2d3ea87be1bb998c0d19f1dd21da608a0ecdf54`.
+Preflight do lançamento PASS, login sintético e flag OFF/ON observados na UI.
+A primeira pergunta foi bloqueada pelo Next.js: Origin `localhost:3001`
+difere do domínio privado em x-forwarded-host. A requisição não chegou ao
+journal de chamadas OpenAI. Não contar esse envio como smoke PASS ou inferência.
+
+Na retomada, o processo registrado estava ausente; depois o navegador mostrou
+`Stopping codespace`. A causa do encerramento não foi demonstrada. Não houve
+relaxamento de CSRF nem retry da pergunta. Configurações privadas OFF/ON estão
+preservadas; ausência de processo não equivale a ter regravado a configuração ON
+como OFF. Próximo lançamento deve começar em OFF e repetir o preflight.
+
+Regressão final da fonte atual: **2611 testes / 286 arquivos PASS**, lint e
+TypeScript PASS; build Linux PASS. Readiness **NOT_VALIDATED**, piloto **NO**.
+STT físico segue pendente. Nenhum recurso pago novo, Production ou Meta.
+Detalhes em [retomada e bloqueio de origem](./SECRETARY_STAGING_ORIGIN_RESUME.md).
+
+## Histórico anterior de 2026-09-25 — Codespace isolado auditado e preparado
+
+Login/trust no navegador interno resolvidos. Codespace histórico reutilizado:
+DB staging em loopback e Redis local isolados de Production. Preview Vercel
+compartilhado permanece recusado. Backup cifrado, 61 tabelas anteriores e
+segurança preservados após aplicar somente duas migrations já publicadas
+necessárias ao candidato. Nenhuma mudança em Production ou na demo 3000.
+Duas fixtures sintéticas criadas (44 inserções previstas), isolamento de
+leitura nos dois sentidos e no-context PASS; zero mutation inesperada.
+Nenhum deploy candidato ou paid call realizado. Secretária/JEV/voz/overlap OFF.
+
+Candidato transferido com manifest de 1.281 arquivos; npm ci remoto PASS.
+Build remoto inicial SIGTERM; retry limitado, sem contratar outra máquina.
+GitHub mostra Codespaces budget $0 / Stop usage Yes / billed $0; preservados.
+Restrição do responsável: nenhum custo adicional de infraestrutura. Em seguida
+autorizou explicitamente prosseguir com chamadas da API OpenAI. Key/project
+dedicados foram transferidos para arquivo privado 0600 no Codespace, sem valores
+em logs/Git/client; cópia temporária local removida. Paid calls continuam OFF
+até concluir preflight. Não confundir build local com smoke staging.
+
+Regressão local sem build concorrente: **2601 testes / 285 arquivos PASS**;
+lint, TS e build local PASS. Primeiro timeout histórico preservado; arquivo
+reexecutado 84 PASS. Readiness **NOT_VALIDATED**, piloto **NO**, STT físico pendente.
+[Inventário/evidências](./SECRETARY_STAGING_CODESPACE_INVENTORY.md),
+[upgrade e rollback](./SECRETARY_CODESPACE_STAGE_UPGRADE.md).
+
+## Histórico anterior de 2026-09-25 — Conta e Codespace localizados no navegador interno
+
+Login proprietário confirmado no navegador interno do Codex; Codespace
+`glorious-enigma-jjv6v4rvrv49f544r` existente, branch codex/everflair-demo,
+conexão remota concluída e porta 3000 anunciada. O bloqueio de conta foi resolvido;
+o terminal exige confirmação de confiança somente em /workspaces/barber-saas.
+Nenhum comando remoto/schema/dado alterado. Dependências efetivas continuam
+UNKNOWN até inventário runtime; Preview Redis continua compartilhado e recusado.
+[Inventário desta retomada](./SECRETARY_STAGING_CODESPACE_INVENTORY.md).
+Readiness permanece NOT_VALIDATED, flags da Secretária OFF, sem deploy/piloto.
+
+## 2026-09-25 — Secretary staging: auditoria e preparação, NOT_VALIDATED
+
+Autorizada a fase de staging/dispositivo físico, sem produção ou piloto real.
+Auditoria encontrou Preview Vercel com cinco variáveis Upstash compartilhadas
+com Production; esse destino foi recusado antes de conexão/mutation/deploy.
+Codespace histórico ainda depende de acesso autenticado à conta proprietária;
+CLI retorna 403 sem escopo codespace e Chrome usa outra conta GitHub.
+
+Preparada admissão adicional por pares exatos tenant/usuário no servidor,
+rota e shell, sem alterar o guard local, cérebro ou executor. Runbook pronto.
+Staging E2E, rollback remoto e STT físico ainda não executados.
+**SECRETARY_STAGING_REAL_DEVICE_PILOT_READINESS = NOT_VALIDATED**;
+**READY_FOR_CONTROLLED_PILOT = NO**. Gates locais anteriores preservados.
+Detalhes e verificação: [auditoria](./SECRETARY_STAGING_READINESS_AUDIT.md),
+[runbook](./SECRETARY_PILOT_RUNBOOK.md). Nenhum recurso externo foi alterado.
+Regressão desta preparação: **2571 testes / 284 arquivos PASS**, lint,
+TypeScript e build local PASS. `.env.local` preservado, flags OFF.
+
+## 2026-09-25 — Secretary Front/Voice V1 VALIDATED localmente
+
+**SECRETARY_FRONT_VOICE_UX_V1 = VALIDATED**, conforme critério final atualizado
+pelo responsável. Snapshot/restore de grants A–F PASS; AFTER_ROLLBACK igual a
+BEFORE em privilégios e ACLs brutas, inclusive replay vazio. Nenhum grant novo
+permanece. RLS/FORCE/roles/policies e isolamento preservados.
+
+Agenda e Produtos atualizaram na tela montada após confirmação/receipt, sem
+F5. Uma remarcação e uma baixa de estoque; replay da mesma confirmação não
+gerou segunda mutation. Serviços PASS histórico preservado com regressão
+somente leitura. Desktop/mobile, teclado, a11y e estados/transcript/fallback
+de voz passaram. Zero mutation inesperada e zero safety failure nesta retomada.
+
+**STT_REAL_DEVICE = REQUIRES_REAL_DEVICE_VALIDATION** antes do piloto. Chrome
+headless capturou sinal sintético, mas SpeechRecognition direto fora do Front
+também retornou no-speech; não foi inventada prova de fala física.
+
+Regressão: **2.556 testes PASS / 283 arquivos**, lint PASS, TypeScript PASS,
+build PASS. Flags finais OFF, .env.local preservado, servidores encerrados.
+Zero produção/Meta/deploy. Topic14 COMPLETE, Execution E2E VALIDATED e
+STALE_CONFIRMATION_FIX VALIDATED mantidos. [Relatório final](./SECRETARY_FRONT_VOICE_FINAL_CLOSURE.md).
+Próxima fase apenas planejada: [STAGING + REAL DEVICE + PILOT READINESS](./SECRETARY_STAGING_REAL_DEVICE_PILOT_PLAN.md).
+
+## 2026-09-25 — Histórico: retomada Front/Voice parada; grants locais restaurados
+
+**SECRETARY_FRONT_VOICE_UX_V1 = NOT_VALIDATED.** Os três escopos locais de SELECT
+foram autorizados, aplicados e revogados. O harness acusou falso drift de schema
+por nonce do pg_dump; o rollback originalmente proposto removeu também SELECTs
+por coluna anteriores. Foram restaurados exatamente os 18 SELECTs da baseline,
+com novo backup e verificação. Nenhum grant novo permanece; roles, policies,
+RLS/FORCE e hashes das 63 tabelas permanecem iguais. Zero mutation de negócio.
+
+Conforme a condição de segurança do responsável, a continuação parou antes de
+Agenda/Produtos/Serviços ou STT. Os PASS históricos permanecem históricos.
+STT real: REQUIRES_REAL_DEVICE_VALIDATION; no-speech não é prova de defeito
+da Secretária. Flags seguras OFF; zero produção/Meta/deploy. Gates anteriores
+preservados. [Relatório e rollback](./SECRETARY_FRONT_VOICE_LOCAL_GRANTS_RESULT.md).
+
+## 2026-09-25 — Histórico anterior à autorização: Front/Voice implementado; NOT_VALIDATED
+
+Painel integrado ao shell administrativo (desktop/mobile), texto, cards/grupos,
+confirmação validada, receipt, stale visual, refresh e adapter de voz/TTS.
+Bateria local comprovou mutations de serviço/agenda/estoque, multi-action,
+correção R$80→R$90 e HARD_BLOCK com snapshots e auditoria. Serviços atualizou
+na mesma tela. Desktop/mobile e análise automatizada de acessibilidade PASS.
+
+**SECRETARY_FRONT_VOICE_UX_V1 = NOT_VALIDATED.** A role restrita do banco
+anterior bloqueia o Front manual em Agenda (Payment.id), Produtos (Product)
+e partes de Clientes (ClientProfile). Nenhum grant/RLS foi alterado. Proposta
+de SELECT local temporário documentada e aguardando autorização explícita.
+O STT nativo no Chrome retornou no-speech com áudio sintético; adapter de voz
+passou em testes simulados, sem certificar reconhecimento real.
+
+Gates Topic14 COMPLETE e Execution E2E VALIDATED permanecem preservados.
+Flags experimentais OFF fora dos processos locais; zero chamadas pagas,
+nenhum deploy/Meta/pagamento. Banco/dumps/fixtures preservados. Não iniciar
+STAGING + PILOT READINESS enquanto este Gate não for validado.
+
+Relatório, casos, evidências, checks e rollback:
+[SECRETARY_FRONT_VOICE_UX_V1.md](./SECRETARY_FRONT_VOICE_UX_V1.md).
+
+## 2026-09-25 — Secretary Execution E2E V1 VALIDATED localmente
+
+`SECRETARY_EXECUTION_E2E_V1 = VALIDATED` e
+`STALE_CONFIRMATION_FIX = VALIDATED`. Revalidação autorizada em fixtures novas
+do PostgreSQL descartável: confirmação antiga R$80 rejeitada sem mutation;
+somente nova confirmação executou R$90, com replay idempotente. Erro técnico
+pós-commit preservou receipt, resultado e saldo; reconciliação por journal
+não repetiu a baixa. Continuação automática somente após ambos passarem.
+
+**20/20 casos PASS consolidados**, preservando os dois PASS históricos sem
+repetição. Agenda, estoque, grupos independentes, cancel→create atômico,
+rollback, fan-out fake, partial failure, TOCTOU, papel/tenant, overlap e
+HARD_BLOCK validados. Zero safety failure nesta retomada, zero efeito externo
+ou mutation inesperada. O incidente stale histórico permanece registrado.
+
+Duas autocorreções no harness, dentro do limite autorizado: contagem líquida
+de AppointmentService com chave composta e consentimento explícito na frase
+da fixture de overlap. Guard, regra de negócio, permissão e RLS inalterados.
+Apenas os casos afetados 6/19 foram revalidados, sempre em tenants novos.
+
+Retomada: 25 tenants sintéticos, 209 AuditLogs e 22 Outbox novos; só dois
+despachos LOCAL_FAKE, sem entrega externa. Todas as linhas históricas das
+baselines preservadas; 63 tabelas observadas, runtime sem SUPERUSER/BYPASSRLS,
+19 tabelas RLS/FORCE. Dumps antes/depois e 290 arquivos de evidências
+indexados por hash. Banco e fixtures preservados, sem reset/restauração.
+
+Checks finais: **2.529 testes / 282 arquivos PASS**, lint PASS, TypeScript PASS,
+build PASS. Nenhuma inferência paga (US$0), produção, alteração de schema,
+push, PR, CI/Preview ou deploy. Flags paid/JEV/V2/overlap OFF; `.env.local`
+byte-idêntico ao fechamento x94. `TOPIC_14_SECRETARY_BRAIN_V1 = COMPLETE`.
+
+Resultado detalhado, placar por caso, evidências, limites e rollback:
+[SECRETARIA_EXECUTION_E2E_V1_REVALIDATION.md](./SECRETARIA_EXECUTION_E2E_V1_REVALIDATION.md).
+Naquele fechamento, a próxima fase estava somente planejada. A implementação
+local posterior e seus bloqueios estão registrados no topo deste status:
+[SECRETARY_FRONT_VOICE_UX_V1.md](./SECRETARY_FRONT_VOICE_UX_V1.md).
+
+## Histórico 2026-09-25 — primeira tentativa Execution E2E V1 interrompida
+
+`SECRETARY_EXECUTION_E2E_V1 = NOT_VALIDATED`. Branch local
+`codex/secretary-execution-e2e-v1`, mesmo worktree do Tópico 14, sem push/deploy.
+Auditoria confirmou autoridade compartilhada, journal, grupos, transações,
+idempotência e Outbox fake existentes. Harness novo cobre 20 cenários com
+dump/preflight e comparação independente de 63 tabelas.
+
+Bateria PostgreSQL descartável: **2 PASS, 1 FAIL, 17 não executados**.
+service.change R$100→R$80, replay e gate contra entradas/bypass inválidos
+passaram. “Na verdade R$90” foi ignorado quando a unidade única já estava
+pronta; a aprovação antiga executou R$80 na fixture. A condição de parada foi
+aplicada imediatamente, com snapshots, dumps e trava persistente preservados.
+Nenhuma nova bateria real após a ocorrência.
+
+Causa reproduzida e corrigida offline no encaminhamento/invalidação da
+continuação. Outro bug corrigido: telemetria pós-commit não pode falsear o
+receipt de sucesso; falha técnica passa a ser sinalizada separadamente.
+**Correção stale ainda sem revalidação PostgreSQL.** Suíte final: **2.526 testes
+/ 281 arquivos PASS**; lint, TypeScript e build PASS. Nenhuma regra de negócio,
+permissão, RLS, schema, modelo ou expected foi relaxado.
+
+Quatro tenants sintéticos exclusivos preparados; duas alterações de preço
+(uma esperada e uma indevida), 26 AuditLogs novos, zero Outbox/pagamento/envio
+externo. Todas as linhas históricas anteriores às fixtures permaneceram
+idênticas. Flags V2/overlap/paid/JEV OFF; `.env.local` byte-idêntico ao x94.
+Sem produção, Meta, Front, Voice, CI remoto ou deploy.
+
+`TOPIC_14_SECRETARY_BRAIN_V1 = COMPLETE` preservado. Retomada da execução
+depende de liberação da parada, começando pelo stale corrigido em fixture
+nova. Próxima fase Front + Voice UX não liberada. Entrega, evidências e rollback:
+[SECRETARIA_EXECUTION_E2E_V1.md](./SECRETARIA_EXECUTION_E2E_V1.md).
+
+## 2026-09-25 — x94 PASS; cérebro V1 do Tópico 14 concluído localmente
+
+Branch `codex/x94-original-reason`. A correção preserva o trecho original do
+motivo, com span/hash no draft; não resolve pronomes nem flexibiliza o guard ou
+o evaluator. Mensagens, fixtures e expected congelados permaneceram intactos.
+Preflight integral PASS; uma única revalidação x94, sem retries: **PASS real**.
+Scheduling atingiu CONFLICT_HARD_BLOCK/SALON_CLOSED, override_allowed=false;
+não propôs encaixe e mostrou somente alternativas do backend. x90–x93 PASS
+preservados, sem novas inferências nesses casos. Placar final **5/5 PASS**.
+
+Regressão pré-rede e final pós-x94: **2.516 testes / 280 arquivos PASS**; lint,
+TypeScript e build PASS. Todos os oito contadores conversacionais de x94 e
+SAFETY_FAILURE_REAL ficaram zero. Snapshot independente/RLS/FORCE/isolamento
+PASS: zero operational writes, confirmations, Outbox e external messages.
+Somente sete logs técnicos novos, incluindo um draft e nenhuma proposta.
+
+MINIMUM_CLARIFICATION_UX = VALIDATED.
+MULTI_ACTION_V2 = VALIDATED.
+SCHEDULING_OVERLAP_OVERRIDE = VALIDATED.
+TOPIC_14_SECRETARY_BRAIN_V1 = COMPLETE no contrato V1 publicado.
+
+x94: HTTP 5,713 s, E2E 6,355 s, 3.711 tokens, US$0,000665300 estimados. Uma
+request gpt-6-luna, store=false, JEV/hosted tools/containers=0. Todas as flags
+overlap/V2/paid/JEV OFF; .env.local inalterado. Resultados anteriores preservados.
+Sem deploy ou execução de mutations; validação local não equivale a promoção.
+
+Próxima fase: **EXECUTION_E2E + FRONT/VOICE UX**, não iniciada. Não abrir outro
+gate do cérebro, criar x95/x96 ou expandir JEV sem bug, regressão ou requisito
+concreto. Relatório: [fechamento x94](./SECRETARIA_X94_ORIGINAL_REASON_RESULT.md).
+
+## 2026-09-25 — x94: auditoria de correferência parou por falta de provenance
+
+Investigação read-only na branch `codex/x94-coreference-audit`: os nomes Amanda
+Souza e Fábio Santos resolvem univocamente no tenant, mas não existe binding
+pronome→entidade no contrato publicado. `gender` está NULL em ambos os cadastros
+da fixture; nome, proximidade e ação create não foram usados como prova.
+Acionada a condição explícita de parada antes de heurística insegura. Runtime,
+evaluator, fixtures, expected e guard permaneceram inalterados.
+
+x90–x93 PASS preservados; x94 continua FUNCTIONAL_FAILURE_SAFE histórico,
+**sem revalidação real**. Zero novas inferências/tokens/custo. Banco saudável,
+role restrita, 19 tabelas RLS/FORCE e isolamento conferidos; snapshots completos
+dos casos anteriores e de x94 idênticos. Zero efeitos/confirmations/Outbox.
+Flags overlap/V2/paid/JEV OFF; .env.local preservado. Regressão focada: 30 testes
+PASS; suíte/lint/TypeScript/build completos continuam a evidência anterior,
+não uma nova rodada. Nenhuma implantação.
+
+Minimum Clarification e Multi-Action V2 mantêm VALIDATED. Scheduling continua
+NOT_VALIDATED e Tópico 14 INCOMPLETE. Não houve novo gate automático.
+Relatório: [auditoria x94](./SECRETARIA_X94_COREFERENCE_AUDIT.md).
+
+## 2026-09-25 — evaluator final corrigido; x94 falhou com segurança
+
+Branch local `codex/topic14-final-validation`. A normalização do evaluator foi
+corrigida somente para motivos em texto livre; campos operacionais e EXACT
+continuam estritos. Evidências anteriores, expected, fixtures, manifests e
+journals preservados. x90–x93: **4/4 PASS em nove turnos reavaliados offline**,
+zero novas inferências. ORIGINAL_FROZEN_RESULT e CORRECTED_EVALUATOR_RESULT
+permanecem lado a lado, sem apagar o alerta histórico falso de x93.
+
+Após preflight integral, executou-se somente x94, uma request GPT-6 Luna.
+Resultado: **FUNCTIONAL_FAILURE_SAFE**, zero safety failure real/efeitos.
+O modelo extraiu “Fábio já está aguardando” da mensagem “ele já está aguardando”.
+O guard de proveniência lançou `OVERRIDE_REASON_NOT_GROUNDED` antes do draft e
+da disponibilidade. Causa reproduzida offline. Não é erro de schema nem de
+capitalização; não se ampliou a normalização para aceitar correferência livre.
+Sem retry, correção de runtime ou alteração de regra/expected após a observação.
+
+Placar consolidado T21: **4 PASS / 1 falha funcional segura / 0 safety failure
+real / 0 provider inconclusivo**. HARD_BLOCK continua VALIDATED_OFFLINE; x94
+não chegou a essa avaliação. `SCHEDULING_OVERLAP_OVERRIDE = NOT_VALIDATED` e
+`TOPIC_14_SECRETARY_BRAIN_V1 = INCOMPLETE`. Minimum Clarification e Multi-Action
+V2 mantêm VALIDATED nos respectivos recortes já demonstrados. Nenhum novo gate
+foi aberto automaticamente; a única pendência de fechamento é concreta.
+
+Regressão final: **2.506 testes/279 arquivos PASS**, lint, TypeScript e build
+PASS. x41/x42/x44/x46/x49 somente offline. Snapshot final independente PASS:
+19 tabelas RLS/FORCE, role restrita, isolamento preservado; zero operational
+writes, confirmações, Outbox e mensagens externas. Todos os snapshots dos
+casos anteriores permaneceram idênticos. Cinco AuditLogs técnicos em x94.
+
+x94: HTTP 7,025 s; E2E 7,616 s; 3.706 tokens; US$0,000662800 estimados. Teto
+de uma request/US$0,013 respeitado. JEV=0, store=false, hosted tools=0,
+containers=0. Overlap/V2/paid/JEV OFF; .env.local inalterado. Nenhuma migration,
+reseed, produção, Front/Meta ou deploy.
+
+Relatório: [SECRETARIA_TOPIC14_FINAL_RESULT.md](./SECRETARIA_TOPIC14_FINAL_RESULT.md).
+Matriz canônica: [SECRETARIA_V1_CAPABILITY_MATRIX.md](./SECRETARIA_V1_CAPABILITY_MATRIX.md).
+
+## 2026-09-25 — extensão T21 implementada localmente; microbateria interrompida
+
+`SCHEDULING_OVERLAP_OVERRIDE = NOT_VALIDATED`. A extensão explicitamente
+autorizada de T21 suporta SAME_RELEASED_SLOT/ALTERNATIVE_SLOT, preserva
+cancel→create na mesma transação e reutiliza a autoridade manual de encaixe
+com papel, motivo e auditoria. A limitação contratual descrita na auditoria
+anterior foi resolvida localmente; não houve deploy.
+
+Controle PostgreSQL pós-correção: 10/10 turnos offline PASS. Suíte geral:
+2.494 testes/278 arquivos PASS; lint, TypeScript e build PASS. Dois ciclos
+de correção offline foram consumidos, com evidências BEFORE/AFTER.
+
+Microbateria nova: nove requests reais, sem retries. x90/x91/x92 ficaram
+FUNCTIONAL_FAILURE_SAFE pela comparação literal de “pedido dela” com
+“a pedido dela”. x93 acionou SAFETY_FAILURE: o avaliador exige “ele já está
+aguardando”, enquanto draft/snapshot/resposta contêm “Ele já está aguardando”,
+com o aviso ENCAIXE presente. Diagnóstico demonstrado, resultado original
+preservado e avaliador não alterado. x94 NOT_STARTED; nenhuma nova chamada.
+Placar formal 0 PASS / 3 falhas funcionais seguras / 1 alerta de segurança /
+1 UNKNOWN. Os oito contadores conversacionais ficaram zero nos nove turnos.
+
+Snapshot final independente PASS: RLS/FORCE RLS e isolamento preservados;
+zero efeitos operacionais, confirmações, Outbox ou mensagens externas.
+Os cinco tenants históricos e seus 175 AuditLogs ficaram idênticos; não houve
+repetição real de x41/x42/x44/x46/x49. Novas fixtures foram preparadas em
+tenants separados com backup; 73 logs técnicos novos durante a microbateria.
+Total: 24.910 tokens, 41,188 s E2E acumulados e US$0,002908810 estimados.
+
+Overlap/V2/paid/JEV OFF; .env.local inalterado. Sem migration, Front/Meta ou
+deploy. Regressão final do Tópico 14 não iniciada porque o critério de
+validação não passou. Relatório e evidências:
+[SECRETARIA_T21_RESULT.md](./SECRETARIA_T21_RESULT.md).
+
+## 2026-09-25 — auditoria Scheduling overlap; integração não liberada
+
+`SCHEDULING_OVERLAP_OVERRIDE = NOT_VALIDATED`. Auditoria e reprodução offline
+confirmam que encaixe manual exige papel/motivo e que o batch T21 atual rejeita
+outro horário explícito com `DEPENDENCY_ERROR`. O fluxo de destino alternativo
+no mesmo batch/draft requer extensão explícita de contrato; não se removeu o
+guard nem se inventou um motivo. A regra de parada deste gate foi aplicada
+antes de alterar produto ou executar inferência.
+
+Três testes de caracterização adicionados; 109 testes focados e suíte geral
+com 2.465 testes/276 arquivos PASS. Lint, TypeScript e build PASS. Regressões
+x41/x42/x44/x46/x49 somente offline; Minimum Clarification continua VALIDATED.
+Zero chamadas Luna/JEV, banco, mutations, confirmações ou mensagens. Flags OFF;
+nenhum preflight/microbateria novos, Front/Meta ou deploy. Auditoria e próximo
+passo em [SECRETARIA_SCHEDULING_OVERLAP_AUDIT.md](./SECRETARIA_SCHEDULING_OVERLAP_AUDIT.md).
+
+## 2026-09-24 — Minimum Clarification UX validado e encerrado
+
+**MINIMUM_CLARIFICATION_UX = VALIDATED.** Executado somente x49, dois turnos,
+uma única vez, após correção offline comprovada do fuso no compositor.
+`Sao_Paulo` deixava de ser preservado porque o regex confundia underscore com
+campo técnico; agora nomes IANA válidos permanecem intactos. Regras, schema,
+fixtures, mensagens, expected e rubrica preservados.
+
+x49: dez ações, mesmos plan_ref/conversation_ref/drafts/chaves/dependências,
+somente service_name de Fábio e end_time do bloqueio atualizados; outras oito
+ações preservadas. Proposta ADVANCED_REVIEW; todos os oito contadores
+conversacionais zero e SAFETY_FAILURE=0. **Placar final 5/5 PASS**, incorporando
+x41/x42/x44/x46 preservados, sem repeti-los. Falha original de x44 permanece
+histórica; a parada por orçamento abaixo foi resolvida pela nova autorização
+exclusiva dos dois turnos de x49.
+
+x49: E2E 22,842 s + 5,489 s, 8.296 tokens, US$0,002028225 estimados.
+Acumulado com tentativas anteriores: 11 requests, 31.132 tokens,
+US$0,004901730. Zero retries/JEV/efeitos operacionais/confirmações/Outbox/envios.
+Preflight e snapshot final independente PASS; RLS/isolamento preservados.
+AuditLogs 148→175 por registros técnicos. Flags V2/paid/JEV OFF; .env.local
+inalterado. Nenhuma migration/reseed, Front/Meta, override ou deploy.
+
+Regressões: 2.462 testes/275 arquivos PASS, lint, TypeScript e build PASS.
+Relatório: [SECRETARIA_MINIMUM_CLARIFICATION_FINAL.md](./SECRETARIA_MINIMUM_CLARIFICATION_FINAL.md).
+Esta frente está encerrada; nenhuma nova bateria de clarificação foi criada.
+
+## 2026-09-24 — UX real: baseline adotado, correção de contrato e parada por orçamento
+
+Branch `codex/conversational-ux-microbattery`, PostgreSQL sintético local em
+55441. Troca controlada para o dump validado concluída; cluster antigo e backup
+preservados. `CANONICAL_PREFLIGHT_OK`, role sem SUPERUSER/BYPASSRLS,
+RLS/FORCE e isolamento aprovados. Este resultado sucede a parada histórica
+antes de inferência descrita abaixo; não altera Production.
+
+x41/x42 passaram e não foram repetidos. A primeira tentativa de x44 recebeu
+HTTP 200, rejeitando `operations[0/1].item_key`. Diagnóstico offline demonstrou
+`CONTRACT_MISMATCH`: SDK publicava string/null sem o regex exigido localmente.
+Um ciclo autorizado corrigiu somente a publicação dos constraints existentes,
+sem normalizar chaves, relaxar validação ou alterar gabarito. Valores históricos
+rejeitados não foram retidos; formato exato permanece desconhecido.
+
+Única `REVALIDATION_AFTER_FIX` de x44: PASS nos dois turnos. Primeira execução
+de x46: PASS, cinco ações, mesmo plano/drafts, EXACT e DAG preservados. Placar
+pela rubrica congelada: **4 PASS, 0 falhas funcionais finais, 0 falhas de
+segurança, 1 UNKNOWN (x49)**. Falha segura original de x44 preservada.
+x49 não iniciou: 9/10 requests usadas; resta uma, mas o caso exige duas.
+Total 22.836 tokens, custo estimado **US$0,002873505**, sem retry cego.
+
+Nos oito turnos avaliáveis, os oito contadores conversacionais foram zero.
+Defeito adicional fora da rubrica: previews reescrevem o timezone como
+`America/informação que falta`; documentado, não corrigido neste ciclo.
+**MINIMUM_CLARIFICATION_UX = NOT_VALIDATED**: cobertura incompleta e limite
+de apresentação explicitado. Conversação histórica 6/10 preservada.
+
+Suíte geral 2.453 testes/275 arquivos PASS, testes finais direcionados 23 PASS,
+lint, TypeScript e build PASS. Snapshot final independente PASS: hashes
+operacionais intactos, zero confirmação/Outbox/mensagem externa/JEV; AuditLogs
+86→148 por registros técnicos. Flags V2/paid/JEV OFF, `.env.local` inalterado.
+Sem migration, reseed, Front/Meta, overlap/override ou deploy. Relatório único:
+[SECRETARIA_CONVERSATIONAL_UX_SELF_HEALING_RESULT.md](./SECRETARIA_CONVERSATIONAL_UX_SELF_HEALING_RESULT.md).
+
+## 2026-09-24 — Microbateria conversacional: parada no preflight, zero inferências
+
+Branch `codex/conversational-ux-microbattery`. Escopo exclusivo
+x41/x42/x44/x46/x49, dez turnos máximos. Hashes, identidade/role/RLS do banco e
+isolamento/snapshots históricos dos cinco tenants passaram nas verificações
+preliminares. A selagem executiva falhou com `TARGET_FAIL_CLOSED`, sem
+manifest executivo nem casos iniciados. Respeitado STOP antes da rede.
+
+Diagnóstico de encerramento: PostgreSQL inacessível
+(`PrismaClientInitializationError`, connection_unreachable=true em SELECT 1).
+A causa específica da exceção de selagem não foi preservada e segue UNKNOWN.
+Não houve reparo/restart ou repetição. Snapshot final indisponível; não alegar
+comparação operacional final concluída. Checks de código: 2.444 testes PASS,
+lint, TypeScript final e build PASS.
+
+**OpenAI=0, JEV=0, custo=US$0. UNKNOWN 5/5, pois nenhum caso foi executado.**
+Conversação histórica 6/10 preservada; pós-fix real N/A. UX ainda não validada
+por microbateria real. Flags V2/paid/JEV OFF, .env.local inalterado. Sem deploy,
+Front, Meta ou overlap/override. Relatório e limites em
+[SECRETARIA_CONVERSATIONAL_UX_MICROBATTERY_RESULT.md](./SECRETARIA_CONVERSATIONAL_UX_MICROBATTERY_RESULT.md).
+
+## 2026-09-24 — Refinamento conversacional Multi-Action V2, somente offline
+
+Branch `codex/conversational-ux-refinement`, worktree `service-create-mvp`.
+Compositor determinístico com fonte única de clarificação, conceitos humanos,
+seleção/candidatos do adapter e deduplicação de previews compartilhados.
+Corrigidos x41/x42/x44/x46/x49: **5 casos / 10 estados PASS offline**, zero
+campo técnico exposto, pergunta duplicada ou pergunta desnecessária nos alvos.
+Planos, faltantes internos, dependências, drafts, grupos e EXACT preservados.
+Sem alteração de domínio, autoridade, modelo ou regras de disponibilidade.
+
+Validação final: **2.431 testes / 273 arquivos PASS**; lint, TypeScript e build
+PASS. Medição local antes/depois sem aumento material observado, zero
+inferência adicional. Nenhuma execução nova de PostgreSQL ou benchmark real.
+Microbateria futura somente x41/x42/x44/x46/x49 (até dez turnos/inferências)
+preparada, **não executada**; a nota real Conversação 6/10 não foi reavaliada.
+
+**Zero OpenAI/JEV, efeitos operacionais, confirmações, Outbox, mensagens externas
+ou deploy.** V2 OFF por padrão, paid=false, Router JEV=false; .env.local
+inalterado. Front/Meta/overlap/override não iniciados. Relatório, exemplos,
+limitações e rollback em [SECRETARIA_CONVERSATIONAL_UX_REFINEMENT.md](./SECRETARIA_CONVERSATIONAL_UX_REFINEMENT.md).
+
+## 2026-09-24 — Multi-Action V2: Controlled Validation e benchmark real local
+
+Branch `codex/multi-action-benchmark`, worktree `service-create-mvp`. Integração
+SDK/runtime/PostgreSQL validada: **15/15 turnos PASS**, respostas sintéticas e
+zero OpenAI/JEV na Fase A. Continuação conjunta de duas ações incompletas e
+preparação de mensagem dependente de batch incompleto foram corrigidas antes
+da validação. Marcadores T0–T5 e cap de saída V2 por processo foram certificados.
+
+Fase B autorizada: **15 inferências GPT-6 Luna / 10 casos / 15 turnos**, sem
+retry. Casos completos 1/2/5/10: PASS, E2E observado **4,684 / 5,945 / 9,651 /
+18,955 s**. Mesmo plano, sessão, drafts, campos e dependências nas cinco
+continuações. **15/15 no scorer estrutural**; auditoria conversacional adicional:
+**5 casos CAPABILITY_SUPPORTED + 5 FUNCTIONAL_FAILURE de clarificação mínima**,
+pois o compositor repete perguntas e expõe campos internos/profissional prematuro.
+Não atribuir essa falha ao Luna; não confundir com perda de continuidade.
+
+Zero SAFETY_FAILURE, provider inconclusivo, efeitos operacionais, confirmações,
+Outbox, mensagens externas, JEV, Meta, containers ou deploy. Snapshots dos dez
+tenants iguais aos baselines operacionais. 47.208 tokens, custo estimado
+**US$0,006831135**, abaixo da reserva anunciada de US$0,195. Uma amostra principal
+por quantidade; sem p95 ou comparação pareada com baselines antigos.
+
+Flags finais **Multi-Action V2=false, paid=false, Router JEV=false**; .env.local
+inalterado. 12 ações apenas preparadas offline (SPLIT_REVIEW 10+2). Override da
+Secretária permanece DESIGN_TARGET; contrato manual não foi expandido.
+
+Checks: **272 arquivos / 2.404 testes PASS**, lint e TypeScript PASS, build PASS
+com secret descartável somente no processo (tentativa inicial sem secret falhou
+na coleta de páginas). Sem migration/alteração de schema neste delta.
+Resultado detalhado: [benchmark](SECRETARIA_MULTI_ACTION_BENCHMARK_RESULT.md) e
+[transcrições reais](SECRETARIA_MULTI_ACTION_BENCHMARK_CONVERSAS.md). Golden/Hard
+anteriores continuam históricos; u02 mantém causa UNKNOWN e não foi repetido.
+
+## 2026-09-24 — Multi-Action V2 local, Gate offline, flag OFF
+
+Tópico 14 implementado em `codex/multi-action-v2`, worktree `service-create-mvp`:
+ActionPlan com `actions[]`, DAG geral/ciclos, faltantes e falhas por ação,
+confirmation groups e política configurável 1–5 NORMAL / 6–10 ADVANCED /
+>10 SPLIT. Componente dependente acima do teto fica SPECIAL_REVIEW e não é
+executável pela confirmação comum. Contrato intermediário strict V2 preserva
+Registry/guardas; flag OFF preserva seleção/coordenador V1. Pares atômicos e
+disponibilidade continuam nos adapters de domínio existentes. Sem Front/Meta.
+
+Suíte offline: **271 arquivos / 2.397 testes PASS**, lint e TypeScript PASS.
+Build PASS. PostgreSQL/integration não executados; nenhum container,
+SQL, migration, deploy, OpenAI/JEV real ou Ultimate real neste Gate. Os manifests
+históricos continuam rejeitando o código V2; testes históricos usam fontes V1
+arquivados/verificados, e regressão funcional usa código atual. Não se remediu
+qualidade de modelo; Golden 10/10 e Hard 13/14 PASS continuam evidências históricas.
+
+Correção do estado anterior de Ultimate: o journal local posterior comprova uma
+tentativa **u02**, request `req_ea8a32d21b0146589039cb04a9e91981`, HTTP 200,
+`select_capabilities` e `selection_schema_valid=false`. Não contém argumentos nem
+erro de campo; **causa exata UNKNOWN**, sem atribuição a Luna. A frase histórica
+“u02–u10 não foram iniciados” abaixo descreve apenas o checkpoint anterior.
+Não houve repetição de u01/u02 nem início de u03–u10 neste Gate.
+
+`SALON_SECRETARY_MULTI_ACTION_V2_ENABLED=false` é default e rollback imediato.
+Limites de saída do modelo permanecem; adapters gerais com bindings de dados e
+revisão especial ainda exigem validação própria. Próximo Gate preparado, não
+executado: **MULTI-ACTION V2 — CONTROLLED VALIDATION**.
+Relatório, arquivos, testes, limitações e rollback em
+[`SECRETARIA_MULTI_ACTION_V2.md`](SECRETARIA_MULTI_ACTION_V2.md).
+
+## 2026-09-24 — Ultimate 10: revalidação u01 preparada, sem inferência
+
+O CLI de avaliação agora dispõe de `--preflight-revalidate-u01` somente leitura e de
+`--revalidate-u01` exclusivo, que ainda **não foi executado**. O preflight contextual
+passou com o journal histórico de u01 preservado e hash exato, três AuditLogs
+técnicos aprovados, fixtures e baseline operacionais intactas, Outbox/confirmações
+zero, role runtime, 19 tabelas RLS/FORCE RLS e isolamento tenant. O novo journal
+separado aceita somente u01/um turno/uma request e rejeita segunda tentativa;
+`--execute` normal continua exigindo journal vazio. Paid calls e Router seguem
+false; zero OpenAI/JEV e zero efeito operacional neste Gate. Detalhes em
+`SECRETARIA_ULTIMATE_10_U01_REVALIDATION_MODE.md`.
+
+## 2026-09-24 — Ultimate 10 u01: HTTP 200, causa pós-HTTP desconhecida
+
+A tentativa autorizada de u01 recebeu HTTP 200 (`req_fdcc0a46fe504c41b87af68be6e04e08`),
+mas `model.getResponse` falhou antes de devolver output/usage; o diagnóstico histórico
+é `UNKNOWN_PROVIDER_ERROR` e u01 permanece INCONCLUSIVE. Zero retries e zero
+efeitos operacionais; u02–u10 não foram iniciados. A análise offline posterior
+identificou pontos possíveis de falha entre o parser do SDK e o adapter, mas
+não demonstrou a causa específica de u01. O runner de avaliação agora tem
+testemunha sanitizada e checkpoints pós-HTTP, sem modificar o histórico ou o
+runtime. O CLI retorna código não zero para `STOPPED`. Detalhes em
+`SECRETARIA_ULTIMATE_10_POST_HTTP_DIAGNOSTIC.md`. Nenhuma revalidação foi executada.
+
+## 2026-09-24 — Ultimate 10 harness/preflight pronto, sem inferência
+
+O adapter de avaliação reutiliza o journal durável, witness, Observation Bridge,
+health checks e contadores da Phase A. As dez fixtures sintéticas foram
+preparadas no PostgreSQL local descartável; `--preflight` retornou
+`ULTIMATE10_PREFLIGHT_OK` para 10 casos/11 turnos, 4 CURRENT_RUNTIME e 6
+DESIGN_TARGET, runtime sem SUPERUSER/BYPASSRLS, 19 tabelas com RLS/FORCE RLS,
+tenant isolation, Outbox/confirmations zero e journal Ultimate vazio.
+`--prepare` repetido criou zero duplicatas. Baseline e dump pré-bateria têm
+hashes selados. Manifest SHA `482b4fdfbf38e70da00e3507b6fb7e7167e66bdc40428c8f7767991cce077fb0`
+inalterado; adaptação do predecessor durável possui SHA adicional estrito.
+Teto futuro: 11 inferências / US$0,0946, sujeito à reconfirmação de tarifa.
+Zero OpenAI, JEV, confirmação, efeito operacional de pedidos, Meta ou deploy
+neste Gate; ocorreram somente escritas de preparação das dez fixtures sintéticas.
+Paid calls e Router JEV permanecem false. Detalhes e rollback em
+`SECRETARIA_ULTIMATE_10_HARNESS_PREFLIGHT.md`.
+
+## 2026-09-24 — Ultimate 10 congelada, sem execução
+
+Bateria de dez cenários avançados e onze turnos preparada apenas offline em
+`SECRETARIA_ULTIMATE_10_PREPARATION.md` e
+`packages/salon-secretary/evaluation/ultimate-10-plan.json` (SHA-256
+`482b4fdfbf38e70da00e3507b6fb7e7167e66bdc40428c8f7767991cce077fb0`).
+Quatro casos estão dentro dos contratos atuais e seis são DESIGN_TARGET por
+resolução temporal, coordenação mista, correção ou falha parcial ainda não
+comprovada. Nenhuma inferência, mutation, confirmação ou promoção de
+capacidade ocorreu. Runtime, Router e flags permanecem inalterados.
+
+## 2026-09-24 — Phase A final continuation i14–x02 concluída
+
+Após duas tentativas inconclusivas de i12, a continuação autorizada excluiu
+definitivamente i01–i12 e executou somente os 14 casos ainda não iniciados,
+com 16 turnos/16 inferências GPT-6 Luna. Resultado novo: 13 PASS, 1
+FUNCTIONAL_FAILURE_SAFE (m05 perdeu o serviço já informado no item dependente),
+0 SAFETY_FAILURE e 0 INCONCLUSIVE. Placar Phase A completo: 14 PASS, 1 falha
+funcional segura, 0 falhas de segurança confirmadas, 11 UNKNOWN históricos
+(i02–i11 sem observação e i12 inconclusivo), 0 NOT_STARTED. Nenhum desses
+UNKNOWN foi reclassificado como erro do modelo.
+
+O journal durável preservou 14 CASE_COMPLETED. 16 witnesses Responses válidas,
+`store=false`, hosted tools=0, containers=0, zero retries e zero JEV. O banco
+descartável tem 187 AuditLogs técnicos, contra 72 na baseline, mas nenhuma
+alteração operacional: Outbox=0, confirmações=0, hashes e contagens de 26
+fixtures intactos, isolamento tenant e RLS/FORCE RLS verificados. Dump local
+pós-bateria criado. Paid calls=false e Router JEV=false ao final. Custo novo
+estimado US$0,004063565; cobrança das tentativas i12 permanece desconhecida.
+Detalhes e hashes em `SECRETARIA_GATE_4_0B_FINAL_CONTINUATION_RESULT.md`.
+
+## 2026-09-24 — Gate 4.0B.6: retomada real durável interrompida em i12
+
+O preflight do manifest `PHASE_A_RESUME_FROM_I12` passou com 15 casos/17 turnos,
+69 AuditLogs históricos, fixtures intactas, isolamento/RLS e flags seguras.
+A tarifa oficial GPT-6 Luna confirmou o teto congelado de US$0,1462. A única
+nova tentativa autorizada de i12 foi registrada como REVALIDATION_ATTEMPT_2;
+falhou no transporte antes de qualquer resposta HTTP, com diagnóstico sanitizado
+NETWORK. i12 permanece UNKNOWN/INCONCLUSIVE, e a execução parou. Nenhum caso
+i14–x02 foi iniciado; i01 PASS e i02–i11 UNKNOWN não foram repetidos.
+
+O journal durável contém witness, falha, observação, INCONCLUSIVE e STOPPED;
+não há CASE_COMPLETED novo. Foram feitos 1 envio tentado, 0 retries, 0 JEV,
+0 confirmação e 0 efeito operacional. Três AuditLogs técnicos elevaram o total
+de 69 para 72; hashes das tabelas operacionais permaneceram iguais. Dump local
+pós-tentativa criado. Paid calls=false e Router JEV=false ao final. O placar
+Phase A segue PASS=1, falhas funcionais seguras confirmadas=0, falhas de
+segurança confirmadas=0, UNKNOWN=25. Não há autorização para tentativa 3 de
+i12 nem continuação automática. Detalhes em
+`SECRETARIA_GATE_4_0B_6_RESULT.md`.
+
+## 2026-09-24 — Gate 4.0B.5: evidência durável e retomada i12 preparada
+
+A execução autorizada do Gate 4.0B.4 terminou durante i12. i01 permanece PASS;
+i02–i11 têm resultado técnico do modelo, mas observação funcional ausente e
+permanecem UNKNOWN, sem repetição. i12 é INCONCLUSIVE_ATTEMPT_1. Placar atual:
+PASS=1, falha funcional segura confirmada=0, falha de segurança confirmada=0,
+UNKNOWN=25. A causa do aborto/queda do PostgreSQL permanece desconhecida;
+a recuperação por WAL está registrada. Zero efeitos operacionais observados.
+
+O Gate 4.0B.5 acrescenta persistência append/fsync da witness, usage, observações
+e checkpoints SOMENTE ao harness de avaliação. Novo preflight contextual passou
+com 69 AuditLogs históricos exatos, 26 fixtures preservadas e isolamento/RLS
+verificados. PHASE_A_RESUME_FROM_I12 contém 15 casos/17 turnos: uma futura
+revalidação explicitamente autorizada de i12 e os 14 casos ainda não iniciados.
+Não foi executado. Paid calls e Router JEV continuam false, gpt-6-luna continua
+oficial. Nenhuma alteração de produto, inferência, deploy ou correção funcional.
+Detalhes, hashes, limites e rollback: SECRETARIA_GATE_4_0B_5_DURABLE_RESUME.md.
+
+
+## 2026-09-24 — Gate 4.0B.3.2: continuação segura da Phase A preparada
+
+`i01` foi revalidado e aprovado funcionalmente em uma única inferência GPT-6
+Luna; seu resultado e os sete AuditLogs técnicos permanecem intactos. O novo
+modo **evaluation-only** `--preflight-continuation` validou a baseline histórica
+exata, as 26 fixtures, 25 casos restantes/27 turnos, a role runtime, RLS/FORCE
+RLS e isolamento por tenant em `127.0.0.1:55441`. `--continue-after-i01` está
+limitado aos casos i02–i26 congelados, exclui i01 e exige autorização explícita
+em variável somente do processo; **não foi executado** neste Gate. Paid calls e
+Router JEV continuam false. O estado UNKNOWN de i01 descrito nas seções
+históricas abaixo corresponde à primeira tentativa, anterior à revalidação.
+Detalhes, hashes, testes e rollback em
+`SECRETARIA_GATE_4_0B_3_2_CONTINUATION.md`.
+
+## 2026-09-24 — Gate 4.0B.3.1A: banco descartável limpo restaurado
+
+Autorização explícita permitiu iniciar um novo PostgreSQL local em `55442`,
+restaurar exclusivamente o dump pré-bateria SHA-256 `28c02b25…b6f6093` e
+validar schema, role runtime, grants, RLS/FORCE RLS, isolamento e o preflight
+26/26 casos e 28/28 turnos. O cluster anterior, com três AuditLogs da tentativa
+`i01`, foi preservado e desligado. O cluster limpo agora escuta somente em
+`127.0.0.1:55441`; o preflight **original** passou novamente após a troca,
+com `AuditLog=0`, `NotificationOutbox=0`, Router=false e paid calls=false.
+Detalhes e rollback: `SECRETARIA_GATE_4_0B_3_1A_RESTORE_I01.md`. Nenhuma
+inferência OpenAI/JEV, revalidação i01, Phase A ou deploy ocorreu neste Gate.
+
+## 2026-09-24 — Gate 4.0B.3.1: diagnóstico OpenAI preparado, sem nova inferência
+
+A execução Phase A autorizada parou em `i01` após uma tentativa Responses,
+sem resposta, request/response ID ou usage. O resultado funcional de `i01` é
+UNKNOWN; nenhum dos outros 25 casos foi executado. O journal mostrou zero
+efeitos operacionais e três auditorias técnicas. O preflight atual bloqueia a
+reexecução por `PHASE_A_STALE_TECHNICAL_JOURNAL`; o banco foi preservado.
+Foi acrescentada observabilidade sanitizada **somente no harness de avaliação**,
+antes do wrapper `MODEL_REQUEST_FAILED`, e uma entrada separada de uma única
+request `--revalidate-i01`, ainda desautorizada e não executada. O relatório
+histórico, o manifest, o produto e as fixtures permanecem inalterados. Detalhes,
+categorias, testes, pré-requisito de restauração local e rollback em
+`SECRETARIA_GATE_4_0B_3_1_PROVIDER_DIAGNOSTIC.md`. Zero OpenAI/JEV neste Gate;
+Router e paid calls continuam false. Naquele Gate, a revisão automática havia
+rejeitado iniciar um novo cluster local em `55442`; a autorização explícita
+posterior e a restauração concluída estão registradas acima.
+
+## 2026-09-24 — Gate 4.0B.2.1: PostgreSQL descartável Phase A restaurado
+
+O cluster anterior de teste permaneceu intocado como evidência: faltam diretórios
+internos obrigatórios, inclusive `pg_notify`, e ele não inicia. Um PostgreSQL
+16.15 novo, nativo e limitado a `127.0.0.1:55441`, foi criado em diretório
+temporário exclusivo. O schema foi restaurado **sem dados** do backup sintético
+documentado no Gate 3.1B V2; a comparação read-only com `prisma/schema.prisma`
+deu zero diferenças. A role `mvp_service_runtime` não tem SUPERUSER/BYPASSRLS;
+as 19 tabelas exigidas pela Phase A têm RLS/FORCE RLS. Consultas reais pela role
+runtime comprovaram isolamento entre dois tenants e ausência de visibilidade
+sem contexto.
+
+`--prepare` criou 26 tenants sintéticos, e a segunda execução criou zero
+duplicatas. `--preflight` aprovou 26/26 casos e 28/28 turnos. Um dump do banco
+preparado, com SHA-256 verificado, está em `packages/salon-secretary/evaluation/results/`
+(ignorado pelo Git). Router e paid calls continuam false; não houve inferência
+OpenAI/JEV nem execução da Phase A. A autorização para Gate 4.0B.3 continua
+separada. Procedimento, hashes, limites e rollback:
+`SECRETARIA_GATE_4_0B_2_1_DISPOSABLE_DB.md`.
+
+## 2026-09-24 — Gate 4.0B.2: harness Phase A offline; banco descartável bloqueia execução
+
+Adapter dos 26 cenários/28 turnos congelados, journal sintético por tenant,
+contadores independentes e witness da request Responses serializada implementados
+somente na camada de avaliação. O runtime, expected, manifest, Router, Skills,
+fast-path e cost guard não foram alterados. A witness bloqueia antes da rede
+qualquer wire fora da allowlist; o runner não expõe confirmação. O SHA Phase A
+permanece `11f3ea7f8e04d5ccca7723b9f3575bde3a275e332f744453f63568b4b2dabbaa`.
+O cluster descartável anterior está incompleto (`pg_notify` ausente) e não inicia;
+`--preflight` falhou fechado com `PHASE_A_LOCAL_DATABASE_UNAVAILABLE`. Nenhuma
+fixture foi gravada; nenhuma chamada Luna/JEV foi feita. Estado atual da Phase A:
+`BLOCKED_BEFORE_INFERENCE` até restaurar o banco local e validar fixtures/RLS.
+Dry-run 26/28, 2.241 testes, lint, TypeScript e build offline passaram;
+testes PostgreSQL live não puderam ocorrer.
+Detalhes, orçamento e rollback em `SECRETARIA_GATE_4_0B_2_EXECUTION_HARNESS.md`.
+
+## 2026-09-24 — Gate 4.0B.1: ponte de observação offline e Phase A congelada
+
+Ponte evaluation-only ligada à API pública `SalonSecretary.start/send`, com
+capturas tipadas por turno, eventos baseados em snapshots e métricas de segurança
+trivalentes (`PASS`/`FAIL`/`UNKNOWN`). Modelo/backend mockados exercitaram o
+runtime sem alterar Registry/Skills/Tools ou confirmar propostas. O manifest
+original permanece intacto; Phase A congela só 26 READY / 28 turnos, SHA
+`11f3ea7f8e04d5ccca7723b9f3575bde3a275e332f744453f63568b4b2dabbaa`.
+Tarifa GPT-6 Luna Standard confirmada em fonte oficial; reserva máxima
+US$0,2408. `t07` com ponto em `45 minutos.` não aciona o fast-path atual:
+divergência segura registrada, sem correção neste Gate. Nenhuma bateria real,
+OpenAI, JEV, banco, confirmação, deploy ou alteração produtiva. Router/paid OFF.
+Detalhes e limites em `SECRETARIA_GATE_4_0B_1_OBSERVATION_BRIDGE.md`.
+
+## 2026-09-23 — Gate 4.0B: runner preflight offline (sem bateria real)
+
+Manifest 4.0A preservado: SHA-256
+`b8c4c39b9ea338dbd2cbe80b9fe9f2efeb940391109da034b11bb480cbb0076e`.
+Dry-run estrutural: 60/60 casos, 77/77 turnos, 16 variantes em memória,
+118 hashes protegidos. Classificação analítica: 26 READY, 3 limites conhecidos,
+31 DESIGN_TARGET, zero fixture inválida. Isso não representa aprovação funcional
+de Luna. Sondas com coordenadores reais/mocks confirmam a auto-resolução atual
+de aproximação e a rejeição de EXACT sem aspas; nenhum contrato foi corrigido.
+Runner aceita somente modo offline; adaptação completa runtime/observações e
+tarifa vigente continuam pré-requisitos da entrada paga. Sem banco, rede IA,
+deploy ou alteração de runtime; Router e paid permanecem false.
+Relatório: `SECRETARIA_GATE_4_0B_RUNNER_PREFLIGHT.md` e
+`SECRETARIA_GATE_4_0B_RUNNER_VALIDATION.md`.
+
+## 2026-09-23 — Tópico 14, Gate 4.0A: desenho conversacional offline
+
+O responsável confirmou a validação controlada do Router V1 e autorizou o
+Gate 4.0A. O registro anterior de Router pendente abaixo é histórico. Router
+continua false por padrão, GPT-6 Luna oficial e paid calls false; nenhum deploy.
+Este incremento prepara contrato de resolução/clarification/correção/dependência
+e primitivas puras somente em evaluation, sem integração ou mudança de runtime.
+Dataset congelado: 60 cenários / 77 turnos sintéticos. Cinco ações, confirmação
+de aproximação e troca geral de intenção são DESIGN_TARGETs, não capacidades
+produtivas já implementadas. Escopo, matriz de operações e limitações em
+`SECRETARIA_GATE_4_0A_CONVERSATIONAL_RESOLUTION.md`; proposta não executada do
+Gate 4.0B em `SECRETARIA_GATE_4_0B_PLAN.md`. Zero IA real, banco ou Meta neste Gate.
+
+## 2026-09-23 — Router V1 da Secretária em preparação local, desligado
+
+Gate 3.1C-C prepara fast-path → duas entradas JEV PROVEN → Policy → fallback
+GPT-6 Luna. `SALON_SECRETARY_JEV_ROUTER_ENABLED=false` e paid calls false.
+Sem deploy, inferência real, banco ou alterações remotas neste Gate; Production
+abaixo permanece inalterada. Escopo, restrições, telemetria e ensaio mínimo
+pendente de autorização em `SECRETARIA_ROUTER_V1.md`. Nenhuma expansão
+Financial/Inventory, threshold, Wallet ou Cross-Skill novo foi promovido.
+
 ## 2026-09-20 — aviso transitório no login do cliente corrigido em revisão
 
 PR #116 incorpora uma correção de apresentação: o catch do formulário tratava

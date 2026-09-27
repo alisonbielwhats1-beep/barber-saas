@@ -58,7 +58,7 @@ export default async function ClientNotificationsPage({
     payload: payloadRecord(notification.payload),
     readAt: notification.readAt?.toISOString() ?? null,
     createdAt: notification.createdAt.toISOString(),
-    professionalName: notification.appointment.professional.user.name,
+    professionalName: notification.appointment?.professional.user.name ?? "",
   }));
 
   return (

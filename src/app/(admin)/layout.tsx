@@ -16,6 +16,9 @@ import { billingCapacityLabel } from "@/lib/billing/presentation";
 import { currentTerms } from "@/lib/billing/change-terms";
 import { ThemeToggle } from "./theme-toggle";
 import { PlanShortcut } from "./plan-shortcut";
+import { SecretaryDock } from "./servicos/secretaria/secretary-dock";
+import { assertSecretaryEnvironment } from "@/lib/salon-secretary-runtime";
+import { assertSecretaryRolloutAccess } from "@/lib/secretary-rollout";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const ctx = await getTenantContext();
@@ -61,6 +64,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     role: m.role,
   }));
   const currentSalon = membershipList.find((m) => m.id === salonId)!;
+  let secretaryEnabled = false;
+  if (process.env.SALON_SECRETARY_FRONT_ENABLED === "true" && ["OWNER", "MANAGER", "RECEPTIONIST"].includes(role)) {
+    try { assertSecretaryEnvironment(); assertSecretaryRolloutAccess(ctx); secretaryEnabled = true; } catch { /* Admission and environment gates both fail closed. */ }
+  }
 
   return (
     <ThemeProvider>
@@ -88,6 +95,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       />
       <CommandPalette role={role} />
       <Toaster />
+      {secretaryEnabled && <SecretaryDock key={`${salonId}:${userId}`} voiceEnabled={process.env.SALON_SECRETARY_VOICE_ENABLED === "true"} />}
     </div>
     </ThemeProvider>
   );

@@ -1,4 +1,5 @@
 import { fileURLToPath } from "node:url";
+import { secretaryMicrophoneAllowed } from "./src/lib/secretary-staging-target.mjs";
 
 const storageRemotePattern = (() => {
   try {
@@ -33,7 +34,7 @@ const contentSecurityPolicy = [
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   outputFileTracingRoot: fileURLToPath(new URL(".", import.meta.url)),
-  transpilePackages: ["@everflare/agents"],
+  transpilePackages: ["@everflare/agents", "@everflair/salon-secretary"],
   devIndicators: process.env.CI ? false : undefined,
   reactStrictMode: true,
   async headers() {
@@ -50,7 +51,7 @@ const nextConfig = {
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           {
             key: "Permissions-Policy",
-            value: "camera=(), microphone=(), geolocation=()",
+            value: `camera=(), microphone=${secretaryMicrophoneAllowed(process.env) ? '(self)' : '()'}, geolocation=()`,
           },
           { key: "X-Frame-Options", value: "SAMEORIGIN" },
         ],

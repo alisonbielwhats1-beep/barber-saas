@@ -1,0 +1,527 @@
+{
+  "executed": false,
+  "calls": 4,
+  "retries": 0,
+  "timeoutMs": 10000,
+  "priceAuditedOn": "2026-09-22",
+  "priceSource": "https://docs.typesafe.ai/models",
+  "conservativeEstimatedMaximumUsd": 0.010752,
+  "requests": [
+    {
+      "caseId": "financial-revenue",
+      "payload": {
+        "model": "jev-1.13.0",
+        "state": {
+          "message": "Quanto faturei ontem?",
+          "context": {}
+        },
+        "questions": {
+          "skill": {
+            "type": "choice",
+            "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+            "criteria": {
+              "services": null,
+              "customers": null,
+              "scheduling": null,
+              "financial": null,
+              "inventory": null,
+              "communication": null,
+              "multiple": null,
+              "unclear": null,
+              "out_of_catalog": null
+            }
+          },
+          "operation": {
+            "type": "choice",
+            "instructions": "Qual operação é pedida? Escolha somente a operação publicada; multiple se há mais de uma; unclear se não é possível determinar; out_of_catalog se não suportada. Use context.operation para continuação, sem inventar nova operação.",
+            "criteria": {
+              "service.create": null,
+              "service.change": null,
+              "customer.search": null,
+              "customer.read": null,
+              "customer.create": null,
+              "customer.change": null,
+              "appointment.create": null,
+              "appointment.list": null,
+              "appointment.read": null,
+              "availability.get": null,
+              "appointment.change": null,
+              "appointment.cancel": null,
+              "schedule.block": null,
+              "financial.report": null,
+              "product.search": null,
+              "stock.balance": null,
+              "stock.movement": null,
+              "customer.message": null,
+              "multiple": null,
+              "unclear": null,
+              "out_of_catalog": null
+            }
+          },
+          "shape": {
+            "type": "choice",
+            "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+            "criteria": {
+              "single": null,
+              "independent": null,
+              "dependent": null,
+              "unclear": null,
+              "out_of_catalog": null
+            }
+          },
+          "period": {
+            "type": "choice",
+            "instructions": "Qual período financeiro explícito? today=hoje, yesterday=ontem, this_week=esta semana, last_week=semana passada, this_month=este mês, last_month=mês passado. comparison para comparar períodos; none sem período financeiro; unclear se ambíguo. Não converter datas.",
+            "criteria": {
+              "today": null,
+              "yesterday": null,
+              "this_week": null,
+              "last_week": null,
+              "this_month": null,
+              "last_month": null,
+              "comparison": null,
+              "none": null,
+              "unclear": null
+            }
+          },
+          "metric": {
+            "type": "choice",
+            "instructions": "Qual métrica financeira? Faturamento sem qualificador=service_revenue; com produtos=realized_revenue; recebido=received_revenue; a receber=outstanding_receivables; atendimentos realizados=completed_count; ticket médio=average_ticket; multiple para várias. none fora de Financial; unclear se não suportada (lucro/taxas/estornos). Nunca calcular valores.",
+            "criteria": {
+              "service_revenue": null,
+              "realized_revenue": null,
+              "received_revenue": null,
+              "outstanding_receivables": null,
+              "completed_count": null,
+              "average_ticket": null,
+              "multiple": null,
+              "none": null,
+              "unclear": null
+            }
+          },
+          "inventory": {
+            "type": "choice",
+            "instructions": "Qual intenção de estoque: balance=consultar saldo; low_stock=produtos acabando; IN=entrada; OUT=saída; search=localizar produto; none fora de estoque; unclear se ambíguo. Não calcular saldo ou extrair quantidade.",
+            "criteria": {
+              "balance": null,
+              "low_stock": null,
+              "IN": null,
+              "OUT": null,
+              "search": null,
+              "none": null,
+              "unclear": null
+            }
+          },
+          "communication": {
+            "type": "choice",
+            "instructions": "EXACT quando há texto literal para enviar sem reescrita; GENERATED somente se explicitamente solicitado redigir/educadamente; unspecified quando pede aviso sem texto literal nem geração explícita; none sem mensagem; unclear se ambíguo. Não gerar texto.",
+            "criteria": {
+              "EXACT": null,
+              "GENERATED": null,
+              "unspecified": null,
+              "none": null,
+              "unclear": null
+            }
+          }
+        }
+      },
+      "expected": {
+        "skill": "financial",
+        "operation": "financial.report",
+        "shape": "single",
+        "period": "yesterday",
+        "metric": "service_revenue",
+        "inventory": "none",
+        "communication": "none"
+      },
+      "expectedLunaFallback": false
+    },
+    {
+      "caseId": "scheduling-cancel",
+      "payload": {
+        "model": "jev-1.13.0",
+        "state": {
+          "message": "Cancele a Beatriz amanhã às 14h. Motivo: teste controlado.",
+          "context": {}
+        },
+        "questions": {
+          "skill": {
+            "type": "choice",
+            "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+            "criteria": {
+              "services": null,
+              "customers": null,
+              "scheduling": null,
+              "financial": null,
+              "inventory": null,
+              "communication": null,
+              "multiple": null,
+              "unclear": null,
+              "out_of_catalog": null
+            }
+          },
+          "operation": {
+            "type": "choice",
+            "instructions": "Qual operação é pedida? Escolha somente a operação publicada; multiple se há mais de uma; unclear se não é possível determinar; out_of_catalog se não suportada. Use context.operation para continuação, sem inventar nova operação.",
+            "criteria": {
+              "service.create": null,
+              "service.change": null,
+              "customer.search": null,
+              "customer.read": null,
+              "customer.create": null,
+              "customer.change": null,
+              "appointment.create": null,
+              "appointment.list": null,
+              "appointment.read": null,
+              "availability.get": null,
+              "appointment.change": null,
+              "appointment.cancel": null,
+              "schedule.block": null,
+              "financial.report": null,
+              "product.search": null,
+              "stock.balance": null,
+              "stock.movement": null,
+              "customer.message": null,
+              "multiple": null,
+              "unclear": null,
+              "out_of_catalog": null
+            }
+          },
+          "shape": {
+            "type": "choice",
+            "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+            "criteria": {
+              "single": null,
+              "independent": null,
+              "dependent": null,
+              "unclear": null,
+              "out_of_catalog": null
+            }
+          },
+          "period": {
+            "type": "choice",
+            "instructions": "Qual período financeiro explícito? today=hoje, yesterday=ontem, this_week=esta semana, last_week=semana passada, this_month=este mês, last_month=mês passado. comparison para comparar períodos; none sem período financeiro; unclear se ambíguo. Não converter datas.",
+            "criteria": {
+              "today": null,
+              "yesterday": null,
+              "this_week": null,
+              "last_week": null,
+              "this_month": null,
+              "last_month": null,
+              "comparison": null,
+              "none": null,
+              "unclear": null
+            }
+          },
+          "metric": {
+            "type": "choice",
+            "instructions": "Qual métrica financeira? Faturamento sem qualificador=service_revenue; com produtos=realized_revenue; recebido=received_revenue; a receber=outstanding_receivables; atendimentos realizados=completed_count; ticket médio=average_ticket; multiple para várias. none fora de Financial; unclear se não suportada (lucro/taxas/estornos). Nunca calcular valores.",
+            "criteria": {
+              "service_revenue": null,
+              "realized_revenue": null,
+              "received_revenue": null,
+              "outstanding_receivables": null,
+              "completed_count": null,
+              "average_ticket": null,
+              "multiple": null,
+              "none": null,
+              "unclear": null
+            }
+          },
+          "inventory": {
+            "type": "choice",
+            "instructions": "Qual intenção de estoque: balance=consultar saldo; low_stock=produtos acabando; IN=entrada; OUT=saída; search=localizar produto; none fora de estoque; unclear se ambíguo. Não calcular saldo ou extrair quantidade.",
+            "criteria": {
+              "balance": null,
+              "low_stock": null,
+              "IN": null,
+              "OUT": null,
+              "search": null,
+              "none": null,
+              "unclear": null
+            }
+          },
+          "communication": {
+            "type": "choice",
+            "instructions": "EXACT quando há texto literal para enviar sem reescrita; GENERATED somente se explicitamente solicitado redigir/educadamente; unspecified quando pede aviso sem texto literal nem geração explícita; none sem mensagem; unclear se ambíguo. Não gerar texto.",
+            "criteria": {
+              "EXACT": null,
+              "GENERATED": null,
+              "unspecified": null,
+              "none": null,
+              "unclear": null
+            }
+          }
+        }
+      },
+      "expected": {
+        "skill": "scheduling",
+        "operation": "appointment.cancel",
+        "shape": "single",
+        "period": "none",
+        "metric": "none",
+        "inventory": "none",
+        "communication": "none"
+      },
+      "expectedLunaFallback": true
+    },
+    {
+      "caseId": "inventory-low",
+      "payload": {
+        "model": "jev-1.13.0",
+        "state": {
+          "message": "Quais produtos estão com estoque baixo?",
+          "context": {}
+        },
+        "questions": {
+          "skill": {
+            "type": "choice",
+            "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+            "criteria": {
+              "services": null,
+              "customers": null,
+              "scheduling": null,
+              "financial": null,
+              "inventory": null,
+              "communication": null,
+              "multiple": null,
+              "unclear": null,
+              "out_of_catalog": null
+            }
+          },
+          "operation": {
+            "type": "choice",
+            "instructions": "Qual operação é pedida? Escolha somente a operação publicada; multiple se há mais de uma; unclear se não é possível determinar; out_of_catalog se não suportada. Use context.operation para continuação, sem inventar nova operação.",
+            "criteria": {
+              "service.create": null,
+              "service.change": null,
+              "customer.search": null,
+              "customer.read": null,
+              "customer.create": null,
+              "customer.change": null,
+              "appointment.create": null,
+              "appointment.list": null,
+              "appointment.read": null,
+              "availability.get": null,
+              "appointment.change": null,
+              "appointment.cancel": null,
+              "schedule.block": null,
+              "financial.report": null,
+              "product.search": null,
+              "stock.balance": null,
+              "stock.movement": null,
+              "customer.message": null,
+              "multiple": null,
+              "unclear": null,
+              "out_of_catalog": null
+            }
+          },
+          "shape": {
+            "type": "choice",
+            "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+            "criteria": {
+              "single": null,
+              "independent": null,
+              "dependent": null,
+              "unclear": null,
+              "out_of_catalog": null
+            }
+          },
+          "period": {
+            "type": "choice",
+            "instructions": "Qual período financeiro explícito? today=hoje, yesterday=ontem, this_week=esta semana, last_week=semana passada, this_month=este mês, last_month=mês passado. comparison para comparar períodos; none sem período financeiro; unclear se ambíguo. Não converter datas.",
+            "criteria": {
+              "today": null,
+              "yesterday": null,
+              "this_week": null,
+              "last_week": null,
+              "this_month": null,
+              "last_month": null,
+              "comparison": null,
+              "none": null,
+              "unclear": null
+            }
+          },
+          "metric": {
+            "type": "choice",
+            "instructions": "Qual métrica financeira? Faturamento sem qualificador=service_revenue; com produtos=realized_revenue; recebido=received_revenue; a receber=outstanding_receivables; atendimentos realizados=completed_count; ticket médio=average_ticket; multiple para várias. none fora de Financial; unclear se não suportada (lucro/taxas/estornos). Nunca calcular valores.",
+            "criteria": {
+              "service_revenue": null,
+              "realized_revenue": null,
+              "received_revenue": null,
+              "outstanding_receivables": null,
+              "completed_count": null,
+              "average_ticket": null,
+              "multiple": null,
+              "none": null,
+              "unclear": null
+            }
+          },
+          "inventory": {
+            "type": "choice",
+            "instructions": "Qual intenção de estoque: balance=consultar saldo; low_stock=produtos acabando; IN=entrada; OUT=saída; search=localizar produto; none fora de estoque; unclear se ambíguo. Não calcular saldo ou extrair quantidade.",
+            "criteria": {
+              "balance": null,
+              "low_stock": null,
+              "IN": null,
+              "OUT": null,
+              "search": null,
+              "none": null,
+              "unclear": null
+            }
+          },
+          "communication": {
+            "type": "choice",
+            "instructions": "EXACT quando há texto literal para enviar sem reescrita; GENERATED somente se explicitamente solicitado redigir/educadamente; unspecified quando pede aviso sem texto literal nem geração explícita; none sem mensagem; unclear se ambíguo. Não gerar texto.",
+            "criteria": {
+              "EXACT": null,
+              "GENERATED": null,
+              "unspecified": null,
+              "none": null,
+              "unclear": null
+            }
+          }
+        }
+      },
+      "expected": {
+        "skill": "inventory",
+        "operation": "product.search",
+        "shape": "single",
+        "period": "none",
+        "metric": "none",
+        "inventory": "low_stock",
+        "communication": "none"
+      },
+      "expectedLunaFallback": false
+    },
+    {
+      "caseId": "communication-dependent-name",
+      "payload": {
+        "model": "jev-1.13.0",
+        "state": {
+          "message": "Cancele a Amanda Communication Sintética de amanhã às 14h e mande exatamente no WhatsApp: “Amanda, seu horário foi cancelado.” Motivo: teste controlado.",
+          "context": {}
+        },
+        "questions": {
+          "skill": {
+            "type": "choice",
+            "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+            "criteria": {
+              "services": null,
+              "customers": null,
+              "scheduling": null,
+              "financial": null,
+              "inventory": null,
+              "communication": null,
+              "multiple": null,
+              "unclear": null,
+              "out_of_catalog": null
+            }
+          },
+          "operation": {
+            "type": "choice",
+            "instructions": "Qual operação é pedida? Escolha somente a operação publicada; multiple se há mais de uma; unclear se não é possível determinar; out_of_catalog se não suportada. Use context.operation para continuação, sem inventar nova operação.",
+            "criteria": {
+              "service.create": null,
+              "service.change": null,
+              "customer.search": null,
+              "customer.read": null,
+              "customer.create": null,
+              "customer.change": null,
+              "appointment.create": null,
+              "appointment.list": null,
+              "appointment.read": null,
+              "availability.get": null,
+              "appointment.change": null,
+              "appointment.cancel": null,
+              "schedule.block": null,
+              "financial.report": null,
+              "product.search": null,
+              "stock.balance": null,
+              "stock.movement": null,
+              "customer.message": null,
+              "multiple": null,
+              "unclear": null,
+              "out_of_catalog": null
+            }
+          },
+          "shape": {
+            "type": "choice",
+            "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+            "criteria": {
+              "single": null,
+              "independent": null,
+              "dependent": null,
+              "unclear": null,
+              "out_of_catalog": null
+            }
+          },
+          "period": {
+            "type": "choice",
+            "instructions": "Qual período financeiro explícito? today=hoje, yesterday=ontem, this_week=esta semana, last_week=semana passada, this_month=este mês, last_month=mês passado. comparison para comparar períodos; none sem período financeiro; unclear se ambíguo. Não converter datas.",
+            "criteria": {
+              "today": null,
+              "yesterday": null,
+              "this_week": null,
+              "last_week": null,
+              "this_month": null,
+              "last_month": null,
+              "comparison": null,
+              "none": null,
+              "unclear": null
+            }
+          },
+          "metric": {
+            "type": "choice",
+            "instructions": "Qual métrica financeira? Faturamento sem qualificador=service_revenue; com produtos=realized_revenue; recebido=received_revenue; a receber=outstanding_receivables; atendimentos realizados=completed_count; ticket médio=average_ticket; multiple para várias. none fora de Financial; unclear se não suportada (lucro/taxas/estornos). Nunca calcular valores.",
+            "criteria": {
+              "service_revenue": null,
+              "realized_revenue": null,
+              "received_revenue": null,
+              "outstanding_receivables": null,
+              "completed_count": null,
+              "average_ticket": null,
+              "multiple": null,
+              "none": null,
+              "unclear": null
+            }
+          },
+          "inventory": {
+            "type": "choice",
+            "instructions": "Qual intenção de estoque: balance=consultar saldo; low_stock=produtos acabando; IN=entrada; OUT=saída; search=localizar produto; none fora de estoque; unclear se ambíguo. Não calcular saldo ou extrair quantidade.",
+            "criteria": {
+              "balance": null,
+              "low_stock": null,
+              "IN": null,
+              "OUT": null,
+              "search": null,
+              "none": null,
+              "unclear": null
+            }
+          },
+          "communication": {
+            "type": "choice",
+            "instructions": "EXACT quando há texto literal para enviar sem reescrita; GENERATED somente se explicitamente solicitado redigir/educadamente; unspecified quando pede aviso sem texto literal nem geração explícita; none sem mensagem; unclear se ambíguo. Não gerar texto.",
+            "criteria": {
+              "EXACT": null,
+              "GENERATED": null,
+              "unspecified": null,
+              "none": null,
+              "unclear": null
+            }
+          }
+        }
+      },
+      "expected": {
+        "skill": "multiple",
+        "operation": "multiple",
+        "shape": "dependent",
+        "period": "none",
+        "metric": "none",
+        "inventory": "none",
+        "communication": "EXACT"
+      },
+      "expectedLunaFallback": true
+    }
+  ]
+}

@@ -1,0 +1,257 @@
+{
+  "version": 1,
+  "classification": "CONTRACT_MISMATCH",
+  "case_ids": [
+    "x49"
+  ],
+  "excluded": {
+    "x41": "PASS_IMMUTABLE",
+    "x42": "PASS_IMMUTABLE",
+    "x44": "PASS_IMMUTABLE_AFTER_FIX",
+    "x46": "PASS_IMMUTABLE"
+  },
+  "previous_requests": 9,
+  "max_new_requests": 2,
+  "max_combined_requests": 11,
+  "max_combined_usd": 0.156,
+  "source_delta": {
+    "file": "packages/salon-secretary/src/index.ts",
+    "before": "24a4b5d5c73b66887af381077a20069641000d0f4731fed99e5544d57e1bc572",
+    "after": "ada335f2213fc4857a4fda602438c0f2ad51ffc43dc97f5f2767776d7cd6926e"
+  },
+  "predecessor": {
+    "manifest": "327218b78078123358d6100da95fb5ded8e1dc2e2888f19ba6c97fefe5012881",
+    "journal": "0b99294241d1ae79aaa0e885c1bf1732fa0861419fc3875a07a97f08ccdff705",
+    "result": "f037157d44ee91977c4fd5d75f4d81b5d52a055beddc08b03fdd201908971249"
+  },
+  "baseline": [
+    {
+      "id": "x41",
+      "snapshot": {
+        "hashes": {
+          "services": "3fc0a35ad8615aba4537555681af5f43f4edd05a4f5bb1c178275b4240c82c2e",
+          "customers": "12d098916def1ea5810909a3640594766fb4f9e8da3def8caade0f81f8b1a777",
+          "appointments": "291196a016161d04cc66b9afab06c7bf3000f1d38bb3f8a2c473164ea719c56e",
+          "appointment_services": "d9bd9d84280edcd6930dbe523f869163cf4d323297039974b4d833a0fa48d6c1",
+          "appointment_events": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "appointment_products": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "products": "8a89d7a9cffb9d283c02fb6a8b6f25a573b4afbf923584130d14ee5f7cad6759",
+          "outbox": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "closures": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "time_off": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "resource_bookings": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "payments": "ff6e97c54fba4c03161560d62d127807f5b3976fa5f4282c828f5f966c9faac4"
+        },
+        "counts": {
+          "services": 6,
+          "customers": 5,
+          "appointments": 1,
+          "appointment_services": 1,
+          "appointment_events": 0,
+          "appointment_products": 0,
+          "products": 2,
+          "outbox": 0,
+          "closures": 0,
+          "time_off": 0,
+          "resource_bookings": 0,
+          "payments": 1
+        },
+        "technical_audits": 26,
+        "technical_audit_hash": "e09a8ca9bda7f161dc06c8b3ff0081b5c8717aeeb8d363ea8a606b94dcf0e348",
+        "technical_by_kind": {
+          "drafts": 4,
+          "proposals": 2,
+          "usage": 8,
+          "router": 4,
+          "other": 8
+        },
+        "confirmations": 0
+      }
+    },
+    {
+      "id": "x42",
+      "snapshot": {
+        "hashes": {
+          "services": "22673e20535b4b97c16f2c14ed694c8da13ff4894ae4a2ae8b5fc12003530f74",
+          "customers": "e4962480ed1a8b6efbdfdfc14dcd95fe6667444814e5b56f31c57285ac26f067",
+          "appointments": "ecc95f0324999867121ca9152848d90094f468e4827602c7653ab5b19784c246",
+          "appointment_services": "bbb595aaf09a4bafa597bda4f2b58654dd3dc39b011f80395bbc3e60db7da78a",
+          "appointment_events": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "appointment_products": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "products": "993410260338ec3ddec42133312c911f458f5df6bd9ecee858976da845cf063e",
+          "outbox": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "closures": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "time_off": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "resource_bookings": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "payments": "5b0312a22bae69fbc54f89b98533cbefe165a9e7276e6ba49a96a967a8a99aa4"
+        },
+        "counts": {
+          "services": 6,
+          "customers": 5,
+          "appointments": 1,
+          "appointment_services": 1,
+          "appointment_events": 0,
+          "appointment_products": 0,
+          "products": 2,
+          "outbox": 0,
+          "closures": 0,
+          "time_off": 0,
+          "resource_bookings": 0,
+          "payments": 1
+        },
+        "technical_audits": 24,
+        "technical_audit_hash": "fe707a1efaa7f093744409890abdee321db837c2dc8018e2d40efa15a33acf45",
+        "technical_by_kind": {
+          "drafts": 4,
+          "proposals": 0,
+          "usage": 8,
+          "router": 4,
+          "other": 8
+        },
+        "confirmations": 0
+      }
+    },
+    {
+      "id": "x44",
+      "snapshot": {
+        "hashes": {
+          "services": "1a9f1cb66161b6d50e6d9bdab0f7d0d6648f5d188133533e91de1085721682d2",
+          "customers": "ea0162c710575013cd00d6285e77343e11149e94e13df853d4bdb399b2a310c7",
+          "appointments": "16a89ec7c3b35b8a37769abea63a8a7b628b74d5306d90457c9a8450575e398b",
+          "appointment_services": "33ce95ab17584aad47aa1045392232a6d91c58a100ab81fe5c9070f3f1c9d576",
+          "appointment_events": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "appointment_products": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "products": "5d87e6a80b8fccb784a5bf2dc70b1c1491ed51e48dda6b5f3e1f19b03d1b1b06",
+          "outbox": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "closures": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "time_off": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "resource_bookings": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "payments": "7ffd6161a45b83294888fdb05718e5858d856b9a7938f3e6c3aa173d14853e30"
+        },
+        "counts": {
+          "services": 6,
+          "customers": 5,
+          "appointments": 1,
+          "appointment_services": 1,
+          "appointment_events": 0,
+          "appointment_products": 0,
+          "products": 2,
+          "outbox": 0,
+          "closures": 0,
+          "time_off": 0,
+          "resource_bookings": 0,
+          "payments": 1
+        },
+        "technical_audits": 33,
+        "technical_audit_hash": "18f3a340eeb482aee6deffb3456f3acafc49c0db070211e611d635f2ebf46ace",
+        "technical_by_kind": {
+          "drafts": 6,
+          "proposals": 4,
+          "usage": 10,
+          "router": 5,
+          "other": 8
+        },
+        "confirmations": 0
+      }
+    },
+    {
+      "id": "x46",
+      "snapshot": {
+        "hashes": {
+          "services": "79de3c32e02686b332013db9ade1cd78e7ca87bb0c89b70897d0ad0cde576e6c",
+          "customers": "62e6dd6a1c8ab85c789dd84a36710b539175bb870499bc714b36a5af37f19437",
+          "appointments": "95f74176d91bb7b737d01b5930ee1bedd32cb173b6a61f077bb34fb5f67bf2be",
+          "appointment_services": "9366eb096d596dde173f32df4c817d191f8975fbece7770c49aa285ceb150060",
+          "appointment_events": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "appointment_products": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "products": "cdae6f53960027d22f4b2d14d0e3c56a3b87fddb3f4d61032bbcbe3838f7f4ba",
+          "outbox": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "closures": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "time_off": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "resource_bookings": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "payments": "f4271addbb5938bff54271b8b9929b7340c01b68876705d3309f5f122c9df2ff"
+        },
+        "counts": {
+          "services": 6,
+          "customers": 5,
+          "appointments": 2,
+          "appointment_services": 2,
+          "appointment_events": 0,
+          "appointment_products": 0,
+          "products": 2,
+          "outbox": 0,
+          "closures": 0,
+          "time_off": 0,
+          "resource_bookings": 0,
+          "payments": 1
+        },
+        "technical_audits": 38,
+        "technical_audit_hash": "02ad1396842b6a246dfd7e0c66d5bd7195e73d0b869e285a5756e5ac6b9f5583",
+        "technical_by_kind": {
+          "drafts": 8,
+          "proposals": 6,
+          "usage": 8,
+          "router": 4,
+          "other": 12
+        },
+        "confirmations": 0
+      }
+    },
+    {
+      "id": "x49",
+      "snapshot": {
+        "hashes": {
+          "services": "76507d37f36f9c5d674fb56097be42c62fe99b8a959b5fb5c99f83bdf00a112e",
+          "customers": "803fce669f2eb7fe0b58004737df09efd3203ef576e35ea964ba5a1121ead92a",
+          "appointments": "ccc891796b4017eae38a0f8b546d9aed98c8e9760cc47142b2de5ade61b57a0c",
+          "appointment_services": "6e0cf8c852c8801316d33ebc17fe4e1ebd1b97992bcc9f9dc0600e53e8c26c0b",
+          "appointment_events": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "appointment_products": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "products": "23aee3868d899fdbbf45b853647386af68a7cf09c19319ba100d5a80fae44461",
+          "outbox": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "closures": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "time_off": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "resource_bookings": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "payments": "c39687c40a9203c9691f71c2958255e28706cac5580f7ba334cd3aeb029d24c2"
+        },
+        "counts": {
+          "services": 6,
+          "customers": 5,
+          "appointments": 2,
+          "appointment_services": 2,
+          "appointment_events": 0,
+          "appointment_products": 0,
+          "products": 2,
+          "outbox": 0,
+          "closures": 0,
+          "time_off": 0,
+          "resource_bookings": 0,
+          "payments": 1
+        },
+        "technical_audits": 27,
+        "technical_audit_hash": "caddae4a3ad1f9c0694a662b450696248f74ce34315d3efca02c8732a51f12ac",
+        "technical_by_kind": {
+          "drafts": 9,
+          "proposals": 7,
+          "usage": 4,
+          "router": 2,
+          "other": 5
+        },
+        "confirmations": 0
+      }
+    }
+  ],
+  "case_admission": "Require enough remaining requests for all frozen turns before starting each case",
+  "x49_mode": "FIRST_EXECUTION",
+  "max_new_usd": 0.026,
+  "timezone_delta": {
+    "file": "packages/salon-secretary/src/conversational-presentation.ts",
+    "before": "9f2b295b68c238f7f5c25d5ce10fce209f2182e2da1e9687f4aa33067ec784b7",
+    "after": "3883593dce21abeb1d6c18c4a32b0991b42b275424a0173721b1efe57ab825bf"
+  },
+  "second_predecessor": {
+    "manifest": "41f02740840c4d1455bdcb74ecd7bb0645fef3b58e02b61f3a3c49355cba17e0",
+    "journal": "3fac0650527fd1569b3ea41d08a467d6f8b0c5e40189a9ed0e8182d923902699",
+    "snapshot": "19d43b804861f9766ed4e8bf5ae2910cae09b6e7e5a9562381b03b582166ae52"
+  }
+}

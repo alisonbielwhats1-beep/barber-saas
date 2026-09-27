@@ -1,0 +1,1831 @@
+{
+  "schemaVersion": 1,
+  "suiteId": "golden-free-use-30",
+  "timezone": "America/Sao_Paulo",
+  "clock": "2027-04-12T12:00:00Z",
+  "source": {
+    "path": "docs/SECRETARY_GOLDEN_FREE_USE_30.md",
+    "sha256": "ff1ced58ed08672568d23d2d65eb5eca0adf00064da9de45bb3aeb5e13f7fe77"
+  },
+  "fixture": {
+    "customers": [
+      {
+        "key": "lara",
+        "name": "Lara Matos",
+        "phone": "11990001001",
+        "email": "lara.original@example.invalid"
+      },
+      {
+        "key": "bruno",
+        "name": "Bruno Leal",
+        "phone": "11990001002"
+      },
+      {
+        "key": "celia",
+        "name": "Célia Prado",
+        "phone": "11990001003"
+      },
+      {
+        "key": "marina_a",
+        "name": "Marina Costa",
+        "phone": "11990001004"
+      },
+      {
+        "key": "marina_b",
+        "name": "Marina Costa",
+        "phone": "11990001005"
+      }
+    ],
+    "professionals": [
+      {
+        "key": "nina",
+        "name": "Nina"
+      }
+    ],
+    "services": [
+      {
+        "key": "escova",
+        "name": "Escova Lisa",
+        "durationMin": 45,
+        "priceCents": 5500,
+        "professionalKeys": [
+          "nina"
+        ]
+      },
+      {
+        "key": "hidratacao",
+        "name": "Hidratação Névoa",
+        "durationMin": 30,
+        "priceCents": 7200,
+        "professionalKeys": [
+          "nina"
+        ]
+      },
+      {
+        "key": "corte_curto",
+        "name": "Corte Curto",
+        "durationMin": 30,
+        "priceCents": 4800,
+        "professionalKeys": [
+          "nina"
+        ]
+      },
+      {
+        "key": "corte_longo",
+        "name": "Corte Longo",
+        "durationMin": 60,
+        "priceCents": 8500,
+        "professionalKeys": [
+          "nina"
+        ]
+      }
+    ],
+    "products": [
+      {
+        "key": "oleo",
+        "name": "Óleo Aurora",
+        "stock": 8,
+        "minStock": 1
+      }
+    ],
+    "appointments": [
+      {
+        "key": "bruno_terca",
+        "customerKey": "bruno",
+        "professionalKey": "nina",
+        "serviceKey": "hidratacao",
+        "startAt": "2027-04-13T10:00:00-03:00",
+        "status": "CONFIRMED"
+      },
+      {
+        "key": "lara_terca",
+        "customerKey": "lara",
+        "professionalKey": "nina",
+        "serviceKey": "escova",
+        "startAt": "2027-04-13T14:00:00-03:00",
+        "status": "CONFIRMED"
+      },
+      {
+        "key": "celia_quarta",
+        "customerKey": "celia",
+        "professionalKey": "nina",
+        "serviceKey": "escova",
+        "startAt": "2027-04-14T15:00:00-03:00",
+        "status": "CONFIRMED"
+      },
+      {
+        "key": "finance_last_week",
+        "customerKey": "bruno",
+        "professionalKey": "nina",
+        "serviceKey": "corte_longo",
+        "startAt": "2027-04-09T10:00:00-03:00",
+        "status": "COMPLETED",
+        "payment": {
+          "amountCents": 8500,
+          "paidAt": "2027-04-09T11:00:00-03:00"
+        }
+      }
+    ],
+    "openWeekdays": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "openMinutes": 540,
+    "closeMinutes": 1080,
+    "closures": [
+      {
+        "startAt": "2027-04-18T00:00:00-03:00",
+        "endAt": "2027-04-19T00:00:00-03:00",
+        "reason": "Domingo fechado na fixture congelada"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "id": "GF01",
+      "family": "criar serviço",
+      "criterion": "`service.create`, nome literal, 6400 centavos, 40 min; proposal visual, zero escrita",
+      "requireOverlap": false,
+      "turns": [
+        {
+          "message": "Quero incluir um tratamento chamado Brilho de Seda, custa 64 reais e leva quarenta minutos.",
+          "expect": {
+            "actionCount": 1,
+            "actions": [
+              {
+                "operation": "service.create",
+                "index": 0,
+                "effective": {
+                  "name": "Brilho de Seda",
+                  "priceCents": 6400,
+                  "durationMin": 40
+                },
+                "allowMissing": [],
+                "proposal": true
+              }
+            ],
+            "confirmable": true,
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "GF02",
+      "family": "missing field",
+      "criterion": "Perguntar apenas duração; mesmo draft; preço/nome intactos; durationMin=50",
+      "requireOverlap": false,
+      "turns": [
+        {
+          "message": "Cadastra o Ritual de Argila por 96 reais.",
+          "expect": {
+            "actionCount": 1,
+            "actions": [
+              {
+                "operation": "service.create",
+                "index": 0,
+                "effective": {
+                  "name": "Ritual de Argila",
+                  "priceCents": 9600
+                },
+                "allowMissing": [],
+                "missingAll": [
+                  "durationMin"
+                ],
+                "missingOnly": [
+                  "durationMin"
+                ],
+                "proposal": false
+              }
+            ],
+            "confirmable": false,
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        },
+        {
+          "message": "Cinquenta minutos.",
+          "when": {
+            "missingAny": [
+              "durationMin"
+            ]
+          },
+          "expect": {
+            "actionCount": 1,
+            "actions": [
+              {
+                "operation": "service.create",
+                "index": 0,
+                "effective": {
+                  "name": "Ritual de Argila",
+                  "priceCents": 9600,
+                  "durationMin": 50
+                },
+                "allowMissing": [],
+                "proposal": true,
+                "preserve": [
+                  "name",
+                  "priceCents"
+                ],
+                "sameDraft": true
+              }
+            ],
+            "confirmable": true,
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "GF03",
+      "family": "criar cliente",
+      "criterion": "`customer.create`, nome informado; telefone/e-mail não inventados nem exigidos sem regra de domínio",
+      "requireOverlap": false,
+      "turns": [
+        {
+          "message": "Inclui a Joana Torres na lista de clientes.",
+          "expect": {
+            "actionCount": 1,
+            "actions": [
+              {
+                "operation": "customer.create",
+                "index": 0,
+                "effective": {
+                  "name": "Joana Torres"
+                },
+                "allowMissing": [],
+                "proposal": true,
+                "forbiddenEffective": [
+                  "phone",
+                  "email"
+                ]
+              }
+            ],
+            "confirmable": true,
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "GF04",
+      "family": "alterar cliente",
+      "criterion": "Resolver Lara única, alterar só e-mail, before/after, zero envio; domínio de e-mail sem mudança",
+      "requireOverlap": false,
+      "turns": [
+        {
+          "message": "Troca o e-mail da Lara Matos para lara.teste@example.invalid.",
+          "expect": {
+            "actionCount": 1,
+            "actions": [
+              {
+                "operation": "customer.change",
+                "index": 0,
+                "effective": {
+                  "email": "lara.teste@example.invalid"
+                },
+                "allowMissing": [],
+                "proposal": true,
+                "proposalFields": {
+                  "change.customer_ref": "$ref:customer:lara"
+                }
+              }
+            ],
+            "confirmable": true,
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "GF05",
+      "family": "consultar cliente",
+      "criterion": "`customer.read`, dados mínimos tenant-scoped; sem draft mutável ou confirmação de escrita",
+      "requireOverlap": false,
+      "turns": [
+        {
+          "message": "Mostra o cadastro da Célia Prado.",
+          "expect": {
+            "actionCount": 1,
+            "actions": [
+              {
+                "operation": "customer.read",
+                "index": 0,
+                "effective": {},
+                "allowMissing": [],
+                "statusAny": [
+                  "DONE"
+                ],
+                "proposal": false,
+                "resultContains": {
+                  "id": "$ref:customer:celia",
+                  "name": "Célia Prado"
+                },
+                "resultRequired": true
+              }
+            ],
+            "confirmable": false,
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "GF06",
+      "family": "alterar preço",
+      "criterion": "7600 centavos, serviço correto; não 1600/760; duração intacta",
+      "requireOverlap": false,
+      "turns": [
+        {
+          "message": "A Hidratação Névoa vai passar a custar setenta e seis reais.",
+          "expect": {
+            "actionCount": 1,
+            "actions": [
+              {
+                "operation": "service.change",
+                "index": 0,
+                "effective": {
+                  "name": "Hidratação Névoa",
+                  "priceCents": 7600,
+                  "durationMin": 30
+                },
+                "allowMissing": [],
+                "proposal": true,
+                "proposalFields": {
+                  "change.service_ref": "$ref:service:hidratacao"
+                }
+              }
+            ],
+            "confirmable": true,
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "GF07",
+      "family": "correção/stale",
+      "criterion": "Mesmo draft, novo preço 6700; approval anterior inválido; não alterar preço só ao falar",
+      "requireOverlap": false,
+      "turns": [
+        {
+          "message": "Coloca a Escova Lisa por sessenta e cinco reais.",
+          "expect": {
+            "actionCount": 1,
+            "actions": [
+              {
+                "operation": "service.change",
+                "index": 0,
+                "effective": {
+                  "name": "Escova Lisa",
+                  "priceCents": 6500,
+                  "durationMin": 45
+                },
+                "allowMissing": [],
+                "proposal": true
+              }
+            ],
+            "confirmable": true,
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        },
+        {
+          "message": "Corrigindo: sessenta e sete.",
+          "expect": {
+            "actionCount": 1,
+            "actions": [
+              {
+                "operation": "service.change",
+                "index": 0,
+                "effective": {
+                  "name": "Escova Lisa",
+                  "priceCents": 6700,
+                  "durationMin": 45
+                },
+                "allowMissing": [],
+                "proposal": true,
+                "preserve": [
+                  "name",
+                  "durationMin"
+                ],
+                "sameDraft": true,
+                "changedApproval": true
+              }
+            ],
+            "confirmable": true,
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "GF08",
+      "family": "agendar relativo",
+      "criterion": "Create, terça 13/04 16h, duração backend 30; profissional/cliente corretos",
+      "requireOverlap": false,
+      "turns": [
+        {
+          "message": "Reserva uma Hidratação Névoa para a Lara Matos amanhã às quatro da tarde com a Nina.",
+          "expect": {
+            "actionCount": 1,
+            "actions": [
+              {
+                "operation": "appointment.create",
+                "index": 0,
+                "effective": {
+                  "customer_ref": "$ref:customer:lara",
+                  "service_ref": "$ref:service:hidratacao",
+                  "professional_ref": "$ref:professional:nina",
+                  "date": "2027-04-13",
+                  "time": "16:00"
+                },
+                "allowMissing": [],
+                "proposal": true,
+                "proposalFields": {
+                  "snapshot.durationMin": 30,
+                  "snapshot.date": "2027-04-13",
+                  "snapshot.startLocal": "2027-04-13T16:00",
+                  "snapshot.customer_ref": "$ref:customer:lara"
+                }
+              }
+            ],
+            "confirmable": true,
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "GF09",
+      "family": "agendar faltantes",
+      "criterion": "Data 14/04, horário 10:45, duração 45; profissional único pode ser resolvido backend; não perguntar serviço de novo",
+      "requireOverlap": false,
+      "turns": [
+        {
+          "message": "Separa um horário de Escova Lisa para a Célia Prado na quarta.",
+          "expect": {
+            "actionCount": 1,
+            "actions": [
+              {
+                "operation": "appointment.create",
+                "index": 0,
+                "effective": {
+                  "date": "2027-04-14",
+                  "customer_ref": "$ref:customer:celia",
+                  "service_ref": "$ref:service:escova"
+                },
+                "allowMissing": [],
+                "missingAll": [
+                  "time"
+                ],
+                "missingOnly": [
+                  "time"
+                ],
+                "proposal": false
+              }
+            ],
+            "confirmable": false,
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        },
+        {
+          "message": "Às dez e quarenta e cinco.",
+          "when": {
+            "missingAny": [
+              "time"
+            ]
+          },
+          "expect": {
+            "actionCount": 1,
+            "actions": [
+              {
+                "operation": "appointment.create",
+                "index": 0,
+                "effective": {
+                  "customer_ref": "$ref:customer:celia",
+                  "service_ref": "$ref:service:escova",
+                  "professional_ref": "$ref:professional:nina",
+                  "date": "2027-04-14",
+                  "time": "10:45"
+                },
+                "allowMissing": [],
+                "proposal": true,
+                "proposalFields": {
+                  "snapshot.durationMin": 45,
+                  "snapshot.date": "2027-04-14",
+                  "snapshot.startLocal": "2027-04-14T10:45",
+                  "snapshot.customer_ref": "$ref:customer:celia"
+                },
+                "preserve": [
+                  "date",
+                  "customer_ref",
+                  "service_ref"
+                ],
+                "sameDraft": true
+              }
+            ],
+            "confirmable": true,
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "GF10",
+      "family": "ambiguidade de serviço",
+      "criterion": "Não escolher entre Corte Curto/Longo sozinho; preservar data/hora/cliente; duração de 60 após escolha",
+      "requireOverlap": false,
+      "turns": [
+        {
+          "message": "Quero agendar um corte para o Bruno Leal na quinta às onze.",
+          "expect": {
+            "actionCount": 1,
+            "actions": [
+              {
+                "operation": "appointment.create",
+                "index": 0,
+                "effective": {
+                  "date": "2027-04-15",
+                  "time": "11:00",
+                  "customer_ref": "$ref:customer:bruno"
+                },
+                "allowMissing": [],
+                "missingAny": [
+                  "service_ref"
+                ],
+                "candidateKind": "service_ref",
+                "proposal": false
+              }
+            ],
+            "confirmable": false,
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        },
+        {
+          "message": "O Corte Longo.",
+          "when": {
+            "missingAny": [
+              "service_ref"
+            ]
+          },
+          "expect": {
+            "actionCount": 1,
+            "actions": [
+              {
+                "operation": "appointment.create",
+                "index": 0,
+                "effective": {
+                  "customer_ref": "$ref:customer:bruno",
+                  "service_ref": "$ref:service:corte_longo",
+                  "professional_ref": "$ref:professional:nina",
+                  "date": "2027-04-15",
+                  "time": "11:00"
+                },
+                "allowMissing": [],
+                "proposal": true,
+                "proposalFields": {
+                  "snapshot.durationMin": 60,
+                  "snapshot.date": "2027-04-15",
+                  "snapshot.startLocal": "2027-04-15T11:00",
+                  "snapshot.customer_ref": "$ref:customer:bruno"
+                }
+              }
+            ],
+            "confirmable": true,
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "GF11",
+      "family": "origem→destino",
+      "criterion": "Source 13/04 14h; destination 14/04 16h. Não trocar clocks ou confundir “duas” com 02h sem contrato: se necessário, clarificar período explicitamente antes de proposal",
+      "requireOverlap": false,
+      "turns": [
+        {
+          "message": "Passa a Lara Matos de terça às duas para quarta às quatro.",
+          "expect": {
+            "actionCount": 1,
+            "actions": [
+              {
+                "operation": "appointment.change",
+                "index": 0,
+                "fields": {
+                  "customer_name": "Lara Matos"
+                },
+                "effective": {
+                  "date": "2027-04-14",
+                  "time": "16:00",
+                  "source_date": "2027-04-13",
+                  "source_time": "14:00"
+                },
+                "allowMissing": [
+                  "time",
+                  "source_time"
+                ],
+                "missingOnly": [
+                  "time",
+                  "source_time"
+                ],
+                "proposal": true,
+                "proposalFields": {
+                  "action_snapshot.appointment_ref": "$ref:appointment:lara_terca",
+                  "action_snapshot.startLocal": "2027-04-14T16:00",
+                  "action_snapshot.before_start": "2027-04-13T14:00"
+                }
+              }
+            ],
+            "confirmable": true,
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "GF12",
+      "family": "destino antes da origem",
+      "criterion": "“Hoje está marcada” não altera a data da origem; source 13/04 14h, destination 14/04 16h; atribuição de papéis, não ordem textual",
+      "requireOverlap": false,
+      "turns": [
+        {
+          "message": "Na quarta, às 16h, põe a reserva da Lara Matos que hoje está marcada para terça às 14h.",
+          "expect": {
+            "actionCount": 1,
+            "actions": [
+              {
+                "operation": "appointment.change",
+                "index": 0,
+                "effective": {
+                  "appointment_ref": "$ref:appointment:lara_terca",
+                  "source_date": "2027-04-13",
+                  "source_time": "14:00",
+                  "date": "2027-04-14",
+                  "time": "16:00"
+                },
+                "allowMissing": [],
+                "proposal": true
+              }
+            ],
+            "confirmable": true,
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "GF13",
+      "family": "resposta curta para origem",
+      "criterion": "Destino permanece 15/04 16h. Campo de origem/seleção dirigido; não preencher destino 14h. Manifest deve fixar as duas reservas antes do teste",
+      "requireOverlap": false,
+      "fixture": {
+        "customers": [
+          {
+            "key": "lara",
+            "name": "Lara Matos",
+            "phone": "11990001001",
+            "email": "lara.original@example.invalid"
+          },
+          {
+            "key": "bruno",
+            "name": "Bruno Leal",
+            "phone": "11990001002"
+          },
+          {
+            "key": "celia",
+            "name": "Célia Prado",
+            "phone": "11990001003"
+          },
+          {
+            "key": "marina_a",
+            "name": "Marina Costa",
+            "phone": "11990001004"
+          },
+          {
+            "key": "marina_b",
+            "name": "Marina Costa",
+            "phone": "11990001005"
+          }
+        ],
+        "professionals": [
+          {
+            "key": "nina",
+            "name": "Nina"
+          }
+        ],
+        "services": [
+          {
+            "key": "escova",
+            "name": "Escova Lisa",
+            "durationMin": 45,
+            "priceCents": 5500,
+            "professionalKeys": [
+              "nina"
+            ]
+          },
+          {
+            "key": "hidratacao",
+            "name": "Hidratação Névoa",
+            "durationMin": 30,
+            "priceCents": 7200,
+            "professionalKeys": [
+              "nina"
+            ]
+          },
+          {
+            "key": "corte_curto",
+            "name": "Corte Curto",
+            "durationMin": 30,
+            "priceCents": 4800,
+            "professionalKeys": [
+              "nina"
+            ]
+          },
+          {
+            "key": "corte_longo",
+            "name": "Corte Longo",
+            "durationMin": 60,
+            "priceCents": 8500,
+            "professionalKeys": [
+              "nina"
+            ]
+          }
+        ],
+        "products": [
+          {
+            "key": "oleo",
+            "name": "Óleo Aurora",
+            "stock": 8,
+            "minStock": 1
+          }
+        ],
+        "appointments": [
+          {
+            "key": "bruno_terca",
+            "customerKey": "bruno",
+            "professionalKey": "nina",
+            "serviceKey": "hidratacao",
+            "startAt": "2027-04-13T10:00:00-03:00",
+            "status": "CONFIRMED"
+          },
+          {
+            "key": "lara_terca",
+            "customerKey": "lara",
+            "professionalKey": "nina",
+            "serviceKey": "escova",
+            "startAt": "2027-04-13T14:00:00-03:00",
+            "status": "CONFIRMED"
+          },
+          {
+            "key": "celia_quarta",
+            "customerKey": "celia",
+            "professionalKey": "nina",
+            "serviceKey": "escova",
+            "startAt": "2027-04-14T15:00:00-03:00",
+            "status": "CONFIRMED"
+          },
+          {
+            "key": "finance_last_week",
+            "customerKey": "bruno",
+            "professionalKey": "nina",
+            "serviceKey": "corte_longo",
+            "startAt": "2027-04-09T10:00:00-03:00",
+            "status": "COMPLETED",
+            "payment": {
+              "amountCents": 8500,
+              "paidAt": "2027-04-09T11:00:00-03:00"
+            }
+          },
+          {
+            "key": "lara_quarta",
+            "customerKey": "lara",
+            "professionalKey": "nina",
+            "serviceKey": "hidratacao",
+            "startAt": "2027-04-14T11:00:00-03:00",
+            "status": "CONFIRMED"
+          }
+        ],
+        "openWeekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "openMinutes": 540,
+        "closeMinutes": 1080,
+        "closures": [
+          {
+            "startAt": "2027-04-18T00:00:00-03:00",
+            "endAt": "2027-04-19T00:00:00-03:00",
+            "reason": "Domingo fechado na fixture congelada"
+          }
+        ]
+      },
+      "turns": [
+        {
+          "message": "Muda um dos horários da Lara para quinta às 16h.",
+          "expect": {
+            "actionCount": 1,
+            "actions": [
+              {
+                "operation": "appointment.change",
+                "index": 0,
+                "effective": {
+                  "date": "2027-04-15",
+                  "time": "16:00"
+                },
+                "allowMissing": [],
+                "missingAny": [
+                  "appointment_ref",
+                  "source_time"
+                ],
+                "proposal": false
+              }
+            ],
+            "confirmable": false,
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        },
+        {
+          "message": "O das 14h.",
+          "when": {
+            "missingAny": [
+              "appointment_ref",
+              "source_time"
+            ]
+          },
+          "expect": {
+            "actionCount": 1,
+            "actions": [
+              {
+                "operation": "appointment.change",
+                "index": 0,
+                "effective": {
+                  "appointment_ref": "$ref:appointment:lara_terca",
+                  "date": "2027-04-15",
+                  "time": "16:00",
+                  "source_time": "14:00"
+                },
+                "allowMissing": [],
+                "proposal": true,
+                "preserve": [
+                  "date",
+                  "time"
+                ],
+                "sameDraft": true
+              }
+            ],
+            "confirmable": true,
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "GF14",
+      "family": "resposta curta para destino",
+      "criterion": "Source 14/04 15h, destination 16/04 17:15; preservar origem; clarificar somente o que o contrato não resolver",
+      "requireOverlap": false,
+      "turns": [
+        {
+          "message": "Quero mudar a reserva da Célia de quarta às 15h para sexta.",
+          "expect": {
+            "actionCount": 1,
+            "actions": [
+              {
+                "operation": "appointment.change",
+                "index": 0,
+                "effective": {
+                  "source_date": "2027-04-14",
+                  "source_time": "15:00",
+                  "date": "2027-04-16",
+                  "appointment_ref": "$ref:appointment:celia_quarta"
+                },
+                "allowMissing": [],
+                "missingAll": [
+                  "time"
+                ],
+                "missingOnly": [
+                  "time"
+                ],
+                "proposal": false
+              }
+            ],
+            "confirmable": false,
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        },
+        {
+          "message": "Dezessete e quinze.",
+          "when": {
+            "missingAny": [
+              "time"
+            ]
+          },
+          "expect": {
+            "actionCount": 1,
+            "actions": [
+              {
+                "operation": "appointment.change",
+                "index": 0,
+                "effective": {
+                  "source_date": "2027-04-14",
+                  "source_time": "15:00",
+                  "date": "2027-04-16",
+                  "time": "17:15",
+                  "appointment_ref": "$ref:appointment:celia_quarta"
+                },
+                "allowMissing": [],
+                "proposal": true,
+                "preserve": [
+                  "source_date",
+                  "source_time",
+                  "appointment_ref",
+                  "date"
+                ],
+                "sameDraft": true
+              }
+            ],
+            "confirmable": true,
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "GF15",
+      "family": "corrigir apenas origem",
+      "criterion": "Corrigir só source_time; destino/data intactos; nunca remapear para uma reserva com outro horário apenas porque é única",
+      "requireOverlap": false,
+      "turns": [
+        {
+          "message": "Move a Lara de terça às 13h para quarta às 16h.",
+          "expect": {
+            "actionCount": 1,
+            "actions": [
+              {
+                "operation": "appointment.change",
+                "index": 0,
+                "effective": {
+                  "date": "2027-04-14",
+                  "time": "16:00",
+                  "source_time": "13:00"
+                },
+                "allowMissing": [],
+                "proposal": false,
+                "forbiddenEffective": [
+                  "appointment_ref"
+                ]
+              }
+            ],
+            "confirmable": false,
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        },
+        {
+          "message": "O horário antigo é 14h; o novo continua às 16h.",
+          "expect": {
+            "actionCount": 1,
+            "actions": [
+              {
+                "operation": "appointment.change",
+                "index": 0,
+                "effective": {
+                  "appointment_ref": "$ref:appointment:lara_terca",
+                  "date": "2027-04-14",
+                  "time": "16:00",
+                  "source_time": "14:00"
+                },
+                "allowMissing": [],
+                "proposal": true,
+                "preserve": [
+                  "date",
+                  "time"
+                ],
+                "sameDraft": true
+              }
+            ],
+            "confirmable": true,
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "GF16",
+      "family": "corrigir só destino",
+      "criterion": "Source e entidade intactos; destino 15/04; proposta anterior stale; conflito/availability reavaliados",
+      "requireOverlap": false,
+      "turns": [
+        {
+          "message": "Remarca a Lara de terça às 14h para quarta às 16h.",
+          "expect": {
+            "actionCount": 1,
+            "actions": [
+              {
+                "operation": "appointment.change",
+                "index": 0,
+                "effective": {
+                  "appointment_ref": "$ref:appointment:lara_terca",
+                  "date": "2027-04-14",
+                  "time": "16:00",
+                  "source_time": "14:00"
+                },
+                "allowMissing": [],
+                "proposal": true
+              }
+            ],
+            "confirmable": true,
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        },
+        {
+          "message": "Na verdade, quinta, ainda às 16h.",
+          "expect": {
+            "actionCount": 1,
+            "actions": [
+              {
+                "operation": "appointment.change",
+                "index": 0,
+                "effective": {
+                  "appointment_ref": "$ref:appointment:lara_terca",
+                  "date": "2027-04-15",
+                  "time": "16:00",
+                  "source_time": "14:00"
+                },
+                "allowMissing": [],
+                "proposal": true,
+                "preserve": [
+                  "source_time",
+                  "appointment_ref",
+                  "time"
+                ],
+                "sameDraft": true,
+                "changedApproval": true
+              }
+            ],
+            "confirmable": true,
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "GF17",
+      "family": "cancelar com motivo",
+      "criterion": "`appointment.cancel`; reserva e motivo explícito; visual before/after; não executar nem avisar externamente",
+      "requireOverlap": false,
+      "turns": [
+        {
+          "message": "Cancela o atendimento do Bruno Leal de terça às dez. Ele pediu porque vai viajar.",
+          "expect": {
+            "actionCount": 1,
+            "actions": [
+              {
+                "operation": "appointment.cancel",
+                "index": 0,
+                "effective": {
+                  "appointment_ref": "$ref:appointment:bruno_terca",
+                  "date": "2027-04-13",
+                  "time": "10:00"
+                },
+                "allowMissing": [],
+                "proposal": true,
+                "sourceBackedEffective": [
+                  "reason"
+                ]
+              }
+            ],
+            "confirmable": true,
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "GF18",
+      "family": "cancelar sem motivo",
+      "criterion": "Não inventar motivo; mesma reserva/draft; perguntar apenas o necessário e preparar cancellation, sem execução",
+      "requireOverlap": false,
+      "turns": [
+        {
+          "message": "Tira o horário da Célia Prado de quarta às 15h.",
+          "expect": {
+            "actionCount": 1,
+            "actions": [
+              {
+                "operation": "appointment.cancel",
+                "index": 0,
+                "effective": {
+                  "appointment_ref": "$ref:appointment:celia_quarta",
+                  "date": "2027-04-14",
+                  "time": "15:00"
+                },
+                "allowMissing": [],
+                "missingAll": [
+                  "reason"
+                ],
+                "missingOnly": [
+                  "reason"
+                ],
+                "proposal": false,
+                "forbiddenEffective": [
+                  "reason"
+                ]
+              }
+            ],
+            "confirmable": false,
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        },
+        {
+          "message": "Ela solicitou a mudança de planos.",
+          "when": {
+            "missingAny": [
+              "reason"
+            ]
+          },
+          "expect": {
+            "actionCount": 1,
+            "actions": [
+              {
+                "operation": "appointment.cancel",
+                "index": 0,
+                "effective": {
+                  "appointment_ref": "$ref:appointment:celia_quarta",
+                  "date": "2027-04-14",
+                  "time": "15:00"
+                },
+                "allowMissing": [],
+                "proposal": true,
+                "preserve": [
+                  "appointment_ref",
+                  "date",
+                  "time"
+                ],
+                "sameDraft": true,
+                "sourceBackedEffective": [
+                  "reason"
+                ]
+              }
+            ],
+            "confirmable": true,
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "GF19",
+      "family": "negação",
+      "criterion": "Read da reserva, zero cancel mutation/proposal; negação preservada",
+      "requireOverlap": false,
+      "turns": [
+        {
+          "message": "Não desmarca o Bruno de terça às dez; quero só consultar esse atendimento.",
+          "expect": {
+            "actionCount": 1,
+            "actions": [
+              {
+                "operation": "appointment.read",
+                "index": 0,
+                "allowMissing": [],
+                "statusAny": [
+                  "DONE"
+                ],
+                "proposal": false,
+                "resultContains": {
+                  "appointment_ref": "$ref:appointment:bruno_terca"
+                },
+                "resultRequired": true
+              }
+            ],
+            "confirmable": false,
+            "forbidOperations": [
+              "appointment.cancel"
+            ],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "GF20",
+      "family": "consulta de agenda",
+      "criterion": "Agenda real do intervalo/período; não inventar reserva; leitura apenas; unsupported claro se algum filtro não publicado",
+      "requireOverlap": false,
+      "turns": [
+        {
+          "message": "Quem está na agenda da Nina na terça de manhã?",
+          "expect": {
+            "actionCount": 1,
+            "actions": [
+              {
+                "operation": "appointment.list",
+                "index": 0,
+                "effective": {
+                  "date": "2027-04-13",
+                  "period": "morning",
+                  "professional_ref": "$ref:professional:nina"
+                },
+                "allowMissing": [],
+                "statusAny": [
+                  "DONE"
+                ],
+                "proposal": false,
+                "resultContains": {
+                  "appointment_ref": "$ref:appointment:bruno_terca"
+                },
+                "resultRequired": true
+              }
+            ],
+            "confirmable": false,
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "GF21",
+      "family": "disponibilidade",
+      "criterion": "Disponibilidade calculada com 45 min e reserva 15h; sem criar reserva, sem hora fabricada",
+      "requireOverlap": false,
+      "turns": [
+        {
+          "message": "Tem espaço para uma Escova Lisa com a Nina na quarta à tarde?",
+          "expect": {
+            "actionCount": 1,
+            "actions": [
+              {
+                "operation": "availability.get",
+                "index": 0,
+                "effective": {
+                  "date": "2027-04-14",
+                  "period": "afternoon",
+                  "service_ref": "$ref:service:escova",
+                  "professional_ref": "$ref:professional:nina"
+                },
+                "allowMissing": [],
+                "statusAny": [
+                  "DONE"
+                ],
+                "proposal": false,
+                "resultRequired": true,
+                "availability": {
+                  "date": "2027-04-14",
+                  "durationMin": 45,
+                  "professionalRef": "$ref:professional:nina",
+                  "startMinute": 720,
+                  "endMinute": 1080,
+                  "minResults": 1,
+                  "excluded": [
+                    {
+                      "startMinute": 900,
+                      "endMinute": 945
+                    }
+                  ]
+                },
+                "forbiddenEffective": [
+                  "time"
+                ]
+              }
+            ],
+            "confirmable": false,
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "GF22",
+      "family": "conflito elegível",
+      "criterion": "Intervalo 10:15–10:45 conflita com Bruno; motivo e consentimento distintos; warning; proposal apenas se backend permite. Se flag OFF, BLOCKED de ambiente antes da bateria, nunca ligar para fabricar PASS",
+      "requireOverlap": true,
+      "turns": [
+        {
+          "message": "Põe uma Hidratação Névoa para a Célia na terça às 10h15 com a Nina.",
+          "expect": {
+            "actionCount": 1,
+            "actions": [
+              {
+                "operation": "appointment.create",
+                "index": 0,
+                "effective": {
+                  "date": "2027-04-13",
+                  "time": "10:15"
+                },
+                "allowMissing": [],
+                "proposal": false,
+                "reviewStatus": "CONFLICT_OVERRIDABLE"
+              }
+            ],
+            "confirmable": false,
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        },
+        {
+          "message": "Quero manter esse horário como encaixe.",
+          "expect": {
+            "actionCount": 1,
+            "actions": [
+              {
+                "operation": "appointment.create",
+                "index": 0,
+                "effective": {
+                  "date": "2027-04-13",
+                  "time": "10:15",
+                  "override_requested": true
+                },
+                "allowMissing": [],
+                "missingAny": [
+                  "override_reason"
+                ],
+                "proposal": false
+              }
+            ],
+            "confirmable": false,
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        },
+        {
+          "message": "Ela já está no salão e concordou em esperar.",
+          "when": {
+            "missingAny": [
+              "override_reason"
+            ]
+          },
+          "expect": {
+            "actionCount": 1,
+            "actions": [
+              {
+                "operation": "appointment.create",
+                "index": 0,
+                "effective": {
+                  "customer_ref": "$ref:customer:celia",
+                  "service_ref": "$ref:service:hidratacao",
+                  "professional_ref": "$ref:professional:nina",
+                  "date": "2027-04-13",
+                  "time": "10:15"
+                },
+                "allowMissing": [],
+                "proposal": true,
+                "proposalFields": {
+                  "snapshot.durationMin": 30,
+                  "snapshot.date": "2027-04-13",
+                  "snapshot.startLocal": "2027-04-13T10:15",
+                  "snapshot.customer_ref": "$ref:customer:celia"
+                }
+              }
+            ],
+            "confirmable": true,
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "GF23",
+      "family": "HARD_BLOCK/insistência",
+      "criterion": "Domingo permanece 18/04; SALON_CLOSED, override proibido, zero approval executável; insistência não remove bloqueio",
+      "requireOverlap": false,
+      "turns": [
+        {
+          "message": "Agenda Escova Lisa para Lara no domingo 18 de abril de 2027, às 10h, com a Nina.",
+          "expect": {
+            "actionCount": 1,
+            "actions": [
+              {
+                "operation": "appointment.create",
+                "index": 0,
+                "effective": {
+                  "date": "2027-04-18",
+                  "time": "10:00"
+                },
+                "allowMissing": [],
+                "proposal": false,
+                "reviewStatus": "CONFLICT_HARD_BLOCK",
+                "reviewCause": "SALON_CLOSED"
+              }
+            ],
+            "confirmable": false,
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        },
+        {
+          "message": "Pode encaixar mesmo assim.",
+          "expect": {
+            "actionCount": 1,
+            "actions": [
+              {
+                "operation": "appointment.create",
+                "index": 0,
+                "effective": {
+                  "date": "2027-04-18",
+                  "time": "10:00"
+                },
+                "allowMissing": [],
+                "proposal": false,
+                "reviewStatus": "CONFLICT_HARD_BLOCK",
+                "reviewCause": "SALON_CLOSED"
+              }
+            ],
+            "confirmable": false,
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "GF24",
+      "family": "data+weekday contraditórios",
+      "criterion": "Dia 14 é quarta: pergunta qual referência vale; nenhuma proposta confirmável e nenhuma correção silenciosa",
+      "requireOverlap": false,
+      "turns": [
+        {
+          "message": "Reserva Hidratação Névoa para Bruno na terça, dia 14 de abril de 2027, às 13h.",
+          "expect": {
+            "actionCount": 1,
+            "actions": [
+              {
+                "operation": "appointment.create",
+                "index": 0,
+                "allowMissing": [],
+                "missingAny": [
+                  "date"
+                ],
+                "proposal": false
+              }
+            ],
+            "confirmable": false,
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "GF25",
+      "family": "depois de amanhã",
+      "criterion": "Offset 2 = quarta 14/04; 11:30, não 12:30; duração/availability backend",
+      "requireOverlap": false,
+      "turns": [
+        {
+          "message": "Depois de amanhã às 11h30, marca Hidratação Névoa para Célia com Nina.",
+          "expect": {
+            "actionCount": 1,
+            "actions": [
+              {
+                "operation": "appointment.create",
+                "index": 0,
+                "effective": {
+                  "customer_ref": "$ref:customer:celia",
+                  "service_ref": "$ref:service:hidratacao",
+                  "professional_ref": "$ref:professional:nina",
+                  "date": "2027-04-14",
+                  "time": "11:30"
+                },
+                "allowMissing": [],
+                "proposal": true,
+                "proposalFields": {
+                  "snapshot.durationMin": 30,
+                  "snapshot.date": "2027-04-14",
+                  "snapshot.startLocal": "2027-04-14T11:30",
+                  "snapshot.customer_ref": "$ref:customer:celia"
+                }
+              }
+            ],
+            "confirmable": true,
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "GF26",
+      "family": "virada de data/fuso",
+      "criterion": "Amanhã local = 13/04, não 14/04 UTC; sem usar relógio do browser como autoridade",
+      "clock": "2027-04-13T01:30:00Z",
+      "requireOverlap": false,
+      "turns": [
+        {
+          "message": "Marca a Hidratação Névoa para a Lara amanhã às 16h com Nina.",
+          "expect": {
+            "actionCount": 1,
+            "actions": [
+              {
+                "operation": "appointment.create",
+                "index": 0,
+                "effective": {
+                  "customer_ref": "$ref:customer:lara",
+                  "service_ref": "$ref:service:hidratacao",
+                  "professional_ref": "$ref:professional:nina",
+                  "date": "2027-04-13",
+                  "time": "16:00"
+                },
+                "allowMissing": [],
+                "proposal": true,
+                "proposalFields": {
+                  "snapshot.durationMin": 30,
+                  "snapshot.date": "2027-04-13",
+                  "snapshot.startLocal": "2027-04-13T16:00",
+                  "snapshot.customer_ref": "$ref:customer:lara"
+                }
+              }
+            ],
+            "confirmable": true,
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "GF27",
+      "family": "estoque/número",
+      "criterion": "OUT=3, saldo proposto 8→5, não 13; motivo explícito; zero baixa antes da confirmação",
+      "requireOverlap": false,
+      "turns": [
+        {
+          "message": "Saíram três unidades do Óleo Aurora para uso nos atendimentos.",
+          "expect": {
+            "actionCount": 1,
+            "actions": [
+              {
+                "operation": "stock.movement",
+                "index": 0,
+                "effective": {
+                  "mode": "OUT",
+                  "quantity": 3,
+                  "product_ref": "$ref:product:oleo"
+                },
+                "allowMissing": [],
+                "proposal": true,
+                "proposalFields": {
+                  "product.stock": 8,
+                  "projected_stock": 5,
+                  "delta": -3
+                },
+                "sourceBackedEffective": [
+                  "reason"
+                ]
+              }
+            ],
+            "confirmable": true,
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "GF28",
+      "family": "quantidade ambígua",
+      "criterion": "Não converter embalagem sem contrato; após resposta IN=12, saldo 8→20; mantém produto/draft",
+      "requireOverlap": false,
+      "turns": [
+        {
+          "message": "Chegaram duas caixas do Óleo Aurora.",
+          "expect": {
+            "actionCount": 1,
+            "actions": [
+              {
+                "operation": "stock.movement",
+                "index": 0,
+                "effective": {
+                  "mode": "IN",
+                  "product_ref": "$ref:product:oleo"
+                },
+                "allowMissing": [],
+                "missingAll": [
+                  "quantity"
+                ],
+                "missingOnly": [
+                  "quantity"
+                ],
+                "proposal": false,
+                "forbiddenEffective": [
+                  "quantity"
+                ]
+              }
+            ],
+            "confirmable": false,
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        },
+        {
+          "message": "São doze unidades no total.",
+          "when": {
+            "missingAny": [
+              "quantity"
+            ]
+          },
+          "expect": {
+            "actionCount": 1,
+            "actions": [
+              {
+                "operation": "stock.movement",
+                "index": 0,
+                "effective": {
+                  "mode": "IN",
+                  "quantity": 12,
+                  "product_ref": "$ref:product:oleo"
+                },
+                "allowMissing": [],
+                "proposal": true,
+                "proposalFields": {
+                  "product.stock": 8,
+                  "projected_stock": 20,
+                  "delta": 12
+                },
+                "preserve": [
+                  "mode",
+                  "product_ref"
+                ],
+                "sameDraft": true
+              }
+            ],
+            "confirmable": true,
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "GF29",
+      "family": "multi-action + financeiro",
+      "criterion": "Três ações independentes: service.create, stock.movement IN4, received_revenue/last_week; read não confirma mutations; números separados",
+      "requireOverlap": false,
+      "turns": [
+        {
+          "message": "Cria o serviço Toque de Luz por R$42 e 25 minutos, dá entrada em quatro Óleos Aurora e mostra o que recebi na semana passada.",
+          "expect": {
+            "actionCount": 3,
+            "actions": [
+              {
+                "operation": "service.create",
+                "index": 0,
+                "effective": {
+                  "name": "Toque de Luz",
+                  "priceCents": 4200,
+                  "durationMin": 25
+                },
+                "allowMissing": [],
+                "proposal": true
+              },
+              {
+                "operation": "stock.movement",
+                "index": 0,
+                "effective": {
+                  "mode": "IN",
+                  "quantity": 4,
+                  "product_ref": "$ref:product:oleo"
+                },
+                "allowMissing": [],
+                "proposal": true,
+                "proposalFields": {
+                  "projected_stock": 12
+                }
+              },
+              {
+                "operation": "financial.report",
+                "index": 0,
+                "fields": {
+                  "financial.metrics": [
+                    "received_revenue"
+                  ],
+                  "financial.period": "last_week"
+                },
+                "allowMissing": [],
+                "statusAny": [
+                  "DONE"
+                ],
+                "proposal": false,
+                "resultContains": {
+                  "id": "received_revenue",
+                  "value": 8500
+                },
+                "resultRequired": true
+              }
+            ],
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "GF30",
+      "family": "capability ausente",
+      "criterion": "Profissional/expediente fora do catálogo: UNSUPPORTED explícito, sem customer.create substituto, sem card de preparo/confirmation; segunda fala não inventa suporte",
+      "requireOverlap": false,
+      "turns": [
+        {
+          "message": "Contratei a Beatriz. Cadastra ela como profissional da equipe.",
+          "expect": {
+            "actionCount": 0,
+            "actions": [],
+            "capabilityStatus": "UNSUPPORTED",
+            "confirmable": false,
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        },
+        {
+          "message": "Então coloca o horário de trabalho dela também.",
+          "expect": {
+            "actionCount": 0,
+            "actions": [],
+            "capabilityStatus": "UNSUPPORTED",
+            "confirmable": false,
+            "forbidOperations": [],
+            "nonEmptyMessage": true,
+            "allowSafeClarification": false
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,321 @@
+{
+  "planVersion": "conditional-v2",
+  "historical": true,
+  "notAV3Execution": true,
+  "cases": [
+    {
+      "caseId": "financial-revenue",
+      "message": "Quanto faturei ontem?",
+      "endToEndMs": 783.3193999999999,
+      "payloadBytes": 2580,
+      "roundTrips": [
+        {
+          "stage": "discovery",
+          "questions": {
+            "skill": {
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "choices": [
+                "services",
+                "customers",
+                "scheduling",
+                "financial",
+                "inventory",
+                "communication",
+                "multiple",
+                "unclear",
+                "out_of_catalog"
+              ]
+            },
+            "shape": {
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "choices": [
+                "single",
+                "independent",
+                "dependent",
+                "unclear",
+                "out_of_catalog"
+              ]
+            }
+          },
+          "response": {
+            "model": "jev-1.13.0",
+            "answers": {
+              "skill": {
+                "type": "choice",
+                "choice": "financial",
+                "confidence": 0.99,
+                "probabilities": {
+                  "services": 0,
+                  "scheduling": 0,
+                  "financial": 1,
+                  "multiple": 0,
+                  "unclear": 0,
+                  "customers": 0,
+                  "communication": 0,
+                  "inventory": 0,
+                  "out_of_catalog": 0
+                }
+              },
+              "shape": {
+                "type": "choice",
+                "choice": "single",
+                "confidence": 0.62,
+                "probabilities": {
+                  "dependent": 0.01,
+                  "unclear": 0.02,
+                  "single": 0.69,
+                  "independent": 0.05,
+                  "out_of_catalog": 0.23
+                }
+              }
+            },
+            "usage": {
+              "input_tokens": 502,
+              "output_tokens": 138
+            }
+          },
+          "httpLatencyMs": 466.25109999999995,
+          "payloadBytes": 960
+        },
+        {
+          "stage": "detail",
+          "questions": {
+            "operation": {
+              "instructions": "Qual operação é pedida? Escolha somente a operação publicada; multiple se há mais de uma; unclear se não é possível determinar; out_of_catalog se não suportada. Use context.operation para continuação, sem inventar nova operação.",
+              "choices": [
+                "financial.report",
+                "multiple",
+                "unclear",
+                "out_of_catalog"
+              ]
+            },
+            "metric": {
+              "instructions": "Qual métrica financeira? Faturamento sem qualificador=service_revenue; com produtos=realized_revenue; recebido=received_revenue; a receber=outstanding_receivables; atendimentos realizados=completed_count; ticket médio=average_ticket; multiple para várias. none fora de Financial; unclear se não suportada (lucro/taxas/estornos). Nunca calcular valores.",
+              "choices": [
+                "service_revenue",
+                "realized_revenue",
+                "received_revenue",
+                "outstanding_receivables",
+                "completed_count",
+                "average_ticket",
+                "multiple",
+                "none",
+                "unclear"
+              ]
+            },
+            "period": {
+              "instructions": "Qual período financeiro explícito? today=hoje, yesterday=ontem, this_week=esta semana, last_week=semana passada, this_month=este mês, last_month=mês passado. comparison para comparar períodos; none sem período financeiro; unclear se ambíguo. Não converter datas.",
+              "choices": [
+                "today",
+                "yesterday",
+                "this_week",
+                "last_week",
+                "this_month",
+                "last_month",
+                "comparison",
+                "none",
+                "unclear"
+              ]
+            }
+          },
+          "response": {
+            "model": "jev-1.13.0",
+            "answers": {
+              "operation": {
+                "type": "choice",
+                "choice": "financial.report",
+                "confidence": 0.57,
+                "probabilities": {
+                  "unclear": 0.21,
+                  "out_of_catalog": 0.1,
+                  "multiple": 0.01,
+                  "financial.report": 0.68
+                }
+              },
+              "metric": {
+                "type": "choice",
+                "choice": "service_revenue",
+                "confidence": 0.97,
+                "probabilities": {
+                  "unclear": 0.01,
+                  "completed_count": 0,
+                  "none": 0,
+                  "received_revenue": 0,
+                  "average_ticket": 0,
+                  "realized_revenue": 0.01,
+                  "multiple": 0,
+                  "service_revenue": 0.98,
+                  "outstanding_receivables": 0
+                }
+              },
+              "period": {
+                "type": "choice",
+                "choice": "yesterday",
+                "confidence": 1,
+                "probabilities": {
+                  "unclear": 0,
+                  "yesterday": 1,
+                  "none": 0,
+                  "last_week": 0,
+                  "this_month": 0,
+                  "this_week": 0,
+                  "today": 0,
+                  "last_month": 0,
+                  "comparison": 0
+                }
+              }
+            },
+            "usage": {
+              "input_tokens": 700,
+              "output_tokens": 230
+            }
+          },
+          "httpLatencyMs": 309.59259999999995,
+          "payloadBytes": 1620
+        }
+      ]
+    },
+    {
+      "caseId": "inventory-low",
+      "message": "Quais produtos estão com estoque baixo?",
+      "endToEndMs": 641.0626000000002,
+      "payloadBytes": 1954,
+      "roundTrips": [
+        {
+          "stage": "discovery",
+          "questions": {
+            "skill": {
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "choices": [
+                "services",
+                "customers",
+                "scheduling",
+                "financial",
+                "inventory",
+                "communication",
+                "multiple",
+                "unclear",
+                "out_of_catalog"
+              ]
+            },
+            "shape": {
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "choices": [
+                "single",
+                "independent",
+                "dependent",
+                "unclear",
+                "out_of_catalog"
+              ]
+            }
+          },
+          "response": {
+            "model": "jev-1.13.0",
+            "answers": {
+              "skill": {
+                "type": "choice",
+                "choice": "inventory",
+                "confidence": 0.99,
+                "probabilities": {
+                  "out_of_catalog": 0,
+                  "scheduling": 0,
+                  "multiple": 0,
+                  "services": 0,
+                  "inventory": 1,
+                  "communication": 0,
+                  "financial": 0,
+                  "customers": 0,
+                  "unclear": 0
+                }
+              },
+              "shape": {
+                "type": "choice",
+                "choice": "single",
+                "confidence": 0.78,
+                "probabilities": {
+                  "single": 0.83,
+                  "independent": 0.05,
+                  "dependent": 0,
+                  "out_of_catalog": 0.09,
+                  "unclear": 0.03
+                }
+              }
+            },
+            "usage": {
+              "input_tokens": 503,
+              "output_tokens": 138
+            }
+          },
+          "httpLatencyMs": 322.5457999999999,
+          "payloadBytes": 979
+        },
+        {
+          "stage": "detail",
+          "questions": {
+            "operation": {
+              "instructions": "Qual operação é pedida? Escolha somente a operação publicada; multiple se há mais de uma; unclear se não é possível determinar; out_of_catalog se não suportada. Use context.operation para continuação, sem inventar nova operação.",
+              "choices": [
+                "product.search",
+                "stock.balance",
+                "stock.movement",
+                "multiple",
+                "unclear",
+                "out_of_catalog"
+              ]
+            },
+            "inventory": {
+              "instructions": "Qual intenção de estoque: balance=consultar saldo; low_stock=produtos acabando; IN=entrada; OUT=saída; search=localizar produto; none fora de estoque; unclear se ambíguo. Não calcular saldo ou extrair quantidade.",
+              "choices": [
+                "balance",
+                "low_stock",
+                "IN",
+                "OUT",
+                "search",
+                "none",
+                "unclear"
+              ]
+            }
+          },
+          "response": {
+            "model": "jev-1.13.0",
+            "answers": {
+              "operation": {
+                "type": "choice",
+                "choice": "stock.balance",
+                "confidence": 0.33,
+                "probabilities": {
+                  "product.search": 0.16,
+                  "unclear": 0.25,
+                  "stock.movement": 0.01,
+                  "stock.balance": 0.44,
+                  "multiple": 0.03,
+                  "out_of_catalog": 0.11
+                }
+              },
+              "inventory": {
+                "type": "choice",
+                "choice": "low_stock",
+                "confidence": 1,
+                "probabilities": {
+                  "balance": 0,
+                  "OUT": 0,
+                  "unclear": 0,
+                  "low_stock": 1,
+                  "search": 0,
+                  "none": 0,
+                  "IN": 0
+                }
+              }
+            },
+            "usage": {
+              "input_tokens": 524,
+              "output_tokens": 133
+            }
+          },
+          "httpLatencyMs": 315.3312000000001,
+          "payloadBytes": 975
+        }
+      ]
+    }
+  ]
+}

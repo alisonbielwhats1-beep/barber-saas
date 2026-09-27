@@ -81,6 +81,7 @@ export async function loadVisitDay(
   date: string,
   choices: VisitChoice[],
   now = new Date(),
+  projection?: { releasedAppointmentId: string },
 ) {
   const salon = await tx.salon.findUnique({
     where: { id: salonId },
@@ -177,6 +178,7 @@ export async function loadVisitDay(
   const appointments = await tx.appointment.findMany({
     where: {
       salonId,
+      ...(projection ? { id: { not: projection.releasedAppointmentId } } : {}),
       professionalId: { in: pros },
       status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
       startAt: { lt: bufferedTo },
@@ -193,6 +195,7 @@ export async function loadVisitDay(
           salonId,
           resourceId: { in: resources },
           active: true,
+          ...(projection ? { appointmentId: { not: projection.releasedAppointmentId } } : {}),
           startAt: { lt: to },
           endAt: { gt: from },
         },
@@ -240,6 +243,8 @@ export function findVisitPlan(
   options: {
     manual?: boolean;
     overrideSchedule?: boolean;
+    /** Internal candidate construction only; admission still belongs to the manual inspector. */
+    allowAppointmentOverlap?: boolean;
     budget?: { remaining: number };
     onBlocked?: (index: number, reason: string) => void;
   } = {},
@@ -304,7 +309,7 @@ export function findVisitPlan(
         continue;
       }
       if (
-        day.appointments.some((c) => {
+        !(options.manual && options.allowAppointmentOverlap) && day.appointments.some((c) => {
           const w = bufferedWindow(c.startAt, c.endAt, day.salon.bufferMinutes);
           return c.professionalId === pro.id && overlap(a, b, w.from, w.to);
         })
