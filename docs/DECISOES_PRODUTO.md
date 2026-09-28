@@ -1,5 +1,23 @@
 # Decisões de produto para as próximas fases
 
+## 27/09/2026 — reativar renovação e confirmação imediata
+
+O responsável aprovou a recomendação baseada em Stripe, Spotify, Netflix e
+lojas de aplicativos: enquanto o período pago estiver vigente, o proprietário
+pode **reativar a renovação cancelada** pelo painel. Como o Mercado Pago não
+revive uma recorrência cancelada, a reativação cria uma nova autorização com o
+mesmo plano e valor, iniciando exatamente no fim do período pago; nada é
+cobrado antes dessa data. Exige pelo menos uma hora restante, nenhuma revisão
+financeira e capacidade compatível. Sem autorização em 24 horas, é descartada
+sem efeito. Complementa a decisão de 13/09 sobre cancelamento livre: cancelar
+continua encerrando as recorrências no provedor (não se usa "pausar").
+
+Antes de cancelar, o portal oferece reduzir para um plano menor que ainda
+caiba na equipe (vale no próximo vencimento). Webhooks, ações do proprietário e
+o retorno do checkout passam a processar na hora a assinatura afetada; a
+reconciliação agendada permanece como rede de segurança. Trocar o agendamento
+para `pg_cron` do Supabase exige SQL em Production e autorização própria.
+
 ## 20/09/2026 — identidade única e recuperação Supabase
 
 O responsável aprovou uma identidade/senha por e-mail entre painel e clientes,

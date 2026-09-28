@@ -667,4 +667,83 @@ pg("automatic billing with PostgreSQL and runtime FORCE RLS", () => {
       expect((await admin.billingSubscription.findUniqueOrThrow({ where: { id: next.id } })).paidThrough).toEqual(paidEnd);
     } finally { vi.useRealTimers(); }
   });
+  it("drains only the triggered tenant's job and leaves error backoff to the schedule", async () => {
+    const f = await paidFixture();
+    await admin.billingQueue.update({ where: { subscriptionId: f.sub.id }, data: { attempts: 2, nextAttemptAt: new Date(Date.now() + 600_000), leaseUntil: null } });
+    expect(await worker.drainBillingSubscription(f.ctx.salonId, f.sub.id)).toEqual({ steps: 0 });
+    await admin.billingQueue.update({ where: { subscriptionId: f.sub.id }, data: { attempts: 0, nextAttemptAt: new Date() } });
+    expect(await worker.drainBillingSubscription(otherSalon, f.sub.id)).toEqual({ steps: 0 });
+    const drained = await worker.drainBillingSubscription(f.ctx.salonId, f.sub.id);
+    expect(drained.steps).toBeGreaterThan(0);
+    // A settled subscription stops after the first step without progress.
+    expect(drained.steps).toBeLessThanOrEqual(2);
+    expect((await admin.billingQueue.findUniqueOrThrow({ where: { subscriptionId: f.sub.id } })).leaseUntil).toBeNull();
+  });
+  it("queues an owner-requested sync once, never for managers or other tenants", async () => {
+    const f = await paidFixture();
+    await admin.membership.create({ data: { salonId: f.ctx.salonId, userId: otherId, role: "MANAGER" } });
+    await expect(service.requestBillingSync({ salonId: f.ctx.salonId, userId: otherId })).rejects.toThrow("OWNER_REQUIRED");
+    await expect(service.requestBillingSync({ salonId: otherSalon, userId: ownerId })).rejects.toThrow("OWNER_REQUIRED");
+    await admin.billingSubscription.update({ where: { id: f.sub.id }, data: { lastSyncedAt: null } });
+    await admin.billingQueue.update({ where: { subscriptionId: f.sub.id }, data: { nextAttemptAt: new Date(Date.now() + 3_600_000) } });
+    expect(await service.requestBillingSync(f.ctx)).toEqual({ salonId: f.ctx.salonId, subscriptionId: f.sub.id });
+    expect((await admin.billingQueue.findUniqueOrThrow({ where: { subscriptionId: f.sub.id } })).nextAttemptAt.getTime()).toBeLessThanOrEqual(Date.now());
+    await admin.billingSubscription.update({ where: { id: f.sub.id }, data: { lastSyncedAt: new Date() } });
+    expect(await service.requestBillingSync(f.ctx)).toBeNull();
+  });
+  it("reactivates a cancelled renewal with a new authorization starting at the paid expiry, charging nothing before it", async () => {
+    const f = await paidFixture("TEAM"), changes = await import("./changes"), cancellation = await import("./cancellation");
+    await expect(changes.reactivateRenewal(f.ctx, f.sub.id, randomUUID())).rejects.toThrow("RENEWAL_NOT_CANCELLED");
+    const { subscriptionIds } = await service.requestCancellation(f.ctx, f.sub.id);
+    expect(subscriptionIds).toEqual([f.sub.id]);
+    await worker.drainBillingSubscription(f.ctx.salonId, f.sub.id);
+    const status = () => scope.withSalon(f.ctx.salonId, async tx => cancellation.renewalCancellationStatus(await cancellation.cancellationSubscriptions(tx, await tx.billingSubscription.findUniqueOrThrow({ where: { id: f.sub.id } }))));
+    expect(await status()).toBe("CANCELLED");
+    await expect(changes.reactivateRenewal({ salonId: f.ctx.salonId, userId: otherId }, f.sub.id, randomUUID())).rejects.toThrow("OWNER_REQUIRED");
+    await expect(changes.reactivateRenewal({ salonId: otherSalon, userId: ownerId }, f.sub.id, randomUUID())).rejects.toThrow("OWNER_REQUIRED");
+    const key = randomUUID();
+    const change = await changes.reactivateRenewal(f.ctx, f.sub.id, key);
+    expect((await changes.reactivateRenewal(f.ctx, f.sub.id, key)).id).toBe(change.id);
+    expect(change).toMatchObject({ kind: "CYCLE", state: "PREPARING", amountDueCents: 0, periodEnd: f.sub.paidThrough, effectiveAt: f.sub.paidThrough });
+    expect(change.toTerms).toEqual(change.fromTerms);
+    const posts = postCount;
+    await worker.drainBillingSubscription(f.ctx.salonId, f.sub.id);
+    const prepared = await admin.billingPlanChange.findUniqueOrThrow({ where: { id: change.id } });
+    expect(prepared.state).toBe("AWAITING_PAYMENT");
+    expect(prepared.checkoutUrl).toMatch(/^https:\/\/www\.mercadopago\.com\.br\//);
+    expect(postCount).toBe(posts + 1);
+    const next = await admin.billingSubscription.findUniqueOrThrow({ where: { id: prepared.replacementSubscriptionId! } });
+    expect(next).toMatchObject({ current: false, planCode: "TEAM", cycle: "MONTHLY", amountCents: f.sub.amountCents, agendaLimit: f.sub.agendaLimit, paidThrough: null });
+    expect(remoteFor(next.providerId!).auto_recurring).toMatchObject({ transaction_amount: f.sub.amountCents / 100, start_date: new Date(Math.ceil(f.sub.paidThrough!.getTime() / 1000) * 1000).toISOString() });
+    expect(await status()).toBe("AVAILABLE");
+    // While the owner has not authorized, draining again makes no provider write.
+    await worker.drainBillingSubscription(f.ctx.salonId, f.sub.id);
+    expect(postCount).toBe(posts + 1);
+    Object.assign(remoteFor(next.providerId!), { status: "authorized", last_modified: new Date().toISOString() });
+    await worker.drainTriggeredSubscription(f.ctx.salonId, next.id);
+    expect((await admin.billingPlanChange.findUniqueOrThrow({ where: { id: change.id } })).state).toBe("SCHEDULED");
+    expect(await admin.billingCharge.count({ where: { subscriptionId: next.id } })).toBe(0);
+    expect((await admin.billingSubscription.findUniqueOrThrow({ where: { id: f.sub.id } })).paidThrough).toEqual(f.sub.paidThrough);
+    expect(await scope.withSalon(f.ctx.salonId, tx => effectiveEntitlement(tx, f.ctx.salonId, "PRO"))).toMatchObject({ maxProfessionals: 3 });
+    await expect(changes.reactivateRenewal(f.ctx, f.sub.id, randomUUID())).rejects.toThrow(/RENEWAL_NOT_CANCELLED|PLAN_CHANGE_PENDING/);
+    // Cancelling again stops the reactivated recurrence as well.
+    await service.requestCancellation(f.ctx, f.sub.id);
+    await worker.drainBillingSubscription(f.ctx.salonId, next.id);
+    expect(remoteFor(next.providerId!).status).toBe("cancelled");
+    expect(await status()).toBe("CANCELLED");
+  });
+  it("refuses reactivation too close to expiry or with a financial review", async () => {
+    const f = await paidFixture(), changes = await import("./changes");
+    await service.requestCancellation(f.ctx, f.sub.id);
+    await worker.drainBillingSubscription(f.ctx.salonId, f.sub.id);
+    await admin.billingSubscription.update({ where: { id: f.sub.id }, data: { reviewRequired: true } });
+    await expect(changes.reactivateRenewal(f.ctx, f.sub.id, randomUUID())).rejects.toThrow("RENEWAL_REACTIVATION_UNAVAILABLE");
+    await admin.billingSubscription.update({ where: { id: f.sub.id }, data: { reviewRequired: false } });
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(f.sub.paidThrough!.getTime() - 30 * 60_000);
+      await expect(changes.reactivateRenewal(f.ctx, f.sub.id, randomUUID())).rejects.toThrow("RENEWAL_REACTIVATION_UNAVAILABLE");
+    } finally { vi.useRealTimers(); }
+    expect(await admin.billingPlanChange.count({ where: { subscriptionId: f.sub.id } })).toBe(0);
+  });
 });

@@ -17,6 +17,24 @@ Notificações (continua no welcome); o convite de lembretes na home ficou em um
 linha. Vitrine de produtos saiu da home (Loja na barra inferior). Fluxo de
 agendamento, barra inferior e seletor de tema inalterados. Sem migration.
 
+## 2026-09-27 — plano e assinatura: revisão de UX em preparação
+
+Branch `claude/plan-subscription-ui-fix-a842b9`: atalho do topo passa a mostrar
+plano e situação reais (inclusive contratação pendente, atraso e renovação
+cancelada); `/assinatura` reorganizada em Seu plano, Mudar de plano (catálogo
+único com Plano atual, upgrade/redução e mensal/anual), histórico e renovação.
+Upgrade confirmado segue direto ao checkout validado. Catálogo, preços, regras
+de proporcionalidade, RLS e schema preservados; sem migration, flag ou
+publicação. Detalhes em `docs/PLANO_ASSINATURA_UX_2026-09-27.md`.
+
+Complemento aprovado no mesmo dia (`DECISOES_PRODUTO.md`): webhooks, ações do
+proprietário, retorno do checkout e "Atualizar situação" processam na hora a
+assinatura afetada (nova rota `/api/billing/sync`); reativação da renovação
+cancelada (`/api/billing/reactivate`) reutiliza a substituição de ciclo já
+existente, sem migration; oferta de plano menor antes de cancelar. Integração
+PostgreSQL local com 023/024/025 e role sem BYPASSRLS: 66 testes aprovados.
+`pg_cron` não foi aplicado (exige SQL em Production e autorização).
+
 ## 2026-09-27 — guia de início reformulado (Marfim & Lilás)
 
 Branch `codex/configuracao-guiada`: `/onboarding/configuracao` deixa de ser um

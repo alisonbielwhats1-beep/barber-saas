@@ -3,7 +3,7 @@ import { z } from "zod";
 import { ownerContext, readBillingBody, billingJson, billingFailure } from "@/lib/billing/http";
 import { createChangeQuote, confirmPlanChange, cancelPlanChange } from "@/lib/billing/changes";
 import { changeView } from "@/lib/billing/change-terms";
-import { runBillingWorker } from "@/lib/billing/worker";
+import { drainTriggeredSubscription } from "@/lib/billing/worker";
 import { contractInput } from "@/lib/billing/catalog";
 
 export const runtime = "nodejs";
@@ -19,7 +19,8 @@ export async function POST(request: Request) {
     const body = inputSchema.parse(await readBillingBody(request));
     const result = body.action === "quote" ? await createChangeQuote(ctx, body.selection, body.requestKey)
       : body.action === "confirm" ? await confirmPlanChange(ctx, body.id) : await cancelPlanChange(ctx, body.id);
-    if (body.action !== "quote") after(async () => { try { await runBillingWorker(1); } catch { /* Durable dispatch retries. */ } });
+    // Prepare the checkout (or stop the change) right away; the schedule remains the fallback.
+    if (body.action !== "quote") after(async () => { try { await drainTriggeredSubscription(ctx.salonId, result.subscriptionId); } catch { /* Durable dispatch retries. */ } });
     return billingJson({ change: changeView(result) }, body.action === "quote" ? 200 : 202);
   } catch (error) { return billingFailure(error); }
 }

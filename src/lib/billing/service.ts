@@ -166,7 +166,24 @@ export async function requestCancellation(ctx: { salonId: string; userId: string
       await event(tx, target, "cancel-request", "CANCEL_REQUESTED", `owner:${ctx.userId}`);
       await enqueue(tx, target);
     }
-    return { status: renewalCancellationStatus(targets) === "CANCELLED" ? "CANCELLED" : "CANCELLATION_PENDING", paidThrough: sub.paidThrough };
+    return { status: renewalCancellationStatus(targets) === "CANCELLED" ? "CANCELLED" : "CANCELLATION_PENDING", paidThrough: sub.paidThrough, subscriptionIds: targets.map(target => target.id) };
+  });
+}
+
+/**
+ * Owner-requested reconciliation (return from checkout, "Atualizar situação").
+ * Only queues the salon's own current subscription for a provider lookup:
+ * nothing from the request can grant access. Recently synced ones are skipped.
+ */
+export async function requestBillingSync(ctx: { salonId: string; userId: string }) {
+  billingConfig();
+  return withTenant(ctx, async tx => {
+    await assertOwner(tx, ctx);
+    const sub = await tx.billingSubscription.findFirst({ where: { salonId: ctx.salonId, current: true } });
+    if (!sub || (sub.lastSyncedAt && sub.lastSyncedAt > new Date(Date.now() - 15_000))) return null;
+    await subscriptionLock(tx, ctx.salonId);
+    await enqueue(tx, sub);
+    return { salonId: sub.salonId, subscriptionId: sub.id };
   });
 }
 
