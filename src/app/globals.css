@@ -128,7 +128,7 @@ input:is([type="time"], [type="date"])::-webkit-date-and-time-value { text-align
     --border-strong: 220 10% 69%;
     --input: 220 10% 58%;
     --panel-shadow: 0 2px 4px rgb(22 34 52 / 0.04), 0 8px 24px -8px rgb(22 34 52 / 0.12);
-    --ring: 263 30% 53%;
+    --ring: 263 30% 49%;
     /* Lilás suave só na ação principal e na seleção; ações de rotina são
        neutras e o verde fica para estados de sucesso. */
     --selection: 263 65% 95%;
@@ -137,13 +137,13 @@ input:is([type="time"], [type="date"])::-webkit-date-and-time-value { text-align
     --selection-on-solid: 0 0% 100%;
 
     /* Lilás nos controles; verde não domina a interface. */
-    --primary: 263 30% 53%;
+    --primary: 263 30% 49%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 220 14% 94%;
     --secondary-foreground: 218 10% 23%;
 
-    --accent: 263 30% 53%;
+    --accent: 263 30% 49%;
     --accent-foreground: 0 0% 100%;
 
     /* Semantic — slightly deeper for light bg legibility */
@@ -285,12 +285,12 @@ input:is([type="time"], [type="date"])::-webkit-date-and-time-value { text-align
     --muted-foreground: 220 10% 40%;
     --border: 220 14% 86%;
     --input: 220 14% 80%;
-    --ring: 263 30% 53%;
-    --primary: 263 30% 53%;
+    --ring: 263 30% 49%;
+    --primary: 263 30% 49%;
     --primary-foreground: 0 0% 100%;
     --secondary: 220 16% 93%;
     --secondary-foreground: 225 12% 15%;
-    --accent: 263 30% 53%;
+    --accent: 263 30% 49%;
     --accent-foreground: 0 0% 100%;
     --success: 158 71% 24%;
     --info: 213 73% 37%;

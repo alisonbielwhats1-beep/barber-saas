@@ -44,11 +44,11 @@
 }
 .client-access form button[type="submit"] { min-height: 3rem; }
 .client-access form button[type="submit"], .client-access-primary {
-  background: #7b5fad;
+  background: #7457a2;
   color: #fff;
-  border: 1px solid #9479c2;
+  border: 1px solid #8d73b8;
 }
-.client-access form button[type="submit"]:hover, .client-access-primary:hover { background: #6b4f9c; }
+.client-access form button[type="submit"]:hover, .client-access-primary:hover { background: #634a8c; }
 .client-access a:focus-visible, .client-access button:focus-visible {
   outline: 2px solid hsl(var(--ring));
   outline-offset: 3px;
@@ -62,13 +62,13 @@
 }
 
 .client-app .client-booking-cta {
-  background: #7b5fad;
+  background: #7457a2;
   color: #fff;
-  border: 1px solid #9479c2;
-  box-shadow: 0 12px 32px -20px #7b5fad;
+  border: 1px solid #8d73b8;
+  box-shadow: 0 12px 32px -20px #7457a2;
   transition: background-color 180ms ease;
 }
-.client-app .client-booking-cta:hover { background: #6b4f9c; }
+.client-app .client-booking-cta:hover { background: #634a8c; }
 .client-app .client-booking-cta-action {
   background: hsl(var(--primary));
   color: hsl(var(--primary-foreground));
