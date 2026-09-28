@@ -56,9 +56,9 @@ input:is([type="time"], [type="date"])::-webkit-date-and-time-value { text-align
     --warning: 32 95% 56%;          /* laranja — alerta */
     --danger: 0 78% 60%;            /* vermelho — problema */
     --marketing: 267 84% 66%;       /* roxo   — marketing/growth */
-    /* Ações operacionais: lilás Everflair e vermelho, com texto branco legível.
-       Verde fica reservado a estados de sucesso (--success). */
-    --action-positive: #6b4aa0;
+    /* Ações operacionais de rotina: grafite neutro e vermelho, com texto branco
+       legível. Lilás fica para a ação principal; verde, para sucesso. */
+    --action-positive: #3b3d45;
     --action-critical: #b91c1c;
     --selection: 240 5% 18%;
     --selection-foreground: 40 33% 95%;
@@ -90,13 +90,13 @@ input:is([type="time"], [type="date"])::-webkit-date-and-time-value { text-align
     --border: 240 5% 25%;
     --border-strong: 240 5% 37%;
     --input: 240 5% 28%;
-    --primary: 264 54% 73%;
+    --primary: 264 36% 77%;
     --primary-foreground: 258 35% 14%;
     --secondary: 240 5% 21%;
     --secondary-foreground: 240 8% 96%;
-    --accent: 264 54% 73%;
+    --accent: 264 36% 77%;
     --accent-foreground: 258 35% 14%;
-    --ring: 264 54% 73%;
+    --ring: 264 36% 77%;
     --selection: 262 27% 24%;
     --selection-foreground: 264 65% 88%;
     --selection-solid: 264 54% 73%;
@@ -128,21 +128,22 @@ input:is([type="time"], [type="date"])::-webkit-date-and-time-value { text-align
     --border-strong: 220 10% 69%;
     --input: 220 10% 58%;
     --panel-shadow: 0 2px 4px rgb(22 34 52 / 0.04), 0 8px 24px -8px rgb(22 34 52 / 0.12);
-    --ring: 263 36% 45%;
-    /* Lilás é a cor de ação e seleção; verde fica para estados de sucesso. */
+    --ring: 263 30% 53%;
+    /* Lilás suave só na ação principal e na seleção; ações de rotina são
+       neutras e o verde fica para estados de sucesso. */
     --selection: 263 65% 95%;
     --selection-foreground: 263 38% 38%;
     --selection-solid: 263 36% 45%;
     --selection-on-solid: 0 0% 100%;
 
     /* Lilás nos controles; verde não domina a interface. */
-    --primary: 263 36% 45%;
+    --primary: 263 30% 53%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 220 14% 94%;
     --secondary-foreground: 218 10% 23%;
 
-    --accent: 263 36% 45%;
+    --accent: 263 30% 53%;
     --accent-foreground: 0 0% 100%;
 
     /* Semantic — slightly deeper for light bg legibility */
@@ -153,8 +154,8 @@ input:is([type="time"], [type="date"])::-webkit-date-and-time-value { text-align
     --marketing: 267 72% 50%;
 
     /* Contraste concentrado na prioridade; cobre faz parte da identidade. */
-    --priority-surface: #6b4aa0;
-    --priority-surface-hover: #5a3d88;
+    --priority-surface: #2f3137;
+    --priority-surface-hover: #3b3d45;
     --copper: 22 50% 36%;
 
     --destructive: 0 68% 46%;
@@ -249,15 +250,15 @@ input:is([type="time"], [type="date"])::-webkit-date-and-time-value { text-align
 
     --border: 230 8% 18%;
     --input: 230 8% 18%;
-    --ring: 264 54% 73%;
+    --ring: 264 36% 77%;
 
-    --primary: 264 54% 73%;
+    --primary: 264 36% 77%;
     --primary-foreground: 258 35% 14%;
 
     --secondary: 230 8% 15%;
     --secondary-foreground: 40 30% 96%;
 
-    --accent: 264 54% 73%;
+    --accent: 264 36% 77%;
     --accent-foreground: 258 35% 14%;
     --success: 155 52% 65%;
     --info: 213 92% 72%;
@@ -284,12 +285,12 @@ input:is([type="time"], [type="date"])::-webkit-date-and-time-value { text-align
     --muted-foreground: 220 10% 40%;
     --border: 220 14% 86%;
     --input: 220 14% 80%;
-    --ring: 263 36% 45%;
-    --primary: 263 36% 45%;
+    --ring: 263 30% 53%;
+    --primary: 263 30% 53%;
     --primary-foreground: 0 0% 100%;
     --secondary: 220 16% 93%;
     --secondary-foreground: 225 12% 15%;
-    --accent: 263 36% 45%;
+    --accent: 263 30% 53%;
     --accent-foreground: 0 0% 100%;
     --success: 158 71% 24%;
     --info: 213 73% 37%;
@@ -448,13 +449,13 @@ input:is([type="time"], [type="date"])::-webkit-date-and-time-value { text-align
   [data-theme="admin-light"] .now-appointment[data-cue="next"] {
     --primary: 0 0% 100%;
     --foreground: 0 0% 100%;
-    --muted-foreground: 264 40% 90%;
-    --border: 264 30% 75%;
+    --muted-foreground: 220 10% 82%;
+    --border: 220 8% 45%;
     --ring: 0 0% 100%;
     color: hsl(var(--foreground));
     background: var(--priority-surface);
     border-color: var(--priority-surface);
-    box-shadow: 0 8px 20px -14px rgb(107 74 160 / 0.6);
+    box-shadow: 0 8px 20px -14px rgb(35 38 43 / 0.45);
   }
 
   [data-theme="admin-light"] .now-appointment[data-cue="next"]:hover {
