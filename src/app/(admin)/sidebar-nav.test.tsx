@@ -37,6 +37,9 @@ describe("navegação por áreas", () => {
     expect(DESKTOP_AREAS).toHaveLength(8);
     expect(screen.getByRole("button", { name: "Equipe" })).toHaveAttribute("aria-current", "true");
     expect(screen.getByRole("link", { name: "Agenda" })).toHaveAttribute("href", "/agenda");
+    // Recolhida, o submenu não existe: nada de aria-expanded/aria-controls órfão.
+    expect(screen.getByRole("button", { name: "Equipe" })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("button", { name: "Equipe" })).not.toHaveAttribute("aria-controls");
     expect(screen.getByLabelText("3 notificações não lidas")).toBeInTheDocument();
   });
 

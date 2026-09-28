@@ -861,6 +861,9 @@ export function AnimatedSidebarMenuButton({
   const context = useAnimatedSidebar();
   const panel = useAnimatedSidebarPanel();
   const textLabel = typeof children === "string" ? children : undefined;
+  // Na barra de ícones o submenu não é renderizado: não anunciar como aberto
+  // nem apontar aria-controls para um elemento inexistente.
+  const expanded = ariaExpanded === undefined ? undefined : ariaExpanded && !panel.collapsed;
 
   const select = (event: React.MouseEvent<HTMLAnchorElement | HTMLButtonElement>) => {
     if (disabled) {
@@ -904,7 +907,7 @@ export function AnimatedSidebarMenuButton({
         <motion.span
           aria-hidden="true"
           initial={false}
-          animate={{ opacity: panel.collapsed ? 0 : 1, rotate: ariaExpanded ? 90 : 0, x: panel.collapsed ? 4 : 0 }}
+          animate={{ opacity: panel.collapsed ? 0 : 1, rotate: expanded ? 90 : 0, x: panel.collapsed ? 4 : 0 }}
           transition={context.reduce ? { duration: 0 } : SPRING_LAYOUT}
           className="relative z-10 grid size-4 shrink-0 place-items-center text-muted-foreground"
         >
@@ -944,8 +947,8 @@ export function AnimatedSidebarMenuButton({
       type="button"
       disabled={disabled}
       aria-current={isActive ? "true" : undefined}
-      aria-expanded={ariaExpanded}
-      aria-controls={ariaExpanded ? ariaControls : undefined}
+      aria-expanded={expanded}
+      aria-controls={expanded ? ariaControls : undefined}
       aria-label={panel.collapsed ? textLabel : undefined}
       title={panel.collapsed ? textLabel : undefined}
       onClick={select}
