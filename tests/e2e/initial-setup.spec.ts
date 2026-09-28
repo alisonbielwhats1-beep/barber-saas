@@ -148,7 +148,8 @@ test.describe("@database configuração inicial", () => {
           // Measure the selected theme after its color transitions settle.
           await page.evaluate(async () => {
             await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-            await Promise.all(document.getAnimations().map(animation => animation.finished.catch(() => {})));
+            // Ícones decorativos repetem indefinidamente; só transições finitas terminam.
+            await Promise.all(document.getAnimations().filter(animation => animation.effect?.getTiming().iterations !== Infinity).map(animation => animation.finished.catch(() => {})));
           });
           expect(
             await page.evaluate(
