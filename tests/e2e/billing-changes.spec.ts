@@ -38,8 +38,9 @@ test.describe("@database troca de planos", () => {
         expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations).toEqual([]);
         await page.screenshot({ path: test.info().outputPath(`cancellation-review-${width}.png`), fullPage: true });
         await cancellation.getByRole("button", { name: "Manter assinatura", exact: true }).click();
-        await page.getByRole("button", { name: "Escolher outro plano" }).click();
-        await page.getByRole("button", { name: "Escolher Equipe · 5 agendas", exact: true }).click();
+        await expect(page.getByRole("status").filter({ hasText: "Ativo" })).toBeVisible();
+        await expect(page.getByRole("button", { name: "Plano atual", exact: true })).toBeDisabled();
+        await page.getByRole("button", { name: "Fazer upgrade: Equipe · 5 agendas", exact: true }).click();
         const dialog = page.getByRole("dialog", { name: "Revisar troca de plano" });
         await expect(dialog).toBeVisible();
         await expect(dialog).toContainText("R$ 26,67");
@@ -50,8 +51,9 @@ test.describe("@database troca de planos", () => {
         await page.screenshot({ path: test.info().outputPath(`upgrade-review-${width}.png`), fullPage: true });
         await dialog.getByRole("button", { name: "Voltar", exact: true }).click();
       }
-      await page.getByRole("radio", { name: /Anual/ }).check();
-      await page.getByRole("button", { name: "Escolher Equipe · 5 agendas", exact: true }).click();
+      await page.locator("label", { hasText: "Anual" }).click();
+      await expect(page.getByRole("radio", { name: /Anual/ })).toBeChecked();
+      await page.getByRole("button", { name: "Mudar para anual: Equipe · 5 agendas", exact: true }).click();
       const annual = page.getByRole("dialog", { name: "Revisar troca de plano" });
       await expect(annual).toContainText("R$ 0");
       await expect(annual).toContainText("R$ 959 a cada 12 meses");
@@ -73,7 +75,8 @@ test.describe("@database troca de planos", () => {
       await page.getByText("Gerenciar ou cancelar assinatura", { exact: true }).click();
       await page.getByRole("button", { name: "Cancelar renovação", exact: true }).click();
       await expect(page.getByRole("dialog")).toContainText("A restrição administrativa do painel é independente");
-      await expect(page.getByRole("button", { name: "Escolher outro plano" })).toHaveCount(0);
+      await expect(page.getByRole("heading", { name: "Mudar de plano" })).toHaveCount(0);
+      await expect(page.getByRole("button", { name: /Fazer upgrade/ })).toHaveCount(0);
       await page.screenshot({ path: test.info().outputPath("cancellation-blocked-owner.png"), fullPage: true });
       await page.getByRole("button", { name: "Manter assinatura", exact: true }).click();
       await db.membership.updateMany({ where: { salonId: salon.id, userId: user.id }, data: { role: "MANAGER" } });
