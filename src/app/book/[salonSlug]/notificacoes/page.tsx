@@ -5,6 +5,7 @@ import { getClientSession } from "@/lib/client-auth";
 import { withSalonBySlug } from "@/lib/prisma-tenant";
 import { resolveClientSessionInTenant } from "@/lib/public-appointment";
 import { PushPermissionCard } from "./push-permission-card";
+import { PwaInstallCard } from "@/components/pwa-install-card";
 
 function payloadRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -73,6 +74,9 @@ export default async function ClientNotificationsPage({
           <h1 className="text-2xl font-semibold">Notificações</h1>
         </div>
       </header>
+
+      {/* O convite de instalação saiu da home; aqui ele acompanha os lembretes. */}
+      <PwaInstallCard salonName={result.salon.name} storageKey={salonSlug} compact />
 
       <PushPermissionCard salonSlug={salonSlug} />
 

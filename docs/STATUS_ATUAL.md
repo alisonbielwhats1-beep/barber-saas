@@ -1,5 +1,22 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-09-27 — tela de início do cliente reorganizada para celular
+
+Branch `codex/inicio-cliente-mobile`: a home `/book/[salonSlug]` segue a proposta
+aprovada pelo responsável (A + C) após protótipos no iPhone 15 (393 × 852).
+Topo com marca e atalhos à direita: visitante vê a sacola e "Já é cliente?
+Entrar · Criar conta" numa linha; cliente com conta vê sino, iniciais e
+"Seu último atendimento · Repetir" (reaproveita a consulta de "Meu atendimento de
+sempre"). Nota, horário e "Ver endereço" logo abaixo do nome. A capa aparece
+inteira (3:2) com "Agendar um horário" embaixo, sem nada sobre a foto; o nome
+deixa de ser sobreposto à capa, então a opção de ocultá-lo não altera mais a home.
+Equipe em faixa de retratos (somente exibição). Abas fixas Serviços · Avaliações ·
+Portfólio · Sobre; serviços agrupados por categoria em `<details>`, sem fotos
+(decisão de 07/09). O convite de instalação saiu da home e passou para
+Notificações (continua no welcome); o convite de lembretes na home ficou em uma
+linha. Vitrine de produtos saiu da home (Loja na barra inferior). Fluxo de
+agendamento, barra inferior e seletor de tema inalterados. Sem migration.
+
 ## 2026-09-27 — plano e assinatura: revisão de UX em preparação
 
 Branch `claude/plan-subscription-ui-fix-a842b9`: atalho do topo passa a mostrar
