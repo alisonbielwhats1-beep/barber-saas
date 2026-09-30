@@ -21,6 +21,7 @@ import { inspectUltimate10Turn } from "./ultimate-10-observation";
 import { classifyPostHttpFailure, inspectPostHttpResponse, safeExceptionClass, witnessSdkResponse,
   type PostHttpStage, type SafePostHttpMetadata } from "./ultimate-10-post-http";
 import { ultimate10Cases, ULTIMATE10_SHA256, verifyUltimate10Plan } from "./ultimate-10";
+import { refuseUnwiredPaidPath } from "./program-spend";
 import { inspectUltimate10CaseState, openUltimate10Journal, readUltimate10Baseline,
   ultimate10Fixture, ULTIMATE10_IDS, ULTIMATE10_JOURNAL, ultimate10Preflight,
   ultimate10ResumePreflight, ULTIMATE10_REVALIDATION_JOURNAL, ultimate10U01RevalidationPreflight,
@@ -70,6 +71,7 @@ async function executeUltimate10Mode(admin: PrismaClient, runtime: PrismaClient,
     mode === "RESUME" && process.env.ULTIMATE10_RESUME_APPROVED !== "true" ||
     revalidation && process.env.ULTIMATE10_REVALIDATE_U01_APPROVED !== "true" ||
     continuation && process.env.ULTIMATE10_CONTINUATION_U02_U10_APPROVED !== "true") fail("NOT_AUTHORIZED");
+  refuseUnwiredPaidPath(); // not admitted by the program real-spend ledger
   verifyUltimate10Plan(process.cwd());
   assertPhaseAEnvironment();
   const existing = readDurable(continuation ? ULTIMATE10_CONTINUATION_JOURNAL :

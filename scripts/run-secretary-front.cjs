@@ -4,24 +4,28 @@ const {resolve}=require('node:path');
 const {mkdirSync,readFileSync,writeFileSync}=require('node:fs');
 const {createHash}=require('node:crypto');
 const {PrismaClient}=require('@prisma/client');
+const {assertLocalDbIdentity,readLocalDbIdentity}=require('./local-db-identity.cjs');
 const root=resolve(__dirname,'..'),pg='C:/Program Files/PostgreSQL/16/bin/';
+/** F4: byte-safe identity (hex data directory, raw-byte suffix check); the display string is never the decision. */
+async function frontDatabaseIdentity(db){return assertLocalDbIdentity(await readLocalDbIdentity(db));}
+/** --preflight-only: identity + pg_dump backup, then stop (Next and Playwright are not started). */
 async function main(){
  const runtime='postgresql://mvp_service_runtime@127.0.0.1:55441/everflair_service_mvp',adminUrl='postgresql://mvp_test_admin@127.0.0.1:55441/everflair_service_mvp';
- const db=new PrismaClient({datasources:{db:{url:adminUrl}}});let directory;
- try{const [row]=await db.$queryRaw`SELECT current_database() AS name,host(inet_server_addr()) AS host,inet_server_port() AS port,current_setting('data_directory') AS directory`;
- if(row.name!=='everflair_service_mvp'||row.host!=='127.0.0.1'||row.port!==55441||!/\/everflair-service-mvp-[^/]+\/data$/i.test(row.directory.replaceAll('\\','/')))throw Error('UNSAFE_DATABASE');directory=row.directory;
- }finally{await db.$disconnect();}
+ const db=new PrismaClient({datasources:{db:{url:adminUrl}}});let identity;
+ try{identity=await frontDatabaseIdentity(db);}finally{await db.$disconnect();}
+ const directory=identity.directory;
  const out=resolve(root,'packages/salon-secretary/evaluation/results/front-voice',new Date().toISOString().replace(/[:.]/g,'-'));mkdirSync(out,{recursive:true});
  const env=Object.fromEntries(Object.entries(process.env).filter(([key])=>!/SECRET|TOKEN|API_KEY|SUPABASE|MERCADOPAGO|RESEND|OPENAI|DATABASE_URL|DIRECT_URL|SALON_SECRETARY|VERCEL|NODE_OPTIONS/i.test(key)));
  // Blank all .env names first, so Next cannot silently load local provider credentials.
  for(const file of ['.env','.env.local']){try{for(const line of readFileSync(resolve(root,file),'utf8').split(/\r?\n/)){const match=line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=/);if(match)env[match[1]]='';}}catch{}}
- Object.assign(env,{APP_ENV:'test',VERCEL_ENV:'development',DATABASE_URL:runtime,DIRECT_URL:adminUrl,MVP_TEST_ADMIN_URL:adminUrl,MVP_TEST_CLUSTER:directory,EXECUTION_E2E_OUTPUT:out,
+ Object.assign(env,{APP_ENV:'test',VERCEL_ENV:'development',DATABASE_URL:runtime,DIRECT_URL:adminUrl,MVP_TEST_ADMIN_URL:adminUrl,MVP_TEST_CLUSTER:directory,MVP_TEST_CLUSTER_HEX:identity.directoryHex,EXECUTION_E2E_OUTPUT:out,
  NEXTAUTH_SECRET:'local-disposable-front-fixture-secret-only',NEXTAUTH_URL:'http://127.0.0.1:3157',NEXT_TELEMETRY_DISABLED:'1',CI:'1',
- SALON_SECRETARY_MODEL:'gpt-6-luna',SALON_SECRETARY_NORMAL_REVIEW_MAX:'5',SALON_SECRETARY_MAX_ACTIONS_PER_CONFIRMATION_GROUP:'10',SALON_SECRETARY_ENABLED:'true',SALON_SECRETARY_FRONT_ENABLED:'true',SALON_SECRETARY_VOICE_ENABLED:'true',SALON_SECRETARY_ALLOW_PAID_CALLS:'false',SALON_SECRETARY_JEV_ROUTER_ENABLED:'false',SALON_SECRETARY_MULTI_ACTION_V2_ENABLED:'true',SALON_SECRETARY_SCHEDULING_OVERLAP_ENABLED:'true',
+ SALON_SECRETARY_MODEL:'gpt-6-luna',SALON_SECRETARY_NORMAL_REVIEW_MAX:'5',SALON_SECRETARY_MAX_ACTIONS_PER_CONFIRMATION_GROUP:'10',SALON_SECRETARY_ENABLED:'true',SALON_SECRETARY_FRONT_ENABLED:'true',SALON_SECRETARY_VOICE_ENABLED:'true',SALON_SECRETARY_ALLOW_PAID_CALLS:'false',SALON_SECRETARY_JEV_ROUTER_ENABLED:'false',SALON_SECRETARY_MULTI_ACTION_V2_ENABLED:'true',SALON_SECRETARY_SCHEDULING_OVERLAP_ENABLED:'true',SALON_SECRETARY_CONFIRMATION_GROUPING:'component',
  PLATFORM_BILLING_ENABLED:'false',MERCADOPAGO_BILLING_ENABLED:'false',EMAIL_INVITES_ENABLED:'false',SECRETARY_FRONT_E2E_SCRIPT:resolve(out,'model-script.json'),NEXT_FONT_GOOGLE_MOCKED_RESPONSES:resolve(root,'packages/salon-secretary/evaluation/results/execution-font-mock.cjs')});
  const dump=(name)=>{const file=resolve(out,name+'.dump');const r=spawnSync(pg+'pg_dump.exe',['-h','127.0.0.1','-p','55441','-U','mvp_test_admin','-d','everflair_service_mvp','-Fc','-f',file],{env,windowsHide:true});if(r.status!==0||spawnSync(pg+'pg_restore.exe',['-l',file],{env,windowsHide:true}).status!==0)throw Error('BACKUP_FAILED');return {dump:file,sha256:createHash('sha256').update(readFileSync(file)).digest('hex')};};
- writeFileSync(resolve(out,'preflight.json'),JSON.stringify({...dump('before-fixtures'),directory,local:true},null,2));
+ writeFileSync(resolve(out,'preflight.json'),JSON.stringify({...dump('before-fixtures'),directory,directoryHex:identity.directoryHex,directoryTransport:identity.directoryTransport,local:true},null,2));
  console.log('FRONT_VOICE_EVIDENCE',out);
+ if(process.argv.includes('--preflight-only')){console.log('FRONT_PREFLIGHT_ONLY identity and backup ok; Next and Playwright not started');return;}
  const finishArg=process.argv.find(v=>v.startsWith('--read-only-finish='));
  const resumeArg=process.argv.find(v=>v.startsWith('--resume-products='))||finishArg;
  if(resumeArg){
@@ -52,5 +56,6 @@ async function main(){
  writeFileSync(resolve(out,'after-backup.json'),JSON.stringify({...dump('after-browser'),flags_final:{paid:false,jev:false,multi_action_v2:false,overlap:false,front:false,voice:false},server_stopped:true},null,2));
  console.log('BROWSER_EXIT',run.status,'Log:',resolve(out,'browser.log'));console.log('FRONT_VOICE_EVIDENCE',out);process.exitCode=run.status===0?0:1;
 }
-main().catch(e=>{console.error(e.message);process.exitCode=1;});
+if(require.main===module)main().catch(e=>{console.error(e.message);process.exitCode=1;});
+module.exports={frontDatabaseIdentity};
 

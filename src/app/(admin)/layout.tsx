@@ -95,7 +95,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       />
       <CommandPalette role={role} />
       <Toaster />
-      {secretaryEnabled && <SecretaryDock key={`${salonId}:${userId}`} voiceEnabled={process.env.SALON_SECRETARY_VOICE_ENABLED === "true"} />}
+      {secretaryEnabled && <SecretaryDock key={`${salonId}:${userId}`} voiceEnabled={process.env.SALON_SECRETARY_VOICE_ENABLED === "true"}
+        voiceCorrection={process.env.SALON_SECRETARY_VOICE_CORRECTION === "true"} transcribeEnabled={process.env.SALON_SECRETARY_TRANSCRIBE_ENABLED === "true"}
+        feedbackEnabled={process.env.SALON_SECRETARY_FEEDBACK === "true"} />}
     </div>
     </ThemeProvider>
   );

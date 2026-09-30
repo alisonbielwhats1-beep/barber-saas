@@ -20,7 +20,7 @@ vi.mock('../scheduling-catalog', async original => ({ ...await original<object>(
 vi.mock('../scheduling-mutations', async original => ({ ...await original<object>(), authorizeSchedulingOperation: io.authorize,
   locateSchedulingAppointments: io.locate, schedulingActionSnapshot: io.cancelSnapshot, executeSchedulingMutation: io.executeCancel }));
 vi.mock('../scheduling-actions', async original => ({ ...await original<object>(), schedulingSnapshot: io.createSnapshot, executeSchedulingCreate: io.executeCreate }));
-import { SalonSecretary } from '../salon-secretary';
+import { SalonSecretary, unreadAnswerNotice } from '../salon-secretary';
 import { ScriptedServicesModel, call } from '../../test/scripted-services-model';
 import { observeView, scoreTurn } from '../../../packages/salon-secretary/evaluation/free-use-score';
 import { intent } from '../../test/secretary-capability-plan';
@@ -152,8 +152,16 @@ describe('original consumed V230 through SDK, coordinator and real batch journal
   it('documents original tool-name replay mismatch fail-closed, without claiming full-byte V230 completion', async () => {
     const { first, second, model, failures } = await replay();
     expect(first.action_plan?.status, JSON.stringify(first)).toBe('READY_FOR_CONFIRMATION');
-    expect(second.action_plan?.status).toBe('PARTIAL_FAILURE');
-    expect(failures.mock.calls.map(args => args[2]).some(error => error instanceof Error && error.message === 'INTERPRETATION_INVALID')).toBe(true);
+    // B5 contract migration (partial acceptance): the unreadable second answer (recorded tool-name
+    // mismatch, INTERPRETATION_INVALID) applies nothing and no longer fails the batch (no FAILED_SAFE): the
+    // plan and its accepted draft are kept behind a new revision; the reply asks to rephrase.
+    // Review 2b: the answer was addressed to the batch (the only open unit), so its proposal stays withdrawn
+    // (fail-closed, as originally pinned): the batch is held for review and nothing is confirmable or completes.
+    expect(second.action_plan?.status).toBe('READY');
+    expect(second.action_plan!.actions.map(action => [action.status, action.assessment.issue])).toEqual([['NEEDS_INPUT', 'REVIEW_REQUIRED'], ['NEEDS_INPUT', 'REVIEW_REQUIRED']]);
+    expect(second.action_plan!.confirmation_groups.some(group => group.status === 'READY_FOR_CONFIRMATION')).toBe(false);
+    expect(second.message).toBe(unreadAnswerNotice); expect(second.action_plan!.revision).toBeGreaterThan(first.action_plan!.revision);
+    expect(failures.mock.calls.map(args => args[2]).some(error => error instanceof Error && error.message === 'INTERPRETATION_INVALID')).toBe(false);
     const a = first.operations![0].state.batch!, b = second.operations![0].state.batch!;
     expect(first.action_plan!.actions).toHaveLength(2); expect(second.action_plan!.actions).toHaveLength(2);
     expect(second.action_plan!.plan_ref).toBe(first.action_plan!.plan_ref); expect(second.action_plan!.dependencies).toEqual(first.action_plan!.dependencies);

@@ -43,7 +43,9 @@ function setup(){
     physicalResource:{findFirst:vi.fn().mockResolvedValue({id:"room"})},
     salonClosure:{findFirst:vi.fn(async({where}:{where:Parameters<typeof overlaps>[1]})=>state.day.closures.find(x=>overlaps(x,where))??null)},
     timeOff:{findFirst:vi.fn(async({where}:{where:Parameters<typeof overlaps>[1]})=>state.day.blocks.find(x=>overlaps(x,where))??null)},
-    appointment:{findFirst:vi.fn(async({where}:{where:Parameters<typeof overlaps>[1]&{id?:{not:string}}})=>state.day.appointments.find(a=>(a as {id?:string}).id!==where.id?.not&&overlaps(a,where))??null)},
+    appointment:{findFirst:vi.fn(async({where}:{where:Parameters<typeof overlaps>[1]&{id?:{not:string}}})=>state.day.appointments.find(a=>(a as {id?:string}).id!==where.id?.not&&overlaps(a,where))??null),
+      // C7: the NEW booking preview reads the customer's upcoming appointments; this fixture's customer has none of its own.
+      findMany:vi.fn(async()=>[])},
     resourceBooking:{findFirst:vi.fn(async({where}:{where:Parameters<typeof overlaps>[1]})=>state.day.resourceBookings.find(x=>overlaps(x,where))??null)},
     waitlistOffer:{findFirst:vi.fn(async({where}:{where:{OR:Parameters<typeof overlaps>[1][]}})=>state.day.offers.find(x=>where.OR.some(w=>overlaps(x,w)))??null)},
     auditLog:{create:vi.fn(async({data}:{data:Record<string,unknown>})=>{state.journal.push(structuredClone(data));return data;}),findMany:vi.fn(async(args:{where:Record<string,unknown>})=>findAudit(args)),findFirst:vi.fn(async(args:{where:Record<string,unknown>})=>findAudit(args)[0]??null)},
@@ -166,5 +168,22 @@ describe("review preserves every independently proven salon closure cause",()=>{
   const initial=structuredClone(c.fields);await applySchedulingInterpretation(actor,c,{operation:"appointment.create",override_requested:true},"Pode encaixar mesmo assim.");
   expect(c.fields).toEqual({...initial,override_requested:true});expect(c.draft?.review?.causes).toEqual(expect.arrayContaining(["OUTSIDE_WORKING_HOURS","SALON_CLOSED"]));expect(c.draft?.review?.override_allowed).toBe(false);expect(c.proposal).toBeUndefined();expect(state.create).not.toHaveBeenCalled();
   await expect(proposeAppointmentCreate(state.tx,actor,{draft_ref:c.draft!.draft_ref,draft_revision:c.draft!.draft_revision})).rejects.toThrow();
+ });
+});
+
+describe("C7 notice (review): the customer's existing appointments are screen-only, never the model's context",()=>{
+ it("a NEW booking for Fábio, who already has an appointment: the preview (and so Luna's previous_response) has no notice; the card shows it",async()=>{
+  const {raw}=setup();
+  const upcoming={id:"appt-fabio",clientId:"fabio",client:{name:"Fábio Santos"},professionalId:"pro",professional:{user:{name:"Tatiana"}},serviceId:"cut",serviceItems:[],
+    startAt:new Date(`2030-09-13T16:00:00-03:00`),endAt:new Date(`2030-09-13T17:00:00-03:00`),timezone:"America/Sao_Paulo",status:"CONFIRMED",version:1,priceCents:5000};
+  raw.appointment.findMany.mockImplementation((async(args:{where:{clientId?:string;endAt?:unknown}})=>args.where.clientId==="fabio"&&!args.where.endAt?[upcoming]:[]) as never);
+  const c=schedulingState();c.fields={service_ref:"cut",professional_ref:"pro",date,time:"14:00",customer_name:"Fábio Santos",customer_ref:"fabio",service_name:"Corte Completo",professional_name:"Tatiana"};
+  await applySchedulingInterpretation(actor,c,{operation:"appointment.create"});
+  expect(c.proposal).toBeDefined();expect(c.proposal!.preview).not.toContain("Atenção");expect(c.message).not.toContain("Atenção");
+  expect(c.proposal!.existing_bookings).toEqual([{appointment_ref:"appt-fabio",start_local:"2030-09-13T16:00",overlaps:false}]);
+  const {actionDetails}=await import("../secretary-ui");
+  const view={sessionId:"s",cancelled:false,message:c.message,scheduling:c} as unknown as Parameters<typeof actionDetails>[0];
+  expect(actionDetails(view,undefined,"2030-09-11")).toContain("Atenção: Fábio Santos já tem horário marcado: sex, 13/09 às 16h. Isto cria um novo agendamento; para mudar o existente, peça para remarcar.");
+  expect(actionDetails(view,undefined,"2030-09-11",new Set(["appt-fabio"]))).not.toContain("Atenção");
  });
 });

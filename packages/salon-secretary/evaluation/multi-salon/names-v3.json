@@ -1,0 +1,3537 @@
+{
+ "version": 1,
+ "about": [
+  "Multi-salon generator name cohort of version three (fourth candidate, backlog section one). Evaluation-only, hand-written common pt-BR names (and names of immigrant origin common in Brazil); no real person, contact or pairing of a name with any other attribute. Runtime code must never read or copy this file.",
+  "Same schema and tag rules as names.json. Every name is new: no single name, spelling variant, nickname or surname equals a folded token of names.json, and no token is a person word of the base fixture, the dev batteries, the example bank or the Golden suite (compound names may reuse a first name of names.json in a new combination).",
+  "Rotation: the version three generator splits this cohort in two by a seeded hash (never by hand). The HOLDOUT split draws people, nicknames and surnames from the holdout half of this cohort ONLY (the holdout side of names.json was consumed by the second and third multi-salon holdouts and is retired); the DEV split draws from the dev side of names.json plus the dev half of this cohort, minus every name the example bank, the dev batteries or the base fixture show.",
+  "Look-alike pairs kept on purpose (within this cohort or against names.json): Anna/Ana, Taís/Thaís, Daniele/Daniela, Adriel/Adriele, Micael/Micaela, Samir/Samira, Paolo/Paulo, Darcy/Darci, Creusa/Cleusa, Eloísa/Heloísa. Never infer gender from a name: the gender tag only picks agreement words of synthetic texts."
+ ],
+ "tagDefinitions": {
+  "f": "feminine",
+  "m": "masculine",
+  "u": "unisex (used for either gender)",
+  "classic": "more common among older generations",
+  "modern": "more common among people born this century",
+  "accent": "holds a diacritic or cedilla (derived: any combining mark after NFD); accent stripping by the noise generator keeps identity",
+  "particle": "holds a particle (da, das, de, do, dos)",
+  "compound": "compound given name",
+  "gender-trap": "compound whose grammatical gender differs from its first element",
+  "tupi": "indigenous (Tupi) origin",
+  "english": "English origin or spelling",
+  "anglicized": "Brazilian spelling that imitates English",
+  "french": "French origin",
+  "italian": "Italian origin",
+  "german": "German origin",
+  "arabic": "Arabic origin",
+  "japanese": "Japanese origin",
+  "spanish": "Spanish origin",
+  "slavic": "Slavic origin",
+  "dutch": "Dutch origin",
+  "near-temporal": "sounds like or starts like a temporal word (see relatesTo)",
+  "word": "is also a common pt-BR word",
+  "temporal": "is, or derives from, a temporal word (see relatesTo)",
+  "weekday-like": "sounds like a weekday (see relatesTo)",
+  "number-like": "is also an ordinal or number word (see relatesTo)",
+  "service-like": "is, or starts like, a service word of salon-types.json (see relatesTo)",
+  "color": "is also a color word (hair or nail color)",
+  "flower": "is also a flower name",
+  "gem": "is also a gem name",
+  "nature": "is also a nature word",
+  "virtue": "is also a virtue word",
+  "religious": "Marian or religious name that is also a word",
+  "vocative-like": "also used to address someone (\"oi, flor\"): may be read as a vocative instead of a customer",
+  "assistant-name": "same as the assistant's name (Luna)",
+  "very-common": "among the most frequent Brazilian surnames",
+  "nickname": "nickname of one or more formal names",
+  "ambiguous": "nickname of more than one formal name of the pools (derived)",
+  "truncation": "shortened form (Tati, Rafa)",
+  "diminutive": "diminutive suffix (Fabinho, Aninha)",
+  "hypocoristic": "irregular familiar form (Zé, Chico, Tião)",
+  "reduplication": "doubled syllable (Juju, Dedé)",
+  "initials": "initials used as a name (JP)",
+  "abbreviation": "abbreviated honorific",
+  "familiar": "familiar honorific used with customers (tia, tio)",
+  "korean": "Korean origin",
+  "chinese": "Chinese origin"
+ },
+ "female": [
+  {
+   "name": "Adélia",
+   "tags": [
+    "f",
+    "classic",
+    "accent"
+   ]
+  },
+  {
+   "name": "Albertina",
+   "tags": [
+    "f",
+    "classic"
+   ]
+  },
+  {
+   "name": "Alcina",
+   "tags": [
+    "f",
+    "classic"
+   ]
+  },
+  {
+   "name": "Amélia",
+   "tags": [
+    "f",
+    "classic",
+    "accent"
+   ]
+  },
+  {
+   "name": "Anastácia",
+   "tags": [
+    "f",
+    "accent"
+   ]
+  },
+  {
+   "name": "Andressa",
+   "tags": [
+    "f",
+    "modern"
+   ]
+  },
+  {
+   "name": "Ângela",
+   "tags": [
+    "f",
+    "accent"
+   ]
+  },
+  {
+   "name": "Anita",
+   "tags": [
+    "f"
+   ]
+  },
+  {
+   "name": "Arlete",
+   "tags": [
+    "f",
+    "classic"
+   ]
+  },
+  {
+   "name": "Berenice",
+   "tags": [
+    "f",
+    "classic"
+   ]
+  },
+  {
+   "name": "Betânia",
+   "tags": [
+    "f",
+    "accent"
+   ]
+  },
+  {
+   "name": "Carmem",
+   "tags": [
+    "f",
+    "classic"
+   ]
+  },
+  {
+   "name": "Cibele",
+   "tags": [
+    "f"
+   ]
+  },
+  {
+   "name": "Clarissa",
+   "tags": [
+    "f"
+   ]
+  },
+  {
+   "name": "Cleide",
+   "tags": [
+    "f",
+    "classic"
+   ]
+  },
+  {
+   "name": "Creusa",
+   "tags": [
+    "f",
+    "classic"
+   ]
+  },
+  {
+   "name": "Dafne",
+   "tags": [
+    "f",
+    "modern"
+   ]
+  },
+  {
+   "name": "Dalila",
+   "tags": [
+    "f"
+   ]
+  },
+  {
+   "name": "Damares",
+   "tags": [
+    "f"
+   ]
+  },
+  {
+   "name": "Darlene",
+   "tags": [
+    "f"
+   ]
+  },
+  {
+   "name": "Doralice",
+   "tags": [
+    "f",
+    "classic"
+   ]
+  },
+  {
+   "name": "Edite",
+   "tags": [
+    "f",
+    "classic"
+   ]
+  },
+  {
+   "name": "Elisângela",
+   "tags": [
+    "f",
+    "accent"
+   ]
+  },
+  {
+   "name": "Eliete",
+   "tags": [
+    "f"
+   ]
+  },
+  {
+   "name": "Elvira",
+   "tags": [
+    "f",
+    "classic"
+   ]
+  },
+  {
+   "name": "Emília",
+   "tags": [
+    "f",
+    "accent"
+   ]
+  },
+  {
+   "name": "Érica",
+   "tags": [
+    "f",
+    "accent"
+   ]
+  },
+  {
+   "name": "Ermelinda",
+   "tags": [
+    "f",
+    "classic"
+   ]
+  },
+  {
+   "name": "Eugênia",
+   "tags": [
+    "f",
+    "classic",
+    "accent"
+   ]
+  },
+  {
+   "name": "Evelise",
+   "tags": [
+    "f"
+   ]
+  },
+  {
+   "name": "Fabíola",
+   "tags": [
+    "f",
+    "accent"
+   ]
+  },
+  {
+   "name": "Francine",
+   "tags": [
+    "f"
+   ]
+  },
+  {
+   "name": "Gilda",
+   "tags": [
+    "f",
+    "classic"
+   ]
+  },
+  {
+   "name": "Glenda",
+   "tags": [
+    "f"
+   ]
+  },
+  {
+   "name": "Graciele",
+   "tags": [
+    "f"
+   ]
+  },
+  {
+   "name": "Idalina",
+   "tags": [
+    "f",
+    "classic"
+   ]
+  },
+  {
+   "name": "Inara",
+   "tags": [
+    "f",
+    "tupi"
+   ]
+  },
+  {
+   "name": "Ione",
+   "tags": [
+    "f",
+    "classic"
+   ]
+  },
+  {
+   "name": "Isolda",
+   "tags": [
+    "f",
+    "classic"
+   ]
+  },
+  {
+   "name": "Ivani",
+   "tags": [
+    "f"
+   ]
+  },
+  {
+   "name": "Jordana",
+   "tags": [
+    "f"
+   ]
+  },
+  {
+   "name": "Judite",
+   "tags": [
+    "f",
+    "classic"
+   ]
+  },
+  {
+   "name": "Julieta",
+   "tags": [
+    "f"
+   ]
+  },
+  {
+   "name": "Laís",
+   "tags": [
+    "f",
+    "accent"
+   ]
+  },
+  {
+   "name": "Lavínia",
+   "tags": [
+    "f",
+    "modern",
+    "accent"
+   ]
+  },
+  {
+   "name": "Lenita",
+   "tags": [
+    "f",
+    "classic"
+   ]
+  },
+  {
+   "name": "Liana",
+   "tags": [
+    "f"
+   ]
+  },
+  {
+   "name": "Lidiane",
+   "tags": [
+    "f"
+   ]
+  },
+  {
+   "name": "Lígia",
+   "tags": [
+    "f",
+    "accent"
+   ]
+  },
+  {
+   "name": "Lucélia",
+   "tags": [
+    "f",
+    "accent"
+   ]
+  },
+  {
+   "name": "Lucimara",
+   "tags": [
+    "f"
+   ]
+  },
+  {
+   "name": "Luma",
+   "tags": [
+    "f",
+    "modern"
+   ]
+  },
+  {
+   "name": "Mabel",
+   "tags": [
+    "f"
+   ]
+  },
+  {
+   "name": "Mafalda",
+   "tags": [
+    "f",
+    "classic"
+   ]
+  },
+  {
+   "name": "Maísa",
+   "tags": [
+    "f",
+    "accent"
+   ]
+  },
+  {
+   "name": "Marieta",
+   "tags": [
+    "f",
+    "classic"
+   ]
+  },
+  {
+   "name": "Marilene",
+   "tags": [
+    "f"
+   ]
+  },
+  {
+   "name": "Marilda",
+   "tags": [
+    "f",
+    "classic"
+   ]
+  },
+  {
+   "name": "Marinalva",
+   "tags": [
+    "f",
+    "classic"
+   ]
+  },
+  {
+   "name": "Maristela",
+   "tags": [
+    "f"
+   ]
+  },
+  {
+   "name": "Matilde",
+   "tags": [
+    "f",
+    "classic"
+   ]
+  },
+  {
+   "name": "Mercedes",
+   "tags": [
+    "f",
+    "classic"
+   ]
+  },
+  {
+   "name": "Mirela",
+   "tags": [
+    "f"
+   ]
+  },
+  {
+   "name": "Nara",
+   "tags": [
+    "f"
+   ]
+  },
+  {
+   "name": "Nayara",
+   "tags": [
+    "f",
+    "modern"
+   ]
+  },
+  {
+   "name": "Noêmia",
+   "tags": [
+    "f",
+    "classic",
+    "accent"
+   ]
+  },
+  {
+   "name": "Núbia",
+   "tags": [
+    "f",
+    "accent"
+   ]
+  },
+  {
+   "name": "Odila",
+   "tags": [
+    "f",
+    "classic"
+   ]
+  },
+  {
+   "name": "Ofélia",
+   "tags": [
+    "f",
+    "classic",
+    "accent"
+   ]
+  },
+  {
+   "name": "Olinda",
+   "tags": [
+    "f",
+    "classic"
+   ]
+  },
+  {
+   "name": "Palmira",
+   "tags": [
+    "f",
+    "classic"
+   ]
+  },
+  {
+   "name": "Penélope",
+   "tags": [
+    "f",
+    "accent"
+   ]
+  },
+  {
+   "name": "Quitéria",
+   "tags": [
+    "f",
+    "classic",
+    "accent"
+   ]
+  },
+  {
+   "name": "Regiane",
+   "tags": [
+    "f"
+   ]
+  },
+  {
+   "name": "Rosália",
+   "tags": [
+    "f",
+    "accent"
+   ]
+  },
+  {
+   "name": "Roseane",
+   "tags": [
+    "f"
+   ]
+  },
+  {
+   "name": "Selma",
+   "tags": [
+    "f"
+   ]
+  },
+  {
+   "name": "Shirlene",
+   "tags": [
+    "f"
+   ]
+  },
+  {
+   "name": "Soraia",
+   "tags": [
+    "f"
+   ]
+  },
+  {
+   "name": "Tainá",
+   "tags": [
+    "f",
+    "tupi",
+    "modern",
+    "accent"
+   ]
+  },
+  {
+   "name": "Tábata",
+   "tags": [
+    "f",
+    "accent"
+   ]
+  },
+  {
+   "name": "Thaís",
+   "tags": [
+    "f",
+    "accent"
+   ]
+  },
+  {
+   "name": "Taís",
+   "tags": [
+    "f",
+    "accent"
+   ]
+  },
+  {
+   "name": "Valquíria",
+   "tags": [
+    "f",
+    "accent"
+   ]
+  },
+  {
+   "name": "Vânia",
+   "tags": [
+    "f",
+    "accent"
+   ]
+  },
+  {
+   "name": "Verônica",
+   "tags": [
+    "f",
+    "accent"
+   ]
+  },
+  {
+   "name": "Virgínia",
+   "tags": [
+    "f",
+    "accent"
+   ]
+  },
+  {
+   "name": "Wanda",
+   "tags": [
+    "f",
+    "classic"
+   ]
+  },
+  {
+   "name": "Zuleide",
+   "tags": [
+    "f",
+    "classic"
+   ]
+  },
+  {
+   "name": "Zulmira",
+   "tags": [
+    "f",
+    "classic"
+   ]
+  },
+  {
+   "name": "Eloísa",
+   "tags": [
+    "f",
+    "accent"
+   ]
+  },
+  {
+   "name": "Anna",
+   "tags": [
+    "f"
+   ]
+  },
+  {
+   "name": "Daniele",
+   "tags": [
+    "f"
+   ]
+  },
+  {
+   "name": "Adriele",
+   "tags": [
+    "f",
+    "modern"
+   ]
+  },
+  {
+   "name": "Zoé",
+   "tags": [
+    "f",
+    "modern",
+    "accent"
+   ]
+  },
+  {
+   "name": "Ayla",
+   "tags": [
+    "f",
+    "modern"
+   ]
+  },
+  {
+   "name": "Laiane",
+   "tags": [
+    "f",
+    "modern"
+   ]
+  },
+  {
+   "name": "Domitila",
+   "tags": [
+    "f",
+    "classic",
+    "near-temporal",
+    "weekday-like"
+   ],
+   "relatesTo": [
+    "domingo"
+   ]
+  },
+  {
+   "name": "Tércia",
+   "tags": [
+    "f",
+    "weekday-like",
+    "accent"
+   ],
+   "relatesTo": [
+    "terca"
+   ]
+  }
+ ],
+ "male": [
+  {
+   "name": "Abel",
+   "tags": [
+    "m"
+   ]
+  },
+  {
+   "name": "Abraão",
+   "tags": [
+    "m",
+    "classic",
+    "accent"
+   ]
+  },
+  {
+   "name": "Acácio",
+   "tags": [
+    "m",
+    "classic",
+    "accent"
+   ]
+  },
+  {
+   "name": "Adalberto",
+   "tags": [
+    "m",
+    "classic"
+   ]
+  },
+  {
+   "name": "Adão",
+   "tags": [
+    "m",
+    "classic",
+    "accent"
+   ]
+  },
+  {
+   "name": "Adolfo",
+   "tags": [
+    "m",
+    "classic"
+   ]
+  },
+  {
+   "name": "Adriel",
+   "tags": [
+    "m",
+    "modern"
+   ]
+  },
+  {
+   "name": "Afonso",
+   "tags": [
+    "m"
+   ]
+  },
+  {
+   "name": "Alcides",
+   "tags": [
+    "m",
+    "classic"
+   ]
+  },
+  {
+   "name": "Alfredo",
+   "tags": [
+    "m",
+    "classic"
+   ]
+  },
+  {
+   "name": "Almir",
+   "tags": [
+    "m"
+   ]
+  },
+  {
+   "name": "Aloísio",
+   "tags": [
+    "m",
+    "classic",
+    "accent"
+   ]
+  },
+  {
+   "name": "Álvaro",
+   "tags": [
+    "m",
+    "accent"
+   ]
+  },
+  {
+   "name": "Amadeu",
+   "tags": [
+    "m",
+    "classic"
+   ]
+  },
+  {
+   "name": "Américo",
+   "tags": [
+    "m",
+    "classic",
+    "accent"
+   ]
+  },
+  {
+   "name": "Anselmo",
+   "tags": [
+    "m",
+    "classic"
+   ]
+  },
+  {
+   "name": "Antero",
+   "tags": [
+    "m",
+    "classic"
+   ]
+  },
+  {
+   "name": "Aparecido",
+   "tags": [
+    "m",
+    "classic"
+   ]
+  },
+  {
+   "name": "Aristides",
+   "tags": [
+    "m",
+    "classic"
+   ]
+  },
+  {
+   "name": "Armando",
+   "tags": [
+    "m"
+   ]
+  },
+  {
+   "name": "Aroldo",
+   "tags": [
+    "m"
+   ]
+  },
+  {
+   "name": "Átila",
+   "tags": [
+    "m",
+    "accent"
+   ]
+  },
+  {
+   "name": "Belmiro",
+   "tags": [
+    "m",
+    "classic"
+   ]
+  },
+  {
+   "name": "Benício",
+   "tags": [
+    "m",
+    "modern",
+    "accent"
+   ]
+  },
+  {
+   "name": "Bernardino",
+   "tags": [
+    "m",
+    "classic"
+   ]
+  },
+  {
+   "name": "Brás",
+   "tags": [
+    "m",
+    "classic",
+    "accent"
+   ]
+  },
+  {
+   "name": "Calebe",
+   "tags": [
+    "m",
+    "modern"
+   ]
+  },
+  {
+   "name": "Camilo",
+   "tags": [
+    "m"
+   ]
+  },
+  {
+   "name": "Cássio",
+   "tags": [
+    "m",
+    "accent"
+   ]
+  },
+  {
+   "name": "Cirilo",
+   "tags": [
+    "m",
+    "classic"
+   ]
+  },
+  {
+   "name": "Crispim",
+   "tags": [
+    "m",
+    "classic"
+   ]
+  },
+  {
+   "name": "Custódio",
+   "tags": [
+    "m",
+    "classic",
+    "accent"
+   ]
+  },
+  {
+   "name": "Dalton",
+   "tags": [
+    "m"
+   ]
+  },
+  {
+   "name": "Dário",
+   "tags": [
+    "m",
+    "accent"
+   ]
+  },
+  {
+   "name": "Delmar",
+   "tags": [
+    "m"
+   ]
+  },
+  {
+   "name": "Dimas",
+   "tags": [
+    "m"
+   ]
+  },
+  {
+   "name": "Dionísio",
+   "tags": [
+    "m",
+    "classic",
+    "accent"
+   ]
+  },
+  {
+   "name": "Elói",
+   "tags": [
+    "m",
+    "classic",
+    "accent"
+   ]
+  },
+  {
+   "name": "Elton",
+   "tags": [
+    "m"
+   ]
+  },
+  {
+   "name": "Emiliano",
+   "tags": [
+    "m"
+   ]
+  },
+  {
+   "name": "Enéas",
+   "tags": [
+    "m",
+    "classic",
+    "accent"
+   ]
+  },
+  {
+   "name": "Erasmo",
+   "tags": [
+    "m",
+    "classic"
+   ]
+  },
+  {
+   "name": "Ernesto",
+   "tags": [
+    "m",
+    "classic"
+   ]
+  },
+  {
+   "name": "Esdras",
+   "tags": [
+    "m"
+   ]
+  },
+  {
+   "name": "Eusébio",
+   "tags": [
+    "m",
+    "classic",
+    "accent"
+   ]
+  },
+  {
+   "name": "Evaristo",
+   "tags": [
+    "m",
+    "classic"
+   ]
+  },
+  {
+   "name": "Fagner",
+   "tags": [
+    "m"
+   ]
+  },
+  {
+   "name": "Feliciano",
+   "tags": [
+    "m",
+    "classic"
+   ]
+  },
+  {
+   "name": "Félix",
+   "tags": [
+    "m",
+    "accent"
+   ]
+  },
+  {
+   "name": "Firmino",
+   "tags": [
+    "m",
+    "classic"
+   ]
+  },
+  {
+   "name": "Gaspar",
+   "tags": [
+    "m",
+    "classic"
+   ]
+  },
+  {
+   "name": "Gervásio",
+   "tags": [
+    "m",
+    "classic",
+    "accent"
+   ]
+  },
+  {
+   "name": "Glauco",
+   "tags": [
+    "m"
+   ]
+  },
+  {
+   "name": "Hamilton",
+   "tags": [
+    "m"
+   ]
+  },
+  {
+   "name": "Haroldo",
+   "tags": [
+    "m",
+    "classic"
+   ]
+  },
+  {
+   "name": "Heleno",
+   "tags": [
+    "m"
+   ]
+  },
+  {
+   "name": "Hermes",
+   "tags": [
+    "m"
+   ]
+  },
+  {
+   "name": "Hilário",
+   "tags": [
+    "m",
+    "classic",
+    "accent"
+   ]
+  },
+  {
+   "name": "Honório",
+   "tags": [
+    "m",
+    "classic",
+    "accent"
+   ]
+  },
+  {
+   "name": "Inácio",
+   "tags": [
+    "m",
+    "accent"
+   ]
+  },
+  {
+   "name": "Isaías",
+   "tags": [
+    "m",
+    "accent"
+   ]
+  },
+  {
+   "name": "Ítalo",
+   "tags": [
+    "m",
+    "accent"
+   ]
+  },
+  {
+   "name": "Jadson",
+   "tags": [
+    "m",
+    "modern"
+   ]
+  },
+  {
+   "name": "Jaime",
+   "tags": [
+    "m"
+   ]
+  },
+  {
+   "name": "Jeremias",
+   "tags": [
+    "m"
+   ]
+  },
+  {
+   "name": "Jonatas",
+   "tags": [
+    "m"
+   ]
+  },
+  {
+   "name": "Jordão",
+   "tags": [
+    "m",
+    "classic",
+    "accent"
+   ]
+  },
+  {
+   "name": "Josemar",
+   "tags": [
+    "m"
+   ]
+  },
+  {
+   "name": "Kauê",
+   "tags": [
+    "m",
+    "tupi",
+    "modern",
+    "accent"
+   ]
+  },
+  {
+   "name": "Lael",
+   "tags": [
+    "m",
+    "modern"
+   ]
+  },
+  {
+   "name": "Leopoldo",
+   "tags": [
+    "m",
+    "classic"
+   ]
+  },
+  {
+   "name": "Lindomar",
+   "tags": [
+    "m"
+   ]
+  },
+  {
+   "name": "Lourenço",
+   "tags": [
+    "m",
+    "accent"
+   ]
+  },
+  {
+   "name": "Malaquias",
+   "tags": [
+    "m",
+    "classic"
+   ]
+  },
+  {
+   "name": "Mariano",
+   "tags": [
+    "m"
+   ]
+  },
+  {
+   "name": "Martim",
+   "tags": [
+    "m",
+    "modern"
+   ]
+  },
+  {
+   "name": "Máximo",
+   "tags": [
+    "m",
+    "accent"
+   ]
+  },
+  {
+   "name": "Mauro",
+   "tags": [
+    "m"
+   ]
+  },
+  {
+   "name": "Micael",
+   "tags": [
+    "m",
+    "modern"
+   ]
+  },
+  {
+   "name": "Moisés",
+   "tags": [
+    "m",
+    "accent"
+   ]
+  },
+  {
+   "name": "Nestor",
+   "tags": [
+    "m",
+    "classic"
+   ]
+  },
+  {
+   "name": "Nicolau",
+   "tags": [
+    "m",
+    "classic"
+   ]
+  },
+  {
+   "name": "Olavo",
+   "tags": [
+    "m"
+   ]
+  },
+  {
+   "name": "Onofre",
+   "tags": [
+    "m",
+    "classic"
+   ]
+  },
+  {
+   "name": "Patrício",
+   "tags": [
+    "m",
+    "accent"
+   ]
+  },
+  {
+   "name": "Plínio",
+   "tags": [
+    "m",
+    "classic",
+    "accent"
+   ]
+  },
+  {
+   "name": "Quirino",
+   "tags": [
+    "m",
+    "classic"
+   ]
+  },
+  {
+   "name": "Raí",
+   "tags": [
+    "m",
+    "accent"
+   ]
+  },
+  {
+   "name": "Regis",
+   "tags": [
+    "m"
+   ]
+  },
+  {
+   "name": "Robério",
+   "tags": [
+    "m",
+    "accent"
+   ]
+  },
+  {
+   "name": "Rodolfo",
+   "tags": [
+    "m"
+   ]
+  },
+  {
+   "name": "Rolando",
+   "tags": [
+    "m"
+   ]
+  },
+  {
+   "name": "Silas",
+   "tags": [
+    "m"
+   ]
+  },
+  {
+   "name": "Simão",
+   "tags": [
+    "m",
+    "accent"
+   ]
+  },
+  {
+   "name": "Tales",
+   "tags": [
+    "m"
+   ]
+  },
+  {
+   "name": "Tobias",
+   "tags": [
+    "m"
+   ]
+  },
+  {
+   "name": "Uriel",
+   "tags": [
+    "m",
+    "modern"
+   ]
+  },
+  {
+   "name": "Valentim",
+   "tags": [
+    "m",
+    "modern"
+   ]
+  },
+  {
+   "name": "Vanderson",
+   "tags": [
+    "m"
+   ]
+  },
+  {
+   "name": "Venâncio",
+   "tags": [
+    "m",
+    "classic",
+    "accent"
+   ]
+  },
+  {
+   "name": "Wendel",
+   "tags": [
+    "m"
+   ]
+  },
+  {
+   "name": "Ivo",
+   "tags": [
+    "m"
+   ]
+  },
+  {
+   "name": "Agostinho",
+   "tags": [
+    "m",
+    "classic",
+    "near-temporal"
+   ],
+   "relatesTo": [
+    "agosto"
+   ]
+  },
+  {
+   "name": "Marçal",
+   "tags": [
+    "m",
+    "classic",
+    "near-temporal",
+    "accent"
+   ],
+   "relatesTo": [
+    "marco"
+   ]
+  },
+  {
+   "name": "Setembrino",
+   "tags": [
+    "m",
+    "classic",
+    "near-temporal"
+   ],
+   "relatesTo": [
+    "setembro"
+   ]
+  },
+  {
+   "name": "Quintiliano",
+   "tags": [
+    "m",
+    "classic",
+    "weekday-like",
+    "near-temporal"
+   ],
+   "relatesTo": [
+    "quinta"
+   ]
+  },
+  {
+   "name": "Décio",
+   "tags": [
+    "m",
+    "classic",
+    "number-like",
+    "accent"
+   ],
+   "relatesTo": [
+    "decimo"
+   ]
+  },
+  {
+   "name": "Gelson",
+   "tags": [
+    "m",
+    "service-like"
+   ],
+   "relatesTo": [
+    "gel"
+   ]
+  },
+  {
+   "name": "Volmar",
+   "tags": [
+    "m",
+    "classic",
+    "service-like"
+   ],
+   "relatesTo": [
+    "volume"
+   ]
+  }
+ ],
+ "unisex": [
+  {
+   "name": "Jordan",
+   "tags": [
+    "u",
+    "english"
+   ]
+  },
+  {
+   "name": "Darcy",
+   "tags": [
+    "u",
+    "classic"
+   ]
+  },
+  {
+   "name": "Valdeci",
+   "tags": [
+    "u",
+    "classic"
+   ]
+  },
+  {
+   "name": "Jucimar",
+   "tags": [
+    "u",
+    "classic"
+   ]
+  },
+  {
+   "name": "Edir",
+   "tags": [
+    "u",
+    "classic"
+   ]
+  },
+  {
+   "name": "Iraci",
+   "tags": [
+    "u",
+    "classic",
+    "tupi"
+   ]
+  },
+  {
+   "name": "Sidney",
+   "tags": [
+    "u",
+    "english"
+   ]
+  },
+  {
+   "name": "Alexis",
+   "tags": [
+    "u"
+   ]
+  },
+  {
+   "name": "Robin",
+   "tags": [
+    "u",
+    "english"
+   ]
+  }
+ ],
+ "compound": [
+  {
+   "name": "Maria Madalena",
+   "tags": [
+    "f",
+    "compound",
+    "classic"
+   ]
+  },
+  {
+   "name": "Maria Valentina",
+   "tags": [
+    "f",
+    "compound",
+    "modern"
+   ]
+  },
+  {
+   "name": "Maria Heloísa",
+   "tags": [
+    "f",
+    "compound",
+    "modern",
+    "accent"
+   ]
+  },
+  {
+   "name": "Maria Esther",
+   "tags": [
+    "f",
+    "compound",
+    "modern"
+   ]
+  },
+  {
+   "name": "Maria Isabel",
+   "tags": [
+    "f",
+    "compound"
+   ]
+  },
+  {
+   "name": "Maria Laura",
+   "tags": [
+    "f",
+    "compound",
+    "modern"
+   ]
+  },
+  {
+   "name": "Maria Beatriz",
+   "tags": [
+    "f",
+    "compound"
+   ]
+  },
+  {
+   "name": "Maria Flor",
+   "tags": [
+    "f",
+    "compound",
+    "modern"
+   ]
+  },
+  {
+   "name": "Maria Lívia",
+   "tags": [
+    "f",
+    "compound",
+    "modern",
+    "accent"
+   ]
+  },
+  {
+   "name": "Maria Olívia",
+   "tags": [
+    "f",
+    "compound",
+    "modern",
+    "accent"
+   ]
+  },
+  {
+   "name": "Isabel Cristina",
+   "tags": [
+    "f",
+    "compound",
+    "classic"
+   ]
+  },
+  {
+   "name": "Sônia Maria",
+   "tags": [
+    "f",
+    "compound",
+    "classic",
+    "accent"
+   ]
+  },
+  {
+   "name": "Laura Beatriz",
+   "tags": [
+    "f",
+    "compound"
+   ]
+  },
+  {
+   "name": "Sofia Valentina",
+   "tags": [
+    "f",
+    "compound",
+    "modern"
+   ]
+  },
+  {
+   "name": "Lívia Maria",
+   "tags": [
+    "f",
+    "compound",
+    "accent"
+   ]
+  },
+  {
+   "name": "José Augusto",
+   "tags": [
+    "m",
+    "compound",
+    "classic",
+    "accent"
+   ]
+  },
+  {
+   "name": "José Eduardo",
+   "tags": [
+    "m",
+    "compound",
+    "accent"
+   ]
+  },
+  {
+   "name": "José Guilherme",
+   "tags": [
+    "m",
+    "compound",
+    "accent"
+   ]
+  },
+  {
+   "name": "José Miguel",
+   "tags": [
+    "m",
+    "compound",
+    "modern",
+    "accent"
+   ]
+  },
+  {
+   "name": "José Arthur",
+   "tags": [
+    "m",
+    "compound",
+    "modern",
+    "accent"
+   ]
+  },
+  {
+   "name": "Carlos Daniel",
+   "tags": [
+    "m",
+    "compound"
+   ]
+  },
+  {
+   "name": "Carlos Augusto",
+   "tags": [
+    "m",
+    "compound",
+    "classic"
+   ]
+  },
+  {
+   "name": "Francisco José",
+   "tags": [
+    "m",
+    "compound",
+    "classic",
+    "accent"
+   ]
+  },
+  {
+   "name": "Davi Miguel",
+   "tags": [
+    "m",
+    "compound",
+    "modern"
+   ]
+  },
+  {
+   "name": "Arthur Gabriel",
+   "tags": [
+    "m",
+    "compound",
+    "modern"
+   ]
+  },
+  {
+   "name": "Bernardo Luís",
+   "tags": [
+    "m",
+    "compound",
+    "modern",
+    "accent"
+   ]
+  },
+  {
+   "name": "Lorenzo Gabriel",
+   "tags": [
+    "m",
+    "compound",
+    "modern"
+   ]
+  },
+  {
+   "name": "Miguel Ângelo",
+   "tags": [
+    "m",
+    "compound",
+    "accent"
+   ]
+  },
+  {
+   "name": "Levi Gabriel",
+   "tags": [
+    "m",
+    "compound",
+    "modern"
+   ]
+  },
+  {
+   "name": "Samuel Davi",
+   "tags": [
+    "m",
+    "compound",
+    "modern"
+   ]
+  }
+ ],
+ "foreignOrigin": [
+  {
+   "name": "Scarlett",
+   "tags": [
+    "f",
+    "english"
+   ]
+  },
+  {
+   "name": "Megan",
+   "tags": [
+    "f",
+    "english"
+   ]
+  },
+  {
+   "name": "Ashley",
+   "tags": [
+    "f",
+    "english"
+   ]
+  },
+  {
+   "name": "Kayla",
+   "tags": [
+    "f",
+    "english"
+   ]
+  },
+  {
+   "name": "Samantha",
+   "tags": [
+    "f",
+    "english"
+   ]
+  },
+  {
+   "name": "Tiffany",
+   "tags": [
+    "f",
+    "english"
+   ]
+  },
+  {
+   "name": "Crystal",
+   "tags": [
+    "f",
+    "english"
+   ]
+  },
+  {
+   "name": "Sakura",
+   "tags": [
+    "f",
+    "japanese"
+   ]
+  },
+  {
+   "name": "Emiko",
+   "tags": [
+    "f",
+    "japanese"
+   ]
+  },
+  {
+   "name": "Harumi",
+   "tags": [
+    "f",
+    "japanese"
+   ]
+  },
+  {
+   "name": "Keiko",
+   "tags": [
+    "f",
+    "japanese"
+   ]
+  },
+  {
+   "name": "Giulia",
+   "tags": [
+    "f",
+    "italian"
+   ]
+  },
+  {
+   "name": "Greta",
+   "tags": [
+    "f",
+    "german"
+   ]
+  },
+  {
+   "name": "Frida",
+   "tags": [
+    "f",
+    "german"
+   ]
+  },
+  {
+   "name": "Layla",
+   "tags": [
+    "f",
+    "arabic"
+   ]
+  },
+  {
+   "name": "Farah",
+   "tags": [
+    "f",
+    "arabic"
+   ]
+  },
+  {
+   "name": "Mei",
+   "tags": [
+    "f",
+    "chinese"
+   ]
+  },
+  {
+   "name": "Guadalupe",
+   "tags": [
+    "f",
+    "spanish"
+   ]
+  },
+  {
+   "name": "Dolores",
+   "tags": [
+    "f",
+    "spanish"
+   ]
+  },
+  {
+   "name": "Aimée",
+   "tags": [
+    "f",
+    "french",
+    "accent"
+   ]
+  },
+  {
+   "name": "Margot",
+   "tags": [
+    "f",
+    "french"
+   ]
+  },
+  {
+   "name": "Brigitte",
+   "tags": [
+    "f",
+    "french"
+   ]
+  },
+  {
+   "name": "Mia",
+   "tags": [
+    "f",
+    "english",
+    "modern"
+   ]
+  },
+  {
+   "name": "Francesca",
+   "tags": [
+    "f",
+    "italian",
+    "service-like"
+   ],
+   "relatesTo": [
+    "francesinha"
+   ]
+  },
+  {
+   "name": "Brandon",
+   "tags": [
+    "m",
+    "english"
+   ]
+  },
+  {
+   "name": "Jason",
+   "tags": [
+    "m",
+    "english"
+   ]
+  },
+  {
+   "name": "Dylan",
+   "tags": [
+    "m",
+    "english"
+   ]
+  },
+  {
+   "name": "Ryan",
+   "tags": [
+    "m",
+    "english"
+   ]
+  },
+  {
+   "name": "Patrick",
+   "tags": [
+    "m",
+    "english"
+   ]
+  },
+  {
+   "name": "Elvis",
+   "tags": [
+    "m",
+    "english"
+   ]
+  },
+  {
+   "name": "Wallace",
+   "tags": [
+    "m",
+    "english"
+   ]
+  },
+  {
+   "name": "Haruki",
+   "tags": [
+    "m",
+    "japanese"
+   ]
+  },
+  {
+   "name": "Kaito",
+   "tags": [
+    "m",
+    "japanese"
+   ]
+  },
+  {
+   "name": "Ryu",
+   "tags": [
+    "m",
+    "japanese"
+   ]
+  },
+  {
+   "name": "Satoshi",
+   "tags": [
+    "m",
+    "japanese"
+   ]
+  },
+  {
+   "name": "Enrico",
+   "tags": [
+    "m",
+    "italian"
+   ]
+  },
+  {
+   "name": "Matteo",
+   "tags": [
+    "m",
+    "italian"
+   ]
+  },
+  {
+   "name": "Paolo",
+   "tags": [
+    "m",
+    "italian"
+   ]
+  },
+  {
+   "name": "Giovanni",
+   "tags": [
+    "m",
+    "italian"
+   ]
+  },
+  {
+   "name": "Klaus",
+   "tags": [
+    "m",
+    "german"
+   ]
+  },
+  {
+   "name": "Otto",
+   "tags": [
+    "m",
+    "german"
+   ]
+  },
+  {
+   "name": "Fritz",
+   "tags": [
+    "m",
+    "german"
+   ]
+  },
+  {
+   "name": "Samir",
+   "tags": [
+    "m",
+    "arabic"
+   ]
+  },
+  {
+   "name": "Nabil",
+   "tags": [
+    "m",
+    "arabic"
+   ]
+  },
+  {
+   "name": "Jamal",
+   "tags": [
+    "m",
+    "arabic"
+   ]
+  },
+  {
+   "name": "Wei",
+   "tags": [
+    "m",
+    "chinese"
+   ]
+  },
+  {
+   "name": "Javier",
+   "tags": [
+    "m",
+    "spanish"
+   ]
+  },
+  {
+   "name": "Alejandro",
+   "tags": [
+    "m",
+    "spanish"
+   ]
+  },
+  {
+   "name": "Boris",
+   "tags": [
+    "m",
+    "slavic"
+   ]
+  },
+  {
+   "name": "Dmitri",
+   "tags": [
+    "m",
+    "slavic"
+   ]
+  },
+  {
+   "name": "Massimo",
+   "tags": [
+    "m",
+    "italian",
+    "service-like"
+   ],
+   "relatesTo": [
+    "massagem"
+   ]
+  }
+ ],
+ "wordNames": [
+  {
+   "name": "Céu",
+   "tags": [
+    "f",
+    "word",
+    "nature",
+    "accent"
+   ],
+   "relatesTo": [
+    "ceu"
+   ],
+   "meaning": "firmamento"
+  },
+  {
+   "name": "Jade",
+   "tags": [
+    "f",
+    "word",
+    "gem",
+    "color"
+   ],
+   "relatesTo": [
+    "jade"
+   ],
+   "meaning": "pedra verde"
+  },
+  {
+   "name": "Alegria",
+   "tags": [
+    "f",
+    "word",
+    "virtue"
+   ],
+   "relatesTo": [
+    "alegria"
+   ],
+   "meaning": "contentamento"
+  },
+  {
+   "name": "Primavera",
+   "tags": [
+    "f",
+    "word",
+    "nature"
+   ],
+   "relatesTo": [
+    "primavera"
+   ],
+   "meaning": "estação do ano"
+  },
+  {
+   "name": "Açucena",
+   "tags": [
+    "f",
+    "word",
+    "flower",
+    "accent"
+   ],
+   "relatesTo": [
+    "acucena"
+   ],
+   "meaning": "flor"
+  },
+  {
+   "name": "Hortênsia",
+   "tags": [
+    "f",
+    "word",
+    "flower",
+    "accent"
+   ],
+   "relatesTo": [
+    "hortensia"
+   ],
+   "meaning": "flor"
+  },
+  {
+   "name": "Camélia",
+   "tags": [
+    "f",
+    "word",
+    "flower",
+    "accent"
+   ],
+   "relatesTo": [
+    "camelia"
+   ],
+   "meaning": "flor"
+  },
+  {
+   "name": "Orquídea",
+   "tags": [
+    "f",
+    "word",
+    "flower",
+    "accent"
+   ],
+   "relatesTo": [
+    "orquidea"
+   ],
+   "meaning": "flor"
+  },
+  {
+   "name": "Ametista",
+   "tags": [
+    "f",
+    "word",
+    "gem",
+    "color"
+   ],
+   "relatesTo": [
+    "ametista"
+   ],
+   "meaning": "pedra roxa"
+  },
+  {
+   "name": "Turquesa",
+   "tags": [
+    "f",
+    "word",
+    "gem",
+    "color"
+   ],
+   "relatesTo": [
+    "turquesa"
+   ],
+   "meaning": "pedra e cor"
+  },
+  {
+   "name": "Âmbar",
+   "tags": [
+    "f",
+    "word",
+    "gem",
+    "color",
+    "accent"
+   ],
+   "relatesTo": [
+    "ambar"
+   ],
+   "meaning": "resina e cor"
+  },
+  {
+   "name": "Coral",
+   "tags": [
+    "f",
+    "word",
+    "color",
+    "nature"
+   ],
+   "relatesTo": [
+    "coral"
+   ],
+   "meaning": "cor e animal marinho"
+  },
+  {
+   "name": "Sol",
+   "tags": [
+    "u",
+    "word",
+    "nature"
+   ],
+   "relatesTo": [
+    "sol"
+   ],
+   "meaning": "astro"
+  },
+  {
+   "name": "Sereno",
+   "tags": [
+    "m",
+    "word",
+    "nature"
+   ],
+   "relatesTo": [
+    "sereno"
+   ],
+   "meaning": "calmo; orvalho da noite"
+  },
+  {
+   "name": "Justo",
+   "tags": [
+    "m",
+    "word",
+    "virtue"
+   ],
+   "relatesTo": [
+    "justo"
+   ],
+   "meaning": "correto"
+  },
+  {
+   "name": "Constância",
+   "tags": [
+    "f",
+    "word",
+    "virtue",
+    "accent"
+   ],
+   "relatesTo": [
+    "constancia"
+   ],
+   "meaning": "firmeza"
+  },
+  {
+   "name": "Rosário",
+   "tags": [
+    "f",
+    "word",
+    "religious",
+    "accent"
+   ],
+   "relatesTo": [
+    "rosario"
+   ],
+   "meaning": "objeto de oração"
+  },
+  {
+   "name": "Natividade",
+   "tags": [
+    "f",
+    "word",
+    "religious"
+   ],
+   "relatesTo": [
+    "natividade"
+   ],
+   "meaning": "nascimento"
+  },
+  {
+   "name": "Diva",
+   "tags": [
+    "f",
+    "word"
+   ],
+   "relatesTo": [
+    "diva"
+   ],
+   "meaning": "mulher admirada"
+  },
+  {
+   "name": "Pilar",
+   "tags": [
+    "f",
+    "word"
+   ],
+   "relatesTo": [
+    "pilar"
+   ],
+   "meaning": "coluna"
+  },
+  {
+   "name": "Lírio",
+   "tags": [
+    "m",
+    "word",
+    "flower",
+    "accent"
+   ],
+   "relatesTo": [
+    "lirio"
+   ],
+   "meaning": "flor"
+  },
+  {
+   "name": "Jacinto",
+   "tags": [
+    "m",
+    "word",
+    "flower"
+   ],
+   "relatesTo": [
+    "jacinto"
+   ],
+   "meaning": "flor"
+  },
+  {
+   "name": "Fortunato",
+   "tags": [
+    "m",
+    "word",
+    "virtue"
+   ],
+   "relatesTo": [
+    "fortunato"
+   ],
+   "meaning": "afortunado"
+  },
+  {
+   "name": "Inocêncio",
+   "tags": [
+    "m",
+    "word",
+    "virtue",
+    "accent"
+   ],
+   "relatesTo": [
+    "inocencia"
+   ],
+   "meaning": "sem culpa"
+  },
+  {
+   "name": "Prudente",
+   "tags": [
+    "m",
+    "word",
+    "virtue"
+   ],
+   "relatesTo": [
+    "prudente"
+   ],
+   "meaning": "cauteloso"
+  },
+  {
+   "name": "Morena",
+   "tags": [
+    "f",
+    "word",
+    "color",
+    "service-like"
+   ],
+   "relatesTo": [
+    "morena"
+   ],
+   "meaning": "de pele ou cabelo escuro; \"morena iluminada\" é serviço de cabelo"
+  },
+  {
+   "name": "Diamantina",
+   "tags": [
+    "f",
+    "word",
+    "gem",
+    "service-like"
+   ],
+   "relatesTo": [
+    "diamante"
+   ],
+   "meaning": "como diamante; \"peeling de diamante\" é serviço de estética"
+  },
+  {
+   "name": "Sétimo",
+   "tags": [
+    "m",
+    "word",
+    "number-like",
+    "accent"
+   ],
+   "relatesTo": [
+    "setimo"
+   ],
+   "meaning": "ordinal de sete"
+  },
+  {
+   "name": "Modesta",
+   "tags": [
+    "f",
+    "word",
+    "virtue",
+    "service-like"
+   ],
+   "relatesTo": [
+    "modeladora"
+   ],
+   "meaning": "sem vaidade; \"massagem modeladora\" é serviço de estética"
+  }
+ ],
+ "nicknames": [
+  {
+   "nickname": "Nice",
+   "formal": [
+    "Berenice"
+   ],
+   "tags": [
+    "f",
+    "nickname",
+    "truncation"
+   ]
+  },
+  {
+   "nickname": "Nica",
+   "formal": [
+    "Verônica"
+   ],
+   "tags": [
+    "f",
+    "nickname",
+    "truncation"
+   ]
+  },
+  {
+   "nickname": "Gina",
+   "formal": [
+    "Virgínia"
+   ],
+   "tags": [
+    "f",
+    "nickname",
+    "truncation"
+   ]
+  },
+  {
+   "nickname": "Fred",
+   "formal": [
+    "Alfredo"
+   ],
+   "tags": [
+    "m",
+    "nickname",
+    "truncation"
+   ]
+  },
+  {
+   "nickname": "Dino",
+   "formal": [
+    "Bernardino"
+   ],
+   "tags": [
+    "m",
+    "nickname",
+    "truncation"
+   ]
+  },
+  {
+   "nickname": "Dodô",
+   "formal": [
+    "Rodolfo"
+   ],
+   "tags": [
+    "m",
+    "nickname",
+    "reduplication",
+    "accent"
+   ]
+  },
+  {
+   "nickname": "Tatá",
+   "formal": [
+    "Thaís",
+    "Tábata",
+    "Tainá"
+   ],
+   "tags": [
+    "f",
+    "nickname",
+    "reduplication",
+    "ambiguous",
+    "accent"
+   ]
+  },
+  {
+   "nickname": "Jojo",
+   "formal": [
+    "Jordana"
+   ],
+   "tags": [
+    "f",
+    "nickname",
+    "reduplication"
+   ]
+  },
+  {
+   "nickname": "Clari",
+   "formal": [
+    "Clarissa"
+   ],
+   "tags": [
+    "f",
+    "nickname",
+    "truncation"
+   ]
+  },
+  {
+   "nickname": "Lila",
+   "formal": [
+    "Dalila",
+    "Lavínia"
+   ],
+   "tags": [
+    "f",
+    "nickname",
+    "truncation",
+    "ambiguous"
+   ]
+  },
+  {
+   "nickname": "Bibi",
+   "formal": [
+    "Fabíola"
+   ],
+   "tags": [
+    "f",
+    "nickname",
+    "reduplication"
+   ]
+  },
+  {
+   "nickname": "Mimi",
+   "formal": [
+    "Emília",
+    "Noêmia"
+   ],
+   "tags": [
+    "f",
+    "nickname",
+    "reduplication",
+    "ambiguous"
+   ]
+  },
+  {
+   "nickname": "Tobi",
+   "formal": [
+    "Tobias"
+   ],
+   "tags": [
+    "m",
+    "nickname",
+    "truncation"
+   ]
+  },
+  {
+   "nickname": "Tim",
+   "formal": [
+    "Valentim"
+   ],
+   "tags": [
+    "m",
+    "nickname",
+    "truncation"
+   ]
+  },
+  {
+   "nickname": "Nonô",
+   "formal": [
+    "Honório",
+    "Onofre"
+   ],
+   "tags": [
+    "m",
+    "nickname",
+    "reduplication",
+    "ambiguous",
+    "accent"
+   ]
+  },
+  {
+   "nickname": "Zezé",
+   "formal": [
+    "José Augusto",
+    "José Eduardo",
+    "Josemar"
+   ],
+   "tags": [
+    "m",
+    "nickname",
+    "reduplication",
+    "ambiguous",
+    "accent"
+   ]
+  },
+  {
+   "nickname": "Lena",
+   "formal": [
+    "Maria Madalena",
+    "Marilene"
+   ],
+   "tags": [
+    "f",
+    "nickname",
+    "truncation",
+    "ambiguous"
+   ]
+  },
+  {
+   "nickname": "Tina",
+   "formal": [
+    "Maria Valentina",
+    "Sofia Valentina"
+   ],
+   "tags": [
+    "f",
+    "nickname",
+    "truncation",
+    "ambiguous"
+   ]
+  },
+  {
+   "nickname": "Bebel",
+   "formal": [
+    "Isabel Cristina",
+    "Maria Isabel"
+   ],
+   "tags": [
+    "f",
+    "nickname",
+    "hypocoristic",
+    "ambiguous"
+   ]
+  },
+  {
+   "nickname": "Davizinho",
+   "formal": [
+    "Davi Miguel"
+   ],
+   "tags": [
+    "m",
+    "nickname",
+    "diminutive"
+   ]
+  },
+  {
+   "nickname": "Tutu",
+   "formal": [
+    "Arthur Gabriel",
+    "José Arthur"
+   ],
+   "tags": [
+    "m",
+    "nickname",
+    "reduplication",
+    "ambiguous"
+   ]
+  },
+  {
+   "nickname": "Helô",
+   "formal": [
+    "Maria Heloísa",
+    "Eloísa"
+   ],
+   "tags": [
+    "f",
+    "nickname",
+    "truncation",
+    "ambiguous",
+    "accent"
+   ]
+  },
+  {
+   "nickname": "Lalá",
+   "formal": [
+    "Maria Laura",
+    "Laura Beatriz",
+    "Laís"
+   ],
+   "tags": [
+    "f",
+    "nickname",
+    "reduplication",
+    "ambiguous",
+    "accent"
+   ]
+  },
+  {
+   "nickname": "Livinha",
+   "formal": [
+    "Maria Lívia",
+    "Lívia Maria"
+   ],
+   "tags": [
+    "f",
+    "nickname",
+    "diminutive",
+    "ambiguous"
+   ]
+  },
+  {
+   "nickname": "Soninha",
+   "formal": [
+    "Sônia Maria"
+   ],
+   "tags": [
+    "f",
+    "nickname",
+    "diminutive"
+   ]
+  },
+  {
+   "nickname": "Oli",
+   "formal": [
+    "Maria Olívia"
+   ],
+   "tags": [
+    "f",
+    "nickname",
+    "truncation"
+   ]
+  },
+  {
+   "nickname": "Chicão",
+   "formal": [
+    "Francisco José"
+   ],
+   "tags": [
+    "m",
+    "nickname",
+    "hypocoristic",
+    "accent"
+   ]
+  },
+  {
+   "nickname": "Mique",
+   "formal": [
+    "Micael",
+    "Miguel Ângelo",
+    "José Miguel"
+   ],
+   "tags": [
+    "m",
+    "nickname",
+    "truncation",
+    "ambiguous"
+   ]
+  },
+  {
+   "nickname": "Gegê",
+   "formal": [
+    "Ângela",
+    "Eugênia"
+   ],
+   "tags": [
+    "f",
+    "nickname",
+    "reduplication",
+    "ambiguous",
+    "accent"
+   ]
+  },
+  {
+   "nickname": "Lelo",
+   "formal": [
+    "Leopoldo",
+    "Heleno"
+   ],
+   "tags": [
+    "m",
+    "nickname",
+    "hypocoristic",
+    "ambiguous"
+   ]
+  },
+  {
+   "nickname": "Dite",
+   "formal": [
+    "Judite",
+    "Edite"
+   ],
+   "tags": [
+    "f",
+    "nickname",
+    "truncation",
+    "ambiguous"
+   ]
+  }
+ ],
+ "surnames": [
+  {
+   "name": "Abreu",
+   "tags": []
+  },
+  {
+   "name": "Albuquerque",
+   "tags": []
+  },
+  {
+   "name": "Alencar",
+   "tags": []
+  },
+  {
+   "name": "Amorim",
+   "tags": []
+  },
+  {
+   "name": "Antunes",
+   "tags": []
+  },
+  {
+   "name": "Aragão",
+   "tags": [
+    "accent"
+   ]
+  },
+  {
+   "name": "Arruda",
+   "tags": []
+  },
+  {
+   "name": "Assis",
+   "tags": []
+  },
+  {
+   "name": "Ávila",
+   "tags": [
+    "accent"
+   ]
+  },
+  {
+   "name": "Barreto",
+   "tags": []
+  },
+  {
+   "name": "Benites",
+   "tags": []
+  },
+  {
+   "name": "Bernardes",
+   "tags": []
+  },
+  {
+   "name": "Bragança",
+   "tags": [
+    "accent"
+   ]
+  },
+  {
+   "name": "Brum",
+   "tags": []
+  },
+  {
+   "name": "Bueno",
+   "tags": []
+  },
+  {
+   "name": "Caldeira",
+   "tags": [
+    "word"
+   ]
+  },
+  {
+   "name": "Calixto",
+   "tags": []
+  },
+  {
+   "name": "Camargo",
+   "tags": []
+  },
+  {
+   "name": "Câmara",
+   "tags": [
+    "word",
+    "accent"
+   ]
+  },
+  {
+   "name": "Campelo",
+   "tags": []
+  },
+  {
+   "name": "Carrara",
+   "tags": [
+    "italian"
+   ]
+  },
+  {
+   "name": "Caruso",
+   "tags": [
+    "italian"
+   ]
+  },
+  {
+   "name": "Casagrande",
+   "tags": [
+    "italian"
+   ]
+  },
+  {
+   "name": "Castilho",
+   "tags": []
+  },
+  {
+   "name": "Cerqueira",
+   "tags": []
+  },
+  {
+   "name": "Coutinho",
+   "tags": []
+  },
+  {
+   "name": "Dantas",
+   "tags": []
+  },
+  {
+   "name": "Diniz",
+   "tags": []
+  },
+  {
+   "name": "Drummond",
+   "tags": []
+  },
+  {
+   "name": "Dutra",
+   "tags": []
+  },
+  {
+   "name": "Esteves",
+   "tags": []
+  },
+  {
+   "name": "Falcão",
+   "tags": [
+    "word",
+    "accent"
+   ]
+  },
+  {
+   "name": "Feitosa",
+   "tags": []
+  },
+  {
+   "name": "Ferraz",
+   "tags": []
+  },
+  {
+   "name": "Fialho",
+   "tags": []
+  },
+  {
+   "name": "Frota",
+   "tags": [
+    "word"
+   ]
+  },
+  {
+   "name": "Furtado",
+   "tags": [
+    "word"
+   ]
+  },
+  {
+   "name": "Galvão",
+   "tags": [
+    "accent"
+   ]
+  },
+  {
+   "name": "Garcia",
+   "tags": []
+  },
+  {
+   "name": "Godói",
+   "tags": [
+    "accent"
+   ]
+  },
+  {
+   "name": "Goulart",
+   "tags": []
+  },
+  {
+   "name": "Guedes",
+   "tags": []
+  },
+  {
+   "name": "Holanda",
+   "tags": []
+  },
+  {
+   "name": "Honorato",
+   "tags": []
+  },
+  {
+   "name": "Jardim",
+   "tags": [
+    "word"
+   ]
+  },
+  {
+   "name": "Jucá",
+   "tags": [
+    "accent"
+   ]
+  },
+  {
+   "name": "Lage",
+   "tags": []
+  },
+  {
+   "name": "Leme",
+   "tags": [
+    "word"
+   ]
+  },
+  {
+   "name": "Loureiro",
+   "tags": []
+  },
+  {
+   "name": "Lucena",
+   "tags": []
+  },
+  {
+   "name": "Lustosa",
+   "tags": []
+  },
+  {
+   "name": "Madeira",
+   "tags": [
+    "word"
+   ]
+  },
+  {
+   "name": "Magno",
+   "tags": []
+  },
+  {
+   "name": "Malta",
+   "tags": []
+  },
+  {
+   "name": "Meireles",
+   "tags": []
+  },
+  {
+   "name": "Menezes",
+   "tags": []
+  },
+  {
+   "name": "Mesquita",
+   "tags": []
+  },
+  {
+   "name": "Muniz",
+   "tags": []
+  },
+  {
+   "name": "Nóbrega",
+   "tags": [
+    "accent"
+   ]
+  },
+  {
+   "name": "Novaes",
+   "tags": []
+  },
+  {
+   "name": "Otero",
+   "tags": [
+    "spanish"
+   ]
+  },
+  {
+   "name": "Pádua",
+   "tags": [
+    "accent"
+   ]
+  },
+  {
+   "name": "Paiva",
+   "tags": []
+  },
+  {
+   "name": "Pimentel",
+   "tags": []
+  },
+  {
+   "name": "Portela",
+   "tags": []
+  },
+  {
+   "name": "Porto",
+   "tags": [
+    "word"
+   ]
+  },
+  {
+   "name": "Rangel",
+   "tags": []
+  },
+  {
+   "name": "Rebouças",
+   "tags": [
+    "accent"
+   ]
+  },
+  {
+   "name": "Reis",
+   "tags": [
+    "word"
+   ]
+  },
+  {
+   "name": "Rios",
+   "tags": [
+    "word"
+   ]
+  },
+  {
+   "name": "Rolim",
+   "tags": []
+  },
+  {
+   "name": "Sabino",
+   "tags": []
+  },
+  {
+   "name": "Saldanha",
+   "tags": []
+  },
+  {
+   "name": "Seixas",
+   "tags": []
+  },
+  {
+   "name": "Serafim",
+   "tags": []
+  },
+  {
+   "name": "Simões",
+   "tags": [
+    "accent"
+   ]
+  },
+  {
+   "name": "Tabosa",
+   "tags": []
+  },
+  {
+   "name": "Toledo",
+   "tags": [
+    "spanish"
+   ]
+  },
+  {
+   "name": "Torres",
+   "tags": [
+    "word"
+   ]
+  },
+  {
+   "name": "Trindade",
+   "tags": [
+    "word"
+   ]
+  },
+  {
+   "name": "Uchoa",
+   "tags": []
+  },
+  {
+   "name": "Valadares",
+   "tags": []
+  },
+  {
+   "name": "Valente",
+   "tags": [
+    "word"
+   ]
+  },
+  {
+   "name": "Varela",
+   "tags": []
+  },
+  {
+   "name": "Vasconcelos",
+   "tags": []
+  },
+  {
+   "name": "Veloso",
+   "tags": []
+  },
+  {
+   "name": "Ventura",
+   "tags": [
+    "word"
+   ]
+  },
+  {
+   "name": "Vidal",
+   "tags": []
+  },
+  {
+   "name": "Vilela",
+   "tags": []
+  },
+  {
+   "name": "Werneck",
+   "tags": [
+    "german"
+   ]
+  },
+  {
+   "name": "Zanetti",
+   "tags": [
+    "italian"
+   ]
+  },
+  {
+   "name": "Yoshida",
+   "tags": [
+    "japanese"
+   ]
+  },
+  {
+   "name": "Hayashi",
+   "tags": [
+    "japanese"
+   ]
+  },
+  {
+   "name": "Morita",
+   "tags": [
+    "japanese"
+   ]
+  },
+  {
+   "name": "Kimura",
+   "tags": [
+    "japanese"
+   ]
+  },
+  {
+   "name": "Moretti",
+   "tags": [
+    "italian"
+   ]
+  },
+  {
+   "name": "Greco",
+   "tags": [
+    "italian"
+   ]
+  },
+  {
+   "name": "Esposito",
+   "tags": [
+    "italian"
+   ]
+  },
+  {
+   "name": "Hoffmann",
+   "tags": [
+    "german"
+   ]
+  },
+  {
+   "name": "Zimmermann",
+   "tags": [
+    "german"
+   ]
+  },
+  {
+   "name": "Fischer",
+   "tags": [
+    "german"
+   ]
+  },
+  {
+   "name": "Krüger",
+   "tags": [
+    "german",
+    "accent"
+   ]
+  },
+  {
+   "name": "Jabour",
+   "tags": [
+    "arabic"
+   ]
+  },
+  {
+   "name": "Khoury",
+   "tags": [
+    "arabic"
+   ]
+  },
+  {
+   "name": "Saad",
+   "tags": [
+    "arabic"
+   ]
+  },
+  {
+   "name": "Novak",
+   "tags": [
+    "slavic"
+   ]
+  },
+  {
+   "name": "Park",
+   "tags": [
+    "korean"
+   ]
+  },
+  {
+   "name": "Chen",
+   "tags": [
+    "chinese"
+   ]
+  },
+  {
+   "name": "Wang",
+   "tags": [
+    "chinese"
+   ]
+  },
+  {
+   "name": "Ramírez",
+   "tags": [
+    "spanish",
+    "accent"
+   ]
+  },
+  {
+   "name": "Sánchez",
+   "tags": [
+    "spanish",
+    "accent"
+   ]
+  },
+  {
+   "name": "Vargas",
+   "tags": [
+    "spanish"
+   ]
+  },
+  {
+   "name": "Quintana",
+   "tags": [
+    "near-temporal"
+   ],
+   "relatesTo": [
+    "quinta"
+   ]
+  },
+  {
+   "name": "Linhares",
+   "tags": [
+    "service-like"
+   ],
+   "relatesTo": [
+    "linha"
+   ]
+  }
+ ]
+}

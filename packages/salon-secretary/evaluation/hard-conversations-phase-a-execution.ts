@@ -25,6 +25,7 @@ import { DurableJournal, RESUME_SCOPE, FINAL_CONTINUATION_SCOPE, FINAL_CONTINUAT
   resumeCursor, checkpoint } from "./hard-conversations-durable";
 import { captureResumeState, resumeHealth, resumePreflight, verifyResumePlan, RESUME_JOURNAL } from "./hard-conversations-phase-a-resume";
 import { assertFinalCaseState, finalPreflight, verifyFinalPlan, FINAL_JOURNAL } from "./hard-conversations-phase-a-final";
+import { refuseUnwiredPaidPath } from "./program-spend";
 
 const PROJECT_ROOT = process.cwd();
 const BASE_TIME = "2026-10-05T12:00:00.000Z";
@@ -57,7 +58,10 @@ function knownPreNetworkFailure(error: unknown) {
   return null;
 }
 
+/** Every historical paid runner enables paid calls right before this clock (t21, topic14 and x94 are frozen files):
+ * with paid calls on it refuses, since none of them is admitted by the program real-spend ledger. */
 export async function withPhaseAClock<T>(task: () => Promise<T>): Promise<T> {
+  if (process.env.SALON_SECRETARY_ALLOW_PAID_CALLS === "true") refuseUnwiredPaidPath();
   const original = globalThis.Date, fixedMs = Date.parse(BASE_TIME);
   const controlled = new Proxy(original, {
     construct(target, args, newTarget) { return Reflect.construct(target, args.length ? args : [fixedMs], newTarget); },
@@ -151,6 +155,7 @@ export async function executePhaseA(admin: PrismaClient, runtime: PrismaClient,
     process.env.PHASE_A_REVALIDATE_I12_APPROVED !== "true")) stop("RESUME_NOT_APPROVED");
   if (scope === FINAL_CONTINUATION_SCOPE && process.env.PHASE_A_FINAL_CONTINUATION_APPROVED !== "true")
     stop("FINAL_CONTINUATION_NOT_APPROVED");
+  refuseUnwiredPaidPath(); // not admitted by the program real-spend ledger
   let durable: DurableJournal | null = null;
   let resume: Awaited<ReturnType<typeof resumePreflight>> | null = null;
   let final: Awaited<ReturnType<typeof finalPreflight>> | null = null;

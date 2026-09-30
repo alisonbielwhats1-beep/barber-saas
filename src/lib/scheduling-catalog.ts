@@ -1,14 +1,19 @@
 import { z } from "zod";
+import { FOLD_FROM, FOLD_TO, foldName, foldedIds, foldedLikePattern, withoutArticle, withoutHonorific } from "./name-search";
+import { formatClock } from "./secretary-datetime-format";
 import { performance } from "node:perf_hooks";
 import type { Tx } from "./prisma-tenant";
 import type { ServiceActor } from "./service-catalog";
 import { assertCustomerAccess, getCustomer } from "./customer-catalog";
 import { loadVisitDay, findVisitPlan, visitQuote } from "./visit-scheduling";
-import { endExclusiveOfDateInTimeZone, isDateKey, localDateTimeToUtc, startOfDateInTimeZone, toLocalDateTime } from "./time";
+import { addCalendarDays, dateKeyInTimeZone, endExclusiveOfDateInTimeZone, isDateKey, localDateTimeToUtc, startOfDateInTimeZone, toLocalDateTime, wallClockMinutesInTimeZone, weekdayOfDateKey } from "./time";
+import { subtractIntervals } from "./intervals";
+import { multiServiceEnabled } from "../../packages/salon-secretary/src/multi-service";
 import { assertSchedulingTemporalConsistency, matchesSchedulingPeriod } from "./scheduling-temporal";
 import { inspectAppointmentAvailability } from "./appointment-service";
 import { canOverbookRole, canOverrideSlot, validOverbookReason } from "./appointment-overlap-policy";
 import { schedulingOverlapEnabled, schedulingReviewSchema, type SchedulingReview } from "./scheduling-conflict-contract";
+import { isFirstPersonReference } from "./secretary-first-person";
 
 export const assertSchedulingAccess = assertCustomerAccess;
 export type SchedulingMetrics = Partial<Record<"interpretation"|"parsing"|"appointments"|"customers"|"services"|"professional"|"availability"|"proposal"|"message"|"confirmation",number>>;
@@ -20,9 +25,23 @@ const ref=z.string().min(1).max(100);
 /** T03: shared real catalog, explicit minimal projection; no service mutation permission implied. */
 export async function listSchedulingServices(tx: Tx, actor: ServiceActor, input: unknown) {
   await assertSchedulingAccess(tx,actor);const q=query.parse(input);
-  return tx.service.findMany({where:{salonId:actor.salonId,active:true,name:{contains:q,mode:"insensitive"}},
-    select:{id:true,name:true,durationMin:true,priceCents:true,priceType:true},orderBy:[{name:"asc"},{id:"asc"}],take:21});
+  // Case- and accent-insensitive ("coloracao" finds "Coloração"); ambiguity still asks.
+  const folded=foldedIds(await tx.$queryRaw`SELECT id FROM "Service" WHERE "salonId"=${actor.salonId} AND active AND lower(translate(name, ${FOLD_FROM}, ${FOLD_TO})) LIKE lower(translate(${foldedLikePattern(q)}, ${FOLD_FROM}, ${FOLD_TO})) ESCAPE '\\' ORDER BY name, id LIMIT 21`);
+  const rows=await tx.service.findMany({where:{salonId:actor.salonId,active:true,...(folded.length?{OR:[{name:{contains:q,mode:"insensitive"}},{id:{in:folded}}]}:{name:{contains:q,mode:"insensitive"}})},
+    select:serviceSelect,orderBy:[{name:"asc"},{id:"asc"}],take:21});
+  if(rows.length||!multiServiceEnabled())return rows;
+  // C4 (flag SALON_SECRETARY_MULTI_SERVICE): nothing holds the words as said: the services whose name is the same word for word
+  // apart from "de" and its contractions (every such service; several still ask).
+  const key=serviceNameKey(q);
+  return key?(await tx.service.findMany({where:{salonId:actor.salonId,active:true},select:serviceSelect,orderBy:[{name:"asc"},{id:"asc"}],take:1000})).filter(row=>serviceNameKey(row.name)===key).slice(0,21):[];
 }
+const serviceSelect={id:true,name:true,durationMin:true,priceCents:true,priceType:true} as const;
+/** C4: a service name compared word by word, in order (case, accents and punctuation aside; a leading article is not part of
+ * it), without the connective "de" and its contractions "da", "do", "das", "dos" ("manutenção da fibra" is "Manutenção de
+ * fibra", "coloração de raiz" is "Coloração raiz"). No other word is dropped or equated ("e" included: "corte barba" is never
+ * "Corte e barba", "design e henna" is never "Design com henna"). */
+const DE_WORDS=new Set(["de","da","do","das","dos"]);
+export const serviceNameKey=(name:string)=>foldName(withoutArticle(name.trim())).split(/[^\p{L}\p{N}]+/u).filter(word=>word&&!DE_WORDS.has(word)).join(" ");
 /** Names only (no ids, prices or customers), bounded, for Luna's role disambiguation. */
 export async function secretaryDirectory(tx: Tx, actor: ServiceActor) {
   await assertSchedulingAccess(tx,actor);
@@ -35,17 +54,42 @@ export async function secretaryDirectory(tx: Tx, actor: ServiceActor) {
   const weekday=now.toLocaleDateString("pt-BR",{timeZone:timezone,weekday:"long"});
   return {professionals:[...new Set(professionals.map(p=>p.user.name).filter((n):n is string=>!!n))],services:[...new Set(services.map(s=>s.name))],today:{date,weekday,timezone}};
 }
-/** T04: all returned options are active, linked and tenant scoped. No automatic arbitrary assignment. */
+/** T04: all returned options are active, linked and tenant scoped. No automatic arbitrary assignment.
+ * C7: a leading article is not part of the name; an honorific is dropped only when nothing matches with it. */
 export async function listSchedulingProfessionals(tx: Tx, actor: ServiceActor, input: unknown) {
   await assertSchedulingAccess(tx,actor);
-  const p=z.object({service_ref:ref.optional(),query:query.optional()}).strict().parse(input);
+  // P2a: `service_refs`: only professionals linked to EVERY one of these active services (an altered appointment's new list).
+  const p=z.object({service_ref:ref.optional(),service_refs:z.array(ref).min(1).max(10).optional(),query:query.optional()}).strict().parse(input);
+  // E2 (V2): the owner's first person is their own active registration in THIS salon, or nobody: never a name search.
+  if(p.query!==undefined&&isFirstPersonReference(p.query))return selfProfessional(tx,actor,p.service_ref,p.service_refs);
+  const named=p.query?withoutArticle(p.query):undefined,rows=await professionalRows(tx,actor,p.service_ref,named,p.service_refs),bare=named&&!rows.length?withoutHonorific(named):undefined;
+  return bare?professionalRows(tx,actor,p.service_ref,bare,p.service_refs):rows;
+}
+/** E2 (V2): the actor's own active registration here (for listing it first in a card; never a choice by itself). */
+export async function schedulingSelfProfessional(tx: Tx, actor: ServiceActor) {
+  await assertSchedulingAccess(tx,actor);return (await selfProfessional(tx,actor))[0];
+}
+/** E2: the actor's own active Professional row in the actor's salon (userId is unique), with the same service filters. */
+async function selfProfessional(tx: Tx, actor: ServiceActor, serviceRef?: string, serviceRefs?: readonly string[]) {
+  const row=await tx.professional.findFirst({where:{salonId:actor.salonId,userId:actor.userId,active:true,
+    ...(serviceRef?{services:{some:{serviceId:serviceRef,service:{salonId:actor.salonId,active:true}}}}:{}),
+    ...(serviceRefs?.length?{AND:serviceRefs.map(serviceId=>({services:{some:{serviceId,service:{salonId:actor.salonId,active:true}}}}))}:{})},
+    select:{id:true,user:{select:{name:true}}}});
+  return row?[{id:row.id,name:row.user.name}]:[];
+}
+async function professionalRows(tx: Tx, actor: ServiceActor, serviceRef: string|undefined, name: string|undefined, serviceRefs?: readonly string[]) {
+  const p={service_ref:serviceRef,query:name};
   // Sentence punctuation can be retained in a name extracted from a transcript.
   // Keep internal name characters; return all matches so ambiguity still requires selection.
   const professionalQuery=p.query?.replace(/[.!?]+$/u, "").trim();
   if(p.query&&(!professionalQuery||professionalQuery.length<2))return [];
+  // Case- and accent-insensitive ("fabio" finds "Fábio"); ambiguity still returns every match.
+  const folded=professionalQuery?foldedIds(await tx.$queryRaw`SELECT p.id FROM "Professional" p JOIN "User" u ON u.id=p."userId" WHERE p."salonId"=${actor.salonId} AND p.active AND lower(translate(u.name, ${FOLD_FROM}, ${FOLD_TO})) LIKE lower(translate(${foldedLikePattern(professionalQuery)}, ${FOLD_FROM}, ${FOLD_TO})) ESCAPE '\\' ORDER BY p.id LIMIT 21`):[];
+  const byName=professionalQuery?{user:{name:{contains:professionalQuery,mode:"insensitive" as const}}}:undefined;
   const rows=await tx.professional.findMany({where:{salonId:actor.salonId,active:true,
     ...(p.service_ref?{services:{some:{serviceId:p.service_ref,service:{salonId:actor.salonId,active:true}}}}:{}),
-    ...(professionalQuery?{user:{name:{contains:professionalQuery,mode:"insensitive" as const}}}:{})},
+    ...(serviceRefs?.length?{AND:serviceRefs.map(serviceId=>({services:{some:{serviceId,service:{salonId:actor.salonId,active:true}}}}))}:{}),
+    ...(byName?folded.length?{OR:[byName,{id:{in:folded}}]}:byName:{})},
     select:{id:true,user:{select:{name:true}}},orderBy:{id:"asc"},take:21});
   return rows.map(r=>({id:r.id,name:r.user.name}));
 }
@@ -53,30 +97,41 @@ export async function schedulingTimezone(tx: Tx,actor: ServiceActor) {
   await assertSchedulingAccess(tx,actor);
   return (await tx.salon.findUniqueOrThrow({where:{id:actor.salonId},select:{timezone:true}})).timezone;
 }
-export const slotInput=z.object({service_ref:ref,professional_ref:ref,date:z.string().refine(isDateKey),time:z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/).optional(),period:z.enum(["morning","afternoon","evening"]).optional(),override_requested:z.boolean().optional(),override_reason:z.string().max(200).optional()}).strict();
-/** T07: same visit engine as the application. One day, one chosen professional, bounded alternatives. */
-export async function getSchedulingAvailability(tx: Tx,actor: ServiceActor,input: unknown,now=new Date(),projection?: {releasedAppointmentId:string}) {
+export const slotInput=z.object({service_ref:ref,service_refs:z.array(ref).min(2).max(10).optional(),professional_ref:ref,date:z.string().refine(isDateKey),time:z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/).optional(),period:z.enum(["morning","afternoon","evening"]).optional(),override_requested:z.boolean().optional(),override_reason:z.string().max(200).optional()}).strict();
+/** T07: same visit engine as the application. One day, one chosen professional, bounded alternatives.
+ * `excluded` (C4): local clocks ("HH:mm") the owner excluded; never offered as an alternative.
+ * `service_refs` (P2b, flag SALON_SECRETARY_MULTI_SERVICE): every service of ONE appointment, in order (its first is
+ * service_ref, no repeats): the chosen professional must perform all of them and the domain plans them back to back with that
+ * professional (the summed duration the visit engine computes; one appointment when created).
+ * `limit` (P3b, flag SALON_SECRETARY_READS_V2, availability reads only): how many alternatives to look for (one more than are
+ * shown tells the read that more free times exist); every other caller keeps the historical 5. */
+export async function getSchedulingAvailability(tx: Tx,actor: ServiceActor,input: unknown,now=new Date(),projection?: {releasedAppointmentId:string},excluded?: ReadonlySet<string>,limit=5) {
   await assertSchedulingAccess(tx,actor);const p=slotInput.parse(input);
   assertSchedulingTemporalConsistency(p);
-  const eligible=await tx.professional.findFirst({where:{id:p.professional_ref,salonId:actor.salonId,active:true,services:{some:{serviceId:p.service_ref,service:{salonId:actor.salonId,active:true}}}},select:{id:true}});
+  const ids=p.service_refs??[p.service_ref];
+  if(p.service_refs&&(p.service_refs[0]!==p.service_ref||new Set(p.service_refs).size!==p.service_refs.length))throw Error("SERVICE_INVALID");
+  const eligible=await tx.professional.findFirst({where:{id:p.professional_ref,salonId:actor.salonId,active:true,...(p.service_refs?{AND:ids.map(serviceId=>({services:{some:{serviceId,service:{salonId:actor.salonId,active:true}}}}))}:
+    {services:{some:{serviceId:p.service_ref,service:{salonId:actor.salonId,active:true}}}})},select:{id:true}});
   if(!eligible)throw new Error("PRO_SERVICE_MISMATCH");
-  const service=await tx.service.findFirstOrThrow({where:{id:p.service_ref,salonId:actor.salonId,active:true},select:{physicalResourceId:true}});
-  if(service.physicalResourceId&&!await tx.physicalResource.findFirst({where:{id:service.physicalResourceId,salonId:actor.salonId,active:true},select:{id:true}}))throw Error("RESOURCE_UNAVAILABLE");
-  const choices=[{serviceId:p.service_ref,professionalId:p.professional_ref}];
+  for(const id of ids){
+    const service=await tx.service.findFirstOrThrow({where:{id,salonId:actor.salonId,active:true},select:{physicalResourceId:true}});
+    if(service.physicalResourceId&&!await tx.physicalResource.findFirst({where:{id:service.physicalResourceId,salonId:actor.salonId,active:true},select:{id:true}}))throw Error("RESOURCE_UNAVAILABLE");
+  }
+  const choices=ids.map(serviceId=>({serviceId,professionalId:p.professional_ref}));
   const day=await loadVisitDay(tx,actor.salonId,p.date,choices,now,projection);
   const at=(minute:number)=>`${p.date}T${String(Math.floor(minute/60)).padStart(2,"0")}:${String(minute%60).padStart(2,"0")}`;
   const planAt=(minute:number)=>localDateTimeToUtc(at(minute),day.salon.timezone)>now ? findVisitPlan(day,choices,minute,{manual:true}):null;
   const requested=p.time?Number(p.time.slice(0,2))*60+Number(p.time.slice(3)):undefined;
   let plan=requested!==undefined?planAt(requested):null;
   const alternatives=[];
-  for(let minute=0;minute<1440 && alternatives.length<5;minute+=15){
+  for(let minute=0;minute<1440 && alternatives.length<limit;minute+=15){
     if(requested!==undefined && minute<=requested)continue;
-    if(!matchesSchedulingPeriod(at(minute).slice(11),p.period))continue;
+    if(!matchesSchedulingPeriod(at(minute).slice(11),p.period)||excluded?.has(at(minute).slice(11)))continue;
     const option=planAt(minute);if(option)alternatives.push({startLocal:option.startLocal,endLocal:option.endLocal,professional_ref:p.professional_ref});
   }
   let review: SchedulingReview | undefined;
   if (schedulingOverlapEnabled() && requested !== undefined) {
-    const inspected=await inspectAppointmentAvailability(tx,{salonId:actor.salonId,professionalId:p.professional_ref,serviceIds:[p.service_ref],
+    const inspected=await inspectAppointmentAvailability(tx,{salonId:actor.salonId,professionalId:p.professional_ref,serviceIds:ids,
       startLocal:at(requested),enforceBookingWindow:false,now,excludeAppointmentId:projection?.releasedAppointmentId});
     const membership=await tx.membership.findFirstOrThrow({where:{salonId:actor.salonId,userId:actor.userId},select:{role:true}});
     const future=inspected.startAt>now;
@@ -94,7 +149,7 @@ export async function getSchedulingAvailability(tx: Tx,actor: ServiceActor,input
     if (allowed && p.override_requested && validOverbookReason(p.override_reason))
       plan=findVisitPlan(day,choices,requested,{manual:true,allowAppointmentOverlap:true});
     if(status==="CONFLICT_HARD_BLOCK" || missing.length)plan=null;
-    const clock=(local:string)=>local.slice(11,16).replace(":00","h").replace(":","h");
+    const clock=(local:string)=>formatClock(local.slice(11,16));
     const options=alternatives.length?`Tenho ${alternatives.map(a=>clock(a.startLocal)).join(", ")}. Qual horário você prefere?`:"Não encontrei outra opção nesta data. Qual outra data ou horário você prefere consultar?";
     // Explain the backend's own cause; only mention "encaixe" when it was requested.
     const blockCause=causes.includes("SALON_CLOSED")?" O salão está fechado nesse horário.":causes.includes("PAST_START")?" Esse horário já passou.":
@@ -119,19 +174,88 @@ async function listAppointments(tx:Tx,actor:ServiceActor,where: Parameters<Tx["a
     professional_name:r.professional.user.name,service_ref:r.serviceId,services:r.serviceItems,start_at:r.startAt.toISOString(),end_at:r.endAt.toISOString(),start_local:toLocalDateTime(r.startAt,r.timezone),end_local:toLocalDateTime(r.endAt,r.timezone),
     status:r.status,revision:r.version,timezone:r.timezone,priceCents:r.priceCents}));
 }
-/** T05: bounded day query. No raw ClientProfile/User or financial data. */
-export async function listSchedulingAppointments(tx:Tx,actor:ServiceActor,input:unknown) {
-  const p=z.object({date:z.string().refine(isDateKey),customer_ref:ref.optional(),professional_ref:ref.optional(),service_ref:ref.optional()}).strict().parse(input);
+/** P3b (flag SALON_SECRETARY_READS_V2): `time`/`period`, the start filter of a day read, applied by the query itself (before its
+ * row limit). Without them the query is the historical one. */
+const dayInput=z.object({date:z.string().refine(isDateKey),customer_ref:ref.optional(),professional_ref:ref.optional(),service_ref:ref.optional(),
+  time:z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/).optional(),period:z.enum(["morning","afternoon","evening"]).optional()}).strict();
+/** The tenant-scoped where of a day read (its refs checked in the tenant first). A clock is that start minute; a period uses the
+ * boundaries of matchesSchedulingPeriod (morning < 12h <= afternoon < 18h <= evening), in the salon's timezone. */
+async function dayWhere(tx:Tx,actor:ServiceActor,input:unknown) {
+  const p=dayInput.parse(input);
   const timezone=await schedulingTimezone(tx,actor);
   if(p.customer_ref)await getCustomer(tx,actor,p.customer_ref);
   if(p.professional_ref && !await tx.professional.findFirst({where:{id:p.professional_ref,salonId:actor.salonId},select:{id:true}}))throw Error("PROFESSIONAL_NOT_FOUND");
   if(p.service_ref&&!await tx.service.findFirst({where:{id:p.service_ref,salonId:actor.salonId},select:{id:true}}))throw Error("SERVICE_NOT_FOUND");
-  return listAppointments(tx,actor,{where:{salonId:actor.salonId,startAt:{gte:startOfDateInTimeZone(p.date,timezone),lt:endExclusiveOfDateInTimeZone(p.date,timezone)},
-    ...(p.customer_ref?{clientId:p.customer_ref}:{}),...(p.professional_ref?{professionalId:p.professional_ref}:{}),...(p.service_ref?{OR:[{serviceId:p.service_ref},{serviceItems:{some:{serviceId:p.service_ref}}}]}:{})},orderBy:[{startAt:"asc"},{id:"asc"}],take:51});
+  const local=(clock:string)=>localDateTimeToUtc(`${p.date}T${clock}`,timezone);
+  const from=p.time?local(p.time):p.period==="afternoon"?local("12:00"):p.period==="evening"?local("18:00"):startOfDateInTimeZone(p.date,timezone);
+  const to=p.time?new Date(from.getTime()+60_000):p.period==="morning"?local("12:00"):p.period==="afternoon"?local("18:00"):endExclusiveOfDateInTimeZone(p.date,timezone);
+  return {salonId:actor.salonId,startAt:{gte:from,lt:to},
+    ...(p.customer_ref?{clientId:p.customer_ref}:{}),...(p.professional_ref?{professionalId:p.professional_ref}:{}),...(p.service_ref?{OR:[{serviceId:p.service_ref},{serviceItems:{some:{serviceId:p.service_ref}}}]}:{})};
+}
+/** T05: bounded day query. No raw ClientProfile/User or financial data. */
+export async function listSchedulingAppointments(tx:Tx,actor:ServiceActor,input:unknown) {
+  return listAppointments(tx,actor,{where:await dayWhere(tx,actor,input),orderBy:[{startAt:"asc"},{id:"asc"}],take:51});
+}
+/** P3b (flag SALON_SECRETARY_READS_V2): the same day query counted, never listed, when it holds more rows than a read shows: per
+ * professional (count, first and last start, in start order) and per period; cancellations are counted apart. Names only (no
+ * customer), tenant scoped, bounded (`more`: over 1000 rows). */
+export async function summarizeSchedulingAppointments(tx:Tx,actor:ServiceActor,input:unknown) {
+  const rows=await tx.appointment.findMany({where:await dayWhere(tx,actor,input),select:{startAt:true,timezone:true,status:true,professionalId:true,professional:{select:{user:{select:{name:true}}}}},
+    orderBy:[{startAt:"asc"},{id:"asc"}],take:1001});
+  const kept=rows.slice(0,1000),active=kept.filter(r=>r.status!=="CANCELLED"),periods={morning:0,afternoon:0,evening:0};
+  const professionals=new Map<string,{professional_ref:string;professional_name:string;count:number;first_local:string;last_local:string}>();
+  for(const r of active){
+    const local=toLocalDateTime(r.startAt,r.timezone),clock=local.slice(11);
+    periods[matchesSchedulingPeriod(clock,"morning")?"morning":matchesSchedulingPeriod(clock,"afternoon")?"afternoon":"evening"]++;
+    const row=professionals.get(r.professionalId);
+    if(row){row.count++;row.last_local=local;}else professionals.set(r.professionalId,{professional_ref:r.professionalId,professional_name:r.professional.user.name,count:1,first_local:local,last_local:local});
+  }
+  return {total:active.length,cancelled:kept.length-active.length,more:rows.length>1000,professionals:[...professionals.values()],periods};
 }
 /** T06: opaque reference only from an authorized backend/UI selection. */
 export async function getSchedulingAppointment(tx:Tx,actor:ServiceActor,input:unknown) {
   await assertSchedulingAccess(tx,actor);const id=ref.parse(input);
   const [row]=await listAppointments(tx,actor,{where:{id,salonId:actor.salonId},take:1});
   if(!row)throw Error("APPOINTMENT_NOT_FOUND");return row;
+}
+/** C7: the customer's next future PENDING/CONFIRMED appointments (tenant scoped, bounded), or, with `overlapping`
+ * (UTC [start, end)), those whose time overlaps it. Shown beside a NEW booking; nothing here blocks or picks.
+ * P3b (flag SALON_SECRETARY_READS_V2): `professional_ref`/`service_ref`, the filters a read of that customer said (any service of
+ * the appointment, as the day read does); absent, the historical query. */
+export async function listUpcomingCustomerAppointments(tx:Tx,actor:ServiceActor,customerRef:string,options:{take?:number;overlapping?:{start:Date;end:Date};now?:Date;professional_ref?:string;service_ref?:string}={}) {
+  await assertSchedulingAccess(tx,actor);
+  const window=options.overlapping?{startAt:{gt:options.now??new Date(),lt:options.overlapping.end},endAt:{gt:options.overlapping.start}}:{startAt:{gt:options.now??new Date()}};
+  const service=options.service_ref?ref.parse(options.service_ref):undefined;
+  return listAppointments(tx,actor,{where:{salonId:actor.salonId,clientId:ref.parse(customerRef),status:{in:["PENDING","CONFIRMED"]},...window,
+    ...(options.professional_ref?{professionalId:ref.parse(options.professional_ref)}:{}),...(service?{OR:[{serviceId:service},{serviceItems:{some:{serviceId:service}}}]}:{})},orderBy:[{startAt:"asc"},{id:"asc"}],take:Math.min(options.take??3,20)});
+}
+/** Days ahead a professional's next working day is looked for. */
+export const PROFESSIONAL_DAY_HORIZON=31;
+/** C4 owner rule 6 (flag SALON_SECRETARY_READS_V2): the day a read of ONE professional with no day said is about. Today while that
+ * professional still has a PENDING/CONFIRMED appointment starting from now (with the read's service filter); otherwise the
+ * professional's next working day: their weekly hours or an extra opening that day, not wholly taken by a salon closure or by
+ * their own time off, within PROFESSIONAL_DAY_HORIZON days. Undefined (the day is asked) when the salon has no working hours
+ * configured or no such day exists. Read-only, tenant scoped, nothing picked for the owner. */
+export async function professionalReadDay(tx:Tx,actor:ServiceActor,input:{professional_ref:string;service_ref?:string},now=new Date()):Promise<{date:string;today:boolean}|undefined>{
+  await assertSchedulingAccess(tx,actor);
+  const professional=ref.parse(input.professional_ref),service=input.service_ref?ref.parse(input.service_ref):undefined,salonId=actor.salonId;
+  if(!await tx.professional.findFirst({where:{id:professional,salonId},select:{id:true}}))throw Error("PROFESSIONAL_NOT_FOUND");
+  const timezone=await schedulingTimezone(tx,actor),today=dateKeyInTimeZone(now,timezone);
+  const left=await tx.appointment.findFirst({where:{salonId,professionalId:professional,status:{in:["PENDING","CONFIRMED"]},startAt:{gte:now,lt:endExclusiveOfDateInTimeZone(today,timezone)},
+    ...(service?{OR:[{serviceId:service},{serviceItems:{some:{serviceId:service}}}]}:{})},select:{id:true}});
+  if(left)return {date:today,today:true};
+  if(!await tx.workingHours.findFirst({where:{salonId},select:{id:true}}))return;
+  const first=addCalendarDays(today,1),last=addCalendarDays(today,PROFESSIONAL_DAY_HORIZON),from=startOfDateInTimeZone(first,timezone),to=endExclusiveOfDateInTimeZone(last,timezone);
+  const weekly=await tx.workingHours.findMany({where:{salonId,professionalId:professional},select:{weekday:true,startMinutes:true,endMinutes:true}});
+  const openings=await tx.professionalOpening.findMany({where:{salonId,professionalId:professional,dateKey:{gte:first,lte:last}},select:{dateKey:true,startMinutes:true,endMinutes:true}});
+  const closures=await tx.salonClosure.findMany({where:{salonId,startAt:{lt:to},endAt:{gt:from}},select:{startAt:true,endAt:true}});
+  // TimeOff has no salonId of its own: it is scoped through its professional's salon.
+  const offs=await tx.timeOff.findMany({where:{professionalId:professional,professional:{salonId},startAt:{lt:to},endAt:{gt:from}},select:{startAt:true,endAt:true}});
+  for(let n=1;n<=PROFESSIONAL_DAY_HORIZON;n++){
+    const day=addCalendarDays(today,n),start=startOfDateInTimeZone(day,timezone),end=endExclusiveOfDateInTimeZone(day,timezone);
+    const local=(at:Date)=>at<=start?0:at>=end?1440:wallClockMinutesInTimeZone(at,timezone);
+    const work=[...weekly.filter(row=>row.weekday===weekdayOfDateKey(day)),...openings.filter(row=>row.dateKey===day)].map(row=>({start:row.startMinutes,end:row.endMinutes}));
+    const away=[...closures,...offs].filter(row=>row.startAt<end&&row.endAt>start).map(row=>({start:local(row.startAt),end:local(row.endAt)}));
+    if(subtractIntervals(work,away).length)return {date:day,today:false};
+  }
 }

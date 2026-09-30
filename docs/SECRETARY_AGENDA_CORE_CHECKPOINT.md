@@ -209,6 +209,12 @@ parado, inicie com o caminho longo da pasta:
 1. Criar um salão sintético novo com agenda relativa a amanhã (gera login só no
    arquivo `.demo/agenda-core/LOCAL-LOGIN.txt`, ignorado pelo Git):
    `node scripts/setup-agenda-manual-test.cjs`
+   O mesmo comando cria (idempotente) o papel local `local_app_runtime`, com os
+   privilégios de tabela do `app_runtime` de produção (derivados duas vezes dos SQL
+   do repositório, com concordância total), sem SUPERUSER/BYPASSRLS e com RLS valendo.
+   Tabelas que em produção têm RLS mas no banco local não têm ficam sem acesso. O
+   papel restrito `mvp_service_runtime` dos testes de segurança não é alterado. Provas
+   de isolamento: `node .demo/agenda-core/probe-local-app-role.cjs` (16/16).
 2. Subir o app com a Secretária ligada só nesse processo:
    `node scripts/dev-agenda-test.cjs` (porta 3157) — ou, no app, a configuração
    `agenda-test` do `.claude/launch.json`.
@@ -230,6 +236,12 @@ parado, inicie com o caminho longo da pasta:
      alternativas; responda "Então às 14h" ou "Pode encaixar, ela é cliente antiga".
    - "Marca a Carla domingo às 10h para Escova" → indisponível (fora do expediente).
 5. Depois de Confirmar, o cartão mostra "Concluído" e o link "Ver na agenda".
+   Limitação local conhecida: `/dashboard` (tela de entrada depois do login) e
+   `/relatorios` mostram "Algo deu errado", porque o cartão "Oportunidades" lê
+   `FlexibleWaitlist`, que no banco local está sem o RLS da migration manual 019. O
+   preflight da 019 só autoriza o banco do CI (`salon_schema_ci`), então ela não foi
+   aplicada aqui. Use a barra lateral (Agenda, Hoje, Clientes…) — as outras 19 telas
+   do painel abrem sem erro.
    Para encerrar o app: Ctrl+C no terminal do passo 2.
 
 Cada mensagem custa cerca de US$ 0,0005 (Luna). Nada executa sem o botão

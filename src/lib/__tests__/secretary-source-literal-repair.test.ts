@@ -176,10 +176,13 @@ describe('closed role registry shares the same one-repair budget across literal 
     }
     expect(invalidSourceLiterals({ communication: { literal: 'missing', content: 'missing' }, reason: { literal: 'missing' }, override_reason: 'missing', product_name: 'missing', extra: { time: { value: '10:00', literal: 'missing' } } }, source)).toEqual([]);
   });
-  it('case-mismatched daypart requires repair, while exact current substring preserves the one-call path', async () => {
+  // Contract migration (tolerant literal proof, B0): a case-only difference is the user's
+  // own literal and no longer costs a repair; a quote absent even after folding still does.
+  it('case-mismatched daypart is present after folding, while an absent literal still gets the single repair', async () => {
     const make = (literal: string) => ({ turn: { mode: 'NEW', operations: [operation('appointment.change', { item_key: 'visit', time: { value: '16:00', literal } })] } });
-    const repaired = await sdk(make('da tarde'), make('Da tarde'), 'Da tarde.'); expect(repaired.error).toBeUndefined(); expect(repaired.requests).toHaveLength(2);
+    const folded = await sdk(make('da tarde'), make('Da tarde'), 'Da tarde.'); expect(folded.error).toBeUndefined(); expect(folded.requests).toHaveLength(1);
     const exact = await sdk(make('Da tarde'), make('Da tarde'), 'Da tarde.'); expect(exact.error).toBeUndefined(); expect(exact.requests).toHaveLength(1);
+    const repaired = await sdk(make('in the afternoon'), make('Da tarde'), 'Da tarde.'); expect(repaired.error).toBeUndefined(); expect(repaired.requests).toHaveLength(2);
   });
   it('one unsuccessful family aborts the entire mixed envelope, without a third request', async () => {
     const first = envelope(), second = envelope(true); (second.turn.operations[0].inventory as ReturnType<typeof stockFields>).reference.literal = 'Aurora Oil';

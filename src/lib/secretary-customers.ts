@@ -2,18 +2,22 @@ import { runServicesTurn, type Model, type CustomerInterpretation } from "@everf
 import { clarificationContext, candidateLabel } from "./secretary-clarification";
 import { applyDraftTransition } from "./secretary-draft-transition";
 import { sameAcceptedQuery } from "./secretary-entity-context";
+import { sameName } from "./name-search";
 import type { ServiceActor } from "./service-catalog";
 import { withTenant } from "./prisma-tenant";
 import { getOperationRequirements } from "./service-contract";
 import { customerPatch, customerReadField, customerReadProjection, type CustomerReadField, type CustomerPatch, type CustomerDTO } from "./customer-contract";
 import { searchSalonCustomer, getCustomer, customerDuplicates } from "./customer-catalog";
 import { upsertCustomerDraft, proposeCustomerChange, confirmCustomerChange } from "./customer-actions";
+import { detailQuestion, nameSuggestionsEnabled, suggestedRows, suggestionQuestion, suggestSalonCustomers } from "./entity-suggestions";
 
 export type CustomerState = {
   operation?: "customer.search" | "customer.read" | "customer.create" | "customer.change";
   query?: string; target?: string; patch: CustomerPatch; requested: ("name"|"phone"|"email")[]; read_fields?: CustomerReadField[];
   lookup_issue?: "INVALID_EMAIL_REFERENCE";
-  candidates?: Awaited<ReturnType<typeof searchSalonCustomer>>; duplicate?: boolean;
+  /** `suggested` (C3, flag): the candidates are tolerant suggestions after an empty search; the same function rechecks a click.
+   * `selected_name` (B4): name of the candidate the owner chose; its later echo is not a new target. */
+  candidates?: Awaited<ReturnType<typeof searchSalonCustomer>>; duplicate?: boolean; suggested?: boolean; selected_name?: string;
   draft?: Awaited<ReturnType<typeof upsertCustomerDraft>>; proposal?: Awaited<ReturnType<typeof proposeCustomerChange>>;
   receipt?: Awaited<ReturnType<typeof confirmCustomerChange>>; customer?: CustomerDTO; message: string;
 };
@@ -48,11 +52,14 @@ async function selectCustomerMutable(actor: ServiceActor, c: CustomerState, ref:
   if (!c.candidates?.some(x=>x.id===ref)) throw new Error("SELECTION_INVALID");
   const fresh = c.duplicate
     ? await withTenant(actor,tx=>customerDuplicates(tx,actor,c.draft!.fields,c.target))
+    : c.suggested ? suggestedRows(await withTenant(actor,tx=>suggestSalonCustomers(tx,actor,c.query!)))
     : await withTenant(actor,tx=>searchSalonCustomer(tx,actor,c.query!));
   if (!fresh.some(x=>x.id===ref)) throw new Error("SELECTION_INVALID");
+  if (c.suggested) c.suggested = undefined;
   if (c.duplicate) { // Explicit decision only opens the existing profile. Never merges or authorizes the pending patch.
     c.operation = "customer.read"; c.patch = {}; c.requested = []; c.read_fields = undefined; c.draft = undefined; c.proposal = undefined; c.duplicate = false;
   }
+  c.selected_name = c.candidates?.find(x=>x.id===ref)?.name;
   c.target = ref; c.candidates = undefined; await resolved(actor,c);
 }
 export async function selectCustomer(actor:ServiceActor,c:CustomerState,ref:string){
@@ -70,7 +77,9 @@ async function applyCustomerInterpretationMutable(actor: ServiceActor, c: Custom
   const { operation = c.operation, target_name, requested_fields = [], clear_fields = [], ...values } = result;
   if (!operation) { c.message = "Informe se deseja consultar, cadastrar ou alterar um cliente."; return; }
   if (c.operation && c.operation !== operation) throw new Error("OPERATION_MISMATCH");
-  if (c.target && target_name && !sameAcceptedQuery(target_name,c.query)) throw new Error("TARGET_ALREADY_SELECTED");
+  // B4: echoing the chosen candidate's own name ("Amanda Souza" after the query "Amanda") keeps that target.
+  const echo = !!c.target && !!target_name && !sameAcceptedQuery(target_name,c.query) && !!c.selected_name && sameName(target_name,c.selected_name);
+  if (c.target && target_name && !sameAcceptedQuery(target_name,c.query) && !echo) throw new Error("TARGET_ALREADY_SELECTED");
   if (operation === "customer.create" && target_name) throw new Error("OPERATION_MISMATCH");
   for (const field of clear_fields) if (values[field] !== undefined) throw new Error("CONTRADICTORY_PATCH");
   const patch = customerPatch.parse({ ...values, ...Object.fromEntries(clear_fields.map(k=>[k,null])) });
@@ -84,7 +93,7 @@ async function applyCustomerInterpretationMutable(actor: ServiceActor, c: Custom
     if (readFields!.length) c.read_fields = readFields;
     c.requested = [];
   } else c.requested = [...new Set([...c.requested,...requested_fields])];
-  c.query = target_name ?? c.query;
+  if (!echo) c.query = target_name ?? c.query;
   if (operation === "customer.create") { await prepare(actor,c); return; }
   if (c.target) { await resolved(actor,c); return; }
   if (!c.query) { c.message = "Qual é o nome ou telefone do cliente?"; return; }
@@ -94,6 +103,12 @@ async function applyCustomerInterpretationMutable(actor: ServiceActor, c: Custom
     if(!(error instanceof Error)||error.message!=="INVALID_EMAIL_REFERENCE")throw error;
     c.candidates=undefined;c.lookup_issue="INVALID_EMAIL_REFERENCE";
     c.message="O e-mail informado está incompleto ou inválido. Qual é o e-mail completo do cliente?";return;
+  }
+  if (c.suggested) c.suggested = undefined;
+  if (!candidates.length && nameSuggestionsEnabled()) {
+    const found = await withTenant(actor, tx=>suggestSalonCustomers(tx,actor,c.query!));
+    if (found.status === "SUGGEST") { c.candidates = found.rows; c.suggested = true; c.message = suggestionQuestion(c.query, found.rows.map(candidateLabel)); return; }
+    if (found.status !== "NONE") { c.candidates = undefined; c.message = detailQuestion(c.query, "cliente"); return; }
   }
   if (candidates.length !== 1) {
     c.candidates = candidates.length <= 20 ? candidates : undefined;

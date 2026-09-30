@@ -1,14 +1,12 @@
 /** CLI only; launcher loads local credentials privately and guards reject every non-local database. */
 import { resolve } from 'node:path';
 import { prepareFreeUse, runFreeUse, safeOutputDirectory } from '../packages/salon-secretary/evaluation/free-use-runner';
+import { parseFreeUseArgs } from '../packages/salon-secretary/evaluation/free-use-options';
 async function main(){
- const args=process.argv.slice(2),mode=args.shift();
- if(!['--prepare','--run'].includes(mode??''))throw Error('FREE_USE_COMMAND');
- const values:Record<string,string>={};
- while(args.length){const key=args.shift();if(!key||!['--cases','--out','--max-requests'].includes(key)||!args.length||values[key])throw Error('FREE_USE_ARGUMENT');values[key]=args.shift()!;}
- if(!values['--out'])throw Error('FREE_USE_OUT_REQUIRED');
- const out=safeOutputDirectory(resolve(values['--out']));
- const result=mode==='--prepare'?await prepareFreeUse(values['--cases'],out,values['--max-requests']?Number(values['--max-requests']):undefined):await runFreeUse(out);
+ // --mission accepts only allowlisted ids (never a journal path); --repeat K (1..8) is fixed at --prepare.
+ const options=parseFreeUseArgs(process.argv.slice(2));
+ const out=safeOutputDirectory(resolve(options.out));
+ const result=options.mode==='--prepare'?await prepareFreeUse(options.cases,out,options.maxRequests,{repeat:options.repeat,mission:options.mission}):await runFreeUse(out,options.mission);
  console.log(JSON.stringify(result));
  if('fail' in result&&(result.fail||result.blocked||result.notExecuted))process.exitCode=1;
 }

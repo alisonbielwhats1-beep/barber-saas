@@ -4,7 +4,8 @@ import { z } from "zod";
 
 // Audit evidence only; never merged back into effective fields or model context.
 export const temporalRejectionSchema = z.object({
-  code: z.enum(["TIME_OUTSIDE_PERIOD", "END_NOT_AFTER_START", "SOURCE_TEMPORAL_CONFLICT"]),
+  // DATE_IN_PAST: components mode, a proven day that already passed (asked, never shifted).
+  code: z.enum(["TIME_OUTSIDE_PERIOD", "END_NOT_AFTER_START", "SOURCE_TEMPORAL_CONFLICT", "DATE_IN_PAST"]),
   field: z.enum(["date", "source_date", "source_time", "time", "period", "end_time", "end_date"]),
   value: z.string().max(20),
   retained_value: z.string().max(20).optional(),
@@ -14,13 +15,14 @@ export type TemporalRejection = z.infer<typeof temporalRejectionSchema>;
 /** Rejection of a new patch is distinct from invalidating an accepted value.
  * Only the backend's unchanged prior value can survive a rejected retarget. */
 export function applyTemporalRejections(fields: SchedulingFields, previous: SchedulingFields, rejected: TemporalRejection[]) {
+  const source = (code: TemporalRejection["code"]) => code === "SOURCE_TEMPORAL_CONFLICT" || code === "DATE_IN_PAST";
   for (const rejection of rejected) {
-    if (rejection.code !== "SOURCE_TEMPORAL_CONFLICT") continue;
+    if (!source(rejection.code)) continue;
     const retained = rejection.retained_value;
     if (retained !== undefined && previous[rejection.field] === retained && fields[rejection.field] === retained) continue;
     delete fields[rejection.field];
   }
-  if (rejected.some(item=>item.code==="SOURCE_TEMPORAL_CONFLICT")) delete fields.appointment_ref;
+  if (rejected.some(item=>source(item.code))) delete fields.appointment_ref;
 }
 
 /** Existing availability dayparts, in the salon's local clock. */

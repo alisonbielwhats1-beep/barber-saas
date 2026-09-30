@@ -5,7 +5,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import * as api from '../../../packages/salon-secretary/src/index';
-import { SalonSecretary } from '../salon-secretary';
+import { SalonSecretary, unreadAnswerNotice } from '../salon-secretary';
 import { schedulingState } from '../secretary-scheduling';
 import { expandedWire } from '../../test/secretary-wire-schema';
 import { intent } from '../../test/secretary-capability-plan';
@@ -95,8 +95,13 @@ const cases: { route: Route; fault: Fault }[] = [
   ...(['literal', 'timeout'] as Fault[]).map(fault => ({ route: 'SELECTED_PATCH' as const, fault })),
 ];
 
-describe('independent parent fail-closed lifecycle matrix; synthetic offline I/O only', () => {
-  it.each(cases)('$route / $fault blocks OLD and NEW tokens without changing committed data or DONE', async ({ route, fault }) => {
+// Review 2b: renamed (was "independent parent fail-closed lifecycle matrix" / "$route / $fault blocks OLD and NEW
+// tokens ..."). Since the B5 contract migration an UNREADABLE answer is not fail-closed for the whole plan, so the
+// titles no longer claim it. Every case still: executes nothing, stales the OLD token, keeps committed data and DONE.
+// Transport/timeout/audit faults stay fail-closed (NEW token refused). An unreadable answer keeps the plan, except the
+// unit it was addressed to (a card answered): that unit's changed intent is held for review, never re-approvable.
+describe('independent parent lifecycle matrix (fail-closed faults; B5 kept plan for unreadable answers); synthetic offline I/O only', () => {
+  it.each(cases)('$route / $fault: OLD token stale, nothing executes, committed data and DONE kept; addressed unit never re-approved', async ({ route, fault }) => {
     io.fault = fault;
     const parentId = randomUUID(), active = seededPlan(parentId), saved = seededPlan(parentId, 'saved_');
     const fresh = route === 'FRESH_NEW';
@@ -124,9 +129,22 @@ describe('independent parent fail-closed lifecycle matrix; synthetic offline I/O
     const old = fresh ? null : approval(parent.actionPlan), groupReceiptsBefore = fresh ? null : [...parent.groupReceipts];
     let failure: unknown, returned: any;
     try { returned = await secretary.send(actor, { sessionId: parentId, message: sourceFor(route), ...(route === 'SELECTED_PATCH' ? { operation_ref: active.children[0].id } : {}) }); } catch (error) { failure = error; }
+    // B5 contract migration (partial acceptance): an answer that could not be READ (its schema, or its
+    // literal repair) changed nothing, so an active plan is kept: no action becomes FAILED_SAFE, the
+    // proposals stay and the revision moves (the old token is stale). Transport, timeout and audit
+    // failures keep the historical fail-closed lifecycle below unchanged.
+    const unread = !fresh && ['literal', 'value', 'schema', 'first-schema'].includes(fault);
+    // Review 2b: an unreadable answer to ONE card (operation_ref) holds that card's unit for review.
+    const held = unread && route === 'SELECTED_PATCH' ? ['a'] : [];
+    if (unread) {
+      expect(failure).toBeUndefined(); expect(returned.message).toBe(unreadAnswerNotice); expect(returned.turn_notice).toBe(unreadAnswerNotice);
+      expect(returned.turn_notice_alone).toBe(true);
+      expect(returned.action_plan.plan_ref).toBe(active.saved.actionPlan.plan_ref);
+      expect(returned.action_plan.actions.map((a: any) => a.status)).toEqual([held.includes('a') ? 'NEEDS_INPUT' : 'READY_FOR_CONFIRMATION', 'READY_FOR_CONFIRMATION', 'DONE']);
+      expect(returned.action_plan.actions.filter((a: any) => a.assessment.issue === 'REVIEW_REQUIRED').map((a: any) => a.key)).toEqual(held);
     // The selected adapter catches its error and returns FAILED_SAFE; the global
     // boundary propagates. Both must withdraw readiness before any confirmation.
-    if (route === 'SELECTED_PATCH') {
+    } else if (route === 'SELECTED_PATCH') {
       expect(returned.action_plan.actions.find((a: any) => a.key === 'a').status).toBe('FAILED_SAFE');
       expect(active.children[1].scheduling.proposal).toBeDefined();
     } else expect(failure).toBeDefined();
@@ -141,9 +159,26 @@ describe('independent parent fail-closed lifecycle matrix; synthetic offline I/O
       expect(parent.actionPlan.actions.find((a: any) => a.key === 'done').status).toBe('DONE');
       await expect(secretary.confirmActionPlanGroup(actor, parentId, old)).rejects.toThrow('CONFIRMATION_STALE');
       const view: any = (secretary as any).view(parent);
-      expect(view.action_plan.confirmation_groups.some((g: any) => g.status === 'READY_FOR_CONFIRMATION')).toBe(false);
-      for (const child of active.children.filter(c => c.key !== 'done' && (route !== 'SELECTED_PATCH' || c.key === 'a'))) expect(child.scheduling.message).not.toContain('Use Confirmar');
-      await expect(secretary.confirmActionPlanGroup(actor, parentId, approval(parent.actionPlan))).rejects.toThrow();
+      if (unread) {
+        // Units the answer was not addressed to keep their reviewed proposals, only behind a refreshed approval
+        // (never executed here). The addressed unit's changed intent cannot be confirmed without re-review.
+        const refreshed = approval(parent.actionPlan);
+        expect(refreshed.revision).toBeGreaterThan(old!.revision); expect(refreshed.fingerprint).not.toBe(old!.fingerprint);
+        const readyKeys = view.action_plan.confirmation_groups.filter((g: any) => g.status === 'READY_FOR_CONFIRMATION').flatMap((g: any) => g.action_keys);
+        for (const child of active.children.filter(c => c.key !== 'done')) {
+          if (held.includes(child.key)) {
+            expect(readyKeys).not.toContain(child.key); expect(child.scheduling.proposal).toBeUndefined(); expect(child.scheduling.message).not.toContain('Use Confirmar');
+            const group = view.action_plan.confirmation_groups.find((g: any) => g.action_keys.includes(child.key));
+            await expect(secretary.confirmActionPlanGroup(actor, parentId, { plan_ref: parent.actionPlan.plan_ref, revision: parent.actionPlan.revision, group_key: group.key, fingerprint: group.fingerprint })).rejects.toThrow();
+          } else if (!view.action_plan.confirmation_groups.some((g: any) => g.action_keys.includes(child.key) && g.action_keys.some((key: string) => held.includes(key)))) {
+            expect(readyKeys).toContain(child.key); expect(child.scheduling.proposal).toBeDefined(); expect(child.scheduling.message).toContain('Use Confirmar');
+          }
+        }
+      } else {
+        expect(view.action_plan.confirmation_groups.some((g: any) => g.status === 'READY_FOR_CONFIRMATION')).toBe(false);
+        for (const child of active.children.filter(c => c.key !== 'done' && (route !== 'SELECTED_PATCH' || c.key === 'a'))) expect(child.scheduling.message).not.toContain('Use Confirmar');
+        await expect(secretary.confirmActionPlanGroup(actor, parentId, approval(parent.actionPlan))).rejects.toThrow();
+      }
       expect(preserved(active.children)).toEqual(before);
     }
     if (route === 'RESUME') {

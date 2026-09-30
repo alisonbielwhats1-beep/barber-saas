@@ -11,6 +11,7 @@ vi.mock("../salon-secretary", () => ({ SalonSecretary: class {
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 import { startSecretary, sendSecretary, confirmSecretary, confirmSecretaryGroup } from "../../app/(admin)/servicos/secretaria/actions";
 import { revalidatePath } from 'next/cache';
+import { requestTooLargeMessage } from "@everflair/salon-secretary";
 describe("Secretary authenticated server actions", () => {
   beforeEach(() => {
     vi.clearAllMocks(); vi.stubEnv("SALON_SECRETARY_ENABLED", "true");
@@ -46,6 +47,10 @@ describe("Secretary authenticated server actions", () => {
     mocks.send.mockRejectedValueOnce(new Error("secret-provider-detail"));
     const reply = await sendSecretary({}); expect(reply.ok).toBe(false);
     expect(JSON.stringify(reply)).not.toContain("secret-provider-detail");
+  });
+  it("a request refused for its size asks, in pt-BR, to split it (the runtime's own text)", async () => {
+    mocks.send.mockRejectedValueOnce(new Error("SECRETARY_REQUEST_TOO_LARGE"));
+    expect(await sendSecretary({ sessionId: "id", message: "pedido longo" })).toEqual({ ok: false, code: "SECRETARY_REQUEST_TOO_LARGE", error: requestTooLargeMessage });
   });
   it("enforces rollout on a previously opened conversation before confirmation or inference", async () => {
     vi.stubEnv("SALON_SECRETARY_ALLOWED_ACTORS", '[{"salonId":"authenticated-salon","userId":"authenticated-user"}]');

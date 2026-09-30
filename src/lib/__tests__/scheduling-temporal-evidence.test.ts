@@ -64,8 +64,14 @@ describe("temporal evidence cannot weaken factual and role guards", () => {
     expect(result.rejected).toContainEqual(expect.objectContaining({ field, code: "SOURCE_TEMPORAL_CONFLICT" }));
   });
 
-  it.each(["sábado", "o atendimento", "Domingo"])("rejects unproven literal witness %s", text => {
+  it.each(["sábado", "o atendimento"])("rejects unproven literal witness %s", text => {
     expect(ground("o atendimento domingo", { weekday: 0 }, [{ field: "date", text }]).fields.date).toBeUndefined();
+  });
+  // Contract migration (tolerant literal proof, B0): case is representation, not a
+  // different witness. "Domingo" proves the user's "domingo"; the value is still re-parsed.
+  it("accepts a case-only variant of the user's literal and still re-parses its value", () => {
+    expect(ground("o atendimento domingo", { weekday: 0 }, [{ field: "date", text: "Domingo" }]).rejected).toEqual([]);
+    expect(ground("o atendimento domingo", { weekday: 6 }, [{ field: "date", text: "Domingo" }]).fields.date).toBeUndefined();
   });
 
   it("rejects a correct quoted clock attached to the wrong explicit role", () => {

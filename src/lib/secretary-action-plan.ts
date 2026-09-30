@@ -1,6 +1,7 @@
 import { type ActionPlan, type ActionAssessment, type PlanAction, type CapabilitySelection,
-  actionSelection, selectionSchemaV2, schedulingFields } from "@everflair/salon-secretary";
+  actionSelection, selectionSchemaV2, schedulingFields, alterationKeys, multiServiceKeys, referencesV2Enabled } from "@everflair/salon-secretary";
 import type { SecretaryView } from "./salon-secretary";
+import { readDayOptional } from "./scheduling-contract";
 
 export type ActionUnit = { keys: string[]; kind: "single" | "scheduling-batch" | "cancellation-message" | "unsupported"; child?: string };
 /** Atomic domain adapters remain intact. Other edges express ordering, never implicit data bindings. */
@@ -11,7 +12,12 @@ export function actionUnits(plan: ActionPlan): ActionUnit[] {
     const action = plan.actions.find(item => item.key === key)!;
     const releases = plan.actions.filter(item => item.released_slot_of === key);
     const messages = plan.actions.filter(item => item.operation === "customer.message" && item.depends_on.includes(key));
-    if (releases.length) {
+    // D1 (flag SALON_SECRETARY_REFERENCES_V2): a reschedule and the create in its origin are two single units (the create
+    // depends_on the change: same group, sequential, never the atomic batch); the create's own iteration makes it single.
+    const origin = referencesV2Enabled() && action.operation === "appointment.change" && releases.length === 1 &&
+      releases[0].operation === "appointment.create" && releases[0].depends_on.includes(key);
+    if (origin) { units.push({ keys: [key], kind: "single" }); consumed.add(key); }
+    else if (releases.length) {
       const keys = [key, ...releases.map(item => item.key)];
       const safe = action.operation === "appointment.cancel" && !action.depends_on.length && releases.length === 1 && releases[0].depends_on.length === 1;
       units.push({ keys, kind: safe ? "scheduling-batch" : "unsupported" });
@@ -39,12 +45,15 @@ export function deferredReadAssessment(action: PlanAction): ActionAssessment {
   } else if (action.operation === "stock.balance" && !action.fields.inventory?.product_name) missing.push("product_name");
   else if (action.skill === "customers" && !action.fields.target_name) missing.push("target_name");
   else if (action.skill === "scheduling") {
-    if (fields.date == null && fields.day_offset == null && fields.weekday == null) missing.push("date");
-    if (action.operation === "availability.get" && !fields.service_name) missing.push("service_name");
+    // P3b (flag SALON_SECRETARY_READS_V2): a read of one customer with no day, clock or period is that customer's next appointments.
+    if (fields.date == null && fields.day_offset == null && fields.weekday == null && !readDayOptional(action.operation, fields)) missing.push("date");
+    if (action.operation === "availability.get" && !fields.service_name && !fields.service_names) missing.push("service_name");
   }
-  return { status: missing.length ? "NEEDS_INPUT" : "READY", missing_fields: missing,
-    preview: `Leitura após ${action.depends_on.join(", ")}. Intenção: ${JSON.stringify(action.fields)}. O resultado será calculado pelo backend após as dependências.` };
+  return { status: missing.length ? "NEEDS_INPUT" : "READY", missing_fields: missing, preview: deferredReadPreview(action) };
 }
+/** B7: a read that waits for other actions, said to the owner (never keys or raw fields). */
+export const deferredReadPreview = (action: Pick<PlanAction, "depends_on">) =>
+  `Esta consulta será feita depois ${action.depends_on.length > 1 ? "das ações anteriores" : "da ação anterior"}; o resultado aparece aqui.`;
 export function assessmentFromView(view: SecretaryView, action: PlanAction): ActionAssessment {
   const draft = view.draft ?? view.batch?.draft ?? view.communication?.draft ?? view.scheduling?.draft ?? view.inventory?.draft ?? view.customer?.draft;
   const proposal = viewProposal(view);
@@ -74,6 +83,9 @@ export function assessmentFromView(view: SecretaryView, action: PlanAction): Act
   if (view.inventory && !view.inventory.target && !view.inventory.candidates?.length) missing.push("product_name");
   if (view.communication && !view.communication.target && !view.communication.cancel) missing.push("recipient_name");
   if (view.customer && !view.customer.target && action.operation !== "customer.create" && !missing.length) missing.push("target_name");
+  // C5: an action that only waits for another action's value lacks exactly those fields (a stale copy is not usable).
+  const references = view.scheduling?.references ?? view.communication?.references;
+  if (references?.blocked) missing.push(...(references.waiting ?? []).map(field => field === "professional" ? "professional_ref" : field === "customer" ? view.communication ? "recipient_name" : "customer_ref" : field));
   if (view.batch?.draft?.status === "BLOCKED" || view.scheduling?.alternatives && action.mutation && !missing.length)
     return { status: "DOMAIN_CONFLICT", missing_fields: [], preview, issue: "DOMAIN_CONFLICT" };
   const pending=view.scheduling?.pending_temporal_ambiguities??view.scheduling?.draft?.pending_temporal_ambiguities??view.batch?.plan.items.find(item=>item.key===action.key)?.pending_temporal_ambiguities;
@@ -99,7 +111,7 @@ export function collectedActionFields(view: SecretaryView, action: PlanAction) {
     requested_fields: view.customer.operation === "customer.read" || view.customer.operation === "customer.search" ? view.customer.read_fields ?? [] : view.customer.requested, clear_fields: (["phone", "email"] as const).filter(key => view.customer!.patch[key] === null) };
   else if (view.service_context) fields = {...view.service_context.fields,target_name:view.service_context.target_name??null};
   else if (view.draft) fields = view.draft.fields;
-  const schema = selectionSchemaV2.shape.operations.element.omit({ operation: true, item_key: true, depends_on: true, released_slot_of: true });
+  const schema = selectionSchemaV2.shape.operations.element.omit({ operation: true, item_key: true, depends_on: true, released_slot_of: true, same_as: true });
   const allowed = new Set(Object.keys(schema.shape));
   // Scheduling adapters expose the complete effective state, not a patch. An
   // absent/rejected value must not reappear from the earlier model selection.
@@ -111,6 +123,10 @@ export function collectedActionFields(view: SecretaryView, action: PlanAction) {
   // Services retain the accepted lookup label, which is absent from draft.fields.
   if (view.draft && !view.service_context && action.operation === "service.change") merged.target_name = action.fields.target_name;
   if (authoritative) for (const key of Object.keys(schedulingFields)) if (fields[key] == null) delete merged[key];
+  // P2a: an alteration's words appear only while the action holds them (never a neutral slot; its refs stay in the draft).
+  for (const key of alterationKeys) if (fields[key] == null) delete merged[key];
+  // P2b: likewise a service list (only while the action holds one; its refs stay in the draft).
+  for (const key of multiServiceKeys) if (fields[key] == null) delete merged[key];
   // These decisions are invalidated by the domain adapter on material changes.
   // Do not resurrect cleared consent/reason from an older presentation snapshot.
   if(view.batch||view.scheduling)for(const key of ["destination_mode","override_requested","override_reason"])

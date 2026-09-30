@@ -118,10 +118,21 @@ export function maskTemporalSpans(text:string,spans:TemporalSpan[]):string{
   const chars=text.split("");for(const span of spans)for(let i=span.start;i<span.end;i++)chars[i]=" ";return chars.join("");
 }
 
-/** An interval endpoint may inherit a daypart only from its other, proven endpoint. */
+/** time and end_time quoting the SAME span that holds exactly the two endpoints of one interval
+ * component ("das 10 às 11"): the start endpoint witnesses time, the end endpoint end_time. */
+export function sharedIntervalWitness(source:string,span:TemporalSpan,field:string,value:string):boolean|undefined{
+  const parts=clockComponents(source).filter(part=>intersects(part,span));
+  if(parts.length!==2||!parts.every(part=>part.interval&&contains(span,part)&&part.interval.start===parts[0].interval!.start))return;
+  const part=parts.find(item=>item.interval!.endpoint===(field==="time"?"start":"end"));
+  return !!part&&part.value===value;
+}
+
+/** An interval endpoint may inherit a daypart only from its other, proven endpoint.
+ * quoteAt binds the quote to the occurrence the caller located; without it a repeated
+ * quote gives no component proof. */
 export function componentClockWitness(source:string,quote:string,field:string,value:string,
-  evidence:readonly {field:string;text:string}[],raw:Record<string,unknown>):boolean|undefined{
-  const at=source.indexOf(quote);if(at<0||source.indexOf(quote,at+1)>=0)return;
+  evidence:readonly {field:string;text:string}[],raw:Record<string,unknown>,quoteAt?:number):boolean|undefined{
+  const at=quoteAt??source.indexOf(quote);if(at<0||source.slice(at,at+quote.length)!==quote||quoteAt===undefined&&source.indexOf(quote,at+1)>=0)return;
   const span={start:at,end:at+quote.length},components=clockComponents(source);
   const selected=components.filter(part=>intersects(part,span));
   if(!selected.length)return;

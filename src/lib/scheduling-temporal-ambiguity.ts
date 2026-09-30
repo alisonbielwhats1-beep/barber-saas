@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { SchedulingFields } from "./scheduling-contract";
 import type { TemporalRejection } from "./scheduling-temporal";
 import type { PendingCalendarConflict } from "./scheduling-calendar-conflict";
+import { temporalQuestionLabel } from "./scheduling-field-labels";
 
 /** Backend-owned unresolved constraint, never an accepted executable field. */
 export const pendingTemporalAmbiguity = z.object({
@@ -23,10 +24,14 @@ export type TemporalAmbiguityContext = {
 export function firstTemporalAmbiguity(values: readonly PendingTemporalAmbiguity[] = []) {
   return [...values].sort((a,b) => ["source_time","time","end_time"].indexOf(a.field) - ["source_time","time","end_time"].indexOf(b.field))[0];
 }
-export function temporalAmbiguityQuestion(value: PendingTemporalAmbiguity) {
-  const label = {source_time:"horário original",time:"horário de destino",end_time:"horário final"}[value.field];
+/** `operation` (UX-COPY, flag SALON_SECRETARY_COPY_V2): the role is named by what the operation does; off, the historical label. */
+export function temporalAmbiguityQuestion(value: PendingTemporalAmbiguity, operation?: string) {
+  const label = temporalQuestionLabel(value.field, operation);
   return `No ${label}, “${value.expression}” significa ${value.candidates.map(time => time.replace(":00","h").replace(":","h")).join(" ou ")}?`;
 }
+/** UX (flag SALON_SECRETARY_DAYPART_RULES_V2): said above a half-day question the owner's answer did not settle, so the same
+ * question is never shown again silently (it starts like the other "Não encontrei" notices a plan keeps visible). */
+export const daypartChoiceRetry = "Não encontrei na sua resposta qual dos dois horários vale.";
 /** Current active constraints replace only the same role. Audit values are never inputs. */
 export function nextTemporalAmbiguities(previous: readonly PendingTemporalAmbiguity[] = [],
   incoming: readonly PendingTemporalAmbiguity[] = [], fields: SchedulingFields,

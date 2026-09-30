@@ -1,4 +1,5 @@
 import type { Tx } from "./prisma-tenant";
+import { FOLD_FROM, FOLD_TO, foldedIds, foldedLikePattern } from "./name-search";
 import { serviceCreateInput, serviceFields, servicePatchInput, serviceMvpPatch, type ServiceInput } from "./service-contract";
 import { assertAllowedStoredImageUrl } from "./stored-image-url";
 import { priceSnapshot } from "./service-price";
@@ -82,7 +83,11 @@ export async function updateCatalogService(
 
 export async function findCatalogServices(tx: Tx, actor: ServiceActor, name: string) {
   await assertServiceWriter(tx, actor);
-  return tx.service.findMany({ where: { salonId: actor.salonId, name: { contains: serviceFields.name.parse(name), mode: "insensitive" } },
+  // Case- and accent-insensitive, same tenant scope; several matches still require a choice.
+  const term = serviceFields.name.parse(name);
+  const folded = foldedIds(await tx.$queryRaw`SELECT id FROM "Service" WHERE "salonId"=${actor.salonId} AND lower(translate(name, ${FOLD_FROM}, ${FOLD_TO})) LIKE lower(translate(${foldedLikePattern(term)}, ${FOLD_FROM}, ${FOLD_TO})) ESCAPE '\\' ORDER BY id LIMIT 21`);
+  const byName = { name: { contains: term, mode: "insensitive" as const } };
+  return tx.service.findMany({ where: { salonId: actor.salonId, ...(folded.length ? { OR: [byName, { id: { in: folded } }] } : byName) },
     select: { id: true, name: true, priceCents: true, durationMin: true, priceType: true }, orderBy: { id: "asc" }, take: 21 });
 }
 

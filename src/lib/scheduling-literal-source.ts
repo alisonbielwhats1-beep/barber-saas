@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 import { groundSchedulingException, type SchedulingOverrideDecisionContext } from "./scheduling-conflict-contract";
 import { overrideReasonSource } from "./scheduling-reason-source";
+import { foldedLiteral, literalSpans } from "../../packages/salon-secretary/src/literal-match";
 
 export const reasonField = z.enum(["reason", "override_reason"]);
 export type ReasonField = z.infer<typeof reasonField>;
@@ -9,19 +10,14 @@ export const reasonRejection = z.object({ code:z.literal("SOURCE_REASON_CONFLICT
 export type ReasonRejection = z.infer<typeof reasonRejection>;
 export const reasonSource = overrideReasonSource.extend({kind:z.literal("EXPLICIT_CANCELLATION_CAUSE")});
 
-const canonical = (value:string)=>value.normalize("NFC").toLocaleLowerCase("pt-BR");
-/** Case/NFC are representation differences only. Map back to the exact source
- * graphemes so the ERP and audit retain the owner's original text. */
+/** Case, accents, NFC/NFD and spacing are representation differences only (the shared
+ * tolerant literal span). Map back to the exact source graphemes so the ERP and audit
+ * retain the owner's original text. A cause that only clips a word is not a cause. */
 function literalCauseSpan(message:string,value:string){
-  let text="";const starts:number[]=[],ends:number[]=[];
-  for(const part of new Intl.Segmenter("pt-BR",{granularity:"grapheme"}).segment(message)){
-    const normalized=canonical(part.segment);text+=normalized;
-    for(let i=0;i<normalized.length;i++){starts.push(part.index);ends.push(part.index+part.segment.length);}
-  }
-  const at=text.indexOf(canonical(value));if(at<0)return;
-  const start=starts[at],end=ends[at+canonical(value).length-1];
-  const original=message.slice(start,end),before=message.slice(0,start),after=message.slice(end);
-  if(/\p{L}$/u.test(before)&&/^\p{L}/u.test(original)||/\p{L}$/u.test(original)&&/^\p{L}/u.test(after))return {rejected:true};
+  const span=literalSpans(message,value)[0];
+  if(!span)return literalSpans(message,value,false).length?{rejected:true}:undefined;
+  const [start,end]=span;
+  const original=message.slice(start,end),before=message.slice(0,start);
   // Clipping a directly attached negator changes the literal cause. A negation
   // in a different action after this span is outside this field's evidence.
   if(/\b(?:não|nao|nunca|jamais|sem)\s*$/iu.test(before))return {rejected:true};
@@ -39,7 +35,7 @@ export function groundSchedulingReasons(patch: Record<string,unknown>, previous:
   for(const field of reasonField.options){
     const value=patch[field];if(typeof value!=="string")continue;
     const span=literalCauseSpan(message,value);
-    if(!span&&typeof previous[field]==="string"&&canonical(value)===canonical(previous[field] as string)){delete patch[field];continue;}
+    if(!span&&typeof previous[field]==="string"&&foldedLiteral(value)===foldedLiteral(previous[field] as string)){delete patch[field];continue;}
     let valid=value.length>=3&&span!==undefined&&!("rejected" in span);
     if(valid&&field==="override_reason")try{groundSchedulingException({override_reason:value},{},message);}catch{valid=false;}
     if(!valid||!span||"rejected" in span){rejected.push({code:"SOURCE_REASON_CONFLICT",field,value});delete patch[field];continue;}

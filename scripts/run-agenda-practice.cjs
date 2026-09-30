@@ -3,6 +3,7 @@
 const os = require('node:os');
 try { os.userInfo(); } catch { os.userInfo = () => ({ username: 'offline-evaluation' }); }
 require('@next/env').loadEnvConfig(process.cwd(), true, { info() {}, error() { throw Error('AGENDA_ENV_LOAD_FAILED'); } });
+if (process.env.VERCEL_ENV === 'production' || process.env.APP_ENV === 'production') throw Error('AGENDA_PRODUCTION_FORBIDDEN');
 process.env.APP_ENV ??= 'test';
 process.env.VERCEL_ENV ??= 'development';
 process.env.SALON_SECRETARY_MODEL = 'gpt-6-luna';

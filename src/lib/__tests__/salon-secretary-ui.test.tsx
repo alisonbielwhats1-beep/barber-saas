@@ -5,9 +5,9 @@ import userEvent from '@testing-library/user-event';
 import { createActionPlan, assessPlanAction } from '@everflair/salon-secretary';
 import { intent, plan } from '../../test/secretary-capability-plan';
 import type { SecretaryView } from '../salon-secretary';
-const mocks = vi.hoisted(() => ({ start: vi.fn(), send: vi.fn(), confirm: vi.fn(), group: vi.fn(), cancel: vi.fn(), select: vi.fn(), selectCustomer: vi.fn(), selectOperation: vi.fn(), confirmOperation: vi.fn(), refresh: vi.fn(), resume: vi.fn() }));
+const mocks = vi.hoisted(() => ({ start: vi.fn(), send: vi.fn(), confirm: vi.fn(), group: vi.fn(), readyGroups: vi.fn(), cancel: vi.fn(), select: vi.fn(), selectCustomer: vi.fn(), selectOperation: vi.fn(), confirmOperation: vi.fn(), refresh: vi.fn(), resume: vi.fn(), current: vi.fn() }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: mocks.refresh }) }));
-vi.mock('../../app/(admin)/servicos/secretaria/actions', () => ({ resumeSecretaryPlan: mocks.resume, startSecretary: mocks.start, sendSecretary: mocks.send, confirmSecretary: mocks.confirm, confirmSecretaryGroup: mocks.group, cancelSecretary: mocks.cancel, selectSecretaryService: mocks.select, selectSecretaryCustomer: mocks.selectCustomer, selectSecretaryOperation: mocks.selectOperation, confirmSecretaryOperation: mocks.confirmOperation }));
+vi.mock('../../app/(admin)/servicos/secretaria/actions', () => ({ resumeSecretaryPlan: mocks.resume, startSecretary: mocks.start, sendSecretary: mocks.send, confirmSecretary: mocks.confirm, confirmSecretaryGroup: mocks.group, confirmSecretaryReadyGroups: mocks.readyGroups, cancelSecretary: mocks.cancel, selectSecretaryService: mocks.select, selectSecretaryCustomer: mocks.selectCustomer, selectSecretaryOperation: mocks.selectOperation, confirmSecretaryOperation: mocks.confirmOperation, currentSecretary: mocks.current }));
 import { SecretaryChat } from '../../app/(admin)/servicos/secretaria/secretary-chat';
 const base: SecretaryView = { sessionId: 'session', cancelled: false, message: 'Como posso ajudar?' };
 const proposal = { proposal_ref: 'proposal', draft_ref: 'draft', draft_revision: 1, payload_hash: 'hash', expires_at: '2099-01-01T00:00:00Z', preview: 'Massagem\nR$ 100,00 → R$ 80,00', change: { before: { priceCents: 10000 } } };
@@ -25,7 +25,8 @@ function completed(view: SecretaryView, failed = -1): SecretaryView {
   return next;
 }
 const ok = (state: SecretaryView) => ({ ok: true, state });
-beforeEach(() => { vi.resetAllMocks(); mocks.start.mockResolvedValue(ok(base)); mocks.cancel.mockResolvedValue(ok({ ...base, cancelled: true })); });
+// D1: without persisted state the server has no conversation to reattach (null): the chat starts as before.
+beforeEach(() => { vi.resetAllMocks(); mocks.start.mockResolvedValue(ok(base)); mocks.cancel.mockResolvedValue(ok({ ...base, cancelled: true })); mocks.current.mockResolvedValue({ ok: true, state: null }); });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 async function open(view = base) { mocks.start.mockResolvedValue(ok(view)); const user = userEvent.setup(); render(<SecretaryChat />); await user.click(screen.getByRole('button', { name: 'Nova conversa' })); return user; }
 
@@ -46,7 +47,9 @@ describe('Secretary front, same confirmation and receipt authority', () => {
   });
   it.each([1, 2, 5, 10, 11, 12, 14])('renders %i actions without imposing another structural cap', async count => {
     await open(planned(count)); expect(screen.getAllByRole('article')).toHaveLength(count);
-    expect(screen.getAllByRole('button', { name: /^Confirmar/ })).toHaveLength(count > 10 ? 2 : 1);
+    // B2 (ready groups): one Confirm per group, plus one "confirm all ready" when two or more groups are ready.
+    expect(screen.getAllByRole('button', { name: /^Confirmar(?! tudo)/ })).toHaveLength(count > 10 ? 2 : 1);
+    expect(screen.queryAllByRole('button', { name: `Confirmar tudo que está pronto (${count})` })).toHaveLength(count > 10 ? 1 : 0);
     expect(screen.getByText(count > 10 ? /Revisão por grupos/ : count > 5 ? /Revisão detalhada/ : /Revisão simples/)).toBeVisible();
   });
   it('confirms only the exact backend group and refreshes after a real receipt', async () => {
@@ -108,13 +111,13 @@ describe('Secretary front, same confirmation and receipt authority', () => {
   it('ambiguous customers require a visual choice and hide raw identifiers', async () => {
     const view = { ...base, customer: { candidates: [{ id: 'private-one', name: 'Amanda Souza', phone: '(11) *****-1234' }, { id: 'private-two', name: 'Amanda Ribeiro', phone: null }] } } as unknown as SecretaryView;
     const user = await open(view); expect(mocks.selectCustomer).not.toHaveBeenCalled(); expect(document.body.textContent).not.toContain('private-');
-    mocks.selectCustomer.mockResolvedValue(ok(base)); await user.click(screen.getByRole('button', { name: 'Amanda Ribeiro' })); expect(mocks.selectCustomer).toHaveBeenCalledWith('session', 'private-two');
+    mocks.selectCustomer.mockResolvedValue(ok(base)); await user.click(screen.getByRole('button', { name: '2. Amanda Ribeiro' })); expect(mocks.selectCustomer).toHaveBeenCalledWith('session', 'private-two');
   });
   it('HARD_BLOCK exposes only backend alternatives and no override control', async () => {
     const view = planned(); const action = view.action_plan!.actions[0]; view.action_plan = assessPlanAction(view.action_plan!, action.key, { status: 'DOMAIN_CONFLICT', missing_fields: ['destination_mode'], preview: 'Salão fechado.' });
     view.operations![0].state = { ...base, scheduling: { draft: { review: { status: 'CONFLICT_HARD_BLOCK', message: 'Salão fechado.', override_allowed: false, alternatives: [{ startLocal: '2030-01-02T11:00' }] } } } } as unknown as SecretaryView;
     await open(view); expect(screen.getByText('Este horário não pode ser usado')).toBeVisible(); expect(screen.queryByRole('button', { name: 'Confirmar' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /encaix|override/i })).not.toBeInTheDocument(); expect(screen.getByText(/Alternativas disponíveis/)).toHaveTextContent('2030-01-02 às 11:00');
+    expect(screen.queryByRole('button', { name: /encaix|override/i })).not.toBeInTheDocument(); expect(screen.getByText(/Alternativas disponíveis/)).toHaveTextContent('qua, 02/01/2030 às 11h');
   });
   it('provider failure preserves editable text and never refreshes or claims mutation', async () => {
     const user = await open(); mocks.send.mockResolvedValue({ ok: false, error: 'Provedor indisponível.' }); await user.type(screen.getByLabelText('Mensagem'), 'Altere Massagem'); await user.click(screen.getByRole('button', { name: 'Enviar' }));
@@ -288,4 +291,87 @@ it.each(['FAILED_SAFE','UNSUPPORTED','DOMAIN_CONFLICT','BLOCKED_BY_DEPENDENCY'] 
   expect(screen.queryByRole('button',{name:'Confirmar grupo 1'})).not.toBeInTheDocument();
   expect(screen.getByRole('button',{name:'Confirmar grupo 2'})).toBeEnabled();
   expect(mocks.group).not.toHaveBeenCalled();
+});
+
+describe('B2: confirm what is ready (one group per independent component)', () => {
+  const componentPolicy = { normalReviewMax: 5, maxActionsPerConfirmationGroup: 10, grouping: 'component' as const };
+  const readyState = (key: string) => ({ ...base, proposal: { ...proposal, proposal_ref: `proposal-${key}`, preview: `Prévia ${key}` } }) as unknown as SecretaryView;
+  const pending = { ...base, message: 'Qual o motivo do cancelamento?' } as SecretaryView;
+  /** Owner's request: change Fábio and block Rodrigo are ready, Amanda's cancel still needs its reason. */
+  function owner(policy?: typeof componentPolicy): SecretaryView {
+    let p = createActionPlan(plan([intent('appointment.change', { item_key: 'fabio', customer_name: 'Fábio', day_offset: 1, time: '10:00' }),
+      intent('appointment.cancel', { item_key: 'amanda', customer_name: 'Amanda' }),
+      intent('schedule.block', { item_key: 'rodrigo', professional_name: 'Rodrigo', date: '2026-09-29', time: '10:00', end_time: '11:00' })]), policy);
+    for (const key of ['fabio', 'rodrigo']) p = assessPlanAction(p, key, { status: 'READY_FOR_CONFIRMATION', missing_fields: [], preview: `Prévia ${key}`, proposal_token: key });
+    p = assessPlanAction(p, 'amanda', { status: 'NEEDS_INPUT', missing_fields: ['reason'], preview: 'Qual o motivo do cancelamento?' });
+    return { ...base, skill: 'auto', capability_status: 'SUPPORTED', message: 'Já dá para confirmar: remarcação de Fábio e bloqueio de Rodrigo.\n\nQual o motivo do cancelamento?',
+      action_plan: p, operations: p.actions.map(action => ({ operation_ref: `op-${action.key}`, action_keys: [action.key], state: action.key === 'amanda' ? pending : readyState(action.key) })) };
+  }
+  const approvalFor = (view: SecretaryView, key: string) => { const p = view.action_plan!, g = p.confirmation_groups.find(group => group.action_keys.includes(key))!;
+    return { plan_ref: p.plan_ref, revision: p.revision, group_key: g.key, fingerprint: g.fingerprint }; };
+  function executed(view: SecretaryView, keys: string[]): SecretaryView {
+    const next = structuredClone(view);
+    for (const key of keys) {
+      next.action_plan = assessPlanAction(next.action_plan!, key, { status: 'DONE', missing_fields: [], preview: 'Concluído.' });
+      next.operations!.find(op => op.action_keys!.includes(key))!.state = { ...base, scheduling: { receipt: { outcome: key === 'rodrigo' ? 'BLOCKED' : 'RESCHEDULED', block_ref: 'hidden' } } } as unknown as SecretaryView;
+    }
+    next.message = 'Qual o motivo do cancelamento?';
+    return next;
+  }
+  it('names each independent group by its actions and sends every current approval in ONE call', async () => {
+    const view = owner(componentPolicy), user = await open(view);
+    expect(screen.queryByText(/^Grupo \d/)).not.toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Mudar horário — Fábio' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Confirmar remarcação de Fábio' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Confirmar bloqueio de Rodrigo' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Confirmar cancelamento de Amanda (falta 1 informação)' })).toBeDisabled();
+    expect(screen.queryByText('Pronta — será confirmada junto com as demais')).not.toBeInTheDocument();
+    mocks.readyGroups.mockResolvedValue(ok(executed(view, ['fabio', 'rodrigo'])));
+    await user.click(screen.getByRole('button', { name: 'Confirmar tudo que está pronto (2)' }));
+    expect(mocks.readyGroups).toHaveBeenCalledExactlyOnceWith('session', [approvalFor(view, 'fabio'), approvalFor(view, 'rodrigo')]);
+    expect(mocks.group).not.toHaveBeenCalled(); expect(mocks.refresh).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('button', { name: /^Confirmar tudo/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Confirmar cancelamento de Amanda (falta 1 informação)' })).toBeDisabled();
+    expect(screen.getAllByRole('article').filter(card => card.textContent?.includes('Concluído'))).toHaveLength(2);
+  });
+  it('a single group keeps the exact Confirmar label and no confirm-all button', async () => {
+    await open(planned());
+    expect(screen.getByRole('button', { name: 'Confirmar' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: /^Confirmar tudo/ })).not.toBeInTheDocument();
+  });
+  it("'Pronta — será confirmada junto com as demais' only when the action waits for a member of its OWN group", async () => {
+    await open(owner());
+    const packedCards = screen.getAllByRole('article');
+    expect(packedCards[0]).toHaveTextContent('Pronta — será confirmada junto com as demais');
+    expect(screen.getByRole('button', { name: 'Confirmar (falta 1 informação)' })).toBeDisabled();
+    cleanup();
+    await open(owner(componentPolicy));
+    const cards = screen.getAllByRole('article');
+    expect(cards[0]).toHaveTextContent('Aguardando confirmação'); expect(cards[0]).not.toHaveTextContent('Pronta');
+  });
+  it('a group reported as changed is announced and stays confirmable only with its new approval', async () => {
+    const view = owner(componentPolicy), user = await open(view);
+    const partial = executed(view, ['fabio']);
+    partial.action_plan = assessPlanAction(partial.action_plan!, 'rodrigo', { status: 'READY_FOR_CONFIRMATION', missing_fields: [], preview: 'Prévia nova', proposal_token: 'rodrigo-2' });
+    partial.confirmation_batch = { executed: ['group_1'], replayed: [], not_executed: [{ group_key: 'group_3', code: 'GROUP_CHANGED' }] };
+    mocks.readyGroups.mockResolvedValue(ok(partial));
+    await user.click(screen.getByRole('button', { name: 'Confirmar tudo que está pronto (2)' }));
+    expect(screen.getByText(/Algumas ações não foram executadas/)).toBeVisible();
+    mocks.group.mockResolvedValue(ok(executed(partial, ['rodrigo'])));
+    await user.click(screen.getByRole('button', { name: 'Confirmar bloqueio de Rodrigo' }));
+    expect(mocks.group).toHaveBeenCalledExactlyOnceWith('session', approvalFor(partial, 'rodrigo'));
+    expect(approvalFor(partial, 'rodrigo').fingerprint).not.toBe(approvalFor(view, 'rodrigo').fingerprint);
+  });
+  it('a lost confirm-all response is verified with the identical request, never a new one', async () => {
+    const view = owner(componentPolicy), user = await open(view);
+    mocks.readyGroups.mockRejectedValueOnce(Error('network')).mockResolvedValueOnce(ok(executed(view, ['fabio', 'rodrigo'])));
+    await user.click(screen.getByRole('button', { name: 'Confirmar tudo que está pronto (2)' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Não presuma sucesso');
+    await user.click(screen.getByRole('button', { name: 'Verificar resultado' }));
+    expect(mocks.readyGroups.mock.calls[0]).toEqual(mocks.readyGroups.mock.calls[1]); expect(mocks.group).not.toHaveBeenCalled();
+  });
+  it.each(['BLOCKED', 'AMBIGUOUS', 'UNSUPPORTED', 'CONVERSATION'] as const)('an explicit %s disposition withdraws confirm-all too', async capability_status => {
+    await open({ ...owner(componentPolicy), capability_status });
+    expect(screen.queryByRole('button', { name: /^Confirmar/ })).not.toBeInTheDocument();
+  });
 });

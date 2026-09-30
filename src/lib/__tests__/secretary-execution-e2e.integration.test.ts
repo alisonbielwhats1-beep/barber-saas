@@ -307,7 +307,12 @@ suite('Secretary execution V1 — actual PostgreSQL, exact effects, no network',
     const c = await prepare([service(), stock(), intent('service.create', { item_key: 'new', name: 'Barba Expressa', durationMin: 15, priceCents: 2500 })], { message: executionSource.grouped });
     await admin.product.update({ where: { id: f.product.id }, data: { stock: 1 } });
     await check('controlled-stock-change', stockEffect());
-    const done = await confirm(c); expect(done.action_plan!.status).toBe('PARTIAL_FAILURE');
+    // B2: per-component groups (runtime default); every ready group is approved explicitly in one call.
+    const p = c.view.action_plan!;
+    expect(p.confirmation_groups.map(g => g.action_keys)).toHaveLength(3);
+    const done = await c.secretary.confirmReadyGroups(f.actor, c.session, p.confirmation_groups.map((_, i) => approval(p, i)));
+    saveEvidence(`case-${sequence}-confirmation-ready-groups-result`, { result: done });
+    expect(done.action_plan!.status).toBe('PARTIAL_FAILURE');
     expect(done.action_plan!.actions.map(a => a.status)).toEqual(['DONE', 'FAILED_SAFE', 'DONE']);
     expect(done.operations![0].state.receipt).toBeDefined(); expect(done.operations![1].state.inventory?.receipt).toBeUndefined(); expect(done.operations![2].state.receipt).toBeDefined();
     expect(await balance()).toEqual({ stock: 1 }); await check('independent-partial', { ...serviceEffect(), inserts: { Service: 1 } });

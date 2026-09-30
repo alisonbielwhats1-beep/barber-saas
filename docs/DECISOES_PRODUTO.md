@@ -491,3 +491,22 @@ Dono/gerente podem criar e editar bloqueios fora do expediente, inclusive até
 00:00 do dia seguinte. O motivo do bloqueio é opcional. Alterar um bloqueio
 mantém seu ID, registra antes/depois e preserva reservas e outras ocorrências.
 Cancelamento de reserva continua separado, com motivo obrigatório.
+
+## Secretária de Agenda — decisões do dono de 29/09/2026 (Candidata 4)
+
+Decididas em conversa. São regras gerais do produto, não regras por frase. A redação é abstrata de propósito: nenhum exemplo reproduz frases de conjuntos de prova.
+
+1. **Criação ou consulta de disponibilidade sem dia dito:** a Secretária pergunta o dia. Não assume o dia corrente.
+2. **Remarcação que muda só o dia, sem pedir para manter o horário:** a Secretária pergunta o horário (decisão da Golden GF14). Com pedido explícito para manter, usa o horário atual.
+3. **Bloqueio com início e sem fim:** a Secretária pergunta o horário final. Não estende sozinha até o fim do expediente (resolve a pendência do OM04).
+4. **Pedido para cancelar e remarcar a mesma cliente:** é uma única remarcação, que mantém o agendamento e o histórico. Não é cancelamento mais agendamento novo, e o motivo de cancelamento não é pedido.
+5. **Referência em primeira pessoa à agenda:** vale a agenda profissional do próprio usuário, quando ele estiver vinculado a um cadastro de profissional. Sem esse vínculo, a Secretária pergunta de quem é a agenda. O simulador de testes ainda não vincula o dono a um profissional.
+6. **Consulta do próximo atendimento de um profissional sem dia, quando não há mais atendimentos no dia corrente:** a Secretária olha o próximo dia de trabalho dele.
+7. **Pronome depois de mover uma cliente e ocupar o horário liberado com outra, no mesmo pedido:** o pronome sem outra pista se refere à cliente movida, que é o tópico do pedido.
+8. **Bloqueio "entre dois horários" que acabaram de ser definidos no mesmo pedido:** bloqueia só o intervalo livre entre os atendimentos, sem sobrepor nenhum deles.
+9. **Combos:** o catálogo de cada salão decide.
+   - Se existe um serviço cadastrado cujo nome corresponde à combinação pedida, a Secretária usa esse serviço.
+   - Se só existem os serviços separados, ela agenda vários serviços no mesmo atendimento.
+   - Se existem os dois cadastros, ela pergunta qual usar.
+   - Para tirar um componente de um atendimento feito com combo, ela propõe trocar para o serviço restante, se ele estiver cadastrado. Se não estiver, ela explica e pergunta.
+   - As provas cobrem salões com combos e salões com serviços separados.

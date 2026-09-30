@@ -5,7 +5,7 @@ import { Mic, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SecretaryChat } from './secretary-chat';
 
-export function SecretaryDock({ voiceEnabled }: { voiceEnabled: boolean }) {
+export function SecretaryDock({ voiceEnabled, voiceCorrection = false, transcribeEnabled = false, feedbackEnabled = false }: { voiceEnabled: boolean; voiceCorrection?: boolean; transcribeEnabled?: boolean; feedbackEnabled?: boolean }) {
   const [open, setOpen] = useState(false);
   const [visited, setVisited] = useState(false);
   const [desktop, setDesktop] = useState(false);
@@ -48,7 +48,9 @@ export function SecretaryDock({ voiceEnabled }: { voiceEnabled: boolean }) {
             <div><Dialog.Title className="font-semibold">Secretária</Dialog.Title><Dialog.Description id="secretary-description" className="text-xs text-muted-foreground">Você pede. Revisa. Confirma.</Dialog.Description></div>
             <Dialog.Close asChild><Button size="icon" variant="ghost" aria-label="Fechar Secretária"><X aria-hidden="true" className="h-5 w-5" /></Button></Dialog.Close>
           </header>
-          <div className="min-h-0 flex-1"><SecretaryChat voiceEnabled={voiceEnabled} active={open} /></div>
+          {/* Following a link out of the chat closes the dock (the conversation stays mounted): on mobile an open
+              dock keeps the rest of the app inert, so the destination would be unusable. */}
+          <div className="min-h-0 flex-1"><SecretaryChat voiceEnabled={voiceEnabled} voiceCorrection={voiceCorrection} transcribeEnabled={transcribeEnabled} feedbackEnabled={feedbackEnabled} active={open} onNavigate={() => setOpen(false)} /></div>
         </Dialog.Content>
       </Dialog.Portal>}
     </Dialog.Root>

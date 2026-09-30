@@ -5,6 +5,7 @@ import type { ServiceActor } from "./service-catalog";
 import { customerInput, customerPatch, type CustomerPatch, type CustomerDTO } from "./customer-contract";
 import { clientIdentityData, potentialClientMatchWhere, maskPhone } from "./client-identity";
 import { normalizePhone } from "./phone";
+import { FOLD_FROM, FOLD_TO, foldedIds, foldedLikePattern, withoutArticle, withoutHonorific } from "./name-search";
 
 export const customerSelect = { id: true, name: true, phone: true, email: true } as const;
 export async function assertCustomerAccess(tx: Tx, actor: ServiceActor) {
@@ -14,16 +15,23 @@ export async function assertCustomerAccess(tx: Tx, actor: ServiceActor) {
 }
 const candidateSelect = { id: true, name: true, phone: true } as const;
 const candidates = (rows: { id: string; name: string; phone: string | null }[]) => rows.map(r => ({ id: r.id, name: r.name, phone: maskPhone(r.phone) }));
-/** T01: no auth fields fetched, bounded results; callers must disambiguate. */
+/** T01: no auth fields fetched, bounded results; callers must disambiguate. C7: a leading article is not part of the
+ * name ("a carla"); an honorific is searched as written and dropped only when nothing matches ("dona cida"). */
 export async function searchSalonCustomer(tx: Tx, actor: ServiceActor, query: string) {
   await assertCustomerAccess(tx, actor);
-  const term = z.string().trim().min(2).max(200).parse(query);
+  const term = withoutArticle(z.string().trim().min(2).max(200).parse(query)), rows = await customerRows(tx, actor, term);
+  const bare = rows.length ? undefined : withoutHonorific(term);
+  return bare ? customerRows(tx, actor, bare) : rows;
+}
+async function customerRows(tx: Tx, actor: ServiceActor, term: string) {
   const email = z.string().email().safeParse(term);
   // A malformed email cannot silently change identity role to a phone suffix.
   if(term.includes("@")&&!email.success)throw new Error("INVALID_EMAIL_REFERENCE");
   const digits = normalizePhone(term);
+  // Names match ignoring case and accents ("joao" finds "João"); same tenant scope and bound.
+  const folded = email.success ? [] : foldedIds(await tx.$queryRaw`SELECT id FROM "ClientProfile" WHERE "salonId"=${actor.salonId} AND "mergedIntoId" IS NULL AND lower(translate(name, ${FOLD_FROM}, ${FOLD_TO})) LIKE lower(translate(${foldedLikePattern(term)}, ${FOLD_FROM}, ${FOLD_TO})) ESCAPE '\\' ORDER BY name, id LIMIT 21`);
   return candidates(await tx.clientProfile.findMany({ where: { salonId: actor.salonId, mergedIntoId: null,
-    OR: email.success ? [{email:{equals:email.data.toLowerCase(),mode:"insensitive"}}] : [{ name: { contains: term, mode: "insensitive" } }, ...(digits.length >= 4 ? [{ phoneNormalized: { contains: digits } }, { phone: { contains: digits } }] : [])] },
+    OR: email.success ? [{email:{equals:email.data.toLowerCase(),mode:"insensitive"}}] : [{ name: { contains: term, mode: "insensitive" } }, ...(folded.length ? [{ id: { in: folded } }] : []), ...(digits.length >= 4 ? [{ phoneNormalized: { contains: digits } }, { phone: { contains: digits } }] : [])] },
     select: candidateSelect, orderBy: [{ name: "asc" }, { id: "asc" }], take: 21 }));
 }
 /** T02: fixed whitelist; no caller-controlled projection. */

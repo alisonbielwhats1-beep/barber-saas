@@ -1,18 +1,25 @@
 import { performance } from "node:perf_hooks";
 import { clarificationContext } from "./secretary-clarification";
-import { runServicesTurn, type Model, type CapabilitySelection, type SchedulingTemporalEvidence } from "@everflair/salon-secretary";
+import { runServicesTurn, referencesV2Enabled, sameAsEnabled, type Model, type CapabilitySelection, type SchedulingTemporalEvidence } from "@everflair/salon-secretary";
+import { referenceLiteralProven } from "./secretary-same-as";
 import type { ServiceActor } from "./service-catalog";
 import { withTenant } from "./prisma-tenant";
 import { schedulingPatch, type SchedulingFields } from "./scheduling-contract";
 import { projectSchedulingOperation } from "./secretary-operation-projection";
 import { applyTemporalRejections } from "./scheduling-temporal";
-import { groundSchedulingTemporal } from "./scheduling-temporal-source";
+import { groundSchedulingTemporalTurn } from "./scheduling-temporal-mode";
 import { schedulingNegativeContext, withTemporalTurnDrafts } from './secretary-temporal-turn';
 import { nextTemporalAmbiguities } from "./scheduling-temporal-ambiguity";
 import { nextCalendarConflicts } from "./scheduling-calendar-conflict";
 import { schedulingTimezone } from "./scheduling-catalog";
 import { secretaryFastPath } from "./secretary-fast-path";
 import { groundSchedulingReasons, pendingSourceFields } from "./scheduling-literal-source";
+import { literalOverrideConsent } from "./scheduling-conflict-contract";
+import { actionScopedSource } from "./secretary-sibling-scope";
+import { recurrenceFromTurn, recurrencePending } from "./secretary-recurrence";
+import { applyScopeCoverage } from "./scheduling-temporal-source";
+import { polarityCodes } from "./scheduling-temporal-polarity";
+import { onlyRestatesOptions, replyOnlyPicks } from "./secretary-options";
 import { batchRequirements, validateBatchPlan, upsertBatchDraft, proposeActionBatch, confirmActionBatch, patchBatch, type BatchDraft, type BatchProposal, type BatchPlan } from "./scheduling-batch";
 
 export type BatchState={operation:"action.batch";plan:BatchPlan;message:string;draft?:BatchDraft;proposal?:BatchProposal;receipt?:Awaited<ReturnType<typeof confirmActionBatch>>;
@@ -48,31 +55,63 @@ export async function startReleasedSlotBatch(actor:ServiceActor,cancel:{key:stri
   const start=performance.now();
   const {item_key,operation,fields:parsed,temporal_evidence}=projectSchedulingOperation(create);
   if(operation!=="appointment.create"||!item_key)throw Error("UNSUPPORTED_BATCH");
+  // P3c (flag): an atomic pair has no "só a primeira?" card: a recurrence stated for its create prepares nothing (never one
+  // silent occurrence).
+  if(recurrencePending(recurrenceFromTurn(undefined,operation,sourceMessage,[parsed.service_name,parsed.customer_name,parsed.professional_name]).state,operation))throw Error("UNSUPPORTED_DEPENDENCY_ADAPTER");
   // Same slot inherits time from the cancellation; an alternative destination is
   // grounded against the current message exactly like any other new date/time.
-  const alternative=parsed.destination_mode==="ALTERNATIVE_SLOT";
+  const alternative=parsed.destination_mode==="ALTERNATIVE_SLOT",timezone=await withTenant(actor,tx=>schedulingTimezone(tx,actor));
   const plan=validateBatchPlan({execution_policy:"all_or_nothing",items:[
     {key:cancel.key,operation:"appointment.cancel",depends_on:[],fields:cancel.fields,...(cancel.source_missing?.length?{source_missing:cancel.source_missing}:{})},
-    {key:item_key,operation,depends_on:[cancel.key],released_slot_of:cancel.key,fields:groundSchedulingTemporal({},parsed,alternative?sourceMessage:undefined,await withTenant(actor,tx=>schedulingTimezone(tx,actor)),new Date(),undefined,operation,alternative?temporal_evidence??undefined:undefined).fields},
+    {key:item_key,operation,depends_on:[cancel.key],released_slot_of:cancel.key,fields:groundSchedulingTemporalTurn({},parsed,alternative?sourceMessage:undefined,timezone,new Date(),undefined,operation,alternative?temporal_evidence??undefined:undefined).fields,
+      // D3 (V2): "o mesmo serviço" of the cancellation, proven in this turn's message.
+      ...(serviceFollowsReleased(sourceMessage,create,[create],timezone)?{service_follows_released:true as const}:{})},
   ]});
   const c:BatchState={operation:"action.batch",plan,message:"",metrics:{graph:performance.now()-start},interpretation_source:"MODEL"};
   try{await prepareBatch(actor,c);return c;}catch(error){if(c.draft)adoptCommitted?.(c);throw error;}
 }
-export async function startBatch(actor:ServiceActor,selection:CapabilitySelection,sourceMessage?:string,adoptCommitted?:(state:BatchState)=>void):Promise<BatchState>{
+/** D3 (V2): the create of a released slot follows the released appointment's service only with a proven "mesmo serviço"
+ * link to its releaser (an identity marker, inside the create's own verified clause, never negated); otherwise the service is
+ * the owner's own or asked (the catalog rule "não copie serviço"). */
+function serviceFollowsReleased(message:string,op:CapabilitySelection["operations"][number],siblings:readonly CapabilitySelection["operations"][number][],timezone:string){
+  if(!referencesV2Enabled()||!sameAsEnabled())return false;
+  const link=op.same_as?.find(ref=>ref.field==="service"&&ref.item_key===op.released_slot_of);
+  if(!link)return false;
+  const scoped=actionScopedSource(message,op,siblings),at=scoped.scoped&&op.source_scope?message.indexOf(op.source_scope):-1;
+  return referenceLiteralProven(message,link.literal,at>=0?[at,at+op.source_scope!.length]:undefined,"appointment.create",[],timezone,new Date(),"service");
+}
+/** `siblings`: every operation of the request (default: this pair). With a verified clause
+ * per operation each item is grounded against its own clause (secretary-sibling-scope.ts);
+ * otherwise against the full message, as before. `divergence` receives codes only. */
+export async function startBatch(actor:ServiceActor,selection:CapabilitySelection,sourceMessage?:string,adoptCommitted?:(state:BatchState)=>void,
+  scope:{siblings?:readonly CapabilitySelection["operations"][number][];divergence?:(codes:string[])=>void}={}):Promise<BatchState>{
   if(selection.independent||selection.skills.length!==1||selection.skills[0]!=="scheduling")throw Error("UNSUPPORTED_BATCH");
   const timezone=await withTenant(actor,tx=>schedulingTimezone(tx,actor)),start=performance.now();
   const plan=validateBatchPlan({execution_policy:"all_or_nothing",items:selection.operations.map(op=>{
     const {item_key,depends_on,released_slot_of,operation,fields:parsed,temporal_evidence,temporal_negative_context}=projectSchedulingOperation(op);
     const inherited=operation==="appointment.create"&&released_slot_of&&parsed.destination_mode!=="ALTERNATIVE_SLOT";
-    const negativeContext=schedulingNegativeContext(temporal_negative_context,{source:sourceMessage,previous:{},raw:parsed,evidence:temporal_evidence,operation});
-    const grounded=groundSchedulingTemporal({},parsed,inherited?undefined:sourceMessage,timezone,new Date(),undefined,operation,inherited?undefined:temporal_evidence??undefined,undefined,negativeContext);
+    const scoped=sourceMessage===undefined?undefined:actionScopedSource(sourceMessage,op,scope.siblings??selection.operations);
+    const source=scoped?.scoped?scoped.text:sourceMessage;
+    // P3c (flag): no "só a primeira?" card in an atomic pair: a recurrence its create/block (review B: or cancellation) states
+    // prepares nothing; an adjective inside the owner's own names of the item ("manutenção mensal") is that name.
+    if(recurrencePending(recurrenceFromTurn(undefined,operation,source,[parsed.service_name,parsed.customer_name,parsed.professional_name]).state,operation))throw Error("UNSUPPORTED_DEPENDENCY_ADAPTER");
+    const negativeContext=schedulingNegativeContext(temporal_negative_context,{source,previous:{},raw:parsed,evidence:temporal_evidence,operation});
+    const grounded=groundSchedulingTemporalTurn({},parsed,inherited?undefined:source,timezone,new Date(),undefined,operation,inherited?undefined:temporal_evidence??undefined,undefined,negativeContext);
+    if(scoped?.scoped&&!inherited&&source!==undefined)scope.divergence?.(applyScopeCoverage(grounded,source,timezone,new Date(),operation,parsed,temporal_evidence));
+    // B5: a contradicted temporal role is asked (temporal_missing below); telemetry keeps its code.
+    if(!inherited&&temporal_evidence?.some(entry=>entry.conflict))scope.divergence?.(["TEMPORAL_SELECTOR_CONFLICT"]);
+    // C4 (flag): exclusion proof codes (never text or values).
+    if(!inherited&&grounded.exclusions)scope.divergence?.(polarityCodes(grounded));
     const fields=grounded.fields;
-    const sourceResult=groundSchedulingReasons(fields,{},sourceMessage);
+    const sourceResult=groundSchedulingReasons(fields,{},source);
     const source_missing=pendingSourceFields(undefined,sourceResult);
     const pending=grounded.pending_temporal_ambiguities;
     const calendar=grounded.pending_calendar_conflicts;
     const temporal_missing=grounded.rejected.filter(rejection=>rejection.field!=="period"&&!pending.some(value=>value.field===rejection.field)&&!calendar.some(value=>value.field===rejection.field)).map(rejection=>rejection.field);
-    return {key:item_key,operation,depends_on,...(released_slot_of?{released_slot_of}:{}),fields,...(source_missing.length?{source_missing}:{}),...(temporal_missing.length?{temporal_missing}:{}),...(pending.length?{pending_temporal_ambiguities:pending}:{}),...(calendar.length?{pending_calendar_conflicts:calendar}:{})};
+    // D3 (flag SALON_SECRETARY_REFERENCES_V2): "pro mesmo serviço" beside the released slot, proven in the create's own clause.
+    const follows=operation==="appointment.create"&&!!released_slot_of&&sourceMessage!==undefined&&serviceFollowsReleased(sourceMessage,op,scope.siblings??selection.operations,timezone);
+    return {key:item_key,operation,depends_on,...(released_slot_of?{released_slot_of}:{}),fields,...(source_missing.length?{source_missing}:{}),...(temporal_missing.length?{temporal_missing}:{}),...(pending.length?{pending_temporal_ambiguities:pending}:{}),...(calendar.length?{pending_calendar_conflicts:calendar}:{}),
+      ...(follows?{service_follows_released:true as const}:{})};
   })});
   const c:BatchState={operation:"action.batch",plan,message:"",metrics:{graph:performance.now()-start},interpretation_source:"MODEL"};
   try{await prepareBatch(actor,c);return c;}catch(error){if(c.draft)adoptCommitted?.(c);throw error;}
@@ -100,6 +139,8 @@ async function sendBatchTurnBound(actor:ServiceActor,c:BatchState,message:string
 }
 export function groundBatchPatch(plan:BatchPlan,selected:string,raw:SchedulingFields,message:string,timezone:string,evidence?:SchedulingTemporalEvidence,draft?:BatchDraft,negativeProof?:unknown){
   const item=plan.items.find(i=>i.key===selected);if(!item)throw Error("DEPENDENCY_ERROR");
+  // P2b: the T21 create books the one service of the released slot; a service list there is out of scope (never dropped).
+  if(raw.service_names!==undefined)throw Error("CAPABILITY_FIELD_MISMATCH");
   // A validated empty delta retains this item; the source may describe only a
   // sibling's correction. New proof still requires its normal validation.
   if(!Object.keys(raw).length&&!evidence?.length&&negativeProof==null)return structuredClone(plan);
@@ -111,7 +152,12 @@ export function groundBatchPatch(plan:BatchPlan,selected:string,raw:SchedulingFi
   const retarget=["customer_name","customer_ref","service_name","service_ref","professional_name","professional_ref","date","day_offset","weekday","source_date","source_day_offset","source_weekday","destination_mode"].some(key=>raw[key as keyof SchedulingFields]!==undefined&&raw[key as keyof SchedulingFields]!==item.fields[key as keyof SchedulingFields]);
   const temporalContext=draft&&(residual||item.pending_calendar_conflicts?.length)?{pending_temporal_ambiguities:item.pending_temporal_ambiguities,pending_calendar_conflicts:item.pending_calendar_conflicts,draft_ref:draft.draft_ref,draft_revision:draft.draft_revision,expires_at:draft.expires_at,scope_valid:!!sameDraft&&(!residual||!retarget)}:undefined;
   const negativeContext=schedulingNegativeContext(negativeProof,{source:message,previous:item.fields,raw,evidence,operation:item.operation,draft:draft?{...draft,fields:item.fields,item_key:selected,scope_valid:!!sameDraft}:undefined});
-  const grounded=groundSchedulingTemporal(item.fields,raw,message,timezone,new Date(),waiting,item.operation,evidence,temporalContext,negativeContext);
+  // C7: a pure pick of this item's open card ("a segunda" = the second option) is not read as dates or clocks; the
+  // owner's own words must be only that pick too (a negator or another temporal atom keeps the full grounding).
+  const card=sameDraft&&draft?.candidates?.item_key===selected?draft.candidates:undefined;
+  const pick=!!card&&!evidence?.length&&negativeProof==null&&onlyRestatesOptions(card.field,card.items.map(option=>option.name),raw)&&
+    replyOnlyPicks(message,Object.values(raw).filter((value):value is string=>typeof value==="string"));
+  const grounded=groundSchedulingTemporalTurn(item.fields,raw,pick?undefined:message,timezone,new Date(),waiting,item.operation,evidence,temporalContext,negativeContext);
   // A failed response cannot erase the literal question or advance another item.
   if(waiting&&grounded.rejected.length&&!grounded.pending_temporal_ambiguities.length&&!grounded.pending_calendar_conflicts.length)return structuredClone(plan);
   if(item.pending_temporal_ambiguities?.some(value=>grounded.rejected.some(rejection=>rejection.field===value.field)))return structuredClone(plan);
@@ -120,7 +166,9 @@ export function groundBatchPatch(plan:BatchPlan,selected:string,raw:SchedulingFi
   const context=draft&&JSON.stringify(draft.plan)===JSON.stringify(plan)&&draft.missing_fields.length===1&&draft.missing_fields[0]===selected+".override_requested"
     ?{operation:item.operation,waiting_for:"override_requested",fields:draft.plan.items.find(i=>i.key===selected)!.fields,review:draft.review,expires_at:draft.expires_at}:undefined;
   const sourceResult=groundSchedulingReasons(grounded.patch,item.fields,message,context);
-  const next=patchBatch(plan,selected,grounded.patch),target=next.items.find(i=>i.key===selected)!;
+  // A1-GF23 (flag): the item's live review (this very graph, unexpired, its question open) decides what a contradictory consent means.
+  const live=sameDraft&&Date.parse(draft!.expires_at)>Date.now()&&draft!.missing_fields.some(field=>field.startsWith(selected+"."))?draft!.review:undefined;
+  const next=patchBatch(plan,selected,grounded.patch,{review:live,literal:literalOverrideConsent(message)}),target=next.items.find(i=>i.key===selected)!;
   applyTemporalRejections(target.fields,item.fields,grounded.rejected);
   const source_missing=pendingSourceFields(item.source_missing,sourceResult);
   if(source_missing.length)target.source_missing=source_missing;else delete target.source_missing;

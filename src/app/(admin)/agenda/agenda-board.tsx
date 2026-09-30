@@ -46,6 +46,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { layoutAppointmentsAndBlocks, type AgendaPlacement } from "./agenda-layout";
 import { AvailabilityPanel, type AvailabilityBlock, type AvailabilityPreset, type BlockSelection } from "./availability-panel";
 import { AvailabilityBlockDialog, AvailabilityBlockTrigger } from "./availability-block";
+import type { AgendaPrefill } from "./agenda-deep-link";
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 import { DateNavigator } from "./date-navigator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -163,8 +164,7 @@ function ymd(d: Date) {
 export function AgendaBoard({
   colorScope,
   operations,
-  initialAppointmentId,
-  initialClientId,
+  prefill,
   initialProfessionalId,
   availabilityBlocks = [],
   date,
@@ -182,8 +182,8 @@ export function AgendaBoard({
   canManageAvailability = canCancel,
 }: {
   colorScope: string;
-  initialAppointmentId?: string;
-  initialClientId?: string;
+  /** Deep link already re-validated by the page (agendaPrefill): what to open, prefilled. Never books anything. */
+  prefill?: AgendaPrefill;
   initialProfessionalId?: string;
   availabilityBlocks?: AvailabilityBlock[];
   operations?: ReactNode;
@@ -222,13 +222,26 @@ export function AgendaBoard({
   const filterTrigger = useRef<HTMLButtonElement>(null);
   const restoreQuickActionFocus = () => quickActionTrigger.current?.focus();
   const [blockMode, setBlockMode] = useState(false);
-  const [blockSelection, setBlockSelection] = useState<(BlockSelection & { key: string }) | undefined>();
+  const [blockSelection, setBlockSelection] = useState<(BlockSelection & { key: string }) | undefined>(() => canManageAvailability && prefill?.block ? { ...prefill.block, key: "deep-link" } : undefined);
   const [availabilityLaunch, setAvailabilityLaunch] = useState<{ key: string; preset: AvailabilityPreset } | undefined>();
   const [selectedAvailabilityBlock, setSelectedAvailabilityBlock] = useState<AvailabilityBlock | null>(null);
   const [search, setSearch] = useState("");
-  const [detail, setDetail] = useState<Appointment | null>(() => appointments.find(a => a.id === initialAppointmentId) ?? null);
+  const [detail, setDetail] = useState<Appointment | null>(() => appointments.find(a => a.id === prefill?.detailId) ?? null);
   const currentDetail = detail ? appointments.find(appointment => appointment.id === detail.id) ?? detail : null;
-  const [createAt, setCreateAt] = useState<{ startLocal: string; proId: string; clientId?: string } | null>(() => canCreate && initialClientId && clients.some(client => client.id === initialClientId) && roster.length ? {startLocal:`${date}T08:00`,proId:roster[0].id,clientId:initialClientId} : null);
+  const [createAt, setCreateAt] = useState<{ startLocal: string; proId: string; clientId?: string; serviceIds?: string[] } | null>(() => canCreate && prefill?.create ? prefill.create : null);
+  // A later deep link while the agenda is already open (e.g. from the Secretária dock) opens its record or form too.
+  const prefillKey = JSON.stringify(prefill ?? {}), appliedPrefill = useRef(prefillKey);
+  useEffect(() => {
+    if (appliedPrefill.current === prefillKey) return;
+    appliedPrefill.current = prefillKey;
+    const next = prefill ?? {};
+    const linked = appointments.find(appointment => appointment.id === next.detailId);
+    if (linked) setDetail(linked);
+    if (canCreate && next.create) setCreateAt(next.create);
+    if (canManageAvailability && next.block) { setAvailabilityLaunch(undefined); setBlockSelection({ ...next.block, key: crypto.randomUUID() }); }
+  // Only a new link applies; the lists it was validated against arrive with it.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefillKey]);
   const [moveProposal, setMoveProposal] = useState<{
     appointment: Appointment;
     professionalId: string;
@@ -415,7 +428,7 @@ export function AgendaBoard({
         </div>
 
         <div className="agenda-view-controls">
-          <AgendaMobileGuide scope={colorScope} canCreate={canCreate} autoStart={!initialAppointmentId && !initialClientId} />
+          <AgendaMobileGuide scope={colorScope} canCreate={canCreate} autoStart={!prefill?.linked} />
           {(awaitingAcceptance > 0 || cancelledWithQueue > 0) && <Dialog><DialogTrigger asChild><button type="button" aria-label="Avisos do período" className="relative grid h-11 w-11 shrink-0 place-items-center rounded-full"><Bell size={17} aria-hidden /><span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-warning" /></button></DialogTrigger><DialogContent aria-describedby={undefined}><DialogHeader><DialogTitle>Avisos do período</DialogTitle></DialogHeader><div className="space-y-3 text-sm">          <p className="font-medium">{noticesPeriod} · independente dos filtros</p>
           <p>
             {awaitingAcceptance > 0 && `${awaitingAcceptance} alteração(ões) aguardando aceite do cliente.`}
@@ -605,6 +618,7 @@ export function AgendaBoard({
       {createAt && (
         <AppointmentDialog
           initialClient={clients.find(client => client.id === createAt.clientId)}
+          initialServiceIds={createAt.serviceIds}
           open={!!createAt}
           onOpenChange={(o) => {
             if (!o) {

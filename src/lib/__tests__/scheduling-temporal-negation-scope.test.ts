@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { groundSchedulingTemporal, temporalLiteralNegated } from "../scheduling-temporal-source";
 import type { SchedulingFields } from "../scheduling-contract";
 import type { SchedulingTemporalEvidence } from "../../../packages/salon-secretary/src/scheduling-skill";
@@ -34,6 +34,22 @@ describe("a denial scopes only the clause of the literal it governs", () => {
     const result = ground(operation, source, raw as SchedulingFields, evidence as unknown as SchedulingTemporalEvidence);
     expect(result.rejected.map(item => item.field).sort()).toEqual([...rejectedFields].sort());
     for (const field of rejectedFields) expect(result.fields[field as keyof SchedulingFields]).toBeUndefined();
+  });
+
+  // Review (C4, SALON_SECRETARY_TEMPORAL_POLARITY on): an exclusion Luna reports never widens this matrix. A leading
+  // negator still denies the clock right after its own atom ("não amanhã às 10h"), with or without the exclusion.
+  it.each([
+    ["appointment.create", "Marca a Carla, não amanhã às 10h", { time: "10:00" }, [{ field: "time", text: "às 10h" }], ["time"]],
+    ["appointment.create", "Marca a Carla, não amanhã às 10h", { time: "10:00" }, [{ field: "time", text: "às 10h" }, { field: "date", text: "não amanhã", excluded: "2026-09-29" }], ["time"]],
+    ["appointment.change", "Remarca a Amanda não pra sexta às 15h", { time: "15:00" }, [{ field: "time", text: "às 15h" }, { field: "date", text: "não pra sexta", excluded: "2026-10-02" }], ["time"]],
+    ["appointment.create", "Marca a Amanda amanhã às dez não às onze", { day_offset: 1, time: "10:00" }, [{ field: "date", text: "amanhã" }, { field: "time", text: "às dez" }, { field: "time", text: "não às onze", excluded: "11:00" }], ["date", "time"]],
+  ] as const)("flag on: %s still rejects a literal its own clause denies: %s", (operation, source, raw, evidence, rejectedFields) => {
+    vi.stubEnv("SALON_SECRETARY_TEMPORAL_POLARITY", "true");
+    try {
+      const result = ground(operation, source, raw as SchedulingFields, evidence as unknown as SchedulingTemporalEvidence);
+      expect(result.rejected.map(item => item.field).sort()).toEqual([...rejectedFields].sort());
+      for (const field of rejectedFields) expect(result.fields[field as keyof SchedulingFields]).toBeUndefined();
+    } finally { vi.unstubAllEnvs(); }
   });
 
   it("treats a missing or denied literal span as negated (fail-closed)", () => {

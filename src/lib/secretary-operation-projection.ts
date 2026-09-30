@@ -7,7 +7,9 @@ import { schedulingOperation, schedulingPatch } from './scheduling-contract';
  * Graph metadata and literal witnesses remain available to their own guards;
  * only domain fields may enter a scheduling draft. */
 export function projectSchedulingOperation(input: unknown) {
-  const selected = selectionSchema.shape.operations.element.parse(input) as SelectedOperation & { temporal_negative_context?: unknown };
+  // C5: a same_as reference is graph metadata, resolved by the orchestrator before projection (never a domain field).
+  const { same_as: _references, ...unlinked } = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>; void _references;
+  const selected = selectionSchema.shape.operations.element.parse(input && typeof input === 'object' ? unlinked : input) as SelectedOperation & { temporal_negative_context?: unknown };
   const {
     item_key, depends_on, released_slot_of, source_scope, temporal_evidence, temporal_negative_context, operation,
     target_name, name, priceCents, durationMin, phone, email, requested_fields, clear_fields,

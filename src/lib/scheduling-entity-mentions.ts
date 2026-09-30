@@ -2,10 +2,13 @@ import { searchSalonCustomer } from "./customer-catalog";
 import { withTenant } from "./prisma-tenant";
 // Static on purpose: a dynamic import fails under the tsx/cjs evaluation runtime.
 import { listSchedulingServices } from "./scheduling-catalog";
+import { directorySubsetProof, foldName } from "./name-search";
+import { salonDirectoryNames } from "./entity-suggestions";
 import type { ServiceActor } from "./service-catalog";
 
 type Span = { start: number; end: number };
-const normalize = (text: string) => text.normalize("NFC").toLocaleLowerCase("pt-BR");
+// Case and accents are not identity: "coloracao" in the message proves "Coloração".
+const normalize = foldName;
 const word = (character: string | undefined) => !!character && /[\p{L}\p{N}\p{M}_]/u.test(character);
 /** Literal token-bounded mentions, not a Portuguese grammar/name parser. */
 function spans(source: string, value: string): Span[] {
@@ -27,6 +30,27 @@ export function assertSeparateServiceMention(message: string, serviceName: strin
     service.start >= customer.start && service.end <= customer.end))) {
     throw Error("ENTITY_MENTION_CONFLICT");
   }
+}
+
+/** C7 (SALON_SECRETARY_NAME_SUGGESTIONS): a service name Luna expanded from the owner's words ("corte" → "Corte
+ * Completo") that failed its literal proof is proven when the name's tokens the message holds OUTSIDE the customer's
+ * name (same customer spans as the literal proof) are a subset of exactly one active service of the salon, and that
+ * service is the name (directorySubsetProof). A typo, a fragment of the customer's name or a subset shared by two
+ * services proves nothing: the service is asked as before. */
+export async function serviceDirectoryProof(actor: ServiceActor, message: string, serviceName: string, customerName?: string) {
+  const text = await withoutCustomerMentions(actor, message, customerName);
+  const directory = await withTenant(actor, tx => salonDirectoryNames(tx, actor, "service"));
+  return !!directory && directorySubsetProof(serviceName, text, directory);
+}
+/** The (folded) message with the customer's name blanked: the name the action carries and every matching customer row.
+ * A directory proof (service or professional) never counts a token of the customer's own name ("Carla Lima" never
+ * proves "Rodrigo Lima"). */
+export async function withoutCustomerMentions(actor: ServiceActor, message: string, customerName?: string) {
+  const customers = customerName ? await withTenant(actor, tx => searchSalonCustomer(tx, actor, customerName)) : [];
+  const source = normalize(message), blank = source.split("");
+  for (const name of [...customers.map(customer => customer.name), ...(customerName ? [customerName] : [])])
+    for (const span of spans(source, normalize(name))) for (let i = span.start; i < span.end; i++) blank[i] = " ";
+  return blank.join("");
 }
 
 export async function validateSchedulingEntityMentions(

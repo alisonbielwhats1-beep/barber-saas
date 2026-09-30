@@ -4,7 +4,7 @@ const db = vi.hoisted(() => ({ role: "OWNER", auditLog: { create: vi.fn() }, $qu
 vi.mock("../prisma-tenant", () => ({ withTenant: (_actor: unknown, fn: (tx: object) => unknown) => fn(db) }));
 vi.mock("../service-create-mvp", async original => ({ ...await original<object>(),
   upsertActionDraft: db.upsert, proposeServiceCreate: db.propose, confirmServiceCreate: db.confirm }));
-import { SalonSecretary } from "../salon-secretary";
+import { SalonSecretary, unreadAnswerNotice } from "../salon-secretary";
 import { ScriptedServicesModel, call , appendScriptedResponses} from "../../test/scripted-services-model";
 import { intent, plan } from "../../test/secretary-capability-plan";
 import { type ActionPlan } from "@everflair/salon-secretary";
@@ -35,7 +35,7 @@ beforeEach(() => {
     preview: JSON.stringify(db.drafts.get(input.draft_ref)), expires_at: new Date(Date.now() + 60_000).toISOString() }));
   db.confirm.mockImplementation(async (_tx, _actor, input) => ({ receipt_ref: crypto.randomUUID(), proposal_ref: input.proposal_ref, service: { name: "Serviço", id: "domain-id" } }));
 });
-afterEach(() => { expect(fetch).not.toHaveBeenCalled(); vi.unstubAllGlobals(); });
+afterEach(() => { expect(fetch).not.toHaveBeenCalled(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 function secretary(input: unknown, enabled = true) {
   const model = new ScriptedServicesModel([call("select_capabilities", input)]), jev = vi.fn<typeof fetch>(() => { throw Error("JEV_FORBIDDEN"); });
   const s = new SalonSecretary(async () => model, () => "gpt-6-luna", undefined,
@@ -78,7 +78,8 @@ it("clarifies only two incomplete actions, preserves others, same plan and draft
   const { s, model } = secretary(plan(ops)), session = await s.start(actor, "auto");
   const result = await s.send(actor, { sessionId: session.sessionId, message: "Cadastre serviços." }), p = result.action_plan!;
   expect(p.actions.map(action => action.missing_fields)).toEqual([[], ["durationMin"], [], ["durationMin"], []]);
-  await expect(s.confirmActionPlanGroup(actor, session.sessionId, approval(p))).rejects.toThrow("PLAN_NOT_READY");
+  // B2: groups are per component; the incomplete action's own group is the one that cannot be confirmed.
+  await expect(s.confirmActionPlanGroup(actor, session.sessionId, approval(p, p.confirmation_groups.findIndex(group => group.action_keys.includes("a1"))))).rejects.toThrow("PLAN_NOT_READY");
   expect(db.confirm).not.toHaveBeenCalled();
   const sibling = result.operations![0].state.proposal!.proposal_ref;
   const next = await s.send(actor, { sessionId: session.sessionId, operation_ref: result.operations![1].operation_ref, message: "45 minutos" });
@@ -94,7 +95,8 @@ it("failed dependency never executes its child; independent action can complete"
   const { s } = secretary({ ...plan(ops), independent: false }), session = await s.start(actor, "auto");
   const result = await s.send(actor, { sessionId: session.sessionId, message: "Cadastre em ordem e preserve os independentes." });
   db.confirm.mockRejectedValueOnce(Error("SLOT_CONFLICT"));
-  const next = await s.confirmActionPlanGroup(actor, session.sessionId, approval(result.action_plan!));
+  // B2: the independent action is its own group; both groups are approved explicitly in one call.
+  const next = await s.confirmReadyGroups(actor, session.sessionId, result.action_plan!.confirmation_groups.map((_, i) => approval(result.action_plan!, i)));
   expect(next.action_plan!.actions.map(action => action.status)).toEqual(["FAILED_SAFE", "BLOCKED_BY_DEPENDENCY", "DONE"]);
   expect(db.confirm).toHaveBeenCalledTimes(2);
 });
@@ -325,7 +327,14 @@ it("the interpreter cannot resume an arbitrary or another tenant's plan",async()
   const first=await s.send(actor,{sessionId:session.sessionId,message:"Crie o serviço."}),count=db.upsert.mock.calls.length;
   appendScriptedResponses(model,[call("upsert_action_draft",{name:null,priceCents:null,durationMin:null,resume_request:{plan_ref:crypto.randomUUID(),patches:null}})]);
   const failed=await s.send(actor,{sessionId:session.sessionId,message:"Volte para o pedido antigo."});
-  expect(failed.action_plan!.actions[0].status).toBe("FAILED_SAFE");
+  // B5 contract migration (partial acceptance): the refused RESUME (PLAN_NOT_IN_SESSION) applies nothing
+  // and no longer fails the action: the same active plan is kept and the reply asks to rephrase.
+  // Review 2b: the answer was addressed to this only open unit, so its proposal is not re-offered: the action is
+  // held for review (never FAILED_SAFE, never confirmable) until the owner restates or keeps it.
+  expect(failed.action_plan!.plan_ref).toBe(first.action_plan!.plan_ref);
+  expect(failed.action_plan!.actions[0]).toMatchObject({ status: "NEEDS_INPUT", assessment: { issue: "REVIEW_REQUIRED" } });
+  expect(failed.action_plan!.confirmation_groups.some(group => group.status === "READY_FOR_CONFIRMATION")).toBe(false);
+  expect(failed.message).toBe(unreadAnswerNotice);
   expect(db.upsert).toHaveBeenCalledTimes(count);expect(db.confirm).not.toHaveBeenCalled();
   await expect(s.send({...actor,salonId:"foreign"},{sessionId:session.sessionId,message:"Retome."})).rejects.toThrow("SESSION_NOT_FOUND");
   expect(first.operations![0].state.draft).toEqual(failed.operations![0].state.draft);
@@ -381,6 +390,7 @@ it.each(["UNSUPPORTED","AMBIGUOUS","CONVERSATION"] as const)("backend refuses a 
 
 
 it.each([11, 14])("an independent confirmation group remains supported after execution failure among %i actions",async count=>{
+  vi.stubEnv("SALON_SECRETARY_CONFIRMATION_GROUPING","packed"); // pins the packed rollback (B2 default is per component)
   const {s}=secretary(plan(operations(count))),session=await s.start(actor,"auto");
   const prepared=await s.send(actor,{sessionId:session.sessionId,message:"Cadastre os serviços pedidos."});
   const firstApproval=approval(prepared.action_plan!);
@@ -405,6 +415,7 @@ it.each([11, 14])("an independent confirmation group remains supported after exe
   expect(db.confirm).toHaveBeenCalledTimes(count);
 });
 it.each([11, 14])("preparation failure in one group preserves an independently ready group among %i actions",async count=>{
+  vi.stubEnv("SALON_SECRETARY_CONFIRMATION_GROUPING","packed"); // pins the packed rollback (B2 default is per component)
   const {s}=secretary(plan(operations(count))),session=await s.start(actor,"auto");
   db.upsert.mockRejectedValueOnce(Error("SLOT_CONFLICT"));
   const prepared=await s.send(actor,{sessionId:session.sessionId,message:"Cadastre os serviços pedidos."});

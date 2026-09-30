@@ -1,0 +1,74 @@
+{
+  "schema": "secretary-contract-v1",
+  "model": "gpt-6-luna",
+  "note": "Updated only by the coordinator after the batteries of the changed profiles (Golden pass^k, practice). A mismatch in the contract-version test means the prompt, wire, model, limits or contract flags changed.",
+  "profiles": {
+    "v2": {
+      "env": {
+        "SALON_SECRETARY_MULTI_ACTION_V2_ENABLED": "true"
+      },
+      "version": "7a834be259f997fc034dc3d6b6e79603a4f857368409fc9a29e23693f400cfaf",
+      "parts": {
+        "templates": "a38e9bd7dde59ec793cded5c62605ae44dca7c7a01ea76189c52119d5d164055",
+        "wires": "0e14f08c5c7718a5d29cb57de8afca6c742f45b7415ca53e7fa47bb52f3100f8",
+        "runtime": "ed76699993afa17db358b2bd1396e31b5cf336e0b0fdc08c71ddfc2ea1ad065f",
+        "presentation": "b623d5a6fdf82438005fa89c18fc2a297075bcc74f7f68bcd05e1810b25386d3"
+      }
+    },
+    "v2+components": {
+      "env": {
+        "SALON_SECRETARY_MULTI_ACTION_V2_ENABLED": "true",
+        "SALON_SECRETARY_TEMPORAL_COMPONENTS": "true"
+      },
+      "version": "c73726bb811241c7fbb50c5d3a9eb5b25286d7369776dcf636c319f0445e0bff",
+      "parts": {
+        "templates": "f3dc80e2aace09c8dd584ce5cf608a64ad535512cfbad77a7fd78fa99606e795",
+        "wires": "44b3bcefea7294f3569f797555c56cae539798b9a693bc7bbefe453dfd4fc1ad",
+        "runtime": "6a89b8fae6955b5754406828904dd7732475c103029c4cce79d09d60cf094325",
+        "presentation": "b623d5a6fdf82438005fa89c18fc2a297075bcc74f7f68bcd05e1810b25386d3"
+      }
+    },
+    "v2+jit": {
+      "env": {
+        "SALON_SECRETARY_MULTI_ACTION_V2_ENABLED": "true",
+        "SALON_SECRETARY_JIT_INSTRUCTIONS": "true"
+      },
+      "version": "3440788b2b583ffb8d8ba5a113f36ddce5d99a95e5e78b926d970090a38f4b43",
+      "parts": {
+        "templates": "51f51d7bdc79729790597ff918a5e3ade22729d264eee82a9df4baa73dbebf6b",
+        "wires": "2b88610d3e311b2a4f02e322f3c7aeee6c8e43ed93611f63704fcc4bbaddd316",
+        "runtime": "974fab4b61ffad5302cc443c4c8ad6f36b9eb95f5f338d62438deae7a904edb0",
+        "presentation": "b623d5a6fdf82438005fa89c18fc2a297075bcc74f7f68bcd05e1810b25386d3"
+      }
+    },
+    "v2+components+jit": {
+      "env": {
+        "SALON_SECRETARY_MULTI_ACTION_V2_ENABLED": "true",
+        "SALON_SECRETARY_TEMPORAL_COMPONENTS": "true",
+        "SALON_SECRETARY_JIT_INSTRUCTIONS": "true"
+      },
+      "version": "cb267b4ba74513bab54e4f32722c56f488a7cea2e47d8a2acf8a0bc8fec98aba",
+      "parts": {
+        "templates": "1ccf50b57e567fa61ea7dc0802d9479f2cd514ba8913e0bfd65c4e982aa14909",
+        "wires": "31d143ddcac8ebe8e5557e036ca02b2c2a545b956d514096e697d617dc9262d9",
+        "runtime": "1cfad47bfe266854bcfe32ecbd2684b9b347462a03effb4426563b291384e619",
+        "presentation": "b623d5a6fdf82438005fa89c18fc2a297075bcc74f7f68bcd05e1810b25386d3"
+      }
+    },
+    "v2+components+jit+examples-selected": {
+      "env": {
+        "SALON_SECRETARY_MULTI_ACTION_V2_ENABLED": "true",
+        "SALON_SECRETARY_TEMPORAL_COMPONENTS": "true",
+        "SALON_SECRETARY_JIT_INSTRUCTIONS": "true",
+        "SALON_SECRETARY_EXAMPLES": "selected"
+      },
+      "version": "469c389019fa870866371bea3970870c827503f2478c6e0b363d110de223aae0",
+      "parts": {
+        "templates": "c698899fa84c3ccec9930093b511504ff7bf7ae480d62c8f8509d707057daad9",
+        "wires": "31d143ddcac8ebe8e5557e036ca02b2c2a545b956d514096e697d617dc9262d9",
+        "runtime": "0bbf26945771a0100042533196675c0419720be666fee9af87a13528aee62023",
+        "presentation": "b623d5a6fdf82438005fa89c18fc2a297075bcc74f7f68bcd05e1810b25386d3"
+      }
+    }
+  }
+}

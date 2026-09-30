@@ -19,8 +19,13 @@ import { SalonSecretary } from "../salon-secretary";
 import { validateBatchPlan } from "../scheduling-batch";
 import { ScriptedServicesModel, call } from "../../test/scripted-services-model";
 import { intent, plan } from "../../test/secretary-capability-plan";
+import type { ActionPlan } from "@everflair/salon-secretary";
 const actor = { salonId: "synthetic", userId: "synthetic" };
 const exact = "  Seu horário foi cancelado.\nObrigada! 😊  ";
+// B2: the independent Massagem change is its own ready group, named once before the single question.
+const readyLead = "Já dá para confirmar: alteração do serviço Massagem.\n\n";
+const readyApprovals = (p: ActionPlan) => p.confirmation_groups.filter(group => group.status === "READY_FOR_CONFIRMATION")
+  .map(group => ({ plan_ref: p.plan_ref, revision: p.revision, group_key: group.key, fingerprint: group.fingerprint }));
 const input = (message = false) => ({ ...plan([
   intent("appointment.cancel", { item_key: "a", depends_on: [], customer_name: "Amanda Souza", day_offset: 1, time: "10:00", reason: "Pedido dela" }),
   intent("appointment.create", { item_key: "b", depends_on: ["a"], released_slot_of: "a", customer_name: "Fábio Santos", service_name: "Corte Completo" }),
@@ -67,7 +72,7 @@ it("x46-style natural continuation asks once, retains five actions and the same 
   const s = new SalonSecretary(async () => model, () => "gpt-6-luna", undefined, {}, { enabled: () => true });
   const session = await s.start(actor, "auto");
   const before = await s.send(actor, { sessionId: session.sessionId, message: `Cancele Amanda, coloque Fábio no lugar, altere Massagem e consulte ontem. Motivo: Pedido dela. Envie exatamente “${exact}”` });
-  expect(before.message).toBe("Qual serviço Fábio Santos vai fazer?");
+  expect(before.message).toBe(readyLead + "Qual serviço Fábio Santos vai fazer?");
   const after = await s.send(actor, { sessionId: session.sessionId, message: "Corte Completo." });
   expect(after.action_plan!.plan_ref).toBe(before.action_plan!.plan_ref);
   expect(after.action_plan!.dependencies).toEqual(before.action_plan!.dependencies);
@@ -90,8 +95,7 @@ it.each([false, true])("runtime u02-equivalent with branching message=%s reuses 
   expect(mocks.batchDraft.mock.calls[0][2].plan.items[1].fields.service_name).toBe("Corte Completo");
   expect(mocks.batchConfirm).not.toHaveBeenCalled(); expect(mocks.messageConfirm).not.toHaveBeenCalled();
   if (message) expect(mocks.messageDraft.mock.calls[0][2].patch.content).toBe(exact);
-  const p = view.action_plan!, group = p.confirmation_groups[0];
-  const done = await s.confirmActionPlanGroup(actor, session.sessionId, { plan_ref: p.plan_ref, revision: p.revision, group_key: group.key, fingerprint: group.fingerprint });
+  const done = await s.confirmReadyGroups(actor, session.sessionId, readyApprovals(view.action_plan!));
   expect(done.action_plan!.status).toBe("DONE");
   expect(mocks.batchConfirm).toHaveBeenCalledOnce(); expect(mocks.serviceConfirm).toHaveBeenCalledOnce();
   expect(mocks.messageConfirm).toHaveBeenCalledTimes(message ? 1 : 0); expect(model.requests).toHaveLength(1);
@@ -101,8 +105,7 @@ it("failed atomic cancellation blocks both creation and message; independent ser
   const s = new SalonSecretary(async () => model, () => "gpt-6-luna", undefined, {}, { enabled: () => true });
   const session = await s.start(actor, "auto"), view = await s.send(actor, { sessionId: session.sessionId, message: `Prepare cancelamento/criação, serviço e relatório. Motivo: Pedido dela. Envie “${exact}”` });
   mocks.batchConfirm.mockRejectedValue(Error("SLOT_CONFLICT"));
-  const p = view.action_plan!, group = p.confirmation_groups[0];
-  const done = await s.confirmActionPlanGroup(actor, session.sessionId, { plan_ref: p.plan_ref, revision: p.revision, group_key: group.key, fingerprint: group.fingerprint });
+  const done = await s.confirmReadyGroups(actor, session.sessionId, readyApprovals(view.action_plan!));
   expect(done.action_plan!.actions.map(action => action.status)).toEqual(["FAILED_SAFE", "BLOCKED_BY_DEPENDENCY", "DONE", "DONE", "BLOCKED_BY_DEPENDENCY"]);
   expect(mocks.messageConfirm).not.toHaveBeenCalled(); expect(mocks.serviceConfirm).toHaveBeenCalledOnce();
 });
@@ -123,7 +126,7 @@ it.each(["override", "alternative"])("T21 %s continuation preserves the five-act
   const s=new SalonSecretary(async()=>model,()=>"gpt-6-luna",undefined,{}, {enabled:()=>true});
   const session=await s.start(actor,"auto");
   const before=await s.send(actor,{sessionId:session.sessionId,message:`Cancela Amanda, coloca Fábio no lugar, altera Massagem e consulta ontem. Motivo: Pedido dela. Envie exatamente “${exact}”`});
-  expect(before.message).toBe("Qual serviço Fábio Santos vai fazer?");
+  expect(before.message).toBe(readyLead+"Qual serviço Fábio Santos vai fazer?");
   const messages=mode==="override"?["Corte Completo.","Pode encaixar.","Cliente já está aguardando."]:["Corte Completo.","Outro horário.","11h."];
   let after=before;
   for(const [i,message]of messages.entries()){
@@ -135,7 +138,7 @@ it.each(["override", "alternative"])("T21 %s continuation preserves the five-act
     for(const key of ["a","c","d","e"])expect(after.action_plan!.actions.find(a=>a.key===key)!.fields).toEqual(before.action_plan!.actions.find(a=>a.key===key)!.fields);
     expect(after.message).not.toMatch(/override_reason|override_requested|destination_mode|service_ref|professional_ref/);
     if(i<2)expect(after.message.match(/\?/g)).toHaveLength(1);
-    if(i===1)expect(after.message).toBe(mode==="override"?"Qual o motivo do encaixe?":"Tenho 11h. Qual horário você prefere?");
+    if(i===1)expect(after.message).toBe(readyLead+(mode==="override"?"Qual o motivo do encaixe?":"Tenho 11h. Qual horário você prefere?"));
   }
   expect(after.action_plan!.status).toBe("READY_FOR_CONFIRMATION");
   expect(after.message).toContain(exact);

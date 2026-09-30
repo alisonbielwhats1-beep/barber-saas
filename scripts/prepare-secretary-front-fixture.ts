@@ -5,7 +5,9 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { hash } from 'bcryptjs';
 import { assertMvpTestDatabase } from './service-mvp-test-safety';
-import { assertPhaseADatabase } from '../packages/salon-secretary/evaluation/hard-conversations-phase-a-db';
+// F4: byte-safe identity (hex data directory, byte-equal to MVP_TEST_CLUSTER_HEX), runtime role and FORCE RLS; the frozen
+// phase-A gate (text data_directory) is no longer used here.
+import { assertLocalDisposableDatabase, expectedClusterHex } from './local-db-identity.cjs';
 import { snapshotDatabase, hashes } from '../src/test/secretary-execution-evidence';
 import { localDateTimeToUtc, addCalendarDays, dateKeyInTimeZone } from '../src/lib/time';
 import { intent, plan } from '../src/test/secretary-capability-plan';
@@ -18,7 +20,7 @@ async function main() {
   const proof=JSON.parse(readFileSync(resolve(out,'preflight.json'),'utf8'));
   if(createHash('sha256').update(readFileSync(proof.dump)).digest('hex')!==proof.sha256) throw Error('BACKUP_MISMATCH');
   await assertMvpTestDatabase(admin);
-  const preflight=await assertPhaseADatabase(admin,runtime);
+  const preflight=await assertLocalDisposableDatabase(admin,runtime,{expectedHex:expectedClusterHex(process.env)});
   const baseline=await snapshotDatabase(admin);
   const tz='America/Sao_Paulo', date=addCalendarDays(dateKeyInTimeZone(new Date(),tz),1), salonId=randomUUID();
   const password='Local-Voice-Fixture-Only-2026!';

@@ -9,11 +9,14 @@ import { prisma } from '../src/lib/prisma';
 import { assertFreeUseDatabase } from '../packages/salon-secretary/evaluation/free-use-database';
 import { seedFreeUseFixture } from '../packages/salon-secretary/evaluation/free-use-fixture';
 import { scenarioFixture, type AgendaScenario } from '../packages/salon-secretary/evaluation/agenda-practice';
+import { ensureLocalAppRole } from './setup-local-app-role';
 
 async function main() {
   const admin = new PrismaClient({ datasources: { db: { url: process.env.DIRECT_URL } } });
   try {
     await assertFreeUseDatabase(admin, prisma);
+    // The full admin UI needs production-parity grants; the MVP runtime role only covers the Secretary.
+    const role = await ensureLocalAppRole(process.env.DIRECT_URL ?? '');
     const scenario: AgendaScenario = { id: 'manual', title: 'Teste manual da Agenda', capability: [], steps: [], appointments: [
       { key: 'joao_d1', customer: 'joao', professional: 'ricardo', service: 'corte', day: 1, time: '14:00' },
       { key: 'rosa_d1', customer: 'rosa', professional: 'tatiana', service: 'coloracao', day: 1, time: '10:00' },
@@ -36,7 +39,7 @@ async function main() {
       'Agenda inicial: João amanhã 14h (Ricardo); Rosa amanhã 10h–12h (Tatiana, Coloração); Amanda depois de amanhã 10h (Tatiana, Escova); Carla em 4 dias 11h (Tatiana).',
       'Funcionamento: segunda a sábado, 9h–19h.', '',
     ].join('\n'), { mode: 0o600 });
-    console.log(JSON.stringify({ status: 'READY', tenant: identity.tenant, login_file: '.demo/agenda-core/LOCAL-LOGIN.txt' }));
+    console.log(JSON.stringify({ status: 'READY', tenant: identity.tenant, login_file: '.demo/agenda-core/LOCAL-LOGIN.txt', app_role: role.role, granted_tables: role.granted.length, inaccessible_tables: role.skipped }));
   } finally { await admin.$disconnect(); await prisma.$disconnect(); }
 }
 main().catch(error => { console.error(JSON.stringify({ status: 'BLOCKED', code: error instanceof Error ? error.message.slice(0, 200) : 'ERROR' })); process.exitCode = 1; });

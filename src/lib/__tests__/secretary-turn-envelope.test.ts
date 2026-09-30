@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import Ajv from 'ajv';
 import { createHash } from 'node:crypto';
-import { createServicesAgent,createPaidModel,runServicesTurn,withConversationRouting,decodeConversationTurn,SecretaryNewRequest,SecretaryResumeRequest,type ConversationRoutingContext,type Model,type SecretarySkill } from '@everflair/salon-secretary';
+import { createServicesAgent,createPaidModel,runServicesTurn,withConversationRouting,decodeConversationTurn,SecretaryNewRequest,SecretaryResumeRequest,SecretaryDiscardRequest,SecretaryRouteRequest,type ConversationRoutingContext,type Model,type SecretarySkill } from '@everflair/salon-secretary';
 import { ScriptedServicesModel,call } from '../../test/scripted-services-model';
 import { expandedWire,turnWire } from '../../test/secretary-wire-schema';
 import historical from '../../test/fixtures/secretary-real-wire-golden5-routing.json';
@@ -23,6 +23,8 @@ const modes=[
   {mode:'ADD',operations:[service()]},
   {mode:'PATCH',operations:[{item_key:'price',fields:delta}]},
   {mode:'RESUME',plan_ref:suspended.plan_ref,patches:{operations:[{item_key:'saved',fields:delta}]}},
+  {mode:'DISCARD',item_keys:['visit']},
+  {mode:'DISCARD',item_keys:null},
   {mode:'CONVERSATION',response:'Bom dia!'},
   {mode:'UNSUPPORTED',unavailable_capability:'professional_management',response:'Ainda indisponível.'},
   {mode:'AMBIGUOUS',response:'Qual pedido deseja fazer?'},
@@ -48,7 +50,10 @@ async function sdk(raw:unknown,ctx?:ConversationRoutingContext,skill:SecretarySk
 describe('decision-first typed envelope matches the actual strict SDK wire',()=>{
   it.each(modes)('serializes and validates only the $mode payload with one inference',async turn=>{
     const input={turn},result=await sdk(input,context);
-    expect(result.error).toBeInstanceOf(turn.mode==='RESUME'?SecretaryResumeRequest:SecretaryNewRequest);
+    // B3 (contract migration): DISCARD samples route to their own request; every route shares one base.
+    expect(result.error).toBeInstanceOf(turn.mode==='RESUME'?SecretaryResumeRequest:turn.mode==='DISCARD'?SecretaryDiscardRequest:SecretaryNewRequest);
+    expect(result.error).toBeInstanceOf(SecretaryRouteRequest);
+    if(result.error instanceof SecretaryDiscardRequest)expect(result.error.itemKeys).toEqual((turn as {item_keys:string[]|null}).item_keys);
     const wire=expandedWire((result.requests[0].tools as {parameters:unknown}[])[0].parameters);
     expect(Object.keys(wire.properties!)).toEqual(['turn']);expect(wire.required).toEqual(['turn']);
     expect(wire.additionalProperties).toBe(false);expect(wire.anyOf).toBeUndefined();
@@ -88,6 +93,8 @@ describe('decision-first typed envelope matches the actual strict SDK wire',()=>
     {mode:'CONVERSATION',response:'Olá',operations:[]},
     {mode:'RESUME',plan_ref:active.plan_ref,patches:null},
     {mode:'CURRENT',fields:delta},
+    {mode:'DISCARD'}, {mode:'DISCARD',item_keys:[]}, {mode:'DISCARD',item_keys:['finished']},
+    {mode:'DISCARD',item_keys:['price'],response:'Descartado.'},
   ])('rejects structurally impossible or unavailable decision %j before applying any field',async turn=>{
     await withConversationRouting(async()=>{
       const raw={turn},before=JSON.stringify(raw);
@@ -104,6 +111,10 @@ describe('decision-first typed envelope matches the actual strict SDK wire',()=>
     {mode:'PATCH',operations:[{item_key:'price',fields:{operation:'appointment.change',time:'11:00'}}]},
     {mode:'PATCH',operations:[{item_key:'price',fields:{depends_on:['visit']}}]},
     {mode:'RESUME',plan_ref:suspended.plan_ref,patches:{operations:[{item_key:'price',fields:delta}]}},
+    // Review 2b contract migration: a repeated DISCARD key (['price','price']) is no longer refused here; it is
+    // set semantics (asserted in the DISCARD wire test below). Unknown, completed and suspended keys still throw.
+    {mode:'DISCARD',item_keys:['foreign']}, {mode:'DISCARD',item_keys:['finished']}, {mode:'DISCARD',item_keys:['finished','finished']},
+    {mode:'DISCARD',item_keys:['saved']},
   ])('keeps canonical identity, completed actions and graph authority: %j',async turn=>{
     const before=structuredClone(context);
     await withConversationRouting(async()=>expect(()=>decodeConversationTurn({turn})).toThrow(),context);
@@ -147,4 +158,48 @@ it('keeps identical repeated schemas identical across reference-name digit bound
     expect(modes.find(branch=>branch.properties.mode.enum[0]==='NEW')!.properties.operations)
       .toEqual(modes.find(branch=>branch.properties.mode.enum[0]==='ADD')!.properties.operations);
   },{active_plan:{...active,actions},suspended_plans:[{...suspended,actions}]});
+});
+
+describe('B3 DISCARD: published only for open actions of the active plan',()=>{
+  const discardBranch=(wire:ReturnType<typeof expandedWire>)=>wire.properties?.turn?.anyOf?.find(branch=>branch.properties?.mode?.enum?.includes('DISCARD'));
+  it('no plan, or a plan of only completed/discarded actions: no DISCARD (nor PATCH) branch, and the decoder refuses it',async()=>{
+    expect(discardBranch(expandedWire(toolschema()))).toBeUndefined();
+    expect(()=>decodeConversationTurn({turn:{mode:'DISCARD',item_keys:null}})).toThrow('PLAN_NOT_IN_SESSION');
+    const closed={plan_ref:active.plan_ref,actions:[{item_key:'finished',operation:'appointment.cancel',status:'DONE',depends_on:[]},{item_key:'gone',operation:'appointment.change',status:'DISCARDED',depends_on:[]}]};
+    await withConversationRouting(async()=>{
+      const wire=expandedWire(toolschema());
+      expect(discardBranch(wire)).toBeUndefined();expect(()=>turnWire(wire,'PATCH')).toThrow();expect(turnWire(wire,'ADD')).toBeDefined();
+      expect(()=>decodeConversationTurn({turn:{mode:'DISCARD',item_keys:null}})).toThrow('DISCARD_ACTION_MISMATCH');
+      expect(()=>decodeConversationTurn({turn:{mode:'DISCARD',item_keys:['gone']}})).toThrow('DISCARD_ACTION_MISMATCH');
+      expect(()=>decodeConversationTurn({turn:{mode:'DISCARD',item_keys:['finished']}})).toThrow('ALREADY_CONFIRMED');
+    },{active_plan:closed});
+  });
+  it('enumerates exactly the open keys (DONE and DISCARDED excluded) and decodes to a discard request only',async()=>{
+    const plan={plan_ref:active.plan_ref,actions:[...active.actions,{item_key:'gone',operation:'service.change',status:'DISCARDED',depends_on:[]}]};
+    await withConversationRouting(async()=>{
+      const wire=expandedWire(toolschema()),branch=turnWire(wire,'DISCARD');
+      expect(Object.keys(branch.properties!)).toEqual(['mode','item_keys']);expect(branch.required).toEqual(['mode','item_keys']);expect(branch.additionalProperties).toBe(false);
+      const [keys,none]=branch.properties!.item_keys.anyOf!;
+      expect(keys).toMatchObject({type:'array',minItems:1,items:{type:'string',enum:['price','visit']}});expect(none).toEqual({type:'null'});
+      // PATCH never targets a discarded key either; both enumerate the same open keys.
+      expect(turnWire(wire,'PATCH').properties!.operations.items!.properties!.item_key).toEqual(keys.items);
+      expect(decodeConversationTurn({turn:{mode:'DISCARD',item_keys:['visit','price']}})).toEqual({discard_request:{item_keys:['visit','price']}});
+      expect(decodeConversationTurn({turn:{mode:'DISCARD',item_keys:null}})).toEqual({discard_request:{item_keys:null}});
+      // A repeated key says the same thing twice (strict JSON schema cannot forbid it): one discard of that key.
+      expect(decodeConversationTurn({turn:{mode:'DISCARD',item_keys:['price','price']}})).toEqual({discard_request:{item_keys:['price']}});
+      expect(()=>decodeConversationTurn({turn:{mode:'DISCARD',item_keys:['price','gone','price']}})).toThrow('DISCARD_ACTION_MISMATCH');
+      expect(()=>decodeConversationTurn({turn:{mode:'PATCH',operations:[{item_key:'gone',fields:delta}]}})).toThrow('CONTINUATION_ACTION_MISMATCH');
+    },{active_plan:plan});
+  });
+  it('recorded transports route the same way; a discard never travels with another route',async()=>{
+    for(const raw of [{turn:{mode:'DISCARD',item_keys:['visit']}},{skills:[],independent:true,operations:[],discard_request:{item_keys:['visit']}}]){
+      const model=new ScriptedServicesModel([call('select_capabilities',raw)]);
+      const error=await withConversationRouting(()=>runServicesTurn(model,'Esquece essa',{}, {},'discovery',true),context).catch(caught=>caught);
+      expect(error).toBeInstanceOf(SecretaryDiscardRequest);expect((error as SecretaryDiscardRequest).itemKeys).toEqual(['visit']);expect(model.requests).toHaveLength(1);
+    }
+    const conflict=new ScriptedServicesModel([call('select_capabilities',{skills:[],independent:true,operations:[],discard_request:{item_keys:['visit']},resume_request:{plan_ref:suspended.plan_ref,patches:null}})]);
+    await expect(withConversationRouting(()=>runServicesTurn(conflict,'Esquece',{}, {},'discovery',true),context)).rejects.toThrow('CONVERSATION_ROUTE_CONFLICT');
+    const outside=new ScriptedServicesModel([call('select_capabilities',{skills:[],independent:true,operations:[],discard_request:{item_keys:null}})]);
+    await expect(runServicesTurn(outside,'Esquece',{}, {},'discovery',true)).rejects.toThrow();
+  });
 });

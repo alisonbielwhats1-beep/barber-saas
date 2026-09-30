@@ -40,7 +40,7 @@ beforeEach(() => {
     preview: JSON.stringify(db.drafts.get(input.draft_ref)), expires_at: new Date(Date.now() + 60_000).toISOString() }));
   db.confirm.mockImplementation(async (_tx, _actor, input) => ({ receipt_ref: crypto.randomUUID(), proposal_ref: input.proposal_ref, service: { name: "Serviço", id: "domain-id" } }));
 });
-afterEach(() => { expect(fetch).not.toHaveBeenCalled(); vi.unstubAllGlobals(); });
+afterEach(() => { expect(fetch).not.toHaveBeenCalled(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 function secretary(input: unknown, enabled = true) {
   const model = new ScriptedServicesModel([call("select_capabilities", input)]), jev = vi.fn<typeof fetch>(() => { throw Error("JEV_FORBIDDEN"); });
   const s = new SalonSecretary(async () => model, () => "gpt-6-luna", undefined,
@@ -179,6 +179,7 @@ it("a rejected temporal value in a deferred read never enters the plan as accept
 
 it("a first late confirmation fails the whole group before any domain executor",async()=>{
   vi.useFakeTimers({toFake:["Date"]});
+  vi.stubEnv("SALON_SECRETARY_CONFIRMATION_GROUPING","packed"); // a two-member group needs packing (B2 default is per component)
   try{
     const {s,model}=secretary(plan(operations(2))),session=await s.start(actor,"auto");
     const before=await s.send(actor,{sessionId:session.sessionId,message:"Prepare dois serviços."});

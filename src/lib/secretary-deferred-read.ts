@@ -5,7 +5,7 @@ import type { ServiceActor } from "./service-catalog";
 import { withTenant } from "./prisma-tenant";
 import { schedulingTimezone } from "./scheduling-catalog";
 import { schedulingPatch } from "./scheduling-contract";
-import { groundSchedulingTemporal } from "./scheduling-temporal-source";
+import { groundSchedulingTemporalTurn } from "./scheduling-temporal-mode";
 import { reconcileSchedulingTemporal } from "./scheduling-temporal";
 
 /** Validate a deferred read at the user's turn. Reading data still waits for its
@@ -30,7 +30,7 @@ export async function prepareDeferredReadFields(actor: ServiceActor, action: Pla
   for (const key of ["day_offset", "weekday", "source_day_offset", "source_weekday"] as const) delete previous[key];
   const timezone = await withTenant(actor, tx => schedulingTimezone(tx, actor));
   const activeContext=context;
-  const grounded = groundSchedulingTemporal(previous, patch, sourceMessage, timezone, now, requestedField,
+  const grounded = groundSchedulingTemporalTurn(previous, patch, sourceMessage, timezone, now, requestedField,
     action.operation, patchFields.temporal_evidence as SchedulingTemporalEvidence | undefined,activeContext);
   const effective = reconcileSchedulingTemporal({}, grounded.fields);
   for (const key of keys) delete (fields as Record<string, unknown>)[key];

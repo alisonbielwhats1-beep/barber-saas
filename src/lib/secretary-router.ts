@@ -1,4 +1,5 @@
-import { validateSelection, measureServicesModel, type CapabilitySelection, type Model, type ModelCallUsage } from "@everflair/salon-secretary";
+import { validateSelection, measureServicesModel, selectionSchemaV2, communicationInterpretation, financialInterpretation, inventoryInterpretation, REQUEST_DEGRADATIONS,
+  type CapabilitySelection, type Model, type ModelCallUsage, type RequestBudgetTelemetry, type RequestDegradation } from "@everflair/salon-secretary";
 import { assessJevAcceptance, initialAllowlist, ACCEPTANCE_POLICY_VERSION, type AcceptanceVerdict } from "../../packages/salon-secretary/evaluation/acceptance-policy";
 import { DerivedJevProvider } from "../../packages/salon-secretary/evaluation/derived-provider";
 import { derivedRequest, DERIVED_PLAN_VERSION } from "../../packages/salon-secretary/evaluation/derived-plan";
@@ -34,6 +35,102 @@ export function routerLunaCost(usage: Usage): number | null {
   return ((input! - cached! - write!) * 0.10 + cached! * 0.01 + write! * 0.125 + output! * 0.50) / 1_000_000;
 }
 
+/** NOT_UNDERSTOOD (B5): the model's answer could not be read and an active plan was kept unchanged. */
+export type TurnOutcomeKind = "PROPOSAL_READY" | "QUESTION" | "CONVERSATION" | "UNSUPPORTED" | "READ_RESULT" | "DONE" | "DISCARDED" | "NOT_UNDERSTOOD" | "LOST_TURN" | "ERROR";
+/** Codes/counts only: field names from a closed vocabulary, keyed hashes of questions, whitelisted codes. */
+export type TurnOutcome = { kind: TurnOutcomeKind; groups_ready: number; groups_total: number;
+  open_question_fields: string[]; question_fingerprints: string[]; repeated_question_count: number;
+  divergence: { luna_operations: number; plan_actions: number; dropped_fields: string[]; failed_codes: string[] };
+  repairs: number; error_code: string | null;
+  /** C1 components: per-field agreement of the historical grammar and the component proof (present only when computed). */
+  temporal_shadow?: TemporalShadow[];
+  /** C2 few-shot examples of this message's interpretation requests (present only with SALON_SECRETARY_EXAMPLES on):
+   * mode, requests carrying a block, examples and request bytes added (summed), eligible examples (max), bank ids. */
+  examples_mode?: "selected" | "full"; examples_requests?: number; examples_count?: number; examples_bytes?: number; examples_eligible?: number; examples_ids?: string[];
+  /** C3 names: whether a customer/professional name Luna emitted is written in the message (booleans only), and how the
+   * backend resolved each entity lookup (closed outcome codes and counts). Present only when something was checked. */
+  name_checks?: NameCheck[]; name_resolution?: NameResolution[];
+  /** DISCARD: actions of the active plan the owner gave up in this message (present only when > 0). */
+  discarded_actions?: number;
+  /** B5: operations left out of a partially accepted interpretation (their codes are in failed_codes). */
+  rejected_operations?: number;
+  /** C6 (rec 19): secretaryContractVersion() of this message (sha256 hex of prompt templates, wire, model, limits, flags). */
+  contract_version?: string;
+  /** Request budget (present only when a request of this message did not fit the cap as configured): requests
+   * degraded or refused, the degradation codes applied, and the largest request bytes before/after (counts only). */
+  request_budget?: RequestBudgetOutcome };
+export type RequestBudgetOutcome = { requests: number; rejected: number; steps: RequestDegradation[]; initial_bytes: number; final_bytes: number };
+const degradationCodes = new Set<string>(REQUEST_DEGRADATIONS);
+/** C7 `directory_proof` (present only when true): a directory name Luna expanded from the owner's words was proven by
+ * the exact-token subset rule; role "service" appears only for that proof of a service name. */
+export type NameCheck = { role: "customer" | "professional" | "service"; in_message: boolean; option_echo: boolean; directory_proof?: true };
+// ALIAS (D1, SALON_SECRETARY_NAME_ALIASES): a learned alias proposed the entity (one option to confirm; never a resolution).
+export const NAME_RESOLUTION_OUTCOMES = ["MATCH", "AMBIGUOUS", "TOO_MANY", "NO_MATCH", "SUGGEST", "DETAIL", "CONFIRM", "NOT_ELIGIBLE", "ALIAS"] as const;
+export type NameResolution = { kind: "customer" | "service" | "professional"; outcome: (typeof NAME_RESOLUTION_OUTCOMES)[number]; n: number };
+const nameRoles = new Set(["customer", "professional", "service"]), nameKinds = new Set(["customer", "service", "professional"]), nameOutcomes = new Set<string>(NAME_RESOLUTION_OUTCOMES);
+const nameCheck = (entry: NameCheck): NameCheck | undefined => nameRoles.has(entry?.role) ? { role: entry.role, in_message: entry.in_message === true, option_echo: entry.option_echo === true,
+  ...(entry.directory_proof === true ? { directory_proof: true as const } : {}) } : undefined;
+const nameResolution = (entry: NameResolution): NameResolution | undefined => nameKinds.has(entry?.kind) && nameOutcomes.has(entry.outcome) ?
+  { kind: entry.kind, outcome: entry.outcome, n: Number.isSafeInteger(entry.n) && entry.n >= 0 ? Math.min(entry.n, 1000) : 0 } : undefined;
+/** equal: null when the historical grammar had no value to compare for the role. */
+export type TemporalShadow = { field: string; legacy: string; components: string; equal: boolean | null };
+const shadowEqual = (value: unknown) => value === null ? null : value === true;
+export type ExamplesTrace = { mode: "selected" | "full"; count: number; bytes: number; eligible: number; ids: string[] };
+const exampleId = /^[SMR]\d{3}$/;
+const temporalRoles = new Set(["date", "source_date", "end_date", "time", "source_time", "end_time"]);
+const outcomeKinds = new Set<string>(["PROPOSAL_READY", "QUESTION", "CONVERSATION", "UNSUPPORTED", "READ_RESULT", "DONE", "DISCARDED", "NOT_UNDERSTOOD", "LOST_TURN", "ERROR"]);
+const stableCode = /^[A-Z][A-Z0-9_]{1,79}$/;
+/** Same whitelist as the Server Action log: exception text may carry provider or customer data.
+ * A non-code message falls back to its error class (ZodError -> ZOD_ERROR), never to the text. */
+export function outcomeCode(error: unknown) {
+  const code = error instanceof Error ? error.message : "", name = error instanceof Error ? error.name : "";
+  if (stableCode.test(code)) return code;
+  return name !== "Error" && /^[A-Z][A-Za-z]{0,40}Error$/.test(name) ? name.replace(/(?<=[a-z])(?=[A-Z])/g, "_").toUpperCase() : "UNCLASSIFIED_ERROR";
+}
+// Backend clarification names (conversational-presentation) and backend-only refs.
+const clarificationFields = ["service", "customer", "professional", "appointment", "recipient", "end", "time", "date", "duration", "price",
+  "target", "name", "phone", "email", "product", "quantity", "mode", "period", "reason", "content", "channel", "originalDate", "originalTime",
+  "endDate", "selection", "details", "overrideReason", "overrideConsent", "destination", "request", "service_ref", "customer_ref",
+  "professional_ref", "appointment_ref", "product_ref", "other"];
+let fieldVocabulary: ReadonlySet<string> | undefined;
+/** Closed vocabulary. Anything else (an item_key, a literal, a name) is reported only as "other". */
+export function outcomeField(field: string) {
+  fieldVocabulary ??= new Set([...Object.keys(selectionSchemaV2.shape.operations.element.shape),
+    ...Object.entries({ communication: communicationInterpretation, financial: financialInterpretation, inventory: inventoryInterpretation })
+      .flatMap(([parent, schema]) => Object.keys(schema.shape).flatMap(key => [key, `${parent}.${key}`])), ...clarificationFields]);
+  return fieldVocabulary.has(field) ? field : "other";
+}
+/** Last boundary before persistence: a malformed outcome is dropped, never allowed to break the router row. */
+function safeOutcome(outcome: TurnOutcome | null): TurnOutcome | null {
+  try {
+    if (!outcome || !outcomeKinds.has(outcome.kind)) return null;
+    const count = (value: number) => Number.isSafeInteger(value) && value >= 0 ? value : 0;
+    const fields = (list: readonly string[]) => [...new Set(list.map(outcomeField))].slice(0, 32);
+    const codes = (list: readonly string[]) => [...new Set(list.filter(code => stableCode.test(code)))].slice(0, 32);
+    const { divergence: d } = outcome;
+    return { kind: outcome.kind, groups_ready: count(outcome.groups_ready), groups_total: count(outcome.groups_total),
+      open_question_fields: fields(outcome.open_question_fields),
+      question_fingerprints: [...new Set(outcome.question_fingerprints.filter(f => /^[0-9a-f]{64}$/.test(f)))].slice(0, 32),
+      repeated_question_count: count(outcome.repeated_question_count),
+      divergence: { luna_operations: count(d.luna_operations), plan_actions: count(d.plan_actions), dropped_fields: fields(d.dropped_fields), failed_codes: codes(d.failed_codes) },
+      repairs: count(outcome.repairs), error_code: outcome.error_code === null ? null : stableCode.test(outcome.error_code) ? outcome.error_code : "UNCLASSIFIED_ERROR",
+      ...(outcome.temporal_shadow?.length ? { temporal_shadow: outcome.temporal_shadow.filter(entry => temporalRoles.has(entry.field) &&
+        stableCode.test(entry.legacy) && stableCode.test(entry.components)).slice(0, 32)
+        .map(entry => ({ field: entry.field, legacy: entry.legacy, components: entry.components, equal: shadowEqual(entry.equal) })) } : {}),
+      ...(outcome.examples_mode === "selected" || outcome.examples_mode === "full" ? { examples_mode: outcome.examples_mode, examples_requests: count(outcome.examples_requests ?? 0),
+        examples_count: count(outcome.examples_count ?? 0), examples_bytes: count(outcome.examples_bytes ?? 0), examples_eligible: count(outcome.examples_eligible ?? 0),
+        examples_ids: [...new Set((outcome.examples_ids ?? []).filter(id => exampleId.test(id)))].slice(0, 32) } : {}),
+      ...(outcome.name_checks?.length ? { name_checks: outcome.name_checks.flatMap(entry => nameCheck(entry) ?? []).slice(0, 16) } : {}),
+      ...(outcome.name_resolution?.length ? { name_resolution: outcome.name_resolution.flatMap(entry => nameResolution(entry) ?? []).slice(0, 16) } : {}),
+      ...(count(outcome.discarded_actions ?? 0) ? { discarded_actions: count(outcome.discarded_actions ?? 0) } : {}),
+      ...(count(outcome.rejected_operations ?? 0) ? { rejected_operations: count(outcome.rejected_operations ?? 0) } : {}),
+      ...(typeof outcome.contract_version === "string" && /^[0-9a-f]{64}$/.test(outcome.contract_version) ? { contract_version: outcome.contract_version } : {}),
+      ...(outcome.request_budget && count(outcome.request_budget.requests) ? { request_budget: { requests: count(outcome.request_budget.requests), rejected: count(outcome.request_budget.rejected),
+        steps: [...new Set((outcome.request_budget.steps ?? []).filter(step => degradationCodes.has(step)))], initial_bytes: count(outcome.request_budget.initial_bytes),
+        final_bytes: count(outcome.request_budget.final_bytes) } } : {}) };
+  } catch { return null; }
+}
+
 /** Per-message, no text/IDs/errors/provider bodies. Nested draft continuations share one trace. */
 export class RouterTrace {
   readonly started = performance.now();
@@ -58,6 +155,53 @@ export class RouterTrace {
   derivations: Omit<Derivation, "evidence">[] = [];
   jevStages: { stage: string; latency_ms: number; input_tokens: number | null; output_tokens: number | null; estimated_cost_usd: number | null }[] = [];
   confidence: AcceptanceVerdict["confidenceData"] = [];
+  /** Set once per outer message by the Secretary; divergence counters accumulate across nested continuations. */
+  outcome: TurnOutcome | null = null;
+  lunaOperations = 0;
+  /** DISCARD: plan actions withdrawn during this message (a count only). */
+  discardedActions = 0;
+  /** B5: operations left out of a partially accepted interpretation (count; codes in failedCodes), and
+   * whether the model's answer could not be read while an active plan was kept (NOT_UNDERSTOOD). */
+  rejectedOperations = 0;
+  unreadTurn = false;
+  readonly droppedFields = new Set<string>();
+  readonly failedCodes = new Set<string>();
+  readonly temporalShadow: TemporalShadow[] = [];
+  readonly examplesSeen: ExamplesTrace[] = [];
+  /** Requests of this message that did not fit the cap as configured (degraded or refused): codes and counts only. */
+  readonly budgetSeen: RequestBudgetTelemetry[] = [];
+  readonly nameChecks: NameCheck[] = [];
+  readonly nameResolutions: NameResolution[] = [];
+  interpreted(operations: number) { this.lunaOperations += operations; }
+  discard(actions: number) { if (Number.isSafeInteger(actions) && actions > 0) this.discardedActions += actions; }
+  rejected(codes: readonly string[]) { this.failed(...codes); this.rejectedOperations += codes.length; }
+  unread(code: string) { this.failed(code); this.unreadTurn = true; }
+  /** C3: codes/booleans only; never the name or the message. */
+  names(entry: { check?: NameCheck; resolution?: NameResolution }) {
+    const check = entry.check && nameCheck(entry.check), resolution = entry.resolution && nameResolution(entry.resolution);
+    if (check && this.nameChecks.length < 16) this.nameChecks.push(check);
+    if (resolution && this.nameResolutions.length < 16) this.nameResolutions.push(resolution);
+  }
+  /** C2: one row per interpretation request that carried a few-shot block (codes, counts and bank ids only). */
+  examples(entry: ExamplesTrace) {
+    if (this.examplesSeen.length < 8 && (entry.mode === "selected" || entry.mode === "full"))
+      this.examplesSeen.push({ mode: entry.mode, count: entry.count, bytes: entry.bytes, eligible: entry.eligible, ids: entry.ids.filter(id => exampleId.test(id)).slice(0, 8) });
+  }
+  /** Request budget: one row per request degraded or refused (closed codes, byte counts). */
+  requestBudget(entry: RequestBudgetTelemetry) {
+    const bytes = (value: number) => Number.isSafeInteger(value) && value >= 0 ? value : 0;
+    if (this.budgetSeen.length < 8) this.budgetSeen.push({ steps: entry.steps.filter(step => degradationCodes.has(step)), fit: entry.fit === true,
+      initial_bytes: bytes(entry.initial_bytes), final_bytes: bytes(entry.final_bytes) });
+  }
+  /** A request of this message was refused for its size (the reply asks to split it). */
+  get requestTooLarge() { return this.budgetSeen.some(entry => !entry.fit); }
+  /** Codes-only agreement rows (closed role names, stable codes); never text or values. */
+  shadow(entries: readonly TemporalShadow[]) {
+    for (const entry of entries) if (this.temporalShadow.length < 32 && temporalRoles.has(entry.field) && stableCode.test(entry.legacy) && stableCode.test(entry.components))
+      this.temporalShadow.push({ field: entry.field, legacy: entry.legacy, components: entry.components, equal: shadowEqual(entry.equal) });
+  }
+  dropped(fields: readonly string[]) { for (const field of fields) this.droppedFields.add(outcomeField(field)); }
+  failed(...codes: unknown[]) { for (const code of codes) if (typeof code === "string" && stableCode.test(code)) this.failedCodes.add(code); }
   fastPath() { this.path = "FAST_PATH"; this.reason = "FAST_PATH_PRECEDENCE"; this.provenance.interpretation = "FAST_PATH"; this.interpretationMs = 0; }
   measure(model: Model, modelId: string): Model {
     return measureServicesModel(model,modelId,(u,elapsed)=>{
@@ -73,7 +217,7 @@ export class RouterTrace {
     const costs = this.lunaUsage.map(routerLunaCost);
     const lunaCost = costs.some(c => c === null) ? null : costs.reduce<number>((s, c) => s + c!, 0);
     const total = performance.now() - this.started;
-    return { schema_version: 1, router_path: this.path, jev_eligible: this.eligible, jev_called: this.jevCalled,
+    return { schema_version: 2, router_path: this.path, jev_eligible: this.eligible, jev_called: this.jevCalled,
       jev_http_calls: this.jevHttpCalls, policy_result: this.policy, policy_reason: this.policyReason,
       fallback_reason: this.path === "JEV_ACCEPTED" ? null : this.reason,
       luna_called: this.lunaUsage.length > 0, luna_calls: this.lunaUsage.length,
@@ -84,7 +228,8 @@ export class RouterTrace {
       provider_invalid: this.providerInvalid, jev_timeout: this.timeout, wire_rejected: this.wireRejected,
       provenance: this.provenance, derivations: this.derivations, confidence: this.confidence,
       backend_fields: ["tenant", "permissions", "customer_ref", "service_ref", "professional_ref", "appointment_ref", "product_ref", "absolute_period", "financial_values", "stock", "availability"],
-      operational_authority: false, retries: this.literalRepairCalls, transport_repair_calls: this.literalRepairCalls };
+      operational_authority: false, retries: this.literalRepairCalls, transport_repair_calls: this.literalRepairCalls,
+      outcome: safeOutcome(this.outcome) };
   }
 }
 

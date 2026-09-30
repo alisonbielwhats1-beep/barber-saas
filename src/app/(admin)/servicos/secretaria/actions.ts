@@ -4,6 +4,8 @@ import { getTenantContext, assertRole } from "@/lib/tenant";
 import { assertSecretaryEnvironment, salonSecretary } from "@/lib/salon-secretary-runtime";
 import type { SecretaryView } from "@/lib/salon-secretary";
 import { assertSecretaryRolloutAccess } from "@/lib/secretary-rollout";
+import type { DictationSuggestion } from "@/lib/secretary-voice-correction";
+import { secretaryCopyV2Enabled, secretaryErrorMessage } from "@/lib/secretary-error-copy";
 
 async function context() {
   assertSecretaryEnvironment();
@@ -12,66 +14,29 @@ async function context() {
   assertSecretaryRolloutAccess(ctx);
   return { salonId: ctx.salonId, userId: ctx.userId };
 }
-export type SecretaryReply = { ok: true; state: SecretaryView } | { ok: false; error: string; code?: string };
+/** `copyV2` (flag SALON_SECRETARY_COPY_V2, default off): present only when on, so the chat renders the new copy (an error of a
+ * sent message as that turn's reply; a review box only for a real conflict). Absent, every reply is the historical one. */
+export type SecretaryReply = { ok: true; state: SecretaryView; copyV2?: true } | { ok: false; error: string; code?: string; copyV2?: true };
 type Reply = SecretaryReply;
-async function safely(fn: () => Promise<SecretaryView>): Promise<Reply> {
-  try { return { ok: true, state: await fn() }; }
+/** D1: the reattached conversation, or null when there is none to reattach (persisted state off, or nothing open). */
+export type CurrentSecretaryReply = { ok: true; state: SecretaryView | null; copyV2?: true } | { ok: false; error: string; code?: string; copyV2?: true };
+/** `executing`: a confirmation (an unknown failure there never says that nothing changed). */
+async function safely<T = SecretaryView>(fn: () => Promise<T>, options: { executing?: boolean } = {}): Promise<{ ok: true; state: T; copyV2?: true } | { ok: false; error: string; code?: string; copyV2?: true }> {
+  const marker = secretaryCopyV2Enabled() ? { copyV2: true as const } : {};
+  try { return { ok: true, state: await fn(), ...marker }; }
   catch (error) {
     const code = error instanceof Error ? error.message : "";
     // Stable diagnostic codes only: exception text may contain database/provider secrets.
     console.error("SECRETARY_OPERATION_REJECTED", /^[A-Z][A-Z0-9_]{1,79}$/.test(code) ? code : "UNCLASSIFIED_ERROR");
-    const messages: Record<string, string> = {
-      SECRETARY_NOT_AVAILABLE: "A Secretária não está habilitada para este acesso.",
-      FORBIDDEN: "Seu acesso não permite esta ação. O plano foi preservado para revisão.",
-      CONFIRMATION_STALE: "Esta proposta foi substituída. Revise a versão atual antes de confirmar.",
-      REVISION_CONFLICT: "Esta proposta mudou. Prepare e confirme uma nova versão.",
-      EXPIRED: "A proposta expirou. Prepare uma nova versão antes de confirmar.",
-      PLAN_NOT_READY: "Há informações ou conflitos a revisar antes de confirmar.",
-      CONFIRMATION_GROUP_REQUIRED: "Revise e confirme o grupo completo de ações.",
-      SESSION_CLOSED: "Esta conversa foi encerrada. Inicie uma nova conversa.",
-      ENTITY_MENTION_CONFLICT: "Não foi possível separar com segurança o cliente e o serviço. Informe o nome completo do cliente e, somente se necessário, o serviço em separado. Nenhuma ação foi executada.",
-      CONTACT_NOT_ELIGIBLE: "O cliente não possui contato válido para esse canal.",
-      RECIPIENT_CHANGED: "O contato mudou. Prepare uma nova proposta antes de confirmar.",
-      MESSAGE_CONTENT_REVIEW_REQUIRED: "Informe o texto exato entre aspas ou solicite explicitamente uma sugestão.",
-      UNSUPPORTED_COMMUNICATION_DEPENDENCY: "Essa combinação precisa ser esclarecida. Somente cancelamento seguido de mensagem ao mesmo cliente é suportado.",
-      DEPENDENCY_RECIPIENT_MISMATCH: "O destinatário deve corresponder ao cliente do cancelamento.",
-      COMMUNICATION_LOCAL_ONLY: "Comunicação disponível somente no teste local, sem envio externo.",
-      PRODUCT_NOT_FOUND: "Não encontrei esse produto neste salão.",
-      PRODUCT_CHANGED: "O produto ou saldo mudou após o rascunho. Nenhuma movimentação foi aplicada. Inicie uma nova conversa para revisar o saldo atual.",
-      STOCK_OVERFLOW: "O saldo projetado ultrapassa o limite permitido.",
-      "Estoque insuficiente para esta saida": "Estoque insuficiente para esta saída. Nenhuma movimentação foi aplicada.",
-      FINANCIAL_READ_ONLY: "Esta consulta financeira é somente leitura e não possui confirmação de escrita.",
-      RECEIVABLE_IS_CURRENT_BALANCE: "A receber é o saldo atual de todas as datas. Consulte sem período ou comparação histórica.",
-      FINANCIAL_GROUP_UNSUPPORTED: "O ranking disponível é por faturamento de serviços, sem comparação entre períodos. Reformule a consulta.",
-      FINANCIAL_RANGE_EXCEEDED: "O valor ultrapassa o limite seguro desta consulta. Nenhum valor estimado foi apresentado.",
-      SLOT_CONFLICT: "O horário ficou indisponível. Escolha outro horário e prepare nova proposta.",
-      SLOT_TAKEN: "O horário ficou indisponível. Nada foi agendado.",
-      SCHEDULE_CHANGED: "Os dados do agendamento mudaram. Prepare uma nova proposta.",
-      REASON_REQUIRED: "Informe o motivo real do cancelamento, com pelo menos três caracteres.",
-      ALREADY_STARTED_OR_CLOSED: "Esse agendamento já começou ou foi encerrado. Nenhuma alteração foi feita.",
-      SCHEDULING_RELATION_NOT_SUPPORTED: "Este agendamento possui produtos ou dependente. Use a agenda para revisar essas relações; a Secretária ainda não as altera.",
-      APPOINTMENT_SEARCH_TOO_BROAD: "Muitos agendamentos encontrados. Informe a data e o horário original.",
-      PAST_TIME: "Informe um novo horário futuro.",
-      PRO_SERVICE_MISMATCH: "O profissional não realiza esse serviço.",
-      AMBIGUOUS_DATE: "Informe uma única data inequívoca.",
-      INVALID_LOCAL_DATE: "Informe uma data válida.",
-      PAID_CALLS_DISABLED: "Chamadas pagas bloqueadas. Aguarde a autorização e configuração do teste real.",
-      SECRETARY_CONFIGURATION_REQUIRED: "Configure modelo, chave exclusiva e projeto aprovado no servidor.",
-      SECRETARY_TURN_FAILED: "Não foi possível concluir este turno. Nenhum cadastro foi executado. O rascunho válido foi preservado.",
-      SESSION_NOT_FOUND: "Sessão indisponível ou expirada. Inicie uma nova conversa.",
-      PLAN_NOT_IN_SESSION: "Este pedido não pertence à conversa atual.",
-      SUSPENDED_PLAN_LIMIT: "Há cinco pedidos guardados. Retome um deles ou inicie uma nova conversa.",
-      SESSION_BUSY: "Há uma operação em andamento. Aguarde antes de tentar novamente.",
-      PROPOSAL_MISMATCH: "Proposta inválida, cancelada ou desatualizada. Prepare uma nova proposta.",
-      CUSTOMER_CHANGED: "O cadastro mudou após a proposta. Inicie uma nova conversa para revisar os dados.",
-      DUPLICATE_CANDIDATE: "Existe cadastro correspondente. Revise antes de continuar.",
-      SERVICE_CHANGED: "O serviço mudou após a proposta. Nada foi alterado. Inicie uma nova conversa para revisar o estado atual.",
-      SELECTION_INVALID: "Seleção inválida ou desatualizada. Localize o serviço novamente.",
-    };
-    return { ok: false, code: Object.hasOwn(messages, code) ? code : "BACKEND_FAILURE", error: messages[code] ?? "Operação recusada. Verifique acesso, configuração e validade da proposta." };
+    // ERR-COPY: the code→pt-BR table lives in secretary-error-copy.ts (shared with the no-plan turn and the harnesses).
+    const copy = secretaryErrorMessage(code, options);
+    return { ok: false, code: copy.code, error: copy.text, ...marker };
   }
 }
 export async function startSecretary() { return safely(async () => salonSecretary.start(await context(), "auto")); }
+/** D1: the actor's latest open conversation (SALON_SECRETARY_PERSISTED_STATE), reattached after a reload or on another
+ * worker; null otherwise. Read and authorize only: nothing is sent, selected or confirmed. */
+export async function currentSecretary(): Promise<CurrentSecretaryReply> { return safely(async () => salonSecretary.current(await context())); }
 export async function sendSecretary(input: unknown) { return safely(async () => salonSecretary.send(await context(), input)); }
 export async function selectSecretaryService(sessionId: string, serviceRef: string) {
   return safely(async () => salonSecretary.selectService(await context(), sessionId, serviceRef));
@@ -80,7 +45,7 @@ export async function confirmSecretary(sessionId: string, input: unknown) {
   return safely(async () => {
     const result = await salonSecretary.confirm(await context(), sessionId, input);
     return refreshConfirmedState(result);
-  });
+  }, { executing: true });
 }
 export async function cancelSecretary(sessionId: string) { return safely(async () => salonSecretary.cancel(await context(), sessionId)); }
 
@@ -89,14 +54,29 @@ export async function selectSecretaryCustomer(sessionId: string, customerRef: st
 export async function selectSecretaryOperation(sessionId: string, operationRef: string, ref: string) {
   return safely(async()=>salonSecretary.selectAutomatic(await context(),sessionId,operationRef,ref));
 }
+/** B4: one time-slot option the backend offered for this action (positional id, plan revision shown).
+ * Prepares the proposal again with that clock; never confirms, never calls the model. */
+export async function selectSecretaryOption(sessionId: string, operationRef: string, optionId: string, revision?: number) {
+  return safely(async()=>salonSecretary.selectOption(await context(),sessionId,{operation_ref:operationRef,option_id:optionId,...(revision===undefined?{}:{revision})}));
+}
 export async function confirmSecretaryOperation(sessionId: string, operationRef: string, input: unknown) {
   return safely(async()=>{
     const state=await salonSecretary.confirmAutomatic(await context(),sessionId,operationRef,input);
     return refreshConfirmedState(state);
-  });
+  }, { executing: true });
 }
+/** A discard refused because the action already ran gets its own code: ALREADY_CONFIRMED elsewhere
+ * (confirm/draft flows) keeps its conservative generic handling. */
+const discarding = (work: () => Promise<SecretaryView>) => async () => {
+  try { return await work(); }
+  catch (error) { throw error instanceof Error && error.message === "ALREADY_CONFIRMED" ? Error("DISCARD_ALREADY_CONFIRMED") : error; }
+};
 export async function cancelSecretaryOperation(sessionId: string, operationRef: string) {
-  return safely(async()=>salonSecretary.cancelAutomaticOperation(await context(),sessionId,operationRef));
+  return safely(discarding(async()=>salonSecretary.cancelAutomaticOperation(await context(),sessionId,operationRef)));
+}
+/** "Descartar esta ação": {plan_ref, action_key} of the current plan. Withdraws only; never confirms or executes. */
+export async function discardSecretaryAction(sessionId: string, input: unknown) {
+  return safely(discarding(async () => salonSecretary.discardAction(await context(), sessionId, input)));
 }
 
 /** Transport only: the validated coordinator remains the sole group authority. */
@@ -104,7 +84,14 @@ export async function confirmSecretaryGroup(sessionId: string, input: unknown) {
   return safely(async () => {
     const state = await salonSecretary.confirmActionPlanGroup(await context(), sessionId, input);
     return refreshConfirmedState(state);
-  });
+  }, { executing: true });
+}
+/** Transport only: every current group approval in one call; the coordinator validates all before executing any. */
+export async function confirmSecretaryReadyGroups(sessionId: string, approvals: unknown) {
+  return safely(async () => {
+    const state = await salonSecretary.confirmReadyGroups(await context(), sessionId, approvals);
+    return refreshConfirmedState(state);
+  }, { executing: true });
 }
 
 async function refreshConfirmedState(state: SecretaryView) {
@@ -119,4 +106,78 @@ async function refreshConfirmedState(state: SecretaryView) {
 
 export async function resumeSecretaryPlan(sessionId: string, planRef: string): Promise<Reply> {
   return safely(async () => salonSecretary.resumePlan(await context(), sessionId, planRef));
+}
+
+export type FeedbackReply = { ok: true } | { ok: false; error: string; code?: string };
+/** B7 owner feedback (SALON_SECRETARY_FEEDBACK, default off): "Não era isso" on the latest reply. The actor comes from
+ * authentication; codes come from the server's own record of the session; the conversation text is stored only when
+ * the owner ticked the checkbox. Never changes the conversation or anything in the salon. */
+export async function sendSecretaryFeedback(input: unknown): Promise<FeedbackReply> {
+  const feedback = await import("@/lib/secretary-feedback");
+  if (!feedback.secretaryFeedbackEnabled()) return { ok: false, code: "FEEDBACK_DISABLED", error: "O envio de avaliação da Secretária não está habilitado." };
+  try {
+    const actor = await context();
+    const parsed = feedback.feedbackInput.safeParse(input);
+    if (!parsed.success) throw Error("FEEDBACK_INVALID");
+    // D1: with persisted state the codes are the ones saved with the conversation (this process may hold no copy).
+    const recorded = salonSecretary.feedbackContext(actor, parsed.data.sessionId) ?? await salonSecretary.storedFeedbackContext?.(actor, parsed.data.sessionId);
+    await feedback.storeSecretaryFeedback(actor, parsed.data, recorded);
+    return { ok: true };
+  } catch (error) {
+    const code = voiceCode(error);
+    console.error("SECRETARY_FEEDBACK_REJECTED", code);
+    return { ok: false, code: code === "FEEDBACK_INVALID" || code === "SECRETARY_NOT_AVAILABLE" || code === "FEEDBACK_RATE_LIMITED" ? code : "FEEDBACK_FAILED",
+      error: code === "FEEDBACK_INVALID" ? "Não foi possível registrar a avaliação. Revise o texto e tente novamente."
+        : code === "SECRETARY_NOT_AVAILABLE" ? "A Secretária não está habilitada para este acesso."
+        : code === "FEEDBACK_RATE_LIMITED" ? "Você já enviou muitas avaliações em pouco tempo. Tente novamente em alguns minutos."
+        : "Não foi possível registrar a avaliação agora. A conversa não foi alterada." };
+  }
+}
+
+/** Salon directory names only (professionals and services, never customers), for voice input. */
+async function voiceVocabulary(actor: { salonId: string; userId: string }) {
+  const [{ withTenant }, { secretaryDirectory }] = await Promise.all([import("@/lib/prisma-tenant"), import("@/lib/scheduling-catalog")]);
+  const directory = await withTenant(actor, tx => secretaryDirectory(tx, actor));
+  return { professionals: directory.professionals, services: directory.services };
+}
+const voiceCode = (error: unknown) => { const code = error instanceof Error ? error.message : ""; return /^[A-Z][A-Z0-9_]{1,79}$/.test(code) ? code : "UNCLASSIFIED_ERROR"; };
+export type DictationReply = { ok: true; suggestions: DictationSuggestion[] } | { ok: false; error: string; code?: string };
+/** C3 voice (SALON_SECRETARY_VOICE_CORRECTION, default off): correction suggestions for a dictated text. Input only:
+ * nothing is replaced, sent or confirmed here. */
+export async function suggestSecretaryDictation(text: unknown): Promise<DictationReply> {
+  const { voiceCorrectionEnabled, dictationSuggestions } = await import("@/lib/secretary-voice-correction");
+  if (!voiceCorrectionEnabled()) return { ok: true, suggestions: [] };
+  try {
+    const actor = await context();
+    if (typeof text !== "string" || text.length > 1000) throw new Error("INVALID_INPUT");
+    const vocabulary = await voiceVocabulary(actor);
+    return { ok: true, suggestions: dictationSuggestions(text, [...vocabulary.professionals, ...vocabulary.services]) };
+  } catch (error) {
+    console.error("SECRETARY_VOICE_CORRECTION_REJECTED", voiceCode(error));
+    return { ok: false, code: voiceCode(error), error: "Sugestões de correção indisponíveis. Revise o texto antes de enviar." };
+  }
+}
+export type TranscriptionReply = { ok: true; text: string } | { ok: false; error: string; code?: string };
+/** C3 voice, GPT transcription: READY BUT OFF (SALON_SECRETARY_TRANSCRIBE_ENABLED, default off). One recording → text
+ * for the input box; never sends or confirms. */
+export async function transcribeSecretaryVoice(form: FormData): Promise<TranscriptionReply> {
+  const transcription = await import("@/lib/secretary-transcribe");
+  if (!transcription.transcribeEnabled()) return { ok: false, code: "TRANSCRIBE_DISABLED", error: "A transcrição da Secretária está desligada. Você pode digitar." };
+  try {
+    const actor = await context();
+    const seconds = Number(form.get("seconds")), { withTenant } = await import("@/lib/prisma-tenant");
+    return { ok: true, ...(await transcription.transcribeSecretaryAudio({ audio: form.get("audio"), seconds, directory: await voiceVocabulary(actor),
+      reserve: reservation => withTenant(actor, tx => transcription.reserveTranscriptionBudget(tx, actor, reservation)) })) };
+  } catch (error) {
+    const code = voiceCode(error);
+    console.error("SECRETARY_TRANSCRIBE_REJECTED", code);
+    const messages: Record<string, string> = {
+      TRANSCRIBE_AUDIO_TOO_LARGE: "A gravação ficou grande demais. Grave uma fala mais curta ou digite.",
+      TRANSCRIBE_AUDIO_TOO_LONG: "A gravação passou de 1 minuto. Grave uma fala mais curta ou digite.",
+      TRANSCRIBE_EMPTY: "Nenhuma fala foi reconhecida. Grave novamente ou digite.",
+      TRANSCRIBE_BUDGET: "O limite de gasto da transcrição foi atingido. Você pode digitar.",
+      TRANSCRIBE_DISABLED: "A transcrição da Secretária está desligada. Você pode digitar.",
+    };
+    return { ok: false, code, error: messages[code] ?? "Não foi possível transcrever. Seu texto foi preservado; você pode digitar." };
+  }
 }

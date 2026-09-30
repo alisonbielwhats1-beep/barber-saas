@@ -16,6 +16,7 @@ import { RuntimeObservationBridge } from "./hard-conversations-observation-bridg
 import { PhaseAOpenAIErrorObserver, observeModelGetResponse } from "./hard-conversations-openai-diagnostic";
 import { inspectPostHttpResponse, witnessSdkResponse, classifyPostHttpFailure, type SafePostHttpMetadata, type PostHttpStage } from "./ultimate-10-post-http";
 import { BenchmarkWireWitness, selectionDiagnostic } from "./multi-action-benchmark-wire";
+import { refuseUnwiredPaidPath } from "./program-spend";
 
 const manifestPath = join(BENCHMARK_RESULTS, "real-manifest.json");
 const realPath = "packages/salon-secretary/evaluation/multi-action-benchmark-real.ts";
@@ -89,6 +90,7 @@ function safetyScore(c: BenchmarkCase, turn: number, view: SecretaryView | null,
 }
 
 export async function executeRealBenchmark(admin: PrismaClient, runtime: PrismaClient, resume = false) {
+  refuseUnwiredPaidPath(); // not admitted by the program real-spend ledger
   assertPhaseAEnvironment(); checkPhaseA();
   if (process.env.MULTI_ACTION_BENCHMARK_APPROVED !== "true") throw Error("BENCHMARK_NOT_AUTHORIZED");
   const bytes = readFileSync(manifestPath), manifest = JSON.parse(bytes.toString()), binding = digest(bytes);

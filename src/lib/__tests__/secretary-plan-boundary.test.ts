@@ -66,7 +66,11 @@ describe("complete wire field audit",()=>{
     expect(schema.safeParse(true).success).toBe(key==="override_requested");
     const requiredArrays=["requested_fields","clear_fields"];
     expect(schema.safeParse(null).success).toBe(!requiredArrays.includes(key)&&key!=="operation");
-    const optional=["source_scope","item_key","depends_on","released_slot_of","financial","inventory","communication","customer_name","service_name","professional_name","date","day_offset","weekday","time","period","source_date","source_day_offset","source_weekday","source_time","end_time","end_date","reason","temporal_evidence","destination_mode","override_requested","override_reason"];
+    // P2a migration (backup: .demo/agenda-core/contract-migration/secretary-plan-boundary.test.before-alter-appointment.ts): the
+    // alteration fields of appointment.change (flag SALON_SECRETARY_ALTER_APPOINTMENT) are optional and nullable like the other roles.
+    // P2b migration (backup: .demo/agenda-core/contract-migration/secretary-plan-boundary.test.before-multi-service.ts): the service
+    // list of appointment.create/availability.get (flag SALON_SECRETARY_MULTI_SERVICE) is optional and nullable too.
+    const optional=["source_scope","item_key","depends_on","released_slot_of","financial","inventory","communication","customer_name","service_name","professional_name","date","day_offset","weekday","time","period","source_date","source_day_offset","source_weekday","source_time","end_time","end_date","reason","temporal_evidence","destination_mode","override_requested","override_reason","target_professional_name","service_changes","service_names"];
     expect(schema.safeParse(undefined).success).toBe(optional.includes(key));
     expect(schema.safeParse([]).success).toBe([...requiredArrays,"depends_on","temporal_evidence"].includes(key));
     const acceptsEmpty=["target_name","name","phone","email","released_slot_of","reason"];

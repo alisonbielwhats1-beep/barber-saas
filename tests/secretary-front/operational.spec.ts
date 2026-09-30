@@ -51,7 +51,7 @@ test('real local frontend → authenticated confirmation → PostgreSQL → rece
   save(`${++step}-${label}`,{before:hashes(cursor),after:hashes(next),effects,fixture_rows:Object.fromEntries(Object.entries(next).map(([table,rows])=>[table,rows.filter(r=>r.salonId===fixture.salonId)]))});cursor=next;
  }
  const send=async(text:string)=>{await input.fill(text);await panel.getByRole('button',{name:'Enviar',exact:true}).click();await expect(input).toBeEnabled();};
- const confirm=async()=>{await panel.getByRole('button',{name:'Confirmar',exact:true}).click();await expect(panel.getByText('Resultado confirmado pelo sistema',{exact:true})).toBeVisible();};
+ const confirm=async(name='Confirmar')=>{await panel.getByRole('button',{name,exact:true}).click();await expect(panel.getByText('Resultado confirmado pelo sistema',{exact:true})).toBeVisible();};
  const newConversation=async()=>{await panel.getByRole('button',{name:'Nova conversa',exact:true}).click();await expect(input).toBeEnabled();};
  const serviceRows=page.getByLabel('Lista de serviços');
  await send('Altera a Massagem para R$80.');
@@ -79,7 +79,8 @@ test('real local frontend → authenticated confirmation → PostgreSQL → rece
  await observe('inventory-success',{updates:{Product:{[fixture.productId]:['stock','updatedAt']}}});
  await page.screenshot({path:resolve(out,'desktop-inventory-receipt.png')});
  await newConversation();await send('Altera a Massagem para R$85 e dá baixa em 2 unidades do Shampoo X.');
- await expect(panel.getByRole('article')).toHaveCount(2);await observe('multi-proposal');await confirm();
+ // Runtime default groups per component: two independent actions are two groups, confirmed together by "Confirmar tudo".
+ await expect(panel.getByRole('article')).toHaveCount(2);await observe('multi-proposal');await confirm('Confirmar tudo que está pronto (2)');
  await expect(panel.getByText('Concluído',{exact:true})).toHaveCount(2);
  expect((await db.service.findUniqueOrThrow({where:{id:fixture.serviceId}})).priceCents).toBe(8500);
  expect((await db.product.findUniqueOrThrow({where:{id:fixture.productId}})).stock).toBe(6);

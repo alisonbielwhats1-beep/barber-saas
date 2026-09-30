@@ -10,8 +10,18 @@ describe("Communication boundary / exact source / disclosure",()=>{
     expect(exactMessageContent(raw)).toBe(content);
     expect(reconcileMessageContent({},{message_mode:"EXACT",content:"Modelo tentou reescrever"},raw)).toEqual({message_mode:"EXACT",content});
   });
+  // Review migration (backups: .demo/agenda-core/contract-migration/secretary-communication.test.before-b7.ts and
+  // .before-generated-flag.ts): the historical rule is restored by default (a GENERATED text needs the owner's explicit
+  // request, now in any inflection of the request words); the B7 trust in Luna's mode is behind
+  // SALON_SECRETARY_GENERATED_SUGGESTION (default off).
   it("generated suggestion requires explicit request, exact cannot be silently replaced",()=>{
     expect(()=>reconcileMessageContent({},{message_mode:"GENERATED",content:"Olá"},"Avise Fábio")).toThrow("MESSAGE_CONTENT_REVIEW_REQUIRED");
+    expect(reconcileMessageContent({},{message_mode:"GENERATED",content:"Olá"},"Pode sugerir um texto educado para o Fábio")).toEqual({message_mode:"GENERATED",content:"Olá"});
+    expect(reconcileMessageContent({},{message_mode:"GENERATED",content:"Olá"},"Quero uma sugestão de mensagem")).toEqual({message_mode:"GENERATED",content:"Olá"});
+    vi.stubEnv("SALON_SECRETARY_GENERATED_SUGGESTION","true");
+    try{expect(reconcileMessageContent({},{message_mode:"GENERATED",content:"Olá"},"Avise Fábio")).toEqual({message_mode:"GENERATED",content:"Olá"});}
+    finally{vi.unstubAllEnvs();}
+    expect(()=>reconcileMessageContent({},{message_mode:"EXACT",content:"Olá"},"Avise Fábio")).toThrow("MESSAGE_CONTENT_REVIEW_REQUIRED");
     expect(reconcileMessageContent({},{message_mode:"GENERATED",content:"Olá"},"Avise educadamente o Fábio")).toEqual({message_mode:"GENERATED",content:"Olá"});
     expect(reconcileMessageContent({content:"  texto  ",message_mode:"EXACT"},{channel:"WHATSAPP"},"WhatsApp")).toMatchObject({content:"  texto  ",message_mode:"EXACT"});
     expect(exactMessageContent('Mande “a” ou “b”')).toBeUndefined();

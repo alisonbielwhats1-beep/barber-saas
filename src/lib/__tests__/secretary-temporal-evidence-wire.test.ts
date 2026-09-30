@@ -196,8 +196,14 @@ describe('structural transport cannot loosen factual guards or infer roles',()=>
     {weekday:pair(2,'terça'),day_offset:pair(1,'amanhã')},
     {source_weekday:pair(2,'terça'),source_date:pair('2027-04-14','quarta')},
   ])('never merges multiple selectors into one role witness: %j',async fields=>{
+    // B5 contract migration (partial acceptance): the contradicted role is dropped, never merged or chosen;
+    // the rest of the turn survives. The role keeps only a value-less conflict marker (the backend asks it).
     const result=await sdk({turn:{mode:'NEW',operations:[operation('appointment.change',fields)]}});
-    expect(result.error).toBeDefined();expect(result.value).toBeUndefined();
+    expect(result.error).toBeUndefined();
+    const [op]=(result.value as {operations:Record<string,unknown>[]}).operations;
+    const first=Object.keys(temporalValueRoles).find(key=>key in fields)! as keyof typeof temporalValueRoles,role=temporalValueRoles[first];
+    for(const [field,of] of Object.entries(temporalValueRoles))if(of===role)expect(op[field]).toBeNull();
+    expect(op.temporal_evidence).toEqual([{field:role,text:(fields as unknown as Record<string,{literal:string}>)[first].literal,conflict:true}]);
     expect(()=>decodeTemporalEvidencePayload(fields,true)).toThrow('TEMPORAL_SELECTOR_CONFLICT');
   });
   it('clones owned containers and preserves nulls, names and dependency metadata byte-for-byte',()=>{

@@ -95,7 +95,7 @@ describe("inventory effective quantity, revision and presentation",()=>{
   const units=[{keys:["stock"],kind:"single" as const,child:"child"}],children=[{operation_ref:"child",state:view}];
   expect(secretaryPlanMessage(p,units,children)).toContain("Quantas unidades ao todo?");
   const context=planConversationContext(p,units,children).actions[0];
-  expect(context.clarification.requested_field).toBe("quantity");expect(context.quantity_context).toMatchObject({catalog_unit:"un",resolution:{count:2,unit_text:"caixas"}});
+  expect(context.clarification.requested_field).toBe("quantity");expect((context as { quantity_context?: unknown }).quantity_context).toMatchObject({catalog_unit:"un",resolution:{count:2,unit_text:"caixas"}});
  });
  it("a bare reply resolves only the same backend draft's catalog-unit question",async()=>{
   const state=inventoryState();await applyInventoryInterpretation(actor,state,{operation:"stock.movement",product_name:"Óleo Aurora",mode:"IN",quantity:2},"Chegaram duas caixas do Óleo Aurora.");

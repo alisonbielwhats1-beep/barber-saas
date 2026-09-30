@@ -1,6 +1,7 @@
 import "server-only";
 import { createPaidModel, multiActionConfiguration } from "@everflair/salon-secretary";
 import { SalonSecretary } from "./salon-secretary";
+import { persistedSessionStore } from "./secretary-session-store";
 import { assertSafeDatabaseOperation } from "./database-safety";
 import { isSecretaryCodespaceTarget } from "./secretary-staging-target.mjs";
 
@@ -38,4 +39,5 @@ export const salonSecretary = new SalonSecretary(secretaryModel, undefined, unde
 }, {
   enabled: () => process.env.SALON_SECRETARY_MULTI_ACTION_V2_ENABLED === "true",
   policy: () => multiActionConfiguration(process.env).policy,
-});
+// D1: SALON_SECRETARY_PERSISTED_STATE (default off) keeps conversations in PostgreSQL (027) instead of this process only.
+}, persistedSessionStore);
