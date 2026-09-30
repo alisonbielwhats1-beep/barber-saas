@@ -5,6 +5,7 @@ import { skillRegistry, publishedOptionIds } from "../skill-registry";
 import { exampleBank, exampleRequirements, type BankExample, type ExampleFeature } from "./bank";
 import { exampleLine, servedFeatures, type ExampleWire } from "./render";
 import { directorySeed, exampleFills, fillExample, PLACEHOLDER, CANONICAL_FILL_SEED, type ExampleDirectory } from "./fill";
+import type { SecretaryMessageContent } from "../prompt-cache";
 
 /** C2 few-shot examples, behind SALON_SECRETARY_EXAMPLES (default off: the request is byte-identical
  * to the historical one). selected = the K most similar eligible examples (lexical, deterministic);
@@ -163,8 +164,8 @@ export function composeExamples(mode: Exclude<ExamplesMode, "off">, message: str
 
 /** Hard request limits shared with the cost guard and the wire budget tests. */
 export const EXAMPLES_REQUEST_CAP = 64_000, EXAMPLES_OUTPUT_FRAMING = 8192, EXAMPLES_ESTIMATE_MARGIN = 256;
-/** Upper estimate of the Responses body the SDK serializes for one Secretary request. */
-export function secretaryRequestBytes(input: { instructions: string; messages: readonly { role: string; content: string }[]; parameters: unknown; toolName: string; toolDescription: string; maxTokens: number }) {
+/** Upper estimate of the Responses body the SDK serializes for one Secretary request (C5: a content may be input_text parts). */
+export function secretaryRequestBytes(input: { instructions: string; messages: readonly { role: string; content: SecretaryMessageContent }[]; parameters: unknown; toolName: string; toolDescription: string; maxTokens: number }) {
   return Buffer.byteLength(JSON.stringify({ model: "gpt-5.6-luna", instructions: input.instructions, input: input.messages.map(message => ({ type: "message", ...message })), include: [],
     tools: [{ type: "function", name: input.toolName, description: input.toolDescription, parameters: input.parameters, strict: true }],
     max_output_tokens: input.maxTokens, tool_choice: { type: "function", name: input.toolName }, stream: false, store: false, parallel_tool_calls: false }), "utf8") + EXAMPLES_ESTIMATE_MARGIN;

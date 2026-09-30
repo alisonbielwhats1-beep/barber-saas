@@ -12,7 +12,10 @@
  * attempt in a fresh seed namespace, graded offline on the final DB state.
  * --noise light|heavy|mixed sends say/answer texts through the deterministic,
  * meaning-preserving noise generator (agenda-practice-noise.ts); every such turn
- * records profile, level, seed, the ORIGINAL and the SENT text (synthetic only). */
+ * records profile, level, seed, the ORIGINAL and the SENT text (synthetic only).
+ * AGENDA_ANSWER_DELIVERY=item (or `answerDelivery`; evaluation only, default 'field' = the legacy delivery and file shape)
+ * answers service_changes* questions with the scenario's service answers and a question that names an item with that item's
+ * answer (AnswerBook); the header, report and each delivered answer row then record it (codes only). */
 import { appendFileSync, mkdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { basename, join } from 'node:path';
@@ -29,11 +32,11 @@ import { assertFreeUseDatabase } from './free-use-database';
 import { seedFreeUseFixture } from './free-use-fixture';
 import { seedMultiServiceAppointments } from './agenda-practice-seed';
 import type { FixtureIdentity } from './free-use-contract';
-import { AGENDA_STAGES, AnswerBook, DEFAULT_AGENDA_STAGE, DEFAULT_OUTPUT_TOKENS, EFFECT_TABLES, ESTIMATE_BODY_BYTES, LEGACY_AGENDA_STAGE, MULTI_SERVICE_SEED_VERSION, PRICE, SYSTEM_CLOCK, TZ, acquireStageLease,
+import { AGENDA_STAGES, AnswerBook, answerDeliveryMode, answerQuestion, DEFAULT_AGENDA_STAGE, DEFAULT_OUTPUT_TOKENS, EFFECT_TABLES, ESTIMATE_BODY_BYTES, LEGACY_AGENDA_STAGE, MULTI_SERVICE_SEED_VERSION, PRICE, SYSTEM_CLOCK, TZ, acquireStageLease,
   agendaStage, assertHeadroom, assertSaoPauloClock, assertStageLeaseHeld, buildScenarioFixture, codesOnly, dayWindowPreflight, expectedCalls, headroomEstimate, heartbeatStageLease,
   legacyOracle, midnightGuard, percentile, perCallBudgetMs, readStage, releaseStageLease, renderFinal, renderTemplate, requestVersion, reservationMicroUsd, reserve, runDayPreflight,
   runEstimateMs, scenarioBudgetMs, secretaryFlagSnapshot, stageJournalPath, stageTotals, todayInSaoPaulo, validateScenarios,
-  type AgendaClock, type AgendaScenario, type AgendaStageName, type LegacyMap, type ProfessionalHours, type StageLease, type Step } from './agenda-practice-lib';
+  type AgendaClock, type AgendaScenario, type AgendaStageName, type AnswerDelivery, type AnswerFor, type LegacyMap, type ProfessionalHours, type StageLease, type Step } from './agenda-practice-lib';
 import { assertProgramHeadroom, assertProofAdmits, guardPaidFetch, isProgramSpendError, programSpendCode, programSpendLabel, programSpendLedgerPath, programSpendSummary, programSpendTotals,
   type ProofLease } from './program-spend';
 import { applyNoise, noiseLevel, noisePreflight, noiseProfile, noiseSeed, noiseViolations, scenarioNoiseContext, type NoiseProfile } from './agenda-practice-noise';
@@ -176,6 +179,7 @@ export async function applyProfessionalHours(admin: Pick<PrismaClient, '$transac
 
 export type AgendaRunOptions = { stage?: string; repeat?: number; /** per pass; default = headroom estimate */ maxRequests?: number; closedDay?: 'skip' | 'fail';
   /** default 'off' (texts sent exactly as written, comparable with legacy runs) */ noise?: NoiseProfile;
+  /** evaluation only; default AGENDA_ANSWER_DELIVERY, else 'field' (the legacy delivery, comparable with legacy runs) */ answerDelivery?: AnswerDelivery;
   /** F2: the clock of day anchors and the midnight guard (injected in tests; default the system clock) */ clock?: AgendaClock };
 /** F1: a sealed/validation run hands the runner the preflight it checked before the look (never recomputed), the stage
  * lease it holds (the runner then neither takes nor releases one) and its program-wide proof lease (its paid calls are the only
@@ -187,6 +191,7 @@ export function preflightAgendaPractice(input: AgendaScenario[], opts: AgendaRun
   assertNonProduction(process.env);
   assertSaoPauloClock(); // ICU self-test: AGENDA_TZ_UNAVAILABLE instead of a wrong day
   const repeat = opts.repeat ?? 1, profile = noiseProfile(opts.noise ?? 'off');
+  answerDeliveryMode(opts.answerDelivery ?? process.env.AGENDA_ANSWER_DELIVERY); // AGENDA_ANSWER_DELIVERY_ARGUMENT before any file or database
   if (!Number.isInteger(repeat) || repeat < 1 || repeat > 8) throw Error('AGENDA_REPEAT');
   if (opts.maxRequests !== undefined && (!Number.isInteger(opts.maxRequests) || opts.maxRequests < 1)) throw Error('AGENDA_MAX_REQUESTS_ARGUMENT');
   const stage = agendaStage(opts.stage ?? DEFAULT_AGENDA_STAGE), scenarios = validateScenarios(input);
@@ -234,7 +239,7 @@ export async function runAgendaPractice(scenarios: AgendaScenario[], out: string
   assertHeadroom(estimate); // before any network
   // F1: everything that can still throw before the main try/finally is computed BEFORE the stage lease (environment and code
   // only: no file, database or network), so an early refusal (e.g. INVALID_EXAMPLES_MODE) never leaves the stage leased.
-  const flags = secretaryFlagSnapshot(process.env), examples = examplesContractTag(process.env);
+  const flags = secretaryFlagSnapshot(process.env), examples = examplesContractTag(process.env), delivery = answerDeliveryMode(opts.answerDelivery ?? process.env.AGENDA_ANSWER_DELIVERY);
   // C6 (rec 19): the model contract (prompt templates, wire, model, limits, contract flags) every scenario ran under.
   const contractVersion = secretaryContractVersion({ modelId: 'gpt-6-luna', presentation: backendPresentationDigest() });
   const programLedger = programSpendLedgerPath(), programRun = programSpendLabel(`practice:${basename(out)}`), proof = opts.proofLease;
@@ -321,16 +326,19 @@ export async function runAgendaPractice(scenarios: AgendaScenario[], out: string
         const secretary = new SalonSecretary(async (): Promise<Model> => createPaidModel(process.env), () => 'gpt-6-luna', undefined, { enabled: () => false }, { enabled: () => true }, persistedSessionStore);
         const session = await secretary.start(actor, 'auto');
         const transcript: unknown[] = []; let view: SecretaryView | undefined = session; let index = 0;
-        const book = new AnswerBook(s.answers, label, today), routerSeen = new Set<string>();
+        const book = new AnswerBook(s.answers, label, today, delivery), routerSeen = new Set<string>();
+        // 'item' delivery: the fixture's customer names and the texts already sent (original, before noise) tell whom an answer is for.
+        const customers = delivery === 'item' ? (fixture as unknown as { customers: { name: string }[] }).customers.map(c => c.name) : [], said: string[] = [];
         const pendingFields = (v?: SecretaryView) => [...new Set((v?.action_plan?.actions ?? []).filter(a => a.status !== 'DONE').flatMap(a => a.missing_fields).map(f => f.includes('.') ? f.slice(f.indexOf('.') + 1) : f).filter(f => f !== 'selection'))];
         const initial = await tenantState(admin, identity.tenant);
         const header = { run, stage: stage.name, repeat, attempt, today, dayAnchor: { today, at: anchoredAt.toISOString() }, ...(rerunOf ? { rerunOf, rerunCause: 'DAY_ROLLOVER' } : {}),
-          seedNamespace: namespace, flags, contractVersion, ...(profile !== 'off' ? { noise: { profile, level } } : {}), ...(multiService.length ? { seedFormat: { multiService: MULTI_SERVICE_SEED_VERSION } } : {}),
+          seedNamespace: namespace, flags, contractVersion, ...(profile !== 'off' ? { noise: { profile, level } } : {}), ...(delivery !== 'field' ? { answerDelivery: delivery } : {}),
+          ...(multiService.length ? { seedFormat: { multiService: MULTI_SERVICE_SEED_VERSION } } : {}),
           scenario: s, oracle: s.final ? renderFinal(s.final, today) : undefined, tenant: identity.tenant, initial };
         const save = (complete: boolean) => writeFileSync(join(dir, `${s.id}.json`), JSON.stringify({ ...header, version, complete, ...(abort ? { abort } : {}), transcript }, null, 2));
         cur.save = save;
         const candidateItems = (o: NonNullable<SecretaryView['operations']>[number]) => o.state.scheduling?.candidates?.items ?? (o.state.batch?.draft?.candidates as { items?: { id: string; name: string }[] } | undefined)?.items ?? [];
-        const queue: (Step | { answer: string; field: string; use: number })[] = [...s.steps];
+        const queue: (Step | { answer: string; field: string; use: number; for?: AnswerFor })[] = [...s.steps];
         save(false);
         try {
         while (queue.length) {
@@ -352,8 +360,10 @@ export async function runAgendaPractice(scenarios: AgendaScenario[], out: string
               try { view = await secretary.send(actor, { sessionId: session.sessionId, message }); }
               finally { active = null; process.env.SALON_SECRETARY_ALLOW_PAID_CALLS = 'false'; }
               // Answer only what was actually asked, once per answer instance, before the next scripted step.
-              const next = book.next(pendingFields(view));
-              if (next) queue.unshift({ answer: next.text, field: next.field, use: next.use });
+              if (delivery === 'item') said.push(original);
+              const next = book.next(pendingFields(view), delivery === 'item'
+                ? answerQuestion(view?.message, view?.action_plan?.actions, { customers, said, later: queue.flatMap(q => 'say' in q ? [q.say] : []) }) : undefined);
+              if (next) queue.unshift({ answer: next.text, field: next.field, use: next.use, ...(next.for ? { for: next.for } : {}) });
             } else if ('confirm' in step && step.confirm === 'all') {
               // Every READY group through the Front's "confirm everything that is ready" call (one approval per
               // group, all validated before any executes); without it, one group per call. A group the backend
@@ -408,7 +418,7 @@ export async function runAgendaPractice(scenarios: AgendaScenario[], out: string
           if (user) try { router = await routerTelemetry(admin, identity.tenant, routerSeen); } catch { router = null; }
           const calls = usage.slice(before), summary = summarize(view);
           transcript.push({ step: index, action: 'say' in step ? 'say' : 'answer' in step ? 'answer:' + step.field : 'confirm' in step ? (step.confirm === 'all' ? 'confirm:all' : 'confirm') : 'select' in step ? 'select' : 'choose',
-            input, ...(noise ? { noise } : {}), pending: pendingFields(view), error, latencyMs: Math.round(performance.now() - started), calls: calls.length, luna: calls.map(c => c.arguments),
+            input, ...('answer' in step && step.for ? { answerFor: step.for } : {}), ...(noise ? { noise } : {}), pending: pendingFields(view), error, latencyMs: Math.round(performance.now() - started), calls: calls.length, luna: calls.map(c => c.arguments),
             tokens: calls.reduce((n, c) => ({ input: n.input + c.input, cached: n.cached + c.cached, output: n.output + c.output }), { input: 0, cached: 0, output: 0 }),
             ...(confirmed ? { confirmed } : {}), ...(user ? { router } : {}), probe: probe(summary), ...errorView(error, summary, 'confirm' in step), db: await tenantState(admin, identity.tenant) });
           save(false);
@@ -482,6 +492,7 @@ export async function runAgendaPractice(scenarios: AgendaScenario[], out: string
     midnightGuard: { sleeps: guards.filter(g => g.action === 'SLEEP').length, sleptMs: guards.reduce((n, g) => n + g.sleepMs, 0), unguarded: guards.filter(g => g.action === 'RUN_UNGUARDED').length, events: guards },
     clock: pre.clock, lease: { id: lease.id, own: ownLease, released: leaseReleased } };
   const report = { run, status: failure ? 'ABORTED' : 'COMPLETE', ...(failure ? { abort } : {}), today: firstDay, ...dayReport, repeat, version, versions, contractVersion, flags, noise: { profile, levels: pre.noise.levels },
+    ...(delivery !== 'field' ? { answerDelivery: delivery } : {}),
     scenarios: runnable.length, ids: runnable.map(s => s.id), scenarioAttempts: results.length, incomplete, notExecuted, skipped: pre.skipped.map(d => ({ id: d.id, closed: d.closed, invalid: d.invalid })), requests,
     usage: { input: usage.reduce((n, u) => n + u.input, 0), cached: usage.reduce((n, u) => n + u.cached, 0), output: usage.reduce((n, u) => n + u.output, 0) },
     // C2 A/B: the examples contract tag and per-call provider latency of this run (the pass^k report groups them per run).

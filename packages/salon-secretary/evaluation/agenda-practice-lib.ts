@@ -381,18 +381,99 @@ export function pickVariant<T>(variants: readonly T[], seed: string): T {
 export type AnswerVariants = string | string[];
 export type AnswerSpec = AnswerVariants | { queue: AnswerVariants[] };
 export const answerInstances = (spec: AnswerSpec): AnswerVariants[] => typeof spec === 'object' && !Array.isArray(spec) ? spec.queue : [spec];
-/** Answers only fields the runtime actually asks for; each instance is used once. Variant choice is seeded by
- * (scenario, attempt, field, use) so pass^k samples phrasing without depending on turn order. */
-export class AnswerBook {
-  private readonly used = new Map<string, number>();
-  constructor(private readonly answers: Record<string, AnswerSpec> | undefined, private readonly seed: string, private readonly today: string) {}
-  has(field: string) {
-    return !!this.answers && Object.hasOwn(this.answers, field) && (this.used.get(field) ?? 0) < answerInstances(this.answers[field]).length;
+/** Answer delivery of the runner (evaluation only: AGENDA_ANSWER_DELIVERY or the run option, never a product flag).
+ * 'field' (default, every run recorded before 30/09): the first pending field with an unused instance, instances in order.
+ * 'item': a pending service_changes* field without an answer of its own takes the scenario's service answers (ANSWER_ALIASES),
+ * and when the question names an item (answerQuestion) the instance naming that item's customer wins, while one naming only
+ * another item waiting for the same field, or a customer only a later scripted say introduces, waits for its own question.
+ * Grading never reads it; the pass^k report and the arm profile do (a confound when arms differ). */
+export type AnswerDelivery = 'field' | 'item';
+export function answerDeliveryMode(value: unknown): AnswerDelivery {
+  if (value === undefined || value === '' || value === 'field') return 'field';
+  if (value === 'item') return 'item';
+  throw Error('AGENDA_ANSWER_DELIVERY_ARGUMENT');
+}
+/** 'item' delivery: pending fields answered by other answer keys when the scenario has none of their own (same meaning): never
+ * when it has one (used up or held), never with a key another pending question asks, and an alias answer is never a guess (one
+ * naming someone else, or naming nobody while a later say introduces a customer, waits). */
+export const ANSWER_ALIASES: Readonly<Record<string, readonly string[]>> = { service_changes_ref: ['service_ref', 'service_name'], service_changes: ['service_ref', 'service_name'] };
+/** Which item a delivered answer went to: the pending field it answered and, when the question named one, the plan item key. */
+export type AnswerFor = { field: string; item?: string };
+export type AnswerDelivered = { field: string; text: string; use: number; for?: AnswerFor };
+/** Per pending field: the item the question asks (`item`), its customer's first name (`own`) and the other waiting items' (`rivals`). */
+export type AnswerTarget = { item?: string; own: string[]; rivals: string[][] };
+/** `focus`: the one waiting item the message names (its fields are answered first); `future`: first names of customers only a
+ * later scripted say introduces. Codes and synthetic fixture first names only (never message text). */
+export type AnswerQuestion = { focus?: string; first: string[]; fields: ReadonlyMap<string, AnswerTarget>; future: string[] };
+export type AnswerScript = { customers: readonly string[]; said: readonly string[]; later: readonly string[] };
+export type AnswerPlanAction = { key: string; status?: string; missing_fields?: unknown; fields?: unknown };
+/** Folded letter words of a text (digits, punctuation and marks split). */
+const letterWords = (text: unknown) => typeof text === 'string' ? fold(text).split(/[^a-z]+/).filter(Boolean) : [];
+/** A customer is identified by the first name (surnames collide with common words: "dias", "santos"); articles aside. */
+const firstName = (name: string) => letterWords(name).find(w => w.length > 1 && !ARTICLES.has(w));
+/** 'item' delivery context of the view just received: an item "is asked" for a pending field when it is the only item waiting for
+ * that field, or the one waiting item whose customer the message names. Names are grounded on the fixture's customers only
+ * (a descriptive customer_name such as "última pessoa da tarde" names nobody). Malformed input yields an empty context. */
+export function answerQuestion(message: unknown, actions: readonly AnswerPlanAction[] | undefined, script: AnswerScript): AnswerQuestion {
+  const known = new Set(script.customers.flatMap(n => firstName(n) ?? [])), names = (text: unknown) => [...new Set(letterWords(text).filter(w => known.has(w)))];
+  const told = new Set(names(message)), list = Array.isArray(actions) ? actions.filter(a => a && typeof a === 'object') : [];
+  const customer = (a: AnswerPlanAction) => names(a.fields && typeof a.fields === 'object' ? (a.fields as Record<string, unknown>).customer_name : undefined);
+  const waiting = list.filter(a => a.status !== 'DONE' && Array.isArray(a.missing_fields)).map(a => ({ key: String(a.key), names: customer(a),
+    missing: [...new Set((a.missing_fields as unknown[]).filter((f): f is string => typeof f === 'string').map(bare).filter(f => f && f !== 'selection'))] })).filter(a => a.missing.length);
+  const named = waiting.filter(a => a.names.some(w => told.has(w))), focus = named.length === 1 ? named[0] : undefined;
+  const fields = new Map<string, AnswerTarget>();
+  for (const f of new Set(waiting.flatMap(a => a.missing))) {
+    const on = waiting.filter(a => a.missing.includes(f)), mine = on.filter(a => named.includes(a)), asked = on.length === 1 ? on[0] : mine.length === 1 ? mine[0] : undefined;
+    fields.set(f, { ...(asked ? { item: asked.key } : {}), own: asked?.names ?? [], rivals: on.filter(a => a !== asked && a.names.length).map(a => a.names) });
   }
-  next(pending: string[]) {
-    const field = pending.find(f => this.has(f));
-    if (!field) return undefined;
-    const n = this.used.get(field) ?? 0; this.used.set(field, n + 1);
+  const present = new Set([...list.flatMap(customer), ...script.said.flatMap(names)]);
+  return { ...(focus ? { focus: focus.key } : {}), first: focus?.missing ?? [], fields, future: [...new Set(script.later.flatMap(names))].filter(w => !present.has(w)) };
+}
+/** Answers only fields the runtime actually asks for; each instance is used once. Variant choice is seeded by
+ * (scenario, attempt, field, instance) so pass^k samples phrasing without depending on turn order; `use` is the instance
+ * number (the noise seed `answer:<field>:<use>` of noiseSources), also when 'item' delivery takes instances out of order. */
+export class AnswerBook {
+  private readonly used = new Map<string, Set<number>>();
+  constructor(private readonly answers: Record<string, AnswerSpec> | undefined, private readonly seed: string, private readonly today: string,
+    private readonly delivery: AnswerDelivery = 'field') {}
+  private unused(field: string) {
+    if (!this.answers || !Object.hasOwn(this.answers, field)) return [];
+    const used = this.used.get(field);
+    return answerInstances(this.answers[field]).map((value, n) => ({ value, n })).filter(x => !used?.has(x.n));
+  }
+  has(field: string) { return this.unused(field).length > 0; }
+  next(pending: string[], question?: AnswerQuestion): AnswerDelivered | undefined {
+    if (this.delivery !== 'item') {
+      const field = pending.find(f => this.has(f));
+      if (!field) return undefined;
+      return this.take(field, this.unused(field)[0].n);
+    }
+    const order = [...new Set([...(question?.first ?? []).filter(f => pending.includes(f)), ...pending])];
+    for (const asked of order) {
+      // The scenario's own key only, when it has one; else its aliases that no pending question asks for itself.
+      const keys = this.answers && Object.hasOwn(this.answers, asked) ? [asked] : (Object.hasOwn(ANSWER_ALIASES, asked) ? ANSWER_ALIASES[asked] : []).filter(k => !pending.includes(k));
+      for (const key of keys) {
+        const target = question?.fields.get(asked), n = this.pick(key, target, question?.future ?? [], key !== asked);
+        if (n !== undefined) return { ...this.take(key, n), for: { field: asked, ...(target?.item !== undefined ? { item: target.item } : {}) } };
+      }
+    }
+    return undefined;
+  }
+  /** Without an asked item: the first unused instance. With one: an instance naming it (alone before one also naming another
+   * waiting item or a future customer), else one naming nobody; one naming only others is never delivered to this question.
+   * `alias` (another field's key): only an instance naming nobody else, and a neutral one only while no later say introduces a customer. */
+  private pick(key: string, target: AnswerTarget | undefined, future: readonly string[], alias = false) {
+    let best: { n: number; rank: number } | undefined;
+    for (const { value, n } of this.unused(key)) {
+      const said = new Set((Array.isArray(value) ? value : [value]).flatMap(letterWords));
+      const own = !!target?.own.some(w => said.has(w)), other = !!target?.rivals.some(r => r.some(w => said.has(w))) || future.some(w => said.has(w));
+      const rank = alias && (other || !own && future.length > 0) ? undefined : target?.item === undefined ? 0 : own ? (other ? 1 : 0) : other ? undefined : 2;
+      if (rank !== undefined && (!best || rank < best.rank)) best = { n, rank };
+    }
+    return best?.n;
+  }
+  private take(field: string, n: number): AnswerDelivered {
+    const used = this.used.get(field) ?? new Set<number>(); used.add(n); this.used.set(field, used);
     const value = answerInstances(this.answers![field])[n];
     const text = Array.isArray(value) ? pickVariant(value, `${this.seed}|${field}|${n}`) : value;
     return { field, text: renderTemplate(text, this.today), use: n + 1 };
@@ -1443,6 +1524,8 @@ export function buildPasskReport(runDir: string, opts: { legacyCheck?: string } 
     flags: (report?.flags as Record<string, string> | undefined) ?? null, examplesTag: typeof report?.examples === 'string' ? report.examples : null,
     // --noise profile of the run (runs recorded before the noise generator sent the texts as written: off).
     noiseProfile: typeof (report?.noise as { profile?: unknown } | undefined)?.profile === 'string' ? (report!.noise as { profile: string }).profile : 'off',
+    // Runner answer delivery (evaluation only; runs recorded before it, or with anything else: the legacy 'field').
+    answerDelivery: report?.answerDelivery === 'item' ? 'item' as AnswerDelivery : 'field' as AnswerDelivery,
     usage: { ...usage, cachedShare: usage.input ? Number((usage.cached / usage.input).toFixed(3)) : null,
       perCall: usage.calls ? { input: Math.round(usage.input / usage.calls), cached: Math.round(usage.cached / usage.calls), output: Math.round(usage.output / usage.calls) } : null },
     callLatencyMs: (report?.calls as { latencyMs?: { p50: number | null; p90: number | null } } | undefined)?.latencyMs ?? null,
@@ -1466,6 +1549,7 @@ export function formatPasskTable(r: ReturnType<typeof buildPasskReport>) {
   lines.push(`COVERAGE graded=${r.coverage.graded}/${r.coverage.expected} status=${r.status ?? '?'}${r.abort ? ' abort=' + r.abort : ''}${r.coverage.unknownScenarios ? ` unknownScenarios=${r.coverage.unknownScenarios}` : ''}`);
   for (const [cap, a] of Object.entries(r.byCapability)) lines.push(`  cap ${cap.padEnd(16)} n=${a.scenarios} pass^1=${pct(a.pass1)} pass^${K}=${pct(a.passK[K])}`);
   if (Object.keys(r.byNoise).some(l => l !== 'off')) lines.push(`NOISE (graded attempts) ${Object.entries(r.byNoise).map(([l, t]) => `${l}=${t.passed}/${t.attempts} (${pct(t.pass1)})`).join(' ')}`);
+  if (r.answerDelivery !== 'field') lines.push(`ANSWER DELIVERY ${r.answerDelivery} (evaluation only: not comparable with field-delivery runs)`);
   lines.push(`FLAKY ${r.flaky.join(',') || '-'}`);
   lines.push(`SAFETY ${r.safety.map(s => `${s.id}#k${s.k}:${s.codes.join('+')}`).join(' ') || '-'}`);
   if (r.discardedSafety.length) lines.push(`SAFETY_DISCARDED ${r.discardedSafety.map(s => `${s.id}#k${s.k}:${s.codes.join('+')}`).join(' ')}`);
@@ -1488,12 +1572,15 @@ export function formatPasskTable(r: ReturnType<typeof buildPasskReport>) {
 export type PasskReport = ReturnType<typeof buildPasskReport>;
 /** What an arm was measured with (flags, examples tag, request versions, K, noise profile, run days); `mixed` names the
  * candidate identity its pooled runs disagree on (one arm pooling two candidates is itself confounded). K and noise may
- * differ among pooled runs by design (V with noise + N clean): each scenario carries its own and pairs compare them. */
+ * differ among pooled runs by design (V with noise + N clean): each scenario carries its own and pairs compare them. The runner's
+ * answer delivery is recorded only when a run used 'item' (legacy profiles keep their shape) and is never pooled silently. */
 export function armProfile(reports: readonly PasskReport[]): ArmProfile {
   const set = <T>(xs: T[]) => [...new Set(xs)].sort() as T[];
-  const keys = { flags: (r: PasskReport) => JSON.stringify(armFlags(r.flags)), examples: (r: PasskReport) => String(r.examplesTag), 'request versions': (r: PasskReport) => set(r.versions).join() };
+  const keys = { flags: (r: PasskReport) => JSON.stringify(armFlags(r.flags)), examples: (r: PasskReport) => String(r.examplesTag), 'request versions': (r: PasskReport) => set(r.versions).join(),
+    'answer delivery': (r: PasskReport) => r.answerDelivery };
   return { flags: reports[0]?.flags ?? null, examplesTag: reports[0]?.examplesTag ?? null, versions: set(reports.flatMap(r => r.versions)), repeats: set(reports.map(r => r.repeat)).sort((a, b) => a - b),
-    noise: set(reports.map(r => r.noiseProfile)), days: set(reports.flatMap(r => r.today)), mixed: Object.entries(keys).filter(([, key]) => new Set(reports.map(key)).size > 1).map(([name]) => name) };
+    noise: set(reports.map(r => r.noiseProfile)), days: set(reports.flatMap(r => r.today)), mixed: Object.entries(keys).filter(([, key]) => new Set(reports.map(key)).size > 1).map(([name]) => name),
+    ...(reports.some(r => r.answerDelivery !== 'field') ? { delivery: set(reports.map(r => r.answerDelivery)) } : {}) };
 }
 /** One run, or several runs pooled into one arm (V+N), as scenario outcomes for the paired and gap statistics. */
 export function passkArm(reports: readonly PasskReport[], label?: string): PasskArm {

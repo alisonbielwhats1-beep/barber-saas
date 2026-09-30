@@ -14,6 +14,7 @@ import { inspectAppointmentAvailability } from "./appointment-service";
 import { canOverbookRole, canOverrideSlot, validOverbookReason } from "./appointment-overlap-policy";
 import { schedulingOverlapEnabled, schedulingReviewSchema, type SchedulingReview } from "./scheduling-conflict-contract";
 import { isFirstPersonReference } from "./secretary-first-person";
+import { NAME_TOKEN_SCAN, nameTokenQuery, nameTokensEnabled, tokenMatchedIds } from "./secretary-name-tokens";
 
 export const assertSchedulingAccess = assertCustomerAccess;
 export type SchedulingMetrics = Partial<Record<"interpretation"|"parsing"|"appointments"|"customers"|"services"|"professional"|"availability"|"proposal"|"message"|"confirmation",number>>;
@@ -83,15 +84,25 @@ async function professionalRows(tx: Tx, actor: ServiceActor, serviceRef: string|
   // Keep internal name characters; return all matches so ambiguity still requires selection.
   const professionalQuery=p.query?.replace(/[.!?]+$/u, "").trim();
   if(p.query&&(!professionalQuery||professionalQuery.length<2))return [];
+  // C5 (flag SALON_SECRETARY_WHOLE_NAME_MATCH): a name matches by whole tokens only ("Ana" never finds "Mariana"); same scope, order and
+  // bound. Past the scan (undefined) the historical search below answers.
+  const tokenIds=professionalQuery&&nameTokensEnabled()?await professionalTokenIds(tx,actor,professionalQuery):undefined;
+  if(tokenIds&&!tokenIds.length)return [];
   // Case- and accent-insensitive ("fabio" finds "Fábio"); ambiguity still returns every match.
-  const folded=professionalQuery?foldedIds(await tx.$queryRaw`SELECT p.id FROM "Professional" p JOIN "User" u ON u.id=p."userId" WHERE p."salonId"=${actor.salonId} AND p.active AND lower(translate(u.name, ${FOLD_FROM}, ${FOLD_TO})) LIKE lower(translate(${foldedLikePattern(professionalQuery)}, ${FOLD_FROM}, ${FOLD_TO})) ESCAPE '\\' ORDER BY p.id LIMIT 21`):[];
-  const byName=professionalQuery?{user:{name:{contains:professionalQuery,mode:"insensitive" as const}}}:undefined;
+  const folded=professionalQuery&&!tokenIds?foldedIds(await tx.$queryRaw`SELECT p.id FROM "Professional" p JOIN "User" u ON u.id=p."userId" WHERE p."salonId"=${actor.salonId} AND p.active AND lower(translate(u.name, ${FOLD_FROM}, ${FOLD_TO})) LIKE lower(translate(${foldedLikePattern(professionalQuery)}, ${FOLD_FROM}, ${FOLD_TO})) ESCAPE '\\' ORDER BY p.id LIMIT 21`):[];
+  const byName=professionalQuery&&!tokenIds?{user:{name:{contains:professionalQuery,mode:"insensitive" as const}}}:undefined;
   const rows=await tx.professional.findMany({where:{salonId:actor.salonId,active:true,
     ...(p.service_ref?{services:{some:{serviceId:p.service_ref,service:{salonId:actor.salonId,active:true}}}}:{}),
     ...(serviceRefs?.length?{AND:serviceRefs.map(serviceId=>({services:{some:{serviceId,service:{salonId:actor.salonId,active:true}}}}))}:{}),
-    ...(byName?folded.length?{OR:[byName,{id:{in:folded}}]}:byName:{})},
+    ...(tokenIds?{id:{in:tokenIds}}:byName?folded.length?{OR:[byName,{id:{in:folded}}]}:byName:{})},
     select:{id:true,user:{select:{name:true}}},orderBy:{id:"asc"},take:21});
   return rows.map(r=>({id:r.id,name:r.user.name}));
+}
+/** C5: ids of this salon's active professionals whose name holds every token of `name` (secretary-name-tokens); the SQL only
+ * prefilters by each written token as a folded substring. Undefined past the scan. */
+async function professionalTokenIds(tx: Tx, actor: ServiceActor, name: string) {
+  const {tokens,patterns}=nameTokenQuery(name);
+  return tokens.length?tokenMatchedIds(tokens,await tx.$queryRaw`SELECT p.id, u.name FROM "Professional" p JOIN "User" u ON u.id=p."userId" WHERE p."salonId"=${actor.salonId} AND p.active AND NOT EXISTS (SELECT 1 FROM unnest(${patterns}::text[]) AS t(pattern) WHERE lower(translate(u.name, ${FOLD_FROM}, ${FOLD_TO})) NOT LIKE lower(translate(t.pattern, ${FOLD_FROM}, ${FOLD_TO})) ESCAPE '\\') ORDER BY p.id LIMIT ${NAME_TOKEN_SCAN+1}::int`):[];
 }
 export async function schedulingTimezone(tx: Tx,actor: ServiceActor) {
   await assertSchedulingAccess(tx,actor);

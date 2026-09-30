@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { Model } from "@openai/agents";
 import { uninstrumentedServicesModel } from "./usage";
+import type { SecretaryMessageContent } from "./prompt-cache";
 
 /** Budget-aware request assembly. The hard cap is never raised: request body bytes + the output framing <= 64000 (the
  * same bound as the cost guard's input cap and the wire budget tests). A request that would not fit is degraded in a
@@ -26,8 +27,9 @@ export function requestModelId(model: Model): string {
 }
 /** EXACT bytes of the Responses body the SDK sends for one Secretary request (same keys and values; order is irrelevant
  * to the size): model, instructions, input [{role, content}], include [], the one strict function tool, max_output_tokens,
- * the forced tool choice and the three transport switches. Pinned against the real body by the request budget test. */
-export function secretaryRequestBodyBytes(input: { modelId: string; instructions: string; messages: readonly { role: string; content: string }[]; parameters: unknown; toolName: string;
+ * the forced tool choice and the three transport switches. Pinned against the real body by the request budget test.
+ * C5: a content may be the input_text parts of SALON_SECRETARY_PROMPT_CACHE; the SDK sends them as given, so they serialize alike. */
+export function secretaryRequestBodyBytes(input: { modelId: string; instructions: string; messages: readonly { role: string; content: SecretaryMessageContent }[]; parameters: unknown; toolName: string;
   toolDescription: string; maxTokens: number }) {
   return Buffer.byteLength(JSON.stringify({ model: input.modelId, instructions: input.instructions, input: input.messages.map(message => ({ role: message.role, content: message.content })), include: [],
     tools: [{ type: "function", name: input.toolName, description: input.toolDescription, parameters: input.parameters, strict: true }], max_output_tokens: input.maxTokens,

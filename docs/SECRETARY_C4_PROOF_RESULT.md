@@ -179,3 +179,29 @@ O objetivo e as regras da seção 6 continuam. Muda como cada etapa é feita e a
 **Metas por nível (pré-registradas para a prova da C5):** simples ≥ 90%; referências ≥ 85%; duas ou três ações ≥ 65%; correções ≥ 70%; multi-ação pesada ≥ 40%, com o restante terminando em pergunta segura; **0 escrita errada** em qualquer nível.
 
 **Custo estimado:** cerca de US$ 5 a 6 dos US$ 8,75 restantes; cada rodada paga é reportada.
+
+### Etapa 1 — resultados (30/09/2026)
+
+- **Travas de combo e de bloqueio** (commit `c3d33de`, flags desligadas por padrão): replay offline das 180 tentativas do holdout v2 com as travas → 0 PASS→FAIL, 5 FAIL→PASS (OV09, OV43), nenhuma escrita errada nova; OV45/OV60 param no cartão de bloqueio (pergunta segura).
+- **Conferente, medição única pré-registrada** (Luna real, 125 propostas confirmadas na prova: 16 que gravaram escrita errada, 109 corretas; MV57 fora por ser anotado como escrita igual ao gabarito final; o texto do conferente não foi ajustado nesses conjuntos):
+  - escritas erradas barradas: **6/16** (OV09 ×3, MV25, MV40 ×2); deixou passar OV43, OV45, OV60 e MV03. Entre as que as travas não cobrem (V4): 3/5;
+  - alarme falso: **1/109** (0,9%, OV51 k3);
+  - erros: 0; tempo: mediana 2,1 s, p90 3,8 s;
+  - custo: cerca de US$ 0,02.
+  - **Veredito pelo critério do dono: não adotado.** O alarme falso passa, mas ele não pega as escritas erradas (inclusive as exceções ignoradas de OV45/OV60, que só as travas resolvem). Fica desligado, como previsto; confirma a literatura (juízes de IA fracos para conferir estado).
+
+### Previsão pré-registrada da arquitetura nova (30/09/2026, antes de qualquer medição)
+
+Arquitetura aprovada pelo dono: agente único (a Luna interpreta e decide; agenda pré-carregada + consultas só de leitura; plano resolvido e revisável; backend confere fatos na gravação; Confirmar obrigatório), junto com as correções de backend (fases 1 a 3). Previsão para a **prova nova com frases inéditas do dono** (pass^1):
+
+| Nível | C4 (prova) | Previsão C5 |
+|---|---|---|
+| Simples | 84% | 88–93% |
+| Referências | 80% | 85–92% |
+| 2–3 ações | 30% | 55–70% |
+| Correções | 57% | 65–78% |
+| Multi-ação pesada | 10% | 30–50% |
+| Bagunçadas | 47% | 60–75% |
+| **Total** | **54%** | **65–78% (centro ~70%)** |
+
+Também previstos: escrita errada = 0 (meta, não garantia); pedidos parados em pergunta de 26% para ~10–15%; custo por mensagem −20% a −30% (com o cache); tempo p50 ~5 s e p90 ~9 s. Base: teto medido de 79,4% (T+R perfeitos) e 91,7% (+B1) no holdout v2, com desconto por imperfeição e por frases inéditas. O critério de piloto de 80% provavelmente não é atingido na primeira prova da C5. O resultado medido será comparado com esta tabela sem ajuste posterior.

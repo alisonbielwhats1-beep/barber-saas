@@ -412,3 +412,40 @@ describe('agenda practice pass^k CLI (offline)', () => {
     } finally { rmSync(root, { recursive: true, force: true }); }
   }, 60_000);
 });
+
+// C5 review (30/09): the runner's answer delivery (AGENDA_ANSWER_DELIVERY, evaluation only) changes outcomes by itself, so the pass^k
+// report, the arm profile and every comparison name it; runs recorded before it keep their report and profile shape.
+describe('agenda practice stats: answer delivery is part of the run profile', () => {
+  it('an item-delivery run says so; pooling or comparing it with a field-delivery run is named as a confound, never the treatment', () => {
+    const root = tempDir();
+    try {
+      const flags = { SALON_SECRETARY_EXAMPLES: 'off', SALON_SECRETARY_ALLOW_PAID_CALLS: 'false' };
+      const field = buildPasskReport(writeRun(join(root, 'field'), { V01: [true, false] }, undefined, undefined, { flags }));
+      const item = buildPasskReport(writeRun(join(root, 'item'), { V01: [true, true] }, undefined, undefined, { flags, answerDelivery: 'item' }));
+      const other = buildPasskReport(writeRun(join(root, 'other'), { V02: [true, true] }, undefined, undefined, { flags, answerDelivery: 'item' }));
+      const odd = buildPasskReport(writeRun(join(root, 'odd'), { V03: [true, true] }, undefined, undefined, { flags, answerDelivery: 'ITEM' }));
+      expect([field.answerDelivery, item.answerDelivery, odd.answerDelivery]).toEqual(['field', 'item', 'field']);
+      expect(formatPasskTable(field)).not.toContain('ANSWER DELIVERY'); expect(formatPasskTable(item)).toContain('ANSWER DELIVERY item');
+      expect(passkArm([field]).profile).not.toHaveProperty('delivery'); expect(passkArm([item]).profile?.delivery).toEqual(['item']);
+      const pooled = passkArm([field, other]);
+      expect(pooled.profile?.mixed).toEqual(['answer delivery']); expect(pooled.profile?.delivery).toEqual(['field', 'item']);
+      expect(armDifferences(passkArm([field]).profile, passkArm([item]).profile)).toEqual({ treatment: [], conditions: ['answer delivery field≠item'], days: false });
+      expect(armDifferences(passkArm([item]).profile, passkArm([other]).profile)).toEqual({ treatment: [], conditions: [], days: false });
+      expect(armDifferences(passkArm([field]).profile, passkArm([odd]).profile)).toEqual({ treatment: [], conditions: [], days: false });
+      expect(formatPairedComparison([passkArm([field], 'field'), passkArm([item], 'item')])).toContain('WARN CONFOUNDED item: answer delivery field≠item');
+      expect(formatPairedComparison([passkArm([field], 'field'), passkArm([field], 'again')])).not.toContain('answer delivery');
+      expect(generalizationGap(passkArm([field]), passkArm([item])).confounded).toEqual(['answer delivery field≠item']);
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  });
+  it('flag off (every run field delivery, or recorded before it): the profile, differences and table are exactly as before', () => {
+    const root = tempDir();
+    try {
+      const a = buildPasskReport(writeRun(join(root, 'a'), { V01: [true] })), b = buildPasskReport(writeRun(join(root, 'b'), { V02: [true] }, undefined, undefined, { answerDelivery: 'field' }));
+      expect([a.answerDelivery, b.answerDelivery]).toEqual(['field', 'field']);
+      expect(passkArm([a, b]).profile).toEqual({ flags: null, examplesTag: null, versions: [], repeats: [1], noise: ['off'], days: [SUNDAY], mixed: [] });
+      expect(armDifferences(passkArm([a]).profile, passkArm([b]).profile)).toEqual({ treatment: [], conditions: [], days: false });
+      expect(formatPasskTable(a)).not.toContain('ANSWER DELIVERY');
+      expect(armDifferences(profile(), profile({ delivery: ['field'] }))).toEqual({ treatment: [], conditions: [], days: false });
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  });
+});

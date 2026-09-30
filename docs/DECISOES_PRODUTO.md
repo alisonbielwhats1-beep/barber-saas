@@ -516,3 +516,19 @@ Decididas em conversa. São regras gerais do produto, não regras por frase. A r
 10. **Bloqueio com atendimento dentro do intervalo:** a Secretária nunca propõe o bloqueio direto. Ela mostra os atendimentos e pergunta, com opções reais: bloquear só o horário livre ou o período todo, mantendo os agendamentos marcados.
 11. **Acrescentar um combo a um atendimento que já tem uma das partes dele:** o combo substitui essa parte; o atendimento nunca fica com o combo e a parte juntos. Um combo com uma parte que o dono não disse e que o atendimento não tem só entra com a escolha do dono.
 12. **Conferente** (checagem da proposta contra o pedido): quando ele falha ou estoura o tempo, a proposta aparece como antes, e o Confirmar continua obrigatório.
+
+## Secretária de Agenda — arquitetura e critérios delegados pelo dono (30/09/2026)
+
+O dono aprovou a migração para "a LLM conduz a conversa e escolhe as consultas → as ferramentas retornam dados reais → a LLM propõe a ação → o backend valida e executa com segurança" e delegou as escolhas abaixo ("o que for melhor para o usuário e para nós"). São critérios de produto, ajustáveis no prompt, não regras por frase.
+
+13. **Contexto:** híbrido. A Luna escolhe as consultas; junto com a equipe, os serviços e a data de hoje, o backend pode entregar pré-carregada a agenda dos dias que a mensagem cita, se a medição mostrar que isso reduz tempo e custo sem perder acerto. Adoção decidida por A/B.
+14. **Risco:** ação de baixo risco e reversível (marcar, remarcar, trocar serviço) → a Secretária propõe a leitura mais provável e mostra a suposição; ação de alto risco (cancelar, bloquear por cima de cliente, mexer em vários clientes de uma vez) → pergunta. Meta: no máximo 10% dos pedidos parados em pergunta.
+15. **"Com quem tiver":** escolhe quem faz o serviço e está livre no horário; no empate, quem tem menos atendimentos no dia. A proposta diz quem foi escolhido.
+16. **Exceção dita** ("menos o horário da X", "só o vazio"): bloqueia só o horário livre, sem o cartão da regra 10, e mostra isso na proposta. Sem exceção dita, a regra 10 continua.
+17. **"Até fechar":** vale como fim do expediente daquele profissional naquele dia, mostrado na proposta.
+18. **Horas soltas de 8 a 11:** quando o salão ou o profissional atende nas duas leituras (manhã e noite), a Secretária pergunta; quando só uma é possível, usa essa e mostra a suposição.
+19. **Operação:** modelo `gpt-6-luna`, nível de serviço Standard em produção (sem Flex nem Fast), esforço de raciocínio decidido por medição, timeout atual mantido até a medição com cache; nenhum outro modelo sem nova autorização do dono.
+20. **Critérios de tempo e custo do agente (pré-registrados antes da medição):** p50 ≤ 8 s e p90 ≤ 15 s por mensagem; custo por mensagem ≤ 2× o da C4 medido na mesma rodada; timeouts ≤ os da C4 + 2. Acerto e segurança continuam decidindo primeiro.
+21. **"Confirmar tudo":** um lote com cancelamento, bloqueio ou mais de uma cliente mostra antes um resumo de revisão, com o texto do backend, e o dono confirma o lote de uma vez.
+22. **Privacidade do agente:** a Luna só vê os nomes de clientes que o dono escreveu (máscara por palavra); os outros dados da agenda vão sem nome e sem guardar nada na OpenAI (`store:false`).
+23. **Reserva:** o agente pode cair para o caminho da C4 em no máximo 15% das mensagens; acima disso, não é adotado.

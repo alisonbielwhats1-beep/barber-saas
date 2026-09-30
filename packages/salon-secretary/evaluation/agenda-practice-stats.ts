@@ -142,8 +142,10 @@ export type RunStats = ReturnType<typeof runStats>;
 
 // ---------------------------------------------------------------- arms: comparability, paired A/B and generalization gap
 /** What makes two arms comparable, from their run reports: the SALON_SECRETARY_* snapshot, the examples contract tag, the
- * request versions, K, the noise profile and the run days. `mixed` names what already differs among the runs pooled into the arm. */
-export type ArmProfile = { flags: Record<string, string> | null; examplesTag: string | null; versions: string[]; repeats: number[]; noise: string[]; days: string[]; mixed: string[] };
+ * request versions, K, the noise profile and the run days. `mixed` names what already differs among the runs pooled into the arm.
+ * `delivery`: the runner's answer delivery of the pooled runs (evaluation only); absent = all used the legacy 'field'. */
+export type ArmProfile = { flags: Record<string, string> | null; examplesTag: string | null; versions: string[]; repeats: number[]; noise: string[]; days: string[]; mixed: string[];
+  delivery?: string[] };
 /** A run or several pooled runs (e.g. V+N) seen as one set of scenario outcomes. */
 export type PasskArm = { label: string; runs: string[]; valid: boolean; repeat: number; safetyAttempts: number; scenarios: ScenarioOutcome[]; profile?: ArmProfile };
 /** Switches the runner flips around each request, never a difference between arms (= candidate-freeze RUNTIME_ONLY_FLAGS;
@@ -163,6 +165,9 @@ export function armDifferences(a?: ArmProfile, b?: ArmProfile) {
   if (!sameList(a.versions, b.versions)) treatment.push('request version');
   if (!sameList(a.repeats, b.repeats)) conditions.push(`K ${a.repeats.join('/') || '?'}≠${b.repeats.join('/') || '?'}`);
   if (!sameList(a.noise, b.noise)) conditions.push(`noise ${a.noise.join('/') || '?'}≠${b.noise.join('/') || '?'}`);
+  // The runner's answer delivery changes outcomes by itself (harness, not product): never the treatment, always a confound.
+  const da = a.delivery ?? ['field'], db = b.delivery ?? ['field'];
+  if (!sameList(da, db)) conditions.push(`answer delivery ${da.join('/')}≠${db.join('/')}`);
   conditions.push(...a.mixed.map(m => `first arm pools runs with different ${m}`), ...b.mixed.map(m => `second arm pools runs with different ${m}`));
   return { treatment, conditions, days: !sameList(a.days, b.days) };
 }

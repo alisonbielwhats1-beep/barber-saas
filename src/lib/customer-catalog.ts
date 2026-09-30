@@ -6,6 +6,7 @@ import { customerInput, customerPatch, type CustomerPatch, type CustomerDTO } fr
 import { clientIdentityData, potentialClientMatchWhere, maskPhone } from "./client-identity";
 import { normalizePhone } from "./phone";
 import { FOLD_FROM, FOLD_TO, foldedIds, foldedLikePattern, withoutArticle, withoutHonorific } from "./name-search";
+import { NAME_TOKEN_SCAN, nameTokenQuery, nameTokensEnabled, tokenMatchedIds } from "./secretary-name-tokens";
 
 export const customerSelect = { id: true, name: true, phone: true, email: true } as const;
 export async function assertCustomerAccess(tx: Tx, actor: ServiceActor) {
@@ -28,11 +29,23 @@ async function customerRows(tx: Tx, actor: ServiceActor, term: string) {
   // A malformed email cannot silently change identity role to a phone suffix.
   if(term.includes("@")&&!email.success)throw new Error("INVALID_EMAIL_REFERENCE");
   const digits = normalizePhone(term);
+  // C5 (flag SALON_SECRETARY_WHOLE_NAME_MATCH): a name matches by whole tokens only ("Nara" never finds "Tainara"); phone digits keep
+  // their path; same tenant scope, order and bound. Past the scan (undefined) the historical search below answers.
+  const byTokens = email.success || !nameTokensEnabled() ? undefined : await customerTokenIds(tx, actor, term);
+  if (byTokens) return byTokens.length || digits.length >= 4 ? candidates(await tx.clientProfile.findMany({ where: { salonId: actor.salonId, mergedIntoId: null,
+    OR: [...(byTokens.length ? [{ id: { in: byTokens } }] : []), ...(digits.length >= 4 ? [{ phoneNormalized: { contains: digits } }, { phone: { contains: digits } }] : [])] },
+    select: candidateSelect, orderBy: [{ name: "asc" }, { id: "asc" }], take: 21 })) : [];
   // Names match ignoring case and accents ("joao" finds "João"); same tenant scope and bound.
   const folded = email.success ? [] : foldedIds(await tx.$queryRaw`SELECT id FROM "ClientProfile" WHERE "salonId"=${actor.salonId} AND "mergedIntoId" IS NULL AND lower(translate(name, ${FOLD_FROM}, ${FOLD_TO})) LIKE lower(translate(${foldedLikePattern(term)}, ${FOLD_FROM}, ${FOLD_TO})) ESCAPE '\\' ORDER BY name, id LIMIT 21`);
   return candidates(await tx.clientProfile.findMany({ where: { salonId: actor.salonId, mergedIntoId: null,
     OR: email.success ? [{email:{equals:email.data.toLowerCase(),mode:"insensitive"}}] : [{ name: { contains: term, mode: "insensitive" } }, ...(folded.length ? [{ id: { in: folded } }] : []), ...(digits.length >= 4 ? [{ phoneNormalized: { contains: digits } }, { phone: { contains: digits } }] : [])] },
     select: candidateSelect, orderBy: [{ name: "asc" }, { id: "asc" }], take: 21 }));
+}
+/** C5: ids of this salon's unmerged customers whose name holds every token of `term` (secretary-name-tokens); the SQL only
+ * prefilters by each written token as a folded substring. Undefined past the scan. */
+async function customerTokenIds(tx: Tx, actor: ServiceActor, term: string) {
+  const { tokens, patterns } = nameTokenQuery(term);
+  return tokens.length ? tokenMatchedIds(tokens, await tx.$queryRaw`SELECT id, name FROM "ClientProfile" WHERE "salonId"=${actor.salonId} AND "mergedIntoId" IS NULL AND NOT EXISTS (SELECT 1 FROM unnest(${patterns}::text[]) AS t(pattern) WHERE lower(translate(name, ${FOLD_FROM}, ${FOLD_TO})) NOT LIKE lower(translate(t.pattern, ${FOLD_FROM}, ${FOLD_TO})) ESCAPE '\\') ORDER BY name, id LIMIT ${NAME_TOKEN_SCAN + 1}::int`) : [];
 }
 /** T02: fixed whitelist; no caller-controlled projection. */
 export async function getCustomer(tx: Tx, actor: ServiceActor, customerRef: string) {

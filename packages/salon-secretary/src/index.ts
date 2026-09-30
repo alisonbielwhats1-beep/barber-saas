@@ -47,6 +47,8 @@ export * from './reads-v2';
 import { readsV2Enabled } from './reads-v2';
 export * from './recurrence-guard';
 import { recurrenceGuardEnabled } from './recurrence-guard';
+export * from './prompt-cache';
+import { promptCacheEnabled, cachedSystemContent, PROMPT_CACHE_FRAMING } from './prompt-cache';
 export { examplesMode, examplesK, examplesContractTag, examplesState, eligibleExamples, selectExamples, composeExamples, secretaryRequestBytes, withExamplesObserver, jsonTextBytes,
   EXAMPLES_HEADER, EXAMPLES_REQUEST_CAP, EXAMPLES_OUTPUT_FRAMING, type ExamplesMode, type ExamplesState, type ExamplesBlock, type ExamplesTelemetry } from './examples/select';
 export { assertSecretaryModelId, assertSecretaryModelRequest, assertSecretaryResponsesPayload, secretaryGuardedFetch } from "./openai-cost-guard";
@@ -261,12 +263,15 @@ export async function runServicesTurn(model: Model, message: string, fields: unk
   const draft = draftInput(fields);
   const toolName = skill === 'discovery' ? 'select_capabilities' : 'upsert_action_draft', maxTokens = outputLimit(multiActionV2);
   const instructions = servicesInstructions(skill, decision), wire = interpreterWire(skill, multiActionV2, existing, instructions);
+  // C5 (flag SALON_SECRETARY_PROMPT_CACHE): the system input opens with its constant framing sentence and an explicit cache
+  // breakpoint (prompt-cache.ts); measured and sent in the same form. Off: the historical string.
+  const cache = promptCacheEnabled(), systemContent = (text: string) => cache ? cachedSystemContent(text) : text;
   let system = head + tail, examplesText = '';
   // C2 few-shot examples (flag, default off: nothing below runs and the request is historical).
   // Only decision-envelope turns; never while the isolated adapter publishes CURRENT (no plan).
   const examples = decision && (skill === 'discovery' || !!context?.active_plan) ? examplesMode() : 'off';
   if (examples !== 'off') {
-    const base = secretaryRequestBytes({ instructions, messages: [{ role: 'system', content: system }, { role: 'user', content: draft }, { role: 'user', content: message }],
+    const base = secretaryRequestBytes({ instructions, messages: [{ role: 'system', content: systemContent(system) }, { role: 'user', content: draft }, { role: 'user', content: message }],
       parameters: wire, toolName, toolDescription, maxTokens });
     // The block never pushes the request past the hard cap (request bytes + framing <= 64000). G1: its placeholders are
     // filled for this request, never with a name of the salon's team.
@@ -302,7 +307,7 @@ export async function runServicesTurn(model: Model, message: string, fields: unk
   };
   const modelId = requestModelId(model);
   const fitted = fitRequest(configured, levels, request => secretaryRequestBodyBytes({ modelId, instructions: request.examples ? request.instructions + '\n' + request.examples : request.instructions,
-    messages: [{ role: 'system', content: request.system }, { role: 'user', content: request.draft }, { role: 'user', content: message }], parameters: request.wire, toolName, toolDescription, maxTokens }));
+    messages: [{ role: 'system', content: systemContent(request.system) }, { role: 'user', content: request.draft }, { role: 'user', content: message }], parameters: request.wire, toolName, toolDescription, maxTokens }));
   if (fitted.steps.length || !fitted.request) reportRequestBudget({ steps: fitted.steps, fit: !!fitted.request, initial_bytes: fitted.initialBytes, final_bytes: fitted.bytes });
   // Never over the cap: refused before transport. Nothing of the message was read or applied, so an active plan is
   // kept exactly like an unreadable answer (B5 tag); the owner is asked to split the request.
@@ -314,8 +319,10 @@ export async function runServicesTurn(model: Model, message: string, fields: unk
   const agent=built.agent,parseInput=built.parseInput;
   const runner = new Runner({ tracingDisabled: true, traceIncludeSensitiveData: false });
   try {
+    // The SDK types a system content as string but forwards it as is (openaiResponsesConverter getMessageItem): the parts
+    // reach the body unchanged (pinned by secretary-c5-prompt-cache.test.ts).
     await runner.run(agent, [
-      { role: "system", content: chosen.system },
+      { role: "system", content: systemContent(chosen.system) as string },
       { role: "user", content: chosen.draft },
       { role: "user", content: message },
     ], { maxTurns: 1, signal: AbortSignal.timeout(45_000) });
@@ -337,7 +344,7 @@ export const SECRETARY_CONTRACT_SCHEMA = 'secretary-contract-v1';
 export const SECRETARY_CONTRACT_ENV = ['SALON_SECRETARY_TEMPORAL_COMPONENTS','SALON_SECRETARY_JIT_INSTRUCTIONS','SALON_SECRETARY_EXAMPLES','SALON_SECRETARY_EXAMPLES_K',
   'SALON_SECRETARY_MULTI_ACTION_V2_ENABLED','SALON_SECRETARY_SCHEDULING_OVERLAP_ENABLED','SALON_SECRETARY_V2_MAX_OUTPUT_TOKENS','SALON_SECRETARY_MODEL','SALON_SECRETARY_TEMPORAL_POLARITY','SALON_SECRETARY_SAME_AS',
   'SALON_SECRETARY_STRUCTURED_CONTEXT','SALON_SECRETARY_ALTER_APPOINTMENT','SALON_SECRETARY_MULTI_SERVICE','SALON_SECRETARY_COPY_V2','SALON_SECRETARY_REFERENCES_V2','SALON_SECRETARY_READS_V2','SALON_SECRETARY_RECURRENCE_GUARD',
-  'SALON_SECRETARY_EXAMPLES_V2'] as const;
+  'SALON_SECRETARY_EXAMPLES_V2','SALON_SECRETARY_PROMPT_CACHE'] as const;
 const contractHash=(value:unknown)=>createHash('sha256').update(typeof value==='string'?value:JSON.stringify(value)).digest('hex');
 /** Synthetic, fixed: one open action per published operation (an option card, a daypart and both calendar kinds, a
  * pending discard) plus one suspended plan, so every mode, operation group and state-bound rule is compiled. */
@@ -365,13 +372,16 @@ export function secretaryContractParts(options:SecretaryContractOptions={}){
   const instructions=servicesInstructions('discovery',true);
   const directory={professionals:['«profissional»'],services:['«serviço»'],today:{date:'«data»',weekday:'«dia»',timezone:'«fuso»'}};
   const adapterDraft={operation:'appointment.create',fields:{},clarification:{...(context.active_plan!.actions[0] as {clarification:object}).clarification}};
+  const system=systemHead('«contexto»',directory,components)+(jit?jitTail:staticTail)('«requisitos»'),promptCache=promptCacheEnabled();
   const templates={
     decision:instructions,
     legacy:{discovery:alterationInstructions(discoveryInstructions),discoveryV2:alterationInstructions(discoveryInstructionsV2),manuals:loadSkills({skill_ids:[...skillId.options]}).manuals.map(({skill_id,version,manual_hash})=>[skill_id,version,manual_hash])},
-    system:systemHead('«contexto»',directory,components)+(jit?jitTail:staticTail)('«requisitos»'),draft:draftInput('«campos»'),toolDescription,
+    system,draft:draftInput('«campos»'),toolDescription,
     appendix:jit?{header:JIT_APPENDIX_HEADER,rules:jitRules,canonical:jitAppendix(context,undefined,{current:false,components}),adapter:jitAppendix(undefined,adapterDraft,{current:true,components})}:null,
     requirements:jit?null:{continuation:CONTINUATION_INSTRUCTION,routed:ROUTED_TURN_INSTRUCTION},
     examples:examples==='off'?null:{header:EXAMPLES_HEADER,bank:exampleBank().sha256,tag:examplesContractTag()},
+    // C5: the cached first part and the system layout the model reads; only when on (every recorded version is kept).
+    ...(promptCache?{promptCache:{framing:PROMPT_CACHE_FRAMING,layout:cachedSystemContent(system)}}:{}),
   };
   const wires={
     plan:inConversationRouting(context,()=>interpreterWire('discovery',true,false,instructions)),
@@ -397,6 +407,8 @@ export function secretaryContractParts(options:SecretaryContractOptions={}){
       ...(examples!=='off'&&process.env.SALON_SECRETARY_EXAMPLES_V2==='true'?{examplesV2:true}:{}),
       // UX-COPY/ERR-COPY: the question and notice wording Luna reads as data (review B); named only when on.
       ...(process.env.SALON_SECRETARY_COPY_V2==='true'?{copyV2:true}:{}),
+      // C5: the system input's constant first part with an explicit cache breakpoint (prompt-cache.ts); named only when on.
+      ...(promptCache?{promptCache:true}:{}),
       // B7: the clarification context format (codes + a short stable sentence) the backend publishes; named only when on.
       ...(process.env.SALON_SECRETARY_STRUCTURED_CONTEXT==='true'?{structuredContext:true}:{}),...(budgetSteps(options).length?{requestBudget:budgetSteps(options)}:{})},
     templates,wires,...(options.presentation?{presentation:options.presentation}:{})};

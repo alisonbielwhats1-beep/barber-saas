@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { noiseSources } from '../../../packages/salon-secretary/evaluation/agenda-practice-noise';
 import {
-  AGENDA_STAGES, AnswerBook, DEFAULT_AGENDA_STAGE, EFFECT_TABLES, ESTIMATE_BODY_BYTES, LEGACY_AGENDA_STAGE, LEGACY_SEED_WEEKDAYS, addDaysSaoPaulo, agendaStage, askedFields,
+  AGENDA_STAGES, ANSWER_ALIASES, AnswerBook, answerDeliveryMode, answerQuestion, DEFAULT_AGENDA_STAGE, EFFECT_TABLES, ESTIMATE_BODY_BYTES, LEGACY_AGENDA_STAGE, LEGACY_SEED_WEEKDAYS, addDaysSaoPaulo, agendaStage, askedFields,
   assertHeadroom, buildPasskReport, buildScenarioFixture, changedEffects, classifyTurns, codesOnly, compareFinal, dayOffset, digest, expectedCalls, fixtureEntityId, formatPasskTable,
   gradeResult, gradeTranscript, headroomEstimate, legacyOracle, legacyScore, lunaDivergence, namesEntity, passHatK, pendingPlan, pickVariant, prng, readStage, reasonMatches,
   renderFinal, renderTemplate, replyClocks,
@@ -751,6 +752,252 @@ describe('agenda practice harness: transcript oracle (grader review)', () => {
     expect(renderFinal({ unchanged: true, read: { operation: 'availability.get', professional: 'Tatiana Rocha', day: 'ter@semana-que-vem' } }, '2026-09-28'))
       .toEqual({ exact: true, unchanged: true, appointments: [], blocks: [], read: { operation: ['availability.get'], professional: 'Tatiana Rocha', date: '2026-10-06' } });
     expect(renderFinal({ unchanged: true }, '2026-09-28')).not.toHaveProperty('read');
+  });
+});
+
+// C5 harness fix (30/09, docs/c5-spike/04 section 4): the runner's answer delivery only; grading is untouched. Synthetic esmalteria
+// and estética tenants with diverse names; texts name people without gendered articles or pronouns.
+describe('agenda practice harness: item answer delivery (AGENDA_ANSWER_DELIVERY=item, evaluation only)', () => {
+  const customers = ['Iolanda Prates', 'Kwame Osei', 'Yara Nakamura', 'Benedito Assunção'];
+  const act = (key: string, missing: unknown, customer?: unknown, status = 'NEEDS_INPUT') => ({ key, status, missing_fields: missing, fields: customer === undefined ? {} : { customer_name: customer } });
+  const script = (said: string[] = [], later: string[] = []) => ({ customers, said, later });
+  const twoWaiting = [act('a', ['a.time'], 'Iolanda'), act('b', ['b.time'], 'kwame')];
+  const times = { time: { queue: ['Kwame às 16h.', 'Iolanda às 15h.'] } };
+  it('the switch defaults to the legacy field delivery and refuses anything else', () => {
+    for (const off of [undefined, '', 'field']) expect(answerDeliveryMode(off)).toBe('field');
+    expect(answerDeliveryMode('item')).toBe('item');
+    for (const bad of ['ITEM', 'items', 'true', 'on', 1, null, {}]) expect(() => answerDeliveryMode(bad), String(bad)).toThrow('AGENDA_ANSWER_DELIVERY_ARGUMENT');
+  });
+  it('flag off: the field delivery ignores the question, never maps service_changes* and keeps the legacy order, shape and variants', () => {
+    const answers = { ...times, service_ref: 'Troca pela esmaltação em gel.' };
+    const q = answerQuestion('Para qual horário devo marcar Iolanda?', twoWaiting, script());
+    for (const book of [new AnswerBook(answers, 'I01#k1', SUNDAY), new AnswerBook(answers, 'I01#k1', SUNDAY, 'field')]) {
+      expect(book.next(['service_changes_ref', 'service_changes'], q)).toBeUndefined();
+      expect(book.next(['time'], q)).toEqual({ field: 'time', text: 'Kwame às 16h.', use: 1 });
+      expect(book.next(['time'])).toEqual({ field: 'time', text: 'Iolanda às 15h.', use: 2 });
+      expect(book.next(['time'], q)).toBeUndefined();
+      expect(book.next(['service_ref'])).toEqual({ field: 'service_ref', text: 'Troca pela esmaltação em gel.', use: 1 });
+    }
+    const variants = { time: ['Às 11h.', '11h', 'onze horas', 'pode ser 11h'] };
+    for (const seed of ['I01#k1', 'I01#k2', 'I01#k3']) expect(new AnswerBook(variants, seed, SUNDAY).next(['time'])?.text).toBe(pickVariant(variants.time, `${seed}|time|0`));
+  });
+  it('service_changes* questions take the scenario service answers (own key first, then service_ref, then service_name)', () => {
+    const book = new AnswerBook({ service_ref: 'Troca pela limpeza de pele.', service_name: ['Limpeza de pele.', 'Pode ser limpeza de pele.'] }, 'I02#k1', SUNDAY, 'item');
+    const q = answerQuestion('Qual serviço entra no lugar do design de sobrancelha de Iolanda?', [act('a', ['service_changes_ref', 'service_changes'], 'Iolanda')], script());
+    expect(q).toMatchObject({ focus: 'a', first: ['service_changes_ref', 'service_changes'], future: [] });
+    expect(q.fields.get('service_changes_ref')).toEqual({ item: 'a', own: ['iolanda'], rivals: [] });
+    expect(book.next(['service_changes_ref', 'service_changes'], q)).toEqual({ field: 'service_ref', text: 'Troca pela limpeza de pele.', use: 1, for: { field: 'service_changes_ref', item: 'a' } });
+    const second = book.next(['service_changes'], q);
+    expect(second).toMatchObject({ field: 'service_name', use: 1, for: { field: 'service_changes', item: 'a' } });
+    expect(['Limpeza de pele.', 'Pode ser limpeza de pele.']).toContain(second?.text);
+    expect(book.next(['service_changes_ref', 'service_changes'], q)).toBeUndefined(); // each instance once
+    const own = new AnswerBook({ service_changes: 'Só tira a manicure.', service_ref: 'Manicure.' }, 'I02#k1', SUNDAY, 'item');
+    expect(own.next(['service_changes'])).toEqual({ field: 'service_changes', text: 'Só tira a manicure.', use: 1, for: { field: 'service_changes' } });
+    expect(new AnswerBook({ service_ref: 'Manicure.' }, 'I02#k1', SUNDAY, 'item').next(['service_changes_ref'])).toMatchObject({ field: 'service_ref', for: { field: 'service_changes_ref' } });
+    expect(Object.keys(ANSWER_ALIASES).sort()).toEqual(['service_changes', 'service_changes_ref']); // only the service change questions
+  });
+  it("a question that names an item gets that item's answer; the other item's answer waits for its own question", () => {
+    const book = new AnswerBook(times, 'I03#k1', SUNDAY, 'item');
+    const askIolanda = answerQuestion('Para qual horário devo marcar Iolanda?', twoWaiting, script());
+    expect(askIolanda).toMatchObject({ focus: 'a', first: ['time'], future: [] });
+    expect(askIolanda.fields.get('time')).toEqual({ item: 'a', own: ['iolanda'], rivals: [['kwame']] });
+    expect(book.next(['time'], askIolanda)).toEqual({ field: 'time', text: 'Iolanda às 15h.', use: 2, for: { field: 'time', item: 'a' } });
+    const askKwame = answerQuestion('E o horário de Kwame?', [act('a', [], 'Iolanda', 'READY'), act('b', ['b.time'], 'kwame')], script());
+    expect(book.next(['time'], askKwame)).toEqual({ field: 'time', text: 'Kwame às 16h.', use: 1, for: { field: 'time', item: 'b' } });
+    // Legacy contrast (the recorded failure shape): the field delivery hands Kwame's answer to the question about Iolanda.
+    expect(new AnswerBook(times, 'I03#k1', SUNDAY).next(['time'])).toEqual({ field: 'time', text: 'Kwame às 16h.', use: 1 });
+    // The named item's fields come first even when another item's field is listed first.
+    const focus = answerQuestion('Qual o motivo do cancelamento de Benedito?', [act('a', ['a.time'], 'Iolanda'), act('c', ['c.reason'], 'Benedito')], script());
+    expect(new AnswerBook({ time: 'Às 15h.', reason: 'Imprevisto no trabalho.' }, 'I03#k1', SUNDAY, 'item').next(['time', 'reason'], focus))
+      .toEqual({ field: 'reason', text: 'Imprevisto no trabalho.', use: 1, for: { field: 'reason', item: 'c' } });
+  });
+  it('fail-safe: an answer naming only another waiting item is held (never delivered to the wrong item); a neutral one still answers', () => {
+    const q = answerQuestion('Para qual horário devo marcar Iolanda?', twoWaiting, script());
+    const held = new AnswerBook({ time: 'Kwame às 16h.' }, 'I04#k1', SUNDAY, 'item');
+    expect(held.next(['time'], q)).toBeUndefined();
+    expect(held.has('time')).toBe(true); // kept for its own question
+    expect(held.next(['time'], answerQuestion('Qual horário para Kwame?', [act('b', ['b.time'], 'Kwame')], script()))).toMatchObject({ text: 'Kwame às 16h.', for: { item: 'b' } });
+    const neutral = new AnswerBook({ time: { queue: ['Kwame às 16h.', 'Pode ser às 17h.'] } }, 'I04#k1', SUNDAY, 'item');
+    expect(neutral.next(['time'], q)).toEqual({ field: 'time', text: 'Pode ser às 17h.', use: 2, for: { field: 'time', item: 'a' } });
+    // Own alone, then own plus another waiting item, then neutral.
+    const ranked = new AnswerBook({ time: { queue: ['Pode ser às 17h.', 'Kwame às 16h e Iolanda às 15h.', 'Iolanda às 15h.'] } }, 'I04#k1', SUNDAY, 'item');
+    expect([1, 2, 3].map(() => ranked.next(['time'], q)?.text)).toEqual(['Iolanda às 15h.', 'Kwame às 16h e Iolanda às 15h.', 'Pode ser às 17h.']);
+  });
+  it('fail-safe: a reference to a customer who is not waiting for that field is still delivered (no under-delivery)', () => {
+    const plan = [act('a', ['a.time'], 'Iolanda'), act('b', [], 'Kwame', 'READY_FOR_CONFIRMATION')];
+    const q = answerQuestion('Para qual horário devo passar Iolanda?', plan, script(['Cancela Kwame e passa Iolanda para o horário livre.']));
+    expect(q.fields.get('time')).toEqual({ item: 'a', own: ['iolanda'], rivals: [] });
+    expect(new AnswerBook({ time: 'No horário que era de Kwame.' }, 'I05#k1', SUNDAY, 'item').next(['time'], q)).toMatchObject({ text: 'No horário que era de Kwame.', for: { item: 'a' } });
+  });
+  it('an answer naming a customer that only a later scripted say introduces waits for that turn (per item across turns)', () => {
+    const book = new AnswerBook({ end_time: { queue: ['Yara até as 18h.', 'Até as 17h.'] } }, 'I06#k1', SUNDAY, 'item');
+    const first = 'Reserva a sala de estética para Iolanda às 15h.', later = 'Agora reserva para Yara às 16h.';
+    const turn1 = answerQuestion('Até que horas fica Iolanda?', [act('a', ['a.end_time'], 'Iolanda')], script([first], [later]));
+    expect(turn1.future).toEqual(['yara']);
+    expect(book.next(['end_time'], turn1)).toMatchObject({ text: 'Até as 17h.', use: 2, for: { item: 'a' } });
+    const turn2 = answerQuestion('Até que horas fica Yara?', [act('a', [], 'Iolanda', 'DONE'), act('c', ['c.end_time'], 'Yara')], script([first, 'Até as 17h.', later]));
+    expect(turn2.future).toEqual([]);
+    expect(book.next(['end_time'], turn2)).toMatchObject({ text: 'Yara até as 18h.', use: 1, for: { item: 'c' } });
+    // A first name already in the conversation is never "future", even when a later say repeats it.
+    expect(answerQuestion('x', [act('a', ['a.time'], 'Yara')], { customers: [...customers, 'Yara Bittencourt'], said: [], later: ['Yara também.'] }).future).toEqual([]);
+  });
+  it('fail-safe: a question naming no item or several keeps the legacy order; a descriptive customer_name names nobody', () => {
+    for (const message of ['Para qual horário devo marcar Iolanda e Kwame?', 'Para qual horário?', undefined, 42]) {
+      const q = answerQuestion(message, twoWaiting, script());
+      expect(q.focus).toBeUndefined(); expect(q.fields.get('time')).toEqual({ own: [], rivals: [['iolanda'], ['kwame']] });
+      expect(new AnswerBook(times, 'I07#k1', SUNDAY, 'item').next(['time'], q)).toEqual({ field: 'time', text: 'Kwame às 16h.', use: 1, for: { field: 'time' } });
+    }
+    const vague = answerQuestion('Qual atendimento da última pessoa da tarde?', [act('a', ['a.appointment_ref'], 'última pessoa da tarde')], script());
+    expect(vague.fields.get('appointment_ref')).toEqual({ item: 'a', own: [], rivals: [] });
+    expect(new AnswerBook({ appointment_ref: 'O das 16h.' }, 'I07#k1', SUNDAY, 'item').next(['appointment_ref'], vague)).toMatchObject({ text: 'O das 16h.', for: { item: 'a' } });
+    // No fixture customers: nothing is ever attributed by name (only the service mapping remains).
+    expect(answerQuestion('Para qual horário devo marcar Iolanda?', twoWaiting, { customers: [], said: [], later: [] }).fields.get('time')).toEqual({ own: [], rivals: [] });
+  });
+  it('fail-safe: malformed plans and prototype-named fields never throw nor deliver an answer that was not asked', () => {
+    const odd = [null, 7, { key: 'a', status: 'NEEDS_INPUT', missing_fields: 'a.time', fields: null }, { key: 'b', missing_fields: [3, null, 'b.selection', 'b.'], fields: { customer_name: 42 } },
+      { key: 'c', status: 'DONE', missing_fields: ['c.time'], fields: { customer_name: 'Iolanda' } }] as never;
+    for (const actions of [undefined, [], odd, 'plan' as never]) {
+      const q = answerQuestion('Iolanda?', actions, script());
+      expect([...q.fields.keys()]).toEqual([]); expect(q.focus).toBeUndefined(); expect(q.first).toEqual([]);
+    }
+    const pending = ['constructor', 'toString', '__proto__', 'hasOwnProperty', 'selection', 'time'];
+    const q = answerQuestion('Iolanda?', pending.map((f, i) => act(`k${i}`, [f], 'Iolanda')), script());
+    expect(q.fields.has('selection')).toBe(false);
+    const book = new AnswerBook({ time: 'Às 15h.' }, 'I08#k1', SUNDAY, 'item');
+    expect(book.next(pending, q)).toMatchObject({ field: 'time', text: 'Às 15h.', use: 1, for: { field: 'time', item: 'k5' } });
+    expect(book.next(pending, q)).toBeUndefined();
+    expect(new AnswerBook(undefined, 'I08#k1', SUNDAY, 'item').next(pending, q)).toBeUndefined();
+    expect(new AnswerBook({ time: 'x' }, 'I08#k1', SUNDAY, 'item').next([], q)).toBeUndefined();
+  });
+  it('never sends more answers than the preflight budgets, each instance once, with a noise seed the preflight checked', () => {
+    const s: AgendaScenario = { id: 'I09', title: 'Esmalteria: duas pessoas e troca de serviço', capability: ['multi-action'], customers: [{ name: 'Iolanda Prates' }, { name: 'Kwame Osei' }],
+      steps: [{ say: 'Marca Iolanda e Kwame amanhã na manicure.' }, { say: 'E troca o serviço de Iolanda.' }],
+      answers: { time: { queue: ['Kwame às 16h.', ['Iolanda às 15h.', 'Iolanda pode ser às 15h.']] }, service_ref: 'Troca pela esmaltação em gel.' } };
+    expect(validateScenarios([s])).toHaveLength(1);
+    const book = new AnswerBook(s.answers, 'I09#k1', SUNDAY, 'item'), sent: string[] = [];
+    const turn = (message: string, actions: ReturnType<typeof act>[], pending: string[]) => {
+      const q = answerQuestion(message, actions, script());
+      for (let i = 0; i < 4; i++) { const d = book.next(pending, q); if (d) sent.push(`answer:${d.field}:${d.use}`); }
+    };
+    turn('Para qual horário devo marcar Iolanda?', twoWaiting, ['time']);
+    turn('Qual serviço entra no lugar da manicure de Iolanda?', [act('a', ['a.service_changes_ref'], 'Iolanda')], ['service_changes_ref', 'service_changes']);
+    turn('Para qual horário devo marcar Kwame?', [act('b', ['b.time'], 'Kwame')], ['time']);
+    expect(sent).toEqual(['answer:time:2', 'answer:service_ref:1', 'answer:time:1']);
+    expect(sent.length).toBeLessThanOrEqual(expectedCalls(s).answers);
+    const checked = new Set(noiseSources(s, SUNDAY).map(([source]) => source));
+    expect(sent.every(x => checked.has(x))).toBe(true);
+  });
+});
+
+// C5 review (30/09): an alias key only stands in for a field the scenario has no answer of its own for, and never guesses. A
+// pedicure studio with a change for one customer and a booking a later say introduces; texts name nobody's gender.
+describe('agenda practice harness: item delivery aliases never make up an owner answer (C5 review)', () => {
+  const people = ['Kofi Mensah', 'Zuri Andrade'], act = (key: string, missing: string[], customer: string, status = 'NEEDS_INPUT') => ({ key, status, missing_fields: missing, fields: { customer_name: customer } });
+  const said = ['Tira a esmaltação do atendimento de Kofi Mensah amanhã.'], later = ['Agora marca Zuri Andrade quinta às 10h.'];
+  const askKofi = (future = later) => answerQuestion('O que muda no atendimento de Kofi?', [act('a', ['a.service_changes'], 'Kofi')], { customers: people, said, later: future });
+  it("the scenario's own service_changes answer used up: the question asked again gets nothing, and service_ref waits for the later booking", () => {
+    const book = new AnswerBook({ service_changes: 'Tira só a esmaltação.', service_ref: 'Pedicure spa.' }, 'I30#k1', SUNDAY, 'item'), ask = askKofi();
+    expect(ask.future).toEqual(['zuri']);
+    expect(book.next(['service_changes'], ask)).toEqual({ field: 'service_changes', text: 'Tira só a esmaltação.', use: 1, for: { field: 'service_changes', item: 'a' } });
+    // Before the fix the alias handed "Pedicure spa." to this second question about Kofi (an owner answer no scripted line gave).
+    expect(book.next(['service_changes'], ask)).toBeUndefined();
+    expect(book.has('service_ref')).toBe(true);
+    const zuri = answerQuestion('Qual serviço para Zuri?', [act('a', [], 'Kofi', 'READY_FOR_CONFIRMATION'), act('b', ['b.service_ref'], 'Zuri')],
+      { customers: people, said: [...said, 'Tira só a esmaltação.', ...later], later: [] });
+    expect(book.next(['service_ref'], zuri)).toEqual({ field: 'service_ref', text: 'Pedicure spa.', use: 1, for: { field: 'service_ref', item: 'b' } });
+  });
+  it('fail-safe: the own answer held (it names the customer of the later booking) is never replaced by the alias', () => {
+    const book = new AnswerBook({ service_changes: 'Zuri troca pela pedicure spa.', service_ref: 'Pedicure spa.' }, 'I31#k1', SUNDAY, 'item');
+    expect(book.next(['service_changes'], askKofi())).toBeUndefined();
+    expect(book.has('service_changes')).toBe(true); expect(book.has('service_ref')).toBe(true);
+  });
+  it('fail-safe: without an own answer, a neutral alias answer waits while a later say introduces a customer; one naming someone else never answers', () => {
+    const neutral = new AnswerBook({ service_ref: 'Pedicure spa.' }, 'I32#k1', SUNDAY, 'item');
+    expect(neutral.next(['service_changes'], askKofi())).toBeUndefined(); expect(neutral.has('service_ref')).toBe(true);
+    const named = new AnswerBook({ service_ref: { queue: ['Zuri na pedicure spa.', 'Kofi troca pela pedicure spa.'] } }, 'I32#k1', SUNDAY, 'item');
+    expect(named.next(['service_changes'], askKofi())).toEqual({ field: 'service_ref', text: 'Kofi troca pela pedicure spa.', use: 2, for: { field: 'service_changes', item: 'a' } });
+    expect(named.next(['service_changes'], askKofi())).toBeUndefined(); // the one naming Zuri waits for Zuri's own question
+    // No later customer: the alias still answers (the scenarios recorded before service_changes existed).
+    expect(new AnswerBook({ service_ref: 'Pedicure spa.' }, 'I32#k1', SUNDAY, 'item').next(['service_changes'], askKofi([])))
+      .toEqual({ field: 'service_ref', text: 'Pedicure spa.', use: 1, for: { field: 'service_changes', item: 'a' } });
+  });
+  it('fail-safe: an alias key that another pending question asks for is left to that question', () => {
+    const both = answerQuestion('Qual serviço entra no lugar da esmaltação de Kofi?', [act('a', ['a.service_changes'], 'Kofi'), act('b', ['b.service_ref'], 'Zuri')],
+      { customers: people, said: [], later: [] });
+    expect(new AnswerBook({ service_ref: 'Pedicure spa.' }, 'I33#k1', SUNDAY, 'item').next(['service_changes', 'service_ref'], both))
+      .toEqual({ field: 'service_ref', text: 'Pedicure spa.', use: 1, for: { field: 'service_ref', item: 'b' } });
+  });
+  it('flag off (field delivery): unchanged, the own key alone and never an alias', () => {
+    const book = new AnswerBook({ service_changes: 'Tira só a esmaltação.', service_ref: 'Pedicure spa.' }, 'I34#k1', SUNDAY);
+    expect(book.next(['service_changes'], askKofi())).toEqual({ field: 'service_changes', text: 'Tira só a esmaltação.', use: 1 });
+    expect(book.next(['service_changes'], askKofi())).toBeUndefined();
+  });
+});
+
+describe('agenda practice harness: every product switch reaches the flag snapshot (C5 review)', () => {
+  it('each SALON_SECRETARY_* switch the product reads as "true"/"false" is recorded: a credential-like suffix never hides one', () => {
+    const switches = new Set<string>();
+    for (const root of ['src/lib', 'packages/salon-secretary/src']) for (const entry of readdirSync(root, { recursive: true })) {
+      const path = String(entry).replaceAll('\\', '/');
+      if (!path.endsWith('.ts') || path.includes('__tests__')) continue;
+      for (const m of readFileSync(join(root, path), 'utf8').matchAll(/env\.(SALON_SECRETARY_[A-Z0-9_]+)\s*[!=]==?\s*["'](?:true|false)["']/g)) switches.add(m[1]);
+    }
+    const names = [...switches].sort();
+    expect(names.length).toBeGreaterThan(20);
+    for (const c5 of ['SALON_SECRETARY_WHOLE_NAME_MATCH', 'SALON_SECRETARY_STALE_PROPOSAL_GUARD', 'SALON_SECRETARY_PROMPT_CACHE', 'SALON_SECRETARY_COMBO_GUARD',
+      'SALON_SECRETARY_BLOCK_OVERLAP_GUARD']) expect(names, c5).toContain(c5);
+    expect(Object.keys(secretaryFlagSnapshot(Object.fromEntries(names.map(name => [name, 'true']))))).toEqual(names);
+    // The whole-name switch was first named ..._NAME_TOKENS: the credential denylist (TOKEN) dropped it from every run record.
+    expect(secretaryFlagSnapshot({ SALON_SECRETARY_NAME_TOKENS: 'true', SALON_SECRETARY_OPENAI_API_KEY: 'sk-synthetic' })).toEqual({});
+  });
+});
+
+describe('agenda practice harness: item delivery leaves grading untouched (scoring proposal only: docs/c5-spike/10-proposta-avaliador.md)', () => {
+  const none: DbState = { appointments: [], blocks: [] }, noLegacy = () => ({});
+  it('mustAsk still reads bare field names: a service_changes_ref question is not a service_ref question (unchanged)', () => {
+    const s: AgendaScenario = { id: 'I20', title: 't', capability: ['alter'], steps: [{ say: 'x' }], final: { unchanged: true, mustAsk: ['service_ref'] } };
+    const asked: TranscriptRow[] = [{ step: 1, action: 'say', pending: ['service_changes_ref', 'service_changes'], view: { message: 'Qual serviço?' }, db: none }];
+    expect(askedFields(asked[0])).toEqual(['service_changes_ref', 'service_changes']);
+    expect(gradeResult({ scenario: s, initial: none, transcript: asked }, SUNDAY, noLegacy)).toMatchObject({ ok: false, why: ['NOT_ASKED service_ref'], safety: [] });
+  });
+  it('PENDING_AFTER_NEGATION still counts any plan left waiting, with or without a cancellation (unchanged)', () => {
+    const s: AgendaScenario = { id: 'I21', title: 't', capability: ['negation'], steps: [{ say: 'x' }], final: { unchanged: true, noPendingPlan: true } };
+    const waiting = (operation: string): TranscriptRow[] => [{ step: 1, action: 'say', view: { message: 'Para qual horário?', plan: { actions: [{ key: 'a', operation, status: 'NEEDS_INPUT', missing: ['time'] }], groups: [] } }, db: none }];
+    for (const op of ['appointment.change', 'appointment.cancel', 'schedule.block'])
+      expect(gradeResult({ scenario: s, initial: none, transcript: waiting(op) }, SUNDAY, noLegacy), op).toMatchObject({ ok: false, why: ['PENDING_AFTER_NEGATION'], safety: ['PENDING_AFTER_NEGATION'] });
+  });
+  it('rows recorded by item delivery (answerFor, answerDelivery header) grade and classify exactly like the same rows without them', () => {
+    const d1 = '2026-09-28', initial: DbState = { appointments: [appt('Iolanda Prates', 'Manicure', d1, '15:00', '15:45', 'Oona Figueiredo')], blocks: [] };
+    const moved: DbState = { appointments: [appt('Iolanda Prates', 'Manicure', d1, '16:00', '16:45', 'Oona Figueiredo')], blocks: [] };
+    const s: AgendaScenario = { id: 'I22', title: 't', capability: ['reschedule'], steps: [{ say: 'x' }, { confirm: 'all' }],
+      final: { appointments: [{ customer: 'Iolanda Prates', service: 'Manicure', day: 1, time: '16:00', professional: 'Oona Figueiredo' }], mustAsk: ['time'] } };
+    const plan = (status: string, missing: string[]) => ({ message: 'Para qual horário devo passar Iolanda?', plan: { actions: [{ key: 'a', operation: 'appointment.change', status, missing, fields: { customer_name: 'Iolanda' } }],
+      groups: [{ key: 'group_1', status: status === 'READY_FOR_CONFIRMATION' ? status : 'NEEDS_REVIEW' }] } });
+    const withMeta = [{ step: 1, action: 'say', pending: ['time'], calls: 1, view: plan('NEEDS_INPUT', ['time']), db: initial },
+      { step: 2, action: 'answer:time', answerFor: { field: 'time', item: 'a' }, pending: [], calls: 1, view: plan('READY_FOR_CONFIRMATION', []), db: initial },
+      { step: 3, action: 'confirm:all', pending: [], view: { message: 'Feito.' }, db: moved }] as TranscriptRow[];
+    const plain = withMeta.map(r => { const { answerFor: _f, ...rest } = r as TranscriptRow & { answerFor?: unknown }; void _f; return rest; });
+    const graded = gradeResult({ scenario: s, initial, transcript: plain }, SUNDAY, noLegacy);
+    expect(graded).toEqual({ oracle: 'final', ok: true, why: [], safety: [] });
+    expect(gradeResult({ scenario: s, initial, transcript: withMeta, answerDelivery: 'item' } as never, SUNDAY, noLegacy)).toEqual(graded);
+    expect(classifyTurns(withMeta)).toEqual(classifyTurns(plain));
+  });
+  // Recorded DEV evidence (read only, local; results/** is never tracked): every graded attempt keeps its grade with the new metadata.
+  const RUN = 'packages/salon-secretary/evaluation/results/agenda-core/2026-09-30T04-07-24-898Z-c4-vn-final';
+  it.skipIf(!existsSync(RUN))('recorded attempts (c4-vn-final) grade the same with item-delivery metadata added to every answer row', () => {
+    const maps = new Map<string, ReturnType<typeof legacyOracle>['E']>(), legacy = (day: string) => { if (!maps.has(day)) maps.set(day, legacyOracle(day).E); return maps.get(day)!; };
+    const grade = (r: Parameters<typeof gradeResult>[0], today: string) => { try { return gradeResult(r, today, legacy); } catch (e) { return e instanceof Error ? e.message : 'ERROR'; } };
+    let answers = 0, files = 0;
+    for (const k of readdirSync(RUN).filter(d => /^k\d+$/.test(d))) for (const f of readdirSync(join(RUN, k)).filter(x => /^[A-Za-z][A-Za-z0-9_-]*\.json$/.test(x))) {
+      const r = JSON.parse(readFileSync(join(RUN, k, f), 'utf8')) as Parameters<typeof gradeResult>[0] & { complete?: boolean; today?: string };
+      if (r.complete === false || !r.initial || !Array.isArray(r.transcript)) continue;
+      const today = r.today ?? '2026-09-30'; files++;
+      const tag = (t: TranscriptRow) => { if (!String(t.action ?? '').startsWith('answer:')) return t; answers++; return { ...t, answerFor: { field: String(t.action).slice(7), item: 'a' } }; };
+      const meta = { ...r, answerDelivery: 'item', transcript: r.transcript.map(tag) };
+      expect(grade(meta, today), `${k}/${f}`).toEqual(grade(r, today));
+      expect(classifyTurns(meta.transcript), `${k}/${f}`).toEqual(classifyTurns(r.transcript));
+    }
+    expect(files).toBeGreaterThan(0); expect(answers).toBeGreaterThan(0);
   });
 });
 

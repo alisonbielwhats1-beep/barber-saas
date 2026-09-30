@@ -131,11 +131,26 @@ const discardInput = z.object({ plan_ref: z.string().uuid(), action_key: z.strin
 export const unreadAnswerNotice = "Não entendi essa parte; o pedido foi preservado. Pode repetir de outro jeito?";
 /** ERR-COPY (flag SALON_SECRETARY_COPY_V2): a new request Luna could not map to any capability (AMBIGUOUS). */
 export const ambiguousRequestMessage = "Não entendi com segurança o que fazer. Nada foi alterado. Pode repetir de outro jeito?";
+/** C5 (flag SALON_SECRETARY_STALE_PROPOSAL_GUARD, default off; C4 proof MV25/MV40): a proposal that was ready before an owner message
+ * that could not be applied, and an action the owner withdrew, are never confirmable until prepared and shown again. */
+export const staleProposalGuardEnabled = () => process.env.SALON_SECRETARY_STALE_PROPOSAL_GUARD === "true";
+/** C5 (flag): the reply after such a message (before the plan; alone when the answer could not be read). */
+export const staleProposalNotice = "Sua última mensagem não foi aplicada e nada foi gravado. As propostas que estavam prontas saíram da confirmação: repita o que deseja ou diga que mantém como estava para prepará-las de novo.";
+/** C5 (flag): the card and plan preview of an action the owner withdrew while its linked actions are asked (never the review copy,
+ * which invites keeping it). It also marks the action as withdrawn (withdrawnAction). */
+export const withdrawnProposalMessage = "Você pediu para tirar esta ação: ela saiu da confirmação e nada foi gravado.";
+/** C5 (flag): the reply when an answer to "descarto os dois?" would have prepared again what the owner withdrew. */
+export const withdrawnHeldNotice = "A ação que você pediu para tirar continua fora da confirmação e nada foi gravado. Se quiser mantê-la, peça de novo.";
 /** B4 slot click: the child operation, the positional option and (plan) the revision the screen showed. */
 const optionInput = z.object({ operation_ref: z.string().uuid(), option_id: z.string().regex(/^opt_[1-9]\d?$/), revision: z.number().int().min(0).optional() }).strict();
 
 /** An open action with no missing field that still waits for a new proposal: expired, or held for review (review 2b). */
 const awaitsProposal = (action: ActionPlan["actions"][number]) => action.assessment.issue === "PROPOSAL_EXPIRED" || action.assessment.issue === "REVIEW_REQUIRED";
+/** C5 (flag SALON_SECRETARY_STALE_PROPOSAL_GUARD): an action held because the owner withdrew it (discardPlanActions), not for review. */
+const withdrawnAction = (action: ActionPlan["actions"][number]) => action.assessment.issue === "REVIEW_REQUIRED" && action.assessment.preview === withdrawnProposalMessage;
+/** C5 (flag SALON_SECRETARY_STALE_PROPOSAL_GUARD): the active plan before an owner message: each action's assessment, the proposal
+ * token of each write then ready to confirm and the withdrawn actions a pending "descarto os dois?" asks about. */
+type ProposalBaseline = { planRef: string; assessments: ReadonlyMap<string, string>; ready: ReadonlyMap<string, string>; withdrawn: ReadonlySet<string> };
 /** These witnesses come only from the current validated selection, never plan history. */
 function inventoryWitnesses(operations:readonly SelectedOperation[]):InventoryQuantityWitness[]{
   return operations.flatMap(op=>op.operation==="stock.movement"&&op.inventory?.quantity!=null&&op.inventory.quantity_evidence&&op.inventory.product_name?
@@ -153,6 +168,8 @@ export class SalonSecretary {
   /** Replay of an exact "confirm all" request returns its recorded outcome (keys include plan_ref). */
   private batchReceipts = new WeakMap<Session, Map<string, ConfirmationBatchReport>>();
   private readonly routerTrace = new AsyncLocalStorage<RouterTrace>();
+  /** C5 (flag SALON_SECRETARY_STALE_PROPOSAL_GUARD): per owner message, the plan actions that failed safe on it ("<plan_ref>\n<key>"). */
+  private readonly failedInMessage = new WeakMap<RouterTrace, Set<string>>();
   private readonly planContext = new AsyncLocalStorage<string>();
   /** D1: the persisted conversation a top-level call is working on (nested calls reuse it) and the sessions it created. */
   private readonly attached = new AsyncLocalStorage<{ root: string; created: Set<string> }>();
@@ -381,11 +398,12 @@ export class SalonSecretary {
   private proposalCarriers(s:Session) {
     return [s,s.customer,s.scheduling,s.inventory,s.batch,s.communication,s.communication?.cancel].filter(Boolean) as {proposal?:{expires_at?:string};receipt?:unknown;message?:string}[];
   }
-  private withdrawProposals(s: Session) {
+  /** `message`: the card's text in place of the proposal (C5 flag: the copy of an action the owner withdrew). */
+  private withdrawProposals(s: Session, message = "Não consegui preparar esta alteração. Os dados aceitos foram preservados. Envie a correção novamente.") {
     for (const carrier of this.proposalCarriers(s)) if (!carrier.receipt) {
       // An adapter may already have removed the proposal before throwing. Its
       // former confirmation prose must be withdrawn at the same boundary too.
-      if (typeof carrier.message === "string") carrier.message = "Não consegui preparar esta alteração. Os dados aceitos foram preservados. Envie a correção novamente.";
+      if (typeof carrier.message === "string") carrier.message = message;
       carrier.proposal = undefined;
     }
   }
@@ -669,11 +687,20 @@ export class SalonSecretary {
       if (s.skill === "auto") { const directory = await withTenant(actor, tx => secretaryDirectory(tx, actor)).catch(() => undefined);
         if (directory?.today?.date && /^\d{4}-\d{2}-\d{2}$/.test(directory.today.date)) s.today = directory.today.date;
         const before = s.actionPlan ? { planRef: s.actionPlan.plan_ref, actions: new Map(s.actionPlan.actions.map(action => [action.key, actionMark(action)])) } : undefined;
+        // C5 (flag SALON_SECRETARY_STALE_PROPOSAL_GUARD): what the active plan had ready to confirm before this message.
+        const baseline = this.proposalBaseline(s);
         try {
           const view = await withSalonDirectory(directory, () => this.preparePlanSafely(s, () => this.sendAutomatic(actor, s, message, operation_ref, messageStarted), operation_ref));
+          // C5 (flag): a message that could not be applied leaves no earlier proposal confirmable, and an answer to "descarto os dois?"
+          // never prepares again what the owner withdrew; this reply says so first.
+          const kept = baseline !== undefined && this.holdWithdrawn(s, baseline), held = baseline !== undefined && this.holdStaleProposals(s, baseline, false);
+          if (kept || held) { s.turnNotice = { text: [...(s.turnNotice && s.turnNotice.text !== unreadAnswerNotice ? [s.turnNotice.text] : []), ...(kept ? [withdrawnHeldNotice] : []),
+            ...(held ? [staleProposalNotice] : [])].join("\n\n"), ...(s.turnNotice?.alone ? { alone: true } : {}) }; await this.recordAutomaticState(actor, s); }
           // B6: once per user message, after preparation; the reply is projected again with the new counts.
-          return this.trackClarifications(s, before, view.operations, operation_ref) ? this.view(s) : view;
+          return this.trackClarifications(s, before, held || kept ? undefined : view.operations, operation_ref) || held || kept ? this.view(s) : view;
         } catch (error) {
+          // C5 (flag): a message that threw on the active plan leaves no earlier proposal confirmable either (best effort, same error).
+          if (baseline) this.holdAfterFailedTurn(s, baseline);
           // A lost message counts too: the question it left open was asked once more.
           const trace = this.routerTrace.getStore();
           if (trace && reachedInterpretation(trace)) this.trackClarifications(s, before, undefined, operation_ref, true);
@@ -988,6 +1015,12 @@ export class SalonSecretary {
     const assessment: ActionAssessment = { status: clarify.length ? "NEEDS_INPUT" : unsupported ? "UNSUPPORTED" : conflict ? "DOMAIN_CONFLICT" : "FAILED_SAFE",
       missing_fields: clarify, issue: clarify.length ? "EXPLICIT_INPUT_REQUIRED" : unsupported ? "UNSUPPORTED_DEPENDENCY_ADAPTER" : conflict ? "DOMAIN_CONFLICT" : "BACKEND_PREPARATION_FAILED" };
     this.routerTrace.getStore()?.failed(outcomeCode(error), assessment.issue); // Whitelisted codes only; no-op outside a message.
+    // C5 (flag): recorded per message, so a second failure of an action that had already failed (same assessment) still counts.
+    const trace = this.routerTrace.getStore();
+    if (trace && staleProposalGuardEnabled() && (assessment.status === "FAILED_SAFE" || assessment.status === "UNSUPPORTED")) {
+      const failed = this.failedInMessage.get(trace) ?? new Set<string>(); this.failedInMessage.set(trace, failed);
+      for (const key of keys) failed.add(`${parent.actionPlan!.plan_ref}\n${key}`);
+    }
     for (const key of keys) parent.actionPlan = assessPlanAction(parent.actionPlan!, key, assessment);
   }
   private async startActionPlan(actor: ServiceActor, parent: Session, selection: CapabilitySelection, message: string) {
@@ -1585,7 +1618,12 @@ export class SalonSecretary {
   private async continueActionPlanTurn(actor: ServiceActor, parent: Session, message: string, operationRef?: string, onUnit?: (unit: ActionUnit) => void) {
     markSecretaryTiming("T3"); // A deterministic continuation already has a decomposed plan.
     if (this.multiActionOptions.enabled?.() !== true) throw Error("MULTI_ACTION_V2_DISABLED");
-    const pending = parent.actionUnits!.filter(unit => unit.child && unit.keys.some(key =>
+    // C5 (flag SALON_SECRETARY_STALE_PROPOSAL_GUARD): a unit the owner withdrew routes as it did before the withdrawal (editable, never
+    // the pending one), so an answer to "descarto os dois?" stays with the whole plan as with the flag off (holdWithdrawn keeps it out).
+    const actionOf = (key: string) => parent.actionPlan!.actions.find(item => item.key === key)!;
+    const withdrawn = (unit: ActionUnit) => staleProposalGuardEnabled() && unit.keys.some(key => withdrawnAction(actionOf(key))) &&
+      unit.keys.every(key => withdrawnAction(actionOf(key)) || terminalActionStatus(actionOf(key).status));
+    const pending = parent.actionUnits!.filter(unit => unit.child && !withdrawn(unit) && unit.keys.some(key =>
       (parent.actionPlan!.actions.find(item => item.key === key)!.missing_fields.length || awaitsProposal(parent.actionPlan!.actions.find(item=>item.key===key)!))));
     const open=parent.actionUnits!.filter(unit=>unit.child&&unit.keys.some(key=>!terminalActionStatus(parent.actionPlan!.actions.find(action=>action.key===key)!.status)));
     // Multiple ready actions are still editable. Let Luna choose the existing key.
@@ -1593,10 +1631,10 @@ export class SalonSecretary {
     if (!operationRef && (pending.length>1 || pending.length===0 && open.length>1)) return this.continueMultipleActions(actor,parent,open,message);
     // A complete proposal can still be corrected. With a single open unit its
     // target is unambiguous; ignoring that turn left the old approval executable.
-    const editable = parent.actionUnits!.filter(item => item.child && item.keys.some(key => {
+    const editable = parent.actionUnits!.filter(item => item.child && (withdrawn(item) || item.keys.some(key => {
       const action = parent.actionPlan!.actions.find(candidate => candidate.key === key)!;
       return action.mutation && action.status === "READY_FOR_CONFIRMATION";
-    }));
+    })));
     const unit = operationRef ? parent.actionUnits!.find(item => item.child === operationRef) : pending.length === 1 ? pending[0] :
       pending.length === 0 && editable.length === 1 ? editable[0] : undefined;
     if (!unit?.child) {
@@ -2069,17 +2107,73 @@ export class SalonSecretary {
   /** Review 2b: an action whose requested change was not applied (a left-out correction, or an unread answer
    * addressed to it) is never re-offered by a fresh approval: its unit's live proposal is withdrawn and its open
    * actions wait (REVIEW_REQUIRED) until the owner restates the change or keeps it. Accepted drafts stay and
-   * nothing executes. A unit with no live proposal keeps its own question. */
-  private holdForReview(parent: Session, keys: readonly string[]) {
+   * nothing executes. A unit with no live proposal keeps its own question. `copy` (C5 flag): the preview and card text of an action
+   * the owner withdrew (withdrawnProposalMessage) in place of the review copy. */
+  private holdForReview(parent: Session, keys: readonly string[], copy?: string) {
     const open = (key: string) => !terminalActionStatus(parent.actionPlan?.actions.find(action => action.key === key)?.status ?? "DONE");
     for (const unit of parent.actionUnits ?? []) {
       if (!unit.keys.some(key => keys.includes(key) && open(key))) continue;
       const child = unit.child ? this.sessions.get(unit.child) : undefined;
       if (!child || !this.proposalCarriers(child).some(carrier => carrier.proposal && !carrier.receipt)) continue;
-      this.withdrawProposals(child);
+      this.withdrawProposals(child, copy);
       for (const key of unit.keys) if (open(key))
-        parent.actionPlan = assessPlanAction(parent.actionPlan!, key, { status: "NEEDS_INPUT", missing_fields: [], issue: "REVIEW_REQUIRED", preview: reviewRequiredMessage });
+        parent.actionPlan = assessPlanAction(parent.actionPlan!, key, { status: "NEEDS_INPUT", missing_fields: [], issue: "REVIEW_REQUIRED", preview: copy ?? reviewRequiredMessage });
     }
+  }
+  /** C5 (flag SALON_SECRETARY_STALE_PROPOSAL_GUARD): undefined without the flag or an active plan. */
+  private proposalBaseline(s: Session): ProposalBaseline | undefined {
+    const plan = s.actionPlan;
+    if (!plan || !staleProposalGuardEnabled()) return undefined;
+    const asked = s.pendingDiscard?.plan_ref === plan.plan_ref ? s.pendingDiscard.keys : [];
+    return { planRef: plan.plan_ref, assessments: new Map(plan.actions.map(action => [action.key, JSON.stringify(action.assessment)])),
+      ready: new Map(plan.actions.flatMap(action => action.mutation && action.assessment.status === "READY_FOR_CONFIRMATION" && action.assessment.proposal_token
+        ? [[action.key, action.assessment.proposal_token] as const] : [])),
+      withdrawn: new Set(plan.actions.filter(action => asked.includes(action.key) && withdrawnAction(action)).map(action => action.key)) };
+  }
+  /** C5 (flag SALON_SECRETARY_STALE_PROPOSAL_GUARD, C4 proof MV40): the message that answers a pending "descarto os dois?" (whatever it
+   * says, on whichever card) never prepares again an action the owner withdrew: one it made ready leaves confirmation again (withdrawn,
+   * REVIEW_REQUIRED, the revision moves). Keeping it takes a message after the question. Only this plan. Whether held. */
+  private holdWithdrawn(s: Session, baseline: ProposalBaseline) {
+    const plan = s.actionPlan;
+    if (!plan || s.cancelled || plan.plan_ref !== baseline.planRef || !baseline.withdrawn.size) return false;
+    const again = plan.actions.filter(action => baseline.withdrawn.has(action.key) && action.assessment.status === "READY_FOR_CONFIRMATION").map(action => action.key);
+    if (!again.length) return false;
+    this.holdForReview(s, again, withdrawnProposalMessage);
+    const held = s.actionPlan!.actions.some(action => again.includes(action.key) && withdrawnAction(action));
+    if (held) this.routerTrace.getStore()?.failed("WITHDRAWN_PROPOSAL_HELD");
+    return held;
+  }
+  /** C5 (flag SALON_SECRETARY_STALE_PROPOSAL_GUARD, C4 proof MV25): an owner message on the active plan that could not be applied (it
+   * threw, its answer could not be read, or an action open before it failed safe on it, also when it had already failed the same way:
+   * failedInMessage) never leaves a proposal that was ready BEFORE it confirmable: each write still carrying that very proposal is held
+   * for review (withdrawn, REVIEW_REQUIRED, the revision moves) until it is prepared and shown again; one prepared again by this message
+   * already is. A domain refusal or a question is a read answer, not a lost one. Only this plan (a new or resumed plan has its own approvals); DONE/discarded actions are never touched. Whether held. */
+  private holdStaleProposals(s: Session, baseline: ProposalBaseline, threw: boolean) {
+    const plan = s.actionPlan;
+    if (!plan || s.cancelled || plan.plan_ref !== baseline.planRef || !baseline.ready.size) return false;
+    const trace = this.routerTrace.getStore(), lost = trace && this.failedInMessage.get(trace);
+    const failed = threw || trace?.unreadTurn === true || plan.actions.some(action => baseline.assessments.has(action.key) && (lost?.has(`${plan.plan_ref}\n${action.key}`) ||
+      (action.status === "FAILED_SAFE" || action.status === "UNSUPPORTED") && baseline.assessments.get(action.key) !== JSON.stringify(action.assessment)));
+    const stale = failed ? plan.actions.filter(action => action.assessment.status === "READY_FOR_CONFIRMATION" && action.assessment.proposal_token !== undefined &&
+      baseline.ready.get(action.key) === action.assessment.proposal_token).map(action => action.key) : [];
+    if (!stale.length) return false;
+    this.holdForReview(s, stale);
+    const held = s.actionPlan!.actions.some(action => stale.includes(action.key) && action.assessment.issue === "REVIEW_REQUIRED");
+    if (held) this.routerTrace.getStore()?.failed("STALE_PROPOSAL_HELD");
+    return held;
+  }
+  /** C5 (flag): the same guard after a message that threw (the caller still receives its error). The plan's own text starts with the
+   * notice, since a reply notice would be cleared by the next call. Never replaces the error; whatever was held stays held. */
+  private holdAfterFailedTurn(s: Session, baseline: ProposalBaseline) {
+    try {
+      const kept = this.holdWithdrawn(s, baseline), held = this.holdStaleProposals(s, baseline, true);
+      if (!kept && !held) return;
+      const notice = [...(kept ? [withdrawnHeldNotice] : []), ...(held ? [staleProposalNotice] : [])].join("\n\n");
+      s.conversationNotice = notice;
+      // A thrown message is read without the children's view(): projecting it could still move the plan (expiry).
+      const views = (s.children ?? []).flatMap(id => { const child = this.sessions.get(id); return child ? [{ operation_ref: id, state: this.projectView(child) }] : []; });
+      s.conversationNotice = `${notice}\n\n${secretaryPlanMessage(s.actionPlan!, s.actionUnits ?? [], views)}`;
+    } catch { /* The message's own error is what the caller receives. */ }
   }
   private discardedUnit(parent: Session, unit: ActionUnit) {
     return unit.keys.every(key => parent.actionPlan?.actions.find(action => action.key === key)?.status === "DISCARDED");
@@ -2123,10 +2217,17 @@ export class SalonSecretary {
       const question = discardQuestion(plan.actions.filter(action => requested.includes(action.key)), linked);
       parent.pendingDiscard = { plan_ref: plan.plan_ref, keys: plan.actions.filter(action => targets.has(action.key)).map(action => action.key), question };
       parent.actionPlan = refreshActionPlan(plan); parent.capability_status = undefined;
+      // C5 (flag SALON_SECRETARY_STALE_PROPOSAL_GUARD, C4 proof MV40): what the owner withdrew is never confirmable from this moment, even
+      // while its linked actions are asked: its proposal is withdrawn now, with its own copy (never the review one, which invites keeping
+      // it); only the linked actions wait for the answer, which never prepares it again (holdWithdrawn).
+      if (staleProposalGuardEnabled()) {
+        this.holdForReview(parent, requested, withdrawnProposalMessage);
+        if (parent.actionPlan!.actions.some(action => requested.includes(action.key) && withdrawnAction(action))) this.routerTrace.getStore()?.failed("WITHDRAWN_PROPOSAL_HELD");
+      }
       const views = (parent.children ?? []).map(id => ({ operation_ref: id, state: this.view(this.get(actor, id)) }));
       // The question kept for Luna (pendingDiscard) keeps the owner's words (B7); only the screen names the registered subjects.
       const shown = Object.keys(hints).length ? discardQuestion(plan.actions.filter(action => requested.includes(action.key)), linked, hints) : question;
-      parent.conversationNotice = `${shown}\n\n${secretaryPlanMessage(plan, parent.actionUnits ?? [], views)}`;
+      parent.conversationNotice = `${shown}\n\n${secretaryPlanMessage(staleProposalGuardEnabled() ? parent.actionPlan! : plan, parent.actionUnits ?? [], views)}`;
       await this.recordAutomaticState(actor, parent);
       return this.view(parent);
     }
