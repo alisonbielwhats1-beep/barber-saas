@@ -132,7 +132,8 @@ suite("C5 WP4 fact validator against scripted attacks on PostgreSQL (pool of one
     const f = await fixture("B"), first = day(3), second = day(5);
     const near = await book(f, f.genesio, f.juvenal, f.barba, first, "10:00"), far = await book(f, f.genesio, f.juvenal, f.barba, second, "10:00");
     const calls = () => [{ name: "buscar_cliente" as const, callId: "call_1", input: { nome: "Genésio", a_partir_de: null } }];
-    const cancelPlan = (ref: (kind: "p" | "s" | "c" | "a", id: string) => string, clause: string) => plan([act({ operacao: "appointment.cancel", citacao_acao: clause, atendimento: ref("a", near.id),
+    // The first message cancels `near` on purpose; the negated message binds only the appointments still active, so it points at `far`.
+    const cancelPlan = (ref: (kind: "p" | "s" | "c" | "a", id: string) => string, clause: string, appointment = near.id) => plan([act({ operacao: "appointment.cancel", citacao_acao: clause, atendimento: ref("a", appointment),
       cliente: ref("c", f.genesio.id), bases: [base("atendimento", "DITO", "o Genésio")] })]);
     await message(f, "Desmarca o Genésio, por favor.", calls, async (context, ref) => {
       const out = await validator.validateAgentPlanInTenant(f.actor, cancelPlan(ref, "Desmarca o Genésio"), { owner: context.owner, binding: context.binding });
@@ -144,7 +145,7 @@ suite("C5 WP4 fact validator against scripted attacks on PostgreSQL (pool of one
       expect(stale.ok && stale.actions[0].origin).toEqual({ quote: "o Genésio", located: [far.id] });
     });
     await message(f, "Não desmarca o Genésio.", calls, async (context, ref) => {
-      const out = await validator.validateAgentPlanInTenant(f.actor, cancelPlan(ref, "desmarca o Genésio"), { owner: context.owner, binding: context.binding });
+      const out = await validator.validateAgentPlanInTenant(f.actor, cancelPlan(ref, "desmarca o Genésio", far.id), { owner: context.owner, binding: context.binding });
       expect(out.ok && out.actions[0]).toMatchObject({ status: "DROP", codes: ["AGENT_NEGATED"] });
     });
   });
