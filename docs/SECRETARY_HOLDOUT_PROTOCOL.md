@@ -645,3 +645,7 @@ A auditoria foi cega: só números e IDs, sem abrir frases seladas. Ela usou a f
 - **Regras da prova:**
   - Nenhuma correção durante a prova, e nenhum resultado convertido em PASS depois.
   - Falha de infraestrutura (virada de dia, lease) segue as regras do executor e é reportada.
+- **Re-freeze depois do commit** `317bd5d`: o manifesto registra o HEAD do git, então o commit gerou `CANDIDATE_DRIFT` só por causa do HEAD, com 0 arquivos alterados.
+  - A candidata foi congelada de novo como **`fbd27f044162d0ae`**.
+  - Ela tem o mesmo sha256 do conjunto de 1.627 arquivos, as mesmas flags, o mesmo contrato e o mesmo banco de exemplos da `3bba4e1f83c88b61`.
+  - A prova roda sobre `fbd27f044162d0ae`.
