@@ -16,6 +16,7 @@ import { alterAppointmentEnabled } from "../../packages/salon-secretary/src/alte
 import { isFirstPersonReference } from "./secretary-first-person";
 import { comboParts, coveringServices, joinedServices } from "./secretary-multi-service";
 import { multiServiceEnabled } from "../../packages/salon-secretary/src/multi-service";
+import { comboAbsorbs, comboGuardEnabled, comboWithOwnPart, isCombo, unsaidComboParts } from "./secretary-combo-guard";
 
 /** P2a (flag SALON_SECRETARY_ALTER_APPOINTMENT): alter an existing appointment's data on appointment.change — the NEW
  * professional (`target_professional_name`) and the service delta (`service_changes`), keeping the slot unless a new day/time
@@ -236,7 +237,10 @@ export async function resolveAlteration(actor: ServiceActor, c: SchedulingState,
         return ask(found && found.status !== "NONE" ? detailQuestion(said, "serviço") : `Não encontrei o serviço “${said}” neste salão. Qual serviço você quis dizer?`, "service_changes", "ALTER_SERVICE_NOT_FOUND");
       }
       if (rows.length > 20) return ask(`Muitas opções de serviço para “${said}”; informe um nome mais específico.`, "service_changes", "ALTER_SERVICE_TOO_MANY");
-      return card(rule?.question ?? `Qual serviço você quis dizer com “${said}”? Selecione uma opção real.`, { kind: "service_changes_ref", items: rows.map(row => ({ id: row.id, name: row.name })) }, "service_changes", rule ? "ALTER_COMBO_PART_AMBIGUOUS" : "ALTER_SERVICE_AMBIGUOUS");
+      // C5 (flag, owner rule 9 in additions): a combo that would replace a part the appointment holds, beside the service apart.
+      const choice = !rule && comboGuardEnabled() && change.mode === "INCLUDE" && f.appointment_ref ? await comboOrSeparate(actor, f.appointment_ref, rows) : undefined;
+      return card(choice ?? rule?.question ?? `Qual serviço você quis dizer com “${said}”? Selecione uma opção real.`, { kind: "service_changes_ref", items: rows.map(row => ({ id: row.id, name: row.name })) }, "service_changes",
+        choice ? "ALTER_COMBO_OR_SEPARATE" : rule ? "ALTER_COMBO_PART_AMBIGUOUS" : "ALTER_SERVICE_AMBIGUOUS");
     }
     f.service_changes_ref = refs;
   }
@@ -259,6 +263,30 @@ export async function resolveAlteration(actor: ServiceActor, c: SchedulingState,
   const current = await withTenant(actor, tx => schedulingAppointmentServices(tx, actor, f.appointment_ref!));
   const who = current.customer_name, before = current.services.map(service => service.id);
   const serviceName = (id: string) => current.services.find(service => service.id === id)?.name ?? c.resolved_names?.[id] ?? "o serviço";
+  // C5 (flag SALON_SECRETARY_COMBO_GUARD, owner rules 9 and 11): a combo added to an appointment holding one of its parts replaces it
+  // (a REMOVE the backend derives from the catalog, shown before and after; only Confirmar writes); a combo part neither held nor said
+  // is used only after the owner's click on that combo (its change is asked again on a card of it, never picked from a partial word).
+  if (comboGuardEnabled() && f.service_changes) {
+    const changes = f.service_changes, refs = f.service_changes_ref!;
+    const removed = new Set(changes.flatMap((change, index) => change.mode === "REMOVE" && refs[index] ? [refs[index]!] : []));
+    const held = current.services.filter(service => !removed.has(service.id));
+    for (const [index, change] of [...changes.entries()]) {
+      const ref = refs[index];
+      if (change.mode !== "INCLUDE" || !ref) continue;
+      const combo = { id: ref, name: (await registeredServices(actor, [ref], current.services, c.resolved_names))[0].name };
+      if (!isCombo(combo.name)) continue;
+      const unsaid = c.combo_chosen?.includes(ref) ? [] : unsaidComboParts(combo, change.service_name, held);
+      if (unsaid.length) {
+        refs[index] = null;
+        return card(`“${combo.name}” inclui também ${list(unsaid)}, que o agendamento de ${who} não tem e que você não citou. Nada foi alterado. Para usar esse serviço, selecione-o; para outro serviço, diga qual.`,
+          { kind: "service_changes_ref", items: [combo] }, "service_changes", "ALTER_COMBO_UNSAID_PART");
+      }
+      for (const part of comboAbsorbs(combo, held)) {
+        changes.push({ mode: "REMOVE", service_name: part.name }); refs.push(part.id);
+        held.splice(held.indexOf(part), 1); comboCodes.push("ALTER_COMBO_ABSORBS_PART");
+      }
+    }
+  }
   let ids = before;
   if (f.service_changes) {
     const plan = alteredServiceIds(before, f.service_changes.map((change, index) => ({ mode: change.mode, ref: f.service_changes_ref![index]! })));
@@ -272,6 +300,12 @@ export async function resolveAlteration(actor: ServiceActor, c: SchedulingState,
       return ask(`${notice} Quais serviços devo trocar, acrescentar ou tirar?`, "service_changes", `ALTER_${plan.error}`);
     }
     ids = plan.ids;
+    // C5 (flag, owner rule 11): the resulting list never holds a combo beside one of its own parts, however the delta was worded.
+    const clash = comboGuardEnabled() ? comboWithOwnPart(await registeredServices(actor, ids, current.services, c.resolved_names)) : undefined;
+    if (clash) {
+      delete f.service_changes; delete f.service_changes_ref;
+      return ask(`“${clash.combo.name}” já inclui ${clash.part.name}; o mesmo serviço não entra duas vezes no agendamento de ${who}. Nada foi alterado. Quais serviços devo trocar, acrescentar ou tirar?`, "service_changes", "ALTER_COMBO_WITH_OWN_PART");
+    }
   }
   const servicesChanged = !(ids.length === before.length && ids.every((id, index) => id === before[index]));
   const destination = !!(f.date || f.time || f.period);
@@ -294,6 +328,23 @@ export async function resolveAlteration(actor: ServiceActor, c: SchedulingState,
     }
   }
   return { codes: comboCodes };
+}
+/** The registered names of service ids, in order: the appointment's own rows, the names resolved this action, else the tenant's
+ * catalog (a service no longer found keeps no name and is never read as a combo). */
+async function registeredServices(actor: ServiceActor, ids: readonly string[], held: readonly { id: string; name: string }[], resolved: Record<string, string> | undefined) {
+  const known = (id: string) => held.find(service => service.id === id)?.name ?? resolved?.[id];
+  const missing = ids.filter(id => known(id) === undefined);
+  const rows = missing.length ? await withTenant(actor, tx => tx.service.findMany({ where: { id: { in: missing }, salonId: actor.salonId }, select: { id: true, name: true } })) : [];
+  return ids.map(id => ({ id, name: known(id) ?? rows.find(row => row.id === id)?.name ?? "" }));
+}
+/** C5 (flag, owner rule 9 in additions): the question of a service card holding ONE combo that would replace a part the appointment
+ * holds and the service(s) registered apart: which of the two the owner wants (never picked). Undefined: any other card. */
+async function comboOrSeparate(actor: ServiceActor, appointment: string, rows: readonly { id: string; name: string }[]) {
+  const current = await withTenant(actor, tx => schedulingAppointmentServices(tx, actor, appointment));
+  const combos = rows.filter(row => isCombo(row.name) && comboAbsorbs(row, current.services).length), apart = rows.filter(row => !isCombo(row.name));
+  if (combos.length !== 1 || !apart.length) return;
+  const combo = combos[0], replaced = comboAbsorbs(combo, current.services).map(service => service.name);
+  return `No catálogo, “${combo.name}” junta ${list(comboParts(combo.name))}, e ${list(apart.map(row => `“${row.name}”`))} também ${apart.length > 1 ? "existem" : "existe"} separado. Selecione “${combo.name}” para trocar ${list(replaced)} por ele, ou o serviço separado para acrescentar. Nada foi alterado.`;
 }
 /** C4 owner rule 9: the part of a combo's registered name (comboParts) the owner's words name by themselves: every word said is a
  * word of that one part and of no other, and the part's unsaid words name no service registered apart ("Combo" in "Combo
@@ -376,6 +427,8 @@ export async function selectAlteration(actor: ServiceActor, selection: NonNullab
   const refs = changes.map((_, position) => next.fields.service_changes_ref?.[position] ?? null); refs[index] = ref;
   next.fields.service_changes_ref = refs;
   next.resolved_names = { ...next.resolved_names, [ref]: row.name };
+  // C5 (flag): the owner's click on a combo is the choice of every part it holds (resolveAlteration no longer asks about them).
+  if (comboGuardEnabled() && isCombo(row.name)) next.combo_chosen = [...new Set([...next.combo_chosen ?? [], ref])];
 }
 /** Whether a change alters who attends or the services (flag on). */
 export const alteringChange = (operation: string | undefined, f: SchedulingFields) => operation === "appointment.change" && alterAppointmentEnabled() && schedulingAlteration(f);

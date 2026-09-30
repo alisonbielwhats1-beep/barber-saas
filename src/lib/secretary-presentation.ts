@@ -10,6 +10,7 @@ import { daypartRulesV2Enabled } from "./scheduling-temporal-reference";
 import { isServiceListField, isSingleComboQuestion, severalProfessionalsQuestion } from "./secretary-multi-service";
 import { schedulingServiceRefs } from "./scheduling-contract";
 import { recurrenceNotice, recurrencePending, RECURRENCE_CARD } from "./secretary-recurrence";
+import { BLOCK_OVERLAP_CARD } from "./secretary-block-guard";
 /** P2a: the fields and cards of an alteration question (secretary-alteration.ts). */
 const alterationQuestions = new Set(["target_professional_name", "service_changes", "target_professional_ref", "service_changes_ref"]);
 const isAlterationField = (field?: string) => !!field && alterationQuestions.has(field);
@@ -48,6 +49,8 @@ export function presentationHints(plan: ActionPlan, units: readonly ActionUnit[]
       if(scheduling?.read_partial==="SUMMARY"&&action.missing_fields.length)hint.question=scheduling.message;
       // P3c (flag SALON_SECRETARY_RECURRENCE_GUARD): the one-option "só a primeira?" card asks with the adapter's own text.
       if(scheduling?.candidates?.kind===RECURRENCE_CARD&&action.missing_fields.length)hint.question=scheduling.message;
+      // C5 (flag SALON_SECRETARY_BLOCK_OVERLAP_GUARD): the block-over-appointments card asks with the adapter's own text (who is inside).
+      if(scheduling?.candidates?.kind===BLOCK_OVERLAP_CARD&&action.missing_fields.length)hint.question=scheduling.message;
       if (batchPick?.item_key === key) hint.selection = { field: batchPick.field, labels: batchPick.items.map(item => item.name), refs: batchPick.items.map(item => item.id) };
       if (batchPick?.item_key === key && (batchPick.source || isSingleComboQuestion(view.batch!.draft!.message))) hint.question = view.batch!.draft!.message;
       const batchItem=view.batch?.draft?.plan.items.find(item=>item.key===key);

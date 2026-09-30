@@ -40,6 +40,7 @@ import { alterAppointmentEnabled } from "../../packages/salon-secretary/src/alte
 import { isFirstPersonReference } from "./secretary-first-person";
 import { readsV2Enabled, upcomingAppointments, upcomingMessage, daySummaryMessage, summaryOptions, availabilityAcross, availabilityAcrossMessage, periodLabel, ACROSS_MAX, SLOT_LIMIT, DAY_LIST_LIMIT } from "./secretary-reads";
 import { recurrenceFromTurn, recurrenceNotice, recurrencePending, recurrenceQuestion, FIRST_ONLY_REF, RECURRENCE_CARD, type RecurrenceState } from "./secretary-recurrence";
+import { blockOverlapChosen, blockOverlapGuardEnabled, blockOverlapQuestion, blockOverlapSelection, BLOCK_OVERLAP_CARD, type BlockOverlapChoice } from "./secretary-block-guard";
 
 /** `source` (C3, only with SALON_SECRETARY_NAME_SUGGESTIONS): "suggest" = tolerant suggestions after an empty search,
  * rechecked by the same suggest function; "confirm" = rows of a name Luna wrote that the message does not contain.
@@ -94,9 +95,9 @@ export type AlterSwap={professional:{ref:string;name?:string};target:{ref:string
  * with more after them (an ordinal over the rows shown is not over all of them); "SUMMARY", a day summarized with a question. */
 /** P3c (flag SALON_SECRETARY_RECURRENCE_GUARD): `recurrence`, a recurrence the owner's words stated for this create/block and
  * whether they said yes to its first occurrence alone (secretary-recurrence.ts); the `recurrence_ref` card is that one option. */
-export type SchedulingState={recurrence?:RecurrenceState;read_partial?:"UPCOMING"|"SUMMARY";origin_from_ref?:OriginRole[];origin_forgotten?:OriginRole[];origin_day_kept?:string;alter_swap?:AlterSwap;appointment_chosen?:string;service_combo_declined?:string[];daypart_hours?:DaypartHoursRecord[];daypart_written?:DaypartField[];past_readings?:PastReading[];locator_hint?:LocatorHint;excluded_readings?:{field:string;values:string[]}[];resolved_names?:Record<string,string>;references?:SchedulingReferences;selected_names?:Partial<Record<"customer_name"|"service_name"|"professional_name"|"target_professional_name",string>>;proposal_deferred?:boolean;operation?: NonNullable<SchedulingInterpretation["operation"]>; fields:SchedulingFields; message:string;
+export type SchedulingState={combo_chosen?:string[];block_overlap?:BlockOverlapChoice;recurrence?:RecurrenceState;read_partial?:"UPCOMING"|"SUMMARY";origin_from_ref?:OriginRole[];origin_forgotten?:OriginRole[];origin_day_kept?:string;alter_swap?:AlterSwap;appointment_chosen?:string;service_combo_declined?:string[];daypart_hours?:DaypartHoursRecord[];daypart_written?:DaypartField[];past_readings?:PastReading[];locator_hint?:LocatorHint;excluded_readings?:{field:string;values:string[]}[];resolved_names?:Record<string,string>;references?:SchedulingReferences;selected_names?:Partial<Record<"customer_name"|"service_name"|"professional_name"|"target_professional_name",string>>;proposal_deferred?:boolean;operation?: NonNullable<SchedulingInterpretation["operation"]>; fields:SchedulingFields; message:string;
   draft?:Awaited<ReturnType<typeof upsertSchedulingDraft>>;proposal?:Awaited<ReturnType<typeof proposeAppointmentCreate>>;receipt?:Awaited<ReturnType<typeof confirmAppointmentCreate>>;
-  candidates?:{kind:"customer_ref"|"service_ref"|"professional_ref"|"appointment_ref"|"target_professional_ref"|"service_changes_ref"|"service_list_ref"|"service_combo_ref"|typeof RECURRENCE_CARD;items:{id:string;name:string}[];source?:"suggest"|"confirm"|"alias";alias_basis?:string};unproven_names?:("customer_name"|"professional_name"|"target_professional_name")[];
+  candidates?:{kind:"customer_ref"|"service_ref"|"professional_ref"|"appointment_ref"|"target_professional_ref"|"service_changes_ref"|"service_list_ref"|"service_combo_ref"|typeof RECURRENCE_CARD|typeof BLOCK_OVERLAP_CARD;items:{id:string;name:string}[];source?:"suggest"|"confirm"|"alias";alias_basis?:string};unproven_names?:("customer_name"|"professional_name"|"target_professional_name")[];
   alias_declined?:{kind:AliasRef;key:string}[];
   alternatives?:Awaited<ReturnType<typeof getSchedulingAvailability>>["alternatives"];appointments?:Awaited<ReturnType<typeof listSchedulingAppointments>>;
   pending_temporal_ambiguities?:PendingTemporalAmbiguity[];pending_calendar_conflicts?:PendingCalendarConflict[];source_missing?:ReasonField[];waiting_for?:string;interpretation_source?:"MODEL"|"DETERMINISTIC_FAST_PATH";metrics:SchedulingMetrics};
@@ -630,6 +631,12 @@ async function prepare(actor:ServiceActor,c:SchedulingState,rejectedTemporal:Tem
         notice=`Esse horário está indisponível${unavailableCause(move.result.violation)}. O agendamento original continua como está. ${move.alternatives.length?`Tenho ${move.alternatives.map(a=>clockLabel(a.startLocal)).join(", ")}. Qual horário você prefere?`:"Não encontrei outra opção nesse dia. Qual outro dia ou horário você prefere?"}`;}
     }
     if(!notice)mutationSnap=await timed(c.metrics,"proposal",()=>withTenant(actor,tx=>schedulingActionSnapshot(tx,actor,op,f,...(released?[released] as const:[] as const))));
+    // C5 (flag, owner rule 10): a block over committed appointments is never proposed directly: their card (a free interval, or the
+    // whole block keeping them) is asked, whatever the request said; only the whole block the owner already picked goes on.
+    if(!notice&&mutationSnap&&op==="schedule.block"&&blockOverlapGuardEnabled()&&mutationSnap.affected.length&&!blockOverlapChosen(c.block_overlap,mutationSnap)){
+      const asked=await blockOverlapQuestion(actor,mutationSnap);
+      notice=asked.message;c.candidates=asked.card;c.waiting_for=BLOCK_OVERLAP_CARD;codes.push("BLOCK_OVERLAP_ASKED");mutationSnap=undefined;
+    }
   }
   // P3b (flag): availability with no professional said lists each eligible professional's free times (read-only, one tenant read
   // each, bounded team); the professional is only asked when there is no such team.
@@ -1112,6 +1119,12 @@ export async function selectScheduling(actor:ServiceActor,c:SchedulingState,ref:
   if(selection.kind===RECURRENCE_CARD){
     if(ref!==FIRST_ONLY_REF||!recurrencePending(c.recurrence,c.operation))throw Error("SELECTION_INVALID");
     next.recurrence={...c.recurrence!,status:"FIRST_ONLY"};
+    try{await prepare(actor,next);commitScheduling(c,next);}catch(error){publishCommittedSchedulingDraft(c,next);throw error;}return;
+  }
+  // C5 (flag): the block-over-appointments card: rechecked against the block's fresh snapshot, then the ordinary preparation.
+  if(selection.kind===BLOCK_OVERLAP_CARD){
+    if(!blockOverlapGuardEnabled()||c.operation!=="schedule.block")throw Error("SELECTION_INVALID");
+    await blockOverlapSelection(actor,next,ref);
     try{await prepare(actor,next);commitScheduling(c,next);}catch(error){publishCommittedSchedulingDraft(c,next);throw error;}return;
   }
   // V2: a card a reference published (a read's rows; the referenced appointment's services) is rechecked against that card and
