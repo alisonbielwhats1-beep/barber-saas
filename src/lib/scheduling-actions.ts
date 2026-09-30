@@ -103,12 +103,17 @@ export async function executeSchedulingCreate(tx:Tx,actor:ServiceActor,s:z.infer
   if(result.appointmentIds.length!==1)throw Error("UNEXPECTED_APPOINTMENT_RESULT");
   return result.appointmentIds[0];
 }
+/** C5 agent (flag SALON_SECRETARY_AGENT): the fields a derived value may occupy; a continuation that drops that value (with its provenance)
+ * hands them to the next write in `forget_fields`, so the journal merge never resurrects them. */
+export const SCHEDULING_FORGET_FIELDS=["date","time","end_date","end_time","professional_ref","professional_name","target_professional_ref","target_professional_name"] as const;
+export type SchedulingForgetField=(typeof SCHEDULING_FORGET_FIELDS)[number];
 /** U03 adapter: same journal, explicit patch; no Appointment INSERT. Refs are backend/UI resolved. */
 export async function upsertSchedulingDraft(tx:Tx,actor:ServiceActor,input:unknown){
   await assertSchedulingAccess(tx,actor);
   const p=z.object({operation:schedulingOperation,fields:schedulingResolved,pending_temporal_ambiguities:pendingTemporalAmbiguities.optional(),pending_calendar_conflicts:pendingCalendarConflicts.optional(),review:schedulingReviewSchema.optional(),snapshot:snapshot.optional(),action_snapshot:actionSnapshot.optional(),draft_ref:z.string().uuid().optional(),expected_revision:z.number().int().optional(),rejected_temporal:z.array(temporalRejectionSchema).max(8).optional(),source_missing:z.array(reasonField).optional(),rejected_source:z.array(reasonRejection).max(2).optional(),
     // A3 (review B): origin roles the adapter forgot with the chosen appointment (ref-derived; any flag state).
-    forget_origin:z.array(z.enum(["date","time","source_date","source_time"])).max(4).optional()}).strict().parse(input);
+    forget_origin:z.array(z.enum(["date","time","source_date","source_time"])).max(4).optional(),
+    forget_fields:z.array(z.enum(SCHEDULING_FORGET_FIELDS)).max(SCHEDULING_FORGET_FIELDS.length).optional()}).strict().parse(input);
   assertSchedulingExceptionScope(p.fields,p.operation);
   await authorizeSchedulingOperation(tx,actor,p.operation);
   if(Boolean(p.draft_ref)!==Boolean(p.expected_revision))throw Error("REVISION_REQUIRED");
@@ -131,6 +136,8 @@ export async function upsertSchedulingDraft(tx:Tx,actor:ServiceActor,input:unkno
   }
   // A3 (review B): what the adapter says it forgot with the appointment is never resurrected, whatever the flag says now.
   for(const role of p.forget_origin??[])if(p.fields[role]===undefined)delete fields[role];
+  // C5 agent: a derived value the adapter dropped with its provenance is never resurrected either.
+  for(const key of p.forget_fields??[])if(p.fields[key]===undefined)delete fields[key];
   if(old && ["customer_name","service_name","professional_name","date","time","period"].some(k=>p.fields[k as keyof typeof p.fields]!==undefined&&p.fields[k as keyof typeof p.fields]!==old.fields[k as keyof typeof old.fields])&&p.fields.override_requested!==true){delete fields.override_requested;delete fields.override_reason;}
   for(const [name,key]of [["customer_name","customer_ref"],["service_name","service_ref"],["professional_name","professional_ref"]] as const){
     if(p.fields[name]!==undefined&&p.fields[name]!==old?.fields[name]){
@@ -214,7 +221,11 @@ export function existingBookings(appointments:readonly {appointment_ref:string;s
   const overlaps=(item:(typeof unique)[number])=>!!slot&&Date.parse(item.start_at)<slot.end.getTime()&&Date.parse(item.end_at)>slot.start.getTime();
   return unique.slice(0,6).map(item=>({appointment_ref:item.appointment_ref,start_local:item.start_local,overlaps:overlaps(item)}));
 }
-export async function confirmAppointmentCreate(tx:Tx,actor:ServiceActor,input:unknown){
+/** `options.precondition` (C5 agent V23, flag SALON_SECRETARY_AGENT; docs/c5-spike/11-especificacao-agente.md §5.1): the re-check of a
+ * derived value's provenance, run on THIS transaction right before the write (a create: after lockOperationalResources; a change, cancel or
+ * block: just before the domain mutation, whose own locks follow). A refusal throws and nothing is written. Absent: exactly as before. */
+export type SchedulingConfirmOptions={precondition?:(tx:Tx)=>Promise<void>};
+export async function confirmAppointmentCreate(tx:Tx,actor:ServiceActor,input:unknown,options:SchedulingConfirmOptions={}){
   const inputRef=confirmServiceInput.parse(input);
   const row=await tx.auditLog.findFirst({where:{...journal.scope(actor),id:inputRef.proposal_ref,action:"PROPOSAL"},select:{metadata:true}});
   if(row)await authorizeSchedulingOperation(tx,actor,proposalSchema.parse(row.metadata).operation);
@@ -227,11 +238,13 @@ export async function confirmAppointmentCreate(tx:Tx,actor:ServiceActor,input:un
       assertSchedulingTemporalConsistency(p.fields);
       if(p.operation!=="appointment.create"){
         if(!p.action_snapshot||p.action_snapshot.kind!==p.operation)throw Error("PROPOSAL_INVALID");
+        if(options.precondition)await options.precondition(tx);
         const result=await executeSchedulingMutation(tx,actor,p.action_snapshot,d.fields,p.proposal_ref);
         return receiptSchema.parse({proposal_ref:p.proposal_ref,draft_ref:d.draft_ref,draft_revision:d.draft_revision,...result,action_snapshot:p.action_snapshot});
       }
       if(!p.snapshot)throw Error("PROPOSAL_INVALID");
       await lockOperationalResources(tx,{professionalIds:[p.snapshot.professional_ref]});
+      if(options.precondition)await options.precondition(tx);
       // Lock resolved catalog rows while rechecking quote and executing the existing domain.
       for(const service_ref of snapshotServiceRefs(p.snapshot))await tx.$queryRaw`SELECT id FROM "Service" WHERE id=${service_ref} AND "salonId"=${actor.salonId} FOR SHARE`;
       await tx.$queryRaw`SELECT id FROM "ClientProfile" WHERE id=${p.snapshot.customer_ref} AND "salonId"=${actor.salonId} FOR SHARE`;

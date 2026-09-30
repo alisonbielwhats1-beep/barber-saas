@@ -188,12 +188,14 @@ describe('agenda practice harness: stage journals', () => {
     expect(() => agendaStage('toString')).toThrow('AGENDA_STAGE_UNKNOWN');
     // Migrated (oracle audit 28/09): the allowlist gained the final-battery stage; the two existing stages are unchanged.
     // Migrated (Candidate 4, 29/09): two more stages with their own journals; the three existing stages are unchanged.
-    expect(Object.keys(AGENDA_STAGES)).toEqual(['agenda-core-20260927', 'reliability-20260927', 'final-20260929', 'c4-dev-20260929', 'c4-proof-20260930']);
+    // Migrated (Candidate 5, 30/09, WP6): the paired C4 × agent stage with its own journal; the five existing stages are unchanged.
+    expect(Object.keys(AGENDA_STAGES)).toEqual(['agenda-core-20260927', 'reliability-20260927', 'final-20260929', 'c4-dev-20260929', 'c4-proof-20260930', 'c5-agent-20261001']);
+    expect(agendaStage('c5-agent-20261001')).toEqual({ name: 'c5-agent-20261001', journal: 'c5-agent-20261001-stage-budget.jsonl', capMicroUsd: 60_000_000 });
     expect(agendaStage('c4-dev-20260929')).toEqual({ name: 'c4-dev-20260929', journal: 'c4-dev-20260929-stage-budget.jsonl', capMicroUsd: 15_000_000 });
     expect(agendaStage('c4-proof-20260930')).toEqual({ name: 'c4-proof-20260930', journal: 'c4-proof-20260930-stage-budget.jsonl', capMicroUsd: 40_000_000 });
     expect(agendaStage('final-20260929')).toEqual({ name: 'final-20260929', journal: 'final-20260929-stage-budget.jsonl', capMicroUsd: 40_000_000 });
     expect(() => agendaStage('final-20260928')).toThrow('AGENDA_STAGE_UNKNOWN');
-    expect(new Set(Object.values(AGENDA_STAGES).map(s => s.journal)).size).toBe(5); // each stage owns its journal
+    expect(new Set(Object.values(AGENDA_STAGES).map(s => s.journal)).size).toBe(6); // each stage owns its journal
   });
   it('the final-battery stage has its own journal and a USD 40 reservation cap, with no cross-stage rows', () => {
     const dir = tempDir();

@@ -15,8 +15,14 @@
  * records profile, level, seed, the ORIGINAL and the SENT text (synthetic only).
  * AGENDA_ANSWER_DELIVERY=item (or `answerDelivery`; evaluation only, default 'field' = the legacy delivery and file shape)
  * answers service_changes* questions with the scenario's service answers and a question that names an item with that item's
- * answer (AnswerBook); the header, report and each delivered answer row then record it (codes only). */
-import { appendFileSync, mkdirSync, unlinkSync, writeFileSync } from 'node:fs';
+ * answer (AnswerBook); the header, report and each delivered answer row then record it (codes only).
+ * C5 agent arm (SALON_SECRETARY_AGENT=true, docs/c5-spike/11 §6.2-§6.4, §8.5): the flag is read once here and passed explicitly to
+ * the payload guard, the stage journal and the program ledger; every say and scripted answer reserves 3 calls; each paid call is
+ * labelled `…:s<step>:r<n>` in the program ledger and recorded per step (`agentCalls`: arguments, kinds of the output items, sha256
+ * of the encrypted reasoning and of every tool output sent back) for the offline replay; the report adds the usage per call position
+ * and the ledger's spend per round. With the flag off everything above is exactly as before. Every header and report also stamp the
+ * evaluator version (§9.4) and a run can be limited to the ids of an ids file (`ids`). */
+import { appendFileSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { basename, join } from 'node:path';
 import { performance } from 'node:perf_hooks';
@@ -33,10 +39,12 @@ import { seedFreeUseFixture } from './free-use-fixture';
 import { seedMultiServiceAppointments } from './agenda-practice-seed';
 import type { FixtureIdentity } from './free-use-contract';
 import { AGENDA_STAGES, AnswerBook, answerDeliveryMode, answerQuestion, DEFAULT_AGENDA_STAGE, DEFAULT_OUTPUT_TOKENS, EFFECT_TABLES, ESTIMATE_BODY_BYTES, LEGACY_AGENDA_STAGE, MULTI_SERVICE_SEED_VERSION, PRICE, SYSTEM_CLOCK, TZ, acquireStageLease,
-  agendaStage, assertHeadroom, assertSaoPauloClock, assertStageLeaseHeld, buildScenarioFixture, codesOnly, dayWindowPreflight, expectedCalls, headroomEstimate, heartbeatStageLease,
+  agendaStage, agentArm, agentCallRecord, agentTurnOf, agentUsageByRound, assertAgentArm, assertHeadroom, assertSaoPauloClock, assertStageLeaseHeld, buildScenarioFixture, codesOnly, dayWindowPreflight,
+  evaluatorVersion, expectedCalls, headroomEstimate, heartbeatStageLease,
   legacyOracle, midnightGuard, percentile, perCallBudgetMs, readStage, releaseStageLease, renderFinal, renderTemplate, requestVersion, reservationMicroUsd, reserve, runDayPreflight,
-  runEstimateMs, scenarioBudgetMs, secretaryFlagSnapshot, stageJournalPath, stageTotals, todayInSaoPaulo, validateScenarios,
-  type AgendaClock, type AgendaScenario, type AgendaStageName, type AnswerDelivery, type AnswerFor, type LegacyMap, type ProfessionalHours, type StageLease, type Step } from './agenda-practice-lib';
+  runEstimateMs, scenarioBudgetMs, secretaryFlagSnapshot, selectScenarioIds, spendByRound, stageJournalPath, stageTotals, todayInSaoPaulo, validateScenarios, AGENT_CALLS_PER_MESSAGE, AGENT_PATHS,
+  type AgendaClock, type AgendaScenario, type AgendaStageName, type AgentCallRecord, type AnswerDelivery, type AnswerFor, type LegacyMap, type ProfessionalHours, type StageLease, type Step,
+  type TranscriptRow } from './agenda-practice-lib';
 import { assertProgramHeadroom, assertProofAdmits, guardPaidFetch, isProgramSpendError, programSpendCode, programSpendLabel, programSpendLedgerPath, programSpendSummary, programSpendTotals,
   type ProofLease } from './program-spend';
 import { applyNoise, noiseLevel, noisePreflight, noiseProfile, noiseSeed, noiseViolations, scenarioNoiseContext, type NoiseProfile } from './agenda-practice-noise';
@@ -180,7 +188,9 @@ export async function applyProfessionalHours(admin: Pick<PrismaClient, '$transac
 export type AgendaRunOptions = { stage?: string; repeat?: number; /** per pass; default = headroom estimate */ maxRequests?: number; closedDay?: 'skip' | 'fail';
   /** default 'off' (texts sent exactly as written, comparable with legacy runs) */ noise?: NoiseProfile;
   /** evaluation only; default AGENDA_ANSWER_DELIVERY, else 'field' (the legacy delivery, comparable with legacy runs) */ answerDelivery?: AnswerDelivery;
-  /** F2: the clock of day anchors and the midnight guard (injected in tests; default the system clock) */ clock?: AgendaClock };
+  /** F2: the clock of day anchors and the midnight guard (injected in tests; default the system clock) */ clock?: AgendaClock;
+  /** C5 (§6.2, `--ids-file` / readScenarioIds): run only these scenario ids of the files given (an unknown id is refused). Never
+   * passed by the sealed or validation runners, which run their whole file. */ ids?: readonly string[] };
 /** F1: a sealed/validation run hands the runner the preflight it checked before the look (never recomputed), the stage
  * lease it holds (the runner then neither takes nor releases one) and its program-wide proof lease (its paid calls are the only
  * ones the program ledger admits while it runs). */
@@ -194,29 +204,32 @@ export function preflightAgendaPractice(input: AgendaScenario[], opts: AgendaRun
   answerDeliveryMode(opts.answerDelivery ?? process.env.AGENDA_ANSWER_DELIVERY); // AGENDA_ANSWER_DELIVERY_ARGUMENT before any file or database
   if (!Number.isInteger(repeat) || repeat < 1 || repeat > 8) throw Error('AGENDA_REPEAT');
   if (opts.maxRequests !== undefined && (!Number.isInteger(opts.maxRequests) || opts.maxRequests < 1)) throw Error('AGENDA_MAX_REQUESTS_ARGUMENT');
-  const stage = agendaStage(opts.stage ?? DEFAULT_AGENDA_STAGE), scenarios = validateScenarios(input);
+  // C5: the agent arm is the product flag, read once here (dependencies and effort checked before any file, database or network).
+  const agent = agentArm(process.env);
+  if (agent) assertAgentArm(process.env);
+  const stage = agendaStage(opts.stage ?? DEFAULT_AGENDA_STAGE), scenarios = opts.ids ? selectScenarioIds(validateScenarios(input), opts.ids) : validateScenarios(input);
   const resultsRoot = join(process.cwd(), RESULTS), stageFile = stageJournalPath(resultsRoot, stage.name);
   const today = todayInSaoPaulo(now), legacy = legacyOracle(today), legacyByDay = new Map<string, LegacyMap>([[today, legacy.E]]);
   const legacyFor = (day: string) => { if (!legacyByDay.has(day)) legacyByDay.set(day, legacyOracle(day).E); return legacyByDay.get(day)!; };
   const runDay = runDayPreflight(scenarios, today, legacy.E), skipped = runDay.filter(d => d.action === 'SKIP');
   const runnable = scenarios.filter(s => !skipped.some(d => d.id === s.id));
   // F2: every day the run can reach (estimate + one guard sleep); a scenario SKIP on a later reachable day is a rollover skip.
-  const dayWindow = dayWindowPreflight(runnable, now, runEstimateMs(runnable, repeat), legacyFor);
+  const dayWindow = dayWindowPreflight(runnable, now, runEstimateMs(runnable, repeat, agent), legacyFor);
   // Every text the run could send, for every attempt and every reachable day, must keep its meaning under the selected noise (codes only, no text).
   const noise = noisePreflight(runnable, { profile, repeat, today, legacy: legacy.E });
   const violations = [...noise.violations, ...dayWindow.days.slice(1).flatMap(day => noisePreflight(runnable, { profile, repeat, today: day, legacy: legacyFor(day) }).violations)];
   if (violations.length) throw Object.assign(Error('AGENDA_NOISE_INVARIANT'), { details: violations.slice(0, 20) });
   const totals = stageTotals(stageFile, stage.name), maxOutputTokens = outputTokens(process.env);
   // One rerun per midnight the run may cross (the attempt in flight at 00:00), reserved up front like any other request.
-  const rerunRequests = (dayWindow.days.length - 1) * Math.max(0, ...runnable.map(s => expectedCalls(s).calls));
+  const rerunRequests = (dayWindow.days.length - 1) * Math.max(0, ...runnable.map(s => expectedCalls(s, { agent }).calls));
   const estimate = headroomEstimate({ scenarios: runnable, repeat, perPassMaxRequests: opts.maxRequests, maxOutputTokens, spentMicroUsd: totals.reservedMicroUsd, capMicroUsd: stage.capMicroUsd,
-    extraRequests: rerunRequests });
+    extraRequests: rerunRequests, agent });
   // Program-wide real-spend ledger (shared with the Golden runner): whole chain validated before any database access.
   const programLedger = programSpendLedgerPath(), programSpend = programSpendTotals(programLedger);
   // F1: while a sealed/validation run holds the program-wide proof lease, no other run starts (its paid calls would be refused).
   assertProofAdmits(programLedger, opts.proofLease);
   return { stage, stageFile, resultsRoot, today, repeat, runDay, skipped, runnable, totals, estimate, maxOutputTokens, legacyOracleSha256: legacy.sha256, legacyE: legacy.E, noise, programSpend,
-    programLedger, dayWindow, clock: dayWindow.clock };
+    programLedger, dayWindow, clock: dayWindow.clock, agent };
 }
 export type AgendaPreflight = ReturnType<typeof preflightAgendaPractice>;
 const closedDayError = (list: { id: string; dates: string[]; day?: string }[], rollover = false) =>
@@ -240,6 +253,10 @@ export async function runAgendaPractice(scenarios: AgendaScenario[], out: string
   // F1: everything that can still throw before the main try/finally is computed BEFORE the stage lease (environment and code
   // only: no file, database or network), so an early refusal (e.g. INVALID_EXAMPLES_MODE) never leaves the stage leased.
   const flags = secretaryFlagSnapshot(process.env), examples = examplesContractTag(process.env), delivery = answerDeliveryMode(opts.answerDelivery ?? process.env.AGENDA_ANSWER_DELIVERY);
+  // C5: the arm the preflight read is still this process's (a sealed run hands its own preflight); the evaluator version (§9.4).
+  const agent = pre.agent ?? agentArm(process.env), evaluator = evaluatorVersion();
+  if (agent !== agentArm(process.env)) throw Error('AGENDA_AGENT_ARM_DRIFT');
+  if (agent) assertAgentArm(process.env);
   // C6 (rec 19): the model contract (prompt templates, wire, model, limits, contract flags) every scenario ran under.
   const contractVersion = secretaryContractVersion({ modelId: 'gpt-6-luna', presentation: backendPresentationDigest() });
   const programLedger = programSpendLedgerPath(), programRun = programSpendLabel(`practice:${basename(out)}`), proof = opts.proofLease;
@@ -261,9 +278,12 @@ export async function runAgendaPractice(scenarios: AgendaScenario[], out: string
   const days: string[] = [], reruns: { id: string; k: number; from: string; to?: string; discarded: string }[] = [], guards: { label: string; action: string; sleepMs: number; code?: string }[] = [];
   const closedDayAttempts: { id: string; k: number; day: string }[] = [];
   const network = globalThis.fetch;
-  let active: { scenario: string; step: number } | null = null, requests = 0, abort: string | undefined, measured = false, version: string | null = null;
+  let active: { scenario: string; step: number; calls: number } | null = null, requests = 0, abort: string | undefined, measured = false, version: string | null = null;
   const versions: Record<string, number> = {};
-  const usage: { scenario: string; step: number; input: number; cached: number; output: number; latencyMs: number; arguments?: string }[] = [];
+  // `round`/`record` (agent arm only): the call's position in its step and what the replay needs of it (AgentCallRecord).
+  const usage: { scenario: string; step: number; input: number; cached: number; output: number; latencyMs: number; arguments?: string; round?: number; record?: AgentCallRecord }[] = [];
+  // Agent arm: eligible owner turns by path (router outcome, codes only).
+  const agentPaths: Record<string, number> = {};
   globalThis.fetch = async (input, init) => {
     function halt(code: string): never { abort ??= code; throw Error(code); }
     if (!active) halt('AGENDA_UNEXPECTED_NETWORK');
@@ -278,19 +298,24 @@ export async function runAgendaPractice(scenarios: AgendaScenario[], out: string
     }
     const v = requestVersion(payload, examples); version ??= v; versions[v] = (versions[v] ?? 0) + 1;
     const ctx = active;
+    // C5 agent arm: the call's position in its step (≤ 3 per owner message), its ledger label `…:s<step>:r<n>` and the clock of the replay.
+    const call = ++ctx.calls, at = agent ? clock.now().toISOString() : '', item = programSpendLabel(`${ctx.scenario}:s${ctx.step}${agent ? `:r${call}` : ''}`);
     // Program-wide real-spend cap first: a refused call consumes neither a stage reservation nor transport.
-    try { await assertProgramHeadroom(input, init, { ledger: programLedger, proof }); } catch (e) { halt(programSpendCode(e)); }
+    try { await assertProgramHeadroom(input, init, { ledger: programLedger, proof, agent }); } catch (e) { halt(programSpendCode(e)); }
     // F1: bounded lock wait inside reserve(); the row is admitted only for the run holding the stage lease.
-    try { reserve(stageFile, run, ctx.scenario, ctx.step, body, stage.name, { lease }); }
+    try { reserve(stageFile, run, ctx.scenario, ctx.step, body, stage.name, { lease, agent }); }
     catch (e) { const code = (e as NodeJS.ErrnoException).code === 'EEXIST' ? 'AGENDA_STAGE_LOCKED' : e instanceof Error ? e.message : 'ERROR'; if (RUN_ABORTS.has(code)) halt(code); throw e; }
     const started = performance.now(); let response: Response;
+    const failed = (error: string, http?: number) => { if (agent) usage.push({ scenario: ctx.scenario, step: ctx.step, input: 0, cached: 0, output: 0, latencyMs: Math.round(performance.now() - started),
+      round: call, record: { ...agentCallRecord(call, at, v, payload, undefined, http ?? 200), error } }); };
     // Actual usage (or the worst case) is charged to the program ledger around transport; a ledger failure stops the run.
-    try { response = await guardPaidFetch('practice', network, { ledger: programLedger, run: programRun, item: programSpendLabel(`${ctx.scenario}:s${ctx.step}`), proof })(input, init); }
-    catch (e) { if (isProgramSpendError(e)) halt(e.message); throw e; }
+    try { response = await guardPaidFetch('practice', network, { ledger: programLedger, run: programRun, item, proof, agent })(input, init); }
+    catch (e) { if (isProgramSpendError(e)) halt(e.message); failed('TRANSPORT'); throw e; }
     try {
       const json = await response.clone().json() as { output?: { type?: string; arguments?: string }[]; usage?: { input_tokens?: number; output_tokens?: number; input_tokens_details?: { cached_tokens?: number } } };
-      usage.push({ scenario: ctx.scenario, step: ctx.step, input: json.usage?.input_tokens ?? 0, cached: json.usage?.input_tokens_details?.cached_tokens ?? 0, output: json.usage?.output_tokens ?? 0, latencyMs: Math.round(performance.now() - started), arguments: json.output?.find(o => o.type === 'function_call')?.arguments });
-    } catch { /* usage unknown stays absent; reservation remains the bound */ }
+      usage.push({ scenario: ctx.scenario, step: ctx.step, input: json.usage?.input_tokens ?? 0, cached: json.usage?.input_tokens_details?.cached_tokens ?? 0, output: json.usage?.output_tokens ?? 0, latencyMs: Math.round(performance.now() - started), arguments: json.output?.find(o => o.type === 'function_call')?.arguments,
+        ...(agent ? { round: call, record: agentCallRecord(call, at, v, payload, json, response.status) } : {}) });
+    } catch { failed('UNREADABLE', response.status); /* usage unknown stays absent (C4 arm); reservation remains the bound */ }
     return response;
   };
   const results: { id: string; attempt: number; title: string; steps: number; today: string; rerunOf?: string }[] = [], completed = new Set<string>(); let failure: unknown;
@@ -332,7 +357,8 @@ export async function runAgendaPractice(scenarios: AgendaScenario[], out: string
         const pendingFields = (v?: SecretaryView) => [...new Set((v?.action_plan?.actions ?? []).filter(a => a.status !== 'DONE').flatMap(a => a.missing_fields).map(f => f.includes('.') ? f.slice(f.indexOf('.') + 1) : f).filter(f => f !== 'selection'))];
         const initial = await tenantState(admin, identity.tenant);
         const header = { run, stage: stage.name, repeat, attempt, today, dayAnchor: { today, at: anchoredAt.toISOString() }, ...(rerunOf ? { rerunOf, rerunCause: 'DAY_ROLLOVER' } : {}),
-          seedNamespace: namespace, flags, contractVersion, ...(profile !== 'off' ? { noise: { profile, level } } : {}), ...(delivery !== 'field' ? { answerDelivery: delivery } : {}),
+          seedNamespace: namespace, flags, contractVersion, evaluatorVersion: evaluator, ...(agent ? { arm: 'AGENT' } : {}),
+          ...(profile !== 'off' ? { noise: { profile, level } } : {}), ...(delivery !== 'field' ? { answerDelivery: delivery } : {}),
           ...(multiService.length ? { seedFormat: { multiService: MULTI_SERVICE_SEED_VERSION } } : {}),
           scenario: s, oracle: s.final ? renderFinal(s.final, today) : undefined, tenant: identity.tenant, initial };
         const save = (complete: boolean) => writeFileSync(join(dir, `${s.id}.json`), JSON.stringify({ ...header, version, complete, ...(abort ? { abort } : {}), transcript }, null, 2));
@@ -356,7 +382,7 @@ export async function runAgendaPractice(scenarios: AgendaScenario[], out: string
               const noised = applyNoise(original, level, seed, noiseCtx), message = noised.text; input = message;
               if (profile !== 'off') noise = { profile, level, seed, scenario: s.id, attempt, step: index, source, original, sent: message, rules: noised.rules };
               if (level !== 'off' && noiseViolations(original, message, noiseCtx).length) { abort ??= 'AGENDA_NOISE_INVARIANT'; throw Error('AGENDA_NOISE_INVARIANT'); }
-              active = { scenario: label, step: index }; process.env.SALON_SECRETARY_ALLOW_PAID_CALLS = 'true';
+              active = { scenario: label, step: index, calls: 0 }; process.env.SALON_SECRETARY_ALLOW_PAID_CALLS = 'true';
               try { view = await secretary.send(actor, { sessionId: session.sessionId, message }); }
               finally { active = null; process.env.SALON_SECRETARY_ALLOW_PAID_CALLS = 'false'; }
               // Answer only what was actually asked, once per answer instance, before the next scripted step.
@@ -417,9 +443,11 @@ export async function runAgendaPractice(scenarios: AgendaScenario[], out: string
           } catch (e) { error = e instanceof Error ? e.message.slice(0, 160) : 'ERROR'; }
           if (user) try { router = await routerTelemetry(admin, identity.tenant, routerSeen); } catch { router = null; }
           const calls = usage.slice(before), summary = summarize(view);
+          if (agent && user) { const path = agentTurnOf({ router: router as TranscriptRow['router'] })?.path ?? 'NOT_ELIGIBLE'; agentPaths[path] = (agentPaths[path] ?? 0) + 1; }
           transcript.push({ step: index, action: 'say' in step ? 'say' : 'answer' in step ? 'answer:' + step.field : 'confirm' in step ? (step.confirm === 'all' ? 'confirm:all' : 'confirm') : 'select' in step ? 'select' : 'choose',
             input, ...('answer' in step && step.for ? { answerFor: step.for } : {}), ...(noise ? { noise } : {}), pending: pendingFields(view), error, latencyMs: Math.round(performance.now() - started), calls: calls.length, luna: calls.map(c => c.arguments),
             tokens: calls.reduce((n, c) => ({ input: n.input + c.input, cached: n.cached + c.cached, output: n.output + c.output }), { input: 0, cached: 0, output: 0 }),
+            ...(agent ? { agentCalls: calls.flatMap(c => c.record ? [c.record] : []) } : {}),
             ...(confirmed ? { confirmed } : {}), ...(user ? { router } : {}), probe: probe(summary), ...errorView(error, summary, 'confirm' in step), db: await tenantState(admin, identity.tenant) });
           save(false);
           if (abort) throw Error(abort);
@@ -448,7 +476,7 @@ export async function runAgendaPractice(scenarios: AgendaScenario[], out: string
         heartbeatStageLease(lease, stageFile, stage.name); // still this run's stage (AGENDA_STAGE_LEASE_LOST / BUSY otherwise)
         const label = `${s.id}#k${attempt}`;
         // F2 midnight guard, decided by the clock only: not enough time left for this attempt's budget -> wake at 00:00:30.
-        const guard = midnightGuard(clock.now(), scenarioBudgetMs(s, perCallBudgetMs(usage.map(u => u.latencyMs))));
+        const guard = midnightGuard(clock.now(), scenarioBudgetMs(s, perCallBudgetMs(usage.map(u => u.latencyMs)), agent));
         if (guard.action === 'SLEEP') await clock.sleep(guard.sleepMs);
         if (guard.action !== 'RUN') guards.push({ label, action: guard.action, sleepMs: guard.sleepMs, ...(guard.code ? { code: guard.code } : {}) });
         // At most one rerun, in a fresh seed namespace; a second rollover in the same scenario stops the run (bounded).
@@ -484,6 +512,16 @@ export async function runAgendaPractice(scenarios: AgendaScenario[], out: string
   let programSpend: ReturnType<typeof programSpendSummary> | { error: string };
   try { programSpend = programSpendSummary(programSpendTotals(programLedger), programRun); }
   catch (e) { programSpend = { error: e instanceof Error ? e.message.slice(0, 80) : 'ERROR' }; }
+  // C5 agent arm (§6.3): this run's ledger calls by round suffix and per owner message (the chain was validated just above).
+  let agentReport: Record<string, unknown> | undefined;
+  if (agent) {
+    let byRound: ReturnType<typeof spendByRound> | { error: string };
+    try { byRound = spendByRound(readFileSync(programLedger, 'utf8').split('\n').filter(Boolean).map(line => JSON.parse(line) as unknown), programRun); }
+    catch (e) { byRound = { error: e instanceof Error ? e.message.slice(0, 80) : 'ERROR' }; }
+    const eligible = AGENT_PATHS.reduce((n, p) => n + (agentPaths[p] ?? 0), 0), fallback = (agentPaths.C4_FALLBACK ?? 0) + (agentPaths.C4_SKIPPED ?? 0);
+    agentReport = { effort: process.env.SALON_SECRETARY_AGENT_EFFORT ?? 'medium', callsPerMessage: AGENT_CALLS_PER_MESSAGE, paths: agentPaths, eligibleTurns: eligible,
+      fallbackShare: eligible ? Number((fallback / eligible).toFixed(3)) : null, rounds: agentUsageByRound(usage), programSpendByRound: byRound };
+  }
   // A stopped run (budget, cap, limit) reports the interrupted attempt and every attempt never started: never PASS.
   const incomplete = current && !current.done ? `${current.scenario.id}#k${current.attempt}` : null;
   const notExecuted = Array.from({ length: repeat }, (_, i) => runnable.map(s => `${s.id}#k${i + 1}`)).flat().filter(l => !completed.has(l) && l !== incomplete);
@@ -492,6 +530,7 @@ export async function runAgendaPractice(scenarios: AgendaScenario[], out: string
     midnightGuard: { sleeps: guards.filter(g => g.action === 'SLEEP').length, sleptMs: guards.reduce((n, g) => n + g.sleepMs, 0), unguarded: guards.filter(g => g.action === 'RUN_UNGUARDED').length, events: guards },
     clock: pre.clock, lease: { id: lease.id, own: ownLease, released: leaseReleased } };
   const report = { run, status: failure ? 'ABORTED' : 'COMPLETE', ...(failure ? { abort } : {}), today: firstDay, ...dayReport, repeat, version, versions, contractVersion, flags, noise: { profile, levels: pre.noise.levels },
+    arm: agent ? 'AGENT' : 'C4', evaluatorVersion: evaluator, ...(agentReport ? { agent: agentReport } : {}),
     ...(delivery !== 'field' ? { answerDelivery: delivery } : {}),
     scenarios: runnable.length, ids: runnable.map(s => s.id), scenarioAttempts: results.length, incomplete, notExecuted, skipped: pre.skipped.map(d => ({ id: d.id, closed: d.closed, invalid: d.invalid })), requests,
     usage: { input: usage.reduce((n, u) => n + u.input, 0), cached: usage.reduce((n, u) => n + u.cached, 0), output: usage.reduce((n, u) => n + u.output, 0) },
@@ -504,3 +543,6 @@ export async function runAgendaPractice(scenarios: AgendaScenario[], out: string
   return report;
 }
 export type { AgendaStageName };
+/** The runner's own projections, for the offline agent replay (.demo/agenda-core/agent-replay.ts): the same view summary, probe and
+ * router row every recorded attempt used. */
+export { summarize as summarizeView, probe as probeView, routerTelemetry };

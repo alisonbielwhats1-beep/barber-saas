@@ -26,6 +26,14 @@ import { assertProgramHeadroom, guardPaidFetch, isProgramSpendError, programSpen
 import { rawWriteVerdict, technicalWriteTables } from './free-use-technical-writes';
 import { persistedSessionStore } from '../../../src/lib/secretary-session-store';
 import { secretaryErrorMessage } from '../../../src/lib/secretary-error-copy';
+import { AGENT_LIMITS, agentMissingDependencies } from '../src/agent-context';
+/** C5 agent arm (SALON_SECRETARY_AGENT in the prepared flags, docs/c5-spike/11 §6.2, §3.4): an owner message may cost up to 3 paid
+ * calls (2 lookup rounds + the forced plan, the C4 fallback included), so a turn admits 3 requests instead of 2; the program ledger is
+ * told the arm explicitly and labels each call `…:t<turn>:r<n>`; the report adds the calls per message (the Golden alarm is > 1.5).
+ * Scoring never reads any of it. With the flag off every number, label and file is exactly as before. */
+export const FREE_USE_AGENT_ALARM_CALLS_PER_MESSAGE = 1.5;
+export const freeUseAgentArm = (flags: Readonly<Record<string, string | undefined>>) => flags.SALON_SECRETARY_AGENT === 'true';
+export const freeUseRequestsPerTurn = (agent: boolean) => agent ? AGENT_LIMITS.callsPerMessage : 2;
 const require = createRequire(import.meta.url);
 const { observeProvider } = require('../../../scripts/secretary-passive-observer.cjs') as {
   observeProvider(original: typeof fetch, record: (data: Record<string,unknown>) => unknown): typeof fetch & {flushObservations():Promise<void>};
@@ -68,8 +76,9 @@ export async function prepareFreeUse(casesPath:string|undefined,out:string,maxRe
   const suite = parseFreeUseSuite(casesPath ? JSON.parse(await readFile(casesPath,'utf8')) : goldenSuite());
   const repeat = freeUseRepeat(options.repeat ?? 1), mission = selectFreeUseMission(options.mission);
   const namespace = suite.suiteId+'-'+randomUUID().slice(0,8);
-  const perAttempt = maxRequests ?? suite.cases.reduce((sum,c)=>sum+c.turns.length*2,0), requestLimit = freeUseRequestLimit(perAttempt,repeat,mission.id);
-  const flags = freeUseFlags();
+  const flags = freeUseFlags(), agent = freeUseAgentArm(flags);
+  if(agent&&agentMissingDependencies(process.env).length)throw Error('FREE_USE_AGENT_FLAGS_INCOMPLETE');
+  const perAttempt = maxRequests ?? suite.cases.reduce((sum,c)=>sum+c.turns.length*freeUseRequestsPerTurn(agent),0), requestLimit = freeUseRequestLimit(perAttempt,repeat,mission.id);
   // Read-only: validates the selected mission's whole hash chain before any database access.
   const missionReservedMicroUsd = freeUseMissionReservedMicroUsd(freeUseMissionJournal(mission.id),mission.id);
   mkdirSync(out,{recursive:true});
@@ -177,6 +186,9 @@ export async function runFreeUse(out:string,missionId?:string) {
   if(manifest.confirm!==false||manifest.execute!==false||JSON.stringify(manifest.sourceHashes)!==JSON.stringify(implementationHashes()))throw Error('FREE_USE_MANIFEST_DRIFT');
   // Every SALON_SECRETARY_* flag snapshotted at prepare (overlap included) must be identical now.
   assertFreeUseFlags(manifest.flags);
+  // C5: the arm is the prepared (and just re-asserted) flag snapshot, passed explicitly to the program ledger.
+  const agent=freeUseAgentArm(manifest.flags);
+  if(agent&&agentMissingDependencies(process.env).length)throw Error('FREE_USE_AGENT_FLAGS_INCOMPLETE');
   if(suite.source&&digest(readFileSync(suite.source.path))!==suite.source.sha256)throw Error('FREE_USE_CASE_SOURCE_DRIFT');
   const repeat=freeUseRepeat(manifest.repeat);
   if(!Array.isArray(manifest.attempts)||manifest.attempts.length!==repeat||manifest.attempts.some((a,index)=>a.attempt!==index+1||
@@ -196,7 +208,7 @@ export async function runFreeUse(out:string,missionId?:string) {
   const lock=join(out,'run.lock'),fd=openSync(lock,'wx',0o600),admin=new PrismaClient({datasources:{db:{url:process.env.DIRECT_URL}}});
   const network=globalThis.fetch,observations:(typeof fetch & {flushObservations():Promise<void>})[]=[];
   const originalOutputCap=process.env.SALON_SECRETARY_V2_MAX_OUTPUT_TOKENS;
-  let active:{caseId:string;turn:number;attempt:number}|null=null,attemptedWrites=0,technicalStateWrites=0,stopped:string|null=null,admissionFailure:string|null=null;
+  let active:{caseId:string;turn:number;attempt:number;calls:number}|null=null,attemptedWrites=0,technicalStateWrites=0,stopped:string|null=null,admissionFailure:string|null=null;
   type Effects={confirmations:number;operationalWrites:number;externalMessages:number};
   const runs=manifest.attempts.map(a=>({attempt:a.attempt,requests:0,cases:[] as CaseRecord[],observedEffects:new Map<string,Effects>()}));
   // Read-only runtime guard is deliberate admission, separate from passive capture.
@@ -216,15 +228,17 @@ export async function runFreeUse(out:string,missionId?:string) {
   });
   globalThis.fetch=async(input,init)=>{
     const current=active;if(!current)throw Error('FREE_USE_UNEXPECTED_NETWORK');
-    const run=runs[current.attempt-1];let request:ReturnType<FreeUseBudget['reserve']>;
+    // C5 agent arm: after an admission failure no other call of the same turn is made (the agent's C4 fallback would still pay).
+    if(agent&&admissionFailure)throw Error(admissionFailure);
+    const run=runs[current.attempt-1],call=++current.calls;let request:ReturnType<FreeUseBudget['reserve']>;
     try {
       // Each attempt keeps its own share of the single binding; exceeding it is an admission failure.
       if(run.requests>=manifest.budget.maxRequestsPerAttempt)throw Error('FREE_USE_ATTEMPT_REQUESTS_EXHAUSTED');
       // Program real-spend cap first: a refused call consumes neither a mission reservation nor transport.
-      await assertProgramHeadroom(input,init,{ledger:programLedger});
-      request=budget.reserve(attemptCaseLabel(current.caseId,current.attempt),current.turn,input,init);run.requests++;
+      await assertProgramHeadroom(input,init,{ledger:programLedger,agent});
+      request=budget.reserve(attemptCaseLabel(current.caseId,current.attempt),current.turn,input,init,{agent});run.requests++;
     } catch (error) { admissionFailure=code(error); throw error; }
-    const paid=guardPaidFetch('golden',network,{ledger:programLedger,run:programRun,item:programSpendLabel(`${attemptCaseLabel(current.caseId,current.attempt)}:t${current.turn}`)});
+    const paid=guardPaidFetch('golden',network,{ledger:programLedger,run:programRun,item:programSpendLabel(`${attemptCaseLabel(current.caseId,current.attempt)}:t${current.turn}${agent?`:r${call}`:''}`),agent});
     const tapped=observeProvider(paid,data=>appendFile(join(out,attemptDirectory(current.attempt),'provider-observations.jsonl'),
       JSON.stringify({...request,caseId:current.caseId,repeatAttempt:current.attempt,...data})+'\n',{mode:0o600}));
     observations.push(tapped);
@@ -260,7 +274,7 @@ export async function runFreeUse(out:string,missionId?:string) {
                 const row:TurnRecord={attempt:plan.attempt,caseId:c.id,turn:index+1,message:turn.message,status:'FAIL',reason:score.failures[0],score};
                 result.turns.push(row);await appendFile(join(dir,'turns.jsonl'),JSON.stringify(row)+'\n',{mode:0o600});break;
               }
-              active={caseId:c.id,turn:index+1,attempt:plan.attempt};process.env.SALON_SECRETARY_ALLOW_PAID_CALLS='true';
+              active={caseId:c.id,turn:index+1,attempt:plan.attempt,calls:0};process.env.SALON_SECRETARY_ALLOW_PAID_CALLS='true';
               process.env.SALON_SECRETARY_V2_MAX_OUTPUT_TOKENS=String(manifest.budget.outputCap);
               const started=performance.now();let view:unknown,errorCode:string|undefined;
               try{view=await secretary.send(actor,{sessionId:session.sessionId,message:turn.message});}
@@ -319,14 +333,18 @@ export async function runFreeUse(out:string,missionId?:string) {
   const releaseBlocked=stopped==='SAFETY_FAILURE'||attemptedWrites>0||summary.safetyFailureConversations>0;
   let programSpend:ReturnType<typeof programSpendSummary>|{error:string};
   try{programSpend=programSpendSummary(programSpendTotals(programLedger),programRun);}catch(error){programSpend={error:code(error)};}
+  // C5 §3.4 (report only, never scored): paid calls per owner message of the agent arm; above 1.5 on the Golden is a finding.
+  const observedTurns=runs.reduce((n,run)=>n+run.cases.reduce((m,c)=>m+c.turns.filter(t=>t.observation).length,0),0),meanCalls=observedTurns?Number((budget.requests/observedTurns).toFixed(3)):null;
+  const agentReport=agent?{agent:{requestsPerTurn:freeUseRequestsPerTurn(true),observedTurns,requests:budget.requests,meanCallsPerMessage:meanCalls,alarmAbove:FREE_USE_AGENT_ALARM_CALLS_PER_MESSAGE,
+    alarm:meanCalls!==null&&meanCalls>FREE_USE_AGENT_ALARM_CALLS_PER_MESSAGE}}:{};
   const report={binding,suite:suite.suiteId,mission:mission.id,repeat,stopped,releaseBlocked,providerEvidence:{requests:budget.requests,capturedResponses:captured,complete:captured===budget.requests},
     summary,annotations:annotationSummary(runs.flatMap(run=>run.cases)),passK,attempts,requests:budget.requests,reservedUsd:budget.reservedUsd,missionReservedUsd:budget.missionReservedUsd,missionMaxUsd:budget.missionMaxUsd,priceNote:'Conservative durable reservation, not invoice',
-    programSpend,technicalStateWrites,
+    programSpend,technicalStateWrites,...agentReport,
     intendedConfirmations:0,observedEffects:{measuredCases:sum(attempts.map(a=>a.observedEffects.measuredCases)),unknownCases:attempts.flatMap(a=>a.observedEffects.unknownCases.map(id=>attemptCaseLabel(id,a.attempt))),
       confirmations:sum(attempts.map(a=>a.observedEffects.confirmations)),operationalWrites:sum(attempts.map(a=>a.observedEffects.operationalWrites)),externalMessages:sum(attempts.map(a=>a.observedEffects.externalMessages))},
     flagsFinal:{paid:false},model:'gpt-6-luna',contractVersion};
   evidenceWrite(join(out,'results.json'),report);
-  return {out,stopped,repeat,releaseBlocked,...summary,passK:passK.passK,passKComplete:passK.complete,requests:budget.requests,reservedUsd:budget.reservedUsd,missionReservedUsd:budget.missionReservedUsd,programSpend};
+  return {out,stopped,repeat,releaseBlocked,...summary,passK:passK.passK,passKComplete:passK.complete,requests:budget.requests,reservedUsd:budget.reservedUsd,missionReservedUsd:budget.missionReservedUsd,programSpend,...agentReport};
 }
 export function safeOutputDirectory(path:string) {
   const root=resolve(process.cwd(),'packages/salon-secretary/evaluation/results/free-use'),target=resolve(path);

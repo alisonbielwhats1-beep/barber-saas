@@ -430,9 +430,16 @@ export function verifyDayComponent(quote: string, value: DayComponent, today: st
 
 export type ClockVerdict = { status: "OK"; time: string } | { status: "DAYPART_CHOICE"; candidates: [string, string] }
   | { status: "REJECTED"; code: "COMPONENT_INVALID" | "TOKEN_MISMATCH" };
+/** Owner decision 18 (30/09/2026; flag SALON_SECRETARY_DAYPART_ASK_WIDE, default off; product rule of BOTH arms, the C4 and the C5
+ * agent): a bare 8-11 is asked like 1-7, so the asked range becomes 1-11. The tenant's hours still settle a single possible reading
+ * (daypart-by-hours; the agent validator's V9). Off: exactly the historical 1-7. */
+export const daypartAskWideEnabled = () => process.env.SALON_SECRETARY_DAYPART_ASK_WIDE === "true";
 /** A clock written without manhã/tarde/noite whose hour is 1-7 (as said) could be either half
- * of the day in a salon: asked, never assumed. 8-11 as said keeps the historical reading. */
-export const UNSPECIFIED_DAYPART_ASKED_HOURS = [1, 7] as const;
+ * of the day in a salon: asked, never assumed. 8-11 as said keeps the historical reading (1-11 with the
+ * flag above). The upper bound is read at every use (a getter), so every reader of this pair follows the flag. */
+const askedHours: [number, number] = [1, 7];
+Object.defineProperty(askedHours, 1, { get: () => daypartAskWideEnabled() ? 11 : 7, enumerable: true, configurable: false });
+export const UNSPECIFIED_DAYPART_ASKED_HOURS: readonly [number, number] = Object.freeze(askedHours);
 const glue = new Set(["e", ...clockUnits]);
 /** Any symbol but a dash ends an expression (",", ".", ">", "|", emoji); parts of one written form share offsets. */
 const boundary = /[^\p{L}\p{N}\s-]/u;

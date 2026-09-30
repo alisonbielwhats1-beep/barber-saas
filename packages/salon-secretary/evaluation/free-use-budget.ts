@@ -81,12 +81,14 @@ export class FreeUseBudget {
   get reservedUsd(){return readJournal(this.missionFile,this.mission).filter(row=>row.binding===this.binding).reduce((sum,row)=>sum+row.reservedMicroUsd,0)/1_000_000;}
   get missionReservedUsd(){return freeUseMissionReservedMicroUsd(this.missionFile,this.mission)/1_000_000;}
   get missionMaxUsd(){return freeUseMission(this.mission).capMicroUsd/1_000_000;}
-  reserve(caseId:string,turn:number,input:Parameters<typeof fetch>[0],init?:Parameters<typeof fetch>[1]){
+  // C5 (docs/c5-spike/11 §6.3): `agent` is the runner's explicit arm (SALON_SECRETARY_AGENT in its prepared flags), never read here;
+  // without it the agent's wire is refused exactly as before.
+  reserve(caseId:string,turn:number,input:Parameters<typeof fetch>[0],init?:Parameters<typeof fetch>[1],options:{agent?:boolean}={}){
     // Admission may inspect the existing string, but never consumes Request streams or alters payloads.
     if(typeof input!=='string'||input!=='https://api.openai.com/v1/responses'||init?.method?.toUpperCase()!=='POST'||typeof init.body!=='string')throw Error('FREE_USE_WIRE_REQUEST');
     const bodyBytes=Buffer.byteLength(init.body,'utf8'),inputTokensUpper=bodyBytes+FREE_USE_PRICING.protocolOverheadTokens;
     if(inputTokensUpper>FREE_USE_PRICING.maxInputTokensUpper)throw Error('FREE_USE_INPUT_CAP');
-    const payload=JSON.parse(init.body);assertSecretaryResponsesPayload(payload,'gpt-6-luna');
+    const payload=JSON.parse(init.body);assertSecretaryResponsesPayload(payload,'gpt-6-luna',{agent:options.agent===true});
     if(payload.max_output_tokens>this.outputCap||payload.max_output_tokens<1)throw Error('FREE_USE_OUTPUT_CAP');
     // Byte-level tokenization cannot exceed one token per UTF8 byte of text. The complete wire JSON
     // also counts names, schemas and escaping; extra framing is conservatively reserved separately.

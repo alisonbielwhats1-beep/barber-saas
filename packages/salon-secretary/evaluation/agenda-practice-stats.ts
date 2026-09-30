@@ -143,9 +143,10 @@ export type RunStats = ReturnType<typeof runStats>;
 // ---------------------------------------------------------------- arms: comparability, paired A/B and generalization gap
 /** What makes two arms comparable, from their run reports: the SALON_SECRETARY_* snapshot, the examples contract tag, the
  * request versions, K, the noise profile and the run days. `mixed` names what already differs among the runs pooled into the arm.
- * `delivery`: the runner's answer delivery of the pooled runs (evaluation only); absent = all used the legacy 'field'. */
+ * `delivery`: the runner's answer delivery of the pooled runs (evaluation only); absent = all used the legacy 'field'.
+ * `evaluator` (C5 §9.4): the evaluator versions the pooled runs stamped; absent = none stamped one (runs before it). */
 export type ArmProfile = { flags: Record<string, string> | null; examplesTag: string | null; versions: string[]; repeats: number[]; noise: string[]; days: string[]; mixed: string[];
-  delivery?: string[] };
+  delivery?: string[]; evaluator?: string[] };
 /** A run or several pooled runs (e.g. V+N) seen as one set of scenario outcomes. */
 export type PasskArm = { label: string; runs: string[]; valid: boolean; repeat: number; safetyAttempts: number; scenarios: ScenarioOutcome[]; profile?: ArmProfile };
 /** Switches the runner flips around each request, never a difference between arms (= candidate-freeze RUNTIME_ONLY_FLAGS;
@@ -168,6 +169,9 @@ export function armDifferences(a?: ArmProfile, b?: ArmProfile) {
   // The runner's answer delivery changes outcomes by itself (harness, not product): never the treatment, always a confound.
   const da = a.delivery ?? ['field'], db = b.delivery ?? ['field'];
   if (!sameList(da, db)) conditions.push(`answer delivery ${da.join('/')}≠${db.join('/')}`);
+  // C5 (§9.4): the evaluator (harness, delivery, seeding, oracles) is frozen before the paired runs: another version is a confound.
+  const ea = a.evaluator ?? [], eb = b.evaluator ?? [];
+  if (!sameList(ea, eb)) conditions.push(`evaluator version ${ea.join('/') || '?'}≠${eb.join('/') || '?'}`);
   conditions.push(...a.mixed.map(m => `first arm pools runs with different ${m}`), ...b.mixed.map(m => `second arm pools runs with different ${m}`));
   return { treatment, conditions, days: !sameList(a.days, b.days) };
 }

@@ -49,6 +49,15 @@ export * from './recurrence-guard';
 import { recurrenceGuardEnabled } from './recurrence-guard';
 export * from './prompt-cache';
 import { promptCacheEnabled, cachedSystemContent, PROMPT_CACHE_FRAMING } from './prompt-cache';
+// C5 agent (flag SALON_SECRETARY_AGENT, default off; docs/c5-spike/11-especificacao-agente.md §6.2): its contract, loop and context. Off, nothing
+// below reads them except the flag itself: the C4 wire, prompt, contract version and behaviour are unchanged.
+export * from './agent-context';
+export * from './agent-tools';
+export * from './agent-plan';
+export * from './agent-prompt';
+export * from './agent-loop';
+import { agentEnabled, agentEffort, agentMessage, messageCallBudget } from './agent-context';
+import { agentContractParts } from './agent-prompt';
 export { examplesMode, examplesK, examplesContractTag, examplesState, eligibleExamples, selectExamples, composeExamples, secretaryRequestBytes, withExamplesObserver, jsonTextBytes,
   EXAMPLES_HEADER, EXAMPLES_REQUEST_CAP, EXAMPLES_OUTPUT_FRAMING, type ExamplesMode, type ExamplesState, type ExamplesBlock, type ExamplesTelemetry } from './examples/select';
 export { assertSecretaryModelId, assertSecretaryModelRequest, assertSecretaryResponsesPayload, secretaryGuardedFetch } from "./openai-cost-guard";
@@ -56,6 +65,7 @@ export { customersSkill } from "./customers-skill";
 export { servicesSkill } from "./services-skill";
 export { Usage, type Model, type ModelRequest, type ModelResponse } from "@openai/agents";
 export { instrumentServicesModel, measureServicesModel, modelCallUsage, billableTokenBasis, type ModelCallUsage } from "./usage";
+export { instrumentAgentModel, type AgentModelCallUsage } from "./usage";
 
 export type ServicePatch = { name?: string; priceCents?: number; durationMin?: number; operation?: "service.create" | "service.change"; target_name?: string };
 const extraction = z.object({ name: z.string().nullable(), priceCents: z.number().nullable(), durationMin: z.number().nullable(),
@@ -235,10 +245,15 @@ export async function runServicesTurn(model: Model, message: string, fields: unk
     }
     return raw;
   };
+  // C5 agent (§3.8, flag): the owner message's call counter (3, shared with the agent's rounds) is consulted before this call and before
+  // its repair; none is left → MODEL_CALL_LIMIT as an unreadable answer (B5). Outside the agent's message context: exactly as before.
+  const budget = messageCallBudget();
+  const spend = () => { if (!budget) return; if (!budget.allows(1)) { unread = true; throw markInterpretationFailure(new Error("MODEL_CALL_LIMIT")); } budget.take(); };
   const boundedModel: Model = {
     async getResponse(request) {
       assertSecretaryModelRequest(request, skill === "discovery" ? "select_capabilities" : "upsert_action_draft");
       if (called) throw new Error("MODEL_CALL_LIMIT"); called = true;
+      spend();
       const response = await model.getResponse(request);
       const raw = read(() => validateResponse(response));
       const invalid = recorded ? [] : invalidSourceLiterals(raw, message, skill === 'inventory');
@@ -248,6 +263,7 @@ export async function runServicesTurn(model: Model, message: string, fields: unk
       // A transport repair never needs few-shot examples: full mode repairs with the base prefix.
       const repairRequest = sourceLiteralRepairRequest(request, raw, invalid, message, skill === 'inventory', repairInstructions);
       assertSecretaryModelRequest(repairRequest, skill === 'discovery' ? 'select_capabilities' : 'upsert_action_draft');
+      spend();
       const repaired = await model.getResponse(repairRequest);
       read(() => assertSourceLiteralRepair(raw, validateResponse(repaired), invalid, message));
       return repaired;
@@ -318,6 +334,9 @@ export async function runServicesTurn(model: Model, message: string, fields: unk
   const built=buildServicesAgent(boundedModel,value=>{patch=value;},skill,multiActionV2,existing,recorded,message,{ instructions: chosen.instructions, wire: chosen.wire, examples: chosen.examples });
   const agent=built.agent,parseInput=built.parseInput;
   const runner = new Runner({ tracingDisabled: true, traceIncludeSensitiveData: false });
+  // C5 agent (§3.5, flag): inside the agent's message context the C4 also ends at the message's single 45 s deadline (a fallback with
+  // 15 s left uses those 15 s). Outside it: the historical 45 s of this call alone.
+  const messageSignal = agentMessage()?.signal;
   try {
     // The SDK types a system content as string but forwards it as is (openaiResponsesConverter getMessageItem): the parts
     // reach the body unchanged (pinned by secretary-c5-prompt-cache.test.ts).
@@ -325,7 +344,7 @@ export async function runServicesTurn(model: Model, message: string, fields: unk
       { role: "system", content: systemContent(chosen.system) as string },
       { role: "user", content: chosen.draft },
       { role: "user", content: message },
-    ], { maxTurns: 1, signal: AbortSignal.timeout(45_000) });
+    ], { maxTurns: 1, signal: messageSignal ? AbortSignal.any([messageSignal, AbortSignal.timeout(45_000)]) : AbortSignal.timeout(45_000) });
   } catch (error) { if (unread) markInterpretationFailure(error); throw error; }
   if (!patch) throw markInterpretationFailure(new Error("INTERPRETATION_INVALID"));
   const routed = splitInterpretation(patch as Record<string, unknown>);
@@ -344,7 +363,7 @@ export const SECRETARY_CONTRACT_SCHEMA = 'secretary-contract-v1';
 export const SECRETARY_CONTRACT_ENV = ['SALON_SECRETARY_TEMPORAL_COMPONENTS','SALON_SECRETARY_JIT_INSTRUCTIONS','SALON_SECRETARY_EXAMPLES','SALON_SECRETARY_EXAMPLES_K',
   'SALON_SECRETARY_MULTI_ACTION_V2_ENABLED','SALON_SECRETARY_SCHEDULING_OVERLAP_ENABLED','SALON_SECRETARY_V2_MAX_OUTPUT_TOKENS','SALON_SECRETARY_MODEL','SALON_SECRETARY_TEMPORAL_POLARITY','SALON_SECRETARY_SAME_AS',
   'SALON_SECRETARY_STRUCTURED_CONTEXT','SALON_SECRETARY_ALTER_APPOINTMENT','SALON_SECRETARY_MULTI_SERVICE','SALON_SECRETARY_COPY_V2','SALON_SECRETARY_REFERENCES_V2','SALON_SECRETARY_READS_V2','SALON_SECRETARY_RECURRENCE_GUARD',
-  'SALON_SECRETARY_EXAMPLES_V2','SALON_SECRETARY_PROMPT_CACHE'] as const;
+  'SALON_SECRETARY_EXAMPLES_V2','SALON_SECRETARY_PROMPT_CACHE','SALON_SECRETARY_AGENT','SALON_SECRETARY_AGENT_EFFORT'] as const;
 const contractHash=(value:unknown)=>createHash('sha256').update(typeof value==='string'?value:JSON.stringify(value)).digest('hex');
 /** Synthetic, fixed: one open action per published operation (an option card, a daypart and both calendar kinds, a
  * pending discard) plus one suspended plan, so every mode, operation group and state-bound rule is compiled. */
@@ -367,8 +386,11 @@ export type SecretaryContractOptions={modelId?:string;presentation?:string;reque
  * their fixed order. Named only when a request did not fit as configured: that message records its own version (a
  * rewritten request is another contract than the configured one), and every configured message keeps the recorded one. */
 const budgetSteps=(options:SecretaryContractOptions)=>REQUEST_DEGRADATIONS.filter(step=>options.requestBudget?.includes(step));
+/** C5 agent: the effort the contract names (never throws: an invalid value is its own tag). */
+const agentEffortTag=()=>{try{return agentEffort();}catch{return 'invalid';}};
 export function secretaryContractParts(options:SecretaryContractOptions={}){
   const components=temporalComponentsEnabled(),jit=jitInstructionsEnabled(),examples=examplesMode(),context=canonicalContractContext();
+  const agentOn=agentEnabled(),agentParts=agentOn?agentContractParts():undefined;
   const instructions=servicesInstructions('discovery',true);
   const directory={professionals:['«profissional»'],services:['«serviço»'],today:{date:'«data»',weekday:'«dia»',timezone:'«fuso»'}};
   const adapterDraft={operation:'appointment.create',fields:{},clarification:{...(context.active_plan!.actions[0] as {clarification:object}).clarification}};
@@ -382,12 +404,16 @@ export function secretaryContractParts(options:SecretaryContractOptions={}){
     examples:examples==='off'?null:{header:EXAMPLES_HEADER,bank:exampleBank().sha256,tag:examplesContractTag()},
     // C5: the cached first part and the system layout the model reads; only when on (every recorded version is kept).
     ...(promptCache?{promptCache:{framing:PROMPT_CACHE_FRAMING,layout:cachedSystemContent(system)}}:{}),
+    // C5 agent (flag SALON_SECRETARY_AGENT): its instructions and system layout, only when on (every recorded version is kept).
+    ...(agentOn?{agent:{prompt:agentParts!.prompt,framing:agentParts!.framing,system:agentParts!.system}}:{}),
   };
   const wires={
     plan:inConversationRouting(context,()=>interpreterWire('discovery',true,false,instructions)),
     first:inConversationRouting(undefined,()=>interpreterWire('discovery',true,false,instructions)),
     current:inConversationRouting(undefined,()=>interpreterWire('scheduling',true,false,instructions)),
     legacy:inConversationRouting(undefined,()=>interpreterWire('discovery',false,false,discoveryInstructions)),
+    // C5 agent (flag): its six strict tools and their digest; never part of the C4 wires above.
+    ...(agentOn?{agent:{tools:agentParts!.tools,sha256:agentParts!.toolsSha256}}:{}),
   };
   return {schema:SECRETARY_CONTRACT_SCHEMA,model:options.modelId??process.env.SALON_SECRETARY_MODEL??'unconfigured',outputLimit:secretaryOutputLimit(true),
     // C4 polarity is named only when on, so every contract without it keeps its recorded version.
@@ -410,7 +436,9 @@ export function secretaryContractParts(options:SecretaryContractOptions={}){
       // C5: the system input's constant first part with an explicit cache breakpoint (prompt-cache.ts); named only when on.
       ...(promptCache?{promptCache:true}:{}),
       // B7: the clarification context format (codes + a short stable sentence) the backend publishes; named only when on.
-      ...(process.env.SALON_SECRETARY_STRUCTURED_CONTEXT==='true'?{structuredContext:true}:{}),...(budgetSteps(options).length?{requestBudget:budgetSteps(options)}:{})},
+      ...(process.env.SALON_SECRETARY_STRUCTURED_CONTEXT==='true'?{structuredContext:true}:{}),
+      // C5 agent: named only when on, with its one effort per message (an invalid value is named as such; the agent then does not run).
+      ...(agentOn?{agent:{effort:agentEffortTag()}}:{}),...(budgetSteps(options).length?{requestBudget:budgetSteps(options)}:{})},
     templates,wires,...(options.presentation?{presentation:options.presentation}:{})};
 }
 /** The version and the hash of each part (so a changed version says what changed). */
@@ -440,8 +468,9 @@ export function paidModelConfig(env: Record<string, string | undefined>) {
 }
 export async function createPaidModel(env: Record<string, string | undefined>): Promise<Model> {
   const config = paidModelConfig(env);
+  // C5 agent (§6.3): the guard admits the agent's format only when this factory says so (the flag read once, here); off: as before.
   const client = new OpenAI({ apiKey: config.apiKey, project: config.project,
     organization: null, baseURL: "https://api.openai.com/v1", maxRetries: 0, timeout: 30_000,
-    fetch: secretaryGuardedFetch(config.modelId) });
+    fetch: env.SALON_SECRETARY_AGENT === "true" ? secretaryGuardedFetch(config.modelId, { agent: true }) : secretaryGuardedFetch(config.modelId) });
   return new OpenAIProvider({ openAIClient: client, useResponses: true }).getModel(config.modelId);
 }

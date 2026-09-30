@@ -30,7 +30,7 @@ import { schedulingTimezone, secretaryDirectory, getSchedulingAppointment, listS
 import { quoteTemporalFacts, temporalQuoteDenied } from "./scheduling-temporal-source";
 import { schedulingActionSnapshot } from "./scheduling-mutations";
 import { performance } from "node:perf_hooks";
-import { schedulingState, schedulingSourceTimeReply, applySchedulingInterpretation, sendSchedulingTurn, selectScheduling, persistSchedulingMetrics, schedulingChoiceAgrees, reseedScheduling, type SchedulingState, type SchedulingReferences } from "./secretary-scheduling";
+import { schedulingState, schedulingSourceTimeReply, applySchedulingInterpretation, sendSchedulingTurn, selectScheduling, persistSchedulingMetrics, schedulingChoiceAgrees, reseedScheduling, forgetAgentBasis, type SchedulingState, type SchedulingReferences } from "./secretary-scheduling";
 import { confirmAppointmentCreate } from "./scheduling-actions";
 import type { SchedulingInterpretation } from "@everflair/salon-secretary";
 import { assertCustomerAccess } from "./customer-catalog";
@@ -53,7 +53,13 @@ import { createActionPlan, assessPlanAction, executeConfirmationGroup,
   runtimeReviewConfiguration, type ActionPlan, type ReviewConfiguration, type CapabilitySelection,
   groupConfirmationInput, readyGroupsConfirmationInput, admitConfirmationBatch, confirmationGroupContent,
   validateSelectionV2, actionSelection, markSecretaryTiming, type ActionAssessment, type SelectedOperation } from "@everflair/salon-secretary";
-import { actionUnits, unitSelection, assessmentFromView, deferredReadAssessment, collectedActionFields, viewProposal, type ActionUnit } from "./secretary-action-plan";
+import { actionUnits, unitSelection, assessmentFromView, deferredReadAssessment, deferredReadPreview, collectedActionFields, viewProposal, type ActionUnit } from "./secretary-action-plan";
+import { agentMessageScope, agentSkeleton, prepareAgentScheduling, prepareAgentBatch, agentDeferredRead, agentTurnNotice, agentGroupPrecheck, agentConfirmOptions, agentPreparedSlot,
+  agentTurnOutcome, agentNothingChanged, type AgentPrepared, type AgentSkeleton } from "./secretary-agent-apply";
+import { validateAgentPlanInTenant, type AgentValidation } from "./secretary-agent-validator";
+import { agentMessage } from "../../packages/salon-secretary/src/agent-context";
+import { AGENT_SAFE_REPLY, agentFallbackRoute, runAgentTurn, type AgentLoopOutcome, type AgentLoopTelemetry } from "../../packages/salon-secretary/src/agent-loop";
+import { instrumentAgentModel } from "../../packages/salon-secretary/src/usage";
 import { secretaryPlanMessage, planConversationContext, presentationHints, planOptions } from "./secretary-presentation";
 import { optionIndex, slotOptions, splitChoiceDelta, nameEchoAgrees, deltaHasContent, appointmentEchoRoles, writesOptionName, choiceVerdict, type PublishedOption, type SecretaryOption } from "./secretary-options";
 import { literalProofSpans } from "../../packages/salon-secretary/src/literal-match";
@@ -98,6 +104,9 @@ type Session = { suspendedPlans?: SuspendedPlan[]; conversationNotice?: string; 
   /** B7: when the session started (activity extends `expires`, never past 2 h from here); the salon's local date from
    * the last directory read (the screen's year reference); the codes of the last recorded message (owner feedback). */
   created?: number; today?: string; lastOutcome?: { codes: string[]; contract_version?: string };
+  /** C5 agent (flag SALON_SECRETARY_AGENT): the agent's open "qual operação?" question with the owner's messages of that thread (≤ 2
+   * exchanges; the next message reaches the agent after them), and the plan_ref of the active plan the agent built (review dialog). */
+  agentPending?: { question: string; thread: string[]; turns: number }; agentPlan?: string;
   draft?: Draft; proposal?: Proposal; receipt?: Receipt; cancelled: boolean };
 /** B7 session lifetime: each successful call extends an open conversation to now + 20 min, capped at 2 h from its start.
  * In memory only: a restart or another worker still fails closed. */
@@ -122,7 +131,8 @@ export type ConfirmationBatchReport = { executed: string[]; replayed: string[];
 /** `clarifications` (B6): the plan's open questions with how many turns in a row each was asked; from the second,
  * the options the backend already has; from the third, the agenda form (ids/dates only) and one extra sentence. */
 /** `today` (B7): the salon's local date (YYYY-MM-DD) the server last read; the screen's reference year for dates. */
-export type SecretaryView = { today?: string; clarifications?: SecretaryClarification[]; turn_notice?: string; turn_notice_alone?: true; options?: SecretaryOption[]; confirmation_batch?: ConfirmationBatchReport; retired_plan?: ActionPlan; proposal_expired?: boolean; service_context?: { fields: Partial<ServiceMvpFields>; target_name?: string }; suspended_plans?: { plan_ref: string; label: string }[]; capability_status?: CapabilityStatus; execution_warnings?: string[]; action_plan?: ActionPlan; communication?: CommunicationState; inventory?: InventoryState; financial?: FinancialState; batch?: BatchState; scheduling?: SchedulingState; operations?: { operation_ref: string; action_keys?: string[]; state: SecretaryView }[]; loaded?: Session["loaded"]; skill?: "services" | "customers" | "scheduling" | "financial" | "inventory" | "communication" | "auto"; customer?: CustomerState; sessionId: string; message: string; draft?: Draft; proposal?: Proposal; receipt?: Receipt; cancelled: boolean; candidates?: Candidates };
+/** `agent_plan` (C5 agent, flag SALON_SECRETARY_AGENT): the active plan was built by the agent (the "Confirmar tudo" review dialog, §5.5). */
+export type SecretaryView = { agent_plan?: true; today?: string; clarifications?: SecretaryClarification[]; turn_notice?: string; turn_notice_alone?: true; options?: SecretaryOption[]; confirmation_batch?: ConfirmationBatchReport; retired_plan?: ActionPlan; proposal_expired?: boolean; service_context?: { fields: Partial<ServiceMvpFields>; target_name?: string }; suspended_plans?: { plan_ref: string; label: string }[]; capability_status?: CapabilityStatus; execution_warnings?: string[]; action_plan?: ActionPlan; communication?: CommunicationState; inventory?: InventoryState; financial?: FinancialState; batch?: BatchState; scheduling?: SchedulingState; operations?: { operation_ref: string; action_keys?: string[]; state: SecretaryView }[]; loaded?: Session["loaded"]; skill?: "services" | "customers" | "scheduling" | "financial" | "inventory" | "communication" | "auto"; customer?: CustomerState; sessionId: string; message: string; draft?: Draft; proposal?: Proposal; receipt?: Receipt; cancelled: boolean; candidates?: Candidates };
 const turnInput = z.object({ sessionId: z.string().uuid(), message: z.string().trim().min(1).max(1000), operation_ref: z.string().uuid().optional() }).strict();
 /** `linked` (review 2b): the linked actions the screen named and the owner accepted to discard with this one. */
 const discardInput = z.object({ plan_ref: z.string().uuid(), action_key: z.string().regex(/^[a-z][a-z0-9_]{0,31}$/),
@@ -141,6 +151,9 @@ export const staleProposalNotice = "Sua última mensagem não foi aplicada e nad
 export const withdrawnProposalMessage = "Você pediu para tirar esta ação: ela saiu da confirmação e nada foi gravado.";
 /** C5 (flag): the reply when an answer to "descarto os dois?" would have prepared again what the owner withdrew. */
 export const withdrawnHeldNotice = "A ação que você pediu para tirar continua fora da confirmação e nada foi gravado. Se quiser mantê-la, peça de novo.";
+/** C5 agent (flag SALON_SECRETARY_AGENT, V23): the card and plan preview of a group held at the Confirmar because what a derived value stood on
+ * changed (an anchor moved, the delegated professional is no longer the least busy, the excepted interval changed…). */
+export const agentBasisChangedMessage = "A agenda mudou depois desta proposta e nada foi gravado. Confira de novo o que deseja fazer.";
 /** B4 slot click: the child operation, the positional option and (plan) the revision the screen showed. */
 const optionInput = z.object({ operation_ref: z.string().uuid(), option_id: z.string().regex(/^opt_[1-9]\d?$/), revision: z.number().int().min(0).optional() }).strict();
 
@@ -533,7 +546,8 @@ export class SalonSecretary {
       // B6: read-only over the history recorded per user message; the extra sentence only from the third time.
       const clarifications = s.actionPlan && !s.cancelled ? clarificationsView(s.actionPlan, s.actionUnits ?? [], operations ?? [], s.clarificationHistory) : [];
       const fallback = clarifications.some(item => item.fallback) ? `\n\n${agendaFallbackNotice}` : "";
-      return structuredClone({ sessionId: s.id, skill: "auto", cancelled: s.cancelled, loaded: s.loaded, ...(s.today ? { today: s.today } : {}), action_plan: s.actionPlan, capability_status: this.effectiveCapabilityStatus(s, operations),
+      return structuredClone({ sessionId: s.id, skill: "auto", cancelled: s.cancelled, loaded: s.loaded, ...(s.today ? { today: s.today } : {}),
+        ...(s.agentPlan && s.actionPlan?.plan_ref === s.agentPlan ? { agent_plan: true as const } : {}), action_plan: s.actionPlan, capability_status: this.effectiveCapabilityStatus(s, operations),
         suspended_plans: s.suspendedPlans?.map(saved => ({plan_ref:saved.actionPlan!.plan_ref,label:saved.actionPlan!.actions.map(action => action.operation).join(", ")})),
         ...(s.turnNotice && !s.cancelled ? { turn_notice: s.turnNotice.text, ...(s.turnNotice.alone ? { turn_notice_alone: true as const } : {}) } : {}), ...(clarifications.length ? { clarifications } : {}),
         message: s.actionPlan ? (s.cancelled ? "Conversa encerrada. Confirmações anteriores preservadas." : (s.turnNotice?.alone ? s.turnNotice.text : s.turnNotice ? `${s.turnNotice.text}\n\n${body}` : body!) + fallback) : s.notice ?? (s.children?.length ? "Confira cada operação abaixo. Cada confirmação executa somente sua proposta." : "Posso ajudar com serviços, clientes, agenda, estoque e consultas financeiras. O que deseja?"), operations });
@@ -619,7 +633,9 @@ export class SalonSecretary {
       // budget rewrote (or refused) to fit the cap names its steps, so batteries and replays tell it from the configured one.
       let contract: string | undefined;
       try { contract = secretaryContractVersion({ modelId: this.modelId(), presentation: backendPresentationDigest(), requestBudget: outcome.request_budget?.steps }); } catch { contract = undefined; }
-      trace.outcome = contract ? { ...outcome, contract_version: contract } : outcome;
+      // C5 agent (flag): the message's agent block (§6.4), codes and numbers only; absent on the C4 path.
+      const measured = trace.agent ? { ...outcome, agent: trace.agent } : outcome;
+      trace.outcome = contract ? { ...measured, contract_version: contract } : measured;
       // B7 owner feedback: the latest message's codes (kind, divergence and error codes; never text) and contract.
       const codes = [outcome.kind, ...outcome.divergence.failed_codes, ...(outcome.error_code ? [outcome.error_code] : [])].filter(code => /^[A-Z][A-Z0-9_]{1,79}$/.test(code));
       s.lastOutcome = { codes: [...new Set(codes)].slice(0, 32), ...(contract ? { contract_version: contract } : {}) };
@@ -690,7 +706,10 @@ export class SalonSecretary {
         // C5 (flag SALON_SECRETARY_STALE_PROPOSAL_GUARD): what the active plan had ready to confirm before this message.
         const baseline = this.proposalBaseline(s);
         try {
-          const view = await withSalonDirectory(directory, () => this.preparePlanSafely(s, () => this.sendAutomatic(actor, s, message, operation_ref, messageStarted), operation_ref));
+          // C5 agent (flag SALON_SECRETARY_AGENT): the message's context (refs, call counter, 45 s deadline, lookup executor of this actor);
+          // without the flag this is exactly the call below.
+          const view = await agentMessageScope(actor, this.agentOwner(s, message), () =>
+            withSalonDirectory(directory, () => this.preparePlanSafely(s, () => this.sendAutomatic(actor, s, message, operation_ref, messageStarted), operation_ref)));
           // C5 (flag): a message that could not be applied leaves no earlier proposal confirmable, and an answer to "descarto os dois?"
           // never prepares again what the owner withdrew; this reply says so first.
           const kept = baseline !== undefined && this.holdWithdrawn(s, baseline), held = baseline !== undefined && this.holdStaleProposals(s, baseline, false);
@@ -865,7 +884,11 @@ export class SalonSecretary {
     let selection = await this.tryJev(parent,message);
     if (!selection) {
       const model = await this.measuredModel();
-      parent.turns++;
+      // C5 agent (flag SALON_SECRETARY_AGENT, only inside its message context): a new request goes through the agent loop first; a
+      // fallback continues below with the calls and the time the message has left (the counter guards the C4's own calls).
+      const agent = agentMessage() && parent.multiActionV2 ? await this.sendAgent(actor, parent, message, model) : undefined;
+      if (agent?.view) { this.routerTrace.getStore()!.interpretationMs = performance.now() - interpretationStart; return agent.view; }
+      if (!agent) parent.turns++;
       const modelId = this.modelId();
       const measured = instrumentServicesModel(model,modelId,usageRecorder(actor,parent.id,randomUUID(),modelId));
       try {
@@ -1060,6 +1083,144 @@ export class SalonSecretary {
     markSecretaryTiming("T4");
     await this.recordAutomaticState(actor, parent);
     return this.view(parent);
+  }
+  // ================================================================ C5 agent (flag SALON_SECRETARY_AGENT; docs/c5-spike/11-especificacao-agente.md)
+  /** The owner's messages of this turn: after the agent's own "qual operação?" (no plan since), that thread's messages come first. */
+  private agentOwner(s: Session, message: string) {
+    return s.agentPending && !s.actionPlan && !s.children?.length ? [...s.agentPending.thread, message] : [message];
+  }
+  /** §1, §3.8, §5.5: a new request on the agent path, inside the message context (sendMessage). The loop answers with a plan, the C4 (with
+   * or without its repair, by the calls left) or the safe reply; the plan is checked by the fact validator, and what stands becomes the C4
+   * plan (prepareAgentPlan). Every agent failure (transport, protocol, schema, an invalid plan, a failing validation, an out-of-scope request)
+   * falls back to the C4 while the message has calls and time left, else the safe reply. `view`: this message's answer; `counted`: the
+   * turn is already counted (a fallback then continues on the C4 path with the same model). */
+  private async sendAgent(actor: ServiceActor, parent: Session, message: string, model: Model): Promise<{ view?: SecretaryView; counted: true }> {
+    const context = agentMessage()!, trace = this.routerTrace.getStore()!, pending = parent.agentPending;
+    parent.agentPending = undefined; parent.turns++;
+    const fallback = (code: string, loop?: AgentLoopTelemetry, validation?: AgentValidation): { view?: SecretaryView; counted: true } => {
+      const route = agentFallbackRoute(context);
+      trace.agent = agentTurnOutcome(context, { loop, validation, code, path: route.kind === "SAFE_REPLY" ? "AGENT" : context.calls.used() ? "C4_FALLBACK" : "C4_SKIPPED" });
+      return route.kind === "SAFE_REPLY" ? { view: this.agentSafeReply(parent, code), counted: true } : { counted: true };
+    };
+    const modelId = this.modelId();
+    let loop: AgentLoopOutcome;
+    try { loop = await runAgentTurn(instrumentAgentModel(model, modelId, usageRecorder(actor, parent.id, randomUUID(), modelId)), { modelId }); }
+    catch { return fallback("AGENT_UNAVAILABLE"); }
+    if (loop.kind === "SAFE_REPLY") {
+      trace.agent = agentTurnOutcome(context, { loop: loop.telemetry, path: "AGENT", code: loop.code });
+      return { view: this.agentSafeReply(parent, loop.code), counted: true };
+    }
+    if (loop.kind === "C4") { trace.agent = agentTurnOutcome(context, { loop: loop.telemetry, path: loop.telemetry.path, code: loop.code }); return { counted: true }; }
+    let validation: AgentValidation;
+    try { validation = await validateAgentPlanInTenant(actor, loop.plan, { owner: context.owner, binding: context.binding }); }
+    catch { return fallback("AGENT_UNAVAILABLE", loop.telemetry); }
+    this.get(actor, parent.id); // Fail closed if the session expired while the model answered.
+    if (!validation.ok) return fallback(validation.code, loop.telemetry, validation);
+    const outcome = (path: "AGENT", extra: { premises?: number } = {}) => { trace.agent = agentTurnOutcome(context, { loop: loop.telemetry, validation, path, code: null,
+      questionField: loop.kind === "PLAN" ? loop.plan.pergunta?.campo ?? null : null, ...extra }); };
+    // A request that is not about the agenda is the C4's (services, customers, stock, finance, messages): never a capability lost to the flag.
+    if (validation.result === "FORA_DO_ESCOPO" && agentFallbackRoute(context).kind === "C4") return fallback("AGENT_OUT_OF_SCOPE", loop.telemetry, validation);
+    if (validation.reply !== null) {
+      parent.capability_status = validation.result === "CONVERSA" ? "CONVERSATION" : "UNSUPPORTED"; parent.notice = agentNothingChanged(validation.reply);
+      outcome("AGENT"); return { view: this.view(parent), counted: true };
+    }
+    if (validation.question) {
+      // The one question outside a plan (§4): which operation. Its thread reaches the agent with the owner's next message, at most twice.
+      const turns = (pending?.turns ?? 0) + 1, asked = loop.plan.pergunta?.texto ?? "";
+      if (turns <= 2) parent.agentPending = { question: asked.slice(0, 200), thread: [...pending?.thread ?? [], message].slice(-2), turns };
+      parent.capability_status = "AMBIGUOUS"; parent.notice = agentNothingChanged(validation.question.text);
+      outcome("AGENT"); return { view: this.view(parent), counted: true };
+    }
+    let skeleton: AgentSkeleton;
+    try { skeleton = agentSkeleton(validation); } catch { return fallback("AGENT_SCHEMA", loop.telemetry, validation); }
+    if (!skeleton.selection) {
+      parent.capability_status = "AMBIGUOUS"; parent.notice = agentNothingChanged(skeleton.notices.join("\n") || AGENT_SAFE_REPLY);
+      outcome("AGENT"); return { view: this.view(parent), counted: true };
+    }
+    const prepared = new Map<string, AgentPrepared>();
+    const view = await this.prepareAgentPlan(actor, parent, skeleton as AgentSkeleton & { selection: CapabilitySelection }, prepared);
+    outcome("AGENT", { premises: [...prepared.values()].reduce((sum, item) => sum + item.premises.length, 0) });
+    return { view, counted: true };
+  }
+  /** §3.8: nothing understood safely and no call or time left for the C4: the reply says nothing was changed (B5 semantics). */
+  private agentSafeReply(parent: Session, code: string) {
+    parent.notice = AGENT_SAFE_REPLY; parent.capability_status = "AMBIGUOUS";
+    this.routerTrace.getStore()?.unread(code);
+    return this.view(parent);
+  }
+  /** §6.2, the sibling of prepareActionPlan: the validated plan's skeleton becomes the C4 plan (createActionPlan, actionUnits, groups), each
+   * unit prepared by its own adapter with the validator's values (prepareResolvedScheduling, the atomic pair, the deferred read); a unit that
+   * fails fails alone (failActionUnit). The backend premises and Luna's checked notes are this turn's notice (§5.5). */
+  private async prepareAgentPlan(actor: ServiceActor, parent: Session, skeleton: AgentSkeleton & { selection: CapabilitySelection }, prepared: Map<string, AgentPrepared>) {
+    // Entire plan authorized before loading or preparing any draft. Selection never grants access.
+    for (const id of skeleton.selection.skills) await this.authorize(actor, id);
+    const loaded = loadSkills({ skill_ids: skeleton.selection.skills });
+    parent.loaded = loaded.manuals.map(({ skill_id, version, manual_hash }) => ({ skill_id, version, manual_hash }));
+    await withTenant(actor, tx => tx.auditLog.create({ data: { salonId: actor.salonId, userId: actor.userId, actorName: "Secretária — capacidades",
+      entityType: "SECRETARY_SKILL_LOAD", entityId: parent.id, action: "SKILLS_LOADED", metadata: { session_id: parent.id, skills: parent.loaded!, capabilities: loaded.capabilities } } }));
+    parent.capability_status = undefined; parent.notice = undefined;
+    return this.preparePlanSafely(parent, async () => {
+      parent.actionPlan = createActionPlan(skeleton.selection, this.multiActionOptions.policy?.() ?? runtimeReviewConfiguration(process.env), "LUNA");
+      parent.actionUnits = actionUnits(parent.actionPlan); parent.children = [];
+      parent.agentPlan = parent.actionPlan.plan_ref;
+      this.routerTrace.getStore()?.interpreted(skeleton.selection.operations.length);
+      markSecretaryTiming("T3");
+      // V13: a derived value reads the referenced action's prepared slot (its accepted proposal, or a released slot's original).
+      const slot = (key: string, released: boolean) => { const unit = parent.actionUnits?.find(item => item.keys.includes(key)), child = unit?.child ? this.sessions.get(unit.child) : undefined;
+        return agentPreparedSlot(child?.scheduling, released); };
+      await this.planContext.run(parent.id, async () => {
+        for (const unit of parent.actionUnits!) {
+          try {
+            if (unit.kind !== "single" && unit.kind !== "scheduling-batch") throw Error("UNSUPPORTED_DEPENDENCY_ADAPTER");
+            const action = parent.actionPlan!.actions.find(item => item.key === unit.keys[0])!, outcome = skeleton.outcomes.get(action.key);
+            if (!outcome) throw Error("UNSUPPORTED_DEPENDENCY_ADAPTER");
+            const started = await this.start(actor, "scheduling"), child = this.get(actor, started.sessionId);
+            child.expires = parent.expires; child.inheritedInterpretation = true;
+            unit.child = child.id; parent.children!.push(child.id);
+            if (unit.kind === "scheduling-batch") {
+              const create = skeleton.outcomes.get(unit.keys[1]);
+              if (!create) throw Error("UNSUPPORTED_BATCH");
+              child.scheduling = undefined; child.batch = await prepareAgentBatch(actor, outcome, create, state => { child.batch = state; });
+            } else if (!action.mutation && action.depends_on.length) {
+              // A read after a write of the plan runs at the group's confirmation, like the C4's deferred read.
+              const preview = deferredReadPreview(action);
+              agentDeferredRead(child.scheduling!, outcome, preview);
+              parent.actionPlan = assessPlanAction(parent.actionPlan!, action.key, { status: "READY", missing_fields: [], preview });
+              continue;
+            } else prepared.set(action.key, await prepareAgentScheduling(actor, child.scheduling!, outcome, slot));
+            this.syncActionUnit(actor, parent, unit);
+          } catch (error) { if (error instanceof SecretaryRouteRequest) throw error; this.failActionUnit(parent, unit, error); }
+        }
+      });
+      const notice = agentTurnNotice(skeleton, prepared);
+      parent.turnNotice = notice ? { text: notice } : undefined;
+      markSecretaryTiming("T4");
+      await this.recordAutomaticState(actor, parent);
+      return this.view(parent);
+    });
+  }
+  /** V23: the children of these actions whose values stand on a derived basis. Without the agent: none (nothing is read). */
+  private agentBasisChildren(parent: Session, keys: readonly string[]) {
+    const open = (key: string) => keys.includes(key) && !terminalActionStatus(parent.actionPlan?.actions.find(action => action.key === key)?.status ?? "DONE");
+    return (parent.actionUnits ?? []).filter(unit => unit.child && unit.keys.some(open)).flatMap(unit => {
+      const basis = this.sessions.get(unit.child!)?.scheduling?.agent_basis;
+      return basis?.length ? [{ key: unit.keys[0], basis }] : [];
+    });
+  }
+  /** V23: an action's current prepared slot (links between actions of the plan). */
+  private agentSlot(parent: Session, key: string) {
+    const unit = parent.actionUnits?.find(item => item.keys.includes(key)), slot = agentPreparedSlot(unit?.child ? this.sessions.get(unit.child)?.scheduling : undefined);
+    return slot ? { startLocal: slot.startLocal, endLocal: slot.endLocal } : undefined;
+  }
+  /** V23: a group whose basis changed is held whole (zero writes): its derived values leave with their basis (asked again) and its proposals
+   * are withdrawn for review. */
+  private agentBasisChanged(parent: Session, keys: readonly string[]) {
+    for (const unit of parent.actionUnits ?? []) {
+      const scheduling = unit.child && unit.keys.some(key => keys.includes(key)) ? this.sessions.get(unit.child)?.scheduling : undefined;
+      // Forgotten whether or not a router trace is open (the Confirmar runs outside one): an optional call would skip its own arguments.
+      if (scheduling?.agent_basis?.length) { const codes = forgetAgentBasis(scheduling); this.routerTrace.getStore()?.failed(...codes); }
+    }
+    this.holdForReview(parent, keys, agentBasisChangedMessage);
   }
   /** C4 R-B2 (owner rule 8, V2): a single block said "between" something (its clause holds the preposition "entre"), with no link of its
    * own and referenced by no other action, is prepared after the other units, so the appointments it may lie between are already
@@ -1888,6 +2049,14 @@ export class SalonSecretary {
         return this.view(parent);
       }
       this.view(parent);
+      // C5 agent (V23): a group with values the agent's backend derived is re-checked whole against fresh rows before its first write; a
+      // changed basis holds the group (zero writes). Without derived values nothing is read.
+      const derived = group ? this.agentBasisChildren(parent, group.action_keys) : [];
+      if (group && derived.length && !await agentGroupPrecheck(actor, derived, key => this.agentSlot(parent, key))) {
+        this.agentBasisChanged(parent, group.action_keys);
+        await this.recordAutomaticState(actor, parent);
+        return this.view(parent);
+      }
       parent.actionPlan = await this.planContext.run(parent.id, () => executeConfirmationGroup(parent.actionPlan!, input, this.groupExecutor(actor, parent)));
       (parent.groupReceipts ??= new Set()).add(JSON.stringify(approval));
       await this.recordAfterCommit(parent, () => this.recordAutomaticState(actor, parent));
@@ -1964,6 +2133,9 @@ export class SalonSecretary {
           }
           const stale = this.changedProposalUnits(actor, parent, group.action_keys);
           if (stale.length) { for (const unit of stale) this.syncActionUnit(actor, parent, unit); changed(); continue; }
+          // C5 agent (V23): before EACH group, since an earlier group of this call may have changed what a derived value stands on.
+          const derived = this.agentBasisChildren(parent, group.action_keys);
+          if (derived.length && !await agentGroupPrecheck(actor, derived, key => this.agentSlot(parent, key))) { this.agentBasisChanged(parent, group.action_keys); changed(); continue; }
           parent.actionPlan = await executeConfirmationGroup(current, approval, this.groupExecutor(actor, parent));
           (parent.groupReceipts ??= new Set()).add(JSON.stringify(item.approval));
           report.executed.push(item.approval.group_key);
@@ -2295,7 +2467,8 @@ export class SalonSecretary {
       if(s.scheduling){
         const c=s.scheduling;if(s.cancelled||!c.proposal||c.proposal.proposal_ref!==parsed.proposal_ref||c.proposal.draft_revision!==parsed.draft_revision)throw Error("PROPOSAL_MISMATCH");
         const started=performance.now();
-        try{c.receipt=await withTenant(actor,tx=>confirmAppointmentCreate(tx,actor,parsed));c.metrics.confirmation=performance.now()-started;
+        // C5 agent (V23 (2)): a derived value's provenance is re-checked inside this very transaction (none: exactly as before).
+        try{c.receipt=await withTenant(actor,tx=>confirmAppointmentCreate(tx,actor,parsed,agentConfirmOptions(actor,c.agent_basis)));c.metrics.confirmation=performance.now()-started;
           const label=c.receipt.outcome==="PENDING_ACCEPTANCE"?"Horário remarcado, aguardando aceite do cliente":c.receipt.outcome==="RESCHEDULED"?"Agendamento remarcado":c.receipt.outcome==="CANCELLED"?"Agendamento cancelado":c.receipt.outcome==="BLOCKED"?"Agenda bloqueada":"Agendamento confirmado";
           c.message=`${label}. Referência: ${c.receipt.appointment_ref??c.receipt.block_ref}.`;await this.recordAfterCommit(s, () => persistSchedulingMetrics(actor,s.id,c));}
         catch(error){c.proposal=undefined;throw error;}return this.view(s);

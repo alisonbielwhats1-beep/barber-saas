@@ -46,6 +46,11 @@ export const storedSession = z.object({
   clarificationHistory: object.optional(),
   today: z.string().optional(),
   lastOutcome: z.object({ codes: z.array(code).max(32), contract_version: z.string().optional() }).strict().optional(),
+  // C5 agent (docs/c5-spike/11-especificacao-agente.md §6.2; written only with SALON_SECRETARY_AGENT, read whatever the flag says now, so a
+  // conversation saved with the flag on still loads with it off): the agent's open "qual operação?" question with the owner's messages of
+  // that thread (at most 2 exchanges), and the plan_ref of the active plan the agent built (the "Confirmar tudo" review dialog).
+  agentPending: z.object({ question: z.string().max(200), thread: z.array(z.string().max(2000)).max(2), turns: z.number().int().min(0).max(2) }).strict().optional(),
+  agentPlan: uuid.optional(),
   communication: object.optional(), inventory: object.optional(), financial: object.optional(), batch: object.optional(),
   scheduling: object.optional(), customer: object.optional(),
   draft: object.optional(), proposal: object.optional(), receipt: object.optional(),

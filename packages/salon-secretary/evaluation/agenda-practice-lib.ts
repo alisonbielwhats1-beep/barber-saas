@@ -8,6 +8,7 @@ import { hostname } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { runInNewContext } from 'node:vm';
 import { assertSecretaryResponsesPayload } from '../src/openai-cost-guard';
+import { AGENT_EFFORTS, AGENT_LIMITS, agentMissingDependencies } from '../src/agent-context';
 import type { FreeUseFixture } from './free-use-contract';
 import { armFlags, devBatteryMessages, devBatteryScenarios, exampleBankCorpus, formatRunStats, nameTokens, runStats, scenarioMessages, scenarioNames, similarityStrata,
   type ArmProfile, type PasskArm } from './agenda-practice-stats';
@@ -18,13 +19,18 @@ export const PRICE = { inputPerM: 0.10, cacheWritePerM: 0.125, outputPerM: 0.50,
  * RESERVATIONS (worst case per call, ~10x the real cost); the real money limit is the program ledger (program-spend.ts,
  * US$ 15.00 since 29/09, see PROGRAM_CAP_HISTORY), enforced for every paid call whatever the stage. `final-20260929`: the final battery (sealed holdouts and
  * validation set), its own journal so development runs never eat its headroom. Candidate 4 (29/09): `c4-dev-20260929` for its
- * real-model DEV checks and `c4-proof-20260930` for its sealed proof, each with its own journal (the older stages keep theirs). */
+ * real-model DEV checks and `c4-proof-20260930` for its sealed proof, each with its own journal (the older stages keep theirs).
+ * Candidate 5 (30/09, docs/c5-spike/11 §10): `c5-agent-20261001` for the paired C4 × agent batteries (S1 to S5, both arms). With
+ * up to 3 calls per owner message the agent arm reserves ~3x a C4 run of the same scenarios; the stage never releases a
+ * reservation, so its cap (US$ 60 of reservations) covers S1-S5 of both arms with margin, while the program ledger stays the
+ * real-money limit. */
 export const AGENDA_STAGES = {
   'agenda-core-20260927': { journal: 'stage-budget.jsonl', capMicroUsd: 7_000_000 },
   'reliability-20260927': { journal: 'reliability-stage-budget.jsonl', capMicroUsd: 15_000_000 },
   'final-20260929': { journal: 'final-20260929-stage-budget.jsonl', capMicroUsd: 40_000_000 },
   'c4-dev-20260929': { journal: 'c4-dev-20260929-stage-budget.jsonl', capMicroUsd: 15_000_000 },
   'c4-proof-20260930': { journal: 'c4-proof-20260930-stage-budget.jsonl', capMicroUsd: 40_000_000 },
+  'c5-agent-20261001': { journal: 'c5-agent-20261001-stage-budget.jsonl', capMicroUsd: 60_000_000 },
 } as const;
 export type AgendaStageName = keyof typeof AGENDA_STAGES;
 export const LEGACY_AGENDA_STAGE: AgendaStageName = 'agenda-core-20260927';
@@ -69,13 +75,14 @@ export function stageTotals(file: string, stage: AgendaStageName = LEGACY_AGENDA
   return { name: stage, requests: rows.length, reservedUsd: reservedMicroUsd / 1e6, reservedMicroUsd, remainingMicroUsd: cap - reservedMicroUsd, capUsd: cap / 1e6 };
 }
 /** `lease`: the run's held stage lease (the runner always passes it; reserve() then refuses a stage leased by anyone else).
- * `lockWaitMs`: the bounded lock wait (default STAGE_LOCK_WAIT_MS; tests shorten it). */
-export type ReserveOptions = { lease?: StageLease; lockWaitMs?: number };
+ * `lockWaitMs`: the bounded lock wait (default STAGE_LOCK_WAIT_MS; tests shorten it). `agent` (C5): the runner's agent arm
+ * (SALON_SECRETARY_AGENT, read once by the runner): the payload guard then admits the agent's wire too; the C4 wire is checked as before. */
+export type ReserveOptions = { lease?: StageLease; lockWaitMs?: number; agent?: boolean };
 /** Admission before transport: payload guard, input cap, exclusive lock (bounded wait), stage lease, stage cap, fsynced
  * hash-chained row. A lock still held after the wait is AGENDA_STAGE_LOCKED (never a raw errno); the journal is untouched. */
 export function reserve(file: string, run: string, scenario: string, step: number, body: string, stage: AgendaStageName = LEGACY_AGENDA_STAGE, opts: ReserveOptions = {}): Reservation {
   const { capMicroUsd } = stageFile(file, stage);
-  const payload = JSON.parse(body); assertSecretaryResponsesPayload(payload, 'gpt-6-luna');
+  const payload = JSON.parse(body); assertSecretaryResponsesPayload(payload, 'gpt-6-luna', { agent: opts.agent === true });
   const bodyBytes = Buffer.byteLength(body, 'utf8'), inputUpper = bodyBytes + PRICE.framing;
   if (inputUpper > PRICE.maxInput) throw Error('AGENDA_INPUT_CAP');
   const reservedMicroUsd = reservationMicroUsd(bodyBytes, payload.max_output_tokens);
@@ -769,17 +776,48 @@ export function validateScenarios(input: unknown): AgendaScenario[] {
   }
   return input as AgendaScenario[];
 }
+/** `--ids-file` (C5 §6.2): a JSON array of scenario ids, or one id per line (`#` starts a comment). Ids only, unique; anything else
+ * is AGENDA_IDS_FILE (codes only: the file's text is never echoed). */
+export function readScenarioIds(file: string): string[] {
+  let ids: unknown;
+  try { const text = readFileSync(file, 'utf8').replace(/^\uFEFF/, '').trim(); ids = text.startsWith('[') ? JSON.parse(text) : text.split(/\r?\n/).map(l => l.replace(/#.*/, '').trim()).filter(Boolean); }
+  catch { throw Error('AGENDA_IDS_FILE'); }
+  if (!Array.isArray(ids) || !ids.length || ids.some(id => typeof id !== 'string' || !/^[A-Za-z][A-Za-z0-9_-]{0,31}$/.test(id)) || new Set(ids).size !== ids.length) throw Error('AGENDA_IDS_FILE');
+  return ids as string[];
+}
+/** The scenarios whose id is in `ids`, in the scenario files' order; an id no scenario has is AGENDA_UNKNOWN_SCENARIO (a count, no id). */
+export function selectScenarioIds<T extends { id: string }>(scenarios: readonly T[], ids: readonly string[]): T[] {
+  const unknown = ids.filter(id => !scenarios.some(s => s.id === id)).length;
+  if (unknown) throw Object.assign(Error('AGENDA_UNKNOWN_SCENARIO'), { details: { unknown } });
+  return scenarios.filter(s => ids.includes(s.id));
+}
+
+// ---------------------------------------------------------------- C5 agent arm (SALON_SECRETARY_AGENT; evaluation side)
+/** The arm is the product flag itself, read ONCE by the runner and passed explicitly to the payload guard, the stage journal and the
+ * program ledger (none of them reads it). An agent message may cost up to 3 paid calls (2 lookup rounds + the forced plan, the C4
+ * fallback included: spec §3.8), and with Phase 1 a scripted answer may open a new request too, so both reserve 3. */
+export const AGENT_CALLS_PER_MESSAGE: number = AGENT_LIMITS.callsPerMessage;
+export const agentArm = (env: Readonly<Record<string, string | undefined>>) => env.SALON_SECRETARY_AGENT === 'true';
+/** An agent arm whose dependency flags are not all on, or whose effort is invalid, would silently answer through the C4
+ * (AGENT_FLAGS_INCOMPLETE / AGENT_EFFORT_INVALID): refused before any file, database or network. Codes and flag names only. */
+export function assertAgentArm(env: Readonly<Record<string, string | undefined>>) {
+  const missing = agentMissingDependencies(env);
+  if (missing.length) throw Object.assign(Error('AGENDA_AGENT_FLAGS_INCOMPLETE'), { details: { missing } });
+  const effort = env.SALON_SECRETARY_AGENT_EFFORT;
+  if (effort !== undefined && !(AGENT_EFFORTS as readonly string[]).includes(effort)) throw Error('AGENDA_AGENT_EFFORT');
+}
 
 // ---------------------------------------------------------------- preflight: headroom and run day
-export function expectedCalls(s: AgendaScenario) {
+/** `agent` (C5 arm): 3 calls per say and per scripted answer; otherwise the historical 2 per say (+1 repair) and 1 per answer. */
+export function expectedCalls(s: AgendaScenario, opts: { agent?: boolean } = {}) {
   const says = s.steps.filter(step => 'say' in step).length;
   const answers = Object.values(s.answers ?? {}).reduce((n, spec) => n + answerInstances(spec).length, 0);
-  return { says, answers, calls: 2 * says + answers }; // +1 repair margin per say
+  return { says, answers, calls: opts.agent ? AGENT_CALLS_PER_MESSAGE * (says + answers) : 2 * says + answers }; // +1 repair margin per say
 }
 /** `extraRequests`: requests beyond K passes (F2: the one rerun a midnight rollover may cost), reserved like any other. */
 export function headroomEstimate(input: { scenarios: AgendaScenario[]; repeat: number; spentMicroUsd: number; capMicroUsd: number;
-  perPassMaxRequests?: number; bodyBytes?: number; maxOutputTokens?: number; extraRequests?: number }) {
-  const callsPerPass = input.scenarios.reduce((n, s) => n + expectedCalls(s).calls, 0), calls = callsPerPass * input.repeat;
+  perPassMaxRequests?: number; bodyBytes?: number; maxOutputTokens?: number; extraRequests?: number; agent?: boolean }) {
+  const callsPerPass = input.scenarios.reduce((n, s) => n + expectedCalls(s, { agent: input.agent }).calls, 0), calls = callsPerPass * input.repeat;
   const perPass = input.perPassMaxRequests ?? callsPerPass, maxRequests = perPass * input.repeat + Math.max(0, Math.trunc(input.extraRequests ?? 0));
   const perCallMicroUsd = reservationMicroUsd(input.bodyBytes ?? ESTIMATE_BODY_BYTES, input.maxOutputTokens ?? DEFAULT_OUTPUT_TOKENS);
   const requiredMicroUsd = maxRequests * perCallMicroUsd, remainingMicroUsd = input.capMicroUsd - input.spentMicroUsd;
@@ -843,7 +881,7 @@ export const MIDNIGHT_WAKE_MS = 30_000, MIDNIGHT_SLEEP_MAX_MS = 30 * 60_000;
 export const RUN_ESTIMATE_CALL_MS = 12_000, RUN_ESTIMATE_ATTEMPT_MS = 5_000;
 /** 90 s until 20 calls were measured, then the run's p99 x 1.5. */
 export const perCallBudgetMs = (latenciesMs: number[]) => latenciesMs.length >= 20 ? Math.max(1_000, Math.ceil(percentile(latenciesMs, 0.99)! * 1.5)) : PER_CALL_BUDGET_MS;
-export const scenarioBudgetMs = (s: AgendaScenario, perCallMs: number = PER_CALL_BUDGET_MS) => expectedCalls(s).calls * perCallMs + SCENARIO_MARGIN_MS;
+export const scenarioBudgetMs = (s: AgendaScenario, perCallMs: number = PER_CALL_BUDGET_MS, agent = false) => expectedCalls(s, { agent }).calls * perCallMs + SCENARIO_MARGIN_MS;
 export type MidnightGuard = { action: 'RUN' | 'SLEEP' | 'RUN_UNGUARDED'; remainingMs: number; budgetMs: number; sleepMs: number; code?: 'AGENDA_MIDNIGHT_SLEEP_LIMIT' };
 /** Decided by the clock only (never by an outcome), before each scenario attempt: when less time than the attempt's budget is
  * left before São Paulo midnight, sleep until 00:00:30 and anchor the new day. A sleep over 30 min is refused (the attempt then
@@ -855,8 +893,8 @@ export function midnightGuard(now: Date, budgetMs: number): MidnightGuard {
   if (sleepMs > MIDNIGHT_SLEEP_MAX_MS) return { action: 'RUN_UNGUARDED', remainingMs, budgetMs, sleepMs: 0, code: 'AGENDA_MIDNIGHT_SLEEP_LIMIT' };
   return { action: 'SLEEP', remainingMs, budgetMs, sleepMs };
 }
-export const runEstimateMs = (scenarios: AgendaScenario[], repeat: number) =>
-  repeat * scenarios.reduce((n, s) => n + expectedCalls(s).calls * RUN_ESTIMATE_CALL_MS + RUN_ESTIMATE_ATTEMPT_MS, 0);
+export const runEstimateMs = (scenarios: AgendaScenario[], repeat: number, agent = false) =>
+  repeat * scenarios.reduce((n, s) => n + expectedCalls(s, { agent }).calls * RUN_ESTIMATE_CALL_MS + RUN_ESTIMATE_ATTEMPT_MS, 0);
 /** Every São Paulo day from `now` through `now + horizonMs`. */
 export function reachableDays(now: Date, horizonMs: number) {
   const first = todayInSaoPaulo(now), last = todayInSaoPaulo(new Date(now.getTime() + Math.max(0, horizonMs))), days = [first];
@@ -882,9 +920,79 @@ export function dayWindowPreflight(scenarios: AgendaScenario[], now: Date, estim
 export type DayWindow = ReturnType<typeof dayWindowPreflight>;
 
 // ---------------------------------------------------------------- versions, flags, telemetry
-/** `examples`: the C2 contract tag (mode, K, bank + notation hash); null/absent when off keeps the historical digest. */
-export function requestVersion(payload: { instructions?: unknown; tools?: { parameters?: unknown }[]; model?: unknown }, examples?: string | null) {
-  return digest(String(payload.instructions ?? '') + JSON.stringify(payload.tools?.[0]?.parameters ?? null) + String(payload.model ?? '') + (examples ? '|' + examples : ''));
+/** `examples`: the C2 contract tag (mode, K, bank + notation hash); null/absent when off keeps the historical digest. A request
+ * with several tools (the C5 agent's six) also digests every tool after the first (name and parameters), so a change in any of them
+ * is another version; a one-tool request (the C4) keeps its historical digest. */
+export function requestVersion(payload: { instructions?: unknown; tools?: { name?: unknown; parameters?: unknown }[]; model?: unknown }, examples?: string | null) {
+  const more = Array.isArray(payload.tools) && payload.tools.length > 1 ? '|' + JSON.stringify(payload.tools.slice(1).map(t => [t?.name ?? null, t?.parameters ?? null])) : '';
+  return digest(String(payload.instructions ?? '') + JSON.stringify(payload.tools?.[0]?.parameters ?? null) + String(payload.model ?? '') + (examples ? '|' + examples : '') + more);
+}
+/** C5 §9.4 (the evaluator is frozen before S2 and recorded in both arms): the harness, the answer delivery, the fixture seeding and
+ * the final-state oracles every attempt is run and graded with. Line endings folded (an autocrlf checkout hashes alike); a missing
+ * file is part of the digest. Two arms whose runs disagree are CONFOUNDED (armProfile / armDifferences). */
+export const EVALUATOR_FILES = ['packages/salon-secretary/evaluation/agenda-practice.ts', 'packages/salon-secretary/evaluation/agenda-practice-lib.ts',
+  'packages/salon-secretary/evaluation/agenda-practice-noise.ts', 'packages/salon-secretary/evaluation/agenda-practice-seed.ts', 'packages/salon-secretary/evaluation/agenda-practice-check.cjs',
+  'packages/salon-secretary/evaluation/free-use-fixture.ts', 'packages/salon-secretary/evaluation/free-use-contract.ts'] as const;
+export function evaluatorVersion(root: string = process.cwd()) {
+  const part = (file: string) => { let text: string; try { text = readFileSync(join(root, file), 'utf8').replace(/\r\n/g, '\n'); } catch { text = '\0MISSING'; } return `${file}:${digest(text)}`; };
+  return `agenda-evaluator-${digest(EVALUATOR_FILES.map(part).join('\n')).slice(0, 16)}`;
+}
+/** One paid call of an agent-arm step, as the runner records it for the offline replay (§8.5): what the model emitted (the calls
+ * with their arguments, the kinds of the output items in order; reasoning only as the sha256 of its encrypted_content, commentary
+ * only counted), the sha256 of every tool output the request sent back, the round's `tool_choice`, the request version and the clock.
+ * A C4 call (the fallback, or a continuation with an active plan) keeps its interpretation arguments. Never message text beyond what
+ * the model's own arguments carry (the same as `luna`). */
+export type AgentCallRecord = { n: number; kind: 'AGENT' | 'C4'; at: string; version: string; status?: string; http?: number; error?: string; forced?: boolean;
+  /** Output items in order: `reasoning`, `function_call`, `message[:<phase>]` or another type; `sizes` = the length of each item's
+   * opaque text (encrypted content, commentary text; 0 otherwise), so a replay stand-in keeps the request bytes the loop measured. */
+  items?: string[]; sizes?: number[]; reasoning?: string[]; calls?: { call_id: string; name: string; arguments: string }[]; outputs?: { call_id: string; sha256: string }[]; arguments?: string };
+type Json = Record<string, unknown>;
+const jsonObject = (v: unknown): v is Json => !!v && typeof v === 'object' && !Array.isArray(v);
+const itemKind = (o: Json) => o.type === 'message' ? `message${typeof o.phase === 'string' ? ':' + codeLabel(o.phase) : ''}` : codeLabel(String(o.type ?? 'unknown')) || 'unknown';
+const itemSize = (o: Json) => o.type === 'reasoning' ? (typeof o.encrypted_content === 'string' ? o.encrypted_content.length : 0)
+  : o.type === 'message' && Array.isArray(o.content) ? o.content.reduce((n: number, part: unknown) => n + (jsonObject(part) && typeof part.text === 'string' ? part.text.length : 0), 0) : 0;
+/** `payload`: the request body sent; `json`: the response body (undefined when unreadable); `http`: the response status. */
+export function agentCallRecord(n: number, at: string, version: string, payload: unknown, json: unknown, http = 200): AgentCallRecord {
+  const p: Json = jsonObject(payload) ? payload : {}, r: Json = jsonObject(json) ? json : {}, out = Array.isArray(r.output) ? r.output.filter(jsonObject) : [];
+  const head = { n, at, version, ...(typeof r.status === 'string' ? { status: codeLabel(r.status) } : {}), ...(http !== 200 ? { http } : {}) };
+  if (!(Array.isArray(p.tools) && p.tools.length > 1)) {
+    const args = out.find(o => o.type === 'function_call')?.arguments;
+    return { ...head, kind: 'C4', ...(typeof args === 'string' ? { arguments: args } : {}) };
+  }
+  const input = Array.isArray(p.input) ? p.input.filter(jsonObject) : [], text = (v: unknown) => typeof v === 'string' ? v : JSON.stringify(v ?? null);
+  return { ...head, kind: 'AGENT', forced: jsonObject(p.tool_choice), items: out.map(itemKind), sizes: out.map(itemSize),
+    reasoning: out.filter(o => o.type === 'reasoning').map(o => digest(typeof o.encrypted_content === 'string' ? o.encrypted_content : '')),
+    calls: out.filter(o => o.type === 'function_call').map(o => ({ call_id: String(o.call_id ?? ''), name: String(o.name ?? ''), arguments: typeof o.arguments === 'string' ? o.arguments : '' })),
+    outputs: input.filter(i => i.type === 'function_call_output').map(i => ({ call_id: String(i.call_id ?? ''), sha256: digest(text(i.output)) })) };
+}
+/** Usage of an agent-arm run per call position in its step (r1..r3; `c4` = a C4 call of that position is counted apart): calls,
+ * tokens, provider latency and the token-priced estimate. Numbers only. */
+export type RoundUsage = { round?: number; record?: Pick<AgentCallRecord, 'kind'>; input: number; cached: number; output: number; latencyMs: number };
+export function agentUsageByRound(usage: readonly RoundUsage[]) {
+  const groups = new Map<string, RoundUsage[]>();
+  for (const u of usage) { const key = `${u.record?.kind === 'C4' ? 'c4:' : ''}r${u.round ?? 0}`; groups.set(key, [...groups.get(key) ?? [], u]); }
+  return Object.fromEntries([...groups].sort(([a], [b]) => a.localeCompare(b)).map(([key, list]) => [key, { calls: list.length, input: list.reduce((n, u) => n + u.input, 0),
+    cached: list.reduce((n, u) => n + u.cached, 0), output: list.reduce((n, u) => n + u.output, 0), latencyMs: { p50: percentile(list.map(u => u.latencyMs), 0.5), p90: percentile(list.map(u => u.latencyMs), 0.9) },
+    estimatedUsd: Number(list.reduce((n, u) => n + tokenCostUsd(u), 0).toFixed(6)) }]));
+}
+/** C5 §6.3: the program ledger's calls of one run by the round suffix of their item (`…:s<step>:r<n>`, agent arm only; `other`
+ * otherwise), and the cost per owner message (the calls sharing `…:s<step>`): settled calls at their charge, open ones at the worst
+ * case. `rows`: the ledger's rows as stored (the caller validated the chain with programSpendTotals first). Numbers only. */
+export function spendByRound(rows: readonly unknown[], run: string) {
+  const reserves = new Map<string, { item: string; worst: number }>(), charged = new Map<string, number>();
+  for (const row of rows) {
+    if (!jsonObject(row) || typeof row.id !== 'string') continue;
+    if (row.kind === 'RESERVE' && row.run === run && typeof row.item === 'string') reserves.set(row.id, { item: row.item, worst: Number(row.worstCaseMicroUsd) || 0 });
+    else if (row.kind === 'SETTLE') charged.set(row.id, Number(row.chargedMicroUsd) || 0);
+  }
+  const rounds: Record<string, { calls: number; microUsd: number; open: number }> = {}, messages = new Map<string, number>();
+  for (const [id, r] of reserves) {
+    const m = /^(.*:s\d+)(?::r(\d+))?$/.exec(r.item), settled = charged.get(id), micro = settled ?? r.worst, round = rounds[m?.[2] ? `r${m[2]}` : 'other'] ??= { calls: 0, microUsd: 0, open: 0 };
+    round.calls++; round.microUsd += micro; if (settled === undefined) round.open++;
+    if (m) messages.set(m[1], (messages.get(m[1]) ?? 0) + micro);
+  }
+  const per = [...messages.values()];
+  return { rounds, messages: per.length, perMessageMicroUsd: { mean: per.length ? Math.round(per.reduce((a, b) => a + b, 0) / per.length) : null, p50: percentile(per, 0.5), p90: percentile(per, 0.9) } };
 }
 /** SALON_SECRETARY_* switches only; credentials/identifiers are never copied. */
 export function secretaryFlagSnapshot(env: Record<string, string | undefined>) {
@@ -1060,7 +1168,9 @@ export type TranscriptRow = { step: number; action?: string; note?: string; inpu
   luna?: (string | undefined | null)[]; tokens?: { input: number; cached: number; output: number }; view?: ViewSummary; db?: DbState;
   /** Codes-only SECRETARY_ROUTER row of the turn (its `outcome` carries the C2 examples_* counters). */
   router?: { outcome?: { examples_mode?: string; examples_count?: number; examples_bytes?: number; examples_eligible?: number;
-    /** The turn's codes (e.g. READ_UPCOMING: the read projection v2 marker). */ divergence?: { failed_codes?: unknown } | null } | null } | null };
+    /** The turn's codes (e.g. READ_UPCOMING: the read projection v2 marker). */ divergence?: { failed_codes?: unknown } | null;
+    /** C5 (§6.4): the agent's path and counters of the turn (absent on C4 runs and on turns the agent was not eligible for). */ agent?: AgentTurnOutcome | null } | null } | null;
+  /** C5 agent arm only: every paid call of the step (the offline replay's input; AgentCallRecord). */ agentCalls?: AgentCallRecord[] };
 const stable = (v: unknown): string => Array.isArray(v) ? `[${v.map(stable).join(',')}]` : v && typeof v === 'object'
   ? `{${Object.keys(v as object).sort().map(k => JSON.stringify(k) + ':' + stable((v as Record<string, unknown>)[k])).join(',')}}` : JSON.stringify(v ?? null);
 const bare = (f: string) => f.includes('.') ? f.slice(f.indexOf('.') + 1) : f;
@@ -1140,6 +1250,83 @@ export function percentile(values: number[], p: number) {
   const sorted = [...values].sort((a, b) => a - b); return sorted[Math.min(sorted.length - 1, Math.max(0, Math.ceil(p * sorted.length) - 1))];
 }
 export const tokenCostUsd = (t: { input: number; cached: number; output: number }) => ((t.input - t.cached) * PRICE.inputPerM + t.cached * PRICE.inputPerM * 0.1 + t.output * PRICE.outputPerM) / 1e6;
+
+// ---------------------------------------------------------------- C5 agent arm: per-path report (codes and numbers only)
+/** The agent block of a turn's router outcome (spec §6.4, written by the app through the codes-only router row). */
+export type AgentTurnOutcome = { path?: unknown; rounds?: unknown; lookup_calls?: unknown; fallback_code?: unknown; truncated?: unknown; question_field?: unknown;
+  uncovered?: unknown; actions_left?: unknown; locate_disagree?: unknown; effort?: unknown;
+  validator?: { accepted?: unknown; name_fallback?: unknown; carded?: unknown; asked?: unknown; dropped?: unknown; codes?: unknown } | null };
+export const AGENT_PATHS = ['AGENT', 'C4_FALLBACK', 'C4_SKIPPED'] as const;
+export type AgentPathName = (typeof AGENT_PATHS)[number];
+/** Owner decision 23 (§10.3 item 6): the agent may answer through the C4 on at most 15% of the messages it is eligible for. */
+export const AGENT_FALLBACK_CAP = 0.15;
+/** Validator codes of the rules whose rate S0 predicts (§6.4, §10.2: V9 temporal reading and half-day question, V11 kept value,
+ * V12 anchor); a test pins them against AGENT_VALIDATOR_CODES. */
+export const AGENT_RULE_CODES: Readonly<Record<'V9' | 'V11' | 'V12', readonly string[]>> = Object.freeze({
+  V9: ['AGENT_TEMPORAL_READING', 'AGENT_DAYPART_ASK'], V11: ['AGENT_KEEP_UNPROVEN'], V12: ['AGENT_ANCHOR_MISMATCH', 'AGENT_ANCHOR_ROLE'] });
+const AGENT_RULES = ['V9', 'V11', 'V12'] as const;
+const VALIDATOR_COUNTS = ['accepted', 'name_fallback', 'carded', 'asked', 'dropped'] as const;
+const nonNegative = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : 0;
+/** The agent outcome of a turn, when it names a known path. */
+export function agentTurnOf(row: Pick<TranscriptRow, 'router'>): (AgentTurnOutcome & { path: AgentPathName }) | undefined {
+  const a = row.router?.outcome?.agent;
+  return a && typeof a === 'object' && (AGENT_PATHS as readonly unknown[]).includes(a.path) ? a as AgentTurnOutcome & { path: AgentPathName } : undefined;
+}
+/** What the pass^k report keeps of one graded attempt for the agent block (never text). */
+export type AgentAttemptTurns = { ok: boolean; safety: number; capability: readonly string[];
+  turns: { outcome: AgentTurnOutcome & { path: AgentPathName }; calls: number; latencyMs?: number; tokens?: { input: number; cached: number; output: number } }[] };
+export const agentAttemptTurns = (grade: { ok: boolean; safety: readonly string[] }, capability: readonly string[], rows: readonly TranscriptRow[]): AgentAttemptTurns => ({
+  ok: grade.ok, safety: grade.safety.length, capability: [...capability],
+  turns: rows.flatMap(t => { const outcome = agentTurnOf(t); return outcome ? [{ outcome, calls: t.calls ?? 0, ...(t.latencyMs !== undefined ? { latencyMs: t.latencyMs } : {}), ...(t.tokens ? { tokens: t.tokens } : {}) }] : []; }) });
+type PathTotals = { turns: number; calls: Record<string, number>; callSum: number; lookups: number; latency: number[]; usd: number };
+/** §6.4 / §10.3 per-path report of an agent arm: the eligible messages by path (AGENT, C4_FALLBACK, C4_SKIPPED) with paid calls per
+ * message, lookups, latency and token cost; the fallback share against decision 23's 15%; the fallback codes; the validator's effects
+ * and codes with the V9/V11/V12 rates; pass and SAFETY per attempt path (AGENT = every eligible message of the attempt went through
+ * the agent; C4 = at least one fell to the C4; NONE = none was eligible); mean calls per message by capability (the efficiency metric
+ * of §3.4, reported, never tuned on). Codes and numbers only. */
+export function agentArmSummary(attempts: readonly AgentAttemptTurns[]) {
+  const paths = Object.fromEntries(AGENT_PATHS.map(p => [p, { turns: 0, calls: {}, callSum: 0, lookups: 0, latency: [], usd: 0 } as PathTotals])) as Record<AgentPathName, PathTotals>;
+  const fallbackCodes: Record<string, number> = {}, codes: Record<string, number> = {}, rules = { V9: 0, V11: 0, V12: 0 }, byCapability: Record<string, { turns: number; calls: number }> = {};
+  const validator = Object.fromEntries(VALIDATOR_COUNTS.map(k => [k, 0])) as Record<(typeof VALIDATOR_COUNTS)[number], number>;
+  const byAttempt = { AGENT: { attempts: 0, passed: 0, safety: 0 }, C4: { attempts: 0, passed: 0, safety: 0 }, NONE: { attempts: 0, passed: 0, safety: 0 } };
+  let eligible = 0;
+  for (const a of attempts) {
+    for (const t of a.turns) {
+      const o = t.outcome, p = paths[o.path], bucket = t.calls > AGENT_CALLS_PER_MESSAGE ? `${AGENT_CALLS_PER_MESSAGE + 1}+` : String(t.calls);
+      eligible++; p.turns++; p.calls[bucket] = (p.calls[bucket] ?? 0) + 1; p.callSum += t.calls; p.lookups += nonNegative(o.lookup_calls);
+      if (t.latencyMs !== undefined) p.latency.push(t.latencyMs);
+      if (t.tokens) p.usd += tokenCostUsd(t.tokens);
+      if (o.path !== 'AGENT') { const code = typeof o.fallback_code === 'string' && o.fallback_code && CODE.test(o.fallback_code) ? o.fallback_code : 'UNKNOWN'; fallbackCodes[code] = (fallbackCodes[code] ?? 0) + 1; }
+      const v: Json = jsonObject(o.validator) ? o.validator : {}, list = Array.isArray(v.codes) ? v.codes.filter((c): c is string => typeof c === 'string' && CODE.test(c)) : [];
+      for (const k of VALIDATOR_COUNTS) validator[k] += nonNegative(v[k]);
+      for (const c of new Set(list)) codes[c] = (codes[c] ?? 0) + 1;
+      for (const rule of AGENT_RULES) if (list.some(c => AGENT_RULE_CODES[rule].includes(c))) rules[rule]++;
+      for (const cap of a.capability) { const c = byCapability[cap] ??= { turns: 0, calls: 0 }; c.turns++; c.calls += t.calls; }
+    }
+    const group = byAttempt[!a.turns.length ? 'NONE' : a.turns.some(t => t.outcome.path !== 'AGENT') ? 'C4' : 'AGENT'];
+    group.attempts++; if (a.ok) group.passed++; if (a.safety) group.safety++;
+  }
+  const r3 = (x: number) => Number(x.toFixed(3)), fallback = paths.C4_FALLBACK.turns + paths.C4_SKIPPED.turns, calls = AGENT_PATHS.reduce((n, p) => n + paths[p].callSum, 0);
+  return { eligibleTurns: eligible, fallbackShare: eligible ? r3(fallback / eligible) : null, fallbackCap: AGENT_FALLBACK_CAP, overFallbackCap: eligible > 0 && fallback / eligible > AGENT_FALLBACK_CAP,
+    meanCallsPerMessage: eligible ? r3(calls / eligible) : null,
+    paths: Object.fromEntries(AGENT_PATHS.map(p => { const x = paths[p]; return [p, { turns: x.turns, calls: x.calls, meanCalls: x.turns ? r3(x.callSum / x.turns) : null,
+      lookupsPerTurn: x.turns ? r3(x.lookups / x.turns) : null, latencyMs: { p50: percentile(x.latency, 0.5), p90: percentile(x.latency, 0.9) },
+      estimatedUsdPerTurn: x.turns ? Number((x.usd / x.turns).toFixed(6)) : null }]; })) as Record<AgentPathName, { turns: number; calls: Record<string, number>; meanCalls: number | null;
+      lookupsPerTurn: number | null; latencyMs: { p50: number | null; p90: number | null }; estimatedUsdPerTurn: number | null }>,
+    fallbackCodes, validator: { ...validator, codes, rules: Object.fromEntries(AGENT_RULES.map(rule => [rule, { turns: rules[rule], rate: eligible ? r3(rules[rule] / eligible) : null }])) },
+    attempts: Object.fromEntries(Object.entries(byAttempt).map(([k, g]) => [k, { ...g, pass1: g.attempts ? r3(g.passed / g.attempts) : null }])),
+    byCapability: Object.fromEntries(Object.entries(byCapability).sort(([a], [b]) => a.localeCompare(b)).map(([cap, c]) => [cap, { turns: c.turns, meanCalls: r3(c.calls / c.turns) }])) };
+}
+export type AgentArmSummary = ReturnType<typeof agentArmSummary>;
+/** Table lines of the agent block (codes and numbers; capability rows are left to the JSON report). */
+export function formatAgentArm(a: AgentArmSummary) {
+  const f = (v: number | null) => v === null ? '-' : v.toFixed(3), calls = (c: Record<string, number>) => Object.entries(c).sort(([x], [y]) => x.localeCompare(y)).map(([k, n]) => `${k}:${n}`).join(' ') || '-';
+  return [`AGENT eligible=${a.eligibleTurns} fallback=${f(a.fallbackShare)} (cap ${a.fallbackCap}${a.overFallbackCap ? ' OVER' : ''}) calls/message=${f(a.meanCallsPerMessage)}`,
+    ...AGENT_PATHS.map(p => { const x = a.paths[p]; return `  path ${p.padEnd(11)} turns=${x.turns} calls[${calls(x.calls)}] lookups/turn=${f(x.lookupsPerTurn)} p50/p90=${x.latencyMs.p50 ?? '-'}/${x.latencyMs.p90 ?? '-'}ms usd/turn=${x.estimatedUsdPerTurn ?? '-'}`; }),
+    `  attempts ${Object.entries(a.attempts).map(([k, g]) => `${k}=${g.passed}/${g.attempts} safety=${g.safety}`).join(' ')}`,
+    `  validator accepted=${a.validator.accepted} name=${a.validator.name_fallback} card=${a.validator.carded} ask=${a.validator.asked} drop=${a.validator.dropped} ${Object.entries(a.validator.rules).map(([k, v]) => `${k}=${v.turns}`).join(' ')}`,
+    ...(Object.keys(a.fallbackCodes).length ? [`  fallback codes ${Object.entries(a.fallbackCodes).sort(([x], [y]) => x.localeCompare(y)).map(([k, n]) => `${k}=${n}`).join(' ')}`] : [])];
+}
 
 // ---------------------------------------------------------------- pass^k report (offline)
 type ResultFile = { scenario: AgendaScenario; initial: DbState; transcript: TranscriptRow[]; today?: string; attempt?: number; complete?: boolean; abort?: string; version?: string | null;
@@ -1433,6 +1620,8 @@ export function buildPasskReport(runDir: string, opts: { legacyCheck?: string } 
   // A discarded attempt is graded for SAFETY only (discardedAttemptSafety): any code makes the run not valid and counts as a
   // safety attempt of the run; a discarded file that cannot be graded is a grader error (fail closed).
   const discarded: { id: string; k: number; cause: string }[] = [], discardedSafety: { id: string; k: number; codes: string[] }[] = [];
+  // C5: what the agent block keeps of each graded attempt (paths and counters of its eligible turns; empty on C4 runs).
+  const agentAttempts: AgentAttemptTurns[] = [];
   for (const { k, dir } of attempts) for (const f of readdirSync(dir)) {
     const m = DISCARDED_ATTEMPT.exec(f);
     if (!m) continue;
@@ -1464,6 +1653,7 @@ export function buildPasskReport(runDir: string, opts: { legacyCheck?: string } 
     const level = noise[r.noise?.level ?? 'off'] ??= { attempts: 0, passed: 0 }; level.attempts++; if (grade.ok) level.passed++;
     if (grade.safety.length) safety.push({ id: r.scenario.id, k, codes: grade.safety });
     if ('invalid' in grade && grade.invalid) invalid.push({ id: r.scenario.id, k });
+    agentAttempts.push(agentAttemptTurns(grade, r.scenario.capability ?? [], r.transcript));
     for (const t of classifyTurns(r.transcript)) {
       turns++; for (const l of t.labels) counts[l]++; for (const d of t.divergence) divergence[d] = (divergence[d] ?? 0) + 1; for (const d of t.domain) domain[d] = (domain[d] ?? 0) + 1;
       if (t.latencyMs !== undefined) latency.push(t.latencyMs);
@@ -1530,7 +1720,11 @@ export function buildPasskReport(runDir: string, opts: { legacyCheck?: string } 
       perCall: usage.calls ? { input: Math.round(usage.input / usage.calls), cached: Math.round(usage.cached / usage.calls), output: Math.round(usage.output / usage.calls) } : null },
     callLatencyMs: (report?.calls as { latencyMs?: { p50: number | null; p90: number | null } } | undefined)?.latencyMs ?? null,
     examples: { modes: [...exampleModes].sort(), turns: shown.turns, meanCount: shown.turns ? Number((shown.count / shown.turns).toFixed(2)) : null,
-      meanBytes: shown.turns ? Math.round(shown.bytes / shown.turns) : null, maxBytes: shown.maxBytes, meanEligible: shown.turns ? Math.round(shown.eligible / shown.turns) : null } };
+      meanBytes: shown.turns ? Math.round(shown.bytes / shown.turns) : null, maxBytes: shown.maxBytes, meanEligible: shown.turns ? Math.round(shown.eligible / shown.turns) : null },
+    // C5 (§9.4): the evaluator version the run recorded (null before it was stamped); the arm profile compares it.
+    evaluatorVersion: typeof report?.evaluatorVersion === 'string' && CODE.test(report.evaluatorVersion) ? report.evaluatorVersion : null,
+    // C5 (§6.4, §10.3): the per-path block of an agent arm, only when some turn carries the agent's router outcome (C4 runs keep their shape).
+    ...(agentAttempts.some(a => a.turns.length) ? { agent: agentArmSummary(agentAttempts) } : {}) };
 }
 function reservedFromJournal(runDir: string, report: Record<string, unknown> | undefined) {
   // Legacy reports (before stages had names) always belong to the legacy stage.
@@ -1566,6 +1760,8 @@ export function formatPasskTable(r: ReturnType<typeof buildPasskReport>) {
   lines.push(`USAGE calls=${r.usage.calls} in/call=${r.usage.perCall?.input ?? '-'} cached/call=${r.usage.perCall?.cached ?? '-'} (share ${r.usage.cachedShare ?? '-'}) out/call=${r.usage.perCall?.output ?? '-'}` +
     `  CALL LATENCY p50=${r.callLatencyMs?.p50 ?? '-'}ms p90=${r.callLatencyMs?.p90 ?? '-'}ms`);
   lines.push(`EXAMPLES ${examplesLabel(r)} turns=${r.examples.turns} count/turn=${r.examples.meanCount ?? '-'} bytes/turn=${r.examples.meanBytes ?? '-'} max=${r.examples.maxBytes} eligible/turn=${r.examples.meanEligible ?? '-'}`);
+  if (r.evaluatorVersion) lines.push(`EVALUATOR ${r.evaluatorVersion}`);
+  if (r.agent) lines.push(...formatAgentArm(r.agent));
   if (r.stats) lines.push(formatRunStats(r.stats, K));
   return lines.join('\n');
 }
@@ -1573,14 +1769,17 @@ export type PasskReport = ReturnType<typeof buildPasskReport>;
 /** What an arm was measured with (flags, examples tag, request versions, K, noise profile, run days); `mixed` names the
  * candidate identity its pooled runs disagree on (one arm pooling two candidates is itself confounded). K and noise may
  * differ among pooled runs by design (V with noise + N clean): each scenario carries its own and pairs compare them. The runner's
- * answer delivery is recorded only when a run used 'item' (legacy profiles keep their shape) and is never pooled silently. */
+ * answer delivery is recorded only when a run used 'item' (legacy profiles keep their shape) and is never pooled silently.
+ * C5 (§9.4): the evaluator version, recorded only when some run stamped one ('?' for a pooled run that did not); arms that differ
+ * in it are CONFOUNDED (armDifferences). */
 export function armProfile(reports: readonly PasskReport[]): ArmProfile {
   const set = <T>(xs: T[]) => [...new Set(xs)].sort() as T[];
   const keys = { flags: (r: PasskReport) => JSON.stringify(armFlags(r.flags)), examples: (r: PasskReport) => String(r.examplesTag), 'request versions': (r: PasskReport) => set(r.versions).join(),
-    'answer delivery': (r: PasskReport) => r.answerDelivery };
+    'answer delivery': (r: PasskReport) => r.answerDelivery, 'evaluator version': (r: PasskReport) => String(r.evaluatorVersion) };
   return { flags: reports[0]?.flags ?? null, examplesTag: reports[0]?.examplesTag ?? null, versions: set(reports.flatMap(r => r.versions)), repeats: set(reports.map(r => r.repeat)).sort((a, b) => a - b),
     noise: set(reports.map(r => r.noiseProfile)), days: set(reports.flatMap(r => r.today)), mixed: Object.entries(keys).filter(([, key]) => new Set(reports.map(key)).size > 1).map(([name]) => name),
-    ...(reports.some(r => r.answerDelivery !== 'field') ? { delivery: set(reports.map(r => r.answerDelivery)) } : {}) };
+    ...(reports.some(r => r.answerDelivery !== 'field') ? { delivery: set(reports.map(r => r.answerDelivery)) } : {}),
+    ...(reports.some(r => r.evaluatorVersion) ? { evaluator: set(reports.map(r => r.evaluatorVersion ?? '?')) } : {}) };
 }
 /** One run, or several runs pooled into one arm (V+N), as scenario outcomes for the paired and gap statistics. */
 export function passkArm(reports: readonly PasskReport[], label?: string): PasskArm {

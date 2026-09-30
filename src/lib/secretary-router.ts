@@ -58,7 +58,30 @@ export type TurnOutcome = { kind: TurnOutcomeKind; groups_ready: number; groups_
   contract_version?: string;
   /** Request budget (present only when a request of this message did not fit the cap as configured): requests
    * degraded or refused, the degradation codes applied, and the largest request bytes before/after (counts only). */
-  request_budget?: RequestBudgetOutcome };
+  request_budget?: RequestBudgetOutcome;
+  /** C5 agent (flag SALON_SECRETARY_AGENT; docs/c5-spike/11-especificacao-agente.md §6.4): present only when the agent path ran for this
+   * message. Codes and numbers only. */
+  agent?: AgentTurnOutcome };
+/** C5 agent telemetry of one message (§6.4): its path (AGENT, or the C4 with/without an agent call before), the loop's calls and lookups,
+ * the validator's per-action effects and codes, the backend premises shown and Luna's notes dropped. Never a name, a quote or a text. */
+export type AgentTurnOutcome = { path: "AGENT" | "C4_FALLBACK" | "C4_SKIPPED"; rounds: number; lookup_calls: number; lookup_kinds: string[]; rows: number; output_bytes: number;
+  truncated: boolean; fallback_code: string | null; validator: { accepted: number; name_fallback: number; carded: number; asked: number; dropped: number; codes: string[] };
+  question_field: string | null; premises_backend: number; premise_note_dropped: number; uncovered: number; actions_left: number; locate_disagree: number; effort: string | null };
+const agentPaths = new Set(["AGENT", "C4_FALLBACK", "C4_SKIPPED"]), lookupKinds = new Set(["T1", "T2", "T3", "T4", "T5"]);
+/** §6.4: the agent block through the same whitelist discipline as the rest of the outcome (closed values, counts, stable codes). */
+function safeAgent(agent: AgentTurnOutcome): AgentTurnOutcome | undefined {
+  if (!agent || !agentPaths.has(agent.path)) return undefined;
+  const count = (value: number) => Number.isSafeInteger(value) && value >= 0 ? Math.min(value, 1_000_000) : 0;
+  const code = (value: string | null) => typeof value === "string" && stableCode.test(value) ? value : null;
+  const v = agent.validator ?? { accepted: 0, name_fallback: 0, carded: 0, asked: 0, dropped: 0, codes: [] };
+  return { path: agent.path, rounds: count(agent.rounds), lookup_calls: count(agent.lookup_calls), lookup_kinds: (agent.lookup_kinds ?? []).filter(kind => lookupKinds.has(kind)).slice(0, 6),
+    rows: count(agent.rows), output_bytes: count(agent.output_bytes), truncated: agent.truncated === true, fallback_code: code(agent.fallback_code),
+    validator: { accepted: count(v.accepted), name_fallback: count(v.name_fallback), carded: count(v.carded), asked: count(v.asked), dropped: count(v.dropped),
+      codes: [...new Set((v.codes ?? []).filter(item => stableCode.test(item)))].slice(0, 32) },
+    question_field: agent.question_field === null ? null : outcomeField(agent.question_field), premises_backend: count(agent.premises_backend),
+    premise_note_dropped: count(agent.premise_note_dropped), uncovered: count(agent.uncovered), actions_left: count(agent.actions_left), locate_disagree: count(agent.locate_disagree),
+    effort: agent.effort === "medium" || agent.effort === "high" ? agent.effort : null };
+}
 export type RequestBudgetOutcome = { requests: number; rejected: number; steps: RequestDegradation[]; initial_bytes: number; final_bytes: number };
 const degradationCodes = new Set<string>(REQUEST_DEGRADATIONS);
 /** C7 `directory_proof` (present only when true): a directory name Luna expanded from the owner's words was proven by
@@ -127,7 +150,8 @@ function safeOutcome(outcome: TurnOutcome | null): TurnOutcome | null {
       ...(typeof outcome.contract_version === "string" && /^[0-9a-f]{64}$/.test(outcome.contract_version) ? { contract_version: outcome.contract_version } : {}),
       ...(outcome.request_budget && count(outcome.request_budget.requests) ? { request_budget: { requests: count(outcome.request_budget.requests), rejected: count(outcome.request_budget.rejected),
         steps: [...new Set((outcome.request_budget.steps ?? []).filter(step => degradationCodes.has(step)))], initial_bytes: count(outcome.request_budget.initial_bytes),
-        final_bytes: count(outcome.request_budget.final_bytes) } } : {}) };
+        final_bytes: count(outcome.request_budget.final_bytes) } } : {}),
+      ...(outcome.agent && safeAgent(outcome.agent) ? { agent: safeAgent(outcome.agent)! } : {}) };
   } catch { return null; }
 }
 
@@ -164,6 +188,8 @@ export class RouterTrace {
    * whether the model's answer could not be read while an active plan was kept (NOT_UNDERSTOOD). */
   rejectedOperations = 0;
   unreadTurn = false;
+  /** C5 agent (flag SALON_SECRETARY_AGENT): this message's agent block (§6.4), set once by the Secretary; null on the C4 path. */
+  agent: AgentTurnOutcome | null = null;
   readonly droppedFields = new Set<string>();
   readonly failedCodes = new Set<string>();
   readonly temporalShadow: TemporalShadow[] = [];

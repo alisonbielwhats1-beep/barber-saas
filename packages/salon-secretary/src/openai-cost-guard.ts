@@ -1,4 +1,8 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import type { ModelRequest } from "@openai/agents";
+import { AGENT_EFFORTS, AGENT_LIMITS } from "./agent-context";
+import { AGENT_PLAN_TOOL } from "./agent-plan";
+import { AGENT_LOOKUP_NAMES, AGENT_TOOL_NAMES, AGENT_TOOLS_SHA256, agentToolsDigest } from "./agent-tools";
 
 const FUNCTION_NAMES = ["select_capabilities", "upsert_action_draft"] as const;
 const MODELS = ["gpt-5.6-luna", "gpt-6-luna"] as const;
@@ -30,10 +34,12 @@ export function assertSecretaryModelRequest(request: ModelRequest, expectedName:
       tool.allowedCallers || tool.namespace || tool.outputSchema) fail();
 }
 
-/** HTTP boundary: SDK upgrades and extra_body cannot silently add a hosted capability. */
-export function assertSecretaryResponsesPayload(value: unknown, expectedModel: string): void {
+/** HTTP boundary: SDK upgrades and extra_body cannot silently add a hosted capability. C5: the agent's format (§6.3, below) only
+ * with an explicit {agent:true}; everything else is checked exactly as before. */
+export function assertSecretaryResponsesPayload(value: unknown, expectedModel: string, options: SecretaryGuardOptions = {}): void {
   assertSecretaryModelId(expectedModel);
   if (!record(value)) fail("PAYLOAD_SHAPE");
+  if (options.agent === true && !(Array.isArray(value.tools) && value.tools.length === 1)) return assertAgentPayload(value, expectedModel);
   const unexpected = Object.keys(value).filter(key => !RESPONSE_FIELDS.has(key));
   if (unexpected.length) fail(`UNEXPECTED_FIELD:${unexpected.join(",")}`);
   if (value.model !== expectedModel || value.store !== false || value.stream !== false ||
@@ -60,8 +66,12 @@ export function assertSecretaryResponsesPayload(value: unknown, expectedModel: s
   }
 }
 
-export function secretaryGuardedFetch(modelId: string): typeof fetch {
+/** `{agent:true}` (C5, passed by the model factory when SALON_SECRETARY_AGENT is on): the agent's format is admitted too, and while
+ * an agent call observes it (observeSecretaryResponseUsage) the token counts of the response body reach the observer, numbers only,
+ * so a response that ends `incomplete` (the SDK throws) still records what it cost. Without the option: as before. */
+export function secretaryGuardedFetch(modelId: string, options: SecretaryGuardOptions = {}): typeof fetch {
   assertSecretaryModelId(modelId);
+  const agent = options.agent === true;
   return async (input, init) => {
     const url = input instanceof Request ? input.url : String(input);
     const method = init?.method ?? (input instanceof Request ? input.method : undefined);
@@ -70,7 +80,187 @@ export function secretaryGuardedFetch(modelId: string): typeof fetch {
     if (typeof body !== "string") fail();
     let payload: unknown;
     try { payload = JSON.parse(body); } catch { fail(); }
-    assertSecretaryResponsesPayload(payload, modelId);
-    return globalThis.fetch(input, init);
+    assertSecretaryResponsesPayload(payload, modelId, { agent });
+    if (!agent) return globalThis.fetch(input, init);
+    const response = await globalThis.fetch(input, init);
+    await reportResponseUsage(response);
+    return response;
   };
+}
+
+// ---------------------------------------------------------------- C5 agent (flag SALON_SECRETARY_AGENT, default off)
+/** docs/c5-spike/11-especificacao-agente.md §6.3. The agent's formats are admitted ONLY when the caller says {agent:true}: the guard
+ * never reads the flag (the model factory reads it once; the program ledger gets it from the runner), so the C4 formats above stay
+ * exactly as they were and an agent format without the option is refused like any unknown one. */
+export type SecretaryGuardOptions = { readonly agent?: boolean };
+/** `include` of every agent call: with store:false the reasoning items come back encrypted and are returned as they came (§3.3). */
+export const AGENT_REASONING_INCLUDE = "reasoning.encrypted_content";
+/** Which call of the message a request is: `forced` = tool_choice propor_plano (the 3rd call always is). */
+export type AgentRoundShape = { readonly round: 1 | 2 | 3; readonly forced: boolean };
+const AGENT_RESPONSE_FIELDS = new Set([...RESPONSE_FIELDS, "reasoning"]);
+const AGENT_SETTINGS = ["toolChoice", "parallelToolCalls", "maxTokens", "store", "reasoning", "providerData"];
+const AGENT_BREAKPOINTS = 4;
+const only = (value: Record<string, unknown>, keys: readonly string[]) => Object.keys(value).every(key => keys.includes(key));
+const utf8 = (text: string) => Buffer.byteLength(text, "utf8");
+const lookupName = (name: unknown) => (AGENT_LOOKUP_NAMES as readonly unknown[]).includes(name);
+const effortOnly = (value: unknown) => record(value) && only(value, ["effort"]) && (AGENT_EFFORTS as readonly unknown[]).includes(value.effort);
+const outputCap = (value: unknown) => Number.isInteger(value) && (value as number) >= 1 && (value as number) <= AGENT_LIMITS.maxOutputTokens;
+/** One input item as the round grammar reads it (the SDK's protocol items and the HTTP body's items have one reader each). */
+type AgentWireItem = { kind: "message"; breakpoints: number } | { kind: "reasoning" } | { kind: "commentary"; bytes: number } | { kind: "call"; callId: string } | { kind: "output"; callId: string };
+/** Input = the messages (system/user), then the lookup rounds already answered, one block each: what the model emitted, in its own
+ * order (reasoning items, at most one commentary of ≤ 1 KB, 1..4 lookup calls, never propor_plano), then one output per call, in the
+ * calls' order. A commentary, an output or a message anywhere else is refused. Returns the number of blocks (the round − 1). */
+function agentRoundBlocks(input: readonly unknown[], read: (item: unknown) => AgentWireItem): number {
+  const items = input.map(read), seen = new Set<string>();
+  let at = 0, blocks = 0, breakpoints = 0;
+  for (; at < items.length; at++) { const item = items[at]; if (item.kind !== "message") break; breakpoints += item.breakpoints; }
+  if (!at || breakpoints > AGENT_BREAKPOINTS) fail("AGENT_INPUT_MESSAGES");
+  while (at < items.length) {
+    const calls: string[] = [];
+    let commentary = 0, size = 0;
+    for (; at < items.length; at++) {
+      const item = items[at];
+      if (item.kind === "call") { if (seen.has(item.callId)) fail("AGENT_CALL_ID"); seen.add(item.callId); calls.push(item.callId); }
+      else if (item.kind === "commentary") { commentary++; size += item.bytes; }
+      else if (item.kind !== "reasoning") break;
+    }
+    if (!calls.length || calls.length > AGENT_LIMITS.lookupsPerRound || commentary > 1 || size > AGENT_LIMITS.commentaryBytes) fail("AGENT_ROUND_BLOCK");
+    for (const callId of calls) { const item = items[at++]; if (item?.kind !== "output" || item.callId !== callId) fail("AGENT_CALL_OUTPUT"); }
+    blocks++;
+  }
+  return blocks;
+}
+/** HTTP item (the body the SDK serialized, openaiResponsesConverter getInputItems): closed keys everywhere. */
+function httpAgentItem(item: unknown): AgentWireItem {
+  if (!record(item)) fail("AGENT_INPUT_ITEM");
+  const { type, role } = item, id = item.id === undefined || typeof item.id === "string", done = item.status === undefined || item.status === "completed";
+  if ((type === undefined || type === "message") && (role === "system" || role === "user")) {
+    if (!only(item, ["type", "role", "content"])) fail("AGENT_INPUT_ITEM");
+    if (typeof item.content === "string") return { kind: "message", breakpoints: 0 };
+    if (!Array.isArray(item.content) || !item.content.length) fail("AGENT_INPUT_CONTENT");
+    let breakpoints = 0;
+    for (const part of item.content) {
+      if (!record(part) || !only(part, ["type", "text", "prompt_cache_breakpoint"]) || part.type !== "input_text" || typeof part.text !== "string") fail("AGENT_INPUT_CONTENT");
+      const mark = part.prompt_cache_breakpoint;
+      if (mark === undefined) continue;
+      if (!record(mark) || !only(mark, ["mode"]) || mark.mode !== "explicit") fail("AGENT_INPUT_CONTENT");
+      breakpoints++;
+    }
+    return { kind: "message", breakpoints };
+  }
+  if (type === "message" && role === "assistant") {
+    if (!only(item, ["type", "id", "role", "content", "status", "phase"]) || !id || !done || item.phase !== "commentary" || !Array.isArray(item.content) || !item.content.length) fail("AGENT_COMMENTARY");
+    let bytes = 0;
+    for (const part of item.content) {
+      if (!record(part) || !only(part, ["type", "text", "annotations", "logprobs"]) || part.type !== "output_text" || typeof part.text !== "string" ||
+          (part.annotations !== undefined && (!Array.isArray(part.annotations) || part.annotations.length > 0)) || (part.logprobs !== undefined && !Array.isArray(part.logprobs))) fail("AGENT_COMMENTARY");
+      bytes += utf8(part.text as string);
+    }
+    return { kind: "commentary", bytes };
+  }
+  if (type === "reasoning") {
+    if (!only(item, ["type", "id", "summary", "encrypted_content", "status", "content"]) || !id || typeof item.encrypted_content !== "string" || !item.encrypted_content ||
+        !Array.isArray(item.summary) || item.summary.some(part => !record(part) || !only(part, ["type", "text"]) || part.type !== "summary_text" || typeof part.text !== "string") ||
+        (item.content !== undefined && !Array.isArray(item.content))) fail("AGENT_REASONING");
+    return { kind: "reasoning" };
+  }
+  if (type === "function_call") {
+    if (!only(item, ["type", "id", "call_id", "name", "arguments", "status"]) || !id || !done || typeof item.call_id !== "string" || !item.call_id || !lookupName(item.name) ||
+        typeof item.arguments !== "string" || utf8(item.arguments) > AGENT_LIMITS.argumentsBytes) fail("AGENT_FUNCTION_CALL");
+    return { kind: "call", callId: item.call_id as string };
+  }
+  if (type === "function_call_output") {
+    if (!only(item, ["type", "id", "call_id", "output", "status"]) || !id || !done || typeof item.call_id !== "string" || !item.call_id ||
+        typeof item.output !== "string" || utf8(item.output) > AGENT_LIMITS.lookupOutputBytes) fail("AGENT_FUNCTION_OUTPUT");
+    return { kind: "output", callId: item.call_id as string };
+  }
+  fail("AGENT_INPUT_ITEM");
+}
+/** SDK protocol item (what the loop hands to Model.getResponse). */
+function sdkAgentItem(item: unknown): AgentWireItem {
+  if (!record(item)) fail("AGENT_INPUT_ITEM");
+  const provider = record(item.providerData) ? item.providerData : {};
+  if ((item.type === undefined || item.type === "message") && (item.role === "system" || item.role === "user")) {
+    if (typeof item.content === "string") return { kind: "message", breakpoints: 0 };
+    if (!Array.isArray(item.content)) fail("AGENT_INPUT_CONTENT");
+    return { kind: "message", breakpoints: item.content.filter(part => record(part) && part.prompt_cache_breakpoint !== undefined).length };
+  }
+  if (item.type === "message" && item.role === "assistant") {
+    if ((item.phase ?? provider.phase) !== "commentary" || !Array.isArray(item.content)) fail("AGENT_COMMENTARY");
+    return { kind: "commentary", bytes: item.content.reduce((sum: number, part: unknown) => sum + (record(part) && typeof part.text === "string" ? utf8(part.text) : 0), 0) };
+  }
+  if (item.type === "reasoning") {
+    const encrypted = provider.encrypted_content ?? provider.encryptedContent;
+    if (typeof encrypted !== "string" || !encrypted) fail("AGENT_REASONING");
+    return { kind: "reasoning" };
+  }
+  if (item.type === "function_call") {
+    if (typeof item.callId !== "string" || !item.callId || !lookupName(item.name) || typeof item.arguments !== "string" || utf8(item.arguments) > AGENT_LIMITS.argumentsBytes ||
+        (item.status !== undefined && item.status !== "completed")) fail("AGENT_FUNCTION_CALL");
+    return { kind: "call", callId: item.callId as string };
+  }
+  if (item.type === "function_call_result") {
+    if (typeof item.callId !== "string" || !lookupName(item.name) || item.status !== "completed" || typeof item.output !== "string" ||
+        utf8(item.output) > AGENT_LIMITS.lookupOutputBytes) fail("AGENT_FUNCTION_OUTPUT");
+    return { kind: "output", callId: item.callId as string };
+  }
+  fail("AGENT_INPUT_ITEM");
+}
+/** SDK boundary of one agent call (§6.3): the six tools in order with the pinned digest; tool_choice "required" with parallel calls,
+ * or forced into propor_plano without them (the 3rd call always forced); store:false; reasoning = {effort} only; providerData =
+ * exactly {include:[reasoning.encrypted_content]}; nothing else in the settings (no cache retention/options, no context management);
+ * no prompt, previous response or conversation; no handoffs; tracing off; and an input whose answered rounds match the call. */
+export function assertSecretaryAgentModelRequest(request: ModelRequest, shape: AgentRoundShape): void {
+  const settings = request.modelSettings, provider = settings.providerData;
+  if (![1, 2, 3].includes(shape.round) || (shape.round === 3 && !shape.forced) || request.prompt || request.previousResponseId || request.conversationId ||
+      request.handoffs.length !== 0 || request.tracing !== false || request.toolsExplicitlyProvided !== true || request.outputType !== "text" ||
+      typeof request.systemInstructions !== "string" || !only(settings as Record<string, unknown>, AGENT_SETTINGS) || settings.store !== false ||
+      !outputCap(settings.maxTokens) || !effortOnly(settings.reasoning) ||
+      !record(provider) || !only(provider, ["include"]) || !Array.isArray(provider.include) || provider.include.length !== 1 || provider.include[0] !== AGENT_REASONING_INCLUDE ||
+      settings.toolChoice !== (shape.forced ? AGENT_PLAN_TOOL : "required") || settings.parallelToolCalls !== !shape.forced) fail("AGENT_REQUEST");
+  if (request.tools.length !== AGENT_TOOL_NAMES.length || request.tools.some((tool, index) => tool.type !== "function" || tool.name !== AGENT_TOOL_NAMES[index] ||
+      tool.strict !== true || tool.deferLoading || tool.providerData || tool.allowedCallers || tool.namespace || tool.outputSchema) ||
+      agentToolsDigest(request.tools) !== AGENT_TOOLS_SHA256) fail("AGENT_TOOLS");
+  if (!Array.isArray(request.input) || agentRoundBlocks(request.input, sdkAgentItem) !== shape.round - 1) fail("AGENT_ROUNDS");
+}
+/** HTTP boundary of the agent format (§6.3): today's keys plus `reasoning` ({effort} only), max_output_tokens 1..8192, include [] or
+ * [reasoning.encrypted_content], the six tools by digest, "required" with parallel calls or propor_plano forced without them,
+ * messages with string content or input_text parts (only an explicit breakpoint besides type/text; ≤ 4 breakpoints), then at most
+ * two answered rounds; after two rounds the call must be forced. */
+function assertAgentPayload(value: Record<string, unknown>, expectedModel: string): void {
+  const unexpected = Object.keys(value).filter(key => !AGENT_RESPONSE_FIELDS.has(key));
+  if (unexpected.length) fail(`UNEXPECTED_FIELD:${unexpected.join(",")}`);
+  const include = value.include, choice = value.tool_choice, forced = record(choice);
+  if (value.model !== expectedModel || value.store !== false || value.stream !== false || typeof value.instructions !== "string" ||
+      !outputCap(value.max_output_tokens) || !effortOnly(value.reasoning) || !Array.isArray(value.input) || !Array.isArray(value.tools) ||
+      !Array.isArray(include) || include.length > 1 || (include.length === 1 && include[0] !== AGENT_REASONING_INCLUDE)) fail("AGENT_PAYLOAD_FIELDS");
+  if (forced ? !only(choice, ["type", "name"]) || choice.type !== "function" || choice.name !== AGENT_PLAN_TOOL || value.parallel_tool_calls !== false
+    : choice !== "required" || value.parallel_tool_calls !== true) fail("AGENT_TOOL_CHOICE");
+  const tools = value.tools as unknown[];
+  if (tools.length !== AGENT_TOOL_NAMES.length || agentToolsDigest(tools) !== AGENT_TOOLS_SHA256) fail("AGENT_TOOLS");
+  const blocks = agentRoundBlocks(value.input as unknown[], httpAgentItem);
+  if (blocks > AGENT_LIMITS.lookupRounds || (blocks === AGENT_LIMITS.lookupRounds && !forced)) fail("AGENT_ROUNDS");
+}
+/** Token counts of a Responses body (numbers only, never text): what an agent call observes, also for an `incomplete` response. */
+export type SecretaryResponseUsage = {
+  readonly input_tokens: number | null; readonly output_tokens: number | null; readonly total_tokens: number | null;
+  readonly input_tokens_details: { readonly cached_tokens: number | null; readonly cache_write_tokens: number | null };
+  readonly output_tokens_details: { readonly reasoning_tokens: number | null };
+};
+const usageObservers = new AsyncLocalStorage<(usage: SecretaryResponseUsage) => void>();
+/** Runs one agent call with an observer of its response's token counts (usage.ts instrumentAgentModel). Only the guarded fetch of an
+ * {agent:true} model reports, and only inside this scope; a C4 call never reads its response body here. */
+export const observeSecretaryResponseUsage = <T>(observer: (usage: SecretaryResponseUsage) => void, work: () => Promise<T>): Promise<T> => usageObservers.run(observer, work);
+const tokenCount = (value: unknown) => typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : null;
+async function reportResponseUsage(response: Response): Promise<void> {
+  const observer = usageObservers.getStore();
+  if (!observer || !response?.ok) return;
+  try {
+    const body: unknown = await response.clone().json(), usage = record(body) && record(body.usage) ? body.usage : undefined;
+    if (!usage) return;
+    const input = record(usage.input_tokens_details) ? usage.input_tokens_details : {}, output = record(usage.output_tokens_details) ? usage.output_tokens_details : {};
+    observer({ input_tokens: tokenCount(usage.input_tokens), output_tokens: tokenCount(usage.output_tokens), total_tokens: tokenCount(usage.total_tokens),
+      input_tokens_details: { cached_tokens: tokenCount(input.cached_tokens), cache_write_tokens: tokenCount(input.cache_write_tokens) },
+      output_tokens_details: { reasoning_tokens: tokenCount(output.reasoning_tokens) } });
+  } catch { /* Observation only: the response is returned untouched. */ }
 }

@@ -58,8 +58,9 @@ const hourWords = Object.keys(numbers).filter(k => numbers[k] < 20).join("|");
 const hourNumeral = `(?:\\d{1,2}|vinte(?: e (?:uma|um|duas|dois|tres))?|${hourWords})`;
 
 
-/** Factual recognizers only: no operation, intent or source/destination choice. */
-function temporalFacts(text: string, fields: SchedulingFields, timezone: string, now: Date) {
+/** Factual recognizers only: no operation, intent or source/destination choice. `text` is already normalized (NFD without marks,
+ * lowercase); the atoms' offsets are that text's. Exported for the C5 agent validator (temporalAtomSpans maps them back). */
+export function temporalFacts(text: string, fields: SchedulingFields, timezone: string, now: Date) {
   const today = dateKeyInTimeZone(now, timezone);
   // A denial directly attached to a factual atom is different from denying an
   // operation elsewhere in the message. This does not choose the operation.
@@ -167,9 +168,7 @@ export function governingNegators(source: string, start: number, end: number, ow
   const map = normalizedOffsets(source, normalize);
   if (!map) return;
   const text = map.text, from = map.toNormalized(start), to = map.toNormalized(end), connectors = new RegExp(connectorWord.source, "g");
-  let lead = from, trail = to;
-  while (lead > 0 && !clauseBoundary.test(text[lead - 1])) lead--;
-  while (trail < text.length && !clauseBoundary.test(text[trail])) trail++;
+  const { lead, trail } = punctuationClause(text, from, to);
   const spans: [number, number][] = [];
   if (dateRulesV2Enabled()) {
     const { head, next, valued } = coordinatedLead(source, map, lead, from, to, trail);
@@ -206,11 +205,39 @@ function coordinatedLead(source: string, map: NonNullable<ReturnType<typeof norm
   const next = list.find(item => item.at >= to)?.at ?? trail;
   const atoms = temporalFacts(text, {}, "UTC", new Date(0)).atoms;
   const valued = (after: number) => { const glue = valueGlue.exec(text.slice(after)); return !!glue && atoms.some(atom => atom.start >= after && atom.start <= after + glue[0].length); };
-  if (chain.some(item => newMainClause.has(item.w))) return { head: from, next, valued };
+  if (chain.some(item => newMainClause.has(item.w))) return { head: from, next, valued, list };
   const prior = list.filter(item => item.end <= (chain[0]?.at ?? from)), repeated = new Set(chain.map(item => item.w).filter(word => word !== "e"));
   let k = prior.length - 1;
   if (k >= 0 && repeated.has(prior[k].w)) k--;
-  return { head: k >= 0 ? prior[k].end : lead, next, valued };
+  return { head: k >= 0 ? prior[k].end : lead, next, valued, list };
+}
+/** The punctuation clause [lead, trail) around the normalized span [from, to): back to the previous boundary, on to the next. */
+function punctuationClause(text: string, from: number, to: number) {
+  let lead = from, trail = to;
+  while (lead > 0 && !clauseBoundary.test(text[lead - 1])) lead--;
+  while (trail < text.length && !clauseBoundary.test(text[trail])) trail++;
+  return { lead, trail };
+}
+/** C5 agent validator V0 (docs/c5-spike/11-especificacao-agente.md §5.1): the backend's clause of an owner quote [start, end), in
+ * ORIGINAL offsets, read as governingNegators reads it (punctuation `[,.;!?()\n]` and the connectors of coordinatedLead; the verb "é"
+ * is no connector). `start`/`end`: the quote's own segment, from the end of the last connector or boundary before it (the quote
+ * itself when it opens with a connector) to the next connector or boundary after it; `lead`: where the negators that govern it may
+ * start (across a transparent "e" or a subordinator, never across "mas/porém/então" or punctuation). The segment always holds the
+ * whole quote. Undefined when the text cannot be mapped (the caller fails closed). The historical rules are unchanged. */
+export function clauseBounds(source: string, start: number, end: number) {
+  const map = normalizedOffsets(source, normalize);
+  if (!map || start < 0 || end <= start || end > source.length) return;
+  const text = map.text, from = map.toNormalized(start), to = map.toNormalized(end), { lead, trail } = punctuationClause(text, from, to);
+  const { head, next, list } = coordinatedLead(source, map, lead, from, to, trail);
+  const own = list.some(item => item.at === from) ? from : list.filter(item => item.end <= from).at(-1)?.end ?? lead;
+  return { lead: map.toOriginal(Math.min(head, own)), start: map.toOriginal(own), end: map.toOriginal(Math.max(next, to)) };
+}
+/** C5 agent validator: the temporal atoms (days and clocks) of an owner's text, in ORIGINAL offsets, each with its attached denial
+ * (temporalFacts). Undefined when the normalization cannot be mapped back. */
+export function temporalAtomSpans(source: string, timezone: string, now: Date) {
+  const map = normalizedOffsets(source, normalize);
+  if (!map) return;
+  return temporalFacts(map.text, {}, timezone, now).atoms.map(atom => ({ ...atom, start: map.toOriginal(atom.start), end: map.toOriginal(atom.end) }));
 }
 
 /** Denial of one quote located at ORIGINAL offsets [start,end), with the evidence path's rule:

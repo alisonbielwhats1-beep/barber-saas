@@ -12,7 +12,8 @@ import type { ServiceActor } from "./service-catalog";
 import { withTenant } from "./prisma-tenant";
 import { searchSalonCustomer } from "./customer-catalog";
 import { getOperationRequirements } from "./service-contract";
-import { schedulingPatch, type SchedulingFields } from "./scheduling-contract";
+import { schedulingPatch, schedulingResolved, type SchedulingFields } from "./scheduling-contract";
+import type { AgentBasis } from "./secretary-agent-validator";
 import { applyKeptDayGuard, applyScopeCoverage } from "./scheduling-temporal-source";
 import { daypartWrittenOutside, groundSchedulingTemporalTurn, SELECTOR_CONFLICT } from "./scheduling-temporal-mode";
 import { EXCLUDED_VALUE, excludedClocks, polarityCodes } from "./scheduling-temporal-polarity";
@@ -21,7 +22,7 @@ import { clarificationContext } from "./secretary-clarification";
 import { secretaryFastPath } from "./secretary-fast-path";
 import { getSchedulingAppointment, getSchedulingAvailability, listSchedulingAppointments, listSchedulingProfessionals, listSchedulingServices, listUpcomingCustomerAppointments, professionalReadDay, schedulingSelfProfessional, schedulingTimezone, summarizeSchedulingAppointments, timed, type SchedulingMetrics } from "./scheduling-catalog";
 import { localDateTimeToUtc, toLocalDateTime } from "./time";
-import { upsertSchedulingDraft, proposeAppointmentCreate, proposeSchedulingAction, schedulingSnapshot, confirmAppointmentCreate } from "./scheduling-actions";
+import { upsertSchedulingDraft, proposeAppointmentCreate, proposeSchedulingAction, schedulingSnapshot, confirmAppointmentCreate, type SchedulingForgetField } from "./scheduling-actions";
 import { authorizeSchedulingOperation, isSchedulingMutation, locateSchedulingAppointments, inspectSchedulingMove, schedulingActionSnapshot } from "./scheduling-mutations";
 import { applyTemporalRejections, reconcileSchedulingTemporal, schedulingTemporalConflicts, matchesSchedulingPeriod, type TemporalRejection } from "./scheduling-temporal";
 import { formatClock, formatDay, formatLocal } from "./secretary-datetime-format";
@@ -100,7 +101,11 @@ export type SchedulingState={combo_chosen?:string[];block_overlap?:BlockOverlapC
   candidates?:{kind:"customer_ref"|"service_ref"|"professional_ref"|"appointment_ref"|"target_professional_ref"|"service_changes_ref"|"service_list_ref"|"service_combo_ref"|typeof RECURRENCE_CARD|typeof BLOCK_OVERLAP_CARD;items:{id:string;name:string}[];source?:"suggest"|"confirm"|"alias";alias_basis?:string};unproven_names?:("customer_name"|"professional_name"|"target_professional_name")[];
   alias_declined?:{kind:AliasRef;key:string}[];
   alternatives?:Awaited<ReturnType<typeof getSchedulingAvailability>>["alternatives"];appointments?:Awaited<ReturnType<typeof listSchedulingAppointments>>;
-  pending_temporal_ambiguities?:PendingTemporalAmbiguity[];pending_calendar_conflicts?:PendingCalendarConflict[];source_missing?:ReasonField[];waiting_for?:string;interpretation_source?:"MODEL"|"DETERMINISTIC_FAST_PATH";metrics:SchedulingMetrics};
+  pending_temporal_ambiguities?:PendingTemporalAmbiguity[];pending_calendar_conflicts?:PendingCalendarConflict[];source_missing?:ReasonField[];waiting_for?:string;interpretation_source?:"MODEL"|"DETERMINISTIC_FAST_PATH";metrics:SchedulingMetrics;
+  /** C5 agent (flag SALON_SECRETARY_AGENT; docs/c5-spike/11-especificacao-agente.md §5.1 V23, §6.2): `agent_basis`, the provenance of the values the
+   * backend derived for this action (anchor, delegation, exception, workday end, kept clock, links), re-checked before the Confirmar writes;
+   * `agent_forgotten`, derived fields a continuation dropped with their basis, handed once to the next journal write (never resurrected). */
+  agent_basis?:AgentBasis[];agent_forgotten?:SchedulingForgetField[]};
 // Human pt-BR labels ("ter, 29/09", "9h45"); fields and proposals keep ISO values.
 const dayLabel=(date:string)=>formatDay(date);
 const clockLabel=(local:string)=>formatClock(local.slice(11,16));
@@ -321,7 +326,9 @@ const recurringLine=(c:SchedulingState,op:string)=>recurrencePending(c.recurrenc
 async function prepare(actor:ServiceActor,c:SchedulingState,rejectedTemporal:TemporalRejection[]=[],rejectedSource:ReasonRejection[]=[],askService=false,excluded?:ReadonlySet<string>,codes:string[]=[],askAlteration?:AlterationField,
   askList?:{notice:string;waiting_for:string}){
   // A3 (review B): ref-derived roles this turn forgot are never resurrected by the journal merge (whatever the flag says now).
-  let forget:{forget_origin?:OriginRole[]}=c.origin_forgotten?.length?{forget_origin:c.origin_forgotten}:{};delete c.origin_forgotten;
+  let forget:{forget_origin?:OriginRole[];forget_fields?:SchedulingForgetField[]}=c.origin_forgotten?.length?{forget_origin:c.origin_forgotten}:{};delete c.origin_forgotten;
+  // C5 agent (flag): derived fields a continuation dropped with their provenance (agentBasisPatched) are never resurrected by the merge.
+  if(c.agent_forgotten?.length){forget={...forget,forget_fields:[...c.agent_forgotten]};delete c.agent_forgotten;}
   const f=c.fields,op=c.operation!,copyV2=secretaryCopyV2Enabled();c.candidates=undefined;delete c.alter_swap;c.alternatives=undefined;c.appointments=undefined;c.proposal=undefined;c.waiting_for=undefined;delete c.read_partial;
   // UX-COPY (flag): sentences name who the backend resolved as registered (the owner's words while unresolved).
   // E2 (V2): a first-person professional ("minha agenda") is always named as registered once resolved, never by the pronoun.
@@ -559,7 +566,7 @@ async function prepare(actor:ServiceActor,c:SchedulingState,rejectedTemporal:Tem
   // day is never dropped; it keeps the historical path (the clock of the move is asked).
   if(alteringChange(op,f)&&!notice&&f.appointment_ref&&f.date&&!f.time&&!f.period&&!held("date")&&!held("time")&&!refs?.origin?.length&&!released&&!statedOrigin){
     const start=(await withTenant(actor,tx=>getSchedulingAppointment(tx,actor,f.appointment_ref!))).start_local;
-    if(start.slice(0,10)===f.date){delete f.date;forget={forget_origin:[...new Set([...(forget.forget_origin??[]),"date" as const])]};codes.push("ALTER_SAME_DAY_KEPT");}
+    if(start.slice(0,10)===f.date){delete f.date;forget={...forget,forget_origin:[...new Set([...(forget.forget_origin??[]),"date" as const])]};codes.push("ALTER_SAME_DAY_KEPT");}
   }
   // P2a (flag): the NEW professional and the service delta are resolved and checked against the located appointment
   // (refusals, no-op, who performs every service) before any availability check; their questions keep everything else.
@@ -990,6 +997,9 @@ async function applySchedulingInterpretationMutable(actor:ServiceActor,c:Schedul
   // Preserve reference invalidations above while replacing the temporal state.
   const reconciliation=reconcileSchedulingTemporal(c.fields,patch);
   applyTemporalRejections(reconciliation.fields,c.fields,grounded.rejected);
+  // C5 agent (flag SALON_SECRETARY_AGENT; §6.2): a continuation that changes what a derived value stood on drops that value with its
+  // provenance (prepare() asks it again); the owner's own new value for the derived field replaces it. Without agent_basis: nothing.
+  if(c.agent_basis?.length)codes.push(...agentBasisPatched(c,reconciliation.fields,patch));
   c.pending_temporal_ambiguities=nextTemporalAmbiguities(c.pending_temporal_ambiguities??c.draft?.pending_temporal_ambiguities,grounded.pending_temporal_ambiguities,reconciliation.fields,schedulingPatch.parse(raw),grounded.rejected);
   c.pending_calendar_conflicts=nextCalendarConflicts(c.pending_calendar_conflicts??c.draft?.pending_calendar_conflicts,grounded.pending_calendar_conflicts,reconciliation.fields);
   // B5: the owner named a service that could not be proven: the accepted one (and what derives from it)
@@ -1099,6 +1109,87 @@ export async function reseedScheduling(actor:ServiceActor,c:SchedulingState,fiel
   for(const [key,value] of Object.entries(fields))if(value===undefined)delete next.fields[key as keyof SchedulingFields];
   forgetOriginFromRef(next,next.fields,derived);
   try{await prepare(actor,next);commitScheduling(c,next);}catch(error){publishCommittedSchedulingDraft(c,next);throw error;}
+}
+/** C5 agent (flag SALON_SECRETARY_AGENT; docs/c5-spike/11-especificacao-agente.md §6.2), the sibling of reseedScheduling for an action of a plan
+ * the backend validated (secretary-agent-apply.ts). `fields`: the validator's values (refs it proved, the owner's own words where a ref could not
+ * stand, accepted temporal values); an appointment_ref is never taken: the C4 locate runs as for any change or cancellation. prepare() then does
+ * everything it does for the C4 (locate, availability, HARD_BLOCK, duration, price, overlaps, block and combo guards, recurrence, draft and
+ * proposal). `extras`: the half-day readings still open (asked, their role left empty), the provenance kept for the Confirmar (agent_basis),
+ * display names, a stated recurrence (its "só a primeira?" card), the card of real appointments of the V7-A locate (references.card, rechecked
+ * on click), `expected` (the appointment the validator accepted: prepare()'s own pick must be it, else nothing is proposed), and, when the
+ * validator asks, its card of backend rows (a professional/new-professional choice, rechecked on click) or its question: then the draft is
+ * written but nothing is proposed, and prepare()'s own question follows the validator's. */
+export type AgentResolvedExtras={ambiguities?:readonly PendingTemporalAmbiguity[];basis?:readonly AgentBasis[];names?:Readonly<Record<string,string>>;recurrence?:string|null;
+  appointmentCard?:readonly {id:string;name:string}[];references?:SchedulingReferences;expected?:string;
+  card?:{kind:"professional_ref"|"target_professional_ref";items:readonly {id:string;name:string}[];question:string};question?:string};
+export async function prepareResolvedScheduling(actor:ServiceActor,c:SchedulingState,operation:NonNullable<SchedulingState["operation"]>,fields:SchedulingFields,extras:AgentResolvedExtras={}){
+  if(c.operation&&c.operation!==operation)throw Error("OPERATION_MISMATCH");
+  c.proposal=undefined;
+  const next=structuredClone(c);
+  next.operation=operation;next.interpretation_source="MODEL";
+  const resolved=schedulingResolved.parse(structuredClone(fields));delete resolved.appointment_ref;
+  for(const item of extras.ambiguities??[])delete resolved[item.field];
+  next.fields=resolved;
+  if(extras.ambiguities?.length)next.pending_temporal_ambiguities=extras.ambiguities.map(item=>structuredClone(item));
+  if(extras.basis?.length)next.agent_basis=structuredClone([...extras.basis]);else delete next.agent_basis;
+  if(extras.names&&Object.keys(extras.names).length)next.resolved_names={...next.resolved_names,...extras.names};
+  if(extras.recurrence)next.recurrence={expression:extras.recurrence.slice(0,120),status:"ASKED"};
+  const references:SchedulingReferences={...structuredClone(extras.references??{}),...(extras.appointmentCard?.length?{card:{kind:"appointment_ref" as const,items:extras.appointmentCard.map(item=>({...item}))}}:{})};
+  // A link state, even empty, lets the plan's syncReferences follow a released origin (the C4's D1 link) after this preparation.
+  if(extras.references||extras.appointmentCard?.length)next.references=references;
+  const hold=!!(extras.card||extras.question);
+  if(hold)next.proposal_deferred=true;
+  try{await prepare(actor,next);}catch(error){delete next.proposal_deferred;publishCommittedSchedulingDraft(c,next);throw error;}
+  delete next.proposal_deferred;
+  // V7-A: the C4 locate picked another appointment than the one validated (the agenda changed in between): nothing is proposed.
+  if(extras.expected&&next.fields.appointment_ref&&next.fields.appointment_ref!==extras.expected){next.proposal=undefined;publishCommittedSchedulingDraft(c,next);throw Error("AGENT_APPT_LOCATE");}
+  if(hold){
+    next.proposal=undefined;
+    const own=next.candidates||next.waiting_for?next.message:undefined;
+    if(extras.card&&(!next.candidates||next.candidates.kind===extras.card.kind)){
+      next.candidates={kind:extras.card.kind,items:extras.card.items.map(item=>({...item}))};next.waiting_for=extras.card.kind;next.message=extras.card.question;
+    }
+    else{const asked=extras.question??extras.card?.question;next.message=own&&own!==asked?`${asked}\n${own}`:asked??next.message;}
+  }
+  commitScheduling(c,next);
+}
+/** C5 agent (§6.2 hook, flag SALON_SECRETARY_AGENT): per derived basis of this action, the fields it fills, the owner's own fields that replace
+ * it and the fields it stood on. The owner's own new value ends that basis (the value is the owner's now); a change of what it stood on drops the
+ * derived values the continuation did not bring (forgotten by the next journal write) with the basis, so prepare() asks them
+ * (AGENT_BASIS_PATCHED). A link to another action of the plan (sequence, between, released) ends with an owner's own day or clock. */
+function agentBasisPatched(c:SchedulingState,fields:SchedulingFields,patch:Partial<SchedulingFields>):string[]{
+  const before=c.fields,said=(keys:readonly (keyof SchedulingFields)[])=>keys.some(key=>patch[key]!==undefined&&JSON.stringify(patch[key])!==JSON.stringify(before[key]));
+  const kept:AgentBasis[]=[],forgotten=new Set<SchedulingForgetField>(c.agent_forgotten??[]),codes:string[]=[];
+  for(const item of c.agent_basis??[]){
+    const shape=agentBasisShape(item);
+    if(said(shape.own)){codes.push("AGENT_BASIS_OWNER");continue;}
+    if(!said(shape.stands)){kept.push(item);continue;}
+    for(const key of shape.derived)if(patch[key]===undefined){delete fields[key];forgotten.add(key);}
+    codes.push("AGENT_BASIS_PATCHED");
+  }
+  if(kept.length)c.agent_basis=kept;else delete c.agent_basis;
+  if(forgotten.size)c.agent_forgotten=[...forgotten];
+  return codes;
+}
+function agentBasisShape(item:AgentBasis):{derived:SchedulingForgetField[];own:(keyof SchedulingFields)[];stands:(keyof SchedulingFields)[]}{
+  switch(item.type){
+    case "DELEGADO":return item.field==="novo_profissional"?{derived:["target_professional_ref","target_professional_name"],own:["target_professional_name"],stands:["date","time","service_changes"]}
+      :{derived:["professional_ref","professional_name"],own:["professional_name"],stands:["date","time","service_name","service_names"]};
+    case "ANCORA":return {derived:["time"],own:["time"],stands:["date","professional_name"]};
+    case "MANTIDO":return {derived:["time"],own:["time"],stands:["date"]};
+    case "EXCECAO":return {derived:["time","end_time","end_date"],own:["time","end_time"],stands:["date","professional_name"]};
+    case "FIM_EXPEDIENTE":return {derived:["end_time","end_date"],own:["end_time"],stands:["date","time","professional_name"]};
+    default:return {derived:["date","time"],own:["date","time"],stands:[]};
+  }
+}
+/** C5 agent (V23 at the Confirmar, flag SALON_SECRETARY_AGENT): what a derived value stood on changed, so every derived value of this action
+ * leaves with its basis (forgotten by the next journal write; prepare() asks it again). The caller withdraws the proposal (holdForReview). */
+export function forgetAgentBasis(c:SchedulingState):string[]{
+  if(!c.agent_basis?.length)return [];
+  const forgotten=new Set<SchedulingForgetField>(c.agent_forgotten??[]);
+  for(const item of c.agent_basis)for(const key of agentBasisShape(item).derived){delete c.fields[key];forgotten.add(key);}
+  delete c.agent_basis;c.agent_forgotten=[...forgotten];
+  return ["AGENT_BASIS_CHANGED"];
 }
 export async function sendSchedulingTurn(actor:ServiceActor,c:SchedulingState,model:Model,message:string,assertLive:()=>unknown){
   c.proposal=undefined;c.metrics={};c.interpretation_source="MODEL";
