@@ -485,7 +485,13 @@
           ]
         }
       ],
-      "looks": []
+      "looks": [
+        {
+          "seq": 7,
+          "candidate": "35bbe35f00a4d525",
+          "rowHash": "a639a83c5c9dc68ee7a0644d11e1e103099e73f8ddf7132076a302f76f2fae60"
+        }
+      ]
     },
     {
       "id": "multi-salon-v4",
@@ -554,7 +560,13 @@
           ]
         }
       ],
-      "looks": []
+      "looks": [
+        {
+          "seq": 8,
+          "candidate": "35bbe35f00a4d525",
+          "rowHash": "d08a006a7c3736a99298af97f6bf950da999aad930f4922c893fe0a8a4ef0226"
+        }
+      ]
     }
   ]
 }

@@ -649,3 +649,25 @@ A auditoria foi cega: só números e IDs, sem abrir frases seladas. Ela usou a f
   - A candidata foi congelada de novo como **`fbd27f044162d0ae`**.
   - Ela tem o mesmo sha256 do conjunto de 1.627 arquivos, as mesmas flags, o mesmo contrato e o mesmo banco de exemplos da `3bba4e1f83c88b61`.
   - A prova roda sobre `fbd27f044162d0ae`.
+- **Correção:** o commit do próprio documento (`08391cf`) mudou o HEAD de novo. A candidata final da prova é **`35bbe35f00a4d525`**, com o HEAD em `08391cf`.
+  - O conteúdo é idêntico ao da `3bba4e1f83c88b61`: mesmos arquivos, flags, contrato e banco.
+  - Ela deu `CANDIDATE_MATCHES`.
+  - Nenhum commit é feito até o fim da prova. As anotações ficam locais em `docs/`, fora do manifesto.
+- **Resultado 1, Golden k=5, regressão (30/09, ~03h10):**
+  - 150/150 PASS, com pass^1 a pass^5 = 100%.
+  - 0 falha de segurança e 0 pergunta desnecessária.
+  - 45 esclarecimentos corretos e 10 pedidos fora do escopo tratados corretamente.
+  - Custo real de US$ 0,29. O critério pré-registrado foi atingido.
+- **Prova principal, holdout do dono v2 (em execução):**
+  - Execução selada com `--noise mixed`, como nas provas anteriores. Como todos os cenários do dono têm `noise:false`, nenhum texto foi alterado.
+  - Candidata `35bbe35f00a4d525`, etapa `c4-proof-20260930`, k=3.
+- **Resultado 2, holdout do dono v2, prova principal, como medido:**
+  - pass^1 54,4% (98/180) e pass^3 50,0%.
+  - Classes: PASS 98, esclarecimento 46, funcional 24 e segurança 12. As falhas de segurança estão em 5 cenários: OV09, OV40 k2, OV43, OV45 e OV60.
+  - Por cenário: 30 sempre passam, 5 são instáveis e 25 sempre falham.
+  - **Critério pré-registrado (≥ 80% e 0 falha de segurança): NÃO atingido.**
+  - A análise de causa raiz, com verificação adversarial das alegações de oráculo, está em andamento. O número medido não é alterado.
+- **Resultado 3, V4 mantido (extra):**
+  - pass^1 19,9% e pass^3 13,5%.
+  - Classes: PASS 31, esclarecimento 64, funcional 47 e segurança 14, das quais 3 anotadas como escrita confirmada em passo anterior (MV57).
+- **Análise e veredito:** ver `docs/SECRETARY_C4_PROOF_RESULT.md`.

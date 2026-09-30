@@ -2,6 +2,6 @@
   "ledger": "holdout-usage-v1",
   "genesisId": "98d32bd0-e541-40ad-afcd-6289479290b5",
   "genesisHash": "e08e23fa2bbdd5b9a29e5fb7b813b8aae7fceefa61a58d24242fb9f5888400e8",
-  "seq": 6,
-  "rowHash": "25e14c5b226aa5e7156043f45876f2496ab768a36a6dbbf49d1db87d681b3604"
+  "seq": 8,
+  "rowHash": "d08a006a7c3736a99298af97f6bf950da999aad930f4922c893fe0a8a4ef0226"
 }

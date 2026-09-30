@@ -510,3 +510,9 @@ Decididas em conversa. São regras gerais do produto, não regras por frase. A r
    - Se existem os dois cadastros, ela pergunta qual usar.
    - Para tirar um componente de um atendimento feito com combo, ela propõe trocar para o serviço restante, se ele estiver cadastrado. Se não estiver, ela explica e pergunta.
    - As provas cobrem salões com combos e salões com serviços separados.
+
+## Secretária de Agenda — decisões do dono de 30/09/2026 (Candidata 5)
+
+10. **Bloqueio com atendimento dentro do intervalo:** a Secretária nunca propõe o bloqueio direto. Ela mostra os atendimentos e pergunta, com opções reais: bloquear só o horário livre ou o período todo, mantendo os agendamentos marcados.
+11. **Acrescentar um combo a um atendimento que já tem uma das partes dele:** o combo substitui essa parte; o atendimento nunca fica com o combo e a parte juntos. Um combo com uma parte que o dono não disse e que o atendimento não tem só entra com a escolha do dono.
+12. **Conferente** (checagem da proposta contra o pedido): quando ele falha ou estoura o tempo, a proposta aparece como antes, e o Confirmar continua obrigatório.
