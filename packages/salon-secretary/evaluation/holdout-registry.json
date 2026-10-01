@@ -643,7 +643,18 @@
           ]
         }
       ],
-      "looks": []
+      "looks": [
+        {
+          "seq": 11,
+          "candidate": "2dc6cc5ebc0ce06c",
+          "rowHash": "5d45c91f3bdd0d62bea03afb0626d986c7dee15ce30842a0209fbce5cb5de28d"
+        },
+        {
+          "seq": 12,
+          "candidate": "da3af371defd0dde",
+          "rowHash": "36c803444d08707ccf24354e5d41c7530aa381b21679c04aecb613b7b6d60261"
+        }
+      ]
     },
     {
       "id": "agent-v1c-complex",
@@ -720,7 +731,18 @@
           ]
         }
       ],
-      "looks": []
+      "looks": [
+        {
+          "seq": 9,
+          "candidate": "2dc6cc5ebc0ce06c",
+          "rowHash": "38f2c818b2cf575a9683d5b2b17b56925fe581b958a68484dbe134afd6d699a1"
+        },
+        {
+          "seq": 10,
+          "candidate": "da3af371defd0dde",
+          "rowHash": "480bbc81b05ac80cdacf6831cc250062f63b2e7ad3bd495c4bc36858075aaba7"
+        }
+      ]
     }
   ]
 }
