@@ -216,3 +216,21 @@ Base: resultado do S2 (Treino do repositório, 150 cenários, Luna real, flags d
   - latência por mensagem com p50 ≤ 8 s e p90 ≤ 15 s.
 - **O acerto no Treino é reportado, não perseguido.** Os conjuntos conhecidos não são otimizados até 100%.
 - **Se ao fim da 2ª rodada ainda houver falha de segurança,** o Agent **não** vai para a prova: o caso é reportado ao dono, que decide.
+
+## Adendo 2: holdouts v1 rejeitados e processo de remontagem (01/10/2026, ~07:06 de São Paulo, antes de qualquer holdout ser selado)
+
+Resultado da auditoria da §4 sobre os holdouts v1 (só números; nenhum foi selado nem lido por quem implementa o Agent):
+- **SIMPLE-HOLDOUT v1: rejeitado.**
+  - Métricas objetivas: Jaccard mascarado médio 0,55 (limite 0,40); assinatura já existente no DEV em 58% (limite 50%); 1 nome de cliente repetido de um holdout antigo.
+  - Revisores: 59 de 60 cenários marcados como troca de entidade ou paráfrase superficial; sobraria 1.
+- **COMPLEX-HOLDOUT v1: rejeitado.**
+  - Estrutura forte: 0% de assinatura do DEV, 100% de combinações inéditas, 97% multi-ação, 77% multi-turn, 47 tipos de salão.
+  - Redação próxima do DEV: Jaccard 0,41 (limite 0,35); 5 trajetórias multi-turn iguais.
+  - Revisores: 20 cenários removidos, sobram 40 (mínimo 45); estrutura nova de 22,5% e 25% (mínimo 60%).
+- Os arquivos v1 ficam guardados como registro, fora do repositório, e passam a fazer parte da união DEV da remontagem.
+
+**Critérios, limites e regra de decisão da §4 não mudam.** O que muda é só o processo de montagem (v1b), registrado antes de começar:
+1. **Autores novos**, que nunca leram o v1. Cada holdout recebe ~90 cenários escritos, para que sobrem ≥ 45 depois da remoção sem reescrita.
+2. **Inventário dos autores sem esqueletos mascarados:** só assinaturas estruturais, combinações, nomes, serviços, tipos de salão e jornadas a evitar. Os esqueletos ficam só para a auditoria.
+3. **Autoverificação numérica:** cada autor mede o próprio rascunho com `.demo/agenda-core/holdout-novelty-check.ts`, que compara com a união DEV ampliada (DEV do repositório, conjuntos liberados pelo dono e todos os holdouts anteriores, inclusive o v1) e devolve **só números** por cenário. Cenário próximo demais é refeito com **outra estrutura** (o que falta, referências, trajetória, contexto) ou descartado; trocar sinônimos não vale, e os revisores céticos continuam julgando isso.
+4. A auditoria da §4 roda de novo, igual, sobre o v1b, e as métricas são reapresentadas ao dono antes da selagem.
