@@ -328,3 +328,18 @@ Objetivo: separar falha real do Agent, falha real compartilhada, problemas de ro
   - **VALID_WITH_LIMITATIONS:** (RESOLVABLE + SHARED_PRODUCT_LIMITATION) ≥ 60% e (ORACLE_CONFLICT + IMPOSSIBLE_OR_UNDERSPECIFIED) ≤ 15%. Qualquer estimativa de capacidade usa só esse subconjunto, sempre ao lado do resultado oficial, que não muda.
   - **NOT_VALID_FOR_CAPABILITY_ESTIMATION:** caso contrário.
   - Contam como "prejudicado por roteiro/gabarito": RESOLVABLE_WITH_ALTERNATIVE_VALID_PATH, SCRIPT_TOO_RIGID, SCRIPT_RESPONSE_MISMATCH, ORACLE_CONFLICT e IMPOSSIBLE_OR_UNDERSPECIFIED.
+
+## Adendo 5: auditoria pós-prova do SIMPLE v1c (autorizada pelo dono em 01/10/2026, ~17:31 de São Paulo, antes de qualquer análise do SIMPLE)
+
+- **Método e critério de validade:** os mesmos do Adendo 4.
+- **Medições a mais pedidas pelo dono:**
+  - número de perguntas legítimas não previstas pelo roteiro;
+  - número de respostas roteirizadas que não respondem à pergunta feita;
+  - avaliação específica do código "motivo não literal": escrita perigosa real ou classificação inadequada.
+- **Restrições:** resultados oficiais, produto, Agent, C4, holdout, avaliador e gabarito ficam intocados. Nenhum FAIL vira PASS. A auditoria não é usada como desenvolvimento.
+- **Depois das duas auditorias:** comparação lado a lado e conclusão sobre o gap DEV (~74%) × holdout (0–18%), separando:
+  - generalização real;
+  - rigidez do avaliador ou do roteiro;
+  - diferença de distribuição ou dificuldade;
+  - bugs compartilhados do backend;
+  - instabilidade da Luna.
