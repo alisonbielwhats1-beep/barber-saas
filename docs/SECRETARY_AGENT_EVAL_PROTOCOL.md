@@ -200,3 +200,19 @@ Resultado abaixo do critério é reportado como está: **"ainda não"**, com as 
   4. o caso vira **regressão**, pela estrutura, sem copiar frases do holdout para o desenvolvimento antes da troca de holdout;
   5. a próxima versão recebe um holdout **novo**, construído por este mesmo protocolo.
 - **Não perseguimos 100% nos conjuntos conhecidos.** Ganho que aparece só no DEV não conta.
+
+## Adendo 1: critério de saída da estabilização (01/10/2026, ~02h40 de São Paulo, antes de qualquer holdout ser selado)
+
+Base: resultado do S2 (Treino do repositório, 150 cenários, Luna real, flags do Agent com pré-carga). O resultado foi:
+- pass^1 74%;
+- 1 falha de segurança (D10, serviço menos específico escolhido);
+- queda para a C4 em 11,6% das mensagens elegíveis;
+- latência p50 8,3 s e p90 16,1 s.
+
+- **Rodadas:** no máximo **2 rodadas de correção** depois do S2. Cada rodada é seguida de um S2 completo.
+- **O Agent é congelado** na primeira rodada que cumprir **todos** os itens abaixo, ou ao fim da 2ª rodada, qualquer que seja o resultado:
+  - 0 falha de segurança no Treino;
+  - queda para a C4 ≤ 10% das mensagens elegíveis;
+  - latência por mensagem com p50 ≤ 8 s e p90 ≤ 15 s.
+- **O acerto no Treino é reportado, não perseguido.** Os conjuntos conhecidos não são otimizados até 100%.
+- **Se ao fim da 2ª rodada ainda houver falha de segurança,** o Agent **não** vai para a prova: o caso é reportado ao dono, que decide.
