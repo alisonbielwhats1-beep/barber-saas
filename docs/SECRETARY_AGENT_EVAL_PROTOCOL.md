@@ -299,3 +299,32 @@ Resultado da auditoria do v1b (só números):
 - **Registro** (`holdout-registry.json`): `agent-v1c-simple` sha256 `fda51ef6…`; `agent-v1c-complex` sha256 `bfb3233e…`. Kind test, 0 olhadas. A política é 1 execução por candidata e 2 candidatas por holdout: Agent e C4.
 - **Dia da execução:** 6 cenários do COMPLEX usam dia da semana sem data, então a prova não roda em sexta, sábado ou domingo.
 - **Prova autorizada pelo dono para 01/10/2026** (quinta-feira), com Agent × C4, k=3, SIMPLE e COMPLEX separados, mais o Golden k=5 do Agent, dentro do teto de US$ 15.
+
+## Resultado oficial da prova selada v1c (01/10/2026, 11h40–16h59 de São Paulo). Nunca alterar.
+
+Candidatas: Agent `2dc6cc5ebc0ce06c`, C4 `da3af371defd0dde` (commit 7d3b7ec, conteúdo idêntico a 0a0bd0b8/644b8712). Estágio `c5-agent-20261001`, k = 3, ruído off, dia de referência 2026-10-01. Cobertura 180/180 em cada braço, 0 inválidas, 0 incompletas, 0 erros do avaliador, 0 reexecuções; candidatas conferidas ao fim de cada braço.
+
+| Holdout × braço | pass^1 (IC 95%) | pass^3 (IC 95%) | maioria | Segurança (tentativas / cenários / códigos) | Perguntas / propostas por 100 turnos | Loop / turno perdido / divergência | Latência p50 / p90 | Custo estimado |
+|---|---|---|---|---|---|---|---|---|
+| COMPLEX × Agent | 0,0% (0–0) | 0,0% (0–0) | 0/60 | 11 / 5 / 7 pendência após negação, 4 escrita inesperada | 84,6 / 16,8 | 9,4 / 14,4 / 6,5 | 15,2 s / 41,4 s | US$ 0,41 |
+| COMPLEX × C4 | 2,2% (0–6,1) | 1,7% (0–5,0) | 1/60 | 11 / 5 / 8 pendência após negação, 3 escrita inesperada | 86,3 / 19,7 | 15,1 / 17,1 / 31,7 | 14,9 s / 27,1 s | US$ 0,58 |
+| SIMPLE × Agent | 11,7% (4,4–20,0) | 8,3% (1,7–16,7) | 8/60 | 3 / 1 / 3 motivo não literal | 72,4 / 6,9 | 4,3 / 16,8 / 2,2 | 9,4 s / 17,2 s | US$ 0,14 |
+| SIMPLE × C4 | 17,8% (8,7–27,8) | 15,0% (6,7–25,0) | 11/60 | 3 / 1 / 3 motivo não literal | 73,4 / 9,7 | 3,0 / 5,9 / 29,1 | 8,3 s / 15,6 s | US$ 0,16 |
+
+- Gasto real do programa ao fim da prova: US$ 10,02 de US$ 15 (US$ 2,93 na prova, pelo livro-caixa).
+- **Leitura pelos critérios da §9: SIMPLE "ainda não"; COMPLEX "ainda não"** (pass muito abaixo dos limites, falhas de segurança, Agent não superior à C4). Sem ajuste de limite.
+- **Preservação:** os 752 arquivos de resultado das quatro execuções estão em somente leitura. Manifesto `D:/Projetos/secretary-holdout-sealed/agent-v1c/proof-preservation-20261001.json`, sha256 `702d56e3cf889e64f86037fc963aa025ee0f9c4d74e796146a52acd7526e965b`, com o sha256 de cada arquivo e dos dois holdouts.
+
+## Adendo 4: auditoria pós-prova do COMPLEX v1c (pedido do dono; registrada antes de qualquer análise)
+
+Objetivo: separar falha real do Agent, falha real compartilhada, problemas de roteiro, gabarito, avaliador e instabilidade, **sem** alterar resultado, produto, testes, holdouts ou critérios, e sem corrigir o Agent a partir dela.
+
+- **Método** (agentes isolados; o coordenador e o dono recebem só IDs, códigos e contagens):
+  - **Causas:** 6 lotes de 10 cenários. Um analista por lote lê as conversas dos dois braços e atribui a cada cenário × braço uma causa primária: PASS, falha real do sistema, pergunta legítima não prevista, resposta roteirizada incompatível, trajetória rígida, "Confirmar tudo" inadequado, conflito de gabarito, falha do avaliador/simulador, instabilidade da Luna, outro estrutural.
+  - **Resolubilidade:** 2 revisores independentes por lote, que **não** leem as conversas, classificam cada cenário em RESOLVABLE, RESOLVABLE_WITH_ALTERNATIVE_VALID_PATH, SCRIPT_TOO_RIGID, SCRIPT_RESPONSE_MISMATCH, ORACLE_CONFLICT, IMPOSSIBLE_OR_UNDERSPECIFIED ou SHARED_PRODUCT_LIMITATION. Um adjudicador decide as divergências.
+  - **Segurança:** 2 analistas independentes sobre a união dos cenários com falha de segurança, mais um adjudicador.
+- **Critério de validade** (fixado aqui, antes de ver as classificações):
+  - **VALID:** RESOLVABLE ≥ 80% e (ORACLE_CONFLICT + IMPOSSIBLE_OR_UNDERSPECIFIED) ≤ 5%.
+  - **VALID_WITH_LIMITATIONS:** (RESOLVABLE + SHARED_PRODUCT_LIMITATION) ≥ 60% e (ORACLE_CONFLICT + IMPOSSIBLE_OR_UNDERSPECIFIED) ≤ 15%. Qualquer estimativa de capacidade usa só esse subconjunto, sempre ao lado do resultado oficial, que não muda.
+  - **NOT_VALID_FOR_CAPABILITY_ESTIMATION:** caso contrário.
+  - Contam como "prejudicado por roteiro/gabarito": RESOLVABLE_WITH_ALTERNATIVE_VALID_PATH, SCRIPT_TOO_RIGID, SCRIPT_RESPONSE_MISMATCH, ORACLE_CONFLICT e IMPOSSIBLE_OR_UNDERSPECIFIED.
