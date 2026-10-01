@@ -56,7 +56,7 @@ export * from './agent-tools';
 export * from './agent-plan';
 export * from './agent-prompt';
 export * from './agent-loop';
-import { agentEnabled, agentEffort, agentMessage, messageCallBudget } from './agent-context';
+import { agentEnabled, agentEffort, agentMessage, agentPreloadEnabled, agentRoundEfforts, messageCallBudget } from './agent-context';
 import { agentContractParts } from './agent-prompt';
 export { examplesMode, examplesK, examplesContractTag, examplesState, eligibleExamples, selectExamples, composeExamples, secretaryRequestBytes, withExamplesObserver, jsonTextBytes,
   EXAMPLES_HEADER, EXAMPLES_REQUEST_CAP, EXAMPLES_OUTPUT_FRAMING, type ExamplesMode, type ExamplesState, type ExamplesBlock, type ExamplesTelemetry } from './examples/select';
@@ -363,7 +363,7 @@ export const SECRETARY_CONTRACT_SCHEMA = 'secretary-contract-v1';
 export const SECRETARY_CONTRACT_ENV = ['SALON_SECRETARY_TEMPORAL_COMPONENTS','SALON_SECRETARY_JIT_INSTRUCTIONS','SALON_SECRETARY_EXAMPLES','SALON_SECRETARY_EXAMPLES_K',
   'SALON_SECRETARY_MULTI_ACTION_V2_ENABLED','SALON_SECRETARY_SCHEDULING_OVERLAP_ENABLED','SALON_SECRETARY_V2_MAX_OUTPUT_TOKENS','SALON_SECRETARY_MODEL','SALON_SECRETARY_TEMPORAL_POLARITY','SALON_SECRETARY_SAME_AS',
   'SALON_SECRETARY_STRUCTURED_CONTEXT','SALON_SECRETARY_ALTER_APPOINTMENT','SALON_SECRETARY_MULTI_SERVICE','SALON_SECRETARY_COPY_V2','SALON_SECRETARY_REFERENCES_V2','SALON_SECRETARY_READS_V2','SALON_SECRETARY_RECURRENCE_GUARD',
-  'SALON_SECRETARY_EXAMPLES_V2','SALON_SECRETARY_PROMPT_CACHE','SALON_SECRETARY_AGENT','SALON_SECRETARY_AGENT_EFFORT'] as const;
+  'SALON_SECRETARY_EXAMPLES_V2','SALON_SECRETARY_PROMPT_CACHE','SALON_SECRETARY_AGENT','SALON_SECRETARY_AGENT_EFFORT','SALON_SECRETARY_AGENT_EFFORT_ROUNDS','SALON_SECRETARY_AGENT_PRELOAD'] as const;
 const contractHash=(value:unknown)=>createHash('sha256').update(typeof value==='string'?value:JSON.stringify(value)).digest('hex');
 /** Synthetic, fixed: one open action per published operation (an option card, a daypart and both calendar kinds, a
  * pending discard) plus one suspended plan, so every mode, operation group and state-bound rule is compiled. */
@@ -388,6 +388,13 @@ export type SecretaryContractOptions={modelId?:string;presentation?:string;reque
 const budgetSteps=(options:SecretaryContractOptions)=>REQUEST_DEGRADATIONS.filter(step=>options.requestBudget?.includes(step));
 /** C5 agent: the effort the contract names (never throws: an invalid value is its own tag). */
 const agentEffortTag=()=>{try{return agentEffort();}catch{return 'invalid';}};
+/** C5 agent, S1 arms (owner decisions 13 and 19): the effort of each call (SALON_SECRETARY_AGENT_EFFORT_ROUNDS, an invalid value its own
+ * tag) and the pre-load (SALON_SECRETARY_AGENT_PRELOAD), each named only when set, so every version recorded without them is kept. */
+const agentArmTags=()=>{
+  let efforts:string|undefined;
+  if(process.env.SALON_SECRETARY_AGENT_EFFORT_ROUNDS!==undefined){try{efforts=agentRoundEfforts().join(',');}catch{efforts='invalid';}}
+  return {...(efforts?{efforts}:{}),...(agentPreloadEnabled()?{preload:true}:{})};
+};
 export function secretaryContractParts(options:SecretaryContractOptions={}){
   const components=temporalComponentsEnabled(),jit=jitInstructionsEnabled(),examples=examplesMode(),context=canonicalContractContext();
   const agentOn=agentEnabled(),agentParts=agentOn?agentContractParts():undefined;
@@ -437,8 +444,9 @@ export function secretaryContractParts(options:SecretaryContractOptions={}){
       ...(promptCache?{promptCache:true}:{}),
       // B7: the clarification context format (codes + a short stable sentence) the backend publishes; named only when on.
       ...(process.env.SALON_SECRETARY_STRUCTURED_CONTEXT==='true'?{structuredContext:true}:{}),
-      // C5 agent: named only when on, with its one effort per message (an invalid value is named as such; the agent then does not run).
-      ...(agentOn?{agent:{effort:agentEffortTag()}}:{}),...(budgetSteps(options).length?{requestBudget:budgetSteps(options)}:{})},
+      // C5 agent: named only when on, with its one effort per message (an invalid value is named as such; the agent then does not run),
+      // and the S1 arm it runs (agentArmTags: per-call efforts, pre-load) when set.
+      ...(agentOn?{agent:{effort:agentEffortTag(),...agentArmTags()}}:{}),...(budgetSteps(options).length?{requestBudget:budgetSteps(options)}:{})},
     templates,wires,...(options.presentation?{presentation:options.presentation}:{})};
 }
 /** The version and the hash of each part (so a changed version says what changed). */

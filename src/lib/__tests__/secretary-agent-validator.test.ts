@@ -566,4 +566,13 @@ describe("V25 and §5.5: what the owner reads is backend text", () => {
     const operation = await validate("E a Dalva?", plan([], { resultado: "PERGUNTA", pergunta: { acao: null, campo: "operacao", texto: "O que faço com a Dalva?" } }));
     expect(operation).toMatchObject({ ok: true, question: { field: "operacao", text: `O que faço com a Dalva?\n${AGENT_NOTHING_CHANGED}` }, actions: [] });
   });
+  it("A1: the operation question of one unclear part, on a PLANO, is a notice next to the other action, which is validated as usual", async () => {
+    const mixed = await validate("Reserva a Quitéria sexta às 15h com o Otoniel, escova. E a Dalva?", plan([booking({ citacao_acao: "Reserva a Quitéria sexta às 15h com o Otoniel, escova",
+      bases: [base("inicio", "DITO", "sexta às 15h")] })], { pergunta: { acao: null, campo: "operacao", texto: "O que faço com a Dalva?" } }));
+    if (!mixed.ok) throw Error(`REJECTED ${mixed.code}`);
+    expect(mixed).toMatchObject({ result: "PLANO", question: null, reply: null });
+    expect(mixed.notices.filter(notice => notice === "O que faço com a Dalva?")).toHaveLength(1);
+    expect(mixed.actions.map(action => [action.key, action.status === "DROP", action.asked])).toEqual([["a1", false, null]]);
+    expect(mixed.codes).not.toContain("AGENT_FIELD_QUESTION");
+  });
 });

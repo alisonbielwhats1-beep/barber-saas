@@ -11,11 +11,27 @@ export const agentEnabled = () => process.env.SALON_SECRETARY_AGENT === "true";
 export const AGENT_EFFORTS = ["medium", "high"] as const;
 export type AgentEffort = (typeof AGENT_EFFORTS)[number];
 /** SALON_SECRETARY_AGENT_EFFORT, one value per message for every round (default medium); anything else fails closed. */
-export function agentEffort(): AgentEffort {
-  const value = process.env.SALON_SECRETARY_AGENT_EFFORT ?? "medium";
+export function agentEffort(env: Readonly<Record<string, string | undefined>> = process.env): AgentEffort {
+  const value = env.SALON_SECRETARY_AGENT_EFFORT ?? "medium";
   if (!(AGENT_EFFORTS as readonly string[]).includes(value)) throw Error("INVALID_AGENT_EFFORT");
   return value as AgentEffort;
 }
+/** The effort of the 1st, 2nd and 3rd call of a message. */
+export type AgentRoundEfforts = readonly [AgentEffort, AgentEffort, AgentEffort];
+/** S1 fix A4 (owner decision 19, effort decided by measurement): SALON_SECRETARY_AGENT_EFFORT_ROUNDS = "e1,e2,e3", one effort of
+ * AGENT_EFFORTS per call of the message. Unset: SALON_SECRETARY_AGENT_EFFORT in every round (the historical behaviour). The message
+ * effort is checked first either way; another count, a space, an empty or unknown value fails closed (AGENT_EFFORT_INVALID). */
+export function agentRoundEfforts(env: Readonly<Record<string, string | undefined>> = process.env): AgentRoundEfforts {
+  const base = agentEffort(env), value = env.SALON_SECRETARY_AGENT_EFFORT_ROUNDS;
+  if (value === undefined) return Object.freeze([base, base, base] as const);
+  const parts = value.split(",");
+  if (parts.length !== 3 || parts.some(part => !(AGENT_EFFORTS as readonly string[]).includes(part))) throw Error("INVALID_AGENT_EFFORT");
+  return Object.freeze(parts as unknown as AgentRoundEfforts);
+}
+export const agentRoundEffort = (round: 1 | 2 | 3, env: Readonly<Record<string, string | undefined>> = process.env): AgentEffort => agentRoundEfforts(env)[round - 1];
+/** S1 fix A5 (owner decision 13, hybrid context; adopted only by A/B): SALON_SECRETARY_AGENT_PRELOAD, default off. On, the app's
+ * executor may pre-load what the owner's own words cite (AgentDirectory.preload) and the prompt sends it as a third system part. */
+export const agentPreloadEnabled = () => process.env.SALON_SECRETARY_AGENT_PRELOAD === "true";
 /** §6.5: the agent relies on these guards and resolvers; any one off → the agent does not run (AGENT_FLAGS_INCOMPLETE) and the
  * C4 answers. The spec's "NAME_TOKENS" is the whole-name switch SALON_SECRETARY_WHOLE_NAME_MATCH (src/lib/secretary-name-tokens.ts). */
 export const AGENT_DEPENDENCY_FLAGS = ["SALON_SECRETARY_MULTI_ACTION_V2_ENABLED", "SALON_SECRETARY_NAME_SUGGESTIONS", "SALON_SECRETARY_WHOLE_NAME_MATCH",
@@ -32,6 +48,7 @@ export const AGENT_LIMITS = Object.freeze({
   lookupsPerRound: 4, lookupsPerMessage: 6, lookupOutputBytes: 3 * 1024, roundOutputBytes: 9 * 1024, argumentsBytes: 4 * 1024, commentaryBytes: 1024,
   maxOutputTokens: 8192, requestCap: 64_000, outputFraming: 8192,
   directoryProfessionals: 40, directoryServices: 80, customersShown: 5, upcomingPerCustomer: 3, professionalsShown: 6, freeTimesShown: 6, agendaRows: 50, refsPerKind: 99,
+  preloadBytes: 6 * 1024, preloadItems: 5,
 });
 
 /** Opaque refs of one message: p professional, s service, c customer, a appointment, f free interval; 1..99 per kind. */
@@ -103,6 +120,11 @@ export type AgentDirectory = {
   readonly today: { readonly date: string; readonly weekday: string; readonly timezone: string };
   readonly professionals: readonly { readonly ref: AgentRef<"p">; readonly nome: string }[];
   readonly services: readonly { readonly ref: AgentRef<"s">; readonly nome: string; readonly duracao_min: number }[];
+  /** S1 fix A5 (flag SALON_SECRETARY_AGENT_PRELOAD): what the executor already read for the days, names and services the owner's
+   * words of this turn cite, rendered and masked exactly as lookup outputs (refs bound only for what it delivers): compact JSON, an
+   * array of 1..5 {consulta, argumentos, resultado}, at most 6 KB. The prompt sends it whole as a third system part or drops it
+   * whole (agent-prompt.ts agentPreloadText); it never counts as a lookup round and never causes a fallback. */
+  readonly preload?: string;
 };
 /** More than 40 professionals or 80 services: the agent does not run on this message (the C4 answers). */
 export type AgentDirectoryResult = { readonly ok: true; readonly directory: AgentDirectory } | { readonly ok: false; readonly code: "AGENT_DIRECTORY_TRUNCATED" | "AGENT_UNAVAILABLE" };

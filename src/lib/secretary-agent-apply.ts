@@ -1,11 +1,11 @@
-import { validateSelectionV2, type CapabilitySelection } from "@everflair/salon-secretary";
+import { terminalActionStatus, validateSelectionV2, type CapabilitySelection } from "@everflair/salon-secretary";
 import type { ServiceActor } from "./service-catalog";
 import { withTenant } from "./prisma-tenant";
 import { schedulingResolved, type SchedulingFields } from "./scheduling-contract";
 import { prepareResolvedScheduling, type AgentResolvedExtras, type SchedulingReferences, type SchedulingState } from "./secretary-scheduling";
 import { prepareBatch, type BatchState } from "./secretary-batch";
 import { validateBatchPlan } from "./scheduling-batch";
-import { createAgentLookupExecutor, agentLookupTelemetry } from "./secretary-agent-lookups";
+import { createAgentLookupExecutor, agentLookupTelemetry, type AgentPreloadTelemetry } from "./secretary-agent-lookups";
 import { AGENT_NOTHING_CHANGED, AGENT_QUESTIONS, agentBasisPrecondition, agentDerivedCheck, agentFactReader, agentGroupBasisPrecheck,
   type AgentActionOutcome, type AgentBasis, type AgentPreparedSlot, type AgentValidation } from "./secretary-agent-validator";
 import type { AgentTurnOutcome } from "./secretary-router";
@@ -37,6 +37,32 @@ export function agentMessageScope<T>(actor: ServiceActor, owner: readonly string
   if (!agentEnabled() || agentMessage()) return work();
   return withAgentMessage({ owner, executor: createAgentLookupExecutor(actor) }, () => work());
 }
+
+// ---------------------------------------------------------------- follow-ups (B2: Phase 1 "no active plan" = no open action)
+type PlanLike = { readonly actions: readonly { readonly status: string; readonly operation?: string }[] };
+/** A plan with an action still to answer, prepare or confirm (neither DONE nor DISCARDED). */
+export const agentPlanOpen = (plan: PlanLike | undefined) => !!plan?.actions.some(action => !terminalActionStatus(action.status));
+/** The confirmed actions whose receipt a C4 continuation still builds on: the slot a confirmed cancel freed (appendReleasedSlot) and the origin
+ * a confirmed reschedule left (appendReleasedOrigin). The agent's lookups list only active appointments, so it never sees either. */
+const RELEASING = new Set(["appointment.cancel", "appointment.change"]);
+/** A plan with a confirmed cancel or reschedule: still the C4's active plan (spec §0, B2), even with every action closed. */
+export const agentPlanReleased = (plan: PlanLike | undefined) => !!plan?.actions.some(action => action.status === "DONE" && RELEASING.has(action.operation ?? ""));
+/** The C4's own limits on this path (sendActionPlanTurn's SUSPENDED_PLAN_LIMIT, sendAutomatic's TURN_LIMIT). */
+export const AGENT_FOLLOW_UP_LIMITS = Object.freeze({ suspendedPlans: 5, turns: 20 });
+export type AgentFollowUpState = { readonly multiActionV2?: boolean; readonly turns: number; readonly actionPlan?: PlanLike; readonly pendingDiscard?: unknown;
+  readonly suspendedPlans?: readonly { readonly actionPlan?: PlanLike }[] };
+/** A message on a CLOSED plan (every action DONE or DISCARDED) is a new request the agent may take, unless the plan has a confirmed cancel or
+ * reschedule (agentPlanReleased: a continuation may fill what it freed), it answers a card (`operationRef`) or the pending discard question, a
+ * suspended plan still has an open action (resuming it is the C4's), the suspended list is full (the C4 would refuse the new plan) or the
+ * conversation is at its turn limit. Any other plan state stays with the C4 continuation (Phase 2 in the spec). */
+export function agentFollowUpEligible(s: AgentFollowUpState, operationRef?: string) {
+  return !!s.multiActionV2 && !operationRef && !s.pendingDiscard && !!s.actionPlan && !agentPlanOpen(s.actionPlan) && !agentPlanReleased(s.actionPlan)
+    && !(s.suspendedPlans ?? []).some(saved => agentPlanOpen(saved.actionPlan))
+    && (s.suspendedPlans?.length ?? 0) < AGENT_FOLLOW_UP_LIMITS.suspendedPlans && s.turns < AGENT_FOLLOW_UP_LIMITS.turns;
+}
+/** A validated follow-up that could not tell whose customer a pronoun meant (V-pronoun: no referent in THIS message): the C4 continuation,
+ * which still has the closed plan's context, answers it while the message has a call and time left. */
+export const agentPronounTopic = (validation: AgentValidation) => validation.ok && validation.actions.some(action => action.codes.includes("AGENT_PRONOUN_TOPIC"));
 
 // ---------------------------------------------------------------- the plan skeleton (§6.2)
 export type AgentSkeleton = { selection?: CapabilitySelection; outcomes: ReadonlyMap<string, AgentActionOutcome>; dropped: string[]; notices: string[] };
@@ -182,9 +208,12 @@ export const agentConfirmOptions = (actor: ServiceActor, basis: readonly AgentBa
 const QUESTION_FIELDS: Readonly<Record<string, string>> = { operacao: "request", atendimento: "appointment", cliente: "customer", profissional: "professional",
   novo_profissional: "target", servicos: "service", dia: "date", inicio: "time", fim: "end", motivo: "reason" };
 export type AgentOutcomeInput = { loop?: AgentLoopTelemetry; path: AgentTurnOutcome["path"]; code: string | null; validation?: AgentValidation; questionField?: string | null;
-  premises?: number; locateDisagree?: number };
+  premises?: number; locateDisagree?: number; followUp?: boolean };
+/** S1 additions, present only when they apply: the effort of each call when they differed (A4), the message's preload (B1,
+ * SALON_SECRETARY_AGENT_PRELOAD) and a follow-up on a closed plan (B2); the router's whitelist (secretary-router.ts safeAgent) keeps them. */
+export type AgentTurnOutcomeExtra = AgentTurnOutcome & { preload?: AgentPreloadTelemetry; follow_up?: true };
 /** Codes and numbers only (never a name, a quote or a text). */
-export function agentTurnOutcome(context: AgentMessageContext | undefined, input: AgentOutcomeInput): AgentTurnOutcome {
+export function agentTurnOutcome(context: AgentMessageContext | undefined, input: AgentOutcomeInput): AgentTurnOutcomeExtra {
   const lookups = context ? agentLookupTelemetry(context) : undefined, loop = input.loop, validation = input.validation?.ok ? input.validation : undefined;
   const actions = validation?.actions ?? [], codes = new Set(actions.flatMap(action => action.codes));
   return { path: input.path, rounds: loop?.calls ?? 0, lookup_calls: loop?.lookup_calls ?? lookups?.calls ?? 0, lookup_kinds: [...new Set(lookups?.kinds ?? [])],
@@ -196,5 +225,7 @@ export function agentTurnOutcome(context: AgentMessageContext | undefined, input
     question_field: input.questionField ? QUESTION_FIELDS[input.questionField] ?? "other" : null, premises_backend: input.premises ?? 0,
     premise_note_dropped: codes.has("AGENT_PREMISE_MISMATCH") ? actions.filter(action => action.codes.includes("AGENT_PREMISE_MISMATCH")).length : 0,
     uncovered: codes.has("AGENT_UNCOVERED") ? 1 : 0, actions_left: validation?.notices.some(notice => /de fora: faço até/u.test(notice)) ? 1 : 0,
-    locate_disagree: input.locateDisagree ?? actions.filter(action => action.codes.includes("AGENT_APPT_LOCATE")).length, effort: loop?.effort ?? null };
+    locate_disagree: input.locateDisagree ?? actions.filter(action => action.codes.includes("AGENT_APPT_LOCATE")).length, effort: loop?.effort ?? null,
+    ...loop && new Set(loop.efforts).size > 1 ? { efforts: [...loop.efforts] } : {},
+    ...lookups?.preload ? { preload: lookups.preload } : {}, ...input.followUp ? { follow_up: true as const } : {} };
 }

@@ -66,21 +66,31 @@ export type TurnOutcome = { kind: TurnOutcomeKind; groups_ready: number; groups_
  * the validator's per-action effects and codes, the backend premises shown and Luna's notes dropped. Never a name, a quote or a text. */
 export type AgentTurnOutcome = { path: "AGENT" | "C4_FALLBACK" | "C4_SKIPPED"; rounds: number; lookup_calls: number; lookup_kinds: string[]; rows: number; output_bytes: number;
   truncated: boolean; fallback_code: string | null; validator: { accepted: number; name_fallback: number; carded: number; asked: number; dropped: number; codes: string[] };
-  question_field: string | null; premises_backend: number; premise_note_dropped: number; uncovered: number; actions_left: number; locate_disagree: number; effort: string | null };
+  question_field: string | null; premises_backend: number; premise_note_dropped: number; uncovered: number; actions_left: number; locate_disagree: number; effort: string | null;
+  /** S1 (owner decisions 13 and 19; present only when they apply): the effort of each call when they differed (SALON_SECRETARY_AGENT_EFFORT_ROUNDS;
+   * absent, every call used `effort`), the message's pre-load (SALON_SECRETARY_AGENT_PRELOAD) and a follow-up on a closed plan (B2). */
+  efforts?: string[]; preload?: AgentPreloadOutcome; follow_up?: true };
+/** B1: items delivered, their lookup kinds, rows, bytes, the database time and the items planned but left out (numbers and kinds only). */
+export type AgentPreloadOutcome = { items: number; kinds: string[]; rows: number; bytes: number; ms: number; skipped: number };
+const agentEfforts = new Set(["medium", "high"]);
 const agentPaths = new Set(["AGENT", "C4_FALLBACK", "C4_SKIPPED"]), lookupKinds = new Set(["T1", "T2", "T3", "T4", "T5"]);
 /** §6.4: the agent block through the same whitelist discipline as the rest of the outcome (closed values, counts, stable codes). */
 function safeAgent(agent: AgentTurnOutcome): AgentTurnOutcome | undefined {
   if (!agent || !agentPaths.has(agent.path)) return undefined;
   const count = (value: number) => Number.isSafeInteger(value) && value >= 0 ? Math.min(value, 1_000_000) : 0;
   const code = (value: string | null) => typeof value === "string" && stableCode.test(value) ? value : null;
-  const v = agent.validator ?? { accepted: 0, name_fallback: 0, carded: 0, asked: 0, dropped: 0, codes: [] };
+  const v = agent.validator ?? { accepted: 0, name_fallback: 0, carded: 0, asked: 0, dropped: 0, codes: [] }, p = agent.preload;
   return { path: agent.path, rounds: count(agent.rounds), lookup_calls: count(agent.lookup_calls), lookup_kinds: (agent.lookup_kinds ?? []).filter(kind => lookupKinds.has(kind)).slice(0, 6),
     rows: count(agent.rows), output_bytes: count(agent.output_bytes), truncated: agent.truncated === true, fallback_code: code(agent.fallback_code),
     validator: { accepted: count(v.accepted), name_fallback: count(v.name_fallback), carded: count(v.carded), asked: count(v.asked), dropped: count(v.dropped),
       codes: [...new Set((v.codes ?? []).filter(item => stableCode.test(item)))].slice(0, 32) },
     question_field: agent.question_field === null ? null : outcomeField(agent.question_field), premises_backend: count(agent.premises_backend),
     premise_note_dropped: count(agent.premise_note_dropped), uncovered: count(agent.uncovered), actions_left: count(agent.actions_left), locate_disagree: count(agent.locate_disagree),
-    effort: agent.effort === "medium" || agent.effort === "high" ? agent.effort : null };
+    effort: agent.effort === "medium" || agent.effort === "high" ? agent.effort : null,
+    ...(Array.isArray(agent.efforts) && agent.efforts.length > 0 && agent.efforts.length <= 3 && agent.efforts.every(item => agentEfforts.has(item)) ? { efforts: [...agent.efforts] } : {}),
+    ...(p && typeof p === "object" ? { preload: { items: count(p.items), kinds: (Array.isArray(p.kinds) ? p.kinds : []).filter(kind => lookupKinds.has(kind)).slice(0, 5), rows: count(p.rows),
+      bytes: count(p.bytes), ms: count(p.ms), skipped: count(p.skipped) } } : {}),
+    ...(agent.follow_up === true ? { follow_up: true as const } : {}) };
 }
 export type RequestBudgetOutcome = { requests: number; rejected: number; steps: RequestDegradation[]; initial_bytes: number; final_bytes: number };
 const degradationCodes = new Set<string>(REQUEST_DEGRADATIONS);

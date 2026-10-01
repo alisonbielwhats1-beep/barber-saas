@@ -21,6 +21,7 @@ Fluxo decidido pelo dono em 30/09/2026: **a Luna conduz a conversa e escolhe as 
 - **O que o dono aprova é texto do backend:** cartões, premissas renderizadas a partir das bases validadas e o diálogo do "Confirmar tudo" (§5.5). O texto livre da Luna só aparece como nota rotulada, depois de conferido.
 - **Flag nova `SALON_SECRETARY_AGENT`**, desligada por padrão. Desligada, o comportamento e o wire ficam idênticos byte a byte. A C4 continua sendo o padrão e o *fallback*.
 - **Fase 1 (esta especificação):** o agente atende pedidos novos (sem plano ativo). A pergunta do agente vira pergunta de campo de uma ação (NEEDS_INPUT), então a resposta do dono segue pelo caminho C4 com plano ativo, que já sabe responder campos. Só a pergunta "qual operação?" fica fora de plano (`agentPending`). A continuação pelo agente é a Fase 2, com especificação própria depois da medição.
+  - **Plano ativo, depois da correção B2 da S1:** é um plano com alguma ação ainda aberta (nem concluída nem descartada) **ou** com um cancelamento ou uma remarcação já confirmados. Nesses dois casos a mensagem segue pela C4: a continuação dela ainda usa o horário que o cancelamento liberou ou a origem que a remarcação deixou livre (recibo do backend: `appendReleasedSlot`, `appendReleasedOrigin`), e as consultas do agente só mostram atendimentos ativos. Um plano só com ações concluídas ou descartadas e sem esses recibos é tratado como sem plano ativo: a mensagem seguinte passa primeiro pelo agente (`agentFollowUpEligible`), e o plano novo dele substitui o fechado como faz a C4.
 - **Contra overfitting (§9):** dono v2, V4, C4 DEV, regras, V e N passam a ser **Treino integral**. A decisão C4 × agente usa uma **Escolha nova** (E-C5, escrita fora do repositório por um agente isolado) e a **Prova** com frases novas do dono (v3), com os dois braços congelados e veredito pareado (R6/R8).
 - **Testes reais (§10):** sonda e 8 cenários pesados (S1), 10 adversariais reais (S1b), Treino, Escolha pareada, ajuste, replicação e prova final. Estimativa ≈ US$ 7,2 do saldo estimado de ≈ US$ 8,7.
 
@@ -45,6 +46,7 @@ Dono → sendMessage (sessão, papel, tenant)                         src/lib/sa
   │         contador de 3 chamadas, sinal único de 45 s               novo: packages/salon-secretary/src/agent-context.ts
   └─ sendAutomatic                                                    salon-secretary.ts:841
        ├─ plano ativo → C4 (sendActionPlanTurn; recebe o sinal e o contador)   :842, :1529
+       │    (plano ativo: com ação aberta, ou com cancelamento/remarcação confirmados; §0, B2)
        ├─ tryJev (inalterado)                                           :854
        └─ [flag, sem plano ativo] runAgentTurn                          novo: packages/salon-secretary/src/agent-loop.ts
             Rodada 1  tools=[5 consultas + propor_plano]  tool_choice="required"  parallel=true  max_output=8192

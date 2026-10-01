@@ -456,10 +456,13 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
   const notices = coverage();
   for (const w of works) notes(w);
   if (decoded.acoes_fora > 0) notices.push(agentActionsLeftText(decoded.acoes_fora));
-  if (result === "PERGUNTA" && decoded.pergunta) {
+  // A1: a field question (on a PLANO or the recorded PERGUNTA) marks its action; the operation question of one unclear part, on a PLANO,
+  // is shown next to the other actions (a question, never a value nor a write; the owner's answer reaches the C4 continuation).
+  if (decoded.pergunta && decoded.pergunta.campo !== "operacao") {
     const target = works.find(w => w.a.chave === decoded.pergunta!.acao);
     if (target) { target.asked = decoded.pergunta.campo; code(target, "AGENT_FIELD_QUESTION"); }
   }
+  if (result === "PLANO" && decoded.pergunta?.campo === "operacao") { const text = clean(decoded.pergunta.texto, AGENT_PLAN_LIMITS.question); if (text) notices.push(text); }
   for (const w of [...works].reverse()) if (w.status === "DROP" && w.notice && !notices.includes(w.notice)) notices.unshift(w.notice);
   const actions = works.map((w): AgentActionOutcome => ({ key: w.a.chave, operation: w.a.operacao, status: w.status, fields: { ...w.fields }, cleared: [...w.cleared],
     card: w.card ?? null, question: w.question ?? null, asked: w.asked, ambiguities: [...w.ambiguities], origin: w.origin ?? null, derived: w.derived ?? null,

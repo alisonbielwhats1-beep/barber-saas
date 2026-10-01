@@ -55,7 +55,7 @@ import { createActionPlan, assessPlanAction, executeConfirmationGroup,
   validateSelectionV2, actionSelection, markSecretaryTiming, type ActionAssessment, type SelectedOperation } from "@everflair/salon-secretary";
 import { actionUnits, unitSelection, assessmentFromView, deferredReadAssessment, deferredReadPreview, collectedActionFields, viewProposal, type ActionUnit } from "./secretary-action-plan";
 import { agentMessageScope, agentSkeleton, prepareAgentScheduling, prepareAgentBatch, agentDeferredRead, agentTurnNotice, agentGroupPrecheck, agentConfirmOptions, agentPreparedSlot,
-  agentTurnOutcome, agentNothingChanged, type AgentPrepared, type AgentSkeleton } from "./secretary-agent-apply";
+  agentTurnOutcome, agentNothingChanged, agentFollowUpEligible, agentPlanOpen, agentPronounTopic, type AgentPrepared, type AgentSkeleton } from "./secretary-agent-apply";
 import { validateAgentPlanInTenant, type AgentValidation } from "./secretary-agent-validator";
 import { agentMessage } from "../../packages/salon-secretary/src/agent-context";
 import { AGENT_SAFE_REPLY, agentFallbackRoute, runAgentTurn, type AgentLoopOutcome, type AgentLoopTelemetry } from "../../packages/salon-secretary/src/agent-loop";
@@ -869,7 +869,12 @@ export class SalonSecretary {
     return this.get(actor,id);
   }
   private async sendAutomatic(actor: ServiceActor, parent: Session, message: string, operationRef?: string, messageStarted=performance.now()) {
-    if (parent.actionPlan) return this.sendActionPlanTurn(actor, parent, message, operationRef);
+    if (parent.actionPlan) {
+      // C5 agent (flag SALON_SECRETARY_AGENT, only inside its message context; B2): a new request on a CLOSED plan (no open action) goes
+      // through the agent first; without its answer, the C4 continuation below, with the calls and the time the message has left.
+      if (agentMessage() && agentFollowUpEligible(parent, operationRef)) { const view = await this.sendAgentFollowUp(actor, parent, message); if (view) return view; }
+      return this.sendActionPlanTurn(actor, parent, message, operationRef);
+    }
     if (parent.children?.length) {
       const open = parent.children.map(id=>this.get(actor,id)).filter(s=>!s.cancelled && !s.communication?.receipt && s.inventory?.status!=="DONE" && !s.inventory?.receipt && s.financial?.status!=="DONE" && !s.receipt && !s.customer?.receipt && !s.scheduling?.receipt && !s.batch?.receipt);
       if (!open.length) { parent.notice = "Operações concluídas. Inicie uma nova conversa para outro pedido."; return this.view(parent); }
@@ -900,7 +905,7 @@ export class SalonSecretary {
         if (!secretaryCopyV2Enabled() || !isInterpretationFailure(error)) throw error;
         return this.unreadRequest(parent, error);
       }
-    } else parent.turns++;
+    } else { parent.turns++; if (parent.agentPending) parent.agentPending = undefined; } // C5 agent: an answer JEV read closes the agent's question.
     const interpretationMs=performance.now()-interpretationStart;
     this.routerTrace.getStore()!.interpretationMs=interpretationMs;
     this.get(actor,parent.id);
@@ -1085,21 +1090,54 @@ export class SalonSecretary {
     return this.view(parent);
   }
   // ================================================================ C5 agent (flag SALON_SECRETARY_AGENT; docs/c5-spike/11-especificacao-agente.md)
-  /** The owner's messages of this turn: after the agent's own "qual operação?" (no plan since), that thread's messages come first. */
+  /** The owner's messages of this turn: after the agent's own "qual operação?" (no open action since: no plan, or a closed one, B2), that
+   * thread's messages come first. */
   private agentOwner(s: Session, message: string) {
-    return s.agentPending && !s.actionPlan && !s.children?.length ? [...s.agentPending.thread, message] : [message];
+    return s.agentPending && (s.actionPlan ? !agentPlanOpen(s.actionPlan) : !s.children?.length) ? [...s.agentPending.thread, message] : [message];
+  }
+  /** B2: the agent on a follow-up of a closed plan (agentFollowUpEligible). The turn counts once: the agent's answer counts it; a fallback
+   * gives it back to the C4 continuation, which counts it itself, within the same calls and deadline of the message. */
+  private async sendAgentFollowUp(actor: ServiceActor, parent: Session, message: string): Promise<SecretaryView | undefined> {
+    const started = performance.now();
+    parent.conversationNotice = undefined; parent.capability_status = undefined;
+    const agent = await this.sendAgent(actor, parent, message, await this.measuredModel(), true);
+    if (agent.view) { this.routerTrace.getStore()!.interpretationMs = performance.now() - started; return agent.view; }
+    parent.turns--;
+    return undefined;
+  }
+  /** The agent's own reply text: on a plan (a closed one kept, B2) the plan's reply notice, else the session's notice (exactly as before). */
+  private agentNotice(parent: Session, text: string) {
+    if (parent.actionPlan) parent.conversationNotice = text; else parent.notice = text;
+  }
+  /** B2: a follow-up's plan replaces the closed one as the C4's new request does (sendActionPlanTurn): the closed plan is retired when it can be,
+   * else suspended (its approvals invalidated); the new plan starts without its receipts. A preparation that throws leaves the closed plan as it
+   * was (the C4 prepares its new plan on a copy). */
+  private async agentReplacingPlan(parent: Session, prepare: () => Promise<SecretaryView>): Promise<SecretaryView> {
+    const before = this.savePlan(parent), suspended = parent.suspendedPlans, agentPlan = parent.agentPlan, retired = this.retirable(before.actionPlan);
+    if (!retired && (suspended?.length ?? 0) >= 5) throw Error("SUSPENDED_PLAN_LIMIT");
+    before.actionPlan!.revision++;
+    if (!retired) parent.suspendedPlans = [...(suspended ?? []), before];
+    Object.assign(parent, { actionPlan: undefined, actionUnits: undefined, children: undefined, groupReceipts: undefined });
+    try { return await prepare(); }
+    catch (error) {
+      Object.assign(parent, before);
+      if (suspended) parent.suspendedPlans = suspended; else delete parent.suspendedPlans;
+      if (agentPlan) parent.agentPlan = agentPlan; else delete parent.agentPlan;
+      throw error;
+    }
   }
   /** §1, §3.8, §5.5: a new request on the agent path, inside the message context (sendMessage). The loop answers with a plan, the C4 (with
    * or without its repair, by the calls left) or the safe reply; the plan is checked by the fact validator, and what stands becomes the C4
    * plan (prepareAgentPlan). Every agent failure (transport, protocol, schema, an invalid plan, a failing validation, an out-of-scope request)
    * falls back to the C4 while the message has calls and time left, else the safe reply. `view`: this message's answer; `counted`: the
-   * turn is already counted (a fallback then continues on the C4 path with the same model). */
-  private async sendAgent(actor: ServiceActor, parent: Session, message: string, model: Model): Promise<{ view?: SecretaryView; counted: true }> {
+   * turn is already counted (a fallback then continues on the C4 path with the same model). `followUp` (B2): the message is on a closed plan;
+   * its new plan replaces that one (agentReplacingPlan), a reply keeps it, and a customer pronoun with no referent here goes to the C4. */
+  private async sendAgent(actor: ServiceActor, parent: Session, message: string, model: Model, followUp = false): Promise<{ view?: SecretaryView; counted: true }> {
     const context = agentMessage()!, trace = this.routerTrace.getStore()!, pending = parent.agentPending;
     parent.agentPending = undefined; parent.turns++;
     const fallback = (code: string, loop?: AgentLoopTelemetry, validation?: AgentValidation): { view?: SecretaryView; counted: true } => {
       const route = agentFallbackRoute(context);
-      trace.agent = agentTurnOutcome(context, { loop, validation, code, path: route.kind === "SAFE_REPLY" ? "AGENT" : context.calls.used() ? "C4_FALLBACK" : "C4_SKIPPED" });
+      trace.agent = agentTurnOutcome(context, { loop, validation, code, path: route.kind === "SAFE_REPLY" ? "AGENT" : context.calls.used() ? "C4_FALLBACK" : "C4_SKIPPED", followUp });
       return route.kind === "SAFE_REPLY" ? { view: this.agentSafeReply(parent, code), counted: true } : { counted: true };
     };
     const modelId = this.modelId();
@@ -1107,44 +1145,46 @@ export class SalonSecretary {
     try { loop = await runAgentTurn(instrumentAgentModel(model, modelId, usageRecorder(actor, parent.id, randomUUID(), modelId)), { modelId }); }
     catch { return fallback("AGENT_UNAVAILABLE"); }
     if (loop.kind === "SAFE_REPLY") {
-      trace.agent = agentTurnOutcome(context, { loop: loop.telemetry, path: "AGENT", code: loop.code });
+      trace.agent = agentTurnOutcome(context, { loop: loop.telemetry, path: "AGENT", code: loop.code, followUp });
       return { view: this.agentSafeReply(parent, loop.code), counted: true };
     }
-    if (loop.kind === "C4") { trace.agent = agentTurnOutcome(context, { loop: loop.telemetry, path: loop.telemetry.path, code: loop.code }); return { counted: true }; }
+    if (loop.kind === "C4") { trace.agent = agentTurnOutcome(context, { loop: loop.telemetry, path: loop.telemetry.path, code: loop.code, followUp }); return { counted: true }; }
     let validation: AgentValidation;
     try { validation = await validateAgentPlanInTenant(actor, loop.plan, { owner: context.owner, binding: context.binding }); }
     catch { return fallback("AGENT_UNAVAILABLE", loop.telemetry); }
     this.get(actor, parent.id); // Fail closed if the session expired while the model answered.
     if (!validation.ok) return fallback(validation.code, loop.telemetry, validation);
+    // B2: a follow-up whose customer pronoun has no referent in this message: the C4 continuation still has the closed plan's context.
+    if (followUp && agentPronounTopic(validation) && agentFallbackRoute(context).kind === "C4") return fallback("AGENT_PRONOUN_TOPIC", loop.telemetry, validation);
     const outcome = (path: "AGENT", extra: { premises?: number } = {}) => { trace.agent = agentTurnOutcome(context, { loop: loop.telemetry, validation, path, code: null,
-      questionField: loop.kind === "PLAN" ? loop.plan.pergunta?.campo ?? null : null, ...extra }); };
+      questionField: loop.kind === "PLAN" ? loop.plan.pergunta?.campo ?? null : null, followUp, ...extra }); };
     // A request that is not about the agenda is the C4's (services, customers, stock, finance, messages): never a capability lost to the flag.
     if (validation.result === "FORA_DO_ESCOPO" && agentFallbackRoute(context).kind === "C4") return fallback("AGENT_OUT_OF_SCOPE", loop.telemetry, validation);
     if (validation.reply !== null) {
-      parent.capability_status = validation.result === "CONVERSA" ? "CONVERSATION" : "UNSUPPORTED"; parent.notice = agentNothingChanged(validation.reply);
+      parent.capability_status = validation.result === "CONVERSA" ? "CONVERSATION" : "UNSUPPORTED"; this.agentNotice(parent, agentNothingChanged(validation.reply));
       outcome("AGENT"); return { view: this.view(parent), counted: true };
     }
     if (validation.question) {
       // The one question outside a plan (§4): which operation. Its thread reaches the agent with the owner's next message, at most twice.
       const turns = (pending?.turns ?? 0) + 1, asked = loop.plan.pergunta?.texto ?? "";
       if (turns <= 2) parent.agentPending = { question: asked.slice(0, 200), thread: [...pending?.thread ?? [], message].slice(-2), turns };
-      parent.capability_status = "AMBIGUOUS"; parent.notice = agentNothingChanged(validation.question.text);
+      parent.capability_status = "AMBIGUOUS"; this.agentNotice(parent, agentNothingChanged(validation.question.text));
       outcome("AGENT"); return { view: this.view(parent), counted: true };
     }
     let skeleton: AgentSkeleton;
     try { skeleton = agentSkeleton(validation); } catch { return fallback("AGENT_SCHEMA", loop.telemetry, validation); }
     if (!skeleton.selection) {
-      parent.capability_status = "AMBIGUOUS"; parent.notice = agentNothingChanged(skeleton.notices.join("\n") || AGENT_SAFE_REPLY);
+      parent.capability_status = "AMBIGUOUS"; this.agentNotice(parent, agentNothingChanged(skeleton.notices.join("\n") || AGENT_SAFE_REPLY));
       outcome("AGENT"); return { view: this.view(parent), counted: true };
     }
-    const prepared = new Map<string, AgentPrepared>();
-    const view = await this.prepareAgentPlan(actor, parent, skeleton as AgentSkeleton & { selection: CapabilitySelection }, prepared);
+    const prepared = new Map<string, AgentPrepared>(), prepare = () => this.prepareAgentPlan(actor, parent, skeleton as AgentSkeleton & { selection: CapabilitySelection }, prepared);
+    const view = followUp ? await this.agentReplacingPlan(parent, prepare) : await prepare();
     outcome("AGENT", { premises: [...prepared.values()].reduce((sum, item) => sum + item.premises.length, 0) });
     return { view, counted: true };
   }
   /** §3.8: nothing understood safely and no call or time left for the C4: the reply says nothing was changed (B5 semantics). */
   private agentSafeReply(parent: Session, code: string) {
-    parent.notice = AGENT_SAFE_REPLY; parent.capability_status = "AMBIGUOUS";
+    this.agentNotice(parent, AGENT_SAFE_REPLY); parent.capability_status = "AMBIGUOUS";
     this.routerTrace.getStore()?.unread(code);
     return this.view(parent);
   }

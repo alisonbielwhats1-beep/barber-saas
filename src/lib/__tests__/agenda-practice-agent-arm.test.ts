@@ -65,6 +65,10 @@ describe('agenda practice, C5 agent arm: stage, flag and expected calls', () => 
     catch (e) { expect((e as Error).message).toBe('AGENDA_AGENT_FLAGS_INCOMPLETE'); expect((e as { details: unknown }).details).toEqual({ missing: [first] }); }
     expect(() => assertAgentArm(Object.fromEntries(rest.map(name => [name, 'true'])))).toThrow('AGENDA_AGENT_FLAGS_INCOMPLETE');
     expect(() => assertAgentArm({ ...allDependencies(), SALON_SECRETARY_AGENT_EFFORT: 'low' })).toThrow('AGENDA_AGENT_EFFORT');
+    // S1 arm: a per-call effort the loop would refuse on every message (a paid run silently measuring the C4) is refused before anything.
+    expect(() => assertAgentArm({ ...allDependencies(), SALON_SECRETARY_AGENT_EFFORT_ROUNDS: 'high,medium,medium' })).not.toThrow();
+    for (const value of ['high', 'high,medium', 'high,low,medium', 'high, medium,medium', ''])
+      expect(() => assertAgentArm({ ...allDependencies(), SALON_SECRETARY_AGENT_EFFORT_ROUNDS: value }), JSON.stringify(value)).toThrow('AGENDA_AGENT_EFFORT');
   });
   it('an agent arm reserves 3 calls per say and per scripted answer; the C4 arm keeps the historical 2 per say + 1 per answer', () => {
     const s: AgendaScenario = { id: 'Q1', title: 'q', capability: ['agenda'], steps: [{ say: 'um' }, { confirm: true }, { say: 'dois' }],

@@ -58,12 +58,12 @@ const baseWire = agentObjectWire({
   campo: { enum: [...AGENT_BASE_FIELDS] },
   tipo: { enum: [...AGENT_BASE_TYPES] },
   ref: described(agentNullableWire(agentTextWire(L.baseRef)), "a# ou f# da âncora ou da exceção; chave da outra ação nos tipos entre ações; senão null."),
-  citacao: described(agentTextWire(L.quote, 1), "Cópia curta das palavras do dono que sustentam o valor."),
+  citacao: described(agentTextWire(L.quote, 1), "Trecho contínuo e curto, copiado da mensagem do dono, que sustenta o valor; sem reticências e sem juntar pedaços."),
 });
 const actionWire = agentObjectWire({
   chave: described(agentPatternWire(P.key), "Identificador curto desta ação dentro do plano."),
   operacao: { enum: [...AGENT_PLAN_OPERATIONS] },
-  citacao_acao: described(agentTextWire(L.actionQuote, 2), "Cópia exata do trecho em que o dono pede esta ação."),
+  citacao_acao: described(agentTextWire(L.actionQuote, 2), "Trecho contínuo, copiado exatamente da mensagem, em que o dono pede esta ação; sem reticências."),
   atendimento: described(agentNullableWire(agentPatternWire(P.a)), "Atendimento que a ação altera, cancela ou lê."),
   cliente: agentNullableWire(agentPatternWire(P.c)),
   profissional: agentNullableWire(agentPatternWire(P.p)),
@@ -82,15 +82,19 @@ const actionWire = agentObjectWire({
 });
 const questionWire = agentObjectWire({ acao: agentNullableWire(agentPatternWire(P.key)), campo: { enum: [...AGENT_QUESTION_FIELDS] }, texto: agentTextWire(L.question, 3) });
 /** §4 wire of `propor_plano`. `pergunta` is published as anyOf [object, null] (the nullable-object form of the recorded C4 wire);
- * the resolved schema is §4's. `servicos` has minItems 1 (null states absence; an empty list would be a second spelling of it). */
+ * the resolved schema is §4's. `servicos` has minItems 1 (null states absence; an empty list would be a second spelling of it).
+ * S1 fix A1: every requested action goes in the plan; a field question only points at an empty field of one of them (the backend
+ * asks it) and never replaces the others; PERGUNTA is the operation question alone (the recorded PERGUNTA + actions form still decodes);
+ * the operation question of one unclear part rides on the PLANO of the others (acao null). */
 export const AGENT_PLAN_PARAMETERS: AgentObjectSchema = agentDeepFreeze(agentObjectWire({
-  resultado: { enum: [...AGENT_PLAN_RESULTS] },
+  resultado: described({ enum: [...AGENT_PLAN_RESULTS] }, "PLANO sempre que houver ação, mesmo com campo vazio; PERGUNTA só quando não dá para saber a operação, sem ações."),
   resposta: described(agentNullableWire(agentTextWire(L.reply)), "Só em CONVERSA, FORA_DO_ESCOPO ou pergunta de operação."),
-  acoes: { type: "array", maxItems: L.actions, items: actionWire },
+  acoes: described({ type: "array", maxItems: L.actions, items: actionWire }, "Todas as ações pedidas nesta mensagem, na ordem, inclusive as que ficam com algum campo vazio."),
   acoes_fora: described({ type: "integer", minimum: 0, maximum: L.actionsLeft }, "Ações pedidas que não couberam nas quatro."),
-  pergunta: described({ anyOf: [questionWire, { type: "null" }] }, "Só em PERGUNTA. Com campo operacao, acao é null."),
+  pergunta: described({ anyOf: [questionWire, { type: "null" }] },
+    "Opcional: aponta um campo vazio de uma ação do plano, que o backend pergunta; nunca substitui as outras ações. Com campo operacao, acao é null: num PLANO, sobre a parte cuja operação não está clara; em PERGUNTA, sem ações."),
 }));
-export const AGENT_PLAN_DESCRIPTION = "Entrega o plano resolvido. Nada é gravado: o backend confere os fatos e o dono confirma pelo botão. Chame uma única vez, sem consultas na mesma rodada.";
+export const AGENT_PLAN_DESCRIPTION = "Entrega o plano resolvido, com todas as ações pedidas. Nada é gravado: o backend confere os fatos e o dono confirma pelo botão. Chame uma única vez, sem consultas na mesma rodada.";
 
 /** A published wire compiled as a validator (like the C4's interpretationParser): used to validate only, never to transform. */
 export const compileAgentWire = (schema: AgentJsonSchema): z.ZodType => z.fromJSONSchema(structuredClone(schema) as Parameters<typeof z.fromJSONSchema>[0]);
@@ -149,12 +153,16 @@ export function agentPlanViolations(plan: AgentPlan): string[] {
     if (new Set(action.depende_de).size !== action.depende_de.length) out.add("DEPENDENCY_DUPLICATE");
   }
   const question = plan.pergunta;
+  // S1 fix A1: a field question rides on a PLANO (it never replaces the other actions) or, the recorded form, on a PERGUNTA with the
+  // actions. The operation question is a PERGUNTA with no action or, for the one part of a message whose operation is unclear, a PLANO's
+  // question with acao null (the other actions stay; the backend shows it next to the plan). Both are checked exactly as before.
+  const carried = plan.resultado === "PERGUNTA" || (plan.resultado === "PLANO" && question !== null);
   if (plan.resultado === "PLANO" && !actions.length) out.add("PLAN_EMPTY");
   if (plan.resultado === "PERGUNTA" && !question) out.add("QUESTION_REQUIRED");
-  if (plan.resultado !== "PERGUNTA" && question) out.add("QUESTION_UNEXPECTED");
-  if (plan.resultado === "PERGUNTA" && question) {
+  if (!carried && question) out.add("QUESTION_UNEXPECTED");
+  if (carried && question) {
     const field = question.campo, target = question.acao;
-    if (field === "operacao") { if (actions.length || target !== null) out.add("QUESTION_OPERATION_ACTIONS"); }
+    if (field === "operacao") { if (target !== null || (plan.resultado === "PERGUNTA" && actions.length)) out.add("QUESTION_OPERATION_ACTIONS"); }
     else {
       const asked = actions.find(action => action.chave === target);
       if (!asked) out.add("QUESTION_ACTION");

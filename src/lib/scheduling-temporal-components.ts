@@ -35,16 +35,49 @@ const hourWords=Object.keys(units).sort((a,b)=>b.length-a.length).join("|");
 const hourPattern=`(?:\\d{1,2}|vinte(?: e (?:uma|um|duas|dois|tres))?|${hourWords})`;
 const scalarPattern=`(?:meio[- ]dia|meia[- ]noite|${hourPattern}(?:h(?:\\d{2})?|:\\d{2})?)(?:\\s+horas?)?(?:\\s+e\\s+(?:meia|${cardinalPattern})(?:\\s+minutos?)?)?(?:\\s+(?:da|a)\\s+(?:manha|tarde|noite))?`;
 const scalarParser=new RegExp(`^(meio[- ]dia|meia[- ]noite|${hourPattern})(?:h(\\d{2})?|:(\\d{2}))?(?:\\s+horas?)?(?:\\s+e\\s+(meia|${cardinalPattern})(?:\\s+minutos?)?)?(?:\\s+(?:da|a)\\s+(manha|tarde|noite))?$`);
+/** C5 agent reading (option `clockUnits`, default off; only temporalAtomSpans turns it on): an hour written with an abbreviated hour unit,
+ * glued or after one space ("10hs", "10 hrs", "14 h", "9hr30", "10h30min"), and a colon clock that carries one ("14:30hs"): forms the C4's
+ * token grammar already reads as one clock (scheduling-temporal-reference.ts). A unit never runs into a letter or a digit ("10 hoje" and
+ * "10horas" are no unit form); "hora(s)" written out still needs a lead (it may be a duration). Off: exactly the historical forms. */
+export type ClockReadOptions = { clockUnits?: boolean };
+const hourUnit="(?:hrs|hr|hs|h)",minuteUnit="(?:minutos|minuto|mins|min)",unitEnd="(?![a-z\\d])";
+const unitTail=(open:string)=>`(?: ?${hourUnit}(?:${open}\\d{2})(?: ?${minuteUnit})?)?${unitEnd}|:${open}\\d{2})(?: ?${hourUnit}${unitEnd})?)`;
+/** What follows the hour digits in a clock form of that option. CLOCK_UNIT_CAPTURE: group 1 the glued minutes, group 2 the colon minutes. */
+export const CLOCK_UNIT_FORM=unitTail("(?:"),CLOCK_UNIT_CAPTURE=unitTail("(");
+/** The minutes written after a clock of that option ("10hs e meia", "10h e quinze minutos", "10hs 30", "9 hrs 45 min") belong to it: its
+ * atom spans them, so the agent's validator reads the whole clock through the C4's grammar (or nothing), never its hour alone. They are no
+ * minutes when a date, a unit or another clock follows ("10h 20/03", "10h 20 de março", "10h e 11h", "14:30 e 15:00"), nor is an indefinite
+ * article ("10h e uma escova"). Minutes written twice make the clock invalid. CLOCK_UNIT_MINUTES_CAPTURE: group 1 the spoken minutes, group 2
+ * the digits. */
+const months="(?:janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)";
+const minutesGuard=`${unitEnd}(?!\\s*(?:[\\/.:\\-]\\d|(?:${hourUnit}|horas?|dias?|semanas?|mes|meses|anos?)(?![a-z])|de\\s+${months}(?![a-z])))`;
+const unitDigits=(open:string)=>`\\s${open}\\d{2})(?:\\s?${minuteUnit})?${minutesGuard}`;
+const unitMinutes=(open:string)=>`(?:\\s+e\\s+(?!uma?(?![a-z]))${open}meia|${cardinalPattern})(?:\\s?${minuteUnit})?${minutesGuard}|${unitDigits(open)})`;
+export const CLOCK_UNIT_MINUTES_FORM=unitMinutes("(?:"),CLOCK_UNIT_MINUTES_CAPTURE=unitMinutes("(");
+/** "HH:MM" of a single clock of that option, from the groups of CLOCK_UNIT_CAPTURE then CLOCK_UNIT_MINUTES_CAPTURE. Without minutes after
+ * it, exactly the historical value; with them, those minutes, or INVALID when it already had minutes or they are out of range. */
+export function unitClockValue(hour:string,glued?:string,colon?:string,spoken?:string,digits?:string):string{
+  const written=glued??colon;
+  if(spoken===undefined&&digits===undefined)return `${hour.padStart(2,"0")}:${written??"00"}`;
+  const minute=written!==undefined?undefined:digits!==undefined?Number(digits):spoken==="meia"?30:cardinal(spoken!);
+  return minute===undefined||minute>59?"INVALID":`${hour.padStart(2,"0")}:${String(minute).padStart(2,"0")}`;
+}
+/** An interval end of that option takes the digits after its unit too ("das 10hs às 11hs 30"); the spoken minutes it already had. */
+const unitScalarPattern=`(?:meio[- ]dia|meia[- ]noite|${hourPattern}(?:${CLOCK_UNIT_FORM}(?:${unitDigits("(?:")})?)?)(?:\\s+horas?)?(?:\\s+e\\s+(?:meia|${cardinalPattern})(?:\\s+minutos?)?)?(?:\\s+(?:da|a)\\s+(?:manha|tarde|noite))?`;
+const unitScalarParser=new RegExp(`^(meio[- ]dia|meia[- ]noite|${hourPattern})(?:${CLOCK_UNIT_CAPTURE}(?:${unitDigits("(")})?)?(?:\\s+horas?)?(?:\\s+e\\s+(meia|${cardinalPattern})(?:\\s+minutos?)?)?(?:\\s+(?:da|a)\\s+(manha|tarde|noite))?$`);
 type Scalar = { hour:number; minute:number; daypart?:Daypart; anchor:boolean };
-function scalar(text:string):Scalar|undefined{
-  const match=scalarParser.exec(text);if(!match)return;
-  const anchor=/^(meio|meia)[- ]/.test(match[1]);
-  const hour=anchor?(match[1].startsWith("meio")?12:0):cardinal(match[1]);
-  const numericMinute=match[2]??match[3];
-  if(numericMinute!==undefined&&match[4]!==undefined)return;
-  const minute=numericMinute!==undefined?Number(numericMinute):match[4]==="meia"?30:match[4]?cardinal(match[4]):0;
+function scalar(text:string,units=false):Scalar|undefined{
+  const match=(units?unitScalarParser:scalarParser).exec(text);if(!match)return;
+  // The unit parser has one group more (4: the digits after the unit); the historical one has none there.
+  const groups:(string|undefined)[]=units?match.slice(1,7):[match[1],match[2],match[3],undefined,match[4],match[5]];
+  const [head,glued,colon,digits,spoken,daypart]=groups;
+  const anchor=/^(meio|meia)[- ]/.test(head!);
+  const hour=anchor?(head!.startsWith("meio")?12:0):cardinal(head!);
+  const numericMinute=glued??colon;
+  if([numericMinute,digits,spoken].filter(value=>value!==undefined).length>1)return;
+  const minute=numericMinute!==undefined?Number(numericMinute):digits!==undefined?Number(digits):spoken==="meia"?30:spoken?cardinal(spoken):0;
   if(hour===undefined||minute===undefined||hour>23||minute>59)return;
-  return {hour,minute,daypart:match[5] as Daypart|undefined,anchor};
+  return {hour,minute,daypart:daypart as Daypart|undefined,anchor};
 }
 function clockValue(part:Scalar|undefined,shared?:Daypart):string|undefined{
   if(!part)return;
@@ -85,15 +118,16 @@ export function relativeDayComponents(text:string):RelativeDayComponent[]{
   });
 }
 
-/** Only structural clock additions. Existing simple-clock compatibility stays at the caller. */
-export function clockComponents(text:string):ClockComponent[]{
-  const output:ClockComponent[]=[];
-  const interval=new RegExp(`\\b(?:entre\\s+(${scalarPattern})\\s+e\\s+(${scalarPattern})|(?:de|das|da)\\s+(${scalarPattern})\\s+(?:as|ate)\\s+(${scalarPattern}))\\b`,'g');
+/** Only structural clock additions. Existing simple-clock compatibility stays at the caller. `options.clockUnits` (ClockReadOptions): the
+ * interval ends may carry an abbreviated hour unit ("das 12hs às 13hs"). */
+export function clockComponents(text:string,options:ClockReadOptions={}):ClockComponent[]{
+  const output:ClockComponent[]=[],units=options.clockUnits===true,pattern=units?unitScalarPattern:scalarPattern;
+  const interval=new RegExp(`\\b(?:entre\\s+(${pattern})\\s+e\\s+(${pattern})|(?:de|das|da)\\s+(${pattern})\\s+(?:as|ate)\\s+(${pattern}))\\b`,'g');
   for(const match of text.matchAll(interval)){
     const left=match[1]??match[3],right=match[2]??match[4];
     const start=match.index!,end=start+match[0].length;
     const leftStart=start+match[0].indexOf(left),rightStart=start+match[0].lastIndexOf(right);
-    const first=scalar(left),last=scalar(right);
+    const first=scalar(left,units),last=scalar(right,units);
     const daypartMatch=/\b(?:da|a) (manha|tarde|noite)$/.exec(right);
     const shared=first&&!first.daypart&&!first.anchor&&last?.daypart?last.daypart:undefined;
     const sharedDaypart=shared&&daypartMatch?{start:rightStart+daypartMatch.index,end}:undefined;

@@ -27,7 +27,7 @@ import { createHash } from 'node:crypto';
 import { basename, join } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { PrismaClient } from '@prisma/client';
-import { createPaidModel, examplesContractTag, secretaryContractVersion, type Model } from '@everflair/salon-secretary';
+import { agentPreloadEnabled, agentRoundEfforts, createPaidModel, examplesContractTag, secretaryContractVersion, type Model } from '@everflair/salon-secretary';
 import { SalonSecretary, type SecretaryView } from '../../../src/lib/salon-secretary';
 import { persistedSessionStore } from '../../../src/lib/secretary-session-store';
 import { prisma } from '../../../src/lib/prisma';
@@ -519,7 +519,10 @@ export async function runAgendaPractice(scenarios: AgendaScenario[], out: string
     try { byRound = spendByRound(readFileSync(programLedger, 'utf8').split('\n').filter(Boolean).map(line => JSON.parse(line) as unknown), programRun); }
     catch (e) { byRound = { error: e instanceof Error ? e.message.slice(0, 80) : 'ERROR' }; }
     const eligible = AGENT_PATHS.reduce((n, p) => n + (agentPaths[p] ?? 0), 0), fallback = (agentPaths.C4_FALLBACK ?? 0) + (agentPaths.C4_SKIPPED ?? 0);
-    agentReport = { effort: process.env.SALON_SECRETARY_AGENT_EFFORT ?? 'medium', callsPerMessage: AGENT_CALLS_PER_MESSAGE, paths: agentPaths, eligibleTurns: eligible,
+    // The S1 arm actually run (owner decisions 13 and 19): the effort of each call and the pre-load (assertAgentArm refused an invalid value).
+    let efforts: string;
+    try { efforts = agentRoundEfforts(process.env).join(','); } catch { efforts = 'invalid'; }
+    agentReport = { effort: process.env.SALON_SECRETARY_AGENT_EFFORT ?? 'medium', efforts, preload: agentPreloadEnabled(), callsPerMessage: AGENT_CALLS_PER_MESSAGE, paths: agentPaths, eligibleTurns: eligible,
       fallbackShare: eligible ? Number((fallback / eligible).toFixed(3)) : null, rounds: agentUsageByRound(usage), programSpendByRound: byRound };
   }
   // A stopped run (budget, cap, limit) reports the interrupted attempt and every attempt never started: never PASS.

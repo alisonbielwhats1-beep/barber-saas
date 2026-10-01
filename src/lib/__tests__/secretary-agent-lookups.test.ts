@@ -312,6 +312,21 @@ describe("C5 WP3: the agent's read-only lookups", () => {
     expect(h.s.reads.filter(read => read.label === "appointment.count").every(read => JSON.stringify(read.args.where.status.in) === '["PENDING","CONFIRMED"]')).toBe(true);
   });
 
+  it("S1 fix B3: de = ate asks one exact start (T3: only it, empty when taken; T1: the minute [de, de+1)), never a wasted round", async () => {
+    h.s.slots = { "pro-2": ["14:00", "14:15", "14:30"] };
+    await message([], async run => {
+      const { json: [free, taken, busy, open] } = await run([slotsCall({ servicos: ["s4"], profissional: "p1", de: "14:15", ate: "14:15" }),
+        slotsCall({ servicos: ["s4"], profissional: "p1", de: "14:20", ate: "14:20" }), agendaCall({ profissional: "p4", de: "10:00", ate: "10:00" }),
+        agendaCall({ profissional: "p4", de: "10:50", ate: "10:50" })]);
+      expect(free.profissionais).toEqual([{ ref: "p1", nome: "Benedita Arruda", horarios: ["14:15"], mais: false, atendimentos_no_dia: 1 }]);
+      expect(taken.profissionais).toEqual([{ ref: "p1", nome: "Benedita Arruda", horarios: [], mais: false, atendimentos_no_dia: 1 }]);
+      expect(busy.total).toBe(1);
+      expect(busy.profissionais[0].atendimentos.map((a: Out) => a.ini)).toEqual(["10:00"]); expect(busy.profissionais[0].livres).toEqual([]);
+      expect(open.total).toBe(0);
+      expect(open.profissionais[0].livres.map((f: Out) => [f.ini, f.fim])).toEqual([["10:50", "10:51"]]);
+    });
+  });
+
   it("T4: duration, price, combo parts by the catalog (a registered part is its s#) and who performs each", async () => {
     await message([], async run => {
       const { json: [out] } = await run([catalogCall(["s3", "s5", "s1"])]);

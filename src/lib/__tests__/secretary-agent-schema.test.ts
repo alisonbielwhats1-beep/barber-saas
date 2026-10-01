@@ -104,7 +104,10 @@ describe('agent tools: the six strict schemas (§2)', () => {
     expect(agentToolsBytes() + Buffer.byteLength(AGENT_PROMPT, 'utf8')).toBeLessThanOrEqual(13 * 1024);
   });
   it('AGENT_TOOLS_SHA256 is pinned, key-order independent and changes with any byte of meaning', () => {
-    expect(AGENT_TOOLS_SHA256).toBe('cbfde3523d9b6880d090fcb6c95c16d551897114c86fc9895fd552cf3dd88f55');
+    // S1 fix A1/A3 (contract migration, backup .demo/agenda-core/contract-migration/secretary-agent-schema.test.before-c5-s1fix.ts): the
+    // propor_plano descriptions now ask for every action, PLANO with a field question and contiguous quotes. Was cbfde3523d9b6880….
+    // Then the operation question of one unclear part on the PLANO (backup …before-c5-s1fix-opquestion.ts). Was 9f2b11c3baed777c….
+    expect(AGENT_TOOLS_SHA256).toBe('24be2b13c723e0402cabc5b609dc8893fa5c8f50121eeae7092cb1dc97cf26c4');
     expect(agentToolsDigest(agentTools())).toBe(AGENT_TOOLS_SHA256);
     const reordered = agentTools().map(tool => Object.fromEntries(Object.entries(tool).reverse()));
     expect(agentToolsDigest(reordered)).toBe(AGENT_TOOLS_SHA256);
@@ -118,7 +121,8 @@ describe('agent tools: the six strict schemas (§2)', () => {
     const first = agentTools();
     (first[5].parameters.properties.resultado as { enum: string[] }).enum.push('EXECUTAR');
     first[1].name = 'propor_plano';
-    expect(agentTools()[5].parameters.properties.resultado).toEqual({ enum: [...AGENT_PLAN_RESULTS] });
+    expect(agentTools()[5].parameters.properties.resultado).toEqual(AGENT_PLAN_PARAMETERS.properties.resultado);
+    expect((agentTools()[5].parameters.properties.resultado as { enum: string[] }).enum).toEqual([...AGENT_PLAN_RESULTS]);
     expect(agentTools()[1].name).toBe('buscar_cliente');
     expect(agentToolsDigest(agentTools())).toBe(AGENT_TOOLS_SHA256);
   });
@@ -231,10 +235,16 @@ describe('propor_plano: strict decoding and the §4 rules', () => {
     expect(reasons(plan({ acoes: [cancel, { ...create, ocupa_horario_de: 'k2' }] }))).toEqual(['DEPENDENCY_UNKNOWN']);
     expect(reasons(plan({ acoes: [cancel, { ...create, depende_de: ['k1', 'k1'] }] }))).toEqual(['DEPENDENCY_DUPLICATE']);
   });
-  it('PLANO needs an action and no question or reply', () => {
+  it('PLANO needs an action and no reply; its question (S1 fix A1) points at an empty field of one of its actions, or at an unclear part (operation, acao null)', () => {
     expect(reasons(plan({ acoes: [] }))).toEqual(['PLAN_EMPTY']);
     expect(reasons(plan({ resposta: 'Pronto.' }))).toEqual(['REPLY_UNEXPECTED']);
-    expect(reasons(plan({ pergunta: { acao: 'k1', campo: 'inicio', texto: 'Que horas?' } }))).toEqual(['QUESTION_UNEXPECTED']);
+    expect(reasons(plan({ pergunta: { acao: 'k1', campo: 'inicio', texto: 'Que horas?' } }))).toEqual(['QUESTION_FIELD_FILLED']);
+    // Contract migration (backup .demo/agenda-core/contract-migration/secretary-agent-schema.test.before-c5-s1fix-opquestion.ts): the operation
+    // question of one unclear part rides on the PLANO of the others (was QUESTION_UNEXPECTED); it never names an action and never comes alone.
+    expect(reasons(plan({ pergunta: { acao: null, campo: 'operacao', texto: 'Marcar ou desmarcar?' } }))).toEqual([]);
+    expect(reasons(plan({ pergunta: { acao: 'k1', campo: 'operacao', texto: 'Marcar ou desmarcar?' } }))).toEqual(['QUESTION_OPERATION_ACTIONS']);
+    expect(reasons(plan({ acoes: [], pergunta: { acao: null, campo: 'operacao', texto: 'Marcar ou desmarcar?' } }))).toEqual(['PLAN_EMPTY']);
+    expect(reasons(plan({ resposta: 'Pronto.', pergunta: { acao: null, campo: 'operacao', texto: 'Marcar ou desmarcar?' } }))).toEqual(['REPLY_UNEXPECTED']);
   });
   it('PERGUNTA: one question tied to an empty field of a plan action, or an operation question with no action', () => {
     const open = action({ inicio: null, bases: [] });

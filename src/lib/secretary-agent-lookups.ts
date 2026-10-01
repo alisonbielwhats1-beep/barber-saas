@@ -4,15 +4,17 @@ import type { ServiceActor } from "./service-catalog";
 import { assertSchedulingAccess, getSchedulingAvailability, listSchedulingProfessionals, listUpcomingCustomerAppointments, professionalReadDay, schedulingTimezone, serviceNameKey } from "./scheduling-catalog";
 import { loadDayFacts } from "./scheduling-daypart-facts";
 import { subtractIntervals, unionIntervals, type Interval } from "./intervals";
-import { FOLD_FROM, FOLD_TO, foldName, nameTokens, withoutArticle, withoutHonorific } from "./name-search";
+import { FOLD_FROM, FOLD_TO, foldName, foldedLikePattern, nameTokens, withoutArticle, withoutHonorific } from "./name-search";
 import { NAME_TOKEN_SCAN, nameTokenQuery, tokenMatchedIds } from "./secretary-name-tokens";
 import { comboParts } from "./secretary-multi-service";
 import { quoteTemporalShape, temporalVocabulary } from "./scheduling-temporal-reference";
-import { addCalendarDays, dateKeyInTimeZone, endExclusiveOfDateInTimeZone, isDateKey, localDateTimeToUtc, startOfDateInTimeZone, toLocalDateTime, wallClockMinutesInTimeZone } from "./time";
+import { quoteTemporalFacts, temporalAtomSpans } from "./scheduling-temporal-source";
+import { addCalendarDays, dateKeyInTimeZone, endExclusiveOfDateInTimeZone, isDateKey, localDateTimeToUtc, startOfDateInTimeZone, toLocalDateTime, wallClockMinutesInTimeZone, weekdayOfDateKey } from "./time";
+import { literalSpans } from "../../packages/salon-secretary/src/literal-match";
 import { formatMoney } from "./utils";
-import { AGENT_LIMITS, AGENT_NAME_TOKEN_MIN, AGENT_REF_KINDS, AGENT_UNSAID_CUSTOMER, agentMessage, agentPhoneSuffix, maskAgentName, sanitizeAgentName,
+import { AGENT_LIMITS, AGENT_NAME_TOKEN_MIN, AGENT_REF_KINDS, AGENT_UNSAID_CUSTOMER, agentMessage, agentPhoneSuffix, agentPreloadEnabled, maskAgentName, sanitizeAgentName,
   type AgentBinding, type AgentDirectory, type AgentDirectoryResult, type AgentLookupExecutor, type AgentMessageContext, type AgentRefFacts, type AgentRefKind } from "../../packages/salon-secretary/src/agent-context";
-import { agentLookupError, agentLookupInputs, isAgentLookupName, type AgentLookupCall, type AgentLookupErrorCode, type AgentLookupInput,
+import { AGENT_LOOKUP_LIMITS, agentLookupError, agentLookupInputs, isAgentLookupName, type AgentLookupCall, type AgentLookupErrorCode, type AgentLookupInput,
   type AgentLookupName } from "../../packages/salon-secretary/src/agent-tools";
 
 /** Candidate 5, WP3 (flag SALON_SECRETARY_AGENT, default off; docs/c5-spike/11-especificacao-agente.md §2): the app side of the
@@ -61,13 +63,19 @@ function assertKeys(value: unknown): void {
 type DirectoryRow = { id: string; name: string; label: string };
 type MessageState = { professionals: DirectoryRow[]; services: (DirectoryRow & { durationMin: number })[]; timezone: string; said: ReadonlySet<string>;
   rounds: number; calls: number; unavailable: number; shown: Map<string, Set<string>>;
-  telemetry: { kinds: ("T1" | "T2" | "T3" | "T4" | "T5")[]; rows: number; bytes: number; truncated: boolean; codes: AgentLookupErrorCode[] } };
+  telemetry: { kinds: ("T1" | "T2" | "T3" | "T4" | "T5")[]; rows: number; bytes: number; truncated: boolean; codes: AgentLookupErrorCode[] }; preload?: AgentPreloadTelemetry };
+/** B1 preload of the message (present only with SALON_SECRETARY_AGENT_PRELOAD): items delivered, their kinds, rows, bytes, the database time
+ * and the items planned but left out (time, a refusal, bytes, the item ceiling). Codes and numbers only. */
+export type AgentPreloadTelemetry = { items: number; kinds: ("T1" | "T2" | "T3" | "T4" | "T5")[]; rows: number; bytes: number; ms: number; skipped: number };
 const states = new WeakMap<AgentMessageContext, MessageState>();
 /** Codes-only numbers of the message's lookups so far (§6.4 `lookup_calls`, `lookup_kinds`, `rows`, `output_bytes`, `truncated`).
- * `unavailable` ≥ 2 aborts the agent (§2.1): the loop falls back to the C4. */
-export function agentLookupTelemetry(context: AgentMessageContext) {
+ * `unavailable` ≥ 2 aborts the agent (§2.1): the loop falls back to the C4. The preload (B1) is apart: never a lookup call or round. */
+export type AgentLookupTelemetry = { rounds: number; calls: number; unavailable: number; kinds: ("T1" | "T2" | "T3" | "T4" | "T5")[]; rows: number; bytes: number;
+  truncated: boolean; codes: AgentLookupErrorCode[]; preload?: AgentPreloadTelemetry };
+export function agentLookupTelemetry(context: AgentMessageContext): AgentLookupTelemetry | undefined {
   const state = states.get(context);
-  return state ? { rounds: state.rounds, calls: state.calls, unavailable: state.unavailable, ...state.telemetry, kinds: [...state.telemetry.kinds], codes: [...state.telemetry.codes] } : undefined;
+  return state ? { rounds: state.rounds, calls: state.calls, unavailable: state.unavailable, ...state.telemetry, kinds: [...state.telemetry.kinds], codes: [...state.telemetry.codes],
+    ...state.preload ? { preload: { ...state.preload, kinds: [...state.preload.kinds] } } : {} } : undefined;
 }
 /** The executor only serves the message it is running in (the ALS of withAgentMessage): no ALS, another message → closed error. */
 function current(context: AgentMessageContext | undefined) {
@@ -205,12 +213,15 @@ function day(ctx: Ctx, date: string) {
   if (date < addCalendarDays(ctx.today, -AGENT_LOOKUP_DAYS.back) || date > addCalendarDays(ctx.today, AGENT_LOOKUP_DAYS.ahead)) refuse("FORA_DO_LIMITE");
   return date;
 }
+/** B3: `de` = `ate` asks one exact start (T3: only that start; T1: the minute [de, de+1)); `de` after `ate` is DATA_INVALIDA. */
+const exactStart = (de: string | null, ate: string | null) => !!de && de === ate;
 function range(ctx: Ctx, date: string, de: string | null, ate: string | null) {
-  if (de && ate && de >= ate) refuse("DATA_INVALIDA");
+  if (de && ate && de > ate) refuse("DATA_INVALIDA");
+  const instant = exactStart(de, ate) ? 1 : 0;
   try {
     const dayFrom = startOfDateInTimeZone(date, ctx.timezone), dayTo = endExclusiveOfDateInTimeZone(date, ctx.timezone);
     const at = (clock: string) => localDateTimeToUtc(`${date}T${clock}`, ctx.timezone);
-    return { dayFrom, dayTo, from: de ? at(de) : dayFrom, to: ate ? at(ate) : dayTo, a: de ? minuteOf(de) : 0, b: ate ? minuteOf(ate) : 1440 };
+    return { dayFrom, dayTo, from: de ? at(de) : dayFrom, to: ate ? new Date(at(ate).getTime() + instant * 60_000) : dayTo, a: de ? minuteOf(de) : 0, b: ate ? minuteOf(ate) + instant : 1440 };
   } catch { return refuse("DATA_INVALIDA"); }
 }
 /** A p#/s# of THIS message's binding (REF_DESCONHECIDA otherwise: another kind, another message, never shown). */
@@ -264,6 +275,10 @@ async function agenda(ctx: Ctx, input: AgentLookupInput<"consultar_agenda">): Pr
  * `a_partir_de` when it is later than now; their service ids in one read. */
 async function customers(ctx: Ctx, input: AgentLookupInput<"buscar_cliente">): Promise<CustomersData> {
   const since = input.a_partir_de ? day(ctx, input.a_partir_de) : undefined, set = await agentCustomerTokenSet(ctx.tx, ctx.actor, input.nome);
+  return customersOf(ctx, set, since);
+}
+/** T2 of a customer set already scanned (the lookup's own scan, or the preload's union scan). */
+async function customersOf(ctx: Ctx, set: { rows?: ScannedCustomer[]; total: number }, since: string | undefined): Promise<CustomersData> {
   if (!set.rows) return { kind: "T2", customers: [], total: set.total, many: true, truncated: true };
   const from = since ? new Date(Math.max(ctx.now.getTime(), startOfDateInTimeZone(since, ctx.timezone).getTime())) : ctx.now;
   const found: { row: ScannedCustomer; next: Awaited<ReturnType<typeof listUpcomingCustomerAppointments>> }[] = [];
@@ -310,7 +325,8 @@ async function freeSlots(ctx: Ctx, input: AgentLookupInput<"horarios_livres">): 
         ...(input.de ? { time: input.de } : {}) }, ctx.now, undefined, undefined, LIMITS.freeTimesShown + 1);
       starts = [...(found.plan ? [found.plan.startLocal] : []), ...found.alternatives.map(slot => slot.startLocal)];
     } catch (error) { if (!(error instanceof Error && NO_SLOTS.has(error.message))) throw error; }
-    const inside = [...new Set(starts.filter(local => local.slice(0, 10) === date && (!input.ate || local.slice(11, 16) < input.ate)).map(local => local.slice(11, 16)))];
+    const until = (clock: string) => !input.ate || (exactStart(input.de, input.ate) ? clock === input.ate : clock < input.ate);
+    const inside = [...new Set(starts.filter(local => local.slice(0, 10) === date && until(local.slice(11, 16))).map(local => local.slice(11, 16)))];
     staff.push({ ...p, slots: inside.slice(0, LIMITS.freeTimesShown), more: inside.length > LIMITS.freeTimesShown, count: await activeAppointmentCount(tx, ctx.actor, p.id, date, ctx.timezone) });
   }
   return { kind: "T3", staff, total: pro ? 1 : total, truncated };
@@ -407,6 +423,13 @@ const MAX_LEVEL = 8;
 /** The fullest rendering that fits `cap` bytes (level 0; 1 drops free intervals, breaks, time off and performers; then halves the
  * rows level by level), else the bare `{aviso, truncado, total}`. Refs are bound only for the delivered text. */
 function fit(state: MessageState, binding: AgentBinding, data: Loaded, cap: number, from: number) {
+  const fitted = fitDraft(state, binding, data, cap, from);
+  fitted.draft?.commit();
+  return fitted;
+}
+/** fit() without binding: `draft` (absent for the bare output) binds this rendering's refs when the caller delivers it. One draft at a time:
+ * the next rendering is drafted only after this one is committed or dropped. */
+function fitDraft(state: MessageState, binding: AgentBinding, data: Loaded, cap: number, from: number): { text: string; rows: number; truncated: boolean; draft?: RefDraft } {
   for (let level = from; level <= MAX_LEVEL; level++) {
     const draft = new RefDraft(state, binding);
     let rendered: Rendered | undefined;
@@ -416,10 +439,180 @@ function fit(state: MessageState, binding: AgentBinding, data: Loaded, cap: numb
     const text = JSON.stringify(rendered[0]);
     if (Buffer.byteLength(text, "utf8") > cap) continue;
     assertKeys(rendered[0]);
-    draft.commit();
-    return { text, rows: rendered[1], truncated: rendered[0].truncado === true };
+    return { text, rows: rendered[1], truncated: rendered[0].truncado === true, draft };
   }
   return { text: JSON.stringify({ aviso: AGENT_LOOKUP_NOTICE, truncado: true, total: totalOf(data) }), rows: 0, truncated: true };
+}
+
+// ---------------------------------------------------------------- hybrid preload (B1; owner decision 13; flag SALON_SECRETARY_AGENT_PRELOAD)
+// B1 (flag SALON_SECRETARY_AGENT_PRELOAD, default off; only inside the agent's message, so only with SALON_SECRETARY_AGENT): the lookups the
+// owner's own words of this turn make certain are read with the directory and delivered in its context exactly as those lookups answer
+// ([{consulta, argumentos, resultado}]), so the first round can bring the plan. Chosen deterministically from those words only, never from a
+// model argument: customers by contiguous runs of the tokens written (T2), the agenda of the days said for the professionals named or those who
+// perform the services named, or the whole team up to 6 (T1), and the services named (T4), in this priority. Each item is fitted like its
+// lookup (≤ 3 KB: masking by token, sanitization, aviso, total/truncado) and is kept or left out whole within 6 KB and 5 items; refs are bound
+// only for delivered items. Its own tenant transaction, reads in sequence within the round's time budget (what does not start in time is left
+// out); a database error means no preload, never a fallback nor an INDISPONIVEL; it takes none of the message's lookup rounds or calls.
+/** The ceilings of A0 (AGENT_LIMITS.preloadBytes/preloadItems), the days read, the team size read whole, a customer window's tokens and the
+ * words of the customers' prefilter. */
+export const AGENT_PRELOAD = Object.freeze({ bytes: LIMITS.preloadBytes, items: LIMITS.preloadItems, days: 2, team: 6, window: 4, words: 16 });
+/** "próxima sexta", "sexta que vem": both readings (the coming one and the one a week later). */
+const NEXT_BEFORE = /\bproxim[ao]s?\s*$/u, NEXT_AFTER = /^\s*(?:-?\s*feira\s*)?,?\s*(?:da\s+semana\s+)?que\s+vem\b/u;
+/** The next date, from today on, with day of the month `n`. */
+function monthDay(today: string, n: number) {
+  const on = (month: string) => `${month}-${String(n).padStart(2, "0")}`, here = on(today.slice(0, 7));
+  return here >= today && isDateKey(here) ? here : on(addCalendarDays(`${today.slice(0, 7)}-01`, 31).slice(0, 7));
+}
+/** The days the owner's words of this turn state, in the order said, at most 2: the date atoms of temporalAtomSpans (never a denied one), each
+ * read by quoteTemporalFacts. A relative day or a written date is that date; a weekday its next occurrence (the C4's rule, never today), both
+ * readings with "próxima/que vem"; "dia N" the next day N (inside a written date, only that date). Days out of the lookups' reach are left out. */
+export function agentPreloadDays(owner: readonly string[], timezone: string, now: Date): string[] {
+  const today = dateKeyInTimeZone(now, timezone), days: string[] = [];
+  const add = (date: string) => { if (isDateKey(date) && date >= addCalendarDays(today, -AGENT_LOOKUP_DAYS.back) && date <= addCalendarDays(today, AGENT_LOOKUP_DAYS.ahead) && !days.includes(date)) days.push(date); };
+  for (const text of owner) {
+    const atoms = (temporalAtomSpans(text, timezone, now) ?? []).filter(atom => atom.kind === "date").sort((a, b) => a.start - b.start);
+    for (const atom of atoms) {
+      if (atom.negated) continue;
+      const facts = quoteTemporalFacts(text.slice(atom.start, atom.end), timezone, now);
+      if (facts.invalid) continue;
+      facts.dates.forEach(add);
+      if (!facts.dates.length && !atoms.some(other => other !== atom && other.start < atom.end && atom.start < other.end)) facts.days.forEach(n => add(monthDay(today, n)));
+      for (const { weekday } of facts.weekdays) {
+        const next = addCalendarDays(today, (weekday - weekdayOfDateKey(today) + 7) % 7 || 7);
+        add(next);
+        if (NEXT_BEFORE.test(foldName(text.slice(Math.max(0, atom.start - 16), atom.start))) || NEXT_AFTER.test(foldName(text.slice(atom.end, atom.end + 32)))) add(addCalendarDays(next, 7));
+      }
+    }
+  }
+  return days.slice(0, AGENT_PRELOAD.days);
+}
+type ServiceRow = DirectoryRow & { durationMin: number };
+/** The directory entries the owner's words name: a professional by any whole name token written (every homonym: choosing stays the owner's), a
+ * service by its whole registered name (literalSpans), then the registered parts of a named combo (serviceNameKey, the one entry of that name). */
+export function agentPreloadSubjects(owner: readonly string[], rows: { readonly professionals: readonly DirectoryRow[]; readonly services: readonly ServiceRow[] },
+  said: ReadonlySet<string> = agentSaidTokens(owner)) {
+  const professionals = rows.professionals.filter(p => nameTokens(p.name).some(token => said.has(token)));
+  const named = rows.services.filter(s => owner.some(text => literalSpans(text, s.name).length > 0));
+  const parts = named.flatMap(s => { const own = comboParts(s.name);
+    return own.length < 2 ? [] : own.flatMap(part => { const same = rows.services.filter(row => serviceNameKey(row.name) === serviceNameKey(part)); return same.length === 1 ? same : []; }); });
+  return { professionals, services: [...new Map([...named, ...parts].map(s => [s.id, s])).values()].slice(0, AGENT_LOOKUP_LIMITS.catalogServices) };
+}
+type RunToken = { token: string; raw: string; start: number; end: number };
+/** Contiguous runs of the whole tokens the owner wrote that may belong to a name (≥ 3 letters, outside the temporal vocabulary: agentSaidTokens'
+ * rule): any other word, or punctuation other than a hyphen or an apostrophe, ends a run; the particles (da, de, do, das, dos, e) are glue.
+ * Offsets of the NFC text. */
+export function agentPreloadRuns(text: string): { source: string; runs: RunToken[][] } {
+  const source = text.normalize("NFC"), runs: RunToken[][] = [];
+  let run: RunToken[] = [];
+  const close = () => { if (run.length) runs.push(run); run = []; };
+  for (const match of source.matchAll(/[\p{L}\p{M}\p{N}]+|[^\p{L}\p{M}\p{N}]+/gu)) {
+    const part = match[0], start = match.index!;
+    if (!/^[\p{L}\p{M}\p{N}]/u.test(part)) { if (/[^\s'’-]/u.test(part)) close(); continue; }
+    const [token] = nameTokens(part);
+    if (!token) continue;
+    if (letters(token) >= AGENT_NAME_TOKEN_MIN && !temporalToken(token)) run.push({ token, raw: part, start, end: start + part.length }); else close();
+  }
+  close();
+  return { source, runs };
+}
+type CustomerWindow = { literal: string; rows: ScannedCustomer[] };
+/** The customers of the runs: in each run the longest contiguous windows first (≤ 4 tokens, at least one no directory name has, each token used
+ * once) whose every token is a whole token of a scanned name (tokenMatchedIds, the rule of buscar_cliente); in the order said, each set once.
+ * `prefiltered`: the words the scan was made with; a window holding none of them is left out (the scan may lack some of its customers, and a
+ * lookup never returns a silent subset), so every window kept is its complete set. */
+export function agentPreloadWindows(texts: readonly { source: string; runs: RunToken[][] }[], directory: ReadonlySet<string>, scanned: readonly ScannedCustomer[],
+  prefiltered?: ReadonlySet<string>): CustomerWindow[] {
+  const out: (CustomerWindow & { key: string })[] = [];
+  for (const { source, runs } of texts) for (const run of runs) {
+    const used = new Set<number>(), found: (CustomerWindow & { key: string; at: number })[] = [];
+    for (let size = Math.min(AGENT_PRELOAD.window, run.length); size >= 1; size--) for (let at = 0; at + size <= run.length; at++) {
+      const window = run.slice(at, at + size), tokens = window.map(item => item.token);
+      if (window.some((_, k) => used.has(at + k)) || tokens.every(token => directory.has(token)) || prefiltered && !tokens.some(token => prefiltered.has(token))) continue;
+      const ids = tokenMatchedIds(tokens, scanned);
+      if (!ids?.length) continue;
+      window.forEach((_, k) => used.add(at + k));
+      const keep = new Set(ids);
+      found.push({ at, key: [...new Set(tokens)].sort().join(" "), literal: source.slice(window[0].start, window[window.length - 1].end), rows: scanned.filter(row => keep.has(row.id)) });
+    }
+    for (const item of found.sort((a, b) => a.at - b.at)) if (!out.some(other => other.key === item.key)) out.push(item);
+  }
+  return out.map(({ literal, rows }) => ({ literal, rows }));
+}
+/** One prefilter for every run: a name holding any of the words (the tenant scope of customerScan, merged records out). Past the scan nothing
+ * is decided (undefined: the model consults). */
+async function customerUnion(tx: Tx, actor: ServiceActor, words: readonly string[]): Promise<ScannedCustomer[] | undefined> {
+  const patterns = [...new Set(words.map(foldedLikePattern))];
+  if (!patterns.length) return [];
+  const scanned = await tx.$queryRaw<ScannedCustomer[]>`SELECT id, name, phone FROM "ClientProfile" WHERE "salonId"=${actor.salonId} AND "mergedIntoId" IS NULL AND EXISTS (SELECT 1 FROM unnest(${patterns}::text[]) AS t(pattern) WHERE lower(translate(name, ${FOLD_FROM}, ${FOLD_TO})) LIKE lower(translate(t.pattern, ${FOLD_FROM}, ${FOLD_TO})) ESCAPE '\\') ORDER BY name, id LIMIT ${NAME_TOKEN_SCAN + 1}::int`;
+  return scanned.length > NAME_TOKEN_SCAN ? undefined : scanned;
+}
+type PreloadRead = { call: AgentLookupCall; data: Loaded };
+/** B1: the preload of this message (JSON text for the directory's `preload`), or undefined. Never throws; its telemetry lives in the state. */
+async function preloadContext(message: AgentMessageContext, state: MessageState, owner: ServiceActor, now: Date, budgetMs: number): Promise<string | undefined> {
+  const started = Date.now(), telemetry: AgentPreloadTelemetry = { items: 0, kinds: [], rows: 0, bytes: 0, ms: 0, skipped: 0 };
+  state.preload = telemetry;
+  const texts = message.owner, subjects = agentPreloadSubjects(texts, state, state.said), days = agentPreloadDays(texts, state.timezone, now);
+  const runs = texts.map(agentPreloadRuns), directory = new Set([...state.professionals, ...state.services].flatMap(row => nameTokens(row.name))), words = new Map<string, string>();
+  for (const { runs: list } of runs) for (const run of list) for (const item of run) if (!directory.has(item.token) && !words.has(item.token)) words.set(item.token, item.raw);
+  const agendas = days.length > 0 && (state.professionals.length <= AGENT_PRELOAD.team || subjects.professionals.length > 0);
+  if (!words.size && !subjects.services.length && !agendas) return undefined;
+  const ref = (kind: "p" | "s", id: string) => message.binding.refOf(kind, id) ?? "";
+  const late = () => Date.now() - started > budgetMs || message.signal.aborted;
+  // Filled inside the transaction (an object, so the closure's writes are seen after it).
+  const got: { reads: PreloadRead[]; services?: PreloadRead; planned: number } = { reads: [], planned: 0 };
+  try {
+    await withTenant(owner, async tx => {
+      await assertSchedulingAccess(tx, owner);
+      const ctx: Ctx = { tx, actor: owner, state, now, timezone: state.timezone, today: dateKeyInTimeZone(now, state.timezone), late, binding: message.binding };
+      /** One item: its arguments checked like a model's (checkInput); a domain refusal leaves it out; any other error aborts the whole preload. */
+      const load = async (call: AgentLookupCall, read: (input: never) => Promise<Loaded> = input => LOADERS[call.name](ctx, input)): Promise<PreloadRead | undefined> => {
+        got.planned++;
+        const checked = checkInput(call);
+        if (!("input" in checked) || late()) return undefined;
+        try { return { call, data: await read(checked.input as never) }; } catch (error) { if (error instanceof Refusal) return undefined; throw error; }
+      };
+      // T4 is read first (its performers choose a large team's agenda) and delivered last.
+      if (subjects.services.length) got.services = await load({ name: "catalogo_servicos", callId: "preload_t4", input: { servicos: subjects.services.map(s => ref("s", s.id)) } });
+      if (words.size) {
+        const scanned = late() ? undefined : await customerUnion(tx, owner, [...words.values()].slice(0, AGENT_PRELOAD.words));
+        if (!scanned) got.planned++;
+        // The T2 of a window is the scanned set itself (what buscar_cliente with those words finds), never a second scan; only a window
+        // holding a word of the scan (its first AGENT_PRELOAD.words) has its complete set there.
+        const prefiltered = new Set([...words.keys()].slice(0, AGENT_PRELOAD.words));
+        for (const window of scanned ? agentPreloadWindows(runs, directory, scanned, prefiltered) : []) {
+          if (got.reads.length >= AGENT_PRELOAD.items) { got.planned++; continue; }
+          const read = await load({ name: "buscar_cliente", callId: `preload_t2_${got.reads.length}`, input: { nome: window.literal, a_partir_de: null } },
+            () => customersOf(ctx, { rows: window.rows, total: window.rows.length }, undefined));
+          if (read) got.reads.push(read);
+        }
+      }
+      const rank = new Map(state.professionals.map((p, index) => [p.id, index])), catalogData = got.services?.data;
+      const performers = catalogData?.kind === "T4" ? catalogData.services.flatMap(s => s.by.map(p => p.id)).filter(id => rank.has(id)).sort((a, b) => rank.get(a)! - rank.get(b)!) : [];
+      const team: (string | null)[] = state.professionals.length <= AGENT_PRELOAD.team ? [null]
+        : [...new Set([...subjects.professionals.map(p => p.id), ...performers])].slice(0, AGENT_PRELOAD.team);
+      for (const date of days) for (const professional of team) {
+        if (got.reads.length >= AGENT_PRELOAD.items) { got.planned++; continue; }
+        const read = await load({ name: "consultar_agenda", callId: `preload_t1_${got.reads.length}`, input: { data: date, profissional: professional ? ref("p", professional) : null, de: null, ate: null } });
+        if (read) got.reads.push(read);
+      }
+    });
+  } catch { telemetry.skipped = got.planned; telemetry.ms = Date.now() - started; return undefined; }
+  const parts: string[] = [];
+  let bytes = 2;
+  try {
+    for (const { call, data } of [...got.reads, ...got.services ? [got.services] : []]) {
+      if (telemetry.items >= AGENT_PRELOAD.items) break;
+      const fitted = fitDraft(state, message.binding, data, LIMITS.lookupOutputBytes, 0);
+      if (!fitted.draft) continue;
+      const item = `{"consulta":${JSON.stringify(call.name)},"argumentos":${JSON.stringify(call.input)},"resultado":${fitted.text}}`, size = Buffer.byteLength(item, "utf8") + (parts.length ? 1 : 0);
+      if (bytes + size > AGENT_PRELOAD.bytes) continue;
+      fitted.draft.commit();
+      parts.push(item); bytes += size;
+      telemetry.items++; telemetry.kinds.push(AGENT_LOOKUP_KINDS[call.name]); telemetry.rows += fitted.rows;
+    }
+  } catch { /* what was delivered (and bound) stays; nothing else is */ }
+  Object.assign(telemetry, { bytes: parts.length ? bytes : 0, skipped: Math.max(0, got.planned - telemetry.items), ms: Date.now() - started });
+  return parts.length ? `[${parts.join(",")}]` : undefined;
 }
 
 // ---------------------------------------------------------------- the executor
@@ -449,15 +642,21 @@ export function createAgentLookupExecutor(actor: ServiceActor, options: AgentLoo
     const message = current(context);
     if (states.has(message)) throw Error("AGENT_LOOKUP_DIRECTORY_TWICE");
     let rows: AgentDirectoryRows;
-    try { rows = await withTenant(owner, tx => agentDirectory(tx, owner, clock())); } catch { return { ok: false, code: "AGENT_UNAVAILABLE" }; }
+    const now = clock();
+    try { rows = await withTenant(owner, tx => agentDirectory(tx, owner, now)); } catch { return { ok: false, code: "AGENT_UNAVAILABLE" }; }
     if (rows.truncated) return { ok: false, code: "AGENT_DIRECTORY_TRUNCATED" };
     const bind = <K extends "p" | "s">(kind: K, id: string, facts: AgentRefFacts[K]) => { const ref = message.binding.bind(kind, id, facts); if (!ref) throw Error("AGENT_BINDING_FULL"); return ref; };
     const result: AgentDirectory = { today: rows.today,
       professionals: rows.professionals.map(p => ({ ref: bind("p", p.id, { name: p.label }), nome: p.label })),
       services: rows.services.map(s => ({ ref: bind("s", s.id, { name: s.label, durationMin: s.durationMin }), nome: s.label, duracao_min: s.durationMin })) };
-    states.set(message, { professionals: rows.professionals, services: rows.services, timezone: rows.today.timezone, said: agentSaidTokens(message.owner),
-      rounds: 0, calls: 0, unavailable: 0, shown: new Map(), telemetry: { kinds: [], rows: 0, bytes: 0, truncated: false, codes: [] } });
-    return { ok: true, directory: result };
+    const state: MessageState = { professionals: rows.professionals, services: rows.services, timezone: rows.today.timezone, said: agentSaidTokens(message.owner),
+      rounds: 0, calls: 0, unavailable: 0, shown: new Map(), telemetry: { kinds: [], rows: 0, bytes: 0, truncated: false, codes: [] } };
+    states.set(message, state);
+    // B1 (flag SALON_SECRETARY_AGENT_PRELOAD): AgentDirectory.preload, the JSON text of the pre-loaded lookups; off, nothing more is read.
+    let preload: string | undefined;
+    if (agentPreloadEnabled()) try { preload = await preloadContext(message, state, owner, now, options.roundMs ?? LIMITS.dbRoundMs); }
+    catch { /* no preload: the agent runs with the directory alone */ }
+    return { ok: true, directory: preload ? { ...result, preload } : result };
   }
   async function round(calls: readonly AgentLookupCall[], context: AgentMessageContext, roundOptions: AgentLookupRoundOptions = {}): Promise<readonly string[]> {
     const message = current(context), state = states.get(message);

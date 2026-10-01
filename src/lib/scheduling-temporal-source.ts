@@ -4,7 +4,7 @@ import { temporalEvidence, type SchedulingTemporalEvidence } from "../../package
 import { matchesSchedulingPeriod, type TemporalRejection } from "./scheduling-temporal";
 import type { PendingTemporalAmbiguity, TemporalAmbiguityContext } from "./scheduling-temporal-ambiguity";
 import { pendingCalendarConflicts, type PendingCalendarConflict } from "./scheduling-calendar-conflict";
-import { clockComponents, componentClockWitness, maskTemporalSpans, relativeDayComponents, sharedIntervalWitness } from "./scheduling-temporal-components";
+import { CLOCK_UNIT_CAPTURE, CLOCK_UNIT_FORM, CLOCK_UNIT_MINUTES_CAPTURE, CLOCK_UNIT_MINUTES_FORM, clockComponents, componentClockWitness, maskTemporalSpans, relativeDayComponents, sharedIntervalWitness, unitClockValue, type ClockReadOptions } from "./scheduling-temporal-components";
 import { validateTemporalNegativeContext, type TemporalNegativeContextInput } from "./scheduling-temporal-negative-context";
 import { literalSpans, normalizedOffsets } from "../../packages/salon-secretary/src/literal-match";
 import { temporalComponentsEnabled } from "../../packages/salon-secretary/src/temporal-components";
@@ -59,8 +59,10 @@ const hourNumeral = `(?:\\d{1,2}|vinte(?: e (?:uma|um|duas|dois|tres))?|${hourWo
 
 
 /** Factual recognizers only: no operation, intent or source/destination choice. `text` is already normalized (NFD without marks,
- * lowercase); the atoms' offsets are that text's. Exported for the C5 agent validator (temporalAtomSpans maps them back). */
-export function temporalFacts(text: string, fields: SchedulingFields, timezone: string, now: Date) {
+ * lowercase); the atoms' offsets are that text's. Exported for the C5 agent validator (temporalAtomSpans maps them back).
+ * `options.clockUnits` (ClockReadOptions, default off): the clock forms with an abbreviated hour unit ("10hs", "10 h", "14:30hs") are
+ * atoms too, with the same attached denial; every other recognizer is unchanged. Only the agent's temporalAtomSpans passes it. */
+export function temporalFacts(text: string, fields: SchedulingFields, timezone: string, now: Date, options: ClockReadOptions = {}) {
   const today = dateKeyInTimeZone(now, timezone);
   // A denial directly attached to a factual atom is different from denying an
   // operation elsewhere in the message. This does not choose the operation.
@@ -94,12 +96,14 @@ export function temporalFacts(text: string, fields: SchedulingFields, timezone: 
     dates.push(`${m[3] ?? fields.date?.slice(0, 4) ?? today.slice(0, 4)}-${String(months.indexOf(m[2]) + 1).padStart(2, "0")}-${m[1].padStart(2, "0")}`);
   }
   for (const m of text.matchAll(/\bdia (\d{1,2})\b/g)) { inspect(m.index!, "date", m.index! + m[0].length); days.push(Number(m[1])); }
-  const components=clockComponents(text);
+  const units = options.clockUnits === true;
+  const components=clockComponents(text,units?{clockUnits:true}:{});
   const clocks: string[] = components.map(part=>{inspect(part.start,"clock",part.end);return part.value??"INVALID";});
   const scalarText=maskTemporalSpans(text,components.map(part=>part.interval??part));
-  for (const m of scalarText.matchAll(/\b(\d{1,2})(?:h(?:(\d{2}))?|:(\d{2}))\b/g)) { inspect(m.index!, "clock", m.index! + m[0].length); clocks.push(`${m[1].padStart(2, "0")}:${m[2] ?? m[3] ?? "00"}`); }
+  // With the option, the minutes written after a unit clock are part of its atom (CLOCK_UNIT_MINUTES_CAPTURE: "10hs e meia", "10hs 30").
+  for (const m of scalarText.matchAll(units ? new RegExp(`\\b(\\d{1,2})${CLOCK_UNIT_CAPTURE}${CLOCK_UNIT_MINUTES_CAPTURE}?\\b`, "g") : /\b(\d{1,2})(?:h(?:(\d{2}))?|:(\d{2}))\b/g)) { inspect(m.index!, "clock", m.index! + m[0].length); clocks.push(units ? unitClockValue(m[1], m[2], m[3], m[4], m[5]) : `${m[1].padStart(2, "0")}:${m[2] ?? m[3] ?? "00"}`); }
   const clockPattern = new RegExp(`(?:\\b(?:as|pelas) |^\\s*)(${hourNumeral})(?:\\s*horas?)?(?: e (meia|${numeral})(?: minutos?)?)?\\b`, "g");
-  const wordClockText = scalarText.replace(/\b\d{1,2}(?:h(?:\d{2})?|:\d{2})\b/g, match => " ".repeat(match.length));
+  const wordClockText = scalarText.replace(units ? new RegExp(`\\b\\d{1,2}${CLOCK_UNIT_FORM}${CLOCK_UNIT_MINUTES_FORM}?\\b`, "g") : /\b\d{1,2}(?:h(?:\d{2})?|:\d{2})\b/g, match => " ".repeat(match.length));
   for (const m of wordClockText.matchAll(clockPattern)) {
     if (!/\b(as|pelas)\b/.test(m[0]) && !/^[\s.!?,]*(?:(?:da|a) (?:manha|tarde|noite)[\s.!?,]*)?$/.test(wordClockText.slice(m.index! + m[0].length))) continue;
     inspect(m.index!, "clock", m.index! + m[0].length);
@@ -113,9 +117,10 @@ export function temporalFacts(text: string, fields: SchedulingFields, timezone: 
 /** B4 option choice: what a short quote of the owner states, only to compare with the coordinates of options
  * the backend published (never a value to apply). Dates are absolute (relative days from today), `days` days
  * of the month, clocks "HH:MM" as written (the half-day reading is the caller's). A weekday word that is also
- * an ordinal ("a segunda") is `bare`. A malformed atom makes the quote `invalid`. */
-export function quoteTemporalFacts(quote: string, timezone: string, now: Date) {
-  const text = normalize(quote), facts = temporalFacts(text, {}, timezone, now);
+ * an ordinal ("a segunda") is `bare`. A malformed atom makes the quote `invalid`. `options` (ClockReadOptions, default off): the C4
+ * callers pass none; an agent caller may read the clock forms with an abbreviated hour unit too. */
+export function quoteTemporalFacts(quote: string, timezone: string, now: Date, options: ClockReadOptions = {}) {
+  const text = normalize(quote), facts = temporalFacts(text, {}, timezone, now, options);
   const named = [...text.matchAll(/\b(domingo|segunda|terca|quarta|quinta|sexta|sabado)(-feira|\s+feira)?\b/g)]
     .map(m => ({ weekday: weekdays.indexOf(m[1]), bare: !m[2] && ["segunda", "quarta", "quinta", "sexta"].includes(m[1]) }));
   const spoken = withoutGreetings(text);
@@ -233,11 +238,13 @@ export function clauseBounds(source: string, start: number, end: number) {
   return { lead: map.toOriginal(Math.min(head, own)), start: map.toOriginal(own), end: map.toOriginal(Math.max(next, to)) };
 }
 /** C5 agent validator: the temporal atoms (days and clocks) of an owner's text, in ORIGINAL offsets, each with its attached denial
- * (temporalFacts). Undefined when the normalization cannot be mapped back. */
-export function temporalAtomSpans(source: string, timezone: string, now: Date) {
+ * (temporalFacts). Undefined when the normalization cannot be mapped back. Only the agent calls it (flag SALON_SECRETARY_AGENT), so it
+ * reads the clock forms with an abbreviated hour unit by default (ClockReadOptions): an hour the owner wrote "10hs" is an atom the
+ * validator reads (V9) and must cover (V15), never an invisible word. */
+export function temporalAtomSpans(source: string, timezone: string, now: Date, options: ClockReadOptions = { clockUnits: true }) {
   const map = normalizedOffsets(source, normalize);
   if (!map) return;
-  return temporalFacts(map.text, {}, timezone, now).atoms.map(atom => ({ ...atom, start: map.toOriginal(atom.start), end: map.toOriginal(atom.end) }));
+  return temporalFacts(map.text, {}, timezone, now, options).atoms.map(atom => ({ ...atom, start: map.toOriginal(atom.start), end: map.toOriginal(atom.end) }));
 }
 
 /** Denial of one quote located at ORIGINAL offsets [start,end), with the evidence path's rule:

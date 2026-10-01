@@ -8,7 +8,7 @@ import { hostname } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { runInNewContext } from 'node:vm';
 import { assertSecretaryResponsesPayload } from '../src/openai-cost-guard';
-import { AGENT_EFFORTS, AGENT_LIMITS, agentMissingDependencies } from '../src/agent-context';
+import { AGENT_EFFORTS, AGENT_LIMITS, agentMissingDependencies, agentRoundEfforts } from '../src/agent-context';
 import type { FreeUseFixture } from './free-use-contract';
 import { armFlags, devBatteryMessages, devBatteryScenarios, exampleBankCorpus, formatRunStats, nameTokens, runStats, scenarioMessages, scenarioNames, similarityStrata,
   type ArmProfile, type PasskArm } from './agenda-practice-stats';
@@ -798,13 +798,15 @@ export function selectScenarioIds<T extends { id: string }>(scenarios: readonly 
  * fallback included: spec §3.8), and with Phase 1 a scripted answer may open a new request too, so both reserve 3. */
 export const AGENT_CALLS_PER_MESSAGE: number = AGENT_LIMITS.callsPerMessage;
 export const agentArm = (env: Readonly<Record<string, string | undefined>>) => env.SALON_SECRETARY_AGENT === 'true';
-/** An agent arm whose dependency flags are not all on, or whose effort is invalid, would silently answer through the C4
- * (AGENT_FLAGS_INCOMPLETE / AGENT_EFFORT_INVALID): refused before any file, database or network. Codes and flag names only. */
+/** An agent arm whose dependency flags are not all on, or whose effort (per message, or per call: SALON_SECRETARY_AGENT_EFFORT_ROUNDS) is
+ * invalid, would silently answer through the C4 (AGENT_FLAGS_INCOMPLETE / AGENT_EFFORT_INVALID): refused before any file, database or
+ * network. Codes and flag names only. */
 export function assertAgentArm(env: Readonly<Record<string, string | undefined>>) {
   const missing = agentMissingDependencies(env);
   if (missing.length) throw Object.assign(Error('AGENDA_AGENT_FLAGS_INCOMPLETE'), { details: { missing } });
   const effort = env.SALON_SECRETARY_AGENT_EFFORT;
   if (effort !== undefined && !(AGENT_EFFORTS as readonly string[]).includes(effort)) throw Error('AGENDA_AGENT_EFFORT');
+  try { agentRoundEfforts(env); } catch { throw Error('AGENDA_AGENT_EFFORT'); }
 }
 
 // ---------------------------------------------------------------- preflight: headroom and run day
