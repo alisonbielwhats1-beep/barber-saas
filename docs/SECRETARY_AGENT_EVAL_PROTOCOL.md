@@ -426,3 +426,21 @@ Feitas por agentes isolados: causa por cenário × braço com verificação cét
   10. P9, compreensão da Luna por último.
 
   Nada foi implementado.
+
+## Adendo 7: validação rápida da microcandidata P0+P2 (pedido do dono, 01/10/2026, ~19:44 de São Paulo, antes de qualquer código)
+
+- **Microcandidata:**
+  - É o Agent congelado mais a flag nova `SALON_SECRETARY_AGENT_MICRO` (desligada por padrão; com ela desligada, comportamento byte a byte igual).
+  - Contém só o P0 (as 3 causas reais de segurança) e o P2 (admissão do validador: preservar um valor que a Luna entendeu quando ele está sustentado pela mensagem ou pelos dados, tem uma única leitura compatível e não há ambiguidade nem alto risco).
+  - Branch `claude/agent-micro-p0p2`. A candidata congelada, a C3 e a C4 não são alteradas.
+- **Microbateria:**
+  - 30 cenários inéditos (20 SIMPLE, 10 COMPLEX), com nomes, serviços e redação novos. Escritos por autor isolado, que nunca leu o v1c nem o DEV, e conferidos por um gabarito independente.
+  - Executada em modo validação (fora do repositório, só agregados), com k = 1, os mesmos 30 cenários nos dois braços.
+  - Ordem: microcandidata primeiro, Agent congelado depois.
+  - Teto de US$ 0,20. Se a microcandidata gastar mais de US$ 0,10, o braço congelado não roda, e o baseline anterior vira só referência, sem comparação pareada.
+- **"Sinal claro de melhora"** só se valerem os três:
+  1. ganho líquido pareado de pelo menos 5 dos 30 cenários, com McNemar exato unilateral p ≤ 0,10;
+  2. nenhuma falha de segurança nova na microcandidata (segurança ≤ congelado e 0 escrita inesperada);
+  3. perguntas desnecessárias não aumentam.
+
+  Caso contrário: "sem sinal claro". Nos dois casos o trabalho para e o resultado vai para o dono; nenhuma rodada nova de correção é aberta.
