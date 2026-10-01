@@ -14,11 +14,11 @@ import { comboWithOwnPart, isCombo } from "./secretary-combo-guard";
 import { comboParts } from "./secretary-multi-service";
 import { groundSchedulingReasons } from "./scheduling-literal-source";
 import { recurrenceOperation, statedRecurrence } from "./secretary-recurrence";
-import { SUGGESTION_THRESHOLD, nameTokens, tokenSimilarity, withoutArticle } from "./name-search";
+import { HONORIFICS, SUGGESTION_THRESHOLD, foldName, nameTokens, tokenSimilarity, withoutArticle } from "./name-search";
 import { NAME_TOKEN_SCAN, nameHasTokens } from "./secretary-name-tokens";
 import { getSchedulingAvailability, schedulingSelfProfessional, schedulingTimezone, serviceNameKey } from "./scheduling-catalog";
 import { locateSchedulingAppointments } from "./scheduling-mutations";
-import { activeAppointmentCount, agentCustomerTokenSet } from "./secretary-agent-lookups";
+import { AGENT_GLUE_WORDS, activeAppointmentCount, agentCustomerTokenSet } from "./secretary-agent-lookups";
 import { subtractIntervals, unionIntervals } from "./intervals";
 import { addCalendarDays, dateKeyInTimeZone, endExclusiveOfDateInTimeZone, startOfDateInTimeZone, toLocalDateTime, weekdayOfDateKey } from "./time";
 import { formatClock, formatDay, formatLocal } from "./secretary-datetime-format";
@@ -26,7 +26,7 @@ import { durationLiterals, durationText } from "./scheduling-duration-literal";
 import { foldedLiteral, literalProofSpans, literalSpans } from "../../packages/salon-secretary/src/literal-match";
 import { dependencyGraph } from "../../packages/salon-secretary/src/dependency-graph";
 import { AGENT_NAME_TOKEN_MIN, agentMessage, sanitizeAgentName, type AgentBinding } from "../../packages/salon-secretary/src/agent-context";
-import { AGENT_MUTATING_OPERATIONS, AGENT_PLAN_LIMITS, AgentPlanError, decodeAgentPlan, type AgentBaseField, type AgentBaseType, type AgentPlan, type AgentPlanAction,
+import { AGENT_BASE_REQUIRED_FIELDS, AGENT_MUTATING_OPERATIONS, AGENT_PLAN_LIMITS, AgentPlanError, decodeAgentPlan, type AgentBaseField, type AgentBaseType, type AgentPlan, type AgentPlanAction,
   type AgentPlanBase, type AgentPlanDecodeOptions, type AgentPlanOperation, type AgentPlanResult, type AgentQuestionField, type AgentServiceMode } from "../../packages/salon-secretary/src/agent-plan";
 
 /** Candidate 5, WP4 (flag SALON_SECRETARY_AGENT, default off; docs/c5-spike/11-especificacao-agente.md §5, V0-V25): the FACT validator of the
@@ -54,7 +54,7 @@ export const AGENT_VALIDATOR_CODES = ["AGENT_SCHEMA", "AGENT_DAG", "AGENT_QUOTE_
   "AGENT_RELEASE_MISMATCH", "AGENT_EXCEPTION_MISMATCH", "AGENT_EXCEPTION_OTHERS", "AGENT_EXCEPTION_MERGED", "AGENT_WORKDAY_END", "AGENT_COVERAGE", "AGENT_UNCOVERED",
   "AGENT_ACTIONS_LEFT", "AGENT_COMBO", "AGENT_SERVICE_MODE", "AGENT_RULE4", "AGENT_PRONOUN_TOPIC", "AGENT_DOUBLE_MUTATION", "AGENT_REASON_UNPROVEN", "AGENT_RECURRENCE",
   "AGENT_PREMISE_MISMATCH", "AGENT_FIELD_QUESTION", "AGENT_BASIS_CHANGED", "AGENT_PROFESSIONAL_DERIVED", "AGENT_CUSTOMER_UNPICKED", "AGENT_PATCH_OPERATION", "AGENT_PATCH_DONE",
-  "AGENT_PATCH_BASIS"] as const;
+  "AGENT_PATCH_BASIS", "AGENT_PATCH_UNPROVEN", "AGENT_RELEASED_ROLE", "AGENT_NAME_ASSUMED"] as const;
 export type AgentValidatorCode = (typeof AGENT_VALIDATOR_CODES)[number];
 /** §5.5: the line the backend appends to every turn with model text and no proposal nor receipt. */
 export const AGENT_NOTHING_CHANGED = "Nada foi alterado.";
@@ -77,9 +77,16 @@ export const AGENT_QUESTIONS: Readonly<Partial<Record<AgentValidatorCode, string
   AGENT_REF_STALE: "O agendamento deste pedido mudou ou não está mais ativo. Qual agendamento devo usar?",
   AGENT_NEGATED: "Parece que você voltou atrás neste pedido. Devo seguir com ele?",
   AGENT_RELEASE_MISMATCH: "O horário que vai vagar é de um profissional que não confere com a sua mensagem. Com quem e em que horário devo marcar?",
+  AGENT_PATCH_UNPROVEN: "Não encontrei na sua mensagem o valor que mudou neste pedido. Pode repetir o dia, o horário ou o agendamento que devo usar?",
+  AGENT_RELEASED_ROLE: "Não consegui usar o horário que outro pedido libera para este. Para qual dia e horário devo passar?",
 });
+/** A change whose services the owner wrote but the model's refs do not prove: asked, never dropped in silence (V15's rule for services). */
+export const AGENT_SERVICE_CHANGE_QUESTION = "Não consegui confirmar quais serviços mudam neste agendamento. Quais serviços devo trocar, incluir ou tirar?";
 /** A6 (owner decision 14): the customer a booking took from the owner's own words, said back in the owner's spelling. */
 export const agentUnpickedPremise = (name: string) => `Considerei «${name}» como cliente, pelo nome escrito no pedido.`;
+/** Owner decision 14 (people): the one registered person kept on a low-risk action although the owner wrote beside the name a word no
+ * registered name holds; said back with the registered name, in A6's style (the customer's text is A6's own). */
+export const agentPersonPremise = (name: string, role: "cliente" | "profissional") => `Considerei «${name}» como ${role}, pelo nome escrito no pedido.`;
 /** V5-E when the denied person or service was a value of the action: that value left, and prepare()'s own question for it follows. */
 export const AGENT_ENTITY_DENIED_OPEN = "Sua mensagem também nega alguém ou algo deste pedido, então deixei esse dado em aberto.";
 const DROP_NOTICES: Readonly<Partial<Record<AgentValidatorCode, string>>> = {
@@ -167,12 +174,14 @@ export type AgentValidationInput = { owner: readonly string[]; binding: AgentBin
 
 // ---------------------------------------------------------------- closed classes and small helpers
 type Span = readonly [number, number];
-const meets = (a: Span, b: Span) => a[0] < b[1] && b[0] < a[1];
+/** One word of the owner's text: its offsets and its folded form. */
+type WordAt = { readonly start: number; readonly end: number; readonly word: string };
+const meets =(a: Span, b: Span) => a[0] < b[1] && b[0] < a[1];
 const inside = (s: Span, r: Span) => s[0] >= r[0] && s[1] <= r[1];
 const words = (text: string) => foldedLiteral(text).split(/[^\p{L}\p{N}]+/u).filter(Boolean);
-/** Closed grammatical classes (folded): glue that never names anyone, personal/possessive pronouns, indefinite pronouns, first person. */
-const GLUE = new Set(["a", "o", "as", "os", "um", "uma", "uns", "umas", "de", "da", "do", "das", "dos", "d", "em", "no", "na", "nos", "nas", "num", "numa", "ao", "aos",
-  "pra", "pro", "pras", "pros", "para", "p", "com", "c", "por", "pelo", "pela", "pelos", "pelas", "e", "ou", "que", "q", "se", "so", "tambem", "tb", "tbm"]);
+/** Closed grammatical classes (folded): glue that never names anyone (the executor's own list, AGENT_GLUE_WORDS), personal/possessive pronouns,
+ * indefinite pronouns, first person. */
+const GLUE = AGENT_GLUE_WORDS;
 const PRONOUNS = new Set(["ela", "ele", "elas", "eles", "dela", "dele", "delas", "deles", "nela", "nele", "nelas", "neles"]);
 const PLURAL_PRONOUNS = new Set(["elas", "eles", "delas", "deles", "nelas", "neles"]);
 const INDEFINITE = new Set(["quem", "qualquer", "alguem"]);
@@ -192,6 +201,8 @@ const AFTER = new Set(["depois", "apos", "seguida", "terminar", "termina", "term
 const BEFORE = new Set(["antes"]);
 const ORDINAL_WORDS = new Set(["primeiro", "primeira", "ultimo", "ultima", "penultimo", "penultima"]);
 const ANCHOR_WORDS = new Set([...AFTER, ...BEFORE, ...ORDINAL_WORDS, ...APPT_WORDS, "logo", "assim", "em", "que", "min", "minuto", "minutos", "hora", "horas", "meia", "livre", "livres"]);
+/** Fixer: every word of the closed classes above (anchors, ordinals, negators and alterity, exceptions): never a name word in lowercase text. */
+const CLOSED_WORDS = new Set<string>([...ANCHOR_WORDS, ...NOT_SHARED, ...EXCEPTION_GLUE, ...GENERIC_EXCEPTION]);
 const NEGATOR = /(?<![\p{L}\p{N}])(?:n[aã]o|nunca|jamais|nem)(?![\p{L}\p{N}])/giu;
 const BOUNDARY = /[,.;!?()\n]/;
 /** S1c: the exclusion leads (closed class: "menos", "exceto", "salvo", "tirando", "fora", "sem ser"; "pelo/ao menos" excludes nothing) with
@@ -368,7 +379,11 @@ type Work = {
   reads: Read[]; clockPremises: { start?: string; unmerged?: string }; open?: AgentOpenAction; held?: true;
   /** A6: the premise of a customer taken from the owner's words (withdrawn with that customer). */
   customerPremise?: string;
+  /** Owner decision 14 (people): a person kept past an unknown word the owner wrote beside the name (`text`: the owner's words of that run,
+   * NOME if it leaves), with its premise; withdrawn with that person, or with the owner's words back on a high-risk action (settle). */
+  assumed?: { field: AssumedField; text: string; premise: string }[];
 };
+type AssumedField = "cliente" | "profissional" | "novo_profissional";
 const MUTATING = new Set<string>(AGENT_MUTATING_OPERATIONS);
 const BOOKING = new Set<string>(["appointment.create", "availability.get"]);
 const ORIGIN_OPERATIONS = new Set<string>(["appointment.change", "appointment.cancel", "appointment.read", "appointment.list"]);
@@ -440,11 +455,17 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
   const timezone = reader.timezone, now = reader.now, today = dateKeyInTimeZone(now, timezone), src = ownerSource(input.owner);
   const atoms: Atom[] = temporalAtomSpans(src.text, timezone, now) ?? [];
   const openByKey = new Map(openActions.map(item => [item.key, item] as const));
-  const works = decoded.acoes.map(action => newWork(action, openByKey.get(action.chave)));
+  // A4 (S2): a released slot is a create's (the C4's released-slot rule); on another operation the edge leaves that action alone, its order
+  // (depende_de) stays, and the action asks when a value of it stood on that slot (releasedRole). A cycle or a create's bad edge still refuses
+  // the plan (graphViolation).
+  const releasedRole = new Set(decoded.acoes.filter(action => action.ocupa_horario_de !== null && action.operacao !== "appointment.create").map(action => action.chave));
+  const works = decoded.acoes.map(action => newWork(releasedRole.has(action.chave) ? { ...action, ocupa_horario_de: null } : action, openByKey.get(action.chave)));
   /** The plan's execution order (the C4's: dependencies first, then the plan's order), for V8's least busy count. */
   const rank = new Map(dependencyGraph(planEdges(decoded.acoes)).order.map((key, index) => [key, index] as const));
   /** The owner's words (original offsets, folded form), for V4's name runs (runOf). */
   const wordList = [...src.text.matchAll(/[\p{L}\p{N}][\p{L}\p{M}\p{N}'’-]*/gu)].map(match => ({ start: match.index!, end: match.index! + match[0].length, word: foldedLiteral(match[0]) }));
+  /** A word at `at` opens a sentence of the owner (nothing but marks since its message's start or a sentence boundary): its capital says nothing. */
+  const opening = (at: number) => { const bound = src.bounds.find(item => at >= item[0] && at <= item[1]); return !bound || /(?:^|[.!?:;\n])[^\p{L}\p{N}]*$/u.test(src.text.slice(bound[0], at)); };
   /** The other actions whose clause is theirs alone (the pieces of one excepted interval share theirs; an action that asks because it
    * came out of an earlier action's segment does not take that action's words). */
   const rivals = (w: Work) => works.filter(other => other !== w && other.own && !exceptionPieces(w, other) && !other.codes.includes("AGENT_SCOPE_OVERLAP"));
@@ -456,6 +477,22 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
   for (const w of works) {
     if (w.open?.status === "DONE") drop(w, "AGENT_PATCH_DONE");
     else if (w.open && w.open.operation !== w.a.operacao) hold(w, "AGENT_PATCH_OPERATION");
+  }
+  // ---- A3 (S2): a value of the appointment, the start, the end or the day the plan repeats with no base (the decoder admits one only on a
+  // patch, fix B2). Equal to the open action's validated value, it is that value: the patch leaves the field alone (kept, re-checked as any kept
+  // value). Any other value is never taken: the patch holds its open action whole with the question (nothing of it applies); a new action that
+  // carried one loses it to the same question.
+  for (const w of works) {
+    if (w.status === "DROP") continue;
+    const unbased = AGENT_BASE_REQUIRED_FIELDS.filter(field => w.a[field] !== null && !w.a.bases.some(item => item.campo === field && item.tipo !== "NAO_DITO"));
+    if (!unbased.length) continue;
+    const same = !!w.open && unbased.every(field => inheritedValue(w.open!, w.a, field, binding));
+    const next = { ...w.a };
+    for (const field of unbased) next[field] = null;
+    w.a = next;
+    if (same) continue;
+    if (!w.open) ask(w, "AGENT_PATCH_UNPROVEN");
+    else if (!w.held) hold(w, "AGENT_PATCH_UNPROVEN");
   }
   // ---- V0: the backend's clause of every action; two mutations from the same segment: the later one asks.
   for (const w of works) {
@@ -527,15 +564,26 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
 
   // ---- pass 1: people (V2, V3, V4-E, V7, V8 first person); rule 7's topic (V18; A7: with none here, the open plan's one customer).
   const professionals = await reader.professionals() ?? [], services = await reader.services() ?? [];
-  const directoryTokens = new Set([...professionals, ...services].flatMap(row => nameTokens(row.name)));
+  const directoryTokens = new Set([...professionals, ...services].flatMap(row => nameTokens(row.name))), serviceTokens = new Set(services.flatMap(row => nameTokens(row.name)));
+  /** Fixer: the words of a person's name this message can see (the team's; the customers the lookups bound, as shown): never widened into a service. */
+  const peopleWords = new Set([...professionals.flatMap(row => nameTokens(row.name)),
+    ...binding.entries("c").flatMap(entry => nameTokens(String((entry.facts as { shown?: string }).shown ?? "")))]);
   for (const w of live()) {
     await customerStep(w);
     await personStep(w, "profissional");
   }
-  const topic = live().filter(w => MUTATING.has(w.a.operacao) && w.customer?.proven && w.customer.id).sort((a, b) => a.quote![0] - b.quote![0])[0]?.customer ?? openTopic();
+  // Owner decision 14 (people): a person assumed past an unknown word stands only on a low-risk action; the lot is counted once, before any
+  // person leaves, so no action's outcome depends on another's.
+  const lot = lotCustomers();
+  for (const w of live()) await settle(w, ["cliente", "profissional"], lot);
+  const topicOf = live().filter(w => MUTATING.has(w.a.operacao) && w.customer?.proven && w.customer.id).sort((a, b) => a.quote![0] - b.quote![0])[0];
+  const topic = topicOf?.customer ?? openTopic(), assumedTopic = !!topicOf?.assumed?.some(item => item.field === "cliente");
   for (const w of live()) {
     if (!w.customer?.pronoun) continue;
-    if (w.customer.plural || !topic?.id || w.customer.id !== undefined && w.customer.id !== topic.id) { clear(w, CUSTOMER_KEYS); ask(w, "AGENT_PRONOUN_TOPIC", "customer_ref"); continue; }
+    // An assumed topic never reaches a high-risk action through a pronoun: that customer is asked there.
+    if (w.customer.plural || !topic?.id || w.customer.id !== undefined && w.customer.id !== topic.id || assumedTopic && await highRisk(w, lot)) {
+      clear(w, CUSTOMER_KEYS); ask(w, "AGENT_PRONOUN_TOPIC", "customer_ref"); continue;
+    }
     w.customer = { ...w.customer, id: topic.id, name: topic.name, tokens: [...topic.tokens] };
     w.fields.customer_ref = topic.id; w.names[topic.id] = topic.name ?? "";
   }
@@ -547,9 +595,16 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
     dayStep(w);
     await startStep(w);
     await endStep(w);
-    if (w.a.operacao === "appointment.change") await personStep(w, "novo_profissional");
+    if (w.a.operacao === "appointment.change") { await personStep(w, "novo_profissional"); await settle(w, ["novo_profissional"], lot); }
     reasonStep(w);
     recurrenceStep(w);
+  }
+  // ---- A4 (S2): an action that is no create and named the slot another action frees: the value it read from that slot left with the edge
+  // (derivedStep's mismatch), and the backend asks it instead of a value nobody proved.
+  for (const w of live()) {
+    if (!releasedRole.has(w.a.chave)) continue;
+    code(w, "AGENT_RELEASED_ROLE");
+    if (w.a.bases.some(item => item.tipo === "LIBERADO_POR")) ask(w, "AGENT_RELEASED_ROLE", "time");
   }
   // ---- A1: one clock atom proves one clock role; a day atom serves several fields only with one date. A7: a patch's derived bases after
   // this message's changes.
@@ -580,6 +635,10 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
     const target = works.find(w => w.a.chave === decoded.pergunta!.acao);
     // S1c: what a released slot owns (its day, clock and professional) is never the owner's to answer: such a question marks nothing.
     if (target && !(target.derived?.type === "LIBERADO_POR" && RELEASED_SLOT_FIELDS.has(decoded.pergunta.campo))) { target.asked = decoded.pergunta.campo; code(target, "AGENT_FIELD_QUESTION"); }
+    // Fixer: a change's services are optional to prepare(), so its question on them would leave the change proposed without them: the backend
+    // asks them here (the C4 continuation takes the answer), never the change alone.
+    if (target && decoded.pergunta.campo === "servicos" && target.a.operacao === "appointment.change" && !target.fields.service_changes?.length)
+      ask(target, "AGENT_FIELD_QUESTION", "service_changes", AGENT_SERVICE_CHANGE_QUESTION);
   }
   if (result === "PLANO" && decoded.pergunta?.campo === "operacao") { const text = clean(decoded.pergunta.texto, AGENT_PLAN_LIMITS.question); if (text) notices.push(text); }
   for (const w of [...works].reverse()) if (w.status === "DROP" && w.notice && !notices.includes(w.notice)) notices.unshift(w.notice);
@@ -648,7 +707,8 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
    * ("Iolanda Serafim"), never as the professional said apart ("com o Serafim"). `claims`: the spans used. */
   function namedIn(w: Work, name: string, field: AgentBaseField): { tokens: string[]; spans: Span[]; claims: Span[] } {
     const out = { tokens: [] as string[], spans: [] as Span[], claims: [] as Span[] }, taken = claimed(w, field), hits = new Map<string, Span[]>();
-    for (const token of new Set(nameTokens(withoutArticle(name)).filter(item => [...item].length >= AGENT_NAME_TOKEN_MIN))) {
+    // Fixer: a glue word of a service's name ("com" of "X com Y") is no word the owner used for that service ("pedicure com a Teodora").
+    for (const token of new Set(nameTokens(withoutArticle(name)).filter(item => [...item].length >= AGENT_NAME_TOKEN_MIN && !(field === "servicos" && GLUE.has(item))))) {
       const found = literalSpans(src.text, token).filter(span => withinOne(src, span) && span[0] >= w.own![0] && admits(w, span, false) &&
         !atoms.some(atom => meets([atom.start, atom.end], span)) && !taken.some(item => meets(item, span)) && !entityQuoteDenied(src.text, span[0], span[1], w.a.operacao));
       if (found.length) hits.set(token, found);
@@ -660,6 +720,65 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
     }
     out.claims = [...out.spans];
     return out;
+  }
+  /** S2 (the specificity of the owner's words, people; V4-E and DITO alike, case not alone, initials), recalibrated by owner decision 14 (risk):
+   * the name the owner wrote around the chosen name's words found (their runs, in the owner's text, past a DITO quote too) may hold a word the
+   * chosen name lacks. That word names someone else (`firm`: the chosen row never stands; the owner's words of that run go back, NOME) when it
+   * is (a) capitalized, (b) a word of a registered person's name in this salon (registered: any case, either side of the name) or (c) an
+   * initial (one letter; a glue letter only with its period or in uppercase, "P.", "P") that begins none of the chosen name's other words.
+   * Any other word written in lowercase after the chosen name's words, when the owner wrote those in lowercase too (the owner's case then tells
+   * nothing; the words before them are left alone), is unknown (`firm` false): a verb, the "toda" of a recurrence or a surname nobody here
+   * has. Then the one registered holder of the owner's words stands with a premise on a low-risk action and the words go back on a high-risk
+   * one (assume, settle). Never a word opening a sentence, an honorific (closed class), a service word, a word another role of this action
+   * proved or, for a customer, a word of the action's own professionals; in lowercase, never a word of the closed classes (CLOSED_WORDS). No
+   * list of verbs (AGENT_RULES). `text`: the owner's words from the run's first marked word to its last. */
+  async function foreignName(w: Work, field: AgentBaseField, name: string, found: readonly Span[]): Promise<{ text: string; firm: boolean } | undefined> {
+    if (field === "servicos" || !found.length) return undefined;
+    // Words this action's reason or its own stated times proved are theirs, never a surname of this person. Quotes that may name people
+    // (the appointment, anchors, exceptions, sequences) stay in the check.
+    const bases = [...w.bases.entries()].filter(([other, item]) => other !== field && ["motivo", "inicio", "fim", "dia"].includes(other) &&
+      ["DITO", "MANTIDO", "FIM_EXPEDIENTE"].includes(item.base.tipo)).flatMap(([, item]) => item.span ? [item.span] : []);
+    const own = new Set(nameTokens(withoutArticle(name))), taken = [...claimed(w, field), ...bases], raw = (item: WordAt) => src.text.slice(item.start, item.end);
+    // A message with no lowercase letter says nothing by its case: no capital and no uppercase initial counts there.
+    const shouting = !/\p{Ll}/u.test(src.text);
+    const roles = new Set(field === "cliente" ? [w.a.profissional, w.a.novo_profissional].flatMap(ref => {
+      const id = ref ? binding.resolve(ref, "p")?.id : undefined; return professionals.filter(row => row.id === id).flatMap(row => nameTokens(row.name)); }) : []);
+    const letter = (item: WordAt) => [...item.word].length === 1 && /\p{L}/u.test(item.word);
+    const text = (list: readonly WordAt[], marked: readonly WordAt[]) => {
+      const picked = list.filter(item => own.has(item.word) || marked.includes(item)).sort((x, y) => x.start - y.start);
+      return src.text.slice(picked[0].start, picked.at(-1)!.end);
+    };
+    let loose: string | undefined;
+    for (const run of found.map(runOf)) {
+      const list = wordList.filter(item => inside([item.start, item.end], run));
+      // An initial right after the run, with its period or in uppercase: a glue letter ("P.", "P") ends the run, never the name.
+      const next = wordList.find(item => item.start >= run[1]);
+      if (next && letter(next) && (src.text[next.end] === "." || !shouting && /^\p{Lu}/u.test(raw(next))) && /^[^\S\n]+$/u.test(src.text.slice(run[1], next.start))) list.push(next);
+      const mine = list.filter(item => own.has(item.word));
+      if (!mine.length) continue;
+      const cased = !shouting && mine.some(item => /^\p{Lu}/u.test(raw(item)) && !opening(item.start)), after = Math.max(...mine.map(item => item.end));
+      const rest = [...own].filter(token => !mine.some(item => item.word === token));
+      const firm: WordAt[] = [], unknown: WordAt[] = [];
+      for (const item of list) {
+        if (own.has(item.word) || roles.has(item.word) || serviceTokens.has(item.word) || HONORIFICS.has(item.word) || opening(item.start) ||
+          taken.some(span => meets(span, [item.start, item.end]))) continue;
+        if (letter(item)) { if (!rest.some(token => token.startsWith(item.word))) firm.push(item); continue; }
+        const capital = !shouting && /^\p{Lu}/u.test(raw(item));
+        if (!capital && CLOSED_WORDS.has(item.word)) continue;
+        if (capital || await registered(item.word)) firm.push(item);
+        else if (!cased && item.start >= after) unknown.push(item);
+      }
+      if (firm.length) return { text: text(list, firm), firm: true };
+      if (unknown.length) loose ??= text(list, unknown);
+    }
+    return loose === undefined ? undefined : { text: loose, firm: false };
+  }
+  /** (b) of foreignName: a word of a registered person's name in this salon: a professional's (the team), else any customer's, through the
+   * tenant's own token scan (V7's S over the whole scan; past the scan its count). */
+  async function registered(word: string) {
+    if (professionals.some(row => nameTokens(row.name).includes(word))) return true;
+    const set = await reader.customerSet(word);
+    return set.total > 0 || !!set.rows?.length;
   }
   /** The owner's text of `span` with the spans in `taken` blanked (offsets kept): the words left for this role. */
   function unclaimed(span: Span, taken: readonly Span[]) {
@@ -673,8 +792,10 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
   }
   /** The literal of an entity: its DITO quote's name words (each a word of the chosen name, or a capitalized word the owner wrote, which
    * contradicts it), or V4-E's tokens found in the clause. Words another role of the action proved are not this one's (V4), and a customer's
-   * quote uses the salon's professional and service words only inside a run its own words hold. */
-  function literalOf(w: Work, field: AgentBaseField, name: string): { tokens: string[]; spans: Span[]; claims: Span[] } | { code: AgentValidatorCode; text?: string } {
+   * quote uses the salon's professional and service words only inside a run its own words hold. `assumed`: the owner's words of a run holding an
+   * unknown word beside the name (foreignName), for the caller's risk policy. */
+  async function literalOf(w: Work, field: AgentBaseField, name: string):
+    Promise<{ tokens: string[]; spans: Span[]; claims: Span[]; assumed?: string } | { code: AgentValidatorCode; text?: string }> {
     const located = baseOf(w, field);
     if (located && located.base.tipo === "DITO") {
       if (located.code) return { code: located.code };
@@ -682,13 +803,80 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
       const text = trimmedName(free), within = (token: string) => literalSpans(src.text, token).filter(span => inside(span, located.span!) && !taken.some(item => meets(item, span)));
       const runs = field === "cliente" ? all.filter(token => !directoryTokens.has(token)).flatMap(token => within(token).map(runOf)) : undefined;
       const core = runs ? all.filter(token => !directoryTokens.has(token) || within(token).some(span => runs.some(run => inside(span, run)))) : all;
-      const tokens = core.filter(token => own.has(token) || caps.has(token));
+      // Fixer: an initial of the quote ("S.") that begins another word of the chosen name is no contradiction and proves nothing (S stays over
+      // whole words); one that begins none still contradicts it.
+      const initial = (token: string) => [...token].length === 1 && [...own].some(item => item !== token && item.startsWith(token));
+      const tokens = core.filter(token => (own.has(token) || caps.has(token)) && !initial(token));
       if (!all.length) return { code: "AGENT_QUOTE_ABSENT" };
       if (!tokens.length || tokens.some(token => !own.has(token))) return { code: "AGENT_NAME_MISMATCH", text };
-      return { tokens, spans: [located.span!], claims: tokens.flatMap(within) };
+      // The quote may stop short of the name the owner wrote ("Genoveva" of "Genoveva Luz"): the run around it decides as for V4-E.
+      const foreign = await foreignName(w, field, name, tokens.flatMap(within));
+      if (foreign?.firm) return { code: "AGENT_NAME_MISMATCH", text: foreign.text };
+      return { tokens, spans: [located.span!], claims: tokens.flatMap(within), ...foreign ? { assumed: foreign.text } : {} };
     }
     const found = namedIn(w, name, field);
-    return found.tokens.length ? found : { code: "AGENT_QUOTE_ABSENT" };
+    if (!found.tokens.length) return { code: "AGENT_QUOTE_ABSENT" };
+    const foreign = await foreignName(w, field, name, found.spans);
+    if (foreign?.firm) return { code: "AGENT_NAME_MISMATCH", text: foreign.text };
+    return foreign ? { ...found, assumed: foreign.text } : found;
+  }
+  /** Owner decision 14 (people): the one registered holder of the owner's words stands past an unknown word written beside them (`text`: the
+   * owner's words of that run), said as a backend premise; settle() sends the words back on a high-risk action. */
+  function assume(w: Work, field: AssumedField, text: string, name: string) {
+    const premise = agentPersonPremise(label(name), field === "cliente" ? "cliente" : "profissional");
+    code(w, "AGENT_NAME_ASSUMED");
+    (w.assumed ??= []).push({ field, text, premise });
+    w.premises.push(premise);
+  }
+  /** Owner decision 14 (risk): cancelling, blocking over appointments and one action touching several customers at once are high-risk;
+   * booking, moving, changing services, blocking free time and reading are not. A plan that books different customers in separate
+   * actions is not "several at once" for a person's identity (decision 21's review dialog covers the batch). `lot` stays for telemetry. */
+  async function highRisk(w: Work, lot: number) {
+    void lot;
+    const operation = w.a.operacao;
+    if (operation === "appointment.cancel") return true;
+    if (operation === "schedule.block") return !await freeBlock(w);
+    return MUTATING.has(operation) && !!w.customer?.plural;
+  }
+  /** A block of free time only: its own interval (the plan's start and end, one day) holds no PENDING/CONFIRMED appointment of its
+   * professional now. An interval the plan does not give, or over two days, is no such block. */
+  async function freeBlock(w: Work) {
+    const id = w.fields.professional_ref, start = w.a.inicio, end = w.a.fim;
+    if (!id || !start || !end || start.slice(0, 10) !== end.slice(0, 10) || end <= start) return false;
+    const rows = await reader.dayAppointments(id, start.slice(0, 10));
+    return !!rows && !rows.some(row => row.startLocal < end && row.endLocal > start);
+  }
+  /** Owner decisions 14 and 21: the customers one lot touches at once (this plan's live bookings, moves and cancellations, and the open plan's
+   * pending ones this plan leaves as they are): by id (accepted, or that of the appointment the plan names), else by the owner's words; a
+   * pronoun is the topic, never one more. */
+  function lotCustomers() {
+    const ids = new Set<string>(), add = (id: string | undefined, said: string | undefined) => { const key = id ?? (said ? `?${foldedLiteral(said)}` : undefined); if (key) ids.add(key); };
+    const customers = (operation: string) => MUTATING.has(operation) && operation !== "schedule.block";
+    for (const v of live()) if (customers(v.a.operacao) && !v.customer?.pronoun)
+      add(v.fields.customer_ref ?? (v.a.atendimento ? binding.resolve(v.a.atendimento, "a")?.facts.customerId : undefined), v.fields.customer_name);
+    for (const item of unpatched()) if (item.status === "OPEN" && customers(item.operation)) add(item.fields.customer_ref ?? item.customer, item.fields.customer_name);
+    return ids.size;
+  }
+  /** Owner decision 14: an assumed person of `fields` stands only on a low-risk action; on a high-risk one it leaves with its premise and the
+   * owner's words of that run go back (NOME), as for a contradiction. */
+  async function settle(w: Work, fields: readonly AssumedField[], lot: number) {
+    if (!w.assumed?.some(item => fields.includes(item.field)) || !await highRisk(w, lot)) return;
+    for (const field of fields) unassume(w, field, true);
+  }
+  /** An assumed person leaves: its premise goes (and the code with the last one); `back`: the person too, with the owner's words (NOME). */
+  function unassume(w: Work, field: AssumedField, back = false) {
+    const item = w.assumed?.find(entry => entry.field === field);
+    if (!item) return;
+    w.assumed = w.assumed!.filter(entry => entry !== item);
+    w.premises = w.premises.filter(text => text !== item.premise);
+    if (!w.assumed.length) w.codes = w.codes.filter(value => value !== "AGENT_NAME_ASSUMED");
+    if (!back) return;
+    const entity = field === "cliente" ? w.customer : field === "profissional" ? w.professional : w.target;
+    if (entity?.id) delete w.names[entity.id];
+    if (field === "cliente") w.customer = undefined; else if (field === "profissional") w.professional = undefined; else w.target = undefined;
+    for (const key of field === "cliente" ? CUSTOMER_KEYS : field === "profissional" ? PROFESSIONAL_KEYS : TARGET_KEYS) delete w.fields[key];
+    code(w, "AGENT_NAME_MISMATCH");
+    nome(w, field === "cliente" ? "customer_name" : field === "profissional" ? "professional_name" : "target_professional_name", item.text);
   }
   function nome(w: Work, key: "customer_name" | "professional_name" | "target_professional_name" | "service_name", text: string | undefined) {
     const value = text?.trim();
@@ -786,12 +974,16 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
         return;
       }
       // V4: these words are the customer's (no one else's proof in this action).
-      w.claims.push(...tokens.flatMap(token => literalSpans(src.text, token).filter(span => inside(span, quoted!.span!))));
+      const spans = tokens.flatMap(token => literalSpans(src.text, token).filter(span => inside(span, quoted!.span!)));
+      w.claims.push(...spans);
       const set = await reader.customerSet(tokens.join(" "));
       if (set.rows?.length === 1) {
-        const row = set.rows[0];
+        // The quote may stop short of the name the owner wrote: the run around its words decides as on the ref's path (S2, owner decision 14).
+        const row = set.rows[0], foreign = await foreignName(w, "cliente", row.name, spans);
+        if (foreign?.firm) { code(w, "AGENT_NAME_MISMATCH"); nome(w, "customer_name", foreign.text); return; }
         w.customer = { id: row.id, name: row.name, tokens, spans: [quoted!.span!], proven: true };
         w.fields.customer_ref = row.id; w.names[row.id] = row.name;
+        if (foreign) assume(w, "cliente", foreign.text, row.name);
         return;
       }
       code(w, !set.rows || set.rows.length > CARD_MAX ? "AGENT_TOO_MANY" : set.rows.length ? "AGENT_HOMONYM" : "AGENT_NAME_MISMATCH");
@@ -812,7 +1004,7 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
       w.fields.customer_ref = row.id; w.names[row.id] = row.name;
       return;
     }
-    const literal = literalOf(w, "cliente", row.name);
+    const literal = await literalOf(w, "cliente", row.name);
     if ("code" in literal) {
       if (literal.code === "AGENT_NAME_MISMATCH") { code(w, literal.code); nome(w, "customer_name", literal.text); } else clear(w, CUSTOMER_KEYS, literal.code);
       return;
@@ -822,7 +1014,11 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
     if (!set.rows || set.rows.length > CARD_MAX) { code(w, "AGENT_TOO_MANY"); nome(w, "customer_name", text); return; }
     if (!set.rows.some(item => item.id === row.id)) { code(w, "AGENT_NAME_MISMATCH"); nome(w, "customer_name", text); return; }
     w.customer = { id: row.id, name: row.name, tokens: literal.tokens, spans: literal.spans, proven: set.rows.length === 1 };
-    if (set.rows.length === 1) { w.fields.customer_ref = row.id; w.names[row.id] = row.name; return; }
+    if (set.rows.length === 1) {
+      w.fields.customer_ref = row.id; w.names[row.id] = row.name;
+      if (literal.assumed) assume(w, "cliente", literal.assumed, row.name);
+      return;
+    }
     // V7: two or more holders of the owner's words: a card on a booking; elsewhere prepare()'s own search (and the locate) decides.
     w.fields.customer_name = text;
     if (BOOKING.has(a.operacao)) card(w, "customer_ref", named(set.rows), "AGENT_HOMONYM"); else code(w, "AGENT_HOMONYM");
@@ -861,7 +1057,7 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
       remember({ id: row.id, name: row.name, tokens: nameWords(row.name, false), spans: [], proven: true });
       return;
     }
-    const literal = literalOf(w, field, row.name);
+    const literal = await literalOf(w, field, row.name);
     if ("code" in literal) {
       if (literal.code === "AGENT_NAME_MISMATCH") { code(w, literal.code); nome(w, nameKey, literal.text); } else clear(w, keys, literal.code);
       return;
@@ -870,7 +1066,11 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
     const set = professionals.filter(item => nameHasTokens(literal.tokens, item.name)), text = said ?? spelled(literal.spans);
     if (!set.some(item => item.id === row.id)) { code(w, "AGENT_NAME_MISMATCH"); nome(w, nameKey, text); return; }
     remember({ id: row.id, name: row.name, tokens: literal.tokens, spans: literal.spans, proven: set.length === 1 });
-    if (set.length === 1) { w.fields[refKey] = row.id; w.names[row.id] = row.name; return; }
+    if (set.length === 1) {
+      w.fields[refKey] = row.id; w.names[row.id] = row.name;
+      if (literal.assumed) assume(w, field, literal.assumed, row.name);
+      return;
+    }
     w.fields[nameKey] = text;
     if (set.length > CARD_MAX) code(w, "AGENT_TOO_MANY");
     else if (BOOKING.has(a.operacao) && field === "profissional") card(w, "professional_ref", named(set), "AGENT_HOMONYM");
@@ -979,7 +1179,7 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
   }
   async function servicesStep(w: Work) {
     const a = w.a, list = a.servicos, located = baseOf(w, "servicos");
-    if (!list) { if (kept(w, "servicos")) keepServices(w); return; }
+    if (!list) { if (kept(w, "servicos")) keepServices(w); else unlistedServices(w); return; }
     if (located && located.base.tipo !== "DITO") { clear(w, SERVICE_KEYS, "AGENT_BASE_TYPE"); return; }
     if (located?.code) { clear(w, SERVICE_KEYS, located.code); return; }
     const booking = BOOKING.has(a.operacao), change = a.operacao === "appointment.change";
@@ -999,10 +1199,10 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
     const chosen: Service[] = [];
     for (const item of list) {
       const entry = binding.resolve(item.ref, "s"), row = entry ? services.find(service => service.id === entry.id) : undefined;
-      if (!entry || !row) { code(w, !entry ? binding.entry(item.ref) ? "AGENT_REF_KIND" : "AGENT_REF_UNKNOWN" : "AGENT_REF_STALE"); return servicesByName(w, said); }
+      if (!entry || !row) return servicesUnproven(w, said, !entry ? binding.entry(item.ref) ? "AGENT_REF_KIND" : "AGENT_REF_UNKNOWN" : "AGENT_REF_STALE");
       const own = nameTokens(withoutArticle(row.name)).filter(token => [...token].length >= AGENT_NAME_TOKEN_MIN);
       const found = quoted ? undefined : namedIn(w, row.name, "servicos"), tokens = quoted ? own.filter(token => quoted.includes(token)) : found!.tokens;
-      if (!tokens.length) { code(w, "AGENT_NAME_MISMATCH"); return servicesByName(w, said); }
+      if (!tokens.length) return servicesUnproven(w, said, "AGENT_NAME_MISMATCH");
       chosen.push({ id: row.id, name: row.name, tokens, spans: quoted ? [located!.span!] : found!.spans, mode: item.modo, durationMin: row.durationMin, claims: found?.claims ?? [] });
     }
     // A3: a word of the quote left over by every chosen service contradicts them only when it can name another service: close to a word of
@@ -1012,28 +1212,60 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
     const chosenWords = new Set(chosen.flatMap(item => nameTokens(item.name))), catalog = [...new Set(services.flatMap(row => nameTokens(row.name)))].filter(word => !chosenWords.has(word));
     const serviceWords = new Set(services.flatMap(row => nameTokens(row.name))), personWords = new Set(professionals.flatMap(row => nameTokens(row.name)).filter(word => !serviceWords.has(word)));
     const contradicts = (token: string) => !personWords.has(token) && (catalog.some(word => tokenSimilarity(token, word) >= SUGGESTION_THRESHOLD) || coordinated(located!.text!, token, chosenWords));
-    if (quoted && quoted.some(token => !chosenWords.has(token) && contradicts(token))) { code(w, "AGENT_NAME_MISMATCH"); return servicesByName(w, said); }
-    for (const item of chosen) {
-      w.consumed.push(...item.spans); w.claims.push(...item.claims);
-      const set = services.filter(service => nameHasTokens(item.tokens, service.name)), exact = services.filter(service => serviceNameKey(service.name) === serviceNameKey(item.tokens.join(" ")));
-      if (!set.some(service => service.id === item.id)) { code(w, "AGENT_NAME_MISMATCH"); return servicesByName(w, said); }
-      // A service named word for word (the C4's serviceNameKey) is that service; otherwise several holders are a card on a booking.
-      if (set.length > 1 && !(exact.length === 1 && exact[0].id === item.id)) {
-        if (booking && chosen.length === 1 && set.length <= CARD_MAX) { card(w, "service_ref", named(set), "AGENT_HOMONYM"); w.fields.service_name = said ?? item.tokens.join(" "); return; }
-        code(w, "AGENT_HOMONYM");
-        return servicesByName(w, said);
-      }
-    }
-    for (const item of chosen) w.names[item.id] = item.name;
+    if (quoted && quoted.some(token => !chosenWords.has(token) && contradicts(token))) return servicesUnproven(w, said, "AGENT_NAME_MISMATCH");
+    for (const item of chosen) { w.consumed.push(...item.spans); w.claims.push(...item.claims); }
+    // V7/V16 (S2, the specificity of the owner's words): S = the rows whose name holds every word the owner used for the chosen service; it
+    // stands only when S is exactly it. A row holding those words and more (a more specific service, a combo with a part never said) fits the
+    // owner's words as much, so the two are the owner's choice: never the one whose whole name was said, never the shorter one. A service a
+    // change takes out (REMOVER/TROCAR) is one of the re-read appointment's own, so its S is over those.
+    const appt = change ? w.appt : undefined;
+    const ownRows: AgentNamed[] | undefined = appt ? appt.serviceIds.map((id, index) => ({ id, name: appt.serviceNames[index] ?? services.find(row => row.id === id)?.name ?? "" })) : undefined;
+    const leaves = (item: Service) => change && (item.mode === "REMOVER" || item.mode === "TROCAR");
+    const pool = (item: Service): readonly AgentNamed[] => leaves(item) ? ownRows ?? [] : services;
+    const holdersOf = (item: Service, tokens: readonly string[]): AgentNamed[] => pool(item).filter(row => nameHasTokens(tokens, row.name));
+    const holders = (item: Service) => holdersOf(item, item.tokens);
+    // Fixer (review of S2 round 1): the owner's content words written beside a row that does not stand alone (ownWords). When the rows holding
+    // ALL of them are exactly one and the owner wrote every word of its name (glue aside), that row stands in the model's place by its own ref
+    // (the words are never searched as such); one with a word the owner never said is no such row (the D10 mirror): the card of the row's own
+    // words; several are their card.
+    const spoken = chosen.map(item => { const set = holders(item);
+      return set.length > 1 && set.some(row => row.id === item.id) ? ownWords(w, item, new Set(set.flatMap(row => nameTokens(row.name)))) : undefined; });
+    const fuller = (index: number) => { const words = spoken[index]; return words?.wider ? holdersOf(chosen[index], words.tokens) : []; };
+    const whole = (row: AgentNamed, tokens: readonly string[]) => nameTokens(row.name).filter(token => !GLUE.has(token)).every(token => tokens.includes(token));
+    chosen.forEach((item, index) => {
+      const exact = fuller(index), words = spoken[index];
+      if (exact.length !== 1 || !words || !whole(exact[0], words.tokens)) return;
+      const row = exact[0];
+      if (row.id !== item.id) code(w, "AGENT_NAME_MISMATCH");
+      chosen[index] = { ...item, id: row.id, name: row.name, tokens: words.tokens, spans: words.spans, claims: [...item.claims, ...words.spans],
+        durationMin: services.find(entry => entry.id === row.id)?.durationMin ?? item.durationMin };
+      w.consumed.push(...words.spans); w.claims.push(...words.spans);
+    });
+    const stands = chosen.map(item => { const set = holders(item); return set.length === 1 && set[0].id === item.id; });
+    /** The card of a loose row: the rows holding every word the owner wrote for it when they are several, else those holding its own words; and
+     * the owner's words the C4 searches to show it (searchText: that search never finds fewer rows than the card). */
+    const looseOf = (index: number) => {
+      const item = chosen[index], exact = fuller(index), words = spoken[index] ?? ownWords(w, item, new Set<string>());
+      return exact.length > 1 ? { rows: exact, text: searchText(exact, words.spans, words.tokens) } : { rows: holders(item), text: searchText(holders(item), words.found, item.tokens) };
+    };
     if (change) {
-      // REMOVER/TROCAR only over the re-read appointment's own services; INCLUIR goes through the C4 alteration path (its combo guard).
-      const leaving = chosen.filter(item => item.mode === "REMOVER" || item.mode === "TROCAR");
-      if (leaving.length && (!w.appt || leaving.some(item => !w.appt!.serviceIds.includes(item.id)))) { clear(w, SERVICE_KEYS, "AGENT_SERVICE_MODE"); return; }
+      // The C4 alteration path takes every change (its combo guard included): a service that stands goes with its ref; any other one goes with
+      // the owner's own words and no ref, so the C4 resolves them (its card of every holder; a service the appointment lacks is asked there).
+      const refs = chosen.map((item, index) => stands[index] ? item.id : null);
+      const names = chosen.map((item, index) => {
+        if (stands[index]) { w.names[item.id] = item.name; return item.name; }
+        code(w, leaves(item) && !ownRows?.some(row => row.id === item.id) ? "AGENT_SERVICE_MODE" : holders(item).length > 1 ? "AGENT_HOMONYM" : "AGENT_NAME_MISMATCH");
+        return looseOf(index).text;
+      });
       w.services = chosen;
-      w.fields.service_changes = chosen.map(item => ({ mode: item.mode === "INCLUIR" ? "INCLUDE" as const : item.mode === "LISTA" ? "SET" as const : "REMOVE" as const, service_name: item.name.slice(0, 200) }));
-      w.fields.service_changes_ref = chosen.map(item => item.id);
+      w.fields.service_changes = chosen.map((item, index) => ({ mode: item.mode === "INCLUIR" ? "INCLUDE" as const : item.mode === "LISTA" ? "SET" as const : "REMOVE" as const,
+        service_name: names[index].slice(0, 200) }));
+      w.fields.service_changes_ref = refs;
       return;
     }
+    if (chosen.some((item, index) => !stands[index] && !holders(item).some(row => row.id === item.id))) { code(w, "AGENT_NAME_MISMATCH"); return servicesByName(w, said); }
+    const loose = chosen.findIndex((_, index) => !stands[index]);
+    if (loose < 0) for (const item of chosen) w.names[item.id] = item.name;
     // Rules 9 and 11: a combo, a combo beside its part, or parts a registered combo joins are resolved by the C4's own combo path from the
     // owner's words (its cards), never here.
     const joins = chosen.length > 1 && services.some(row => isCombo(row.name) && comboParts(row.name).length === chosen.length &&
@@ -1041,6 +1273,14 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
     if (chosen.some(item => isCombo(item.name)) || comboWithOwnPart(chosen) || joins || said && comboParts(said).length > 1 && chosen.length === 1) {
       code(w, "AGENT_COMBO");
       return servicesByName(w, said ?? stretch(chosen.flatMap(item => item.spans)));
+    }
+    if (loose >= 0) {
+      // Several holders of the owner's words: a card of them on a booking (prepare()'s own search of words every one of them holds); elsewhere
+      // the owner's words.
+      const { rows, text } = looseOf(loose);
+      if (booking && chosen.length === 1 && rows.length <= CARD_MAX) { card(w, "service_ref", named(rows), "AGENT_HOMONYM"); w.fields.service_name = text; return; }
+      code(w, "AGENT_HOMONYM");
+      return servicesByName(w, said ?? (chosen.length === 1 ? text : stretch(chosen.flatMap(entry => entry.spans))));
     }
     w.services = chosen;
     w.durationMin = chosen.reduce((sum, item) => sum + item.durationMin, 0);
@@ -1058,6 +1298,83 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
     clear(w, SERVICE_KEYS);
     w.services = [];
     if (w.a.operacao !== "appointment.change" && said && said.length >= 2) w.fields.service_name = said.slice(0, 200);
+  }
+  /** S2: the model's services fail to prove. A booking or a read goes back to the owner's words (servicesByName). A change cannot take a free
+   * quote as its delta: when the owner did write the services (`said`, a located quote), the backend asks which services change instead of
+   * proposing the change without them; with no words of the owner for them, nothing was asked of the services and they leave. */
+  function servicesUnproven(w: Work, said: string | undefined, why: AgentValidatorCode) {
+    code(w, why);
+    if (w.a.operacao !== "appointment.change") return servicesByName(w, said);
+    clear(w, SERVICE_KEYS);
+    w.services = [];
+    if (said) ask(w, why, "service_changes", AGENT_SERVICE_CHANGE_QUESTION);
+  }
+  /** S2: the owner's own words for one service beside a row that does not stand alone: its tokens found inside the spans that proved them, each
+   * widened over the CONTENT words written right beside it (spaces only between; "de/da/do/dos/das" only between two of them) that are words of
+   * a row holding those tokens ("massagem" + "modeladora"). Fixer (review of S2 round 1): a content word has ≥ 3 letters and is none of the
+   * closed classes (glue such as "com", "na", "em", pronouns, first person, indefinites, agenda nouns, temporal words) nor a word of a person's
+   * name this message can see; it lies in the action's admitted region, outside every temporal atom, unclaimed by another role and undenied.
+   * `found`: the token spans; `spans`: those and the widened ones; `tokens`: all their words (folded); `wider`: some word was added. The words
+   * are never searched as such: a row is taken only as the one row holding them that they name whole; a card is shown through searchText. */
+  function ownWords(w: Work, item: Service, rowWords: ReadonlySet<string>): { found: Span[]; spans: Span[]; tokens: string[]; wider: boolean } {
+    const found = item.tokens.flatMap(token => literalSpans(src.text, token).filter(span => withinOne(src, span) && item.spans.some(region => inside(span, region))));
+    const taken = claimed(w, "servicos"), mine = new Set(w.customer?.tokens ?? []);
+    const content = (index: number) => {
+      const entry = wordList[index];
+      if (!entry || !w.own) return false;
+      const span: Span = [entry.start, entry.end], word = entry.word;
+      return [...word].length >= AGENT_NAME_TOKEN_MIN && rowWords.has(word) && !GLUE.has(word) && !PRONOUNS.has(word) && !FIRST_PERSON.has(word) && !INDEFINITE.has(word) &&
+        !APPT_WORDS.has(word) && !temporalWord(word) && !peopleWords.has(word) && !mine.has(word) && withinOne(src, span) && span[0] >= w.own[0] && admits(w, span, false) &&
+        !atoms.some(atom => meets([atom.start, atom.end], span)) && !taken.some(other => meets(other, span)) && !entityQuoteDenied(src.text, span[0], span[1], w.a.operacao);
+    };
+    const joined = (left: number) => left >= 0 && left + 1 < wordList.length && /^[^\S\n]+$/u.test(src.text.slice(wordList[left].end, wordList[left + 1].start));
+    const link = (index: number) => ["de", "da", "do", "dos", "das"].includes(wordList[index]?.word ?? "");
+    const spans: Span[] = [...found], tokens = new Set(item.tokens);
+    let wider = false;
+    const take = (from: number, to: number, index: number) => {
+      spans.push([wordList[from].start, wordList[to].end]); wider ||= !tokens.has(wordList[index].word); tokens.add(wordList[index].word); };
+    for (const span of found) {
+      const at = wordList.findIndex(entry => entry.start === span[0]);
+      if (at < 0) continue;
+      // Forward, then backward: the content word straight beside, or the one past a de/da/do between two content words.
+      for (let from = at; joined(from);) {
+        const next = from + 1;
+        if (link(next) && joined(next) && content(next + 1)) { take(next, next + 1, next + 1); from = next + 1; }
+        else if (content(next)) { take(next, next, next); from = next; }
+        else break;
+      }
+      for (let from = at; joined(from - 1);) {
+        const prior = from - 1;
+        if (link(prior) && joined(prior - 1) && content(prior - 1)) { take(prior - 1, prior, prior - 1); from = prior - 1; }
+        else if (content(prior)) { take(prior, prior, prior); from = prior; }
+        else break;
+      }
+    }
+    return { found, spans, tokens: [...tokens], wider };
+  }
+  /** Fixer: the owner's words the C4 searches (prepare()'s or the alteration's substring search) to show the card of `rows`: their written text
+   * when every row's name holds it as written, else the first single word of them every row holds as written (each found or widened word is a
+   * whole word of every such row). That search then finds every row of the card: a card is never narrowed to one row by the words' form. */
+  function searchText(rows: readonly AgentNamed[], spans: readonly Span[], tokens: readonly string[]) {
+    const holds = (text: string) => { const folded = foldName(text.trim()); return folded.length >= 2 && rows.every(row => foldName(row.name).includes(folded)); };
+    const text = spelled(spans);
+    if (holds(text)) return text;
+    const single = [...spans].sort((x, y) => x[0] - y[0]).map(span => src.text.slice(span[0], span[1])).filter(piece => !/\s/u.test(piece));
+    return single.find(holds) ?? tokens.find(holds) ?? text;
+  }
+  /** Fixer (V15 for services, review of S2 round 1): a change whose plan names no service while its own clause holds catalog words naming only
+   * services the re-read appointment does not hold (no field took them; outside every base, the other roles, the temporal atoms and any denial):
+   * the owner asked a service change the plan left out. Asked, never proposed without it. Words of the appointment's own services may only
+   * point at the appointment, so they stay as they are. */
+  function unlistedServices(w: Work) {
+    if (w.a.operacao !== "appointment.change" || !w.appt || !w.own) return;
+    const held = new Set(w.appt.serviceNames.flatMap(name => nameTokens(name)));
+    const taken = [...claimed(w, "servicos"), ...w.consumed, ...[...w.bases.values()].flatMap(item => item.span ? [item.span] : [])];
+    const words = [...serviceTokens].filter(word => [...word].length >= AGENT_NAME_TOKEN_MIN && !GLUE.has(word) && !temporalWord(word) && !APPT_WORDS.has(word) &&
+      !peopleWords.has(word) && !held.has(word));
+    const left = words.some(word => literalSpans(src.text, word).some(span => withinOne(src, span) && inside(span, w.own!) && admits(w, span, false) &&
+      !atoms.some(atom => meets([atom.start, atom.end], span)) && !taken.some(item => meets(item, span)) && !entityQuoteDenied(src.text, span[0], span[1], w.a.operacao)));
+    if (left) ask(w, "AGENT_COVERAGE", "service_changes", AGENT_SERVICE_CHANGE_QUESTION);
   }
 
   // ================================================================ time
@@ -1371,7 +1688,9 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
       const least = Math.min(...Object.values(counts));
       pick = set.filter(row => counts[row.id] === least);
     }
-    if (pick.length !== 1 || !located.inherited && pick[0].id !== chosen) { card(w, kind, named(pick), "AGENT_DELEGATION_TIE"); return; }
+    // A2 (S2): the backend's own pick (the one least busy performer free then) stands when the model left the delegated field empty; a model
+    // value that is not that pick is a card, never taken.
+    if (pick.length !== 1 || !located.inherited && value !== null && pick[0].id !== chosen) { card(w, kind, named(pick), "AGENT_DELEGATION_TIE"); return; }
     const row = pick[0];
     w.fields[kind] = row.id; w.names[row.id] = row.name; w.cleared.delete(kind);
     // Its registered words: a negated mention of the one picked asks (V5-E), never a pick against the owner's words.
@@ -1694,11 +2013,13 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
     const booking = BOOKING.has(w.a.operacao), cleared: (keyof SchedulingFields)[] = [];
     const forget = (entity: Entity | undefined) => { if (entity?.id) delete w.names[entity.id]; };
     if (w.customer && hit.includes(w.customer) && booking) {
-      cleared.push(...CUSTOMER_KEYS); forget(w.customer); w.customer = undefined;
+      cleared.push(...CUSTOMER_KEYS); forget(w.customer); w.customer = undefined; unassume(w, "cliente");
       if (w.customerPremise) { w.premises = w.premises.filter(text => text !== w.customerPremise); w.customerPremise = undefined; }
     }
-    if (w.professional && hit.includes(w.professional) && (booking || w.a.operacao === "schedule.block")) { cleared.push(...PROFESSIONAL_KEYS); forget(w.professional); w.professional = undefined; }
-    if (w.target && hit.includes(w.target)) { cleared.push(...TARGET_KEYS); forget(w.target); w.target = undefined; }
+    if (w.professional && hit.includes(w.professional) && (booking || w.a.operacao === "schedule.block")) {
+      cleared.push(...PROFESSIONAL_KEYS); forget(w.professional); w.professional = undefined; unassume(w, "profissional");
+    }
+    if (w.target && hit.includes(w.target)) { cleared.push(...TARGET_KEYS); forget(w.target); w.target = undefined; unassume(w, "novo_profissional"); }
     if (w.services.some(item => hit.includes(item)) && (booking || w.a.operacao === "appointment.change")) {
       cleared.push(...SERVICE_KEYS); for (const item of w.services) forget(item);
       w.services = []; w.durationMin = undefined;
@@ -1792,11 +2113,22 @@ function graphViolation(plan: AgentPlan, open: readonly AgentOpenAction[] = []):
   try { dependencyGraph(planEdges(plan.acoes)); } catch { return "CYCLE"; }
   const byKey = new Map(plan.acoes.map(action => [action.chave, action.operacao] as const)), opened = new Map(open.map(item => [item.key, item.operation] as const));
   for (const action of plan.acoes) {
-    if (action.ocupa_horario_de === null) continue;
+    // A4 (S2): only a create takes a released slot; the edge of any other operation is dropped by the validation (that action asks), not the plan.
+    if (action.ocupa_horario_de === null || action.operacao !== "appointment.create") continue;
     const target = byKey.get(action.ocupa_horario_de) ?? opened.get(action.ocupa_horario_de);
-    if (action.operacao !== "appointment.create" || !action.depende_de.includes(action.ocupa_horario_de) || !target || !["appointment.cancel", "appointment.change"].includes(target)) return "RELEASED_SLOT";
+    if (!action.depende_de.includes(action.ocupa_horario_de) || !target || !["appointment.cancel", "appointment.change"].includes(target)) return "RELEASED_SLOT";
   }
   return undefined;
+}
+/** A3 (S2): a patch's value with no base is the open action's own: the appointment the open action located, or its day, start or end as accepted
+ * (local wall clock). Anything else, or a value the open action does not hold, is not. */
+function inheritedValue(open: AgentOpenAction, action: AgentPlanAction, field: (typeof AGENT_BASE_REQUIRED_FIELDS)[number], binding: AgentBinding): boolean {
+  const f = open.fields, value = action[field];
+  if (value === null) return true;
+  if (field === "atendimento") return !!open.appointment && binding.resolve(value, "a")?.id === open.appointment;
+  if (field === "dia") return !!f.date && value === f.date;
+  if (field === "inicio") return !!f.date && !!f.time && value === `${f.date}T${f.time}`;
+  return !!f.end_time && !!(f.end_date ?? f.date) && value === `${f.end_date ?? f.date}T${f.end_time}`;
 }
 /** A7: the open action's registered names of the ids a patch still holds (its refs and its appointment). */
 function keptNames(open: AgentOpenAction, fields: SchedulingFields, appointment: string | undefined) {

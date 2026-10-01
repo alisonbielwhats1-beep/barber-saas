@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { assertSecretaryResponsesPayload, type Model, type ModelRequest } from '@everflair/salon-secretary';
 import { AGENT_DEPENDENCY_FLAGS, AGENT_LIMITS, messageCallBudget, withAgentMessage, type AgentMessageContext } from '../../../packages/salon-secretary/src/agent-context';
-import { AGENT_LOOP_LIMITS, AGENT_SAFE_REPLY, agentFallbackRoute, agentRequestBody, agentRequestBodyBytes, agentRoundRequest, runAgentTurn,
+import { AGENT_LOOP_LIMITS, AGENT_SAFE_REPLY, agentCallLimitMs, agentFallbackRoute, agentRequestBody, agentRequestBodyBytes, agentRoundRequest, runAgentTurn,
   type AgentLoopOutcome } from '../../../packages/salon-secretary/src/agent-loop';
 import { AGENT_FRAMING, AGENT_PROMPT } from '../../../packages/salon-secretary/src/agent-prompt';
 import { AGENT_TOOL_NAMES, agentLookupError } from '../../../packages/salon-secretary/src/agent-tools';
@@ -177,7 +177,9 @@ describe('agent loop: budget of calls and time, fallback to the C4 (§3.5, §3.8
     expect(once.outcome.kind).toBe('PLAN');
     expect((await run([{ output: [agenda('c1')] }], { executor: { throws: true } })).outcome).toMatchObject({ code: 'AGENT_UNAVAILABLE', telemetry: { calls: 1 } });
   });
-  it('fake clock: a call that never answers ends at its 15 s limit, and a C4 waiting on the message signal never passes 45 s in total', async () => {
+  // S2 fix B1, contract migration (backup .demo/agenda-core/contract-migration/secretary-agent-loop.test.before-s2-call-cap.ts): the 1st round may
+  // bring the plan, so it now has the plan's 25 s (was the 15 s lookup cap) while a timeout still leaves the C4 its 15 s; the 45 s bound stays.
+  it('fake clock: a call that never answers ends at its 25 s limit, the C4 keeps ≥ 15 s, and a C4 waiting on the message signal never passes 45 s in total', async () => {
     enable(); vi.useFakeTimers({ now: 0 });
     const fake = createAgentFakeModel([{ output: [], fail: 'HANG' }]), executor = createFakeAgentExecutor();
     const pending = withAgentMessage({ owner: OWNER, executor }, async context => {
@@ -189,7 +191,8 @@ describe('agent loop: budget of calls and time, fallback to the C4 (§3.5, §3.8
     await vi.advanceTimersByTimeAsync(AGENT_LIMITS.messageMs);
     const result = await pending;
     expect(result.outcome).toMatchObject({ kind: 'C4', repair: true, code: 'AGENT_DEADLINE', telemetry: { calls: 1 } });
-    expect(result.agentMs).toBe(AGENT_LIMITS.lookupCallMs); expect(result.c4Ms).toBe(AGENT_LIMITS.messageMs); expect(result.reason).toBe('AGENT_MESSAGE_DEADLINE');
+    expect(result.agentMs).toBe(AGENT_LIMITS.planCallMs); expect(result.c4Ms).toBe(AGENT_LIMITS.messageMs); expect(result.reason).toBe('AGENT_MESSAGE_DEADLINE');
+    expect(AGENT_LIMITS.messageMs - result.agentMs).toBeGreaterThanOrEqual(AGENT_LIMITS.fallbackMinMs);
   });
   it('fake clock: without time for one more lookup round the plan is forced now, within min(25 s, remaining − 2 s)', async () => {
     enable(); vi.useFakeTimers({ now: 0 });
@@ -204,6 +207,91 @@ describe('agent loop: budget of calls and time, fallback to the C4 (§3.5, §3.8
     const { outcome, fake } = await run([{ output: [], status: 'incomplete', expect: { tool_choice: 'propor_plano' } }], { budgetMs: 14_000 });
     expect(outcome).toMatchObject({ kind: 'SAFE_REPLY', reply: AGENT_SAFE_REPLY, code: 'AGENT_PROTOCOL', telemetry: { calls: 1, forced: 'TIME' } });
     expect(fake.mismatches).toEqual([]);
+  });
+});
+
+describe("S2 fix B1: the 1st round, which may still consult, has the plan's cap while the C4 keeps its 15 s (§3.2, §3.5, §3.8)", () => {
+  /** One message under fake timers: the outcome, when the loop returned and what the message had left then. */
+  async function timed(rounds: AgentFakeRound[], budgetMs?: number) {
+    vi.useFakeTimers({ now: 0 });
+    const fake = createAgentFakeModel(rounds);
+    const pending = withAgentMessage({ owner: OWNER, executor: createFakeAgentExecutor(), budgetMs }, async context => {
+      const outcome = await runAgentTurn(fake, { modelId: MODEL });
+      return { outcome, agentMs: Date.now(), leftMs: context.remainingMs(), route: agentFallbackRoute(context) };
+    });
+    await vi.advanceTimersByTimeAsync(budgetMs ?? AGENT_LIMITS.messageMs);
+    return { ...await pending, fake };
+  }
+  it('the cap: 25 s on a fresh 1st round, never under the historical 15 s, never past what leaves the C4 its 15 s + 2 s; a forced round as before', () => {
+    expect(agentCallLimitMs(false, 45_000, 1)).toBe(25_000);
+    expect(agentCallLimitMs(false, 40_000, 1)).toBe(23_000);
+    expect(agentCallLimitMs(false, 30_000, 1)).toBe(15_000);
+    expect(agentCallLimitMs(true, 45_000, 3)).toBe(25_000);
+    expect(agentCallLimitMs(true, 20_000, 2)).toBe(18_000);
+    expect(agentCallLimitMs(true, 2_000, 3)).toBe(0);
+    // Every remaining time a 1st round that may consult is sent with (the stop rule forces the plan under 28 s).
+    for (let left = AGENT_LIMITS.lookupCallMs + AGENT_LIMITS.dbRoundMs + AGENT_LOOP_LIMITS.planMinMs; left <= AGENT_LIMITS.messageMs; left += 250) {
+      const cap = agentCallLimitMs(false, left, 1);
+      expect(cap).toBeGreaterThanOrEqual(AGENT_LIMITS.lookupCallMs); expect(cap).toBeLessThanOrEqual(AGENT_LIMITS.planCallMs);
+      // Longer than the historical cap only while a timeout still leaves the C4 its 15 s and the margin.
+      if (cap > AGENT_LIMITS.lookupCallMs) expect(left - cap).toBeGreaterThanOrEqual(AGENT_LIMITS.fallbackMinMs + AGENT_LIMITS.planCallMarginMs);
+      // Fixer: a 1st round that answered with lookups at its cap still leaves the forced plan its planMinMs.
+      expect(left - cap - AGENT_LIMITS.dbRoundMs).toBeGreaterThanOrEqual(AGENT_LOOP_LIMITS.planMinMs);
+    }
+  });
+  it('fixer (§3.5): the 2nd round keeps the 15 s lookup cap whatever is left; only a forced round takes the plan cap there', () => {
+    for (let left = 0; left <= AGENT_LIMITS.messageMs; left += 250) expect(agentCallLimitMs(false, left, 2)).toBe(AGENT_LIMITS.lookupCallMs);
+    expect(agentCallLimitMs(true, 40_000, 2)).toBe(AGENT_LIMITS.planCallMs);
+  });
+  it('fixer, fake clock: after a slow 1st lookup round (22 s) the stop rule forces the plan at once, and the plan keeps min(25 s, remaining − 2 s) = 21 s', async () => {
+    enable();
+    const { outcome, agentMs, fake } = await timed([{ output: [fakeReasoning('rs1'), agenda('c1')], waitMs: 22_000 },
+      { output: [fakePlanCall(talkPlan(), 'c2')], waitMs: 20_000, expect: { tool_choice: 'propor_plano', parallel: false } }]);
+    expect(fake.mismatches).toEqual([]);
+    expect(outcome).toMatchObject({ kind: 'PLAN', telemetry: { calls: 2, lookup_rounds: 1, forced: 'TIME' } });
+    expect(agentMs).toBe(42_000);
+  });
+  it('fake clock: a plan answered in round 1 after 20 s is the plan (it was AGENT_DEADLINE at 15 s), with one call and no fallback', async () => {
+    enable();
+    const { outcome, agentMs, fake } = await timed([{ output: [fakeReasoning('rs1'), fakePlanCall(talkPlan(), 'c1')], waitMs: 20_000, expect: { tool_choice: 'required', parallel: true } }]);
+    expect(fake.mismatches).toEqual([]);
+    expect(outcome).toMatchObject({ kind: 'PLAN', telemetry: { path: 'AGENT', calls: 1, forced: null, fallback_code: null } });
+    expect(agentMs).toBe(20_000);
+  });
+  it('adversarial, fake clock: round 1 past 25 s is cut at 25 s and the C4 gets the rest (≥ 15 s) with its repair; nothing waits past 45 s', async () => {
+    enable();
+    const { outcome, agentMs, leftMs, route } = await timed([{ output: [fakePlanCall(talkPlan(), 'c1')], waitMs: 26_000 }]);
+    expect(outcome).toMatchObject({ kind: 'C4', repair: true, code: 'AGENT_DEADLINE', telemetry: { path: 'C4_FALLBACK', calls: 1 } });
+    expect(agentMs).toBe(AGENT_LIMITS.planCallMs); expect(leftMs).toBe(AGENT_LIMITS.messageMs - AGENT_LIMITS.planCallMs);
+    expect(leftMs).toBeGreaterThanOrEqual(AGENT_LIMITS.fallbackMinMs); expect(route).toEqual({ kind: 'C4', repair: true });
+  });
+  // Fixer (review of S2 round 1; backup .demo/agenda-core/contract-migration/secretary-agent-loop.test.before-s2-fixer.ts): round 2 had
+  // min(25 s, remaining − 17 s) = 18 s here (agentMs 28 s, the C4 left 17 s); it keeps the §3.5 lookup cap of 15 s again.
+  it('fake clock: round 2 after a 10 s lookup round keeps the 15 s lookup cap; a hang there leaves the C4 20 s (no repair: 1 call left)', async () => {
+    enable();
+    const { outcome, agentMs, leftMs } = await timed([{ output: [fakeReasoning('rs1'), agenda('c1')], waitMs: 10_000 },
+      { output: [], fail: 'HANG', expect: { tool_choice: 'required' } }]);
+    expect(outcome).toMatchObject({ kind: 'C4', repair: false, code: 'AGENT_DEADLINE', telemetry: { calls: 2, lookup_rounds: 1, forced: null } });
+    expect(agentMs).toBe(25_000); expect(leftMs).toBe(20_000);
+  });
+  it('adversarial, fake clock: a shorter message budget never shortens a round below the historical 15 s, and the C4 still gets its 15 s', async () => {
+    enable();
+    const { outcome, agentMs, leftMs } = await timed([{ output: [], fail: 'HANG', expect: { tool_choice: 'required' } }], 30_000);
+    expect(outcome).toMatchObject({ kind: 'C4', repair: true, code: 'AGENT_DEADLINE' });
+    expect(agentMs).toBe(AGENT_LIMITS.lookupCallMs); expect(leftMs).toBe(AGENT_LIMITS.fallbackMinMs);
+  });
+  it('a forced round keeps min(25 s, remaining − 2 s): with 25 s left the plan is forced at once and a hang ends at 23 s with the safe reply (no C4 under 15 s)', async () => {
+    enable();
+    const { outcome, agentMs, fake } = await timed([{ output: [], fail: 'HANG', expect: { tool_choice: 'propor_plano', parallel: false } }], 25_000);
+    expect(fake.mismatches).toEqual([]);
+    expect(outcome).toMatchObject({ kind: 'SAFE_REPLY', reply: AGENT_SAFE_REPLY, code: 'AGENT_DEADLINE', telemetry: { calls: 1, forced: 'TIME' } });
+    expect(agentMs).toBe(23_000);
+  });
+  it('flag off: no agent call at all (the C4 answers alone, C4_SKIPPED), whatever the cap would be', async () => {
+    enable(); vi.stubEnv('SALON_SECRETARY_AGENT', undefined);
+    const { outcome, fake, agentMs } = await timed([{ output: [fakePlanCall(talkPlan(), 'c1')], waitMs: 20_000 }]);
+    expect(outcome).toMatchObject({ kind: 'C4', code: 'AGENT_DISABLED', telemetry: { path: 'C4_SKIPPED', calls: 0 } });
+    expect(fake.requests).toEqual([]); expect(agentMs).toBe(0);
   });
 });
 

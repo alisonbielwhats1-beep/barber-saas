@@ -5,13 +5,14 @@ import { nameHasTokens, nameTokenQuery } from "../secretary-name-tokens";
 import { withoutArticle } from "../name-search";
 import { clauseBounds, temporalAtomSpans } from "../scheduling-temporal-source";
 import { UNSPECIFIED_DAYPART_ASKED_HOURS, verifyClockComponent } from "../scheduling-temporal-reference";
-import { AGENT_ENTITY_DENIED_OPEN, AGENT_NOTHING_CHANGED, AGENT_QUESTIONS, AGENT_REGISTERED_CRITERIA, agentActionsLeftText, agentBasisStillHolds, agentDerivedCheck, agentGroupBasisPrecheck, agentUncoveredText,
-  agentUnpickedPremise, validateAgentPlan, type AgentActionOutcome, type AgentApptFact, type AgentBasis, type AgentDerived, type AgentFactReader, type AgentOpenAction, type AgentOpenPlan,
+import { AGENT_ENTITY_DENIED_OPEN, AGENT_NOTHING_CHANGED, AGENT_QUESTIONS, AGENT_REGISTERED_CRITERIA, AGENT_SERVICE_CHANGE_QUESTION, agentActionsLeftText, agentBasisStillHolds, agentDerivedCheck, agentGroupBasisPrecheck, agentUncoveredText,
+  agentPersonPremise, agentUnpickedPremise, validateAgentPlan, type AgentActionOutcome, type AgentApptFact, type AgentBasis, type AgentDerived, type AgentFactReader, type AgentOpenAction, type AgentOpenPlan,
   type AgentValidatorCriteria } from "../secretary-agent-validator";
 
 /** C5 WP4 (flag SALON_SECRETARY_AGENT; docs/c5-spike/11-especificacao-agente.md §5, §8.1 "Validador"): the fact validator of the agent's plan
  * against an in-memory tenant (no database, network or model). Today is Tuesday 06/10/2026, 9h in São Paulo; "sexta" is 09/10. A synthetic
- * beauty salon: three professionals (one works 7h-22h), four services with a registered combo, customers with a shared first name; the owner's
+ * beauty salon: three professionals (one works 7h-22h), four services (withCombo: the third one is a registered combo of the first two; S2: a
+ * combo holds its parts' words, so only the combo tests register it), customers with a shared first name; the owner's
  * articles are the owner's words, no gender is ever read from a name. Each plan is the scripted "Luna" (decoded as the loop would); every value
  * the validator keeps must come from the owner's words or re-read rows. */
 const NOW = new Date("2026-10-06T12:00:00Z"), TODAY = "2026-10-06", FRIDAY = "2026-10-09";
@@ -21,11 +22,11 @@ type World = { pros: Pro[]; svcs: { id: string; name: string; durationMin: numbe
 function world(): World {
   return {
     pros: [
-      { id: "pro-oto", name: "Otoniel Barros", work: [[540, 720], [780, 1140]], services: ["sv-esc", "sv-hid", "sv-combo"] },
+      { id: "pro-oto", name: "Otoniel Barros", work: [[540, 720], [780, 1140]], services: ["sv-esc", "sv-hid", "sv-sob"] },
       { id: "pro-zen", name: "Zenaide Couto", work: [[540, 720], [780, 1140]], services: ["sv-esc", "sv-man"] },
       { id: "pro-hei", name: "Heitor Mansur", work: [[420, 1320]], services: ["sv-esc"] },
     ],
-    svcs: [{ id: "sv-esc", name: "Escova", durationMin: 40 }, { id: "sv-hid", name: "Hidratação", durationMin: 30 }, { id: "sv-combo", name: "Escova e hidratação", durationMin: 70 },
+    svcs: [{ id: "sv-esc", name: "Escova", durationMin: 40 }, { id: "sv-hid", name: "Hidratação", durationMin: 30 }, { id: "sv-sob", name: "Sobrancelha", durationMin: 20 },
       { id: "sv-man", name: "Manicure", durationMin: 45 }],
     custs: [{ id: "cu-qui", name: "Quitéria Prates" }, { id: "cu-iov", name: "Iolanda Vasques" }, { id: "cu-ios", name: "Iolanda Serafim" }, { id: "cu-dal", name: "Dalva Nunes" },
       { id: "cu-old", name: "Dalva Antiga", merged: true }],
@@ -35,6 +36,13 @@ function world(): World {
       { id: "ap-dal2", customerId: "cu-dal", professionalId: "pro-oto", serviceIds: ["sv-esc"], start: "2026-10-08T16:00", end: "2026-10-08T16:40", status: "CONFIRMED" },
     ],
   };
+}
+/** S2: the same salon with its third service a registered combo of the first two (refs unchanged: s3 is the combo). */
+function withCombo(): World {
+  const w = world();
+  w.svcs[2] = { id: "sv-combo", name: "Escova e hidratação", durationMin: 70 };
+  w.pros[0].services = ["sv-esc", "sv-hid", "sv-combo"];
+  return w;
 }
 const minute = (local: string) => Number(local.slice(11, 13)) * 60 + Number(local.slice(14, 16));
 const at = (local: string) => new Date(`${local}:00-03:00`);
@@ -75,8 +83,8 @@ function reader(w: World, reads: string[] = []): AgentFactReader {
     },
   };
 }
-/** The message's refs as the executor would have bound them: p1 Otoniel, p2 Zenaide, p3 Heitor; s1 Escova, s2 Hidratação, s3 the combo,
- * s4 Manicure; c1 Quitéria, c2 Iolanda Vasques, c3 Iolanda Serafim, c4 Dalva; a1 Friday 10h (Zenaide), a2 Wednesday 14h and a3 Thursday 16h (Otoniel). */
+/** The message's refs as the executor would have bound them: p1 Otoniel, p2 Zenaide, p3 Heitor; s1 Escova, s2 Hidratação, s3 Sobrancelha
+ * (withCombo: the combo), s4 Manicure; c1 Quitéria, c2 Iolanda Vasques, c3 Iolanda Serafim, c4 Dalva; a1 Friday 10h (Zenaide), a2 Wednesday 14h and a3 Thursday 16h (Otoniel). */
 function binding(w: World) {
   const b = createAgentBinding();
   for (const p of w.pros) b.bind("p", p.id, { name: p.name });
@@ -209,12 +217,17 @@ describe("V2, V3, V4-E, V7: people and services only from the owner's words over
     expect(one).toMatchObject({ codes: ["AGENT_NAME_MISMATCH"], fields: { customer_name: "Iolanda Vasques" } });
     expect(one.fields).not.toHaveProperty("customer_ref");
   });
-  it("a service named word for word is that service even beside a combo holding its word; a combo goes to the C4 combo path (V7, V16)", async () => {
+  it("S2 (V7): a service whose words a registered combo also holds is never picked for being named word for word: a card on a booking; a combo, or the parts it joins, goes to the C4 combo path (V16)", async () => {
+    const part = "Reserva a Quitéria sexta às 15h com o Otoniel, escova";
+    const alone = await only(`${part}.`, plan([booking({ citacao_acao: part, bases: [base("inicio", "DITO", "sexta às 15h")] })]), { w: withCombo() });
+    expect(alone).toMatchObject({ status: "ASK", codes: ["AGENT_HOMONYM"], card: { kind: "service_ref", items: [{ id: "sv-esc" }, { id: "sv-combo" }] }, fields: { service_name: "escova" } });
+    expect(alone.fields).not.toHaveProperty("service_ref");
     const clause = "Reserva a Quitéria sexta às 15h com o Otoniel, escova e hidratação";
-    const combo = await only(`${clause}.`, plan([booking({ citacao_acao: clause, servicos: [{ ref: "s3", modo: "LISTA" }], bases: [base("inicio", "DITO", "sexta às 15h")] })]));
+    const combo = await only(`${clause}.`, plan([booking({ citacao_acao: clause, servicos: [{ ref: "s3", modo: "LISTA" }], bases: [base("inicio", "DITO", "sexta às 15h")] })]), { w: withCombo() });
     expect(combo).toMatchObject({ codes: ["AGENT_COMBO"], fields: { service_name: "escova e hidratação" } });
     expect(combo.fields).not.toHaveProperty("service_ref");
-    const parts = await only(`${clause}.`, plan([booking({ citacao_acao: clause, servicos: [{ ref: "s1", modo: "LISTA" }, { ref: "s2", modo: "LISTA" }], bases: [base("inicio", "DITO", "sexta às 15h")] })]));
+    const parts = await only(`${clause}.`, plan([booking({ citacao_acao: clause, servicos: [{ ref: "s1", modo: "LISTA" }, { ref: "s2", modo: "LISTA" }], bases: [base("inicio", "DITO", "sexta às 15h")] })]),
+      { w: withCombo() });
     expect(parts.codes).toContain("AGENT_COMBO");
     expect(parts.fields).not.toHaveProperty("service_list_ref");
   });
@@ -1017,5 +1030,454 @@ describe("S1c: a day base with no value hides nothing, the released slot owns it
         expect(out.codes, `${exclusion} ${kind}`).toContain("AGENT_DAY_MISSING");
       }
     }
+  });
+});
+
+describe("S2 part A: the owner's words decide the row (services and people), the delegated pick, a patch's repeated values, a released slot only for a create", () => {
+  /** The salon plus a service, a more specific one holding its whole name, and a third one: s5 Ozonioterapia, s6 Ozonioterapia capilar, s7 Argiloterapia. */
+  const variants = () => {
+    const w = world();
+    w.svcs.push({ id: "sv-ozo", name: "Ozonioterapia", durationMin: 50 }, { id: "sv-ozc", name: "Ozonioterapia capilar", durationMin: 60 }, { id: "sv-arg", name: "Argiloterapia", durationMin: 30 });
+    w.pros[0].services.push("sv-ozo", "sv-ozc", "sv-arg");
+    return w;
+  };
+  const OZO: Action["servicos"] = [{ ref: "s5", modo: "LISTA" }], OZC: Action["servicos"] = [{ ref: "s6", modo: "LISTA" }], START = base("inicio", "DITO", "sexta às 15h");
+  /** Quitéria's Friday 11h appointment with Otoniel holding `services` (a4). */
+  const holding = (services: string[]) => {
+    const w = variants();
+    w.appts.push({ id: "ap-qoz", customerId: "cu-qui", professionalId: "pro-oto", serviceIds: services, start: `${FRIDAY}T11:00`, end: `${FRIDAY}T12:00`, status: "CONFIRMED" });
+    return w;
+  };
+  const alter = (clause: string, servicos: Action["servicos"], bases: Action["bases"] = []) => act({ operacao: "appointment.change", citacao_acao: clause, atendimento: "a4", cliente: "c1",
+    servicos, bases: [base("atendimento", "DITO", "Quitéria de sexta"), ...bases] });
+
+  it("V7 (D10 class): a service word a more specific row also holds is a card of both on a booking, whichever row the model took, quoted or not; never the row named word for word", async () => {
+    const clause = "Põe a Quitéria sexta às 15h com o Otoniel, ozonioterapia", quote = base("servicos", "DITO", "ozonioterapia");
+    const cases: [Action["servicos"], Action["bases"]][] = [[OZO, [START]], [OZC, [START]], [OZO, [START, quote]], [OZC, [START, quote]]];
+    for (const [servicos, bases] of cases) {
+      const one = await only(`${clause}.`, plan([booking({ citacao_acao: clause, servicos, bases })]), { w: variants() });
+      const label = `${servicos![0].ref} ${bases.length}`;
+      expect(one, label).toMatchObject({ status: "ASK", codes: ["AGENT_HOMONYM"], card: { kind: "service_ref", items: [{ id: "sv-ozo" }, { id: "sv-ozc" }] },
+        fields: { service_name: "ozonioterapia" } });
+      expect(one.fields, label).not.toHaveProperty("service_ref");
+    }
+  });
+  // Fixer (review of S2 round 1; backup .demo/agenda-core/contract-migration/secretary-agent-validator.test.before-s2-fixer.ts): unquoted, the
+  // widened words went to prepare()'s substring search (service_name "ozonioterapia capilar", no ref); now the one row holding all of them is
+  // taken by its own ref (the same S rule), so no search of the words can pick another row. The quoted contradiction is unchanged.
+  it("V7 (D10 sibling): the owner's fuller words are never booked as the shorter row: unquoted, the word written beside it widens the owner's words and the one row holding them all stands by its ref; quoted, it contradicts the row (NOME)", async () => {
+    const clause = "Põe a Quitéria sexta às 15h com o Otoniel, ozonioterapia capilar";
+    expect(await only(`${clause}.`, plan([booking({ citacao_acao: clause, servicos: OZC, bases: [START] })]), { w: variants() }))
+      .toMatchObject({ status: "READY", codes: [], card: null, fields: { service_ref: "sv-ozc" } });
+    const widened = await only(`${clause}.`, plan([booking({ citacao_acao: clause, servicos: OZO, bases: [START] })]), { w: variants() });
+    expect(widened).toMatchObject({ status: "READY", card: null, codes: ["AGENT_NAME_MISMATCH"], fields: { service_ref: "sv-ozc" }, names: { "sv-ozc": "Ozonioterapia capilar" } });
+    expect(widened.fields).not.toHaveProperty("service_name");
+    const quoted = await only(`${clause}.`, plan([booking({ citacao_acao: clause, servicos: OZO, bases: [START, base("servicos", "DITO", "ozonioterapia capilar")] })]), { w: variants() });
+    expect(quoted).toMatchObject({ status: "READY", card: null, codes: ["AGENT_NAME_MISMATCH"], fields: { service_name: "ozonioterapia capilar" } });
+    expect(quoted.fields).not.toHaveProperty("service_ref");
+  });
+  it("V16 (D10 class, a change): the service taken out stands among the appointment's own; the added one a more specific row shares goes as the owner's words with no ref, whichever row the model took (the C4 alteration's card)", async () => {
+    const clause = "No horário da Quitéria de sexta, substitui a argiloterapia por ozonioterapia", quote = base("servicos", "DITO", "substitui a argiloterapia por ozonioterapia");
+    for (const added of ["s5", "s6"]) {
+      const one = await only(`${clause}.`, plan([alter(clause, [{ ref: "s7", modo: "TROCAR" }, { ref: added, modo: "INCLUIR" }], [quote])]), { w: holding(["sv-arg"]) });
+      expect(one, added).toMatchObject({ status: "READY", origin: { expected: "ap-qoz", located: ["ap-qoz"] }, fields: { customer_ref: "cu-qui", source_date: FRIDAY,
+        service_changes: [{ mode: "REMOVE", service_name: "Argiloterapia" }, { mode: "INCLUDE", service_name: "ozonioterapia" }], service_changes_ref: ["sv-arg", null] } });
+      expect(one.codes, added).toContain("AGENT_HOMONYM");
+      expect(one.names, added).toHaveProperty("sv-arg");
+      for (const id of ["sv-ozo", "sv-ozc"]) expect(one.names, added).not.toHaveProperty(id);
+    }
+    // Unquoted (V4-E), the owner's fuller words decide: the shorter row the model took never stands; the one row holding all of them goes with
+    // its own ref (fixer, backup …before-s2-fixer.ts: was the words "ozonioterapia capilar" with no ref, for the C4's substring search).
+    const fuller = "No horário da Quitéria de sexta, substitui a argiloterapia por ozonioterapia capilar";
+    const wide = await only(`${fuller}.`, plan([alter(fuller, [{ ref: "s7", modo: "TROCAR" }, { ref: "s5", modo: "INCLUIR" }])]), { w: holding(["sv-arg"]) });
+    expect(wide).toMatchObject({ fields: { service_changes: [{ mode: "REMOVE", service_name: "Argiloterapia" }, { mode: "INCLUDE", service_name: "Ozonioterapia capilar" }],
+      service_changes_ref: ["sv-arg", "sv-ozc"] } });
+    expect(wide.codes).toContain("AGENT_NAME_MISMATCH");
+  });
+  it("V16 (a change): a service taken out is one of the appointment's own: the one it holds under those words stands even beside a more specific catalog row; a row it does not hold, or two it holds, go back to the owner's words", async () => {
+    const clause = "No horário da Quitéria de sexta, tira a ozonioterapia", quote = base("servicos", "DITO", "tira a ozonioterapia");
+    const held = await only(`${clause}.`, plan([alter(clause, [{ ref: "s5", modo: "REMOVER" }], [quote])]), { w: holding(["sv-ozo", "sv-arg"]) });
+    expect(held).toMatchObject({ status: "READY", fields: { service_changes: [{ mode: "REMOVE", service_name: "Ozonioterapia" }], service_changes_ref: ["sv-ozo"] } });
+    expect(held.codes).not.toContain("AGENT_HOMONYM");
+    const unheld = await only(`${clause}.`, plan([alter(clause, [{ ref: "s6", modo: "REMOVER" }], [quote])]), { w: holding(["sv-ozo", "sv-arg"]) });
+    expect(unheld).toMatchObject({ fields: { service_changes: [{ mode: "REMOVE", service_name: "ozonioterapia" }], service_changes_ref: [null] } });
+    expect(unheld.codes).toContain("AGENT_SERVICE_MODE");
+    const both = await only(`${clause}.`, plan([alter(clause, [{ ref: "s5", modo: "REMOVER" }], [quote])]), { w: holding(["sv-ozo", "sv-ozc"]) });
+    expect(both).toMatchObject({ fields: { service_changes: [{ mode: "REMOVE", service_name: "ozonioterapia" }], service_changes_ref: [null] } });
+    expect(both.codes).toContain("AGENT_HOMONYM");
+  });
+  it("adversarial: a change whose services the owner wrote but whose rows the model's refs cannot prove is asked, never proposed without them", async () => {
+    const clause = "No horário da Quitéria de sexta, substitui a argiloterapia por cromoterapia";
+    const one = await only(`${clause}.`, plan([alter(clause, [{ ref: "s7", modo: "TROCAR" }, { ref: "s5", modo: "INCLUIR" }],
+      [base("servicos", "DITO", "substitui a argiloterapia por cromoterapia")])]), { w: holding(["sv-arg"]) });
+    expect(one).toMatchObject({ status: "ASK", question: { code: "AGENT_NAME_MISMATCH", field: "service_changes", text: AGENT_SERVICE_CHANGE_QUESTION } });
+    expect(one.fields).not.toHaveProperty("service_changes");
+    expect(one.fields).not.toHaveProperty("service_changes_ref");
+  });
+  it("V7 for people: a professional's or a customer's words another row holds too (a longer name, the very same name) are a card on a booking, whichever row the model took, quoted or not", async () => {
+    const lobato = () => { const w = world(); w.pros.push({ id: "pro-hml", name: "Heitor Mansur Lobato", work: [[540, 1140]], services: ["sv-esc"] }); return w; };
+    const said = "Reserva a Quitéria sexta às 15h com o Heitor Mansur, escova", quote = base("profissional", "DITO", "o Heitor Mansur");
+    const cases: [string, Action["bases"]][] = [["p3", [START]], ["p4", [START]], ["p3", [START, quote]], ["p4", [START, quote]]];
+    for (const [ref, bases] of cases) {
+      const one = await only(`${said}.`, plan([booking({ citacao_acao: said, profissional: ref, bases })]), { w: lobato() });
+      expect(one, `${ref} ${bases.length}`).toMatchObject({ status: "ASK", card: { kind: "professional_ref", items: [{ id: "pro-hei" }, { id: "pro-hml" }] }, fields: { professional_name: "Heitor Mansur" } });
+      expect(one.fields, `${ref} ${bases.length}`).not.toHaveProperty("professional_ref");
+    }
+    const whole = "Reserva a Quitéria sexta às 15h com o Heitor Mansur Lobato, escova";
+    expect(await only(`${whole}.`, plan([booking({ citacao_acao: whole, profissional: "p4", bases: [START] })]), { w: lobato() }))
+      .toMatchObject({ status: "READY", fields: { professional_ref: "pro-hml" } });
+    const rocha = world();
+    rocha.custs.push({ id: "cu-ivr", name: "Iolanda Vasques Rocha" });
+    const shared = "Reserva a Iolanda Vasques sexta às 15h com o Otoniel, escova";
+    for (const ref of ["c2", "c5"]) {
+      const one = await only(`${shared}.`, plan([booking({ citacao_acao: shared, cliente: ref, bases: [START] })]), { w: rocha });
+      expect(one, ref).toMatchObject({ status: "ASK", card: { kind: "customer_ref", items: [{ id: "cu-iov" }, { id: "cu-ivr" }] }, fields: { customer_name: "Iolanda Vasques" } });
+      expect(one.fields, ref).not.toHaveProperty("customer_ref");
+    }
+    const twins = world();
+    twins.custs.push({ id: "cu-dal2", name: "Dalva Nunes" });
+    const same = "Reserva a Dalva Nunes sexta às 15h com o Otoniel, escova";
+    const twin = await only(`${same}.`, plan([booking({ citacao_acao: same, cliente: "c4", bases: [START] })]), { w: twins });
+    expect(twin).toMatchObject({ status: "ASK", card: { kind: "customer_ref", items: [{ id: "cu-dal" }, { id: "cu-dal2" }] }, fields: { customer_name: "Dalva Nunes" } });
+    expect(twin.fields).not.toHaveProperty("customer_ref");
+  });
+  it("adversarial (people, no quote): a written name holding a capitalized word the model's row lacks names someone else: the owner's words go back (NOME), never that row; a capital opening the sentence or the action's own professional beside the name is no such word", async () => {
+    const other = "Reserva a Quitéria Albuquerque sexta às 15h com o Otoniel, escova";
+    const customer = await only(`${other}.`, plan([booking({ citacao_acao: other, bases: [START] })]));
+    expect(customer).toMatchObject({ codes: ["AGENT_NAME_MISMATCH"], fields: { customer_name: "Quitéria Albuquerque", professional_ref: "pro-oto", service_ref: "sv-esc" } });
+    expect(customer.fields).not.toHaveProperty("customer_ref");
+    const named = "Reserva a Quitéria sexta às 15h com o Heitor Lacerda, escova";
+    const professional = await only(`${named}.`, plan([booking({ citacao_acao: named, profissional: "p3", bases: [START] })]));
+    expect(professional).toMatchObject({ codes: ["AGENT_NAME_MISMATCH"], fields: { customer_ref: "cu-qui", professional_name: "Heitor Lacerda" } });
+    expect(professional.fields).not.toHaveProperty("professional_ref");
+    const surname = "Reserva a Iolanda Serafim sexta às 15h com o Otoniel, escova";
+    const wrong = await only(`${surname}.`, plan([booking({ citacao_acao: surname, cliente: "c2", bases: [START] })]));
+    expect(wrong).toMatchObject({ fields: { customer_name: "Iolanda Serafim" } });
+    expect(wrong.fields).not.toHaveProperty("customer_ref");
+    const opening = "Agenda Quitéria Otoniel sexta às 15h, escova";
+    expect(await only(`${opening}.`, plan([booking({ citacao_acao: opening, bases: [START] })])))
+      .toMatchObject({ status: "READY", codes: [], fields: { customer_ref: "cu-qui", professional_ref: "pro-oto", service_ref: "sv-esc" } });
+  });
+  it("A2: a delegation the model left empty takes the backend's own pick (the one least busy performer free then), said and re-checked; a tie, an unmarked one or a model value other than the pick stays a card", async () => {
+    const busy = () => { const w = world(); w.appts.push({ id: "ap-x", customerId: "cu-iov", professionalId: "pro-oto", serviceIds: ["sv-hid"], start: `${FRIDAY}T09:00`, end: `${FRIDAY}T09:30`, status: "CONFIRMED" }); return w; };
+    const clause = "Encaixa a Dalva sexta às 15h de escova com quem estiver livre";
+    const left = (profissional: string | null, quote = "com quem estiver livre", text = clause) => plan([booking({ citacao_acao: text, cliente: "c4", profissional,
+      bases: [START, base("profissional", "DELEGADO", quote)] })]);
+    const picked = await only(`${clause}.`, left(null), { w: busy() });
+    expect(picked).toMatchObject({ status: "READY", codes: [], fields: { customer_ref: "cu-dal", professional_ref: "pro-hei" },
+      basis: [{ type: "DELEGADO", field: "profissional", chosen: "pro-hei", counts: { "pro-oto": 1, "pro-zen": 1, "pro-hei": 0 } }] });
+    expect(picked.premises).toEqual(["Escolhi Heitor Mansur para Escova: faz o serviço, está livre às 15h e tem menos atendimentos no dia (0)."]);
+    const tie = await only(`${clause}.`, left(null));
+    expect(tie).toMatchObject({ status: "ASK", codes: ["AGENT_DELEGATION_TIE"], card: { kind: "professional_ref", items: [{ id: "pro-oto" }, { id: "pro-hei" }] } });
+    expect(tie.fields).not.toHaveProperty("professional_ref");
+    const other = await only(`${clause}.`, left("p1"), { w: busy() });
+    expect(other).toMatchObject({ status: "ASK", codes: ["AGENT_DELEGATION_TIE"], card: { kind: "professional_ref", items: [{ id: "pro-hei" }] } });
+    expect(other.fields).not.toHaveProperty("professional_ref");
+    const noun = "Encaixa a Dalva sexta às 15h de escova com outro barbeiro";
+    const unmarked = await only(`${noun}.`, left(null, "com outro barbeiro", noun), { w: busy() });
+    expect(unmarked).toMatchObject({ status: "ASK", codes: ["AGENT_DELEGATION_UNMARKED"], card: { kind: "professional_ref" } });
+    expect(unmarked.fields).not.toHaveProperty("professional_ref");
+  });
+  it("A3 (with the decoder's B2): a patch repeating an accepted value with no base keeps it; another value with no base is never taken (the patch holds its open action whole and asks); a new action never carries one", async () => {
+    const opened = (over: Partial<AgentOpenAction> = {}): AgentOpenAction => ({ key: "k1", operation: "appointment.create", status: "OPEN",
+      fields: { customer_ref: "cu-qui", professional_ref: "pro-oto", service_ref: "sv-esc", date: FRIDAY, time: "15:00" },
+      names: { "cu-qui": "Quitéria Prates", "pro-oto": "Otoniel Barros", "sv-esc": "Escova" }, customer: "cu-qui", serviceIds: ["sv-esc"], durationMin: 40, basis: [], ...over });
+    const open: AgentOpenPlan = { actions: [opened()] };
+    const later = (over: Partial<Action>) => act({ chave: "k1", citacao_acao: "Passa pras 16h", inicio: `${FRIDAY}T16:00`, bases: [base("inicio", "DITO", "16h")], ...over });
+    const same = await only("Passa pras 16h.", plan([later({ dia: FRIDAY })]), { open });
+    expect(same).toMatchObject({ status: "READY", patch: true });
+    expect(same.fields).toEqual({ customer_ref: "cu-qui", professional_ref: "pro-oto", service_ref: "sv-esc", date: FRIDAY, time: "16:00" });
+    expect(same.codes).not.toContain("AGENT_PATCH_UNPROVEN");
+    const moved = await only("Passa pras 16h.", plan([later({ dia: "2026-10-10" })]), { open });
+    expect(moved).toMatchObject({ status: "ASK", patch: true, question: { code: "AGENT_PATCH_UNPROVEN", text: AGENT_QUESTIONS.AGENT_PATCH_UNPROVEN } });
+    expect(moved.fields).toEqual(opened().fields);
+    const person = (inicio: string) => plan([act({ chave: "k1", citacao_acao: "Põe com o Heitor", profissional: "p3", inicio })]);
+    expect(await only("Põe com o Heitor.", person(`${FRIDAY}T15:00`), { open })).toMatchObject({ status: "READY", patch: true,
+      fields: { customer_ref: "cu-qui", professional_ref: "pro-hei", service_ref: "sv-esc", date: FRIDAY, time: "15:00" } });
+    const later17 = await only("Põe com o Heitor.", person(`${FRIDAY}T17:00`), { open });
+    expect(later17).toMatchObject({ status: "ASK", patch: true, question: { code: "AGENT_PATCH_UNPROVEN" } });
+    expect(later17.fields).toEqual(opened().fields);
+    // The appointment of an open change: the one it located is kept; another one, with no base, is never taken.
+    const change: AgentOpenPlan = { actions: [opened({ operation: "appointment.change", fields: { customer_ref: "cu-dal", source_date: "2026-10-08" }, names: { "cu-dal": "Dalva Nunes" },
+      appointment: "ap-dal2", customer: "cu-dal", serviceIds: [] })] };
+    const to = (atendimento: string) => plan([act({ chave: "k1", operacao: "appointment.change", citacao_acao: "Pra sexta às 17h", atendimento, inicio: `${FRIDAY}T17:00`,
+      bases: [base("inicio", "DITO", "sexta às 17h")] })]);
+    expect(await only("Pra sexta às 17h.", to("a3"), { open: change })).toMatchObject({ status: "READY", patch: true, origin: { expected: "ap-dal2", located: ["ap-dal2"] },
+      fields: { customer_ref: "cu-dal", source_date: "2026-10-08", date: FRIDAY, time: "17:00" } });
+    const swapped = await only("Pra sexta às 17h.", to("a2"), { open: change });
+    expect(swapped).toMatchObject({ status: "ASK", patch: true, question: { code: "AGENT_PATCH_UNPROVEN" } });
+    expect(swapped.fields).toEqual(change.actions[0].fields);
+    // A new action is still refused whole by the decoder when one of these values has no base.
+    expect(await validate("Passa pras 16h.", plan([later({ chave: "n1", dia: FRIDAY })]))).toMatchObject({ ok: false, code: "AGENT_SCHEMA" });
+  });
+  it("A4: a released slot on a change is no edge of the plan: the plan is validated, the change keeps its order and asks the time it took from that slot", async () => {
+    const owner = "Desmarca a Dalva de quarta e transfere a Iolanda Serafim pra lacuna que surgir.";
+    const leave = act({ chave: "k1", operacao: "appointment.cancel", citacao_acao: "Desmarca a Dalva de quarta", atendimento: "a2", cliente: "c4", bases: [base("atendimento", "DITO", "a Dalva de quarta")] });
+    const into = act({ chave: "k2", operacao: "appointment.change", citacao_acao: "transfere a Iolanda Serafim pra lacuna que surgir", atendimento: "a1", cliente: "c3", depende_de: ["k1"],
+      ocupa_horario_de: "k1", inicio: "2026-10-07T14:00", bases: [base("atendimento", "DITO", "a Iolanda Serafim"), base("inicio", "LIBERADO_POR", "pra lacuna que surgir", "k1")] });
+    const [cancelled, moved] = await outcomes(owner, plan([leave, into]));
+    expect(cancelled).toMatchObject({ status: "READY", releasedSlotOf: null, origin: { expected: "ap-dal1", located: ["ap-dal1"] } });
+    expect(moved).toMatchObject({ status: "ASK", releasedSlotOf: null, dependsOn: ["k1"], derived: null, fields: { customer_ref: "cu-ios" },
+      question: { code: "AGENT_RELEASED_ROLE", field: "time", text: AGENT_QUESTIONS.AGENT_RELEASED_ROLE } });
+    expect(moved.codes).toEqual(expect.arrayContaining(["AGENT_RELEASED_ROLE", "AGENT_RELEASE_MISMATCH"]));
+    for (const key of ["date", "time"]) expect(moved.fields).not.toHaveProperty(key);
+  });
+});
+
+describe("Fixer (review of S2 round 1): a service widens only over the owner's content words and its card is never narrowed to one row; a change's services are never dropped; people's words decide past case, short quotes and initials", () => {
+  const START = base("inicio", "DITO", "sexta às 15h");
+  /** The salon plus `rows` (s5, s6, … in order), all performed by Otoniel. */
+  const extra = (...rows: [string, string, number][]) => {
+    const w = world();
+    for (const [id, name, durationMin] of rows) { w.svcs.push({ id, name, durationMin }); w.pros[0].services.push(id); }
+    return w;
+  };
+  const S5: Action["servicos"] = [{ ref: "s5", modo: "LISTA" }], S6: Action["servicos"] = [{ ref: "s6", modo: "LISTA" }];
+  const cardOf = (one: AgentActionOutcome, ids: string[], words: string, label: string) => {
+    expect(one, label).toMatchObject({ status: "ASK", codes: ["AGENT_HOMONYM"], card: { kind: "service_ref", items: ids.map(id => ({ id })) }, fields: { service_name: words } });
+    expect(one.fields, label).not.toHaveProperty("service_ref");
+  };
+  const said = (text: string, over: Partial<Action> = {}, bases: Action["bases"] = [START], w = world()) =>
+    only(`${text}.`, plan([booking({ citacao_acao: text, bases, ...over })]), { w });
+
+  it("adversarial (the D10 mirror): a glue word beside the service word, after it or before it, is never part of it, quoted or not: the card of every row holding the word, never the longer row by the words' form", async () => {
+    const parafina = () => extra(["sv-ped", "Pedicure", 40], ["sv-pep", "Pedicure com parafina", 60]);
+    const after = "Agenda a Quitéria sexta às 15h pedicure com o Otoniel";
+    for (const bases of [[START], [START, base("servicos", "DITO", "pedicure")]])
+      cardOf(await said(after, { servicos: S5 }, bases, parafina()), ["sv-ped", "sv-pep"], "pedicure", `after ${bases.length}`);
+    cardOf(await said("Agenda a Quitéria massagem na sexta às 15h com o Otoniel", { servicos: S5 }, [START], extra(["sv-mas", "Massagem", 50], ["sv-mmq", "Massagem na maca quente", 70])),
+      ["sv-mas", "sv-mmq"], "massagem", "na");
+    cardOf(await said("Agenda a Quitéria com pedicure sexta às 15h com o Otoniel", { servicos: S5 }, [START], extra(["sv-ped", "Pedicure", 40], ["sv-spa", "Spa com pedicure", 80])),
+      ["sv-ped", "sv-spa"], "pedicure", "before");
+    // The model's longer row: its glue word proves nothing, so the combo path gets only the owner's service word (prepare() cards both rows).
+    for (const bases of [[START], [START, base("servicos", "DITO", "pedicure")]]) {
+      const longer = await said(after, { servicos: S6 }, bases, parafina());
+      expect(longer, `${bases.length}`).toMatchObject({ codes: ["AGENT_COMBO"], fields: { service_name: "pedicure" } });
+      expect(longer.fields, `${bases.length}`).not.toHaveProperty("service_ref");
+    }
+  });
+  it("the owner's content words still widen, across de/da/do: the one row whose whole name they are stands by its own ref; several are their card, searched by words every one of them holds", async () => {
+    const clause = "Agenda a Quitéria sexta às 15h com o Otoniel, laminação de cílios";
+    expect(await said(clause, { servicos: S5 }, [START], extra(["sv-lam", "Laminação", 45], ["sv-lac", "Laminação de cílios", 50])))
+      .toMatchObject({ status: "READY", codes: ["AGENT_NAME_MISMATCH"], card: null, fields: { service_ref: "sv-lac" } });
+    cardOf(await said(clause, { servicos: S5 }, [START], extra(["sv-lam", "Laminação", 45], ["sv-lac", "Laminação de cílios", 50], ["sv-lcp", "Laminação de cílios premium", 70])),
+      ["sv-lac", "sv-lcp"], "laminação de cílios", "two fuller rows");
+    // Adversarial (the D10 mirror): the one row holding the words but also a word the owner never said is never taken: the card of the row's own word.
+    cardOf(await said(clause, { servicos: S5 }, [START], extra(["sv-lam", "Laminação", 45], ["sv-lcp", "Laminação de cílios premium", 70])),
+      ["sv-lam", "sv-lcp"], "laminação", "unsaid word");
+    // Rows holding the words in another order: one word alone is searched, never a text only one of them holds as written.
+    cardOf(await said("Agenda a Quitéria sexta às 15h com o Otoniel, argiloterapia facial", { servicos: S5 }, [START],
+      extra(["sv-arf", "Argiloterapia facial", 40], ["sv-fap", "Facial argiloterapia premium", 60])), ["sv-arf", "sv-fap"], "argiloterapia", "order");
+  });
+  it("adversarial (a change): a glue word beside the added service is never in the words the C4 alteration searches, so they find every row holding them (its card)", async () => {
+    const w = () => { const v = extra(["sv-ped", "Pedicure", 40], ["sv-pep", "Pedicure com parafina", 60]);
+      v.appts.push({ id: "ap-qpe", customerId: "cu-qui", professionalId: "pro-oto", serviceIds: ["sv-esc"], start: `${FRIDAY}T11:00`, end: `${FRIDAY}T11:40`, status: "CONFIRMED" }); return v; };
+    const clause = "No horário da Quitéria de sexta, inclui pedicure com o Otoniel";
+    for (const bases of [[], [base("servicos", "DITO", "inclui pedicure")]]) {
+      const one = await only(`${clause}.`, plan([act({ operacao: "appointment.change", citacao_acao: clause, atendimento: "a4", cliente: "c1", servicos: [{ ref: "s5", modo: "INCLUIR" }],
+        bases: [base("atendimento", "DITO", "Quitéria de sexta"), ...bases] })]), { w: w() });
+      expect(one, `${bases.length}`).toMatchObject({ status: "READY", fields: { service_changes: [{ mode: "INCLUDE", service_name: "pedicure" }], service_changes_ref: [null] } });
+      expect(one.codes, `${bases.length}`).toContain("AGENT_HOMONYM");
+    }
+    // The one row the widened words fit, but with a word the owner never said: never its ref; the row's own word for the C4's card.
+    const premium = () => { const v = extra(["sv-lam", "Laminação", 45], ["sv-lcp", "Laminação de cílios premium", 70]);
+      v.appts.push({ id: "ap-qla", customerId: "cu-qui", professionalId: "pro-oto", serviceIds: ["sv-esc"], start: `${FRIDAY}T11:00`, end: `${FRIDAY}T11:40`, status: "CONFIRMED" }); return v; };
+    const lashes = "No horário da Quitéria de sexta, inclui laminação de cílios";
+    const unsaid = await only(`${lashes}.`, plan([act({ operacao: "appointment.change", citacao_acao: lashes, atendimento: "a4", cliente: "c1", servicos: [{ ref: "s5", modo: "INCLUIR" }],
+      bases: [base("atendimento", "DITO", "Quitéria de sexta")] })]), { w: premium() });
+    expect(unsaid).toMatchObject({ status: "READY", fields: { service_changes: [{ mode: "INCLUDE", service_name: "laminação" }], service_changes_ref: [null] } });
+  });
+  it("a change whose plan names no service: words of a service its appointment lacks, or the model's own question on its services, are asked, never a change proposed without them; its own service's words only point at it", async () => {
+    const move = (text: string, quote: string) => act({ operacao: "appointment.change", citacao_acao: text, atendimento: "a3", cliente: "c4", inicio: `${FRIDAY}T17:00`,
+      bases: [base("atendimento", "DITO", quote), base("inicio", "DITO", "pra sexta às 17h")] });
+    const lacks = "Passa a Dalva de quinta pra sexta às 17h com sobrancelha";
+    const asked = await only(`${lacks}.`, plan([move(lacks, "a Dalva de quinta")]));
+    expect(asked).toMatchObject({ status: "ASK", question: { code: "AGENT_COVERAGE", field: "service_changes", text: AGENT_SERVICE_CHANGE_QUESTION } });
+    expect(asked.fields).not.toHaveProperty("service_changes");
+    // A service word two rows hold, left empty as the earlier prompt said for homonyms: asked the same way, never dropped.
+    const ambiguous = "Passa a Dalva de quinta pra sexta às 17h com pedicure";
+    const homonym = await only(`${ambiguous}.`, plan([move(ambiguous, "a Dalva de quinta")]), { w: extra(["sv-ped", "Pedicure", 40], ["sv-pep", "Pedicure com parafina", 60]) });
+    expect(homonym).toMatchObject({ status: "ASK", question: { code: "AGENT_COVERAGE", field: "service_changes", text: AGENT_SERVICE_CHANGE_QUESTION } });
+    expect(homonym.fields).not.toHaveProperty("service_changes");
+    // Escova is the appointment's own (Dalva's Thursday): its word says which appointment, nothing is asked.
+    const own = "Passa a escova da Dalva de quinta pra sexta às 17h";
+    expect(await only(`${own}.`, plan([move(own, "Dalva de quinta")]))).toMatchObject({ status: "READY", question: null, fields: { customer_ref: "cu-dal", date: FRIDAY, time: "17:00" } });
+    const plain = "Passa a Dalva de quinta pra sexta às 17h";
+    expect(await only(`${plain}.`, plan([move(plain, "a Dalva de quinta")]))).toMatchObject({ status: "READY", question: null });
+    const question = await only(`${plain}.`, plan([move(plain, "a Dalva de quinta")], { pergunta: { acao: "a1", campo: "servicos", texto: "Quais serviços?" } }));
+    expect(question).toMatchObject({ status: "ASK", question: { code: "AGENT_FIELD_QUESTION", field: "service_changes", text: AGENT_SERVICE_CHANGE_QUESTION } });
+  });
+  // Owner decision 14 recalibration (backup .demo/agenda-core/contract-migration/secretary-agent-validator.test.before-person-risk.ts): a lowercase
+  // name's unknown lowercase neighbour sent the name back to the owner's words on every action; on a booking (low risk) the one registered
+  // holder now stands, said in the backend premise. Capitals, registered names' words and initials still contradict (next describe block).
+  it("people: the owner's words around the chosen name decide past its case and past a short DITO quote; on a booking a lowercase name's unknown lowercase neighbour keeps the one holder with the premise (no verb list), a capitalized name's says nothing", async () => {
+    const lower = "Reserva a quitéria albuquerque sexta às 15h com o Otoniel, escova";
+    for (const bases of [[START], [START, base("cliente", "DITO", "quitéria")]]) {
+      const one = await said(lower, {}, bases);
+      expect(one, `${bases.length}`).toMatchObject({ status: "READY", codes: ["AGENT_NAME_ASSUMED"], fields: { customer_ref: "cu-qui", professional_ref: "pro-oto", service_ref: "sv-esc" } });
+      expect(one.premises, `${bases.length}`).toEqual([agentPersonPremise("Quitéria Prates", "cliente")]);
+      expect(one.fields, `${bases.length}`).not.toHaveProperty("customer_name");
+    }
+    // A DITO quote shorter than the name written: the run decides (the chosen row stood before).
+    const short = await said("Reserva a Quitéria Albuquerque sexta às 15h com o Otoniel, escova", {}, [START, base("cliente", "DITO", "Quitéria")]);
+    expect(short).toMatchObject({ codes: ["AGENT_NAME_MISMATCH"], fields: { customer_name: "Quitéria Albuquerque" } });
+    expect(short.fields).not.toHaveProperty("customer_ref");
+    const professional = await said("Reserva a Quitéria sexta às 15h com o heitor lacerda, escova", { profissional: "p3" });
+    expect(professional).toMatchObject({ status: "READY", codes: ["AGENT_NAME_ASSUMED"], fields: { customer_ref: "cu-qui", professional_ref: "pro-hei" } });
+    expect(professional.premises).toEqual([agentPersonPremise("Heitor Mansur", "profissional")]);
+    expect(professional.fields).not.toHaveProperty("professional_name");
+    // Controls: the registered words in lowercase, a command opening the sentence, a capitalized name's lowercase neighbour: nothing assumed.
+    for (const text of ["Reserva a quitéria prates sexta às 15h com o Otoniel, escova", "reserva quitéria sexta às 15h com o Otoniel, escova", "Reserva a Quitéria urgente sexta às 15h com o Otoniel, escova"])
+      expect(await said(text), text).toMatchObject({ status: "READY", codes: [], premises: [], fields: { customer_ref: "cu-qui", professional_ref: "pro-oto", service_ref: "sv-esc" } });
+    // No verb list: a lowercase name's unknown lowercase neighbour on a booking keeps the one holder, and the premise says which one.
+    const neighbour = await said("Reserva a quitéria urgente sexta às 15h com o Otoniel, escova");
+    expect(neighbour).toMatchObject({ status: "READY", codes: ["AGENT_NAME_ASSUMED"], fields: { customer_ref: "cu-qui" } });
+    expect(neighbour.premises).toEqual([agentPersonPremise("Quitéria Prates", "cliente")]);
+  });
+  it("people: an initial is checked against the chosen name's other words, a glue letter with its period or in uppercase too; it never proves a row by itself", async () => {
+    for (const text of ["Reserva a Quitéria P sexta às 15h com o Otoniel, escova", "Reserva a Quitéria P. sexta às 15h com o Otoniel, escova"])
+      expect(await said(text), text).toMatchObject({ status: "READY", codes: [], fields: { customer_ref: "cu-qui" } });
+    for (const [text, name] of [["Reserva a Quitéria S sexta às 15h com o Otoniel, escova", "Quitéria S"], ["Reserva a Quitéria C sexta às 15h com o Otoniel, escova", "Quitéria C"]] as const) {
+      const one = await said(text);
+      expect(one, text).toMatchObject({ codes: ["AGENT_NAME_MISMATCH"], fields: { customer_name: name } });
+      expect(one.fields, text).not.toHaveProperty("customer_ref");
+    }
+    expect(await said("Reserva a Quitéria sexta às 15h com o Heitor M, escova", { profissional: "p3" })).toMatchObject({ status: "READY", fields: { professional_ref: "pro-hei" } });
+    // An initial that fits proves nothing: the two registered names its first name holds are still a card, quoted or not.
+    for (const bases of [[START], [START, base("cliente", "DITO", "Iolanda S")]]) {
+      const one = await said("Reserva a Iolanda S sexta às 15h com o Otoniel, escova", { cliente: "c3" }, bases);
+      expect(one, `${bases.length}`).toMatchObject({ status: "ASK", card: { kind: "customer_ref", items: [{ id: "cu-iov" }, { id: "cu-ios" }] } });
+      expect(one.fields, `${bases.length}`).not.toHaveProperty("customer_ref");
+    }
+  });
+});
+
+describe("Owner decision 14 for people (S2 specificity recalibrated): a capital, a word of a registered name or an initial beside the name contradicts it; an unknown lowercase word keeps the one holder with a backend premise on a low-risk action and sends the owner's words back on a high-risk one", () => {
+  const START = base("inicio", "DITO", "sexta às 15h");
+  /** The salon plus Belmira Toledo (c5, the only Belmira) and her Wednesday 16h appointment with Zenaide (a4). */
+  const belmira = () => {
+    const w = world();
+    w.custs.push({ id: "cu-bel", name: "Belmira Toledo" });
+    w.appts.push({ id: "ap-bel", customerId: "cu-bel", professionalId: "pro-zen", serviceIds: ["sv-man"], start: "2026-10-07T16:00", end: "2026-10-07T16:45", status: "CONFIRMED" });
+    return w;
+  };
+  const said = (text: string, over: Partial<Action> = {}, bases: Action["bases"] = [START], w = world()) =>
+    only(`${text}.`, plan([booking({ citacao_acao: text, bases, ...over })]), { w });
+  /** The contradiction's effect (NOME): the owner's words of the run in the name field, no ref, no premise, nothing assumed. */
+  const sentBack = (one: AgentActionOutcome, key: "customer" | "professional", words: string, label: string) => {
+    const [nameKey, refKey] = key === "customer" ? ["customer_name", "customer_ref"] as const : ["professional_name", "professional_ref"] as const;
+    expect(one.codes, label).toContain("AGENT_NAME_MISMATCH");
+    expect(one.codes, label).not.toContain("AGENT_NAME_ASSUMED");
+    expect(one.fields[nameKey], label).toBe(words);
+    expect(one.fields, label).not.toHaveProperty(refKey);
+    expect(one.premises, label).toEqual([]);
+  };
+
+  it("a surname nobody here has, beside the one holder of the first name: kept with the premise on a booking and on a move (quoted or not), sent back on a cancellation, whose locate then shows its card", async () => {
+    const clause = "Reserva a belmira castro sexta às 15h com o Otoniel, escova";
+    for (const bases of [[START], [START, base("cliente", "DITO", "belmira castro")]]) {
+      const one = await said(clause, { cliente: "c5" }, bases, belmira());
+      expect(one, `${bases.length}`).toMatchObject({ status: "READY", codes: ["AGENT_NAME_ASSUMED"], fields: { customer_ref: "cu-bel", professional_ref: "pro-oto", service_ref: "sv-esc" },
+        names: { "cu-bel": "Belmira Toledo" } });
+      expect(one.premises, `${bases.length}`).toEqual([agentPersonPremise("Belmira Toledo", "cliente")]);
+    }
+    const move = "Passa a belmira castro de quarta pra sexta às 17h";
+    const moved = await only(`${move}.`, plan([act({ operacao: "appointment.change", citacao_acao: move, atendimento: "a4", cliente: "c5", inicio: `${FRIDAY}T17:00`,
+      bases: [base("atendimento", "DITO", "a belmira castro de quarta"), base("inicio", "DITO", "pra sexta às 17h")] })]), { w: belmira() });
+    expect(moved).toMatchObject({ status: "READY", codes: ["AGENT_NAME_ASSUMED"], origin: { expected: "ap-bel", located: ["ap-bel"] },
+      fields: { customer_ref: "cu-bel", source_date: "2026-10-07", date: FRIDAY, time: "17:00" } });
+    expect(moved.premises).toEqual([agentPersonPremise("Belmira Toledo", "cliente")]);
+    const cancel = (text: string, quote: string) => act({ operacao: "appointment.cancel", citacao_acao: text, atendimento: "a4", cliente: "c5", bases: [base("atendimento", "DITO", quote)] });
+    const asked = await only("Desmarca a belmira castro de quarta.", plan([cancel("Desmarca a belmira castro de quarta", "a belmira castro de quarta")]), { w: belmira() });
+    sentBack(asked, "customer", "belmira castro", "cancel");
+    expect(asked).toMatchObject({ status: "ASK", codes: ["AGENT_NAME_MISMATCH", "AGENT_APPT_LOCATE"], fields: { date: "2026-10-07" },
+      card: { kind: "appointment_ref", items: [{ id: "ap-dal1" }, { id: "ap-bel" }] } });
+    // Control: the first name alone is that customer on the cancellation too, and nothing is assumed.
+    expect(await only("Desmarca a Belmira de quarta.", plan([cancel("Desmarca a Belmira de quarta", "a Belmira de quarta")]), { w: belmira() }))
+      .toMatchObject({ status: "READY", codes: [], premises: [], fields: { customer_ref: "cu-bel", date: "2026-10-07" }, origin: { expected: "ap-bel", located: ["ap-bel"] } });
+  });
+  it("the cancellation's own reason and a conjunction after the name never count as a surname (the reason base owns its words; pq is glue)", async () => {
+    const text = "Desmarca a belmira de quarta pq ela vai viajar";
+    const out = await only(`${text}.`, plan([act({ operacao: "appointment.cancel", citacao_acao: text, atendimento: "a4", cliente: "c5", motivo: "ela vai viajar",
+      bases: [base("atendimento", "DITO", "a belmira de quarta"), base("motivo", "DITO", "ela vai viajar")] })]), { w: belmira() });
+    expect(out.codes).not.toContain("AGENT_NAME_MISMATCH"); expect(out.codes).not.toContain("AGENT_NAME_ASSUMED");
+    expect(out.fields).toMatchObject({ customer_ref: "cu-bel" });
+  });
+  it("a verb right after a lowercase name on a booking keeps the one holder, said in the premise (no verb list); after a capitalized name it says nothing", async () => {
+    for (const text of ["a dalva quer sexta às 15h com o Otoniel, escova", "a dalva topou sexta às 15h com o Otoniel, escova"]) {
+      const one = await said(text, { cliente: "c4" });
+      expect(one, text).toMatchObject({ status: "READY", codes: ["AGENT_NAME_ASSUMED"], fields: { customer_ref: "cu-dal", professional_ref: "pro-oto", service_ref: "sv-esc", date: FRIDAY, time: "15:00" } });
+      expect(one.premises, text).toEqual([agentPersonPremise("Dalva Nunes", "cliente")]);
+    }
+    expect(await said("a Dalva quer sexta às 15h com o Otoniel, escova", { cliente: "c4" })).toMatchObject({ status: "READY", codes: [], premises: [], fields: { customer_ref: "cu-dal" } });
+  });
+  it("adversarial: a word of a registered person's name beside the chosen name always contradicts it, in any case (a customer's surname, a professional's name), on any action: back to the owner's words, never the row, never a premise", async () => {
+    const cases: [string, string][] = [["Reserva a quitéria serafim sexta às 15h com o Otoniel, escova", "quitéria serafim"],
+      ["Reserva a Quitéria serafim sexta às 15h com o Otoniel, escova", "Quitéria serafim"], ["Reserva a quitéria couto sexta às 15h com o Otoniel, escova", "quitéria couto"]];
+    for (const [text, words] of cases) {
+      const one = await said(text);
+      sentBack(one, "customer", words, text);
+      expect(one, text).toMatchObject({ fields: { professional_ref: "pro-oto", service_ref: "sv-esc" } });
+    }
+    sentBack(await said("Reserva a Quitéria sexta às 15h com o heitor vasques, escova", { profissional: "p3" }), "professional", "heitor vasques", "professional");
+    // A customer's surname this message never showed still counts: the tenant's own token scan reads it (the binding holds only the first four).
+    const tenant = world(), reads: string[] = [], text = "Reserva a quitéria castro sexta às 15h com o Otoniel, escova";
+    tenant.custs.push({ id: "cu-odi", name: "Odília Castro" });
+    const scanned = await validateAgentPlan(plan([booking({ citacao_acao: text, bases: [START] })]), { owner: [`${text}.`], binding: binding(world()), reader: reader(tenant, reads) });
+    if (!scanned.ok) throw Error(`REJECTED ${scanned.code}`);
+    sentBack(scanned.actions[0], "customer", "quitéria castro", "scan");
+    expect(reads).toContain("customerSet");
+    // Without that customer the same words are an unknown surname: the booking keeps its one holder.
+    expect(await said(text)).toMatchObject({ status: "READY", codes: ["AGENT_NAME_ASSUMED"], fields: { customer_ref: "cu-qui" } });
+  });
+  it("adversarial: the unknown word never picks among holders (two registered names holding the owner's words stay their card, with no premise), and a short quote of an empty customer is read as on the ref's path", async () => {
+    const shared = await said("Reserva a iolanda castro sexta às 15h com o Otoniel, escova", { cliente: "c2" });
+    expect(shared).toMatchObject({ status: "ASK", codes: ["AGENT_HOMONYM"], card: { kind: "customer_ref", items: [{ id: "cu-iov" }, { id: "cu-ios" }] }, premises: [] });
+    expect(shared.fields).not.toHaveProperty("customer_ref");
+    const short = [START, base("cliente", "DITO", "belmira")];
+    expect(await said("Reserva a belmira castro sexta às 15h com o Otoniel, escova", { cliente: null }, short, belmira()))
+      .toMatchObject({ status: "READY", codes: ["AGENT_NAME_ASSUMED"], fields: { customer_ref: "cu-bel" }, premises: [agentPersonPremise("Belmira Toledo", "cliente")] });
+    sentBack(await said("Reserva a belmira serafim sexta às 15h com o Otoniel, escova", { cliente: null }, short, belmira()), "customer", "belmira serafim", "short quote");
+  });
+  it("a block of free time is low risk (the one holder stays with the premise); a block over an appointment of that professional is high risk (back to the owner's words)", async () => {
+    const lock = "Tranca o heitor urgente sexta das 14h às 16h", interval = "sexta das 14h às 16h";
+    const block = (w: World) => only(`${lock}.`, plan([act({ operacao: "schedule.block", citacao_acao: lock, profissional: "p3", inicio: `${FRIDAY}T14:00`, fim: `${FRIDAY}T16:00`,
+      bases: [base("inicio", "DITO", interval), base("fim", "DITO", interval)] })]), { w });
+    const free = await block(world());
+    expect(free).toMatchObject({ status: "READY", codes: ["AGENT_NAME_ASSUMED"], fields: { professional_ref: "pro-hei", date: FRIDAY, time: "14:00", end_time: "16:00" } });
+    expect(free.premises).toEqual([agentPersonPremise("Heitor Mansur", "profissional")]);
+    const busy = world();
+    busy.appts.push({ id: "ap-hei", customerId: "cu-iov", professionalId: "pro-hei", serviceIds: ["sv-esc"], start: `${FRIDAY}T15:00`, end: `${FRIDAY}T15:40`, status: "CONFIRMED" });
+    const over = await block(busy);
+    sentBack(over, "professional", "heitor urgente", "over");
+    expect(over).toMatchObject({ codes: ["AGENT_NAME_MISMATCH"], fields: { date: FRIDAY, time: "14:00", end_time: "16:00" } });
+  });
+  it("two bookings of different customers in separate actions are not «several customers at once» for an identity: the assumed one keeps its premise next to another customer's booking (decision 21's review covers the batch)", async () => {
+    const first = "Reserva a quitéria urgente sexta às 15h com o Otoniel, escova", second = (who: string) => `Reserva a ${who} sexta às 16h com o Otoniel, escova`;
+    const pair = (who: string, cliente: string) => outcomes(`${first}. ${second(who)}.`, plan([booking({ chave: "k1", citacao_acao: first, bases: [START] }),
+      booking({ chave: "k2", citacao_acao: second(who), cliente, inicio: `${FRIDAY}T16:00`, bases: [base("inicio", "DITO", "sexta às 16h")] })]));
+    const [mixed, other] = await pair("Dalva", "c4");
+    expect(mixed).toMatchObject({ status: "READY", codes: ["AGENT_NAME_ASSUMED"], fields: { customer_ref: "cu-qui" }, premises: [agentPersonPremise("Quitéria Prates", "cliente")] });
+    expect(other).toMatchObject({ status: "READY", codes: [], fields: { customer_ref: "cu-dal" } });
+    const [again, same] = await pair("Quitéria", "c1");
+    expect(again).toMatchObject({ status: "READY", codes: ["AGENT_NAME_ASSUMED"], fields: { customer_ref: "cu-qui" }, premises: [agentPersonPremise("Quitéria Prates", "cliente")] });
+    expect(same).toMatchObject({ status: "READY", codes: [], fields: { customer_ref: "cu-qui" } });
+  });
+  it("adversarial: an assumed customer is never carried by a pronoun into a cancellation (that customer is asked there), and a denied one leaves with its premise", async () => {
+    const w = world();
+    w.appts.push({ id: "ap-qhi", customerId: "cu-qui", professionalId: "pro-oto", serviceIds: ["sv-hid"], start: `${FRIDAY}T11:00`, end: `${FRIDAY}T11:30`, status: "CONFIRMED" });
+    const first = "Reserva a quitéria urgente sexta às 15h com o Otoniel, escova", second = "Cancela a hidratação dela de sexta";
+    const [booked, cancelled] = await outcomes(`${first}. ${second}.`, plan([booking({ chave: "k1", citacao_acao: first, bases: [START] }),
+      act({ chave: "k2", operacao: "appointment.cancel", citacao_acao: second, atendimento: "a4", bases: [base("atendimento", "DITO", "a hidratação dela de sexta")] })]), { w });
+    expect(booked).toMatchObject({ status: "READY", codes: ["AGENT_NAME_ASSUMED"], fields: { customer_ref: "cu-qui" } });
+    expect(cancelled).toMatchObject({ status: "ASK", question: { code: "AGENT_PRONOUN_TOPIC" } });
+    expect(cancelled.fields).not.toHaveProperty("customer_ref");
+    const denied = await only(`Não quero a Quitéria Prates. ${first}.`, plan([booking({ citacao_acao: first, bases: [START] })]));
+    expect(denied).toMatchObject({ status: "ASK", question: { code: "AGENT_ENTITY_DENIED" }, premises: [] });
+    expect(denied.codes).not.toContain("AGENT_NAME_ASSUMED");
+    expect(denied.fields).not.toHaveProperty("customer_ref");
+  });
+  it("an honorific beside the name names nobody else (closed class): the one holder stands with nothing assumed", async () => {
+    expect(await said("Reserva a Dona Quitéria sexta às 15h com o Otoniel, escova")).toMatchObject({ status: "READY", codes: [], premises: [], fields: { customer_ref: "cu-qui" } });
   });
 });

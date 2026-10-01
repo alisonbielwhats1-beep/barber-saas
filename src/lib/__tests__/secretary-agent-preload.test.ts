@@ -156,6 +156,12 @@ const ROWS = {
     { id: "sv-hid", name: "Hidratação", label: "Hidratação", durationMin: 30 }, { id: "sv-mani", name: "Manicure", label: "Manicure", durationMin: 45 }],
 };
 const DIRECTORY_TOKENS = new Set(["iolanda", "prates", "kaito", "moreira", "zenaide", "faria", "escova", "hidratacao", "manicure"]);
+/** S2 fix B4: two services sharing their first word (pure rows), and the same pair in the fake tenant (Kaito performs the first). */
+const CRONO_ROWS = [{ id: "sv-cro", name: "Cronograma capilar", label: "Cronograma capilar", durationMin: 90 }, { id: "sv-crx", name: "Cronograma express", label: "Cronograma express", durationMin: 50 }];
+function addCronograma() {
+  for (const row of CRONO_ROWS) h.s.services.push({ id: row.id, salonId: "salon-a", name: row.name, durationMin: row.durationMin, priceCents: 9000, priceType: "FIXED", active: true });
+  h.s.pros.find(p => p.id === "pro-1")!.services.push("sv-cro");
+}
 
 beforeEach(() => { h.reset(); });
 afterEach(() => { expect(h.s.writes).toEqual([]); vi.unstubAllEnvs(); });
@@ -188,6 +194,40 @@ describe("B1 selection: only the owner's words of this turn (pure)", () => {
     expect(subjects("Escova e hidratação pra Ondina")).toEqual({ pros: [], services: ["sv-esc", "sv-combo", "sv-hid"] });
     expect(subjects("só uma escovinha e uma manicurezinha")).toEqual({ pros: [], services: [] });
     expect(subjects("a Iol não vem")).toEqual({ pros: [], services: [] });
+  });
+
+  it("S2 fix B4: a service called by one word of its name is `related`: every holder of that word, all or none within 6, in the order said", () => {
+    const rows = { professionals: ROWS.professionals, services: [...ROWS.services, ...CRONO_ROWS, { id: "sv-bot", name: "Botox capilar", label: "Botox capilar", durationMin: 60 }] };
+    const pick = (text: string, table = rows) => { const found = agentPreloadSubjects([text], table); return { services: found.services.map(s => s.id), related: found.related.map(s => s.id) }; };
+    // Homonyms of the word come together (choosing stays the validator's: V7, V16); the order is the owner's.
+    expect(pick("cronograma pra Lavínia")).toEqual({ services: [], related: ["sv-cro", "sv-crx"] });
+    expect(pick("capilar")).toEqual({ services: [], related: ["sv-cro", "sv-bot"] });
+    expect(pick("botox e cronograma")).toEqual({ services: [], related: ["sv-bot", "sv-cro", "sv-crx"] });
+    // A word of a service named whole adds nothing (the whole name already decides what was said); the named ones come first, as before.
+    expect(pick("Botox capilar com a Iolanda")).toEqual({ services: ["sv-bot"], related: [] });
+    expect(pick("Escova e cronograma")).toEqual({ services: ["sv-esc"], related: ["sv-cro", "sv-crx"] });
+    // Never part of a word, never a word the owner did not write.
+    expect(pick("cronogramas")).toEqual({ services: [], related: [] });
+    expect(pick("Remarca a Lavínia Okoro com a Iolanda")).toEqual({ services: [], related: [] });
+  });
+  it("S2 fix B4, adversarial: a word held by more services than the catalog lookup shows brings none (never a silent subset); a temporal word never", () => {
+    const many = { professionals: ROWS.professionals, services: Array.from({ length: 7 }, (_, k) => ({ id: `sv-box${k}`, name: `Botox ${k + 1}`, label: `Botox ${k + 1}`, durationMin: 30 })) };
+    expect(agentPreloadSubjects(["botox"], many).related).toEqual([]);
+    expect(agentPreloadSubjects(["botox"], { ...many, services: many.services.slice(0, 6) }).related.map(s => s.id)).toEqual(many.services.slice(0, 6).map(s => s.id));
+    // The named ones take their places first: 3 named (the combo and its two parts) + 5 holders > 6 → none of the holders.
+    const crowded = { professionals: ROWS.professionals, services: [...ROWS.services, ...many.services.slice(0, 5)] };
+    expect(agentPreloadSubjects(["Escova e hidratação, botox"], crowded)).toMatchObject({ related: [] });
+    expect(agentPreloadSubjects(["Escova e hidratação, botox"], crowded).services.map(s => s.id)).toEqual(["sv-esc", "sv-combo", "sv-hid"]);
+    // A service whose name holds a temporal word is never pulled in by that word (a day is never a service the owner named).
+    const night = { professionals: ROWS.professionals, services: [{ id: "sv-sab", name: "Cronograma sábado", label: "Cronograma sábado", durationMin: 30 }] };
+    expect(agentPreloadSubjects(["sábado"], night).related).toEqual([]);
+  });
+  it("fixer, adversarial: a glue word the owner wrote ('com', 'pra') calls no service, not even one whose name holds it", () => {
+    const rows = { professionals: ROWS.professionals, services: [...ROWS.services, ...CRONO_ROWS, { id: "sv-pcp", name: "Pedicure com parafina", label: "Pedicure com parafina", durationMin: 60 }] };
+    expect(agentPreloadSubjects(["Cronograma com a Iolanda pra quinta"], rows).related.map(s => s.id)).toEqual(["sv-cro", "sv-crx"]);
+    expect(agentPreloadSubjects(["Marca com a Iolanda"], rows).related).toEqual([]);
+    // The service's own content word still calls it.
+    expect(agentPreloadSubjects(["parafina com a Iolanda"], rows).related.map(s => s.id)).toEqual(["sv-pcp"]);
   });
 
   it("customers: the longest contiguous windows with a match, a run of directory tokens never, homonyms together (never picked), a temporal word never", () => {
@@ -225,6 +265,14 @@ describe("B1 flag off: the directory is exactly as before", () => {
       expect(h.s.transactions).toBe(1);
       expect(h.s.reads.some(read => read.label === "$queryRaw" || read.label.startsWith("appointment") || read.label === "upcoming")).toBe(false);
     }
+  });
+  it("S2 fix B4 off: a service called by one word reads no catalog and adds nothing (the preload flag is unset)", async () => {
+    addCronograma();
+    await message(["Cronograma pra Lavínia Okoro quinta"], async ({ context, directory }) => {
+      expect("preload" in directory).toBe(false); expect(agentLookupTelemetry(context)).not.toHaveProperty("preload");
+    });
+    expect(h.s.transactions).toBe(1);
+    expect(h.s.reads.some(read => read.label === "service.findMany" && read.args.where.id)).toBe(false);
   });
   it("on, with nothing to read: no preload and no second transaction", async () => {
     vi.stubEnv(FLAG, "true");
@@ -337,6 +385,38 @@ describe("B1 flag on: what the owner's words make certain, rendered as its looku
     });
     const labels = h.s.reads.map(read => read.label), catalog = h.s.reads.findIndex(read => read.label === "service.findMany" && read.args.where.id);
     expect(catalog).toBeGreaterThan(0); expect(catalog).toBeLessThan(labels.indexOf("appointment.count"));
+  });
+
+  it("S2 fix B4: a service called by one word comes in the catalog item with its homonyms, read in the same transaction and delivered last; no lookup is spent", async () => {
+    addCronograma();
+    await message(["Cronograma pra Lavínia Okoro quinta"], async ({ context, directory }) => {
+      const items = itemsOf(directory), ref = (nome: string) => directory.services.find(s => s.nome === nome)!.ref;
+      const kaito = directory.professionals.find(p => p.nome === "Kaito Moreira")!.ref;
+      expect(items.map(item => item.consulta)).toEqual(["buscar_cliente", "consultar_agenda", "catalogo_servicos"]);
+      expect(items[2].argumentos).toEqual({ servicos: [ref("Cronograma capilar"), ref("Cronograma express")] });
+      expect(items[2].resultado).toMatchObject({ aviso: AGENT_LOOKUP_NOTICE, truncado: false });
+      expect(items[2].resultado.servicos.map((s: Out) => [s.ref, s.nome, s.duracao_min, s.feito_por])).toEqual([
+        [ref("Cronograma capilar"), "Cronograma capilar", 90, [kaito]], [ref("Cronograma express"), "Cronograma express", 50, []]]);
+      expect(bytes(directory.preload!)).toBeLessThanOrEqual(AGENT_LIMITS.preloadBytes);
+      expect(agentLookupTelemetry(context)).toMatchObject({ rounds: 0, calls: 0, preload: { items: 3, kinds: ["T2", "T1", "T4"], skipped: 0 } });
+    });
+    // Directory + preload: two transactions, reads never concurrent.
+    expect(h.s.transactions).toBe(2); expect(h.s.maxInflight).toBe(1);
+  });
+
+  it("S2 fix B4, adversarial: an item with the extra services that cannot go whole falls back to the services named whole exactly as before; a large team's agendas still follow only those", async () => {
+    addCronograma();
+    // 21 performers of the second service: its performers no longer fit one output (truncado) and the team passes 6.
+    for (let k = 1; k <= 21; k++) h.s.pros.push({ id: `pro-x${String(k).padStart(2, "0")}`, salonId: "salon-a", name: `Wanjiru Teste ${k}`, active: true, services: ["sv-crx"] });
+    await message(["Escova e cronograma na quinta"], async ({ directory }) => {
+      const items = itemsOf(directory), ref = (nome: string) => directory.services.find(s => s.nome === nome)!.ref;
+      const pro = (nome: string) => directory.professionals.find(p => p.nome === nome)!.ref, named = [pro("Iolanda Prates (1)"), pro("Kaito Moreira")].sort();
+      expect(items.map(item => item.consulta)).toEqual(["consultar_agenda", "consultar_agenda", "catalogo_servicos"]);
+      expect(items.slice(0, 2).map(item => item.argumentos.profissional).sort()).toEqual(named);
+      expect(items[2].argumentos).toEqual({ servicos: [ref("Escova")] });
+      expect(items[2].resultado).toMatchObject({ truncado: false, servicos: [{ ref: ref("Escova"), nome: "Escova" }] });
+      expect([...items[2].resultado.servicos[0].feito_por].sort()).toEqual(named);
+    });
   });
 
   it("a prefilter past the scan decides nothing about customers (the model consults); the day is still read", async () => {

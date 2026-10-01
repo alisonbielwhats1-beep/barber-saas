@@ -3,7 +3,8 @@ import type { Tx } from "../prisma-tenant";
 
 /** S1b part A (flag SALON_SECRETARY_AGENT, default off): the agent's fact validator, with its S1b changes (one role per word and per temporal
  * atom, the professional derived from the salon's data, the owner's words of an empty customer, the clause's origin facts, the C4 clock
- * reading, one premise per interval, the open plan's patches), runs only on the agent path. Off or unset, a new request is the C4's exactly
+ * reading, one premise per interval, the open plan's patches; S2 part A: the specificity of the owner's words, the delegated pick, a patch's repeated
+ * values, a released slot only for a create), runs only on the agent path. Off or unset, a new request is the C4's exactly
  * as before: the validator is never called and no agent key reaches the view or the session. Recorded frames only (no network, no model, no
  * database); synthetic tenant and texts, no name of any evaluation set. */
 const db = vi.hoisted(() => ({ tx: undefined as unknown as Tx, rows: [] as Record<string, unknown>[], validated: 0 }));
@@ -46,11 +47,11 @@ afterEach(() => { expect(fetch).not.toHaveBeenCalled(); vi.useRealTimers(); vi.u
 const read = { operation: "appointment.list", item_key: "leitura", depends_on: null, released_slot_of: null, same_as: null, source_scope: null, customer_name: null, service_name: null,
   professional_name: null, date: null, day_offset: null, weekday: null, time: null, period: null, source_date: null, source_day_offset: null, source_weekday: null, source_time: null,
   end_time: null, end_date: null, reason: null, destination_mode: null, override_requested: null, override_reason: null };
-async function newRequest() {
+async function newRequest(message = "agenda sintética do estúdio") {
   const model = new ScriptedServicesModel([call("select_capabilities", { turn: { mode: "NEW", operations: [read] } })]);
   const s = new SalonSecretary(async () => model as unknown as Model, () => "gpt-6-luna", undefined, {}, { enabled: () => true });
   const { sessionId } = await s.start(actor, "auto");
-  const view = await s.send(actor, { sessionId, message: "agenda sintética do estúdio" });
+  const view = await s.send(actor, { sessionId, message });
   const stored = (s as unknown as { sessions: Map<string, Record<string, unknown>> }).sessions.get(sessionId)!;
   return { view, stored, requests: model.requests.length };
 }
@@ -71,5 +72,13 @@ describe("SALON_SECRETARY_AGENT off: the fact validator never runs", () => {
     expect(db.validated).toBe(0);
     expect(run.requests).toBe(1);
     expect("agentPlan" in run.stored).toBe(false);
+  });
+  it("S2 part A off: a message naming a service and a freed slot is the C4's; the specificity rule, the delegated pick and the patch checks never run", async () => {
+    vi.stubEnv("SALON_SECRETARY_AGENT", "false");
+    const run = await newRequest("agenda sintética da ozonioterapia capilar na lacuna que surgir");
+    expect(db.validated).toBe(0);
+    expect(run.view.action_plan?.actions.map(action => action.key)).toEqual(["leitura"]);
+    expect("agentPlan" in run.stored).toBe(false);
+    for (const row of db.rows.filter(item => item.entityType === "SECRETARY_ROUTER")) expect((row.metadata as { outcome?: { agent?: unknown } | null }).outcome?.agent).toBeUndefined();
   });
 });

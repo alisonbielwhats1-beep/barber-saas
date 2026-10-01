@@ -21,10 +21,22 @@ import { AGENT_REASONING_INCLUDE, assertSecretaryAgentModelRequest, assertSecret
  * reply. Telemetry: codes and numbers only, never text. Nothing here runs with the flag off. */
 export const AGENT_SAFE_REPLY = "Não consegui entender com segurança; nada foi alterado.";
 /** §3.7 heuristics, calibrated by the S1 probe (size of the encrypted reasoning items, tokens per byte):
- *  planMinMs       a lookup round needs its call (≤ 15 s), its database round (≤ 3 s) and this much left for the plan, or the plan is forced now;
+ *  planMinMs       a lookup round needs its call (at its own cap, agentCallLimitMs), its database round (≤ 3 s) and this much left for the plan, or the plan is forced now;
  *  lookupRoomBytes room a lookup round needs after the request (its calls, reasoning and outputs), or the plan is forced now;
  *  escapeFactor    worst growth of a lookup output once JSON-escaped into the body (every byte a quote), deciding compaction before reading. */
 export const AGENT_LOOP_LIMITS = Object.freeze({ planMinMs: 10_000, lookupRoomBytes: 16 * 1024, escapeFactor: 2 });
+/** S2 fix B1 (§3.2 vs §3.5): the cap of one call. A forced round (only the plan) has min(25 s, remaining − 2 s), as before. The 1st round
+ * may also bring the plan with the same 8192 output tokens (in S2 it did in 148 of 176 messages, and every AGENT_DEADLINE was a 1st round cut
+ * at 15 s), so it has the plan's 25 s as long as running out still leaves the C4 fallback its 15 s plus the 2 s margin (§3.8), and never less
+ * than the historical 15 s. Fixer (review of S2 round 1): only the 1st round. The 2nd keeps the §3.5 lookup cap of 15 s, so after a lookup
+ * round that answered the forced plan keeps its time; the stop rule counts each round at this cap (planMinMs holds for any cap). The 25 s of
+ * the 1st round still departs from §3.5's "rodadas de consulta ≤ 15 s" and waits for the owner's confirmation (owner decision 19); the
+ * deadlines it converts are to be reported apart in the next S2's latency. */
+export function agentCallLimitMs(forced: boolean, remainingMs: number, round: 1 | 2 | 3): number {
+  if (forced) return Math.min(AGENT_LIMITS.planCallMs, remainingMs - AGENT_LIMITS.planCallMarginMs);
+  if (round !== 1) return AGENT_LIMITS.lookupCallMs;
+  return Math.min(AGENT_LIMITS.planCallMs, Math.max(AGENT_LIMITS.lookupCallMs, remainingMs - AGENT_LIMITS.fallbackMinMs - AGENT_LIMITS.planCallMarginMs));
+}
 export const AGENT_LOOP_CODES = ["AGENT_DISABLED", "AGENT_FLAGS_INCOMPLETE", "AGENT_EFFORT_INVALID", "AGENT_DIRECTORY_TRUNCATED", "AGENT_UNAVAILABLE", "AGENT_BUDGET",
   "AGENT_GUARD", "AGENT_PROTOCOL", "AGENT_SCHEMA", "AGENT_TRANSPORT", "AGENT_DEADLINE", "MODEL_CALL_LIMIT"] as const;
 export type AgentLoopCode = (typeof AGENT_LOOP_CODES)[number];
@@ -200,7 +212,7 @@ export async function runAgentTurn(model: Model, options: AgentLoopOptions): Pro
     const round = (index + 1) as 1 | 2 | 3;
     // §3.4 stop rule: the 3rd call is always the plan; with no time or bytes for one more lookup round, the plan comes now.
     if (round === AGENT_LIMITS.callsPerMessage) force ??= "ROUND";
-    else if (!force && context.remainingMs() < AGENT_LIMITS.lookupCallMs + AGENT_LIMITS.dbRoundMs + AGENT_LOOP_LIMITS.planMinMs) force = "TIME";
+    else if (!force) { const left = context.remainingMs(); if (left < agentCallLimitMs(false, left, round) + AGENT_LIMITS.dbRoundMs + AGENT_LOOP_LIMITS.planMinMs) force = "TIME"; }
     let request = agentRoundRequest(input, blocks, !!force), bytes = bytesOf(request);
     if (!force && agentRequestFits(bytes) && bytes + AGENT_LIMITS.outputFraming + AGENT_LOOP_LIMITS.lookupRoomBytes > AGENT_LIMITS.requestCap) {
       force = "BYTES"; request = agentRoundRequest(input, blocks, true); bytes = bytesOf(request);
@@ -209,7 +221,7 @@ export async function runAgentTurn(model: Model, options: AgentLoopOptions): Pro
     if (!agentRequestFits(bytes)) return fallback("AGENT_BUDGET");
     const forced = !!force;
     if (!context.calls.allows(1)) return fallback("MODEL_CALL_LIMIT");
-    const limit = forced ? Math.min(AGENT_LIMITS.planCallMs, context.remainingMs() - AGENT_LIMITS.planCallMarginMs) : AGENT_LIMITS.lookupCallMs;
+    const limit = agentCallLimitMs(forced, context.remainingMs(), round);
     if (limit <= 0 || context.signal.aborted) return fallback("AGENT_DEADLINE");
     const call = agentCallSignal(limit, context), sent: ModelRequest = { ...request, signal: call.signal };
     attempts.set(sent, { attempt: round, purpose: forced ? "AGENT_PLAN" : "AGENT_LOOKUP" });

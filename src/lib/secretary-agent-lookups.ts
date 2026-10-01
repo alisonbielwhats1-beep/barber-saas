@@ -44,6 +44,12 @@ const letters = (token: string) => token.match(/\p{L}/gu)?.length ?? 0;
 /** A token of the closed temporal vocabulary (days, months, dayparts, numerals and their glue): part of a temporal expression, never
  * a name the owner said. Wider than the atoms of temporalFacts (private until WP4 exports it), so it can only mask more. */
 const temporalToken = (token: string) => temporalVocabulary(token) || quoteTemporalShape(token).temporalOnly;
+/** Closed grammatical class (folded): the glue that never names anyone nor any service (articles, prepositions and their contractions,
+ * conjunctions and their chat abbreviations, "que", "se", "so", "tambem"). One list for the executor (B4's `related`) and the fact validator
+ * (its GLUE). */
+export const AGENT_GLUE_WORDS: ReadonlySet<string> = new Set(["a", "o", "as", "os", "um", "uma", "uns", "umas", "de", "da", "do", "das", "dos", "d", "em", "no", "na", "nos",
+  "nas", "num", "numa", "ao", "aos", "pra", "pro", "pras", "pros", "para", "p", "com", "c", "por", "pelo", "pela", "pelos", "pelas", "e", "ou", "que", "q", "se", "so", "tambem",
+  "tb", "tbm", "mas", "porem", "pois", "porque", "pq", "nem", "entao", "quando", "qdo", "enquanto"]);
 /** The whole name tokens (folded, particles dropped, ≥ 3 letters) the owner wrote in this turn's messages, temporal words aside. */
 export function agentSaidTokens(texts: readonly string[]): ReadonlySet<string> {
   const said = new Set<string>();
@@ -488,14 +494,27 @@ export function agentPreloadDays(owner: readonly string[], timezone: string, now
 }
 type ServiceRow = DirectoryRow & { durationMin: number };
 /** The directory entries the owner's words name: a professional by any whole name token written (every homonym: choosing stays the owner's), a
- * service by its whole registered name (literalSpans), then the registered parts of a named combo (serviceNameKey, the one entry of that name). */
+ * service by its whole registered name (literalSpans), then the registered parts of a named combo (serviceNameKey, the one entry of that name).
+ * S2 fix B4: `related`, the services the owner called by one word of their name (in S2 most catalog lookups after the preload were for such a
+ * service): for each word said (agentSaidTokens: whole tokens, ≥ 3 letters, temporal words aside), in the order said, that no service in
+ * `services` holds, every service whose name holds it as a whole token. A word's holders come all or none (homonyms are shown together, never a
+ * subset), within the catalog lookup's 6 services after `services`. Information only: choosing among them stays the validator's (V7, V16).
+ * Fixer: a glue word ("com", "pra", "uma": AGENT_GLUE_WORDS) names no service, so it calls none ("X com Y" rows are never pulled in by it). */
 export function agentPreloadSubjects(owner: readonly string[], rows: { readonly professionals: readonly DirectoryRow[]; readonly services: readonly ServiceRow[] },
   said: ReadonlySet<string> = agentSaidTokens(owner)) {
   const professionals = rows.professionals.filter(p => nameTokens(p.name).some(token => said.has(token)));
   const named = rows.services.filter(s => owner.some(text => literalSpans(text, s.name).length > 0));
   const parts = named.flatMap(s => { const own = comboParts(s.name);
     return own.length < 2 ? [] : own.flatMap(part => { const same = rows.services.filter(row => serviceNameKey(row.name) === serviceNameKey(part)); return same.length === 1 ? same : []; }); });
-  return { professionals, services: [...new Map([...named, ...parts].map(s => [s.id, s])).values()].slice(0, AGENT_LOOKUP_LIMITS.catalogServices) };
+  const services = [...new Map([...named, ...parts].map(s => [s.id, s])).values()].slice(0, AGENT_LOOKUP_LIMITS.catalogServices);
+  const covered = new Set(services.flatMap(s => nameTokens(s.name))), picked = new Set(services.map(s => s.id)), related: ServiceRow[] = [];
+  for (const token of said) {
+    if (covered.has(token) || AGENT_GLUE_WORDS.has(token)) continue;
+    const holders = rows.services.filter(s => !picked.has(s.id) && nameTokens(s.name).includes(token));
+    if (!holders.length || picked.size + holders.length > AGENT_LOOKUP_LIMITS.catalogServices) continue;
+    for (const s of holders) { picked.add(s.id); related.push(s); }
+  }
+  return { professionals, services, related };
 }
 type RunToken = { token: string; raw: string; start: number; end: number };
 /** Contiguous runs of the whole tokens the owner wrote that may belong to a name (≥ 3 letters, outside the temporal vocabulary: agentSaidTokens'
@@ -555,7 +574,10 @@ async function preloadContext(message: AgentMessageContext, state: MessageState,
   const runs = texts.map(agentPreloadRuns), directory = new Set([...state.professionals, ...state.services].flatMap(row => nameTokens(row.name))), words = new Map<string, string>();
   for (const { runs: list } of runs) for (const run of list) for (const item of run) if (!directory.has(item.token) && !words.has(item.token)) words.set(item.token, item.raw);
   const agendas = days.length > 0 && (state.professionals.length <= AGENT_PRELOAD.team || subjects.professionals.length > 0);
-  if (!words.size && !subjects.services.length && !agendas) return undefined;
+  // S2 fix B4: the catalog item reads the services named whole and then those called by one word (`related`); a large team's agendas follow only
+  // the performers of the services named whole, as before.
+  const catalogued = [...subjects.services, ...subjects.related], named = new Set(subjects.services.map(s => s.id));
+  if (!words.size && !catalogued.length && !agendas) return undefined;
   const ref = (kind: "p" | "s", id: string) => message.binding.refOf(kind, id) ?? "";
   const late = () => Date.now() - started > budgetMs || message.signal.aborted;
   // Filled inside the transaction (an object, so the closure's writes are seen after it).
@@ -572,7 +594,7 @@ async function preloadContext(message: AgentMessageContext, state: MessageState,
         try { return { call, data: await read(checked.input as never) }; } catch (error) { if (error instanceof Refusal) return undefined; throw error; }
       };
       // T4 is read first (its performers choose a large team's agenda) and delivered last.
-      if (subjects.services.length) got.services = await load({ name: "catalogo_servicos", callId: "preload_t4", input: { servicos: subjects.services.map(s => ref("s", s.id)) } });
+      if (catalogued.length) got.services = await load({ name: "catalogo_servicos", callId: "preload_t4", input: { servicos: catalogued.map(s => ref("s", s.id)) } });
       if (words.size) {
         const scanned = late() ? undefined : await customerUnion(tx, owner, [...words.values()].slice(0, AGENT_PRELOAD.words));
         if (!scanned) got.planned++;
@@ -587,7 +609,8 @@ async function preloadContext(message: AgentMessageContext, state: MessageState,
         }
       }
       const rank = new Map(state.professionals.map((p, index) => [p.id, index])), catalogData = got.services?.data;
-      const performers = catalogData?.kind === "T4" ? catalogData.services.flatMap(s => s.by.map(p => p.id)).filter(id => rank.has(id)).sort((a, b) => rank.get(a)! - rank.get(b)!) : [];
+      const performers = catalogData?.kind === "T4" ? catalogData.services.filter(s => named.has(s.id)).flatMap(s => s.by.map(p => p.id)).filter(id => rank.has(id))
+        .sort((a, b) => rank.get(a)! - rank.get(b)!) : [];
       const team: (string | null)[] = state.professionals.length <= AGENT_PRELOAD.team ? [null]
         : [...new Set([...subjects.professionals.map(p => p.id), ...performers])].slice(0, AGENT_PRELOAD.team);
       for (const date of days) for (const professional of team) {
@@ -599,16 +622,25 @@ async function preloadContext(message: AgentMessageContext, state: MessageState,
   } catch { telemetry.skipped = got.planned; telemetry.ms = Date.now() - started; return undefined; }
   const parts: string[] = [];
   let bytes = 2;
+  // S2 fix B4: the catalog item with the services called by one word is delivered only whole (untruncated) and within the 6 KB; otherwise the
+  // catalog of the services named whole is delivered exactly as before (its own refs, the same arguments), so the extra words never cost it.
+  const full = got.services, fullData = full?.data, whole = fullData?.kind === "T4" ? fullData.services.filter(s => named.has(s.id)) : [];
+  const narrowed: PreloadRead | undefined = full && fullData?.kind === "T4" && whole.length > 0 && whole.length < fullData.services.length
+    ? { call: { name: "catalogo_servicos", callId: full.call.callId, input: { servicos: whole.map(s => ref("s", s.id)) } }, data: { ...fullData, services: whole } } : undefined;
+  const catalog: PreloadRead[] = !full ? [] : narrowed ? [full, narrowed] : [full];
   try {
-    for (const { call, data } of [...got.reads, ...got.services ? [got.services] : []]) {
+    for (const choices of [...got.reads.map(read => [read]), ...catalog.length ? [catalog] : []]) {
       if (telemetry.items >= AGENT_PRELOAD.items) break;
-      const fitted = fitDraft(state, message.binding, data, LIMITS.lookupOutputBytes, 0);
-      if (!fitted.draft) continue;
-      const item = `{"consulta":${JSON.stringify(call.name)},"argumentos":${JSON.stringify(call.input)},"resultado":${fitted.text}}`, size = Buffer.byteLength(item, "utf8") + (parts.length ? 1 : 0);
-      if (bytes + size > AGENT_PRELOAD.bytes) continue;
-      fitted.draft.commit();
-      parts.push(item); bytes += size;
-      telemetry.items++; telemetry.kinds.push(AGENT_LOOKUP_KINDS[call.name]); telemetry.rows += fitted.rows;
+      for (const [index, { call, data }] of choices.entries()) {
+        const fitted = fitDraft(state, message.binding, data, LIMITS.lookupOutputBytes, 0);
+        if (!fitted.draft || index < choices.length - 1 && fitted.truncated) continue;
+        const item = `{"consulta":${JSON.stringify(call.name)},"argumentos":${JSON.stringify(call.input)},"resultado":${fitted.text}}`, size = Buffer.byteLength(item, "utf8") + (parts.length ? 1 : 0);
+        if (bytes + size > AGENT_PRELOAD.bytes) continue;
+        fitted.draft.commit();
+        parts.push(item); bytes += size;
+        telemetry.items++; telemetry.kinds.push(AGENT_LOOKUP_KINDS[call.name]); telemetry.rows += fitted.rows;
+        break;
+      }
     }
   } catch { /* what was delivered (and bound) stays; nothing else is */ }
   Object.assign(telemetry, { bytes: parts.length ? bytes : 0, skipped: Math.max(0, got.planned - telemetry.items), ms: Date.now() - started });

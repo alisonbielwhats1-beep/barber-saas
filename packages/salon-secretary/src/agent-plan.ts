@@ -20,7 +20,8 @@ export const AGENT_BASE_FIELDS = ["atendimento", "cliente", "profissional", "nov
 export const AGENT_BASE_TYPES = ["DITO", "PRIMEIRA_PESSOA", "DELEGADO", "NAO_DITO", "MANTIDO", "ANCORA", "SEQUENCIA", "ENTRE_ACOES", "LIBERADO_POR", "EXCECAO", "FIM_EXPEDIENTE"] as const;
 /** §5 V23: bases whose value the backend derives; their provenance is re-checked before the Confirmar writes. */
 export const AGENT_DERIVED_BASE_TYPES = ["ANCORA", "DELEGADO", "EXCECAO", "FIM_EXPEDIENTE", "SEQUENCIA", "ENTRE_ACOES"] as const;
-/** §4: a non-null value of these fields always carries its base (a said entity without one is proven by the backend, V4-E). */
+/** §4: a non-null value of these fields always carries its base (a said entity without one is proven by the backend, V4-E), except a value a
+ * patch repeats from its open action (S2 fix B2; the validator keeps only the accepted one). */
 export const AGENT_BASE_REQUIRED_FIELDS = ["atendimento", "inicio", "fim", "dia"] as const;
 export const AGENT_QUESTION_FIELDS = ["operacao", "atendimento", "cliente", "profissional", "novo_profissional", "servicos", "dia", "inicio", "fim", "motivo"] as const;
 export type AgentPlanResult = (typeof AGENT_PLAN_RESULTS)[number];
@@ -168,13 +169,19 @@ export function agentPlanViolations(plan: AgentPlan, options: AgentPlanDecodeOpt
   const out = new Set<string>(), keys = new Set<string>(), actions = plan.acoes, open = new Set(options.openKeys ?? []), done = new Set(options.doneKeys ?? []);
   for (const action of actions) { if (keys.has(action.chave)) out.add("KEY_DUPLICATE"); keys.add(action.chave); }
   for (const action of actions) {
+    // S2 fix B2: a patch (its key is an open action's) may repeat, with no base, a value its open action holds: the validator keeps it only when it
+    // equals the accepted value and asks it otherwise (contract A3: never accepted unproven). A new action still grounds every one of them.
+    const patch = open.has(action.chave);
     for (const field of AGENT_BASE_FIELDS) {
       const bases = agentFieldBases(action, field), value = agentFieldValue(action, field);
       if (value !== null && bases.length > 1) out.add("BASE_DUPLICATE");
-      if (value !== null && !bases.length && (AGENT_BASE_REQUIRED_FIELDS as readonly string[]).includes(field)) out.add("BASE_REQUIRED");
+      if (value !== null && !bases.length && !patch && (AGENT_BASE_REQUIRED_FIELDS as readonly string[]).includes(field)) out.add("BASE_REQUIRED");
     }
+    // NAO_DITO states that nothing was said, so its field is empty. On a professional it is V8's card of who can. S2 fix B2: on another empty field
+    // of an action that is no patch it adds nothing (the validator reads that field as unsaid, as with no base: a question or the C4's search);
+    // on a patch it would read as dropping the value the open action holds, so it is refused there as before.
     for (const base of action.bases) if (base.tipo === "NAO_DITO") {
-      if (base.campo !== "profissional" && base.campo !== "novo_profissional") out.add("NAO_DITO_FIELD");
+      if (base.campo !== "profissional" && base.campo !== "novo_profissional") { if (patch || action[base.campo] !== null) out.add("NAO_DITO_FIELD"); }
       else if (action[base.campo] !== null) out.add("NAO_DITO_VALUE");
     }
     const edges = [...action.depende_de, ...(action.ocupa_horario_de === null ? [] : [action.ocupa_horario_de])];

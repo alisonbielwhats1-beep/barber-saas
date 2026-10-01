@@ -226,10 +226,13 @@ describe('propor_plano: strict decoding and the §4 rules', () => {
       bases: [base('inicio', 'DITO', 'das 15'), base('fim', 'DITO', 'as 19'), base('atendimento', 'EXCECAO', 'menos Kenji', 'a1'), base('atendimento', 'EXCECAO', 'e Wen', 'a2')] });
     expect(reasons(plan({ acoes: [block] }))).toEqual([]);
   });
-  it('NAO_DITO only on professional fields, and only with the value empty', () => {
+  it('NAO_DITO only with the value empty; a value field other than a professional only on an action that is no patch (S2 fix B2)', () => {
     expect(reasons(plan({ acoes: [action({ profissional: null, bases: [base('inicio'), base('profissional', 'NAO_DITO', 'agenda Iolanda')] })] }))).toEqual([]);
     expect(reasons(plan({ acoes: [action({ bases: [base('inicio'), base('profissional', 'NAO_DITO', 'agenda Iolanda')] })] }))).toEqual(['NAO_DITO_VALUE']);
-    expect(reasons(plan({ acoes: [action({ cliente: null, bases: [base('inicio'), base('cliente', 'NAO_DITO', 'agenda')] })] }))).toEqual(['NAO_DITO_FIELD']);
+    // Contract migration (backup .demo/agenda-core/contract-migration/secretary-agent-schema.test.before-s2-decoder.ts): an empty customer marked
+    // NAO_DITO was NAO_DITO_FIELD (the whole plan went to the C4); it now decodes and the validator asks the customer. With a value it is refused.
+    expect(reasons(plan({ acoes: [action({ cliente: null, bases: [base('inicio'), base('cliente', 'NAO_DITO', 'agenda')] })] }))).toEqual([]);
+    expect(reasons(plan({ acoes: [action({ bases: [base('inicio'), base('cliente', 'NAO_DITO', 'agenda')] })] }))).toEqual(['NAO_DITO_FIELD']);
     const change = action({ operacao: 'appointment.change', atendimento: 'a3', cliente: null, servicos: null, inicio: null,
       bases: [base('atendimento', 'DITO', 'Dandara'), base('novo_profissional', 'NAO_DITO', 'troca profissional')] });
     expect(reasons(plan({ acoes: [change] }))).toEqual([]);
