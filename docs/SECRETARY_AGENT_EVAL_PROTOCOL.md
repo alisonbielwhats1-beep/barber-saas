@@ -235,3 +235,40 @@ Resultado da auditoria da §4 sobre os holdouts v1 (só números; nenhum foi sel
 3. **Autoverificação numérica:** cada autor mede o próprio rascunho com `.demo/agenda-core/holdout-novelty-check.ts`, que compara com a união DEV ampliada (DEV do repositório, conjuntos liberados pelo dono e todos os holdouts anteriores, inclusive o v1) e devolve **só números** por cenário. Cenário próximo demais é refeito com **outra estrutura** (o que falta, referências, trajetória, contexto) ou descartado; trocar sinônimos não vale, e os revisores céticos continuam julgando isso.
 4. A auditoria da §4 roda de novo, igual, sobre o v1b, e as métricas são reapresentadas ao dono antes da selagem.
 5. **Tamanho final:** se sobrarem mais de 60 cenários depois da remoção, ficam os 60 de menor ID, metade de cada autor (regra fixa, sem escolha por conteúdo), para o custo da prova não crescer.
+
+## Registro do Adendo 1: estabilização encerrada e Agent congelado (01/10/2026, ~09:19 de São Paulo)
+
+| Rodada | pass^1 Treino | Segurança | Queda para a C4 | p50 / p90 | Gasto |
+|---|---|---|---|---|---|
+| S2 (antes das correções) | 74,0% | 1 (D10) | 11,6% | 8,3 s / 16,1 s | — |
+| S2b (depois da rodada 1) | 68,0% | 1 (R11) | 4,8% | 7,3 s / 14,2 s | US$ 0,22 |
+| S2c (depois da rodada 2) | 74,0% | **0** | 3,9% | 7,0 s / 14,6 s | US$ 0,21 |
+
+- **Critério de saída cumprido no S2c:** 0 segurança, queda ≤ 10%, p50 ≤ 8 s e p90 ≤ 15 s.
+- **Variação medida (k=1 por rodada):** nos três S2, 96 cenários passaram nas três, 32 em nenhuma e 22 oscilaram. Por isso a prova usa k=3.
+- **Candidatas congeladas** (`scripts/secretary-freeze-candidate.cjs`, commit 71c59c9, 1.675 arquivos):
+  - Agent: `0a0bd0b87ece4a42` (gpt-6-luna, esforço medium, pré-carga ligada);
+  - C4 pareada: `644b8712945d307b`.
+- A partir daqui, nenhuma mudança de runtime, prompt, ferramentas, validador ou flags antes da prova.
+
+## Adendo 3: holdouts v1b rejeitados e portão recalibrado pelo dono (01/10/2026, ~09:19 de São Paulo, antes de montar o v1c)
+
+Resultado da auditoria do v1b (só números):
+- **SIMPLE v1b:**
+  - métricas automáticas passaram (Jaccard 0,34; assinatura do DEV 21%; combinações inéditas 40%; nomes 0), exceto trajetória (10/19);
+  - revisores: 90/90 marcados (87 paráfrase, 3 troca de entidade), 1 estrutura nova. **Rejeitado.**
+- **COMPLEX v1b:**
+  - métricas automáticas passaram (Jaccard 0,30; assinatura do DEV 2%; combinações inéditas 92%), exceto trajetória (13/63);
+  - revisores: 43 removidos, sobraram 47; estrutura nova 19% e 2% (mínimo 60%). **Rejeitado.**
+- **Diagnóstico registrado:**
+  - o revisor de estrutura compara em nível grosso, que já existe entre os 2.098 cenários da união DEV, e contradiz a assinatura da ferramenta (92% de combinações inéditas);
+  - no SIMPLE, "estrutura nova" contradiz "uso cotidiano";
+  - "trajetória igual" compara só o formato da conversa.
+
+**Portão recalibrado (decisão do dono, 01/10/2026), valendo a partir do v1c. Nenhum resultado do Agent foi visto em holdout.**
+1. **SIMPLE:** sem exigência de estrutura nova pelos revisores. A novidade é medida por redação, nomes e contexto: as métricas automáticas da tabela da §4, menos a trajetória, mais o revisor de redação.
+2. **COMPLEX:** a estrutura nova é medida pela ferramenta: assinatura já existente no DEV ≤ 35% e combinações inéditas ≥ 60%, como na tabela. O revisor de estrutura continua classificando, só como informação.
+3. **Remoção com evidência:** um sinal de "troca de entidade" ou "paráfrase superficial" só remove o cenário se um **terceiro juiz** confirmar, lendo o cenário e o cenário DEV citado pelo revisor. Paráfrase superficial é a mesma frase com sinônimos ou outra ordem, não só a mesma intenção.
+4. **Trajetória multi-turn (métrica 4):** passa a ser só informativa.
+5. **Sem mudança:** os demais limites da tabela, o mínimo de 45 cenários, a regra de tamanho fixo do Adendo 2 e a apresentação ao dono antes da selagem.
+6. **União DEV ampliada:** o v1b rejeitado entra nela, junto com o v1.
