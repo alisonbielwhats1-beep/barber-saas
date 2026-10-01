@@ -54,7 +54,7 @@ export const AGENT_VALIDATOR_CODES = ["AGENT_SCHEMA", "AGENT_DAG", "AGENT_QUOTE_
   "AGENT_RELEASE_MISMATCH", "AGENT_EXCEPTION_MISMATCH", "AGENT_EXCEPTION_OTHERS", "AGENT_EXCEPTION_MERGED", "AGENT_WORKDAY_END", "AGENT_COVERAGE", "AGENT_UNCOVERED",
   "AGENT_ACTIONS_LEFT", "AGENT_COMBO", "AGENT_SERVICE_MODE", "AGENT_RULE4", "AGENT_PRONOUN_TOPIC", "AGENT_DOUBLE_MUTATION", "AGENT_REASON_UNPROVEN", "AGENT_RECURRENCE",
   "AGENT_PREMISE_MISMATCH", "AGENT_FIELD_QUESTION", "AGENT_BASIS_CHANGED", "AGENT_PROFESSIONAL_DERIVED", "AGENT_CUSTOMER_UNPICKED", "AGENT_PATCH_OPERATION", "AGENT_PATCH_DONE",
-  "AGENT_PATCH_BASIS", "AGENT_PATCH_UNPROVEN", "AGENT_RELEASED_ROLE", "AGENT_NAME_ASSUMED"] as const;
+  "AGENT_PATCH_BASIS", "AGENT_PATCH_UNPROVEN", "AGENT_RELEASED_ROLE", "AGENT_NAME_ASSUMED", "AGENT_ORIGIN_INHERITED"] as const;
 export type AgentValidatorCode = (typeof AGENT_VALIDATOR_CODES)[number];
 /** §5.5: the line the backend appends to every turn with model text and no proposal nor receipt. */
 export const AGENT_NOTHING_CHANGED = "Nada foi alterado.";
@@ -82,6 +82,14 @@ export const AGENT_QUESTIONS: Readonly<Partial<Record<AgentValidatorCode, string
 });
 /** A change whose services the owner wrote but the model's refs do not prove: asked, never dropped in silence (V15's rule for services). */
 export const AGENT_SERVICE_CHANGE_QUESTION = "Não consegui confirmar quais serviços mudam neste agendamento. Quais serviços devo trocar, incluir ou tirar?";
+/** Round 2, F0: a change's new value the validator could not prove, which an empty field would turn into the appointment's current one
+ * (prepare() keeps the origin's): asked by the backend, field by field. */
+export const AGENT_ORIGIN_QUESTIONS: Readonly<Record<"date" | "time" | "target_professional_ref" | "service_changes", string>> = Object.freeze({
+  date: "Não consegui confirmar o novo dia deste agendamento. Para qual dia devo passar?",
+  time: "Não consegui confirmar o novo horário deste agendamento. Para qual horário devo passar?",
+  target_professional_ref: "Não consegui confirmar com qual profissional este agendamento deve ficar. Com quem devo marcar?",
+  service_changes: AGENT_SERVICE_CHANGE_QUESTION,
+});
 /** A6 (owner decision 14): the customer a booking took from the owner's own words, said back in the owner's spelling. */
 export const agentUnpickedPremise = (name: string) => `Considerei «${name}» como cliente, pelo nome escrito no pedido.`;
 /** Owner decision 14 (people): the one registered person kept on a low-risk action although the owner wrote beside the name a word no
@@ -158,6 +166,10 @@ export type AgentActionOutcome = {
    * this message's changes; READY applies them, ASK holds the open action with the question (never confirmable meanwhile), DROP leaves the
    * open action as it was (AGENT_PATCH_DONE: an action already confirmed is never done again). Absent on a new action. */
   patch?: true;
+  /** Round 2, F0 (review C2): a change's new day or clock the owner wrote that no field carries (AGENT_ORIGIN_INHERITED): prepare() keeps it
+   * asked (its own temporal question, the draft's temporal_missing) through any later preparation of the action (a card click, a continuation),
+   * so the appointment's own value never fills it. Absent when there is none. */
+  temporalMissing?: ("date" | "time")[];
 };
 /** Phase 2 (A7): one action of the open agent plan this message continues, as the app holds it (ids, never refs): its validated fields and
  * registered names, the appointment it changes or cancels, its customer, services and duration, its derived bases (V23) and the card it waits
@@ -278,6 +290,18 @@ function ownerSource(owner: readonly string[]): Source {
 const withinOne = (src: Source, span: Span) => src.bounds.some(bound => inside(span, bound));
 const spansOf = (src: Source, literal: string): Span[] => literal.trim() ? literalProofSpans(src.text, literal).filter(span => withinOne(src, span)) : [];
 type Atom = { kind: "date" | "clock"; start: number; end: number; negated: boolean };
+/** The words the reading of an atom takes around it (dayOf, clockOf): a day's scope before ("essa", "próxima") and after ("que vem"); a
+ * clock's lead before ("às", "pras", "das") and its daypart after ("da tarde"). */
+const DAY_SCOPE = /(?:^|[^\p{L}\p{N}])((?:[nd]?ess[ae]|[nd]?est[ae]|pr[oó]xim[oa])\s+)$/iu, DAY_NEXT = /^\s+que\s+vem(?![\p{L}\p{N}])/iu;
+/** Review C4: the prepositions that make an hour a time of the day (closed class), right before it. */
+const TIME_LEAD = /(?:^|[^\p{L}\p{N}])(?:[àa]s?|pelas|umas|pras?|para|pros?|das|las|at[ée])\s+$/iu;
+const CLOCK_LEAD = /(?:^|[^\p{L}\p{N}])((?:l[aá]\s+)?(?:[àa]s|pelas|umas|pras|pra|das|las)\s+)$/iu, CLOCK_DAYPART = /^\s+(?:da|de|[àa])\s+(?:manh[ãa]|tarde|noite)(?![\p{L}\p{N}])/iu;
+/** An atom with the words its reading takes (Round 2, F0: what the owner wrote beside them is read apart). */
+function widened(text: string, atom: Atom): Span {
+  const before = (atom.kind === "date" ? DAY_SCOPE : CLOCK_LEAD).exec(text.slice(0, atom.start)), after = (atom.kind === "date" ? DAY_NEXT : CLOCK_DAYPART).exec(text.slice(atom.end));
+  return [atom.start - (before?.[1].length ?? 0), atom.end + (after?.[0].length ?? 0)];
+}
+const spanMinutes = (start: string, end: string) => (Date.parse(`${end}:00Z`) - Date.parse(`${start}:00Z`)) / 60_000;
 
 /** The day(s) an owner quote [span] of `text` states: the C4's own day grammar on the message's date atoms that meet the quote, widened in
  * the message to their scope words ("essa", "próxima", "que vem"), so a clipped quote never proves a day the owner did not say. undefined:
@@ -287,9 +311,9 @@ function dayOf(text: string, all: readonly Atom[], span: Span, role: "date" | "s
   const atoms = all.filter(atom => atom.kind === "date" && meets([atom.start, atom.end], span));
   if (!atoms.length) return undefined;
   let from = Math.min(...atoms.map(atom => atom.start)), to = Math.max(...atoms.map(atom => atom.end));
-  const scope = /(?:^|[^\p{L}\p{N}])((?:[nd]?ess[ae]|[nd]?est[ae]|pr[oó]xim[oa])\s+)$/iu.exec(text.slice(0, from));
+  const scope = DAY_SCOPE.exec(text.slice(0, from));
   if (scope) from -= scope[1].length;
-  const next = /^\s+que\s+vem(?![\p{L}\p{N}])/iu.exec(text.slice(to));
+  const next = DAY_NEXT.exec(text.slice(to));
   if (next) to += next[0].length;
   const today = dateKeyInTimeZone(now, timezone), direction = dayDirection(role, operation), components = dayComponents(text.slice(from, to), today, operation, role);
   // Every reading the grammar accepts ("sexta" verifies as the nearest and as this week's: one date; "sexta que vem" is a choice of two).
@@ -327,9 +351,9 @@ function clockOf(text: string, all: readonly Atom[], span: Span, operation: stri
   if (pick === "only" && atoms.length > 1) return "UNREAD";
   const atom = pick === "last" ? atoms.at(-1)! : atoms[0], read: Span = [atom.start, atom.end];
   let from = atom.start, to = atom.end;
-  const lead = /(?:^|[^\p{L}\p{N}])((?:l[aá]\s+)?(?:[àa]s|pelas|umas|pras|pra|das|las)\s+)$/iu.exec(text.slice(0, from));
+  const lead = CLOCK_LEAD.exec(text.slice(0, from));
   if (lead && !/^(?:[àa]s|pelas|umas|pras|pra|das|las)\s/iu.test(text.slice(from, to))) from -= lead[1].length;
-  const part = /^\s+(?:da|de|[àa])\s+(?:manh[ãa]|tarde|noite)(?![\p{L}\p{N}])/iu.exec(text.slice(to));
+  const part = CLOCK_DAYPART.exec(text.slice(to));
   if (part) to += part[0].length;
   const piece = text.slice(from, to), component = statedClockComponent(piece, operation) ?? atomClock(piece, operation);
   if (!component) return "UNREAD";
@@ -382,6 +406,8 @@ type Work = {
   /** Owner decision 14 (people): a person kept past an unknown word the owner wrote beside the name (`text`: the owner's words of that run,
    * NOME if it leaves), with its premise; withdrawn with that person, or with the owner's words back on a high-risk action (settle). */
   assumed?: { field: AssumedField; text: string; premise: string }[];
+  /** Round 2, F0: the change's new day or clock asked instead of inherited (AgentActionOutcome.temporalMissing). */
+  missing?: ("date" | "time")[];
 };
 type AssumedField = "cliente" | "profissional" | "novo_profissional";
 const MUTATING = new Set<string>(AGENT_MUTATING_OPERATIONS);
@@ -561,6 +587,19 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
     if (!governing || governing.length || innerNegator(w)) { if (w.open) hold(w, "AGENT_NEGATED"); else drop(w, "AGENT_NEGATED"); }
   }
   const live = () => works.filter(w => w.status !== "DROP" && w.own && !w.held);
+  // Round 2: the appointment each change names, re-read (review M2: an anchor on it is its own only when its words name nobody else; C5: its
+  // own professional is no other one); (review C4) the durations the owner wrote (the closed duration reader), never a clock of the day.
+  const moved = new Map<Work, AgentApptFact>(), durations = durationLiterals(src.text).map((item): Span => [item.start, item.end]);
+  /** Review C4: a clock atom the duration reader reads as an amount of time ("em 1h", a bare "2h") and no time preposition leads (closed
+   * class: "para 11h", "pra 11h", "às 11h" are clocks of the day). */
+  const duration = (span: Span) => durations.some(item => meets(item, span)) && !TIME_LEAD.test(src.text.slice(Math.max(0, span[0] - 12), span[0]));
+  for (const w of live()) {
+    if (w.a.operacao !== "appointment.change") continue;
+    const id = w.a.atendimento ? binding.resolve(w.a.atendimento, "a")?.id : w.open?.appointment, row = id ? await reader.appointment(id) : undefined;
+    if (row) moved.set(w, row);
+  }
+  /** F0's reading of the owner's words per change (ownerTemporal; fixed once the change's origin is read). */
+  const ownerSaid = new Map<Work, { day: "NONE" | "SAME" | "OTHER"; clock: "NONE" | "SAME" | "OTHER"; loose: boolean }>();
 
   // ---- pass 1: people (V2, V3, V4-E, V7, V8 first person); rule 7's topic (V18; A7: with none here, the open plan's one customer).
   const professionals = await reader.professionals() ?? [], services = await reader.services() ?? [];
@@ -640,6 +679,9 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
     if (target && decoded.pergunta.campo === "servicos" && target.a.operacao === "appointment.change" && !target.fields.service_changes?.length)
       ask(target, "AGENT_FIELD_QUESTION", "service_changes", AGENT_SERVICE_CHANGE_QUESTION);
   }
+  // ---- Round 2, F0: what a change leaves empty, prepare() keeps from the appointment; a value the plan moved off it that the validator emptied
+  // is asked here, never inherited in silence.
+  for (const w of live()) originInherited(w);
   if (result === "PLANO" && decoded.pergunta?.campo === "operacao") { const text = clean(decoded.pergunta.texto, AGENT_PLAN_LIMITS.question); if (text) notices.push(text); }
   for (const w of [...works].reverse()) if (w.status === "DROP" && w.notice && !notices.includes(w.notice)) notices.unshift(w.notice);
   // A7: a held patch keeps every value and basis of its open action; a patch's names are the open action's for the ids it still holds.
@@ -649,7 +691,7 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
       ambiguities: held ? [] : [...w.ambiguities], origin: held ? null : w.origin ?? null, derived: held ? null : w.derived ?? null, recurrence: held ? null : w.recurrence ?? null,
       dependsOn: [...w.a.depende_de], releasedSlotOf: w.a.ocupa_horario_de, basis: held ? [...w.open!.basis] : [...w.basis], premises: held ? [] : [...w.premises], note: [...w.note],
       notice: w.notice ?? null, codes: [...w.codes], names: w.open ? { ...keptNames(w.open, fields, w.appt?.id ?? w.open.appointment), ...held ? {} : w.names } : { ...w.names },
-      ...w.open ? { patch: true as const } : {} };
+      ...w.open ? { patch: true as const } : {}, ...w.missing?.length && !held && w.status !== "DROP" ? { temporalMissing: [...w.missing] } : {} };
   });
   return { ok: true, result, actions, notices, question: null, reply: null, codes: [...new Set(actions.flatMap(action => action.codes))] };
 
@@ -698,8 +740,36 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
    * proved, the quotes of its other person and service bases, and, for the customer, the anchor and exception quotes (other rows'
    * customers). The appointment's own quote is shared on purpose whatever its type (it names its customer and professional, V7-A, A1). */
   function claimed(w: Work, field: AgentBaseField): Span[] {
-    return [...w.claims, ...[...w.bases.values()].flatMap(item => item.span && item.base.campo !== field && (item.base.tipo === "DITO" && ENTITY_FIELDS.has(item.base.campo) ||
-      field === "cliente" && item.base.campo !== "atendimento" && (item.base.tipo === "ANCORA" || item.base.tipo === "EXCECAO")) ? [item.span] : [])];
+    return [...w.claims, ...[...w.bases.values()].flatMap(item => item.span && item.base.campo !== field && (item.base.tipo === "DITO" && ENTITY_FIELDS.has(item.base.campo) && !nameless(w, item) ||
+      field === "cliente" && item.base.campo !== "atendimento" && (item.base.tipo === "ANCORA" && !ownAnchor(w, item) || item.base.tipo === "EXCECAO")) ? [item.span] : [])];
+  }
+  /** Round 2, F3 (review M3): a DITO base of a professional or of the services, with the rows the plan chose there, whose quote holds no word
+   * (≥ 3 letters) that is, or nearly is, a word of ANY registered row of that role names nobody of that role: it proves nothing for its own
+   * field (literalOf asks or clears it there) and takes no word from another role (a customer's name quoted as a professional's base stays
+   * the customer's). A quote nearly naming another row of the role keeps its words, and so does a base with no chosen row or a row this
+   * message cannot read (the owner's words for that role, NOME). */
+  function nameless(w: Work, item: Located) {
+    const field = item.base.campo, refs: (string | null)[] = field === "servicos" ? (w.a.servicos ?? []).map(entry => entry.ref) : field === "profissional" || field === "novo_profissional" ? [w.a[field]] : [];
+    if (!refs.length || refs.some(ref => !ref)) return false;
+    const rows: (AgentNamed | undefined)[] = refs.map(ref => field === "servicos" ? services.find(row => row.id === binding.resolve(ref!, "s")?.id) : professionals.find(row => row.id === binding.resolve(ref!, "p")?.id));
+    if (rows.some(row => !row)) return false;
+    const role = [...new Set((field === "servicos" ? services : professionals).flatMap(row => nameTokens(withoutArticle(row.name)))
+      .filter(token => [...token].length >= AGENT_NAME_TOKEN_MIN && !GLUE.has(token)))];
+    return !nameTokens(withoutArticle(item.text ?? "")).some(token => [...token].length >= AGENT_NAME_TOKEN_MIN && !GLUE.has(token) &&
+      role.some(word => tokenSimilarity(token, word) >= SUGGESTION_THRESHOLD));
+  }
+  /** Round 2 (F1, F3): an anchor base on the appointment its own change moves (the plan's `atendimento`, or the one V7-A accepted): it anchors
+   * nothing (V12 never takes that appointment) and its words name that appointment, so its customer is this action's own. Review M2: never on
+   * the model's ref alone: a quote holding a name word of a customer this message showed (or of the plan's own customer) that the moved
+   * appointment's customer lacks names another row, and is not this one. */
+  function ownAnchor(w: Work, item: Located) {
+    if (w.a.operacao !== "appointment.change" || item.base.tipo !== "ANCORA") return false;
+    const id = binding.resolve(item.base.ref ?? "", "a")?.id;
+    if (!id || ![w.appt?.id, w.origin?.expected, w.a.atendimento ? binding.resolve(w.a.atendimento, "a")?.id : undefined].includes(id)) return false;
+    const mine = new Set(nameTokens((moved.get(w) ?? w.appt)?.customerName ?? ""));
+    const shown = new Set([...binding.entries("c").flatMap(entry => nameTokens(String((entry.facts as { shown?: string }).shown ?? ""))),
+      ...w.a.cliente ? nameTokens(String((binding.resolve(w.a.cliente, "c")?.facts as { shown?: string } | undefined)?.shown ?? "")) : []]);
+    return !nameCore(item.text ?? "").some(token => [...token].length >= AGENT_NAME_TOKEN_MIN && !directoryTokens.has(token) && shown.has(token) && !mine.has(token));
   }
   /** V4-E: the chosen name's whole tokens (≥ 3 letters) the owner wrote in the action's own region (its clause and the later segments that
    * are no other action's clause, V4 (a)/(b)), outside every temporal atom, undenied (V6) and unclaimed by another role (V4). A customer is
@@ -1367,14 +1437,17 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
    * the owner asked a service change the plan left out. Asked, never proposed without it. Words of the appointment's own services may only
    * point at the appointment, so they stay as they are. */
   function unlistedServices(w: Work) {
-    if (w.a.operacao !== "appointment.change" || !w.appt || !w.own) return;
+    if (unlistedWords(w)) ask(w, "AGENT_COVERAGE", "service_changes", AGENT_SERVICE_CHANGE_QUESTION);
+  }
+  /** Round 2, F0: the clause holds such catalog words (unlistedServices; also read when the plan's services did not stand). */
+  function unlistedWords(w: Work) {
+    if (w.a.operacao !== "appointment.change" || !w.appt || !w.own) return false;
     const held = new Set(w.appt.serviceNames.flatMap(name => nameTokens(name)));
     const taken = [...claimed(w, "servicos"), ...w.consumed, ...[...w.bases.values()].flatMap(item => item.span ? [item.span] : [])];
     const words = [...serviceTokens].filter(word => [...word].length >= AGENT_NAME_TOKEN_MIN && !GLUE.has(word) && !temporalWord(word) && !APPT_WORDS.has(word) &&
       !peopleWords.has(word) && !held.has(word));
-    const left = words.some(word => literalSpans(src.text, word).some(span => withinOne(src, span) && inside(span, w.own!) && admits(w, span, false) &&
+    return words.some(word => literalSpans(src.text, word).some(span => withinOne(src, span) && inside(span, w.own!) && admits(w, span, false) &&
       !atoms.some(atom => meets([atom.start, atom.end], span)) && !taken.some(item => meets(item, span)) && !entityQuoteDenied(src.text, span[0], span[1], w.a.operacao)));
-    if (left) ask(w, "AGENT_COVERAGE", "service_changes", AGENT_SERVICE_CHANGE_QUESTION);
   }
 
   // ================================================================ time
@@ -1387,6 +1460,8 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
    * inside an EXCECAO quote of the plan, or after an exclusion lead). */
   function fallbackDay(w: Work, operation: string): { dates: string[]; spans: Span[] } | undefined {
     if (w.date) return { dates: [w.date], spans: [] };
+    // Round 2 (F1): a change never reads its new day from the atoms that found its appointment (destination).
+    const free = destination(w);
     // S1c: a DITO `dia` base of a plan with no `dia` value is never read (dayStep) and hides nothing: its day is read as if it had no base. A
     // refused one (its quote negated) or one of another type (EXCECAO: a day excluded) still hides its day, so it never becomes the start's.
     const used = [...w.bases.entries()].filter(([field, item]) => field !== "dia" || !!w.a.dia || !!item.code || item.base.tipo !== "DITO")
@@ -1394,21 +1469,33 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
     const excepted = works.flatMap(other => [...other.bases.values()].flatMap(item => item.base.tipo === "EXCECAO" && item.span ? [item.span] : []));
     const readable = (atom: Atom) => !atom.negated && !excepted.some(span => meets(span, [atom.start, atom.end])) && !excludedDay(src.text, atom);
     const read = (list: Atom[]) => {
-      const dates = new Set(list.flatMap(atom => { const day = dayOf(src.text, atoms, [atom.start, atom.end], "date", operation, timezone, now);
+      const dates = new Set(list.flatMap(atom => { const day = dayOf(src.text, free, [atom.start, atom.end], "date", operation, timezone, now);
         return day && day !== "UNREAD" && day.dates.length === 1 ? day.dates : ["UNREAD"]; }));
       return dates.size === 1 && !dates.has("UNREAD") ? { dates: [...dates], spans: list.map((atom): Span => [atom.start, atom.end]) } : undefined;
     };
-    const mine = dayAtoms(w.own!).filter(atom => readable(atom) && !used.some(span => meets(span, [atom.start, atom.end])));
+    const mine = free.filter(atom => atom.kind === "date" && inside([atom.start, atom.end], w.own!) && readable(atom) && !used.some(span => meets(span, [atom.start, atom.end])));
     if (mine.length) return read(mine);
-    const shared = atoms.filter(atom => atom.kind === "date" && readable(atom) && !ownSpans().some(own => meets(own, [atom.start, atom.end])) && admits(w, [atom.start, atom.end], true));
+    const shared = free.filter(atom => atom.kind === "date" && readable(atom) && !ownSpans().some(own => meets(own, [atom.start, atom.end])) && admits(w, [atom.start, atom.end], true));
     return shared.length ? read(shared) : undefined;
+  }
+  /** Round 2 (F1; A1, one atom one role): the atoms a change's destination may read: never one its origin read (the appointment's own day or
+   * clock written in the same quote as the new one: "de sexta passa pro sábado às 10"; "troca a escova de terça", where terça only finds the
+   * appointment). Its day or clock is then the appointment's own, which an empty field keeps. Any other operation reads every atom. */
+  function destination(w: Work) {
+    return w.a.operacao !== "appointment.change" ? atoms : atoms.filter(atom => !w.reads.some(item => item.role === "origin" && item.atom[0] === atom.start && item.atom[1] === atom.end));
+  }
+  /** The atoms a change's destination reads in `span`, the origin's left out (A1's code when the quote held one). */
+  function destinationIn(w: Work, span: Span) {
+    const free = destination(w);
+    if (free.length < atoms.length && atoms.some(atom => !free.includes(atom) && meets([atom.start, atom.end], span))) code(w, "AGENT_QUOTE_REUSED");
+    return free;
   }
   function dayStep(w: Work) {
     const a = w.a;
     if (!a.dia) return;
     const located = baseOf(w, "dia");
     if (!located || located.code || located.base.tipo !== "DITO") { clear(w, ["date"], located?.code ?? "AGENT_BASE_TYPE"); return; }
-    const day = dayOf(src.text, atoms, located.span!, "date", a.operacao, timezone, now);
+    const day = dayOf(src.text, destinationIn(w, located.span!), located.span!, "date", a.operacao, timezone, now);
     if (!day || day === "UNREAD" || day.dates.length !== 1 || day.dates[0] !== a.dia || a.operacao === "appointment.cancel" && w.fields.date && w.fields.date !== a.dia) {
       clear(w, ["date"], "AGENT_TEMPORAL_READING"); return;
     }
@@ -1441,15 +1528,21 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
       return;
     }
     if (type !== "DITO" && type !== "ANCORA" && type !== "MANTIDO") { clear(w, ["date", "time"], "AGENT_BASE_TYPE"); return; }
-    // The day: the start quote's own (DITO), else the fallback; ANCORA and MANTIDO never give a day. A patch whose quote states no day (or no
-    // clock) keeps the open action's, validated before, when the plan repeats it (A7).
+    // Round 2, F1: an anchor on the appointment this very change moves anchors nothing (V12 never takes it): its quote stands only as the
+    // owner's own words for the start, a kept clock when it proves the keep (V11), else the day and clock it states (V9, as DITO).
+    const own = type === "ANCORA" && ownAnchor(w, located), keep = (type === "MANTIDO" || own) && keepProven(w, located), literal = type === "DITO" || own && !keep;
+    // The day: the day words of the start quote (DITO; a keep or an anchor on the moved appointment: the day the owner wrote beside it), else the
+    // fallback; an anchor on another row and the kept appointment never give a day. A patch whose quote states no day (or no clock) keeps the
+    // open action's, validated before, when the plan repeats it (A7).
     let days: string[] | undefined, read: Span[] = [], clock: ReturnType<typeof clockOf>;
-    if (type === "DITO") {
-      const day = dayOf(src.text, atoms, located.span!, "date", a.operacao, timezone, now);
+    if (type !== "ANCORA" || own) {
+      const free = destinationIn(w, located.span!), day = dayOf(src.text, free, located.span!, "date", a.operacao, timezone, now);
       if (day === "UNREAD") { clear(w, ["date", "time"], "AGENT_TEMPORAL_READING"); return; }
       days = day?.dates; read = day?.atoms ?? [];
-      clock = clockOf(src.text, atoms, located.span!, a.operacao, a.operacao === "schedule.block" ? "first" : "only", timezone, now);
-      w.consumed.push(located.span!);
+      if (literal) {
+        clock = clockOf(src.text, free, located.span!, a.operacao, a.operacao === "schedule.block" ? "first" : "only", timezone, now);
+        w.consumed.push(located.span!);
+      } else w.consumed.push(...read);
     }
     if (!days) {
       const fallback = fallbackDay(w, a.operacao);
@@ -1459,20 +1552,27 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
     if (!days) clear(w, ["date"], "AGENT_DAY_MISSING");
     else if (days.length !== 1 || days[0] !== date) clear(w, ["date"], "AGENT_TEMPORAL_READING");
     else { w.date = date; w.fields.date = date; readAtoms(w, "start", "date", read, date); }
-    if (type === "MANTIDO") return keptTime(w, located, time);
-    if (type === "ANCORA") return anchorTime(w, located, time);
+    if (type === "MANTIDO" || keep) return keptTime(w, located, time, keep);
+    if (type === "ANCORA" && !own) return anchorTime(w, located, time);
     if (clock === undefined && w.open?.fields.time === time) { w.time = time; w.fields.time = time; return; }
     if (clock === undefined) { clear(w, ["time"], a.operacao === "appointment.change" ? "AGENT_KEEP_UNPROVEN" : "AGENT_TEMPORAL_READING"); return; }
     if (clock === "UNREAD") { clear(w, ["time"], "AGENT_TEMPORAL_READING"); return; }
-    const accepted = await pickClock(w, "time", clock.readings, time, a.operacao === "schedule.block" ? "BLOCK_START" : "BOOK", located.text!);
+    const accepted = await pickClock(w, "time", clock.readings, time, a.operacao === "schedule.block" ? "BLOCK_START" : "BOOK", located.text!, undefined, clock.atom);
     if (accepted) { w.time = accepted; w.fields.time = accepted; readAtoms(w, "start", "clock", [clock.atom], accepted); }
   }
   /** V9: the model's clock must be one reading of the owner's words; two readings open in the day's real hours (or unknown hours) are the
    * C4's half-day card; exactly one open is used and said (owner decision 18). */
-  async function pickClock(w: Work, field: "time" | "end_time", readings: string[], value: string, purpose: DaypartPurpose, expression: string, other?: string) {
+  async function pickClock(w: Work, field: "time" | "end_time", readings: string[], value: string, purpose: DaypartPurpose, expression: string, other?: string, atom?: Span) {
     if (!readings.includes(value)) { clear(w, [field], "AGENT_TEMPORAL_READING"); return; }
     if (readings.length === 1) return value;
-    const open = w.date ? await openFor(readings, purpose, w.date, await staffOf(w), { duration: w.durationMin, other }) : readings;
+    // Round 2 (F1): a change whose new day the owner's words leave as the appointment's (F0 asks no day: newDayAsked) lands on that day
+    // (prepare() keeps it): its clock's open readings are that day's, for the appointment's own professional (anyone of the team while a new
+    // one is asked) and its duration. Review C1/C4: never when the owner wrote another day, and never for a duration ("em 1h", "2h"): an
+    // amount of time is no clock of that day (the half-day stays asked).
+    const appt = w.a.operacao === "appointment.change" && !w.date && w.appt && !newDayAsked(w) && !(atom && duration(atom)) ? w.appt : undefined;
+    const open = w.date ? await openFor(readings, purpose, w.date, await staffOf(w), { duration: w.durationMin, other })
+      : appt ? await openFor(readings, purpose, appt.startLocal.slice(0, 10), w.a.novo_profissional || targetAsked(w) ? professionals.map(item => item.id) : [appt.professionalId],
+        { duration: spanMinutes(appt.startLocal, appt.endLocal), other }) : readings;
     if (open.length === 1) {
       if (open[0] !== value) { clear(w, [field], "AGENT_TEMPORAL_READING"); return; }
       code(w, "AGENT_DAYPART_ONE"); daypartPremise(w, field, value);
@@ -1497,12 +1597,24 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
     if (field === "time") w.clockPremises = { start: text };
     w.premises.push(text);
   }
-  /** V11 MANTIDO: only a change, with the structural proof of "mantém/mesmo horário"; the value is the re-read appointment's own clock. */
-  function keptTime(w: Work, located: Located, value: string) {
-    const holder = { customer: w.customer?.tokens.join(" ") || null, others: [] as string[] };
-    if (w.a.operacao !== "appointment.change" || !w.appt || !selfReferenceProven(src.text, located.text!, located.span!, w.a.operacao, timezone, now, "time", false, holder)) {
-      clear(w, ["time"], "AGENT_KEEP_UNPROVEN"); return;
-    }
+  /** V11: the structural proof of "mantém/mesmo horário" (selfReferenceProven) on the quote, or (round 2) on one of its pieces between clause
+   * marks when the quote also holds the new day (a weekday, a comma, then the keep); only for a change with its appointment re-read, and never
+   * over a new clock the quote states (that clock is the owner's, never the kept one; the clock that found the appointment is not one). */
+  function keepProven(w: Work, located: Located) {
+    const span = located.span;
+    if (w.a.operacao !== "appointment.change" || !w.appt || !span || located.code || destination(w).some(atom => atom.kind === "clock" && meets([atom.start, atom.end], span))) return false;
+    const holder = { customer: w.customer?.tokens.join(" ") || null, others: [] as string[] }, pieces: Span[] = [span];
+    let from = span[0];
+    for (const mark of src.text.slice(span[0], span[1]).matchAll(/[,.;!?()\n]/g)) { pieces.push([from, span[0] + mark.index!]); from = span[0] + mark.index! + 1; }
+    if (pieces.length > 1) pieces.push([from, span[1]]);
+    return pieces.some(([start, end]) => {
+      const text = src.text.slice(start, end), lead = text.length - text.trimStart().length, piece: Span = [start + lead, start + lead + text.trim().length];
+      return piece[1] > piece[0] && selfReferenceProven(src.text, src.text.slice(piece[0], piece[1]), piece, w.a.operacao, timezone, now, "time", false, holder);
+    });
+  }
+  /** V11 MANTIDO: only a change, with the structural proof of "mantém/mesmo horário" (keepProven); the value is the re-read appointment's own clock. */
+  function keptTime(w: Work, located: Located, value: string, proven: boolean) {
+    if (!proven || !w.appt) { clear(w, ["time"], "AGENT_KEEP_UNPROVEN"); return; }
     const current = w.appt.startLocal.slice(11, 16);
     if (current !== value) { clear(w, ["time"], "AGENT_KEEP_UNPROVEN"); return; }
     w.consumed.push(located.span!);
@@ -1657,24 +1769,39 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
     const target = field === "novo_profissional", keys = target ? TARGET_KEYS : PROFESSIONAL_KEYS, kind = target ? "target_professional_ref" as const : "professional_ref" as const;
     // A read of free times with nobody named lists every eligible professional's (prepare(), READS_V2): nobody is picked, no card.
     if (a.operacao === "availability.get") { clear(w, keys); return; }
-    const serviceIds = target ? w.appt?.serviceIds : w.services.map(item => item.id);
-    const start = w.date && w.time ? `${w.date}T${w.time}` : target ? w.appt?.startLocal : undefined;
+    const serviceIds = target ? w.appt?.serviceIds : w.services.map(item => item.id), start = startOf(w, target);
     clear(w, keys);
     // S1c (the C4 released-slot rule): the slot a cancellation or change of the plan frees owns the day, the clock and the professional of the
     // create that takes it (agentDerivedCheck; the pair's gate): never V8's pick, card or question.
     if (!target && w.derived?.type === "LIBERADO_POR") return;
-    if (!serviceIds?.length || !start) { if (target) ask(w, "AGENT_TARGET_UNSAID", kind); else code(w, "AGENT_PROFESSIONAL_UNSAID"); return; }
     // A7: a patch's own NAO_DITO stands over a person its open action held only when the clause asks another one (bases): that one is no option
     // (null: held by the owner's words only), and nobody is derived in its place (a card of who can).
     const replaced = type === "NAO_DITO" && !located.inherited && w.open && personHeld(w.open, field) ? w.open.fields[kind] ?? null : undefined;
-    // E: who performs every service and is free at the start, over the whole team (a change's new professional is someone else).
-    const set = (await eligible(serviceIds, start)).filter(row => (!target || row.id !== w.appt?.professionalId) && row.id !== replaced);
     // A7: a delegation the owner made before, re-derived for a patch's new ground, carries no quote of this message (it was marked then).
     const unmarked = type === "DELEGADO" && !located.inherited && !delegationMarked(w, located);
+    // Review C3: a change whose new start is not proven yet (startOf) has nobody "free then": the card of who performs its services (never a
+    // pick, never derived); the start is asked after it (F0, temporalMissing) and prepare() checks the one chosen there.
+    if (target && w.appt && serviceIds?.length && !start) {
+      const set = (await reader.performers(serviceIds)).filter(row => row.id !== w.appt!.professionalId && row.id !== replaced);
+      if (!set.length) { ask(w, "AGENT_TARGET_UNSAID", kind); return; }
+      card(w, kind, named(set), unmarked ? "AGENT_DELEGATION_UNMARKED" : type === "NAO_DITO" ? "AGENT_TARGET_UNSAID" : "AGENT_DELEGATION_TIE"); return;
+    }
+    if (!serviceIds?.length || !start) { if (target) ask(w, "AGENT_TARGET_UNSAID", kind); else code(w, "AGENT_PROFESSIONAL_UNSAID"); return; }
+    // E: who performs every service and is free at the start, over the whole team (a change's new professional is someone else). Review M4:
+    // never one an action of this plan run before this one already books or moves onto that time.
+    const minutes = target && w.appt ? spanMinutes(w.appt.startLocal, w.appt.endLocal) : w.durationMin ?? 0;
+    const set = (await eligible(serviceIds, start)).filter(row => (!target || row.id !== w.appt?.professionalId) && row.id !== replaced && !plannedBusy(w, row.id, start, minutes));
     if (type === "NAO_DITO" || unmarked) {
       const why: AgentValidatorCode = unmarked ? "AGENT_DELEGATION_UNMARKED" : target ? "AGENT_TARGET_UNSAID" : "AGENT_PROFESSIONAL_UNSAID";
       if (!set.length) { code(w, why); ask(w, target ? "AGENT_TARGET_UNSAID" : "AGENT_DELEGATION_NONE", kind); return; }
-      if (type === "NAO_DITO" && replaced === undefined && set.length === 1 && derivable(w, field, located, set[0].id)) { derived(w, field, set[0], serviceIds, start); return; }
+      // Round 2, F2: a delegation without its marker is the professional not said (spec V8), so the salon's data decide alike: exactly one who
+      // performs the services and is free then is proposed with the backend's premise (owner decision 14, low risk; V23 `sole`); two or more
+      // are the card, and so is a model's value that is not that one (as for a marked delegation). A high-risk action never derives anyone.
+      const agrees = a[field] === null || binding.resolve(a[field]!, "p")?.id === set[0]?.id;
+      if (replaced === undefined && set.length === 1 && agrees && derivable(w, field, located, set[0].id) && !await highRisk(w, 0)) {
+        if (unmarked) code(w, why);
+        derived(w, field, set[0], serviceIds, start); return;
+      }
       card(w, kind, named(set), why); return;
     }
     if (located.span) w.consumed.push(located.span);
@@ -1712,8 +1839,17 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
     const region = wordList.filter(item => { const span: Span = [item.start, item.end];
       return !atoms.some(atom => meets([atom.start, atom.end], span)) && (admits(w, span, false) || !rivals(w).some(other => admits(other, span, false))); });
     const others = professionals.filter(item => item.id !== chosen).flatMap(item => nameWords(item.name, false));
-    return !region.some(item => [...item.word].length >= AGENT_NAME_TOKEN_MIN && !GLUE.has(item.word) && !w.claims.some(span => meets(span, [item.start, item.end])) &&
-      others.some(token => tokenSimilarity(item.word, token) >= SUGGESTION_THRESHOLD));
+    if (region.some(item => [...item.word].length >= AGENT_NAME_TOKEN_MIN && !GLUE.has(item.word) && !w.claims.some(span => meets(span, [item.start, item.end])) &&
+      others.some(token => tokenSimilarity(item.word, token) >= SUGGESTION_THRESHOLD))) return false;
+    // Settle (test report P5): nor past a name nothing proved: a capitalized word (never one opening a sentence, nor in a message with no
+    // lowercase letter) that no closed class, no registered professional or service, no customer this message showed and no person an action
+    // of the plan proved holds may be the professional the owner meant (an unregistered one): the card stays.
+    const customer = baseOf(w, "cliente")?.span, said = new Set([...nameTokens(w.fields.customer_name ?? ""), ...w.customer?.tokens ?? [],
+      ...binding.entries("c").flatMap(entry => nameTokens(String((entry.facts as { shown?: string }).shown ?? "")))]);
+    return !/\p{Ll}/u.test(src.text) || !region.some(item => { const span: Span = [item.start, item.end], word = item.word;
+      return /^\p{Lu}/u.test(src.text.slice(item.start, item.end)) && !opening(item.start) && !works.some(v => v.claims.some(claim => meets(claim, span))) && !(customer && meets(customer, span)) &&
+        !said.has(word) && !GLUE.has(word) && !PRONOUNS.has(word) && !FIRST_PERSON.has(word) && !INDEFINITE.has(word) && !APPT_WORDS.has(word) && !temporalWord(word) &&
+        !CLOSED_WORDS.has(word) && !HONORIFICS.has(word) && !directoryTokens.has(word); });
   }
   /** S1c (V13, the released-slot rule): a create in the slot a cancellation or change frees takes that slot's professional (agentDerivedCheck,
    * the pair's gate) only while the owner's words do not contradict it: no professional but the slot's named, or nearly named, in the
@@ -1773,6 +1909,35 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
       if ((operation === "appointment.change" || operation === "appointment.cancel") && appt && appt.professionalId === professionalId && appt.startLocal.slice(0, 10) === date) delta--;
     }
     return delta;
+  }
+  /** V8's start for who is free then: the action's proven day and clock; for a change's new professional also the appointment's own day with
+   * the new clock when the owner's words give no other day (prepare() keeps that day), or its own slot when they give neither a day nor a
+   * clock (an alteration keeps the slot). Review C3: undefined while the change's new start is not proven (a day or clock F0 asks, a half-day
+   * still open, a day without its clock), never the old slot in its place. */
+  function startOf(w: Work, target: boolean) {
+    if (w.date && w.time) return `${w.date}T${w.time}`;
+    const row = target ? w.appt : undefined;
+    if (!row || w.date || newDayAsked(w) || w.ambiguities.some(item => item.field === "time")) return undefined;
+    if (w.time) return `${row.startLocal.slice(0, 10)}T${w.time}`;
+    return newClockAsked(w) ? undefined : row.startLocal;
+  }
+  /** Review M4: the slot an action of the plan takes when it runs (a booking's; a change's new one, on the appointment's own day when the
+   * owner's words give no other) and its professional; undefined while unknown. */
+  function planSlot(v: Work) {
+    const change = v.a.operacao === "appointment.change";
+    if (!change && v.a.operacao !== "appointment.create" || !v.fields.time) return undefined;
+    const date = v.fields.date ?? (change && v.appt && !newDayAsked(v) ? v.appt.startLocal.slice(0, 10) : undefined);
+    const professional = change ? v.fields.target_professional_ref ?? v.appt?.professionalId : v.fields.professional_ref;
+    if (!date || !professional) return undefined;
+    const start = `${date}T${v.fields.time}`, minutes = v.durationMin ?? (v.appt ? spanMinutes(v.appt.startLocal, v.appt.endLocal) : 0);
+    return { professional, start, end: shift(start, Math.max(1, minutes)) };
+  }
+  /** Review M4: an action of the plan run before `w` (execution order) already takes that professional's time then (V8's set leaves them out,
+   * so "Confirmar tudo" never writes the second booking over the first). */
+  function plannedBusy(w: Work, professionalId: string, start: string, minutes: number) {
+    const mine = rank.get(w.a.chave) ?? 0, end = shift(start, Math.max(1, minutes));
+    return live().some(other => { if (other === w || (rank.get(other.a.chave) ?? 0) >= mine) return false;
+      const slot = planSlot(other); return !!slot && slot.professional === professionalId && slot.start < end && slot.end > start; });
   }
   /** V12/V23: a free interval another action of this plan fills, or an anchor appointment another action of this plan moves or cancels, no
    * longer stands at the Confirmar (the plan's own write would hold the group): that anchored clock is asked now instead. */
@@ -1984,6 +2149,106 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
     const mutations = live().filter(w => (w.a.operacao === "appointment.change" || w.a.operacao === "appointment.cancel") && target(w));
     const held = unpatched().filter(item => (item.status === "OPEN" && item.operation === "appointment.change" || item.operation === "appointment.cancel") && item.appointment).map(item => item.appointment!);
     for (const w of mutations) if (mutations.some(other => other !== w && target(other) === target(w)) || held.includes(target(w)!)) ask(w, "AGENT_DOUBLE_MUTATION");
+  }
+  /** Round 2, F0: on a change an empty field means "as the appointment is" (prepare(): a clock with no day keeps the appointment's day; an
+   * alteration with neither keeps its slot; no new professional keeps its professional; no service change keeps its services). Review C1/M1:
+   * what decides is the owner's words, never the plan's value alone. A new day or clock the owner wrote (newDayAsked, newClockAsked) that no
+   * field carries is asked (AGENT_ORIGIN_QUESTIONS) and stays prepare()'s own question until answered (temporalMissing, review C2), never the
+   * appointment's own value; one the plan invented over words that state none is not (the appointment's own value is what the owner said). A
+   * new professional the owner named or asked for (targetAsked, review C5) that no field nor card carries is asked; so are services the plan
+   * moved, or the owner wrote, that no field carries. A day and clock both empty on a plain move, or a day kept with no clock, are prepare()'s
+   * own questions. A derived start waits for its action (agentDerivedCheck) and is not read here. */
+  function originInherited(w: Work) {
+    const a = w.a, f = w.fields, row = w.appt;
+    if (a.operacao !== "appointment.change") return;
+    const alteration = !!(f.target_professional_ref || f.target_professional_name || f.service_changes?.length), halfDay = w.ambiguities.some(item => item.field === "time");
+    const asked: (keyof typeof AGENT_ORIGIN_QUESTIONS)[] = [], missing: ("date" | "time")[] = [];
+    if (!w.derived && !f.date && (f.time || halfDay || alteration) && newDayAsked(w)) missing.push("date");
+    if (!w.derived && !f.time && !halfDay && !f.date && alteration && newClockAsked(w)) missing.push("time");
+    asked.push(...missing);
+    if (!f.target_professional_ref && !f.target_professional_name && w.card?.kind !== "target_professional_ref" && targetAsked(w)) asked.push("target_professional_ref");
+    if (a.servicos?.length && !f.service_changes?.length && (servicesMoved(a.servicos, row) || unlistedWords(w))) asked.push("service_changes");
+    if (missing.length) w.missing = missing;
+    for (const field of asked) if (w.question?.field !== field) ask(w, "AGENT_ORIGIN_INHERITED", field, AGENT_ORIGIN_QUESTIONS[field]);
+  }
+  /** F0 (review C1, M1): what the owner's own words state of a change's new day and clock, read in its region (its clause, the later parts no
+   * other action's clause holds and, for a day, one said once for coordinated actions: admits), never in what found its appointment (the atoms
+   * its origin read, an atom an origin preposition leads), its reason, an exception, a negated or an excluded day. `day`/`clock`: NONE (no such
+   * atom), SAME (each reads exactly the re-read appointment's own day or clock, which an empty field keeps) or OTHER (another value, two, one
+   * the grammar cannot read, a duration, or an appointment not known); `loose`: words of the closed temporal vocabulary (glue aside) outside
+   * every atom and the words its reading takes (a day the atom grammar does not mark, "na semana seguinte"). */
+  function ownerTemporal(w: Work) {
+    const known = ownerSaid.get(w);
+    if (known) return known;
+    const free = destination(w), excepted = works.flatMap(other => [...other.bases.values()].flatMap(item => item.base.tipo === "EXCECAO" && item.span ? [item.span] : []));
+    const away = (span: Span) => excepted.some(item => meets(item, span)) || !!w.reason && meets(w.reason, span) || originLed(span);
+    const mine = free.filter(atom => { const span: Span = [atom.start, atom.end];
+      return !atom.negated && !away(span) && !excludedDay(src.text, atom) && admits(w, span, atom.kind === "date"); });
+    const days = mine.filter(atom => atom.kind === "date").map(atom => { const day = dayOf(src.text, free, [atom.start, atom.end], "date", w.a.operacao, timezone, now);
+      return day && day !== "UNREAD" && day.dates.length === 1 ? day.dates[0] : "?"; });
+    const clocks = mine.filter(atom => atom.kind === "clock").map(atom => { const span: Span = [atom.start, atom.end];
+      if (duration(span)) return "?";
+      const clock = clockOf(src.text, free, span, w.a.operacao, "only", timezone, now);
+      return clock && clock !== "UNREAD" && clock.readings.length === 1 ? clock.readings[0] : "?"; });
+    const level = (values: string[], own: string | undefined) => !values.length ? "NONE" as const : values.every(value => value === own) ? "SAME" as const : "OTHER" as const;
+    const loose = wordList.some(item => { const span: Span = [item.start, item.end];
+      return !GLUE.has(item.word) && !APPT_WORDS.has(item.word) && temporalVocabulary(item.word) && !atoms.some(atom => meets(widened(src.text, atom), span)) && !away(span) &&
+        admits(w, span, false); });
+    const out = { day: level(days, w.appt?.startLocal.slice(0, 10)), clock: level(clocks, w.appt?.startLocal.slice(11, 16)), loose };
+    ownerSaid.set(w, out);
+    return out;
+  }
+  /** F0: a change's new day the owner's words state other than the appointment's own (or with the words the atom grammar does not mark, beside
+   * a plan that moves the day): an empty date must be asked, never the appointment's day. */
+  function newDayAsked(w: Work) {
+    if (w.a.operacao !== "appointment.change") return false;
+    const said = ownerTemporal(w), planned = w.a.dia ?? w.a.inicio?.slice(0, 10) ?? null;
+    return said.day === "OTHER" || said.loose && !!planned && planned !== w.appt?.startLocal.slice(0, 10);
+  }
+  /** F0: the same for the new clock. */
+  function newClockAsked(w: Work) {
+    if (w.a.operacao !== "appointment.change") return false;
+    const said = ownerTemporal(w), planned = w.a.inicio?.slice(11, 16) ?? null;
+    return said.clock === "OTHER" || said.loose && !!planned && planned !== w.appt?.startLocal.slice(11, 16);
+  }
+  /** F0 (review C5, M1): the change's own words ask a new professional: an alterity word (asksAnother), a word naming or nearly naming a
+   * professional other than the appointment's own and the action's own one (namesAnother), or, beside a plan that names a new one, a name
+   * nothing proved (looseName). A new professional only the plan holds, over words that name none, is not asked (the appointment's own stays). */
+  function targetAsked(w: Work) {
+    const planned = w.a.novo_profissional ? binding.resolve(w.a.novo_profissional, "p")?.id ?? "?" : undefined;
+    return asksAnother(w) || namesAnother(w) || planned !== undefined && planned !== (moved.get(w) ?? w.appt)?.professionalId && looseName(w);
+  }
+  /** The words of a change's region another role of it proved or that name other rows (its customer's base, its own professional's base, the
+   * anchors and exceptions), and the moved appointment's customer's words: never a new professional's. */
+  function namedElsewhere(w: Work, span: Span, word: string) {
+    const other = [...w.bases.values()].some(item => !!item.span && (["cliente", "profissional"].includes(item.base.campo) || item.base.tipo === "ANCORA" || item.base.tipo === "EXCECAO") &&
+      meets(item.span, span));
+    return other || w.claims.some(claim => meets(claim, span)) || nameTokens((moved.get(w) ?? w.appt)?.customerName ?? "").includes(word) || !!w.customer?.tokens.includes(word);
+  }
+  function namesAnother(w: Work) {
+    const own = new Set([(moved.get(w) ?? w.appt)?.professionalId, w.professional?.id].filter((id): id is string => !!id));
+    const others = professionals.filter(row => !own.has(row.id)).flatMap(row => nameWords(row.name, false));
+    return others.length > 0 && wordList.some(item => { const span: Span = [item.start, item.end];
+      return [...item.word].length >= AGENT_NAME_TOKEN_MIN && !GLUE.has(item.word) && !serviceTokens.has(item.word) && admits(w, span, false) &&
+        !atoms.some(atom => meets([atom.start, atom.end], span)) && !namedElsewhere(w, span, item.word) && !entityQuoteDenied(src.text, span[0], span[1], w.a.operacao) &&
+        others.some(token => tokenSimilarity(item.word, token) >= SUGGESTION_THRESHOLD); });
+  }
+  /** A capitalized word of the change's region (never one opening a sentence, nor in a message with no lowercase letter) that no role took and
+   * that no closed class, no registered professional or service and no customer of the action holds: a name the owner wrote that nothing proved. */
+  function looseName(w: Work) {
+    if (!/\p{Ll}/u.test(src.text)) return false;
+    return wordList.some(item => { const span: Span = [item.start, item.end], word = item.word;
+      return /^\p{Lu}/u.test(src.text.slice(item.start, item.end)) && !opening(item.start) && admits(w, span, false) && !atoms.some(atom => meets([atom.start, atom.end], span)) &&
+        !GLUE.has(word) && !PRONOUNS.has(word) && !FIRST_PERSON.has(word) && !INDEFINITE.has(word) && !APPT_WORDS.has(word) && !temporalWord(word) && !CLOSED_WORDS.has(word) &&
+        !HONORIFICS.has(word) && !directoryTokens.has(word) && !namedElsewhere(w, span, word); });
+  }
+  /** F0: the plan's service delta changes the re-read appointment's services (an unknown appointment or service: it may). */
+  function servicesMoved(list: NonNullable<AgentPlanAction["servicos"]>, row: AgentApptFact | undefined) {
+    if (!row) return true;
+    const id = (ref: string) => binding.resolve(ref, "s")?.id ?? "?", held = new Set(row.serviceIds), set = list.filter(item => item.modo === "LISTA").map(item => id(item.ref));
+    const next = new Set(set.length ? set : held);
+    for (const item of list) if (item.modo === "INCLUIR") next.add(id(item.ref)); else if (item.modo !== "LISTA") next.delete(id(item.ref));
+    return next.size !== held.size || [...next].some(item => !held.has(item));
   }
   /** A7: the open plan's actions no live action of this plan patches (a dropped or held patch leaves its open action as it was). */
   function unpatched() { const patched = new Set(live().flatMap(w => w.open ? [w.open.key] : [])); return openActions.filter(item => !patched.has(item.key)); }

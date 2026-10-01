@@ -440,19 +440,30 @@ export async function prepareAgentScheduling(actor: ServiceActor, c: SchedulingS
   let fields = withNames(outcome);
   const basis: AgentBasis[] = [...outcome.basis], premises: string[] = [], codes: string[] = [];
   let references: SchedulingReferences | undefined;
-  const derived = outcome.derived;
+  const derived = outcome.derived, missing: ("date" | "time")[] = [...outcome.temporalMissing ?? []];
   if (derived) {
     const released = derived.type === "LIBERADO_POR", checked = agentDerivedCheck(derived, key => slot(key, released));
     // A released slot's link is the C4's own (syncReferences follows the move; the executor re-checks the committed agenda): no V23 basis.
     if (checked.status === "OK") { fields = { ...fields, ...checked.fields }; if (!released) basis.push(checked.basis); premises.push(checked.premise); }
-    else { for (const key of ["date", "time", "end_date", "end_time"] as const) delete fields[key]; codes.push(checked.status === "WAIT" ? "AGENT_DERIVED_WAIT" : checked.code); }
+    else {
+      for (const key of ["date", "time", "end_date", "end_time"] as const) delete fields[key];
+      codes.push(checked.status === "WAIT" ? "AGENT_DERIVED_WAIT" : checked.code);
+      // Round 2 (settle): a change's derived day and clock that do not stand are asked like F0's (the draft's temporal_missing): with an
+      // alteration prepare() would otherwise keep the appointment's slot in their place.
+      if (outcome.operation === "appointment.change" && (fields.target_professional_ref || fields.target_professional_name || fields.service_changes?.length))
+        for (const key of ["date", "time"] as const) if (!missing.includes(key)) missing.push(key);
+    }
     // A create in the slot a reschedule of this plan frees: checked with that appointment moved out (the executor re-checks after the move);
     // syncReferences keeps following that move afterwards (the C4's released-origin link).
     if (released && outcome.releasedSlotOf) references = {};
   }
   const card = outcome.card, asked = outcome.status === "ASK";
+  // Round 2 (review C2): a change's new day or clock the owner wrote and no field carries is prepare()'s own temporal question (the draft's
+  // temporal_missing, with its waiting field), so it outlives a card click or any later preparation and the appointment's own value never fills
+  // it; the validator's text for that same question is not said twice.
   const extras: AgentResolvedExtras = { ambiguities: outcome.ambiguities, basis, names: outcome.names, recurrence: outcome.recurrence, ...references ? { references } : {},
-    ...outcome.origin?.expected ? { expected: outcome.origin.expected } : {} };
+    ...outcome.origin?.expected ? { expected: outcome.origin.expected } : {}, ...missing.length ? { missing: [...missing] } : {} };
+  const inherited = outcome.question?.code === "AGENT_ORIGIN_INHERITED" && (missing as string[]).includes(outcome.question.field ?? "");
   if (asked && card?.kind === "appointment_ref") extras.appointmentCard = card.items;
   else if (asked && card && (card.kind === "professional_ref" && !fields.professional_name || card.kind === "target_professional_ref")) {
     const kind = card.kind === "professional_ref" ? "professional_ref" as const : "target_professional_ref" as const;
@@ -460,7 +471,7 @@ export async function prepareAgentScheduling(actor: ServiceActor, c: SchedulingS
   }
   // A card of names the owner wrote (customer, service, professional homonyms) is prepare()'s own (its fields carry the owner's words); an
   // action the validator asks about never gets a proposal meanwhile: its question (or that card's) holds it, prepare()'s own question follows.
-  if (asked && !extras.card) extras.question = outcome.question?.text ?? (card && card.kind !== "appointment_ref" ? CARD_QUESTIONS[card.kind] : undefined);
+  if (asked && !extras.card && !inherited) extras.question = outcome.question?.text ?? (card && card.kind !== "appointment_ref" ? CARD_QUESTIONS[card.kind] : undefined);
   await prepareResolvedScheduling(actor, c, outcome.operation, fields, extras);
   return { premises: [...outcome.premises, ...premises], codes };
 }

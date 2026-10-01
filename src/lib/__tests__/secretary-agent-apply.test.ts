@@ -49,10 +49,10 @@ vi.mock("../scheduling-mutations", async importOriginal => {
       waiting_hash: "", affected: [], priceCents: 9000, kind: operation, professional_ref: "pro-otavio", professional_name: "Otávio Brandt", startLocal: `${f.date}T09:00`,
       endLocal: `${f.date}T10:00`, services: [], requires_acceptance: false, waiting_count: 0, customer_name: customerName(f.customer_ref) }) };
 });
-import { schedulingState, prepareResolvedScheduling, reseedScheduling, applySchedulingInterpretation, type SchedulingState } from "../secretary-scheduling";
+import { schedulingState, prepareResolvedScheduling, reseedScheduling, applySchedulingInterpretation, selectScheduling, type SchedulingState } from "../secretary-scheduling";
 import { AGENT_DEPENDENT_NOTICE, AGENT_NOTE_LABEL, AGENT_PROFESSIONAL_CARD, agentDeferredRead, agentPreparedSlot, agentSkeleton, agentTurnNotice, prepareAgentScheduling } from "../secretary-agent-apply";
 import { actionUnits } from "../secretary-action-plan";
-import type { AgentActionOutcome, AgentValidation } from "../secretary-agent-validator";
+import { AGENT_ORIGIN_QUESTIONS, type AgentActionOutcome, type AgentValidation } from "../secretary-agent-validator";
 import type { SchedulingFields } from "../scheduling-contract";
 import type { AgentPlanOperation } from "../../../packages/salon-secretary/src/agent-plan";
 import { createActionPlan, type SchedulingInterpretation } from "@everflair/salon-secretary";
@@ -234,5 +234,47 @@ describe("what the owner reads (§5.5) and the deferred read", () => {
     expect(c.operation).toBe("appointment.list"); expect(c.message).toBe("Prévia sintética.");
     expect(c.fields).toEqual({ professional_ref: "pro-otavio", professional_name: "Otávio Brandt", date: DAY });
     expect(c.proposal).toBeUndefined();
+  });
+});
+
+describe("Round 2 (review C2): a change's new day the owner wrote is prepare()'s own question, never the appointment's day", () => {
+  const MOVED = { customer_ref: "cli-ilka", source_date: DAY, time: "15:00" } satisfies SchedulingFields;
+  const inherited = (extra: Partial<AgentActionOutcome>) => outcome("muda", "appointment.change", { ...MOVED }, { status: "ASK", codes: ["AGENT_ORIGIN_INHERITED"],
+    question: { code: "AGENT_ORIGIN_INHERITED", field: "date", text: AGENT_ORIGIN_QUESTIONS.date }, temporalMissing: ["date"], ...extra });
+  it("beside a new-professional card: the card comes first, the draft keeps the day missing, and the click asks the day (no proposal on the old day)", async () => {
+    const c = fresh();
+    (db.tx as unknown as { professional: unknown }).professional = { findFirst: vi.fn(async () => ({ user: { name: "Petra Lindqvist" } })) };
+    await prepareAgentScheduling(actor, c, inherited({ card: { kind: "target_professional_ref", items: [{ id: "pro-petra", name: "Petra Lindqvist" }] } }), () => undefined);
+    expect(c.candidates).toEqual({ kind: "target_professional_ref", items: [{ id: "pro-petra", name: "Petra Lindqvist" }] });
+    expect(c.waiting_for).toBe("target_professional_ref"); expect(c.proposal).toBeUndefined();
+    expect(c.fields.date).toBeUndefined(); expect(c.draft?.temporal_missing).toEqual(["date"]);
+    await selectScheduling(actor, c, "pro-petra", { clicked: true });
+    expect(c.fields.target_professional_ref).toBe("pro-petra");
+    expect(c.fields.date).toBeUndefined(); expect(c.waiting_for).toBe("date"); expect(c.proposal).toBeUndefined();
+    expect(c.draft?.temporal_missing).toEqual(["date"]);
+  });
+  it("alone: prepare()'s own temporal question with its waiting field, said once; another validator question still leads (adversarial)", async () => {
+    const c = fresh();
+    await prepareAgentScheduling(actor, c, inherited({}), () => undefined);
+    expect(c.waiting_for).toBe("date"); expect(c.proposal).toBeUndefined(); expect(c.fields.date).toBeUndefined();
+    expect(c.message).not.toContain(AGENT_ORIGIN_QUESTIONS.date); expect(c.draft?.temporal_missing).toEqual(["date"]);
+    const other = fresh();
+    await prepareAgentScheduling(actor, other, inherited({ question: { code: "AGENT_COVERAGE", field: null, text: "Pergunta sintética de cobertura?" } }), () => undefined);
+    expect(other.message?.startsWith("Pergunta sintética de cobertura?")).toBe(true);
+    expect(other.proposal).toBeUndefined(); expect(other.draft?.temporal_missing).toEqual(["date"]);
+  });
+  it("a change's derived day and clock that do not stand, beside an alteration, are asked: never the appointment's slot kept in their place", async () => {
+    db.located = [{ appointment_ref: "apt-validado", customer_ref: "cli-ilka", customer_name: "Ilka Moraes", start_local: `${DAY}T09:00`, professional_name: "Otávio Brandt", professional_ref: "pro-otavio" }];
+    const c = fresh();
+    const done = await prepareAgentScheduling(actor, c, outcome("muda", "appointment.change", { customer_ref: "cli-ilka", source_date: DAY, target_professional_ref: "pro-petra" }, {
+      dependsOn: ["antes"], derived: { type: "SEQUENCIA", keys: ["antes"], inicio: `${OTHER_DAY}T11:00`, fim: null, offset: 0, direction: "AFTER", professional: null } }), () => undefined);
+    expect(done.codes).toEqual(["AGENT_DERIVED_WAIT"]);
+    expect(c.proposal).toBeUndefined(); expect(c.fields.date).toBeUndefined(); expect(c.fields.time).toBeUndefined();
+    expect(c.draft?.temporal_missing).toEqual(["date", "time"]);
+  });
+  it("a change with no day asked keeps the C4's own path (nothing missing is added)", async () => {
+    const c = fresh();
+    await prepareAgentScheduling(actor, c, outcome("muda", "appointment.change", { ...MOVED }, { status: "ASK", question: { code: "AGENT_COVERAGE", field: null, text: "Pergunta sintética?" } }), () => undefined);
+    expect(c.draft?.temporal_missing).toBeUndefined(); expect(c.message?.startsWith("Pergunta sintética?")).toBe(true);
   });
 });

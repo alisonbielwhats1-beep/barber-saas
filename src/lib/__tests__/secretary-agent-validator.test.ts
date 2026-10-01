@@ -5,7 +5,7 @@ import { nameHasTokens, nameTokenQuery } from "../secretary-name-tokens";
 import { withoutArticle } from "../name-search";
 import { clauseBounds, temporalAtomSpans } from "../scheduling-temporal-source";
 import { UNSPECIFIED_DAYPART_ASKED_HOURS, verifyClockComponent } from "../scheduling-temporal-reference";
-import { AGENT_ENTITY_DENIED_OPEN, AGENT_NOTHING_CHANGED, AGENT_QUESTIONS, AGENT_REGISTERED_CRITERIA, AGENT_SERVICE_CHANGE_QUESTION, agentActionsLeftText, agentBasisStillHolds, agentDerivedCheck, agentGroupBasisPrecheck, agentUncoveredText,
+import { AGENT_ENTITY_DENIED_OPEN, AGENT_NOTHING_CHANGED, AGENT_ORIGIN_QUESTIONS, AGENT_QUESTIONS, AGENT_REGISTERED_CRITERIA, AGENT_SERVICE_CHANGE_QUESTION, agentActionsLeftText, agentBasisStillHolds, agentDerivedCheck, agentGroupBasisPrecheck, agentUncoveredText,
   agentPersonPremise, agentUnpickedPremise, validateAgentPlan, type AgentActionOutcome, type AgentApptFact, type AgentBasis, type AgentDerived, type AgentFactReader, type AgentOpenAction, type AgentOpenPlan,
   type AgentValidatorCriteria } from "../secretary-agent-validator";
 
@@ -1479,5 +1479,301 @@ describe("Owner decision 14 for people (S2 specificity recalibrated): a capital,
   });
   it("an honorific beside the name names nobody else (closed class): the one holder stands with nothing assumed", async () => {
     expect(await said("Reserva a Dona Quitéria sexta às 15h com o Otoniel, escova")).toMatchObject({ status: "READY", codes: [], premises: [], fields: { customer_ref: "cu-qui" } });
+  });
+});
+
+describe("Round 2 after S2b: a change never inherits a value the plan moved (F0); an anchor on the moved appointment is the owner's own words (F1); the one free performer is proposed (F2); a base naming nobody of its role takes no word (F3)", () => {
+  const change = (over: Partial<Action>) => act({ operacao: "appointment.change", atendimento: "a3", cliente: "c4", ...over });
+  const NEXT_SATURDAY = "2026-10-17", THURSDAY = "2026-10-08";
+  const DALVA = base("atendimento", "DITO", "a Dalva de quinta");
+  it("F0: a move to another day whose day the owner's words do not prove asks that day; the appointment's Thursday is never kept beside the new clock", async () => {
+    const clause = "Leva a Dalva de quinta pro sábado às 11h";
+    const one = await only(`${clause}.`, plan([change({ citacao_acao: clause, inicio: `${NEXT_SATURDAY}T11:00`, bases: [DALVA, base("inicio", "DITO", "sábado às 11h")] })]));
+    expect(one).toMatchObject({ status: "ASK", question: { code: "AGENT_ORIGIN_INHERITED", field: "date", text: AGENT_ORIGIN_QUESTIONS.date }, fields: { customer_ref: "cu-dal", time: "11:00" },
+      temporalMissing: ["date"] });
+    expect(one.codes).toEqual(expect.arrayContaining(["AGENT_TEMPORAL_READING", "AGENT_ORIGIN_INHERITED"]));
+    expect(one.fields).not.toHaveProperty("date");
+  });
+  it("F0: a cleared day that is the appointment's own stays empty (nothing changes there): the new clock keeps the appointment's day", async () => {
+    const clause = "Passa a Dalva de quinta pras 18h";
+    const one = await only(`${clause}.`, plan([change({ citacao_acao: clause, inicio: `${THURSDAY}T18:00`, bases: [DALVA, base("inicio", "DITO", "pras 18h")] })]));
+    expect(one).toMatchObject({ status: "READY", fields: { customer_ref: "cu-dal", source_date: THURSDAY, time: "18:00" } });
+    expect(one.codes).not.toContain("AGENT_ORIGIN_INHERITED");
+    expect(one.fields).not.toHaveProperty("date");
+  });
+  it("F0: an alteration whose new day and clock both fail would keep its slot in prepare(): the day is asked instead", async () => {
+    const clause = "Passa a Dalva de quinta pro sábado às 11h com a Zenaide";
+    const one = await only(`${clause}.`, plan([change({ citacao_acao: clause, inicio: `${NEXT_SATURDAY}T11:30`, novo_profissional: "p2",
+      bases: [DALVA, base("inicio", "DITO", "sábado às 11h"), base("novo_profissional", "DITO", "Zenaide")] })]));
+    expect(one).toMatchObject({ status: "ASK", question: { code: "AGENT_ORIGIN_INHERITED", field: "date" }, fields: { target_professional_ref: "pro-zen" } });
+    expect(one.fields).not.toHaveProperty("date");
+    expect(one.fields).not.toHaveProperty("time");
+  });
+  it("F0: a new professional or a service change the owner's words do not prove is asked; the appointment's own professional or services are not", async () => {
+    const owner = "Passa a Dalva de quinta pra Zê.";
+    const pro = (ref: string) => change({ citacao_acao: "Passa a Dalva de quinta pra Zê", novo_profissional: ref, bases: [DALVA, base("novo_profissional", "DITO", "com a Zenaide")] });
+    const other = await only(owner, plan([pro("p2")]));
+    expect(other).toMatchObject({ status: "ASK", question: { code: "AGENT_ORIGIN_INHERITED", field: "target_professional_ref", text: AGENT_ORIGIN_QUESTIONS.target_professional_ref } });
+    expect(other.fields).not.toHaveProperty("target_professional_ref");
+    expect((await only(owner, plan([pro("p1")]))).codes).not.toContain("AGENT_ORIGIN_INHERITED");
+    const more = "Põe mais um serviço na Dalva de quinta";
+    const svc = (servicos: Action["servicos"]) => change({ citacao_acao: more, servicos, bases: [base("atendimento", "DITO", "na Dalva de quinta"), base("servicos", "DITO", "hidratação")] });
+    const added = await only(`${more}.`, plan([svc([{ ref: "s2", modo: "INCLUIR" }])]));
+    expect(added).toMatchObject({ status: "ASK", question: { code: "AGENT_ORIGIN_INHERITED", field: "service_changes", text: AGENT_SERVICE_CHANGE_QUESTION } });
+    expect(added.fields).not.toHaveProperty("service_changes");
+    expect((await only(`${more}.`, plan([svc([{ ref: "s1", modo: "LISTA" }])]))).codes).not.toContain("AGENT_ORIGIN_INHERITED");
+  });
+  it("F0 adversarial: a patch of an open move proposing a day its words do not prove asks it, never keeping the appointment's day", async () => {
+    const opened: AgentOpenAction = { key: "k1", operation: "appointment.change", status: "OPEN", fields: { customer_ref: "cu-dal", source_date: THURSDAY, time: "18:00" },
+      names: { "cu-dal": "Dalva Nunes" }, appointment: "ap-dal2", customer: "cu-dal", basis: [] };
+    const one = await only("Melhor no sábado às 18h.", plan([act({ chave: "k1", operacao: "appointment.change", citacao_acao: "Melhor no sábado às 18h", inicio: `${NEXT_SATURDAY}T18:00`,
+      bases: [base("inicio", "DITO", "sábado às 18h")] })]), { open: { actions: [opened] } });
+    expect(one).toMatchObject({ status: "ASK", patch: true, question: { code: "AGENT_ORIGIN_INHERITED", field: "date" }, fields: { customer_ref: "cu-dal", time: "18:00" } });
+    expect(one.fields).not.toHaveProperty("date");
+  });
+  it("F1: an anchor the model put on the appointment the change moves is a keep of its clock, proven as MANTIDO (also when its quote holds the new day)", async () => {
+    const clause = "Passa a Dalva de quinta pra sexta, mesmo horário";
+    const one = await only(`${clause}.`, plan([change({ citacao_acao: clause, inicio: `${FRIDAY}T16:00`, bases: [DALVA, base("inicio", "ANCORA", "mesmo horário", "a3")] })]));
+    expect(one).toMatchObject({ status: "READY", fields: { date: FRIDAY, time: "16:00" }, basis: [{ type: "MANTIDO", appointment: "ap-dal2", time: "16:00" }], premises: ["Mantive o horário atual (16h)."] });
+    expect(one.codes).not.toContain("AGENT_ANCHOR_ROLE");
+    const pieces = "Joga a Dalva de quinta pra sexta, conservando o horário";
+    const kept = await only(`${pieces}.`, plan([change({ citacao_acao: pieces, inicio: `${FRIDAY}T16:00`, bases: [DALVA, base("inicio", "ANCORA", "pra sexta, conservando o horário", "a3")] })]));
+    expect(kept).toMatchObject({ status: "READY", fields: { date: FRIDAY, time: "16:00" }, basis: [{ type: "MANTIDO" }] });
+  });
+  it("F1: an anchor on the moved appointment that states a clock is the owner's clock; with neither a keep nor a clock it anchors nothing and the clock is asked (GF14)", async () => {
+    const clause = "Passa a Dalva de quinta pras 18h";
+    const said = await only(`${clause}.`, plan([change({ citacao_acao: clause, inicio: `${THURSDAY}T18:00`, bases: [DALVA, base("inicio", "ANCORA", "pras 18h", "a3")] })]));
+    expect(said).toMatchObject({ status: "READY", fields: { customer_ref: "cu-dal", time: "18:00" } });
+    expect(said.codes).not.toContain("AGENT_ANCHOR_ROLE");
+    const other = "Passa a Dalva de quinta pra sexta";
+    const none = await only(`${other}.`, plan([change({ citacao_acao: other, inicio: `${FRIDAY}T14:30`, bases: [DALVA, base("inicio", "ANCORA", "pra sexta", "a3")] })]));
+    expect(none).toMatchObject({ fields: { customer_ref: "cu-dal", date: FRIDAY }, basis: [] });
+    expect(none.codes).toContain("AGENT_KEEP_UNPROVEN");
+    expect(none.fields).not.toHaveProperty("time");
+    // Settle (review M2): an anchor whose words name another customer is no anchor on the moved appointment, whatever its ref: it anchors
+    // nothing there either (V12), and the clock is asked the same way.
+    const named = "Passa a Dalva de quinta pra sexta após a Quitéria";
+    const foreign = await only(`${named}.`, plan([change({ citacao_acao: named, inicio: `${FRIDAY}T14:30`, bases: [DALVA, base("inicio", "ANCORA", "após a Quitéria", "a3")] })]));
+    expect(foreign).toMatchObject({ fields: { customer_ref: "cu-dal", date: FRIDAY }, basis: [] });
+    expect(foreign.codes).toContain("AGENT_ANCHOR_ROLE");
+    expect(foreign.fields).not.toHaveProperty("time");
+  });
+  it("F1: an anchor on another appointment of the day is unchanged (V12): right after that row, said by the backend", async () => {
+    const w = world();
+    w.appts.push({ id: "ap-qui", customerId: "cu-qui", professionalId: "pro-oto", serviceIds: ["sv-sob"], start: `${FRIDAY}T14:00`, end: `${FRIDAY}T14:20`, status: "CONFIRMED" });
+    const clause = "Passa a Dalva do Otoniel de quinta pra sexta após a Quitéria";
+    const one = await only(`${clause}.`, plan([change({ citacao_acao: clause, profissional: "p1", inicio: `${FRIDAY}T14:20`,
+      bases: [base("atendimento", "DITO", "a Dalva do Otoniel de quinta"), base("profissional", "DITO", "Otoniel"), base("inicio", "ANCORA", "após a Quitéria", "a4")] })]), { w });
+    expect(one).toMatchObject({ status: "READY", fields: { date: FRIDAY, time: "14:20" }, basis: [{ type: "ANCORA", anchor: { kind: "a", id: "ap-qui" } }] });
+    expect(one.premises[0]).toMatch(/^14h20: logo depois de Quitéria Prates \(14h–14h20\)\.$/);
+  });
+  const manicure = (clause: string, chosen: string | null = null) => booking({ citacao_acao: clause, profissional: chosen, servicos: [{ ref: "s4", modo: "LISTA" }],
+    bases: [base("inicio", "DITO", "sexta às 15h"), base("profissional", "DELEGADO", "Reserva a Quitéria")] });
+  it("F2: a delegation without its marker and exactly one performer free then: that one is proposed with the backend's premise (decision 14), re-checked at the Confirmar", async () => {
+    const clause = "Reserva a Quitéria sexta às 15h pra manicure";
+    const one = await only(`${clause}.`, plan([manicure(clause)]));
+    expect(one).toMatchObject({ status: "READY", fields: { professional_ref: "pro-zen" }, basis: [{ type: "DELEGADO", chosen: "pro-zen", set: ["pro-zen"], sole: true }],
+      premises: ["Zenaide Couto: é quem faz Manicure e está livre às 15h."] });
+    expect(one.codes).toEqual(expect.arrayContaining(["AGENT_DELEGATION_UNMARKED", "AGENT_PROFESSIONAL_DERIVED"]));
+  });
+  it("F2: two or more performers free then stay the card; a model's own pick other than the one free performer is the card too", async () => {
+    const clause = "Reserva a Quitéria sexta às 15h pra escova";
+    const two = await only(`${clause}.`, plan([booking({ citacao_acao: clause, profissional: null, bases: [base("inicio", "DITO", "sexta às 15h"), base("profissional", "DELEGADO", "Reserva a Quitéria")] })]));
+    expect(two).toMatchObject({ status: "ASK", codes: ["AGENT_DELEGATION_UNMARKED"], card: { kind: "professional_ref", items: [{ id: "pro-oto" }, { id: "pro-zen" }, { id: "pro-hei" }] } });
+    const mine = "Reserva a Quitéria sexta às 15h pra manicure";
+    const other = await only(`${mine}.`, plan([manicure(mine, "p1")]));
+    expect(other).toMatchObject({ status: "ASK", card: { kind: "professional_ref", items: [{ id: "pro-zen" }] } });
+    expect(other.fields).not.toHaveProperty("professional_ref");
+    expect(other.codes).not.toContain("AGENT_PROFESSIONAL_DERIVED");
+  });
+  it("F2 adversarial: never on a cancellation or a block, and never past a near-name of another professional the owner wrote", async () => {
+    const cancel = await only("Cancela a Dalva de quinta.", plan([change({ operacao: "appointment.cancel", citacao_acao: "Cancela a Dalva de quinta",
+      bases: [DALVA, base("profissional", "DELEGADO", "Cancela a Dalva")] })]));
+    expect(cancel.codes).not.toContain("AGENT_PROFESSIONAL_DERIVED");
+    expect(cancel.fields).not.toHaveProperty("professional_ref");
+    const lock = "Tranca a agenda sexta das 14h às 16h";
+    const block = await only(`${lock}.`, plan([act({ operacao: "schedule.block", citacao_acao: lock, inicio: `${FRIDAY}T14:00`, fim: `${FRIDAY}T16:00`,
+      bases: [base("inicio", "DITO", "sexta das 14h às 16h"), base("fim", "DITO", "sexta das 14h às 16h"), base("profissional", "DELEGADO", "a agenda")] })]));
+    expect(block.codes).not.toContain("AGENT_PROFESSIONAL_DERIVED");
+    expect(block.fields).not.toHaveProperty("professional_ref");
+    const near = "Reserva a Quitéria sexta às 15h pra manicure com o Otonel";
+    const named = await only(`${near}.`, plan([manicure(near)]));
+    expect(named).toMatchObject({ status: "ASK", card: { kind: "professional_ref", items: [{ id: "pro-zen" }] } });
+    expect(named.codes).not.toContain("AGENT_PROFESSIONAL_DERIVED");
+  });
+  it("F3: a professional's base naming nobody of that role (the customer's words; an anchor on the moved appointment) never takes the customer's words", async () => {
+    const clause = "Passa a Dalva de quinta pra sexta às 15h";
+    const moved = (bases: Action["bases"], profissional: string | null) => only(`${clause}.`, plan([change({ citacao_acao: clause, profissional, inicio: `${FRIDAY}T15:00`,
+      bases: [DALVA, base("cliente", "DITO", "Dalva"), ...bases, base("inicio", "DITO", "sexta às 15h")] })]));
+    const dito = await moved([base("profissional", "DITO", "a Dalva de quinta")], "p1");
+    expect(dito).toMatchObject({ status: "READY", fields: { customer_ref: "cu-dal", date: FRIDAY, time: "15:00" }, origin: { expected: "ap-dal2", located: ["ap-dal2"] } });
+    expect(dito.fields).not.toHaveProperty("professional_ref");
+    const anchored = await moved([base("profissional", "ANCORA", "a Dalva", "a3")], null);
+    expect(anchored).toMatchObject({ status: "READY", fields: { customer_ref: "cu-dal", date: FRIDAY, time: "15:00" } });
+  });
+  it("F3 adversarial: one span still proves one role when the base names its own row (a professional's own name), and an anchor on another row keeps its customer's words", async () => {
+    const w = world();
+    w.custs.push({ id: "cu-hli", name: "Heitor Lima" });
+    const clause = "Reserva o Heitor sexta às 15h, escova";
+    const one = await only(`${clause}.`, plan([booking({ citacao_acao: clause, cliente: "c5", profissional: "p3", bases: [base("profissional", "DITO", "o Heitor"), base("inicio", "DITO", "sexta às 15h")] })]), { w });
+    expect(one.fields).toMatchObject({ professional_ref: "pro-hei" });
+    expect(one.fields).not.toHaveProperty("customer_ref");
+    const other = "Passa a Dalva de quinta pra sexta após a Iolanda Serafim";
+    const anchored = await only(`${other}.`, plan([change({ citacao_acao: other, cliente: "c3", inicio: `${FRIDAY}T10:40`,
+      bases: [DALVA, base("inicio", "ANCORA", "após a Iolanda Serafim", "a1")] })]));
+    expect(anchored.fields).not.toHaveProperty("customer_ref");
+  });
+  it("F1 (A1): a change's new day and clock never come from the atoms that found the appointment; the others in the same quote are read", async () => {
+    const clause = "Passa a Dalva de quinta pro sábado às 11h";
+    const one = await only(`${clause}.`, plan([change({ citacao_acao: clause, inicio: "2026-10-10T11:00", bases: [DALVA, base("inicio", "ANCORA", "de quinta pro sábado às 11h", "a3")] })]));
+    expect(one).toMatchObject({ status: "READY", fields: { customer_ref: "cu-dal", source_date: THURSDAY, date: "2026-10-10", time: "11:00" } });
+    expect(one.codes).toContain("AGENT_QUOTE_REUSED");
+    // adversarial: a keep quote holding only the appointment's own day gives no new day (a service swap keeps its slot, nothing is asked)
+    const swap = "Põe hidratação no lugar da escova da Dalva de quinta";
+    const kept = await only(`${swap}.`, plan([change({ citacao_acao: swap, inicio: `${THURSDAY}T16:00`, servicos: [{ ref: "s2", modo: "LISTA" }],
+      bases: [base("atendimento", "DITO", "da Dalva de quinta"), base("servicos", "DITO", "hidratação"), base("inicio", "MANTIDO", "da Dalva de quinta")] })]));
+    expect(kept).toMatchObject({ status: "READY", fields: { customer_ref: "cu-dal", service_changes: [{ mode: "SET", service_name: "Hidratação" }] } });
+    expect(kept.fields).not.toHaveProperty("date");
+    expect(kept.fields).not.toHaveProperty("time");
+    expect(kept.codes).not.toContain("AGENT_ORIGIN_INHERITED");
+  });
+  it("F1: a new clock with no new day lands on the appointment's day: its half-day is read in that day's hours (decision 18) and said", async () => {
+    const clause = "Empurra a Dalva de quinta pras 5h";
+    const one = await only(`${clause}.`, plan([change({ citacao_acao: clause, inicio: `${THURSDAY}T17:00`, bases: [DALVA, base("inicio", "ANCORA", "pras 5h", "a3")] })]));
+    expect(one).toMatchObject({ status: "READY", fields: { time: "17:00" }, premises: ["Considerei 17h: é a única leitura desse horário dentro do expediente."] });
+    expect(one.fields).not.toHaveProperty("date");
+    // Settle (review M1): a day the plan put over words that state none is not asked: the appointment's own day is what the owner said, and
+    // the clock is read in that day's hours.
+    const invented = await only(`${clause}.`, plan([change({ citacao_acao: clause, inicio: `${FRIDAY}T17:00`, bases: [DALVA, base("inicio", "DITO", "pras 5h")] })]));
+    expect(invented).toMatchObject({ status: "READY", fields: { time: "17:00" }, premises: ["Considerei 17h: é a única leitura desse horário dentro do expediente."] });
+    expect(invented.fields).not.toHaveProperty("date");
+    expect(invented.codes).not.toContain("AGENT_ORIGIN_INHERITED");
+    // adversarial (review C1): the owner wrote another day: its hours are never read from the appointment's day; the half-day and the day are asked
+    const moved = "Empurra a Dalva de quinta pra sexta às 5h";
+    const other = await only(`${moved}.`, plan([change({ citacao_acao: moved, inicio: `${THURSDAY}T17:00`, bases: [DALVA, base("inicio", "DITO", "sexta às 5h")] })]));
+    expect(other).toMatchObject({ status: "ASK", ambiguities: [{ field: "time", candidates: ["05:00", "17:00"] }], question: { code: "AGENT_ORIGIN_INHERITED", field: "date" },
+      temporalMissing: ["date"], premises: [] });
+    expect(other.fields).not.toHaveProperty("time");
+    expect(other.fields).not.toHaveProperty("date");
+  });
+});
+
+describe("Round 2 settle (review of round 2): the owner's words decide what a change keeps; nobody is picked at an unproven start or over the plan's own bookings", () => {
+  const change = (over: Partial<Action>) => act({ operacao: "appointment.change", atendimento: "a3", cliente: "c4", ...over });
+  const THURSDAY = "2026-10-08", SATURDAY = "2026-10-10";
+  const DALVA = base("atendimento", "DITO", "a Dalva de quinta");
+  it("C1: the owner wrote another day and the plan kept the appointment's: the day is asked and stays missing for prepare(), never Thursday", async () => {
+    const clause = "Passa a Dalva de quinta pra sexta às 15h";
+    for (const start of [base("inicio", "DITO", "sexta às 15h"), base("inicio", "DITO", "às 15h"), base("inicio", "ANCORA", "pra sexta às 15h", "a3")]) {
+      const one = await only(`${clause}.`, plan([change({ citacao_acao: clause, inicio: `${THURSDAY}T15:00`, bases: [DALVA, start] })]));
+      expect(one).toMatchObject({ status: "ASK", question: { code: "AGENT_ORIGIN_INHERITED", field: "date", text: AGENT_ORIGIN_QUESTIONS.date }, temporalMissing: ["date"],
+        fields: { customer_ref: "cu-dal", time: "15:00" } });
+      expect(one.fields).not.toHaveProperty("date");
+    }
+    // adversarial: the same day proven by the owner's words stands, nothing is asked or missing
+    const kept = await only(`${clause}.`, plan([change({ citacao_acao: clause, inicio: `${FRIDAY}T15:00`, bases: [DALVA, base("inicio", "DITO", "sexta às 15h")] })]));
+    expect(kept).toMatchObject({ status: "READY", fields: { date: FRIDAY, time: "15:00" } });
+    expect(kept).not.toHaveProperty("temporalMissing");
+  });
+  it("C2/C3: a new professional asked while the new day is asked: the card of who performs the services, never derived, and the day stays missing", async () => {
+    const clause = "Passa a Dalva de quinta pra sexta às 15h com outra pessoa";
+    const one = await only(`${clause}.`, plan([change({ citacao_acao: clause, inicio: `${SATURDAY}T15:00`,
+      bases: [DALVA, base("inicio", "DITO", "sexta às 15h"), base("novo_profissional", "NAO_DITO", "outra pessoa")] })]));
+    expect(one).toMatchObject({ status: "ASK", card: { kind: "target_professional_ref", items: [{ id: "pro-zen" }, { id: "pro-hei" }] }, temporalMissing: ["date"], basis: [] });
+    expect(one.codes).not.toContain("AGENT_PROFESSIONAL_DERIVED");
+    expect(one.fields).not.toHaveProperty("target_professional_ref");
+  });
+  it("C3: a same-day move reads who is free at the NEW clock of the appointment's day, never at its old slot", async () => {
+    const clause = "Passa a Dalva de quinta pras 10h com outra pessoa";
+    const busy = world();
+    busy.appts.push({ id: "ap-hei", customerId: "cu-qui", professionalId: "pro-hei", serviceIds: ["sv-esc"], start: `${THURSDAY}T16:00`, end: `${THURSDAY}T16:40`, status: "CONFIRMED" });
+    for (const tipo of ["NAO_DITO", "DELEGADO"] as const) {
+      const two = await only(`${clause}.`, plan([change({ citacao_acao: clause, inicio: `${THURSDAY}T10:00`, bases: [DALVA, base("inicio", "DITO", "pras 10h"), base("novo_profissional", tipo, "outra pessoa")] })]), { w: busy });
+      expect(two).toMatchObject({ status: "ASK", card: { kind: "target_professional_ref", items: [{ id: "pro-zen" }, { id: "pro-hei" }] } });
+      expect(two.codes).not.toContain("AGENT_PROFESSIONAL_DERIVED");
+    }
+    // adversarial: one free at the new clock is derived there, said with that clock and re-checked there
+    const taken = world();
+    taken.appts.push({ id: "ap-zen", customerId: "cu-qui", professionalId: "pro-zen", serviceIds: ["sv-esc"], start: `${THURSDAY}T10:00`, end: `${THURSDAY}T10:40`, status: "CONFIRMED" });
+    const one = await only(`${clause}.`, plan([change({ citacao_acao: clause, inicio: `${THURSDAY}T10:00`, bases: [DALVA, base("inicio", "DITO", "pras 10h"), base("novo_profissional", "NAO_DITO", "outra pessoa")] })]), { w: taken });
+    expect(one).toMatchObject({ status: "READY", fields: { time: "10:00", target_professional_ref: "pro-hei" }, basis: [{ type: "DELEGADO", chosen: "pro-hei", start: `${THURSDAY}T10:00`, sole: true }],
+      premises: ["Heitor Mansur: é quem faz Escova e está livre às 10h."] });
+  });
+  it("C4: a duration is no clock of the day: the half-day stays asked and nothing is assumed", async () => {
+    const clause = "Atrasa a Dalva de quinta em 1h";
+    for (const tipo of ["DITO", "ANCORA"] as const) {
+      const one = await only(`${clause}.`, plan([change({ citacao_acao: clause, inicio: `${THURSDAY}T13:00`, bases: [DALVA, base("inicio", tipo, "em 1h", tipo === "ANCORA" ? "a3" : null)] })]));
+      expect(one).toMatchObject({ status: "ASK", ambiguities: [{ field: "time", candidates: ["01:00", "13:00"] }], premises: [] });
+      expect(one.codes).not.toContain("AGENT_DAYPART_ONE");
+    }
+    // adversarial: an hour a time preposition leads is a clock of the day, read in the appointment's day hours as before (decision 18)
+    vi.stubEnv("SALON_SECRETARY_DAYPART_ASK_WIDE", "true");
+    const clock = "Passa a Dalva de quinta para 11h";
+    const one = await only(`${clock}.`, plan([change({ citacao_acao: clock, inicio: `${THURSDAY}T11:00`, bases: [DALVA, base("inicio", "DITO", "para 11h")] })]));
+    expect(one).toMatchObject({ status: "READY", fields: { time: "11:00" }, premises: ["Considerei 11h: é a única leitura desse horário dentro do expediente."] });
+  });
+  it("C5: a new professional the owner named or asked for, left out by the plan, is asked; the appointment's own professional is not another one", async () => {
+    for (const clause of ["Passa a Dalva de quinta pra sexta às 15h com o Heitor", "Passa a Dalva de quinta pra sexta às 15h com outra profissional"]) {
+      const one = await only(`${clause}.`, plan([change({ citacao_acao: clause, inicio: `${FRIDAY}T15:00`, bases: [DALVA, base("inicio", "DITO", "sexta às 15h")] })]));
+      expect(one).toMatchObject({ status: "ASK", question: { code: "AGENT_ORIGIN_INHERITED", field: "target_professional_ref", text: AGENT_ORIGIN_QUESTIONS.target_professional_ref } });
+      expect(one).not.toHaveProperty("temporalMissing");
+    }
+    const own = "Passa a Dalva do Otoniel de quinta pra sexta às 15h";
+    const kept = await only(`${own}.`, plan([change({ citacao_acao: own, inicio: `${FRIDAY}T15:00`, bases: [base("atendimento", "DITO", "a Dalva do Otoniel de quinta"), base("inicio", "DITO", "sexta às 15h")] })]));
+    expect(kept).toMatchObject({ status: "READY", fields: { date: FRIDAY, time: "15:00" } });
+    expect(kept.codes).not.toContain("AGENT_ORIGIN_INHERITED");
+  });
+  it("M1: a new professional only the plan holds, over words that name nobody, is not asked (the appointment's own stays)", async () => {
+    const clause = "Passa a Dalva de quinta pras 18h";
+    const one = await only(`${clause}.`, plan([change({ citacao_acao: clause, inicio: `${THURSDAY}T18:00`, novo_profissional: "p2", bases: [DALVA, base("inicio", "DITO", "pras 18h")] })]));
+    expect(one).toMatchObject({ status: "READY", fields: { time: "18:00" } });
+    expect(one.fields).not.toHaveProperty("target_professional_ref");
+    expect(one.codes).not.toContain("AGENT_ORIGIN_INHERITED");
+  });
+  it("M2: an anchor on the moved appointment whose words name another customer never proves the plan's customer", async () => {
+    const clause = "Passa a Dalva de quinta pra sexta depois da Iolanda Serafim";
+    const one = await only(`${clause}.`, plan([change({ citacao_acao: clause, cliente: "c3", inicio: `${FRIDAY}T10:40`, bases: [DALVA, base("inicio", "ANCORA", "depois da Iolanda Serafim", "a3")] })]));
+    expect(one.fields).not.toHaveProperty("customer_ref");
+    expect(one.fields).not.toHaveProperty("time");
+    expect(one.codes).toContain("AGENT_ANCHOR_ROLE");
+  });
+  it("M3: a professional's base nearly naming a registered professional keeps its words: they never become the customer", async () => {
+    const w = world();
+    w.custs.push({ id: "cu-hli", name: "Heitor Lima" });
+    const clause = "Reserva a Quitéria sexta às 15h com o Heitor, escova";
+    const one = await only(`${clause}.`, plan([booking({ citacao_acao: clause, cliente: "c5", profissional: "p1", bases: [base("profissional", "DITO", "o Heitor"), base("inicio", "DITO", "sexta às 15h")] })]), { w });
+    expect(one.fields).not.toHaveProperty("customer_ref");
+    expect(one.fields.customer_name).not.toBe("Heitor");
+    expect(one.fields).toMatchObject({ professional_name: "Heitor" });
+  });
+  it("M4: the one performer free then is not derived for a second booking the plan already gives that time: nobody is free", async () => {
+    const first = "Reserva a Quitéria sexta às 15h pra manicure", second = "e a Iolanda Vasques sexta às 15h pra manicure";
+    const both = await outcomes(`${first} ${second}.`, plan([act({ chave: "k1", citacao_acao: first, cliente: "c1", servicos: [{ ref: "s4", modo: "LISTA" }], inicio: `${FRIDAY}T15:00`,
+      bases: [base("inicio", "DITO", "sexta às 15h"), base("profissional", "NAO_DITO", "Reserva a Quitéria")] }),
+      act({ chave: "k2", citacao_acao: second, cliente: "c2", servicos: [{ ref: "s4", modo: "LISTA" }], inicio: `${FRIDAY}T15:00`,
+        bases: [base("inicio", "DITO", "sexta às 15h"), base("profissional", "NAO_DITO", "a Iolanda Vasques")] })]));
+    expect(both[0]).toMatchObject({ status: "READY", fields: { professional_ref: "pro-zen" } });
+    expect(both[1]).toMatchObject({ status: "ASK", question: { code: "AGENT_DELEGATION_NONE" } });
+    expect(both[1].fields).not.toHaveProperty("professional_ref");
+  });
+  it("the one free performer is never derived past a name the owner wrote that nothing proved (an unregistered professional): the card stays", async () => {
+    const clause = "Reserva a Quitéria sexta às 15h pra manicure com a Bernadete";
+    for (const tipo of ["DELEGADO", "NAO_DITO"] as const) {
+      const one = await only(`${clause}.`, plan([booking({ citacao_acao: clause, profissional: null, servicos: [{ ref: "s4", modo: "LISTA" }],
+        bases: [base("inicio", "DITO", "sexta às 15h"), base("profissional", tipo, "Reserva a Quitéria")] })]));
+      expect(one).toMatchObject({ status: "ASK", card: { kind: "professional_ref", items: [{ id: "pro-zen" }] } });
+      expect(one.codes).not.toContain("AGENT_PROFESSIONAL_DERIVED");
+    }
+    // adversarial: the customer's own capitalized name blocks nothing
+    const plain = "Reserva a Quitéria sexta às 15h pra manicure";
+    const one = await only(`${plain}.`, plan([booking({ citacao_acao: plain, profissional: null, servicos: [{ ref: "s4", modo: "LISTA" }],
+      bases: [base("inicio", "DITO", "sexta às 15h"), base("profissional", "NAO_DITO", "Reserva a Quitéria")] })]));
+    expect(one).toMatchObject({ status: "READY", fields: { customer_ref: "cu-qui", professional_ref: "pro-zen" } });
+  });
+  it("a keep quote holding the clock that found the appointment still proves the keep (only a new clock refuses it)", async () => {
+    const clause = "Passa a Dalva das 16h de quinta pra sexta, mesmo horário";
+    const one = await only(`${clause}.`, plan([change({ citacao_acao: clause, inicio: `${FRIDAY}T16:00`,
+      bases: [base("atendimento", "DITO", "a Dalva das 16h de quinta"), base("inicio", "MANTIDO", "das 16h de quinta pra sexta, mesmo horário")] })]));
+    expect(one).toMatchObject({ status: "READY", fields: { date: FRIDAY, time: "16:00" }, basis: [{ type: "MANTIDO" }] });
   });
 });

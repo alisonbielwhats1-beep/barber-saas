@@ -1118,10 +1118,11 @@ export async function reseedScheduling(actor:ServiceActor,c:SchedulingState,fiel
  * display names, a stated recurrence (its "só a primeira?" card), the card of real appointments of the V7-A locate (references.card, rechecked
  * on click), `expected` (the appointment the validator accepted: prepare()'s own pick must be it, else nothing is proposed), and, when the
  * validator asks, its card of backend rows (a professional/new-professional choice, rechecked on click) or its question: then the draft is
- * written but nothing is proposed, and prepare()'s own question follows the validator's. */
+ * written but nothing is proposed, and prepare()'s own question follows the validator's. `missing` (round 2, F0): a change's new day or clock
+ * the owner wrote that no field carries, asked as a rejected temporal role (the draft's temporal_missing), never the appointment's own. */
 export type AgentResolvedExtras={ambiguities?:readonly PendingTemporalAmbiguity[];basis?:readonly AgentBasis[];names?:Readonly<Record<string,string>>;recurrence?:string|null;
   appointmentCard?:readonly {id:string;name:string}[];references?:SchedulingReferences;expected?:string;
-  card?:{kind:"professional_ref"|"target_professional_ref";items:readonly {id:string;name:string}[];question:string};question?:string};
+  card?:{kind:"professional_ref"|"target_professional_ref";items:readonly {id:string;name:string}[];question:string};question?:string;missing?:readonly ("date"|"time")[]};
 export async function prepareResolvedScheduling(actor:ServiceActor,c:SchedulingState,operation:NonNullable<SchedulingState["operation"]>,fields:SchedulingFields,extras:AgentResolvedExtras={}){
   if(c.operation&&c.operation!==operation)throw Error("OPERATION_MISMATCH");
   c.proposal=undefined;
@@ -1139,7 +1140,8 @@ export async function prepareResolvedScheduling(actor:ServiceActor,c:SchedulingS
   if(extras.references||extras.appointmentCard?.length)next.references=references;
   const hold=!!(extras.card||extras.question);
   if(hold)next.proposal_deferred=true;
-  try{await prepare(actor,next);}catch(error){delete next.proposal_deferred;publishCommittedSchedulingDraft(c,next);throw error;}
+  const missing=(extras.missing??[]).map(field=>({code:"SOURCE_TEMPORAL_CONFLICT" as const,field,value:"MISSING"}));
+  try{await prepare(actor,next,missing);}catch(error){delete next.proposal_deferred;publishCommittedSchedulingDraft(c,next);throw error;}
   delete next.proposal_deferred;
   // V7-A: the C4 locate picked another appointment than the one validated (the agenda changed in between): nothing is proposed.
   if(extras.expected&&next.fields.appointment_ref&&next.fields.appointment_ref!==extras.expected){next.proposal=undefined;publishCommittedSchedulingDraft(c,next);throw Error("AGENT_APPT_LOCATE");}
