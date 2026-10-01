@@ -377,3 +377,18 @@ Feitas por agentes isolados: causa por cenário × braço com verificação cét
   - salão-base 82%, salão próprio 61%;
   - parecidos com o SIMPLE (salão próprio, 1 ação, 1 mensagem) 66%;
   - parecidos com o COMPLEX (salão próprio, multi-ação) 52%.
+
+## Adendo 6: auditoria de origem das falhas reais v1c (autorizada pelo dono em 01/10/2026, ~18:20 de São Paulo)
+
+- **O que se audita:** a primeira camada que diverge em cada falha real (cenário × braço) do SIMPLE e do COMPLEX.
+- **Camadas possíveis:**
+  - LUNA_INTERPRETATION;
+  - AGENT_PLAN (na C4, a montagem do plano a partir das operações da Luna);
+  - VALIDATOR (na C4, as verificações de divergência e reparo);
+  - STATE_ORCHESTRATION;
+  - SHARED_BACKEND;
+  - PRODUCT_CAPABILITY_GAP;
+  - MULTIPLE_CAUSES, sempre com a primeira causa indicada.
+- **Evidência obrigatória:** os artefatos reais gravados (saída da Luna, plano, validador, inclusive o replay offline, estado do plano e banco). Frequência não serve como prova.
+- **Revisão:** 2 analistas independentes e um adjudicador para as divergências.
+- **Restrições:** sem chamada à API e sem nenhuma alteração. O resultado é diagnóstico e plano priorizado; não implementa nada.
