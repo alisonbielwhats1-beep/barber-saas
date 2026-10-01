@@ -343,3 +343,37 @@ Objetivo: separar falha real do Agent, falha real compartilhada, problemas de ro
   - diferença de distribuição ou dificuldade;
   - bugs compartilhados do backend;
   - instabilidade da Luna.
+
+## Resultado das auditorias pós-prova v1c (Adendos 4 e 5, 01/10/2026). Os resultados oficiais não mudam.
+
+Feitas por agentes isolados: causa por cenário × braço com verificação cética, resolubilidade às cegas (2 revisores + adjudicador), segurança (2 analistas + adjudicador) e síntese em código. Só IDs, códigos e contagens.
+
+| Métrica (60 cenários cada) | SIMPLE | COMPLEX |
+|---|---:|---:|
+| Resolvível como está | 49 (81,7%) | 47 (78,3%) |
+| Trajetória alternativa válida | 8 (13,3%) | 4 (6,7%) |
+| Roteiro rígido | 0 | 0 |
+| Resposta roteirizada incompatível | 1 (1,7%) | 1 (1,7%) |
+| Conflito de gabarito | 0 | 1 (1,7%) |
+| Impossível/subespecificado | 0 | 0 |
+| Limitação real compartilhada | 2 (3,3%) | 7 (11,7%) |
+| Falha real do Agent (causa primária) | 52 (86,7%) | 59 (98,3%) |
+| Falha real da C4 (causa primária) | 49 (81,7%) | 58 (96,7%) |
+| Falham nos dois braços / pela mesma causa | 45 / 45 | 59 / 59 |
+| Segurança real | 0 (SE30 nos dois: "motivo não literal" = erro de classificação do avaliador) | Agent 3 (CE02, CE10, CF09); C4 2 (CE02, CE10). CE02 e CE10 são bug real compartilhado |
+| **Veredito (critério do Adendo 4)** | **VALID** | **VALID_WITH_LIMITATIONS** |
+
+- **Tipos de falha real:**
+  - SIMPLE, Agent: pergunta desnecessária 16, referência errada 15, ação perdida 15.
+  - SIMPLE, C4: pergunta desnecessária 22, ação perdida 10, negação ignorada 5, referência errada 5.
+  - COMPLEX, Agent: pergunta desnecessária 21, referência errada 14, ação perdida 13, queda/tempo 9.
+  - COMPLEX, C4: pergunta desnecessária 30, referência errada 13, ação perdida 6.
+- **Roteiro:** perguntas legítimas não previstas, 0 nos dois holdouts. No SIMPLE houve 26 e 27 respostas roteirizadas entregues a perguntas desnecessárias (consequência, não causa primária).
+- **Verificação cética:** atribuições ao roteiro checadas 2 + 2; 2 derrubadas no SIMPLE e 0 no COMPLEX.
+- **Variação entre tentativas:** nunca foi a causa primária.
+  - SIMPLE: Agent em 27 cenários, C4 em 13.
+  - COMPLEX: Agent em 30, C4 em 28.
+- **Comparação com o DEV (S2, S2b e S2c, cenários conhecidos):**
+  - salão-base 82%, salão próprio 61%;
+  - parecidos com o SIMPLE (salão próprio, 1 ação, 1 mensagem) 66%;
+  - parecidos com o COMPLEX (salão próprio, multi-ação) 52%.
