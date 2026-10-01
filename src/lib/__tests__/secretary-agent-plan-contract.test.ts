@@ -325,6 +325,29 @@ describe('S1 arms in the contract version (owner decisions 13 and 19)', () => {
   });
 });
 
+describe('S1c: a cancellation cause the owner gave is copied into motivo, never asked again (prompt and wire, agent flag only)', () => {
+  const motivo = () => at(AGENT_PLAN_PARAMETERS, 'properties', 'acoes', 'items', 'properties', 'motivo');
+  it('the prompt and the motivo field: the cause given, even short or indirect, copied literally; null only with none, then the backend asks', () => {
+    expect(motivo()).toMatchObject({ type: ['string', 'null'], maxLength: 200 });
+    expect(String(motivo().description)).toMatch(/^Cancelamento: .*copiada literalmente.*; null só quando a mensagem não diz por quê\.$/);
+    // Migrated (backup …before-agent-reason-attach.ts): the generic wording only; no hint shaped like one scenario's cause.
+    expect(AGENT_PROMPT_BASES).toMatch(/Num cancelamento, a causa que a mensagem der, mesmo curta ou indireta, vai copiada literalmente em motivo; motivo fica null só quando a mensagem não traz causa nenhuma, e então o backend pergunta\./);
+    expect(AGENT_PROMPT_BASES).not.toMatch(/sem motivo dito, motivo fica null/);
+    expect(AGENT_PROMPT_BASES).not.toMatch(/de quem veio o pedido/);
+    expect(AGENT_PROMPT).toContain(AGENT_PROMPT_BASES);
+  });
+  it('flag off: no part of the C4 contract carries the agent prompt or the propor_plano wire; on, both are in it', () => {
+    vi.stubEnv('SALON_SECRETARY_AGENT', 'false');
+    const off = secretaryContractParts({ modelId: MODEL }), text = JSON.stringify(off), quoted = (value: string) => JSON.stringify(value).slice(1, -1);
+    expect(off.templates).not.toHaveProperty('agent'); expect(off.wires).not.toHaveProperty('agent'); expect(off.flags).not.toHaveProperty('agent');
+    expect(text).not.toContain(quoted(String(motivo().description))); expect(text).not.toContain(quoted(AGENT_PROMPT_BASES));
+    enable();
+    const on = secretaryContractParts({ modelId: MODEL });
+    expect(on.templates).toMatchObject({ agent: { prompt: AGENT_PROMPT } });
+    expect(JSON.stringify(on.wires)).toContain(quoted(String(motivo().description)));
+  });
+});
+
 describe('Phase 2 B1: the dismissal field and the open plan keys (§4 decode)', () => {
   const OPEN = { openKeys: ['tranca', 'encaixe'], doneKeys: [] as string[] };
   const dismiss = (alcance: 'PLANO' | 'ACOES', chaves: string[] = [], citacao = 'larga mão do pedido') => ({ alcance, chaves, citacao });

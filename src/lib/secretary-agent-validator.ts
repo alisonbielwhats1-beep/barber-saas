@@ -76,6 +76,7 @@ export const AGENT_QUESTIONS: Readonly<Partial<Record<AgentValidatorCode, string
   AGENT_PATCH_OPERATION: "Esse pedido já está no plano com outra operação. Diga de novo o que devo fazer nele.",
   AGENT_REF_STALE: "O agendamento deste pedido mudou ou não está mais ativo. Qual agendamento devo usar?",
   AGENT_NEGATED: "Parece que você voltou atrás neste pedido. Devo seguir com ele?",
+  AGENT_RELEASE_MISMATCH: "O horário que vai vagar é de um profissional que não confere com a sua mensagem. Com quem e em que horário devo marcar?",
 });
 /** A6 (owner decision 14): the customer a booking took from the owner's own words, said back in the owner's spelling. */
 export const agentUnpickedPremise = (name: string) => `Considerei «${name}» como cliente, pelo nome escrito no pedido.`;
@@ -193,6 +194,10 @@ const ORDINAL_WORDS = new Set(["primeiro", "primeira", "ultimo", "ultima", "penu
 const ANCHOR_WORDS = new Set([...AFTER, ...BEFORE, ...ORDINAL_WORDS, ...APPT_WORDS, "logo", "assim", "em", "que", "min", "minuto", "minutos", "hora", "horas", "meia", "livre", "livres"]);
 const NEGATOR = /(?<![\p{L}\p{N}])(?:n[aã]o|nunca|jamais|nem)(?![\p{L}\p{N}])/giu;
 const BOUNDARY = /[,.;!?()\n]/;
+/** S1c: the exclusion leads (closed class: "menos", "exceto", "salvo", "tirando", "fora", "sem ser"; "pelo/ao menos" excludes nothing) with
+ * only glue up to a date atom: the owner excluded that day, it is never a day to read. */
+const EXCLUSION_LEAD = /(?<![\p{L}\p{N}])(?<!(?:pelo|ao)\s+)(?:menos|exceto|salvo|tirando|fora|sem\s+ser)(?:\s+(?:o|a|os|as|de|do|da|dos|das|em|no|na|nos|nas|pra|pro|para|dia))*\s+$/iu;
+const excludedDay = (text: string, atom: { kind: string; start: number }) => atom.kind === "date" && EXCLUSION_LEAD.test(text.slice(Math.max(0, atom.start - 48), atom.start));
 const temporalWord = (word: string) => /^\d/.test(word) || temporalVocabulary(word);
 /** The words of an owner quote that can name a person or a service (glue, pronouns, first person, indefinites, agenda nouns and temporal
  * words out). */
@@ -369,6 +374,8 @@ const BOOKING = new Set<string>(["appointment.create", "availability.get"]);
 const ORIGIN_OPERATIONS = new Set<string>(["appointment.change", "appointment.cancel", "appointment.read", "appointment.list"]);
 const TEMPORAL_FIELDS = new Set<AgentBaseField>(["inicio", "fim", "dia"]);
 const DERIVED_TYPES = new Set<AgentBaseType>(["SEQUENCIA", "ENTRE_ACOES", "LIBERADO_POR"]);
+/** The fields of a create the slot it takes owns (LIBERADO_POR: agentDerivedCheck writes its date, time and professional). */
+const RELEASED_SLOT_FIELDS = new Set<AgentQuestionField>(["dia", "inicio", "profissional"]);
 function newWork(a: AgentPlanAction, open?: AgentOpenAction): Work {
   return { a, status: "READY", asked: null, fields: {}, cleared: new Set(), ambiguities: [], basis: [], premises: [], note: [], codes: [], names: {}, bases: new Map(),
     consumed: [], claims: [], services: [], reads: [], clockPremises: {}, ...open ? { open } : {} };
@@ -477,9 +484,12 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
     return !singlesOut(src.text, span, ownSpans()) && !temporalQuoteDenied(src.text, span[0], span[1], w.a.operacao);
   };
   const reasonSpans = () => works.flatMap(w => w.reason ? [w.reason] : []);
+  // S1c: a later segment belongs to the nearest clause before it: with another action's clause between the cancellation's own and the
+  // reason's words, those words are that action's, never this cancellation's cause (V21 asks it).
+  const attached = (w: Work, span: Span) => !works.some(other => other !== w && other.own && other.own[0] >= w.own![1] && other.own[1] <= span[0]);
   for (const w of works) {
     if (!w.own || !w.a.motivo) continue;
-    const found = spansOf(src, w.a.motivo).filter(span => admits(w, span, false));
+    const found = spansOf(src, w.a.motivo).filter(span => admits(w, span, false) && attached(w, span));
     if (found.length === 1) w.reason = found[0];
   }
   for (const w of works) {
@@ -495,7 +505,9 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
         : admitted.length > 1 ? { base, code: "AGENT_QUOTE_AMBIGUOUS" } : { base, span: admitted[0], text: src.text.slice(admitted[0][0], admitted[0][1]) };
       if (located.span && base.tipo !== "EXCECAO") {
         const [start, end] = located.span, operation = w.a.operacao;
-        const denied = TEMPORAL_FIELDS.has(base.campo) ? temporalQuoteDenied(src.text, start, end, operation, reasonSpans()) : entityQuoteDenied(src.text, start, end, operation);
+        // S1c: a day the owner excluded ("menos sexta") is denied as much as a negated one: a temporal quote over it never gives that day.
+        const denied = TEMPORAL_FIELDS.has(base.campo) ? temporalQuoteDenied(src.text, start, end, operation, reasonSpans()) ||
+          atoms.some(atom => meets([atom.start, atom.end], [start, end]) && excludedDay(src.text, atom)) : entityQuoteDenied(src.text, start, end, operation);
         if (denied) located.code = "AGENT_QUOTE_NEGATED";
       }
       w.bases.set(base.campo, located);
@@ -558,6 +570,7 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
   rule4();
   doubleMutation();
   for (const w of live()) { entityDenied(w); if (w.open) keptDenied(w); retraction(w); }
+  for (const w of live()) await releasedProfessional(w);
   const notices = coverage();
   for (const w of works) notes(w);
   if (decoded.acoes_fora > 0) notices.push(agentActionsLeftText(decoded.acoes_fora));
@@ -565,7 +578,8 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
   // is shown next to the other actions (a question, never a value nor a write; the owner's answer reaches the C4 continuation).
   if (decoded.pergunta && decoded.pergunta.campo !== "operacao") {
     const target = works.find(w => w.a.chave === decoded.pergunta!.acao);
-    if (target) { target.asked = decoded.pergunta.campo; code(target, "AGENT_FIELD_QUESTION"); }
+    // S1c: what a released slot owns (its day, clock and professional) is never the owner's to answer: such a question marks nothing.
+    if (target && !(target.derived?.type === "LIBERADO_POR" && RELEASED_SLOT_FIELDS.has(decoded.pergunta.campo))) { target.asked = decoded.pergunta.campo; code(target, "AGENT_FIELD_QUESTION"); }
   }
   if (result === "PLANO" && decoded.pergunta?.campo === "operacao") { const text = clean(decoded.pergunta.texto, AGENT_PLAN_LIMITS.question); if (text) notices.push(text); }
   for (const w of [...works].reverse()) if (w.status === "DROP" && w.notice && !notices.includes(w.notice)) notices.unshift(w.notice);
@@ -1052,18 +1066,24 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
     return w.services.length ? (await reader.performers(w.services.map(item => item.id))).map(item => item.id) : professionals.map(item => item.id);
   }
   /** The day of an action whose start quote states none: the accepted `dia`, else the one reading of the days written in its own segment,
-   * else the one day said once outside every clause (region c). Never an anchor's or the model's. */
+   * else the one day said once outside every clause (region c). Never an anchor's or the model's, and never a day the owner excluded (negated,
+   * inside an EXCECAO quote of the plan, or after an exclusion lead). */
   function fallbackDay(w: Work, operation: string): { dates: string[]; spans: Span[] } | undefined {
     if (w.date) return { dates: [w.date], spans: [] };
-    const used = [...w.bases.values()].flatMap(item => item.span ? [item.span] : []);
+    // S1c: a DITO `dia` base of a plan with no `dia` value is never read (dayStep) and hides nothing: its day is read as if it had no base. A
+    // refused one (its quote negated) or one of another type (EXCECAO: a day excluded) still hides its day, so it never becomes the start's.
+    const used = [...w.bases.entries()].filter(([field, item]) => field !== "dia" || !!w.a.dia || !!item.code || item.base.tipo !== "DITO")
+      .flatMap(([, item]) => item.span ? [item.span] : []);
+    const excepted = works.flatMap(other => [...other.bases.values()].flatMap(item => item.base.tipo === "EXCECAO" && item.span ? [item.span] : []));
+    const readable = (atom: Atom) => !atom.negated && !excepted.some(span => meets(span, [atom.start, atom.end])) && !excludedDay(src.text, atom);
     const read = (list: Atom[]) => {
       const dates = new Set(list.flatMap(atom => { const day = dayOf(src.text, atoms, [atom.start, atom.end], "date", operation, timezone, now);
         return day && day !== "UNREAD" && day.dates.length === 1 ? day.dates : ["UNREAD"]; }));
       return dates.size === 1 && !dates.has("UNREAD") ? { dates: [...dates], spans: list.map((atom): Span => [atom.start, atom.end]) } : undefined;
     };
-    const mine = dayAtoms(w.own!).filter(atom => !atom.negated && !used.some(span => meets(span, [atom.start, atom.end])));
+    const mine = dayAtoms(w.own!).filter(atom => readable(atom) && !used.some(span => meets(span, [atom.start, atom.end])));
     if (mine.length) return read(mine);
-    const shared = atoms.filter(atom => atom.kind === "date" && !atom.negated && !ownSpans().some(own => meets(own, [atom.start, atom.end])) && admits(w, [atom.start, atom.end], true));
+    const shared = atoms.filter(atom => atom.kind === "date" && readable(atom) && !ownSpans().some(own => meets(own, [atom.start, atom.end])) && admits(w, [atom.start, atom.end], true));
     return shared.length ? read(shared) : undefined;
   }
   function dayStep(w: Work) {
@@ -1323,6 +1343,9 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
     const serviceIds = target ? w.appt?.serviceIds : w.services.map(item => item.id);
     const start = w.date && w.time ? `${w.date}T${w.time}` : target ? w.appt?.startLocal : undefined;
     clear(w, keys);
+    // S1c (the C4 released-slot rule): the slot a cancellation or change of the plan frees owns the day, the clock and the professional of the
+    // create that takes it (agentDerivedCheck; the pair's gate): never V8's pick, card or question.
+    if (!target && w.derived?.type === "LIBERADO_POR") return;
     if (!serviceIds?.length || !start) { if (target) ask(w, "AGENT_TARGET_UNSAID", kind); else code(w, "AGENT_PROFESSIONAL_UNSAID"); return; }
     // A7: a patch's own NAO_DITO stands over a person its open action held only when the clause asks another one (bases): that one is no option
     // (null: held by the owner's words only), and nobody is derived in its place (a card of who can).
@@ -1372,6 +1395,31 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
     const others = professionals.filter(item => item.id !== chosen).flatMap(item => nameWords(item.name, false));
     return !region.some(item => [...item.word].length >= AGENT_NAME_TOKEN_MIN && !GLUE.has(item.word) && !w.claims.some(span => meets(span, [item.start, item.end])) &&
       others.some(token => tokenSimilarity(item.word, token) >= SUGGESTION_THRESHOLD));
+  }
+  /** S1c (V13, the released-slot rule): a create in the slot a cancellation or change frees takes that slot's professional (agentDerivedCheck,
+   * the pair's gate) only while the owner's words do not contradict it: no professional but the slot's named, or nearly named, in the
+   * create's region (derivable's: its own clause and the later parts no other action reads; undenied, unclaimed, outside temporal atoms),
+   * and the slot's professional denied nowhere in the message (V5-E's reading). Otherwise the slot proves nothing of this create: its derived
+   * values leave and the backend asks (never the slot's professional over the owner's word, never one the owner refused). The slot's
+   * professional is the freed appointment's (this plan's releaser, else the open plan's, re-read), else the one the releaser names; unknown,
+   * every professional counts. */
+  async function releasedProfessional(w: Work) {
+    if (w.derived?.type !== "LIBERADO_POR" || w.a.operacao !== "appointment.create") return;
+    const key = w.a.ocupa_horario_de ?? w.derived.keys[0], releaser = works.find(other => other.a.chave === key), open = key ? openByKey.get(key) : undefined;
+    const freed = releaser?.appt ?? (open?.appointment ? await reader.appointment(open.appointment) : undefined);
+    const slot = freed?.professionalId ?? releaser?.fields.professional_ref ?? open?.fields.professional_ref;
+    const excepted = [...w.bases.values()].flatMap(item => item.base.tipo === "EXCECAO" && item.span ? [item.span] : []);
+    const denied = (span: Span) => !excepted.some(item => meets(item, span)) && entityQuoteDenied(src.text, span[0], span[1], w.a.operacao);
+    const others = professionals.filter(item => item.id !== slot).flatMap(item => nameWords(item.name, false));
+    const named = wordList.some(item => { const span: Span = [item.start, item.end];
+      return [...item.word].length >= AGENT_NAME_TOKEN_MIN && !GLUE.has(item.word) && !w.claims.some(claim => meets(claim, span)) && !atoms.some(atom => meets([atom.start, atom.end], span)) &&
+        (admits(w, span, false) || !rivals(w).some(other => admits(other, span, false))) && others.some(token => tokenSimilarity(item.word, token) >= SUGGESTION_THRESHOLD) && !denied(span); });
+    const refused = professionals.filter(item => !slot || item.id === slot).flatMap(item => nameWords(item.name, false))
+      .some(token => literalSpans(src.text, token).some(span => withinOne(src, span) && denied(span)));
+    if (!named && !refused) return;
+    w.derived = undefined;
+    clear(w, ["date", "time"]);
+    ask(w, "AGENT_RELEASE_MISMATCH", w.fields.professional_ref || w.fields.professional_name ? null : "professional_ref");
   }
   /** A2: the action's own clause asks another person than the one it has or would keep: an undenied alterity word (closed class) outside every
    * temporal atom that qualifies no time and no agenda row (rowWord: "outro" before its noun, "diferente" on either side). */

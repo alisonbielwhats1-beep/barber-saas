@@ -5,7 +5,7 @@ import { nameHasTokens, nameTokenQuery } from "../secretary-name-tokens";
 import { withoutArticle } from "../name-search";
 import { clauseBounds, temporalAtomSpans } from "../scheduling-temporal-source";
 import { UNSPECIFIED_DAYPART_ASKED_HOURS, verifyClockComponent } from "../scheduling-temporal-reference";
-import { AGENT_ENTITY_DENIED_OPEN, AGENT_NOTHING_CHANGED, AGENT_REGISTERED_CRITERIA, agentActionsLeftText, agentBasisStillHolds, agentDerivedCheck, agentGroupBasisPrecheck, agentUncoveredText,
+import { AGENT_ENTITY_DENIED_OPEN, AGENT_NOTHING_CHANGED, AGENT_QUESTIONS, AGENT_REGISTERED_CRITERIA, agentActionsLeftText, agentBasisStillHolds, agentDerivedCheck, agentGroupBasisPrecheck, agentUncoveredText,
   agentUnpickedPremise, validateAgentPlan, type AgentActionOutcome, type AgentApptFact, type AgentBasis, type AgentDerived, type AgentFactReader, type AgentOpenAction, type AgentOpenPlan,
   type AgentValidatorCriteria } from "../secretary-agent-validator";
 
@@ -873,5 +873,149 @@ describe("A7: a patch of the open agent plan (Phase 2 contract)", () => {
       { open: open(opened()) });
     expect(twice).toMatchObject({ status: "ASK", patch: true, question: { code: "AGENT_QUOTE_AMBIGUOUS" } });
     expect(twice.fields).toEqual(opened().fields);
+  });
+});
+
+describe("S1c: a day base with no value hides nothing, the released slot owns its professional, a stated reason stays literal", () => {
+  const CLAUSE = "Põe a Quitéria pra sexta às 3 com o Otoniel, uma escova", OWNER = `${CLAUSE}.`;
+  const start = (...bases: Action["bases"]) => plan([booking({ citacao_acao: CLAUSE, bases })]);
+  it("one weekday + clock expression split into a clock-only start base and a `dia` base with no value reads that weekday: the outcome of one base", async () => {
+    const whole = await only(OWNER, start(base("inicio", "DITO", "sexta às 3")));
+    expect(whole).toMatchObject({ status: "READY", fields: { customer_ref: "cu-qui", professional_ref: "pro-oto", service_ref: "sv-esc", date: FRIDAY, time: "15:00" },
+      codes: ["AGENT_DAYPART_ONE"], premises: ["Considerei 15h: é a única leitura desse horário dentro do expediente."] });
+    expect(await only(OWNER, start(base("inicio", "DITO", "às 3"), base("dia", "DITO", "sexta")))).toEqual(whole);
+  });
+  it("property: adding a `dia` base with no value never changes the outcome (clock-only or whole start quote)", async () => {
+    for (const quote of ["às 3", "sexta às 3"]) {
+      const bare = await only(OWNER, start(base("inicio", "DITO", quote)));
+      for (const day of ["sexta", "pra sexta"]) expect(await only(OWNER, start(base("inicio", "DITO", quote), base("dia", "DITO", day))), `${quote} + ${day}`).toEqual(bare);
+    }
+  });
+  it("adversarial: a `dia` base over a denied day never gives it to the start, after or inside the clause: the outcome of no base", async () => {
+    const after = "Põe a Quitéria às 3 com o Otoniel, uma escova", inside = "Põe a Quitéria, não na sexta, às 3 com o Otoniel, uma escova";
+    const cases: [string, string, string][] = [[after, `${after}, mas não na sexta.`, "não na sexta"], [after, `${after}, mas não na sexta.`, "sexta"], [inside, `${inside}.`, "na sexta"]];
+    for (const [clause, owner, day] of cases) {
+      const bare = await only(owner, plan([booking({ citacao_acao: clause, bases: [base("inicio", "DITO", "às 3")] })]));
+      const denied = await only(owner, plan([booking({ citacao_acao: clause, bases: [base("inicio", "DITO", "às 3"), base("dia", "DITO", day)] })]));
+      expect(denied.fields, day).not.toHaveProperty("date");
+      expect(denied.codes, day).toContain("AGENT_DAY_MISSING");
+      expect(denied, day).toEqual(bare);
+    }
+  });
+  it("adversarial: a change's `dia` base (no value) on the origin day its appointment base quotes still asks the day; two days in the clause still ask", async () => {
+    const shift = (bases: Action["bases"]) => act({ operacao: "appointment.change", citacao_acao: "Muda a Dalva de quinta pras 18h", atendimento: "a3", cliente: "c4", inicio: "2026-10-08T18:00", bases });
+    const origin = [base("atendimento", "DITO", "a Dalva de quinta"), base("inicio", "DITO", "pras 18h")];
+    const bare = await only("Muda a Dalva de quinta pras 18h.", plan([shift(origin)]));
+    const quoted = await only("Muda a Dalva de quinta pras 18h.", plan([shift([...origin, base("dia", "DITO", "quinta")])]));
+    expect(quoted).toMatchObject({ codes: ["AGENT_DAY_MISSING"], fields: { customer_ref: "cu-dal", source_date: "2026-10-08", time: "18:00" } });
+    expect(quoted.fields).not.toHaveProperty("date");
+    expect(quoted).toEqual(bare);
+    const two = "Põe a Quitéria quinta, sexta às 3 com o Otoniel, uma escova";
+    const twoBare = await only(`${two}.`, plan([booking({ citacao_acao: two, bases: [base("inicio", "DITO", "às 3")] })]));
+    const twoDays = await only(`${two}.`, plan([booking({ citacao_acao: two, bases: [base("inicio", "DITO", "às 3"), base("dia", "DITO", "sexta")] })]));
+    expect(twoDays.codes).toContain("AGENT_DAY_MISSING");
+    expect(twoDays.fields).not.toHaveProperty("date");
+    expect(twoDays).toEqual(twoBare);
+  });
+
+  const FREED = "Desmarca a Dalva de quarta e coloca a Quitéria na vaga que abrir, escova.";
+  const leave = act({ chave: "k1", operacao: "appointment.cancel", citacao_acao: "Desmarca a Dalva de quarta", atendimento: "a2", cliente: "c4", bases: [base("atendimento", "DITO", "a Dalva de quarta")] });
+  const take = (over: Partial<Action> = {}) => act({ chave: "k2", citacao_acao: "coloca a Quitéria na vaga que abrir, escova", cliente: "c1", servicos: ESCOVA, depende_de: ["k1"], ocupa_horario_de: "k1",
+    inicio: "2026-10-07T14:00", bases: [base("inicio", "LIBERADO_POR", "na vaga que abrir", "k1"), base("profissional", "NAO_DITO", "coloca a Quitéria")], ...over });
+  const SLOT = { startLocal: "2026-10-07T14:00", endLocal: "2026-10-07T14:30", professional_ref: "pro-oto", professional_name: "Otoniel Barros", customer_name: "Dalva Nunes" };
+  const slotOf = (key: string) => key === "k1" ? SLOT : undefined;
+  it("a create in the slot a cancellation of the plan frees, professional not said: the slot owns it (no V8 card, code nor question)", async () => {
+    const [, filled] = await outcomes(FREED, plan([leave, take()]));
+    expect(filled).toMatchObject({ status: "READY", card: null, question: null, asked: null, codes: [], releasedSlotOf: "k1",
+      derived: { type: "LIBERADO_POR", keys: ["k1"], inicio: "2026-10-07T14:00", professional: null } });
+    expect(filled.fields).toEqual({ customer_ref: "cu-qui", service_ref: "sv-esc" });
+    expect(agentDerivedCheck(filled.derived!, slotOf)).toMatchObject({ status: "OK", fields: { date: "2026-10-07", time: "14:00", professional_ref: "pro-oto" } });
+    // The model's question about what the slot owns marks nothing; a question about an empty field of another action still does.
+    const [, unmarked] = await outcomes(FREED, plan([leave, take()], { pergunta: { acao: "k2", campo: "profissional", texto: "Com quem fica?" } }));
+    expect(unmarked).toMatchObject({ status: "READY", asked: null, codes: [] });
+    const [marked] = await outcomes(FREED, plan([leave, take()], { pergunta: { acao: "k1", campo: "motivo", texto: "Qual a causa?" } }));
+    expect(marked).toMatchObject({ asked: "motivo", codes: ["AGENT_FIELD_QUESTION"] });
+  });
+  it("adversarial: a released slot the plan does not prove keeps the professional unsaid and the question marked (no pick); a said professional is never the slot's", async () => {
+    const unproven = take({ bases: [base("inicio", "LIBERADO_POR", "na vaga que abrir", "k9"), base("profissional", "NAO_DITO", "coloca a Quitéria")] });
+    const [, loose] = await outcomes(FREED, plan([leave, unproven], { pergunta: { acao: "k2", campo: "profissional", texto: "Com quem fica?" } }));
+    expect(loose).toMatchObject({ derived: null, asked: "profissional", codes: ["AGENT_RELEASE_MISMATCH", "AGENT_PROFESSIONAL_UNSAID", "AGENT_FIELD_QUESTION"] });
+    expect(loose.fields).not.toHaveProperty("professional_ref");
+    expect(loose.fields).not.toHaveProperty("date");
+    const said = "Desmarca a Dalva de quarta e coloca a Quitéria com a Zenaide na vaga que abrir, escova.";
+    const [, chosen] = await outcomes(said, plan([leave, take({ citacao_acao: "coloca a Quitéria com a Zenaide na vaga que abrir, escova", profissional: "p2",
+      bases: [base("inicio", "LIBERADO_POR", "na vaga que abrir", "k1")] })]));
+    expect(chosen).toMatchObject({ fields: { professional_ref: "pro-zen" }, derived: { type: "LIBERADO_POR", professional: "pro-zen" } });
+    // The slot frees Otoniel's hour: the owner's Zenaide disagrees with it, so the start is asked (never moved to the slot's professional).
+    expect(agentDerivedCheck(chosen.derived!, slotOf)).toEqual({ status: "MISMATCH", code: "AGENT_RELEASE_MISMATCH" });
+  });
+
+  const cancelWith = (owner: string, motivo: string) => only(owner, plan([act({ operacao: "appointment.cancel", citacao_acao: "Desmarca a Dalva de quarta", atendimento: "a2", cliente: "c4", motivo,
+    bases: [base("atendimento", "DITO", "a Dalva de quarta")] })]));
+  it("a cancellation cause the owner gave, short or only saying who asked, is kept as the owner's literal words (V21 unchanged)", async () => {
+    const cases: [string, string][] = [["Desmarca a Dalva de quarta, imprevisto.", "imprevisto"], ["Desmarca a Dalva de quarta, foi a própria cliente que pediu.", "foi a própria cliente que pediu"]];
+    for (const [owner, motivo] of cases) expect(await cancelWith(owner, motivo), motivo).toMatchObject({ status: "READY", codes: [],
+      fields: { reason: motivo, reason_source: { kind: "EXPLICIT_CANCELLATION_CAUSE", original_text: motivo } } });
+  });
+  it("adversarial: a cause the owner did not write, one under a glued negator, or one from another action's clause is never kept: the backend asks it", async () => {
+    const paraphrase = await cancelWith("Desmarca a Dalva de quarta, a cliente avisou que vai viajar.", "viagem");
+    const glued = await cancelWith("Desmarca a Dalva de quarta, não por atraso dela.", "por atraso dela");
+    const owner = "Desmarca a Dalva de quarta e reserva a Quitéria sexta às 15h com o Otoniel porque ela chega cedo, escova.";
+    const [foreign] = await outcomes(owner, plan([act({ chave: "k1", operacao: "appointment.cancel", citacao_acao: "Desmarca a Dalva de quarta", atendimento: "a2", cliente: "c4",
+      motivo: "porque ela chega cedo", bases: [base("atendimento", "DITO", "a Dalva de quarta")] }),
+      booking({ chave: "k2", citacao_acao: "reserva a Quitéria sexta às 15h com o Otoniel porque ela chega cedo, escova", bases: [base("inicio", "DITO", "sexta às 15h")] })]));
+    for (const out of [paraphrase, glued, foreign]) {
+      expect(out.codes).toContain("AGENT_REASON_UNPROVEN");
+      expect(out.fields).not.toHaveProperty("reason");
+      expect(out.fields).not.toHaveProperty("reason_source");
+    }
+  });
+  it("adversarial: words after another action's clause belong to that clause, never to the cancellation's cause; said right after the cancellation, they are its cause", async () => {
+    const leaving = (motivo: string) => act({ chave: "k1", operacao: "appointment.cancel", citacao_acao: "Desmarca a Dalva de quarta", atendimento: "a2", cliente: "c4", motivo,
+      bases: [base("atendimento", "DITO", "a Dalva de quarta")] });
+    const book = booking({ chave: "k2", citacao_acao: "reserva a Quitéria sexta às 15h com o Otoniel", bases: [base("inicio", "DITO", "sexta às 15h")] });
+    const [trailing] = await outcomes("Desmarca a Dalva de quarta e reserva a Quitéria sexta às 15h com o Otoniel, ela chega cedo, escova.", plan([leaving("ela chega cedo"), book]));
+    expect(trailing.codes).toContain("AGENT_REASON_UNPROVEN");
+    expect(trailing.fields).not.toHaveProperty("reason");
+    expect(trailing.fields).not.toHaveProperty("reason_source");
+    const [own] = await outcomes("Desmarca a Dalva de quarta, ela chega cedo, e reserva a Quitéria sexta às 15h com o Otoniel, escova.", plan([leaving("ela chega cedo"), book]));
+    expect(own).toMatchObject({ fields: { reason: "ela chega cedo", reason_source: { kind: "EXPLICIT_CANCELLATION_CAUSE", original_text: "ela chega cedo" } } });
+    expect(own.codes).not.toContain("AGENT_REASON_UNPROVEN");
+  });
+  it("adversarial: another professional named for the freed slot, or the slot's professional refused, never leaves the slot's to the gate: the backend asks", async () => {
+    const named = "Desmarca a Dalva de quarta e coloca a Quitéria com o Heitor na vaga que abrir, escova.", namedClause = "coloca a Quitéria com o Heitor na vaga que abrir, escova";
+    const refused = "Desmarca a Dalva de quarta e coloca a Quitéria na vaga que abrir, escova, mas não com o Otoniel.";
+    const released = [base("inicio", "LIBERADO_POR", "na vaga que abrir", "k1")];
+    // The model's NAO_DITO, or no professional base at all: the same reading.
+    const cases: [string, Action][] = [[named, take({ citacao_acao: namedClause })], [named, take({ citacao_acao: namedClause, bases: released })], [refused, take()], [refused, take({ bases: released })]];
+    for (const [owner, create] of cases) {
+      const [, held] = await outcomes(owner, plan([leave, create]));
+      expect(held, owner).toMatchObject({ status: "ASK", derived: null, card: null, releasedSlotOf: "k1",
+        question: { code: "AGENT_RELEASE_MISMATCH", field: "professional_ref", text: AGENT_QUESTIONS.AGENT_RELEASE_MISMATCH } });
+      expect(held.fields, owner).toEqual({ customer_ref: "cu-qui", service_ref: "sv-esc" });
+      expect(held.codes, owner).toContain("AGENT_RELEASE_MISMATCH");
+      expect(held.codes, owner).not.toContain("AGENT_PROFESSIONAL_DERIVED");
+    }
+    // Controls: the slot's own professional named, or another one refused, leaves the slot its professional (no question).
+    const own = "Desmarca a Dalva de quarta e coloca a Quitéria com o Otoniel na vaga que abrir, escova.";
+    const other = "Desmarca a Dalva de quarta e coloca a Quitéria na vaga que abrir, escova, mas não com o Heitor.";
+    for (const [owner, create] of [[own, take({ citacao_acao: "coloca a Quitéria com o Otoniel na vaga que abrir, escova" })], [other, take()]] as const) {
+      const [, kept] = await outcomes(owner, plan([leave, create]));
+      expect(kept, owner).toMatchObject({ status: "READY", question: null, codes: [], derived: { type: "LIBERADO_POR", keys: ["k1"], professional: null } });
+      expect(agentDerivedCheck(kept.derived!, slotOf), owner).toMatchObject({ status: "OK", fields: { professional_ref: "pro-oto" } });
+    }
+  });
+  it("adversarial: a day the owner excluded (EXCECAO `dia` base, a DITO one quoting the exclusion with or without a value, or no `dia` base) never becomes the start's day: it is asked", async () => {
+    const exclusions: [string, string][] = [["Põe a Quitéria às 3 com o Otoniel, escova, menos sexta", "menos sexta"], ["Põe a Quitéria às 3 com o Otoniel, escova, exceto na sexta", "exceto na sexta"]];
+    for (const [clause, exclusion] of exclusions) {
+      const cases: [string, Partial<Action>][] = [["EXCECAO", { bases: [base("inicio", "DITO", "às 3"), base("dia", "EXCECAO", exclusion)] }],
+        ["DITO", { bases: [base("inicio", "DITO", "às 3"), base("dia", "DITO", exclusion)] }], ["none", { bases: [base("inicio", "DITO", "às 3")] }],
+        ["DITO with the excluded day as its value", { dia: FRIDAY, bases: [base("inicio", "DITO", "às 3"), base("dia", "DITO", exclusion)] }]];
+      for (const [kind, over] of cases) {
+        const out = await only(`${clause}.`, plan([booking({ citacao_acao: clause, ...over })]));
+        expect(out.fields, `${exclusion} ${kind}`).not.toHaveProperty("date");
+        expect(out.codes, `${exclusion} ${kind}`).toContain("AGENT_DAY_MISSING");
+      }
+    }
   });
 });

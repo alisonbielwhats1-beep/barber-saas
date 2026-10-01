@@ -79,7 +79,7 @@ const actionWire = agentObjectWire({
   inicio: described(agentNullableWire(agentPatternWire(P.minute)), "Início com data e hora completas, no horário local do salão."),
   fim: described(agentNullableWire(agentPatternWire(P.minute)), "Só em bloqueio."),
   dia: described(agentNullableWire(agentPatternWire(P.date)), "Dia sem hora: leituras, ou quando a hora ainda falta."),
-  motivo: described(agentNullableWire(agentTextWire(L.reason)), "Trecho literal do dono."),
+  motivo: described(agentNullableWire(agentTextWire(L.reason)), "Cancelamento: a causa que o dono deu, copiada literalmente, mesmo curta ou indireta; null só quando a mensagem não diz por quê."),
   recorrencia: described(agentNullableWire(agentTextWire(L.recurrence)), "Cópia das palavras de repetição, quando o dono pede repetir."),
   depende_de: described({ type: "array", maxItems: L.dependsOn, items: agentPatternWire(P.key) }, "Chaves das ações deste plano que precisam vir antes."),
   ocupa_horario_de: described(agentNullableWire(agentPatternWire(P.key)), "Chave do cancelamento ou da remarcação cujo horário esta criação ocupa."),

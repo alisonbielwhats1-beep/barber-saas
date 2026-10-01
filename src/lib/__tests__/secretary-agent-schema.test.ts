@@ -112,7 +112,8 @@ describe('agent tools: the six strict schemas (§2)', () => {
     // propor_plano descriptions now ask for every action, PLANO with a field question and contiguous quotes. Was cbfde3523d9b6880….
     // Then the operation question of one unclear part on the PLANO (backup …before-c5-s1fix-opquestion.ts). Was 9f2b11c3baed777c….
     // Phase 2 (backup …before-agent-continuation.ts): propor_plano gains the nullable `descartar`. Was 24be2b13c723e040….
-    expect(AGENT_TOOLS_SHA256).toBe('c25f9d74723e96e21ee7fe2ebd2ab018c341f090fe25a6f178140e3691390fa4');
+    // S1c (backup …before-agent-reason.ts): the `motivo` description asks a stated cause copied literally, null only with none. Was c25f9d74723e96e2….
+    expect(AGENT_TOOLS_SHA256).toBe('97b829dc527d72f4c131ff0880a1bb06d7946189f6ae34f2c771c5bf35c82f1e');
     expect(agentToolsDigest(agentTools())).toBe(AGENT_TOOLS_SHA256);
     const reordered = agentTools().map(tool => Object.fromEntries(Object.entries(tool).reverse()));
     expect(agentToolsDigest(reordered)).toBe(AGENT_TOOLS_SHA256);

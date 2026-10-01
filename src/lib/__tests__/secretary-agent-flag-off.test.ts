@@ -33,6 +33,8 @@ import { SalonSecretary } from "../salon-secretary";
 import { agentMessageScope } from "../secretary-agent-apply";
 import { ScriptedServicesModel, call } from "../../test/scripted-services-model";
 import { agentMessage } from "../../../packages/salon-secretary/src/agent-context";
+import { AGENT_PLAN_PARAMETERS, AGENT_PLAN_TOOL } from "../../../packages/salon-secretary/src/agent-plan";
+import { AGENT_PROMPT_BASES } from "../../../packages/salon-secretary/src/agent-prompt";
 import type { Model, ModelRequest } from "@everflair/salon-secretary";
 
 const FLAG = "SALON_SECRETARY_AGENT";
@@ -111,6 +113,17 @@ describe("SALON_SECRETARY_AGENT on with an active plan: the C4 answers with the 
     // The active plan was answered by the C4 (the agent only takes new requests): the same plan, never an agent plan.
     expect(on.view.action_plan?.plan_ref).toBe(on.first.action_plan?.plan_ref);
     expect("agent_plan" in on.view).toBe(false); expect("agentPlan" in on.stored).toBe(false);
+  });
+  it("S1c: the agent's cause wording (its prompt and propor_plano's motivo) never reaches a C4 request, flag off or on", async () => {
+    const off = await conversation("off");
+    Object.assign(db, { rows: [], executors: [], seen: [] });
+    const on = await conversation("on");
+    const quoted = (text: string) => JSON.stringify(text).slice(1, -1);
+    const motivo = String(((AGENT_PLAN_PARAMETERS.properties.acoes as { items: { properties: Record<string, { description?: string }> } }).items.properties.motivo.description));
+    expect(motivo).toMatch(/copiada literalmente/);
+    const sent = [...off.requests.flat(), ...on.requests.flat()].map(body);
+    expect(sent).toHaveLength(4);
+    for (const text of sent) { expect(text).not.toContain(quoted(motivo)); expect(text).not.toContain(quoted(AGENT_PROMPT_BASES)); expect(text).not.toContain(AGENT_PLAN_TOOL); }
   });
   it("the C4 call runs under a live deadline signal of the message", async () => {
     const on = await conversation("on");
