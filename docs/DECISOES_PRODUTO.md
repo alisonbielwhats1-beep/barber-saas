@@ -532,3 +532,7 @@ O dono aprovou a migração para "a LLM conduz a conversa e escolhe as consultas
 21. **"Confirmar tudo":** um lote com cancelamento, bloqueio ou mais de uma cliente mostra antes um resumo de revisão, com o texto do backend, e o dono confirma o lote de uma vez.
 22. **Privacidade do agente:** a Luna só vê os nomes de clientes que o dono escreveu (máscara por palavra); os outros dados da agenda vão sem nome e sem guardar nada na OpenAI (`store:false`).
 23. **Reserva:** o agente pode cair para o caminho da C4 em no máximo 15% das mensagens; acima disso, não é adotado.
+
+## Secretária de Agenda — decisão do dono de 01/10/2026
+
+24. **Tempo da primeira chamada do agente:** a primeira chamada à Luna pode durar até 25 s; as rodadas seguintes de consulta continuam com até 15 s, e a mensagem inteira continua limitada a 45 s. Motivo medido no S2: com 15 s, pedidos com 3–4 ações estouravam o prazo e caíam para a C4, levando 20–28 s no total. A regra 20 (p50 ≤ 8 s, p90 ≤ 15 s) continua valendo.
