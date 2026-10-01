@@ -272,3 +272,30 @@ Resultado da auditoria do v1b (só números):
 4. **Trajetória multi-turn (métrica 4):** passa a ser só informativa.
 5. **Sem mudança:** os demais limites da tabela, o mínimo de 45 cenários, a regra de tamanho fixo do Adendo 2 e a apresentação ao dono antes da selagem.
 6. **União DEV ampliada:** o v1b rejeitado entra nela, junto com o v1.
+
+## Registro da selagem: holdouts v1c (01/10/2026, ~11h35 de São Paulo, aprovada pelo dono)
+
+- **Auditoria do v1c pelo portão recalibrado (Adendo 3):**
+  - SIMPLE: 10 sinais de remoção, 0 confirmados pelo 3º juiz.
+  - COMPLEX: 6 sinais de remoção, 1 confirmado (CE41).
+  - Regra de tamanho fixo: ficaram 60 em cada holdout (30 de cada autor).
+  - Todos os limites do portão passaram nos dois.
+- **Desenho final (só números):**
+
+  | Métrica | SIMPLE | COMPLEX |
+  |---|---|---|
+  | Jaccard mascarado | 0,31 | 0,30 |
+  | Assinatura já existente no DEV | 42% | 3% |
+  | Combinações inéditas | 47% | 87% |
+  | Nomes repetidos | 0 | 0 |
+  | Multi-ação | 8% | 97% |
+  | Multi-turn | 7% (32% com respostas) | 73% |
+  | Voz | 52% | 42% |
+  | Tipos de salão / padrões de horário | 8 / 60 | 19 / 60 |
+  | Com jornada própria | 13 | 51 |
+
+- **Gabarito:** o OD1 (cenário SE08) foi selado com o gabarito provisório (pergunta), por decisão do dono.
+- **Arquivos:** `D:/Projetos/secretary-holdout-sealed/agent-v1c/{simple,complex}/*-HOLDOUT.json`, em modo somente leitura.
+- **Registro** (`holdout-registry.json`): `agent-v1c-simple` sha256 `fda51ef6…`; `agent-v1c-complex` sha256 `bfb3233e…`. Kind test, 0 olhadas. A política é 1 execução por candidata e 2 candidatas por holdout: Agent e C4.
+- **Dia da execução:** 6 cenários do COMPLEX usam dia da semana sem data, então a prova não roda em sexta, sábado ou domingo.
+- **Prova autorizada pelo dono para 01/10/2026** (quinta-feira), com Agent × C4, k=3, SIMPLE e COMPLEX separados, mais o Golden k=5 do Agent, dentro do teto de US$ 15.
