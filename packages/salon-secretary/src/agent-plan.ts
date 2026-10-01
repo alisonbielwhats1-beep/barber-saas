@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { agentMessage } from "./agent-context";
 
 /** C5 agent (flag SALON_SECRETARY_AGENT, default off; docs/c5-spike/11-especificacao-agente.md §4). The resolved plan Luna hands
  * over with `propor_plano`, the last of the agent's six strict tools (agent-tools.ts). It never carries an approval, a price, a
@@ -35,7 +36,12 @@ export const AGENT_PATTERNS = Object.freeze({
   p: "^p[1-9][0-9]?$", s: "^s[1-9][0-9]?$", c: "^c[1-9][0-9]?$", a: "^a[1-9][0-9]?$", f: "^f[1-9][0-9]?$",
 });
 export const AGENT_PLAN_LIMITS = Object.freeze({ actions: 4, actionsLeft: 20, reply: 400, actionQuote: 240, quote: 80, baseRef: 40, bases: 8, premises: 2, premise: 120,
-  services: 10, dependsOn: 2, reason: 200, recurrence: 120, question: 200 });
+  services: 10, dependsOn: 2, reason: 200, recurrence: 120, question: 200, discardKeys: 4 });
+/** Phase 2 (continuation of an open agent plan, docs/c5-spike/11-especificacao-agente.md §0): the owner gives up actions of the open plan.
+ * PLANO: every open action (no key); ACOES: the open actions named by key (1..4). The backend decides what leaves from the owner's own words
+ * (secretary-agent-apply.ts agentDismissalScope); this field only says that a dismissal was read and which keys the model meant. */
+export const AGENT_DISCARD_SCOPES = ["PLANO", "ACOES"] as const;
+export type AgentDiscardScope = (typeof AGENT_DISCARD_SCOPES)[number];
 
 /** A JSON Schema node of the agent's wire (plain data; OpenAI strict function schemas). */
 export type AgentJsonSchema = { [key: string]: unknown };
@@ -81,6 +87,11 @@ const actionWire = agentObjectWire({
   premissas: described({ type: "array", maxItems: L.premises, items: agentTextWire(L.premise) }, "Suposições feitas, em poucas palavras."),
 });
 const questionWire = agentObjectWire({ acao: agentNullableWire(agentPatternWire(P.key)), campo: { enum: [...AGENT_QUESTION_FIELDS] }, texto: agentTextWire(L.question, 3) });
+const discardWire = agentObjectWire({
+  alcance: described({ enum: [...AGENT_DISCARD_SCOPES] }, "PLANO: todas as ações abertas, chaves vazia; ACOES: só as chaves desistidas."),
+  chaves: { type: "array", maxItems: L.discardKeys, items: agentPatternWire(P.key) },
+  citacao: described(agentTextWire(L.quote, 1), "Trecho contínuo em que o dono desiste, copiado da mensagem."),
+});
 /** §4 wire of `propor_plano`. `pergunta` is published as anyOf [object, null] (the nullable-object form of the recorded C4 wire);
  * the resolved schema is §4's. `servicos` has minItems 1 (null states absence; an empty list would be a second spelling of it).
  * S1 fix A1: every requested action goes in the plan; a field question only points at an empty field of one of them (the backend
@@ -93,6 +104,7 @@ export const AGENT_PLAN_PARAMETERS: AgentObjectSchema = agentDeepFreeze(agentObj
   acoes_fora: described({ type: "integer", minimum: 0, maximum: L.actionsLeft }, "Ações pedidas que não couberam nas quatro."),
   pergunta: described({ anyOf: [questionWire, { type: "null" }] },
     "Opcional: aponta um campo vazio de uma ação do plano, que o backend pergunta; nunca substitui as outras ações. Com campo operacao, acao é null: num PLANO, sobre a parte cuja operação não está clara; em PERGUNTA, sem ações."),
+  descartar: described({ anyOf: [discardWire, { type: "null" }] }, "Só com plano aberto, quando o dono desiste de ações dele; senão null."),
 }));
 export const AGENT_PLAN_DESCRIPTION = "Entrega o plano resolvido, com todas as ações pedidas. Nada é gravado: o backend confere os fatos e o dono confirma pelo botão. Chame uma única vez, sem consultas na mesma rodada.";
 
@@ -113,15 +125,29 @@ const agentActionSchema = z.object({
   bases: z.array(agentBaseSchema).max(L.bases), premissas: z.array(agentText(0, L.premise)).max(L.premises),
 }).strict();
 const agentQuestionSchema = z.object({ acao: pattern(P.key).nullable(), campo: z.enum(AGENT_QUESTION_FIELDS), texto: agentText(3, L.question) }).strict();
-/** Structural decoder of the wire (the §4 rules below run after it). */
+const agentDiscardSchema = z.object({ alcance: z.enum(AGENT_DISCARD_SCOPES), chaves: z.array(pattern(P.key)).max(L.discardKeys), citacao: agentText(1, L.quote) }).strict();
+/** Structural decoder of the wire (the §4 rules below run after it). `descartar` is optional in the type only: a plan recorded before the field
+ * existed has no key, which decodes as null (agentPlanDefaults); the published wire always requires it (strict). */
 export const agentPlanShape = z.object({
   resultado: z.enum(AGENT_PLAN_RESULTS), resposta: agentText(0, L.reply).nullable(), acoes: z.array(agentActionSchema).max(L.actions),
-  acoes_fora: z.number().int().min(0).max(L.actionsLeft), pergunta: agentQuestionSchema.nullable(),
+  acoes_fora: z.number().int().min(0).max(L.actionsLeft), pergunta: agentQuestionSchema.nullable(), descartar: agentDiscardSchema.nullable().optional(),
 }).strict();
 export type AgentPlan = z.infer<typeof agentPlanShape>;
 export type AgentPlanAction = AgentPlan["acoes"][number];
 export type AgentPlanBase = AgentPlanAction["bases"][number];
 export type AgentPlanQuestion = NonNullable<AgentPlan["pergunta"]>;
+export type AgentPlanDiscard = NonNullable<AgentPlan["descartar"]>;
+const plainObject = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === "object" && !Array.isArray(value);
+/** The neutral default of a wire field added after plans were recorded: an absent `descartar` is null (checked by the shape and the wire). */
+export const agentPlanDefaults = (raw: unknown): unknown => plainObject(raw) && !("descartar" in raw) ? { ...raw, descartar: null } : raw;
+/** Phase 2: the open plan a decode runs against. `openKeys`: the actions of the open agent plan that are not discarded (a key equal to one is a
+ * patch of that action; edges may name them); `doneKeys`: those already confirmed (never discarded). Absent: no open plan (Phase 1). */
+export type AgentPlanDecodeOptions = { readonly openKeys?: readonly string[]; readonly doneKeys?: readonly string[] };
+/** The open plan of the current agent message (agent-context withAgentMessage `open`), or none. */
+export const agentPlanDecodeDefaults = (): AgentPlanDecodeOptions => {
+  const open = agentMessage()?.open;
+  return open ? { openKeys: open.keys, doneKeys: open.done } : {};
+};
 
 /** Rejection of the whole plan (§5 effect REJEITA, §3.8 "plano inválido no esquema"). `reasons` are codes and schema paths only:
  * never a string the model wrote (telemetry takes them as they are). */
@@ -134,9 +160,12 @@ export const agentFieldValue = (action: AgentPlanAction, field: AgentBaseField) 
 /** The bases of one field of an action. */
 export const agentFieldBases = (action: AgentPlanAction, field: AgentBaseField) => action.bases.filter(base => base.campo === field);
 const talk = (result: AgentPlanResult) => result === "CONVERSA" || result === "FORA_DO_ESCOPO";
-/** §4 decoding rules, as codes (empty: the plan holds them). Structural only: refs, quotes and facts are the validator's (§5). */
-export function agentPlanViolations(plan: AgentPlan): string[] {
-  const out = new Set<string>(), keys = new Set<string>(), actions = plan.acoes;
+/** §4 decoding rules, as codes (empty: the plan holds them). Structural only: refs, quotes and facts are the validator's (§5).
+ * Phase 2 (`options.openKeys`, an open agent plan): an action keyed like an open action is that action's patch (once, keys stay unique); edges
+ * may name open actions; `descartar` only with an open plan, on a PLANO, naming open keys that are not done (none for PLANO), never a key the plan
+ * also patches (a whole-plan dismissal patches nothing). A PLANO with no action is admitted only with its dismissal. */
+export function agentPlanViolations(plan: AgentPlan, options: AgentPlanDecodeOptions = {}): string[] {
+  const out = new Set<string>(), keys = new Set<string>(), actions = plan.acoes, open = new Set(options.openKeys ?? []), done = new Set(options.doneKeys ?? []);
   for (const action of actions) { if (keys.has(action.chave)) out.add("KEY_DUPLICATE"); keys.add(action.chave); }
   for (const action of actions) {
     for (const field of AGENT_BASE_FIELDS) {
@@ -149,7 +178,7 @@ export function agentPlanViolations(plan: AgentPlan): string[] {
       else if (action[base.campo] !== null) out.add("NAO_DITO_VALUE");
     }
     const edges = [...action.depende_de, ...(action.ocupa_horario_de === null ? [] : [action.ocupa_horario_de])];
-    if (edges.some(key => key === action.chave || !keys.has(key))) out.add("DEPENDENCY_UNKNOWN");
+    if (edges.some(key => key === action.chave || !keys.has(key) && !open.has(key))) out.add("DEPENDENCY_UNKNOWN");
     if (new Set(action.depende_de).size !== action.depende_de.length) out.add("DEPENDENCY_DUPLICATE");
   }
   const question = plan.pergunta;
@@ -157,7 +186,17 @@ export function agentPlanViolations(plan: AgentPlan): string[] {
   // actions. The operation question is a PERGUNTA with no action or, for the one part of a message whose operation is unclear, a PLANO's
   // question with acao null (the other actions stay; the backend shows it next to the plan). Both are checked exactly as before.
   const carried = plan.resultado === "PERGUNTA" || (plan.resultado === "PLANO" && question !== null);
-  if (plan.resultado === "PLANO" && !actions.length) out.add("PLAN_EMPTY");
+  const discard = plan.descartar ?? null;
+  if (discard) {
+    if (!open.size) out.add("DISCARD_UNEXPECTED");
+    else {
+      if (plan.resultado !== "PLANO") out.add("DISCARD_RESULT");
+      const named = discard.chaves, patched = actions.filter(action => open.has(action.chave)).map(action => action.chave);
+      if (discard.alcance === "PLANO" ? named.length > 0 : !named.length || new Set(named).size !== named.length || named.some(key => !open.has(key) || done.has(key))) out.add("DISCARD_KEYS");
+      if (discard.alcance === "PLANO" ? patched.length > 0 : patched.some(key => named.includes(key))) out.add("DISCARD_PATCH_CONFLICT");
+    }
+  }
+  if (plan.resultado === "PLANO" && !actions.length && !(discard && open.size)) out.add("PLAN_EMPTY");
   if (plan.resultado === "PERGUNTA" && !question) out.add("QUESTION_REQUIRED");
   if (!carried && question) out.add("QUESTION_UNEXPECTED");
   if (carried && question) {
@@ -177,18 +216,22 @@ export function agentPlanViolations(plan: AgentPlan): string[] {
   return [...out];
 }
 /** Strict decode of a `propor_plano` payload: the typed shape, the published wire itself (both must accept), then the §4
- * rules. Throws AgentPlanError; the value is never transformed (a decoded plan is the model's own, re-checked by the validator). */
-export function decodeAgentPlan(raw: unknown): AgentPlan {
-  const parsed = agentPlanShape.safeParse(raw);
+ * rules. Throws AgentPlanError; the value is never transformed (a decoded plan is the model's own, re-checked by the validator): a plan
+ * recorded without `descartar` is checked with its neutral null and returned as it came. `options` default to the open plan of the current
+ * agent message (none outside one: the Phase 1 rules exactly). */
+export function decodeAgentPlan(raw: unknown, options: AgentPlanDecodeOptions = agentPlanDecodeDefaults()): AgentPlan {
+  const filled = agentPlanDefaults(raw), parsed = agentPlanShape.safeParse(filled);
   if (!parsed.success) throw new AgentPlanError([...new Set(parsed.error.issues.map(issue => `SCHEMA:${issue.code}@${issue.path.map(String).join(".")}`))]);
-  if (!(planWire ??= compileAgentWire(AGENT_PLAN_PARAMETERS)).safeParse(raw).success) throw new AgentPlanError(["WIRE"]);
-  const violations = agentPlanViolations(parsed.data);
+  if (!(planWire ??= compileAgentWire(AGENT_PLAN_PARAMETERS)).safeParse(filled).success) throw new AgentPlanError(["WIRE"]);
+  const violations = agentPlanViolations(parsed.data, options);
   if (violations.length) throw new AgentPlanError(violations);
-  return parsed.data;
+  if (filled === raw) return parsed.data;
+  const { descartar: _absent, ...recorded } = parsed.data; void _absent;
+  return recorded;
 }
 /** The function-call arguments string of `propor_plano`. */
-export function decodeAgentPlanArguments(json: string): AgentPlan {
+export function decodeAgentPlanArguments(json: string, options: AgentPlanDecodeOptions = agentPlanDecodeDefaults()): AgentPlan {
   let raw: unknown;
   try { raw = JSON.parse(json); } catch { throw new AgentPlanError(["JSON"]); }
-  return decodeAgentPlan(raw);
+  return decodeAgentPlan(raw, options);
 }

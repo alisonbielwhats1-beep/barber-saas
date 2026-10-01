@@ -1,12 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AGENT_DEPENDENCY_FLAGS, createAgentBinding } from "../../../packages/salon-secretary/src/agent-context";
+import { AGENT_DEPENDENCY_FLAGS, createAgentBinding, withAgentMessage } from "../../../packages/salon-secretary/src/agent-context";
 import type { AgentPlan } from "../../../packages/salon-secretary/src/agent-plan";
 import { nameHasTokens, nameTokenQuery } from "../secretary-name-tokens";
 import { withoutArticle } from "../name-search";
 import { clauseBounds, temporalAtomSpans } from "../scheduling-temporal-source";
 import { UNSPECIFIED_DAYPART_ASKED_HOURS, verifyClockComponent } from "../scheduling-temporal-reference";
 import { AGENT_ENTITY_DENIED_OPEN, AGENT_NOTHING_CHANGED, AGENT_REGISTERED_CRITERIA, agentActionsLeftText, agentBasisStillHolds, agentDerivedCheck, agentGroupBasisPrecheck, agentUncoveredText,
-  validateAgentPlan, type AgentActionOutcome, type AgentApptFact, type AgentBasis, type AgentDerived, type AgentFactReader, type AgentValidatorCriteria } from "../secretary-agent-validator";
+  agentUnpickedPremise, validateAgentPlan, type AgentActionOutcome, type AgentApptFact, type AgentBasis, type AgentDerived, type AgentFactReader, type AgentOpenAction, type AgentOpenPlan,
+  type AgentValidatorCriteria } from "../secretary-agent-validator";
 
 /** C5 WP4 (flag SALON_SECRETARY_AGENT; docs/c5-spike/11-especificacao-agente.md §5, §8.1 "Validador"): the fact validator of the agent's plan
  * against an in-memory tenant (no database, network or model). Today is Tuesday 06/10/2026, 9h in São Paulo; "sexta" is 09/10. A synthetic
@@ -93,9 +94,10 @@ const plan = (acoes: Action[], over: Partial<AgentPlan> = {}): AgentPlan => ({ r
 const ESCOVA = [{ ref: "s1", modo: "LISTA" as const }];
 /** A booking for Quitéria with Otoniel, Escova, Friday 15h; its clause and start quote given per test. */
 const booking = (over: Partial<Action>) => act({ cliente: "c1", profissional: "p1", servicos: ESCOVA, inicio: `${FRIDAY}T15:00`, ...over });
-async function validate(owner: string, p: AgentPlan, options: { w?: World; criteria?: AgentValidatorCriteria; reads?: string[] } = {}) {
+async function validate(owner: string, p: AgentPlan, options: { w?: World; criteria?: AgentValidatorCriteria; reads?: string[]; open?: AgentOpenPlan } = {}) {
   const w = options.w ?? world();
-  return validateAgentPlan(p, { owner: [owner], binding: binding(w), reader: reader(w, options.reads), ...(options.criteria ? { criteria: options.criteria } : {}) });
+  return validateAgentPlan(p, { owner: [owner], binding: binding(w), reader: reader(w, options.reads), ...(options.criteria ? { criteria: options.criteria } : {}),
+    ...(options.open ? { open: options.open } : {}) });
 }
 async function outcomes(owner: string, p: AgentPlan, options: Parameters<typeof validate>[2] = {}): Promise<AgentActionOutcome[]> {
   const out = await validate(owner, p, options);
@@ -574,5 +576,302 @@ describe("V25 and §5.5: what the owner reads is backend text", () => {
     expect(mixed.notices.filter(notice => notice === "O que faço com a Dalva?")).toHaveLength(1);
     expect(mixed.actions.map(action => [action.key, action.status === "DROP", action.asked])).toEqual([["a1", false, null]]);
     expect(mixed.codes).not.toContain("AGENT_FIELD_QUESTION");
+  });
+});
+
+describe("S1b part A: what the owner said stays (A1-A6, A8), safety kept", () => {
+  it("A1+A2: a NAO_DITO quote proves nothing, even the whole clause; the one performer free then is taken, said and re-checked (owner decision 14)", async () => {
+    const clause = "Reserva a Quitéria sexta às 15h, manicure";
+    const one = await only(`${clause}.`, plan([booking({ citacao_acao: clause, profissional: null, servicos: [{ ref: "s4", modo: "LISTA" }],
+      bases: [base("inicio", "DITO", "sexta às 15h"), base("profissional", "NAO_DITO", clause)] })]));
+    expect(one).toMatchObject({ status: "READY", fields: { customer_ref: "cu-qui", service_ref: "sv-man", professional_ref: "pro-zen", date: FRIDAY, time: "15:00" },
+      basis: [{ type: "DELEGADO", field: "profissional", chosen: "pro-zen", set: ["pro-zen"], sole: true }] });
+    expect(one.codes).toEqual(["AGENT_PROFESSIONAL_DERIVED"]);
+    expect(one.premises).toEqual([expect.stringMatching(/^Zenaide Couto: .*Manicure.* 15h\.$/)]);
+  });
+  it("A1: the appointment's quote may name its customer; that name proves the customer once and the locate still decides", async () => {
+    const one = await only("Desmarca a Dalva de quarta porque vai viajar.", plan([act({ operacao: "appointment.cancel", citacao_acao: "Desmarca a Dalva de quarta", atendimento: "a2",
+      cliente: "c4", motivo: "vai viajar", bases: [base("atendimento", "ANCORA", "a Dalva de quarta", "a2"), base("cliente", "DITO", "Dalva")] })]));
+    expect(one).toMatchObject({ status: "READY", fields: { customer_ref: "cu-dal", date: "2026-10-07", reason: "vai viajar" }, origin: { expected: "ap-dal1", located: ["ap-dal1"] } });
+    expect(one.codes).not.toContain("AGENT_QUOTE_REUSED");
+  });
+  it("A1: a day atom two fields read with one date is one value; the appointment's own clock and day locate it", async () => {
+    const one = await only("Desmarca a Dalva das 14h de quarta porque vai viajar.", plan([act({ operacao: "appointment.cancel", citacao_acao: "Desmarca a Dalva das 14h de quarta",
+      atendimento: "a2", cliente: "c4", dia: "2026-10-07", motivo: "vai viajar",
+      bases: [base("atendimento", "ANCORA", "das 14h de quarta", "a2"), base("cliente", "DITO", "Dalva"), base("dia", "DITO", "quarta")] })]));
+    expect(one).toMatchObject({ status: "READY", fields: { customer_ref: "cu-dal", date: "2026-10-07", time: "14:00" }, origin: { expected: "ap-dal1", located: ["ap-dal1"] } });
+    expect(one.codes).toEqual([]);
+  });
+  it("A5: a clock atom of the C4 grammar is read as the C4 reads it (a unit suffix, HH:MM with no lead) instead of being cleared", async () => {
+    for (const [said, time] of [["sexta 15hs", "15:00"], ["sexta 15:30", "15:30"]] as const) {
+      const clause = `Reserva a Quitéria ${said} com o Otoniel, escova`;
+      const one = await only(`${clause}.`, plan([booking({ citacao_acao: clause, inicio: `${FRIDAY}T${time}`, bases: [base("inicio", "DITO", said)] })]));
+      expect(one).toMatchObject({ status: "READY", fields: { date: FRIDAY, time } });
+      expect(one.codes).toEqual([]);
+    }
+  });
+  it("A3: a verb in the service quote names no service: the change keeps the service the owner named", async () => {
+    const w = world();
+    w.appts.push({ id: "ap-mix", customerId: "cu-qui", professionalId: "pro-oto", serviceIds: ["sv-esc", "sv-hid"], start: `${FRIDAY}T11:00`, end: `${FRIDAY}T12:10`, status: "CONFIRMED" });
+    const clause = "No horário da Quitéria de sexta, remove a escova";
+    const one = await only(`${clause}.`, plan([act({ operacao: "appointment.change", citacao_acao: clause, atendimento: "a4", cliente: "c1", servicos: [{ ref: "s1", modo: "REMOVER" }],
+      bases: [base("atendimento", "DITO", "Quitéria de sexta"), base("servicos", "DITO", "remove a escova")] })]), { w });
+    expect(one).toMatchObject({ status: "READY", origin: { expected: "ap-mix", located: ["ap-mix"] },
+      fields: { customer_ref: "cu-qui", source_date: FRIDAY, service_changes: [{ mode: "REMOVE", service_name: "Escova" }], service_changes_ref: ["sv-esc"] } });
+    expect(one.codes).not.toContain("AGENT_NAME_MISMATCH");
+  });
+  it("A3 adversarial: an item coordinated with a chosen service that names none of them goes back to the owner's words, never dropped", async () => {
+    const clause = "Reserva a Quitéria sexta às 15h com o Otoniel, escova e pedicure";
+    const one = await only(`${clause}.`, plan([booking({ citacao_acao: clause, bases: [base("inicio", "DITO", "sexta às 15h"), base("servicos", "DITO", "escova e pedicure")] })]));
+    expect(one.codes).toContain("AGENT_NAME_MISMATCH");
+    expect(one.fields).toMatchObject({ service_name: "escova e pedicure" });
+    expect(one.fields).not.toHaveProperty("service_ref");
+  });
+  it("A6: a booking the model left without customer gets the owner's words of the customers shown (NOME), never a ref, even for one holder", async () => {
+    const clause = "Reserva a Iolanda sexta às 15h com o Otoniel, escova";
+    const many = await only(`${clause}.`, plan([booking({ citacao_acao: clause, cliente: null, bases: [base("inicio", "DITO", "sexta às 15h")] })]));
+    expect(many).toMatchObject({ status: "READY", card: null, fields: { customer_name: "Iolanda", professional_ref: "pro-oto", service_ref: "sv-esc" } });
+    expect(many.fields).not.toHaveProperty("customer_ref");
+    expect(many.codes).toContain("AGENT_CUSTOMER_UNPICKED");
+    const single = await only("Reserva a Dalva sexta às 15h com o Otoniel, escova.", plan([booking({ citacao_acao: "Reserva a Dalva sexta às 15h com o Otoniel, escova", cliente: null,
+      bases: [base("inicio", "DITO", "sexta às 15h")] })]));
+    expect(single.fields).toMatchObject({ customer_name: "Dalva" });
+    expect(single.fields).not.toHaveProperty("customer_ref");
+  });
+  it("A6 (owner decision 14): the customer taken from the owner's words is said back as a backend premise", async () => {
+    const single = await only("Reserva a Dalva sexta às 15h com o Otoniel, escova.", plan([booking({ citacao_acao: "Reserva a Dalva sexta às 15h com o Otoniel, escova", cliente: null,
+      bases: [base("inicio", "DITO", "sexta às 15h")] })]));
+    expect(single.codes).toContain("AGENT_CUSTOMER_UNPICKED");
+    expect(single.premises).toEqual([agentUnpickedPremise("Dalva")]);
+  });
+  it("A8 (owner decision 18): a block whose start and end are each the one reading inside the hours shows one premise for the interval", async () => {
+    vi.stubEnv("SALON_SECRETARY_DAYPART_ASK_WIDE", "true");
+    const one = await only("Tranca o Otoniel sexta das 9 às 10.", plan([act({ operacao: "schedule.block", citacao_acao: "Tranca o Otoniel sexta das 9 às 10", profissional: "p1",
+      inicio: `${FRIDAY}T09:00`, fim: `${FRIDAY}T10:00`, bases: [base("inicio", "DITO", "sexta das 9 às 10"), base("fim", "DITO", "sexta das 9 às 10")] })]));
+    expect(one).toMatchObject({ status: "READY", fields: { professional_ref: "pro-oto", date: FRIDAY, time: "09:00", end_time: "10:00" } });
+    expect(one.codes).toContain("AGENT_DAYPART_ONE");
+    expect(one.premises).toEqual([expect.stringMatching(/^Considerei 9h–10h: /)]);
+  });
+  it("A4: the origin facts of the action's own clause locate the appointment when its quote names only the customer", async () => {
+    const one = await only("Desmarca a Dalva de quarta porque vai viajar.", plan([act({ operacao: "appointment.cancel", citacao_acao: "Desmarca a Dalva de quarta", atendimento: "a2",
+      cliente: "c4", motivo: "vai viajar", bases: [base("atendimento", "DITO", "a Dalva")] })]));
+    expect(one).toMatchObject({ status: "READY", fields: { customer_ref: "cu-dal", date: "2026-10-07" }, origin: { expected: "ap-dal1", located: ["ap-dal1"] } });
+  });
+  it("A2 + V23: a derived professional holds only while still the only one free; a second one free (or the chosen one busy) holds the group", async () => {
+    const sole: AgentBasis = { type: "DELEGADO", field: "profissional", chosen: "pro-zen", set: ["pro-zen"], counts: {}, start: `${FRIDAY}T15:00`, services: ["sv-man"], sole: true };
+    const w = world();
+    expect(await agentBasisStillHolds(reader(w), [sole])).toEqual({ ok: true });
+    w.pros[2].services.push("sv-man");
+    expect(await agentBasisStillHolds(reader(w), [sole])).toEqual({ ok: false, code: "AGENT_BASIS_CHANGED", failed: ["DELEGADO"] });
+    const busy = world();
+    busy.appts.push({ id: "ap-b", customerId: "cu-iov", professionalId: "pro-zen", serviceIds: ["sv-man"], start: `${FRIDAY}T15:00`, end: `${FRIDAY}T15:45`, status: "PENDING" });
+    expect(await agentBasisStillHolds(reader(busy), [sole])).toEqual({ ok: false, code: "AGENT_BASIS_CHANGED", failed: ["DELEGADO"] });
+  });
+});
+
+describe("S1b part A adversarial: one word, one role; never a pick nor a change the owner did not ask", () => {
+  it("A1: the origin's clock is never also the destination's: the new clock is asked (GF14), the origin still locates", async () => {
+    const one = await only("Passa a Dalva das 16h pra sexta.", plan([act({ operacao: "appointment.change", citacao_acao: "Passa a Dalva das 16h pra sexta", atendimento: "a3", cliente: "c4",
+      inicio: `${FRIDAY}T16:00`, bases: [base("atendimento", "DITO", "a Dalva das 16h"), base("inicio", "DITO", "16h pra sexta")] })]));
+    expect(one.codes).toContain("AGENT_QUOTE_REUSED");
+    expect(one.fields).toMatchObject({ customer_ref: "cu-dal", source_time: "16:00", date: FRIDAY });
+    expect(one.fields).not.toHaveProperty("time");
+    expect(one.origin).toMatchObject({ expected: "ap-dal2", located: ["ap-dal2"] });
+  });
+  it("A1: one clock is never both the start and the end of a block: the end is asked", async () => {
+    const one = await only("Tranca o Otoniel sexta às 14h.", plan([act({ operacao: "schedule.block", citacao_acao: "Tranca o Otoniel sexta às 14h", profissional: "p1",
+      inicio: `${FRIDAY}T14:00`, fim: `${FRIDAY}T14:00`, bases: [base("inicio", "DITO", "sexta às 14h"), base("fim", "DITO", "às 14h")] })]));
+    expect(one.codes).toContain("AGENT_QUOTE_REUSED");
+    expect(one.fields).toMatchObject({ professional_ref: "pro-oto", date: FRIDAY, time: "14:00" });
+    expect(one.fields).not.toHaveProperty("end_time");
+  });
+  it("V4: one word of the owner never proves both the customer and the professional", async () => {
+    const w = world();
+    w.pros.push({ id: "pro-dar", name: "Dalva Rocha", work: [[540, 1140]], services: ["sv-esc"] });
+    const one = await only("Reserva a Dalva sexta às 15h, escova.", plan([booking({ citacao_acao: "Reserva a Dalva sexta às 15h, escova", cliente: "c4", profissional: "p4",
+      bases: [base("inicio", "DITO", "sexta às 15h"), base("cliente", "DITO", "a Dalva"), base("profissional", "DITO", "a Dalva")] })]), { w });
+    expect(one.fields).not.toHaveProperty("customer_ref");
+    expect(one.fields).not.toHaveProperty("professional_ref");
+  });
+  it("A2: a clause that nearly names another professional is never overridden by the one free: the card of who can", async () => {
+    const clause = "Reserva a Quitéria sexta às 15h com o Otonie, manicure";
+    const one = await only(`${clause}.`, plan([booking({ citacao_acao: clause, profissional: null, servicos: [{ ref: "s4", modo: "LISTA" }],
+      bases: [base("inicio", "DITO", "sexta às 15h"), base("profissional", "NAO_DITO", "com o Otonie")] })]));
+    expect(one).toMatchObject({ status: "ASK", card: { kind: "professional_ref", items: [{ id: "pro-zen" }] } });
+    expect(one.fields).not.toHaveProperty("professional_ref");
+    expect(one.codes).not.toContain("AGENT_PROFESSIONAL_DERIVED");
+  });
+  it("A2: a change gets a new professional only when its own words ask another one; never a professional change the owner did not ask", async () => {
+    const w = world();
+    w.appts.push({ id: "ap-zen", customerId: "cu-iov", professionalId: "pro-zen", serviceIds: ["sv-esc"], start: "2026-10-08T16:00", end: "2026-10-08T16:40", status: "CONFIRMED" });
+    const move = (clause: string, quote: string) => act({ operacao: "appointment.change", citacao_acao: clause, atendimento: "a3", cliente: "c4",
+      bases: [base("atendimento", "DITO", "a Dalva de quinta"), base("novo_profissional", "NAO_DITO", quote)] });
+    const asked = await only("Passa a Dalva de quinta pra outra profissional.", plan([move("Passa a Dalva de quinta pra outra profissional", "outra profissional")]), { w });
+    expect(asked).toMatchObject({ status: "READY", fields: { target_professional_ref: "pro-hei" },
+      basis: [{ type: "DELEGADO", field: "novo_profissional", chosen: "pro-hei", sole: true, exclude: "pro-oto" }] });
+    const silent = await only("Passa a Dalva de quinta pro mesmo horário.", plan([move("Passa a Dalva de quinta pro mesmo horário", "Passa a Dalva")]), { w });
+    expect(silent.fields).not.toHaveProperty("target_professional_ref");
+    expect(silent).toMatchObject({ status: "ASK", card: { kind: "target_professional_ref", items: [{ id: "pro-hei" }] } });
+  });
+  it("A2 adversarial: an alterity word of a time or a row ('outro horário', 'outro dia') asks no other professional: never a derived one", async () => {
+    const w = world();
+    w.appts.push({ id: "ap-zen", customerId: "cu-iov", professionalId: "pro-zen", serviceIds: ["sv-esc"], start: "2026-10-08T16:00", end: "2026-10-08T16:40", status: "CONFIRMED" });
+    for (const clause of ["Passa a Dalva de quinta pra outro horário", "Passa a Dalva de quinta pra outro dia"]) {
+      const one = await only(`${clause}.`, plan([act({ operacao: "appointment.change", citacao_acao: clause, atendimento: "a3", cliente: "c4",
+        bases: [base("atendimento", "DITO", "a Dalva de quinta"), base("novo_profissional", "NAO_DITO", clause)] })]), { w });
+      expect(one.fields, clause).not.toHaveProperty("target_professional_ref");
+      expect(one.codes, clause).not.toContain("AGENT_PROFESSIONAL_DERIVED");
+      expect(one, clause).toMatchObject({ status: "ASK", card: { kind: "target_professional_ref" } });
+    }
+  });
+  it("A2 adversarial: a professional the owner named after the action's quote (a later part no other action holds) is never overridden by the one free", async () => {
+    const one = await only("Reserva a Quitéria sexta às 15h, com o Otoniel, manicure.", plan([booking({ citacao_acao: "Reserva a Quitéria sexta às 15h", profissional: null,
+      servicos: [{ ref: "s4", modo: "LISTA" }], bases: [base("inicio", "DITO", "sexta às 15h"), base("profissional", "NAO_DITO", "Reserva a Quitéria sexta às 15h")] })]));
+    expect(one).toMatchObject({ status: "ASK", card: { kind: "professional_ref", items: [{ id: "pro-zen" }] } });
+    expect(one.fields).not.toHaveProperty("professional_ref");
+    expect(one.codes).not.toContain("AGENT_PROFESSIONAL_DERIVED");
+  });
+  it("A4: a change's destination day is never read as its origin; with two appointments the locate keeps its card", async () => {
+    const one = await only("Remarca a Dalva pra sexta às 16h.", plan([act({ operacao: "appointment.change", citacao_acao: "Remarca a Dalva pra sexta às 16h", atendimento: "a3", cliente: "c4",
+      inicio: `${FRIDAY}T16:00`, bases: [base("atendimento", "DITO", "a Dalva"), base("inicio", "DITO", "às 16h")] })]));
+    expect(one.fields).not.toHaveProperty("source_date");
+    expect(one).toMatchObject({ status: "ASK", card: { kind: "appointment_ref", items: [{ id: "ap-dal1" }, { id: "ap-dal2" }] }, fields: { date: FRIDAY, time: "16:00" } });
+  });
+  it("A6: a denied name is never taken as the customer of a booking the model left empty", async () => {
+    const clause = "Reserva sem a Iolanda sexta às 15h com o Otoniel, escova";
+    const denied = await only(`${clause}.`, plan([booking({ citacao_acao: clause, cliente: null, bases: [base("inicio", "DITO", "sexta às 15h")] })]));
+    expect(denied.fields).not.toHaveProperty("customer_ref");
+    expect(denied.fields).not.toHaveProperty("customer_name");
+    expect(denied.codes).not.toContain("AGENT_CUSTOMER_UNPICKED");
+  });
+});
+
+describe("A7: a patch of the open agent plan (Phase 2 contract)", () => {
+  const opened = (over: Partial<AgentOpenAction> = {}): AgentOpenAction => ({ key: "k1", operation: "appointment.create", status: "OPEN",
+    fields: { customer_ref: "cu-qui", professional_ref: "pro-oto", service_ref: "sv-esc", date: FRIDAY, time: "15:00" },
+    names: { "cu-qui": "Quitéria Prates", "pro-oto": "Otoniel Barros", "sv-esc": "Escova" }, customer: "cu-qui", serviceIds: ["sv-esc"], durationMin: 40, basis: [], ...over });
+  const open = (...actions: AgentOpenAction[]): AgentOpenPlan => ({ actions });
+  const later = act({ chave: "k1", citacao_acao: "Muda pra 16h", inicio: `${FRIDAY}T16:00`, bases: [base("inicio", "DITO", "16h")] });
+  it("a field the patch leaves alone keeps the open action's validated value; the changed one is proven by this message only", async () => {
+    const one = await only("Muda pra 16h.", plan([later]), { open: open(opened()) });
+    expect(one).toMatchObject({ status: "READY", patch: true, codes: [] });
+    expect(one.fields).toEqual({ customer_ref: "cu-qui", professional_ref: "pro-oto", service_ref: "sv-esc", date: FRIDAY, time: "16:00" });
+    expect(one.names).toMatchObject({ "cu-qui": "Quitéria Prates", "pro-oto": "Otoniel Barros", "sv-esc": "Escova" });
+  });
+  it("a kept derived professional whose ground changed is derived again from the new ground, never kept on the old one", async () => {
+    const derived = opened({ fields: { customer_ref: "cu-qui", professional_ref: "pro-zen", service_ref: "sv-man", date: FRIDAY, time: "15:00" },
+      names: { "cu-qui": "Quitéria Prates", "pro-zen": "Zenaide Couto", "sv-man": "Manicure" }, serviceIds: ["sv-man"], durationMin: 45,
+      basis: [{ type: "DELEGADO", field: "profissional", chosen: "pro-zen", set: ["pro-zen"], counts: {}, start: `${FRIDAY}T15:00`, services: ["sv-man"], sole: true }] });
+    const one = await only("Muda pra 16h.", plan([later]), { open: open(derived) });
+    expect(one).toMatchObject({ status: "READY", patch: true, fields: { professional_ref: "pro-zen", time: "16:00" }, basis: [{ type: "DELEGADO", sole: true, start: `${FRIDAY}T16:00` }] });
+    expect(one.codes).toEqual(expect.arrayContaining(["AGENT_PATCH_BASIS", "AGENT_PROFESSIONAL_DERIVED"]));
+  });
+  it("adversarial: a value the patch keeps that this message negates leaves and is asked (a kept person, a kept clock)", async () => {
+    const person = await only("Muda pra 16h, mas não com o Otoniel.", plan([later]), { open: open(opened()) });
+    expect(person).toMatchObject({ status: "ASK", question: { code: "AGENT_ENTITY_DENIED" }, fields: { customer_ref: "cu-qui", time: "16:00" } });
+    expect(person.fields).not.toHaveProperty("professional_ref");
+    const clock = await only("Com o Heitor, não às 15h.", plan([act({ chave: "k1", citacao_acao: "Com o Heitor", profissional: "p3" })]), { open: open(opened()) });
+    expect(clock).toMatchObject({ status: "ASK", question: { code: "AGENT_ENTITY_DENIED" }, fields: { professional_ref: "pro-hei", date: FRIDAY } });
+    expect(clock.fields).not.toHaveProperty("time");
+  });
+  it("adversarial: a negated patch holds its open action whole, never left confirmable; a confirmed action is never done again", async () => {
+    const negated = await only("Não adia a Quitéria.", plan([act({ chave: "k1", citacao_acao: "adia a Quitéria", cliente: "c1" })]), { open: open(opened()) });
+    expect(negated).toMatchObject({ status: "ASK", patch: true, question: { code: "AGENT_NEGATED" } });
+    expect(negated.fields).toEqual(opened().fields);
+    const done = await validate("Pode seguir.", plan([act({ chave: "k1", citacao_acao: "Pode seguir" })]), { open: open(opened({ status: "DONE" })) });
+    expect(done.ok && done.actions[0]).toMatchObject({ status: "DROP", patch: true, codes: ["AGENT_PATCH_DONE"] });
+    expect(done.ok && done.notices).toHaveLength(1);
+  });
+  it("adversarial: a patch that changes the open action's operation holds it and asks; a kept appointment no longer active asks", async () => {
+    const other = await only("Desmarca a Dalva de quarta.", plan([act({ chave: "k1", operacao: "appointment.cancel", citacao_acao: "Desmarca a Dalva de quarta", atendimento: "a2", cliente: "c4",
+      bases: [base("atendimento", "DITO", "a Dalva de quarta")] })]), { open: open(opened()) });
+    expect(other).toMatchObject({ status: "ASK", patch: true, question: { code: "AGENT_PATCH_OPERATION" }, fields: opened().fields });
+    const w = world();
+    w.appts.find(a => a.id === "ap-dal1")!.status = "CANCELLED";
+    const move = opened({ operation: "appointment.change", fields: { customer_ref: "cu-dal", source_date: "2026-10-07" }, names: { "cu-dal": "Dalva Nunes" }, appointment: "ap-dal1",
+      customer: "cu-dal", serviceIds: [] });
+    const stale = await only("Pra sexta às 17h.", plan([act({ chave: "k1", operacao: "appointment.change", citacao_acao: "Pra sexta às 17h", inicio: `${FRIDAY}T17:00`,
+      bases: [base("inicio", "DITO", "sexta às 17h")] })]), { w, open: open(move) });
+    expect(stale).toMatchObject({ status: "ASK", patch: true, question: { code: "AGENT_REF_STALE" } });
+  });
+  it("a typed choice on the open action's card is exactly that row of the card, else the same card again", async () => {
+    const w = world();
+    w.pros.push({ id: "pro-hep", name: "Heitor Prates", work: [[540, 1140]], services: ["sv-esc"] });
+    const waiting = opened({ fields: { customer_ref: "cu-qui", professional_name: "Heitor", service_ref: "sv-esc", date: FRIDAY, time: "15:00" },
+      names: { "cu-qui": "Quitéria Prates", "sv-esc": "Escova", "pro-hei": "Heitor Mansur", "pro-hep": "Heitor Prates" }, card: { kind: "professional_ref", items: ["pro-hei", "pro-hep"] } });
+    const pick = (ref: string) => plan([act({ chave: "k1", citacao_acao: "O segundo", profissional: ref, bases: [base("profissional", "DITO", "O segundo")] })]);
+    const picked = await only("O segundo.", pick("p4"), { w, open: open(waiting) });
+    expect(picked).toMatchObject({ status: "READY", patch: true, fields: { professional_ref: "pro-hep", customer_ref: "cu-qui", service_ref: "sv-esc", date: FRIDAY, time: "15:00" } });
+    const wrong = await only("O segundo.", pick("p3"), { w, open: open(waiting) });
+    expect(wrong).toMatchObject({ status: "ASK", card: { kind: "professional_ref", items: [{ id: "pro-hei" }, { id: "pro-hep" }] } });
+    expect(wrong.fields).not.toHaveProperty("professional_ref");
+  });
+  it("V20, V17 and V18 count the open plan's pending actions", async () => {
+    const pending = opened({ operation: "appointment.cancel", fields: { customer_ref: "cu-dal", date: "2026-10-07" }, names: { "cu-dal": "Dalva Nunes" }, appointment: "ap-dal1",
+      customer: "cu-dal", serviceIds: [] });
+    const again = await only("Passa a Dalva de quarta pra sexta às 16h.", plan([act({ chave: "k2", operacao: "appointment.change", citacao_acao: "Passa a Dalva de quarta pra sexta às 16h",
+      atendimento: "a2", cliente: "c4", inicio: `${FRIDAY}T16:00`, bases: [base("atendimento", "DITO", "a Dalva de quarta"), base("inicio", "DITO", "pra sexta às 16h")] })]), { open: open(pending) });
+    expect(again).toMatchObject({ status: "ASK", question: { code: "AGENT_DOUBLE_MUTATION" } });
+    const rebook = await only("Reserva a Dalva sexta às 15h com o Otoniel, escova.", plan([booking({ chave: "k2", citacao_acao: "Reserva a Dalva sexta às 15h com o Otoniel, escova", cliente: "c4",
+      bases: [base("inicio", "DITO", "sexta às 15h")] })]), { open: open(pending) });
+    expect(rebook).toMatchObject({ status: "ASK", question: { code: "AGENT_RULE4" } });
+    const moved = opened({ operation: "appointment.change", fields: { customer_ref: "cu-dal", source_date: "2026-10-08", date: FRIDAY, time: "16:00" }, names: { "cu-dal": "Dalva Nunes" },
+      appointment: "ap-dal2", customer: "cu-dal", serviceIds: [] });
+    const pronoun = await only("Cancela a hidratação dela de quarta.", plan([act({ chave: "k2", operacao: "appointment.cancel", citacao_acao: "Cancela a hidratação dela de quarta", atendimento: "a2",
+      bases: [base("atendimento", "DITO", "a hidratação dela de quarta")] })]), { open: open(moved) });
+    expect(pronoun).toMatchObject({ status: "READY", fields: { customer_ref: "cu-dal", date: "2026-10-07" } });
+  });
+  it("edges may name the open plan (a released slot only of its cancellation or change); without it Phase 1 decoding is unchanged; a context holding one requires it", async () => {
+    const text = "Reserva a Quitéria sexta às 15h com o Otoniel, escova.", quote = "Reserva a Quitéria sexta às 15h com o Otoniel, escova";
+    const after = plan([booking({ chave: "k2", citacao_acao: quote, depende_de: ["k1"], bases: [base("inicio", "DITO", "sexta às 15h")] })]);
+    expect(await validate(text, after)).toMatchObject({ ok: false, code: "AGENT_SCHEMA" });
+    expect(await validate(text, after, { open: open(opened()) })).toMatchObject({ ok: true });
+    const freed = plan([booking({ chave: "k2", citacao_acao: quote, depende_de: ["k1"], ocupa_horario_de: "k1", inicio: null })]);
+    expect(await validate(text, freed, { open: open(opened()) })).toEqual({ ok: false, code: "AGENT_DAG", reasons: ["RELEASED_SLOT"] });
+    const scoped = await withAgentMessage({ owner: [text], open: { keys: ["k1"], render: () => null } }, () => validate(text,
+      plan([booking({ citacao_acao: quote, bases: [base("inicio", "DITO", "sexta às 15h")] })])));
+    expect(scoped).toEqual({ ok: false, code: "AGENT_SCHEMA", reasons: ["OPEN_PLAN_MISSING"] });
+    expect(await only(text, plan([booking({ citacao_acao: quote, bases: [base("inicio", "DITO", "sexta às 15h")] })]))).not.toHaveProperty("patch");
+  });
+  it("adversarial: a patch's NAO_DITO never replaces the professional its open action holds, even busy then; only another one asked lets it go, to a card", async () => {
+    const w = world();
+    // Friday 16h: Otoniel and Zenaide are busy, Heitor is the one free performer of Escova.
+    w.appts.push({ id: "ap-o16", customerId: "cu-iov", professionalId: "pro-oto", serviceIds: ["sv-esc"], start: `${FRIDAY}T16:00`, end: `${FRIDAY}T16:40`, status: "CONFIRMED" },
+      { id: "ap-z16", customerId: "cu-dal", professionalId: "pro-zen", serviceIds: ["sv-esc"], start: `${FRIDAY}T16:00`, end: `${FRIDAY}T16:40`, status: "CONFIRMED" });
+    const unsaid = (clause: string) => plan([act({ chave: "k1", citacao_acao: clause, inicio: `${FRIDAY}T16:00`,
+      bases: [base("inicio", "DITO", "16h"), base("profissional", "NAO_DITO", clause)] })]);
+    const kept = await only("Pras 16h.", unsaid("Pras 16h"), { w, open: open(opened()) });
+    expect(kept).toMatchObject({ status: "READY", patch: true, fields: { professional_ref: "pro-oto", time: "16:00" }, basis: [] });
+    expect(kept.codes).not.toContain("AGENT_PROFESSIONAL_DERIVED");
+    const other = await only("Pras 16h, com outro.", unsaid("Pras 16h, com outro"), { w, open: open(opened()) });
+    expect(other).toMatchObject({ status: "ASK", patch: true, card: { kind: "professional_ref", items: [{ id: "pro-hei" }] } });
+    expect(other.fields).not.toHaveProperty("professional_ref");
+    expect(other.codes).not.toContain("AGENT_PROFESSIONAL_DERIVED");
+  });
+  it("adversarial: a weekday spelled as an ordinal on an appointment card is no typed choice: the owner's words locate it, never the row of that number", async () => {
+    const w = world();
+    w.appts.push({ id: "ap-qmon", customerId: "cu-qui", professionalId: "pro-oto", serviceIds: ["sv-esc"], start: "2026-10-12T10:00", end: "2026-10-12T10:40", status: "CONFIRMED" },
+      { id: "ap-qfri", customerId: "cu-qui", professionalId: "pro-oto", serviceIds: ["sv-esc"], start: `${FRIDAY}T15:00`, end: `${FRIDAY}T15:40`, status: "CONFIRMED" });
+    const waiting = opened({ operation: "appointment.change", fields: { customer_ref: "cu-qui" }, names: { "cu-qui": "Quitéria Prates" }, serviceIds: [],
+      card: { kind: "appointment_ref", items: ["ap-qmon", "ap-qfri"] } });
+    // a5 is the Friday row, the card's second option; the owner's word also names Monday's.
+    const typed = await only("A segunda.", plan([act({ chave: "k1", operacao: "appointment.change", citacao_acao: "A segunda", atendimento: "a5",
+      bases: [base("atendimento", "DITO", "A segunda")] })]), { w, open: open(waiting) });
+    expect(typed).toMatchObject({ status: "ASK", card: { kind: "appointment_ref" } });
+    expect(typed.card!.items.map(item => item.id).sort()).toEqual(["ap-qfri", "ap-qmon"]);
+  });
+  it("adversarial: a pronoun on an open plan of several customers has no topic: asked, never the first customer of the plan", async () => {
+    const moved = opened({ key: "k2", operation: "appointment.change", fields: { customer_ref: "cu-dal", source_date: "2026-10-08", date: FRIDAY, time: "16:00" }, names: { "cu-dal": "Dalva Nunes" },
+      appointment: "ap-dal2", customer: "cu-dal", serviceIds: [] });
+    const pronoun = await only("Cancela a hidratação dela de quarta.", plan([act({ chave: "k3", operacao: "appointment.cancel", citacao_acao: "Cancela a hidratação dela de quarta", atendimento: "a2",
+      bases: [base("atendimento", "DITO", "a hidratação dela de quarta")] })]), { open: open(opened(), moved) });
+    expect(pronoun).toMatchObject({ status: "ASK", question: { code: "AGENT_PRONOUN_TOPIC" } });
+    expect(pronoun.fields).not.toHaveProperty("customer_ref");
+  });
+  it("adversarial: a patch whose words occur twice holds its open action whole: every value kept, with the question, never emptied", async () => {
+    const twice = await only("Pras 16h. Pras 16h.", plan([act({ chave: "k1", citacao_acao: "Pras 16h", inicio: `${FRIDAY}T16:00`, bases: [base("inicio", "DITO", "16h")] })]),
+      { open: open(opened()) });
+    expect(twice).toMatchObject({ status: "ASK", patch: true, question: { code: "AGENT_QUOTE_AMBIGUOUS" } });
+    expect(twice.fields).toEqual(opened().fields);
   });
 });

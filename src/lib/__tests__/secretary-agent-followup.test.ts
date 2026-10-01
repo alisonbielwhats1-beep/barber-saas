@@ -257,17 +257,24 @@ describe("B2 fallbacks: the C4 continuation of the closed plan, same calls and d
 });
 
 describe("B2 leaves everything else as it was", () => {
-  it("an open plan stays with the C4: no agent call, no agent telemetry for that message", async () => {
-    const first = agentModel("a", ["primeira", "10:00"]), c4 = c4Conversation(), s = secretary([first, c4]);
+  // Phase 2 contract migration (backup .demo/agenda-core/contract-migration/secretary-agent-followup.test.before-agent-continuation.ts): an OPEN
+  // plan the agent built no longer stays with the C4; the message reaches the agent with the plan's state (secretary-agent-continuation.test.ts).
+  // A plan the C4 built still never reaches the agent (secretary-agent-flag-off.test.ts, "flag on with an active plan").
+  it("an open plan the agent built goes through the agent (Phase 2), with the plan's state; a reply keeps that plan", async () => {
+    const first = agentModel("a", ["primeira", "10:00"]), s = secretary([first, createAgentFakeModel([{ output: [fakeReasoning("rs_b"), fakePlanCall(talkPlan("Resposta sintética do ajuste."), "call_b")] }])]);
     const { sessionId } = await s.start(actor, "auto");
     db.validation = planOf(booking("primeira", "cli-marisol", "10:00"));
     const view = await s.send(actor, { sessionId, message: "pedido sintético inicial" });
     expect(view.action_plan!.actions.map(action => action.status)).toEqual(["READY_FOR_CONFIRMATION"]);
     const seen = db.seen.length, rows = routerAgents().length;
-    await s.send(actor, { sessionId, message: "ajuste sintético" }).catch(() => undefined);
+    db.validation = { ok: true, result: "CONVERSA", actions: [], notices: [], question: null, reply: "Resposta sintética do ajuste.", codes: [] };
+    const next = await s.send(actor, { sessionId, message: "ajuste sintético" });
     expect(first.requests).toHaveLength(1);
-    expect(noAgentCall(db.seen.slice(seen))).toBe(true);
-    expect(routerAgents().slice(rows).every(agent => agent === undefined)).toBe(true);
+    expect(db.seen.slice(seen).map(event => [event.purpose.startsWith("AGENT"), event.context, event.used])).toEqual([[true, true, 1]]);
+    expect(noAgentCall(db.seen.slice(seen))).toBe(false);
+    expect(next.action_plan!.plan_ref).toBe(view.action_plan!.plan_ref);
+    expect(next.action_plan!.actions.map(action => action.status)).toEqual(["READY_FOR_CONFIRMATION"]);
+    expect(routerAgents().slice(rows)).toEqual([expect.objectContaining({ path: "AGENT", fallback_code: null, rounds: 1 })]);
   });
 
   it("flag off on a closed plan: no message context, no executor, no agent call (the C4 path as before)", async () => {

@@ -48,7 +48,7 @@ export const AGENT_LIMITS = Object.freeze({
   lookupsPerRound: 4, lookupsPerMessage: 6, lookupOutputBytes: 3 * 1024, roundOutputBytes: 9 * 1024, argumentsBytes: 4 * 1024, commentaryBytes: 1024,
   maxOutputTokens: 8192, requestCap: 64_000, outputFraming: 8192,
   directoryProfessionals: 40, directoryServices: 80, customersShown: 5, upcomingPerCustomer: 3, professionalsShown: 6, freeTimesShown: 6, agendaRows: 50, refsPerKind: 99,
-  preloadBytes: 6 * 1024, preloadItems: 5,
+  preloadBytes: 6 * 1024, preloadItems: 5, planStateBytes: 3 * 1024,
 });
 
 /** Opaque refs of one message: p professional, s service, c customer, a appointment, f free interval; 1..99 per kind. */
@@ -125,7 +125,14 @@ export type AgentDirectory = {
    * array of 1..5 {consulta, argumentos, resultado}, at most 6 KB. The prompt sends it whole as a third system part or drops it
    * whole (agent-prompt.ts agentPreloadText); it never counts as a lookup round and never causes a fallback. */
   readonly preload?: string;
+  /** Phase 2 (a message on an open agent plan): the plan's state as the app rendered it for THIS message (compact JSON object, refs of this
+   * message's binding, at most 3 KB; agent-prompt.ts agentPlanText). Absent on every other message. */
+  readonly plan?: string;
 };
+/** Phase 2: the open agent plan a message continues (set by the app only with the flag, on an eligible open plan). `keys`: its actions that are
+ * not discarded (a plan action with one of these keys is that action's patch); `done`: those already confirmed; `render`: the plan's state with
+ * refs bound in this message's binding (null when it cannot be rendered within AGENT_LIMITS.planStateBytes). */
+export type AgentOpenScope = { readonly keys: readonly string[]; readonly done?: readonly string[]; render(binding: AgentBinding): string | null };
 /** More than 40 professionals or 80 services: the agent does not run on this message (the C4 answers). */
 export type AgentDirectoryResult = { readonly ok: true; readonly directory: AgentDirectory } | { readonly ok: false; readonly code: "AGENT_DIRECTORY_TRUNCATED" | "AGENT_UNAVAILABLE" };
 /** Injected by the app (src/lib/secretary-agent-lookups.ts), closing over the session actor: the model never names a tenant, an
@@ -146,9 +153,12 @@ export type AgentMessageContext = {
   readonly now: () => number;
   remainingMs(): number;
   readonly executor: AgentLookupExecutor | undefined;
+  /** Phase 2: the open agent plan this message continues (absent: a new request, Phase 1). */
+  readonly open?: AgentOpenScope;
   toJSON(): never;
 };
-export type AgentMessageOptions = { readonly owner: readonly string[]; readonly executor?: AgentLookupExecutor; readonly signal?: AbortSignal; readonly now?: () => number; readonly budgetMs?: number };
+export type AgentMessageOptions = { readonly owner: readonly string[]; readonly executor?: AgentLookupExecutor; readonly signal?: AbortSignal; readonly now?: () => number; readonly budgetMs?: number;
+  readonly open?: AgentOpenScope };
 const message = new AsyncLocalStorage<AgentMessageContext>();
 const deadlineReason = () => new DOMException("AGENT_MESSAGE_DEADLINE", "TimeoutError");
 /** One owner message on the agent path. Not reentrant (a nested call is a wiring error). The timer uses the global setTimeout,
@@ -159,8 +169,10 @@ export async function withAgentMessage<T>(options: AgentMessageOptions, work: (c
   if (!Number.isFinite(budget) || budget <= 0 || budget > AGENT_LIMITS.messageMs) throw Error("AGENT_MESSAGE_BUDGET");
   const controller = new AbortController(), deadline = now() + budget, timer = setTimeout(() => controller.abort(deadlineReason()), budget);
   const signal = options.signal ? AbortSignal.any([options.signal, controller.signal]) : controller.signal;
+  const open = options.open, scope: AgentOpenScope | undefined = open && Object.freeze({ keys: Object.freeze([...open.keys]), done: Object.freeze([...open.done ?? []]),
+    render: (binding: AgentBinding) => open.render(binding) });
   const context: AgentMessageContext = Object.freeze({ owner: Object.freeze([...options.owner]), binding: createAgentBinding(), calls: createAgentCallBudget(), signal, deadline, now,
-    remainingMs: () => Math.max(0, deadline - now()), executor: options.executor, toJSON(): never { throw Error("AGENT_MESSAGE_NOT_SERIALIZABLE"); } });
+    remainingMs: () => Math.max(0, deadline - now()), executor: options.executor, ...scope ? { open: scope } : {}, toJSON(): never { throw Error("AGENT_MESSAGE_NOT_SERIALIZABLE"); } });
   try { return await message.run(context, () => work(context)); } finally { clearTimeout(timer); }
 }
 export const agentMessage = () => message.getStore();

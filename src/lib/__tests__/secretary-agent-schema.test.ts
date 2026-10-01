@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { AGENT_BASE_FIELDS, AGENT_BASE_TYPES, AGENT_DERIVED_BASE_TYPES, AGENT_MUTATING_OPERATIONS, AGENT_PATTERNS, AGENT_PLAN_OPERATIONS, AGENT_PLAN_PARAMETERS, AGENT_PLAN_RESULTS,
-  AGENT_PLAN_TOOL, AGENT_QUESTION_FIELDS, AgentPlanError, agentPlanShape, agentPlanViolations, compileAgentWire, decodeAgentPlan, decodeAgentPlanArguments,
+import { AGENT_BASE_FIELDS, AGENT_BASE_TYPES, AGENT_DERIVED_BASE_TYPES, AGENT_DISCARD_SCOPES, AGENT_MUTATING_OPERATIONS, AGENT_PATTERNS, AGENT_PLAN_OPERATIONS, AGENT_PLAN_PARAMETERS,
+  AGENT_PLAN_RESULTS, AGENT_PLAN_TOOL, AGENT_QUESTION_FIELDS, AgentPlanError, agentPlanDefaults, agentPlanShape, agentPlanViolations, compileAgentWire, decodeAgentPlan, decodeAgentPlanArguments,
   type AgentBaseField, type AgentBaseType, type AgentPlan, type AgentPlanAction } from '../../../packages/salon-secretary/src/agent-plan';
 import { AGENT_LOOKUP_ERRORS, AGENT_LOOKUP_NAMES, AGENT_TOOL_NAMES, AGENT_TOOLS_SHA256, agentCalendarDate, agentClockMinutes, agentLookupError, agentLookupInputs, agentTools, agentToolsBytes,
   agentToolsDigest, decodeAgentLookupCall, type AgentLookupName } from '../../../packages/salon-secretary/src/agent-tools';
-import { AGENT_CRITERIA, AGENT_DIRECTORY_LABEL, AGENT_FRAMING, AGENT_PROMPT, AGENT_PROMPT_VERSION, agentContractParts, agentPrompt, agentSystemContent } from '../../../packages/salon-secretary/src/agent-prompt';
+import { AGENT_CRITERIA, AGENT_DIRECTORY_LABEL, AGENT_FRAMING, AGENT_OPEN_STATES, AGENT_PROMPT, AGENT_PROMPT_VERSION, agentContractParts, agentPrompt, agentSystemContent } from '../../../packages/salon-secretary/src/agent-prompt';
 import { AGENT_DEPENDENCY_FLAGS, AGENT_LIMITS, AGENT_NAME_MASK, AGENT_PHONE_MARK, AGENT_UNSAID_CUSTOMER, agentCallSignal, agentDependenciesSatisfied, agentEffort, agentEnabled, agentMessage,
   agentMissingDependencies, agentPhoneSuffix, agentRefKind, createAgentBinding, createAgentCallBudget, maskAgentName, messageCallBudget, sanitizeAgentName, withAgentMessage,
   type AgentDirectory } from '../../../packages/salon-secretary/src/agent-context';
@@ -80,7 +80,9 @@ describe('agent tools: the six strict schemas (§2)', () => {
   });
   it('the plan wire is the one of §4: bases, citations and limits', () => {
     const acao = at(AGENT_PLAN_PARAMETERS, 'properties', 'acoes', 'items'), baseNode = at(acao, 'properties', 'bases', 'items');
-    expect(Object.keys(AGENT_PLAN_PARAMETERS.properties)).toEqual(['resultado', 'resposta', 'acoes', 'acoes_fora', 'pergunta']);
+    // Phase 2 contract migration (backup .demo/agenda-core/contract-migration/secretary-agent-schema.test.before-agent-continuation.ts): the open
+    // plan's dismissal, nullable (a recorded plan without it decodes as null: agentPlanDefaults).
+    expect(Object.keys(AGENT_PLAN_PARAMETERS.properties)).toEqual(['resultado', 'resposta', 'acoes', 'acoes_fora', 'pergunta', 'descartar']);
     expect(Object.keys(acao.properties as Node)).toEqual(['chave', 'operacao', 'citacao_acao', 'atendimento', 'cliente', 'profissional', 'novo_profissional', 'servicos', 'inicio', 'fim', 'dia',
       'motivo', 'recorrencia', 'depende_de', 'ocupa_horario_de', 'bases', 'premissas']);
     expect(at(baseNode, 'properties', 'citacao')).toMatchObject({ type: 'string', minLength: 1, maxLength: 80 });
@@ -100,14 +102,17 @@ describe('agent tools: the six strict schemas (§2)', () => {
     expect([...AGENT_QUESTION_FIELDS].sort()).toEqual(['operacao', ...AGENT_BASE_FIELDS].sort());
     expect(AGENT_DERIVED_BASE_TYPES.every(type => (AGENT_BASE_TYPES as readonly string[]).includes(type))).toBe(true);
   });
-  it('the static part (instructions + six tools) stays within 13 KB', () => {
-    expect(agentToolsBytes() + Buffer.byteLength(AGENT_PROMPT, 'utf8')).toBeLessThanOrEqual(13 * 1024);
+  it('the static part (instructions + six tools) stays within 15 KB', () => {
+    // Phase 2 contract migration (backup …before-agent-continuation.ts): the open plan section of the prompt and the dismissal field of
+    // propor_plano raise the cap deliberately from 13 KB (the loop still measures every request against 64000 − 8192).
+    expect(agentToolsBytes() + Buffer.byteLength(AGENT_PROMPT, 'utf8')).toBeLessThanOrEqual(15 * 1024);
   });
   it('AGENT_TOOLS_SHA256 is pinned, key-order independent and changes with any byte of meaning', () => {
     // S1 fix A1/A3 (contract migration, backup .demo/agenda-core/contract-migration/secretary-agent-schema.test.before-c5-s1fix.ts): the
     // propor_plano descriptions now ask for every action, PLANO with a field question and contiguous quotes. Was cbfde3523d9b6880….
     // Then the operation question of one unclear part on the PLANO (backup …before-c5-s1fix-opquestion.ts). Was 9f2b11c3baed777c….
-    expect(AGENT_TOOLS_SHA256).toBe('24be2b13c723e0402cabc5b609dc8893fa5c8f50121eeae7092cb1dc97cf26c4');
+    // Phase 2 (backup …before-agent-continuation.ts): propor_plano gains the nullable `descartar`. Was 24be2b13c723e040….
+    expect(AGENT_TOOLS_SHA256).toBe('c25f9d74723e96e21ee7fe2ebd2ab018c341f090fe25a6f178140e3691390fa4');
     expect(agentToolsDigest(agentTools())).toBe(AGENT_TOOLS_SHA256);
     const reordered = agentTools().map(tool => Object.fromEntries(Object.entries(tool).reverse()));
     expect(agentToolsDigest(reordered)).toBe(AGENT_TOOLS_SHA256);
@@ -199,7 +204,8 @@ describe('propor_plano: strict decoding and the §4 rules', () => {
       [bad({ servicos: [{ ref: 's1', modo: 'SET' as never }] }), false], [bad({ atendimento: 'c1' }), false], [bad({ chave: 'K1' }), false], [bad({ depende_de: ['k2', 'k3', 'k4'] }), false]];
     for (const [sample, valid] of samples) {
       expect(agentPlanShape.safeParse(sample).success, JSON.stringify(sample)).toBe(valid);
-      expect(wire.safeParse(sample).success, JSON.stringify(sample)).toBe(valid);
+      // Phase 2 (backup …before-agent-continuation.ts): the wire requires `descartar`; a plan without it is read with its neutral null.
+      expect(wire.safeParse(agentPlanDefaults(sample)).success, JSON.stringify(sample)).toBe(valid);
       if (!valid) expect(reasons(sample).every(code => code.startsWith('SCHEMA:'))).toBe(true);
     }
   });
@@ -295,7 +301,8 @@ describe('agent prompt (§7)', () => {
   it('names only real fields, tools and enum values', () => {
     const properties = new Set<string>(); walk(AGENT_PLAN_PARAMETERS as Node, '$', node => Object.keys((node.properties as Node | undefined) ?? {}).forEach(key => properties.add(key)));
     for (const identifier of AGENT_PROMPT.match(/\b[a-z]+(?:_[a-z]+)+\b/g) ?? []) expect([...properties, ...AGENT_TOOL_NAMES], identifier).toContain(identifier);
-    for (const identifier of AGENT_PROMPT.match(/\b[A-Z]{4,}(?:_[A-Z]+)*\b/g) ?? []) expect([...AGENT_BASE_TYPES, ...AGENT_PLAN_RESULTS], identifier).toContain(identifier);
+    // Phase 2 (backup …before-agent-continuation.ts): the dismissal scopes and the open plan's states are enum values the model reads too.
+    for (const identifier of AGENT_PROMPT.match(/\b[A-Z]{4,}(?:_[A-Z]+)*\b/g) ?? []) expect([...AGENT_BASE_TYPES, ...AGENT_PLAN_RESULTS, ...AGENT_DISCARD_SCOPES, ...AGENT_OPEN_STATES], identifier).toContain(identifier);
     for (const value of [...AGENT_BASE_TYPES, 'CONVERSA', 'FORA_DO_ESCOPO', AGENT_PLAN_TOOL, 'citacao_acao', 'citacao', 'premissas', 'acoes_fora']) expect(AGENT_PROMPT).toContain(value);
   });
   it('explains the customer mask the lookups use', () => {
@@ -312,7 +319,8 @@ describe('agent prompt (§7)', () => {
     expect(agentPrompt()).toBe(AGENT_PROMPT);
   });
   it('is short and static', () => {
-    expect(Buffer.byteLength(AGENT_PROMPT, 'utf8')).toBeLessThanOrEqual(5 * 1024);
+    // Phase 2 (backup …before-agent-continuation.ts): the open plan section raises the cap deliberately from 5 KB.
+    expect(Buffer.byteLength(AGENT_PROMPT, 'utf8')).toBeLessThanOrEqual(6.5 * 1024);
     expect(AGENT_PROMPT).not.toMatch(/\d{4}-\d{2}-\d{2}|\bp\d|\bs\d/);
     expect(AGENT_PROMPT_VERSION).toMatch(/^agente-[0-9a-f]{16}$/);
   });

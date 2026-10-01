@@ -157,4 +157,16 @@ describe("two tenants at the same time", () => {
     expect(await agentMessageScope(actor, ["qualquer"], async () => agentMessage())).toBeUndefined();
     expect(db.executors).toEqual([]);
   });
+  it("Phase 2: with the flag off an open plan's scope is never even computed; on, it reaches the context and the state waits for the directory", async () => {
+    const render = vi.fn(() => '{"acoes":[{"chave":"k"}]}'), open = vi.fn(() => ({ keys: ["k"], render }));
+    vi.stubEnv(FLAG, "false");
+    expect(await agentMessageScope(actor, ["qualquer"], async () => agentMessage(), open)).toBeUndefined();
+    expect(open).not.toHaveBeenCalled(); expect(render).not.toHaveBeenCalled(); expect(db.executors).toEqual([]);
+    vi.stubEnv(FLAG, "true");
+    const seen = await agentMessageScope(actor, ["qualquer"], async () => { const context = agentMessage()!; return { keys: [...context.open!.keys], done: [...context.open!.done!] }; }, open);
+    expect(seen).toEqual({ keys: ["k"], done: [] });
+    expect(open).toHaveBeenCalledOnce(); expect(render).not.toHaveBeenCalled();
+    // No open plan (a new request or a C4-built plan): the context carries none.
+    expect(await agentMessageScope(actor, ["qualquer"], async () => "open" in agentMessage()!, () => undefined)).toBe(false);
+  });
 });

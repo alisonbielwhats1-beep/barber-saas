@@ -25,7 +25,7 @@ import { projectSchedulingOperation } from "./secretary-operation-projection";
 import { actionScopedSource, foreignClauses } from "./secretary-sibling-scope";
 import { withTemporalTurnDrafts, type TemporalTurnDraft } from './secretary-temporal-turn';
 import { confirmActionBatch } from "./scheduling-batch";
-import { schedulingPatch } from "./scheduling-contract";
+import { schedulingPatch, type SchedulingFields } from "./scheduling-contract";
 import { schedulingTimezone, secretaryDirectory, getSchedulingAppointment, listSchedulingProfessionals } from "./scheduling-catalog";
 import { quoteTemporalFacts, temporalQuoteDenied } from "./scheduling-temporal-source";
 import { schedulingActionSnapshot } from "./scheduling-mutations";
@@ -55,9 +55,13 @@ import { createActionPlan, assessPlanAction, executeConfirmationGroup,
   validateSelectionV2, actionSelection, markSecretaryTiming, type ActionAssessment, type SelectedOperation } from "@everflair/salon-secretary";
 import { actionUnits, unitSelection, assessmentFromView, deferredReadAssessment, deferredReadPreview, collectedActionFields, viewProposal, type ActionUnit } from "./secretary-action-plan";
 import { agentMessageScope, agentSkeleton, prepareAgentScheduling, prepareAgentBatch, agentDeferredRead, agentTurnNotice, agentGroupPrecheck, agentConfirmOptions, agentPreparedSlot,
-  agentTurnOutcome, agentNothingChanged, agentFollowUpEligible, agentPlanOpen, agentPronounTopic, type AgentPrepared, type AgentSkeleton } from "./secretary-agent-apply";
-import { validateAgentPlanInTenant, type AgentValidation } from "./secretary-agent-validator";
-import { agentMessage } from "../../packages/salon-secretary/src/agent-context";
+  agentTurnOutcome, agentNothingChanged, agentFollowUpEligible, agentPlanOpen, agentPronounTopic, type AgentPrepared, type AgentSkeleton,
+  agentContinuationEligible, agentOpenScope, agentOpenPlanFacts, agentOpenStateRefused, agentDismissalScope, agentDismissalActions, agentDismissalClause, agentLooseNegator,
+  agentQuoteSpans, agentHalfDayPending, prepareAgentPatch, agentOpenCancelOutcome, agentAppendSkeleton, AGENT_DISMISSAL_ASK_NOTICE, AGENT_UNCLEAR_DISMISSAL_NOTICE, AGENT_PATCH_DONE_NOTICE, AGENT_PATCH_HELD_NOTICE,
+  AGENT_DISMISSAL_PENDING_NOTICE, type AgentOpenSource, type AgentContinuationTelemetry, type AgentDismissalCode } from "./secretary-agent-apply";
+import { validateAgentPlanInTenant, type AgentActionOutcome, type AgentValidation } from "./secretary-agent-validator";
+import { AGENT_UNSAID_CUSTOMER, agentEnabled, agentMessage } from "../../packages/salon-secretary/src/agent-context";
+import type { AgentPlan } from "../../packages/salon-secretary/src/agent-plan";
 import { AGENT_SAFE_REPLY, agentFallbackRoute, runAgentTurn, type AgentLoopOutcome, type AgentLoopTelemetry } from "../../packages/salon-secretary/src/agent-loop";
 import { instrumentAgentModel } from "../../packages/salon-secretary/src/usage";
 import { secretaryPlanMessage, planConversationContext, presentationHints, planOptions } from "./secretary-presentation";
@@ -708,8 +712,11 @@ export class SalonSecretary {
         try {
           // C5 agent (flag SALON_SECRETARY_AGENT): the message's context (refs, call counter, 45 s deadline, lookup executor of this actor);
           // without the flag this is exactly the call below.
-          const view = await agentMessageScope(actor, this.agentOwner(s, message), () =>
-            withSalonDirectory(directory, () => this.preparePlanSafely(s, () => this.sendAutomatic(actor, s, message, operation_ref, messageStarted), operation_ref)));
+          // Phase 2 (read only with the flag): the open agent plan this message continues, if any.
+          const owner = this.agentOwner(s, message);
+          const view = await agentMessageScope(actor, owner, () =>
+            withSalonDirectory(directory, () => this.preparePlanSafely(s, () => this.sendAutomatic(actor, s, message, operation_ref, messageStarted), operation_ref)),
+            () => this.agentOpen(s, owner, operation_ref));
           // C5 (flag): a message that could not be applied leaves no earlier proposal confirmable, and an answer to "descarto os dois?"
           // never prepares again what the owner withdrew; this reply says so first.
           const kept = baseline !== undefined && this.holdWithdrawn(s, baseline), held = baseline !== undefined && this.holdStaleProposals(s, baseline, false);
@@ -873,6 +880,9 @@ export class SalonSecretary {
       // C5 agent (flag SALON_SECRETARY_AGENT, only inside its message context; B2): a new request on a CLOSED plan (no open action) goes
       // through the agent first; without its answer, the C4 continuation below, with the calls and the time the message has left.
       if (agentMessage() && agentFollowUpEligible(parent, operationRef)) { const view = await this.sendAgentFollowUp(actor, parent, message); if (view) return view; }
+      // C5 agent Phase 2 (flag, only inside a message context that carries the open plan): a message on an OPEN plan the agent built goes through
+      // the agent with the plan's state; without its answer, the C4 continuation below, with the calls and the time the message has left.
+      if (agentMessage()?.open && agentContinuationEligible(parent, operationRef) && !this.agentHalfDayOpen(parent)) { const view = await this.sendAgentFollowUp(actor, parent, message, true); if (view) return view; }
       return this.sendActionPlanTurn(actor, parent, message, operationRef);
     }
     if (parent.children?.length) {
@@ -1096,11 +1106,12 @@ export class SalonSecretary {
     return s.agentPending && (s.actionPlan ? !agentPlanOpen(s.actionPlan) : !s.children?.length) ? [...s.agentPending.thread, message] : [message];
   }
   /** B2: the agent on a follow-up of a closed plan (agentFollowUpEligible). The turn counts once: the agent's answer counts it; a fallback
-   * gives it back to the C4 continuation, which counts it itself, within the same calls and deadline of the message. */
-  private async sendAgentFollowUp(actor: ServiceActor, parent: Session, message: string): Promise<SecretaryView | undefined> {
+   * gives it back to the C4 continuation, which counts it itself, within the same calls and deadline of the message. Phase 2 (`continuation`):
+   * the same on an OPEN agent plan (agentContinuationEligible), whose state the message context carries. */
+  private async sendAgentFollowUp(actor: ServiceActor, parent: Session, message: string, continuation = false): Promise<SecretaryView | undefined> {
     const started = performance.now();
     parent.conversationNotice = undefined; parent.capability_status = undefined;
-    const agent = await this.sendAgent(actor, parent, message, await this.measuredModel(), true);
+    const agent = await this.sendAgent(actor, parent, message, await this.measuredModel(), !continuation, continuation);
     if (agent.view) { this.routerTrace.getStore()!.interpretationMs = performance.now() - started; return agent.view; }
     parent.turns--;
     return undefined;
@@ -1131,13 +1142,17 @@ export class SalonSecretary {
    * plan (prepareAgentPlan). Every agent failure (transport, protocol, schema, an invalid plan, a failing validation, an out-of-scope request)
    * falls back to the C4 while the message has calls and time left, else the safe reply. `view`: this message's answer; `counted`: the
    * turn is already counted (a fallback then continues on the C4 path with the same model). `followUp` (B2): the message is on a closed plan;
-   * its new plan replaces that one (agentReplacingPlan), a reply keeps it, and a customer pronoun with no referent here goes to the C4. */
-  private async sendAgent(actor: ServiceActor, parent: Session, message: string, model: Model, followUp = false): Promise<{ view?: SecretaryView; counted: true }> {
+   * its new plan replaces that one (agentReplacingPlan), a reply keeps it, and a customer pronoun with no referent here goes to the C4.
+   * `continuation` (Phase 2): the message is on the OPEN agent plan whose state its context carries; the validator checks it against that plan
+   * (`open`, contract A7) and applyAgentContinuation applies the dismissal, the patches and the new actions; a reply or the operation question
+   * keeps the plan (a bare refusal then leaves the ready proposals out of the Confirmar). */
+  private async sendAgent(actor: ServiceActor, parent: Session, message: string, model: Model, followUp = false, continuation = false): Promise<{ view?: SecretaryView; counted: true }> {
     const context = agentMessage()!, trace = this.routerTrace.getStore()!, pending = parent.agentPending;
     parent.agentPending = undefined; parent.turns++;
+    const phase2 = continuation ? { continuation: { patches: 0, added: 0 } } : {};
     const fallback = (code: string, loop?: AgentLoopTelemetry, validation?: AgentValidation): { view?: SecretaryView; counted: true } => {
       const route = agentFallbackRoute(context);
-      trace.agent = agentTurnOutcome(context, { loop, validation, code, path: route.kind === "SAFE_REPLY" ? "AGENT" : context.calls.used() ? "C4_FALLBACK" : "C4_SKIPPED", followUp });
+      trace.agent = agentTurnOutcome(context, { loop, validation, code, path: route.kind === "SAFE_REPLY" ? "AGENT" : context.calls.used() ? "C4_FALLBACK" : "C4_SKIPPED", followUp, ...phase2 });
       return route.kind === "SAFE_REPLY" ? { view: this.agentSafeReply(parent, code), counted: true } : { counted: true };
     };
     const modelId = this.modelId();
@@ -1145,31 +1160,47 @@ export class SalonSecretary {
     try { loop = await runAgentTurn(instrumentAgentModel(model, modelId, usageRecorder(actor, parent.id, randomUUID(), modelId)), { modelId }); }
     catch { return fallback("AGENT_UNAVAILABLE"); }
     if (loop.kind === "SAFE_REPLY") {
-      trace.agent = agentTurnOutcome(context, { loop: loop.telemetry, path: "AGENT", code: loop.code, followUp });
+      trace.agent = agentTurnOutcome(context, { loop: loop.telemetry, path: "AGENT", code: loop.code, followUp, ...phase2 });
       return { view: this.agentSafeReply(parent, loop.code), counted: true };
     }
-    if (loop.kind === "C4") { trace.agent = agentTurnOutcome(context, { loop: loop.telemetry, path: loop.telemetry.path, code: loop.code, followUp }); return { counted: true }; }
+    if (loop.kind === "C4") {
+      // Phase 2: a plan state that did not fit its limit sent the message to the C4 before any call.
+      const code = continuation && agentOpenStateRefused(context) ? "AGENT_PLAN_STATE_TOO_LARGE" : loop.code;
+      trace.agent = agentTurnOutcome(context, { loop: loop.telemetry, path: loop.telemetry.path, code, followUp, ...phase2 }); return { counted: true };
+    }
     let validation: AgentValidation;
-    try { validation = await validateAgentPlanInTenant(actor, loop.plan, { owner: context.owner, binding: context.binding }); }
+    // Phase 2: the open plan's accepted values (a patch inherits them; the validator re-reads what they stand on). A plain object, so the
+    // validator's input type takes it as it stands while its `open` field lands (contract A7).
+    const input = { owner: context.owner, binding: context.binding, ...continuation ? { open: agentOpenPlanFacts(this.agentOpenSources(parent)) } : {} };
+    try { validation = await validateAgentPlanInTenant(actor, loop.plan, input); }
     catch { return fallback("AGENT_UNAVAILABLE", loop.telemetry); }
     this.get(actor, parent.id); // Fail closed if the session expired while the model answered.
     if (!validation.ok) return fallback(validation.code, loop.telemetry, validation);
     // B2: a follow-up whose customer pronoun has no referent in this message: the C4 continuation still has the closed plan's context.
-    if (followUp && agentPronounTopic(validation) && agentFallbackRoute(context).kind === "C4") return fallback("AGENT_PRONOUN_TOPIC", loop.telemetry, validation);
-    const outcome = (path: "AGENT", extra: { premises?: number } = {}) => { trace.agent = agentTurnOutcome(context, { loop: loop.telemetry, validation, path, code: null,
-      questionField: loop.kind === "PLAN" ? loop.plan.pergunta?.campo ?? null : null, followUp, ...extra }); };
+    if ((followUp || continuation) && agentPronounTopic(validation) && agentFallbackRoute(context).kind === "C4") return fallback("AGENT_PRONOUN_TOPIC", loop.telemetry, validation);
+    const outcome = (path: "AGENT", extra: { premises?: number; continuation?: AgentContinuationTelemetry } = {}) => { trace.agent = agentTurnOutcome(context, { loop: loop.telemetry,
+      validation, path, code: null, questionField: loop.kind === "PLAN" ? loop.plan.pergunta?.campo ?? null : null, followUp, ...phase2, ...extra }); };
     // A request that is not about the agenda is the C4's (services, customers, stock, finance, messages): never a capability lost to the flag.
     if (validation.result === "FORA_DO_ESCOPO" && agentFallbackRoute(context).kind === "C4") return fallback("AGENT_OUT_OF_SCOPE", loop.telemetry, validation);
     if (validation.reply !== null) {
       parent.capability_status = validation.result === "CONVERSA" ? "CONVERSATION" : "UNSUPPORTED"; this.agentNotice(parent, agentNothingChanged(validation.reply));
+      if (continuation && this.agentUnclearRefusal(parent, message, false)) parent.turnNotice = { text: AGENT_UNCLEAR_DISMISSAL_NOTICE };
       outcome("AGENT"); return { view: this.view(parent), counted: true };
     }
     if (validation.question) {
-      // The one question outside a plan (§4): which operation. Its thread reaches the agent with the owner's next message, at most twice.
+      // The one question outside a plan (§4): which operation. Its thread reaches the agent with the owner's next message, at most twice (never
+      // on an open plan: the plan's state is that message's context).
       const turns = (pending?.turns ?? 0) + 1, asked = loop.plan.pergunta?.texto ?? "";
-      if (turns <= 2) parent.agentPending = { question: asked.slice(0, 200), thread: [...pending?.thread ?? [], message].slice(-2), turns };
+      if (turns <= 2 && !continuation) parent.agentPending = { question: asked.slice(0, 200), thread: [...pending?.thread ?? [], message].slice(-2), turns };
       parent.capability_status = "AMBIGUOUS"; this.agentNotice(parent, agentNothingChanged(validation.question.text));
+      if (continuation && this.agentUnclearRefusal(parent, message, false)) parent.turnNotice = { text: AGENT_UNCLEAR_DISMISSAL_NOTICE };
       outcome("AGENT"); return { view: this.view(parent), counted: true };
+    }
+    if (continuation) {
+      const applied = await this.applyAgentContinuation(actor, parent, message, loop.plan, validation);
+      if ("fallback" in applied) return fallback(applied.fallback, loop.telemetry, validation);
+      outcome("AGENT", { premises: applied.premises, continuation: applied.continuation });
+      return { view: applied.view, counted: true };
     }
     let skeleton: AgentSkeleton;
     try { skeleton = agentSkeleton(validation); } catch { return fallback("AGENT_SCHEMA", loop.telemetry, validation); }
@@ -1238,6 +1269,257 @@ export class SalonSecretary {
       await this.recordAutomaticState(actor, parent);
       return this.view(parent);
     });
+  }
+  // ================================================================ C5 agent Phase 2 (flag SALON_SECRETARY_AGENT): continuation of an open agent plan
+  /** The open agent plan this message continues (agentContinuationEligible), as the message context's scope: its keys and its state, rendered
+   * once the directory bound its refs. Read only; anything unreadable leaves the message as before (the C4 continuation). */
+  private agentOpen(s: Session, owner: readonly string[], operationRef?: string) {
+    try { return agentContinuationEligible(s, operationRef) && !this.agentHalfDayOpen(s) ? agentOpenScope(this.agentOpenSources(s), owner) : undefined; } catch { return undefined; }
+  }
+  /** Phase 2: an open action of the plan waits on the C4's half-day question (agentHalfDayPending): the message stays with the C4 continuation. */
+  private agentHalfDayOpen(parent: Session) {
+    return agentHalfDayPending(parent.actionPlan?.actions ?? [], key => { const unit = parent.actionUnits?.find(item => item.keys.includes(key));
+      return unit?.child ? this.sessions.get(unit.child)?.scheduling?.pending_temporal_ambiguities?.length : undefined; });
+  }
+  /** The active plan was built by the agent (and the flag is on): the only plans whose dismissals go through agentDismissalScope. */
+  private agentPlanActive(parent: Session) {
+    return agentEnabled() && !!parent.agentPlan && parent.actionPlan?.plan_ref === parent.agentPlan;
+  }
+  /** The open agent plan as plain data: each action with what its child accepted (fields, registered names, provenance, an open card, the
+   * current slot of a change or cancellation). Read only; a child that cannot be read leaves its action without values. */
+  private agentOpenSources(parent: Session): AgentOpenSource[] {
+    const plan = parent.actionPlan;
+    if (!plan) return [];
+    return plan.actions.map(action => {
+      const unit = parent.actionUnits?.find(item => item.keys.includes(action.key)), child = unit?.child ? this.sessions.get(unit.child) : undefined;
+      const scheduling = unit?.kind === "single" ? child?.scheduling : undefined;
+      const item = unit?.kind === "scheduling-batch" ? child?.batch?.plan.items.find(entry => entry.key === action.key) : undefined;
+      const fields = structuredClone((scheduling?.fields ?? item?.fields ?? {}) as SchedulingFields);
+      const created = scheduling?.draft?.snapshot, moved = scheduling?.draft?.action_snapshot, names: Record<string, string> = { ...scheduling?.resolved_names };
+      const named = (id: string | undefined, name: string | undefined) => { if (id && name && !names[id]) names[id] = name; };
+      if (created) {
+        named(created.customer_ref, created.customer_name); named(created.professional_ref, created.professional_name); named(created.service_ref, created.service_name);
+        for (const service of created.services ?? []) named(service.service_ref, service.service_name);
+      }
+      if (moved) {
+        named(moved.professional_ref, moved.professional_name); named(moved.before_professional_ref, moved.before_professional_name); named(fields.customer_ref, moved.customer_name);
+        for (const service of [...moved.services, ...moved.before_services ?? []]) named(service.id, service.name);
+      }
+      const origin = action.operation === "appointment.change" ? moved?.before_start ?? (fields.source_date && fields.source_time ? `${fields.source_date}T${fields.source_time}` : undefined)
+        : action.operation === "appointment.cancel" ? moved?.startLocal ?? (fields.date && fields.time ? `${fields.date}T${fields.time}` : undefined) : undefined;
+      const card = scheduling?.candidates;
+      return { key: action.key, operation: action.operation, status: action.status, ...action.assessment.issue ? { issue: action.assessment.issue } : {},
+        missing: [...action.missing_fields], dependsOn: [...action.depends_on], ...action.released_slot_of ? { releasedSlotOf: action.released_slot_of } : {},
+        fields, names, basis: structuredClone(scheduling?.agent_basis ?? []), ...card ? { card: { kind: card.kind, items: card.items.map(row => ({ id: row.id, name: row.name })) } } : {},
+        ...origin ? { origin } : {}, ...fields.appointment_ref ? { appointment: fields.appointment_ref } : {}, ...created?.durationMin ? { durationMin: created.durationMin } : {} };
+    });
+  }
+  /** The salon's timezone for reading the owner's days and clocks of a dismissal (undefined: unreadable; agentDismissalScope then asks). */
+  private async agentTimezone(actor: ServiceActor) {
+    try { return await withTenant(actor, tx => schedulingTimezone(tx, actor)); } catch { return undefined; }
+  }
+  /** Names this message showed the model (directory and customers, masked as shown): a dismissal naming one of them outside the plan is asked. */
+  private agentKnownNames(): string[] {
+    return (agentMessage()?.binding.entries() ?? []).flatMap(entry => {
+      const facts = entry.facts as unknown as { name?: string; shown?: string }, name = entry.kind === "c" ? facts.shown : entry.kind === "p" || entry.kind === "s" ? facts.name : undefined;
+      return name && name !== AGENT_UNSAID_CUSTOMER ? [name] : [];
+    });
+  }
+  /** Phase 2 step 4: a bare refusal (agentLooseNegator) the model read neither as a dismissal nor as a change: every ready proposal of the open plan
+   * leaves the Confirmar (review), and the message counts as not understood unless it also added something. Whether it applied. */
+  private agentUnclearRefusal(parent: Session, message: string, applied: boolean) {
+    if (!parent.actionPlan || !agentLooseNegator(message)) return false;
+    this.holdForReview(parent, parent.actionPlan.actions.filter(action => !terminalActionStatus(action.status)).map(action => action.key));
+    parent.actionPlan = refreshActionPlan(parent.actionPlan!);
+    const trace = this.routerTrace.getStore();
+    if (applied) trace?.failed("AGENT_UNCLEAR_DISMISSAL"); else trace?.unread("AGENT_UNCLEAR_DISMISSAL");
+    return true;
+  }
+  /** A dismissal whose scope is not clear (agentDismissalScope ASK): nothing is discarded, every open proposal leaves the Confirmar (review) and the
+   * backend asks what to discard; the per-action Descartar stays available. */
+  private async agentDismissalAsk(actor: ServiceActor, parent: Session, code: AgentDismissalCode) {
+    this.holdForReview(parent, parent.actionPlan!.actions.filter(action => !terminalActionStatus(action.status)).map(action => action.key));
+    parent.actionPlan = refreshActionPlan(parent.actionPlan!); parent.capability_status = undefined;
+    this.routerTrace.getStore()?.failed("AGENT_DISMISSAL_ASK", code);
+    const views = (parent.children ?? []).map(id => ({ operation_ref: id, state: this.view(this.get(actor, id)) }));
+    parent.conversationNotice = `${AGENT_DISMISSAL_ASK_NOTICE}\n\n${secretaryPlanMessage(parent.actionPlan!, parent.actionUnits ?? [], views)}`;
+    await this.recordAutomaticState(actor, parent);
+    return this.view(parent);
+  }
+  /** V11 (flag; also on the C4 continuation of an agent plan): a C4 DISCARD goes through the same scope as the agent's own dismissal. The C4's keys
+   * stand for the model's; the owner's words of the whole message decide: every open action, exactly those keys, or asked with nothing confirmable.
+   * Never less than the owner said. */
+  private async agentGuardedDiscard(actor: ServiceActor, parent: Session, message: string, keys: readonly string[] | null) {
+    const scope = agentDismissalScope({ message, keys, actions: agentDismissalActions(this.agentOpenSources(parent)), timezone: await this.agentTimezone(actor), now: new Date(),
+      known: this.agentKnownNames() });
+    this.routerTrace.getStore()?.failed(`AGENT_DISCARD_${scope.kind}`);
+    if (scope.kind === "ASK") return this.agentDismissalAsk(actor, parent, scope.code);
+    return this.discardPlanActions(actor, parent, scope.kind === "ALL" ? null : scope.keys);
+  }
+  /** Phase 2 (S1b rerun, V11): the validated continuation of an open agent plan. Before anything changes, what this path cannot apply goes to the C4
+   * continuation whole (`fallback`): a change of an atomic pair's or a deferred read's action, a booking in the slot of an action it cannot pair.
+   * Then, in order: (1) the dismissal, its scope decided by the owner's own words (agentDismissalScope): ALL, KEYS, or ASK (nothing discarded,
+   * nothing confirmable); a dismissal of every action beside a change of one of them is asked; (2) the patches, each on its action's own child
+   * (a confirmed action never changes; a patch the validator dropped or that names another operation is not applied and its action waits for
+   * review); (3) a bare refusal read as neither holds the ready proposals; (4) the new actions join the plan (appendAgentActions). */
+  private async applyAgentContinuation(actor: ServiceActor, parent: Session, message: string, plan: AgentPlan, validation: Extract<AgentValidation, { ok: true }>):
+    Promise<{ view: SecretaryView; premises: number; continuation: AgentContinuationTelemetry } | { fallback: string }> {
+    const sources = this.agentOpenSources(parent), byKey = new Map(parent.actionPlan!.actions.map(action => [action.key, action]));
+    const open = new Set(sources.filter(source => source.status !== "DISCARDED").map(source => source.key));
+    const patches = validation.actions.filter(action => open.has(action.key)), additions = validation.actions.filter(action => !open.has(action.key));
+    const unitOf = (key: string) => parent.actionUnits?.find(unit => unit.keys.includes(key));
+    for (const patch of patches) {
+      const action = byKey.get(patch.key)!, unit = unitOf(patch.key);
+      if (patch.status === "DROP" || terminalActionStatus(action.status) || patch.operation !== action.operation) continue;
+      if (!unit?.child || unit.kind !== "single" || !this.sessions.get(unit.child)?.scheduling || !action.mutation && action.depends_on.length) return { fallback: "AGENT_PATCH_UNIT" };
+    }
+    for (const added of additions) {
+      const target = added.status === "DROP" || added.releasedSlotOf === null || !open.has(added.releasedSlotOf) ? undefined : byKey.get(added.releasedSlotOf)!;
+      if (!target) continue;
+      const unit = unitOf(target.key), child = unit?.child ? this.sessions.get(unit.child) : undefined, single = !terminalActionStatus(target.status) && unit?.kind === "single";
+      const pairs = target.operation === "appointment.cancel" && single && !!child?.scheduling && !child.scheduling.receipt && !patches.some(patch => patch.key === target.key);
+      if (added.operation !== "appointment.create" || !pairs && !(target.operation === "appointment.change" && single)) return { fallback: "AGENT_RELEASED_UNSUPPORTED" };
+    }
+    // Any attempted change invalidates the plan's earlier approvals (as the C4 continuation does).
+    parent.actionPlan = refreshActionPlan({ ...parent.actionPlan!, revision: parent.actionPlan!.revision + 1 });
+    const telemetry: AgentContinuationTelemetry = { patches: 0, added: 0 }, notices: string[] = [...validation.notices], prepared = new Map<string, AgentPrepared>();
+    const shown: [string, AgentActionOutcome][] = [], premises = () => [...prepared.values()].reduce((sum, item) => sum + item.premises.length, 0);
+    const discard = plan.descartar ?? null;
+    if (discard) {
+      // The parts of the message the plan's other requests quote (a dropped one owns none): outside them, an open action named beside the
+      // dismissal and left out of its keys asks (V11).
+      const standing = new Set(validation.actions.filter(action => action.status !== "DROP").map(action => action.key));
+      const covered = agentQuoteSpans(message, plan.acoes.filter(action => standing.has(action.chave)).map(action => action.citacao_acao));
+      const scope = agentDismissalScope({ message, clause: agentDismissalClause(message, discard.citacao), keys: discard.alcance === "PLANO" ? null : discard.chaves,
+        actions: agentDismissalActions(sources), timezone: await this.agentTimezone(actor), now: new Date(), known: this.agentKnownNames(), covered });
+      const decided = scope.kind === "ALL" && patches.some(patch => patch.status !== "DROP") ? { kind: "ASK" as const, code: "AGENT_DISMISSAL_DIVERGENT" as const } : scope;
+      telemetry.discard = decided.kind;
+      this.routerTrace.getStore()?.failed(`AGENT_DISCARD_${decided.kind}`);
+      if (decided.kind === "ASK") return { view: await this.agentDismissalAsk(actor, parent, decided.code), premises: 0, continuation: telemetry };
+      const before = new Set(parent.actionPlan!.actions.filter(action => !terminalActionStatus(action.status)).map(action => action.key)), hints = this.screenHints(parent);
+      const requested = decided.kind === "ALL" ? [...before] : decided.keys;
+      const discarded = await this.discardPlanActions(actor, parent, decided.kind === "ALL" ? null : decided.keys);
+      if (parent.pendingDiscard) {
+        // The linked actions are asked first: nothing else of this message applies, and what it asked to change waits out of the Confirmar.
+        if (!patches.length && !additions.length) return { view: discarded, premises: 0, continuation: telemetry };
+        this.holdForReview(parent, patches.map(patch => patch.key));
+        parent.conversationNotice = `${AGENT_DISMISSAL_PENDING_NOTICE}\n\n${parent.conversationNotice ?? ""}`.trim();
+        await this.recordAutomaticState(actor, parent);
+        return { view: this.view(parent), premises: 0, continuation: telemetry };
+      }
+      if (!parent.actionPlan) {
+        // Every open action left (the plan was retired): the new actions start a new plan, after the discard's notice.
+        const skeleton = agentAppendSkeleton(additions, new Set(), new Set());
+        if (!skeleton.selection) {
+          const extra = [...notices, ...skeleton.notices];
+          if (!extra.length) return { view: discarded, premises: 0, continuation: telemetry };
+          parent.notice = [parent.notice, ...extra].filter(Boolean).join("\n");
+          return { view: { ...this.view(parent), ...discarded.retired_plan ? { retired_plan: discarded.retired_plan } : {} }, premises: 0, continuation: telemetry };
+        }
+        const notice = parent.notice;
+        const view = await this.prepareAgentPlan(actor, parent, { selection: skeleton.selection, outcomes: skeleton.outcomes, dropped: skeleton.dropped,
+          notices: [...notice ? [notice] : [], ...notices, ...skeleton.notices] }, prepared);
+        telemetry.added = skeleton.outcomes.size;
+        return { view, premises: premises(), continuation: telemetry };
+      }
+      if (!patches.length && !additions.length) return { view: discarded, premises: 0, continuation: telemetry };
+      const gone = parent.actionPlan.actions.filter(action => before.has(action.key) && action.status === "DISCARDED");
+      notices.unshift(discardNotice(gone.filter(action => requested.includes(action.key)), gone.filter(action => !requested.includes(action.key)), hints));
+      parent.conversationNotice = undefined;
+    }
+    const held: string[] = [];
+    const slot = (key: string, released: boolean) => { const unit = unitOf(key), child = unit?.child ? this.sessions.get(unit.child) : undefined; return agentPreparedSlot(child?.scheduling, released); };
+    await this.planContext.run(parent.id, async () => {
+      for (const patch of patches) {
+        const action = parent.actionPlan!.actions.find(item => item.key === patch.key)!;
+        if (action.status === "DISCARDED") continue;
+        // A confirmed action never runs again (the validator drops such a patch with its own notice).
+        if (action.status === "DONE") { if (patch.status !== "DROP") { notices.push(AGENT_PATCH_DONE_NOTICE); this.routerTrace.getStore()?.failed("AGENT_PATCH_DONE"); } continue; }
+        // A7: a dropped patch leaves its open action as it was (repeated without the owner's words); a negated one comes held (ASK), never dropped.
+        if (patch.status === "DROP") continue;
+        if (patch.operation !== action.operation) {
+          held.push(patch.key); notices.push(patch.question?.text ?? AGENT_PATCH_HELD_NOTICE); this.routerTrace.getStore()?.failed("AGENT_PATCH_HELD");
+          continue;
+        }
+        const unit = unitOf(patch.key)!;
+        try {
+          prepared.set(patch.key, await prepareAgentPatch(actor, this.get(actor, unit.child!).scheduling!, patch, slot));
+          shown.push([patch.key, patch]); telemetry.patches++;
+          this.syncActionUnit(actor, parent, unit);
+        } catch (error) { if (error instanceof SecretaryRouteRequest) throw error; this.failActionUnit(parent, unit, error); }
+      }
+    });
+    if (held.length) this.holdForReview(parent, held);
+    // A bare refusal with neither a dismissal nor a change of an open action (a dropped repetition changes nothing) holds the ready proposals.
+    if (!discard && !patches.some(patch => patch.status !== "DROP") && this.agentUnclearRefusal(parent, message, additions.length > 0)) notices.push(AGENT_UNCLEAR_DISMISSAL_NOTICE);
+    if (additions.length) telemetry.added = await this.appendAgentActions(actor, parent, additions, sources, prepared, notices, shown);
+    const text = agentTurnNotice({ notices, outcomes: new Map(shown), dropped: [] }, prepared);
+    parent.turnNotice = text ? { text } : undefined;
+    await this.recordAutomaticState(actor, parent);
+    return { view: this.view(parent), premises: premises(), continuation: telemetry };
+  }
+  /** Phase 2: the new actions of a continuation join the open plan, like the C4's appendActionPlan: their skeleton (agentAppendSkeleton; an edge to
+   * an open action is set after createActionPlan, a key of a discarded action renamed), each unit prepared by the agent's own adapters; a booking in
+   * the slot of an open cancellation becomes the atomic pair with it (the C4's appendReleasedSlot), one in the slot an open reschedule frees
+   * follows it (its released origin). Prepared on a copy of the plan, published at the end. The number of actions added. */
+  private async appendAgentActions(actor: ServiceActor, parent: Session, additions: readonly AgentActionOutcome[], sources: readonly AgentOpenSource[],
+    prepared: Map<string, AgentPrepared>, notices: string[], shown: [string, AgentActionOutcome][]): Promise<number> {
+    const existing = parent.actionPlan!;
+    const skeleton = agentAppendSkeleton(additions, new Set(existing.actions.filter(action => action.status !== "DISCARDED").map(action => action.key)),
+      new Set(existing.actions.filter(action => action.status === "DISCARDED").map(action => action.key)));
+    notices.push(...skeleton.notices);
+    if (!skeleton.selection) return 0;
+    for (const id of skeleton.selection.skills) await this.authorize(actor, id);
+    const addition = createActionPlan(skeleton.selection, existing.policy, "LUNA"), addedUnits = actionUnits(addition);
+    for (const action of addition.actions) {
+      const edges = skeleton.external.get(action.key);
+      if (!edges) continue;
+      action.depends_on = [...new Set([...action.depends_on, ...edges.dependsOn, ...edges.releasedSlotOf ? [edges.releasedSlotOf] : []])];
+      if (edges.releasedSlotOf) action.released_slot_of = edges.releasedSlotOf;
+    }
+    const combined = refreshActionPlan({ ...existing, revision: existing.revision + 1, actions: [...existing.actions, ...addition.actions] });
+    const next: Session = { ...parent, actionPlan: combined, actionUnits: [...parent.actionUnits ?? [], ...addedUnits], children: [...parent.children ?? []], groupReceipts: new Set(parent.groupReceipts) };
+    const slot = (key: string, released: boolean) => { const unit = next.actionUnits?.find(item => item.keys.includes(key)), child = unit?.child ? this.sessions.get(unit.child) : undefined;
+      return agentPreparedSlot(child?.scheduling, released); };
+    let added = 0;
+    await this.planContext.run(parent.id, async () => {
+      for (const unit of addedUnits) {
+        try {
+          if (unit.kind !== "single" && unit.kind !== "scheduling-batch") throw Error("UNSUPPORTED_DEPENDENCY_ADAPTER");
+          const action = next.actionPlan!.actions.find(item => item.key === unit.keys[0])!, outcome = skeleton.outcomes.get(action.key);
+          if (!outcome) throw Error("UNSUPPORTED_DEPENDENCY_ADAPTER");
+          const started = await this.start(actor, "scheduling"), child = this.get(actor, started.sessionId);
+          child.expires = parent.expires; child.inheritedInterpretation = true;
+          unit.child = child.id; next.children!.push(child.id);
+          const pairKey = skeleton.external.get(action.key)?.releasedSlotOf, pair = pairKey ? next.actionPlan!.actions.find(item => item.key === pairKey) : undefined;
+          if (unit.kind === "scheduling-batch") {
+            const create = skeleton.outcomes.get(unit.keys[1]);
+            if (!create) throw Error("UNSUPPORTED_BATCH");
+            child.scheduling = undefined; child.batch = await prepareAgentBatch(actor, outcome, create, state => { child.batch = state; });
+            shown.push([action.key, outcome], [create.key, create]); added += 2;
+          } else if (pair?.operation === "appointment.cancel") {
+            // The slot of an open cancellation: the cancellation and this booking become the atomic pair (the C4's appendReleasedSlot).
+            const cancelUnit = next.actionUnits!.find(item => item !== unit && item.keys.includes(pair.key))!, cancelChild = this.get(actor, cancelUnit.child!);
+            const source = sources.find(item => item.key === pair.key)!;
+            unit.keys = [pair.key, action.key]; unit.kind = "scheduling-batch";
+            next.actionUnits = next.actionUnits!.filter(item => item !== cancelUnit);
+            next.children = next.children!.filter(id => id !== cancelChild.id);
+            this.withdrawProposals(cancelChild); cancelChild.cancelled = true;
+            child.scheduling = undefined; child.batch = await prepareAgentBatch(actor, agentOpenCancelOutcome(source), outcome, state => { child.batch = state; });
+            shown.push([action.key, outcome]); added++;
+          } else if (!action.mutation && action.depends_on.length) {
+            // A read after a write of the plan runs at the group's confirmation, like the C4's deferred read.
+            const preview = deferredReadPreview(action);
+            agentDeferredRead(child.scheduling!, outcome, preview);
+            next.actionPlan = assessPlanAction(next.actionPlan!, action.key, { status: "READY", missing_fields: [], preview });
+            added++; continue;
+          } else { prepared.set(action.key, await prepareAgentScheduling(actor, child.scheduling!, outcome, slot)); shown.push([action.key, outcome]); added++; }
+          this.syncActionUnit(actor, next, unit);
+        } catch (error) { if (error instanceof SecretaryRouteRequest) throw error; this.failActionUnit(next, unit, error); }
+      }
+    });
+    Object.assign(parent, this.savePlan(next));
+    return added;
   }
   /** V23: the children of these actions whose values stand on a derived basis. Without the agent: none (nothing is read). */
   private agentBasisChildren(parent: Session, keys: readonly string[]) {
@@ -1782,6 +2064,9 @@ export class SalonSecretary {
         return this.discardPlanActions(actor, parent, error.itemKeys ?? own);
       }
       if (unread) return this.keepPlanAfterUnreadAnswer(actor, parent, error, addressed);
+      // C5 agent (flag, V11): on a plan the agent built, the owner's own words decide what a dismissal gives up (never less than said; unclear:
+      // asked, nothing confirmable). An answer to the pending discard question keeps the C4's rule.
+      if (error instanceof SecretaryDiscardRequest && !asked && this.agentPlanActive(parent)) return this.agentGuardedDiscard(actor, parent, message, error.itemKeys);
       if (error instanceof SecretaryDiscardRequest) return this.discardPlanActions(actor, parent, error.itemKeys);
       if (!(error instanceof SecretaryNewRequest) && !(error instanceof SecretaryResumeRequest)) throw Error("CONVERSATION_ROUTE_CONFLICT");
       if(error instanceof SecretaryResumeRequest){

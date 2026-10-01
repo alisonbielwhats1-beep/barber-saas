@@ -1,15 +1,22 @@
 import { terminalActionStatus, validateSelectionV2, type CapabilitySelection } from "@everflair/salon-secretary";
 import type { ServiceActor } from "./service-catalog";
 import { withTenant } from "./prisma-tenant";
-import { schedulingResolved, type SchedulingFields } from "./scheduling-contract";
+import { schedulingResolved, schedulingServiceRefs, type SchedulingFields } from "./scheduling-contract";
 import { prepareResolvedScheduling, type AgentResolvedExtras, type SchedulingReferences, type SchedulingState } from "./secretary-scheduling";
 import { prepareBatch, type BatchState } from "./secretary-batch";
 import { validateBatchPlan } from "./scheduling-batch";
-import { createAgentLookupExecutor, agentLookupTelemetry, type AgentPreloadTelemetry } from "./secretary-agent-lookups";
+import { createAgentLookupExecutor, agentLookupTelemetry, agentCustomerLabel, agentSaidTokens, type AgentPreloadTelemetry } from "./secretary-agent-lookups";
 import { AGENT_NOTHING_CHANGED, AGENT_QUESTIONS, agentBasisPrecondition, agentDerivedCheck, agentFactReader, agentGroupBasisPrecheck,
-  type AgentActionOutcome, type AgentBasis, type AgentPreparedSlot, type AgentValidation } from "./secretary-agent-validator";
+  type AgentActionOutcome, type AgentBasis, type AgentCardKind, type AgentOpenAction, type AgentOpenPlan, type AgentPreparedSlot, type AgentValidation } from "./secretary-agent-validator";
 import type { AgentTurnOutcome } from "./secretary-router";
-import { agentEnabled, agentMessage, withAgentMessage, type AgentMessageContext } from "../../packages/salon-secretary/src/agent-context";
+import { clauseBounds, quoteTemporalFacts, temporalAtomSpans } from "./scheduling-temporal-source";
+import { literalProofSpans } from "../../packages/salon-secretary/src/literal-match";
+import { SUGGESTION_THRESHOLD, foldName, nameTokens, tokenSimilarity } from "./name-search";
+import { weekdayOfDateKey } from "./time";
+import { AGENT_LIMITS, agentEnabled, agentMessage, withAgentMessage, type AgentBinding, type AgentLookupExecutor, type AgentMessageContext,
+  type AgentOpenScope } from "../../packages/salon-secretary/src/agent-context";
+import { AGENT_PLAN_OPERATIONS, type AgentPlanOperation, type AgentQuestionField } from "../../packages/salon-secretary/src/agent-plan";
+import { AGENT_OPEN_STATES, type AgentOpenState } from "../../packages/salon-secretary/src/agent-prompt";
 import type { AgentLoopTelemetry } from "../../packages/salon-secretary/src/agent-loop";
 
 /** Candidate 5, WP5 (flag SALON_SECRETARY_AGENT, default off; docs/c5-spike/11-especificacao-agente.md §1, §4, §5.5, §6): the validated plan
@@ -32,10 +39,31 @@ export const agentNothingChanged = (text: string) => text.includes(AGENT_NOTHING
 
 // ---------------------------------------------------------------- the message context (§1, §2.1)
 /** The agent's per-message context around one owner message: only with the flag, never nested. `owner`: this turn's owner messages (the thread
- * of an open operation question first). The executor closes over the session's actor. Off (or already inside one): exactly `work()`. */
-export function agentMessageScope<T>(actor: ServiceActor, owner: readonly string[], work: () => Promise<T>): Promise<T> {
+ * of an open operation question first). The executor closes over the session's actor. Off (or already inside one): exactly `work()`.
+ * Phase 2 `open` (read only with the flag): the open agent plan this message continues; its state is rendered once the directory (and the
+ * pre-load) bound their refs, as the directory's `plan` (agentOpenExecutor). */
+export function agentMessageScope<T>(actor: ServiceActor, owner: readonly string[], work: () => Promise<T>, open?: () => AgentOpenScope | undefined): Promise<T> {
   if (!agentEnabled() || agentMessage()) return work();
-  return withAgentMessage({ owner, executor: createAgentLookupExecutor(actor) }, () => work());
+  const scope = open?.(), executor = createAgentLookupExecutor(actor);
+  return withAgentMessage({ owner, executor: scope ? agentOpenExecutor(executor) : executor, ...scope ? { open: scope } : {} }, () => work());
+}
+const refusedStates = new WeakSet<AgentMessageContext>();
+/** Phase 2: the open plan's state could not be rendered within AGENT_LIMITS.planStateBytes in this message (it stays with the C4). */
+export const agentOpenStateRefused = (context: AgentMessageContext | undefined) => !!context && refusedStates.has(context);
+/** Phase 2: the executor of a message on an open agent plan. Its directory (refs p#/s#, then the pre-load's) is loaded first; the plan's state is
+ * rendered after it, so its refs are the ones the model already reads; a state that does not fit leaves the message to the C4 before any call. */
+export function agentOpenExecutor(base: AgentLookupExecutor): AgentLookupExecutor {
+  return Object.freeze({
+    round: base.round.bind(base),
+    async directory(context: AgentMessageContext) {
+      const loaded = await base.directory(context);
+      if (!loaded.ok || !context.open) return loaded;
+      let plan: string | null;
+      try { plan = context.open.render(context.binding); } catch { plan = null; }
+      if (plan === null) { refusedStates.add(context); return { ok: false, code: "AGENT_UNAVAILABLE" } as const; }
+      return { ok: true, directory: { ...loaded.directory, plan } } as const;
+    },
+  });
 }
 
 // ---------------------------------------------------------------- follow-ups (B2: Phase 1 "no active plan" = no open action)
@@ -63,6 +91,293 @@ export function agentFollowUpEligible(s: AgentFollowUpState, operationRef?: stri
 /** A validated follow-up that could not tell whose customer a pronoun meant (V-pronoun: no referent in THIS message): the C4 continuation,
  * which still has the closed plan's context, answers it while the message has a call and time left. */
 export const agentPronounTopic = (validation: AgentValidation) => validation.ok && validation.actions.some(action => action.codes.includes("AGENT_PRONOUN_TOPIC"));
+export type AgentContinuationState = AgentFollowUpState & { readonly agentPlan?: string; readonly actionPlan?: PlanLike & { readonly plan_ref?: string } };
+/** Phase 2 (S1b rerun, V11): a message on an OPEN plan the agent built goes through the agent, with the plan's state in its context, unless it
+ * answers a card (`operationRef`, deterministic) or the pending discard question, the plan has a confirmed cancel or reschedule (its receipt is
+ * the C4's to build on), a suspended plan still has an open action, or the conversation is at its turn limit. A plan the C4 built stays the C4's. */
+export function agentContinuationEligible(s: AgentContinuationState, operationRef?: string) {
+  return !!s.multiActionV2 && !operationRef && !s.pendingDiscard && !!s.actionPlan && !!s.agentPlan && s.actionPlan.plan_ref === s.agentPlan
+    && agentPlanOpen(s.actionPlan) && !agentPlanReleased(s.actionPlan) && !(s.suspendedPlans ?? []).some(saved => agentPlanOpen(saved.actionPlan))
+    && s.turns < AGENT_FOLLOW_UP_LIMITS.turns;
+}
+/** Phase 2: an open action of the plan waits on the C4's half-day question (`pending`: its child's pending_temporal_ambiguities count). Such a plan
+ * stays with the C4 continuation: the typed answer is the C4's (daypartAnswer against the readings it holds), while the agent could only prove a
+ * day part said alone against a clock of an earlier message and would ask the same question again. */
+export function agentHalfDayPending(actions: readonly { key: string; status: string }[], pending: (key: string) => number | undefined) {
+  return actions.some(action => !terminalActionStatus(action.status) && !!pending(action.key));
+}
+
+// ---------------------------------------------------------------- the open plan (Phase 2 continuation)
+/** One action of the open agent plan as the session holds it (plain data the app reads from the action and its child; never sent as is). */
+export type AgentOpenSource = {
+  key: string; operation: string; status: string; issue?: string; missing: readonly string[]; dependsOn: readonly string[]; releasedSlotOf?: string;
+  fields: SchedulingFields; names: Readonly<Record<string, string>>; basis: readonly AgentBasis[];
+  card?: { kind: string; items: readonly { id: string; name: string }[] };
+  /** A change's or cancellation's current slot (local "YYYY-MM-DDTHH:mm"), and the appointment the locate chose. */
+  origin?: string; appointment?: string; durationMin?: number;
+};
+/** The open plan the fact validator checks a continuation against (contract A7; secretary-agent-validator.ts input `open`): every action that is
+ * not discarded, with the values the backend already accepted for it. */
+const CARD_KINDS = new Set<string>(["customer_ref", "professional_ref", "target_professional_ref", "service_ref", "appointment_ref"]);
+const operationOf = (value: string): AgentPlanOperation | undefined => (AGENT_PLAN_OPERATIONS as readonly string[]).includes(value) ? value as AgentPlanOperation : undefined;
+const live = (sources: readonly AgentOpenSource[]) => sources.filter(source => source.status !== "DISCARDED" && operationOf(source.operation));
+export function agentOpenPlanFacts(sources: readonly AgentOpenSource[]): AgentOpenPlan {
+  return { actions: live(sources).map((source): AgentOpenAction => {
+    const services = schedulingServiceRefs(source.fields) ?? (source.fields.service_changes_ref?.filter((id): id is string => !!id));
+    return { key: source.key, operation: operationOf(source.operation)!, status: source.status === "DONE" ? "DONE" as const : "OPEN" as const,
+      fields: structuredClone(source.fields), names: { ...source.names }, basis: structuredClone([...source.basis]),
+      ...source.appointment ? { appointment: source.appointment } : {}, ...source.fields.customer_ref ? { customer: source.fields.customer_ref } : {},
+      ...services?.length ? { serviceIds: [...services] } : {}, ...source.durationMin ? { durationMin: source.durationMin } : {},
+      ...source.card && CARD_KINDS.has(source.card.kind) ? { card: { kind: source.card.kind as AgentCardKind, items: source.card.items.map(item => item.id) } } : {} };
+  }) };
+}
+/** The state an action shows the model: confirmed, ready to confirm, waiting for a field, or held/failed (to review). */
+export function agentOpenState(source: Pick<AgentOpenSource, "status" | "issue">): AgentOpenState {
+  const [ready, missing, done, review] = AGENT_OPEN_STATES;
+  return source.status === "DONE" ? done : source.status === "READY_FOR_CONFIRMATION" || source.status === "READY" ? ready
+    : source.status === "NEEDS_INPUT" && source.issue !== "REVIEW_REQUIRED" ? missing : review;
+}
+/** The adapter's missing fields as the plan's field names (the model's vocabulary); anything else is left out. */
+function missingField(operation: string, field: string): AgentQuestionField | undefined {
+  if (operation === "appointment.cancel" && ["date", "time", "source_date", "source_time"].includes(field)) return "atendimento";
+  if (field.startsWith("customer")) return "cliente";
+  if (field.startsWith("target_professional")) return "novo_profissional";
+  if (field.startsWith("professional")) return "profissional";
+  if (field.startsWith("service")) return "servicos";
+  return ({ date: "dia", time: "inicio", period: "inicio", end_time: "fim", end_date: "fim", reason: "motivo", appointment_ref: "atendimento", source_date: "atendimento",
+    source_time: "atendimento" } as Record<string, AgentQuestionField>)[field];
+}
+/** Phase 2: the open plan's state for THIS message (agent-prompt.ts agentPlanText), compact JSON: per action its key, operation, state, missing
+ * fields, the refs of an open card, the accepted values as refs of this message's binding (p#/s# of the directory; c# bound here with the mask of
+ * decision 22: only the registered words the owner wrote in this turn), absolute times and its edges. Never a backend question text, a phone,
+ * a price, a reason or a note; a customer the owner did not name now shows as not cited. null: it does not fit AGENT_LIMITS.planStateBytes, or a
+ * ref could not be bound (the message stays with the C4). */
+export function agentOpenPlanState(sources: readonly AgentOpenSource[], binding: AgentBinding, owner: readonly string[]): string | null {
+  const said = agentSaidTokens(owner), customers = new Map<string, string>();
+  const customer = (id: string, name: string | undefined) => {
+    const known = binding.refOf("c", id);
+    const ref = known ?? binding.bind("c", id, { shown: agentCustomerLabel(name ?? "", said) });
+    if (!ref) throw Error("AGENT_PLAN_STATE_REF");
+    const shown = (binding.entry(ref)?.facts as unknown as { shown?: string } | undefined)?.shown;
+    if (shown) customers.set(ref, shown);
+    return ref;
+  };
+  const directory = (kind: "p" | "s", id: string | undefined) => id ? binding.refOf(kind, id) : undefined;
+  try {
+    const acoes = live(sources).map(source => {
+      const f = source.fields, valores: Record<string, unknown> = {};
+      if (f.customer_ref) valores.cliente = customer(f.customer_ref, source.names[f.customer_ref]);
+      const professional = directory("p", f.professional_ref), target = directory("p", f.target_professional_ref);
+      if (professional) valores.profissional = professional;
+      if (target) valores.novo_profissional = target;
+      const services = (schedulingServiceRefs(f) ?? f.service_changes_ref ?? []).flatMap(id => { const ref = id ? directory("s", id) : undefined; return ref ? [ref] : []; });
+      if (services.length) valores.servicos = services;
+      if (source.operation !== "appointment.cancel" && f.date && f.time) valores.inicio = `${f.date}T${f.time}`;
+      else if (source.operation !== "appointment.cancel" && f.date) valores.dia = f.date;
+      if (source.operation === "schedule.block" && f.end_time) valores.fim = `${f.end_date ?? f.date ?? ""}T${f.end_time}`;
+      if (source.origin) valores.origem = source.origin;
+      const falta = [...new Set(source.missing.flatMap(field => { const name = missingField(source.operation, field); return name ? [name] : []; }))];
+      const card = source.card, opcoes = card && !terminalActionStatus(source.status) ? card.items.map(item => card.kind === "customer_ref" ? customer(item.id, item.name)
+        : card.kind === "professional_ref" || card.kind === "target_professional_ref" ? directory("p", item.id) : card.kind === "service_ref" ? directory("s", item.id) : undefined) : [];
+      return { chave: source.key, operacao: source.operation, estado: agentOpenState(source), ...falta.length ? { falta } : {},
+        ...opcoes.length && opcoes.every(Boolean) ? { opcoes } : {}, ...Object.keys(valores).length ? { valores } : {},
+        ...source.dependsOn.length ? { depende_de: [...source.dependsOn] } : {}, ...source.releasedSlotOf ? { ocupa_horario_de: source.releasedSlotOf } : {} };
+    });
+    if (!acoes.length) return null;
+    const text = JSON.stringify({ acoes, ...customers.size ? { clientes: [...customers].map(([ref, nome]) => ({ ref, nome })) } : {} });
+    return Buffer.byteLength(text, "utf8") <= AGENT_LIMITS.planStateBytes ? text : null;
+  } catch { return null; }
+}
+/** The app's Phase 2 scope of one message: the open plan's keys (done ones apart) and its state, rendered against this message's binding. */
+export function agentOpenScope(sources: readonly AgentOpenSource[], owner: readonly string[]): AgentOpenScope {
+  const kept = live(sources);
+  return { keys: kept.map(source => source.key), done: kept.filter(source => source.status === "DONE").map(source => source.key),
+    render: binding => agentOpenPlanState(kept, binding, owner) };
+}
+
+// ---------------------------------------------------------------- dismissal (Phase 2; V11: never discard less than the owner said)
+/** What the owner's words can name of an open action: its people and services (registered names) and its days and clocks (destination and
+ * current slot). */
+export type AgentDismissalAction = { key: string; names: readonly string[]; dates: readonly string[]; clocks: readonly string[] };
+export type AgentDismissalCode = "AGENT_DISMISSAL_EXCEPTION" | "AGENT_DISMISSAL_ORDINAL" | "AGENT_DISMISSAL_UNMATCHED" | "AGENT_DISMISSAL_DIVERGENT";
+export type AgentDismissalScope = { kind: "ALL" } | { kind: "KEYS"; keys: string[] } | { kind: "ASK"; code: AgentDismissalCode };
+/** Closed classes (folded): words that keep or exclude part of what is given up, ordinal or contrastive references, and the function words
+ * and agenda head nouns that never name a person or a service. */
+const KEEP_OR_EXCEPT = /(?<![\p{L}\p{N}])(?:menos|exceto|excecao|salvo|tirando|mantem|mantenha|manter|mantendo|preserva|preserve|fica|ficam|continua|continuam|a nao ser)(?![\p{L}\p{N}])/u;
+const ORDINAL = /(?<![\p{L}\p{N}])(?:primeir[oa]s?|segund[oa]s?|terceir[oa]s?|quart[oa]s?|quint[oa]s?|ultim[oa]s?|penultim[oa]s?|outr[oa]s?|\d+\s*[ºª°])(?![\p{L}\p{N}])/u;
+const NOT_A_NAME = new Set(["pra", "pro", "pras", "pros", "para", "com", "que", "uma", "umas", "uns", "dos", "das", "nos", "nas", "num", "numa", "por", "pelo", "pela", "pelos",
+  "pelas", "sem", "nem", "nao", "sim", "mais", "menos", "tudo", "todo", "toda", "todos", "todas", "isso", "isto", "esse", "essa", "esses", "essas", "este", "esta", "estes",
+  "estas", "aquele", "aquela", "aquilo", "disso", "nisso", "daquilo", "desse", "dessa", "deste", "desta", "nesse", "nessa", "neste", "nesta", "ele", "ela", "eles", "elas", "dele", "dela", "deles", "delas", "meu", "minha", "seu", "sua", "tambem", "entao", "mas", "porem",
+  "pois", "porque", "quando", "onde", "como", "aqui", "ali", "agora", "ainda", "mesmo", "mesma", "horario", "horarios", "atendimento", "atendimentos", "agendamento",
+  "agendamentos", "cliente", "clientes", "marcacao", "marcacoes", "reserva", "reservas", "pedido", "pedidos", "plano", "acao", "acoes", "vez", "hora", "horas"]);
+const DAYPARTS: Readonly<Record<string, (minute: number) => boolean>> = { manha: minute => minute < 720, tarde: minute => minute >= 720 && minute < 1080, noite: minute => minute >= 1080 };
+const minuteOf = (clock: string) => Number(clock.slice(0, 2)) * 60 + Number(clock.slice(3, 5));
+/** The scope of a dismissal from the owner's own words: the dismissal's clause of `message` (`clause`, original offsets; absent on the C4 path:
+ * the whole message). M = the open actions whose person, service, day, clock or day part the clause names. No name, day or ordinal: every open
+ * action (ALL). Words that name exactly the keys the interpretation gave up (`keys`; null: the whole plan): those (KEYS). ASK (nothing is given
+ * up and nothing stays confirmable) on: a keep/exception word anywhere in the message; a denied day or clock, or a negator that is not a bare
+ * refusal, in a part of the message outside the clause that names an open action; a part outside the clause that names an open action the
+ * keys leave out and that no other request of the plan quotes (`covered`: those quotes' spans; an elliptical "e da X" goes on giving up); a
+ * denied day or clock inside the clause; a day, clock or name of the salon (`known`) in the clause that matches no open action; an ordinal
+ * without a match; keys that differ from M. Done actions are never in scope. Structural only (closed classes, temporal atoms, registered
+ * names); never a list of sentences. */
+export function agentDismissalScope(input: { message: string; clause?: readonly [number, number]; keys: readonly string[] | null; actions: readonly AgentDismissalAction[];
+  timezone?: string; now: Date; known?: readonly string[]; covered?: readonly (readonly [number, number])[] }): AgentDismissalScope {
+  const { message, actions } = input, open = new Set(actions.map(action => action.key)), ask = (code: AgentDismissalCode) => ({ kind: "ASK" as const, code });
+  const [from, to] = input.clause ?? [0, message.length];
+  // Atoms are found whatever the zone; reading a day or clock needs the salon's (unknown, or a text that cannot be mapped: ask).
+  const atoms = temporalAtomSpans(message, input.timezone ?? "UTC", input.now);
+  if (!atoms || !input.timezone && atoms.length) return ask("AGENT_DISMISSAL_UNMATCHED");
+  const masked = atoms.reduce((text, atom) => `${text.slice(0, atom.start)}${" ".repeat(atom.end - atom.start)}${text.slice(atom.end)}`, message);
+  if (KEEP_OR_EXCEPT.test(foldName(masked))) return ask("AGENT_DISMISSAL_EXCEPTION");
+  /** What a part [a, b) of the message names: the open actions it matches, and whether it names a day, clock, day part or known name matching none. */
+  const mentions = (a: number, b: number) => {
+    const matched = new Set<string>();
+    let unmatched = false;
+    for (const atom of atoms.filter(item => item.start >= a && item.end <= b)) {
+      const facts = quoteTemporalFacts(message.slice(atom.start, atom.end), input.timezone!, input.now);
+      const hits = actions.filter(action => atom.kind === "date"
+        ? action.dates.some(date => facts.dates.includes(date) || facts.days.includes(Number(date.slice(8, 10))) || facts.weekdays.some(day => day.weekday === weekdayOfDateKey(date)))
+        : action.clocks.some(clock => facts.clocks.some(said => minuteOf(said) % 720 === minuteOf(clock) % 720)));
+      if (!hits.length) unmatched = true;
+      for (const hit of hits) matched.add(hit.key);
+    }
+    for (const word of nameTokens(masked.slice(a, b)).filter(token => [...token].length >= 3 && !NOT_A_NAME.has(token))) {
+      const part = Object.hasOwn(DAYPARTS, word) ? DAYPARTS[word] : undefined;
+      const names = (list: readonly string[]) => list.some(name => nameTokens(name).some(token => tokenSimilarity(word, token) >= SUGGESTION_THRESHOLD));
+      const hits = actions.filter(action => part ? action.clocks.some(clock => part(minuteOf(clock))) : names(action.names));
+      if (!hits.length && (part || names(input.known ?? []))) unmatched = true;
+      for (const hit of hits) matched.add(hit.key);
+    }
+    return { matched, unmatched };
+  };
+  const all = [...open], said = input.keys === null ? null : [...new Set(input.keys)], covered = input.covered ?? [];
+  // Outside the clause: a denial that is not a bare refusal, in a part naming an open action, may keep that action (ask); a part naming an open
+  // action the keys leave out, that no other request of this plan quotes, may give it up too (ask: never less than the owner said).
+  for (const [a, b] of [[0, from], [to, message.length]] as const) for (const [start, end] of punctuationParts(message, a, b)) {
+    const denied = atoms.some(atom => atom.negated && atom.start >= start && atom.end <= end) || strayNegator(message.slice(start, end)), named = mentions(start, end).matched;
+    if (denied && named.size) return ask("AGENT_DISMISSAL_EXCEPTION");
+    if (said !== null && [...named].some(key => !said.includes(key)) && !covered.some(span => span[0] < end && span[1] > start)) return ask("AGENT_DISMISSAL_DIVERGENT");
+  }
+  if (atoms.some(atom => atom.negated && atom.start >= from && atom.end <= to)) return ask("AGENT_DISMISSAL_EXCEPTION");
+  const { matched, unmatched } = mentions(from, to), ordinal = ORDINAL.test(foldName(masked.slice(from, to)));
+  if (unmatched) return ask("AGENT_DISMISSAL_UNMATCHED");
+  if (said && said.some(key => !open.has(key))) return ask("AGENT_DISMISSAL_DIVERGENT");
+  if (!matched.size) return ordinal ? ask("AGENT_DISMISSAL_ORDINAL") : { kind: "ALL" };
+  if (said === null) return matched.size === all.length ? { kind: "ALL" } : ask("AGENT_DISMISSAL_DIVERGENT");
+  if (said.length !== matched.size || said.some(key => !matched.has(key))) return ask("AGENT_DISMISSAL_DIVERGENT");
+  return matched.size === all.length ? { kind: "ALL" } : { kind: "KEYS", keys: all.filter(key => matched.has(key)) };
+}
+/** The punctuation-bounded parts of message[a, b) (original offsets). */
+function punctuationParts(message: string, a: number, b: number): [number, number][] {
+  const parts: [number, number][] = [];
+  let start = a;
+  for (let at = a; at <= b; at++) if (at === b || /[,.;!?()\n]/.test(message[at])) { if (message.slice(start, at).trim()) parts.push([start, at]); start = at + 1; }
+  return parts;
+}
+/** A negator in `text` that is not a bare refusal (alone before punctuation or the end, after interjections and connectives only). */
+function strayNegator(text: string): boolean {
+  const folded = foldName(text);
+  for (const match of folded.matchAll(/(?<![\p{L}\p{N}])(?:nao|nunca|nem|jamais)(?![\p{L}\p{N}])/gu)) {
+    const before = folded.slice(0, match.index!).split(/[^\p{L}\p{N}]+/u).filter(Boolean), after = folded.slice(match.index! + match[0].length);
+    if (!(/^\s*(?:[,.;!?…\n]|$)/u.test(after) && before.every(word => LEAD_WORDS.has(word)))) return true;
+  }
+  return false;
+}
+const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/, CLOCK = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
+/** The open actions (never a done one) as a dismissal can name them: registered names of their accepted people and services (and the owner's
+ * own words still unresolved), their days and clocks (destination, end and current slot). */
+export function agentDismissalActions(sources: readonly AgentOpenSource[]): AgentDismissalAction[] {
+  return live(sources).filter(source => !terminalActionStatus(source.status)).map(source => {
+    const f = source.fields, ids = [f.customer_ref, f.professional_ref, f.target_professional_ref, f.service_ref, ...f.service_list_ref ?? [], ...f.service_changes_ref ?? []];
+    const names = [...ids.flatMap(id => id && source.names[id] ? [source.names[id]] : []), ...[f.customer_name, f.professional_name, f.target_professional_name, f.service_name,
+      ...f.service_names ?? [], ...(f.service_changes ?? []).map(item => item.service_name)].filter((name): name is string => !!name)];
+    const dates = [f.date, f.source_date, f.end_date, source.origin?.slice(0, 10)].filter((date): date is string => !!date && DATE_KEY.test(date));
+    const clocks = [f.time, f.source_time, f.end_time, source.origin?.slice(11, 16)].filter((clock): clock is string => !!clock && CLOCK.test(clock));
+    return { key: source.key, names: [...new Set(names)], dates: [...new Set(dates)], clocks: [...new Set(clocks)] };
+  });
+}
+/** The dismissal's clause of a message (original offsets, from its governing lead): the backend's clause around the model's quote when the quote
+ * occurs exactly once; undefined otherwise (the whole message is read: it can only name more and ask more). */
+export function agentDismissalClause(message: string, quote: string | undefined): [number, number] | undefined {
+  if (!quote) return undefined;
+  const found = literalProofSpans(message, quote);
+  if (found.length !== 1) return undefined;
+  const clause = clauseBounds(message, found[0][0], found[0][1]);
+  return clause ? [clause.lead, clause.end] : undefined;
+}
+/** The parts of a message other requests of the plan quote (agentDismissalScope `covered`): each quote that occurs exactly once (one that does not
+ * covers nothing, so the dismissal can only ask more). */
+export function agentQuoteSpans(message: string, quotes: readonly string[]): [number, number][] {
+  return quotes.flatMap(quote => { const found = quote.trim() ? literalProofSpans(message, quote) : []; return found.length === 1 ? [[found[0][0], found[0][1]] as [number, number]] : []; });
+}
+/** A negator standing alone (followed by punctuation or the end of the message), with nothing before it in its sentence but interjections and
+ * connectives (closed classes): the owner refuses something without saying what. Read only on an open plan, when the model returned neither a
+ * dismissal nor a change (the ready proposals then leave the Confirmar). */
+const LEAD_WORDS = new Set(["ah", "ahn", "oh", "opa", "ops", "hum", "hmm", "eh", "e", "mas", "olha", "pois", "entao", "ai", "ixi", "puts", "bom", "ta", "certo"]);
+export function agentLooseNegator(message: string): boolean {
+  const folded = foldName(message);
+  for (const match of folded.matchAll(/(?<![\p{L}\p{N}])(?:nao|nunca|nem|jamais)(?![\p{L}\p{N}])\s*(?=[,.;!?…\n]|$)/gu)) {
+    const start = match.index!, sentence = folded.slice(0, start).split(/[.;!?\n]/u).at(-1) ?? "";
+    if (sentence.split(/[^\p{L}\p{N}]+/u).filter(Boolean).every(word => LEAD_WORDS.has(word))) return true;
+  }
+  return false;
+}
+/** Phase 2 notices (pt-BR, backend text). */
+export const AGENT_DISMISSAL_ASK_NOTICE = "Não ficou claro de qual pedido você desistiu. Nada foi descartado, e as ações deste plano saíram do Confirmar até você dizer o que devo descartar (ou usar Descartar em cada uma).";
+export const AGENT_UNCLEAR_DISMISSAL_NOTICE = "Não ficou claro o que você recusou. As ações que estavam prontas saíram do Confirmar até você revisar.";
+export const AGENT_PATCH_DONE_NOTICE = "Uma ação já confirmada não muda por aqui: para alterar o que já foi feito, peça a alteração do agendamento.";
+export const AGENT_PATCH_HELD_NOTICE = "Não consegui aplicar o que você pediu numa ação deste plano; ela saiu do Confirmar até você revisar.";
+export const AGENT_DISMISSAL_PENDING_NOTICE = "Responda primeiro sobre o descarte acima; o restante desta mensagem não foi aplicado.";
+/** A patch of an open action (Phase 2): the same prepare() on the action's own child (its draft and revision go on), with the validator's values
+ * (the open values it inherited and what this message changed). A half-day question still open for a field this message did not fill stays; one
+ * for a field it filled leaves. */
+export async function prepareAgentPatch(actor: ServiceActor, c: SchedulingState, outcome: AgentActionOutcome,
+  slot: (key: string, released: boolean) => AgentPreparedSlot | undefined): Promise<AgentPrepared> {
+  const filled = new Set(Object.keys(outcome.fields)), asked = new Set(outcome.ambiguities.map(item => item.field));
+  const kept = (c.pending_temporal_ambiguities ?? []).filter(item => !filled.has(item.field) && !asked.has(item.field));
+  if (kept.length) c.pending_temporal_ambiguities = kept; else delete c.pending_temporal_ambiguities;
+  return prepareAgentScheduling(actor, c, { ...outcome, ambiguities: [...kept, ...outcome.ambiguities] }, slot);
+}
+/** The cancellation of an open plan as an action outcome, for the atomic cancel→create pair a later message asks for (`ocupa_horario_de`): its
+ * accepted fields (prepareAgentBatch locates the appointment again, never from a ref) and registered names. */
+export function agentOpenCancelOutcome(source: AgentOpenSource): AgentActionOutcome {
+  return { key: source.key, operation: "appointment.cancel", status: "READY", fields: structuredClone(source.fields), cleared: [], card: null, question: null, asked: null,
+    ambiguities: [], origin: null, derived: null, recurrence: null, dependsOn: [], releasedSlotOf: null, basis: [], premises: [], note: [], notice: null, codes: [],
+    names: { ...source.names } };
+}
+/** New actions of a continuation (keys that are not in the open plan): the dropped ones and their dependents leave; an edge to an open action
+ * stays outside the selection (`external`, set on the plan actions after createActionPlan); a key equal to a discarded action's is renamed. */
+export type AgentAppendSkeleton = { selection?: CapabilitySelection; outcomes: ReadonlyMap<string, AgentActionOutcome>; external: ReadonlyMap<string, { dependsOn: string[]; releasedSlotOf: string | null }>;
+  dropped: string[]; notices: string[] };
+export function agentAppendSkeleton(actions: readonly AgentActionOutcome[], open: ReadonlySet<string>, taken: ReadonlySet<string>): AgentAppendSkeleton {
+  const rename = new Map<string, string>(), used = new Set([...taken, ...actions.map(action => action.key)]);
+  for (const action of actions) if (taken.has(action.key)) {
+    let n = 2, key = "";
+    do key = `${action.key.slice(0, 28)}_${n++}`; while (used.has(key));
+    used.add(key); rename.set(action.key, key);
+  }
+  const keyOf = (key: string) => rename.get(key) ?? key;
+  const renamed = actions.map(action => ({ ...action, key: keyOf(action.key), dependsOn: action.dependsOn.map(dep => open.has(dep) ? dep : keyOf(dep)),
+    releasedSlotOf: action.releasedSlotOf === null ? null : open.has(action.releasedSlotOf) ? action.releasedSlotOf : keyOf(action.releasedSlotOf) }));
+  const keys = new Set(renamed.map(action => action.key)), dropped = new Set(renamed.filter(action => action.status === "DROP").map(action => action.key)), direct = new Set(dropped);
+  for (let grown = true; grown;) {
+    grown = false;
+    for (const action of renamed) if (!dropped.has(action.key) && [...action.dependsOn, ...action.releasedSlotOf ? [action.releasedSlotOf] : []]
+      .some(key => dropped.has(key) || !keys.has(key) && !open.has(key))) { dropped.add(action.key); grown = true; }
+  }
+  const kept = renamed.filter(action => !dropped.has(action.key));
+  const notices = [...[...dropped].some(key => !direct.has(key)) ? [AGENT_DEPENDENT_NOTICE] : []];
+  const external = new Map(kept.map(action => [action.key, { dependsOn: action.dependsOn.filter(key => open.has(key)),
+    releasedSlotOf: action.releasedSlotOf !== null && open.has(action.releasedSlotOf) ? action.releasedSlotOf : null }]));
+  if (!kept.length) return { outcomes: new Map(), external: new Map(), dropped: [...dropped], notices };
+  const internal = (action: AgentActionOutcome) => action.dependsOn.filter(key => !open.has(key));
+  const selection = validateSelectionV2({ skills: ["scheduling"], independent: !kept.some(action => internal(action).length), operations: kept.map(action => ({
+    operation: action.operation, item_key: action.key, depends_on: internal(action),
+    released_slot_of: action.releasedSlotOf !== null && !open.has(action.releasedSlotOf) ? action.releasedSlotOf : null,
+    target_name: null, name: null, priceCents: null, durationMin: null, phone: null, email: null, requested_fields: [], clear_fields: [] })) });
+  return { selection, outcomes: new Map(kept.map(action => [action.key, action])), external, dropped: [...dropped], notices };
+}
 
 // ---------------------------------------------------------------- the plan skeleton (§6.2)
 export type AgentSkeleton = { selection?: CapabilitySelection; outcomes: ReadonlyMap<string, AgentActionOutcome>; dropped: string[]; notices: string[] };
@@ -207,11 +522,15 @@ export const agentConfirmOptions = (actor: ServiceActor, basis: readonly AgentBa
 // ---------------------------------------------------------------- telemetry (§6.4)
 const QUESTION_FIELDS: Readonly<Record<string, string>> = { operacao: "request", atendimento: "appointment", cliente: "customer", profissional: "professional",
   novo_profissional: "target", servicos: "service", dia: "date", inicio: "time", fim: "end", motivo: "reason" };
+/** Phase 2 telemetry of a continuation: the dismissal's scope, patches applied and actions added (counts and closed values only). */
+export type AgentContinuationTelemetry = { discard?: AgentDismissalScope["kind"]; patches: number; added: number };
 export type AgentOutcomeInput = { loop?: AgentLoopTelemetry; path: AgentTurnOutcome["path"]; code: string | null; validation?: AgentValidation; questionField?: string | null;
-  premises?: number; locateDisagree?: number; followUp?: boolean };
+  premises?: number; locateDisagree?: number; followUp?: boolean; continuation?: AgentContinuationTelemetry };
 /** S1 additions, present only when they apply: the effort of each call when they differed (A4), the message's preload (B1,
- * SALON_SECRETARY_AGENT_PRELOAD) and a follow-up on a closed plan (B2); the router's whitelist (secretary-router.ts safeAgent) keeps them. */
-export type AgentTurnOutcomeExtra = AgentTurnOutcome & { preload?: AgentPreloadTelemetry; follow_up?: true };
+ * SALON_SECRETARY_AGENT_PRELOAD) and a follow-up on a closed plan (B2); the router's whitelist (secretary-router.ts safeAgent) keeps them.
+ * Phase 2 (`continuation`, `discard`, `patches`, `added`): set here; the router keeps them only once its whitelist names them. */
+export type AgentTurnOutcomeExtra = AgentTurnOutcome & { preload?: AgentPreloadTelemetry; follow_up?: true; continuation?: true; discard?: AgentDismissalScope["kind"];
+  patches?: number; added?: number };
 /** Codes and numbers only (never a name, a quote or a text). */
 export function agentTurnOutcome(context: AgentMessageContext | undefined, input: AgentOutcomeInput): AgentTurnOutcomeExtra {
   const lookups = context ? agentLookupTelemetry(context) : undefined, loop = input.loop, validation = input.validation?.ok ? input.validation : undefined;
@@ -227,5 +546,7 @@ export function agentTurnOutcome(context: AgentMessageContext | undefined, input
     uncovered: codes.has("AGENT_UNCOVERED") ? 1 : 0, actions_left: validation?.notices.some(notice => /de fora: faço até/u.test(notice)) ? 1 : 0,
     locate_disagree: input.locateDisagree ?? actions.filter(action => action.codes.includes("AGENT_APPT_LOCATE")).length, effort: loop?.effort ?? null,
     ...loop && new Set(loop.efforts).size > 1 ? { efforts: [...loop.efforts] } : {},
-    ...lookups?.preload ? { preload: lookups.preload } : {}, ...input.followUp ? { follow_up: true as const } : {} };
+    ...lookups?.preload ? { preload: lookups.preload } : {}, ...input.followUp ? { follow_up: true as const } : {},
+    ...input.continuation ? { continuation: true as const, ...input.continuation.discard ? { discard: input.continuation.discard } : {}, patches: input.continuation.patches,
+      added: input.continuation.added } : {} };
 }
