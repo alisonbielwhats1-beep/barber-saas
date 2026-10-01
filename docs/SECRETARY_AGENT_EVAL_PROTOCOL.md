@@ -392,3 +392,37 @@ Feitas por agentes isolados: causa por cenário × braço com verificação cét
 - **Evidência obrigatória:** os artefatos reais gravados (saída da Luna, plano, validador, inclusive o replay offline, estado do plano e banco). Frequência não serve como prova.
 - **Revisão:** 2 analistas independentes e um adjudicador para as divergências.
 - **Restrições:** sem chamada à API e sem nenhuma alteração. O resultado é diagnóstico e plano priorizado; não implementa nada.
+
+## Resultado da auditoria de origem das falhas reais v1c (Adendo 6, 01/10/2026)
+
+- **Cobertura:** 218 falhas reais (cenário × braço). 178 com acordo entre os 2 analistas, 40 adjudicadas, 0 sem resolução. Em 67 a origem mudou entre as tentativas.
+- **Limitação:** o replay offline do validador não roda em execuções seladas. A origem saiu da telemetria gravada (saída da Luna, chamadas, validador, estado do plano, banco) e da leitura do código, então os ganhos contrafactuais são inferidos, não medidos.
+
+**Primeira camada que diverge** (somando a primeira causa dos casos MULTIPLE_CAUSES):
+
+| Braço | Validador | Luna | Plano | Backend | Capacidade | Estado |
+|---|---:|---:|---:|---:|---:|---:|
+| SIMPLE Agent (52) | 38 (73%) | 8 | 5 | 1 | 0 | 0 |
+| SIMPLE C4 (49) | 16 (33%) | 13 | 0 | 10 | 10 | 0 |
+| COMPLEX Agent (59) | 31 (53%) | 18 (12 por tempo esgotado) | 6 | 1 | 1 | 2 |
+| COMPLEX C4 (58) | 12 (21%) | 19 (5 por tempo esgotado) | 1 | 6 | 19 | 1 |
+
+- **Erro de compreensão pura da Luna** (fora de tempo esgotado): no máximo 1 no Agent e 3 na C4.
+- **Falhas "compartilhadas" têm o mesmo sintoma, mas origens diferentes:** a mesma primeira camada aparece em só 12 de 45 pares no SIMPLE e 13 de 58 no COMPLEX.
+- **Segurança:**
+  - CE10 e CE02 nascem no código da C4. O Agent chega a eles pela queda para a C4.
+  - CF09 (Agent) é uma resposta aplicada a uma ação já pronta que não tinha perguntado nada.
+  - SE30 é erro do avaliador.
+- **Prioridade indicada:**
+  1. P0, segurança;
+  2. P1, primitivas determinísticas compartilhadas;
+  3. P2, política de admissão do validador do Agent;
+  4. P3, contrato prompt↔validador;
+  5. P4, orçamento de tempo e queda para a C4;
+  6. P5, formato do plano;
+  7. P6, backend;
+  8. P7, estado;
+  9. P8, não investir em lacunas da C4;
+  10. P9, compreensão da Luna por último.
+
+  Nada foi implementado.
