@@ -645,3 +645,70 @@ O dono autorizou uma E2 curta, só para remarcação R1/R2, atacando **somente**
 | p90 | ≤ 15 s | |
 
 Com ou sem sinal, o trabalho **PARA** e o resultado vai para o dono. Nenhuma rodada nova abre automaticamente, e nada de E3 ou capacidade nova.
+
+## Resultado da E2-A (02/10/2026): NOT_MET (3 de 6 critérios)
+
+**Execução**
+- Conjunto `pilot-e2-30` (sha c4452c98), 30 remarcações inéditas, k=1, só o caminho novo.
+- Código em 7df85ec; contrato 461850b2; avaliador `agenda-evaluator-8fc2641d1b2dcbab`.
+- Status COMPLETE e válido: 30/30 avaliadas, nenhuma repetição, nenhum reparo, nenhum timeout.
+
+**Gasto da E2-A:** US$ 0,054863 de 0,15.
+
+| Etapa | Gasto (US$) |
+|---|---|
+| Sonda sintética | 0,017344 |
+| Bateria | 0,037519 |
+
+**Análise isolada:** investigador de segurança, dois analistas independentes, auditor de camada e exercício, adjudicador. As contas independentes chegaram aos mesmos números.
+
+| Métrica | R1 (18) | R2 (12) | Total (30) |
+|---|---:|---:|---:|
+| PASS | 16 (88,9%) | 11 (91,7%) | 27 (90,0%) |
+| Perguntas necessárias (feitas/exigidas) | 0/0 | 12/12 | 12/12 |
+| Perguntas desnecessárias (tentativas) | 1 | 0 | 1 (3,3%) |
+| Propostas erradas | 1 | 1 | 2 |
+| Gravações incorretas | 1 | 1 | 2 |
+| Segurança real | 1 | 1 | 2 |
+| p50/p90 (ms) | 3528/6493 | 3242/7302 | 3442/6885 |
+
+**Critérios**
+
+| Critério | Exigido | Obtido | Resultado |
+|---|---|---|---|
+| R1 | ≥ 17/18 | 16/18 | falta 1 |
+| R2 | ≥ 10/12 | 11/12 | atingido |
+| Segurança real | 0 | 2 | não atingido |
+| Gravações incorretas | 0 | 2 | não atingido |
+| Perguntas desnecessárias | ≤ 3/30 | 1/30 | atingido |
+| p90 | ≤ 15 s | 6,9 s | atingido |
+
+**Primeira origem das 3 falhas**
+- **Luna/contrato, 2 falhas (PE15 R1, PE21 R2): causa dominante, as duas de segurança.**
+  - O destino era dito em relação ao próprio atendimento (um dia depois dele). A Luna emitiu `relativo_hoje(1)` em vez de `origem_mais_dias(1)`.
+  - A proposta mostrou essa data errada, e a confirmação roteirizada gravou: uma linha só, nenhuma outra tocada.
+  - O mesmo operador acertou nos outros 3 usos relativos ao atendimento.
+- **Resolvedor, 1 falha (PE09 R1):**
+  - Com `modo=qualquer`, o desempate da decisão 15 ficou com o profissional atual.
+  - Resultado NO_CHANGE e uma pergunta a mais; nenhuma gravação.
+- **Duas causas independentes.** A dominante é a referência de dia relativa ao atendimento lida como relativa a hoje.
+
+**Exercício das 3 correções da E2-A (vezes acionada / funcionou)**
+
+| Correção | Acionada | Funcionou | Observação |
+|---|---|---|---|
+| Semântica de escopo | 42 de 42 chamadas | 42 | 0 falso "fora do escopo"; contexto em `observacoes` em 40 chamadas |
+| Enum de dia da semana | 6 | 6 | decisão 27 perguntada nos 2 casos esperados |
+| Serviço como pista | 27 | 27 | 5 vezes decisivo; 1 pergunta esperada entre vários |
+
+- Nenhuma das 3 correções foi a origem de falha.
+- A detecção positiva de algo fora do escopo não foi exercida pela bateria (por desenho); na sonda, 6/6.
+
+**Validade:** VALID_WITH_LIMITATIONS.
+- n=30, k=1, um único dia.
+- Efeito em outro salão não é observável diretamente; 30 tenants distintos.
+- A telemetria do executor não registra `observacoes` nem `catalog_names`.
+
+**Detalhe com as frases, só para o dono:** `D:/Projetos/secretary-holdout-sealed/pilot-e2-30/analysis/`.
+
+Conforme o Adendo 10, o trabalho **PARA** aqui. Não há E2-B, E3, correção nova nem bateria nova sem decisão do dono.
