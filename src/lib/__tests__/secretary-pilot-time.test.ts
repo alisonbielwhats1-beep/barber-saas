@@ -12,7 +12,8 @@ const MON = "2031-03-10", WED = "2031-03-12", FRI = "2031-03-14", NEXT_MON = "20
 const day = (tempo: PilotTempoDia | null, originDate = WED, at?: string) => resolveTargetDate(tempo, { date: originDate }, clockAt(at));
 const data = (dia: number, mes: number | null = null): PilotTempoDia => ({ tipo: "data", dia, mes, mencao: mes ? `${dia}/${mes}` : `dia ${dia}` });
 const weekday = (dia_semana: PilotWeekday, qualificador: "este" | "proximo" | null = null): PilotTempoDia => ({ tipo: "dia_semana", dia_semana, qualificador, mencao: `dia ${dia_semana}` });
-const relative = (dias: number): PilotTempoDia => ({ tipo: "relativo_hoje", dias, mencao: `daqui ${dias}` });
+/** E2-B §11.1: a day counted from today is the offset anchored on "hoje" (it replaces the E2-A operator; derived, shown in the proposal). */
+const relative = (dias: number): PilotTempoDia => ({ tipo: "deslocamento", quantidade: dias, unidade: "dias", ancoras: ["hoje"], data_citada: null, mencao: `daqui ${dias}` });
 
 describe("§3.3 target day: every operator from the frozen received_at, in the salon's timezone", () => {
   it("data without a month: the next occurrence from today on (today counts); a day the month lacks goes to the next month that has it", () => {
@@ -27,18 +28,18 @@ describe("§3.3 target day: every operator from the frozen received_at, in the s
     expect(day(data(5, 1))).toMatchObject({ state: "one", date: "2032-01-05", provenance: "explicit" });
     expect(day(data(31, 2))).toEqual({ state: "invalid", reason: "NO_SUCH_DATE", mencao: "31/2" });
   });
-  it("relativo_hoje: today + n, counted on the salon's local day (23:30 in São Paulo is still that day)", () => {
-    expect(day(relative(0))).toMatchObject({ state: "one", date: MON, provenance: "explicit" });
-    expect(day(relative(1))).toMatchObject({ state: "one", date: "2031-03-11", provenance: "explicit" });
+  it("a day offset anchored on today (§11.1): today + n, counted on the salon's local day (23:30 in São Paulo is still that day); derived", () => {
+    expect(day(relative(0))).toMatchObject({ state: "one", date: MON, provenance: "derived" });
+    expect(day(relative(1))).toMatchObject({ state: "one", date: "2031-03-11", provenance: "derived" });
     expect(day(relative(3))).toMatchObject({ state: "one", date: "2031-03-13" });
     const lateEvening = "2031-03-11T02:30:00.000Z";
     expect(day(relative(1), WED, lateEvening)).toMatchObject({ state: "one", date: "2031-03-11" });
     expect(day(data(10), WED, lateEvening)).toMatchObject({ state: "one", date: MON });
   });
-  it("mesmo_da_origem is the original day (inherited); origem_mais_dias adds to it (derived); a day not said keeps the original (inherited)", () => {
+  it("mesmo_da_origem is the original day (inherited); an offset anchored on the origin adds to it (derived); a day not said keeps the original (inherited)", () => {
     expect(day({ tipo: "mesmo_da_origem", mencao: "no mesmo dia" })).toEqual({ state: "one", date: WED, provenance: "inherited", mencao: "no mesmo dia" });
-    expect(day({ tipo: "origem_mais_dias", dias: 7, mencao: "uma semana pra frente" })).toEqual({ state: "one", date: "2031-03-19", provenance: "derived", mencao: "uma semana pra frente" });
-    expect(day({ tipo: "origem_mais_dias", dias: 2, mencao: "dois dias depois" }, FRI)).toMatchObject({ state: "one", date: "2031-03-16", provenance: "derived" });
+    expect(day({ tipo: "deslocamento", quantidade: 7, unidade: "dias", ancoras: ["origem"], data_citada: null, mencao: "uma semana pra frente" })).toEqual({ state: "one", date: "2031-03-19", provenance: "derived", mencao: "uma semana pra frente" });
+    expect(day({ tipo: "deslocamento", quantidade: 2, unidade: "dias", ancoras: ["origem"], data_citada: null, mencao: "dois dias depois" }, FRI)).toMatchObject({ state: "one", date: "2031-03-16", provenance: "derived" });
     expect(day(null)).toEqual({ state: "one", date: WED, provenance: "inherited" });
   });
 });
@@ -101,9 +102,9 @@ describe("§3.4 target clock", () => {
     expect(await time(relogio(8), null)).toMatchObject({ state: "ask", options: ["08:00", "20:00"] });
     expect(await time(relogio(8), carlos.id)).toMatchObject({ state: "none" });
   });
-  it("mesmo_da_origem is the original clock (inherited); origem_mais_minutos adds to it (derived); a_definir asks", async () => {
+  it("mesmo_da_origem is the original clock (inherited); a clock offset anchored on the origin adds to it (derived); a_definir asks", async () => {
     expect(await time({ tipo: "mesmo_da_origem", mencao: "mesmo horário" })).toEqual({ state: "one", time: "10:00", provenance: "inherited", mencao: "mesmo horário" });
-    expect(await time({ tipo: "origem_mais_minutos", minutos: 150, mencao: "150 min mais tarde" })).toEqual({ state: "one", time: "12:30", provenance: "derived", mencao: "150 min mais tarde" });
+    expect(await time({ tipo: "deslocamento", minutos: 150, ancoras: ["origem"], mencao: "150 min mais tarde" })).toEqual({ state: "one", time: "12:30", provenance: "derived", mencao: "150 min mais tarde" });
     expect(await time({ tipo: "a_definir", mencao: "num horário a ver" })).toMatchObject({ state: "ask", reason: "TO_DEFINE", options: [] });
   });
   it("a clock not said: the original one on the original day (inherited); on a new day it is asked (decision 2)", async () => {

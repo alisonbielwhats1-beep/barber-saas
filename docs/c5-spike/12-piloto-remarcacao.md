@@ -298,3 +298,36 @@ Emendas ao §10, cada uma com teste de regressão escrito antes do código. Nenh
    - **Desempate:** menos atendimentos no dia, depois a ordem do nome. Deixa de existir a preferência pelo profissional atual. A proposta diz quem foi escolhido.
    - **Ninguém livre:** pergunta (`PROFESSIONAL_NOBODY_FREE`), mantendo o resto do plano.
    - **"manter" e "nomeado":** não mudam.
+
+### 11.3 Revisão adversarial da E2-B (emendas ao pré-registro, antes da bateria, ainda atrás da flag)
+
+Emendas ao §11, cada uma com teste de regressão escrito antes do código (`secretary-pilot-e2b-fixes.test.ts`, com gêmeos). Nenhuma lê o português do dono depois da Luna: só operadores tipados, as âncoras listadas pela Luna, o `received_at` congelado, registros reais e o toque ou a resposta do dono.
+
+- **Dia dado pelo relógio (PRINCIPLE-1).** Sem dia dito, quando um deslocamento de hora contado de "agora" define o dia (inclusive o dia que a pergunta TIME_INVALID nomeia), esse dia fica no plano como o "hoje" do turno que disse a hora.
+  - Uma correção ou resposta só de hora mantém esse dia.
+  - Um novo deslocamento de hora sem dia volta a dizer o seu.
+  - Um horário de destino que já passou no seu dia é perguntado (TIME_INVALID), nunca proposto.
+- **Pergunta do dia de um relógio com duas âncoras (PRINCIPLE-2, RESOLVER-2, REGRESSION-1).** A resposta do dono (texto ou toque) fica só com a âncora cujo dia é o escolhido: "agora" é o dia do turno que disse a hora; "origem", o dia do atendimento.
+  - Não há segunda pergunta, nem horário que nenhuma âncora dá naquele dia.
+  - Um dia dito pelo próprio dono continua perguntando as duas horas.
+- **"outro" com nome (PRINCIPLE-3, PROFESSIONAL-3, REGRESSION-2).** Em "outro", a menção é quem não deve atender, como o prompt já ensina.
+  - Os membros que ela nomeia saem dos candidatos junto com o atual. Um nome ambíguo tira todos os que ele pode ser.
+  - Nunca há pergunta de conflito oferecendo essa pessoa.
+  - "manter" e "qualquer" com o nome de outro membro continuam perguntando.
+  - Ninguém livre: pergunta (PROFESSIONAL_NOBODY_FREE) dizendo quem ficou de fora.
+- **Leituras descartadas e âncora na proposta (PRINCIPLE-4, PROPOSAL-6).** Fica ratificada, como regra de fato no molde da decisão 18, a filtragem das leituras: uma leitura que não pode ser destino não é leitura, e a que sobra é usada (`derived`).
+  - Não pode ser destino a leitura que já passou, que não existe, que sai do dia, ou que conta de "agora" em outro dia.
+  - A proposta diz a âncora usada: contando de hoje, do dia do atendimento, do dia citado, de agora ou do horário do atendimento.
+  - A proposta nomeia a leitura descartada por já ter passado ou por sair do dia. Nada é escolhido em silêncio.
+- **Data citada (SEMANTICS-1; substitui "calculada como o operador `data`" do §11.1).**
+  - Número do dia sem mês: o dia deste mês; se ele já passou, o próximo que existe também é uma leitura da âncora.
+  - Com mês: a ocorrência mais próxima de hoje (as outras ficam a um ano).
+  - Cada leitura recebe o deslocamento. As que já passaram não contam; duas ou mais diferentes são perguntadas (ANCHOR_TWO_READINGS), cada opção com o dia de que conta.
+  - A data citada nunca é empurrada um mês ou um ano em silêncio.
+- **Referência citada (CONTRACT-4; cobre a "outra referência explícita" do pedido do dono).** `data_citada` aceita, além do número do dia `{ dia, mes, mencao }`:
+  - `{ "tipo": "dia_semana", "dia_semana", "qualificador", "mencao" }`, com as leituras da decisão 27: o primeiro depois de hoje e o primeiro depois do atendimento; "este", só o primeiro; hoje também, se for esse dia, salvo "proximo";
+  - `{ "tipo": "mes_relativo", "dia", "meses", "mencao" }`, com uma leitura.
+  - A Luna nunca converte a referência em data; o prompt diz como cada forma vai.
+- **Pista de origem com "origem" e outra âncora (RESOLVER-5).** "origem" não dá leitura da própria origem: filtram as outras âncoras. Só "origem" sozinha não filtra.
+- **Tamanho da requisição (REGRESSION-3).** O orçamento dos nomes do catálogo (CATALOG-1) cai de 20 KB para 10,5 KB. O pior caso (pergunta aberta com 8 opções no limite do rótulo, uma linha por campo no limite e a nota de reparo completa) cabe no teto com cerca de 2 KB de folga. Um teste confere esse formato.
+- **Bateria DEV (REGRESSION-4).** O teste de pares de palavras descarta os marcadores (nomes, números, dias) antes de formar os pares. O PB09 foi reescrito. PB18 a PB20 entram para exercitar a referência por dia da semana (uma leitura e duas) e "outro" com nome.

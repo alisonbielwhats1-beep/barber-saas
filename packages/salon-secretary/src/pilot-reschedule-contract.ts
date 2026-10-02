@@ -9,11 +9,21 @@ import { z } from "zod";
  * enum (segunda … domingo; the resolver turns it into the weekday by a data table, never by reading the mention); `origem.servico` carries the
  * owner's words and the EXACT catalog names Luna says they may designate (the resolver keeps only names of the salon's catalog); `observacoes`
  * holds reason and context copied from the message (the code never reads it: a count in telemetry only); a `fora_do_escopo` item is a SEPARATE
- * request with its own effect, its words in `pedido`. The request that carries it (prompt, data, limits): pilot-reschedule-prompt.ts. */
+ * request with its own effect, its words in `pedido`. E2-B (§11, Adendo 11): a relative day or clock is ONE operator, `deslocamento`, that keeps
+ * apart the operation (quantidade + unidade, or minutos), the anchor(s) it is counted from (ancoras: origem | hoje | data_citada for a day,
+ * origem | agora for a clock; both plausible ones when the words fit either) and the reference of a data_citada anchor (§11.3: the literal day
+ * number, a weekday or a day of a relative month, as said); Luna never computes the result (the resolver computes the readings of each anchor and
+ * asks when they differ). `profissional.modo` "outro": someone other than the current professional (§11.3: a team member named in its mencao is
+ * left out too), the code choosing who (decision 15). The request that carries it (prompt, data, limits): pilot-reschedule-prompt.ts. */
 export const PILOT_RESCHEDULE_TOOL = "interpretar_remarcacao" as const;
 export const PILOT_TURN_KINDS = ["remarcar", "fora_do_escopo", "misto", "conversa", "resposta"] as const;
 export const PILOT_OUT_OF_SCOPE_KINDS = ["cancelar", "bloquear", "trocar_servico", "agendar", "consultar", "outra_acao", "recorrencia", "mensagem"] as const;
-export const PILOT_PROFESSIONAL_MODES = ["manter", "nomeado", "qualquer"] as const;
+/** §11.2: "qualquer", whoever is free (the current professional included); "outro", someone other than the current one (the code applies decision 15). */
+export const PILOT_PROFESSIONAL_MODES = ["manter", "nomeado", "qualquer", "outro"] as const;
+/** §11.1: what a relative day (or clock) is counted from: the existing appointment, today (now) or a date the message cites. */
+export const PILOT_DAY_ANCHORS = ["origem", "hoje", "data_citada"] as const;
+export const PILOT_TIME_ANCHORS = ["origem", "agora"] as const;
+export const PILOT_OFFSET_UNITS = ["dias", "semanas"] as const;
 export const PILOT_POSITIONS = ["primeiro", "ultimo"] as const;
 export const PILOT_QUALIFIERS = ["este", "proximo"] as const;
 export const PILOT_PERIODS = ["manha", "tarde", "noite"] as const;
@@ -32,6 +42,8 @@ export type PilotTurnKind = (typeof PILOT_TURN_KINDS)[number];
 export type PilotOutOfScopeKind = (typeof PILOT_OUT_OF_SCOPE_KINDS)[number];
 export type PilotProfessionalMode = (typeof PILOT_PROFESSIONAL_MODES)[number];
 export type PilotWeekday = (typeof PILOT_WEEKDAYS)[number];
+export type PilotDayAnchor = (typeof PILOT_DAY_ANCHORS)[number];
+export type PilotTimeAnchor = (typeof PILOT_TIME_ANCHORS)[number];
 
 type Json = { [key: string]: unknown };
 const L = PILOT_CONTRACT_LIMITS;
@@ -47,20 +59,29 @@ const mention = described({ type: "string", minLength: 1, maxLength: L.mention }
 /** Review P5: a mention of a name (customer, professional, service) carries only the name's own words: the resolver matches every one of them. */
 const nameMention = described({ type: "string", minLength: 1, maxLength: L.mention }, "Só as palavras do próprio nome, como o dono escreveu, sem artigo, preposição ou forma de tratamento.");
 
+/** §11.1: the anchors of an offset, one or two (the strict wire cannot say "distinct": a repeated anchor is a rule, pilotContractRules). */
+const anchors = (values: readonly string[]): Json => ({ type: "array", minItems: 1, maxItems: 2, items: choice(values) });
+/** §11.1 as amended (§11.3, CONTRACT-4): the reference a data_citada anchor counts from, kept as the owner said it: the literal day number (its month
+ * only when said), a weekday, or a day of a month said relative to the current one. Luna never turns it into a date (the resolver reads it). */
+const citedMention: Json = { type: "string", minLength: 1, maxLength: L.mention };
+const citedOrNull: Json = { anyOf: [object({ dia: integer(1, 31), mes: nullable(integer(1, 12)), mencao: citedMention }),
+  object({ tipo: constant("dia_semana"), dia_semana: choice(PILOT_WEEKDAYS), qualificador: choice(PILOT_QUALIFIERS, true), mencao: citedMention }),
+  object({ tipo: constant("mes_relativo"), dia: integer(1, 31), meses: integer(0, 12), mencao: citedMention }), { type: "null" }] };
 const dayWire: Json[] = [
   object({ tipo: constant("data"), dia: integer(1, 31), mes: nullable(integer(1, 12)), mencao: mention }),
   // Review P7: a day of a month said relative to the current one (the resolver counts the months from received_at; Luna never computes it).
   object({ tipo: constant("mes_relativo"), dia: integer(1, 31), meses: described(integer(0, 12), "Meses depois do mês atual: 0 este mês, 1 o seguinte."), mencao: mention }),
   object({ tipo: constant("dia_semana"), dia_semana: described(choice(PILOT_WEEKDAYS), "O dia da semana pelo nome, sem acento e sem \"-feira\"."),
     qualificador: choice(PILOT_QUALIFIERS, true), mencao: mention }),
-  object({ tipo: constant("relativo_hoje"), dias: integer(-L.days, L.days), mencao: mention }),
   object({ tipo: constant("mesmo_da_origem"), mencao: mention }),
-  object({ tipo: constant("origem_mais_dias"), dias: integer(-L.days, L.days), mencao: mention }),
+  object({ tipo: constant("deslocamento"), quantidade: integer(-L.days, L.days), unidade: choice(PILOT_OFFSET_UNITS),
+    ancoras: anchors(PILOT_DAY_ANCHORS), data_citada: citedOrNull, mencao: mention }),
 ];
 const clockWire: Json[] = [
   object({ tipo: constant("relogio"), hora: integer(0, 23), minuto: integer(0, 59), periodo: choice(PILOT_PERIODS, true), mencao: mention }),
   object({ tipo: constant("mesmo_da_origem"), mencao: mention }),
-  object({ tipo: constant("origem_mais_minutos"), minutos: integer(-L.minutes, L.minutes), mencao: mention }),
+  object({ tipo: constant("deslocamento"), minutos: integer(-L.minutes, L.minutes),
+    ancoras: anchors(PILOT_TIME_ANCHORS), mencao: mention }),
   object({ tipo: constant("a_definir"), mencao: mention }),
 ];
 const dayOrNull: Json = { anyOf: [...dayWire, { type: "null" }] };
@@ -110,18 +131,26 @@ export const PILOT_TOOLS_SHA256 = pilotToolsDigest([pilotTool()]);
 const text = (min: number, max: number) => z.string().refine(value => { const n = [...value].length; return n >= min && n <= max; }, "LENGTH");
 const mentionShape = text(1, L.mention);
 const int = (minimum?: number, maximum?: number) => { let shape = z.number().int(); if (minimum !== undefined) shape = shape.min(minimum); if (maximum !== undefined) shape = shape.max(maximum); return shape; };
+/** §11.1 the anchors of one offset: one or two (their repetition is a rule, pilotContractRules). */
+const dayAnchorsShape = z.array(z.enum(PILOT_DAY_ANCHORS)).min(1).max(2), timeAnchorsShape = z.array(z.enum(PILOT_TIME_ANCHORS)).min(1).max(2);
+/** §11.3 (CONTRACT-4): the reference of a data_citada anchor: the literal day number, a weekday or a day of a relative month (strict each). */
+export const pilotCitedShape = z.union([
+  z.object({ dia: int(1, 31), mes: int(1, 12).nullable(), mencao: mentionShape }).strict(),
+  z.object({ tipo: z.literal("dia_semana"), dia_semana: z.enum(PILOT_WEEKDAYS), qualificador: z.enum(PILOT_QUALIFIERS).nullable(), mencao: mentionShape }).strict(),
+  z.object({ tipo: z.literal("mes_relativo"), dia: int(1, 31), meses: int(0, 12), mencao: mentionShape }).strict(),
+]);
 export const pilotTempoDiaShape = z.discriminatedUnion("tipo", [
   z.object({ tipo: z.literal("data"), dia: int(1, 31), mes: int(1, 12).nullable(), mencao: mentionShape }).strict(),
   z.object({ tipo: z.literal("mes_relativo"), dia: int(1, 31), meses: int(0, 12), mencao: mentionShape }).strict(),
   z.object({ tipo: z.literal("dia_semana"), dia_semana: z.enum(PILOT_WEEKDAYS), qualificador: z.enum(PILOT_QUALIFIERS).nullable(), mencao: mentionShape }).strict(),
-  z.object({ tipo: z.literal("relativo_hoje"), dias: int(-L.days, L.days), mencao: mentionShape }).strict(),
   z.object({ tipo: z.literal("mesmo_da_origem"), mencao: mentionShape }).strict(),
-  z.object({ tipo: z.literal("origem_mais_dias"), dias: int(-L.days, L.days), mencao: mentionShape }).strict(),
+  z.object({ tipo: z.literal("deslocamento"), quantidade: int(-L.days, L.days), unidade: z.enum(PILOT_OFFSET_UNITS), ancoras: dayAnchorsShape,
+    data_citada: pilotCitedShape.nullable(), mencao: mentionShape }).strict(),
 ]);
 export const pilotTempoHoraShape = z.discriminatedUnion("tipo", [
   z.object({ tipo: z.literal("relogio"), hora: int(0, 23), minuto: int(0, 59), periodo: z.enum(PILOT_PERIODS).nullable(), mencao: mentionShape }).strict(),
   z.object({ tipo: z.literal("mesmo_da_origem"), mencao: mentionShape }).strict(),
-  z.object({ tipo: z.literal("origem_mais_minutos"), minutos: int(-L.minutes, L.minutes), mencao: mentionShape }).strict(),
+  z.object({ tipo: z.literal("deslocamento"), minutos: int(-L.minutes, L.minutes), ancoras: timeAnchorsShape, mencao: mentionShape }).strict(),
   z.object({ tipo: z.literal("a_definir"), mencao: mentionShape }).strict(),
 ]);
 /** Structural decoder of the wire: the same shape as PILOT_RESCHEDULE_PARAMETERS, strict at every level. */
@@ -145,6 +174,11 @@ export const pilotInterpretationShape = z.object({
 }).strict();
 export type PilotTempoDia = z.infer<typeof pilotTempoDiaShape>;
 export type PilotTempoHora = z.infer<typeof pilotTempoHoraShape>;
+/** §11.1: a day or a clock counted from its anchor(s). */
+export type PilotDayShift = Extract<PilotTempoDia, { tipo: "deslocamento" }>;
+/** §11.3: the reference of a data_citada anchor (the literal, a weekday or a day of a relative month). */
+export type PilotCitedDay = z.infer<typeof pilotCitedShape>;
+export type PilotClockShift = Extract<PilotTempoHora, { tipo: "deslocamento" }>;
 export type PilotInterpretation = z.infer<typeof pilotInterpretationShape>;
 export type PilotOrigin = PilotInterpretation["origem"];
 export type PilotServiceHint = z.infer<typeof pilotServicoShape>;
@@ -169,11 +203,18 @@ export function decodePilotInterpretation(raw: unknown): PilotInterpretation {
   if (rules.length) throw new PilotContractError(rules);
   return raw as PilotInterpretation;
 }
-/** What the schema cannot say: a mixed request names its out-of-scope part; a named professional comes with the owner's words for it. A
- * violation is a format failure of the call (its single repair follows), never a value the code picks. */
+/** What the schema cannot say: a mixed request names its out-of-scope part; a named professional comes with the owner's words for it; E2-B §11.1:
+ * an offset lists each anchor once, and its cited date is there exactly when one of its anchors is data_citada. A violation is a format failure
+ * of the call (its single repair follows), never a value the code picks. */
 export function pilotContractRules(value: PilotInterpretation): string[] {
+  const shifts = [value.origem?.dia, value.origem?.hora, value.destino?.dia, value.destino?.hora].filter(item => item?.tipo === "deslocamento") as (PilotDayShift | PilotClockShift)[];
+  const days = shifts.filter((item): item is PilotDayShift => "quantidade" in item);
+  const repeated = shifts.some(item => Array.isArray(item.ancoras) && new Set<string>(item.ancoras).size !== item.ancoras.length);
   return [...(value.tipo === "misto" && !value.fora_do_escopo.length ? ["RULE:misto_sem_fora_do_escopo"] : []),
-    ...(value.destino.profissional.modo === "nomeado" && value.destino.profissional.mencao === null ? ["RULE:nomeado_sem_mencao"] : [])];
+    ...(value.destino.profissional.modo === "nomeado" && value.destino.profissional.mencao === null ? ["RULE:nomeado_sem_mencao"] : []),
+    ...(repeated ? ["RULE:ancora_repetida"] : []),
+    ...(days.some(item => item.ancoras.includes("data_citada") && !item.data_citada) ? ["RULE:data_citada_sem_valor"] : []),
+    ...(days.some(item => !item.ancoras.includes("data_citada") && !!item.data_citada) ? ["RULE:valor_sem_data_citada"] : [])];
 }
 /** The function-call arguments string of `interpretar_remarcacao` (invalid JSON is a PilotContractError too). */
 export function decodePilotInterpretationArguments(json: string): PilotInterpretation {

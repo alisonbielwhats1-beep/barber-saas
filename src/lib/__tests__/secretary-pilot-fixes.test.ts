@@ -134,8 +134,8 @@ describe("review P4/P5/P7: the contract", () => {
     expect(PILOT_PROMPT).toContain("sem artigo, preposição ou forma de tratamento");
     const examples = PILOT_PROMPT.split("\n").filter(line => line.startsWith("{")).map(line => decodePilotInterpretation(JSON.parse(line)));
     // E2-A §10.1: three more invented examples (context kept inside; separate requests that read like context); the E2-A adversarial review adds
-    // three (SEMANTICS-1/2/3).
-    expect(examples).toHaveLength(9);
+    // three (SEMANTICS-1/2/3); E2-B §11 four (the anchors of an offset and the delegated professional).
+    expect(examples).toHaveLength(13);
     expect(examples[2]).toMatchObject({ tipo: "misto", cliente: { mencao: "Ermengarda" }, origem: { profissional_mencao: "Lupércio" },
       destino: { dia: { tipo: "mes_relativo", dia: 3, meses: 1 } }, fora_do_escopo: [{ tipo: "outra_acao" }] });
     const wire = JSON.stringify(PILOT_RESCHEDULE_PARAMETERS);
@@ -237,7 +237,7 @@ describe("review S1/S2/S5: what a message changes is read from the message itsel
     await send(cancelled, "Severina vai pra sexta 15h");
     cancelled.base.appointments![0] = { ...cancelled.base.appointments![0], status: "CANCELLED" };
     expect((await send(cancelled, "esquece a da Severina")).code).toBe("WITHDRAWN");
-    const late = fake(salon({ appointments: severinaWed() }), [move({ destino: to({ tipo: "relativo_hoje", dias: 1, mencao: "amanhã" }, clock(15, "15h")) }), withdrawal]);
+    const late = fake(salon({ appointments: severinaWed() }), [move({ destino: to({ tipo: "deslocamento", quantidade: 1, unidade: "dias", ancoras: ["hoje"], data_citada: null, mencao: "amanhã" }, clock(15, "15h")) }), withdrawal]);
     late.now.clock = local(`${MON}T23:50`);
     await send(late, "Severina pra amanhã 15h");
     late.now.clock = local("2031-03-11T00:30");
@@ -245,7 +245,7 @@ describe("review S1/S2/S5: what a message changes is read from the message itsel
     expect(late.prepared).toHaveLength(1);
   });
   it("S2: a day said before local midnight keeps that turn's today; a day that has passed meanwhile is asked, never moved", async () => {
-    const f = fake(salon({ appointments: severinaWed() }), [move({ destino: to({ tipo: "relativo_hoje", dias: 1, mencao: "amanhã" }, null) }),
+    const f = fake(salon({ appointments: severinaWed() }), [move({ destino: to({ tipo: "deslocamento", quantidade: 1, unidade: "dias", ancoras: ["hoje"], data_citada: null, mencao: "amanhã" }, null) }),
       luna({ tipo: "resposta", resposta_a: "q1", destino: to(null, clock(15, "às 15h")) })]);
     f.now.clock = local(`${MON}T23:50`);
     expect((await send(f, "Severina pra amanhã")).code).toBe("ASKED_TIME_MISSING");

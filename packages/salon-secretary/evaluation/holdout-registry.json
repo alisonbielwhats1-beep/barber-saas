@@ -874,6 +874,53 @@
         }
       ],
       "looks": []
+    },
+    {
+      "id": "pilot-e2b-30",
+      "kind": "validation",
+      "retired": false,
+      "source": {
+        "name": "PILOT-E2B-30.json",
+        "sha256": "59a390e66e55eed6a7eb9ed011aec8b42bcab246203e8d3211a48990f9cf1bba"
+      },
+      "approved": [
+        {
+          "sha256": "59a390e66e55eed6a7eb9ed011aec8b42bcab246203e8d3211a48990f9cf1bba",
+          "ids": [
+            "PB01",
+            "PB02",
+            "PB03",
+            "PB04",
+            "PB05",
+            "PB06",
+            "PB07",
+            "PB08",
+            "PB09",
+            "PB10",
+            "PB11",
+            "PB12",
+            "PB13",
+            "PB14",
+            "PB15",
+            "PB16",
+            "PB17",
+            "PB18",
+            "PB19",
+            "PB20",
+            "PB21",
+            "PB22",
+            "PB23",
+            "PB24",
+            "PB25",
+            "PB26",
+            "PB27",
+            "PB28",
+            "PB29",
+            "PB30"
+          ]
+        }
+      ],
+      "looks": []
     }
   ]
 }

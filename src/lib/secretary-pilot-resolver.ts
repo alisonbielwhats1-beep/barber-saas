@@ -1,4 +1,5 @@
-import type { PilotDestination, PilotOrigin, PilotTempoDia, PilotTempoHora, PilotWeekday } from "../../packages/salon-secretary/src/pilot-reschedule-contract";
+import { PILOT_CONTRACT_LIMITS, type PilotCitedDay, type PilotClockShift, type PilotDayAnchor, type PilotDayShift, type PilotDestination, type PilotOrigin, type PilotTempoDia,
+  type PilotTempoHora, type PilotTimeAnchor, type PilotWeekday } from "../../packages/salon-secretary/src/pilot-reschedule-contract";
 import { nameScore, nameTokens, SUGGESTION_LIMIT, SUGGESTION_THRESHOLD } from "./name-search";
 import { addCalendarDays, dateKeyInTimeZone, isDateKey, toLocalDateTime, weekdayOfDateKey } from "./time";
 
@@ -8,7 +9,10 @@ import { addCalendarDays, dateKeyInTimeZone, isDateKey, toLocalDateTime, weekday
  * frozen received_at in the salon's timezone, detects real ambiguity (2+ records, two valid readings in the data) and locates the appointment
  * once. The owner's message is used for one thing only, the narrow provenance check: a hint may choose among 2+ real appointments only when its
  * mention appears in the message (normalized search); otherwise it is ignored and the Secretária asks. That check never drops the action nor
- * changes a value. No word lists, no case or punctuation as evidence. Pure functions over an injected, tenant-scoped reader. */
+ * changes a value. No word lists, no case or punctuation as evidence. Pure functions over an injected, tenant-scoped reader. E2-B (§11): an
+ * offset ("deslocamento") is computed for each anchor the model LISTED (never an anchor chosen from words; §11.3: a cited reference gives each day
+ * it may name): readings that differ are asked; and a delegated professional ("qualquer", "outro") is decision 15 over facts, with no preference
+ * for the current one. */
 export type PilotPerson = { id: string; name: string };
 export type PilotProfessionalRow = PilotPerson & { serviceIds: readonly string[] };
 export type PilotServiceRow = { id: string; name: string; durationMin: number; priceCents: number };
@@ -133,13 +137,57 @@ const weekdayAfter = (weekday: number, from: string) => addCalendarDays(from, ((
 /** The first day of that weekday from `from` on, `from` included. */
 const weekdayFrom = (weekday: number, from: string) => addCalendarDays(from, (weekday - weekdayOfDateKey(from) + 7) % 7);
 
-/** The target day, from the frozen received_at in the salon's timezone. one: explicit for "data" (no month: the next occurrence from today on),
- * "relativo_hoje" and a weekday with a single reading; inherited when not said or "mesmo_da_origem"; derived for "origem_mais_dias". ask: a weekday
- * whose two readings differ (decision 27: the first after today, the first after the original day), both shown; "este" takes the first reading.
- * invalid: a date that does not exist. */
+/** §11.1: the days an offset moves (weeks are 7 days). */
+const shiftDays = (dia: PilotDayShift) => dia.quantidade * (dia.unidade === "semanas" ? 7 : 1);
+const dayIndex = (date: string) => Date.UTC(Number(date.slice(0, 4)), Number(date.slice(5, 7)) - 1, Number(date.slice(8, 10))) / 86_400_000;
+/** §11.3 (SEMANTICS-1, CONTRACT-4): the day(s) the reference of a data_citada anchor may name, each a reading of that anchor (calendar facts over the
+ * typed reference; the mention is never looked at). A day number with no month names this month's day; once that day has passed, the next one
+ * that exists is a reading too (the owner may mean either; never moved forward in silence). With its month: the occurrence nearest to today (the
+ * others are a year away; a tie keeps both). A weekday: decision 27's readings (the first after today and the first after the appointment's day;
+ * "este" only the first; today too when it is that weekday, unless "proximo"). A day of a relative month: that day (mes_relativo). */
+export function pilotCitedDays(cited: PilotCitedDay, origin: { date: string }, today: string): string[] {
+  if ("tipo" in cited) {
+    if (cited.tipo === "mes_relativo") { const date = relativeMonthDay(cited.dia, cited.meses, today); return date ? [date] : []; }
+    const weekday = pilotWeekdayNumber(cited.dia_semana);
+    if (weekday === undefined) return [];
+    const onToday = cited.qualificador !== "proximo" && weekdayOfDateKey(today) === weekday ? [today] : [];
+    const afterOrigin = cited.qualificador === "este" || !isDateKey(origin.date) ? [] : [weekdayAfter(weekday, origin.date)];
+    return [...new Set([...onToday, weekdayAfter(weekday, today), ...afterOrigin])].sort();
+  }
+  const [year, month] = [Number(today.slice(0, 4)), Number(today.slice(5, 7))];
+  if (cited.mes === null) {
+    const current = calendarDay(year, month, cited.dia);
+    if (current && current >= today) return [current];
+    return [...new Set([current, dataDay(cited.dia, null, today)].filter((date): date is string => !!date))].sort();
+  }
+  const occurrences = [year - 1, year, year + 1].map(y => calendarDay(y, cited.mes!, cited.dia)).filter((date): date is string => !!date);
+  if (!occurrences.length) return [];
+  const distance = (date: string) => Math.abs(dayIndex(date) - dayIndex(today)), nearest = Math.min(...occurrences.map(distance));
+  return occurrences.filter(date => distance(date) === nearest);
+}
+/** One reading of an offset: its anchor, the day it counts from (`base`; for data_citada, which of the reference's days) and the result. */
+export type PilotDayShiftReading = { anchor: PilotDayAnchor; base: string | undefined; date: string | undefined };
+/** §11.1: the readings of each anchor the model listed, each a plain fact: origem, the appointment's own day; hoje, the local day of the turn that
+ * SAID the offset (`today`); data_citada, each day its reference may name (§11.3, pilotCitedDays). undefined: the reading does not exist (no such
+ * date, no reference, or past the bound of a year either way). The anchors are the typed list as given; the mention is never looked at. */
+export function pilotDayShiftReadings(dia: PilotDayShift, origin: { date: string }, today: string): PilotDayShiftReading[] {
+  const days = shiftDays(dia), within = Number.isInteger(days) && Math.abs(days) <= PILOT_CONTRACT_LIMITS.days;
+  const bases = (anchor: PilotDayAnchor): (string | undefined)[] => anchor === "origem" ? [isDateKey(origin.date) ? origin.date : undefined] : anchor === "hoje" ? [today]
+    : dia.data_citada ? pilotCitedDays(dia.data_citada, origin, today) : [];
+  return [...new Set(dia.ancoras)].flatMap(anchor => {
+    const list = bases(anchor);
+    return (list.length ? list : [undefined]).map(base => ({ anchor, base, date: within && base ? addCalendarDays(base, days) : undefined }));
+  });
+}
+/** The target day, from the frozen received_at in the salon's timezone. one: explicit for "data" (no month: the next occurrence from today on) and
+ * a weekday with a single reading; inherited when not said or "mesmo_da_origem"; derived for an offset (§11.1: one anchor, or two whose readings
+ * coincide). ask: a weekday whose two readings differ (decision 27: the first after today, the first after the original day), both shown; "este"
+ * takes the first reading; an offset whose readings give two or more different days (ANCHOR_TWO_READINGS, each shown). Encoded ambiguity A (a fact
+ * filter, ratified as §11.3 like decision 18): a reading that cannot be a destination (past, or no such date) is no reading; the proposal names
+ * the one left out. invalid: a date that does not exist, or one already past. */
 export type PilotDateResolution =
   | { state: "one"; date: string; provenance: "explicit" | "inherited" | "derived"; mencao?: string }
-  | { state: "ask"; options: string[]; reason: "TWO_READINGS"; mencao: string }
+  | { state: "ask"; options: string[]; reason: "TWO_READINGS" | "ANCHOR_TWO_READINGS"; mencao: string }
   | { state: "invalid"; reason: "NO_SUCH_DATE" | "DATE_PAST"; mencao: string };
 /** `target.time` (coordinator decision 4): the destination clock when it is already known without the day's hours (a clock with a period or
  * from 12 on, the original one, the original one plus minutes). A weekday said on that very weekday (no qualifier, or "este") then also reads as
@@ -154,9 +202,14 @@ export function resolveTargetDate(dia: PilotTempoDia | null, origin: { date: str
   switch (dia.tipo) {
     case "data": return checked(dataDay(dia.dia, dia.mes, today), "explicit");
     case "mes_relativo": return checked(relativeMonthDay(dia.dia, dia.meses, today), "explicit");
-    case "relativo_hoje": return checked(addCalendarDays(today, dia.dias), "explicit");
     case "mesmo_da_origem": return checked(origin.date, "inherited");
-    case "origem_mais_dias": return checked(isDateKey(origin.date) ? addCalendarDays(origin.date, dia.dias) : undefined, "derived");
+    case "deslocamento": {
+      const readings = pilotDayShiftReadings(dia, origin, today).map(reading => reading.date).filter((date): date is string => !!date && isDateKey(date));
+      const valid = [...new Set(readings.filter(date => date >= today && date >= now))].sort();
+      if (valid.length === 1) return { state: "one", date: valid[0], provenance: "derived", mencao };
+      if (valid.length > 1) return { state: "ask", options: valid, reason: "ANCHOR_TWO_READINGS", mencao };
+      return { state: "invalid", reason: readings.length ? "DATE_PAST" : "NO_SUCH_DATE", mencao };
+    }
     case "dia_semana": {
       const weekday = pilotWeekdayNumber(dia.dia_semana);
       if (weekday === undefined) return { state: "invalid", reason: "NO_SUCH_DATE", mencao };
@@ -171,13 +224,61 @@ export function resolveTargetDate(dia: PilotTempoDia | null, origin: { date: str
 }
 
 /** The target clock "HH:mm". one: explicit for 12-23 or with a period; derived for a bare hour 1-11 whose readings h and h+12 leave ONE inside the
- * professional's (or the salon's) hours that day (decision 18), and for "origem_mais_minutos"; inherited for "mesmo_da_origem" and when not said on
- * the original day. ask: both readings inside the hours (both shown), "a_definir", or not said on a new day (decision 2). none: no reading inside
- * the hours (asked). */
+ * professional's (or the salon's) hours that day (decision 18), and for an offset (§11.1: one anchor, or two whose readings coincide; decision 18
+ * never re-reads an offset); inherited for "mesmo_da_origem" and when not said on the original day. ask: both readings inside the hours (both
+ * shown), "a_definir", not said on a new day (decision 2), or an offset whose anchors give two different clocks (ANCHOR_TWO_READINGS, both shown).
+ * none: no reading inside the hours (asked). invalid: an offset with no reading left on that day (it leaves the day, is not ahead of now, or
+ * counts from now on another day): asked, never wrapped or moved. */
 export type PilotTimeResolution =
   | { state: "one"; time: string; provenance: "explicit" | "inherited" | "derived"; mencao?: string }
-  | { state: "ask"; options: string[]; reason: "TWO_READINGS" | "TO_DEFINE" | "NOT_SAID"; mencao?: string }
-  | { state: "none"; readings: string[]; reason: "NO_READING_IN_HOURS"; mencao: string };
+  | { state: "ask"; options: string[]; reason: "TWO_READINGS" | "TO_DEFINE" | "NOT_SAID" | "ANCHOR_TWO_READINGS"; mencao?: string }
+  | { state: "none"; readings: string[]; reason: "NO_READING_IN_HOURS"; mencao: string }
+  | { state: "invalid"; reason: "NO_READING"; mencao: string };
+/** What a clock offset is read against: the appointment's own day and clock, the destination day, the received_at of the turn that SAID the offset
+ * (`clock`, the anchor agora) and this turn's (`current`: only what is still ahead). */
+export type PilotClockContext = { origin: { date: string; time: string }; date: string; clock?: PilotClock; current?: PilotClock };
+/** Why a clock reading is no reading on the destination day (§11.3, a fact each; the proposal names LEAVES_DAY and NOT_AHEAD): OTHER_DAY, the anchor
+ * agora on a day other than its own; NO_BASE, nothing to count from; LEAVES_DAY, the result is outside 00:00-23:59; NOT_AHEAD, it is not ahead of now. */
+export type PilotClockShiftReading = { anchor: PilotTimeAnchor; time: string | undefined; dropped?: { reason: "OTHER_DAY" | "NO_BASE" | "LEAVES_DAY" | "NOT_AHEAD"; time?: string } };
+/** §11.1: ONE reading per anchor the model listed, on the destination day: origem, the appointment's clock plus the minutes (on any day, as the
+ * clock of the appointment); agora, the said turn's local clock plus the minutes, and only on that turn's own local day (encoded ambiguity B, a fact
+ * as amended in §11.3: the clock of now never lands on another day). undefined (with why): the reading leaves the day, or is not ahead of now (this
+ * turn's, else the said turn's). */
+export function pilotClockShiftReadings(hora: PilotClockShift, context: PilotClockContext): PilotClockShiftReading[] {
+  const now = context.current ?? context.clock, nowLocal = now ? pilotNowLocal(now) : undefined;
+  const from = (anchor: PilotTimeAnchor): number | "OTHER_DAY" | "NO_BASE" => {
+    if (anchor === "origem") return /^\d{2}:\d{2}$/.test(context.origin.time) ? minutesOf(context.origin.time) : "NO_BASE";
+    if (!context.clock) return "NO_BASE";
+    const said = pilotNowLocal(context.clock);
+    return said.slice(0, 10) === context.date ? minutesOf(said.slice(11, 16)) : "OTHER_DAY";
+  };
+  return [...new Set(hora.ancoras)].map((anchor): PilotClockShiftReading => {
+    const base = from(anchor);
+    if (typeof base !== "number") return { anchor, time: undefined, dropped: { reason: base } };
+    const total = base + hora.minutos;
+    if (!Number.isInteger(total) || total < 0 || total >= 24 * 60) return { anchor, time: undefined, dropped: { reason: "LEAVES_DAY" } };
+    const time = clockOf(total);
+    return nowLocal && `${context.date}T${time}` <= nowLocal ? { anchor, time: undefined, dropped: { reason: "NOT_AHEAD", time } } : { anchor, time };
+  });
+}
+/** Encoded ambiguity B (§11.1, ratified as a fact in §11.3): with no day said, a clock offset that may count from now says which day too: its readings
+ * are the appointment's own day (anchor origem) and the local day of the turn that SAID it (anchor agora), each only while its clock reading is still
+ * ahead there. Two days: asked (ANCHOR_TWO_READINGS; the answer settles the anchor too, secretary-pilot.ts); one: that day (inherited when it is the
+ * appointment's own; the orchestrator keeps any other day in the plan, PRINCIPLE-1); none: the said turn's day (its clock is then asked) or, once that
+ * day has passed, DATE_PAST. undefined: no anchor agora (a day not said keeps the appointment's, as before). */
+export function resolveClockDay(hora: PilotTempoHora | null, origin: { date: string; time: string }, clock: PilotClock, current?: PilotClock): PilotDateResolution | undefined {
+  if (!hora || hora.tipo !== "deslocamento" || !hora.ancoras.includes("agora")) return undefined;
+  const today = pilotToday(clock), now = current ? pilotToday(current) : today, mencao = hora.mencao;
+  const days = [...new Set(hora.ancoras.flatMap(anchor => {
+    const date = anchor === "agora" ? today : origin.date;
+    const reading = pilotClockShiftReadings({ ...hora, ancoras: [anchor] }, { origin, date, clock, ...(current ? { current } : {}) })[0];
+    return reading?.time && isDateKey(date) && date >= now ? [date] : [];
+  }))].sort();
+  const one = (date: string): PilotDateResolution => ({ state: "one", date, provenance: date === origin.date ? "inherited" : "derived", mencao });
+  if (days.length === 1) return one(days[0]);
+  if (days.length > 1) return { state: "ask", options: days, reason: "ANCHOR_TWO_READINGS", mencao };
+  return today >= now ? one(today) : { state: "invalid", reason: "DATE_PAST", mencao };
+}
 /** The readings of a clock operator as said: one clock, or both of a bare hour 1-11 (the day's hours choose, decision 18). */
 export function pilotClockReadings(hora: Extract<PilotTempoHora, { tipo: "relogio" }>): string[] {
   const h = hora.hora, at = (value: number) => `${pad(value)}:${pad(hora.minuto)}`;
@@ -191,15 +292,17 @@ export function pilotClockReadings(hora: Extract<PilotTempoHora, { tipo: "relogi
   }
 }
 export async function resolveTargetTime(reader: PilotReader, hora: PilotTempoHora | null,
-  context: { origin: { date: string; time: string }; date: string; professionalId: string | null }): Promise<PilotTimeResolution> {
+  context: { origin: { date: string; time: string }; date: string; professionalId: string | null; clock?: PilotClock; current?: PilotClock }): Promise<PilotTimeResolution> {
   if (!hora) return context.date === context.origin.date ? { state: "one", time: context.origin.time, provenance: "inherited" } : { state: "ask", options: [], reason: "NOT_SAID" };
   const mencao = hora.mencao;
   switch (hora.tipo) {
     case "mesmo_da_origem": return { state: "one", time: context.origin.time, provenance: "inherited", mencao };
     case "a_definir": return { state: "ask", options: [], reason: "TO_DEFINE", mencao };
-    case "origem_mais_minutos": {
-      const minutes = minutesOf(context.origin.time) + hora.minutos;
-      return minutes >= 0 && minutes < 24 * 60 ? { state: "one", time: clockOf(minutes), provenance: "derived", mencao } : { state: "ask", options: [], reason: "TO_DEFINE", mencao };
+    case "deslocamento": {
+      // §11.1: one reading per listed anchor; decision 18 never applies (the computed clock is not a bare hour), so no hours are read here.
+      const valid = [...new Set(pilotClockShiftReadings(hora, context).map(reading => reading.time).filter((time): time is string => !!time))].sort();
+      if (valid.length === 1) return { state: "one", time: valid[0], provenance: "derived", mencao };
+      return valid.length ? { state: "ask", options: valid, reason: "ANCHOR_TWO_READINGS", mencao } : { state: "invalid", reason: "NO_READING", mencao };
     }
     case "relogio": {
       const readings = pilotClockReadings(hora);
@@ -229,13 +332,20 @@ export type PilotAppointmentResolution =
   | { state: "several"; options: PilotAppointmentRow[]; provenance: "unresolved"; used: PilotHint[]; ignored: PilotHint[]; skippedDependents?: number }
   | { state: "unavailable"; provenance: "unresolved" };
 /** The local days an origin day operator names among the candidates' days (a weekday: every such day ahead; "este": the first one). Operators
- * relative to an origin say nothing about the origin itself: no filter. */
+ * relative to an origin say nothing about the origin itself: no filter. §11.1: an offset filters by every reading of its anchors (hoje, data_citada),
+ * so two readings keep both days (2+ appointments left are asked, never one picked); an anchor origem counts from the very appointment it would
+ * locate, so it gives no reading: alone, no filter; beside another anchor, the other anchor's readings filter (§11.3, RESOLVER-5). */
 function originDays(dia: PilotTempoDia, clock: PilotClock): ((date: string) => boolean) | undefined {
   const today = pilotToday(clock);
   switch (dia.tipo) {
     case "data": { const date = dataDay(dia.dia, dia.mes, today); return day => day === date; }
     case "mes_relativo": { const date = relativeMonthDay(dia.dia, dia.meses, today); return day => day === date; }
-    case "relativo_hoje": { const date = addCalendarDays(today, dia.dias); return day => day === date; }
+    case "deslocamento": {
+      const others = dia.ancoras.filter(anchor => anchor !== "origem");
+      if (!others.length) return undefined;
+      const dates = new Set(pilotDayShiftReadings({ ...dia, ancoras: others }, { date: "" }, today).map(reading => reading.date).filter((date): date is string => !!date));
+      return day => dates.has(day);
+    }
     case "dia_semana": {
       const weekday = pilotWeekdayNumber(dia.dia_semana);
       // A value outside the table matches no appointment (asked, never ignored in silence).
@@ -247,6 +357,8 @@ function originDays(dia: PilotTempoDia, clock: PilotClock): ((date: string) => b
     default: return undefined;
   }
 }
+/** A clock said for the origin: "relogio" filters by its readings; an offset never does (from the origin itself it says nothing about it, and a
+ * clock counted from now is no exact start of a booked appointment): such a hint never chooses, the appointments it would leave are asked. */
 function originClock(hora: PilotTempoHora): ((clock: string) => boolean) | undefined {
   if (hora.tipo !== "relogio") return undefined;
   const readings = pilotClockReadings(hora);
@@ -309,25 +421,33 @@ export async function resolveAppointment(reader: PilotReader, input: { customerI
 }
 
 // ---------------------------------------------------------------- the professional
-/** kept: not said or "manter" (the current professional, inherited); the identity states for "nomeado" (explicit when bound); chosen: "qualquer"
- * (decision 15: performs the service and is free for its whole duration at the slot, the appointment being moved aside; the fewest appointments
- * that day; derived, shown); nobody_free: asked; waiting: "qualquer" before the day and the clock are resolved. */
+/** kept: not said or "manter" (the current professional, inherited); the identity states for "nomeado" (explicit when bound); chosen: "qualquer" or
+ * "outro" (decision 15 as amended by §11.2: performs the service and is free for its whole duration at the slot, the appointment being moved aside;
+ * the current professional leaves for "outro", or when the slot is the origin's own day and clock, a fact; §11.3: "outro" also leaves out the
+ * member(s) its mencao names; the fewest appointments that day, then the name order, with no preference for the current one; derived, shown);
+ * nobody_free: asked; waiting: a delegated mode before the day and the clock are resolved. */
 export type PilotProfessionalResolution =
   | { state: "kept"; id: string; name: string; provenance: "inherited" }
   | PilotIdentity
   | { state: "chosen"; id: string; name: string; provenance: "derived" }
-  | { state: "nobody_free"; provenance: "unresolved" }
+  /** `excluded` (§11.3): the members "outro" left out by name (besides the current one), when there are any. */
+  | { state: "nobody_free"; provenance: "unresolved"; excluded?: PilotPerson[] }
   | { state: "waiting"; provenance: "unresolved" }
   /** M9: words beside "manter"/"qualquer" naming ONE member of the team the mode would not give: asked, never ignored. */
   | { state: "conflict"; mode: "manter" | "qualquer"; named: PilotPerson; mencao: string; provenance: "unresolved" };
+/** `origin` (§11.2): the appointment's own day and clock, so the resolver sees the fact that the slot is the origin's own. */
 export async function resolveProfessional(reader: PilotReader, profissional: PilotDestination["profissional"],
-  context: { current: PilotPerson; appointmentId: string; serviceId: string; durationMin: number; slot: { date: string; time: string } | null }): Promise<PilotProfessionalResolution> {
+  context: { current: PilotPerson; appointmentId: string; serviceId: string; durationMin: number; slot: { date: string; time: string } | null; origin?: { date: string; time: string } }): Promise<PilotProfessionalResolution> {
   const mode = profissional.modo ?? (profissional.mencao ? "nomeado" : null);
-  // M9: words that name nobody of the team are the owner's way of saying the mode itself and change nothing.
-  if ((mode === "manter" || mode === "qualquer") && profissional.mencao) {
+  // M9: words that name nobody of the team are the owner's way of saying the mode itself and change nothing. §11.3 (PRINCIPLE-3): with "outro" the
+  // contract gives mencao one role, who must NOT attend: the member(s) it names leave the candidates with the current one (an ambiguous name leaves
+  // every member it fits; never a conflict that offers them). Another member's name beside "manter" or "qualquer" is asked like any conflict.
+  let left: PilotPerson[] = [];
+  if ((mode === "manter" || mode === "qualquer" || mode === "outro") && profissional.mencao) {
     let named: PilotIdentity;
     try { named = pilotIdentityOf((await reader.team()).map(person), profissional.mencao); } catch { return { state: "unavailable", mencao: profissional.mencao, provenance: "unresolved" }; }
-    if ((named.state === "exact" || named.state === "partial") && (mode === "qualquer" || named.id !== context.current.id))
+    if (mode === "outro") left = named.state === "exact" || named.state === "partial" ? [{ id: named.id, name: named.name }] : named.state === "ambiguous" ? named.options : [];
+    else if ((named.state === "exact" || named.state === "partial") && (mode === "qualquer" || named.id !== context.current.id))
       return { state: "conflict", mode, named: { id: named.id, name: named.name }, mencao: profissional.mencao, provenance: "unresolved" };
   }
   if (mode === null || mode === "manter") return { state: "kept", id: context.current.id, name: context.current.name, provenance: "inherited" };
@@ -339,19 +459,23 @@ export async function resolveProfessional(reader: PilotReader, profissional: Pil
   }
   if (!context.slot) return { state: "waiting", provenance: "unresolved" };
   const { date, time } = context.slot, start = minutesOf(time), end = start + context.durationMin;
+  // §11.2: the current professional is no candidate for "outro", nor at the origin's own day and clock (choosing it would change nothing); §11.3:
+  // nor the member(s) "outro" named.
+  const excluded = new Set([...(mode === "outro" || (context.origin?.date === date && context.origin?.time === time) ? [context.current.id] : []), ...left.map(item => item.id)]);
   const local = (value: string) => value.slice(0, 10) < date ? 0 : value.slice(0, 10) > date ? 24 * 60 : minutesOf(value.slice(11, 16));
   try {
     const team = await reader.team(), free: { row: PilotProfessionalRow; count: number }[] = [];
-    for (const row of team.filter(item => item.serviceIds.includes(context.serviceId))) {
+    for (const row of team.filter(item => item.serviceIds.includes(context.serviceId) && !excluded.has(item.id))) {
       const [windows, busy] = await Promise.all([reader.workingWindows(row.id, date), reader.busy(row.id, date)]);
       if (!windows.some(window => window.start <= start && end <= window.end)) continue;
       const others = busy.filter(item => item.appointmentId !== context.appointmentId);
       if (others.some(item => local(item.startLocal) < end && start < local(item.endLocal))) continue;
       free.push({ row, count: others.filter(item => item.appointmentId !== null).length });
     }
-    if (!free.length) return { state: "nobody_free", provenance: "unresolved" };
-    // Fewest appointments that day; a tie keeps the current professional, then the name order (deterministic).
-    free.sort((a, b) => a.count - b.count || Number(b.row.id === context.current.id) - Number(a.row.id === context.current.id) || byName(a.row, b.row));
+    const others = left.filter(item => item.id !== context.current.id);
+    if (!free.length) return { state: "nobody_free", provenance: "unresolved", ...(others.length ? { excluded: others } : {}) };
+    // Fewest appointments that day, then the name order (deterministic); §11.2: no preference for the current professional.
+    free.sort((a, b) => a.count - b.count || byName(a.row, b.row));
     return { state: "chosen", id: free[0].row.id, name: free[0].row.name, provenance: "derived" };
   } catch { return { state: "unavailable", mencao: profissional.mencao ?? "", provenance: "unresolved" }; }
 }

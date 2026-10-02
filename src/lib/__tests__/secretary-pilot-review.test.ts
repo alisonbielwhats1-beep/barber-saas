@@ -67,12 +67,12 @@ describe("resolver fixes", () => {
   });
   it("M6: a day already past or that does not exist is invalid, and the contract bounds day and minute offsets", () => {
     const at = clockAt(), origin = { date: WED };
-    expect(resolveTargetDate({ tipo: "relativo_hoje", dias: -1, mencao: "ontem" }, origin, at)).toMatchObject({ state: "invalid", reason: "DATE_PAST" });
+    expect(resolveTargetDate({ tipo: "deslocamento", quantidade: -1, unidade: "dias", ancoras: ["hoje"], data_citada: null, mencao: "ontem" }, origin, at)).toMatchObject({ state: "invalid", reason: "DATE_PAST" });
     expect(resolveTargetDate({ tipo: "data", dia: 30, mes: 2, mencao: "30 de fevereiro" }, origin, at)).toMatchObject({ state: "invalid", reason: "NO_SUCH_DATE" });
-    expect(resolveTargetDate({ tipo: "origem_mais_dias", dias: -5, mencao: "cinco dias antes" }, origin, at)).toMatchObject({ state: "invalid", reason: "DATE_PAST" });
-    expect(() => decodePilotInterpretation(luna({ destino: to({ tipo: "relativo_hoje", dias: 1_000_000_000, mencao: "daqui a muito" }, null) }))).toThrow();
-    expect(() => decodePilotInterpretation(luna({ destino: to(null, { tipo: "origem_mais_minutos", minutos: 1441, mencao: "um dia depois" }) }))).toThrow();
-    expect(decodePilotInterpretation(luna({ destino: to({ tipo: "relativo_hoje", dias: 366, mencao: "daqui a um ano" }, null) })).destino.dia).toMatchObject({ dias: 366 });
+    expect(resolveTargetDate({ tipo: "deslocamento", quantidade: -5, unidade: "dias", ancoras: ["origem"], data_citada: null, mencao: "cinco dias antes" }, origin, at)).toMatchObject({ state: "invalid", reason: "DATE_PAST" });
+    expect(() => decodePilotInterpretation(luna({ destino: to({ tipo: "deslocamento", quantidade: 1_000_000_000, unidade: "dias", ancoras: ["hoje"], data_citada: null, mencao: "daqui a muito" }, null) }))).toThrow();
+    expect(() => decodePilotInterpretation(luna({ destino: to(null, { tipo: "deslocamento", minutos: 1441, ancoras: ["origem"], mencao: "um dia depois" }) }))).toThrow();
+    expect(decodePilotInterpretation(luna({ destino: to({ tipo: "deslocamento", quantidade: 366, unidade: "dias", ancoras: ["hoje"], data_citada: null, mencao: "daqui a um ano" }, null) })).destino.dia).toMatchObject({ quantidade: 366 });
   });
   it("M10: a period adds 12 only to 1-11, midnight said at night is 00:00, and a period that contradicts the hour is two readings", () => {
     expect(pilotClockReadings(clock(0, "meia-noite", "noite"))).toEqual(["00:00"]);

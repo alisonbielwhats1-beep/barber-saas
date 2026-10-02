@@ -19,7 +19,7 @@ const context = (over: Partial<PilotRequestContext> = {}): PilotRequestContext =
   team: ["Teodósio Arruda", "Iolanda Braga"], services: ["Massagem relaxante", "Esfoliação corporal"], ...over });
 const valid = { tipo: "remarcar", resposta_a: null, desistir: false, aceita_parcial: null, cliente: { mencao: "Zaqueu" },
   origem: { dia: null, hora: null, profissional_mencao: null, servico: null, posicao: null },
-  destino: { dia: { tipo: "relativo_hoje", dias: 2, mencao: "depois de amanhã" }, hora: { tipo: "relogio", hora: 17, minuto: 0, periodo: null, mencao: "17h" }, profissional: { modo: null, mencao: null } },
+  destino: { dia: { tipo: "deslocamento", quantidade: 2, unidade: "dias", ancoras: ["hoje"], data_citada: null, mencao: "depois de amanhã" }, hora: { tipo: "relogio", hora: 17, minuto: 0, periodo: null, mencao: "17h" }, profissional: { modo: null, mencao: null } },
   observacoes: [], fora_do_escopo: [] };
 
 describe("pilot request: SDK boundary, HTTP boundary and size", () => {
@@ -76,6 +76,20 @@ describe("pilot request: SDK boundary, HTTP boundary and size", () => {
     expect(Buffer.byteLength(JSON.stringify(cut.names), "utf8")).toBeLessThanOrEqual(PILOT_SERVICE_NAMES_BYTES);
     const team = Array.from({ length: 40 }, (_, index) => `Profissional Sintética Número ${index} de Sobrenome Comprido`);
     const open = { lines: ["cliente: “Zaqueu” (cadastro definido)", "novo dia: qua, 12/03"], question: { questionId: "q7", field: "novo horário", reason: "TIME_TWO_READINGS", options: ["8h (08:00)", "20h (20:00)"] } };
+    const request = pilotRequest(context({ team, services: cut.names, open }), "ção".repeat(333), { repair: [...Object.keys(PILOT_REPAIR_RULES), "SCHEMA:invalid_type@tipo"] });
+    const bytes = Buffer.byteLength(JSON.stringify(agentRequestBody(request, MODEL)), "utf8");
+    expect(bytes + PILOT_REQUEST_CAP.outputFraming).toBeLessThanOrEqual(PILOT_REQUEST_CAP.requestCap);
+  });
+  it("E2-B review REGRESSION-3: the largest open question also fits (8 options shown at the label bound, every line at its bound, every repair rule)", () => {
+    // The catalog cut at the budget, a full team, a 1000-character message and the repair note naming every rule, as above; the open plan at its
+    // largest shape: every line at its bound and the pending question with the SHOWN_OPTIONS (8) appointment labels, each at the label bound
+    // (pilotAppointmentLabel: the local day and clock, a service of PILOT_TEXT_BOUNDS.service and a name of PILOT_TEXT_BOUNDS.name).
+    const cut = pilotCatalogNames(Array.from({ length: 400 }, (_, index) => `${String(index).padStart(3, "0")} ${"ção".repeat(65)}`));
+    const team = Array.from({ length: 40 }, (_, index) => `Profissional Sintética Número ${index} de Sobrenome Comprido`);
+    const label = (index: number) => `qua, 12/03/2031 às 23h59 — ${"ã".repeat(159)}… com ${"é".repeat(119)}… ${index}`;
+    const open = { lines: [`cliente: “${"ô".repeat(120)}” (cadastro ainda não definido)`, `atendimento atual: ${label(0)}`, "novo dia: não definido", "novo horário: não definido",
+      `profissional: ${"é".repeat(119)}… (mantido)`, "proposta pronta, aguardando Confirmar"],
+      question: { questionId: "q999", field: "atendimento atual (origem)", reason: "APPOINTMENT_SEVERAL", options: Array.from({ length: 8 }, (_, index) => label(index + 1)) } };
     const request = pilotRequest(context({ team, services: cut.names, open }), "ção".repeat(333), { repair: [...Object.keys(PILOT_REPAIR_RULES), "SCHEMA:invalid_type@tipo"] });
     const bytes = Buffer.byteLength(JSON.stringify(agentRequestBody(request, MODEL)), "utf8");
     expect(bytes + PILOT_REQUEST_CAP.outputFraming).toBeLessThanOrEqual(PILOT_REQUEST_CAP.requestCap);

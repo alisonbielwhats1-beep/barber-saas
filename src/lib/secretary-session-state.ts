@@ -43,12 +43,15 @@ const pilotPlan = z.object({
   turns: z.array(z.object({ turnId: uuid, clientTurnId: uuid.nullable(), receivedAt: z.string().max(40), baseRevision: revision, revision, outcome: z.string().max(80) }).strict()).max(40),
 }).strict();
 // Review P1: whether each origin hint was proved against the message that brought it; review S2: the received_at of the turn that said each day.
-// E2-A: the slots of the current contract (servico, never the E1 servico_mencao).
+// E2-A: the slots of the current contract (servico, never the E1 servico_mencao). E2-B §11.1: `hora`, the received_at of the turn that said the
+// destination clock (the anchor "agora" of a clock offset).
 const pilotProven = z.object({ dia: z.boolean().optional(), hora: z.boolean().optional(), profissional_mencao: z.boolean().optional(), servico: z.boolean().optional(),
   posicao: z.boolean().optional() }).strict();
-const pilotAnchors = z.object({ origem: z.string().max(40).optional(), destino: z.string().max(40).optional() }).strict();
+const pilotAnchors = z.object({ origem: z.string().max(40).optional(), destino: z.string().max(40).optional(), hora: z.string().max(40).optional() }).strict();
+// E2-B §11.3 (PRINCIPLE-1): `clockDay`, the destination day was settled by a clock offset counted from now (no day said).
 const pilotPending = z.object({ origem: z.unknown().refine(value => pilotOrigemShape.safeParse(value).success),
-  destino: z.unknown().refine(value => pilotDestinoShape.safeParse(value).success), proven: pilotProven.optional(), anchors: pilotAnchors.optional() }).strict();
+  destino: z.unknown().refine(value => pilotDestinoShape.safeParse(value).success), proven: pilotProven.optional(), anchors: pilotAnchors.optional(),
+  clockDay: z.literal(true).optional() }).strict();
 /** E2-A: the pending operators exactly as the E1 contract wrote them (numbered weekday, servico_mencao). Recognized only to be dropped on load
  * (upgradeStoredPilot), never accepted as a pilot state: storedSession rejects them. */
 const legacyMention = z.string().min(1).max(480);
@@ -79,16 +82,35 @@ const pilotState = z.object({
   reset: z.literal(true).optional(),
 }).strict();
 const record = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
+/** E2-B (§11.1 "Estado antigo", local database only): the E2-A relative operators exactly as E2-A wrote them (strict keys, integer counts). Recognized
+ * only to be converted on load, each to the anchored offset of the same meaning: the day counted from today becomes the anchor "hoje", the day and
+ * the clock counted from the appointment the anchor "origem". The anchor "hoje" keeps the received_at of the turn that said it (pending.anchors). */
+const e2aToday = z.object({ tipo: z.literal("relativo_hoje"), dias: z.number().int(), mencao: z.string() }).strict();
+const e2aOriginDays = z.object({ tipo: z.literal("origem_mais_dias"), dias: z.number().int(), mencao: z.string() }).strict();
+const e2aOriginMinutes = z.object({ tipo: z.literal("origem_mais_minutos"), minutos: z.number().int(), mencao: z.string() }).strict();
+const e2aDay = (value: unknown) => {
+  const today = e2aToday.safeParse(value), origin = e2aOriginDays.safeParse(value), shift = today.success ? today.data : origin.success ? origin.data : undefined;
+  return shift ? { tipo: "deslocamento", quantidade: shift.dias, unidade: "dias", ancoras: [today.success ? "hoje" : "origem"], data_citada: null, mencao: shift.mencao } : value;
+};
+const e2aClock = (value: unknown) => {
+  const shift = e2aOriginMinutes.safeParse(value);
+  return shift.success ? { tipo: "deslocamento", minutos: shift.data.minutos, ancoras: ["origem"], mencao: shift.data.mencao } : value;
+};
 /** E2-A: a session saved by the E1 pilot keeps its plan, replies and turn, but its pending operators (numbered weekday, servico_mencao) cannot be
  * resolved under the current contract: they are dropped and the state is marked `reset` (the orchestrator withdraws a plan still open, with a
- * clear reply, and never resolves it again). Only pending operators that are exactly the E1 shape are dropped; anything else is left for the strict
- * parse to judge. Mutates the decoded session in place (the loaded copy only). */
+ * clear reply, and never resolves it again). Only pending operators that are exactly the E1 shape are dropped. E2-B (§11.1): pending operators of
+ * the E2-A contract are CONVERTED (never dropped; plan, replies, proofs and anchors stay as saved; no reset mark), and kept only when the converted
+ * pending passes the current strict shape. Anything else is left for the strict parse to judge. Mutates the decoded session in place (the loaded
+ * copy only). */
 export function upgradeStoredPilot(session: unknown): void {
   if (!record(session) || !record(session.pilot) || !record(session.pilot.pending)) return;
-  const pilot = session.pilot;
-  if (pilotPending.safeParse(pilot.pending).success || !legacyPending.safeParse(pilot.pending).success) return;
-  delete pilot.pending;
-  pilot.reset = true;
+  const pilot = session.pilot, pending = session.pilot.pending;
+  if (pilotPending.safeParse(pending).success) return;
+  if (legacyPending.safeParse(pending).success) { delete pilot.pending; pilot.reset = true; return; }
+  if (!record(pending.origem) || !record(pending.destino)) return;
+  const converted = { ...pending, origem: { ...pending.origem, dia: e2aDay(pending.origem.dia), hora: e2aClock(pending.origem.hora) },
+    destino: { ...pending.destino, dia: e2aDay(pending.destino.dia), hora: e2aClock(pending.destino.hora) } };
+  if (pilotPending.safeParse(converted).success) pilot.pending = converted;
 }
 export const storedSession = z.object({
   id: uuid,

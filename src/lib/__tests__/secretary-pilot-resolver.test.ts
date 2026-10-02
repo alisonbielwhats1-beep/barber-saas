@@ -271,7 +271,7 @@ const payload = (over: Partial<PilotInterpretation> = {}): PilotInterpretation =
   tipo: "remarcar", resposta_a: null, desistir: false, aceita_parcial: null, cliente: { mencao: "Ana" },
   origem: { dia: { tipo: "data", dia: 12, mes: 3, mencao: "do dia 12" }, hora: { tipo: "relogio", hora: 10, minuto: 0, periodo: "manha", mencao: "das 10 da manhã" },
     profissional_mencao: "Carlos", servico: { mencao: "limpeza", catalogo: ["Limpeza de pele"] }, posicao: { valor: "primeiro", mencao: "o primeiro" } },
-  destino: { dia: { tipo: "dia_semana", dia_semana: "sexta", qualificador: "este", mencao: "nesta sexta" }, hora: { tipo: "origem_mais_minutos", minutos: 150, mencao: "150 min mais tarde" },
+  destino: { dia: { tipo: "dia_semana", dia_semana: "sexta", qualificador: "este", mencao: "nesta sexta" }, hora: { tipo: "deslocamento", minutos: 150, ancoras: ["origem"], mencao: "150 min mais tarde" },
     profissional: { modo: "nomeado", mencao: "Dalva" } },
   observacoes: [], fora_do_escopo: [{ tipo: "mensagem", pedido: "avisa ela" }], ...over });
 const verdict = (decode: () => unknown) => {
@@ -298,9 +298,9 @@ describe("§2 contract: interpretar_remarcacao", () => {
     expect(decodePilotInterpretation(structuredClone(full))).toEqual(full);
     expect(decodePilotInterpretationArguments(JSON.stringify(full))).toEqual(full);
     const days = [{ tipo: "data", dia: 3, mes: null, mencao: "dia 3" }, { tipo: "dia_semana", dia_semana: "domingo", qualificador: null, mencao: "domingo" },
-      { tipo: "relativo_hoje", dias: 1, mencao: "amanhã" }, { tipo: "mesmo_da_origem", mencao: "no mesmo dia" }, { tipo: "origem_mais_dias", dias: 7, mencao: "uma semana pra frente" }] as const;
+      { tipo: "deslocamento", quantidade: 1, unidade: "dias", ancoras: ["hoje"] as ["hoje"], data_citada: null, mencao: "amanhã" }, { tipo: "mesmo_da_origem", mencao: "no mesmo dia" }, { tipo: "deslocamento", quantidade: 7, unidade: "dias", ancoras: ["origem"] as ["origem"], data_citada: null, mencao: "uma semana pra frente" }] as const;
     const clocks = [{ tipo: "relogio", hora: 23, minuto: 59, periodo: null, mencao: "23h59" }, { tipo: "mesmo_da_origem", mencao: "mesmo horário" },
-      { tipo: "origem_mais_minutos", minutos: 30, mencao: "meia hora depois" }, { tipo: "a_definir", mencao: "num horário a combinar" }] as const;
+      { tipo: "deslocamento", minutos: 30, ancoras: ["origem"] as ["origem"], mencao: "meia hora depois" }, { tipo: "a_definir", mencao: "num horário a combinar" }] as const;
     for (const dia of days) expect(verdict(() => decodePilotInterpretation(payload({ destino: { ...payload().destino, dia } }))), dia.tipo).toBe("ACCEPTED");
     for (const hora of clocks) expect(verdict(() => decodePilotInterpretation(payload({ destino: { ...payload().destino, hora } }))), hora.tipo).toBe("ACCEPTED");
     const empty = payload({ tipo: "conversa", cliente: { mencao: null }, origem: ORIGIN, destino: { dia: null, hora: null, profissional: { modo: null, mencao: null } }, fora_do_escopo: [] });
