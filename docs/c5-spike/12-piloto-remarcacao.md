@@ -41,8 +41,9 @@ Esquema estrito. Toda `mencao` copia as palavras do dono como ele escreveu.
   "origem": {                                   // pistas do atendimento EXISTENTE, só as que o dono deu
     "dia": TempoDia | null, "hora": TempoHora | null,
     "profissional_mencao": string | null, "servico_mencao": string | null,
-    "posicao": "primeiro" | "ultimo" | null
+    "posicao": { "valor": "primeiro" | "ultimo", "mencao": string } | null   // revisão E1: com menção, passa pela verificação de proveniência
   },
+  "aceita_parcial": true | false | null,        // só vale quando resposta_a é a pergunta de escopo; o código nunca deduz "sim"
   "destino": {
     "dia": TempoDia | null, "hora": TempoHora | null,
     "profissional": { "modo": "manter" | "nomeado" | "qualquer" | null, "mencao": string | null }
@@ -102,6 +103,9 @@ TempoHora = { "tipo": "relogio", "hora": 0-23, "minuto": 0-59, "periodo": "manha
    | `dia_semana` sem qualificador | Leituras: (i) a 1ª ocorrência depois de hoje; (ii) a 1ª ocorrência depois do dia original. Se (i) ≠ (ii), a Secretária **pergunta** com as duas datas (decisão 27). |
    | `dia_semana` com "este" | A leitura (i). |
    | `dia_semana` com "proximo" | Pergunta se as duas leituras divergirem. |
+   | Dia da semana igual ao de hoje (sem qualificador ou "este") | Hoje também é uma leitura, desde que a hora de destino (se já conhecida) ainda esteja depois do `received_at`. Se as leituras divergirem, pergunta. Em pistas de origem, "este" conta a partir de hoje, inclusive. |
+
+   Revisão E1: na resposta à pergunta de escopo, `aceita_parcial` true segue só com a remarcação; false retira a ação sem efeito; null pergunta de novo.
 
 4. **Hora de destino:**
    - **`relogio` com hora de 12 a 23, ou com período:** a hora como foi dita.

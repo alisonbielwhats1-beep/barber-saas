@@ -1,4 +1,7 @@
 import { z } from "zod";
+import { pilotFieldValid, PILOT_ACTION_ID, PILOT_FIELDS, PILOT_INVALIDATIONS, PILOT_OPTIONS_MAX, PILOT_QUESTION_FIELDS, PILOT_QUESTION_ID, PILOT_QUESTION_REASONS,
+  PILOT_STATUSES } from "./secretary-pilot-plan";
+import { pilotDestinoShape, pilotOrigemShape } from "../../packages/salon-secretary/src/pilot-reschedule-contract";
 
 /** D1: the strict shape of one persisted Secretary aggregate (a top-level conversation and every session it owns: plan
  * children, suspended plans' children, legacy children). Validated on every load before anything is rehydrated; an unknown
@@ -14,6 +17,41 @@ const receipts = z.instanceof(Set).refine(set => [...set].every(item => typeof i
 const loaded = z.array(z.object({ skill_id: z.string(), version: z.string(), manual_hash: z.string() }).strict());
 const suspended = z.object({ actionPlan: object.optional(), actionUnits: z.array(object).optional(), children: z.array(uuid).optional(),
   loaded: loaded.optional(), groupReceipts: receipts.optional() }).strict();
+/** Pilot of the reschedule (flag SALON_SECRETARY_PILOT_RESCHEDULE; secretary-pilot.ts PilotSessionState): its plan and pending operators as plain
+ * objects (the orchestrator's own values), the replies kept per client turn id, the owner's messages that brought origin hints, the texts of the
+ * open questions and the latest turn; bounded. Read whatever the flag says now (a conversation saved with it on still loads with it off). */
+const pilotTurn = z.object({ turnId: uuid, clientTurnId: uuid.nullable(), receivedAt: z.string().max(40) }).strict();
+// Review L7: the plan and the pending operators are checked as strictly as they are written (the reducer's own field rule; the contract's own
+// shapes for the operators). Review M3: every bound here holds what the orchestrator writes (question texts list at most 8 options plus a
+// count; an out-of-scope mention is at most 120 code points, so 480 UTF-16 units), and a state that breaks one is never saved (persistedCall).
+const revision = z.number().int().min(0);
+const pilotQuestionId = z.string().regex(PILOT_QUESTION_ID);
+const pilotField = z.unknown().refine(pilotFieldValid);
+const pilotRefs = z.object({ proposalRef: z.string().min(1).max(200), draftRevision: z.number().int().min(1), revision }).strict();
+const pilotPlan = z.object({
+  planId: uuid, revision,
+  action: z.object({
+    actionId: z.literal(PILOT_ACTION_ID), status: z.enum(PILOT_STATUSES),
+    fields: z.object(Object.fromEntries(PILOT_FIELDS.map(name => [name, pilotField])) as Record<(typeof PILOT_FIELDS)[number], typeof pilotField>).strict(),
+    questions: z.array(z.object({ questionId: pilotQuestionId, actionId: z.literal(PILOT_ACTION_ID), field: z.enum(PILOT_QUESTION_FIELDS), reason: z.enum(PILOT_QUESTION_REASONS),
+      options: z.array(z.object({ id: z.string().min(1).max(200), label: z.string().max(400) }).strict()).max(PILOT_OPTIONS_MAX).optional(), revision, open: z.boolean() }).strict())
+      .max(64).refine(questions => new Set(questions.map(question => question.questionId)).size === questions.length),
+    proposal: pilotRefs.extend({ draftRef: z.string().min(1).max(200), text: z.string().max(20_000) }).strict().optional(),
+    approval: pilotRefs.optional(),
+    invalidation: z.object({ reason: z.enum(PILOT_INVALIDATIONS), revision }).strict().optional(),
+  }).strict(),
+  turns: z.array(z.object({ turnId: uuid, clientTurnId: uuid.nullable(), receivedAt: z.string().max(40), baseRevision: revision, revision, outcome: z.string().max(80) }).strict()).max(40),
+}).strict();
+const pilotPending = z.object({ origem: z.unknown().refine(value => pilotOrigemShape.safeParse(value).success),
+  destino: z.unknown().refine(value => pilotDestinoShape.safeParse(value).success) }).strict();
+const pilotState = z.object({
+  plan: pilotPlan.optional(), pending: pilotPending.optional(),
+  replies: z.array(z.object({ clientTurnId: uuid, turnId: uuid, message: z.string().max(20_000), view: object }).strict()).max(32),
+  sources: z.array(z.string().max(1000)).max(8).optional(), outOfScope: z.array(z.string().max(480)).max(6).optional(),
+  asked: z.array(z.object({ questionId: pilotQuestionId, text: z.string().max(4000) }).strict()).max(8).optional(),
+  notes: z.array(z.string().max(1000)).max(8).optional(), turn: pilotTurn.optional(), questionFloor: z.number().int().min(0).max(999).optional(),
+  actionPlanRef: uuid.optional(), actionPlanFor: uuid.optional(), published: z.number().int().min(0).optional(),
+}).strict();
 export const storedSession = z.object({
   id: uuid,
   skill: z.enum(["services", "customers", "scheduling", "financial", "inventory", "communication", "auto"]),
@@ -51,6 +89,7 @@ export const storedSession = z.object({
   // that thread (at most 2 exchanges), and the plan_ref of the active plan the agent built (the "Confirmar tudo" review dialog).
   agentPending: z.object({ question: z.string().max(200), thread: z.array(z.string().max(2000)).max(2), turns: z.number().int().min(0).max(2) }).strict().optional(),
   agentPlan: uuid.optional(),
+  pilot: pilotState.optional(),
   communication: object.optional(), inventory: object.optional(), financial: object.optional(), batch: object.optional(),
   scheduling: object.optional(), customer: object.optional(),
   draft: object.optional(), proposal: object.optional(), receipt: object.optional(),

@@ -22,11 +22,13 @@ export const CONVERSATION_EVENT_KINDS = ["TURN_STARTED", "TURN_OUTCOME", "SELECT
 export type ConversationEventKind = (typeof CONVERSATION_EVENT_KINDS)[number];
 /** Codes only: whether the call succeeded, its stable error code, the turn's outcome codes, the plan revision/size. */
 export type ConversationEventPayload = { ok?: boolean; code?: string; outcome?: string[]; revision?: number; actions?: number };
-export type ConversationEvent = { kind: ConversationEventKind; payload?: ConversationEventPayload };
+/** `clientTurnId` (pilot of the reschedule, flag SALON_SECRETARY_PILOT_RESCHEDULE; 027's column): the client's id of the owner message a
+ * TURN_STARTED event opens. Recorded once per conversation (UNIQUE(conversationId, clientTurnId)): a repeated message's event keeps it null. */
+export type ConversationEvent = { kind: ConversationEventKind; payload?: ConversationEventPayload; clientTurnId?: string };
 export type ConversationRecord = { state: string; status: ConversationStatus; expiresAt: number };
 export type LoadedConversation = ConversationRecord & { id: string; version: number; stateSchema: number };
 export type OpenConversation = { id: string; updatedAt: number };
-export type StoredEvent = { conversationId: string; salonId: string; userId: string; seq: number; kind: ConversationEventKind; clientTurnId: null; payload: ConversationEventPayload };
+export type StoredEvent = { conversationId: string; salonId: string; userId: string; seq: number; kind: ConversationEventKind; clientTurnId: string | null; payload: ConversationEventPayload };
 
 /** The persistence contract (both implementations). Every call is scoped to the authenticated actor: a row of another
  * salon or user is indistinguishable from an absent one (SESSION_NOT_FOUND). `expiresAt` is always on the CALLER's clock
@@ -140,7 +142,9 @@ export class InMemorySessionStore implements SecretarySessionStore {
   private append(actor: ServiceActor, row: Row, event?: ConversationEvent) {
     if (!event) return;
     if (this.events.some(item => item.conversationId === row.id && item.seq === row.version)) throw Error("EVENT_SEQUENCE_CONFLICT");
-    this.events.push({ conversationId: row.id, salonId: actor.salonId, userId: actor.userId, seq: row.version, kind: z.enum(CONVERSATION_EVENT_KINDS).parse(event.kind), clientTurnId: null, payload: eventPayload(event.payload) });
+    const turn = event.clientTurnId === undefined ? null : uuid.parse(event.clientTurnId);
+    const clientTurnId = turn && !this.events.some(item => item.conversationId === row.id && item.clientTurnId === turn) ? turn : null;
+    this.events.push({ conversationId: row.id, salonId: actor.salonId, userId: actor.userId, seq: row.version, kind: z.enum(CONVERSATION_EVENT_KINDS).parse(event.kind), clientTurnId, payload: eventPayload(event.payload) });
   }
   async create(actor: ServiceActor, id: string, value: ConversationRecord) {
     const checked = checkedRecord(value), now = this.now();
@@ -193,8 +197,17 @@ export class PostgresSessionStore implements SecretarySessionStore {
   private async appendEvent(tx: Tx, actor: ServiceActor, id: string, seq: number, event?: ConversationEvent) {
     if (!event) return;
     const kind = z.enum(CONVERSATION_EVENT_KINDS).parse(event.kind);
-    await tx.$queryRaw`INSERT INTO "SecretaryConversationEvent" ("id","conversationId","salonId","userId","seq","kind","payload")
-      VALUES (${randomUUID()}::uuid, ${id}::uuid, ${actor.salonId}, ${actor.userId}, ${seq}::int, ${kind}, ${JSON.stringify(eventPayload(event.payload))}::jsonb) RETURNING "seq"`;
+    if (event.clientTurnId === undefined) {
+      await tx.$queryRaw`INSERT INTO "SecretaryConversationEvent" ("id","conversationId","salonId","userId","seq","kind","payload")
+        VALUES (${randomUUID()}::uuid, ${id}::uuid, ${actor.salonId}, ${actor.userId}, ${seq}::int, ${kind}, ${JSON.stringify(eventPayload(event.payload))}::jsonb) RETURNING "seq"`;
+      return;
+    }
+    // A repeated message keeps the client's turn id where it was first recorded (UNIQUE(conversationId, clientTurnId)); its event has none.
+    const turn = uuid.parse(event.clientTurnId);
+    await tx.$queryRaw`INSERT INTO "SecretaryConversationEvent" ("id","conversationId","salonId","userId","seq","kind","clientTurnId","payload")
+      VALUES (${randomUUID()}::uuid, ${id}::uuid, ${actor.salonId}, ${actor.userId}, ${seq}::int, ${kind},
+        CASE WHEN EXISTS (SELECT 1 FROM "SecretaryConversationEvent" e WHERE e."conversationId" = ${id}::uuid AND e."clientTurnId" = ${turn}::uuid) THEN NULL ELSE ${turn}::uuid END,
+        ${JSON.stringify(eventPayload(event.payload))}::jsonb) RETURNING "seq"`;
   }
   async create(actor: ServiceActor, id: string, value: ConversationRecord) {
     const checked = checkedRecord(value), conversation = uuid.parse(id);

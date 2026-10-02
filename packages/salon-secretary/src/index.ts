@@ -58,6 +58,7 @@ export * from './agent-prompt';
 export * from './agent-loop';
 import { agentEnabled, agentEffort, agentMessage, agentPreloadEnabled, agentRoundEfforts, messageCallBudget } from './agent-context';
 import { agentContractParts } from './agent-prompt';
+import { pilotContractParts } from './pilot-reschedule-prompt';
 export { examplesMode, examplesK, examplesContractTag, examplesState, eligibleExamples, selectExamples, composeExamples, secretaryRequestBytes, withExamplesObserver, jsonTextBytes,
   EXAMPLES_HEADER, EXAMPLES_REQUEST_CAP, EXAMPLES_OUTPUT_FRAMING, type ExamplesMode, type ExamplesState, type ExamplesBlock, type ExamplesTelemetry } from './examples/select';
 export { assertSecretaryModelId, assertSecretaryModelRequest, assertSecretaryResponsesPayload, secretaryGuardedFetch } from "./openai-cost-guard";
@@ -363,7 +364,8 @@ export const SECRETARY_CONTRACT_SCHEMA = 'secretary-contract-v1';
 export const SECRETARY_CONTRACT_ENV = ['SALON_SECRETARY_TEMPORAL_COMPONENTS','SALON_SECRETARY_JIT_INSTRUCTIONS','SALON_SECRETARY_EXAMPLES','SALON_SECRETARY_EXAMPLES_K',
   'SALON_SECRETARY_MULTI_ACTION_V2_ENABLED','SALON_SECRETARY_SCHEDULING_OVERLAP_ENABLED','SALON_SECRETARY_V2_MAX_OUTPUT_TOKENS','SALON_SECRETARY_MODEL','SALON_SECRETARY_TEMPORAL_POLARITY','SALON_SECRETARY_SAME_AS',
   'SALON_SECRETARY_STRUCTURED_CONTEXT','SALON_SECRETARY_ALTER_APPOINTMENT','SALON_SECRETARY_MULTI_SERVICE','SALON_SECRETARY_COPY_V2','SALON_SECRETARY_REFERENCES_V2','SALON_SECRETARY_READS_V2','SALON_SECRETARY_RECURRENCE_GUARD',
-  'SALON_SECRETARY_EXAMPLES_V2','SALON_SECRETARY_PROMPT_CACHE','SALON_SECRETARY_AGENT','SALON_SECRETARY_AGENT_EFFORT','SALON_SECRETARY_AGENT_EFFORT_ROUNDS','SALON_SECRETARY_AGENT_PRELOAD'] as const;
+  'SALON_SECRETARY_EXAMPLES_V2','SALON_SECRETARY_PROMPT_CACHE','SALON_SECRETARY_AGENT','SALON_SECRETARY_AGENT_EFFORT','SALON_SECRETARY_AGENT_EFFORT_ROUNDS','SALON_SECRETARY_AGENT_PRELOAD',
+  'SALON_SECRETARY_PILOT_RESCHEDULE'] as const;
 const contractHash=(value:unknown)=>createHash('sha256').update(typeof value==='string'?value:JSON.stringify(value)).digest('hex');
 /** Synthetic, fixed: one open action per published operation (an option card, a daypart and both calendar kinds, a
  * pending discard) plus one suspended plan, so every mode, operation group and state-bound rule is compiled. */
@@ -398,6 +400,8 @@ const agentArmTags=()=>{
 export function secretaryContractParts(options:SecretaryContractOptions={}){
   const components=temporalComponentsEnabled(),jit=jitInstructionsEnabled(),examples=examplesMode(),context=canonicalContractContext();
   const agentOn=agentEnabled(),agentParts=agentOn?agentContractParts():undefined;
+  // Pilot of the reschedule (flag SALON_SECRETARY_PILOT_RESCHEDULE): its own request replaces every model call; named only when on.
+  const pilotOn=process.env.SALON_SECRETARY_PILOT_RESCHEDULE==='true';
   const instructions=servicesInstructions('discovery',true);
   const directory={professionals:['«profissional»'],services:['«serviço»'],today:{date:'«data»',weekday:'«dia»',timezone:'«fuso»'}};
   const adapterDraft={operation:'appointment.create',fields:{},clarification:{...(context.active_plan!.actions[0] as {clarification:object}).clarification}};
@@ -413,6 +417,7 @@ export function secretaryContractParts(options:SecretaryContractOptions={}){
     ...(promptCache?{promptCache:{framing:PROMPT_CACHE_FRAMING,layout:cachedSystemContent(system)}}:{}),
     // C5 agent (flag SALON_SECRETARY_AGENT): its instructions and system layout, only when on (every recorded version is kept).
     ...(agentOn?{agent:{prompt:agentParts!.prompt,framing:agentParts!.framing,system:agentParts!.system}}:{}),
+    ...(pilotOn?{pilot:pilotContractParts()}:{}),
   };
   const wires={
     plan:inConversationRouting(context,()=>interpreterWire('discovery',true,false,instructions)),
@@ -446,7 +451,7 @@ export function secretaryContractParts(options:SecretaryContractOptions={}){
       ...(process.env.SALON_SECRETARY_STRUCTURED_CONTEXT==='true'?{structuredContext:true}:{}),
       // C5 agent: named only when on, with its one effort per message (an invalid value is named as such; the agent then does not run),
       // and the S1 arm it runs (agentArmTags: per-call efforts, pre-load) when set.
-      ...(agentOn?{agent:{effort:agentEffortTag(),...agentArmTags()}}:{}),...(budgetSteps(options).length?{requestBudget:budgetSteps(options)}:{})},
+      ...(agentOn?{agent:{effort:agentEffortTag(),...agentArmTags()}}:{}),...(pilotOn?{pilot:true}:{}),...(budgetSteps(options).length?{requestBudget:budgetSteps(options)}:{})},
     templates,wires,...(options.presentation?{presentation:options.presentation}:{})};
 }
 /** The version and the hash of each part (so a changed version says what changed). */
@@ -477,8 +482,10 @@ export function paidModelConfig(env: Record<string, string | undefined>) {
 export async function createPaidModel(env: Record<string, string | undefined>): Promise<Model> {
   const config = paidModelConfig(env);
   // C5 agent (§6.3): the guard admits the agent's format only when this factory says so (the flag read once, here); off: as before.
+  // Pilot of the reschedule (flag SALON_SECRETARY_PILOT_RESCHEDULE): likewise its one-tool format, only with the flag; off: as before.
+  const agent = env.SALON_SECRETARY_AGENT === "true", pilot = env.SALON_SECRETARY_PILOT_RESCHEDULE === "true";
   const client = new OpenAI({ apiKey: config.apiKey, project: config.project,
     organization: null, baseURL: "https://api.openai.com/v1", maxRetries: 0, timeout: 30_000,
-    fetch: env.SALON_SECRETARY_AGENT === "true" ? secretaryGuardedFetch(config.modelId, { agent: true }) : secretaryGuardedFetch(config.modelId) });
+    fetch: pilot ? secretaryGuardedFetch(config.modelId, { agent, pilot }) : agent ? secretaryGuardedFetch(config.modelId, { agent: true }) : secretaryGuardedFetch(config.modelId) });
   return new OpenAIProvider({ openAIClient: client, useResponses: true }).getModel(config.modelId);
 }

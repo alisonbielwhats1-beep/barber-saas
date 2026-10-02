@@ -3,6 +3,7 @@ import type { ModelRequest } from "@openai/agents";
 import { AGENT_EFFORTS, AGENT_LIMITS } from "./agent-context";
 import { AGENT_PLAN_TOOL } from "./agent-plan";
 import { AGENT_LOOKUP_NAMES, AGENT_TOOL_NAMES, AGENT_TOOLS_SHA256, agentToolsDigest } from "./agent-tools";
+import { PILOT_REQUEST_LIMITS, PILOT_RESCHEDULE_TOOL, PILOT_TOOLS_SHA256, pilotToolsDigest } from "./pilot-reschedule-contract";
 
 const FUNCTION_NAMES = ["select_capabilities", "upsert_action_draft"] as const;
 const MODELS = ["gpt-5.6-luna", "gpt-6-luna"] as const;
@@ -39,6 +40,8 @@ export function assertSecretaryModelRequest(request: ModelRequest, expectedName:
 export function assertSecretaryResponsesPayload(value: unknown, expectedModel: string, options: SecretaryGuardOptions = {}): void {
   assertSecretaryModelId(expectedModel);
   if (!record(value)) fail("PAYLOAD_SHAPE");
+  // Pilot (flag SALON_SECRETARY_PILOT_RESCHEDULE): its one-tool format only with an explicit {pilot:true}; without it the tool is unknown below.
+  if (options.pilot === true && pilotShaped(value)) return assertPilotPayload(value, expectedModel);
   if (options.agent === true && !(Array.isArray(value.tools) && value.tools.length === 1)) return assertAgentPayload(value, expectedModel);
   const unexpected = Object.keys(value).filter(key => !RESPONSE_FIELDS.has(key));
   if (unexpected.length) fail(`UNEXPECTED_FIELD:${unexpected.join(",")}`);
@@ -71,7 +74,7 @@ export function assertSecretaryResponsesPayload(value: unknown, expectedModel: s
  * so a response that ends `incomplete` (the SDK throws) still records what it cost. Without the option: as before. */
 export function secretaryGuardedFetch(modelId: string, options: SecretaryGuardOptions = {}): typeof fetch {
   assertSecretaryModelId(modelId);
-  const agent = options.agent === true;
+  const agent = options.agent === true, pilot = options.pilot === true;
   return async (input, init) => {
     const url = input instanceof Request ? input.url : String(input);
     const method = init?.method ?? (input instanceof Request ? input.method : undefined);
@@ -80,8 +83,8 @@ export function secretaryGuardedFetch(modelId: string, options: SecretaryGuardOp
     if (typeof body !== "string") fail();
     let payload: unknown;
     try { payload = JSON.parse(body); } catch { fail(); }
-    assertSecretaryResponsesPayload(payload, modelId, { agent });
-    if (!agent) return globalThis.fetch(input, init);
+    assertSecretaryResponsesPayload(payload, modelId, pilot ? { agent, pilot } : { agent });
+    if (!agent && !pilot) return globalThis.fetch(input, init);
     const response = await globalThis.fetch(input, init);
     await reportResponseUsage(response);
     return response;
@@ -92,7 +95,7 @@ export function secretaryGuardedFetch(modelId: string, options: SecretaryGuardOp
 /** docs/c5-spike/11-especificacao-agente.md §6.3. The agent's formats are admitted ONLY when the caller says {agent:true}: the guard
  * never reads the flag (the model factory reads it once; the program ledger gets it from the runner), so the C4 formats above stay
  * exactly as they were and an agent format without the option is refused like any unknown one. */
-export type SecretaryGuardOptions = { readonly agent?: boolean };
+export type SecretaryGuardOptions = { readonly agent?: boolean; readonly pilot?: boolean };
 /** `include` of every agent call: with store:false the reasoning items come back encrypted and are returned as they came (§3.3). */
 export const AGENT_REASONING_INCLUDE = "reasoning.encrypted_content";
 /** Which call of the message a request is: `forced` = tool_choice propor_plano (the 3rd call always is). */
@@ -240,6 +243,41 @@ function assertAgentPayload(value: Record<string, unknown>, expectedModel: strin
   if (tools.length !== AGENT_TOOL_NAMES.length || agentToolsDigest(tools) !== AGENT_TOOLS_SHA256) fail("AGENT_TOOLS");
   const blocks = agentRoundBlocks(value.input as unknown[], httpAgentItem);
   if (blocks > AGENT_LIMITS.lookupRounds || (blocks === AGENT_LIMITS.lookupRounds && !forced)) fail("AGENT_ROUNDS");
+}
+// ---------------------------------------------------------------- pilot of the reschedule (flag SALON_SECRETARY_PILOT_RESCHEDULE, default off)
+/** docs/c5-spike/12-piloto-remarcacao.md §2: ONE strict tool (interpretar_remarcacao, pinned by digest) forced, no parallel calls, store:false,
+ * reasoning {effort} only (the frozen agent's), the output cap of PILOT_REQUEST_LIMITS, no hosted capability, no prompt/previous response/
+ * conversation, messages only (system/user). Admitted ONLY when the caller says {pilot:true} (the model factory reads the flag); the C4 and
+ * agent formats are checked exactly as before. */
+const PILOT_SETTINGS = ["toolChoice", "parallelToolCalls", "maxTokens", "store", "reasoning"];
+const pilotEffort = (value: unknown) => record(value) && only(value, ["effort"]) && value.effort === PILOT_REQUEST_LIMITS.effort;
+const pilotShaped = (value: Record<string, unknown>) => Array.isArray(value.tools) && value.tools.length === 1 && record(value.tools[0]) && value.tools[0].name === PILOT_RESCHEDULE_TOOL;
+/** SDK boundary of one pilot call (the interpretation or its single format repair). */
+export function assertSecretaryPilotModelRequest(request: ModelRequest): void {
+  const settings = request.modelSettings;
+  if (request.prompt || request.previousResponseId || request.conversationId || request.handoffs.length !== 0 || request.tracing !== false ||
+      request.toolsExplicitlyProvided !== true || request.outputType !== "text" || typeof request.systemInstructions !== "string" ||
+      !only(settings as Record<string, unknown>, PILOT_SETTINGS) || settings.store !== false || settings.parallelToolCalls !== false ||
+      settings.toolChoice !== PILOT_RESCHEDULE_TOOL || settings.maxTokens !== PILOT_REQUEST_LIMITS.maxOutputTokens || !pilotEffort(settings.reasoning)) fail("PILOT_REQUEST");
+  if (request.tools.length !== 1 || request.tools.some(tool => tool.type !== "function" || tool.name !== PILOT_RESCHEDULE_TOOL || tool.strict !== true || tool.deferLoading ||
+      tool.providerData || tool.allowedCallers || tool.namespace || tool.outputSchema) || pilotToolsDigest(request.tools) !== PILOT_TOOLS_SHA256) fail("PILOT_TOOLS");
+  if (!Array.isArray(request.input) || !request.input.length || request.input.some(item => !record(item) || (item.type !== undefined && item.type !== "message") ||
+      !["system", "user"].includes(String(item.role)) || typeof item.content !== "string")) fail("PILOT_INPUT");
+}
+/** HTTP boundary of the pilot format: today's keys plus `reasoning` ({effort} only), include [], the pinned tool forced. */
+function assertPilotPayload(value: Record<string, unknown>, expectedModel: string): void {
+  const unexpected = Object.keys(value).filter(key => !AGENT_RESPONSE_FIELDS.has(key));
+  if (unexpected.length) fail(`UNEXPECTED_FIELD:${unexpected.join(",")}`);
+  const choice = value.tool_choice;
+  if (value.model !== expectedModel || value.store !== false || value.stream !== false || value.parallel_tool_calls !== false || typeof value.instructions !== "string" ||
+      value.max_output_tokens !== PILOT_REQUEST_LIMITS.maxOutputTokens || !pilotEffort(value.reasoning) || !Array.isArray(value.include) || value.include.length !== 0 ||
+      !Array.isArray(value.input) || !value.input.length || !record(choice) || !only(choice, ["type", "name"]) || choice.type !== "function" || choice.name !== PILOT_RESCHEDULE_TOOL) fail("PILOT_PAYLOAD_FIELDS");
+  if (pilotToolsDigest(value.tools as unknown[]) !== PILOT_TOOLS_SHA256) fail("PILOT_TOOLS");
+  for (const item of value.input as unknown[]) {
+    if (!record(item) || (item.type !== undefined && item.type !== "message") || !["user", "system"].includes(String(item.role)) || !only(item, ["type", "role", "content"])) fail("PILOT_INPUT");
+    if (typeof item.content === "string") continue;
+    if (!Array.isArray(item.content) || !item.content.length || item.content.some(part => !record(part) || !only(part, ["type", "text"]) || part.type !== "input_text" || typeof part.text !== "string")) fail("PILOT_INPUT");
+  }
 }
 /** Token counts of a Responses body (numbers only, never text): what an agent call observes, also for an `incomplete` response. */
 export type SecretaryResponseUsage = {

@@ -118,13 +118,20 @@ describe("§3.2 appointment: located once, among the customer's future appointme
   });
   it("position in the day: the day said narrows to that day, then first or last picks by start", async () => {
     const message = "Adia o último do Wanderley na quarta pra sexta";
-    const last = await locate(studio(), wanderley.id, origin({ dia: weekdayHint(4, "na quarta"), posicao: "ultimo" }), message);
+    const last = await locate(studio(), wanderley.id, origin({ dia: weekdayHint(4, "na quarta"), posicao: { valor: "ultimo", mencao: "o último" } }), message);
     expect(last.state === "one" && last.appointment.id).toBe("apt-wan-wed-pm");
-    const first = await locate(studio(), wanderley.id, origin({ dia: weekdayHint(4, "na quarta"), posicao: "primeiro" }), "Adia o primeiro do Wanderley na quarta pra sexta");
+    const first = await locate(studio(), wanderley.id, origin({ dia: weekdayHint(4, "na quarta"), posicao: { valor: "primeiro", mencao: "o primeiro" } }), "Adia o primeiro do Wanderley na quarta pra sexta");
     expect(first.state === "one" && first.appointment.id).toBe("apt-wan-wed-am");
     const sameDay = studio({ appointments: wanderleyRows.slice(0, 2) });
-    const onlyPosition = await locate(sameDay, wanderley.id, origin({ posicao: "primeiro" }), "Adia o primeiro do Wanderley pra sexta");
+    const onlyPosition = await locate(sameDay, wanderley.id, origin({ posicao: { valor: "primeiro", mencao: "o primeiro" } }), "Adia o primeiro do Wanderley pra sexta");
     expect(onlyPosition.state === "one" && onlyPosition.appointment.id).toBe("apt-wan-wed-am");
+  });
+  it("a position whose words are not in the message never chooses: every real option is asked", async () => {
+    const sameDay = studio({ appointments: wanderleyRows.slice(0, 2) });
+    const unproven = await locate(sameDay, wanderley.id, origin({ posicao: { valor: "ultimo", mencao: "o último" } }), "Empurra o Wanderley pra sexta às 15h");
+    expect(unproven.state).toBe("several");
+    expect(unproven.state === "several" && ids(unproven.options)).toEqual(["apt-wan-wed-am", "apt-wan-wed-pm"]);
+    expect(unproven.state === "several" && unproven.ignored).toContain("posicao");
   });
   it("narrow provenance: a professional hint chooses among 2+ only when its mention is in the message; absent, it is ignored and asked", async () => {
     const present = await locate(studio(), iracema.id, origin({ profissional_mencao: "Carlos" }), "Joga o horário da Iracema com o Carlos pra sexta de manhã");
@@ -261,9 +268,9 @@ describe("properties: identity changes only when the mention really changes", ()
 
 /** A full payload of the §2 contract (every key present; null states absence). */
 const payload = (over: Partial<PilotInterpretation> = {}): PilotInterpretation => ({
-  tipo: "remarcar", resposta_a: null, desistir: false, cliente: { mencao: "Ana" },
+  tipo: "remarcar", resposta_a: null, desistir: false, aceita_parcial: null, cliente: { mencao: "Ana" },
   origem: { dia: { tipo: "data", dia: 12, mes: 3, mencao: "do dia 12" }, hora: { tipo: "relogio", hora: 10, minuto: 0, periodo: "manha", mencao: "das 10 da manhã" },
-    profissional_mencao: "Carlos", servico_mencao: "limpeza", posicao: "primeiro" },
+    profissional_mencao: "Carlos", servico_mencao: "limpeza", posicao: { valor: "primeiro", mencao: "o primeiro" } },
   destino: { dia: { tipo: "dia_semana", dia_semana: 6, qualificador: "este", mencao: "nesta sexta" }, hora: { tipo: "origem_mais_minutos", minutos: 150, mencao: "150 min mais tarde" },
     profissional: { modo: "nomeado", mencao: "Dalva" } },
   fora_do_escopo: [{ tipo: "mensagem", mencao: "avisa ela" }], ...over });
@@ -284,7 +291,7 @@ describe("§2 contract: interpretar_remarcacao", () => {
       expect(node.additionalProperties).toBe(false);
       expect([...(node.required as string[])].sort()).toEqual(Object.keys(node.properties as Node).sort());
     }
-    expect(Object.keys((PILOT_RESCHEDULE_PARAMETERS as Node).properties as Node)).toEqual(["tipo", "resposta_a", "desistir", "cliente", "origem", "destino", "fora_do_escopo"]);
+    expect(Object.keys((PILOT_RESCHEDULE_PARAMETERS as Node).properties as Node)).toEqual(["tipo", "resposta_a", "desistir", "aceita_parcial", "cliente", "origem", "destino", "fora_do_escopo"]);
   });
   it("a valid payload decodes to itself, as an object and as the call's arguments; every day and clock operator is accepted", () => {
     const full = payload();

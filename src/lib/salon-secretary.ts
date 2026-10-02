@@ -30,8 +30,8 @@ import { schedulingTimezone, secretaryDirectory, getSchedulingAppointment, listS
 import { quoteTemporalFacts, temporalQuoteDenied } from "./scheduling-temporal-source";
 import { schedulingActionSnapshot } from "./scheduling-mutations";
 import { performance } from "node:perf_hooks";
-import { schedulingState, schedulingSourceTimeReply, applySchedulingInterpretation, sendSchedulingTurn, selectScheduling, persistSchedulingMetrics, schedulingChoiceAgrees, reseedScheduling, forgetAgentBasis, type SchedulingState, type SchedulingReferences } from "./secretary-scheduling";
-import { confirmAppointmentCreate } from "./scheduling-actions";
+import { schedulingState, schedulingSourceTimeReply, applySchedulingInterpretation, sendSchedulingTurn, selectScheduling, persistSchedulingMetrics, schedulingChoiceAgrees, reseedScheduling, forgetAgentBasis, prepareResolvedScheduling, type SchedulingState, type SchedulingReferences } from "./secretary-scheduling";
+import { confirmAppointmentCreate, schedulingProposalReceipt } from "./scheduling-actions";
 import type { SchedulingInterpretation } from "@everflair/salon-secretary";
 import { assertCustomerAccess } from "./customer-catalog";
 import { customerState, sendCustomerTurn, applyCustomerInterpretation, selectCustomer, type CustomerState } from "./secretary-customers";
@@ -52,7 +52,7 @@ import { RouterTrace, tryJevInterpretation, outcomeCode, type RouterOptions } fr
 import { createActionPlan, assessPlanAction, executeConfirmationGroup,
   runtimeReviewConfiguration, type ActionPlan, type ReviewConfiguration, type CapabilitySelection,
   groupConfirmationInput, readyGroupsConfirmationInput, admitConfirmationBatch, confirmationGroupContent,
-  validateSelectionV2, actionSelection, markSecretaryTiming, type ActionAssessment, type SelectedOperation } from "@everflair/salon-secretary";
+  validateSelectionV2, actionSelection, markSecretaryTiming, type ActionAssessment, type GroupApproval, type SelectedOperation } from "@everflair/salon-secretary";
 import { actionUnits, unitSelection, assessmentFromView, deferredReadAssessment, deferredReadPreview, collectedActionFields, viewProposal, type ActionUnit } from "./secretary-action-plan";
 import { agentMessageScope, agentSkeleton, prepareAgentScheduling, prepareAgentBatch, agentDeferredRead, agentTurnNotice, agentGroupPrecheck, agentConfirmOptions, agentPreparedSlot,
   agentTurnOutcome, agentNothingChanged, agentFollowUpEligible, agentPlanOpen, agentPronounTopic, type AgentPrepared, type AgentSkeleton,
@@ -81,7 +81,13 @@ import { secretaryCopyV2Enabled, secretaryErrorMessage } from "./secretary-error
 import { CONVERSATION_STATE_SCHEMA, decodeConversationState, encodeConversationState, type ConversationEventKind, type ConversationEventPayload,
   type ConversationRecord, type LoadedConversation, type SecretarySessionStore } from "./secretary-session-store";
 import { parseStoredAggregate, STORED_AGGREGATE_SCHEMA, type StoredSession } from "./secretary-session-state";
-import { pilotRescheduleEnabled, type PilotView } from "./secretary-pilot";
+import { confirmPilotProposal, handlePilotMessage, pilotProposalText, pilotRescheduleEnabled, pilotReplay, pilotTelemetry as pilotTelemetryOf, pilotTurnInput, pilotView,
+  selectPilotOption, PILOT_HOURS_VIOLATIONS, PILOT_MISSING_FIELDS, PILOT_PREPARATION_FAILED, PILOT_RELATION_NOT_SUPPORTED, PILOT_WITHDRAWN_REPLY,
+  type PilotHost, type PilotPreparation, type PilotReceipt, type PilotResolvedChange, type PilotSessionState, type PilotView } from "./secretary-pilot";
+import { inspectSchedulingMove } from "./scheduling-mutations";
+import { invalidate as invalidatePilot, openQuestions, PILOT_ACTION_ID, pilotPlanClosed, withdraw as withdrawPilot } from "./secretary-pilot-plan";
+import { pilotTenantReader } from "./secretary-pilot-reader";
+import { instrumentPilotModel } from "../../packages/salon-secretary/src/pilot-reschedule-prompt";
 
 type Draft = Awaited<ReturnType<typeof upsertActionDraft>>;
 type Proposal = Awaited<ReturnType<typeof proposeServiceCreate>>;
@@ -112,6 +118,8 @@ type Session = { suspendedPlans?: SuspendedPlan[]; conversationNotice?: string; 
   /** C5 agent (flag SALON_SECRETARY_AGENT): the agent's open "qual operação?" question with the owner's messages of that thread (≤ 2
    * exchanges; the next message reaches the agent after them), and the plan_ref of the active plan the agent built (review dialog). */
   agentPending?: { question: string; thread: string[]; turns: number }; agentPlan?: string;
+  /** Pilot of the reschedule (flag SALON_SECRETARY_PILOT_RESCHEDULE): its plan, operators, replies and turn (secretary-pilot.ts). */
+  pilot?: PilotSessionState;
   draft?: Draft; proposal?: Proposal; receipt?: Receipt; cancelled: boolean };
 /** B7 session lifetime: each successful call extends an open conversation to now + 20 min, capped at 2 h from its start.
  * In memory only: a restart or another worker still fails closed. */
@@ -205,12 +213,13 @@ export class SalonSecretary {
    * never holds a DB transaction), then save with compare-and-swap even when the call threw (the in-memory contract keeps
    * a failed call's state changes too) and forget the process copy. A lost swap is CONCURRENT_UPDATE: the domain journal
    * keeps effects idempotent, and the next call starts from the saved state. */
-  private persisted<T>(actor: ServiceActor, id: string, kind: ConversationEventKind | undefined, run: () => Promise<T>): Promise<T> {
+  private persisted<T>(actor: ServiceActor, id: string, kind: ConversationEventKind | undefined, run: () => Promise<T>, clientTurnId?: string): Promise<T> {
     const store = this.topLevelStore();
-    return store ? this.persistedCall(store, actor, id, kind, run) : run();
+    return store ? this.persistedCall(store, actor, id, kind, run, clientTurnId) : run();
   }
-  private async persistedCall<T>(store: SecretarySessionStore, actor: ServiceActor, id: string, kind: ConversationEventKind | undefined, run: () => Promise<T>): Promise<T> {
-    const loaded = await store.load(actor, id, kind === "TURN_STARTED" ? { event: { kind } } : {});
+  /** `clientTurnId` (pilot of the reschedule, flag): the owner message's client id, recorded on its TURN_STARTED event (027). */
+  private async persistedCall<T>(store: SecretarySessionStore, actor: ServiceActor, id: string, kind: ConversationEventKind | undefined, run: () => Promise<T>, clientTurnId?: string): Promise<T> {
+    const loaded = await store.load(actor, id, kind === "TURN_STARTED" ? { event: clientTurnId ? { kind, clientTurnId } : { kind } } : {});
     const members = await this.rehydrate(store, actor, loaded);
     const context = { root: loaded.id, created: new Set<string>() };
     return this.attached.run(context, async () => {
@@ -218,7 +227,14 @@ export class SalonSecretary {
       try { result = await run(); } catch (error) { threw = true; failure = error; }
       try {
         const root = this.sessions.get(loaded.id);
-        if (root) await store.save(actor, loaded.id, this.conversationRecord(root), loaded.version,
+        let record = root ? this.conversationRecord(root) : undefined;
+        // Pilot (flag; review M3): a state that would not load again is never saved. The loaded one stays (the lease is released with it) and
+        // the call fails safely; an agenda write already made is found by its journal receipt on the next Confirmar.
+        if (root && record && pilotRescheduleEnabled() && !this.reloadable(record, loaded.id)) {
+          record = { state: loaded.state, status: loaded.status, expiresAt: loaded.expiresAt };
+          if (!threw) { threw = true; failure = Error("SESSION_STATE_UNSAVABLE"); }
+        }
+        if (root && record) await store.save(actor, loaded.id, record, loaded.version,
           kind ? { kind: kind === "TURN_STARTED" ? "TURN_OUTCOME" : kind, payload: this.eventPayload(root, kind, threw ? failure : undefined, threw) } : undefined);
       } catch (error) { if (!threw) { threw = true; failure = error; } }
       finally { this.evict(loaded.id, [...members, ...context.created]); }
@@ -260,6 +276,10 @@ export class SalonSecretary {
       grown = found.size > before;
     }
     return [...found.values()];
+  }
+  /** Whether a state text passes the same strict parse a load does (pilot, review M3). */
+  private reloadable(record: ConversationRecord, rootId: string) {
+    try { return parseStoredAggregate(decodeConversationState(record.state)).root === rootId; } catch { return false; }
   }
   /** The exact state text of a conversation (never the actor, the busy flag or a turn's option binding). */
   private conversationRecord(root: Session): ConversationRecord {
@@ -552,7 +572,7 @@ export class SalonSecretary {
       // B6: read-only over the history recorded per user message; the extra sentence only from the third time.
       const clarifications = s.actionPlan && !s.cancelled ? clarificationsView(s.actionPlan, s.actionUnits ?? [], operations ?? [], s.clarificationHistory) : [];
       const fallback = clarifications.some(item => item.fallback) ? `\n\n${agendaFallbackNotice}` : "";
-      return structuredClone({ sessionId: s.id, skill: "auto", cancelled: s.cancelled, loaded: s.loaded, ...(s.today ? { today: s.today } : {}),
+      return structuredClone({ ...(s.pilot && pilotRescheduleEnabled() ? { pilot: pilotView(s.pilot) } : {}), sessionId: s.id, skill: "auto", cancelled: s.cancelled, loaded: s.loaded, ...(s.today ? { today: s.today } : {}),
         ...(s.agentPlan && s.actionPlan?.plan_ref === s.agentPlan ? { agent_plan: true as const } : {}), action_plan: s.actionPlan, capability_status: this.effectiveCapabilityStatus(s, operations),
         suspended_plans: s.suspendedPlans?.map(saved => ({plan_ref:saved.actionPlan!.plan_ref,label:saved.actionPlan!.actions.map(action => action.operation).join(", ")})),
         ...(s.turnNotice && !s.cancelled ? { turn_notice: s.turnNotice.text, ...(s.turnNotice.alone ? { turn_notice_alone: true as const } : {}) } : {}), ...(clarifications.length ? { clarifications } : {}),
@@ -608,11 +628,193 @@ export class SalonSecretary {
     const parsed = turnInput.parse(input);
     return this.persisted(actor, parsed.sessionId, "TURN_STARTED", () => this.sendTurn(actor, parsed));
   }
-  /** Pilot entry (E1, tests first): secretary-pilot.ts handlePilotMessage over this session as its PilotHost (lease, authorization, tenant, the
-   * measured model, the real agenda preparation and Confirmar, persistence). Pending. */
+  /** Pilot entry: secretary-pilot.ts handlePilotMessage over this session as its PilotHost (lease, authorization, tenant, the measured model, the
+   * real agenda preparation and Confirmar, persistence). An 'auto' conversation only; the input is the existing one plus clientTurnId (a repeated
+   * one returns the stored reply: no Luna call, no new revision). The pilot plan is published through ONE ActionPlan action (a1, appointment.change)
+   * whose child scheduling session holds the real agenda draft and proposal, so the Confirmar is the existing group Confirmar. */
   private async sendPilot(actor: ServiceActor, input: unknown): Promise<SecretaryView> {
-    void actor; void input;
-    throw Error("PILOT_NOT_IMPLEMENTED");
+    const parsed = pilotTurnInput.parse(input);
+    return this.persisted(actor, parsed.sessionId, "TURN_STARTED", () => this.exclusive(actor, parsed.sessionId, async s => {
+      if (s.skill !== "auto" || s.planOwner) throw Error("PILOT_AUTO_ONLY");
+      if (s.cancelled) throw Error("SESSION_CLOSED");
+      if (parsed.operation_ref) throw Error("OPERATION_NOT_IN_SESSION");
+      const state = s.pilot ??= { replies: [] };
+      // Review L1 (§4): a repeated clientTurnId gets its stored text and view exactly as recorded (no Luna call, no new revision).
+      const replay = pilotReplay(state, parsed.clientTurnId);
+      if (replay) return { ...this.view(s), message: replay.text, pilot: replay.view };
+      if (s.turns >= 20) throw Error("TURN_LIMIT");
+      s.turns++;
+      if (this.pilotExpiry(actor, s)) await this.pilotTelemetry(actor, s.id, "PILOT_PROPOSAL_EXPIRED", pilotTelemetryOf(state));
+      const reply = await handlePilotMessage(this.pilotHost(actor, s, new Date()), parsed);
+      await this.publishPilot(actor, s, reply.text);
+      s.lastOutcome = { codes: [reply.code ?? "PILOT_TURN"].filter(code => /^[A-Z][A-Z0-9_]{1,79}$/.test(code)) };
+      await this.pilotTelemetry(actor, s.id, reply.code ?? "PILOT_TURN", reply.telemetry ?? {});
+      return this.view(s);
+    }), parsed.clientTurnId);
+  }
+  /** The pilot runs this session (flag on, an open or settled pilot plan published through the active ActionPlan). */
+  private pilotOwns(s: Session) {
+    return pilotRescheduleEnabled() && !!s.pilot?.plan && !!s.actionPlan && s.actionPlan.plan_ref === s.pilot.actionPlanRef;
+  }
+  /** What this session lends the pilot for one call (received_at frozen by the caller). `group`: the Confirmar's group approval. */
+  private pilotHost(actor: ServiceActor, s: Session, received: Date, group?: GroupApproval): PilotHost {
+    const modelId = this.modelId();
+    return { actor, state: s.pilot!, modelId,
+      model: async () => instrumentPilotModel(await this.measuredModel(), modelId, usageRecorder(actor, s.id, randomUUID(), modelId)),
+      reader: () => pilotTenantReader(actor),
+      clock: async () => ({ receivedAt: received, timezone: await withTenant(actor, tx => schedulingTimezone(tx, actor)) }),
+      prepare: change => this.pilotPrepare(actor, s, change),
+      receipt: async ref => { const found = await withTenant(actor, tx => schedulingProposalReceipt(tx, actor, ref));
+        return found?.appointment_ref && (found.outcome === "RESCHEDULED" || found.outcome === "PENDING_ACCEPTANCE")
+          ? { proposalRef: found.proposal_ref, appointmentRef: found.appointment_ref, outcome: found.outcome, duplicate: true } : undefined; },
+      settle: receipt => this.pilotSettle(actor, s, receipt),
+      confirm: async () => { if (!group) throw Error("CONFIRMATION_GROUP_REQUIRED"); return this.pilotConfirmGroup(actor, s, group); } };
+  }
+  /** The pilot's action and its child scheduling session (ONE action per plan; a new pilot plan gets a new ActionPlan). */
+  private async ensurePilotActionPlan(actor: ServiceActor, s: Session): Promise<ActionUnit> {
+    const pilot = s.pilot!, plan = pilot.plan!;
+    const current = s.actionPlan && s.actionPlan.plan_ref === pilot.actionPlanRef && pilot.actionPlanFor === plan.planId ? s.actionUnits?.find(unit => unit.keys.includes(PILOT_ACTION_ID)) : undefined;
+    if (current?.child && this.sessions.get(current.child)) return current;
+    const selection = validateSelectionV2({ skills: ["scheduling"], independent: true, operations: [{ operation: "appointment.change", item_key: PILOT_ACTION_ID, depends_on: [],
+      released_slot_of: null, target_name: null, name: null, priceCents: null, durationMin: null, phone: null, email: null, requested_fields: [], clear_fields: [] }] });
+    s.actionPlan = createActionPlan(selection, this.multiActionOptions.policy?.() ?? runtimeReviewConfiguration(process.env), "LUNA");
+    s.actionUnits = actionUnits(s.actionPlan); s.children = []; s.groupReceipts = undefined;
+    const unit = s.actionUnits.find(item => item.keys.includes(PILOT_ACTION_ID))!;
+    await this.planContext.run(s.id, async () => {
+      const started = await this.start(actor, "scheduling"), child = this.get(actor, started.sessionId);
+      child.expires = s.expires; child.inheritedInterpretation = true; unit.child = child.id; s.children!.push(child.id);
+    });
+    pilot.actionPlanRef = s.actionPlan.plan_ref; pilot.actionPlanFor = plan.planId; pilot.published = undefined;
+    return unit;
+  }
+  /** §5: the real agenda preparation of the resolved change, keeping the resolved appointment (never located again). Only a proposal of exactly
+   * that change (appointment, start, professional) stands; anything else is the agenda's own answer (a rule) or a failed preparation. */
+  private async pilotPrepare(actor: ServiceActor, s: Session, change: PilotResolvedChange): Promise<PilotPreparation> {
+    const unit = await this.ensurePilotActionPlan(actor, s), child = this.get(actor, unit.child!), c = child.scheduling!;
+    const fields: SchedulingFields = { appointment_ref: change.appointmentRef, customer_ref: change.customerRef, date: change.date, time: change.time,
+      ...(change.keepsProfessional ? {} : { target_professional_ref: change.professionalRef }) };
+    try { await this.planContext.run(s.id, () => prepareResolvedScheduling(actor, c, "appointment.change", fields, { pilotAppointment: change.appointmentRef })); }
+    catch (error) {
+      if (child.scheduling) child.scheduling.proposal = undefined;
+      // Review L10/M11: the agenda's own codes, never "try again": no change at all, or an appointment this path does not move (a dependent's,
+      // or one with products).
+      const thrown = error instanceof Error ? error.message : "";
+      if (thrown === "NO_CHANGE") return { ok: false, code: "NO_CHANGE", text: "" };
+      if (thrown === "SCHEDULING_RELATION_NOT_SUPPORTED") return { ok: false, code: "RELATION_NOT_SUPPORTED", text: PILOT_RELATION_NOT_SUPPORTED };
+      return { ok: false, code: "PREPARATION_FAILED", text: PILOT_PREPARATION_FAILED };
+    }
+    const state = child.scheduling!, snapshot = state.proposal?.action_snapshot;
+    if (state.proposal && snapshot && snapshot.appointment_ref === change.appointmentRef && snapshot.startLocal === `${change.date}T${change.time}` && snapshot.professional_ref === change.professionalRef)
+      return { ok: true, proposal: { proposalRef: state.proposal.proposal_ref, draftRef: state.proposal.draft_ref, draftRevision: state.proposal.draft_revision, revision: 0,
+        text: pilotProposalText({ ...snapshot, services: snapshot.services.map(service => ({ name: service.name })) }, change.notes, change.today) } };
+    // The C4's own cards and slot buttons are never published on the pilot path: the pilot's question carries the free times as its options.
+    const alternatives = (state.alternatives ?? []).map(slot => slot.startLocal.slice(11, 16)), text = state.message;
+    let code: "SLOT_UNAVAILABLE" | "OUTSIDE_HOURS" | "SERVICE_NOT_PERFORMED" | "PREPARATION_FAILED" =
+      state.proposal ? "PREPARATION_FAILED" : state.waiting_for === "target_professional_name" ? "SERVICE_NOT_PERFORMED" : state.waiting_for === "time" ? "SLOT_UNAVAILABLE" : "PREPARATION_FAILED";
+    // Review L10: the agenda's own violation code of this move (read-only) tells the professional's hours from a taken slot.
+    if (code === "SLOT_UNAVAILABLE") {
+      const move = await withTenant(actor, tx => inspectSchedulingMove(tx, actor, change.appointmentRef, change.date, change.time, undefined, undefined, fields)).catch(() => undefined);
+      if (move?.result.violation && PILOT_HOURS_VIOLATIONS.has(move.result.violation)) code = "OUTSIDE_HOURS";
+    }
+    state.proposal = undefined; state.candidates = undefined; state.alternatives = undefined;
+    return code === "PREPARATION_FAILED" ? { ok: false, code, text: PILOT_PREPARATION_FAILED } : { ok: false, code, text, alternatives };
+  }
+  /** §5: a receipt found before the Confirmar ran (the reply of a committed Confirmar was lost): the agenda side shows it, never a second write. */
+  private async pilotSettle(actor: ServiceActor, s: Session, receipt: PilotReceipt) {
+    const unit = s.actionUnits?.find(item => item.keys.includes(PILOT_ACTION_ID)), child = unit?.child ? this.sessions.get(unit.child) : undefined;
+    if (!unit || !child?.scheduling) return;
+    const found = await withTenant(actor, tx => schedulingProposalReceipt(tx, actor, receipt.proposalRef));
+    if (!found) return;
+    child.scheduling.receipt = found; child.scheduling.message = `${found.outcome === "PENDING_ACCEPTANCE" ? "Horário remarcado, aguardando aceite do cliente" : "Agendamento remarcado"}. Referência: ${found.appointment_ref}.`;
+    this.syncActionUnit(actor, s, unit);
+  }
+  /** The existing group Confirmar of the pilot's action (an expired proposal fails safe and is reported as such; nothing executes twice). */
+  private async pilotConfirmGroup(actor: ServiceActor, s: Session, approval: GroupApproval): Promise<PilotReceipt> {
+    const unit = s.actionUnits!.find(item => item.keys.includes(PILOT_ACTION_ID))!, child = this.get(actor, unit.child!);
+    if (this.hasExpiredProposal(child)) {
+      s.actionPlan = await executeConfirmationGroup(s.actionPlan!, approval, async () => ({ status: "FAILED_SAFE", missing_fields: [], issue: "PROPOSAL_EXPIRED", preview: expiredProposalMessage }));
+      throw Error("PROPOSAL_EXPIRED");
+    }
+    s.actionPlan = await this.planContext.run(s.id, () => executeConfirmationGroup(s.actionPlan!, approval, this.groupExecutor(actor, s)));
+    (s.groupReceipts ??= new Set()).add(JSON.stringify(approval));
+    const receipt = child.scheduling?.receipt;
+    if (s.actionPlan.actions.find(action => action.key === PILOT_ACTION_ID)?.status !== "DONE" || !receipt?.appointment_ref) throw Error("CONFIRM_FAILED");
+    return { proposalRef: receipt.proposal_ref, appointmentRef: receipt.appointment_ref, outcome: receipt.outcome === "PENDING_ACCEPTANCE" ? "PENDING_ACCEPTANCE" : "RESCHEDULED", duplicate: receipt.duplicate };
+  }
+  /** The pilot's Confirmar (secretary-pilot.ts confirmPilotProposal): the group token checked, the receipt of its proposal_ref first, then the
+   * existing group Confirmar; a failure is checked again through the real agenda (a new proposal or another slot asked). */
+  private async confirmPilotGroup(actor: ServiceActor, s: Session, approval: GroupApproval): Promise<SecretaryView> {
+    const group = s.actionPlan!.confirmation_groups.find(item => item.key === approval.group_key);
+    if (!group || group.fingerprint !== approval.fingerprint || !group.action_keys.includes(PILOT_ACTION_ID)) throw Error("CONFIRMATION_STALE");
+    const plan = s.pilot!.plan!, proposal = plan.action.proposal;
+    const reply = await confirmPilotProposal(this.pilotHost(actor, s, new Date(), approval),
+      { proposalRef: proposal?.proposalRef ?? "", draftRevision: proposal?.draftRevision ?? 0, revision: plan.revision });
+    await this.publishPilot(actor, s, reply.text);
+    await this.recordAfterCommit(s, () => this.pilotTelemetry(actor, s.id, reply.code ?? "PILOT_CONFIRM", { plan_id: plan.planId, revision: s.pilot!.plan?.revision ?? 0,
+      status: s.pilot!.plan?.action.status ?? null, proposal_ref: proposal?.proposalRef ?? null }));
+    return this.view(s);
+  }
+  /** The pilot plan as the screen, the runner and the Confirmar see it: every open question in the action's missing_fields (customer_ref,
+   * appointment_ref, date, time, target_professional_ref, scope), a ready proposal as the READY_FOR_CONFIRMATION group, a withdrawal as the
+   * discarded (retired) action; every new pilot revision moves the ActionPlan's revision too (earlier approvals go stale). */
+  private async publishPilot(actor: ServiceActor, s: Session, text: string) {
+    const pilot = s.pilot!, plan = pilot.plan;
+    if (!plan) { s.notice = text; return; }
+    if (plan.action.status === "withdrawn") { await this.retirePilotActionPlan(actor, s); s.notice = text; return; }
+    const unit = await this.ensurePilotActionPlan(actor, s), child = this.get(actor, unit.child!);
+    if (["proposal_ready", "approved", "executing", "done"].includes(plan.action.status)) this.syncActionUnit(actor, s, unit);
+    else {
+      // Never confirmable while the pilot asks or rechecks: a proposal of an earlier revision leaves the child (its draft stays in the journal).
+      if (child.scheduling?.proposal && !child.scheduling.receipt) { child.scheduling.proposal = undefined; child.scheduling.message = text; }
+      const missing = [...new Set(openQuestions(plan).map(question => PILOT_MISSING_FIELDS[question.field]))];
+      s.actionPlan = assessPlanAction(s.actionPlan!, PILOT_ACTION_ID, { status: "NEEDS_INPUT", missing_fields: missing, preview: text, issue: missing.length ? "EXPLICIT_INPUT_REQUIRED" : "REVIEW_REQUIRED" });
+    }
+    if (pilot.published !== plan.revision) { s.actionPlan = refreshActionPlan({ ...s.actionPlan!, revision: s.actionPlan!.revision + 1 }); pilot.published = plan.revision; }
+    s.conversationNotice = text; s.notice = undefined; s.capability_status = undefined;
+    try { await this.recordAutomaticState(actor, s); } catch { /* Telemetry only: the turn's state is already settled. */ }
+  }
+  /** A withdrawn pilot plan: its action is discarded (the child's proposal withdrawn through its own cancel) and the ActionPlan retired. */
+  private async retirePilotActionPlan(actor: ServiceActor, s: Session) {
+    const pilot = s.pilot!;
+    if (!s.actionPlan || s.actionPlan.plan_ref !== pilot.actionPlanRef) { pilot.actionPlanRef = undefined; return; }
+    const unit = s.actionUnits?.find(item => item.keys.includes(PILOT_ACTION_ID)), child = unit?.child ? this.sessions.get(unit.child) : undefined;
+    if (child && !child.cancelled && !child.scheduling?.receipt) await this.planContext.run(s.id, () => this.cancel(actor, child.id));
+    const action = s.actionPlan.actions.find(item => item.key === PILOT_ACTION_ID);
+    if (action && action.status !== "DONE" && action.status !== "DISCARDED") s.actionPlan = assessPlanAction(s.actionPlan, PILOT_ACTION_ID, { status: "DISCARDED", missing_fields: [], issue: "DISCARDED_BY_USER" });
+    try { await this.recordAutomaticState(actor, s); } catch { /* Telemetry only. */ }
+    Object.assign(s, { actionPlan: undefined, actionUnits: undefined, children: undefined, groupReceipts: undefined, conversationNotice: undefined });
+    pilot.actionPlanRef = undefined; pilot.actionPlanFor = undefined; pilot.published = undefined;
+  }
+  /** A ready proposal that lost its validity meanwhile (expired in its child) is no longer the plan's proposal: the plan goes to review. True
+   * when it did (review L10: the caller sends the reason to telemetry). */
+  private pilotExpiry(actor: ServiceActor, s: Session): boolean {
+    const plan = s.pilot?.plan;
+    if (!plan || plan.action.status !== "proposal_ready" || !this.pilotOwns(s)) return false;
+    const unit = s.actionUnits?.find(item => item.keys.includes(PILOT_ACTION_ID)), child = unit?.child ? this.sessions.get(unit.child) : undefined;
+    if (child && child.actor.salonId === actor.salonId && child.scheduling?.proposal && !this.hasExpiredProposal(child)) return false;
+    s.pilot!.plan = invalidatePilot(plan, "PROPOSAL_EXPIRED");
+    return true;
+  }
+  /** Review M12: the owner's tap on an option of the pilot's open question (view.pilot.questions[].options, published by the backend), on the
+   * pilot's own operation: the same as answering it in words, with no Luna call. Anything else is refused as before. Undefined off the pilot. */
+  private pilotSelection(actor: ServiceActor, s: Session, operationRef: string, ref: string): Promise<SecretaryView> | undefined {
+    if (!pilotRescheduleEnabled() || !s.pilot) return undefined;
+    const unit = s.actionUnits?.find(item => item.keys.includes(PILOT_ACTION_ID));
+    if (!this.pilotOwns(s) || !unit?.child || unit.child !== operationRef) throw Error("SELECTION_INVALID");
+    return (async () => {
+      this.pilotExpiry(actor, s);
+      const reply = await selectPilotOption(this.pilotHost(actor, s, new Date()), ref);
+      await this.publishPilot(actor, s, reply.text);
+      s.lastOutcome = { codes: [reply.code ?? "PILOT_SELECTION"].filter(code => /^[A-Z][A-Z0-9_]{1,79}$/.test(code)) };
+      await this.pilotTelemetry(actor, s.id, reply.code ?? "PILOT_SELECTION", reply.telemetry ?? {});
+      return this.view(s);
+    })();
+  }
+  /** Codes and numbers only (§6): turn, plan/revision, question, proposal_ref, provenance per field, latency, calls. Best effort. */
+  private async pilotTelemetry(actor: ServiceActor, sessionId: string, code: string, metadata: Record<string, unknown>) {
+    try { await withTenant(actor, tx => tx.auditLog.create({ data: { salonId: actor.salonId, userId: actor.userId, actorName: "Secretária — piloto",
+      entityType: "SECRETARY_PILOT", entityId: sessionId, action: /^[A-Z][A-Z0-9_]{1,79}$/.test(code) ? code : "PILOT_TURN", metadata: JSON.parse(JSON.stringify(metadata)) } })); }
+    catch { /* Telemetry availability never fails the pilot. */ }
   }
   private async sendTurn(actor: ServiceActor, parsed: z.infer<typeof turnInput>): Promise<SecretaryView> {
     const owned = this.get(actor, parsed.sessionId); // Do not persist telemetry against another tenant's session.
@@ -2399,6 +2601,8 @@ export class SalonSecretary {
       if (parent.groupReceipts?.has(JSON.stringify(approval))) return this.view(parent);
       if (approval.revision !== parent.actionPlan.revision) throw Error("CONFIRMATION_STALE");
       if (["UNSUPPORTED","AMBIGUOUS","CONVERSATION"].includes(parent.capability_status??"")) throw Error("PLAN_NOT_READY");
+      // Pilot (flag SALON_SECRETARY_PILOT_RESCHEDULE): the receipt of the proposal_ref first, then this same group Confirmar (confirmPilotGroup).
+      if (this.pilotOwns(parent)) return this.confirmPilotGroup(actor, parent, approval);
       // A first late click still receives the historical failed-safe result. Validate
       // the exact group token first and reject the whole group before any executor.
       // If a prior view already invalidated it, the revision check above stays stale.
@@ -2479,6 +2683,15 @@ export class SalonSecretary {
       const pending = approvals.filter(approval => !receipted(approval));
       if (!pending.length) return { ...this.view(parent), confirmation_batch: report };
       if (["UNSUPPORTED","AMBIGUOUS","CONVERSATION"].includes(parent.capability_status??"")) throw Error("PLAN_NOT_READY");
+      // Pilot (flag): its ONE group, through the pilot's Confirmar (the receipt of the proposal_ref first); anything else is stale.
+      if (this.pilotOwns(parent)) {
+        if (pending.length !== 1 || pending[0].revision !== plan.revision) throw Error("CONFIRMATION_STALE");
+        const view = await this.confirmPilotGroup(actor, parent, pending[0]);
+        if (parent.pilot?.plan?.action.status === "done") report.executed.push(pending[0].group_key); else report.not_executed.push({ group_key: pending[0].group_key, code: "GROUP_CHANGED" });
+        const receipts = this.batchReceipts.get(parent) ?? new Map<string, ConfirmationBatchReport>();
+        this.batchReceipts.set(parent, receipts.set(replayKey, structuredClone(report)));
+        return { ...view, confirmation_batch: report };
+      }
       // No view() before admission: projecting another group's expiry must not stale this approval.
       const admitted = admitConfirmationBatch(plan, pending);
       await this.planContext.run(parent.id, async () => {
@@ -2510,7 +2723,7 @@ export class SalonSecretary {
   }
 
   async selectAutomatic(actor: ServiceActor, sessionId: string, operationRef: string, ref: string) {
-    return this.persisted(actor, sessionId, "SELECTION", () => this.exclusive(actor,sessionId,parent=>this.preparePlanSafely(parent,()=>this.planContext.run(parent.actionPlan ? parent.id : "", async () => {
+    return this.persisted(actor, sessionId, "SELECTION", () => this.exclusive(actor,sessionId,parent=>this.pilotSelection(actor,parent,operationRef,ref)??this.preparePlanSafely(parent,()=>this.planContext.run(parent.actionPlan ? parent.id : "", async () => {
       if (parent.actionPlan && this.multiActionOptions.enabled?.() !== true) throw Error("MULTI_ACTION_V2_DISABLED");
       if (parent.actionPlan) parent.actionPlan.revision++;
       const child=this.child(actor,parent,operationRef);
@@ -2539,6 +2752,8 @@ export class SalonSecretary {
     return this.persisted(actor, sessionId, "SELECTION", () => this.exclusive(actor,sessionId,parent=>{
       // A stale click is refused before anything changes (it never fails the action).
       if (parent.actionPlan && this.multiActionOptions.enabled?.() !== true) throw Error("MULTI_ACTION_V2_DISABLED");
+      // Pilot (flag): no slot button of the agenda adapter; another clock is answered in words.
+      if (pilotRescheduleEnabled() && parent.pilot) throw Error("OPTION_UNAVAILABLE");
       const child=this.child(actor,parent,operation_ref);
       const unit=parent.actionPlan?parent.actionUnits!.find(item=>item.child===child.id):undefined;
       if (parent.actionPlan && (!unit || this.discardedUnit(parent, unit))) throw Error("OPERATION_NOT_IN_SESSION");
@@ -2570,6 +2785,7 @@ export class SalonSecretary {
   async cancelAutomaticOperation(actor: ServiceActor, sessionId: string, operationRef: string) {
     return this.persisted(actor, sessionId, "DISCARD", () => this.exclusive(actor,sessionId,async parent=>{
       const child=this.child(actor,parent,operationRef);
+      if (this.pilotOwns(parent)) return this.pilotDiscard(actor, parent);
       if (parent.actionPlan) return this.discardPlanActions(actor, parent, parent.actionUnits!.find(item => item.child === child.id)!.keys);
       await this.planContext.run("", () => this.cancel(actor,child.id));
       return this.view(parent);
@@ -2583,9 +2799,18 @@ export class SalonSecretary {
       if (parent.cancelled) throw Error("SESSION_CLOSED");
       if (!parent.actionPlan || parent.actionPlan.plan_ref !== plan_ref) throw Error("PLAN_NOT_IN_SESSION");
       parent.pendingDiscard = undefined;
+      if (this.pilotOwns(parent)) { if (action_key !== PILOT_ACTION_ID) throw Error("DISCARD_ACTION_MISMATCH"); return this.pilotDiscard(actor, parent); }
       // `linked`: the screen named these linked actions and the owner accepted them; any other set is asked first.
       return this.discardPlanActions(actor, parent, [action_key], linked && [action_key, ...linked]);
     }));
+  }
+  /** Pilot (flag): "Descartar" of the pilot's action is the owner's withdrawal of the draft (nothing on the agenda changes). */
+  private async pilotDiscard(actor: ServiceActor, s: Session): Promise<SecretaryView> {
+    const plan = s.pilot!.plan!;
+    if (plan.action.status === "done") throw Error("ALREADY_CONFIRMED");
+    if (!pilotPlanClosed(plan)) { const reduced = withdrawPilot(plan, plan.revision); if (reduced.ok) { s.pilot!.plan = reduced.plan; s.pilot!.asked = []; s.pilot!.outOfScope = []; } }
+    await this.publishPilot(actor, s, PILOT_WITHDRAWN_REPLY);
+    return this.view(s);
   }
   /** B5: parts of this message the interpretation left out are said before the plan and asked again, never
    * dropped silently. `existing`: left-out corrections target actions of the current plan. Codes only reach

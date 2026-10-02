@@ -42,6 +42,7 @@ import { isFirstPersonReference } from "./secretary-first-person";
 import { readsV2Enabled, upcomingAppointments, upcomingMessage, daySummaryMessage, summaryOptions, availabilityAcross, availabilityAcrossMessage, periodLabel, ACROSS_MAX, SLOT_LIMIT, DAY_LIST_LIMIT } from "./secretary-reads";
 import { recurrenceFromTurn, recurrenceNotice, recurrencePending, recurrenceQuestion, FIRST_ONLY_REF, RECURRENCE_CARD, type RecurrenceState } from "./secretary-recurrence";
 import { blockOverlapChosen, blockOverlapGuardEnabled, blockOverlapQuestion, blockOverlapSelection, BLOCK_OVERLAP_CARD, type BlockOverlapChoice } from "./secretary-block-guard";
+import { pilotRescheduleEnabled } from "./secretary-pilot";
 
 /** `source` (C3, only with SALON_SECRETARY_NAME_SUGGESTIONS): "suggest" = tolerant suggestions after an empty search,
  * rechecked by the same suggest function; "confirm" = rows of a name Luna wrote that the message does not contain.
@@ -1120,15 +1121,21 @@ export async function reseedScheduling(actor:ServiceActor,c:SchedulingState,fiel
  * validator asks, its card of backend rows (a professional/new-professional choice, rechecked on click) or its question: then the draft is
  * written but nothing is proposed, and prepare()'s own question follows the validator's. `missing` (round 2, F0): a change's new day or clock
  * the owner wrote that no field carries, asked as a rejected temporal role (the draft's temporal_missing), never the appointment's own. */
+/** `pilotAppointment` (pilot of the reschedule, flag SALON_SECRETARY_PILOT_RESCHEDULE; docs/c5-spike/12-piloto-remarcacao.md §5): the appointment
+ * the pilot's resolver located once; with the flag on and the same ref in `fields`, the change keeps it as its appointment_ref and prepare() never
+ * locates again. Absent (or the flag off): exactly as before. */
 export type AgentResolvedExtras={ambiguities?:readonly PendingTemporalAmbiguity[];basis?:readonly AgentBasis[];names?:Readonly<Record<string,string>>;recurrence?:string|null;
   appointmentCard?:readonly {id:string;name:string}[];references?:SchedulingReferences;expected?:string;
-  card?:{kind:"professional_ref"|"target_professional_ref";items:readonly {id:string;name:string}[];question:string};question?:string;missing?:readonly ("date"|"time")[]};
+  card?:{kind:"professional_ref"|"target_professional_ref";items:readonly {id:string;name:string}[];question:string};question?:string;missing?:readonly ("date"|"time")[];
+  pilotAppointment?:string};
 export async function prepareResolvedScheduling(actor:ServiceActor,c:SchedulingState,operation:NonNullable<SchedulingState["operation"]>,fields:SchedulingFields,extras:AgentResolvedExtras={}){
   if(c.operation&&c.operation!==operation)throw Error("OPERATION_MISMATCH");
   c.proposal=undefined;
   const next=structuredClone(c);
   next.operation=operation;next.interpretation_source="MODEL";
-  const resolved=schedulingResolved.parse(structuredClone(fields));delete resolved.appointment_ref;
+  const resolved=schedulingResolved.parse(structuredClone(fields));
+  const keep=pilotRescheduleEnabled()&&operation==="appointment.change"&&!!extras.pilotAppointment&&resolved.appointment_ref===extras.pilotAppointment;
+  if(!keep)delete resolved.appointment_ref;
   for(const item of extras.ambiguities??[])delete resolved[item.field];
   next.fields=resolved;
   if(extras.ambiguities?.length)next.pending_temporal_ambiguities=extras.ambiguities.map(item=>structuredClone(item));

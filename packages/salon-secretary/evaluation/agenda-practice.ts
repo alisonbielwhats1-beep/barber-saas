@@ -39,7 +39,7 @@ import { seedFreeUseFixture } from './free-use-fixture';
 import { seedMultiServiceAppointments } from './agenda-practice-seed';
 import type { FixtureIdentity } from './free-use-contract';
 import { AGENDA_STAGES, AnswerBook, answerDeliveryMode, answerQuestion, DEFAULT_AGENDA_STAGE, DEFAULT_OUTPUT_TOKENS, EFFECT_TABLES, ESTIMATE_BODY_BYTES, LEGACY_AGENDA_STAGE, MULTI_SERVICE_SEED_VERSION, PRICE, SYSTEM_CLOCK, TZ, acquireStageLease,
-  agendaStage, agentArm, agentCallRecord, agentTurnOf, agentUsageByRound, assertAgentArm, assertHeadroom, assertSaoPauloClock, assertStageLeaseHeld, buildScenarioFixture, codesOnly, dayWindowPreflight,
+  agendaStage, agentArm, pilotArm, pilotTurnTelemetry, agentCallRecord, agentTurnOf, agentUsageByRound, assertAgentArm, assertHeadroom, assertSaoPauloClock, assertStageLeaseHeld, buildScenarioFixture, codesOnly, dayWindowPreflight,
   evaluatorVersion, expectedCalls, headroomEstimate, heartbeatStageLease,
   legacyOracle, midnightGuard, percentile, perCallBudgetMs, readStage, releaseStageLease, renderFinal, renderTemplate, requestVersion, reservationMicroUsd, reserve, runDayPreflight,
   runEstimateMs, scenarioBudgetMs, secretaryFlagSnapshot, selectScenarioIds, spendByRound, stageJournalPath, stageTotals, todayInSaoPaulo, validateScenarios, AGENT_CALLS_PER_MESSAGE, AGENT_PATHS,
@@ -159,6 +159,14 @@ async function routerTelemetry(admin: PrismaClient, tenant: string, seen: Set<st
   seen.add(row.id);
   return { path: codesOnly(row.action) ?? null, ...(codesOnly(row.metadata) as Record<string, unknown> | undefined ?? {}) };
 }
+/** Reschedule pilot arm (H6): the latest SECRETARY_PILOT audit row of this tenant written by the step just made, codes and numbers only
+ * (pilotTurnTelemetry's allowlist; never a name, a ref or the owner's words). */
+async function pilotTelemetryRow(admin: PrismaClient, tenant: string, seen: Set<string>) {
+  const row = await admin.auditLog.findFirst({ where: { salonId: tenant, entityType: 'SECRETARY_PILOT' }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], select: { id: true, action: true, metadata: true } });
+  if (!row || seen.has(row.id)) return null;
+  seen.add(row.id);
+  return pilotTurnTelemetry(row.action, row.metadata);
+}
 /** Scenario-level professional hours on top of the seeded fixture (synthetic tenant only). `windows` (a salon scenario)
  * replaces the professional's seeded uniform day with the salon's weekly windows (breaks, shorter days). */
 export async function applyProfessionalHours(admin: Pick<PrismaClient, '$transaction'>, identity: FixtureIdentity, hours: ProfessionalHours[], openWeekdays: number[], open: number, close: number) {
@@ -207,6 +215,10 @@ export function preflightAgendaPractice(input: AgendaScenario[], opts: AgendaRun
   // C5: the agent arm is the product flag, read once here (dependencies and effort checked before any file, database or network).
   const agent = agentArm(process.env);
   if (agent) assertAgentArm(process.env);
+  // Reschedule pilot arm (SALON_SECRETARY_PILOT_RESCHEDULE): read once here as well; with it on, every owner message goes to the pilot, so an
+  // agent arm at the same time would be measured as something it is not.
+  const pilot = pilotArm(process.env);
+  if (pilot && agent) throw Error('AGENDA_ARM_CONFLICT');
   const stage = agendaStage(opts.stage ?? DEFAULT_AGENDA_STAGE), scenarios = opts.ids ? selectScenarioIds(validateScenarios(input), opts.ids) : validateScenarios(input);
   const resultsRoot = join(process.cwd(), RESULTS), stageFile = stageJournalPath(resultsRoot, stage.name);
   const today = todayInSaoPaulo(now), legacy = legacyOracle(today), legacyByDay = new Map<string, LegacyMap>([[today, legacy.E]]);
@@ -214,22 +226,22 @@ export function preflightAgendaPractice(input: AgendaScenario[], opts: AgendaRun
   const runDay = runDayPreflight(scenarios, today, legacy.E), skipped = runDay.filter(d => d.action === 'SKIP');
   const runnable = scenarios.filter(s => !skipped.some(d => d.id === s.id));
   // F2: every day the run can reach (estimate + one guard sleep); a scenario SKIP on a later reachable day is a rollover skip.
-  const dayWindow = dayWindowPreflight(runnable, now, runEstimateMs(runnable, repeat, agent), legacyFor);
+  const dayWindow = dayWindowPreflight(runnable, now, runEstimateMs(runnable, repeat, agent, pilot), legacyFor);
   // Every text the run could send, for every attempt and every reachable day, must keep its meaning under the selected noise (codes only, no text).
   const noise = noisePreflight(runnable, { profile, repeat, today, legacy: legacy.E });
   const violations = [...noise.violations, ...dayWindow.days.slice(1).flatMap(day => noisePreflight(runnable, { profile, repeat, today: day, legacy: legacyFor(day) }).violations)];
   if (violations.length) throw Object.assign(Error('AGENDA_NOISE_INVARIANT'), { details: violations.slice(0, 20) });
   const totals = stageTotals(stageFile, stage.name), maxOutputTokens = outputTokens(process.env);
   // One rerun per midnight the run may cross (the attempt in flight at 00:00), reserved up front like any other request.
-  const rerunRequests = (dayWindow.days.length - 1) * Math.max(0, ...runnable.map(s => expectedCalls(s, { agent }).calls));
+  const rerunRequests = (dayWindow.days.length - 1) * Math.max(0, ...runnable.map(s => expectedCalls(s, { agent, pilot }).calls));
   const estimate = headroomEstimate({ scenarios: runnable, repeat, perPassMaxRequests: opts.maxRequests, maxOutputTokens, spentMicroUsd: totals.reservedMicroUsd, capMicroUsd: stage.capMicroUsd,
-    extraRequests: rerunRequests, agent });
+    extraRequests: rerunRequests, agent, pilot });
   // Program-wide real-spend ledger (shared with the Golden runner): whole chain validated before any database access.
   const programLedger = programSpendLedgerPath(), programSpend = programSpendTotals(programLedger);
   // F1: while a sealed/validation run holds the program-wide proof lease, no other run starts (its paid calls would be refused).
   assertProofAdmits(programLedger, opts.proofLease);
   return { stage, stageFile, resultsRoot, today, repeat, runDay, skipped, runnable, totals, estimate, maxOutputTokens, legacyOracleSha256: legacy.sha256, legacyE: legacy.E, noise, programSpend,
-    programLedger, dayWindow, clock: dayWindow.clock, agent };
+    programLedger, dayWindow, clock: dayWindow.clock, agent, pilot };
 }
 export type AgendaPreflight = ReturnType<typeof preflightAgendaPractice>;
 const closedDayError = (list: { id: string; dates: string[]; day?: string }[], rollover = false) =>
@@ -257,6 +269,10 @@ export async function runAgendaPractice(scenarios: AgendaScenario[], out: string
   const agent = pre.agent ?? agentArm(process.env), evaluator = evaluatorVersion();
   if (agent !== agentArm(process.env)) throw Error('AGENDA_AGENT_ARM_DRIFT');
   if (agent) assertAgentArm(process.env);
+  // Reschedule pilot arm: the same drift check (a sealed run hands its own preflight).
+  const pilot = pre.pilot ?? pilotArm(process.env);
+  if (pilot !== pilotArm(process.env)) throw Error('AGENDA_PILOT_ARM_DRIFT');
+  if (pilot && agent) throw Error('AGENDA_ARM_CONFLICT');
   // C6 (rec 19): the model contract (prompt templates, wire, model, limits, contract flags) every scenario ran under.
   const contractVersion = secretaryContractVersion({ modelId: 'gpt-6-luna', presentation: backendPresentationDigest() });
   const programLedger = programSpendLedgerPath(), programRun = programSpendLabel(`practice:${basename(out)}`), proof = opts.proofLease;
@@ -299,22 +315,22 @@ export async function runAgendaPractice(scenarios: AgendaScenario[], out: string
     const v = requestVersion(payload, examples); version ??= v; versions[v] = (versions[v] ?? 0) + 1;
     const ctx = active;
     // C5 agent arm: the call's position in its step (≤ 3 per owner message), its ledger label `…:s<step>:r<n>` and the clock of the replay.
-    const call = ++ctx.calls, at = agent ? clock.now().toISOString() : '', item = programSpendLabel(`${ctx.scenario}:s${ctx.step}${agent ? `:r${call}` : ''}`);
+    const call = ++ctx.calls, at = agent || pilot ? clock.now().toISOString() : '', item = programSpendLabel(`${ctx.scenario}:s${ctx.step}${agent ? `:r${call}` : ''}`);
     // Program-wide real-spend cap first: a refused call consumes neither a stage reservation nor transport.
-    try { await assertProgramHeadroom(input, init, { ledger: programLedger, proof, agent }); } catch (e) { halt(programSpendCode(e)); }
+    try { await assertProgramHeadroom(input, init, { ledger: programLedger, proof, agent, pilot }); } catch (e) { halt(programSpendCode(e)); }
     // F1: bounded lock wait inside reserve(); the row is admitted only for the run holding the stage lease.
-    try { reserve(stageFile, run, ctx.scenario, ctx.step, body, stage.name, { lease, agent }); }
+    try { reserve(stageFile, run, ctx.scenario, ctx.step, body, stage.name, { lease, agent, pilot }); }
     catch (e) { const code = (e as NodeJS.ErrnoException).code === 'EEXIST' ? 'AGENDA_STAGE_LOCKED' : e instanceof Error ? e.message : 'ERROR'; if (RUN_ABORTS.has(code)) halt(code); throw e; }
     const started = performance.now(); let response: Response;
-    const failed = (error: string, http?: number) => { if (agent) usage.push({ scenario: ctx.scenario, step: ctx.step, input: 0, cached: 0, output: 0, latencyMs: Math.round(performance.now() - started),
+    const failed = (error: string, http?: number) => { if (agent || pilot) usage.push({ scenario: ctx.scenario, step: ctx.step, input: 0, cached: 0, output: 0, latencyMs: Math.round(performance.now() - started),
       round: call, record: { ...agentCallRecord(call, at, v, payload, undefined, http ?? 200), error } }); };
     // Actual usage (or the worst case) is charged to the program ledger around transport; a ledger failure stops the run.
-    try { response = await guardPaidFetch('practice', network, { ledger: programLedger, run: programRun, item, proof, agent })(input, init); }
+    try { response = await guardPaidFetch('practice', network, { ledger: programLedger, run: programRun, item, proof, agent, pilot })(input, init); }
     catch (e) { if (isProgramSpendError(e)) halt(e.message); failed('TRANSPORT'); throw e; }
     try {
       const json = await response.clone().json() as { output?: { type?: string; arguments?: string }[]; usage?: { input_tokens?: number; output_tokens?: number; input_tokens_details?: { cached_tokens?: number } } };
       usage.push({ scenario: ctx.scenario, step: ctx.step, input: json.usage?.input_tokens ?? 0, cached: json.usage?.input_tokens_details?.cached_tokens ?? 0, output: json.usage?.output_tokens ?? 0, latencyMs: Math.round(performance.now() - started), arguments: json.output?.find(o => o.type === 'function_call')?.arguments,
-        ...(agent ? { round: call, record: agentCallRecord(call, at, v, payload, json, response.status) } : {}) });
+        ...(agent || pilot ? { round: call, record: agentCallRecord(call, at, v, payload, json, response.status) } : {}) });
     } catch { failed('UNREADABLE', response.status); /* usage unknown stays absent (C4 arm); reservation remains the bound */ }
     return response;
   };
@@ -351,13 +367,13 @@ export async function runAgendaPractice(scenarios: AgendaScenario[], out: string
         const secretary = new SalonSecretary(async (): Promise<Model> => createPaidModel(process.env), () => 'gpt-6-luna', undefined, { enabled: () => false }, { enabled: () => true }, persistedSessionStore);
         const session = await secretary.start(actor, 'auto');
         const transcript: unknown[] = []; let view: SecretaryView | undefined = session; let index = 0;
-        const book = new AnswerBook(s.answers, label, today, delivery), routerSeen = new Set<string>();
+        const book = new AnswerBook(s.answers, label, today, delivery), routerSeen = new Set<string>(), pilotSeen = new Set<string>();
         // 'item' delivery: the fixture's customer names and the texts already sent (original, before noise) tell whom an answer is for.
         const customers = delivery === 'item' ? (fixture as unknown as { customers: { name: string }[] }).customers.map(c => c.name) : [], said: string[] = [];
         const pendingFields = (v?: SecretaryView) => [...new Set((v?.action_plan?.actions ?? []).filter(a => a.status !== 'DONE').flatMap(a => a.missing_fields).map(f => f.includes('.') ? f.slice(f.indexOf('.') + 1) : f).filter(f => f !== 'selection'))];
         const initial = await tenantState(admin, identity.tenant);
         const header = { run, stage: stage.name, repeat, attempt, today, dayAnchor: { today, at: anchoredAt.toISOString() }, ...(rerunOf ? { rerunOf, rerunCause: 'DAY_ROLLOVER' } : {}),
-          seedNamespace: namespace, flags, contractVersion, evaluatorVersion: evaluator, ...(agent ? { arm: 'AGENT' } : {}),
+          seedNamespace: namespace, flags, contractVersion, evaluatorVersion: evaluator, ...(agent ? { arm: 'AGENT' } : pilot ? { arm: 'PILOT' } : {}),
           ...(profile !== 'off' ? { noise: { profile, level } } : {}), ...(delivery !== 'field' ? { answerDelivery: delivery } : {}),
           ...(multiService.length ? { seedFormat: { multiService: MULTI_SERVICE_SEED_VERSION } } : {}),
           scenario: s, oracle: s.final ? renderFinal(s.final, today) : undefined, tenant: identity.tenant, initial };
@@ -442,12 +458,14 @@ export async function runAgendaPractice(scenarios: AgendaScenario[], out: string
             }
           } catch (e) { error = e instanceof Error ? e.message.slice(0, 160) : 'ERROR'; }
           if (user) try { router = await routerTelemetry(admin, identity.tenant, routerSeen); } catch { router = null; }
+          let pilotRow: ReturnType<typeof pilotTurnTelemetry> | null = null;
+          if (pilot) try { pilotRow = await pilotTelemetryRow(admin, identity.tenant, pilotSeen); } catch { pilotRow = null; }
           const calls = usage.slice(before), summary = summarize(view);
           if (agent && user) { const path = agentTurnOf({ router: router as TranscriptRow['router'] })?.path ?? 'NOT_ELIGIBLE'; agentPaths[path] = (agentPaths[path] ?? 0) + 1; }
           transcript.push({ step: index, action: 'say' in step ? 'say' : 'answer' in step ? 'answer:' + step.field : 'confirm' in step ? (step.confirm === 'all' ? 'confirm:all' : 'confirm') : 'select' in step ? 'select' : 'choose',
             input, ...('answer' in step && step.for ? { answerFor: step.for } : {}), ...(noise ? { noise } : {}), pending: pendingFields(view), error, latencyMs: Math.round(performance.now() - started), calls: calls.length, luna: calls.map(c => c.arguments),
             tokens: calls.reduce((n, c) => ({ input: n.input + c.input, cached: n.cached + c.cached, output: n.output + c.output }), { input: 0, cached: 0, output: 0 }),
-            ...(agent ? { agentCalls: calls.flatMap(c => c.record ? [c.record] : []) } : {}),
+            ...(agent || pilot ? { agentCalls: calls.flatMap(c => c.record ? [c.record] : []) } : {}), ...(pilot ? { pilot: pilotRow } : {}),
             ...(confirmed ? { confirmed } : {}), ...(user ? { router } : {}), probe: probe(summary), ...errorView(error, summary, 'confirm' in step), db: await tenantState(admin, identity.tenant) });
           save(false);
           if (abort) throw Error(abort);
@@ -476,7 +494,7 @@ export async function runAgendaPractice(scenarios: AgendaScenario[], out: string
         heartbeatStageLease(lease, stageFile, stage.name); // still this run's stage (AGENDA_STAGE_LEASE_LOST / BUSY otherwise)
         const label = `${s.id}#k${attempt}`;
         // F2 midnight guard, decided by the clock only: not enough time left for this attempt's budget -> wake at 00:00:30.
-        const guard = midnightGuard(clock.now(), scenarioBudgetMs(s, perCallBudgetMs(usage.map(u => u.latencyMs)), agent));
+        const guard = midnightGuard(clock.now(), scenarioBudgetMs(s, perCallBudgetMs(usage.map(u => u.latencyMs)), agent, pilot));
         if (guard.action === 'SLEEP') await clock.sleep(guard.sleepMs);
         if (guard.action !== 'RUN') guards.push({ label, action: guard.action, sleepMs: guard.sleepMs, ...(guard.code ? { code: guard.code } : {}) });
         // At most one rerun, in a fresh seed namespace; a second rollover in the same scenario stops the run (bounded).
@@ -533,7 +551,7 @@ export async function runAgendaPractice(scenarios: AgendaScenario[], out: string
     midnightGuard: { sleeps: guards.filter(g => g.action === 'SLEEP').length, sleptMs: guards.reduce((n, g) => n + g.sleepMs, 0), unguarded: guards.filter(g => g.action === 'RUN_UNGUARDED').length, events: guards },
     clock: pre.clock, lease: { id: lease.id, own: ownLease, released: leaseReleased } };
   const report = { run, status: failure ? 'ABORTED' : 'COMPLETE', ...(failure ? { abort } : {}), today: firstDay, ...dayReport, repeat, version, versions, contractVersion, flags, noise: { profile, levels: pre.noise.levels },
-    arm: agent ? 'AGENT' : 'C4', evaluatorVersion: evaluator, ...(agentReport ? { agent: agentReport } : {}),
+    arm: agent ? 'AGENT' : pilot ? 'PILOT' : 'C4', evaluatorVersion: evaluator, ...(agentReport ? { agent: agentReport } : {}),
     ...(delivery !== 'field' ? { answerDelivery: delivery } : {}),
     scenarios: runnable.length, ids: runnable.map(s => s.id), scenarioAttempts: results.length, incomplete, notExecuted, skipped: pre.skipped.map(d => ({ id: d.id, closed: d.closed, invalid: d.invalid })), requests,
     usage: { input: usage.reduce((n, u) => n + u.input, 0), cached: usage.reduce((n, u) => n + u.cached, 0), output: usage.reduce((n, u) => n + u.output, 0) },

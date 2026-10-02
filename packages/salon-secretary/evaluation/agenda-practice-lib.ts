@@ -9,6 +9,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:pat
 import { runInNewContext } from 'node:vm';
 import { assertSecretaryResponsesPayload } from '../src/openai-cost-guard';
 import { AGENT_EFFORTS, AGENT_LIMITS, agentMissingDependencies, agentRoundEfforts } from '../src/agent-context';
+import { PILOT_RESCHEDULE_TOOL as PILOT_TOOL_NAME } from '../src/pilot-reschedule-contract';
 import type { FreeUseFixture } from './free-use-contract';
 import { armFlags, devBatteryMessages, devBatteryScenarios, exampleBankCorpus, formatRunStats, nameTokens, runStats, scenarioMessages, scenarioNames, similarityStrata,
   type ArmProfile, type PasskArm } from './agenda-practice-stats';
@@ -76,13 +77,14 @@ export function stageTotals(file: string, stage: AgendaStageName = LEGACY_AGENDA
 }
 /** `lease`: the run's held stage lease (the runner always passes it; reserve() then refuses a stage leased by anyone else).
  * `lockWaitMs`: the bounded lock wait (default STAGE_LOCK_WAIT_MS; tests shorten it). `agent` (C5): the runner's agent arm
- * (SALON_SECRETARY_AGENT, read once by the runner): the payload guard then admits the agent's wire too; the C4 wire is checked as before. */
-export type ReserveOptions = { lease?: StageLease; lockWaitMs?: number; agent?: boolean };
+ * (SALON_SECRETARY_AGENT, read once by the runner): the payload guard then admits the agent's wire too; the C4 wire is checked as before.
+ * `pilot` (reschedule pilot, SALON_SECRETARY_PILOT_RESCHEDULE, read once by the runner): likewise for the pilot's one-tool wire. */
+export type ReserveOptions = { lease?: StageLease; lockWaitMs?: number; agent?: boolean; pilot?: boolean };
 /** Admission before transport: payload guard, input cap, exclusive lock (bounded wait), stage lease, stage cap, fsynced
  * hash-chained row. A lock still held after the wait is AGENDA_STAGE_LOCKED (never a raw errno); the journal is untouched. */
 export function reserve(file: string, run: string, scenario: string, step: number, body: string, stage: AgendaStageName = LEGACY_AGENDA_STAGE, opts: ReserveOptions = {}): Reservation {
   const { capMicroUsd } = stageFile(file, stage);
-  const payload = JSON.parse(body); assertSecretaryResponsesPayload(payload, 'gpt-6-luna', { agent: opts.agent === true });
+  const payload = JSON.parse(body); assertSecretaryResponsesPayload(payload, 'gpt-6-luna', { agent: opts.agent === true, pilot: opts.pilot === true });
   const bodyBytes = Buffer.byteLength(body, 'utf8'), inputUpper = bodyBytes + PRICE.framing;
   if (inputUpper > PRICE.maxInput) throw Error('AGENDA_INPUT_CAP');
   const reservedMicroUsd = reservationMicroUsd(bodyBytes, payload.max_output_tokens);
@@ -404,6 +406,11 @@ export function answerDeliveryMode(value: unknown): AnswerDelivery {
  * when it has one (used up or held), never with a key another pending question asks, and an alias answer is never a guess (one
  * naming someone else, or naming nobody while a later say introduces a customer, waits). */
 export const ANSWER_ALIASES: Readonly<Record<string, readonly string[]>> = { service_changes_ref: ['service_ref', 'service_name'], service_changes: ['service_ref', 'service_name'] };
+/** Owner decision 29 (docs/DECISOES_PRODUTO.md): the professional who will attend a change (`target_professional_ref`) counts as
+ * `professional_ref` for the scenario's answers (both delivery modes) and for the `mustAsk` oracle, in both arms (evaluation only). */
+export const PROFESSIONAL_FIELD_ALIASES: Readonly<Record<string, string>> = { target_professional_ref: 'professional_ref', professional_ref: 'target_professional_ref' };
+/** Whether an asked field satisfies an oracle field (itself, or its decision-29 alias). */
+export const sameAskField = (asked: string, wanted: string) => asked === wanted || (Object.hasOwn(PROFESSIONAL_FIELD_ALIASES, asked) && PROFESSIONAL_FIELD_ALIASES[asked] === wanted);
 /** Which item a delivered answer went to: the pending field it answered and, when the question named one, the plan item key. */
 export type AnswerFor = { field: string; item?: string };
 export type AnswerDelivered = { field: string; text: string; use: number; for?: AnswerFor };
@@ -452,13 +459,18 @@ export class AnswerBook {
   next(pending: string[], question?: AnswerQuestion): AnswerDelivered | undefined {
     if (this.delivery !== 'item') {
       const field = pending.find(f => this.has(f));
-      if (!field) return undefined;
-      return this.take(field, this.unused(field)[0].n);
+      if (field) return this.take(field, this.unused(field)[0].n);
+      // Decision 29: a pending field with no answer of its own takes its alias's (never one another pending field asks for itself).
+      const aliased = pending.find(f => Object.hasOwn(PROFESSIONAL_FIELD_ALIASES, f) && !pending.includes(PROFESSIONAL_FIELD_ALIASES[f]) && this.has(PROFESSIONAL_FIELD_ALIASES[f]));
+      if (!aliased) return undefined;
+      const key = PROFESSIONAL_FIELD_ALIASES[aliased];
+      return { ...this.take(key, this.unused(key)[0].n), for: { field: aliased } };
     }
     const order = [...new Set([...(question?.first ?? []).filter(f => pending.includes(f)), ...pending])];
     for (const asked of order) {
       // The scenario's own key only, when it has one; else its aliases that no pending question asks for itself.
-      const keys = this.answers && Object.hasOwn(this.answers, asked) ? [asked] : (Object.hasOwn(ANSWER_ALIASES, asked) ? ANSWER_ALIASES[asked] : []).filter(k => !pending.includes(k));
+      const aliases = [...(Object.hasOwn(ANSWER_ALIASES, asked) ? ANSWER_ALIASES[asked] : []), ...(Object.hasOwn(PROFESSIONAL_FIELD_ALIASES, asked) ? [PROFESSIONAL_FIELD_ALIASES[asked]] : [])];
+      const keys = this.answers && Object.hasOwn(this.answers, asked) ? [asked] : aliases.filter(k => !pending.includes(k));
       for (const key of keys) {
         const target = question?.fields.get(asked), n = this.pick(key, target, question?.future ?? [], key !== asked);
         if (n !== undefined) return { ...this.take(key, n), for: { field: asked, ...(target?.item !== undefined ? { item: target.item } : {}) } };
@@ -798,6 +810,11 @@ export function selectScenarioIds<T extends { id: string }>(scenarios: readonly 
  * fallback included: spec §3.8), and with Phase 1 a scripted answer may open a new request too, so both reserve 3. */
 export const AGENT_CALLS_PER_MESSAGE: number = AGENT_LIMITS.callsPerMessage;
 export const agentArm = (env: Readonly<Record<string, string | undefined>>) => env.SALON_SECRETARY_AGENT === 'true';
+/** Reschedule pilot arm (SALON_SECRETARY_PILOT_RESCHEDULE; docs/c5-spike/12-piloto-remarcacao.md): read once by the runner, passed explicitly to
+ * the headroom check, the stage reservation and the paid fetch guard (none of them reads the flag). One owner message is at most 2 paid
+ * calls (the interpretation and one format repair; PILOT_CALL_LIMITS). */
+export const pilotArm = (env: Readonly<Record<string, string | undefined>>) => env.SALON_SECRETARY_PILOT_RESCHEDULE === 'true';
+export const PILOT_CALLS_PER_MESSAGE = 2;
 /** An agent arm whose dependency flags are not all on, or whose effort (per message, or per call: SALON_SECRETARY_AGENT_EFFORT_ROUNDS) is
  * invalid, would silently answer through the C4 (AGENT_FLAGS_INCOMPLETE / AGENT_EFFORT_INVALID): refused before any file, database or
  * network. Codes and flag names only. */
@@ -810,16 +827,17 @@ export function assertAgentArm(env: Readonly<Record<string, string | undefined>>
 }
 
 // ---------------------------------------------------------------- preflight: headroom and run day
-/** `agent` (C5 arm): 3 calls per say and per scripted answer; otherwise the historical 2 per say (+1 repair) and 1 per answer. */
-export function expectedCalls(s: AgendaScenario, opts: { agent?: boolean } = {}) {
+/** `agent` (C5 arm): 3 calls per say and per scripted answer; `pilot` (reschedule pilot arm): 2 per say and per answer (the interpretation
+ * and one format repair); otherwise the historical 2 per say (+1 repair) and 1 per answer. */
+export function expectedCalls(s: AgendaScenario, opts: { agent?: boolean; pilot?: boolean } = {}) {
   const says = s.steps.filter(step => 'say' in step).length;
   const answers = Object.values(s.answers ?? {}).reduce((n, spec) => n + answerInstances(spec).length, 0);
-  return { says, answers, calls: opts.agent ? AGENT_CALLS_PER_MESSAGE * (says + answers) : 2 * says + answers }; // +1 repair margin per say
+  return { says, answers, calls: opts.agent ? AGENT_CALLS_PER_MESSAGE * (says + answers) : opts.pilot ? PILOT_CALLS_PER_MESSAGE * (says + answers) : 2 * says + answers }; // +1 repair margin per say
 }
 /** `extraRequests`: requests beyond K passes (F2: the one rerun a midnight rollover may cost), reserved like any other. */
 export function headroomEstimate(input: { scenarios: AgendaScenario[]; repeat: number; spentMicroUsd: number; capMicroUsd: number;
-  perPassMaxRequests?: number; bodyBytes?: number; maxOutputTokens?: number; extraRequests?: number; agent?: boolean }) {
-  const callsPerPass = input.scenarios.reduce((n, s) => n + expectedCalls(s, { agent: input.agent }).calls, 0), calls = callsPerPass * input.repeat;
+  perPassMaxRequests?: number; bodyBytes?: number; maxOutputTokens?: number; extraRequests?: number; agent?: boolean; pilot?: boolean }) {
+  const callsPerPass = input.scenarios.reduce((n, s) => n + expectedCalls(s, { agent: input.agent, pilot: input.pilot }).calls, 0), calls = callsPerPass * input.repeat;
   const perPass = input.perPassMaxRequests ?? callsPerPass, maxRequests = perPass * input.repeat + Math.max(0, Math.trunc(input.extraRequests ?? 0));
   const perCallMicroUsd = reservationMicroUsd(input.bodyBytes ?? ESTIMATE_BODY_BYTES, input.maxOutputTokens ?? DEFAULT_OUTPUT_TOKENS);
   const requiredMicroUsd = maxRequests * perCallMicroUsd, remainingMicroUsd = input.capMicroUsd - input.spentMicroUsd;
@@ -883,7 +901,7 @@ export const MIDNIGHT_WAKE_MS = 30_000, MIDNIGHT_SLEEP_MAX_MS = 30 * 60_000;
 export const RUN_ESTIMATE_CALL_MS = 12_000, RUN_ESTIMATE_ATTEMPT_MS = 5_000;
 /** 90 s until 20 calls were measured, then the run's p99 x 1.5. */
 export const perCallBudgetMs = (latenciesMs: number[]) => latenciesMs.length >= 20 ? Math.max(1_000, Math.ceil(percentile(latenciesMs, 0.99)! * 1.5)) : PER_CALL_BUDGET_MS;
-export const scenarioBudgetMs = (s: AgendaScenario, perCallMs: number = PER_CALL_BUDGET_MS, agent = false) => expectedCalls(s, { agent }).calls * perCallMs + SCENARIO_MARGIN_MS;
+export const scenarioBudgetMs = (s: AgendaScenario, perCallMs: number = PER_CALL_BUDGET_MS, agent = false, pilot = false) => expectedCalls(s, { agent, pilot }).calls * perCallMs + SCENARIO_MARGIN_MS;
 export type MidnightGuard = { action: 'RUN' | 'SLEEP' | 'RUN_UNGUARDED'; remainingMs: number; budgetMs: number; sleepMs: number; code?: 'AGENDA_MIDNIGHT_SLEEP_LIMIT' };
 /** Decided by the clock only (never by an outcome), before each scenario attempt: when less time than the attempt's budget is
  * left before São Paulo midnight, sleep until 00:00:30 and anchor the new day. A sleep over 30 min is refused (the attempt then
@@ -895,8 +913,8 @@ export function midnightGuard(now: Date, budgetMs: number): MidnightGuard {
   if (sleepMs > MIDNIGHT_SLEEP_MAX_MS) return { action: 'RUN_UNGUARDED', remainingMs, budgetMs, sleepMs: 0, code: 'AGENDA_MIDNIGHT_SLEEP_LIMIT' };
   return { action: 'SLEEP', remainingMs, budgetMs, sleepMs };
 }
-export const runEstimateMs = (scenarios: AgendaScenario[], repeat: number, agent = false) =>
-  repeat * scenarios.reduce((n, s) => n + expectedCalls(s, { agent }).calls * RUN_ESTIMATE_CALL_MS + RUN_ESTIMATE_ATTEMPT_MS, 0);
+export const runEstimateMs = (scenarios: AgendaScenario[], repeat: number, agent = false, pilot = false) =>
+  repeat * scenarios.reduce((n, s) => n + expectedCalls(s, { agent, pilot }).calls * RUN_ESTIMATE_CALL_MS + RUN_ESTIMATE_ATTEMPT_MS, 0);
 /** Every São Paulo day from `now` through `now + horizonMs`. */
 export function reachableDays(now: Date, horizonMs: number) {
   const first = todayInSaoPaulo(now), last = todayInSaoPaulo(new Date(now.getTime() + Math.max(0, horizonMs))), days = [first];
@@ -944,7 +962,7 @@ export function evaluatorVersion(root: string = process.cwd()) {
  * only counted), the sha256 of every tool output the request sent back, the round's `tool_choice`, the request version and the clock.
  * A C4 call (the fallback, or a continuation with an active plan) keeps its interpretation arguments. Never message text beyond what
  * the model's own arguments carry (the same as `luna`). */
-export type AgentCallRecord = { n: number; kind: 'AGENT' | 'C4'; at: string; version: string; status?: string; http?: number; error?: string; forced?: boolean;
+export type AgentCallRecord = { n: number; kind: 'AGENT' | 'C4' | 'PILOT'; at: string; version: string; status?: string; http?: number; error?: string; forced?: boolean;
   /** Output items in order: `reasoning`, `function_call`, `message[:<phase>]` or another type; `sizes` = the length of each item's
    * opaque text (encrypted content, commentary text; 0 otherwise), so a replay stand-in keeps the request bytes the loop measured. */
   items?: string[]; sizes?: number[]; reasoning?: string[]; calls?: { call_id: string; name: string; arguments: string }[]; outputs?: { call_id: string; sha256: string }[]; arguments?: string };
@@ -959,7 +977,9 @@ export function agentCallRecord(n: number, at: string, version: string, payload:
   const head = { n, at, version, ...(typeof r.status === 'string' ? { status: codeLabel(r.status) } : {}), ...(http !== 200 ? { http } : {}) };
   if (!(Array.isArray(p.tools) && p.tools.length > 1)) {
     const args = out.find(o => o.type === 'function_call')?.arguments;
-    return { ...head, kind: 'C4', ...(typeof args === 'string' ? { arguments: args } : {}) };
+    // Reschedule pilot: its one forced tool (interpretar_remarcacao) is the PILOT kind, never a C4 call.
+    const pilot = Array.isArray(p.tools) && p.tools.length === 1 && jsonObject(p.tools[0]) && p.tools[0].name === PILOT_TOOL_NAME;
+    return { ...head, kind: pilot ? 'PILOT' : 'C4', ...(typeof args === 'string' ? { arguments: args } : {}) };
   }
   const input = Array.isArray(p.input) ? p.input.filter(jsonObject) : [], text = (v: unknown) => typeof v === 'string' ? v : JSON.stringify(v ?? null);
   return { ...head, kind: 'AGENT', forced: jsonObject(p.tool_choice), items: out.map(itemKind), sizes: out.map(itemSize),
@@ -1172,7 +1192,22 @@ export type TranscriptRow = { step: number; action?: string; note?: string; inpu
   router?: { outcome?: { examples_mode?: string; examples_count?: number; examples_bytes?: number; examples_eligible?: number;
     /** The turn's codes (e.g. READ_UPCOMING: the read projection v2 marker). */ divergence?: { failed_codes?: unknown } | null;
     /** C5 (§6.4): the agent's path and counters of the turn (absent on C4 runs and on turns the agent was not eligible for). */ agent?: AgentTurnOutcome | null } | null } | null;
-  /** C5 agent arm only: every paid call of the step (the offline replay's input; AgentCallRecord). */ agentCalls?: AgentCallRecord[] };
+  /** C5 agent arm only: every paid call of the step (the offline replay's input; AgentCallRecord). */ agentCalls?: AgentCallRecord[];
+  /** Reschedule pilot arm only: the turn's SECRETARY_PILOT row, codes and numbers only (pilotTurnTelemetry). */ pilot?: PilotTurnTelemetry | null };
+/** The reschedule pilot's telemetry of one turn as the runner keeps it: codes and numbers only (never a name, a ref or the owner's words). */
+export type PilotTurnTelemetry = { code: string | null; status: string | null; question: { field: string; reason: string } | null; provenance: Record<string, string> | null;
+  model_calls: number | null; repaired: boolean | null; latency_ms: number | null; invalidation: string | null };
+const PILOT_CODE = /^[A-Z][A-Z0-9_]{1,79}$/, PILOT_WORD = /^[a-z][a-z_]{0,39}$/;
+/** Projects a SECRETARY_PILOT audit row (action + metadata) onto PilotTurnTelemetry; anything outside the allowlist is dropped. */
+export function pilotTurnTelemetry(action: unknown, metadata: unknown): PilotTurnTelemetry {
+  const m: Json = jsonObject(metadata) ? metadata : {}, word = (v: unknown) => typeof v === 'string' && PILOT_WORD.test(v) ? v : null;
+  const count = (v: unknown) => typeof v === 'number' && Number.isInteger(v) && v >= 0 ? v : null;
+  const q = jsonObject(m.question) ? m.question : null;
+  const question = q && word(q.field) && typeof q.reason === 'string' && PILOT_CODE.test(q.reason) ? { field: word(q.field)!, reason: q.reason } : null;
+  const provenance = jsonObject(m.provenance) ? Object.fromEntries(Object.entries(m.provenance).filter(([k, v]) => PILOT_WORD.test(k) && word(v) !== null)) as Record<string, string> : null;
+  return { code: typeof action === 'string' && PILOT_CODE.test(action) ? action : null, status: word(m.status), question, provenance, model_calls: count(m.model_calls),
+    repaired: typeof m.repaired === 'boolean' ? m.repaired : null, latency_ms: count(m.latency_ms), invalidation: typeof m.invalidation === 'string' && PILOT_CODE.test(m.invalidation) ? m.invalidation : null };
+}
 const stable = (v: unknown): string => Array.isArray(v) ? `[${v.map(stable).join(',')}]` : v && typeof v === 'object'
   ? `{${Object.keys(v as object).sort().map(k => JSON.stringify(k) + ':' + stable((v as Record<string, unknown>)[k])).join(',')}}` : JSON.stringify(v ?? null);
 const bare = (f: string) => f.includes('.') ? f.slice(f.indexOf('.') + 1) : f;
@@ -1564,7 +1599,8 @@ export function gradeTranscript(s: AgendaScenario, initial: DbState, rows: Trans
     }
   });
   const firstWrite = rows.findIndex(t => t.db && !sameDb(t.db, initial));
-  if (f.mustAsk?.length && !rows.slice(0, firstWrite < 0 ? rows.length : firstWrite).some(t => askedFields(t).some(x => f.mustAsk!.includes(x)))) {
+  // Decision 29: target_professional_ref asked satisfies professional_ref (and back).
+  if (f.mustAsk?.length && !rows.slice(0, firstWrite < 0 ? rows.length : firstWrite).some(t => askedFields(t).some(x => f.mustAsk!.some(m => sameAskField(x, m))))) {
     why.push(`NOT_ASKED ${f.mustAsk.join('|')}`);
     if (firstWrite >= 0) safety.push('AUTO_PICK_WITHOUT_QUESTION');
   }

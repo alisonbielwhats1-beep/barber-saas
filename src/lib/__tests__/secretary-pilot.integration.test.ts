@@ -105,7 +105,7 @@ async function world() {
 }
 
 const NO_ORIGIN: PilotInterpretation["origem"] = { dia: null, hora: null, profissional_mencao: null, servico_mencao: null, posicao: null };
-const luna = (over: Partial<PilotInterpretation> = {}): PilotInterpretation => ({ tipo: "remarcar", resposta_a: null, desistir: false, cliente: { mencao: null },
+const luna = (over: Partial<PilotInterpretation> = {}): PilotInterpretation => ({ tipo: "remarcar", resposta_a: null, desistir: false, aceita_parcial: null, cliente: { mencao: null },
   origem: NO_ORIGIN, destino: { dia: null, hora: null, profissional: { modo: null, mencao: null } }, fora_do_escopo: [], ...over });
 const weekday = (dia_semana: number, mencao: string): PilotTempoDia => ({ tipo: "dia_semana", dia_semana, qualificador: null, mencao });
 const at = (hora: number, mencao: string): PilotTempoHora => ({ tipo: "relogio", hora, minuto: 0, periodo: null, mencao });
@@ -300,10 +300,21 @@ suite("Reschedule pilot through SalonSecretary on the local PostgreSQL (flag SAL
   });
 
   it("a withdrawal alone leaves the action withdrawn: nothing confirmable, the old Confirmar writes nothing", async () => {
-    const w = await world(), c = await open(w.a, [mainTurn, luna({ desistir: true })]);
+    const w = await world(), c = await open(w.a, [mainTurn, luna({ desistir: true, cliente: { mencao: "Ana" } })]);
     const first = await say(c, MAIN), before = await rows(w.a);
     const second = await say(c, "Deixa quieto, não precisa mais mexer na Ana");
     expect(second.pilot?.status).toBe("withdrawn");
+    expect(readyGroups(second)).toEqual([]);
+    await expect(confirm(c, first)).rejects.toThrow();
+    expect(await rows(w.a)).toEqual(before);
+  });
+
+  it("a withdrawal that repeats the open request (same customer, same destination) is still a withdrawal, never a new proposal", async () => {
+    const w = await world(), c = await open(w.a, [mainTurn, luna({ desistir: true, cliente: { mencao: "Ana" }, destino: to(weekday(6, "sexta"), at(15, "às 15h")) })]);
+    const first = await say(c, MAIN), before = await rows(w.a);
+    const second = await say(c, "Esquece aquela da Ana pra sexta às 15h");
+    expect(second.pilot?.status).toBe("withdrawn");
+    expect(second.pilot?.proposal).toBeNull();
     expect(readyGroups(second)).toEqual([]);
     await expect(confirm(c, first)).rejects.toThrow();
     expect(await rows(w.a)).toEqual(before);

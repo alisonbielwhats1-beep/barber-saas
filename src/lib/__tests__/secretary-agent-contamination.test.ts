@@ -2,7 +2,9 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { AGENT_DIRECTORY_LABEL, AGENT_FRAMING, AGENT_PROMPT } from '../../../packages/salon-secretary/src/agent-prompt';
 import { agentTools } from '../../../packages/salon-secretary/src/agent-tools';
-import { LINT_EXCERPTS_FILE, LINT_GOLDEN_FILE, LINT_MARK, LINT_SCENARIO_FILES, lintCollisions, lintGrams, lintSources, lintTokens, ownerRules, stringLiterals } from '../../test/secretary-agent-lint';
+import { PILOT_RESCHEDULE_DESCRIPTION, PILOT_RESCHEDULE_PARAMETERS } from '../../../packages/salon-secretary/src/pilot-reschedule-contract';
+import { PILOT_DATA_LABEL, PILOT_PROMPT, PILOT_PROMPT_EXAMPLE_NAMES } from '../../../packages/salon-secretary/src/pilot-reschedule-prompt';
+import { LINT_EXCERPTS_FILE, LINT_GOLDEN_FILE, LINT_MARK, LINT_SCENARIO_FILES, lintCollisions, lintFold, lintGrams, lintSources, lintTokens, ownerRules, stringLiterals } from '../../test/secretary-agent-lint';
 
 /** C5 agent anti-contamination lint (docs/c5-spike/11-especificacao-agente.md §9.6, R9 normalization): no content 3-gram shared between
  * what the agent path says to the model (prompt, framing, tool and schema texts) or the new agent tests, and the evaluation sources:
@@ -84,5 +86,67 @@ describe('agent contamination lint (§9.6)', () => {
     const owner = new Set(sources.filter(source => OWNER_SETS.has(source.file)).flatMap(source => source.texts.flatMap(text => [...lintGrams(text, names)])));
     expect(owner.size).toBeGreaterThan(100);
     expect([...contractGrams].filter(gram => owner.has(gram))).toEqual([]);
+  });
+});
+
+/** Pilot of the reschedule (docs/c5-spike/12-piloto-remarcacao.md, flag SALON_SECRETARY_PILOT_RESCHEDULE): the same lint over what the pilot says
+ * to the model (its prompt, data label, tool and schema texts), the texts of the pilot's own sources (questions and replies the backend writes),
+ * the pilot tests and their helper. One explicit exemption: the fixed backend texts the pilot specification itself quotes («…»), checked
+ * verbatim against it and absent from every owner set. */
+const PILOT_SPEC = 'docs/c5-spike/12-piloto-remarcacao.md';
+const PILOT_SPEC_TEXTS = [
+  'Encontrei X, mas você escreveu Y. É essa cliente ou outra pessoa?',
+  'Não consegui entender com segurança; nada foi alterado.',
+  'O cliente será avisado da remarcação.',
+] as const;
+const pilotGrams = new Set(PILOT_SPEC_TEXTS.flatMap(text => [...lintGrams(text, names)]));
+const pilotAllowed = new Set([...allowed, ...pilotGrams]);
+const pilotDir = (dir: string, pattern: RegExp) => readdirSync(dir).filter(name => pattern.test(name)).map(name => `${dir}/${name}`);
+/** The pilot's own sources: the orchestrator, plan, resolver and reader (src/lib) and the contract and request of the package. */
+const pilotSourceFiles = () => [...pilotDir('src/lib', /^secretary-pilot.*\.ts$/), ...pilotDir('packages/salon-secretary/src', /^pilot-reschedule-.*\.ts$/)];
+const pilotTestFiles = () => [...pilotDir('src/lib/__tests__', /^secretary-pilot.*\.test\.tsx?$/), ...pilotDir('src/test', /^secretary-pilot-.*\.tsx?$/)];
+const literalHits = (files: readonly string[]) => {
+  const hits = new Map<string, string[]>();
+  for (const file of files) for (const [gram, from] of lintCollisions(stringLiterals(readFileSync(file, 'utf8')), sources, names, pilotAllowed)) hits.set(`${file}: ${gram}`, from);
+  return hits;
+};
+
+describe('pilot contamination lint (docs/c5-spike/12-piloto-remarcacao.md)', () => {
+  it('the pilot prompt, its data label and the tool and schema texts share no content 3-gram with any set', () => {
+    const targets = [PILOT_PROMPT, PILOT_DATA_LABEL, PILOT_RESCHEDULE_DESCRIPTION, ...descriptions(PILOT_RESCHEDULE_PARAMETERS)];
+    expect(targets.length).toBeGreaterThan(5);
+    expect(report(lintCollisions(targets, sources, names, pilotAllowed))).toEqual([]);
+  });
+  it('the texts of the pilot sources share none (the specification\'s fixed backend texts aside)', () => {
+    const files = pilotSourceFiles();
+    for (const file of ['src/lib/secretary-pilot.ts', 'src/lib/secretary-pilot-resolver.ts', 'packages/salon-secretary/src/pilot-reschedule-prompt.ts']) expect(files).toContain(file);
+    expect(report(literalHits(files))).toEqual([]);
+  });
+  it('the pilot tests and their helper share none', () => {
+    const files = pilotTestFiles();
+    for (const file of ['src/lib/__tests__/secretary-pilot-resolver.test.ts', 'src/lib/__tests__/secretary-pilot.integration.test.ts', 'src/test/secretary-pilot-reader.ts']) expect(files).toContain(file);
+    expect(report(literalHits(files))).toEqual([]);
+  });
+  it('the prompt example names are in no evaluation name pool (review M13); only the verdict per example name is reported, never pool content', () => {
+    const pools = pilotDir('packages/salon-secretary/evaluation/multi-salon', /^(names.*|generated-.*)\.json$/);
+    expect(pools.length).toBeGreaterThanOrEqual(3);
+    const words = new Set<string>(), split = (text: string) => lintFold(text).split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+    const walk = (value: unknown): void => {
+      if (typeof value === 'string') { for (const word of split(value)) words.add(word); }
+      else if (Array.isArray(value)) value.forEach(walk);
+      else if (value && typeof value === 'object') for (const [key, item] of Object.entries(value)) { walk(key); walk(item); }
+    };
+    for (const file of pools) walk(JSON.parse(readFileSync(file, 'utf8')));
+    expect(words.size).toBeGreaterThan(100);
+    for (const name of PILOT_PROMPT_EXAMPLE_NAMES) {
+      expect(PILOT_PROMPT.includes(name), name).toBe(true);
+      expect(split(name).filter(word => words.has(word) || names.has(word)), name).toEqual([]);
+    }
+  });
+  it('every pilot exemption is quoted verbatim («…») in the pilot specification and none of its 3-grams occurs in an owner set', () => {
+    const spec = readFileSync(PILOT_SPEC, 'utf8');
+    for (const text of PILOT_SPEC_TEXTS) expect(spec.includes(`«${text}»`), text).toBe(true);
+    const owner = new Set(sources.filter(source => OWNER_SETS.has(source.file)).flatMap(source => source.texts.flatMap(text => [...lintGrams(text, names)])));
+    expect([...pilotGrams].filter(gram => owner.has(gram))).toEqual([]);
   });
 });

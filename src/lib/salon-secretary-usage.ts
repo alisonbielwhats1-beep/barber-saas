@@ -7,14 +7,20 @@ import { withTenant } from "./prisma-tenant";
 const counter = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).nullable();
 const id = z.string().max(200).regex(/^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$/).refine(s => !s.startsWith("sk-"));
 /** C4: 1 INTERPRETATION, then at most one 2 SOURCE_LITERAL_REPAIR. C5 agent (flag SALON_SECRETARY_AGENT): calls 1..3 of one message,
- * AGENT_LOOKUP (a round that may consult) or AGENT_PLAN (forced plan; the 3rd call always is). */
-export const SECRETARY_USAGE_PURPOSES = ['INTERPRETATION', 'SOURCE_LITERAL_REPAIR', 'AGENT_LOOKUP', 'AGENT_PLAN'] as const;
+ * AGENT_LOOKUP (a round that may consult) or AGENT_PLAN (forced plan; the 3rd call always is). Pilot of the reschedule (flag
+ * SALON_SECRETARY_PILOT_RESCHEDULE): 1 PILOT_INTERPRETATION, then at most one 2 PILOT_REPAIR (format repair). */
+export const SECRETARY_USAGE_PURPOSES = ['INTERPRETATION', 'SOURCE_LITERAL_REPAIR', 'AGENT_LOOKUP', 'AGENT_PLAN', 'PILOT_INTERPRETATION', 'PILOT_REPAIR'] as const;
 type UsagePurpose = (typeof SECRETARY_USAGE_PURPOSES)[number];
-/** What the recorder takes: a C4 event (ModelCallUsage) or an agent event (instrumentAgentModel), same fields, wider attempt/purpose. */
+/** What the recorder takes: a C4 event (ModelCallUsage), an agent event (instrumentAgentModel) or a pilot event (instrumentPilotModel), same
+ * fields, wider attempt/purpose. */
 export type SecretaryUsageEvent = Omit<ModelCallUsage, 'attempt' | 'purpose'> & { attempt: 1 | 2 | 3; purpose: UsagePurpose };
 const agentPurpose = (purpose: UsagePurpose) => purpose === 'AGENT_LOOKUP' || purpose === 'AGENT_PLAN';
-/** The admitted attempt/purpose pairs (the C4 pairs exactly as before). */
+const pilotPurpose = (purpose: UsagePurpose) => purpose === 'PILOT_INTERPRETATION' || purpose === 'PILOT_REPAIR';
+/** One run is one family: C4, agent or pilot. */
+const family = (purpose: UsagePurpose) => agentPurpose(purpose) ? 'AGENT' : pilotPurpose(purpose) ? 'PILOT' : 'C4';
+/** The admitted attempt/purpose pairs (the C4 and agent pairs exactly as before). */
 const pairAdmitted = (attempt: 1 | 2 | 3, purpose: UsagePurpose) => agentPurpose(purpose) ? attempt < 3 || purpose === 'AGENT_PLAN'
+  : pilotPurpose(purpose) ? attempt === 1 ? purpose === 'PILOT_INTERPRETATION' : attempt === 2 && purpose === 'PILOT_REPAIR'
   : attempt === 1 ? purpose === 'INTERPRETATION' : attempt === 2 && purpose === 'SOURCE_LITERAL_REPAIR';
 const eventSchema = z.object({
   attempt: z.union([z.literal(1), z.literal(2), z.literal(3)]), purpose: z.enum(SECRETARY_USAGE_PURPOSES),
@@ -39,7 +45,7 @@ export function usageRecorder(actor: ServiceActor, sessionId: string, runId: str
     let attempt = attempts.get(safe.attempt);
     if (safe.status === 'STARTED') {
       const previous = attempts.get(safe.attempt - 1);
-      if (attempt || safe.attempt > 1 && (previous?.status !== 'SUCCEEDED' || previous.purpose === 'AGENT_PLAN' || agentPurpose(previous.purpose) !== agentPurpose(safe.purpose)))
+      if (attempt || safe.attempt > 1 && (previous?.status !== 'SUCCEEDED' || previous.purpose === 'AGENT_PLAN' || family(previous.purpose) !== family(safe.purpose)))
         throw Error('USAGE_ATTEMPT_INVALID');
       attempt = { call_id: randomUUID(), finalId: randomUUID(), status: 'STARTED', purpose: safe.purpose };
     } else if (!attempt || attempt.status !== 'STARTED' || attempt.purpose !== safe.purpose) throw Error('USAGE_ATTEMPT_INVALID');

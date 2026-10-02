@@ -256,6 +256,19 @@ export async function confirmAppointmentCreate(tx:Tx,actor:ServiceActor,input:un
   });
 }
 
+/** Pilot of the reschedule (flag SALON_SECRETARY_PILOT_RESCHEDULE; docs/c5-spike/12-piloto-remarcacao.md §5): the journal receipt of a proposal
+ * that was already confirmed (the CONFIRMED row of its draft naming this very proposal_ref), read only, in the actor's own journal. A Confirmar
+ * repeated after a lost reply consults it before any expiry rule; undefined when nothing was written for this proposal. */
+export async function schedulingProposalReceipt(tx:Tx,actor:ServiceActor,proposalRef:string){
+  await assertSchedulingAccess(tx,actor);
+  const row=await tx.auditLog.findFirst({where:{...journal.scope(actor),id:z.string().uuid().parse(proposalRef),action:"PROPOSAL"},select:{metadata:true}});
+  if(!row)return undefined;
+  const proposal=proposalSchema.parse(row.metadata);
+  const confirmed=await tx.auditLog.findFirst({where:{...journal.scope(actor),action:"CONFIRMED",entityId:proposal.draft_ref},select:{metadata:true}});
+  if(!confirmed)return undefined;
+  const receipt=receiptSchema.parse(confirmed.metadata);
+  return receipt.proposal_ref===proposalRef?{...receipt,duplicate:true}:undefined;
+}
 /** T13/T14/T15: existing U03 journal, revision and confirmation contract. `released` (C5): an appointment a pending
  * cancellation of the same plan releases, for the move's freshness check (the executor re-checks the committed agenda). */
 export async function proposeSchedulingAction(tx:Tx,actor:ServiceActor,input:unknown,released?:string){
