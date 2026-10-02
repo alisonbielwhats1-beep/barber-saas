@@ -505,3 +505,19 @@ Feitas por agentes isolados: causa por cenário × braço com verificação cét
   - Comparação: caminho novo × Agent congelado nas mesmas 20 situações, se couber no teto.
   - **Sinal claro** só se valerem os quatro: pelo menos +5 acertos líquidos em 20; zero falha de segurança real; menos perguntas desnecessárias; nenhuma gravação incorreta.
   - **Com ou sem sinal: PARAR** e apresentar ao dono. Nada de E2/E3, consultar, agendar, multi-ação ou correções automáticas.
+
+## Resultado da E0 (02/10/2026): diagnóstico confirmado
+
+- **Método:** replay do fluxo completo, sem chamadas à rede (`requests: 0`), no banco descartável, com o código atual em comportamento congelado.
+- **Validade do replay** (mesmo PASS/FAIL e mesmo banco final dos registros gravados):
+  - DEV S2c: 150/150;
+  - remarcações R1/R2 reclassificadas do v1c: 42/42, com namespace ordenado;
+  - micro-off: 3/3.
+- **Primeira perda de informação nas 46 tentativas R1/R2 que falharam:**
+  - **33 (72%) depois de um valor correto da Luna:** 30 no validador, 2 no decodificador do plano, 1 no estado. Nenhuma na proposta ou no backend.
+  - **13 no modelo:** 9 são a convenção da "sexta" (agora decisão 27: perguntar), 3 do SE18 (escolheu sem perguntar ×2; o plano não comporta hora sem dia ×1) e 1 tempo esgotado.
+  - Sem a decisão 27: **33/37 (89%)** depois da Luna.
+- **Códigos do validador na primeira perda** (reclassificadas R1): KEEP_UNPROVEN 14, APPT_LOCATE 10, NAME_MISMATCH 8, BASE_TYPE 7, DAY_MISSING 6.
+- **Artefatos:** `results/agenda-core/e0-trace-20261002/` (git-ignored).
+- **Ferramenta:** só uma mudança, em `agent-replay.ts`: namespace ordenado, opt-in por `REPLAY_ORDERED_NAMESPACE=1`, com backup do original.
+- **Conclusão:** a E1 pode começar. Especificação em `docs/c5-spike/12-piloto-remarcacao.md`.
