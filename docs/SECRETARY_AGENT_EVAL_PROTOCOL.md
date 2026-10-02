@@ -475,3 +475,17 @@ Feitas por agentes isolados: causa por cenário × braço com verificação cét
   - AGENT_DAY_MISSING;
   - tempo esgotado.
 - **Encerramento:** sem nova rodada de correção. O dono decide.
+
+## Adendo 8: diagnóstico da remarcação (pedido do dono, 01/10/2026, ~22:11 de São Paulo, antes de ler qualquer caso)
+
+- **Reclassificação:** a pedido do dono, os cenários com remarcação do SIMPLE v1c, do COMPLEX v1c e da micro-p0p2-30 terão o pedido original e o plano da Luna lidos. A partir daqui passam a ser **material de desenvolvimento e regressão** e não podem mais ser apresentados como evidência inédita de generalização. Os resultados oficiais registrados não mudam.
+- **Métrica única:** pass^1 por tentativa, com o mesmo avaliador e o mesmo gabarito de cada cenário, sempre com tamanho da amostra e denominador.
+  - Candidata medida: o Agent congelado (2dc6cc5e), ou o mesmo comportamento.
+  - DEV: execução S2c, k = 1 (conteúdo congelado).
+  - Cenários novos: v1c, k = 3, e micro-off, k = 1.
+- **Classes de dificuldade:**
+  - **R1, remarcação simples:** uma ação, uma mensagem, atendimento identificável sem ambiguidade real e destino informado.
+  - **R2, remarcação com esclarecimento:** uma ação, mas com informação faltante ou ambiguidade real que exige pergunta (por exemplo, duas clientes com o mesmo nome).
+  - **R3, remarcação em pedido com mais de uma ação ou com dependência.**
+- **Classes de desfecho por falha:** pergunta segura, proposta errada, ação descartada, tempo esgotado, alteração incorreta.
+- **Restrições:** nenhuma chamada paga, nenhuma alteração de código ou critério. Só diagnóstico e plano.
