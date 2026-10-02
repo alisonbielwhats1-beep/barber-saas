@@ -489,3 +489,19 @@ Feitas por agentes isolados: causa por cenário × braço com verificação cét
   - **R3, remarcação em pedido com mais de uma ação ou com dependência.**
 - **Classes de desfecho por falha:** pergunta segura, proposta errada, ação descartada, tempo esgotado, alteração incorreta.
 - **Restrições:** nenhuma chamada paga, nenhuma alteração de código ou critério. Só diagnóstico e plano.
+
+## Adendo 9: piloto da remarcação, execução curta com gate (aprovado pelo dono, 02/10/2026, 03:48)
+
+- **Branch e integridade:** branch `claude/secretaria-piloto-remarcar`. Agent congelado, C4, C3 e todas as provas anteriores ficam intactos. Decisões de produto 25 a 31.
+- **E0 (custo zero):** `agent-replay.ts` roda no fluxo completo, com as respostas gravadas da Luna e o banco descartável. A medição é por campo, na ordem saída da Luna → validador → estado → proposta → backend. A entrega é a **primeira perda de informação**. A E1 só começa se a E0 confirmar o diagnóstico.
+- **E1:** caminho novo **só para remarcação simples**, atrás de uma flag nova.
+  - Cada campo tem proveniência: explicit, inherited, derived ou unresolved.
+  - Cada pergunta fica ligada à ação e ao campo que a originou.
+  - Testes sintéticos e adversariais são escritos **antes** do código.
+  - Ficam mantidos: operações reais da agenda, Confirmar, revalidação, idempotência e isolamento por salão.
+- **Gate depois da E1:** microvalidação nova com Luna real.
+  - Amostra: 20 remarcações R1/R2 inéditas, com nomes, horários, profissionais e redação novos, sem nenhuma frase de holdout anterior; k = 1.
+  - Teto: **US$ 0,15**.
+  - Comparação: caminho novo × Agent congelado nas mesmas 20 situações, se couber no teto.
+  - **Sinal claro** só se valerem os quatro: pelo menos +5 acertos líquidos em 20; zero falha de segurança real; menos perguntas desnecessárias; nenhuma gravação incorreta.
+  - **Com ou sem sinal: PARAR** e apresentar ao dono. Nada de E2/E3, consultar, agendar, multi-ação ou correções automáticas.

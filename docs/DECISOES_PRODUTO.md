@@ -536,3 +536,23 @@ O dono aprovou a migração para "a LLM conduz a conversa e escolhe as consultas
 ## Secretária de Agenda — decisão do dono de 01/10/2026
 
 24. **Tempo da primeira chamada do agente:** a primeira chamada à Luna pode durar até 25 s; as rodadas seguintes de consulta continuam com até 15 s, e a mensagem inteira continua limitada a 45 s. Motivo medido no S2: com 15 s, pedidos com 3–4 ações estouravam o prazo e caíam para a C4, levando 20–28 s no total. A regra 20 (p50 ≤ 8 s, p90 ≤ 15 s) continua valendo.
+
+## Secretária de Agenda — piloto da remarcação (decisões do dono, 02/10/2026, 03:48)
+
+Princípio do piloto: **a Luna interpreta a linguagem; o código depois dela não reinterpreta o português.** O resolvedor determinístico só pode:
+- consultar registros reais;
+- resolver identidade;
+- detectar ambiguidade real;
+- calcular datas e horas a partir do recebido_em congelado;
+- verificar disponibilidade e regras;
+- localizar o atendimento uma única vez.
+
+Ele nunca usa maiúsculas, listas de palavras, citações literais ou gramática para decidir de novo o que o dono quis dizer.
+
+25. **Escopo inicial do piloto:** só remarcação simples de **um** atendimento existente. Pode mudar o dia, o horário, o profissional ou combinações desses três, sempre mantendo o serviço. Consultar, agendar e multi-ação ficam para depois do gate.
+26. **Fora do escopo:** cancelar, bloquear, trocar serviço, combo, recorrência e multi-ação. Se um pedido for só em parte fora do escopo, a Secretária pergunta antes de propor a parte possível.
+27. **Referência temporal com duas interpretações realmente plausíveis** (por exemplo, "sexta" antes ou depois do atendimento original): a Secretária pergunta. Nunca escolhe em silêncio.
+28. **Tempo no piloto:** até 15 s por chamada e 45 s no total. Os 25 s da decisão 24 valem só para o Agent congelado e só voltam como experimento separado.
+29. **Avaliador de desenvolvimento:** `target_professional_ref` conta como equivalente a `professional_ref` só no avaliador de desenvolvimento. Os resultados oficiais não mudam.
+30. **Estado persistido:** só no banco local. A migration 027 não vai para produção.
+31. **Aviso ao cliente:** a remarcação mantém a notificação normal ao cliente, e a proposta diz claramente que o cliente será avisado.
