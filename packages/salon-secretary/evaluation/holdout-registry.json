@@ -827,6 +827,53 @@
         }
       ],
       "looks": []
+    },
+    {
+      "id": "pilot-e2-30",
+      "kind": "validation",
+      "retired": false,
+      "source": {
+        "name": "PILOT-E2-30.json",
+        "sha256": "c4452c986bedfc11551d11376858293eab80e16fbdbfb1f2b2b593e7e3d2a0f8"
+      },
+      "approved": [
+        {
+          "sha256": "c4452c986bedfc11551d11376858293eab80e16fbdbfb1f2b2b593e7e3d2a0f8",
+          "ids": [
+            "PE01",
+            "PE02",
+            "PE03",
+            "PE04",
+            "PE05",
+            "PE06",
+            "PE07",
+            "PE08",
+            "PE09",
+            "PE10",
+            "PE11",
+            "PE12",
+            "PE13",
+            "PE14",
+            "PE15",
+            "PE16",
+            "PE17",
+            "PE18",
+            "PE19",
+            "PE20",
+            "PE21",
+            "PE22",
+            "PE23",
+            "PE24",
+            "PE25",
+            "PE26",
+            "PE27",
+            "PE28",
+            "PE29",
+            "PE30"
+          ]
+        }
+      ],
+      "looks": []
     }
   ]
 }
