@@ -269,3 +269,32 @@ Emendas ao §10, cada uma com teste de regressão escrito antes do código. Nenh
   - Um desejo do cliente repassado pelo dono, para o salão fazer algo além do dia, do horário ou do profissional deste atendimento, é pedido separado. Uma preferência ou informação que não pede nada fica em observacoes. Não há regra de desempate a favor de fora_do_escopo.
 - **Catálogo enviado à Luna (CATALOG-1):** todos os nomes que o leitor devolve (até 400), cortados só acima de um orçamento de bytes da requisição. O corte é contado na telemetria.
 - **Bateria DEV (REGRESSION-2):** não compartilha nome, nome de catálogo, 3-grama de conteúdo nem par de palavras de conteúdo com os exemplos do prompt. Um teste confere.
+
+## 11. E2-B (Adendo 11): âncora temporal explícita e delegação de profissional
+
+1. **Deslocamento com âncora** (substitui `relativo_hoje`, `origem_mais_dias` e `origem_mais_minutos`; `data`, `dia_semana` (enum), `mes_relativo`, `mesmo_da_origem`, `relogio` e `a_definir` não mudam):
+   - **Dia:**
+     ```
+     { "tipo": "deslocamento", "quantidade": int, "unidade": "dias"|"semanas",
+       "ancoras": ("origem"|"hoje"|"data_citada")[1..2], "data_citada": { "dia": 1-31, "mes": 1-12|null, "mencao": string } | null,
+       "mencao": string }
+     ```
+   - **Hora:**
+     ```
+     { "tipo": "deslocamento", "minutos": int, "ancoras": ("origem"|"agora")[1..2], "mencao": string }
+     ```
+   - **Cálculo:** a Luna diz a operação e a(s) âncora(s) plausível(is); não calcula. O código calcula cada leitura:
+     - **origem:** a data ou hora do atendimento;
+     - **hoje/agora:** o `received_at` congelado no fuso do salão;
+     - **data_citada:** a data literal, calculada como o operador `data`.
+   - **Uma âncora:** usa (`derived`, mostrada na proposta).
+   - **Duas âncoras:** se as leituras coincidem, usa. Se divergem, **pergunta** com as duas datas ou horas reais, presa ao campo `date` ou `time` (motivo `ANCHOR_TWO_READINGS`).
+   - **Âncora `data_citada` sem `data_citada`, ou o contrário:** o contrato é inválido, e cabe um único reparo.
+   - **Limites:** os mesmos de antes (±366 dias, ±1440 min). Uma data passada continua sendo perguntada.
+   - **Estado antigo** (só no banco local): o carregador converte `relativo_hoje → hoje`, `origem_mais_dias → origem`, `origem_mais_minutos → origem`.
+2. **Delegação de profissional:** `profissional.modo` ganha `"outro"`. A Luna marca a intenção ("qualquer" = quem estiver livre, inclusive o atual; "outro" = alguém diferente do atual). O código aplica a decisão 15:
+   - **Candidatos:** quem faz o serviço e está livre durante toda a duração no horário de destino (o próprio atendimento é afastado).
+   - **Exclusão do atual:** o profissional atual sai se o modo for `outro`, ou se o destino tiver o mesmo dia e hora da origem (senão não haveria mudança; é um fato, não leitura).
+   - **Desempate:** menos atendimentos no dia, depois a ordem do nome. Deixa de existir a preferência pelo profissional atual. A proposta diz quem foi escolhido.
+   - **Ninguém livre:** pergunta (`PROFESSIONAL_NOBODY_FREE`), mantendo o resto do plano.
+   - **"manter" e "nomeado":** não mudam.

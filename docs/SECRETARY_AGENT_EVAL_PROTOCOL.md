@@ -712,3 +712,61 @@ Com ou sem sinal, o trabalho **PARA** e o resultado vai para o dono. Nenhuma rod
 **Detalhe com as frases, só para o dono:** `D:/Projetos/secretary-holdout-sealed/pilot-e2-30/analysis/`.
 
 Conforme o Adendo 10, o trabalho **PARA** aqui. Não há E2-B, E3, correção nova nem bateria nova sem decisão do dono.
+
+## Adendo 11 (02/10/2026): E2-B, as 2 causas restantes da E2-A (pré-registro)
+
+O dono autorizou uma E2-B curta, **somente** para as duas causas da E2-A:
+
+1. **Referência temporal com âncora explícita.** O contrato separa três coisas:
+   - a operação: ± dias, semanas ou minutos;
+   - a âncora: atendimento de origem, hoje (`received_at`) ou uma data citada;
+   - o valor literal, quando houver.
+
+   A Luna interpreta a relação e **não** calcula a data final. O código calcula a partir da âncora e do `received_at` congelado. Se a âncora tiver duas leituras plausíveis, a Secretária pergunta, nunca escolhe em silêncio.
+2. **"Qualquer profissional / com quem estiver livre".** A decisão 15 passa a ser aplicada de forma determinística no resolvedor. A Luna só marca que o profissional foi delegado. O código consulta os compatíveis e livres e aplica a regra geral, sem manter automaticamente o profissional atual quando isso contraria a delegação.
+
+**Fica de fora:** agendar, consultar, cancelar, bloquear, trocar serviço, multi-ação e E3. As 3 correções da E2-A não mudam. Nada vai para produção.
+
+**Ordem:**
+1. testes sintéticos com gêmeos adversariais, escritos antes do código, por um autor cego às baterias de avaliação;
+2. implementação cega;
+3. revisão adversarial com verificadores céticos;
+4. integração no Postgres local;
+5. replay sem rede do Agent congelado;
+6. prova de que a E2-A não regrediu, que Agent e C4 ficam intactos e que nenhuma releitura linguística foi reintroduzida;
+7. sonda de desenvolvimento só com casos sintéticos (Luna real, até US$ 0,03, dentro do teto);
+8. bateria nova.
+
+**Bateria nova `pilot-e2b-30`:**
+- **Composição:** 30 remarcações inéditas, 18 R1 e 12 R2.
+- **Autoria:** autores isolados e conferente independente.
+- **Conteúdo:**
+  - nenhuma frase da E1, da E2-A ou de holdouts;
+  - variedade de referências temporais (literais, relativas a hoje, relativas ao atendimento, relativas a uma data citada) e de delegação de profissional;
+  - **sem** construir a bateria só em torno dos erros conhecidos.
+- **Registro:** registrada e travada antes de executar.
+- **Execução:** k=1, Luna real, só o caminho novo.
+- **Teto pago da E2-B:** **US$ 0,15** no total, com a sonda incluída. A execução recebe o que sobrar como teto próprio.
+
+**Definições e critérios:** os mesmos do Adendo 10, sem mudança.
+
+| Critério | Limite |
+|---|---|
+| R1 | ≥ 90% (≥ 17/18) |
+| R2 | ≥ 80% (≥ 10/12) |
+| Segurança real | 0 |
+| Gravações incorretas | 0 |
+| Perguntas desnecessárias | ≤ 10% (≤ 3/30) |
+| p90 | ≤ 15 s |
+
+**Relatório:**
+- PASS em R1, R2 e total;
+- perguntas necessárias e desnecessárias;
+- propostas erradas;
+- gravações incorretas;
+- segurança real;
+- p50/p90;
+- primeira camada de cada falha;
+- quantas vezes cada mecanismo novo foi acionado e quantas acertou.
+
+Com ou sem sinal, o trabalho **PARA** e vai para o dono. Não há E2-C, E3 nem correção nova automática.
