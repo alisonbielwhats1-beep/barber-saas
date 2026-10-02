@@ -42,11 +42,16 @@ const pilotPlan = z.object({
   }).strict(),
   turns: z.array(z.object({ turnId: uuid, clientTurnId: uuid.nullable(), receivedAt: z.string().max(40), baseRevision: revision, revision, outcome: z.string().max(80) }).strict()).max(40),
 }).strict();
+// Review P1: whether each origin hint was proved against the message that brought it; review S2: the received_at of the turn that said each day.
+const pilotProven = z.object({ dia: z.boolean().optional(), hora: z.boolean().optional(), profissional_mencao: z.boolean().optional(), servico_mencao: z.boolean().optional(),
+  posicao: z.boolean().optional() }).strict();
 const pilotPending = z.object({ origem: z.unknown().refine(value => pilotOrigemShape.safeParse(value).success),
-  destino: z.unknown().refine(value => pilotDestinoShape.safeParse(value).success) }).strict();
+  destino: z.unknown().refine(value => pilotDestinoShape.safeParse(value).success), proven: pilotProven.optional(),
+  anchors: z.object({ origem: z.string().max(40).optional(), destino: z.string().max(40).optional() }).strict().optional() }).strict();
 const pilotState = z.object({
   plan: pilotPlan.optional(), pending: pilotPending.optional(),
   replies: z.array(z.object({ clientTurnId: uuid, turnId: uuid, message: z.string().max(20_000), view: object }).strict()).max(32),
+  // `sources`: no longer written (review P1: each hint is proved on arrival); kept so a conversation saved before still loads.
   sources: z.array(z.string().max(1000)).max(8).optional(), outOfScope: z.array(z.string().max(480)).max(6).optional(),
   asked: z.array(z.object({ questionId: pilotQuestionId, text: z.string().max(4000) }).strict()).max(8).optional(),
   notes: z.array(z.string().max(1000)).max(8).optional(), turn: pilotTurn.optional(), questionFloor: z.number().int().min(0).max(999).optional(),

@@ -31,7 +31,7 @@ import { quoteTemporalFacts, temporalQuoteDenied } from "./scheduling-temporal-s
 import { schedulingActionSnapshot } from "./scheduling-mutations";
 import { performance } from "node:perf_hooks";
 import { schedulingState, schedulingSourceTimeReply, applySchedulingInterpretation, sendSchedulingTurn, selectScheduling, persistSchedulingMetrics, schedulingChoiceAgrees, reseedScheduling, forgetAgentBasis, prepareResolvedScheduling, type SchedulingState, type SchedulingReferences } from "./secretary-scheduling";
-import { confirmAppointmentCreate, schedulingProposalReceipt } from "./scheduling-actions";
+import { confirmAppointmentCreate, schedulingDraftReceipt, schedulingProposalReceipt } from "./scheduling-actions";
 import type { SchedulingInterpretation } from "@everflair/salon-secretary";
 import { assertCustomerAccess } from "./customer-catalog";
 import { customerState, sendCustomerTurn, applyCustomerInterpretation, selectCustomer, type CustomerState } from "./secretary-customers";
@@ -81,11 +81,13 @@ import { secretaryCopyV2Enabled, secretaryErrorMessage } from "./secretary-error
 import { CONVERSATION_STATE_SCHEMA, decodeConversationState, encodeConversationState, type ConversationEventKind, type ConversationEventPayload,
   type ConversationRecord, type LoadedConversation, type SecretarySessionStore } from "./secretary-session-store";
 import { parseStoredAggregate, STORED_AGGREGATE_SCHEMA, type StoredSession } from "./secretary-session-state";
-import { confirmPilotProposal, handlePilotMessage, pilotProposalText, pilotRescheduleEnabled, pilotReplay, pilotTelemetry as pilotTelemetryOf, pilotTurnInput, pilotView,
-  selectPilotOption, PILOT_HOURS_VIOLATIONS, PILOT_MISSING_FIELDS, PILOT_PREPARATION_FAILED, PILOT_RELATION_NOT_SUPPORTED, PILOT_WITHDRAWN_REPLY,
+import { confirmPilotProposal, handlePilotMessage, pilotDoneText, pilotProposalText, pilotReceiptFirst, pilotRescheduleEnabled, pilotReplay, pilotTappedOption,
+  pilotTelemetry as pilotTelemetryOf, pilotTurnInput, pilotView, selectPilotOption, PILOT_ALREADY_WRITTEN, PILOT_HOURS_VIOLATIONS, PILOT_MISSING_FIELDS, PILOT_PREPARATION_FAILED,
+  PILOT_RECEIPT_UNVERIFIED, PILOT_RELATION_NOT_SUPPORTED, PILOT_WITHDRAWN_REPLY,
   type PilotHost, type PilotPreparation, type PilotReceipt, type PilotResolvedChange, type PilotSessionState, type PilotView } from "./secretary-pilot";
+import { pilotToday } from "./secretary-pilot-resolver";
 import { inspectSchedulingMove } from "./scheduling-mutations";
-import { invalidate as invalidatePilot, openQuestions, PILOT_ACTION_ID, pilotPlanClosed, withdraw as withdrawPilot } from "./secretary-pilot-plan";
+import { openQuestions, PILOT_ACTION_ID, pilotPlanClosed, withdraw as withdrawPilot } from "./secretary-pilot-plan";
 import { pilotTenantReader } from "./secretary-pilot-reader";
 import { instrumentPilotModel } from "../../packages/salon-secretary/src/pilot-reschedule-prompt";
 
@@ -562,7 +564,9 @@ export class SalonSecretary {
     if (s.skill === "auto") {
       // Read-only UI correlation; the frontend must not infer an action's receipt by position.
       const operations = s.children?.map(id=>({ operation_ref: id, action_keys: s.actionUnits?.find(unit => unit.child === id)?.keys, state: this.view(this.get(s.actor,id)) }));
-      if(s.actionPlan)for(const operation of operations??[])if(operation.state.proposal_expired)for(const key of operation.action_keys??[]){
+      // Pilot (flag; review E2): a pilot-owned plan's expiry is never projected here (a view would stale a Confirmar whose write already committed);
+      // the pilot applies it after the receipt of its proposal (handlePilotMessage, confirmPilotProposal).
+      if(s.actionPlan&&!this.pilotOwns(s))for(const operation of operations??[])if(operation.state.proposal_expired)for(const key of operation.action_keys??[]){
         const action=s.actionPlan.actions.find(item=>item.key===key)!;
         if(!terminalActionStatus(action.status)&&!(action.status==="FAILED_SAFE"&&action.assessment.issue==="PROPOSAL_EXPIRED"))s.actionPlan=assessPlanAction(s.actionPlan,key,{status:"NEEDS_INPUT",missing_fields:[],
           preview:expiredProposalMessage,issue:"PROPOSAL_EXPIRED"});
@@ -639,13 +643,15 @@ export class SalonSecretary {
       if (s.cancelled) throw Error("SESSION_CLOSED");
       if (parsed.operation_ref) throw Error("OPERATION_NOT_IN_SESSION");
       const state = s.pilot ??= { replies: [] };
-      // Review L1 (§4): a repeated clientTurnId gets its stored text and view exactly as recorded (no Luna call, no new revision).
+      // Review L1 (§4): a repeated clientTurnId gets its stored text and view exactly as recorded (no Luna call, no new revision). Review E3: only
+      // while the plan is still the one that reply showed; otherwise the current state (pilotReplay), never an old text beside live controls.
       const replay = pilotReplay(state, parsed.clientTurnId);
       if (replay) return { ...this.view(s), message: replay.text, pilot: replay.view };
       if (s.turns >= 20) throw Error("TURN_LIMIT");
       s.turns++;
-      if (this.pilotExpiry(actor, s)) await this.pilotTelemetry(actor, s.id, "PILOT_PROPOSAL_EXPIRED", pilotTelemetryOf(state));
+      // Review E1: the receipt of the plan's own proposal, then the expiry rule, run inside the turn (handlePilotMessage), in that order.
       const reply = await handlePilotMessage(this.pilotHost(actor, s, new Date()), parsed);
+      if (reply.expiry) await this.pilotTelemetry(actor, s.id, "PILOT_PROPOSAL_EXPIRED", reply.expiry);
       await this.publishPilot(actor, s, reply.text);
       s.lastOutcome = { codes: [reply.code ?? "PILOT_TURN"].filter(code => /^[A-Z][A-Z0-9_]{1,79}$/.test(code)) };
       await this.pilotTelemetry(actor, s.id, reply.code ?? "PILOT_TURN", reply.telemetry ?? {});
@@ -668,7 +674,19 @@ export class SalonSecretary {
         return found?.appointment_ref && (found.outcome === "RESCHEDULED" || found.outcome === "PENDING_ACCEPTANCE")
           ? { proposalRef: found.proposal_ref, appointmentRef: found.appointment_ref, outcome: found.outcome, duplicate: true } : undefined; },
       settle: receipt => this.pilotSettle(actor, s, receipt),
-      confirm: async () => { if (!group) throw Error("CONFIRMATION_GROUP_REQUIRED"); return this.pilotConfirmGroup(actor, s, group); } };
+      confirm: async () => { if (!group) throw Error("CONFIRMATION_GROUP_REQUIRED"); return this.pilotConfirmGroup(actor, s, group); },
+      expired: () => this.pilotProposalLapsed(actor, s) };
+  }
+  /** Whether the pilot's ready proposal lost its validity in its child (expired there, or already dropped by a view after it expired). Consulted
+   * only after the receipt of the plan's own proposal (review E1). */
+  private pilotProposalLapsed(actor: ServiceActor, s: Session): boolean {
+    if (!this.pilotOwns(s)) return false;
+    const unit = s.actionUnits?.find(item => item.keys.includes(PILOT_ACTION_ID)), child = unit?.child ? this.sessions.get(unit.child) : undefined;
+    return !(child && child.actor.salonId === actor.salonId && child.scheduling?.proposal && !this.hasExpiredProposal(child));
+  }
+  /** A child whose proposal expired (still there, or dropped by a view's projection: review E2). */
+  private pilotChildLapsed(child: Session) {
+    return this.hasExpiredProposal(child) || !child.scheduling?.proposal && !!child.proposalExpired && !child.scheduling?.receipt;
   }
   /** The pilot's action and its child scheduling session (ONE action per plan; a new pilot plan gets a new ActionPlan). */
   private async ensurePilotActionPlan(actor: ServiceActor, s: Session): Promise<ActionUnit> {
@@ -700,6 +718,13 @@ export class SalonSecretary {
       // or one with products).
       const thrown = error instanceof Error ? error.message : "";
       if (thrown === "NO_CHANGE") return { ok: false, code: "NO_CHANGE", text: "" };
+      // Review E1: the child's draft was confirmed already (an earlier proposal of this plan written behind the session): that write is reported
+      // with its own journal receipt, never "Não consegui preparar ... nada foi alterado".
+      if (thrown === "ALREADY_CONFIRMED") {
+        const draftRef = c.draft?.draft_ref, found = draftRef ? await withTenant(actor, tx => schedulingDraftReceipt(tx, actor, draftRef)).catch(() => undefined) : undefined;
+        return { ok: false, code: "ALREADY_WRITTEN", text: PILOT_ALREADY_WRITTEN, ...(found?.appointment_ref && (found.outcome === "RESCHEDULED" || found.outcome === "PENDING_ACCEPTANCE")
+          ? { receipt: { proposalRef: found.proposal_ref, appointmentRef: found.appointment_ref, outcome: found.outcome, duplicate: true } } : {}) };
+      }
       if (thrown === "SCHEDULING_RELATION_NOT_SUPPORTED") return { ok: false, code: "RELATION_NOT_SUPPORTED", text: PILOT_RELATION_NOT_SUPPORTED };
       return { ok: false, code: "PREPARATION_FAILED", text: PILOT_PREPARATION_FAILED };
     }
@@ -731,7 +756,7 @@ export class SalonSecretary {
   /** The existing group Confirmar of the pilot's action (an expired proposal fails safe and is reported as such; nothing executes twice). */
   private async pilotConfirmGroup(actor: ServiceActor, s: Session, approval: GroupApproval): Promise<PilotReceipt> {
     const unit = s.actionUnits!.find(item => item.keys.includes(PILOT_ACTION_ID))!, child = this.get(actor, unit.child!);
-    if (this.hasExpiredProposal(child)) {
+    if (this.pilotChildLapsed(child)) {
       s.actionPlan = await executeConfirmationGroup(s.actionPlan!, approval, async () => ({ status: "FAILED_SAFE", missing_fields: [], issue: "PROPOSAL_EXPIRED", preview: expiredProposalMessage }));
       throw Error("PROPOSAL_EXPIRED");
     }
@@ -753,6 +778,19 @@ export class SalonSecretary {
     await this.recordAfterCommit(s, () => this.pilotTelemetry(actor, s.id, reply.code ?? "PILOT_CONFIRM", { plan_id: plan.planId, revision: s.pilot!.plan?.revision ?? 0,
       status: s.pilot!.plan?.action.status ?? null, proposal_ref: proposal?.proposalRef ?? null }));
     return this.view(s);
+  }
+  /** Review E2 (§5): a Confirmar of the pilot's plan first looks for the journal receipt of the plan's OWN proposal_ref (server side, read only, no
+   * client ref), before the revision and fingerprint checks: a write already committed (its reply or save lost, a view projected since) is
+   * settled and reported done, never refused as stale; a plan already done answers with its done view (nothing executes again). Undefined when
+   * nothing was written for it (the checks then run as before). `now`: settled by this call. */
+  private async pilotConfirmByReceipt(actor: ServiceActor, s: Session, approval: GroupApproval): Promise<{ view: SecretaryView; now: boolean } | undefined> {
+    if (s.pilot?.plan?.action.status === "done") return { view: this.view(s), now: false };
+    const host = this.pilotHost(actor, s, new Date()), checked = await pilotReceiptFirst(host);
+    if (checked?.state !== "settled") return undefined;
+    (s.groupReceipts ??= new Set()).add(JSON.stringify(approval));
+    await this.publishPilot(actor, s, pilotDoneText(s.pilot!, checked.receipt, pilotToday(await host.clock())));
+    await this.recordAfterCommit(s, () => this.pilotTelemetry(actor, s.id, "CONFIRMED_BY_RECEIPT", pilotTelemetryOf(s.pilot!)));
+    return { view: this.view(s), now: true };
   }
   /** The pilot plan as the screen, the runner and the Confirmar see it: every open question in the action's missing_fields (customer_ref,
    * appointment_ref, date, time, target_professional_ref, scope), a ready proposal as the READY_FOR_CONFIRMATION group, a withdrawal as the
@@ -785,24 +823,17 @@ export class SalonSecretary {
     Object.assign(s, { actionPlan: undefined, actionUnits: undefined, children: undefined, groupReceipts: undefined, conversationNotice: undefined });
     pilot.actionPlanRef = undefined; pilot.actionPlanFor = undefined; pilot.published = undefined;
   }
-  /** A ready proposal that lost its validity meanwhile (expired in its child) is no longer the plan's proposal: the plan goes to review. True
-   * when it did (review L10: the caller sends the reason to telemetry). */
-  private pilotExpiry(actor: ServiceActor, s: Session): boolean {
-    const plan = s.pilot?.plan;
-    if (!plan || plan.action.status !== "proposal_ready" || !this.pilotOwns(s)) return false;
-    const unit = s.actionUnits?.find(item => item.keys.includes(PILOT_ACTION_ID)), child = unit?.child ? this.sessions.get(unit.child) : undefined;
-    if (child && child.actor.salonId === actor.salonId && child.scheduling?.proposal && !this.hasExpiredProposal(child)) return false;
-    s.pilot!.plan = invalidatePilot(plan, "PROPOSAL_EXPIRED");
-    return true;
-  }
   /** Review M12: the owner's tap on an option of the pilot's open question (view.pilot.questions[].options, published by the backend), on the
-   * pilot's own operation: the same as answering it in words, with no Luna call. Anything else is refused as before. Undefined off the pilot. */
+   * pilot's own operation: the same as answering it in words, with no Luna call. Anything else is refused as before. Undefined off the pilot.
+   * Review S4/S7: the tap ("<questionId>/<option id>") is checked against the open question before anything changes (a refused tap changes
+   * nothing: no expiry rule runs here, since a ready proposal never has an open question). Review S9: a tap counts as a turn of the session. */
   private pilotSelection(actor: ServiceActor, s: Session, operationRef: string, ref: string): Promise<SecretaryView> | undefined {
     if (!pilotRescheduleEnabled() || !s.pilot) return undefined;
     const unit = s.actionUnits?.find(item => item.keys.includes(PILOT_ACTION_ID));
-    if (!this.pilotOwns(s) || !unit?.child || unit.child !== operationRef) throw Error("SELECTION_INVALID");
+    if (!this.pilotOwns(s) || !unit?.child || unit.child !== operationRef || !pilotTappedOption(s.pilot, ref)) throw Error("SELECTION_INVALID");
+    if (s.turns >= 20) throw Error("TURN_LIMIT");
     return (async () => {
-      this.pilotExpiry(actor, s);
+      s.turns++;
       const reply = await selectPilotOption(this.pilotHost(actor, s, new Date()), ref);
       await this.publishPilot(actor, s, reply.text);
       s.lastOutcome = { codes: [reply.code ?? "PILOT_SELECTION"].filter(code => /^[A-Z][A-Z0-9_]{1,79}$/.test(code)) };
@@ -2599,6 +2630,8 @@ export class SalonSecretary {
       const approval = groupConfirmationInput.parse(input);
       if (approval.plan_ref !== parent.actionPlan.plan_ref) throw Error("CONFIRMATION_STALE");
       if (parent.groupReceipts?.has(JSON.stringify(approval))) return this.view(parent);
+      // Pilot (flag; review E2): the receipt of the plan's own proposal_ref before the revision and fingerprint checks (a write already made is done).
+      if (this.pilotOwns(parent)) { const settled = await this.pilotConfirmByReceipt(actor, parent, approval); if (settled) return settled.view; }
       if (approval.revision !== parent.actionPlan.revision) throw Error("CONFIRMATION_STALE");
       if (["UNSUPPORTED","AMBIGUOUS","CONVERSATION"].includes(parent.capability_status??"")) throw Error("PLAN_NOT_READY");
       // Pilot (flag SALON_SECRETARY_PILOT_RESCHEDULE): the receipt of the proposal_ref first, then this same group Confirmar (confirmPilotGroup).
@@ -2682,6 +2715,15 @@ export class SalonSecretary {
       const report: ConfirmationBatchReport = { executed: [], replayed: approvals.filter(receipted).map(approval => approval.group_key), not_executed: [] };
       const pending = approvals.filter(approval => !receipted(approval));
       if (!pending.length) return { ...this.view(parent), confirmation_batch: report };
+      // Pilot (flag; review E2): the receipt of the plan's own proposal_ref before the revision checks (a write already made is done).
+      if (this.pilotOwns(parent) && pending.length === 1) {
+        const settled = await this.pilotConfirmByReceipt(actor, parent, pending[0]);
+        if (settled) {
+          (settled.now ? report.executed : report.replayed).push(pending[0].group_key);
+          this.batchReceipts.set(parent, (this.batchReceipts.get(parent) ?? new Map<string, ConfirmationBatchReport>()).set(replayKey, structuredClone(report)));
+          return { ...settled.view, confirmation_batch: report };
+        }
+      }
       if (["UNSUPPORTED","AMBIGUOUS","CONVERSATION"].includes(parent.capability_status??"")) throw Error("PLAN_NOT_READY");
       // Pilot (flag): its ONE group, through the pilot's Confirmar (the receipt of the proposal_ref first); anything else is stale.
       if (this.pilotOwns(parent)) {
@@ -2808,6 +2850,11 @@ export class SalonSecretary {
   private async pilotDiscard(actor: ServiceActor, s: Session): Promise<SecretaryView> {
     const plan = s.pilot!.plan!;
     if (plan.action.status === "done") throw Error("ALREADY_CONFIRMED");
+    // Review E1: the receipt of the plan's own proposal first: a write already made is reported (never "nada foi alterado na agenda"), and an
+    // unreadable journal withdraws nothing.
+    const host = this.pilotHost(actor, s, new Date()), checked = await pilotReceiptFirst(host);
+    if (checked?.state === "settled") { await this.publishPilot(actor, s, pilotDoneText(s.pilot!, checked.receipt, pilotToday(await host.clock()))); return this.view(s); }
+    if (checked?.state === "unverified") { await this.publishPilot(actor, s, PILOT_RECEIPT_UNVERIFIED); return this.view(s); }
     if (!pilotPlanClosed(plan)) { const reduced = withdrawPilot(plan, plan.revision); if (reduced.ok) { s.pilot!.plan = reduced.plan; s.pilot!.asked = []; s.pilot!.outOfScope = []; } }
     await this.publishPilot(actor, s, PILOT_WITHDRAWN_REPLY);
     return this.view(s);

@@ -113,6 +113,11 @@ function dataDay(dia: number, mes: number | null, today: string): string | undef
   for (const y of [year, year + 1]) { const date = calendarDay(y, mes, dia); if (date && date >= today) return date; }
   return undefined;
 }
+/** "mes_relativo" (review P7): that day of the month `meses` months after today's (0 this month, 1 the next); never another month in its place. */
+function relativeMonthDay(dia: number, meses: number, today: string): string | undefined {
+  const at = Number(today.slice(5, 7)) - 1 + meses;
+  return calendarDay(Number(today.slice(0, 4)) + Math.floor(at / 12), at % 12 + 1, dia);
+}
 /** The first day of that weekday (1 domingo … 7 sábado) strictly after `from`. */
 const weekdayAfter = (diaSemana: number, from: string) => addCalendarDays(from, ((diaSemana - 1 - weekdayOfDateKey(from) + 7) % 7) || 7);
 /** The first day of that weekday from `from` on, `from` included. */
@@ -129,14 +134,16 @@ export type PilotDateResolution =
 /** `target.time` (coordinator decision 4): the destination clock when it is already known without the day's hours (a clock with a period or
  * from 12 on, the original one, the original one plus minutes). A weekday said on that very weekday (no qualifier, or "este") then also reads as
  * today, if that clock is still ahead of received_at; readings that differ are asked (decision 27). An unknown clock adds no today. M6: a day
- * that does not exist or has already passed is invalid (asked, never prepared). */
-export function resolveTargetDate(dia: PilotTempoDia | null, origin: { date: string }, clock: PilotClock, target: { time?: string | null } = {}): PilotDateResolution {
+ * that does not exist or has already passed is invalid (asked, never prepared). Review S2: `clock` is the received_at of the turn that SAID the
+ * operator (its "today"); `current`, when given, is this turn's, and only decides whether the day has passed meanwhile (asked, never shifted). */
+export function resolveTargetDate(dia: PilotTempoDia | null, origin: { date: string }, clock: PilotClock, target: { time?: string | null } = {}, current?: PilotClock): PilotDateResolution {
   if (!dia) return { state: "one", date: origin.date, provenance: "inherited" };
-  const today = pilotToday(clock), mencao = dia.mencao;
+  const today = pilotToday(clock), now = current ? pilotToday(current) : today, mencao = dia.mencao;
   const checked = (date: string | undefined, provenance: "explicit" | "inherited" | "derived"): PilotDateResolution =>
-    !date || !isDateKey(date) ? { state: "invalid", reason: "NO_SUCH_DATE", mencao } : date < today ? { state: "invalid", reason: "DATE_PAST", mencao } : { state: "one", date, provenance, mencao };
+    !date || !isDateKey(date) ? { state: "invalid", reason: "NO_SUCH_DATE", mencao } : date < today || date < now ? { state: "invalid", reason: "DATE_PAST", mencao } : { state: "one", date, provenance, mencao };
   switch (dia.tipo) {
     case "data": return checked(dataDay(dia.dia, dia.mes, today), "explicit");
+    case "mes_relativo": return checked(relativeMonthDay(dia.dia, dia.meses, today), "explicit");
     case "relativo_hoje": return checked(addCalendarDays(today, dia.dias), "explicit");
     case "mesmo_da_origem": return checked(origin.date, "inherited");
     case "origem_mais_dias": return checked(isDateKey(origin.date) ? addCalendarDays(origin.date, dia.dias) : undefined, "derived");
@@ -211,6 +218,7 @@ function originDays(dia: PilotTempoDia, clock: PilotClock): ((date: string) => b
   const today = pilotToday(clock);
   switch (dia.tipo) {
     case "data": { const date = dataDay(dia.dia, dia.mes, today); return day => day === date; }
+    case "mes_relativo": { const date = relativeMonthDay(dia.dia, dia.meses, today); return day => day === date; }
     case "relativo_hoje": { const date = addCalendarDays(today, dia.dias); return day => day === date; }
     case "dia_semana": {
       // C4: an origin said "este" is the first such day from today on, today included (an appointment later today is "this" one).
@@ -226,7 +234,11 @@ function originClock(hora: PilotTempoHora): ((clock: string) => boolean) | undef
   return clock => readings.includes(clock);
 }
 const byStart = (a: PilotAppointmentRow, b: PilotAppointmentRow) => a.startLocal.localeCompare(b.startLocal) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
-export async function resolveAppointment(reader: PilotReader, input: { customerId: string; origem: PilotOrigin; message: string }, clock: PilotClock): Promise<PilotAppointmentResolution> {
+/** `message`: the owner's message the hints are proved against. Review P1: `proven` instead, when the hints came from several messages: whether each
+ * hint's mention was in the very message that brought it (proved once, on arrival; a hint absent from it never chooses). Review S2: `anchor`, the
+ * received_at of the turn that said the origin day (its "today"); `clock` stays this turn's (what is still ahead). */
+export async function resolveAppointment(reader: PilotReader, input: { customerId: string; origem: PilotOrigin; message?: string; proven?: Partial<Record<PilotHint, boolean>>;
+  anchor?: PilotClock }, clock: PilotClock): Promise<PilotAppointmentResolution> {
   const now = pilotNowLocal(clock);
   let rows: readonly PilotAppointmentRow[];
   try { rows = await reader.appointmentsOf(input.customerId, now); } catch { return { state: "unavailable", provenance: "unresolved" }; }
@@ -235,7 +247,8 @@ export async function resolveAppointment(reader: PilotReader, input: { customerI
   const future = ahead.filter(row => !row.dependentName), skippedDependents = ahead.length - future.length;
   const origem = input.origem, used: PilotHint[] = [], ignored: PilotHint[] = [];
   const hints: { hint: PilotHint; mencao: string | null; test?: (row: PilotAppointmentRow) => boolean }[] = [];
-  if (origem.dia) { const test = originDays(origem.dia, clock); hints.push({ hint: "dia", mencao: origem.dia.mencao, test: test && (row => test(row.startLocal.slice(0, 10))) }); }
+  const proven = (hint: PilotHint, mencao: string | null) => input.proven ? input.proven[hint] === true : pilotMentionIn(input.message ?? "", mencao);
+  if (origem.dia) { const test = originDays(origem.dia, input.anchor ?? clock); hints.push({ hint: "dia", mencao: origem.dia.mencao, test: test && (row => test(row.startLocal.slice(0, 10))) }); }
   if (origem.hora) { const test = originClock(origem.hora); hints.push({ hint: "hora", mencao: origem.hora.mencao, test: test && (row => test(row.startLocal.slice(11, 16))) }); }
   if (origem.profissional_mencao) { const tokens = tokensOf(origem.profissional_mencao); hints.push({ hint: "profissional", mencao: origem.profissional_mencao, test: row => !!tokens.length && holds(row.professionalName, tokens) }); }
   if (origem.servico_mencao) { const tokens = tokensOf(origem.servico_mencao); hints.push({ hint: "servico", mencao: origem.servico_mencao, test: row => !!tokens.length && holds(row.serviceName, tokens) }); }
@@ -243,13 +256,13 @@ export async function resolveAppointment(reader: PilotReader, input: { customerI
   for (const { hint, mencao, test } of hints) {
     if (!test) continue;
     // §0 narrow provenance: a hint whose words are not in the message is the model's, never the owner's: it never chooses.
-    if (!pilotMentionIn(input.message, mencao)) { ignored.push(hint); continue; }
+    if (!proven(hint, mencao)) { ignored.push(hint); continue; }
     left = left.filter(test); used.push(hint);
   }
   // Position in the day: first or last by start, only among appointments of ONE day (the day said, or the only one left), and only with the
   // owner's own words for it (C3: the narrow provenance check of every hint; an unproven position never narrows 2 or more rows).
   if (origem.posicao && left.length > 1) {
-    if (!pilotMentionIn(input.message, origem.posicao.mencao)) ignored.push("posicao");
+    if (!proven("posicao", origem.posicao.mencao)) ignored.push("posicao");
     else if (new Set(left.map(row => row.startLocal.slice(0, 10))).size === 1) { left = [origem.posicao.valor === "primeiro" ? left[0] : left[left.length - 1]]; used.push("posicao"); }
   }
   const skipped = skippedDependents ? { skippedDependents } : {};

@@ -269,6 +269,13 @@ export async function schedulingProposalReceipt(tx:Tx,actor:ServiceActor,proposa
   const receipt=receiptSchema.parse(confirmed.metadata);
   return receipt.proposal_ref===proposalRef?{...receipt,duplicate:true}:undefined;
 }
+/** Pilot of the reschedule (flag; review E1): the journal receipt of a draft already confirmed (its CONFIRMED row, whichever proposal it named),
+ * read only, in the actor's own journal; undefined when the draft was never confirmed. */
+export async function schedulingDraftReceipt(tx:Tx,actor:ServiceActor,draftRef:string){
+  await assertSchedulingAccess(tx,actor);
+  const confirmed=await tx.auditLog.findFirst({where:{...journal.scope(actor),action:"CONFIRMED",entityId:z.string().uuid().parse(draftRef)},select:{metadata:true}});
+  return confirmed?{...receiptSchema.parse(confirmed.metadata),duplicate:true}:undefined;
+}
 /** T13/T14/T15: existing U03 journal, revision and confirmation contract. `released` (C5): an appointment a pending
  * cancellation of the same plan releases, for the move's freshness check (the executor re-checks the committed agenda). */
 export async function proposeSchedulingAction(tx:Tx,actor:ServiceActor,input:unknown,released?:string){

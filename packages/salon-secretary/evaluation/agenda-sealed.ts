@@ -183,7 +183,7 @@ export function captureProcessOutput(file: string) {
 // ---------------------------------------------------------------- orchestration
 type Preflight = ReturnType<typeof preflightAgendaPractice>;
 export type SealedOptions = { holdout: string; candidate: string; preflight?: boolean; stage?: string; repeat?: number; maxRequests?: number; closedDay?: 'skip' | 'fail';
-  noise?: AgendaRunOptions['noise'] };
+  noise?: AgendaRunOptions['noise']; /** review H2: the run's own dollar ceiling (AgendaRunOptions.runCapUsd) */ runCapUsd?: number };
 export type ValidationOptions = Omit<SealedOptions, 'candidate'> & { label?: string };
 /** F1 infrastructure preflight steps (each injectable; defaults below). All run before the look; any failure releases the
  * leases and stops with a code, the look and the holdout ledger untouched. `proof`: the program-wide proof lease (no other
@@ -354,7 +354,7 @@ export async function sealedAgendaPractice(o: SealedOptions, d: SealedDeps) {
   const manifest = assertCandidate(o.candidate, d);
   const ledger = d.ledger ?? holdoutUsageLedgerPath(), closedDay = o.closedDay ?? 'fail';
   const allowance = holdoutAllowance(readHoldoutUsage(ledger, d.root), holdout.holdout.id, manifest.versionId);
-  const runOpts: AgendaRunOptions = { stage: o.stage, repeat: o.repeat, maxRequests: o.maxRequests, closedDay, noise: o.noise };
+  const runOpts: AgendaRunOptions = { stage: o.stage, repeat: o.repeat, maxRequests: o.maxRequests, closedDay, noise: o.noise, ...(o.runCapUsd !== undefined ? { runCapUsd: o.runCapUsd } : {}) };
   const pre = d.preflight(holdout.scenarios, runOpts); // pure: stage journal and program ledger read-only, no database, no network
   if (o.preflight) { const summary = preflightSummary('SEALED', pre, holdout, closedDay, { candidate: manifest.versionId, allowance }); d.print(JSON.stringify(summary)); return summary; }
   if (!allowance.allowed) throw Error(allowance.code!);
@@ -380,7 +380,7 @@ export async function sealedAgendaPractice(o: SealedOptions, d: SealedDeps) {
 export async function validationAgendaPractice(o: ValidationOptions, d: OutsideDeps) {
   assertStage(o.stage);
   const roots =d.roots ?? sealedRepoRoots(d.root, d.git), set = openSealedHoldout(o.holdout, d.env, roots, d.registry ?? readHoldoutRegistry(d.root), 'VALIDATION');
-  const closedDay = o.closedDay ?? 'fail', runOpts: AgendaRunOptions = { stage: o.stage, repeat: o.repeat, maxRequests: o.maxRequests, closedDay, noise: o.noise };
+  const closedDay = o.closedDay ?? 'fail', runOpts: AgendaRunOptions = { stage: o.stage, repeat: o.repeat, maxRequests: o.maxRequests, closedDay, noise: o.noise, ...(o.runCapUsd !== undefined ? { runCapUsd: o.runCapUsd } : {}) };
   const pre = d.preflight(set.scenarios, runOpts), priorRuns = priorValidationRuns(set);
   if (o.preflight) { const summary = preflightSummary('VALIDATION', pre, set, closedDay, { priorRuns }); d.print(JSON.stringify(summary)); return summary; }
   assertRunnable(pre, closedDay, d.env);

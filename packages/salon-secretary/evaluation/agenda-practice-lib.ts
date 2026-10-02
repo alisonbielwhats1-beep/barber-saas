@@ -1185,7 +1185,9 @@ type PlanAction = { key: string; operation: string; status?: string; missing?: s
 type ViewSummary = { message?: string; capability_status?: string; cancelled?: boolean; suspended?: string[];
   plan?: { status?: string; actions: PlanAction[]; groups: { key: string; status: string }[] };
   operations?: { keys?: string[]; scheduling?: { fields?: unknown; missing?: string[]; proposal?: unknown; candidates?: unknown[]; alternatives?: unknown[]; calendar_conflicts?: unknown[];
-    review?: { status?: string }; appointments?: unknown[] }; batch?: { items?: unknown; missing?: string[]; proposal?: unknown; candidates?: unknown } }[] };
+    review?: { status?: string }; appointments?: unknown[] }; batch?: { items?: unknown; missing?: string[]; proposal?: unknown; candidates?: unknown } }[];
+  /** Reschedule pilot arm only (review H3/H4): the pilot plan's revision, status, open questions (codes and option counts) and provenance per field. */
+  pilot?: { revision?: number; status?: string | null; questions?: { field: string; reason: string; options: number }[]; provenance?: Record<string, string> | null } };
 export type TranscriptRow = { step: number; action?: string; note?: string; input?: unknown; pending?: string[]; error?: string; latencyMs?: number; calls?: number;
   luna?: (string | undefined | null)[]; tokens?: { input: number; cached: number; output: number }; view?: ViewSummary; db?: DbState;
   /** Codes-only SECRETARY_ROUTER row of the turn (its `outcome` carries the C2 examples_* counters). */
@@ -1211,10 +1213,14 @@ export function pilotTurnTelemetry(action: unknown, metadata: unknown): PilotTur
 const stable = (v: unknown): string => Array.isArray(v) ? `[${v.map(stable).join(',')}]` : v && typeof v === 'object'
   ? `{${Object.keys(v as object).sort().map(k => JSON.stringify(k) + ':' + stable((v as Record<string, unknown>)[k])).join(',')}}` : JSON.stringify(v ?? null);
 const bare = (f: string) => f.includes('.') ? f.slice(f.indexOf('.') + 1) : f;
-const planSignature = (v?: ViewSummary) => stable(v?.plan
+/** Review H4: the pilot's own progress (an accepted change moves its revision; its question and the provenance of each field), so a pilot turn that
+ * moved the plan is never read as a loop or a lost turn. Absent on every other arm (their signatures are exactly as before). */
+const pilotProgress = (p: NonNullable<ViewSummary['pilot']>) => ({ r: p.revision ?? null, s: p.status ?? null, q: (p.questions ?? []).map(q => [q.field, q.reason, q.options]), p: p.provenance ?? null });
+const planBase = (v?: ViewSummary) => v?.plan
   ? { a: v.plan.actions.map(a => [a.key, a.operation, a.status, a.missing, a.fields]), g: v.plan.groups.map(g => [g.key, g.status]) }
-  : { o: (v?.operations ?? []).map(o => [o.keys, o.scheduling?.fields, o.scheduling?.missing, !!o.scheduling?.proposal, o.batch?.items, !!o.batch?.proposal]) });
-const actionFields = (v?: ViewSummary) => stable((v?.plan?.actions ?? []).map(a => [a.key, a.operation, a.fields]));
+  : { o: (v?.operations ?? []).map(o => [o.keys, o.scheduling?.fields, o.scheduling?.missing, !!o.scheduling?.proposal, o.batch?.items, !!o.batch?.proposal]) };
+const planSignature = (v?: ViewSummary) => stable(v?.pilot ? { ...planBase(v), pilot: pilotProgress(v.pilot) } : planBase(v));
+const actionFields = (v?: ViewSummary) => { const base = (v?.plan?.actions ?? []).map(a => [a.key, a.operation, a.fields]); return stable(v?.pilot ? { base, pilot: pilotProgress(v.pilot) } : base); };
 const LUNA_FIELDS: Record<string, string[]> = {
   customer_name: ['customer_ref', 'customer_name'], service_name: ['service_ref', 'service_name'], professional_name: ['professional_ref', 'professional_name'],
   date: ['date'], day_offset: ['date'], weekday: ['date'], time: ['time'], end_time: ['end_time'], end_date: ['end_date'],
@@ -1424,6 +1430,8 @@ export function askedFields(row: TranscriptRow) {
     for (const f of [...(o.scheduling?.missing ?? []), ...(o.batch?.missing ?? [])]) out.add(bare(f));
     if (hasItems(o.scheduling?.candidates) || hasItems(o.batch?.candidates)) out.add('selection');
   }
+  // Review H3: the pilot's question with 2+ real options is a choice on screen, exactly as a candidate card is.
+  if ((v?.pilot?.questions ?? []).some(q => q.options >= 2)) out.add('selection');
   return [...out];
 }
 const readyIn = (v?: ViewSummary) => v?.plan ? v.plan.groups.some(g => g.status === 'READY_FOR_CONFIRMATION') : (v?.operations ?? []).some(o => o.scheduling?.proposal || o.batch?.proposal);
@@ -1649,7 +1657,7 @@ export function buildPasskReport(runDir: string, opts: { legacyCheck?: string } 
   const definitions = new Map<string, string>();
   const incomplete: { id: string; k: number; abort?: string }[] = [], safety: { id: string; k: number; codes: string[] }[] = [], invalid: { id: string; k: number }[] = [];
   const counts = Object.fromEntries(TURN_LABELS.map(l => [l, 0])) as Record<TurnLabel, number>, divergence: Record<string, number> = {}, domain: Record<string, number> = {};
-  const latency: number[] = [], todays = new Set<string>(), versions = new Set<string>(); let turns = 0, actualUsd = 0, graded = 0;
+  const latency: number[] = [], todays = new Set<string>(), versions = new Set<string>(); let turns = 0, actualUsd = 0, graded = 0, asked = 0;
   // Per-run cost/size/quality inputs of the A/B (C2 examples off | selected | full): provider tokens and the router's examples_* counters.
   const usage = { calls: 0, input: 0, cached: 0, output: 0 }, shown = { turns: 0, count: 0, bytes: 0, maxBytes: 0, eligible: 0 }, exampleModes = new Set<string>();
   const noise: Record<string, { attempts: number; passed: number }> = {}; // graded attempts per noise level
@@ -1692,6 +1700,9 @@ export function buildPasskReport(runDir: string, opts: { legacyCheck?: string } 
     if (grade.safety.length) safety.push({ id: r.scenario.id, k, codes: grade.safety });
     if ('invalid' in grade && grade.invalid) invalid.push({ id: r.scenario.id, k });
     agentAttempts.push(agentAttemptTurns(grade, r.scenario.capability ?? [], r.transcript));
+    // Review H4: one question instrument for every arm: an owner turn whose row asked something (askedFields: pending fields, missing fields, a
+    // choice on screen), whatever shape the arm gives its question.
+    for (const t of r.transcript) if (t.note === undefined && (t.action === 'say' || String(t.action).startsWith('answer')) && askedFields(t).length) asked++;
     for (const t of classifyTurns(r.transcript)) {
       turns++; for (const l of t.labels) counts[l]++; for (const d of t.divergence) divergence[d] = (divergence[d] ?? 0) + 1; for (const d of t.domain) domain[d] = (domain[d] ?? 0) + 1;
       if (t.latencyMs !== undefined) latency.push(t.latencyMs);
@@ -1745,7 +1756,8 @@ export function buildPasskReport(runDir: string, opts: { legacyCheck?: string } 
     flaky: rows.filter(r => gradedOnly(r).some(a => a.ok) && gradedOnly(r).some(a => !a.ok)).map(r => r.id), safety, invalid, incomplete, skipped: (report?.skipped as unknown[] | undefined) ?? [],
     // F2: pass per run day, the rollover reruns graded in place of their discarded attempts, and mixed-day grader errors.
     byDay: Object.fromEntries(Object.entries(byDay).sort(([a], [b]) => a.localeCompare(b)).map(([d, t]) => [d, { ...t, pass1: t.passed / t.attempts }])), reruns, discarded, discardedSafety, graderErrors,
-    turns: { count: turns, counts, per100: Object.fromEntries(TURN_LABELS.map(l => [l, turns ? Number((counts[l] * 100 / turns).toFixed(1)) : null])), divergence, domain },
+    turns: { count: turns, counts, per100: Object.fromEntries(TURN_LABELS.map(l => [l, turns ? Number((counts[l] * 100 / turns).toFixed(1)) : null])), divergence, domain,
+      asked: { count: asked, per100: turns ? Number((asked * 100 / turns).toFixed(1)) : null } },
     latencyMs: { p50: percentile(latency, 0.5), p90: percentile(latency, 0.9) },
     cost: { reservedUsd, estimatedActualUsd: Number(actualUsd.toFixed(6)) },
     // A/B grouping per run: the SALON_SECRETARY_* snapshot, the examples contract tag, token usage per call and the examples actually sent.

@@ -35,9 +35,13 @@ const constant = (value: string): Json => ({ type: "string", enum: [value] });
 const choice = (values: readonly string[], orNull = false): Json => orNull ? { type: ["string", "null"], enum: [...values, null] } : { type: "string", enum: [...values] };
 const freeze = <T>(value: T): T => { if (value && typeof value === "object") { for (const child of Object.values(value)) freeze(child); Object.freeze(value); } return value; };
 const mention = described({ type: "string", minLength: 1, maxLength: L.mention }, "Cópia das palavras do dono para este valor, como ele escreveu.");
+/** Review P5: a mention of a name (customer, professional, service) carries only the name's own words: the resolver matches every one of them. */
+const nameMention = described({ type: "string", minLength: 1, maxLength: L.mention }, "Só as palavras do próprio nome, como o dono escreveu, sem artigo, preposição ou forma de tratamento.");
 
 const dayWire: Json[] = [
   object({ tipo: constant("data"), dia: integer(1, 31), mes: nullable(integer(1, 12)), mencao: mention }),
+  // Review P7: a day of a month said relative to the current one (the resolver counts the months from received_at; Luna never computes it).
+  object({ tipo: constant("mes_relativo"), dia: integer(1, 31), meses: described(integer(0, 12), "Meses depois do mês atual: 0 este mês, 1 o seguinte."), mencao: mention }),
   object({ tipo: constant("dia_semana"), dia_semana: described(integer(1, 7), "1 domingo, 2 segunda, 3 terça, 4 quarta, 5 quinta, 6 sexta, 7 sábado."),
     qualificador: choice(PILOT_QUALIFIERS, true), mencao: mention }),
   object({ tipo: constant("relativo_hoje"), dias: integer(-L.days, L.days), mencao: mention }),
@@ -56,17 +60,18 @@ const clockOrNull: Json = { anyOf: [...clockWire, { type: "null" }] };
 const positionOrNull: Json = { anyOf: [object({ valor: choice(PILOT_POSITIONS), mencao: mention }), { type: "null" }] };
 /** §2 wire of `interpretar_remarcacao` (OpenAI strict function schema; plain data, frozen). */
 export const PILOT_RESCHEDULE_PARAMETERS: Json = freeze(object({
-  tipo: described(choice(PILOT_TURN_KINDS), "remarcar: mudar dia, horário ou profissional de um atendimento já marcado; resposta: continuação de uma pergunta aberta; misto: parte remarcação e parte outra coisa."),
+  tipo: described(choice(PILOT_TURN_KINDS), "remarcar: mudar dia, horário ou profissional de um atendimento já marcado; resposta: continuação de uma pergunta aberta; misto: parte remarcação e parte outra coisa, inclusive uma segunda remarcação."),
   resposta_a: described(nullable({ type: "string", pattern: L.questionId }), "Id da pergunta aberta que esta mensagem responde; senão null."),
   desistir: described({ type: "boolean" }, "O dono retira o rascunho aberto. Não é cancelar atendimento."),
   aceita_parcial: described(nullable({ type: "boolean" }), "Só na resposta à pergunta de fazer só a remarcação: true se o dono aceita, false se recusa; em qualquer outro caso null."),
-  cliente: object({ mencao: nullable(mention) }),
-  origem: described(object({ dia: dayOrNull, hora: clockOrNull, profissional_mencao: nullable(mention), servico_mencao: nullable(mention), posicao: positionOrNull }),
+  cliente: object({ mencao: nullable(nameMention) }),
+  origem: described(object({ dia: dayOrNull, hora: clockOrNull, profissional_mencao: nullable(nameMention), servico_mencao: nullable(nameMention), posicao: positionOrNull }),
     "Só as pistas que o dono deu sobre o atendimento que já existe."),
-  destino: described(object({ dia: dayOrNull, hora: clockOrNull, profissional: object({ modo: choice(PILOT_PROFESSIONAL_MODES, true), mencao: nullable(mention) }) }),
+  destino: described(object({ dia: dayOrNull, hora: clockOrNull, profissional: object({ modo: choice(PILOT_PROFESSIONAL_MODES, true), mencao: nullable(nameMention) }) }),
     "O que o dono pediu para o novo horário."),
+  // Review P4: one appointment per message; a second reschedule is named here (tipo misto), never dropped nor merged into the first.
   fora_do_escopo: described({ type: "array", maxItems: L.outOfScope, items: object({ tipo: choice(PILOT_OUT_OF_SCOPE_KINDS), mencao: mention }) },
-    "Pedidos desta mensagem que não são remarcar um atendimento."),
+    "Pedidos desta mensagem além da remarcação dos campos acima, inclusive uma segunda remarcação (outra pessoa ou outro atendimento) como outra_acao."),
 }));
 export const PILOT_RESCHEDULE_DESCRIPTION = "Devolve o que o dono pediu sobre remarcar um atendimento, com as palavras dele em cada menção. Nada é gravado: o sistema confere os registros e o dono confirma pelo botão.";
 /** The SDK's SerializedFunctionTool / the Responses function tool of the pilot (the only tool of its request, strict). */
@@ -87,6 +92,7 @@ const mentionShape = text(1, L.mention);
 const int = (minimum?: number, maximum?: number) => { let shape = z.number().int(); if (minimum !== undefined) shape = shape.min(minimum); if (maximum !== undefined) shape = shape.max(maximum); return shape; };
 export const pilotTempoDiaShape = z.discriminatedUnion("tipo", [
   z.object({ tipo: z.literal("data"), dia: int(1, 31), mes: int(1, 12).nullable(), mencao: mentionShape }).strict(),
+  z.object({ tipo: z.literal("mes_relativo"), dia: int(1, 31), meses: int(0, 12), mencao: mentionShape }).strict(),
   z.object({ tipo: z.literal("dia_semana"), dia_semana: int(1, 7), qualificador: z.enum(PILOT_QUALIFIERS).nullable(), mencao: mentionShape }).strict(),
   z.object({ tipo: z.literal("relativo_hoje"), dias: int(-L.days, L.days), mencao: mentionShape }).strict(),
   z.object({ tipo: z.literal("mesmo_da_origem"), mencao: mentionShape }).strict(),

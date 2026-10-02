@@ -458,6 +458,15 @@ export async function assertProgramHeadroom(input: FetchInput, init: FetchInit, 
     return { spentMicroUsd: state.spent, worstCaseMicroUsd: estimate.worstCaseMicroUsd, remainingMicroUsd: PROGRAM_REAL_CAP_MICRO_USD - state.spent };
   });
 }
+/** Review H2: a run's own dollar ceiling, checked before each of its paid calls (inside the run, not after it): what the run charged in the program
+ * ledger since `baselineMicroUsd` (open calls counted at their worst case) plus this call's worst case. True when the call would pass `capMicroUsd`
+ * (the runner then stops: the run is ABORTED, never half graded). Read only. */
+export function runSpendCapReached(input: FetchInput, init: FetchInit, options: { ledger: string; run: string; capMicroUsd: number; baselineMicroUsd?: number;
+  estimator?: PaidEstimator; agent?: boolean; pilot?: boolean }): boolean {
+  const worst = fetchEstimator(options.estimator).estimator.worstCase(input, init, { agent: options.agent === true, pilot: options.pilot === true }).worstCaseMicroUsd;
+  const spent = (programSpendTotals(options.ledger).byRun[options.run]?.spentMicroUsd ?? 0) - (options.baselineMicroUsd ?? 0);
+  return spent + worst > options.capMicroUsd;
+}
 export type ProgramReservation = { id: string; source: ProgramSpendSource; run: string; item: string; worstCaseMicroUsd: number; spentBeforeMicroUsd: number };
 /** Durable worst-case charge BEFORE transport: throws PROGRAM_SPEND_CAP when ledger total + worst case exceeds the cap
  * (PROGRAM_SPEND_BOUND after any call beyond the sealed bound). */

@@ -196,3 +196,15 @@ question = { questionId, actionId, field, options?, revision, open }
 ## 8. Fora da E1
 
 Consultar, agendar, multi-ação, cancelar, bloquear, trocar serviço, voz, novo desenho da interface e produção.
+
+## 9. Revisão final da E1 (correções, ainda atrás da flag)
+
+- **Proveniência por turno:** cada pista de origem é conferida uma vez, contra a mensagem que a trouxe. Uma pista sem prova nunca substitui uma pista provada do mesmo campo. Um atendimento já vinculado só é localizado de novo quando uma pista provada muda de valor; outras palavras para o mesmo valor não contam. Se o vinculado continua entre os que sobram, ele fica.
+- **Dia do turno:** cada operador de dia guarda o `received_at` do turno em que foi dito. Um turno posterior não o desloca; se o dia já passou, a Secretária pergunta.
+- **O que a mensagem muda:** uma correção, uma desistência com correção e uma mensagem sem mudança são decididas pelos operadores da própria mensagem, nunca por uma nova resolução. Uma mensagem que não muda nada mantém a revisão e a proposta.
+- **Fora do escopo:** a parte fora do escopo nunca some em silêncio. Ela vira a pergunta de escopo, inclusive numa desistência com correção, ou um aviso na resposta. Depois do sim à pergunta de escopo, ela não é perguntada de novo.
+- **Contrato:** a mensagem tem uma única remarcação; uma segunda vai em `fora_do_escopo` como `outra_acao` (`misto`). As menções de nome levam só o nome. Há um novo operador de dia: `{ "tipo": "mes_relativo", "dia": 1-31, "meses": 0-12, "mencao": string }`.
+- **Recibo primeiro:** antes de expirar, retirar ou preparar de novo a proposta do plano, e antes da revisão e da impressão digital do Confirmar, a Secretária consulta o recibo do `proposal_ref` do plano. Uma gravação já feita é informada como feita. Se o journal não pode ser lido, nada é retirado.
+- **Mensagem repetida:** o mesmo `clientTurnId` devolve a resposta guardada só enquanto o plano é o mesmo. Se o plano mudou, devolve o estado atual.
+- **Toque:** cada toque nomeia a pergunta (`<questionId>/<id da opção>`). Um toque num profissional vincula esse registro. Um toque recusado não muda nada e conta como turno da sessão.
+- **Execução paga:** `--run-cap-usd` limita o gasto da própria execução antes de cada chamada (`AGENDA_RUN_SPEND_CAP`). O braço do piloto registra o progresso do plano e as opções reais da pergunta e pode tocar nelas.

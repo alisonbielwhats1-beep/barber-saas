@@ -7,8 +7,8 @@ import { applyAnswer, applyIntent, approve, attachProposal, completeExecution, c
   pilotPlanClosed, startExecution, withdraw, PILOT_FIELDS, PILOT_OPTIONS_MAX, type PilotApproval, type PilotField, type PilotFieldName, type PilotOption,
   type PilotPlan, type PilotProposal, type PilotQuestion, type PilotQuestionDraft, type PilotQuestionField, type PilotQuestionReason, type PilotReduction,
   type PilotStatus } from "./secretary-pilot-plan";
-import { pilotClockReadings, pilotIdentityOf, pilotNowLocal, pilotToday, resolveAppointment, resolveCustomer, resolveProfessional, resolveTargetDate, resolveTargetTime,
-  type PilotAppointmentRow, type PilotClock, type PilotIdentity, type PilotPerson, type PilotReader, type PilotServiceRow } from "./secretary-pilot-resolver";
+import { pilotClockReadings, pilotIdentityOf, pilotMentionIn, pilotNowLocal, pilotToday, resolveAppointment, resolveCustomer, resolveProfessional, resolveTargetDate, resolveTargetTime,
+  type PilotAppointmentRow, type PilotClock, type PilotHint, type PilotIdentity, type PilotPerson, type PilotReader, type PilotServiceRow } from "./secretary-pilot-resolver";
 import type { PilotDestination, PilotInterpretation, PilotOrigin } from "../../packages/salon-secretary/src/pilot-reschedule-contract";
 import { runPilotInterpretation, PILOT_CALL_LIMITS, PILOT_OPEN_LABELS, type PilotOpenContext, type PilotRequestContext } from "../../packages/salon-secretary/src/pilot-reschedule-prompt";
 import { formatClock, formatDay, formatLocal, formatLocalRange } from "./secretary-datetime-format";
@@ -57,6 +57,18 @@ export const PILOT_DIRECTORY_UNAVAILABLE = "Não consegui consultar os dados do 
 export const PILOT_NAME_REQUIRED = "Para eu ter certeza, escreva o nome como está no cadastro ou toque na opção.";
 /** The open draft, when nothing in it is asked or ready (review L8: never an empty reply). */
 export const PILOT_OPEN_DRAFT = "O pedido de remarcação segue em aberto e nada foi gravado. Diga o que deseja mudar.";
+/** Review E1: the plan's own proposal turned out to be written already (a reply or a save lost after the commit): said, never "nada foi alterado". */
+export const PILOT_ALREADY_WRITTEN_NOTE = "Essa remarcação já estava gravada antes desta mensagem; nada mais foi alterado. Para mudar de novo, mande o pedido de novo.";
+/** Review E1: the journal could not be read, so whether the proposal was written is unknown: nothing is withdrawn or prepared again. */
+export const PILOT_RECEIPT_UNVERIFIED = "Não consegui conferir agora se a remarcação proposta já foi gravada; nada mais foi alterado. Pode repetir em instantes?";
+/** Review E1: the Confirmar failed and its receipt could not be read: the proposal stays as it was (a new Confirmar looks for the receipt first). */
+export const PILOT_CONFIRM_UNVERIFIED = "Não consegui conferir se a remarcação foi gravada. Nada foi refeito; toque em Confirmar de novo para conferir.";
+/** Review E1: the agenda says this change's draft was already confirmed (an earlier proposal of this conversation): this change is not made. */
+export const PILOT_ALREADY_WRITTEN = "A remarcação deste atendimento proposta antes nesta conversa já estava gravada; esta nova mudança não foi feita e nada mais foi alterado. Se ainda quiser mudar, mande o pedido de novo.";
+/** Review E3: a repeated clientTurnId whose stored reply no longer matches the plan (a later message changed it): the current state, never the old text. */
+export const PILOT_REPLAY_SUPERSEDED = "Essa mensagem já tinha sido atendida e o pedido mudou depois dela; nada foi feito de novo. Como está agora:";
+/** The plan is done (a replayed reply after the Confirmar). */
+export const PILOT_DONE_STATE = "Essa remarcação já foi gravada.";
 /** The message input with the flag on: the existing one plus the client's turn id (027's clientTurnId). */
 export const pilotTurnInput = z.object({ sessionId: z.string().uuid(), message: z.string().trim().min(1).max(1000), operation_ref: z.string().uuid().optional(),
   clientTurnId: z.string().uuid().optional() }).strict();
@@ -71,25 +83,31 @@ export type PilotView = {
 };
 /** What the session keeps for the pilot (in memory, and in the persisted aggregate when the store is on). `pending`: Luna's typed operators of
  * the open action not resolved yet (a weekday's second reading needs the original day, so "sexta" waits for the customer and the appointment);
- * a later turn's operator replaces the one of its own slot. `replies`: the stored reply of each clientTurnId. `sources`: the owner's messages of
- * the open plan that brought origin hints (the narrow provenance check reads them, nothing else). `outOfScope`: the parts of the open request
- * the pilot does not do, until the owner answers the scope question. `asked`: the text of each open question (what a stale answer repeats).
+ * a later turn's operator replaces the one of its own slot. `replies`: the stored reply of each clientTurnId. `outOfScope`: the parts of the open
+ * request the pilot does not do, until the owner answers the scope question. `asked`: the text of each open question (what a stale answer repeats).
  * `turn`: the latest turn. `questionFloor`: the largest question number of the session's earlier plans (ids never restart). `actionPlanRef`/
  * `actionPlanFor`/`published`: the ActionPlan (SalonSecretary) this plan publishes through, the plan it was made for and the plan revision it
  * last showed. */
-export type PilotSessionState = { plan?: PilotPlan; pending?: { origem: PilotOrigin; destino: PilotDestination };
+export type PilotSessionState = { plan?: PilotPlan; pending?: PilotPending;
   replies: { clientTurnId: string; turnId: string; message: string; view: PilotView }[];
-  sources?: string[]; outOfScope?: string[]; asked?: { questionId: string; text: string }[]; notes?: string[];
+  outOfScope?: string[]; asked?: { questionId: string; text: string }[]; notes?: string[];
   turn?: { turnId: string; clientTurnId: string | null; receivedAt: string }; questionFloor?: number;
   actionPlanRef?: string; actionPlanFor?: string; published?: number };
+/** Luna's typed operators of the open action not resolved yet. Review P1: `proven`, whether each origin hint's mention was in the very message that
+ * brought it (proved once, on arrival: the narrow provenance check never reads another turn's words). Review S2: `anchors`, the received_at (ISO)
+ * of the turn that said the origin day and the destination day (their "today": a later turn never reads them against its own day). */
+export type PilotPending = { origem: PilotOrigin; destino: PilotDestination; proven?: Partial<Record<keyof PilotOrigin, boolean>>; anchors?: { origem?: string; destino?: string } };
 /** The resolved change the real agenda preparation receives: refs and the local day and clock (the appointment is never located again).
  * `keepsProfessional`: the professional is the appointment's own (no new professional is sent); `notes`: the derived assumptions it shows;
  * `today`: the salon's local day of received_at (the year the texts are written against). */
 export type PilotResolvedChange = { appointmentRef: string; customerRef: string; date: string; time: string; professionalRef: string; serviceRef: string;
   derived: PilotFieldName[]; keepsProfessional: boolean; notes: string[]; today?: string };
-export type PilotPreparation = { ok: true; proposal: PilotProposal }
-  | { ok: false; code: "SLOT_UNAVAILABLE" | "OUTSIDE_HOURS" | "SERVICE_NOT_PERFORMED" | "NO_CHANGE" | "RELATION_NOT_SUPPORTED" | "PREPARATION_FAILED"; text: string; alternatives?: string[] };
 export type PilotReceipt = { proposalRef: string; appointmentRef: string; outcome: "RESCHEDULED" | "PENDING_ACCEPTANCE"; duplicate: boolean };
+/** Review E1: ALREADY_WRITTEN, the change's draft was confirmed already (an earlier proposal of this plan, written behind the session), with that
+ * write's receipt when the journal gave it. */
+export type PilotPreparation = { ok: true; proposal: PilotProposal }
+  | { ok: false; code: "SLOT_UNAVAILABLE" | "OUTSIDE_HOURS" | "SERVICE_NOT_PERFORMED" | "NO_CHANGE" | "RELATION_NOT_SUPPORTED" | "PREPARATION_FAILED"; text: string; alternatives?: string[] }
+  | { ok: false; code: "ALREADY_WRITTEN"; text: string; receipt?: PilotReceipt };
 /** What SalonSecretary lends the pilot for one call, inside its lease, authorization and tenant scope. */
 export interface PilotHost {
   readonly actor: ServiceActor;
@@ -109,9 +127,12 @@ export interface PilotHost {
   settle(receipt: PilotReceipt): Promise<void>;
   /** The existing Confirmar of one proposal (lock, fresh snapshot, journal receipt; idempotent). */
   confirm(approval: PilotApproval): Promise<PilotReceipt>;
+  /** Whether the ready proposal lost its validity in the agenda (consulted only after its receipt, review E1). Absent: never expires here. */
+  expired?(): boolean;
 }
-/** `code`: the turn's outcome (telemetry, codes only); `telemetry`: codes and numbers of the turn. */
-export type PilotReply = { text: string; view: PilotView; code?: string; telemetry?: Record<string, unknown> };
+/** `code`: the turn's outcome (telemetry, codes only); `telemetry`: codes and numbers of the turn; `expiry`: the plan's telemetry at the moment a
+ * proposal that lost its validity was dropped by this turn (codes only). */
+export type PilotReply = { text: string; view: PilotView; code?: string; telemetry?: Record<string, unknown>; expiry?: Record<string, unknown> };
 
 // ---------------------------------------------------------------- presentation (pt-BR, neutral about the customer's gender)
 const list = (items: readonly string[]) => items.length < 2 ? items.join("") : `${items.slice(0, -1).join(", ")} e ${items.at(-1)}`;
@@ -122,9 +143,19 @@ const listed = (items: readonly string[], separator = "; ") => items.length <= S
 const quoted = (text: string) => `“${text}”`;
 const brl = (cents: number) => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const minutesBetween = (start: string, end: string) => Math.round((Date.parse(`${end.slice(0, 16)}:00Z`) - Date.parse(`${start.slice(0, 16)}:00Z`)) / 60_000);
+/** Review S9: what a label or a question carries of a record's name is bounded (UTF-16 units, as the saved bounds count): the rest becomes "…", so
+ * a state with a long catalog or team name is always saved. */
+export const PILOT_TEXT_BOUNDS = Object.freeze({ name: 120, service: 160, asked: 4000 });
+export const pilotClip = (text: string, max: number) => {
+  if (text.length <= max) return text;
+  let out = "";
+  for (const point of text) { if (out.length + point.length > max - 1) break; out += point; }
+  return `${out}…`;
+};
+const person = (name: string) => pilotClip(name, PILOT_TEXT_BOUNDS.name);
 /** One appointment as the owner reads it (no customer name: it is always the customer's own). `reference`: the year of received_at. */
 export const pilotAppointmentLabel = (row: Pick<PilotAppointmentRow, "startLocal" | "serviceName" | "professionalName">, reference?: string) =>
-  `${formatLocal(row.startLocal, reference)} — ${row.serviceName} com ${row.professionalName}`;
+  `${formatLocal(row.startLocal, reference)} — ${pilotClip(row.serviceName, PILOT_TEXT_BOUNDS.service)} com ${person(row.professionalName)}`;
 /** The proposal's facts, from the agenda's own snapshot of the change (the C4 action snapshot). */
 export type PilotSnapshotFacts = { customer_name?: string; services: readonly { name: string }[]; professional_name: string; before_professional_name?: string;
   before_start?: string; before_end?: string; startLocal: string; endLocal: string; priceCents?: number; requires_acceptance: boolean };
@@ -160,10 +191,16 @@ export function pilotView(state: PilotSessionState): PilotView {
     proposal: proposal ? { proposalRef: proposal.proposalRef, draftRevision: proposal.draftRevision, revision: proposal.revision } : null,
     turn: turnOf(state.turn, false) };
 }
-/** Review L1 (§4): a repeated clientTurnId gets its stored reply exactly as recorded (text and view), marked replayed. */
-export function pilotReplay(state: PilotSessionState, clientTurnId: string | undefined): { text: string; view: PilotView } | undefined {
+/** Review L1 (§4): a repeated clientTurnId gets its stored reply exactly as recorded (text and view), marked replayed. Review E3: only while the
+ * plan is still the one that reply showed (same plan, revision and status), so the reply is never paired with the controls of a later proposal;
+ * otherwise the current state (its text and view) under PILOT_REPLAY_SUPERSEDED, marked replayed and `superseded`. Nothing is done again. */
+export function pilotReplay(state: PilotSessionState, clientTurnId: string | undefined): { text: string; view: PilotView; superseded?: true } | undefined {
   const stored = clientTurnId ? state.replies.find(reply => reply.clientTurnId === clientTurnId) : undefined;
-  return stored ? { text: stored.message, view: { ...structuredClone(stored.view), turn: turnOf(stored.view.turn, true) } } : undefined;
+  if (!stored) return undefined;
+  const live = pilotView(state), turn = turnOf(stored.view.turn, true);
+  if (live.planId === stored.view.planId && live.revision === stored.view.revision && live.status === stored.view.status) return { text: stored.message, view: { ...structuredClone(stored.view), turn } };
+  const plan = state.plan, now = !plan ? "" : plan.action.status === "done" ? PILOT_DONE_STATE : plan.action.status === "withdrawn" ? PILOT_WITHDRAWN_REPLY : pilotStateText(state) || PILOT_OPEN_DRAFT;
+  return { text: joined(PILOT_REPLAY_SUPERSEDED, now), view: { ...live, turn }, superseded: true };
 }
 /** What the open plan says now: its open questions, else its ready proposal, else that the draft stays open. */
 export function pilotStateText(state: PilotSessionState): string {
@@ -178,8 +215,11 @@ const joined = (...parts: readonly string[]) => parts.filter(Boolean).join("\n\n
 // ---------------------------------------------------------------- one owner message
 /** `baseRevision` (review L8): the revision the turn started on; the turn's first reduction compares against it (compare-and-swap). */
 type Ctx = { host: PilotHost; state: PilotSessionState; reader: PilotReader; clock: PilotClock; message: string; catalog: readonly PilotServiceRow[]; baseRevision: number; reference: string;
-  /** Review M4: this message brought an origin hint different from the pending one (only then is a bound appointment located again). */
-  originChanged?: boolean };
+  /** Review M4/P2: this message brought an origin hint, proved in it, whose typed value differs from the pending one (only then is a bound
+   * appointment located again; other words for the same value, or a hint absent from the message, never unbind it). */
+  originChanged?: boolean;
+  /** Review P3/P6: the scope question was opened by this message (its out-of-scope part is then said by that question). */
+  scopeAsked?: boolean };
 type Outcome = { text: string; code: string };
 /** What the resolution of the open plan's fields gives: every field (resolved or not), at most one question with its text, the appointment row
  * and the notes of the derived values. */
@@ -190,23 +230,49 @@ const EMPTY_DESTINATION: PilotDestination = { dia: null, hora: null, profissiona
 /** An interpretation that says nothing (the base of an owner's tap on an option). */
 const SILENT: PilotInterpretation = { tipo: "resposta", resposta_a: null, desistir: false, aceita_parcial: null, cliente: { mencao: null }, origem: EMPTY_ORIGIN,
   destino: EMPTY_DESTINATION, fora_do_escopo: [] };
-const hasOrigin = (origem: PilotOrigin) => Object.values(origem).some(value => value !== null);
-const hasCorrection = (I: PilotInterpretation) => !!I.cliente.mencao || hasOrigin(I.origem) || !!I.destino.dia || !!I.destino.hora || !!I.destino.profissional.modo || !!I.destino.profissional.mencao;
-/** The five resolved records a change is about (the service always follows the appointment). */
-const RECORDS: readonly PilotFieldName[] = ["customer", "appointment", "date", "time", "professional"];
+const ORIGIN_KEYS = Object.keys(EMPTY_ORIGIN) as (keyof PilotOrigin)[];
+/** The resolver's hint of each origin slot. */
+const HINT_OF: Record<keyof PilotOrigin, PilotHint> = { dia: "dia", hora: "hora", profissional_mencao: "profissional", servico_mencao: "servico", posicao: "posicao" };
+/** The owner's words Luna copied for an origin hint. */
+const originMention = (key: keyof PilotOrigin, value: PilotOrigin[keyof PilotOrigin]) => value === null ? null : typeof value === "string" ? value : value.mencao;
+/** An operator's typed value (its `mencao` aside): other words for the same value are the same operator. */
+const typed = (operator: unknown) => JSON.stringify(operator && typeof operator === "object" ? Object.fromEntries(Object.entries(operator).filter(([key]) => key !== "mencao")) : operator ?? null);
+/** Whether two name mentions are the same words once normalized (the resolver's own folding of mentions; never the owner's grammar). */
+const sameNameWords = (a: string | null, b: string | null) => {
+  const x = [...new Set(nameTokens(a ?? ""))].sort(), y = [...new Set(nameTokens(b ?? ""))].sort();
+  return x.length === y.length && x.every((token, index) => token === y[index]);
+};
+const professionalMode = (said: PilotDestination["profissional"]) => said.modo ?? (said.mencao ? "nomeado" : "manter");
 const floorOf = (ctx: Ctx) => ctx.state.questionFloor ?? 0;
+const turnAt = (ctx: Ctx) => ctx.clock.receivedAt.toISOString();
+/** Review P3/P6: an out-of-scope part the message named and no question of this turn asked about is said, never dropped in silence. */
+const outOfScopeNotice = (parts: readonly string[]) => `Uma parte do pedido eu ainda não faço por aqui (${listed(parts.map(quoted))}): ela ficou de fora e nada foi feito.`;
 
 /** One owner message on the pilot path (a repeated clientTurnId returns the stored reply). */
 export async function handlePilotMessage(host: PilotHost, input: PilotTurnInput): Promise<PilotReply> {
   const state = host.state, replay = pilotReplay(state, input.clientTurnId);
-  if (replay) return { ...replay, code: "REPLAYED" };
+  if (replay) return { text: replay.text, view: replay.view, code: replay.superseded ? "REPLAYED_SUPERSEDED" : "REPLAYED" };
   const startedAt = performance.now(), clock = await host.clock(), reader = host.reader();
   const turn = { turnId: randomUUID(), clientTurnId: input.clientTurnId ?? null, receivedAt: clock.receivedAt.toISOString() };
-  const baseRevision = state.plan?.revision ?? 0, today = pilotToday(clock);
-  let interpreted: Awaited<ReturnType<typeof runPilotInterpretation>> | undefined, outcome: Outcome;
+  const today = pilotToday(clock);
+  let interpreted: Awaited<ReturnType<typeof runPilotInterpretation>> | undefined, outcome: Outcome | undefined, expiry: Record<string, unknown> | undefined;
+  // Review E1: the receipt of the plan's own proposal first (a Confirmar whose reply or save was lost after the commit): a write already made is
+  // reported and settled, never withdrawn, prepared again nor called "nada foi alterado"; an unreadable journal changes nothing.
+  const receipted = await pilotReceiptFirst(host);
+  if (receipted?.state === "settled") outcome = { text: joined(pilotDoneText(state, receipted.receipt, today), PILOT_ALREADY_WRITTEN_NOTE), code: "CONFIRMED_BY_RECEIPT" };
+  else if (receipted?.state === "unverified") outcome = { text: PILOT_RECEIPT_UNVERIFIED, code: "RECEIPT_UNVERIFIED" };
+  else if (state.plan?.action.status === "proposal_ready" && host.expired?.()) {
+    // Only then the expiry rule: a ready proposal that lost its validity is no longer the plan's (prepared again when the turn shows the plan).
+    state.plan = invalidate(state.plan, "PROPOSAL_EXPIRED");
+    expiry = pilotTelemetry(state);
+  }
+  // Review S8: the revision the turn started on (after the backend's own expiry) belongs to the plan it started on: a turn that opens a new plan
+  // is recorded on it from 0, never from the closed plan's revision.
+  const baseRevision = state.plan?.revision ?? 0, startPlan = state.plan?.planId;
   let team: readonly { name: string }[] | undefined, catalog: readonly PilotServiceRow[] | undefined;
-  try { [team, catalog] = await Promise.all([reader.team(), reader.catalog()]); } catch { team = undefined; catalog = undefined; }
-  if (!team || !catalog) outcome = { text: joined(PILOT_DIRECTORY_UNAVAILABLE, pilotStateText(state)), code: "PILOT_DIRECTORY_UNAVAILABLE" };
+  if (!outcome) try { [team, catalog] = await Promise.all([reader.team(), reader.catalog()]); } catch { team = undefined; catalog = undefined; }
+  if (outcome) { /* settled or unverified above: no interpretation */ }
+  else if (!team || !catalog) outcome = { text: joined(PILOT_DIRECTORY_UNAVAILABLE, pilotStateText(state)), code: "PILOT_DIRECTORY_UNAVAILABLE" };
   else {
     const context: PilotRequestContext = { today: { date: today, weekday: new Date(`${today}T12:00:00Z`).toLocaleDateString("pt-BR", { weekday: "long", timeZone: "UTC" }), timezone: clock.timezone },
       team: [...new Set(team.map(row => row.name).filter(Boolean))].slice(0, 40), services: [...new Set(catalog.map(row => row.name))].slice(0, 80),
@@ -215,13 +281,39 @@ export async function handlePilotMessage(host: PilotHost, input: PilotTurnInput)
     const ctx: Ctx = { host, state, reader, clock, message: input.message, catalog, baseRevision, reference: today };
     outcome = interpreted.ok ? await applyInterpretation(ctx, interpreted.interpretation) : { text: joined(PILOT_SAFE_REPLY, pilotStateText(state)), code: interpreted.code };
   }
-  if (state.plan) state.plan = { ...state.plan, turns: [...state.plan.turns, { ...turn, baseRevision, revision: state.plan.revision, outcome: outcome.code }].slice(-40) };
+  const base = state.plan && state.plan.planId === startPlan ? baseRevision : 0;
+  if (state.plan) state.plan = { ...state.plan, turns: [...state.plan.turns, { ...turn, baseRevision: base, revision: state.plan.revision, outcome: outcome.code }].slice(-40) };
   state.turn = turn;
   const view = pilotView(state);
   if (input.clientTurnId) state.replies = [...state.replies, { clientTurnId: input.clientTurnId, turnId: turn.turnId, message: outcome.text, view }].slice(-20);
-  return { text: outcome.text, view, code: outcome.code, telemetry: pilotTelemetry(state, { turn_id: turn.turnId, base_revision: baseRevision, latency_ms: Math.round(performance.now() - startedAt),
-    model_calls: interpreted?.telemetry.calls ?? 0, repaired: interpreted?.telemetry.repaired ?? false, ...(interpreted && !interpreted.ok ? { schema: interpreted.telemetry.schema } : {}),
-    request_bytes: interpreted?.telemetry.request_bytes ?? [] }) };
+  return { text: outcome.text, view, code: outcome.code, ...(expiry ? { expiry } : {}), telemetry: pilotTelemetry(state, { turn_id: turn.turnId, base_revision: base,
+    latency_ms: Math.round(performance.now() - startedAt), model_calls: interpreted?.telemetry.calls ?? 0, repaired: interpreted?.telemetry.repaired ?? false,
+    ...(interpreted && !interpreted.ok ? { schema: interpreted.telemetry.schema } : {}), request_bytes: interpreted?.telemetry.request_bytes ?? [] }) };
+}
+/** Review E1: the journal receipt of the plan's OWN proposal_ref, read before anything drops, withdraws or prepares that proposal again. settled:
+ * the agenda has it (the plan is done, the host's agenda side marked written); unverified: the journal could not be read (nothing changes);
+ * undefined: no proposal, or nothing written for it. */
+export async function pilotReceiptFirst(host: PilotHost): Promise<{ state: "settled"; receipt: PilotReceipt } | { state: "unverified" } | undefined> {
+  const state = host.state, plan = state.plan, proposal = plan?.action.proposal;
+  if (!plan || !proposal || plan.action.status === "done" || plan.action.status === "withdrawn") return undefined;
+  let found: PilotReceipt | undefined;
+  try { found = await host.receipt(proposal.proposalRef); } catch { return { state: "unverified" }; }
+  if (!found || found.proposalRef !== proposal.proposalRef) return undefined;
+  await host.settle(found);
+  settleDone(state, plan.action.approval ?? { proposalRef: proposal.proposalRef, draftRevision: proposal.draftRevision, revision: plan.revision });
+  return { state: "settled", receipt: found };
+}
+/** The plan done with the approval the write carried (its own, or the one the receipt proves). */
+function settleDone(state: PilotSessionState, approval: PilotApproval) {
+  const current = state.plan!, approved = approve(current, approval);
+  state.plan = completeExecution(approved.ok ? startExecution(approved.plan) : current.action.approval ? current : { ...current, action: { ...current.action, status: "approved", approval } });
+  state.asked = [];
+}
+/** What the owner reads of a write: the plan's identity, service, professional and new slot, the customer notice and the acceptance, if any. */
+export function pilotDoneText(state: PilotSessionState, receipt: PilotReceipt, reference?: string) {
+  const f = state.plan!.action.fields;
+  return [`Remarcação gravada: ${f.customer.display ?? ""} — ${f.service.display ?? ""} com ${f.professional.display ?? ""}, ${formatLocal(`${f.date.value}T${f.time.value}`, reference)}.`,
+    PILOT_CUSTOMER_NOTICE, ...(receipt.outcome === "PENDING_ACCEPTANCE" ? ["O novo horário fica aguardando o aceite do cliente."] : [])].join("\n");
 }
 /** §6: codes and numbers of the plan after a call (never a name or the owner's words). */
 export function pilotTelemetry(state: PilotSessionState, extra: Record<string, unknown> = {}): Record<string, unknown> {
@@ -246,12 +338,38 @@ export function pilotOpenContext(state: PilotSessionState): PilotOpenContext {
 }
 
 async function applyInterpretation(ctx: Ctx, I: PilotInterpretation): Promise<Outcome> {
+  const outcome = await routed(ctx, I);
+  // Review P3/P6: whatever path answered, an out-of-scope part this message named is said (by the scope question, or here), never dropped.
+  if (I.fora_do_escopo.length && !ctx.scopeAsked && outcome.code !== "OUT_OF_SCOPE") return { ...outcome, text: joined(outcome.text, outOfScopeNotice(I.fora_do_escopo.map(item => item.mencao))) };
+  return outcome;
+}
+async function routed(ctx: Ctx, I: PilotInterpretation): Promise<Outcome> {
   const { state } = ctx, open = state.plan && !pilotPlanClosed(state.plan) ? state.plan : undefined;
   if (I.desistir) return withdrawal(ctx, I, open);
   if (I.resposta_a !== null) return answer(ctx, I, open);
-  if (I.tipo === "fora_do_escopo") return { text: joined(PILOT_OUT_OF_SCOPE_REPLY, await currentText(ctx, open)), code: "OUT_OF_SCOPE" };
+  // Review P6: a conversation that still names an out-of-scope request gets the clear out-of-scope answer (the field Luna gave is honoured).
+  if (I.tipo === "fora_do_escopo" || I.tipo === "conversa" && I.fora_do_escopo.length) return { text: joined(PILOT_OUT_OF_SCOPE_REPLY, await currentText(ctx, open)), code: "OUT_OF_SCOPE" };
   if (I.tipo === "conversa") return { text: open ? await currentText(ctx, open) || PILOT_CONVERSATION_REPLY : PILOT_CONVERSATION_REPLY, code: "CONVERSATION" };
   return request(ctx, I, open);
+}
+/** Reviews S1/S5: whether THIS message brings anything new to the open plan, read from its own typed operators only (never from a re-resolution,
+ * where the agenda and the clock move by themselves): an origin hint proved in this message whose typed value differs from the pending one; a
+ * destination day or clock whose typed value differs; another professional mode, or a professional name other than the bound or pending one; a
+ * customer mention that is not the bound customer. Other words for the same value are the same value. */
+function messageChanges(ctx: Ctx, I: PilotInterpretation, open: PilotPlan): boolean {
+  const pending = ctx.state.pending ?? { origem: EMPTY_ORIGIN, destino: EMPTY_DESTINATION }, F = open.action.fields;
+  if (I.cliente.mencao && !(F.customer.provenance !== "unresolved" ? pilotMentionHolds(I.cliente.mencao, F.customer.display) : sameNameWords(I.cliente.mencao, F.customer.mencao ?? null))) return true;
+  for (const key of ORIGIN_KEYS) {
+    const value = I.origem[key];
+    if (value !== null && pilotMentionIn(ctx.message, originMention(key, value)) && typed(value) !== typed(pending.origem[key])) return true;
+  }
+  if (I.destino.dia && typed(I.destino.dia) !== typed(pending.destino.dia)) return true;
+  if (I.destino.hora && typed(I.destino.hora) !== typed(pending.destino.hora)) return true;
+  const said = I.destino.profissional, before = pending.destino.profissional;
+  if (!said.modo && !said.mencao) return false;
+  if (professionalMode(said) !== professionalMode(before)) return true;
+  if (professionalMode(said) === "nomeado") return !(F.professional.provenance === "explicit" && pilotMentionHolds(said.mencao ?? "", F.professional.display)) && !sameNameWords(said.mencao, before.mencao);
+  return !!said.mencao && !sameNameWords(said.mencao, before.mencao);
 }
 /** What an open plan shows when the message changed nothing in it; a plan whose proposal lost its validity meanwhile is prepared again. */
 async function currentText(ctx: Ctx, open: PilotPlan | undefined): Promise<string> {
@@ -260,30 +378,39 @@ async function currentText(ctx: Ctx, open: PilotPlan | undefined): Promise<strin
     return (await finish(ctx, undefined)).text;
   return pilotStateText(ctx.state);
 }
-/** A later turn's operator replaces the one of its own slot; the message that brought origin hints feeds the provenance check. */
+/** A later turn's operator replaces the one of its own slot. Review P1: each origin hint is proved once, against the message that brought it
+ * (never against another turn's words); an unproved hint never replaces a proved one of its slot. Review P2: only a proved hint whose typed value
+ * differs moves the bound appointment (other words for the same value never do). Review S2: each day operator keeps the received_at of the turn
+ * that said it. */
 function mergeOperators(ctx: Ctx, I: PilotInterpretation) {
   const pending = ctx.state.pending ?? { origem: { ...EMPTY_ORIGIN }, destino: structuredClone(EMPTY_DESTINATION) };
-  const origem = { ...pending.origem }, destino = structuredClone(pending.destino);
-  for (const key of Object.keys(EMPTY_ORIGIN) as (keyof PilotOrigin)[]) if (I.origem[key] !== null) {
-    if (JSON.stringify(I.origem[key]) !== JSON.stringify(pending.origem[key])) ctx.originChanged = true;
-    (origem as Record<string, unknown>)[key] = structuredClone(I.origem[key]);
+  const origem = { ...pending.origem }, destino = structuredClone(pending.destino), proven = { ...(pending.proven ?? {}) }, anchors = { ...(pending.anchors ?? {}) };
+  for (const key of ORIGIN_KEYS) {
+    const value = I.origem[key];
+    if (value === null) continue;
+    const proof = pilotMentionIn(ctx.message, originMention(key, value));
+    if (!proof && proven[key] && origem[key] !== null) continue;
+    if (proof && typed(value) !== typed(origem[key])) ctx.originChanged = true;
+    (origem as Record<string, unknown>)[key] = structuredClone(value); proven[key] = proof;
+    if (key === "dia") anchors.origem = turnAt(ctx);
   }
-  if (I.destino.dia) destino.dia = structuredClone(I.destino.dia);
+  if (I.destino.dia) { destino.dia = structuredClone(I.destino.dia); anchors.destino = turnAt(ctx); }
   if (I.destino.hora) destino.hora = structuredClone(I.destino.hora);
   if (I.destino.profissional.modo || I.destino.profissional.mencao) destino.profissional = { ...I.destino.profissional };
-  ctx.state.pending = { origem, destino };
-  if (hasOrigin(I.origem)) ctx.state.sources = [...(ctx.state.sources ?? []), ctx.message].slice(-8);
+  ctx.state.pending = { origem, destino, proven, anchors };
 }
 /** A new plan for a new request (the previous one, if any, is closed): its question numbers continue the session's. */
 function newPlan(ctx: Ctx): PilotPlan {
   const { state } = ctx;
   state.questionFloor = Math.max(state.questionFloor ?? 0, lastQuestionNumber(state.plan));
-  state.pending = undefined; state.sources = []; state.outOfScope = []; state.asked = []; state.notes = [];
+  state.pending = undefined; state.outOfScope = []; state.asked = []; state.notes = [];
   return createPilotPlan(randomUUID());
 }
 /** A new request or an independent correction ("remarcar", "misto", or an answer to no question). C2: an out-of-scope part is asked about
- * before the possible part is proposed, whatever the kind Luna gave the message. */
+ * before the possible part is proposed, whatever the kind Luna gave the message. Review S5: on an open plan, a message that brings nothing new
+ * (the request said again, an "ok") is no change at all: same revision, same proposal, nothing prepared again. */
 async function request(ctx: Ctx, I: PilotInterpretation, open: PilotPlan | undefined): Promise<Outcome> {
+  if (open && !I.fora_do_escopo.length && !messageChanges(ctx, I, open)) return { text: await currentText(ctx, open) || PILOT_OPEN_DRAFT, code: "UNCHANGED" };
   const { state } = ctx, plan = open ?? newPlan(ctx), base = open ? ctx.baseRevision : plan.revision;
   mergeOperators(ctx, I);
   const resolution = await resolveFields(ctx, plan, I);
@@ -294,7 +421,7 @@ async function request(ctx: Ctx, I: PilotInterpretation, open: PilotPlan | undef
 /** §1: the question asked before proposing the possible part of a partly out-of-scope request (answered by `aceita_parcial`). */
 function scopeQuestion(ctx: Ctx, plan: PilotPlan, parts: readonly string[]) {
   return { draft: { questionId: nextQuestionId(plan, floorOf(ctx)), field: "scope" as const, reason: "OUT_OF_SCOPE_PART" as const },
-    text: `Uma parte do pedido eu ainda não faço por aqui (${listed(parts.map(quoted))}): ela ficou de fora e nada foi feito. Quer que eu prepare só a remarcação?` };
+    text: `${outOfScopeNotice(parts)} Quer que eu prepare só a remarcação?` };
 }
 /** The resolved fields become one change of the plan (its question, or the scope question first); then the proposal when nothing is asked. */
 async function change(ctx: Ctx, plan: PilotPlan, resolution: Resolution, scope: { draft: PilotQuestionDraft; text: string } | undefined, code: string,
@@ -303,7 +430,8 @@ async function change(ctx: Ctx, plan: PilotPlan, resolution: Resolution, scope: 
   const reduced = reduce(plan, { fields: resolution.fields, questions: question ? [question] : [] });
   if (!reduced.ok) return { text: joined(PILOT_SAFE_REPLY, pilotStateText(ctx.state)), code: `PLAN_${reduced.code}` };
   ctx.state.plan = reduced.plan; ctx.state.notes = resolution.notes;
-  ctx.state.asked = question && text ? [{ questionId: question.questionId, text }] : [];
+  if (scope && reduced.plan.action.status !== "withdrawn") ctx.scopeAsked = true;
+  ctx.state.asked = question && text ? [{ questionId: question.questionId, text: pilotClip(text, PILOT_TEXT_BOUNDS.asked) }] : [];
   if (reduced.plan.action.status === "withdrawn") return { text: PILOT_WITHDRAWN_REPLY, code: "WITHDRAWN" };
   if (question) return { text: text ?? "", code: `ASKED_${question.reason}` };
   return finish(ctx, resolution, code);
@@ -316,7 +444,7 @@ async function finish(ctx: Ctx, resolution: Resolution | undefined, code = "PROP
     return noChange(ctx, plan, pilotAppointmentLabel(row, ctx.reference));
   const prepared = await preparePilotProposal(ctx.host, plan, state.notes ?? [], { floor: floorOf(ctx), today: ctx.reference, appointment: f.appointment.display ?? "" });
   state.plan = prepared.plan;
-  if (prepared.text) state.asked = openQuestions(prepared.plan).map(question => ({ questionId: question.questionId, text: prepared.text! }));
+  if (prepared.text) state.asked = openQuestions(prepared.plan).map(question => ({ questionId: question.questionId, text: pilotClip(prepared.text!, PILOT_TEXT_BOUNDS.asked) }));
   return prepared.plan.action.status === "proposal_ready" ? { text: prepared.plan.action.proposal!.text, code }
     : { text: prepared.text ?? PILOT_PREPARATION_FAILED, code: prepared.code ?? "PREPARATION_FAILED" };
 }
@@ -372,12 +500,14 @@ async function answerWith(ctx: Ctx, open: PilotPlan, question: PilotQuestion, I:
       plan = reduced.plan;
     }
   }
-  if (I.fora_do_escopo.length) ctx.state.outOfScope = I.fora_do_escopo.map(item => item.mencao);
+  // Review P6: the owner's yes to the scope question stands; parts this answer names again are said (applyInterpretation), never re-asked.
+  if (I.fora_do_escopo.length && question.field !== "scope") ctx.state.outOfScope = I.fora_do_escopo.map(item => item.mencao);
   return change(ctx, plan, resolution, ctx.state.outOfScope?.length ? scopeQuestion(ctx, plan, ctx.state.outOfScope) : undefined, "ANSWERED");
 }
 /** "desistir": the draft is withdrawn; with a correction in the same message, the corrected draft stands instead (the old value is never kept).
- * C1: a correction is a resolved record that really differs from the open draft (customer, appointment, day, clock, professional), or a question
- * other than the one already open; the open request said again with "desistir" is the plain withdrawal. */
+ * Review S1 (C1): a correction is what THIS message itself changes (messageChanges: its own typed operators or a customer other than the bound
+ * one), never a difference the agenda or the clock produced since; the open request said again with "desistir" is the plain withdrawal. Reviews
+ * P3/S3: an out-of-scope part of the corrected draft is asked about before the possible part (decision 26), as in any request. */
 async function withdrawal(ctx: Ctx, I: PilotInterpretation, open: PilotPlan | undefined): Promise<Outcome> {
   if (!open) return { text: PILOT_NOTHING_OPEN_REPLY, code: "WITHDRAW_NOTHING" };
   const plain = (): Outcome => {
@@ -386,37 +516,47 @@ async function withdrawal(ctx: Ctx, I: PilotInterpretation, open: PilotPlan | un
     ctx.state.plan = reduced.plan; ctx.state.asked = []; ctx.state.outOfScope = [];
     return { text: PILOT_WITHDRAWN_REPLY, code: "WITHDRAWN" };
   };
-  if (!hasCorrection(I)) return plain();
-  const before = { pending: structuredClone(ctx.state.pending), sources: ctx.state.sources ? [...ctx.state.sources] : undefined };
+  if (!messageChanges(ctx, I, open)) return plain();
   mergeOperators(ctx, I);
   const resolution = await resolveFields(ctx, open, I);
-  const asked = openQuestions(open), q = resolution.question;
-  const corrected = RECORDS.some(name => resolution.fields[name].value !== open.action.fields[name].value) ||
-    !!q && !asked.some(item => item.field === q.field && item.reason === q.reason);
-  if (!corrected) { ctx.state.pending = before.pending; ctx.state.sources = before.sources; return plain(); }
-  ctx.state.outOfScope = [];
-  return change(ctx, open, resolution, undefined, "CORRECTED", (plan, patch) => withdraw(plan, plan === open ? ctx.baseRevision : plan.revision, patch));
+  if (I.fora_do_escopo.length) ctx.state.outOfScope = I.fora_do_escopo.map(item => item.mencao);
+  return change(ctx, open, resolution, ctx.state.outOfScope?.length ? scopeQuestion(ctx, open, ctx.state.outOfScope) : undefined, "CORRECTED",
+    (plan, patch) => withdraw(plan, plan === open ? ctx.baseRevision : plan.revision, patch));
 }
 /** Review M12: the owner's tap on an option of the open question (its id, which the backend published): the answer is that real record, day or
  * clock, applied exactly as a typed answer would be (only that field; the rest follows). The day or clock replaces the pending operator of its
- * slot, so the next resolution keeps the choice. */
-export async function selectPilotOption(host: PilotHost, optionId: string): Promise<PilotReply> {
-  const state = host.state, open = state.plan && !pilotPlanClosed(state.plan) ? state.plan : undefined;
-  const question = openQuestions(open).find(item => item.options?.some(option => option.id === optionId));
+ * slot, so the next resolution keeps the choice. Review S4: a tap names its question ("<questionId>/<option id>", the view's own ids) and is
+ * taken only while that question is open at the current revision; a bare option id only while the plan has asked no other question (no card of a
+ * closed question of this plan can carry it). Review S6: a professional is bound by the tapped record, never searched again by its name. */
+export function pilotTappedOption(state: PilotSessionState, ref: string): { question: PilotQuestion; option: PilotOption } | undefined {
+  const open = state.plan && !pilotPlanClosed(state.plan) ? state.plan : undefined;
+  if (!open || typeof ref !== "string") return undefined;
+  const bound = /^(q[1-9][0-9]{0,2})\/(.+)$/.exec(ref), optionId = bound ? bound[2] : ref;
+  const question = bound ? openQuestions(open).find(item => item.questionId === bound[1]) : open.action.questions.length === 1 ? openQuestions(open)[0] : undefined;
   const option = question?.options?.find(item => item.id === optionId);
-  if (!open || !question || !option || question.revision !== open.revision) throw Error("SELECTION_INVALID");
+  return question && option && question.revision === open.revision ? { question, option } : undefined;
+}
+/** The tap reference of an option as the view publishes it (its question and its id). */
+export const pilotOptionRef = (questionId: string, optionId: string) => `${questionId}/${optionId}`;
+export async function selectPilotOption(host: PilotHost, ref: string): Promise<PilotReply> {
+  const state = host.state, tapped = pilotTappedOption(state, ref);
+  if (!tapped) throw Error("SELECTION_INVALID");
+  const { question, option } = tapped, open = state.plan!;
   const clock = await host.clock(), today = pilotToday(clock);
   const ctx: Ctx = { host, state, reader: host.reader(), clock, message: "", catalog: [], baseRevision: open.revision, reference: today };
   let value: PilotField | undefined;
   const pending = state.pending ?? { origem: { ...EMPTY_ORIGIN }, destino: structuredClone(EMPTY_DESTINATION) };
   if (question.field === "customer" || question.field === "appointment") value = { value: option.id, display: option.label, provenance: "explicit" };
   else if (question.field === "date" && /^\d{4}-\d{2}-\d{2}$/.test(option.id))
-    state.pending = { ...pending, destino: { ...pending.destino, dia: { tipo: "data", dia: Number(option.id.slice(8, 10)), mes: Number(option.id.slice(5, 7)), mencao: option.label } } };
+    state.pending = { ...pending, destino: { ...pending.destino, dia: { tipo: "data", dia: Number(option.id.slice(8, 10)), mes: Number(option.id.slice(5, 7)), mencao: option.label } },
+      anchors: { ...pending.anchors, destino: turnAt(ctx) } };
   else if (question.field === "time" && /^\d{2}:\d{2}$/.test(option.id)) {
     const hour = Number(option.id.slice(0, 2));
     state.pending = { ...pending, destino: { ...pending.destino, hora: { tipo: "relogio", hora: hour, minuto: Number(option.id.slice(3, 5)), periodo: hour < 12 ? "manha" : null, mencao: option.label } } };
-  } else if (question.field === "professional") state.pending = { ...pending, destino: { ...pending.destino, profissional: { modo: "nomeado", mencao: option.label } } };
-  else throw Error("SELECTION_INVALID");
+  } else if (question.field === "professional") {
+    state.pending = { ...pending, destino: { ...pending.destino, profissional: { modo: "nomeado", mencao: option.label } } };
+    value = { value: option.id, display: option.label, provenance: "explicit", mencao: option.label };
+  } else throw Error("SELECTION_INVALID");
   const outcome = await answerWith(ctx, open, question, SILENT, value);
   return { text: outcome.text, view: pilotView(state), code: `SELECTED_${outcome.code}`, telemetry: pilotTelemetry(state, { selected: question.field }) };
 }
@@ -428,15 +568,15 @@ const pilotMentionHolds = (mention: string, name: string | null) => {
   const tokens = nameTokens(mention), own = new Set(nameTokens(name ?? ""));
   return tokens.length > 0 && tokens.every(token => own.has(token));
 };
-const personOptions = (rows: readonly PilotPerson[]): PilotOption[] => rows.slice(0, PILOT_OPTIONS_MAX).map(row => ({ id: row.id, label: row.name }));
-const names = (rows: readonly PilotPerson[]) => listed(rows.map(row => row.name), ", ");
+const personOptions = (rows: readonly PilotPerson[]): PilotOption[] => rows.slice(0, PILOT_OPTIONS_MAX).map(row => ({ id: row.id, label: person(row.name) }));
+const names = (rows: readonly PilotPerson[]) => listed(rows.map(row => person(row.name)), ", ");
 function customerQuestion(identity: PilotIdentity | undefined): { reason: PilotQuestionReason; text: string; options?: PilotOption[] } {
   if (!identity) return { reason: "CUSTOMER_MISSING", text: "De quem é o atendimento que devo remarcar?" };
   switch (identity.state) {
     case "ambiguous": return { reason: "CUSTOMER_AMBIGUOUS", options: personOptions(identity.options),
       text: `Encontrei mais de um cadastro para ${quoted(identity.mencao)}: ${names(identity.options)}. Qual deles?` };
     case "contradictory": return { reason: "CUSTOMER_CONTRADICTORY", options: personOptions([identity.candidate]),
-      text: `Encontrei ${identity.candidate.name}, mas você escreveu ${identity.mencao}. É a mesma pessoa? Se for, escreva o nome como está no cadastro ou toque nele; se não, diga o nome de quem é.` };
+      text: `Encontrei ${person(identity.candidate.name)}, mas você escreveu ${identity.mencao}. É a mesma pessoa? Se for, escreva o nome como está no cadastro ou toque nele; se não, diga o nome de quem é.` };
     case "not_found": return { reason: "CUSTOMER_NOT_FOUND", ...(identity.suggestions.length ? { options: personOptions(identity.suggestions) } : {}),
       text: `Não encontrei ${quoted(identity.mencao)} entre os clientes do salão.${identity.suggestions.length ? ` Seria ${names(identity.suggestions)}? Se for, escreva o nome assim ou toque nele.` : " Qual é o nome no cadastro?"}` };
     default: return { reason: "LOOKUP_UNAVAILABLE", text: "Não consegui consultar os cadastros agora; nada foi alterado. Pode repetir em instantes?" };
@@ -447,7 +587,7 @@ function professionalQuestion(identity: PilotIdentity): { reason: PilotQuestionR
     case "ambiguous": return { reason: "PROFESSIONAL_AMBIGUOUS", options: personOptions(identity.options),
       text: `Há mais de uma pessoa da equipe para ${quoted(identity.mencao)}: ${names(identity.options)}. Quem vai atender?` };
     case "contradictory": return { reason: "PROFESSIONAL_CONTRADICTORY", options: personOptions([identity.candidate]),
-      text: `Encontrei ${identity.candidate.name} na equipe, mas você escreveu ${identity.mencao}. É a mesma pessoa? Se for, escreva o nome como está no cadastro ou toque nele.` };
+      text: `Encontrei ${person(identity.candidate.name)} na equipe, mas você escreveu ${identity.mencao}. É a mesma pessoa? Se for, escreva o nome como está no cadastro ou toque nele.` };
     case "not_found": return { reason: "PROFESSIONAL_NOT_FOUND", ...(identity.suggestions.length ? { options: personOptions(identity.suggestions) } : {}),
       text: `Não encontrei ${quoted(identity.mencao)} na equipe.${identity.suggestions.length ? ` Seria ${names(identity.suggestions)}?` : " Quem vai atender?"}` };
     default: return { reason: "LOOKUP_UNAVAILABLE", text: "Não consegui consultar a equipe agora; nada foi alterado. Pode repetir em instantes?" };
@@ -469,7 +609,9 @@ function knownClock(hora: PilotDestination["hora"], origin: { time: string }): s
  * (an identity answer is first matched among that question's own options). */
 async function resolveFields(ctx: Ctx, plan: PilotPlan, I: PilotInterpretation, answering?: PilotQuestion): Promise<Resolution> {
   const { state, reader, clock, reference } = ctx, F = plan.action.fields, notes: string[] = [];
-  let pending = state.pending ?? { origem: EMPTY_ORIGIN, destino: EMPTY_DESTINATION };
+  let pending: PilotPending = state.pending ?? { origem: EMPTY_ORIGIN, destino: EMPTY_DESTINATION };
+  // Review S2: a day operator is read against the received_at of the turn that said it (this turn's clock only says what has passed since).
+  const anchored = (at: string | undefined): PilotClock => at && Number.isFinite(Date.parse(at)) ? { receivedAt: new Date(at), timezone: clock.timezone } : clock;
   const out = Object.fromEntries(PILOT_FIELDS.map(name => [name, structuredClone(F[name])])) as Record<PilotFieldName, PilotField>;
   const wait = (...fields: PilotFieldName[]) => { for (const name of fields) out[name] = UNRESOLVED(out[name].mencao); };
   const ask = (field: PilotQuestionField, reason: PilotQuestionReason, text: string, options?: PilotOption[], appointment?: PilotAppointmentRow): Resolution =>
@@ -493,13 +635,19 @@ async function resolveFields(ctx: Ctx, plan: PilotPlan, I: PilotInterpretation, 
   } else if (F.customer.provenance === "unresolved") {
     wait("appointment", "date", "time", "professional", "service"); const q = customerQuestion(undefined); return ask("customer", q.reason, q.text);
   }
-  const customerId = out.customer.value!, customerName = out.customer.display ?? "";
+  const customerId = out.customer.value!, customerName = person(out.customer.display ?? "");
   const customerChanged = customerId !== F.customer.value;
-  // Review M4 (related): another customer than the one bound before: the origin hints said about the previous one leave with it.
+  // Review M4 (related): another customer than the one bound before: the origin hints said about the previous one leave with it (this message's
+  // own hints stay, each proved against this message only: review P1).
   if (customerChanged && F.customer.value) {
-    const origem = { ...EMPTY_ORIGIN };
-    for (const key of Object.keys(EMPTY_ORIGIN) as (keyof PilotOrigin)[]) if (I.origem[key] !== null) (origem as Record<string, unknown>)[key] = structuredClone(I.origem[key]);
-    pending = { origem, destino: pending.destino }; state.pending = pending; state.sources = hasOrigin(I.origem) ? [ctx.message] : [];
+    const origem = { ...EMPTY_ORIGIN }, proven: PilotPending["proven"] = {};
+    for (const key of ORIGIN_KEYS) {
+      const value = I.origem[key];
+      if (value === null) continue;
+      (origem as Record<string, unknown>)[key] = structuredClone(value); proven[key] = pilotMentionIn(ctx.message, originMention(key, value));
+    }
+    pending = { origem, destino: pending.destino, proven, anchors: { ...(I.origem.dia ? { origem: turnAt(ctx) } : {}), ...(pending.anchors?.destino ? { destino: pending.anchors.destino } : {}) } };
+    state.pending = pending;
   }
   // 2. The appointment, located once. Review M4: one bound before stays bound while the customer and the origin hints stay; if it is no longer a
   // future PENDING/CONFIRMED appointment of the customer, the owner is asked (never another one located in silence).
@@ -519,16 +667,20 @@ async function resolveFields(ctx: Ctx, plan: PilotPlan, I: PilotInterpretation, 
         options.length ? ` Os próximos de ${customerName} são: ${listed(options.map(option => option.label))}. Qual deles?` : ` ${customerName} não tem outro atendimento futuro marcado.`}`, options);
     }
   } else {
-    const located = await resolveAppointment(reader, { customerId, origem: pending.origem, message: (state.sources ?? []).join("\n") }, clock);
+    // Review P1: each hint chooses only if it was proved against the message that brought it (never against another turn's words).
+    const proven = Object.fromEntries(ORIGIN_KEYS.map(key => [HINT_OF[key], pending.proven?.[key] === true])) as Record<PilotHint, boolean>;
+    const located = await resolveAppointment(reader, { customerId, origem: pending.origem, proven, anchor: anchored(pending.anchors?.origem) }, clock);
     if (located.state === "unavailable") { wait("appointment", "date", "time", "professional", "service"); return unavailable("appointment", "a agenda"); }
-    if (located.state !== "one") {
+    // Review P2: the appointment bound before (the owner's own tap or answer) stays bound while it is still among what the hints leave.
+    const kept = !customerChanged && F.appointment.value && located.state === "several" ? located.options.find(item => item.id === F.appointment.value) : undefined;
+    if (kept) row = kept;
+    else if (located.state !== "one") {
       wait("appointment", "date", "time", "professional", "service");
       const rows = located.state === "none" ? located.upcoming : located.options, options = rows.map(item => ({ id: item.id, label: label(item) }));
       if (located.state === "several") return ask("appointment", "APPOINTMENT_SEVERAL", `${customerName} tem ${rows.length} atendimentos marcados: ${listed(options.map(option => option.label))}. Qual deles?${dependents(located.skippedDependents)}`, options);
       return ask("appointment", "APPOINTMENT_NONE", rows.length ? `Não encontrei atendimento de ${customerName} com essas indicações. Os próximos são: ${listed(options.map(option => option.label))}. Qual deles?${dependents(located.skippedDependents)}`
         : `${customerName} não tem atendimento futuro marcado; por aqui eu só remarco atendimentos que ainda vão acontecer.${dependents(located.skippedDependents)}`, options);
-    }
-    row = located.appointment;
+    } else row = located.appointment;
   }
   if (row.id !== F.appointment.value) {
     // Review M5: another appointment than the one bound before: its day, clock and professional are read again from it (never kept stale).
@@ -539,7 +691,7 @@ async function resolveFields(ctx: Ctx, plan: PilotPlan, I: PilotInterpretation, 
   out.service = { value: row.serviceId, display: row.serviceName, provenance: "inherited" };
   const origin = { date: row.startLocal.slice(0, 10), time: row.startLocal.slice(11, 16) }, current = { id: row.professionalId, name: row.professionalName };
   // 3. The new day (decision 27: a weekday read two ways is asked; decision 4: said on that very weekday, today too while the clock is ahead).
-  const day = resolveTargetDate(pending.destino.dia, origin, clock, { time: knownClock(pending.destino.hora, origin) });
+  const day = resolveTargetDate(pending.destino.dia, origin, anchored(pending.anchors?.destino), { time: knownClock(pending.destino.hora, origin) }, clock);
   if (day.state === "ask") { wait("date", "time"); return ask("date", "DATE_TWO_READINGS", `${quoted(day.mencao)} pode ser ${list(day.options.map(date => formatDay(date, reference)))}. Qual dia?`,
     day.options.map(date => ({ id: date, label: formatDay(date, reference) })), row); }
   if (day.state === "invalid") { wait("date", "time"); return ask("date", "DATE_INVALID", day.reason === "DATE_PAST" ? `${quoted(day.mencao)} já passou. Para qual dia?`
@@ -555,8 +707,8 @@ async function resolveFields(ctx: Ctx, plan: PilotPlan, I: PilotInterpretation, 
   const context = { current, appointmentId: row.id, serviceId: row.serviceId, durationMin: row.durationMin };
   const conflictQuestion = (who: Extract<Awaited<ReturnType<typeof resolveProfessional>>, { state: "conflict" }>) => {
     wait("professional", "time");
-    return ask("professional", "PROFESSIONAL_CONTRADICTORY", who.mode === "manter" ? `Você pediu para manter ${current.name}, mas citou ${who.named.name}. Quem vai atender?`
-      : `Você pediu quem estiver livre, mas citou ${who.named.name}. Quem vai atender?`, personOptions(who.mode === "manter" ? [current, who.named] : [who.named]), row);
+    return ask("professional", "PROFESSIONAL_CONTRADICTORY", who.mode === "manter" ? `Você pediu para manter ${person(current.name)}, mas citou ${person(who.named.name)}. Quem vai atender?`
+      : `Você pediu quem estiver livre, mas citou ${person(who.named.name)}. Quem vai atender?`, personOptions(who.mode === "manter" ? [current, who.named] : [who.named]), row);
   };
   if (mode === "nomeado" && said.mencao && F.professional.provenance === "explicit" && pilotMentionHolds(said.mencao, F.professional.display)) out.professional = structuredClone(F.professional);
   else if (mode !== "qualquer") {
@@ -575,7 +727,7 @@ async function resolveFields(ctx: Ctx, plan: PilotPlan, I: PilotInterpretation, 
       clockOf.options.map(time => ({ id: time, label: formatClock(time) })), row);
     return ask("time", "TIME_MISSING", `Qual horário em ${formatDay(day.date, reference)}?`, undefined, row);
   }
-  if (clockOf.state === "none") { wait("time"); return ask("time", "TIME_NO_READING", `${list(clockOf.readings.map(formatClock))} ficam fora do expediente${professionalId ? ` de ${out.professional.display}` : ""} em ${formatDay(day.date, reference)}. Qual horário?`, undefined, row); }
+  if (clockOf.state === "none") { wait("time"); return ask("time", "TIME_NO_READING", `${list(clockOf.readings.map(formatClock))} ficam fora do expediente${professionalId ? ` de ${person(out.professional.display ?? "")}` : ""} em ${formatDay(day.date, reference)}. Qual horário?`, undefined, row); }
   out.time = { value: clockOf.time, display: formatClock(clockOf.time), provenance: clockOf.provenance, ...(clockOf.mencao ? { mencao: clockOf.mencao } : {}) };
   if (clockOf.provenance === "derived" && pending.destino.hora?.tipo === "relogio") {
     const other = pilotClockReadings(pending.destino.hora).filter(time => time !== clockOf.time);
@@ -586,11 +738,11 @@ async function resolveFields(ctx: Ctx, plan: PilotPlan, I: PilotInterpretation, 
     const who = await resolveProfessional(reader, said, { ...context, slot: { date: day.date, time: clockOf.time } });
     if (who.state === "chosen") {
       out.professional = { value: who.id, display: who.name, provenance: "derived", ...(said.mencao ? { mencao: said.mencao } : {}) };
-      notes.push(`Escolhi ${who.name}: faz o serviço, está livre nesse horário e tem menos atendimentos no dia.`);
+      notes.push(`Escolhi ${person(who.name)}: faz o serviço, está livre nesse horário e tem menos atendimentos no dia.`);
     } else if (who.state === "conflict") return conflictQuestion(who);
     else if (who.state === "nobody_free") {
       wait("professional");
-      return ask("time", "PROFESSIONAL_NOBODY_FREE", `Ninguém que faz ${row.serviceName} está livre em ${formatLocal(`${day.date}T${clockOf.time}`, reference)}. Qual outro horário?`, undefined, row);
+      return ask("time", "PROFESSIONAL_NOBODY_FREE", `Ninguém que faz ${pilotClip(row.serviceName, PILOT_TEXT_BOUNDS.service)} está livre em ${formatLocal(`${day.date}T${clockOf.time}`, reference)}. Qual outro horário?`, undefined, row);
     } else { wait("professional"); return unavailable("professional", "a equipe"); }
   }
   return { fields: out, appointment: row, notes };
@@ -612,6 +764,13 @@ export async function preparePilotProposal(host: PilotHost, plan: PilotPlan, not
     return attached.ok ? { plan: attached.plan } : { plan, text: PILOT_PREPARATION_FAILED, code: "PREPARATION_FAILED" };
   }
   if (prepared.code === "PREPARATION_FAILED") return { plan, text: prepared.text, code: "PREPARATION_FAILED" };
+  if (prepared.code === "ALREADY_WRITTEN") {
+    // Review E1: an earlier proposal of this plan was written behind the session (its draft is confirmed): that write is settled on the agenda
+    // side and said; this change is not made and the plan is closed (the next request opens a new one), never "nada foi alterado".
+    if (prepared.receipt) await host.settle(prepared.receipt);
+    const reduced = withdraw(plan, plan.revision);
+    return { plan: reduced.ok ? reduced.plan : plan, text: prepared.text, code: "ALREADY_WRITTEN" };
+  }
   if (prepared.code === "RELATION_NOT_SUPPORTED") {
     // Review M11: another appointment is asked; this one, its day, clock and professional leave the plan.
     const draft: PilotQuestionDraft = { questionId: nextQuestionId(plan, options.floor), field: "appointment", reason: "APPOINTMENT_NOT_SUPPORTED" };
@@ -633,17 +792,11 @@ export async function confirmPilotProposal(host: PilotHost, approval: PilotAppro
   const state = host.state, plan = state.plan;
   if (!plan) throw Error("PLAN_NOT_IN_SESSION");
   const clock = await host.clock(), reference = pilotToday(clock);
-  const doneText = (receipt: PilotReceipt) => {
-    const f = state.plan!.action.fields;
-    return [`Remarcação gravada: ${f.customer.display ?? ""} — ${f.service.display ?? ""} com ${f.professional.display ?? ""}, ${formatLocal(`${f.date.value}T${f.time.value}`, reference)}.`,
-      PILOT_CUSTOMER_NOTICE, ...(receipt.outcome === "PENDING_ACCEPTANCE" ? ["O novo horário fica aguardando o aceite do cliente."] : [])].join("\n");
-  };
+  const doneText = (receipt: PilotReceipt) => pilotDoneText(state, receipt, reference);
   const reply = (text: string, code: string): PilotReply => ({ text, view: pilotView(state), code, telemetry: pilotTelemetry(state, { proposal_confirmed: approval.proposalRef || null }) });
   const settled = async (found: PilotReceipt, code: string) => {
     await host.settle(found);
-    const current = state.plan!, approved = approve(current, approval);
-    state.plan = completeExecution(approved.ok ? startExecution(approved.plan) : current.action.approval ? current : { ...current, action: { ...current.action, status: "approved", approval } });
-    state.asked = [];
+    settleDone(state, approval);
     return reply(doneText(found), code);
   };
   // §5: a Confirmar repeated after its reply was lost finds the journal receipt of its proposal_ref before any expiry or failure rule. Review L2:
@@ -662,14 +815,18 @@ export async function confirmPilotProposal(host: PilotHost, approval: PilotAppro
     state.asked = [];
     return reply(doneText(receipt), "CONFIRMED");
   } catch (error) {
-    const late = await host.receipt(approval.proposalRef).catch(() => undefined);
+    let late: PilotReceipt | undefined;
+    // Review E1: a receipt that cannot be read is not "nothing written": the plan stays as it was before the approval (the next Confirmar looks for
+    // the receipt first) and the owner is told it could not be checked.
+    try { late = await host.receipt(approval.proposalRef); } catch { state.plan = plan; return reply(PILOT_CONFIRM_UNVERIFIED, "CONFIRM_UNVERIFIED"); }
     if (late && late.proposalRef === approval.proposalRef) return settled(late, "CONFIRMED_AFTER_FAILURE");
     const expired = error instanceof Error && error.message === "PROPOSAL_EXPIRED";
     state.plan = invalidate(state.plan, expired ? "PROPOSAL_EXPIRED" : "CONFIRM_FAILED");
     // Checked again through the real agenda: a fresh proposal (a new Confirmar) or the question of another slot; nothing was written.
     const again = await preparePilotProposal(host, state.plan, state.notes ?? [], { floor: state.questionFloor, today: reference, appointment: state.plan.action.fields.appointment.display ?? "" });
     state.plan = again.plan;
-    if (again.text) state.asked = openQuestions(again.plan).map(question => ({ questionId: question.questionId, text: again.text! }));
+    if (again.code === "ALREADY_WRITTEN") return reply(again.text ?? PILOT_ALREADY_WRITTEN, "ALREADY_WRITTEN");
+    if (again.text) state.asked = openQuestions(again.plan).map(question => ({ questionId: question.questionId, text: pilotClip(again.text!, PILOT_TEXT_BOUNDS.asked) }));
     const now = again.plan.action.status === "proposal_ready" ? again.plan.action.proposal!.text : again.text ?? PILOT_PREPARATION_FAILED;
     return reply(`${expired ? PILOT_PROPOSAL_EXPIRED : PILOT_CONFIRM_FAILED}\n\n${now}`, expired ? "CONFIRM_EXPIRED" : "CONFIRM_FAILED");
   }

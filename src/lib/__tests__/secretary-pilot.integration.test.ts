@@ -11,7 +11,7 @@ import { withTenant } from "../prisma-tenant";
 import { SalonSecretary, type SecretaryView } from "../salon-secretary";
 import { confirmAppointmentCreate } from "../scheduling-actions";
 import { PostgresSessionStore, type SecretarySessionStore } from "../secretary-session-store";
-import { PILOT_CUSTOMER_NOTICE, PILOT_OUT_OF_SCOPE_REPLY, PILOT_SAFE_REPLY } from "../secretary-pilot";
+import { pilotOptionRef, PILOT_ALREADY_WRITTEN, PILOT_CUSTOMER_NOTICE, PILOT_OUT_OF_SCOPE_REPLY, PILOT_PREPARATION_FAILED, PILOT_PROPOSAL_EXPIRED, PILOT_SAFE_REPLY } from "../secretary-pilot";
 import { PILOT_FIELDS, PILOT_PROVENANCES } from "../secretary-pilot-plan";
 import { expiredProposalMessage } from "../secretary-proposal-lifetime";
 import { formatLocal } from "../secretary-datetime-format";
@@ -429,6 +429,102 @@ suite("Reschedule pilot through SalonSecretary on the local PostgreSQL (flag SAL
     expect(model.requests.length).toBeLessThanOrEqual(2);
     expect(readyGroups(view)).toEqual([]);
     expect(await rows(w.a)).toEqual(before);
+  });
+
+  // Final review E1/E2/E3/S7/S9: a write committed behind the session (its reply or save lost: the journal confirm of the plan's own proposal_ref
+  // runs directly, as above) is found by that proposal's receipt before anything drops, withdraws or prepares it again; a replay never pairs an
+  // old reply with live controls; a refused tap changes nothing; a tap counts as a turn.
+  const commitBehind = (s: Studio, view: SecretaryView) =>
+    withTenant(s.actor, tx => confirmAppointmentCreate(tx, s.actor, { proposal_ref: view.pilot!.proposal!.proposalRef, draft_revision: view.pilot!.proposal!.draftRevision }));
+  const sessionOf = <T,>(c: Conversation) => (c.secretary as unknown as { sessions: Map<string, T> }).sessions.get(c.sessionId)!;
+  const pilotOperation = (view: SecretaryView) => view.operations!.find(op => op.action_keys?.includes("a1"))!.operation_ref;
+
+  it("E1: after a write behind the session, a message past the proposal's expiry, a correction or Descartar report it done, never «nada foi alterado»", async () => {
+    for (const next of ["expired", "correction", "discard"] as const) {
+      const w = await world(), c = await open(w.a, [mainTurn, luna({ destino: to(null, at(16, "às 16h")) })]);
+      const view = await say(c, MAIN), before = await rows(w.a);
+      await commitBehind(w.a, view);
+      const committed = await rows(w.a);
+      expectMoved(before, committed, w.ana, { start: `${D(4)}T15:00`, end: `${D(4)}T15:50` });
+      if (next === "expired") vi.setSystemTime(Date.now() + 11 * 60_000);
+      const after = next === "discard" ? await c.secretary.discardAction(w.a.actor, c.sessionId, { plan_ref: view.action_plan!.plan_ref, action_key: "a1" })
+        : await say(c, next === "expired" ? "E então, ficou certo?" : "Melhor às 16h");
+      expect(after.pilot?.status, next).toBe("done");
+      expect(after.message, next).toContain("Remarcação gravada");
+      expect(after.message, next).not.toContain("nada foi alterado");
+      expect(c.model.requests, next).toHaveLength(1);
+      expect((await confirm(c, view)).pilot?.status, next).toBe("done");
+      expect(await rows(w.a), next).toEqual(committed);
+    }
+  });
+
+  it("E1: a preparation on a draft the agenda already confirmed reports that write (never «Não consegui preparar»), and the plan is closed", async () => {
+    const w = await world(), dated = (hora: PilotTempoHora) => luna({ cliente: { mencao: "Ana" },
+      destino: to({ tipo: "data", dia: Number(D(4).slice(8, 10)), mes: Number(D(4).slice(5, 7)), mencao: "a data combinada" }, hora) });
+    const c = await open(w.a, [dated(at(15, "às 15h")), luna({ destino: to(null, at(16, "às 16h")) })]);
+    const view = await say(c, "Arrasta a Ana para a data combinada, às 15h");
+    expect(view.pilot?.status).toBe("proposal_ready");
+    await commitBehind(w.a, view);
+    const committed = await rows(w.a);
+    // The plan lost its proposal_ref (a save lost before this review could leave it so): only the agenda's own draft knows of the write.
+    delete sessionOf<{ pilot: { plan: { action: { proposal?: unknown } } } }>(c).pilot.plan.action.proposal;
+    const after = await say(c, "Melhor às 16h");
+    expect(after.message).toContain(PILOT_ALREADY_WRITTEN);
+    expect(after.message).not.toContain(PILOT_PREPARATION_FAILED);
+    expect(after.pilot?.status).toBe("withdrawn");
+    expect(await rows(w.a)).toEqual(committed);
+  });
+
+  it("E2: a Confirmar repeated after its write committed finds the receipt even after a reload projected the expiry (single and «confirmar tudo»)", async () => {
+    for (const all of [false, true]) {
+      const w = await world(), c = await open(w.a, [mainTurn], new PostgresSessionStore());
+      const view = await say(c, MAIN);
+      await commitBehind(w.a, view);
+      const committed = await rows(w.a);
+      vi.setSystemTime(Date.now() + 11 * 60_000);
+      expect((await c.secretary.current(w.a.actor))?.pilot?.status).toBe("proposal_ready");
+      const done = all ? await c.secretary.confirmReadyGroups(w.a.actor, c.sessionId, [approvalOf(view)]) : await confirm(c, view);
+      expect(done.pilot?.status).toBe("done");
+      if (all) expect(done.confirmation_batch?.executed).toEqual([approvalOf(view).group_key]);
+      expect(await rows(w.a)).toEqual(committed);
+    }
+  });
+
+  it("E3: a repeated clientTurnId after a correction answers with the current proposal, and a Confirmar from that view writes what it shows", async () => {
+    const w = await world(), c = await open(w.a, [mainTurn, luna({ destino: to(null, at(16, "às 16h")) })]), turn = randomUUID();
+    const first = await say(c, MAIN, turn), second = await say(c, "Melhor às 16h"), before = await rows(w.a);
+    const again = await say(c, MAIN, turn);
+    expect(c.model.requests).toHaveLength(2);
+    expect(again.message).not.toBe(first.message);
+    expect(again.message).toContain(formatLocal(`${D(4)}T16:00`));
+    expect(again.pilot).toMatchObject({ revision: second.pilot!.revision, proposal: second.pilot!.proposal, turn: { clientTurnId: turn, replayed: true } });
+    await confirm(c, again);
+    expectMoved(before, await rows(w.a), w.ana, { start: `${D(4)}T16:00`, end: `${D(4)}T16:50` });
+  });
+
+  it("S7: a refused tap changes nothing: past the proposal's expiry a stale tap is refused and the Confirmar still reaches the expiry rule", async () => {
+    const w = await world(), c = await open(w.a, [mainTurn]);
+    const view = await say(c, MAIN), before = await rows(w.a);
+    vi.setSystemTime(Date.now() + 11 * 60_000);
+    await expect(c.secretary.selectAutomatic(w.a.actor, c.sessionId, pilotOperation(view), "q1/08:00")).rejects.toThrow("SELECTION_INVALID");
+    const again = await confirm(c, view);
+    expect(again.message).toContain(PILOT_PROPOSAL_EXPIRED);
+    expect(again.pilot?.status).toBe("proposal_ready");
+    expect(await rows(w.a)).toEqual(before);
+  });
+
+  it("S4/S9: a tap names its question and counts as a turn of the session (bounded)", async () => {
+    const a = await studio("A", ["Ana Quaresma", "Ana Bezerra", "Bento Ximenes"]);
+    await book(a, "Ana Quaresma", a.carlos, a.limpeza, D(2), "10:00");
+    const c = await open(a, [luna({ cliente: { mencao: "Ana" }, destino: to(weekday(6, "sexta"), at(15, "15h")) })]);
+    const asked = await say(c, "Puxa a Ana pra sexta, 15h"), question = asked.pilot!.questions[0], tap = pilotOptionRef(question.questionId, a.people["Ana Quaresma"]);
+    const session = sessionOf<{ turns: number }>(c);
+    session.turns = 20;
+    await expect(c.secretary.selectAutomatic(a.actor, c.sessionId, pilotOperation(asked), tap)).rejects.toThrow("TURN_LIMIT");
+    session.turns = 19;
+    const ready = await c.secretary.selectAutomatic(a.actor, c.sessionId, pilotOperation(asked), tap);
+    expect(ready.pilot).toMatchObject({ status: "proposal_ready", fields: { customer: { value: a.people["Ana Quaresma"] } } });
+    expect(session.turns).toBe(20);
   });
 
   it("flag off: exactly as before (the C4 request, no pilot state, the input contract unchanged)", async () => {

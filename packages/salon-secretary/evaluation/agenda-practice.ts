@@ -46,7 +46,8 @@ import { AGENDA_STAGES, AnswerBook, answerDeliveryMode, answerQuestion, DEFAULT_
   type AgendaClock, type AgendaScenario, type AgendaStageName, type AgentCallRecord, type AnswerDelivery, type AnswerFor, type LegacyMap, type ProfessionalHours, type StageLease, type Step,
   type TranscriptRow } from './agenda-practice-lib';
 import { assertProgramHeadroom, assertProofAdmits, guardPaidFetch, isProgramSpendError, programSpendCode, programSpendLabel, programSpendLedgerPath, programSpendSummary, programSpendTotals,
-  type ProofLease } from './program-spend';
+  runSpendCapReached, type ProofLease } from './program-spend';
+import { pilotOptionRef } from '../../../src/lib/secretary-pilot';
 import { applyNoise, noiseLevel, noisePreflight, noiseProfile, noiseSeed, noiseViolations, scenarioNoiseContext, type NoiseProfile } from './agenda-practice-noise';
 export { reserve, scenarioFixture, stageTotals, type AgendaScenario } from './agenda-practice-lib';
 
@@ -56,7 +57,7 @@ const RESULTS = 'packages/salon-secretary/evaluation/results/agenda-core';
 const RESPONSES_URL = 'https://api.openai.com/v1/responses';
 /** Budget/limit/wire/lease failures stop the whole run (never a half-graded attempt); other errors stay step errors. */
 const RUN_ABORTS = new Set(['AGENDA_UNEXPECTED_NETWORK', 'AGENDA_WIRE_REQUEST', 'AGENDA_MAX_REQUESTS', 'AGENDA_STAGE_CAP', 'AGENDA_STAGE_JOURNAL', 'AGENDA_STAGE_HEADROOM', 'AGENDA_STAGE_LOCKED',
-  'AGENDA_NOISE_INVARIANT', 'AGENDA_STAGE_LOCK_IO', 'AGENDA_STAGE_BUSY', 'AGENDA_STAGE_LEASE_LOST', 'AGENDA_STAGE_TEST_JOURNAL']);
+  'AGENDA_NOISE_INVARIANT', 'AGENDA_STAGE_LOCK_IO', 'AGENDA_STAGE_BUSY', 'AGENDA_STAGE_LEASE_LOST', 'AGENDA_STAGE_TEST_JOURNAL', 'AGENDA_RUN_SPEND_CAP']);
 /** F2: a São Paulo day change inside an attempt (clock only). Caught per attempt: the attempt is discarded and rerun once. */
 const ROLLOVER = 'AGENDA_DAY_ROLLOVER';
 class DayRollover extends Error { constructor() { super(ROLLOVER); } }
@@ -90,7 +91,10 @@ function summarize(view: SecretaryView | undefined) {
     suspended: (view.suspended_plans ?? []).map(p => p.label),
     plan: plan ? { status: plan.status, revision: plan.revision, actions: plan.actions.map(a => ({ key: a.key, operation: a.operation, status: a.status, mutation: a.mutation, missing: a.missing_fields, depends_on: a.depends_on, preview: a.assessment?.preview, issue: a.assessment?.issue, fields: a.fields,
         temporal_ambiguities: a.assessment?.pending_temporal_ambiguities?.map(x => x.field), calendar_conflicts: a.assessment?.pending_calendar_conflicts?.map(x => x.field) })),
-      groups: plan.confirmation_groups.map(g => ({ key: g.key, status: g.status, keys: g.action_keys })) } : undefined, operations: ops };
+      groups: plan.confirmation_groups.map(g => ({ key: g.key, status: g.status, keys: g.action_keys })) } : undefined, operations: ops,
+    // Reschedule pilot arm (review H3/H4): its plan's progress and open questions, codes and counts only (absent on every other arm's view).
+    ...(view.pilot ? { pilot: { revision: view.pilot.revision, status: view.pilot.status, questions: view.pilot.questions.map(q => ({ field: q.field, reason: q.reason, options: q.options?.length ?? 0 })),
+      provenance: view.pilot.fields ? Object.fromEntries(Object.entries(view.pilot.fields).map(([name, field]) => [name, field.provenance])) : null } } : {}) };
 }
 /** Codes-only probe of the plan after a step (evaluation telemetry, no text). */
 /** The runner's own step failures (no Secretary call refused anything): the view shown is still the current one. */
@@ -198,7 +202,10 @@ export type AgendaRunOptions = { stage?: string; repeat?: number; /** per pass; 
   /** evaluation only; default AGENDA_ANSWER_DELIVERY, else 'field' (the legacy delivery, comparable with legacy runs) */ answerDelivery?: AnswerDelivery;
   /** F2: the clock of day anchors and the midnight guard (injected in tests; default the system clock) */ clock?: AgendaClock;
   /** C5 (§6.2, `--ids-file` / readScenarioIds): run only these scenario ids of the files given (an unknown id is refused). Never
-   * passed by the sealed or validation runners, which run their whole file. */ ids?: readonly string[] };
+   * passed by the sealed or validation runners, which run their whole file. */ ids?: readonly string[];
+  /** Review H2 (`--run-cap-usd`): this run's own dollar ceiling, checked before each paid call against what the run charged in the program ledger
+   * (open calls at their worst case) plus the call's worst case; reaching it stops the run (AGENDA_RUN_SPEND_CAP, ABORTED). Absent: no run cap. */
+  runCapUsd?: number };
 /** F1: a sealed/validation run hands the runner the preflight it checked before the look (never recomputed), the stage
  * lease it holds (the runner then neither takes nor releases one) and its program-wide proof lease (its paid calls are the only
  * ones the program ledger admits while it runs). */
@@ -212,6 +219,7 @@ export function preflightAgendaPractice(input: AgendaScenario[], opts: AgendaRun
   answerDeliveryMode(opts.answerDelivery ?? process.env.AGENDA_ANSWER_DELIVERY); // AGENDA_ANSWER_DELIVERY_ARGUMENT before any file or database
   if (!Number.isInteger(repeat) || repeat < 1 || repeat > 8) throw Error('AGENDA_REPEAT');
   if (opts.maxRequests !== undefined && (!Number.isInteger(opts.maxRequests) || opts.maxRequests < 1)) throw Error('AGENDA_MAX_REQUESTS_ARGUMENT');
+  if (opts.runCapUsd !== undefined && !(typeof opts.runCapUsd === 'number' && Number.isFinite(opts.runCapUsd) && opts.runCapUsd > 0)) throw Error('AGENDA_RUN_CAP_ARGUMENT');
   // C5: the agent arm is the product flag, read once here (dependencies and effort checked before any file, database or network).
   const agent = agentArm(process.env);
   if (agent) assertAgentArm(process.env);
@@ -276,6 +284,9 @@ export async function runAgendaPractice(scenarios: AgendaScenario[], out: string
   // C6 (rec 19): the model contract (prompt templates, wire, model, limits, contract flags) every scenario ran under.
   const contractVersion = secretaryContractVersion({ modelId: 'gpt-6-luna', presentation: backendPresentationDigest() });
   const programLedger = programSpendLedgerPath(), programRun = programSpendLabel(`practice:${basename(out)}`), proof = opts.proofLease;
+  // Review H2: the run's own ceiling counts only what this run charges from here on (an earlier run under the same label is the baseline).
+  const runCapMicroUsd = opts.runCapUsd === undefined ? undefined : Math.round(opts.runCapUsd * 1e6);
+  const runBaseline = runCapMicroUsd === undefined ? 0 : programSpendTotals(programLedger).byRun[programRun]?.spentMicroUsd ?? 0;
   const admin = new PrismaClient({ datasources: { db: { url: process.env.DIRECT_URL } } }); // no connection before its first query
   const run = clock.now().toISOString().replace(/[:.]/g, '-');
   // F1: one runner per stage journal for the whole run, before any file, database access or network (a sealed run hands its own).
@@ -316,6 +327,13 @@ export async function runAgendaPractice(scenarios: AgendaScenario[], out: string
     const ctx = active;
     // C5 agent arm: the call's position in its step (≤ 3 per owner message), its ledger label `…:s<step>:r<n>` and the clock of the replay.
     const call = ++ctx.calls, at = agent || pilot ? clock.now().toISOString() : '', item = programSpendLabel(`${ctx.scenario}:s${ctx.step}${agent ? `:r${call}` : ''}`);
+    // Review H2: the run's own dollar ceiling first (inside the run, before any reservation or transport).
+    if (runCapMicroUsd !== undefined) {
+      let reached: boolean;
+      try { reached = runSpendCapReached(input, init, { ledger: programLedger, run: programRun, capMicroUsd: runCapMicroUsd, baselineMicroUsd: runBaseline, agent, pilot }); }
+      catch (e) { halt(programSpendCode(e)); }
+      if (reached) halt('AGENDA_RUN_SPEND_CAP');
+    }
     // Program-wide real-spend cap first: a refused call consumes neither a stage reservation nor transport.
     try { await assertProgramHeadroom(input, init, { ledger: programLedger, proof, agent, pilot }); } catch (e) { halt(programSpendCode(e)); }
     // F1: bounded lock wait inside reserve(); the row is admitted only for the run holding the stage lease.
@@ -380,6 +398,12 @@ export async function runAgendaPractice(scenarios: AgendaScenario[], out: string
         const save = (complete: boolean) => writeFileSync(join(dir, `${s.id}.json`), JSON.stringify({ ...header, version, complete, ...(abort ? { abort } : {}), transcript }, null, 2));
         cur.save = save;
         const candidateItems = (o: NonNullable<SecretaryView['operations']>[number]) => o.state.scheduling?.candidates?.items ?? (o.state.batch?.draft?.candidates as { items?: { id: string; name: string }[] } | undefined)?.items ?? [];
+        // Review H3 (pilot arm only): the pilot shows its real choices in its open question (never as an agenda card); a select or choose step with
+        // no card taps one of them on the pilot's own operation, bound to its question (the same as the owner's tap).
+        const pilotCard = (v?: SecretaryView) => {
+          const question = pilot ? v?.pilot?.questions[0] : undefined, operation = v?.operations?.find(o => o.action_keys?.includes('a1'));
+          return question?.options?.length && operation ? { op: operation.operation_ref, items: question.options.map(option => ({ id: pilotOptionRef(question.questionId, option.id), name: option.label })) } : undefined;
+        };
         const queue: (Step | { answer: string; field: string; use: number; for?: AnswerFor })[] = [...s.steps];
         save(false);
         try {
@@ -445,12 +469,15 @@ export async function runAgendaPractice(scenarios: AgendaScenario[], out: string
               }
             } else if ('select' in step) {
               const wanted = renderTemplate(step.select, today); input = wanted;
-              const match = (view?.operations ?? []).flatMap(o => candidateItems(o).filter(i => i.name.toLowerCase().includes(wanted.toLowerCase())).map(i => ({ op: o.operation_ref, id: i.id })));
+              let match = (view?.operations ?? []).flatMap(o => candidateItems(o).filter(i => i.name.toLowerCase().includes(wanted.toLowerCase())).map(i => ({ op: o.operation_ref, id: i.id })));
+              const card = match.length ? undefined : pilotCard(view);
+              if (card) match = card.items.filter(i => i.name.toLowerCase().includes(wanted.toLowerCase())).map(i => ({ op: card.op, id: i.id }));
               if (match.length !== 1) throw Error('SELECT_' + match.length);
               view = await secretary.selectAutomatic(actor, session.sessionId, match[0].op, match[0].id);
             } else if ('choose' in step) {
               input = step.choose;
-              const card = (view?.operations ?? []).filter(o => !step.action || o.action_keys?.includes(step.action)).map(o => ({ op: o.operation_ref, items: candidateItems(o) })).find(c => c.items.length);
+              const card = (view?.operations ?? []).filter(o => !step.action || o.action_keys?.includes(step.action)).map(o => ({ op: o.operation_ref, items: candidateItems(o) })).find(c => c.items.length)
+                ?? (!step.action || step.action === 'a1' ? pilotCard(view) : undefined);
               if (!card) throw Error('CHOOSE_NO_CARD');
               const item = card.items[step.choose - 1];
               if (!item) throw Error('CHOOSE_RANGE');
@@ -551,7 +578,7 @@ export async function runAgendaPractice(scenarios: AgendaScenario[], out: string
     midnightGuard: { sleeps: guards.filter(g => g.action === 'SLEEP').length, sleptMs: guards.reduce((n, g) => n + g.sleepMs, 0), unguarded: guards.filter(g => g.action === 'RUN_UNGUARDED').length, events: guards },
     clock: pre.clock, lease: { id: lease.id, own: ownLease, released: leaseReleased } };
   const report = { run, status: failure ? 'ABORTED' : 'COMPLETE', ...(failure ? { abort } : {}), today: firstDay, ...dayReport, repeat, version, versions, contractVersion, flags, noise: { profile, levels: pre.noise.levels },
-    arm: agent ? 'AGENT' : pilot ? 'PILOT' : 'C4', evaluatorVersion: evaluator, ...(agentReport ? { agent: agentReport } : {}),
+    arm: agent ? 'AGENT' : pilot ? 'PILOT' : 'C4', evaluatorVersion: evaluator, ...(agentReport ? { agent: agentReport } : {}), ...(runCapMicroUsd !== undefined ? { runCapUsd: opts.runCapUsd } : {}),
     ...(delivery !== 'field' ? { answerDelivery: delivery } : {}),
     scenarios: runnable.length, ids: runnable.map(s => s.id), scenarioAttempts: results.length, incomplete, notExecuted, skipped: pre.skipped.map(d => ({ id: d.id, closed: d.closed, invalid: d.invalid })), requests,
     usage: { input: usage.reduce((n, u) => n + u.input, 0), cached: usage.reduce((n, u) => n + u.cached, 0), output: usage.reduce((n, u) => n + u.output, 0) },

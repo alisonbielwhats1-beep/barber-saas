@@ -1,6 +1,6 @@
 /** CLI: node scripts/run-agenda-practice.cjs --scenarios <a.json[,b.json]> [--only A01,A02] [--repeat K(1..8)]
  *   [--stage reliability-20260927|agenda-core-20260927|final-20260929|c4-dev-20260929|c4-proof-20260930] [--max-requests N (per pass; default = estimate)]
- *   [--closed-day skip|fail] [--noise off|light|heavy|mixed] [--label x] [--preflight]
+ *   [--closed-day skip|fail] [--noise off|light|heavy|mixed] [--label x] [--preflight] [--run-cap-usd D (this run's own dollar ceiling, every mode)]
  * Requires AGENDA_PRACTICE_REAL_APPROVED=true (paid Luna calls under the selected stage journal; every call is also
  * admitted and charged by the program real-spend ledger, whatever the stage).
  * --noise (default off = texts exactly as written): deterministic, meaning-preserving typing/dictation noise on say/answer
@@ -24,7 +24,7 @@ import { assertNotRegisteredHoldout, assertScenarioFilesInCheckout, sealedAgenda
   type OutsideMode } from '../packages/salon-secretary/evaluation/agenda-sealed';
 import { liveCandidateContract } from '../packages/salon-secretary/evaluation/candidate-contract';
 import { readHoldoutRegistry } from '../packages/salon-secretary/evaluation/holdout-usage';
-const VALUE_FLAGS = ['--scenarios', '--only', '--max-requests', '--label', '--stage', '--repeat', '--closed-day', '--noise', '--sealed', '--candidate', '--validation'], BOOLEAN_FLAGS = ['--preflight'];
+const VALUE_FLAGS = ['--scenarios', '--only', '--max-requests', '--label', '--stage', '--repeat', '--closed-day', '--noise', '--sealed', '--candidate', '--validation', '--run-cap-usd'], BOOLEAN_FLAGS = ['--preflight'];
 let sealed: OutsideMode | null = null;
 async function main() {
   const args = process.argv.slice(2), values: Record<string, string> = {};
@@ -40,6 +40,9 @@ async function main() {
     const n = Number(values[flag]); if (!/^\d+$/.test(values[flag]) || n < min || n > max) throw Error('AGENDA_ARGUMENT'); return n;
   };
   const repeat = integer('--repeat', 1, 8) ?? 1, maxRequests = integer('--max-requests', 1, 5000);
+  // Review H2: --run-cap-usd <dollars> (up to 6 decimals, more than 0 and at most the program cap): the run's own ceiling, checked before each paid call.
+  const runCap = values['--run-cap-usd'], runCapUsd = runCap === undefined ? undefined : Number(runCap);
+  if (runCap !== undefined && (!/^\d+(?:\.\d{1,6})?$/.test(runCap) || !(runCapUsd! > 0) || runCapUsd! > 15)) throw Error('AGENDA_ARGUMENT');
   const closedDay = values['--closed-day'] ?? 'skip';
   if (closedDay !== 'skip' && closedDay !== 'fail') throw Error('AGENDA_ARGUMENT');
   const noise = values['--noise'] ?? 'off';
@@ -48,7 +51,7 @@ async function main() {
     sealed = 'VALIDATION'; // from here on, errors print codes only
     if (['--scenarios', '--only', '--sealed', '--candidate'].some(flag => values[flag] !== undefined)) throw Error('AGENDA_VALIDATION_ARGUMENT');
     await validationAgendaPractice({ holdout: values['--validation'], preflight: !!values['--preflight'], stage: values['--stage'], repeat, maxRequests, label: values['--label'],
-      closedDay: (values['--closed-day'] ?? 'fail') as 'skip' | 'fail', noise: noise as NoiseProfile },
+      closedDay: (values['--closed-day'] ?? 'fail') as 'skip' | 'fail', noise: noise as NoiseProfile, ...(runCapUsd !== undefined ? { runCapUsd } : {}) },
     { root: process.cwd(), env: process.env, preflight: preflightAgendaPractice, run: runAgendaPractice, identity: agendaDatabaseIdentity, print: line => console.log(line) });
     return;
   }
@@ -56,7 +59,7 @@ async function main() {
     sealed = 'SEALED'; // from here on, errors print codes only
     if (values['--sealed'] === undefined || ['--scenarios', '--only', '--label'].some(flag => values[flag] !== undefined)) throw Error('AGENDA_SEALED_ARGUMENT');
     await sealedAgendaPractice({ holdout: values['--sealed'], candidate: values['--candidate'] ?? '', preflight: !!values['--preflight'], stage: values['--stage'], repeat, maxRequests,
-      closedDay: (values['--closed-day'] ?? 'fail') as 'skip' | 'fail', noise: noise as NoiseProfile },
+      closedDay: (values['--closed-day'] ?? 'fail') as 'skip' | 'fail', noise: noise as NoiseProfile, ...(runCapUsd !== undefined ? { runCapUsd } : {}) },
     { root: process.cwd(), env: process.env, contract: liveCandidateContract, preflight: preflightAgendaPractice, run: runAgendaPractice, identity: agendaDatabaseIdentity, print: line => console.log(line) });
     return;
   }
@@ -67,7 +70,7 @@ async function main() {
   const only = values['--only']?.split(',');
   if (only?.some(id => !all.some(s => s.id === id))) throw Error('AGENDA_UNKNOWN_SCENARIO');
   const scenarios = only ? all.filter(s => only.includes(s.id)) : all;
-  const opts = { stage: values['--stage'], repeat, maxRequests, closedDay, noise: noise as NoiseProfile } as const;
+  const opts = { stage: values['--stage'], repeat, maxRequests, closedDay, noise: noise as NoiseProfile, ...(runCapUsd !== undefined ? { runCapUsd } : {}) } as const;
   if (values['--preflight']) {
     const pre = preflightAgendaPractice(scenarios, opts);
     const { violations, ...noiseSummary } = pre.noise; // violations abort the preflight; the summary carries codes and counts only
