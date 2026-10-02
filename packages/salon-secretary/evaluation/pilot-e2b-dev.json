@@ -1,6 +1,6 @@
 [
   {
-    "id": "PB01",
+    "id": "PX01",
     "title": "Semana contada a partir do próprio atendimento; o serviço indica qual",
     "capability": [
       "reschedule",
@@ -127,8 +127,8 @@
     }
   },
   {
-    "id": "PB02",
-    "title": "Gêmeo do PB01: a semana é contada a partir de hoje",
+    "id": "PX02",
+    "title": "Gêmeo do PX01: a semana é contada a partir de hoje",
     "capability": [
       "reschedule",
       "pilot-e2b",
@@ -254,7 +254,7 @@
     }
   },
   {
-    "id": "PB03",
+    "id": "PX03",
     "title": "Quatro dias depois sem dizer de quê: duas âncoras plausíveis, pergunta o dia",
     "capability": [
       "reschedule",
@@ -369,8 +369,8 @@
     }
   },
   {
-    "id": "PB04",
-    "title": "Gêmeo do PB03: quatro dias depois do dia marcado (âncora no atendimento)",
+    "id": "PX04",
+    "title": "Gêmeo do PX03: quatro dias depois do dia marcado (âncora no atendimento)",
     "capability": [
       "reschedule",
       "pilot-e2b",
@@ -477,8 +477,8 @@
     }
   },
   {
-    "id": "PB05",
-    "title": "Gêmeo do PB03: quatro dias a contar de hoje (âncora hoje)",
+    "id": "PX05",
+    "title": "Gêmeo do PX03: quatro dias a contar de hoje (âncora hoje)",
     "capability": [
       "reschedule",
       "pilot-e2b",
@@ -585,7 +585,7 @@
     }
   },
   {
-    "id": "PB06",
+    "id": "PX06",
     "title": "Dois dias depois de uma data citada (dia do mês)",
     "capability": [
       "reschedule",
@@ -694,8 +694,8 @@
     }
   },
   {
-    "id": "PB07",
-    "title": "Gêmeo do PB06: dois dias antes de outra data citada",
+    "id": "PX07",
+    "title": "Gêmeo do PX06: dois dias antes de outra data citada",
     "capability": [
       "reschedule",
       "pilot-e2b",
@@ -804,7 +804,7 @@
     }
   },
   {
-    "id": "PB08",
+    "id": "PX08",
     "title": "Antecipar dias a partir do próprio atendimento, mesma hora",
     "capability": [
       "reschedule",
@@ -914,7 +914,7 @@
     }
   },
   {
-    "id": "PB09",
+    "id": "PX09",
     "title": "Noventa minutos mais tarde no próprio atendimento",
     "capability": [
       "reschedule",
@@ -1023,8 +1023,8 @@
     }
   },
   {
-    "id": "PB10",
-    "title": "Gêmeo do PB09: adiantar quarenta e cinco minutos",
+    "id": "PX10",
+    "title": "Gêmeo do PX09: adiantar quarenta e cinco minutos",
     "capability": [
       "reschedule",
       "pilot-e2b",
@@ -1133,7 +1133,7 @@
     }
   },
   {
-    "id": "PB11",
+    "id": "PX11",
     "title": "Delegado: com quem estiver livre em outro dia; escolhe quem tem menos atendimentos",
     "capability": [
       "reschedule",
@@ -1406,8 +1406,8 @@
     }
   },
   {
-    "id": "PB12",
-    "title": "Gêmeo do PB11: profissional nomeado",
+    "id": "PX12",
+    "title": "Gêmeo do PX11: profissional nomeado",
     "capability": [
       "reschedule",
       "pilot-e2b",
@@ -1679,7 +1679,7 @@
     }
   },
   {
-    "id": "PB13",
+    "id": "PX13",
     "title": "Outro profissional no mesmo dia e hora: a atual sai; entre os livres, menos atendimentos",
     "capability": [
       "reschedule",
@@ -1952,7 +1952,7 @@
     }
   },
   {
-    "id": "PB14",
+    "id": "PX14",
     "title": "Mesmo horário com quem estiver disponível: o destino é o próprio horário, então a atual sai",
     "capability": [
       "reschedule",
@@ -2225,8 +2225,8 @@
     }
   },
   {
-    "id": "PB15",
-    "title": "Gêmeo do PB13: os outros estão ocupados no horário; ninguém livre, pergunta",
+    "id": "PX15",
+    "title": "Gêmeo do PX13: os outros estão ocupados no horário; ninguém livre, pergunta",
     "capability": [
       "reschedule",
       "pilot-e2b",
@@ -2442,7 +2442,7 @@
     }
   },
   {
-    "id": "PB16",
+    "id": "PX16",
     "title": "Delegado em outro dia em que a atual tem menos atendimentos: a atual pode ficar",
     "capability": [
       "reschedule",
@@ -2715,7 +2715,7 @@
     }
   },
   {
-    "id": "PB17",
+    "id": "PX17",
     "title": "Depois de amanhã sem horário: pergunta a hora (decisão 2)",
     "capability": [
       "reschedule",
@@ -2831,7 +2831,7 @@
     }
   },
   {
-    "id": "PB18",
+    "id": "PX18",
     "title": "Dois dias depois de um dia da semana citado: uma só leitura, nenhuma pergunta",
     "capability": [
       "reschedule",
@@ -2941,8 +2941,8 @@
     }
   },
   {
-    "id": "PB19",
-    "title": "Gêmeo do PB18 com o atendimento depois desse dia da semana: duas leituras (decisão 27), pergunta o dia",
+    "id": "PX19",
+    "title": "Gêmeo do PX18 com o atendimento depois desse dia da semana: duas leituras (decisão 27), pergunta o dia",
     "capability": [
       "reschedule",
       "pilot-e2b",
@@ -3058,7 +3058,7 @@
     }
   },
   {
-    "id": "PB20",
+    "id": "PX20",
     "title": "Outro profissional, sem ser um nomeado: o atual e o nomeado saem; entre os livres, menos atendimentos",
     "capability": [
       "reschedule",

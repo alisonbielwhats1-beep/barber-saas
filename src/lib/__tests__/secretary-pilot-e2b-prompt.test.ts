@@ -66,10 +66,10 @@ const leaves = (value: unknown): string[] => typeof value === "string" ? [value]
 const says = dev.flatMap(scenario => [...scenario.steps.flatMap(step => typeof step.say === "string" ? [step.say] : []), ...leaves(scenario.answers)]);
 
 describe("E2-B DEV battery (synthetic, for the paid development probe): valid, every new mechanism with twins", () => {
-  it("is a valid scenario set, ids PB01.. in order", () => {
+  it("is a valid scenario set, ids PX01.. in order (PB ids belong to the sealed pilot-e2b-30)", () => {
     expect(dev.length).toBeGreaterThanOrEqual(14);
     expect(() => validateScenarios(dev)).not.toThrow();
-    expect(dev.map(scenario => scenario.id)).toEqual(dev.map((_, index) => `PB${String(index + 1).padStart(2, "0")}`));
+    expect(dev.map(scenario => scenario.id)).toEqual(dev.map((_, index) => `PX${String(index + 1).padStart(2, "0")}`));
   });
   it("exercises each mechanism (anchors origem / hoje / data_citada / two, clock offsets, delegation any / other / same slot / nobody free / named) and has R2 cases", () => {
     const count = (tag: string) => dev.filter(scenario => scenario.capability.includes(tag)).length;
