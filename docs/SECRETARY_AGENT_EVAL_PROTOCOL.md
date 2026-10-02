@@ -444,3 +444,34 @@ Feitas por agentes isolados: causa por cenário × braço com verificação cét
   3. perguntas desnecessárias não aumentam.
 
   Caso contrário: "sem sinal claro". Nos dois casos o trabalho para e o resultado vai para o dono; nenhuma rodada nova de correção é aberta.
+
+## Resultado do Adendo 7: microcandidata P0+P2 (01/10/2026, 21h20–21h34 de São Paulo)
+
+- **Conjunto e braços:** validação `micro-p0p2-30` (sha e6c9612e, 30 cenários novos), k = 1, mesmo dia.
+  - Braço MICRO: commit b1e2bab com `SALON_SECRETARY_AGENT_MICRO=true`.
+  - Braço BASE: o mesmo código com a flag desligada. O comportamento é idêntico ao congelado, mas não é a candidata 2dc6cc5e byte a byte.
+
+| | MICRO | BASE |
+|---|---:|---:|
+| PASS total | 11/30 (36,7%) | 12/30 (40,0%) |
+| PASS SIMPLE / COMPLEX | 11/20 / 0/10 | 12/20 / 0/10 |
+| Turnos com pergunta desnecessária | 20/41 | 22/41 |
+| Falhas por pergunta desnecessária / ação perdida / referência errada / negação / tempo esgotado | 11 / 4 / 1 / 2 / 1 | 12 / 2 / 1 / 1 / 2 |
+| Segurança | 1 (MC07, pendência após negação; sem escrita, artefato do avaliador) | 1 (o mesmo) |
+| Queda para a C4 | 1/41 (2,4%) | 2/41 (4,9%) |
+| Latência p50 / p90 | 6,9 s / 16,5 s | 8,2 s / 18,0 s |
+| Custo (livro-caixa) | US$ 0,051 | US$ 0,053 |
+
+- **Pareado:** os dois passam em 11, só MICRO em 0, só BASE em 1 (MS02, variação da Luna), os dois falham em 18. McNemar unilateral p = 1,0.
+- **Veredito pela regra pré-registrada: SEM SINAL CLARO.** O ganho líquido foi −1, e não houve segurança nova nem aumento de perguntas.
+- **Acionamento:** as regras do P0 e do P2 não foram acionadas nenhuma vez (0 marcadores). Os códigos do validador que mais derrubaram cenários nos dois braços foram outros:
+  - AGENT_APPT_LOCATE;
+  - AGENT_KEEP_UNPROVEN;
+  - AGENT_QUOTE_ABSENT;
+  - AGENT_NEGATED (negação falsa);
+  - AGENT_TEMPORAL_READING;
+  - AGENT_COMBO;
+  - AGENT_PROFESSIONAL_UNSAID;
+  - AGENT_DAY_MISSING;
+  - tempo esgotado.
+- **Encerramento:** sem nova rodada de correção. O dono decide.
