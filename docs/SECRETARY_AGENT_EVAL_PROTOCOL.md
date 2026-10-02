@@ -521,3 +521,50 @@ Feitas por agentes isolados: causa por cenário × braço com verificação cét
 - **Artefatos:** `results/agenda-core/e0-trace-20261002/` (git-ignored).
 - **Ferramenta:** só uma mudança, em `agent-replay.ts`: namespace ordenado, opt-in por `REPLAY_ORDERED_NAMESPACE=1`, com backup do original.
 - **Conclusão:** a E1 pode começar. Especificação em `docs/c5-spike/12-piloto-remarcacao.md`.
+
+## Resultado do gate do piloto de remarcação (02/10/2026): SIGNAL_CLEAR
+
+- **Execução:**
+  - conjunto de validação `pilot-gate-20` (sha 829aba9e): 20 remarcações inéditas, 12 R1 e 8 R2, conferidas por um revisor independente;
+  - k=1, os dois braços em sequência no mesmo dia;
+  - código em c65fcc1; avaliador `agenda-evaluator-8fc2641d1b2dcbab`, igual nos dois braços.
+- **Braços:**
+  - PILOT: `SALON_SECRETARY_PILOT_RESCHEDULE=true`, com as chaves do Agent desligadas, porque o executor recusa ligar os dois juntos;
+  - FROZEN: as flags do Agent congelado com `AGENT_PRELOAD`.
+  - O replay sem rede no mesmo código deu 150/150 no DEV S2c.
+- **Gasto:** US$ 0,047735 (PILOT 0,014794; FROZEN 0,032941), dentro do teto de 0,15.
+- **Critérios pré-registrados (análise isolada: dois analistas independentes mais um adjudicador):**
+
+| Critério | Exigido | PILOT | FROZEN | Atende |
+|---|---|---|---|---|
+| Acertos líquidos | ≥ +5 | 11 só PILOT × 1 só FROZEN = **+10** | | sim |
+| Segurança real (gravação errada, proposta errada, outro salão, executar sem perguntar) | 0 | **0** | 0 | sim |
+| Perguntas desnecessárias | menos | **9** | 18 (17–19) | sim |
+| Gravações incorretas | 0 | **0** (11 corretas, 1 linha cada) | 0 | sim |
+
+- **Acertos por classe:**
+
+| | R1 | R2 | Total |
+|---|---|---|---|
+| PILOT | 8/12 | 3/8 | **11/20** |
+| FROZEN | 0/12 | 1/8 | **1/20** |
+
+- **Teste de McNemar exato:** b=11, c=1, p=0,0063 (bilateral).
+- **Latência por mensagem:**
+  - PILOT: p50 3,3 s, p90 6,1 s, nenhuma acima de 15 s;
+  - FROZEN: p50 9,1 s, p90 15,2 s, 3 acima de 15 s.
+- **Custo médio por mensagem:** PILOT US$ 0,0006; FROZEN US$ 0,0013.
+- **Validade:** VALID_WITH_LIMITATIONS.
+  - n=20, k=1 e um único dia.
+  - O digest do comparador difere da candidata 2dc6cc5e; o replay sem rede mostrou comportamento idêntico.
+  - A medida de "pergunta desnecessária" não foi pré-registrada; a conclusão se mantém nos 4 instrumentos testados.
+  - O roteiro não tem resposta para a pergunta de escopo.
+- **Camada da primeira falha nas 9 falhas do PILOT:**
+  - **8 no modelo:**
+    - 7 vezes a Luna marcou como fora do escopo uma parte que não existia: `outra_acao` 6, `consultar` 1. Precisão 0/7.
+    - 1 vez o dia da semana veio com um a menos.
+  - **1 no resolvedor:** a menção do serviço não localizou o atendimento.
+  - Nenhuma falha no estado, na agenda, no executor, no cenário ou por tempo.
+  - Todas as 9 terminaram em pergunta segura.
+- **Detalhe com as frases (só para o dono):** `D:/Projetos/secretary-holdout-sealed/pilot-gate-20/analysis/`.
+- Conforme o Adendo 9, o trabalho **PARA** aqui. E2/E3 dependem de autorização do dono. Nenhuma correção foi feita a partir deste gate.
