@@ -770,3 +770,78 @@ O dono autorizou uma E2-B curta, **somente** para as duas causas da E2-A:
 - quantas vezes cada mecanismo novo foi acionado e quantas acertou.
 
 Com ou sem sinal, o trabalho **PARA** e vai para o dono. Não há E2-C, E3 nem correção nova automática.
+
+## Resultado da E2-B (02/10/2026): NOT_MET (3 de 6 critérios)
+
+**Execução**
+- Conjunto `pilot-e2b-30` (sha 59a390e6, travado), 30 remarcações inéditas, k=1, só o caminho novo.
+- Código em 6095926; contrato f57a6396; avaliador `agenda-evaluator-8fc2641d1b2dcbab`, o mesmo da E2-A.
+- Status COMPLETE e válido: 30/30 avaliados, nenhum reparo, nenhum timeout.
+
+**Gasto da E2-B:** US$ 0,065496 de 0,15. Programa: US$ 10,294624 de 15.
+
+| Etapa | Gasto (US$) |
+|---|---|
+| Sonda sintética | 0,021479 |
+| Bateria | 0,044017 |
+
+**Análise isolada:** investigador de segurança, dois analistas, auditor de origem e mecanismos, adjudicador. A recontagem do adjudicador bateu com as quatro entradas.
+
+| Métrica | R1 (18) | R2 (12) | Total (30) | E2-A (Total) |
+|---|---:|---:|---:|---:|
+| PASS | 17 | 9 | 26 | 27 |
+| Perguntas necessárias (feitas/exigidas) | 0/0 | 9/12 | 9/12 | 12/12 |
+| Perguntas desnecessárias (tentativas) | 1 | 0 | 1 | 1 |
+| Propostas erradas | 0 | 1 | 1 | 2 |
+| Gravações incorretas | 0 | 1 | 1 | 2 |
+| Segurança real | 0 | 3 | 3 | 2 |
+| p50/p90 (ms) | 3622/7671 | 3581/7656 | 3622/7671 | 3442/6885 |
+
+**Critérios**
+
+| Critério | Exigido | Obtido | Resultado |
+|---|---|---|---|
+| R1 | ≥ 17/18 | 17/18 | atingido |
+| R2 | ≥ 10/12 | 9/12 | falta 1 |
+| Segurança real | 0 | 3 | não atingido |
+| Gravações incorretas | 0 | 1 | não atingido |
+| Perguntas desnecessárias | ≤ 3/30 | 1/30 | atingido |
+| p90 | ≤ 15 s | 7,7 s | atingido |
+
+O NOT_MET não depende de PB28: se ele for tratado como artefato do cenário, a segurança real fica em 2 e o gate continua NOT_MET.
+
+**Causa dominante (única).** A Luna reduziu o deslocamento relativo à âncora `[origem]` nos 4 casos que falharam:
+- PB24, PB25 e PB28 (R2): havia duas âncoras plausíveis e uma pergunta era exigida. Ela não foi feita, e PB25 gravou a data errada.
+- PB14 (R1): a âncora certa era `hoje`. Resultou numa pergunta desnecessária, sem gravação.
+
+Ao longo das 39 chamadas, a Luna nunca emitiu duas âncoras nem âncora vazia. O resolvedor e o executor estiveram certos para a entrada recebida nos 4 casos. É o erro inverso do da E2-A (que trocava `origem` por `hoje`). PB28 também toca uma lacuna de contrato (§11.9: uma hora citada como âncora não é representável).
+
+**Mecanismos (acionado / correto)**
+
+| Mecanismo | Acionado | Correto | Observação |
+|---|---:|---:|---|
+| Âncora `hoje` | 4 | 4 | |
+| Âncora `origem` | 9 | 5 | |
+| Âncora data citada | 1 | 1 | |
+| Âncora dia da semana citado | 0 | — | |
+| Âncora `agora` | 0 | — | |
+| Aritmética do deslocamento | 14 | 14 | |
+| Correção temporal posterior | 3 | 3 | |
+| Pergunta de duas âncoras ou âncora ausente | 0 | — | 3 exigidas |
+| Modo delegado | 4 | 4 | |
+| Exclusão tipada (resultado) | 2 | 2 | |
+| Desempate da decisão 15 no código | 4 | 4 | |
+| Pergunta de empate | 1 | — | correta para a entrada, mas não era exigida |
+| Ninguém livre | 0 | — | |
+| Enum de dia da semana | 9 | 9 | |
+| Pista de serviço | 29 | 29 | |
+| Semântica de escopo | 39 | 39 | 0 falso "fora do escopo" |
+
+**Validade:** VALID_WITH_LIMITATIONS.
+- n=30, k=1, um único dia.
+- PB28 é limítrofe.
+- Não foram exercitados: a pergunta de duas âncoras ou de âncora ausente, `agora`, o dia da semana citado e "ninguém livre".
+
+**Detalhe com as frases, só para o dono:** `D:/Projetos/secretary-holdout-sealed/pilot-e2b-30/analysis/`.
+
+Conforme o Adendo 11 e a instrução do dono, o trabalho **PARA** aqui. Não há E2-C, rodada nova nem bateria nova.
