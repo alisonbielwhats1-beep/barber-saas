@@ -81,6 +81,7 @@ import { secretaryCopyV2Enabled, secretaryErrorMessage } from "./secretary-error
 import { CONVERSATION_STATE_SCHEMA, decodeConversationState, encodeConversationState, type ConversationEventKind, type ConversationEventPayload,
   type ConversationRecord, type LoadedConversation, type SecretarySessionStore } from "./secretary-session-store";
 import { parseStoredAggregate, STORED_AGGREGATE_SCHEMA, type StoredSession } from "./secretary-session-state";
+import { pilotRescheduleEnabled, type PilotView } from "./secretary-pilot";
 
 type Draft = Awaited<ReturnType<typeof upsertActionDraft>>;
 type Proposal = Awaited<ReturnType<typeof proposeServiceCreate>>;
@@ -136,7 +137,8 @@ export type ConfirmationBatchReport = { executed: string[]; replayed: string[];
  * the options the backend already has; from the third, the agenda form (ids/dates only) and one extra sentence. */
 /** `today` (B7): the salon's local date (YYYY-MM-DD) the server last read; the screen's reference year for dates. */
 /** `agent_plan` (C5 agent, flag SALON_SECRETARY_AGENT): the active plan was built by the agent (the "Confirmar tudo" review dialog, §5.5). */
-export type SecretaryView = { agent_plan?: true; today?: string; clarifications?: SecretaryClarification[]; turn_notice?: string; turn_notice_alone?: true; options?: SecretaryOption[]; confirmation_batch?: ConfirmationBatchReport; retired_plan?: ActionPlan; proposal_expired?: boolean; service_context?: { fields: Partial<ServiceMvpFields>; target_name?: string }; suspended_plans?: { plan_ref: string; label: string }[]; capability_status?: CapabilityStatus; execution_warnings?: string[]; action_plan?: ActionPlan; communication?: CommunicationState; inventory?: InventoryState; financial?: FinancialState; batch?: BatchState; scheduling?: SchedulingState; operations?: { operation_ref: string; action_keys?: string[]; state: SecretaryView }[]; loaded?: Session["loaded"]; skill?: "services" | "customers" | "scheduling" | "financial" | "inventory" | "communication" | "auto"; customer?: CustomerState; sessionId: string; message: string; draft?: Draft; proposal?: Proposal; receipt?: Receipt; cancelled: boolean; candidates?: Candidates };
+/** `pilot` (flag SALON_SECRETARY_PILOT_RESCHEDULE): the reschedule pilot's plan, open questions, proposal refs and turn (secretary-pilot.ts). */
+export type SecretaryView = { pilot?: PilotView; agent_plan?: true; today?: string; clarifications?: SecretaryClarification[]; turn_notice?: string; turn_notice_alone?: true; options?: SecretaryOption[]; confirmation_batch?: ConfirmationBatchReport; retired_plan?: ActionPlan; proposal_expired?: boolean; service_context?: { fields: Partial<ServiceMvpFields>; target_name?: string }; suspended_plans?: { plan_ref: string; label: string }[]; capability_status?: CapabilityStatus; execution_warnings?: string[]; action_plan?: ActionPlan; communication?: CommunicationState; inventory?: InventoryState; financial?: FinancialState; batch?: BatchState; scheduling?: SchedulingState; operations?: { operation_ref: string; action_keys?: string[]; state: SecretaryView }[]; loaded?: Session["loaded"]; skill?: "services" | "customers" | "scheduling" | "financial" | "inventory" | "communication" | "auto"; customer?: CustomerState; sessionId: string; message: string; draft?: Draft; proposal?: Proposal; receipt?: Receipt; cancelled: boolean; candidates?: Candidates };
 const turnInput = z.object({ sessionId: z.string().uuid(), message: z.string().trim().min(1).max(1000), operation_ref: z.string().uuid().optional() }).strict();
 /** `linked` (review 2b): the linked actions the screen named and the owner accepted to discard with this one. */
 const discardInput = z.object({ plan_ref: z.string().uuid(), action_key: z.string().regex(/^[a-z][a-z0-9_]{0,31}$/),
@@ -601,8 +603,16 @@ export class SalonSecretary {
   async send(actor: ServiceActor, input: unknown): Promise<SecretaryView> {
     // Automatic parent -> draft continuation is one message/trace, not a second billable event.
     if (this.routerTrace.getStore()) return this.sendMessage(actor, input);
+    // Pilot (flag SALON_SECRETARY_PILOT_RESCHEDULE, default off; docs/c5-spike/12-piloto-remarcacao.md): every top-level message of the session.
+    if (pilotRescheduleEnabled()) return this.sendPilot(actor, input);
     const parsed = turnInput.parse(input);
     return this.persisted(actor, parsed.sessionId, "TURN_STARTED", () => this.sendTurn(actor, parsed));
+  }
+  /** Pilot entry (E1, tests first): secretary-pilot.ts handlePilotMessage over this session as its PilotHost (lease, authorization, tenant, the
+   * measured model, the real agenda preparation and Confirmar, persistence). Pending. */
+  private async sendPilot(actor: ServiceActor, input: unknown): Promise<SecretaryView> {
+    void actor; void input;
+    throw Error("PILOT_NOT_IMPLEMENTED");
   }
   private async sendTurn(actor: ServiceActor, parsed: z.infer<typeof turnInput>): Promise<SecretaryView> {
     const owned = this.get(actor, parsed.sessionId); // Do not persist telemetry against another tenant's session.
