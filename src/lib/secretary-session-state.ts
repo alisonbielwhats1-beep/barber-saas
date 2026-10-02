@@ -34,7 +34,9 @@ const pilotPlan = z.object({
     actionId: z.literal(PILOT_ACTION_ID), status: z.enum(PILOT_STATUSES),
     fields: z.object(Object.fromEntries(PILOT_FIELDS.map(name => [name, pilotField])) as Record<(typeof PILOT_FIELDS)[number], typeof pilotField>).strict(),
     questions: z.array(z.object({ questionId: pilotQuestionId, actionId: z.literal(PILOT_ACTION_ID), field: z.enum(PILOT_QUESTION_FIELDS), reason: z.enum(PILOT_QUESTION_REASONS),
-      options: z.array(z.object({ id: z.string().min(1).max(200), label: z.string().max(400) }).strict()).max(PILOT_OPTIONS_MAX).optional(), revision, open: z.boolean() }).strict())
+      options: z.array(z.object({ id: z.string().min(1).max(200), label: z.string().max(400) }).strict()).max(PILOT_OPTIONS_MAX).optional(),
+      // E2-B round 2 (§11.10): the real number of choices of a question whose options were cut at PILOT_OPTIONS_MAX.
+      total: z.number().int().min(0).max(100_000).optional(), revision, open: z.boolean() }).strict())
       .max(64).refine(questions => new Set(questions.map(question => question.questionId)).size === questions.length),
     proposal: pilotRefs.extend({ draftRef: z.string().min(1).max(200), text: z.string().max(20_000) }).strict().optional(),
     approval: pilotRefs.optional(),
@@ -49,10 +51,19 @@ const pilotProven = z.object({ dia: z.boolean().optional(), hora: z.boolean().op
   posicao: z.boolean().optional() }).strict();
 const pilotAnchors = z.object({ origem: z.string().max(40).optional(), destino: z.string().max(40).optional(), hora: z.string().max(40).optional() }).strict();
 // E2-B §11.3 (PRINCIPLE-1): `clockDay`, the destination day was settled by a clock offset counted from now (no day said). §11.4: `clockAfterDay`,
-// the destination clock was said in a later message than the destination day.
+// the destination clock was said in a later message than the destination day. Round 2 (§11.10): `exclusion`, the owner's words of the exclusion the
+// open EXCLUSION question clarifies (bound to that question's id; the question that chooses who attends keeps its own state, its options).
 const pilotPending = z.object({ origem: z.unknown().refine(value => pilotOrigemShape.safeParse(value).success),
   destino: z.unknown().refine(value => pilotDestinoShape.safeParse(value).success), proven: pilotProven.optional(), anchors: pilotAnchors.optional(),
-  clockDay: z.literal(true).optional(), clockAfterDay: z.literal(true).optional() }).strict();
+  clockDay: z.literal(true).optional(), clockAfterDay: z.literal(true).optional(),
+  exclusion: z.object({ questionId: pilotQuestionId, mencao: z.string().min(1).max(480) }).strict().optional(),
+  // §11.11: `held`, the exclusions said earlier that the pending professional value does not carry itself (a delegation carries at most the contract's 10
+  // names; a value that replaces it holds them aside, with the words beside "outro" one more at most: bounded at twice that);
+  // `choices`, every choice of the open question that chooses who attends when its options were cut (bound to its id; at most the reader's team bound).
+  held: z.object({ outro: z.literal(true).optional(), excluidos: z.array(z.string().min(1).max(480)).min(1).max(20).optional(),
+    words: z.array(z.string().min(1).max(480)).min(1).max(20).optional() }).strict().optional(),
+  choices: z.object({ questionId: pilotQuestionId, options: z.array(z.object({ id: z.string().min(1).max(200), label: z.string().max(400) }).strict()).min(1).max(500) })
+    .strict().optional() }).strict();
 /** E2-A: the pending operators exactly as the E1 contract wrote them (numbered weekday, servico_mencao). Recognized only to be dropped on load
  * (upgradeStoredPilot), never accepted as a pilot state: storedSession rejects them. */
 const legacyMention = z.string().min(1).max(480);

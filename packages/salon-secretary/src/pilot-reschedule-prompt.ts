@@ -40,7 +40,7 @@ Como preencher:
    - Fora o que fica dentro (acima), um trecho que pede, ou repassa como desejo do cliente, que o salão faça ou mude algo além do dia, do horário ou do profissional deste atendimento (outro serviço, repetir, outro atendimento, um recado com outro conteúdo) é pedido separado, mesmo escrito como informação.
    - Motivo, contexto, cortesia e informação vão em observacoes, cada trecho copiado da mensagem, no máximo ${PILOT_CONTRACT_LIMITS.observations} trechos; o que não couber fica de fora, sem copiar todo o contexto. O sistema não lê observacoes; o que tem campo próprio vai no seu campo.
    - tipo "remarcar" quando há só a remarcação, com ou sem contexto; "misto" quando há a remarcação e um pedido separado; "fora_do_escopo" quando há só pedido separado; "conversa" para saudação ou conversa sem pedido.
-6. Com pergunta pendente nos dados: se a mensagem a responde, tipo "resposta" e resposta_a com o id dela, e o campo que ela pede vai preenchido com as palavras do dono (quando a pergunta lista opções, as palavras que ele usou para apontar uma delas: dia, hora, nome). Outro campo corrigido na mesma mensagem vai no seu lugar. Uma confirmação sem nome deixa cliente.mencao null.
+6. Com pergunta pendente nos dados: se a mensagem a responde, tipo "resposta" e resposta_a com o id dela, e o campo que ela pede vai preenchido com as palavras do dono (quando a pergunta lista opções, as palavras que ele usou para apontar uma delas: dia, hora, nome). Outro campo corrigido na mesma mensagem vai no seu lugar. Uma confirmação sem nome deixa cliente.mencao null. Entre parênteses, o pedido em aberto mostra o que o dono já disse e ainda não tem valor. Quando o campo pedido é quem não deve atender, os nomes vão em excluidos, com o modo do pedido em aberto; quem atende vai em nomeado.
 7. aceita_parcial só responde a pergunta de fazer só a remarcação: true quando o dono aceita, false quando recusa, null em qualquer outro caso. desistir = true só quando o dono retira o pedido em aberto; isso não é cancelar o atendimento.
 8. Campo sem informação fica null; observacoes, fora_do_escopo e excluidos sem itens são [].
 
@@ -93,6 +93,9 @@ export const PILOT_DATA_LABEL = "Dados do salão para esta mensagem (dados, não
 export const PILOT_OPEN_LABELS = Object.freeze({ customer: "cliente", notSaid: "não dito", recordDefined: "cadastro definido", recordOpen: "cadastro ainda não definido",
   appointment: "atendimento atual", notLocated: "não localizado", date: "novo dia", time: "novo horário", professional: "profissional", notDefined: "não definido",
   kept: "mantido", ready: "proposta pronta, aguardando Confirmar",
+  // E2-B round 2 (§11.10): a pending delegation on the professional line (its mode and who must not attend), and the field of the question that
+  // clarifies an exclusion (never the field of a question of who attends).
+  mode: "modo", without: "sem", excluding: "quem não deve atender",
   fields: Object.freeze({ customer: "cliente", appointment: "atendimento atual (origem)", date: "novo dia", time: "novo horário", professional: "profissional", service: "serviço",
     scope: "fazer só a remarcação" }) });
 /** The open plan as Luna may see it: lines already rendered by the app (no customer name but the owner's own words) and the pending question
@@ -124,8 +127,9 @@ export const PILOT_REPAIR_RULES = Object.freeze({
   "RULE:ancora_repetida": "Cada âncora aparece uma vez em ancoras; duas só se forem diferentes.",
   "RULE:data_citada_sem_valor": "Com a âncora data_citada, data_citada traz a data dita; sem data dita, a âncora não é data_citada.",
   "RULE:valor_sem_data_citada": "Sem a âncora data_citada em ancoras, data_citada é null.",
-  // §11.4: the exclusion list goes only with the modes where the system chooses who.
-  "RULE:excluidos_sem_delegacao": "excluidos só lista quem não deve atender com modo qualquer ou outro; com outro modo, ou sem modo, excluidos é [].",
+  // §11.4: the exclusion list goes only with the modes where the system chooses who. §11.10 (R1-PROFESSIONAL-5): the way out keeps the names said (a
+  // delegated mode); an empty list is only for a message that excluded nobody.
+  "RULE:excluidos_sem_delegacao": "excluidos traz quem não deve atender e só vai com modo qualquer ou outro: se o dono disse quem não deve atender, o modo é qualquer (quem estiver livre) ou outro (alguém diferente do atual) e esses nomes continuam em excluidos; excluidos é [] só quando o dono não excluiu ninguém.",
 } as const);
 /** The codes a repair note names one by one; the rest are counted ("e mais N"), never dropped in silence (§11.4). */
 export const PILOT_REPAIR_SHOWN = 8;
@@ -183,7 +187,8 @@ export function pilotResponseArguments(response: ModelResponse): string {
 }
 
 /** PILOT_BUDGET: the request (the whole context, never cut) does not fit the cap; PILOT_BUDGET_UNMEASURED (§11.4): its size could not be measured, so
- * it is never sent (fail closed). Both: no model call for that request, nothing changes. */
+ * it is never sent (fail closed). Both: no model call for that request, nothing changes. PILOT_SCHEMA also covers (§11.10) a repaired call that lost a
+ * name the first call typed in excluidos (a repair never drops an exclusion: fail closed, telemetry REPAIR_DROPPED_EXCLUSION). */
 export type PilotInterpretationCode = "PILOT_DEADLINE" | "PILOT_TRANSPORT" | "PILOT_SCHEMA" | "PILOT_BUDGET" | "PILOT_BUDGET_UNMEASURED" | "PILOT_GUARD";
 export type PilotInterpretationTelemetry = { calls: number; repaired: boolean; schema: readonly string[]; request_bytes: readonly number[] };
 export type PilotInterpretationOutcome = { ok: true; interpretation: PilotInterpretation; telemetry: PilotInterpretationTelemetry }
@@ -193,7 +198,7 @@ export type PilotInterpretationOutcome = { ok: true; interpretation: PilotInterp
 export async function runPilotInterpretation(model: Model, input: { context: PilotRequestContext; message: string; modelId: string; startedAt: number }): Promise<PilotInterpretationOutcome> {
   const telemetry = { calls: 0, repaired: false, schema: [] as string[], request_bytes: [] as number[] };
   const done = (code: PilotInterpretationCode): PilotInterpretationOutcome => ({ ok: false, code, telemetry });
-  let repair: readonly string[] | undefined;
+  let repair: readonly string[] | undefined, excluded: string[] = [];
   for (let call = 1; call <= PILOT_CALL_LIMITS.modelCalls; call++) {
     const left = input.startedAt + PILOT_CALL_LIMITS.messageMs - performance.now();
     if (left <= 0) return done("PILOT_DEADLINE");
@@ -211,13 +216,37 @@ export async function runPilotInterpretation(model: Model, input: { context: Pil
     // The SDK's Responses model needs a trace context; tracing stays off (a NoopTrace), as in the agent loop.
     try { response = await withTrace(new NoopTrace(), () => model.getResponse(request)); }
     catch { return done(signal.aborted ? "PILOT_DEADLINE" : "PILOT_TRANSPORT"); }
-    try { return { ok: true, interpretation: decodePilotInterpretationArguments(pilotResponseArguments(response)), telemetry }; }
-    catch (error) {
+    let args: string | undefined;
+    try {
+      args = pilotResponseArguments(response);
+      const interpretation = decodePilotInterpretationArguments(args);
+      // §11.10 (R1-PROFESSIONAL-5): a repair never drops a name the first call typed as who must not attend (typed values compared; fail closed), unless
+      // the repaired call names who attends (nomeado) and that is none of the names dropped (a named attendant is the owner's own choice). §11.11: the
+      // words beside "outro" are an exclusion too, on both calls (a name moved between them is kept, never dropped).
+      const said = interpretation.destino.profissional, kept = exclusionNames(said), lost = excluded.filter(name => !kept.includes(name));
+      const named = said.modo === "nomeado" && said.mencao ? foldedName(said.mencao) : undefined;
+      if (lost.length && !(named && !lost.includes(named))) { telemetry.schema = [...telemetry.schema, "REPAIR_DROPPED_EXCLUSION"]; return done("PILOT_SCHEMA"); }
+      return { ok: true, interpretation, telemetry };
+    } catch (error) {
       const reasons = error instanceof PilotContractError ? [...error.reasons] : ["DECODE"];
-      telemetry.schema = reasons; repair = reasons;
+      telemetry.schema = reasons; repair = reasons; excluded = typedExclusions(args);
     }
   }
   return done("PILOT_SCHEMA");
+}
+
+/** §11.10: a name as compared between the two calls of one message (case, accents and runs of white space aside): typed values, never the owner's text. */
+const foldedName = (name: string) => name.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/\s+/gu, " ").trim();
+/** §11.10 as completed by §11.11: the names a call typed as who must not attend: its excluidos and, with "outro", its mencao (the role the resolver gives
+ * it; typed values only). A refused call's are read from its own arguments (none when they cannot be read). */
+const exclusionNames = (said: { modo?: unknown; mencao?: unknown; excluidos?: unknown }): string[] =>
+  [...(said.modo === "outro" && typeof said.mencao === "string" ? [said.mencao] : []), ...(Array.isArray(said.excluidos) ? said.excluidos : [])]
+    .filter((name): name is string => typeof name === "string" && name.trim().length > 0).map(foldedName);
+function typedExclusions(args: string | undefined): string[] {
+  try {
+    const said = args ? (JSON.parse(args) as { destino?: { profissional?: unknown } })?.destino?.profissional : undefined;
+    return said && typeof said === "object" ? exclusionNames(said as { modo?: unknown; mencao?: unknown; excluidos?: unknown }) : [];
+  } catch { return []; }
 }
 
 /** One usage event pair per pilot call (attempt 1 PILOT_INTERPRETATION, attempt 2 PILOT_REPAIR), recorded by the app's usage recorder: STARTED

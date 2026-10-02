@@ -189,7 +189,8 @@ describe("GAP 2.a/2.b through the orchestrator: one question with the real tied 
   it("an exclusion naming nobody of the team is asked on `professional` (never ignored): nothing prepared, Clemência never proposed", async () => {
     const f = fake([forPetronilha(...FRIDAY_16, e2b2Pro("outro", ["Clemêncio"]))], salon({ "pro-a": 2, "pro-c": 0, "pro-d": 1, "pro-e": 2 }));
     const asked = await send(f, "A Petronilha de quinta vai pra sexta às 16h com outra pessoa, menos o Clemêncio");
-    expect(asked.view.questions).toEqual([expect.objectContaining({ field: "professional", reason: expect.stringMatching(/^PROFESSIONAL_(NOT_FOUND|CONTRADICTORY)$/) })]);
+    // §11.10 (contract migration; was PROFESSIONAL_(NOT_FOUND|CONTRADICTORY)): the exclusion question has reasons of its own, never a who-attends one.
+    expect(asked.view.questions).toEqual([expect.objectContaining({ field: "professional", reason: expect.stringMatching(/^EXCLUSION_(NOT_FOUND|CONTRADICTORY)$/) })]);
     expect(f.prepared).toEqual([]);
   });
 });

@@ -37,13 +37,17 @@ export const PILOT_QUESTION_REASONS = ["CUSTOMER_MISSING", "CUSTOMER_AMBIGUOUS",
   // E2-B completion (§11.4): an offset whose owner gave no anchor (the date or the time asked, never computed); a day left open or dropped (the
   // date asked, the old one never kept); a clock counted from now said after a day it does not fit (the date asked, its own day offered); a tie
   // after decision 15's fewest appointments (the tied members offered, never the name order).
-  "ANCHOR_MISSING", "DATE_MISSING", "DATE_CLOCK_CONFLICT", "PROFESSIONAL_TIE"] as const;
+  "ANCHOR_MISSING", "DATE_MISSING", "DATE_CLOCK_CONFLICT", "PROFESSIONAL_TIE",
+  // E2-B round 2 (§11.10): the question that clarifies who must NOT attend (an exclusion naming nobody for sure) has reasons of its own, never the ones of
+  // the questions that choose who attends (its answer can never play that role, nor theirs this one).
+  "EXCLUSION_NOT_FOUND", "EXCLUSION_CONTRADICTORY"] as const;
 export type PilotQuestionReason = (typeof PILOT_QUESTION_REASONS)[number];
 export type PilotOption = { id: string; label: string };
+/** `total` (§11.10): how many choices the question really had when more than the options kept (PILOT_OPTIONS_MAX); what is left out is counted from it. */
 export type PilotQuestion = { questionId: string; actionId: typeof PILOT_ACTION_ID; field: PilotQuestionField; reason: PilotQuestionReason; options?: PilotOption[];
-  revision: number; open: boolean };
+  total?: number; revision: number; open: boolean };
 /** A question a change opens; the reducer stamps the action, the revision and `open`. */
-export type PilotQuestionDraft = Pick<PilotQuestion, "questionId" | "field" | "reason" | "options">;
+export type PilotQuestionDraft = Pick<PilotQuestion, "questionId" | "field" | "reason" | "options" | "total">;
 /** The real agenda proposal (journal refs) prepared for revision `revision` of the plan; `text` is what the owner reads. */
 export type PilotProposal = { proposalRef: string; draftRef: string; draftRevision: number; revision: number; text: string };
 /** The owner's Confirmar: proposal_ref + draft_revision + the plan revision (§5). */
@@ -109,14 +113,15 @@ function openedQuestions(plan: PilotPlan, drafts: readonly PilotQuestionDraft[] 
     if (!(PILOT_QUESTION_FIELDS as readonly string[]).includes(draft.field) || !(PILOT_QUESTION_REASONS as readonly string[]).includes(draft.reason)) return undefined;
     if (draft.options !== undefined && (!Array.isArray(draft.options) || draft.options.length > PILOT_OPTIONS_MAX ||
       draft.options.some(option => !record(option) || !text(option.id) || typeof option.label !== "string"))) return undefined;
+    if (draft.total !== undefined && (!Number.isInteger(draft.total) || draft.total <= (draft.options?.length ?? 0))) return undefined;
     taken.add(draft.questionId);
     out.push({ questionId: draft.questionId, actionId: PILOT_ACTION_ID, field: draft.field, reason: draft.reason,
-      ...(draft.options ? { options: draft.options.map(option => ({ id: option.id, label: option.label })) } : {}), revision, open: true });
+      ...(draft.options ? { options: draft.options.map(option => ({ id: option.id, label: option.label })) } : {}), ...(draft.total !== undefined ? { total: draft.total } : {}), revision, open: true });
   }
   return out;
 }
 /** A question leaves the open set without the values it offered (review L8: a closed question keeps no old value). */
-const close = (question: PilotQuestion) => { question.open = false; delete question.options; };
+const close = (question: PilotQuestion) => { question.open = false; delete question.options; delete question.total; };
 /** An accepted change of the owner: revision + 1, the proposal, the approval and the last invalidation dropped, every open question closed (or,
  * `keep`, re-stamped at the new revision and left open), the change's own opened. */
 function acceptedChange(plan: PilotPlan, fields: Record<PilotFieldName, PilotField>, opened: PilotQuestion[], status?: PilotStatus, keep: (question: PilotQuestion) => boolean = () => false): PilotReduction {

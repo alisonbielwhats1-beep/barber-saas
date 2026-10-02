@@ -82,7 +82,7 @@ import { CONVERSATION_STATE_SCHEMA, decodeConversationState, encodeConversationS
   type ConversationRecord, type LoadedConversation, type SecretarySessionStore } from "./secretary-session-store";
 import { parseStoredAggregate, STORED_AGGREGATE_SCHEMA, type StoredSession } from "./secretary-session-state";
 import { confirmPilotProposal, handlePilotMessage, pilotDoneText, pilotProposalText, pilotReceiptFirst, pilotRescheduleEnabled, pilotReplay, pilotTappedOption,
-  pilotTelemetry as pilotTelemetryOf, pilotTurnInput, pilotView, selectPilotOption, PILOT_ALREADY_WRITTEN, PILOT_HOURS_VIOLATIONS, PILOT_MISSING_FIELDS, PILOT_PREPARATION_FAILED,
+  pilotMissingField, pilotTelemetry as pilotTelemetryOf, pilotTurnInput, pilotView, selectPilotOption, PILOT_ALREADY_WRITTEN, PILOT_HOURS_VIOLATIONS, PILOT_PREPARATION_FAILED,
   PILOT_RECEIPT_UNVERIFIED, PILOT_RELATION_NOT_SUPPORTED, PILOT_WITHDRAWN_REPLY,
   type PilotHost, type PilotPreparation, type PilotReceipt, type PilotResolvedChange, type PilotSessionState, type PilotView } from "./secretary-pilot";
 import { pilotToday } from "./secretary-pilot-resolver";
@@ -793,7 +793,7 @@ export class SalonSecretary {
     return { view: this.view(s), now: true };
   }
   /** The pilot plan as the screen, the runner and the Confirmar see it: every open question in the action's missing_fields (customer_ref,
-   * appointment_ref, date, time, target_professional_ref, scope), a ready proposal as the READY_FOR_CONFIRMATION group, a withdrawal as the
+   * appointment_ref, date, time, target_professional_ref, scope; §11.11: excluded_professional for the question of who must NOT attend), a ready proposal as the READY_FOR_CONFIRMATION group, a withdrawal as the
    * discarded (retired) action; every new pilot revision moves the ActionPlan's revision too (earlier approvals go stale). */
   private async publishPilot(actor: ServiceActor, s: Session, text: string) {
     const pilot = s.pilot!, plan = pilot.plan;
@@ -804,7 +804,7 @@ export class SalonSecretary {
     else {
       // Never confirmable while the pilot asks or rechecks: a proposal of an earlier revision leaves the child (its draft stays in the journal).
       if (child.scheduling?.proposal && !child.scheduling.receipt) { child.scheduling.proposal = undefined; child.scheduling.message = text; }
-      const missing = [...new Set(openQuestions(plan).map(question => PILOT_MISSING_FIELDS[question.field]))];
+      const missing = [...new Set(openQuestions(plan).map(pilotMissingField))];
       s.actionPlan = assessPlanAction(s.actionPlan!, PILOT_ACTION_ID, { status: "NEEDS_INPUT", missing_fields: missing, preview: text, issue: missing.length ? "EXPLICIT_INPUT_REQUIRED" : "REVIEW_REQUIRED" });
     }
     if (pilot.published !== plan.revision) { s.actionPlan = refreshActionPlan({ ...s.actionPlan!, revision: s.actionPlan!.revision + 1 }); pilot.published = plan.revision; }

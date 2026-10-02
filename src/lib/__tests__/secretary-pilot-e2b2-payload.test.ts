@@ -133,8 +133,9 @@ describe("GAP 4.c — the open question Luna sees lists every option, or says ho
     const labels = result.replies[0].view.questions[0]?.options?.map(option => option.label) ?? [];
     expect(labels).toHaveLength(20);
     const text = systemText(result.requests[1]);
-    const missing = labels.filter(label => !text.includes(JSON.stringify(label).slice(1, -1)));
-    expect(missing.length === 0 || text.includes(`e mais ${missing.length}`), `${missing.length} option(s) left out in silence`).toBe(true);
+    // §11.10 (contract migration; was counted against the 20 options kept): what is left out is counted against the REAL number of choices (24).
+    const missing = 24 - labels.filter(label => text.includes(JSON.stringify(label).slice(1, -1))).length;
+    expect(missing === 0 || text.includes(`e mais ${missing}`), `${missing} choice(s) left out in silence`).toBe(true);
   });
 });
 

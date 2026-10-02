@@ -106,7 +106,8 @@ describe("§11.7: exclusions", () => {
     expect(twin.prepared.map(slot)).toEqual([{ date: FRI, time: "16:00", professionalRef: quiterinha.id }]);
     const f = fake([forEustorgia(e2bWeekday("sexta", "na sexta"), e2bClock(16, "às 16h"), e2b2Pro("outro", ["Leocádia Pirapetinga Neta"]))], loads);
     const asked = await send(f, "A Eustórgia vai na sexta às 16h com outra pessoa, menos a Leocádia Pirapetinga Neta");
-    expect(asked.view.questions).toEqual([expect.objectContaining({ field: "professional", reason: expect.stringMatching(/^PROFESSIONAL_(NOT_FOUND|CONTRADICTORY)$/) })]);
+    // §11.10 (contract migration; was PROFESSIONAL_(NOT_FOUND|CONTRADICTORY)): the exclusion question has reasons of its own, never a who-attends one.
+    expect(asked.view.questions).toEqual([expect.objectContaining({ field: "professional", reason: expect.stringMatching(/^EXCLUSION_(NOT_FOUND|CONTRADICTORY)$/) })]);
     expect(asked.view.questions[0].options).toBeUndefined();
     expect(f.prepared).toEqual([]);
   });

@@ -7,13 +7,16 @@ import { applyAnswer, applyIntent, approve, attachProposal, completeExecution, c
   pilotPlanClosed, startExecution, withdraw, PILOT_FIELDS, PILOT_OPTIONS_MAX, type PilotApproval, type PilotField, type PilotFieldName, type PilotOption,
   type PilotPlan, type PilotProposal, type PilotQuestion, type PilotQuestionDraft, type PilotQuestionField, type PilotQuestionReason, type PilotReduction,
   type PilotStatus } from "./secretary-pilot-plan";
-import { pilotClockReadings, pilotClockShiftReadings, pilotDataReadings, pilotDayShiftReadings, pilotIdentityOf, pilotMentionIn, pilotNowLocal, pilotToday, resolveAppointment, resolveClockDay,
-  resolveCustomer, resolveProfessional, resolveTargetDate, resolveTargetTime, type PilotAppointmentRow, type PilotClock, type PilotDayShiftReading, type PilotHint,
-  type PilotIdentity, type PilotPerson, type PilotProfessionalSaid, type PilotReader, type PilotServiceRow } from "./secretary-pilot-resolver";
-import type { PilotDayAnchor, PilotDestination, PilotInterpretation, PilotOrigin, PilotTempoDia, PilotTimeAnchor } from "../../packages/salon-secretary/src/pilot-reschedule-contract";
+import { pilotCitedDays, pilotClockReadings, pilotClockShiftReadings, pilotDataReadings, pilotDayShiftReadings, pilotExclusionMentions, pilotIdentityOf, pilotMentionIn, pilotNowLocal,
+  pilotServicesOf, pilotToday, pilotWeekdayNumber, resolveAppointment, resolveClockDay, resolveCustomer, resolveProfessional, resolveTargetDate, resolveTargetTime, type PilotAppointmentRow,
+  type PilotClock, type PilotDateResolution, type PilotDayShiftReading, type PilotHint, type PilotIdentity, type PilotPerson, type PilotProfessionalSaid, type PilotReader,
+  type PilotServiceRow } from "./secretary-pilot-resolver";
+import { PILOT_CONTRACT_LIMITS, type PilotDayAnchor, type PilotDestination, type PilotInterpretation, type PilotOrigin, type PilotTempoDia, type PilotTempoHora,
+  type PilotTimeAnchor } from "../../packages/salon-secretary/src/pilot-reschedule-contract";
 import { pilotCatalogNames, runPilotInterpretation, PILOT_CALL_LIMITS, PILOT_OPEN_LABELS, type PilotOpenContext, type PilotRequestContext } from "../../packages/salon-secretary/src/pilot-reschedule-prompt";
 import { formatClock, formatDay, formatLocal, formatLocalRange } from "./secretary-datetime-format";
 import { nameTokens } from "./name-search";
+import { addCalendarDays, weekdayOfDateKey } from "./time";
 
 /** Pilot of the reschedule (flag SALON_SECRETARY_PILOT_RESCHEDULE, default off; docs/c5-spike/12-piloto-remarcacao.md; owner decisions 25-31).
  * With the flag on, the pilot answers EVERY top-level message of the session (SalonSecretary.send): no agent loop, no agent validator, no C4
@@ -61,6 +64,12 @@ export const PILOT_TOO_LARGE_REPLY = "Esta mensagem, junto com os serviços e a 
 const PILOT_DIRECTORY_TOO_LARGE: ReadonlySet<string> = new Set(["PILOT_TEAM_TOO_LARGE", "PILOT_CATALOG_TOO_LARGE"]);
 /** An identity question answered without a name (review M12): a yes is never inferred; the name, or a tap on the option, is asked. */
 export const PILOT_NAME_REQUIRED = "Para eu ter certeza, escreva o nome como está no cadastro ou toque na opção.";
+/** §11.10: an answer to a question whose options are every choice there is (the readings of a day, the members tied) that does not name exactly one of
+ * them: asked again, nothing changes (never an option picked for the owner). */
+export const PILOT_OPTION_REQUIRED = "Para eu ter certeza, aponte uma das opções (pelo dia, pelo horário ou pelo nome) ou toque nela; nada foi alterado.";
+/** §11.10: an answer to the question of who must NOT attend that does not say who (a name given as who attends included): asked again, nothing changes;
+ * it never becomes who attends. */
+export const PILOT_EXCLUSION_REQUIRED = "Para eu ter certeza, escreva como está no cadastro o nome de quem não deve atender; nada foi alterado.";
 /** The open draft, when nothing in it is asked or ready (review L8: never an empty reply). */
 export const PILOT_OPEN_DRAFT = "O pedido de remarcação segue em aberto e nada foi gravado. Diga o que deseja mudar.";
 /** Review E1: the plan's own proposal turned out to be written already (a reply or a save lost after the commit): said, never "nada foi alterado". */
@@ -110,9 +119,18 @@ export type PilotSessionState = { plan?: PilotPlan; pending?: PilotPending;
  * (PRINCIPLE-1) as amended by §11.4: `clockDay`, the destination day is the one a clock offset counted from now settled (no day said): it stays when
  * the clock changes later (a clock, the appointment's own, one to define, an offset from the appointment's clock); only a new clock counted from now
  * says its own day again. §11.4: `clockAfterDay`, the destination clock was said in a later message than the destination day (a clock counted from
- * now that lands on another day then makes the earlier day incompatible: asked, DATE_CLOCK_CONFLICT). */
+ * now that lands on another day then makes the earlier day incompatible: asked, DATE_CLOCK_CONFLICT). Round 2 (§11.10): `exclusion`, the owner's words of
+ * the exclusion the open EXCLUSION question clarifies, bound to that question's id (its own state: the question that chooses who attends keeps its
+ * options); only that question's answer reads it, and only to replace those words. §11.11: `held`, the exclusions said earlier in this plan that the
+ * pending professional value does not carry itself (a who-attends option bound or named, "outro" kept beside words "qualquer" gives a role of their own,
+ * words of "outro" said in another turn): a later delegation applies them, so none is ever erased. `choices`, every choice of the open question that
+ * chooses who attends when its options were cut at PILOT_OPTIONS_MAX (bound to that question's id): an answer binds against all of them. */
 export type PilotPending = { origem: PilotOrigin; destino: PilotPendingDestination; proven?: Partial<Record<keyof PilotOrigin, boolean>>;
-  anchors?: { origem?: string; destino?: string; hora?: string }; clockDay?: true; clockAfterDay?: true };
+  anchors?: { origem?: string; destino?: string; hora?: string }; clockDay?: true; clockAfterDay?: true; exclusion?: { questionId: string; mencao: string };
+  held?: PilotHeldExclusions; choices?: { questionId: string; options: PilotOption[] } };
+/** §11.11: exclusions held aside, each with its role: `excluidos`, names given as who must not attend (typed: asked when they name no member); `words`,
+ * the words beside "outro" (an exclusion when they name a member, the mode's own words when they name none: M9); `outro`, the current professional. */
+export type PilotHeldExclusions = { outro?: true; excluidos?: string[]; words?: string[] };
 /** §11.4: the pending destination; its professional may come from a state saved before the exclusion list (upgraded on load; the type admits no
  * `excluidos`, read as none). */
 export type PilotPendingDestination = Omit<PilotDestination, "profissional"> & { profissional: PilotProfessionalSaid };
@@ -200,6 +218,11 @@ export function pilotProposalText(snapshot: PilotSnapshotFacts, notes: readonly 
 /** The ActionPlan field names of the runner and the screen for each question of the pilot. */
 export const PILOT_MISSING_FIELDS: Record<PilotQuestionField, string> = { customer: "customer_ref", appointment: "appointment_ref", date: "date", time: "time",
   professional: "target_professional_ref", service: "service_ref", scope: "scope" };
+/** §11.11 (R2-RUNNER-1): the field a question publishes is a fact of its role: the question that clarifies who must NOT attend publishes its own code, never
+ * the one of the questions that choose who attends (no answer meant for one can be delivered to the other). */
+export const PILOT_EXCLUSION_MISSING_FIELD = "excluded_professional";
+export const pilotMissingField = (question: Pick<PilotQuestion, "field" | "reason">) =>
+  question.reason === "EXCLUSION_NOT_FOUND" || question.reason === "EXCLUSION_CONTRADICTORY" ? PILOT_EXCLUSION_MISSING_FIELD : PILOT_MISSING_FIELDS[question.field];
 const turnOf = (turn: { turnId: string; clientTurnId: string | null; receivedAt: string } | undefined, replayed: boolean) =>
   ({ turnId: turn?.turnId ?? "", clientTurnId: turn?.clientTurnId ?? null, receivedAt: turn?.receivedAt ?? "", replayed });
 /** The view of the pilot's state (the open questions only; the proposal's journal refs; the latest turn). */
@@ -253,8 +276,10 @@ type Resolution = { fields: Record<PilotFieldName, PilotField>; question?: Pilot
 const UNRESOLVED = (mencao?: string): PilotField => ({ value: null, display: null, provenance: "unresolved", ...(mencao ? { mencao } : {}) });
 const EMPTY_ORIGIN: PilotOrigin = { dia: null, hora: null, profissional_mencao: null, servico: null, posicao: null };
 const EMPTY_DESTINATION: PilotDestination = { dia: null, hora: null, profissional: { modo: null, mencao: null, excluidos: [] } };
-/** The pending flags carried when the pending operators are rebuilt (PRINCIPLE-1's clockDay; §11.4's clockAfterDay). */
-const pendingFlags = (pending: PilotPending) => ({ ...(pending.clockDay ? { clockDay: true as const } : {}), ...(pending.clockAfterDay ? { clockAfterDay: true as const } : {}) });
+/** The pending flags carried when the pending operators are rebuilt (PRINCIPLE-1's clockDay; §11.4's clockAfterDay; §11.11: the exclusions held aside,
+ * never dropped with the origin hints). */
+const pendingFlags = (pending: PilotPending) => ({ ...(pending.clockDay ? { clockDay: true as const } : {}), ...(pending.clockAfterDay ? { clockAfterDay: true as const } : {}),
+  ...(pending.held ? { held: structuredClone(pending.held) } : {}) });
 /** An interpretation that says nothing (the base of an owner's tap on an option). */
 const SILENT: PilotInterpretation = { tipo: "resposta", resposta_a: null, desistir: false, aceita_parcial: null, cliente: { mencao: null }, origem: EMPTY_ORIGIN,
   destino: EMPTY_DESTINATION, observacoes: [], fora_do_escopo: [] };
@@ -275,6 +300,57 @@ const professionalMode = (said: PilotProfessionalSaid) => said.modo ?? (said.men
 const exclusionKey = (list: readonly string[] | undefined) => [...new Set((list ?? []).map(item => [...new Set(nameTokens(item))].sort().join(" ")))].sort().join("|");
 /** §11.2: the modes where the owner delegates who attends (the code applies decision 15). */
 const delegatedMode = (mode: string | null) => mode === "qualquer" || mode === "outro";
+/** §11.10: the question that clarifies who must NOT attend (its own reasons; never a question that chooses who attends). */
+const EXCLUSION_REASONS: ReadonlySet<string> = new Set<PilotQuestionReason>(["EXCLUSION_NOT_FOUND", "EXCLUSION_CONTRADICTORY"]);
+/** §11.10: the date questions whose options are every day the owner may mean (an answer binds only by naming exactly one of them). */
+const DAY_CHOICE_REASONS: ReadonlySet<string> = new Set<PilotQuestionReason>(["DATE_TWO_READINGS", "ANCHOR_TWO_READINGS", "DATE_CLOCK_CONFLICT"]);
+/** §11.10: names said again are the same name (the resolver's own folding of mentions): a list where each name appears once, in the order first said. */
+const unionNames = (...lists: readonly (readonly string[])[]) => lists.flat().reduce<string[]>((out, name) => out.some(other => sameNameWords(other, name)) ? out : [...out, name], []);
+/** §11.11: everything a professional value and the exclusions held aside leave out, each with its role: `typed` (excluidos: asked when they name no
+ * member), `words` (beside "outro": the mode's own words when they name nobody, M9), `current` ("outro": the current professional). Only a delegated value
+ * applies them; under another value they are only kept (a later delegation applies them again). */
+type PilotExclusions = { typed: string[]; words: string[]; current: boolean };
+function exclusionsOf(value: PilotProfessionalSaid, held: PilotHeldExclusions | undefined): PilotExclusions {
+  return { typed: unionNames(held?.excluidos ?? [], delegatedMode(value.modo) && Array.isArray(value.excluidos) ? value.excluidos : []),
+    words: unionNames(held?.words ?? [], value.modo === "outro" && value.mencao ? [value.mencao] : []), current: !!held?.outro || value.modo === "outro" };
+}
+const heldOf = (kept: PilotExclusions): PilotHeldExclusions | undefined => kept.typed.length || kept.words.length || kept.current
+  ? { ...(kept.current ? { outro: true as const } : {}), ...(kept.typed.length ? { excluidos: kept.typed } : {}), ...(kept.words.length ? { words: kept.words } : {}) } : undefined;
+/** The pending professional value and the exclusions held aside. */
+type PilotProfessionalState = { value: PilotProfessionalSaid; held?: PilotHeldExclusions };
+/** §11.11: a delegation that keeps every exclusion said before (`all`), the new names (`added`), whether the current professional is out (`current`) and the
+ * words beside "qualquer" (`asked`, M9: who might attend, asked when they name a member) or beside "outro" (`own`). "outro" is the mode while no words of
+ * "qualquer" need their role; with them, the mode stays "qualquer" and "outro" is held aside (the current professional still out). More exclusions than
+ * the contract carries is a safe failure of the turn (never one dropped). */
+function delegation(all: PilotExclusions, added: readonly string[], current: boolean, asked: string | null, own: string | null): PilotProfessionalState {
+  const excluidos = unionNames(all.typed, added), outro = current && !asked, mencao = outro ? own : asked;
+  const words = all.words.filter(word => !(outro && mencao && sameNameWords(word, mencao)));
+  if (excluidos.length > PILOT_CONTRACT_LIMITS.exclusions || words.length > PILOT_CONTRACT_LIMITS.exclusions) throw Error("PILOT_EXCLUSIONS_FULL");
+  return { value: { modo: outro ? "outro" : "qualquer", mencao, excluidos }, held: heldOf({ typed: [], words, current: current && !outro }) };
+}
+/** §11.10 as completed by §11.11 (an answer or a correction never erases an exclusion): a delegated value said over the pending one keeps every exclusion
+ * said before in this plan, whatever the pending value is (the list grows, never shrinks), and "outro" (itself an exclusion: the current professional's);
+ * a value that is not delegated (who attends said, or keep the current one) becomes the value, as the owner said it, and every earlier exclusion is held
+ * aside for a later delegation. Each mention keeps its role: names typed as excluded stay typed; words beside "outro" stay its words (never turned into a
+ * name that is asked); words beside "qualquer" (M9) stay until the owner says the mode again with others. Typed values only. */
+function mergedProfessional(before: PilotProfessionalSaid, said: PilotProfessionalSaid, held: PilotHeldExclusions | undefined): PilotProfessionalState {
+  const all = exclusionsOf(before, held);
+  if (!delegatedMode(said.modo)) return { value: structuredClone(said), held: heldOf(all) };
+  const asked = said.modo === "qualquer" ? said.mencao ?? (before.modo === "qualquer" ? before.mencao : null) : null;
+  const own = said.modo === "outro" && said.mencao ? said.mencao : before.modo === "outro" ? before.mencao : null;
+  return delegation(all, said.excluidos ?? [], said.modo === "outro" || all.current, asked, own);
+}
+/** Review S2: a day or clock operator is read against the received_at of the turn that said it (`at`), else this turn's. */
+const anchoredAt = (at: string | undefined, clock: PilotClock): PilotClock => at && Number.isFinite(Date.parse(at)) ? { receivedAt: new Date(at), timezone: clock.timezone } : clock;
+/** §11.10 (R1-TEMPORAL-5): whether a day operator's readings depend on the day of the turn that says it (today, or a reference read from today), so the
+ * same operator said in a later turn on another local day reads other days. A fact of the typed operator. */
+const countsFromToday = (dia: PilotTempoDia) => dia.tipo === "data" || dia.tipo === "dia_semana" || dia.tipo === "mes_relativo"
+  || (dia.tipo === "deslocamento" && (dia.ancoras.includes("hoje") || dia.ancoras.includes("data_citada")));
+/** §11.10 (R1-TEMPORAL-5): the same typed day or clock said again in this turn reads otherwise when it counts from today (another local day since the turn
+ * that said it) or from now (another local minute): it is a change, read from this turn (never the earlier turn's reading kept in silence). */
+const rereadsDay = (ctx: Ctx, dia: PilotTempoDia, pending: PilotPending) => countsFromToday(dia) && pilotToday(ctx.clock) !== pilotToday(anchoredAt(pending.anchors?.destino, ctx.clock));
+const rereadsClock = (ctx: Ctx, hora: PilotTempoHora, pending: PilotPending) => hora.tipo === "deslocamento" && hora.ancoras.includes("agora")
+  && pilotNowLocal(ctx.clock) !== pilotNowLocal(anchoredAt(pending.anchors?.hora, ctx.clock));
 const floorOf = (ctx: Ctx) => ctx.state.questionFloor ?? 0;
 const turnAt = (ctx: Ctx) => ctx.clock.receivedAt.toISOString();
 /** Review P3/P6: an out-of-scope part the message named and no question of this turn asked about is said, never dropped in silence. */
@@ -380,25 +456,42 @@ export function pilotTelemetry(state: PilotSessionState, extra: Record<string, u
     proposal_ref: plan?.action.proposal?.proposalRef ?? null, ...(plan?.action.invalidation ? { invalidation: plan.action.invalidation.reason } : {}),
     provenance: fields ? Object.fromEntries(PILOT_FIELDS.map(name => [name, fields[name].provenance])) : null };
 }
+/** §11.10: how many exclusions the open plan's professional line names (the rest counted, "e mais N"; the code keeps every one of them anyway). */
+const SHOWN_EXCLUSIONS = 3;
 /** The open plan as Luna sees it: field states with the owner's own words for the customer (never the registered name), and the pending
- * question with options for a day, a clock, an appointment or a professional (review M12; never a customer's name: decision 22). */
+ * question with options for a day, a clock, an appointment or a professional (review M12; never a customer's name: decision 22). Round 2 (§11.10):
+ * what the owner said and has no value yet is shown with his own words beside its field: the pending day or clock of the field a question with no
+ * options asks (an operation still without its anchor, a day left open; a question with options shows them instead) and, on the professional line still
+ * without a value, the pending delegation (its mode and who must not attend); the question that clarifies an exclusion is named as such (never as a
+ * question of who attends). */
 export function pilotOpenContext(state: PilotSessionState): PilotOpenContext {
-  const plan = state.plan!, f = plan.action.fields, question = openQuestions(plan)[0], L = PILOT_OPEN_LABELS;
+  const plan = state.plan!, f = plan.action.fields, question = openQuestions(plan)[0], L = PILOT_OPEN_LABELS, pending = state.pending;
   const said = (field: PilotField) => field.provenance === "unresolved" ? L.notDefined : `${field.display ?? field.value}${field.provenance === "inherited" ? ` (${L.kept})` : ""}`;
+  const words = (name: "date" | "time") => {
+    const operator = name === "date" ? pending?.destino.dia : pending?.destino.hora;
+    return f[name].provenance === "unresolved" && question?.field === name && !question.options?.length && operator ? ` (${quoted(operator.mencao)})` : "";
+  };
+  const delegation = pending && f.professional.provenance === "unresolved" && delegatedMode(professionalMode(pending.destino.profissional)) ? pending.destino.profissional : undefined;
+  // §11.11: what the delegation leaves out, the exclusions held aside included (its mode is "outro" while the current professional is out).
+  const out = delegation ? exclusionsOf(delegation, pending?.held) : undefined, excluded = out ? unionNames(out.typed, out.words) : [];
+  const without = excluded.length ? `; ${L.without}: ${excluded.slice(0, SHOWN_EXCLUSIONS).map(quoted).join(", ")}${excluded.length > SHOWN_EXCLUSIONS ? ` e mais ${excluded.length - SHOWN_EXCLUSIONS}` : ""}` : "";
   const lines = [`${L.customer}: ${f.customer.mencao ? quoted(f.customer.mencao) : L.notSaid} (${f.customer.provenance === "unresolved" ? L.recordOpen : L.recordDefined})`,
-    `${L.appointment}: ${f.appointment.provenance === "unresolved" ? L.notLocated : f.appointment.display}`, `${L.date}: ${said(f.date)}`, `${L.time}: ${said(f.time)}`,
-    `${L.professional}: ${said(f.professional)}`, ...(plan.action.status === "proposal_ready" ? [L.ready] : [])];
+    `${L.appointment}: ${f.appointment.provenance === "unresolved" ? L.notLocated : f.appointment.display}`, `${L.date}: ${said(f.date)}${words("date")}`, `${L.time}: ${said(f.time)}${words("time")}`,
+    `${L.professional}: ${said(f.professional)}${delegation ? ` (${L.mode} ${out?.current ? "outro" : delegation.modo}${without})` : ""}`, ...(plan.action.status === "proposal_ready" ? [L.ready] : [])];
   // The labels only (the contract has no slot for an id: the owner's words pointing at one are copied; a tap answers by id, selectPilotOption).
-  // §11.4: the options left out of what Luna sees are counted ("e mais N"), never dropped in silence.
+  // §11.4 as amended by §11.10: the choices left out of what Luna sees are counted from the question's real number of choices ("e mais N").
   const shown = question && question.field !== "customer" && question.field !== "scope" ? question.options?.slice(0, SHOWN_OPTIONS).map(option => option.label) : undefined;
-  const omitted = shown?.length ? (question?.options?.length ?? 0) - shown.length : 0;
+  const omitted = shown?.length ? (question?.total ?? question?.options?.length ?? 0) - shown.length : 0;
   const fieldName: Record<PilotQuestionField, string> = L.fields;
-  return { lines, ...(question ? { question: { questionId: question.questionId, field: fieldName[question.field], reason: question.reason,
+  return { lines, ...(question ? { question: { questionId: question.questionId, field: EXCLUSION_REASONS.has(question.reason) ? L.excluding : fieldName[question.field], reason: question.reason,
     ...(shown?.length ? { options: shown } : {}), ...(omitted > 0 ? { omitted } : {}) } } : {}) };
 }
 
 async function applyInterpretation(ctx: Ctx, I: PilotInterpretation): Promise<Outcome> {
-  const outcome = await routed(ctx, I);
+  let outcome: Outcome;
+  // §11.10: more exclusions than the contract carries can never be kept whole: the turn fails safely (nothing merged), never one dropped.
+  try { outcome = await routed(ctx, I); }
+  catch (error) { if (error instanceof Error && error.message === "PILOT_EXCLUSIONS_FULL") return { text: joined(PILOT_SAFE_REPLY, pilotStateText(ctx.state)), code: "EXCLUSIONS_FULL" }; throw error; }
   // Review P3/P6: whatever path answered, an out-of-scope part this message named is said (by the scope question, or here), never dropped.
   if (I.fora_do_escopo.length && !ctx.scopeAsked && outcome.code !== "OUT_OF_SCOPE") return { ...outcome, text: joined(outcome.text, outOfScopeNotice(I.fora_do_escopo.map(item => item.pedido))) };
   return outcome;
@@ -415,23 +508,30 @@ async function routed(ctx: Ctx, I: PilotInterpretation): Promise<Outcome> {
 /** Reviews S1/S5: whether THIS message brings anything new to the open plan, read from its own typed operators only (never from a re-resolution,
  * where the agenda and the clock move by themselves): an origin hint proved in this message whose typed value differs from the pending one; a
  * destination day or clock whose typed value differs; another professional mode, or a professional name other than the bound or pending one; a
- * customer mention that is not the bound customer. Other words for the same value are the same value. */
-function messageChanges(ctx: Ctx, I: PilotInterpretation, open: PilotPlan): boolean {
+ * customer mention that is not the bound customer. Other words for the same value are the same value. §11.11: `rereads` (a request only, never a
+ * withdrawal): the same operator counted from today or now said in another local day or minute is a change (R1-TEMPORAL-5); a "desistir" with the open
+ * request said again is decided by typed differences only (review S1: the plain withdrawal). */
+function messageChanges(ctx: Ctx, I: PilotInterpretation, open: PilotPlan, rereads = true): boolean {
   const pending = ctx.state.pending ?? { origem: EMPTY_ORIGIN, destino: EMPTY_DESTINATION }, F = open.action.fields;
   if (I.cliente.mencao && !(F.customer.provenance !== "unresolved" ? pilotMentionHolds(I.cliente.mencao, F.customer.display) : sameNameWords(I.cliente.mencao, F.customer.mencao ?? null))) return true;
   for (const key of ORIGIN_KEYS) {
     const value = I.origem[key];
     if (value !== null && pilotMentionIn(ctx.message, originMention(key, value)) && typed(value) !== typed(pending.origem[key])) return true;
   }
-  if (I.destino.dia && typed(I.destino.dia) !== typed(pending.destino.dia)) return true;
-  if (I.destino.hora && typed(I.destino.hora) !== typed(pending.destino.hora)) return true;
+  // §11.10 (R1-TEMPORAL-5): the same typed operator counted from today or now, said in a later turn whose day or minute differs, reads otherwise: a change.
+  if (I.destino.dia && (typed(I.destino.dia) !== typed(pending.destino.dia) || rereads && rereadsDay(ctx, I.destino.dia, pending))) return true;
+  if (I.destino.hora && (typed(I.destino.hora) !== typed(pending.destino.hora) || rereads && rereadsClock(ctx, I.destino.hora, pending))) return true;
   const said = I.destino.profissional, before = pending.destino.profissional;
   if (!said.modo && !said.mencao && !said.excluidos.length) return false;
-  if (professionalMode(said) !== professionalMode(before)) return true;
-  // §11.4: another exclusion list (as sets of normalized names) is a change.
-  if (exclusionKey(said.excluidos) !== exclusionKey(before.excluidos)) return true;
-  if (professionalMode(said) === "nomeado") return !(F.professional.provenance === "explicit" && pilotMentionHolds(said.mencao ?? "", F.professional.display)) && !sameNameWords(said.mencao, before.mencao);
-  return !!said.mencao && !sameNameWords(said.mencao, before.mencao);
+  // §11.10/§11.11: what the professional becomes once merged (a delegation said again keeps every exclusion, held ones too): only that, compared with the
+  // pending one, is a change.
+  const merged = mergedProfessional(before, said, pending.held), after = merged.value;
+  if (professionalMode(after) !== professionalMode(before)) return true;
+  // §11.4: another exclusion list (as sets of normalized names; the current professional's too) is a change.
+  const now = exclusionsOf(after, merged.held), was = exclusionsOf(before, pending.held);
+  if (exclusionKey([...now.typed, ...now.words]) !== exclusionKey([...was.typed, ...was.words]) || now.current !== was.current) return true;
+  if (professionalMode(after) === "nomeado") return !(F.professional.provenance === "explicit" && pilotMentionHolds(after.mencao ?? "", F.professional.display)) && !sameNameWords(after.mencao, before.mencao);
+  return !!after.mencao && !sameNameWords(after.mencao, before.mencao);
 }
 /** What an open plan shows when the message changed nothing in it; a plan whose proposal lost its validity meanwhile is prepared again. */
 async function currentText(ctx: Ctx, open: PilotPlan | undefined): Promise<string> {
@@ -443,11 +543,12 @@ async function currentText(ctx: Ctx, open: PilotPlan | undefined): Promise<strin
 /** A later turn's operator replaces the one of its own slot. Review P1: each origin hint is proved once, against the message that brought it
  * (never against another turn's words); an unproved hint never replaces a proved one of its slot. Review P2: only a proved hint whose typed value
  * differs moves the bound appointment (other words for the same value never do). Review S2: each day operator keeps the received_at of the turn
- * that said it. */
-function mergeOperators(ctx: Ctx, I: PilotInterpretation) {
+ * that said it. §11.10: a delegation said over a pending one keeps its exclusions (mergedProfessional); `professional`, the value an answer bound
+ * (an option, an exclusion clarified) in place of the message's own, with the exclusions it holds aside (§11.11). */
+function mergeOperators(ctx: Ctx, I: PilotInterpretation, professional?: PilotProfessionalState) {
   const pending = ctx.state.pending ?? { origem: { ...EMPTY_ORIGIN }, destino: structuredClone(EMPTY_DESTINATION) };
   const origem = { ...pending.origem }, destino = structuredClone(pending.destino), proven = { ...(pending.proven ?? {}) }, anchors = { ...(pending.anchors ?? {}) };
-  let clockDay = pending.clockDay === true, clockAfterDay = pending.clockAfterDay === true;
+  let clockDay = pending.clockDay === true, clockAfterDay = pending.clockAfterDay === true, held = pending.held ? structuredClone(pending.held) : undefined;
   for (const key of ORIGIN_KEYS) {
     const value = I.origem[key];
     if (value === null) continue;
@@ -467,8 +568,11 @@ function mergeOperators(ctx: Ctx, I: PilotInterpretation) {
     // §11.4: a clock said in a later message than the day (a typed fact of the order of the messages, never of their words).
     else if (!I.destino.dia && destino.dia) clockAfterDay = true;
   }
-  if (I.destino.profissional.modo || I.destino.profissional.mencao || I.destino.profissional.excluidos.length) destino.profissional = structuredClone(I.destino.profissional);
-  ctx.state.pending = { origem, destino, proven, anchors, ...(clockDay ? { clockDay: true as const } : {}), ...(clockAfterDay ? { clockAfterDay: true as const } : {}) };
+  const merged = professional ?? (I.destino.profissional.modo || I.destino.profissional.mencao || I.destino.profissional.excluidos.length
+    ? mergedProfessional(destino.profissional, I.destino.profissional, held) : undefined);
+  if (merged) { destino.profissional = structuredClone(merged.value); held = merged.held ? structuredClone(merged.held) : undefined; }
+  ctx.state.pending = { origem, destino, proven, anchors, ...(clockDay ? { clockDay: true as const } : {}), ...(clockAfterDay ? { clockAfterDay: true as const } : {}),
+    ...(held ? { held } : {}) };
 }
 /** §11.3 (PRINCIPLE-2): whether a question is the day question of a clock offset counted from two anchors (no day pending; resolveClockDay asked it).
  * A typed fact of the plan's own state, never of the owner's words. */
@@ -533,12 +637,22 @@ function noChange(ctx: Ctx, plan: PilotPlan, label: string): Outcome {
 }
 /** An answer: only to an open question of the current revision; anything else changes nothing and the open question is asked again. M1: the
  * scope question takes only `aceita_parcial` (true: the possible part goes on; false: the draft is withdrawn; null: asked again; never a yes
- * inferred). M12: an identity question answered without a name is asked again with what is needed, never re-resolved in a loop. */
+ * inferred). M12: an identity question answered without a name is asked again with what is needed, never re-resolved in a loop.
+ * E2-B round 2 (§11.10, the owner's central rule): an answer is bound to the question, the action, the pending field and the revision that asked it.
+ * It changes only that field, never erases what was resolved (the day, its anchor, the exclusions, the provenance), and is never taken by another
+ * question. Which answer a question takes is a fact of the question (its field and reason), never of the owner's words:
+ *  - a question whose options are every choice there is (the readings of a day; the members tied after decision 15) binds only an answer that names
+ *    exactly one option (calendar facts of the typed day; the folded name among the options' names), applied as the owner's tap on it; anything else
+ *    is asked again with nothing changed (an exclusion added while choosing narrows the delegation instead, and decision 15 decides again);
+ *  - the question that clarifies who must NOT attend takes only a delegated value with names: they replace the words it asked about, every other
+ *    exclusion stays, and "outro" stays; a name given as who attends is asked again (it never becomes who attends);
+ *  - a question of who attends takes a name, first among its own options. */
 async function answer(ctx: Ctx, I: PilotInterpretation, open: PilotPlan | undefined): Promise<Outcome> {
   if (!open) return { text: joined(PILOT_NOTHING_OPEN_REPLY, ctx.state.plan?.action.status === "done" ? "" : PILOT_CONVERSATION_REPLY), code: "ANSWER_NO_PLAN" };
   const question = open.action.questions.find(item => item.questionId === I.resposta_a);
   if (!question || !question.open || question.revision !== open.revision)
     return { text: pilotStateText(ctx.state) || await currentText(ctx, open), code: !question ? "QUESTION_UNKNOWN" : !question.open ? "QUESTION_CLOSED" : "QUESTION_STALE" };
+  const again = (note: string, code: string): Outcome => ({ text: joined(note, pilotStateText(ctx.state)), code });
   if (question.field === "scope") {
     if (I.aceita_parcial === false) {
       const reduced = withdraw(open, ctx.baseRevision);
@@ -547,12 +661,134 @@ async function answer(ctx: Ctx, I: PilotInterpretation, open: PilotPlan | undefi
       return { text: PILOT_WITHDRAWN_REPLY, code: "SCOPE_DECLINED" };
     }
     if (I.aceita_parcial !== true) return { text: pilotStateText(ctx.state), code: "SCOPE_UNANSWERED" };
-  } else if (question.field === "customer" && !I.cliente.mencao || question.field === "professional" && !I.destino.profissional.mencao && !I.destino.profissional.modo)
-    return { text: joined(PILOT_NAME_REQUIRED, pilotStateText(ctx.state)), code: "ANSWER_WITHOUT_NAME" };
-  ctx.clockDayAnswer = clockDayQuestion(ctx.state.pending, question);
-  ctx.conflictAnswer = question.field === "date" && question.reason === "DATE_CLOCK_CONFLICT";
+  } else if (question.field === "customer" && !I.cliente.mencao) return again(PILOT_NAME_REQUIRED, "ANSWER_WITHOUT_NAME");
+  else if (question.field === "professional") return professionalAnswer(ctx, open, question, I, again);
+  else if (question.field === "date" && DAY_CHOICE_REASONS.has(question.reason) && question.options?.length) {
+    // §11.10: a day question with the readings as options binds only a day naming exactly one of them (never a day it did not offer, never one picked
+    // for an answer with no day); the clock or the professional said with it are their own corrections.
+    const named = I.destino.dia ? daysNamed(I.destino.dia, question.options, await boundOrigin(ctx, open), pilotToday(ctx.clock)) : [];
+    if (named.length !== 1) return again(PILOT_OPTION_REQUIRED, "ANSWER_NOT_AN_OPTION");
+    return chooseOption(ctx, open, question, named[0], I);
+  }
   mergeOperators(ctx, I);
   return answerWith(ctx, open, question, I);
+}
+/** §11.11: every choice of a question that chooses who attends: all of them when its options were cut at PILOT_OPTIONS_MAX (kept bound to its id, and
+ * only while they hold every option it shows), else its options. */
+function choicesOf(pending: PilotPending | undefined, question: PilotQuestion): PilotOption[] {
+  const all = pending?.choices?.questionId === question.questionId ? pending.choices.options : undefined;
+  return all && (question.options ?? []).every(option => all.some(item => item.id === option.id)) ? all : question.options ?? [];
+}
+/** §11.10 as completed by §11.11: the answer to a professional question, by the question's role (a fact of the question: its reasons and its options).
+ *  - CLARIFY AN EXCLUSION (EXCLUSION_*, its own state pending.exclusion): only a delegated value with a name the plan did not exclude yet; those names
+ *    replace only the words it asked about. The mode and the words beside "qualquer" stay as they were (an "outro" in the answer excludes the current
+ *    professional too); every other exclusion stays. Anything else (no new name, a name already excluded, who attends) is asked again, nothing changed.
+ *  - CHOOSE WHO ATTENDS among offered options (the tie, an ambiguous or contradictory name, a conflict, suggestions): a name binds only when it names exactly
+ *    one of the question's choices (every one of them, never only the options kept), applied as the tap on it. A delegation with no name binds nothing: it
+ *    is asked again unless it adds an exclusion (which narrows the delegation; decision 15 decides again). The tie's choices are every choice there is,
+ *    so a name that is none of them is asked again; another question takes a name of nobody offered as who attends, resolved on the team.
+ *  - A question of who attends with no options takes any value of the field. */
+async function professionalAnswer(ctx: Ctx, open: PilotPlan, question: PilotQuestion, I: PilotInterpretation, again: (note: string, code: string) => Outcome): Promise<Outcome> {
+  const said = I.destino.profissional, pending = ctx.state.pending, before = pending?.destino.profissional ?? EMPTY_DESTINATION.profissional;
+  const silent = !said.modo && !said.mencao && !said.excluidos.length;
+  if (EXCLUSION_REASONS.has(question.reason)) {
+    const asked = pending?.exclusion?.questionId === question.questionId ? pending.exclusion.mencao : undefined;
+    const other = (name: string) => !asked || !sameNameWords(name, asked);
+    // The words asked about leave every place they were held (typed, beside "outro", held aside); what the plan still excludes is known.
+    const kept: PilotProfessionalSaid = { ...before, mencao: before.modo === "outro" && before.mencao && !other(before.mencao) ? null : before.mencao,
+      ...(Array.isArray(before.excluidos) ? { excluidos: before.excluidos.filter(other) } : {}) };
+    const held = pending?.held && heldOf({ typed: (pending.held.excluidos ?? []).filter(other), words: (pending.held.words ?? []).filter(other), current: !!pending.held.outro });
+    const all = exclusionsOf(kept, held), known = [...all.typed, ...all.words];
+    const names = delegatedMode(said.modo) ? pilotExclusionMentions(said).filter(name => other(name) && !known.some(item => sameNameWords(item, name))) : [];
+    if (!names.length) return again(PILOT_EXCLUSION_REQUIRED, "ANSWER_NOT_EXCLUSION");
+    const clarified = delegation(all, names, all.current || said.modo === "outro", kept.modo === "qualquer" ? kept.mencao : null, kept.modo === "outro" ? kept.mencao : null);
+    mergeOperators(ctx, { ...I, destino: { ...I.destino, profissional: EMPTY_DESTINATION.profissional } }, clarified);
+    return answerWith(ctx, open, question, I);
+  }
+  const choices = choicesOf(pending, question), name = professionalMode(said) === "nomeado" ? said.mencao : null;
+  if (name && choices.length) {
+    const among = pilotIdentityOf(choices.map(option => ({ id: option.id, name: option.label })), name);
+    const option = among.state === "exact" || among.state === "partial" ? choices.find(item => item.id === among.id) : undefined;
+    if (option) return chooseOption(ctx, open, question, option, I);
+  }
+  if (silent) return again(PILOT_NAME_REQUIRED, "ANSWER_WITHOUT_NAME");
+  if (choices.length) {
+    const known = exclusionsOf(before, pending?.held), excluded = [...known.typed, ...known.words];
+    const added = delegatedMode(said.modo) ? pilotExclusionMentions(said).filter(item => !excluded.some(other => sameNameWords(other, item))) : [];
+    if (delegatedMode(said.modo) ? !added.length : question.reason === "PROFESSIONAL_TIE") return again(PILOT_OPTION_REQUIRED, "ANSWER_NOT_AN_OPTION");
+  }
+  mergeOperators(ctx, I);
+  return answerWith(ctx, open, question, I);
+}
+/** §11.10: the offered days a typed day names, by calendar facts of the operator only (never the owner's words): a day number (its month, if said); a
+ * weekday ("este" only the first from today on, "proximo" never today); a day of a relative month; the appointment's own day; an offset's readings. */
+function daysNamed(dia: PilotTempoDia, options: readonly PilotOption[], origin: { date: string; time: string } | undefined, today: string): PilotOption[] {
+  const names = (date: string): boolean => {
+    switch (dia.tipo) {
+      case "data": return Number(date.slice(8, 10)) === dia.dia && (dia.mes === null || Number(date.slice(5, 7)) === dia.mes);
+      case "mes_relativo": return pilotCitedDays({ tipo: "mes_relativo", dia: dia.dia, meses: dia.meses, mencao: dia.mencao }, { date: "" }, today).includes(date);
+      case "dia_semana": {
+        const weekday = pilotWeekdayNumber(dia.dia_semana);
+        if (weekday === undefined || weekdayOfDateKey(date) !== weekday) return false;
+        if (dia.qualificador === "este") return date === addCalendarDays(today, (weekday - weekdayOfDateKey(today) + 7) % 7);
+        return dia.qualificador !== "proximo" || date !== today;
+      }
+      case "mesmo_da_origem": return !!origin && date === origin.date;
+      case "deslocamento": return pilotDayShiftReadings(dia, origin ?? { date: "" }, today).some(reading => reading.date === date);
+      default: return false;
+    }
+  };
+  return options.filter(option => /^\d{4}-\d{2}-\d{2}$/.test(option.id) && names(option.id));
+}
+/** The bound appointment's own day and clock (a day answer may count from it), read again from the agenda; undefined when it cannot be read. */
+async function boundOrigin(ctx: Ctx, plan: PilotPlan): Promise<{ date: string; time: string } | undefined> {
+  const F = plan.action.fields;
+  if (!F.customer.value || !F.appointment.value) return undefined;
+  try {
+    const row = (await ctx.reader.appointmentsOf(F.customer.value, pilotNowLocal(ctx.clock))).find(item => item.id === F.appointment.value);
+    return row ? { date: row.startLocal.slice(0, 10), time: row.startLocal.slice(11, 16) } : undefined;
+  } catch { return undefined; }
+}
+const dayNumber = (date: string) => Date.UTC(Number(date.slice(0, 4)), Number(date.slice(5, 7)) - 1, Number(date.slice(8, 10))) / 86_400_000;
+const monthsFrom = (today: string, date: string) => (Number(date.slice(0, 4)) - Number(today.slice(0, 4))) * 12 + Number(date.slice(5, 7)) - Number(today.slice(5, 7));
+/** §11.10 (R1-TIME-3) as amended by §11.11 (R2-TIME-1): an offered day bound by a tap or by an answer naming it is that exact day, always within the
+ * contract's own bounds (a state that is saved): a day of a month up to 12 months from the turn that bound it (one reading; never the nearest occurrence of
+ * a day and month); further ahead, an offset of at most a year from the appointment's own day when it is that near, else from a day of a month at most 12
+ * months ahead (each a single reading of that exact day). A day none of them can carry is asked again (the day left open), never another day. */
+function exactDay(date: string, today: string, label: string, origin?: { date: string }): PilotTempoDia {
+  const mencao = pilotClip(label, PILOT_CONTRACT_LIMITS.mention), months = monthsFrom(today, date), bound = PILOT_CONTRACT_LIMITS.days;
+  if (months >= 0 && months <= 12) return { tipo: "mes_relativo", dia: Number(date.slice(8, 10)), meses: months, mencao };
+  if (origin && /^\d{4}-\d{2}-\d{2}$/.test(origin.date) && Math.abs(dayNumber(date) - dayNumber(origin.date)) <= bound)
+    return { tipo: "deslocamento", quantidade: dayNumber(date) - dayNumber(origin.date), unidade: "dias", ancoras: ["origem"], data_citada: null, mencao };
+  const base = addCalendarDays(date, -bound), meses = monthsFrom(today, base);
+  if (months > 12 && base >= today && meses <= 12)
+    return { tipo: "deslocamento", quantidade: bound, unidade: "dias", ancoras: ["data_citada"], data_citada: { tipo: "mes_relativo", dia: Number(base.slice(8, 10)), meses, mencao }, mencao };
+  return { tipo: "a_definir", mencao };
+}
+/** §11.10: an offered option the answer names exactly (or the owner's tap on it) is that option: its field is set from it (a day as that exact day, said
+ * now; a clock as that clock; a person as that record), never searched again; what else the message says is merged as its own correction. */
+async function chooseOption(ctx: Ctx, open: PilotPlan, question: PilotQuestion, option: PilotOption, I: PilotInterpretation): Promise<Outcome> {
+  let value: PilotField | undefined, professional: PilotProfessionalState | undefined, destino = I.destino;
+  if (question.field === "customer" || question.field === "appointment") value = { value: option.id, display: option.label, provenance: "explicit" };
+  else if (question.field === "date") {
+    // §11.3 (PRINCIPLE-2) / §11.6: the chosen day of a clock's day question or of the DATE_CLOCK_CONFLICT question settles the clock's anchor too
+    // (facts of the question, read before the merge).
+    ctx.clockDayAnswer = clockDayQuestion(ctx.state.pending, question);
+    ctx.conflictAnswer = question.reason === "DATE_CLOCK_CONFLICT";
+    const today = pilotToday(ctx.clock);
+    destino = { ...destino, dia: exactDay(option.id, today, option.label, monthsFrom(today, option.id) > 12 ? await boundOrigin(ctx, open) : undefined) };
+  } else if (question.field === "time") {
+    const hour = Number(option.id.slice(0, 2));
+    destino = { ...destino, hora: { tipo: "relogio", hora: hour, minuto: Number(option.id.slice(3, 5)), periodo: hour < 12 ? "manha" : null, mencao: pilotClip(option.label, PILOT_CONTRACT_LIMITS.mention) } };
+  } else if (question.field === "professional") {
+    // §11.11: the member bound is who attends; every exclusion the delegation had (and "outro") is held aside, never erased.
+    const pending = ctx.state.pending;
+    professional = mergedProfessional(pending?.destino.profissional ?? EMPTY_DESTINATION.profissional, { modo: "nomeado", mencao: option.label, excluidos: [] }, pending?.held);
+    value = { value: option.id, display: option.label, provenance: "explicit", mencao: option.label };
+  }
+  const bound: PilotInterpretation = { ...I, destino };
+  mergeOperators(ctx, bound, professional);
+  return answerWith(ctx, open, question, bound, value);
 }
 /** The answer applied: only its question's field, through the reducer (compare-and-swap on the turn's revision); what the backend derives from
  * it (the appointment, the day…) is the change that follows. */
@@ -593,7 +829,8 @@ async function withdrawal(ctx: Ctx, I: PilotInterpretation, open: PilotPlan | un
     ctx.state.plan = reduced.plan; ctx.state.asked = []; ctx.state.outOfScope = [];
     return { text: PILOT_WITHDRAWN_REPLY, code: "WITHDRAWN" };
   };
-  if (!messageChanges(ctx, I, open)) return plain();
+  // §11.11 (R2-TEMPORAL-2): typed differences only; the same operator said in another minute or day is the open request said again (plain withdrawal).
+  if (!messageChanges(ctx, I, open, false)) return plain();
   mergeOperators(ctx, I);
   const resolution = await resolveFields(ctx, open, I);
   if (I.fora_do_escopo.length) ctx.state.outOfScope = I.fora_do_escopo.map(item => item.pedido);
@@ -624,25 +861,13 @@ export async function selectPilotOption(host: PilotHost, ref: string): Promise<P
   if (reset) return { text: reset.text, view: pilotView(state), code: reset.code, telemetry: pilotTelemetry(state, { selected: question.field }) };
   const clock = await host.clock(), today = pilotToday(clock);
   const ctx: Ctx = { host, state, reader: host.reader(), clock, message: "", baseRevision: open.revision, reference: today };
-  let value: PilotField | undefined;
-  const pending = state.pending ?? { origem: { ...EMPTY_ORIGIN }, destino: structuredClone(EMPTY_DESTINATION) };
-  if (question.field === "customer" || question.field === "appointment") value = { value: option.id, display: option.label, provenance: "explicit" };
-  else if (question.field === "date" && /^\d{4}-\d{2}-\d{2}$/.test(option.id)) {
-    // §11.3 (PRINCIPLE-2): the tapped day of a clock offset's day question settles its anchor too (resolveFields); a tapped day is the owner's own.
-    ctx.clockDayAnswer = clockDayQuestion(state.pending, question);
-    ctx.conflictAnswer = question.reason === "DATE_CLOCK_CONFLICT";
-    // The tapped day is said now (after any clock): neither the day a clock settled nor a clock said after the day any more.
-    const { clockDay: _settled, clockAfterDay: _after, ...rest } = pending; void _settled; void _after;
-    state.pending = { ...rest, destino: { ...pending.destino, dia: { tipo: "data", dia: Number(option.id.slice(8, 10)), mes: Number(option.id.slice(5, 7)), mencao: option.label } },
-      anchors: { ...pending.anchors, destino: turnAt(ctx) } };
-  } else if (question.field === "time" && /^\d{2}:\d{2}$/.test(option.id)) {
-    const hour = Number(option.id.slice(0, 2));
-    state.pending = { ...pending, destino: { ...pending.destino, hora: { tipo: "relogio", hora: hour, minuto: Number(option.id.slice(3, 5)), periodo: hour < 12 ? "manha" : null, mencao: option.label } } };
-  } else if (question.field === "professional") {
-    state.pending = { ...pending, destino: { ...pending.destino, profissional: { modo: "nomeado", mencao: option.label, excluidos: [] } } };
-    value = { value: option.id, display: option.label, provenance: "explicit", mencao: option.label };
-  } else throw Error("SELECTION_INVALID");
-  const outcome = await answerWith(ctx, open, question, SILENT, value);
+  // §11.10: the tap is the option, applied exactly as an answer naming it (chooseOption): a tapped day is that exact day, said now (after any clock:
+  // neither the day a clock settled nor a clock said after the day any more), and settles a clock's anchor on its question; a professional is that record.
+  const valid = question.field === "customer" || question.field === "appointment" || question.field === "professional"
+    || question.field === "date" && /^\d{4}-\d{2}-\d{2}$/.test(option.id) || question.field === "time" && /^\d{2}:\d{2}$/.test(option.id);
+  if (!valid) throw Error("SELECTION_INVALID");
+  if (!state.pending) state.pending = { origem: { ...EMPTY_ORIGIN }, destino: structuredClone(EMPTY_DESTINATION) };
+  const outcome = await chooseOption(ctx, open, question, option, SILENT);
   return { text: outcome.text, view: pilotView(state), code: `SELECTED_${outcome.code}`, telemetry: pilotTelemetry(state, { selected: question.field }) };
 }
 
@@ -653,7 +878,8 @@ const pilotMentionHolds = (mention: string, name: string | null) => {
   const tokens = nameTokens(mention), own = new Set(nameTokens(name ?? ""));
   return tokens.length > 0 && tokens.every(token => own.has(token));
 };
-const personOptions = (rows: readonly PilotPerson[]): PilotOption[] => rows.slice(0, PILOT_OPTIONS_MAX).map(row => ({ id: row.id, label: person(row.name) }));
+/** §11.10: every record as an option; ask() keeps PILOT_OPTIONS_MAX of them and records the real number of choices. */
+const personOptions = (rows: readonly PilotPerson[]): PilotOption[] => rows.map(row => ({ id: row.id, label: person(row.name) }));
 const names = (rows: readonly PilotPerson[]) => listed(rows.map(row => person(row.name)), ", ");
 function customerQuestion(identity: PilotIdentity | undefined): { reason: PilotQuestionReason; text: string; options?: PilotOption[] } {
   if (!identity) return { reason: "CUSTOMER_MISSING", text: "De quem é o atendimento que devo remarcar?" };
@@ -705,14 +931,23 @@ const either = (items: readonly string[]) => items.length < 2 ? items.join("") :
  * (an identity answer is first matched among that question's own options). */
 async function resolveFields(ctx: Ctx, plan: PilotPlan, I: PilotInterpretation, answering?: PilotQuestion): Promise<Resolution> {
   const { state, reader, clock, reference } = ctx, F = plan.action.fields, notes: string[] = [];
+  // §11.10: the words an EXCLUSION question asked about belong to that question only (read by its answer before this resolution): a new one sets them again.
+  // §11.11: so do every choice of a question that chooses who attends.
+  if (state.pending?.exclusion || state.pending?.choices) { const { exclusion: _asked, choices: _choices, ...rest } = state.pending; void _asked; void _choices; state.pending = rest; }
   let pending: PilotPending = state.pending ?? { origem: EMPTY_ORIGIN, destino: EMPTY_DESTINATION };
   // Review S2: a day operator is read against the received_at of the turn that said it (this turn's clock only says what has passed since).
-  const anchored = (at: string | undefined): PilotClock => at && Number.isFinite(Date.parse(at)) ? { receivedAt: new Date(at), timezone: clock.timezone } : clock;
+  const anchored = (at: string | undefined): PilotClock => anchoredAt(at, clock);
   const out = Object.fromEntries(PILOT_FIELDS.map(name => [name, structuredClone(F[name])])) as Record<PilotFieldName, PilotField>;
   const wait = (...fields: PilotFieldName[]) => { for (const name of fields) out[name] = UNRESOLVED(out[name].mencao); };
-  const ask = (field: PilotQuestionField, reason: PilotQuestionReason, text: string, options?: PilotOption[], appointment?: PilotAppointmentRow): Resolution =>
-    ({ fields: out, question: { questionId: nextQuestionId(plan, floorOf(ctx)), field, reason, ...(options?.length ? { options: options.slice(0, PILOT_OPTIONS_MAX) } : {}) }, text, notes,
-      ...(appointment ? { appointment } : {}) });
+  // §11.10 (R1-PAYLOAD-2): a question keeps PILOT_OPTIONS_MAX options and records how many choices there really were (what Luna is told is left out).
+  // §11.11 (R2-PROFESSIONAL-4): a question that chooses who attends keeps EVERY choice bound to its id when they were cut, so an answer binds against all.
+  const ask = (field: PilotQuestionField, reason: PilotQuestionReason, text: string, options?: PilotOption[], appointment?: PilotAppointmentRow): Resolution => {
+    const questionId = nextQuestionId(plan, floorOf(ctx));
+    if (field === "professional" && options && options.length > PILOT_OPTIONS_MAX)
+      state.pending = { ...(state.pending ?? pending), choices: { questionId, options: options.map(option => ({ id: option.id, label: option.label })) } };
+    return { fields: out, question: { questionId, field, reason, ...(options?.length ? { options: options.slice(0, PILOT_OPTIONS_MAX) } : {}),
+      ...(options && options.length > PILOT_OPTIONS_MAX ? { total: options.length } : {}) }, text, notes, ...(appointment ? { appointment } : {}) };
+  };
   const unavailable = (field: PilotQuestionField, what: string) => ask(field, "LOOKUP_UNAVAILABLE", `Não consegui consultar ${what} agora; nada foi alterado. Pode repetir em instantes?`);
   // 1. The customer: the mention of this message, else the one still unresolved; an identity answer first among its question's options. A mention
   // whose every token is in the record already bound (the same person said again, e.g. echoed from the plan) keeps that record.
@@ -808,22 +1043,34 @@ async function resolveFields(ctx: Ctx, plan: PilotPlan, I: PilotInterpretation, 
   if (out.appointment.provenance === "derived") notes.push(`Considerei o atendimento de ${formatLocal(row.startLocal, reference)}.`);
   out.service = { value: row.serviceId, display: row.serviceName, provenance: "inherited" };
   const origin = { date: row.startLocal.slice(0, 10), time: row.startLocal.slice(11, 16) }, current = { id: row.professionalId, name: row.professionalName };
+  // §11.7 GAP 2.c as completed by §11.10 (R1-PROFESSIONAL-4): while a delegated mode waits for the day too, the professional is unresolved in every
+  // question about the day (never the current one shown as kept against the delegation).
+  const delegatedSlot = delegatedMode(professionalMode(pending.destino.profissional));
+  const waitSlot = () => wait("date", "time", ...(delegatedSlot ? ["professional" as const] : []));
   // 3. The new day (decision 27: a weekday read two ways is asked; decision 4: said on that very weekday, today too while the clock is ahead). E2-B
   // §11.1: an offset is read for each anchor Luna listed, each against the received_at of the turn that said it (its day's or its clock's), and
   // different readings are asked; with no day said, a clock offset counted from now says the day (encoded ambiguity B).
   const dayClock = anchored(pending.anchors?.destino), hourClock = anchored(pending.anchors?.hora);
   const implied = pending.destino.dia ? undefined : resolveClockDay(pending.destino.hora, origin, hourClock, clock);
-  const day = implied ?? resolveTargetDate(pending.destino.dia, origin, dayClock, { time: knownClock(pending.destino.hora, origin) }, clock);
+  // §11.10 (R1-TEMPORAL-6) as completed by §11.11 (R2-TEMPORAL-1): a message that says no day (an answer to any question, a tap on another field, a
+  // correction of the clock or of who attends) keeps the day the plan already resolved and showed: only the field it answers or corrects changes, and
+  // what the clock or the professional now is never reopens that day. Facts only: this message brought no day operator; the pending day operator is the
+  // one that gave the plan's day (a new clock counted from now drops it in mergeOperators; another appointment unresolves the day above); the day has not
+  // passed (a day already past is read again, and asked).
+  const resolvedDay = !I.destino.dia && !!pending.destino.dia && out.date.provenance !== "unresolved" && !!out.date.value && out.date.value >= pilotToday(clock) ? out.date : undefined;
+  const day: PilotDateResolution = resolvedDay ? { state: "one", date: resolvedDay.value!, provenance: resolvedDay.provenance as "explicit" | "inherited" | "derived", ...(resolvedDay.mencao ? { mencao: resolvedDay.mencao } : {}) }
+    : implied ?? resolveTargetDate(pending.destino.dia, origin, dayClock, { time: knownClock(pending.destino.hora, origin) }, clock);
   /** The own day of each clock anchor, a fact: agora, the local day of the turn that said it; origem, the appointment's. */
   const anchorDay = (anchor: PilotTimeAnchor) => anchor === "agora" ? pilotToday(hourClock) : origin.date;
   // §11.4: a day left open (or dropped) and an offset with no anchor are asked: never the old day, never a day counted from an anchor nobody said.
+  // §11.10 (R1-TIME-2): the question asks for the final day itself (never for an anchor, which no field could carry next to the operation).
   if (day.state === "ask" && (day.reason === "TO_DEFINE" || day.reason === "ANCHOR_MISSING")) {
-    wait("date", "time");
+    waitSlot();
     return ask("date", day.reason === "TO_DEFINE" ? "DATE_MISSING" : "ANCHOR_MISSING", day.reason === "TO_DEFINE" ? `Para qual dia devo passar o atendimento de ${label(row)}?`
-      : `Não sei a partir de quando contar ${quoted(day.mencao)}. Para qual dia devo passar o atendimento de ${label(row)}?`, undefined, row);
+      : `Para ${quoted(day.mencao)}, qual é o dia final do atendimento de ${label(row)}?`, undefined, row);
   }
   if (day.state === "ask") {
-    wait("date", "time");
+    waitSlot();
     const dia = pending.destino.dia, hora = pending.destino.hora;
     // Which anchor(s) give each day (the typed anchors only; shown beside the day, never used to choose; §11.3: a cited reference by its own day).
     const sources = (date: string): string[] => day.reason !== "ANCHOR_TWO_READINGS" ? []
@@ -832,7 +1079,7 @@ async function resolveFields(ctx: Ctx, plan: PilotPlan, I: PilotInterpretation, 
     const options = day.options.map(date => ({ id: date, label: anchorLabel(formatDay(date, reference), sources(date)) }));
     return ask("date", day.reason === "ANCHOR_TWO_READINGS" ? "ANCHOR_TWO_READINGS" : "DATE_TWO_READINGS", `${quoted(day.mencao)} pode ser ${(day.reason === "ANCHOR_TWO_READINGS" ? either : list)(options.map(option => option.label))}. Qual dia?`, options, row);
   }
-  if (day.state === "invalid") { wait("date", "time"); return ask("date", "DATE_INVALID", day.reason === "DATE_PAST" ? `${quoted(day.mencao)} já passou. Para qual dia?`
+  if (day.state === "invalid") { waitSlot(); return ask("date", "DATE_INVALID", day.reason === "DATE_PAST" ? `${quoted(day.mencao)} já passou. Para qual dia?`
     : `${quoted(day.mencao)} não é uma data que exista. Para qual dia?`, undefined, row); }
   const shift = pending.destino.hora;
   // §11.4 (a later correction incompatible with the earlier day; requirement 3, ONE question): a clock counted from now, said in a later message than
@@ -842,7 +1089,7 @@ async function resolveFields(ctx: Ctx, plan: PilotPlan, I: PilotInterpretation, 
     const own = pilotToday(hourClock), now = pilotToday(clock);
     const reading = own !== day.date && own >= now ? pilotClockShiftReadings({ ...shift, ancoras: ["agora"] }, { origin, date: own, clock: hourClock, current: clock })[0] : undefined;
     if (reading?.time) {
-      wait("date", "time");
+      waitSlot();
       const options = [{ id: own, label: `${formatDay(own, reference)} às ${formatClock(reading.time)} (${TIME_ANCHOR_LABEL.agora})` },
         { id: day.date, label: `${formatDay(day.date, reference)} (o dia pedido antes)` }].sort((a, b) => a.id.localeCompare(b.id));
       return ask("date", "DATE_CLOCK_CONFLICT", `${quoted(shift.mencao)}, ${TIME_ANCHOR_LABEL.agora}, dá ${formatClock(reading.time)} de ${formatDay(own, reference)}, mas o dia pedido antes é ${
@@ -876,7 +1123,15 @@ async function resolveFields(ctx: Ctx, plan: PilotPlan, I: PilotInterpretation, 
     // §11.4: a "data" whose literal reading was left out (already passed) names it, like a cited reference does (never moved in silence).
     if (!fromNow && dia?.tipo === "data") {
       const passed = pilotDataReadings(dia, pilotToday(dayClock)).filter(date => date !== day.date && (date < pilotToday(dayClock) || date < pilotToday(clock)));
-      notes.push(`Considerei ${formatDay(day.date, reference)} (${quoted(day.mencao ?? "")})${passed.length ? `: ${list(passed.map(date => formatDay(date, reference)))} já passou` : ""}.`);
+      // §11.10 (R1-TEMPORAL-7) as completed by §11.11: every month from the turn's up to the day used that lacks the day number is named too (never moved
+      // past a month in silence; calendar facts only).
+      const said = pilotToday(dayClock), lacks: string[] = [];
+      for (let step = 0, year = Number(said.slice(0, 4)), month = Number(said.slice(5, 7)); dia.mes === null && step < 24; step++, month = month % 12 + 1, year += month === 1 ? 1 : 0) {
+        if (`${year}-${String(month).padStart(2, "0")}` >= day.date.slice(0, 7)) break;
+        if (new Date(Date.UTC(year, month - 1, dia.dia)).getUTCMonth() !== month - 1) lacks.push(`${String(dia.dia).padStart(2, "0")}/${String(month).padStart(2, "0")} não existe`);
+      }
+      const left = [...(passed.length ? [`${list(passed.map(date => formatDay(date, reference)))} já passou`] : []), ...lacks];
+      notes.push(`Considerei ${formatDay(day.date, reference)} (${quoted(day.mencao ?? "")})${left.length ? `: ${left.join("; ")}` : ""}.`);
     } else {
       const readings = !fromNow && dia?.tipo === "deslocamento" ? pilotDayShiftReadings(dia, origin, pilotToday(dayClock)) : [];
       const used = fromNow ? [TIME_ANCHOR_LABEL.agora] : [...new Set(readings.filter(reading => reading.date === day.date).map(reading => dayReadingLabel(reading, reference)))];
@@ -888,10 +1143,11 @@ async function resolveFields(ctx: Ctx, plan: PilotPlan, I: PilotInterpretation, 
   // 4. Who attends (a named one before the clock: decision 18 reads that professional's hours).
   const said = pending.destino.profissional, mode = said.modo ?? (said.mencao ? "nomeado" : null), delegated = delegatedMode(mode);
   if (!pending.destino.dia && !pending.destino.hora && (mode === null || mode === "manter")) {
-    wait("date", "time");
+    waitSlot();
     return ask("date", "DESTINATION_MISSING", `Para qual dia, horário ou profissional devo passar o atendimento de ${label(row)}?`, undefined, row);
   }
-  const context = { current, appointmentId: row.id, serviceId: row.serviceId, durationMin: row.durationMin };
+  // §11.11 (R2-PROFESSIONAL-4): who attends must perform every service the appointment holds (exact ids); a delegation applies the exclusions held aside.
+  const context = { current, appointmentId: row.id, serviceId: row.serviceId, serviceIds: pilotServicesOf(row), durationMin: row.durationMin, held: pending.held };
   // §11.3 (PRINCIPLE-3): "outro" never reaches a conflict (the name in its mencao is who must not attend, left out by the resolver).
   const conflictQuestion = (who: Extract<Awaited<ReturnType<typeof resolveProfessional>>, { state: "conflict" }>) => {
     wait("professional", "time");
@@ -922,8 +1178,9 @@ async function resolveFields(ctx: Ctx, plan: PilotPlan, I: PilotInterpretation, 
       const options = clockOf.options.map(time => ({ id: time, label: anchorLabel(formatClock(time), readings.filter(reading => reading.time === time).map(reading => TIME_ANCHOR_LABEL[reading.anchor])) }));
       return ask("time", "ANCHOR_TWO_READINGS", `${quoted(clockOf.mencao ?? "")} pode ser ${either(options.map(option => option.label))} em ${formatDay(day.date, reference)}. Qual horário?`, options, row);
     }
-    // §11.4: a clock offset with no anchor the owner said: the clock is asked (the day already resolved stays), never computed.
-    if (clockOf.reason === "ANCHOR_MISSING") return ask("time", "ANCHOR_MISSING", `Não sei a partir de que horário contar ${quoted(clockOf.mencao ?? "")}. Qual horário em ${formatDay(day.date, reference)}?`, undefined, row);
+    // §11.4: a clock offset with no anchor the owner said: the clock is asked (the day already resolved stays), never computed. §11.10 (R1-TIME-2): the
+    // final clock itself is asked (never an anchor, which no field could carry for a clock the owner cites).
+    if (clockOf.reason === "ANCHOR_MISSING") return ask("time", "ANCHOR_MISSING", `Para ${quoted(clockOf.mencao ?? "")}, qual é o horário final em ${formatDay(day.date, reference)}?`, undefined, row);
     return ask("time", "TIME_MISSING", `Qual horário em ${formatDay(day.date, reference)}?`, undefined, row);
   }
   if (clockOf.state === "invalid") { wait("time"); return ask("time", "TIME_INVALID", `${quoted(clockOf.mencao)} não dá um horário que ainda esteja por vir em ${formatDay(day.date, reference)}. Qual horário?`, undefined, row); }
@@ -950,21 +1207,26 @@ async function resolveFields(ctx: Ctx, plan: PilotPlan, I: PilotInterpretation, 
   // on the fewest is asked with the tied members (§11.4: never the name order).
   if (delegated) {
     const who = await resolveProfessional(reader, said, { ...context, slot: { date: day.date, time: clockOf.time }, origin });
-    const without = mode === "outro" || (day.date === origin.date && clockOf.time === origin.time);
+    const without = mode === "outro" || !!pending.held?.outro || (day.date === origin.date && clockOf.time === origin.time);
     const when = formatLocal(`${day.date}T${clockOf.time}`, reference), service = pilotClip(row.serviceName, PILOT_TEXT_BOUNDS.service);
     if (who.state === "chosen") {
       out.professional = { value: who.id, display: who.name, provenance: "derived", ...(said.mencao ? { mencao: said.mencao } : {}) };
       notes.push(`Escolhi ${person(who.name)}: faz o serviço, está livre nesse horário e ninguém livre tem menos atendimentos no dia.`);
     } else if (who.state === "tie") {
       wait("professional");
-      return ask("professional", "PROFESSIONAL_TIE", `${list(who.options.map(item => person(item.name)))} fazem ${service}, estão livres em ${when} e têm o mesmo número de atendimentos nesse dia. Quem vai atender?`,
+      // §11.10 (R1-PAYLOAD-2): the tied are listed like any other options (8 named, the rest counted).
+      const tied = who.options.map(item => person(item.name));
+      return ask("professional", "PROFESSIONAL_TIE", `${tied.length <= SHOWN_OPTIONS ? list(tied) : listed(tied, ", ")} fazem ${service}, estão livres em ${when} e têm o mesmo número de atendimentos nesse dia. Quem vai atender?`,
         personOptions(who.options), row);
     } else if ("excluding" in who) {
       // §11.4: an exclusion that names no member for sure is asked with the owner's words (no option: a tap would make that person the one who attends).
+      // §11.10: with reasons of its own (never those of a question of who attends) and its own state: the words it asks about, bound to its id.
       wait("professional");
-      return ask("professional", who.state === "contradictory" ? "PROFESSIONAL_CONTRADICTORY" : "PROFESSIONAL_NOT_FOUND", who.state === "contradictory"
+      const asked = ask("professional", who.state === "contradictory" ? "EXCLUSION_CONTRADICTORY" : "EXCLUSION_NOT_FOUND", who.state === "contradictory"
         ? `Encontrei ${person(who.candidate.name)} na equipe, mas você escreveu ${quoted(who.mencao)} para quem não deve atender. Quem não deve atender? Escreva o nome como está no cadastro.`
         : `Não encontrei ${quoted(who.mencao)} na equipe para deixar de fora${who.suggestions.length ? ` (seria ${names(who.suggestions)}?)` : ""}. Quem não deve atender?`, undefined, row);
+      state.pending = { ...pending, exclusion: { questionId: asked.question!.questionId, mencao: who.mencao } };
+      return asked;
     } else if (who.state === "conflict") return conflictQuestion(who);
     else if (who.state === "nobody_free") {
       wait("professional");
@@ -1010,7 +1272,8 @@ export async function preparePilotProposal(host: PilotHost, plan: PilotPlan, not
   const draft: PilotQuestionDraft = prepared.code === "NO_CHANGE" ? { questionId: nextQuestionId(plan, options.floor), field: "date", reason: "DESTINATION_MISSING" }
     : { questionId: nextQuestionId(plan, options.floor), field: prepared.code === "SERVICE_NOT_PERFORMED" ? "professional" : "time",
       reason: prepared.code === "OUTSIDE_HOURS" ? "OUTSIDE_HOURS" : "SLOT_UNAVAILABLE",
-      ...(prepared.alternatives?.length ? { options: prepared.alternatives.slice(0, PILOT_OPTIONS_MAX).map(time => ({ id: time, label: formatClock(time) })) } : {}) };
+      ...(prepared.alternatives?.length ? { options: prepared.alternatives.slice(0, PILOT_OPTIONS_MAX).map(time => ({ id: time, label: formatClock(time) })) } : {}),
+      ...((prepared.alternatives?.length ?? 0) > PILOT_OPTIONS_MAX ? { total: prepared.alternatives!.length } : {}) };
   const text = prepared.code === "NO_CHANGE" ? `Esse já é o horário do atendimento${options.appointment ? ` (${options.appointment})` : ""}. Para qual dia, horário ou profissional devo passar?` : prepared.text;
   const reduced = applyIntent(plan, prepared.code === "NO_CHANGE" ? { fields: { date: UNRESOLVED(), time: UNRESOLVED() }, questions: [draft] } : { fields: {}, questions: [draft] }, plan.revision);
   return { plan: reduced.ok ? reduced.plan : plan, text, code: `ASKED_${draft.reason}` };

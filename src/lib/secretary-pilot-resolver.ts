@@ -233,7 +233,11 @@ export function resolveTargetDate(dia: PilotTempoDia | null, origin: { date: str
       const onToday = dia.qualificador !== "proximo" && weekdayOfDateKey(today) === weekday && ahead ? [today] : [];
       const afterOrigin = dia.qualificador === "este" || !isDateKey(origin.date) ? [] : [weekdayAfter(weekday, origin.date)];
       const readings = [...new Set([...onToday, first, ...afterOrigin])].sort();
-      return readings.length === 1 ? { state: "one", date: readings[0], provenance: "explicit", mencao } : { state: "ask", options: readings, reason: "TWO_READINGS", mencao };
+      // §11.11 (R2-TEMPORAL-2, like every other operator): a reading already past on this turn's day is no reading (the one left is derived); none left:
+      // the day is asked (DATE_PAST), never a clock refused on a day gone.
+      const valid = readings.filter(date => date >= now);
+      if (!valid.length) return { state: "invalid", reason: "DATE_PAST", mencao };
+      return valid.length === 1 ? { state: "one", date: valid[0], provenance: valid.length < readings.length ? "derived" : "explicit", mencao } : { state: "ask", options: valid, reason: "TWO_READINGS", mencao };
     }
   }
 }
@@ -466,10 +470,16 @@ export const pilotExclusionMentions = (profissional: { modo: string | null; menc
 };
 /** The destination professional as said: the contract's, or (§11.4) a value saved before the exclusion list (no `excluidos`: none of its own). */
 export type PilotProfessionalSaid = Omit<PilotDestination["profissional"], "excluidos"> & { excluidos?: readonly string[] };
-/** `origin` (§11.2): the appointment's own day and clock, so the resolver sees the fact that the slot is the origin's own. */
+/** §11.11: exclusions said earlier in the plan that the value does not carry itself (typed names, words beside "outro", the current professional): a
+ * delegated value applies them exactly as its own; any other value never reads them. */
+export type PilotHeldExclusionsSaid = { outro?: boolean; excluidos?: readonly string[]; words?: readonly string[] };
+/** `origin` (§11.2): the appointment's own day and clock, so the resolver sees the fact that the slot is the origin's own. §11.11: `serviceIds`, every
+ * service the appointment holds (who attends performs each of them; exact ids); `held`, the exclusions held aside. */
 export async function resolveProfessional(reader: PilotReader, profissional: PilotProfessionalSaid,
-  context: { current: PilotPerson; appointmentId: string; serviceId: string; durationMin: number; slot: { date: string; time: string } | null; origin?: { date: string; time: string } }): Promise<PilotProfessionalResolution> {
-  const mode = profissional.modo ?? (profissional.mencao ? "nomeado" : null), exclusions = pilotExclusionMentions(profissional);
+  context: { current: PilotPerson; appointmentId: string; serviceId: string; serviceIds?: readonly string[]; durationMin: number; slot: { date: string; time: string } | null;
+    origin?: { date: string; time: string }; held?: PilotHeldExclusionsSaid }): Promise<PilotProfessionalResolution> {
+  const mode = profissional.modo ?? (profissional.mencao ? "nomeado" : null), held = mode === "qualquer" || mode === "outro" ? context.held : undefined;
+  const exclusions = [...pilotExclusionMentions(profissional), ...(held?.excluidos ?? []), ...(held?.words ?? [])], withoutCurrent = mode === "outro" || !!held?.outro;
   // M9: words beside "manter"/"qualquer" that name nobody of the team are the owner's way of saying the mode itself and change nothing; another
   // member's name there is asked like any conflict. §11.3/§11.4 (PRINCIPLE-3): an exclusion (excluidos, and "outro"'s mencao) is who must NOT attend:
   // each is checked against the real team by its normalized mention (the identity states, never grammar): the member it names leaves the candidates
@@ -480,17 +490,21 @@ export async function resolveProfessional(reader: PilotReader, profissional: Pil
   if (conflictable || exclusions.length) {
     let team: PilotPerson[];
     try { team = (await reader.team()).map(person); } catch { return { state: "unavailable", mencao: said ?? exclusions[0] ?? "", provenance: "unresolved" }; }
-    if (conflictable && said && (mode === "manter" || mode === "qualquer")) {
-      const named = pilotIdentityOf(team, said);
-      if ((named.state === "exact" || named.state === "partial") && (mode === "qualquer" || named.id !== context.current.id))
-        return { state: "conflict", mode, named: { id: named.id, name: named.name }, mencao: said, provenance: "unresolved" };
-    }
-    const typed = new Set(Array.isArray(profissional.excluidos) ? profissional.excluidos : []);
+    // Round 2 (§11.10, R1-PROFESSIONAL-3): the exclusions are resolved FIRST, so a member an exclusion leaves out is never the conflict's option (a question
+    // that would make her the one who attends): words beside "qualquer" naming an excluded member stay the mode's own words (M9).
+    const typed = new Set([...(Array.isArray(profissional.excluidos) ? profissional.excluidos : []), ...(held?.excluidos ?? [])]);
     for (const mencao of exclusions) {
       const named = pilotIdentityOf(team, mencao);
       if (named.state === "exact" || named.state === "partial") left.set(named.id, { id: named.id, name: named.name });
       else if (named.state === "ambiguous") for (const option of named.options) left.set(option.id, option);
       else if (named.state === "contradictory" || (named.state === "not_found" && (typed.has(mencao) || named.suggestions.length))) return { ...named, excluding: true };
+    }
+    // §11.11: the current professional held out ("outro" kept beside words of "qualquer") is never the conflict's option either.
+    if (conflictable && said && (mode === "manter" || mode === "qualquer")) {
+      const named = pilotIdentityOf(team, said);
+      if ((named.state === "exact" || named.state === "partial") && !left.has(named.id) && !(withoutCurrent && named.id === context.current.id)
+        && (mode === "qualquer" || named.id !== context.current.id))
+        return { state: "conflict", mode, named: { id: named.id, name: named.name }, mencao: said, provenance: "unresolved" };
     }
   }
   if (mode === null || mode === "manter") return { state: "kept", id: context.current.id, name: context.current.name, provenance: "inherited" };
@@ -504,11 +518,13 @@ export async function resolveProfessional(reader: PilotReader, profissional: Pil
   const { date, time } = context.slot, start = minutesOf(time), end = start + context.durationMin;
   // §11.2: the current professional is no candidate for "outro", nor at the origin's own day and clock (choosing it would change nothing); §11.3/
   // §11.4: nor the member(s) the exclusions named.
-  const excluded = new Set([...(mode === "outro" || (context.origin?.date === date && context.origin?.time === time) ? [context.current.id] : []), ...left.keys()]);
+  const excluded = new Set([...(withoutCurrent || (context.origin?.date === date && context.origin?.time === time) ? [context.current.id] : []), ...left.keys()]);
   const local = (value: string) => value.slice(0, 10) < date ? 0 : value.slice(0, 10) > date ? 24 * 60 : minutesOf(value.slice(11, 16));
+  // §11.11 (R2-PROFESSIONAL-4): a candidate performs every service the appointment holds (exact ids; its first one when none is listed).
+  const services = context.serviceIds?.length ? context.serviceIds : [context.serviceId];
   try {
     const team = await reader.team(), free: { row: PilotProfessionalRow; count: number }[] = [];
-    for (const row of team.filter(item => item.serviceIds.includes(context.serviceId) && !excluded.has(item.id))) {
+    for (const row of team.filter(item => services.every(id => item.serviceIds.includes(id)) && !excluded.has(item.id))) {
       const [windows, busy] = await Promise.all([reader.workingWindows(row.id, date), reader.busy(row.id, date)]);
       if (!windows.some(window => window.start <= start && end <= window.end)) continue;
       const others = busy.filter(item => item.appointmentId !== context.appointmentId);
