@@ -8,6 +8,9 @@ import type { AgentLookupCall } from "./agent-tools";
  * serialized. The tenant/actor never enter this package: the app injects a LookupExecutor that closes over them. Off: nothing
  * here runs (no existing module imports it) and the C4 is byte-identical. */
 export const agentEnabled = () => process.env.SALON_SECRETARY_AGENT === "true";
+/** Micro-candidate P0+P2 (flag SALON_SECRETARY_AGENT_MICRO, default off; docs/SECRETARY_AGENT_EVAL_PROTOCOL.md Adendo 7): only the exact value
+ * "true" turns it on; off, every path it guards is byte-identical. */
+export const agentMicroEnabled = () => process.env.SALON_SECRETARY_AGENT_MICRO === "true";
 export const AGENT_EFFORTS = ["medium", "high"] as const;
 export type AgentEffort = (typeof AGENT_EFFORTS)[number];
 /** SALON_SECRETARY_AGENT_EFFORT, one value per message for every round (default medium); anything else fails closed. */

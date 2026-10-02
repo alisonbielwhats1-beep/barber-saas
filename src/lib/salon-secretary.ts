@@ -58,9 +58,9 @@ import { agentMessageScope, agentSkeleton, prepareAgentScheduling, prepareAgentB
   agentTurnOutcome, agentNothingChanged, agentFollowUpEligible, agentPlanOpen, agentPronounTopic, type AgentPrepared, type AgentSkeleton,
   agentContinuationEligible, agentOpenScope, agentOpenPlanFacts, agentOpenStateRefused, agentDismissalScope, agentDismissalActions, agentDismissalClause, agentLooseNegator,
   agentQuoteSpans, agentHalfDayPending, prepareAgentPatch, agentOpenCancelOutcome, agentAppendSkeleton, AGENT_DISMISSAL_ASK_NOTICE, AGENT_UNCLEAR_DISMISSAL_NOTICE, AGENT_PATCH_DONE_NOTICE, AGENT_PATCH_HELD_NOTICE,
-  AGENT_DISMISSAL_PENDING_NOTICE, type AgentOpenSource, type AgentContinuationTelemetry, type AgentDismissalCode } from "./secretary-agent-apply";
+  AGENT_DISMISSAL_PENDING_NOTICE, AGENT_MIXED_TURN_NOTICE, AGENT_UNCLEAR_TURN_NOTICE, agentPatchLeavesNamed, agentPatchTargets, agentOwnProfessional, withoutReleasedProfessional, type AgentMicroReferences, type AgentOpenSource, type AgentContinuationTelemetry, type AgentDismissalCode } from "./secretary-agent-apply";
 import { validateAgentPlanInTenant, type AgentActionOutcome, type AgentValidation } from "./secretary-agent-validator";
-import { AGENT_UNSAID_CUSTOMER, agentEnabled, agentMessage } from "../../packages/salon-secretary/src/agent-context";
+import { AGENT_UNSAID_CUSTOMER, agentEnabled, agentMessage, agentMicroEnabled } from "../../packages/salon-secretary/src/agent-context";
 import type { AgentPlan } from "../../packages/salon-secretary/src/agent-plan";
 import { AGENT_SAFE_REPLY, agentFallbackRoute, runAgentTurn, type AgentLoopOutcome, type AgentLoopTelemetry } from "../../packages/salon-secretary/src/agent-loop";
 import { instrumentAgentModel } from "../../packages/salon-secretary/src/usage";
@@ -1337,23 +1337,34 @@ export class SalonSecretary {
   }
   /** A dismissal whose scope is not clear (agentDismissalScope ASK): nothing is discarded, every open proposal leaves the Confirmar (review) and the
    * backend asks what to discard; the per-action Descartar stays available. */
-  private async agentDismissalAsk(actor: ServiceActor, parent: Session, code: AgentDismissalCode) {
+  private async agentDismissalAsk(actor: ServiceActor, parent: Session, code: AgentDismissalCode, notice = AGENT_DISMISSAL_ASK_NOTICE) {
     this.holdForReview(parent, parent.actionPlan!.actions.filter(action => !terminalActionStatus(action.status)).map(action => action.key));
     parent.actionPlan = refreshActionPlan(parent.actionPlan!); parent.capability_status = undefined;
     this.routerTrace.getStore()?.failed("AGENT_DISMISSAL_ASK", code);
     const views = (parent.children ?? []).map(id => ({ operation_ref: id, state: this.view(this.get(actor, id)) }));
-    parent.conversationNotice = `${AGENT_DISMISSAL_ASK_NOTICE}\n\n${secretaryPlanMessage(parent.actionPlan!, parent.actionUnits ?? [], views)}`;
+    parent.conversationNotice = `${notice}\n\n${secretaryPlanMessage(parent.actionPlan!, parent.actionUnits ?? [], views)}`;
+    await this.recordAutomaticState(actor, parent);
+    return this.view(parent);
+  }
+  /** Micro P0b (flag SALON_SECRETARY_AGENT_MICRO, agent arm): a turn that mixes a change and another open action the C4's one-mode envelope left
+   * out: nothing applies, every open proposal leaves the Confirmar (review) and the backend asks; the per-action Descartar stays available. */
+  private async agentMixedTurnAsk(actor: ServiceActor, parent: Session) {
+    this.holdForReview(parent, parent.actionPlan!.actions.filter(action => !terminalActionStatus(action.status)).map(action => action.key));
+    parent.actionPlan = refreshActionPlan(parent.actionPlan!); parent.capability_status = undefined;
+    this.routerTrace.getStore()?.failed("AGENT_MIXED_TURN");
+    const views = (parent.children ?? []).map(id => ({ operation_ref: id, state: this.view(this.get(actor, id)) }));
+    parent.conversationNotice = `${AGENT_MIXED_TURN_NOTICE}\n\n${secretaryPlanMessage(parent.actionPlan!, parent.actionUnits ?? [], views)}`;
     await this.recordAutomaticState(actor, parent);
     return this.view(parent);
   }
   /** V11 (flag; also on the C4 continuation of an agent plan): a C4 DISCARD goes through the same scope as the agent's own dismissal. The C4's keys
    * stand for the model's; the owner's words of the whole message decide: every open action, exactly those keys, or asked with nothing confirmable.
    * Never less than the owner said. */
-  private async agentGuardedDiscard(actor: ServiceActor, parent: Session, message: string, keys: readonly string[] | null) {
+  private async agentGuardedDiscard(actor: ServiceActor, parent: Session, message: string, keys: readonly string[] | null, notice?: string) {
     const scope = agentDismissalScope({ message, keys, actions: agentDismissalActions(this.agentOpenSources(parent)), timezone: await this.agentTimezone(actor), now: new Date(),
       known: this.agentKnownNames() });
     this.routerTrace.getStore()?.failed(`AGENT_DISCARD_${scope.kind}`);
-    if (scope.kind === "ASK") return this.agentDismissalAsk(actor, parent, scope.code);
+    if (scope.kind === "ASK") return this.agentDismissalAsk(actor, parent, scope.code, notice);
     return this.discardPlanActions(actor, parent, scope.kind === "ALL" ? null : scope.keys);
   }
   /** Phase 2 (S1b rerun, V11): the validated continuation of an open agent plan. Before anything changes, what this path cannot apply goes to the C4
@@ -1673,10 +1684,15 @@ export class SalonSecretary {
     // D1 (V2): a new appointment in the slot a reschedule of this plan frees takes that move's ORIGIN (never its destination).
     const releaser = v2 && action.operation === "appointment.create" && action.released_slot_of && unit.kind === "single" && child.scheduling
       ? s.actionPlan!.actions.find(item => item.key === action.released_slot_of && item.operation === "appointment.change") : undefined;
-    const origin = releaser ? await this.releasedOrigin(actor, s, action, releaser) : undefined;
+    let origin = releaser ? await this.releasedOrigin(actor, s, action, releaser) : undefined;
+    // Micro P0a (CE10 mechanism, flag SALON_SECRETARY_AGENT_MICRO, agent arm only): a professional the owner named for this create (in its own
+    // clause, undenied) stays its own; the slot gives only its day and clock (the link never seeds nor follows that professional).
+    const ownProfessional = !!origin && agentMicroEnabled() && agentEnabled() && (op as { destination_mode?: unknown }).destination_mode !== "ALTERNATIVE_SLOT" &&
+      agentOwnProfessional(message, op, siblings);
+    if (origin && ownProfessional) origin = withoutReleasedProfessional(origin);
     if (origin && (op as { destination_mode?: unknown }).destination_mode !== "ALTERNATIVE_SLOT")
       // The released slot owns its day, clock and professional (as for a cancellation's slot): Luna's own copies never stand.
-      op = { ...withoutOwn(op, ["date", "time", "professional"]), ...((op as { destination_mode?: unknown }).destination_mode === "SAME_RELEASED_SLOT" ? { destination_mode: null } : {}) } as SelectedOperation;
+      op = { ...withoutOwn(op, ownProfessional ? ["date", "time"] : ["date", "time", "professional"]), ...((op as { destination_mode?: unknown }).destination_mode === "SAME_RELEASED_SLOT" ? { destination_mode: null } : {}) } as SelectedOperation;
     if (origin) { child.scheduling = { ...schedulingState(), operation: "appointment.create", fields: origin.fields, references: origin.state }; this.routerTrace.getStore()?.failed(origin.code); }
     // C4 R-B2 (V2): the slot a move frees needs no encaixe; a consent the owner did not write is dropped (never granted, never a failure).
     if (origin && (op as { override_requested?: unknown }).override_requested === true && !literalOverrideConsent(message)) {
@@ -1832,7 +1848,10 @@ export class SalonSecretary {
         refs.seeded?.professional !== undefined && scheduling!.fields.professional_ref !== refs.seeded.professional;
       if (said) codes.push("RELEASED_ORIGIN_OVERRIDDEN");
       else {
-        const origin = await this.releasedOrigin(actor, s, action, releaser);
+        let origin = await this.releasedOrigin(actor, s, action, releaser);
+        // Micro P0a (flag SALON_SECRETARY_AGENT_MICRO, agent arm): a professional the owner named for this create (prepareReferences marked the
+        // link ownProfessional) is never replaced by the released slot's; the link follows only the slot's day and clock.
+        if (agentMicroEnabled() && agentEnabled() && (refs as AgentMicroReferences).ownProfessional) origin = withoutReleasedProfessional(origin);
         Object.assign(next, { ...origin.state, ...(origin.state.asked || next.asked ? { asked: [...new Set([...next.asked ?? [], ...origin.state.asked ?? []])] } : {}), seeded: { ...next.seeded, ...origin.state.seeded } });
         if (!Object.keys(next.seeded!).length) delete next.seeded;
         if (["date", "time"].some(field => origin.fields[field as "date"] !== undefined && origin.fields[field as "date"] !== scheduling!.fields[field as "date"]) || origin.fields.professional_ref && origin.fields.professional_ref !== scheduling!.fields.professional_ref)
@@ -2066,7 +2085,9 @@ export class SalonSecretary {
       if (unread) return this.keepPlanAfterUnreadAnswer(actor, parent, error, addressed);
       // C5 agent (flag, V11): on a plan the agent built, the owner's own words decide what a dismissal gives up (never less than said; unclear:
       // asked, nothing confirmable). An answer to the pending discard question keeps the C4's rule.
+      // Micro P0b (CE02 mechanism, flag SALON_SECRETARY_AGENT_MICRO): on the agent arm, a plan the C4 built (the agent fell back) too.
       if (error instanceof SecretaryDiscardRequest && !asked && this.agentPlanActive(parent)) return this.agentGuardedDiscard(actor, parent, message, error.itemKeys);
+      if (error instanceof SecretaryDiscardRequest && !asked && agentMicroEnabled() && agentEnabled()) return this.agentGuardedDiscard(actor, parent, message, error.itemKeys, AGENT_UNCLEAR_TURN_NOTICE);
       if (error instanceof SecretaryDiscardRequest) return this.discardPlanActions(actor, parent, error.itemKeys);
       if (!(error instanceof SecretaryNewRequest) && !(error instanceof SecretaryResumeRequest)) throw Error("CONVERSATION_ROUTE_CONFLICT");
       if(error instanceof SecretaryResumeRequest){
@@ -2085,6 +2106,11 @@ export class SalonSecretary {
         return this.view(parent);
       }
       this.noteRejected(parent, selection, message, error.mode === "PATCH");
+      // Micro P0b (CE02 mechanism, flag SALON_SECRETARY_AGENT_MICRO, agent arm): a typed PATCH that leaves out an open action the message names
+      // (a withdrawal or a change the one-mode envelope could not carry) is held and asked; nothing of it applies.
+      if(error.mode==="PATCH"&&!operationRef&&agentMicroEnabled()&&agentEnabled()&&agentPatchLeavesNamed({message,sources:this.agentOpenSources(parent),patches:agentPatchTargets(selection.operations),
+        timezone:await this.agentTimezone(actor),now:new Date()}))
+        return this.agentMixedTurnAsk(actor,parent);
       if(error.mode==="PATCH") return this.applyExistingPlanPatches(actor,parent,parent.actionUnits??[],selection,message);
       if(error.mode==="ADD") return this.appendActionPlan(actor,parent,selection,message);
       // A plan left with only completed/discarded actions is retired, never kept for resumption.

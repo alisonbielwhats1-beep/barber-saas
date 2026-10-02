@@ -2,18 +2,18 @@ import { terminalActionStatus, validateSelectionV2, type CapabilitySelection } f
 import type { ServiceActor } from "./service-catalog";
 import { withTenant } from "./prisma-tenant";
 import { schedulingResolved, schedulingServiceRefs, type SchedulingFields } from "./scheduling-contract";
-import { prepareResolvedScheduling, type AgentResolvedExtras, type SchedulingReferences, type SchedulingState } from "./secretary-scheduling";
+import { prepareResolvedScheduling, type AgentResolvedExtras, type SameAsField, type SchedulingReferences, type SchedulingState } from "./secretary-scheduling";
 import { prepareBatch, type BatchState } from "./secretary-batch";
 import { validateBatchPlan } from "./scheduling-batch";
 import { createAgentLookupExecutor, agentLookupTelemetry, agentCustomerLabel, agentSaidTokens, type AgentPreloadTelemetry } from "./secretary-agent-lookups";
 import { AGENT_NOTHING_CHANGED, AGENT_QUESTIONS, agentBasisPrecondition, agentDerivedCheck, agentFactReader, agentGroupBasisPrecheck,
-  type AgentActionOutcome, type AgentBasis, type AgentCardKind, type AgentOpenAction, type AgentOpenPlan, type AgentPreparedSlot, type AgentValidation } from "./secretary-agent-validator";
+  type AgentActionOutcome, type AgentBasis, type AgentCardKind, type AgentOpenAction, type AgentOpenPlan, type AgentPreparedSlot, type AgentValidation, type AgentValidatorCode } from "./secretary-agent-validator";
 import type { AgentTurnOutcome } from "./secretary-router";
-import { clauseBounds, quoteTemporalFacts, temporalAtomSpans } from "./scheduling-temporal-source";
-import { literalProofSpans } from "../../packages/salon-secretary/src/literal-match";
+import { clauseBounds, entityQuoteDenied, quoteTemporalFacts, temporalAtomSpans } from "./scheduling-temporal-source";
+import { literalProofSpans, literalSpans } from "../../packages/salon-secretary/src/literal-match";
 import { SUGGESTION_THRESHOLD, foldName, nameTokens, tokenSimilarity } from "./name-search";
 import { weekdayOfDateKey } from "./time";
-import { AGENT_LIMITS, agentEnabled, agentMessage, withAgentMessage, type AgentBinding, type AgentLookupExecutor, type AgentMessageContext,
+import { AGENT_LIMITS, agentEnabled, agentMessage, agentMicroEnabled, withAgentMessage, type AgentBinding, type AgentLookupExecutor, type AgentMessageContext,
   type AgentOpenScope } from "../../packages/salon-secretary/src/agent-context";
 import { AGENT_PLAN_OPERATIONS, type AgentPlanOperation, type AgentQuestionField } from "../../packages/salon-secretary/src/agent-plan";
 import { AGENT_OPEN_STATES, type AgentOpenState } from "../../packages/salon-secretary/src/agent-prompt";
@@ -128,7 +128,9 @@ export function agentOpenPlanFacts(sources: readonly AgentOpenSource[]): AgentOp
       fields: structuredClone(source.fields), names: { ...source.names }, basis: structuredClone([...source.basis]),
       ...source.appointment ? { appointment: source.appointment } : {}, ...source.fields.customer_ref ? { customer: source.fields.customer_ref } : {},
       ...services?.length ? { serviceIds: [...services] } : {}, ...source.durationMin ? { durationMin: source.durationMin } : {},
-      ...source.card && CARD_KINDS.has(source.card.kind) ? { card: { kind: source.card.kind as AgentCardKind, items: source.card.items.map(item => item.id) } } : {} };
+      ...source.card && CARD_KINDS.has(source.card.kind) ? { card: { kind: source.card.kind as AgentCardKind, items: source.card.items.map(item => item.id) } } : {},
+      // Micro P0c (CF09 mechanism): whether this action waits on the owner (anything but ready to confirm or done), so an answer changes only it.
+      ...agentMicroEnabled() ? { asked: source.status !== "DONE" && source.status !== "READY_FOR_CONFIRMATION" && source.status !== "READY" } : {} };
   }) };
 }
 /** The state an action shows the model: confirmed, ready to confirm, waiting for a field, or held/failed (to review). */
@@ -297,6 +299,55 @@ export function agentDismissalActions(sources: readonly AgentOpenSource[]): Agen
     return { key: source.key, names: [...new Set(names)], dates: [...new Set(dates)], clocks: [...new Set(clocks)] };
   });
 }
+/** Micro P0b: the patched keys of a typed PATCH and the owner's literals of their values (every string of the delta but its structure: the
+ * operation, keys, links, the clause quote and a card choice). */
+const PATCH_STRUCTURE = new Set(["operation", "item_key", "depends_on", "released_slot_of", "same_as", "source_scope", "choice", "destination_mode", "override_requested"]);
+export function agentPatchTargets(operations: readonly object[]): { key: string; literals: string[] }[] {
+  const strings = (value: unknown): string[] => typeof value === "string" ? [value] : Array.isArray(value) ? value.flatMap(strings)
+    : value && typeof value === "object" ? Object.values(value).flatMap(strings) : [];
+  return operations.flatMap(op => { const key = (op as { item_key?: unknown }).item_key;
+    return typeof key === "string" ? [{ key, literals: Object.entries(op).flatMap(([name, value]) => PATCH_STRUCTURE.has(name) ? [] : strings(value)) }] : []; });
+}
+/** Micro P0b (CE02 mechanism, flag SALON_SECRETARY_AGENT_MICRO): the C4 envelope carries one mode per turn (PATCH or DISCARD). A PATCH whose
+ * message also speaks of an open action it leaves out may withdraw or change that action too: true, and the turn is held and asked (nothing
+ * applies). Outside the patch's own literals (`patches`), the message speaks of a left-out action when (i) a word (≥ 3 letters) is close to a
+ * word of its people's or services' names (agentDismissalActions: registered names and the owner's words, professionals included) and to no
+ * word of the patched actions' names nor of the patch; (ii) a day or clock atom matches its days or clocks and no patched action's; or (iii) a
+ * part outside the patch's clauses that names no patched action holds an ordinal or alterity word or a negator that is not a bare refusal
+ * (closed classes). An unreadable message holds. Registered names, temporal atoms and closed classes only; never a list of sentences. */
+export function agentPatchLeavesNamed(input: { message: string; sources: readonly AgentOpenSource[]; patches: readonly { key: string; literals: readonly string[] }[];
+  timezone?: string; now: Date }): boolean {
+  const { message } = input, keys = new Set(input.patches.map(item => item.key)), actions = agentDismissalActions(input.sources);
+  const left = actions.filter(action => !keys.has(action.key)), mine = actions.filter(action => keys.has(action.key));
+  if (!left.length) return false;
+  const literals = input.patches.flatMap(item => item.literals).filter(literal => literal.trim());
+  const spans = literals.flatMap(literal => literalProofSpans(message, literal)), free = (a: number, b: number) => !spans.some(span => span[0] < b && a < span[1]);
+  const atoms = temporalAtomSpans(message, input.timezone ?? "UTC", input.now);
+  if (!atoms || !input.timezone && atoms.length) return true;
+  const hit = (atom: (typeof atoms)[number], action: AgentDismissalAction) => {
+    const facts = quoteTemporalFacts(message.slice(atom.start, atom.end), input.timezone!, input.now);
+    return atom.kind === "date"
+      ? action.dates.some(date => facts.dates.includes(date) || facts.days.includes(Number(date.slice(8, 10))) || facts.weekdays.some(day => day.weekday === weekdayOfDateKey(date)))
+      : action.clocks.some(clock => facts.clocks.some(said => minuteOf(said) % 720 === minuteOf(clock) % 720));
+  };
+  if (atoms.some(atom => free(atom.start, atom.end) && left.some(action => hit(atom, action)) && !mine.some(action => hit(atom, action)))) return true;
+  const masked = atoms.reduce((text, atom) => `${text.slice(0, atom.start)}${" ".repeat(atom.end - atom.start)}${text.slice(atom.end)}`, message);
+  const tokens = (names: readonly string[]) => names.flatMap(name => nameTokens(name)).filter(token => [...token].length >= 3 && !NOT_A_NAME.has(token));
+  const close = (word: string, list: readonly string[]) => list.some(token => tokenSimilarity(word, token) >= SUGGESTION_THRESHOLD);
+  const patched = tokens(mine.flatMap(action => action.names)), own = [...patched, ...tokens(literals)], others = tokens(left.flatMap(action => action.names));
+  const named = (a: number, b: number, list: readonly string[]) => [...masked.slice(a, b).matchAll(/[\p{L}\p{N}][\p{L}\p{M}\p{N}'’-]*/gu)]
+    .filter(match => free(a + match.index!, a + match.index! + match[0].length)).flatMap(match => tokens([match[0]])).filter(word => close(word, list) && !close(word, own));
+  if (named(0, message.length, others).length) return true;
+  const clauses = spans.map(span => { const bounds = clauseBounds(message, span[0], span[1]); return bounds ? [bounds.start, bounds.end] as const : span; }).sort((x, y) => x[0] - y[0]);
+  const rest: [number, number][] = [];
+  let at = 0;
+  for (const [start, end] of clauses) { if (start > at) rest.push([at, start]); at = Math.max(at, end); }
+  if (at < message.length) rest.push([at, message.length]);
+  return rest.some(([a, b]) => punctuationParts(message, a, b).some(([start, end]) => !tokens([masked.slice(start, end)]).some(word => close(word, patched)) &&
+    (ORDINAL.test(foldName(masked.slice(start, end))) || strayNegator(message.slice(start, end)))));
+}
+export const AGENT_UNCLEAR_TURN_NOTICE = "Não ficou claro o que devo descartar ou mudar nesta mensagem. Nada foi alterado, e as ações deste plano saíram do Confirmar. O que devo fazer com cada uma?";
+export const AGENT_MIXED_TURN_NOTICE ="Sua mensagem mexe em mais de um pedido deste plano e não consegui aplicar tudo junto. Nada foi alterado, e as ações deste plano saíram do Confirmar. O que devo fazer com cada uma?";
 /** The dismissal's clause of a message (original offsets, from its governing lead): the backend's clause around the model's quote when the quote
  * occurs exactly once; undefined otherwise (the whole message is read: it can only name more and ask more). */
 export function agentDismissalClause(message: string, quote: string | undefined): [number, number] | undefined {
@@ -432,6 +483,50 @@ export function agentPreparedSlot(state: SchedulingState | undefined, released =
   return action ? { startLocal: action.startLocal, endLocal: action.endLocal, professional_ref: action.professional_ref, professional_name: action.professional_name, customer_name: action.customer_name } : undefined;
 }
 export type AgentPrepared = { premises: string[]; codes: string[] };
+/** Micro P0a (CE10 mechanism, flag SALON_SECRETARY_AGENT_MICRO): a derived fill (a released slot, the gap between bookings, a sequence) never
+ * overwrites a field the action already states. A stated value that differs from the derived one (a professional the owner named, by its ref
+ * or by the owner's words prepare() still resolves, that is not the slot's; a day, clock or end the derived one does not give) is a mismatch:
+ * the derived values never stand and the backend asks (only questions are added). `names`: the registered names of the slots' professionals. */
+function derivedConflict(own: SchedulingFields, derived: SchedulingFields, names: readonly string[]): boolean {
+  return (Object.keys(derived) as (keyof SchedulingFields)[]).some(key => {
+    if (own[key] !== undefined) return JSON.stringify(own[key]) !== JSON.stringify(derived[key]);
+    if (key !== "professional_ref" || !own.professional_name) return false;
+    const said = nameTokens(own.professional_name).filter(token => [...token].length >= 3 && !NOT_A_NAME.has(token)), slot = new Set(names.flatMap(name => nameTokens(name)));
+    return !said.length || said.some(token => !slot.has(token));
+  });
+}
+/** Micro P0a on the C4 path the agent falls back to (salon-secretary releasedOrigin/followReferences): `agentNameInMessage`, the owner wrote a
+ * word (≥ 3 letters) of the professional the model gave the create inside that create's own clause (`clause`, original offsets), and no
+ * occurrence of it is denied (the C4's entity denial: a negator of its clause, a privative "sem"): stated by the owner, not copied from
+ * another action nor refused. `withoutReleasedProfessional`: the released origin without its professional (seeded, waiting or asked), marked
+ * `ownProfessional`, so the create keeps the one the owner named and the link seeds and follows only the slot's day and clock. */
+export type AgentMicroReferences = SchedulingReferences & { ownProfessional?: true };
+export function agentNameInMessage(message: string, name: string, clause: readonly [number, number]): boolean {
+  const found = nameTokens(name).filter(token => [...token].length >= 3 && !NOT_A_NAME.has(token)).flatMap(token => literalSpans(message, token));
+  return found.some(span => span[0] >= clause[0] && span[1] <= clause[1]) && !found.some(span => entityQuoteDenied(message, span[0], span[1], "appointment.create"));
+}
+/** `agentOwnProfessional`: the create's own clause is its `source_scope`, found exactly once in the message and meeting no sibling's (also found
+ * once); without such a clause nothing is the owner's (the C4's rule stands). */
+export function agentOwnProfessional(message: string, op: object, siblings: readonly object[]): boolean {
+  const field = (item: object, key: string) => (item as Record<string, unknown>)[key];
+  const clauseOf = (item: object): [number, number] | undefined => { const scope = field(item, "source_scope");
+    if (typeof scope !== "string" || !scope.trim()) return undefined;
+    const at = message.indexOf(scope);
+    return at >= 0 && message.indexOf(scope, at + 1) < 0 ? [at, at + scope.length] : undefined; };
+  const name = field(op, "professional_name"), clause = clauseOf(op);
+  if (typeof name !== "string" || !clause) return false;
+  if (siblings.some(item => item !== op && field(item, "item_key") !== field(op, "item_key") && (other => !!other && other[0] < clause[1] && clause[0] < other[1])(clauseOf(item)))) return false;
+  return agentNameInMessage(message, name, clause);
+}
+export function withoutReleasedProfessional<T extends { fields: { professional_ref?: string; professional_name?: string }; state: SchedulingReferences }>(origin: T): T {
+  const fields = { ...origin.fields }, seeded = origin.state.seeded ? { ...origin.state.seeded } : undefined;
+  delete fields.professional_ref; delete fields.professional_name;
+  if (seeded) delete seeded.professional;
+  const others = (list: readonly SameAsField[] | undefined) => list?.filter(field => field !== "professional");
+  const state: AgentMicroReferences = { ...origin.state, ...seeded ? { seeded } : {}, ...origin.state.waiting ? { waiting: others(origin.state.waiting) } : {},
+    ...origin.state.asked ? { asked: others(origin.state.asked) } : {}, ownProfessional: true };
+  return { ...origin, fields, state };
+}
 /** One single action through prepare(), with the validator's effects: READY prepares (prepare() may still ask a field, as in the C4); ASK
  * prepares the draft and shows the backend's card or question instead of a proposal; a derived value (V13) is recomputed from the referenced
  * action's prepared slot (`slot`), the model's value must agree, else the field is asked. */
@@ -441,8 +536,15 @@ export async function prepareAgentScheduling(actor: ServiceActor, c: SchedulingS
   const basis: AgentBasis[] = [...outcome.basis], premises: string[] = [], codes: string[] = [];
   let references: SchedulingReferences | undefined;
   const derived = outcome.derived, missing: ("date" | "time")[] = [...outcome.temporalMissing ?? []];
+  let conflict: AgentValidatorCode | undefined;
   if (derived) {
-    const released = derived.type === "LIBERADO_POR", checked = agentDerivedCheck(derived, key => slot(key, released));
+    const released = derived.type === "LIBERADO_POR";
+    let checked = agentDerivedCheck(derived, key => slot(key, released));
+    // Micro P0a (flag SALON_SECRETARY_AGENT_MICRO): a value the action states that the derived fill would overwrite is a mismatch (asked).
+    if (agentMicroEnabled() && checked.status === "OK" && derivedConflict(fields, checked.fields, derived.keys.flatMap(key => slot(key, released)?.professional_name ?? []))) {
+      conflict = derived.type === "SEQUENCIA" ? "AGENT_SEQUENCE_MISMATCH" : derived.type === "ENTRE_ACOES" ? "AGENT_BETWEEN_MISMATCH" : "AGENT_RELEASE_MISMATCH";
+      checked = { status: "MISMATCH", code: conflict };
+    }
     // A released slot's link is the C4's own (syncReferences follows the move; the executor re-checks the committed agenda): no V23 basis.
     if (checked.status === "OK") { fields = { ...fields, ...checked.fields }; if (!released) basis.push(checked.basis); premises.push(checked.premise); }
     else {
@@ -455,7 +557,7 @@ export async function prepareAgentScheduling(actor: ServiceActor, c: SchedulingS
     }
     // A create in the slot a reschedule of this plan frees: checked with that appointment moved out (the executor re-checks after the move);
     // syncReferences keeps following that move afterwards (the C4's released-origin link).
-    if (released && outcome.releasedSlotOf) references = {};
+    if (released && outcome.releasedSlotOf && !conflict) references = {};
   }
   const card = outcome.card, asked = outcome.status === "ASK";
   // Round 2 (review C2): a change's new day or clock the owner wrote and no field carries is prepare()'s own temporal question (the draft's
@@ -472,6 +574,8 @@ export async function prepareAgentScheduling(actor: ServiceActor, c: SchedulingS
   // A card of names the owner wrote (customer, service, professional homonyms) is prepare()'s own (its fields carry the owner's words); an
   // action the validator asks about never gets a proposal meanwhile: its question (or that card's) holds it, prepare()'s own question follows.
   if (asked && !extras.card && !inherited) extras.question = outcome.question?.text ?? (card && card.kind !== "appointment_ref" ? CARD_QUESTIONS[card.kind] : undefined);
+  // Micro P0a: the mismatch is asked in the validator's words, the derived link dropped (nothing re-derives over the stated value).
+  if (conflict && !extras.card && !extras.appointmentCard) extras.question ??= AGENT_QUESTIONS[conflict];
   await prepareResolvedScheduling(actor, c, outcome.operation, fields, extras);
   return { premises: [...outcome.premises, ...premises], codes };
 }

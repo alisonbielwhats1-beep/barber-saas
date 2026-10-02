@@ -25,7 +25,7 @@ import { formatClock, formatDay, formatLocal } from "./secretary-datetime-format
 import { durationLiterals, durationText } from "./scheduling-duration-literal";
 import { foldedLiteral, literalProofSpans, literalSpans } from "../../packages/salon-secretary/src/literal-match";
 import { dependencyGraph } from "../../packages/salon-secretary/src/dependency-graph";
-import { AGENT_NAME_TOKEN_MIN, agentMessage, sanitizeAgentName, type AgentBinding } from "../../packages/salon-secretary/src/agent-context";
+import { AGENT_NAME_TOKEN_MIN, agentMessage, agentMicroEnabled, sanitizeAgentName, type AgentBinding } from "../../packages/salon-secretary/src/agent-context";
 import { AGENT_BASE_REQUIRED_FIELDS, AGENT_MUTATING_OPERATIONS, AGENT_PLAN_LIMITS, AgentPlanError, decodeAgentPlan, type AgentBaseField, type AgentBaseType, type AgentPlan, type AgentPlanAction,
   type AgentPlanBase, type AgentPlanDecodeOptions, type AgentPlanOperation, type AgentPlanResult, type AgentQuestionField, type AgentServiceMode } from "../../packages/salon-secretary/src/agent-plan";
 
@@ -54,7 +54,7 @@ export const AGENT_VALIDATOR_CODES = ["AGENT_SCHEMA", "AGENT_DAG", "AGENT_QUOTE_
   "AGENT_RELEASE_MISMATCH", "AGENT_EXCEPTION_MISMATCH", "AGENT_EXCEPTION_OTHERS", "AGENT_EXCEPTION_MERGED", "AGENT_WORKDAY_END", "AGENT_COVERAGE", "AGENT_UNCOVERED",
   "AGENT_ACTIONS_LEFT", "AGENT_COMBO", "AGENT_SERVICE_MODE", "AGENT_RULE4", "AGENT_PRONOUN_TOPIC", "AGENT_DOUBLE_MUTATION", "AGENT_REASON_UNPROVEN", "AGENT_RECURRENCE",
   "AGENT_PREMISE_MISMATCH", "AGENT_FIELD_QUESTION", "AGENT_BASIS_CHANGED", "AGENT_PROFESSIONAL_DERIVED", "AGENT_CUSTOMER_UNPICKED", "AGENT_PATCH_OPERATION", "AGENT_PATCH_DONE",
-  "AGENT_PATCH_BASIS", "AGENT_PATCH_UNPROVEN", "AGENT_RELEASED_ROLE", "AGENT_NAME_ASSUMED", "AGENT_ORIGIN_INHERITED"] as const;
+  "AGENT_PATCH_BASIS", "AGENT_PATCH_UNPROVEN", "AGENT_RELEASED_ROLE", "AGENT_NAME_ASSUMED", "AGENT_ORIGIN_INHERITED", "AGENT_PATCH_TARGET"] as const;
 export type AgentValidatorCode = (typeof AGENT_VALIDATOR_CODES)[number];
 /** §5.5: the line the backend appends to every turn with model text and no proposal nor receipt. */
 export const AGENT_NOTHING_CHANGED = "Nada foi alterado.";
@@ -79,6 +79,7 @@ export const AGENT_QUESTIONS: Readonly<Partial<Record<AgentValidatorCode, string
   AGENT_RELEASE_MISMATCH: "O horário que vai vagar é de um profissional que não confere com a sua mensagem. Com quem e em que horário devo marcar?",
   AGENT_PATCH_UNPROVEN: "Não encontrei na sua mensagem o valor que mudou neste pedido. Pode repetir o dia, o horário ou o agendamento que devo usar?",
   AGENT_RELEASED_ROLE: "Não consegui usar o horário que outro pedido libera para este. Para qual dia e horário devo passar?",
+  AGENT_PATCH_TARGET: "Outro pedido deste plano está esperando a sua resposta. Esta mudança é mesmo para este pedido, que já estava pronto?",
 });
 /** A change whose services the owner wrote but the model's refs do not prove: asked, never dropped in silence (V15's rule for services). */
 export const AGENT_SERVICE_CHANGE_QUESTION = "Não consegui confirmar quais serviços mudam neste agendamento. Quais serviços devo trocar, incluir ou tirar?";
@@ -175,7 +176,9 @@ export type AgentActionOutcome = {
  * registered names, the appointment it changes or cancels, its customer, services and duration, its derived bases (V23) and the card it waits
  * on (ids in the card's order). DONE: already confirmed. */
 export type AgentOpenAction = { key: string; operation: AgentPlanOperation; status: "OPEN" | "DONE"; fields: SchedulingFields; names: Record<string, string>; appointment?: string;
-  customer?: string; serviceIds?: string[]; durationMin?: number; basis: AgentBasis[]; card?: { kind: AgentCardKind; items: string[] } };
+  customer?: string; serviceIds?: string[]; durationMin?: number; basis: AgentBasis[]; card?: { kind: AgentCardKind; items: string[] };
+  /** Micro P0c (flag SALON_SECRETARY_AGENT_MICRO; absent without it): the action waits on the owner (a field, a card or a review), i.e. it asked. */
+  asked?: boolean };
 export type AgentOpenPlan = { actions: readonly AgentOpenAction[] };
 export type AgentValidation =
   | { ok: false; code: "AGENT_SCHEMA" | "AGENT_DAG"; reasons: string[] }
@@ -200,6 +203,8 @@ const INDEFINITE = new Set(["quem", "qualquer", "alguem"]);
 const FIRST_PERSON = new Set(["eu", "mim", "comigo", "meu", "minha", "meus", "minhas"]);
 /** The head nouns of an agenda row ("o horário da X", "o atendimento dela"): never part of a name. */
 const APPT_WORDS = new Set(["horario", "horarios", "atendimento", "atendimentos", "agendamento", "agendamentos", "cliente", "clientes", "marcacao", "marcacoes", "reserva", "vez"]);
+/** Micro P2: the low-risk operations (owner decision 14) a shared or antecedent value may reach. */
+const SHARED_OPERATIONS = new Set<string>(["appointment.create", "appointment.change", "availability.get"]);
 /** Words that make a region speak of another value than a shared one (the D4 rule): negators and alterity words. */
 const NOT_SHARED = new Set(["nao", "nem", "nunca", "sem", "menos", "exceto", "outro", "outra", "outros", "outras", "diferente", "diferentes"]);
 /** A2: the alterity words (closed class) by which a change asks another professional than the appointment's. */
@@ -380,7 +385,9 @@ function atomClock(piece: string, operation: string): ClockComponent | undefined
 // ---------------------------------------------------------------- per action state
 /** `inherited` (A7): a professional base the backend re-derives for a patch (the open action's delegated or derived professional whose time or
  * services changed); it carries no quote of this message. */
-type Located = { base: AgentPlanBase; span?: Span; text?: string; code?: AgentValidatorCode; inherited?: true };
+type Located = { base: AgentPlanBase; span?: Span; text?: string; code?: AgentValidatorCode; inherited?: true;
+  /** Micro P2 (flag SALON_SECRETARY_AGENT_MICRO): admitted as an antecedent customer or as a complement V0 shared (each shown as a premise). */
+  via?: "antecedent" | "shared" };
 /** `inherited` (A7): the open action's validated entity kept by a patch (its tokens: the registered name's, for V5-E). */
 type Entity = { id?: string; name?: string; tokens: string[]; spans: Span[]; pronoun?: boolean; plural?: boolean; proven?: boolean; inherited?: true };
 type Service = { id: string; name: string; tokens: string[]; spans: Span[]; mode: AgentServiceMode; durationMin: number; claims: Span[]; inherited?: true };
@@ -456,6 +463,16 @@ const exceptionPieces = (w: Work, other: Work) => [w, other].every(item => item.
 function personHeld(open: AgentOpenAction, field: AgentBaseField) {
   const keys: readonly (keyof SchedulingFields)[] = field === "profissional" ? PROFESSIONAL_KEYS : field === "novo_profissional" ? TARGET_KEYS : [];
   return keys.some(key => !!open.fields[key]);
+}
+/** Micro P0c: a clause of the owner names an open action by its identity: one of its words (≥ 3 letters, no glue) is close to a word of that
+ * action's customer (the registered name of its customer or appointment's customer, or the owner's words for it) that is no word of a waiting
+ * action's customer. Never by its professional or services: in an answer those words are values the waiting action may be asking for. */
+function namesOpenAction(text: string, open: AgentOpenAction, waiting: readonly AgentOpenAction[], salon: ReadonlySet<string>): boolean {
+  const tokensOf = (item: AgentOpenAction) => { const f = item.fields, id = f.customer_ref ?? item.customer;
+    return [id ? item.names[id] : undefined, f.customer_name]
+      .flatMap(name => name ? nameTokens(withoutArticle(name)) : []).filter(token => [...token].length >= AGENT_NAME_TOKEN_MIN && !GLUE.has(token) && !salon.has(token)); };
+  const others = new Set(waiting.flatMap(tokensOf)), own = tokensOf(open).filter(token => !others.has(token));
+  return words(text).some(word => [...word].length >= AGENT_NAME_TOKEN_MIN && !GLUE.has(word) && own.some(token => tokenSimilarity(word, token) >= SUGGESTION_THRESHOLD));
 }
 /** A2: a word that names a time or an agenda row: an alterity word beside it asks another time or row ("outro horário", "outro dia", "horário
  * diferente"), never another person. */
@@ -533,18 +550,73 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
     w.quote = spans[0]; w.own = [bounds.start, bounds.end];
   }
   const placed = works.filter(w => w.own && MUTATING.has(w.a.operacao)).sort((a, b) => a.quote![0] - b.quote![0]);
+  /** Micro P0c/P2: the team's and the services' name words (a professional or a service is never a customer's identity nor another person). */
+  const microTeam = new Set(agentMicroEnabled() ? (await reader.professionals() ?? []).flatMap(row => nameTokens(row.name)) : []);
+  const microSalon = new Set([...microTeam, ...agentMicroEnabled() ? (await reader.services() ?? []).flatMap(row => nameTokens(row.name)) : []]);
   placed.forEach((w, index) => { if (placed.slice(0, index).some(prior => !exceptionPieces(w, prior) && meets(prior.own!, w.own!))) ask(w, "AGENT_SCOPE_OVERLAP"); });
+  // ---- Micro P0c (CF09 mechanism, flag SALON_SECRETARY_AGENT_MICRO): an answer only changes the action that asked. A patch of an open action
+  // that was ready (it asked nothing) while another open action waits on the owner holds its action whole, unless its own clause names it by
+  // its customer (namesOpenAction: never by a professional or a service, which an answer may give the waiting action).
+  if (agentMicroEnabled()) for (const w of works) {
+    if (!w.open || w.held || w.status === "DROP" || !w.own || w.open.asked !== false) continue;
+    const waiting = openActions.filter(item => item.key !== w.open!.key && item.asked);
+    if (waiting.length && !namesOpenAction(src.text.slice(w.own[0], w.own[1]), w.open, waiting, microSalon)) hold(w, "AGENT_PATCH_TARGET");
+  }
 
   // ---- V4/V6: every base located in the regions its action admits; the reasons (V21) located the same way.
   /** (a) the action's own segment and (b) any later segment that is no other action's clause; (c) before it only for a day said once for
    * coordinated actions (the D4 rule: the action's own segment states no day and no negator or alterity word; the day lies outside every
    * clause, undenied, and does not single one person out). A span that meets another action's clause is never admitted. */
   const admits = (w: Work, span: Span, dayField: boolean) => {
-    if (!w.own || rivals(w).some(other => meets(other.own!, span))) return false;
+    if (!w.own) return false;
+    if (rivals(w).some(other => meets(other.own!, span))) return dayField && agentMicroEnabled() && sharedComplement(w, span);
     if (span[0] >= w.own[0]) return true;
     if (!dayField || ownSpans().some(own => meets(own, [span[0], Math.min(span[1], w.own![0])])) || dayAtoms(w.own).length) return false;
     if (words(src.text.slice(w.own[0], w.own[1])).some(word => NOT_SHARED.has(word))) return false;
     return !singlesOut(src.text, span, ownSpans()) && !temporalQuoteDenied(src.text, span[0], span[1], w.a.operacao);
+  };
+  /** Micro P2 (V0 clause scope, flag SALON_SECRETARY_AGENT_MICRO): a day or start said once at the tail of the NEXT action's clause, when that
+   * action is coordinated with this one under one verb (its clause's governing lead reaches back to this clause's start; the same operation),
+   * belongs to both: neither clause holds any other complement (this one: at most its lead word before its own customer's or appointment's
+   * words, and glue; the next one: only its customer's or appointment's words and glue before the complement; a professional or a service
+   * of either is another reading), this action's own clause states no day or clock, neither clause holds a negator or alterity word, the
+   * complement is undenied and singles nobody out; never on a cancellation or a block (high risk, decision 14). Shown as a premise (shared). */
+  const identity = (v: Work) => v.a.bases.filter(base => base.campo === "cliente" || base.campo === "atendimento").flatMap(base => spansOf(src, base.citacao).filter(item => inside(item, v.own!)));
+  const sharedComplement = (w: Work, span: Span) => {
+    const holders = rivals(w).filter(other => meets(other.own!, span)), other = holders[0];
+    if (holders.length !== 1 || !other.quote || other.a.operacao !== w.a.operacao || !SHARED_OPERATIONS.has(w.a.operacao) || !inside(span, other.own!) || other.own![0] < w.own![1]) return false;
+    if (ownSpans().some(own => own !== w.own && own !== other.own && own[0] >= w.own![1] && own[1] <= other.own![0])) return false;
+    const lead = clauseBounds(src.text, other.quote[0], other.quote[1])?.lead;
+    if (lead === undefined || lead > w.own![0] || atoms.some(atom => meets([atom.start, atom.end], w.own!))) return false;
+    if ([w.own!, other.own!].some(own => words(src.text.slice(own[0], own[1])).some(word => NOT_SHARED.has(word)))) return false;
+    if (/[\p{L}\p{N}]/u.test(src.text.slice(span[1], other.own![1]))) return false;
+    const people = identity(other), mine = identity(w), loose = wordList.filter(item => inside([item.start, item.end], w.own!) && !GLUE.has(item.word) && !mine.some(own => inside([item.start, item.end], own)));
+    if (!mine.length || loose.length > 1 || loose.some(item => mine.some(own => own[0] < item.start))) return false;
+    if (wordList.some(item => item.start >= other.own![0] && item.end <= span[0] && !GLUE.has(item.word) && !people.some(own => inside([item.start, item.end], own)))) return false;
+    return !singlesOut(src.text, span, ownSpans()) && !temporalQuoteDenied(src.text, span[0], span[1], w.a.operacao);
+  };
+  /** The premise of a complement V0 shared (sharedComplement), in the owner's words. */
+  const sharedPremise = (text: string) => `Considerei «${clean(text, 60)}» também para este pedido: foi dito uma vez para os dois.`;
+  /** Micro P2 (admits() locality, flag SALON_SECRETARY_AGENT_MICRO): the customer named in an earlier sentence of the same message (an
+   * antecedent) is this action's when its own clause refers to one person by a singular pronoun and names no customer and no unknown capitalized
+   * word, the text from that sentence's start to this clause names nobody else (no other customer this message shows, no one of the team, no
+   * other capitalized word, no other noun phrase that may be a person) and holds no negator or alterity word, and no other action's clause lies
+   * between; never on a cancellation or a block (high risk, decision 14). The customer it gives is an assumption, said as a premise (assume). */
+  const antecedent = (w: Work, span: Span) => {
+    if (!w.own || span[1] > w.own[0] || !SHARED_OPERATIONS.has(w.a.operacao) || ownSpans().some(own => meets(own, [span[0], w.own![0]]))) return false;
+    if (!/[.!?;\n]/.test(src.text.slice(span[1], w.own[0]))) return false;
+    const start = Math.max(0, ...[...src.text.slice(0, span[0]).matchAll(/[.!?;\n]/g)].map(match => match.index! + 1));
+    const mine = new Set(nameTokens(withoutArticle(src.text.slice(span[0], span[1])))), shown = new Set(binding.entries("c").flatMap(entry => nameTokens(String((entry.facts as { shown?: string }).shown ?? ""))));
+    const capital = (item: WordAt) => /^\p{Lu}/u.test(src.text.slice(item.start, item.end)) && !opening(item.start) && /\p{Ll}/u.test(src.text);
+    const own = wordList.filter(item => inside([item.start, item.end], w.own!)), before = wordList.filter(item => item.start >= start && item.end <= w.own![0]);
+    if (!own.some(item => PRONOUNS.has(item.word) && !PLURAL_PRONOUNS.has(item.word))) return false;
+    if (own.some(item => !mine.has(item.word) && !microTeam.has(item.word) && (shown.has(item.word) || capital(item)))) return false;
+    // Another noun phrase between (a word right after an article, a preposition or a possessive: closed classes) may be the pronoun's person:
+    // two readings, unless that word is an agenda noun, a temporal word or a word of the salon's (none of them a person).
+    const nominal = (item: WordAt) => { const prior = wordList[wordList.indexOf(item) - 1];
+      return !!prior && prior.start >= start && (GLUE.has(prior.word) || FIRST_PERSON.has(prior.word)) && /^[^\S\n]+$/u.test(src.text.slice(prior.end, item.start)) &&
+        !GLUE.has(item.word) && !PRONOUNS.has(item.word) && !APPT_WORDS.has(item.word) && !temporalWord(item.word) && !microSalon.has(item.word); };
+    return !before.some(item => !mine.has(item.word) && (NOT_SHARED.has(item.word) || shown.has(item.word) || microTeam.has(item.word) || capital(item) || nominal(item)));
   };
   const reasonSpans = () => works.flatMap(w => w.reason ? [w.reason] : []);
   // S1c: a later segment belongs to the nearest clause before it: with another action's clause between the cancellation's own and the
@@ -563,9 +635,11 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
       // word of its clause lets that person go (deferredProfessional: never that one again, never a pick in its place).
       if (base.tipo === "NAO_DITO") { if (!w.open || !personHeld(w.open, base.campo) || asksAnother(w)) w.bases.set(base.campo, { base }); continue; }
       const spans = spansOf(src, base.citacao), dayField = base.campo === "dia" || base.campo === "inicio";
-      const admitted = spans.filter(span => admits(w, span, dayField));
+      let admitted = spans.filter(span => admits(w, span, dayField)), via: Located["via"];
+      if (!admitted.length && base.campo === "cliente" && agentMicroEnabled()) { admitted = spans.filter(span => antecedent(w, span)); via = "antecedent"; }
+      else if (agentMicroEnabled() && admitted.length === 1 && dayField && rivals(w).some(other => meets(other.own!, admitted[0]))) via = "shared";
       const located: Located = !spans.length ? { base, code: "AGENT_QUOTE_ABSENT" } : !admitted.length ? { base, code: "AGENT_QUOTE_FOREIGN" }
-        : admitted.length > 1 ? { base, code: "AGENT_QUOTE_AMBIGUOUS" } : { base, span: admitted[0], text: src.text.slice(admitted[0][0], admitted[0][1]) };
+        : admitted.length > 1 ? { base, code: "AGENT_QUOTE_AMBIGUOUS" } : { base, span: admitted[0], text: src.text.slice(admitted[0][0], admitted[0][1]), ...via ? { via } : {} };
       if (located.span && base.tipo !== "EXCECAO") {
         const [start, end] = located.span, operation = w.a.operacao;
         // S1c: a day the owner excluded ("menos sexta") is denied as much as a negated one: a temporal quote over it never gives that day.
@@ -609,6 +683,11 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
     ...binding.entries("c").flatMap(entry => nameTokens(String((entry.facts as { shown?: string }).shown ?? "")))]);
   for (const w of live()) {
     await customerStep(w);
+    // Micro P2 (flag SALON_SECRETARY_AGENT_MICRO): a customer taken from an earlier sentence (antecedent) is an assumption: said as a premise
+    // (assume; settle() sends it back on a high-risk action).
+    const ante = agentMicroEnabled() ? baseOf(w, "cliente") : undefined;
+    if (ante?.via === "antecedent" && !ante.code && w.customer?.id && w.fields.customer_ref === w.customer.id && !w.assumed?.some(item => item.field === "cliente"))
+      assume(w, "cliente", trimmedName(ante.text ?? "") ?? w.customer.name ?? "", w.customer.name ?? "");
     await personStep(w, "profissional");
   }
   // Owner decision 14 (people): a person assumed past an unknown word stands only on a low-risk action; the lot is counted once, before any
@@ -684,6 +763,11 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
   for (const w of live()) originInherited(w);
   if (result === "PLANO" && decoded.pergunta?.campo === "operacao") { const text = clean(decoded.pergunta.texto, AGENT_PLAN_LIMITS.question); if (text) notices.push(text); }
   for (const w of [...works].reverse()) if (w.status === "DROP" && w.notice && !notices.includes(w.notice)) notices.unshift(w.notice);
+  // Micro P2: a day or start V0 shared that stands is said as a premise.
+  if (agentMicroEnabled()) for (const w of live()) {
+    const shared = [...w.bases.values()].find(item => item.via === "shared" && !item.code && item.text), premise = shared ? sharedPremise(shared.text!) : undefined;
+    if (premise && (w.fields.date || w.fields.time) && !w.premises.includes(premise)) w.premises.push(premise);
+  }
   // A7: a held patch keeps every value and basis of its open action; a patch's names are the open action's for the ids it still holds.
   const actions = works.map((w): AgentActionOutcome => {
     const held = !!w.held && !!w.open, fields = held ? structuredClone(w.open!.fields) : { ...w.fields };
@@ -1018,6 +1102,28 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
     w.premises.push(w.customerPremise);
   }
 
+  /** Micro P2 (name fallback, flag SALON_SECRETARY_AGENT_MICRO): no customer holds every word of the quote. The owner's name run (runOf: the
+   * words beside the first one up to glue), written capitalized where a capital says something (no word of it opens a sentence), stands for the
+   * name when every word left outside it is written in lowercase, names no registered person and nothing of the salon (`tokens` already leave
+   * the salon's words out), and exactly one customer holds the run's words: that one, as an assumption (assume: its premise; settle() sends
+   * the words back on a high-risk action). A run in lowercase or at a sentence's start says nothing of where the name ends (a lowercase
+   * surname): false, as otherwise (the caller's NOME of every word). */
+  async function nameRunHolder(w: Work, quoted: Located, tokens: readonly string[], spans: readonly Span[]): Promise<boolean> {
+    if (!/\p{Ll}/u.test(src.text) || !spans.length) return false;
+    const run = runOf([...spans].sort((x, y) => x[0] - y[0])[0]), inRun = spans.filter(span => inside(span, run)), outside = spans.filter(span => !inside(span, run));
+    if (wordList.some(item => inside([item.start, item.end], run) && (opening(item.start) || !/^\p{Lu}/u.test(src.text.slice(item.start, item.end))))) return false;
+    const kept = [...new Set(inRun.map(span => foldedLiteral(src.text.slice(span[0], span[1]))))].filter(token => tokens.includes(token));
+    if (!kept.length || !outside.length) return false;
+    for (const span of outside) if (/^\p{Lu}/u.test(src.text.slice(span[0], span[1])) || await registered(foldedLiteral(src.text.slice(span[0], span[1])))) return false;
+    const set = await reader.customerSet(kept.join(" "));
+    if (set.rows?.length !== 1) return false;
+    const row = set.rows[0], foreign = await foreignName(w, "cliente", row.name, inRun);
+    if (foreign?.firm) return false;
+    w.customer = { id: row.id, name: row.name, tokens: kept, spans: [quoted.span!], proven: true };
+    w.fields.customer_ref = row.id; w.names[row.id] = row.name;
+    assume(w, "cliente", trimmedName(quoted.text!) || kept.join(" "), row.name);
+    return true;
+  }
   async function customerStep(w: Work) {
     const a = w.a, located = baseOf(w, "cliente"), identifies = a.operacao === "appointment.change" || a.operacao === "appointment.cancel";
     // A7: a patch that leaves the customer alone keeps the open action's (a change or cancellation re-identified by new words reads them first).
@@ -1056,6 +1162,7 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
         if (foreign) assume(w, "cliente", foreign.text, row.name);
         return;
       }
+      if (set.rows?.length === 0 && agentMicroEnabled() && await nameRunHolder(w, quoted!, tokens, spans)) return;
       code(w, !set.rows || set.rows.length > CARD_MAX ? "AGENT_TOO_MANY" : set.rows.length ? "AGENT_HOMONYM" : "AGENT_NAME_MISMATCH");
       nome(w, "customer_name", tokens.join(" "));
       return;
@@ -1334,7 +1441,17 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
       return;
     }
     if (chosen.some((item, index) => !stands[index] && !holders(item).some(row => row.id === item.id))) { code(w, "AGENT_NAME_MISMATCH"); return servicesByName(w, said); }
-    const loose = chosen.findIndex((_, index) => !stands[index]);
+    let loose = chosen.findIndex((_, index) => !stands[index]);
+    // Micro P2 (specificity, flag SALON_SECRETARY_AGENT_MICRO): a booking's one service whose words several rows hold stands when the
+    // professional the owner named (proven) performs exactly one of those rows and it is the model's: one compatible reading, said as a premise.
+    if (loose >= 0 && agentMicroEnabled() && booking && chosen.length === 1 && w.professional?.proven && w.professional.id && w.fields.professional_ref === w.professional.id) {
+      const pro = w.professional, rows = looseOf(loose).rows, done: AgentNamed[] = [];
+      for (const row of rows) if ((await reader.performers([row.id])).some(item => item.id === pro.id)) done.push(row);
+      if (done.length === 1 && done[0].id === chosen[0].id) {
+        loose = -1;
+        w.premises.push(`Considerei «${label(chosen[0].name)}» como serviço: é o único desses que ${label(pro.name ?? "")} faz.`);
+      }
+    }
     if (loose < 0) for (const item of chosen) w.names[item.id] = item.name;
     // Rules 9 and 11: a combo, a combo beside its part, or parts a registered combo joins are resolved by the C4's own combo path from the
     // owner's words (its cards), never here.
@@ -1476,7 +1593,20 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
     const mine = free.filter(atom => atom.kind === "date" && inside([atom.start, atom.end], w.own!) && readable(atom) && !used.some(span => meets(span, [atom.start, atom.end])));
     if (mine.length) return read(mine);
     const shared = free.filter(atom => atom.kind === "date" && readable(atom) && !ownSpans().some(own => meets(own, [atom.start, atom.end])) && admits(w, [atom.start, atom.end], true));
+    if (!shared.length && agentMicroEnabled()) { const head = headDay(w, free, readable); if (head) return read([head]); }
     return shared.length ? read(shared) : undefined;
+  }
+  /** Micro P2 (temporal proofs, flag SALON_SECRETARY_AGENT_MICRO): the day that opens a sentence (only glue before it) frames the coordinated
+   * actions after it in that sentence: an action of the same operation as the one whose clause it opens, whose own clause states no day and no
+   * negator or alterity word, when that day is the only day atom from the sentence's start to the end of this clause, readable (undenied, not
+   * excepted) and singling nobody out; never on a cancellation or a block (high risk, decision 14). */
+  function headDay(w: Work, free: readonly Atom[], readable: (atom: Atom) => boolean): Atom | undefined {
+    if (!w.own || !SHARED_OPERATIONS.has(w.a.operacao) || words(src.text.slice(w.own[0], w.own[1])).some(word => NOT_SHARED.has(word))) return undefined;
+    const start = Math.max(0, ...[...src.text.slice(0, w.own[0]).matchAll(/[.!?;\n]/g)].map(match => match.index! + 1));
+    const days = atoms.filter(atom => atom.kind === "date" && atom.start >= start && atom.end <= w.own![1]), head = days[0];
+    if (days.length !== 1 || !free.includes(head) || !readable(head) || wordList.some(item => item.start >= start && item.end <= head.start && !GLUE.has(item.word))) return undefined;
+    const opener = works.find(other => other !== w && other.own && inside([head.start, head.end], other.own) && other.own[1] <= w.own![0] && other.a.operacao === w.a.operacao);
+    return opener && !singlesOut(src.text, [head.start, head.end], []) ? head : undefined;
   }
   /** Round 2 (F1; A1, one atom one role): the atoms a change's destination may read: never one its origin read (the appointment's own day or
    * clock written in the same quote as the new one: "de sexta passa pro sábado às 10"; "troca a escova de terça", where terça only finds the
@@ -2098,7 +2228,10 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
         if (!located.text || located.code) { proven = false; continue; }
         const tokens = nameCore(located.text).filter(token => !EXCEPTION_GLUE.has(token) && !GENERIC_EXCEPTION.has(token));
         if (!tokens.length && words(located.text).some(word => GENERIC_EXCEPTION.has(word))) { for (const row of busy) kept.add(row.id); continue; }
-        const holders = busy.filter(row => tokens.length > 0 && nameHasTokens(tokens, row.customerName));
+        // Micro P2 (exception proof, flag SALON_SECRETARY_AGENT_MICRO): the row's own words are its customer's AND its services' names ("a
+        // escova da X"): every word of the exception must be one of them, and exactly one appointment of the interval must hold them all.
+        const rowWords = (row: AgentApptFact) => new Set([row.customerName, ...agentMicroEnabled() ? row.serviceNames : []].flatMap(name => nameTokens(name)));
+        const holders = busy.filter(row => tokens.length > 0 && (nameHasTokens(tokens, row.customerName) || agentMicroEnabled() && tokens.every(token => rowWords(row).has(token))));
         const ref = located.base.ref ? binding.resolve(located.base.ref, "a")?.id : undefined;
         if (holders.length !== 1 || ref && holders[0].id !== ref) { proven = false; continue; }
         kept.add(holders[0].id);
@@ -2326,12 +2459,16 @@ export async function validateAgentPlan(plan: AgentPlan, input: AgentValidationI
       const next = atoms.filter(item => item.kind === atom.kind && item.start > at).sort((x, y) => x.start - y.start)[0];
       return !!next && !/[.;!?\n]/.test(src.text.slice(at, next.start)) && w.consumed.some(span => meets(span, [next.start, next.end]));
     });
+    /** Micro P2 (V15, flag SALON_SECRETARY_AGENT_MICRO): a clock of a move's own clause that reads exactly the located appointment's own start
+     * (its origin, written beside the words that found it) is covered by that row; any other clock still asks. */
+    const originClock = (w: Work, atom: Atom) => agentMicroEnabled() && atom.kind === "clock" && w.a.operacao === "appointment.change" && !!w.appt && w.origin?.located.length === 1 &&
+      quoteTemporalFacts(src.text.slice(atom.start, atom.end), timezone, now).clocks.includes(w.appt.startLocal.slice(11, 16));
     for (const atom of atoms) {
       const span: Span = [atom.start, atom.end];
       if (atom.negated) continue;
       const holder = works.find(w => w.own && inside(span, w.own));
       if (holder) {
-        if (holder.status !== "DROP" && !handled(span, holder.a.operacao) && !corrected(holder, atom)) ask(holder, "AGENT_COVERAGE", null, agentUncoveredText(src.text.slice(span[0], span[1])));
+        if (holder.status !== "DROP" && !handled(span, holder.a.operacao) && !corrected(holder, atom) && !originClock(holder, atom)) ask(holder, "AGENT_COVERAGE", null, agentUncoveredText(src.text.slice(span[0], span[1])));
         continue;
       }
       if (!handled(span, "appointment.create")) notices.push(agentUncoveredText(src.text.slice(span[0], span[1])));

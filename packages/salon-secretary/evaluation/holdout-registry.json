@@ -743,6 +743,53 @@
           "rowHash": "480bbc81b05ac80cdacf6831cc250062f63b2e7ad3bd495c4bc36858075aaba7"
         }
       ]
+    },
+    {
+      "id": "micro-p0p2-30",
+      "kind": "validation",
+      "retired": false,
+      "source": {
+        "name": "MICRO-30.json",
+        "sha256": "e6c9612e259649bc48ab95a4393e1a4acadabe2a79f08644425ef1f0b41cf85b"
+      },
+      "approved": [
+        {
+          "sha256": "e6c9612e259649bc48ab95a4393e1a4acadabe2a79f08644425ef1f0b41cf85b",
+          "ids": [
+            "MC01",
+            "MC02",
+            "MC03",
+            "MC04",
+            "MC05",
+            "MC06",
+            "MC07",
+            "MC08",
+            "MC09",
+            "MC10",
+            "MS01",
+            "MS02",
+            "MS03",
+            "MS04",
+            "MS05",
+            "MS06",
+            "MS07",
+            "MS08",
+            "MS09",
+            "MS10",
+            "MS11",
+            "MS12",
+            "MS13",
+            "MS14",
+            "MS15",
+            "MS16",
+            "MS17",
+            "MS18",
+            "MS19",
+            "MS20"
+          ]
+        }
+      ],
+      "looks": []
     }
   ]
 }
