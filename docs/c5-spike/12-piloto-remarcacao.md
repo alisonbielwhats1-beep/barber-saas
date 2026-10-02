@@ -208,3 +208,43 @@ Consultar, agendar, multi-ação, cancelar, bloquear, trocar serviço, voz, novo
 - **Mensagem repetida:** o mesmo `clientTurnId` devolve a resposta guardada só enquanto o plano é o mesmo. Se o plano mudou, devolve o estado atual.
 - **Toque:** cada toque nomeia a pergunta (`<questionId>/<id da opção>`). Um toque num profissional vincula esse registro. Um toque recusado não muda nada e conta como turno da sessão.
 - **Execução paga:** `--run-cap-usd` limita o gasto da própria execução antes de cada chamada (`AGENDA_RUN_SPEND_CAP`). O braço do piloto registra o progresso do plano e as opções reais da pergunta e pode tocar nelas.
+
+## 10. E2-A (Adendo 10): as três causas do gate, sem capacidade nova
+
+Ao §2 e ao §3, nesta ordem de precedência:
+
+1. **Semântica de `fora_do_escopo`.**
+   - Um item de `fora_do_escopo` só existe quando o dono **pede uma ação separada**, com efeito próprio, que ele quer que a Secretária faça **além** desta remarcação. Pode ser na agenda (cancelar, bloquear, agendar, trocar serviço, repetir), numa comunicação (recado ao cliente) ou uma consulta pedida **por si**.
+   - **Fica dentro da remarcação**, e nunca vai para `fora_do_escopo`:
+     - o motivo, o contexto e as cortesias;
+     - as correções da própria remarcação ("às 10, não, às 11");
+     - as referências ao atendimento (quem, qual, de quando, com quem, qual serviço);
+     - as condições da remarcação ("se tiver vaga", "vê se cabe", "mantém o mesmo profissional");
+     - as informações sobre a cliente;
+     - uma verificação de disponibilidade que serve à própria remarcação.
+   - O contrato ganha **`observacoes: string[]`** (até 6 itens de até 120 caracteres, cada um copiado da mensagem). É um lugar explícito para motivo e contexto.
+     - O código **nunca** lê nem interpreta `observacoes`; elas entram só na telemetria, como contagem.
+     - `fora_do_escopo` passa a exigir, por item, `pedido` com as palavras do pedido separado (no lugar de `mencao`).
+   - A semântica fica na descrição do esquema e no prompt, com **exemplos inventados** e contraexemplos adversariais:
+     - contexto que parece ação, mas não é;
+     - ação real que parece contexto.
+   - O código continua sem ler o português. A detecção de ação real fora do escopo continua obrigatória, e a pergunta de escopo continua igual.
+2. **Dia da semana.** `dia_semana` passa a ser o enum `"segunda"|"terca"|"quarta"|"quinta"|"sexta"|"sabado"|"domingo"`, em origem e destino, sem número.
+   - O código converte o valor tipado do enum no dia da semana. Isso é tabela de dados, não leitura do português.
+   - Calcula a data a partir do `received_at` congelado, no fuso do salão.
+   - As regras da decisão 27 e da "este"/"proximo"/hoje (§3) não mudam.
+3. **Serviço como pista do atendimento.** `origem.servico_mencao` vira `origem.servico: { "mencao": string, "catalogo": string[] } | null`.
+   - `catalogo` traz os nomes **exatos** do catálogo enviado à Luna que a menção pode designar: um ou mais, ou vazio se nenhum couber. A Luna interpreta; o código só confere fatos.
+   - **Nomes:** valem só os de `catalogo` que existem exatamente no catálogo do salão (comparação normalizada de caixa e acento, nome contra nome). Um nome desconhecido é descartado.
+   - **Menção:** a verificação estreita de proveniência vale para `mencao`.
+   - **Filtragem:** os atendimentos futuros da cliente são filtrados pelos ids desses serviços.
+
+   | Resultado | Ação |
+   |---|---|
+   | Um atendimento compatível | Resolve (`derived`, mostrado). |
+   | Dois ou mais compatíveis | Pergunta, com as opções reais. |
+   | Nenhum compatível, ou o serviço contradiz o atendimento indicado pelas outras pistas | Pergunta, mostrando os atendimentos dela. |
+   | Lista vazia ou só nomes desconhecidos | A pista não decide nada: se ela era necessária para escolher, pergunta. |
+
+   - A antiga comparação por tokens do nome do serviço sai.
+   - Não há similaridade textual em nenhum ponto.
