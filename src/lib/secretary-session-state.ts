@@ -43,11 +43,30 @@ const pilotPlan = z.object({
   turns: z.array(z.object({ turnId: uuid, clientTurnId: uuid.nullable(), receivedAt: z.string().max(40), baseRevision: revision, revision, outcome: z.string().max(80) }).strict()).max(40),
 }).strict();
 // Review P1: whether each origin hint was proved against the message that brought it; review S2: the received_at of the turn that said each day.
-const pilotProven = z.object({ dia: z.boolean().optional(), hora: z.boolean().optional(), profissional_mencao: z.boolean().optional(), servico_mencao: z.boolean().optional(),
+// E2-A: the slots of the current contract (servico, never the E1 servico_mencao).
+const pilotProven = z.object({ dia: z.boolean().optional(), hora: z.boolean().optional(), profissional_mencao: z.boolean().optional(), servico: z.boolean().optional(),
   posicao: z.boolean().optional() }).strict();
+const pilotAnchors = z.object({ origem: z.string().max(40).optional(), destino: z.string().max(40).optional() }).strict();
 const pilotPending = z.object({ origem: z.unknown().refine(value => pilotOrigemShape.safeParse(value).success),
-  destino: z.unknown().refine(value => pilotDestinoShape.safeParse(value).success), proven: pilotProven.optional(),
-  anchors: z.object({ origem: z.string().max(40).optional(), destino: z.string().max(40).optional() }).strict().optional() }).strict();
+  destino: z.unknown().refine(value => pilotDestinoShape.safeParse(value).success), proven: pilotProven.optional(), anchors: pilotAnchors.optional() }).strict();
+/** E2-A: the pending operators exactly as the E1 contract wrote them (numbered weekday, servico_mencao). Recognized only to be dropped on load
+ * (upgradeStoredPilot), never accepted as a pilot state: storedSession rejects them. */
+const legacyMention = z.string().min(1).max(480);
+const legacyDay = z.discriminatedUnion("tipo", [
+  z.object({ tipo: z.literal("data"), dia: z.number().int().min(1).max(31), mes: z.number().int().min(1).max(12).nullable(), mencao: legacyMention }).strict(),
+  z.object({ tipo: z.literal("mes_relativo"), dia: z.number().int().min(1).max(31), meses: z.number().int().min(0).max(12), mencao: legacyMention }).strict(),
+  z.object({ tipo: z.literal("dia_semana"), dia_semana: z.number().int().min(1).max(7), qualificador: z.enum(["este", "proximo"]).nullable(), mencao: legacyMention }).strict(),
+  z.object({ tipo: z.literal("relativo_hoje"), dias: z.number().int(), mencao: legacyMention }).strict(),
+  z.object({ tipo: z.literal("mesmo_da_origem"), mencao: legacyMention }).strict(),
+  z.object({ tipo: z.literal("origem_mais_dias"), dias: z.number().int(), mencao: legacyMention }).strict(),
+]);
+const legacyPending = z.object({
+  origem: z.object({ dia: legacyDay.nullable(), hora: z.unknown(), profissional_mencao: legacyMention.nullable(), servico_mencao: legacyMention.nullable(),
+    posicao: z.unknown() }).strict(),
+  destino: z.object({ dia: legacyDay.nullable(), hora: z.unknown(), profissional: z.unknown() }).strict(),
+  proven: z.object({ dia: z.boolean().optional(), hora: z.boolean().optional(), profissional_mencao: z.boolean().optional(), servico_mencao: z.boolean().optional(),
+    posicao: z.boolean().optional() }).strict().optional(),
+  anchors: pilotAnchors.optional() }).strict();
 const pilotState = z.object({
   plan: pilotPlan.optional(), pending: pilotPending.optional(),
   replies: z.array(z.object({ clientTurnId: uuid, turnId: uuid, message: z.string().max(20_000), view: object }).strict()).max(32),
@@ -56,7 +75,21 @@ const pilotState = z.object({
   asked: z.array(z.object({ questionId: pilotQuestionId, text: z.string().max(4000) }).strict()).max(8).optional(),
   notes: z.array(z.string().max(1000)).max(8).optional(), turn: pilotTurn.optional(), questionFloor: z.number().int().min(0).max(999).optional(),
   actionPlanRef: uuid.optional(), actionPlanFor: uuid.optional(), published: z.number().int().min(0).optional(),
+  // E2-A: E1 operators were dropped on load (upgradeStoredPilot); the next message or tap withdraws the plan if it is still open.
+  reset: z.literal(true).optional(),
 }).strict();
+const record = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
+/** E2-A: a session saved by the E1 pilot keeps its plan, replies and turn, but its pending operators (numbered weekday, servico_mencao) cannot be
+ * resolved under the current contract: they are dropped and the state is marked `reset` (the orchestrator withdraws a plan still open, with a
+ * clear reply, and never resolves it again). Only pending operators that are exactly the E1 shape are dropped; anything else is left for the strict
+ * parse to judge. Mutates the decoded session in place (the loaded copy only). */
+export function upgradeStoredPilot(session: unknown): void {
+  if (!record(session) || !record(session.pilot) || !record(session.pilot.pending)) return;
+  const pilot = session.pilot;
+  if (pilotPending.safeParse(pilot.pending).success || !legacyPending.safeParse(pilot.pending).success) return;
+  delete pilot.pending;
+  pilot.reset = true;
+}
 export const storedSession = z.object({
   id: uuid,
   skill: z.enum(["services", "customers", "scheduling", "financial", "inventory", "communication", "auto"]),
@@ -118,6 +151,7 @@ export function parseStoredAggregate(value: unknown): StoredAggregate {
   if (!parsed.success) throw Error("SESSION_STATE_INVALID");
   const stored = value as StoredAggregate, ids = new Set<string>();
   for (const session of stored.sessions) {
+    upgradeStoredPilot(session);
     if (!storedSession.safeParse(session).success) throw Error("SESSION_STATE_INVALID");
     const { id, planOwner } = session as StoredSession;
     if (ids.has(id) || (planOwner && planOwner !== stored.root) || (id === stored.root && planOwner)) throw Error("SESSION_STATE_INVALID");

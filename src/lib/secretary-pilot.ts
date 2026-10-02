@@ -10,7 +10,7 @@ import { applyAnswer, applyIntent, approve, attachProposal, completeExecution, c
 import { pilotClockReadings, pilotIdentityOf, pilotMentionIn, pilotNowLocal, pilotToday, resolveAppointment, resolveCustomer, resolveProfessional, resolveTargetDate, resolveTargetTime,
   type PilotAppointmentRow, type PilotClock, type PilotHint, type PilotIdentity, type PilotPerson, type PilotReader, type PilotServiceRow } from "./secretary-pilot-resolver";
 import type { PilotDestination, PilotInterpretation, PilotOrigin } from "../../packages/salon-secretary/src/pilot-reschedule-contract";
-import { runPilotInterpretation, PILOT_CALL_LIMITS, PILOT_OPEN_LABELS, type PilotOpenContext, type PilotRequestContext } from "../../packages/salon-secretary/src/pilot-reschedule-prompt";
+import { pilotCatalogNames, runPilotInterpretation, PILOT_CALL_LIMITS, PILOT_OPEN_LABELS, type PilotOpenContext, type PilotRequestContext } from "../../packages/salon-secretary/src/pilot-reschedule-prompt";
 import { formatClock, formatDay, formatLocal, formatLocalRange } from "./secretary-datetime-format";
 import { nameTokens } from "./name-search";
 
@@ -69,6 +69,9 @@ export const PILOT_ALREADY_WRITTEN = "A remarcação deste atendimento proposta 
 export const PILOT_REPLAY_SUPERSEDED = "Essa mensagem já tinha sido atendida e o pedido mudou depois dela; nada foi feito de novo. Como está agora:";
 /** The plan is done (a replayed reply after the Confirmar). */
 export const PILOT_DONE_STATE = "Essa remarcação já foi gravada.";
+/** E2-A: a conversation saved under the E1 contract (its pending operators can no longer be read) whose plan was still open: the plan is withdrawn
+ * on the next message or tap (after its receipt), nothing on the agenda changes and the owner is asked to send the request again. */
+export const PILOT_STATE_RESET = "A Secretária foi atualizada e o pedido de remarcação que estava em aberto foi encerrado; nada foi alterado na agenda. Mande o pedido de novo, por favor.";
 /** The message input with the flag on: the existing one plus the client's turn id (027's clientTurnId). */
 export const pilotTurnInput = z.object({ sessionId: z.string().uuid(), message: z.string().trim().min(1).max(1000), operation_ref: z.string().uuid().optional(),
   clientTurnId: z.string().uuid().optional() }).strict();
@@ -87,12 +90,13 @@ export type PilotView = {
  * request the pilot does not do, until the owner answers the scope question. `asked`: the text of each open question (what a stale answer repeats).
  * `turn`: the latest turn. `questionFloor`: the largest question number of the session's earlier plans (ids never restart). `actionPlanRef`/
  * `actionPlanFor`/`published`: the ActionPlan (SalonSecretary) this plan publishes through, the plan it was made for and the plan revision it
- * last showed. */
+ * last showed. `reset` (E2-A): set by the loader when it dropped E1-contract pending operators (secretary-session-state.ts); the next message
+ * or tap withdraws the plan if it is still open (PILOT_STATE_RESET). */
 export type PilotSessionState = { plan?: PilotPlan; pending?: PilotPending;
   replies: { clientTurnId: string; turnId: string; message: string; view: PilotView }[];
   outOfScope?: string[]; asked?: { questionId: string; text: string }[]; notes?: string[];
   turn?: { turnId: string; clientTurnId: string | null; receivedAt: string }; questionFloor?: number;
-  actionPlanRef?: string; actionPlanFor?: string; published?: number };
+  actionPlanRef?: string; actionPlanFor?: string; published?: number; reset?: true };
 /** Luna's typed operators of the open action not resolved yet. Review P1: `proven`, whether each origin hint's mention was in the very message that
  * brought it (proved once, on arrival: the narrow provenance check never reads another turn's words). Review S2: `anchors`, the received_at (ISO)
  * of the turn that said the origin day and the destination day (their "today": a later turn never reads them against its own day). */
@@ -214,7 +218,8 @@ const joined = (...parts: readonly string[]) => parts.filter(Boolean).join("\n\n
 
 // ---------------------------------------------------------------- one owner message
 /** `baseRevision` (review L8): the revision the turn started on; the turn's first reduction compares against it (compare-and-swap). */
-type Ctx = { host: PilotHost; state: PilotSessionState; reader: PilotReader; clock: PilotClock; message: string; catalog: readonly PilotServiceRow[]; baseRevision: number; reference: string;
+/** `catalog`: the salon's services read for the turn's request (a tap reads none: the resolver reads them when a service hint needs them). */
+type Ctx = { host: PilotHost; state: PilotSessionState; reader: PilotReader; clock: PilotClock; message: string; catalog?: readonly PilotServiceRow[]; baseRevision: number; reference: string;
   /** Review M4/P2: this message brought an origin hint, proved in it, whose typed value differs from the pending one (only then is a bound
    * appointment located again; other words for the same value, or a hint absent from the message, never unbind it). */
   originChanged?: boolean;
@@ -225,14 +230,14 @@ type Outcome = { text: string; code: string };
  * and the notes of the derived values. */
 type Resolution = { fields: Record<PilotFieldName, PilotField>; question?: PilotQuestionDraft; text?: string; appointment?: PilotAppointmentRow; notes: string[] };
 const UNRESOLVED = (mencao?: string): PilotField => ({ value: null, display: null, provenance: "unresolved", ...(mencao ? { mencao } : {}) });
-const EMPTY_ORIGIN: PilotOrigin = { dia: null, hora: null, profissional_mencao: null, servico_mencao: null, posicao: null };
+const EMPTY_ORIGIN: PilotOrigin = { dia: null, hora: null, profissional_mencao: null, servico: null, posicao: null };
 const EMPTY_DESTINATION: PilotDestination = { dia: null, hora: null, profissional: { modo: null, mencao: null } };
 /** An interpretation that says nothing (the base of an owner's tap on an option). */
 const SILENT: PilotInterpretation = { tipo: "resposta", resposta_a: null, desistir: false, aceita_parcial: null, cliente: { mencao: null }, origem: EMPTY_ORIGIN,
-  destino: EMPTY_DESTINATION, fora_do_escopo: [] };
+  destino: EMPTY_DESTINATION, observacoes: [], fora_do_escopo: [] };
 const ORIGIN_KEYS = Object.keys(EMPTY_ORIGIN) as (keyof PilotOrigin)[];
 /** The resolver's hint of each origin slot. */
-const HINT_OF: Record<keyof PilotOrigin, PilotHint> = { dia: "dia", hora: "hora", profissional_mencao: "profissional", servico_mencao: "servico", posicao: "posicao" };
+const HINT_OF: Record<keyof PilotOrigin, PilotHint> = { dia: "dia", hora: "hora", profissional_mencao: "profissional", servico: "servico", posicao: "posicao" };
 /** The owner's words Luna copied for an origin hint. */
 const originMention = (key: keyof PilotOrigin, value: PilotOrigin[keyof PilotOrigin]) => value === null ? null : typeof value === "string" ? value : value.mencao;
 /** An operator's typed value (its `mencao` aside): other words for the same value are the same operator. */
@@ -261,7 +266,9 @@ export async function handlePilotMessage(host: PilotHost, input: PilotTurnInput)
   const receipted = await pilotReceiptFirst(host);
   if (receipted?.state === "settled") outcome = { text: joined(pilotDoneText(state, receipted.receipt, today), PILOT_ALREADY_WRITTEN_NOTE), code: "CONFIRMED_BY_RECEIPT" };
   else if (receipted?.state === "unverified") outcome = { text: PILOT_RECEIPT_UNVERIFIED, code: "RECEIPT_UNVERIFIED" };
-  else if (state.plan?.action.status === "proposal_ready" && host.expired?.()) {
+  // E2-A: a plan saved under the E1 contract, still open, is withdrawn here (after its receipt), never resolved again without its operators.
+  else if (state.reset) outcome = pilotLegacyReset(state);
+  if (!outcome && state.plan?.action.status === "proposal_ready" && host.expired?.()) {
     // Only then the expiry rule: a ready proposal that lost its validity is no longer the plan's (prepared again when the turn shows the plan).
     state.plan = invalidate(state.plan, "PROPOSAL_EXPIRED");
     expiry = pilotTelemetry(state);
@@ -269,13 +276,15 @@ export async function handlePilotMessage(host: PilotHost, input: PilotTurnInput)
   // Review S8: the revision the turn started on (after the backend's own expiry) belongs to the plan it started on: a turn that opens a new plan
   // is recorded on it from 0, never from the closed plan's revision.
   const baseRevision = state.plan?.revision ?? 0, startPlan = state.plan?.planId;
-  let team: readonly { name: string }[] | undefined, catalog: readonly PilotServiceRow[] | undefined;
+  let team: readonly { name: string }[] | undefined, catalog: readonly PilotServiceRow[] | undefined, catalogNames: ReturnType<typeof pilotCatalogNames> | undefined;
   if (!outcome) try { [team, catalog] = await Promise.all([reader.team(), reader.catalog()]); } catch { team = undefined; catalog = undefined; }
-  if (outcome) { /* settled or unverified above: no interpretation */ }
+  if (outcome) { /* settled, unverified or reset above: no interpretation */ }
   else if (!team || !catalog) outcome = { text: joined(PILOT_DIRECTORY_UNAVAILABLE, pilotStateText(state)), code: "PILOT_DIRECTORY_UNAVAILABLE" };
   else {
+    // E2-A review CATALOG-1: every catalog name the reader returned (a service hint can only name what Luna saw), cut only past a byte budget.
+    catalogNames = pilotCatalogNames(catalog.map(row => row.name));
     const context: PilotRequestContext = { today: { date: today, weekday: new Date(`${today}T12:00:00Z`).toLocaleDateString("pt-BR", { weekday: "long", timeZone: "UTC" }), timezone: clock.timezone },
-      team: [...new Set(team.map(row => row.name).filter(Boolean))].slice(0, 40), services: [...new Set(catalog.map(row => row.name))].slice(0, 80),
+      team: [...new Set(team.map(row => row.name).filter(Boolean))].slice(0, 40), services: catalogNames.names,
       ...(state.plan && !pilotPlanClosed(state.plan) ? { open: pilotOpenContext(state) } : {}) };
     interpreted = await runPilotInterpretation(await host.model(), { context, message: input.message, modelId: host.modelId, startedAt });
     const ctx: Ctx = { host, state, reader, clock, message: input.message, catalog, baseRevision, reference: today };
@@ -288,7 +297,21 @@ export async function handlePilotMessage(host: PilotHost, input: PilotTurnInput)
   if (input.clientTurnId) state.replies = [...state.replies, { clientTurnId: input.clientTurnId, turnId: turn.turnId, message: outcome.text, view }].slice(-20);
   return { text: outcome.text, view, code: outcome.code, ...(expiry ? { expiry } : {}), telemetry: pilotTelemetry(state, { turn_id: turn.turnId, base_revision: base,
     latency_ms: Math.round(performance.now() - startedAt), model_calls: interpreted?.telemetry.calls ?? 0, repaired: interpreted?.telemetry.repaired ?? false,
-    ...(interpreted && !interpreted.ok ? { schema: interpreted.telemetry.schema } : {}), request_bytes: interpreted?.telemetry.request_bytes ?? [] }) };
+    ...(interpreted && !interpreted.ok ? { schema: interpreted.telemetry.schema } : {}), request_bytes: interpreted?.telemetry.request_bytes ?? [],
+    // E2-A §10.1: observacoes are never read; only how many there were is recorded (never their words).
+    ...(interpreted?.ok ? { observacoes: interpreted.interpretation.observacoes.length } : {}),
+    ...(catalogNames ? { catalog_names: { sent: catalogNames.names.length, total: catalogNames.total } } : {}) }) };
+}
+/** E2-A: the loader's mark of dropped E1 operators, consumed once. An open plan is withdrawn (no agenda effect) and the owner is told to send the
+ * request again; a closed or absent plan only loses the mark (the message is then handled as usual). */
+function pilotLegacyReset(state: PilotSessionState): Outcome | undefined {
+  const plan = state.plan;
+  if (!plan || pilotPlanClosed(plan)) { delete state.reset; return undefined; }
+  const reduced = withdraw(plan, plan.revision);
+  if (!reduced.ok) return { text: PILOT_SAFE_REPLY, code: `PLAN_${reduced.code}` };
+  delete state.reset;
+  state.plan = reduced.plan; state.pending = undefined; state.asked = []; state.outOfScope = []; state.notes = [];
+  return { text: PILOT_STATE_RESET, code: "PILOT_STATE_RESET" };
 }
 /** Review E1: the journal receipt of the plan's OWN proposal_ref, read before anything drops, withdraws or prepares that proposal again. settled:
  * the agenda has it (the plan is done, the host's agenda side marked written); unverified: the journal could not be read (nothing changes);
@@ -340,7 +363,7 @@ export function pilotOpenContext(state: PilotSessionState): PilotOpenContext {
 async function applyInterpretation(ctx: Ctx, I: PilotInterpretation): Promise<Outcome> {
   const outcome = await routed(ctx, I);
   // Review P3/P6: whatever path answered, an out-of-scope part this message named is said (by the scope question, or here), never dropped.
-  if (I.fora_do_escopo.length && !ctx.scopeAsked && outcome.code !== "OUT_OF_SCOPE") return { ...outcome, text: joined(outcome.text, outOfScopeNotice(I.fora_do_escopo.map(item => item.mencao))) };
+  if (I.fora_do_escopo.length && !ctx.scopeAsked && outcome.code !== "OUT_OF_SCOPE") return { ...outcome, text: joined(outcome.text, outOfScopeNotice(I.fora_do_escopo.map(item => item.pedido))) };
   return outcome;
 }
 async function routed(ctx: Ctx, I: PilotInterpretation): Promise<Outcome> {
@@ -414,7 +437,7 @@ async function request(ctx: Ctx, I: PilotInterpretation, open: PilotPlan | undef
   const { state } = ctx, plan = open ?? newPlan(ctx), base = open ? ctx.baseRevision : plan.revision;
   mergeOperators(ctx, I);
   const resolution = await resolveFields(ctx, plan, I);
-  if (I.fora_do_escopo.length) state.outOfScope = I.fora_do_escopo.map(item => item.mencao);
+  if (I.fora_do_escopo.length) state.outOfScope = I.fora_do_escopo.map(item => item.pedido);
   return change(ctx, plan, resolution, state.outOfScope?.length ? scopeQuestion(ctx, plan, state.outOfScope) : undefined, "CHANGED",
     (current, patch) => applyIntent(current, patch, current === plan ? base : current.revision));
 }
@@ -501,7 +524,7 @@ async function answerWith(ctx: Ctx, open: PilotPlan, question: PilotQuestion, I:
     }
   }
   // Review P6: the owner's yes to the scope question stands; parts this answer names again are said (applyInterpretation), never re-asked.
-  if (I.fora_do_escopo.length && question.field !== "scope") ctx.state.outOfScope = I.fora_do_escopo.map(item => item.mencao);
+  if (I.fora_do_escopo.length && question.field !== "scope") ctx.state.outOfScope = I.fora_do_escopo.map(item => item.pedido);
   return change(ctx, plan, resolution, ctx.state.outOfScope?.length ? scopeQuestion(ctx, plan, ctx.state.outOfScope) : undefined, "ANSWERED");
 }
 /** "desistir": the draft is withdrawn; with a correction in the same message, the corrected draft stands instead (the old value is never kept).
@@ -519,7 +542,7 @@ async function withdrawal(ctx: Ctx, I: PilotInterpretation, open: PilotPlan | un
   if (!messageChanges(ctx, I, open)) return plain();
   mergeOperators(ctx, I);
   const resolution = await resolveFields(ctx, open, I);
-  if (I.fora_do_escopo.length) ctx.state.outOfScope = I.fora_do_escopo.map(item => item.mencao);
+  if (I.fora_do_escopo.length) ctx.state.outOfScope = I.fora_do_escopo.map(item => item.pedido);
   return change(ctx, open, resolution, ctx.state.outOfScope?.length ? scopeQuestion(ctx, open, ctx.state.outOfScope) : undefined, "CORRECTED",
     (plan, patch) => withdraw(plan, plan === open ? ctx.baseRevision : plan.revision, patch));
 }
@@ -542,8 +565,11 @@ export async function selectPilotOption(host: PilotHost, ref: string): Promise<P
   const state = host.state, tapped = pilotTappedOption(state, ref);
   if (!tapped) throw Error("SELECTION_INVALID");
   const { question, option } = tapped, open = state.plan!;
+  // E2-A: a plan saved under the E1 contract is never resolved again without its operators (an open question means no ready proposal: no receipt).
+  const reset = state.reset ? pilotLegacyReset(state) : undefined;
+  if (reset) return { text: reset.text, view: pilotView(state), code: reset.code, telemetry: pilotTelemetry(state, { selected: question.field }) };
   const clock = await host.clock(), today = pilotToday(clock);
-  const ctx: Ctx = { host, state, reader: host.reader(), clock, message: "", catalog: [], baseRevision: open.revision, reference: today };
+  const ctx: Ctx = { host, state, reader: host.reader(), clock, message: "", baseRevision: open.revision, reference: today };
   let value: PilotField | undefined;
   const pending = state.pending ?? { origem: { ...EMPTY_ORIGIN }, destino: structuredClone(EMPTY_DESTINATION) };
   if (question.field === "customer" || question.field === "appointment") value = { value: option.id, display: option.label, provenance: "explicit" };
@@ -667,13 +693,35 @@ async function resolveFields(ctx: Ctx, plan: PilotPlan, I: PilotInterpretation, 
         options.length ? ` Os próximos de ${customerName} são: ${listed(options.map(option => option.label))}. Qual deles?` : ` ${customerName} não tem outro atendimento futuro marcado.`}`, options);
     }
   } else {
+    // E2-A review FLOW-1: a text answer to an appointment question with options is resolved among THAT question's options, by the answer's own
+    // origin hints (each proved against this message). They replace the pending ones, so the hints that made the question (a contradiction, a
+    // stale day or clock) are never applied again. An answer with no proven hint never picks an option (a yes is never inferred): asked again.
+    // A question whose options were cut at PILOT_OPTIONS_MAX does not restrict the answer (her other appointments stay reachable by its hints).
+    const answered = answering?.field === "appointment" && !!answering.options?.length && !customerChanged;
+    const among = answered && answering!.options!.length < PILOT_OPTIONS_MAX ? answering!.options!.map(option => option.id) : undefined;
+    if (answered) {
+      const origem = { ...EMPTY_ORIGIN }, own: PilotPending["proven"] = {};
+      for (const key of ORIGIN_KEYS) {
+        const value = I.origem[key];
+        if (value === null) continue;
+        (origem as Record<string, unknown>)[key] = structuredClone(value); own[key] = pilotMentionIn(ctx.message, originMention(key, value));
+      }
+      pending = { origem, destino: pending.destino, proven: own, anchors: { ...(I.origem.dia ? { origem: turnAt(ctx) } : {}), ...(pending.anchors?.destino ? { destino: pending.anchors.destino } : {}) } };
+      state.pending = pending;
+    }
     // Review P1: each hint chooses only if it was proved against the message that brought it (never against another turn's words).
     const proven = Object.fromEntries(ORIGIN_KEYS.map(key => [HINT_OF[key], pending.proven?.[key] === true])) as Record<PilotHint, boolean>;
-    const located = await resolveAppointment(reader, { customerId, origem: pending.origem, proven, anchor: anchored(pending.anchors?.origem) }, clock);
+    const located = await resolveAppointment(reader, { customerId, origem: pending.origem, proven, anchor: anchored(pending.anchors?.origem),
+      ...(ctx.catalog ? { catalog: ctx.catalog } : {}), ...(among ? { among } : {}) }, clock);
     if (located.state === "unavailable") { wait("appointment", "date", "time", "professional", "service"); return unavailable("appointment", "a agenda"); }
     // Review P2: the appointment bound before (the owner's own tap or answer) stays bound while it is still among what the hints leave.
     const kept = !customerChanged && F.appointment.value && located.state === "several" ? located.options.find(item => item.id === F.appointment.value) : undefined;
     if (kept) row = kept;
+    else if (answered && answering && located.state !== "none" && !located.used.length) {
+      wait("appointment", "date", "time", "professional", "service");
+      const options = (located.state === "one" ? [located.appointment] : located.options).map(item => ({ id: item.id, label: label(item) }));
+      return ask("appointment", answering.reason, `Para eu ter certeza de qual atendimento de ${customerName} remarcar, diga o dia ou o horário dele, ou toque na opção: ${listed(options.map(option => option.label))}.`, options);
+    }
     else if (located.state !== "one") {
       wait("appointment", "date", "time", "professional", "service");
       const rows = located.state === "none" ? located.upcoming : located.options, options = rows.map(item => ({ id: item.id, label: label(item) }));

@@ -1,7 +1,7 @@
 import { NoopTrace, Usage, withTrace, type AgentInputItem, type Model, type ModelRequest, type ModelResponse } from "@openai/agents";
 import { agentRequestBodyBytes } from "./agent-loop";
 import { assertSecretaryPilotModelRequest, observeSecretaryResponseUsage, type SecretaryResponseUsage } from "./openai-cost-guard";
-import { decodePilotInterpretationArguments, PilotContractError, pilotTool, PILOT_REQUEST_LIMITS, PILOT_RESCHEDULE_TOOL, type PilotInterpretation } from "./pilot-reschedule-contract";
+import { decodePilotInterpretationArguments, PilotContractError, pilotTool, PILOT_CONTRACT_LIMITS, PILOT_REQUEST_LIMITS, PILOT_RESCHEDULE_TOOL, type PilotInterpretation } from "./pilot-reschedule-contract";
 import { modelCallUsage, type ModelCallUsage } from "./usage";
 
 /** Pilot of the reschedule (flag SALON_SECRETARY_PILOT_RESCHEDULE, default off; docs/c5-spike/12-piloto-remarcacao.md §2, §5): the ONE request of
@@ -9,31 +9,60 @@ import { modelCallUsage, type ModelCallUsage } from "./usage";
  * date and weekday of the frozen received_at, the salon's timezone, the team's and the catalog's names and, on a continuation, the open plan's
  * summary and the pending question (its id and field). Never the salon's customers (decision 22): of a customer, only the owner's own words.
  * store:false, the frozen agent's reasoning effort, ≤ 15 s per call and ≤ 45 s in all, at most one format repair; anything else is a failure
- * of the message (the caller's safe reply; no C4). Two invented examples, none from any evaluation set. */
+ * of the message (the caller's safe reply; no C4). Invented examples only, none from any evaluation set. E2-A (§10.1): fora_do_escopo is a
+ * separate request with its own effect; reason, context, courtesy, corrections, references, conditions, information about the customer and an
+ * availability check serving this reschedule stay inside it (context in observacoes); examples adversarial both ways. E2-A adversarial review
+ * (before the battery): the system already notifies the customer of every reschedule, so telling this customer about this change is inside it
+ * (SEMANTICS-1); taking the same customer's appointment out of one slot to put it in another is this reschedule, never cancel plus book (decision
+ * 4, SEMANTICS-2); a wish of the customer the owner relays for anything besides day, time or professional is a separate request (SEMANTICS-3);
+ * the bounds the decoder enforces are stated (CONTRACT-1). Semantics only: never a list of words or phrases. */
 export const PILOT_PROMPT = `Você transcreve, em campos, pedidos de remarcação que o dono de um salão escreve para a Secretária. Cada mensagem chega com dados do salão e você responde chamando interpretar_remarcacao uma única vez. Você não decide nada: o sistema confere cadastros, agenda, datas, expediente e vagas, e nada é gravado antes de o dono tocar em Confirmar.
 
 Como preencher:
-1. Toda "mencao" é uma cópia de um trecho da mensagem, com as palavras do dono. Nunca complete, corrija ou troque essas palavras por um nome da equipe ou do catálogo. Nas menções de nome (cliente.mencao, origem.profissional_mencao, origem.servico_mencao e destino.profissional.mencao) vão só as palavras do próprio nome, como foram escritas, sem artigo, preposição ou forma de tratamento (como "dona" ou "seu").
+1. Toda "mencao" é uma cópia de um trecho da mensagem, com as palavras do dono. Nunca complete, corrija ou troque essas palavras por um nome da equipe ou do catálogo. Nas menções de nome (cliente.mencao, origem.profissional_mencao e destino.profissional.mencao) vão só as palavras do próprio nome, como foram escritas, sem artigo, preposição ou forma de tratamento (como "dona" ou "seu").
 2. Dias e horas vão como operadores; você nunca calcula uma data.
-   - Dia: "data" (número do dia; mês só se foi dito pelo nome ou pelo número), "mes_relativo" (número do dia de um mês dito em relação ao atual: meses 0 para este mês, 1 para o seguinte), "dia_semana" (1 domingo, 2 segunda, 3 terça, 4 quarta, 5 quinta, 6 sexta, 7 sábado; qualificador "este" ou "proximo" só quando essa palavra aparece), "relativo_hoje" (hoje 0, amanhã 1), "mesmo_da_origem" e "origem_mais_dias" (contados a partir do dia do atendimento que já existe).
+   - Dia: "data" (número do dia; mês só se foi dito pelo nome ou pelo número), "mes_relativo" (número do dia de um mês dito em relação ao atual: meses 0 para este mês, 1 para o seguinte), "dia_semana" (o nome do dia, sem acento e sem "-feira": segunda, terca, quarta, quinta, sexta, sabado ou domingo; qualificador "este" ou "proximo" só quando essa palavra aparece), "relativo_hoje" (hoje 0, amanhã 1), "mesmo_da_origem" e "origem_mais_dias" (contados a partir do dia do atendimento que já existe).
    - Hora: "relogio" (hora e minuto como foram ditos; periodo só quando manhã, tarde ou noite foi dito), "mesmo_da_origem" e "origem_mais_minutos" (a partir do horário atual do atendimento), "a_definir" (hora deixada em aberto).
-3. "origem" guarda só as pistas que o dono deu para achar o atendimento já marcado: dia, hora, profissional, serviço e, em posicao, primeiro ou último do dia com a menção dessas palavras. "destino" guarda o novo dia, a nova hora e quem atende: "manter" (o mesmo profissional), "nomeado" (o dono diz quem), "qualquer" (serve quem estiver livre); sem nada sobre isso, null.
+3. "origem" guarda só as pistas que o dono deu para achar o atendimento já marcado: dia, hora, profissional, serviço e, em posicao, primeiro ou último do dia com a menção dessas palavras. Em origem.servico, "mencao" copia as palavras do dono sobre o serviço e "catalogo" traz os nomes exatos da lista de Serviços dos dados que essas palavras podem designar, escritos como na lista (um ou mais, no máximo ${PILOT_CONTRACT_LIMITS.catalogNames} nomes; [] se nenhum couber ou se mais de ${PILOT_CONTRACT_LIMITS.catalogNames} couberem). "destino" guarda o novo dia, a nova hora e quem atende: "manter" (o mesmo profissional), "nomeado" (o dono diz quem), "qualquer" (serve quem estiver livre); sem nada sobre isso, null.
 4. Você nunca escolhe qual pessoa, qual atendimento, que data final ou se há vaga.
-5. Os campos guardam a remarcação de um único atendimento. O que não é mudar dia, hora ou profissional desse atendimento vai em fora_do_escopo com a menção: cancelar, bloquear agenda, trocar serviço, criar atendimento novo, consultar, repetir toda semana, recado ao cliente ou outra ação. Uma segunda remarcação na mesma mensagem (de outra pessoa ou de outro atendimento) também vai em fora_do_escopo, como "outra_acao", com as palavras dela. Só isso na mensagem: tipo "fora_do_escopo". Isso junto de uma remarcação: tipo "misto". Saudação ou conversa sem pedido: tipo "conversa".
+5. Os campos guardam a remarcação de um único atendimento. fora_do_escopo é só para um pedido separado: uma ação à parte, com efeito próprio, que o dono quer que a Secretária faça além desta remarcação, como cancelar um atendimento, bloquear agenda, criar atendimento novo, trocar ou incluir serviço, repetir toda semana, mandar ao cliente um recado com outro conteúdo ou responder uma consulta pedida por si mesma. Cada item leva em "pedido" as palavras desse pedido. Uma segunda remarcação na mesma mensagem (de outra pessoa ou de outro atendimento) também é um pedido separado, como "outra_acao", com as palavras dela.
+   - Fica dentro da remarcação e nunca vai para fora_do_escopo: o motivo, o contexto e as cortesias (saudação, desculpas, agradecimento); as correções da própria remarcação (o valor final vai no seu campo); as referências ao atendimento (de quem, qual, de quando, com quem, de qual serviço); as condições dela (se houver vaga, se couber, manter o mesmo profissional); as informações e preferências do cliente que não pedem nada ao salão; e a verificação de disponibilidade que serve a esta remarcação.
+   - Tirar o atendimento deste cliente de um dia ou horário para pôr em outro é esta remarcação, mesmo dito como desmarcar e marcar de novo: nunca é cancelar mais agendar. Cancelar é pedido separado só quando um atendimento sai sem ganhar novo horário, ou quando é outro atendimento.
+   - O sistema já avisa o cliente de toda remarcação: pedir para avisar este cliente desta mudança faz parte dela e vai em observacoes. Um recado com outro conteúdo, ou para outra pessoa, é pedido separado ("mensagem").
+   - Fora o que fica dentro (acima), um trecho que pede, ou repassa como desejo do cliente, que o salão faça ou mude algo além do dia, do horário ou do profissional deste atendimento (outro serviço, repetir, outro atendimento, um recado com outro conteúdo) é pedido separado, mesmo escrito como informação.
+   - Motivo, contexto, cortesia e informação vão em observacoes, cada trecho copiado da mensagem, no máximo ${PILOT_CONTRACT_LIMITS.observations} trechos; o que não couber fica de fora, sem copiar todo o contexto. O sistema não lê observacoes; o que tem campo próprio vai no seu campo.
+   - tipo "remarcar" quando há só a remarcação, com ou sem contexto; "misto" quando há a remarcação e um pedido separado; "fora_do_escopo" quando há só pedido separado; "conversa" para saudação ou conversa sem pedido.
 6. Com pergunta pendente nos dados: se a mensagem a responde, tipo "resposta" e resposta_a com o id dela, e o campo que ela pede vai preenchido com as palavras do dono (quando a pergunta lista opções, as palavras que ele usou para apontar uma delas: dia, hora, nome). Outro campo corrigido na mesma mensagem vai no seu lugar. Uma confirmação sem nome deixa cliente.mencao null.
 7. aceita_parcial só responde a pergunta de fazer só a remarcação: true quando o dono aceita, false quando recusa, null em qualquer outro caso. desistir = true só quando o dono retira o pedido em aberto; isso não é cancelar o atendimento.
-8. Campo sem informação fica null; fora_do_escopo sem itens é [].
+8. Campo sem informação fica null; observacoes e fora_do_escopo sem itens são [].
 
-Três exemplos inventados (só o formato; nomes e frases não existem em salão nenhum):
+Nove exemplos inventados (só o formato; nomes e frases não existem em salão nenhum). Do quarto ao nono, o que parece outro pedido e não é fica na remarcação, e o pedido separado que parece contexto, conversa ou desejo do cliente vai em fora_do_escopo:
 Mensagem: "Leva o atendimento do Teodomiro de quinta para a outra semana, mesma hora, com a Floripes"
-{"tipo":"remarcar","resposta_a":null,"desistir":false,"aceita_parcial":null,"cliente":{"mencao":"Teodomiro"},"origem":{"dia":{"tipo":"dia_semana","dia_semana":5,"qualificador":null,"mencao":"de quinta"},"hora":null,"profissional_mencao":null,"servico_mencao":null,"posicao":null},"destino":{"dia":{"tipo":"origem_mais_dias","dias":7,"mencao":"para a outra semana"},"hora":{"tipo":"mesmo_da_origem","mencao":"mesma hora"},"profissional":{"modo":"nomeado","mencao":"Floripes"}},"fora_do_escopo":[]}
+{"tipo":"remarcar","resposta_a":null,"desistir":false,"aceita_parcial":null,"cliente":{"mencao":"Teodomiro"},"origem":{"dia":{"tipo":"dia_semana","dia_semana":"quinta","qualificador":null,"mencao":"de quinta"},"hora":null,"profissional_mencao":null,"servico":null,"posicao":null},"destino":{"dia":{"tipo":"origem_mais_dias","dias":7,"mencao":"para a outra semana"},"hora":{"tipo":"mesmo_da_origem","mencao":"mesma hora"},"profissional":{"modo":"nomeado","mencao":"Floripes"}},"observacoes":[],"fora_do_escopo":[]}
 Mensagem: "Joga o Gumercindo para amanhã 11h30 e apaga o lembrete dele"
-{"tipo":"misto","resposta_a":null,"desistir":false,"aceita_parcial":null,"cliente":{"mencao":"Gumercindo"},"origem":{"dia":null,"hora":null,"profissional_mencao":null,"servico_mencao":null,"posicao":null},"destino":{"dia":{"tipo":"relativo_hoje","dias":1,"mencao":"amanhã"},"hora":{"tipo":"relogio","hora":11,"minuto":30,"periodo":null,"mencao":"11h30"},"profissional":{"modo":null,"mencao":null}},"fora_do_escopo":[{"tipo":"outra_acao","mencao":"apaga o lembrete dele"}]}
+{"tipo":"misto","resposta_a":null,"desistir":false,"aceita_parcial":null,"cliente":{"mencao":"Gumercindo"},"origem":{"dia":null,"hora":null,"profissional_mencao":null,"servico":null,"posicao":null},"destino":{"dia":{"tipo":"relativo_hoje","dias":1,"mencao":"amanhã"},"hora":{"tipo":"relogio","hora":11,"minuto":30,"periodo":null,"mencao":"11h30"},"profissional":{"modo":null,"mencao":null}},"observacoes":[],"fora_do_escopo":[{"tipo":"outra_acao","pedido":"apaga o lembrete dele"}]}
 Mensagem: "Passa a dona Ermengarda, a do Lupércio, pro dia 3 do mês que vem às 16h e a Eulália pra sábado"
-{"tipo":"misto","resposta_a":null,"desistir":false,"aceita_parcial":null,"cliente":{"mencao":"Ermengarda"},"origem":{"dia":null,"hora":null,"profissional_mencao":"Lupércio","servico_mencao":null,"posicao":null},"destino":{"dia":{"tipo":"mes_relativo","dia":3,"meses":1,"mencao":"dia 3 do mês que vem"},"hora":{"tipo":"relogio","hora":16,"minuto":0,"periodo":null,"mencao":"16h"},"profissional":{"modo":null,"mencao":null}},"fora_do_escopo":[{"tipo":"outra_acao","mencao":"a Eulália pra sábado"}]}`;
+{"tipo":"misto","resposta_a":null,"desistir":false,"aceita_parcial":null,"cliente":{"mencao":"Ermengarda"},"origem":{"dia":null,"hora":null,"profissional_mencao":"Lupércio","servico":null,"posicao":null},"destino":{"dia":{"tipo":"mes_relativo","dia":3,"meses":1,"mencao":"dia 3 do mês que vem"},"hora":{"tipo":"relogio","hora":16,"minuto":0,"periodo":null,"mencao":"16h"},"profissional":{"modo":null,"mencao":null}},"observacoes":[],"fora_do_escopo":[{"tipo":"outra_acao","pedido":"a Eulália pra sábado"}]}
+Mensagem: "Bom dia! A Leocádia quebrou o pé, coitada. Vê se a Floripes tem vaga e, se tiver, passa a progressiva dela de sexta para terça às 14h, não, às 15h"
+{"tipo":"remarcar","resposta_a":null,"desistir":false,"aceita_parcial":null,"cliente":{"mencao":"Leocádia"},"origem":{"dia":{"tipo":"dia_semana","dia_semana":"sexta","qualificador":null,"mencao":"de sexta"},"hora":null,"profissional_mencao":null,"servico":{"mencao":"progressiva","catalogo":["Escova progressiva"]},"posicao":null},"destino":{"dia":{"tipo":"dia_semana","dia_semana":"terca","qualificador":null,"mencao":"para terça"},"hora":{"tipo":"relogio","hora":15,"minuto":0,"periodo":null,"mencao":"às 15h"},"profissional":{"modo":"nomeado","mencao":"Floripes"}},"observacoes":["Bom dia!","quebrou o pé, coitada","Vê se a Floripes tem vaga","às 14h, não"],"fora_do_escopo":[]}
+Mensagem: "Por gentileza, o Teodomiro não pode amanhã: passa ele para segunda às 9h e já deixa a barba dele marcada logo depois"
+{"tipo":"misto","resposta_a":null,"desistir":false,"aceita_parcial":null,"cliente":{"mencao":"Teodomiro"},"origem":{"dia":{"tipo":"relativo_hoje","dias":1,"mencao":"amanhã"},"hora":null,"profissional_mencao":null,"servico":null,"posicao":null},"destino":{"dia":{"tipo":"dia_semana","dia_semana":"segunda","qualificador":null,"mencao":"para segunda"},"hora":{"tipo":"relogio","hora":9,"minuto":0,"periodo":null,"mencao":"às 9h"},"profissional":{"modo":null,"mencao":null}},"observacoes":["Por gentileza","o Teodomiro não pode amanhã"],"fora_do_escopo":[{"tipo":"agendar","pedido":"já deixa a barba dele marcada logo depois"}]}
+Mensagem: "Quantos encaixes ainda cabem para a Floripes no sábado? É só para eu me planejar."
+{"tipo":"fora_do_escopo","resposta_a":null,"desistir":false,"aceita_parcial":null,"cliente":{"mencao":null},"origem":{"dia":null,"hora":null,"profissional_mencao":null,"servico":null,"posicao":null},"destino":{"dia":null,"hora":null,"profissional":{"modo":null,"mencao":null}},"observacoes":["É só para eu me planejar."],"fora_do_escopo":[{"tipo":"consultar","pedido":"Quantos encaixes ainda cabem para a Floripes no sábado?"}]}
+Mensagem: "Desmarca a Hermenegilda de segunda e encaixa ela na quarta às 10h; a de sexta dela pode cancelar"
+{"tipo":"misto","resposta_a":null,"desistir":false,"aceita_parcial":null,"cliente":{"mencao":"Hermenegilda"},"origem":{"dia":{"tipo":"dia_semana","dia_semana":"segunda","qualificador":null,"mencao":"de segunda"},"hora":null,"profissional_mencao":null,"servico":null,"posicao":null},"destino":{"dia":{"tipo":"dia_semana","dia_semana":"quarta","qualificador":null,"mencao":"na quarta"},"hora":{"tipo":"relogio","hora":10,"minuto":0,"periodo":null,"mencao":"às 10h"},"profissional":{"modo":null,"mencao":null}},"observacoes":[],"fora_do_escopo":[{"tipo":"cancelar","pedido":"a de sexta dela pode cancelar"}]}
+Mensagem: "Coloca o Policarpo de terça na quinta às 18h, avisa ele e pede pra trazer a autorização assinada pela mãe"
+{"tipo":"misto","resposta_a":null,"desistir":false,"aceita_parcial":null,"cliente":{"mencao":"Policarpo"},"origem":{"dia":{"tipo":"dia_semana","dia_semana":"terca","qualificador":null,"mencao":"de terça"},"hora":null,"profissional_mencao":null,"servico":null,"posicao":null},"destino":{"dia":{"tipo":"dia_semana","dia_semana":"quinta","qualificador":null,"mencao":"na quinta"},"hora":{"tipo":"relogio","hora":18,"minuto":0,"periodo":null,"mencao":"às 18h"},"profissional":{"modo":null,"mencao":null}},"observacoes":["avisa ele"],"fora_do_escopo":[{"tipo":"mensagem","pedido":"pede pra trazer a autorização assinada pela mãe"}]}
+Mensagem: "A Ludovina pediu pra sair do sábado: põe ela no domingo às 9h. Ela é muito pontual; contou que quer incluir uma ozonioterapia e deixar fixo todo mês"
+{"tipo":"misto","resposta_a":null,"desistir":false,"aceita_parcial":null,"cliente":{"mencao":"Ludovina"},"origem":{"dia":{"tipo":"dia_semana","dia_semana":"sabado","qualificador":null,"mencao":"do sábado"},"hora":null,"profissional_mencao":null,"servico":null,"posicao":null},"destino":{"dia":{"tipo":"dia_semana","dia_semana":"domingo","qualificador":null,"mencao":"no domingo"},"hora":{"tipo":"relogio","hora":9,"minuto":0,"periodo":null,"mencao":"às 9h"},"profissional":{"modo":null,"mencao":null}},"observacoes":["pediu pra sair do sábado","Ela é muito pontual"],"fora_do_escopo":[{"tipo":"trocar_servico","pedido":"quer incluir uma ozonioterapia"},{"tipo":"recorrencia","pedido":"deixar fixo todo mês"}]}`;
 /** Review M13: the example names above, absent from every evaluation name pool (a lint test keeps it so). Review P4/P5/P7: the third example
- * shows a name mention without its article or form of address, an origin professional, a relative month and a second reschedule left out. */
-export const PILOT_PROMPT_EXAMPLE_NAMES = Object.freeze(["Teodomiro", "Floripes", "Gumercindo", "Ermengarda", "Lupércio", "Eulália"]);
+ * shows a name mention without its article or form of address, an origin professional, a relative month and a second reschedule left out.
+ * E2-A (§10.1): the fourth keeps reason, courtesy, an availability check serving the reschedule and a correction inside it (observacoes, no
+ * fora_do_escopo) and shows the service hint with an exact catalog name; the fifth and sixth are real separate requests that read like context.
+ * E2-A adversarial review: the seventh is the same customer's slot said as unbook and book again (inside) beside the cancel of another appointment
+ * of hers (outside); the eighth, the notice of this change (inside) beside a message with its own content (outside); the ninth, the customer's
+ * own wish to move (inside) and information (inside) beside wishes she relayed for another service and a recurrence (outside). */
+export const PILOT_PROMPT_EXAMPLE_NAMES = Object.freeze(["Teodomiro", "Floripes", "Gumercindo", "Ermengarda", "Lupércio", "Eulália", "Leocádia", "Hermenegilda", "Policarpo", "Ludovina"]);
 /** §1 and decision 28: ≤ 15 s per call, ≤ 45 s per message, the interpretation and at most one format repair. */
 export const PILOT_CALL_LIMITS = Object.freeze({ callMs: 15_000, messageMs: 45_000, modelCalls: 2 });
 /** The first line of the data input: everything after it is the salon's data, never instructions. */
@@ -63,9 +92,31 @@ export function pilotSystemText(context: PilotRequestContext): string {
   }
   return lines.join("\n");
 }
-/** The repair note (codes and schema paths only, never text the model wrote). */
-export const pilotRepairText = (reasons: readonly string[]) =>
-  `A chamada anterior não seguiu o esquema de ${PILOT_RESCHEDULE_TOOL} (${reasons.slice(0, 8).join(", ")}). Chame ${PILOT_RESCHEDULE_TOOL} de novo, com todos os campos do esquema.`;
+/** E2-A review REPAIR-1: the fixed sentence (written by the developers, never text the model wrote) the repair note adds for each rule code; it
+ * states every way out, so a repair never turns context into a false separate request. Part of the contract version (pilotContractParts). */
+export const PILOT_REPAIR_RULES = Object.freeze({
+  "RULE:misto_sem_fora_do_escopo": "Com tipo misto, fora_do_escopo traz o pedido separado; se a mensagem não tem pedido separado, o tipo é remarcar, e motivo e contexto ficam em observacoes.",
+  "RULE:nomeado_sem_mencao": "Com modo nomeado, destino.profissional.mencao traz o nome como o dono escreveu; se o dono não disse quem atende, o modo não é nomeado.",
+} as const);
+/** The repair note (codes and schema paths only, never text the model wrote; the fixed sentence of each rule code it names). */
+export const pilotRepairText = (reasons: readonly string[]) => {
+  const shown = reasons.slice(0, 8), rules = PILOT_REPAIR_RULES as Readonly<Record<string, string>>;
+  const sentences = [...new Set(shown.filter(code => Object.prototype.hasOwnProperty.call(rules, code)).map(code => rules[code]))];
+  return `A chamada anterior não seguiu o esquema de ${PILOT_RESCHEDULE_TOOL} (${shown.join(", ")}).${sentences.map(sentence => ` ${sentence}`).join("")} Chame ${PILOT_RESCHEDULE_TOOL} de novo, com todos os campos do esquema.`;
+};
+/** E2-A review CATALOG-1: the catalog names Luna sees (a service hint can only name what Luna saw): every distinct name the reader returned, in its
+ * order, cut only past this byte budget of the request (realistic catalogs never reach it; `total` lets a cut be counted in telemetry). */
+export const PILOT_SERVICE_NAMES_BYTES = 20_000;
+export function pilotCatalogNames(names: readonly string[]): { names: string[]; total: number } {
+  const unique = [...new Set(names.filter(name => typeof name === "string" && name.length > 0))], out: string[] = [], encoder = new TextEncoder();
+  let bytes = 2;
+  for (const name of unique) {
+    const size = encoder.encode(JSON.stringify(name)).length + 1;
+    if (bytes + size > PILOT_SERVICE_NAMES_BYTES) break;
+    out.push(name); bytes += size;
+  }
+  return { names: out, total: unique.length };
+}
 
 /** Which call of the message a request is (the usage instrumentation reads it); set only on requests built here, never a request property. */
 export type PilotAttempt = { readonly attempt: 1 | 2; readonly purpose: "PILOT_INTERPRETATION" | "PILOT_REPAIR" };
@@ -87,7 +138,7 @@ export function pilotRequest(context: PilotRequestContext, message: string, opti
 export const PILOT_REQUEST_CAP = Object.freeze({ requestCap: 64_000, outputFraming: 8192 });
 /** What the contract version names of the pilot (index.ts secretaryContractParts, only with the flag): the instructions, the data layout over a
  * fixed synthetic context, the repair note, the summary words, the tool and the request limits. */
-export const pilotContractParts = () => ({ prompt: PILOT_PROMPT, labels: PILOT_OPEN_LABELS, repair: pilotRepairText(["«código»"]),
+export const pilotContractParts = () => ({ prompt: PILOT_PROMPT, labels: PILOT_OPEN_LABELS, repair: pilotRepairText(["«código»"]), repairRules: PILOT_REPAIR_RULES,
   system: pilotSystemText({ today: { date: "2000-01-01", weekday: "«dia»", timezone: "«fuso»" }, team: ["«profissional»"], services: ["«serviço»"],
     open: { lines: ["«campo»"], question: { questionId: "q1", field: "«campo»", reason: "«motivo»", options: ["«opção»"] } } }),
   tool: pilotTool(), limits: PILOT_REQUEST_LIMITS, cap: PILOT_REQUEST_CAP });

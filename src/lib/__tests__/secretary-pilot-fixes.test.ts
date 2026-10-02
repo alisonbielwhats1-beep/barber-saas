@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Model } from "@everflair/salon-secretary";
 import { decodePilotInterpretation, PILOT_RESCHEDULE_PARAMETERS, PILOT_RESCHEDULE_TOOL, type PilotInterpretation, type PilotOrigin, type PilotTempoDia,
-  type PilotTempoHora } from "../../../packages/salon-secretary/src/pilot-reschedule-contract";
+  type PilotTempoHora, type PilotWeekday } from "../../../packages/salon-secretary/src/pilot-reschedule-contract";
 import { PILOT_PROMPT } from "../../../packages/salon-secretary/src/pilot-reschedule-prompt";
 import { confirmPilotProposal, handlePilotMessage, pilotAppointmentLabel, selectPilotOption, PILOT_ALREADY_WRITTEN, PILOT_CONFIRM_UNVERIFIED, PILOT_NOTHING_OPEN_REPLY,
   PILOT_OUT_OF_SCOPE_REPLY, PILOT_RECEIPT_UNVERIFIED, PILOT_REPLAY_SUPERSEDED, PILOT_WITHDRAWN_REPLY, type PilotHost, type PilotPreparation, type PilotReceipt,
@@ -24,11 +24,11 @@ const severina = person("cli-severina", "Severina Lobato"), anselmo = person("cl
 const MON = "2031-03-10", WED = "2031-03-12", FRI = "2031-03-14", SAT = "2031-03-15";
 const salon = (over: MemorySalon = {}): MemorySalon => ({ customers: [severina, anselmo], team: [ines, otavio], catalog: [corte],
   hours: { [ines.id]: everyDay(["08:00", "21:00"]), [otavio.id]: everyDay(["08:00", "21:00"]) }, appointments: [], ...over });
-const ORIGIN: PilotOrigin = { dia: null, hora: null, profissional_mencao: null, servico_mencao: null, posicao: null };
-const day = (dia_semana: number, mencao: string, qualificador: "este" | "proximo" | null = null): PilotTempoDia => ({ tipo: "dia_semana", dia_semana, qualificador, mencao });
+const ORIGIN: PilotOrigin = { dia: null, hora: null, profissional_mencao: null, servico: null, posicao: null };
+const day = (dia_semana: PilotWeekday, mencao: string, qualificador: "este" | "proximo" | null = null): PilotTempoDia => ({ tipo: "dia_semana", dia_semana, qualificador, mencao });
 const clock = (hora: number, mencao: string): PilotTempoHora => ({ tipo: "relogio", hora, minuto: 0, periodo: null, mencao });
 const luna = (over: Partial<PilotInterpretation> = {}): PilotInterpretation => ({ tipo: "remarcar", resposta_a: null, desistir: false, aceita_parcial: null,
-  cliente: { mencao: null }, origem: ORIGIN, destino: { dia: null, hora: null, profissional: { modo: null, mencao: null } }, fora_do_escopo: [], ...over });
+  cliente: { mencao: null }, origem: ORIGIN, destino: { dia: null, hora: null, profissional: { modo: null, mencao: null } }, observacoes: [], fora_do_escopo: [], ...over });
 const to = (dia: PilotTempoDia | null, hora: PilotTempoHora | null, profissional: PilotInterpretation["destino"]["profissional"] = { modo: null, mencao: null }) => ({ dia, hora, profissional });
 /** Local São Paulo time (UTC-3) as the frozen received_at. */
 const local = (at: string) => clockAt(new Date(Date.parse(`${at}:00Z`) + 3 * 3_600_000).toISOString());
@@ -50,17 +50,19 @@ const send = (f: ReturnType<typeof fake>, message: string, clientTurnId?: string
 const approvalOf = (plan: PilotPlan) => ({ proposalRef: plan.action.proposal!.proposalRef, draftRevision: plan.action.proposal!.draftRevision, revision: plan.revision });
 const severinaWed = () => [booked("apt-sev", severina, ines, corte, WED, "10:00")];
 const twoOnWednesday = () => [booked("apt-sev-10", severina, ines, corte, WED, "10:00"), booked("apt-sev-16", severina, ines, corte, WED, "16:00")];
-const move = (over: Partial<PilotInterpretation> = {}) => luna({ cliente: { mencao: "Severina" }, destino: to(day(6, "sexta"), clock(15, "15h")), ...over });
+const move = (over: Partial<PilotInterpretation> = {}) => luna({ cliente: { mencao: "Severina" }, destino: to(day("sexta", "sexta"), clock(15, "15h")), ...over });
 
 describe("review P1/P2: each origin hint is proved against the message that brought it; other words never move a bound appointment", () => {
   it("P1: an answer whose hint's words appear only in an earlier turn never binds an appointment (asked again); its own words do", async () => {
-    const turn1 = luna({ cliente: { mencao: "Severina" }, origem: { ...ORIGIN, dia: day(4, "de quarta") }, destino: to(day(6, "sexta"), clock(10, "às 10h")) });
+    const turn1 = luna({ cliente: { mencao: "Severina" }, origem: { ...ORIGIN, dia: day("quarta", "de quarta") }, destino: to(day("sexta", "sexta"), clock(10, "às 10h")) });
     const f = fake(salon({ appointments: twoOnWednesday() }), [turn1, luna({ tipo: "resposta", resposta_a: "q1", origem: { ...ORIGIN, hora: clock(10, "às 10h") } })]);
     expect((await send(f, "Severina de quarta pra sexta às 10h")).code).toBe("ASKED_APPOINTMENT_SEVERAL");
     const again = await send(f, "a da tarde");
     expect(again.code).toBe("ASKED_APPOINTMENT_SEVERAL");
     expect(again.view.fields!.appointment.value).toBeNull();
-    expect(f.state.pending?.proven).toMatchObject({ dia: true, hora: false });
+    // E2-A review FLOW-1: an answer to an appointment question is resolved among that question's options by its OWN hints, which replace the
+    // pending ones (the day that made the question already shaped its options); its unproven hint never picks.
+    expect(f.state.pending?.proven).toEqual({ hora: false });
     expect(f.prepared).toEqual([]);
     const own = fake(salon({ appointments: twoOnWednesday() }), [turn1, luna({ tipo: "resposta", resposta_a: "q1", origem: { ...ORIGIN, hora: clock(16, "das 16h") } })]);
     await send(own, "Severina de quarta pra sexta às 10h");
@@ -70,10 +72,10 @@ describe("review P1/P2: each origin hint is proved against the message that brou
   });
   it("P2: a tapped appointment stays bound when a later message says the same origin in other words, or with words absent from it", async () => {
     const f = fake(salon({ appointments: twoOnWednesday() }), [
-      luna({ cliente: { mencao: "Severina" }, origem: { ...ORIGIN, dia: day(4, "a de quarta") }, destino: to(day(6, "sexta"), clock(15, "às 15h")) }),
-      luna({ origem: { ...ORIGIN, dia: day(4, "isso, a de quarta") }, destino: to(null, clock(17, "às 17h")) }),
-      luna({ origem: { ...ORIGIN, dia: day(4, "quarta-feira") }, destino: to(null, clock(18, "às 18h")) }),
-      luna({ origem: { ...ORIGIN, dia: day(4, "desta quarta", "este") }, destino: to(null, clock(19, "às 19h")) })]);
+      luna({ cliente: { mencao: "Severina" }, origem: { ...ORIGIN, dia: day("quarta", "a de quarta") }, destino: to(day("sexta", "sexta"), clock(15, "às 15h")) }),
+      luna({ origem: { ...ORIGIN, dia: day("quarta", "isso, a de quarta") }, destino: to(null, clock(17, "às 17h")) }),
+      luna({ origem: { ...ORIGIN, dia: day("quarta", "quarta-feira") }, destino: to(null, clock(18, "às 18h")) }),
+      luna({ origem: { ...ORIGIN, dia: day("quarta", "desta quarta", "este") }, destino: to(null, clock(19, "às 19h")) })]);
     expect((await send(f, "Severina, a de quarta, pra sexta às 15h")).code).toBe("ASKED_APPOINTMENT_SEVERAL");
     expect((await selectPilotOption(f.host, "q1/apt-sev-16")).view.fields!.appointment.value).toBe("apt-sev-16");
     const reworded = await send(f, "isso, a de quarta, mas às 17h");
@@ -89,8 +91,8 @@ describe("review P1/P2: each origin hint is proved against the message that brou
 describe("review P3/P6, S3: an out-of-scope part is never dropped in silence", () => {
   it("a withdrawal with a correction and an out-of-scope part asks the scope question before proposing (decision 26)", async () => {
     const rows = [...severinaWed(), booked("apt-ans", anselmo, otavio, corte, WED, "11:00")];
-    const f = fake(salon({ appointments: rows }), [move(), luna({ tipo: "misto", desistir: true, cliente: { mencao: "Anselmo Prado" }, destino: to(day(7, "sábado"), clock(15, "15h")),
-      fora_do_escopo: [{ tipo: "cancelar", mencao: "desmarca a Severina" }] })]);
+    const f = fake(salon({ appointments: rows }), [move(), luna({ tipo: "misto", desistir: true, cliente: { mencao: "Anselmo Prado" }, destino: to(day("sabado", "sábado"), clock(15, "15h")),
+      fora_do_escopo: [{ tipo: "cancelar", pedido: "desmarca a Severina" }] })]);
     await send(f, "Severina vai pra sexta 15h");
     const out = await send(f, "esquece; o Anselmo Prado pra sábado 15h e desmarca a Severina");
     expect(out.code).toBe("ASKED_OUT_OF_SCOPE_PART");
@@ -99,27 +101,27 @@ describe("review P3/P6, S3: an out-of-scope part is never dropped in silence", (
     expect(f.prepared).toHaveLength(1);
   });
   it("a plain withdrawal, and one with nothing open, say the out-of-scope part they leave out", async () => {
-    const f = fake(salon({ appointments: severinaWed() }), [move(), luna({ desistir: true, fora_do_escopo: [{ tipo: "cancelar", mencao: "desmarca ela" }] })]);
+    const f = fake(salon({ appointments: severinaWed() }), [move(), luna({ desistir: true, fora_do_escopo: [{ tipo: "cancelar", pedido: "desmarca ela" }] })]);
     await send(f, "Severina vai pra sexta 15h");
     const out = await send(f, "esquece e desmarca ela");
     expect(out.code).toBe("WITHDRAWN");
     expect(out.text).toContain(PILOT_WITHDRAWN_REPLY);
     expect(out.text).toContain("“desmarca ela”");
-    const none = fake(salon(), [luna({ desistir: true, fora_do_escopo: [{ tipo: "cancelar", mencao: "desmarca ela" }] })]);
+    const none = fake(salon(), [luna({ desistir: true, fora_do_escopo: [{ tipo: "cancelar", pedido: "desmarca ela" }] })]);
     const nothing = await send(none, "esquece e desmarca ela");
     expect(nothing.code).toBe("WITHDRAW_NOTHING");
     expect(nothing.text).toContain(PILOT_NOTHING_OPEN_REPLY);
     expect(nothing.text).toContain("“desmarca ela”");
   });
   it("P6: the owner's yes to the scope question stands when the answer names the part again; a conversation naming one gets the clear reply", async () => {
-    const f = fake(salon({ appointments: severinaWed() }), [move({ tipo: "misto", fora_do_escopo: [{ tipo: "cancelar", mencao: "desmarca o Anselmo" }] }),
-      luna({ tipo: "resposta", resposta_a: "q1", aceita_parcial: true, fora_do_escopo: [{ tipo: "cancelar", mencao: "o desmarque" }] })]);
+    const f = fake(salon({ appointments: severinaWed() }), [move({ tipo: "misto", fora_do_escopo: [{ tipo: "cancelar", pedido: "desmarca o Anselmo" }] }),
+      luna({ tipo: "resposta", resposta_a: "q1", aceita_parcial: true, fora_do_escopo: [{ tipo: "cancelar", pedido: "o desmarque" }] })]);
     await send(f, "Severina vai pra sexta 15h e desmarca o Anselmo");
     const yes = await send(f, "sim, só a remarcação; o desmarque eu faço depois");
     expect(yes.view).toMatchObject({ status: "proposal_ready", questions: [] });
     expect(yes.text).toContain("“o desmarque”");
     expect(f.prepared).toHaveLength(1);
-    const talk = fake(salon(), [luna({ tipo: "conversa", fora_do_escopo: [{ tipo: "bloquear", mencao: "lacra o livro de horas da Inês" }] })]);
+    const talk = fake(salon(), [luna({ tipo: "conversa", fora_do_escopo: [{ tipo: "bloquear", pedido: "lacra o livro de horas da Inês" }] })]);
     const reply = await send(talk, "Bom dia! lacra o livro de horas da Inês");
     expect(reply.code).toBe("OUT_OF_SCOPE");
     expect(reply.text).toContain(PILOT_OUT_OF_SCOPE_REPLY);
@@ -131,7 +133,9 @@ describe("review P4/P5/P7: the contract", () => {
     expect(PILOT_PROMPT).toContain("Uma segunda remarcação na mesma mensagem");
     expect(PILOT_PROMPT).toContain("sem artigo, preposição ou forma de tratamento");
     const examples = PILOT_PROMPT.split("\n").filter(line => line.startsWith("{")).map(line => decodePilotInterpretation(JSON.parse(line)));
-    expect(examples).toHaveLength(3);
+    // E2-A §10.1: three more invented examples (context kept inside; separate requests that read like context); the E2-A adversarial review adds
+    // three (SEMANTICS-1/2/3).
+    expect(examples).toHaveLength(9);
     expect(examples[2]).toMatchObject({ tipo: "misto", cliente: { mencao: "Ermengarda" }, origem: { profissional_mencao: "Lupércio" },
       destino: { dia: { tipo: "mes_relativo", dia: 3, meses: 1 } }, fora_do_escopo: [{ tipo: "outra_acao" }] });
     const wire = JSON.stringify(PILOT_RESCHEDULE_PARAMETERS);
@@ -225,7 +229,7 @@ describe("review E1/E3: a write already made is reported; a replay never pairs a
 describe("review S1/S2/S5: what a message changes is read from the message itself; a said day keeps its turn's today", () => {
   it("S1: a withdrawal naming the customer again withdraws, whatever the agenda or the clock did meanwhile", async () => {
     const withdrawal = luna({ desistir: true, cliente: { mencao: "Severina" } });
-    const free = fake(salon({ appointments: severinaWed() }), [move({ destino: to(day(6, "sexta"), clock(15, "15h"), { modo: "qualquer", mencao: "com quem estiver livre" }) }), withdrawal]);
+    const free = fake(salon({ appointments: severinaWed() }), [move({ destino: to(day("sexta", "sexta"), clock(15, "15h"), { modo: "qualquer", mencao: "com quem estiver livre" }) }), withdrawal]);
     expect((await send(free, "Severina pra sexta 15h com quem estiver livre")).view.fields!.professional.value).toBe(ines.id);
     free.base.appointments!.push(booked("apt-other", anselmo, ines, corte, FRI, "09:00"));
     expect((await send(free, "esquece a da Severina")).code).toBe("WITHDRAWN");
@@ -273,8 +277,8 @@ describe("review S1/S2/S5: what a message changes is read from the message itsel
 
 describe("review S4/S6/S8/S9: taps, turns and bounds", () => {
   it("S4: a tap names its question; a card of a closed question (or a bare id once there were others) changes nothing", async () => {
-    const f = fake(salon({ appointments: severinaWed() }), [move({ destino: to(day(6, "esta sexta", "este"), clock(8, "às 8")) }),
-      luna({ destino: to(day(7, "este sábado", "este"), clock(8, "às 8")) })]);
+    const f = fake(salon({ appointments: severinaWed() }), [move({ destino: to(day("sexta", "esta sexta", "este"), clock(8, "às 8")) }),
+      luna({ destino: to(day("sabado", "este sábado", "este"), clock(8, "às 8")) })]);
     expect((await send(f, "Severina pra esta sexta às 8")).view.questions).toEqual([expect.objectContaining({ questionId: "q1", reason: "TIME_TWO_READINGS" })]);
     const asked = await send(f, "não, este sábado às 8");
     expect(asked.view.questions).toEqual([expect.objectContaining({ questionId: "q2", reason: "TIME_TWO_READINGS" })]);

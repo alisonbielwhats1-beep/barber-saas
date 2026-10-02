@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Model } from "@everflair/salon-secretary";
 import { decodePilotInterpretation, PILOT_RESCHEDULE_TOOL, type PilotInterpretation, type PilotOrigin, type PilotTempoDia,
-  type PilotTempoHora } from "../../../packages/salon-secretary/src/pilot-reschedule-contract";
+  type PilotTempoHora, type PilotWeekday } from "../../../packages/salon-secretary/src/pilot-reschedule-contract";
 import { confirmPilotProposal, handlePilotMessage, pilotReplay, selectPilotOption, PILOT_DIRECTORY_UNAVAILABLE, PILOT_NAME_REQUIRED, PILOT_WITHDRAWN_REPLY,
   type PilotHost, type PilotPreparation, type PilotReceipt, type PilotResolvedChange, type PilotSessionState } from "../secretary-pilot";
 import { applyAnswer, applyIntent, attachProposal, completeExecution, createPilotPlan, invalidate, nextQuestionId, pilotFieldValid, startExecution, withdraw,
@@ -23,12 +23,12 @@ const severina = person("cli-severina", "Severina Lobato"), anselmo = person("cl
 const MON = "2031-03-10", WED = "2031-03-12", FRI = "2031-03-14", NEXT_MON = "2031-03-17";
 const salon = (over: MemorySalon = {}): MemorySalon => ({ customers: [severina, anselmo, anselmoT], team: [ines, otavio], catalog: [corte],
   hours: { [ines.id]: everyDay(["08:00", "20:00"]), [otavio.id]: everyDay(["08:00", "20:00"]) }, appointments: [], ...over });
-const ORIGIN: PilotOrigin = { dia: null, hora: null, profissional_mencao: null, servico_mencao: null, posicao: null };
-const day = (dia_semana: number, mencao: string, qualificador: "este" | "proximo" | null = null): PilotTempoDia => ({ tipo: "dia_semana", dia_semana, qualificador, mencao });
+const ORIGIN: PilotOrigin = { dia: null, hora: null, profissional_mencao: null, servico: null, posicao: null };
+const day = (dia_semana: PilotWeekday, mencao: string, qualificador: "este" | "proximo" | null = null): PilotTempoDia => ({ tipo: "dia_semana", dia_semana, qualificador, mencao });
 const clock = (hora: number, mencao: string, periodo: "manha" | "tarde" | "noite" | null = null): Extract<PilotTempoHora, { tipo: "relogio" }> =>
   ({ tipo: "relogio", hora, minuto: 0, periodo, mencao });
 const luna = (over: Partial<PilotInterpretation> = {}): PilotInterpretation => ({ tipo: "remarcar", resposta_a: null, desistir: false, aceita_parcial: null,
-  cliente: { mencao: null }, origem: ORIGIN, destino: { dia: null, hora: null, profissional: { modo: null, mencao: null } }, fora_do_escopo: [], ...over });
+  cliente: { mencao: null }, origem: ORIGIN, destino: { dia: null, hora: null, profissional: { modo: null, mencao: null } }, observacoes: [], fora_do_escopo: [], ...over });
 const to = (dia: PilotTempoDia | null, hora: PilotTempoHora | null) => ({ dia, hora, profissional: { modo: null, mencao: null } });
 
 /** A host over the in-memory salon: the scripted Luna answers, the preparation proposes (or `prepare` decides), the Confirmar writes. */
@@ -51,19 +51,19 @@ describe("resolver fixes", () => {
   it("C4: an origin said 'este' is the first such weekday from today on, today included", async () => {
     const rows = [booked("apt-sev-today", severina, ines, corte, MON, "17:00"), booked("apt-sev-next", severina, ines, corte, NEXT_MON, "10:00")];
     const reader = memoryReader(salon({ appointments: rows }));
-    const este = await resolveAppointment(reader, { customerId: severina.id, origem: { ...ORIGIN, dia: day(2, "desta segunda", "este") }, message: "a desta segunda da Severina vai pra quarta" }, clockAt());
+    const este = await resolveAppointment(reader, { customerId: severina.id, origem: { ...ORIGIN, dia: day("segunda", "desta segunda", "este") }, message: "a desta segunda da Severina vai pra quarta" }, clockAt());
     expect(este.state === "one" && este.appointment.id).toBe("apt-sev-today");
-    const bare = await resolveAppointment(reader, { customerId: severina.id, origem: { ...ORIGIN, dia: day(2, "de segunda") }, message: "a de segunda da Severina vai pra quarta" }, clockAt());
+    const bare = await resolveAppointment(reader, { customerId: severina.id, origem: { ...ORIGIN, dia: day("segunda", "de segunda") }, message: "a de segunda da Severina vai pra quarta" }, clockAt());
     expect(bare.state === "several" && bare.options.map(row => row.id)).toEqual(["apt-sev-today", "apt-sev-next"]);
   });
   it("decision 4: a destination weekday said on that very weekday also reads as today only while the known clock is ahead; readings that differ are asked", () => {
     const origin = { date: WED }, at = clockAt();
-    expect(resolveTargetDate(day(2, "segunda"), origin, at, { time: "15:00" })).toMatchObject({ state: "ask", options: [MON, NEXT_MON] });
-    expect(resolveTargetDate(day(2, "nesta segunda", "este"), origin, at, { time: "15:00" })).toMatchObject({ state: "ask", options: [MON, NEXT_MON] });
-    expect(resolveTargetDate(day(2, "segunda"), origin, at, { time: "08:30" })).toMatchObject({ state: "one", date: NEXT_MON });
-    expect(resolveTargetDate(day(2, "segunda"), origin, at)).toMatchObject({ state: "one", date: NEXT_MON });
-    expect(resolveTargetDate(day(2, "segunda que vem", "proximo"), origin, at, { time: "15:00" })).toMatchObject({ state: "one", date: NEXT_MON });
-    expect(resolveTargetDate(day(6, "sexta"), origin, at, { time: "15:00" })).toMatchObject({ state: "one", date: FRI });
+    expect(resolveTargetDate(day("segunda", "segunda"), origin, at, { time: "15:00" })).toMatchObject({ state: "ask", options: [MON, NEXT_MON] });
+    expect(resolveTargetDate(day("segunda", "nesta segunda", "este"), origin, at, { time: "15:00" })).toMatchObject({ state: "ask", options: [MON, NEXT_MON] });
+    expect(resolveTargetDate(day("segunda", "segunda"), origin, at, { time: "08:30" })).toMatchObject({ state: "one", date: NEXT_MON });
+    expect(resolveTargetDate(day("segunda", "segunda"), origin, at)).toMatchObject({ state: "one", date: NEXT_MON });
+    expect(resolveTargetDate(day("segunda", "segunda que vem", "proximo"), origin, at, { time: "15:00" })).toMatchObject({ state: "one", date: NEXT_MON });
+    expect(resolveTargetDate(day("sexta", "sexta"), origin, at, { time: "15:00" })).toMatchObject({ state: "one", date: FRI });
   });
   it("M6: a day already past or that does not exist is invalid, and the contract bounds day and minute offsets", () => {
     const at = clockAt(), origin = { date: WED };
@@ -149,15 +149,15 @@ describe("reducer fixes", () => {
 
 describe("orchestrator fixes (scripted Luna, in-memory salon)", () => {
   const severinaWed = () => [booked("apt-sev", severina, ines, corte, WED, "10:00")];
-  const move = (over: Partial<PilotInterpretation> = {}) => luna({ cliente: { mencao: "Severina" }, destino: to(day(6, "sexta"), clock(15, "15h")), ...over });
+  const move = (over: Partial<PilotInterpretation> = {}) => luna({ cliente: { mencao: "Severina" }, destino: to(day("sexta", "sexta"), clock(15, "15h")), ...over });
   it("C2: an out-of-scope part is asked about whatever kind Luna gave the message; nothing is prepared before the answer", async () => {
-    const f = fake(salon({ appointments: severinaWed() }), [move({ tipo: "remarcar", fora_do_escopo: [{ tipo: "cancelar", mencao: "desmarca o Anselmo" }] })]);
+    const f = fake(salon({ appointments: severinaWed() }), [move({ tipo: "remarcar", fora_do_escopo: [{ tipo: "cancelar", pedido: "desmarca o Anselmo" }] })]);
     const reply = await send(f, "Severina vai pra sexta 15h e desmarca o Anselmo");
     expect(reply.view.questions).toEqual([expect.objectContaining({ field: "scope", reason: "OUT_OF_SCOPE_PART" })]);
     expect(f.prepared).toEqual([]);
   });
   it("M1: the scope question takes only aceita_parcial: null asks again, false withdraws, true goes on; a yes is never inferred", async () => {
-    const mixed = move({ tipo: "misto", fora_do_escopo: [{ tipo: "cancelar", mencao: "desmarca o Anselmo" }] });
+    const mixed = move({ tipo: "misto", fora_do_escopo: [{ tipo: "cancelar", pedido: "desmarca o Anselmo" }] });
     const answerOf = (questionId: string, aceita_parcial: boolean | null) => luna({ tipo: "resposta", resposta_a: questionId, aceita_parcial });
     const unsure = fake(salon({ appointments: severinaWed() }), [mixed, answerOf("q1", null), answerOf("q1", false)]);
     const asked = await send(unsure, "Severina vai pra sexta 15h e desmarca o Anselmo");
@@ -206,7 +206,7 @@ describe("orchestrator fixes (scripted Luna, in-memory salon)", () => {
   it("M4: a bound appointment cancelled meanwhile is asked (APPOINTMENT_CHANGED), never replaced by another in silence", async () => {
     const rows = [booked("apt-sev", severina, ines, corte, WED, "10:00"), booked("apt-sev-2", severina, ines, corte, FRI, "11:00")];
     const base = salon({ appointments: rows });
-    const f = fake(base, [move({ origem: { ...ORIGIN, dia: day(4, "de quarta") } }), luna({ destino: to(null, clock(16, "16h")) })]);
+    const f = fake(base, [move({ origem: { ...ORIGIN, dia: day("quarta", "de quarta") } }), luna({ destino: to(null, clock(16, "16h")) })]);
     await send(f, "Severina, a de quarta, vai pra sexta 15h");
     expect(f.state.plan!.action.fields.appointment.value).toBe("apt-sev");
     base.appointments![0] = { ...base.appointments![0], status: "CANCELLED" };
@@ -225,7 +225,7 @@ describe("orchestrator fixes (scripted Luna, in-memory salon)", () => {
   });
   it("M12: an identity question answered without a name asks for it (no loop); a tap on an option binds that real record", async () => {
     const rows = [booked("apt-ans", anselmo, ines, corte, WED, "10:00")];
-    const f = fake(salon({ appointments: rows }), [luna({ cliente: { mencao: "Anselmo" }, destino: to(day(6, "sexta"), clock(15, "15h")) }),
+    const f = fake(salon({ appointments: rows }), [luna({ cliente: { mencao: "Anselmo" }, destino: to(day("sexta", "sexta"), clock(15, "15h")) }),
       luna({ tipo: "resposta", resposta_a: "q1" })]);
     const asked = await send(f, "Anselmo vai pra sexta 15h");
     expect(asked.view.questions).toEqual([expect.objectContaining({ questionId: "q1", field: "customer", reason: "CUSTOMER_AMBIGUOUS" })]);
@@ -275,7 +275,7 @@ describe("orchestrator fixes (scripted Luna, in-memory salon)", () => {
 describe("persisted pilot state (M3, L7)", () => {
   const session = (pilot: unknown) => ({ id: "6f1f3c1e-0d55-4a59-9d55-6a4b8f1f0a01", skill: "auto", expires: 1, turns: 0, cancelled: false, pilot });
   it("a plan, its questions and the pending operators are checked strictly on load; the bounds hold what the orchestrator writes", async () => {
-    const f = fake(salon({ appointments: [booked("apt-sev", severina, ines, corte, WED, "10:00")] }), [luna({ cliente: { mencao: "Severina" }, destino: to(day(6, "sexta"), clock(15, "15h")) })]);
+    const f = fake(salon({ appointments: [booked("apt-sev", severina, ines, corte, WED, "10:00")] }), [luna({ cliente: { mencao: "Severina" }, destino: to(day("sexta", "sexta"), clock(15, "15h")) })]);
     await send(f, "Severina vai pra sexta 15h");
     const state = JSON.parse(JSON.stringify(f.state)) as PilotSessionState;
     expect(storedSession.safeParse(session(state)).success).toBe(true);
@@ -287,7 +287,7 @@ describe("persisted pilot state (M3, L7)", () => {
   });
   it("a question over many real appointments lists the first ones and counts the rest (its text always fits the saved bound)", async () => {
     const many = Array.from({ length: 30 }, (_, i) => booked(`apt-${i}`, severina, ines, corte, `2031-04-${String(i + 1).padStart(2, "0")}`, "10:00"));
-    const f = fake(salon({ appointments: many }), [luna({ cliente: { mencao: "Severina" }, destino: to(day(6, "sexta"), clock(15, "15h")) })]);
+    const f = fake(salon({ appointments: many }), [luna({ cliente: { mencao: "Severina" }, destino: to(day("sexta", "sexta"), clock(15, "15h")) })]);
     const out = await send(f, "Severina vai pra sexta 15h");
     expect(out.view.questions).toEqual([expect.objectContaining({ field: "appointment", reason: "APPOINTMENT_SEVERAL" })]);
     expect(out.text).toContain("e mais 22");

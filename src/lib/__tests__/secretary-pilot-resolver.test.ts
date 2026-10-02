@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { resolveAppointment, resolveCustomer, resolveProfessional, type PilotIdentity, type PilotPerson, type PilotProfessionalRow,
   type PilotServiceRow } from "../secretary-pilot-resolver";
 import { decodePilotInterpretation, decodePilotInterpretationArguments, PilotContractError, PILOT_RESCHEDULE_PARAMETERS, PILOT_RESCHEDULE_TOOL,
-  type PilotInterpretation, type PilotOrigin } from "../../../packages/salon-secretary/src/pilot-reschedule-contract";
+  type PilotInterpretation, type PilotOrigin, type PilotWeekday } from "../../../packages/salon-secretary/src/pilot-reschedule-contract";
 import { booked, clockAt, everyDay, memoryReader, type MemorySalon } from "../../test/secretary-pilot-reader";
 
 /** Reschedule pilot, E1 unit tests written before the code (docs/c5-spike/12-piloto-remarcacao.md §2, §3, §7 "Unidade"): the customer resolver in
@@ -40,9 +40,9 @@ const studio = (over: MemorySalon = {}): MemorySalon => ({
   hours: { [carlos.id]: everyDay(["09:00", "18:00"]), [dalva.id]: everyDay(["09:00", "18:00"]), [kaito.id]: everyDay(["09:00", "18:00"]) }, ...over });
 const ids = (rows: readonly { id: string }[]) => rows.map(row => row.id).sort();
 const bound = (result: PilotIdentity) => result.state === "exact" || result.state === "partial" ? result.id : null;
-const ORIGIN: PilotOrigin = { dia: null, hora: null, profissional_mencao: null, servico_mencao: null, posicao: null };
+const ORIGIN: PilotOrigin = { dia: null, hora: null, profissional_mencao: null, servico: null, posicao: null };
 const origin = (over: Partial<PilotOrigin>): PilotOrigin => ({ ...ORIGIN, ...over });
-const weekdayHint = (dia_semana: number, mencao: string) => ({ tipo: "dia_semana" as const, dia_semana, qualificador: null, mencao });
+const weekdayHint = (dia_semana: PilotWeekday, mencao: string) => ({ tipo: "dia_semana" as const, dia_semana, qualificador: null, mencao });
 const clockHint = (hora: number, mencao: string, minuto = 0) => ({ tipo: "relogio" as const, hora, minuto, periodo: null, mencao });
 const locate = (salon: MemorySalon, customerId: string, origem: PilotOrigin, message: string) => resolveAppointment(memoryReader(salon), { customerId, origem, message }, clockAt());
 
@@ -102,7 +102,7 @@ describe("§3.2 appointment: located once, among the customer's future appointme
     const none = await locate(studio(), leopoldina.id, ORIGIN, "Passa a Leopoldina pra sexta");
     expect(none).toMatchObject({ state: "none", upcoming: [], provenance: "unresolved" });
     const message = "A da sexta da Iracema vai pro sábado";
-    const wrongDay = await locate(studio(), iracema.id, origin({ dia: weekdayHint(6, "da sexta") }), message);
+    const wrongDay = await locate(studio(), iracema.id, origin({ dia: weekdayHint("sexta", "da sexta") }), message);
     expect(wrongDay.state).toBe("none");
     expect(wrongDay.state === "none" && ids(wrongDay.upcoming)).toEqual(["apt-ira-thu", "apt-ira-wed"]);
   });
@@ -118,9 +118,9 @@ describe("§3.2 appointment: located once, among the customer's future appointme
   });
   it("position in the day: the day said narrows to that day, then first or last picks by start", async () => {
     const message = "Adia o último do Wanderley na quarta pra sexta";
-    const last = await locate(studio(), wanderley.id, origin({ dia: weekdayHint(4, "na quarta"), posicao: { valor: "ultimo", mencao: "o último" } }), message);
+    const last = await locate(studio(), wanderley.id, origin({ dia: weekdayHint("quarta", "na quarta"), posicao: { valor: "ultimo", mencao: "o último" } }), message);
     expect(last.state === "one" && last.appointment.id).toBe("apt-wan-wed-pm");
-    const first = await locate(studio(), wanderley.id, origin({ dia: weekdayHint(4, "na quarta"), posicao: { valor: "primeiro", mencao: "o primeiro" } }), "Adia o primeiro do Wanderley na quarta pra sexta");
+    const first = await locate(studio(), wanderley.id, origin({ dia: weekdayHint("quarta", "na quarta"), posicao: { valor: "primeiro", mencao: "o primeiro" } }), "Adia o primeiro do Wanderley na quarta pra sexta");
     expect(first.state === "one" && first.appointment.id).toBe("apt-wan-wed-am");
     const sameDay = studio({ appointments: wanderleyRows.slice(0, 2) });
     const onlyPosition = await locate(sameDay, wanderley.id, origin({ posicao: { valor: "primeiro", mencao: "o primeiro" } }), "Adia o primeiro do Wanderley pra sexta");
@@ -144,19 +144,19 @@ describe("§3.2 appointment: located once, among the customer's future appointme
     expect(absent.state === "several" && absent.ignored).toContain("profissional");
   });
   it("narrow provenance applies to day, clock (both readings of a bare hour) and service hints alike; the search is normalized", async () => {
-    const day = await locate(studio(), iracema.id, origin({ dia: weekdayHint(5, "da quinta") }), "A da quinta da Iracema vai pro sábado às 10h");
+    const day = await locate(studio(), iracema.id, origin({ dia: weekdayHint("quinta", "da quinta") }), "A da quinta da Iracema vai pro sábado às 10h");
     expect(day.state === "one" && day.appointment.id).toBe("apt-ira-thu");
-    const dayAbsent = await locate(studio(), iracema.id, origin({ dia: weekdayHint(5, "da quinta") }), "A Iracema vai pro sábado às 10h");
+    const dayAbsent = await locate(studio(), iracema.id, origin({ dia: weekdayHint("quinta", "da quinta") }), "A Iracema vai pro sábado às 10h");
     expect(dayAbsent.state === "several" && dayAbsent.ignored).toContain("dia");
     const bareHour = await locate(studio(), iracema.id, origin({ hora: clockHint(2, "das 2") }), "A das 2 da Iracema passa pro sábado");
     expect(bareHour.state === "one" && bareHour.appointment.id).toBe("apt-ira-thu");
-    const service = await locate(studio(), iracema.id, origin({ servico_mencao: "Sobrancelha" }), "A SOBRANCELHA da Iracema fica pro sábado");
+    const service = await locate(studio(), iracema.id, origin({ servico: { mencao: "Sobrancelha", catalogo: ["Design de sobrancelha"] } }), "A SOBRANCELHA da Iracema fica pro sábado");
     expect(service.state === "one" && service.appointment.id).toBe("apt-ira-thu");
-    const accents = await locate(studio(), wanderley.id, origin({ servico_mencao: "drenagem linfática" }), "A DRENAGEM LINFATICA do Wanderley sobe pra sexta");
+    const accents = await locate(studio(), wanderley.id, origin({ servico: { mencao: "drenagem linfática", catalogo: ["Drenagem linfática"] } }), "A DRENAGEM LINFATICA do Wanderley sobe pra sexta");
     expect(accents.state === "one" && accents.appointment.id).toBe("apt-wan-wed-am");
   });
   it("the check never drops the action nor changes a value: an ignored hint leaves every real option asked", async () => {
-    const result = await locate(studio(), iracema.id, origin({ profissional_mencao: "Dalva", servico_mencao: "sobrancelha" }), "Troca a Iracema de dia");
+    const result = await locate(studio(), iracema.id, origin({ profissional_mencao: "Dalva", servico: { mencao: "sobrancelha", catalogo: ["Design de sobrancelha"] } }), "Troca a Iracema de dia");
     expect(result.state).toBe("several");
     expect(result.state === "several" && ids(result.options)).toEqual(["apt-ira-thu", "apt-ira-wed"]);
     expect(result.state === "several" && [...result.ignored].sort()).toEqual(["profissional", "servico"]);
@@ -253,7 +253,7 @@ describe("properties: identity changes only when the mention really changes", ()
     const next = random(77031), cases = [
       { origem: origin({ profissional_mencao: "Carlos" }), message: "Joga o horário da Iracema com o Carlos pra sexta de manhã" },
       { origem: origin({ profissional_mencao: "Carlos" }), message: "Joga o horário da Iracema pra sexta de manhã" },
-      { origem: origin({ dia: weekdayHint(5, "da quinta") }), message: "A da quinta da Iracema vai pro sábado às 10h" },
+      { origem: origin({ dia: weekdayHint("quinta", "da quinta") }), message: "A da quinta da Iracema vai pro sábado às 10h" },
     ];
     for (const { origem, message } of cases) {
       const expected = await locate(studio(), iracema.id, origem, message);
@@ -270,10 +270,10 @@ describe("properties: identity changes only when the mention really changes", ()
 const payload = (over: Partial<PilotInterpretation> = {}): PilotInterpretation => ({
   tipo: "remarcar", resposta_a: null, desistir: false, aceita_parcial: null, cliente: { mencao: "Ana" },
   origem: { dia: { tipo: "data", dia: 12, mes: 3, mencao: "do dia 12" }, hora: { tipo: "relogio", hora: 10, minuto: 0, periodo: "manha", mencao: "das 10 da manhã" },
-    profissional_mencao: "Carlos", servico_mencao: "limpeza", posicao: { valor: "primeiro", mencao: "o primeiro" } },
-  destino: { dia: { tipo: "dia_semana", dia_semana: 6, qualificador: "este", mencao: "nesta sexta" }, hora: { tipo: "origem_mais_minutos", minutos: 150, mencao: "150 min mais tarde" },
+    profissional_mencao: "Carlos", servico: { mencao: "limpeza", catalogo: ["Limpeza de pele"] }, posicao: { valor: "primeiro", mencao: "o primeiro" } },
+  destino: { dia: { tipo: "dia_semana", dia_semana: "sexta", qualificador: "este", mencao: "nesta sexta" }, hora: { tipo: "origem_mais_minutos", minutos: 150, mencao: "150 min mais tarde" },
     profissional: { modo: "nomeado", mencao: "Dalva" } },
-  fora_do_escopo: [{ tipo: "mensagem", mencao: "avisa ela" }], ...over });
+  observacoes: [], fora_do_escopo: [{ tipo: "mensagem", pedido: "avisa ela" }], ...over });
 const verdict = (decode: () => unknown) => {
   try { decode(); return "ACCEPTED"; } catch (error) { return error instanceof PilotContractError && error.reasons.length > 0 ? "REJECTED" : `OTHER:${(error as Error).message}`; }
 };
@@ -291,13 +291,13 @@ describe("§2 contract: interpretar_remarcacao", () => {
       expect(node.additionalProperties).toBe(false);
       expect([...(node.required as string[])].sort()).toEqual(Object.keys(node.properties as Node).sort());
     }
-    expect(Object.keys((PILOT_RESCHEDULE_PARAMETERS as Node).properties as Node)).toEqual(["tipo", "resposta_a", "desistir", "aceita_parcial", "cliente", "origem", "destino", "fora_do_escopo"]);
+    expect(Object.keys((PILOT_RESCHEDULE_PARAMETERS as Node).properties as Node)).toEqual(["tipo", "resposta_a", "desistir", "aceita_parcial", "cliente", "origem", "destino", "observacoes", "fora_do_escopo"]);
   });
   it("a valid payload decodes to itself, as an object and as the call's arguments; every day and clock operator is accepted", () => {
     const full = payload();
     expect(decodePilotInterpretation(structuredClone(full))).toEqual(full);
     expect(decodePilotInterpretationArguments(JSON.stringify(full))).toEqual(full);
-    const days = [{ tipo: "data", dia: 3, mes: null, mencao: "dia 3" }, { tipo: "dia_semana", dia_semana: 1, qualificador: null, mencao: "domingo" },
+    const days = [{ tipo: "data", dia: 3, mes: null, mencao: "dia 3" }, { tipo: "dia_semana", dia_semana: "domingo", qualificador: null, mencao: "domingo" },
       { tipo: "relativo_hoje", dias: 1, mencao: "amanhã" }, { tipo: "mesmo_da_origem", mencao: "no mesmo dia" }, { tipo: "origem_mais_dias", dias: 7, mencao: "uma semana pra frente" }] as const;
     const clocks = [{ tipo: "relogio", hora: 23, minuto: 59, periodo: null, mencao: "23h59" }, { tipo: "mesmo_da_origem", mencao: "mesmo horário" },
       { tipo: "origem_mais_minutos", minutos: 30, mencao: "meia hora depois" }, { tipo: "a_definir", mencao: "num horário a combinar" }] as const;
@@ -318,14 +318,14 @@ describe("§2 contract: interpretar_remarcacao", () => {
     const bad: unknown[] = [noWithdraw,
       payload({ destino: { ...payload().destino, dia: { tipo: "data", dia: 32, mes: null, mencao: "dia 32" } } }),
       payload({ destino: { ...payload().destino, dia: { tipo: "data", dia: 10, mes: 13, mencao: "10 do 13" } } }),
-      payload({ destino: { ...payload().destino, dia: { tipo: "dia_semana", dia_semana: 0, qualificador: null, mencao: "dia zero" } } }),
-      payload({ destino: { ...payload().destino, dia: { tipo: "dia_semana", dia_semana: 8, qualificador: null, mencao: "dia oito" } } }),
+      { ...payload(), destino: { ...payload().destino, dia: { tipo: "dia_semana", dia_semana: 0, qualificador: null, mencao: "dia zero" } } },
+      { ...payload(), destino: { ...payload().destino, dia: { tipo: "dia_semana", dia_semana: 8, qualificador: null, mencao: "dia oito" } } },
       payload({ destino: { ...payload().destino, hora: { tipo: "relogio", hora: 24, minuto: 0, periodo: null, mencao: "24h" } } }),
       payload({ destino: { ...payload().destino, hora: { tipo: "relogio", hora: 10, minuto: 60, periodo: null, mencao: "10h60" } } }),
       { ...payload(), destino: { ...payload().destino, dia: { tipo: "data", dia_semana: 3, mencao: "quarta" } } },
       { ...payload(), destino: { ...payload().destino, hora: { tipo: "a_definir", minutos: 10, mencao: "depois" } } },
       { ...payload(), tipo: "cancelar" }, { ...payload(), resposta_a: "pergunta-1" }, { ...payload(), cliente: { mencao: "" } },
-      { ...payload(), fora_do_escopo: [{ tipo: "excluir", mencao: "apaga" }] }, { ...payload(), desistir: "sim" }];
+      { ...payload(), fora_do_escopo: [{ tipo: "excluir", pedido: "apaga" }] }, { ...payload(), desistir: "sim" }];
     for (const [index, raw] of bad.entries()) expect(verdict(() => decodePilotInterpretation(raw)), String(index)).toBe("REJECTED");
     expect(verdict(() => decodePilotInterpretationArguments("{\"tipo\":"))).toBe("REJECTED");
   });

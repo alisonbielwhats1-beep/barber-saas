@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resolveTargetDate, resolveTargetTime, type PilotProfessionalRow } from "../secretary-pilot-resolver";
-import type { PilotTempoDia, PilotTempoHora } from "../../../packages/salon-secretary/src/pilot-reschedule-contract";
+import type { PilotTempoDia, PilotTempoHora, PilotWeekday } from "../../../packages/salon-secretary/src/pilot-reschedule-contract";
 import { clockAt, everyDay, memoryReader } from "../../test/secretary-pilot-reader";
 
 /** Reschedule pilot, E1 unit tests written before the code (docs/c5-spike/12-piloto-remarcacao.md §3.3, §3.4, §7 "Unidade"): every day and
@@ -11,7 +11,7 @@ import { clockAt, everyDay, memoryReader } from "../../test/secretary-pilot-read
 const MON = "2031-03-10", WED = "2031-03-12", FRI = "2031-03-14", NEXT_MON = "2031-03-17", NEXT_FRI = "2031-03-21";
 const day = (tempo: PilotTempoDia | null, originDate = WED, at?: string) => resolveTargetDate(tempo, { date: originDate }, clockAt(at));
 const data = (dia: number, mes: number | null = null): PilotTempoDia => ({ tipo: "data", dia, mes, mencao: mes ? `${dia}/${mes}` : `dia ${dia}` });
-const weekday = (dia_semana: number, qualificador: "este" | "proximo" | null = null): PilotTempoDia => ({ tipo: "dia_semana", dia_semana, qualificador, mencao: `dia ${dia_semana}` });
+const weekday = (dia_semana: PilotWeekday, qualificador: "este" | "proximo" | null = null): PilotTempoDia => ({ tipo: "dia_semana", dia_semana, qualificador, mencao: `dia ${dia_semana}` });
 const relative = (dias: number): PilotTempoDia => ({ tipo: "relativo_hoje", dias, mencao: `daqui ${dias}` });
 
 describe("§3.3 target day: every operator from the frozen received_at, in the salon's timezone", () => {
@@ -45,20 +45,20 @@ describe("§3.3 target day: every operator from the frozen received_at, in the s
 
 describe("decision 27: a weekday with two plausible readings is asked, never chosen in silence", () => {
   it("no qualifier: the first after today and the first after the original day; equal → that day, explicit; different → both asked", () => {
-    expect(day(weekday(6), WED)).toMatchObject({ state: "one", date: FRI, provenance: "explicit" });
-    expect(day(weekday(6), NEXT_MON)).toEqual({ state: "ask", options: [FRI, NEXT_FRI], reason: "TWO_READINGS", mencao: "dia 6" });
-    expect(day(weekday(6), FRI)).toEqual({ state: "ask", options: [FRI, NEXT_FRI], reason: "TWO_READINGS", mencao: "dia 6" });
+    expect(day(weekday("sexta"), WED)).toMatchObject({ state: "one", date: FRI, provenance: "explicit" });
+    expect(day(weekday("sexta"), NEXT_MON)).toEqual({ state: "ask", options: [FRI, NEXT_FRI], reason: "TWO_READINGS", mencao: "dia sexta" });
+    expect(day(weekday("sexta"), FRI)).toEqual({ state: "ask", options: [FRI, NEXT_FRI], reason: "TWO_READINGS", mencao: "dia sexta" });
   });
   it("'este' takes the first reading; 'proximo' asks as no qualifier does when the readings differ", () => {
-    expect(day(weekday(6, "este"), NEXT_MON)).toMatchObject({ state: "one", date: FRI, provenance: "explicit" });
-    expect(day(weekday(6, "proximo"), WED)).toMatchObject({ state: "one", date: FRI });
-    expect(day(weekday(6, "proximo"), NEXT_MON)).toMatchObject({ state: "ask", options: [FRI, NEXT_FRI] });
+    expect(day(weekday("sexta", "este"), NEXT_MON)).toMatchObject({ state: "one", date: FRI, provenance: "explicit" });
+    expect(day(weekday("sexta", "proximo"), WED)).toMatchObject({ state: "one", date: FRI });
+    expect(day(weekday("sexta", "proximo"), NEXT_MON)).toMatchObject({ state: "ask", options: [FRI, NEXT_FRI] });
   });
-  it("'after today' never means today; the weekday counts as the Portuguese names (1 domingo … 7 sábado)", () => {
-    expect(day(weekday(2), WED)).toMatchObject({ state: "one", date: NEXT_MON });
-    expect(day(weekday(1), WED)).toMatchObject({ state: "one", date: "2031-03-16" });
-    expect(day(weekday(7), WED)).toMatchObject({ state: "one", date: "2031-03-15" });
-    expect(day(weekday(4), WED)).toEqual({ state: "ask", options: [WED, "2031-03-19"], reason: "TWO_READINGS", mencao: "dia 4" });
+  it("'after today' never means today; the weekday is the typed name (E2-A enum, segunda … domingo)", () => {
+    expect(day(weekday("segunda"), WED)).toMatchObject({ state: "one", date: NEXT_MON });
+    expect(day(weekday("domingo"), WED)).toMatchObject({ state: "one", date: "2031-03-16" });
+    expect(day(weekday("sabado"), WED)).toMatchObject({ state: "one", date: "2031-03-15" });
+    expect(day(weekday("quarta"), WED)).toEqual({ state: "ask", options: [WED, "2031-03-19"], reason: "TWO_READINGS", mencao: "dia quarta" });
   });
 });
 

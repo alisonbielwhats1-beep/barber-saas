@@ -5,7 +5,7 @@ import type { Model, ModelRequest } from "@everflair/salon-secretary";
 import { assertMvpTestDatabase } from "../../../scripts/service-mvp-test-safety";
 import { AGENT_DEPENDENCY_FLAGS } from "../../../packages/salon-secretary/src/agent-context";
 import { PILOT_RESCHEDULE_PARAMETERS, PILOT_RESCHEDULE_TOOL, type PilotInterpretation, type PilotTempoDia,
-  type PilotTempoHora } from "../../../packages/salon-secretary/src/pilot-reschedule-contract";
+  type PilotTempoHora, type PilotWeekday } from "../../../packages/salon-secretary/src/pilot-reschedule-contract";
 import { prisma } from "../prisma";
 import { withTenant } from "../prisma-tenant";
 import { SalonSecretary, type SecretaryView } from "../salon-secretary";
@@ -104,15 +104,15 @@ async function world() {
   return { a, b, ana };
 }
 
-const NO_ORIGIN: PilotInterpretation["origem"] = { dia: null, hora: null, profissional_mencao: null, servico_mencao: null, posicao: null };
+const NO_ORIGIN: PilotInterpretation["origem"] = { dia: null, hora: null, profissional_mencao: null, servico: null, posicao: null };
 const luna = (over: Partial<PilotInterpretation> = {}): PilotInterpretation => ({ tipo: "remarcar", resposta_a: null, desistir: false, aceita_parcial: null, cliente: { mencao: null },
-  origem: NO_ORIGIN, destino: { dia: null, hora: null, profissional: { modo: null, mencao: null } }, fora_do_escopo: [], ...over });
-const weekday = (dia_semana: number, mencao: string): PilotTempoDia => ({ tipo: "dia_semana", dia_semana, qualificador: null, mencao });
+  origem: NO_ORIGIN, destino: { dia: null, hora: null, profissional: { modo: null, mencao: null } }, observacoes: [], fora_do_escopo: [], ...over });
+const weekday = (dia_semana: PilotWeekday, mencao: string): PilotTempoDia => ({ tipo: "dia_semana", dia_semana, qualificador: null, mencao });
 const at = (hora: number, mencao: string): PilotTempoHora => ({ tipo: "relogio", hora, minuto: 0, periodo: null, mencao });
 const to = (dia: PilotTempoDia | null, hora: PilotTempoHora | null, profissional: PilotInterpretation["destino"]["profissional"] = { modo: null, mencao: null }) => ({ dia, hora, profissional });
 const MAIN = "Remarque a Ana com Carlos para sexta às 15h";
 /** Luna's reading of MAIN: the customer and the professional of the appointment as the owner named them, Friday (6) at 15h. */
-const mainTurn = luna({ cliente: { mencao: "Ana" }, origem: { ...NO_ORIGIN, profissional_mencao: "Carlos" }, destino: to(weekday(6, "sexta"), at(15, "às 15h")) });
+const mainTurn = luna({ cliente: { mencao: "Ana" }, origem: { ...NO_ORIGIN, profissional_mencao: "Carlos" }, destino: to(weekday("sexta", "sexta"), at(15, "às 15h")) });
 
 async function open(s: Studio, frames: PilotInterpretation[], store?: SecretarySessionStore) {
   const model = new ScriptedServicesModel(frames.map(frame => call(PILOT_RESCHEDULE_TOOL, frame)));
@@ -191,7 +191,7 @@ suite("Reschedule pilot through SalonSecretary on the local PostgreSQL (flag SAL
     const a = await studio("A", ["Ana Quaresma", "Ana Bezerra", "Bento Ximenes"]);
     await book(a, "Ana Quaresma", a.carlos, a.limpeza, D(2), "10:00");
     const bezerra = await book(a, "Ana Bezerra", a.dalva, a.sobrancelha, D(3), "11:00");
-    const c = await open(a, [luna({ cliente: { mencao: "Ana" }, destino: to(weekday(6, "sexta"), at(15, "15h")) })]);
+    const c = await open(a, [luna({ cliente: { mencao: "Ana" }, destino: to(weekday("sexta", "sexta"), at(15, "15h")) })]);
     const before = await rows(a);
     const asked = await say(c, "Puxa a Ana pra sexta, 15h");
     expect(asked.pilot).toMatchObject({ status: "pending", fields: { customer: { value: null, provenance: "unresolved" } } });
@@ -215,7 +215,7 @@ suite("Reschedule pilot through SalonSecretary on the local PostgreSQL (flag SAL
   it("a surname that contradicts the only match is asked («Encontrei …, mas você escreveu …») and never substituted", async () => {
     const a = await studio("A", ["Leopoldina Siqueira", "Bento Ximenes"]);
     await book(a, "Leopoldina Siqueira", a.carlos, a.limpeza, D(2), "10:00");
-    const c = await open(a, [luna({ cliente: { mencao: "Leopoldina Arantes" }, destino: to(weekday(5, "quinta"), at(10, "às 10h")) })]);
+    const c = await open(a, [luna({ cliente: { mencao: "Leopoldina Arantes" }, destino: to(weekday("quinta", "quinta"), at(10, "às 10h")) })]);
     const before = await rows(a);
     const view = await say(c, "Leva a Leopoldina Arantes pra quinta às 10h");
     expect(view.pilot).toMatchObject({ status: "pending", fields: { customer: { value: null, provenance: "unresolved" }, appointment: { value: null, provenance: "unresolved" } } });
@@ -228,7 +228,7 @@ suite("Reschedule pilot through SalonSecretary on the local PostgreSQL (flag SAL
   it("a slot already taken is never proposed: the Secretária explains and asks another one, keeping what was resolved", async () => {
     const w = await world();
     await book(w.a, "Wanda Seixas", w.a.carlos, w.a.limpeza, D(4), "15:00");
-    const c = await open(w.a, [luna({ cliente: { mencao: "Ana" }, destino: to(weekday(6, "sexta"), at(15, "às 15h")) })]);
+    const c = await open(w.a, [luna({ cliente: { mencao: "Ana" }, destino: to(weekday("sexta", "sexta"), at(15, "às 15h")) })]);
     const before = await rows(w.a);
     const view = await say(c, "Coloca a Ana na sexta às 15h");
     expect(readyGroups(view)).toEqual([]);
@@ -310,7 +310,7 @@ suite("Reschedule pilot through SalonSecretary on the local PostgreSQL (flag SAL
   });
 
   it("a withdrawal that repeats the open request (same customer, same destination) is still a withdrawal, never a new proposal", async () => {
-    const w = await world(), c = await open(w.a, [mainTurn, luna({ desistir: true, cliente: { mencao: "Ana" }, destino: to(weekday(6, "sexta"), at(15, "às 15h")) })]);
+    const w = await world(), c = await open(w.a, [mainTurn, luna({ desistir: true, cliente: { mencao: "Ana" }, destino: to(weekday("sexta", "sexta"), at(15, "às 15h")) })]);
     const first = await say(c, MAIN), before = await rows(w.a);
     const second = await say(c, "Esquece aquela da Ana pra sexta às 15h");
     expect(second.pilot?.status).toBe("withdrawn");
@@ -324,7 +324,7 @@ suite("Reschedule pilot through SalonSecretary on the local PostgreSQL (flag SAL
     const a = await studio("A", ["Ana Quaresma", "Ana Bezerra", "Bento Ximenes"]);
     await book(a, "Ana Quaresma", a.carlos, a.limpeza, D(2), "10:00");
     await book(a, "Ana Bezerra", a.dalva, a.sobrancelha, D(3), "11:00");
-    const c = await open(a, [luna({ cliente: { mencao: "Ana" }, destino: to(weekday(6, "sexta"), at(15, "15h")) }), luna({ destino: to(null, at(16, "16h")) })]);
+    const c = await open(a, [luna({ cliente: { mencao: "Ana" }, destino: to(weekday("sexta", "sexta"), at(15, "15h")) }), luna({ destino: to(null, at(16, "16h")) })]);
     const before = await rows(a);
     const asked = await say(c, "Puxa a Ana pra sexta, 15h"), q1 = asked.pilot!.questions[0].questionId;
     const corrected = await say(c, "Aliás, 16h");
@@ -395,8 +395,8 @@ suite("Reschedule pilot through SalonSecretary on the local PostgreSQL (flag SAL
 
   it("a request partly out of scope asks before proposing only the possible part; nothing is written", async () => {
     const w = await world();
-    const c = await open(w.a, [luna({ tipo: "misto", cliente: { mencao: "Ana" }, destino: to(weekday(6, "sexta"), at(15, "15h")),
-      fora_do_escopo: [{ tipo: "cancelar", mencao: "desmarca o Bento de sexta cedo" }] })]);
+    const c = await open(w.a, [luna({ tipo: "misto", cliente: { mencao: "Ana" }, destino: to(weekday("sexta", "sexta"), at(15, "15h")),
+      fora_do_escopo: [{ tipo: "cancelar", pedido: "desmarca o Bento de sexta cedo" }] })]);
     const before = await rows(w.a);
     const view = await say(c, "Muda a Ana pra sexta 15h e desmarca o Bento de sexta cedo");
     expect(readyGroups(view)).toEqual([]);
@@ -407,7 +407,7 @@ suite("Reschedule pilot through SalonSecretary on the local PostgreSQL (flag SAL
 
   it("a request wholly out of scope gets the clear answer and no effect", async () => {
     const w = await world();
-    const c = await open(w.a, [luna({ tipo: "fora_do_escopo", fora_do_escopo: [{ tipo: "bloquear", mencao: "Reserva a quinta inteira do Carlos" }] })]);
+    const c = await open(w.a, [luna({ tipo: "fora_do_escopo", fora_do_escopo: [{ tipo: "bloquear", pedido: "Reserva a quinta inteira do Carlos" }] })]);
     const before = await rows(w.a);
     const view = await say(c, "Reserva a quinta inteira do Carlos pra formação");
     expect(view.message).toContain(PILOT_OUT_OF_SCOPE_REPLY);
@@ -516,7 +516,7 @@ suite("Reschedule pilot through SalonSecretary on the local PostgreSQL (flag SAL
   it("S4/S9: a tap names its question and counts as a turn of the session (bounded)", async () => {
     const a = await studio("A", ["Ana Quaresma", "Ana Bezerra", "Bento Ximenes"]);
     await book(a, "Ana Quaresma", a.carlos, a.limpeza, D(2), "10:00");
-    const c = await open(a, [luna({ cliente: { mencao: "Ana" }, destino: to(weekday(6, "sexta"), at(15, "15h")) })]);
+    const c = await open(a, [luna({ cliente: { mencao: "Ana" }, destino: to(weekday("sexta", "sexta"), at(15, "15h")) })]);
     const asked = await say(c, "Puxa a Ana pra sexta, 15h"), question = asked.pilot!.questions[0], tap = pilotOptionRef(question.questionId, a.people["Ana Quaresma"]);
     const session = sessionOf<{ turns: number }>(c);
     session.turns = 20;

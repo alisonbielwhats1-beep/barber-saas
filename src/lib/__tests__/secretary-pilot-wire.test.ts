@@ -3,7 +3,8 @@ import type { ModelRequest } from "@everflair/salon-secretary";
 import { agentRequestBody } from "../../../packages/salon-secretary/src/agent-loop";
 import { assertSecretaryPilotModelRequest, assertSecretaryResponsesPayload } from "../../../packages/salon-secretary/src/openai-cost-guard";
 import { PILOT_RESCHEDULE_PARAMETERS, PILOT_RESCHEDULE_TOOL, PILOT_REQUEST_LIMITS } from "../../../packages/salon-secretary/src/pilot-reschedule-contract";
-import { instrumentPilotModel, pilotRequest, runPilotInterpretation, PILOT_PROMPT, PILOT_REQUEST_CAP, type PilotRequestContext } from "../../../packages/salon-secretary/src/pilot-reschedule-prompt";
+import { instrumentPilotModel, pilotCatalogNames, pilotRequest, runPilotInterpretation, PILOT_PROMPT, PILOT_REPAIR_RULES, PILOT_REQUEST_CAP, PILOT_SERVICE_NAMES_BYTES,
+  type PilotRequestContext } from "../../../packages/salon-secretary/src/pilot-reschedule-prompt";
 import { secretaryFlagSnapshot } from "../../../packages/salon-secretary/evaluation/agenda-practice-lib";
 import { ScriptedServicesModel, call } from "../../test/scripted-services-model";
 
@@ -17,9 +18,9 @@ const wire = (request: ModelRequest) => JSON.parse(JSON.stringify(agentRequestBo
 const context = (over: Partial<PilotRequestContext> = {}): PilotRequestContext => ({ today: { date: "2031-03-10", weekday: "segunda-feira", timezone: "America/Sao_Paulo" },
   team: ["Teodósio Arruda", "Iolanda Braga"], services: ["Massagem relaxante", "Esfoliação corporal"], ...over });
 const valid = { tipo: "remarcar", resposta_a: null, desistir: false, aceita_parcial: null, cliente: { mencao: "Zaqueu" },
-  origem: { dia: null, hora: null, profissional_mencao: null, servico_mencao: null, posicao: null },
+  origem: { dia: null, hora: null, profissional_mencao: null, servico: null, posicao: null },
   destino: { dia: { tipo: "relativo_hoje", dias: 2, mencao: "depois de amanhã" }, hora: { tipo: "relogio", hora: 17, minuto: 0, periodo: null, mencao: "17h" }, profissional: { modo: null, mencao: null } },
-  fora_do_escopo: [] };
+  observacoes: [], fora_do_escopo: [] };
 
 describe("pilot request: SDK boundary, HTTP boundary and size", () => {
   it("the request passes the SDK guard; its HTTP body passes the payload guard only with {pilot:true}", () => {
@@ -61,6 +62,23 @@ describe("pilot request: SDK boundary, HTTP boundary and size", () => {
     expect(bytes + PILOT_REQUEST_CAP.outputFraming).toBeLessThanOrEqual(PILOT_REQUEST_CAP.requestCap);
     expect(JSON.stringify(request.input)).toContain("q7");
     expect(PILOT_PROMPT).not.toMatch(/\b(?:Amanda|Fábio|João|Tatiana|Rosa|Carla|Ricardo|Rodrigo)\b/);
+  });
+  it("E2-A review CATALOG-1: every catalog name the reader returns (up to its 400) is sent, cut only past the byte budget; the worst case still fits the cap", () => {
+    const realistic = Array.from({ length: 400 }, (_, index) => `Ritual sintético ${String(index).padStart(3, "0")}`);
+    expect(pilotCatalogNames(realistic)).toEqual({ names: realistic, total: 400 });
+    expect(pilotCatalogNames(["Corte", "Corte", "", "Escova"])).toEqual({ names: ["Corte", "Escova"], total: 2 });
+    // Worst case: 400 names of 200 characters (the contract's longest catalog name), a full team, an open plan, a 1000-character message and a
+    // repair note naming every rule code: the names are cut at the budget (and counted), and the request fits the cap.
+    const long = Array.from({ length: 400 }, (_, index) => `${String(index).padStart(3, "0")} ${"ção".repeat(65)}`);
+    const cut = pilotCatalogNames(long);
+    expect(cut.total).toBe(400);
+    expect(cut.names.length).toBeLessThan(400);
+    expect(Buffer.byteLength(JSON.stringify(cut.names), "utf8")).toBeLessThanOrEqual(PILOT_SERVICE_NAMES_BYTES);
+    const team = Array.from({ length: 40 }, (_, index) => `Profissional Sintética Número ${index} de Sobrenome Comprido`);
+    const open = { lines: ["cliente: “Zaqueu” (cadastro definido)", "novo dia: qua, 12/03"], question: { questionId: "q7", field: "novo horário", reason: "TIME_TWO_READINGS", options: ["8h (08:00)", "20h (20:00)"] } };
+    const request = pilotRequest(context({ team, services: cut.names, open }), "ção".repeat(333), { repair: [...Object.keys(PILOT_REPAIR_RULES), "SCHEMA:invalid_type@tipo"] });
+    const bytes = Buffer.byteLength(JSON.stringify(agentRequestBody(request, MODEL)), "utf8");
+    expect(bytes + PILOT_REQUEST_CAP.outputFraming).toBeLessThanOrEqual(PILOT_REQUEST_CAP.requestCap);
   });
   it("the evaluation flag snapshot records the pilot switch (it names no credential)", () => {
     expect(secretaryFlagSnapshot({ SALON_SECRETARY_PILOT_RESCHEDULE: "true", SALON_SECRETARY_OPENAI_API_KEY: "sk-synthetic" })).toEqual({ SALON_SECRETARY_PILOT_RESCHEDULE: "true" });

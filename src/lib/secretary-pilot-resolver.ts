@@ -1,4 +1,4 @@
-import type { PilotDestination, PilotOrigin, PilotTempoDia, PilotTempoHora } from "../../packages/salon-secretary/src/pilot-reschedule-contract";
+import type { PilotDestination, PilotOrigin, PilotTempoDia, PilotTempoHora, PilotWeekday } from "../../packages/salon-secretary/src/pilot-reschedule-contract";
 import { nameScore, nameTokens, SUGGESTION_LIMIT, SUGGESTION_THRESHOLD } from "./name-search";
 import { addCalendarDays, dateKeyInTimeZone, isDateKey, toLocalDateTime, weekdayOfDateKey } from "./time";
 
@@ -12,9 +12,13 @@ import { addCalendarDays, dateKeyInTimeZone, isDateKey, toLocalDateTime, weekday
 export type PilotPerson = { id: string; name: string };
 export type PilotProfessionalRow = PilotPerson & { serviceIds: readonly string[] };
 export type PilotServiceRow = { id: string; name: string; durationMin: number; priceCents: number };
-/** A booked appointment in the salon's local time ("YYYY-MM-DDTHH:mm"); `status` as stored (only PENDING and CONFIRMED are ever candidates). */
+/** A booked appointment in the salon's local time ("YYYY-MM-DDTHH:mm"); `status` as stored (only PENDING and CONFIRMED are ever candidates).
+ * `serviceId` is the appointment's first service; E2-A review SERVICE-1: `serviceIds`, every service of its items (a combo holds each of them). */
 export type PilotAppointmentRow = { id: string; customerId: string; professionalId: string; professionalName: string; serviceId: string; serviceName: string;
-  startLocal: string; endLocal: string; status: string; durationMin: number; priceCents: number; /** M11: booked for a dependent of the customer. */ dependentName?: string | null };
+  startLocal: string; endLocal: string; status: string; durationMin: number; priceCents: number; /** M11: booked for a dependent of the customer. */ dependentName?: string | null;
+  serviceIds?: readonly string[] };
+/** E2-A review SERVICE-1: the services an appointment holds (every item's; its first service when the row carries no items). Exact ids only. */
+export const pilotServicesOf = (row: Pick<PilotAppointmentRow, "serviceId" | "serviceIds">): readonly string[] => row.serviceIds?.length ? row.serviceIds : [row.serviceId];
 /** One working interval of a local day, in minutes [start, end). */
 export type PilotWindow = { start: number; end: number };
 /** What occupies a professional on a local day: an appointment (its id) or a block (null). */
@@ -118,10 +122,16 @@ function relativeMonthDay(dia: number, meses: number, today: string): string | u
   const at = Number(today.slice(5, 7)) - 1 + meses;
   return calendarDay(Number(today.slice(0, 4)) + Math.floor(at / 12), at % 12 + 1, dia);
 }
-/** The first day of that weekday (1 domingo … 7 sábado) strictly after `from`. */
-const weekdayAfter = (diaSemana: number, from: string) => addCalendarDays(from, ((diaSemana - 1 - weekdayOfDateKey(from) + 7) % 7) || 7);
+/** E2-A §10.2: the typed weekday as the calendar's own number (weekdayOfDateKey: 0 Sunday … 6 Saturday). A data table over the enum Luna
+ * returns, never a reading of the owner's words (the mention is not looked at). */
+export const PILOT_WEEKDAY_NUMBER: Readonly<Record<PilotWeekday, number>> = Object.freeze({ domingo: 0, segunda: 1, terca: 2, quarta: 3, quinta: 4, sexta: 5, sabado: 6 });
+/** The calendar number of a typed weekday; undefined for anything else (a value the contract would never let through). */
+export const pilotWeekdayNumber = (value: unknown): number | undefined =>
+  typeof value === "string" && Object.prototype.hasOwnProperty.call(PILOT_WEEKDAY_NUMBER, value) ? PILOT_WEEKDAY_NUMBER[value as PilotWeekday] : undefined;
+/** The first day of that weekday (0 Sunday … 6 Saturday) strictly after `from`. */
+const weekdayAfter = (weekday: number, from: string) => addCalendarDays(from, ((weekday - weekdayOfDateKey(from) + 7) % 7) || 7);
 /** The first day of that weekday from `from` on, `from` included. */
-const weekdayFrom = (diaSemana: number, from: string) => addCalendarDays(from, (diaSemana - 1 - weekdayOfDateKey(from) + 7) % 7);
+const weekdayFrom = (weekday: number, from: string) => addCalendarDays(from, (weekday - weekdayOfDateKey(from) + 7) % 7);
 
 /** The target day, from the frozen received_at in the salon's timezone. one: explicit for "data" (no month: the next occurrence from today on),
  * "relativo_hoje" and a weekday with a single reading; inherited when not said or "mesmo_da_origem"; derived for "origem_mais_dias". ask: a weekday
@@ -148,10 +158,12 @@ export function resolveTargetDate(dia: PilotTempoDia | null, origin: { date: str
     case "mesmo_da_origem": return checked(origin.date, "inherited");
     case "origem_mais_dias": return checked(isDateKey(origin.date) ? addCalendarDays(origin.date, dia.dias) : undefined, "derived");
     case "dia_semana": {
-      const first = weekdayAfter(dia.dia_semana, today);
+      const weekday = pilotWeekdayNumber(dia.dia_semana);
+      if (weekday === undefined) return { state: "invalid", reason: "NO_SUCH_DATE", mencao };
+      const first = weekdayAfter(weekday, today);
       const ahead = !!target.time && /^\d{2}:\d{2}$/.test(target.time) && `${today}T${target.time}` > pilotNowLocal(clock);
-      const onToday = dia.qualificador !== "proximo" && weekdayOfDateKey(today) === dia.dia_semana - 1 && ahead ? [today] : [];
-      const afterOrigin = dia.qualificador === "este" || !isDateKey(origin.date) ? [] : [weekdayAfter(dia.dia_semana, origin.date)];
+      const onToday = dia.qualificador !== "proximo" && weekdayOfDateKey(today) === weekday && ahead ? [today] : [];
+      const afterOrigin = dia.qualificador === "este" || !isDateKey(origin.date) ? [] : [weekdayAfter(weekday, origin.date)];
       const readings = [...new Set([...onToday, first, ...afterOrigin])].sort();
       return readings.length === 1 ? { state: "one", date: readings[0], provenance: "explicit", mencao } : { state: "ask", options: readings, reason: "TWO_READINGS", mencao };
     }
@@ -205,8 +217,12 @@ export async function resolveTargetTime(reader: PilotReader, hora: PilotTempoHor
 // ---------------------------------------------------------------- the appointment, located once
 export type PilotHint = "dia" | "hora" | "profissional" | "servico" | "posicao";
 /** Over the customer's future appointments (from received_at, PENDING or CONFIRMED), filtered by the origin hints: day and clock through the
- * normalizer, professional and service by their mentions, position in the day. one: bound (derived, shown in the proposal); none: asked, showing
- * her next appointments; several: asked with the real options. `ignored`: hints with a mention absent from the message, never used to choose. */
+ * normalizer, professional by its mention, service by the ids of the catalog names Luna gave (E2-A §10.3; every service of the appointment's items,
+ * review SERVICE-1), position in the day. one: bound (derived, shown in the proposal); none: asked, showing her next appointments (also when the
+ * service contradicts what the other hints point at); several: asked with the real options. `ignored`: hints with a mention absent from the
+ * message, never used to choose. Review PRINCIPLE-1: a service hint whose names are none of the salon's (an empty list included) is Luna saying
+ * the owner's words fit no service of the salon: with its mention proven it matches no appointment (asked, never the only one bound in silence);
+ * unproven, it is ignored like any hint. */
 export type PilotAppointmentResolution =
   | { state: "one"; appointment: PilotAppointmentRow; provenance: "derived"; used: PilotHint[]; ignored: PilotHint[]; skippedDependents?: number }
   | { state: "none"; upcoming: PilotAppointmentRow[]; provenance: "unresolved"; used: PilotHint[]; ignored: PilotHint[]; skippedDependents?: number }
@@ -221,9 +237,12 @@ function originDays(dia: PilotTempoDia, clock: PilotClock): ((date: string) => b
     case "mes_relativo": { const date = relativeMonthDay(dia.dia, dia.meses, today); return day => day === date; }
     case "relativo_hoje": { const date = addCalendarDays(today, dia.dias); return day => day === date; }
     case "dia_semana": {
+      const weekday = pilotWeekdayNumber(dia.dia_semana);
+      // A value outside the table matches no appointment (asked, never ignored in silence).
+      if (weekday === undefined) return () => false;
       // C4: an origin said "este" is the first such day from today on, today included (an appointment later today is "this" one).
-      if (dia.qualificador === "este") { const date = weekdayFrom(dia.dia_semana, today); return day => day === date; }
-      return day => weekdayOfDateKey(day) === dia.dia_semana - 1;
+      if (dia.qualificador === "este") { const date = weekdayFrom(weekday, today); return day => day === date; }
+      return day => weekdayOfDateKey(day) === weekday;
     }
     default: return undefined;
   }
@@ -234,25 +253,44 @@ function originClock(hora: PilotTempoHora): ((clock: string) => boolean) | undef
   return clock => readings.includes(clock);
 }
 const byStart = (a: PilotAppointmentRow, b: PilotAppointmentRow) => a.startLocal.localeCompare(b.startLocal) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+/** E2-A §10.3: a catalog name as compared, name against name: case and accents folded (runs of white space one space). Never a part of a name,
+ * a word of it or a similar spelling: equality only. */
+export const pilotCatalogKey = (name: string) => name.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/\s+/gu, " ").trim();
+/** The ids of the salon's services named EXACTLY (pilotCatalogKey) by the given names; a name the catalog does not have is dropped. */
+export function pilotCatalogIds(catalog: readonly Pick<PilotServiceRow, "id" | "name">[], names: readonly string[]): Set<string> {
+  const wanted = new Set(names.filter(name => typeof name === "string").map(pilotCatalogKey).filter(Boolean));
+  return new Set(catalog.filter(row => typeof row?.name === "string" && wanted.has(pilotCatalogKey(row.name))).map(row => row.id));
+}
 /** `message`: the owner's message the hints are proved against. Review P1: `proven` instead, when the hints came from several messages: whether each
  * hint's mention was in the very message that brought it (proved once, on arrival; a hint absent from it never chooses). Review S2: `anchor`, the
- * received_at of the turn that said the origin day (its "today"); `clock` stays this turn's (what is still ahead). */
+ * received_at of the turn that said the origin day (its "today"); `clock` stays this turn's (what is still ahead). `catalog`: the salon's
+ * services the turn already read (else read here), the only names a service hint may use. E2-A review FLOW-1: `among`, the appointment ids a
+ * question offered: the hints (the answer's own) choose only among those still ahead (a none lists them); when none of them is ahead any more,
+ * her appointments are listed as none (asked again, never bound). */
 export async function resolveAppointment(reader: PilotReader, input: { customerId: string; origem: PilotOrigin; message?: string; proven?: Partial<Record<PilotHint, boolean>>;
-  anchor?: PilotClock }, clock: PilotClock): Promise<PilotAppointmentResolution> {
+  anchor?: PilotClock; catalog?: readonly PilotServiceRow[]; among?: readonly string[] }, clock: PilotClock): Promise<PilotAppointmentResolution> {
   const now = pilotNowLocal(clock);
-  let rows: readonly PilotAppointmentRow[];
-  try { rows = await reader.appointmentsOf(input.customerId, now); } catch { return { state: "unavailable", provenance: "unresolved" }; }
+  let rows: readonly PilotAppointmentRow[], services: Set<string> | undefined;
+  try {
+    rows = await reader.appointmentsOf(input.customerId, now);
+    if (input.origem.servico) services = pilotCatalogIds(input.catalog ?? await reader.catalog(), input.origem.servico.catalogo);
+  } catch { return { state: "unavailable", provenance: "unresolved" }; }
   const ahead = rows.filter(row => row.customerId === input.customerId && (row.status === "PENDING" || row.status === "CONFIRMED") && row.startLocal.slice(0, 16) > now).sort(byStart);
   // M11: a dependent's appointment is never located from the customer's own mention (the agenda does not move it here either).
   const future = ahead.filter(row => !row.dependentName), skippedDependents = ahead.length - future.length;
+  const skipped = skippedDependents ? { skippedDependents } : {};
+  const among = input.among ? new Set(input.among) : undefined, pool = among ? future.filter(row => among.has(row.id)) : future;
+  if (among && !pool.length) return { state: "none", upcoming: future, provenance: "unresolved", used: [], ignored: [], ...skipped };
   const origem = input.origem, used: PilotHint[] = [], ignored: PilotHint[] = [];
   const hints: { hint: PilotHint; mencao: string | null; test?: (row: PilotAppointmentRow) => boolean }[] = [];
   const proven = (hint: PilotHint, mencao: string | null) => input.proven ? input.proven[hint] === true : pilotMentionIn(input.message ?? "", mencao);
   if (origem.dia) { const test = originDays(origem.dia, input.anchor ?? clock); hints.push({ hint: "dia", mencao: origem.dia.mencao, test: test && (row => test(row.startLocal.slice(0, 10))) }); }
   if (origem.hora) { const test = originClock(origem.hora); hints.push({ hint: "hora", mencao: origem.hora.mencao, test: test && (row => test(row.startLocal.slice(11, 16))) }); }
   if (origem.profissional_mencao) { const tokens = tokensOf(origem.profissional_mencao); hints.push({ hint: "profissional", mencao: origem.profissional_mencao, test: row => !!tokens.length && holds(row.professionalName, tokens) }); }
-  if (origem.servico_mencao) { const tokens = tokensOf(origem.servico_mencao); hints.push({ hint: "servico", mencao: origem.servico_mencao, test: row => !!tokens.length && holds(row.serviceName, tokens) }); }
-  let left = future;
+  // E2-A §10.3: the service by the ids of the catalog names Luna gave (no token of a name compared), against every service of the appointment
+  // (review SERVICE-1). Review PRINCIPLE-1: no name of the salon's matches no appointment (proven: asked; unproven: ignored, below).
+  if (origem.servico) { const ids = services ?? new Set<string>(); hints.push({ hint: "servico", mencao: origem.servico.mencao, test: row => pilotServicesOf(row).some(id => ids.has(id)) }); }
+  let left = pool;
   for (const { hint, mencao, test } of hints) {
     if (!test) continue;
     // §0 narrow provenance: a hint whose words are not in the message is the model's, never the owner's: it never chooses.
@@ -265,9 +303,8 @@ export async function resolveAppointment(reader: PilotReader, input: { customerI
     if (!proven("posicao", origem.posicao.mencao)) ignored.push("posicao");
     else if (new Set(left.map(row => row.startLocal.slice(0, 10))).size === 1) { left = [origem.posicao.valor === "primeiro" ? left[0] : left[left.length - 1]]; used.push("posicao"); }
   }
-  const skipped = skippedDependents ? { skippedDependents } : {};
   if (left.length === 1) return { state: "one", appointment: left[0], provenance: "derived", used, ignored, ...skipped };
-  if (!left.length) return { state: "none", upcoming: future, provenance: "unresolved", used, ignored, ...skipped };
+  if (!left.length) return { state: "none", upcoming: pool, provenance: "unresolved", used, ignored, ...skipped };
   return { state: "several", options: left, provenance: "unresolved", used, ignored, ...skipped };
 }
 

@@ -73,7 +73,7 @@ export function pilotTenantReader(actor: ServiceActor): PilotReader {
         select: { id: true, clientId: true, professionalId: true, serviceId: true, startAt: true, endAt: true, status: true, priceCents: true,
           dependentId: true, dependentName: true,
           professional: { select: { user: { select: { name: true } } } }, service: { select: { name: true } },
-          serviceItems: { orderBy: { position: "asc" }, select: { serviceName: true } } },
+          serviceItems: { orderBy: { position: "asc" }, select: { serviceName: true, serviceId: true } } },
         orderBy: [{ startAt: "asc" }, { id: "asc" }], take: PILOT_READ_LIMITS.appointments + 1 });
       if (rows.length > PILOT_READ_LIMITS.appointments) throw Error("PILOT_SEARCH_TOO_BROAD");
       // Review L5: the salon's timezone everywhere (received_at, the hints and these rows are all read in it).
@@ -82,7 +82,9 @@ export function pilotTenantReader(actor: ServiceActor): PilotReader {
         startLocal: toLocalDateTime(row.startAt, timezone), endLocal: toLocalDateTime(row.endAt, timezone), status: row.status,
         durationMin: Math.round((row.endAt.getTime() - row.startAt.getTime()) / 60_000), priceCents: row.priceCents,
         // Review M11: an appointment booked for a dependent is carried as such (never located from the customer's own mention).
-        dependentName: row.dependentId ? row.dependentName ?? "" : null }));
+        dependentName: row.dependentId ? row.dependentName ?? "" : null,
+        // E2-A review SERVICE-1: every service the appointment holds (its first one, then each item's), so a combo is found by any of them.
+        serviceIds: [...new Set([row.serviceId, ...row.serviceItems.map(item => item.serviceId)])] }));
     }),
     team: () => read(async tx => {
       const rows = await tx.professional.findMany({ where: { salonId, active: true }, select: { id: true, user: { select: { name: true } },

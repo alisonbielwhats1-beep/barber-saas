@@ -248,3 +248,24 @@ Ao §2 e ao §3, nesta ordem de precedência:
 
    - A antiga comparação por tokens do nome do serviço sai.
    - Não há similaridade textual em nenhum ponto.
+
+### 10.4 Revisão adversarial da E2-A (antes da bateria, ainda atrás da flag)
+
+Emendas ao §10, cada uma com teste de regressão escrito antes do código. Nenhuma lê o português do dono depois da Luna.
+
+- **Serviço sem nome do catálogo (PRINCIPLE-1; substitui a última linha da tabela do §10.3):** com a menção provada na mensagem, uma lista vazia ou só de nomes desconhecidos não casa com atendimento nenhum. A Secretária pergunta, mostrando os atendimentos dela, mesmo quando ela tem um só. Uma menção sem prova continua ignorada.
+- **Atendimento com vários serviços (SERVICE-1):** a pista de serviço confere todos os serviços do atendimento (o principal e o de cada item), sempre por id exato.
+- **Resposta a uma pergunta de atendimento (FLOW-1):** é resolvida só entre as opções daquela pergunta, pelas pistas da própria resposta, provadas nela. Essas pistas substituem as pendentes.
+  - Uma opção compatível: vincula.
+  - Várias: pergunta entre elas.
+  - Nenhuma: pergunta de novo.
+  - Resposta sem pista provada nunca escolhe: pergunta de novo.
+- **observacoes (OBS-1; substitui o limite do §10.1):** até 20 itens, cada um até o limite da própria mensagem (1000 caracteres). Um campo que o código não lê nunca derruba o turno.
+- **Limites ditos no prompt (CONTRACT-1):** no máximo 20 trechos em observacoes e 10 nomes em catalogo. Se mais de 10 couberem, catalogo vem vazio e a Secretária pergunta.
+- **Reparo de formato (REPAIR-1):** cada código de regra tem uma frase fixa, escrita pelos desenvolvedores, com as saídas possíveis. Para misto: um pedido separado em fora_do_escopo, ou tipo remarcar com o contexto em observacoes. A nota nunca traz texto do modelo, e as frases entram na versão do contrato.
+- **Semântica de fora_do_escopo (SEMANTICS-1/2/3):** no prompt e na descrição do esquema, com três exemplos inventados novos.
+  - O sistema já avisa o cliente de toda remarcação (decisão 31). Avisar este cliente desta mudança é parte dela; um recado com outro conteúdo, ou para outra pessoa, é pedido separado.
+  - Tirar o atendimento da mesma cliente de um horário para pôr em outro, com quaisquer palavras, é esta remarcação (decisão 4). Cancelar só é pedido separado quando o atendimento sai sem novo horário, ou quando é outro atendimento.
+  - Um desejo do cliente repassado pelo dono, para o salão fazer algo além do dia, do horário ou do profissional deste atendimento, é pedido separado. Uma preferência ou informação que não pede nada fica em observacoes. Não há regra de desempate a favor de fora_do_escopo.
+- **Catálogo enviado à Luna (CATALOG-1):** todos os nomes que o leitor devolve (até 400), cortados só acima de um orçamento de bytes da requisição. O corte é contado na telemetria.
+- **Bateria DEV (REGRESSION-2):** não compartilha nome, nome de catálogo, 3-grama de conteúdo nem par de palavras de conteúdo com os exemplos do prompt. Um teste confere.

@@ -4,7 +4,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import type { Model } from "@everflair/salon-secretary";
 import { assertMvpTestDatabase } from "../../../scripts/service-mvp-test-safety";
 import { AGENT_DEPENDENCY_FLAGS } from "../../../packages/salon-secretary/src/agent-context";
-import { PILOT_RESCHEDULE_TOOL, type PilotInterpretation, type PilotTempoDia, type PilotTempoHora } from "../../../packages/salon-secretary/src/pilot-reschedule-contract";
+import { PILOT_RESCHEDULE_TOOL, type PilotInterpretation, type PilotTempoDia, type PilotTempoHora, type PilotWeekday } from "../../../packages/salon-secretary/src/pilot-reschedule-contract";
 import { prisma } from "../prisma";
 import { SalonSecretary, type SecretaryView } from "../salon-secretary";
 import { PostgresSessionStore, type SecretarySessionStore } from "../secretary-session-store";
@@ -66,11 +66,11 @@ async function appointment(s: Studio, id: string) {
   });
 }
 
-const NO_ORIGIN: PilotInterpretation["origem"] = { dia: null, hora: null, profissional_mencao: null, servico_mencao: null, posicao: null };
+const NO_ORIGIN: PilotInterpretation["origem"] = { dia: null, hora: null, profissional_mencao: null, servico: null, posicao: null };
 const luna = (over: Partial<PilotInterpretation> = {}): PilotInterpretation => ({ tipo: "remarcar", resposta_a: null, desistir: false, aceita_parcial: null, cliente: { mencao: null }, origem: NO_ORIGIN,
-  destino: { dia: null, hora: null, profissional: { modo: null, mencao: null } }, fora_do_escopo: [], ...over });
+  destino: { dia: null, hora: null, profissional: { modo: null, mencao: null } }, observacoes: [], fora_do_escopo: [], ...over });
 const answer = (questionId: string, over: Partial<PilotInterpretation>) => luna({ tipo: "resposta", resposta_a: questionId, ...over });
-const weekday = (dia_semana: number, mencao: string): PilotTempoDia => ({ tipo: "dia_semana", dia_semana, qualificador: null, mencao });
+const weekday = (dia_semana: PilotWeekday, mencao: string): PilotTempoDia => ({ tipo: "dia_semana", dia_semana, qualificador: null, mencao });
 const at = (hora: number, mencao: string): PilotTempoHora => ({ tipo: "relogio", hora, minuto: 0, periodo: null, mencao });
 const to = (dia: PilotTempoDia | null, hora: PilotTempoHora | null, profissional: PilotInterpretation["destino"]["profissional"] = { modo: null, mencao: null }) => ({ dia, hora, profissional });
 
@@ -116,7 +116,7 @@ suite("Reschedule pilot: what the screen and the runner read (flag SALON_SECRETA
     const s = await studio(["Odete Vasconcelos", "Odete Ramalho"], [{ name: "Ícaro Monteiro", from: 480, to: 1260 }]);
     await book(s, "Odete Vasconcelos", "Ícaro Monteiro", D(3), "10:00");
     const moved = await book(s, "Odete Vasconcelos", "Ícaro Monteiro", D(7), "11:00");
-    const c = await open(s, [luna({ cliente: { mencao: "Odete" }, destino: to(weekday(6, "sexta"), at(8, "às 8")) })]);
+    const c = await open(s, [luna({ cliente: { mencao: "Odete" }, destino: to(weekday("sexta", "sexta"), at(8, "às 8")) })]);
     const first = await say(c, "Empurra a Odete pra sexta às 8");
     expect(missing(first)).toEqual([["customer_ref"]]);
     expect(question(first)).toMatchObject({ field: "customer", reason: "CUSTOMER_AMBIGUOUS" });
@@ -124,7 +124,7 @@ suite("Reschedule pilot: what the screen and the runner read (flag SALON_SECRETA
     expect(missing(second)).toEqual([["appointment_ref"]]);
     expect(question(second)).toMatchObject({ field: "appointment", reason: "APPOINTMENT_SEVERAL" });
     expect(question(second).options?.map(option => option.id)).toContain(moved);
-    const third = await say(c, "a de segunda", answer(question(second).questionId, { origem: { ...NO_ORIGIN, dia: weekday(2, "a de segunda") } }));
+    const third = await say(c, "a de segunda", answer(question(second).questionId, { origem: { ...NO_ORIGIN, dia: weekday("segunda", "a de segunda") } }));
     expect(missing(third)).toEqual([["date"]]);
     expect(question(third)).toMatchObject({ field: "date", reason: "DATE_TWO_READINGS" });
     expect(question(third).options?.map(option => option.id)).toEqual([D(4), D(11)]);
@@ -162,7 +162,7 @@ suite("Reschedule pilot: what the screen and the runner read (flag SALON_SECRETA
     const s = await studio(["Leonora Bastos", "Teobaldo Viana"], [{ name: "Ícaro Monteiro", from: 540, to: 1080 }, { name: "Jurema Saldanha", from: 540, to: 1080 }]);
     const id = await book(s, "Leonora Bastos", "Ícaro Monteiro", D(2), "10:00");
     await book(s, "Teobaldo Viana", "Ícaro Monteiro", D(4), "15:00");
-    const c = await open(s, [luna({ cliente: { mencao: "Leonora" }, destino: to(weekday(6, "sexta"), at(15, "15h"), { modo: "qualquer", mencao: "com quem estiver livre" }) })]);
+    const c = await open(s, [luna({ cliente: { mencao: "Leonora" }, destino: to(weekday("sexta", "sexta"), at(15, "15h"), { modo: "qualquer", mencao: "com quem estiver livre" }) })]);
     const ready = await say(c, "Leonora na sexta 15h com quem estiver livre");
     expect(ready.pilot?.fields).toMatchObject({ professional: { value: s.pros["Jurema Saldanha"], provenance: "derived" } });
     expect(ready.message).toContain("Escolhi Jurema Saldanha");
@@ -173,8 +173,8 @@ suite("Reschedule pilot: what the screen and the runner read (flag SALON_SECRETA
   it("the scope question is the missing field 'scope'; the owner's yes prepares only the reschedule", async () => {
     const s = await studio(["Leonora Bastos"], [{ name: "Ícaro Monteiro", from: 540, to: 1080 }]);
     const id = await book(s, "Leonora Bastos", "Ícaro Monteiro", D(2), "10:00");
-    const c = await open(s, [luna({ tipo: "misto", cliente: { mencao: "Leonora" }, destino: to(weekday(5, "quinta"), at(16, "16h")),
-      fora_do_escopo: [{ tipo: "mensagem", mencao: "manda um recado pra ela" }] })]);
+    const c = await open(s, [luna({ tipo: "misto", cliente: { mencao: "Leonora" }, destino: to(weekday("quinta", "quinta"), at(16, "16h")),
+      fora_do_escopo: [{ tipo: "mensagem", pedido: "manda um recado pra ela" }] })]);
     const asked = await say(c, "Leonora pra quinta 16h e manda um recado pra ela");
     expect(missing(asked)).toEqual([["scope"]]);
     const ready = await say(c, "pode ser só isso", answer(question(asked).questionId, { aceita_parcial: true }));
@@ -187,7 +187,7 @@ suite("Reschedule pilot: what the screen and the runner read (flag SALON_SECRETA
     const s = await studio(["Leonora Bastos", "Teobaldo Viana"], [{ name: "Ícaro Monteiro", from: 540, to: 1080 }]);
     await book(s, "Leonora Bastos", "Ícaro Monteiro", D(2), "10:00");
     await book(s, "Teobaldo Viana", "Ícaro Monteiro", D(4), "15:00");
-    const c = await open(s, [luna({ cliente: { mencao: "Leonora" }, destino: to(weekday(6, "sexta"), at(15, "15h")) })]);
+    const c = await open(s, [luna({ cliente: { mencao: "Leonora" }, destino: to(weekday("sexta", "sexta"), at(15, "15h")) })]);
     const asked = await say(c, "Leonora pra sexta 15h");
     expect(missing(asked)).toEqual([["time"]]);
     expect(question(asked)).toMatchObject({ reason: "SLOT_UNAVAILABLE" });
@@ -201,7 +201,7 @@ suite("Reschedule pilot: what the screen and the runner read (flag SALON_SECRETA
   it("a conversation in the local store (027) runs question → answer → proposal → Confirmar across loads", async () => {
     const s = await studio(["Odete Vasconcelos", "Odete Ramalho"], [{ name: "Ícaro Monteiro", from: 540, to: 1080 }]);
     const id = await book(s, "Odete Vasconcelos", "Ícaro Monteiro", D(2), "10:00");
-    const c = await open(s, [luna({ cliente: { mencao: "Odete" }, destino: to(weekday(6, "sexta"), at(11, "11h")) })], new PostgresSessionStore());
+    const c = await open(s, [luna({ cliente: { mencao: "Odete" }, destino: to(weekday("sexta", "sexta"), at(11, "11h")) })], new PostgresSessionStore());
     const asked = await say(c, "Odete pra sexta 11h");
     expect(missing(asked)).toEqual([["customer_ref"]]);
     const ready = await say(c, "a Vasconcelos", answer(question(asked).questionId, { cliente: { mencao: "Vasconcelos" } }));
