@@ -568,3 +568,80 @@ Feitas por agentes isolados: causa por cenário × braço com verificação cét
   - Todas as 9 terminaram em pergunta segura.
 - **Detalhe com as frases (só para o dono):** `D:/Projetos/secretary-holdout-sealed/pilot-gate-20/analysis/`.
 - Conforme o Adendo 9, o trabalho **PARA** aqui. E2/E3 dependem de autorização do dono. Nenhuma correção foi feita a partir deste gate.
+
+## Adendo 10 (02/10/2026): E2-A, consolidação da remarcação R1/R2 (pré-registro)
+
+O dono autorizou uma E2 curta, só para remarcação R1/R2, atacando **somente** as três causas do gate:
+
+1. **Falso `fora_do_escopo`.** A correção é na semântica do contrato. O que especifica, corrige, referencia ou contextualiza a própria remarcação fica dentro dela; vai para `fora_do_escopo` só um pedido separado, com efeito próprio. Ações de fato fora do escopo continuam detectadas.
+2. **Dia da semana numérico.** Passa a ser um enum textual tipado `segunda|terca|quarta|quinta|sexta|sabado|domingo`. O código calcula a data a partir do `received_at` congelado e do fuso do salão.
+3. **Serviço como pista do atendimento.** O serviço mencionado vira dado factual para localizar e desambiguar o atendimento:
+
+   | Correspondências factuais | Resultado |
+   |---|---|
+   | uma | resolve |
+   | duas ou mais | pergunta |
+   | contradição | pergunta |
+
+   Nunca há escolha silenciosa por similaridade textual.
+
+**Fica de fora:** gramática ou releitura do português; listas tiradas das frases que falharam; consultar, agendar, cancelar, bloquear e trocar serviço; multi-ação; C4 e Agent congelado; produção.
+
+**Continua valendo:**
+- proveniência por campo;
+- pergunta presa a campo e ação;
+- `received_at` congelado;
+- localização única do atendimento;
+- Confirmar versionado e revalidação;
+- idempotência e recibo;
+- isolamento por salão;
+- sem fallback para a C4.
+
+**Ordem:**
+1. testes sintéticos e adversariais escritos antes do código, por um autor cego aos cenários de avaliação;
+2. implementação, também cega;
+3. revisão adversarial;
+4. integração no Postgres local;
+5. replay sem rede, mostrando que Agent congelado e C4 ficam intactos;
+6. sonda de desenvolvimento com casos **sintéticos** (Luna real, até US$ 0,03);
+7. bateria nova.
+
+**`pilot-gate-20`:** foi usado para diagnosticar as falhas. O coordenador viu só os códigos. Passa a ser só desenvolvimento e não volta a servir de avaliação. Os implementadores seguem sem ver as frases dele.
+
+**Bateria nova `pilot-e2-30`:**
+- **Composição:** 30 remarcações inéditas, 18 R1 e 12 R2.
+- **Conteúdo:** nomes, serviços, profissionais, horários, salões e jornadas novos; nenhuma frase nem estrutura específica do gate.
+- **Autoria:** um autor isolado, com conferente independente.
+- **Registro:** como conjunto de validação.
+- **Execução:** k=1, Luna real, só o caminho novo.
+- **Teto:** **US$ 0,15** no total desta etapa, com a sonda incluída; a execução recebe o que sobrar como teto próprio.
+
+**Definições (as mesmas do gate da E1):**
+- **PASS:** a nota do avaliador.
+- **Pergunta necessária:** a do campo de `mustAsk` de um R2, de fato feita.
+- **Pergunta desnecessária:** qualquer pergunta num R1; num R2, qualquer pergunta além da necessária; uma pergunta repetida depois de respondida; a pergunta de escopo sem pedido fora do escopo.
+- **Taxa de perguntas desnecessárias:** tentativas com pelo menos uma pergunta desnecessária ÷ tentativas. A taxa por turno também é reportada.
+- **Proposta errada:** proposta mostrada para confirmação que diverge do gabarito (atendimento, dia, hora, profissional ou serviço).
+- **Gravação incorreta:** mudança gravada que diverge do gabarito ou que toca outra linha.
+- **Segurança real:** gravação incorreta, proposta errada mostrada, efeito em outro salão, ou execução sem a pergunta necessária.
+- **p50/p90:** latência por mensagem.
+- **Camada da primeira falha:**
+  - Luna/contrato;
+  - resolvedor;
+  - estado;
+  - agenda/backend;
+  - executor;
+  - cenário.
+
+**Sinal forte para continuar (todos os itens):**
+
+| Critério | Limite | Mínimo em números |
+|---|---|---|
+| R1 | ≥ 90% | ≥ 17/18 |
+| R2 | ≥ 80% | ≥ 10/12 |
+| Falha de segurança real | 0 | |
+| Gravação incorreta | 0 | |
+| Perguntas desnecessárias | ≤ 10% | ≤ 3/30 |
+| p90 | ≤ 15 s | |
+
+Com ou sem sinal, o trabalho **PARA** e o resultado vai para o dono. Nenhuma rodada nova abre automaticamente, e nada de E3 ou capacidade nova.
