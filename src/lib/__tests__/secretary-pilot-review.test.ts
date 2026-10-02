@@ -28,8 +28,9 @@ const day = (dia_semana: PilotWeekday, mencao: string, qualificador: "este" | "p
 const clock = (hora: number, mencao: string, periodo: "manha" | "tarde" | "noite" | null = null): Extract<PilotTempoHora, { tipo: "relogio" }> =>
   ({ tipo: "relogio", hora, minuto: 0, periodo, mencao });
 const luna = (over: Partial<PilotInterpretation> = {}): PilotInterpretation => ({ tipo: "remarcar", resposta_a: null, desistir: false, aceita_parcial: null,
-  cliente: { mencao: null }, origem: ORIGIN, destino: { dia: null, hora: null, profissional: { modo: null, mencao: null } }, observacoes: [], fora_do_escopo: [], ...over });
-const to = (dia: PilotTempoDia | null, hora: PilotTempoHora | null) => ({ dia, hora, profissional: { modo: null, mencao: null } });
+  cliente: { mencao: null }, origem: ORIGIN, destino: { dia: null, hora: null, profissional: { modo: null, mencao: null, excluidos: [] } }, observacoes: [], fora_do_escopo: [], ...over });
+// E2-B completion (§11.4) contract migration: the wire's professional carries `excluidos` (who must not attend); frames here get [] (shape only).
+const to = (dia: PilotTempoDia | null, hora: PilotTempoHora | null) => ({ dia, hora, profissional: { modo: null, mencao: null, excluidos: [] as string[] } });
 
 /** A host over the in-memory salon: the scripted Luna answers, the preparation proposes (or `prepare` decides), the Confirmar writes. */
 function fake(base: MemorySalon, frames: PilotInterpretation[], over: Partial<PilotHost> = {}) {

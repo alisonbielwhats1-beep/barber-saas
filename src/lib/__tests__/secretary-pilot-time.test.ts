@@ -23,9 +23,12 @@ describe("§3.3 target day: every operator from the frozen received_at, in the s
     expect(day(data(31))).toMatchObject({ state: "one", date: "2031-03-31" });
     expect(day(data(31), WED, "2031-04-10T12:00:00.000Z")).toMatchObject({ state: "one", date: "2031-05-31" });
   });
-  it("data with a month: that day this year, or next year once it has passed; a date that does not exist is invalid", () => {
+  it("data with a month: the occurrence nearest to today (§11.4, as a cited date: never a year forward in silence); a date that does not exist is invalid", () => {
     expect(day(data(20, 4))).toMatchObject({ state: "one", date: "2031-04-20", provenance: "explicit" });
-    expect(day(data(5, 1))).toMatchObject({ state: "one", date: "2032-01-05", provenance: "explicit" });
+    // §11.4 (contract migration; was: 2032-01-05 in silence): 5/1 said in March is nearest to the January that has passed: asked as past.
+    expect(day(data(5, 1))).toEqual({ state: "invalid", reason: "DATE_PAST", mencao: "5/1" });
+    // ...and said at the end of December, the January ahead is the nearest: next year's, as said.
+    expect(day(data(3, 1), WED, "2031-12-28T12:00:00.000Z")).toMatchObject({ state: "one", date: "2032-01-03", provenance: "explicit" });
     expect(day(data(31, 2))).toEqual({ state: "invalid", reason: "NO_SUCH_DATE", mencao: "31/2" });
   });
   it("a day offset anchored on today (§11.1): today + n, counted on the salon's local day (23:30 in São Paulo is still that day); derived", () => {

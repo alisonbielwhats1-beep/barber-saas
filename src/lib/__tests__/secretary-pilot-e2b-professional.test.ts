@@ -9,8 +9,9 @@ import { e2bRandom, wire, type E2bProfessional } from "../../test/secretary-pilo
  *  - candidates: who performs the service and is free for the WHOLE duration at the destination (the appointment being moved is set aside);
  *  - the current professional leaves when the mode is "outro", or when the destination is the origin's own day AND clock (a fact: otherwise
  *    nothing would change);
- *  - tie-break: the fewest appointments that day (blocks are not appointments; the moved appointment does not count), then the name order;
- *    NO preference for the current professional any more;
+ *  - tie-break: the fewest appointments that day (blocks are not appointments; the moved appointment does not count); NO preference for the
+ *    current professional any more; E2-B completion (§11.4, contract migration): two or more with the fewest are a TIE, asked with them — the name
+ *    order no longer decides (the expectations that pinned it now pin the tie);
  *  - nobody left: nobody_free (the orchestrator asks PROFESSIONAL_NOBODY_FREE);
  *  - "manter" and "nomeado" are unchanged; tenant-scoped (only the injected reader is read).
  * New context key (E2-B): `origin`, the appointment's own { date, time }. In-memory studio; Thursday 2031-03-13 is the day; invented names. */
@@ -37,6 +38,8 @@ const ctx = (slot: { date: string; time: string } | null, current: PilotProfessi
 const resolve = (salon: MemorySalon, profissional: E2bProfessional, slot: { date: string; time: string } | null, current: PilotProfessionalRow = bernadete) =>
   resolveProfessional(memoryReader(salon), wire(profissional), ctx(slot, current));
 const chosen = (result: PilotProfessionalResolution) => result.state === "chosen" ? result.id : result.state;
+/** §11.4: a tie as its tied members' ids (sorted); anything else as `chosen` reads it. */
+const tied = (result: PilotProfessionalResolution) => result.state === "tie" ? `tie:${result.options.map(item => item.id).sort().join(",")}` : chosen(result);
 const ANY: E2bProfessional = { modo: "qualquer", mencao: null }, OTHER: E2bProfessional = { modo: "outro", mencao: null };
 const LATER = { date: THU, time: "16:00" }, SAME = { date: THU, time: "10:00" };
 
@@ -56,14 +59,14 @@ describe("§11.2 'qualquer': decision 15 with no preference for the current prof
     const loads = studio([fill("x-a1", abelardo, THU, "13:00"), fill("x-c1", cassiano, THU, "12:00"), fill("x-c2", cassiano, THU, "14:00")]);
     expect(await resolve(loads, ANY, LATER)).toEqual({ state: "chosen", id: bernadete.id, name: bernadete.name, provenance: "derived" });
   });
-  it("TWINS, a tie with the current one: the name order decides (Abelardo), never the current one; one more appointment for Abelardo → the current one (fewest)", async () => {
-    expect(chosen(await resolve(studio([fill("x-c1", cassiano, THU, "12:00")]), ANY, LATER))).toBe(abelardo.id);
+  it("TWINS, a tie with the current one: asked with both (§11.4: never the name order, never the current one by preference); one more appointment for Abelardo → the current one (fewest)", async () => {
+    expect(tied(await resolve(studio([fill("x-c1", cassiano, THU, "12:00")]), ANY, LATER))).toBe(`tie:${[abelardo.id, bernadete.id].sort().join(",")}`);
     expect(chosen(await resolve(studio([fill("x-c1", cassiano, THU, "12:00"), fill("x-a1", abelardo, THU, "13:00")]), ANY, LATER))).toBe(bernadete.id);
   });
   it("the appointment being moved never counts for the current one's load, and a block is not an appointment", async () => {
-    // Bernadete: only the moved one (0); Abelardo: a block only (0); Cassiano: one appointment (1) → tie at 0 → the name order: Abelardo.
+    // Bernadete: only the moved one (0); Abelardo: a block only (0); Cassiano: one appointment (1) → tie at 0 → §11.4: asked with Abelardo and Bernadete.
     const salon = studio([fill("x-c1", cassiano, THU, "12:00")], { blocks: [{ professionalId: abelardo.id, startLocal: `${THU}T13:00`, endLocal: `${THU}T14:00` }] });
-    expect(chosen(await resolve(salon, ANY, LATER))).toBe(abelardo.id);
+    expect(tied(await resolve(salon, ANY, LATER))).toBe(`tie:${[abelardo.id, bernadete.id].sort().join(",")}`);
   });
 });
 
@@ -81,7 +84,8 @@ describe("§11.2 the current professional leaves: mode 'outro', or the destinati
   it("TWINS, 'qualquer' at the origin's own day and clock excludes the current one (Cassiano, fewest of the others); at 10:30 the current one stays a candidate", async () => {
     const salon = studio([fill("x-a1", abelardo, THU, "13:00")]);
     expect(await resolve(salon, ANY, SAME)).toEqual({ state: "chosen", id: cassiano.id, name: cassiano.name, provenance: "derived" });
-    expect(chosen(await resolve(salon, ANY, { date: THU, time: "10:30" }))).toBe(bernadete.id);
+    // §11.4: at 10:30 the current one (0) ties with Cassiano (0): she stays a candidate, and the tie is asked (never the name order).
+    expect(tied(await resolve(salon, ANY, { date: THU, time: "10:30" }))).toBe(`tie:${[bernadete.id, cassiano.id].sort().join(",")}`);
   });
   it("the same clock on another day is not the origin's slot: the current one stays a candidate (and wins on load)", async () => {
     const salon = studio([fill("x-a1", abelardo, FRI, "13:00"), fill("x-c1", cassiano, FRI, "13:00")]);
@@ -102,11 +106,11 @@ describe("§11.2 candidates: who performs the service and is free for the whole 
       hours: { ...Object.fromEntries(TEAM.map(pro => [pro.id, everyDay(["08:00", "20:00"])])), [cassiano.id]: { [THU]: [{ start: 8 * 60, end: 16 * 60 + 30 }] } } });
     expect(await resolve(salon, OTHER, LATER)).toEqual({ state: "nobody_free", provenance: "unresolved" });
   });
-  it("TWIN at the boundaries: a block from 16:50 and hours until 16:50 both fit a 16:00–16:50 slot → the name order among the free (Abelardo)", async () => {
+  it("TWIN at the boundaries: a block from 16:50 and hours until 16:50 both fit a 16:00–16:50 slot → both free (§11.4: their tie is asked, never the name order)", async () => {
     const salon = studio([], {
       blocks: [{ professionalId: abelardo.id, startLocal: `${THU}T16:50`, endLocal: `${THU}T17:00` }],
       hours: { ...Object.fromEntries(TEAM.map(pro => [pro.id, everyDay(["08:00", "20:00"])])), [cassiano.id]: { [THU]: [{ start: 8 * 60, end: 16 * 60 + 50 }] } } });
-    expect(chosen(await resolve(salon, OTHER, LATER))).toBe(abelardo.id);
+    expect(tied(await resolve(salon, OTHER, LATER))).toBe(`tie:${[abelardo.id, cassiano.id].sort().join(",")}`);
   });
   it("tenant scope: only the injected reader is read (team, hours, busy); a failing team read is unavailable, never a choice", async () => {
     const reader = memoryReader(studio());
@@ -138,9 +142,11 @@ describe("§11.2 property: random loads, team order, current professional, mode 
       const salon: MemorySalon = { ...studio(extra, {}, current), team };
       const candidates = performers.filter(pro => !busyAtSlot.has(pro.id) && !(pro === current && (mode === OTHER || same)))
         .sort((a, b) => load.get(a.id)! - load.get(b.id)! || a.name.localeCompare(b.name, "pt-BR"));
-      const expected = candidates.length ? candidates[0].id : "nobody_free";
+      // §11.4 (contract migration): two or more with the fewest are a tie, asked with exactly them (the name order no longer decides).
+      const fewest = candidates.filter(pro => load.get(pro.id) === load.get(candidates[0]?.id ?? ""));
+      const expected = !candidates.length ? "nobody_free" : fewest.length > 1 ? `tie:${fewest.map(pro => pro.id).sort().join(",")}` : candidates[0].id;
       const label = JSON.stringify({ round, current: current.id, mode: mode.modo, same, load: Object.fromEntries(load), busy: [...busyAtSlot] });
-      expect(chosen(await resolveProfessional(memoryReader(salon), wire(mode), ctx(slot, current))), label).toBe(expected);
+      expect(tied(await resolveProfessional(memoryReader(salon), wire(mode), ctx(slot, current))), label).toBe(expected);
     }
   });
 });

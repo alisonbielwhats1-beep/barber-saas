@@ -53,7 +53,9 @@ export type E2bClock =
 export type E2bService = { mencao: string; catalogo: string[] };
 export type E2bOrigin = { dia: E2bDay | null; hora: E2bClock | null; profissional_mencao: string | null; servico: E2bService | null;
   posicao: { valor: "primeiro" | "ultimo"; mencao: string } | null };
-export type E2bProfessional = { modo: E2bMode; mencao: string | null };
+/** E2-B completion (§11.4) contract migration: the wire's professional carries `excluidos` (who must not attend); a frame built here gets [] unless it
+ * says otherwise (shape plumbing only: no expectation depends on it). */
+export type E2bProfessional = { modo: E2bMode; mencao: string | null; excluidos?: string[] };
 export type E2bDestination = { dia: E2bDay | null; hora: E2bClock | null; profissional: E2bProfessional };
 export type E2bOutOfScope = { tipo: "cancelar" | "bloquear" | "trocar_servico" | "agendar" | "consultar" | "outra_acao" | "recorrencia" | "mensagem"; pedido: string };
 export type E2bInterpretation = { tipo: "remarcar" | "fora_do_escopo" | "misto" | "conversa" | "resposta"; resposta_a: string | null; desistir: boolean;
@@ -73,7 +75,8 @@ export const e2bSameDay = (mencao: string): E2bDay => ({ tipo: "mesmo_da_origem"
 export const e2bSameClock = (mencao: string): E2bClock => ({ tipo: "mesmo_da_origem", mencao });
 export const e2bClock = (hora: number, mencao: string, minuto = 0, periodo: "manha" | "tarde" | "noite" | null = null): E2bClock => ({ tipo: "relogio", hora, minuto, periodo, mencao });
 export const e2bOrigin = (over: Partial<E2bOrigin> = {}): E2bOrigin => ({ dia: null, hora: null, profissional_mencao: null, servico: null, posicao: null, ...over });
-export const e2bTo = (dia: E2bDay | null, hora: E2bClock | null, profissional: E2bProfessional = { modo: null, mencao: null }): E2bDestination => ({ dia, hora, profissional });
+export const e2bTo = (dia: E2bDay | null, hora: E2bClock | null, profissional: E2bProfessional = { modo: null, mencao: null }): E2bDestination =>
+  ({ dia, hora, profissional: { excluidos: [], ...profissional } });
 /** A full E2-B payload (every key present; null states absence). */
 export const e2bLuna = (over: Partial<E2bInterpretation> = {}): E2bInterpretation => ({ tipo: "remarcar", resposta_a: null, desistir: false, aceita_parcial: null,
   cliente: { mencao: null }, origem: e2bOrigin(), destino: e2bTo(null, null), observacoes: [], fora_do_escopo: [], ...over });

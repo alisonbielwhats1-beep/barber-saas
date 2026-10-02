@@ -140,9 +140,10 @@ const FRI_16 = { date: FRI, time: "16:00" };
 
 describe("PRINCIPLE-3 / PROFESSIONAL-3 / REGRESSION-2: 'outro' with a member's name leaves that member out too (never a conflict offering them)", () => {
   const resolve = (profissional: E2bProfessional, base = salon()) => resolveProfessional(memoryReader(base), wire(profissional), ctxOf(FRI_16));
-  it("TWINS on Friday 16:00 (Arquimedes 1, Cristóvão 0, Dulcinéia 1): 'outro' alone → Cristóvão; 'outro' without Cristóvão → Arquimedes (tie, name order)", async () => {
+  it("TWINS on Friday 16:00 (Arquimedes 1, Cristóvão 0, Dulcinéia 1): 'outro' alone → Cristóvão; 'outro' without Cristóvão → the Arquimedes/Dulcinéia tie, asked (§11.4)", async () => {
     expect(pick(await resolve({ modo: "outro", mencao: null }))).toBe(cristovao.id);
-    expect(pick(await resolve({ modo: "outro", mencao: "Cristóvão" }))).toBe(arquimedes.id);
+    // §11.4 (contract migration): the tie of the fewest (Arquimedes 1, Dulcinéia 1) is asked with both, never the name order.
+    expect(await resolve({ modo: "outro", mencao: "Cristóvão" })).toMatchObject({ state: "tie", options: [{ id: arquimedes.id }, { id: dulcineia.id }] });
     expect(pick(await resolve({ modo: "outro", mencao: "Belmira" })), "the current one named: only she leaves").toBe(cristovao.id);
   });
   it("everyone else busy: nobody_free, saying who was left out by name; controls: 'qualquer' and 'manter' with another member's name are still asked", async () => {
@@ -151,11 +152,15 @@ describe("PRINCIPLE-3 / PROFESSIONAL-3 / REGRESSION-2: 'outro' with a member's n
     expect((await resolve({ modo: "qualquer", mencao: "Cristóvão" })).state).toBe("conflict");
     expect((await resolve({ modo: "manter", mencao: "Cristóvão" })).state).toBe("conflict");
   });
-  it("through the orchestrator: a proposal with Arquimedes and no question; nobody free asks naming both left out", async () => {
+  it("through the orchestrator: the Arquimedes/Dulcinéia tie asked (never Cristóvão), the tap proposes; nobody free asks naming both left out", async () => {
     const frame = forOdalisca(e2bWeekday("sexta", "na sexta"), e2bClock(16, "às 16h"), { modo: "outro", mencao: "Cristóvão" });
     const f = fake([frame]);
     const reply = await send(f, "Passa a Odalisca pra sexta às 16h com outra pessoa, menos o Cristóvão");
-    expect(reply.view).toMatchObject({ status: "proposal_ready", questions: [] });
+    // §11.4 (contract migration): the tie of the fewest is one question with the tied members; the excluded one is never offered.
+    expect(reply.view.questions).toEqual([expect.objectContaining({ field: "professional", reason: "PROFESSIONAL_TIE" })]);
+    expect(optionIds(reply)).toEqual([arquimedes.id, dulcineia.id]);
+    expect(f.prepared).toEqual([]);
+    await selectPilotOption(f.host, pilotOptionRef(reply.view.questions[0].questionId, arquimedes.id));
     expect(f.prepared.map(slot)).toEqual([{ appointmentRef: "apt-o", date: FRI, time: "16:00", professionalRef: arquimedes.id }]);
     const busy = fake([frame], salon({ appointments: [...rows(), booked("x-a-16", hermogenes, arquimedes, drenagem, FRI, "16:00"), booked("x-d-16", hermogenes, dulcineia, drenagem, FRI, "16:00")] }));
     const asked = await send(busy, "Passa a Odalisca pra sexta às 16h com outra pessoa, menos o Cristóvão");

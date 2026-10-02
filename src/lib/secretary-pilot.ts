@@ -7,9 +7,9 @@ import { applyAnswer, applyIntent, approve, attachProposal, completeExecution, c
   pilotPlanClosed, startExecution, withdraw, PILOT_FIELDS, PILOT_OPTIONS_MAX, type PilotApproval, type PilotField, type PilotFieldName, type PilotOption,
   type PilotPlan, type PilotProposal, type PilotQuestion, type PilotQuestionDraft, type PilotQuestionField, type PilotQuestionReason, type PilotReduction,
   type PilotStatus } from "./secretary-pilot-plan";
-import { pilotClockReadings, pilotClockShiftReadings, pilotDayShiftReadings, pilotIdentityOf, pilotMentionIn, pilotNowLocal, pilotToday, resolveAppointment, resolveClockDay,
+import { pilotClockReadings, pilotClockShiftReadings, pilotDataReadings, pilotDayShiftReadings, pilotIdentityOf, pilotMentionIn, pilotNowLocal, pilotToday, resolveAppointment, resolveClockDay,
   resolveCustomer, resolveProfessional, resolveTargetDate, resolveTargetTime, type PilotAppointmentRow, type PilotClock, type PilotDayShiftReading, type PilotHint,
-  type PilotIdentity, type PilotPerson, type PilotReader, type PilotServiceRow } from "./secretary-pilot-resolver";
+  type PilotIdentity, type PilotPerson, type PilotProfessionalSaid, type PilotReader, type PilotServiceRow } from "./secretary-pilot-resolver";
 import type { PilotDayAnchor, PilotDestination, PilotInterpretation, PilotOrigin, PilotTempoDia, PilotTimeAnchor } from "../../packages/salon-secretary/src/pilot-reschedule-contract";
 import { pilotCatalogNames, runPilotInterpretation, PILOT_CALL_LIMITS, PILOT_OPEN_LABELS, type PilotOpenContext, type PilotRequestContext } from "../../packages/salon-secretary/src/pilot-reschedule-prompt";
 import { formatClock, formatDay, formatLocal, formatLocalRange } from "./secretary-datetime-format";
@@ -54,6 +54,11 @@ export const PILOT_HOURS_VIOLATIONS: ReadonlySet<string> = new Set(["OUTSIDE_WOR
 export const PILOT_PROPOSAL_EXPIRED = "A proposta tinha expirado e nada foi gravado. Preparei de novo:";
 /** The salon's team or catalog could not be read before Luna (review L9): nothing is interpreted and nothing changes. */
 export const PILOT_DIRECTORY_UNAVAILABLE = "Não consegui consultar os dados do salão agora; nada foi alterado. Pode repetir em instantes?";
+/** §11.4: the request with the whole context (every service and team name, the open plan, the message) does not fit what one call may carry, or the
+ * salon's team or catalog is past the reader's bound: nothing is cut in silence and nothing is interpreted; said as a matter of size. */
+export const PILOT_TOO_LARGE_REPLY = "Esta mensagem, junto com os serviços e a equipe do salão, passou do tamanho que consigo ler com segurança; nada foi alterado. Tente uma mensagem mais curta; se continuar, o catálogo ou a equipe do salão é grande demais para este caminho.";
+/** §11.4: the reader's refusals of a team or catalog past its bound (codes of the safe failure, PILOT_TOO_LARGE_REPLY). */
+const PILOT_DIRECTORY_TOO_LARGE: ReadonlySet<string> = new Set(["PILOT_TEAM_TOO_LARGE", "PILOT_CATALOG_TOO_LARGE"]);
 /** An identity question answered without a name (review M12): a yes is never inferred; the name, or a tap on the option, is asked. */
 export const PILOT_NAME_REQUIRED = "Para eu ter certeza, escreva o nome como está no cadastro ou toque na opção.";
 /** The open draft, when nothing in it is asked or ready (review L8: never an empty reply). */
@@ -102,10 +107,15 @@ export type PilotSessionState = { plan?: PilotPlan; pending?: PilotPending;
  * brought it (proved once, on arrival: the narrow provenance check never reads another turn's words). Review S2: `anchors`, the received_at (ISO)
  * of the turn that said the origin day and the destination day (their "today": a later turn never reads them against its own day). E2-B §11.1:
  * `anchors.hora`, the received_at of the turn that said the destination clock (the anchor "agora" of a clock offset is that turn's now). §11.3
- * (PRINCIPLE-1): `clockDay`, the destination day is the one a clock offset counted from now settled (no day said): it stays when only the clock
- * changes later, and a new clock offset says its own day again. */
-export type PilotPending = { origem: PilotOrigin; destino: PilotDestination; proven?: Partial<Record<keyof PilotOrigin, boolean>>;
-  anchors?: { origem?: string; destino?: string; hora?: string }; clockDay?: true };
+ * (PRINCIPLE-1) as amended by §11.4: `clockDay`, the destination day is the one a clock offset counted from now settled (no day said): it stays when
+ * the clock changes later (a clock, the appointment's own, one to define, an offset from the appointment's clock); only a new clock counted from now
+ * says its own day again. §11.4: `clockAfterDay`, the destination clock was said in a later message than the destination day (a clock counted from
+ * now that lands on another day then makes the earlier day incompatible: asked, DATE_CLOCK_CONFLICT). */
+export type PilotPending = { origem: PilotOrigin; destino: PilotPendingDestination; proven?: Partial<Record<keyof PilotOrigin, boolean>>;
+  anchors?: { origem?: string; destino?: string; hora?: string }; clockDay?: true; clockAfterDay?: true };
+/** §11.4: the pending destination; its professional may come from a state saved before the exclusion list (upgraded on load; the type admits no
+ * `excluidos`, read as none). */
+export type PilotPendingDestination = Omit<PilotDestination, "profissional"> & { profissional: PilotProfessionalSaid };
 /** The resolved change the real agenda preparation receives: refs and the local day and clock (the appointment is never located again).
  * `keepsProfessional`: the professional is the appointment's own (no new professional is sent); `notes`: the derived assumptions it shows;
  * `today`: the salon's local day of received_at (the year the texts are written against). */
@@ -232,14 +242,19 @@ type Ctx = { host: PilotHost; state: PilotSessionState; reader: PilotReader; clo
   scopeAsked?: boolean;
   /** §11.3 (PRINCIPLE-2): this message (a text answer or a tap) answers the day question of a clock offset counted from two anchors: the day the owner
    * picks settles which anchor(s) the clock counts from (those whose own day it is), never a clock no anchor gives on that day. */
-  clockDayAnswer?: boolean };
+  clockDayAnswer?: boolean;
+  /** §11.4: this message (a text answer or a tap) answers the DATE_CLOCK_CONFLICT question: now's own day keeps the clock counted from now; the day
+   * said before keeps the clock's other anchors (a fact of the question, never of the owner's words). */
+  conflictAnswer?: boolean };
 type Outcome = { text: string; code: string };
 /** What the resolution of the open plan's fields gives: every field (resolved or not), at most one question with its text, the appointment row
  * and the notes of the derived values. */
 type Resolution = { fields: Record<PilotFieldName, PilotField>; question?: PilotQuestionDraft; text?: string; appointment?: PilotAppointmentRow; notes: string[] };
 const UNRESOLVED = (mencao?: string): PilotField => ({ value: null, display: null, provenance: "unresolved", ...(mencao ? { mencao } : {}) });
 const EMPTY_ORIGIN: PilotOrigin = { dia: null, hora: null, profissional_mencao: null, servico: null, posicao: null };
-const EMPTY_DESTINATION: PilotDestination = { dia: null, hora: null, profissional: { modo: null, mencao: null } };
+const EMPTY_DESTINATION: PilotDestination = { dia: null, hora: null, profissional: { modo: null, mencao: null, excluidos: [] } };
+/** The pending flags carried when the pending operators are rebuilt (PRINCIPLE-1's clockDay; §11.4's clockAfterDay). */
+const pendingFlags = (pending: PilotPending) => ({ ...(pending.clockDay ? { clockDay: true as const } : {}), ...(pending.clockAfterDay ? { clockAfterDay: true as const } : {}) });
 /** An interpretation that says nothing (the base of an owner's tap on an option). */
 const SILENT: PilotInterpretation = { tipo: "resposta", resposta_a: null, desistir: false, aceita_parcial: null, cliente: { mencao: null }, origem: EMPTY_ORIGIN,
   destino: EMPTY_DESTINATION, observacoes: [], fora_do_escopo: [] };
@@ -255,7 +270,9 @@ const sameNameWords = (a: string | null, b: string | null) => {
   const x = [...new Set(nameTokens(a ?? ""))].sort(), y = [...new Set(nameTokens(b ?? ""))].sort();
   return x.length === y.length && x.every((token, index) => token === y[index]);
 };
-const professionalMode = (said: PilotDestination["profissional"]) => said.modo ?? (said.mencao ? "nomeado" : "manter");
+const professionalMode = (said: PilotProfessionalSaid) => said.modo ?? (said.mencao ? "nomeado" : "manter");
+/** §11.4: an exclusion list as a set of normalized names (the resolver's own folding of mentions; other words for the same names are the same list). */
+const exclusionKey = (list: readonly string[] | undefined) => [...new Set((list ?? []).map(item => [...new Set(nameTokens(item))].sort().join(" ")))].sort().join("|");
 /** §11.2: the modes where the owner delegates who attends (the code applies decision 15). */
 const delegatedMode = (mode: string | null) => mode === "qualquer" || mode === "outro";
 const floorOf = (ctx: Ctx) => ctx.state.questionFloor ?? 0;
@@ -287,18 +304,25 @@ export async function handlePilotMessage(host: PilotHost, input: PilotTurnInput)
   // is recorded on it from 0, never from the closed plan's revision.
   const baseRevision = state.plan?.revision ?? 0, startPlan = state.plan?.planId;
   let team: readonly { name: string }[] | undefined, catalog: readonly PilotServiceRow[] | undefined, catalogNames: ReturnType<typeof pilotCatalogNames> | undefined;
-  if (!outcome) try { [team, catalog] = await Promise.all([reader.team(), reader.catalog()]); } catch { team = undefined; catalog = undefined; }
+  let teamNames: string[] | undefined, refused: string | undefined;
+  if (!outcome) try { [team, catalog] = await Promise.all([reader.team(), reader.catalog()]); }
+  catch (error) { team = undefined; catalog = undefined; refused = error instanceof Error && PILOT_DIRECTORY_TOO_LARGE.has(error.message) ? error.message : undefined; }
   if (outcome) { /* settled, unverified or reset above: no interpretation */ }
+  // §11.4: a team or catalog past the reader's bound is a safe failure of size (never its first rows in silence).
+  else if (refused) outcome = { text: joined(PILOT_TOO_LARGE_REPLY, pilotStateText(state)), code: refused };
   else if (!team || !catalog) outcome = { text: joined(PILOT_DIRECTORY_UNAVAILABLE, pilotStateText(state)), code: "PILOT_DIRECTORY_UNAVAILABLE" };
   else {
-    // E2-A review CATALOG-1: every catalog name the reader returned (a service hint can only name what Luna saw), cut only past a byte budget.
+    // E2-A review CATALOG-1 as amended by §11.4: EVERY catalog name and EVERY team name the reader returned (a service hint can only name what Luna
+    // saw); a request that cannot carry them all is never sent (PILOT_BUDGET, runPilotInterpretation), never cut.
     catalogNames = pilotCatalogNames(catalog.map(row => row.name));
+    teamNames = [...new Set(team.map(row => row.name).filter(Boolean))];
     const context: PilotRequestContext = { today: { date: today, weekday: new Date(`${today}T12:00:00Z`).toLocaleDateString("pt-BR", { weekday: "long", timeZone: "UTC" }), timezone: clock.timezone },
-      team: [...new Set(team.map(row => row.name).filter(Boolean))].slice(0, 40), services: catalogNames.names,
+      team: teamNames, services: catalogNames.names,
       ...(state.plan && !pilotPlanClosed(state.plan) ? { open: pilotOpenContext(state) } : {}) };
     interpreted = await runPilotInterpretation(await host.model(), { context, message: input.message, modelId: host.modelId, startedAt });
     const ctx: Ctx = { host, state, reader, clock, message: input.message, catalog, baseRevision, reference: today };
-    outcome = interpreted.ok ? await applyInterpretation(ctx, interpreted.interpretation) : { text: joined(PILOT_SAFE_REPLY, pilotStateText(state)), code: interpreted.code };
+    outcome = interpreted.ok ? await applyInterpretation(ctx, interpreted.interpretation)
+      : { text: joined(interpreted.code === "PILOT_BUDGET" ? PILOT_TOO_LARGE_REPLY : PILOT_SAFE_REPLY, pilotStateText(state)), code: interpreted.code };
   }
   const base = state.plan && state.plan.planId === startPlan ? baseRevision : 0;
   if (state.plan) state.plan = { ...state.plan, turns: [...state.plan.turns, { ...turn, baseRevision: base, revision: state.plan.revision, outcome: outcome.code }].slice(-40) };
@@ -310,7 +334,7 @@ export async function handlePilotMessage(host: PilotHost, input: PilotTurnInput)
     ...(interpreted && !interpreted.ok ? { schema: interpreted.telemetry.schema } : {}), request_bytes: interpreted?.telemetry.request_bytes ?? [],
     // E2-A §10.1: observacoes are never read; only how many there were is recorded (never their words).
     ...(interpreted?.ok ? { observacoes: interpreted.interpretation.observacoes.length } : {}),
-    ...(catalogNames ? { catalog_names: { sent: catalogNames.names.length, total: catalogNames.total } } : {}) }) };
+    ...(catalogNames ? { catalog_names: { sent: catalogNames.names.length, total: catalogNames.total } } : {}), ...(teamNames ? { team_names: teamNames.length } : {}) }) };
 }
 /** E2-A: the loader's mark of dropped E1 operators, consumed once. An open plan is withdrawn (no agenda effect) and the owner is told to send the
  * request again; a closed or absent plan only loses the mark (the message is then handled as usual). */
@@ -365,9 +389,12 @@ export function pilotOpenContext(state: PilotSessionState): PilotOpenContext {
     `${L.appointment}: ${f.appointment.provenance === "unresolved" ? L.notLocated : f.appointment.display}`, `${L.date}: ${said(f.date)}`, `${L.time}: ${said(f.time)}`,
     `${L.professional}: ${said(f.professional)}`, ...(plan.action.status === "proposal_ready" ? [L.ready] : [])];
   // The labels only (the contract has no slot for an id: the owner's words pointing at one are copied; a tap answers by id, selectPilotOption).
+  // §11.4: the options left out of what Luna sees are counted ("e mais N"), never dropped in silence.
   const shown = question && question.field !== "customer" && question.field !== "scope" ? question.options?.slice(0, SHOWN_OPTIONS).map(option => option.label) : undefined;
+  const omitted = shown?.length ? (question?.options?.length ?? 0) - shown.length : 0;
   const fieldName: Record<PilotQuestionField, string> = L.fields;
-  return { lines, ...(question ? { question: { questionId: question.questionId, field: fieldName[question.field], reason: question.reason, ...(shown?.length ? { options: shown } : {}) } } : {}) };
+  return { lines, ...(question ? { question: { questionId: question.questionId, field: fieldName[question.field], reason: question.reason,
+    ...(shown?.length ? { options: shown } : {}), ...(omitted > 0 ? { omitted } : {}) } } : {}) };
 }
 
 async function applyInterpretation(ctx: Ctx, I: PilotInterpretation): Promise<Outcome> {
@@ -399,8 +426,10 @@ function messageChanges(ctx: Ctx, I: PilotInterpretation, open: PilotPlan): bool
   if (I.destino.dia && typed(I.destino.dia) !== typed(pending.destino.dia)) return true;
   if (I.destino.hora && typed(I.destino.hora) !== typed(pending.destino.hora)) return true;
   const said = I.destino.profissional, before = pending.destino.profissional;
-  if (!said.modo && !said.mencao) return false;
+  if (!said.modo && !said.mencao && !said.excluidos.length) return false;
   if (professionalMode(said) !== professionalMode(before)) return true;
+  // §11.4: another exclusion list (as sets of normalized names) is a change.
+  if (exclusionKey(said.excluidos) !== exclusionKey(before.excluidos)) return true;
   if (professionalMode(said) === "nomeado") return !(F.professional.provenance === "explicit" && pilotMentionHolds(said.mencao ?? "", F.professional.display)) && !sameNameWords(said.mencao, before.mencao);
   return !!said.mencao && !sameNameWords(said.mencao, before.mencao);
 }
@@ -418,7 +447,7 @@ async function currentText(ctx: Ctx, open: PilotPlan | undefined): Promise<strin
 function mergeOperators(ctx: Ctx, I: PilotInterpretation) {
   const pending = ctx.state.pending ?? { origem: { ...EMPTY_ORIGIN }, destino: structuredClone(EMPTY_DESTINATION) };
   const origem = { ...pending.origem }, destino = structuredClone(pending.destino), proven = { ...(pending.proven ?? {}) }, anchors = { ...(pending.anchors ?? {}) };
-  let clockDay = pending.clockDay === true;
+  let clockDay = pending.clockDay === true, clockAfterDay = pending.clockAfterDay === true;
   for (const key of ORIGIN_KEYS) {
     const value = I.origem[key];
     if (value === null) continue;
@@ -428,15 +457,18 @@ function mergeOperators(ctx: Ctx, I: PilotInterpretation) {
     (origem as Record<string, unknown>)[key] = structuredClone(value); proven[key] = proof;
     if (key === "dia") anchors.origem = turnAt(ctx);
   }
-  if (I.destino.dia) { destino.dia = structuredClone(I.destino.dia); anchors.destino = turnAt(ctx); clockDay = false; }
+  if (I.destino.dia) { destino.dia = structuredClone(I.destino.dia); anchors.destino = turnAt(ctx); clockDay = false; clockAfterDay = false; }
   if (I.destino.hora) {
     destino.hora = structuredClone(I.destino.hora); anchors.hora = turnAt(ctx);
-    // §11.3 (PRINCIPLE-1): a day a clock offset settled stays when only the clock changes (a clock, the same clock, a clock to define); a new clock
-    // offset with no day says its own day again (its anchors are computed afresh, never pasted on the old one's day).
-    if (clockDay && !I.destino.dia && I.destino.hora.tipo === "deslocamento") { destino.dia = null; delete anchors.destino; clockDay = false; }
+    // §11.3 (PRINCIPLE-1) as amended by §11.4: a day a clock offset settled stays when the clock changes later, however (a clock, the same clock, a
+    // clock to define, an offset from the appointment's clock): a resolved day is never erased by a clock. Only a new clock counted from now (anchor
+    // agora) says its own day again (its anchors are computed afresh, never pasted on the old one's day).
+    if (clockDay && !I.destino.dia && I.destino.hora.tipo === "deslocamento" && I.destino.hora.ancoras.includes("agora")) { destino.dia = null; delete anchors.destino; clockDay = false; }
+    // §11.4: a clock said in a later message than the day (a typed fact of the order of the messages, never of their words).
+    else if (!I.destino.dia && destino.dia) clockAfterDay = true;
   }
-  if (I.destino.profissional.modo || I.destino.profissional.mencao) destino.profissional = { ...I.destino.profissional };
-  ctx.state.pending = { origem, destino, proven, anchors, ...(clockDay ? { clockDay: true as const } : {}) };
+  if (I.destino.profissional.modo || I.destino.profissional.mencao || I.destino.profissional.excluidos.length) destino.profissional = structuredClone(I.destino.profissional);
+  ctx.state.pending = { origem, destino, proven, anchors, ...(clockDay ? { clockDay: true as const } : {}), ...(clockAfterDay ? { clockAfterDay: true as const } : {}) };
 }
 /** §11.3 (PRINCIPLE-2): whether a question is the day question of a clock offset counted from two anchors (no day pending; resolveClockDay asked it).
  * A typed fact of the plan's own state, never of the owner's words. */
@@ -518,6 +550,7 @@ async function answer(ctx: Ctx, I: PilotInterpretation, open: PilotPlan | undefi
   } else if (question.field === "customer" && !I.cliente.mencao || question.field === "professional" && !I.destino.profissional.mencao && !I.destino.profissional.modo)
     return { text: joined(PILOT_NAME_REQUIRED, pilotStateText(ctx.state)), code: "ANSWER_WITHOUT_NAME" };
   ctx.clockDayAnswer = clockDayQuestion(ctx.state.pending, question);
+  ctx.conflictAnswer = question.field === "date" && question.reason === "DATE_CLOCK_CONFLICT";
   mergeOperators(ctx, I);
   return answerWith(ctx, open, question, I);
 }
@@ -597,14 +630,16 @@ export async function selectPilotOption(host: PilotHost, ref: string): Promise<P
   else if (question.field === "date" && /^\d{4}-\d{2}-\d{2}$/.test(option.id)) {
     // §11.3 (PRINCIPLE-2): the tapped day of a clock offset's day question settles its anchor too (resolveFields); a tapped day is the owner's own.
     ctx.clockDayAnswer = clockDayQuestion(state.pending, question);
-    const { clockDay: _settled, ...rest } = pending; void _settled;
+    ctx.conflictAnswer = question.reason === "DATE_CLOCK_CONFLICT";
+    // The tapped day is said now (after any clock): neither the day a clock settled nor a clock said after the day any more.
+    const { clockDay: _settled, clockAfterDay: _after, ...rest } = pending; void _settled; void _after;
     state.pending = { ...rest, destino: { ...pending.destino, dia: { tipo: "data", dia: Number(option.id.slice(8, 10)), mes: Number(option.id.slice(5, 7)), mencao: option.label } },
       anchors: { ...pending.anchors, destino: turnAt(ctx) } };
   } else if (question.field === "time" && /^\d{2}:\d{2}$/.test(option.id)) {
     const hour = Number(option.id.slice(0, 2));
     state.pending = { ...pending, destino: { ...pending.destino, hora: { tipo: "relogio", hora: hour, minuto: Number(option.id.slice(3, 5)), periodo: hour < 12 ? "manha" : null, mencao: option.label } } };
   } else if (question.field === "professional") {
-    state.pending = { ...pending, destino: { ...pending.destino, profissional: { modo: "nomeado", mencao: option.label } } };
+    state.pending = { ...pending, destino: { ...pending.destino, profissional: { modo: "nomeado", mencao: option.label, excluidos: [] } } };
     value = { value: option.id, display: option.label, provenance: "explicit", mencao: option.label };
   } else throw Error("SELECTION_INVALID");
   const outcome = await answerWith(ctx, open, question, SILENT, value);
@@ -649,7 +684,7 @@ function knownClock(hora: PilotDestination["hora"], origin: { time: string }): s
   if (!hora) return null;
   if (hora.tipo === "relogio") { const readings = pilotClockReadings(hora); return readings.length === 1 ? readings[0] : null; }
   if (hora.tipo === "mesmo_da_origem") return origin.time;
-  if (hora.tipo === "deslocamento" && hora.ancoras.every(anchor => anchor === "origem")) return pilotClockShiftReadings(hora, { origin: { date: "", time: origin.time }, date: "" })[0]?.time ?? null;
+  if (hora.tipo === "deslocamento" && hora.ancoras.length && hora.ancoras.every(anchor => anchor === "origem")) return pilotClockShiftReadings(hora, { origin: { date: "", time: origin.time }, date: "" })[0]?.time ?? null;
   return null;
 }
 /** The pending anchors kept when the origin hints are replaced: the destination's (day and clock) stay; the origin day's is this turn's, if it said one. */
@@ -707,7 +742,7 @@ async function resolveFields(ctx: Ctx, plan: PilotPlan, I: PilotInterpretation, 
       if (value === null) continue;
       (origem as Record<string, unknown>)[key] = structuredClone(value); proven[key] = pilotMentionIn(ctx.message, originMention(key, value));
     }
-    pending = { origem, destino: pending.destino, proven, anchors: destinationAnchors(pending, I.origem.dia ? turnAt(ctx) : undefined), ...(pending.clockDay ? { clockDay: true as const } : {}) };
+    pending = { origem, destino: pending.destino, proven, anchors: destinationAnchors(pending, I.origem.dia ? turnAt(ctx) : undefined), ...pendingFlags(pending) };
     state.pending = pending;
   }
   // 2. The appointment, located once. Review M4: one bound before stays bound while the customer and the origin hints stay; if it is no longer a
@@ -741,7 +776,7 @@ async function resolveFields(ctx: Ctx, plan: PilotPlan, I: PilotInterpretation, 
         if (value === null) continue;
         (origem as Record<string, unknown>)[key] = structuredClone(value); own[key] = pilotMentionIn(ctx.message, originMention(key, value));
       }
-      pending = { origem, destino: pending.destino, proven: own, anchors: destinationAnchors(pending, I.origem.dia ? turnAt(ctx) : undefined), ...(pending.clockDay ? { clockDay: true as const } : {}) };
+      pending = { origem, destino: pending.destino, proven: own, anchors: destinationAnchors(pending, I.origem.dia ? turnAt(ctx) : undefined), ...pendingFlags(pending) };
       state.pending = pending;
     }
     // Review P1: each hint chooses only if it was proved against the message that brought it (never against another turn's words).
@@ -781,6 +816,12 @@ async function resolveFields(ctx: Ctx, plan: PilotPlan, I: PilotInterpretation, 
   const day = implied ?? resolveTargetDate(pending.destino.dia, origin, dayClock, { time: knownClock(pending.destino.hora, origin) }, clock);
   /** The own day of each clock anchor, a fact: agora, the local day of the turn that said it; origem, the appointment's. */
   const anchorDay = (anchor: PilotTimeAnchor) => anchor === "agora" ? pilotToday(hourClock) : origin.date;
+  // §11.4: a day left open (or dropped) and an offset with no anchor are asked: never the old day, never a day counted from an anchor nobody said.
+  if (day.state === "ask" && (day.reason === "TO_DEFINE" || day.reason === "ANCHOR_MISSING")) {
+    wait("date", "time");
+    return ask("date", day.reason === "TO_DEFINE" ? "DATE_MISSING" : "ANCHOR_MISSING", day.reason === "TO_DEFINE" ? `Para qual dia devo passar o atendimento de ${label(row)}?`
+      : `Não sei a partir de quando contar ${quoted(day.mencao)}. Para qual dia devo passar o atendimento de ${label(row)}?`, undefined, row);
+  }
   if (day.state === "ask") {
     wait("date", "time");
     const dia = pending.destino.dia, hora = pending.destino.hora;
@@ -794,6 +835,20 @@ async function resolveFields(ctx: Ctx, plan: PilotPlan, I: PilotInterpretation, 
   if (day.state === "invalid") { wait("date", "time"); return ask("date", "DATE_INVALID", day.reason === "DATE_PAST" ? `${quoted(day.mencao)} já passou. Para qual dia?`
     : `${quoted(day.mencao)} não é uma data que exista. Para qual dia?`, undefined, row); }
   const shift = pending.destino.hora;
+  // §11.4 (a later correction incompatible with the earlier day; requirement 3, ONE question): a clock counted from now, said in a later message than
+  // the destination day, gives a clock of its own day only; when that day is not the destination day, the earlier day is asked, with the day the
+  // later clock gives offered (its clock shown) beside the day said before. Facts only: the order of the messages, the typed anchors, received_at.
+  if (!implied && !ctx.conflictAnswer && pending.clockAfterDay && shift?.tipo === "deslocamento" && shift.ancoras.includes("agora")) {
+    const own = pilotToday(hourClock), now = pilotToday(clock);
+    const reading = own !== day.date && own >= now ? pilotClockShiftReadings({ ...shift, ancoras: ["agora"] }, { origin, date: own, clock: hourClock, current: clock })[0] : undefined;
+    if (reading?.time) {
+      wait("date", "time");
+      const options = [{ id: own, label: `${formatDay(own, reference)} às ${formatClock(reading.time)} (${TIME_ANCHOR_LABEL.agora})` },
+        { id: day.date, label: `${formatDay(day.date, reference)} (o dia pedido antes)` }].sort((a, b) => a.id.localeCompare(b.id));
+      return ask("date", "DATE_CLOCK_CONFLICT", `${quoted(shift.mencao)}, ${TIME_ANCHOR_LABEL.agora}, dá ${formatClock(reading.time)} de ${formatDay(own, reference)}, mas o dia pedido antes é ${
+        formatDay(day.date, reference)}. Qual dia: ${either(options.map(option => option.label))}?`, options, row);
+    }
+  }
   // §11.3 (PRINCIPLE-1): a day the clock offset's anchor agora settled (no day said; also the day a TIME_INVALID question then names) is kept in the
   // plan as "today" of the turn that said the clock, so a later clock-only change or answer stays on it (never the appointment's day in silence).
   if (implied?.state === "one" && implied.date !== origin.date && shift?.tipo === "deslocamento") {
@@ -807,16 +862,28 @@ async function resolveFields(ctx: Ctx, plan: PilotPlan, I: PilotInterpretation, 
     const kept = shift.ancoras.filter(anchor => anchorDay(anchor) === day.date);
     if (kept.length && kept.length < shift.ancoras.length) { pending = { ...pending, destino: { ...pending.destino, hora: { ...shift, ancoras: kept } } }; state.pending = pending; }
   }
-  ctx.clockDayAnswer = false;
+  // §11.4: the answer to the DATE_CLOCK_CONFLICT question settles the clock's anchor too: now's own day keeps "agora"; the day said before keeps the
+  // other anchor(s) (with none, the clock counted from now stays and its question follows: it gives no clock on that day).
+  if (!implied && ctx.conflictAnswer && shift?.tipo === "deslocamento" && shift.ancoras.length > 1 && shift.ancoras.includes("agora")) {
+    const kept: PilotTimeAnchor[] = day.date === pilotToday(hourClock) ? ["agora"] : shift.ancoras.filter(anchor => anchor !== "agora");
+    pending = { ...pending, destino: { ...pending.destino, hora: { ...shift, ancoras: kept } } }; state.pending = pending;
+  }
+  ctx.clockDayAnswer = false; ctx.conflictAnswer = false;
   out.date = { value: day.date, display: formatDay(day.date, reference), provenance: day.provenance, ...(day.mencao ? { mencao: day.mencao } : {}) };
   if (day.provenance === "derived") {
     // §11.3 (PROPOSAL-6, PRINCIPLE-4): the derived day with the anchor that gave it, and any reading left out because it already passed.
     const dia = pending.destino.dia, fromNow = !!implied || pending.clockDay === true;
-    const readings = !fromNow && dia?.tipo === "deslocamento" ? pilotDayShiftReadings(dia, origin, pilotToday(dayClock)) : [];
-    const used = fromNow ? [TIME_ANCHOR_LABEL.agora] : [...new Set(readings.filter(reading => reading.date === day.date).map(reading => dayReadingLabel(reading, reference)))];
-    const gone = readings.filter(reading => !!reading.date && reading.date !== day.date && (reading.date < pilotToday(dayClock) || reading.date < pilotToday(clock)));
-    notes.push([`Considerei ${formatDay(day.date, reference)} (${[quoted(day.mencao ?? ""), ...(used.length ? [list(used)] : [])].join(", ")}).`,
-      ...gone.map(reading => `${capitalized(dayReadingLabel(reading, reference))} seria ${formatDay(reading.date!, reference)}, que já passou.`)].join(" "));
+    // §11.4: a "data" whose literal reading was left out (already passed) names it, like a cited reference does (never moved in silence).
+    if (!fromNow && dia?.tipo === "data") {
+      const passed = pilotDataReadings(dia, pilotToday(dayClock)).filter(date => date !== day.date && (date < pilotToday(dayClock) || date < pilotToday(clock)));
+      notes.push(`Considerei ${formatDay(day.date, reference)} (${quoted(day.mencao ?? "")})${passed.length ? `: ${list(passed.map(date => formatDay(date, reference)))} já passou` : ""}.`);
+    } else {
+      const readings = !fromNow && dia?.tipo === "deslocamento" ? pilotDayShiftReadings(dia, origin, pilotToday(dayClock)) : [];
+      const used = fromNow ? [TIME_ANCHOR_LABEL.agora] : [...new Set(readings.filter(reading => reading.date === day.date).map(reading => dayReadingLabel(reading, reference)))];
+      const gone = readings.filter(reading => !!reading.date && reading.date !== day.date && (reading.date < pilotToday(dayClock) || reading.date < pilotToday(clock)));
+      notes.push([`Considerei ${formatDay(day.date, reference)} (${[quoted(day.mencao ?? ""), ...(used.length ? [list(used)] : [])].join(", ")}).`,
+        ...gone.map(reading => `${capitalized(dayReadingLabel(reading, reference))} seria ${formatDay(reading.date!, reference)}, que já passou.`)].join(" "));
+    }
   }
   // 4. Who attends (a named one before the clock: decision 18 reads that professional's hours).
   const said = pending.destino.profissional, mode = said.modo ?? (said.mencao ? "nomeado" : null), delegated = delegatedMode(mode);
@@ -839,6 +906,8 @@ async function resolveFields(ctx: Ctx, plan: PilotPlan, I: PilotInterpretation, 
     else if (who.state === "conflict") return conflictQuestion(who);
     else if ("mencao" in who) { wait("professional", "time"); const q = professionalQuestion(who); return ask("professional", q.reason, q.text, q.options, row); }
   }
+  // §11.4 (GAP 2.c): a delegated mode waits for the slot: until then the professional is unresolved (never the current one shown as kept against it).
+  if (delegated) wait("professional");
   // 5. The new clock (decision 18 for a bare hour; decision 2: a new day without a clock is asked; §11.1: an offset read once per listed anchor,
   // "agora" being the received_at of the turn that said it; two different clocks asked; none left on that day asked).
   const professionalId = delegated ? null : out.professional.value;
@@ -853,6 +922,8 @@ async function resolveFields(ctx: Ctx, plan: PilotPlan, I: PilotInterpretation, 
       const options = clockOf.options.map(time => ({ id: time, label: anchorLabel(formatClock(time), readings.filter(reading => reading.time === time).map(reading => TIME_ANCHOR_LABEL[reading.anchor])) }));
       return ask("time", "ANCHOR_TWO_READINGS", `${quoted(clockOf.mencao ?? "")} pode ser ${either(options.map(option => option.label))} em ${formatDay(day.date, reference)}. Qual horário?`, options, row);
     }
+    // §11.4: a clock offset with no anchor the owner said: the clock is asked (the day already resolved stays), never computed.
+    if (clockOf.reason === "ANCHOR_MISSING") return ask("time", "ANCHOR_MISSING", `Não sei a partir de que horário contar ${quoted(clockOf.mencao ?? "")}. Qual horário em ${formatDay(day.date, reference)}?`, undefined, row);
     return ask("time", "TIME_MISSING", `Qual horário em ${formatDay(day.date, reference)}?`, undefined, row);
   }
   if (clockOf.state === "invalid") { wait("time"); return ask("time", "TIME_INVALID", `${quoted(clockOf.mencao)} não dá um horário que ainda esteja por vir em ${formatDay(day.date, reference)}. Qual horário?`, undefined, row); }
@@ -867,7 +938,7 @@ async function resolveFields(ctx: Ctx, plan: PilotPlan, I: PilotInterpretation, 
   } else if (clockOf.provenance === "derived" && clockShift?.tipo === "deslocamento") {
     // §11.3 (PROPOSAL-6, PRINCIPLE-4): the anchor that gave the clock, and a reading left out because it leaves the day or already passed. With no
     // day said (or the day the clock settled), each anchor is read on its own day; otherwise on the destination day.
-    const own = !pending.destino.dia || pending.clockDay === true;
+    const own = !pending.destino.dia || (pending.clockDay === true && clockShift.ancoras.includes("agora"));
     const readings = clockShift.ancoras.flatMap(anchor => pilotClockShiftReadings({ ...clockShift, ancoras: [anchor] }, { ...clockContext, ...(own ? { date: anchorDay(anchor) } : {}) }));
     const used = readings.filter(reading => reading.time === clockOf.time && (!own || anchorDay(reading.anchor) === day.date)).map(reading => TIME_ANCHOR_LABEL[reading.anchor]);
     const gone = readings.filter(reading => reading.dropped?.reason === "LEAVES_DAY" || reading.dropped?.reason === "NOT_AHEAD");
@@ -875,19 +946,32 @@ async function resolveFields(ctx: Ctx, plan: PilotPlan, I: PilotInterpretation, 
       ...gone.map(reading => `${capitalized(TIME_ANCHOR_LABEL[reading.anchor])} ${reading.dropped?.reason === "LEAVES_DAY" ? "sairia do dia" : `seria ${formatClock(reading.dropped!.time!)}, que já passou`}.`)].join(" "));
   } else if (clockOf.provenance === "derived") notes.push(`Considerei ${formatClock(clockOf.time)} (${quoted(clockOf.mencao ?? "")}).`);
   // 6. "qualquer" or "outro" (decision 15 as amended by §11.2): who performs the service and is free for its whole duration, the fewest appointments
-  // that day, then the name order; the current professional leaves for "outro" or at the origin's own day and clock (a fact).
+  // that day; the current professional leaves for "outro" or at the origin's own day and clock (a fact), the excluded members always (§11.4); a tie
+  // on the fewest is asked with the tied members (§11.4: never the name order).
   if (delegated) {
     const who = await resolveProfessional(reader, said, { ...context, slot: { date: day.date, time: clockOf.time }, origin });
     const without = mode === "outro" || (day.date === origin.date && clockOf.time === origin.time);
+    const when = formatLocal(`${day.date}T${clockOf.time}`, reference), service = pilotClip(row.serviceName, PILOT_TEXT_BOUNDS.service);
     if (who.state === "chosen") {
       out.professional = { value: who.id, display: who.name, provenance: "derived", ...(said.mencao ? { mencao: said.mencao } : {}) };
       notes.push(`Escolhi ${person(who.name)}: faz o serviço, está livre nesse horário e ninguém livre tem menos atendimentos no dia.`);
+    } else if (who.state === "tie") {
+      wait("professional");
+      return ask("professional", "PROFESSIONAL_TIE", `${list(who.options.map(item => person(item.name)))} fazem ${service}, estão livres em ${when} e têm o mesmo número de atendimentos nesse dia. Quem vai atender?`,
+        personOptions(who.options), row);
+    } else if ("excluding" in who) {
+      // §11.4: an exclusion that names no member for sure is asked with the owner's words (no option: a tap would make that person the one who attends).
+      wait("professional");
+      return ask("professional", who.state === "contradictory" ? "PROFESSIONAL_CONTRADICTORY" : "PROFESSIONAL_NOT_FOUND", who.state === "contradictory"
+        ? `Encontrei ${person(who.candidate.name)} na equipe, mas você escreveu ${quoted(who.mencao)} para quem não deve atender. Quem não deve atender? Escreva o nome como está no cadastro.`
+        : `Não encontrei ${quoted(who.mencao)} na equipe para deixar de fora${who.suggestions.length ? ` (seria ${names(who.suggestions)}?)` : ""}. Quem não deve atender?`, undefined, row);
     } else if (who.state === "conflict") return conflictQuestion(who);
     else if (who.state === "nobody_free") {
       wait("professional");
       // §11.3 (PRINCIPLE-3): who was left out is said by name (the current one, and the member(s) "outro" named).
-      const leftOut = [...(without ? [current] : []), ...(who.excluded ?? []).filter(item => item.id !== current.id)].map(item => person(item.name));
-      return ask("time", "PROFESSIONAL_NOBODY_FREE", `${leftOut.length ? `Sem contar ${list(leftOut)}, ninguém` : "Ninguém"} que faz ${pilotClip(row.serviceName, PILOT_TEXT_BOUNDS.service)} está livre em ${formatLocal(`${day.date}T${clockOf.time}`, reference)}. Qual outro horário?`, undefined, row);
+      // §11.4: the resolver lists every member an exclusion named (the current one too, when named); each said once.
+      const leftOut = [...new Map([...(without ? [current] : []), ...(who.excluded ?? [])].map(item => [item.id, item])).values()].map(item => person(item.name));
+      return ask("time", "PROFESSIONAL_NOBODY_FREE", `${leftOut.length ? `Sem contar ${list(leftOut)}, ninguém` : "Ninguém"} que faz ${service} está livre em ${when}. Qual outro horário?`, undefined, row);
     } else { wait("professional"); return unavailable("professional", "a equipe"); }
   }
   return { fields: out, appointment: row, notes };

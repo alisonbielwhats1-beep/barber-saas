@@ -68,11 +68,13 @@ async function appointment(s: Studio, id: string) {
 
 const NO_ORIGIN: PilotInterpretation["origem"] = { dia: null, hora: null, profissional_mencao: null, servico: null, posicao: null };
 const luna = (over: Partial<PilotInterpretation> = {}): PilotInterpretation => ({ tipo: "remarcar", resposta_a: null, desistir: false, aceita_parcial: null, cliente: { mencao: null }, origem: NO_ORIGIN,
-  destino: { dia: null, hora: null, profissional: { modo: null, mencao: null } }, observacoes: [], fora_do_escopo: [], ...over });
+  destino: { dia: null, hora: null, profissional: { modo: null, mencao: null, excluidos: [] } }, observacoes: [], fora_do_escopo: [], ...over });
 const answer = (questionId: string, over: Partial<PilotInterpretation>) => luna({ tipo: "resposta", resposta_a: questionId, ...over });
 const weekday = (dia_semana: PilotWeekday, mencao: string): PilotTempoDia => ({ tipo: "dia_semana", dia_semana, qualificador: null, mencao });
 const at = (hora: number, mencao: string): PilotTempoHora => ({ tipo: "relogio", hora, minuto: 0, periodo: null, mencao });
-const to = (dia: PilotTempoDia | null, hora: PilotTempoHora | null, profissional: PilotInterpretation["destino"]["profissional"] = { modo: null, mencao: null }) => ({ dia, hora, profissional });
+// E2-B completion (§11.4) contract migration: the wire's professional carries `excluidos` (who must not attend); frames here get [] (shape only).
+const to = (dia: PilotTempoDia | null, hora: PilotTempoHora | null, profissional: Omit<PilotInterpretation["destino"]["profissional"], "excluidos"> & { excluidos?: string[] } = { modo: null, mencao: null }) =>
+  ({ dia, hora, profissional: { excluidos: [] as string[], ...profissional } });
 
 async function open(s: Studio, frames: PilotInterpretation[], store?: SecretarySessionStore) {
   const model = new ScriptedServicesModel(frames.map(frame => call(PILOT_RESCHEDULE_TOOL, frame)));

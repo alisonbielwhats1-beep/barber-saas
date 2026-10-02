@@ -14,7 +14,10 @@ import { z } from "zod";
  * origem | agora for a clock; both plausible ones when the words fit either) and the reference of a data_citada anchor (§11.3: the literal day
  * number, a weekday or a day of a relative month, as said); Luna never computes the result (the resolver computes the readings of each anchor and
  * asks when they differ). `profissional.modo` "outro": someone other than the current professional (§11.3: a team member named in its mencao is
- * left out too), the code choosing who (decision 15). The request that carries it (prompt, data, limits): pilot-reschedule-prompt.ts. */
+ * left out too), the code choosing who (decision 15). E2-B completion (§11.4): `ancoras` may be [] (the owner gave the operation but no anchor the
+ * contract has: the code asks, never computes); the day may be left open (`a_definir`, like the clock: asked, the old day never kept); and
+ * `profissional.excluidos` lists, with the owner's words for each, who must NOT attend (only with "qualquer" or "outro"; [] otherwise). The request
+ * that carries it (prompt, data, limits): pilot-reschedule-prompt.ts. */
 export const PILOT_RESCHEDULE_TOOL = "interpretar_remarcacao" as const;
 export const PILOT_TURN_KINDS = ["remarcar", "fora_do_escopo", "misto", "conversa", "resposta"] as const;
 export const PILOT_OUT_OF_SCOPE_KINDS = ["cancelar", "bloquear", "trocar_servico", "agendar", "consultar", "outra_acao", "recorrencia", "mensagem"] as const;
@@ -35,7 +38,7 @@ export const PILOT_WEEKDAYS = ["segunda", "terca", "quarta", "quinta", "sexta", 
  * owner's words fits, each item up to the message's own 1000 characters, a generous count). `catalogNames`/`catalogName`: the catalog names of a
  * service hint and the length of one. */
 export const PILOT_CONTRACT_LIMITS = Object.freeze({ mention: 120, outOfScope: 6, observations: 20, observation: 1000, catalogNames: 10, catalogName: 200,
-  questionId: "^q[1-9][0-9]{0,2}$", days: 366, minutes: 1440 });
+  questionId: "^q[1-9][0-9]{0,2}$", days: 366, minutes: 1440, /** §11.4: the members one message may exclude by name. */ exclusions: 10 });
 /** The request of the pilot (the cost guard pins it): the frozen agent's reasoning effort and output cap. */
 export const PILOT_REQUEST_LIMITS = Object.freeze({ effort: "medium" as const, maxOutputTokens: 8192 });
 export type PilotTurnKind = (typeof PILOT_TURN_KINDS)[number];
@@ -59,8 +62,9 @@ const mention = described({ type: "string", minLength: 1, maxLength: L.mention }
 /** Review P5: a mention of a name (customer, professional, service) carries only the name's own words: the resolver matches every one of them. */
 const nameMention = described({ type: "string", minLength: 1, maxLength: L.mention }, "Só as palavras do próprio nome, como o dono escreveu, sem artigo, preposição ou forma de tratamento.");
 
-/** §11.1: the anchors of an offset, one or two (the strict wire cannot say "distinct": a repeated anchor is a rule, pilotContractRules). */
-const anchors = (values: readonly string[]): Json => ({ type: "array", minItems: 1, maxItems: 2, items: choice(values) });
+/** §11.1: the anchors of an offset, up to two (the strict wire cannot say "distinct": a repeated anchor is a rule, pilotContractRules). §11.4: none
+ * when the owner gave the operation but no anchor the contract has (the code asks). */
+const anchors = (values: readonly string[]): Json => ({ type: "array", minItems: 0, maxItems: 2, items: choice(values) });
 /** §11.1 as amended (§11.3, CONTRACT-4): the reference a data_citada anchor counts from, kept as the owner said it: the literal day number (its month
  * only when said), a weekday, or a day of a month said relative to the current one. Luna never turns it into a date (the resolver reads it). */
 const citedMention: Json = { type: "string", minLength: 1, maxLength: L.mention };
@@ -76,6 +80,8 @@ const dayWire: Json[] = [
   object({ tipo: constant("mesmo_da_origem"), mencao: mention }),
   object({ tipo: constant("deslocamento"), quantidade: integer(-L.days, L.days), unidade: choice(PILOT_OFFSET_UNITS),
     ancoras: anchors(PILOT_DAY_ANCHORS), data_citada: citedOrNull, mencao: mention }),
+  // §11.4: the day left open, or dropped with no new one said (asked; the day said before is never kept).
+  object({ tipo: constant("a_definir"), mencao: mention }),
 ];
 const clockWire: Json[] = [
   object({ tipo: constant("relogio"), hora: integer(0, 23), minuto: integer(0, 59), periodo: choice(PILOT_PERIODS, true), mencao: mention }),
@@ -103,7 +109,10 @@ export const PILOT_RESCHEDULE_PARAMETERS: Json = freeze(object({
   cliente: object({ mencao: nullable(nameMention) }),
   origem: described(object({ dia: dayOrNull, hora: clockOrNull, profissional_mencao: nullable(nameMention), servico: serviceOrNull, posicao: positionOrNull }),
     "Só as pistas que o dono deu sobre o atendimento que já existe."),
-  destino: described(object({ dia: dayOrNull, hora: clockOrNull, profissional: object({ modo: choice(PILOT_PROFESSIONAL_MODES, true), mencao: nullable(nameMention) }) }),
+  destino: described(object({ dia: dayOrNull, hora: clockOrNull, profissional: object({ modo: choice(PILOT_PROFESSIONAL_MODES, true), mencao: nullable(nameMention),
+    // §11.4: the exclusion list (each name the owner's words; resolved by the code against the real team, never read as grammar).
+    excluidos: described({ type: "array", maxItems: L.exclusions, items: nameMention },
+      `Quem não deve atender, um item por pessoa, cada um com as palavras do nome como o dono escreveu (no máximo ${L.exclusions}); só com modo qualquer ou outro; senão [].`) }) }),
     "O que o dono pediu para o novo horário."),
   // §10.1: reason and context have their own place, never read by the code (a count in telemetry only).
   observacoes: described({ type: "array", maxItems: L.observations, items: { type: "string", minLength: 1, maxLength: L.observation } },
@@ -131,8 +140,8 @@ export const PILOT_TOOLS_SHA256 = pilotToolsDigest([pilotTool()]);
 const text = (min: number, max: number) => z.string().refine(value => { const n = [...value].length; return n >= min && n <= max; }, "LENGTH");
 const mentionShape = text(1, L.mention);
 const int = (minimum?: number, maximum?: number) => { let shape = z.number().int(); if (minimum !== undefined) shape = shape.min(minimum); if (maximum !== undefined) shape = shape.max(maximum); return shape; };
-/** §11.1 the anchors of one offset: one or two (their repetition is a rule, pilotContractRules). */
-const dayAnchorsShape = z.array(z.enum(PILOT_DAY_ANCHORS)).min(1).max(2), timeAnchorsShape = z.array(z.enum(PILOT_TIME_ANCHORS)).min(1).max(2);
+/** §11.1 the anchors of one offset: up to two (their repetition is a rule, pilotContractRules); §11.4: none, when the owner said no anchor. */
+const dayAnchorsShape = z.array(z.enum(PILOT_DAY_ANCHORS)).max(2), timeAnchorsShape = z.array(z.enum(PILOT_TIME_ANCHORS)).max(2);
 /** §11.3 (CONTRACT-4): the reference of a data_citada anchor: the literal day number, a weekday or a day of a relative month (strict each). */
 export const pilotCitedShape = z.union([
   z.object({ dia: int(1, 31), mes: int(1, 12).nullable(), mencao: mentionShape }).strict(),
@@ -146,6 +155,7 @@ export const pilotTempoDiaShape = z.discriminatedUnion("tipo", [
   z.object({ tipo: z.literal("mesmo_da_origem"), mencao: mentionShape }).strict(),
   z.object({ tipo: z.literal("deslocamento"), quantidade: int(-L.days, L.days), unidade: z.enum(PILOT_OFFSET_UNITS), ancoras: dayAnchorsShape,
     data_citada: pilotCitedShape.nullable(), mencao: mentionShape }).strict(),
+  z.object({ tipo: z.literal("a_definir"), mencao: mentionShape }).strict(),
 ]);
 export const pilotTempoHoraShape = z.discriminatedUnion("tipo", [
   z.object({ tipo: z.literal("relogio"), hora: int(0, 23), minuto: int(0, 59), periodo: z.enum(PILOT_PERIODS).nullable(), mencao: mentionShape }).strict(),
@@ -160,7 +170,7 @@ export const pilotServicoShape = z.object({ mencao: mentionShape, catalogo: z.ar
 export const pilotOrigemShape = z.object({ dia: pilotTempoDiaShape.nullable(), hora: pilotTempoHoraShape.nullable(), profissional_mencao: mentionShape.nullable(),
   servico: pilotServicoShape.nullable(), posicao: z.object({ valor: z.enum(PILOT_POSITIONS), mencao: mentionShape }).strict().nullable() }).strict();
 export const pilotDestinoShape = z.object({ dia: pilotTempoDiaShape.nullable(), hora: pilotTempoHoraShape.nullable(),
-  profissional: z.object({ modo: z.enum(PILOT_PROFESSIONAL_MODES).nullable(), mencao: mentionShape.nullable() }).strict() }).strict();
+  profissional: z.object({ modo: z.enum(PILOT_PROFESSIONAL_MODES).nullable(), mencao: mentionShape.nullable(), excluidos: z.array(mentionShape).max(L.exclusions) }).strict() }).strict();
 export const pilotInterpretationShape = z.object({
   tipo: z.enum(PILOT_TURN_KINDS),
   resposta_a: z.string().regex(new RegExp(L.questionId)).nullable(),
@@ -204,17 +214,20 @@ export function decodePilotInterpretation(raw: unknown): PilotInterpretation {
   return raw as PilotInterpretation;
 }
 /** What the schema cannot say: a mixed request names its out-of-scope part; a named professional comes with the owner's words for it; E2-B §11.1:
- * an offset lists each anchor once, and its cited date is there exactly when one of its anchors is data_citada. A violation is a format failure
- * of the call (its single repair follows), never a value the code picks. */
+ * an offset lists each anchor once, and its cited date is there exactly when one of its anchors is data_citada; §11.4: an exclusion list only
+ * beside a delegated mode ("qualquer" or "outro": the only modes where the code chooses who). A violation is a format failure of the call (its
+ * single repair follows), never a value the code picks. */
 export function pilotContractRules(value: PilotInterpretation): string[] {
   const shifts = [value.origem?.dia, value.origem?.hora, value.destino?.dia, value.destino?.hora].filter(item => item?.tipo === "deslocamento") as (PilotDayShift | PilotClockShift)[];
   const days = shifts.filter((item): item is PilotDayShift => "quantidade" in item);
   const repeated = shifts.some(item => Array.isArray(item.ancoras) && new Set<string>(item.ancoras).size !== item.ancoras.length);
+  const professional = value.destino.profissional;
   return [...(value.tipo === "misto" && !value.fora_do_escopo.length ? ["RULE:misto_sem_fora_do_escopo"] : []),
-    ...(value.destino.profissional.modo === "nomeado" && value.destino.profissional.mencao === null ? ["RULE:nomeado_sem_mencao"] : []),
+    ...(professional.modo === "nomeado" && professional.mencao === null ? ["RULE:nomeado_sem_mencao"] : []),
     ...(repeated ? ["RULE:ancora_repetida"] : []),
     ...(days.some(item => item.ancoras.includes("data_citada") && !item.data_citada) ? ["RULE:data_citada_sem_valor"] : []),
-    ...(days.some(item => !item.ancoras.includes("data_citada") && !!item.data_citada) ? ["RULE:valor_sem_data_citada"] : [])];
+    ...(days.some(item => !item.ancoras.includes("data_citada") && !!item.data_citada) ? ["RULE:valor_sem_data_citada"] : []),
+    ...(Array.isArray(professional.excluidos) && professional.excluidos.length && professional.modo !== "qualquer" && professional.modo !== "outro" ? ["RULE:excluidos_sem_delegacao"] : [])];
 }
 /** The function-call arguments string of `interpretar_remarcacao` (invalid JSON is a PilotContractError too). */
 export function decodePilotInterpretationArguments(json: string): PilotInterpretation {

@@ -331,3 +331,56 @@ Emendas ao §11, cada uma com teste de regressão escrito antes do código (`sec
 - **Pista de origem com "origem" e outra âncora (RESOLVER-5).** "origem" não dá leitura da própria origem: filtram as outras âncoras. Só "origem" sozinha não filtra.
 - **Tamanho da requisição (REGRESSION-3).** O orçamento dos nomes do catálogo (CATALOG-1) cai de 20 KB para 10,5 KB. O pior caso (pergunta aberta com 8 opções no limite do rótulo, uma linha por campo no limite e a nota de reparo completa) cabe no teto com cerca de 2 KB de folga. Um teste confere esse formato.
 - **Bateria DEV (REGRESSION-4).** O teste de pares de palavras descarta os marcadores (nomes, números, dias) antes de formar os pares. O PB09 foi reescrito. PB18 a PB20 entram para exercitar a referência por dia da semana (uma leitura e duas) e "outro" com nome.
+
+### 11.4 Conclusão da E2-B: modelo temporal geral (exigências do dono; emendas ao §3, ao §11 e ao §11.3, antes da bateria, ainda atrás da flag)
+
+Toda transformação de tempo é operação + âncora explícita + valor. A Luna diz a relação; o código calcula. Cada emenda tem teste escrito antes do código (`secretary-pilot-e2b2-time.test.ts`, com gêmeos). Nenhuma lê o português do dono depois da Luna.
+
+- **Âncora ausente (GAP 1.a).** `ancoras` aceita `[]` (dia e hora): o dono deu a operação, mas nenhuma âncora que o contrato tem. A Secretária pergunta o campo (`date` ou `time`, motivo `ANCHOR_MISSING`) e nunca calcula a partir de uma âncora que ninguém disse. O dia já resolvido continua no plano enquanto a hora é perguntada. `data_citada` sem a âncora `data_citada` continua sendo regra violada (reparo).
+- **Dia em aberto (GAP 1.b).** Novo operador de dia `{ "tipo": "a_definir", "mencao" }`, como o da hora: o dono deixou o dia em aberto, ou retirou o dia dito antes sem dizer outro. A Secretária pergunta o dia (`DATE_MISSING`); o dia anterior nunca é mantido.
+- **`data` segue as regras de `data_citada` (GAP 1.c; substitui "`data`: sem mês, a próxima ocorrência a partir de hoje" do §3.3).** O dia dito por extenso tem as mesmas leituras da mesma referência usada como âncora (§11.3, SEMANTICS-1): sem mês, o dia deste mês e, se ele já passou, o próximo que existe; com mês, a ocorrência mais próxima de hoje. As que já passaram não contam; duas ou mais são perguntadas; nenhuma é `DATE_PAST`. A leitura literal é `explicit`; a que sobra depois de descartar outra é `derived`, e a proposta nomeia a descartada ("…: seg, 03/03 já passou"). Nunca um mês ou um ano à frente em silêncio. As pistas de origem com `data` filtram pelas mesmas leituras.
+
+### 11.5 Dia dado pelo relógio persiste (GAP 1.d; substitui, no §11.3 PRINCIPLE-1, "Um novo deslocamento de hora sem dia volta a dizer o seu")
+
+- O dia que um deslocamento de hora contado de "agora" definiu fica no plano quando a hora muda depois, qualquer que seja a forma: um relógio, o horário de sempre, uma hora a definir ou um deslocamento contado do horário do atendimento. Uma correção só de hora nunca apaga um dia resolvido, e o dia do atendimento nunca volta em silêncio.
+- Só um novo deslocamento contado de "agora" diz de novo o seu dia (o dia do turno que o disse), porque essa âncora só existe no próprio dia.
+
+### 11.6 Correção posterior incompatível: uma pergunta (GAP 1.e e exigência 3)
+
+- Um deslocamento de hora com a âncora "agora", dito numa mensagem **posterior** à do dia, só dá horário no dia do turno que o disse. Se esse dia não é o dia de destino, a informação anterior ficou incompatível: a Secretária pergunta o dia uma única vez (`DATE_CLOCK_CONFLICT`, campo `date`), oferecendo o dia que a hora nova dá (com o horário calculado) e o dia pedido antes.
+- A resposta (texto ou toque) resolve também a âncora: o dia de "agora" fica só com "agora"; o dia pedido antes fica com as outras âncoras (sem nenhuma, a hora é perguntada nesse dia, `TIME_INVALID`).
+- A ordem das mensagens é um fato do plano (`clockAfterDay`), nunca leitura das palavras. Dia e hora na mesma mensagem, ou o dia dito depois da hora, continuam como no §11.3: a hora é perguntada no dia dito.
+
+### 11.7 Delegação e exclusões (exigência 2; emendas ao §11.2 e ao §11.3 PRINCIPLE-3)
+
+- **Lista tipada.** `destino.profissional` ganha `excluidos: string[]` (até 10 nomes, cada um com as palavras do dono): quem não deve atender. Só com `qualquer` ou `outro`; com outro modo, ou sem modo, é `[]` (regra `RULE:excluidos_sem_delegacao`, com frase fixa de reparo). A menção de `outro` mantém o papel do §11.3 (mais uma exclusão), para estados salvos antes da lista; uma menção que não se relaciona com nenhum membro continua sendo palavras do próprio modo (M9).
+- **Resolução por fatos.** Cada exclusão é buscada na equipe real pela menção normalizada (os estados de identidade): exata ou parcial, aquele membro sai; ambígua, todos os que ela pode ser saem; contraditória ou não encontrada, a Secretária **pergunta** (`PROFESSIONAL_CONTRADICTORY` ou `PROFESSIONAL_NOT_FOUND`, campo `professional`, com as palavras do dono e **sem opção de toque**, porque um toque tornaria essa pessoa quem atende). Uma exclusão nunca é ignorada. `qualquer` com exclusão não é mais conflito.
+- **Desempate (substitui "depois a ordem do nome" do §11.2).** Decisão 15: o único com menos atendimentos no dia. Se dois ou mais ficam empatados, a regra do produto não decide: a Secretária pergunta (`PROFESSIONAL_TIE`, campo `professional`), com os empatados como opções. Nunca a ordem do nome.
+- **O atual nunca é mantido contra a delegação (GAP 2.c).** Enquanto um modo delegado espera o dia e a hora, o profissional fica `unresolved` no plano; nunca o atual mostrado como mantido.
+- **Ninguém livre** continua `PROFESSIONAL_NOBODY_FREE`, dizendo quem ficou de fora: o atual (por `outro` ou pelo horário de origem) e todos os nomeados nas exclusões, inclusive o atual quando `qualquer` o excluiu.
+
+### 11.8 Contexto e tamanho da requisição (exigência 4; substitui o orçamento do CATALOG-1 do §10.4 e o corte do REGRESSION-3 do §11.3)
+
+- **Nada é cortado em silêncio.** O catálogo e a equipe vão inteiros para a Luna. O leitor do banco lê até 2000 serviços e 500 profissionais ativos (inclusive na união do expediente do salão) e recusa acima disso (`PILOT_CATALOG_TOO_LARGE`, `PILOT_TEAM_TOO_LARGE`); nunca devolve só os primeiros.
+- **A pergunta aberta** mostra à Luna até 8 opções e diz quantas ficaram de fora ("e mais N"). **A nota de reparo** põe os códigos de regra primeiro, nomeia até 8 códigos, conta os outros ("e mais N") e traz a frase fixa de **todas** as regras violadas.
+- **Medir antes de enviar.** Cada requisição é medida antes de ir; se a medição falha, ela não é enviada (`PILOT_BUDGET_UNMEASURED`). Acima do teto (bytes + 8192 > 64000), não é enviada (`PILOT_BUDGET`).
+- **Falha segura e observável.** Sem chamada ao modelo, nada é alterado, a resposta diz que o problema é de tamanho (`PILOT_TOO_LARGE_REPLY`, com "nada foi alterado"), e a telemetria registra o código, os bytes medidos, `catalog_names` e `team_names`.
+- **Medidas** (offline, pelo construtor de corpo do SDK; teto útil de 55.808 B):
+
+  | Requisição | Bytes | Folga |
+  |---|---|---|
+  | Base (sem equipe e catálogo, mensagem curta) | 33.450 | |
+  | Pior parte fixa: pergunta aberta no limite (8 rótulos e a contagem), linhas no limite, 1000 caracteres de controle, reparo completo | 46.746 | 9.062 para equipe e catálogo |
+  | Salão grande real: 300 serviços de 20 caracteres e 40 nomes de equipe, pior caso com texto real (1000 caracteres acentuados) | 52.577 | 3.231 |
+  | O mesmo com 400 serviços | 55.177 | 631 |
+  | Salão típico (100 × 60 e 10 × 120), pior caso com texto acentuado / com 1000 caracteres de controle | 50.159 / 54.494 | 5.649 / 1.314 |
+
+  Acima disso, o turno falha com segurança (`PILOT_BUDGET`). Um teste fixa o salão grande real com pelo menos 2 KB de folga.
+
+### 11.9 Pendências para o dono (registradas; nenhuma muda comportamento agora)
+
+- Não há âncora para o horário novo do próprio plano, nem para um horário que o dono cita: esse deslocamento vem com `ancoras: []` e é perguntado (`ANCHOR_MISSING`, pedindo o horário).
+- Um dia da semana de destino dito no próprio dia, sem hora conhecida, não lê hoje; o mesmo dia da semana como referência citada lê hoje. Inconsistência pequena, sem teste, mantida.
+- "Com mês, a ocorrência mais próxima" pergunta como passada uma data distante ainda futura (por exemplo, "20/12" dito em março).
+- Um empate respondido com "tanto faz" volta a ser perguntado, porque a regra do produto não decide.
+- Só a sonda paga de desenvolvimento, depois da reverificação, pode provar que a retirada de exemplos do prompt não causou regressão. Esta conclusão não remove nem acrescenta exemplos: só acrescenta `excluidos` aos 13 exemplos existentes.

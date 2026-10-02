@@ -33,7 +33,11 @@ export const PILOT_QUESTION_REASONS = ["CUSTOMER_MISSING", "CUSTOMER_AMBIGUOUS",
   "APPOINTMENT_CHANGED", "OUTSIDE_HOURS", "APPOINTMENT_NOT_SUPPORTED",
   // E2-B §11.1: an offset whose anchors give two different days or clocks (bound to the date or the time, both readings offered); a clock offset
   // with no reading left on the destination day (it leaves the day, is not ahead of now, or counts from now on another day).
-  "ANCHOR_TWO_READINGS", "TIME_INVALID"] as const;
+  "ANCHOR_TWO_READINGS", "TIME_INVALID",
+  // E2-B completion (§11.4): an offset whose owner gave no anchor (the date or the time asked, never computed); a day left open or dropped (the
+  // date asked, the old one never kept); a clock counted from now said after a day it does not fit (the date asked, its own day offered); a tie
+  // after decision 15's fewest appointments (the tied members offered, never the name order).
+  "ANCHOR_MISSING", "DATE_MISSING", "DATE_CLOCK_CONFLICT", "PROFESSIONAL_TIE"] as const;
 export type PilotQuestionReason = (typeof PILOT_QUESTION_REASONS)[number];
 export type PilotOption = { id: string; label: string };
 export type PilotQuestion = { questionId: string; actionId: typeof PILOT_ACTION_ID; field: PilotQuestionField; reason: PilotQuestionReason; options?: PilotOption[];

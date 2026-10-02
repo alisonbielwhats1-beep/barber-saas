@@ -12,8 +12,10 @@ import type { PilotAppointmentRow, PilotBusy, PilotPerson, PilotProfessionalRow,
  * those sharing one (the resolver decides by whole tokens), plus, for tolerant suggestions, those with a name word starting like a mention token;
  * bounded, and a set past the bound is refused (never decided on a truncated set). */
 /** Review L5/M3: 300 future appointments of one customer (a long recurring series) before the read is refused; a question lists at most 8 of
- * them in its text (plus a count) and keeps at most 20 as options. */
-export const PILOT_READ_LIMITS = Object.freeze({ customers: 1000, appointments: 300 });
+ * them in its text (plus a count) and keeps at most 20 as options. §11.4: the active team and the active catalog are read WHOLE up to these bounds
+ * (far past what one request can carry) and REFUSED past them (PILOT_TEAM_TOO_LARGE, PILOT_CATALOG_TOO_LARGE): never the first N in silence; the
+ * request then decides by its measured size (PILOT_BUDGET). */
+export const PILOT_READ_LIMITS = Object.freeze({ customers: 1000, appointments: 300, team: 500, catalog: 2000 });
 const ACTIVE = ["PENDING", "CONFIRMED"] as const, OCCUPYING = ["PENDING", "CONFIRMED", "IN_PROGRESS"] as const;
 const minutesOn = (date: string, timezone: string, at: Date) => {
   const start = startOfDateInTimeZone(date, timezone), end = endExclusiveOfDateInTimeZone(date, timezone);
@@ -88,14 +90,22 @@ export function pilotTenantReader(actor: ServiceActor): PilotReader {
     }),
     team: () => read(async tx => {
       const rows = await tx.professional.findMany({ where: { salonId, active: true }, select: { id: true, user: { select: { name: true } },
-        services: { where: { service: { salonId, active: true } }, select: { serviceId: true } } }, orderBy: { id: "asc" }, take: 200 });
+        services: { where: { service: { salonId, active: true } }, select: { serviceId: true } } }, orderBy: { id: "asc" }, take: PILOT_READ_LIMITS.team + 1 });
+      if (rows.length > PILOT_READ_LIMITS.team) throw Error("PILOT_TEAM_TOO_LARGE");
       return rows.map((row): PilotProfessionalRow => ({ id: row.id, name: row.user.name ?? "", serviceIds: row.services.map(item => item.serviceId) }));
     }),
-    catalog: () => read(async tx => (await tx.service.findMany({ where: { salonId, active: true }, select: { id: true, name: true, durationMin: true, priceCents: true },
-      orderBy: [{ name: "asc" }, { id: "asc" }], take: 400 })).map((row): PilotServiceRow => ({ id: row.id, name: row.name, durationMin: row.durationMin, priceCents: row.priceCents }))),
+    catalog: () => read(async tx => {
+      const rows = await tx.service.findMany({ where: { salonId, active: true }, select: { id: true, name: true, durationMin: true, priceCents: true },
+        orderBy: [{ name: "asc" }, { id: "asc" }], take: PILOT_READ_LIMITS.catalog + 1 });
+      if (rows.length > PILOT_READ_LIMITS.catalog) throw Error("PILOT_CATALOG_TOO_LARGE");
+      return rows.map((row): PilotServiceRow => ({ id: row.id, name: row.name, durationMin: row.durationMin, priceCents: row.priceCents }));
+    }),
     workingWindows: (professionalId, date) => read(async (tx, timezone) => {
       if (!isDateKey(date)) throw Error("PILOT_DATE_INVALID");
-      const ids = professionalId ? [professionalId] : (await tx.professional.findMany({ where: { salonId, active: true }, select: { id: true }, take: 200 })).map(row => row.id);
+      // §11.4: the salon's hours are the union of its WHOLE active team (refused past the bound, never the first ones in silence).
+      const team = professionalId ? [] : await tx.professional.findMany({ where: { salonId, active: true }, select: { id: true }, orderBy: { id: "asc" }, take: PILOT_READ_LIMITS.team + 1 });
+      if (team.length > PILOT_READ_LIMITS.team) throw Error("PILOT_TEAM_TOO_LARGE");
+      const ids = professionalId ? [professionalId] : team.map(row => row.id);
       const all: PilotWindow[] = [];
       for (const id of ids) all.push(...await windowsOf(tx, salonId, timezone, id, date));
       return unionIntervals(all);

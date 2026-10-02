@@ -28,8 +28,10 @@ const ORIGIN: PilotOrigin = { dia: null, hora: null, profissional_mencao: null, 
 const day = (dia_semana: PilotWeekday, mencao: string, qualificador: "este" | "proximo" | null = null): PilotTempoDia => ({ tipo: "dia_semana", dia_semana, qualificador, mencao });
 const clock = (hora: number, mencao: string): PilotTempoHora => ({ tipo: "relogio", hora, minuto: 0, periodo: null, mencao });
 const luna = (over: Partial<PilotInterpretation> = {}): PilotInterpretation => ({ tipo: "remarcar", resposta_a: null, desistir: false, aceita_parcial: null,
-  cliente: { mencao: null }, origem: ORIGIN, destino: { dia: null, hora: null, profissional: { modo: null, mencao: null } }, observacoes: [], fora_do_escopo: [], ...over });
-const to = (dia: PilotTempoDia | null, hora: PilotTempoHora | null, profissional: PilotInterpretation["destino"]["profissional"] = { modo: null, mencao: null }) => ({ dia, hora, profissional });
+  cliente: { mencao: null }, origem: ORIGIN, destino: { dia: null, hora: null, profissional: { modo: null, mencao: null, excluidos: [] } }, observacoes: [], fora_do_escopo: [], ...over });
+// E2-B completion (§11.4) contract migration: the wire's professional carries `excluidos` (who must not attend); frames here get [] (shape only).
+const to = (dia: PilotTempoDia | null, hora: PilotTempoHora | null, profissional: Omit<PilotInterpretation["destino"]["profissional"], "excluidos"> & { excluidos?: string[] } = { modo: null, mencao: null }) =>
+  ({ dia, hora, profissional: { excluidos: [] as string[], ...profissional } });
 /** Local São Paulo time (UTC-3) as the frozen received_at. */
 const local = (at: string) => clockAt(new Date(Date.parse(`${at}:00Z`) + 3 * 3_600_000).toISOString());
 
@@ -229,7 +231,10 @@ describe("review E1/E3: a write already made is reported; a replay never pairs a
 describe("review S1/S2/S5: what a message changes is read from the message itself; a said day keeps its turn's today", () => {
   it("S1: a withdrawal naming the customer again withdraws, whatever the agenda or the clock did meanwhile", async () => {
     const withdrawal = luna({ desistir: true, cliente: { mencao: "Severina" } });
-    const free = fake(salon({ appointments: severinaWed() }), [move({ destino: to(day("sexta", "sexta"), clock(15, "15h"), { modo: "qualquer", mencao: "com quem estiver livre" }) }), withdrawal]);
+    // §11.4 (contract migration): Otávio has one appointment that Friday, so Inês (0) is the one with the fewest (a 0-0 tie is now asked, never the
+    // name order); the case is unchanged otherwise.
+    const free = fake(salon({ appointments: [...severinaWed(), booked("apt-otavio-fri", anselmo, otavio, corte, FRI, "11:00")] }),
+      [move({ destino: to(day("sexta", "sexta"), clock(15, "15h"), { modo: "qualquer", mencao: "com quem estiver livre" }) }), withdrawal]);
     expect((await send(free, "Severina pra sexta 15h com quem estiver livre")).view.fields!.professional.value).toBe(ines.id);
     free.base.appointments!.push(booked("apt-other", anselmo, ines, corte, FRI, "09:00"));
     expect((await send(free, "esquece a da Severina")).code).toBe("WITHDRAWN");

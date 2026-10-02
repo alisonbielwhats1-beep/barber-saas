@@ -42,9 +42,10 @@ const move = (dia: unknown, hora: unknown = e2bSameClock("no mesmo horário"), o
   e2bLuna({ cliente: { mencao: "Ivonete" }, origem: e2bOrigin({ dia: origemDia as never }), destino: e2bTo(dia as never, hora as never) });
 
 describe("E2-B wire: the anchored offset, what Luna is told", () => {
-  it("day operators (origin and destination): data, mes_relativo, dia_semana, mesmo_da_origem, deslocamento; relativo_hoje and origem_mais_dias are gone", () => {
+  it("day operators (origin and destination): data, mes_relativo, dia_semana, mesmo_da_origem, deslocamento, a_definir (§11.4); relativo_hoje and origem_mais_dias are gone", () => {
+    // §11.4 (contract migration): the day may be left open, like the clock.
     for (const side of ["origem", "destino"] as const)
-      expect(sideBranches(side, "dia").map(tipoOf).sort(), side).toEqual(["data", "deslocamento", "dia_semana", "mes_relativo", "mesmo_da_origem"]);
+      expect(sideBranches(side, "dia").map(tipoOf).sort(), side).toEqual(["a_definir", "data", "deslocamento", "dia_semana", "mes_relativo", "mesmo_da_origem"]);
   });
   it("clock operators (origin and destination): relogio, mesmo_da_origem, deslocamento, a_definir; origem_mais_minutos is gone", () => {
     for (const side of ["origem", "destino"] as const)
@@ -64,7 +65,8 @@ describe("E2-B wire: the anchored offset, what Luna is told", () => {
       expect([...enumOf(p.unidade)].sort(), side).toEqual([...E2B_UNITS].sort());
       expect(p.ancoras.type, side).toBe("array");
       expect([...itemEnum(p.ancoras)].sort(), side).toEqual([...E2B_DAY_ANCHORS].sort());
-      expect(p.ancoras.minItems, side).toBe(1);
+      // §11.4 (contract migration): no anchor at all is a typed fact the contract carries (the code asks, ANCHOR_MISSING).
+      expect(p.ancoras.minItems, side).toBe(0);
       expect(p.ancoras.maxItems, side).toBe(2);
       expect(JSON.stringify(p.data_citada.type ?? p.data_citada.anyOf), side).toContain("null");
       const [cited] = branches(p.data_citada);
@@ -74,7 +76,7 @@ describe("E2-B wire: the anchored offset, what Luna is told", () => {
       expect(props(cited).mes, side).toMatchObject({ minimum: 1, maximum: 12 });
     }
   });
-  it("clock deslocamento: exactly { tipo, minutos, ancoras, mencao }; anchors origem | agora, 1 to 2", () => {
+  it("clock deslocamento: exactly { tipo, minutos, ancoras, mencao }; anchors origem | agora, 0 to 2 (§11.4)", () => {
     for (const side of ["origem", "destino"] as const) {
       const branch = shiftBranch(side, "hora");
       expect(branch, side).toBeDefined();
@@ -82,7 +84,7 @@ describe("E2-B wire: the anchored offset, what Luna is told", () => {
       expect(Object.keys(p).sort(), side).toEqual(["ancoras", "mencao", "minutos", "tipo"]);
       expect(p.minutos, side).toMatchObject({ type: "integer", minimum: -E2B_LIMITS.minutes, maximum: E2B_LIMITS.minutes });
       expect([...itemEnum(p.ancoras)].sort(), side).toEqual([...E2B_TIME_ANCHORS].sort());
-      expect(p.ancoras, side).toMatchObject({ type: "array", minItems: 1, maxItems: 2 });
+      expect(p.ancoras, side).toMatchObject({ type: "array", minItems: 0, maxItems: 2 });
     }
   });
   it("profissional.modo: manter | nomeado | qualquer | outro, or null", () => {
@@ -133,10 +135,14 @@ describe("E2-B decoder: the typed shape and the published wire accept exactly th
     ];
     for (const [label, payload] of bad) expect(decode(payload), label).toBe("REJECTED");
   });
-  it("anchors: none, three, repeated, or of the other side (agora for a day; hoje or data_citada for a clock) are rejected", () => {
+  it("anchors: three, repeated, or of the other side (agora for a day; hoje or data_citada for a clock) are rejected; §11.4: none is accepted (asked by the code)", () => {
     const cited = e2bCited(20, null, "dia 20");
+    // §11.4 (contract migration): an operation with no anchor the owner said decodes to itself (the resolver asks, ANCHOR_MISSING); with a cited
+    // reference and no anchor it is still a rule failure.
+    expect(decode(move(e2bDays(1, [], "um dia depois"))), "no anchor (day)").toBe("ACCEPTED");
+    expect(decode(move(null, e2bMinutes(60, [], "uma hora depois"))), "no anchor (clock)").toBe("ACCEPTED");
+    expect(decode(move(e2bDays(1, [], "um dia depois", cited))), "a cited reference with no anchor").toBe("REJECTED");
     const bad: [string, unknown][] = [
-      ["no anchor", move(e2bDays(1, [], "um dia depois"))],
       ["three anchors", move(e2bDays(1, ["origem", "hoje", "data_citada"], "um dia depois", cited))],
       ["repeated origem", move(e2bDays(1, ["origem", "origem"], "um dia depois"))],
       ["repeated hoje", move(e2bDays(1, ["hoje", "hoje"], "amanhã"))],

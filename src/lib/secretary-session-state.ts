@@ -48,10 +48,11 @@ const pilotPlan = z.object({
 const pilotProven = z.object({ dia: z.boolean().optional(), hora: z.boolean().optional(), profissional_mencao: z.boolean().optional(), servico: z.boolean().optional(),
   posicao: z.boolean().optional() }).strict();
 const pilotAnchors = z.object({ origem: z.string().max(40).optional(), destino: z.string().max(40).optional(), hora: z.string().max(40).optional() }).strict();
-// E2-B §11.3 (PRINCIPLE-1): `clockDay`, the destination day was settled by a clock offset counted from now (no day said).
+// E2-B §11.3 (PRINCIPLE-1): `clockDay`, the destination day was settled by a clock offset counted from now (no day said). §11.4: `clockAfterDay`,
+// the destination clock was said in a later message than the destination day.
 const pilotPending = z.object({ origem: z.unknown().refine(value => pilotOrigemShape.safeParse(value).success),
   destino: z.unknown().refine(value => pilotDestinoShape.safeParse(value).success), proven: pilotProven.optional(), anchors: pilotAnchors.optional(),
-  clockDay: z.literal(true).optional() }).strict();
+  clockDay: z.literal(true).optional(), clockAfterDay: z.literal(true).optional() }).strict();
 /** E2-A: the pending operators exactly as the E1 contract wrote them (numbered weekday, servico_mencao). Recognized only to be dropped on load
  * (upgradeStoredPilot), never accepted as a pilot state: storedSession rejects them. */
 const legacyMention = z.string().min(1).max(480);
@@ -96,12 +97,16 @@ const e2aClock = (value: unknown) => {
   const shift = e2aOriginMinutes.safeParse(value);
   return shift.success ? { tipo: "deslocamento", minutos: shift.data.minutos, ancoras: ["origem"], mencao: shift.data.mencao } : value;
 };
+/** §11.4: a destination professional saved before the exclusion list ({ modo, mencao } exactly) gets `excluidos: []`; its mencao keeps the role it
+ * had (with "outro", who must not attend: the resolver still reads it so). Anything else is returned as it is. */
+const e2bProfessional = z.object({ modo: z.string().nullable(), mencao: z.string().nullable() }).strict();
+const withExclusions = (value: unknown) => e2bProfessional.safeParse(value).success ? { ...(value as Record<string, unknown>), excluidos: [] } : value;
 /** E2-A: a session saved by the E1 pilot keeps its plan, replies and turn, but its pending operators (numbered weekday, servico_mencao) cannot be
  * resolved under the current contract: they are dropped and the state is marked `reset` (the orchestrator withdraws a plan still open, with a
  * clear reply, and never resolves it again). Only pending operators that are exactly the E1 shape are dropped. E2-B (§11.1): pending operators of
  * the E2-A contract are CONVERTED (never dropped; plan, replies, proofs and anchors stay as saved; no reset mark), and kept only when the converted
- * pending passes the current strict shape. Anything else is left for the strict parse to judge. Mutates the decoded session in place (the loaded
- * copy only). */
+ * pending passes the current strict shape; §11.4: so is a destination professional saved before `excluidos`. Anything else is left for the strict
+ * parse to judge. Mutates the decoded session in place (the loaded copy only). */
 export function upgradeStoredPilot(session: unknown): void {
   if (!record(session) || !record(session.pilot) || !record(session.pilot.pending)) return;
   const pilot = session.pilot, pending = session.pilot.pending;
@@ -109,7 +114,7 @@ export function upgradeStoredPilot(session: unknown): void {
   if (legacyPending.safeParse(pending).success) { delete pilot.pending; pilot.reset = true; return; }
   if (!record(pending.origem) || !record(pending.destino)) return;
   const converted = { ...pending, origem: { ...pending.origem, dia: e2aDay(pending.origem.dia), hora: e2aClock(pending.origem.hora) },
-    destino: { ...pending.destino, dia: e2aDay(pending.destino.dia), hora: e2aClock(pending.destino.hora) } };
+    destino: { ...pending.destino, dia: e2aDay(pending.destino.dia), hora: e2aClock(pending.destino.hora), profissional: withExclusions(pending.destino.profissional) } };
   if (pilotPending.safeParse(converted).success) pilot.pending = converted;
 }
 export const storedSession = z.object({

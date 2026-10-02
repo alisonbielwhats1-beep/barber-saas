@@ -210,20 +210,28 @@ describe("no re-reading after Luna (property): the words of a mention never chan
 
 describe("§11.2 delegated professional through the orchestrator (decision 15 as amended)", () => {
   const sameSlotAny = () => forZila(null, null, { modo: "qualquer", mencao: null });
-  it("'qualquer' at the origin's own day and clock moves to another free professional (a tie of 1 each: the name order, Abelardo; Bernadete is excluded as a fact), shown; never NO_CHANGE", async () => {
+  it("'qualquer' at the origin's own day and clock moves to another free professional (a tie of 1 each, Abelardo and Cassiano: asked, §11.4; Bernadete is excluded as a fact), shown; never NO_CHANGE", async () => {
     const f = fake([sameSlotAny()]);
-    const reply = await send(f, "A Zilá pode ser atendida por quem estiver livre, no mesmo horário");
+    const asked = await send(f, "A Zilá pode ser atendida por quem estiver livre, no mesmo horário");
+    // §11.4 (contract migration): the tie of the fewest is asked with the tied members (never the name order); the current one is never offered.
+    expect(asked.code).not.toBe("ASKED_DESTINATION_MISSING");
+    expect(asked.view.questions).toEqual([expect.objectContaining({ field: "professional", reason: "PROFESSIONAL_TIE" })]);
+    expect(optionIds(asked)).toEqual([abelardo.id, cassiano.id]);
+    expect(f.prepared).toEqual([]);
+    const reply = await selectPilotOption(f.host, pilotOptionRef(asked.view.questions[0].questionId, abelardo.id));
     expect(reply.view).toMatchObject({ status: "proposal_ready", questions: [] });
-    expect(reply.code).not.toBe("ASKED_DESTINATION_MISSING");
     expect(f.prepared.map(slot)).toEqual([{ appointmentRef: "apt-zil", date: THU, time: "10:00", professionalRef: abelardo.id }]);
-    expect(f.prepared[0].derived).toContain("professional");
+    // The tapped member is the owner's own choice now (explicit), never the current one kept.
     expect(f.prepared[0].keepsProfessional).toBe(false);
-    expect(f.prepared[0].notes.some(note => note.includes(abelardo.name)), "the proposal says who was chosen").toBe(true);
   });
   it("TWINS at Friday 16:00 (Bernadete 0, Abelardo 1, Cassiano 2): 'outro' → Abelardo; 'qualquer' → Bernadete (the current one may win when not excluded)", async () => {
     const other = fake([forZila(e2bWeekday("sexta", "sexta"), e2bClock(16, "às 16h"), { modo: "outro", mencao: null })]);
     await send(other, "A Zilá vai pra sexta às 16h com outra pessoa");
     expect(other.prepared.map(slot)).toEqual([{ appointmentRef: "apt-zil", date: FRI, time: "16:00", professionalRef: abelardo.id }]);
+    // (moved here from the origin-slot case, now a tie: a unique choice is derived and the proposal says who was chosen)
+    expect(other.prepared[0].derived).toContain("professional");
+    expect(other.prepared[0].keepsProfessional).toBe(false);
+    expect(other.prepared[0].notes.some(note => note.includes(abelardo.name)), "the proposal says who was chosen").toBe(true);
     const any = fake([forZila(e2bWeekday("sexta", "sexta"), e2bClock(16, "às 16h"), { modo: "qualquer", mencao: null })]);
     await send(any, "A Zilá vai pra sexta às 16h com quem estiver livre");
     expect(any.prepared.map(slot)).toEqual([{ appointmentRef: "apt-zil", date: FRI, time: "16:00", professionalRef: bernadete.id }]);
@@ -252,6 +260,7 @@ describe("§11.2 delegated professional through the orchestrator (decision 15 as
     await send(f, "A Zilá vai pra sexta às 16h com outra pessoa");
     const saved = JSON.parse(JSON.stringify(f.state)) as PilotSessionState;
     expect(storedSession.safeParse(session(saved)).success).toBe(true);
-    expect(saved.pending?.destino.profissional).toEqual({ modo: "outro", mencao: null });
+    // §11.4 (contract migration): the destination professional carries its exclusion list.
+    expect(saved.pending?.destino.profissional).toEqual({ modo: "outro", mencao: null, excluidos: [] });
   });
 });

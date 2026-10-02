@@ -108,17 +108,14 @@ function calendarDay(year: number, month: number, day: number): string | undefin
 export const pilotToday = (clock: PilotClock) => dateKeyInTimeZone(clock.receivedAt, clock.timezone);
 /** The salon's local "YYYY-MM-DDTHH:mm" of the frozen received_at. */
 export const pilotNowLocal = (clock: PilotClock) => toLocalDateTime(clock.receivedAt, clock.timezone).slice(0, 16);
-/** "data": no month, the next day of that number from today on (a month without it is skipped); a month, that day this year or the next. */
-function dataDay(dia: number, mes: number | null, today: string): string | undefined {
+/** The next day of that number from today on (a month without it is skipped). §11.4: only the "next one that exists" reading of a cited day number
+ * (pilotCitedDays); the "data" operator itself reads like the cited reference (pilotDataReadings). */
+function nextDayNumbered(dia: number, today: string): string | undefined {
   const [year, month] = [Number(today.slice(0, 4)), Number(today.slice(5, 7))];
-  if (mes === null) {
-    for (let step = 0; step < 24; step++) {
-      const m = (month - 1 + step) % 12 + 1, y = year + Math.floor((month - 1 + step) / 12), date = calendarDay(y, m, dia);
-      if (date && date >= today) return date;
-    }
-    return undefined;
+  for (let step = 0; step < 24; step++) {
+    const m = (month - 1 + step) % 12 + 1, y = year + Math.floor((month - 1 + step) / 12), date = calendarDay(y, m, dia);
+    if (date && date >= today) return date;
   }
-  for (const y of [year, year + 1]) { const date = calendarDay(y, mes, dia); if (date && date >= today) return date; }
   return undefined;
 }
 /** "mes_relativo" (review P7): that day of the month `meses` months after today's (0 this month, 1 the next); never another month in its place. */
@@ -158,7 +155,7 @@ export function pilotCitedDays(cited: PilotCitedDay, origin: { date: string }, t
   if (cited.mes === null) {
     const current = calendarDay(year, month, cited.dia);
     if (current && current >= today) return [current];
-    return [...new Set([current, dataDay(cited.dia, null, today)].filter((date): date is string => !!date))].sort();
+    return [...new Set([current, nextDayNumbered(cited.dia, today)].filter((date): date is string => !!date))].sort();
   }
   const occurrences = [year - 1, year, year + 1].map(y => calendarDay(y, cited.mes!, cited.dia)).filter((date): date is string => !!date);
   if (!occurrences.length) return [];
@@ -179,16 +176,22 @@ export function pilotDayShiftReadings(dia: PilotDayShift, origin: { date: string
     return (list.length ? list : [undefined]).map(base => ({ anchor, base, date: within && base ? addCalendarDays(base, days) : undefined }));
   });
 }
-/** The target day, from the frozen received_at in the salon's timezone. one: explicit for "data" (no month: the next occurrence from today on) and
- * a weekday with a single reading; inherited when not said or "mesmo_da_origem"; derived for an offset (§11.1: one anchor, or two whose readings
- * coincide). ask: a weekday whose two readings differ (decision 27: the first after today, the first after the original day), both shown; "este"
- * takes the first reading; an offset whose readings give two or more different days (ANCHOR_TWO_READINGS, each shown). Encoded ambiguity A (a fact
- * filter, ratified as §11.3 like decision 18): a reading that cannot be a destination (past, or no such date) is no reading; the proposal names
- * the one left out. invalid: a date that does not exist, or one already past. */
+/** The target day, from the frozen received_at in the salon's timezone. one: explicit for "data" read as said (this month's day, or with its month the
+ * nearest occurrence) and a weekday with a single reading; inherited when not said or "mesmo_da_origem"; derived for an offset (§11.1: one anchor,
+ * or two whose readings coincide) and, §11.4, for a "data" whose literal reading was left out (already passed, or a day the month lacks: the
+ * proposal names it). ask: a weekday whose two readings differ (decision 27: the first after today, the first after the original day), both shown;
+ * "este" takes the first reading; an offset whose readings give two or more different days (ANCHOR_TWO_READINGS, each shown); §11.4: an offset with
+ * no anchor (ANCHOR_MISSING: never computed from an anchor nobody said) and a day left open (TO_DEFINE: the old day is never kept). Encoded
+ * ambiguity A (a fact filter, ratified as §11.3 like decision 18): a reading that cannot be a destination (past, or no such date) is no reading;
+ * the proposal names the one left out. invalid: a date that does not exist, or one already past. */
 export type PilotDateResolution =
   | { state: "one"; date: string; provenance: "explicit" | "inherited" | "derived"; mencao?: string }
-  | { state: "ask"; options: string[]; reason: "TWO_READINGS" | "ANCHOR_TWO_READINGS"; mencao: string }
+  | { state: "ask"; options: string[]; reason: "TWO_READINGS" | "ANCHOR_TWO_READINGS" | "ANCHOR_MISSING" | "TO_DEFINE"; mencao: string }
   | { state: "invalid"; reason: "NO_SUCH_DATE" | "DATE_PAST"; mencao: string };
+/** §11.4 (one general model; replaces the §3.3 rule for a "data" with no month): the days a "data" operator may name are exactly those of the
+ * same reference cited as an anchor (pilotCitedDays: a day number with no month, this month's and, once it has passed, the next one that exists;
+ * with its month, the occurrence nearest to today). Never a month or a year forward in silence. */
+export const pilotDataReadings = (dia: { dia: number; mes: number | null }, today: string) => pilotCitedDays({ dia: dia.dia, mes: dia.mes, mencao: "" }, { date: "" }, today);
 /** `target.time` (coordinator decision 4): the destination clock when it is already known without the day's hours (a clock with a period or
  * from 12 on, the original one, the original one plus minutes). A weekday said on that very weekday (no qualifier, or "este") then also reads as
  * today, if that clock is still ahead of received_at; readings that differ are asked (decision 27). An unknown clock adds no today. M6: a day
@@ -200,10 +203,22 @@ export function resolveTargetDate(dia: PilotTempoDia | null, origin: { date: str
   const checked = (date: string | undefined, provenance: "explicit" | "inherited" | "derived"): PilotDateResolution =>
     !date || !isDateKey(date) ? { state: "invalid", reason: "NO_SUCH_DATE", mencao } : date < today || date < now ? { state: "invalid", reason: "DATE_PAST", mencao } : { state: "one", date, provenance, mencao };
   switch (dia.tipo) {
-    case "data": return checked(dataDay(dia.dia, dia.mes, today), "explicit");
+    case "data": {
+      // §11.4: the readings of the same reference as a cited one; those already past are no reading (named in the proposal), two or more are asked.
+      const readings = pilotDataReadings(dia, today), valid = [...new Set(readings.filter(date => date >= today && date >= now))].sort();
+      if (!readings.length) return { state: "invalid", reason: "NO_SUCH_DATE", mencao };
+      if (!valid.length) return { state: "invalid", reason: "DATE_PAST", mencao };
+      if (valid.length > 1) return { state: "ask", options: valid, reason: "TWO_READINGS", mencao };
+      const literal = readings.length === 1 && (dia.mes !== null || readings[0].slice(0, 7) === today.slice(0, 7));
+      return { state: "one", date: valid[0], provenance: literal ? "explicit" : "derived", mencao };
+    }
     case "mes_relativo": return checked(relativeMonthDay(dia.dia, dia.meses, today), "explicit");
     case "mesmo_da_origem": return checked(origin.date, "inherited");
+    // §11.4: the day left open (or dropped with no new one): asked; the day said before is never kept.
+    case "a_definir": return { state: "ask", options: [], reason: "TO_DEFINE", mencao };
     case "deslocamento": {
+      // §11.4: an operation whose owner gave no anchor the contract has is asked, never computed from an anchor nobody said.
+      if (!dia.ancoras.length) return { state: "ask", options: [], reason: "ANCHOR_MISSING", mencao };
       const readings = pilotDayShiftReadings(dia, origin, today).map(reading => reading.date).filter((date): date is string => !!date && isDateKey(date));
       const valid = [...new Set(readings.filter(date => date >= today && date >= now))].sort();
       if (valid.length === 1) return { state: "one", date: valid[0], provenance: "derived", mencao };
@@ -231,7 +246,7 @@ export function resolveTargetDate(dia: PilotTempoDia | null, origin: { date: str
  * counts from now on another day): asked, never wrapped or moved. */
 export type PilotTimeResolution =
   | { state: "one"; time: string; provenance: "explicit" | "inherited" | "derived"; mencao?: string }
-  | { state: "ask"; options: string[]; reason: "TWO_READINGS" | "TO_DEFINE" | "NOT_SAID" | "ANCHOR_TWO_READINGS"; mencao?: string }
+  | { state: "ask"; options: string[]; reason: "TWO_READINGS" | "TO_DEFINE" | "NOT_SAID" | "ANCHOR_TWO_READINGS" | "ANCHOR_MISSING"; mencao?: string }
   | { state: "none"; readings: string[]; reason: "NO_READING_IN_HOURS"; mencao: string }
   | { state: "invalid"; reason: "NO_READING"; mencao: string };
 /** What a clock offset is read against: the appointment's own day and clock, the destination day, the received_at of the turn that SAID the offset
@@ -299,7 +314,9 @@ export async function resolveTargetTime(reader: PilotReader, hora: PilotTempoHor
     case "mesmo_da_origem": return { state: "one", time: context.origin.time, provenance: "inherited", mencao };
     case "a_definir": return { state: "ask", options: [], reason: "TO_DEFINE", mencao };
     case "deslocamento": {
-      // §11.1: one reading per listed anchor; decision 18 never applies (the computed clock is not a bare hour), so no hours are read here.
+      // §11.4: no anchor said → asked (ANCHOR_MISSING), never computed. §11.1: one reading per listed anchor; decision 18 never applies (the
+      // computed clock is not a bare hour), so no hours are read here.
+      if (!hora.ancoras.length) return { state: "ask", options: [], reason: "ANCHOR_MISSING", mencao };
       const valid = [...new Set(pilotClockShiftReadings(hora, context).map(reading => reading.time).filter((time): time is string => !!time))].sort();
       if (valid.length === 1) return { state: "one", time: valid[0], provenance: "derived", mencao };
       return valid.length ? { state: "ask", options: valid, reason: "ANCHOR_TWO_READINGS", mencao } : { state: "invalid", reason: "NO_READING", mencao };
@@ -338,7 +355,8 @@ export type PilotAppointmentResolution =
 function originDays(dia: PilotTempoDia, clock: PilotClock): ((date: string) => boolean) | undefined {
   const today = pilotToday(clock);
   switch (dia.tipo) {
-    case "data": { const date = dataDay(dia.dia, dia.mes, today); return day => day === date; }
+    // §11.4: a day said outright names the days of the same reference cited as an anchor (every one of them filters; 2+ appointments left are asked).
+    case "data": { const dates = new Set(pilotDataReadings(dia, today)); return day => dates.has(day); }
     case "mes_relativo": { const date = relativeMonthDay(dia.dia, dia.meses, today); return day => day === date; }
     case "deslocamento": {
       const others = dia.ancoras.filter(anchor => anchor !== "origem");
@@ -423,45 +441,70 @@ export async function resolveAppointment(reader: PilotReader, input: { customerI
 // ---------------------------------------------------------------- the professional
 /** kept: not said or "manter" (the current professional, inherited); the identity states for "nomeado" (explicit when bound); chosen: "qualquer" or
  * "outro" (decision 15 as amended by §11.2: performs the service and is free for its whole duration at the slot, the appointment being moved aside;
- * the current professional leaves for "outro", or when the slot is the origin's own day and clock, a fact; §11.3: "outro" also leaves out the
- * member(s) its mencao names; the fewest appointments that day, then the name order, with no preference for the current one; derived, shown);
- * nobody_free: asked; waiting: a delegated mode before the day and the clock are resolved. */
+ * the current professional leaves for "outro", or when the slot is the origin's own day and clock, a fact; §11.3/§11.4: the members the exclusion
+ * list names leave too; the ONE member with the fewest appointments that day, with no preference for the current one; derived, shown); tie (§11.4,
+ * decision 15 with no rule left): two or more free members share the fewest appointments, asked with them (never the name order); nobody_free:
+ * asked; waiting: a delegated mode before the day and the clock are resolved. */
 export type PilotProfessionalResolution =
   | { state: "kept"; id: string; name: string; provenance: "inherited" }
   | PilotIdentity
   | { state: "chosen"; id: string; name: string; provenance: "derived" }
-  /** `excluded` (§11.3): the members "outro" left out by name (besides the current one), when there are any. */
+  /** `options`: the tied members, by name (an order to show them in, never a choice). */
+  | { state: "tie"; options: PilotPerson[]; provenance: "unresolved" }
+  /** `excluded` (§11.3/§11.4): the members the exclusions left out by name (the current one too, when an exclusion named her), when there are any. */
   | { state: "nobody_free"; provenance: "unresolved"; excluded?: PilotPerson[] }
   | { state: "waiting"; provenance: "unresolved" }
   /** M9: words beside "manter"/"qualquer" naming ONE member of the team the mode would not give: asked, never ignored. */
-  | { state: "conflict"; mode: "manter" | "qualquer"; named: PilotPerson; mencao: string; provenance: "unresolved" };
+  | { state: "conflict"; mode: "manter" | "qualquer"; named: PilotPerson; mencao: string; provenance: "unresolved" }
+  /** §11.4: an exclusion that names no member for sure (contradictory, or not found): asked with that mention, never ignored nor offered as who attends. */
+  | (Extract<PilotIdentity, { state: "contradictory" | "not_found" }> & { excluding: true });
+/** §11.4: who must not attend, as the model typed it: each name of `excluidos` (with "qualquer" or "outro") and, for "outro", its mencao (the role
+ * §11.3 gave it, kept for a state saved before the list). A value from before the list (no `excluidos`): none of its own. */
+export const pilotExclusionMentions = (profissional: { modo: string | null; mencao: string | null; excluidos?: readonly string[] }): string[] => {
+  if (profissional.modo !== "qualquer" && profissional.modo !== "outro") return [];
+  return [...(profissional.modo === "outro" && profissional.mencao ? [profissional.mencao] : []), ...(Array.isArray(profissional.excluidos) ? profissional.excluidos : [])];
+};
+/** The destination professional as said: the contract's, or (§11.4) a value saved before the exclusion list (no `excluidos`: none of its own). */
+export type PilotProfessionalSaid = Omit<PilotDestination["profissional"], "excluidos"> & { excluidos?: readonly string[] };
 /** `origin` (§11.2): the appointment's own day and clock, so the resolver sees the fact that the slot is the origin's own. */
-export async function resolveProfessional(reader: PilotReader, profissional: PilotDestination["profissional"],
+export async function resolveProfessional(reader: PilotReader, profissional: PilotProfessionalSaid,
   context: { current: PilotPerson; appointmentId: string; serviceId: string; durationMin: number; slot: { date: string; time: string } | null; origin?: { date: string; time: string } }): Promise<PilotProfessionalResolution> {
-  const mode = profissional.modo ?? (profissional.mencao ? "nomeado" : null);
-  // M9: words that name nobody of the team are the owner's way of saying the mode itself and change nothing. §11.3 (PRINCIPLE-3): with "outro" the
-  // contract gives mencao one role, who must NOT attend: the member(s) it names leave the candidates with the current one (an ambiguous name leaves
-  // every member it fits; never a conflict that offers them). Another member's name beside "manter" or "qualquer" is asked like any conflict.
-  let left: PilotPerson[] = [];
-  if ((mode === "manter" || mode === "qualquer" || mode === "outro") && profissional.mencao) {
-    let named: PilotIdentity;
-    try { named = pilotIdentityOf((await reader.team()).map(person), profissional.mencao); } catch { return { state: "unavailable", mencao: profissional.mencao, provenance: "unresolved" }; }
-    if (mode === "outro") left = named.state === "exact" || named.state === "partial" ? [{ id: named.id, name: named.name }] : named.state === "ambiguous" ? named.options : [];
-    else if ((named.state === "exact" || named.state === "partial") && (mode === "qualquer" || named.id !== context.current.id))
-      return { state: "conflict", mode, named: { id: named.id, name: named.name }, mencao: profissional.mencao, provenance: "unresolved" };
+  const mode = profissional.modo ?? (profissional.mencao ? "nomeado" : null), exclusions = pilotExclusionMentions(profissional);
+  // M9: words beside "manter"/"qualquer" that name nobody of the team are the owner's way of saying the mode itself and change nothing; another
+  // member's name there is asked like any conflict. §11.3/§11.4 (PRINCIPLE-3): an exclusion (excluidos, and "outro"'s mencao) is who must NOT attend:
+  // each is checked against the real team by its normalized mention (the identity states, never grammar): the member it names leaves the candidates
+  // (an ambiguous name leaves every member it fits; never a conflict that offers them); one that names no member for sure is asked, never ignored.
+  // A mencao of "outro" related to no member at all (not found, no suggestion) stays M9's: the mode's own words.
+  const left = new Map<string, PilotPerson>(), said = profissional.mencao;
+  const conflictable = (mode === "manter" || mode === "qualquer") && !!said;
+  if (conflictable || exclusions.length) {
+    let team: PilotPerson[];
+    try { team = (await reader.team()).map(person); } catch { return { state: "unavailable", mencao: said ?? exclusions[0] ?? "", provenance: "unresolved" }; }
+    if (conflictable && said && (mode === "manter" || mode === "qualquer")) {
+      const named = pilotIdentityOf(team, said);
+      if ((named.state === "exact" || named.state === "partial") && (mode === "qualquer" || named.id !== context.current.id))
+        return { state: "conflict", mode, named: { id: named.id, name: named.name }, mencao: said, provenance: "unresolved" };
+    }
+    const typed = new Set(Array.isArray(profissional.excluidos) ? profissional.excluidos : []);
+    for (const mencao of exclusions) {
+      const named = pilotIdentityOf(team, mencao);
+      if (named.state === "exact" || named.state === "partial") left.set(named.id, { id: named.id, name: named.name });
+      else if (named.state === "ambiguous") for (const option of named.options) left.set(option.id, option);
+      else if (named.state === "contradictory" || (named.state === "not_found" && (typed.has(mencao) || named.suggestions.length))) return { ...named, excluding: true };
+    }
   }
   if (mode === null || mode === "manter") return { state: "kept", id: context.current.id, name: context.current.name, provenance: "inherited" };
   if (mode === "nomeado") {
-    const mencao = profissional.mencao ?? "";
+    const mencao = said ?? "";
     let team: readonly PilotProfessionalRow[];
     try { team = await reader.team(); } catch { return { state: "unavailable", mencao, provenance: "unresolved" }; }
     return pilotIdentityOf(team.map(person), mencao);
   }
   if (!context.slot) return { state: "waiting", provenance: "unresolved" };
   const { date, time } = context.slot, start = minutesOf(time), end = start + context.durationMin;
-  // §11.2: the current professional is no candidate for "outro", nor at the origin's own day and clock (choosing it would change nothing); §11.3:
-  // nor the member(s) "outro" named.
-  const excluded = new Set([...(mode === "outro" || (context.origin?.date === date && context.origin?.time === time) ? [context.current.id] : []), ...left.map(item => item.id)]);
+  // §11.2: the current professional is no candidate for "outro", nor at the origin's own day and clock (choosing it would change nothing); §11.3/
+  // §11.4: nor the member(s) the exclusions named.
+  const excluded = new Set([...(mode === "outro" || (context.origin?.date === date && context.origin?.time === time) ? [context.current.id] : []), ...left.keys()]);
   const local = (value: string) => value.slice(0, 10) < date ? 0 : value.slice(0, 10) > date ? 24 * 60 : minutesOf(value.slice(11, 16));
   try {
     const team = await reader.team(), free: { row: PilotProfessionalRow; count: number }[] = [];
@@ -472,10 +515,14 @@ export async function resolveProfessional(reader: PilotReader, profissional: Pil
       if (others.some(item => local(item.startLocal) < end && start < local(item.endLocal))) continue;
       free.push({ row, count: others.filter(item => item.appointmentId !== null).length });
     }
-    const others = left.filter(item => item.id !== context.current.id);
-    if (!free.length) return { state: "nobody_free", provenance: "unresolved", ...(others.length ? { excluded: others } : {}) };
-    // Fewest appointments that day, then the name order (deterministic); §11.2: no preference for the current professional.
-    free.sort((a, b) => a.count - b.count || byName(a.row, b.row));
-    return { state: "chosen", id: free[0].row.id, name: free[0].row.name, provenance: "derived" };
-  } catch { return { state: "unavailable", mencao: profissional.mencao ?? "", provenance: "unresolved" }; }
+    // Who the exclusions named (the current one too when named: "qualquer" may exclude her), said in the question.
+    const named = [...left.values()].sort(byName);
+    if (!free.length) return { state: "nobody_free", provenance: "unresolved", ...(named.length ? { excluded: named } : {}) };
+    // Decision 15: the fewest appointments that day; §11.2: no preference for the current professional; §11.4: when more than one member is left with
+    // the fewest, the product rule does not decide: asked with them (never the name order).
+    const least = Math.min(...free.map(item => item.count));
+    const fewest = [...new Map(free.filter(item => item.count === least).map(item => [item.row.id, person(item.row)])).values()].sort(byName);
+    if (fewest.length > 1) return { state: "tie", options: fewest, provenance: "unresolved" };
+    return { state: "chosen", id: fewest[0].id, name: fewest[0].name, provenance: "derived" };
+  } catch { return { state: "unavailable", mencao: said ?? "", provenance: "unresolved" }; }
 }

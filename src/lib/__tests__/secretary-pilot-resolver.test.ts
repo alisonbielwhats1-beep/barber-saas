@@ -272,7 +272,7 @@ const payload = (over: Partial<PilotInterpretation> = {}): PilotInterpretation =
   origem: { dia: { tipo: "data", dia: 12, mes: 3, mencao: "do dia 12" }, hora: { tipo: "relogio", hora: 10, minuto: 0, periodo: "manha", mencao: "das 10 da manhã" },
     profissional_mencao: "Carlos", servico: { mencao: "limpeza", catalogo: ["Limpeza de pele"] }, posicao: { valor: "primeiro", mencao: "o primeiro" } },
   destino: { dia: { tipo: "dia_semana", dia_semana: "sexta", qualificador: "este", mencao: "nesta sexta" }, hora: { tipo: "deslocamento", minutos: 150, ancoras: ["origem"], mencao: "150 min mais tarde" },
-    profissional: { modo: "nomeado", mencao: "Dalva" } },
+    profissional: { modo: "nomeado", mencao: "Dalva", excluidos: [] } },
   observacoes: [], fora_do_escopo: [{ tipo: "mensagem", pedido: "avisa ela" }], ...over });
 const verdict = (decode: () => unknown) => {
   try { decode(); return "ACCEPTED"; } catch (error) { return error instanceof PilotContractError && error.reasons.length > 0 ? "REJECTED" : `OTHER:${(error as Error).message}`; }
@@ -303,7 +303,7 @@ describe("§2 contract: interpretar_remarcacao", () => {
       { tipo: "deslocamento", minutos: 30, ancoras: ["origem"] as ["origem"], mencao: "meia hora depois" }, { tipo: "a_definir", mencao: "num horário a combinar" }] as const;
     for (const dia of days) expect(verdict(() => decodePilotInterpretation(payload({ destino: { ...payload().destino, dia } }))), dia.tipo).toBe("ACCEPTED");
     for (const hora of clocks) expect(verdict(() => decodePilotInterpretation(payload({ destino: { ...payload().destino, hora } }))), hora.tipo).toBe("ACCEPTED");
-    const empty = payload({ tipo: "conversa", cliente: { mencao: null }, origem: ORIGIN, destino: { dia: null, hora: null, profissional: { modo: null, mencao: null } }, fora_do_escopo: [] });
+    const empty = payload({ tipo: "conversa", cliente: { mencao: null }, origem: ORIGIN, destino: { dia: null, hora: null, profissional: { modo: null, mencao: null, excluidos: [] } }, fora_do_escopo: [] });
     expect(decodePilotInterpretation(empty)).toEqual(empty);
     expect(decodePilotInterpretation(payload({ tipo: "resposta", resposta_a: "q12" })).resposta_a).toBe("q12");
   });

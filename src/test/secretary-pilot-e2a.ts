@@ -25,7 +25,9 @@ export type E2aClock =
 export type E2aService = { mencao: string; catalogo: string[] };
 export type E2aOrigin = { dia: E2aDay | null; hora: E2aClock | null; profissional_mencao: string | null; servico: E2aService | null;
   posicao: { valor: "primeiro" | "ultimo"; mencao: string } | null };
-export type E2aProfessional = { modo: "manter" | "nomeado" | "qualquer" | null; mencao: string | null };
+/** E2-B completion (§11.4) contract migration: the wire's professional carries `excluidos` (who must not attend); a frame built here gets [] unless it
+ * says otherwise (shape plumbing only: no expectation depends on it). */
+export type E2aProfessional = { modo: "manter" | "nomeado" | "qualquer" | null; mencao: string | null; excluidos?: string[] };
 export type E2aDestination = { dia: E2aDay | null; hora: E2aClock | null; profissional: E2aProfessional };
 export const E2A_OUT_OF_SCOPE_KINDS = ["cancelar", "bloquear", "trocar_servico", "agendar", "consultar", "outra_acao", "recorrencia", "mensagem"] as const;
 export type E2aOutOfScopeKind = (typeof E2A_OUT_OF_SCOPE_KINDS)[number];
@@ -40,7 +42,8 @@ export const e2aOrigin = (over: Partial<E2aOrigin> = {}): E2aOrigin => ({ dia: n
 export const e2aDay = (dia_semana: E2aWeekday, mencao: string, qualificador: E2aQualifier = null): E2aDay => ({ tipo: "dia_semana", dia_semana, qualificador, mencao });
 export const e2aClock = (hora: number, mencao: string, minuto = 0, periodo: "manha" | "tarde" | "noite" | null = null): E2aClock => ({ tipo: "relogio", hora, minuto, periodo, mencao });
 export const e2aService = (mencao: string, catalogo: string[]): E2aService => ({ mencao, catalogo });
-export const e2aTo = (dia: E2aDay | null, hora: E2aClock | null, profissional: E2aProfessional = { modo: null, mencao: null }): E2aDestination => ({ dia, hora, profissional });
+export const e2aTo = (dia: E2aDay | null, hora: E2aClock | null, profissional: E2aProfessional = { modo: null, mencao: null }): E2aDestination =>
+  ({ dia, hora, profissional: { excluidos: [], ...profissional } });
 /** A full E2-A payload (every key present; null states absence). */
 export const e2aLuna = (over: Partial<E2aInterpretation> = {}): E2aInterpretation => ({ tipo: "remarcar", resposta_a: null, desistir: false, aceita_parcial: null,
   cliente: { mencao: null }, origem: e2aOrigin(), destino: e2aTo(null, null), observacoes: [], fora_do_escopo: [], ...over });
