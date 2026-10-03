@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { addMinutes } from "date-fns";
 import { withApprovedSalon } from "@/lib/prisma-tenant";
 import {
   checkRateLimit,
   clientIp,
   rateLimitHeaders,
 } from "@/lib/rate-limit";
-import { checkBookingWindow, bufferedWindow } from "@/lib/scheduling";
-import { priceServicesForDate } from "@/lib/pricing";
-import { workingHoursForDate } from "@/lib/working-hours";
+import { computeFreeSlots, loadDaySlotInputs } from "@/lib/day-slots";
 import { bestFitSlots } from "@/lib/slot-fit";
 import { getClientSession } from "@/lib/client-auth";
 import { resolveClientSessionInTenant } from "@/lib/public-appointment";
@@ -17,27 +14,10 @@ import {
   InvalidWallClockError,
   addCalendarDays,
   dateKeyInTimeZone,
-  endExclusiveOfDateInTimeZone,
   hhmmInTimeZone,
   isDateKey,
   startOfDateInTimeZone,
-  zonedDateTimeToUtc,
 } from "@/lib/time";
-
-const ACTIVE_STATUSES = ["PENDING", "CONFIRMED", "IN_PROGRESS"] as const;
-
-function instantForMinutes(date: string, minutes: number, timezone: string) {
-  if (minutes === 24 * 60) {
-    return zonedDateTimeToUtc(addCalendarDays(date, 1), "00:00", timezone);
-  }
-  const hour = Math.floor(minutes / 60);
-  const minute = minutes % 60;
-  return zonedDateTimeToUtc(
-    date,
-    `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`,
-    timezone,
-  );
-}
 
 /** Retorna slots livres; a criação sempre repete a validação no servidor. */
 export async function GET(req: NextRequest) {
@@ -95,62 +75,21 @@ export async function GET(req: NextRequest) {
       });
       if (!salon) return null;
 
-      const from = startOfDateInTimeZone(date, salon.timezone);
-      const to = endExclusiveOfDateInTimeZone(date, salon.timezone);
       const historyFrom = startOfDateInTimeZone(
         addCalendarDays(dateKeyInTimeZone(requestNow, salon.timezone), -90),
         salon.timezone,
       );
 
-      const services = await tx.service.findMany({
-        where: { id: { in: serviceIds }, salonId, active: true },
-        select: { id: true, durationMin: true, priceCents: true, priceType: true, priceNote: true, physicalResourceId: true },
-      });
-      if (services.length !== new Set(serviceIds).size) return null;
-      const priced = await priceServicesForDate(tx, {
+      const inputs = await loadDaySlotInputs(tx, {
         salonId,
-        dateKey: date,
-        services: serviceIds.map(id => services.find(service => service.id === id)!),
+        salon,
+        professionalId,
+        serviceIds,
+        date,
+        now: requestNow,
+        excludeAppointmentId: rescheduleId,
       });
-
-      const professionalLinks = await tx.professionalService.findMany({
-        where: {
-          serviceId: { in: serviceIds },
-          professional: { id: professionalId, salonId, active: true },
-        },
-        select: { serviceId: true },
-      });
-      if (professionalLinks.length !== new Set(serviceIds).size) return null;
-
-      const workingHours = await workingHoursForDate(tx, salonId, professionalId, date);
-      const closures = await tx.salonClosure.findMany({
-        where: { salonId, startAt: { lt: to }, endAt: { gt: from } },
-        select: { startAt: true, endAt: true },
-      });
-      const timeOffs = await tx.timeOff.findMany({
-        where: {
-          professionalId,
-          startAt: { lt: to },
-          endAt: { gt: from },
-        },
-        select: { startAt: true, endAt: true },
-      });
-      const appointments = await tx.appointment.findMany({
-        where: {
-          salonId,
-          professionalId,
-          ...(rescheduleId ? { id: { not: rescheduleId } } : {}),
-          startAt: { lt: to },
-          endAt: { gt: from },
-          status: { in: [...ACTIVE_STATUSES] },
-        },
-        select: { id: true, startAt: true, endAt: true },
-        orderBy: { startAt: "asc" },
-      });
-      const resourceIds = services.flatMap(s => s.physicalResourceId ? [s.physicalResourceId] : []);
-      const resourceBookings = resourceIds.length ? await tx.resourceBooking.findMany({ where: { salonId, resourceId: { in: resourceIds }, active: true, startAt: { lt: to }, endAt: { gt: from }, ...(rescheduleId ? { appointmentId: { not: rescheduleId } } : {}) }, select: { startAt: true, endAt: true } }) : [];
-      const offerHolds = await tx.waitlistOffer.findMany({ where: { salonId, status: "OFFERED", expiresAt: { gt: requestNow }, startAt: { lt: to }, endAt: { gt: from }, OR: [{ professionalId }, { resourceIds: { hasSome: resourceIds } }] }, select: { startAt: true, endAt: true, professionalId: true } });
-      resourceBookings.push(...offerHolds.map(o => o.professionalId === professionalId ? { startAt: addMinutes(o.startAt, -salon.bufferMinutes), endAt: addMinutes(o.endAt, salon.bufferMinutes) } : o));
+      if (!inputs) return null;
       const history = await tx.appointment.findMany({
         where: {
           salonId,
@@ -164,21 +103,16 @@ export async function GET(req: NextRequest) {
       });
 
       return {
-        salon,
-        services: priced.services,
-        pricing: priced.rule
+        ...inputs,
+        pricing: inputs.pricingRule
           ? {
-              label: priced.rule.label,
-              targetType: priced.rule.targetType,
-              adjustmentType: priced.rule.adjustmentType,
-              adjustmentValue: priced.rule.adjustmentValue,
+              label: inputs.pricingRule.label,
+              targetType: inputs.pricingRule.targetType,
+              adjustmentType: inputs.pricingRule.adjustmentType,
+              adjustmentValue: inputs.pricingRule.adjustmentValue,
             }
           : null,
-        workingHours,
-        closures,
-        timeOffs,
-        appointments,
-        history, resourceBookings,
+        history,
       };
     });
 
@@ -186,53 +120,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
     }
 
-    const durationMin = result.services.reduce(
-      (total, service) => total + service.durationMin,
-      0,
-    );
-    const slots = new Set<string>();
-    const stepMinutes = 15;
-
-    for (const working of result.workingHours) {
-      const workingStart = instantForMinutes(
-        date,
-        working.startMinutes,
-        result.salon.timezone,
-      );
-      const workingEnd = instantForMinutes(
-        date,
-        working.endMinutes,
-        result.salon.timezone,
-      );
-
-      for (
-        let cursor = workingStart;
-        addMinutes(cursor, durationMin) <= workingEnd;
-        cursor = addMinutes(cursor, stepMinutes)
-      ) {
-        const slotEnd = addMinutes(cursor, durationMin);
-        if (checkBookingWindow(cursor, result.salon, requestNow) !== null) continue;
-
-        const blockedByClosure = result.closures.some(
-          (closure) => cursor < closure.endAt && slotEnd > closure.startAt,
-        );
-        const blockedByTimeOff = result.timeOffs.some(
-          (timeOff) => cursor < timeOff.endAt && slotEnd > timeOff.startAt,
-        );
-        const blockedByAppointment = result.appointments.some((appointment) => {
-          const buffered = bufferedWindow(
-            appointment.startAt,
-            appointment.endAt,
-            result.salon.bufferMinutes,
-          );
-          return cursor < buffered.to && slotEnd > buffered.from;
-        });
-        if (blockedByClosure || blockedByTimeOff || blockedByAppointment || result.resourceBookings.some(b => cursor < b.endAt && slotEnd > b.startAt)) continue;
-        slots.add(hhmmInTimeZone(cursor, result.salon.timezone));
-      }
-    }
-
-    const availableSlots = [...slots].sort();
+    const availableSlots = computeFreeSlots(result, {
+      date,
+      now: requestNow,
+      enforceBookingWindow: true,
+    });
+    const slots = new Set(availableSlots);
     const frequency = new Map<string, number>();
     for (const appointment of result.history) {
       const key = hhmmInTimeZone(appointment.startAt, result.salon.timezone);
