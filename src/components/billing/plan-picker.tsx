@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Check, ExternalLink, Loader2, Minus, Plus, Users } from "lucide-react";
-import { BILLING_PLANS, quoteContract } from "@/lib/billing/catalog";
+import { BILLING_PLANS, EXTRA_AGENDA, quoteContract } from "@/lib/billing/catalog";
 import { annualSavingsCents, billingMoney, sameBillingTerms, safeCheckout, type BillingIntent } from "@/lib/billing/presentation";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -101,7 +101,7 @@ export function PlanPicker({ mode, initial, current, pending, occupiedAgendas = 
             <Input id="billing-extras" type="number" inputMode="numeric" min={0} max={100} step={1} value={extra} disabled={disabled} onChange={e => setExtraSafe(Number(e.target.value))} className="h-11 w-20 text-center tabular-nums" />
             <Button type="button" variant="outline" size="icon" aria-label="Adicionar uma agenda adicional" disabled={disabled || extra >= 100} onClick={() => setExtraSafe(extra + 1)}><Plus aria-hidden="true" className="h-4 w-4" /></Button>
           </div>
-          <p className="mt-2 text-xs text-muted-foreground">{billingMoney(annual ? 14400 : 1500)} por agenda/{annual ? "ano" : "mês"}.</p>
+          <p className="mt-2 text-xs text-muted-foreground">{billingMoney(annual ? EXTRA_AGENDA.annual : EXTRA_AGENDA.monthly)} por agenda/{annual ? "ano" : "mês"}.</p>
         </div>}
         <div className="mt-auto pt-6">
           {isCurrent ? <Button className="w-full" variant="outline" disabled><Check aria-hidden="true" className="h-4 w-4" />Plano atual</Button>

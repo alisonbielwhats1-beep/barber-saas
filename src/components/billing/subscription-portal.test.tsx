@@ -25,8 +25,8 @@ it("uses the full annual amount, savings and extra agendas in the admin catalog"
   render(<PlanPicker mode="subscribe" initial={{ plan: "TEAM_MAX", cycle: "ANNUAL", extraAgendas: 2 }} onChoose={onChoose} />);
   expect(screen.getByLabelText(/Anual/)).toBeChecked();
   expect(screen.getByLabelText("10 agendas")).toBeChecked();
-  expect(screen.getByText(/1\.727/)).toBeVisible();
-  expect(screen.getByText(/economize R\$\s431,80/)).toBeVisible();
+  expect(screen.getByText(/1\.823/)).toBeVisible();
+  expect(screen.getByText(/economize R\$\s455,80/)).toBeVisible();
   fireEvent.click(screen.getByRole("button", { name: "Adicionar uma agenda adicional" }));
   fireEvent.click(screen.getByRole("button", { name: "Assinar: Equipe · 10 agendas" }));
   expect(onChoose).toHaveBeenCalledWith({ plan: "TEAM_MAX", cycle: "ANNUAL", extraAgendas: 3 });
@@ -64,8 +64,8 @@ it("keeps the approved annual offer selectable while checkout is unavailable", (
   fireEvent.click(screen.getByLabelText("10 agendas"));
   fireEvent.change(screen.getByLabelText("Agendas adicionais às 10 incluídas"), { target: { value: "2" } });
   expect(screen.getByRole("link", { name: "Escolher Equipe" })).toHaveAttribute("href", "/signup?billingPlan=TEAM_MAX&cycle=ANNUAL&extraAgendas=2&segment=barbearia");
-  expect(screen.getByText(/1\.727/)).toBeVisible();
-  expect(screen.getByText(/Economize.*431,80/)).toBeVisible();
+  expect(screen.getByText(/1\.823/)).toBeVisible();
+  expect(screen.getByText(/Economize.*455,80/)).toBeVisible();
   expect(screen.queryByText(/A renovação é automática/)).toBeNull();
   expect(screen.getByRole("button", { name: "Disponível em breve" })).toBeDisabled();
   expect(screen.getAllByRole("link")).toHaveLength(3);

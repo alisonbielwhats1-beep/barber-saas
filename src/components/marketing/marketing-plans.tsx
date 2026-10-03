@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { AudioLines, CalendarDays, ChartNoAxesColumnIncreasing, Check, LockKeyhole, Mic, Sparkles } from "lucide-react";
-import { BILLING_PLANS, quoteContract } from "@/lib/billing/catalog";
+import { BILLING_PLANS, EXTRA_AGENDA, quoteContract } from "@/lib/billing/catalog";
 import { billingIntentHref, billingMoney, type BillingIntent } from "@/lib/billing/presentation";
 
 const offers = [
@@ -44,7 +44,7 @@ export function MarketingPlans({ billingAvailable = false, segment }: { billingA
         {annual && <p className="offer-saving">Economize {billingMoney(saving)} em relação a 12 mensalidades.</p>}</div>
         <ul className="offer-features">{offer.features.map((feature, index) => <li key={index}><Check aria-hidden="true" size={20} />{team && index === 0 ? `Até ${quote.agendaLimit} agendas profissionais` : feature}</li>)}</ul>
         <div className="offer-bottom">
-          {team ? <div className="offer-note"><p>+ {billingMoney(annual ? 14400 : 1500)}/{annual ? "ano" : "mês"} por agenda extra</p><p>Somente acima de 10 agendas.</p>
+          {team ? <div className="offer-note"><p>+ {billingMoney(annual ? EXTRA_AGENDA.annual : EXTRA_AGENDA.monthly)}/{annual ? "ano" : "mês"} por agenda extra</p><p>Somente acima de 10 agendas.</p>
             {teamSize === 10 && <div className="offer-extra"><label htmlFor="marketing-extras">Agendas adicionais às 10 incluídas</label><input id="marketing-extras" type="number" min={0} max={100} step={1} value={extra} onChange={e => setExtra(Math.min(100, Math.max(0, Math.trunc(Number(e.target.value) || 0))))} /></div>}
           </div> : <div className="offer-note">{offer.plan === "INDIVIDUAL" ? <>Vai atender com mais alguém?<br /><strong>Conheça o Essencial.</strong></> : <>Sua equipe conectada em uma única agenda.</>}</div>}
           <Link className="offer-cta" href={href}>Escolher {offer.name}</Link>

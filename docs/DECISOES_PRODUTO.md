@@ -84,6 +84,15 @@ Esta decisão substitui a ausência de prorrata/trocas no escopo inicial abaixo.
 Não existe aprovação manual para cliente novo: cadastro aprovado e plano pago
 liberado automaticamente por confirmação financeira. Suspensão é independente.
 
+## 02/10/2026 — novo preço do Individual e da agenda adicional
+
+A pedido do responsável, Individual passa de R$ 59,90 para R$ 39,90/mês e a
+agenda adicional (acima de dez, somente Equipe · 10 agendas) de R$ 15 para
+R$ 20/mês. Anuais seguem as regras já aprovadas: Individual R$ 399 (dez
+mensalidades, valor inteiro) e adicional R$ 192/ano (20% sobre doze meses).
+Catálogo 2026-10-02, somente para novas contratações; contratos anteriores
+continuam cobrando o preço persistido. Demais planos permanecem iguais.
+
 ## 13/09/2026 — composição aprovada dos planos na landing
 
 Retomada da referência visual aprovada na conversa “Avaliar integração com
