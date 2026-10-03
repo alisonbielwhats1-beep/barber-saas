@@ -3,9 +3,11 @@
 SaaS multi-tenant de gestão e agendamento para barbearias, salões, manicures,
 estética, massagem e estabelecimentos mistos.
 
-- Produção: [salon-saas-ruby.vercel.app](https://salon-saas-ruby.vercel.app)
+- Produção: [everflair.com.br](https://everflair.com.br); o endereço
+  [salon-saas-ruby.vercel.app](https://salon-saas-ruby.vercel.app) permanece disponível.
 - Repositório: [alisonbielwhats1-beep/barber-saas](https://github.com/alisonbielwhats1-beep/barber-saas)
 - Estado canônico: [`docs/STATUS_ATUAL.md`](docs/STATUS_ATUAL.md)
+- Blueprint de produto: [`docs/blueprint/README.md`](docs/blueprint/README.md)
 - Nova conversa/conta: [`docs/HANDOFF_NOVA_CONVERSA.md`](docs/HANDOFF_NOVA_CONVERSA.md)
 - Regras para agentes: [`AGENTS.md`](AGENTS.md)
 
@@ -15,7 +17,8 @@ estética, massagem e estabelecimentos mistos.
 - React 18 e TypeScript estrito;
 - Tailwind CSS + Radix/shadcn-style primitives;
 - Prisma 5 + PostgreSQL no Supabase;
-- NextAuth Credentials com sessões JWT;
+- NextAuth Credentials com sessões JWT e Supabase Auth para identidades
+  vinculadas após recuperação voluntária; contas legadas seguem válidas;
 - Supabase Storage, Upstash Redis e Vercel Cron;
 - Vitest e GitHub Actions com PostgreSQL 16 descartável.
 
@@ -36,6 +39,7 @@ estética, massagem e estabelecimentos mistos.
 ```text
 src/app/(admin)                         painel do estabelecimento
 src/app/(platform)/plataforma           administração global
+src/app/hq                              operações privadas do HQ
 src/app/book/[salonSlug]                aplicativo público do cliente
 src/app/api                             APIs e cron
 src/lib                                 domínio, segurança e infraestrutura
@@ -83,7 +87,9 @@ O CI também executa integração PostgreSQL, concorrência e smoke de schema.
 - Preview sem `APP_ENV=staging` fica bloqueado por segurança.
 - Não use `prisma db push` nem `db:seed` contra o Supabase produtivo.
 - Não reaplique SQL manual sem ler [`docs/STATUS_ATUAL.md`](docs/STATUS_ATUAL.md).
-- A migration `011_platform_billing` está preparada, mas não aplicada; o
-  recurso permanece protegido por `PLATFORM_BILLING_ENABLED=false`.
+- A migration manual `011_platform_billing` e a cobrança manual legada
+  permanecem separadas e protegidas por `PLATFORM_BILLING_ENABLED=false`.
+  Assinaturas Mercado Pago foram publicadas por fluxo próprio; o estado
+  implantado mais recente está em `docs/STATUS_ATUAL.md`.
 
 Secrets, senhas e credenciais de demonstração não pertencem ao repositório.
