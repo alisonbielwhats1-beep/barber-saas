@@ -10,6 +10,11 @@ type Recognition = {
 };
 type SpeechWindow = Window & { SpeechRecognition?: new () => Recognition; webkitSpeechRecognition?: new () => Recognition };
 export type VoiceState = 'idle' | 'listening' | 'processing' | 'ready';
+/** A dictation is added after what the box held when it started (never replaces typed text), within the 1000-character box. */
+export function joinDictation(before: string, text: string) {
+  const said = text.trim();
+  return (!said ? before : before.trim() ? `${before.trimEnd()} ${said}` : said).slice(0, 1000);
+}
 
 /** Voice is an input adapter only. It never sends a message or confirms an action. */
 export function useSecretaryVoice(onTranscript: (text: string) => void, onError: (message: string) => void) {
@@ -78,30 +83,43 @@ export function useSecretaryVoice(onTranscript: (text: string) => void, onError:
 }
 
 export const RECORDING_MAX_SECONDS = 60;
+/** Client stop before the server's 480 KB cap (secretary-transcribe.ts TRANSCRIBE_SERVER.maxAudioBytes; a test keeps it below):
+ * Safari may ignore the bitrate hint, so the recorder counts the bytes it receives and stops by itself in time. */
+export const RECORDING_MAX_BYTES = 440_000;
+/** The first container the browser records, all admitted by the server: WebM/Opus (Chrome, Edge, Android), MP4/AAC (Safari,
+ * iPhone), Ogg/Opus (Firefox). None supported or no isTypeSupported: the browser's default. */
+const RECORDER_TYPES = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/ogg;codecs=opus', 'audio/webm'] as const;
+export function recorderMimeType(recorder: { isTypeSupported?: (type: string) => boolean } | undefined = typeof MediaRecorder === 'undefined' ? undefined : MediaRecorder) {
+  return typeof recorder?.isTypeSupported === 'function' ? RECORDER_TYPES.find(type => recorder.isTypeSupported!(type)) : undefined;
+}
 type TranscribeReply = { ok: true; text: string } | { ok: false; error: string; code?: string };
-/** C3, GPT transcription (ready but off): records with MediaRecorder and hands the audio to the server action. Same
- * contract as the native adapter: the transcript only fills the input box; nothing is sent or confirmed. */
+/** C3, GPT transcription: records with MediaRecorder and hands the audio to the server action. Same contract as the native
+ * adapter: the transcript only fills the input box; nothing is sent or confirmed. `elapsed` (seconds) feeds the "Ouvindo… 0:12"
+ * line; `limited` says the recording was stopped at its time or size limit. */
 export function useSecretaryRecorder(onTranscript: (text: string) => void, onError: (message: string) => void, transcribe?: (form: FormData) => Promise<TranscribeReply>) {
   const [phase, setPhase] = useState<VoiceState>('idle');
   const [supported, setSupported] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const [limited, setLimited] = useState(false);
   const recorder = useRef<MediaRecorder>();
   const stream = useRef<MediaStream>();
   const generation = useRef(0);
   const timeout = useRef<ReturnType<typeof setTimeout>>();
+  const ticker = useRef<ReturnType<typeof setInterval>>();
   const callbacks = useRef({ onTranscript, onError, transcribe });
   callbacks.current = { onTranscript, onError, transcribe };
-  const release = () => { stream.current?.getTracks().forEach(track => track.stop()); stream.current = undefined; };
+  const release = () => { clearInterval(ticker.current); stream.current?.getTracks().forEach(track => track.stop()); stream.current = undefined; };
   const cancel = useCallback(() => {
-    generation.current++; clearTimeout(timeout.current);
+    generation.current++; clearTimeout(timeout.current); clearInterval(ticker.current);
     try { if (recorder.current?.state === 'recording') recorder.current.stop(); } catch { /* already stopped */ }
-    recorder.current = undefined; stream.current?.getTracks().forEach(track => track.stop()); stream.current = undefined; setPhase('idle');
+    recorder.current = undefined; stream.current?.getTracks().forEach(track => track.stop()); stream.current = undefined; setPhase('idle'); setElapsed(0);
   }, []);
   useEffect(() => {
     setSupported(Boolean(navigator.mediaDevices?.getUserMedia) && typeof MediaRecorder !== 'undefined');
     return cancel;
   }, [cancel]);
   async function begin() {
-    cancel();
+    cancel(); setLimited(false);
     const current = generation.current, live = () => current === generation.current;
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined' || !callbacks.current.transcribe) {
       callbacks.current.onError('A gravação não está disponível neste navegador. Você pode digitar.'); return;
@@ -113,14 +131,20 @@ export function useSecretaryRecorder(onTranscript: (text: string) => void, onErr
     if (!live()) { media.getTracks().forEach(track => track.stop()); return; }
     stream.current = media;
     // 24 kbit/s keeps a minute near 180 KB: the server bounds the billed length from the file size (secretary-transcribe.ts).
-    const chunks: Blob[] = [], active = new MediaRecorder(media, { audioBitsPerSecond: 24_000 });
-    let started = 0;
+    const mimeType = recorderMimeType();
+    const chunks: Blob[] = [], active = new MediaRecorder(media, { ...(mimeType ? { mimeType } : {}), audioBitsPerSecond: 24_000 });
+    let started = 0, bytes = 0;
     recorder.current = active;
-    active.ondataavailable = event => { if (live() && event.data?.size) chunks.push(event.data); };
+    active.ondataavailable = event => {
+      if (!live() || !event.data?.size) return;
+      chunks.push(event.data); bytes += event.data.size;
+      // The size limit stops it like the time limit: what was said so far is still transcribed, never sent.
+      if (bytes >= RECORDING_MAX_BYTES && active.state === 'recording') { setLimited(true); active.stop(); }
+    };
     active.onstop = () => {
       if (!live()) return;
       clearTimeout(timeout.current); recorder.current = undefined; release();
-      const audio = new Blob(chunks, { type: active.mimeType || 'audio/webm' });
+      const audio = new Blob(chunks, { type: active.mimeType || mimeType || 'audio/webm' });
       if (!audio.size) { setPhase('idle'); callbacks.current.onError('Nenhuma fala foi gravada. Grave novamente ou digite.'); return; }
       const form = new FormData();
       form.set('audio', audio, 'audio'); form.set('seconds', String(Math.min(RECORDING_MAX_SECONDS, Math.max(0.1, (Date.now() - started) / 1000))));
@@ -132,16 +156,18 @@ export function useSecretaryRecorder(onTranscript: (text: string) => void, onErr
       }, () => { if (live()) { setPhase('idle'); callbacks.current.onError('A transcrição está indisponível por conexão. Seu texto foi preservado; tente novamente ou digite.'); } });
     };
     try {
-      active.start(); started = Date.now(); setPhase('listening');
+      // A slice every second lets the size limit act during the recording.
+      active.start(1000); started = Date.now(); setElapsed(0); setPhase('listening');
+      ticker.current = setInterval(() => { if (live()) setElapsed(Math.min(RECORDING_MAX_SECONDS, Math.floor((Date.now() - started) / 1000))); }, 250);
       // The recording stops by itself at the admitted maximum; it is still only transcribed, never sent.
-      timeout.current = setTimeout(() => { if (live() && active.state === 'recording') active.stop(); }, RECORDING_MAX_SECONDS * 1000);
+      timeout.current = setTimeout(() => { if (live() && active.state === 'recording') { setLimited(true); active.stop(); } }, RECORDING_MAX_SECONDS * 1000);
     } catch { cancel(); callbacks.current.onError('Não foi possível iniciar o microfone. Confira a permissão ou digite.'); }
   }
   function stop() {
     if (recorder.current?.state !== 'recording') return;
     setPhase('processing'); recorder.current.stop();
   }
-  return { phase, supported, start: () => { void begin(); }, stop, cancel };
+  return { phase, supported, elapsed, limited, start: () => { void begin(); }, stop, cancel };
 }
 
 /** Optional short speech, explicitly requested, using only installed local voices. */

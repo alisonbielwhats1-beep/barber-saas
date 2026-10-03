@@ -2,7 +2,8 @@ import { randomUUID } from "node:crypto";
 import type { Tx } from "./prisma-tenant";
 import type { ServiceActor } from "./service-catalog";
 
-/** C3 voice, GPT transcription: READY BUT OFF (owner decision 28/09/2026, zero cost until enabled).
+/** C3 voice, GPT transcription: off by default (owner decision 28/09/2026); on in the local demo since the owner's decision
+ * of 03/10/2026 (US$ 2 per listed salon and UTC month; scripts/dev-agenda-test.cjs).
  * The recorder's audio goes to the audio transcription endpoint only when SALON_SECRETARY_TRANSCRIBE_ENABLED=true AND
  * paid calls are allowed AND a transcription budget is set. Its own guard: one allowlisted URL, fixed multipart fields,
  * allowlisted models, size and duration caps. Its own budget: every call is reserved at its worst case in the salon's
@@ -113,9 +114,38 @@ export async function reserveTranscriptionBudget(tx: Tx, actor: ServiceActor, in
     entityId: randomUUID(), action: "RESERVE", metadata: { worst_case_micro_usd: input.worstCaseMicroUsd, model: input.model, audio_bytes: input.bytes } } });
   return { spentMicroUsd: spent + input.worstCaseMicroUsd };
 }
-/** One recording → text for the input box. Every refusal happens before the reservation or the network call. */
+/** Upper-bound list prices (USD per 1M tokens) of the admitted models, for the usage the provider reports with each
+ * transcription; a duration usage is priced at the per-minute ceiling. */
+export const TRANSCRIBE_TOKEN_PRICES: Readonly<Record<(typeof TRANSCRIBE_MODELS)[number], { audio: number; text: number; output: number }>> = {
+  "gpt-4o-mini-transcribe": { audio: 3, text: 1.25, output: 5 }, "gpt-4o-transcribe": { audio: 6, text: 2.5, output: 10 } };
+const count = (value: unknown) => typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : 0;
+/** The provider-reported cost of one call, in micro-USD (rounded up); undefined when no usage came back. */
+export function transcriptionUsageMicroUsd(usage: unknown, chosen: string): number | undefined {
+  const u = usage as { type?: unknown; input_tokens?: unknown; output_tokens?: unknown; seconds?: unknown; input_token_details?: { audio_tokens?: unknown; text_tokens?: unknown } } | null;
+  if (!u || typeof u !== "object") return undefined;
+  if (u.type === "duration") return Math.ceil(count(u.seconds) / 60 * TRANSCRIBE_LIMITS.upperUsdPerMinute * 1e6);
+  const prices = model(chosen) ? TRANSCRIBE_TOKEN_PRICES[chosen] : TRANSCRIBE_TOKEN_PRICES["gpt-4o-transcribe"];
+  const audio = count(u.input_token_details?.audio_tokens), text = count(u.input_token_details?.text_tokens), input = count(u.input_tokens), output = count(u.output_tokens);
+  if (!input && !output) return undefined;
+  // Input tokens without a split are priced as audio (the dearer kind).
+  return Math.ceil(((audio || text ? audio : input) * prices.audio + (audio || text ? text : 0) * prices.text + output * prices.output));
+}
+export type TranscriptionSettlement = { reservedMicroUsd: number; actualMicroUsd: number | null; seconds: number; bytes: number; model: string };
+/** After the call: one USAGE row (numbers and codes only) with the reported cost, the declared seconds and the file size;
+ * when the reported cost passes the reservation, the difference is appended as one more RESERVE (kind OVERRUN), so the
+ * month's budget counts the real length of the audio (the open risk of a file longer than its size bound). Never refunds. */
+export async function settleTranscriptionUsage(tx: Tx, actor: ServiceActor, input: TranscriptionSettlement) {
+  const row = { salonId: actor.salonId, userId: actor.userId, actorName: "Secretária — transcrição", entityType: TRANSCRIBE_AUDIT_ENTITY };
+  await tx.auditLog.create({ data: { ...row, entityId: randomUUID(), action: "USAGE", metadata: { reserved_micro_usd: input.reservedMicroUsd,
+    actual_micro_usd: input.actualMicroUsd, audio_seconds: Math.round(input.seconds * 10) / 10, audio_bytes: input.bytes, model: input.model } } });
+  const over = input.actualMicroUsd === null ? 0 : input.actualMicroUsd - input.reservedMicroUsd;
+  if (over > 0) await tx.auditLog.create({ data: { ...row, entityId: randomUUID(), action: "RESERVE",
+    metadata: { worst_case_micro_usd: over, model: input.model, audio_bytes: input.bytes, kind: "OVERRUN" } } });
+}
+/** One recording → text for the input box. Every refusal happens before the reservation or the network call. `settle`
+ * (optional) records the provider-reported usage after the call; its failure never loses the transcript. */
 export async function transcribeSecretaryAudio(input: { audio: unknown; seconds: unknown; directory: { professionals: readonly string[]; services: readonly string[] };
-  reserve: (reservation: TranscriptionReservation) => Promise<unknown>; env?: Env; fetchFn?: typeof fetch }): Promise<{ text: string }> {
+  reserve: (reservation: TranscriptionReservation) => Promise<unknown>; settle?: (settlement: TranscriptionSettlement) => Promise<unknown>; env?: Env; fetchFn?: typeof fetch }): Promise<{ text: string }> {
   const env = input.env ?? process.env, config = transcribeConfig(env);
   assertTranscriptionAudio(input.audio, input.seconds);
   const [url, init] = transcriptionRequest(input.audio, config.model, transcriptionPrompt(input.directory), config);
@@ -126,6 +156,12 @@ export async function transcribeSecretaryAudio(input: { audio: unknown; seconds:
   const response = await transcriptionGuardedFetch(input.fetchFn ?? globalThis.fetch, config.model, env)(url, init);
   if (!response.ok) throw Error("TRANSCRIBE_FAILED");
   let json: unknown; try { json = await response.json(); } catch { throw Error("TRANSCRIBE_FAILED"); }
+  // The call was billed whatever its text: the usage is recorded first.
+  if (input.settle) {
+    const settlement = { reservedMicroUsd: worstCaseMicroUsd, actualMicroUsd: transcriptionUsageMicroUsd((json as { usage?: unknown })?.usage, config.model) ?? null,
+      seconds: input.seconds as number, bytes: input.audio.size, model: config.model };
+    try { await input.settle(settlement); } catch { console.error("SECRETARY_TRANSCRIBE_SETTLE_FAILED"); }
+  }
   const text = typeof (json as { text?: unknown })?.text === "string" ? (json as { text: string }).text.replace(/\s+/g, " ").trim().slice(0, 1000) : "";
   if (!text) throw Error("TRANSCRIBE_EMPTY");
   return { text };

@@ -8,7 +8,7 @@ import { digest } from "../../../packages/salon-secretary/evaluation/free-use-bu
 import { secretaryGuardedFetch } from "../../../packages/salon-secretary/src/openai-cost-guard";
 import { assertTranscriptionWire, reserveTranscriptionBudget, transcribeSecretaryAudio, transcriptionGuardedFetch, transcriptionPrompt, TRANSCRIBE_AUDIT_ENTITY,
   TRANSCRIBE_DEFAULT_MODEL, TRANSCRIBE_LIMITS, TRANSCRIBE_MAX_RESERVATION_MICRO_USD, TRANSCRIBE_MODELS, TRANSCRIBE_SERVER, TRANSCRIBE_URL, TRANSCRIBE_WORST_CASE_MICRO_USD,
-  transcribeConfig, transcriptionWorstCaseMicroUsd } from "../secretary-transcribe";
+  transcribeConfig, transcriptionWorstCaseMicroUsd, settleTranscriptionUsage, transcriptionUsageMicroUsd } from "../secretary-transcribe";
 
 /** C3, GPT transcription READY BUT OFF: mocked fetch only (a stub that throws guards the real network). */
 const dirs: string[] = [];
@@ -201,5 +201,56 @@ describe("evaluation composition: program real-spend ledger, source 'transcribe'
       .rejects.toThrow("TRANSCRIBE_FAILED");
     expect(lines(second)[1]).toMatchObject({ outcome: "FAILED", httpStatus: 503, chargedMicroUsd: WORST });
     expect(existsSync(second)).toBe(true);
+  });
+});
+
+describe("usage settlement (owner decision 03/10/2026: transcription on in the local demo)", () => {
+  const usage = (extra: Record<string, unknown> = {}) => ({ type: "tokens", input_tokens: 120, input_token_details: { audio_tokens: 100, text_tokens: 20 }, output_tokens: 30, total_tokens: 150, ...extra });
+  const actor = { salonId: "ours", userId: "owner" };
+  it("prices the reported tokens of the admitted models (micro-USD, rounded up) and a duration at the per-minute ceiling", () => {
+    expect(transcriptionUsageMicroUsd(usage(), "gpt-4o-mini-transcribe")).toBe(100 * 3 + 20 * 1.25 + 30 * 5);
+    expect(transcriptionUsageMicroUsd(usage(), "gpt-4o-transcribe")).toBe(100 * 6 + 20 * 2.5 + 30 * 10);
+    expect(transcriptionUsageMicroUsd({ type: "tokens", input_tokens: 50, output_tokens: 10 }, "gpt-4o-mini-transcribe")).toBe(50 * 3 + 10 * 5);
+    expect(transcriptionUsageMicroUsd({ type: "duration", seconds: 30 }, "gpt-4o-mini-transcribe")).toBe(10_000);
+    expect(transcriptionUsageMicroUsd(undefined, "gpt-4o-mini-transcribe")).toBeUndefined();
+    expect(transcriptionUsageMicroUsd({ type: "tokens" }, "gpt-4o-mini-transcribe")).toBeUndefined();
+  });
+  it("settles after the call with the reservation and the reported cost; the text still comes back", async () => {
+    const settle = vi.fn(async () => undefined), recording = audio();
+    expect(await transcribeSecretaryAudio({ audio: recording, seconds: 4.2, directory, env: env(), fetchFn: ok({ text: "remarca a Noemi", usage: usage() }), reserve: free(), settle }))
+      .toEqual({ text: "remarca a Noemi" });
+    expect(settle).toHaveBeenCalledExactlyOnceWith({ reservedMicroUsd: transcriptionWorstCaseMicroUsd(recording.size, 4.2), actualMicroUsd: 475, seconds: 4.2, bytes: recording.size,
+      model: "gpt-4o-mini-transcribe" });
+  });
+  it("an empty transcript is settled (the call was billed) before it is refused; a failed settlement never loses the text", async () => {
+    const settle = vi.fn(async () => undefined);
+    await expect(transcribeSecretaryAudio({ audio: audio(), seconds: 1, directory, env: env(), fetchFn: ok({ text: " ", usage: usage() }), reserve: free(), settle })).rejects.toThrow("TRANSCRIBE_EMPTY");
+    expect(settle).toHaveBeenCalledOnce();
+    const failing = vi.fn(async () => { throw Error("DB_DOWN"); }), log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    expect(await transcribeSecretaryAudio({ audio: audio(), seconds: 1, directory, env: env(), fetchFn: ok({ text: "cancela o Otávio" }), reserve: free(), settle: failing }))
+      .toEqual({ text: "cancela o Otávio" });
+    expect(failing).toHaveBeenCalledWith(expect.objectContaining({ actualMicroUsd: null })); expect(log).toHaveBeenCalledWith("SECRETARY_TRANSCRIBE_SETTLE_FAILED");
+    log.mockRestore();
+  });
+  it("appends a USAGE row always, and a RESERVE overrun row only when the reported cost passes the reservation", async () => {
+    const created: { data: Record<string, unknown> }[] = [], tx = { auditLog: { create: vi.fn(async (input: { data: Record<string, unknown> }) => { created.push(input); return {}; }) } };
+    await settleTranscriptionUsage(tx as never, actor, { reservedMicroUsd: 13_334, actualMicroUsd: 475, seconds: 4.24, bytes: 30_000, model: "gpt-4o-mini-transcribe" });
+    expect(created.map(row => row.data.action)).toEqual(["USAGE"]);
+    expect(created[0].data).toMatchObject({ salonId: "ours", userId: "owner", entityType: TRANSCRIBE_AUDIT_ENTITY,
+      metadata: { reserved_micro_usd: 13_334, actual_micro_usd: 475, audio_seconds: 4.2, audio_bytes: 30_000, model: "gpt-4o-mini-transcribe" } });
+    created.length = 0;
+    await settleTranscriptionUsage(tx as never, actor, { reservedMicroUsd: 1_000, actualMicroUsd: 2_500, seconds: 60, bytes: 400_000, model: "gpt-4o-mini-transcribe" });
+    expect(created.map(row => row.data.action)).toEqual(["USAGE", "RESERVE"]);
+    expect(created[1].data.metadata).toEqual({ worst_case_micro_usd: 1_500, model: "gpt-4o-mini-transcribe", audio_bytes: 400_000, kind: "OVERRUN" });
+    created.length = 0;
+    await settleTranscriptionUsage(tx as never, actor, { reservedMicroUsd: 1_000, actualMicroUsd: null, seconds: 2, bytes: 9_000, model: "gpt-4o-mini-transcribe" });
+    expect(created.map(row => row.data.action)).toEqual(["USAGE"]);
+  });
+  it("an overrun row counts in the month's budget like any reservation", async () => {
+    const rows = [{ worst_case_micro_usd: 50_000 }, { worst_case_micro_usd: 40_000, kind: "OVERRUN" }];
+    const tx = { $executeRaw: vi.fn(async () => 0), auditLog: { findMany: vi.fn(async () => rows.map(metadata => ({ metadata }))), create: vi.fn(async () => ({})) } };
+    await expect(reserveTranscriptionBudget(tx as never, actor, { worstCaseMicroUsd: 20_000, budgetMicroUsd: 100_000, model: "gpt-4o-mini-transcribe", bytes: 1, salons: ["ours"] }))
+      .rejects.toThrow("TRANSCRIBE_BUDGET");
+    expect(tx.auditLog.create).not.toHaveBeenCalled();
   });
 });

@@ -12,7 +12,7 @@ import type { DictationSuggestion } from '@/lib/secretary-voice-correction';
 import { startSecretary, sendSecretary, selectSecretaryCustomer, selectSecretaryService, confirmSecretary,
   cancelSecretary, resumeSecretaryPlan, selectSecretaryOperation, confirmSecretaryOperation, confirmSecretaryGroup, confirmSecretaryReadyGroups,
   discardSecretaryAction, selectSecretaryOption, suggestSecretaryDictation, transcribeSecretaryVoice, sendSecretaryFeedback, currentSecretary, type SecretaryReply, type CurrentSecretaryReply } from './actions';
-import { speakSecretary, useSecretaryRecorder, useSecretaryVoice } from './use-secretary-voice';
+import { joinDictation, speakSecretary, useSecretaryRecorder, useSecretaryVoice } from './use-secretary-voice';
 import { formatLocal } from '@/lib/secretary-datetime-format';
 
 /** B7 timeline: one entry per turn: the owner's words (absent for a click), the Secretary's reply and, for a request
@@ -56,8 +56,12 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
   const lastResult = useRef<HTMLDivElement>(null);
   const threadEnd = useRef<HTMLDivElement>(null);
   const beforeVoice = useRef('');
-  const native = useSecretaryVoice(setMessage, setError);
-  const recorder = useSecretaryRecorder(setMessage, setError, transcribeEnabled ? form => transcribeSecretaryVoice(form) : undefined);
+  /** The box's text right after the latest dictation: "Desfazer ditado" is offered only while the box still holds exactly it. */
+  const dictated = useRef('');
+  // A dictation is added after the text that was in the box when it started (typed text is never replaced).
+  const dictate = (text: string) => { const next = joinDictation(beforeVoice.current, text); dictated.current = next; setMessage(next); };
+  const native = useSecretaryVoice(dictate, setError);
+  const recorder = useSecretaryRecorder(dictate, setError, transcribeEnabled ? form => transcribeSecretaryVoice(form) : undefined);
   const voice = transcribeEnabled ? recorder : native;
   const [corrections, setCorrections] = useState<{ text: string; items: DictationSuggestion[] }>();
   const typed = useRef(message);
@@ -214,7 +218,10 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
   const newest = turns.at(-1);
   const awaitingReply = busy === 'thinking' && newest?.user !== undefined && newest.reply === undefined;
   const disabled = Boolean(busy || dirty || uncertain || recording || state?.cancelled || confirmationSuppressed);
-  const status = busy === 'executing' ? 'Executando…' : busy ? 'Entendendo e preparando…' : voice.phase === 'listening' ? 'Ouvindo…' : voice.phase === 'processing' ? 'Transcrevendo…' : voice.phase === 'ready' && message ? 'Transcrição pronta. Revise antes de enviar.' : uncertain ? 'Resultado ainda não verificado' : state?.cancelled ? 'Conversa encerrada' : state?.action_plan?.status === 'PARTIAL_FAILURE' ? 'Revise o resultado de cada ação' : closed ? 'Resultado confirmado pelo sistema' : expiryVisible ? 'Proposta expirada. Envie uma mensagem para preparar novamente.' : dirty && hasProposal ? 'Proposta anterior desatualizada' : hasProposal ? 'Confira antes de confirmar' : 'Fale ou escreva o que precisa';
+  // The recorder counts its time ("Ouvindo… 0:12") and says when it stopped at its time or size limit.
+  const elapsed = transcribeEnabled ? ` ${Math.floor(recorder.elapsed / 60)}:${String(recorder.elapsed % 60).padStart(2, '0')}` : '';
+  const limited = transcribeEnabled && recorder.limited;
+  const status = busy === 'executing' ? 'Executando…' : busy ? 'Entendendo e preparando…' : voice.phase === 'listening' ? `Ouvindo…${elapsed}` : voice.phase === 'processing' ? 'Transcrevendo…' : voice.phase === 'ready' && message ? limited ? 'A gravação chegou ao limite e foi encerrada. Revise antes de enviar.' : 'Transcrição pronta. Revise antes de enviar.' : uncertain ? 'Resultado ainda não verificado' : state?.cancelled ? 'Conversa encerrada' : state?.action_plan?.status === 'PARTIAL_FAILURE' ? 'Revise o resultado de cada ação' : closed ? 'Resultado confirmado pelo sistema' : expiryVisible ? 'Proposta expirada. Envie uma mensagem para preparar novamente.' : dirty && hasProposal ? 'Proposta anterior desatualizada' : hasProposal ? 'Confira antes de confirmar' : 'Fale ou escreva o que precisa';
 
   // B4: a backend-offered time slot is applied as a short answer and prepared again; it never confirms.
   function pickSlot(option: string, operation: string) {
@@ -420,11 +427,15 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
           <Button type="button" size="sm" variant="ghost" onClick={() => setCorrections(undefined)}>Manter como está</Button>
         </div>}
         <div className="flex flex-wrap items-center gap-2">
-          {voiceEnabled && <Button type="button" variant={recording ? 'outline' : 'default'} aria-label={recording ? 'Parar gravação' : 'Falar com a Secretária'} disabled={Boolean(busy || uncertain)} onClick={() => {
+          {voiceEnabled && <Button type="button" data-secretary-mic="" variant={recording ? 'outline' : 'default'} aria-label={recording ? 'Parar gravação' : 'Falar com a Secretária'} disabled={Boolean(busy || uncertain)} onClick={() => {
             if (recording) { voice.stop(); return; }
             beforeVoice.current = message; setDirty(true); setError(''); setCorrections(undefined); voice.start();
-          }}>{recording ? <Square className="mr-2 h-4 w-4" aria-hidden="true" /> : <Mic className="mr-2 h-4 w-4" aria-hidden="true" />}{recording ? 'Parar' : voice.phase === 'ready' ? 'Refazer' : 'Falar'}</Button>}
+          }}>{recording ? <Square className="mr-2 h-4 w-4" aria-hidden="true" /> : <Mic className="mr-2 h-4 w-4" aria-hidden="true" />}{recording ? 'Parar' : 'Falar'}</Button>}
           {recording && <Button type="button" variant="ghost" onClick={() => { voice.cancel(); setMessage(beforeVoice.current); }}>Cancelar gravação</Button>}
+          {/* Only while the box still holds exactly what the latest dictation produced: an edit is never undone. */}
+          {!recording && voice.phase === 'ready' && message === dictated.current && <Button type="button" variant="ghost" disabled={Boolean(busy || uncertain)} onClick={() => {
+            voice.cancel(); setCorrections(undefined); edit(beforeVoice.current);
+          }}>Desfazer ditado</Button>}
           <Button type="submit" className="ml-auto min-h-11" disabled={Boolean(busy || recording || uncertain || !message.trim())}><Send className="mr-2 h-4 w-4" aria-hidden="true" />Enviar</Button>
         </div>
         {voiceEnabled && <p className="text-[11px] text-muted-foreground">{transcribeEnabled

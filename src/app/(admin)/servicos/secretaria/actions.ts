@@ -158,8 +158,8 @@ export async function suggestSecretaryDictation(text: unknown): Promise<Dictatio
   }
 }
 export type TranscriptionReply = { ok: true; text: string } | { ok: false; error: string; code?: string };
-/** C3 voice, GPT transcription: READY BUT OFF (SALON_SECRETARY_TRANSCRIBE_ENABLED, default off). One recording → text
- * for the input box; never sends or confirms. */
+/** C3 voice, GPT transcription (SALON_SECRETARY_TRANSCRIBE_ENABLED, default off; on in the local demo since 03/10/2026).
+ * One recording → text for the input box; never sends or confirms. The reported usage is settled after the call. */
 export async function transcribeSecretaryVoice(form: FormData): Promise<TranscriptionReply> {
   const transcription = await import("@/lib/secretary-transcribe");
   if (!transcription.transcribeEnabled()) return { ok: false, code: "TRANSCRIBE_DISABLED", error: "A transcrição da Secretária está desligada. Você pode digitar." };
@@ -167,7 +167,8 @@ export async function transcribeSecretaryVoice(form: FormData): Promise<Transcri
     const actor = await context();
     const seconds = Number(form.get("seconds")), { withTenant } = await import("@/lib/prisma-tenant");
     return { ok: true, ...(await transcription.transcribeSecretaryAudio({ audio: form.get("audio"), seconds, directory: await voiceVocabulary(actor),
-      reserve: reservation => withTenant(actor, tx => transcription.reserveTranscriptionBudget(tx, actor, reservation)) })) };
+      reserve: reservation => withTenant(actor, tx => transcription.reserveTranscriptionBudget(tx, actor, reservation)),
+      settle: settlement => withTenant(actor, tx => transcription.settleTranscriptionUsage(tx, actor, settlement)) })) };
   } catch (error) {
     const code = voiceCode(error);
     console.error("SECRETARY_TRANSCRIBE_REJECTED", code);

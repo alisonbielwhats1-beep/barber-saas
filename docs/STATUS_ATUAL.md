@@ -1,8 +1,20 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-10-03 — Secretária: falar em vez de digitar e cancelar sem motivo (local)
+
+Branch `claude/voice-system-cancellation-reason-44fd9a`, sobre `claude/secretaria-piloto-remarcar`
+(`b289b50`), sem push. Pedido do dono: o cliente fala com a Secretária em vez de digitar, e o cancelamento
+não pede motivo. Voz: transcrição GPT (`gpt-4o-mini-transcribe`) ligada no lançador da demo, teto US$ 2 por
+salão e mês, uso real registrado no AuditLog (`SECRETARY_TRANSCRIBE/USAGE`, excesso vira reserva);
+gravador com formato aceito pelo servidor, limite de tamanho e relógio; ditado acrescentado ao texto, com
+"Desfazer ditado"; texto continua indo para revisão e Enviar. Motivo: flag
+`SALON_SECRETARY_CANCEL_REASON_OPTIONAL` (padrão desligada, ligada na demo; ver
+`SECRETARY_CANCEL_REASON_OPTIONAL.md`). Ainda sem teste em iPhone/Android de verdade (exige HTTPS).
+Production da Secretária continua bloqueada; nenhuma migration, flag ou deploy produtivo.
+
 ## 2026-10-03 — motivo opcional ao cancelar reserva, em revisão
 
-Branch `claude/cancelamento-motivo-opcional`, por decisão do responsável
+Branch `claude/cancelamento-motivo-opcional` (PR #134), por decisão do responsável
 (`DECISOES_PRODUTO.md`, 03/10): dono e gerente cancelam pela agenda (detalhe da
 reserva e cancelamento em lote) sem preencher motivo. O domínio deixa de exigir
 3+ caracteres da equipe; sem motivo, `cancelledReason` e o evento ficam nulos,

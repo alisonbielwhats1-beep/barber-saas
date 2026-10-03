@@ -71,10 +71,18 @@ partículas. Se não aparece:
 - Uma palavra em minúsculas só é corrigida quando divide um começo longo com o nome (“rodrigues” →
   “Rodrigo”).
 
-## 3. Transcrição GPT: pronta, mas desligada
+## 3. Transcrição GPT: ligada na demo local (decisão do dono de 03/10/2026)
 
-Decisão do dono: não testar agora, custo zero. Para ligar, **todas** as condições abaixo são
-necessárias:
+Histórico: em 28/09 o dono decidiu "não testar agora, custo zero". Em 03/10/2026 pediu que o cliente possa
+**falar em vez de digitar** e escolheu a transcrição GPT, porque o ditado do navegador não funciona no app
+instalado do iPhone (a Web Speech API existe, mas falha sem pedir o microfone fora do Safari). Teto aprovado:
+US$ 2 por salão e mês na demo; teste real autorizado até US$ 0,05. Depois de falar, o texto continua indo
+para a caixa e só segue com **Enviar** (decisão do dono); nada é gravado sem **Confirmar**.
+
+O lançador da demo (`scripts/dev-agenda-test.cjs`) liga `VOICE_ENABLED`, `VOICE_CORRECTION` e
+`TRANSCRIBE_ENABLED`, usa `TRANSCRIBE_BUDGET_USD=2` e lista só o salão de teste mais recente
+(`agenda-teste-*`, o do `LOCAL-LOGIN.txt`). Cada chave pode ser desligada pelo ambiente. O padrão do
+código continua desligado. Para ligar fora da demo, **todas** as condições abaixo são necessárias:
 
 1. `SALON_SECRETARY_VOICE_ENABLED=true` (mostra o microfone) e `SALON_SECRETARY_TRANSCRIBE_ENABLED=true`.
 2. `SALON_SECRETARY_ALLOW_PAID_CALLS=true`, com `SALON_SECRETARY_OPENAI_API_KEY` e
@@ -111,10 +119,25 @@ Como funciona (`src/lib/secretary-transcribe.ts` e a ação `transcribeSecretary
   `packages/salon-secretary/evaluation/program-spend.ts`. O estimador lacrado `transcriptions` cobra
   sempre o pior caso; um acerto por uso reportado pelo provedor nunca é aceito. O código do app não
   importa código de avaliação; a regra é fixada em `jev-evaluation.test.ts`.
-- Revisão do dono antes de ligar: o preço-teto por minuto e os limites. O servidor ainda não lê a duração do
-  contêiner: um arquivo Opus com DTX (silêncio abaixo de 6 kbit/s) pode durar mais do que o limite pelo tamanho.
-  Antes de ligar, medir a duração no servidor (Ogg/WebM/MP4) ou aceitar esse risco dentro do teto do programa.
-- Os testes usam só `fetch` simulado.
+- **Uso real (03/10):** depois de cada chamada, uma linha `SECRETARY_TRANSCRIBE/USAGE` guarda o custo que o
+  provedor informou (tokens a preço de tabela), os segundos declarados e o tamanho do arquivo, só números. Se o
+  custo informado passar do reservado, a diferença entra como mais uma linha `RESERVE` (`kind: OVERRUN`) e
+  passa a contar no orçamento do mês. Isso fecha o risco anotado antes (um arquivo Opus com DTX durar mais do
+  que o limite pelo tamanho): a duração real entra no orçamento, uma chamada no máximo atrasada. Nunca há
+  reembolso. Uma falha ao registrar o uso não perde o texto (fica no log o código
+  `SECRETARY_TRANSCRIBE_SETTLE_FAILED`).
+- **Gravador (03/10):** escolhe o primeiro formato que o navegador grava entre os aceitos pelo servidor
+  (WebM/Opus no Chrome e Android, MP4/AAC no Safari e iPhone, Ogg/Opus no Firefox). Recebe um pedaço por
+  segundo e para sozinho a 440 KB (o Safari pode ignorar a taxa de 24 kbit/s) ou aos 60 s; o que já foi dito é
+  transcrito e a tela avisa "A gravação chegou ao limite e foi encerrada". O status mostra o tempo
+  ("Ouvindo… 0:12").
+- **Caixa de texto (03/10):** o ditado é acrescentado depois do que já estava digitado (antes, substituía tudo).
+  "Desfazer ditado" volta ao texto de antes, enquanto a caixa ainda tiver exatamente o resultado do ditado.
+  No celular, com voz ligada, abrir a Secretária foca o microfone, sem abrir o teclado.
+- Limites desta etapa: nada foi validado ainda num iPhone ou Android de verdade. O microfone exige HTTPS fora do
+  `localhost`, e o cabeçalho `Permissions-Policy` só libera o microfone em dev/test e no Codespace auditado.
+  O teste no celular depende de um endereço HTTPS (Codespace de staging ou túnel temporário) e de autorização própria.
+- Os testes automatizados usam só `fetch` simulado; o teste real autorizado fica registrado no diário da demo.
 
 ## 4. Telemetria (somente códigos)
 

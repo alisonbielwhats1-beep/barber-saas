@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Mic, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -10,9 +10,16 @@ export function SecretaryDock({ voiceEnabled, voiceCorrection = false, transcrib
   const [visited, setVisited] = useState(false);
   const [desktop, setDesktop] = useState(false);
   const content = useRef<HTMLDivElement>(null);
+  /** The composer takes the focus; on the phone sheet with voice, the microphone does, so the keyboard does not open over
+   * the conversation. */
+  const focusComposer = useCallback(() => {
+    const mic = !desktop && voiceEnabled ? content.current?.querySelector<HTMLElement>('[data-secretary-mic]') : undefined;
+    (mic ?? content.current?.querySelector<HTMLElement>('textarea'))?.focus();
+  }, [desktop, voiceEnabled]);
   useEffect(() => {
     if (!open) return;
-    content.current?.querySelector<HTMLElement>('textarea')?.focus();
+    // Reopening (the content stays mounted). The first opening mounts the portal later: onOpenAutoFocus below focuses it.
+    focusComposer();
     if (desktop) return;
     // Keep the conversation mounted across viewport changes; only the surrounding
     // product becomes inert while the mobile sheet is open.
@@ -20,7 +27,7 @@ export function SecretaryDock({ voiceEnabled, voiceCorrection = false, transcrib
     const wasInert = shell?.inert ?? false;
     if (shell) shell.inert = true;
     return () => { if (shell) shell.inert = wasInert; };
-  }, [open, desktop]);
+  }, [open, desktop, focusComposer]);
   useEffect(() => {
     const media = window.matchMedia('(min-width: 1280px)');
     const update = () => setDesktop(media.matches); update(); media.addEventListener('change', update);
@@ -33,7 +40,7 @@ export function SecretaryDock({ voiceEnabled, voiceCorrection = false, transcrib
     <Dialog.Root open={open} onOpenChange={value => { if (value) setVisited(true); setOpen(value); }} modal={false}>
       <Dialog.Trigger asChild><Button aria-label="Abrir Secretária" className="fixed right-4 z-40 min-h-12 rounded-full px-4 shadow-lg print:hidden" style={{ bottom: 'calc(5rem + var(--safe-bottom, 0px))' }}><Mic aria-hidden="true" className="mr-2 h-5 w-5" />Secretária</Button></Dialog.Trigger>
       {visited && <Dialog.Portal forceMount>
-        <Dialog.Content ref={content} forceMount aria-modal={open && !desktop ? true : undefined} onInteractOutside={event => event.preventDefault()} onOpenAutoFocus={event => { if (!open) event.preventDefault(); }}
+        <Dialog.Content ref={content} forceMount aria-modal={open && !desktop ? true : undefined} onInteractOutside={event => event.preventDefault()} onOpenAutoFocus={event => { event.preventDefault(); if (open) focusComposer(); }}
           onKeyDown={event => {
             if (desktop || event.key !== 'Tab') return;
             const items = Array.from(content.current?.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], textarea:not(:disabled), [tabindex="0"]') ?? []).filter(item => item.getClientRects().length);
