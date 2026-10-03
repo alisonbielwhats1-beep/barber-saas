@@ -3,7 +3,7 @@ import { firstCalendarConflict, nextCalendarConflicts, calendarConflictQuestion,
 import { coherentIntervalReadings, dateRulesV2Enabled, daypartRulesV2Enabled } from "./scheduling-temporal-reference";
 import { closedDayText, closedReadingsText, daypartByHoursEnabled, daypartPurpose, hoursAlternatives, hoursContext, loadDayFacts, loadNowFacts, openBlockPairs, openReadings, type DayFacts, type DaypartField, type HoursContext, type OpenReadings } from "./scheduling-daypart-facts";
 import type { LocatorHint, PastReading } from "./scheduling-temporal-mode";
-import { groundSchedulingReasons, pendingSourceFields, type ReasonField, type ReasonRejection } from "./scheduling-literal-source";
+import { askedSourceFields, groundSchedulingReasons, pendingSourceFields, type ReasonField, type ReasonRejection } from "./scheduling-literal-source";
 import { performance } from "node:perf_hooks";
 import { assertSchedulingExceptionScope, exceptionRulesV2Enabled, literalOverrideConsent, reconcileExceptionDecision, type SchedulingReview } from "./scheduling-conflict-contract";
 import { serviceDirectoryProof, validateSchedulingEntityMentions, withoutCustomerMentions } from "./scheduling-entity-mentions";
@@ -345,7 +345,7 @@ async function prepare(actor:ServiceActor,c:SchedulingState,rejectedTemporal:Tem
   if(refs){delete refs.blocked;if(refs.notice&&[...asked].every(key=>f[key as keyof SchedulingFields]))delete refs.notice;}
   assertSchedulingExceptionScope(f,op);
   await withTenant(actor,tx=>authorizeSchedulingOperation(tx,actor,op));
-  const sourceMissing=c.source_missing??c.draft?.source_missing??[];
+  const sourceMissing=askedSourceFields(c.source_missing??c.draft?.source_missing??[]);
   // LOCATE (flag): identity roles settled by the tenant's real appointments before any question about them.
   const located=await locateIdentity(actor,c,f,op,c.pending_calendar_conflicts??c.draft?.pending_calendar_conflicts??[],c.pending_temporal_ambiguities??c.draft?.pending_temporal_ambiguities??[]);
   if(located){
@@ -967,7 +967,7 @@ async function applySchedulingInterpretationMutable(actor:ServiceActor,c:Schedul
     // The latest decision wins: an encaixe consent supersedes an "other slot" stored in an earlier turn (never both kept).
     if(patch.override_requested===true&&c.fields.destination_mode==="ALTERNATIVE_SLOT")delete c.fields.destination_mode;
   }
-  c.source_missing=pendingSourceFields(c.source_missing??c.draft?.source_missing,sourceResult);
+  c.source_missing=askedSourceFields(pendingSourceFields(c.source_missing??c.draft?.source_missing,sourceResult));
   if(patch.override_reason!==undefined&&patch.override_reason!==c.fields.override_reason&&!("override_reason_source" in patch))delete c.fields.override_reason_source;
   if(c.fields.override_requested!==undefined&&["customer_name","service_name","professional_name","date","time","period"].some(k=>patch[k as keyof typeof patch]!==undefined&&patch[k as keyof typeof patch]!==c.fields[k as keyof typeof c.fields])&&patch.override_requested!==true){delete c.fields.override_requested;delete c.fields.override_reason;delete c.fields.override_reason_source;}
   if(patch.destination_mode==="ALTERNATIVE_SLOT"){c.fields.override_requested=false;delete c.fields.override_reason;delete c.fields.override_reason_source;if(patch.time===undefined)delete c.fields.time;}

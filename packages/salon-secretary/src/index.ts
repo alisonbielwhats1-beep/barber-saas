@@ -47,6 +47,8 @@ export * from './reads-v2';
 import { readsV2Enabled } from './reads-v2';
 export * from './recurrence-guard';
 import { recurrenceGuardEnabled } from './recurrence-guard';
+export * from './cancel-reason';
+import { cancelReasonOptionalEnabled } from './cancel-reason';
 export * from './prompt-cache';
 import { promptCacheEnabled, cachedSystemContent, PROMPT_CACHE_FRAMING } from './prompt-cache';
 // C5 agent (flag SALON_SECRETARY_AGENT, default off; docs/c5-spike/11-especificacao-agente.md §6.2): its contract, loop and context. Off, nothing
@@ -365,7 +367,7 @@ export const SECRETARY_CONTRACT_ENV = ['SALON_SECRETARY_TEMPORAL_COMPONENTS','SA
   'SALON_SECRETARY_MULTI_ACTION_V2_ENABLED','SALON_SECRETARY_SCHEDULING_OVERLAP_ENABLED','SALON_SECRETARY_V2_MAX_OUTPUT_TOKENS','SALON_SECRETARY_MODEL','SALON_SECRETARY_TEMPORAL_POLARITY','SALON_SECRETARY_SAME_AS',
   'SALON_SECRETARY_STRUCTURED_CONTEXT','SALON_SECRETARY_ALTER_APPOINTMENT','SALON_SECRETARY_MULTI_SERVICE','SALON_SECRETARY_COPY_V2','SALON_SECRETARY_REFERENCES_V2','SALON_SECRETARY_READS_V2','SALON_SECRETARY_RECURRENCE_GUARD',
   'SALON_SECRETARY_EXAMPLES_V2','SALON_SECRETARY_PROMPT_CACHE','SALON_SECRETARY_AGENT','SALON_SECRETARY_AGENT_EFFORT','SALON_SECRETARY_AGENT_EFFORT_ROUNDS','SALON_SECRETARY_AGENT_PRELOAD',
-  'SALON_SECRETARY_PILOT_RESCHEDULE'] as const;
+  'SALON_SECRETARY_PILOT_RESCHEDULE','SALON_SECRETARY_CANCEL_REASON_OPTIONAL'] as const;
 const contractHash=(value:unknown)=>createHash('sha256').update(typeof value==='string'?value:JSON.stringify(value)).digest('hex');
 /** Synthetic, fixed: one open action per published operation (an option card, a daypart and both calendar kinds, a
  * pending discard) plus one suspended plan, so every mode, operation group and state-bound rule is compiled. */
@@ -449,6 +451,8 @@ export function secretaryContractParts(options:SecretaryContractOptions={}){
       ...(promptCache?{promptCache:true}:{}),
       // B7: the clarification context format (codes + a short stable sentence) the backend publishes; named only when on.
       ...(process.env.SALON_SECRETARY_STRUCTURED_CONTEXT==='true'?{structuredContext:true}:{}),
+      // 03/10 (owner): the optional cancellation reason (T14 wording, requirements, served examples); named only when on.
+      ...(cancelReasonOptionalEnabled()?{cancelReasonOptional:true}:{}),
       // C5 agent: named only when on, with its one effort per message (an invalid value is named as such; the agent then does not run),
       // and the S1 arm it runs (agentArmTags: per-call efforts, pre-load) when set.
       ...(agentOn?{agent:{effort:agentEffortTag(),...agentArmTags()}}:{}),...(pilotOn?{pilot:true}:{}),...(budgetSteps(options).length?{requestBudget:budgetSteps(options)}:{})},

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { groundSchedulingException, type SchedulingOverrideDecisionContext } from "./scheduling-conflict-contract";
 import { overrideReasonSource } from "./scheduling-reason-source";
 import { foldedLiteral, literalSpans } from "../../packages/salon-secretary/src/literal-match";
+import { cancelReasonOptionalEnabled } from "../../packages/salon-secretary/src/cancel-reason";
 
 export const reasonField = z.enum(["reason", "override_reason"]);
 export type ReasonField = z.infer<typeof reasonField>;
@@ -50,3 +51,6 @@ export function groundSchedulingReasons(patch: Record<string,unknown>, previous:
 export function pendingSourceFields(previous:ReasonField[]|undefined, result:{accepted:ReasonField[];rejected:ReasonRejection[]}){
   return [...new Set([...(previous??[]).filter(field=>!result.accepted.includes(field)),...result.rejected.map(item=>item.field)])];
 }
+/** 03/10 (flag SALON_SECRETARY_CANCEL_REASON_OPTIONAL): an unproven cancellation reason was already dropped by the grounding
+ * above (never stored); with the flag it is not asked either. The encaixe reason stays pending. Off: unchanged. */
+export const askedSourceFields=(fields:ReasonField[])=>cancelReasonOptionalEnabled()?fields.filter(field=>field!=="reason"):fields;

@@ -1,5 +1,5 @@
 import { type ActionPlan, type ActionAssessment, type PlanAction, type CapabilitySelection,
-  actionSelection, selectionSchemaV2, schedulingFields, alterationKeys, multiServiceKeys, referencesV2Enabled } from "@everflair/salon-secretary";
+  actionSelection, selectionSchemaV2, schedulingFields, alterationKeys, multiServiceKeys, referencesV2Enabled, cancelReasonOptionalEnabled } from "@everflair/salon-secretary";
 import type { SecretaryView } from "./salon-secretary";
 import { readDayOptional } from "./scheduling-contract";
 
@@ -72,7 +72,8 @@ export function assessmentFromView(view: SecretaryView, action: PlanAction): Act
     missing = missing.filter(field => field.startsWith(`${action.key}.`)).map(field => field.slice(action.key.length + 1));
     const item = view.batch.plan.items.find(item => item.key === action.key)!;
     // The legacy assessor stops at the first missing item. Preserve the other item's explicit omissions too.
-    for (const field of item.operation === "appointment.create" ? ["customer_name", "service_name"] as const : ["customer_name", "reason"] as const)
+    for (const field of item.operation === "appointment.create" ? ["customer_name", "service_name"] as const
+      : cancelReasonOptionalEnabled() ? ["customer_name"] as const : ["customer_name", "reason"] as const)
       if (!item.fields[field]) missing.push(field);
   }
   if (view.communication?.cancel && action.operation === "customer.message") {

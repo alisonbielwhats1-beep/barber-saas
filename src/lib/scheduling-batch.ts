@@ -14,7 +14,7 @@ import { schedulingSnapshot, snapshot, executeSchedulingCreate } from "./schedul
 import { lockAppointmentOperationalScope } from "./appointment-service";
 import { formatLocal, formatLocalRange } from "./secretary-datetime-format";
 import { schedulingOverlapEnabled, schedulingReviewSchema, assertSchedulingExceptionScope, exceptionRulesV2Enabled, reconcileExceptionDecision, type SchedulingReview } from "./scheduling-conflict-contract";
-import { referencesV2Enabled } from "@everflair/salon-secretary";
+import { referencesV2Enabled, cancelReasonOptionalEnabled } from "@everflair/salon-secretary";
 
 import { reasonField } from "./scheduling-literal-source";
 import { pendingTemporalAmbiguities, firstTemporalAmbiguity, temporalAmbiguityQuestion } from "./scheduling-temporal-ambiguity";
@@ -132,7 +132,7 @@ async function assess(tx:Tx,actor:ServiceActor,plan:BatchPlan,metrics:Record<str
   }
   const appointments=await locateSchedulingAppointments(tx,actor,a.fields,"appointment.cancel");
   const need=await pick(a,"appointment_ref",appointments.map(r=>({id:r.appointment_ref,name:`${r.customer_name} — ${formatLocal(r.start_local)} — ${r.professional_name}`})));if(need)return need;
-  if(!a.fields.reason||a.fields.reason.trim().length<3)return missing(a,"reason","Informe o motivo real do cancelamento (mínimo 3 caracteres).");
+  if(!cancelReasonOptionalEnabled()&&(!a.fields.reason||a.fields.reason.trim().length<3))return missing(a,"reason","Informe o motivo real do cancelamento (mínimo 3 caracteres).");
   const cancel=await schedulingActionSnapshot(tx,actor,"appointment.cancel",a.fields);
   // D3 (V2): the cancelled appointment's own service, from its snapshot: one is copied, several are a card (never a pick).
   const follows=b.service_follows_released&&referencesV2Enabled(),booked=cancel.services;
@@ -257,7 +257,7 @@ export async function proposeActionBatch(tx:Tx,actor:ServiceActor,input:unknown)
   const prior=rows.map(r=>proposalSchema.parse(r.metadata)).find(p=>p.draft_revision===d.draft_revision);if(prior){assertUnexpired(prior.expires_at);return prior;}
   const {cancel:a,create:b}=d.snapshot;
   const proposal=proposalSchema.parse({...d,proposal_ref:randomUUID(),payload_hash:hash(d),expires_at:new Date(Math.min(Date.parse(d.expires_at),Date.now()+600000)).toISOString(),
-    preview:`ALTERAÇÕES NA AGENDA\n1. CANCELAR: ${a.customer_name} — ${a.services.map(s=>s.name).join(", ")}\n${formatLocalRange(a.startLocal,a.endLocal)}\nMotivo: ${d.plan.items[0].fields.reason}\n${a.waiting_count?`Lista de espera: ${a.waiting_count} pessoa(s), sem oferta automática.`:"Lista de espera: ninguém."}\n2. AGENDAR: ${b.customer_name} — ${b.service_name}\n${b.professional_name} — ${formatLocalRange(b.startLocal,b.endLocal)}\n${b.priceType==="FROM"?"A partir de ":""}${(b.priceCents/100).toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}\n${d.plan.items[1].fields.destination_mode==="ALTERNATIVE_SLOT"?"A ação 2 usa outro horário escolhido e continua dependendo do cancelamento da ação 1.":"A ação 2 depende do horário liberado pela ação 1."}${b.overbook?`\nENCAIXE: haverá sobreposição. Motivo: ${b.overbook.reason}`:""} Tudo será aplicado na mesma transação.`});
+    preview:`ALTERAÇÕES NA AGENDA\n1. CANCELAR: ${a.customer_name} — ${a.services.map(s=>s.name).join(", ")}\n${formatLocalRange(a.startLocal,a.endLocal)}${d.plan.items[0].fields.reason?`\nMotivo: ${d.plan.items[0].fields.reason}`:""}\n${a.waiting_count?`Lista de espera: ${a.waiting_count} pessoa(s), sem oferta automática.`:"Lista de espera: ninguém."}\n2. AGENDAR: ${b.customer_name} — ${b.service_name}\n${b.professional_name} — ${formatLocalRange(b.startLocal,b.endLocal)}\n${b.priceType==="FROM"?"A partir de ":""}${(b.priceCents/100).toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}\n${d.plan.items[1].fields.destination_mode==="ALTERNATIVE_SLOT"?"A ação 2 usa outro horário escolhido e continua dependendo do cancelamento da ação 1.":"A ação 2 depende do horário liberado pela ação 1."}${b.overbook?`\nENCAIXE: haverá sobreposição. Motivo: ${b.overbook.reason}`:""} Tudo será aplicado na mesma transação.`});
   await journal.append(tx,actor,"PROPOSAL",d.draft_ref,proposal,proposal.proposal_ref);return proposal;
 }
 /** Must run inside ONE withTenant transaction. Existing executors receive that same tx. */

@@ -13,6 +13,7 @@ import { temporalExclusionsWire, temporalPolarityEnabled } from "./temporal-pola
 import { sameAsTransport, sameAsEnabled, sameAsWire, sameAsTargets, checkReferences, preparationGraph, withoutReleasedReferences, referencesV2Enabled, releasedSlotSources, type SameAsReference, type ReferenceTarget } from "./same-as";
 import { alterationFields, alterationKeys, alterAppointmentEnabled, assertAlterationScope, alterationInstruction, ALTERATION_REPLACED_SENTENCE } from "./alter-appointment";
 import { multiServiceFields, multiServiceKeys, multiServiceEnabled, multiServiceOperations, assertMultiServiceScope, withoutRedundantServiceList } from "./multi-service";
+import { cancelReasonOptionalEnabled, CANCEL_REASON_MANUAL_EDIT } from "./cancel-reason";
 export const skillId=z.enum(["services","customers","scheduling","financial","inventory","communication"]);
 export type SkillId=z.infer<typeof skillId>;
 export const publishedOperation=z.enum(["product.search","stock.balance","stock.movement","financial.report","service.create","service.change","customer.search","customer.read","customer.create","customer.change","appointment.create","appointment.list","appointment.read","availability.get","appointment.change","appointment.cancel","schedule.block","customer.message"]);
@@ -33,7 +34,7 @@ export function loadSkills(input:unknown){
   const {skill_ids}=z.object({skill_ids:z.array(skillId).min(1).max(8)}).strict().parse(input);
   const manuals=[...new Set(skill_ids)].map(id=>{
     const entry=skillRegistry.find(s=>s.skill_id===id&&s.enabled);if(!entry)throw Error("SKILL_DISABLED");
-    const manual=id==="communication"?communicationSkill:id==="inventory"?inventorySkill:id==="financial"?financialSkill:id==="services"?servicesSkill:id==="customers"?customersSkill:schedulingSkill;
+    const manual=id==="communication"?communicationSkill:id==="inventory"?inventorySkill:id==="financial"?financialSkill:id==="services"?servicesSkill:id==="customers"?customersSkill:schedulingManual();
     return {...entry,manual,manual_hash:createHash("sha256").update(manual).digest("hex")};
   });return {manuals,capabilities:[...new Set(manuals.flatMap(m=>m.capabilities))]};
 }
@@ -71,6 +72,10 @@ export function replacedInstruction(text:string,target:string|RegExp,replacement
 export const withAlterationRule=(text:string)=>replacedInstruction(text,ALTERATION_REPLACED_SENTENCE,alterationInstruction);
 export const alterationInstructions=(text:string)=>alterAppointmentEnabled()?withAlterationRule(text):text;
 withAlterationRule(discoveryInstructions);
+/** 03/10 (flag SALON_SECRETARY_CANCEL_REASON_OPTIONAL): T14's mandatory reason becomes optional in the scheduling manual
+ * (checked replace). Flag off: the manual is returned unchanged (byte-identical prompt and manual hash). */
+const optionalReasonManual=replacedInstruction(schedulingSkill,...CANCEL_REASON_MANUAL_EDIT);
+export const schedulingManual=()=>cancelReasonOptionalEnabled()?optionalReasonManual:schedulingSkill;
 /** P3a (flag SALON_SECRETARY_REFERENCES_V2): the decision prompt's rules for the new links, each a checked replace of the
  * sentence it amends. D1: a change's origin is a released slot too. D3: the service of a released slot is copied only when the
  * owner says "mesmo serviço". E2: the owner's first person as the professional is the pronoun itself (the backend resolves

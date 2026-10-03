@@ -7,6 +7,7 @@ import { formatLocal, formatLocalRange } from "./secretary-datetime-format";
 import { assertSchedulingAccess, getSchedulingAppointment, listSchedulingAppointments } from "./scheduling-catalog";
 import { inspectAppointmentAvailability, inspectAppointmentAvailabilityWithServiceSnapshots, lockAppointmentOperationalScope, cancelAppointmentReliably } from "./appointment-service";
 import { alterAppointmentEnabled } from "../../packages/salon-secretary/src/alter-appointment";
+import { cancelReasonOptionalEnabled } from "../../packages/salon-secretary/src/cancel-reason";
 import { requestStaffReschedule } from "./reschedule-proposals";
 import { executeAvailabilityBlock, expandBlock } from "./availability-block-domain";
 import { lockOperationalResources } from "./inventory-lock";
@@ -175,7 +176,7 @@ export async function schedulingActionSnapshot(tx:Tx,actor:ServiceActor,operatio
   const move=kind==="appointment.change"?await (alter?inspectSchedulingMove(tx,actor,f.appointment_ref,f.date,f.time,undefined,released,f):released?inspectSchedulingMove(tx,actor,f.appointment_ref,f.date!,f.time!,undefined,released):inspectSchedulingMove(tx,actor,f.appointment_ref,f.date!,f.time!)):undefined;
   if(move?.result.violation)throw Error("SLOT_CONFLICT");
   const current=move?.current??await mutableSnapshot(tx,actor,f.appointment_ref);const d=current.dto;
-  if(kind==="appointment.cancel"&&(!f.reason||f.reason.trim().length<3))throw Error("REASON_REQUIRED");
+  if(kind==="appointment.cancel"&&!cancelReasonOptionalEnabled()&&(!f.reason||f.reason.trim().length<3))throw Error("REASON_REQUIRED");
   const alteration=alter&&move?await alterationSnapshot(tx,actor,d,current.services,move):{};
   return actionSnapshot.parse({kind,appointment_ref:d.appointment_ref,revision:d.revision,customer_ref:d.customer_ref,customer_name:d.customer_name,
     professional_ref:d.professional_ref,professional_name:d.professional_name,timezone:move?.result.timezone??d.timezone,before_start:d.start_local,before_end:d.end_local,before_timezone:d.timezone,
@@ -208,7 +209,7 @@ export function schedulingActionPreview(s:ActionSnapshot,reason?:string){
   if(s.kind==="appointment.change"&&(s.before_professional_ref||s.before_services))return alterationPreview(s,when,waiting(s.waiting_count,true));
   const title=s.kind==="appointment.change"?"REMARCAR AGENDAMENTO":"CANCELAR AGENDAMENTO";
   return `${title}\n${s.customer_name}\n${s.services.map(s=>s.name).join(", ")}\n${s.professional_name}\nANTES: ${when(s.before_start!,s.before_end!,s.before_timezone)}`+
-    (s.kind==="appointment.change"?`\nDEPOIS: ${when(s.startLocal,s.endLocal)}\nPreço mantido: ${((s.priceCents??0)/100).toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}${s.requires_acceptance?"\nO novo horário ficará aguardando o aceite do cliente.":""}\n${waiting(s.waiting_count,true)}`:`\nMotivo: ${reason}\n${waiting(s.waiting_count,false)}`);
+    (s.kind==="appointment.change"?`\nDEPOIS: ${when(s.startLocal,s.endLocal)}\nPreço mantido: ${((s.priceCents??0)/100).toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}${s.requires_acceptance?"\nO novo horário ficará aguardando o aceite do cliente.":""}\n${waiting(s.waiting_count,true)}`:`${reason?`\nMotivo: ${reason}`:""}\n${waiting(s.waiting_count,false)}`);
 }
 /** P2a: ANTES → DEPOIS of an alteration: services, professional and slot, then what stays and what changes (duration and
  * price only when the services change: the domain keeps the booked price otherwise). */

@@ -6,6 +6,7 @@ import { schedulingOperationIds } from "../../packages/salon-secretary/src/sched
 import { temporalComponentsEnabled } from "../../packages/salon-secretary/src/temporal-components";
 import { alterAppointmentEnabled } from "../../packages/salon-secretary/src/alter-appointment";
 import { readsV2Enabled } from "../../packages/salon-secretary/src/reads-v2";
+import { cancelReasonOptionalEnabled } from "../../packages/salon-secretary/src/cancel-reason";
 import { addCalendarDays, dateKeyInTimeZone, isDateKey, weekdayOfDateKey } from "./time";
 
 // Domain uses Zod 3; SDK extraction uses its isolated Zod 4 adapter.
@@ -66,7 +67,7 @@ export const requiredFieldHeld=(f:Partial<SchedulingFields>,key:string)=>key==="
 export function schedulingRequirements(operation: z.infer<typeof schedulingOperation>) {
   return { operation, requirements_version: "scheduling-actions-v1",
     required_fields: operation === "appointment.create" ? ["customer_ref", "service_ref", "professional_ref", "date", "time"]
-      : operation === "appointment.change" ? ["appointment_ref","date","time"] : operation === "appointment.cancel" ? ["appointment_ref","reason"] : operation === "schedule.block" ? ["professional_ref","date","time","end_time"] : operation === "availability.get" ? ["service_ref", "professional_ref", "date"] : ["date"],
+      : operation === "appointment.change" ? ["appointment_ref","date","time"] : operation === "appointment.cancel" ? (cancelReasonOptionalEnabled() ? ["appointment_ref"] : ["appointment_ref","reason"]) : operation === "schedule.block" ? ["professional_ref","date","time","end_time"] : operation === "availability.get" ? ["service_ref", "professional_ref", "date"] : ["date"],
     backend_resolution: true, price_duration_from_domain: true, auto_assign_only_single_eligible: true,
     supported_fields: [...publishedSchedulingFields(),...(operation==="appointment.create"&&schedulingOverlapEnabled()?Object.keys(schedulingExceptionFields):[]),
       ...(operation==="appointment.change"&&alterAppointmentEnabled()?Object.keys(alterationFields):[])], defaults: {} };
@@ -91,5 +92,5 @@ export function resolveSchedulingDate(patch: z.infer<typeof schedulingPatch>, ti
 }
 
 export const batchRequirements = () => ({ operation: "action.batch" as const, requirements_version: schedulingOverlapEnabled()?"scheduling-batch-t21-v2":"scheduling-batch-v1", max_operations: 2,
-  execution_policy: "all_or_nothing", supported: ["appointment.cancel", "appointment.create"], reason_required: true, backend_resolution: true,
+  execution_policy: "all_or_nothing", supported: ["appointment.cancel", "appointment.create"], reason_required: !cancelReasonOptionalEnabled(), backend_resolution: true,
   ...(schedulingOverlapEnabled()?{destination_modes:["SAME_RELEASED_SLOT","ALTERNATIVE_SLOT"],override_requires_explicit_consent_and_reason:true}:{} ) });

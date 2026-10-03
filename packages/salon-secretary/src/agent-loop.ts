@@ -4,7 +4,7 @@ import { NoopTrace, OpenAIResponsesModel, withTrace, type AgentInputItem, type A
 import { AGENT_LIMITS, agentCallSignal, agentDependenciesSatisfied, agentEnabled, agentMessage, agentRoundEfforts, type AgentDirectory, type AgentEffort,
   type AgentMessageContext, type AgentPath, type AgentRoundEfforts } from "./agent-context";
 import { AGENT_PLAN_TOOL, AgentPlanError, decodeAgentPlanArguments, type AgentPlan } from "./agent-plan";
-import { AGENT_PROMPT, agentSystemContent } from "./agent-prompt";
+import { agentInstructions, agentSystemContent } from "./agent-prompt";
 import { agentLookupError, agentTools, decodeAgentLookupCall, isAgentLookupName, type AgentLookupCall } from "./agent-tools";
 import { AGENT_REASONING_INCLUDE, assertSecretaryAgentModelRequest, assertSecretaryModelId } from "./openai-cost-guard";
 
@@ -93,7 +93,7 @@ export function agentRoundRequest(input: AgentRoundInput, blocks: readonly Agent
   const messages: AgentInputItem[] = [{ role: "system", content: agentSystemContent(input.directory) as unknown as string },
     ...input.owner.map((text): AgentInputItem => ({ role: "user", content: text }))];
   return {
-    systemInstructions: AGENT_PROMPT, input: [...messages, ...blocks.flatMap(block => [...block.items, ...block.results])],
+    systemInstructions: agentInstructions(), input: [...messages, ...blocks.flatMap(block => [...block.items, ...block.results])],
     modelSettings: { toolChoice: forced ? AGENT_PLAN_TOOL : "required", parallelToolCalls: !forced, maxTokens: AGENT_LIMITS.maxOutputTokens, store: false,
       reasoning: { effort: agentRoundInputEffort(input, blocks.length) }, providerData: { include: [AGENT_REASONING_INCLUDE] } },
     tools: agentTools(), toolsExplicitlyProvided: true, outputType: "text", handoffs: [], tracing: false,

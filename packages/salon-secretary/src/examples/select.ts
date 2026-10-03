@@ -6,6 +6,7 @@ import { exampleBank, exampleRequirements, type BankExample, type ExampleFeature
 import { exampleLine, servedFeatures, type ExampleWire } from "./render";
 import { directorySeed, exampleFills, fillExample, PLACEHOLDER, CANONICAL_FILL_SEED, type ExampleDirectory } from "./fill";
 import type { SecretaryMessageContent } from "../prompt-cache";
+import { asksCancelReason, cancelReasonOptionalEnabled } from "../cancel-reason";
 
 /** C2 few-shot examples, behind SALON_SECRETARY_EXAMPLES (default off: the request is byte-identical
  * to the historical one). selected = the K most similar eligible examples (lexical, deterministic);
@@ -74,9 +75,11 @@ const publishedOperations = () => new Set(skillRegistry.filter(skill => skill.en
 export function eligibleExamples(state: ExamplesState, available: ReadonlySet<ExampleFeature> = availableExampleFeatures()): BankExample[] {
   const features = new Set([...available, ...(state.features ?? [])]);
   const kinds = state.kind === "NEW" ? ["NEW"] : state.kind === "ANSWER" ? ["ANSWER"] : ["PLAN", "ANSWER"], operations = publishedOperations();
+  // 03/10 (flag SALON_SECRETARY_CANCEL_REASON_OPTIONAL): a state waiting for a cancellation's reason no longer exists.
+  const reasonOptional = cancelReasonOptionalEnabled();
   return exampleBank().examples.filter(example => kinds.includes(example.state.kind) && state.modes.has(example.expected.mode) &&
     example.expected.operations.every(op => operations.has(op.operation)) && exampleRequirements(example).every(feature => features.has(feature)) &&
-    !(example.excludes ?? []).some(feature => features.has(feature)))
+    !(example.excludes ?? []).some(feature => features.has(feature)) && !(reasonOptional && asksCancelReason(example.state)))
     .sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 }
 

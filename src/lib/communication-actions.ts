@@ -64,7 +64,7 @@ export async function proposeCustomerMessage(tx:Tx,a:ServiceActor,input:unknown)
   if(assess(d).status!=="READY")throw Error("NEEDS_INPUT");
   const old=await tx.auditLog.findMany({where:{...journal.scope(a),entityId:d.draft_ref,action:"PROPOSAL"},select:{metadata:true}});
   const existing=old.map(r=>proposalSchema.parse(r.metadata)).find(p=>p.draft_revision===d.draft_revision);if(existing)return existing;
-  const dependency=d.dependency?`CANCELAR AGENDAMENTO\n${d.dependency.snapshot.customer_name}\n${d.dependency.snapshot.before_start}\nMotivo: ${d.dependency.fields.reason}\nA mensagem depende do sucesso deste cancelamento.\n\n`:"";
+  const dependency=d.dependency?`CANCELAR AGENDAMENTO\n${d.dependency.snapshot.customer_name}\n${d.dependency.snapshot.before_start}${d.dependency.fields.reason?`\nMotivo: ${d.dependency.fields.reason}`:""}\nA mensagem depende do sucesso deste cancelamento.\n\n`:"";
   const proposal=proposalSchema.parse({...d,proposal_ref:randomUUID(),payload_hash:hash(d),preview:`${dependency}MENSAGEM — SIMULAÇÃO LOCAL\nPara: ${d.recipient.name} (${d.recipient.masked_recipient})\nCanal: WhatsApp (fake, sem envio externo)\nMensagem:\n${d.fields.content}`,expires_at:new Date(Math.min(Date.parse(d.expires_at),Date.now()+10*60000)).toISOString()});
   await journal.append(tx,a,"PROPOSAL",d.draft_ref,proposal,proposal.proposal_ref);return proposal;
 }

@@ -13,7 +13,7 @@ import { nextTemporalAmbiguities } from "./scheduling-temporal-ambiguity";
 import { nextCalendarConflicts } from "./scheduling-calendar-conflict";
 import { schedulingTimezone } from "./scheduling-catalog";
 import { secretaryFastPath } from "./secretary-fast-path";
-import { groundSchedulingReasons, pendingSourceFields } from "./scheduling-literal-source";
+import { askedSourceFields, groundSchedulingReasons, pendingSourceFields } from "./scheduling-literal-source";
 import { literalOverrideConsent } from "./scheduling-conflict-contract";
 import { actionScopedSource } from "./secretary-sibling-scope";
 import { recurrenceFromTurn, recurrencePending } from "./secretary-recurrence";
@@ -104,7 +104,7 @@ export async function startBatch(actor:ServiceActor,selection:CapabilitySelectio
     if(!inherited&&grounded.exclusions)scope.divergence?.(polarityCodes(grounded));
     const fields=grounded.fields;
     const sourceResult=groundSchedulingReasons(fields,{},source);
-    const source_missing=pendingSourceFields(undefined,sourceResult);
+    const source_missing=askedSourceFields(pendingSourceFields(undefined,sourceResult));
     const pending=grounded.pending_temporal_ambiguities;
     const calendar=grounded.pending_calendar_conflicts;
     const temporal_missing=grounded.rejected.filter(rejection=>rejection.field!=="period"&&!pending.some(value=>value.field===rejection.field)&&!calendar.some(value=>value.field===rejection.field)).map(rejection=>rejection.field);
@@ -170,7 +170,7 @@ export function groundBatchPatch(plan:BatchPlan,selected:string,raw:SchedulingFi
   const live=sameDraft&&Date.parse(draft!.expires_at)>Date.now()&&draft!.missing_fields.some(field=>field.startsWith(selected+"."))?draft!.review:undefined;
   const next=patchBatch(plan,selected,grounded.patch,{review:live,literal:literalOverrideConsent(message)}),target=next.items.find(i=>i.key===selected)!;
   applyTemporalRejections(target.fields,item.fields,grounded.rejected);
-  const source_missing=pendingSourceFields(item.source_missing,sourceResult);
+  const source_missing=askedSourceFields(pendingSourceFields(item.source_missing,sourceResult));
   if(source_missing.length)target.source_missing=source_missing;else delete target.source_missing;
   const pending=nextTemporalAmbiguities(item.pending_temporal_ambiguities,grounded.pending_temporal_ambiguities,target.fields,raw,grounded.rejected);
   if(pending.length)target.pending_temporal_ambiguities=pending;else delete target.pending_temporal_ambiguities;
