@@ -182,16 +182,16 @@ Para cada caso, em códigos:
 
 | Métrica | Quando é correta |
 |---|---|
-| `EVIDENCE_OK` | **Com ponto de partida nomeado:** a evidência está contida na mensagem e, depois de normalizada, **contém por inteiro** um `evidenceSpan`. **Sem ponto de partida nomeado:** a alegação é null, `outro` ou evidência vazia. |
+| `EVIDENCE_OK` | **Com ponto de partida nomeado:** a evidência está contida na mensagem e, depois de normalizada, **contém por inteiro** um `evidenceSpan`, normalizado do mesmo jeito (os dois lados com a mesma normalização de `pilotMentionIn`). **Sem ponto de partida nomeado:** a alegação é null, `outro` ou evidência vazia. |
+| `TYPE_OK` | `tipo_evidencia` está entre os `evidenceTypes` (ou é null/`outro` quando nada é nomeado). |
+| `ANCHOR_OK` | A âncora é igual à da verdade. Num caso AMBIGUOUS, nenhuma alegação foi aceita. |
+| `CITED_OK` | A referência citada tipada é igual à da verdade e está contida. Quando a verdade não tem referência, a Luna não deu nenhuma contida. |
+| `DECISION` | USE (valor) ou ASK, comparado com `expected`. |
 
 **Emenda de 02/10/2026, feita antes de qualquer execução por apontamento do conferente:**
 - **O que mudou:** cada `evidenceSpan` passa a ser o **núcleo mínimo** que nomeia o ponto de partida. A regra da tabela deixa de aceitar contenção nos dois sentidos e passa a exigir que a evidência contenha o núcleo.
 - **Por quê:** um fragmento genérico (uma palavra de direção, uma quantidade, um pronome, o nome da cliente) contido num span maior deixaria de esconder o aviso W1.
 - **O que não muda:** os códigos S1–S4. Eles não dependem dos spans.
-| `TYPE_OK` | `tipo_evidencia` está entre os `evidenceTypes` (ou é null/`outro` quando nada é nomeado). |
-| `ANCHOR_OK` | A âncora é igual à da verdade. Num caso AMBIGUOUS, nenhuma alegação foi aceita. |
-| `CITED_OK` | A referência citada tipada é igual à da verdade e está contida. Quando a verdade não tem referência, a Luna não deu nenhuma contida. |
-| `DECISION` | USE (valor) ou ASK, comparado com `expected`. |
 
 **Pergunta principal:** "se esta saída fosse usada no produto, poderia uma âncora semanticamente errada ser aceita em silêncio?"
 
