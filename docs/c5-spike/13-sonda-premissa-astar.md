@@ -249,3 +249,8 @@ Para cada caso, em códigos:
    - os casos parados pelo teto ou abortados entram em `unrun`;
    - o cliente do SDK roda com `logLevel: "off"`;
    - o digest da ferramenta A\* fica fixado como literal na trava de custo, com um teste de igualdade, para o fluxo real não carregar o contrato A\*.
+7. **Teto** (N1). O dono aprovou em 03/10/2026 subir o teto da sonda de US$ 0,03 para **US$ 0,04**, porque a reserva do pior caso por chamada (cerca de US$ 0,009) deixaria só 16–19 dos 24 casos rodarem. A regra fail-closed continua igual: gasto real mais o pior caso da próxima chamada, conferido antes de cada chamada, inclusive a de reparo.
+8. **Casos sem resposta medida** (N2). Os casos que falham dividem-se em dois grupos:
+   - **Falha segura do produto:** formato inválido mesmo depois do reparo ou estouro do prazo de 15 s / 45 s. O produto responde com a mensagem segura e não grava nada. O caso é reportado como FAILED_SAFE e não muda o veredito.
+   - **Falha de infraestrutura:** transporte, recusa da trava (`REQUEST_REFUSED`), orçamento ou guard. A resposta da Luna não foi medida. Qualquer caso assim transforma PREMISSA_SEGURA em **PREMISSA_INCONCLUSIVA**, com a lista dos ids.
+9. **Parada entre casos** (N3). Depois de uma parada, o wrapper de rede recusa qualquer chamada nova, e o loop confere a parada antes de começar cada caso.

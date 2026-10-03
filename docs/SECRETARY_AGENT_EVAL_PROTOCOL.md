@@ -891,7 +891,7 @@ O dono autorizou **somente** a prova desta premissa: a Luna 6 consegue dar evid�
 - custo;
 - margem final do payload.
 
-**Teto:** US$ 0,03.
+**Teto:** US$ 0,03, que o dono elevou para **US$ 0,04** em 03/10/2026, antes de qualquer execução (spec 13 §9.7).
 
 **Desfecho:** aprovada ou reprovada, o trabalho **PARA**. Não há implementação completa, correção nova nem rodada nova sem decisão do dono.
 
