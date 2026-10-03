@@ -38,6 +38,21 @@ export async function startSecretary() { return safely(async () => salonSecretar
  * worker; null otherwise. Read and authorize only: nothing is sent, selected or confirmed. */
 export async function currentSecretary(): Promise<CurrentSecretaryReply> { return safely(async () => salonSecretary.current(await context())); }
 export async function sendSecretary(input: unknown) { return safely(async () => salonSecretary.send(await context(), input)); }
+/** Owner, 03/10 ("mandei um oi e demorou cinco segundos"): the first message of a new conversation opens it and is read in the
+ * same request, one round trip instead of two. A message that fails closes the conversation it opened (nothing was said in it
+ * yet), so a retry opens a fresh one and no empty conversation keeps one of the user's open slots. */
+export async function startAndSendSecretary(input: unknown) {
+  return safely(async () => {
+    const actor = await context();
+    const opened = await salonSecretary.start(actor, "auto");
+    const fields = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+    try { return await salonSecretary.send(actor, { ...fields, sessionId: opened.sessionId }); }
+    catch (error) {
+      await Promise.resolve().then(() => salonSecretary.cancel(actor, opened.sessionId)).catch(() => undefined);
+      throw error;
+    }
+  });
+}
 export async function selectSecretaryService(sessionId: string, serviceRef: string) {
   return safely(async () => salonSecretary.selectService(await context(), sessionId, serviceRef));
 }

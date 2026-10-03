@@ -9,7 +9,7 @@ import type { ConfirmationGroup, PlanAction } from '@everflair/salon-secretary';
 import { acceptDictationSuggestion, actionDetails, actionSubject, actionTitle, candidatesOf, confirmationLabel, destinationFor, hasReceipt, humanMessage, legacyConfirmLabel,
   operationLabels, planReleasedAppointments, planSummary, proposalOf, rawProposalOf, proposalExpired, receiptOf, reviewOf, reviewHeading, statusLabels, viewForAction, linkedDiscard } from '@/lib/secretary-ui';
 import type { DictationSuggestion } from '@/lib/secretary-voice-correction';
-import { startSecretary, sendSecretary, selectSecretaryCustomer, selectSecretaryService, confirmSecretary,
+import { startSecretary, sendSecretary, startAndSendSecretary, selectSecretaryCustomer, selectSecretaryService, confirmSecretary,
   cancelSecretary, resumeSecretaryPlan, selectSecretaryOperation, confirmSecretaryOperation, confirmSecretaryGroup, confirmSecretaryReadyGroups,
   discardSecretaryAction, selectSecretaryOption, suggestSecretaryDictation, transcribeSecretaryVoice, sendSecretaryFeedback, currentSecretary, type SecretaryReply, type CurrentSecretaryReply } from './actions';
 import { joinDictation, speakSecretary, useSecretaryRecorder, useSecretaryVoice } from './use-secretary-voice';
@@ -210,13 +210,9 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
     if (!message.trim() || busy || recording || uncertain) return;
     const text = message, turn = ++turnIds.current;
     setTurns(previous => [...previous, { id: turn, user: text }]); setFeedback(undefined);
-    const result = await act(async () => {
-      const current = state ?? (await startSecretary());
-      if ('ok' in current && !current.ok) return current;
-      const session = 'ok' in current ? current.state : current;
-      if (!state) setState(session);
-      return sendSecretary({ sessionId: session.sessionId, message: text, ...(operationRef ? { operation_ref: operationRef } : {}) });
-    }, 'thinking', true, turn);
+    // The first message opens the conversation in the same request (one round trip instead of two; owner, 03/10).
+    const result = await act(() => state ? sendSecretary({ sessionId: state.sessionId, message: text, ...(operationRef ? { operation_ref: operationRef } : {}) })
+      : startAndSendSecretary({ message: text }), 'thinking', true, turn);
     if (result) setMessage('');
   }
   function edit(text: string) { setMessage(text); if (hasProposal) setDirty(true); }

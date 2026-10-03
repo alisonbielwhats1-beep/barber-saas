@@ -9,7 +9,7 @@ import type { SecretaryView } from '../salon-secretary';
 const mocks = vi.hoisted(() => ({ start: vi.fn(), send: vi.fn(), group: vi.fn(), readyGroups: vi.fn(), confirm: vi.fn(), cancel: vi.fn(), refresh: vi.fn(),
   suggest: vi.fn(), transcribe: vi.fn() }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: mocks.refresh }) }));
-vi.mock('../../app/(admin)/servicos/secretaria/actions', () => ({ startSecretary: mocks.start, sendSecretary: mocks.send, confirmSecretary: mocks.confirm,
+vi.mock('../../app/(admin)/servicos/secretaria/actions', () => ({ startSecretary: mocks.start, startAndSendSecretary: async (input: object) => { const opened = await mocks.start(); return opened?.ok ? mocks.send({ ...input, sessionId: opened.state.sessionId }) : opened; }, sendSecretary: mocks.send, confirmSecretary: mocks.confirm,
   confirmSecretaryGroup: mocks.group, confirmSecretaryReadyGroups: mocks.readyGroups, cancelSecretary: mocks.cancel, resumeSecretaryPlan: vi.fn(), selectSecretaryService: vi.fn(),
   selectSecretaryCustomer: vi.fn(), selectSecretaryOperation: vi.fn(), confirmSecretaryOperation: vi.fn(), suggestSecretaryDictation: mocks.suggest, transcribeSecretaryVoice: mocks.transcribe }));
 import { SecretaryChat } from '../../app/(admin)/servicos/secretaria/secretary-chat';

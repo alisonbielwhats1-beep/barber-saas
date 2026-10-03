@@ -7,9 +7,11 @@ import userEvent from '@testing-library/user-event';
  * recorder picks a container the server admits, stops by itself before the server's size cap and shows its time. Voice
  * still only fills the input box: it never sends or confirms. */
 const mocks = vi.hoisted(() => ({ start: vi.fn(), send: vi.fn(), group: vi.fn(), readyGroups: vi.fn(), confirm: vi.fn(), cancel: vi.fn(), refresh: vi.fn(),
-  suggest: vi.fn(), transcribe: vi.fn() }));
+  suggest: vi.fn(), transcribe: vi.fn(), startAndSend: vi.fn() }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: mocks.refresh }) }));
-vi.mock('../../app/(admin)/servicos/secretaria/actions', () => ({ startSecretary: mocks.start, sendSecretary: mocks.send, confirmSecretary: mocks.confirm,
+vi.mock('../../app/(admin)/servicos/secretaria/actions', () => ({ startSecretary: mocks.start, sendSecretary: mocks.send,
+  // The first message opens and sends in one request (recorded); the stand-in does what the server does, with the same mocks.
+  startAndSendSecretary: async (input: object) => { mocks.startAndSend(input); const opened = await mocks.start(); return opened?.ok ? mocks.send({ ...input, sessionId: opened.state.sessionId }) : opened; }, confirmSecretary: mocks.confirm,
   confirmSecretaryGroup: mocks.group, confirmSecretaryReadyGroups: mocks.readyGroups, cancelSecretary: mocks.cancel, resumeSecretaryPlan: vi.fn(), selectSecretaryService: vi.fn(),
   selectSecretaryCustomer: vi.fn(), selectSecretaryOperation: vi.fn(), confirmSecretaryOperation: vi.fn(), suggestSecretaryDictation: mocks.suggest, transcribeSecretaryVoice: mocks.transcribe }));
 import { SecretaryChat } from '../../app/(admin)/servicos/secretaria/secretary-chat';
@@ -180,6 +182,16 @@ describe('practical voice (owner, 03/10): Enter or Enviar sends what was said, E
     await user.keyboard('{Control>} {/Control}');
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Ouvindo'));
     expect(screen.getByText(/Atalhos: Enter envia/)).toBeVisible();
+  });
+  it('the first message opens the conversation and is read in one request; the next ones only send', async () => {
+    const user = userEvent.setup(); render(<SecretaryChat voiceEnabled transcribeEnabled />);
+    await user.type(screen.getByLabelText('Mensagem'), 'oi{Enter}');
+    await waitFor(() => expect(mocks.send).toHaveBeenCalledWith({ sessionId: 'session', message: 'oi' }));
+    expect(mocks.startAndSend).toHaveBeenCalledOnce(); expect(mocks.startAndSend).toHaveBeenCalledWith({ message: 'oi' });
+    await waitFor(() => expect(screen.getByLabelText('Mensagem')).toHaveValue(''));
+    await user.type(screen.getByLabelText('Mensagem'), 'marca a Noemi amanhã{Enter}');
+    await waitFor(() => expect(mocks.send).toHaveBeenLastCalledWith({ sessionId: 'session', message: 'marca a Noemi amanhã' }));
+    expect(mocks.startAndSend).toHaveBeenCalledOnce(); expect(mocks.start).toHaveBeenCalledOnce();
   });
 });
 

@@ -9,7 +9,7 @@ vi.mock("../salon-secretary", () => ({ SalonSecretary: class {
   confirmActionPlanGroup = mocks.group;
 } }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-import { startSecretary, sendSecretary, confirmSecretary, confirmSecretaryGroup } from "../../app/(admin)/servicos/secretaria/actions";
+import { startSecretary, sendSecretary, startAndSendSecretary, confirmSecretary, confirmSecretaryGroup } from "../../app/(admin)/servicos/secretaria/actions";
 import { revalidatePath } from 'next/cache';
 import { requestTooLargeMessage } from "@everflair/salon-secretary";
 describe("Secretary authenticated server actions", () => {
@@ -86,5 +86,25 @@ describe("Secretary authenticated server actions", () => {
     mocks.group.mockRejectedValueOnce(Error('CONFIRMATION_STALE'));
     expect(await confirmSecretaryGroup('s', {})).toMatchObject({ ok: false, code: 'CONFIRMATION_STALE' });
     expect(revalidatePath).not.toHaveBeenCalled();
+  });
+  it("the first message opens the conversation and is read in the same request, under the authenticated identity", async () => {
+    const actor = { salonId: "authenticated-salon", userId: "authenticated-user" };
+    mocks.start.mockResolvedValue({ sessionId: "opened" }); mocks.send.mockResolvedValue({ sessionId: "opened", message: "Olá! Em que posso ajudar?" });
+    expect(await startAndSendSecretary({ message: "oi", sessionId: "someone-else" })).toMatchObject({ ok: true, state: { sessionId: "opened" } });
+    expect(mocks.context).toHaveBeenCalledOnce();
+    expect(mocks.start).toHaveBeenCalledWith(actor, "auto");
+    expect(mocks.send).toHaveBeenCalledWith(actor, { message: "oi", sessionId: "opened" });
+    expect(mocks.cancel).not.toHaveBeenCalled();
+  });
+  it("a first message that fails closes the conversation it opened and says so; nothing opens without authentication", async () => {
+    const actor = { salonId: "authenticated-salon", userId: "authenticated-user" };
+    mocks.start.mockResolvedValue({ sessionId: "opened" }); mocks.send.mockRejectedValueOnce(Error("OPENAI_TIMEOUT"));
+    expect(await startAndSendSecretary({ message: "remarca a Lúcia" })).toMatchObject({ ok: false });
+    expect(mocks.cancel).toHaveBeenCalledWith(actor, "opened");
+    mocks.send.mockRejectedValueOnce(Error("OPENAI_TIMEOUT")); mocks.cancel.mockRejectedValueOnce(Error("SESSION_NOT_FOUND"));
+    expect(await startAndSendSecretary({ message: "remarca a Lúcia" })).toMatchObject({ ok: false });
+    vi.clearAllMocks(); mocks.context.mockRejectedValueOnce(new Error("UNAUTHENTICATED"));
+    expect((await startAndSendSecretary({ message: "oi" })).ok).toBe(false);
+    expect(mocks.start).not.toHaveBeenCalled(); expect(mocks.send).not.toHaveBeenCalled();
   });
 });
