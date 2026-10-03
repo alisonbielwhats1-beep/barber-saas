@@ -256,7 +256,7 @@ pg("automatic billing with PostgreSQL and runtime FORCE RLS", () => {
     loseCreateResponse = false;
     const before = postCount;
     const sub = await service.contract({ salonId: salon.id, userId: ownerId }, { plan: "INDIVIDUAL", cycle: "ANNUAL" }, key);
-    expect(sub.providerId).not.toBeNull(); expect(postCount).toBe(before); expect(sub.amountCents).toBe(59900);
+    expect(sub.providerId).not.toBeNull(); expect(postCount).toBe(before); expect(sub.amountCents).toBe(39900);
     expect(quoteContract({ plan: "INDIVIDUAL", cycle: "ANNUAL" }).intervalMonths).toBe(12);
   });
   it("claims dispatch leases under FORCE RLS and retries safely", async () => {
@@ -500,11 +500,11 @@ pg("automatic billing with PostgreSQL and runtime FORCE RLS", () => {
     await syncPlanChanges(f.sub);
     expect((await admin.billingPlanChange.findUniqueOrThrow({ where: { id: f.change.id } })).state).toBe("APPLIED");
     await service.applyInvoice(f.sub, f.remote, f.invoice, { ...f.payment, date_last_updated: new Date().toISOString() });
-    expect((await admin.billingCharge.findUniqueOrThrow({ where: { providerInvoiceId: f.invoice.id } })).amountCents).toBe(5990);
+    expect((await admin.billingCharge.findUniqueOrThrow({ where: { providerInvoiceId: f.invoice.id } })).amountCents).toBe(3990);
     expect(await admin.billingCharge.count({ where: { subscriptionId: f.sub.id } })).toBe(2);
     await project(f.ctx.salonId, f.sub.id);
     expect(await admin.hqSubscriptions.findUniqueOrThrow({ where: { billingSubscriptionId: f.sub.id } })).toMatchObject({ amountCents: 14990, billingAgendaLimit: 10 });
-    expect((await admin.hqPayments.aggregate({ where: { subscriptionIdRelation: { billingSubscriptionId: f.sub.id }, status: "Pago" }, _sum: { amountCents: true } }))._sum.amountCents).toBe(5990 + f.change.amountDueCents);
+    expect((await admin.hqPayments.aggregate({ where: { subscriptionIdRelation: { billingSubscriptionId: f.sub.id }, status: "Pago" }, _sum: { amountCents: true } }))._sum.amountCents).toBe(3990 + f.change.amountDueCents);
   });
   it("rejects incorrect supplemental payment identities and values without granting capacity", async () => {
     const f = await upgradeFixture(); const { applyUpgradePayment } = await import("./change-payments"); const paid = upgradePayment(f.change);

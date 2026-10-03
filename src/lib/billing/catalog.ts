@@ -1,12 +1,14 @@
 import { z } from "zod";
 
-export const CATALOG_VERSION = "2026-09-13";
+export const CATALOG_VERSION = "2026-10-02";
 export const BILLING_PLANS = {
-  INDIVIDUAL: { label: "Individual", agendas: 1, monthly: 5990, annual: 59900 },
+  INDIVIDUAL: { label: "Individual", agendas: 1, monthly: 3990, annual: 39900 },
   TEAM: { label: "Essencial", agendas: 3, monthly: 7990, annual: 77900 },
   TEAM_PLUS: { label: "Equipe · 5 agendas", agendas: 5, monthly: 9990, annual: 95900 },
   TEAM_MAX: { label: "Equipe · 10 agendas", agendas: 10, monthly: 14990, annual: 143900 },
 } as const;
+/** Agenda adicional acima de dez, somente Equipe · 10 agendas. */
+export const EXTRA_AGENDA = { monthly: 2000, annual: 19200 } as const;
 export const contractInput = z.object({
   plan: z.enum(["INDIVIDUAL", "TEAM", "TEAM_PLUS", "TEAM_MAX"]),
   cycle: z.enum(["MONTHLY", "ANNUAL"]),
@@ -18,7 +20,7 @@ export function quoteContract(value: unknown) {
   const plan = BILLING_PLANS[input.plan];
   const annual = input.cycle === "ANNUAL";
   return { ...input, catalogVersion: CATALOG_VERSION, label: plan.label,
-    currency: "BRL", amountCents: (annual ? plan.annual : plan.monthly) + input.extraAgendas * (annual ? 14400 : 1500),
+    currency: "BRL", amountCents: (annual ? plan.annual : plan.monthly) + input.extraAgendas * (annual ? EXTRA_AGENDA.annual : EXTRA_AGENDA.monthly),
     agendaLimit: plan.agendas + input.extraAgendas, intervalMonths: annual ? 12 : 1 };
 }
 
