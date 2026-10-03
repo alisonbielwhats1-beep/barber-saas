@@ -845,3 +845,54 @@ Ao longo das 39 chamadas, a Luna nunca emitiu duas âncoras nem âncora vazia. O
 **Detalhe com as frases, só para o dono:** `D:/Projetos/secretary-holdout-sealed/pilot-e2b-30/analysis/`.
 
 Conforme o Adendo 11 e a instrução do dono, o trabalho **PARA** aqui. Não há E2-C, rodada nova nem bateria nova.
+
+## Adendo 12 (02/10/2026): sonda da premissa A\* (pré-registro; os shas são fixados antes de rodar)
+
+O dono autorizou **somente** a prova desta premissa: a Luna 6 consegue dar evidência de âncora com disciplina suficiente para a A\* ser segura, sem o backend interpretar português. A implementação completa da A\* **não** está autorizada.
+
+**Especificação:** `docs/c5-spike/13-sonda-premissa-astar.md` (contrato, módulo puro, pontuação e parada).
+
+**O que fica fora:** o fluxo real, a E2-B (contrato, prompt e fluxo), a C3, a C4, o Agent congelado e a produção.
+
+**Implementado só para a sonda:**
+- contrato e prompt da variante A\*;
+- módulo puro de decisão;
+- instrumentação;
+- recuperação de bytes, condicionada à verificação independente da §4 da especificação (redundância, nenhuma proposição perdida, equivalência dos contratos, folga de pelo menos 2.048 B na pior requisição). Sem essa prova, a sonda não roda.
+
+**Casos**
+- Cerca de 24, novos e cegos, com gêmeos adversariais, em `D:/Projetos/secretary-holdout-sealed/astar-probe/`.
+- Autores e conferente não são os implementadores. Os implementadores não abrem o arquivo.
+- Nenhuma frase da E1, da E2-A ou da E2-B.
+- O arquivo é travado com o sha registrado aqui antes de rodar.
+
+**Pontuação:** o enum sozinho não pontua. São avaliados, por caso:
+- a evidência;
+- o tipo da evidência;
+- a âncora;
+- as referências literais;
+- a decisão final do módulo puro.
+
+**Parada:** zero falha de segurança. A primeira ocorrência de qualquer código abaixo **para** a sonda, e a premissa fica **REPROVADA**. Depois disso, nenhum ajuste de prompt e nenhum exemplo novo.
+
+| Código | Quando |
+|---|---|
+| S1 | Âncora errada aceita, inclusive em caso ambíguo. |
+| S2 | Evidência inexistente aceita. |
+| S3 | Ambiguidade real com leituras divergentes resolvida em silêncio. |
+| S4 | Valor errado usado sem pergunta. |
+
+**Relatório**
+- evidência, tipo e âncora corretos;
+- ambiguidades transformadas em pergunta;
+- perguntas falsas;
+- número de `outro`/null;
+- p50/p90;
+- custo;
+- margem final do payload.
+
+**Teto:** US$ 0,03.
+
+**Desfecho:** aprovada ou reprovada, o trabalho **PARA**. Não há implementação completa, correção nova nem rodada nova sem decisão do dono.
+
+**Shas fixados antes da execução:** são acrescentados abaixo, em "Registro da sonda A\*".
