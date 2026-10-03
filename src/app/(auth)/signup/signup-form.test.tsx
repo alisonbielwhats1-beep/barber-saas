@@ -8,10 +8,16 @@ vi.mock("next-auth/react", () => ({ signIn: mocks.signIn }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mocks.push, refresh: mocks.refresh }) }));
 beforeEach(() => { vi.clearAllMocks(); mocks.signup.mockResolvedValue({ ok: true, slug: "teste" }); mocks.signIn.mockResolvedValue({ ok: true }); });
 afterEach(cleanup);
-function completeForm() {
-  for (const [name, value] of [["Nome do estabelecimento", "Espaço de teste"], ["Seu nome", "Pessoa Teste"], ["Email", "teste@example.com"], ["Senha", "senha-de-teste"], ["Confirmar senha", "senha-de-teste"]]) fireEvent.change(screen.getByLabelText(name, { exact: true }), { target: { value } });
+function completeForm(confirmEmail = "teste@example.com") {
+  for (const [name, value] of [["Nome do estabelecimento", "Espaço de teste"], ["Seu nome", "Pessoa Teste"], ["Email", "teste@example.com"], ["Confirmar e-mail", confirmEmail], ["Senha", "senha-de-teste"], ["Confirmar senha", "senha-de-teste"]]) fireEvent.change(screen.getByLabelText(name, { exact: true }), { target: { value } });
   fireEvent.submit(screen.getByRole("button", { name: "Criar meu espaço" }).closest("form")!);
 }
+it("bloqueia o cadastro quando os e-mails digitados são diferentes", async () => {
+  render(<SignupForm />);
+  completeForm("outro@example.com");
+  expect(await screen.findByRole("alert")).toHaveTextContent("Os e-mails não coincidem.");
+  expect(mocks.signup).not.toHaveBeenCalled();
+});
 it("mostra Essencial e preserva PRO como interesse, sem conceder o plano", async () => {
   render(<SignupForm initialSegment="barbearia" planIntent="pro" />);
   expect(screen.getByText("Seu interesse: Essencial")).toBeVisible();
