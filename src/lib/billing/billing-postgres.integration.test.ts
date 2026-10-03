@@ -618,7 +618,7 @@ pg("automatic billing with PostgreSQL and runtime FORCE RLS", () => {
     const f = await paidFixture("TEAM_MAX"), changes = await import("./changes"), { syncPlanChanges } = await import("./change-worker");
     const quote = await changes.createChangeQuote(f.ctx, { plan: "TEAM_PLUS", cycle: "MONTHLY" }, randomUUID());
     await changes.confirmPlanChange(f.ctx, quote.id); await syncPlanChanges(f.sub);
-    expect(remoteFor(f.sub.providerId!).auto_recurring.transaction_amount).toBe(99.9);
+    expect(remoteFor(f.sub.providerId!)).toMatchObject({ auto_recurring: { transaction_amount: 99.9 } });
     vi.useFakeTimers({ toFake: ["Date"] });
     try {
       const debit = new Date(f.sub.paidThrough!.getTime() + offsetMs);

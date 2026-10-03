@@ -93,6 +93,7 @@ const uuid = () => `00000000-0000-4000-8000-${String(++seq).padStart(12, "0")}`;
 type MpCall = { url: string; method: string; raw?: string };
 let mpCalls: MpCall[] = [];
 let sellerTags = ["test_user"];
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- dados do Prisma em memória têm formato dinâmico
 let echoOverride: ((body: Record<string, any>) => Record<string, any>) | null = null;
 let portalRoute: ((init: RequestInit) => Promise<Response>) | null = null;
 let cancelRoute: ((init: RequestInit) => Promise<Response>) | null = null;

@@ -17,7 +17,9 @@ import { createElement } from "react";
 import { createHmac } from "node:crypto";
 import { cleanup, render, screen, within } from "@testing-library/react";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- dados do Prisma em memória têm formato dinâmico
 type Row = Record<string, any>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- dados do Prisma em memória têm formato dinâmico
 const hoisted = vi.hoisted(() => ({ db: null as any }));
 
 vi.mock("server-only", () => ({}));
@@ -140,6 +142,7 @@ function matches(row: Row, where: Row = {}): boolean {
   }
   return true;
 }
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- dados do Prisma em memória têm formato dinâmico
 function sortRows(rows: Row[], orderBy: any) {
   const keys: [string, string][] = (Array.isArray(orderBy) ? orderBy : orderBy ? [orderBy] : []).map((o: Row) => Object.entries(o)[0] as [string, string]);
   return [...rows].sort((a, b) => {
@@ -273,7 +276,7 @@ describe("G2 · pagamento de diferença (efu:) e termos vigentes x MERCADOPAGO_P
   it("flag ligada: webhook 'payment' efu: grava inbox e enfileira a assinatura da troca", async () => {
     stubEnv(true);
     const db = makeDb([sub()], { changes: [upgrade()] });
-    vi.mocked(mp.getPayment).mockResolvedValueOnce(pay as any);
+    vi.mocked(mp.getPayment).mockResolvedValueOnce(pay as never);
     const target = await worker.receiveWebhook("payment", "pay-up-1", "n-1");
     expect(target).toEqual({ salonId: SALON, subscriptionId: SUB_ID });
     expect(db.inbox).toHaveLength(1);
@@ -283,14 +286,14 @@ describe("G2 · pagamento de diferença (efu:) e termos vigentes x MERCADOPAGO_P
   it("comportamento atual: com a flag desligada, o mesmo pagamento aprovado é descartado (retorna null, sem inbox/fila/revisão)", async () => {
     stubEnv(false);
     const db = makeDb([sub()], { changes: [upgrade()] });
-    vi.mocked(mp.getPayment).mockResolvedValueOnce(pay as any);
+    vi.mocked(mp.getPayment).mockResolvedValueOnce(pay as never);
     const target = await worker.receiveWebhook("payment", "pay-up-1", "n-1");
     expect(target).toBeNull();
     expect(db.inbox).toHaveLength(0);
     expect(db.queue).toHaveLength(0);
     expect(db.subs[0].reviewRequired).toBe(false);
     // E a reconciliação periódica também não olha a troca com a flag desligada.
-    await syncPlanChanges(db.subs[0] as any);
+    await syncPlanChanges(db.subs[0] as never);
     expect(mp.getSubscription).not.toHaveBeenCalled();
     expect(db.changes[0].state).toBe("AWAITING_PAYMENT");
   });
@@ -299,14 +302,14 @@ describe("G2 · pagamento de diferença (efu:) e termos vigentes x MERCADOPAGO_P
   it("flag ligada: upgrade pago vale para capacidade (3) e preço (7990)", async () => {
     stubEnv(true); clock("2026-10-05T12:00:00.000Z");
     const db = makeDb([sub()], { changes: [applied()] });
-    const e = await effectiveEntitlement(db.tx as any, SALON, "FREE");
+    const e = await effectiveEntitlement(db.tx as never, SALON, "FREE");
     expect(e).toMatchObject({ maxProfessionals: 3, priceCents: 7990 });
-    expect(await currentTerms(db.tx as any, db.subs[0] as any)).toEqual(TO);
+    expect(await currentTerms(db.tx as never, db.subs[0] as never)).toEqual(TO);
   });
   it("comportamento atual: com a flag desligada, o upgrade pago deixa de valer — capacidade 1 e preço 5990", async () => {
     stubEnv(false); clock("2026-10-05T12:00:00.000Z");
     const db = makeDb([sub()], { changes: [applied()] });
-    const e = await effectiveEntitlement(db.tx as any, SALON, "FREE");
+    const e = await effectiveEntitlement(db.tx as never, SALON, "FREE");
     expect(e).toMatchObject({ maxProfessionals: 1, priceCents: 5990 });
   });
   const renewalInvoice = (amount: number, debit: Date) => ({ id: "inv-r", preapproval_id: "pre-gap", debit_date: debit.toISOString(), currency_id: "BRL", transaction_amount: amount, last_modified: debit.toISOString(), payment: { id: "pay-r", status: "approved" } });
@@ -314,14 +317,14 @@ describe("G2 · pagamento de diferença (efu:) e termos vigentes x MERCADOPAGO_P
   it("flag ligada: renovação de R$ 79,90 após o upgrade é aceita e estende o período", async () => {
     stubEnv(true); clock("2026-10-14T12:00:00.000Z");
     const db = makeDb([sub()], { changes: [applied()] });
-    await applyInvoice(db.subs[0] as any, remote(7990) as any, renewalInvoice(79.9, PAID_THROUGH) as any, renewalPayment(79.9) as any);
+    await applyInvoice(db.subs[0] as never, remote(7990) as never, renewalInvoice(79.9, PAID_THROUGH) as never, renewalPayment(79.9) as never);
     expect(db.charges[0]).toMatchObject({ amountCents: 7990, status: "approved" });
     expect(db.subs[0].paidThrough.toISOString()).toBe("2026-11-13T17:42:29.000Z");
   });
   it("comportamento atual: com a flag desligada, a renovação de R$ 79,90 (já cobrada pelo MP) é recusada e não registra o período pago", async () => {
     stubEnv(false); clock("2026-10-14T12:00:00.000Z");
     const db = makeDb([sub()], { changes: [applied()] });
-    await expect(applyInvoice(db.subs[0] as any, remote(7990) as any, renewalInvoice(79.9, PAID_THROUGH) as any, renewalPayment(79.9) as any)).rejects.toThrow("PROVIDER_CONTRACT_MISMATCH");
+    await expect(applyInvoice(db.subs[0] as never, remote(7990) as never, renewalInvoice(79.9, PAID_THROUGH) as never, renewalPayment(79.9) as never)).rejects.toThrow("PROVIDER_CONTRACT_MISMATCH");
     expect(db.charges).toHaveLength(0);
     expect(db.subs[0].paidThrough).toEqual(PAID_THROUGH);
   });
@@ -332,7 +335,7 @@ describe("G3 · applyUpgradePayment fora do caminho feliz (cliente cobrado → r
   async function pay(change: Row, payment: Row, now = "2026-10-03T12:20:00.000Z") {
     stubEnv(true); clock(now);
     const db = makeDb([sub()], { changes: [change] });
-    await applyUpgradePayment(db.subs[0] as any, { ...change } as any, remote(5990) as any, payment as any);
+    await applyUpgradePayment(db.subs[0] as never, { ...change } as never, remote(5990) as never, payment as never);
     return db;
   }
   it("caminho feliz (controle): pago às 12:05 dentro da cotação → APPLYING, capacidade liberada, cobrança 683, vencimento mantido", async () => {
@@ -347,7 +350,7 @@ describe("G3 · applyUpgradePayment fora do caminho feliz (cliente cobrado → r
     expect(db.changes[0]).toMatchObject({ state: "REVIEW", lastError: "UPGRADE_PAYMENT_OUTSIDE_QUOTE", activatedAt: null });
     expect(db.subs[0]).toMatchObject({ reviewRequired: true, paidThrough: PAID_THROUGH });
     expect(db.charges[0]).toMatchObject({ amountCents: 683, status: "approved" });
-    expect(await currentTerms(db.tx as any, db.subs[0] as any)).toEqual(FROM);
+    expect(await currentTerms(db.tx as never, db.subs[0] as never)).toEqual(FROM);
   });
   it("pago às 12:05 mas o dono já tinha pedido cancelamento (CANCEL_REQUESTED) → REVIEW, sem liberar capacidade", async () => {
     const db = await pay(upgrade({ state: "CANCEL_REQUESTED", checkoutUrl: null }), upgradePayment("pay-1", "2026-10-03T12:05:00.000Z"));
@@ -357,8 +360,8 @@ describe("G3 · applyUpgradePayment fora do caminho feliz (cliente cobrado → r
   it("segundo pagamento aprovado da mesma preferência → REVIEW UPGRADE_DUPLICATE_PAYMENT; as duas cobranças ficam no livro; vencimento não muda", async () => {
     stubEnv(true); clock("2026-10-03T12:06:00.000Z");
     const db = makeDb([sub()], { changes: [upgrade()] });
-    await applyUpgradePayment(db.subs[0] as any, { ...db.changes[0] } as any, remote(5990) as any, upgradePayment("pay-1", "2026-10-03T12:05:00.000Z") as any);
-    await applyUpgradePayment(db.subs[0] as any, { ...db.changes[0] } as any, remote(5990) as any, upgradePayment("pay-2", "2026-10-03T12:05:30.000Z") as any);
+    await applyUpgradePayment(db.subs[0] as never, { ...db.changes[0] } as never, remote(5990) as never, upgradePayment("pay-1", "2026-10-03T12:05:00.000Z") as never);
+    await applyUpgradePayment(db.subs[0] as never, { ...db.changes[0] } as never, remote(5990) as never, upgradePayment("pay-2", "2026-10-03T12:05:30.000Z") as never);
     expect(db.changes[0]).toMatchObject({ state: "REVIEW", lastError: "UPGRADE_DUPLICATE_PAYMENT", providerPaymentId: "pay-1" });
     expect(db.charges.map((c: Row) => [c.providerPaymentId, c.amountCents])).toEqual([["pay-1", 683], ["pay-2", 683]]);
     expect(db.subs[0]).toMatchObject({ reviewRequired: true, paidThrough: PAID_THROUGH });
@@ -366,9 +369,9 @@ describe("G3 · applyUpgradePayment fora do caminho feliz (cliente cobrado → r
   it("estorno total depois de liberado → REVIEW UPGRADE_PAYMENT_REVERSED; capacidade continua liberada até a conferência (registro do comportamento)", async () => {
     stubEnv(true); clock("2026-10-03T12:06:00.000Z");
     const db = makeDb([sub()], { changes: [upgrade()] });
-    await applyUpgradePayment(db.subs[0] as any, { ...db.changes[0] } as any, remote(5990) as any, upgradePayment("pay-1", "2026-10-03T12:05:00.000Z") as any);
-    await applyUpgradePayment(db.subs[0] as any, { ...db.changes[0] } as any, remote(5990) as any,
-      upgradePayment("pay-1", "2026-10-03T12:05:00.000Z", { date_last_updated: "2026-10-04T09:00:00.000Z", transaction_amount_refunded: 6.83 }) as any);
+    await applyUpgradePayment(db.subs[0] as never, { ...db.changes[0] } as never, remote(5990) as never, upgradePayment("pay-1", "2026-10-03T12:05:00.000Z") as never);
+    await applyUpgradePayment(db.subs[0] as never, { ...db.changes[0] } as never, remote(5990) as never,
+      upgradePayment("pay-1", "2026-10-03T12:05:00.000Z", { date_last_updated: "2026-10-04T09:00:00.000Z", transaction_amount_refunded: 6.83 }) as never);
     expect(db.changes[0]).toMatchObject({ state: "REVIEW", lastError: "UPGRADE_PAYMENT_REVERSED" });
     expect(db.charges[0]).toMatchObject({ status: "refunded", refundedCents: 683 });
     expect(db.subs[0].reviewRequired).toBe(true);
@@ -377,8 +380,8 @@ describe("G3 · applyUpgradePayment fora do caminho feliz (cliente cobrado → r
   it("pagamento de R$ 6,83 com referência de OUTRA troca → PAYMENT_MISMATCH sem gravar nada", async () => {
     stubEnv(true); clock("2026-10-03T12:06:00.000Z");
     const db = makeDb([sub()], { changes: [upgrade()] });
-    await expect(applyUpgradePayment(db.subs[0] as any, { ...db.changes[0] } as any, remote(5990) as any,
-      upgradePayment("pay-1", "2026-10-03T12:05:00.000Z", { external_reference: `efu:${SALON}:d1a2b3c4-d5e6-4f70-8a9b-444444444444` }) as any)).rejects.toThrow("PAYMENT_MISMATCH");
+    await expect(applyUpgradePayment(db.subs[0] as never, { ...db.changes[0] } as never, remote(5990) as never,
+      upgradePayment("pay-1", "2026-10-03T12:05:00.000Z", { external_reference: `efu:${SALON}:d1a2b3c4-d5e6-4f70-8a9b-444444444444` }) as never)).rejects.toThrow("PAYMENT_MISMATCH");
     expect(db.charges).toHaveLength(0);
   });
 });
@@ -401,7 +404,7 @@ describe("G4 · débito da renovação após troca: até 3 dias antes do vencime
   it("redução: débito exatamente no vencimento a R$ 79,90 → aceito, troca APPLIED, período estendido", async () => {
     stubEnv(true); clock("2026-10-14T12:00:00.000Z");
     const db = makeDb([teamPlus()], { changes: [reduction()] });
-    await applyInvoice(db.subs[0] as any, remote(7990) as any, inv(79.9, PAID_THROUGH) as any, payR(79.9) as any);
+    await applyInvoice(db.subs[0] as never, remote(7990) as never, inv(79.9, PAID_THROUGH) as never, payR(79.9) as never);
     expect(db.charges[0]).toMatchObject({ amountCents: 7990, status: "approved" });
     expect(db.changes[0].state).toBe("APPLIED");
     expect(db.subs[0].paidThrough.toISOString()).toBe("2026-11-13T17:42:29.000Z");
@@ -409,19 +412,19 @@ describe("G4 · débito da renovação após troca: até 3 dias antes do vencime
   it("redução: débito de R$ 79,90 datado 1 s antes do vencimento → aceito com os termos novos; troca APPLIED e período contado a partir do débito", async () => {
     stubEnv(true); clock("2026-10-14T12:00:00.000Z");
     const db = makeDb([teamPlus()], { changes: [reduction()] });
-    await applyInvoice(db.subs[0] as any, remote(7990) as any, inv(79.9, ONE_SECOND_EARLY) as any, payR(79.9) as any);
+    await applyInvoice(db.subs[0] as never, remote(7990) as never, inv(79.9, ONE_SECOND_EARLY) as never, payR(79.9) as never);
     expect(db.charges).toHaveLength(1);
     expect(db.charges[0]).toMatchObject({ amountCents: 7990, status: "approved", periodStart: ONE_SECOND_EARLY, paidAt: PAID_AT });
     expect(db.charges[0].periodEnd.toISOString()).toBe("2026-11-13T17:42:28.000Z");
     expect(db.subs[0].paidThrough.toISOString()).toBe("2026-11-13T17:42:28.000Z");
     expect(db.subs[0].reviewRequired).toBe(false);
     expect(db.changes[0]).toMatchObject({ state: "APPLIED", activatedAt: NOW, paidAt: PAID_AT });
-    expect(await currentTerms(db.tx as any, db.subs[0] as any)).toEqual(TO);
+    expect(await currentTerms(db.tx as never, db.subs[0] as never)).toEqual(TO);
   });
   it("redução, fronteira: débito de R$ 79,90 exatamente 3 dias antes do vencimento → ainda aceito com os termos novos", async () => {
     stubEnv(true); clock("2026-10-14T12:00:00.000Z");
     const db = makeDb([teamPlus()], { changes: [reduction()] });
-    await applyInvoice(db.subs[0] as any, remote(7990) as any, inv(79.9, THREE_DAYS_EARLY) as any, payR(79.9) as any);
+    await applyInvoice(db.subs[0] as never, remote(7990) as never, inv(79.9, THREE_DAYS_EARLY) as never, payR(79.9) as never);
     expect(db.charges[0]).toMatchObject({ amountCents: 7990, status: "approved", periodStart: THREE_DAYS_EARLY });
     expect(db.subs[0].paidThrough.toISOString()).toBe("2026-11-10T17:42:29.000Z");
     expect(db.changes[0].state).toBe("APPLIED");
@@ -429,7 +432,7 @@ describe("G4 · débito da renovação após troca: até 3 dias antes do vencime
   it("controle: débito de R$ 79,90 a 3 dias + 1 s do vencimento (fora da tolerância) → INVOICE_MISMATCH; nada gravado e a troca segue SCHEDULED", async () => {
     stubEnv(true); clock("2026-10-14T12:00:00.000Z");
     const db = makeDb([teamPlus()], { changes: [reduction()] });
-    await expect(applyInvoice(db.subs[0] as any, remote(7990) as any, inv(79.9, BEYOND_TOLERANCE) as any, payR(79.9) as any)).rejects.toThrow("INVOICE_MISMATCH");
+    await expect(applyInvoice(db.subs[0] as never, remote(7990) as never, inv(79.9, BEYOND_TOLERANCE) as never, payR(79.9) as never)).rejects.toThrow("INVOICE_MISMATCH");
     expect(db.charges).toHaveLength(0);
     expect(db.changes[0]).toMatchObject({ state: "SCHEDULED", activatedAt: null });
     expect(db.subs[0].paidThrough).toEqual(PAID_THROUGH);
@@ -437,7 +440,7 @@ describe("G4 · débito da renovação após troca: até 3 dias antes do vencime
   it("controle: débito 1 s antes do vencimento com valor que não é de nenhum dos termos (R$ 89,90) → INVOICE_MISMATCH; nada gravado", async () => {
     stubEnv(true); clock("2026-10-14T12:00:00.000Z");
     const db = makeDb([teamPlus()], { changes: [reduction()] });
-    await expect(applyInvoice(db.subs[0] as any, remote(7990) as any, inv(89.9, ONE_SECOND_EARLY) as any, payR(89.9) as any)).rejects.toThrow("INVOICE_MISMATCH");
+    await expect(applyInvoice(db.subs[0] as never, remote(7990) as never, inv(89.9, ONE_SECOND_EARLY) as never, payR(89.9) as never)).rejects.toThrow("INVOICE_MISMATCH");
     expect(db.charges).toHaveLength(0);
     expect(db.changes[0]).toMatchObject({ state: "SCHEDULED", activatedAt: null });
     expect(db.subs[0].paidThrough).toEqual(PAID_THROUGH);
@@ -445,32 +448,32 @@ describe("G4 · débito da renovação após troca: até 3 dias antes do vencime
   it("controle: débito 1 s antes do vencimento ainda pelo preço antigo (R$ 99,90) → aceito com os termos antigos; a redução segue SCHEDULED", async () => {
     stubEnv(true); clock("2026-10-14T12:00:00.000Z");
     const db = makeDb([teamPlus()], { changes: [reduction()] });
-    await applyInvoice(db.subs[0] as any, remote(7990) as any, inv(99.9, ONE_SECOND_EARLY) as any, payR(99.9) as any);
+    await applyInvoice(db.subs[0] as never, remote(7990) as never, inv(99.9, ONE_SECOND_EARLY) as never, payR(99.9) as never);
     expect(db.charges[0]).toMatchObject({ amountCents: 9990, status: "approved", periodStart: ONE_SECOND_EARLY });
     expect(db.subs[0].paidThrough.toISOString()).toBe("2026-11-13T17:42:28.000Z");
     expect(db.changes[0]).toMatchObject({ state: "SCHEDULED", activatedAt: null });
-    expect(await currentTerms(db.tx as any, db.subs[0] as any)).toEqual(terms("TEAM_PLUS", "MONTHLY", 9990, 5, NEW));
+    expect(await currentTerms(db.tx as never, db.subs[0] as never)).toEqual(terms("TEAM_PLUS", "MONTHLY", 9990, 5, NEW));
   });
   it("redução de mesmo preço (Equipe 10 + 4 antigos → + 3 no catálogo novo, ambos R$ 209,90): débito 1 s antes → aplica a troca em vez de adiá-la um período", async () => {
     stubEnv(true); clock("2026-10-14T12:00:00.000Z");
     const from = terms("TEAM_MAX", "MONTHLY", 20990, 14, OLD), to = terms("TEAM_MAX", "MONTHLY", 20990, 13, NEW);
     const db = makeDb([sub({ catalogVersion: OLD, planCode: "TEAM_MAX", amountCents: 20990, agendaLimit: 14 })], { changes: [reduction({ fromTerms: from, toTerms: to })] });
-    await applyInvoice(db.subs[0] as any, remote(20990) as any, inv(209.9, ONE_SECOND_EARLY) as any, payR(209.9) as any);
+    await applyInvoice(db.subs[0] as never, remote(20990) as never, inv(209.9, ONE_SECOND_EARLY) as never, payR(209.9) as never);
     expect(db.charges[0]).toMatchObject({ amountCents: 20990, status: "approved", periodStart: ONE_SECOND_EARLY });
     expect(db.changes[0]).toMatchObject({ state: "APPLIED", activatedAt: NOW, paidAt: PAID_AT });
-    expect(await currentTerms(db.tx as any, db.subs[0] as any)).toEqual(to);
+    expect(await currentTerms(db.tx as never, db.subs[0] as never)).toEqual(to);
   });
   const appliedUpgrade = () => upgrade({ state: "APPLIED", providerPaymentId: "pay-up-1", paidAt: QUOTED_AT, activatedAt: QUOTED_AT, providerStartedAt: QUOTED_AT, providerSyncedAt: QUOTED_AT });
   it("upgrade: renovação de R$ 79,90 no vencimento → aceita", async () => {
     stubEnv(true); clock("2026-10-14T12:00:00.000Z");
     const db = makeDb([sub()], { changes: [appliedUpgrade()] });
-    await applyInvoice(db.subs[0] as any, remote(7990) as any, inv(79.9, PAID_THROUGH) as any, payR(79.9) as any);
+    await applyInvoice(db.subs[0] as never, remote(7990) as never, inv(79.9, PAID_THROUGH) as never, payR(79.9) as never);
     expect(db.charges[0]).toMatchObject({ amountCents: 7990 });
   });
   it("upgrade: renovação de R$ 79,90 datada 1 s antes do vencimento → aceita com os termos do upgrade (7990) e período contado a partir do débito", async () => {
     stubEnv(true); clock("2026-10-14T12:00:00.000Z");
     const db = makeDb([sub()], { changes: [appliedUpgrade()] });
-    await applyInvoice(db.subs[0] as any, remote(7990) as any, inv(79.9, ONE_SECOND_EARLY) as any, payR(79.9) as any);
+    await applyInvoice(db.subs[0] as never, remote(7990) as never, inv(79.9, ONE_SECOND_EARLY) as never, payR(79.9) as never);
     expect(db.charges).toHaveLength(1);
     expect(db.charges[0]).toMatchObject({ amountCents: 7990, status: "approved", periodStart: ONE_SECOND_EARLY });
     expect(db.charges[0].periodEnd.toISOString()).toBe("2026-11-13T17:42:28.000Z");
@@ -480,7 +483,7 @@ describe("G4 · débito da renovação após troca: até 3 dias antes do vencime
   it("sem troca: renovação 1 s antes do vencimento continua aceita (a fronteira só importa com troca)", async () => {
     stubEnv(true); clock("2026-10-14T12:00:00.000Z");
     const db = makeDb([sub()]);
-    await applyInvoice(db.subs[0] as any, remote(5990) as any, inv(59.9, ONE_SECOND_EARLY) as any, payR(59.9) as any);
+    await applyInvoice(db.subs[0] as never, remote(5990) as never, inv(59.9, ONE_SECOND_EARLY) as never, payR(59.9) as never);
     expect(db.charges[0]).toMatchObject({ amountCents: 5990 });
   });
 
@@ -493,7 +496,7 @@ describe("G4 · débito da renovação após troca: até 3 dias antes do vencime
     stubEnv(true); clock("2026-10-14T12:00:00.000Z");
     const db = makeDb([sub()]);
     const [invoice, payment] = rejected(debit);
-    await applyInvoice(db.subs[0] as any, remote(5990) as any, invoice as any, payment as any);
+    await applyInvoice(db.subs[0] as never, remote(5990) as never, invoice as never, payment as never);
     expect(db.charges[0]).toMatchObject({ status: "rejected", amountCents: 5990, periodStart: debit, paidAt: null });
     expect(db.subs[0]).toMatchObject({ delinquentSince: since, paidThrough: PAID_THROUGH, reviewRequired: false });
   });
@@ -501,7 +504,7 @@ describe("G4 · débito da renovação após troca: até 3 dias antes do vencime
     stubEnv(true); clock("2026-10-14T12:00:00.000Z");
     const db = makeDb([sub()]);
     const [invoice, payment] = rejected(BEYOND_TOLERANCE);
-    await applyInvoice(db.subs[0] as any, remote(5990) as any, invoice as any, payment as any);
+    await applyInvoice(db.subs[0] as never, remote(5990) as never, invoice as never, payment as never);
     expect(db.charges[0]).toMatchObject({ status: "rejected", amountCents: 5990, periodStart: BEYOND_TOLERANCE });
     expect(db.subs[0]).toMatchObject({ delinquentSince: null, paidThrough: PAID_THROUGH });
   });
@@ -510,12 +513,12 @@ describe("G4 · débito da renovação após troca: até 3 dias antes do vencime
   it("PUT da redução sem confirmação: o débito de R$ 79,90 1 s antes do vencimento é aceito e syncPlanChanges aplica a troca por essa cobrança", async () => {
     stubEnv(true); clock("2026-10-14T12:00:00.000Z");
     const db = makeDb([teamPlus()], { changes: [reduction({ providerSyncedAt: null })] });
-    await applyInvoice(db.subs[0] as any, remote(7990) as any, inv(79.9, ONE_SECOND_EARLY) as any, payR(79.9) as any);
+    await applyInvoice(db.subs[0] as never, remote(7990) as never, inv(79.9, ONE_SECOND_EARLY) as never, payR(79.9) as never);
     expect(db.charges[0]).toMatchObject({ amountCents: 7990, status: "approved", periodStart: ONE_SECOND_EARLY });
     // Sem confirmação do PUT, a fatura não aplica a troca sozinha.
     expect(db.changes[0]).toMatchObject({ state: "SCHEDULED", providerSyncedAt: null, activatedAt: null });
-    vi.mocked(mp.getSubscription).mockResolvedValueOnce(remote(7990) as any);
-    await syncPlanChanges({ ...db.subs[0] } as any);
+    vi.mocked(mp.getSubscription).mockResolvedValueOnce(remote(7990) as never);
+    await syncPlanChanges({ ...db.subs[0] } as never);
     expect(mp.mpRequest).not.toHaveBeenCalled(); // a recorrência já está em 79,90: nenhum PUT
     expect(db.changes[0]).toMatchObject({ state: "APPLIED", providerSyncedAt: NOW, activatedAt: NOW, paidAt: PAID_AT });
   });
@@ -531,13 +534,13 @@ describe("G4 · débito da renovação após troca: até 3 dias antes do vencime
     const newRemote = { ...remote(39900), id: "pre-new", external_reference: `ef:${SALON}:${REPL}`,
       auto_recurring: { frequency: 12, frequency_type: "months", currency_id: "BRL", transaction_amount: 399, start_date: "2026-10-13T17:42:29.000Z" } };
     // Primeira cobrança anual da substituta, 1 s antes do início agendado (13/10 17:42:29Z).
-    await applyInvoice(db.subs[1] as any, newRemote as any, inv(399, ONE_SECOND_EARLY, { id: "inv-new", preapproval_id: "pre-new", payment: { id: "pay-new", status: "approved" } }) as any,
-      payR(399, { id: "pay-new" }) as any);
+    await applyInvoice(db.subs[1] as never, newRemote as never, inv(399, ONE_SECOND_EARLY, { id: "inv-new", preapproval_id: "pre-new", payment: { id: "pay-new", status: "approved" } }) as never,
+      payR(399, { id: "pay-new" }) as never);
     expect(db.charges[0]).toMatchObject({ subscriptionId: REPL, amountCents: 39900, status: "approved", periodStart: ONE_SECOND_EARLY });
     expect(db.subs[1].paidThrough.toISOString()).toBe("2027-10-13T17:42:28.000Z");
     expect(db.subs.map((s: Row) => [s.id, s.current])).toEqual([[SUB_ID, true], [REPL, false]]);
-    vi.mocked(mp.getSubscription).mockImplementation(async (id: string) => (id === "pre-new" ? newRemote : remote(5990, { status: "cancelled" })) as any);
-    await syncPlanChanges({ ...db.subs[0] } as any);
+    vi.mocked(mp.getSubscription).mockImplementation(async (id: string) => (id === "pre-new" ? newRemote : remote(5990, { status: "cancelled" })) as never);
+    await syncPlanChanges({ ...db.subs[0] } as never);
     expect(mp.mpRequest).not.toHaveBeenCalled();
     expect(db.changes[0]).toMatchObject({ state: "APPLIED", activatedAt: NOW, paidAt: PAID_AT });
     expect(db.subs.map((s: Row) => [s.id, s.current])).toEqual([[SUB_ID, false], [REPL, true]]);

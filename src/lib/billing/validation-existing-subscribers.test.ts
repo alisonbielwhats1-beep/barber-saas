@@ -11,7 +11,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- dados do Prisma em memória têm formato dinâmico
 type Row = Record<string, any>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- dados do Prisma em memória têm formato dinâmico
 const hoisted = vi.hoisted(() => ({ db: null as any, remotes: new Map<string, any>() }));
 
 vi.mock("server-only", () => ({}));
@@ -33,6 +35,7 @@ vi.mock("./http", () => ({
   ownerContext: vi.fn(async () => ({ salonId: "salon-old", userId: "owner-1" })),
   readBillingBody: vi.fn(),
   billingJson: (body: unknown, status = 200) => Response.json(body, { status }),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dados do Prisma em memória têm formato dinâmico
   billingFailure: (e: any) => Response.json({ error: e?.code ?? String(e) }, { status: 500 }),
 }));
 
@@ -58,7 +61,6 @@ import { SubscriptionPortal } from "@/components/billing/subscription-portal";
 const OLD = "2026-09-13";
 const SALON = "salon-old";
 const SUB_ID = "0b9f1c7e-1d2a-4c3b-9e8f-111111111111";
-const REF = `ef:${SALON}:${SUB_ID}`;
 const PERIOD_START = new Date("2026-09-13T17:42:29.000Z");
 const PAID_THROUGH = new Date("2026-10-13T17:42:29.000Z");
 
@@ -101,6 +103,7 @@ function payment(amount: number, over: Row = {}) {
     date_last_updated: "2026-10-13T18:00:00.000Z", date_approved: "2026-10-13T18:00:00.000Z", live_mode: false, payer: { id: "999" }, ...over };
 }
 const terms = (plan: string, cycle: string, amountCents: number, agendaLimit: number, catalogVersion = OLD) =>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dados do Prisma em memória têm formato dinâmico
   ({ plan, cycle, amountCents, agendaLimit, intervalMonths: cycle === "ANNUAL" ? 12 : 1, catalogVersion }) as any;
 
 // ─── Minimal in-memory Prisma double (only what billing code touches) ────────
@@ -129,6 +132,7 @@ function matches(row: Row, where: Row = {}): boolean {
   }
   return true;
 }
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- dados do Prisma em memória têm formato dinâmico
 function sortRows(rows: Row[], orderBy: any) {
   const keys: [string, string][] = (Array.isArray(orderBy) ? orderBy : orderBy ? [orderBy] : []).map((o: Row) => Object.entries(o)[0] as [string, string]);
   return [...rows].sort((a, b) => {
@@ -194,7 +198,7 @@ describe("termos do catálogo 2026-09-13", () => {
   });
   it.each(Object.keys(OLD_CONTRACTS) as OldKey[])("originalTerms preserva valor e versão antigos: %s", key => {
     const sub = oldSub(key);
-    const parsed = originalTerms(sub as any);
+    const parsed = originalTerms(sub as never);
     expect(parsed).toEqual({ plan: sub.planCode, cycle: sub.cycle, amountCents: OLD_CONTRACTS[key].amountCents, agendaLimit: sub.agendaLimit, intervalMonths: sub.intervalMonths, catalogVersion: OLD });
     // Persisted JSON from BillingPlanChange.fromTerms/toTerms parses identically.
     expect(billingTermsSchema.parse(JSON.parse(JSON.stringify(parsed)))).toEqual(parsed);
@@ -220,7 +224,7 @@ describe("renovação de assinantes antigos (applyInvoice)", () => {
       stubBillingEnv(flag);
       const db = makeDb([oldSub(key)]);
       const sub = db.subs[0];
-      await applyInvoice({ ...sub } as any, remoteFor(sub) as any, invoice(amount) as any, payment(amount) as any);
+      await applyInvoice({ ...sub } as never, remoteFor(sub) as never, invoice(amount) as never, payment(amount) as never);
       const charge = db.charges.find((c: Row) => c.providerInvoiceId === "inv-renewal");
       expect(charge).toMatchObject({ amountCents: Math.round(amount * 100), status: "approved", periodStart: PAID_THROUGH });
       expect(charge.periodEnd.toISOString()).toBe(nextEnd);
@@ -233,8 +237,8 @@ describe("renovação de assinantes antigos (applyInvoice)", () => {
     stubBillingEnv(true);
     const db = makeDb([oldSub("individualMonthly")]);
     const sub = db.subs[0];
-    await expect(applyInvoice({ ...sub } as any, remoteFor(sub) as any, invoice(39.9) as any, payment(39.9) as any)).rejects.toThrow("INVOICE_MISMATCH");
-    await expect(applyInvoice({ ...sub } as any, remoteFor(sub) as any, invoice(59.9) as any, payment(39.9) as any)).rejects.toThrow("PAYMENT_MISMATCH");
+    await expect(applyInvoice({ ...sub } as never, remoteFor(sub) as never, invoice(39.9) as never, payment(39.9) as never)).rejects.toThrow("INVOICE_MISMATCH");
+    await expect(applyInvoice({ ...sub } as never, remoteFor(sub) as never, invoice(59.9) as never, payment(39.9) as never)).rejects.toThrow("PAYMENT_MISMATCH");
     expect(db.charges).toHaveLength(0);
     expect(db.subs[0].paidThrough).toEqual(PAID_THROUGH);
   });
@@ -242,27 +246,27 @@ describe("renovação de assinantes antigos (applyInvoice)", () => {
     stubBillingEnv(false);
     const db = makeDb([oldSub("teamMax2Monthly")]);
     const sub = db.subs[0];
-    await expect(applyInvoice({ ...sub } as any, remoteFor(sub) as any, invoice(189.9) as any, payment(189.9) as any)).rejects.toThrow("INVOICE_MISMATCH");
+    await expect(applyInvoice({ ...sub } as never, remoteFor(sub) as never, invoice(189.9) as never, payment(189.9) as never)).rejects.toThrow("INVOICE_MISMATCH");
   });
   it("recorrência alterada para R$ 39,90 no Mercado Pago é recusada e marca revisão", async () => {
     stubBillingEnv(true);
     const db = makeDb([oldSub("individualMonthly")]);
     const sub = db.subs[0];
     const foreign = remoteFor(sub, { last_modified: "2026-10-14T00:00:00.000Z" }, { transaction_amount: 39.9 });
-    await expect(applyInvoice({ ...sub } as any, foreign as any, invoice(39.9) as any, payment(39.9) as any)).rejects.toThrow("PROVIDER_CONTRACT_MISMATCH");
-    await applyRemoteSubscription({ ...sub } as any, foreign as any);
+    await expect(applyInvoice({ ...sub } as never, foreign as never, invoice(39.9) as never, payment(39.9) as never)).rejects.toThrow("PROVIDER_CONTRACT_MISMATCH");
+    await applyRemoteSubscription({ ...sub } as never, foreign as never);
     expect(db.subs[0].reviewRequired).toBe(true);
   });
   it("pagamento recusado e depois pago de novo usa o mesmo R$ 59,90 e limpa a inadimplência", async () => {
     stubBillingEnv(true);
     const db = makeDb([oldSub("individualMonthly")]);
     const sub = () => ({ ...db.subs[0] });
-    await applyInvoice(sub() as any, remoteFor(sub()) as any, invoice(59.9, PAID_THROUGH, { payment: { id: "pay-renewal", status: "rejected" } }) as any,
-      payment(59.9, { status: "rejected", date_approved: null, date_last_updated: "2026-10-13T18:00:00.000Z" }) as any);
+    await applyInvoice(sub() as never, remoteFor(sub()) as never, invoice(59.9, PAID_THROUGH, { payment: { id: "pay-renewal", status: "rejected" } }) as never,
+      payment(59.9, { status: "rejected", date_approved: null, date_last_updated: "2026-10-13T18:00:00.000Z" }) as never);
     expect(db.subs[0].delinquentSince).toEqual(PAID_THROUGH);
     expect(db.charges[0]).toMatchObject({ status: "rejected", amountCents: 5990 });
-    await applyInvoice(sub() as any, remoteFor(sub()) as any, invoice(59.9, PAID_THROUGH, { last_modified: "2026-10-14T09:00:00.000Z" }) as any,
-      payment(59.9, { date_last_updated: "2026-10-14T09:00:00.000Z", date_approved: "2026-10-14T09:00:00.000Z" }) as any);
+    await applyInvoice(sub() as never, remoteFor(sub()) as never, invoice(59.9, PAID_THROUGH, { last_modified: "2026-10-14T09:00:00.000Z" }) as never,
+      payment(59.9, { date_last_updated: "2026-10-14T09:00:00.000Z", date_approved: "2026-10-14T09:00:00.000Z" }) as never);
     expect(db.charges).toHaveLength(1);
     expect(db.charges[0]).toMatchObject({ status: "approved", amountCents: 5990 });
     expect(db.subs[0].paidThrough.toISOString()).toBe("2026-11-13T17:42:29.000Z");
@@ -279,15 +283,15 @@ describe("renovação de assinantes antigos (applyInvoice)", () => {
     const sub = () => ({ ...db.subs[0] });
     // Mercado Pago already carries the reduced recurrence (16990); the historical invoice keeps 17990.
     const remote = remoteFor(sub(), {}, { transaction_amount: 169.9 });
-    await applyInvoice(sub() as any, remote as any, invoice(179.9, PERIOD_START, { id: "inv-previous", payment: { id: "pay-previous" } }) as any,
-      payment(179.9, { id: "pay-previous", date_approved: "2026-09-13T18:00:00.000Z", date_last_updated: "2026-09-13T18:00:00.000Z" }) as any);
+    await applyInvoice(sub() as never, remote as never, invoice(179.9, PERIOD_START, { id: "inv-previous", payment: { id: "pay-previous" } }) as never,
+      payment(179.9, { id: "pay-previous", date_approved: "2026-09-13T18:00:00.000Z", date_last_updated: "2026-09-13T18:00:00.000Z" }) as never);
     expect(db.charges.find((c: Row) => c.providerInvoiceId === "inv-previous").amountCents).toBe(17990);
-    await applyInvoice(sub() as any, remote as any, invoice(169.9) as any, payment(169.9) as any);
+    await applyInvoice(sub() as never, remote as never, invoice(169.9) as never, payment(169.9) as never);
     expect(db.charges.find((c: Row) => c.providerInvoiceId === "inv-renewal").amountCents).toBe(16990);
     expect(db.changes[0].state).toBe("APPLIED");
     // Wrong side of the boundary is rejected.
-    await expect(applyInvoice(sub() as any, remote as any, invoice(179.9, PAID_THROUGH, { id: "inv-x", payment: { id: "pay-x" } }) as any,
-      payment(179.9, { id: "pay-x" }) as any)).rejects.toThrow("INVOICE_MISMATCH");
+    await expect(applyInvoice(sub() as never, remote as never, invoice(179.9, PAID_THROUGH, { id: "inv-x", payment: { id: "pay-x" } }) as never,
+      payment(179.9, { id: "pay-x" }) as never)).rejects.toThrow("INVOICE_MISMATCH");
   });
   // Mercado Pago pode debitar a renovação pouco antes do vencimento (13/10 17:42:29Z).
   const ONE_SECOND_EARLY = new Date("2026-10-13T17:42:28.000Z");
@@ -296,7 +300,7 @@ describe("renovação de assinantes antigos (applyInvoice)", () => {
     const db = makeDb([oldSub("teamMax2Monthly")], { changes: [scheduledReduction()] });
     const sub = () => ({ ...db.subs[0] });
     const remote = remoteFor(sub(), {}, { transaction_amount: 169.9 });
-    await applyInvoice(sub() as any, remote as any, invoice(169.9, ONE_SECOND_EARLY) as any, payment(169.9) as any);
+    await applyInvoice(sub() as never, remote as never, invoice(169.9, ONE_SECOND_EARLY) as never, payment(169.9) as never);
     expect(db.charges).toHaveLength(1);
     expect(db.charges[0]).toMatchObject({ amountCents: 16990, status: "approved", periodStart: ONE_SECOND_EARLY });
     expect(db.subs[0].paidThrough.toISOString()).toBe("2026-11-13T17:42:28.000Z");
@@ -307,7 +311,7 @@ describe("renovação de assinantes antigos (applyInvoice)", () => {
     const db = makeDb([oldSub("teamMax2Monthly")], { changes: [scheduledReduction()] });
     const sub = () => ({ ...db.subs[0] });
     const remote = remoteFor(sub(), {}, { transaction_amount: 169.9 });
-    await applyInvoice(sub() as any, remote as any, invoice(179.9, ONE_SECOND_EARLY) as any, payment(179.9) as any);
+    await applyInvoice(sub() as never, remote as never, invoice(179.9, ONE_SECOND_EARLY) as never, payment(179.9) as never);
     expect(db.charges[0]).toMatchObject({ amountCents: 17990, status: "approved", periodStart: ONE_SECOND_EARLY });
     expect(db.subs[0].paidThrough.toISOString()).toBe("2026-11-13T17:42:28.000Z");
     expect(db.changes[0]).toMatchObject({ state: "SCHEDULED", activatedAt: null });
@@ -317,7 +321,7 @@ describe("renovação de assinantes antigos (applyInvoice)", () => {
     const db = makeDb([oldSub("teamMax2Monthly")], { changes: [scheduledReduction()] });
     const sub = () => ({ ...db.subs[0] });
     const remote = remoteFor(sub(), {}, { transaction_amount: 169.9 });
-    await expect(applyInvoice(sub() as any, remote as any, invoice(189.9, ONE_SECOND_EARLY) as any, payment(189.9) as any)).rejects.toThrow("INVOICE_MISMATCH");
+    await expect(applyInvoice(sub() as never, remote as never, invoice(189.9, ONE_SECOND_EARLY) as never, payment(189.9) as never)).rejects.toThrow("INVOICE_MISMATCH");
     expect(db.charges).toHaveLength(0);
     expect(db.subs[0].paidThrough).toEqual(PAID_THROUGH);
     expect(db.changes[0].state).toBe("SCHEDULED");
@@ -328,10 +332,10 @@ describe("renovação de assinantes antigos (applyInvoice)", () => {
     const pending = oldSub("individualMonthly", { providerStatus: "pending", paidThrough: null, nextPaymentAt: null, createdAt: new Date("2026-10-01T10:00:00Z") });
     const db = makeDb([pending]);
     const debit = new Date("2026-10-03T11:00:00.000Z");
-    await applyInvoice({ ...db.subs[0] } as any, remoteFor(db.subs[0], { status: "authorized" }) as any, invoice(59.9, debit) as any,
-      payment(59.9, { date_approved: "2026-10-03T11:00:00.000Z", date_last_updated: "2026-10-03T11:00:00.000Z" }) as any);
+    await applyInvoice({ ...db.subs[0] } as never, remoteFor(db.subs[0], { status: "authorized" }) as never, invoice(59.9, debit) as never,
+      payment(59.9, { date_approved: "2026-10-03T11:00:00.000Z", date_last_updated: "2026-10-03T11:00:00.000Z" }) as never);
     expect(db.subs[0].paidThrough.toISOString()).toBe("2026-11-03T11:00:00.000Z");
-    await expect(applyInvoice({ ...db.subs[0] } as any, remoteFor(db.subs[0]) as any, invoice(39.9, debit, { id: "inv-y" }) as any, null)).rejects.toThrow("INVOICE_MISMATCH");
+    await expect(applyInvoice({ ...db.subs[0] } as never, remoteFor(db.subs[0]) as never, invoice(39.9, debit, { id: "inv-y" }) as never, null)).rejects.toThrow("INVOICE_MISMATCH");
   });
 });
 
@@ -342,8 +346,8 @@ describe("reconciliação periódica de assinante antigo (syncSubscription)", ()
     clock("2026-10-14T12:00:00.000Z");
     const db = makeDb([oldSub(key)]);
     hoisted.remotes.set("pre-old", remoteFor(db.subs[0]));
-    vi.mocked(mp.listInvoices).mockResolvedValue({ results: [invoice(amount)], paging: { total: 1 } } as any);
-    vi.mocked(mp.getPayment).mockResolvedValue(payment(amount) as any);
+    vi.mocked(mp.listInvoices).mockResolvedValue({ results: [invoice(amount)], paging: { total: 1 } } as never);
+    vi.mocked(mp.getPayment).mockResolvedValue(payment(amount) as never);
     await syncSubscription(SALON, SUB_ID);
     expect(db.charges[0].amountCents).toBe(OLD_CONTRACTS[key].amountCents);
     expect(db.subs[0].reviewRequired).toBe(false);
@@ -355,6 +359,7 @@ describe("reconciliação periódica de assinante antigo (syncSubscription)", ()
 // ─── 4. Criação pendente e reativação: valor enviado ao Mercado Pago ────────
 describe("valor enviado ao Mercado Pago para contratos antigos", () => {
   function captureCreation() {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dados do Prisma em memória têm formato dinâmico
     vi.mocked(mp.mpRequest).mockImplementation(async (path: string, method?: string, body?: any) => {
       if (path === "/preapproval" && method === "POST") {
         const remote = { id: "pre-new", collector_id: "123", external_reference: body.external_reference, status: "pending",
@@ -370,7 +375,8 @@ describe("valor enviado ao Mercado Pago para contratos antigos", () => {
     clock("2026-10-03T12:00:00.000Z");
     captureCreation();
     const db = makeDb([oldSub("individualMonthly", { providerId: null, providerStatus: null, creationStartedAt: null, paidThrough: null, providerUpdatedAt: null })]);
-    await ensureCreated({ ...db.subs[0] } as any);
+    await ensureCreated({ ...db.subs[0] } as never);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dados do Prisma em memória têm formato dinâmico
     const [path, method, body] = vi.mocked(mp.mpRequest).mock.calls[0] as [string, string, any];
     expect([path, method]).toEqual(["/preapproval", "POST"]);
     expect(body.reason).toBe("Everflair Individual · 1 agenda — mensal");
@@ -398,9 +404,10 @@ describe("valor enviado ao Mercado Pago para contratos antigos", () => {
     const expected = terms(OLD_CONTRACTS[key].planCode, OLD_CONTRACTS[key].cycle, OLD_CONTRACTS[key].amountCents, OLD_CONTRACTS[key].agendaLimit);
     expect(change).toMatchObject({ kind: "CYCLE", state: "PREPARING", amountDueCents: 0, fromTerms: expected, toTerms: expected, periodEnd: PAID_THROUGH, effectiveAt: PAID_THROUGH });
 
-    await syncPlanChanges({ ...db.subs[0] } as any);
+    await syncPlanChanges({ ...db.subs[0] } as never);
     const replacement = db.subs.find((s: Row) => s.id !== SUB_ID);
     expect(replacement).toMatchObject({ amountCents: OLD_CONTRACTS[key].amountCents, catalogVersion: OLD, planCode: OLD_CONTRACTS[key].planCode, agendaLimit: OLD_CONTRACTS[key].agendaLimit, current: false });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dados do Prisma em memória têm formato dinâmico
     const body = vi.mocked(mp.mpRequest).mock.calls[0][2] as any;
     expect(body.reason).toBe(reason);
     expect(body.auto_recurring).toEqual({ frequency, frequency_type: "months", transaction_amount: amount, currency_id: "BRL", start_date: "2026-10-13T17:42:29.000Z" });
@@ -453,7 +460,7 @@ describe("projeções lidas dos dados persistidos", () => {
   it.each([["individualMonthly", 5990, 1], ["teamMax2Monthly", 17990, 12], ["teamMax2Annual", 172700, 12]] as [OldKey, number, number][])("effectiveEntitlement %s → priceCents %i, %i agendas", async (key, price, agendas) => {
     stubBillingEnv(true);
     const db = makeDb([oldSub(key)]);
-    const ent = await effectiveEntitlement(db.tx as any, SALON, "FREE");
+    const ent = await effectiveEntitlement(db.tx as never, SALON, "FREE");
     expect(ent.priceCents).toBe(price);
     expect(ent.maxProfessionals).toBe(agendas);
   });
@@ -467,7 +474,7 @@ describe("projeções lidas dos dados persistidos", () => {
   it("selo do cabeçalho mostra plano/capacidade do contrato antigo", async () => {
     stubBillingEnv(true);
     const db = makeDb([oldSub("teamMax2Monthly")]);
-    expect(await loadPlanBadge(db.tx as any, SALON, "Essencial")).toEqual({ plan: "Equipe · 12 agendas", status: "Ativo", tone: "ok" });
+    expect(await loadPlanBadge(db.tx as never, SALON, "Essencial")).toEqual({ plan: "Equipe · 12 agendas", status: "Ativo", tone: "ok" });
     expect(planBadgeFor(null, { plan: "INDIVIDUAL", agendaLimit: 1, state: "ACTIVE", renewal: "AVAILABLE", reviewRequired: false }).plan).toBe("Individual · 1 agenda");
   });
   it("GET /api/billing/subscriptions devolve R$ 59,90 persistido e o histórico com o valor cobrado", async () => {
@@ -580,7 +587,7 @@ describe("telas do assinante antigo", () => {
   it("portal: contratação pendente criada a R$ 59,90 e ainda não paga fica desatualizada — aviso no topo, card 'Escolhido' a R$ 39,90 e 'Atualizar para o novo preço' no lugar do checkout antigo", async () => {
     const checkout = "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_id=pre-old";
     const pendingView: SubscriptionView = { ...oldView, state: "UNPAID", paidThrough: null, nextPaymentAt: null, providerStatus: "pending", checkoutUrl: checkout, changesAvailable: true };
-    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => reply(pendingView));
+    const fetchMock = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async () => reply(pendingView));
     vi.stubGlobal("fetch", fetchMock);
     render(createElement(SubscriptionPortal, { salonId: SALON, email: "dona@example.test", timezone: "America/Sao_Paulo", occupiedAgendas: 1 }));
     expect(await screen.findByText(/59,90\/mês · cobrança mensal/)).toBeVisible();

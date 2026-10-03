@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- dados do Prisma em memória têm formato dinâmico
 const hoisted = vi.hoisted(() => ({ tx: null as any }));
 vi.mock("server-only", () => ({}));
 vi.mock("../prisma-tenant", () => ({
@@ -26,6 +27,7 @@ import { PlanPicker, type PlanTerms } from "@/components/billing/plan-picker";
 afterEach(() => { cleanup(); vi.unstubAllEnvs(); vi.clearAllMocks(); });
 
 const terms = (plan: string, cycle: string, amountCents: number, agendaLimit: number, catalogVersion = "2026-09-13") =>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dados do Prisma em memória têm formato dinâmico
   ({ plan, cycle, amountCents, agendaLimit, intervalMonths: cycle === "ANNUAL" ? 12 : 1, catalogVersion }) as any;
 
 describe("F3 — fronteira exata em que 'reduzir adicionais' antigos deixa de baratear", () => {

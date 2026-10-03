@@ -67,6 +67,7 @@ export function SignupForm({ initialSegment, planIntent, billingIntent, billingA
           redirect: false,
         });
         if (signInRes?.error) {
+          if (billingIntent && billingAvailable) rememberBillingIntent(billingIntent);
           setError("Conta criada, mas não foi possível entrar automaticamente. Use o login.");
           return;
         }
