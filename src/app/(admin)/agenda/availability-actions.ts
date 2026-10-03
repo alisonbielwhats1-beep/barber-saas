@@ -94,7 +94,7 @@ export async function blockAvailability(input: z.infer<typeof inputSchema>) {
 }
 
 const cancellationInput = z.object({
-  reason: z.string().trim().min(3).max(200),
+  reason: z.string().trim().max(200).optional(),
   appointments: z.array(z.object({ id: z.string().min(1), version: z.number().int().positive(), requestId: z.string().uuid() })).min(1).max(100),
 });
 
@@ -108,7 +108,7 @@ export async function cancelSelectedAppointments(input: z.infer<typeof cancellat
     try {
       await withTenant(ctx, async tx => {
         const user = await tx.user.findUnique({ where: { id: ctx.userId }, select: { name: true } });
-        await updateAppointmentStatusReliably(tx, { salonId: ctx.salonId, appointmentId: appointment.id, expectedVersion: appointment.version, idempotencyKey: appointment.requestId, status: "CANCELLED", reason: data.reason, actor: { type: "STAFF", id: ctx.userId, name: user?.name ?? "Equipe" } });
+        await updateAppointmentStatusReliably(tx, { salonId: ctx.salonId, appointmentId: appointment.id, expectedVersion: appointment.version, idempotencyKey: appointment.requestId, status: "CANCELLED", reason: data.reason || undefined, actor: { type: "STAFF", id: ctx.userId, name: user?.name ?? "Equipe" } });
       });
       results.push({ id: appointment.id, success: true });
     } catch {

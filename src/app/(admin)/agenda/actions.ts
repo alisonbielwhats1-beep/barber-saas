@@ -296,12 +296,12 @@ export async function updateAppointmentStatus(
 
 export async function cancelAppointment(
   id: string,
-  reason: string,
+  reason: string | undefined,
   idempotencyKey: string,
   expectedVersion?: number,
 ): Promise<ActionResult> {
   return updateAppointmentStatus(id, "CANCELLED", {
-    reason,
+    reason: reason?.trim() || undefined,
     idempotencyKey,
     expectedVersion,
   });
