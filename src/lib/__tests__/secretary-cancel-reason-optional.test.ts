@@ -117,6 +117,18 @@ describe("flag on: the Secretária never asks for a cancellation reason", () => 
     expect(r.scheduling.fields.reason).toBe("ela viajou");
     expect(r.scheduling.proposal!.preview).toContain("Motivo: ela viajou");
   });
+  it("with the local demo's candidate flags too (c4pair, without the DB-backed persisted state)", async () => {
+    for (const [name, value] of Object.entries({ SALON_SECRETARY_TEMPORAL_COMPONENTS: "true", SALON_SECRETARY_TEMPORAL_POLARITY: "true", SALON_SECRETARY_SAME_AS: "true",
+      SALON_SECRETARY_JIT_INSTRUCTIONS: "true", SALON_SECRETARY_STRUCTURED_CONTEXT: "true", SALON_SECRETARY_NAME_SUGGESTIONS: "true", SALON_SECRETARY_CUSTOMER_OVERLAP_GUARD: "true",
+      SALON_SECRETARY_EXAMPLES: "selected", SALON_SECRETARY_SCHEDULING_OVERLAP_ENABLED: "true", SALON_SECRETARY_MULTI_ACTION_V2_ENABLED: "true", SALON_SECRETARY_DATE_RULES_V2: "true",
+      SALON_SECRETARY_DAYPART_RULES_V2: "true", SALON_SECRETARY_DAYPART_BY_HOURS: "true", SALON_SECRETARY_ALTER_APPOINTMENT: "true", SALON_SECRETARY_MULTI_SERVICE: "true",
+      SALON_SECRETARY_EXCEPTION_RULES_V2: "true", SALON_SECRETARY_COPY_V2: "true", SALON_SECRETARY_REFERENCES_V2: "true", SALON_SECRETARY_READS_V2: "true",
+      SALON_SECRETARY_RECURRENCE_GUARD: "true", SALON_SECRETARY_EXAMPLES_V2: "true", SALON_SECRETARY_COMBO_GUARD: "true", SALON_SECRETARY_BLOCK_OVERLAP_GUARD: "true",
+      SALON_SECRETARY_STALE_PROPOSAL_GUARD: "true", SALON_SECRETARY_WHOLE_NAME_MATCH: "true", SALON_SECRETARY_PROMPT_CACHE: "true", SALON_SECRETARY_DAYPART_ASK_WIDE: "true" })) vi.stubEnv(name, value);
+    const r = await run("cancela o horário da Iara");
+    expect(r.action.status).toBe("READY_FOR_CONFIRMATION"); expect(r.view.message).not.toMatch(/motivo/i);
+    expect(r.scheduling.proposal!.preview).not.toContain("Motivo");
+  });
   it("a reason the message does not say is dropped: never stored, never asked", async () => {
     const r = await run("cancela o horário da Iara", "problema de saúde");
     expect(r.action.status).toBe("READY_FOR_CONFIRMATION");
