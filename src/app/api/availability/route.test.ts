@@ -25,6 +25,15 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe("horários publicados ao cliente", () => {
+  it("só oferece fila de atendimento que ainda não começou", async () => {
+    vi.setSystemTime(new Date("2030-09-11T13:00:00Z")); // 10:00 no salão
+    mocks.tx.appointment.findMany.mockResolvedValue([
+      { id: "started", startAt: new Date("2030-09-11T12:00:00Z"), endAt: new Date("2030-09-11T14:00:00Z") },
+      { id: "later", startAt: new Date("2030-09-11T18:00:00Z"), endAt: new Date("2030-09-11T19:00:00Z") },
+    ]);
+    const data = await (await request()).json();
+    expect(data.occupied).toEqual([{ appointmentId: "later", time: "15:00" }]);
+  });
   it("exclui somente a própria reserva e recurso durante remarcação autenticada", async () => {
     mocks.session.mockResolvedValue({ clientId: "client-a", salonId: "salon-a" });
     mocks.resolve.mockResolvedValue({ clientId: "client-a" });

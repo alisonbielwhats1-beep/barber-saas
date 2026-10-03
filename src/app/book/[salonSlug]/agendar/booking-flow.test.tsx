@@ -29,11 +29,28 @@ function deferredResponse(): DeferredResponse {
   return { promise, resolve };
 }
 
-function availability(slots: string[]) {
-  return new Response(JSON.stringify({ slots, popularSlot: null, occupied: [] }), {
+function availability(
+  slots: string[],
+  occupied: Array<{ appointmentId: string; time: string }> = [],
+) {
+  return new Response(JSON.stringify({ slots, popularSlot: null, occupied }), {
     status: 200,
     headers: { "Content-Type": "application/json" },
   });
+}
+
+const DEFAULT_DAYS = { freeDays: ["2026-08-13", "2026-08-14", "2026-08-15"], waitlistDays: [] as string[] };
+
+/** A consulta dos dias do calendário responde à parte; `fetcher` recebe as demais chamadas. */
+function stubFetch(
+  fetcher: (input: RequestInfo | URL, init?: RequestInit) => unknown,
+  days: unknown = DEFAULT_DAYS,
+  daysStatus = 200,
+) {
+  const daysFetcher = vi.fn(async () => new Response(JSON.stringify(days), { status: daysStatus }));
+  vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) =>
+    String(input).startsWith("/api/availability/days") ? daysFetcher() : fetcher(input, init));
+  return daysFetcher;
 }
 
 const professional = {
@@ -100,7 +117,7 @@ afterEach(() => {
 describe("BookingFlow availability", () => {
   it("consulta horários sem conta e pede login antes de confirmar, preservando a escolha", async () => {
     const fetcher = vi.fn().mockResolvedValue(availability(["10:00"]));
-    vi.stubGlobal("fetch", fetcher);
+    stubFetch(fetcher);
     const user = userEvent.setup();
     render(<BookingFlow {...baseProps} clientSession={null} />);
     await user.click(await screen.findByRole("button", { name: "Horário 10:00" }));
@@ -118,7 +135,7 @@ describe("BookingFlow availability", () => {
 
   it("revalida o horário recebido pelo retorno do login mesmo sem storage", async () => {
     const response = deferredResponse();
-    vi.stubGlobal("fetch", vi.fn().mockReturnValue(response.promise));
+    stubFetch(vi.fn().mockReturnValue(response.promise));
     render(<BookingFlow {...baseProps} initialProId="pro-1" initialDateKey="2026-08-13" initialSlot="10:00" />);
     expect(screen.getByRole("button", { name: "Revisar reserva" })).toBeDisabled();
     response.resolve(availability(["11:00"]));
@@ -131,7 +148,7 @@ describe("BookingFlow availability", () => {
     const fetcher = vi.fn()
       .mockImplementationOnce(() => first.promise)
       .mockImplementationOnce(() => second.promise);
-    vi.stubGlobal("fetch", fetcher);
+    stubFetch(fetcher);
     const user = userEvent.setup();
 
     render(<BookingFlow {...baseProps} />);
@@ -162,7 +179,7 @@ describe("BookingFlow availability", () => {
     const fetcher = vi.fn()
       .mockImplementationOnce(() => first.promise)
       .mockImplementationOnce(() => second.promise);
-    vi.stubGlobal("fetch", fetcher);
+    stubFetch(fetcher);
     const user = userEvent.setup();
 
     render(<BookingFlow {...baseProps} />);
@@ -195,7 +212,7 @@ describe("BookingFlow availability", () => {
     const fetcher = vi.fn()
       .mockImplementationOnce(() => first.promise)
       .mockImplementationOnce(() => second.promise);
-    vi.stubGlobal("fetch", fetcher);
+    stubFetch(fetcher);
     const user = userEvent.setup();
     const propsWithTwoProfessionals = {
       ...baseProps,
@@ -234,7 +251,7 @@ describe("BookingFlow availability", () => {
       .mockResolvedValueOnce(new Response(JSON.stringify({ error: "FAIL" }), { status: 500 }))
       .mockResolvedValueOnce(availability(["09:00"]))
       .mockResolvedValueOnce(availability(["10:00"]));
-    vi.stubGlobal("fetch", fetcher);
+    stubFetch(fetcher);
     const user = userEvent.setup();
 
     render(<BookingFlow {...baseProps} />);
@@ -264,7 +281,7 @@ describe("BookingFlow availability", () => {
     const fetcher = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ error: "FAIL" }), { status: 500 }))
       .mockResolvedValueOnce(availability(["10:00"]));
-    vi.stubGlobal("fetch", fetcher);
+    stubFetch(fetcher);
     const user = userEvent.setup();
 
     render(<BookingFlow {...baseProps} />);
@@ -285,7 +302,7 @@ describe("BookingFlow availability", () => {
         headers: { "Retry-After": "2" },
       }))
       .mockResolvedValueOnce(availability(["09:00"]));
-    vi.stubGlobal("fetch", fetcher);
+    stubFetch(fetcher);
     render(<BookingFlow {...baseProps} />);
     await act(async () => { await Promise.resolve(); });
     await act(async () => { await Promise.resolve(); });
@@ -325,7 +342,7 @@ describe("BookingFlow availability", () => {
         headers: { "Retry-After": "3" },
       }))
       .mockResolvedValueOnce(availability(["09:00"]));
-    vi.stubGlobal("fetch", fetcher);
+    stubFetch(fetcher);
     render(<BookingFlow {...baseProps} />);
     await act(async () => { await Promise.resolve(); });
     await act(async () => { await Promise.resolve(); });
@@ -362,7 +379,7 @@ describe("BookingFlow availability", () => {
         headers: { "Retry-After": "2" },
       }))
       .mockResolvedValueOnce(availability(["10:00"]));
-    vi.stubGlobal("fetch", fetcher);
+    stubFetch(fetcher);
     render(<BookingFlow {...baseProps} />);
     await act(async () => { await Promise.resolve(); });
     await act(async () => { await Promise.resolve(); });
@@ -395,7 +412,7 @@ describe("BookingFlow availability", () => {
         headers: { "Retry-After": "30" },
       }),
     );
-    vi.stubGlobal("fetch", fetcher);
+    stubFetch(fetcher);
 
     const view = render(<BookingFlow {...baseProps} />);
     await act(async () => { await Promise.resolve(); });
@@ -425,5 +442,75 @@ describe("Preço variável na revisão", () => {
     expect(screen.getByText("O valor final pode ser maior")).toBeVisible();
     expect(screen.getAllByText(/Varia conforme o comprimento/).length).toBeGreaterThan(0);
     expect(screen.getByText("Total a partir de")).toBeVisible();
+  });
+});
+
+describe("BookingFlow — calendário com dias disponíveis", () => {
+  const dayButton = (name: RegExp) => screen.getByRole("button", { name });
+
+  it("abre no primeiro dia com horário livre e desativa dias sem atendimento", async () => {
+    const fetcher = vi.fn().mockImplementation(async () => availability(["10:00"]));
+    stubFetch(fetcher, { freeDays: ["2026-08-15", "2026-08-18"], waitlistDays: ["2026-08-14"] });
+    render(<BookingFlow {...baseProps} />);
+
+    await waitFor(() => expect(dayButton(/^sábado, 15 de agosto de 2026$/i)).toHaveAttribute("aria-pressed", "true"));
+    expect(dayButton(/^quinta-feira, 13 de agosto de 2026, sem horários$/i)).toBeDisabled();
+    expect(dayButton(/^segunda-feira, 17 de agosto de 2026, sem horários$/i)).toBeDisabled();
+    expect(dayButton(/^sexta-feira, 14 de agosto de 2026, lotado, só fila de espera$/i)).toBeEnabled();
+    expect(screen.getByText("Dia lotado: dá para entrar na fila de espera.")).toBeInTheDocument();
+    await waitFor(() => expect(String(fetcher.mock.calls.at(-1)?.[0])).toContain("date=2026-08-15"));
+    expect(await screen.findByRole("button", { name: "Horário 10:00" })).toBeInTheDocument();
+  });
+
+  it("mantém o dia lotado escolhido pelo link para o cliente entrar na fila", async () => {
+    const fetcher = vi.fn().mockImplementation(async () => availability([], [{ appointmentId: "appt-1", time: "09:00" }]));
+    const daysFetcher = stubFetch(fetcher, { freeDays: ["2026-08-15"], waitlistDays: ["2026-08-14"] });
+    render(<BookingFlow {...baseProps} initialProId="pro-1" initialDateKey="2026-08-14" />);
+
+    await waitFor(() => expect(daysFetcher).toHaveBeenCalled());
+    expect(await screen.findByText(/Dia lotado. Entre na fila/)).toBeInTheDocument();
+    expect(dayButton(/sexta-feira, 14 de agosto de 2026/i)).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "09:00" })).toBeInTheDocument();
+    expect(fetcher.mock.calls.every(([url]) => String(url).includes("date=2026-08-14"))).toBe(true);
+  });
+
+  it("deixa o cliente voltar a um dia lotado para ver a fila", async () => {
+    const fetcher = vi.fn().mockImplementation(async (url: string) =>
+      url.includes("date=2026-08-14")
+        ? availability([], [{ appointmentId: "appt-1", time: "09:00" }])
+        : availability(["10:00"]));
+    stubFetch(fetcher, { freeDays: ["2026-08-15"], waitlistDays: ["2026-08-14"] });
+    const user = userEvent.setup();
+    render(<BookingFlow {...baseProps} />);
+
+    expect(await screen.findByRole("button", { name: "Horário 10:00" })).toBeInTheDocument();
+    await user.click(dayButton(/sexta-feira, 14 de agosto de 2026/i));
+    expect(await screen.findByRole("button", { name: "09:00" })).toBeInTheDocument();
+    expect(dayButton(/sexta-feira, 14 de agosto de 2026/i)).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("troca de mês quando o primeiro dia livre fica no mês seguinte", async () => {
+    stubFetch(vi.fn().mockImplementation(async () => availability(["10:00"])), { freeDays: ["2026-09-02"], waitlistDays: [] });
+    render(<BookingFlow {...baseProps} todayDate="2026-08-30" />);
+
+    await waitFor(() => expect(dayButton(/quarta-feira, 2 de setembro de 2026/i)).toHaveAttribute("aria-pressed", "true"));
+    expect(screen.getByText("setembro")).toBeInTheDocument();
+  });
+
+  it("avisa quando não há horário livre em toda a janela", async () => {
+    stubFetch(vi.fn().mockImplementation(async () => availability([])), { freeDays: [], waitlistDays: [] });
+    render(<BookingFlow {...baseProps} />);
+
+    expect(await screen.findByText(/Sem horários livres até/)).toBeInTheDocument();
+    expect(dayButton(/sexta-feira, 14 de agosto de 2026, sem horários/i)).toBeDisabled();
+  });
+
+  it("se a consulta dos dias falhar, mantém os dias da janela clicáveis", async () => {
+    stubFetch(vi.fn().mockImplementation(async () => availability(["10:00"])), { error: "FAIL" }, 500);
+    render(<BookingFlow {...baseProps} />);
+
+    expect(await screen.findByRole("button", { name: "Horário 10:00" })).toBeInTheDocument();
+    expect(dayButton(/^segunda-feira, 17 de agosto de 2026$/i)).toBeEnabled();
+    expect(dayButton(/quinta-feira, 13 de agosto de 2026/i)).toHaveAttribute("aria-pressed", "true");
   });
 });

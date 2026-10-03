@@ -1,5 +1,18 @@
 # Decisões de produto para as próximas fases
 
+## 03/10/2026 — calendário do cliente abre no primeiro dia com vaga
+
+Pedido do responsável: ao marcar um horário, o calendário do cliente abre no
+**primeiro dia com pelo menos um horário livre**, não em um dia que só tem fila.
+Dias sem atendimento (folga semanal como a segunda-feira, fechamento, folga do
+profissional, jornada já encerrada) ficam desativados. Dia **lotado que só tem
+fila continua clicável**: o cliente pode voltar nele e entrar na fila de um
+horário ocupado; ele recebe um ponto âmbar e a legenda "Dia lotado". Uma data
+escolhida pelo cliente ou vinda de link/retorno do login é mantida se tiver
+vaga ou, no caso de dia lotado, fila. Se a consulta dos dias falhar, o
+calendário volta a deixar toda a janela clicável. A tela de vários serviços
+na mesma reserva fica para uma etapa seguinte.
+
 ## 03/10/2026 — fila de espera atendida em outro horário
 
 Pedido do dono (áudio de 30/09): quem está na fila de um horário ocupado pode ser
