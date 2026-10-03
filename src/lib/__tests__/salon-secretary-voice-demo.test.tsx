@@ -207,4 +207,21 @@ describe('nothing hangs', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('A transcrição demorou demais');
     expect(mocks.send).not.toHaveBeenCalled();
   });
+  it('a wait shows how long it has lasted from the 2nd second: transcribing, then preparing the reply', async () => {
+    vi.useFakeTimers();
+    microphone(); mocks.start.mockResolvedValue({ ok: true, state: { sessionId: 'session', cancelled: false, message: 'Como posso ajudar?' } });
+    let transcribed: (reply: { ok: true; text: string }) => void = () => undefined;
+    mocks.transcribe.mockReturnValue(new Promise(resolve => { transcribed = resolve; })); mocks.send.mockReturnValue(new Promise(() => undefined));
+    render(<SecretaryChat voiceEnabled transcribeEnabled />);
+    await act(async () => { screen.getByRole('button', { name: 'Falar com a Secretária' }).click(); });
+    await act(async () => { screen.getByRole('button', { name: 'Enviar' }).click(); });
+    await act(async () => { vi.advanceTimersByTime(1_000); });
+    expect(screen.getByRole('status')).toHaveTextContent(/^Transcrevendo…$/);
+    await act(async () => { vi.advanceTimersByTime(2_000); });
+    expect(screen.getByRole('status')).toHaveTextContent('Transcrevendo… 3 s');
+    await act(async () => { transcribed({ ok: true, text: 'oi' }); });
+    expect(mocks.send).toHaveBeenCalledWith({ sessionId: 'session', message: 'oi' });
+    await act(async () => { vi.advanceTimersByTime(2_000); });
+    expect(screen.getByRole('status')).toHaveTextContent('Entendendo e preparando… 2 s');
+  });
 });

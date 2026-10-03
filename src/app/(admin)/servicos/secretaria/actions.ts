@@ -163,12 +163,19 @@ export type TranscriptionReply = { ok: true; text: string } | { ok: false; error
 export async function transcribeSecretaryVoice(form: FormData): Promise<TranscriptionReply> {
   const transcription = await import("@/lib/secretary-transcribe");
   if (!transcription.transcribeEnabled()) return { ok: false, code: "TRANSCRIBE_DISABLED", error: "A transcrição da Secretária está desligada. Você pode digitar." };
+  // Owner, 03/10 ("demora para transcrever"): how long each step took, in numbers only (never the audio or its text).
+  const started = performance.now(), timing: Record<string, number> = {};
+  const timed = async <T,>(stage: string, work: () => Promise<T>) => {
+    const at = performance.now();
+    try { return await work(); } finally { timing[stage] = Math.round(performance.now() - at); }
+  };
   try {
-    const actor = await context();
+    const actor = await timed("auth_ms", context);
     const seconds = Number(form.get("seconds")), { withTenant } = await import("@/lib/prisma-tenant");
-    return { ok: true, ...(await transcription.transcribeSecretaryAudio({ audio: form.get("audio"), seconds, directory: await voiceVocabulary(actor),
-      reserve: reservation => withTenant(actor, tx => transcription.reserveTranscriptionBudget(tx, actor, reservation)),
-      settle: settlement => withTenant(actor, tx => transcription.settleTranscriptionUsage(tx, actor, settlement)) })) };
+    const directory = await timed("vocabulary_ms", () => voiceVocabulary(actor));
+    return { ok: true, ...(await timed("pipeline_ms", () => transcription.transcribeSecretaryAudio({ audio: form.get("audio"), seconds, directory,
+      reserve: reservation => timed("reserve_ms", () => withTenant(actor, tx => transcription.reserveTranscriptionBudget(tx, actor, reservation))),
+      settle: settlement => timed("settle_ms", () => withTenant(actor, tx => transcription.settleTranscriptionUsage(tx, actor, settlement))) }))) };
   } catch (error) {
     const code = voiceCode(error);
     console.error("SECRETARY_TRANSCRIBE_REJECTED", code);
@@ -180,5 +187,11 @@ export async function transcribeSecretaryVoice(form: FormData): Promise<Transcri
       TRANSCRIBE_DISABLED: "A transcrição da Secretária está desligada. Você pode digitar.",
     };
     return { ok: false, code, error: messages[code] ?? "Não foi possível transcrever. Seu texto foi preservado; você pode digitar." };
+  } finally {
+    const audio = form.get("audio"), pipeline = timing.pipeline_ms;
+    // The provider's share is the pipeline minus the two budget transactions (the local checks take well under 1 ms).
+    console.info("SECRETARY_TRANSCRIBE_TIMING", JSON.stringify({ ...timing,
+      ...(pipeline === undefined ? {} : { provider_ms: pipeline - (timing.reserve_ms ?? 0) - (timing.settle_ms ?? 0) }),
+      total_ms: Math.round(performance.now() - started), audio_bytes: audio instanceof Blob ? audio.size : 0, seconds: Number(form.get("seconds")) || 0 }));
   }
 }

@@ -98,4 +98,23 @@ describe("server actions (flags default off)", () => {
     await expect(call.reserve({ worstCaseMicroUsd: 20_000, budgetMicroUsd: 100_000, model: "gpt-4o-mini-transcribe", bytes: 1, salons: ["other-salon"] })).rejects.toThrow("TRANSCRIBE_DISABLED");
     expect(mocks.tenant).toHaveBeenLastCalledWith({ salonId: "authenticated-salon", userId: "authenticated-user" });
   });
+  it("each transcription logs how long its steps took, in numbers only (never the audio or the text)", async () => {
+    vi.stubEnv("SALON_SECRETARY_TRANSCRIBE_ENABLED", "true");
+    const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    mocks.transcribe.mockImplementation(async (input: { reserve: (r: object) => Promise<unknown> }) => {
+      await input.reserve({ worstCaseMicroUsd: 1, budgetMicroUsd: 2, model: "gpt-4o-mini-transcribe", bytes: 3, salons: ["other-salon"] }).catch(() => undefined);
+      return { text: "remarca a Joana Prado" };
+    });
+    const form = new FormData(); form.set("audio", new Blob(["abc"], { type: "audio/webm" })); form.set("seconds", "2.5");
+    expect(await transcribeSecretaryVoice(form)).toEqual({ ok: true, text: "remarca a Joana Prado" });
+    mocks.transcribe.mockRejectedValueOnce(Error("TRANSCRIBE_EMPTY"));
+    expect(await transcribeSecretaryVoice(form)).toMatchObject({ ok: false, code: "TRANSCRIBE_EMPTY" });
+    const logs = info.mock.calls.filter(call => call[0] === "SECRETARY_TRANSCRIBE_TIMING").map(call => JSON.parse(String(call[1])));
+    expect(logs).toHaveLength(2);
+    expect(Object.keys(logs[0]).sort()).toEqual(["audio_bytes", "auth_ms", "pipeline_ms", "provider_ms", "reserve_ms", "seconds", "total_ms", "vocabulary_ms"]);
+    for (const log of logs) expect(Object.values(log).every(value => typeof value === "number")).toBe(true);
+    expect(logs[0]).toMatchObject({ audio_bytes: 3, seconds: 2.5 });
+    expect(JSON.stringify(info.mock.calls)).not.toMatch(/Joana|Rodrigo|Corte/);
+    info.mockRestore();
+  });
 });

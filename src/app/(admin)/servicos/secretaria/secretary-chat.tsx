@@ -71,6 +71,19 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
   /** Owner, 03/10: Enter (or Enviar) while speaking stops, transcribes and sends at once; the reply comes below. "Parar" still
    * leaves the transcript in the box for review. Nothing is ever confirmed by voice. */
   const sendAfterVoice = useRef(false);
+  /** Owner, 03/10: a wait is visible. From the 2nd second the status shows how long the current wait has lasted (transcribing,
+   * preparing, executing), so a slow step is seen, not guessed. */
+  const waiting = voice.phase === 'processing' ? 'voice' : busy;
+  const [waitSince, setWaitSince] = useState<number>();
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!waiting) { setWaitSince(undefined); return; }
+    setWaitSince(Date.now());
+    const timer = setInterval(() => setTick(tick => tick + 1), 1000);
+    return () => clearInterval(timer);
+  }, [waiting]);
+  const waited = waitSince ? Math.floor((Date.now() - waitSince) / 1000) : 0;
+  const seconds = waited >= 2 ? ` ${waited} s` : '';
   const closed = state?.cancelled || (state?.skill === 'auto' ? false : Boolean(state &&
     (state.operations?.length ? state.operations.every(op => receiptOf(op.state) || op.state.cancelled || op.state.financial?.status === 'DONE' || op.state.inventory?.status === 'DONE') : receiptOf(state))));
   const confirmationSuppressed = ['UNSUPPORTED','AMBIGUOUS','BLOCKED','CONVERSATION'].includes(state?.capability_status ?? '');
@@ -259,7 +272,7 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
   // The recorder counts its time ("Ouvindo… 0:12") and says when it stopped at its time or size limit.
   const elapsed = transcribeEnabled ? ` ${Math.floor(recorder.elapsed / 60)}:${String(recorder.elapsed % 60).padStart(2, '0')}` : '';
   const limited = transcribeEnabled && recorder.limited;
-  const status = busy === 'executing' ? 'Executando…' : busy ? 'Entendendo e preparando…' : voice.phase === 'requesting' ? 'Permita o microfone no aviso do navegador para começar.' : voice.phase === 'listening' ? `Ouvindo…${elapsed} Enviar (ou Enter) manda; Esc cancela.` : voice.phase === 'processing' ? 'Transcrevendo…' : voice.phase === 'ready' && message ? limited ? 'A gravação chegou ao limite e foi encerrada. Revise antes de enviar.' : 'Transcrição pronta. Revise antes de enviar.' : uncertain ? 'Resultado ainda não verificado' : state?.cancelled ? 'Conversa encerrada' : state?.action_plan?.status === 'PARTIAL_FAILURE' ? 'Revise o resultado de cada ação' : closed ? 'Resultado confirmado pelo sistema' : expiryVisible ? 'Proposta expirada. Envie uma mensagem para preparar novamente.' : dirty && hasProposal ? 'Proposta anterior desatualizada' : hasProposal ? 'Confira antes de confirmar' : 'Fale ou escreva o que precisa';
+  const status = busy === 'executing' ? `Executando…${seconds}` : busy ? `Entendendo e preparando…${seconds}` : voice.phase === 'requesting' ? 'Permita o microfone no aviso do navegador para começar.' : voice.phase === 'listening' ? `Ouvindo…${elapsed} Enviar (ou Enter) manda; Esc cancela.` : voice.phase === 'processing' ? `Transcrevendo…${seconds}` : voice.phase === 'ready' && message ? limited ? 'A gravação chegou ao limite e foi encerrada. Revise antes de enviar.' : 'Transcrição pronta. Revise antes de enviar.' : uncertain ? 'Resultado ainda não verificado' : state?.cancelled ? 'Conversa encerrada' : state?.action_plan?.status === 'PARTIAL_FAILURE' ? 'Revise o resultado de cada ação' : closed ? 'Resultado confirmado pelo sistema' : expiryVisible ? 'Proposta expirada. Envie uma mensagem para preparar novamente.' : dirty && hasProposal ? 'Proposta anterior desatualizada' : hasProposal ? 'Confira antes de confirmar' : 'Fale ou escreva o que precisa';
 
   // B4: a backend-offered time slot is applied as a short answer and prepared again; it never confirms.
   function pickSlot(option: string, operation: string) {
