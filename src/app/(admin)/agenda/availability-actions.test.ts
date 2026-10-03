@@ -112,6 +112,11 @@ describe("availability operations", () => {
     expect(result).toMatchObject([{ id: "a", success: true }, { id: "b", success: false }]);
     expect(mocks.update).toHaveBeenCalledWith(mocks.tx, expect.objectContaining({ salonId: "salon-a", expectedVersion: 2, status: "CANCELLED" }));
   });
+  it.each([undefined, "", "   "])("cancela em lote sem motivo (%j) e não grava texto vazio", async reason => {
+    mocks.update.mockResolvedValueOnce({});
+    expect(await cancelSelectedAppointments({ reason, appointments: [{ id: "a", version: 1, requestId: input.id }] })).toMatchObject([{ id: "a", success: true }]);
+    expect(mocks.update).toHaveBeenCalledWith(mocks.tx, expect.objectContaining({ status: "CANCELLED", reason: undefined }));
+  });
 });
 
 const existingBlock = { id: "block-a", professionalId: "pro-a", startAt: new Date("2026-09-12T13:30:00Z"), endAt: new Date("2026-09-12T23:00:00Z"), reason: "Ausência" };

@@ -62,6 +62,8 @@ import { SeriesEditor } from "./series-editor";
 import { CarePanel } from "./care-panel";
 
 const HISTORY_PREVIEW_COUNT = 3;
+/** Stable ref callback: focuses an element once, when it mounts (no keyboard pops up on phones). */
+const focusOnMount = (node: HTMLElement | null) => node?.focus();
 
 const ACTION_ICON: Record<string, typeof Check> = {
   CONFIRMED: Check,
@@ -797,9 +799,9 @@ export function AppointmentDetail({
               {/* Cancel */}
               {isMutable && canCancel && (cancelMode ? (
                 <div className="mt-3 space-y-2 rounded-lg border border-danger/40 bg-danger/5 p-3">
-                  <h3 className="text-base font-semibold">Cancelar este agendamento?</h3><p className="text-sm">{appt.clientName} · {whenLabel}<br />{professionalName} · {appt.serviceName}</p>{error && <p role="alert" className="text-sm text-danger">{error}</p>}
+                  <h3 ref={focusOnMount} tabIndex={-1} className="text-base font-semibold focus:outline-none">Cancelar este agendamento?</h3><p className="text-sm">{appt.clientName} · {whenLabel}<br />{professionalName} · {appt.serviceName}</p>{error && <p role="alert" className="text-sm text-danger">{error}</p>}
                   <label className="block text-[12px] font-medium text-danger" htmlFor="cancel-reason">
-                    Motivo do cancelamento
+                    Motivo do cancelamento (opcional)
                   </label>
                   <textarea
                     id="cancel-reason" disabled={pending}
@@ -810,9 +812,8 @@ export function AppointmentDetail({
                     }}
                     rows={3}
                     maxLength={500}
-                    autoFocus
                     className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                    placeholder="Explique o motivo para o histórico e para o cliente"
+                    placeholder="Opcional: fica no histórico e aparece para o cliente"
                   />
                   <p className="text-[11px] text-muted-foreground">
                     O registro será preservado, o horário liberado e o cliente do agendamento notificado.
@@ -832,12 +833,12 @@ export function AppointmentDetail({
                     </button>
                     <button
                       type="button"
-                      disabled={pending || cancelReason.trim().length < 3}
+                      disabled={pending}
                       onClick={() =>
                         run(() =>
                           cancelAppointment(
                             appt.id,
-                            cancelReason.trim(),
+                            cancelReason.trim() || undefined,
                             mutationKey("cancel"),
                             appt.version,
                           ),

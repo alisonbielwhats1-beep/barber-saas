@@ -895,6 +895,35 @@ describePostgres("concorrência real de agendamentos", () => {
     })).toBe(1);
   });
 
+  it("equipe cancela sem motivo: libera o horário, grava motivo nulo e repete sem duplicar", async () => {
+    const data = await fixture();
+    const actor = { type: "STAFF" as const, id: data.professionalUserId, name: "Dono CI" };
+    const now = new Date("2032-08-01T12:00:00.000Z");
+    const book = (clientId: string) => withSalon(data.salonId, (tx) =>
+      createAppointment(tx, {
+        salonId: data.salonId, clientId, professionalId: data.professionalId, serviceIds: [data.serviceId],
+        startLocal: "2032-08-05T10:00", origin: "ADMIN", actor, idempotencyKey: crypto.randomUUID(), enforceBookingWindow: false, now,
+      }));
+    const created = await book(data.clients[0]!.id);
+    for (const reason of [undefined, "", "   "]) {
+      const cancel = { salonId: data.salonId, appointmentId: created.appointment.id, status: "CANCELLED" as const, actor,
+        idempotencyKey: `${created.appointment.id}:sem-motivo`, expectedVersion: 1, reason, now };
+      const result = await withSalon(data.salonId, (tx) => updateAppointmentStatusReliably(tx, cancel));
+      expect(result.duplicate).toBe(reason !== undefined);
+    }
+
+    await expect(prisma.appointment.findUniqueOrThrow({
+      where: { id: created.appointment.id },
+      select: { status: true, cancelledReason: true, cancelledByType: true, version: true },
+    })).resolves.toEqual({ status: "CANCELLED", cancelledReason: null, cancelledByType: "STAFF", version: 2 });
+    const events = await withSalon(data.salonId, (tx) => tx.appointmentEvent.findMany({
+      where: { salonId: data.salonId, appointmentId: created.appointment.id, eventType: "CANCELLED" },
+      select: { reason: true, actorType: true },
+    }));
+    expect(events).toEqual([{ reason: null, actorType: "STAFF" }]);
+    await expect(book(data.clients[1]!.id)).resolves.toMatchObject({ duplicate: false });
+  });
+
   it("trata a fila do horário antigo na remarcação e mantém tudo intacto se o destino conflitar", async () => {
     const data = await fixture();
     const original = await withSalon(data.salonId, (tx) =>

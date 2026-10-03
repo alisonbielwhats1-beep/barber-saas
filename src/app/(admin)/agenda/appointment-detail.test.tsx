@@ -3,8 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { Appointment } from "./agenda-board";
 
-const mocks = vi.hoisted(() => ({ edit: vi.fn(), close: vi.fn() }));
-vi.mock("./actions", () => ({ editAppointment: mocks.edit }));
+const mocks = vi.hoisted(() => ({ edit: vi.fn(), cancel: vi.fn(), close: vi.fn() }));
+vi.mock("./actions", () => ({ editAppointment: mocks.edit, cancelAppointment: mocks.cancel }));
 vi.mock("./comanda-panel", () => ({ ComandaPanel: () => null }));
 vi.mock("./care-panel", () => ({ CarePanel: () => null }));
 vi.mock("./series-editor", () => ({ SeriesEditor: () => null }));
@@ -117,4 +117,32 @@ it("mantém confirmações independentes de término e encaixe e invalida após 
   await waitFor(() => expect(mocks.edit).toHaveBeenCalledTimes(4));
   expect(mocks.edit.mock.calls[3][0]).not.toHaveProperty("overbookReason");
   expect(mocks.edit.mock.calls[3][0]).not.toHaveProperty("scheduleOverrideReason");
+});
+
+describe("cancelamento com motivo opcional", () => {
+  function openCancel() {
+    render(<AppointmentDetail appt={appt} salonName="Salão fictício" timezone="America/Sao_Paulo" canCreate canCancel onClose={mocks.close} />);
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar agendamento" }));
+  }
+  it("confirma sem motivo e sem focar o campo (o teclado não sobe no celular)", async () => {
+    mocks.cancel.mockResolvedValue({ success: true });
+    openCancel();
+    const reason = screen.getByLabelText("Motivo do cancelamento (opcional)");
+    expect(reason).toHaveValue("");
+    expect(reason).not.toHaveFocus();
+    expect(screen.getByRole("heading", { name: "Cancelar este agendamento?" })).toHaveFocus();
+    const confirm = screen.getByRole("button", { name: "Confirmar cancelamento" });
+    expect(confirm).toBeEnabled();
+    fireEvent.click(confirm);
+    await waitFor(() => expect(mocks.cancel).toHaveBeenCalledOnce());
+    expect(mocks.cancel.mock.calls[0]).toEqual(["a", undefined, expect.any(String), 1]);
+  });
+  it("envia o motivo digitado sem espaços nas pontas", async () => {
+    mocks.cancel.mockResolvedValue({ success: true });
+    openCancel();
+    fireEvent.change(screen.getByLabelText("Motivo do cancelamento (opcional)"), { target: { value: "  Imprevisto da cliente  " } });
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar cancelamento" }));
+    await waitFor(() => expect(mocks.cancel).toHaveBeenCalledOnce());
+    expect(mocks.cancel.mock.calls[0][1]).toBe("Imprevisto da cliente");
+  });
 });

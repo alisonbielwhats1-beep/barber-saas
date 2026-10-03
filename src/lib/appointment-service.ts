@@ -1395,7 +1395,7 @@ export async function cancelAppointmentReliably(
 ): Promise<AppointmentMutationResult> {
   const fingerprint = appointmentFingerprint({
     appointmentId: input.appointmentId,
-    reason: input.reason?.trim() ?? null,
+    reason: input.reason?.trim() || null,
     actor: { type: input.actor.type, id: input.actor.id ?? null },
     expectedVersion: input.expectedVersion ?? null,
   });
@@ -1434,10 +1434,8 @@ export async function cancelAppointmentReliably(
     throw new AppointmentError("ALREADY_STARTED");
   }
 
+  // Optional for every actor (decision of 03/10/2026): stored when given, NULL otherwise.
   const reason = input.reason?.trim() ?? "";
-  if (input.actor.type === "STAFF" && reason.length < 3) {
-    throw new AppointmentError("REASON_REQUIRED");
-  }
   const salon = await loadSalon(tx, input.salonId);
   if (input.enforceClientPolicy) {
     const policy = checkClientChangePolicy({
