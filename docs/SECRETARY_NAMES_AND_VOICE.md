@@ -76,8 +76,10 @@ partículas. Se não aparece:
 Histórico: em 28/09 o dono decidiu "não testar agora, custo zero". Em 03/10/2026 pediu que o cliente possa
 **falar em vez de digitar** e escolheu a transcrição GPT, porque o ditado do navegador não funciona no app
 instalado do iPhone (a Web Speech API existe, mas falha sem pedir o microfone fora do Safari). Teto aprovado:
-US$ 2 por salão e mês na demo; teste real autorizado até US$ 0,05. Depois de falar, o texto continua indo
-para a caixa e só segue com **Enviar** (decisão do dono); nada é gravado sem **Confirmar**.
+US$ 2 por salão e mês na demo; teste real autorizado até US$ 0,05. Fluxo prático (pedido do dono, 03/10, depois
+do primeiro teste): fala-se e aperta-se **Enter** (ou toca-se em **Enviar**) e a fala já vai, transcrita, para a
+Secretária, que responde abaixo; **Esc** cancela a fala; **Parar** deixa o texto na caixa para revisar. Nada é gravado
+na agenda sem **Confirmar**.
 
 O lançador da demo (`scripts/dev-agenda-test.cjs`) liga `VOICE_ENABLED`, `VOICE_CORRECTION` e
 `TRANSCRIBE_ENABLED`, usa `TRANSCRIBE_BUDGET_USD=2` e lista só o salão de teste mais recente
@@ -134,6 +136,15 @@ Como funciona (`src/lib/secretary-transcribe.ts` e a ação `transcribeSecretary
 - **Caixa de texto (03/10):** o ditado é acrescentado depois do que já estava digitado (antes, substituía tudo).
   "Desfazer ditado" volta ao texto de antes, enquanto a caixa ainda tiver exatamente o resultado do ditado.
   No celular, com voz ligada, abrir a Secretária foca o microfone, sem abrir o teclado.
+- **Atalhos (03/10), mostrados no painel:** Enter envia (durante a fala, para, transcreve e envia o que foi dito
+  junto do que estava digitado); Shift+Enter quebra a linha; Esc cancela a fala (o painel continua aberto);
+  Ctrl+Espaço começa a falar. No celular, um toque em Enviar faz o mesmo que o Enter.
+- **Português corrigido (03/10):** o pedido de transcrição começa com "Português do Brasil, com ortografia,
+  acentuação e pontuação corretas, sem mudar o sentido, nomes, números, dias e horários." (`TRANSCRIBE_STYLE`).
+- **Nada fica preso (03/10):** enquanto o navegador pede a permissão do microfone, a tela diz "Permita o microfone no
+  aviso do navegador"; sem resposta em 15 s, desiste com uma mensagem. A transcrição desiste em 45 s no navegador e em
+  30 s no servidor. Antes, um aviso de permissão sem resposta deixava "Transcrevendo…" para sempre. O navegador
+  embutido do Claude bloqueia o microfone: o teste de voz é no Chrome ou Edge.
 - Limites desta etapa: nada foi validado ainda num iPhone ou Android de verdade. O microfone exige HTTPS fora do
   `localhost`, e o cabeçalho `Permissions-Policy` só libera o microfone em dev/test e no Codespace auditado.
   O teste no celular depende de um endereço HTTPS (Codespace de staging ou túnel temporário) e de autorização própria.

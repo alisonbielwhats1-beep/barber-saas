@@ -9,7 +9,8 @@ type Recognition = {
   start(): void; stop(): void; abort(): void;
 };
 type SpeechWindow = Window & { SpeechRecognition?: new () => Recognition; webkitSpeechRecognition?: new () => Recognition };
-export type VoiceState = 'idle' | 'listening' | 'processing' | 'ready';
+/** `requesting`: the recorder waits for the browser's microphone permission (nothing is recorded yet). */
+export type VoiceState = 'idle' | 'requesting' | 'listening' | 'processing' | 'ready';
 /** A dictation is added after what the box held when it started (never replaces typed text), within the 1000-character box. */
 export function joinDictation(before: string, text: string) {
   const said = text.trim();
@@ -86,6 +87,9 @@ export const RECORDING_MAX_SECONDS = 60;
 /** Client stop before the server's 480 KB cap (secretary-transcribe.ts TRANSCRIBE_SERVER.maxAudioBytes; a test keeps it below):
  * Safari may ignore the bitrate hint, so the recorder counts the bytes it receives and stops by itself in time. */
 export const RECORDING_MAX_BYTES = 440_000;
+/** An unanswered permission prompt never settles getUserMedia, and a stuck request never answers: both give up with a message. */
+export const MIC_PERMISSION_TIMEOUT_MS = 15_000;
+export const TRANSCRIBE_TIMEOUT_MS = 45_000;
 /** The first container the browser records, all admitted by the server: WebM/Opus (Chrome, Edge, Android), MP4/AAC (Safari,
  * iPhone), Ogg/Opus (Firefox). None supported or no isTypeSupported: the browser's default. */
 const RECORDER_TYPES = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/ogg;codecs=opus', 'audio/webm'] as const;
@@ -124,10 +128,22 @@ export function useSecretaryRecorder(onTranscript: (text: string) => void, onErr
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined' || !callbacks.current.transcribe) {
       callbacks.current.onError('A gravação não está disponível neste navegador. Você pode digitar.'); return;
     }
-    setPhase('processing');
-    let media: MediaStream;
-    try { media = await navigator.mediaDevices.getUserMedia({ audio: true }); }
-    catch { if (live()) { setPhase('idle'); callbacks.current.onError('Microfone não autorizado. Permita o acesso no navegador ou digite sua mensagem.'); } return; }
+    setPhase('requesting');
+    let media: MediaStream, waiting: ReturnType<typeof setTimeout> | undefined;
+    const asked = navigator.mediaDevices.getUserMedia({ audio: true });
+    const unanswered = new Promise<never>((_, reject) => { waiting = setTimeout(() => reject(Error('MIC_PERMISSION_TIMEOUT')), MIC_PERMISSION_TIMEOUT_MS); });
+    try { media = await Promise.race([asked, unanswered]); }
+    catch (error) {
+      // A late answer still releases the microphone.
+      void asked.then(late => late.getTracks().forEach(track => track.stop()), () => undefined);
+      if (live()) {
+        setPhase('idle');
+        callbacks.current.onError(error instanceof Error && error.message === 'MIC_PERMISSION_TIMEOUT'
+          ? 'O navegador não liberou o microfone. Permita o acesso no aviso ao lado do endereço e toque em Falar de novo, ou digite.'
+          : 'Microfone não autorizado. Permita o acesso no navegador ou digite sua mensagem.');
+      }
+      return;
+    } finally { clearTimeout(waiting); }
     if (!live()) { media.getTracks().forEach(track => track.stop()); return; }
     stream.current = media;
     // 24 kbit/s keeps a minute near 180 KB: the server bounds the billed length from the file size (secretary-transcribe.ts).
@@ -149,11 +165,20 @@ export function useSecretaryRecorder(onTranscript: (text: string) => void, onErr
       const form = new FormData();
       form.set('audio', audio, 'audio'); form.set('seconds', String(Math.min(RECORDING_MAX_SECONDS, Math.max(0.1, (Date.now() - started) / 1000))));
       setPhase('processing');
-      callbacks.current.transcribe!(form).then(reply => {
+      const late = new Promise<never>((_, reject) => { timeout.current = setTimeout(() => reject(Error('TRANSCRIBE_TIMEOUT')), TRANSCRIBE_TIMEOUT_MS); });
+      Promise.race([callbacks.current.transcribe!(form), late]).then(reply => {
+        clearTimeout(timeout.current);
         if (!live()) return;
         if (!reply.ok) { setPhase('idle'); callbacks.current.onError(reply.error); return; }
         callbacks.current.onTranscript(reply.text.slice(0, 1000)); setPhase('ready');
-      }, () => { if (live()) { setPhase('idle'); callbacks.current.onError('A transcrição está indisponível por conexão. Seu texto foi preservado; tente novamente ou digite.'); } });
+      }, error => {
+        clearTimeout(timeout.current);
+        if (!live()) return;
+        setPhase('idle');
+        callbacks.current.onError(error instanceof Error && error.message === 'TRANSCRIBE_TIMEOUT'
+          ? 'A transcrição demorou demais. Seu texto foi preservado; tente de novo ou digite.'
+          : 'A transcrição está indisponível por conexão. Seu texto foi preservado; tente novamente ou digite.');
+      });
     };
     try {
       // A slice every second lets the size limit act during the recording.

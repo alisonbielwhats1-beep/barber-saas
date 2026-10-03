@@ -7,7 +7,10 @@ Branch `claude/voice-system-cancellation-reason-44fd9a`, sobre `claude/secretari
 não pede motivo. Voz: transcrição GPT (`gpt-4o-mini-transcribe`) ligada no lançador da demo, teto US$ 2 por
 salão e mês, uso real registrado no AuditLog (`SECRETARY_TRANSCRIBE/USAGE`, excesso vira reserva);
 gravador com formato aceito pelo servidor, limite de tamanho e relógio; ditado acrescentado ao texto, com
-"Desfazer ditado"; texto continua indo para revisão e Enviar. Motivo: flag
+"Desfazer ditado"; Enter ou Enviar durante a fala já envia o que foi dito (Esc cancela, Ctrl+Espaço fala,
+"Parar" deixa revisar), transcrição pedida em português corrigido, e prazos para permissão do microfone e
+transcrição (nada fica em "Transcrevendo…"). O projeto OpenAI da Secretária ("Everflair Development") passou a
+permitir `gpt-4o-mini-transcribe` em 03/10. Motivo: flag
 `SALON_SECRETARY_CANCEL_REASON_OPTIONAL` (padrão desligada, ligada na demo; ver
 `SECRETARY_CANCEL_REASON_OPTIONAL.md`). Ainda sem teste em iPhone/Android de verdade (exige HTTPS).
 Production da Secretária continua bloqueada; nenhuma migration, flag ou deploy produtivo.

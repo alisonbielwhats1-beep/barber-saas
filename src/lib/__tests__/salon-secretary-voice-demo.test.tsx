@@ -123,3 +123,88 @@ describe('recorder of the GPT transcription', () => {
     } finally { Object.defineProperty(Recorder, 'isTypeSupported', { value: original, configurable: true, writable: true }); }
   });
 });
+
+describe('practical voice (owner, 03/10): Enter or Enviar sends what was said, Esc cancels, nothing hangs', () => {
+  const base = { sessionId: 'session', cancelled: false, message: 'Como posso ajudar?' };
+  const reply = { ok: true, state: { ...base, message: 'Certo, vou ver.' } };
+  beforeEach(() => { mocks.start.mockResolvedValue({ ok: true, state: base }); mocks.send.mockResolvedValue(reply); });
+  async function recording(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole('button', { name: 'Falar com a Secretária' }));
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Ouvindo'));
+  }
+  it('Enter while speaking stops, transcribes and sends at once; the reply comes below', async () => {
+    microphone(); mocks.transcribe.mockResolvedValue({ ok: true, text: 'remarca a Noemi para sexta às dez' });
+    const user = userEvent.setup(); render(<SecretaryChat voiceEnabled transcribeEnabled />);
+    await recording(user);
+    expect(screen.getByRole('button', { name: 'Enviar' })).toBeEnabled();
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(mocks.send).toHaveBeenCalledWith({ sessionId: 'session', message: 'remarca a Noemi para sexta às dez' }));
+    expect((await screen.findAllByText('Certo, vou ver.'))[0]).toBeVisible();
+    expect(screen.getByLabelText('Mensagem')).toHaveValue('');
+    expect(mocks.group).not.toHaveBeenCalled(); expect(mocks.confirm).not.toHaveBeenCalled();
+  });
+  it('tapping Enviar while speaking does the same (one tap on the phone), after what was typed', async () => {
+    microphone(); mocks.transcribe.mockResolvedValue({ ok: true, text: 'cancela o horário do Otávio' });
+    const user = userEvent.setup(); render(<SecretaryChat voiceEnabled transcribeEnabled />);
+    await user.type(screen.getByLabelText('Mensagem'), 'Hoje:');
+    await recording(user);
+    await user.click(screen.getByRole('button', { name: 'Enviar' }));
+    await waitFor(() => expect(mocks.send).toHaveBeenCalledWith({ sessionId: 'session', message: 'Hoje: cancela o horário do Otávio' }));
+  });
+  it('Esc while speaking cancels: nothing is transcribed or sent and the typed text comes back', async () => {
+    microphone();
+    const user = userEvent.setup(); render(<SecretaryChat voiceEnabled transcribeEnabled />);
+    await user.type(screen.getByLabelText('Mensagem'), 'Rascunho');
+    await recording(user);
+    await user.keyboard('{Escape}');
+    expect(mocks.transcribe).not.toHaveBeenCalled(); expect(mocks.send).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('Mensagem')).toHaveValue('Rascunho');
+    expect(screen.getByRole('button', { name: 'Falar com a Secretária' })).toBeEnabled();
+  });
+  it('a failed transcription sends nothing', async () => {
+    microphone(); mocks.transcribe.mockResolvedValue({ ok: false, error: 'Nenhuma fala foi reconhecida. Grave novamente ou digite.' });
+    const user = userEvent.setup(); render(<SecretaryChat voiceEnabled transcribeEnabled />);
+    await recording(user);
+    await user.keyboard('{Enter}');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Nenhuma fala');
+    expect(mocks.send).not.toHaveBeenCalled();
+  });
+  it('on the text box Enter sends and Shift+Enter breaks the line; Ctrl+Espaço starts speaking', async () => {
+    microphone();
+    const user = userEvent.setup(); render(<SecretaryChat voiceEnabled transcribeEnabled />);
+    await user.type(screen.getByLabelText('Mensagem'), 'marca a Noemi{Shift>}{Enter}{/Shift}amanhã');
+    expect(mocks.send).not.toHaveBeenCalled(); expect(screen.getByLabelText('Mensagem')).toHaveValue('marca a Noemi\namanhã');
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(mocks.send).toHaveBeenCalledWith({ sessionId: 'session', message: 'marca a Noemi\namanhã' }));
+    await waitFor(() => expect(screen.getByLabelText('Mensagem')).toHaveValue(''));
+    await user.keyboard('{Control>} {/Control}');
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Ouvindo'));
+    expect(screen.getByText(/Atalhos: Enter envia/)).toBeVisible();
+  });
+});
+
+describe('nothing hangs', () => {
+  afterEach(() => { vi.useRealTimers(); });
+  it('an unanswered microphone prompt gives up after 15 s with a clear message', async () => {
+    vi.useFakeTimers();
+    Object.defineProperty(navigator, 'mediaDevices', { value: { getUserMedia: vi.fn(() => new Promise(() => undefined)) }, configurable: true });
+    vi.stubGlobal('MediaRecorder', Recorder);
+    render(<SecretaryChat voiceEnabled transcribeEnabled />);
+    await act(async () => { screen.getByRole('button', { name: 'Falar com a Secretária' }).click(); });
+    expect(screen.getByRole('status')).toHaveTextContent('Permita o microfone no aviso do navegador');
+    await act(async () => { vi.advanceTimersByTime(15_000); });
+    expect(screen.getByRole('alert')).toHaveTextContent('O navegador não liberou o microfone');
+    expect(screen.getByRole('button', { name: 'Falar com a Secretária' })).toBeEnabled();
+  });
+  it('a transcription that never answers gives up after 45 s and keeps the text', async () => {
+    vi.useFakeTimers();
+    microphone(); mocks.transcribe.mockReturnValue(new Promise(() => undefined));
+    render(<SecretaryChat voiceEnabled transcribeEnabled />);
+    await act(async () => { screen.getByRole('button', { name: 'Falar com a Secretária' }).click(); });
+    await act(async () => { screen.getByRole('button', { name: 'Parar gravação' }).click(); });
+    expect(screen.getByRole('status')).toHaveTextContent('Transcrevendo');
+    await act(async () => { vi.advanceTimersByTime(45_000); });
+    expect(screen.getByRole('alert')).toHaveTextContent('A transcrição demorou demais');
+    expect(mocks.send).not.toHaveBeenCalled();
+  });
+});

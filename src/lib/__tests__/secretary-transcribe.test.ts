@@ -8,7 +8,7 @@ import { digest } from "../../../packages/salon-secretary/evaluation/free-use-bu
 import { secretaryGuardedFetch } from "../../../packages/salon-secretary/src/openai-cost-guard";
 import { assertTranscriptionWire, reserveTranscriptionBudget, transcribeSecretaryAudio, transcriptionGuardedFetch, transcriptionPrompt, TRANSCRIBE_AUDIT_ENTITY,
   TRANSCRIBE_DEFAULT_MODEL, TRANSCRIBE_LIMITS, TRANSCRIBE_MAX_RESERVATION_MICRO_USD, TRANSCRIBE_MODELS, TRANSCRIBE_SERVER, TRANSCRIBE_URL, TRANSCRIBE_WORST_CASE_MICRO_USD,
-  transcribeConfig, transcriptionWorstCaseMicroUsd, settleTranscriptionUsage, transcriptionUsageMicroUsd } from "../secretary-transcribe";
+  transcribeConfig, transcriptionWorstCaseMicroUsd, settleTranscriptionUsage, transcriptionUsageMicroUsd, TRANSCRIBE_STYLE } from "../secretary-transcribe";
 
 /** C3, GPT transcription READY BUT OFF: mocked fetch only (a stub that throws guards the real network). */
 const dirs: string[] = [];
@@ -40,13 +40,15 @@ describe("request shape and vocabulary", () => {
     expect(body.get("model")).toBe(TRANSCRIBE_DEFAULT_MODEL); expect(TRANSCRIBE_DEFAULT_MODEL).toBe("gpt-4o-mini-transcribe");
     expect(body.get("language")).toBe("pt"); expect(body.get("response_format")).toBe("json");
     expect((body.get("file") as File).size).toBe(recording.size); expect((body.get("file") as File).name).toBe("audio.webm");
-    expect(body.get("prompt")).toBe("Agenda de salão de beleza. Profissionais e serviços: Tatiana Rocha, Ricardo Alves, Corte Feminino, Escova Progressiva.");
+    // Owner, 03/10 (contract migration, backup in .demo/agenda-core/contract-migration): the style line comes first.
+    expect(body.get("prompt")).toBe(`${TRANSCRIBE_STYLE} Agenda de salão de beleza. Profissionais e serviços: Tatiana Rocha, Ricardo Alves, Corte Feminino, Escova Progressiva.`);
   });
   it("the prompt is built only from professional and service names, deduplicated and bounded", () => {
     const prompt = transcriptionPrompt({ professionals: ["Tatiana  Rocha", "Tatiana Rocha", ...Array.from({ length: 60 }, (_, i) => `Profissional Número ${i}`)], services: ["Corte"] });
     expect(prompt.match(/Tatiana Rocha/g)).toHaveLength(1); expect(prompt.length).toBeLessThanOrEqual(800); expect(prompt.endsWith(".")).toBe(true);
     // Customers are not an input of the prompt at all: its only parameter is the directory of professionals and services.
-    expect(transcriptionPrompt({ professionals: [], services: [] })).toBe("Agenda de salão de beleza. Profissionais e serviços:");
+    expect(transcriptionPrompt({ professionals: [], services: [] })).toBe(`${TRANSCRIBE_STYLE} Agenda de salão de beleza. Profissionais e serviços:`);
+    expect(TRANSCRIBE_STYLE).toMatch(/ortografia/); expect(TRANSCRIBE_STYLE).toMatch(/sem mudar o sentido/);
   });
   it("a configured model must be allowlisted", async () => {
     await expect(transcribeSecretaryAudio({ audio: audio(), seconds: 2, directory, env: env({ SALON_SECRETARY_TRANSCRIBE_MODEL: "whisper-1" }), fetchFn: ok(), reserve: free() }))

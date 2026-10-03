@@ -34,6 +34,7 @@ export function transcriptionWorstCaseMicroUsd(bytes: number, seconds: number) {
 export const TRANSCRIBE_MAX_RESERVATION_MICRO_USD = transcriptionWorstCaseMicroUsd(TRANSCRIBE_SERVER.maxAudioBytes, TRANSCRIBE_LIMITS.maxAudioSeconds);
 export const TRANSCRIBE_AUDIO_TYPES = ["audio/webm", "audio/ogg", "audio/mp4", "audio/mpeg", "audio/wav", "audio/x-wav"] as const;
 export const TRANSCRIBE_PROMPT_MAX = 800;
+export const TRANSCRIBE_FETCH_TIMEOUT_MS = 30_000;
 export const TRANSCRIBE_AUDIT_ENTITY = "SECRETARY_TRANSCRIBE";
 const FIELDS = ["file", "model", "language", "response_format", "prompt"];
 const model = (value: unknown): value is (typeof TRANSCRIBE_MODELS)[number] => (TRANSCRIBE_MODELS as readonly unknown[]).includes(value);
@@ -51,10 +52,13 @@ export function transcribeConfig(env: Env = process.env) {
   if (!apiKey || !project) throw Error("SECRETARY_CONFIGURATION_REQUIRED");
   return { model: chosen, apiKey, project, budgetMicroUsd: Math.floor(budget * 1e6), salons };
 }
-/** Directory names only (the same bounded list Luna sees), deduplicated and cut at a whole name. */
+/** Owner, 03/10: the transcript comes out already in correct Portuguese (spelling, accents and punctuation), so a spoken
+ * message can be sent as is. The meaning, names, numbers, days and times are never changed. */
+export const TRANSCRIBE_STYLE = "Português do Brasil, com ortografia, acentuação e pontuação corretas, sem mudar o sentido, nomes, números, dias e horários.";
+/** The style line, then directory names only (the same bounded list Luna sees), deduplicated and cut at a whole name. */
 export function transcriptionPrompt(directory: { professionals: readonly string[]; services: readonly string[] }) {
   const names = [...new Set([...directory.professionals, ...directory.services].map(name => name.replace(/\s+/g, " ").trim()).filter(Boolean))];
-  let prompt = "Agenda de salão de beleza. Profissionais e serviços:";
+  let prompt = `${TRANSCRIBE_STYLE} Agenda de salão de beleza. Profissionais e serviços:`;
   for (const name of names) { if (prompt.length + name.length + 2 > TRANSCRIBE_PROMPT_MAX) break; prompt += ` ${name},`; }
   return prompt.replace(/,$/, ".");
 }
@@ -70,7 +74,8 @@ export function transcriptionRequest(audio: Blob, chosen: string, prompt: string
   const body = new FormData(), extension = baseType(audio.type).split("/")[1]?.replace(/^x-/, "") || "webm";
   body.set("file", audio, `audio.${extension}`); body.set("model", chosen); body.set("language", "pt"); body.set("response_format", "json");
   if (prompt) body.set("prompt", prompt);
-  return [TRANSCRIBE_URL, { method: "POST", headers: { Authorization: `Bearer ${auth.apiKey}`, "OpenAI-Project": auth.project }, body }];
+  // A provider that never answers fails the call (the client also gives up after 45 s); nothing is sent or confirmed.
+  return [TRANSCRIBE_URL, { method: "POST", headers: { Authorization: `Bearer ${auth.apiKey}`, "OpenAI-Project": auth.project }, body, signal: AbortSignal.timeout(TRANSCRIBE_FETCH_TIMEOUT_MS) }];
 }
 /** The transcription wire, and nothing else: exact URL, POST, only the fixed multipart fields, allowlisted model, pt,
  * json, one bounded audio file and a bounded prompt. */

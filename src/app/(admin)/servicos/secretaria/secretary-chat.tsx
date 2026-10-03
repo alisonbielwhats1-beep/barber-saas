@@ -67,7 +67,10 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
   const typed = useRef(message);
   typed.current = message;
   const cancelVoice = voice.cancel;
-  const recording = voice.phase === 'listening' || voice.phase === 'processing';
+  const recording = voice.phase === 'requesting' || voice.phase === 'listening' || voice.phase === 'processing';
+  /** Owner, 03/10: Enter (or Enviar) while speaking stops, transcribes and sends at once; the reply comes below. "Parar" still
+   * leaves the transcript in the box for review. Nothing is ever confirmed by voice. */
+  const sendAfterVoice = useRef(false);
   const closed = state?.cancelled || (state?.skill === 'auto' ? false : Boolean(state &&
     (state.operations?.length ? state.operations.every(op => receiptOf(op.state) || op.state.cancelled || op.state.financial?.status === 'DONE' || op.state.inventory?.status === 'DONE') : receiptOf(state))));
   const confirmationSuppressed = ['UNSUPPORTED','AMBIGUOUS','BLOCKED','CONVERSATION'].includes(state?.capability_status ?? '');
@@ -109,7 +112,7 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
   useEffect(() => () => { window.speechSynthesis?.cancel(); }, []);
   // C3: once a dictation is ready, ask the server for directory-name corrections of that exact text.
   useEffect(() => {
-    if (!voiceCorrection || voice.phase !== 'ready' || !typed.current.trim()) return;
+    if (!voiceCorrection || voice.phase !== 'ready' || !typed.current.trim() || sendAfterVoice.current) return;
     const text = typed.current;
     let live = true;
     suggestSecretaryDictation(text).then(reply => { if (live && reply.ok && reply.suggestions.length) setCorrections({ text, items: reply.suggestions }); }, () => undefined);
@@ -204,6 +207,41 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
     if (result) setMessage('');
   }
   function edit(text: string) { setMessage(text); if (hasProposal) setDirty(true); }
+  function startVoice() {
+    if (busy || uncertain || recording) return;
+    beforeVoice.current = message; setDirty(true); setError(''); setCorrections(undefined); voice.start();
+  }
+  function cancelRecording() { sendAfterVoice.current = false; voice.cancel(); setMessage(beforeVoice.current); }
+  /** Enter or Enviar while the microphone is open: stop and send what was said (still waiting for permission: nothing to send). */
+  function finishAndSend() {
+    if (voice.phase === 'requesting') { cancelRecording(); return; }
+    sendAfterVoice.current = true;
+    if (voice.phase === 'listening') voice.stop();
+  }
+  // The transcript (added after what was typed) goes as soon as it is ready; a failed transcription sends nothing.
+  const sendNow = useRef(send);
+  sendNow.current = send;
+  useEffect(() => {
+    if (voice.phase === 'idle') sendAfterVoice.current = false;
+    if (voice.phase !== 'ready' || !sendAfterVoice.current) return;
+    sendAfterVoice.current = false; void sendNow.current();
+  }, [voice.phase]);
+  // Shortcuts while the panel is open: Enter sends what was said, Esc cancels the recording (the panel stays open), Ctrl+Espaço
+  // starts speaking. On the text box, Enter sends and Shift+Enter breaks the line.
+  const shortcuts = useRef({ recording, startVoice, cancelRecording, finishAndSend });
+  shortcuts.current = { recording, startVoice, cancelRecording, finishAndSend };
+  useEffect(() => {
+    if (!active || !voiceEnabled) return;
+    const onKey = (event: KeyboardEvent) => {
+      const keys = shortcuts.current;
+      if (keys.recording && (event.key === 'Escape' || (event.key === 'Enter' && !event.shiftKey))) {
+        event.preventDefault(); event.stopImmediatePropagation();
+        if (event.key === 'Escape') keys.cancelRecording(); else keys.finishAndSend();
+      } else if (!keys.recording && event.ctrlKey && event.code === 'Space') { event.preventDefault(); keys.startVoice(); }
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [active, voiceEnabled]);
   // Accepting a correction only edits the input box; the owner still reviews and presses Enviar.
   function acceptCorrection(item: DictationSuggestion) {
     const next = corrections && corrections.text === message ? acceptDictationSuggestion(message, corrections.items, item) : undefined;
@@ -221,7 +259,7 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
   // The recorder counts its time ("Ouvindo… 0:12") and says when it stopped at its time or size limit.
   const elapsed = transcribeEnabled ? ` ${Math.floor(recorder.elapsed / 60)}:${String(recorder.elapsed % 60).padStart(2, '0')}` : '';
   const limited = transcribeEnabled && recorder.limited;
-  const status = busy === 'executing' ? 'Executando…' : busy ? 'Entendendo e preparando…' : voice.phase === 'listening' ? `Ouvindo…${elapsed}` : voice.phase === 'processing' ? 'Transcrevendo…' : voice.phase === 'ready' && message ? limited ? 'A gravação chegou ao limite e foi encerrada. Revise antes de enviar.' : 'Transcrição pronta. Revise antes de enviar.' : uncertain ? 'Resultado ainda não verificado' : state?.cancelled ? 'Conversa encerrada' : state?.action_plan?.status === 'PARTIAL_FAILURE' ? 'Revise o resultado de cada ação' : closed ? 'Resultado confirmado pelo sistema' : expiryVisible ? 'Proposta expirada. Envie uma mensagem para preparar novamente.' : dirty && hasProposal ? 'Proposta anterior desatualizada' : hasProposal ? 'Confira antes de confirmar' : 'Fale ou escreva o que precisa';
+  const status = busy === 'executing' ? 'Executando…' : busy ? 'Entendendo e preparando…' : voice.phase === 'requesting' ? 'Permita o microfone no aviso do navegador para começar.' : voice.phase === 'listening' ? `Ouvindo…${elapsed} Enviar (ou Enter) manda; Esc cancela.` : voice.phase === 'processing' ? 'Transcrevendo…' : voice.phase === 'ready' && message ? limited ? 'A gravação chegou ao limite e foi encerrada. Revise antes de enviar.' : 'Transcrição pronta. Revise antes de enviar.' : uncertain ? 'Resultado ainda não verificado' : state?.cancelled ? 'Conversa encerrada' : state?.action_plan?.status === 'PARTIAL_FAILURE' ? 'Revise o resultado de cada ação' : closed ? 'Resultado confirmado pelo sistema' : expiryVisible ? 'Proposta expirada. Envie uma mensagem para preparar novamente.' : dirty && hasProposal ? 'Proposta anterior desatualizada' : hasProposal ? 'Confira antes de confirmar' : 'Fale ou escreva o que precisa';
 
   // B4: a backend-offered time slot is applied as a short answer and prepared again; it never confirms.
   function pickSlot(option: string, operation: string) {
@@ -416,11 +454,14 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
       <p role="status" aria-live="polite" className="text-xs font-medium">{status}{slow ? ' Ainda aguardando o sistema; nenhuma nova tentativa foi iniciada.' : ''}</p>
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       {uncertain && <Button variant="outline" disabled={Boolean(busy)} onClick={() => { if (retry.current) void act(retry.current, 'executing'); }}>Verificar resultado</Button>}
-      {!closed && <form onSubmit={event => { event.preventDefault(); void send(); }} className="space-y-2">
+      {!closed && <form onSubmit={event => { event.preventDefault(); if (recording) finishAndSend(); else void send(); }} className="space-y-2">
         {operationRef && <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground"><span>Respondendo à ação selecionada.</span><button type="button" disabled={Boolean(busy || uncertain)} onClick={() => setOperationRef(undefined)}>Sair da seleção</button></div>}
         {!!state?.suspended_plans?.length && <div className="space-y-1" aria-label="Pedidos preservados"><p className="text-xs text-muted-foreground">Pedidos anteriores preservados</p>{state.suspended_plans.map(saved => <Button key={saved.plan_ref} size="sm" variant="outline" disabled={Boolean(busy || uncertain || state.cancelled)} onClick={() => { setOperationRef(undefined); void act(() => resumeSecretaryPlan(state.sessionId, saved.plan_ref), 'thinking', true); }}>Retomar {saved.label.split(', ').map(op => operationLabels[op] ?? op).join(', ')}</Button>)}</div>}
         <label htmlFor="secretary-message" className="text-xs font-medium">{voice.phase === 'ready' ? 'Transcrição — revise ou edite' : 'Mensagem'}</label>
-        <textarea ref={input} id="secretary-message" aria-label="Mensagem" rows={2} maxLength={1000} disabled={Boolean(busy || uncertain || recording)} value={message} onChange={event => edit(event.target.value)} placeholder="Ex.: altera a Massagem para R$90" className="w-full resize-none rounded-lg border border-border bg-background p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60" />
+        <textarea ref={input} id="secretary-message" aria-label="Mensagem" rows={2} maxLength={1000} disabled={Boolean(busy || uncertain || recording)} value={message} onChange={event => edit(event.target.value)} onKeyDown={event => {
+          // Enter sends; Shift+Enter breaks the line (never while an input method is composing).
+          if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); }
+        }} placeholder="Ex.: altera a Massagem para R$90" className="w-full resize-none rounded-lg border border-border bg-background p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60" />
         {voiceCorrection && corrections && corrections.text === message && !recording && <div aria-label="Correções sugeridas" className="flex flex-wrap items-center gap-2 text-xs">
           <span className="text-muted-foreground">Você quis dizer:</span>
           {corrections.items.map(item => <Button key={`${item.start}:${item.to}`} type="button" size="sm" variant="outline" disabled={Boolean(busy || uncertain)} aria-label={`Trocar “${item.from}” por “${item.to}”`} onClick={() => acceptCorrection(item)}>{item.to}?</Button>)}
@@ -428,19 +469,23 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
         </div>}
         <div className="flex flex-wrap items-center gap-2">
           {voiceEnabled && <Button type="button" data-secretary-mic="" variant={recording ? 'outline' : 'default'} aria-label={recording ? 'Parar gravação' : 'Falar com a Secretária'} disabled={Boolean(busy || uncertain)} onClick={() => {
-            if (recording) { voice.stop(); return; }
-            beforeVoice.current = message; setDirty(true); setError(''); setCorrections(undefined); voice.start();
+            // "Parar" leaves the transcript in the box for review; while the permission is still asked, it gives up.
+            if (recording) { if (voice.phase === 'requesting') cancelRecording(); else { sendAfterVoice.current = false; voice.stop(); } return; }
+            startVoice();
           }}>{recording ? <Square className="mr-2 h-4 w-4" aria-hidden="true" /> : <Mic className="mr-2 h-4 w-4" aria-hidden="true" />}{recording ? 'Parar' : 'Falar'}</Button>}
-          {recording && <Button type="button" variant="ghost" onClick={() => { voice.cancel(); setMessage(beforeVoice.current); }}>Cancelar gravação</Button>}
+          {recording && <Button type="button" variant="ghost" onClick={cancelRecording}>Cancelar gravação</Button>}
           {/* Only while the box still holds exactly what the latest dictation produced: an edit is never undone. */}
           {!recording && voice.phase === 'ready' && message === dictated.current && <Button type="button" variant="ghost" disabled={Boolean(busy || uncertain)} onClick={() => {
             voice.cancel(); setCorrections(undefined); edit(beforeVoice.current);
           }}>Desfazer ditado</Button>}
-          <Button type="submit" className="ml-auto min-h-11" disabled={Boolean(busy || recording || uncertain || !message.trim())}><Send className="mr-2 h-4 w-4" aria-hidden="true" />Enviar</Button>
+          <Button type="submit" className="ml-auto min-h-11" disabled={Boolean(busy || uncertain || voice.phase === "requesting" || (!recording && !message.trim()))}><Send className="mr-2 h-4 w-4" aria-hidden="true" />Enviar</Button>
         </div>
         {voiceEnabled && <p className="text-[11px] text-muted-foreground">{transcribeEnabled
           ? voice.supported ? 'A gravação é transcrita pelo serviço da Secretária. Revise o texto antes de enviar.' : 'Gravação indisponível neste navegador. Use o campo de mensagem.'
           : voice.supported ? 'A transcrição usa o serviço de voz do navegador. Revise o texto antes de enviar.' : 'Voz indisponível neste navegador. Use o campo de mensagem.'}</p>}
+        <p className="text-[11px] text-muted-foreground">{voiceEnabled
+          ? 'Atalhos: Enter envia (também o que você falou) · Esc cancela a fala · Ctrl+Espaço começa a falar · Shift+Enter quebra a linha.'
+          : 'Atalhos: Enter envia · Shift+Enter quebra a linha.'}</p>
       </form>}
       {state && !closed && <Button size="sm" variant="ghost" disabled={Boolean(busy || uncertain || recording)} onClick={() => void act(() => cancelSecretary(state.sessionId), 'thinking', true)}>Cancelar conversa</Button>}
     </div>
