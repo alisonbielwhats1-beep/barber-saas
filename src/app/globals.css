@@ -382,10 +382,11 @@ input:is([type="time"], [type="date"])::-webkit-date-and-time-value { text-align
       hsl(var(--background));
   }
 
+  /* Barra flutuante: cantos arredondados e sombra suave, sem régua lateral. */
   .admin-sidebar {
     background:
       linear-gradient(180deg, hsl(var(--surface-1) / 0.72), hsl(var(--background) / 0.96));
-    box-shadow: 1px 0 0 hsl(var(--border) / 0.45);
+    box-shadow: 0 10px 30px -18px rgb(0 0 0 / 0.45);
   }
 
   .admin-main {
@@ -401,6 +402,7 @@ input:is([type="time"], [type="date"])::-webkit-date-and-time-value { text-align
 
   [data-theme="admin-dark"] .admin-sidebar {
     background: hsl(var(--surface-1));
+    box-shadow: 0 12px 32px -16px rgb(0 0 0 / 0.6);
   }
 
   /* Clean light canvas: depth separates panels instead of dark outlines. */
@@ -411,7 +413,7 @@ input:is([type="time"], [type="date"])::-webkit-date-and-time-value { text-align
 
   [data-theme="admin-light"] .admin-sidebar {
     background: hsl(var(--card));
-    box-shadow: 6px 0 24px -16px rgb(22 34 52 / 0.18);
+    box-shadow: 0 12px 32px -18px rgb(22 34 52 / 0.28);
   }
 
   [data-theme="admin-light"] .admin-main :where(
