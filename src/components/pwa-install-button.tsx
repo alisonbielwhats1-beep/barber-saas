@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Download } from "lucide-react";
+import { AnimatedBorder } from "@/components/ui/button-border";
 
 type InstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -32,8 +33,9 @@ export function PwaInstallButton() {
         await promptEvent.userChoice;
         setPromptEvent(null);
       }}
-      className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="relative grid h-11 w-11 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
+      <AnimatedBorder radius={8} />
       <Download className="h-4 w-4" />
     </button>
   );

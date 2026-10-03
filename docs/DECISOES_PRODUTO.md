@@ -172,10 +172,13 @@ Fundos escuros em grafite neutro, sem roxo dominante. Após nova solicitação,
 o tema claro substitui marfim/pedra por cinza quase branco frio (`#F6F7F9`),
 cartões brancos, contornos suaves e sombras discretas para separar os painéis.
 Campos mantêm bordas mais definidas e foco visível.
-Botões principais verdes, próximo atendimento verde, execução azul,
-pendências âmbar e avisos críticos vermelhos. Lilás restrito à marca e seleção.
+Ação principal em lilás suave; ações de rotina (iniciar/concluir, compartilhar)
+e próximo atendimento em grafite neutro; execução azul,
+pendências âmbar e avisos críticos vermelhos. Verde fica restrito a estados de
+sucesso (confirmado, pago, concluído) — revisão de 27/09/2026, a pedido do
+responsável, para o verde deixar de ser predominante.
 Cores de serviços continuam sendo categorias, sem substituir os estados.
-Após revisão do tema claro, o próximo atendimento recebe verde sólido da
+Após revisão do tema claro, o próximo atendimento recebe grafite sólido da
 marca com texto claro. Indicadores e próximas ações ganham acentos semânticos
 mais presentes; cobre diferencia ocupação. Os fundos gerais continuam neutros.
 O menu expandido exibe símbolo e nome; recolhido, somente símbolo. Controle de
@@ -193,7 +196,7 @@ avaliação do salão em destaque após atendimento concluído. Ver
 `CLIENTE_AGENDAMENTO_CLARO_2026-09-08.md`.
 
 Por solicitação do responsável, a entrada do cliente usa fundo grafite com
-movimento verde/lilás e marca clara. Agendamento e botões principais verdes;
+movimento verde/lilás e marca clara. Agendamento e botões principais em lilás suave (desde 27/09/2026);
 contatos recebem cores reconhecíveis. Reservas confirmadas têm bloco verde,
 canceladas vermelho, pendentes âmbar e em atendimento azul. Texto e ícone
 continuam explicitando o estado. Ver `CLIENTE_CORES_ENTRADA_2026-09-07.md`.
@@ -518,3 +521,10 @@ Dono/gerente podem criar e editar bloqueios fora do expediente, inclusive até
 00:00 do dia seguinte. O motivo do bloqueio é opcional. Alterar um bloqueio
 mantém seu ID, registra antes/depois e preserva reservas e outras ocorrências.
 Cancelamento de reserva continua separado, com motivo obrigatório.
+
+## Destaque animado em ícones — 27/09/2026
+
+Ícones que sinalizam pendência real (avisos da agenda, notificações não lidas
+do cliente, instalação disponível) recebem brilho percorrendo a borda, só
+enquanto a condição existe. Some com movimento reduzido. Componente:
+`src/components/ui/button-border.tsx`.
