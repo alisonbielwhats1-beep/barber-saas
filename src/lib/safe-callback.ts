@@ -15,6 +15,7 @@ const ALLOWED_EXACT_PATHS = new Set([
   "/portfolio",
   "/pos-login",
   "/onboarding/configuracao",
+  "/onboarding/create-salon",
   "/produtos",
   "/profissionais",
   "/relatorios",

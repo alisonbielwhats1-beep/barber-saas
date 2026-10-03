@@ -1,5 +1,21 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-10-03 — novo preço em produção e coerência da cobrança em validação
+
+PR #133 publicado (`772d2c1`, `/api/health` confirmou a versão): catálogo
+2026-10-02 com Individual R$ 39,90/mês e R$ 399/ano e agenda adicional R$ 20/mês
+e R$ 192/ano. Contratos anteriores seguem com o preço persistido.
+
+Validação com 11 agentes (auditoria, verificação adversarial e lacunas) confirmou
+valores enviados ao Mercado Pago, cálculo das trocas e renovações antigas, e
+apontou telas incoerentes. Branch `claude/coerencia-cobranca` corrige: valor
+contratado no card do plano atual; contratação antiga não paga atualizada para
+o preço novo; próxima cobrança com troca agendada; plano preservado no cadastro
+com confirmação de e-mail; links `?plan=` antigos; descrição com a capacidade
+total no Mercado Pago; ajuda para trocar o cartão em atraso; checkout pausado na
+landing; Termos de Uso (seção 7, pendente de aprovação do responsável); margem
+de três dias para renovação debitada antes do vencimento. Sem migration.
+
 ## 2026-09-27 — tela de início do cliente reorganizada para celular
 
 Branch `codex/inicio-cliente-mobile`: a home `/book/[salonSlug]` segue a proposta

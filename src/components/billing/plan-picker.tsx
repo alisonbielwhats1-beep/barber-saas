@@ -28,8 +28,8 @@ export function PlanPicker({ mode, initial, current, pending, occupiedAgendas = 
   initial?: BillingIntent;
   /** Paid terms in use; its card is marked and cannot be chosen again. */
   current?: PlanTerms | null;
-  /** Unpaid contract; its card continues the existing checkout instead of replacing it. */
-  pending?: (PlanTerms & { checkoutUrl: string | null }) | null;
+  /** Unpaid contract; its card continues the existing checkout, or replaces it when its price is outdated. */
+  pending?: (PlanTerms & { checkoutUrl: string | null; outdated?: boolean }) | null;
   occupiedAgendas?: number;
   disabled?: boolean;
   /** Explains why no plan can be chosen right now, keeping the comparison visible. */
@@ -70,10 +70,16 @@ export function PlanPicker({ mode, initial, current, pending, occupiedAgendas = 
       const tooSmall = quote.agendaLimit < occupiedAgendas;
       const marked = isCurrent || isPending || (!current && !pending && initial?.plan === code);
       const upgrade = current && cycle === current.cycle && quote.agendaLimit > current.agendaLimit && quote.amountCents > current.amountCents;
+      // Less capacity does not always cost less: a contract below today's table keeps that price only while unchanged.
+      const reduction = current && cycle === current.cycle && quote.agendaLimit < current.agendaLimit && quote.amountCents < current.amountCents;
       const action = mode === "subscribe" ? "Assinar" : mode === "replace-pending" ? "Trocar para este plano"
-        : current && cycle !== current.cycle ? `Mudar para ${annual ? "anual" : "mensal"}` : upgrade ? "Fazer upgrade" : "Reduzir para este plano";
+        : current && cycle !== current.cycle ? `Mudar para ${annual ? "anual" : "mensal"}` : upgrade ? "Fazer upgrade" : reduction ? "Reduzir para este plano" : "Mudar para este plano";
       const loading = loadingKey === JSON.stringify(intent);
       const checkout = isPending && pending ? safeCheckout(pending.checkoutUrl) : null;
+      // An unpaid attempt priced under an earlier table is replaced at today's price, never paid as is.
+      const outdatedPending = isPending && pending && pending.outdated ? pending : null;
+      const priceCents = isCurrent && current ? current.amountCents : quote.amountCents;
+      const per = annual ? "ano" : "mês";
       return <article key={offer.id} aria-labelledby={`plan-${offer.id}`} className={cn("flex min-w-0 flex-col rounded-2xl border bg-card p-4 sm:p-6", marked ? "border-primary ring-1 ring-primary" : "border-border")}>
         <div className="flex min-h-7 flex-wrap items-center justify-between gap-2">
           <h3 id={`plan-${offer.id}`} className="text-base font-semibold">{offer.name}</h3>
@@ -87,8 +93,10 @@ export function PlanPicker({ mode, initial, current, pending, occupiedAgendas = 
             <input type="radio" className="sr-only" name="billing-team-size" checked={teamSize === size} onChange={() => setTeamSize(size)} />{size} agendas
           </label>)}
         </fieldset>}
-        <p className="mt-5 flex flex-wrap items-baseline gap-x-1"><span className="text-3xl font-semibold tracking-tight tabular-nums">{billingMoney(quote.amountCents)}</span><span className="text-sm text-muted-foreground">/{annual ? "ano" : "mês"}</span></p>
-        <p className="mt-1 min-h-5 text-xs text-muted-foreground">{annual ? `Equivale a ${billingMoney(Math.round(quote.amountCents / 12))}/mês · economize ${billingMoney(annualSavingsCents(intent))}` : "Renovação mensal · cancele quando quiser"}</p>
+        <p className="mt-5 flex flex-wrap items-baseline gap-x-1"><span className="text-3xl font-semibold tracking-tight tabular-nums">{billingMoney(priceCents)}</span><span className="text-sm text-muted-foreground">/{annual ? "ano" : "mês"}</span></p>
+        <p className="mt-1 min-h-5 text-xs text-muted-foreground">{isCurrent && current ? current.amountCents === quote.amountCents ? "Valor do seu contrato." : `Valor do seu contrato. Para novas contratações: ${billingMoney(quote.amountCents)}/${per}.`
+          : outdatedPending ? `Preço atual. Sua tentativa, ainda não paga, foi criada a ${billingMoney(outdatedPending.amountCents)}/${per}.`
+          : annual ? `Equivale a ${billingMoney(Math.round(quote.amountCents / 12))}/mês · economize ${billingMoney(annualSavingsCents(intent))}` : "Renovação mensal · cancele quando quiser"}</p>
         <ul className="mt-5 space-y-2.5 text-sm">
           <li className="flex items-center gap-2.5"><Users aria-hidden="true" className="h-4 w-4 shrink-0 text-primary" /><span><strong className="font-semibold">{agendas(quote.agendaLimit)}</strong> {quote.agendaLimit === 1 ? "profissional" : "profissionais"}</span></li>
           <li className="flex items-center gap-2.5"><Check aria-hidden="true" className="h-4 w-4 shrink-0 text-primary" />Agendamentos ilimitados</li>
@@ -105,6 +113,7 @@ export function PlanPicker({ mode, initial, current, pending, occupiedAgendas = 
         </div>}
         <div className="mt-auto pt-6">
           {isCurrent ? <Button className="w-full" variant="outline" disabled><Check aria-hidden="true" className="h-4 w-4" />Plano atual</Button>
+            : outdatedPending ? <Button className="w-full" disabled={disabled || Boolean(lockedReason)} aria-label={`Atualizar para o novo preço: ${planName}`} onClick={() => onChoose(intent)}>Atualizar para o novo preço</Button>
             : isPending ? checkout ? <a href={checkout} className={cn(buttonVariants(), "w-full")} aria-label={`Continuar pagamento: ${planName}`}>Continuar pagamento<ExternalLink aria-hidden="true" className="h-4 w-4" /></a>
               : <Button className="w-full" variant="outline" disabled>Preparando pagamento…</Button>
             : <Button className="w-full" variant={!tooSmall && (mode === "subscribe" || upgrade) ? "default" : "outline"} disabled={disabled || tooSmall || Boolean(lockedReason)} aria-label={`${action}: ${planName}`} onClick={() => onChoose(intent)}>

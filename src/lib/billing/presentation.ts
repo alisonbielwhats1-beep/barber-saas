@@ -80,6 +80,39 @@ export const annualSavingsCents = (intent: BillingIntent) =>
   quoteContract({ ...intent, cycle: "MONTHLY" }).amountCents * 12 - quoteContract({ ...intent, cycle: "ANNUAL" }).amountCents;
 export const sameBillingTerms = (a: { plan: string; cycle: string; agendaLimit: number }, b: { plan: string; cycle: string; agendaLimit: number }) =>
   a.plan === b.plan && a.cycle === b.cycle && a.agendaLimit === b.agendaLimit;
+/** The selection that reproduces these terms at today's table. */
+export const intentForTerms = (terms: { plan: BillingIntent["plan"]; cycle: BillingIntent["cycle"]; agendaLimit: number }): BillingIntent =>
+  ({ plan: terms.plan, cycle: terms.cycle, extraAgendas: terms.plan === "TEAM_MAX" ? Math.max(0, terms.agendaLimit - BILLING_PLANS.TEAM_MAX.agendas) : 0 });
+/** Current table price for the same plan, cycle and capacity; null when those terms are not sold today. */
+export function tablePriceCents(terms: TermsLike): number | null {
+  if (!Object.prototype.hasOwnProperty.call(BILLING_PLANS, terms.plan)) return null;
+  const plan = terms.plan as BillingIntent["plan"];
+  const parsed = contractInput.safeParse({ plan, cycle: terms.cycle, extraAgendas: plan === "TEAM_MAX" ? terms.agendaLimit - BILLING_PLANS.TEAM_MAX.agendas : 0 });
+  if (!parsed.success) return null;
+  const quote = quoteContract(parsed.data);
+  return quote.agendaLimit === terms.agendaLimit ? quote.amountCents : null;
+}
+/**
+ * An unpaid attempt created under an earlier table price that has not been
+ * authorized yet. It is replaced at the current price instead of being paid.
+ */
+export const pendingPriceOutdated = (sub: Pick<SubscriptionView, "plan" | "cycle" | "agendaLimit" | "amountCents" | "providerStatus">) => {
+  const table = tablePriceCents(sub);
+  return sub.providerStatus === "pending" && table !== null && table !== sub.amountCents;
+};
+export type NextCharge = { at: string | null; amountCents: number; cycle: string; afterAuthorization: boolean };
+/** What the next recurring charge will be, including a confirmed change that starts at the next due date. */
+export function nextChargeOf(sub: SubscriptionView): NextCharge | null {
+  // A live replacement (cycle change or reactivation) keeps the renewal available, so a
+  // cancelled renewal means no recurrence is left, even with a scheduled change on record.
+  if (renewalStatusOf(sub) === "CANCELLED") return null;
+  const change = sub.change;
+  if (change && sub.changePending && (change.kind === "SCHEDULED" || change.kind === "CYCLE") && !["REVIEW", "CANCEL_REQUESTED"].includes(change.state)) {
+    // Scheduled prices are sent to Mercado Pago right away; a cycle change needs the new authorization.
+    return { at: change.effectiveAt, amountCents: change.to.amountCents, cycle: change.to.cycle, afterAuthorization: change.kind === "CYCLE" && change.state !== "SCHEDULED" };
+  }
+  return { at: sub.nextPaymentAt ?? sub.paidThrough, amountCents: sub.amountCents, cycle: sub.cycle, afterAuthorization: false };
+}
 
 export const billingErrors: Record<string, string> = {
   PROVIDER_REJECTED: "O Mercado Pago não aceitou a solicitação. Confira os dados no checkout e se a conta compradora é diferente da conta recebedora. Atualize a situação antes de tentar novamente.",
