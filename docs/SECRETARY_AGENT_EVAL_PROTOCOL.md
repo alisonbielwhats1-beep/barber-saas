@@ -896,3 +896,24 @@ O dono autorizou **somente** a prova desta premissa: a Luna 6 consegue dar evid�
 **Desfecho:** aprovada ou reprovada, o trabalho **PARA**. Não há implementação completa, correção nova nem rodada nova sem decisão do dono.
 
 **Shas fixados antes da execução:** são acrescentados abaixo, em "Registro da sonda A\*".
+
+### Registro da sonda A\* (03/10/2026, antes de qualquer execução paga)
+
+**Arquivos**
+- Casos: `D:/Projetos/secretary-holdout-sealed/astar-probe/ASTAR-PROBE-24.json`, sha256 `499c75ddd0e7a24f6cb36e6b119b2613f6a73314cdffd02c00429634a9967306`, somente leitura. A conferência independente deu READY_FOR_RUN.
+- Contrato e prompt da variante: sha `94d71389633e1fffc3d699304d7c2830fd112a97ef2ea2eda33b77db8661f5cb`. O digest da ferramenta é `a0299fde…80aa`.
+- Código da sonda: commit `0ac56fb`. Os arquivos rastreados (sha256, 16 primeiros caracteres) são:
+
+| Arquivo | sha256 |
+|---|---|
+| `secretary-pilot-anchor.ts` | c2cb748deef2a15f |
+| `pilot-anchor-probe.ts` | 5381bf410a453d24 |
+| `secretary-pilot-resolver.ts` | b79bb22c1ca04559 |
+| `pilot-astar-contract.ts` | 5f76dff63041a9f9 |
+| `pilot-astar-prompt.ts` | 6b657abcc4c8ff4f |
+
+**Recuperação de bytes:** APROVADA pelo verificador independente. Na sonda, cada caso tem cerca de 18,9 KB de folga com o pior texto. O fluxo completo com plano aberto ficaria 306 B abaixo da regra de 2 KB; isso é pendência da implementação completa e não vale como gate da sonda.
+
+**Revisão adversarial:** F1–F9 e N1–N3 corrigidos, com testes.
+
+**Parâmetros da execução:** teto de US$ 0,04, fail-closed, com S1–S4 e as emendas da §9 da especificação 13.
