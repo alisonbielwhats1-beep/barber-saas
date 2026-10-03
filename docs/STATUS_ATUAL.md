@@ -1,5 +1,16 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-10-03 — motivo opcional ao cancelar reserva, em revisão
+
+Branch `claude/cancelamento-motivo-opcional`, por decisão do responsável
+(`DECISOES_PRODUTO.md`, 03/10): dono e gerente cancelam pela agenda (detalhe da
+reserva e cancelamento em lote) sem preencher motivo. O domínio deixa de exigir
+3+ caracteres da equipe; sem motivo, `cancelledReason` e o evento ficam nulos,
+como no cancelamento pelo cliente, e motivo vazio ou ausente geram a mesma
+impressão de idempotência. Confirmação, ator, evento imutável, liberação do
+horário e fila preservada continuam. O motivo do encaixe segue obrigatório.
+O diálogo não abre mais o teclado sozinho no celular. Sem migration; não publicado.
+
 ## 27/09/2026 (tarde) — Secretária de Agenda: foco CORE, pronta para teste manual local
 
 Continuação autônoma do trabalho do Astra, agora no worktree

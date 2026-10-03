@@ -1,5 +1,18 @@
 # Decisões de produto para as próximas fases
 
+## 03/10/2026 — motivo do cancelamento de reserva opcional
+
+O responsável decidiu que o motivo não é necessário para cancelar uma reserva.
+Dono e gerente cancelam pela agenda (detalhe da reserva e cancelamento em lote)
+sem preencher motivo, e a Secretária deixa de perguntá-lo. Quando informado, o
+motivo continua no histórico e aparece para o cliente; sem motivo,
+`cancelledReason` e o evento ficam nulos, como já acontece quando o próprio
+cliente cancela. Continuam iguais: confirmação explícita, ator e evento
+imutáveis no histórico, horário liberado sem apagar o agendamento e fila
+preservada. O motivo do encaixe (sobreposição, folga e após o expediente)
+continua obrigatório. Substitui "confirmação e motivo" da política de
+cancelamento e o "motivo obrigatório" registrado em 12/09.
+
 ## 20/09/2026 — identidade única e recuperação Supabase
 
 O responsável aprovou uma identidade/senha por e-mail entre painel e clientes,
@@ -292,7 +305,8 @@ necessário um fluxo explícito de diferença/estorno antes de liberar a ação.
   horas antes, configurável pelo estabelecimento.
 - Após o limite, o cliente entra em contato com o estabelecimento; não há
   cobrança automática.
-- Dono/gerente podem cancelar antes do início com confirmação e motivo.
+- Dono/gerente podem cancelar antes do início com confirmação; o motivo é
+  opcional desde 03/10/2026.
 - Cancelamento nunca apaga o agendamento.
 - O intervalo é liberado, mas o evento e o responsável permanecem no histórico.
 - No-show é um status próprio, aplicado pelo estabelecimento, e não um delete.
@@ -490,7 +504,7 @@ enum ficam para uma migration própria, sem reescrever o histórico existente.
 Dono/gerente podem criar e editar bloqueios fora do expediente, inclusive até
 00:00 do dia seguinte. O motivo do bloqueio é opcional. Alterar um bloqueio
 mantém seu ID, registra antes/depois e preserva reservas e outras ocorrências.
-Cancelamento de reserva continua separado, com motivo obrigatório.
+Cancelamento de reserva continua separado; o motivo é opcional desde 03/10/2026.
 
 ## Secretária de Agenda — decisões do dono de 29/09/2026 (Candidata 4)
 
