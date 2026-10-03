@@ -145,6 +145,15 @@ Como funciona (`src/lib/secretary-transcribe.ts` e a ação `transcribeSecretary
   aviso do navegador"; sem resposta em 15 s, desiste com uma mensagem. A transcrição desiste em 45 s no navegador e em
   30 s no servidor. Antes, um aviso de permissão sem resposta deixava "Transcrevendo…" para sempre. O navegador
   embutido do Claude bloqueia o microfone: o teste de voz é no Chrome ou Edge.
+- **Tempo de espera (03/10, medido na demo local):** um "oi" levou cerca de 5,2 s: 0,76 s para abrir a conversa
+  e 4,4 s para a resposta. Desses, 2,55 s foram a chamada da Luna (9.172 tokens de entrada, 98% em cache, nenhum de
+  raciocínio, 32 de saída); o resto foi o servidor de desenvolvimento. Desde então a primeira mensagem abre a
+  conversa e é lida na mesma requisição (`startAndSendSecretary`; se a mensagem falhar, a conversa aberta é fechada)
+  e a barra de status mostra os segundos de espera a partir do 2º ("Transcrevendo… 3 s", "Entendendo e preparando…
+  2 s"). Cada transcrição registra `SECRETARY_TRANSCRIBE_TIMING` só com números (autenticação, vocabulário, reserva,
+  provedor, acerto, total, bytes e segundos do áudio). No teste real, o provedor transcreveu frases curtas em
+  0,7–1,3 s. A demo não roda em modo de produção: sem o limitador externo (Upstash) o login falha fechado, por
+  desenho. O Turbopack também não serve: não lê o CSS do projeto (seletores `file:` do Tailwind em `globals.css`).
 - Limites desta etapa: nada foi validado ainda num iPhone ou Android de verdade. O microfone exige HTTPS fora do
   `localhost`, e o cabeçalho `Permissions-Policy` só libera o microfone em dev/test e no Codespace auditado.
   O teste no celular depende de um endereço HTTPS (Codespace de staging ou túnel temporário) e de autorização própria.
