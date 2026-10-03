@@ -81,7 +81,11 @@ export type PaidCallEstimate = { estimator: string; model: string; bodyBytes: nu
 type FetchInput = Parameters<typeof fetch>[0]; type FetchInit = Parameters<typeof fetch>[1];
 /** `agent` (C5, SALON_SECRETARY_AGENT): the runner says explicitly that the agent's wire is expected; the estimator never reads the flag. */
 /** `pilot` (reschedule pilot, SALON_SECRETARY_PILOT_RESCHEDULE): likewise, the pilot's one-tool wire only when the runner passes {pilot:true}. */
-export type PaidWireOptions = { agent?: boolean; pilot?: boolean };
+export type PaidWireOptions = { agent?: boolean; pilot?: boolean;
+  /** A* premise probe only (docs/c5-spike/13-sonda-premissa-astar.md): its own wire, and nothing else, when the probe harness says so. */ pilotAnchorProbe?: boolean };
+/** The guard options a paid wire is judged under: the probe's alone when asked, else exactly the agent/pilot pair as before. */
+const wireOptions = (options: PaidWireOptions) => options.pilotAnchorProbe === true ? { pilotAnchorProbe: true } : { agent: options.agent === true, pilot: options.pilot === true };
+const probeOption = (options: { pilotAnchorProbe?: boolean }) => options.pilotAnchorProbe === true ? { pilotAnchorProbe: true } : {};
 export type PaidEstimator = { name: string; worstCase(input: FetchInput, init?: FetchInit, options?: PaidWireOptions): PaidCallEstimate; actual(json: unknown): { usage: ProgramUsage; chargedMicroUsd: number } | null };
 /** Same bound as the stage/mission reservations: (UTF8 bytes + 8192 framing) at the cache-write rate + max_output_tokens at the output rate. */
 export const worstCaseMicroUsd = (bodyBytes: number, maxOutputTokens: number) =>
@@ -112,7 +116,7 @@ export const responsesEstimator: PaidEstimator = Object.freeze({
     let payload: unknown; try { payload = JSON.parse(init.body); } catch { throw Error('PROGRAM_SPEND_WIRE'); }
     // The sealed bound holds only for the text-only Luna wire: no server state, priority tier, hosted tools, media or background.
     // C5: the agent's wire (same bound: text-only, store:false, ≤ 8192 output) only when the runner passes {agent:true}.
-    try { assertSecretaryResponsesPayload(payload, FREE_USE_PRICING.model, { agent: options.agent === true, pilot: options.pilot === true }); } catch { throw Error('PROGRAM_SPEND_WIRE'); }
+    try { assertSecretaryResponsesPayload(payload, FREE_USE_PRICING.model, wireOptions(options)); } catch { throw Error('PROGRAM_SPEND_WIRE'); }
     const bodyBytes = Buffer.byteLength(init.body, 'utf8'), maxOutputTokens = isRecord(payload) ? payload.max_output_tokens : undefined;
     if (!isRecord(payload) || payload.model !== FREE_USE_PRICING.model || !Number.isInteger(maxOutputTokens) || (maxOutputTokens as number) < 1 ||
       (maxOutputTokens as number) > FREE_USE_PRICING.outputCap || bodyBytes + FREE_USE_PRICING.protocolOverheadTokens > FREE_USE_PRICING.maxInputTokensUpper) throw Error('PROGRAM_SPEND_WIRE');
@@ -450,8 +454,10 @@ export function operatorReleaseProofLease(ledger: string, input: { id: string; f
 // ---------------------------------------------------------------- admission, settlement, fetch guard
 /** Read-only admission check under the lock (no row): used before a runner's own reservation so a refused call
  * consumes neither that journal nor transport. */
-export async function assertProgramHeadroom(input: FetchInput, init: FetchInit, options: { ledger?: string; estimator?: PaidEstimator; proof?: ProofLease; agent?: boolean; pilot?: boolean } = {}) {
-  const ledger = ledgerFile(options.ledger ?? programSpendLedgerPath()), estimate = fetchEstimator(options.estimator).estimator.worstCase(input, init, { agent: options.agent === true, pilot: options.pilot === true });
+export async function assertProgramHeadroom(input: FetchInput, init: FetchInit, options: { ledger?: string; estimator?: PaidEstimator; proof?: ProofLease; agent?: boolean; pilot?: boolean;
+  pilotAnchorProbe?: boolean } = {}) {
+  const ledger = ledgerFile(options.ledger ?? programSpendLedgerPath()), estimate = fetchEstimator(options.estimator).estimator.worstCase(input, init, { agent: options.agent === true, pilot: options.pilot === true,
+    ...probeOption(options) });
   return withLock(ledger, state => {
     assertProofAdmits(ledger, options.proof);
     admit(state, estimate.worstCaseMicroUsd);
@@ -462,8 +468,8 @@ export async function assertProgramHeadroom(input: FetchInput, init: FetchInit, 
  * ledger since `baselineMicroUsd` (open calls counted at their worst case) plus this call's worst case. True when the call would pass `capMicroUsd`
  * (the runner then stops: the run is ABORTED, never half graded). Read only. */
 export function runSpendCapReached(input: FetchInput, init: FetchInit, options: { ledger: string; run: string; capMicroUsd: number; baselineMicroUsd?: number;
-  estimator?: PaidEstimator; agent?: boolean; pilot?: boolean }): boolean {
-  const worst = fetchEstimator(options.estimator).estimator.worstCase(input, init, { agent: options.agent === true, pilot: options.pilot === true }).worstCaseMicroUsd;
+  estimator?: PaidEstimator; agent?: boolean; pilot?: boolean; pilotAnchorProbe?: boolean }): boolean {
+  const worst = fetchEstimator(options.estimator).estimator.worstCase(input, init, { agent: options.agent === true, pilot: options.pilot === true, ...probeOption(options) }).worstCaseMicroUsd;
   const spent = (programSpendTotals(options.ledger).byRun[options.run]?.spentMicroUsd ?? 0) - (options.baselineMicroUsd ?? 0);
   return spent + worst > options.capMicroUsd;
 }
@@ -500,7 +506,8 @@ export async function settleProgramSpend(ledger: string, reservation: Pick<Progr
 }
 export type PaidFetchOptions = { run: string; item?: string; ledger?: string; estimator?: PaidEstimator; /** the proof lease this run holds, if any */ proof?: ProofLease;
   /** C5: the run sends the agent's wire (SALON_SECRETARY_AGENT), read by the runner and passed here explicitly */ agent?: boolean;
-  /** Reschedule pilot: the run sends the pilot's wire (SALON_SECRETARY_PILOT_RESCHEDULE), read by the runner and passed here explicitly */ pilot?: boolean };
+  /** Reschedule pilot: the run sends the pilot's wire (SALON_SECRETARY_PILOT_RESCHEDULE), read by the runner and passed here explicitly */ pilot?: boolean;
+  /** A* premise probe: the probe harness sends its own wire (pilot-astar-contract.ts) and says so here */ pilotAnchorProbe?: boolean };
 /** Generic guard for any paid evaluation fetch (practice, golden, transcribe): reserve worst case under the program
  * cap before transport, settle actual usage after. PROGRAM_SPEND_* errors mean "stop the run" (PROGRAM_SPEND_BOUND:
  * the provider charged beyond the sealed bound, the response is withheld); a transport error is rethrown unchanged
@@ -512,7 +519,7 @@ export function guardPaidFetch(source: ProgramSpendSource, fetchFn: typeof fetch
   if (typeof run !== 'string' || !LABEL.test(run) || !LABEL.test(item)) throw Error('PROGRAM_SPEND_LABEL');
   return async (input, init) => {
     let estimate: PaidCallEstimate;
-    try { estimate = estimator.worstCase(input, init, { agent: options.agent === true, pilot: options.pilot === true }); } catch (error) { throw isProgramSpendError(error) ? error : Error('PROGRAM_SPEND_WIRE'); }
+    try { estimate = estimator.worstCase(input, init, { agent: options.agent === true, pilot: options.pilot === true, ...probeOption(options) }); } catch (error) { throw isProgramSpendError(error) ? error : Error('PROGRAM_SPEND_WIRE'); }
     if (estimate?.estimator !== estimator.name) throw Error('PROGRAM_SPEND_ESTIMATOR');
     const reservation = await reserveProgramSpend(ledger, source, run, item, estimate, { proof: options.proof });
     let response: Response;

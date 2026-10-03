@@ -40,6 +40,8 @@ export function assertSecretaryModelRequest(request: ModelRequest, expectedName:
 export function assertSecretaryResponsesPayload(value: unknown, expectedModel: string, options: SecretaryGuardOptions = {}): void {
   assertSecretaryModelId(expectedModel);
   if (!record(value)) fail("PAYLOAD_SHAPE");
+  // A* premise probe (docs/c5-spike/13-sonda-premissa-astar.md): its own one-tool format only with an explicit {pilotAnchorProbe:true}, and nothing else under it.
+  if (options.pilotAnchorProbe === true) return assertPilotAnchorProbePayload(value, expectedModel);
   // Pilot (flag SALON_SECRETARY_PILOT_RESCHEDULE): its one-tool format only with an explicit {pilot:true}; without it the tool is unknown below.
   if (options.pilot === true && pilotShaped(value)) return assertPilotPayload(value, expectedModel);
   if (options.agent === true && !(Array.isArray(value.tools) && value.tools.length === 1)) return assertAgentPayload(value, expectedModel);
@@ -74,7 +76,7 @@ export function assertSecretaryResponsesPayload(value: unknown, expectedModel: s
  * so a response that ends `incomplete` (the SDK throws) still records what it cost. Without the option: as before. */
 export function secretaryGuardedFetch(modelId: string, options: SecretaryGuardOptions = {}): typeof fetch {
   assertSecretaryModelId(modelId);
-  const agent = options.agent === true, pilot = options.pilot === true;
+  const agent = options.agent === true, pilot = options.pilot === true, probe = options.pilotAnchorProbe === true;
   return async (input, init) => {
     const url = input instanceof Request ? input.url : String(input);
     const method = init?.method ?? (input instanceof Request ? input.method : undefined);
@@ -83,8 +85,8 @@ export function secretaryGuardedFetch(modelId: string, options: SecretaryGuardOp
     if (typeof body !== "string") fail();
     let payload: unknown;
     try { payload = JSON.parse(body); } catch { fail(); }
-    assertSecretaryResponsesPayload(payload, modelId, pilot ? { agent, pilot } : { agent });
-    if (!agent && !pilot) return globalThis.fetch(input, init);
+    assertSecretaryResponsesPayload(payload, modelId, probe ? { pilotAnchorProbe: true } : pilot ? { agent, pilot } : { agent });
+    if (!agent && !pilot && !probe) return globalThis.fetch(input, init);
     const response = await globalThis.fetch(input, init);
     await reportResponseUsage(response);
     return response;
@@ -95,7 +97,8 @@ export function secretaryGuardedFetch(modelId: string, options: SecretaryGuardOp
 /** docs/c5-spike/11-especificacao-agente.md §6.3. The agent's formats are admitted ONLY when the caller says {agent:true}: the guard
  * never reads the flag (the model factory reads it once; the program ledger gets it from the runner), so the C4 formats above stay
  * exactly as they were and an agent format without the option is refused like any unknown one. */
-export type SecretaryGuardOptions = { readonly agent?: boolean; readonly pilot?: boolean };
+export type SecretaryGuardOptions = { readonly agent?: boolean; readonly pilot?: boolean;
+  /** A* premise probe only (docs/c5-spike/13-sonda-premissa-astar.md): the probe harness says so; nothing else ever passes it. */ readonly pilotAnchorProbe?: boolean };
 /** `include` of every agent call: with store:false the reasoning items come back encrypted and are returned as they came (§3.3). */
 export const AGENT_REASONING_INCLUDE = "reasoning.encrypted_content";
 /** Which call of the message a request is: `forced` = tool_choice propor_plano (the 3rd call always is). */
@@ -277,6 +280,38 @@ function assertPilotPayload(value: Record<string, unknown>, expectedModel: strin
     if (!record(item) || (item.type !== undefined && item.type !== "message") || !["user", "system"].includes(String(item.role)) || !only(item, ["type", "role", "content"])) fail("PILOT_INPUT");
     if (typeof item.content === "string") continue;
     if (!Array.isArray(item.content) || !item.content.length || item.content.some(part => !record(part) || !only(part, ["type", "text"]) || part.type !== "input_text" || typeof part.text !== "string")) fail("PILOT_INPUT");
+  }
+}
+// ---------------------------------------------------------------- A* premise probe (docs/c5-spike/13-sonda-premissa-astar.md; Adendo 12)
+/** The digest of the probe's tool list (pilot-astar-contract.ts, `pilotToolsDigest([astarTool()])`), pinned here as a literal so the real flow never
+ * loads the A* contract (spec 13 §9.6); a test keeps it equal to the digest computed from the variant. */
+export const PILOT_ANCHOR_PROBE_TOOLS_SHA256 = "a0299fde45dc6c698b957234f9e88a6c900a97977931cad522325ba5d38480aa";
+/** The probe call is the pilot's format with the variant tool, pinned by that literal digest. It is admitted ONLY when the caller says
+ * {pilotAnchorProbe:true} (the probe harness, never the app), and under that option nothing else is; every other format is checked as before. */
+export function assertSecretaryPilotAnchorProbeModelRequest(request: ModelRequest): void {
+  const settings = request.modelSettings;
+  if (request.prompt || request.previousResponseId || request.conversationId || request.handoffs.length !== 0 || request.tracing !== false ||
+      request.toolsExplicitlyProvided !== true || request.outputType !== "text" || typeof request.systemInstructions !== "string" ||
+      !only(settings as Record<string, unknown>, PILOT_SETTINGS) || settings.store !== false || settings.parallelToolCalls !== false ||
+      settings.toolChoice !== PILOT_RESCHEDULE_TOOL || settings.maxTokens !== PILOT_REQUEST_LIMITS.maxOutputTokens || !pilotEffort(settings.reasoning)) fail("PROBE_REQUEST");
+  if (request.tools.length !== 1 || request.tools.some(tool => tool.type !== "function" || tool.name !== PILOT_RESCHEDULE_TOOL || tool.strict !== true || tool.deferLoading ||
+      tool.providerData || tool.allowedCallers || tool.namespace || tool.outputSchema) || pilotToolsDigest(request.tools) !== PILOT_ANCHOR_PROBE_TOOLS_SHA256) fail("PROBE_TOOLS");
+  if (!Array.isArray(request.input) || !request.input.length || request.input.some(item => !record(item) || (item.type !== undefined && item.type !== "message") ||
+      !["system", "user"].includes(String(item.role)) || typeof item.content !== "string")) fail("PROBE_INPUT");
+}
+/** HTTP boundary of the probe format: the pilot's keys and limits, include [], the variant tool (by digest) forced, messages only. */
+function assertPilotAnchorProbePayload(value: Record<string, unknown>, expectedModel: string): void {
+  const unexpected = Object.keys(value).filter(key => !AGENT_RESPONSE_FIELDS.has(key));
+  if (unexpected.length) fail(`UNEXPECTED_FIELD:${unexpected.join(",")}`);
+  const choice = value.tool_choice;
+  if (value.model !== expectedModel || value.store !== false || value.stream !== false || value.parallel_tool_calls !== false || typeof value.instructions !== "string" ||
+      value.max_output_tokens !== PILOT_REQUEST_LIMITS.maxOutputTokens || !pilotEffort(value.reasoning) || !Array.isArray(value.include) || value.include.length !== 0 ||
+      !Array.isArray(value.input) || !value.input.length || !record(choice) || !only(choice, ["type", "name"]) || choice.type !== "function" || choice.name !== PILOT_RESCHEDULE_TOOL) fail("PROBE_PAYLOAD_FIELDS");
+  if (!Array.isArray(value.tools) || value.tools.length !== 1 || pilotToolsDigest(value.tools as unknown[]) !== PILOT_ANCHOR_PROBE_TOOLS_SHA256) fail("PROBE_TOOLS");
+  for (const item of value.input as unknown[]) {
+    if (!record(item) || (item.type !== undefined && item.type !== "message") || !["user", "system"].includes(String(item.role)) || !only(item, ["type", "role", "content"])) fail("PROBE_INPUT");
+    if (typeof item.content === "string") continue;
+    if (!Array.isArray(item.content) || !item.content.length || item.content.some(part => !record(part) || !only(part, ["type", "text"]) || part.type !== "input_text" || typeof part.text !== "string")) fail("PROBE_INPUT");
   }
 }
 /** Token counts of a Responses body (numbers only, never text): what an agent call observes, also for an `incomplete` response. */
