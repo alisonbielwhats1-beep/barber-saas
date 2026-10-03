@@ -28,6 +28,14 @@
         ".demo/agenda-core/dev-candidate.cjs"
       ],
       "port": 3157
+    },
+    {
+      "name": "agenda-voz",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        ".demo/agenda-core/start-voice-demo.cjs"
+      ],
+      "port": 3158
     }
   ]
 }
