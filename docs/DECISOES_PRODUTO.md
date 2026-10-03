@@ -1,5 +1,20 @@
 # Decisões de produto para as próximas fases
 
+## 03/10/2026 — fila de espera atendida em outro horário
+
+Pedido do dono (áudio de 30/09): quem está na fila de um horário ocupado pode ser
+agendado pela gestão (dono/gerente) **em outro horário livre**, sem remover e
+recadastrar. A reserva nova e a saída da fila acontecem na mesma transação. A
+entrada fica como atendida (`fulfilledAppointmentId`) e não como cancelada, com
+registro em auditoria. Conta e convidado são preservados.
+
+O cancelamento pela equipe continua **não promovendo ninguém sozinho**. A opção
+"cancelar e passar o horário ao #1 da fila" é a confirmação explícita da
+equipe, numa única ação: revalida a vaga e, se não servir, nada é cancelado.
+As sugestões de horários livres da equipe usam o mesmo cálculo público, sem a
+antecedência mínima/máxima do cliente; digitar outro horário e as exceções de
+encaixe continuam disponíveis.
+
 ## 27/09/2026 — reativar renovação e confirmação imediata
 
 O responsável aprovou a recomendação baseada em Stripe, Spotify, Netflix e
