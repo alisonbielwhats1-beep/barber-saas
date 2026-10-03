@@ -226,3 +226,26 @@ Para cada caso, em códigos:
     - o número de `outro`/null;
     - p50/p90, custo e a margem final do payload.
 - **Depois do resultado, aprovada ou reprovada:** o trabalho **PARA** e o resultado vai para o dono.
+
+## 9. Emendas de 03/10/2026, antes de qualquer execução (pela revisão adversarial e pela verificação de bytes)
+
+1. **Resposta que não é deslocamento** (F1). Se o campo-alvo vier com outro operador (`data`, `dia_semana`, `mes_relativo`, `mesmo_da_origem`, `relogio` ou ausente/null), o caso é pontuado pelo que o produto faria com essa saída, usando o resolvedor da E2-B para aquele operador:
+   - **Operador `a_definir`:** o produto pergunta. Vale como ASK.
+   - **Verdade AMBIGUOUS com valor usado em silêncio:** **S3**.
+   - **Valor usado diferente do esperado:** **S4**.
+   - **Valor usado igual ao esperado:** **W2_NOT_OFFSET** (aviso). As métricas de evidência, tipo e âncora contam como falsas.
+2. **S3 vale só para ambiguidade real** (F5), isto é, verdade AMBIGUOUS com leituras divergentes.
+   - Num caso com âncora nomeada em que a pergunta esperada vem só da competição com a referência literal (LITERAL_COMPETES), usar o valor da própria âncora verdadeira é o aviso **W3_MISSED_LITERAL_ASK**, reportado com destaque e sem parar a sonda.
+   - Qualquer outro valor nesse caso é **S4**.
+   - Escolher a âncora errada continua sendo **S1**.
+3. **Veredito inconclusivo** (F4). PREMISSA_SEGURA só vale se a parada for por fim dos casos ou pelo teto **e** pelo menos um caso tiver sido pontuado com deslocamento. Qualquer outra parada sem S (falha de transporte, trava de custo ou rede) dá **PREMISSA_INCONCLUSIVA**, com o motivo e as contagens.
+4. **Bytes** (F2/F3).
+   - **Gate da sonda:** a requisição real de **cada caso** (1ª chamada e a forma com nota de reparo), com a mensagem trocada pelo pior texto documentado (1000 caracteres acentuados, §11.8 da especificação 12), precisa ficar com **pelo menos 2.048 B** de folga abaixo do teto.
+   - **Construção de fluxo completo** (plano aberto, como a prova da E2-B): é só **informativa**, porque a sonda é turno único e não usa plano aberto. Ela é medida com o mesmo pior texto e reportada ao dono como pendência da implementação completa, se ficar abaixo da regra.
+   - **Ensaio sem rede:** reprova qualquer caso cuja requisição não caiba.
+   - **Execução paga:** um caso recusado pela trava vira FAILED, com resumo, e nunca aborta a sonda sem veredito.
+5. **Rastreabilidade** (F9). Os resumos registram o HEAD, se a árvore está limpa e o sha256 de `secretary-pilot-anchor.ts`, `pilot-anchor-probe.ts`, `secretary-pilot-resolver.ts`, `pilot-astar-contract.ts` e `pilot-astar-prompt.ts`. A execução paga exige árvore limpa.
+6. **Higiene** (F6, F7, F8):
+   - os casos parados pelo teto ou abortados entram em `unrun`;
+   - o cliente do SDK roda com `logLevel: "off"`;
+   - o digest da ferramenta A\* fica fixado como literal na trava de custo, com um teste de igualdade, para o fluxo real não carregar o contrato A\*.
