@@ -917,3 +917,47 @@ O dono autorizou **somente** a prova desta premissa: a Luna 6 consegue dar evid�
 **Revisão adversarial:** F1–F9 e N1–N3 corrigidos, com testes.
 
 **Parâmetros da execução:** teto de US$ 0,04, fail-closed, com S1–S4 e as emendas da §9 da especificação 13.
+
+## Resultado da sonda A\* (03/10/2026): PREMISSA_REPROVADA
+
+**Execução**
+- Run `probe:astar-2026-10-03T13-19-46-061Z`, HEAD 32cc03c, árvore limpa.
+- Casos (sha 499c75dd) e contrato (sha 94d71389) conferidos.
+- **Parou no 3º caso (AP03) com S1**, como manda a regra pré-registrada. Também valia S3.
+
+**Gasto:** US$ 0,003278, em 3 chamadas sem reparo. O programa está em US$ 10,297902 de 15.
+
+**Casos executados**
+
+| Caso | Alvo | Saída da Luna | Decisão do módulo | Resultado |
+|---|---|---|---|---|
+| AP01 | DATE, ambíguo | sem alegação | ASK com as duas leituras | correto |
+| AP02 | TIME, ambíguo | alegação ORIGIN com tipo `outro` | ASK | correto |
+| AP03 | TIME, ambíguo | alegação ORIGIN com tipo `desloca` e evidência contida | aceitou e devolveu USE de uma das duas leituras, sem perguntar | **S1** |
+
+**Análise do AP03** (isolada: dois analistas e um adjudicador; o detalhe com textos fica para o dono)
+- A evidência citada é uma locução de **direção**. Pela §2 da especificação, isso é `outro`. Não há na mensagem verbo que desloque o atendimento.
+- A verdade AMBIGUOUS se sustenta pela regra, com uma ressalva pragmática: a leitura PRESENT ia contra a direção dita. O conferente tinha anotado isso antes de rodar.
+- A falha **instancia o risco residual previsto**: o código prova que as palavras existem na mensagem, não que nomeiam o ponto de partida. A tabela de consistência não dispara porque `desloca` → ORIGIN é um par consistente.
+- **Mecanismo provável (inferência):** a palavra de direção aparece no prompt só dentro do exemplo de `desloca`. Isso **não** foi alterado (§8: nenhum ajuste depois da falha).
+
+**Métricas (n=3)**
+
+| Métrica | Valor |
+|---|---|
+| Evidência correta | 2/3 |
+| Tipo correto | 2/3 |
+| Âncora correta | 2/3 |
+| Referência citada correta | 3/3 |
+| Ambiguidades transformadas em pergunta | 2/3 |
+| Perguntas falsas | 0 (nenhum caso que esperava USE rodou) |
+| `outro`/null | 2 |
+| p50/p90 | 3,9 s / 3,9 s |
+| Folga do payload | 21.563 B (a regra exige ≥ 2.048 B) |
+
+**O que a sonda não mostra:**
+- uma taxa de ocorrência;
+- os 21 casos que não rodaram (âncora nomeada, data/hora citada, LITERAL_COMPETES);
+- o efeito da nota e do Confirmar.
+
+Conforme a decisão do dono, o trabalho **PARA**: nada de A\* completa, nada de correção, nada de rodada nova sem decisão dele.
