@@ -19,6 +19,21 @@ em uma entrega separada, depois da margem de renovação abaixo estar em produç
 - Renovação debitada até três dias antes do vencimento é reconhecida pelo preço
   já agendado no Mercado Pago; fora disso, a conferência continua exata.
 
+## 03/10/2026 — fila de espera atendida em outro horário
+
+Pedido do dono (áudio de 30/09): quem está na fila de um horário ocupado pode ser
+agendado pela gestão (dono/gerente) **em outro horário livre**, sem remover e
+recadastrar. A reserva nova e a saída da fila acontecem na mesma transação. A
+entrada fica como atendida (`fulfilledAppointmentId`) e não como cancelada, com
+registro em auditoria. Conta e convidado são preservados.
+
+O cancelamento pela equipe continua **não promovendo ninguém sozinho**. A opção
+"cancelar e passar o horário ao #1 da fila" é a confirmação explícita da
+equipe, numa única ação: revalida a vaga e, se não servir, nada é cancelado.
+As sugestões de horários livres da equipe usam o mesmo cálculo público, sem a
+antecedência mínima/máxima do cliente; digitar outro horário e as exceções de
+encaixe continuam disponíveis.
+
 ## 02/10/2026 — novo preço do Individual e da agenda adicional
 
 A pedido do responsável, Individual passa de R$ 59,90 para R$ 39,90/mês e a
@@ -27,7 +42,6 @@ R$ 20/mês. Anuais seguem as regras já aprovadas: Individual R$ 399 (dez
 mensalidades, valor inteiro) e adicional R$ 192/ano (20% sobre doze meses).
 Catálogo 2026-10-02, somente para novas contratações; contratos anteriores
 continuam cobrando o preço persistido. Demais planos permanecem iguais.
-
 ## 27/09/2026 — reativar renovação e confirmação imediata
 
 O responsável aprovou a recomendação baseada em Stripe, Spotify, Netflix e

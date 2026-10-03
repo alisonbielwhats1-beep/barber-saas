@@ -35,7 +35,7 @@ import { ptBR } from "date-fns/locale";
 import { formatInTimeZone } from "date-fns-tz";
 import { minutesToHHMM, formatMoney } from "@/lib/utils";
 import { calendarGridRangeInTimeZone } from "@/lib/time";
-import { AppointmentDialog, type ProOption, type ServiceOption, type ClientOption } from "./appointment-form";
+import { AppointmentDialog, type ProOption, type ServiceOption, type ClientOption, type WaitlistPrefill } from "./appointment-form";
 import { AppointmentDetail } from "./appointment-detail";
 import { STATUS, STATUS_ORDER } from "./agenda-status";
 import { appointmentColor } from "@/lib/agenda-colors";
@@ -65,6 +65,19 @@ const HEADER_H = 64;
 
 type ViewKind = "day" | "week" | "month" | "list";
 
+export type WaitlistEntryView = {
+  id: string;
+  name: string;
+  phone: string | null;
+  serviceName: string;
+  position: number;
+  /** `null` para quem entrou na fila sem conta (convidado). */
+  clientId: string | null;
+  professionalId: string;
+  startAt: string;
+  serviceIds: string[];
+};
+
 export type Appointment = {
   stages?: { name: string; durationMin: number; processingMin: number; finishingMin: number }[];
   seriesId?: string | null;
@@ -83,13 +96,7 @@ export type Appointment = {
   serviceCategory?: string | null;
   waitlistCount: number;
   waitlistNext: string | null;
-  waitlist: Array<{
-    id: string;
-    name: string;
-    phone: string | null;
-    serviceName: string;
-    position: number;
-  }>;
+  waitlist: WaitlistEntryView[];
   isOverbooked: boolean;
   version: number;
   serviceIds: string[];
@@ -228,7 +235,7 @@ export function AgendaBoard({
   const [search, setSearch] = useState("");
   const [detail, setDetail] = useState<Appointment | null>(() => appointments.find(a => a.id === initialAppointmentId) ?? null);
   const currentDetail = detail ? appointments.find(appointment => appointment.id === detail.id) ?? detail : null;
-  const [createAt, setCreateAt] = useState<{ startLocal: string; proId: string; clientId?: string } | null>(() => canCreate && initialClientId && clients.some(client => client.id === initialClientId) && roster.length ? {startLocal:`${date}T08:00`,proId:roster[0].id,clientId:initialClientId} : null);
+  const [createAt, setCreateAt] = useState<{ startLocal: string; proId: string; clientId?: string; waitlist?: WaitlistPrefill } | null>(() => canCreate && initialClientId && clients.some(client => client.id === initialClientId) && roster.length ? {startLocal:`${date}T08:00`,proId:roster[0].id,clientId:initialClientId} : null);
   const [moveProposal, setMoveProposal] = useState<{
     appointment: Appointment;
     professionalId: string;
@@ -604,7 +611,8 @@ export function AgendaBoard({
 
       {createAt && (
         <AppointmentDialog
-          initialClient={clients.find(client => client.id === createAt.clientId)}
+          initialClient={createAt.waitlist?.client ?? clients.find(client => client.id === createAt.clientId)}
+          waitlist={createAt.waitlist}
           open={!!createAt}
           onOpenChange={(o) => {
             if (!o) {
@@ -650,6 +658,22 @@ export function AgendaBoard({
         timezone={timezone}
         canCreate={canCreate}
         canCancel={canCancel}
+        onScheduleWaitlist={canCreate && canCancel ? (entry) => {
+          const startLocal = formatInTimeZone(new Date(entry.startAt), timezone, "yyyy-MM-dd'T'HH:mm");
+          setDetail(null);
+          setCreateAt({
+            startLocal,
+            proId: entry.professionalId,
+            waitlist: {
+              entryId: entry.id,
+              name: entry.name,
+              sourceTime: startLocal.slice(11, 16),
+              serviceIds: entry.serviceIds,
+              client: entry.clientId ? { id: entry.clientId, name: entry.name, phone: entry.phone } : undefined,
+              guest: entry.clientId ? undefined : { name: entry.name, phone: entry.phone ?? "" },
+            },
+          });
+        } : undefined}
         onClose={() => {
           setDetail(null);
           refresh();

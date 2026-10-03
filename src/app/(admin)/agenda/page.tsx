@@ -29,6 +29,14 @@ function waitlistServiceName(value: unknown): string {
   return names.length > 0 ? names.join(" + ") : "Serviço";
 }
 
+function waitlistServiceIds(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    const record = jsonRecord(item);
+    return typeof record.serviceId === "string" ? [record.serviceId] : [];
+  });
+}
+
 export default async function AgendaPage({
   searchParams,
 }: {
@@ -140,8 +148,11 @@ export default async function AgendaPage({
       select: {
         id: true,
         appointmentId: true,
+        clientId: true,
         guestName: true,
         guestPhone: true,
+        professionalId: true,
+        startAt: true,
         serviceSnapshots: true,
         client: { select: { name: true, phone: true } },
       },
@@ -197,6 +208,10 @@ export default async function AgendaPage({
     name: string;
     phone: string | null;
     serviceName: string;
+    clientId: string | null;
+    professionalId: string;
+    startAt: string;
+    serviceIds: string[];
   }>>();
   for (const w of waitlistRaw) {
     const name = w.client?.name ?? w.guestName ?? "Cliente";
@@ -206,6 +221,10 @@ export default async function AgendaPage({
       name,
       phone: w.client?.phone ?? w.guestPhone ?? null,
       serviceName: waitlistServiceName(w.serviceSnapshots),
+      clientId: w.clientId,
+      professionalId: w.professionalId,
+      startAt: w.startAt.toISOString(),
+      serviceIds: waitlistServiceIds(w.serviceSnapshots),
     });
     waitlistByAppt.set(w.appointmentId, list);
   }

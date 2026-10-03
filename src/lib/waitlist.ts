@@ -8,6 +8,7 @@ import { clientIdentityData } from "./client-identity";
 import { priceServicesForDate } from "./pricing";
 import { dateKeyInTimeZone } from "./time";
 import { lockOperationalResources } from "./inventory-lock";
+import { writeAuditLog } from "./audit";
 
 const WAITLIST_NOTE = "Confirmado automaticamente pela lista de espera.";
 
@@ -294,6 +295,78 @@ export async function cancelWaitlistEntry(
   });
   if (updated.count !== 1) throw new WaitlistError("ALREADY_FULFILLED");
   return { appointmentId: entry.appointmentId, duplicate: false };
+}
+
+/**
+ * Atende uma entrada da fila com uma reserva criada pela gestão em outro
+ * horário. Roda na mesma transação da criação: se a entrada já saiu da fila,
+ * a reserva nova também é desfeita. O retry idempotente da criação devolve a
+ * mesma reserva e, portanto, é aceito sem nova escrita.
+ */
+export async function fulfillWaitlistEntryElsewhere(
+  tx: Tx,
+  input: {
+    salonId: string;
+    entryId: string;
+    appointmentId: string;
+    clientId: string;
+    actor: { id: string; name: string };
+  },
+): Promise<{ sourceAppointmentId: string; duplicate: boolean }> {
+  const firstRead = await tx.waitlistEntry.findFirst({
+    where: { id: input.entryId, salonId: input.salonId },
+    select: { appointmentId: true },
+  });
+  if (!firstRead) throw new WaitlistError("NOT_FOUND");
+  await lockWaitlist(tx, firstRead.appointmentId);
+
+  const entry = await tx.waitlistEntry.findFirst({
+    where: { id: input.entryId, salonId: input.salonId },
+    select: {
+      appointmentId: true,
+      clientId: true,
+      startAt: true,
+      fulfilledAt: true,
+      fulfilledAppointmentId: true,
+      cancelledAt: true,
+    },
+  });
+  if (!entry) throw new WaitlistError("NOT_FOUND");
+  if (entry.clientId && entry.clientId !== input.clientId) {
+    throw new WaitlistError("FORBIDDEN");
+  }
+  if (entry.fulfilledAt) {
+    if (entry.fulfilledAppointmentId === input.appointmentId) {
+      return { sourceAppointmentId: entry.appointmentId, duplicate: true };
+    }
+    throw new WaitlistError("ALREADY_FULFILLED");
+  }
+  if (entry.cancelledAt) throw new WaitlistError("NOT_FOUND");
+
+  const updated = await tx.waitlistEntry.updateMany({
+    where: {
+      id: input.entryId,
+      salonId: input.salonId,
+      fulfilledAt: null,
+      cancelledAt: null,
+    },
+    data: { fulfilledAt: new Date(), fulfilledAppointmentId: input.appointmentId },
+  });
+  if (updated.count !== 1) throw new WaitlistError("ALREADY_FULFILLED");
+  await writeAuditLog(tx, {
+    salonId: input.salonId,
+    userId: input.actor.id,
+    actorName: input.actor.name,
+    action: "WAITLIST_SCHEDULED_ELSEWHERE",
+    entityType: "WaitlistEntry",
+    entityId: input.entryId,
+    metadata: {
+      sourceAppointmentId: entry.appointmentId,
+      requestedStartAt: entry.startAt.toISOString(),
+      appointmentId: input.appointmentId,
+    },
+  });
+  return { sourceAppointmentId: entry.appointmentId, duplicate: false };
 }
 
 /**

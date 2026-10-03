@@ -15,6 +15,31 @@ com confirmação de e-mail; links `?plan=` antigos; descrição com a capacidad
 total no Mercado Pago; ajuda para trocar o cartão em atraso; checkout pausado na
 landing; Termos de Uso (seção 7, pendente de aprovação do responsável); margem
 de três dias para renovação debitada antes do vencimento. Sem migration.
+## 2026-10-03 — fila de espera: agendar em outro horário
+
+Branch `claude/customer-difficulty-improvements-014032`, a partir do áudio do
+dono de 30/09. Ele tinha uma pessoa na fila do horário das 08:30 e um encaixe
+livre às 16h. Sem ação para isso, precisou remover da fila e recadastrar o
+agendamento na mão.
+
+- **Agendar em outro horário.** No detalhe do agendamento, cada pessoa da fila
+  ganha essa ação (dono/gerente), além de WhatsApp e telefone clicável. A ação
+  abre o "Novo agendamento" já com cliente (ou convidado), profissional e
+  serviços, direto na escolha de data e hora.
+- **Horários livres sugeridos.** A escolha de data e hora mostra os horários
+  livres do profissional no dia, com ★ nos melhores encaixes. Isso vale também
+  no agendamento manual comum. O cálculo foi extraído da rota pública para
+  `src/lib/day-slots.ts`; para a equipe, roda sem a antecedência pública.
+- **Saída da fila na mesma transação.** Ao confirmar, a pessoa sai da fila na
+  mesma transação da nova reserva (`fulfillWaitlistEntryElsewhere`, auditada
+  como `WAITLIST_SCHEDULED_ELSEWHERE`).
+- **Cancelar e passar o horário.** O cancelamento ganha a opção "Passar este
+  horário para <nome> (#1 da fila)": cancela e promove numa única transação. Se
+  a vaga não servir, nada é cancelado.
+- **Painel de cuidados.** O "Cuidados e fotos desta visita" fechado ficou sem o
+  vão vazio.
+
+Sem migration (usa `fulfilledAt`/`fulfilledAppointmentId` existentes).
 
 ## 2026-09-27 — tela de início do cliente reorganizada para celular
 
