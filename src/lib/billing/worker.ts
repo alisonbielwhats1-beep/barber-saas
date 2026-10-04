@@ -10,6 +10,7 @@ import { changesEnabled } from "./change-terms";
 import { parseUpgradeReference } from "./change-provider";
 import { applyUpgradePayment } from "./change-payments";
 import { syncPlanChanges } from "./change-worker";
+import { schedulePriceReduction } from "./price-reduction";
 
 /** The only global scope is dispatch metadata, not subscriptions, payments or tenant records. */
 async function queueScope<T>(fn: (tx: Tx) => Promise<T>) {
@@ -128,8 +129,9 @@ export async function syncSubscription(salonId: string, id: string) {
   const nextOffset = sub.invoiceOffset + invoices.length;
   const more = invoices.length > 0 && nextOffset < page.paging.total;
   await withSalon(salonId, async tx => { await subscriptionLock(tx, salonId); return tx.billingSubscription.update({ where: { id }, data: { lastSyncedAt: new Date(), invoiceOffset: more ? nextOffset : 0 } }); });
+  const scheduled = await schedulePriceReduction(sub);
   const pending = changesEnabled() ? await withSalon(salonId, tx => tx.billingPlanChange.findFirst({ where: { subscriptionId: id, salonId, state: { in: ["PREPARING", "AWAITING_PAYMENT", "APPLYING", "CANCEL_REQUESTED"] } }, select: { id: true } })) : null;
-  return more || inbox.length === 1 || Boolean(pending);
+  return more || inbox.length === 1 || Boolean(pending) || scheduled;
 }
 
 type LeasedJob = { subscriptionId: string; salonId: string; leaseUntil: Date };

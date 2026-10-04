@@ -5,6 +5,8 @@ import type { RemoteSubscription } from "./provider";
 
 export const changesEnabled = () => process.env.MERCADOPAGO_PLAN_CHANGES_ENABLED === "true";
 export const pendingChangeStates = ["PREPARING", "AWAITING_PAYMENT", "APPLYING", "SCHEDULED", "CANCEL_REQUESTED", "REVIEW"];
+/** Marks the scheduled change the platform creates when the table price of a contract goes down. */
+export const PRICE_REDUCTION_ACTOR = "system:price-reduction";
 export function remoteMatchesTerms(remote: RemoteSubscription, terms: BillingTerms) {
   return remote.auto_recurring.currency_id === "BRL" && Math.round(remote.auto_recurring.transaction_amount * 100) === terms.amountCents && remote.auto_recurring.frequency === terms.intervalMonths && remote.auto_recurring.frequency_type === "months";
 }
@@ -61,5 +63,5 @@ export function changeView(change: BillingPlanChange) {
     amountDueCents: change.amountDueCents, effectiveAt: change.effectiveAt.toISOString(), periodEnd: change.periodEnd.toISOString(), expiresAt: change.expiresAt.toISOString(),
     paidAt: change.paidAt?.toISOString() ?? null, activatedAt: change.activatedAt?.toISOString() ?? null,
     checkoutUrl: ["AWAITING_PAYMENT", "PREPARING"].includes(change.state) && !change.paidAt && change.expiresAt > new Date() ? change.checkoutUrl : null,
-    lastError: change.lastError };
+    lastError: change.lastError, priceReduction: change.actorUserId === PRICE_REDUCTION_ACTOR };
 }

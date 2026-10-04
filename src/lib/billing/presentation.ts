@@ -31,7 +31,9 @@ export type SubscriptionView = {
   changesAvailable?: boolean; changePending?: boolean; change?: PlanChangeView | null;
   charges: { id: string; amountCents: number; refundedCents: number; status: string; periodStart: string; periodEnd: string; paidAt: string | null }[];
 };
-export type PlanChangeView = { id: string; kind: string; state: string; from: BillingTerms; to: BillingTerms; amountDueCents: number; effectiveAt: string; periodEnd: string; expiresAt: string; paidAt: string | null; activatedAt: string | null; checkoutUrl: string | null; lastError: string | null };
+export type PlanChangeView = { id: string; kind: string; state: string; from: BillingTerms; to: BillingTerms; amountDueCents: number; effectiveAt: string; periodEnd: string; expiresAt: string; paidAt: string | null; activatedAt: string | null; checkoutUrl: string | null; lastError: string | null;
+  /** Created by the platform because the table price went down; the owner did not ask for it. */
+  priceReduction?: boolean };
 export type BillingTone = "ok" | "warn" | "danger" | "neutral";
 export type RenewalStatus = "AVAILABLE" | "PENDING" | "CANCELLED";
 export const renewalStatusOf = (sub: Pick<SubscriptionView, "renewalCancellationStatus" | "cancelledAt" | "cancelRequestedAt">): RenewalStatus =>

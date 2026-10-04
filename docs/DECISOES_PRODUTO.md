@@ -1,5 +1,19 @@
 # Decisões de produto para as próximas fases
 
+## 04/10/2026 — redução automática para contratos acima da tabela
+
+Aplicação da regra de 03/10: quando a tabela fica mais barata que o valor de um
+contrato (hoje, Individual de R$ 59,90 ou R$ 599 contratado antes de 02/10), a
+plataforma agenda a redução para o próximo vencimento, sem ação do dono. O
+período já pago não muda e não há reembolso. Contratos mensais recebem a redução
+no período corrente; anuais, só no último mês antes da renovação, para não travar
+trocas de plano o ano todo. Preço de tabela que sobe nunca alcança contrato
+existente. Durante a redução agendada o dono vê "Seu plano ficou mais barato" e
+pode usar "Mudar de plano agora": a redução é desfeita no Mercado Pago, o plano
+escolhido segue a tabela atual e, se ele não trocar, a redução volta no
+vencimento seguinte. Se a plataforma não conseguir enviar o novo valor antes do
+vencimento, a redução fica para o período seguinte, sem revisão financeira.
+
 ## 03/10/2026 — coerência de preços após a mudança de tabela
 
 Recomendação aceita pelo responsável depois da validação com vários agentes:

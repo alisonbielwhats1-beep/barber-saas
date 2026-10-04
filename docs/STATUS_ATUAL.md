@@ -1,5 +1,16 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-10-04 — redução automática dos contratos acima da tabela
+
+PR #136 publicado (`db298d2`). Branch `claude/reducao-preco-antigo`: o worker de
+cobrança agenda, para cada assinatura atual cujo valor está acima da tabela para
+a mesma capacidade e ciclo, uma troca `SCHEDULED` criada pela plataforma
+(`actorUserId = system:price-reduction`), com o mesmo caminho já validado das
+reduções (PUT confirmado por GET, fatura do vencimento reconhecida pelo valor
+novo, inclusive até três dias antes). Mensais logo; anuais no último mês. O
+painel mostra "Seu plano ficou mais barato" e permite desfazer para trocar de
+plano; o atalho do topo continua "Ativo". Sem migration nem mudança de catálogo.
+
 ## 2026-10-03 — novo preço em produção e coerência da cobrança em validação
 
 PR #133 publicado (`772d2c1`, `/api/health` confirmou a versão): catálogo
