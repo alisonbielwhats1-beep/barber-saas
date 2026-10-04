@@ -56,7 +56,7 @@ export default async function PortfolioPage() {
           <p className="mb-1 text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
             Galeria
           </p>
-          <h1 className="text-2xl font-semibold tracking-tight">Portfolio</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Portfólio</h1>
         </div>
         {(canManage || lockedProfessional) && (
           <PortfolioForm

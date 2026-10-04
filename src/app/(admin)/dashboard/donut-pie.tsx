@@ -1,6 +1,7 @@
 "use client";
 
 import { ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { formatMoney } from "@/lib/utils";
 
 /**
  * Só o anel do donut. Vive separado de donut-chart.tsx porque o `recharts`
@@ -10,9 +11,13 @@ import { ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 export default function DonutPie({
   data,
   paddingAngle,
+  empty = false,
 }: {
+  /** Valores em centavos, como em `formatMoney`. */
   data: { name: string; value: number; color: string }[];
   paddingAngle: number;
+  /** Anel de "sem dados": a fatia única é só desenho, não um valor a anunciar. */
+  empty?: boolean;
 }) {
   return (
     <ResponsiveContainer width="100%" height="100%">
@@ -28,7 +33,7 @@ export default function DonutPie({
           endAngle={-270}
         >
           {data.map((s, i) => (
-            <Cell key={i} fill={s.color} role="img" aria-label={`${s.name}: ${s.value}`} />
+            <Cell key={i} fill={s.color} role="img" aria-label={empty ? s.name : `${s.name}: ${formatMoney(s.value)}`} />
           ))}
         </Pie>
       </PieChart>

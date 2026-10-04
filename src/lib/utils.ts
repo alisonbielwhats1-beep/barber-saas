@@ -9,6 +9,19 @@ export function formatMoney(cents: number, currency = "BRL", locale = "pt-BR") {
   return new Intl.NumberFormat(locale, { style: "currency", currency }).format(cents / 100);
 }
 
+/** Valor abreviado para eixos de gráfico, ex.: "R$ 1,5 mil". Recebe centavos, como `formatMoney`. */
+export function formatMoneyCompact(cents: number, currency = "BRL", locale = "pt-BR") {
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency,
+    notation: "compact",
+    // Explícito: sem o mínimo, versões diferentes do ICU (Node do CI x local)
+    // mostram "R$ 0,0" ou "R$ 0".
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 1,
+  }).format(cents / 100);
+}
+
 export function formatDuration(minutes: number) {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
