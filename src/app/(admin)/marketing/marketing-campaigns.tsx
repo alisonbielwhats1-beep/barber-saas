@@ -271,7 +271,7 @@ export function MarketingCampaigns({
             </div>
           )}
         </div>
-        <p className="text-[11px] text-muted-foreground">{enabled ? "Cada ação abre ou copia a mensagem para revisão. Nada é disparado automaticamente." : "Faça upgrade para liberar as ações de campanha. Nada é disparado automaticamente."}</p>
+        <p className="text-[11px] text-muted-foreground">{enabled ? "Cada ação abre ou copia a mensagem para revisão. Nada é disparado automaticamente." : "Contrate um plano pago para liberar as ações de campanha. Nada é disparado automaticamente."}</p>
       </div>
     </div>
   );

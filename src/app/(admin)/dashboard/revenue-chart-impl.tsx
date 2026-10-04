@@ -10,6 +10,7 @@ import {
   CartesianGrid,
 } from "recharts";
 import { format, parseISO } from "date-fns";
+import { formatMoney, formatMoneyCompact } from "@/lib/utils";
 
 export function RevenueChart({ data }: { data: { date: string; cents: number }[] }) {
   const formatted = data.map((d) => ({
@@ -20,7 +21,7 @@ export function RevenueChart({ data }: { data: { date: string; cents: number }[]
 
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <AreaChart data={formatted} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+      <AreaChart data={formatted} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
         <defs>
           <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
@@ -40,7 +41,8 @@ export function RevenueChart({ data }: { data: { date: string; cents: number }[]
           fontSize={11}
           tickLine={false}
           axisLine={false}
-          tickFormatter={(v) => `R$${v}`}
+          width={64}
+          tickFormatter={(v: number) => formatMoneyCompact(Math.round(v * 100))}
         />
         <Tooltip
           contentStyle={{
@@ -49,7 +51,7 @@ export function RevenueChart({ data }: { data: { date: string; cents: number }[]
             borderRadius: 8,
             fontSize: 12,
           }}
-          formatter={(v: number) => [`R$ ${v.toFixed(2)}`, "Faturamento"]}
+          formatter={(v: number) => [formatMoney(Math.round(v * 100)), "Faturamento"]}
         />
         <Area
           type="linear"
