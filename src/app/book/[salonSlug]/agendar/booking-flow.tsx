@@ -11,8 +11,6 @@ import {
   ArrowLeft,
   CalendarPlus,
   Check,
-  ChevronLeft,
-  ChevronRight,
   Search,
   ShoppingBag,
   Star,
@@ -27,18 +25,7 @@ import { useCart } from "@/lib/cart";
 import { friendlyError } from "@/lib/booking-errors";
 import { effectivePublicBookingLeadDays } from "@/lib/pricing";
 import type { ClientSession } from "@/lib/client-auth";
-import {
-  addMonths,
-  addDays,
-  eachDayOfInterval,
-  endOfMonth,
-  format,
-  isSameDay,
-  isSameMonth,
-  startOfMonth,
-  startOfWeek,
-  endOfWeek,
-} from "date-fns";
+import { addDays, format, startOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatInTimeZone } from "date-fns-tz";
 import {
@@ -56,6 +43,7 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 import { SalonLocationLink } from "../salon-location-link";
+import { BookingCalendar } from "./booking-calendar";
 import { clientBookingReturnTo } from "@/lib/client-routes";
 import { isDateKey } from "@/lib/time";
 
@@ -555,12 +543,6 @@ export function BookingFlow({
     idempotencyKeyRef.current = null;
   }, [serviceIds, proId, slot, date, rescheduleId]);
 
-  const calendarDays = useMemo(() => {
-    const first = startOfWeek(startOfMonth(viewMonth), { weekStartsOn: 1 });
-    const last = endOfWeek(endOfMonth(viewMonth), { weekStartsOn: 1 });
-    return eachDayOfInterval({ start: first, end: last });
-  }, [viewMonth]);
-
   function handleConfirmClick() {
     if (
       selectedServices.length === 0 ||
@@ -1018,93 +1000,23 @@ export function BookingFlow({
       {/* Data e hora */}
       <div>
         <h3 className="mb-3 text-sm font-semibold">Data e hora</h3>
-        <div className="rounded-2xl border border-border bg-card p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => setViewMonth((m) => addMonths(m, -1))}
-              disabled={format(viewMonth, "yyyy-MM") <= todayDate.slice(0, 7)}
-              className="grid h-11 w-11 place-items-center rounded-full text-muted-foreground hover:text-foreground disabled:opacity-30"
-              aria-label="Mês anterior"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <p className="text-sm font-medium">
-              <span className="text-muted-foreground">{format(viewMonth, "yyyy")}</span>{" "}
-              <span className="text-primary">
-                {format(viewMonth, "MMMM", { locale: ptBR })}
-              </span>
-            </p>
-            <button
-              type="button"
-              onClick={() => setViewMonth((m) => addMonths(m, 1))}
-              disabled={format(addMonths(viewMonth, 1), "yyyy-MM-dd") > maxBookingDateKey}
-              className="grid h-11 w-11 place-items-center rounded-full text-muted-foreground hover:text-foreground disabled:opacity-30"
-              aria-label="Próximo mês"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
-
-          <div className="grid grid-cols-7 gap-1 text-center text-[11px] text-muted-foreground">
-            {[
-              ["S", "segunda-feira"],
-              ["T", "terça-feira"],
-              ["Q", "quarta-feira"],
-              ["Q", "quinta-feira"],
-              ["S", "sexta-feira"],
-              ["S", "sábado"],
-              ["D", "domingo"],
-            ].map(([shortLabel, fullLabel]) => (
-              <span key={fullLabel} className="py-1">
-                <span aria-hidden="true">{shortLabel}</span>
-                <span className="sr-only">{fullLabel}</span>
-              </span>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-7 gap-1">
-            {calendarDays.map((d) => {
-              const inMonth = isSameMonth(d, viewMonth);
-              const dateKey = format(d, "yyyy-MM-dd");
-              const past = dateKey < todayDate;
-              const beyondWindow = dateKey > maxBookingDateKey;
-              const selected = isSameDay(d, date);
-              const waitlistOnly = !!freeDays && !freeDays.has(dateKey) && !!dayAvailability?.waitlist.has(dateKey);
-              const noAvailability = !!freeDays && !freeDays.has(dateKey) && !waitlistOnly;
-              const disabled = past || beyondWindow || !inMonth || noAvailability;
-              return (
-                <button
-                  type="button"
-                  key={d.toISOString()}
-                  disabled={disabled}
-                  onClick={() => {
-                    invalidatePendingSlot();
-                    dateChosenRef.current = true;
-                    setSlot(null);
-                    setDate(d);
-                  }}
-                  aria-label={`${format(d, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}${
-                    waitlistOnly ? ", lotado, só fila de espera" : noAvailability && inMonth && !past && !beyondWindow ? ", sem horários" : ""
-                  }`}
-                  aria-pressed={selected}
-                  aria-current={format(d, "yyyy-MM-dd") === todayDate ? "date" : undefined}
-                  className={`relative grid h-11 place-items-center rounded-full text-sm transition ${
-                    selected
-                      ? "bg-primary font-semibold text-primary-foreground"
-                      : disabled
-                        ? "text-muted-foreground/30"
-                        : "text-foreground hover:bg-muted"
-                  }`}
-                >
-                  {format(d, "d")}
-                  {waitlistOnly && inMonth && (
-                    <span aria-hidden="true" className="absolute bottom-1 h-1 w-1 rounded-full bg-warning" />
-                  )}
-                </button>
-              );
-            })}
-          </div>
+        <BookingCalendar
+          todayDate={todayDate}
+          maxDateKey={maxBookingDateKey}
+          selected={date}
+          viewMonth={viewMonth}
+          onViewMonthChange={setViewMonth}
+          dayState={(dateKey) =>
+            !freeDays || freeDays.has(dateKey)
+              ? "available"
+              : dayAvailability?.waitlist.has(dateKey) ? "waitlist" : "closed"}
+          onSelect={(d) => {
+            invalidatePendingSlot();
+            dateChosenRef.current = true;
+            setSlot(null);
+            setDate(d);
+          }}
+        >
           {dayAvailability?.waitlist && [...dayAvailability.waitlist].some(key => key.startsWith(format(viewMonth, "yyyy-MM"))) && freeDays && (
             <p className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
               <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-warning" />
@@ -1125,7 +1037,7 @@ export function BookingFlow({
               {pricingLabel}: o valor especial aparece no resumo da reserva.
             </p>
           )}
-        </div>
+        </BookingCalendar>
       </div>
 
       {/* Horários — disponibilidade real do profissional */}
