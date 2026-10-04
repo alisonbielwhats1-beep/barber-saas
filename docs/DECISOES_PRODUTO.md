@@ -9,6 +9,25 @@ que a visita inteira cabe e desativa apenas os dias sem atendimento possível
 expediente mas lotados para a visita completa continuam clicáveis, para não
 pesar a consulta quando o cliente escolhe "Sem preferência".
 
+## 03/10/2026 — coerência de preços após a mudança de tabela
+
+Recomendação aceita pelo responsável depois da validação com vários agentes:
+preço que cai vale para todos a partir da próxima renovação; preço que sobe vale
+só para novas contratações e para quem altera o próprio plano, sempre com aviso
+antes de confirmar. A redução para quem paga o Individual a R$ 59,90 será feita
+em uma entrega separada, depois da margem de renovação abaixo estar em produção.
+
+- Contratação ainda não paga, criada por um preço anterior e não autorizada no
+  Mercado Pago, não é paga como está: o painel oferece "Atualizar para o novo
+  preço", que encerra a tentativa sem cobrança e cria outra pelo valor atual.
+- Agendas adicionais contratadas a R$ 15 mantêm esse valor enquanto a
+  quantidade não muda. Ao alterar, a quantidade nova segue a tabela vigente; a
+  revisão avisa quando a renovação sobe e o botão só se chama "Reduzir" quando
+  capacidade e valor diminuem.
+- O card do plano atual mostra o valor contratado, não o da tabela.
+- Renovação debitada até três dias antes do vencimento é reconhecida pelo preço
+  já agendado no Mercado Pago; fora disso, a conferência continua exata.
+
 ## 03/10/2026 — calendário do cliente abre no primeiro dia com vaga
 
 Pedido do responsável: ao marcar um horário, o calendário do cliente abre no
@@ -37,6 +56,14 @@ As sugestões de horários livres da equipe usam o mesmo cálculo público, sem 
 antecedência mínima/máxima do cliente; digitar outro horário e as exceções de
 encaixe continuam disponíveis.
 
+## 02/10/2026 — novo preço do Individual e da agenda adicional
+
+A pedido do responsável, Individual passa de R$ 59,90 para R$ 39,90/mês e a
+agenda adicional (acima de dez, somente Equipe · 10 agendas) de R$ 15 para
+R$ 20/mês. Anuais seguem as regras já aprovadas: Individual R$ 399 (dez
+mensalidades, valor inteiro) e adicional R$ 192/ano (20% sobre doze meses).
+Catálogo 2026-10-02, somente para novas contratações; contratos anteriores
+continuam cobrando o preço persistido. Demais planos permanecem iguais.
 ## 27/09/2026 — reativar renovação e confirmação imediata
 
 O responsável aprovou a recomendação baseada em Stripe, Spotify, Netflix e
@@ -120,15 +147,6 @@ abandonar essa autorização interrompe a renovação automática ao fim do per�
 Esta decisão substitui a ausência de prorrata/trocas no escopo inicial abaixo.
 Não existe aprovação manual para cliente novo: cadastro aprovado e plano pago
 liberado automaticamente por confirmação financeira. Suspensão é independente.
-
-## 02/10/2026 — novo preço do Individual e da agenda adicional
-
-A pedido do responsável, Individual passa de R$ 59,90 para R$ 39,90/mês e a
-agenda adicional (acima de dez, somente Equipe · 10 agendas) de R$ 15 para
-R$ 20/mês. Anuais seguem as regras já aprovadas: Individual R$ 399 (dez
-mensalidades, valor inteiro) e adicional R$ 192/ano (20% sobre doze meses).
-Catálogo 2026-10-02, somente para novas contratações; contratos anteriores
-continuam cobrando o preço persistido. Demais planos permanecem iguais.
 
 ## 13/09/2026 — composição aprovada dos planos na landing
 

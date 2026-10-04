@@ -52,6 +52,11 @@ O PR #101 não incluiu alteração de plano/prorrata. A implementação posterio
 está em `MERCADOPAGO_TROCA_PLANOS.md`, ainda sem ativação produtiva.
 Não há migração automática de contas antigas, reembolso automático, SMS ou WhatsApp.
 
+Desde 03/10/2026 a descrição da assinatura no Mercado Pago cita a capacidade
+total (ex.: "Everflair Equipe · 12 agendas — anual"). Contratação não paga criada
+por um preço anterior, ainda não autorizada, é substituída pelo valor atual em
+vez de seguir para o checkout antigo.
+
 Fluxo: escolher plano → autenticar/cadastrar conta → criar estabelecimento
 automaticamente aprovado → contratar/pagar → confirmar pagamento e
 liberar capacidade. O backend já existente continua permitindo seu acesso legado

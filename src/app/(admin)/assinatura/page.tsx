@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { requireRole } from "@/lib/tenant";
 import { withTenant } from "@/lib/prisma-tenant";
-import { billingEnabled } from "@/lib/billing/config";
+import { billingEnabled, checkoutPaused, planChangesPaused } from "@/lib/billing/config";
 import { resolveBillingIntent } from "@/lib/billing/presentation";
 import { getPlanEntitlement } from "@/lib/plan-entitlements";
 import { SubscriptionPortal } from "@/components/billing/subscription-portal";
@@ -31,7 +31,8 @@ export default async function SubscriptionPage({ searchParams }: { searchParams:
       <p className="text-muted-foreground">{data.salon.name} · Acompanhe seu plano, pagamentos e renovação.</p>
     </header>
     {billingEnabled() ? <SubscriptionPortal key={ctx.salonId} salonId={ctx.salonId} email={data.user.email} timezone={data.salon.timezone} initial={resolveBillingIntent(query)}
-      legacy={legacy} occupiedAgendas={data.occupiedAgendas} billingOrigin={billingOrigin} returnedFromCheckout={query.retorno === "mercadopago"} />
+      legacy={legacy} occupiedAgendas={data.occupiedAgendas} billingOrigin={billingOrigin} returnedFromCheckout={query.retorno === "mercadopago"}
+      newContractsPaused={checkoutPaused()} changesPaused={planChangesPaused()} />
       : <p>A contratação online ainda não está disponível. Seu acesso atual permanece preservado.</p>}
     <details className="admin-detail-section"><summary>Guia de configuração do estabelecimento</summary><p className="mt-2 text-sm text-muted-foreground">Configure horários, serviços e profissionais. No final do guia, conheça o aplicativo e o link que você compartilha com os clientes.</p><Link href="/onboarding/configuracao" className="mb-4 mt-3 inline-flex min-h-11 items-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">Configurar meu estabelecimento</Link></details>
   </div>;

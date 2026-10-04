@@ -3,7 +3,7 @@
 import { ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
-import { billingCapacityLabel, billingMoney, type PlanChangeView } from "@/lib/billing/presentation";
+import { billingCapacityLabel, billingMoney, tablePriceCents, type PlanChangeView } from "@/lib/billing/presentation";
 
 const perCycle = (cycle: string) => cycle === "ANNUAL" ? "a cada 12 meses" : "por mês";
 
@@ -12,6 +12,10 @@ export function PlanChangeReview({ quote, timezone, busy, error, onConfirm, onCl
 }) {
   const date = (value: string) => new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeZone: timezone }).format(new Date(value));
   const upgrade = quote?.kind === "UPGRADE";
+  // A contract priced below today's table keeps that price only while it stays unchanged.
+  const table = quote ? tablePriceCents(quote.from) : null;
+  const belowTable = Boolean(quote && table !== null && quote.from.amountCents < table);
+  const costlierWithLess = Boolean(quote && !upgrade && quote.to.cycle === quote.from.cycle && quote.to.agendaLimit < quote.from.agendaLimit && quote.to.amountCents > quote.from.amountCents);
   return <Dialog open={Boolean(quote)} onOpenChange={open => { if (!open && !busy) onClose(); }}>
     <DialogContent className="max-w-xl">
       <div className="space-y-1"><DialogTitle>Revisar troca de plano</DialogTitle><DialogDescription>Confira os valores e quando a mudança entra em vigor.</DialogDescription></div>
@@ -26,6 +30,8 @@ export function PlanChangeReview({ quote, timezone, busy, error, onConfirm, onCl
           <div className="flex flex-wrap items-baseline justify-between gap-2 p-4"><dt className="text-sm text-muted-foreground">Nova recorrência a partir de {date(quote.periodEnd)}</dt><dd className="font-medium tabular-nums">{billingMoney(quote.to.amountCents)} {perCycle(quote.to.cycle)}</dd></div>
           <div className="flex flex-wrap items-baseline justify-between gap-2 p-4"><dt className="text-sm text-muted-foreground">Quando vale</dt><dd className="font-medium">{upgrade ? "Logo após o pagamento" : `No próximo vencimento, ${date(quote.periodEnd)}`}</dd></div>
         </dl>
+        {costlierWithLess && <p role="note" className="rounded-xl border border-warning/40 bg-warning/10 p-3 text-sm">Atenção: mesmo com menos agendas, a renovação passa de {billingMoney(quote.from.amountCents)} para {billingMoney(quote.to.amountCents)} {perCycle(quote.to.cycle)}.</p>}
+        {belowTable && table !== null && <p className="text-sm text-muted-foreground">Hoje você paga {billingMoney(quote.from.amountCents)} {perCycle(quote.from.cycle)}, valor anterior à tabela atual ({billingMoney(table)} para a mesma capacidade). Com a troca, o novo plano segue a tabela atual.</p>}
         <p className="text-sm">{upgrade ? "O plano maior será liberado após o pagamento da diferença. O vencimento permanece igual. Esta cotação vale por até 15 minutos."
           : quote.kind === "CYCLE" ? "Para evitar duas recorrências, encerraremos a renovação atual antes de liberar a autorização da nova assinatura. Seu período pago será preservado. Se você não concluir a nova autorização, não haverá renovação automática após esse período."
           : "Você mantém o plano atual até o próximo vencimento. O novo limite será reservado para não ultrapassar a capacidade da troca agendada."}</p>

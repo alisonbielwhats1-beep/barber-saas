@@ -610,6 +610,65 @@ pg("automatic billing with PostgreSQL and runtime FORCE RLS", () => {
       expect(await scope.withSalon(f.ctx.salonId, tx => effectiveEntitlement(tx, f.ctx.salonId, "PRO"))).toMatchObject({ label: "TEAM_PLUS", priceCents: 9990, maxProfessionals: 5 });
     } finally { vi.useRealTimers(); }
   });
+  it.each([
+    { when: "6 h before", offsetMs: -6 * 3600_000, accepted: true },
+    { when: "1 s before", offsetMs: -1000, accepted: true },
+    { when: "4 days before", offsetMs: -4 * 86400_000, accepted: false },
+  ])("accepts a scheduled-price renewal debited $when the due date only within the tolerance", async ({ offsetMs, accepted }) => {
+    const f = await paidFixture("TEAM_MAX"), changes = await import("./changes"), { syncPlanChanges } = await import("./change-worker");
+    const quote = await changes.createChangeQuote(f.ctx, { plan: "TEAM_PLUS", cycle: "MONTHLY" }, randomUUID());
+    await changes.confirmPlanChange(f.ctx, quote.id); await syncPlanChanges(f.sub);
+    expect(remoteFor(f.sub.providerId!)).toMatchObject({ auto_recurring: { transaction_amount: 99.9 } });
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      const debit = new Date(f.sub.paidThrough!.getTime() + offsetMs);
+      vi.setSystemTime(debit.getTime() + 60_000);
+      const invoice = { ...f.invoice, id: randomUUID(), debit_date: debit.toISOString(), transaction_amount: 99.9, last_modified: new Date().toISOString(), payment: { id: randomUUID() } };
+      const payment = { ...f.payment, id: invoice.payment.id, transaction_amount: 99.9, date_approved: new Date().toISOString(), date_last_updated: new Date().toISOString() };
+      if (!accepted) {
+        await expect(service.applyInvoice(f.sub, f.remote, invoice, payment)).rejects.toThrow("INVOICE_MISMATCH");
+        expect(await admin.billingCharge.count({ where: { providerInvoiceId: invoice.id } })).toBe(0);
+        expect((await admin.billingPlanChange.findUniqueOrThrow({ where: { id: quote.id } })).state).toBe("SCHEDULED");
+        return;
+      }
+      await service.applyInvoice(f.sub, f.remote, invoice, payment);
+      const charge = await admin.billingCharge.findUniqueOrThrow({ where: { providerInvoiceId: invoice.id } });
+      expect(charge).toMatchObject({ amountCents: 9990, status: "approved", periodStart: debit, periodEnd: periodEnd(debit, 1) });
+      expect((await admin.billingSubscription.findUniqueOrThrow({ where: { id: f.sub.id } })).paidThrough).toEqual(periodEnd(debit, 1));
+      expect((await admin.billingPlanChange.findUniqueOrThrow({ where: { id: quote.id } })).state).toBe("APPLIED");
+      expect(await scope.withSalon(f.ctx.salonId, tx => effectiveEntitlement(tx, f.ctx.salonId, "PRO"))).toMatchObject({ label: "TEAM_PLUS", priceCents: 9990, maxProfessionals: 5 });
+    } finally { vi.useRealTimers(); }
+  });
+  it("still accepts the previous price for a renewal debited shortly before a scheduled change", async () => {
+    const f = await paidFixture("TEAM_MAX"), changes = await import("./changes"), { syncPlanChanges } = await import("./change-worker");
+    const quote = await changes.createChangeQuote(f.ctx, { plan: "TEAM_PLUS", cycle: "MONTHLY" }, randomUUID());
+    await changes.confirmPlanChange(f.ctx, quote.id); await syncPlanChanges(f.sub);
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      const debit = new Date(f.sub.paidThrough!.getTime() - 6 * 3600_000);
+      vi.setSystemTime(debit.getTime() + 60_000);
+      const invoice = { ...f.invoice, id: randomUUID(), debit_date: debit.toISOString(), transaction_amount: 149.9, last_modified: new Date().toISOString(), payment: { id: randomUUID() } };
+      const payment = { ...f.payment, id: invoice.payment.id, transaction_amount: 149.9, date_approved: new Date().toISOString(), date_last_updated: new Date().toISOString() };
+      await service.applyInvoice(f.sub, f.remote, invoice, payment);
+      expect((await admin.billingCharge.findUniqueOrThrow({ where: { providerInvoiceId: invoice.id } })).amountCents).toBe(14990);
+      expect((await admin.billingPlanChange.findUniqueOrThrow({ where: { id: quote.id } })).state).toBe("SCHEDULED");
+    } finally { vi.useRealTimers(); }
+  });
+  it("treats a renewal refused shortly before the due date as a verified failure", async () => {
+    const f = await paidFixture();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      const debit = new Date(f.sub.paidThrough!.getTime() - 6 * 3600_000);
+      vi.setSystemTime(debit.getTime() + 60_000);
+      const invoice = { ...f.invoice, id: randomUUID(), debit_date: debit.toISOString(), last_modified: new Date().toISOString(), payment: { id: randomUUID() } };
+      const payment = { ...f.payment, id: invoice.payment.id, status: "rejected", date_approved: null, date_last_updated: new Date().toISOString() };
+      await service.applyInvoice(f.sub, f.remote, invoice, payment);
+      const sub = await admin.billingSubscription.findUniqueOrThrow({ where: { id: f.sub.id } });
+      expect(sub.delinquentSince).toEqual(debit); expect(sub.paidThrough).toEqual(f.sub.paidThrough);
+      expect(accessState(sub, new Date(f.sub.paidThrough!.getTime() - 1000))).toBe("ACTIVE");
+      expect(accessState(sub, new Date(f.sub.paidThrough!.getTime() + 1000))).toBe("GRACE");
+    } finally { vi.useRealTimers(); }
+  });
   it("rechecks pending invitations on confirmation and rejects expired quotes", async () => {
     const f = await paidFixture("TEAM_MAX"), changes = await import("./changes");
     const quote = await changes.createChangeQuote(f.ctx, { plan: "INDIVIDUAL", cycle: "MONTHLY" }, randomUUID());

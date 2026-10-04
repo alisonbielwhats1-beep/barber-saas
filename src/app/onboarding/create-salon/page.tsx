@@ -22,7 +22,7 @@ export default async function CreateSalonPage({ searchParams }: { searchParams: 
   const intent = billingEnabled() ? resolveBillingIntent(await searchParams) : undefined;
   const next = intent ? billingIntentHref(intent, "/assinatura") : "/dashboard";
   const session = await getServerSession(authOptions);
-  if (!session?.user?.id) redirect("/login");
+  if (!session?.user?.id) redirect(intent ? `/login?callbackUrl=${encodeURIComponent(billingIntentHref(intent, "/contratar"))}` : "/login");
 
   // Quem já tem estabelecimento não tem o que fazer aqui. withUser, não
   // prisma cru: mesma razão do guard em actions.ts — sob RLS, Membership só
