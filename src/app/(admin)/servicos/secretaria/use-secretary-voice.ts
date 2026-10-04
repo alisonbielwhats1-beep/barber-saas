@@ -97,9 +97,38 @@ export function recorderMimeType(recorder: { isTypeSupported?: (type: string) =>
   return typeof recorder?.isTypeSupported === 'function' ? RECORDER_TYPES.find(type => recorder.isTypeSupported!(type)) : undefined;
 }
 type TranscribeReply = { ok: true; text: string } | { ok: false; error: string; code?: string };
-/** C3, GPT transcription: records with MediaRecorder and hands the audio to the server action. Same contract as the native
- * adapter: the transcript only fills the input box; nothing is sent or confirmed. `elapsed` (seconds) feeds the "Ouvindo… 0:12"
- * line; `limited` says the recording was stopped at its time or size limit. */
+/** Live transcription (owner, 04/10: "transcrição em tempo real enquanto eu falo"): the speech is cut at each pause and every
+ * piece is transcribed while the owner keeps speaking, so the text appears as they talk and Enter only waits for the last
+ * piece. Times in ms: `pollMs` between level readings; a piece ends after `minSpeechMs` of speech followed by a `pauseMs`
+ * pause, by a `longPauseMs` pause once it is `longMs` long, or at `maxMs`. */
+export const LIVE_PIECES = { pollMs: 50, pauseMs: 700, minSpeechMs: 300, longMs: 12_000, longPauseMs: 250, maxMs: 20_000 } as const;
+/** Pause detection from the microphone level (RMS, 0–1). Speech is a level well above the room's floor (the quietest reading of
+ * the last 3 s) or near the loudest one, so a dryer or a fan humming under the voice is a pause, not speech. Pure: the
+ * recorder feeds it one reading per `pollMs`. */
+export function createPauseDetector(options: typeof LIVE_PIECES = LIVE_PIECES) {
+  const recent: number[] = [], span = Math.round(3000 / options.pollMs);
+  let speech = 0, quiet = 0, length = 0;
+  return {
+    /** One reading lasting `ms`; true ends the current piece (its counters start again for the next one). */
+    push(level: number, ms: number) {
+      recent.push(level); if (recent.length > span) recent.shift();
+      const floor = Math.min(...recent), peak = Math.max(...recent);
+      length += ms;
+      if (level > 0.01 && (level > floor * 2.5 || level >= peak * 0.5)) { speech += ms; quiet = 0; } else quiet += ms;
+      const end = speech >= options.minSpeechMs && (quiet >= options.pauseMs || (length >= options.longMs && quiet >= options.longPauseMs) || length >= options.maxMs);
+      if (end) { speech = 0; quiet = 0; length = 0; }
+      return end;
+    },
+    /** The current piece holds speech (only silence after what was said is never sent). */
+    get spoken() { return speech >= 100; },
+  };
+}
+type AudioWindow = Window & { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext };
+/** C3, GPT transcription: records with MediaRecorder and hands the audio to the server action, a piece at each pause (above).
+ * Each piece is a complete file the server admits, reserved and billed on its own; no audio is sent twice. Without Web Audio
+ * (no pause detection) the whole recording is one piece, as before. Same contract as the native adapter: the transcript only
+ * fills the input box; nothing is sent or confirmed here. `elapsed` (seconds) feeds the "Ouvindo… 0:12" line; `limited` says
+ * the recording was stopped at its time or size limit. */
 export function useSecretaryRecorder(onTranscript: (text: string) => void, onError: (message: string) => void, transcribe?: (form: FormData) => Promise<TranscribeReply>) {
   const [phase, setPhase] = useState<VoiceState>('idle');
   const [supported, setSupported] = useState(false);
@@ -107,17 +136,25 @@ export function useSecretaryRecorder(onTranscript: (text: string) => void, onErr
   const [limited, setLimited] = useState(false);
   const recorder = useRef<MediaRecorder>();
   const stream = useRef<MediaStream>();
+  const audio = useRef<AudioContext>();
+  const finish = useRef<() => void>();
   const generation = useRef(0);
   const timeout = useRef<ReturnType<typeof setTimeout>>();
   const ticker = useRef<ReturnType<typeof setInterval>>();
+  const monitor = useRef<ReturnType<typeof setInterval>>();
   const callbacks = useRef({ onTranscript, onError, transcribe });
   callbacks.current = { onTranscript, onError, transcribe };
-  const release = () => { clearInterval(ticker.current); stream.current?.getTracks().forEach(track => track.stop()); stream.current = undefined; };
-  const cancel = useCallback(() => {
-    generation.current++; clearTimeout(timeout.current); clearInterval(ticker.current);
-    try { if (recorder.current?.state === 'recording') recorder.current.stop(); } catch { /* already stopped */ }
-    recorder.current = undefined; stream.current?.getTracks().forEach(track => track.stop()); stream.current = undefined; setPhase('idle'); setElapsed(0);
+  /** The microphone is let go as soon as the recording ends (pieces may still be transcribing). */
+  const release = useCallback(() => {
+    clearInterval(ticker.current); clearInterval(monitor.current);
+    void audio.current?.close().catch(() => undefined); audio.current = undefined;
+    stream.current?.getTracks().forEach(track => track.stop()); stream.current = undefined;
   }, []);
+  const cancel = useCallback(() => {
+    generation.current++; clearTimeout(timeout.current); finish.current = undefined;
+    try { if (recorder.current?.state === 'recording') recorder.current.stop(); } catch { /* already stopped */ }
+    recorder.current = undefined; release(); setPhase('idle'); setElapsed(0);
+  }, [release]);
   useEffect(() => {
     setSupported(Boolean(navigator.mediaDevices?.getUserMedia) && typeof MediaRecorder !== 'undefined');
     return cancel;
@@ -148,49 +185,102 @@ export function useSecretaryRecorder(onTranscript: (text: string) => void, onErr
     stream.current = media;
     // 24 kbit/s keeps a minute near 180 KB: the server bounds the billed length from the file size (secretary-transcribe.ts).
     const mimeType = recorderMimeType();
-    const chunks: Blob[] = [], active = new MediaRecorder(media, { ...(mimeType ? { mimeType } : {}), audioBitsPerSecond: 24_000 });
-    let started = 0, bytes = 0;
-    recorder.current = active;
-    active.ondataavailable = event => {
-      if (!live() || !event.data?.size) return;
-      chunks.push(event.data); bytes += event.data.size;
-      // The size limit stops it like the time limit: what was said so far is still transcribed, never sent.
-      if (bytes >= RECORDING_MAX_BYTES && active.state === 'recording') { setLimited(true); active.stop(); }
+    /** Each piece in speaking order; `done` once its transcription answered (text, nothing heard, or a failure). */
+    const pieces: { done: boolean; text?: string; error?: string; empty?: boolean }[] = [];
+    let started = 0, total = 0, stopping = false, recording: MediaRecorder | undefined;
+    let detector: ReturnType<typeof createPauseDetector> | undefined;
+    const dropped = new WeakSet<MediaRecorder>();
+    // The text grows in speaking order: a later piece shows once the ones before it answered.
+    const publish = () => {
+      let text = '';
+      for (const piece of pieces) { if (!piece.done) break; if (piece.text) text = joinDictation(text, piece.text); }
+      if (text) callbacks.current.onTranscript(text.slice(0, 1000));
     };
-    active.onstop = () => {
-      if (!live()) return;
-      clearTimeout(timeout.current); recorder.current = undefined; release();
-      const audio = new Blob(chunks, { type: active.mimeType || mimeType || 'audio/webm' });
-      if (!audio.size) { setPhase('idle'); callbacks.current.onError('Nenhuma fala foi gravada. Grave novamente ou digite.'); return; }
-      const form = new FormData();
-      form.set('audio', audio, 'audio'); form.set('seconds', String(Math.min(RECORDING_MAX_SECONDS, Math.max(0.1, (Date.now() - started) / 1000))));
-      setPhase('processing');
-      const late = new Promise<never>((_, reject) => { timeout.current = setTimeout(() => reject(Error('TRANSCRIBE_TIMEOUT')), TRANSCRIBE_TIMEOUT_MS); });
-      Promise.race([callbacks.current.transcribe!(form), late]).then(reply => {
-        clearTimeout(timeout.current);
+    // Ready once the recording ended and every piece answered; any failure keeps the text in the box and sends nothing.
+    const settle = () => {
+      if (!live() || !stopping || recording || pieces.some(piece => !piece.done)) return;
+      clearTimeout(timeout.current); finish.current = undefined; recorder.current = undefined; release();
+      const failed = pieces.find(piece => piece.error && !piece.empty);
+      if (failed) { setPhase('idle'); callbacks.current.onError(failed.error!); return; }
+      if (!pieces.some(piece => piece.text)) {
+        setPhase('idle'); callbacks.current.onError(pieces.at(-1)?.error ?? 'Nenhuma fala foi gravada. Grave novamente ou digite.'); return;
+      }
+      setPhase('ready');
+    };
+    const transcribePiece = (piece: Blob, seconds: number) => {
+      const index = pieces.push({ done: false }) - 1, form = new FormData();
+      form.set('audio', piece, 'audio'); form.set('seconds', String(Math.min(RECORDING_MAX_SECONDS, Math.max(0.1, seconds))));
+      let late: ReturnType<typeof setTimeout> | undefined;
+      const unanswered = new Promise<never>((_, reject) => { late = setTimeout(() => reject(Error('TRANSCRIBE_TIMEOUT')), TRANSCRIBE_TIMEOUT_MS); });
+      Promise.race([callbacks.current.transcribe!(form), unanswered]).then(reply => {
         if (!live()) return;
-        if (!reply.ok) { setPhase('idle'); callbacks.current.onError(reply.error); return; }
-        callbacks.current.onTranscript(reply.text.slice(0, 1000)); setPhase('ready');
+        pieces[index] = reply.ok ? { done: true, text: reply.text.trim() } : { done: true, error: reply.error, empty: reply.code === 'TRANSCRIBE_EMPTY' };
+        publish();
       }, error => {
-        clearTimeout(timeout.current);
         if (!live()) return;
-        setPhase('idle');
-        callbacks.current.onError(error instanceof Error && error.message === 'TRANSCRIBE_TIMEOUT'
+        pieces[index] = { done: true, error: error instanceof Error && error.message === 'TRANSCRIBE_TIMEOUT'
           ? 'A transcrição demorou demais. Seu texto foi preservado; tente de novo ou digite.'
-          : 'A transcrição está indisponível por conexão. Seu texto foi preservado; tente novamente ou digite.');
-      });
+          : 'A transcrição está indisponível por conexão. Seu texto foi preservado; tente novamente ou digite.' };
+      }).finally(() => { clearTimeout(late); settle(); });
+    };
+    /** Ends a piece; `keep` false drops it (silence after what was said). */
+    const endPiece = (piece: MediaRecorder, keep: boolean) => {
+      if (!keep) dropped.add(piece);
+      try { if (piece.state === 'recording') piece.stop(); } catch { /* already stopped */ }
+    };
+    const startPiece = () => {
+      const chunks: Blob[] = [], began = Date.now(), piece = new MediaRecorder(media, { ...(mimeType ? { mimeType } : {}), audioBitsPerSecond: 24_000 });
+      recording = piece; recorder.current = piece;
+      piece.ondataavailable = event => {
+        if (!live() || !event.data?.size) return;
+        chunks.push(event.data); total += event.data.size;
+        // The size limit stops it like the time limit: what was said so far is still transcribed, never sent.
+        if (total >= RECORDING_MAX_BYTES && !stopping) { setLimited(true); finish.current?.(); }
+      };
+      piece.onstop = () => {
+        if (!live()) return;
+        if (recording === piece) recording = undefined;
+        if (stopping) release();
+        const file = new Blob(chunks, { type: piece.mimeType || mimeType || 'audio/webm' });
+        if (!dropped.has(piece) && file.size) transcribePiece(file, (Date.now() - began) / 1000);
+        settle();
+      };
+      // A slice every second lets the size limit act during the recording.
+      piece.start(1000);
+    };
+    finish.current = () => {
+      if (!live() || stopping) return;
+      stopping = true; clearTimeout(timeout.current); clearInterval(monitor.current); setPhase('processing');
+      // The last piece goes unless it holds only the silence after what was already sent.
+      if (recording) endPiece(recording, !detector || detector.spoken || pieces.length === 0); else settle();
     };
     try {
-      // A slice every second lets the size limit act during the recording.
-      active.start(1000); started = Date.now(); setElapsed(0); setPhase('listening');
+      startPiece(); started = Date.now(); setElapsed(0); setPhase('listening');
       ticker.current = setInterval(() => { if (live()) setElapsed(Math.min(RECORDING_MAX_SECONDS, Math.floor((Date.now() - started) / 1000))); }, 250);
       // The recording stops by itself at the admitted maximum; it is still only transcribed, never sent.
-      timeout.current = setTimeout(() => { if (live() && active.state === 'recording') { setLimited(true); active.stop(); } }, RECORDING_MAX_SECONDS * 1000);
-    } catch { cancel(); callbacks.current.onError('Não foi possível iniciar o microfone. Confira a permissão ou digite.'); }
+      timeout.current = setTimeout(() => { if (live()) { setLimited(true); finish.current?.(); } }, RECORDING_MAX_SECONDS * 1000);
+    } catch { cancel(); callbacks.current.onError('Não foi possível iniciar o microfone. Confira a permissão ou digite.'); return; }
+    // Pauses are read from the microphone level; without Web Audio the recording stays one piece.
+    const Context = (window as AudioWindow).AudioContext ?? (window as AudioWindow).webkitAudioContext;
+    if (!Context) return;
+    try {
+      const context = new Context(), analyser = context.createAnalyser();
+      audio.current = context; analyser.fftSize = 1024; context.createMediaStreamSource(media).connect(analyser);
+      void context.resume?.().catch(() => undefined);
+      const samples = new Float32Array(analyser.fftSize), pause = createPauseDetector();
+      detector = pause;
+      monitor.current = setInterval(() => {
+        if (!live() || stopping || !recording) return;
+        analyser.getFloatTimeDomainData(samples);
+        let energy = 0;
+        for (const sample of samples) energy += sample * sample;
+        if (pause.push(Math.sqrt(energy / samples.length), LIVE_PIECES.pollMs)) { endPiece(recording, true); startPiece(); }
+      }, LIVE_PIECES.pollMs);
+    } catch { detector = undefined; }
   }
   function stop() {
     if (recorder.current?.state !== 'recording') return;
-    setPhase('processing'); recorder.current.stop();
+    finish.current?.();
   }
   return { phase, supported, elapsed, limited, start: () => { void begin(); }, stop, cancel };
 }

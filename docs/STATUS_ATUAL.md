@@ -9,7 +9,9 @@ salão e mês, uso real registrado no AuditLog (`SECRETARY_TRANSCRIBE/USAGE`, ex
 gravador com formato aceito pelo servidor, limite de tamanho e relógio; ditado acrescentado ao texto, com
 "Desfazer ditado"; Enter ou Enviar durante a fala já envia o que foi dito (Esc cancela, Ctrl+Espaço fala,
 "Parar" deixa revisar), transcrição pedida em português corrigido, e prazos para permissão do microfone e
-transcrição (nada fica em "Transcrevendo…"). A espera aparece em segundos e a primeira mensagem faz uma só ida
+transcrição (nada fica em "Transcrevendo…"). Desde 04/10 a transcrição é ao vivo: a fala é cortada a cada pausa
+e cada trecho aparece na caixa enquanto a pessoa continua falando; provado no Chrome com `gpt-4o-mini-transcribe` real
+(texto pronto 0,05 s depois de Parar). A espera aparece em segundos e a primeira mensagem faz uma só ida
 ao servidor; num "oi", 2,55 s são da Luna e o resto, na demo, é o servidor de desenvolvimento
 (`SECRETARY_NAMES_AND_VOICE.md` §3). O projeto OpenAI da Secretária ("Everflair Development") passou a
 permitir `gpt-4o-mini-transcribe` em 03/10. Motivo: flag

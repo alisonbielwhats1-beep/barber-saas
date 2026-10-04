@@ -15,7 +15,7 @@ vi.mock('../../app/(admin)/servicos/secretaria/actions', () => ({ startSecretary
   confirmSecretaryGroup: mocks.group, confirmSecretaryReadyGroups: mocks.readyGroups, cancelSecretary: mocks.cancel, resumeSecretaryPlan: vi.fn(), selectSecretaryService: vi.fn(),
   selectSecretaryCustomer: vi.fn(), selectSecretaryOperation: vi.fn(), confirmSecretaryOperation: vi.fn(), suggestSecretaryDictation: mocks.suggest, transcribeSecretaryVoice: mocks.transcribe }));
 import { SecretaryChat } from '../../app/(admin)/servicos/secretaria/secretary-chat';
-import { joinDictation, recorderMimeType, RECORDING_MAX_BYTES } from '../../app/(admin)/servicos/secretaria/use-secretary-voice';
+import { createPauseDetector, joinDictation, LIVE_PIECES, recorderMimeType, RECORDING_MAX_BYTES } from '../../app/(admin)/servicos/secretaria/use-secretary-voice';
 import { TRANSCRIBE_SERVER } from '../secretary-transcribe';
 
 class Recognition {
@@ -235,5 +235,79 @@ describe('nothing hangs', () => {
     expect(mocks.send).toHaveBeenCalledWith({ sessionId: 'session', message: 'oi' });
     await act(async () => { vi.advanceTimersByTime(2_000); });
     expect(screen.getByRole('status')).toHaveTextContent('Entendendo e preparando… 2 s');
+  });
+});
+
+/** Owner, 04/10: "transcrição em tempo real enquanto eu falo". The microphone level (Web Audio) cuts the speech at each pause and
+ * every piece is transcribed while the owner keeps talking; Enter only waits for the last piece. */
+describe('live transcription by pieces', () => {
+  const read = (levels: [number, number][]) => { const pause = createPauseDetector(); const cuts: number[] = []; let at = 0;
+    for (const [level, ms] of levels) for (let t = 0; t < ms; t += LIVE_PIECES.pollMs) { at += LIVE_PIECES.pollMs; if (pause.push(level, LIVE_PIECES.pollMs)) cuts.push(at); }
+    return { cuts, spoken: pause.spoken }; };
+  it('a pause after speech ends a piece; silence alone, a short breath or a steady hum never does', () => {
+    expect(read([[0.002, 3000]]).cuts).toEqual([]);
+    expect(read([[0.2, 1000], [0.002, 400], [0.2, 1000]]).cuts).toEqual([]);
+    expect(read([[0.2, 1000], [0.002, 700]]).cuts).toEqual([1700]);
+    expect(read([[0.04, 3000], [0.3, 1000], [0.04, 700]]).cuts).toEqual([4700]);
+    expect(read([[0.2, 150], [0.002, 1000]]).cuts).toEqual([]);
+  });
+  it('a long stretch is cut at a short pause after 12 s, and at 20 s at the latest', () => {
+    expect(read([[0.2, 12_100], [0.002, 300]]).cuts).toEqual([12_350]);
+    expect(read([[0.2, 21_000]]).cuts).toEqual([20_000]);
+  });
+  it('only silence after what was said is not speech', () => {
+    expect(read([[0.2, 1000], [0.002, 700], [0.002, 500]]).spoken).toBe(false);
+    expect(read([[0.2, 1000], [0.002, 700], [0.2, 300]]).spoken).toBe(true);
+  });
+
+  let level = 0;
+  class Audio {
+    createAnalyser() { return { fftSize: 0, getFloatTimeDomainData(samples: Float32Array) { samples.fill(level); } }; }
+    createMediaStreamSource() { return { connect() {} }; }
+    resume() { return Promise.resolve(); } close() { return Promise.resolve(); }
+  }
+  beforeEach(() => { vi.useFakeTimers(); level = 0; vi.stubGlobal('AudioContext', Audio);
+    mocks.start.mockResolvedValue({ ok: true, state: { sessionId: 'session', cancelled: false, message: 'Como posso ajudar?' } });
+    mocks.send.mockResolvedValue({ ok: true, state: { sessionId: 'session', cancelled: false, message: 'Certo, vou ver.' } }); });
+  afterEach(() => { vi.useRealTimers(); });
+  const speak = async (value: number, ms: number) => { level = value; await act(async () => { vi.advanceTimersByTime(ms); }); };
+  it('each phrase is transcribed while the owner keeps talking and shows in the box; Enter waits only for the last one', async () => {
+    microphone(); const said = ['Remarca a Noemi', 'para sexta às dez.'];
+    mocks.transcribe.mockImplementation(async () => ({ ok: true, text: said.shift() }));
+    render(<SecretaryChat voiceEnabled transcribeEnabled />);
+    await act(async () => { screen.getByRole('button', { name: 'Falar com a Secretária' }).click(); });
+    await speak(0.25, 1200); await speak(0.002, 800);
+    expect(mocks.transcribe).toHaveBeenCalledOnce();
+    expect(screen.getByRole('status')).toHaveTextContent('Ouvindo'); expect(screen.getByRole('status')).toHaveTextContent('O texto aparece a cada pausa');
+    expect(screen.getByLabelText('Mensagem')).toHaveValue('Remarca a Noemi');
+    await speak(0.25, 1000);
+    await act(async () => { screen.getByRole('button', { name: 'Enviar' }).click(); });
+    expect(mocks.transcribe).toHaveBeenCalledTimes(2);
+    await act(async () => { vi.advanceTimersByTime(10); });
+    expect(mocks.send).toHaveBeenCalledWith({ sessionId: 'session', message: 'Remarca a Noemi para sexta às dez.' });
+    expect(track.stop).toHaveBeenCalled();
+  });
+  it('the silence after the last phrase is never sent; a piece the provider heard nothing in is skipped', async () => {
+    microphone(); mocks.transcribe.mockResolvedValueOnce({ ok: true, text: 'Cancela o horário do Otávio' })
+      .mockResolvedValueOnce({ ok: false, code: 'TRANSCRIBE_EMPTY', error: 'Nenhuma fala foi reconhecida. Grave novamente ou digite.' });
+    render(<SecretaryChat voiceEnabled transcribeEnabled />);
+    await act(async () => { screen.getByRole('button', { name: 'Falar com a Secretária' }).click(); });
+    await speak(0.25, 1000); await speak(0.002, 800); await speak(0.25, 400); await speak(0.002, 800);
+    expect(mocks.transcribe).toHaveBeenCalledTimes(2);
+    await speak(0.002, 1500);
+    await act(async () => { screen.getByRole('button', { name: 'Parar gravação' }).click(); });
+    await act(async () => { vi.advanceTimersByTime(10); });
+    expect(mocks.transcribe).toHaveBeenCalledTimes(2);
+    expect(screen.getByLabelText('Mensagem')).toHaveValue('Cancela o horário do Otávio');
+    expect(screen.getByRole('status')).toHaveTextContent('Transcrição pronta'); expect(mocks.send).not.toHaveBeenCalled();
+  });
+  it('Esc while pieces are still transcribing drops them all and the typed text comes back', async () => {
+    microphone(); mocks.transcribe.mockReturnValue(new Promise(() => undefined));
+    render(<SecretaryChat voiceEnabled transcribeEnabled />);
+    await act(async () => { screen.getByRole('button', { name: 'Falar com a Secretária' }).click(); });
+    await speak(0.25, 1000); await speak(0.002, 800);
+    await act(async () => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); });
+    await act(async () => { vi.advanceTimersByTime(60_000); });
+    expect(screen.getByLabelText('Mensagem')).toHaveValue(''); expect(screen.queryByRole('alert')).toBeNull(); expect(mocks.send).not.toHaveBeenCalled();
   });
 });

@@ -145,6 +145,22 @@ Como funciona (`src/lib/secretary-transcribe.ts` e a ação `transcribeSecretary
   aviso do navegador"; sem resposta em 15 s, desiste com uma mensagem. A transcrição desiste em 45 s no navegador e em
   30 s no servidor. Antes, um aviso de permissão sem resposta deixava "Transcrevendo…" para sempre. O navegador
   embutido do Claude bloqueia o microfone: o teste de voz é no Chrome ou Edge.
+- **Transcrição ao vivo (04/10, pedido do dono "em tempo real enquanto eu falo"):** o gravador mede o volume do
+  microfone (Web Audio) e corta a fala a cada pausa (700 ms depois de ao menos 300 ms de fala; pausa de 250 ms
+  depois de 12 s; no máximo 20 s por trecho). Cada trecho é um arquivo completo, transcrito enquanto a pessoa continua
+  falando, e o texto entra na caixa na ordem da fala ("O texto aparece a cada pausa"); a caixa fica só leitura, mas
+  legível. O Enter espera só o último trecho. O silêncio depois do que já foi dito não é enviado, e um trecho em que o
+  provedor não ouviu nada é ignorado; qualquer outra falha não envia nada e preserva o texto. Cada trecho reserva e
+  registra o próprio uso (nenhum áudio é enviado duas vezes). Sem Web Audio, a gravação continua sendo um trecho só.
+  O ruído constante (secador, ventilador) conta como pausa: fala é o volume bem acima do mínimo dos últimos 3 s ou
+  perto do máximo recente. A transcrição por streaming da OpenAI (Realtime) não foi usada: também entrega o texto por
+  pausa, exigiria o navegador falando direto com a OpenAI (chave temporária, CSP) e não cabe na Vercel com o
+  orçamento por salão. **Prova real (04/10):** Chrome com microfone falso tocando fala em português (voz Maria do
+  Windows), demo :3158 e `gpt-4o-mini-transcribe` de verdade: a 1ª frase apareceu na caixa com a gravação ainda em
+  "Ouvindo…" (cerca de 1,3 s depois da pausa), a 2ª também, e ao tocar Parar o texto ficou pronto em 0,05 s; cada
+  trecho levou 0,57–0,92 s no servidor; 4 linhas `RESERVE` e 4 `USAGE`, US$ 0,0014 no total. Texto final: "Remarcar
+  Amanda Souza para sexta-feira às dez da manhã. E cancela o horário do João Pereira amanhã." (Uma fala sintética com
+  marcações SSML de pausa saiu truncada também como arquivo inteiro: o problema era o áudio, não o corte.)
 - **Tempo de espera (03/10, medido na demo local):** um "oi" levou cerca de 5,2 s: 0,76 s para abrir a conversa
   e 4,4 s para a resposta. Desses, 2,55 s foram a chamada da Luna (9.172 tokens de entrada, 98% em cache, nenhum de
   raciocínio, 32 de saída); o resto foi o servidor de desenvolvimento. Desde então a primeira mensagem abre a
