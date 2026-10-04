@@ -15,6 +15,30 @@ com confirmação de e-mail; links `?plan=` antigos; descrição com a capacidad
 total no Mercado Pago; ajuda para trocar o cartão em atraso; checkout pausado na
 landing; Termos de Uso (seção 7, pendente de aprovação do responsável); margem
 de três dias para renovação debitada antes do vencimento. Sem migration.
+## 2026-10-03 — calendário do cliente: primeiro dia com vaga
+
+Branch `codex/calendario-primeiro-dia-livre`. Ao escolher serviço e
+profissional em `/book/[salonSlug]/agendar`, o calendário vai para o primeiro
+dia com horário livre (inclusive em outro mês).
+
+- **Dias desativados.** Folga semanal, fechamento, folga do profissional e dia
+  sem nenhum horário possível ficam apagados, como os dias passados.
+- **Dia lotado com fila.** Continua clicável, com ponto âmbar e legenda; mostra
+  "Dia lotado. Entre na fila de um horário ocupado abaixo ou escolha outro dia."
+- **Nova rota `GET /api/availability/days`.** Devolve `freeDays` e
+  `waitlistDays` de hoje até o fim da janela pública (máx. 60 dias), com a mesma
+  regra dos horários (`loadBookableDays` em `src/lib/day-slots.ts`, uma consulta
+  por tabela para o período). Mesmas proteções da rota de horários: salão
+  aprovado, limite por IP (30/min) e remarcação só da própria reserva. Não
+  expõe reservas.
+- **Fila só de horário futuro.** `/api/availability` deixa de listar como
+  "ocupado" um atendimento de hoje que já começou (entrar na fila dele já era
+  recusado).
+- Falha na consulta dos dias mantém o calendário como antes. A tela de vários
+  serviços (`visit-booking.tsx`) não mudou.
+
+Sem migration, schema, RLS ou mudança na validação da reserva.
+
 ## 2026-10-03 — fila de espera: agendar em outro horário
 
 Branch `claude/customer-difficulty-improvements-014032`, a partir do áudio do

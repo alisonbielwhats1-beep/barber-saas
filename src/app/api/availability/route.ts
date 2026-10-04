@@ -140,9 +140,11 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // A fila só aceita atendimentos que ainda não começaram (ver joinWaitlist).
     const occupied = result.appointments
       .filter(
         (appointment) =>
+          appointment.startAt > requestNow &&
           dateKeyInTimeZone(appointment.startAt, result.salon.timezone) === date,
       )
       .map((appointment) => ({
