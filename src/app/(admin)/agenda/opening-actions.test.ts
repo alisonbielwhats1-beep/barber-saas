@@ -29,6 +29,43 @@ describe("autorização de expediente extra", () => {
     expect(await addOpening({ ...input, endMinutes: 1000 })).toHaveProperty("error");
     expect(mocks.tx.professionalOpening.create).not.toHaveBeenCalled();
   });
+  it.each([
+    ["vazio", ""],
+    ["só espaços", "   "],
+    ["ausente", undefined],
+  ])("motivo %s é opcional: grava o marcador de 'sem motivo' e audita o ator sem motivo", async (_label, reason) => {
+    const { reason: _omit, ...withoutReason } = input;
+    void _omit;
+    const payload = (reason === undefined ? withoutReason : { ...withoutReason, reason }) as typeof input;
+    expect(await addOpening(payload)).toHaveProperty("success");
+    // O banco exige texto de 3 a 200 caracteres em ProfessionalOpening.reason (migration manual 018).
+    expect(mocks.tx.professionalOpening.create).toHaveBeenCalledWith({
+      data: { ...withoutReason, reason: "Sem motivo informado", salonId: "salon-a" },
+    });
+    expect(mocks.audit).toHaveBeenCalledWith(mocks.tx, expect.objectContaining({
+      userId: "owner", actorName: "Equipe", action: "PROFESSIONAL_OPENING_ADDED", reason: null,
+      metadata: expect.objectContaining({ reason: null }),
+    }));
+  });
+  it("repetir um pedido sem motivo não duplica e não acusa alteração", async () => {
+    mocks.tx.professionalOpening.findFirst.mockResolvedValue({ ...input, reason: "Sem motivo informado" });
+    expect(await addOpening({ ...input, reason: "" })).toHaveProperty("success");
+    expect(mocks.tx.professionalOpening.create).not.toHaveBeenCalled();
+    expect(await addOpening({ ...input, reason: "Outro motivo" })).toHaveProperty("error");
+  });
+  it("remover uma abertura sem motivo audita motivo nulo", async () => {
+    mocks.tx.professionalOpening.findFirst.mockResolvedValue({ ...input, reason: "Sem motivo informado", createdAt: new Date("2032-08-01T12:00:00Z") });
+    await removeOpening(input.id);
+    expect(mocks.audit).toHaveBeenCalledWith(mocks.tx, expect.objectContaining({ action: "PROFESSIONAL_OPENING_REMOVED", reason: null }));
+  });
+  it("motivo informado continua gravado e auditado; acima de 200 caracteres segue recusado", async () => {
+    expect(await addOpening({ ...input, reason: "  Atendimento especial  " })).toHaveProperty("success");
+    expect(mocks.tx.professionalOpening.create).toHaveBeenCalledWith({ data: { ...input, reason: "Atendimento especial", salonId: "salon-a" } });
+    expect(mocks.audit).toHaveBeenCalledWith(mocks.tx, expect.objectContaining({ reason: "Atendimento especial" }));
+    mocks.tx.professionalOpening.create.mockClear();
+    expect(await addOpening({ ...input, reason: "x".repeat(201) })).toHaveProperty("error");
+    expect(mocks.tx.professionalOpening.create).not.toHaveBeenCalled();
+  });
   it("aplica lock e auditoria; repetição não duplica o expediente", async () => {
     expect(await addOpening(input)).toHaveProperty("success");
     expect(mocks.tx.professionalOpening.create).toHaveBeenCalledWith({ data: { ...input, salonId: "salon-a" } });
