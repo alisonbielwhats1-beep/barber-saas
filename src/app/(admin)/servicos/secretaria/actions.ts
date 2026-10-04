@@ -177,6 +177,9 @@ export type TranscriptionReply = { ok: true; text: string } | { ok: false; error
  * One recording → text for the input box; never sends or confirms. The reported usage is settled after the call. */
 export async function transcribeSecretaryVoice(form: FormData): Promise<TranscriptionReply> {
   const transcription = await import("@/lib/secretary-transcribe");
+  // Arrival, in numbers only: a recording that never shows here never left the browser.
+  const sent = form.get("audio");
+  console.info("SECRETARY_TRANSCRIBE_RECEIVED", JSON.stringify({ audio_bytes: sent instanceof Blob ? sent.size : 0, seconds: Number(form.get("seconds")) || 0 }));
   if (!transcription.transcribeEnabled()) return { ok: false, code: "TRANSCRIBE_DISABLED", error: "A transcrição da Secretária está desligada. Você pode digitar." };
   // Owner, 03/10 ("demora para transcrever"): how long each step took, in numbers only (never the audio or its text).
   const started = performance.now(), timing: Record<string, number> = {};

@@ -208,16 +208,30 @@ describe('nothing hangs', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('O navegador não liberou o microfone');
     expect(screen.getByRole('button', { name: 'Falar com a Secretária' })).toBeEnabled();
   });
-  it('a transcription that never answers gives up after 45 s and keeps the text', async () => {
+  it('a transcription that never answers gives up after 20 s and keeps the text', async () => {
     vi.useFakeTimers();
     microphone(); mocks.transcribe.mockReturnValue(new Promise(() => undefined));
     render(<SecretaryChat voiceEnabled transcribeEnabled />);
     await act(async () => { screen.getByRole('button', { name: 'Falar com a Secretária' }).click(); });
     await act(async () => { screen.getByRole('button', { name: 'Parar gravação' }).click(); });
     expect(screen.getByRole('status')).toHaveTextContent('Transcrevendo');
-    await act(async () => { vi.advanceTimersByTime(45_000); });
+    await act(async () => { vi.advanceTimersByTime(20_000); });
     expect(screen.getByRole('alert')).toHaveTextContent('A transcrição demorou demais');
     expect(mocks.send).not.toHaveBeenCalled();
+  });
+  it('a browser that never reports the end of the recording still has it transcribed after 3 s (owner, 04/10)', async () => {
+    vi.useFakeTimers();
+    microphone(); mocks.transcribe.mockResolvedValue({ ok: true, text: 'bloqueia a agenda da Lis' });
+    render(<SecretaryChat voiceEnabled transcribeEnabled />);
+    await act(async () => { screen.getByRole('button', { name: 'Falar com a Secretária' }).click(); });
+    const silent = Recorder.current; silent.stop = () => { silent.state = 'inactive'; };
+    act(() => silent.slice(3000));
+    await act(async () => { screen.getByRole('button', { name: 'Parar gravação' }).click(); });
+    expect(mocks.transcribe).not.toHaveBeenCalled(); expect(screen.getByRole('status')).toHaveTextContent('Transcrevendo');
+    await act(async () => { vi.advanceTimersByTime(3_000); });
+    expect(mocks.transcribe).toHaveBeenCalledOnce();
+    expect((mocks.transcribe.mock.calls[0][0] as FormData).get('audio')).toHaveProperty('size', 3000);
+    expect(screen.getByLabelText('Mensagem')).toHaveValue('bloqueia a agenda da Lis'); expect(screen.getByRole('status')).toHaveTextContent('Transcrição pronta');
   });
   it('a wait shows how long it has lasted from the 2nd second: transcribing, then preparing the reply', async () => {
     vi.useFakeTimers();

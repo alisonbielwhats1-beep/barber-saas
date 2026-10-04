@@ -89,7 +89,10 @@ export const RECORDING_MAX_SECONDS = 60;
 export const RECORDING_MAX_BYTES = 440_000;
 /** An unanswered permission prompt never settles getUserMedia, and a stuck request never answers: both give up with a message. */
 export const MIC_PERMISSION_TIMEOUT_MS = 15_000;
-export const TRANSCRIBE_TIMEOUT_MS = 45_000;
+/** A piece normally answers in under 1 s (04/10, measured); 20 s means something is wrong, never a long wait. */
+export const TRANSCRIBE_TIMEOUT_MS = 20_000;
+/** A browser that never reports the end of the last piece still has it transcribed with what it recorded. */
+export const LAST_PIECE_GRACE_MS = 3_000;
 /** The first container the browser records, all admitted by the server: WebM/Opus (Chrome, Edge, Android), MP4/AAC (Safari,
  * iPhone), Ogg/Opus (Firefox). None supported or no isTypeSupported: the browser's default. */
 const RECORDER_TYPES = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/ogg;codecs=opus', 'audio/webm'] as const;
@@ -114,7 +117,7 @@ export function createPauseDetector(options: typeof LIVE_PIECES = LIVE_PIECES) {
       recent.push(level); if (recent.length > span) recent.shift();
       const floor = Math.min(...recent), peak = Math.max(...recent);
       length += ms;
-      if (level > 0.01 && (level > floor * 2.5 || level >= peak * 0.5)) { speech += ms; quiet = 0; } else quiet += ms;
+      if (level > 0.015 && (level > floor * 3 || level >= peak * 0.5)) { speech += ms; quiet = 0; } else quiet += ms;
       const end = speech >= options.minSpeechMs && (quiet >= options.pauseMs || (length >= options.longMs && quiet >= options.longPauseMs) || length >= options.maxMs);
       if (end) { speech = 0; quiet = 0; length = 0; }
       return end;
@@ -189,7 +192,7 @@ export function useSecretaryRecorder(onTranscript: (text: string) => void, onErr
     const pieces: { done: boolean; text?: string; error?: string; empty?: boolean }[] = [];
     let started = 0, total = 0, stopping = false, recording: MediaRecorder | undefined;
     let detector: ReturnType<typeof createPauseDetector> | undefined;
-    const dropped = new WeakSet<MediaRecorder>();
+    const dropped = new WeakSet<MediaRecorder>(), ends = new Map<MediaRecorder, () => void>();
     // The text grows in speaking order: a later piece shows once the ones before it answered.
     const publish = () => {
       let text = '';
@@ -226,7 +229,9 @@ export function useSecretaryRecorder(onTranscript: (text: string) => void, onErr
     /** Ends a piece; `keep` false drops it (silence after what was said). */
     const endPiece = (piece: MediaRecorder, keep: boolean) => {
       if (!keep) dropped.add(piece);
-      try { if (piece.state === 'recording') piece.stop(); } catch { /* already stopped */ }
+      try { if (piece.state === 'recording') piece.stop(); else ends.get(piece)?.(); } catch { ends.get(piece)?.(); }
+      // The last piece never hangs on a browser that does not report its end (owner, 04/10: "Transcrevendo…" without end).
+      if (stopping) setTimeout(() => ends.get(piece)?.(), LAST_PIECE_GRACE_MS);
     };
     const startPiece = () => {
       const chunks: Blob[] = [], began = Date.now(), piece = new MediaRecorder(media, { ...(mimeType ? { mimeType } : {}), audioBitsPerSecond: 24_000 });
@@ -237,14 +242,15 @@ export function useSecretaryRecorder(onTranscript: (text: string) => void, onErr
         // The size limit stops it like the time limit: what was said so far is still transcribed, never sent.
         if (total >= RECORDING_MAX_BYTES && !stopping) { setLimited(true); finish.current?.(); }
       };
-      piece.onstop = () => {
-        if (!live()) return;
+      const end = () => {
+        if (!live() || !ends.delete(piece)) return;
         if (recording === piece) recording = undefined;
         if (stopping) release();
         const file = new Blob(chunks, { type: piece.mimeType || mimeType || 'audio/webm' });
         if (!dropped.has(piece) && file.size) transcribePiece(file, (Date.now() - began) / 1000);
         settle();
       };
+      ends.set(piece, end); piece.onstop = end;
       // A slice every second lets the size limit act during the recording.
       piece.start(1000);
     };

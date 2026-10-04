@@ -142,8 +142,8 @@ Como funciona (`src/lib/secretary-transcribe.ts` e a ação `transcribeSecretary
 - **Português corrigido (03/10):** o pedido de transcrição começa com "Português do Brasil, com ortografia,
   acentuação e pontuação corretas, sem mudar o sentido, nomes, números, dias e horários." (`TRANSCRIBE_STYLE`).
 - **Nada fica preso (03/10):** enquanto o navegador pede a permissão do microfone, a tela diz "Permita o microfone no
-  aviso do navegador"; sem resposta em 15 s, desiste com uma mensagem. A transcrição desiste em 45 s no navegador e em
-  30 s no servidor. Antes, um aviso de permissão sem resposta deixava "Transcrevendo…" para sempre. O navegador
+  aviso do navegador"; sem resposta em 15 s, desiste com uma mensagem. A transcrição desiste em 20 s no navegador (desde 04/10; antes 45 s) e em
+  15 s no servidor (antes 30 s). Antes, um aviso de permissão sem resposta deixava "Transcrevendo…" para sempre. O navegador
   embutido do Claude bloqueia o microfone: o teste de voz é no Chrome ou Edge.
 - **Transcrição ao vivo (04/10, pedido do dono "em tempo real enquanto eu falo"):** o gravador mede o volume do
   microfone (Web Audio) e corta a fala a cada pausa (700 ms depois de ao menos 300 ms de fala; pausa de 250 ms

@@ -34,7 +34,7 @@ export function transcriptionWorstCaseMicroUsd(bytes: number, seconds: number) {
 export const TRANSCRIBE_MAX_RESERVATION_MICRO_USD = transcriptionWorstCaseMicroUsd(TRANSCRIBE_SERVER.maxAudioBytes, TRANSCRIBE_LIMITS.maxAudioSeconds);
 export const TRANSCRIBE_AUDIO_TYPES = ["audio/webm", "audio/ogg", "audio/mp4", "audio/mpeg", "audio/wav", "audio/x-wav"] as const;
 export const TRANSCRIBE_PROMPT_MAX = 800;
-export const TRANSCRIBE_FETCH_TIMEOUT_MS = 30_000;
+export const TRANSCRIBE_FETCH_TIMEOUT_MS = 15_000;
 export const TRANSCRIBE_AUDIT_ENTITY = "SECRETARY_TRANSCRIBE";
 const FIELDS = ["file", "model", "language", "response_format", "prompt"];
 const model = (value: unknown): value is (typeof TRANSCRIBE_MODELS)[number] => (TRANSCRIBE_MODELS as readonly unknown[]).includes(value);
@@ -74,7 +74,7 @@ export function transcriptionRequest(audio: Blob, chosen: string, prompt: string
   const body = new FormData(), extension = baseType(audio.type).split("/")[1]?.replace(/^x-/, "") || "webm";
   body.set("file", audio, `audio.${extension}`); body.set("model", chosen); body.set("language", "pt"); body.set("response_format", "json");
   if (prompt) body.set("prompt", prompt);
-  // A provider that never answers fails the call (the client also gives up after 45 s); nothing is sent or confirmed.
+  // A provider that never answers fails the call (the client also gives up after 20 s; a piece normally takes under 1 s); nothing is sent or confirmed.
   return [TRANSCRIBE_URL, { method: "POST", headers: { Authorization: `Bearer ${auth.apiKey}`, "OpenAI-Project": auth.project }, body, signal: AbortSignal.timeout(TRANSCRIBE_FETCH_TIMEOUT_MS) }];
 }
 /** The transcription wire, and nothing else: exact URL, POST, only the fixed multipart fields, allowlisted model, pt,
