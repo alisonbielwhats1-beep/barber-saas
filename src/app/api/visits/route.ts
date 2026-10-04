@@ -7,6 +7,7 @@ import { checkRateLimit, clientIp, rateLimitHeaders } from "@/lib/rate-limit";
 import { createVisit, visitBookingSchema } from "@/lib/visit-scheduling";
 import { isAppointmentError } from "@/lib/appointment-domain";
 import { PlanLimitError } from "@/lib/plan-entitlements";
+import { isOverlapViolation } from "@/lib/db-errors";
 
 export async function POST(req: NextRequest) {
   const limit = await checkRateLimit({
@@ -62,16 +63,26 @@ export async function POST(req: NextRequest) {
     revalidatePath("/book", "layout");
     return NextResponse.json(result, { status: result.duplicate ? 200 : 201 });
   } catch (error) {
-    // Só erro de domínio é conflito de horário. Falha de banco ou bug não pode
-    // se passar por conflito para o cliente nem sumir dos logs.
-    if (isAppointmentError(error) || error instanceof PlanLimitError)
+    // Conflito de horário: erro de domínio, limite do plano ou a exclusion
+    // constraint do banco (corrida entre duas reservas, como em
+    // /api/appointments). Qualquer outra falha não pode se passar por conflito
+    // para o cliente nem sumir dos logs.
+    if (
+      isAppointmentError(error) ||
+      error instanceof PlanLimitError ||
+      isOverlapViolation(error)
+    )
       return NextResponse.json(
         {
           error:
             isAppointmentError(error) && error.code === "PRICE_CHANGED"
               ? "O valor ou a duração mudou. Consulte os horários e revise a visita novamente."
               : "Não foi possível confirmar todos os serviços. Nenhum atendimento desta tentativa foi reservado. Consulte os horários novamente.",
-          code: isAppointmentError(error) ? error.code : "VISIT_UNAVAILABLE",
+          code: isAppointmentError(error)
+            ? error.code
+            : isOverlapViolation(error)
+              ? "SLOT_TAKEN"
+              : "VISIT_UNAVAILABLE",
         },
         { status: 409 },
       );

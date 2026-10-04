@@ -124,6 +124,22 @@ describe("confirmação pública de visita", () => {
       error: expect.stringContaining("Nenhum atendimento"),
     });
   });
+  it("corrida barrada pela exclusion constraint continua sendo conflito de horário", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const overlap = Object.assign(
+      new Error('conflicting key value violates exclusion constraint "appointment_no_overlap"'),
+      { name: "PrismaClientUnknownRequestError" },
+    );
+    m.create.mockRejectedValueOnce(overlap);
+    const result = await request();
+    expect(result.status).toBe(409);
+    expect(await result.json()).toEqual({
+      code: "SLOT_TAKEN",
+      error: expect.stringContaining("Nenhum atendimento"),
+    });
+    expect(log).not.toHaveBeenCalled();
+    log.mockRestore();
+  });
   it("falha inesperada vira 500 genérico, é registrada e não vaza detalhes", async () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     m.create.mockRejectedValueOnce(new Error("private database detail"));
