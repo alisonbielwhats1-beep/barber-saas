@@ -1,5 +1,14 @@
 # Decisões de produto para as próximas fases
 
+## 04/10/2026 — calendário da visita com vários serviços
+
+Aprovado pelo responsável com as recomendações técnicas: a visita com vários
+serviços **continua sem fila de espera**; o calendário abre no primeiro dia em
+que a visita inteira cabe e desativa apenas os dias sem atendimento possível
+(folga, fechamento, nenhum profissional do serviço trabalhando). Dias com
+expediente mas lotados para a visita completa continuam clicáveis, para não
+pesar a consulta quando o cliente escolhe "Sem preferência".
+
 ## 03/10/2026 — calendário do cliente abre no primeiro dia com vaga
 
 Pedido do responsável: ao marcar um horário, o calendário do cliente abre no
@@ -11,7 +20,7 @@ horário ocupado; ele recebe um ponto âmbar e a legenda "Dia lotado". Uma data
 escolhida pelo cliente ou vinda de link/retorno do login é mantida se tiver
 vaga ou, no caso de dia lotado, fila. Se a consulta dos dias falhar, o
 calendário volta a deixar toda a janela clicável. A tela de vários serviços
-na mesma reserva fica para uma etapa seguinte.
+na mesma reserva foi tratada em 04/10 (acima).
 
 ## 03/10/2026 — fila de espera atendida em outro horário
 

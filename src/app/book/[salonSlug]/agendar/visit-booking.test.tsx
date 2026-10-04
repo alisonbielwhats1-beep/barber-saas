@@ -75,6 +75,26 @@ const props = {
 };
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status });
+const DAYS = {
+  fromDate: "2026-10-04",
+  toDate: "2026-11-30",
+  openDays: ["2026-10-04", "2026-10-05", "2026-10-06"],
+  firstFreeDay: "2026-10-04",
+};
+/** A consulta dos dias do calendário responde à parte; `fetcher` recebe as demais chamadas. */
+function stubFetch(
+  fetcher: (url: string, init?: RequestInit) => unknown,
+  days: unknown = DAYS,
+  daysStatus = 200,
+) {
+  const daysFetcher = vi.fn(async (_url: string, init?: RequestInit) => {
+    void init;
+    return json(days, daysStatus);
+  });
+  vi.stubGlobal("fetch", (url: string, init?: RequestInit) =>
+    url === "/api/visits/availability/days" ? daysFetcher(url, init) : fetcher(url, init));
+  return daysFetcher;
+}
 beforeEach(() => {
   vi.clearAllMocks();
   sessionStorage.clear();
@@ -92,7 +112,7 @@ it("confirma os dois profissionais uma única vez e mantém a tela de sucesso", 
           finish = resolve;
         }),
   );
-  vi.stubGlobal("fetch", fetcher);
+  stubFetch(fetcher);
   render(<VisitBooking {...props} />);
   fireEvent.click(await screen.findByRole("button", { name: /15:00.*16:30/ }));
   fireEvent.click(screen.getByRole("button", { name: "Revisar minha visita" }));
@@ -116,8 +136,7 @@ it("confirma os dois profissionais uma única vez e mantém a tela de sucesso", 
   ).toHaveAttribute("href", "/book/studio/minhas");
 });
 it("não confirma parcialmente e pede nova consulta quando uma vaga é ocupada", async () => {
-  vi.stubGlobal(
-    "fetch",
+  stubFetch(
     vi
       .fn()
       .mockImplementation((url: string) =>
@@ -145,7 +164,7 @@ it("consulta sem conta e preserva a visita antes de pedir login", async () => {
   const fetcher = vi
     .fn()
     .mockImplementation(() => Promise.resolve(json({ plans: [plan] })));
-  vi.stubGlobal("fetch", fetcher);
+  stubFetch(fetcher);
   render(<VisitBooking {...props} authenticated={false} />);
   fireEvent.click(await screen.findByRole("button", { name: /15:00.*16:30/ }));
   fireEvent.click(screen.getByRole("button", { name: "Revisar minha visita" }));
@@ -171,15 +190,63 @@ it("descarta resposta antiga depois de mudar de dia", async () => {
         }),
     )
     .mockImplementation(() => Promise.resolve(json({ plans: [] })));
-  vi.stubGlobal("fetch", fetcher);
+  stubFetch(fetcher);
   render(<VisitBooking {...props} />);
   await waitFor(() => expect(fetcher).toHaveBeenCalledOnce());
-  fireEvent.change(screen.getByLabelText("Dia da visita"), {
-    target: { value: "2026-10-05" },
-  });
+  fireEvent.click(
+    screen.getByRole("button", { name: /segunda-feira, 5 de outubro de 2026/ }),
+  );
   await screen.findByText(/Não encontramos horários/);
   await act(async () => old(json({ plans: [plan] })));
   expect(
     screen.queryByRole("button", { name: /15:00.*16:30/ }),
   ).not.toBeInTheDocument();
+});
+
+const planDates = (fetcher: ReturnType<typeof vi.fn>) =>
+  fetcher.mock.calls
+    .filter((c) => c[0] === "/api/visits/availability")
+    .map((c) => JSON.parse((c[1] as RequestInit).body as string).date);
+
+it("abre no primeiro dia em que a visita inteira cabe e desativa dias sem atendimento", async () => {
+  const fetcher = vi.fn().mockImplementation(() => Promise.resolve(json({ plans: [plan] })));
+  const daysFetcher = stubFetch(fetcher, { ...DAYS, openDays: ["2026-10-06", "2026-10-07"], firstFreeDay: "2026-10-07" });
+  render(<VisitBooking {...props} />);
+
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: /quarta-feira, 7 de outubro de 2026/ })).toHaveAttribute("aria-pressed", "true"),
+  );
+  expect(screen.getByRole("button", { name: /segunda-feira, 5 de outubro de 2026, sem horários/ })).toBeDisabled();
+  expect(screen.getByRole("button", { name: /terça-feira, 6 de outubro de 2026$/ })).toBeEnabled();
+  await waitFor(() => expect(planDates(fetcher).at(-1)).toBe("2026-10-07"));
+  const body = JSON.parse((daysFetcher.mock.calls[0]![1] as RequestInit).body as string);
+  expect(body).toEqual({ salonId: "salon-a", choices: [{ serviceId: "hair", professionalId: "p1" }, { serviceId: "nails", professionalId: "p2" }] });
+});
+
+it("mantém o dia restaurado quando ele tem atendimento, mesmo lotado", async () => {
+  sessionStorage.setItem("visit-selection:studio", JSON.stringify({
+    choices: [{ serviceId: "hair", professionalId: "p1" }, { serviceId: "nails", professionalId: "p2" }],
+    date: "2026-10-05",
+    savedAt: Date.now(),
+  }));
+  const fetcher = vi.fn().mockImplementation(() => Promise.resolve(json({ plans: [] })));
+  stubFetch(fetcher, { ...DAYS, firstFreeDay: "2026-10-06" });
+  render(<VisitBooking {...props} />);
+
+  expect(await screen.findByText(/Não encontramos horários/)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /segunda-feira, 5 de outubro de 2026/ })).toHaveAttribute("aria-pressed", "true");
+  expect(planDates(fetcher).every((day) => day === "2026-10-05")).toBe(true);
+
+  fireEvent.click(screen.getByRole("button", { name: "Consultar o próximo dia com atendimento" }));
+  await waitFor(() => expect(planDates(fetcher).at(-1)).toBe("2026-10-06"));
+});
+
+it("se a consulta dos dias falhar, mantém o calendário clicável", async () => {
+  const fetcher = vi.fn().mockImplementation(() => Promise.resolve(json({ plans: [plan] })));
+  stubFetch(fetcher, { error: "Falhou" }, 500);
+  render(<VisitBooking {...props} />);
+
+  expect(await screen.findByRole("button", { name: /15:00.*16:30/ })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /segunda-feira, 12 de outubro de 2026$/ })).toBeEnabled();
+  expect(screen.getByRole("button", { name: /domingo, 4 de outubro de 2026/ })).toHaveAttribute("aria-pressed", "true");
 });
