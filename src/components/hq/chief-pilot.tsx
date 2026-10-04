@@ -38,7 +38,7 @@ export function ChiefPilot({initial}:{initial:ChiefState}) {
   <div className="hq-actions">{chiefSuggestions.map(s=><button type="button" className="hq-button secondary" disabled={pending} key={s} onClick={()=>setQuestion(s)}>{s}</button>)}</div>
   <form onSubmit={e=>{e.preventDefault();void send();}}>
    <label className="hq-agent-label" htmlFor="chief-question">Sua pergunta</label>
-   <textarea id="chief-question" rows={3} value={question} onChange={e=>setQuestion(e.target.value)} minLength={3} maxLength={1000} required disabled={pending||!state.ready} placeholder="Como está o financeiro do Everflare?" />
+   <textarea id="chief-question" rows={3} value={question} onChange={e=>setQuestion(e.target.value)} minLength={3} maxLength={1000} required disabled={pending||!state.ready} placeholder="Como está o financeiro do Everflair?" />
    <p>O resumo do HQ e sua pergunta serão enviados à OpenAI. Não inclua senhas ou chaves de acesso.</p>
    <button className="hq-button" disabled={pending||!state.ready||question.trim().length<3}>{pending?"Consultando…":"Consultar Chefe"}</button>
   </form>

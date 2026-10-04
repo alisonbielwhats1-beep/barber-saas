@@ -14,7 +14,7 @@ function config(){const chief=chiefConfig();return {...chief,ready:chief.ready&&
 export function validateSupportDraft(raw:unknown,articles:KnowledgeArticle[]):SupportDraft {
  const draft=supportDraftSchema.parse(raw);
  const valid=articles.length>0&&draft.articleIds.length>0&&draft.articleIds.every(id=>articles.some(a=>a.id===id));
- if(!valid)return {...draft,reply:"Preciso conferir essa orientação com o responsável pelo Everflare antes de confirmar. Pode descrever o que precisa fazer e o que aconteceu, sem incluir senhas ou dados pessoais?",needsHuman:true,recommendation:"human",reason:"Não há fontes suficientes e válidas na base para confirmar uma resposta.",articleIds:[]};
+ if(!valid)return {...draft,reply:"Preciso conferir essa orientação com o responsável pelo Everflair antes de confirmar. Pode descrever o que precisa fazer e o que aconteceu, sem incluir senhas ou dados pessoais?",needsHuman:true,recommendation:"human",reason:"Não há fontes suficientes e válidas na base para confirmar uma resposta.",articleIds:[]};
  if(articles.some(a=>a.humanOnly))return {...draft,needsHuman:true,recommendation:draft.recommendation==="reply"?"human":draft.recommendation};
  return draft;
 }
