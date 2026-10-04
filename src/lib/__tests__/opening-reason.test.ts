@@ -15,6 +15,16 @@ describe("motivo opcional da abertura extra", () => {
     expect(storedOpeningReason(null)).toBe(NO_OPENING_REASON);
   });
 
+  it("motivo curto não quebra o CHECK de 3 caracteres", () => {
+    for (const curto of ["ok", " x ", "é"]) {
+      const gravado = storedOpeningReason(curto);
+      expect(gravado.trim().length).toBeGreaterThanOrEqual(3);
+      expect(gravado).toContain(curto.trim());
+      expect(openingReasonOrNull(gravado)).toBe(gravado);
+    }
+    expect(storedOpeningReason("abc")).toBe("abc");
+  });
+
   it("devolve o motivo real ou nulo, para tela e auditoria", () => {
     expect(openingReasonOrNull("Sábado especial")).toBe("Sábado especial");
     expect(openingReasonOrNull(NO_OPENING_REASON)).toBeNull();

@@ -7,9 +7,16 @@
  */
 export const NO_OPENING_REASON = "Sem motivo informado";
 
+/** Prefixo para motivo digitado com menos de 3 caracteres (o CHECK recusaria). */
+const SHORT_REASON_PREFIX = "Motivo: ";
+
 /** Texto a gravar na coluna: o motivo digitado ou o marcador de "sem motivo". */
 export function storedOpeningReason(raw: string | null | undefined): string {
-  return raw?.trim() || NO_OPENING_REASON;
+  const text = raw?.trim();
+  if (!text) return NO_OPENING_REASON;
+  // "ok" ou "x" não passariam no CHECK de 3 caracteres: guarda o que foi
+  // digitado com um prefixo, em vez de falhar no banco.
+  return text.length < 3 ? `${SHORT_REASON_PREFIX}${text}` : text;
 }
 
 /** Motivo de verdade para exibir ou auditar; `null` quando não foi informado. */
