@@ -58,7 +58,8 @@ export function CurrentPlanCard({ subscription, legacy, occupiedAgendas, timezon
   const reactivation = Boolean(change && isRenewalReactivation(change));
   const unfinished = change?.kind === "CYCLE" && ["CANCELLED", "EXPIRED"].includes(change.state) && renewal === "CANCELLED";
   const interruptedCycle = unfinished && !reactivation;
-  const status = sub ? subscriptionStatus({ state: sub.state, renewal, reviewRequired: sub.reviewRequired, changePending: sub.changePending, reactivation: reactivationState(change, sub.changePending) }) : legacy.free ? null : { label: "Sem cobrança automática", tone: "neutral" as const };
+  const priceReduction = Boolean(change?.priceReduction && sub?.changePending);
+  const status = sub ? subscriptionStatus({ state: sub.state, renewal, reviewRequired: sub.reviewRequired, changePending: sub.changePending && !priceReduction, reactivation: reactivationState(change, sub.changePending) }) : legacy.free ? null : { label: "Sem cobrança automática", tone: "neutral" as const };
   const title = sub ? billingCapacityLabel(sub.plan as BillingIntent["plan"], sub.agendaLimit) : legacy.label;
   const capacity = sub && sub.state !== "UNPAID" ? sub.agendaLimit : legacy.agendas;
   const showUsage = !accessBlocked && (!sub || ["UNPAID", "ACTIVE", "VERIFYING", "GRACE"].includes(sub.state));
@@ -130,7 +131,14 @@ export function CurrentPlanCard({ subscription, legacy, occupiedAgendas, timezon
         {change.state !== "SCHEDULED" && change.state !== "REVIEW" && <p className="text-muted-foreground">Como a recorrência anterior foi encerrada, o Mercado Pago pede uma nova autorização do cartão. Sem ela em até 24 horas, a reativação é descartada e nada muda.</p>}
         {change.state === "REVIEW" && <p>Uma ocorrência precisa de conferência. Seu histórico foi preservado. Entre em contato com a plataforma.</p>}
       </Notice>}
-      {change && !reactivation && (sub?.changePending || interruptedCycle) && <Notice tone={["AWAITING_PAYMENT", "REVIEW"].includes(change.state) && !interruptedCycle ? "warn" : "neutral"} title={`Troca para ${billingCapacityLabel(change.to.plan, change.to.agendaLimit)} · ${change.to.cycle === "ANNUAL" ? "anual" : "mensal"}`}
+      {priceReduction && change && <Notice tone={change.state === "REVIEW" ? "warn" : change.state === "CANCEL_REQUESTED" ? "neutral" : "ok"} title={change.state === "CANCEL_REQUESTED" ? "Liberando a troca de plano" : "Seu plano ficou mais barato"}
+        actions={!change.paidAt && ["PREPARING", "SCHEDULED"].includes(change.state) ? <Button variant="outline" disabled={busy} onClick={onCancelChange}>Mudar de plano agora</Button> : undefined}>
+        {change.state === "CANCEL_REQUESTED" ? <p>Estamos desfazendo a redução no Mercado Pago para liberar a troca de plano. Esta página acompanha a confirmação.</p>
+          : change.state === "REVIEW" ? <p>Uma ocorrência precisa de conferência. Seu histórico foi preservado. Entre em contato com a plataforma.</p>
+          : <><p>A partir de {date(change.effectiveAt)}, a cobrança {change.to.cycle === "ANNUAL" ? "anual" : "mensal"} passa de {billingMoney(change.from.amountCents)} para {billingMoney(change.to.amountCents)}. Nada muda no seu plano e você não precisa fazer nada.</p>
+            <p className="text-muted-foreground">Quer mudar de plano antes disso? O novo plano já segue a tabela atual.</p></>}
+      </Notice>}
+      {change && !reactivation && !priceReduction && (sub?.changePending || interruptedCycle) && <Notice tone={["AWAITING_PAYMENT", "REVIEW"].includes(change.state) && !interruptedCycle ? "warn" : "neutral"} title={`Troca para ${billingCapacityLabel(change.to.plan, change.to.agendaLimit)} · ${change.to.cycle === "ANNUAL" ? "anual" : "mensal"}`}
         actions={<>
           {changeCheckout ? <a href={changeCheckout} className={cn(buttonVariants(), "h-auto whitespace-normal rounded-lg text-center")}>{change.kind === "CYCLE" ? "Autorizar nova recorrência" : "Pagar diferença no Mercado Pago"}<ExternalLink aria-hidden="true" className="h-4 w-4" /></a>
             : (preparingChangeCheckout || change.state === "PREPARING") && <span className="inline-flex items-center gap-2 text-muted-foreground"><Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />Preparando pagamento seguro…</span>}

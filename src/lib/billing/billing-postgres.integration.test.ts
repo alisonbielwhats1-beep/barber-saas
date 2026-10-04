@@ -340,15 +340,18 @@ pg("automatic billing with PostgreSQL and runtime FORCE RLS", () => {
     expect(postCount).toBe(before + 1);
   });
 
-  async function paidFixture(plan: "INDIVIDUAL" | "TEAM" | "TEAM_PLUS" | "TEAM_MAX" = "INDIVIDUAL", cycle: "MONTHLY" | "ANNUAL" = "MONTHLY", paidStart?: Date, extraAgendas = 0) {
+  /** `legacyAmountCents` reproduces a contract priced by the 2026-09-13 catalog. */
+  async function paidFixture(plan: "INDIVIDUAL" | "TEAM" | "TEAM_PLUS" | "TEAM_MAX" = "INDIVIDUAL", cycle: "MONTHLY" | "ANNUAL" = "MONTHLY", paidStart?: Date, extraAgendas = 0, legacyAmountCents?: number) {
     vi.stubEnv("MERCADOPAGO_PLAN_CHANGES_ENABLED", "true");
     const salon = await admin.salon.create({ data: { name: "change fixture", slug: randomUUID(), accessStatus: "APPROVED" } });
     await admin.membership.create({ data: { salonId: salon.id, userId: ownerId, role: "OWNER" } });
     const ctx = { salonId: salon.id, userId: ownerId };
-    const sub = await service.contract(ctx, { plan, cycle, extraAgendas }, randomUUID());
+    let sub = await service.contract(ctx, { plan, cycle, extraAgendas }, randomUUID());
+    if (legacyAmountCents) sub = await admin.billingSubscription.update({ where: { id: sub.id }, data: { amountCents: legacyAmountCents, catalogVersion: "2026-09-13" } });
     const remote = (await import("./provider")).subscriptionSchema.parse(remoteFor(sub.providerId!));
     const at = new Date(); const start = paidStart ?? new Date(at.getTime() - 10 * 86400000);
     Object.assign(remote, { status: "authorized", last_modified: at.toISOString(), next_payment_date: periodEnd(start, sub.intervalMonths).toISOString() });
+    if (legacyAmountCents) remote.auto_recurring.transaction_amount = legacyAmountCents / 100;
     remotes.set(sub.providerId!, remote);
     await service.applyRemoteSubscription(sub, remote);
     const invoice = { id: randomUUID(), preapproval_id: remote.id, debit_date: start.toISOString(), currency_id: "BRL", transaction_amount: sub.amountCents / 100, last_modified: at.toISOString(), payment: { id: randomUUID() } };
@@ -668,6 +671,85 @@ pg("automatic billing with PostgreSQL and runtime FORCE RLS", () => {
       expect(accessState(sub, new Date(f.sub.paidThrough!.getTime() - 1000))).toBe("ACTIVE");
       expect(accessState(sub, new Date(f.sub.paidThrough!.getTime() + 1000))).toBe("GRACE");
     } finally { vi.useRealTimers(); }
+  });
+  it("reduces an old Individual contract to the table price at its next renewal", async () => {
+    const f = await paidFixture("INDIVIDUAL", "MONTHLY", undefined, 0, 5990);
+    await worker.syncSubscription(f.ctx.salonId, f.sub.id);
+    const change = await admin.billingPlanChange.findFirstOrThrow({ where: { subscriptionId: f.sub.id } });
+    expect(change).toMatchObject({ kind: "SCHEDULED", state: "PREPARING", actorUserId: "system:price-reduction", amountDueCents: 0, periodEnd: f.sub.paidThrough, effectiveAt: f.sub.paidThrough });
+    expect(change.fromTerms).toMatchObject({ plan: "INDIVIDUAL", cycle: "MONTHLY", agendaLimit: 1, amountCents: 5990, catalogVersion: "2026-09-13" });
+    expect(change.toTerms).toMatchObject({ plan: "INDIVIDUAL", cycle: "MONTHLY", agendaLimit: 1, amountCents: 3990, catalogVersion: "2026-10-02" });
+    const { schedulePriceReduction } = await import("./price-reduction");
+    expect(await schedulePriceReduction(f.sub)).toBe(false);
+    await worker.syncSubscription(f.ctx.salonId, f.sub.id);
+    expect(remoteFor(f.sub.providerId!)).toMatchObject({ auto_recurring: { transaction_amount: 39.9 } });
+    expect((await admin.billingPlanChange.findUniqueOrThrow({ where: { id: change.id } })).state).toBe("SCHEDULED");
+    // The period already paid keeps its price until the renewal.
+    expect(await scope.withSalon(f.ctx.salonId, tx => effectiveEntitlement(tx, f.ctx.salonId, "PRO"))).toMatchObject({ priceCents: 5990, maxProfessionals: 1 });
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(f.sub.paidThrough!.getTime() + 1000);
+      const invoice = { ...f.invoice, id: randomUUID(), debit_date: f.sub.paidThrough!.toISOString(), transaction_amount: 39.9, last_modified: new Date().toISOString(), payment: { id: randomUUID() } };
+      const payment = { ...f.payment, id: invoice.payment.id, transaction_amount: 39.9, date_approved: new Date().toISOString(), date_last_updated: new Date().toISOString() };
+      await service.applyInvoice(f.sub, f.remote, invoice, payment);
+      expect((await admin.billingCharge.findUniqueOrThrow({ where: { providerInvoiceId: invoice.id } })).amountCents).toBe(3990);
+      expect((await admin.billingPlanChange.findUniqueOrThrow({ where: { id: change.id } })).state).toBe("APPLIED");
+      expect(await scope.withSalon(f.ctx.salonId, tx => effectiveEntitlement(tx, f.ctx.salonId, "PRO"))).toMatchObject({ priceCents: 3990, maxProfessionals: 1 });
+      expect((await admin.billingSubscription.findUniqueOrThrow({ where: { id: f.sub.id } })).reviewRequired).toBe(false);
+    } finally { vi.useRealTimers(); }
+  });
+  it("reduces an old annual Individual contract only in its last month", async () => {
+    const { schedulePriceReduction } = await import("./price-reduction");
+    const far = await paidFixture("INDIVIDUAL", "ANNUAL", undefined, 0, 59900);
+    expect(await schedulePriceReduction(far.sub)).toBe(false);
+    const near = await paidFixture("INDIVIDUAL", "ANNUAL", new Date(Date.now() - 340 * 86400000), 0, 59900);
+    expect(await schedulePriceReduction(near.sub)).toBe(true);
+    expect((await admin.billingPlanChange.findFirstOrThrow({ where: { subscriptionId: near.sub.id } })).toTerms).toMatchObject({ cycle: "ANNUAL", amountCents: 39900, catalogVersion: "2026-10-02" });
+  });
+  it.each([
+    { name: "a contract already at the table price", plan: "INDIVIDUAL" as const, legacy: undefined, extra: 0 },
+    { name: "old extra agendas whose price went up", plan: "TEAM_MAX" as const, legacy: 17990, extra: 2 },
+  ])("leaves $name untouched", async ({ plan, legacy, extra }) => {
+    const f = await paidFixture(plan, "MONTHLY", undefined, extra, legacy);
+    await worker.syncSubscription(f.ctx.salonId, f.sub.id);
+    expect(await admin.billingPlanChange.count({ where: { subscriptionId: f.sub.id } })).toBe(0);
+    expect(remoteFor(f.sub.providerId!)).toMatchObject({ auto_recurring: { transaction_amount: f.sub.amountCents / 100 } });
+  });
+  it("does not schedule a reduction too close to the renewal, nor over a change the owner started", async () => {
+    const { schedulePriceReduction } = await import("./price-reduction"), changes = await import("./changes");
+    const late = await paidFixture("INDIVIDUAL", "MONTHLY", new Date(Date.now() - 29 * 86400000), 0, 5990);
+    expect(await schedulePriceReduction(late.sub)).toBe(false);
+    const busy = await paidFixture("INDIVIDUAL", "MONTHLY", undefined, 0, 5990);
+    const quote = await changes.createChangeQuote(busy.ctx, { plan: "TEAM", cycle: "MONTHLY" }, randomUUID());
+    await changes.confirmPlanChange(busy.ctx, quote.id);
+    expect(await schedulePriceReduction(busy.sub)).toBe(false);
+    expect(await admin.billingPlanChange.count({ where: { subscriptionId: busy.sub.id } })).toBe(1);
+  });
+  it("lets the owner stop the reduction to change plans, restoring the contracted price for that period", async () => {
+    const { schedulePriceReduction } = await import("./price-reduction"), changes = await import("./changes"), { syncPlanChanges } = await import("./change-worker");
+    const f = await paidFixture("INDIVIDUAL", "MONTHLY", undefined, 0, 5990);
+    expect(await schedulePriceReduction(f.sub)).toBe(true); await syncPlanChanges(f.sub);
+    const reduction = await admin.billingPlanChange.findFirstOrThrow({ where: { subscriptionId: f.sub.id } });
+    await expect(changes.createChangeQuote(f.ctx, { plan: "TEAM", cycle: "MONTHLY" }, randomUUID())).rejects.toThrow("PLAN_CHANGE_PENDING");
+    await changes.cancelPlanChange(f.ctx, reduction.id);
+    await syncPlanChanges(await admin.billingSubscription.findUniqueOrThrow({ where: { id: f.sub.id } }));
+    expect((await admin.billingPlanChange.findUniqueOrThrow({ where: { id: reduction.id } })).state).toBe("CANCELLED");
+    expect(remoteFor(f.sub.providerId!)).toMatchObject({ auto_recurring: { transaction_amount: 59.9 } });
+    expect(await schedulePriceReduction(f.sub)).toBe(false);
+    const quote = await changes.createChangeQuote(f.ctx, { plan: "TEAM", cycle: "MONTHLY" }, randomUUID());
+    expect(quote).toMatchObject({ kind: "UPGRADE" });
+    expect(quote.fromTerms).toMatchObject({ amountCents: 5990 });
+    expect(quote.amountDueCents).toBeGreaterThan(0); expect(quote.amountDueCents).toBeLessThanOrEqual(2000);
+  });
+  it("lets a reduction the worker could not send before the renewal expire without financial review", async () => {
+    const { schedulePriceReduction } = await import("./price-reduction"), { syncPlanChanges } = await import("./change-worker");
+    const f = await paidFixture("INDIVIDUAL", "MONTHLY", undefined, 0, 5990);
+    expect(await schedulePriceReduction(f.sub)).toBe(true);
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try { vi.setSystemTime(f.sub.paidThrough!.getTime() + 1000); await syncPlanChanges(f.sub); } finally { vi.useRealTimers(); }
+    expect((await admin.billingPlanChange.findFirstOrThrow({ where: { subscriptionId: f.sub.id } })).state).toBe("EXPIRED");
+    expect((await admin.billingSubscription.findUniqueOrThrow({ where: { id: f.sub.id } })).reviewRequired).toBe(false);
+    expect(remoteFor(f.sub.providerId!)).toMatchObject({ auto_recurring: { transaction_amount: 59.9 } });
   });
   it("rechecks pending invitations on confirmation and rejects expired quotes", async () => {
     const f = await paidFixture("TEAM_MAX"), changes = await import("./changes");

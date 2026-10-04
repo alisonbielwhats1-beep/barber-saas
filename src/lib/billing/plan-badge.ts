@@ -2,7 +2,7 @@ import "server-only";
 import type { Tx } from "../prisma-tenant";
 import { accessState } from "./catalog";
 import { cancellationSubscriptions, renewalCancellationStatus } from "./cancellation";
-import { changesEnabled, currentTerms, pendingChangeStates } from "./change-terms";
+import { changesEnabled, currentTerms, pendingChangeStates, PRICE_REDUCTION_ACTOR } from "./change-terms";
 import { planBadgeFor, reactivationState, type PlanBadge } from "./presentation";
 import { billingTermsSchema } from "./change-rules";
 
@@ -21,7 +21,8 @@ export async function loadPlanBadge(tx: Tx, salonId: string, legacyLabel: string
   return planBadgeFor(legacyLabel, {
     plan: terms.plan, agendaLimit: terms.agendaLimit, state: accessState(sub), reviewRequired: sub.reviewRequired,
     renewal: renewalCancellationStatus(chain, change?.kind === "CYCLE" && change.state === "PREPARING"),
-    changePending: change ? pendingChangeStates.includes(change.state) : false,
+    // A platform price reduction is not a change the owner is following.
+    changePending: change ? pendingChangeStates.includes(change.state) && change.actorUserId !== PRICE_REDUCTION_ACTOR : false,
     reactivation: change ? reactivationState({ kind: change.kind, state: change.state, from: billingTermsSchema.parse(change.fromTerms), to: billingTermsSchema.parse(change.toTerms) }, pendingChangeStates.includes(change.state)) : null,
   });
 }

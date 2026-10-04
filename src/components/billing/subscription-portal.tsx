@@ -195,6 +195,8 @@ export function SubscriptionPortal({ salonId, email, timezone, initial, accessBl
     : changeEligible ? changesPaused ? "As trocas de plano estão temporariamente pausadas. Seu plano atual, o histórico e o cancelamento continuam disponíveis." : null
     : subscription?.reviewRequired ? "Há uma ocorrência financeira em revisão. A troca de plano fica disponível depois da conferência pela plataforma."
     : reactivationPending && change ? `A renovação foi reativada a partir de ${new Intl.DateTimeFormat("pt-BR", { dateStyle: "long", timeZone: timezone }).format(new Date(change.periodEnd))}. Trocas de plano voltam a ficar disponíveis quando a nova recorrência começar.`
+    : change?.priceReduction && subscription?.changePending ? change.state === "CANCEL_REQUESTED" ? "Estamos liberando a troca de plano. Ela fica disponível assim que o Mercado Pago confirmar."
+      : "Seu plano ficará mais barato no próximo vencimento. Para mudar de plano antes disso, use Mudar de plano agora, acima."
     : subscription?.changePending ? "Há uma troca em andamento. Conclua ou cancele essa troca para escolher outro plano."
     : renewalStatus === "PENDING" ? "Estamos confirmando um cancelamento no Mercado Pago. Aguarde a confirmação para escolher outro plano."
     : subscription?.state === "ACTIVE" && renewalStatus === "CANCELLED" ? canReactivate ? "A renovação está cancelada. Use Reativar renovação acima para continuar no mesmo plano; trocas voltam a ficar disponíveis quando a nova recorrência começar."
@@ -308,11 +310,12 @@ export function SubscriptionPortal({ salonId, email, timezone, initial, accessBl
 
     <Dialog open={cancelChangeOpen} onOpenChange={open => { if (!busy) setCancelChangeOpen(open); }}><DialogContent>
       {reactivationPending ? <div className="space-y-1"><DialogTitle>Desistir da reativação?</DialogTitle><DialogDescription>Vamos encerrar a nova autorização no Mercado Pago. Nada foi cobrado por ela. A renovação continua cancelada e você mantém o acesso até o fim do período pago.</DialogDescription></div>
+        : change?.priceReduction ? <div className="space-y-1"><DialogTitle>Mudar de plano agora?</DialogTitle><DialogDescription>Para liberar a troca, desfazemos a redução agendada no Mercado Pago e a cobrança volta para {billingMoney(change.from.amountCents)}. O plano que você escolher segue a tabela atual. Se não mudar de plano, o próximo vencimento continua em {billingMoney(change.from.amountCents)} e a redução volta a valer no vencimento seguinte.</DialogDescription></div>
         : <div className="space-y-1"><DialogTitle>Cancelar esta troca?</DialogTitle><DialogDescription>O cancelamento depende da confirmação do Mercado Pago. Se você já autorizou uma troca mensal/anual, a recorrência anterior pode já ter sido encerrada; nesse caso ela não será reativada automaticamente. Seu período pago permanece disponível.</DialogDescription></div>}
       {changeError && <p role="alert" className="text-sm text-danger">{changeError}</p>}
       <DialogFooter>
-        <Button variant="outline" disabled={busy} onClick={() => setCancelChangeOpen(false)}>{reactivationPending ? "Manter reativação" : "Manter troca"}</Button>
-        <Button variant="destructive" disabled={busy || blockedByHost} onClick={() => void cancelChange()}>{reactivationPending ? "Desistir da reativação" : "Confirmar cancelamento da troca"}</Button>
+        <Button variant="outline" disabled={busy} onClick={() => setCancelChangeOpen(false)}>{reactivationPending ? "Manter reativação" : change?.priceReduction ? "Manter redução" : "Manter troca"}</Button>
+        <Button variant={change?.priceReduction ? "default" : "destructive"} disabled={busy || blockedByHost} onClick={() => void cancelChange()}>{reactivationPending ? "Desistir da reativação" : change?.priceReduction ? "Desfazer redução e escolher plano" : "Confirmar cancelamento da troca"}</Button>
       </DialogFooter>
     </DialogContent></Dialog>
 

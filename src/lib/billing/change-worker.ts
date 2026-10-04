@@ -4,7 +4,7 @@ import type { BillingPlanChange, BillingSubscription, Prisma } from "@prisma/cli
 import { withSalon } from "../prisma-tenant";
 import { BillingError } from "./catalog";
 import { billingTermsSchema } from "./change-rules";
-import { changesEnabled, pendingChangeStates, remoteMatchesTerms, RENEWAL_EARLY_TOLERANCE_MS } from "./change-terms";
+import { changesEnabled, pendingChangeStates, PRICE_REDUCTION_ACTOR, remoteMatchesTerms, RENEWAL_EARLY_TOLERANCE_MS } from "./change-terms";
 import { prepareUpgradeCheckout, upgradePayments } from "./change-provider";
 import { applyUpgradePayment } from "./change-payments";
 import { occupiedCapacity } from "./changes";
@@ -32,7 +32,8 @@ async function changeAmount(sub: BillingSubscription, change: BillingPlanChange,
   }
   if (!remoteMatchesTerms(remote, source) && !remoteMatchesTerms(remote, target)) { await review(change, "PROVIDER_CONTRACT_MISMATCH"); return; }
   if (!restoring && !change.providerStartedAt) {
-    if (new Date() >= change.periodEnd) { await review(change, "CHANGE_RENEWAL_IN_PROGRESS"); return; }
+    // A price reduction the platform could not send in time simply waits for the next period.
+    if (new Date() >= change.periodEnd) { if (change.actorUserId === PRICE_REDUCTION_ACTOR) await update(change, { state: "EXPIRED" }); else await review(change, "CHANGE_RENEWAL_IN_PROGRESS"); return; }
     if ((remote.next_payment_date && new Date(remote.next_payment_date) < change.periodEnd) || (remote.summarized?.pending_charge_quantity ?? 0) > 0) {
       throw new BillingError("CHANGE_RENEWAL_IN_PROGRESS", 503);
     }
