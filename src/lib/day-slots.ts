@@ -2,9 +2,10 @@ import { addMinutes } from "date-fns";
 import type { Tx } from "@/lib/prisma-tenant";
 import { checkBookingWindow, bufferedWindow, type SchedulingPolicy } from "@/lib/scheduling";
 import { priceServicesForDate } from "@/lib/pricing";
-import { workingHoursForDate } from "@/lib/working-hours";
+import { mergeWorkingHours, workingHoursForDate } from "@/lib/working-hours";
 import {
   addCalendarDays,
+  weekdayOfDateKey,
   endExclusiveOfDateInTimeZone,
   hhmmInTimeZone,
   startOfDateInTimeZone,
@@ -20,6 +21,12 @@ export type DaySlotSalon = SchedulingPolicy & { timezone: string };
 
 export type DaySlotInputs = Awaited<ReturnType<typeof loadDaySlotInputs>>;
 
+/** O mínimo que o cálculo de horários livres precisa. */
+export type FreeSlotInputs = Pick<
+  NonNullable<DaySlotInputs>,
+  "salon" | "workingHours" | "closures" | "timeOffs" | "appointments" | "resourceBookings"
+> & { services: { durationMin: number }[] };
+
 function instantForMinutes(date: string, minutes: number, timezone: string) {
   if (minutes === 24 * 60) {
     return zonedDateTimeToUtc(addCalendarDays(date, 1), "00:00", timezone);
@@ -33,38 +40,27 @@ function instantForMinutes(date: string, minutes: number, timezone: string) {
   );
 }
 
-/**
- * Carrega, dentro do tenant, tudo que ocupa o dia de um profissional para os
- * serviços pedidos. Retorna `null` quando algum serviço não existe/está
- * inativo ou o profissional não realiza todos eles. Compartilhado entre a
- * disponibilidade pública e as sugestões da equipe.
- */
-export async function loadDaySlotInputs(
-  tx: Tx,
-  input: {
-    salonId: string;
-    salon: DaySlotSalon;
-    professionalId: string;
-    serviceIds: string[];
-    date: string;
-    now: Date;
-    excludeAppointmentId?: string | null;
-  },
-) {
-  const { salonId, salon, professionalId, serviceIds, date, excludeAppointmentId } = input;
-  const from = startOfDateInTimeZone(date, salon.timezone);
-  const to = endExclusiveOfDateInTimeZone(date, salon.timezone);
+type SlotQuery = {
+  salonId: string;
+  salon: DaySlotSalon;
+  professionalId: string;
+  serviceIds: string[];
+  now: Date;
+  excludeAppointmentId?: string | null;
+};
 
+/**
+ * Serviços pedidos e tudo que ocupa o profissional em [from, to). Retorna
+ * `null` quando algum serviço não existe/está inativo ou o profissional não
+ * realiza todos eles.
+ */
+async function loadServicesAndOccupancy(tx: Tx, input: SlotQuery & { from: Date; to: Date }) {
+  const { salonId, salon, professionalId, serviceIds, from, to, excludeAppointmentId } = input;
   const services = await tx.service.findMany({
     where: { id: { in: serviceIds }, salonId, active: true },
     select: { id: true, durationMin: true, priceCents: true, priceType: true, priceNote: true, physicalResourceId: true },
   });
   if (services.length !== new Set(serviceIds).size) return null;
-  const priced = await priceServicesForDate(tx, {
-    salonId,
-    dateKey: date,
-    services: serviceIds.map(id => services.find(service => service.id === id)!),
-  });
 
   const professionalLinks = await tx.professionalService.findMany({
     where: {
@@ -75,7 +71,6 @@ export async function loadDaySlotInputs(
   });
   if (professionalLinks.length !== new Set(serviceIds).size) return null;
 
-  const workingHours = await workingHoursForDate(tx, salonId, professionalId, date);
   const closures = await tx.salonClosure.findMany({
     where: { salonId, startAt: { lt: to }, endAt: { gt: from } },
     select: { startAt: true, endAt: true },
@@ -106,15 +101,101 @@ export async function loadDaySlotInputs(
   resourceBookings.push(...offerHolds.map(o => o.professionalId === professionalId ? { startAt: addMinutes(o.startAt, -salon.bufferMinutes), endAt: addMinutes(o.endAt, salon.bufferMinutes) } : o));
 
   return {
-    salon,
-    services: priced.services,
-    pricingRule: priced.rule,
-    workingHours,
+    services: serviceIds.map(id => services.find(service => service.id === id)!),
     closures,
     timeOffs,
     appointments,
     resourceBookings,
   };
+}
+
+/**
+ * Carrega, dentro do tenant, tudo que ocupa o dia de um profissional para os
+ * serviços pedidos. Retorna `null` quando algum serviço não existe/está
+ * inativo ou o profissional não realiza todos eles. Compartilhado entre a
+ * disponibilidade pública e as sugestões da equipe.
+ */
+export async function loadDaySlotInputs(tx: Tx, input: SlotQuery & { date: string }) {
+  const { salonId, salon, professionalId, date } = input;
+  const from = startOfDateInTimeZone(date, salon.timezone);
+  const to = endExclusiveOfDateInTimeZone(date, salon.timezone);
+
+  const loaded = await loadServicesAndOccupancy(tx, { ...input, from, to });
+  if (!loaded) return null;
+  const priced = await priceServicesForDate(tx, {
+    salonId,
+    dateKey: date,
+    services: loaded.services,
+  });
+  const workingHours = await workingHoursForDate(tx, salonId, professionalId, date);
+
+  return {
+    salon,
+    services: priced.services,
+    pricingRule: priced.rule,
+    workingHours,
+    closures: loaded.closures,
+    timeOffs: loaded.timeOffs,
+    appointments: loaded.appointments,
+    resourceBookings: loaded.resourceBookings,
+  };
+}
+
+/**
+ * Situação de cada data entre `fromDate` e `toDate` (inclusive) para o
+ * calendário do cliente, com as mesmas regras de `computeFreeSlots`:
+ * - `freeDays`: ao menos um horário livre;
+ * - `waitlistDays`: nenhum horário livre, mas há atendimento futuro do
+ *   profissional no dia, então dá para entrar na fila de espera.
+ * Datas fora das duas listas (folga, fechamento, jornada encerrada) ficam
+ * desativadas. Uma consulta por tabela para o período inteiro.
+ */
+export async function loadBookableDays(
+  tx: Tx,
+  input: SlotQuery & { fromDate: string; toDate: string },
+) {
+  const { salonId, salon, professionalId, fromDate, toDate, now } = input;
+  const loaded = await loadServicesAndOccupancy(tx, {
+    ...input,
+    from: startOfDateInTimeZone(fromDate, salon.timezone),
+    to: endExclusiveOfDateInTimeZone(toDate, salon.timezone),
+  });
+  if (!loaded) return null;
+  const weekly = await tx.workingHours.findMany({
+    where: { salonId, professionalId },
+    select: { weekday: true, startMinutes: true, endMinutes: true },
+  });
+  const openings = await tx.professionalOpening.findMany({
+    where: { salonId, professionalId, dateKey: { gte: fromDate, lte: toDate } },
+    select: { dateKey: true, startMinutes: true, endMinutes: true },
+  });
+
+  const freeDays: string[] = [];
+  const waitlistDays: string[] = [];
+  for (let date = fromDate; date <= toDate; date = addCalendarDays(date, 1)) {
+    const dayFrom = startOfDateInTimeZone(date, salon.timezone);
+    const dayTo = endExclusiveOfDateInTimeZone(date, salon.timezone);
+    const touchesDay = (interval: Interval) => interval.startAt < dayTo && interval.endAt > dayFrom;
+    const weekday = weekdayOfDateKey(date);
+    const appointments = loaded.appointments.filter(touchesDay);
+    const slots = computeFreeSlots({
+      salon,
+      services: loaded.services,
+      workingHours: mergeWorkingHours(
+        weekly.filter(shift => shift.weekday === weekday),
+        openings.filter(opening => opening.dateKey === date),
+      ),
+      closures: loaded.closures.filter(touchesDay),
+      timeOffs: loaded.timeOffs.filter(touchesDay),
+      appointments,
+      resourceBookings: loaded.resourceBookings.filter(touchesDay),
+    }, { date, now, enforceBookingWindow: true });
+    if (slots.length > 0) freeDays.push(date);
+    else if (appointments.some(a => a.startAt >= dayFrom && a.startAt < dayTo && a.startAt > now)) {
+      waitlistDays.push(date);
+    }
+  }
+  return { freeDays, waitlistDays };
 }
 
 /**
@@ -125,7 +206,7 @@ export async function loadDaySlotInputs(
  * repete a validação no servidor.
  */
 export function computeFreeSlots(
-  inputs: NonNullable<DaySlotInputs>,
+  inputs: FreeSlotInputs,
   options: { date: string; now: Date; enforceBookingWindow: boolean },
 ): string[] {
   const { date, now } = options;
