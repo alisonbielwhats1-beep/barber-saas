@@ -92,6 +92,7 @@ describe("POST /api/upload", () => {
     findMembership.mockResolvedValue({
       salonId: "salon-a",
       role: "OWNER",
+      salon: { accessStatus: "APPROVED" },
     });
     upload.mockResolvedValue({ error: null });
   });
@@ -128,6 +129,66 @@ describe("POST /api/upload", () => {
     );
   });
 
+  it.each(["PENDING", "REJECTED", "SUSPENDED"] as const)(
+    "recusa upload de membro de salão %s, sem tocar no Storage",
+    async (accessStatus) => {
+      findMembership.mockResolvedValue({
+        salonId: "salon-a",
+        role: "OWNER",
+        salon: { accessStatus },
+      });
+
+      const response = await POST(
+        request({ folder: "portfolio", activeSalonId: "salon-a" }) as never,
+      );
+
+      expect(response.status).toBe(403);
+      expect(await response.json()).toEqual({
+        error: expect.stringContaining("acesso bloqueado"),
+      });
+      expect(from).not.toHaveBeenCalled();
+      expect(upload).not.toHaveBeenCalled();
+    },
+  );
+
+  it("recusa por salão bloqueado antes de consumir o limite de uploads", async () => {
+    const { checkRateLimit } = await import("@/lib/rate-limit");
+    findMembership.mockResolvedValue({
+      salonId: "salon-a",
+      role: "OWNER",
+      salon: { accessStatus: "SUSPENDED" },
+    });
+
+    await POST(request({ folder: "portfolio" }) as never);
+
+    expect(checkRateLimit).not.toHaveBeenCalled();
+  });
+
+  it("mantém o upload de salão aprovado, inclusive de gerente", async () => {
+    findMembership.mockResolvedValue({
+      salonId: "salon-a",
+      role: "MANAGER",
+      salon: { accessStatus: "APPROVED" },
+    });
+
+    const response = await POST(
+      request({ folder: "services", activeSalonId: "salon-a" }) as never,
+    );
+
+    expect(response.status).toBe(200);
+    expect(upload).toHaveBeenCalledOnce();
+  });
+
+  it("sem salão ativo no cookie, escolhe só entre salões aprovados (como o painel)", async () => {
+    await POST(request({ folder: "services" }) as never);
+
+    expect(findMembership).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: "user-a", salon: { accessStatus: "APPROVED" } },
+      }),
+    );
+  });
+
   it("rejeita MIME declarado que não corresponde ao conteúdo", async () => {
     const response = await POST(
       request({
@@ -158,6 +219,7 @@ describe("POST /api/upload", () => {
     findMembership.mockResolvedValue({
       salonId: "salon-a",
       role: "PROFESSIONAL",
+      salon: { accessStatus: "APPROVED" },
     });
 
     const response = await POST(
