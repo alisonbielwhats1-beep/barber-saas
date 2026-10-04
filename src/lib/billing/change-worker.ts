@@ -4,7 +4,7 @@ import type { BillingPlanChange, BillingSubscription, Prisma } from "@prisma/cli
 import { withSalon } from "../prisma-tenant";
 import { BillingError } from "./catalog";
 import { billingTermsSchema } from "./change-rules";
-import { changesEnabled, pendingChangeStates, remoteMatchesTerms } from "./change-terms";
+import { changesEnabled, pendingChangeStates, remoteMatchesTerms, RENEWAL_EARLY_TOLERANCE_MS } from "./change-terms";
 import { prepareUpgradeCheckout, upgradePayments } from "./change-provider";
 import { applyUpgradePayment } from "./change-payments";
 import { occupiedCapacity } from "./changes";
@@ -52,7 +52,7 @@ async function changeAmount(sub: BillingSubscription, change: BillingPlanChange,
     // Reconcile an already recorded payment instead of waiting another full cycle.
     if (change.kind === "SCHEDULED" && new Date() >= change.periodEnd) await withSalon(sub.salonId, async tx => {
       await subscriptionLock(tx, sub.salonId);
-      const paid = await tx.billingCharge.findFirst({ where: { subscriptionId: sub.id, status: "approved", amountCents: target.amountCents, periodStart: { gte: change.periodEnd, lte: new Date() }, periodEnd: { gt: new Date() }, NOT: { providerInvoiceId: { startsWith: "upgrade:" } } } });
+      const paid = await tx.billingCharge.findFirst({ where: { subscriptionId: sub.id, status: "approved", amountCents: target.amountCents, periodStart: { gte: new Date(change.periodEnd.getTime() - RENEWAL_EARLY_TOLERANCE_MS), lte: new Date() }, periodEnd: { gt: new Date() }, NOT: { providerInvoiceId: { startsWith: "upgrade:" } } } });
       if (paid) await tx.billingPlanChange.updateMany({ where: { id: change.id, state: "SCHEDULED" }, data: { state: "APPLIED", activatedAt: new Date(), paidAt: paid.paidAt } });
     });
   }
@@ -121,7 +121,8 @@ async function syncCycle(sub: BillingSubscription, change: BillingPlanChange) {
     const fresh = await tx.billingPlanChange.findUniqueOrThrow({ where: { id: change.id } });
     if (fresh.state !== "SCHEDULED") return;
     if (await occupiedCapacity(tx, sub.salonId) > billingTermsSchema.parse(change.toTerms).agendaLimit) throw new BillingError("PLAN_CAPACITY_TOO_SMALL");
-    const confirmed = await tx.billingCharge.findFirst({ where: { subscriptionId: next.id, status: "approved", periodStart: { gte: change.periodEnd, lte: new Date() }, periodEnd: { gt: new Date() } } });
+    // The replacement may be debited shortly before its scheduled start.
+    const confirmed = await tx.billingCharge.findFirst({ where: { subscriptionId: next.id, status: "approved", periodStart: { gte: new Date(change.periodEnd.getTime() - RENEWAL_EARLY_TOLERANCE_MS), lte: new Date() }, periodEnd: { gt: new Date() } } });
     if (!confirmed) return;
     await tx.billingSubscription.update({ where: { id: sub.id }, data: { current: false } });
     await tx.billingSubscription.update({ where: { id: next.id }, data: { current: true } });

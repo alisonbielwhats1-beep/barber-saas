@@ -18,6 +18,7 @@ import Link from "next/link";
 import { billingCapacityLabel, billingIntentHref, billingMoney, type BillingIntent } from "@/lib/billing/presentation";
 import { quoteContract } from "@/lib/billing/catalog";
 import { setupEntryHref } from "@/lib/initial-setup";
+import { rememberBillingIntent } from "@/lib/billing/intent-cookie";
 
 export function SignupForm({ initialSegment, planIntent, billingIntent, billingAvailable = true, provider = false }: { initialSegment?: SegmentId; planIntent?: MarketingPlanKey; billingIntent?: BillingIntent; billingAvailable?: boolean; provider?: boolean }) {
   const router = useRouter();
@@ -56,6 +57,7 @@ export function SignupForm({ initialSegment, planIntent, billingIntent, billingA
         }
         // Auto-login logo após criar.
         if (res.confirmationRequired) {
+          if (billingIntent && billingAvailable) rememberBillingIntent(billingIntent);
           setConfirmationRequired(true);
           return;
         }
@@ -65,10 +67,11 @@ export function SignupForm({ initialSegment, planIntent, billingIntent, billingA
           redirect: false,
         });
         if (signInRes?.error) {
+          if (billingIntent && billingAvailable) rememberBillingIntent(billingIntent);
           setError("Conta criada, mas não foi possível entrar automaticamente. Use o login.");
           return;
         }
-        router.push(billingIntent ? billingIntentHref(billingIntent, "/assinatura") : setupEntryHref(firstAccessHref(planIntent)));
+        router.push(billingIntent && billingAvailable ? billingIntentHref(billingIntent, "/assinatura") : setupEntryHref(firstAccessHref(planIntent)));
         router.refresh();
       } catch {
         setError("Não foi possível concluir agora. Verifique sua conexão e tente novamente.");
@@ -142,7 +145,7 @@ export function SignupForm({ initialSegment, planIntent, billingIntent, billingA
           {error}
         </p>
       )}
-      {confirmationRequired && <p role="status" className="text-sm text-success">Conta criada. Confirme seu e-mail pelo link recebido e depois <Link className="underline" href="/login">entre com sua senha</Link>.</p>}
+      {confirmationRequired && <p role="status" className="text-sm text-success">Conta criada. Confirme seu e-mail pelo link recebido e depois <Link className="underline" href={billingIntent && billingAvailable ? `/login?callbackUrl=${encodeURIComponent(billingIntentHref(billingIntent, "/contratar"))}` : "/login"}>entre com sua senha</Link>.</p>}
       <Button type="submit" className="w-full" disabled={pending || confirmationRequired}>
         {pending ? "Criando seu espaço…" : "Criar meu espaço"}
       </Button>

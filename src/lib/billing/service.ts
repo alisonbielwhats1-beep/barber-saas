@@ -5,8 +5,9 @@ import { withSalon, withTenant, type Tx } from "../prisma-tenant";
 import { BILLING_PLANS, BillingError, periodEnd, quoteContract } from "./catalog";
 import { billingConfig } from "./config";
 import * as mp from "./provider";
-import { allowedRemoteTerms, changesEnabled, invoiceTerms } from "./change-terms";
+import { allowedRemoteTerms, changesEnabled, invoiceRevision, RENEWAL_EARLY_TOLERANCE_MS } from "./change-terms";
 import { cancellationSubscriptions, renewalCancellationStatus } from "./cancellation";
+import { billingCapacityLabel } from "./presentation";
 
 export const referenceFor = (s: { salonId: string; id: string }) => `ef:${s.salonId}:${s.id}`;
 export function parseReference(value: string) {
@@ -108,7 +109,8 @@ export async function ensureCreated(sub: BillingSubscription) {
     remote = matches[0];
   } else {
     remote = mp.parseProvider(mp.subscriptionSchema, await mp.mpRequest("/preapproval", "POST", {
-      reason: `Everflair ${BILLING_PLANS[sub.planCode as keyof typeof BILLING_PLANS].label} — ${sub.cycle === "ANNUAL" ? "anual" : "mensal"}`, external_reference: referenceFor(sub), payer_email: sub.payerEmail,
+      // Total capacity, so a contract with extra agendas is not described as "10 agendas".
+      reason: `Everflair ${billingCapacityLabel(sub.planCode as keyof typeof BILLING_PLANS, sub.agendaLimit)} — ${sub.cycle === "ANNUAL" ? "anual" : "mensal"}`, external_reference: referenceFor(sub), payer_email: sub.payerEmail,
       // Mercado Pago persists start_date to whole seconds. Round forward, never before paid expiry.
       auto_recurring: { frequency: sub.intervalMonths, frequency_type: "months", transaction_amount: sub.amountCents / 100, currency_id: "BRL", ...(replacement ? { start_date: new Date(Math.ceil(replacement.periodEnd.getTime() / 1000) * 1000).toISOString() } : {}) },
       back_url: `${config.baseUrl}/api/billing/return`, status: "pending",
@@ -203,7 +205,7 @@ export async function applyInvoice(sub: BillingSubscription, remote: mp.RemoteSu
   return withSalon(sub.salonId, async tx => {
     await subscriptionLock(tx, sub.salonId);
     const current = await tx.billingSubscription.findUniqueOrThrow({ where: { id: sub.id } });
-    const terms = await invoiceTerms(tx, current, start);
+    const { terms, revisionId } = await invoiceRevision(tx, current, start, Math.round(invoice.transaction_amount * 100));
     const end = periodEnd(start, terms.intervalMonths);
     if (Math.round(invoice.transaction_amount * 100) !== terms.amountCents) throw new BillingError("INVOICE_MISMATCH");
     if (payment && Math.round(payment.transaction_amount * 100) !== terms.amountCents) throw new BillingError("PAYMENT_MISMATCH");
@@ -231,11 +233,12 @@ export async function applyInvoice(sub: BillingSubscription, remote: mp.RemoteSu
       // Does not change accessStatus: administrative suspension always wins.
       if (current.current) await tx.salon.update({ where: { id: sub.salonId }, data: { plan: "PRO" } });
       if (changesEnabled() && start <= new Date()) {
-        await tx.billingPlanChange.updateMany({ where: { subscriptionId: sub.id, salonId: sub.salonId, kind: "SCHEDULED", state: "SCHEDULED", providerSyncedAt: { not: null }, periodEnd: { lte: start } }, data: { state: "APPLIED", activatedAt: new Date(), paidAt } });
+        await tx.billingPlanChange.updateMany({ where: { subscriptionId: sub.id, salonId: sub.salonId, kind: "SCHEDULED", state: "SCHEDULED", providerSyncedAt: { not: null }, OR: [{ periodEnd: { lte: start } }, ...(revisionId ? [{ id: revisionId }] : [])] }, data: { state: "APPLIED", activatedAt: new Date(), paidAt } });
         const source = await tx.billingPlanChange.findFirst({ where: { replacementSubscriptionId: sub.id, salonId: sub.salonId } });
         if (source) await enqueue(tx, { id: source.subscriptionId, salonId: sub.salonId });
       }
-    } else if (["rejected", "cancelled"].includes(status) && current.paidThrough && start >= current.paidThrough && start <= new Date()) {
+    } else if (["rejected", "cancelled"].includes(status) && current.paidThrough && start.getTime() >= current.paidThrough.getTime() - RENEWAL_EARLY_TOLERANCE_MS && start <= new Date()) {
+      // A renewal debited shortly before the paid end that fails is still a verified renewal failure.
       const failedSince = current.delinquentSince && current.delinquentSince < start ? current.delinquentSince : start;
       await tx.billingSubscription.update({ where: { id: sub.id }, data: { delinquentSince: failedSince } });
     }

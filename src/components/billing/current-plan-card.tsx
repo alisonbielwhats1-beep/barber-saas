@@ -3,7 +3,7 @@
 import { AlertTriangle, CheckCircle2, Clock3, Crown, ExternalLink, Info, Loader2, RefreshCw } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { billingCapacityLabel, billingMoney, isRenewalReactivation, reactivationState, renewalStatusOf, safeCheckout, subscriptionStatus, type BillingIntent, type BillingTone, type SubscriptionView } from "@/lib/billing/presentation";
+import { billingCapacityLabel, billingMoney, isRenewalReactivation, nextChargeOf, pendingPriceOutdated, reactivationState, renewalStatusOf, safeCheckout, subscriptionStatus, tablePriceCents, type BillingIntent, type BillingTone, type SubscriptionView } from "@/lib/billing/presentation";
 import { StatusPill } from "./status-pill";
 
 export type LegacyPlan = { label: string; agendas: number; free: boolean };
@@ -30,7 +30,7 @@ export function Notice({ tone, title, children, actions, className }: { tone: Bi
   </div>;
 }
 
-export function CurrentPlanCard({ subscription, legacy, occupiedAgendas, timezone, email, accessBlocked, returnedFromCheckout, refreshing, busy, preparingChangeCheckout, onRefresh, onCancelChange, onReactivate }: {
+export function CurrentPlanCard({ subscription, legacy, occupiedAgendas, timezone, email, accessBlocked, returnedFromCheckout, refreshing, busy, preparingChangeCheckout, onRefresh, onCancelChange, onReactivate, onUpdatePrice }: {
   subscription: SubscriptionView | null;
   legacy: LegacyPlan;
   occupiedAgendas: number;
@@ -45,6 +45,8 @@ export function CurrentPlanCard({ subscription, legacy, occupiedAgendas, timezon
   onCancelChange: () => void;
   /** Present only when the cancelled renewal can be reactivated. */
   onReactivate?: () => void;
+  /** Present only when an unpaid attempt can be replaced at today's price. */
+  onUpdatePrice?: () => void;
 }) {
   const date = (value: string | null) => value ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeZone: timezone }).format(new Date(value)) : "Ainda não confirmado";
   const renewal = subscription ? renewalStatusOf(subscription) : "AVAILABLE";
@@ -63,6 +65,10 @@ export function CurrentPlanCard({ subscription, legacy, occupiedAgendas, timezon
   const checkout = sub ? safeCheckout(sub.checkoutUrl) : null;
   const changeCheckout = change ? safeCheckout(change.checkoutUrl) : null;
   const periodWord = sub?.cycle === "ANNUAL" ? "ano" : "mês";
+  const outdated = Boolean(sub?.state === "UNPAID" && renewal === "AVAILABLE" && !sub.cancelRequestedAt && pendingPriceOutdated(sub));
+  const tablePrice = sub ? tablePriceCents(sub) : null;
+  const next = sub && sub.state !== "UNPAID" ? nextChargeOf(sub) : null;
+  const cycleName = (cycle: string) => cycle === "ANNUAL" ? "Anual (12 meses)" : "Mensal";
 
   return <section aria-labelledby="current-subscription" className="rounded-2xl border border-border bg-card">
     <div className="flex items-start justify-between gap-2 p-4 sm:gap-4 sm:p-6">
@@ -85,10 +91,15 @@ export function CurrentPlanCard({ subscription, legacy, occupiedAgendas, timezon
     </div>
 
     <div className="space-y-3 px-4 pb-4 empty:hidden sm:px-6 sm:pb-6">
-      {sub?.state === "UNPAID" && renewal === "AVAILABLE" && <Notice tone="warn" title={returnedFromCheckout ? "Pagamento em confirmação" : "Falta concluir o pagamento"}
+      {outdated && sub && tablePrice !== null && <Notice tone="warn" title="O preço deste plano mudou"
+        actions={onUpdatePrice ? <Button disabled={busy} onClick={onUpdatePrice}>Atualizar para o novo preço</Button> : undefined}>
+        <p>Sua contratação ainda não foi paga e foi criada pelo preço anterior, de {billingMoney(sub.amountCents)}/{periodWord}. Hoje este plano custa {billingMoney(tablePrice)}/{periodWord}.</p>
+        <p className="text-muted-foreground">Para pagar o valor atual, encerramos a tentativa anterior no Mercado Pago, sem nenhuma cobrança, e criamos uma nova.</p>
+      </Notice>}
+      {sub?.state === "UNPAID" && renewal === "AVAILABLE" && !outdated && <Notice tone="warn" title={returnedFromCheckout ? "Pagamento em confirmação" : "Falta concluir o pagamento"}
         actions={checkout && !sub.cancelRequestedAt ? <a href={checkout} className={cn(buttonVariants(), "h-auto whitespace-normal rounded-lg text-center")}>Continuar pagamento no Mercado Pago<ExternalLink aria-hidden="true" className="h-4 w-4" /></a>
           : <span className="inline-flex items-center gap-2 text-muted-foreground"><Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />Preparando o link de pagamento…</span>}>
-        <p>{returnedFromCheckout ? "Recebemos seu retorno do Mercado Pago. " : ""}Seu plano será liberado assim que o Mercado Pago confirmar o pagamento. Esta página acompanha a confirmação automaticamente.</p>
+        <p>{returnedFromCheckout ? "Recebemos seu retorno do Mercado Pago. Se o pagamento foi recusado, use o botão abaixo para tentar novamente. " : ""}Seu plano será liberado assim que o Mercado Pago confirmar o pagamento. Esta página acompanha a confirmação automaticamente.</p>
         {!legacy.free && <p className="text-muted-foreground">Até lá, você continua no plano {legacy.label}.</p>}
         <details className="group"><summary className="cursor-pointer font-medium underline-offset-4 hover:underline">Não consigo concluir o pagamento</summary><p className="mt-2 text-muted-foreground">Use uma conta compradora diferente da conta Mercado Pago que recebe os pagamentos do Everflair. A conta recebedora não pode pagar a própria assinatura. Confira também a mensagem exibida pelo Mercado Pago; trocar o plano não resolve uma recusa da conta ou do cartão.</p></details>
       </Notice>}
@@ -102,8 +113,9 @@ export function CurrentPlanCard({ subscription, legacy, occupiedAgendas, timezon
       {sub && sub.state !== "UNPAID" && renewal === "PENDING" && <Notice tone="neutral">Seu pedido foi registrado. Estamos confirmando o encerramento das cobranças recorrentes no Mercado Pago; esta página acompanha a confirmação. {sub.state === "ACTIVE" && paidAccessMessage}</Notice>}
       {sub?.state === "VERIFYING" && <Notice tone="warn">Estamos aguardando a confirmação da renovação pelo Mercado Pago. Atualize a situação em instantes.</Notice>}
       {sub && ["GRACE", "RESTRICTED"].includes(sub.state) && <Notice tone={sub.state === "GRACE" ? "warn" : "danger"} title={sub.state === "GRACE" ? "Pagamento em atraso" : "Regularização necessária"}
-        actions={<a href="https://www.mercadopago.com.br/" target="_blank" rel="noreferrer" className={cn(buttonVariants({ variant: "outline" }), "h-auto whitespace-normal rounded-lg text-center")}>Abrir Mercado Pago<ExternalLink aria-hidden="true" className="h-4 w-4" /></a>}>
-        Confira a cobrança e a forma de pagamento na sua conta Mercado Pago. Após o pagamento confirmado, o acesso é regularizado automaticamente. Seus agendamentos e histórico permanecem preservados.
+        actions={<a href="https://www.mercadopago.com.br/ajuda/18157" target="_blank" rel="noreferrer" className={cn(buttonVariants({ variant: "outline" }), "h-auto whitespace-normal rounded-lg text-center")}>Como trocar o cartão no Mercado Pago<ExternalLink aria-hidden="true" className="h-4 w-4" /></a>}>
+        <p>No Mercado Pago, abra Seu perfil › Assinaturas, escolha a assinatura Everflair e altere o meio de pagamento. Após o pagamento confirmado, o acesso é regularizado automaticamente. Seus agendamentos e histórico permanecem preservados.</p>
+        {sub.state === "RESTRICTED" && <p className="text-muted-foreground">Se preferir recomeçar, cancele a renovação abaixo e contrate um plano novamente.</p>}
       </Notice>}
       {sub?.state === "EXPIRED" && <Notice tone="neutral">Este plano terminou. Escolha um plano abaixo para voltar a usar todos os recursos. Seus agendamentos e histórico foram preservados.</Notice>}
       {sub?.reviewRequired && <Notice tone="warn">Há uma ocorrência financeira em revisão. Entre em contato com a plataforma para acompanhar.</Notice>}
@@ -144,8 +156,8 @@ export function CurrentPlanCard({ subscription, legacy, occupiedAgendas, timezon
 
     <dl className="grid grid-cols-2 gap-x-4 gap-y-4 border-t border-border px-4 py-4 text-sm sm:gap-x-6 sm:px-6 lg:grid-cols-4">
       {sub && <div><dt className="text-muted-foreground">Acesso pago até</dt><dd className="mt-1 font-medium">{accessUntil ?? "Ainda não confirmado"}</dd></div>}
-      {sub && sub.state !== "UNPAID" && <div><dt className="text-muted-foreground">Próxima cobrança</dt><dd className="mt-1 font-medium">{renewal === "CANCELLED" ? "Sem novas cobranças" : `${date(sub.nextPaymentAt ?? sub.paidThrough)} · ${billingMoney(sub.amountCents)}`}</dd></div>}
-      {sub && <div><dt className="text-muted-foreground">Periodicidade</dt><dd className="mt-1 font-medium">{sub.cycle === "ANNUAL" ? "Anual (12 meses)" : "Mensal"}</dd></div>}
+      {sub && sub.state !== "UNPAID" && <div><dt className="text-muted-foreground">Próxima cobrança</dt><dd className="mt-1 font-medium">{next ? `${date(next.at)} · ${billingMoney(next.amountCents)}${next.afterAuthorization ? ", após sua autorização" : ""}` : "Sem novas cobranças"}</dd></div>}
+      {sub && <div><dt className="text-muted-foreground">Periodicidade</dt><dd className="mt-1 font-medium">{next && next.cycle !== sub.cycle ? `${cycleName(sub.cycle)} · ${cycleName(next.cycle).toLocaleLowerCase("pt-BR")} a partir de ${date(next.at)}` : cycleName(sub.cycle)}</dd></div>}
       <div className="col-span-2 min-w-0 lg:col-span-1"><dt className="text-muted-foreground">E-mail da contratação</dt><dd className="mt-1 break-all font-medium">{email}</dd></div>
     </dl>
   </section>;

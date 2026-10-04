@@ -2,7 +2,8 @@ import "server-only";
 import { z } from "zod";
 import type { BillingPlanChange, BillingSubscription } from "@prisma/client";
 import { withSalon } from "../prisma-tenant";
-import { BillingError, BILLING_PLANS } from "./catalog";
+import { BillingError } from "./catalog";
+import { billingCapacityLabel } from "./presentation";
 import { billingConfig } from "./config";
 import { billingTermsSchema } from "./change-rules";
 import { subscriptionLock } from "./service";
@@ -34,7 +35,7 @@ export async function prepareUpgradeCheckout(sub: BillingSubscription, change: B
   if (first) {
     const to = billingTermsSchema.parse(change.toTerms);
     raw = await mp.mpRequest("/checkout/preferences", "POST", {
-      items: [{ id: change.id, title: `Everflair — upgrade para ${BILLING_PLANS[to.plan].label}`, quantity: 1, currency_id: "BRL", unit_price: change.amountDueCents / 100 }],
+      items: [{ id: change.id, title: `Everflair — upgrade para ${billingCapacityLabel(to.plan, to.agendaLimit)}`, quantity: 1, currency_id: "BRL", unit_price: change.amountDueCents / 100 }],
       payer: { email: sub.payerEmail }, external_reference: upgradeReference(change),
       binary_mode: true, payment_methods: { installments: 1, excluded_payment_types: [{ id: "ticket" }, { id: "atm" }] },
       expires: true, expiration_date_from: change.quotedAt.toISOString(), expiration_date_to: change.expiresAt.toISOString(),

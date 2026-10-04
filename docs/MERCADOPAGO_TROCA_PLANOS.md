@@ -6,6 +6,13 @@ As afirmações abaixo de não publicação são históricas. Esta auditoria nã
 migrations. A correção de seleção pendente está documentada em
 `ASSINATURAS_E_LIMPEZA_HQ_2026-09-20.md` e ainda não foi publicada.
 
+Atualização de 03/10/2026: a fatura recorrente debitada até três dias antes do
+fim de uma revisão usa os termos dessa revisão quando o valor já é o agendado;
+se o valor for o anterior, continua conferida pelos termos anteriores. Uma
+renovação recusada nessa janela conta como falha verificada (carência normal).
+A promoção da substituta na mudança de ciclo e a conciliação de redução aceitam
+a mesma janela. Nenhuma renovação real após troca havia sido observada.
+
 Implementação solicitada pelo responsável após a publicação do PR #101.
 Branch `codex/mercadopago-plan-changes`. Ainda não publicada nem habilitada.
 
