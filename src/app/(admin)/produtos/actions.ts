@@ -88,7 +88,8 @@ export async function adjustStock(id: string, delta: number, options?: {
   const data = z.object({
     id: z.string().min(1),
     delta: z.number().int().min(-100_000).max(100_000).refine((value) => value !== 0, "Informe uma quantidade"),
-    reason: z.string().trim().min(3).max(300).default("Ajuste rápido"),
+    // Motivo opcional: texto vazio vira "sem motivo" (null); só uma chamada sem o campo usa o padrão.
+    reason: z.string().trim().max(300).default("Ajuste rápido"),
     kind: z.enum(["PURCHASE", "LOSS", "INVENTORY", "ADJUSTMENT"]).default("ADJUSTMENT"),
   }).parse({ id, delta, reason: options?.reason, kind: options?.kind });
   await withTenant(ctx, async (tx) => {
@@ -100,7 +101,7 @@ export async function adjustStock(id: string, delta: number, options?: {
       delta: data.delta,
       userId: ctx.userId,
       actorName: actor?.name ?? "Usuário",
-      reason: data.reason,
+      reason: data.reason || null,
       kind: data.kind,
     });
   });
