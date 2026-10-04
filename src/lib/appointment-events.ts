@@ -130,5 +130,36 @@ export async function recordAppointmentEvent(
     });
   }
 
+  await notifyClientOfChange(tx, input, event.id, recipients);
+
   return { ...event, created: true };
+}
+
+/**
+ * Cancelamento ou remarcação feitos pelo estabelecimento: o cliente recebe uma
+ * notificação no celular na hora (som, vibração e aviso na tela, como o
+ * sistema permitir), sem depender de abrir o app. O dono não espera aceite.
+ * Ações do próprio cliente não geram aviso para ele.
+ */
+async function notifyClientOfChange(
+  tx: Tx,
+  input: AppointmentEventInput,
+  eventId: string,
+  recipients: Map<string, InternalNotificationRecipient>,
+) {
+  if (input.actor.type === "CLIENT" || input.actor.type === "GUEST") return;
+  const client = [...recipients.values()].find((recipient) => recipient.type === "CLIENT");
+  if (!client) return;
+  const [{ isClientChangeTemplate }, { queueClientChangeNotice, scheduleClientChangeDelivery }] =
+    await Promise.all([import("./client-change-notice-copy"), import("./client-change-notice")]);
+  if (!isClientChangeTemplate(input.template)) return;
+  const queued = await queueClientChangeNotice(tx, {
+    salonId: input.salonId,
+    clientId: client.id,
+    appointmentId: input.appointmentId,
+    eventId,
+    template: input.template,
+    payload: input.payload,
+  });
+  if (queued > 0) scheduleClientChangeDelivery(input.salonId);
 }

@@ -12,6 +12,7 @@ import {
 import { queueClientReminderChannels, reminderIdempotencyKey, reminderTemplate, type ReminderPhase } from "@/lib/client-reminders";
 import { clientPushEnabled, reminderEmailEnabled } from "@/lib/client-push";
 import { deliverPendingClientReminders } from "@/lib/client-reminder-delivery";
+import { deliverPendingClientChangeNotices } from "@/lib/client-change-notice";
 
 /**
  * Cria lembretes de véspera ou do dia em cada fuso IANA. O evento e cada
@@ -118,6 +119,8 @@ export async function runReminders(req: NextRequest, phase: ReminderPhase) {
   // Delivery happens after all booking transactions close. Provider failures
   // never roll back an appointment or its internal reminder.
   await deliverPendingClientReminders(salons.map(salon => salon.id), now);
+  // Reentrega avisos de cancelamento/remarcação que não saíram na hora.
+  await deliverPendingClientChangeNotices(salons.map(salon => salon.id), now);
 
   return NextResponse.json({ generated, count });
 }
