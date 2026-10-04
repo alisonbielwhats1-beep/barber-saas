@@ -12,7 +12,7 @@ describe("manifesto instalavel", () => {
     expect(data.short_name).toBe("Everflair");
     expect(data.theme_color).toBe("#131315");
     expect(data.background_color).toBe("#131315");
-    expect(data.start_url).toBe("/");
+    expect(data.start_url).toBe("/pos-login");
     expect(data.display).toBe("standalone");
     expect(data.lang).toBe("pt-BR");
     expect(data.icons).toEqual(expect.arrayContaining([

@@ -36,7 +36,7 @@ export function AgentLab() {
   }
 
   return <>
-    <header className="hq-heading"><div><span className="hq-agent-eyebrow">EVERFLARE HQ · LABORATÓRIO</span><h1>Agentes</h1><p>Use os pilotos acima para operar. Os cenários abaixo são demonstrações com dados fictícios.</p></div><span className="hq-agent-pill">Laboratório disponível</span></header>
+    <header className="hq-heading"><div><span className="hq-agent-eyebrow">EVERFLAIR HQ · LABORATÓRIO</span><h1>Agentes</h1><p>Use os pilotos acima para operar. Os cenários abaixo são demonstrações com dados fictícios.</p></div><span className="hq-agent-pill">Laboratório disponível</span></header>
     <section className="hq-panel hq-agent-notice" aria-label="Modo de operação">
       <strong>Simulação local · sem consumo de IA</strong>
       <p>Os cenários usam respostas programadas e contas fictícias. Validam o SDK e suas permissões; não medem a qualidade do Luna. Nenhum dado de cliente é consultado ou alterado e nenhuma mensagem é enviada.</p>

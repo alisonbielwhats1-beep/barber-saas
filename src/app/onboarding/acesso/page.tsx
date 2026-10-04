@@ -13,7 +13,7 @@ const STATUS_CONTENT = {
     icon: Clock3,
     title: "Solicitação recebida",
     description:
-      "Seu estabelecimento está aguardando análise. Assim que o acesso for liberado como Grátis ou Essencial, você poderá entrar no painel.",
+      "Seu estabelecimento está aguardando análise. Cadastros novos já entram direto no plano Grátis; a análise manual vale só para cadastros antigos. Assim que o acesso for liberado, você poderá entrar no painel.",
     badge: "Em análise",
   },
   REJECTED: {

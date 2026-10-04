@@ -10,6 +10,32 @@ reduções (PUT confirmado por GET, fatura do vencimento reconhecida pelo valor
 novo, inclusive até três dias antes). Mensais logo; anuais no último mês. O
 painel mostra "Seu plano ficou mais barato" e permite desfazer para trocar de
 plano; o atalho do topo continua "Ativo". Sem migration nem mudança de catálogo.
+## 2026-10-04 — calendário da visita com vários serviços
+
+Branch `codex/calendario-visita-varios-servicos`, etapa B do calendário do
+cliente (a etapa A, um serviço, foi publicada no PR #138).
+
+- **Calendário no lugar do campo de data.** A tela de vários serviços na mesma
+  reserva (`agendar/visit-booking.tsx`) usa o mesmo calendário da tela de um
+  serviço, agora no componente `agendar/booking-calendar.tsx`.
+- **Abre no primeiro dia em que a visita inteira cabe.** A busca para no
+  primeiro dia encontrado (até 21 dias com atendimento, orçamento limitado).
+  Uma data escolhida pelo cliente ou restaurada é mantida se tiver atendimento.
+- **Dias sem atendimento desativados.** Um dia fica aberto se cada serviço tem
+  ao menos um profissional elegível com expediente ainda por vir, fora de
+  fechamento e folga. Dias com expediente mas lotados continuam clicáveis e
+  mostram a mensagem de antes. Sem fila de espera nessa tela, como antes.
+- **"Consultar o próximo dia com atendimento"** pula direto para o próximo dia
+  aberto.
+- **Nova rota `POST /api/visits/availability/days`** (`{ salonId, choices }` →
+  `openDays`, `firstFreeDay`). `loadVisitCalendar` em
+  `src/lib/visit-scheduling.ts` carrega o período com uma consulta por tabela;
+  `loadVisitDay` passou a usar o mesmo carregador, com o mesmo resultado.
+  Salão aprovado, limite por IP (15/min, falha fechada), sem cache, não expõe
+  reservas.
+- Falha na consulta dos dias mantém o calendário todo clicável.
+
+Sem migration, schema, RLS ou mudança na validação da reserva.
 
 ## 2026-10-03 — novo preço em produção e coerência da cobrança em validação
 
@@ -26,6 +52,7 @@ com confirmação de e-mail; links `?plan=` antigos; descrição com a capacidad
 total no Mercado Pago; ajuda para trocar o cartão em atraso; checkout pausado na
 landing; Termos de Uso (seção 7, pendente de aprovação do responsável); margem
 de três dias para renovação debitada antes do vencimento. Sem migration.
+
 ## 2026-10-03 — calendário do cliente: primeiro dia com vaga
 
 Branch `codex/calendario-primeiro-dia-livre`. Ao escolher serviço e

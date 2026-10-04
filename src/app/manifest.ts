@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "Everflair",
     short_name: "Everflair",
     description: "Agenda e gestão para salões, barbearias e profissionais de beleza.",
-    start_url: "/",
+    start_url: "/pos-login",
     display: "standalone",
     background_color: PWA_BACKGROUND,
     theme_color: PWA_BACKGROUND,

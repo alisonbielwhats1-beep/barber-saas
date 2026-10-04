@@ -14,7 +14,7 @@ export function PricingComparison({ segmentId, billingAvailable = false }: { seg
     <MarketingPlans segment={segmentId} billingAvailable={billingAvailable} />
     <div className="pc-included"><h3>Já faz parte de todos os planos</h3><ul>{included.map(item => <li key={item}><Check size={17} aria-hidden="true" />{item}</li>)}</ul></div>
     <p className="pc-next">{billingAvailable
-      ? "Escolha seu plano e crie seu espaço ou entre na sua conta. Após a aprovação do estabelecimento, revise a contratação e pague no Mercado Pago. Seu plano é liberado após a confirmação do pagamento."
+      ? "Escolha seu plano e crie seu espaço ou entre na sua conta. Em seguida, revise a contratação e pague no Mercado Pago. Seu plano é liberado após a confirmação do pagamento."
       : "Você já pode escolher seu plano e criar seu espaço, sem cobrança no cadastro. A contratação online está em preparação; a escolha não ativa uma assinatura."}</p>
   </section>;
 }

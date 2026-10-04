@@ -1,5 +1,5 @@
 import { WifiOff } from "lucide-react";
-import Link from "next/link";
+import { RetryLink } from "./retry-link";
 
 export default function OfflinePage() {
   return (
@@ -12,9 +12,7 @@ export default function OfflinePage() {
         <p className="mt-2 text-sm text-muted-foreground">
           Reconecte-se para consultar ou alterar agenda, clientes e pagamentos. Seus dados não são armazenados offline neste dispositivo.
         </p>
-        <Link href="/" className="mt-5 inline-flex rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground">
-          Tentar novamente
-        </Link>
+        <RetryLink className="mt-5 inline-flex rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground" />
       </div>
     </main>
   );

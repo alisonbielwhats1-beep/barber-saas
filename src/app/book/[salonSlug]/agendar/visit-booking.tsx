@@ -7,7 +7,9 @@ import { VisitSummary } from "@/components/visit-summary";
 import { useCart } from "@/lib/cart";
 import { formatMoney } from "@/lib/utils";
 import { addCalendarDays } from "@/lib/time";
+import { format, startOfMonth } from "date-fns";
 import { DependentPicker } from "./dependent-picker";
+import { BookingCalendar } from "./booking-calendar";
 
 type Quote = VisitPlan & { quote: string };
 const field =
@@ -53,6 +55,9 @@ export function VisitBooking({
     }),
   );
   const [date, setDate] = useState(today),
+    [viewMonth, setViewMonth] = useState(() => startOfMonth(new Date(`${today}T12:00:00`))),
+    // `open: null` = consulta dos dias falhou; o calendário fica todo clicável.
+    [calendar, setCalendar] = useState<{ key: string; open: Set<string> | null } | null>(null),
     [plans, setPlans] = useState<Quote[]>([]),
     [selected, setSelected] = useState<Quote | null>(null),
     [review, setReview] = useState(false),
@@ -67,7 +72,10 @@ export function VisitBooking({
     key = useRef<string | null>(null),
     sending = useRef(false),
     restore = useRef<string | null>(null),
-    cooldown = useRef(0);
+    cooldown = useRef(0),
+    // Dia escolhido pelo cliente (clique ou seleção restaurada), não o "hoje" padrão.
+    dateChosen = useRef(false),
+    dateRef = useRef(today);
   const storageKey = `visit-selection:${salonSlug}`;
   useEffect(() => {
     try {
@@ -81,7 +89,9 @@ export function VisitBooking({
         raw.date <= maxDate
       ) {
         setChoices(raw.choices);
+        dateChosen.current = true;
         setDate(raw.date);
+        setViewMonth(startOfMonth(new Date(`${raw.date}T12:00:00`)));
         restore.current = raw.startLocal ?? null;
       }
     } catch {
@@ -105,6 +115,54 @@ export function VisitBooking({
       /* No identity is persisted. */
     }
   }, [choices, date, selected, ready, storageKey]);
+  useEffect(() => {
+    dateRef.current = date;
+  }, [date]);
+  function showDate(next: string) {
+    setDate(next);
+    setViewMonth(startOfMonth(new Date(`${next}T12:00:00`)));
+  }
+  // Dias com expediente para os profissionais escolhidos e o primeiro dia em
+  // que a visita inteira cabe. O calendário abre nele, salvo se o cliente já
+  // escolheu um dia com expediente.
+  const calendarKey = JSON.stringify({ salonId, choices });
+  useEffect(() => {
+    if (!ready || done) return;
+    const abort = new AbortController();
+    fetch("/api/visits/availability/days", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: calendarKey,
+      signal: abort.signal,
+    })
+      .then(async (res) => {
+        const body = await res.json();
+        const isDate = (value: unknown) => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
+        if (!res.ok || !Array.isArray(body.openDays) || !body.openDays.every(isDate) ||
+          !(body.firstFreeDay === null || isDate(body.firstFreeDay)))
+          throw new Error("INVALID_DAYS");
+        const openDays = (body.openDays as string[]).filter((day) => day >= today && day <= maxDate);
+        const firstFreeDay = (body.firstFreeDay as string | null) ?? null;
+        const open = new Set(openDays);
+        setCalendar({ key: calendarKey, open });
+        const current = dateRef.current;
+        if (dateChosen.current && open.has(current)) return;
+        const target = firstFreeDay && open.has(firstFreeDay)
+          ? firstFreeDay
+          : open.has(current) ? null : openDays[0] ?? null;
+        if (target && target !== current) showDate(target);
+      })
+      .catch(() => {
+        if (!abort.signal.aborted) setCalendar({ key: calendarKey, open: null });
+      });
+    return () => abort.abort();
+  }, [calendarKey, ready, done, today, maxDate]);
+  const openDays = calendar?.key === calendarKey ? calendar.open : null;
+  const daysLoading = ready && calendar?.key !== calendarKey;
+  const nextDay = openDays
+    ? [...openDays].sort().find((day) => day > date) ?? null
+    : date < maxDate ? addCalendarDays(date, 1) : null;
+
   const queryKey = JSON.stringify({ salonId, date, choices });
   useEffect(() => {
     if (done) return;
@@ -360,22 +418,29 @@ export function VisitBooking({
                 );
               })}
             </div>
-            <label className="grid gap-2 text-sm font-medium">
-              Dia da visita
-              <input
-                className={field}
-                type="date"
-                min={today}
-                max={maxDate}
-                value={date}
-                onChange={(e) => {
-                  if (e.target.value >= today && e.target.value <= maxDate)
-                    setDate(e.target.value);
+            <div>
+              <h2 className="mb-3 text-sm font-semibold">Dia da visita</h2>
+              <BookingCalendar
+                todayDate={today}
+                maxDateKey={maxDate}
+                selected={new Date(`${date}T12:00:00`)}
+                viewMonth={viewMonth}
+                onViewMonthChange={setViewMonth}
+                dayState={(day) => (!openDays || openDays.has(day) ? "available" : "closed")}
+                onSelect={(day) => {
+                  dateChosen.current = true;
+                  setDate(format(day, "yyyy-MM-dd"));
                 }}
-              />
-            </label>
+              >
+                <p className="mt-3 text-center text-[11px] text-muted-foreground">
+                  {openDays && openDays.size === 0
+                    ? `Nenhum dia com atendimento para esta combinação até ${maxDate.split("-").reverse().join("/")}. Tente outro profissional.`
+                    : `Agendamento online disponível até ${maxDate.split("-").reverse().join("/")}.`}
+                </p>
+              </BookingCalendar>
+            </div>
             <div aria-live="polite">
-              {loading ? (
+              {loading || (daysLoading && !plans.length && !error) ? (
                 <p className="text-sm">
                   Procurando horários para todos os serviços…
                 </p>
@@ -412,13 +477,16 @@ export function VisitBooking({
                       Tente outra data, outro profissional ou faça os serviços
                       em sequência.
                     </p>
-                    {date < maxDate && (
+                    {nextDay && (
                       <button
                         type="button"
                         className={field}
-                        onClick={() => setDate(addCalendarDays(date, 1))}
+                        onClick={() => {
+                          dateChosen.current = true;
+                          showDate(nextDay);
+                        }}
                       >
-                        Consultar o dia seguinte
+                        Consultar o próximo dia com atendimento
                       </button>
                     )}
                   </div>

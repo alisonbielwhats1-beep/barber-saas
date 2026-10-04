@@ -56,7 +56,8 @@ export async function adjustProductStockReliably(
     delta: number;
     userId: string;
     actorName: string;
-    reason: string;
+    /** Opcional: sem motivo, a auditoria registra o ator e a movimentação com motivo nulo. */
+    reason?: string | null;
     kind: "PURCHASE" | "LOSS" | "INVENTORY" | "ADJUSTMENT";
   },
 ): Promise<{ previousStock: number; newStock: number }> {
