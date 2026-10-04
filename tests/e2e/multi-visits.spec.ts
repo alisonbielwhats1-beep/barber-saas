@@ -1,4 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { SignJWT } from "jose";
@@ -9,6 +11,27 @@ import {
   dateKeyInTimeZone,
   localDateTimeToUtc,
 } from "../../src/lib/time";
+
+/** Abre a visita e escolhe o dia no calendário, navegando de mês se preciso. */
+async function openVisitOnDay(page: Page, path: string, date: string) {
+  const daysLoaded = page.waitForResponse((r) =>
+    r.url().endsWith("/api/visits/availability/days"),
+  );
+  await page.goto(path);
+  await daysLoaded;
+  const label = format(
+    new Date(`${date}T12:00:00`),
+    "EEEE, d 'de' MMMM 'de' yyyy",
+    { locale: ptBR },
+  );
+  const day = page.locator(`button:not([disabled])[aria-label^="${label}"]`);
+  for (const step of [null, "Próximo mês", "Mês anterior", "Mês anterior"]) {
+    if (step) await page.getByRole("button", { name: step }).click();
+    if (await day.count()) break;
+  }
+  await day.click();
+  await expect(day).toHaveAttribute("aria-pressed", "true");
+}
 
 test("@database visita conjunta no cliente e no painel, folga e bloqueio após expediente", async ({
   page,
@@ -122,10 +145,11 @@ test("@database visita conjunta no cliente e no painel, folga e bloqueio após e
       },
     ]);
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto(
+    await openVisitOnDay(
+      page,
       `/book/${salon.slug}/agendar?services=${services.map((s) => s.id).join(",")}`,
+      date,
     );
-    await page.getByLabel("Dia da visita").fill(date);
     await page
       .getByRole("button", { name: "15:00 até 16:30", exact: true })
       .click();
@@ -166,10 +190,11 @@ test("@database visita conjunta no cliente e no painel, folga e bloqueio após e
         where: { salonId: salon.id, clientId: client.id },
       }),
     ).toBe(2);
-    await page.goto(
+    await openVisitOnDay(
+      page,
       `/book/${salon.slug}/agendar?services=${services.map((s) => s.id).join(",")}`,
+      date,
     );
-    await page.getByLabel("Dia da visita").fill(date);
     await page
       .getByLabel("Quando fazer este serviço?")
       .selectOption("together");
