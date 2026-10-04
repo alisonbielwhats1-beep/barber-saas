@@ -180,6 +180,17 @@ export function CadastroForm({
         {pending && <Loader2 className="h-4 w-4 animate-spin" />}
         {pending ? "Criando conta…" : "Criar conta"}
       </button>
+      <p className="text-center text-xs leading-relaxed text-muted-foreground">
+        Ao criar a conta você concorda com os{" "}
+        <Link href="/termos" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
+          Termos<span className="sr-only"> (abre em nova aba)</span>
+        </Link>{" "}
+        e a{" "}
+        <Link href="/privacidade" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
+          Política de Privacidade<span className="sr-only"> (abre em nova aba)</span>
+        </Link>
+        .
+      </p>
       </fieldset>
     </form>
   );
