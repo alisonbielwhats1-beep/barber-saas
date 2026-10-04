@@ -6,6 +6,7 @@ import { resolveClientSessionInTenant } from "@/lib/public-appointment";
 import { checkRateLimit, clientIp, rateLimitHeaders } from "@/lib/rate-limit";
 import { createVisit, visitBookingSchema } from "@/lib/visit-scheduling";
 import { isAppointmentError } from "@/lib/appointment-domain";
+import { PlanLimitError } from "@/lib/plan-entitlements";
 
 export async function POST(req: NextRequest) {
   const limit = await checkRateLimit({
@@ -61,15 +62,36 @@ export async function POST(req: NextRequest) {
     revalidatePath("/book", "layout");
     return NextResponse.json(result, { status: result.duplicate ? 200 : 201 });
   } catch (error) {
+    // Só erro de domínio é conflito de horário. Falha de banco ou bug não pode
+    // se passar por conflito para o cliente nem sumir dos logs.
+    if (isAppointmentError(error) || error instanceof PlanLimitError)
+      return NextResponse.json(
+        {
+          error:
+            isAppointmentError(error) && error.code === "PRICE_CHANGED"
+              ? "O valor ou a duração mudou. Consulte os horários e revise a visita novamente."
+              : "Não foi possível confirmar todos os serviços. Nenhum atendimento desta tentativa foi reservado. Consulte os horários novamente.",
+          code: isAppointmentError(error) ? error.code : "VISIT_UNAVAILABLE",
+        },
+        { status: 409 },
+      );
+    // Mensagens do Prisma podem carregar valores da consulta (dados de cliente);
+    // por isso só nome e código são registrados para esses erros.
+    const name = error instanceof Error ? error.name : typeof error;
+    console.error("[visits] unexpected failure", {
+      name,
+      code: (error as { code?: unknown } | null)?.code,
+      message:
+        error instanceof Error && !name.startsWith("PrismaClient")
+          ? error.message
+          : undefined,
+    });
     return NextResponse.json(
       {
-        error:
-          isAppointmentError(error) && error.code === "PRICE_CHANGED"
-            ? "O valor ou a duração mudou. Consulte os horários e revise a visita novamente."
-            : "Não foi possível confirmar todos os serviços. Nenhum atendimento desta tentativa foi reservado. Consulte os horários novamente.",
-        code: isAppointmentError(error) ? error.code : "VISIT_UNAVAILABLE",
+        error: "Não foi possível confirmar sua visita agora. Tente novamente em instantes.",
+        code: "VISIT_FAILED",
       },
-      { status: 409 },
+      { status: 500 },
     );
   }
 }
