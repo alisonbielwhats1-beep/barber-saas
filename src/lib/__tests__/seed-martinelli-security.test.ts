@@ -44,6 +44,12 @@ describe("seed Martinelli — alterações da Fase 1", () => {
     expect(professionalActivation).toBeGreaterThan(missingUserError);
   });
 
+  it("não guarda e-mail real de cliente no código", () => {
+    expect(seed).not.toMatch(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[a-z]{2,}/);
+    expect(seed).toContain("process.env.MARTINELLI_OWNER_EMAIL");
+    expect(seed).toContain("process.env.MARTINELLI_STAFF_EMAIL");
+  });
+
   it("rejeita Professional existente antes de persistir e nunca o move", () => {
     const crossSalonGuard = seed.indexOf(
       "if (ownerUser.professional || tatianaUser.professional)",
