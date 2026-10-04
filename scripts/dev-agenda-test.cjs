@@ -35,11 +35,14 @@ async function newestTestSalon() {
   try { return (await admin.salon.findFirst({ where: { slug: { startsWith: 'agenda-teste-' } }, orderBy: { createdAt: 'desc' }, select: { id: true } }))?.id ?? ''; }
   catch { return ''; } finally { await admin.$disconnect(); }
 }
+// Plan B (owner decision 04/10/2026): GPT-6 Luna covers when OpenRouter fails (SECRETARY_DEMO_FALLBACK=off disables it).
+const demoModel = process.env.SECRETARY_DEMO_MODEL || 'deepseek/deepseek-v4.1-flash';
+const demoFallback = process.env.SECRETARY_DEMO_FALLBACK === 'off' ? '' : (process.env.SECRETARY_DEMO_FALLBACK || 'gpt-6-luna');
 (async () => {
   const env = { ...process.env, DATABASE_URL: appUrl.toString(), APP_ENV: 'test', VERCEL_ENV: 'development', NEXT_TELEMETRY_DISABLED: '1',
     NEXTAUTH_URL: `http://localhost:${port}`, NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET || localSessionSecret(),
     SALON_SECRETARY_ENABLED: 'true', SALON_SECRETARY_FRONT_ENABLED: 'true', SALON_SECRETARY_ALLOW_PAID_CALLS: 'true',
-    SALON_SECRETARY_MODEL: process.env.SECRETARY_DEMO_MODEL || 'deepseek/deepseek-v4.1-flash', SALON_SECRETARY_MULTI_ACTION_V2_ENABLED: 'true', SALON_SECRETARY_SCHEDULING_OVERLAP_ENABLED: 'true',
+    SALON_SECRETARY_MODEL: demoModel, SALON_SECRETARY_FALLBACK_MODEL: demoFallback === demoModel ? '' : demoFallback, SALON_SECRETARY_MULTI_ACTION_V2_ENABLED: 'true', SALON_SECRETARY_SCHEDULING_OVERLAP_ENABLED: 'true',
     SALON_SECRETARY_VOICE_ENABLED: on('SALON_SECRETARY_VOICE_ENABLED'), SALON_SECRETARY_VOICE_CORRECTION: on('SALON_SECRETARY_VOICE_CORRECTION'),
     SALON_SECRETARY_TRANSCRIBE_ENABLED: on('SALON_SECRETARY_TRANSCRIBE_ENABLED'), SALON_SECRETARY_TRANSCRIBE_BUDGET_USD: process.env.SALON_SECRETARY_TRANSCRIBE_BUDGET_USD || '2',
     SALON_SECRETARY_TRANSCRIBE_SALONS: await newestTestSalon(), SALON_SECRETARY_CANCEL_REASON_OPTIONAL: on('SALON_SECRETARY_CANCEL_REASON_OPTIONAL'),

@@ -13,6 +13,10 @@ Ver `SECRETARY_MODEL_ARCHITECTURE.md`.
 - **Gastos por carteira:** OpenAI e OpenRouter. A carteira do OpenRouter cobra o custo real informado, com teto de US$ 1,40
   (US$ 2,00 aprovados menos o já gasto).
 - **Lançador genérico da Golden:** `scripts/run-secretary-golden-model.cjs`.
+- **Plano B automático** (`model-fallback.ts`): se o provedor do principal falha, um modelo reserva (`SALON_SECRETARY_FALLBACK_MODEL`,
+  Luna na demo) responde o mesmo turno, com disjuntor de 60 s depois de 2 falhas. Recusas nossas (trava de custo, tetos) nunca
+  acionam o plano B. Provado com chamadas reais. Em staging e produção, o reserva só entra com certificado: o Luna ainda não tem
+  certificado para o prompt atual.
 
 ## 2026-10-04 — Secretária: DeepSeek V4.1 Flash no lugar do Luna (local)
 

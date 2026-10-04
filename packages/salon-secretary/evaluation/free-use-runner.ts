@@ -53,7 +53,7 @@ function assertMissionModel(missionId: string) {
 }
 export function assertFreeUseEnvironment() {
   if (process.env.APP_ENV !== 'test' || process.env.VERCEL_ENV === 'production' || process.env.SALON_SECRETARY_ALLOW_PAID_CALLS !== 'false' ||
-    process.env.SALON_SECRETARY_JEV_ROUTER_ENABLED !== 'false' || !freeUseModelAdmitted(freeUseModel())) throw Error('FREE_USE_ENVIRONMENT');
+    process.env.SALON_SECRETARY_JEV_ROUTER_ENABLED !== 'false' || !freeUseModelAdmitted(freeUseModel()) || process.env.SALON_SECRETARY_FALLBACK_MODEL) throw Error('FREE_USE_ENVIRONMENT');
   for (const [name,role] of [['DATABASE_URL','mvp_service_runtime'],['DIRECT_URL','mvp_test_admin']] as const) {
     const url = new URL(process.env[name] ?? 'invalid:');
     if (!['postgres:','postgresql:'].includes(url.protocol) || url.hostname !== '127.0.0.1' || url.port !== '55441' ||

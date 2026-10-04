@@ -38,7 +38,7 @@ import { customerState, sendCustomerTurn, applyCustomerInterpretation, selectCus
 import { confirmCustomerChange } from "./customer-actions";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { runServicesTurn, instrumentServicesModel, loadSkills, operationSkill, withRequestBudgetObserver, withServiceListObserver, requestTooLargeMessage, REQUEST_TOO_LARGE, type ServicePatch, type CustomerInterpretation, type Model } from "@everflair/salon-secretary";
+import { registeredModelOfReturnedId, runServicesTurn, instrumentServicesModel, loadSkills, operationSkill, withRequestBudgetObserver, withServiceListObserver, requestTooLargeMessage, REQUEST_TOO_LARGE, type ServicePatch, type CustomerInterpretation, type Model } from "@everflair/salon-secretary";
 import { assertServiceWriter, findCatalogServices, type ServiceActor } from "./service-catalog";
 import { getOperationRequirements } from "./service-contract";
 import { upsertActionDraft, proposeServiceCreate, proposeServiceChange, confirmServiceCreate, confirmServiceInput } from "./service-create-mvp";
@@ -879,7 +879,9 @@ export class SalonSecretary {
       // C6 (rec 19): the model contract this message ran under (a hash; absent only if it cannot be computed). A request the
       // budget rewrote (or refused) to fit the cap names its steps, so batteries and replays tell it from the configured one.
       let contract: string | undefined;
-      try { contract = secretaryContractVersion({ modelId: this.modelId(), presentation: backendPresentationDigest(), requestBudget: outcome.request_budget?.steps }); } catch { contract = undefined; }
+      // Plan B: a message the reserve model answered ran under the reserve's contract (the model that answered its last call).
+      const answered = registeredModelOfReturnedId([...trace.lunaUsage].reverse().find(call => call.status === "SUCCEEDED")?.model_id_returned)?.id;
+      try { contract = secretaryContractVersion({ modelId: answered ?? this.modelId(), presentation: backendPresentationDigest(), requestBudget: outcome.request_budget?.steps }); } catch { contract = undefined; }
       // C5 agent (flag): the message's agent block (§6.4), codes and numbers only; absent on the C4 path.
       const measured = trace.agent ? { ...outcome, agent: trace.agent } : outcome;
       trace.outcome = contract ? { ...measured, contract_version: contract } : measured;

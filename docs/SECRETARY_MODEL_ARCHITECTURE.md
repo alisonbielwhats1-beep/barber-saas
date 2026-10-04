@@ -20,10 +20,34 @@ virou risco de segurança: mesmo quando o DeepSeek acertava só 3 de 30, nenhuma
 | Fábrica | `createPaidModel` em `packages/salon-secretary/src/index.ts` | Lê a ficha e cria o cliente certo; recusa o agente e o piloto em modelo sem esse suporte. |
 | Contrato | `secretaryContractVersion` (`index.ts`) | Hash de tudo o que chega ao modelo: prompt, formulário, opções, limite de saída, modelo e, nos modelos de chat, o perfil de pedido. |
 | Portão de qualidade | `packages/salon-secretary/src/model-certification.ts`, `packages/salon-secretary/model-certificates.json`, `scripts/secretary-certify-model.ts` | Fora do desenvolvimento local e dos testes (staging, produção), o modelo só responde se tiver certificado da Golden para o contrato atual. O teste `secretary-model-certification.test.ts` falha quando o modelo da Secretária fica sem certificado válido. |
+| Plano B | `packages/salon-secretary/src/model-fallback.ts` | Com `SALON_SECRETARY_FALLBACK_MODEL`, um modelo reserva de outro provedor responde o mesmo pedido quando o provedor do principal falha. Ver a seção "Plano B". |
 | Gastos por carteira | `packages/salon-secretary/evaluation/program-spend.ts` | Um registro por pagador (OpenAI e OpenRouter), cada um com teto, âncora e estimadores próprios. As chamadas do OpenRouter são cobradas pelo custo real informado. Relatório: `node packages/salon-secretary/evaluation/program-spend-report.cjs`. |
 
 O preço de telemetria (`secretary-router.ts`), o limite de tamanho do pedido (`request-budget.ts`) e a bateria Golden
 (`free-use-runner.ts`) também leem o cadastro.
+
+## Plano B (04/10/2026)
+
+- **Quando aciona:** só por falha do provedor ou da conexão: erro HTTP do provedor (sem rota, sem crédito, limite de uso,
+  queda), falha de conexão ou tempo esgotado. O mesmo pedido vai ao reserva, pelo formulário e pela trava do reserva.
+- **Quando não aciona:**
+  - recusa nossa: trava de custo e tetos de gasto, mesmo quando chegam embrulhadas como "erro de conexão";
+  - chamada cancelada por quem pediu;
+  - resposta que o conferente recusou. Isso é falha de qualidade, e o reserva a esconderia.
+- **Tempo:** com reserva configurado, o principal tem 15 s de limite. O pior turno medido do DeepSeek foi 8,8 s em 270 turnos
+  da Golden.
+- **Disjuntor:** depois de 2 falhas seguidas, as chamadas vão direto ao reserva por 60 s. A primeira chamada depois disso tenta
+  o principal de novo e, se ele responder, o disjuntor fecha.
+- **Configuração:** `SALON_SECRETARY_FALLBACK_MODEL` com um modelo do cadastro, usando as credenciais da ficha dele. A fábrica
+  recusa um reserva igual ao principal, sem credenciais, ou sem suporte ao agente e ao piloto quando eles estão ligados.
+  A demo usa o `gpt-6-luna` como reserva (`SECRETARY_DEMO_FALLBACK=off` desliga).
+- **Portão:** fora do desenvolvimento local e dos testes, o reserva só entra se também tiver certificado para o contrato dele;
+  sem certificado, fica de fora com o aviso `SECRETARY_MODEL_FALLBACK_DISABLED`, e o principal segue sem plano B.
+- **Telemetria:** o aviso `SECRETARY_MODEL_FALLBACK` traz só códigos (de, para, motivo, disjuntor). No uso, o turno mostra o
+  modelo que respondeu (`model_id_returned`), registra o contrato desse modelo e fica sem estimativa de custo.
+- **Avaliação:** a Golden mede um modelo de cada vez e recusa rodar com reserva configurado.
+- **Prova real (04/10):** o OpenRouter foi forçado a falhar (servidor inexistente, recusa sem cobrança), e o Luna respondeu os
+  dois turnos certos (3,3 s com a tentativa que falhou; 1,6 s com o disjuntor aberto), por US$ 0,0003.
 
 ## Certificado (política)
 
@@ -72,7 +96,6 @@ Lições que valem para qualquer modelo fora da OpenAI:
 
 ## Próximos passos (fase 2)
 
-- **Plano B automático:** se o provedor principal falhar ou demorar, cair para um modelo reserva também certificado.
 - **Agente C5 e piloto fora da OpenAI:** só se forem adotados. Hoje dependem do raciocínio criptografado e dos marcadores de
   cache da OpenAI.
 - **Nomes neutros na telemetria** (`luna_*` → modelo), mantendo a leitura dos registros antigos.

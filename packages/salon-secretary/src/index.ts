@@ -19,7 +19,8 @@ import { Agent, Runner, tool, OpenAIProvider, type Model, type JsonSchemaDefinit
 import OpenAI from "openai";
 import { z } from "zod";
 import { assertSecretaryModelRequest, secretaryGuardedFetch } from "./openai-cost-guard";
-import { secretaryChatOptions, secretaryModelContractPart, secretaryModelProfile } from "./model-registry";
+import { secretaryChatOptions, secretaryModelContractPart, secretaryModelProfile, type SecretaryModelProfile } from "./model-registry";
+import { PRIMARY_TIMEOUT_WITH_FALLBACK_MS, withModelFallback, type ModelFallbackEvent } from "./model-fallback";
 import { isRecordedServicesModel } from './recorded-services-model';
 import { uninstrumentedServicesModel } from './usage';
 import { invalidSourceLiterals, assertSourceLiteralRepair, sourceLiteralRepairRequest } from './source-literal-repair';
@@ -68,6 +69,7 @@ export { assertSecretaryModelId, assertSecretaryModelRequest, assertSecretaryRes
 export { assertSecretaryChatPayload, assertChatOutboundBody, assertOpenRouterOutboundBody, chatOutboundBody, completeOmittedNulls, secretaryModelProvider, OPENROUTER_CHAT_URL } from "./openai-cost-guard";
 export * from "./model-registry";
 export * from "./model-certification";
+export * from "./model-fallback";
 export { customersSkill } from "./customers-skill";
 export { servicesSkill } from "./services-skill";
 export { Usage, type Model, type ModelRequest, type ModelResponse } from "@openai/agents";
@@ -503,14 +505,28 @@ export async function createPaidModel(env: Record<string, string | undefined>): 
   const agent = env.SALON_SECRETARY_AGENT === "true", pilot = env.SALON_SECRETARY_PILOT_RESCHEDULE === "true";
   // The agent and the pilot depend on OpenAI-only Responses features; a model without them serves the C4 path only.
   if ((agent || pilot) && !profile.agentCapable) throw new Error("SECRETARY_OPENROUTER_C4_ONLY");
+  const reserveId = env.SALON_SECRETARY_FALLBACK_MODEL || undefined;
+  if (!reserveId) return profileModel(profile, config, env, { agent, pilot, timeout: 30_000 });
+  // Plan B (model-fallback.ts): a reserve model of the registry with its own credentials; the agent and the pilot need it agent-capable.
+  const reserve = secretaryModelProfile(reserveId), reserveConfig = paidModelConfig({ ...env, SALON_SECRETARY_MODEL: reserve.id });
+  if (reserve.id === profile.id || ((agent || pilot) && !reserve.agentCapable)) throw new Error("SECRETARY_FALLBACK_INCOMPATIBLE");
+  const main = await profileModel(profile, config, env, { agent, pilot, timeout: PRIMARY_TIMEOUT_WITH_FALLBACK_MS });
+  const backup = await profileModel(reserve, reserveConfig, env, { agent, pilot, timeout: 30_000 });
+  return rememberRequestModelId(withModelFallback({ id: profile.id, model: main }, { id: reserve.id, model: backup }, { onFallback: logModelFallback }), profile.id);
+}
+/** Codes only (no message, no salon data): which model covered for which, and why. */
+const logModelFallback = (event: ModelFallbackEvent) => console.warn(JSON.stringify({ event: "SECRETARY_MODEL_FALLBACK", ...event }));
+async function profileModel(profile: SecretaryModelProfile, config: ReturnType<typeof paidModelConfig>, env: Record<string, string | undefined>,
+  options: { agent: boolean; pilot: boolean; timeout: number }): Promise<Model> {
   if (profile.wire === "chat-completions") {
     // Chat Completions (OpenRouter): the profile's request options, unless a measurement knob says otherwise (read once, here).
     const client = new OpenAI({ apiKey: config.apiKey, organization: null, project: null, baseURL: profile.baseURL,
-      maxRetries: 0, timeout: 30_000, fetch: secretaryGuardedFetch(profile.id, { openRouter: secretaryChatOptions(profile, env)! }) });
+      maxRetries: 0, timeout: options.timeout, fetch: secretaryGuardedFetch(profile.id, { openRouter: secretaryChatOptions(profile, env)! }) });
     return rememberRequestModelId(await new OpenAIProvider({ openAIClient: client, useResponses: false }).getModel(profile.id), profile.id);
   }
+  const { agent, pilot } = options;
   const client = new OpenAI({ apiKey: config.apiKey, project: config.project,
-    organization: null, baseURL: profile.baseURL, maxRetries: 0, timeout: 30_000,
+    organization: null, baseURL: profile.baseURL, maxRetries: 0, timeout: options.timeout,
     fetch: pilot ? secretaryGuardedFetch(profile.id, { agent, pilot }) : agent ? secretaryGuardedFetch(profile.id, { agent: true }) : secretaryGuardedFetch(profile.id) });
   return new OpenAIProvider({ openAIClient: client, useResponses: true }).getModel(profile.id);
 }

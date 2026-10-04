@@ -88,3 +88,9 @@ export function secretaryModelContractPart(modelId: string, env: Record<string, 
   return { wire: profile.wire, endpoint: profile.endpoint, strictTools: profile.chat.strictTools, temperature: profile.chat.temperature,
     reasoning: options.reasoning, provider: options.provider ?? null, completeOmittedNulls: profile.chat.completeOmittedNulls };
 }
+/** The registered model a provider's returned id names: the id itself or a dated variant of it (-YYYY-MM-DD, -YYYYMMDD). */
+export function registeredModelOfReturnedId(returned: string | null | undefined): SecretaryModelProfile | undefined {
+  if (!returned) return undefined;
+  return SECRETARY_MODELS.find(profile => returned === profile.id ||
+    (returned.startsWith(`${profile.id}-`) && /^(\d{4}-\d{2}-\d{2}|\d{8})$/.test(returned.slice(profile.id.length + 1))));
+}

@@ -61,3 +61,16 @@ export function assertSecretaryModelCertified(modelId: string, contractVersion: 
  * SALON_SECRETARY_REQUIRE_CERTIFIED_MODEL=true asks for it (to rehearse the gate locally). */
 export const modelCertificationRequired = (env: Record<string, string | undefined>) =>
   env.SALON_SECRETARY_REQUIRE_CERTIFIED_MODEL === "true" || env.VERCEL_ENV === "production" || !["development", "test"].includes(env.APP_ENV ?? "");
+/** The environment a model factory may use under the gate (when it applies): the main model must be certified for its contract
+ * (otherwise SECRETARY_MODEL_NOT_CERTIFIED: no answer at all); a reserve (plan B, SALON_SECRETARY_FALLBACK_MODEL) that is not
+ * certified for its own contract is left out, so the main model keeps answering without a plan B. `contractVersionOf`: the live
+ * contract version of a model id (secretaryContractVersion with the backend presentation digest). */
+export function certifiedModelEnv(env: Record<string, string | undefined>, contractVersionOf: (modelId: string) => string,
+  file: ModelCertificateFile = SECRETARY_MODEL_CERTIFICATES): { env: Record<string, string | undefined>; reserveDropped: boolean } {
+  if (!modelCertificationRequired(env)) return { env, reserveDropped: false };
+  const modelId = env.SALON_SECRETARY_MODEL ?? "";
+  assertSecretaryModelCertified(modelId, contractVersionOf(modelId), file);
+  const reserve = env.SALON_SECRETARY_FALLBACK_MODEL;
+  if (!reserve || secretaryModelCertificate(reserve, contractVersionOf(reserve), file)) return { env, reserveDropped: false };
+  return { env: { ...env, SALON_SECRETARY_FALLBACK_MODEL: undefined }, reserveDropped: true };
+}
