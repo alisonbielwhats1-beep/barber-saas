@@ -21,13 +21,13 @@ const resources = [
   { icon: Images, title: "Seu portfólio online", text: "Apresente seus trabalhos na página do estabelecimento e ajude o cliente a conhecer o seu estilo." },
   { icon: Users, title: "Clientes e histórico", text: "Conheça os atendimentos anteriores e mantenha as informações de cada cliente organizadas." },
   { icon: Package, title: "Serviços, produtos e estoque", text: "Organize seu catálogo, acompanhe movimentações e reúna serviços e produtos na comanda." },
-  { icon: Bell, title: "Notificações e lembretes", text: "A equipe acompanha confirmações e mudanças de horário dentro do sistema. O cliente com conta recebe lembretes do agendamento por push no celular ou por e-mail." },
+  { icon: Bell, title: "Notificações e lembretes", text: "A equipe acompanha confirmações e mudanças de horário dentro do sistema. O cliente com conta pode receber lembretes do agendamento por notificação no celular." },
   { icon: Globe, title: "Seu agendamento online", text: "Compartilhe a página do estabelecimento. O cliente escolhe serviços, profissional e horário disponível." },
 ];
 const questions = [
   ["O sistema funciona para o meu tipo de negócio?", "O Everflair atende barbearias, salões, manicures, estética, massagem e espaços com vários serviços. Você configura o catálogo, a equipe e os horários conforme sua operação."],
   ["Meus clientes podem agendar pelo celular?", "Sim. Cada estabelecimento tem uma página pública. O cliente cria uma conta ou entra, escolhe serviços, profissional e um horário disponível, e revisa a reserva antes de confirmar."],
-  ["Como funcionam os lembretes e o WhatsApp?", "Clientes com conta recebem lembretes automáticos na véspera e no dia do agendamento, por notificação push no celular (quando ativam os avisos no aplicativo) ou por e-mail. A equipe acompanha confirmações e mudanças de horário nas notificações internas. O contato pelo WhatsApp é iniciado manualmente pela equipe. Não há disparos automáticos de WhatsApp incluídos."],
+  ["Como funcionam os lembretes e o WhatsApp?", "Clientes com conta recebem lembretes automáticos na véspera e no dia do agendamento, por notificação push no celular, quando ativam os avisos no aplicativo. A equipe acompanha confirmações e mudanças de horário nas notificações internas. O contato pelo WhatsApp é iniciado manualmente pela equipe. Não há disparos automáticos de WhatsApp incluídos."],
   ["Posso controlar o financeiro?", "Sim. Você acompanha receitas, despesas, comissões e relatórios, além de registrar pagamentos na operação. O sistema ainda não processa pagamentos online."],
   ["O que acontece depois do cadastro?", "Você cria sua conta e entra imediatamente no plano Grátis. Um guia orienta a configuração de serviços, profissionais e horários. Você pode incluir sugestões de serviços no cadastro ou montar seu catálogo depois."],
 ];
