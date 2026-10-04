@@ -19,3 +19,11 @@ Produção: `https://salon-saas-ruby.vercel.app`.
 
 Credenciais, passwords e secrets nunca devem ser documentados ou solicitados
 em texto. Use o fluxo de autenticação e os painéis dos provedores.
+
+## Escopo e contas
+
+- Este repositório é SOMENTE o EverFlair (Salon SaaS). Código, branches e sessões do GestAcad e do Commerce Platform ficam nos repositórios deles.
+- Se o pedido for sobre outro produto, pare e avise o Alison para abrir a sessão no repositório certo.
+- GitHub: conta `alisonbielwhats1-beep`. Para `gh`: `GH_TOKEN=$(gh auth token --user alisonbielwhats1-beep) gh ...`
+- Em produção, mexer só no que não afeta clientes. O resto vira relatório.
+- Estado do produto, clientes e backlog ficam no Brain (`brain/projects/everflair/`), não no código.
