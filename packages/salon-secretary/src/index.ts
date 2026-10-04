@@ -18,14 +18,14 @@ export * from "./dependency-graph";
 import { Agent, Runner, tool, OpenAIProvider, type Model, type JsonSchemaDefinition } from "@openai/agents";
 import OpenAI from "openai";
 import { z } from "zod";
-import { assertSecretaryModelId, assertSecretaryModelRequest, secretaryGuardedFetch } from "./openai-cost-guard";
+import { assertSecretaryModelId, assertSecretaryModelRequest, secretaryGuardedFetch, secretaryModelProvider } from "./openai-cost-guard";
 import { isRecordedServicesModel } from './recorded-services-model';
 import { uninstrumentedServicesModel } from './usage';
 import { invalidSourceLiterals, assertSourceLiteralRepair, sourceLiteralRepairRequest } from './source-literal-repair';
 import { temporalComponentsEnabled, temporalComponentInstructions } from './temporal-components';
 import { decisionInstructions, jitAppendix, jitRules, jitContinuationDraft, jitRequirements, JIT_APPENDIX_HEADER, CONTINUATION_INSTRUCTION, ROUTED_TURN_INSTRUCTION } from './instructions';
 export * from './instructions';
-import { fitRequest, requestModelId, secretaryRequestBodyBytes, reportRequestBudget, trimSuspendedPlans, REQUEST_TOO_LARGE, REQUEST_DEGRADATIONS, type RequestLevel } from './request-budget';
+import { fitRequest, requestModelId, rememberRequestModelId, secretaryRequestBodyBytes, reportRequestBudget, trimSuspendedPlans, REQUEST_TOO_LARGE, REQUEST_DEGRADATIONS, type RequestLevel } from './request-budget';
 export * from './request-budget';
 import { structuredContextData } from './structured-context';
 export * from './structured-context';
@@ -64,6 +64,7 @@ import { pilotContractParts } from './pilot-reschedule-prompt';
 export { examplesMode, examplesK, examplesContractTag, examplesState, eligibleExamples, selectExamples, composeExamples, secretaryRequestBytes, withExamplesObserver, jsonTextBytes,
   EXAMPLES_HEADER, EXAMPLES_REQUEST_CAP, EXAMPLES_OUTPUT_FRAMING, type ExamplesMode, type ExamplesState, type ExamplesBlock, type ExamplesTelemetry } from './examples/select';
 export { assertSecretaryModelId, assertSecretaryModelRequest, assertSecretaryResponsesPayload, secretaryGuardedFetch } from "./openai-cost-guard";
+export { assertSecretaryChatPayload, assertOpenRouterOutboundBody, completeOmittedNulls, secretaryModelProvider, OPENROUTER_CHAT_URL } from "./openai-cost-guard";
 export { customersSkill } from "./customers-skill";
 export { servicesSkill } from "./services-skill";
 export { Usage, type Model, type ModelRequest, type ModelResponse } from "@openai/agents";
@@ -238,8 +239,12 @@ export async function runServicesTurn(model: Model, message: string, fields: unk
   const read = <T>(work: () => T): T => { try { return work(); } catch (error) { unread = true; throw markInterpretationFailure(error); } };
   const recorded = isRecordedServicesModel(uninstrumentedServicesModel(model));
   const validateResponse = (response: Awaited<ReturnType<Model['getResponse']>>) => {
-    const calls = response.output.filter(item => item.type !== 'reasoning');
+    // Chat Completions (OpenRouter): a text the model writes beside the forced call is never shown nor executed, so it is ignored
+    // like reasoning; a cut answer (finish_reason "length") is incomplete. Responses (OpenAI): exactly as before.
+    const chat = response.providerData?.object === 'chat.completion';
+    const calls = response.output.filter(item => item.type !== 'reasoning' && !(chat && item.type === 'message'));
     if (response.providerData?.status && response.providerData.status !== 'completed') throw Error('INTERPRETATION_INCOMPLETE');
+    if (chat && response.providerData?.choices?.[0]?.finish_reason === 'length') throw Error('INTERPRETATION_INCOMPLETE');
     if (calls.length !== 1 || calls[0].type !== 'function_call' || calls[0].name !== (skill === 'discovery' ? 'select_capabilities' : 'upsert_action_draft')) throw Error('INTERPRETATION_INVALID');
     const raw = JSON.parse(calls[0].arguments), parsed = parseInput(raw), routed = splitInterpretation(parsed);
     if (!routed.redirect && skill === 'discovery') {
@@ -477,17 +482,33 @@ export function paidModelConfig(env: Record<string, string | undefined>) {
   // Dedicated credentials: never inherit HQ's key, organization or provider defaults.
   if (env.SALON_SECRETARY_ALLOW_PAID_CALLS !== "true") throw new Error("PAID_CALLS_DISABLED");
   const modelId = env.SALON_SECRETARY_MODEL;
+  if (modelId && secretaryModelProvider(modelId) === "openrouter") {
+    // OpenRouter key of its own; transcription keeps using the OpenAI key and project (secretary-transcribe.ts).
+    const apiKey = env.SALON_SECRETARY_OPENROUTER_API_KEY;
+    if (!apiKey) throw new Error("SECRETARY_CONFIGURATION_REQUIRED");
+    return { modelId, apiKey, project: null, provider: "openrouter" as const };
+  }
   const apiKey = env.SALON_SECRETARY_OPENAI_API_KEY;
   const project = env.SALON_SECRETARY_OPENAI_PROJECT;
   if (!modelId || !apiKey || !project) throw new Error("SECRETARY_CONFIGURATION_REQUIRED");
   assertSecretaryModelId(modelId);
-  return { modelId, apiKey, project };
+  return { modelId, apiKey, project, provider: "openai" as const };
 }
 export async function createPaidModel(env: Record<string, string | undefined>): Promise<Model> {
   const config = paidModelConfig(env);
   // C5 agent (§6.3): the guard admits the agent's format only when this factory says so (the flag read once, here); off: as before.
   // Pilot of the reschedule (flag SALON_SECRETARY_PILOT_RESCHEDULE): likewise its one-tool format, only with the flag; off: as before.
   const agent = env.SALON_SECRETARY_AGENT === "true", pilot = env.SALON_SECRETARY_PILOT_RESCHEDULE === "true";
+  if (config.provider === "openrouter") {
+    // DeepSeek through OpenRouter: Chat Completions, C4 only (the agent and the pilot depend on OpenAI-only Responses features).
+    if (agent || pilot) throw new Error("SECRETARY_OPENROUTER_C4_ONLY");
+    // Owner decision 04/10: pinned to Together (fastest measured, zero data retention, Golden 26/30); "any" = OpenRouter's default route.
+    const provider = env.SALON_SECRETARY_OPENROUTER_PROVIDER || "together";
+    const openRouter = { reasoning: env.SALON_SECRETARY_OPENROUTER_REASONING || undefined, provider: provider === "any" ? undefined : provider };
+    const client = new OpenAI({ apiKey: config.apiKey, organization: null, project: null, baseURL: "https://openrouter.ai/api/v1",
+      maxRetries: 0, timeout: 30_000, fetch: secretaryGuardedFetch(config.modelId, { openRouter }) });
+    return rememberRequestModelId(await new OpenAIProvider({ openAIClient: client, useResponses: false }).getModel(config.modelId), config.modelId);
+  }
   const client = new OpenAI({ apiKey: config.apiKey, project: config.project,
     organization: null, baseURL: "https://api.openai.com/v1", maxRetries: 0, timeout: 30_000,
     fetch: pilot ? secretaryGuardedFetch(config.modelId, { agent, pilot }) : agent ? secretaryGuardedFetch(config.modelId, { agent: true }) : secretaryGuardedFetch(config.modelId) });

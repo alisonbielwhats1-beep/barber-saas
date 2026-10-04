@@ -5,7 +5,8 @@ import type { ServiceActor } from "./service-catalog";
 import { withTenant } from "./prisma-tenant";
 
 const counter = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).nullable();
-const id = z.string().max(200).regex(/^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$/).refine(s => !s.startsWith("sk-"));
+/** Also an OpenRouter model id ("deepseek/deepseek-v4.1-flash"): one slash between two plain segments. */
+const id = z.string().max(200).regex(/^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$|^[a-zA-Z0-9][a-zA-Z0-9_.-]*\/[a-zA-Z0-9][a-zA-Z0-9_.:-]*$/).refine(s => !s.startsWith("sk-"));
 /** C4: 1 INTERPRETATION, then at most one 2 SOURCE_LITERAL_REPAIR. C5 agent (flag SALON_SECRETARY_AGENT): calls 1..3 of one message,
  * AGENT_LOOKUP (a round that may consult) or AGENT_PLAN (forced plan; the 3rd call always is). Pilot of the reschedule (flag
  * SALON_SECRETARY_PILOT_RESCHEDULE): 1 PILOT_INTERPRETATION, then at most one 2 PILOT_REPAIR (format repair). */

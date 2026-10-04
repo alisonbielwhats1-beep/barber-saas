@@ -96,7 +96,8 @@ describe('free-use mission allowlist', () => {
       'toString', '__proto__', 'constructor', 'hasOwnProperty', '', ' secretary-reliability-20260927'])
       expect(() => freeUseMission(id)).toThrow('FREE_USE_MISSION_UNKNOWN');
     expect(() => freeUseMission(undefined)).toThrow('FREE_USE_MISSION_UNKNOWN');
-    expect(Object.keys(FREE_USE_MISSIONS)).toEqual([FREE_USE_MISSION, FREE_USE_RELIABILITY_MISSION]);
+    // 04/10/2026: DeepSeek through OpenRouter has its own mission (owner-approved US$ 2), with its own journal and pricing.
+    expect(Object.keys(FREE_USE_MISSIONS)).toEqual([FREE_USE_MISSION, FREE_USE_RELIABILITY_MISSION, 'secretary-deepseek-openrouter-20261004']);
   });
   it('binds each mission to one fixed repository journal, never to a CLI path', async () => {
     const actual = await vi.importActual<typeof import('../../../packages/salon-secretary/evaluation/free-use-budget')>('../../../packages/salon-secretary/evaluation/free-use-budget');

@@ -28,18 +28,21 @@ const object = (value: unknown): Record<string, unknown> =>
   value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 const count = (value: unknown): number | null =>
   typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : null;
+/** OpenRouter model ids carry the vendor ("deepseek/…"): one slash between two plain segments. */
 const identifier = (value: unknown): string | null =>
-  typeof value === "string" && /^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,199}$/.test(value) && !value.startsWith("sk-") ? value : null;
+  typeof value === "string" && /^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,199}$|^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,60}\/[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,138}$/.test(value) && !value.startsWith("sk-") ? value : null;
 
-/** Allowlist only. Never use SDK-normalized Usage: absent counters may already have become zero. */
+/** Allowlist only. Never use SDK-normalized Usage: absent counters may already have become zero.
+ * Responses usage (OpenAI) or Chat Completions usage (OpenRouter: prompt/completion tokens and their details). */
 export function modelCallUsage(modelId: string, status: ModelCallUsage["status"], response?: ModelResponse): ModelCallUsage {
   const provider = object(response?.providerData);
   const raw = object(response?.rawUsage ?? provider.usage);
-  const input = object(raw.input_tokens_details);
-  const output = object(raw.output_tokens_details);
+  const chat = raw.input_tokens === undefined && raw.prompt_tokens !== undefined;
+  const input = object(chat ? raw.prompt_tokens_details : raw.input_tokens_details);
+  const output = object(chat ? raw.completion_tokens_details : raw.output_tokens_details);
   const tokens = {
-    input_tokens: count(raw.input_tokens), cached_input_tokens: count(input.cached_tokens),
-    cache_write_tokens: count(input.cache_write_tokens), output_tokens: count(raw.output_tokens),
+    input_tokens: count(chat ? raw.prompt_tokens : raw.input_tokens), cached_input_tokens: count(input.cached_tokens),
+    cache_write_tokens: count(input.cache_write_tokens), output_tokens: count(chat ? raw.completion_tokens : raw.output_tokens),
     reasoning_tokens: count(output.reasoning_tokens), total_tokens: count(raw.total_tokens),
   };
   const complete = [tokens.input_tokens, tokens.output_tokens, tokens.total_tokens].every(v => v !== null);

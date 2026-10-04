@@ -114,7 +114,10 @@ describe('exact measurement', () => {
     expect(checked).toBe(LINT_FLAGS.length * LINT_STATES.length);
     const model = await createPaidModel({ SALON_SECRETARY_ALLOW_PAID_CALLS: 'true', SALON_SECRETARY_MODEL: 'gpt-6-luna', SALON_SECRETARY_OPENAI_API_KEY: 'synthetic-offline-not-a-key', SALON_SECRETARY_OPENAI_PROJECT: 'proj_offline' });
     expect(requestModelId(model)).toBe('gpt-6-luna');
-    expect(requestModelId({} as Model)).toBe('gpt-5.6-luna'); // unknown: the longest allowed id (never under-measures)
+    // OpenRouter's Chat Completions model keeps its id private: createPaidModel tells the budget which one it sends.
+    const deepseek = await createPaidModel({ SALON_SECRETARY_ALLOW_PAID_CALLS: 'true', SALON_SECRETARY_MODEL: 'deepseek/deepseek-v4.1-flash', SALON_SECRETARY_OPENROUTER_API_KEY: 'synthetic-offline-not-a-key' });
+    expect(requestModelId(deepseek)).toBe('deepseek/deepseek-v4.1-flash');
+    expect(requestModelId({} as Model)).toBe('deepseek/deepseek-v4.1-flash'); // unknown: the longest allowed id (never under-measures)
   }, 120_000);
 });
 

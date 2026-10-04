@@ -1,5 +1,22 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-10-04 — Secretária: DeepSeek V4.1 Flash no lugar do Luna (local)
+
+Branch `claude/llm-model-migration-a6ed7a`, sobre `claude/voice-system-cancellation-reason-44fd9a` (`c24f48a`),
+sem push. Decisão do dono (`DECISOES_PRODUTO.md`, 32–36): o caminho C4 da Secretária passa a chamar o
+DeepSeek V4.1 Flash pelo OpenRouter (Chat Completions, rota padrão, raciocínio desligado), com chave própria
+`SALON_SECRETARY_OPENROUTER_API_KEY`. A transcrição continua na OpenAI. A trava de custo admite só o formato C4
+no endereço do OpenRouter; o agente C5 e o piloto continuam exigindo a OpenAI. O Luna volta com
+`SALON_SECRETARY_MODEL=gpt-6-luna`. Para a validação (teto de US$ 2), há uma missão Golden própria e o estimador
+selado `openrouter-chat` no registro do programa. Testes offline novos: `secretary-openrouter*.test.ts`.
+Golden 30 real (mesmas frases e flags da prova do Luna), Together fixo, `temperature: 0` e as correções de produto no
+plural (uma busca a mais no singular) e de jornada de profissional (fora do catálogo), k=3: **90/90, pass^3 100%**, igual
+ao Luna. `contract-version.json` foi regravado; a bateria prática não foi rodada de novo, e o Luna não foi medido com a
+frase nova. Tempo por turno 1,5 s na mediana e 1,9 s no p90 (Luna: 4,6 s e 6,8 s); 0 falhas de segurança. Para chegar lá, o
+OpenRouter recebe a ferramenta sem `strict` (com ele, 3/30) e os campos omitidos voltam como nulo, guiados pelo
+esquema. A validação custou US$ 0,57 reais; o registro do programa (preço de teto) ficou em US$ 14,79 de 15. Ver `SECRETARY_DEEPSEEK_OPENROUTER.md`.
+Production da Secretária continua bloqueada.
+
 ## 2026-10-03 — Secretária: falar em vez de digitar e cancelar sem motivo (local)
 
 Branch `claude/voice-system-cancellation-reason-44fd9a`, sobre `claude/secretaria-piloto-remarcar`

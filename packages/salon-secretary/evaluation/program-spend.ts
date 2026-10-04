@@ -12,8 +12,8 @@ import { randomUUID } from 'node:crypto';
 import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, renameSync, statSync, unlinkSync, writeSync } from 'node:fs';
 import { hostname, userInfo } from 'node:os';
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
-import { assertSecretaryResponsesPayload } from '../src/openai-cost-guard';
-import { FREE_USE_PRICING, FREE_USE_PRICING_SHA256, digest } from './free-use-budget';
+import { assertOpenRouterOutboundBody, assertSecretaryResponsesPayload, OPENROUTER_CHAT_URL } from '../src/openai-cost-guard';
+import { FREE_USE_DEEPSEEK_PRICING, FREE_USE_DEEPSEEK_PRICING_SHA256, FREE_USE_PRICING, FREE_USE_PRICING_SHA256, digest } from './free-use-budget';
 
 export const PROGRAM_SPEND_LEDGER = 'program-spend-20260927';
 export const PROGRAM_SPEND_BASENAME = `${PROGRAM_SPEND_LEDGER}.jsonl`;
@@ -179,10 +179,51 @@ const TRANSCRIPTIONS_SEALED: SealedEstimator = Object.freeze({
   usage: () => null, charge: () => 0, withinBound: () => false,
 });
 
+// ---------------------------------------------------------------- OpenRouter Chat Completions (DeepSeek V4.1 Flash, 04/10/2026)
+/** DeepSeek through OpenRouter in place of Luna (owner decision 04/10/2026): only the C4 wire as it leaves the cost guard, priced
+ * at the highest rates of the model's default route (FREE_USE_DEEPSEEK_PRICING). Same bound as Luna's: (UTF8 bytes + 8192 framing)
+ * at the input rate + max_tokens at the output rate; the charge is re-derived from the usage tokens, cached input at the full rate. */
+const DS = FREE_USE_DEEPSEEK_PRICING;
+const deepseekWorstCase = (bodyBytes: number, maxOutputTokens: number) =>
+  Math.ceil((bodyBytes + DS.protocolOverheadTokens) * DS.cacheWriteUsdPerMillion + maxOutputTokens * DS.outputUsdPerMillion);
+const chatUsageMicroUsd = (usage: ResponsesUsage) => Math.ceil(usage.input * DS.inputUsdPerMillion + billedOutput(usage) * DS.outputUsdPerMillion);
+export const openRouterChatEstimator: PaidEstimator = Object.freeze({
+  name: 'openrouter-chat',
+  worstCase(input: FetchInput, init?: FetchInit, options: PaidWireOptions = {}): PaidCallEstimate {
+    if (options.agent || options.pilot || options.pilotAnchorProbe) throw Error('PROGRAM_SPEND_WIRE');
+    if (typeof input !== 'string' || input !== OPENROUTER_CHAT_URL || init?.method?.toUpperCase() !== 'POST' || typeof init.body !== 'string') throw Error('PROGRAM_SPEND_WIRE');
+    let payload: unknown; try { payload = JSON.parse(init.body); } catch { throw Error('PROGRAM_SPEND_WIRE'); }
+    try { assertOpenRouterOutboundBody(payload, DS.model); } catch { throw Error('PROGRAM_SPEND_WIRE'); }
+    const bodyBytes = Buffer.byteLength(init.body, 'utf8'), maxOutputTokens = isRecord(payload) ? payload.max_tokens : undefined;
+    if (!Number.isInteger(maxOutputTokens) || (maxOutputTokens as number) < 1 || (maxOutputTokens as number) > DS.outputCap ||
+      bodyBytes + DS.protocolOverheadTokens > DS.maxInputTokensUpper) throw Error('PROGRAM_SPEND_WIRE');
+    return { estimator: 'openrouter-chat', model: DS.model, bodyBytes, maxOutputTokens: maxOutputTokens as number,
+      worstCaseMicroUsd: deepseekWorstCase(bodyBytes, maxOutputTokens as number), pricingSha256: FREE_USE_DEEPSEEK_PRICING_SHA256 };
+  },
+  actual(json: unknown) {
+    const u = isRecord(json) && isRecord(json.usage) ? json.usage : undefined;
+    const inDetails: Record<string, unknown> = u && isRecord(u.prompt_tokens_details) ? u.prompt_tokens_details : {};
+    const outDetails: Record<string, unknown> = u && isRecord(u.completion_tokens_details) ? u.completion_tokens_details : {};
+    const usage = responsesUsage(u && { input: u.prompt_tokens, cached: inDetails.cached_tokens ?? 0, output: u.completion_tokens, reasoning: outDetails.reasoning_tokens ?? 0 });
+    return usage ? { usage, chargedMicroUsd: chatUsageMicroUsd(usage) } : null;
+  },
+});
+const OPENROUTER_CHAT_SEALED: SealedEstimator = Object.freeze({
+  name: 'openrouter-chat', pricing: DS, pricingSha256: FREE_USE_DEEPSEEK_PRICING_SHA256, models: Object.freeze([DS.model]), minWorstCaseMicroUsd: deepseekWorstCase(1, 1),
+  worstCase: (bodyBytes: number, maxOutputTokens: number) => bodyBytes >= 1 && bodyBytes + DS.protocolOverheadTokens <= DS.maxInputTokensUpper &&
+    maxOutputTokens >= 1 && maxOutputTokens <= DS.outputCap ? deepseekWorstCase(bodyBytes, maxOutputTokens) : null,
+  usage: (value: unknown) => responsesUsage(value),
+  charge: (usage: ProgramUsage) => chatUsageMicroUsd(usage as ResponsesUsage),
+  withinBound: (reserve: { bodyBytes: number; maxOutputTokens: number }, usage: ProgramUsage) =>
+    usage.input <= reserve.bodyBytes + DS.protocolOverheadTokens && billedOutput(usage as ResponsesUsage) <= reserve.maxOutputTokens,
+});
+
 /** Sealed allowlist. A name not listed here is refused by guardPaidFetch and by the ledger reader. The transcription
  * estimator (source 'transcribe') is charged at its worst case only; see TRANSCRIBE_PRICING. */
-export const PROGRAM_SPEND_ESTIMATORS: Readonly<Record<string, SealedEstimator>> = Object.freeze({ responses: RESPONSES_SEALED, transcriptions: TRANSCRIPTIONS_SEALED });
-const SEALED_FETCH_ESTIMATORS: Readonly<Record<string, PaidEstimator>> = Object.freeze({ responses: responsesEstimator, transcriptions: transcriptionsEstimator });
+export const PROGRAM_SPEND_ESTIMATORS: Readonly<Record<string, SealedEstimator>> = Object.freeze({ responses: RESPONSES_SEALED, transcriptions: TRANSCRIPTIONS_SEALED,
+  'openrouter-chat': OPENROUTER_CHAT_SEALED });
+const SEALED_FETCH_ESTIMATORS: Readonly<Record<string, PaidEstimator>> = Object.freeze({ responses: responsesEstimator, transcriptions: transcriptionsEstimator,
+  'openrouter-chat': openRouterChatEstimator });
 const TEST_ESTIMATOR = /^test-[a-z0-9-]{1,34}$/;
 /** Sealed spec of an estimator name; 'TEST' for a declared-bound unit-test estimator (vitest worker only, always charged at
  * its worst case, never settled from usage); null = refused. */

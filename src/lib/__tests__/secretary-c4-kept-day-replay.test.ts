@@ -14,8 +14,11 @@ const K1 = "{\"turn\":{\"mode\":\"NEW\",\"operations\":[{\"operation\":\"appoint
 const K2 = "{\"turn\":{\"mode\":\"NEW\",\"operations\":[{\"operation\":\"appointment.change\",\"item_key\":\"a\",\"depends_on\":null,\"released_slot_of\":null,\"same_as\":null,\"source_scope\":\"Passa a Rosa para amanhã às 10h e meia.\",\"customer_name\":\"Rosa\",\"service_names\":null,\"service_name\":null,\"professional_name\":null,\"components\":{\"date\":null,\"source_date\":null,\"end_date\":null,\"time\":{\"value\":{\"hour\":10,\"minute\":30,\"daypart\":\"UNSPECIFIED\"},\"literal\":\"10h e meia\"},\"source_time\":null,\"end_time\":null},\"date\":null,\"time\":null,\"period\":null,\"source_date\":null,\"source_time\":null,\"end_time\":null,\"end_date\":null,\"excluded\":null,\"reason\":null,\"target_professional_name\":null,\"service_changes\":null}]}}";
 const SHA = { k1: "0b37fe5b9511f57e6d3b8af1d72d545658075f90db761b72261680a2c7640597", k2: "8e66d6d88cea2c09d57909c8860e49863b4814dfc510942bdfe66851b376a757" };
 const MESSAGE = "Passa a Rosa para amanhã às 10h e meia.";
-/** The model contract both attempts ran under (V30.json `contractVersion`). */
-const CONTRACT = "b1e04c55d38ea8dab9357faa6fc9ed331122e97f4a725d58cc25e18273f28b76";
+/** The model contract both attempts ran under (V30.json `contractVersion`): b1e04c55d38ea8dab9357faa6fc9ed331122e97f4a725d58cc25e18273f28b76.
+ * Contract migration (04/10/2026, backup: .demo/agenda-core/contract-migration/secretary-c4-kept-day-replay.test.before-professional-schedule-rule.ts):
+ * the discovery prompt gained "ou jornada" (a professional's schedule is professional_management); the recorded outputs above
+ * are replayed under the current contract, so a turn now records this one. The backend assertions are unchanged. */
+const CONTRACT_NOW = "c582307bd1cb76622023cbd39fad197a44823b276602f954c0189087095b1f7f";
 /** The run's flags (V30.json `flags`, candidate-flags-c4.sh). */
 const FLAGS: Record<string, string> = { ALTER_APPOINTMENT: "true", COPY_V2: "true", CUSTOMER_OVERLAP_GUARD: "true", DATE_RULES_V2: "true", DAYPART_BY_HOURS: "true",
   DAYPART_RULES_V2: "true", EXAMPLES: "selected", EXAMPLES_V2: "true", EXCEPTION_RULES_V2: "true", JEV_ROUTER_ENABLED: "false", JIT_INSTRUCTIONS: "true",
@@ -95,7 +98,7 @@ describe("V30 replay (c4-vn-final): 'Passa a Rosa para amanhã às 10h e meia.'"
     expect(db.moves).toEqual([]);expect(codes()).toContain("TEMPORAL_KEPT_DAY_UNCLAIMED");
     // Backend only: the model contract of this turn is the one the run recorded (same prompt, wire, examples and flags).
     expect(db.rows.filter(row => row.entityType === "SECRETARY_ROUTER").map(row => (row.metadata as { outcome?: { contract_version?: string } }).outcome?.contract_version))
-      .toEqual([CONTRACT]);
+      .toEqual([CONTRACT_NOW]);
   });
   it("k2 then the owner's answer: Thursday 01/10 at 10h30, the clock already said is kept", async () => {
     const { model, say } = await session(K2);

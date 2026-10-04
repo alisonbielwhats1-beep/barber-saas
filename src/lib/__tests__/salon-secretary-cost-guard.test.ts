@@ -18,9 +18,9 @@ const sdk = () => ({ input: [], tools: [{ ...functionTool }], handoffs: [], outp
   modelSettings: { toolChoice: functionTool.name, parallelToolCalls: false, store: false } }) as unknown as ModelRequest;
 
 describe("Secretary OpenAI cost boundary (offline)", () => {
-  it("uses GPT-6 Luna in the local template and preserves explicit GPT-5.6 rollback", () => {
+  it("uses DeepSeek V4.1 Flash in the local template and preserves explicit Luna rollback", () => {
     const template = readFileSync(resolve(process.cwd(), ".env.example"), "utf8");
-    expect(template.match(/^SALON_SECRETARY_MODEL=(.*)$/m)?.[1]?.trim()).toBe("gpt-6-luna");
+    expect(template.match(/^SALON_SECRETARY_MODEL=(.*)$/m)?.[1]?.trim()).toBe("deepseek/deepseek-v4.1-flash");
     expect(template.match(/^SALON_SECRETARY_ALLOW_PAID_CALLS=(.*)$/m)?.[1]?.trim()).toBe("false");
     expect(() => assertSecretaryModelId("gpt-5.6-luna")).not.toThrow();
     expect(() => assertSecretaryModelId(model)).not.toThrow();

@@ -19,11 +19,14 @@ export const REQUEST_DEGRADATIONS = ["EXAMPLES_DROPPED", "STRUCTURED_CONTEXT", "
 export type RequestDegradation = (typeof REQUEST_DEGRADATIONS)[number];
 
 /** Allowed model ids of the cost guard; the longest one bounds the body when the id cannot be read. */
-const LONGEST_MODEL_ID = "gpt-5.6-luna";
+const LONGEST_MODEL_ID = "deepseek/deepseek-v4.1-flash";
+/** Ids of provider models that do not expose one (the SDK's Chat Completions model keeps it private): set by createPaidModel. */
+const rememberedModelIds = new WeakMap<Model, string>();
+export function rememberRequestModelId(model: Model, modelId: string): Model { rememberedModelIds.set(model, modelId); return model; }
 /** The id the provider model sends (the SDK's Responses model keeps it in `_model`); unknown = the longest allowed id. */
 export function requestModelId(model: Model): string {
-  const inner = uninstrumentedServicesModel(model) as { _model?: unknown };
-  return typeof inner._model === "string" ? inner._model : LONGEST_MODEL_ID;
+  const inner = uninstrumentedServicesModel(model) as Model & { _model?: unknown };
+  return rememberedModelIds.get(inner) ?? (typeof inner._model === "string" ? inner._model : LONGEST_MODEL_ID);
 }
 /** EXACT bytes of the Responses body the SDK sends for one Secretary request (same keys and values; order is irrelevant
  * to the size): model, instructions, input [{role, content}], include [], the one strict function tool, max_output_tokens,

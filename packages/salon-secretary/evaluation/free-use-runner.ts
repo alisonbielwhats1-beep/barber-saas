@@ -16,13 +16,13 @@ import type { SyntheticFixture } from './hard-conversations-fixtures';
 import { parseFreeUseSuite, type CaseStatus, type FixtureIdentity, type FreeUseSuite } from './free-use-contract';
 import { fixtureIdentity, seedFreeUseFixture, verifyFreeUseFixture } from './free-use-fixture';
 import { goldenSuite } from './free-use-golden';
-import { FreeUseBudget, digest, FREE_USE_PRICING, FREE_USE_PRICING_SHA256, freeUseMissionJournal, freeUseMissionReservedMicroUsd, selectFreeUseMission } from './free-use-budget';
+import { FreeUseBudget, digest, FREE_USE_DEEPSEEK_MISSION, freeUseMissionJournal, freeUseMissionPricing, freeUseMissionReservedMicroUsd, selectFreeUseMission } from './free-use-budget';
 import { aggregatePassK, attemptCaseLabel, attemptDirectory, attemptNamespace, freeUseRepeat, freeUseRequestLimit } from './free-use-repeat';
 import { assertFreeUseFlags, freeUseFlags } from './free-use-options';
 import { canSendTurn, emptyMetrics, observeView, scoreMissingQuestion, scoreTurn, valueAt, type TurnObservation, type TurnScore } from './free-use-score';
 import type { EntityBindings, TurnExpectation } from './free-use-contract';
 import { withFreeUseClock } from './free-use-clock';
-import { assertProgramHeadroom, guardPaidFetch, isProgramSpendError, programSpendLabel, programSpendLedgerPath, programSpendSummary, programSpendTotals } from './program-spend';
+import { assertProgramHeadroom, guardPaidFetch, openRouterChatEstimator, isProgramSpendError, programSpendLabel, programSpendLedgerPath, programSpendSummary, programSpendTotals } from './program-spend';
 import { rawWriteVerdict, technicalWriteTables } from './free-use-technical-writes';
 import { persistedSessionStore } from '../../../src/lib/secretary-session-store';
 import { secretaryErrorMessage } from '../../../src/lib/secretary-error-copy';
@@ -40,9 +40,16 @@ const { observeProvider } = require('../../../scripts/secretary-passive-observer
 };
 const evidenceWrite = (path: string, data: unknown) => writeFileSync(path, JSON.stringify(data,null,2)+'\n', {flag:'wx',mode:0o600});
 const code = (error: unknown) => error instanceof Error && /^[A-Z0-9_:.-]{1,160}$/.test(error.message) ? error.message : 'FREE_USE_FAILURE_REDACTED';
+/** The model a free-use run measures: GPT-6 Luna, or DeepSeek V4.1 Flash through OpenRouter (04/10/2026) under its own mission only. */
+const FREE_USE_MODELS = ['gpt-6-luna', 'deepseek/deepseek-v4.1-flash'] as const;
+export const freeUseModel = () => process.env.SALON_SECRETARY_MODEL as (typeof FREE_USE_MODELS)[number];
+/** DeepSeek runs only under the DeepSeek mission (its pricing and US$ 2 cap), and Luna never under it. */
+function assertMissionModel(missionId: string) {
+  if ((freeUseModel() === 'deepseek/deepseek-v4.1-flash') !== (missionId === FREE_USE_DEEPSEEK_MISSION)) throw Error('FREE_USE_MISSION_MODEL');
+}
 export function assertFreeUseEnvironment() {
   if (process.env.APP_ENV !== 'test' || process.env.VERCEL_ENV === 'production' || process.env.SALON_SECRETARY_ALLOW_PAID_CALLS !== 'false' ||
-    process.env.SALON_SECRETARY_JEV_ROUTER_ENABLED !== 'false' || process.env.SALON_SECRETARY_MODEL !== 'gpt-6-luna') throw Error('FREE_USE_ENVIRONMENT');
+    process.env.SALON_SECRETARY_JEV_ROUTER_ENABLED !== 'false' || !(FREE_USE_MODELS as readonly unknown[]).includes(process.env.SALON_SECRETARY_MODEL)) throw Error('FREE_USE_ENVIRONMENT');
   for (const [name,role] of [['DATABASE_URL','mvp_service_runtime'],['DIRECT_URL','mvp_test_admin']] as const) {
     const url = new URL(process.env[name] ?? 'invalid:');
     if (!['postgres:','postgresql:'].includes(url.protocol) || url.hostname !== '127.0.0.1' || url.port !== '55441' ||
@@ -69,12 +76,13 @@ const captureSnapshot = (admin: PrismaClient, identity: FixtureIdentity) => snap
 type CasePreparation = { id:string;status:'PREPARED'|'BLOCKED';reason?:string;identity:FixtureIdentity;baseline?:OperationalSnapshot;preflight?:unknown };
 type AttemptPreparation = { attempt:number;namespace:string;cases:CasePreparation[] };
 export type PreparedSuite = { schemaVersion:2;suite:FreeUseSuite;namespace:string;repeat:number;identity:unknown;sourceHashes:Record<string,string>;
-  flags:Record<string,string>;budget:{maxRequests:number;maxRequestsPerAttempt:number;outputCap:number;mission:string;missionMaxUsd:number;pricing:typeof FREE_USE_PRICING;pricingSha256:string};
+  flags:Record<string,string>;budget:{maxRequests:number;maxRequestsPerAttempt:number;outputCap:number;mission:string;missionMaxUsd:number;pricing:ReturnType<typeof freeUseMissionPricing>['pricing'];pricingSha256:string};
   attempts:AttemptPreparation[];backup:unknown;preparedAt:string;confirm:false;execute:false;network:false };
 export async function prepareFreeUse(casesPath:string|undefined,out:string,maxRequests?:number,options:{repeat?:number;mission?:string}={}) {
   assertFreeUseEnvironment();
   const suite = parseFreeUseSuite(casesPath ? JSON.parse(await readFile(casesPath,'utf8')) : goldenSuite());
   const repeat = freeUseRepeat(options.repeat ?? 1), mission = selectFreeUseMission(options.mission);
+  assertMissionModel(mission.id);
   const namespace = suite.suiteId+'-'+randomUUID().slice(0,8);
   const flags = freeUseFlags(), agent = freeUseAgentArm(flags);
   if(agent&&agentMissingDependencies(process.env).length)throw Error('FREE_USE_AGENT_FLAGS_INCOMPLETE');
@@ -105,7 +113,7 @@ export async function prepareFreeUse(casesPath:string|undefined,out:string,maxRe
       attempts.push({attempt,namespace:scope,cases});
     }
     const manifest:PreparedSuite = {schemaVersion:2,suite,namespace,repeat,identity,sourceHashes:implementationHashes(),flags,
-      budget:{maxRequests:requestLimit,maxRequestsPerAttempt:perAttempt,outputCap:8192,mission:mission.id,missionMaxUsd:mission.capMicroUsd/1_000_000,pricing:FREE_USE_PRICING,pricingSha256:FREE_USE_PRICING_SHA256},
+      budget:{maxRequests:requestLimit,maxRequestsPerAttempt:perAttempt,outputCap:8192,mission:mission.id,missionMaxUsd:mission.capMicroUsd/1_000_000,...freeUseMissionPricing(mission.id)},
       attempts,backup,preparedAt:new Date().toISOString(),confirm:false,execute:false,network:false};
     evidenceWrite(join(out,'manifest.json'),manifest);
     const sha256=digest(readFileSync(join(out,'manifest.json'))),all=attempts.flatMap(a=>a.cases.map(c=>({...c,attempt:a.attempt})));
@@ -182,7 +190,8 @@ export async function runFreeUse(out:string,missionId?:string) {
   if(manifest.schemaVersion!==2)throw Error('FREE_USE_MANIFEST_SCHEMA');
   const suite=parseFreeUseSuite(manifest.suite);
   if(process.env.FREE_USE_APPROVED_MANIFEST!==binding||process.env.FREE_USE_REAL_LUNA_APPROVED!=='true')throw Error('FREE_USE_NETWORK_NOT_AUTHORIZED');
-  if(!process.env.SALON_SECRETARY_OPENAI_API_KEY||process.env.SALON_SECRETARY_OPENAI_PROJECT!=='proj_IcNUaSBqgYGrPkSBtF9dZ0CF')throw Error('FREE_USE_PROVIDER_PROJECT');
+  const openRouter=freeUseModel()!=='gpt-6-luna';
+  if(openRouter?!process.env.SALON_SECRETARY_OPENROUTER_API_KEY:!process.env.SALON_SECRETARY_OPENAI_API_KEY||process.env.SALON_SECRETARY_OPENAI_PROJECT!=='proj_IcNUaSBqgYGrPkSBtF9dZ0CF')throw Error('FREE_USE_PROVIDER_PROJECT');
   if(manifest.confirm!==false||manifest.execute!==false||JSON.stringify(manifest.sourceHashes)!==JSON.stringify(implementationHashes()))throw Error('FREE_USE_MANIFEST_DRIFT');
   // Every SALON_SECRETARY_* flag snapshotted at prepare (overlap included) must be identical now.
   assertFreeUseFlags(manifest.flags);
@@ -196,7 +205,9 @@ export async function runFreeUse(out:string,missionId?:string) {
   if(existsSync(join(out,'results.json'))||existsSync(join(out,'turns.jsonl'))||manifest.attempts.some(a=>existsSync(join(out,attemptDirectory(a.attempt)))))throw Error('FREE_USE_ALREADY_STARTED');
   const mission=selectFreeUseMission(missionId);
   if(manifest.budget.mission!==mission.id)throw Error('FREE_USE_MISSION_MISMATCH');
-  if(manifest.budget.missionMaxUsd!==mission.capMicroUsd/1_000_000||manifest.budget.pricingSha256!==FREE_USE_PRICING_SHA256||JSON.stringify(manifest.budget.pricing)!==JSON.stringify(FREE_USE_PRICING)||
+  assertMissionModel(mission.id);
+  const missionPricing=freeUseMissionPricing(mission.id);
+  if(manifest.budget.missionMaxUsd!==mission.capMicroUsd/1_000_000||manifest.budget.pricingSha256!==missionPricing.pricingSha256||JSON.stringify(manifest.budget.pricing)!==JSON.stringify(missionPricing.pricing)||
     manifest.budget.maxRequests!==freeUseRequestLimit(manifest.budget.maxRequestsPerAttempt,repeat,mission.id))throw Error('FREE_USE_BUDGET_CONFIG');
   // Fixed journal of the allowlisted mission, across suites, attempts, retries and output directories. No path override or reset.
   const missionJournal=freeUseMissionJournal(mission.id);
@@ -235,10 +246,11 @@ export async function runFreeUse(out:string,missionId?:string) {
       // Each attempt keeps its own share of the single binding; exceeding it is an admission failure.
       if(run.requests>=manifest.budget.maxRequestsPerAttempt)throw Error('FREE_USE_ATTEMPT_REQUESTS_EXHAUSTED');
       // Program real-spend cap first: a refused call consumes neither a mission reservation nor transport.
-      await assertProgramHeadroom(input,init,{ledger:programLedger,agent});
+      await assertProgramHeadroom(input,init,{ledger:programLedger,agent,...(openRouter?{estimator:openRouterChatEstimator}:{})});
       request=budget.reserve(attemptCaseLabel(current.caseId,current.attempt),current.turn,input,init,{agent});run.requests++;
     } catch (error) { admissionFailure=code(error); throw error; }
-    const paid=guardPaidFetch('golden',network,{ledger:programLedger,run:programRun,item:programSpendLabel(`${attemptCaseLabel(current.caseId,current.attempt)}:t${current.turn}${agent?`:r${call}`:''}`),agent});
+    const paid=guardPaidFetch('golden',network,{ledger:programLedger,run:programRun,item:programSpendLabel(`${attemptCaseLabel(current.caseId,current.attempt)}:t${current.turn}${agent?`:r${call}`:''}`),agent,
+      ...(openRouter?{estimator:openRouterChatEstimator}:{})});
     const tapped=observeProvider(paid,data=>appendFile(join(out,attemptDirectory(current.attempt),'provider-observations.jsonl'),
       JSON.stringify({...request,caseId:current.caseId,repeatAttempt:current.attempt,...data})+'\n',{mode:0o600}));
     observations.push(tapped);
@@ -265,7 +277,7 @@ export async function runFreeUse(out:string,missionId?:string) {
         try{
           await withFreeUseClock(c.clock??suite.clock,async()=>{
             const factory=async():Promise<Model>=>createPaidModel(process.env);
-            const secretary=new SalonSecretary(factory,()=> 'gpt-6-luna',undefined,{enabled:()=>false},{enabled:()=>true},persistedSessionStore);
+            const secretary=new SalonSecretary(factory,()=>freeUseModel(),undefined,{enabled:()=>false},{enabled:()=>true},persistedSessionStore);
             const session=await secretary.start(actor,'auto');let previous:TurnObservation|undefined;const history:TurnObservation[]=[];const routerSeen=new Set<string>();
             for(let index=0;index<c.turns.length;index++){
               const turn=c.turns[index];
@@ -314,7 +326,7 @@ export async function runFreeUse(out:string,missionId?:string) {
     await admin.$disconnect();await prisma.$disconnect();closeSync(fd);unlinkSync(lock);
   }
   // C6 (rec 19): the model contract (prompt templates, wire, model, limits, contract flags) this run used.
-  const contractVersion=secretaryContractVersion({modelId:'gpt-6-luna',presentation:backendPresentationDigest()});
+  const contractVersion=secretaryContractVersion({modelId:freeUseModel(),presentation:backendPresentationDigest()});
   const plannedTurns=suite.cases.reduce((n,c)=>n+c.turns.length,0),sum=(values:number[])=>values.reduce((n,value)=>n+value,0);
   const effectsOf=(run:typeof runs[number])=>({measuredCases:run.observedEffects.size,unknownCases:run.cases.filter(c=>!run.observedEffects.has(c.id)).map(c=>c.id),
     confirmations:sum([...run.observedEffects.values()].map(e=>e.confirmations)),operationalWrites:sum([...run.observedEffects.values()].map(e=>e.operationalWrites)),
@@ -325,7 +337,7 @@ export async function runFreeUse(out:string,missionId?:string) {
     try { capturedResponses=readFileSync(join(dir,'provider-observations.jsonl'),'utf8').split('\n').filter(Boolean).map(line=>JSON.parse(line)).length; } catch { /* Missing optional diagnostics remain UNKNOWN. */ }
     const summary=summarizeFreeUse(run.cases,plannedTurns),observedEffects=effectsOf(run),providerEvidence={requests:run.requests,capturedResponses,complete:capturedResponses===run.requests};
     evidenceWrite(join(dir,'results.json'),{binding,suite:suite.suiteId,mission:mission.id,repeat,attempt:run.attempt,namespace:manifest.attempts[run.attempt-1].namespace,stopped,
-      providerEvidence,summary,annotations:annotationSummary(run.cases),cases:run.cases,intendedConfirmations:0,observedEffects,flagsFinal:{paid:false},model:'gpt-6-luna',contractVersion});
+      providerEvidence,summary,annotations:annotationSummary(run.cases),cases:run.cases,intendedConfirmations:0,observedEffects,flagsFinal:{paid:false},model:freeUseModel(),contractVersion});
     return {attempt:run.attempt,dir:attemptDirectory(run.attempt),stopped,providerEvidence,summary,observedEffects};
   });
   const summary=summarizeFreeUse(runs.flatMap(run=>run.cases),plannedTurns*repeat),passK=aggregatePassK(runs,repeat);
@@ -342,7 +354,7 @@ export async function runFreeUse(out:string,missionId?:string) {
     programSpend,technicalStateWrites,...agentReport,
     intendedConfirmations:0,observedEffects:{measuredCases:sum(attempts.map(a=>a.observedEffects.measuredCases)),unknownCases:attempts.flatMap(a=>a.observedEffects.unknownCases.map(id=>attemptCaseLabel(id,a.attempt))),
       confirmations:sum(attempts.map(a=>a.observedEffects.confirmations)),operationalWrites:sum(attempts.map(a=>a.observedEffects.operationalWrites)),externalMessages:sum(attempts.map(a=>a.observedEffects.externalMessages))},
-    flagsFinal:{paid:false},model:'gpt-6-luna',contractVersion};
+    flagsFinal:{paid:false},model:freeUseModel(),contractVersion};
   evidenceWrite(join(out,'results.json'),report);
   return {out,stopped,repeat,releaseBlocked,...summary,passK:passK.passK,passKComplete:passK.complete,requests:budget.requests,reservedUsd:budget.reservedUsd,missionReservedUsd:budget.missionReservedUsd,programSpend,...agentReport};
 }

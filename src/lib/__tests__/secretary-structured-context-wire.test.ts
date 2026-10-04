@@ -45,7 +45,10 @@ const mixes: Record<string, () => ConversationRoutingContext> = {
 };
 const adapter = () => clarificationContext({ operation: 'appointment.change', fields: {}, missing_fields: ['time'], waiting_for: 'time', message: 'Qual o novo horário?' });
 /** Measured request + output bytes of the realistic mix in the default configuration (JIT and structured context off). */
-const DEFAULT_REALISTIC_CEILING: Record<string, number> = { 'false/stress': 72971, 'false/adapter answer': 73663, 'true/stress': 73581, 'true/adapter answer': 74220 };
+// 04/10/2026 (backup: .demo/agenda-core/contract-migration/secretary-structured-context-wire.test.before-professional-schedule-rule.ts):
+// +11 bytes in every shape ("ou jornada": a professional's schedule is professional_management; Golden GF30). The production
+// candidate (JIT + structured context) still fits 64000 below.
+const DEFAULT_REALISTIC_CEILING: Record<string, number> = { 'false/stress': 72982, 'false/adapter answer': 73674, 'true/stress': 73592, 'true/adapter answer': 74231 };
 
 describe('structured clarification context: request budget, flag off vs on', () => {
   it.each([false, true])('components=%s: smaller in every real mix and in the budget-test shape (which fits 64000 with JIT); bounded when every question is shorter than its code', async components => {

@@ -570,3 +570,11 @@ Ele nunca usa maiúsculas, listas de palavras, citações literais ou gramática
 29. **Avaliador de desenvolvimento:** `target_professional_ref` conta como equivalente a `professional_ref` só no avaliador de desenvolvimento. Os resultados oficiais não mudam.
 30. **Estado persistido:** só no banco local. A migration 027 não vai para produção.
 31. **Aviso ao cliente:** a remarcação mantém a notificação normal ao cliente, e a proposta diz claramente que o cliente será avisado.
+
+## Secretária de Agenda — DeepSeek no lugar do Luna (decisão do dono, 04/10/2026)
+
+32. **Modelo:** a Secretária usa o **DeepSeek V4.1 Flash pelo OpenRouter** no lugar do `gpt-6-luna`, por velocidade. Isso substitui a parte de modelo da regra 19. O Luna continua disponível como volta (`SALON_SECRETARY_MODEL=gpt-6-luna`). Detalhes em `SECRETARY_DEEPSEEK_OPENROUTER.md`.
+33. **Roteamento:** o servidor **Together** fica fixo, sem reserva: foi o mais rápido medido (1,5–1,6 s por turno) e tem retenção zero de dados (decisão do dono, 04/10, depois da medição; a primeira escolha tinha sido a rota padrão). Raciocínio desligado e `temperature: 0` (decisão do dono, 04/10: menos variação entre respostas). `SALON_SECRETARY_OPENROUTER_PROVIDER=any` volta para a rota padrão.
+34. **Transcrição:** continua na OpenAI (`gpt-4o-mini-transcribe`), com os tetos de 03/10.
+35. **Validação:** teto de US$ 2 de gasto real no OpenRouter para medir tempo e acerto (teste de latência e Golden 30). O teto de reservas da missão Golden do DeepSeek (pior caso, não gasto) subiu para US$ 6 e depois para US$ 10, aprovado pelo dono em 04/10 porque o gasto real é de centavos.
+36. **Escopo:** só o caminho C4 usa o DeepSeek. O agente C5 e o piloto da remarcação continuam exigindo a OpenAI e são recusados com o DeepSeek.

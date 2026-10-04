@@ -1,7 +1,8 @@
 'use strict';
 /* Local manual test of the Secretary Agenda. Enables the Secretary ONLY in this process,
  * against the disposable local database. Never production: refuses any other DB target.
- * Paid Luna calls happen only when you send a message in the UI (~US$0.0005 per turn).
+ * Paid model calls happen only when you send a message in the UI. Owner decision of 04/10/2026: DeepSeek V4.1 Flash through
+ * OpenRouter (SALON_SECRETARY_OPENROUTER_API_KEY in .env.local) in place of GPT-6 Luna; SECRETARY_DEMO_MODEL=gpt-6-luna goes back.
  * Owner decision of 03/10/2026: the demo speaks (microphone + GPT transcription, ~US$0.003 per minute spoken, budget
  * US$2 per month for the newest local test salon only) and never asks for a cancellation reason. Each switch can be turned
  * off from the environment (e.g. SALON_SECRETARY_TRANSCRIBE_ENABLED=false keeps the browser's own dictation). */
@@ -38,7 +39,7 @@ async function newestTestSalon() {
   const env = { ...process.env, DATABASE_URL: appUrl.toString(), APP_ENV: 'test', VERCEL_ENV: 'development', NEXT_TELEMETRY_DISABLED: '1',
     NEXTAUTH_URL: `http://localhost:${port}`, NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET || localSessionSecret(),
     SALON_SECRETARY_ENABLED: 'true', SALON_SECRETARY_FRONT_ENABLED: 'true', SALON_SECRETARY_ALLOW_PAID_CALLS: 'true',
-    SALON_SECRETARY_MODEL: 'gpt-6-luna', SALON_SECRETARY_MULTI_ACTION_V2_ENABLED: 'true', SALON_SECRETARY_SCHEDULING_OVERLAP_ENABLED: 'true',
+    SALON_SECRETARY_MODEL: process.env.SECRETARY_DEMO_MODEL || 'deepseek/deepseek-v4.1-flash', SALON_SECRETARY_MULTI_ACTION_V2_ENABLED: 'true', SALON_SECRETARY_SCHEDULING_OVERLAP_ENABLED: 'true',
     SALON_SECRETARY_VOICE_ENABLED: on('SALON_SECRETARY_VOICE_ENABLED'), SALON_SECRETARY_VOICE_CORRECTION: on('SALON_SECRETARY_VOICE_CORRECTION'),
     SALON_SECRETARY_TRANSCRIBE_ENABLED: on('SALON_SECRETARY_TRANSCRIBE_ENABLED'), SALON_SECRETARY_TRANSCRIBE_BUDGET_USD: process.env.SALON_SECRETARY_TRANSCRIBE_BUDGET_USD || '2',
     SALON_SECRETARY_TRANSCRIBE_SALONS: await newestTestSalon(), SALON_SECRETARY_CANCEL_REASON_OPTIONAL: on('SALON_SECRETARY_CANCEL_REASON_OPTIONAL'),

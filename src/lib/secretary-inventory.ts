@@ -10,6 +10,7 @@ import { inventoryReferenceCatalog } from "./inventory-reference-catalog";
 import { inventoryPatch, upsertInventoryDraft, proposeStockMovement, confirmStockMovement } from "./inventory-actions";
 import { groundInventoryQuantity, missingInventoryQuantity, inventoryQuantityQuestion, sourceHasInventoryCount, inventoryProductInSource, inventoryProductCorrectionInSource, type InventoryQuantityContext, type InventoryQuantityResolution, type InventoryQuantityWitness } from "./inventory-quantity";
 import type {InventoryOperationScope} from "./inventory-source-scope";
+import { singularProductQuery } from "./product-name-singular";
 
 export type InventoryState = {
   operation?: "product.search" | "stock.balance" | "stock.movement"; query?: string; target?: string;
@@ -119,7 +120,11 @@ async function applyInventoryMutable(actor: ServiceActor, s: InventoryState, inp
   if(s.target){await resolved(actor,s);return;}
   if(!s.query&&!s.low_stock){s.message="Qual é o produto?";return;}
   const t=performance.now();
-  const candidates=await withTenant(actor,tx=>searchProducts(tx,actor,{...(s.query?{query:s.query}:{}),low_stock:s.low_stock??false}));
+  let candidates=await withTenant(actor,tx=>searchProducts(tx,actor,{...(s.query?{query:s.query}:{}),low_stock:s.low_stock??false}));
+  // A product said in the plural ("quatro Óleos Aurora") is kept in the singular by the catalog: when the name as said found
+  // nothing, ONE more search with it in the singular; several matches still ask (identity only, the quantity proof is unchanged).
+  const singular=s.query&&!candidates.length?singularProductQuery(s.query):undefined;
+  if(singular&&singular!==s.query)candidates=await withTenant(actor,tx=>searchProducts(tx,actor,{query:singular,low_stock:s.low_stock??false}));
   s.metrics.product_resolution=performance.now()-t;
   if(operation==="product.search"||s.low_stock){
     s.products=candidates.slice(0,20); s.status="DONE";
