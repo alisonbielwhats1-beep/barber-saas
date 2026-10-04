@@ -33,8 +33,9 @@ export const FREE_USE_DEEPSEEK_MISSION = 'secretary-deepseek-openrouter-20261004
 // cost is ~US$ 0.02); the REAL OpenRouter spend stays capped at US$ 2 by the OpenRouter journal (local-demo-budget.cjs).
 // Owner, 04/10/2026 (in chat, asked about US$ 10): "não tem necessidade, se o gasto real é de centavos": reservations up to US$ 10,
 // then US$ 15 for the confirmation run after the customer-list fix, then US$ 25 for the Golden k=3 at temperature 0 the owner asked
-// for, then US$ 35 for the k=3 of the final prompt (same instruction; real spend ~US$ 0.35 at that point).
-export const FREE_USE_DEEPSEEK_MISSION_CAP_MICRO_USD = 35_000_000;
+// for, then US$ 35 for the k=3 of the final prompt, then US$ 50 for the certification run of the model registry (same instruction;
+// real spend US$ 0.57 at that point, and from then on OpenRouter's real spend is capped by its own program wallet).
+export const FREE_USE_DEEPSEEK_MISSION_CAP_MICRO_USD = 50_000_000;
 // Fixed allowlist. A mission owns exactly one repository-relative journal; no CLI/env path, reset or reuse across missions.
 export const FREE_USE_MISSIONS = Object.freeze({
   [FREE_USE_MISSION]:Object.freeze({capMicroUsd:FREE_USE_MISSION_CAP_MICRO_USD,journal:'packages/salon-secretary/evaluation/results/free-use/mission-20260926-admission.jsonl'}),

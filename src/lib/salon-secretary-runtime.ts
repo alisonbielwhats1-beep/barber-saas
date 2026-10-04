@@ -1,5 +1,6 @@
 import "server-only";
-import { createPaidModel, multiActionConfiguration } from "@everflair/salon-secretary";
+import { assertSecretaryModelCertified, createPaidModel, modelCertificationRequired, multiActionConfiguration, secretaryContractVersion } from "@everflair/salon-secretary";
+import { backendPresentationDigest } from "./secretary-presentation-contract";
 import { SalonSecretary } from "./salon-secretary";
 import { persistedSessionStore } from "./secretary-session-store";
 import { assertSafeDatabaseOperation } from "./database-safety";
@@ -29,7 +30,15 @@ async function secretaryModel() {
     if (process.env.APP_ENV !== 'test' || process.env.SALON_SECRETARY_ALLOW_PAID_CALLS !== 'false') throw Error('SCRIPTED_MODEL_TEST_ONLY');
     return (await import('../test/secretary-front-model')).frontTestModel();
   }
+  assertCertifiedModel(process.env);
   return createPaidModel(process.env);
+}
+/** Quality gate (owner decision 04/10/2026; packages/salon-secretary/src/model-certification.ts): outside local development and
+ * tests the configured model answers only with a Golden certificate for the live contract (prompt, wire, flags, model profile). */
+export function assertCertifiedModel(env: Record<string, string | undefined>) {
+  if (!modelCertificationRequired(env)) return;
+  const modelId = env.SALON_SECRETARY_MODEL ?? "";
+  assertSecretaryModelCertified(modelId, secretaryContractVersion({ modelId, presentation: backendPresentationDigest() }));
 }
 export const salonSecretary = new SalonSecretary(secretaryModel, undefined, undefined, {
   enabled: () => process.env.SALON_SECRETARY_JEV_ROUTER_ENABLED === "true",

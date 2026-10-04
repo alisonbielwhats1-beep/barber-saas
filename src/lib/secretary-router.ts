@@ -1,4 +1,4 @@
-import { validateSelection, measureServicesModel, selectionSchemaV2, communicationInterpretation, financialInterpretation, inventoryInterpretation, REQUEST_DEGRADATIONS,
+import { validateSelection, measureServicesModel, selectionSchemaV2, communicationInterpretation, financialInterpretation, inventoryInterpretation, REQUEST_DEGRADATIONS, SECRETARY_MODELS,
   type CapabilitySelection, type Model, type ModelCallUsage, type RequestBudgetTelemetry, type RequestDegradation } from "@everflair/salon-secretary";
 import { assessJevAcceptance, initialAllowlist, ACCEPTANCE_POLICY_VERSION, type AcceptanceVerdict } from "../../packages/salon-secretary/evaluation/acceptance-policy";
 import { DerivedJevProvider } from "../../packages/salon-secretary/evaluation/derived-provider";
@@ -24,22 +24,22 @@ export type RouterOptions = {
 export type RouterPath = "FAST_PATH" | "JEV_ACCEPTED" | "JEV_FALLBACK_LUNA" | "DIRECT_LUNA";
 type Usage = Pick<ModelCallUsage, "model_id_requested" | "model_id_returned" | "status" | "input_tokens" | "cached_input_tokens" | "cache_write_tokens" | "output_tokens" | "reasoning_tokens" | "total_tokens">;
 
-/** US$ per million tokens. DeepSeek V4.1 Flash goes through OpenRouter's default route (any of its providers), so its rates are
- * the highest each item costs among those providers (OpenRouter catalog, 04/10/2026): the estimate never falls below the real cost.
- * It has no cache-write charge. ("Luna" in the router's names is the model interpretation, whichever model serves it.) */
-const ROUTER_RATES: Record<string, { input: number; cached: number; write: number | null; output: number }> = {
-  "gpt-6-luna": { input: 0.10, cached: 0.01, write: 0.125, output: 0.50 },
-  "deepseek/deepseek-v4.1-flash": { input: 0.45, cached: 0.048, write: null, output: 2.40 },
+/** US$ per million tokens from the model registry (packages/salon-secretary/src/model-registry.ts): never below what the
+ * provider can charge on the admitted routes. ("Luna" in the router's names is the model interpretation, whichever model serves it.) */
+const routerRates = (modelId: string) => {
+  const profile = SECRETARY_MODELS.find(candidate => candidate.id === modelId), pricing = profile?.pricing;
+  return profile && pricing ? { input: pricing.inputUsdPerMillion, cached: pricing.cachedUsdPerMillion, write: pricing.cacheWriteUsdPerMillion,
+    output: pricing.outputUsdPerMillion, chat: profile.wire === "chat-completions" } : undefined;
 };
 /** An estimate, never a wallet debit. Missing counters and rollback pricing remain unknown.
  * Standard short-context GPT-6 rates already audited in Gate 3.1B (2026-09-22).
  * Reasoning is included in output; absent cache-write is NOT fabricated as zero (except where the model has no such charge). */
 export function routerLunaCost(usage: Usage): number | null {
-  const rates = Object.hasOwn(ROUTER_RATES, usage.model_id_requested) ? ROUTER_RATES[usage.model_id_requested] : undefined;
+  const rates = routerRates(usage.model_id_requested);
   const { input_tokens: input, cached_input_tokens: cached, output_tokens: output } = usage;
   const write = rates && rates.write === null ? usage.cache_write_tokens ?? 0 : usage.cache_write_tokens;
-  // OpenRouter may return the dated id of the same model ("deepseek/deepseek-v4.1-flash-…").
-  const returned = usage.model_id_returned === usage.model_id_requested || (rates?.write === null && !!usage.model_id_returned?.startsWith(`${usage.model_id_requested}-`));
+  // A chat provider (OpenRouter) may return the dated id of the same model ("deepseek/deepseek-v4.1-flash-…").
+  const returned = usage.model_id_returned === usage.model_id_requested || (!!rates?.chat && !!usage.model_id_returned?.startsWith(`${usage.model_id_requested}-`));
   if (!rates || !returned ||
       [input, cached, write, output].some(v => v === null || !Number.isSafeInteger(v) || v < 0) ||
       input! > 272_000 || cached! + write! > input!) return null;

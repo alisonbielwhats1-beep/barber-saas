@@ -5,7 +5,7 @@ import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync,
 import { join, relative, resolve } from 'node:path';
 import { tmpdir, userInfo } from 'node:os';
 import {
-  PROGRAM_CAP_HISTORY, PROGRAM_REAL_CAP_MICRO_USD, PROGRAM_REAL_CAP_USD, PROGRAM_SPEND_ANCHOR_FILE, PROGRAM_SPEND_BASENAME, PROGRAM_SPEND_FILE, assertProgramHeadroom, formatProgramSpend, guardPaidFetch,
+  PROGRAM_CAP_HISTORY, PROGRAM_SPEND_WALLETS, PROGRAM_REAL_CAP_MICRO_USD, PROGRAM_REAL_CAP_USD, PROGRAM_SPEND_ANCHOR_FILE, PROGRAM_SPEND_BASENAME, PROGRAM_SPEND_FILE, assertProgramHeadroom, formatProgramSpend, guardPaidFetch,
   programSpendEstimator, programSpendLabel, programSpendLedgerPath, programSpendTotals, readProgramLedger, reserveProgramSpend, responsesEstimator, responsesUsageMicroUsd, settleProgramSpend,
   worstCaseMicroUsd, type PaidEstimator,
 } from '../../../packages/salon-secretary/evaluation/program-spend';
@@ -206,15 +206,19 @@ describe('program real-spend cap: hash-chained, append-only ledger', () => {
       'US$ 8.000000 em 2026-09-29 (owner raise in chat (+US$2, Candidate 4 proof)); US$ 15.000000 em 2026-09-29 (owner raise in chat (US$15, Candidate 4 proof headroom))');
     for (const part of ['Por origem:', 'practice', 'golden', 'transcribe', 'Por execução:', 'golden:golden-free-use-30:abc [golden]']) expect(text).toContain(part);
   });
-  it('the report CLI prints the fixed ledger read-only and takes no path argument', () => {
-    const real = programSpendLedgerPath(), before = fileState(real), cli = 'packages/salon-secretary/evaluation/program-spend-report.cjs';
-    const anchor = resolve(PROGRAM_SPEND_ANCHOR_FILE), anchorBefore = fileState(anchor);
+  // Wallets migration (04/10/2026, backup: .demo/agenda-core/contract-migration/program-spend.test.before-wallets.ts): the report
+  // prints one section per wallet (OpenAI, OpenRouter); every real ledger and anchor stays untouched by a unit test.
+  it('the report CLI prints the fixed ledgers read-only (one per wallet) and takes no path argument', () => {
+    const cli = 'packages/salon-secretary/evaluation/program-spend-report.cjs';
+    const reals = (['openai', 'openrouter'] as const).map(wallet => programSpendLedgerPath(wallet)), before = reals.map(fileState);
+    const anchors = [resolve(PROGRAM_SPEND_ANCHOR_FILE), resolve(PROGRAM_SPEND_WALLETS.openrouter.anchorFile)], anchorsBefore = anchors.map(fileState);
     const json = spawnSync(process.execPath, [cli, '--json'], { encoding: 'utf8', timeout: 60_000 });
-    if (json.status === 0) expect(JSON.parse(json.stdout)).toMatchObject({ ledger: 'program-spend-20260927', capUsd: 15, capHistory: PROGRAM_CAP_HISTORY, hardStop: null });
+    if (json.status === 0) expect(JSON.parse(json.stdout)).toMatchObject({ openai: { ledger: 'program-spend-20260927', wallet: 'openai', capUsd: 15, capHistory: PROGRAM_CAP_HISTORY, hardStop: null },
+      openrouter: { ledger: 'program-spend-openrouter-20261004', wallet: 'openrouter', capUsd: 1.4, hardStop: null } });
     else expect(json.stderr + json.stdout).toMatch(/PROGRAM_SPEND_JOURNAL|"hardStop": "PROGRAM_SPEND_/); // reported, never repaired
     expect(spawnSync(process.execPath, [cli, 'C:/elsewhere/program-spend-20260927.jsonl'], { encoding: 'utf8', timeout: 60_000 }).status).toBe(2);
-    expect(fileState(real)).toBe(before); expect(existsSync(real + '.lock')).toBe(false);
-    expect(fileState(anchor)).toBe(anchorBefore); // a unit test never moves the real anchor
+    expect(reals.map(fileState)).toEqual(before); for (const real of reals) expect(existsSync(real + '.lock')).toBe(false);
+    expect(anchors.map(fileState)).toEqual(anchorsBefore); // a unit test never moves a real anchor
   }, 60_000);
 });
 

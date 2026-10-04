@@ -2,11 +2,13 @@
  * profile the coordinator validates with batteries, secretaryContractVersion() and the hash of each of its parts. A test
  * fails when the live version differs; the coordinator re-runs Golden pass^k and the practice battery for the changed
  * profiles and then updates the file deliberately (npx tsx scripts/secretary-contract-version.ts --write). Offline only. */
-import { secretaryContractDigest, SECRETARY_CONTRACT_ENV, SECRETARY_CONTRACT_SCHEMA } from '../src';
+import { DEFAULT_SECRETARY_MODEL, secretaryContractDigest, SECRETARY_CONTRACT_ENV, SECRETARY_CONTRACT_SCHEMA } from '../src';
 import { backendPresentationDigest } from '../../../src/lib/secretary-presentation-contract';
 
 export const CONTRACT_VERSION_FILE = 'packages/salon-secretary/contract-version.json';
-export const CONTRACT_MODEL = 'gpt-6-luna';
+/** The Secretary's model (model-registry.ts DEFAULT_SECRETARY_MODEL; GPT-6 Luna until 04/10/2026). Per-model quality evidence
+ * lives in packages/salon-secretary/model-certificates.json (model-certification.ts). */
+export const CONTRACT_MODEL = DEFAULT_SECRETARY_MODEL;
 const V2 = { SALON_SECRETARY_MULTI_ACTION_V2_ENABLED: 'true' };
 /** Every contract variable a profile does not set is unset (off / default output limit). */
 export const CONTRACT_PROFILES: Readonly<Record<string, Readonly<Record<string, string>>>> = Object.freeze({

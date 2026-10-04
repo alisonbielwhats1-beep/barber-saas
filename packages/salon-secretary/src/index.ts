@@ -18,7 +18,8 @@ export * from "./dependency-graph";
 import { Agent, Runner, tool, OpenAIProvider, type Model, type JsonSchemaDefinition } from "@openai/agents";
 import OpenAI from "openai";
 import { z } from "zod";
-import { assertSecretaryModelId, assertSecretaryModelRequest, secretaryGuardedFetch, secretaryModelProvider } from "./openai-cost-guard";
+import { assertSecretaryModelRequest, secretaryGuardedFetch } from "./openai-cost-guard";
+import { secretaryChatOptions, secretaryModelContractPart, secretaryModelProfile } from "./model-registry";
 import { isRecordedServicesModel } from './recorded-services-model';
 import { uninstrumentedServicesModel } from './usage';
 import { invalidSourceLiterals, assertSourceLiteralRepair, sourceLiteralRepairRequest } from './source-literal-repair';
@@ -64,7 +65,9 @@ import { pilotContractParts } from './pilot-reschedule-prompt';
 export { examplesMode, examplesK, examplesContractTag, examplesState, eligibleExamples, selectExamples, composeExamples, secretaryRequestBytes, withExamplesObserver, jsonTextBytes,
   EXAMPLES_HEADER, EXAMPLES_REQUEST_CAP, EXAMPLES_OUTPUT_FRAMING, type ExamplesMode, type ExamplesState, type ExamplesBlock, type ExamplesTelemetry } from './examples/select';
 export { assertSecretaryModelId, assertSecretaryModelRequest, assertSecretaryResponsesPayload, secretaryGuardedFetch } from "./openai-cost-guard";
-export { assertSecretaryChatPayload, assertOpenRouterOutboundBody, completeOmittedNulls, secretaryModelProvider, OPENROUTER_CHAT_URL } from "./openai-cost-guard";
+export { assertSecretaryChatPayload, assertChatOutboundBody, assertOpenRouterOutboundBody, chatOutboundBody, completeOmittedNulls, secretaryModelProvider, OPENROUTER_CHAT_URL } from "./openai-cost-guard";
+export * from "./model-registry";
+export * from "./model-certification";
 export { customersSkill } from "./customers-skill";
 export { servicesSkill } from "./services-skill";
 export { Usage, type Model, type ModelRequest, type ModelResponse } from "@openai/agents";
@@ -372,7 +375,7 @@ export const SECRETARY_CONTRACT_ENV = ['SALON_SECRETARY_TEMPORAL_COMPONENTS','SA
   'SALON_SECRETARY_MULTI_ACTION_V2_ENABLED','SALON_SECRETARY_SCHEDULING_OVERLAP_ENABLED','SALON_SECRETARY_V2_MAX_OUTPUT_TOKENS','SALON_SECRETARY_MODEL','SALON_SECRETARY_TEMPORAL_POLARITY','SALON_SECRETARY_SAME_AS',
   'SALON_SECRETARY_STRUCTURED_CONTEXT','SALON_SECRETARY_ALTER_APPOINTMENT','SALON_SECRETARY_MULTI_SERVICE','SALON_SECRETARY_COPY_V2','SALON_SECRETARY_REFERENCES_V2','SALON_SECRETARY_READS_V2','SALON_SECRETARY_RECURRENCE_GUARD',
   'SALON_SECRETARY_EXAMPLES_V2','SALON_SECRETARY_PROMPT_CACHE','SALON_SECRETARY_AGENT','SALON_SECRETARY_AGENT_EFFORT','SALON_SECRETARY_AGENT_EFFORT_ROUNDS','SALON_SECRETARY_AGENT_PRELOAD',
-  'SALON_SECRETARY_PILOT_RESCHEDULE','SALON_SECRETARY_CANCEL_REASON_OPTIONAL'] as const;
+  'SALON_SECRETARY_PILOT_RESCHEDULE','SALON_SECRETARY_CANCEL_REASON_OPTIONAL','SALON_SECRETARY_OPENROUTER_PROVIDER','SALON_SECRETARY_OPENROUTER_REASONING'] as const;
 const contractHash=(value:unknown)=>createHash('sha256').update(typeof value==='string'?value:JSON.stringify(value)).digest('hex');
 /** Synthetic, fixed: one open action per published operation (an option card, a daypart and both calendar kinds, a
  * pending discard) plus one suspended plan, so every mode, operation group and state-bound rule is compiled. */
@@ -405,6 +408,7 @@ const agentArmTags=()=>{
   return {...(efforts?{efforts}:{}),...(agentPreloadEnabled()?{preload:true}:{})};
 };
 export function secretaryContractParts(options:SecretaryContractOptions={}){
+  const modelRequest=secretaryModelContractPart(options.modelId??process.env.SALON_SECRETARY_MODEL??'');
   const components=temporalComponentsEnabled(),jit=jitInstructionsEnabled(),examples=examplesMode(),context=canonicalContractContext();
   const agentOn=agentEnabled(),agentParts=agentOn?agentContractParts():undefined;
   // Pilot of the reschedule (flag SALON_SECRETARY_PILOT_RESCHEDULE): its own request replaces every model call; named only when on.
@@ -461,12 +465,15 @@ export function secretaryContractParts(options:SecretaryContractOptions={}){
       // C5 agent: named only when on, with its one effort per message (an invalid value is named as such; the agent then does not run),
       // and the S1 arm it runs (agentArmTags: per-call efforts, pre-load) when set.
       ...(agentOn?{agent:{effort:agentEffortTag(),...agentArmTags()}}:{}),...(pilotOn?{pilot:true}:{}),...(budgetSteps(options).length?{requestBudget:budgetSteps(options)}:{})},
+    // 04/10 (model registry): a chat model's request profile (strict tools, temperature, reasoning, pinned provider, completion of
+    // omitted nulls) shapes every answer, so it is a contract part; named only for chat models (every OpenAI version is kept).
+    ...(modelRequest?{modelRequest}:{}),
     templates,wires,...(options.presentation?{presentation:options.presentation}:{})};
 }
 /** The version and the hash of each part (so a changed version says what changed). */
 export function secretaryContractDigest(options:SecretaryContractOptions={}){
   const parts=secretaryContractParts(options);
-  return {version:contractHash(parts),parts:{templates:contractHash(parts.templates),wires:contractHash(parts.wires),runtime:contractHash({schema:parts.schema,model:parts.model,outputLimit:parts.outputLimit,flags:parts.flags}),
+  return {version:contractHash(parts),parts:{templates:contractHash(parts.templates),wires:contractHash(parts.wires),runtime:contractHash({schema:parts.schema,model:parts.model,outputLimit:parts.outputLimit,flags:parts.flags,...(parts.modelRequest?{modelRequest:parts.modelRequest}:{})}),
     ...(parts.presentation?{presentation:parts.presentation}:{})}};
 }
 const contractVersions=new Map<string,string>();
@@ -479,38 +486,31 @@ export function secretaryContractVersion(options:SecretaryContractOptions={}):st
 }
 
 export function paidModelConfig(env: Record<string, string | undefined>) {
-  // Dedicated credentials: never inherit HQ's key, organization or provider defaults.
+  // Dedicated credentials: never inherit HQ's key, organization or provider defaults. The model's registry profile names them
+  // (OpenAI: key + project; OpenRouter: its own key; transcription keeps the OpenAI key and project, secretary-transcribe.ts).
   if (env.SALON_SECRETARY_ALLOW_PAID_CALLS !== "true") throw new Error("PAID_CALLS_DISABLED");
   const modelId = env.SALON_SECRETARY_MODEL;
-  if (modelId && secretaryModelProvider(modelId) === "openrouter") {
-    // OpenRouter key of its own; transcription keeps using the OpenAI key and project (secretary-transcribe.ts).
-    const apiKey = env.SALON_SECRETARY_OPENROUTER_API_KEY;
-    if (!apiKey) throw new Error("SECRETARY_CONFIGURATION_REQUIRED");
-    return { modelId, apiKey, project: null, provider: "openrouter" as const };
-  }
-  const apiKey = env.SALON_SECRETARY_OPENAI_API_KEY;
-  const project = env.SALON_SECRETARY_OPENAI_PROJECT;
-  if (!modelId || !apiKey || !project) throw new Error("SECRETARY_CONFIGURATION_REQUIRED");
-  assertSecretaryModelId(modelId);
-  return { modelId, apiKey, project, provider: "openai" as const };
+  if (!modelId) throw new Error("SECRETARY_CONFIGURATION_REQUIRED");
+  const profile = secretaryModelProfile(modelId);
+  const apiKey = env[profile.apiKeyEnv], project = profile.projectEnv ? env[profile.projectEnv] : null;
+  if (!apiKey || (profile.projectEnv && !project)) throw new Error("SECRETARY_CONFIGURATION_REQUIRED");
+  return { modelId, apiKey, project: project ?? null, provider: profile.wallet };
 }
 export async function createPaidModel(env: Record<string, string | undefined>): Promise<Model> {
-  const config = paidModelConfig(env);
+  const config = paidModelConfig(env), profile = secretaryModelProfile(config.modelId);
   // C5 agent (§6.3): the guard admits the agent's format only when this factory says so (the flag read once, here); off: as before.
   // Pilot of the reschedule (flag SALON_SECRETARY_PILOT_RESCHEDULE): likewise its one-tool format, only with the flag; off: as before.
   const agent = env.SALON_SECRETARY_AGENT === "true", pilot = env.SALON_SECRETARY_PILOT_RESCHEDULE === "true";
-  if (config.provider === "openrouter") {
-    // DeepSeek through OpenRouter: Chat Completions, C4 only (the agent and the pilot depend on OpenAI-only Responses features).
-    if (agent || pilot) throw new Error("SECRETARY_OPENROUTER_C4_ONLY");
-    // Owner decision 04/10: pinned to Together (fastest measured, zero data retention, Golden 26/30); "any" = OpenRouter's default route.
-    const provider = env.SALON_SECRETARY_OPENROUTER_PROVIDER || "together";
-    const openRouter = { reasoning: env.SALON_SECRETARY_OPENROUTER_REASONING || undefined, provider: provider === "any" ? undefined : provider };
-    const client = new OpenAI({ apiKey: config.apiKey, organization: null, project: null, baseURL: "https://openrouter.ai/api/v1",
-      maxRetries: 0, timeout: 30_000, fetch: secretaryGuardedFetch(config.modelId, { openRouter }) });
-    return rememberRequestModelId(await new OpenAIProvider({ openAIClient: client, useResponses: false }).getModel(config.modelId), config.modelId);
+  // The agent and the pilot depend on OpenAI-only Responses features; a model without them serves the C4 path only.
+  if ((agent || pilot) && !profile.agentCapable) throw new Error("SECRETARY_OPENROUTER_C4_ONLY");
+  if (profile.wire === "chat-completions") {
+    // Chat Completions (OpenRouter): the profile's request options, unless a measurement knob says otherwise (read once, here).
+    const client = new OpenAI({ apiKey: config.apiKey, organization: null, project: null, baseURL: profile.baseURL,
+      maxRetries: 0, timeout: 30_000, fetch: secretaryGuardedFetch(profile.id, { openRouter: secretaryChatOptions(profile, env)! }) });
+    return rememberRequestModelId(await new OpenAIProvider({ openAIClient: client, useResponses: false }).getModel(profile.id), profile.id);
   }
   const client = new OpenAI({ apiKey: config.apiKey, project: config.project,
-    organization: null, baseURL: "https://api.openai.com/v1", maxRetries: 0, timeout: 30_000,
-    fetch: pilot ? secretaryGuardedFetch(config.modelId, { agent, pilot }) : agent ? secretaryGuardedFetch(config.modelId, { agent: true }) : secretaryGuardedFetch(config.modelId) });
-  return new OpenAIProvider({ openAIClient: client, useResponses: true }).getModel(config.modelId);
+    organization: null, baseURL: profile.baseURL, maxRetries: 0, timeout: 30_000,
+    fetch: pilot ? secretaryGuardedFetch(profile.id, { agent, pilot }) : agent ? secretaryGuardedFetch(profile.id, { agent: true }) : secretaryGuardedFetch(profile.id) });
+  return new OpenAIProvider({ openAIClient: client, useResponses: true }).getModel(profile.id);
 }

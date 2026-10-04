@@ -1,9 +1,23 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-10-04 — Secretária: arquitetura de modelos (cadastro, certificado, carteiras)
+
+Mesma branch, a pedido do dono ("trocar de LLM não pode ser um bloqueio, e os resultados têm que continuar muito bons").
+Ver `SECRETARY_MODEL_ARCHITECTURE.md`.
+- **Cadastro de modelos** (`model-registry.ts`): uma ficha por modelo com formato, carteira, endereço, credenciais,
+  capacidades, perfil de pedido e preço. A trava de custo, a fábrica, a versão de contrato (que agora inclui o perfil de pedido
+  dos modelos de chat), o custo de telemetria, o orçamento do pedido e a Golden leem a ficha.
+- **Adaptador Chat Completions** separado da validação.
+- **Portão de qualidade:** fora do desenvolvimento local e dos testes, só responde um modelo com certificado da Golden
+  (k ≥ 3, tudo certo) para o contrato atual (`model-certificates.json`, `scripts/secretary-certify-model.ts`).
+- **Gastos por carteira:** OpenAI e OpenRouter. A carteira do OpenRouter cobra o custo real informado, com teto de US$ 1,40
+  (US$ 2,00 aprovados menos o já gasto).
+- **Lançador genérico da Golden:** `scripts/run-secretary-golden-model.cjs`.
+
 ## 2026-10-04 — Secretária: DeepSeek V4.1 Flash no lugar do Luna (local)
 
 Branch `claude/llm-model-migration-a6ed7a`, sobre `claude/voice-system-cancellation-reason-44fd9a` (`c24f48a`),
-sem push. Decisão do dono (`DECISOES_PRODUTO.md`, 32–36): o caminho C4 da Secretária passa a chamar o
+enviada ao GitHub sem PR. Decisão do dono (`DECISOES_PRODUTO.md`, 32–36): o caminho C4 da Secretária passa a chamar o
 DeepSeek V4.1 Flash pelo OpenRouter (Chat Completions, rota padrão, raciocínio desligado), com chave própria
 `SALON_SECRETARY_OPENROUTER_API_KEY`. A transcrição continua na OpenAI. A trava de custo admite só o formato C4
 no endereço do OpenRouter; o agente C5 e o piloto continuam exigindo a OpenAI. O Luna volta com

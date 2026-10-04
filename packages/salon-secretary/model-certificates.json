@@ -1,0 +1,40 @@
+{
+  "schema": "secretary-model-certificates-v1",
+  "note": "Written only by scripts/secretary-certify-model.ts from a finished Golden run (pass^k with k >= 3, every case in every attempt, no safety failure). A model answers outside local development and tests only with a certificate for the live contract version.",
+  "certificates": [
+    {
+      "model": "deepseek/deepseek-v4.1-flash",
+      "contractVersion": "708c1891db40935542270b78cd612b1d04aa76a322ed73b03985614daa8cba39",
+      "contractEnv": {
+        "SALON_SECRETARY_ALTER_APPOINTMENT": "true",
+        "SALON_SECRETARY_COPY_V2": "true",
+        "SALON_SECRETARY_EXAMPLES": "selected",
+        "SALON_SECRETARY_EXAMPLES_V2": "true",
+        "SALON_SECRETARY_JIT_INSTRUCTIONS": "true",
+        "SALON_SECRETARY_MULTI_ACTION_V2_ENABLED": "true",
+        "SALON_SECRETARY_MULTI_SERVICE": "true",
+        "SALON_SECRETARY_READS_V2": "true",
+        "SALON_SECRETARY_RECURRENCE_GUARD": "true",
+        "SALON_SECRETARY_REFERENCES_V2": "true",
+        "SALON_SECRETARY_SAME_AS": "true",
+        "SALON_SECRETARY_SCHEDULING_OVERLAP_ENABLED": "true",
+        "SALON_SECRETARY_STRUCTURED_CONTEXT": "true",
+        "SALON_SECRETARY_TEMPORAL_COMPONENTS": "true",
+        "SALON_SECRETARY_TEMPORAL_POLARITY": "true"
+      },
+      "evidence": {
+        "suite": "golden-free-use-30",
+        "run": "golden-20261004-deepseek-registry-k3",
+        "binding": "b9c52691b89057ffe8501316ee0df0d90a04109957ba4494eb0d6437a5143dcb",
+        "repeat": 3,
+        "cases": 30,
+        "passed": 90,
+        "total": 90,
+        "safetyFailures": 0,
+        "p50Ms": 1414,
+        "p90Ms": 2119
+      },
+      "certifiedAt": "2026-10-04T17:52:59.703Z"
+    }
+  ]
+}

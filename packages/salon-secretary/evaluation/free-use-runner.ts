@@ -16,13 +16,14 @@ import type { SyntheticFixture } from './hard-conversations-fixtures';
 import { parseFreeUseSuite, type CaseStatus, type FixtureIdentity, type FreeUseSuite } from './free-use-contract';
 import { fixtureIdentity, seedFreeUseFixture, verifyFreeUseFixture } from './free-use-fixture';
 import { goldenSuite } from './free-use-golden';
-import { FreeUseBudget, digest, FREE_USE_DEEPSEEK_MISSION, freeUseMissionJournal, freeUseMissionPricing, freeUseMissionReservedMicroUsd, selectFreeUseMission } from './free-use-budget';
+import { FreeUseBudget, digest, FREE_USE_MISSIONS, freeUseMissionJournal, freeUseMissionPricing, freeUseMissionReservedMicroUsd, selectFreeUseMission } from './free-use-budget';
 import { aggregatePassK, attemptCaseLabel, attemptDirectory, attemptNamespace, freeUseRepeat, freeUseRequestLimit } from './free-use-repeat';
 import { assertFreeUseFlags, freeUseFlags } from './free-use-options';
 import { canSendTurn, emptyMetrics, observeView, scoreMissingQuestion, scoreTurn, valueAt, type TurnObservation, type TurnScore } from './free-use-score';
 import type { EntityBindings, TurnExpectation } from './free-use-contract';
 import { withFreeUseClock } from './free-use-clock';
-import { assertProgramHeadroom, guardPaidFetch, openRouterChatEstimator, isProgramSpendError, programSpendLabel, programSpendLedgerPath, programSpendSummary, programSpendTotals } from './program-spend';
+import { assertProgramHeadroom, guardPaidFetch, openRouterCostEstimator, isProgramSpendError, programSpendLabel, programSpendLedgerPath, programSpendSummary, programSpendTotals, programSpendWalletOfModel } from './program-spend';
+import { secretaryModelProfile } from '../src/model-registry';
 import { rawWriteVerdict, technicalWriteTables } from './free-use-technical-writes';
 import { persistedSessionStore } from '../../../src/lib/secretary-session-store';
 import { secretaryErrorMessage } from '../../../src/lib/secretary-error-copy';
@@ -41,15 +42,18 @@ const { observeProvider } = require('../../../scripts/secretary-passive-observer
 const evidenceWrite = (path: string, data: unknown) => writeFileSync(path, JSON.stringify(data,null,2)+'\n', {flag:'wx',mode:0o600});
 const code = (error: unknown) => error instanceof Error && /^[A-Z0-9_:.-]{1,160}$/.test(error.message) ? error.message : 'FREE_USE_FAILURE_REDACTED';
 /** The model a free-use run measures: GPT-6 Luna, or DeepSeek V4.1 Flash through OpenRouter (04/10/2026) under its own mission only. */
-const FREE_USE_MODELS = ['gpt-6-luna', 'deepseek/deepseek-v4.1-flash'] as const;
-export const freeUseModel = () => process.env.SALON_SECRETARY_MODEL as (typeof FREE_USE_MODELS)[number];
+/** The model a free-use run measures (model-registry.ts): a registered model that a free-use mission prices (each mission's sealed
+ * pricing names its model), so adding a model to the evaluation is a registry profile plus an owner-approved mission. */
+export const freeUseModel = () => process.env.SALON_SECRETARY_MODEL ?? '';
+const freeUseModelAdmitted = (modelId: string) => { try { secretaryModelProfile(modelId); } catch { return false; }
+  return Object.keys(FREE_USE_MISSIONS).some(id => freeUseMissionPricing(id).pricing.model === modelId); };
 /** DeepSeek runs only under the DeepSeek mission (its pricing and US$ 2 cap), and Luna never under it. */
 function assertMissionModel(missionId: string) {
-  if ((freeUseModel() === 'deepseek/deepseek-v4.1-flash') !== (missionId === FREE_USE_DEEPSEEK_MISSION)) throw Error('FREE_USE_MISSION_MODEL');
+  if (freeUseMissionPricing(missionId).pricing.model !== freeUseModel()) throw Error('FREE_USE_MISSION_MODEL');
 }
 export function assertFreeUseEnvironment() {
   if (process.env.APP_ENV !== 'test' || process.env.VERCEL_ENV === 'production' || process.env.SALON_SECRETARY_ALLOW_PAID_CALLS !== 'false' ||
-    process.env.SALON_SECRETARY_JEV_ROUTER_ENABLED !== 'false' || !(FREE_USE_MODELS as readonly unknown[]).includes(process.env.SALON_SECRETARY_MODEL)) throw Error('FREE_USE_ENVIRONMENT');
+    process.env.SALON_SECRETARY_JEV_ROUTER_ENABLED !== 'false' || !freeUseModelAdmitted(freeUseModel())) throw Error('FREE_USE_ENVIRONMENT');
   for (const [name,role] of [['DATABASE_URL','mvp_service_runtime'],['DIRECT_URL','mvp_test_admin']] as const) {
     const url = new URL(process.env[name] ?? 'invalid:');
     if (!['postgres:','postgresql:'].includes(url.protocol) || url.hostname !== '127.0.0.1' || url.port !== '55441' ||
@@ -190,8 +194,9 @@ export async function runFreeUse(out:string,missionId?:string) {
   if(manifest.schemaVersion!==2)throw Error('FREE_USE_MANIFEST_SCHEMA');
   const suite=parseFreeUseSuite(manifest.suite);
   if(process.env.FREE_USE_APPROVED_MANIFEST!==binding||process.env.FREE_USE_REAL_LUNA_APPROVED!=='true')throw Error('FREE_USE_NETWORK_NOT_AUTHORIZED');
-  const openRouter=freeUseModel()!=='gpt-6-luna';
-  if(openRouter?!process.env.SALON_SECRETARY_OPENROUTER_API_KEY:!process.env.SALON_SECRETARY_OPENAI_API_KEY||process.env.SALON_SECRETARY_OPENAI_PROJECT!=='proj_IcNUaSBqgYGrPkSBtF9dZ0CF')throw Error('FREE_USE_PROVIDER_PROJECT');
+  // The model's registry profile names its credentials and its wallet (OpenAI: the program's pinned project; OpenRouter: its key).
+  const profile=secretaryModelProfile(freeUseModel()),openRouter=programSpendWalletOfModel(profile.id)==='openrouter';
+  if(!process.env[profile.apiKeyEnv]||(profile.wallet==='openai'&&process.env.SALON_SECRETARY_OPENAI_PROJECT!=='proj_IcNUaSBqgYGrPkSBtF9dZ0CF'))throw Error('FREE_USE_PROVIDER_PROJECT');
   if(manifest.confirm!==false||manifest.execute!==false||JSON.stringify(manifest.sourceHashes)!==JSON.stringify(implementationHashes()))throw Error('FREE_USE_MANIFEST_DRIFT');
   // Every SALON_SECRETARY_* flag snapshotted at prepare (overlap included) must be identical now.
   assertFreeUseFlags(manifest.flags);
@@ -214,7 +219,8 @@ export async function runFreeUse(out:string,missionId?:string) {
   const budget=new FreeUseBudget(missionJournal,binding,manifest.budget.maxRequests,manifest.budget.outputCap,manifest.budget.pricingSha256,mission.id);
   if(budget.requests)throw Error('FREE_USE_ALREADY_STARTED');
   // Program-wide real-spend ledger (shared with practice/transcription), validated before any database access.
-  const programLedger=programSpendLedgerPath(),programRun=programSpendLabel(`golden:${suite.suiteId}:${binding.slice(0,12)}`);
+  // Each wallet has its own program ledger: OpenRouter calls settle there at the cost OpenRouter reports (04/10/2026).
+  const programLedger=programSpendLedgerPath(profile.wallet),programRun=programSpendLabel(`golden:${suite.suiteId}:${binding.slice(0,12)}`);
   programSpendTotals(programLedger);
   const lock=join(out,'run.lock'),fd=openSync(lock,'wx',0o600),admin=new PrismaClient({datasources:{db:{url:process.env.DIRECT_URL}}});
   const network=globalThis.fetch,observations:(typeof fetch & {flushObservations():Promise<void>})[]=[];
@@ -246,11 +252,11 @@ export async function runFreeUse(out:string,missionId?:string) {
       // Each attempt keeps its own share of the single binding; exceeding it is an admission failure.
       if(run.requests>=manifest.budget.maxRequestsPerAttempt)throw Error('FREE_USE_ATTEMPT_REQUESTS_EXHAUSTED');
       // Program real-spend cap first: a refused call consumes neither a mission reservation nor transport.
-      await assertProgramHeadroom(input,init,{ledger:programLedger,agent,...(openRouter?{estimator:openRouterChatEstimator}:{})});
+      await assertProgramHeadroom(input,init,{ledger:programLedger,agent,...(openRouter?{estimator:openRouterCostEstimator}:{})});
       request=budget.reserve(attemptCaseLabel(current.caseId,current.attempt),current.turn,input,init,{agent});run.requests++;
     } catch (error) { admissionFailure=code(error); throw error; }
     const paid=guardPaidFetch('golden',network,{ledger:programLedger,run:programRun,item:programSpendLabel(`${attemptCaseLabel(current.caseId,current.attempt)}:t${current.turn}${agent?`:r${call}`:''}`),agent,
-      ...(openRouter?{estimator:openRouterChatEstimator}:{})});
+      ...(openRouter?{estimator:openRouterCostEstimator}:{})});
     const tapped=observeProvider(paid,data=>appendFile(join(out,attemptDirectory(current.attempt),'provider-observations.jsonl'),
       JSON.stringify({...request,caseId:current.caseId,repeatAttempt:current.attempt,...data})+'\n',{mode:0o600}));
     observations.push(tapped);

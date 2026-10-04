@@ -3,6 +3,10 @@
 Decisão do dono (04/10/2026): a Secretária troca o GPT-6 Luna pelo **DeepSeek V4.1 Flash**, chamado pelo
 **OpenRouter**. A transcrição de voz continua na OpenAI (`gpt-4o-mini-transcribe`). Motivo: velocidade.
 
+A troca foi depois incorporada à arquitetura de modelos (`SECRETARY_MODEL_ARCHITECTURE.md`): cadastro de modelos, portão de
+qualidade e gastos por carteira. **Certificado de 04/10:** Golden k=3 com 90/90 no contrato `708c1891…` (com o perfil de pedido),
+1,4 s de mediana e 2,1 s de p90 (`model-certificates.json`). Na carteira do OpenRouter, as 132 chamadas custaram US$ 0,09 reais.
+
 ## Resultado medido (Golden 30, mesmas frases e flags da prova do Luna de 30/09)
 
 | Rodada | Casos certos | Tempo por turno (p50 / p90 / máx.) | Falhas de segurança |

@@ -2,6 +2,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import type { Model } from "@openai/agents";
 import { uninstrumentedServicesModel } from "./usage";
 import type { SecretaryMessageContent } from "./prompt-cache";
+import { longestSecretaryModelId } from "./model-registry";
 
 /** Budget-aware request assembly. The hard cap is never raised: request body bytes + the output framing <= 64000 (the
  * same bound as the cost guard's input cap and the wire budget tests). A request that would not fit is degraded in a
@@ -18,8 +19,8 @@ export const requestTooLargeMessage = "Esse pedido ficou grande demais para eu p
 export const REQUEST_DEGRADATIONS = ["EXAMPLES_DROPPED", "STRUCTURED_CONTEXT", "JIT_APPENDIX", "SUSPENDED_TRIMMED"] as const;
 export type RequestDegradation = (typeof REQUEST_DEGRADATIONS)[number];
 
-/** Allowed model ids of the cost guard; the longest one bounds the body when the id cannot be read. */
-const LONGEST_MODEL_ID = "deepseek/deepseek-v4.1-flash";
+/** The longest admitted model id (model-registry.ts) bounds the body when the id cannot be read. */
+const LONGEST_MODEL_ID = longestSecretaryModelId();
 /** Ids of provider models that do not expose one (the SDK's Chat Completions model keeps it private): set by createPaidModel. */
 const rememberedModelIds = new WeakMap<Model, string>();
 export function rememberRequestModelId(model: Model, modelId: string): Model { rememberedModelIds.set(model, modelId); return model; }

@@ -4,29 +4,25 @@ import { AGENT_EFFORTS, AGENT_LIMITS } from "./agent-context";
 import { AGENT_PLAN_TOOL } from "./agent-plan";
 import { AGENT_LOOKUP_NAMES, AGENT_TOOL_NAMES, AGENT_TOOLS_SHA256, agentToolsDigest } from "./agent-tools";
 import { PILOT_REQUEST_LIMITS, PILOT_RESCHEDULE_TOOL, PILOT_TOOLS_SHA256, pilotToolsDigest } from "./pilot-reschedule-contract";
+import { secretaryModelProfile, type SecretaryModelProfile } from "./model-registry";
+import { chatOutboundBody, chatRequestExtras, completedToolArguments, type ChatMessage, type ChatRequestOptions } from "./chat-completions-wire";
+export { chatOutboundBody, chatRequestExtras, completeOmittedNulls } from "./chat-completions-wire";
 
 const FUNCTION_NAMES = ["select_capabilities", "upsert_action_draft"] as const;
-const MODELS = ["gpt-5.6-luna", "gpt-6-luna", "deepseek/deepseek-v4.1-flash"] as const;
-/** Served by OpenRouter (Chat Completions, C4 only; section at the end of this file). Every other model is OpenAI's Responses API. */
-const OPENROUTER_MODELS: readonly string[] = ["deepseek/deepseek-v4.1-flash"];
 const RESPONSE_FIELDS = new Set([
   "model", "instructions", "input", "tools", "tool_choice", "parallel_tool_calls",
   "max_output_tokens", "store", "stream", "include",
 ]);
 
 type FunctionName = (typeof FUNCTION_NAMES)[number];
-type SecretaryModel = (typeof MODELS)[number];
 const record = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 function fail(reason = "INVALID"): never { throw new Error(`SECRETARY_OPENAI_COST_GUARD:${reason}`); }
 
-export function assertSecretaryModelId(modelId: string): asserts modelId is SecretaryModel {
-  if (!MODELS.includes(modelId as SecretaryModel)) fail();
-}
-export const secretaryModelProvider = (modelId: string): "openai" | "openrouter" => {
-  assertSecretaryModelId(modelId);
-  return OPENROUTER_MODELS.includes(modelId) ? "openrouter" : "openai";
-};
+/** Admitted models: the registry (model-registry.ts); any other id is refused. */
+export function assertSecretaryModelId(modelId: string): void { secretaryModelProfile(modelId); }
+/** The wallet that pays a model's calls (OpenAI's Responses models, or the OpenRouter chat models). */
+export const secretaryModelProvider = (modelId: string): "openai" | "openrouter" => secretaryModelProfile(modelId).wallet;
 
 /** SDK boundary: reject hosted/deferred tools and provider overrides before the model is called. */
 export function assertSecretaryModelRequest(request: ModelRequest, expectedName: FunctionName): void {
@@ -44,7 +40,7 @@ export function assertSecretaryModelRequest(request: ModelRequest, expectedName:
 /** HTTP boundary: SDK upgrades and extra_body cannot silently add a hosted capability. C5: the agent's format (§6.3, below) only
  * with an explicit {agent:true}; everything else is checked exactly as before. */
 export function assertSecretaryResponsesPayload(value: unknown, expectedModel: string, options: SecretaryGuardOptions = {}): void {
-  assertSecretaryModelId(expectedModel);
+  if (secretaryModelProfile(expectedModel).wire !== "openai-responses") fail("RESPONSES_MODEL");
   if (!record(value)) fail("PAYLOAD_SHAPE");
   // A* premise probe (docs/c5-spike/13-sonda-premissa-astar.md): its own one-tool format only with an explicit {pilotAnchorProbe:true}, and nothing else under it.
   if (options.pilotAnchorProbe === true) return assertPilotAnchorProbePayload(value, expectedModel);
@@ -81,16 +77,17 @@ export function assertSecretaryResponsesPayload(value: unknown, expectedModel: s
  * an agent call observes it (observeSecretaryResponseUsage) the token counts of the response body reach the observer, numbers only,
  * so a response that ends `incomplete` (the SDK throws) still records what it cost. Without the option: as before. */
 export function secretaryGuardedFetch(modelId: string, options: SecretaryGuardOptions = {}): typeof fetch {
-  // OpenRouter serves only the C4 format: the agent, the pilot and the A* probe stay on OpenAI.
-  if (secretaryModelProvider(modelId) === "openrouter") {
+  const profile = secretaryModelProfile(modelId);
+  // A chat model serves only the C4 format: the agent, the pilot and the A* probe need OpenAI's Responses API.
+  if (profile.wire === "chat-completions") {
     if (options.agent || options.pilot || options.pilotAnchorProbe) fail("OPENROUTER_C4_ONLY");
-    return openRouterGuardedFetch(modelId, options.openRouter);
+    return chatGuardedFetch(profile, options.openRouter);
   }
   const agent = options.agent === true, pilot = options.pilot === true, probe = options.pilotAnchorProbe === true;
   return async (input, init) => {
     const url = input instanceof Request ? input.url : String(input);
     const method = init?.method ?? (input instanceof Request ? input.method : undefined);
-    if (url !== "https://api.openai.com/v1/responses" || method?.toUpperCase() !== "POST") fail();
+    if (url !== profile.endpoint || method?.toUpperCase() !== "POST") fail();
     const body = init?.body ?? (input instanceof Request ? await input.clone().text() : undefined);
     if (typeof body !== "string") fail();
     let payload: unknown;
@@ -107,7 +104,7 @@ export function secretaryGuardedFetch(modelId: string, options: SecretaryGuardOp
 /** docs/c5-spike/11-especificacao-agente.md §6.3. The agent's formats are admitted ONLY when the caller says {agent:true}: the guard
  * never reads the flag (the model factory reads it once; the program ledger gets it from the runner), so the C4 formats above stay
  * exactly as they were and an agent format without the option is refused like any unknown one. */
-export type SecretaryGuardOptions = { readonly agent?: boolean; readonly pilot?: boolean; /** OpenRouter models only */ readonly openRouter?: OpenRouterOptions;
+export type SecretaryGuardOptions = { readonly agent?: boolean; readonly pilot?: boolean; /** chat models only (model-registry.ts secretaryChatOptions) */ readonly openRouter?: ChatRequestOptions;
   /** A* premise probe only (docs/c5-spike/13-sonda-premissa-astar.md): the probe harness says so; nothing else ever passes it. */ readonly pilotAnchorProbe?: boolean };
 /** `include` of every agent call: with store:false the reasoning items come back encrypted and are returned as they came (§3.3). */
 export const AGENT_REASONING_INCLUDE = "reasoning.encrypted_content";
@@ -348,31 +345,16 @@ async function reportResponseUsage(response: Response): Promise<void> {
   } catch { /* Observation only: the response is returned untouched. */ }
 }
 
-// ---------------------------------------------------------------- OpenRouter (Chat Completions): DeepSeek in place of Luna, C4 only
+// ---------------------------------------------------------------- Chat Completions (registry wire "chat-completions"), C4 only
+/** OpenRouter's Chat Completions endpoint (the endpoint of the OpenRouter profiles in model-registry.ts). */
 export const OPENROUTER_CHAT_URL = "https://openrouter.ai/api/v1/chat/completions";
-/** Added by the guard to every OpenRouter call (the SDK never sends them). Routing as the owner chose it on 04/10: the model's default
- * OpenRouter route, no provider pinned; only providers that honor every parameter sent (the forced tool above all) are eligible.
- * Reasoning off: C4 is one forced call, Luna answered it with 0 reasoning tokens, and reasoning would only add latency and cost. */
-/** Measurement knobs (04/10), read once by the model factory from SALON_SECRETARY_OPENROUTER_REASONING / _PROVIDER, never by
- * the guard: a reasoning effort instead of "off", and ONE pinned provider (no fallback) instead of the default route. */
-export type OpenRouterOptions = { readonly reasoning?: string; readonly provider?: string };
-const OPENROUTER_EFFORTS = ["low", "medium", "high"];
-export function openRouterExtras(options: OpenRouterOptions = {}) {
-  const reasoning = options.reasoning ?? "off", provider = options.provider;
-  if ((reasoning !== "off" && !OPENROUTER_EFFORTS.includes(reasoning)) || (provider !== undefined && !/^[a-z0-9][a-z0-9-]{0,39}$/.test(provider))) fail("OPENROUTER_OPTIONS");
-  // temperature 0 (owner decision 04/10): the same sentence gets the same reading; Golden failures moved between runs at the default.
-  return { provider: provider ? { require_parameters: true, order: [provider], allow_fallbacks: false } : { require_parameters: true },
-    reasoning: reasoning === "off" ? { enabled: false } : { effort: reasoning }, temperature: 0 };
-}
-export const OPENROUTER_REQUEST_EXTRAS = Object.freeze(openRouterExtras());
 const CHAT_FIELDS = new Set(["model", "messages", "tools", "tool_choice", "parallel_tool_calls", "max_tokens", "store", "stream"]);
 const CHAT_MAX_OUTPUT_TOKENS = 8192;
-type ChatMessage = { role: "system" | "user"; content: string | { type: "text"; text: string }[] };
 
 /** HTTP boundary of the C4 format in Chat Completions (what @openai/agents sends with useResponses:false): exactly one strict local
  * function, forced by name, system/user text messages only, no stream, no hosted or provider extras from the SDK side. */
 export function assertSecretaryChatPayload(value: unknown, expectedModel: string): asserts value is Record<string, unknown> & { messages: ChatMessage[] } {
-  if (secretaryModelProvider(expectedModel) !== "openrouter") fail("CHAT_MODEL");
+  if (secretaryModelProfile(expectedModel).wire !== "chat-completions") fail("CHAT_MODEL");
   if (!record(value)) fail("PAYLOAD_SHAPE");
   const unexpected = Object.keys(value).filter(key => !CHAT_FIELDS.has(key));
   if (unexpected.length) fail(`UNEXPECTED_FIELD:${unexpected.join(",")}`);
@@ -399,112 +381,36 @@ export function assertSecretaryChatPayload(value: unknown, expectedModel: string
   }
 }
 
-/** The body OpenRouter receives: the checked C4 payload with each content as one string (no provider reads OpenAI's cache
- * breakpoints; DeepSeek caches the stable prefix by itself), without OpenAI's `store` and without `parallel_tool_calls` (one
- * forced tool; almost no DeepSeek provider declares it, so with require_parameters it left no route: 404, measured 04/10),
- * with the tool NOT strict, plus OPENROUTER_REQUEST_EXTRAS. Strict made the providers decode our 17 KB schema token by token
- * and DeepSeek's answers came out deformed (Golden 3/30; the same 5 failed requests: 0/5 strict, 5/5 not strict, 04/10). The
- * backend's typed parser still validates every answer before it is used, exactly as with Luna. */
-export function openRouterBody(payload: Record<string, unknown> & { messages: ChatMessage[] }, options: OpenRouterOptions = {}) {
-  const { store: _store, parallel_tool_calls: _parallel, messages, tools, ...rest } = payload; void _store; void _parallel;
-  return { ...rest, tools: (tools as { type: string; function: Record<string, unknown> }[]).map(tool => ({ ...tool, function: { ...tool.function, strict: false } })), messages: messages.map(({ role, content }) => ({ role, content: typeof content === "string" ? content : content.map(part => part.text).join("\n") })),
-    ...openRouterExtras(options) };
-}
-
-function openRouterGuardedFetch(modelId: string, options: OpenRouterOptions = {}): typeof fetch {
-  openRouterExtras(options);
+/** The checked payload leaves shaped by the model's profile (chat-completions-wire.ts chatOutboundBody); the answer comes back with
+ * the keys the provider omitted completed when the profile asks for it. */
+function chatGuardedFetch(profile: SecretaryModelProfile, options: ChatRequestOptions = {}): typeof fetch {
+  chatRequestExtras(profile, options);
   return async (input, init) => {
     if (input instanceof Request) fail("REQUEST_OBJECT");
-    if (String(input) !== OPENROUTER_CHAT_URL || init?.method?.toUpperCase() !== "POST" || typeof init.body !== "string") fail();
+    if (String(input) !== profile.endpoint || init?.method?.toUpperCase() !== "POST" || typeof init.body !== "string") fail();
     let payload: unknown;
     try { payload = JSON.parse(init.body); } catch { fail(); }
-    assertSecretaryChatPayload(payload, modelId);
+    assertSecretaryChatPayload(payload, profile.id);
     const headers = new Headers(init.headers);
     headers.delete("content-length");
-    const response = await globalThis.fetch(OPENROUTER_CHAT_URL, { ...init, headers, body: JSON.stringify(openRouterBody(payload, options)) });
-    return completedToolArguments(response, payload);
+    const response = await globalThis.fetch(profile.endpoint, { ...init, headers, body: JSON.stringify(chatOutboundBody(payload, profile, options)) });
+    return completedToolArguments(response, payload, profile);
   };
 }
-/** Without strict decoding a provider omits the keys it would have sent as null (Golden 04/10: answers understood, then refused by
- * the parser for a missing key, "Não entendi"). The tool's arguments are completed by completeOmittedNulls; nothing else changes. */
-async function completedToolArguments(response: Response, payload: Record<string, unknown>): Promise<Response> {
-  if (!response.ok) return response;
-  let body: unknown;
-  try { body = await response.clone().json(); } catch { return response; }
-  const tool = (payload.tools as { function: { name: string; parameters: unknown } }[])[0].function;
-  const choices = record(body) && Array.isArray(body.choices) ? body.choices : [];
-  const message = record(choices[0]) && record(choices[0].message) ? choices[0].message : undefined;
-  if (!message || !Array.isArray(message.tool_calls)) return response;
-  for (const call of message.tool_calls) {
-    if (!record(call) || !record(call.function) || call.function.name !== tool.name || typeof call.function.arguments !== "string") continue;
-    try { call.function.arguments = JSON.stringify(completeOmittedNulls(JSON.parse(call.function.arguments), tool.parameters, tool.parameters)); } catch { /* left as sent */ }
-  }
-  const headers = new Headers(response.headers);
-  headers.delete("content-length"); headers.delete("content-encoding");
-  return new Response(JSON.stringify(body), { status: response.status, statusText: response.statusText, headers });
-}
-const resolveSchema = (schema: unknown, root: unknown): unknown => {
-  let node = schema;
-  for (let depth = 0; depth < 32 && record(node) && typeof node.$ref === "string"; depth++) {
-    if (!node.$ref.startsWith("#/")) return undefined;
-    node = node.$ref.slice(2).split("/").reduce<unknown>((at, part) => record(at) ? at[part.replace(/~1/g, "/").replace(/~0/g, "~")] : undefined, root);
-  }
-  return node;
-};
-const admitsNull = (schema: unknown, root: unknown): boolean => {
-  const node = resolveSchema(schema, root);
-  if (!record(node)) return false;
-  if (node.type === "null" || (Array.isArray(node.type) && node.type.includes("null")) || (Array.isArray(node.enum) && node.enum.includes(null))) return true;
-  return Array.isArray(node.anyOf) && node.anyOf.some(branch => admitsNull(branch, root));
-};
-/** The one object branch of an anyOf the value can belong to: its keys all declared (additionalProperties false) and every
- * enum/const key equal. None or several: undefined (nothing is completed). */
-function objectBranch(value: Record<string, unknown>, branches: unknown[], root: unknown) {
-  const fits = branches.map(branch => resolveSchema(branch, root)).filter((branch): branch is Record<string, unknown> => {
-    if (!record(branch) || branch.type !== "object" || !record(branch.properties)) return false;
-    const properties = branch.properties;
-    if (branch.additionalProperties === false && Object.keys(value).some(key => !Object.hasOwn(properties, key))) return false;
-    return Object.entries(value).every(([key, item]) => {
-      const property = resolveSchema(properties[key], root);
-      return !record(property) || ((!Array.isArray(property.enum) || property.enum.includes(item)) && (!("const" in property) || property.const === item));
-    });
-  });
-  return fits.length === 1 ? fits[0] : undefined;
-}
-/** A list the schema requires and that does not admit null: "nothing" can only be written [] (strict decoding forces it). */
-const emptyListOnly = (schema: unknown, root: unknown) => { const node = resolveSchema(schema, root); return record(node) && node.type === "array" && !admitsNull(node, root); };
-/** Schema-guided completion of a non-strict answer: an omitted REQUIRED key whose schema admits null becomes null (what strict
- * decoding sends for "no value"); null or an omitted REQUIRED key where the schema only admits a list becomes [] (the same
- * "nothing": DeepSeek wrote clear_fields:null and the customer turns were refused, 04/10). Never a value; an ambiguous anyOf is
- * left as sent. */
-export function completeOmittedNulls(value: unknown, schema: unknown, root: unknown): unknown {
-  const node = resolveSchema(schema, root);
-  if (!record(node)) return value;
-  if (Array.isArray(node.anyOf)) {
-    if (!record(value)) return Array.isArray(value) ? value.map(item => item) : value;
-    const branch = objectBranch(value, node.anyOf, root);
-    return branch ? completeOmittedNulls(value, branch, root) : value;
-  }
-  if (Array.isArray(value)) return node.items === undefined ? value : value.map(item => completeOmittedNulls(item, node.items, root));
-  if (!record(value) || !record(node.properties)) return value;
-  const out: Record<string, unknown> = { ...value }, required = Array.isArray(node.required) ? node.required : [];
-  for (const [key, property] of Object.entries(node.properties)) {
-    if (Object.hasOwn(out, key)) out[key] = out[key] === null && emptyListOnly(property, root) ? [] : completeOmittedNulls(out[key], property, root);
-    else if (required.includes(key)) { if (admitsNull(property, root)) out[key] = null; else if (emptyListOnly(property, root)) out[key] = []; }
-  }
-  return out;
-}
-/** The body as it leaves openRouterGuardedFetch (what a paid-spend admission downstream sees): a checked C4 payload without
- * `store` and `parallel_tool_calls`, its tool not strict, with exactly the extras of one admitted OpenRouterOptions. */
-export function assertOpenRouterOutboundBody(value: unknown, expectedModel: string): asserts value is Record<string, unknown> {
+/** The body as it leaves chatGuardedFetch (what a paid-spend admission downstream sees): a checked C4 payload without `store` and
+ * `parallel_tool_calls`, its tool strict exactly as the profile says, with exactly the extras of one admitted request option set. */
+export function assertChatOutboundBody(value: unknown, expectedModel: string): asserts value is Record<string, unknown> {
+  const profile = secretaryModelProfile(expectedModel);
+  if (!profile.chat) fail("CHAT_MODEL");
   if (!record(value)) fail("PAYLOAD_SHAPE");
   const { provider, reasoning, temperature, ...rest } = value;
   const options = { provider: record(provider) && Array.isArray(provider.order) && typeof provider.order[0] === "string" ? provider.order[0] : undefined,
     reasoning: record(reasoning) && typeof reasoning.effort === "string" ? reasoning.effort : "off" };
-  let expected: ReturnType<typeof openRouterExtras>;
-  try { expected = openRouterExtras(options); } catch { fail("OPENROUTER_EXTRAS"); }
+  let expected: ReturnType<typeof chatRequestExtras>;
+  try { expected = chatRequestExtras(profile, options); } catch { fail("OPENROUTER_EXTRAS"); }
   if (JSON.stringify({ provider, reasoning, temperature }) !== JSON.stringify(expected) || "store" in rest || "parallel_tool_calls" in rest) fail("OPENROUTER_EXTRAS");
   const tools = Array.isArray(rest.tools) ? rest.tools : [];
-  if (!tools.every(tool => record(tool) && record(tool.function) && tool.function.strict === false)) fail("OPENROUTER_EXTRAS");
+  if (!tools.every(tool => record(tool) && record(tool.function) && tool.function.strict === profile.chat!.strictTools)) fail("OPENROUTER_EXTRAS");
   assertSecretaryChatPayload({ ...rest, tools: tools.map(tool => ({ ...tool, function: { ...tool.function, strict: true } })), parallel_tool_calls: false }, expectedModel);
 }
+export { assertChatOutboundBody as assertOpenRouterOutboundBody };

@@ -1,17 +1,17 @@
 {
   "schema": "secretary-contract-v1",
-  "model": "gpt-6-luna",
+  "model": "deepseek/deepseek-v4.1-flash",
   "note": "Updated only by the coordinator after the batteries of the changed profiles (Golden pass^k, practice). A mismatch in the contract-version test means the prompt, wire, model, limits or contract flags changed.",
   "profiles": {
     "v2": {
       "env": {
         "SALON_SECRETARY_MULTI_ACTION_V2_ENABLED": "true"
       },
-      "version": "31469641a352850f0d943a49526841aec152fdd61a76861c80d3117da8a78c36",
+      "version": "5c3db036a4552f5540f06125c1b303979682c8e340655713dc303e65a68d7331",
       "parts": {
         "templates": "bbedcbbabedd503732ded4832ae1691d40a892248a68aefcb0d8a71c42b0ac22",
         "wires": "0e14f08c5c7718a5d29cb57de8afca6c742f45b7415ca53e7fa47bb52f3100f8",
-        "runtime": "ed76699993afa17db358b2bd1396e31b5cf336e0b0fdc08c71ddfc2ea1ad065f",
+        "runtime": "dbacd837cbf8012301082b92e144ac03c290c3381fa5da814b3fc8795c3ace18",
         "presentation": "b623d5a6fdf82438005fa89c18fc2a297075bcc74f7f68bcd05e1810b25386d3"
       }
     },
@@ -20,11 +20,11 @@
         "SALON_SECRETARY_MULTI_ACTION_V2_ENABLED": "true",
         "SALON_SECRETARY_TEMPORAL_COMPONENTS": "true"
       },
-      "version": "53be3cc8d921a7f5e183602aef368cb4f00c24cff4fcb0aae03ded6cfe7ddaa9",
+      "version": "77a495931055d38bb6861a949bd689c310c6342fbb2492de3be3d74ff163ceb0",
       "parts": {
         "templates": "fc37f469ceda3bdf31b3ab0f1c98d8b0c3e990871b8ae278f9d1e8148768ef8a",
         "wires": "44b3bcefea7294f3569f797555c56cae539798b9a693bc7bbefe453dfd4fc1ad",
-        "runtime": "6a89b8fae6955b5754406828904dd7732475c103029c4cce79d09d60cf094325",
+        "runtime": "4624704e9ec202cf9fd85d1c086b721c10310cc78862bd6cc2741c51a3eaccdf",
         "presentation": "b623d5a6fdf82438005fa89c18fc2a297075bcc74f7f68bcd05e1810b25386d3"
       }
     },
@@ -33,11 +33,11 @@
         "SALON_SECRETARY_MULTI_ACTION_V2_ENABLED": "true",
         "SALON_SECRETARY_JIT_INSTRUCTIONS": "true"
       },
-      "version": "c09230cb723b1e42783aef52c5371a84b0dd92f9d317686d4a7ac49984d42e9a",
+      "version": "f72005ff8aa3426835f4abc8271364dffa2ad2ba4ac3ed6e2e54f16fecfb8a30",
       "parts": {
         "templates": "d9ba70aff66991bce873c9c4e4ccaebcc5642246f24f71fded703600485c3202",
         "wires": "2b88610d3e311b2a4f02e322f3c7aeee6c8e43ed93611f63704fcc4bbaddd316",
-        "runtime": "974fab4b61ffad5302cc443c4c8ad6f36b9eb95f5f338d62438deae7a904edb0",
+        "runtime": "36589f0e8002a01c9e75038a991fefaef6234fc21551ec8cc46e4ae543fb3c21",
         "presentation": "b623d5a6fdf82438005fa89c18fc2a297075bcc74f7f68bcd05e1810b25386d3"
       }
     },
@@ -47,11 +47,11 @@
         "SALON_SECRETARY_TEMPORAL_COMPONENTS": "true",
         "SALON_SECRETARY_JIT_INSTRUCTIONS": "true"
       },
-      "version": "607b1e343e32433adfd8e51b2b0f6b0132e4b6732c79123e7ef0882399bc368e",
+      "version": "9b3f1cb88f53546af9f2509cba5fa6a4570a6967057c355672607e56f9642adf",
       "parts": {
         "templates": "e919a6918e45dc99d2255c1b5cdaf38df282db87141169960b7be0f8ef8c1bc5",
         "wires": "31d143ddcac8ebe8e5557e036ca02b2c2a545b956d514096e697d617dc9262d9",
-        "runtime": "1cfad47bfe266854bcfe32ecbd2684b9b347462a03effb4426563b291384e619",
+        "runtime": "18a6ca1b9a81d4c6f1d33f2a9269c4b9f3f5601fa25e4c1fd54bad7332311dbb",
         "presentation": "b623d5a6fdf82438005fa89c18fc2a297075bcc74f7f68bcd05e1810b25386d3"
       }
     },
@@ -62,11 +62,11 @@
         "SALON_SECRETARY_JIT_INSTRUCTIONS": "true",
         "SALON_SECRETARY_EXAMPLES": "selected"
       },
-      "version": "fa9b5fda64a18de41dfe80146a1de858e9a70bc99ae2e629529e572a8476e4b2",
+      "version": "54b782a523e64c354c14b7d892aa5cb53f20db11b1a8c2a838dd39452b580504",
       "parts": {
         "templates": "eb16d50dbe6cdf72852118771505ac85a90d74cef136a8caed0ddd204c4a5f42",
         "wires": "31d143ddcac8ebe8e5557e036ca02b2c2a545b956d514096e697d617dc9262d9",
-        "runtime": "0bbf26945771a0100042533196675c0419720be666fee9af87a13528aee62023",
+        "runtime": "2fcb9c424148f8e551499b404059a99badf56c7876f069b26173ca0cdb8b27e5",
         "presentation": "b623d5a6fdf82438005fa89c18fc2a297075bcc74f7f68bcd05e1810b25386d3"
       }
     }
