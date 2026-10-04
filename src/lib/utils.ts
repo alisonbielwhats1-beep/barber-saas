@@ -15,6 +15,9 @@ export function formatMoneyCompact(cents: number, currency = "BRL", locale = "pt
     style: "currency",
     currency,
     notation: "compact",
+    // Explícito: sem o mínimo, versões diferentes do ICU (Node do CI x local)
+    // mostram "R$ 0,0" ou "R$ 0".
+    minimumFractionDigits: 0,
     maximumFractionDigits: 1,
   }).format(cents / 100);
 }

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { formatMoney, formatMoneyCompact } from "../utils";
 
 // O Intl separa "R$" do número com espaço não separável (U+00A0).
-const plain = (text: string) => text.replace(/ /g, " ");
+const plain = (text: string) => text.replace(/[  ]/g, " ");
 
 describe("valores em reais no padrão pt-BR", () => {
   it("formatMoney usa vírgula decimal e ponto de milhar", () => {
