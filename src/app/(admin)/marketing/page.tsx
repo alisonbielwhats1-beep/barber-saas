@@ -21,6 +21,7 @@ import { MARKETING_ROLES } from "@/lib/role-permissions";
 import { requireRole } from "@/lib/tenant";
 import { formatMoney } from "@/lib/utils";
 import { canUsePlanFeature } from "@/lib/plan-entitlements";
+import { PlanUpgradeAction } from "@/components/plan-upgrade-action";
 import { MarketingCampaigns } from "./marketing-campaigns";
 import { MarketingSettingsForm } from "./marketing-settings-form";
 
@@ -88,10 +89,11 @@ export default async function MarketingPage() {
         <section className="flex items-start gap-3 rounded-2xl border border-primary/25 bg-primary/5 p-4">
           <Crown className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
           <div>
-            <p className="text-[12px] font-semibold">Marketing fica disponível no plano Fundador</p>
+            <p className="text-[12px] font-semibold">Marketing fica disponível nos planos pagos</p>
             <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-              Você continua vendo sua base e histórico. Ao fazer upgrade, poderá preparar campanhas e abrir mensagens pelo WhatsApp.
+              Você continua vendo sua base e histórico. Ao contratar um plano pago, poderá preparar campanhas e abrir mensagens pelo WhatsApp.
             </p>
+            <PlanUpgradeAction role={ctx.role} className="text-[12px]" />
           </div>
         </section>
       )}

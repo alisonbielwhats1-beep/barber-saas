@@ -5,6 +5,7 @@ import { formatMoney } from "@/lib/utils";
 import { Layers, CircleDollarSign, BadgePercent, TrendingUp } from "lucide-react";
 import { PacotesView } from "./pacotes-view";
 import { canUsePlanFeature } from "@/lib/plan-entitlements";
+import { PlanUpgradeAction } from "@/components/plan-upgrade-action";
 
 export default async function PacotesPage({ searchParams }: { searchParams: Promise<{ filter?: string }> }) {
   const { filter } = await searchParams;
@@ -103,8 +104,9 @@ export default async function PacotesPage({ searchParams }: { searchParams: Prom
 
       {!packagesEnabled && (
         <section className="rounded-2xl border border-primary/25 bg-primary/5 px-4 py-3 text-[12px] text-muted-foreground">
-          <strong className="text-foreground">Pacotes e planos recorrentes ficam disponíveis no plano Fundador.</strong>{" "}
-          Consulte os dados existentes e faça upgrade quando quiser ativar novas ofertas.
+          <strong className="text-foreground">Pacotes e planos recorrentes ficam disponíveis nos planos pagos.</strong>{" "}
+          Consulte os dados existentes e contrate um plano pago quando quiser ativar novas ofertas.
+          <PlanUpgradeAction role={ctx.role} className="mt-1" />
         </section>
       )}
 
