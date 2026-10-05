@@ -34,6 +34,7 @@ describe("billing HTTP boundaries", () => {
   it("provider return redirects to authenticated tracking and discards untrusted payment claims",async()=>{
     const response=await returnFromProvider(new Request("http://localhost:3000/api/billing/return?status=approved&salonId=foreign"));
     expect(response.status).toBe(307);
-    expect(response.headers.get("location")).toBe("http://localhost:3000/assinatura");
+    // Only a fixed display marker survives; provider claims such as status/salonId never do.
+    expect(response.headers.get("location")).toBe("http://localhost:3000/assinatura?retorno=mercadopago");
   });
 });

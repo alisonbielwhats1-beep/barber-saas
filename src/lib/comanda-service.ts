@@ -16,7 +16,7 @@ import {
 } from "./appointment-domain";
 import type { Tx } from "./prisma-tenant";
 import { lockProductMutations } from "./inventory-lock";
-import { receiptAdjustmentsSchema, receiptDate, type ReceiptExtra } from "./receipt-adjustments";
+import { finalServicePricesSchema, receiptAdjustmentsSchema, receiptDate, type ReceiptExtra } from "./receipt-adjustments";
 
 export type ComandaRole = "OWNER" | "MANAGER" | "RECEPTIONIST";
 
@@ -36,6 +36,7 @@ export type CloseComandaInput = {
   extraServiceIds?: string[];
   surchargeCents?: number;
   adjustmentReason?: string;
+  finalServicePrices?: Array<{ position: number; finalPriceCents: number; reason?: string }>;
   receivedDate?: string;
   expectedTotalCents?: number;
 };
@@ -82,6 +83,8 @@ function requestFingerprint(input: CloseComandaInput, productLines: CloseComanda
     extraServiceIds: input.extraServiceIds ?? [],
     surchargeCents: input.surchargeCents ?? 0,
     adjustmentReason: input.adjustmentReason ?? "",
+    finalServicePrices: finalServicePricesSchema.parse(input.finalServicePrices)
+      .sort((a, b) => a.position - b.position),
     receivedDate: input.receivedDate ?? null,
     expectedTotalCents: input.expectedTotalCents ?? null,
   })).digest("hex");
@@ -103,6 +106,7 @@ export async function closeComandaReliably(
 ): Promise<{ duplicate: boolean; paymentId: string }> {
   assertComandaDiscountAllowed(input.role, input.discountCents);
   const adjustments = receiptAdjustmentsSchema.parse(input);
+  const submittedFinalPrices = finalServicePricesSchema.parse(input.finalServicePrices);
   if (input.role === "RECEPTIONIST" && (adjustments.surchargeCents || adjustments.extraServiceIds.length || adjustments.receivedDate)) {
     throw new Error("Ajustes de serviço e data exigem proprietário ou gerente.");
   }
@@ -132,6 +136,10 @@ export async function closeComandaReliably(
       priceCents: true,
       salon: { select: { currency: true, timezone: true } },
       payment: { select: { id: true } },
+      serviceItems: {
+        orderBy: { position: "asc" },
+        select: { position: true, serviceName: true, priceCents: true, priceType: true },
+      },
       products: {
         orderBy: [{ productId: "asc" }, { priceCentsUnit: "asc" }, { id: "asc" }],
         select: {
@@ -185,6 +193,38 @@ export async function closeComandaReliably(
       "O pagamento deste agendamento já foi registrado",
     );
   }
+  const finalByPosition = new Map(submittedFinalPrices.map(item => [item.position, item]));
+  if (finalByPosition.size !== submittedFinalPrices.length) {
+    throw new Error("Há serviços repetidos no lançamento do valor final.");
+  }
+  const variableServices = appointment.serviceItems.filter(item => item.priceType === "FROM");
+  if (submittedFinalPrices.some(item => !variableServices.some(service => service.position === item.position))) {
+    throw new Error("Valor final informado para serviço inexistente ou de preço fixo.");
+  }
+  const finalServicePrices = variableServices.map(service => {
+    const submitted = finalByPosition.get(service.position);
+    const finalPriceCents = submitted?.finalPriceCents ?? service.priceCents;
+    const reason = submitted?.reason?.trim() || null;
+    if (finalPriceCents < service.priceCents) {
+      throw new Error("O valor final não pode ser menor que o valor inicial. Use desconto na comanda.");
+    }
+    if (finalPriceCents > service.priceCents && (!reason || reason.length < 3)) {
+      throw new Error(`Explique o reajuste de ${service.serviceName}.`);
+    }
+    if (finalPriceCents === service.priceCents && reason) {
+      throw new Error("Informe motivo apenas quando o valor final for maior que o inicial.");
+    }
+    if (input.role === "RECEPTIONIST" && finalPriceCents > service.priceCents) {
+      throw new Error("Somente proprietário ou gerente pode reajustar o valor final.");
+    }
+    return {
+      position: service.position, serviceName: service.serviceName,
+      initialPriceCents: service.priceCents, finalPriceCents, reason,
+    };
+  });
+  const finalPriceDeltaCents = finalServicePrices.reduce(
+    (sum, service) => sum + service.finalPriceCents - service.initialPriceCents, 0,
+  );
   const extras = adjustments.extraServiceIds.length ? await tx.service.findMany({
     where: { salonId: input.salonId, id: { in: adjustments.extraServiceIds }, active: true },
     select: { id: true, name: true, priceCents: true },
@@ -267,7 +307,7 @@ export async function closeComandaReliably(
   }
 
   const totals = calculateComandaTotals({
-    serviceCents: appointment.priceCents + extraCents + adjustments.surchargeCents,
+    serviceCents: appointment.priceCents + finalPriceDeltaCents + extraCents + adjustments.surchargeCents,
     productLines: pricedLines,
     discountCents: input.discountCents,
   });
@@ -298,6 +338,22 @@ export async function closeComandaReliably(
         productLines: pricedLines,
       },
     });
+  }
+
+  for (const service of finalServicePrices) {
+    const updated = await tx.appointmentService.updateMany({
+      where: { appointmentId: input.appointmentId, salonId: input.salonId,
+        position: service.position, priceType: "FROM", priceCents: service.initialPriceCents },
+      data: { finalPriceCents: service.finalPriceCents, finalPriceReason: service.reason },
+    });
+    if (updated.count !== 1) throw new Error("Os serviços da reserva mudaram. Atualize a comanda.");
+  }
+  if (finalPriceDeltaCents > 0) {
+    const updated = await tx.appointment.updateMany({
+      where: { id: input.appointmentId, salonId: input.salonId, priceCents: appointment.priceCents },
+      data: { priceCents: { increment: finalPriceDeltaCents } },
+    });
+    if (updated.count !== 1) throw new Error("O preço da reserva mudou. Atualize a comanda.");
   }
 
   await tx.appointmentProduct.deleteMany({
@@ -390,6 +446,8 @@ export async function closeComandaReliably(
       paymentId: payment.id,
       previousStatus: appointment.status,
       originalServiceCents: appointment.priceCents,
+      finalServiceCents: appointment.priceCents + finalPriceDeltaCents,
+      finalServicePrices,
       extraServices,
       surchargeCents: adjustments.surchargeCents,
       adjustmentReason: adjustments.adjustmentReason,

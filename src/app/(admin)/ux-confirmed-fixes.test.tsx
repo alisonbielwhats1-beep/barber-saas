@@ -16,13 +16,17 @@ import { PacotesView } from "./pacotes/pacotes-view";
 afterEach(cleanup);
 beforeEach(() => { vi.clearAllMocks(); actions.createClient.mockResolvedValue(undefined); actions.createProduct.mockResolvedValue(undefined); actions.sellPackage.mockResolvedValue(undefined); });
 
-it("saves essential client data directly, retaining optional fields without requiring a step", async () => {
+it("requires WhatsApp and saves the remaining optional client fields without requiring a step", async () => {
   render(<ClientForm />);
   fireEvent.click(screen.getByRole("button", { name: "Novo cliente" }));
   expect(screen.queryByRole("button", { name: "Continuar" })).not.toBeInTheDocument();
   fireEvent.change(screen.getByLabelText("Nome"), { target: { value: "Ana" } });
+  expect(screen.getByLabelText("WhatsApp")).toBeRequired();
   fireEvent.click(screen.getByRole("button", { name: "Cadastrar cliente" }));
-  await waitFor(() => expect(actions.createClient).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ name: "Ana", consentGiven: false, notes: null })));
+  expect(actions.createClient).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByLabelText("WhatsApp"), { target: { value: "(11) 91234-5678" } });
+  fireEvent.click(screen.getByRole("button", { name: "Cadastrar cliente" }));
+  await waitFor(() => expect(actions.createClient).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ name: "Ana", phone: "(11) 91234-5678", consentGiven: false, notes: null })));
 });
 
 it("protects X and Escape, preserves the draft when continuing and discards only explicitly", async () => {
@@ -45,6 +49,7 @@ it("keeps processing locked through the awaited action and preserves values afte
   render(<ClientForm />);
   fireEvent.click(screen.getByRole("button", { name: "Novo cliente" }));
   fireEvent.change(screen.getByLabelText("Nome"), { target: { value: "Ana" } });
+  fireEvent.change(screen.getByLabelText("WhatsApp"), { target: { value: "(11) 91234-5678" } });
   const form = screen.getByLabelText("Nome").closest("form")!;
   fireEvent.submit(form); fireEvent.submit(form);
   expect(actions.createClient).toHaveBeenCalledTimes(1);

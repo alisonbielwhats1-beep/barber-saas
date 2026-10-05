@@ -37,6 +37,8 @@ export function ComandaPanel({
   const [notes, setNotes] = useState("");
   const [productQuantities, setProductQuantities] = useState<Record<string, number>>({});
   const [extraServiceIds, setExtraServiceIds] = useState<string[]>([]);
+  const [finalValues, setFinalValues] = useState<Record<number, string>>({});
+  const [finalReasons, setFinalReasons] = useState<Record<number, string>>({});
   const [surcharge, setSurcharge] = useState("");
   const [reason, setReason] = useState("");
   const [receivedDate, setReceivedDate] = useState("");
@@ -68,6 +70,10 @@ export function ComandaPanel({
           setNotes(d.payment.notes ?? "");
         }
         setProductQuantities(Object.fromEntries(d.products.map((product) => [product.productId, product.quantity])));
+        setFinalValues(Object.fromEntries(d.serviceItems.filter(service => service.priceType === "FROM")
+          .map(service => [service.position, ((service.finalPriceCents ?? service.priceCents) / 100).toFixed(2).replace(".", ",")])));
+        setFinalReasons(Object.fromEntries(d.serviceItems.filter(service => service.priceType === "FROM")
+          .map(service => [service.position, service.finalPriceReason ?? ""])));
       })
       .catch(() => setLoadError("Não foi possível carregar a comanda."));
   }, [apptId]);
@@ -104,9 +110,20 @@ export function ComandaPanel({
     })
     .filter((product) => product.quantity > 0);
   const surchargeCents = /^\d+(?:[,.]\d{0,2})?$/.test(surcharge) ? Math.round(Number(surcharge.replace(",", ".")) * 100) : surcharge === "" ? 0 : NaN;
+  const finalServicePrices = data.serviceItems.filter(service => service.priceType === "FROM")
+    .map(service => {
+      const raw = finalValues[service.position] ?? (service.priceCents / 100).toFixed(2);
+      const finalPriceCents = /^\d+(?:[,.]\d{0,2})?$/.test(raw)
+        ? Math.round(Number(raw.replace(",", ".")) * 100) : NaN;
+      return { position: service.position, initialPriceCents: service.priceCents,
+        finalPriceCents, reason: finalPriceCents > service.priceCents
+          ? finalReasons[service.position]?.trim() ?? "" : "" };
+    });
+  const finalPriceDeltaCents = finalServicePrices.reduce((sum, service) =>
+    sum + (Number.isFinite(service.finalPriceCents) ? service.finalPriceCents - service.initialPriceCents : 0), 0);
   const extraCents = extraServiceIds.reduce((sum, id) => sum + (data.availableServices.find(s => s.id === id)?.priceCents ?? 0), 0);
   const totals = calculateComandaTotals({
-    serviceCents: data.priceCents + extraCents + (Number.isFinite(surchargeCents) ? surchargeCents : 0),
+    serviceCents: data.priceCents + finalPriceDeltaCents + extraCents + (Number.isFinite(surchargeCents) ? surchargeCents : 0),
     productLines: selectedProducts.flatMap((product) => product.pricedLines),
     discountCents,
   });
@@ -134,6 +151,11 @@ export function ComandaPanel({
 
   function submit() {
     setError(null);
+    if (finalServicePrices.some(service => !Number.isSafeInteger(service.finalPriceCents)
+      || service.finalPriceCents < service.initialPriceCents
+      || (service.finalPriceCents > service.initialPriceCents && service.reason.length < 3))) {
+      setError("Confira o valor final de cada serviço e explique os reajustes."); return;
+    }
     if (!Number.isSafeInteger(surchargeCents) || (surchargeCents > 0 && reason.trim().length < 3)) { setError("Confira o acréscimo e informe seu motivo."); return; }
     startTransition(async () => {
       try {
@@ -143,7 +165,10 @@ export function ComandaPanel({
           id: apptId,
           idempotencyKey,
           expectedVersion,
-          extraServiceIds, surchargeCents, adjustmentReason: reason, receivedDate: data?.canDiscount ? receivedDate : undefined, expectedTotalCents: total,
+          extraServiceIds, surchargeCents, adjustmentReason: reason,
+          finalServicePrices: finalServicePrices.map(({ position, finalPriceCents, reason: finalReason }) =>
+            ({ position, finalPriceCents, reason: finalReason })),
+          receivedDate: data?.canDiscount ? receivedDate : undefined, expectedTotalCents: total,
           discountCents,
           productLines: selectedProducts.map((product) => ({ productId: product.id, quantity: product.quantity })),
           method,
@@ -176,7 +201,8 @@ export function ComandaPanel({
     }
     const receiptServices = data.serviceItems.length > 0
       ? data.serviceItems
-      : [{ serviceName: data.service.name, priceCents: data.priceCents }];
+      : [{ serviceName: data.service.name, priceCents: data.priceCents, finalPriceCents: null,
+          finalPriceReason: null, priceType: "FIXED" }];
     return (
       <div className="space-y-4 print:fixed print:inset-0 print:z-[9999] print:bg-white print:p-8 print:text-black">
         <div className="text-center">
@@ -185,7 +211,7 @@ export function ComandaPanel({
           <p className="text-[12px] text-muted-foreground print:text-neutral-600">Comprovante interno da comanda</p>
         </div>
         <div className="space-y-2 rounded-xl border border-border p-4 text-[13px]">
-          {receiptServices.map((service, index) => <div key={`${service.serviceName}-${index}`} className="flex justify-between"><span>{service.serviceName}</span><strong>{formatMoney(service.priceCents, displayCurrency)}</strong></div>)}
+          {receiptServices.map((service, index) => <div key={`${service.serviceName}-${index}`} className="flex justify-between gap-3"><span>{service.serviceName}{service.finalPriceCents !== null && <small className="block text-muted-foreground">Inicial {formatMoney(service.priceCents, displayCurrency)}{service.finalPriceReason ? ` · ${service.finalPriceReason}` : ""}</small>}</span><strong>{formatMoney(service.finalPriceCents ?? service.priceCents, displayCurrency)}</strong></div>)}
           {data.products.map((product) => <div key={product.id} className="flex justify-between text-muted-foreground print:text-neutral-700"><span>{product.quantity}× {product.productName}</span><span>{formatMoney(product.quantity * product.priceCentsUnit, displayCurrency)}</span></div>)}
           {receiptExtras(payment.extraServices).map((extra, index) => <div key={`extra-${index}`} className="flex justify-between"><span>Extra · {extra.serviceName}</span><span>{formatMoney(extra.priceCents, displayCurrency)}</span></div>)}
           {payment.surchargeCents > 0 && <div className="flex justify-between gap-2"><span>Acréscimo · {payment.adjustmentReason}</span><span>{formatMoney(payment.surchargeCents, displayCurrency)}</span></div>}
@@ -219,6 +245,25 @@ export function ComandaPanel({
             {formatMoney(data.priceCents, displayCurrency)}
           </span>
         </div>
+        {data.serviceItems.filter(service => service.priceType === "FROM").map(service => (
+          <div key={service.position} className="space-y-2 rounded-xl border border-violet-400/35 bg-violet-500/5 p-3">
+            <p className="text-sm font-semibold">{service.serviceName} · a partir de {formatMoney(service.priceCents, displayCurrency)}</p>
+            <label className="grid gap-1 text-sm">Valor final combinado (R$)
+              <input inputMode="decimal" value={finalValues[service.position] ?? ""}
+                disabled={!data.canDiscount} onChange={event => { idempotencyKeyRef.current = null; setFinalValues(values => ({ ...values, [service.position]: event.target.value })); }}
+                className="min-h-11 rounded-lg border border-border bg-background px-3" />
+            </label>
+            {Number.isFinite(finalServicePrices.find(item => item.position === service.position)?.finalPriceCents)
+              && (finalServicePrices.find(item => item.position === service.position)?.finalPriceCents ?? 0) > service.priceCents
+              && <label className="grid gap-1 text-sm">Motivo do reajuste
+                <input value={finalReasons[service.position] ?? ""} maxLength={240}
+                  disabled={!data.canDiscount} onChange={event => { idempotencyKeyRef.current = null; setFinalReasons(reasons => ({ ...reasons, [service.position]: event.target.value })); }}
+                  placeholder="Ex.: comprimento e volume do cabelo"
+                  className="min-h-11 rounded-lg border border-border bg-background px-3" />
+              </label>}
+            {!data.canDiscount && <p className="text-xs text-muted-foreground">Só proprietário ou gerente pode reajustar este valor.</p>}
+          </div>
+        ))}
       </div>
 
       {data.canDiscount && <fieldset disabled={pending} className="space-y-3 rounded-xl border border-border p-3"><legend className="px-1 text-sm font-semibold">Revisar recebimento</legend><label className="grid gap-1 text-sm">Data do recebimento<input type="date" max={data.today} value={receivedDate} onChange={e => { idempotencyKeyRef.current = null; setReceivedDate(e.target.value); }} className="min-h-11 rounded-lg border border-border bg-background px-3" /></label><p className="text-xs text-muted-foreground">Começa em ontem. Altere se recebeu em outro dia.</p><label className="grid gap-1 text-sm">Adicionar serviço realizado<select value="" disabled={extraServiceIds.length >= 30} onChange={e => { if (e.target.value) { idempotencyKeyRef.current = null; setExtraServiceIds(ids => [...ids, e.target.value]); } }} className="min-h-11 rounded-lg border border-border bg-background px-3"><option value="">Escolher serviço…</option>{data.availableServices.map(s => <option key={s.id} value={s.id}>{s.name} · {formatMoney(s.priceCents, displayCurrency)}</option>)}</select></label>{extraServiceIds.map((id, i) => <div key={`${id}-${i}`} className="flex items-center justify-between text-sm"><span>{data.availableServices.find(s => s.id === id)?.name}</span><button type="button" className="min-h-11 px-3" onClick={() => { idempotencyKeyRef.current = null; setExtraServiceIds(ids => ids.filter((_, index) => index !== i)); }}>Remover extra</button></div>)}<label className="grid gap-1 text-sm">Acréscimo (R$)<input inputMode="decimal" placeholder="0,00" value={surcharge} onChange={e => { idempotencyKeyRef.current = null; setSurcharge(e.target.value); }} className="min-h-11 rounded-lg border border-border bg-background px-3" /></label>{surchargeCents > 0 && <label className="grid gap-1 text-sm">Motivo do acréscimo<input value={reason} maxLength={300} onChange={e => { idempotencyKeyRef.current = null; setReason(e.target.value); }} className="min-h-11 rounded-lg border border-border bg-background px-3" /></label>}</fieldset>}

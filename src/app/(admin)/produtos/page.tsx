@@ -6,6 +6,7 @@ import { ProductsCatalog, type ProductCard } from "./products-catalog";
 import { Button } from "@/components/ui/button";
 import { PackageOpen, Plus } from "lucide-react";
 import { canUsePlanFeature } from "@/lib/plan-entitlements";
+import { PlanUpgradeAction } from "@/components/plan-upgrade-action";
 
 export default async function ProdutosPage({ searchParams }: { searchParams: Promise<{ filter?: string }> }) {
   const { filter } = await searchParams;
@@ -72,8 +73,9 @@ export default async function ProdutosPage({ searchParams }: { searchParams: Pro
 
       {!inventoryEnabled && (
         <section className="rounded-2xl border border-primary/25 bg-primary/5 px-4 py-3 text-[12px] text-muted-foreground">
-          <strong className="text-foreground">Estoque e produtos ficam disponíveis no plano Fundador.</strong>{" "}
-          Você ainda pode consultar o histórico existente; faça upgrade para cadastrar, editar ou movimentar produtos.
+          <strong className="text-foreground">Estoque e produtos ficam disponíveis nos planos pagos.</strong>{" "}
+          Você ainda pode consultar o histórico existente; contrate um plano pago para cadastrar, editar ou movimentar produtos.
+          <PlanUpgradeAction role={ctx.role} className="mt-1" />
         </section>
       )}
 
@@ -92,7 +94,7 @@ export default async function ProdutosPage({ searchParams }: { searchParams: Pro
                 <Plus className="h-4 w-4" /> Cadastrar primeiro produto
               </Button>
             }
-          /> : <p className="mx-auto mt-5 max-w-sm text-[12px] text-primary">Faça upgrade para liberar o catálogo e o controle de estoque.</p>}
+          /> : <p className="mx-auto mt-5 max-w-sm text-[12px] text-primary">Contrate um plano pago para liberar o catálogo e o controle de estoque.</p>}
         </div>
       ) : (
         <ProductsCatalog initialFilter={filter === "restock" ? "restock" : "all"} enabled={inventoryEnabled} products={cards} movements={movements.map((movement) => ({

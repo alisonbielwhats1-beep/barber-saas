@@ -113,18 +113,21 @@ export function PwaInstallCard({
   const installKey = pwaInstallStorageKey(storageKey ?? salonName);
   const [platform, setPlatform] = useState<PwaPlatform | null>(null);
   const [promptEvent, setPromptEvent] = useState<InstallPromptEvent | null>(null);
-  const [installed, setInstalled] = useState(false);
+  const [standalone, setStandalone] = useState(false);
+  const [acknowledged, setAcknowledged] = useState(false);
+  const [hiddenForSession, setHiddenForSession] = useState(false);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
     const syncInstalledState = () => {
-      if (isStandaloneMode() || hasInstallAcknowledgement(installKey)) {
-        setInstalled(true);
+      const isStandalone = isStandaloneMode();
+      setStandalone(isStandalone);
+      setAcknowledged(hasInstallAcknowledgement(installKey));
+      if (isStandalone) {
         setPromptEvent(null);
         setOpen(false);
-        return true;
       }
-      return false;
+      return isStandalone;
     };
 
     if (syncInstalledState()) return;
@@ -137,14 +140,19 @@ export function PwaInstallCard({
       ),
     );
 
+    // O Chrome só dispara este evento quando o app ainda não está instalado.
+    // Por isso ele prevalece sobre um reconhecimento antigo no localStorage:
+    // quem aceitou o prompt mas não recebeu o ícone ganha uma nova chance,
+    // e quem já tem o app instalado continua sem ver o convite.
     const capturePrompt = (event: Event) => {
-      if (isStandaloneMode() || hasInstallAcknowledgement(installKey)) return;
+      if (isStandaloneMode()) return;
       event.preventDefault();
       setPromptEvent(event as InstallPromptEvent);
     };
     const handleInstalled = () => {
       rememberInstalled(installKey);
-      setInstalled(true);
+      setAcknowledged(true);
+      setHiddenForSession(true);
       setPromptEvent(null);
       setOpen(false);
     };
@@ -187,7 +195,8 @@ export function PwaInstallCard({
 
   function acknowledgeInstall() {
     rememberInstalled(installKey);
-    setInstalled(true);
+    setAcknowledged(true);
+    setHiddenForSession(true);
     setPromptEvent(null);
     setOpen(false);
   }
@@ -198,7 +207,10 @@ export function PwaInstallCard({
     try {
       await currentPrompt.prompt();
       const choice = await currentPrompt.userChoice;
-      if (choice.outcome === "accepted") acknowledgeInstall();
+      // Aceitar o prompt não garante o ícone: alguns launchers Android
+      // bloqueiam a criação. Só o evento `appinstalled` persiste a instalação;
+      // aqui o convite apenas sai de cena até a próxima visita.
+      if (choice.outcome === "accepted") setHiddenForSession(true);
     } catch {
       // Se o navegador recusar o prompt, os passos manuais continuam
       // disponíveis para o cliente.
@@ -209,10 +221,13 @@ export function PwaInstallCard({
   }
 
   // Evita conteúdo diferente entre SSR e hidratação e não mostra o convite
-  // depois que o app já está aberto como instalado ou foi confirmado pelo cliente.
+  // quando o app está aberto como instalado ou foi confirmado pelo cliente,
+  // salvo se o navegador indicar que a instalação ainda está disponível.
   if (
     platform === null ||
-    installed ||
+    standalone ||
+    hiddenForSession ||
+    (acknowledged && !promptEvent) ||
     (platform === "other" && !promptEvent)
   ) {
     return null;
@@ -290,7 +305,7 @@ export function PwaInstallCard({
             ) : (
               <>
                 <InstallStep number="1" title="Abra no Google Chrome">
-                  Use o Chrome no Android para que a instalação fique disponível.
+                  Se abriu pelo Instagram, Facebook ou outro app, toque no menu e escolha abrir no Chrome.
                 </InstallStep>
                 <InstallStep number="2" icon={<MoreVertical className="h-4 w-4" aria-hidden="true" />} title="Abra o menu">
                   Toque nos três pontos no canto superior direito da tela.
@@ -301,6 +316,13 @@ export function PwaInstallCard({
               </>
             )}
           </ol>
+
+          {!isIos && (
+            <p className="rounded-2xl border border-border bg-muted/40 p-3 text-xs leading-relaxed text-muted-foreground">
+              O ícone não apareceu? Em celulares Xiaomi, Redmi e Poco, abra Configurações › Apps ›
+              Chrome › Outras permissões e ative Atalhos na tela inicial. Depois, tente de novo.
+            </p>
+          )}
 
           {promptEvent && !isIos && (
             <button

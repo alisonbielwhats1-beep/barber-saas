@@ -4,6 +4,28 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getPlatformAdminContext } from "@/lib/platform-admin";
 import { withUser } from "@/lib/prisma-tenant";
+import { withHq } from "@/lib/hq/access";
+import { inspectSalonRemoval, removeEmptySalon } from "@/lib/salon-removal";
+import { setSalonArchived } from "@/lib/salon-history";
+
+export async function archiveSalon(salonId: string, archived: boolean) {
+  const input = z.object({ salonId: z.string().min(1).max(100), archived: z.boolean() }).parse({ salonId, archived });
+  await withHq((tx, actorId) => setSalonArchived(tx, actorId, input.salonId, input.archived));
+  revalidatePath("/plataforma", "layout");
+  revalidatePath("/hq", "layout");
+}
+
+export async function inspectEmptySalon(salonId: string) {
+  return withHq((tx, actorId) => inspectSalonRemoval(tx, actorId, z.string().min(1).max(100).parse(salonId)));
+}
+
+export async function deleteEmptySalon(salonId: string, confirmation: string) {
+  const input = z.object({ salonId: z.string().min(1).max(100), confirmation: z.string().min(1).max(200) }).parse({ salonId, confirmation });
+  const result = await withHq((tx, actorId) => removeEmptySalon(tx, actorId, input.salonId, input.confirmation));
+  revalidatePath("/plataforma", "layout");
+  revalidatePath("/hq", "layout");
+  return result;
+}
 
 const reviewInput = z.discriminatedUnion("decision", [
   z.object({

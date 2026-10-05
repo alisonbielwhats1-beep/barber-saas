@@ -73,7 +73,7 @@ export function assertPlanFeature(
 ): void {
   if (canUsePlanFeature(plan, feature)) return;
   const label = feature === "MARKETING" ? "marketing" : feature === "INVENTORY" ? "estoque" : "pacotes e planos";
-  throw new PlanLimitError(`O recurso de ${label} está disponível a partir do plano Fundador.`);
+  throw new PlanLimitError(`O recurso de ${label} está disponível nos planos pagos.`);
 }
 
 export function assertProfessionalCapacity(input: {

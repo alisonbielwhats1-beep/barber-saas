@@ -25,11 +25,11 @@ export function DonutChart({
   centerValue: string;
 }) {
   const total = slices.reduce((s, x) => s + x.value, 0);
-  const data = total === 0 ? [{ name: "Sem dados", value: 1, color: "hsl(240 5% 20%)" }] : slices;
+  const data = total === 0 ? [{ name: "Sem dados", value: 1, color: "hsl(var(--border))" }] : slices;
 
   return (
     <div className="relative h-52 w-full">
-      <DonutPie data={data} paddingAngle={total === 0 ? 0 : 3} />
+      <DonutPie data={data} paddingAngle={total === 0 ? 0 : 3} empty={total === 0} />
       <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-[11px] uppercase tracking-widest text-muted-foreground">
           {centerLabel}

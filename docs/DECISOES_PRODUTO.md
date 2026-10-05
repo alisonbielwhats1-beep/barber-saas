@@ -13,6 +13,101 @@ preservada. O motivo do encaixe (sobreposição, folga e após o expediente)
 continua obrigatório. Substitui "confirmação e motivo" da política de
 cancelamento e o "motivo obrigatório" registrado em 12/09.
 
+## 04/10/2026 — redução automática para contratos acima da tabela
+
+Aplicação da regra de 03/10: quando a tabela fica mais barata que o valor de um
+contrato (hoje, Individual de R$ 59,90 ou R$ 599 contratado antes de 02/10), a
+plataforma agenda a redução para o próximo vencimento, sem ação do dono. O
+período já pago não muda e não há reembolso. Contratos mensais recebem a redução
+no período corrente; anuais, só no último mês antes da renovação, para não travar
+trocas de plano o ano todo. Preço de tabela que sobe nunca alcança contrato
+existente. Durante a redução agendada o dono vê "Seu plano ficou mais barato" e
+pode usar "Mudar de plano agora": a redução é desfeita no Mercado Pago, o plano
+escolhido segue a tabela atual e, se ele não trocar, a redução volta no
+vencimento seguinte. Se a plataforma não conseguir enviar o novo valor antes do
+vencimento, a redução fica para o período seguinte, sem revisão financeira.
+## 04/10/2026 — calendário da visita com vários serviços
+
+Aprovado pelo responsável com as recomendações técnicas: a visita com vários
+serviços **continua sem fila de espera**; o calendário abre no primeiro dia em
+que a visita inteira cabe e desativa apenas os dias sem atendimento possível
+(folga, fechamento, nenhum profissional do serviço trabalhando). Dias com
+expediente mas lotados para a visita completa continuam clicáveis, para não
+pesar a consulta quando o cliente escolhe "Sem preferência".
+
+## 03/10/2026 — coerência de preços após a mudança de tabela
+
+Recomendação aceita pelo responsável depois da validação com vários agentes:
+preço que cai vale para todos a partir da próxima renovação; preço que sobe vale
+só para novas contratações e para quem altera o próprio plano, sempre com aviso
+antes de confirmar. A redução para quem paga o Individual a R$ 59,90 será feita
+em uma entrega separada, depois da margem de renovação abaixo estar em produção.
+
+- Contratação ainda não paga, criada por um preço anterior e não autorizada no
+  Mercado Pago, não é paga como está: o painel oferece "Atualizar para o novo
+  preço", que encerra a tentativa sem cobrança e cria outra pelo valor atual.
+- Agendas adicionais contratadas a R$ 15 mantêm esse valor enquanto a
+  quantidade não muda. Ao alterar, a quantidade nova segue a tabela vigente; a
+  revisão avisa quando a renovação sobe e o botão só se chama "Reduzir" quando
+  capacidade e valor diminuem.
+- O card do plano atual mostra o valor contratado, não o da tabela.
+- Renovação debitada até três dias antes do vencimento é reconhecida pelo preço
+  já agendado no Mercado Pago; fora disso, a conferência continua exata.
+
+## 03/10/2026 — calendário do cliente abre no primeiro dia com vaga
+
+Pedido do responsável: ao marcar um horário, o calendário do cliente abre no
+**primeiro dia com pelo menos um horário livre**, não em um dia que só tem fila.
+Dias sem atendimento (folga semanal como a segunda-feira, fechamento, folga do
+profissional, jornada já encerrada) ficam desativados. Dia **lotado que só tem
+fila continua clicável**: o cliente pode voltar nele e entrar na fila de um
+horário ocupado; ele recebe um ponto âmbar e a legenda "Dia lotado". Uma data
+escolhida pelo cliente ou vinda de link/retorno do login é mantida se tiver
+vaga ou, no caso de dia lotado, fila. Se a consulta dos dias falhar, o
+calendário volta a deixar toda a janela clicável. A tela de vários serviços
+na mesma reserva foi tratada em 04/10 (acima).
+
+## 03/10/2026 — fila de espera atendida em outro horário
+
+Pedido do dono (áudio de 30/09): quem está na fila de um horário ocupado pode ser
+agendado pela gestão (dono/gerente) **em outro horário livre**, sem remover e
+recadastrar. A reserva nova e a saída da fila acontecem na mesma transação. A
+entrada fica como atendida (`fulfilledAppointmentId`) e não como cancelada, com
+registro em auditoria. Conta e convidado são preservados.
+
+O cancelamento pela equipe continua **não promovendo ninguém sozinho**. A opção
+"cancelar e passar o horário ao #1 da fila" é a confirmação explícita da
+equipe, numa única ação: revalida a vaga e, se não servir, nada é cancelado.
+As sugestões de horários livres da equipe usam o mesmo cálculo público, sem a
+antecedência mínima/máxima do cliente; digitar outro horário e as exceções de
+encaixe continuam disponíveis.
+
+## 02/10/2026 — novo preço do Individual e da agenda adicional
+
+A pedido do responsável, Individual passa de R$ 59,90 para R$ 39,90/mês e a
+agenda adicional (acima de dez, somente Equipe · 10 agendas) de R$ 15 para
+R$ 20/mês. Anuais seguem as regras já aprovadas: Individual R$ 399 (dez
+mensalidades, valor inteiro) e adicional R$ 192/ano (20% sobre doze meses).
+Catálogo 2026-10-02, somente para novas contratações; contratos anteriores
+continuam cobrando o preço persistido. Demais planos permanecem iguais.
+## 27/09/2026 — reativar renovação e confirmação imediata
+
+O responsável aprovou a recomendação baseada em Stripe, Spotify, Netflix e
+lojas de aplicativos: enquanto o período pago estiver vigente, o proprietário
+pode **reativar a renovação cancelada** pelo painel. Como o Mercado Pago não
+revive uma recorrência cancelada, a reativação cria uma nova autorização com o
+mesmo plano e valor, iniciando exatamente no fim do período pago; nada é
+cobrado antes dessa data. Exige pelo menos uma hora restante, nenhuma revisão
+financeira e capacidade compatível. Sem autorização em 24 horas, é descartada
+sem efeito. Complementa a decisão de 13/09 sobre cancelamento livre: cancelar
+continua encerrando as recorrências no provedor (não se usa "pausar").
+
+Antes de cancelar, o portal oferece reduzir para um plano menor que ainda
+caiba na equipe (vale no próximo vencimento). Webhooks, ações do proprietário e
+o retorno do checkout passam a processar na hora a assinatura afetada; a
+reconciliação agendada permanece como rede de segurança. Trocar o agendamento
+para `pg_cron` do Supabase exige SQL em Production e autorização própria.
+
 ## 20/09/2026 — identidade única e recuperação Supabase
 
 O responsável aprovou uma identidade/senha por e-mail entre painel e clientes,

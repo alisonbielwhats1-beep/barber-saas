@@ -1,5 +1,11 @@
 # Preços variáveis e configurações por assunto
 
+> Atualização de 24/09/2026: a seção de limites abaixo descreve a entrega
+> original de 11/09. A candidata local do PR #121 acrescenta valor final e
+> motivo por serviço variável na comanda, mediante migration manual 027 ainda
+> não aplicada em Production. Ver `docs/STATUS_ATUAL.md` e
+> `docs/LEMBRETES_CLIENTE_PUSH_2026-09-24.md`.
+
 Implementação autorizada pelo responsável. Branch `codex/variable-prices-settings`,
 base `origin/master` `9840388`. Não representa implantação em Production.
 

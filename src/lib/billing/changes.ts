@@ -8,6 +8,7 @@ import { billingConfig } from "./config";
 import { assertOwner, enqueue, subscriptionLock } from "./service";
 import { billingTermsSchema, quotePlanChange, sameTerms } from "./change-rules";
 import { changesEnabled, currentTerms, pendingChangeStates } from "./change-terms";
+import { cancellationSubscriptions, renewalCancellationStatus } from "./cancellation";
 
 export function assertChangesAvailable() {
   billingConfig();
@@ -78,6 +79,51 @@ export async function confirmPlanChange(ctx: { salonId: string; userId: string }
     return confirmed;
   });
 }
+/**
+ * Undo a cancelled renewal while the paid period lasts. Mercado Pago cannot
+ * revive a cancelled recurrence, so this reuses the cycle-change replacement:
+ * same terms, new authorization starting exactly at `paidThrough`, nothing
+ * charged before it. The DB only accepts the existing change kinds.
+ */
+export async function reactivateRenewal(ctx: { salonId: string; userId: string }, subscriptionId: string, requestKey: string) {
+  assertChangesAvailable();
+  z.string().uuid().parse(subscriptionId);
+  z.string().uuid().parse(requestKey);
+  return withTenant(ctx, async tx => {
+    await assertOwner(tx, ctx);
+    await subscriptionLock(tx, ctx.salonId);
+    const prior = await tx.billingPlanChange.findUnique({ where: { salonId_requestKey: { salonId: ctx.salonId, requestKey } } });
+    if (prior) {
+      if (prior.subscriptionId !== subscriptionId || prior.kind !== "CYCLE") throw new BillingError("IDEMPOTENCY_MISMATCH");
+      return prior;
+    }
+    const salon = await tx.salon.findUniqueOrThrow({ where: { id: ctx.salonId }, select: { accessStatus: true } });
+    if (salon.accessStatus !== "APPROVED") throw new BillingError("SALON_NOT_APPROVED", 403);
+    const sub = await tx.billingSubscription.findFirst({ where: { id: subscriptionId, salonId: ctx.salonId, current: true } });
+    if (!sub) throw new BillingError("NOT_FOUND", 404);
+    // At least one hour left, so the owner has time to authorize before the period ends.
+    if (!sub.providerId || sub.reviewRequired || sub.delinquentSince || !sub.paidThrough || sub.paidThrough.getTime() <= Date.now() + 60 * 60_000) throw new BillingError("RENEWAL_REACTIVATION_UNAVAILABLE");
+    const config = billingConfig();
+    if (sub.mode !== config.mode || sub.collectorId !== config.collectorId) throw new BillingError("BILLING_ENVIRONMENT_MISMATCH", 503);
+    if (renewalCancellationStatus(await cancellationSubscriptions(tx, sub)) !== "CANCELLED") throw new BillingError("RENEWAL_NOT_CANCELLED");
+    if (await tx.billingPlanChange.findFirst({ where: { salonId: ctx.salonId, state: { in: pendingChangeStates } } })) throw new BillingError("PLAN_CHANGE_PENDING");
+    const terms = await currentTerms(tx, sub);
+    if (await occupiedCapacity(tx, ctx.salonId) > terms.agendaLimit) throw new BillingError("PLAN_CAPACITY_TOO_SMALL");
+    const period = await tx.billingCharge.findFirst({ where: { subscriptionId: sub.id, salonId: ctx.salonId, status: "approved", periodEnd: sub.paidThrough, NOT: { providerInvoiceId: { startsWith: "upgrade:" } } }, orderBy: { periodStart: "desc" } });
+    if (!period) throw new BillingError("INVALID_CHANGE_PERIOD");
+    const now = new Date();
+    const id = randomUUID();
+    // The authorization link stays valid for 24 hours; unused, nothing changes.
+    const created = await tx.billingPlanChange.create({ data: { id, salonId: ctx.salonId, subscriptionId: sub.id, requestKey, actorUserId: ctx.userId,
+      fromTerms: terms, toTerms: terms, kind: "CYCLE", amountDueCents: 0, state: "PREPARING", confirmedAt: now,
+      quotedAt: now, expiresAt: new Date(Math.min(now.getTime() + 24 * 60 * 60_000, sub.paidThrough.getTime())),
+      periodStart: period.periodStart, periodEnd: sub.paidThrough, effectiveAt: sub.paidThrough } });
+    await tx.billingEvent.create({ data: { subscriptionId: sub.id, salonId: ctx.salonId, key: `change:${id}:confirmed`, type: "PLAN_CHANGE_REQUESTED", detail: `RENEWAL_REACTIVATION:${id}:owner:${ctx.userId}` } });
+    await enqueue(tx, sub);
+    return created;
+  });
+}
+
 export async function cancelPlanChange(ctx: { salonId: string; userId: string }, id: string) {
   billingConfig();
   if (!changesEnabled()) throw new BillingError("PLAN_CHANGES_DISABLED", 503);

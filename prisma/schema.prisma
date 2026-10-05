@@ -451,6 +451,7 @@ enum NotificationChannel {
   EMAIL
   MANUAL_WHATSAPP
   WHATSAPP
+  PUSH
 }
 
 enum NotificationDeliveryStatus {
@@ -566,6 +567,8 @@ model Salon {
   segment        String? // 'barbearia' | 'salao-beleza' | 'manicure-nail' | 'estetica-bemestar' | 'espaco-misto'
   description    String? // apresentação exibida na vitrine
   coverUrl       String? // foto de capa própria (sem isto, cai no pool do Unsplash)
+  // prisma/sql/manual/028_cover_show_name.sql — false quando a capa própria já traz o nome.
+  coverShowName  Boolean @default(true)
   themeColorHex  String? @db.VarChar(7) // cor da marca, #RRGGBB
   instagram      String? // @usuario, sem a URL
   whatsapp       String? // só dígitos; separado de `phone` porque costuma ser outro número
@@ -595,6 +598,7 @@ model Salon {
   appointmentServices AppointmentService[]
   appointmentEvents   AppointmentEvent[]
   notificationOutbox  NotificationOutbox[]
+  clientPushSubscriptions ClientPushSubscription[]
   accessEvents        SalonAccessEvent[]
   platformInvoices    PlatformInvoice[]
   reviews             ClientReview[]
@@ -1149,6 +1153,7 @@ model ClientProfile {
   reviews         ClientReview[]
   dependents      ClientDependent[]
   flexibleWaitlist FlexibleWaitlist[]
+  pushSubscriptions ClientPushSubscription[]
 
   @@unique([salonId, email])
   @@unique([salonId, authIdentityId])
@@ -1260,6 +1265,8 @@ model AppointmentService {
   priceCents    Int
   priceType String @default("FIXED")
   priceNote String?
+  finalPriceCents Int?
+  finalPriceReason String?
   processingMin Int @default(0)
   finishingMin Int @default(0)
 
@@ -1387,6 +1394,26 @@ model NotificationOutbox {
   @@index([salonId, recipientKey, readAt, createdAt])
   @@index([status, nextAttemptAt])
   @@index([appointmentId, createdAt])
+}
+
+/// Device consent is scoped to one authenticated client and salon. Revocation
+/// keeps a small audit trail while preventing future dispatches.
+model ClientPushSubscription {
+  id        String    @id @default(cuid())
+  salonId   String
+  clientId  String
+  endpoint  String
+  p256dh    String
+  auth      String
+  revokedAt DateTime? @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(3)
+
+  salon  Salon         @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  client ClientProfile @relation(fields: [clientId, salonId], references: [id, salonId], onDelete: Restrict, map: "ClientPushSubscription_client_tenant_fkey")
+
+  @@unique([salonId, endpoint])
+  @@index([salonId, clientId, revokedAt])
 }
 
 // Bloqueio do salão inteiro (feriado, reforma, viagem) — diferente de

@@ -6,11 +6,13 @@ import { createAppointment } from "./appointment-service";
 import { reserveAppointmentProducts } from "./appointment-product-service";
 import { lockOperationalResources } from "./inventory-lock";
 import { writeAuditLog } from "./audit";
-import { priceServicesForDate } from "./pricing";
+import { effectivePublicBookingLeadDays, priceServicesForDate } from "./pricing";
 import { unionIntervals } from "./intervals";
 import { checkBookingWindow, bufferedWindow } from "./scheduling";
 import { getBookingPreferences } from "./booking-preferences";
 import {
+  addCalendarDays,
+  dateKeyInTimeZone,
   isDateKey,
   localDateTimeToUtc,
   startOfDateInTimeZone,
@@ -75,12 +77,18 @@ const localAt = (date: string, minutes: number) =>
 const minuteOf = (local: string) =>
   Number(local.slice(11, 13)) * 60 + Number(local.slice(14, 16));
 
-export async function loadVisitDay(
+/**
+ * Tudo o que a busca de visitas precisa entre `fromDate` e `toDate`
+ * (inclusive), com uma consulta por tabela. `visitDayFor` recorta um dia.
+ */
+async function loadVisitRange(
   tx: Tx,
   salonId: string,
-  date: string,
+  fromDate: string,
+  toDate: string,
   choices: VisitChoice[],
-  now = new Date(),
+  now: Date,
+  /** Secretária D1: a move's origin projected out (its own slot does not count against the create that takes it). */
   projection?: { releasedAppointmentId: string },
 ) {
   const salon = await tx.salon.findUnique({
@@ -116,11 +124,6 @@ export async function loadVisitDay(
   });
   if (services.length !== new Set(ids).size)
     throw new AppointmentError("SERVICE_INVALID");
-  const priced = await priceServicesForDate(tx, {
-    salonId,
-    dateKey: date,
-    services,
-  });
   const pros = [
     ...new Set(
       choices.flatMap((choice) =>
@@ -137,32 +140,25 @@ export async function loadVisitDay(
   ].sort();
   if (pros.length > 100)
     throw new Error("Escolha um profissional para reduzir a busca.");
-  const from = startOfDateInTimeZone(date, salon.timezone),
-    to = endExclusiveOfDateInTimeZone(date, salon.timezone);
+  const weekdays = new Set<number>();
+  for (let d = fromDate; d <= toDate && weekdays.size < 7; d = addCalendarDays(d, 1))
+    weekdays.add(weekdayOfDateKey(d));
+  const from = startOfDateInTimeZone(fromDate, salon.timezone),
+    to = endExclusiveOfDateInTimeZone(toDate, salon.timezone);
   const bufferedFrom = new Date(from.getTime() - salon.bufferMinutes * 60000);
   const bufferedTo = new Date(to.getTime() + salon.bufferMinutes * 60000);
   const weekly = await tx.workingHours.findMany({
     where: {
       salonId,
       professionalId: { in: pros },
-      weekday: weekdayOfDateKey(date),
+      weekday: { in: [...weekdays] },
     },
-    select: { professionalId: true, startMinutes: true, endMinutes: true },
+    select: { professionalId: true, weekday: true, startMinutes: true, endMinutes: true },
   });
   const openings = await tx.professionalOpening.findMany({
-    where: { salonId, professionalId: { in: pros }, dateKey: date },
-    select: { professionalId: true, startMinutes: true, endMinutes: true },
+    where: { salonId, professionalId: { in: pros }, dateKey: { gte: fromDate, lte: toDate } },
+    select: { professionalId: true, dateKey: true, startMinutes: true, endMinutes: true },
   });
-  const hours = new Map(
-    pros.map((pro) => [
-      pro,
-      unionIntervals(
-        [...weekly, ...openings]
-          .filter((h) => h.professionalId === pro)
-          .map((h) => ({ start: h.startMinutes, end: h.endMinutes })),
-      ).map((h) => ({ startMinutes: h.start, endMinutes: h.end })),
-    ]),
-  );
   const closures = await tx.salonClosure.findMany({
     where: { salonId, startAt: { lt: to }, endAt: { gt: from } },
     select: { startAt: true, endAt: true },
@@ -221,17 +217,76 @@ export async function loadVisitDay(
   return {
     salon,
     services,
-    priced: priced.services,
-    hours,
+    pros,
+    weekly,
+    openings,
     closures,
     blocks,
     appointments,
     resourceBookings,
     offers,
     preferences,
+    now,
+  };
+}
+
+type VisitRange = Awaited<ReturnType<typeof loadVisitRange>>;
+
+/** Recorte de um dia do período, no mesmo formato de `loadVisitDay`. */
+function visitDayFor<P>(range: VisitRange, date: string, priced: P) {
+  const { salon, now } = range;
+  const from = startOfDateInTimeZone(date, salon.timezone),
+    to = endExclusiveOfDateInTimeZone(date, salon.timezone);
+  const bufferedFrom = new Date(from.getTime() - salon.bufferMinutes * 60000);
+  const bufferedTo = new Date(to.getTime() + salon.bufferMinutes * 60000);
+  const weekday = weekdayOfDateKey(date);
+  const shifts = [
+    ...range.weekly.filter((h) => h.weekday === weekday),
+    ...range.openings.filter((h) => h.dateKey === date),
+  ];
+  const hours = new Map(
+    range.pros.map((pro) => [
+      pro,
+      unionIntervals(
+        shifts
+          .filter((h) => h.professionalId === pro)
+          .map((h) => ({ start: h.startMinutes, end: h.endMinutes })),
+      ).map((h) => ({ startMinutes: h.start, endMinutes: h.end })),
+    ]),
+  );
+  const touches = (lo: Date, hi: Date) => (i: { startAt: Date; endAt: Date }) =>
+    i.startAt < hi && i.endAt > lo;
+  return {
+    salon,
+    services: range.services,
+    priced,
+    hours,
+    closures: range.closures.filter(touches(from, to)),
+    blocks: range.blocks.filter(touches(from, to)),
+    appointments: range.appointments.filter(touches(bufferedFrom, bufferedTo)),
+    resourceBookings: range.resourceBookings.filter(touches(from, to)),
+    offers: range.offers.filter(touches(bufferedFrom, bufferedTo)),
+    preferences: range.preferences,
     date,
     now,
   };
+}
+
+export async function loadVisitDay(
+  tx: Tx,
+  salonId: string,
+  date: string,
+  choices: VisitChoice[],
+  now = new Date(),
+  projection?: { releasedAppointmentId: string },
+) {
+  const range = await loadVisitRange(tx, salonId, date, date, choices, now, projection);
+  const priced = await priceServicesForDate(tx, {
+    salonId,
+    dateKey: date,
+    services: range.services,
+  });
+  return visitDayFor(range, date, priced.services);
 }
 export type VisitDay = Awaited<ReturnType<typeof loadVisitDay>>;
 
@@ -410,6 +465,84 @@ export function findVisitPlan(
   }
   const items = search(0, []);
   return items ? visitPlan(items) : null;
+}
+
+/** Algum profissional elegível de cada serviço tem expediente livre de fechamento/folga ainda por vir. */
+function visitDayHasWorkingTime(day: VisitDay, choices: VisitChoice[]) {
+  const instant = (minutes: number) =>
+    minutes >= 1440
+      ? localDateTimeToUtc(`${addCalendarDays(day.date, 1)}T00:00`, day.salon.timezone)
+      : localDateTimeToUtc(localAt(day.date, minutes), day.salon.timezone);
+  return choices.every((choice) => {
+    const service = day.services.find((s) => s.id === choice.serviceId);
+    return !!service?.professionals.some(({ professional: pro }) => {
+      if (choice.professionalId && choice.professionalId !== pro.id) return false;
+      const covers = [
+        ...day.closures,
+        ...day.blocks.filter((b) => b.professionalId === pro.id),
+      ].sort((a, b) => a.startAt.getTime() - b.startAt.getTime());
+      return (day.hours.get(pro.id) ?? []).some((h) => {
+        let cursor = new Date(Math.max(instant(h.startMinutes).getTime(), day.now.getTime()));
+        const end = instant(h.endMinutes);
+        for (const c of covers) {
+          if (c.endAt <= cursor) continue;
+          if (c.startAt > cursor) break;
+          cursor = c.endAt;
+        }
+        return cursor < end;
+      });
+    });
+  });
+}
+
+/**
+ * Calendário público da visita com vários serviços, de hoje até o fim da
+ * janela do salão:
+ * - `openDays`: algum profissional de cada serviço trabalha no dia
+ *   (folga semanal, fechamento e folga ficam de fora);
+ * - `firstFreeDay`: primeiro dia em que a visita inteira cabe, procurado em
+ *   no máximo `maxSearchDays` dias abertos e com orçamento limitado;
+ *   `null` se nada couber dentro desse limite.
+ */
+export async function loadVisitCalendar(
+  tx: Tx,
+  salonId: string,
+  choices: VisitChoice[],
+  now = new Date(),
+  options: { maxSearchDays?: number; budget?: number } = {},
+) {
+  const salon = await tx.salon.findUnique({
+    where: { id: salonId },
+    select: { timezone: true, maxBookingLeadDays: true },
+  });
+  if (!salon) throw new AppointmentError("NOT_FOUND");
+  const fromDate = dateKeyInTimeZone(now, salon.timezone);
+  const toDate = addCalendarDays(fromDate, effectivePublicBookingLeadDays(salon.maxBookingLeadDays));
+  const range = await loadVisitRange(tx, salonId, fromDate, toDate, choices, now);
+  const budget = { remaining: options.budget ?? 200_000 };
+  let searchesLeft = options.maxSearchDays ?? 21;
+  const openDays: string[] = [];
+  let firstFreeDay: string | null = null;
+  for (let date = fromDate; date <= toDate; date = addCalendarDays(date, 1)) {
+    // O preço não muda se a visita cabe; a cotação real vem da consulta do dia.
+    const day = visitDayFor(range, date, range.services);
+    if (!visitDayHasWorkingTime(day, choices)) continue;
+    openDays.push(date);
+    if (firstFreeDay || searchesLeft <= 0) continue;
+    searchesLeft--;
+    try {
+      for (let minute = 0; minute < 1440; minute += 15) {
+        if (findVisitPlan(day, choices, minute, { budget })) {
+          firstFreeDay = date;
+          break;
+        }
+      }
+    } catch (error) {
+      if (budget.remaining >= 0) throw error;
+      searchesLeft = 0;
+    }
+  }
+  return { fromDate, toDate, openDays, firstFreeDay };
 }
 
 export async function createVisit(

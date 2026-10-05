@@ -9,6 +9,8 @@ import type { Tx } from "../prisma-tenant";
  * No DB, no network, no model; nothing is confirmed. Same harness as secretary-multi-service-adapter.test.ts. */
 type Service = { id: string; name: string; salonId: string; durationMin: number; priceCents: number; active: boolean };
 type Pro = { id: string; name: string; salonId: string; services: string[]; active: boolean };
+/** The master's weekly query (05/10 merge): one row per requested weekday. */
+const weekdaysOf = (where: { weekday?: number | { in: number[] } }) => typeof where.weekday === "number" ? [where.weekday] : where.weekday?.in ?? [0, 1, 2, 3, 4, 5, 6];
 const db = vi.hoisted(() => ({ tx: undefined as unknown, rows: [] as Record<string, unknown>[], pros: [] as Pro[], services: [] as Service[],
   customers: [] as { id: string; name: string; salonId: string }[], created: [] as Record<string, unknown>[] }));
 const fold = (text: string) => text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
@@ -59,8 +61,8 @@ beforeEach(() => {
     membership: { findFirstOrThrow: async () => ({ role: "RECEPTIONIST" }) },
     salon: { findUnique: async () => ({ timezone: "America/Sao_Paulo", minBookingLeadMinutes: 0, maxBookingLeadDays: 365, bufferMinutes: 0 }), findUniqueOrThrow: async () => ({ timezone: "America/Sao_Paulo" }) },
     servicePricingRule: { findFirst: async () => null },
-    workingHours: { findMany: async ({ where }: { where: { salonId: string; professionalId: { in: string[] } } }) =>
-      where.professionalId.in.filter(id => db.pros.some(p => p.id === id && p.salonId === where.salonId)).map(professionalId => ({ professionalId, startMinutes: 540, endMinutes: 1140 })) },
+    workingHours: { findMany: async ({ where }: { where: { salonId: string; professionalId: { in: string[] }; weekday?: number | { in: number[] } } }) => weekdaysOf(where).flatMap(weekday =>
+      where.professionalId.in.filter(id => db.pros.some(p => p.id === id && p.salonId === where.salonId)).map(professionalId => ({ weekday, professionalId, startMinutes: 540, endMinutes: 1140 }))) },
     professionalOpening: { findMany: async () => [] }, salonClosure: { findMany: async () => [] }, timeOff: { findMany: async () => [] },
     resourceBooking: { findMany: async () => [] }, waitlistOffer: { findMany: async () => [] }, physicalResource: { findFirst: async () => null },
     appointment: { findMany: async () => [] },

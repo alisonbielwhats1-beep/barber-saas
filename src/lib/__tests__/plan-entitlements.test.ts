@@ -63,7 +63,7 @@ describe("limites comerciais dos planos", () => {
 
   it("bloqueia recurso avançado com mensagem de upgrade", () => {
     expect(() => assertPlanFeature("FREE", "PACKAGES")).toThrow(
-      "plano Fundador",
+      "disponível nos planos pagos",
     );
     expect(() => assertPlanFeature("STARTER", "PACKAGES")).not.toThrow();
   });

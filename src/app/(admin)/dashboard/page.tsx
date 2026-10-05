@@ -47,6 +47,7 @@ import { AutoRefresh } from "@/components/auto-refresh";
 import { NowStrip } from "./now-strip";
 import { getMarketingSettings } from "@/lib/marketing-settings";
 import { SetupGuide, PlanInterestNotice } from "@/components/setup-guide";
+import { billingEnabled } from "@/lib/billing/config";
 import { Opportunities } from "./opportunities";
 
 const MALE_COLOR = "#3B9EFF";
@@ -219,7 +220,7 @@ export default async function DashboardPage({
         <RangeFilter current={range} />
       </PageHeader>
 
-      <PlanInterestNotice intent={planIntent} currentPlan={salonData.plan} />
+      <PlanInterestNotice intent={billingEnabled() ? undefined : planIntent} currentPlan={salonData.plan} />
       <SetupGuide steps={steps} resumeHref={setup.status === "new" ? undefined : SETUP_PATH} />
       {(role === "OWNER" || role === "MANAGER") && <Opportunities />}
 

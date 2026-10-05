@@ -18,6 +18,12 @@ export const receiptAdjustmentsSchema = z
     path: ["adjustmentReason"],
   });
 
+export const finalServicePricesSchema = z.array(z.object({
+  position: z.number().int().min(0),
+  finalPriceCents: z.number().int().min(0).max(100_000_000),
+  reason: z.string().trim().max(240).optional(),
+})).max(30).default([]);
+
 export type ReceiptExtra = {
   serviceId: string;
   serviceName: string;

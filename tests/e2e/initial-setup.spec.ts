@@ -54,7 +54,7 @@ test.describe("@database configuração inicial", () => {
       for (const width of [320, 390, 768, 1440]) {
         await page.setViewportSize({ width, height: 900 });
         await expect(page.getByRole("heading", { level: 1 })).toContainText(
-          "horários",
+          "dias",
         );
         expect(
           await page.evaluate(
@@ -75,13 +75,17 @@ test.describe("@database configuração inicial", () => {
         });
       }
       await page.setViewportSize({ width: 390, height: 844 });
+      await page.getByRole("button", { name: "Continuar", exact: true }).click();
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+        "Qual é o seu horário nesses dias?",
+      );
       await page
         .getByRole("button", { name: "Salvar e continuar", exact: true })
         .click();
       await expect(page.getByRole("heading", { level: 1 })).toHaveText(
         "O que você oferece?",
       );
-      await page.getByRole("button", { name: "Novo serviço", exact: true }).click();
+      await page.getByRole("button", { name: "Adicionar primeiro serviço", exact: true }).click();
       await page.getByLabel("Nome do serviço").fill("Corte teste");
       await page.getByLabel("Duração (min)").fill("30");
       await page.getByLabel("Preço (R$)").fill("45,00");
@@ -92,7 +96,7 @@ test.describe("@database configuração inicial", () => {
         page.getByText("Serviço revisado", { exact: true }),
       ).toBeVisible();
       await page
-        .getByRole("button", { name: "3. Profissionais", exact: true })
+        .getByRole("button", { name: "3. Equipe", exact: true })
         .click();
       await expect(page.getByRole("heading", { level: 1 })).toHaveText(
         "Quem vai atender?",
@@ -111,7 +115,7 @@ test.describe("@database configuração inicial", () => {
       await page.getByRole("button", { name: "Salvar profissional" }).click();
       await expect(page.getByText("Jornada já configurada")).toBeVisible();
       await page
-        .getByRole("button", { name: "4. Aplicativo do cliente", exact: true })
+        .getByRole("button", { name: "4. Divulgar", exact: true })
         .click();
       await expect(
         page.getByText("Configuração essencial pronta", { exact: true }),
@@ -144,7 +148,8 @@ test.describe("@database configuração inicial", () => {
           // Measure the selected theme after its color transitions settle.
           await page.evaluate(async () => {
             await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-            await Promise.all(document.getAnimations().map(animation => animation.finished.catch(() => {})));
+            // Ícones decorativos repetem indefinidamente; só transições finitas terminam.
+            await Promise.all(document.getAnimations().filter(animation => animation.effect?.getTiming().iterations !== Infinity).map(animation => animation.finished.catch(() => {})));
           });
           expect(
             await page.evaluate(

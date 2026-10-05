@@ -3,7 +3,7 @@
  * Cria o salão, associa Andreson Martinelli e Tatiana Medeiros (ambos já
  * existentes no banco) e cria o catálogo completo de serviços.
  *
- * Executar: npx tsx scripts/seed-martinelli.ts
+ * Executar: MARTINELLI_OWNER_EMAIL=... MARTINELLI_STAFF_EMAIL=... npx tsx scripts/seed-martinelli.ts
  */
 
 import { PrismaClient, Role, Plan, Gender } from "@prisma/client";
@@ -27,15 +27,25 @@ async function main() {
     return;
   }
 
+  // Os e-mails das contas do cliente não ficam no código (o repositório é
+  // público). Informe-os por variável de ambiente ao executar o script.
+  const ownerEmail = process.env.MARTINELLI_OWNER_EMAIL?.trim();
+  const staffEmail = process.env.MARTINELLI_STAFF_EMAIL?.trim();
+  if (!ownerEmail || !staffEmail) {
+    throw new Error(
+      "Defina MARTINELLI_OWNER_EMAIL e MARTINELLI_STAFF_EMAIL antes de executar.",
+    );
+  }
+
   // Preflight de identidade: o seed associa somente contas já existentes e
   // utilizáveis. Nenhuma identidade ou credencial é criada por este script.
   const [ownerUser, tatianaUser] = await Promise.all([
     prisma.user.findUnique({
-      where: { email: "andersonmartinelli@hotmail.com" },
+      where: { email: ownerEmail },
       include: { professional: true },
     }),
     prisma.user.findUnique({
-      where: { email: "tatiana@studiomartinelli.com" },
+      where: { email: staffEmail },
       include: { professional: true },
     }),
   ]);

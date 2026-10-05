@@ -107,8 +107,10 @@ export default async function MinhasPage({
         service: { select: { id: true, name: true, colorHex: true } },
         serviceItems: {
           orderBy: { position: "asc" },
-          select: { serviceId: true, serviceName: true, priceType: true, priceNote: true },
+          select: { serviceId: true, serviceName: true, priceCents: true, priceType: true,
+            priceNote: true, finalPriceCents: true, finalPriceReason: true },
         },
+        payment: { select: { amountCents: true } },
         professional: { select: { id: true, user: { select: { name: true } } } },
         events: {
           orderBy: { createdAt: "desc" },

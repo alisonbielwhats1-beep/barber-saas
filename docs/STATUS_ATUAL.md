@@ -11,18 +11,20 @@ Mesma branch (`claude/llm-model-migration-a6ed7a`), decisões do dono 40–43 (`
 - **Janela de decisão** no chat (`secretary-chat.tsx`): escolhas abrem numa janela por cima da conversa, uma por vez, com
   barra de pendências quando fechada. Provada na demo local.
 - **Manhã ou noite na remarcação** (`scheduling-daypart-facts.ts`): sem o agendamento escolhido, o horário é checado contra
-- **Fluxo por voz na janela** (decisão 45, flag `SALON_SECRETARY_FLOW_WINDOW`, ligada na demo): pergunta aberta e confirmação na
-- **Exceções de agenda** (decisão 46, flag `SALON_SECRETARY_SCHEDULE_EXCEPTIONS`, ligada na demo): agendar/remarcar fora do expediente,
-- **Troca e marcação de serviço** (decisão 47, flag `SALON_SECRETARY_SERVICE_SWAP_V2`, ligada na demo): "troque o serviço … do dia 17
-- **Nomes parecidos** (decisão 48, flags `SALON_SECRETARY_PHONETIC_NAMES`, `SALON_SECRETARY_NAME_ALIASES`, `SALON_SECRETARY_TRANSCRIBE_CUSTOMER_NAMES`,
-- **Piloto em Produção** (decisão 49): código pronto (`secretary-production-pilot.ts`), certificados DeepSeek 90/90 e Luna 90/90 com as flags
-  novas; falta PR/merge, Supabase (026/027) e variáveis da Vercel — ver `docs/SECRETARY_PRODUCTION_PILOT.md`.
-  ligadas na demo): Walter → Valter, Isabella → Isabela, Tiago → Thiago sem travar; nomes das clientes próximas no vocabulário da voz.
-  para pedicure" vira ALTERAR no mesmo horário; serviço de nome exato escolhido sem perguntar. Provado no fluxo real.
-  em bloqueio, no intervalo, depois do expediente ou sobre outro atendimento, com pergunta e botão "mesmo assim". Testado em unidade;
-  na demo, a pergunta e o botão apareceram (agendamento às 21h). Para produção: certificar com a flag ligada.
-  janela, microfone que reabre sozinho e "confirma" por voz com 3 s para cancelar. Provado na demo com o caso do Sérgio.
   todos os agendamentos possíveis da cliente.
+- **Fluxo por voz na janela** (decisão 45, flag `SALON_SECRETARY_FLOW_WINDOW`, ligada na demo): pergunta aberta e confirmação na
+  janela, microfone que reabre sozinho e "confirma" por voz com 3 s para cancelar. Provado na demo com o caso do Sérgio.
+- **Exceções de agenda** (decisão 46, flag `SALON_SECRETARY_SCHEDULE_EXCEPTIONS`, ligada na demo): agendar/remarcar fora do expediente,
+  em bloqueio, no intervalo, depois do expediente ou sobre outro atendimento, com pergunta e botão "mesmo assim". Também quando o
+  "9 horas" não tem leitura livre: vale a do horário de funcionamento do salão. Provado no fluxo real (Gabriel, 07/10 às 9h).
+- **Troca e marcação de serviço** (decisão 47, flag `SALON_SECRETARY_SERVICE_SWAP_V2`, ligada na demo): "troque o serviço … do dia 17
+  para pedicure" vira ALTERAR no mesmo horário; serviço de nome exato escolhido sem perguntar. Provado no fluxo real.
+- **Nomes parecidos** (decisão 48, flags `SALON_SECRETARY_PHONETIC_NAMES`, `SALON_SECRETARY_NAME_ALIASES`, `SALON_SECRETARY_TRANSCRIBE_CUSTOMER_NAMES`,
+  ligadas na demo): Walter → Valter, Isabella → Isabela, Tiago → Thiago sem travar; nomes das clientes próximas no vocabulário da voz.
+- **Piloto em Produção** (decisão 49): código pronto (`secretary-production-pilot.ts`), certificados DeepSeek 90/90 e Luna 90/90 com as flags
+  novas; falta PR/merge, Supabase (migrations da Secretária e a mudança de `NotificationChannel`/`NotificationOutbox` desta branch) e
+  variáveis da Vercel — ver `docs/SECRETARY_PRODUCTION_PILOT.md`. Atenção: o `master` também tem migrations manuais 026/027 (push e preço
+  final variável); as da Secretária são `026_secretary_feedback` e `027_secretary_state`.
 - **Demo local:** o lançador com controle de gastos (`agenda-voz`, porta 3158) desliga o cache de prompt da OpenAI quando o
   modelo não é da OpenAI (a trava de custo do DeepSeek recusava esse pedido antes de sair).
 - Suíte: 9.147 testes passam; falhas restantes são o teste antigo de holdouts e estouros de tempo sob carga (passam sozinhos).
@@ -1096,6 +1098,210 @@ Financial/Inventory, threshold, Wallet ou Cross-Skill novo foi promovido.
 
 ## 2026-09-20 — aviso transitório no login do cliente corrigido em revisão
 
+## 2026-10-04 — redução automática dos contratos acima da tabela
+
+PR #136 publicado (`db298d2`). Branch `claude/reducao-preco-antigo`: o worker de
+cobrança agenda, para cada assinatura atual cujo valor está acima da tabela para
+a mesma capacidade e ciclo, uma troca `SCHEDULED` criada pela plataforma
+(`actorUserId = system:price-reduction`), com o mesmo caminho já validado das
+reduções (PUT confirmado por GET, fatura do vencimento reconhecida pelo valor
+novo, inclusive até três dias antes). Mensais logo; anuais no último mês. O
+painel mostra "Seu plano ficou mais barato" e permite desfazer para trocar de
+plano; o atalho do topo continua "Ativo". Sem migration nem mudança de catálogo.
+## 2026-10-04 — calendário da visita com vários serviços
+
+Branch `codex/calendario-visita-varios-servicos`, etapa B do calendário do
+cliente (a etapa A, um serviço, foi publicada no PR #138).
+
+- **Calendário no lugar do campo de data.** A tela de vários serviços na mesma
+  reserva (`agendar/visit-booking.tsx`) usa o mesmo calendário da tela de um
+  serviço, agora no componente `agendar/booking-calendar.tsx`.
+- **Abre no primeiro dia em que a visita inteira cabe.** A busca para no
+  primeiro dia encontrado (até 21 dias com atendimento, orçamento limitado).
+  Uma data escolhida pelo cliente ou restaurada é mantida se tiver atendimento.
+- **Dias sem atendimento desativados.** Um dia fica aberto se cada serviço tem
+  ao menos um profissional elegível com expediente ainda por vir, fora de
+  fechamento e folga. Dias com expediente mas lotados continuam clicáveis e
+  mostram a mensagem de antes. Sem fila de espera nessa tela, como antes.
+- **"Consultar o próximo dia com atendimento"** pula direto para o próximo dia
+  aberto.
+- **Nova rota `POST /api/visits/availability/days`** (`{ salonId, choices }` →
+  `openDays`, `firstFreeDay`). `loadVisitCalendar` em
+  `src/lib/visit-scheduling.ts` carrega o período com uma consulta por tabela;
+  `loadVisitDay` passou a usar o mesmo carregador, com o mesmo resultado.
+  Salão aprovado, limite por IP (15/min, falha fechada), sem cache, não expõe
+  reservas.
+- Falha na consulta dos dias mantém o calendário todo clicável.
+
+Sem migration, schema, RLS ou mudança na validação da reserva.
+
+## 2026-10-03 — novo preço em produção e coerência da cobrança em validação
+
+PR #133 publicado (`772d2c1`, `/api/health` confirmou a versão): catálogo
+2026-10-02 com Individual R$ 39,90/mês e R$ 399/ano e agenda adicional R$ 20/mês
+e R$ 192/ano. Contratos anteriores seguem com o preço persistido.
+
+Validação com 11 agentes (auditoria, verificação adversarial e lacunas) confirmou
+valores enviados ao Mercado Pago, cálculo das trocas e renovações antigas, e
+apontou telas incoerentes. Branch `claude/coerencia-cobranca` corrige: valor
+contratado no card do plano atual; contratação antiga não paga atualizada para
+o preço novo; próxima cobrança com troca agendada; plano preservado no cadastro
+com confirmação de e-mail; links `?plan=` antigos; descrição com a capacidade
+total no Mercado Pago; ajuda para trocar o cartão em atraso; checkout pausado na
+landing; Termos de Uso (seção 7, pendente de aprovação do responsável); margem
+de três dias para renovação debitada antes do vencimento. Sem migration.
+
+## 2026-10-03 — calendário do cliente: primeiro dia com vaga
+
+Branch `codex/calendario-primeiro-dia-livre`. Ao escolher serviço e
+profissional em `/book/[salonSlug]/agendar`, o calendário vai para o primeiro
+dia com horário livre (inclusive em outro mês).
+
+- **Dias desativados.** Folga semanal, fechamento, folga do profissional e dia
+  sem nenhum horário possível ficam apagados, como os dias passados.
+- **Dia lotado com fila.** Continua clicável, com ponto âmbar e legenda; mostra
+  "Dia lotado. Entre na fila de um horário ocupado abaixo ou escolha outro dia."
+- **Nova rota `GET /api/availability/days`.** Devolve `freeDays` e
+  `waitlistDays` de hoje até o fim da janela pública (máx. 60 dias), com a mesma
+  regra dos horários (`loadBookableDays` em `src/lib/day-slots.ts`, uma consulta
+  por tabela para o período). Mesmas proteções da rota de horários: salão
+  aprovado, limite por IP (30/min) e remarcação só da própria reserva. Não
+  expõe reservas.
+- **Fila só de horário futuro.** `/api/availability` deixa de listar como
+  "ocupado" um atendimento de hoje que já começou (entrar na fila dele já era
+  recusado).
+- Falha na consulta dos dias mantém o calendário como antes. A tela de vários
+  serviços (`visit-booking.tsx`) não mudou.
+
+Sem migration, schema, RLS ou mudança na validação da reserva.
+
+## 2026-10-03 — fila de espera: agendar em outro horário
+
+Branch `claude/customer-difficulty-improvements-014032`, a partir do áudio do
+dono de 30/09. Ele tinha uma pessoa na fila do horário das 08:30 e um encaixe
+livre às 16h. Sem ação para isso, precisou remover da fila e recadastrar o
+agendamento na mão.
+
+- **Agendar em outro horário.** No detalhe do agendamento, cada pessoa da fila
+  ganha essa ação (dono/gerente), além de WhatsApp e telefone clicável. A ação
+  abre o "Novo agendamento" já com cliente (ou convidado), profissional e
+  serviços, direto na escolha de data e hora.
+- **Horários livres sugeridos.** A escolha de data e hora mostra os horários
+  livres do profissional no dia, com ★ nos melhores encaixes. Isso vale também
+  no agendamento manual comum. O cálculo foi extraído da rota pública para
+  `src/lib/day-slots.ts`; para a equipe, roda sem a antecedência pública.
+- **Saída da fila na mesma transação.** Ao confirmar, a pessoa sai da fila na
+  mesma transação da nova reserva (`fulfillWaitlistEntryElsewhere`, auditada
+  como `WAITLIST_SCHEDULED_ELSEWHERE`).
+- **Cancelar e passar o horário.** O cancelamento ganha a opção "Passar este
+  horário para <nome> (#1 da fila)": cancela e promove numa única transação. Se
+  a vaga não servir, nada é cancelado.
+- **Painel de cuidados.** O "Cuidados e fotos desta visita" fechado ficou sem o
+  vão vazio.
+
+Sem migration (usa `fulfilledAt`/`fulfilledAppointmentId` existentes).
+
+## 2026-09-27 — tela de início do cliente reorganizada para celular
+
+Branch `codex/inicio-cliente-mobile`: a home `/book/[salonSlug]` segue a proposta
+aprovada pelo responsável (A + C) após protótipos no iPhone 15 (393 × 852).
+Topo com marca e atalhos à direita: visitante vê a sacola e "Já é cliente?
+Entrar · Criar conta" numa linha; cliente com conta vê sino, iniciais e
+"Seu último atendimento · Repetir" (reaproveita a consulta de "Meu atendimento de
+sempre"). Nota, horário e "Ver endereço" logo abaixo do nome. A capa aparece
+inteira (3:2) com "Agendar um horário" embaixo, sem nada sobre a foto; o nome
+deixa de ser sobreposto à capa, então a opção de ocultá-lo não altera mais a home.
+Equipe em faixa de retratos (somente exibição). Abas fixas Serviços · Avaliações ·
+Portfólio · Sobre; serviços agrupados por categoria em `<details>`, sem fotos
+(decisão de 07/09). O convite de instalação saiu da home e passou para
+Notificações (continua no welcome); o convite de lembretes na home ficou em uma
+linha. Vitrine de produtos saiu da home (Loja na barra inferior). Fluxo de
+agendamento, barra inferior e seletor de tema inalterados. Sem migration.
+
+## 2026-09-27 — plano e assinatura: revisão de UX em preparação
+
+Branch `claude/plan-subscription-ui-fix-a842b9`: atalho do topo passa a mostrar
+plano e situação reais (inclusive contratação pendente, atraso e renovação
+cancelada); `/assinatura` reorganizada em Seu plano, Mudar de plano (catálogo
+único com Plano atual, upgrade/redução e mensal/anual), histórico e renovação.
+Upgrade confirmado segue direto ao checkout validado. Catálogo, preços, regras
+de proporcionalidade, RLS e schema preservados; sem migration, flag ou
+publicação. Detalhes em `docs/PLANO_ASSINATURA_UX_2026-09-27.md`.
+
+Complemento aprovado no mesmo dia (`DECISOES_PRODUTO.md`): webhooks, ações do
+proprietário, retorno do checkout e "Atualizar situação" processam na hora a
+assinatura afetada (nova rota `/api/billing/sync`); reativação da renovação
+cancelada (`/api/billing/reactivate`) reutiliza a substituição de ciclo já
+existente, sem migration; oferta de plano menor antes de cancelar. Integração
+PostgreSQL local com 023/024/025 e role sem BYPASSRLS: 66 testes aprovados.
+`pg_cron` não foi aplicado (exige SQL em Production e autorização).
+
+## 2026-09-27 — guia de início reformulado (Marfim & Lilás)
+
+Branch `codex/configuracao-guiada`: `/onboarding/configuracao` deixa de ser um
+formulário por etapa e passa a guiar uma decisão por vez — boas-vindas no primeiro
+acesso, dias por toque, formato do horário (direto, com almoço ou dia a dia),
+revisão de serviços um por vez com prévia do que o cliente vê, "Eu mesmo atendo"
+já sugerindo serviços e horários, e prévia do app com link, WhatsApp e checklist.
+Paleta aprovada pelo responsável: base neutra, ação marfim (grafite no tema claro),
+lilás só em ícones/seleção/progresso e verde apenas para concluído; ícones com
+animação leve que respeita "reduzir movimento". Mesmas server actions, validações,
+papéis e persistência de progresso; sem migration. Proposta visual em
+`https://claude.ai/artifact/N6eYXUfPiu5aZc2AfTyKn2`. Conferido em banco local
+descartável (Docker), 375 px e 1280 px, temas claro e escuro, sem erros de console.
+
+## 2026-09-27 — nome opcional sobre a capa e conta cortesia provisionada
+
+Branch `codex/capa-nome-opcional`: em Configurações → Aparência, quem usa capa
+própria pode desmarcar "Mostrar o nome do estabelecimento sobre a capa" quando a
+imagem já traz o nome. O título permanece para leitores de tela; selo e degradê
+somem e a capa passa a 16:9. Sem capa própria o nome sempre aparece (o servidor
+força `true`). Migration manual aditiva `028_cover_show_name` (coluna booleana
+`NOT NULL DEFAULT true`, sem reescrita de tabela), com preflight/verify/rollback
+não destrutivo e validação no CI. Autorizada pelo responsável e **aplicada em
+Production** (`vshnatkzxdekkvqttvbv`) em 27/09, antes do deploy desta branch:
+preflight somente leitura, coluna criada sem reescrita, 12 salões com `true`,
+RLS ENABLE/FORCE preservado e `app_runtime` com SELECT/UPDATE na coluna.
+Não reaplicar. O código anterior ignora a coluna, então o deploy pode ser revertido.
+
+A pedido do responsável, foi provisionada em Production, por SQL aditivo em uma
+transação com preflight, a conta cortesia `bianca-reflexologia`: OWNER único,
+plano PRO/APPROVED sem `BillingSubscription` (sem cobrança), jornada de terça e
+evento `SalonAccessEvent` registrando a cortesia. Contagens conferidas antes e
+depois (+1 usuário, salão, membership, profissional e jornada; reservas intactas).
+Credenciais não são documentadas. Rollback: suspender somente esse salão.
+
+## 2026-09-24 — lembretes no celular e valor final por serviço em preparação
+
+Branch local `codex/service-reminder-push`: candidata para aviso de véspera e
+do dia, push consentido no PWA do cliente e e-mail opcional pelo Resend já
+existente. A home mostra a ativação também a contas antigas com app instalado,
+enquanto o aparelho ainda não estiver vinculado; a permissão só é pedida após
+o toque do cliente. A comanda desta candidata registra valor final e motivo por serviço
+"A partir de" no fechamento, preserva o valor inicial e reflete o final no
+pagamento e na receita. As migrations manuais 026/027 estão apenas versionadas.
+Nenhum SQL, chave, flag ou deploy desta candidata foi aplicado em Production.
+O fluxo de apresentação "A partir de" já existe na versão atual e a migration
+021 foi aplicada em 11/09; não reaplicar. Escopo, limitações e rollout em
+`docs/LEMBRETES_CLIENTE_PUSH_2026-09-24.md`.
+
+## 2026-09-20 — publicação de billing e limpeza do HQ autorizada
+
+Auditoria somente leitura identificou Production em `13cb2a333a66`, billing live
+com checkout e trocas habilitados; `BillingPlanChange` existe no banco. Isso
+substitui as pendências históricas abaixo sobre a disponibilidade das trocas,
+sem afirmar execução de migration nesta tarefa. Nenhuma compra foi realizada.
+
+Branch `codex/billing-selection-tenant-removal`: seleção de plano durante tentativa
+pendente, orientação do checkout e exclusão restrita a cadastros vazios, com opção
+reversível de histórico no HQ. Backend de proporcionalidade preservado. Nenhum
+estabelecimento real foi excluído/arquivado; sem migration ou publicação.
+Escopo e validação em `ASSINATURAS_E_LIMPEZA_HQ_2026-09-20.md`.
+O responsável autorizou publicar o PR #117. Promoção aguarda a validação da
+revisão integrada à versão atual; não inclui excluir ou arquivar cadastros reais.
+
+## 2026-09-20 — aviso transitório no login do cliente corrigido
+
 PR #116 incorpora uma correção de apresentação: o catch do formulário tratava
 `NEXT_REDIRECT` como falha de conexão depois de autenticar com sucesso, exibindo
 um alerta vermelho antes da navegação. `unstable_rethrow` devolve esse controle
@@ -1103,8 +1309,9 @@ ao Next.js; credenciais inválidas e falhas reais continuam com feedback.
 Reproduzido em PostgreSQL descartável com captura das inserções transitórias
 no DOM; após a correção, jornadas 390px/1440px passaram sem o falso alerta.
 O mesmo observador cobre os logins com senha recuperada no CI Supabase.
-Sem mudança de senha, sessão, regras de autorização, dados ou schema. Correção
-ainda não publicada; aguarda CI/Preview da revisão. Produção abaixo permanece.
+Sem mudança de senha, sessão, regras de autorização, dados ou schema. PR #116
+integrado em `9b92138ec766`; health produtivo confirmou essa versão com banco
+saudável antes da promoção do PR #117.
 
 ## 2026-09-20 — recuperação Supabase publicada com transição voluntária
 

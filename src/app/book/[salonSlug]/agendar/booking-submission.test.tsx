@@ -47,6 +47,20 @@ function availability(
   });
 }
 
+const DEFAULT_DAYS = { freeDays: ["2026-08-13", "2026-08-14", "2026-08-15"], waitlistDays: [] as string[] };
+
+/** A consulta dos dias do calendário responde à parte; `fetcher` recebe as demais chamadas. */
+function stubFetch(
+  fetcher: (input: RequestInfo | URL, init?: RequestInit) => unknown,
+  days: unknown = DEFAULT_DAYS,
+  daysStatus = 200,
+) {
+  const daysFetcher = vi.fn(async () => new Response(JSON.stringify(days), { status: daysStatus }));
+  vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) =>
+    String(input).startsWith("/api/availability/days") ? daysFetcher() : fetcher(input, init));
+  return daysFetcher;
+}
+
 function apiResponse(body: unknown, status: number) {
   return new Response(JSON.stringify(body), {
     status,
@@ -117,7 +131,7 @@ describe("BookingFlow — confirmação e fila", () => {
     const fetcher = vi.fn()
       .mockResolvedValueOnce(availability(["09:00"]))
       .mockImplementationOnce(() => post.promise);
-    vi.stubGlobal("fetch", fetcher);
+    stubFetch(fetcher);
     const user = userEvent.setup();
 
     render(<BookingFlow {...baseProps} />);
@@ -150,7 +164,7 @@ describe("BookingFlow — confirmação e fila", () => {
     const fetcher = vi.fn()
       .mockResolvedValueOnce(availability(["09:00"]))
       .mockResolvedValueOnce(apiResponse({ appointment: { startAt: "not-a-date" } }, 201));
-    vi.stubGlobal("fetch", fetcher);
+    stubFetch(fetcher);
     const user = userEvent.setup();
 
     render(<BookingFlow {...baseProps} />);
@@ -170,7 +184,7 @@ describe("BookingFlow — confirmação e fila", () => {
       .mockResolvedValueOnce(availability(["09:00"]))
       .mockResolvedValueOnce(apiResponse({ error: "SLOT_TAKEN" }, 409))
       .mockResolvedValueOnce(availability(["10:00"]));
-    vi.stubGlobal("fetch", fetcher);
+    stubFetch(fetcher);
     const user = userEvent.setup();
 
     render(<BookingFlow {...baseProps} />);
@@ -193,7 +207,7 @@ describe("BookingFlow — confirmação e fila", () => {
         timezone: "America/Sao_Paulo",
         serviceNames: ["Corte"],
       }, 201));
-    vi.stubGlobal("fetch", fetcher);
+    stubFetch(fetcher);
     const user = userEvent.setup();
 
     render(<BookingFlow {...baseProps} />);

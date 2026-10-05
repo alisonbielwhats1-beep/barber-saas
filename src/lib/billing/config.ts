@@ -2,6 +2,9 @@ import "server-only";
 import { BillingError } from "./catalog";
 
 export const billingEnabled = () => process.env.MERCADOPAGO_BILLING_ENABLED === "true";
+/** Operational pauses: existing checkouts, renewals and cancellations keep working. */
+export const checkoutPaused = () => process.env.MERCADOPAGO_CHECKOUT_PAUSED === "true";
+export const planChangesPaused = () => checkoutPaused() || process.env.MERCADOPAGO_PLAN_CHANGES_PAUSED === "true";
 export function billingConfig() {
   if (!billingEnabled()) throw new BillingError("BILLING_DISABLED", 503);
   const token = process.env.MERCADOPAGO_ACCESS_TOKEN;

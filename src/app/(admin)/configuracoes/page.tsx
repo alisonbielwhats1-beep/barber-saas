@@ -37,7 +37,7 @@ export default async function ConfiguracoesPage() {
         cancelPolicyHours: true, noShowFeeCents: true,
         minBookingLeadMinutes: true, maxBookingLeadDays: true, bufferMinutes: true,
         // Personalização da vitrine
-        slug: true, segment: true, description: true, coverUrl: true, logoUrl: true,
+        slug: true, segment: true, description: true, coverUrl: true, coverShowName: true, logoUrl: true,
         themeColorHex: true, instagram: true, whatsapp: true,
         paymentMethods: true, importantInfo: true,
       },
@@ -147,6 +147,7 @@ export default async function ConfiguracoesPage() {
               segment: salon.segment,
               description: salon.description,
               coverUrl: salon.coverUrl,
+              coverShowName: salon.coverShowName,
               logoUrl: salon.logoUrl,
               themeColorHex: salon.themeColorHex,
               instagram: salon.instagram,

@@ -23,9 +23,13 @@ import { closeComandaReliably } from "@/lib/comanda-service";
 import { recordAppointmentEvent } from "@/lib/appointment-events";
 import {
   cancelWaitlistEntry,
+  fulfillWaitlistEntryElsewhere,
   isWaitlistError,
   promoteWaitlistEntry,
+  type WaitlistErrorCode,
 } from "@/lib/waitlist";
+import { computeFreeSlots, loadDaySlotInputs } from "@/lib/day-slots";
+import { bestFitSlots } from "@/lib/slot-fit";
 import {
   addCalendarDays,
   isDateKey,
@@ -61,7 +65,16 @@ const createInput = z.object({
   workingHoursBreakReason: z.string().trim().max(200).optional(),
   scheduleOverrideReason: z.string().trim().min(3).max(200).optional(),
   afterHoursReason: z.string().trim().min(3).max(200).optional(),
+  // Pessoa da fila de espera atendida em outro horário: sai da fila na mesma
+  // transação da reserva nova.
+  waitlistEntryId: z.string().min(1).optional(),
 });
+
+const WAITLIST_ELSEWHERE_MESSAGES: Partial<Record<WaitlistErrorCode, string>> = {
+  NOT_FOUND: "Essa pessoa não está mais na fila ativa. Atualize a agenda.",
+  ALREADY_FULFILLED: "Essa pessoa já foi agendada a partir da fila.",
+  FORBIDDEN: "O cliente escolhido não é o mesmo da fila de espera.",
+};
 
 function appointmentActionMessage(error: unknown): string {
   if (isOverlapViolation(error)) return "Horário já ocupado";
@@ -120,6 +133,7 @@ export async function createAppointmentManually(
   const canOverrideWorkingHoursBreak = (BREAK_OVERRIDE_ROLES as readonly string[])
     .includes(ctx.role);
   if (!data.clientId && !data.clientName) return { error: "Informe um cliente" };
+  if (data.waitlistEntryId) assertRole(ctx, ["OWNER", "MANAGER"]);
 
   try {
     await withTenant(ctx, async (tx) => {
@@ -143,7 +157,7 @@ export async function createAppointmentManually(
         id: ctx.userId,
         name: await actorName(tx, ctx.userId),
       };
-      await createAppointment(tx, {
+      const created = await createAppointment(tx, {
         salonId: ctx.salonId,
         professionalId: data.professionalId,
         serviceIds: data.serviceIds,
@@ -174,8 +188,20 @@ export async function createAppointmentManually(
               },
             }),
       });
+      if (data.waitlistEntryId) {
+        await fulfillWaitlistEntryElsewhere(tx, {
+          salonId: ctx.salonId,
+          entryId: data.waitlistEntryId,
+          appointmentId: created.appointment.id,
+          clientId: created.appointment.clientId,
+          actor: { id: actor.id, name: actor.name },
+        });
+      }
     });
   } catch (error) {
+    if (isWaitlistError(error)) {
+      return { error: WAITLIST_ELSEWHERE_MESSAGES[error.code] ?? "Não foi possível atualizar a fila de espera" };
+    }
     return {
       error: appointmentActionMessage(error),
       ...(isAppointmentError(error) ? { code: error.code } : {}),
@@ -185,7 +211,71 @@ export async function createAppointmentManually(
   revalidatePath("/agenda");
   revalidatePath("/hoje");
   revalidatePath("/dashboard");
+  if (data.waitlistEntryId) revalidatePath("/book", "layout");
   return { success: true };
+}
+
+const freeSlotsInput = z.object({
+  professionalId: z.string().min(1),
+  serviceIds: z.array(z.string().min(1)).min(1).max(10),
+  date: z.string().refine(isDateKey),
+});
+
+export type StaffFreeSlotsResult =
+  | { slots: string[]; bestFit: string[] }
+  | { error: string };
+
+/**
+ * Sugestões de horários livres para a equipe encaixar alguém. Usa o mesmo
+ * cálculo da agenda pública, sem a janela de antecedência do cliente. É só
+ * sugestão: a criação repete toda a validação e as exceções continuam
+ * disponíveis digitando outro horário.
+ */
+export async function getStaffFreeSlots(
+  input: z.infer<typeof freeSlotsInput>,
+): Promise<StaffFreeSlotsResult> {
+  const ctx = await getTenantContext();
+  assertRole(ctx, ["OWNER", "MANAGER", "RECEPTIONIST", "PROFESSIONAL"]);
+  const parsed = freeSlotsInput.safeParse(input);
+  if (!parsed.success) return { error: "Escolha data, profissional e serviços." };
+  const data = parsed.data;
+  try {
+    const slots = await withTenant(ctx, async (tx) => {
+      const ownProfessionalId = await permittedProfessionalId(tx, ctx);
+      if (ownProfessionalId && ownProfessionalId !== data.professionalId) {
+        throw new AppointmentError("FORBIDDEN");
+      }
+      const salon = await tx.salon.findUnique({
+        where: { id: ctx.salonId },
+        select: {
+          timezone: true,
+          minBookingLeadMinutes: true,
+          maxBookingLeadDays: true,
+          bufferMinutes: true,
+        },
+      });
+      if (!salon) return null;
+      const now = new Date();
+      const inputs = await loadDaySlotInputs(tx, {
+        salonId: ctx.salonId,
+        salon,
+        professionalId: data.professionalId,
+        serviceIds: data.serviceIds,
+        date: data.date,
+        now,
+      });
+      return inputs
+        ? computeFreeSlots(inputs, { date: data.date, now, enforceBookingWindow: false })
+        : null;
+    });
+    if (!slots) return { error: "Este profissional não realiza todos os serviços escolhidos." };
+    return { slots, bestFit: bestFitSlots(slots) };
+  } catch (error) {
+    if (isAppointmentError(error) && error.code === "FORBIDDEN") {
+      return { error: "Você só pode consultar a própria agenda." };
+    }
+    return { error: "Não foi possível consultar os horários livres." };
+  }
 }
 
 async function actorName(tx: Tx, userId: string): Promise<string> {
@@ -326,7 +416,8 @@ export async function getComandaData(id: string) {
         service: { select: { name: true, priceCents: true } },
         serviceItems: {
           orderBy: { position: "asc" },
-          select: { serviceName: true, priceCents: true },
+          select: { position: true, serviceName: true, priceCents: true, priceType: true,
+            finalPriceCents: true, finalPriceReason: true },
         },
         products: {
           orderBy: [{ productId: "asc" }, { priceCentsUnit: "asc" }, { id: "asc" }],
@@ -433,6 +524,11 @@ export async function removeWaitlistEntry(
 }
 
 const comandaInput = z.object({
+  finalServicePrices: z.array(z.object({
+    position: z.number().int().min(0),
+    finalPriceCents: z.number().int().min(0).max(100_000_000),
+    reason: z.string().trim().max(240).optional(),
+  })).max(30).optional(),
   extraServiceIds: z.array(z.string().min(1)).max(30).optional(),
   surchargeCents: z.number().int().min(0).max(100_000_000).optional(),
   adjustmentReason: z.string().trim().max(300).optional(),
@@ -467,7 +563,7 @@ export async function closeComanda(
         appointmentId: data.id,
         idempotencyKey: data.idempotencyKey,
         expectedVersion: data.expectedVersion,
-        extraServiceIds: data.extraServiceIds, surchargeCents: data.surchargeCents, adjustmentReason: data.adjustmentReason, receivedDate: data.receivedDate, expectedTotalCents: data.expectedTotalCents,
+        extraServiceIds: data.extraServiceIds, surchargeCents: data.surchargeCents, adjustmentReason: data.adjustmentReason, finalServicePrices: data.finalServicePrices, receivedDate: data.receivedDate, expectedTotalCents: data.expectedTotalCents,
         discountCents: data.discountCents,
         productLines: data.productLines,
         method: data.method,
@@ -807,6 +903,78 @@ export async function promoteWaitlist(
       return { error: messages[error.code] ?? "Não foi possível promover a fila" };
     }
     return { error: error instanceof Error ? error.message : "Não foi possível promover a fila" };
+  }
+  revalidatePath("/agenda");
+  revalidatePath("/hoje");
+  revalidatePath("/dashboard");
+  revalidatePath("/book", "layout");
+  return { success: true };
+}
+
+/**
+ * Cancela a reserva e passa o horário à primeira pessoa da fila numa única
+ * transação. É a confirmação explícita da equipe exigida pela regra da fila:
+ * se a vaga não servir para quem espera, nada é cancelado.
+ */
+export async function cancelAndPromoteWaitlist(input: {
+  appointmentId: string;
+  entryId: string;
+  reason: string;
+  idempotencyKey: string;
+  expectedVersion?: number;
+}): Promise<ActionResult> {
+  const ctx = await getTenantContext();
+  assertRole(ctx, ["OWNER", "MANAGER"]);
+  const data = z.object({
+    appointmentId: z.string().min(1),
+    entryId: z.string().min(1),
+    reason: z.string().trim().min(3).max(500),
+    idempotencyKey: z.string().uuid(),
+    expectedVersion: z.number().int().positive().optional(),
+  }).parse(input);
+
+  try {
+    await withTenant(ctx, async (tx) => {
+      const cancelled = await updateAppointmentStatusReliably(tx, {
+        salonId: ctx.salonId,
+        appointmentId: data.appointmentId,
+        status: "CANCELLED",
+        actor: {
+          type: "STAFF",
+          id: ctx.userId,
+          name: await actorName(tx, ctx.userId),
+        },
+        idempotencyKey: data.idempotencyKey,
+        expectedVersion: data.expectedVersion,
+        reason: data.reason,
+        permittedProfessionalId: await permittedProfessionalId(tx, ctx),
+      });
+      if (cancelled.duplicate) {
+        // Repetição da mesma confirmação: se a pessoa já recebeu o horário,
+        // não há nada novo a fazer.
+        const entry = await tx.waitlistEntry.findFirst({
+          where: { id: data.entryId, salonId: ctx.salonId },
+          select: { fulfilledAt: true },
+        });
+        if (entry?.fulfilledAt) return;
+      }
+      await promoteWaitlistEntry(tx, {
+        salonId: ctx.salonId,
+        appointmentId: data.appointmentId,
+        entryId: data.entryId,
+      });
+    });
+  } catch (error) {
+    if (isWaitlistError(error)) {
+      const messages: Partial<Record<typeof error.code, string>> = {
+        NOT_FOUND: "Essa pessoa não está mais na fila ativa. Nada foi cancelado.",
+        NOT_FIRST: "A fila mudou: somente a primeira pessoa pode receber o horário. Nada foi cancelado.",
+        SLOT_UNAVAILABLE: "O horário não serve para a primeira pessoa da fila. Nada foi cancelado.",
+        ALREADY_FULFILLED: "Essa pessoa já foi agendada a partir da fila. Nada foi cancelado.",
+      };
+      return { error: messages[error.code] ?? "Não foi possível passar o horário para a fila. Nada foi cancelado." };
+    }
+    return { error: appointmentActionMessage(error) };
   }
   revalidatePath("/agenda");
   revalidatePath("/hoje");

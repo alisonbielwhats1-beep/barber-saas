@@ -38,7 +38,10 @@ export async function GET(
     short_name: name.slice(0, 24),
     description: `Agende seu horário em ${name}.`,
     start_url: startPath,
-    scope: `${clientPath}/`,
+    // Sem barra final: o Next normaliza a home do cliente para `/book/slug`,
+    // e com `/book/slug/` a própria home ficava fora do app instalado. O `id`
+    // e o `start_url` não mudam, então instalações existentes só ampliam o escopo.
+    scope: clientPath,
     display: "standalone",
     background_color: PWA_BACKGROUND,
     theme_color: PWA_BACKGROUND,

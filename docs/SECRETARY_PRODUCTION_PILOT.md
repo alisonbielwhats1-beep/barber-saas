@@ -20,7 +20,11 @@ Nenhum outro salão vê o botão nem consegue usar a Secretária.
 
 1. PR desta branch, CI verde, merge no `master` (a Vercel publica sozinha; todas as funções novas ficam desligadas por flag).
 2. Supabase Produção: conferir só lendo se as tabelas das migrations manuais 026 (feedback) e 027 (estado da conversa) já
-   existem. Se não existirem: preflight, backup e aplicação (`prisma/sql/manual/026_*`, `027_*`), depois `verify`.
+   existem. Se não existirem: preflight, backup e aplicação (`prisma/sql/manual/026_secretary_feedback*`,
+   `027_secretary_state*`; não confundir com `026_client_push_reminders` e `027_variable_service_final_prices`, que já vieram do
+   `master`), depois `verify`. Conferir também a mudança de schema desta branch sem migration própria: o valor `WHATSAPP` no enum
+   `NotificationChannel` e `eventId`/`appointmentId` opcionais em `NotificationOutbox` (usados pela mensagem ao cliente da
+   Secretária). Se faltarem em Produção, preparar a migration manual com preflight antes de ligar o piloto.
 3. Vercel Produção — **o dono** cadastra os segredos pelo painel (nunca em texto):
    - `SALON_SECRETARY_OPENROUTER_API_KEY` (DeepSeek);
    - conferir `SALON_SECRETARY_OPENAI_API_KEY` e `SALON_SECRETARY_OPENAI_PROJECT` (voz e Luna de reserva).
