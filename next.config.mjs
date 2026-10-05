@@ -37,6 +37,9 @@ const nextConfig = {
   transpilePackages: ["@everflare/agents", "@everflair/salon-secretary"],
   devIndicators: process.env.CI ? false : undefined,
   reactStrictMode: true,
+  // Fixed at build time (a Vercel env change already needs a redeploy): with the Secretária off, the admin layout's
+  // branch that loads her dock is dead code, so neither the chat nor her runtime is compiled into every admin page.
+  env: { SALON_SECRETARY_FRONT_ENABLED: process.env.SALON_SECRETARY_FRONT_ENABLED === "true" ? "true" : "false" },
   async headers() {
     return [
       {
