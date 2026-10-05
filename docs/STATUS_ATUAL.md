@@ -11,6 +11,11 @@ Mesma branch (`claude/llm-model-migration-a6ed7a`), decisões do dono 40–43 (`
 - **Janela de decisão** no chat (`secretary-chat.tsx`): escolhas abrem numa janela por cima da conversa, uma por vez, com
   barra de pendências quando fechada. Provada na demo local.
 - **Manhã ou noite na remarcação** (`scheduling-daypart-facts.ts`): sem o agendamento escolhido, o horário é checado contra
+- **Fluxo por voz na janela** (decisão 45, flag `SALON_SECRETARY_FLOW_WINDOW`, ligada na demo): pergunta aberta e confirmação na
+- **Exceções de agenda** (decisão 46, flag `SALON_SECRETARY_SCHEDULE_EXCEPTIONS`, ligada na demo): agendar/remarcar fora do expediente,
+  em bloqueio, no intervalo, depois do expediente ou sobre outro atendimento, com pergunta e botão "mesmo assim". Testado em unidade;
+  na demo, a pergunta e o botão apareceram (agendamento às 21h). Para produção: certificar com a flag ligada.
+  janela, microfone que reabre sozinho e "confirma" por voz com 3 s para cancelar. Provado na demo com o caso do Sérgio.
   todos os agendamentos possíveis da cliente.
 - **Demo local:** o lançador com controle de gastos (`agenda-voz`, porta 3158) desliga o cache de prompt da OpenAI quando o
   modelo não é da OpenAI (a trava de custo do DeepSeek recusava esse pedido antes de sair).

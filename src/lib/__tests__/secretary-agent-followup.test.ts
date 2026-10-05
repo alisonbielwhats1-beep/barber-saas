@@ -168,7 +168,7 @@ describe("B2 on a closed plan: the agent takes the new request", () => {
     expect(view.action_plan!.plan_ref).not.toBe(closed.action_plan!.plan_ref);
     expect(view.agent_plan).toBe(true);
     expect(view.action_plan!.actions.map(action => [action.key, action.status])).toEqual([["segunda", "READY_FOR_CONFIRMATION"]]);
-    expect(view.suspended_plans).toEqual([{ plan_ref: closed.action_plan!.plan_ref, label: "appointment.create" }]);
+    expect(view.suspended_plans).toEqual([{ plan_ref: closed.action_plan!.plan_ref, label: "appointment.create", subjects: [String((closed.action_plan!.actions[0].fields as { customer_name?: unknown }).customer_name)] }]);
     expect(session().turns).toBe(turns + 1);
     expect(session().groupReceipts).toBeUndefined();
     expect(session().suspendedPlans![0].groupReceipts?.size).toBe(1);

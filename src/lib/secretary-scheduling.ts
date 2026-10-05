@@ -24,6 +24,7 @@ import { getSchedulingAppointment, getSchedulingAvailability, listSchedulingAppo
 import { localDateTimeToUtc, toLocalDateTime } from "./time";
 import { upsertSchedulingDraft, proposeAppointmentCreate, proposeSchedulingAction, schedulingSnapshot, confirmAppointmentCreate, type SchedulingForgetField } from "./scheduling-actions";
 import { authorizeSchedulingOperation, isSchedulingMutation, locateSchedulingAppointments, inspectSchedulingMove, schedulingActionSnapshot } from "./scheduling-mutations";
+import { exceptionHash, exceptionQuestion, hasScheduleCause, scheduleExceptionPending, scheduleExceptionsEnabled } from "./schedule-exception-policy";
 import { applyTemporalRejections, reconcileSchedulingTemporal, schedulingTemporalConflicts, matchesSchedulingPeriod, type TemporalRejection } from "./scheduling-temporal";
 import { formatClock, formatDay, formatLocal } from "./secretary-datetime-format";
 import { directorySubsetProof, nameInText, sameName } from "./name-search";
@@ -97,7 +98,10 @@ export type AlterSwap={professional:{ref:string;name?:string};target:{ref:string
  * with more after them (an ordinal over the rows shown is not over all of them); "SUMMARY", a day summarized with a question. */
 /** P3c (flag SALON_SECRETARY_RECURRENCE_GUARD): `recurrence`, a recurrence the owner's words stated for this create/block and
  * whether they said yes to its first occurrence alone (secretary-recurrence.ts); the `recurrence_ref` card is that one option. */
-export type SchedulingState={combo_chosen?:string[];block_overlap?:BlockOverlapChoice;recurrence?:RecurrenceState;read_partial?:"UPCOMING"|"SUMMARY";origin_from_ref?:OriginRole[];origin_forgotten?:OriginRole[];origin_day_kept?:string;alter_swap?:AlterSwap;appointment_chosen?:string;service_combo_declined?:string[];daypart_hours?:DaypartHoursRecord[];daypart_written?:DaypartField[];past_readings?:PastReading[];locator_hint?:LocatorHint;excluded_readings?:{field:string;values:string[]}[];resolved_names?:Record<string,string>;references?:SchedulingReferences;selected_names?:Partial<Record<"customer_name"|"service_name"|"professional_name"|"target_professional_name",string>>;proposal_deferred?:boolean;operation?: NonNullable<SchedulingInterpretation["operation"]>; fields:SchedulingFields; message:string;
+export type SchedulingState={combo_chosen?:string[];
+  /** 05/10 (flag SALON_SECRETARY_SCHEDULE_EXCEPTIONS): the schedule exception the owner was asked about ("quer … mesmo assim?"),
+   * bound to that slot and its causes; a consent only counts for this hash and before it expires. */
+  exception_pending?:{operation:"appointment.create"|"appointment.change";hash:string;causes:string[];expires_at:string};block_overlap?:BlockOverlapChoice;recurrence?:RecurrenceState;read_partial?:"UPCOMING"|"SUMMARY";origin_from_ref?:OriginRole[];origin_forgotten?:OriginRole[];origin_day_kept?:string;alter_swap?:AlterSwap;appointment_chosen?:string;service_combo_declined?:string[];daypart_hours?:DaypartHoursRecord[];daypart_written?:DaypartField[];past_readings?:PastReading[];locator_hint?:LocatorHint;excluded_readings?:{field:string;values:string[]}[];resolved_names?:Record<string,string>;references?:SchedulingReferences;selected_names?:Partial<Record<"customer_name"|"service_name"|"professional_name"|"target_professional_name",string>>;proposal_deferred?:boolean;operation?: NonNullable<SchedulingInterpretation["operation"]>; fields:SchedulingFields; message:string;
   draft?:Awaited<ReturnType<typeof upsertSchedulingDraft>>;proposal?:Awaited<ReturnType<typeof proposeAppointmentCreate>>;receipt?:Awaited<ReturnType<typeof confirmAppointmentCreate>>;
   candidates?:{kind:"customer_ref"|"service_ref"|"professional_ref"|"appointment_ref"|"target_professional_ref"|"service_changes_ref"|"service_list_ref"|"service_combo_ref"|typeof RECURRENCE_CARD|typeof BLOCK_OVERLAP_CARD;items:{id:string;name:string}[];source?:"suggest"|"confirm"|"alias";alias_basis?:string};unproven_names?:("customer_name"|"professional_name"|"target_professional_name")[];
   alias_declined?:{kind:AliasRef;key:string}[];
@@ -607,17 +611,19 @@ async function prepare(actor:ServiceActor,c:SchedulingState,rejectedTemporal:Tem
   let snap:Awaited<ReturnType<typeof schedulingSnapshot>>|undefined;
   let review:SchedulingReview|undefined;
   let mutationSnap:Awaited<ReturnType<typeof schedulingActionSnapshot>>|undefined;
+  let exceptionNotice:string|undefined;
   if(!notice&&!missing.length&&isSchedulingMutation(op)){
     if(alteringChange(op,f)){
       // P2a: the new professional/services at the kept slot (or the said destination), for their real duration: a collision
       // offers the new professional's free times (no encaixe here); the domain's own refusal is asked, never forced.
-      const move=await timed(c.metrics,"availability",()=>withTenant(actor,tx=>inspectSchedulingMove(tx,actor,f.appointment_ref!,f.date,f.time,excluded,released,f))).catch(error=>{
+      const move=await timed(c.metrics,"availability",()=>withTenant(actor,tx=>inspectSchedulingMove(tx,actor,f.appointment_ref!,f.date,f.time,excluded,released,f,...(scheduleExceptionsEnabled()?[f.override_requested===true] as const:[] as const)))).catch(error=>{
         if(error instanceof Error&&error.message==="PAST_TIME")return undefined;
         if(error instanceof Error&&["PRO_SERVICE_MISMATCH","SERVICE_INVALID"].includes(error.message))return error.message;
         throw error;});
       if(!move){notice="Esse horário já passou. O agendamento original continua como está. Qual novo horário você prefere?";c.waiting_for="time";}
       else if(typeof move==="string"){const pro=move==="PRO_SERVICE_MISMATCH";c.waiting_for=pro?"target_professional_name":"service_changes";
         notice=pro?"O profissional que vai atender não faz todos os serviços do agendamento. Nada foi alterado. Quem vai atender?":"Um dos serviços não está mais ativo no catálogo. Nada foi alterado. Quais serviços devo manter?";}
+      else if(move.exception&&(exceptionNotice=exceptionAsk(c,f,move,move.professional_ref===move.current.dto.professional_ref?move.current.dto.professional_name:c.resolved_names?.[move.professional_ref]))!==undefined)notice=exceptionNotice;
       else if(move.result.violation){c.alternatives=move.alternatives;c.waiting_for="time";
         const who=move.professional_ref===move.current.dto.professional_ref?move.current.dto.professional_name:c.resolved_names?.[move.professional_ref]??"o profissional";
         notice=`Esse horário está indisponível${unavailableCause(move.result.violation)}. Com ${move.result.services.map(s=>s.name).join(" e ")} com ${who}, o atendimento iria até ${clockLabel(toLocalDateTime(move.result.endAt,move.result.timezone))}. O agendamento original continua como está. ${move.alternatives.length?`Tenho ${move.alternatives.map(a=>clockLabel(a.startLocal)).join(", ")}. Qual horário você prefere?`:"Não encontrei outra opção nesse dia. Qual outro dia ou horário você prefere?"}`;}
@@ -630,11 +636,14 @@ async function prepare(actor:ServiceActor,c:SchedulingState,rejectedTemporal:Tem
       }
     }
     else if(op==="appointment.change"){
-      const move=await timed(c.metrics,"availability",()=>withTenant(actor,tx=>released?inspectSchedulingMove(tx,actor,f.appointment_ref!,f.date!,f.time!,excluded,released):
+      const consent=f.override_requested===true;
+      const move=await timed(c.metrics,"availability",()=>withTenant(actor,tx=>scheduleExceptionsEnabled()?inspectSchedulingMove(tx,actor,f.appointment_ref!,f.date!,f.time!,excluded,released,undefined,consent):
+        released?inspectSchedulingMove(tx,actor,f.appointment_ref!,f.date!,f.time!,excluded,released):
         inspectSchedulingMove(tx,actor,f.appointment_ref!,f.date!,f.time!,...(excluded?[excluded] as const:[] as const)))).catch(error=>{
         // A past destination is a normal answer to correct, not a preparation failure.
         if(error instanceof Error&&error.message==="PAST_TIME")return undefined;throw error;});
       if(!move){notice="Esse horário já passou. O agendamento original continua como está. Qual novo horário você prefere?";c.waiting_for="time";}
+      else if(move.exception&&(exceptionNotice=exceptionAsk(c,f,move,move.current.dto.professional_name))!==undefined)notice=exceptionNotice;
       else if(move.result.violation){c.alternatives=move.alternatives;c.waiting_for="time";
         notice=`Esse horário está indisponível${unavailableCause(move.result.violation)}. O agendamento original continua como está. ${move.alternatives.length?`Tenho ${move.alternatives.map(a=>clockLabel(a.startLocal)).join(", ")}. Qual horário você prefere?`:"Não encontrei outra opção nesse dia. Qual outro dia ou horário você prefere?"}`;}
     }
@@ -658,13 +667,14 @@ async function prepare(actor:ServiceActor,c:SchedulingState,rejectedTemporal:Tem
   if(!notice&&!missing.length&&createOrAvailability){
     const availability=await timed(c.metrics,"availability",()=>withTenant(actor,tx=>getSchedulingAvailability(tx,actor,{service_ref:serviceRefs?.[0]??f.service_ref,...(multi?{service_refs:serviceRefs}:{}),professional_ref:f.professional_ref,date:f.date,...(f.time?{time:f.time}:{}),...(f.period?{period:f.period}:{}),...(f.override_requested!==undefined?{override_requested:f.override_requested}:{}),...(f.override_reason?{override_reason:f.override_reason}:{})},undefined,projection,excluded,
       // P3b (flag): an availability read looks for one more free time than it shows, to say when there are more.
-      ...(readsV2&&op==="availability.get"?[SLOT_LIMIT+1] as const:[] as const))));
+      ...((readsV2&&op==="availability.get"?[SLOT_LIMIT+1]:op==="appointment.create"&&scheduleExceptionsEnabled()?[5,true]:[]) as [number?,boolean?]))));
     c.alternatives=availability.alternatives;
     review=availability.review;
     if(op==="appointment.create"&&!availability.plan){
       // Without the overlap review, a taken slot is still a question about another time.
       notice=review?.message??(availability.alternatives.length?`Esse horário está indisponível. Tenho ${availability.alternatives.map(a=>clockLabel(a.startLocal)).join(", ")}. Qual horário você prefere?`:"Esse horário está indisponível e não encontrei outra opção nesse dia. Qual outro dia ou horário você prefere?");
       c.waiting_for=review?.missing_fields[0]??(availability.alternatives.length?"time":"date");
+      if(scheduleExceptionsEnabled())rememberCreateException(c,review);
     }
     else if(op==="appointment.create"){
       const s=snap=await timed(c.metrics,"availability",()=>withTenant(actor,tx=>projection?schedulingSnapshot(tx,actor,f,new Date(),projection):schedulingSnapshot(tx,actor,f)));
@@ -1334,4 +1344,49 @@ export async function selectScheduling(actor:ServiceActor,c:SchedulingState,ref:
   // D1: the owner's click on a card published for the typed name teaches the salon that name (best-effort, never fails).
   if(origin.clicked&&selection.alias_basis&&(selection.source===undefined||selection.source==="suggest"))
     await learnAlias(actor,aliasKindOf(selection.kind as AliasRef),typed,ref,selection.alias_basis);
+}
+
+const EXCEPTION_TTL_MS=15*60_000;
+/** 05/10 (flag SALON_SECRETARY_SCHEDULE_EXCEPTIONS): a new booking whose review asks about a schedule exception remembers that
+ * question (its slot hash and causes); anything else forgets it. */
+function rememberCreateException(c:SchedulingState,review:SchedulingReview|undefined){
+  if(review?.status==="CONFLICT_OVERRIDABLE"&&review.override_allowed&&hasScheduleCause(review.causes)&&review.missing_fields[0]==="override_requested")
+    c.exception_pending={operation:"appointment.create",hash:exceptionHash(review),causes:review.causes,expires_at:new Date(Date.now()+EXCEPTION_TTL_MS).toISOString()};
+  else delete c.exception_pending;
+}
+type MoveException={causes:string[];hard:string[];allowed:boolean;endLocal:string;conflicts:{startLocal:string}[];hash:string};
+/** 05/10: the question of a reschedule the professional's schedule refuses but this role may keep anyway. Returns undefined when
+ * there is nothing to ask (no exception, not allowed: the old refusal text stays; or a live consent for this very slot). A consent
+ * given for another slot or other causes is dropped and the question is asked again. */
+function exceptionAsk(c:SchedulingState,f:SchedulingFields,move:{exception?:MoveException;alternatives:{startLocal:string}[]},who:string|undefined){
+  const e=move.exception;
+  if(!e||!e.allowed){if(e)delete c.exception_pending;return undefined;}
+  const pending=c.exception_pending,live=pending?.operation==="appointment.change"&&pending.hash===e.hash&&Date.parse(pending.expires_at)>Date.now();
+  if(f.override_requested===true&&live)return undefined;
+  delete f.override_requested;delete f.override_reason;
+  c.alternatives=move.alternatives as SchedulingState["alternatives"];c.waiting_for="schedule_exception";
+  c.exception_pending={operation:"appointment.change",hash:e.hash,causes:e.causes,expires_at:new Date(Date.now()+EXCEPTION_TTL_MS).toISOString()};
+  return exceptionQuestion("appointment.change",e.causes,who,e.endLocal,e.conflicts.map(x=>x.startLocal),move.alternatives.map(a=>a.startLocal));
+}
+
+/** 05/10: the owner's "mesmo assim" (a click on the window's option, or the deterministic reading of the reply) applied with no
+ * model call: the consent (and the owner's literal reason, when given) and a fresh preparation, which re-inspects the slot and
+ * still ends in a proposal that needs Confirmar. Anything stale is OPTION_UNAVAILABLE. */
+export async function applyScheduleExceptionConsent(actor:ServiceActor,c:SchedulingState,decision:{reason?:string}={}){
+  if(!scheduleExceptionPending(c))throw Error("OPTION_UNAVAILABLE");
+  c.proposal=undefined;
+  const next=structuredClone(c);
+  next.fields.override_requested=true;delete next.fields.destination_mode;
+  if(decision.reason)next.fields.override_reason=decision.reason;else delete next.fields.override_reason;
+  delete next.fields.override_reason_source;next.interpretation_source="DETERMINISTIC_FAST_PATH";
+  try{await prepare(actor,next);commitScheduling(c,next);}catch(error){publishCommittedSchedulingDraft(c,next);throw error;}
+}
+/** 05/10: "não" to the exception question: nothing is prepared; the free times are offered again. */
+export function refuseScheduleException(c:SchedulingState){
+  if(!scheduleExceptionPending(c))return undefined;
+  delete c.exception_pending;delete c.fields.override_requested;delete c.fields.override_reason;c.proposal=undefined;
+  const free=(c.alternatives??c.draft?.review?.alternatives??[]).map(slot=>clockLabel(slot.startLocal));
+  c.waiting_for=free.length?"time":"date";
+  c.message=`Tudo bem, nada foi alterado. ${free.length?`Tenho ${free.join(", ")}. Qual horário você prefere?`:"Qual outro dia ou horário você prefere?"}`;
+  return c.message;
 }

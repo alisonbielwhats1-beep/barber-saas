@@ -226,6 +226,16 @@ it('shows unsupported reply even when an earlier plan is ready',async()=>{
   expect(mocks.group).not.toHaveBeenCalled();
 });
 
+it("names the customer on paused requests and does not ask to review a finished plan",async()=>{
+  const view=planned(),old=planned();view.action_plan!.status="DONE";view.action_plan!.actions[0].status="DONE";
+  view.action_plan!.confirmation_groups[0].status="DONE";view.skill="auto";
+  view.suspended_plans=[{plan_ref:old.action_plan!.plan_ref,label:"appointment.change",subjects:["Sérgio Antunes"]}];
+  await open(view);
+  expect(screen.getByRole("button",{name:"Retomar Mudar horário — Sérgio Antunes"})).toBeEnabled();
+  expect(screen.getByText("Pedidos pausados — retome se ainda quiser")).toBeVisible();
+  expect(screen.queryByText("Confira antes de confirmar")).not.toBeInTheDocument();
+  expect(screen.getByText("Resultado confirmado pelo sistema")).toBeInTheDocument();
+});
 it("keeps natural conversation available after a completed operational plan",async()=>{
   const view=planned();view.action_plan!.status="DONE";view.action_plan!.actions[0].status="DONE";
   view.action_plan!.confirmation_groups[0].status="DONE";view.skill="auto";

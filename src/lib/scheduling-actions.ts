@@ -14,9 +14,11 @@ import { getCustomer } from "./customer-catalog";
 import { createVisit } from "./visit-scheduling";
 import { formatLocalRange } from "./secretary-datetime-format";
 import { localDateTimeToUtc } from "./time";
-import { createAppointment } from "./appointment-service";
+import { createAppointment, inspectAppointmentAvailability } from "./appointment-service";
+import { writeAuditLog } from "./audit";
+import { canGrantException, collectExceptionCauses, EXCEPTION_DEFAULT_REASON, EXCEPTION_ROLES, exceptionHash, exceptionLabel, hasScheduleCause, SCHEDULE_EXCEPTION_CAUSES, type ScheduleExceptionCause } from "./schedule-exception-policy";
 import { canOverbookRole } from "./appointment-overlap-policy";
-import { schedulingReviewSchema, assertSchedulingExceptionScope, exceptionRulesV2Enabled } from "./scheduling-conflict-contract";
+import { schedulingReviewSchema, assertSchedulingExceptionScope, exceptionRulesV2Enabled, type SchedulingReview } from "./scheduling-conflict-contract";
 import { lockOperationalResources } from "./inventory-lock";
 import { actionSnapshot, authorizeSchedulingOperation, executeSchedulingMutation, schedulingActionSnapshot, schedulingActionPreview } from "./scheduling-mutations";
 import { applyTemporalRejections, reconcileSchedulingTemporal, temporalRejectionSchema, schedulingTemporalConflicts, assertSchedulingTemporalConsistency } from "./scheduling-temporal";
@@ -29,6 +31,7 @@ const journal=actionJournal("SECRETARY_SCHEDULING");
 const snapshotService=z.object({service_ref:z.string(),service_revision:z.string(),service_name:z.string(),priceCents:z.number(),priceType:z.string(),durationMin:z.number()}).strict();
 export const snapshot=z.object({customer_ref:z.string(),customer_name:z.string(),service_ref:z.string(),service_revision:z.string(),service_name:z.string(),professional_ref:z.string(),professional_name:z.string(),
   date:z.string(),startLocal:z.string(),endLocal:z.string(),timezone:z.string(),priceCents:z.number(),priceType:z.string(),durationMin:z.number(),quote:z.string(),overbook:z.object({reason:z.string().min(3).max(200),conflict_hash:z.string()}).strict().optional(),
+  exception:z.object({causes:z.array(z.enum(SCHEDULE_EXCEPTION_CAUSES)).min(1),reason:z.string().min(3).max(200),reason_source:z.enum(["OWNER","DEFAULT"]),conflict_hash:z.string()}).strict().optional(),
   services:z.array(snapshotService).min(2).max(10).optional()}).strict();
 /** The catalog services of a create snapshot, in order (one, or every service of a list). */
 export const snapshotServiceRefs=(s:Pick<z.infer<typeof snapshot>,"service_ref"|"services">)=>s.services?.map(item=>item.service_ref)??[s.service_ref];
@@ -48,6 +51,17 @@ function assess(d:z.infer<typeof draftSchema>){
   const missing_fields=[...new Set([...schedulingMissingRequired(d.operation,d.fields),...(d.temporal_missing??[]),...(d.pending_temporal_ambiguities??[]).map(item=>item.field),...(d.pending_calendar_conflicts??[]).map(item=>item.field),...(d.source_missing??[]),...temporal_conflicts.map(c=>c.field),...(d.review?.missing_fields??[])])];
   return {...d,status:missing_fields.length?"NEEDS_INPUT" as const:"READY" as const,missing_fields,temporal_conflicts};
 }
+/** The conflict grant a ready review carries: the overbook of a plain overlap (reason required, as before), or (05/10, flag
+ * SALON_SECRETARY_SCHEDULE_EXCEPTIONS) the schedule exception with its causes and the owner's reason or the default one. */
+export function conflictGrant(review:SchedulingReview|undefined,fields:{override_reason?:string}){
+  if(review?.status!=="CONFLICT_OVERRIDABLE")return {};
+  if(hasScheduleCause(review.causes)){
+    const own=fields.override_reason?.trim(),owner=!!own&&own.length>=3&&own.length<=200;
+    return {exception:{causes:review.causes.filter((c):c is ScheduleExceptionCause=>(SCHEDULE_EXCEPTION_CAUSES as readonly string[]).includes(c)),
+      reason:owner?own!:EXCEPTION_DEFAULT_REASON,reason_source:owner?"OWNER" as const:"DEFAULT" as const,conflict_hash:exceptionHash(review)}};
+  }
+  return {overbook:{reason:fields.override_reason!.trim(),conflict_hash:createHash("sha256").update(JSON.stringify(review.conflicts)).digest("hex")}};
+}
 export async function schedulingSnapshot(tx:Tx,actor:ServiceActor,fields:z.infer<typeof schedulingResolved>,now=new Date(),projection?: {releasedAppointmentId:string}){
   assertSchedulingExceptionScope(fields,"appointment.create");
   assertSchedulingTemporalConsistency(fields);
@@ -58,7 +72,7 @@ export async function schedulingSnapshot(tx:Tx,actor:ServiceActor,fields:z.infer
   const {customer_ref,professional_ref,date,time}=fields,service_ref=list?list[0]:fields.service_ref;
   if(!customer_ref||!service_ref||!professional_ref||!date||!time)throw Error("NEEDS_INPUT");
   const customer=await getCustomer(tx,actor,customer_ref);
-  const available=await getSchedulingAvailability(tx,actor,{service_ref,...(list?{service_refs:list}:{}),professional_ref,date,time,...(fields.override_requested!==undefined?{override_requested:fields.override_requested}:{}),...(fields.override_reason?{override_reason:fields.override_reason}:{})},now,projection);
+  const available=await getSchedulingAvailability(tx,actor,{service_ref,...(list?{service_refs:list}:{}),professional_ref,date,time,...(fields.override_requested!==undefined?{override_requested:fields.override_requested}:{}),...(fields.override_reason?{override_reason:fields.override_reason}:{})},now,projection,undefined,5,true);
   if(!available.plan||!available.quote)throw Error("SLOT_CONFLICT");
   if(list)return listSnapshot(tx,actor,{customer_ref,customer_name:customer.name,professional_ref,date,list,fields},available);
   const item=available.plan.items[0];
@@ -66,7 +80,7 @@ export async function schedulingSnapshot(tx:Tx,actor:ServiceActor,fields:z.infer
   if(!version)throw Error("SERVICE_NOT_FOUND");
   return snapshot.parse({customer_ref,customer_name:customer.name,service_ref,service_revision:version.revision,service_name:item.serviceName,professional_ref,professional_name:item.professionalName,
     date,startLocal:item.startLocal,endLocal:item.endLocal,timezone:available.timezone,priceCents:item.priceCents,priceType:item.priceType,durationMin:item.durationMin,quote:available.quote,
-    ...(available.review?.status==="CONFLICT_OVERRIDABLE"?{overbook:{reason:fields.override_reason!.trim(),conflict_hash:createHash("sha256").update(JSON.stringify(available.review.conflicts)).digest("hex")}}:{})});
+    ...conflictGrant(available.review,fields)});
 }
 /** P2b: ONE appointment with several services, exactly as the domain planned it: every item with the one professional, back to
  * back, in the order said (one appointment group); anything else is a changed schedule, never a partial or split booking.
@@ -85,10 +99,28 @@ async function listSnapshot(tx:Tx,actor:ServiceActor,input:{customer_ref:string;
   return snapshot.parse({customer_ref:input.customer_ref,customer_name:input.customer_name,service_ref:services[0].service_ref,service_revision:services[0].service_revision,service_name:services.map(s=>s.service_name).join(" + "),
     professional_ref:input.professional_ref,professional_name:items[0].professionalName,date:input.date,startLocal:plan.startLocal,endLocal:plan.endLocal,timezone:available.timezone,
     priceCents:plan.totalCents,priceType:services.some(s=>s.priceType==="FROM")?"FROM":"FIXED",durationMin:services.reduce((sum,s)=>sum+s.durationMin,0),quote:available.quote!,
-    ...(review?.status==="CONFLICT_OVERRIDABLE"?{overbook:{reason:input.fields.override_reason!.trim(),conflict_hash:createHash("sha256").update(JSON.stringify(review.conflicts)).digest("hex")}}:{}),services});
+    ...conflictGrant(review,input.fields),services});
 }
 /** Same transaction supplied by the caller. The manual executor owns override, audit and locks. */
 export async function executeSchedulingCreate(tx:Tx,actor:ServiceActor,s:z.infer<typeof snapshot>,key:string){
+  if(s.exception){
+    // 05/10: the role and the causes are checked again now; a slot whose causes changed since the proposal is never booked.
+    const role=await authorizeSchedulingOperation(tx,actor,"appointment.create");
+    if(!canGrantException(role,s.exception.causes))throw Error("FORBIDDEN");
+    const live=await scheduleExceptionCausesNow(tx,actor,{professional_ref:s.professional_ref,service_refs:snapshotServiceRefs(s),startLocal:s.startLocal,endLocal:s.endLocal});
+    if(live.hard.length||[...live.causes].sort().join()!==[...s.exception.causes].sort().join())throw Error("SCHEDULE_CHANGED");
+    const has=(cause:ScheduleExceptionCause)=>s.exception!.causes.includes(cause),can=(cause:ScheduleExceptionCause)=>EXCEPTION_ROLES[cause].includes(role),reason=s.exception.reason;
+    const result=await createAppointment(tx,{salonId:actor.salonId,clientId:s.customer_ref,professionalId:s.professional_ref,serviceIds:snapshotServiceRefs(s),startLocal:s.startLocal,
+      origin:"ADMIN",actor:{type:"STAFF",id:actor.userId,name:"Secretária — equipe autenticada"},idempotencyKey:key,enforceBookingWindow:false,enforcePlanLimits:true,
+      ...(has("OUTSIDE_WORKING_HOURS")?{canOverrideSchedule:can("OUTSIDE_WORKING_HOURS"),scheduleOverrideReason:reason}:{}),
+      ...(has("PROFESSIONAL_UNAVAILABLE")?{canOverrideTimeOff:can("PROFESSIONAL_UNAVAILABLE"),timeOffOverrideReason:reason}:{}),
+      ...(has("WORKING_HOURS_BREAK")?{canOverrideWorkingHoursBreak:can("WORKING_HOURS_BREAK"),overrideConfirmed:true,workingHoursBreakReason:reason}:{}),
+      ...(has("AFTER_WORKING_HOURS")?{canFinishAfterHours:can("AFTER_WORKING_HOURS"),afterHoursReason:reason}:{}),
+      ...(has("SLOT_TAKEN")?{canOverride:can("SLOT_TAKEN"),overrideReason:reason}:{})});
+    await writeAuditLog(tx,{salonId:actor.salonId,userId:actor.userId,actorName:"Secretária — equipe autenticada",action:"SECRETARY_SCHEDULE_EXCEPTION_CREATE",entityType:"Appointment",
+      entityId:result.appointment.id,reason,metadata:{causes:s.exception.causes,reason_source:s.exception.reason_source,startLocal:s.startLocal,professionalId:s.professional_ref}});
+    return result.appointment.id;
+  }
   if(s.overbook){
     assertSchedulingExceptionScope({override_requested:true},"appointment.create");
     const role=await authorizeSchedulingOperation(tx,actor,"appointment.create");
@@ -102,6 +134,16 @@ export async function executeSchedulingCreate(tx:Tx,actor:ServiceActor,s:z.infer
     idempotencyKey:key,quote:s.quote,manual:true,actor:{type:"STAFF",id:actor.userId,name:"Secretária — equipe autenticada"}});
   if(result.appointmentIds.length!==1)throw Error("UNEXPECTED_APPOINTMENT_RESULT");
   return result.appointmentIds[0];
+}
+/** 05/10: the exception causes of a slot as the domain sees them now (the same collection the review used). A move passes its
+ * own inspector (its snapshot services and the released appointment). */
+export async function scheduleExceptionCausesNow(tx:Tx,actor:ServiceActor,slot:{professional_ref:string;service_refs:string[];startLocal:string;endLocal:string;excludeAppointmentId?:string;
+  inspect?:(skips:{skipSchedule?:boolean;skipTimeOff?:boolean;skipWorkingHoursBreak?:boolean;skipAfterHours?:boolean})=>Promise<{violation:string|null;conflicts:readonly {kind:"APPOINTMENT"|"RESOURCE"|"WAITLIST"}[]}>}){
+  const salon=await tx.salon.findUniqueOrThrow({where:{id:actor.salonId},select:{timezone:true}});
+  const start=localDateTimeToUtc(slot.startLocal,salon.timezone),end=localDateTimeToUtc(slot.endLocal,salon.timezone);
+  return collectExceptionCauses(slot.inspect??(skips=>inspectAppointmentAvailability(tx,{salonId:actor.salonId,professionalId:slot.professional_ref,serviceIds:slot.service_refs,startLocal:slot.startLocal,
+      enforceBookingWindow:false,excludeAppointmentId:slot.excludeAppointmentId,...skips})),
+    async()=>!!await tx.timeOff.findFirst({where:{professionalId:slot.professional_ref,professional:{salonId:actor.salonId},startAt:{lt:end},endAt:{gt:start}},select:{id:true}}));
 }
 /** C5 agent (flag SALON_SECRETARY_AGENT): the fields a derived value may occupy; a continuation that drops that value (with its provenance)
  * hands them to the next write in `forget_fields`, so the journal merge never resurrects them. */
@@ -201,17 +243,17 @@ export async function proposeAppointmentCreate(tx:Tx,actor:ServiceActor,input:un
   await journal.append(tx,actor,"PROPOSAL",d.draft_ref,proposal,proposal.proposal_ref);return proposal;
 }
 /** The NEW booking preview (the model reads it as the action's previous response; part of the presentation digest). */
-export function appointmentCreatePreview(s:Pick<z.infer<typeof snapshot>,"customer_name"|"service_name"|"professional_name"|"startLocal"|"endLocal"|"priceType"|"priceCents"|"overbook">&Partial<Pick<z.infer<typeof snapshot>,"services"|"durationMin">>){
+export function appointmentCreatePreview(s:Pick<z.infer<typeof snapshot>,"customer_name"|"service_name"|"professional_name"|"startLocal"|"endLocal"|"priceType"|"priceCents"|"overbook"|"exception">&Partial<Pick<z.infer<typeof snapshot>,"services"|"durationMin">>){
   if(s.services)return appointmentListPreview({...s,services:s.services});
-  return `NOVO AGENDAMENTO\nCliente: ${s.customer_name}\nServiço: ${s.service_name}\nProfissional: ${s.professional_name}\nQuando: ${formatLocalRange(s.startLocal,s.endLocal)}\nPreço: ${s.priceType==="FROM"?"A partir de ":""}${(s.priceCents/100).toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}${s.overbook?`\nENCAIXE: haverá sobreposição. Motivo: ${s.overbook.reason}`:""}`;
+  return `NOVO AGENDAMENTO\nCliente: ${s.customer_name}\nServiço: ${s.service_name}\nProfissional: ${s.professional_name}\nQuando: ${formatLocalRange(s.startLocal,s.endLocal)}\nPreço: ${s.priceType==="FROM"?"A partir de ":""}${(s.priceCents/100).toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}${s.overbook?`\nENCAIXE: haverá sobreposição. Motivo: ${s.overbook.reason}`:""}${s.exception?`\nEXCEÇÃO: ${exceptionLabel(s.exception.causes)} · Motivo: ${s.exception.reason}`:""}`;
 }
 const brl=(cents:number)=>(cents/100).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
 /** P2b: a NEW booking with several services (one professional): every service with its own duration and price, then the
  * totals the domain computed (a price "a partir de" makes the total "a partir de" too). */
-function appointmentListPreview(s:Pick<z.infer<typeof snapshot>,"customer_name"|"professional_name"|"startLocal"|"endLocal"|"priceType"|"priceCents"|"overbook">&{services:NonNullable<z.infer<typeof snapshot>["services"]>;durationMin?:number}){
+function appointmentListPreview(s:Pick<z.infer<typeof snapshot>,"customer_name"|"professional_name"|"startLocal"|"endLocal"|"priceType"|"priceCents"|"overbook"|"exception">&{services:NonNullable<z.infer<typeof snapshot>["services"]>;durationMin?:number}){
   const services=s.services.map(item=>`${item.service_name} (${item.durationMin} min, ${item.priceType==="FROM"?"a partir de ":""}${brl(item.priceCents)})`).join(" + ");
   const minutes=s.durationMin??s.services.reduce((sum,item)=>sum+item.durationMin,0);
-  return `NOVO AGENDAMENTO\nCliente: ${s.customer_name}\nServiços: ${services}\nProfissional: ${s.professional_name}\nQuando: ${formatLocalRange(s.startLocal,s.endLocal)}\nDuração total: ${minutes} min\nPreço total: ${s.priceType==="FROM"?"A partir de ":""}${brl(s.priceCents)}${s.overbook?`\nENCAIXE: haverá sobreposição. Motivo: ${s.overbook.reason}`:""}`;
+  return `NOVO AGENDAMENTO\nCliente: ${s.customer_name}\nServiços: ${services}\nProfissional: ${s.professional_name}\nQuando: ${formatLocalRange(s.startLocal,s.endLocal)}\nDuração total: ${minutes} min\nPreço total: ${s.priceType==="FROM"?"A partir de ":""}${brl(s.priceCents)}${s.overbook?`\nENCAIXE: haverá sobreposição. Motivo: ${s.overbook.reason}`:""}${s.exception?`\nEXCEÇÃO: ${exceptionLabel(s.exception.causes)} · Motivo: ${s.exception.reason}`:""}`;
 }
 /** C7 (create vs change, review): the customer's upcoming appointments a NEW booking proposal found, the one overlapping the
  * new slot first and marked. Kept BESIDE the preview (never in it): the preview is the model's context, the notice is

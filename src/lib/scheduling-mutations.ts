@@ -14,6 +14,8 @@ import { lockOperationalResources } from "./inventory-lock";
 import { addCalendarDays, toLocalDateTime, localDateTimeToUtc } from "./time";
 import { assertSchedulingTemporalConsistency, matchesSchedulingPeriod } from "./scheduling-temporal";
 import { releasedAgendaView } from "./scheduling-released-slot";
+import { writeAuditLog } from "./audit";
+import { canGrantException, collectExceptionCauses, EXCEPTION_DEFAULT_REASON, EXCEPTION_ROLES, exceptionHash, exceptionLabel, scheduleExceptionsEnabled, SCHEDULE_EXCEPTION_CAUSES, type ExceptionSkips, type ScheduleExceptionCause } from "./schedule-exception-policy";
 
 export const mutationOperation=z.enum(["appointment.change","appointment.cancel","schedule.block"]);
 export const isSchedulingMutation=(op:string)=>mutationOperation.safeParse(op).success;
@@ -26,6 +28,8 @@ export const actionSnapshot=z.object({
   affected:z.array(z.object({id:z.string(),version:z.number(),name:z.string(),startLocal:z.string()}).strict()),
   // P2a (only on an alteration): who attended and what was booked before; professional_ref/services/priceCents are the new ones.
   before_professional_ref:z.string().optional(),before_professional_name:z.string().optional(),before_services:z.array(serviceSnapshot).optional(),before_price_cents:z.number().optional(),
+  // 05/10 (flag SALON_SECRETARY_SCHEDULE_EXCEPTIONS): a reschedule the owner asked to keep despite the professional's schedule.
+  exception:z.object({causes:z.array(z.enum(SCHEDULE_EXCEPTION_CAUSES)).min(1),reason:z.string().min(3).max(200),reason_source:z.enum(["OWNER","DEFAULT"]),conflict_hash:z.string()}).strict().optional(),
 }).strict();
 export type ActionSnapshot=z.infer<typeof actionSnapshot>;
 /** P2a: the service list an alteration asks for, from the appointment's current services (ids, in order). SET is the complete
@@ -123,20 +127,20 @@ async function mutableSnapshot(tx:Tx,actor:ServiceActor,ref:string){
  * then checked for the NEW professional and the NEW services with their catalog duration and price, exactly the domain path
  * the executor takes (the historical snapshots when the services stay, the catalog otherwise); no date and no time keep the
  * appointment's own start. The alternatives are the new professional's, for the new duration. */
-export async function inspectSchedulingMove(tx:Tx,actor:ServiceActor,ref:string,date:string|undefined,time:string|undefined,excluded?:ReadonlySet<string>,released?:string,fields?:SchedulingFields){
-  await authorizeSchedulingOperation(tx,actor,"appointment.change");
+export async function inspectSchedulingMove(tx:Tx,actor:ServiceActor,ref:string,date:string|undefined,time:string|undefined,excluded?:ReadonlySet<string>,released?:string,fields?:SchedulingFields,consent?:boolean){
+  const role=await authorizeSchedulingOperation(tx,actor,"appointment.change");
   const current=await mutableSnapshot(tx,actor,ref);
   const alteration=fields?alterationFromFields(fields,current.services.map(s=>s.id)):{};
   const professional=alteration.professional_ref??current.dto.professional_ref,ids=alteration.service_ids;
   const servicesChanged=!!ids&&!(ids.length===current.services.length&&ids.every((id,index)=>id===current.services[index].id));
   const agenda=released&&released!==ref?releasedAgendaView(tx,released):tx;
-  const inspect=async(startLocal:string)=>{
-    if(servicesChanged)return inspectAppointmentAvailability(agenda,{salonId:actor.salonId,professionalId:professional,serviceIds:ids!,startLocal,excludeAppointmentId:ref,enforceBookingWindow:false});
+  const inspect=async(startLocal:string,skips:ExceptionSkips={})=>{
+    if(servicesChanged)return inspectAppointmentAvailability(agenda,{salonId:actor.salonId,professionalId:professional,serviceIds:ids!,startLocal,excludeAppointmentId:ref,enforceBookingWindow:false,...skips});
     const probes=current.resource_ids.length?current.resource_ids:[undefined];
     let result;
     for(const resource of probes){
       result=await inspectAppointmentAvailabilityWithServiceSnapshots(agenda,{salonId:actor.salonId,professionalId:professional,currentProfessionalId:current.dto.professional_ref,
-        serviceSnapshots:current.services.map((s,i)=>({...s,...(i===0&&resource?{physicalResourceId:resource}:{})})),startLocal,excludeAppointmentId:ref,enforceBookingWindow:false});
+        serviceSnapshots:current.services.map((s,i)=>({...s,...(i===0&&resource?{physicalResourceId:resource}:{})})),startLocal,excludeAppointmentId:ref,enforceBookingWindow:false,...skips});
       if(result.violation)return result;
     }
     return result!;
@@ -146,7 +150,21 @@ export async function inspectSchedulingMove(tx:Tx,actor:ServiceActor,ref:string,
   const requested=date!==undefined&&time!==undefined?`${date}T${time}`:current.dto.start_local.slice(0,16);
   const salon=await tx.salon.findUniqueOrThrow({where:{id:actor.salonId},select:{timezone:true}});
   if(localDateTimeToUtc(requested,salon.timezone)<=new Date())throw Error("PAST_TIME");
-  const result=await inspect(requested);
+  let result=await inspect(requested);
+  // 05/10 (flag SALON_SECRETARY_SCHEDULE_EXCEPTIONS): every cause of the refused destination and whether this role may keep it
+  // anyway (the agenda's own rule). With the owner's consent the slot is re-inspected with those causes lifted; a hard cause
+  // (closure, resource, waitlist) or anything left still refuses. Without the flag nothing here runs.
+  let exception:{causes:ScheduleExceptionCause[];hard:string[];allowed:boolean;startLocal:string;endLocal:string;conflicts:{startLocal:string;endLocal:string;overlapMinutes:number}[];hash:string}|undefined;
+  if(result.violation&&scheduleExceptionsEnabled()){
+    const first=result;
+    const collected=await collectExceptionCauses(skips=>inspect(requested,skips),async()=>!!await tx.timeOff.findFirst({where:{professionalId:professional,professional:{salonId:actor.salonId},startAt:{lt:first.endAt},endAt:{gt:first.startAt}},select:{id:true}}));
+    const startLocal=toLocalDateTime(first.startAt,first.timezone),endLocal=toLocalDateTime(first.endAt,first.timezone);
+    const conflicts=(collected.final?.conflicts??[]).flatMap(c=>c.startAt&&c.endAt?[{startLocal:toLocalDateTime(c.startAt,first.timezone),endLocal:toLocalDateTime(c.endAt,first.timezone),
+      overlapMinutes:Math.max(0,(Math.min(first.endAt.getTime(),c.endAt.getTime())-Math.max(first.startAt.getTime(),c.startAt.getTime()))/60000)}]:[]);
+    const allowed=!collected.hard.length&&canGrantException(role,collected.causes);
+    exception={causes:collected.causes,hard:collected.hard,allowed,startLocal,endLocal,conflicts,hash:exceptionHash({causes:collected.causes,startLocal,endLocal,conflicts})};
+    if(allowed&&consent&&collected.final&&(!collected.final.violation||collected.final.violation==="SLOT_TAKEN"&&collected.causes.includes("SLOT_TAKEN")))result={...collected.final,violation:null};
+  }
   const alternatives:{startLocal:string;endLocal:string;professional_ref:string}[]=[];
   if(result.violation){
     const day=requested.slice(0,10),minute=Number(requested.slice(11,13))*60+Number(requested.slice(14,16));
@@ -156,7 +174,7 @@ export async function inspectSchedulingMove(tx:Tx,actor:ServiceActor,ref:string,
       const option=await inspect(local);if(!option.violation)alternatives.push({startLocal:local,endLocal:toLocalDateTime(option.endAt,option.timezone),professional_ref:professional});
     }
   }
-  return {current,result,alternatives,professional_ref:professional,services_changed:servicesChanged};
+  return {current,result,alternatives,professional_ref:professional,services_changed:servicesChanged,...(exception?{exception}:{})};
 }
 export async function schedulingActionSnapshot(tx:Tx,actor:ServiceActor,operation:string,f:SchedulingFields,released?:string):Promise<ActionSnapshot>{
   const kind=mutationOperation.parse(operation);await authorizeSchedulingOperation(tx,actor,kind);
@@ -173,7 +191,8 @@ export async function schedulingActionSnapshot(tx:Tx,actor:ServiceActor,operatio
   if(!f.appointment_ref)throw Error("NEEDS_INPUT");
   // P2a: an alteration re-checks the destination for its new professional and services (and keeps the slot when none was said).
   const alter=kind==="appointment.change"&&schedulingAlteration(f);
-  const move=kind==="appointment.change"?await (alter?inspectSchedulingMove(tx,actor,f.appointment_ref,f.date,f.time,undefined,released,f):released?inspectSchedulingMove(tx,actor,f.appointment_ref,f.date!,f.time!,undefined,released):inspectSchedulingMove(tx,actor,f.appointment_ref,f.date!,f.time!)):undefined;
+  const consent=f.override_requested===true&&scheduleExceptionsEnabled();
+  const move=kind==="appointment.change"?await (alter?inspectSchedulingMove(tx,actor,f.appointment_ref,f.date,f.time,undefined,released,f,consent):released?inspectSchedulingMove(tx,actor,f.appointment_ref,f.date!,f.time!,undefined,released,undefined,consent):inspectSchedulingMove(tx,actor,f.appointment_ref,f.date!,f.time!,undefined,undefined,undefined,consent)):undefined;
   if(move?.result.violation)throw Error("SLOT_CONFLICT");
   const current=move?.current??await mutableSnapshot(tx,actor,f.appointment_ref);const d=current.dto;
   if(kind==="appointment.cancel"&&!cancelReasonOptionalEnabled()&&(!f.reason||f.reason.trim().length<3))throw Error("REASON_REQUIRED");
@@ -182,7 +201,13 @@ export async function schedulingActionSnapshot(tx:Tx,actor:ServiceActor,operatio
     professional_ref:d.professional_ref,professional_name:d.professional_name,timezone:move?.result.timezone??d.timezone,before_start:d.start_local,before_end:d.end_local,before_timezone:d.timezone,
     startLocal:move?toLocalDateTime(move.result.startAt,move.result.timezone):d.start_local,endLocal:move?toLocalDateTime(move.result.endAt,move.result.timezone):d.end_local,
     priceCents:d.priceCents,services:current.services,resource_ids:current.resource_ids,requires_acceptance:kind==="appointment.change"&&current.requires_acceptance&&toLocalDateTime(move!.result.startAt,d.timezone)!==d.start_local,
-    waiting_count:current.waiting.length,waiting_hash:createHash("sha256").update(JSON.stringify(current.waiting)).digest("hex"),affected:[],...alteration});
+    waiting_count:current.waiting.length,waiting_hash:createHash("sha256").update(JSON.stringify(current.waiting)).digest("hex"),affected:[],...alteration,
+    ...(consent&&move?.exception?.allowed?{exception:exceptionGrant(move.exception,f.override_reason)}:{})});
+}
+/** 05/10: the exception a consented reschedule carries (the owner's own reason, or the default one). */
+function exceptionGrant(exception:{causes:ScheduleExceptionCause[];hash:string},said?:string){
+  const own=said?.trim(),owner=!!own&&own.length>=3&&own.length<=200;
+  return {causes:exception.causes,reason:owner?own!:EXCEPTION_DEFAULT_REASON,reason_source:owner?"OWNER" as const:"DEFAULT" as const,conflict_hash:exception.hash};
 }
 /** P2a: the snapshot keys an alteration replaces: the new professional, services (the domain's own snapshots: catalog
  * duration and price when the list changes) and total price, what was there before, and the customer's acceptance exactly as
@@ -202,6 +227,9 @@ async function alterationSnapshot(tx:Tx,actor:ServiceActor,d:Awaited<ReturnType<
     ...(move.services_changed?{before_services:before,before_price_cents:d.priceCents}:{})};
 }
 export function schedulingActionPreview(s:ActionSnapshot,reason?:string){
+  return basePreview(s,reason)+(s.exception?`\nEXCEÇÃO: ${exceptionLabel(s.exception.causes)} · Motivo: ${s.exception.reason}`:"");
+}
+function basePreview(s:ActionSnapshot,reason?:string){
   // Human text only; the snapshot keeps ISO local values for hashes and execution.
   const when=(start:string,end:string,timezone?:string)=>`${formatLocalRange(start,end)}${timezone&&timezone!==s.timezone?` (${timezone})`:""}`;
   const waiting=(n:number,change:boolean)=>n?`Lista de espera: ${n} pessoa(s)${change?"; o horário liberado pode ser oferecido a elas.":", sem oferta automática."}`:"Lista de espera: ninguém.";
@@ -240,6 +268,15 @@ export async function executeSchedulingMutation(tx:Tx,actor:ServiceActor,s:Actio
   }
   const args={salonId:actor.salonId,appointmentId:s.appointment_ref!,idempotencyKey:key,expectedVersion:s.revision,actor:{type:"STAFF" as const,id:actor.userId,name:"Secretária — equipe autenticada"}};
   if(s.kind==="appointment.cancel"){await cancelAppointmentReliably(tx,{...args,reason:f.reason,enforceClientPolicy:false});return {appointment_ref:s.appointment_ref,outcome:"CANCELLED" as const};}
-  const result=await requestStaffReschedule(tx,{...args,professionalId:s.professional_ref,serviceIds:s.services.map(x=>x.id),startLocal:s.startLocal});
+  const exception=s.exception;
+  if(exception&&!canGrantException(role,exception.causes))throw Error("FORBIDDEN");
+  const has=(cause:ScheduleExceptionCause)=>!!exception?.causes.includes(cause),can=(cause:ScheduleExceptionCause)=>EXCEPTION_ROLES[cause].includes(role);
+  const scheduleCause=(["OUTSIDE_WORKING_HOURS","PROFESSIONAL_UNAVAILABLE","WORKING_HOURS_BREAK"] as const).filter(has);
+  const result=await requestStaffReschedule(tx,{...args,professionalId:s.professional_ref,serviceIds:s.services.map(x=>x.id),startLocal:s.startLocal,
+    ...(exception&&scheduleCause.length?{canOverrideSchedule:scheduleCause.every(can),scheduleOverrideReason:exception.reason}:{}),
+    ...(exception&&has("AFTER_WORKING_HOURS")?{canFinishAfterHours:can("AFTER_WORKING_HOURS"),afterHoursReason:exception.reason}:{}),
+    ...(exception&&has("SLOT_TAKEN")?{canOverbook:can("SLOT_TAKEN"),overbookReason:exception.reason}:{})});
+  if(exception)await writeAuditLog(tx,{salonId:actor.salonId,userId:actor.userId,actorName:"Secretária — equipe autenticada",action:"SECRETARY_SCHEDULE_EXCEPTION_RESCHEDULE",entityType:"Appointment",
+    entityId:s.appointment_ref!,reason:exception.reason,metadata:{causes:exception.causes,reason_source:exception.reason_source,startLocal:s.startLocal,professionalId:s.professional_ref}});
   return {appointment_ref:s.appointment_ref,outcome:result.requiresAcceptance?"PENDING_ACCEPTANCE" as const:"RESCHEDULED" as const,...(result.requiresAcceptance?{acceptance_ref:result.proposalId}:{})};
 }

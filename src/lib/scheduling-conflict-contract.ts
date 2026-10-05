@@ -25,7 +25,9 @@ const neutralException = (key: string, value: unknown) =>
 export function assertSchedulingExceptionScope(fields: Record<string, unknown>, operation: string) {
   if (Object.keys(schedulingExceptionFields).some(key => fields[key] != null && !neutralException(key, fields[key]))) {
     if (!schedulingOverlapEnabled()) throw Error("SCHEDULING_OVERLAP_DISABLED");
-    if (operation !== "appointment.create") throw Error("CAPABILITY_FIELD_MISMATCH");
+    // 05/10 (flag SALON_SECRETARY_SCHEDULE_EXCEPTIONS): a reschedule may carry the backend-set consent of a schedule exception
+    // (never from the model: the package still refuses these keys outside a create).
+    if (operation !== "appointment.create" && !(operation === "appointment.change" && process.env.SALON_SECRETARY_SCHEDULE_EXCEPTIONS === "true" && !fields.destination_mode)) throw Error("CAPABILITY_FIELD_MISMATCH");
   }
 }
 /** Backend-only context: a semantic reply is bound to the existing draft and

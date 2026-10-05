@@ -517,6 +517,8 @@ export async function inspectAppointmentAvailabilityWithServiceSnapshots(
     serviceSnapshots: ServiceSnapshot[];
     skipSchedule?: boolean;
     skipAfterHours?: boolean;
+    skipTimeOff?: boolean;
+    skipWorkingHoursBreak?: boolean;
     startLocal: string;
     excludeAppointmentId?: string;
     enforceBookingWindow: boolean;
@@ -539,6 +541,8 @@ export async function inspectAppointmentAvailabilityWithServiceSnapshots(
     applyPricing: false,
     skipAfterHours: input.skipAfterHours,
     skipSchedule: input.skipSchedule,
+    skipTimeOff: input.skipTimeOff,
+    skipWorkingHoursBreak: input.skipWorkingHoursBreak,
   }, input.serviceSnapshots);
 }
 

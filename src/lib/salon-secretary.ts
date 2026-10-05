@@ -48,6 +48,8 @@ import { usageRecorder } from "./salon-secretary-usage";
 import { normalizeSecretaryServiceName } from "./secretary-service-name";
 import { existingServiceInterpretation, withExistingServiceTargets } from "./secretary-existing-service";
 import { secretaryFastPath } from "./secretary-fast-path";
+import { applyScheduleExceptionConsent, refuseScheduleException } from "./secretary-scheduling";
+import { exceptionReply, scheduleExceptionPending, scheduleExceptionsEnabled } from "./schedule-exception-policy";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { RouterTrace, tryJevInterpretation, outcomeCode, type RouterOptions } from "./secretary-router";
 import { createActionPlan, assessPlanAction, executeConfirmationGroup,
@@ -149,7 +151,7 @@ export type ConfirmationBatchReport = { executed: string[]; replayed: string[];
 /** `today` (B7): the salon's local date (YYYY-MM-DD) the server last read; the screen's reference year for dates. */
 /** `agent_plan` (C5 agent, flag SALON_SECRETARY_AGENT): the active plan was built by the agent (the "Confirmar tudo" review dialog, §5.5). */
 /** `pilot` (flag SALON_SECRETARY_PILOT_RESCHEDULE): the reschedule pilot's plan, open questions, proposal refs and turn (secretary-pilot.ts). */
-export type SecretaryView = { pilot?: PilotView; agent_plan?: true; today?: string; clarifications?: SecretaryClarification[]; turn_notice?: string; turn_notice_alone?: true; options?: SecretaryOption[]; confirmation_batch?: ConfirmationBatchReport; retired_plan?: ActionPlan; proposal_expired?: boolean; service_context?: { fields: Partial<ServiceMvpFields>; target_name?: string }; suspended_plans?: { plan_ref: string; label: string }[]; capability_status?: CapabilityStatus; execution_warnings?: string[]; action_plan?: ActionPlan; communication?: CommunicationState; inventory?: InventoryState; financial?: FinancialState; batch?: BatchState; scheduling?: SchedulingState; operations?: { operation_ref: string; action_keys?: string[]; state: SecretaryView }[]; loaded?: Session["loaded"]; skill?: "services" | "customers" | "scheduling" | "financial" | "inventory" | "communication" | "auto"; customer?: CustomerState; sessionId: string; message: string; draft?: Draft; proposal?: Proposal; receipt?: Receipt; cancelled: boolean; candidates?: Candidates };
+export type SecretaryView = { pilot?: PilotView; agent_plan?: true; today?: string; clarifications?: SecretaryClarification[]; turn_notice?: string; turn_notice_alone?: true; options?: SecretaryOption[]; confirmation_batch?: ConfirmationBatchReport; retired_plan?: ActionPlan; proposal_expired?: boolean; service_context?: { fields: Partial<ServiceMvpFields>; target_name?: string }; suspended_plans?: { plan_ref: string; label: string; subjects?: string[] }[]; capability_status?: CapabilityStatus; execution_warnings?: string[]; action_plan?: ActionPlan; communication?: CommunicationState; inventory?: InventoryState; financial?: FinancialState; batch?: BatchState; scheduling?: SchedulingState; operations?: { operation_ref: string; action_keys?: string[]; state: SecretaryView }[]; loaded?: Session["loaded"]; skill?: "services" | "customers" | "scheduling" | "financial" | "inventory" | "communication" | "auto"; customer?: CustomerState; sessionId: string; message: string; draft?: Draft; proposal?: Proposal; receipt?: Receipt; cancelled: boolean; candidates?: Candidates };
 const turnInput = z.object({ sessionId: z.string().uuid(), message: z.string().trim().min(1).max(1000), operation_ref: z.string().uuid().optional() }).strict();
 /** `linked` (review 2b): the linked actions the screen named and the owner accepted to discard with this one. */
 const discardInput = z.object({ plan_ref: z.string().uuid(), action_key: z.string().regex(/^[a-z][a-z0-9_]{0,31}$/),
@@ -579,7 +581,7 @@ export class SalonSecretary {
       const fallback = clarifications.some(item => item.fallback) ? `\n\n${agendaFallbackNotice}` : "";
       return structuredClone({ ...(s.pilot && pilotRescheduleEnabled() ? { pilot: pilotView(s.pilot) } : {}), sessionId: s.id, skill: "auto", cancelled: s.cancelled, loaded: s.loaded, ...(s.today ? { today: s.today } : {}),
         ...(s.agentPlan && s.actionPlan?.plan_ref === s.agentPlan ? { agent_plan: true as const } : {}), action_plan: s.actionPlan, capability_status: this.effectiveCapabilityStatus(s, operations),
-        suspended_plans: s.suspendedPlans?.map(saved => ({plan_ref:saved.actionPlan!.plan_ref,label:saved.actionPlan!.actions.map(action => action.operation).join(", ")})),
+        suspended_plans: s.suspendedPlans?.map(saved => ({plan_ref:saved.actionPlan!.plan_ref,label:saved.actionPlan!.actions.map(action => action.operation).join(", "),...((subjects => subjects.length ? {subjects} : {})([...new Set(saved.actionPlan!.actions.flatMap(action => [(action.fields as {customer_name?:unknown}).customer_name,(action.fields as {service_name?:unknown}).service_name]).filter((name):name is string => typeof name === "string" && name.trim() !== "").map(name => name.trim()))]))})),
         ...(s.turnNotice && !s.cancelled ? { turn_notice: s.turnNotice.text, ...(s.turnNotice.alone ? { turn_notice_alone: true as const } : {}) } : {}), ...(clarifications.length ? { clarifications } : {}),
         message: s.actionPlan ? (s.cancelled ? "Conversa encerrada. Confirmações anteriores preservadas." : (s.turnNotice?.alone ? s.turnNotice.text : s.turnNotice ? `${s.turnNotice.text}\n\n${body}` : body!) + fallback) : s.notice ?? (s.children?.length ? "Confira cada operação abaixo. Cada confirmação executa somente sua proposta." : "Posso ajudar com serviços, clientes, agenda, estoque e consultas financeiras. O que deseja?"), operations });
     }
@@ -587,7 +589,7 @@ export class SalonSecretary {
     if (s.inventory) return structuredClone({sessionId:s.id,skill:s.skill,cancelled:s.cancelled,inventory:s.inventory,message:s.cancelled?"Conversa encerrada.":s.inventory.message});
     if (s.financial) return structuredClone({sessionId:s.id,skill:s.skill,cancelled:s.cancelled,financial:s.financial,message:s.financial.message});
     if (s.batch) return structuredClone({sessionId:s.id,skill:s.skill,cancelled:s.cancelled,batch:s.batch,message:s.cancelled?"Batch cancelado; nenhuma ação foi executada.":s.batch.message});
-    if (s.scheduling) { const options = s.cancelled ? [] : slotOptions(s.scheduling).map(({ option_id, label }) => ({ option_id, label }));
+    if (s.scheduling) { const options = s.cancelled ? [] : slotOptions(s.scheduling).map(({ option_id, label, kind }) => ({ option_id, label, ...(kind ? { kind } : {}) }));
       return structuredClone({sessionId:s.id,skill:s.skill,cancelled:s.cancelled,scheduling:s.scheduling,message:s.cancelled?"Conversa encerrada.":s.scheduling.message,...(options.length?{options}:{})}); }
     if (s.customer) return structuredClone({ sessionId: s.id, skill: s.skill, cancelled: s.cancelled, customer: s.customer,
       message: s.cancelled ? "Conversa encerrada. Nenhuma operação foi confirmada por esta conversa." : s.customer.message });
@@ -1006,6 +1008,14 @@ export class SalonSecretary {
           c.metrics.message_total=performance.now()-messageStarted;await persistInventoryMetrics(actor,sessionId,c);return this.view(s);
         } catch(error){c.proposal=undefined;throw error;}
       }
+      // 05/10 (flag SALON_SECRETARY_SCHEDULE_EXCEPTIONS): the reply to a live "quer … mesmo assim?" is read here, with no model call.
+      const exceptionDecision=s.scheduling&&scheduleExceptionPending(s.scheduling)?exceptionReply(message,{bareAllowed:true}):undefined;
+      if(s.scheduling&&exceptionDecision){
+        const c=s.scheduling;s.turns++;this.routerTrace.getStore()!.fastPath();c.metrics={};c.interpretation_source="DETERMINISTIC_FAST_PATH";
+        try{if(exceptionDecision.decision==="CONSENT")await applyScheduleExceptionConsent(actor,c,{reason:exceptionDecision.reason});else refuseScheduleException(c);
+          await persistSchedulingMetrics(actor,sessionId,c);return this.view(s);}
+        catch(error){c.proposal=undefined;throw error;}
+      }
       const parsingStart=performance.now();
       const waiting=s.scheduling&&!s.scheduling.candidates&&!s.scheduling.proposal?s.scheduling.waiting_for:
         !s.customer&&!s.pending&&!s.proposal&&s.draft?.missing_fields.length===1?s.draft.missing_fields[0]:undefined;
@@ -1124,6 +1134,7 @@ export class SalonSecretary {
     return this.get(actor,id);
   }
   private async sendAutomatic(actor: ServiceActor, parent: Session, message: string, operationRef?: string, messageStarted=performance.now()) {
+    if (parent.actionPlan && scheduleExceptionsEnabled()) { const view = await this.exceptionReplyTurn(actor, parent, message, operationRef); if (view) return view; }
     if (parent.actionPlan) {
       // C5 agent (flag SALON_SECRETARY_AGENT, only inside its message context; B2): a new request on a CLOSED plan (no open action) goes
       // through the agent first; without its answer, the C4 continuation below, with the calls and the time the message has left.
@@ -2296,6 +2307,28 @@ export class SalonSecretary {
     }catch(error){this.failActionUnit(next,unit,error);}}});
     Object.assign(parent,this.savePlan(next));await this.recordAutomaticState(actor,parent);return this.view(parent);
   }
+  /** 05/10 (flag SALON_SECRETARY_SCHEDULE_EXCEPTIONS): a reply to a live "quer … mesmo assim?" of a plan action is read with no model
+   * call: a consent applies it (the action still ends in Confirmar), a plain "não" refuses it; anything else goes on as before. The
+   * action is the one the screen targets, or the only one asking; a bare "sim" counts only when targeted or the plan has one action. */
+  private async exceptionReplyTurn(actor: ServiceActor, parent: Session, message: string, operationRef?: string) {
+    const units = parent.actionUnits ?? [];
+    const asking = units.filter(unit => unit.child && !this.discardedUnit(parent, unit)).map(unit => ({ unit, child: this.get(actor, unit.child!) }))
+      .filter(({ child }) => !child.cancelled && !!scheduleExceptionPending(child.scheduling));
+    const target = operationRef ? asking.find(({ child }) => child.id === operationRef) : asking.length === 1 ? asking[0] : undefined;
+    if (!target) return undefined;
+    const decision = exceptionReply(message, { bareAllowed: !!operationRef || units.length === 1 });
+    if (!decision) return undefined;
+    return this.planContext.run(parent.id, async () => {
+      parent.actionPlan!.revision++; parent.turns++;
+      const c = target.child.scheduling!;
+      c.metrics = {}; c.interpretation_source = "DETERMINISTIC_FAST_PATH";
+      if (decision.decision === "CONSENT") await applyScheduleExceptionConsent(actor, c, { reason: decision.reason }); else refuseScheduleException(c);
+      await persistSchedulingMetrics(actor, target.child.id, c);
+      this.syncActionUnit(actor, parent, target.unit); this.checkPlanMessageRecipient(actor, parent, target.unit);
+      parent.conversationNotice = undefined; parent.capability_status = undefined;
+      await this.recordAutomaticState(actor, parent); return this.view(parent);
+    });
+  }
   private async sendActionPlanTurn(actor: ServiceActor, parent: Session, message: string, operationRef?: string) {
     // A discarded unit's child is closed: answering it is not a way back into the plan.
     if (operationRef && !parent.actionUnits?.some(unit => unit.child === operationRef && !this.discardedUnit(parent, unit))) throw Error("OPERATION_NOT_IN_SESSION");
@@ -2809,6 +2842,17 @@ export class SalonSecretary {
       if (parent.actionPlan && (!unit || this.discardedUnit(parent, unit))) throw Error("OPERATION_NOT_IN_SESSION");
       const slot = child.cancelled || child.scheduling?.receipt ? undefined : slotOptions(child.scheduling)[optionIndex(option_id)];
       if (!slot || parent.actionPlan && revision !== undefined && revision !== parent.actionPlan.revision) throw Error("OPTION_UNAVAILABLE");
+      // 05/10: the window's "Agendar/Remarcar mesmo assim" is the owner's explicit consent to the schedule exception (Confirmar still follows).
+      if (slot.kind === "exception") return this.preparePlanSafely(parent,()=>this.planContext.run(parent.actionPlan ? parent.id : "", async () => {
+        if (parent.actionPlan) parent.actionPlan.revision++;
+        const c = child.scheduling!;
+        c.metrics = {}; c.interpretation_source = "DETERMINISTIC_FAST_PATH";
+        await applyScheduleExceptionConsent(actor, c);
+        await persistSchedulingMetrics(actor, child.id, c);
+        if (unit) { this.syncActionUnit(actor, parent, unit); this.checkPlanMessageRecipient(actor, parent, unit); }
+        parent.conversationNotice=undefined;parent.capability_status=undefined;
+        await this.recordAutomaticState(actor,parent); return this.view(parent);
+      }),operation_ref);
       const clock = slot.startLocal.slice(11, 16), answer = secretaryFastPath("time", clock);
       if (!answer || !("time" in answer)) throw Error("OPTION_UNAVAILABLE");
       return this.preparePlanSafely(parent,()=>this.planContext.run(parent.actionPlan ? parent.id : "", async () => {

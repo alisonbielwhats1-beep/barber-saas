@@ -14,6 +14,7 @@ import { startSecretary, sendSecretary, startAndSendSecretary, selectSecretaryCu
   discardSecretaryAction, selectSecretaryOption, suggestSecretaryDictation, transcribeSecretaryVoice, sendSecretaryFeedback, currentSecretary, type SecretaryReply, type CurrentSecretaryReply } from './actions';
 import { joinDictation, speakSecretary, useSecretaryRecorder, useSecretaryVoice } from './use-secretary-voice';
 import { formatLocal } from '@/lib/secretary-datetime-format';
+import { VOICE_CONFIRM_DELAY_MS, voiceConfirmIntent } from '@/lib/secretary-voice-confirm';
 
 /** B7 timeline: one entry per turn: the owner's words (absent for a click), the Secretary's reply and, for a request
  * later replaced, a read-only summary of its actions with their final statuses. Past turns never carry buttons or
@@ -27,8 +28,10 @@ const FEEDBACK_ENTRIES = 80, FEEDBACK_TEXT = 2000;
  * `transcribeEnabled` (SALON_SECRETARY_TRANSCRIBE_ENABLED) records audio for the server transcription instead of the
  * browser's recognizer. Both default off; neither ever sends or confirms. `onNavigate` runs when the owner follows a
  * link out of the conversation (the dock closes: on mobile it keeps the rest of the app inert while open).
- * `feedbackEnabled` (SALON_SECRETARY_FEEDBACK, default off): "Não era isso" on the latest reply. */
-export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrection = false, transcribeEnabled = false, feedbackEnabled = false, onNavigate }: { voiceEnabled?: boolean; active?: boolean; voiceCorrection?: boolean; transcribeEnabled?: boolean; feedbackEnabled?: boolean; onNavigate?: () => void }) {
+ * `feedbackEnabled` (SALON_SECRETARY_FEEDBACK, default off): "Não era isso" on the latest reply. `flowEnabled` (SALON_SECRETARY_FLOW_WINDOW,
+ * default off; owner, 05/10/2026): the decision window also carries the open questions and the confirmation, with the microphone
+ * reopened at each step of a conversation driven by voice and a spoken "confirma" (3 s, with Cancelar) as the Confirmar. */
+export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrection = false, transcribeEnabled = false, feedbackEnabled = false, flowEnabled = false, onNavigate }: { voiceEnabled?: boolean; active?: boolean; voiceCorrection?: boolean; transcribeEnabled?: boolean; feedbackEnabled?: boolean; flowEnabled?: boolean; onNavigate?: () => void }) {
   const router = useRouter();
   const [state, setState] = useState<SecretaryView>();
   const [viewTime,setViewTime]=useState(()=>Date.now());
@@ -52,6 +55,12 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
   const [decisionOpen, setDecisionOpen] = useState(true);
   const seenDecisions = useRef('');
   const decisionWindow = useRef<HTMLDivElement>(null);
+  /** Flow window: the conversation is driven by voice (the last answer was spoken), so each step reopens the microphone. */
+  const handsFree = useRef(false);
+  /** A spoken confirmation waiting its 3 s (Cancelar stops it), and the window's own short notes (what was heard, what to say). */
+  const [countdown, setCountdown] = useState<{ group: string; until: number }>();
+  const [flowNote, setFlowNote] = useState<string>();
+  const [windowText, setWindowText] = useState('');
   const lock = useRef(false);
   /** D1: the latest open conversation is asked for once, when the chat first becomes active. */
   const reattach = useRef(false);
@@ -210,14 +219,20 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
       setFeedback(undefined); setRated([]); input.current?.focus();
     }
   }
-  async function send() {
-    if (!message.trim() || busy || recording || uncertain) return;
-    const text = message, turn = ++turnIds.current;
+  /** `fromVoice`: the text came from the microphone (the flow window then keeps listening at its next step). */
+  async function sendText(text: string, fromVoice = false) {
+    if (!text.trim() || busy || recording || uncertain) return false;
+    handsFree.current = fromVoice; setFlowNote(undefined);
+    // Flow window: an answer given while a step is shown goes to that step's action (as "Alterar / responder a esta ação" does).
+    const target = operationRef ?? (flowEnabled && decisionOpen ? flowOperation : undefined), turn = ++turnIds.current;
     setTurns(previous => [...previous, { id: turn, user: text }]); setFeedback(undefined);
     // The first message opens the conversation in the same request (one round trip instead of two; owner, 03/10).
-    const result = await act(() => state ? sendSecretary({ sessionId: state.sessionId, message: text, ...(operationRef ? { operation_ref: operationRef } : {}) })
+    const result = await act(() => state ? sendSecretary({ sessionId: state.sessionId, message: text, ...(target ? { operation_ref: target } : {}) })
       : startAndSendSecretary({ message: text }), 'thinking', true, turn);
-    if (result) setMessage('');
+    return Boolean(result);
+  }
+  async function send(fromVoice = false) {
+    if (await sendText(message, fromVoice)) setMessage('');
   }
   function edit(text: string) { setMessage(text); if (hasProposal) setDirty(true); }
   function startVoice() {
@@ -234,10 +249,12 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
   // The transcript (added after what was typed) goes as soon as it is ready; a failed transcription sends nothing.
   const sendNow = useRef(send);
   sendNow.current = send;
+  /** What a finished dictation does (assigned below, with the flow window's current step). */
+  const voiceAnswer = useRef<() => void>(() => { void sendNow.current(true); });
   useEffect(() => {
     if (voice.phase === 'idle') sendAfterVoice.current = false;
     if (voice.phase !== 'ready' || !sendAfterVoice.current) return;
-    sendAfterVoice.current = false; void sendNow.current();
+    sendAfterVoice.current = false; voiceAnswer.current();
   }, [voice.phase]);
   // Shortcuts while the panel is open: Enter sends what was said, Esc cancels the recording (the panel stays open), Ctrl+Espaço
   // starts speaking. On the text box, Enter sends and Shift+Enter breaks the line.
@@ -272,7 +289,7 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
   // The recorder counts its time ("Ouvindo… 0:12") and says when it stopped at its time or size limit.
   const elapsed = transcribeEnabled ? ` ${Math.floor(recorder.elapsed / 60)}:${String(recorder.elapsed % 60).padStart(2, '0')}` : '';
   const limited = transcribeEnabled && recorder.limited;
-  const status = busy === 'executing' ? `Executando…${seconds}` : busy ? `Entendendo e preparando…${seconds}` : voice.phase === 'requesting' ? 'Permita o microfone no aviso do navegador para começar.' : voice.phase === 'listening' ? `Ouvindo…${elapsed} ${transcribeEnabled ? 'O texto aparece a cada pausa. ' : ''}Enviar (ou Enter) manda; Esc cancela.` : voice.phase === 'processing' ? `Transcrevendo…${seconds}` : voice.phase === 'ready' && message ? limited ? 'A gravação chegou ao limite e foi encerrada. Revise antes de enviar.' : 'Transcrição pronta. Revise antes de enviar.' : uncertain ? 'Resultado ainda não verificado' : state?.cancelled ? 'Conversa encerrada' : state?.action_plan?.status === 'PARTIAL_FAILURE' ? 'Revise o resultado de cada ação' : closed ? 'Resultado confirmado pelo sistema' : expiryVisible ? 'Proposta expirada. Envie uma mensagem para preparar novamente.' : dirty && hasProposal ? 'Proposta anterior desatualizada' : hasProposal ? 'Confira antes de confirmar' : 'Fale ou escreva o que precisa';
+  const status = busy === 'executing' ? `Executando…${seconds}` : busy ? `Entendendo e preparando…${seconds}` : voice.phase === 'requesting' ? 'Permita o microfone no aviso do navegador para começar.' : voice.phase === 'listening' ? `Ouvindo…${elapsed} ${transcribeEnabled ? 'O texto aparece a cada pausa. ' : ''}Enviar (ou Enter) manda; Esc cancela.` : voice.phase === 'processing' ? `Transcrevendo…${seconds}` : voice.phase === 'ready' && message ? limited ? 'A gravação chegou ao limite e foi encerrada. Revise antes de enviar.' : 'Transcrição pronta. Revise antes de enviar.' : uncertain ? 'Resultado ainda não verificado' : state?.cancelled ? 'Conversa encerrada' : state?.action_plan?.status === 'PARTIAL_FAILURE' ? 'Revise o resultado de cada ação' : closed || (state?.skill === 'auto' && state.action_plan?.status === 'DONE') ? 'Resultado confirmado pelo sistema' : expiryVisible ? 'Proposta expirada. Envie uma mensagem para preparar novamente.' : dirty && hasProposal ? 'Proposta anterior desatualizada' : hasProposal ? 'Confira antes de confirmar' : 'Fale ou escreva o que precisa';
 
   // B4: a backend-offered time slot is applied as a short answer and prepared again; it never confirms.
   function pickSlot(option: string, operation: string) {
@@ -285,12 +302,17 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
     const slots = operation ? view.options ?? [] : [];
     // D1: a learned alias proposes one entity, already highlighted; it is still only chosen by this click.
     const proposed = view.scheduling?.candidates?.source === 'alias';
+    const exception = slots.filter(slot => slot.kind === 'exception'), times = slots.filter(slot => slot.kind !== 'exception');
     return <>
       {!!candidatesOf(view).length && <div aria-label="Opções encontradas" className="flex flex-col gap-2">
         {candidatesOf(view).map((candidate, index) => <Button key={candidate.id} variant={proposed && index === 0 ? 'default' : 'outline'} disabled={Boolean(busy || uncertain)} className="h-auto min-h-11 justify-start whitespace-normal text-left" onClick={() => select(view, candidate.id, operation)}>{`${index + 1}. ${candidate.label}`}</Button>)}
       </div>}
-      {!!slots.length && <div aria-label="Horários disponíveis" className="flex flex-col gap-2">
-        {slots.map((slot, index) => <Button key={slot.option_id} variant="outline" disabled={Boolean(busy || uncertain)} className="h-auto min-h-11 justify-start whitespace-normal text-left" onClick={() => pickSlot(slot.option_id, operation!)}>{`${index + 1}. ${slot.label}`}</Button>)}
+      {!!times.length && <div aria-label="Horários disponíveis" className="flex flex-col gap-2">
+        {times.map((slot, index) => <Button key={slot.option_id} variant="outline" disabled={Boolean(busy || uncertain)} className="h-auto min-h-11 justify-start whitespace-normal text-left" onClick={() => pickSlot(slot.option_id, operation!)}>{`${index + 1}. ${slot.label}`}</Button>)}
+      </div>}
+      {/* 05/10: the schedule exception itself, apart and never focused on its own (Enter never authorizes it); Confirmar still follows. */}
+      {!!exception.length && <div aria-label="Exceção de horário" className="flex flex-col gap-2">
+        {exception.map(slot => <Button key={slot.option_id} variant="outline" disabled={Boolean(busy || uncertain)} className="h-auto min-h-11 justify-start whitespace-normal border-amber-500 text-left text-amber-700 dark:text-amber-300" onClick={() => pickSlot(slot.option_id, operation!)}>{slot.label}</Button>)}
       </div>}
     </>;
   }
@@ -335,10 +357,21 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
   const decision = decisions[0];
   // A new question (other actions or other options) opens the window again, even after the owner closed it.
   const decisionKeys = decisions.map(item => `${item.key}:${candidatesOf(item.view).map(candidate => candidate.id).join(',')}:${(item.view.options ?? []).map(slot => slot.option_id).join(',')}`).join('|');
+  /** Flow window (flowEnabled, owner 05/10/2026): with no choice waiting, the window also carries an open question of the plan
+   * ("Para quando passo o Sérgio?") and then its one confirmation (the summary, Confirmar). One step at a time. */
+  const openStep = flowEnabled && !decision && state?.action_plan && !closed && !state.cancelled && !awaitingReply && !confirmationSuppressed;
+  const questionAction = openStep ? liveActions.find(action => action.status === 'NEEDS_INPUT' && action.missing_fields.length > 0 && !confirmationBlocked(action) && !expiredKeys.has(action.key)) : undefined;
+  const questionChild = questionAction && state ? viewForAction(state, questionAction) : undefined;
+  const confirmGroup = openStep && !questionAction && readyGroups.length === 1 && liveActions.every(action => action.status === 'DONE' || readyGroups[0].action_keys.includes(action.key)) ? readyGroups[0] : undefined;
+  const confirmMembers = confirmGroup ? confirmGroup.action_keys.map(planAction).filter(action => action.status !== 'DONE') : [];
+  const step: 'choice' | 'question' | 'confirm' | undefined = decision ? 'choice' : questionChild ? 'question' : confirmGroup ? 'confirm' : undefined;
+  const flowOperation = decision ? decision.operation : questionChild ? questionChild.operation_ref : confirmMembers.length === 1 && state ? viewForAction(state, confirmMembers[0])?.operation_ref : undefined;
+  const flowKey = `${decisionKeys}|${questionAction ? `q:${questionAction.key}:${state?.action_plan?.revision}` : ''}|${confirmGroup ? `c:${confirmGroup.fingerprint}` : ''}`;
+  const hasStep = Boolean(step);
   useEffect(() => {
-    if (decisionKeys && decisionKeys !== seenDecisions.current) setDecisionOpen(true);
-    seenDecisions.current = decisionKeys;
-  }, [decisionKeys]);
+    if (hasStep && flowKey !== seenDecisions.current) { setDecisionOpen(true); setCountdown(undefined); }
+    seenDecisions.current = hasStep ? flowKey : '';
+  }, [flowKey, hasStep]);
   // The window takes the focus on its first option, so a choice is one key or one tap away.
   useEffect(() => {
     if (decisionOpen && decisionKeys) requestAnimationFrame(() => decisionWindow.current?.querySelector<HTMLButtonElement>('[aria-label="Opções encontradas"] button, [aria-label="Horários disponíveis"] button')?.focus());
@@ -346,6 +379,59 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
   function answerByMessage() {
     if (decision?.operation) setOperationRef(decision.operation);
     setDirty(true); setDecisionOpen(false); input.current?.focus();
+  }
+  /** Hands-free listening for the window's step: the transcript is sent (or read as the confirmation) by itself after a pause. */
+  function listen() {
+    if (!voiceEnabled || busy || uncertain || recording || countdown) return;
+    beforeVoice.current = ''; setMessage(''); setError(''); setCorrections(undefined); sendAfterVoice.current = true;
+    if (transcribeEnabled) recorder.start({ handsFree: true }); else native.start();
+  }
+  const listenNext = useRef(listen);
+  listenNext.current = listen;
+  // Each new step of a conversation driven by voice opens the microphone again: the owner just keeps talking.
+  useEffect(() => {
+    if (!flowEnabled || !decisionOpen || !hasStep || !handsFree.current) return;
+    const timer = setTimeout(() => listenNext.current(), 350);
+    return () => clearTimeout(timer);
+  }, [flowEnabled, decisionOpen, hasStep, flowKey]);
+  const oneToConfirm = confirmMembers.length === 1;
+  function confirmNow() {
+    if (!state || !confirmGroup || busy || uncertain) return;
+    voice.cancel(); sendAfterVoice.current = false; setCountdown(undefined); setFlowNote(undefined);
+    const approval = groupApproval(confirmGroup);
+    void act(() => confirmSecretaryGroup(state.sessionId, approval), 'executing');
+  }
+  const confirmLater = useRef(confirmNow);
+  confirmLater.current = confirmNow;
+  // A spoken "confirma" waits 3 s on screen (Cancelar stops it) before the same call the Confirmar button makes.
+  useEffect(() => {
+    if (!countdown) return;
+    const tick = setInterval(() => setTick(value => value + 1), 250);
+    const due = setTimeout(() => confirmLater.current(), Math.max(0, countdown.until - Date.now()));
+    return () => { clearInterval(tick); clearTimeout(due); };
+  }, [countdown]);
+  voiceAnswer.current = () => {
+    const heard = typed.current.trim();
+    if (flowEnabled && decisionOpen && step === 'confirm' && confirmGroup) {
+      const intent = voiceConfirmIntent(heard);
+      if (intent !== 'other') { setMessage(''); setDirty(false); }
+      if (intent === 'confirm') {
+        if (oneToConfirm) { setFlowNote(`Ouvi: “${heard}”.`); setCountdown({ group: confirmGroup.key, until: Date.now() + VOICE_CONFIRM_DELAY_MS }); }
+        else setFlowNote('Com mais de uma ação, toque em Confirmar.');
+        return;
+      }
+      if (intent === 'cancel') { setFlowNote('Ok, não confirmei. Diga o que mudar, ou toque em Descartar.'); setTimeout(() => listenNext.current(), 300); return; }
+      if (intent === 'bare') { setFlowNote('Para confirmar por voz, diga “confirma”.'); setTimeout(() => listenNext.current(), 300); return; }
+    }
+    void sendNow.current(true);
+  };
+  /** Withdraws the window's action from the plan (nothing executed); one with linked actions is left to its card. */
+  function discardStep() {
+    const key = questionAction?.key ?? (confirmMembers.length === 1 ? confirmMembers[0].key : undefined);
+    if (!state?.action_plan || !key || linkedDiscard(state, key).length) return;
+    voice.cancel(); sendAfterVoice.current = false; setCountdown(undefined); handsFree.current = false;
+    const target = { plan_ref: state.action_plan.plan_ref, action_key: key };
+    void act(() => discardSecretaryAction(state.sessionId, target), 'thinking', true);
   }
   function card(action: PlanAction, group?: ConfirmationGroup) {
     const child = state && viewForAction(state, action), view = child?.state;
@@ -462,7 +548,7 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
           return <section key={group.key} aria-label={perComponent ? titles : `Grupo ${index + 1}`} className="space-y-2">
           {several && !perComponent && <h2 className="text-sm font-semibold">Grupo {index + 1}</h2>}
           {members.map(action => card(action, group))}
-          {groupOffered(group) && <Button className="w-full min-h-11" variant={readyGroups.length > 1 ? 'outline' : 'default'} disabled={disabled || group.status !== 'READY_FOR_CONFIRMATION'} onClick={() => {
+          {groupOffered(group) && !(decisionOpen && step === 'confirm' && confirmGroup?.key === group.key) && <Button className="w-full min-h-11" variant={readyGroups.length > 1 ? 'outline' : 'default'} disabled={disabled || group.status !== 'READY_FOR_CONFIRMATION'} onClick={() => {
             if (disabled) return;
             const approval = groupApproval(group);
             void act(() => confirmSecretaryGroup(state.sessionId, approval), 'executing');
@@ -495,28 +581,62 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
       {!!state?.confirmation_batch?.not_executed.length && <p className="text-sm">Algumas ações não foram executadas porque mudaram ou expiraram antes da confirmação. Revise-as acima antes de confirmar de novo.</p>}
       <div ref={threadEnd} aria-hidden="true" />
     </div>
-    {decisionOpen && decision && state && <div className="absolute inset-0 z-20 flex items-end justify-center bg-background/70 p-3 backdrop-blur-[2px] sm:items-center"
-      onClick={event => { if (event.target === event.currentTarget) setDecisionOpen(false); }}>
+    {decisionOpen && step && state && <div className="absolute inset-0 z-20 flex items-end justify-center bg-background/70 p-3 backdrop-blur-[2px] sm:items-center"
+      onClick={event => { if (event.target === event.currentTarget && !countdown) setDecisionOpen(false); }}>
       <div ref={decisionWindow} role="dialog" aria-modal="false" aria-labelledby="secretary-decision-title" className="max-h-full w-full max-w-md space-y-3 overflow-y-auto rounded-2xl border border-border bg-card p-4 shadow-xl"
-        onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); setDecisionOpen(false); } }}>
+        onKeyDown={event => { if (event.key === 'Escape' && !countdown) { event.stopPropagation(); setDecisionOpen(false); } }}>
         <div className="flex items-start justify-between gap-2">
-          <div><p className="text-xs font-medium text-muted-foreground">{decisions.length > 1 ? `Decisão 1 de ${decisions.length}` : 'Decisão pendente'}</p>
-            <h2 id="secretary-decision-title" className="text-base font-semibold">{decision.action ? actionTitle(decision.action, state) : 'Escolha uma opção'}</h2></div>
-          <Button type="button" size="sm" variant="ghost" aria-label="Fechar janela de decisão" onClick={() => setDecisionOpen(false)}><X className="h-4 w-4" aria-hidden="true" /></Button>
+          <div><p className="text-xs font-medium text-muted-foreground">{step === 'choice' ? decisions.length > 1 ? `Decisão 1 de ${decisions.length}` : 'Decisão pendente' : step === 'question' ? 'Falta uma informação' : 'Confira e confirme'}</p>
+            <h2 id="secretary-decision-title" className="text-base font-semibold">{step === 'choice' ? decision!.action ? actionTitle(decision!.action, state) : 'Escolha uma opção'
+              : step === 'question' ? actionTitle(questionAction!, state) : confirmMembers.map(action => actionTitle(action, state)).join(' · ')}</h2></div>
+          <Button type="button" size="sm" variant="ghost" aria-label="Fechar janela de decisão" disabled={Boolean(countdown)} onClick={() => setDecisionOpen(false)}><X className="h-4 w-4" aria-hidden="true" /></Button>
         </div>
-        {(() => { const question = decision.action ? actionDetails(decision.view, decision.action, state.today, released) : actionDetails(decision.view);
-          return question ? <p className="whitespace-pre-wrap break-words text-sm">{question}</p> : null; })()}
-        {choiceButtons(decision.view, decision.operation)}
-        <div className="flex flex-wrap gap-2 border-t border-border pt-3">
-          <Button type="button" size="sm" variant="outline" disabled={Boolean(busy || uncertain)} onClick={answerByMessage}>Responder por mensagem</Button>
-          <Button type="button" size="sm" variant="ghost" onClick={() => setDecisionOpen(false)}>Decidir depois</Button>
-        </div>
-        {busy === 'thinking' && <p role="status" className="text-xs text-muted-foreground">Preparando…{seconds}</p>}
+        {step === 'choice' && <>
+          {(() => { const question = decision!.action ? actionDetails(decision!.view, decision!.action, state.today, released) : actionDetails(decision!.view);
+            return question ? <p className="whitespace-pre-wrap break-words text-sm">{question}</p> : null; })()}
+          {choiceButtons(decision!.view, decision!.operation)}
+        </>}
+        {step === 'question' && (() => {
+          // The Secretary's own question (the newest reply) first; the card's hint below it when it says something else.
+          const asked = [...turns].reverse().find(item => item.reply !== undefined)?.reply ?? '', hint = actionDetails(questionChild!.state, questionAction!, state.today, released);
+          return <><p className="whitespace-pre-wrap break-words text-base font-medium">{asked || hint}</p>
+            {hint && asked && !asked.includes(hint.trim()) && <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground">{hint}</p>}</>;
+        })()}
+        {step === 'confirm' && <>
+          {confirmMembers.map(action => { const child = viewForAction(state, action);
+            return <p key={action.key} className="whitespace-pre-wrap break-words rounded-lg bg-surface-1 p-3 text-sm">{actionDetails(child?.state, action, state.today, released)}</p>; })}
+          {countdown ? <div role="status" className="space-y-2 rounded-lg border border-primary/50 p-3">
+            <p className="text-sm font-medium">{flowNote ? `${flowNote} ` : ''}Confirmando em {Math.max(1, Math.ceil((countdown.until - Date.now()) / 1000))} s…</p>
+            <Button type="button" variant="outline" className="w-full min-h-11" onClick={() => { setCountdown(undefined); setFlowNote('Confirmação cancelada. Nada foi gravado.'); }}>Cancelar</Button>
+          </div> : <Button type="button" className="w-full min-h-11" disabled={Boolean(busy || uncertain)} onClick={confirmNow}>Confirmar</Button>}
+          {voiceEnabled && !countdown && <p className="text-xs text-muted-foreground">{oneToConfirm ? 'Ou diga “confirma”. Para mudar algo, é só falar o que muda.' : 'Para mudar algo, é só falar o que muda.'}</p>}
+        </>}
+        {flowNote && !countdown && <p role="status" className="text-sm">{flowNote}</p>}
+        {step !== 'choice' && !countdown && voiceEnabled && <div className="flex flex-wrap items-center gap-2">
+          {recording ? <><span role="status" className="text-sm font-medium text-primary">{voice.phase === 'requesting' ? 'Permita o microfone…' : `Ouvindo…${elapsed}`}{message ? ` “${message}”` : ''}</span>
+            <Button type="button" size="sm" variant="outline" onClick={() => { sendAfterVoice.current = true; if (voice.phase === 'listening') voice.stop(); }}>Pronto</Button></>
+            : voice.phase === 'processing' ? <span role="status" className="text-sm text-muted-foreground">Transcrevendo…{seconds}</span>
+            : <Button type="button" size="sm" disabled={Boolean(busy || uncertain)} onClick={() => { handsFree.current = true; listen(); }}><Mic className="mr-2 h-4 w-4" aria-hidden="true" />{transcribeEnabled && recorder.silenced ? 'Falar de novo' : 'Falar'}</Button>}
+          {transcribeEnabled && recorder.silenced && !recording && <span className="text-xs text-muted-foreground">O microfone fechou porque ninguém falou.</span>}
+        </div>}
+        {step !== 'choice' && !countdown && <form className="flex gap-2" onSubmit={event => { event.preventDefault(); const text = windowText; void sendText(text).then(sent => { if (sent) setWindowText(''); }); }}>
+          <label htmlFor="secretary-window-answer" className="sr-only">Responder digitando</label>
+          <input id="secretary-window-answer" value={windowText} maxLength={1000} disabled={Boolean(busy || uncertain || recording)} onChange={event => setWindowText(event.target.value)}
+            placeholder={step === 'question' ? 'Ou digite: dia 12 às 10h' : 'Ou digite o que muda'} className="min-h-11 flex-1 rounded-lg border border-border bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+          <Button type="submit" variant="outline" className="min-h-11" disabled={Boolean(busy || uncertain || recording || !windowText.trim())} aria-label="Enviar resposta"><Send className="h-4 w-4" aria-hidden="true" /></Button>
+        </form>}
+        {!countdown && <div className="flex flex-wrap gap-2 border-t border-border pt-3">
+          {step === 'choice' && <Button type="button" size="sm" variant="outline" disabled={Boolean(busy || uncertain)} onClick={answerByMessage}>Responder por mensagem</Button>}
+          {step !== 'choice' && (() => { const key = questionAction?.key ?? (oneToConfirm ? confirmMembers[0].key : undefined);
+            return key && !linkedDiscard(state, key).length ? <Button type="button" size="sm" variant="outline" disabled={Boolean(busy || uncertain)} onClick={discardStep}>Descartar pedido</Button> : null; })()}
+          <Button type="button" size="sm" variant="ghost" onClick={() => { voice.cancel(); sendAfterVoice.current = false; setDecisionOpen(false); }}>Decidir depois</Button>
+        </div>}
+        {busy && <p role="status" className="text-xs text-muted-foreground">{busy === 'executing' ? 'Executando…' : 'Preparando…'}{seconds}</p>}
       </div>
     </div>}
     <div className="shrink-0 border-t border-border bg-card p-3 space-y-2" style={{ paddingBottom: 'max(.75rem, var(--safe-bottom, 0px))' }}>
-      {!decisionOpen && decisions.length > 0 && <div className="flex items-center justify-between gap-2 rounded-lg border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-sm">
-        <span className="font-medium">{decisions.length === 1 ? '1 decisão pendente' : `${decisions.length} decisões pendentes`}</span>
+      {!decisionOpen && step && <div className="flex items-center justify-between gap-2 rounded-lg border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-sm">
+        <span className="font-medium">{step === 'choice' ? decisions.length === 1 ? '1 decisão pendente' : `${decisions.length} decisões pendentes` : step === 'question' ? 'Falta uma informação' : 'Pronto para confirmar'}</span>
         <Button type="button" size="sm" disabled={Boolean(busy || uncertain)} onClick={() => setDecisionOpen(true)}>Responder</Button>
       </div>}
       <p role="status" aria-live="polite" className="text-xs font-medium">{status}{slow ? ' Ainda aguardando o sistema; nenhuma nova tentativa foi iniciada.' : ''}</p>
@@ -524,7 +644,7 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
       {uncertain && <Button variant="outline" disabled={Boolean(busy)} onClick={() => { if (retry.current) void act(retry.current, 'executing'); }}>Verificar resultado</Button>}
       {!closed && <form onSubmit={event => { event.preventDefault(); if (recording) finishAndSend(); else void send(); }} className="space-y-2">
         {operationRef && <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground"><span>Respondendo à ação selecionada.</span><button type="button" disabled={Boolean(busy || uncertain)} onClick={() => setOperationRef(undefined)}>Sair da seleção</button></div>}
-        {!!state?.suspended_plans?.length && <div className="space-y-1" aria-label="Pedidos preservados"><p className="text-xs text-muted-foreground">Pedidos anteriores preservados</p>{state.suspended_plans.map(saved => <Button key={saved.plan_ref} size="sm" variant="outline" disabled={Boolean(busy || uncertain || state.cancelled)} onClick={() => { setOperationRef(undefined); void act(() => resumeSecretaryPlan(state.sessionId, saved.plan_ref), 'thinking', true); }}>Retomar {saved.label.split(', ').map(op => operationLabels[op] ?? op).join(', ')}</Button>)}</div>}
+        {!!state?.suspended_plans?.length && <div className="space-y-1" aria-label="Pedidos preservados"><p className="text-xs text-muted-foreground">Pedidos pausados — retome se ainda quiser</p>{state.suspended_plans.map(saved => <Button key={saved.plan_ref} size="sm" variant="outline" disabled={Boolean(busy || uncertain || state.cancelled)} onClick={() => { setOperationRef(undefined); void act(() => resumeSecretaryPlan(state.sessionId, saved.plan_ref), 'thinking', true); }}>Retomar {saved.label.split(', ').map(op => operationLabels[op] ?? op).join(', ')}{saved.subjects?.length ? ` — ${saved.subjects.join(', ')}` : ''}</Button>)}</div>}
         <label htmlFor="secretary-message" className="text-xs font-medium">{voice.phase === 'ready' ? 'Transcrição — revise ou edite' : 'Mensagem'}</label>
         <textarea ref={input} id="secretary-message" aria-label="Mensagem" rows={2} maxLength={1000} disabled={Boolean(busy || uncertain)} readOnly={recording} value={message} onChange={event => edit(event.target.value)} onKeyDown={event => {
           // Enter sends; Shift+Enter breaks the line (never while an input method is composing).

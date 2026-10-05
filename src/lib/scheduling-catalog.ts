@@ -15,6 +15,7 @@ import { canOverbookRole, canOverrideSlot, validOverbookReason } from "./appoint
 import { schedulingOverlapEnabled, schedulingReviewSchema, type SchedulingReview } from "./scheduling-conflict-contract";
 import { isFirstPersonReference } from "./secretary-first-person";
 import { NAME_TOKEN_SCAN, nameTokenQuery, nameTokensEnabled, tokenMatchedIds } from "./secretary-name-tokens";
+import { canGrantException, collectExceptionCauses, exceptionLabel, exceptionQuestion, hasScheduleCause, scheduleExceptionsEnabled } from "./schedule-exception-policy";
 
 export const assertSchedulingAccess = assertCustomerAccess;
 export type SchedulingMetrics = Partial<Record<"interpretation"|"parsing"|"appointments"|"customers"|"services"|"professional"|"availability"|"proposal"|"message"|"confirmation",number>>;
@@ -116,7 +117,7 @@ export const slotInput=z.object({service_ref:ref,service_refs:z.array(ref).min(2
  * professional (the summed duration the visit engine computes; one appointment when created).
  * `limit` (P3b, flag SALON_SECRETARY_READS_V2, availability reads only): how many alternatives to look for (one more than are
  * shown tells the read that more free times exist); every other caller keeps the historical 5. */
-export async function getSchedulingAvailability(tx: Tx,actor: ServiceActor,input: unknown,now=new Date(),projection?: {releasedAppointmentId:string},excluded?: ReadonlySet<string>,limit=5) {
+export async function getSchedulingAvailability(tx: Tx,actor: ServiceActor,input: unknown,now=new Date(),projection?: {releasedAppointmentId:string},excluded?: ReadonlySet<string>,limit=5,exceptions=false) {
   await assertSchedulingAccess(tx,actor);const p=slotInput.parse(input);
   assertSchedulingTemporalConsistency(p);
   const ids=p.service_refs??[p.service_ref];
@@ -146,34 +147,63 @@ export async function getSchedulingAvailability(tx: Tx,actor: ServiceActor,input
       startLocal:at(requested),enforceBookingWindow:false,now,excludeAppointmentId:projection?.releasedAppointmentId});
     const membership=await tx.membership.findFirstOrThrow({where:{salonId:actor.salonId,userId:actor.userId},select:{role:true}});
     const future=inspected.startAt>now;
-    // Domain validation returns the first violation. Preserve independent
-    // closure facts already loaded in this tenant's day even if working hours
-    // failed first; both causes remain true and closure always blocks override.
-    const closed=day.closures.some(c=>c.startAt<inspected.endAt&&c.endAt>inspected.startAt);
-    const allowed=future && !closed && canOverrideSlot(inspected.violation,inspected.conflicts,canOverbookRole(membership.role));
-    const status=!future||closed ? "CONFLICT_HARD_BLOCK" : !inspected.violation ? "AVAILABLE" : allowed ? "CONFLICT_OVERRIDABLE" : "CONFLICT_HARD_BLOCK";
-    const startLocal=toLocalDateTime(inspected.startAt,inspected.timezone),endLocal=toLocalDateTime(inspected.endAt,inspected.timezone);
-    const conflicts=inspected.conflicts.flatMap(c=>c.startAt&&c.endAt?[{startLocal:toLocalDateTime(c.startAt,inspected.timezone),endLocal:toLocalDateTime(c.endAt,inspected.timezone),
-      overlapMinutes:Math.max(0,(Math.min(inspected.endAt.getTime(),c.endAt.getTime())-Math.max(inspected.startAt.getTime(),c.startAt.getTime()))/60000)}]:[]);
-    const causes=[...new Set([...(inspected.violation?[inspected.violation]:[]),...inspected.conflicts.map(c=>c.kind),...(closed?["SALON_CLOSED"]:[]),...(!future?["PAST_START"]:[])])];
-    const missing=status==="CONFLICT_OVERRIDABLE" ? p.override_requested===false?["destination_mode"]:p.override_requested!==true?["override_requested"]:!validOverbookReason(p.override_reason)?["override_reason"]:[] : status==="CONFLICT_HARD_BLOCK"?["destination_mode"]:[];
-    if (allowed && p.override_requested && validOverbookReason(p.override_reason))
-      plan=findVisitPlan(day,choices,requested,{manual:true,allowAppointmentOverlap:true});
-    if(status==="CONFLICT_HARD_BLOCK" || missing.length)plan=null;
-    const clock=(local:string)=>formatClock(local.slice(11,16));
-    const options=alternatives.length?`Tenho ${alternatives.map(a=>clock(a.startLocal)).join(", ")}. Qual horário você prefere?`:"Não encontrei outra opção nesta data. Qual outra data ou horário você prefere consultar?";
-    // Explain the backend's own cause; only mention "encaixe" when it was requested.
-    const blockCause=causes.includes("SALON_CLOSED")?" O salão está fechado nesse horário.":causes.includes("PAST_START")?" Esse horário já passou.":
-      causes.includes("RESOURCE")?" A sala ou equipamento está reservado.":causes.includes("WAITLIST")?" O horário está reservado por uma oferta da fila.":
-      causes.some(c=>["OUTSIDE_WORKING_HOURS","AFTER_WORKING_HOURS","WORKING_HOURS_BREAK"].includes(c))?" Fica fora do expediente do profissional.":
-      causes.includes("PROFESSIONAL_UNAVAILABLE")?" O profissional está indisponível (folga ou bloqueio).":
-      causes.includes("SLOT_TAKEN")?" Já existe outro atendimento nesse horário.":" Há uma restrição de agenda ou permissão.";
-    const message=status==="AVAILABLE"?"Horário disponível.":status==="CONFLICT_HARD_BLOCK"?
-      `${p.override_requested===true?"Não posso fazer encaixe nesse horário.":"Esse horário está indisponível."}${blockCause} ${options}`:
-      missing[0]==="destination_mode"?options:missing[0]==="override_reason"?"Qual o motivo do encaixe?":missing.length?
-        `${inspected.services.map(s=>s.name).join(", ")} vai até ${clock(endLocal)}${conflicts[0]?` e há outro atendimento às ${clock(conflicts[0].startLocal)}`:" e há conflito na agenda"}. Quer fazer o encaixe ou escolher outro horário?${alternatives.length?` Livres: ${alternatives.map(a=>clock(a.startLocal)).join(", ")}.`:""}`:
-        `Encaixe solicitado para ${clock(startLocal)}–${clock(endLocal)}, com motivo registrado. Aguarda confirmação.`;
-    review=schedulingReviewSchema.parse({status,startLocal,endLocal,durationMin:(inspected.endAt.getTime()-inspected.startAt.getTime())/60000,causes,conflicts,override_allowed:allowed,missing_fields:missing,message,alternatives});
+    // 05/10 (flag SALON_SECRETARY_SCHEDULE_EXCEPTIONS, opt-in per caller): a schedule exception — outside hours, a block, the break,
+    // finishing after hours, an overlap beside them — asks once for every cause; the reason is optional. A plain overlap keeps
+    // the encaixe flow below verbatim. Closures, past times, resources and waitlist offers stay hard blocks.
+    const exception=exceptions&&scheduleExceptionsEnabled()?await collectExceptionCauses(
+      skips=>inspectAppointmentAvailability(tx,{salonId:actor.salonId,professionalId:p.professional_ref,serviceIds:ids,startLocal:at(requested),enforceBookingWindow:false,now,excludeAppointmentId:projection?.releasedAppointmentId,...skips}),
+      async()=>!!await tx.timeOff.findFirst({where:{professionalId:p.professional_ref,professional:{salonId:actor.salonId},startAt:{lt:inspected.endAt},endAt:{gt:inspected.startAt}},select:{id:true}})):undefined;
+    if(exception&&hasScheduleCause(exception.causes)){
+      const closed=day.closures.some(c=>c.startAt<inspected.endAt&&c.endAt>inspected.startAt);
+      const allowed=future&&!closed&&!exception.hard.length&&canGrantException(membership.role,exception.causes);
+      const startLocal=toLocalDateTime(inspected.startAt,inspected.timezone),endLocal=toLocalDateTime(inspected.endAt,inspected.timezone);
+      const conflicts=(exception.final?.conflicts??[]).flatMap(c=>c.startAt&&c.endAt?[{startLocal:toLocalDateTime(c.startAt,inspected.timezone),endLocal:toLocalDateTime(c.endAt,inspected.timezone),
+        overlapMinutes:Math.max(0,(Math.min(inspected.endAt.getTime(),c.endAt.getTime())-Math.max(inspected.startAt.getTime(),c.startAt.getTime()))/60000)}]:[]);
+      const causes=[...new Set([...exception.causes,...exception.hard,...(closed?["SALON_CLOSED"]:[]),...(!future?["PAST_START"]:[])])];
+      const consented=allowed&&p.override_requested===true;
+      const missing=!allowed||p.override_requested===false?["destination_mode"]:consented?[]:["override_requested"];
+      if(consented)plan=findVisitPlan(day,choices,requested,{manual:true,overrideSchedule:true,allowAppointmentOverlap:exception.causes.includes("SLOT_TAKEN")});
+      if(!allowed||missing.length)plan=null;
+      const pro=await tx.professional.findFirst({where:{id:p.professional_ref,salonId:actor.salonId},select:{user:{select:{name:true}}}});
+      const clock=(local:string)=>formatClock(local.slice(11,16));
+      const options=alternatives.length?`Tenho ${alternatives.map(a=>clock(a.startLocal)).join(", ")}. Qual horário você prefere?`:"Não encontrei outra opção nesta data. Qual outra data ou horário você prefere consultar?";
+      const hardCause=closed?" O salão está fechado nesse horário.":!future?" Esse horário já passou.":exception.hard.includes("RESOURCE")?" A sala ou equipamento está reservado.":
+        exception.hard.includes("WAITLIST")?" O horário está reservado por uma oferta da fila.":exception.hard.length?" Há uma restrição de agenda.":" Seu acesso não permite abrir essa exceção.";
+      const message=!allowed?`Esse horário está indisponível.${hardCause} ${options}`:missing[0]==="destination_mode"?options:missing.length?
+        exceptionQuestion("appointment.create",exception.causes,pro?.user.name,endLocal,conflicts.map(c=>c.startLocal),alternatives.map(a=>a.startLocal)):
+        `Exceção autorizada (${exceptionLabel(exception.causes)}) para ${clock(startLocal)}–${clock(endLocal)}. Aguarda confirmação.`;
+      review=schedulingReviewSchema.parse({status:allowed?"CONFLICT_OVERRIDABLE":"CONFLICT_HARD_BLOCK",startLocal,endLocal,durationMin:(inspected.endAt.getTime()-inspected.startAt.getTime())/60000,
+        causes,conflicts,override_allowed:allowed,missing_fields:missing,message,alternatives});
+    } else {
+      // Domain validation returns the first violation. Preserve independent
+      // closure facts already loaded in this tenant's day even if working hours
+      // failed first; both causes remain true and closure always blocks override.
+      const closed=day.closures.some(c=>c.startAt<inspected.endAt&&c.endAt>inspected.startAt);
+      const allowed=future && !closed && canOverrideSlot(inspected.violation,inspected.conflicts,canOverbookRole(membership.role));
+      const status=!future||closed ? "CONFLICT_HARD_BLOCK" : !inspected.violation ? "AVAILABLE" : allowed ? "CONFLICT_OVERRIDABLE" : "CONFLICT_HARD_BLOCK";
+      const startLocal=toLocalDateTime(inspected.startAt,inspected.timezone),endLocal=toLocalDateTime(inspected.endAt,inspected.timezone);
+      const conflicts=inspected.conflicts.flatMap(c=>c.startAt&&c.endAt?[{startLocal:toLocalDateTime(c.startAt,inspected.timezone),endLocal:toLocalDateTime(c.endAt,inspected.timezone),
+        overlapMinutes:Math.max(0,(Math.min(inspected.endAt.getTime(),c.endAt.getTime())-Math.max(inspected.startAt.getTime(),c.startAt.getTime()))/60000)}]:[]);
+      const causes=[...new Set([...(inspected.violation?[inspected.violation]:[]),...inspected.conflicts.map(c=>c.kind),...(closed?["SALON_CLOSED"]:[]),...(!future?["PAST_START"]:[])])];
+      const missing=status==="CONFLICT_OVERRIDABLE" ? p.override_requested===false?["destination_mode"]:p.override_requested!==true?["override_requested"]:!validOverbookReason(p.override_reason)?["override_reason"]:[] : status==="CONFLICT_HARD_BLOCK"?["destination_mode"]:[];
+      if (allowed && p.override_requested && validOverbookReason(p.override_reason))
+        plan=findVisitPlan(day,choices,requested,{manual:true,allowAppointmentOverlap:true});
+      if(status==="CONFLICT_HARD_BLOCK" || missing.length)plan=null;
+      const clock=(local:string)=>formatClock(local.slice(11,16));
+      const options=alternatives.length?`Tenho ${alternatives.map(a=>clock(a.startLocal)).join(", ")}. Qual horário você prefere?`:"Não encontrei outra opção nesta data. Qual outra data ou horário você prefere consultar?";
+      // Explain the backend's own cause; only mention "encaixe" when it was requested.
+      const blockCause=causes.includes("SALON_CLOSED")?" O salão está fechado nesse horário.":causes.includes("PAST_START")?" Esse horário já passou.":
+        causes.includes("RESOURCE")?" A sala ou equipamento está reservado.":causes.includes("WAITLIST")?" O horário está reservado por uma oferta da fila.":
+        causes.some(c=>["OUTSIDE_WORKING_HOURS","AFTER_WORKING_HOURS","WORKING_HOURS_BREAK"].includes(c))?" Fica fora do expediente do profissional.":
+        causes.includes("PROFESSIONAL_UNAVAILABLE")?" O profissional está indisponível (folga ou bloqueio).":
+        causes.includes("SLOT_TAKEN")?" Já existe outro atendimento nesse horário.":" Há uma restrição de agenda ou permissão.";
+      const message=status==="AVAILABLE"?"Horário disponível.":status==="CONFLICT_HARD_BLOCK"?
+        `${p.override_requested===true?"Não posso fazer encaixe nesse horário.":"Esse horário está indisponível."}${blockCause} ${options}`:
+        missing[0]==="destination_mode"?options:missing[0]==="override_reason"?"Qual o motivo do encaixe?":missing.length?
+          `${inspected.services.map(s=>s.name).join(", ")} vai até ${clock(endLocal)}${conflicts[0]?` e há outro atendimento às ${clock(conflicts[0].startLocal)}`:" e há conflito na agenda"}. Quer fazer o encaixe ou escolher outro horário?${alternatives.length?` Livres: ${alternatives.map(a=>clock(a.startLocal)).join(", ")}.`:""}`:
+          `Encaixe solicitado para ${clock(startLocal)}–${clock(endLocal)}, com motivo registrado. Aguarda confirmação.`;
+      review=schedulingReviewSchema.parse({status,startLocal,endLocal,durationMin:(inspected.endAt.getTime()-inspected.startAt.getTime())/60000,causes,conflicts,override_allowed:allowed,missing_fields:missing,message,alternatives});
+    }
   }
   return {timezone:day.salon.timezone,plan,quote:plan?visitQuote(plan):null,alternatives,as_of:now.toISOString(),...(review?{review}:{})};
 }

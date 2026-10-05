@@ -5,10 +5,11 @@ import { sameAcceptedQuery } from "./secretary-entity-context";
 import { formatClock, formatLocal } from "./secretary-datetime-format";
 import { daypartRulesV2Enabled } from "./scheduling-temporal-reference";
 import type { SchedulingState } from "./secretary-scheduling";
+import { scheduleExceptionPending } from "./schedule-exception-policy";
 
 /** B4 option choice by identifier. Pure helpers (no tenant access): ids are positional aliases over a
  * list the backend itself published ("opt_1" = first option shown), never entity ids. */
-export type SecretaryOption = { option_id: string; label: string };
+export type SecretaryOption = { option_id: string; label: string; /** 05/10: the schedule exception itself ("… mesmo assim"). */ kind?: "exception" };
 /** One option of an action's open card with its backend ref (the ref never reaches Luna or the screen). */
 export type PublishedOption = SecretaryOption & { ref: string; field: string };
 export const optionId = (index: number) => `opt_${index + 1}`;
@@ -33,7 +34,7 @@ export function hintOptions(hints: PresentationHints): Record<string, PublishedO
 /** Time-slot alternatives the backend offered for an action's pending destination time (an unavailable
  * slot or an overlap/hard-block review): positional options over that same-day list. A click applies the
  * clock through the deterministic short-answer route; it never confirms or overrides anything. */
-export function slotOptions(c: SchedulingState | undefined): (SecretaryOption & { startLocal: string })[] {
+export function slotOptions(c: SchedulingState | undefined): (SecretaryOption & { startLocal: string; kind?: "exception" })[] {
   if (!c || c.proposal || c.receipt || c.candidates) return [];
   // UX (flag SALON_SECRETARY_DAYPART_RULES_V2): an open half-day question of the action's own time offers, from the first ask,
   // exactly the backend's open readings (after the interval and tenant-facts filters; a reading ruled out is never pending).
@@ -45,9 +46,13 @@ export function slotOptions(c: SchedulingState | undefined): (SecretaryOption & 
     startLocal: `${c.fields.date ?? "0000-00-00"}T${clock}` }));
   if (!["appointment.create", "appointment.change"].includes(c.operation ?? "")) return [];
   const review = c.draft?.review, day = c.fields.date;
-  const offered = review && review.status !== "AVAILABLE" ? review.alternatives : c.waiting_for === "time" ? c.alternatives ?? [] : [];
-  return offered.filter(slot => !!day && slot.startLocal.slice(0, 10) === day).slice(0, 20)
+  // 05/10 (flag SALON_SECRETARY_SCHEDULE_EXCEPTIONS): a live "quer … mesmo assim?" also offers the free times and, last, the exception
+  // itself; its click is the owner's explicit consent (applyScheduleExceptionConsent), still followed by Confirmar.
+  const pending = scheduleExceptionPending(c);
+  const offered = review && review.status !== "AVAILABLE" ? review.alternatives : c.waiting_for === "time" || pending ? c.alternatives ?? [] : [];
+  const slots = offered.filter(slot => !!day && slot.startLocal.slice(0, 10) === day).slice(0, 20)
     .map((slot, index) => ({ option_id: optionId(index), label: formatLocal(slot.startLocal), startLocal: slot.startLocal }));
+  return pending ? [...slots, { option_id: optionId(slots.length), label: pending.operation === "appointment.create" ? "Agendar mesmo assim" : "Remarcar mesmo assim", startLocal: "", kind: "exception" as const }] : slots;
 }
 
 const scheduling = (operation: string) => operation.startsWith("appointment.") || operation === "availability.get" || operation === "schedule.block";

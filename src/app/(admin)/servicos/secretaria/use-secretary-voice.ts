@@ -104,26 +104,32 @@ type TranscribeReply = { ok: true; text: string } | { ok: false; error: string; 
  * piece is transcribed while the owner keeps speaking, so the text appears as they talk and Enter only waits for the last
  * piece. Times in ms: `pollMs` between level readings; a piece ends after `minSpeechMs` of speech followed by a `pauseMs`
  * pause, by a `longPauseMs` pause once it is `longMs` long, or at `maxMs`. */
+/** Hands-free (owner, 05/10/2026, decision window): the recording ends by itself after `endAfterMs` of silence once something was
+ * said, and closes without sending (nothing transcribed, nothing billed) when nobody spoke in `idleMs`. */
+export const HANDS_FREE = { endAfterMs: 2_000, idleMs: 15_000 } as const;
 export const LIVE_PIECES = { pollMs: 50, pauseMs: 700, minSpeechMs: 300, longMs: 12_000, longPauseMs: 250, maxMs: 20_000 } as const;
 /** Pause detection from the microphone level (RMS, 0–1). Speech is a level well above the room's floor (the quietest reading of
  * the last 3 s) or near the loudest one, so a dryer or a fan humming under the voice is a pause, not speech. Pure: the
  * recorder feeds it one reading per `pollMs`. */
 export function createPauseDetector(options: typeof LIVE_PIECES = LIVE_PIECES) {
   const recent: number[] = [], span = Math.round(3000 / options.pollMs);
-  let speech = 0, quiet = 0, length = 0;
+  let speech = 0, quiet = 0, length = 0, heard = false, silent = 0;
   return {
     /** One reading lasting `ms`; true ends the current piece (its counters start again for the next one). */
     push(level: number, ms: number) {
       recent.push(level); if (recent.length > span) recent.shift();
       const floor = Math.min(...recent), peak = Math.max(...recent);
       length += ms;
-      if (level > 0.015 && (level > floor * 3 || level >= peak * 0.5)) { speech += ms; quiet = 0; } else quiet += ms;
+      if (level > 0.015 && (level > floor * 3 || level >= peak * 0.5)) { speech += ms; quiet = 0; silent = 0; if (speech >= options.minSpeechMs) heard = true; } else { quiet += ms; silent += ms; }
       const end = speech >= options.minSpeechMs && (quiet >= options.pauseMs || (length >= options.longMs && quiet >= options.longPauseMs) || length >= options.maxMs);
       if (end) { speech = 0; quiet = 0; length = 0; }
       return end;
     },
     /** The current piece holds speech (only silence after what was said is never sent). */
     get spoken() { return speech >= 100; },
+    /** Hands-free: something was said in this recording, and how long the silence after the last speech has lasted (ms). */
+    get heard() { return heard; },
+    get silentFor() { return silent; },
   };
 }
 type AudioWindow = Window & { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext };
@@ -137,6 +143,8 @@ export function useSecretaryRecorder(onTranscript: (text: string) => void, onErr
   const [supported, setSupported] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [limited, setLimited] = useState(false);
+  /** Hands-free: the microphone closed by itself because nobody spoke. */
+  const [silenced, setSilenced] = useState(false);
   const recorder = useRef<MediaRecorder>();
   const stream = useRef<MediaStream>();
   const audio = useRef<AudioContext>();
@@ -162,8 +170,8 @@ export function useSecretaryRecorder(onTranscript: (text: string) => void, onErr
     setSupported(Boolean(navigator.mediaDevices?.getUserMedia) && typeof MediaRecorder !== 'undefined');
     return cancel;
   }, [cancel]);
-  async function begin() {
-    cancel(); setLimited(false);
+  async function begin(handsFree = false) {
+    cancel(); setLimited(false); setSilenced(false);
     const current = generation.current, live = () => current === generation.current;
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined' || !callbacks.current.transcribe) {
       callbacks.current.onError('A gravação não está disponível neste navegador. Você pode digitar.'); return;
@@ -281,6 +289,8 @@ export function useSecretaryRecorder(onTranscript: (text: string) => void, onErr
         let energy = 0;
         for (const sample of samples) energy += sample * sample;
         if (pause.push(Math.sqrt(energy / samples.length), LIVE_PIECES.pollMs)) { endPiece(recording, true); startPiece(); }
+        if (handsFree && pause.heard && pause.silentFor >= HANDS_FREE.endAfterMs) finish.current?.();
+        else if (handsFree && !pause.heard && Date.now() - started >= HANDS_FREE.idleMs) { cancel(); setSilenced(true); }
       }, LIVE_PIECES.pollMs);
     } catch { detector = undefined; }
   }
@@ -288,7 +298,7 @@ export function useSecretaryRecorder(onTranscript: (text: string) => void, onErr
     if (recorder.current?.state !== 'recording') return;
     finish.current?.();
   }
-  return { phase, supported, elapsed, limited, start: () => { void begin(); }, stop, cancel };
+  return { phase, supported, elapsed, limited, silenced, start: (options?: { handsFree?: boolean }) => { void begin(options?.handsFree === true); }, stop, cancel };
 }
 
 /** Optional short speech, explicitly requested, using only installed local voices. */
