@@ -729,3 +729,34 @@ describe("C4 owner rule 9 (flag SALON_SECRETARY_MULTI_SERVICE): a component take
     expect(c.candidates).toEqual({ kind: "service_changes_ref", items: [{ id: "n-navalhado", name: "Navalhado" }, { id: "n-combo", name: "Navalhado com barba" }] }); noWrite();
   });
 });
+
+describe("05/10 owner (flag SALON_SECRETARY_SERVICE_SWAP_V2): a service swap on the appointment's day, and the service said by its exact name", () => {
+  const day1 = (field: string, text: string) => ({ field, text, component: { kind: "DAY_OF_MONTH", day: 1, weekday: null, week: null, month: null, offset: null, year: null, days: null } });
+  beforeEach(() => {
+    vi.stubEnv("SALON_SECRETARY_SERVICE_SWAP_V2", "true");
+    // "pezinho" is now also inside a combo: only the exact name is the service said.
+    db.services.push(service("s-combo-pezinho", "Barba + Pezinho", 40, 4500));
+    db.pros.find(pro => pro.id === "p-jonas")!.services.push("s-combo-pezinho");
+  });
+  it("'troque o serviço do Otávio do dia 1 para pezinho': ALTERAR at the same slot, no clock and no service card", async () => {
+    const c = fresh();
+    await turn(c, { customer_name: "Otávio", service_changes: [{ mode: "SET", service_name: "pezinho" }], temporal_evidence: [day1("date", "do dia 1")] }, "troque o serviço do Otávio do dia 1 para pezinho");
+    expect(c.candidates).toBeUndefined();
+    expect(c.proposal!.action_snapshot).toMatchObject({ appointment_ref: "a-otavio", startLocal: "2026-10-01T16:00", services: [expect.objectContaining({ id: "s-pezinho" })] });
+    expect(text(c.message)).toContain("Horário mantido.");noWrite();
+  });
+  it("'troca a barba do Otávio do dia 1 por pezinho': a swap is never asked as 'join the combo or add apart'", async () => {
+    const c = fresh();
+    await turn(c, { customer_name: "Otávio", service_changes: [{ mode: "REMOVE", service_name: "barba" }, { mode: "INCLUDE", service_name: "pezinho" }], temporal_evidence: [day1("date", "do dia 1")] },
+      "troca a barba do Otávio do dia 1 por pezinho");
+    expect(c.candidates).toBeUndefined();
+    expect(c.proposal!.action_snapshot).toMatchObject({ appointment_ref: "a-otavio", services: [expect.objectContaining({ id: "s-corte" }), expect.objectContaining({ id: "s-pezinho" })] });noWrite();
+  });
+  it("flag off: the owner's report of 05/10 (the day withdrawn as a divergence, both dates asked)", async () => {
+    vi.stubEnv("SALON_SECRETARY_SERVICE_SWAP_V2", "false");
+    const c = fresh();
+    await turn(c, { customer_name: "Otávio", service_changes: [{ mode: "SET", service_name: "pezinho" }], temporal_evidence: [day1("date", "do dia 1")] }, "troque o serviço do Otávio do dia 1 para pezinho");
+    expect(c.proposal).toBeUndefined();
+    expect(c.message).toContain("Preciso confirmar data original e data de destino");noWrite();
+  });
+});

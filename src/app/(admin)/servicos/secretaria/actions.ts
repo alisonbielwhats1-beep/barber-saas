@@ -151,9 +151,11 @@ export async function sendSecretaryFeedback(input: unknown): Promise<FeedbackRep
 
 /** Salon directory names only (professionals and services, never customers), for voice input. */
 async function voiceVocabulary(actor: { salonId: string; userId: string }) {
-  const [{ withTenant }, { secretaryDirectory }] = await Promise.all([import("@/lib/prisma-tenant"), import("@/lib/scheduling-catalog")]);
+  const [{ withTenant }, { secretaryDirectory }, { voiceCustomerNames }] = await Promise.all([import("@/lib/prisma-tenant"), import("@/lib/scheduling-catalog"), import("@/lib/secretary-voice-customers")]);
   const directory = await withTenant(actor, tx => secretaryDirectory(tx, actor));
-  return { professionals: directory.professionals, services: directory.services };
+  // Owner 05/10 (flag SALON_SECRETARY_TRANSCRIBE_CUSTOMER_NAMES): customers with an appointment around today, names only.
+  const customers = await withTenant(actor, tx => voiceCustomerNames(tx, actor));
+  return { professionals: directory.professionals, services: directory.services, ...(customers.length ? { customers } : {}) };
 }
 const voiceCode = (error: unknown) => { const code = error instanceof Error ? error.message : ""; return /^[A-Z][A-Z0-9_]{1,79}$/.test(code) ? code : "UNCLASSIFIED_ERROR"; };
 export type DictationReply = { ok: true; suggestions: DictationSuggestion[] } | { ok: false; error: string; code?: string };

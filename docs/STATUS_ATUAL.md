@@ -13,6 +13,10 @@ Mesma branch (`claude/llm-model-migration-a6ed7a`), decisões do dono 40–43 (`
 - **Manhã ou noite na remarcação** (`scheduling-daypart-facts.ts`): sem o agendamento escolhido, o horário é checado contra
 - **Fluxo por voz na janela** (decisão 45, flag `SALON_SECRETARY_FLOW_WINDOW`, ligada na demo): pergunta aberta e confirmação na
 - **Exceções de agenda** (decisão 46, flag `SALON_SECRETARY_SCHEDULE_EXCEPTIONS`, ligada na demo): agendar/remarcar fora do expediente,
+- **Troca e marcação de serviço** (decisão 47, flag `SALON_SECRETARY_SERVICE_SWAP_V2`, ligada na demo): "troque o serviço … do dia 17
+- **Nomes parecidos** (decisão 48, flags `SALON_SECRETARY_PHONETIC_NAMES`, `SALON_SECRETARY_NAME_ALIASES`, `SALON_SECRETARY_TRANSCRIBE_CUSTOMER_NAMES`,
+  ligadas na demo): Walter → Valter, Isabella → Isabela, Tiago → Thiago sem travar; nomes das clientes próximas no vocabulário da voz.
+  para pedicure" vira ALTERAR no mesmo horário; serviço de nome exato escolhido sem perguntar. Provado no fluxo real.
   em bloqueio, no intervalo, depois do expediente ou sobre outro atendimento, com pergunta e botão "mesmo assim". Testado em unidade;
   na demo, a pergunta e o botão apareceram (agendamento às 21h). Para produção: certificar com a flag ligada.
   janela, microfone que reabre sozinho e "confirma" por voz com 3 s para cancelar. Provado na demo com o caso do Sérgio.

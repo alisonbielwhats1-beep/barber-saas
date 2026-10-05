@@ -14,7 +14,7 @@ import { searchSalonCustomer } from "./customer-catalog";
 import { getOperationRequirements } from "./service-contract";
 import { schedulingPatch, schedulingResolved, type SchedulingFields } from "./scheduling-contract";
 import type { AgentBasis } from "./secretary-agent-validator";
-import { applyKeptDayGuard, applyScopeCoverage } from "./scheduling-temporal-source";
+import { applyKeptDayGuard, applyScopeCoverage, serviceSwapV2Enabled } from "./scheduling-temporal-source";
 import { daypartWrittenOutside, groundSchedulingTemporalTurn, SELECTOR_CONFLICT } from "./scheduling-temporal-mode";
 import { EXCLUDED_VALUE, excludedClocks, polarityCodes } from "./scheduling-temporal-polarity";
 import { schedulingNegativeContext, withTemporalTurnDrafts } from './secretary-temporal-turn';
@@ -27,7 +27,7 @@ import { authorizeSchedulingOperation, isSchedulingMutation, locateSchedulingApp
 import { exceptionHash, exceptionQuestion, hasScheduleCause, scheduleExceptionPending, scheduleExceptionsEnabled } from "./schedule-exception-policy";
 import { applyTemporalRejections, reconcileSchedulingTemporal, schedulingTemporalConflicts, matchesSchedulingPeriod, type TemporalRejection } from "./scheduling-temporal";
 import { formatClock, formatDay, formatLocal } from "./secretary-datetime-format";
-import { directorySubsetProof, nameInText, sameName } from "./name-search";
+import { directorySubsetProof, nameInText, phoneticNamesEnabled, sameName, samePhoneticName } from "./name-search";
 import { sameAcceptedQuery } from "./secretary-entity-context";
 import { appointmentEchoRoles, onlyRestatesOptions, optionName, replyOnlyPicks } from "./secretary-options";
 import { temporalValueRoles, type SchedulingTemporalEvidence } from "@everflair/salon-secretary";
@@ -449,6 +449,10 @@ async function prepare(actor:ServiceActor,c:SchedulingState,rejectedTemporal:Tem
     // FX6 (review, owner rule 9, flag): the one combo found for words its parts' own registrations make a choice is a card, never a pick.
     const combo=kind==="service_ref"&&createOrAvailability?await singleServiceCombo(name=>withTenant(actor,tx=>listSchedulingServices(tx,actor,name)),query,rows):undefined;
     if(combo){if(!notice){notice=combo.notice;c.candidates={kind,items:combo.items};codes.push("MULTI_SERVICE_SINGLE_COMBO");}continue;}
+    // Owner 05/10 (flag SALON_SECRETARY_SERVICE_SWAP_V2): the one service whose whole name is what was said is that service
+    // ("pedicure" → "Pedicure", never "Manicure + Pedicure"); a name shared by several rows is still asked.
+    const exact=kind==="service_ref"&&rows.length>1&&serviceSwapV2Enabled()?rows.filter(r=>sameName(r.name,query)):[];
+    if(exact.length===1){f[kind]=exact[0].id;c.resolved_names={...c.resolved_names,[exact[0].id]:exact[0].name};recordNameResolution(entity,"MATCH",1);continue;}
     if(rows.length===1&&!confirm){f[kind]=rows[0].id;c.resolved_names={...c.resolved_names,[rows[0].id]:rows[0].name};recordNameResolution(entity,"MATCH",1);}
     else if(!notice){
       if(confirm){notice=confirmQuestion("cliente",rows.map(labelOf));c.candidates={kind,source:"confirm",items:rows.map(r=>({id:r.id,name:labelOf(r)}))};recordNameResolution(entity,"CONFIRM",rows.length);continue;}
@@ -457,6 +461,10 @@ async function prepare(actor:ServiceActor,c:SchedulingState,rejectedTemporal:Tem
       if(suggest&&!rows.length){
         const found=await withTenant<Suggested<{id:string;name:string;phone?:string|null}>>(actor,tx=>kind==="customer_ref"?suggestSalonCustomers(tx,actor,query):suggestSchedulingServices(tx,actor,query));
         recordNameResolution(entity,found.status==="SUGGEST"?"SUGGEST":found.status==="NONE"?"NO_MATCH":"DETAIL",suggestedRows(found).length);
+        // Owner 05/10 (flag SALON_SECRETARY_PHONETIC_NAMES): the one suggestion that sounds exactly like the name said (Walter → Valter
+        // Souza, Isabella → Isabela Mattos) is taken; its full name is on the card before Confirmar. Never for a name the model wrote unlike the message.
+        const sound=found.status==="SUGGEST"&&phoneticNamesEnabled()&&!(kind==="customer_ref"&&unproven.has("customer_name"))?found.rows.filter(r=>samePhoneticName(query,r.name)):[];
+        if(sound.length===1){f[kind]=sound[0].id;c.resolved_names={...c.resolved_names,[sound[0].id]:sound[0].name};codes.push("NAME_SOUND_MATCH");continue;}
         if(found.status==="SUGGEST"){notice=suggestionQuestion(query,found.rows.map(labelOf));c.candidates={kind,source:"suggest",items:found.rows.map(r=>({id:r.id,name:labelOf(r)})),...basis([])};continue;}
         if(found.status!=="NONE"){notice=detailQuestion(query,label);continue;}
       } else recordNameResolution(entity,!rows.length?"NO_MATCH":rows.length>20?"TOO_MANY":"AMBIGUOUS",rows.length);

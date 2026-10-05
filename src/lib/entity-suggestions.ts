@@ -6,7 +6,7 @@ import type { NameCheck, NameResolution } from "./secretary-router";
 import { assertCustomerAccess } from "./customer-catalog";
 import { isFirstPersonReference } from "./secretary-first-person";
 import { maskPhone } from "./client-identity";
-import { FOLD_FROM, FOLD_TO, nameTokens, rankNameSuggestions, withoutArticle, withoutHonorific, type NameSuggestions } from "./name-search";
+import { FOLD_FROM, FOLD_TO, nameTokens, phoneticNamesEnabled, phoneticPrefixes, rankNameSuggestions, withoutArticle, withoutHonorific, type NameSuggestions } from "./name-search";
 
 /** C3 (rec 16): tolerant name SUGGESTIONS, behind SALON_SECRETARY_NAME_SUGGESTIONS (default off).
  * Used only after the unchanged exact/substring search found no row. A suggestion is never an
@@ -28,7 +28,9 @@ export async function suggestSalonCustomers(tx: Tx, actor: ServiceActor, input: 
   const term = query.parse(input), named = withoutArticle(term), tokens = nameTokens(withoutHonorific(named) ?? named), prefix = tokens[0]?.slice(0, 2) ?? "";
   // Emails and phone numbers keep their exact paths; only ASCII prefixes reach the pattern.
   if (term.includes("@") || /^\d+$/.test(tokens.join("")) || !/^[a-z0-9]{2}$/.test(prefix)) return { status: "NONE" };
-  const rows = await tx.$queryRaw<{ id: string; name: string; phone: string | null }[]>`SELECT id, name, phone FROM "ClientProfile" WHERE "salonId"=${actor.salonId} AND "mergedIntoId" IS NULL AND lower(translate(name, ${FOLD_FROM}, ${FOLD_TO})) ~ ${`(^|[^a-z0-9])${prefix}`} ORDER BY name, id LIMIT 301`;
+  // Owner 05/10 (flag SALON_SECRETARY_PHONETIC_NAMES): also the starts of the same sound ("Walter" reaches "Valter").
+  const starts = phoneticNamesEnabled() ? `(?:${phoneticPrefixes(tokens[0]).filter(start => /^[a-z]{2}$/.test(start)).concat(prefix).filter((start, i, all) => all.indexOf(start) === i).join("|")})` : prefix;
+  const rows = await tx.$queryRaw<{ id: string; name: string; phone: string | null }[]>`SELECT id, name, phone FROM "ClientProfile" WHERE "salonId"=${actor.salonId} AND "mergedIntoId" IS NULL AND lower(translate(name, ${FOLD_FROM}, ${FOLD_TO})) ~ ${`(^|[^a-z0-9])${starts}`} ORDER BY name, id LIMIT 301`;
   if (!Array.isArray(rows)) return { status: "NONE" };
   if (rows.length > SUGGESTION_POOL.customers) return { status: "TOO_MANY" };
   const ranked = rankNameSuggestions(term, rows.filter(row => typeof row?.id === "string" && typeof row.name === "string"));

@@ -116,6 +116,14 @@ describe("applySchedulingInterpretation with components (create, change, negatio
     const state = schedulingState();
     return applySchedulingInterpretation(actor, state, result as Parameters<typeof applySchedulingInterpretation>[2], message).then(() => state);
   };
+  it("create, owner 05/10 (flag SALON_SECRETARY_SERVICE_SWAP_V2): 'escova' is the service named exactly Escova, never asked against Escova Progressiva", async () => {
+    flag(true); vi.stubEnv("SALON_SECRETARY_SERVICE_SWAP_V2", "true");
+    const state = await apply("marca a julia amanha as 10 pra escova", { operation: "appointment.create", customer_name: "julia", service_name: "escova",
+      temporal_evidence: [{ field: "date", text: "amanha", component: day({ kind: "RELATIVE_DAY", offset: 1 }) }, { field: "time", text: "as 10", component: clock(10) }] });
+    expect(state.fields).toMatchObject({ service_ref: "s-escova" });
+    expect(state.message).not.toBe("Qual serviço? Selecione uma opção real.");
+    vi.unstubAllEnvs();
+  });
   it("create: 'amanha as 10' grounded from components before entity questions", async () => {
     flag(true);
     const state = await apply("marca a julia amanha as 10 pra escova", { operation: "appointment.create", customer_name: "julia", service_name: "escova",

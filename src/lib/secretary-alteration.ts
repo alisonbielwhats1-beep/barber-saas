@@ -7,7 +7,7 @@ import { alteredServiceIds, locateSchedulingAppointments, schedulingAppointmentS
 import { formatLocal } from "./secretary-datetime-format";
 import { confirmQuestion, detailQuestion, nameSuggestionsEnabled, recordNameCheck, salonDirectoryNames, suggestionQuestion, suggestSchedulingProfessionals, suggestSchedulingServices } from "./entity-suggestions";
 import { directorySubsetProof, nameInText, nameTokens, sameName, withoutArticle, withoutHonorific } from "./name-search";
-import { entityQuoteDenied, temporalQuoteDenied } from "./scheduling-temporal-source";
+import { entityQuoteDenied, serviceSwapV2Enabled, temporalQuoteDenied } from "./scheduling-temporal-source";
 import { serviceDirectoryProof, validateSchedulingEntityMentions, withoutCustomerMentions } from "./scheduling-entity-mentions";
 import { sameAcceptedQuery } from "./secretary-entity-context";
 import { optionId, optionName, writesOptionName, type PublishedOption } from "./secretary-options";
@@ -237,6 +237,14 @@ export async function resolveAlteration(actor: ServiceActor, c: SchedulingState,
         return ask(found && found.status !== "NONE" ? detailQuestion(said, "serviço") : `Não encontrei o serviço “${said}” neste salão. Qual serviço você quis dizer?`, "service_changes", "ALTER_SERVICE_NOT_FOUND");
       }
       if (rows.length > 20) return ask(`Muitas opções de serviço para “${said}”; informe um nome mais específico.`, "service_changes", "ALTER_SERVICE_TOO_MANY");
+      // Owner 05/10 (flag SALON_SECRETARY_SERVICE_SWAP_V2): the one service whose whole name is what was said ("pedicure" →
+      // "Pedicure", never "Manicure + Pedicure") is that service; a combo-or-separate question of an addition is still asked first,
+      // unless the same request takes a service out ("troca a manicure por pedicure": a swap, never "add or join the combo").
+      const exact = serviceSwapV2Enabled() && !rule ? rows.filter(row => sameName(row.name, said)) : [];
+      const swapping = (f.service_changes ?? []).some(item => item.mode === "REMOVE");
+      if (exact.length === 1 && (swapping || !(comboGuardEnabled() && change.mode === "INCLUDE" && f.appointment_ref && await comboOrSeparate(actor, f.appointment_ref, rows)))) {
+        refs[index] = exact[0].id; c.resolved_names = { ...c.resolved_names, [exact[0].id]: exact[0].name }; continue;
+      }
       // C5 (flag, owner rule 9 in additions): a combo that would replace a part the appointment holds, beside the service apart.
       const choice = !rule && comboGuardEnabled() && change.mode === "INCLUDE" && f.appointment_ref ? await comboOrSeparate(actor, f.appointment_ref, rows) : undefined;
       return card(choice ?? rule?.question ?? `Qual serviço você quis dizer com “${said}”? Selecione uma opção real.`, { kind: "service_changes_ref", items: rows.map(row => ({ id: row.id, name: row.name })) }, "service_changes",

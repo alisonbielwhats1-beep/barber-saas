@@ -10,7 +10,8 @@ import type { ServiceActor } from "./service-catalog";
  * append-only AuditLog before the network (per salon and UTC month). Evaluation runners compose the same guarded fetch
  * with the program real-spend ledger (source 'transcribe', sealed estimator 'transcriptions'); runtime code never imports
  * evaluation code. The Luna cost guard (openai-cost-guard.ts) is neither used nor widened. The vocabulary prompt carries
- * professional and service names only, never customers. The text is returned to the input box: never sent. */
+ * professional and service names; customers' names only with SALON_SECRETARY_TRANSCRIBE_CUSTOMER_NAMES (owner decision 05/10,
+ * secretary-voice-customers.ts: names only, appointments around today). The text is returned to the input box: never sent. */
 type Env = Record<string, string | undefined>;
 export const TRANSCRIBE_URL = "https://api.openai.com/v1/audio/transcriptions";
 export const TRANSCRIBE_MODELS = ["gpt-4o-mini-transcribe", "gpt-4o-transcribe"] as const;
@@ -56,11 +57,24 @@ export function transcribeConfig(env: Env = process.env) {
  * message can be sent as is. The meaning, names, numbers, days and times are never changed. */
 export const TRANSCRIBE_STYLE = "Português do Brasil, com ortografia, acentuação e pontuação corretas, sem mudar o sentido, nomes, números, dias e horários.";
 /** The style line, then directory names only (the same bounded list Luna sees), deduplicated and cut at a whole name. */
-export function transcriptionPrompt(directory: { professionals: readonly string[]; services: readonly string[] }) {
+export function transcriptionPrompt(directory: { professionals: readonly string[]; services: readonly string[]; customers?: readonly string[] }) {
+  if (directory.customers?.length) return groupedTranscriptionPrompt(directory as Required<typeof directory>);
   const names = [...new Set([...directory.professionals, ...directory.services].map(name => name.replace(/\s+/g, " ").trim()).filter(Boolean))];
   let prompt = `${TRANSCRIBE_STYLE} Agenda de salão de beleza. Profissionais e serviços:`;
   for (const name of names) { if (prompt.length + name.length + 2 > TRANSCRIBE_PROMPT_MAX) break; prompt += ` ${name},`; }
   return prompt.replace(/,$/, ".");
+}
+/** Owner 05/10: with customers' names, professionals first, then customers (nearest appointment first), then services, each cut at a whole name. */
+function groupedTranscriptionPrompt(directory: { professionals: readonly string[]; services: readonly string[]; customers: readonly string[] }) {
+  const clean = (names: readonly string[]) => [...new Set(names.map(name => name.replace(/\s+/g, " ").trim()).filter(Boolean))];
+  let prompt = `${TRANSCRIBE_STYLE} Agenda de salão de beleza.`;
+  for (const [label, names] of [["Profissionais", directory.professionals], ["Clientes", directory.customers], ["Serviços", directory.services]] as const) {
+    const list = clean(names); if (!list.length || prompt.length + label.length + list[0].length + 4 > TRANSCRIBE_PROMPT_MAX) continue;
+    prompt += ` ${label}:`;
+    for (const name of list) { if (prompt.length + name.length + 3 > TRANSCRIBE_PROMPT_MAX) break; prompt += ` ${name},`; }
+    prompt = prompt.replace(/,$/, ".");
+  }
+  return prompt;
 }
 const baseType = (type: string) => type.split(";")[0].trim().toLowerCase();
 /** Size, type and declared duration of one recording, before any budget or network work. */
@@ -149,7 +163,7 @@ export async function settleTranscriptionUsage(tx: Tx, actor: ServiceActor, inpu
 }
 /** One recording → text for the input box. Every refusal happens before the reservation or the network call. `settle`
  * (optional) records the provider-reported usage after the call; its failure never loses the transcript. */
-export async function transcribeSecretaryAudio(input: { audio: unknown; seconds: unknown; directory: { professionals: readonly string[]; services: readonly string[] };
+export async function transcribeSecretaryAudio(input: { audio: unknown; seconds: unknown; directory: { professionals: readonly string[]; services: readonly string[]; customers?: readonly string[] };
   reserve: (reservation: TranscriptionReservation) => Promise<unknown>; settle?: (settlement: TranscriptionSettlement) => Promise<unknown>; env?: Env; fetchFn?: typeof fetch }): Promise<{ text: string }> {
   const env = input.env ?? process.env, config = transcribeConfig(env);
   assertTranscriptionAudio(input.audio, input.seconds);

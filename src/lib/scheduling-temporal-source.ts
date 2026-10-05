@@ -361,6 +361,8 @@ function completeTemporalQuote(source: string, quote: string, at = source.indexO
   return true;
 }
 
+/** Owner 05/10: see temporalRoleClauses (default off: every call keeps today's relation). */
+export const serviceSwapV2Enabled = (env: Record<string, string | undefined> = process.env) => env.SALON_SECRETARY_SERVICE_SWAP_V2 === "true";
 /** Bind only explicit relational clauses. This does not choose dates/clocks:
  * each clause still has to corroborate the corresponding model field below.
  * Unrecognized/negative relations keep the conservative clarification path. */
@@ -374,6 +376,11 @@ function temporalRoleClauses(text: string, operation?: string, colloquial = fals
   const to = colloquial && operation === "appointment.change" ? "(?:para|pra|pro|pras|pros)" : "para";
   const destination = (operation==="schedule.block" ? /\b(?:ate|as)\s+(?:as\s+)?/ : new RegExp(`\\b${to}\\s+(?:(?:as|o dia|dia)\\s+)?`)).exec(rest);
   if (!destination || /[.;!?]/.test(rest.slice(0, destination.index)) || new RegExp(`\\b${to}\\b`).test(rest.slice(destination.index + destination[0].length))) return;
+  // Owner 05/10 (flag SALON_SECRETARY_SERVICE_SWAP_V2): "para" names a destination only when a day or clock follows it.
+  // "Troque o serviço da Isabela do dia 17 para pedicure" swaps a service on the 17th; it is not a move from the 17th to "pedicure"
+  // (the old relation re-read "dia 17" as the origin, the model's own reading was withdrawn and both dates were asked).
+  if (serviceSwapV2Enabled() && operation === "appointment.change" &&
+    !new RegExp(`^(?:${temporalStart}|(?:a |o )?(?:semana|mesmo|meio|tarde|manha|noite|proxim|outro))`).test(rest.slice(destination.index + destination[0].length).trimStart())) return;
   // A denial inside the origin→destination relation keeps the conservative path;
   // a separate clause (for example a cancellation or block reason) does not.
   const relationEnd = origin.index + origin[0].length + destination.index + destination[0].length;

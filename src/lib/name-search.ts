@@ -87,13 +87,103 @@ export function rankNameSuggestions<T extends { id: string; name: string }>(quer
   // C7: neither a leading article nor an honorific is required of a suggested name.
   const named = withoutArticle(query), tokens = nameTokens(withoutHonorific(named) ?? named);
   if (!tokens.length) return { status: "NONE" };
-  const seen = new Set<string>();
-  const scored = rows.flatMap(row => seen.has(row.id) || !seen.add(row.id) ? [] : [{ row, key: foldName(row.name), score: nameScore(tokens, nameTokens(row.name)) }])
+  const seen = new Set<string>(), sound = phoneticNamesEnabled(), soundTokens = writtenTokens(withoutHonorific(named) ?? named).map(phoneticToken);
+  // Owner 05/10 (flag): a name that sounds the same (Walter/Valter, Isabella/Isabela) scores just below an exact spelling; a
+  // nickname or a diminutive (Bia → Beatriz, Fabinho → Fábio) is a suggestion (0.9 of its reading's score), never a key.
+  const readings = sound ? readingCombinations(tokens) : [];
+  const score = (name: string) => { const held = nameTokens(name);
+    return Math.max(nameScore(tokens, held), sound ? nameScore(soundTokens, writtenTokens(name).map(phoneticToken)) * 0.99 : 0, ...readings.map(reading => nameScore(reading, held) * 0.9)); };
+  const scored = rows.flatMap(row => seen.has(row.id) || !seen.add(row.id) ? [] : [{ row, key: foldName(row.name), score: score(row.name) }])
     .filter(item => item.score >= SUGGESTION_THRESHOLD - 1e-9)
     .sort((a, b) => b.score - a.score || order(a.key, b.key) || order(a.row.name, b.row.name) || order(a.row.id, b.row.id));
   if (!scored.length) return { status: "NONE" };
   if (scored.length > SUGGESTION_LIMIT && scored[SUGGESTION_LIMIT - 1].score - scored[SUGGESTION_LIMIT].score <= SUGGESTION_TIE + 1e-9) return { status: "DETAIL" };
   return { status: "SUGGEST", rows: scored.slice(0, SUGGESTION_LIMIT).map(item => item.row) };
+}
+// ---------------------------------------------------------------- names as they sound (owner 05/10)
+/** Owner 05/10 (flag SALON_SECRETARY_PHONETIC_NAMES, default off): a name said by voice or typed with another spelling is found,
+ * for the general case, never for a list of known names. Two levels, by risk:
+ *  - SAME SOUND (a key): spellings Brazilian Portuguese reads the same way. A caller may take a lone exact sound match (the
+ *    full registered name is shown on the card before Confirmar). Rules, in order: CH/SH→X; PH→F; TH→T; mute H (initial, and
+ *    after any consonant but L/N: Jhonatan, Rhuan, Khalil); GE/GI→JE/JI; GUE/GUI→GE/GI; SCE/SCI, CE/CI→SE/SI; QUE/QUI, Q, C, K→K;
+ *    W→V; Y→I; Z→S; a final -Ã→-AN (Kauã/Kauan); a final -M→-N (Yasmim/Yasmin); a final -IE→-I (Stephanie/Stefany); an initial
+ *    ES+consonant→S (Estela/Stela); any doubled letter once (Isabella, Priscilla, Matteus, Anna).
+ *  - SIMILAR (suggestions only, always a click): one letter of difference (Felipe/Filipe, Lourdes/Lurdes), a prefix (Gabi,
+ *    Dani, Rafa), a common nickname that is not a prefix (Bia → Beatriz, Duda → Eduarda, Zé → José) and a diminutive (Fabinho →
+ *    Fábio, Aninha → Ana, Carlinhos → Carlos).
+ * Names that are different people never share a key: a vowel is never merged (Rafael/Rafaela, Bruna/Bruno, Lena/Lina, Maria/
+ * Mario, Paula/Paulo), and letter order is kept (Carla/Clara). */
+export const phoneticNamesEnabled = (env: Record<string, string | undefined> = process.env) => env.SALON_SECRETARY_PHONETIC_NAMES === "true";
+/** One name token as it sounds in Brazilian Portuguese (a key, never shown). */
+export function phoneticToken(token: string) {
+  // Before folding: Ç is always S, and a final Ã is -AN (folding would turn them into C and A).
+  const written = token.toLocaleLowerCase("pt-BR").normalize("NFC").replace(/ç/g, "s").replace(/ã$/, "an");
+  return foldName(written)
+    .replace(/[cs]h/g, "x").replace(/ph/g, "f").replace(/th/g, "t")
+    .replace(/^h/, "").replace(/([^lnx])h/g, "$1")
+    .replace(/g(?=[ei])/g, "j").replace(/gu(?=[ei])/g, "g")
+    .replace(/c(?=ao$)/, "s") // a final -ÇÃO typed without marks (Conceicao, Assuncao; Falcão/Falcao alike)
+    .replace(/[sx]c(?=[ei])/g, "s").replace(/c(?=[ei])/g, "s").replace(/qu(?=[ei])/g, "k").replace(/[qc]/g, "k")
+    .replace(/w/g, "v").replace(/y/g, "i").replace(/z/g, "s")
+    .replace(/^e(?=s[^aeiou])/, "").replace(/ie$/, "i").replace(/m$/, "n")
+    .replace(/(.)\1+/g, "$1");
+}
+/** Name tokens as written (case only): the sound key still reads Ç and a final Ã; particles dropped. */
+export function writtenTokens(text: string) {
+  return text.toLocaleLowerCase("pt-BR").normalize("NFC").split(/[^\p{L}\p{N}]+/u).filter(token => token && !PARTICLES.has(foldName(token)));
+}
+/** Every said token sounds like its own distinct token of the registered name ("walter" ≈ "Valter Souza"). */
+export function samePhoneticName(query: string, name: string) {
+  const said = writtenTokens(withoutArticle(query)).map(phoneticToken), held = writtenTokens(name).map(phoneticToken);
+  if (!said.length) return false;
+  for (const token of said) { const at = held.indexOf(token); if (at < 0) return false; held.splice(at, 1); }
+  return true;
+}
+/** Common Brazilian nicknames that are NOT a prefix of the name (a prefix — Dani, Rafa, Gabri, Carol — is scored already). */
+export const NICKNAMES: Readonly<Record<string, readonly string[]>> = {
+  bia: ["beatriz"], duda: ["eduarda", "eduardo"], dudu: ["eduardo"], gabi: ["gabriela", "gabrielle", "gabriel"], nanda: ["fernanda"],
+  nando: ["fernando"], fe: ["fernanda", "felipe"], re: ["renata", "renato"], lu: ["luana", "luciana", "luiza", "lucia", "lucas"],
+  ju: ["juliana", "julia", "julio"], juju: ["juliana", "julia"], le: ["leticia", "leonardo"], ze: ["jose"], zeca: ["jose"],
+  chico: ["francisco"], tiao: ["sebastiao"], guto: ["augusto", "gustavo"], beto: ["roberto", "alberto", "humberto"],
+  ro: ["rosangela", "rosana", "rodrigo"], tonho: ["antonio"], toninho: ["antonio"], mila: ["camila"], bel: ["isabel", "isabela"],
+  dri: ["adriana", "adriano"], lena: ["helena", "milena"], nina: ["catarina", "marina"], kaka: ["karina", "carla"],
+  malu: ["luiza", "luisa"], manu: ["manuela", "emanuele", "emanuelle", "emanuel"], cacau: ["claudia"], tata: ["tatiana", "talita"],
+  paty: ["patricia"], pati: ["patricia"], fabi: ["fabiana", "fabiola"], vivi: ["viviane", "vivian"], lili: ["liliane", "liliana"],
+  pri: ["priscila"], dedé: ["andre", "andreia"], dede: ["andre", "andreia"], xande: ["alexandre"], xanda: ["alexandra"],
+  dinho: ["claudio", "ricardo"], biel: ["gabriel"], gui: ["guilherme"], rick: ["henrique", "ricardo"], kiko: ["francisco"],
+  tico: ["ricardo"], juninho: ["junior"], neto: ["neto"], gu: ["gustavo", "guilherme"], van: ["vanessa", "vanderlei"],
+};
+/** A diminutive's stem ("fabinho" → "fab", "aninha" → "an", "joaozinho" → "joao"), or undefined. */
+export function diminutiveStem(token: string) {
+  const t = foldName(token), m = /^(.{2,}?)(?:zinhos?|zinhas?|inhos?|inhas?|itos?|itas?)$/.exec(t);
+  return m ? m[1] : undefined;
+}
+/** Every reading a said token may stand for, for SIMILAR suggestions only (never a key): the token, its nickname's names and its
+ * diminutive's stem completed ("aninha" → "an", "ana", "ano"). */
+export function tokenReadings(token: string): string[] {
+  const t = foldName(token), out = new Set([t, ...(NICKNAMES[t] ?? [])]);
+  const stem = diminutiveStem(t);
+  if (stem) { out.add(stem); out.add(`${stem}a`); out.add(`${stem}o`); out.add(`${stem}io`); }
+  return [...out];
+}
+/** The two-letter folded starts a sound-alike, a nickname's name or a diminutive's stem of this token may have (the customers'
+ * SQL prefilter): "wa" → "wa", "va"; "ti" → "ti", "th"; "bia" → "bi", "be"; "fabinho" → "fa". */
+export function phoneticPrefixes(token: string) {
+  const t = foldName(token), out = new Set([t.slice(0, 2)]);
+  const swaps: Record<string, string[]> = { w: ["v", "u"], v: ["w"], u: ["w"], y: ["i", "j"], i: ["y"], j: ["g", "y"], g: ["j"], k: ["c", "q"], c: ["k", "q", "s"],
+    q: ["c", "k"], s: ["c", "z", "es"], z: ["s"], f: ["ph"], x: ["ch", "sh"], e: ["he"] };
+  for (const alt of swaps[t[0]] ?? []) out.add((alt + t.slice(1)).slice(0, 2));
+  if (t.startsWith("h")) out.add(t.slice(1, 3)); else { out.add(`h${t[0]}`); out.add(`${t[0]}h`); } // Elena/Helena, Tiago/Thiago
+  if (/^(ph|th|ch|sh|rh|kh|jh)/.test(t)) out.add(`${t[0] === "p" ? "f" : t[0] === "c" || t[0] === "s" ? "x" : t[0]}${t[2] ?? ""}`);
+  if (/^es[^aeiou]/.test(t)) out.add(t.slice(1, 3)); // Estela/Stela
+  for (const reading of tokenReadings(t)) if (reading !== t) out.add(reading.slice(0, 2));
+  return [...out].filter(prefix => /^[a-z]{2}$/.test(prefix));
+}
+/** The other readings of a said name (nickname, diminutive), at most 32 combinations, the literal one excluded. */
+function readingCombinations(tokens: readonly string[]) {
+  let out: string[][] = [[]];
+  for (const token of tokens) { out = out.flatMap(prefix => tokenReadings(token).map(reading => [...prefix, reading])).slice(0, 32); }
+  return out.filter(combo => combo.some((reading, i) => reading !== tokens[i]));
 }
 // ---------------------------------------------------------------- person names: articles and honorifics (C7)
 /** A leading article is never part of a person's name ("a carla" is Carla). */
