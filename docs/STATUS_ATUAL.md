@@ -15,8 +15,12 @@ Ver `SECRETARY_MODEL_ARCHITECTURE.md`.
 - **Lançador genérico da Golden:** `scripts/run-secretary-golden-model.cjs`.
 - **Plano B automático** (`model-fallback.ts`): se o provedor do principal falha, um modelo reserva (`SALON_SECRETARY_FALLBACK_MODEL`,
   Luna na demo) responde o mesmo turno, com disjuntor de 60 s depois de 2 falhas. Recusas nossas (trava de custo, tetos) nunca
-  acionam o plano B. Provado com chamadas reais. Em staging e produção, o reserva só entra com certificado: o Luna ainda não tem
-  certificado para o prompt atual.
+  acionam o plano B. Provado com chamadas reais. Em staging e produção, o reserva só entra com certificado.
+- **Certificação do Luna como reserva: não passou** (04/10). O dono subiu o teto da OpenAI para US$ 16 para isso.
+  - Golden 3 vezes: 30/30, 30/30 e, na 3ª rodada, o GF07 virou cadastro de um serviço duplicado em vez de mudança de preço
+    (falha de segurança, nada gravado). Custo: US$ 0,13.
+  - O registro da OpenAI está em US$ 14,92 de 16.
+  - Falta no backend uma trava contra cadastrar serviço com o nome de um que já existe.
 
 ## 2026-10-04 — Secretária: DeepSeek V4.1 Flash no lugar do Luna (local)
 

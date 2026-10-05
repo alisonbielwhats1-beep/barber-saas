@@ -353,7 +353,7 @@ describe('read-only Golden runner with repeat, offline', () => {
     const programRun = `golden:mission-synthetic:${sha.slice(0, 12)}`, program = rows(join(directory, PROGRAM_SPEND_BASENAME));
     expect(program.filter(row => row.kind === 'RESERVE').map(row => [row.source, row.run, row.item])).toEqual(['Syn1#k1:t1', 'Syn2#k1:t1', 'Syn1#k2:t1', 'Syn2#k2:t1'].map(item => ['golden', programRun, item]));
     expect(program.filter(row => row.kind === 'SETTLE').map(row => [row.outcome, row.httpStatus])).toEqual(Array(4).fill(['NO_USAGE', 200]));
-    expect(report.programSpend).toMatchObject({ run: programRun, capUsd: 15, calls: 4, open: 0, thisRun: { source: 'golden', calls: 4, worstCaseCharged: 4 } });
+    expect(report.programSpend).toMatchObject({ run: programRun, capUsd: PROGRAM_REAL_CAP_MICRO_USD / 1e6, calls: 4, open: 0, thisRun: { source: 'golden', calls: 4, worstCaseCharged: 4 } });
     expect(readFileSync(join(directory, PROGRAM_SPEND_BASENAME), 'utf8')).not.toContain('Mensagem sintética');
     expect([fileState(legacyJournal), fileState(reliabilityJournal)]).toEqual(realBefore);
     expect(existsSync(join(out, 'run.lock'))).toBe(false);

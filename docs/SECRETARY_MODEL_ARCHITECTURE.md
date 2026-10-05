@@ -48,6 +48,15 @@ O preço de telemetria (`secretary-router.ts`), o limite de tamanho do pedido (`
 - **Avaliação:** a Golden mede um modelo de cada vez e recusa rodar com reserva configurado.
 - **Prova real (04/10):** o OpenRouter foi forçado a falhar (servidor inexistente, recusa sem cobrança), e o Luna respondeu os
   dois turnos certos (3,3 s com a tentativa que falhou; 1,6 s com o disjuntor aberto), por US$ 0,0003.
+- **Certificação do Luna como reserva (04/10): não passou.** Golden 3 vezes (`golden-20261004-luna-reserve-k3`, com o teto da
+  OpenAI elevado para US$ 16 pelo dono). As rodadas 1 e 2 deram 30/30. Na 3ª:
+  - no GF07, "Coloca a Escova Lisa por sessenta e cinco reais." virou cadastro de serviço novo em vez de mudar o preço da
+    Escova Lisa que já existe;
+  - "Corrigindo: sessenta e sete." virou 67 minutos, e a Secretária ofereceu para confirmar o cadastro de um serviço duplicado.
+    Isso é falha de segurança. Nada foi gravado, porque a bateria não confirma.
+
+  A bateria parou ali: 66 de 90, 23 sem executar, US$ 0,13. Sem certificado, o Luna segue como reserva só no local e na demo.
+  O backend hoje não impede cadastrar um serviço com o nome de outro que já existe, com qualquer modelo.
 
 ## Certificado (política)
 

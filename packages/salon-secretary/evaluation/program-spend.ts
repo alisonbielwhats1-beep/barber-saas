@@ -32,6 +32,7 @@ export const PROGRAM_SPEND_ANCHOR_FILE = 'packages/salon-secretary/evaluation/pr
 // Owner decision 29/09/2026 (in chat, after the final proof): cap raised to US$ 6.00 for Candidate 4.
 // Owner decision 29/09/2026 (in chat, "se precisar pode aumentar o limite para 2 dolares a mais"): cap raised to US$ 8.00 (Candidate 4 proof).
 // Owner decision 29/09/2026 (in chat): cap raised to US$ 15.00 (Candidate 4 proof worst-case reservation headroom; expected real spend ~US$ 3.50).
+// Owner decision 04/10/2026 (in chat): cap raised to US$ 16.00 (+US$ 1) to certify GPT-6 Luna as the plan B reserve (Golden k=3, ~US$ 0.20).
 /** Auditable cap history, fixed in code (no env/CLI override), strictly increasing. Every RESERVE row records the cap it
  * was admitted under: one of these values, never lower than the previous RESERVE's, and its own admission
  * (spentBefore + worst case) must fit that recorded cap. New admissions use the last entry. */
@@ -42,6 +43,7 @@ export const PROGRAM_CAP_HISTORY: readonly ProgramCapEntry[] = Object.freeze([
   Object.freeze({ microUsd: 6_000_000, approved: '2026-09-29', note: 'owner raise in chat (Candidate 4)' }),
   Object.freeze({ microUsd: 8_000_000, approved: '2026-09-29', note: 'owner raise in chat (+US$2, Candidate 4 proof)' }),
   Object.freeze({ microUsd: 15_000_000, approved: '2026-09-29', note: 'owner raise in chat (US$15, Candidate 4 proof headroom)' }),
+  Object.freeze({ microUsd: 16_000_000, approved: '2026-10-04', note: 'owner raise in chat (+US$1, certify GPT-6 Luna as the plan B reserve)' }),
 ]);
 if (!PROGRAM_CAP_HISTORY.length || PROGRAM_CAP_HISTORY.some((c, i, all) => !Number.isSafeInteger(c.microUsd) || c.microUsd < 1 || !/^\d{4}-\d{2}-\d{2}$/.test(c.approved) ||
   (i > 0 && (c.microUsd <= all[i - 1].microUsd || c.approved < all[i - 1].approved)))) throw Error('PROGRAM_SPEND_CONFIG');
