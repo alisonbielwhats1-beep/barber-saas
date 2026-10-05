@@ -27,3 +27,8 @@ em texto. Use o fluxo de autenticação e os painéis dos provedores.
 - GitHub: conta `alisonbielwhats1-beep`. Para `gh`: `GH_TOKEN=$(gh auth token --user alisonbielwhats1-beep) gh ...`
 - Em produção, mexer só no que não afeta clientes. O resto vira relatório.
 - Estado do produto, clientes e backlog ficam no Brain (`brain/projects/everflair/`), não no código.
+
+## Regras sem teste (Docs Checker com Jev)
+
+- Pedidos como "verifique a parte de convites, papéis, login, tenant ou upload" ou "quais regras não têm teste?" são da skill `jev-rule-check` (skill de usuário, vale em todo projeto). Use-a ANTES de ler o código à mão. O catálogo de regras fica em `.claude/jev-docs-checker.json`.
+- Ela só relata e depois você confere à mão. Escrever testes só quando o Alison pedir.

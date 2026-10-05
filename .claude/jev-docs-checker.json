@@ -1,0 +1,332 @@
+{
+  "version": 1,
+  "thresholds": { "covered": 0.8, "uncertain": 0.5 },
+  "limits": { "concurrency": 4, "timeoutMs": 60000, "maxStateChars": 45000 },
+  "tests": [
+    "src/lib/__tests__/**/*.ts",
+    "src/app/**/*.test.ts",
+    "src/app/**/*.test.tsx",
+    "tests/e2e/**/*.spec.ts"
+  ],
+  "exclude": ["src/components/**", "scripts/**"],
+  "allowFlagged": ["src/lib/__tests__/**", "tests/e2e/**"],
+  "areas": {
+    "tenancy": {
+      "label": "Isolamento entre estabelecimentos (tenant)",
+      "triggers": [
+        "src/lib/prisma-tenant.ts",
+        "src/lib/tenant.ts",
+        "src/lib/tenant-actions.ts",
+        "src/lib/client-session-tenant.ts",
+        "src/middleware.ts",
+        "prisma/schema.prisma",
+        "prisma/sql/rls/**",
+        "prisma/sql/manual/**"
+      ]
+    },
+    "roles": {
+      "label": "Papéis e permissões",
+      "triggers": ["src/lib/role-permissions.ts", "src/app/(platform)/plataforma/**"]
+    },
+    "invites": {
+      "label": "Convites da equipe",
+      "triggers": [
+        "src/lib/invitations.ts",
+        "src/lib/invite-email.ts",
+        "src/lib/email-invites-feature.ts"
+      ]
+    },
+    "booking": {
+      "label": "Cliente e agendamento público",
+      "triggers": ["src/lib/client-auth.ts", "src/lib/client-session-tenant.ts", "src/app/book/**"]
+    },
+    "auth": {
+      "label": "Login, recuperação de senha e limites",
+      "triggers": [
+        "src/lib/auth.ts",
+        "src/lib/supabase-auth.ts",
+        "src/lib/supabase-recovery.ts",
+        "src/lib/password-recovery.ts",
+        "src/lib/recovery-validation.ts",
+        "src/lib/rate-limit.ts",
+        "src/lib/cron-auth.ts"
+      ]
+    },
+    "upload": {
+      "label": "Upload de imagens",
+      "triggers": ["src/lib/image-upload-security.ts"]
+    }
+  },
+  "rules": [
+    {
+      "id": "T01",
+      "area": "tenancy",
+      "rule": "Tenant-scoped operations run through the tenant helpers (withTenant, withSalon, withUser, withSalonBySlug, withInviteToken).",
+      "source": "AGENTS.md > Regras não negociáveis"
+    },
+    {
+      "id": "T02",
+      "area": "tenancy",
+      "rule": "Tenant, role and ownership are validated on the server; hiding a UI element does not authorize anything.",
+      "source": "AGENTS.md > Regras não negociáveis; DECISOES_PRODUTO.md > matriz de papéis"
+    },
+    {
+      "id": "T03",
+      "area": "tenancy",
+      "rule": "Row Level Security is enabled and forced on the tenant tables.",
+      "source": "AGENTS.md > Banco e migrations; OPERATIONS_TENANT_HARDENING.md"
+    },
+    {
+      "id": "T04",
+      "area": "tenancy",
+      "rule": "The application runtime connects as app_runtime, a role without BYPASSRLS, never as postgres.",
+      "source": "AGENTS.md > Banco e migrations"
+    },
+    {
+      "id": "T05",
+      "area": "tenancy",
+      "rule": "Tenant policies are based on app_current_salon().",
+      "source": "OPERATIONS_TENANT_HARDENING.md"
+    },
+    {
+      "id": "T06",
+      "area": "tenancy",
+      "rule": "A record cannot reference a record of another tenant: tenant relations use composite constraints with the salon id.",
+      "source": "OPERATIONS_TENANT_HARDENING.md"
+    },
+    {
+      "id": "T07",
+      "area": "tenancy",
+      "rule": "Reserving products for an appointment fails when the appointment or a product belongs to another salon.",
+      "source": "OPERATIONS_TENANT_HARDENING.md"
+    },
+    {
+      "id": "T08",
+      "area": "tenancy",
+      "rule": "Cancellations, suspensions and billing never delete history.",
+      "source": "AGENTS.md > Regras não negociáveis"
+    },
+    {
+      "id": "R01",
+      "area": "roles",
+      "rule": "A professional sees only their own agenda.",
+      "source": "DECISOES_PRODUTO.md > matriz de papéis"
+    },
+    {
+      "id": "R02",
+      "area": "roles",
+      "rule": "A professional sees only the clients linked to their own appointments.",
+      "source": "DECISOES_PRODUTO.md > matriz de papéis"
+    },
+    {
+      "id": "R03",
+      "area": "roles",
+      "rule": "A professional has no access to financial data.",
+      "source": "DECISOES_PRODUTO.md > matriz de papéis"
+    },
+    {
+      "id": "R04",
+      "area": "roles",
+      "rule": "Reception has no access to reports, expenses or commissions.",
+      "source": "DECISOES_PRODUTO.md > matriz de papéis"
+    },
+    {
+      "id": "R05",
+      "area": "roles",
+      "rule": "At checkout, reception can only record the payment method received.",
+      "source": "DECISOES_PRODUTO.md > matriz de papéis"
+    },
+    {
+      "id": "R06",
+      "area": "roles",
+      "rule": "A client sees only their own appointments.",
+      "source": "DECISOES_PRODUTO.md > matriz de papéis"
+    },
+    {
+      "id": "R07",
+      "area": "roles",
+      "rule": "Only the owner and the manager can use the scheduling override.",
+      "source": "DECISOES_PRODUTO.md > Override"
+    },
+    {
+      "id": "R08",
+      "area": "roles",
+      "rule": "An override requires confirmation and a reason, and is recorded immutably with the person responsible.",
+      "source": "DECISOES_PRODUTO.md > Override"
+    },
+    {
+      "id": "R09",
+      "area": "roles",
+      "rule": "An override never bypasses tenant, authentication, data integrity or status transitions.",
+      "source": "DECISOES_PRODUTO.md > Override"
+    },
+    {
+      "id": "R10",
+      "area": "roles",
+      "rule": "The global administration area (/plataforma) is reachable only by PlatformRole.SUPER_ADMIN.",
+      "source": "AGENTS.md > Estado técnico resumido"
+    },
+    {
+      "id": "I01",
+      "area": "invites",
+      "rule": "A team invitation token is random with 256 bits.",
+      "source": "fase-1-seguranca.md > Convites da equipe"
+    },
+    {
+      "id": "I02",
+      "area": "invites",
+      "rule": "Only the SHA-256 of the invitation token is persisted.",
+      "source": "fase-1-seguranca.md > Convites da equipe"
+    },
+    {
+      "id": "I03",
+      "area": "invites",
+      "rule": "A team invitation is valid for 24 hours.",
+      "source": "fase-1-seguranca.md > Convites da equipe"
+    },
+    {
+      "id": "I04",
+      "area": "invites",
+      "rule": "Resending an invitation rotates its token.",
+      "source": "fase-1-seguranca.md > Convites da equipe"
+    },
+    {
+      "id": "I05",
+      "area": "invites",
+      "rule": "An invitation is consumed once, atomically, in PostgreSQL.",
+      "source": "fase-1-seguranca.md > Convites da equipe"
+    },
+    {
+      "id": "I06",
+      "area": "invites",
+      "rule": "Accepting an invitation with an existing account requires the recipient's session.",
+      "source": "fase-1-seguranca.md > Convites da equipe"
+    },
+    {
+      "id": "I07",
+      "area": "invites",
+      "rule": "A new account is activated only after a valid invitation flow.",
+      "source": "fase-1-seguranca.md > Convites da equipe"
+    },
+    {
+      "id": "I08",
+      "area": "invites",
+      "rule": "An invitation never changes the password of an existing account.",
+      "source": "fase-1-seguranca.md > Senhas e sessões"
+    },
+    {
+      "id": "I09",
+      "area": "invites",
+      "rule": "An owner or manager of another salon cannot reset the password or attach the account of someone else.",
+      "source": "fase-1-seguranca.md > Convites da equipe"
+    },
+    {
+      "id": "I10",
+      "area": "invites",
+      "rule": "There is at most one pending invitation per salon and normalized email.",
+      "source": "fase-1-seguranca.md > Migrations"
+    },
+    {
+      "id": "I11",
+      "area": "invites",
+      "rule": "While email delivery is off, every invitation operation fails closed and no manual fallback link exists.",
+      "source": "fase-1-seguranca.md > Convites da equipe"
+    },
+    {
+      "id": "B01",
+      "area": "booking",
+      "rule": "Public booking ignores any clientId sent by the browser.",
+      "source": "fase-1-seguranca.md > Identidade pública"
+    },
+    {
+      "id": "B02",
+      "area": "booking",
+      "rule": "An authenticated client is identified only by the signed session and the salon present in that session.",
+      "source": "fase-1-seguranca.md > Identidade pública"
+    },
+    {
+      "id": "B03",
+      "area": "booking",
+      "rule": "A visitor creates an isolated contact: a phone or email cannot be used to take over an existing client profile.",
+      "source": "fase-1-seguranca.md > Identidade pública"
+    },
+    {
+      "id": "B04",
+      "area": "booking",
+      "rule": "Client history and cancellation require a session and cross the client id with the salon id.",
+      "source": "fase-1-seguranca.md > Identidade pública"
+    },
+    {
+      "id": "A01",
+      "area": "auth",
+      "rule": "The password recovery token is consumed only when the new password is submitted, not when the link is opened, which protects against email scanners.",
+      "source": "FASE_SUPABASE_AUTH_RECOVERY.md"
+    },
+    {
+      "id": "A02",
+      "area": "auth",
+      "rule": "Password recovery requests always return a generic answer, including provider-specific account errors.",
+      "source": "FASE_SUPABASE_AUTH_RECOVERY.md"
+    },
+    {
+      "id": "A03",
+      "area": "auth",
+      "rule": "The recovery rate limit by IP does not depend on whether the email exists.",
+      "source": "FASE_SUPABASE_AUTH_RECOVERY.md"
+    },
+    {
+      "id": "A04",
+      "area": "auth",
+      "rule": "Admin login, client login and invitation use separate rate-limit buckets.",
+      "source": "fase-1-seguranca.md > Rate limiting"
+    },
+    {
+      "id": "A05",
+      "area": "auth",
+      "rule": "Authentication and sensitive writes fail closed when the rate limiter (Redis) is missing or unavailable.",
+      "source": "fase-1-seguranca.md > Rate limiting"
+    },
+    {
+      "id": "A06",
+      "area": "auth",
+      "rule": "In production the trusted client IP comes only from x-vercel-forwarded-for.",
+      "source": "fase-1-seguranca.md > Rate limiting"
+    },
+    {
+      "id": "A07",
+      "area": "auth",
+      "rule": "The cron endpoint answers 401 when CRON_SECRET is missing, empty or wrong.",
+      "source": "fase-1-seguranca.md > Cron"
+    },
+    {
+      "id": "A08",
+      "area": "auth",
+      "rule": "Passwords, hashes, tokens, cookies and secrets are never logged.",
+      "source": "fase-1-seguranca.md > Senhas e sessões"
+    },
+    {
+      "id": "A09",
+      "area": "auth",
+      "rule": "An account linked to the official provider is granted access by the provider user UUID, not by an editable email or metadata.",
+      "source": "FASE_SUPABASE_AUTH_RECOVERY.md"
+    },
+    {
+      "id": "U01",
+      "area": "upload",
+      "rule": "An upload requires a session, an allowed role and a membership in the active salon.",
+      "source": "fase-1-seguranca.md > Upload"
+    },
+    {
+      "id": "U02",
+      "area": "upload",
+      "rule": "An upload never accepts a user-supplied path; files are stored under salonId/purpose/uuid.ext.",
+      "source": "fase-1-seguranca.md > Upload"
+    },
+    {
+      "id": "U03",
+      "area": "upload",
+      "rule": "An upload checks the MIME type and the magic bytes and rejects SVG.",
+      "source": "fase-1-seguranca.md > Upload"
+    }
+  ]
+}
