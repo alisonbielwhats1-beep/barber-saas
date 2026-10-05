@@ -51,6 +51,9 @@ describe('decision window', () => {
   });
   it('closed (button or Esc): a bar keeps the pending choices in reach and reopens the window; the cards show the choices meanwhile', async () => {
     const user = await open(moves({ a: customers('Adriana Leal', 'Adriana Souza'), b: customers('Isabela Mattos', 'Isabela Prado') }));
+    // Wait for the window to settle (its first option takes the focus) before closing it: on a slow runner (CI) the close
+    // could otherwise land before the opening frame and the window would reopen over it.
+    await waitFor(() => expect(within(screen.getByRole('dialog')).getByRole('button', { name: '1. Adriana Leal' })).toHaveFocus());
     await user.click(screen.getByRole('button', { name: 'Decidir depois' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.getByText('2 decisões pendentes')).toBeVisible();

@@ -1,12 +1,14 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import Ajv from 'ajv';
-import { writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import * as api from '@everflair/salon-secretary';
 import { expandedWire, operationWire, turnWire } from '../../test/secretary-wire-schema';
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 const stressActions = ['service.create', 'service.change', 'customer.create', 'customer.change', 'appointment.create', 'appointment.change', 'appointment.cancel', 'stock.movement', 'financial.report', 'customer.message'].map((operation, i) => ({ item_key: 'item_' + i, operation, status: 'NEEDS_INPUT', depends_on: [], fields: {}, clarification: { missing_fields: [], requested_field: null, previous_response: 'Questão sintética' } }));
 const context = { active_plan: { plan_ref: '10000000-0000-4000-8000-000000000001', actions: stressActions }, suspended_plans: Array.from({ length: 5 }, (_, i) => ({ plan_ref: '20000000-0000-4000-8000-' + String(i + 1).padStart(12, '0'), actions: stressActions.map(action => ({ ...action, item_key: action.item_key + '_p' + i })) })) };
 const source = 'O novo horário é 16h.';
+// The measurement lands in the local .demo folder, which a clean checkout (CI) does not have.
+mkdirSync('.demo', { recursive: true });
 it.each(['scheduling', 'scheduling-batch'] as const)('both %s requests remain under admission cap with 10 active and 50 suspended actions', async skill => {
   vi.stubEnv('SALON_SECRETARY_V2_MAX_OUTPUT_TOKENS', '8192'); vi.stubEnv('SALON_SECRETARY_MULTI_ACTION_V2_ENABLED', 'true');
   const originalContext = JSON.stringify(context), requests: Record<string, unknown>[] = [], upper: number[] = [];

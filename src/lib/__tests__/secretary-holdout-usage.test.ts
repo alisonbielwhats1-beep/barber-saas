@@ -60,7 +60,11 @@ describe('holdout registry', () => {
     const registry = readHoldoutRegistry(process.cwd());
     // Candidate 4 (29/09): every holdout opened in the final proof of 67c9c297 is retired to regression (owner decision).
     expect(registry.holdouts.map(h => [h.id, h.kind, h.retired])).toEqual([['assistant-v1', 'test', true], ['owner-v1', 'test', true], ['owner-multi-v1', 'test', true],
-      ['validation-v1', 'validation', true], ['multi-salon-v2', 'test', true], ['multi-salon-v3', 'test', true]]);
+      ['validation-v1', 'validation', true], ['multi-salon-v2', 'test', true], ['multi-salon-v3', 'test', true],
+      // CI migration (05/10; backup .demo/agenda-core/contract-migration/secretary-holdout-usage.test.before-ci.ts): the C4 proof,
+      // the C5 agent proof and the pilot gates registered these later in the tracked registry (8162905); none is retired yet.
+      ['owner-v2', 'test', false], ['multi-salon-v4', 'test', false], ['agent-v1c-simple', 'test', false], ['agent-v1c-complex', 'test', false],
+      ['micro-p0p2-30', 'validation', false], ['pilot-gate-20', 'validation', false], ['pilot-e2-30', 'validation', false], ['pilot-e2b-30', 'validation', false]]);
     // The owner .txt files are sources only: their derived scenario files are registered by the coordinator at the final battery.
     expect(registry.holdouts.find(h => h.id === 'owner-v1')).toMatchObject({ source: { sha256: expect.stringMatching(/^75a3121e/) } });
     for (const id of ['owner-v1', 'owner-multi-v1']) expect(registry.holdouts.find(h => h.id === id)!.approved.length).toBeLessThanOrEqual(1);

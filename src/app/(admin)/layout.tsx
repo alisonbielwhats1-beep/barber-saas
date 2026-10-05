@@ -17,9 +17,7 @@ import { currentTerms } from "@/lib/billing/change-terms";
 import { loadPlanBadge } from "@/lib/billing/plan-badge";
 import { ThemeToggle } from "./theme-toggle";
 import { PlanShortcut } from "./plan-shortcut";
-import { SecretaryDock } from "./servicos/secretaria/secretary-dock";
-import { assertSecretaryEnvironment } from "@/lib/salon-secretary-runtime";
-import { assertSecretaryRolloutAccess } from "@/lib/secretary-rollout";
+import { SecretaryDockLazy } from "./servicos/secretaria/secretary-dock-lazy";
 
 const legacyPlanLabels = { FREE: "Gratuito", STARTER: "Starter", PRO: getPlanEntitlement("PRO").label, ENTERPRISE: "Enterprise" };
 
@@ -72,7 +70,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const currentSalon = membershipList.find((m) => m.id === salonId)!;
   let secretaryEnabled = false;
   if (process.env.SALON_SECRETARY_FRONT_ENABLED === "true" && ["OWNER", "MANAGER", "RECEPTIONIST"].includes(role)) {
-    try { assertSecretaryEnvironment(); assertSecretaryRolloutAccess(ctx); secretaryEnabled = true; } catch { /* Admission and environment gates both fail closed. */ }
+    // Loaded only here: with the Secretária off, no admin page compiles or loads its runtime.
+    try {
+      const [{ assertSecretaryEnvironment }, { assertSecretaryRolloutAccess }] = await Promise.all([import("@/lib/salon-secretary-runtime"), import("@/lib/secretary-rollout")]);
+      assertSecretaryEnvironment(); assertSecretaryRolloutAccess(ctx); secretaryEnabled = true;
+    } catch { /* Admission and environment gates both fail closed. */ }
   }
 
   return (
@@ -101,7 +103,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       />
       <CommandPalette role={role} />
       <Toaster />
-      {secretaryEnabled && <SecretaryDock key={`${salonId}:${userId}`} voiceEnabled={process.env.SALON_SECRETARY_VOICE_ENABLED === "true"}
+      {secretaryEnabled && <SecretaryDockLazy key={`${salonId}:${userId}`} voiceEnabled={process.env.SALON_SECRETARY_VOICE_ENABLED === "true"}
         voiceCorrection={process.env.SALON_SECRETARY_VOICE_CORRECTION === "true"} transcribeEnabled={process.env.SALON_SECRETARY_TRANSCRIBE_ENABLED === "true"}
         feedbackEnabled={process.env.SALON_SECRETARY_FEEDBACK === "true"} flowEnabled={process.env.SALON_SECRETARY_FLOW_WINDOW === "true"} />}
     </div>
