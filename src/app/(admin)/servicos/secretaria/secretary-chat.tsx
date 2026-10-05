@@ -376,6 +376,19 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
   useEffect(() => {
     if (decisionOpen && decisionKeys) requestAnimationFrame(() => decisionWindow.current?.querySelector<HTMLButtonElement>('[aria-label="Opções encontradas"] button, [aria-label="Horários disponíveis"] button')?.focus());
   }, [decisionOpen, decisionKeys]);
+  // Esc closes the window wherever the focus is (just reopened by "Responder", the focus is still on the bar), except in the
+  // message box, and never during the confirmation countdown. A recording is cancelled first by the voice shortcut above.
+  useEffect(() => {
+    if (!decisionOpen || countdown) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      const target = event.target as HTMLElement | null;
+      if (target && (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT' || target.isContentEditable)) return;
+      setDecisionOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [decisionOpen, countdown]);
   function answerByMessage() {
     if (decision?.operation) setOperationRef(decision.operation);
     setDirty(true); setDecisionOpen(false); input.current?.focus();

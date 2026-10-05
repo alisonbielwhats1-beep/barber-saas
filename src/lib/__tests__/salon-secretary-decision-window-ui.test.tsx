@@ -64,6 +64,20 @@ describe('decision window', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.getByText('2 decisões pendentes')).toBeVisible();
   });
+  it('Esc closes the window even before the focus reaches it (CI, 05/10), but never from the message box', async () => {
+    // The opening frame never runs here, so the focus never moves into the window by itself: the slow-runner case, every time.
+    vi.stubGlobal('requestAnimationFrame', () => 0);
+    const user = await open(moves({ a: customers('Adriana Leal', 'Adriana Souza') }));
+    await user.click(screen.getByRole('button', { name: 'Decidir depois' }));
+    await user.click(screen.getByRole('button', { name: 'Responder' }));
+    expect(screen.getByRole('dialog')).not.toContainElement(document.activeElement as HTMLElement);
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Responder' }));
+    screen.getByRole('textbox', { name: 'Mensagem' }).focus();
+    await user.keyboard('{Escape}');
+    expect(screen.getByRole('dialog')).toBeVisible();
+  });
   it('"Responder por mensagem" closes the window and points the message box at that action', async () => {
     const user = await open(moves({ a: customers('Adriana Leal', 'Adriana Souza') }));
     await user.click(screen.getByRole('button', { name: 'Responder por mensagem' }));

@@ -123,7 +123,7 @@ describe('flag off (default): the historical request, byte for byte', () => {
     const recorded = JSON.parse(readFileSync(join(process.cwd(), CONTRACT_VERSION_FILE), 'utf8')) as ContractVersionFile, live = liveContractVersionFile();
     vi.stubEnv(FLAG, 'true');
     expect(liveContractVersionFile()).toEqual(live); expect(contractVersionDrift(recorded)).toEqual(contractVersionDrift(recorded, live));
-  });
+  }, 120_000); // builds the contract of every recorded profile: heavy on a shared runner (CI timed out at 5 s)
 });
 
 describe('flag on: one explicit breakpoint on the constant first part', () => {
