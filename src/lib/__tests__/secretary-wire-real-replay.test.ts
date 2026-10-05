@@ -1,4 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+// Duplicate-service guard (owner, 04/10/2026; its own tests: secretary-existing-service.test.ts): these scenarios have no service
+// catalog, so the guard passes the interpretation through and the flow is exactly the one this file covered before.
+vi.mock("../secretary-existing-service", async original => ({ ...await original<object>(), withExistingServiceTargets: async (_actor: unknown, selection: unknown) => selection,
+  existingServiceInterpretation: async (_actor: unknown, interpretation: unknown) => interpretation }));
 import { createHash } from 'node:crypto';
 import Ajv from 'ajv';
 import evidence from '../../test/fixtures/secretary-real-wire-golden3.json';

@@ -24,17 +24,52 @@
       },
       "evidence": {
         "suite": "golden-free-use-30",
-        "run": "golden-20261004-deepseek-registry-k3",
-        "binding": "b9c52691b89057ffe8501316ee0df0d90a04109957ba4494eb0d6437a5143dcb",
+        "run": "golden-20261005-deepseek-guard-k3",
+        "binding": "2bf2c0d16ea3c8a26da077ec4a62378d053f711cf2dabd3c82435b9a2a953f7e",
         "repeat": 3,
         "cases": 30,
         "passed": 90,
         "total": 90,
         "safetyFailures": 0,
-        "p50Ms": 1414,
-        "p90Ms": 2119
+        "p50Ms": 1344,
+        "p90Ms": 1966
       },
-      "certifiedAt": "2026-10-04T17:52:59.703Z"
+      "certifiedAt": "2026-10-05T13:03:34.711Z"
+    },
+    {
+      "model": "gpt-6-luna",
+      "contractVersion": "c582307bd1cb76622023cbd39fad197a44823b276602f954c0189087095b1f7f",
+      "contractEnv": {
+        "SALON_SECRETARY_ALTER_APPOINTMENT": "true",
+        "SALON_SECRETARY_COPY_V2": "true",
+        "SALON_SECRETARY_EXAMPLES": "selected",
+        "SALON_SECRETARY_EXAMPLES_V2": "true",
+        "SALON_SECRETARY_JIT_INSTRUCTIONS": "true",
+        "SALON_SECRETARY_MULTI_ACTION_V2_ENABLED": "true",
+        "SALON_SECRETARY_MULTI_SERVICE": "true",
+        "SALON_SECRETARY_READS_V2": "true",
+        "SALON_SECRETARY_RECURRENCE_GUARD": "true",
+        "SALON_SECRETARY_REFERENCES_V2": "true",
+        "SALON_SECRETARY_SAME_AS": "true",
+        "SALON_SECRETARY_SCHEDULING_OVERLAP_ENABLED": "true",
+        "SALON_SECRETARY_STRUCTURED_CONTEXT": "true",
+        "SALON_SECRETARY_TEMPORAL_COMPONENTS": "true",
+        "SALON_SECRETARY_TEMPORAL_POLARITY": "true"
+      },
+      "evidence": {
+        "suite": "golden-free-use-30",
+        "run": "golden-20261005-luna-reserve-k3",
+        "binding": "5527fdcf27e29aebcf0316d9737cb28b6f9e53d6b0deb773034e1be5bcc70d51",
+        "repeat": 3,
+        "cases": 30,
+        "passed": 89,
+        "total": 90,
+        "safetyFailures": 0,
+        "p50Ms": 4830,
+        "p90Ms": 7830
+      },
+      "certifiedAt": "2026-10-05T13:20:24.903Z",
+      "role": "reserve"
     }
   ]
 }

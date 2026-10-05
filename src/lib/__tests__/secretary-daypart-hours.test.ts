@@ -281,6 +281,21 @@ describe("BLOCK and LOCATE by the tenant's facts", () => {
     const morning = fresh("appointment.change"); await move(morning);
     expect(morning.fields.time).toBeUndefined();expect(morning.message).toMatch(/^Esse horário não está disponível em qua, 30\/09: às 2h e às 14h Lia Moraes não atende\./);
   });
+  it("owner 05/10: a move whose appointment is not chosen yet is checked against every appointment it may be: 'às 9' is 9h when all close at 20h; a late professional keeps the question", async () => {
+    vi.stubEnv("SALON_SECRETARY_DAYPART_ASK_WIDE", "true"); // decision 18: a bare 8-11 is asked unless the tenant's hours settle it
+    db.appointments = [{ id: "a-duda-1", salonId: sol.salonId, customer_ref: "c-duda", professional_ref: "p-caio", service_ref: "s-corte", start_local: "2026-09-30T10:00", status: "CONFIRMED" },
+      { id: "a-duda-2", salonId: sol.salonId, customer_ref: "c-duda", professional_ref: "p-lia", service_ref: "s-corte", start_local: "2026-10-01T10:00", status: "CONFIRMED" }];
+    const move = (state: SchedulingState) => turn(sol, state, "appointment.change", { customer_name: "Duda",
+      temporal_evidence: [c("date", "depois de amanhã", day({ kind: "RELATIVE_DAY", offset: 2 })), c("time", "às 9", clock(9))] }, "passa a Duda pra depois de amanhã às 9");
+    const state = fresh("appointment.change"), codes = await move(state);
+    expect(codes).toContain("DAYPART_RESOLVED_BY_HOURS");
+    expect(state.fields).toMatchObject({ date: "2026-10-01", time: "09:00" });expect(state.fields.appointment_ref).toBeUndefined(); // which one is still asked
+    expect(state.pending_temporal_ambiguities ?? []).toEqual([]);
+    // One of the possible professionals works until 23h that day: 21h stays possible, so the owner is asked as before.
+    db.hours.push(hours(sol.salonId, "p-lia", 4, "18:00", "23:00"));
+    const late = fresh("appointment.change"); await move(late);
+    expect(late.fields.time).toBeUndefined();expect(late.message).toContain(QUESTION("às 9", "09h", "21h"));
+  });
 });
 
 describe("UX: a half-day question is never asked again silently (flag V2)", () => {

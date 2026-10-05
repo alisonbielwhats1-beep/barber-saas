@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Mic, Square, Send, Volume2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Mic, Square, Send, Volume2, CheckCircle2, AlertCircle, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { SecretaryView } from '@/lib/salon-secretary';
 import type { ConfirmationGroup, PlanAction } from '@everflair/salon-secretary';
@@ -48,6 +48,10 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
   const [copyV2, setCopyV2] = useState(false);
   /** Review 2b: the card whose discard would also take linked actions, waiting for the owner's confirmation. */
   const [discardAsk, setDiscardAsk] = useState<string>();
+  /** Owner, 05/10: the decision window (open by default whenever a new choice is waited for) and the choices it last showed. */
+  const [decisionOpen, setDecisionOpen] = useState(true);
+  const seenDecisions = useRef('');
+  const decisionWindow = useRef<HTMLDivElement>(null);
   const lock = useRef(false);
   /** D1: the latest open conversation is asked for once, when the chat first becomes active. */
   const reattach = useRef(false);
@@ -275,7 +279,8 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
     if (!state) return;
     void act(() => selectSecretaryOption(state.sessionId, operation, option, state.action_plan?.revision), 'thinking', true);
   }
-  function options(view: SecretaryView, operation?: string) {
+  /** The choices a view waits for (which customer, appointment, service, half of the day; a backend-offered slot). */
+  function choiceButtons(view: SecretaryView, operation?: string) {
     // Numbered like the question lists them, so "a segunda" / "opção 2" read naturally.
     const slots = operation ? view.options ?? [] : [];
     // D1: a learned alias proposes one entity, already highlighted; it is still only chosen by this click.
@@ -287,6 +292,14 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
       {!!slots.length && <div aria-label="Horários disponíveis" className="flex flex-col gap-2">
         {slots.map((slot, index) => <Button key={slot.option_id} variant="outline" disabled={Boolean(busy || uncertain)} className="h-auto min-h-11 justify-start whitespace-normal text-left" onClick={() => pickSlot(slot.option_id, operation!)}>{`${index + 1}. ${slot.label}`}</Button>)}
       </div>}
+    </>;
+  }
+  function options(view: SecretaryView, operation?: string) {
+    // Owner, 05/10: while the decision window is open its choices are answered there, never twice on screen.
+    const inWindow = decisionOpen && decisions.some(decision => (decision.operation ?? '') === (operation ?? ''));
+    const slots = operation ? view.options ?? [] : [];
+    return <>
+      {inWindow ? <p className="text-xs text-muted-foreground">Escolha na janela de decisão aberta.</p> : choiceButtons(view, operation)}
       {reviewOf(view) && reviewHeading(reviewOf(view)!.status, copyV2) && <div className="border-l-2 border-amber-500 pl-3 text-sm">
         <strong>{reviewHeading(reviewOf(view)!.status, copyV2)}</strong>
         <p>{humanMessage(reviewOf(view)!.message)}</p>
@@ -311,6 +324,29 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
   const liveActions = state?.action_plan?.actions.filter(action => action.status !== 'DISCARDED') ?? [];
   // C7 (review): a NEW booking's card never lists an appointment another action of this plan cancels or moves.
   const released = planReleasedAppointments(state);
+  /** Owner, 05/10: every choice the Secretary waits for opens in one window above the conversation, one at a time ("Decisão 1 de
+   * 2"); answered, the next one shows. Closed, a bar above the message box keeps them in reach. Nothing is ever confirmed there. */
+  const decisions: { key: string; action?: PlanAction; view: SecretaryView; operation?: string }[] = !state || closed || state.cancelled || awaitingReply ? []
+    : state.action_plan ? liveActions.flatMap(action => {
+      const child = action.status === 'DONE' ? undefined : viewForAction(state, action);
+      return child && (candidatesOf(child.state).length || child.state.options?.length) ? [{ key: action.key, action, view: child.state, operation: child.operation_ref }] : [];
+    }) : (state.skill !== 'auto' || !!state.operations?.length) ? (state.operations ?? [{ operation_ref: '', state }]).flatMap(({ operation_ref, state: view }) =>
+      !receiptOf(view) && !view.cancelled && candidatesOf(view).length ? [{ key: operation_ref || 'single', view, operation: operation_ref || undefined }] : []) : [];
+  const decision = decisions[0];
+  // A new question (other actions or other options) opens the window again, even after the owner closed it.
+  const decisionKeys = decisions.map(item => `${item.key}:${candidatesOf(item.view).map(candidate => candidate.id).join(',')}:${(item.view.options ?? []).map(slot => slot.option_id).join(',')}`).join('|');
+  useEffect(() => {
+    if (decisionKeys && decisionKeys !== seenDecisions.current) setDecisionOpen(true);
+    seenDecisions.current = decisionKeys;
+  }, [decisionKeys]);
+  // The window takes the focus on its first option, so a choice is one key or one tap away.
+  useEffect(() => {
+    if (decisionOpen && decisionKeys) requestAnimationFrame(() => decisionWindow.current?.querySelector<HTMLButtonElement>('[aria-label="Opções encontradas"] button, [aria-label="Horários disponíveis"] button')?.focus());
+  }, [decisionOpen, decisionKeys]);
+  function answerByMessage() {
+    if (decision?.operation) setOperationRef(decision.operation);
+    setDirty(true); setDecisionOpen(false); input.current?.focus();
+  }
   function card(action: PlanAction, group?: ConfirmationGroup) {
     const child = state && viewForAction(state, action), view = child?.state;
     const success = action.status === 'DONE' && (!action.mutation || Boolean(view && receiptOf(view)));
@@ -395,7 +431,7 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
     </form>;
   }
 
-  return <section aria-label="Conversa com a Secretária" className="flex h-full min-h-0 flex-col">
+  return <section aria-label="Conversa com a Secretária" className="relative flex h-full min-h-0 flex-col">
     <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-4 py-2">
       <Button size="sm" variant="outline" disabled={Boolean(busy || uncertain || recording)} onClick={() => void begin()}>Nova conversa</Button>
       <Button size="sm" variant="ghost" aria-label="Ouvir resposta curta" disabled={Boolean(busy || recording || !state)} onClick={() => {
@@ -459,7 +495,30 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
       {!!state?.confirmation_batch?.not_executed.length && <p className="text-sm">Algumas ações não foram executadas porque mudaram ou expiraram antes da confirmação. Revise-as acima antes de confirmar de novo.</p>}
       <div ref={threadEnd} aria-hidden="true" />
     </div>
+    {decisionOpen && decision && state && <div className="absolute inset-0 z-20 flex items-end justify-center bg-background/70 p-3 backdrop-blur-[2px] sm:items-center"
+      onClick={event => { if (event.target === event.currentTarget) setDecisionOpen(false); }}>
+      <div ref={decisionWindow} role="dialog" aria-modal="false" aria-labelledby="secretary-decision-title" className="max-h-full w-full max-w-md space-y-3 overflow-y-auto rounded-2xl border border-border bg-card p-4 shadow-xl"
+        onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); setDecisionOpen(false); } }}>
+        <div className="flex items-start justify-between gap-2">
+          <div><p className="text-xs font-medium text-muted-foreground">{decisions.length > 1 ? `Decisão 1 de ${decisions.length}` : 'Decisão pendente'}</p>
+            <h2 id="secretary-decision-title" className="text-base font-semibold">{decision.action ? actionTitle(decision.action, state) : 'Escolha uma opção'}</h2></div>
+          <Button type="button" size="sm" variant="ghost" aria-label="Fechar janela de decisão" onClick={() => setDecisionOpen(false)}><X className="h-4 w-4" aria-hidden="true" /></Button>
+        </div>
+        {(() => { const question = decision.action ? actionDetails(decision.view, decision.action, state.today, released) : actionDetails(decision.view);
+          return question ? <p className="whitespace-pre-wrap break-words text-sm">{question}</p> : null; })()}
+        {choiceButtons(decision.view, decision.operation)}
+        <div className="flex flex-wrap gap-2 border-t border-border pt-3">
+          <Button type="button" size="sm" variant="outline" disabled={Boolean(busy || uncertain)} onClick={answerByMessage}>Responder por mensagem</Button>
+          <Button type="button" size="sm" variant="ghost" onClick={() => setDecisionOpen(false)}>Decidir depois</Button>
+        </div>
+        {busy === 'thinking' && <p role="status" className="text-xs text-muted-foreground">Preparando…{seconds}</p>}
+      </div>
+    </div>}
     <div className="shrink-0 border-t border-border bg-card p-3 space-y-2" style={{ paddingBottom: 'max(.75rem, var(--safe-bottom, 0px))' }}>
+      {!decisionOpen && decisions.length > 0 && <div className="flex items-center justify-between gap-2 rounded-lg border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-sm">
+        <span className="font-medium">{decisions.length === 1 ? '1 decisão pendente' : `${decisions.length} decisões pendentes`}</span>
+        <Button type="button" size="sm" disabled={Boolean(busy || uncertain)} onClick={() => setDecisionOpen(true)}>Responder</Button>
+      </div>}
       <p role="status" aria-live="polite" className="text-xs font-medium">{status}{slow ? ' Ainda aguardando o sistema; nenhuma nova tentativa foi iniciada.' : ''}</p>
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       {uncertain && <Button variant="outline" disabled={Boolean(busy)} onClick={() => { if (retry.current) void act(retry.current, 'executing'); }}>Verificar resultado</Button>}

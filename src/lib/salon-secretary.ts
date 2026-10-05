@@ -46,6 +46,7 @@ import type { ServiceMvpFields } from "./service-contract";
 import { withTenant } from "./prisma-tenant";
 import { usageRecorder } from "./salon-secretary-usage";
 import { normalizeSecretaryServiceName } from "./secretary-service-name";
+import { existingServiceInterpretation, withExistingServiceTargets } from "./secretary-existing-service";
 import { secretaryFastPath } from "./secretary-fast-path";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { RouterTrace, tryJevInterpretation, outcomeCode, type RouterOptions } from "./secretary-router";
@@ -1076,6 +1077,8 @@ export class SalonSecretary {
     });
   }
   private async applyServiceInterpretation(actor: ServiceActor, s: Session, interpretation: ServicePatch, previousProposal?: Proposal) {
+        // Owner decision 04/10/2026: a service the salon has is changed, never created again (secretary-existing-service.ts).
+        interpretation = await existingServiceInterpretation(actor, interpretation, { operation: s.operation, target: s.acceptedServiceQuery ?? s.pending?.query });
         const { operation = s.operation ?? "service.create", target_name, ...explicitPatch } = interpretation;
         if (s.operation && operation !== s.operation) throw new Error("OPERATION_MISMATCH");
         if (operation === "service.create" && target_name) throw new Error("OPERATION_MISMATCH");
@@ -1311,6 +1314,8 @@ export class SalonSecretary {
     return this.preparePlanSafely(parent, () => this.prepareActionPlan(actor, parent, selection, message));
   }
   private async prepareActionPlan(actor: ServiceActor, parent: Session, selection: CapabilitySelection, message: string) {
+    // Owner decision 04/10/2026: a create of a service the salon has is born as its change (secretary-existing-service.ts).
+    selection = await withExistingServiceTargets(actor, selection);
     // Without an explicit policy: one confirmation group per independent component (env may restore packing).
     parent.actionPlan = createActionPlan(selection, this.multiActionOptions.policy?.() ?? runtimeReviewConfiguration(process.env),
       this.routerTrace.getStore()?.path === "JEV_ACCEPTED" ? "JEV" : "LUNA");
@@ -2254,6 +2259,7 @@ export class SalonSecretary {
     Object.assign(parent,this.savePlan(next));await this.recordAutomaticState(actor,parent);return this.view(parent);
   }
   private async appendActionPlan(actor:ServiceActor,parent:Session,selection:CapabilitySelection,message:string){
+    selection=await withExistingServiceTargets(actor,selection); // Owner decision 04/10/2026: never a duplicate service.
     const existing=parent.actionPlan!,keys=new Set(existing.actions.map(action=>action.key));
     this.routerTrace.getStore()?.interpreted(selection.operations.length);
     if(selection.operations.some(op=>keys.has(op.item_key!)))throw Error("APPEND_ACTION_EXISTS");

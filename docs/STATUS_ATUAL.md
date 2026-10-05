@@ -1,5 +1,21 @@
 # Status atual canônico — Salon SaaS
 
+## 2026-10-05 — Secretária: trava de serviço repetido, janela de decisão e manhã/noite na remarcação
+
+Mesma branch (`claude/llm-model-migration-a6ed7a`), decisões do dono 40–43 (`DECISOES_PRODUTO.md`).
+- **Trava de serviço repetido** (`secretary-existing-service.ts`): "cadastrar" um serviço com o nome de um que já existe vira
+  a alteração desse serviço. Contrato do modelo inalterado.
+- **DeepSeek recertificado** com a trava: Golden 3 vezes 90/90 (`golden-20261005-deepseek-guard-k3`), p50 1,3 s, US$ 0,08.
+- **Luna certificado como reserva** (decisão 44, regra própria: sem falha de segurança e >= 98%): 89/90 sem falha de segurança,
+  US$ 0,18. Em staging e produção, com as flags certificadas, o plano B fica ativo (DeepSeek principal, Luna reserva).
+- **Janela de decisão** no chat (`secretary-chat.tsx`): escolhas abrem numa janela por cima da conversa, uma por vez, com
+  barra de pendências quando fechada. Provada na demo local.
+- **Manhã ou noite na remarcação** (`scheduling-daypart-facts.ts`): sem o agendamento escolhido, o horário é checado contra
+  todos os agendamentos possíveis da cliente.
+- **Demo local:** o lançador com controle de gastos (`agenda-voz`, porta 3158) desliga o cache de prompt da OpenAI quando o
+  modelo não é da OpenAI (a trava de custo do DeepSeek recusava esse pedido antes de sair).
+- Suíte: 9.147 testes passam; falhas restantes são o teste antigo de holdouts e estouros de tempo sob carga (passam sozinhos).
+
 ## 2026-10-04 — Secretária: arquitetura de modelos (cadastro, certificado, carteiras)
 
 Mesma branch, a pedido do dono ("trocar de LLM não pode ser um bloqueio, e os resultados têm que continuar muito bons").

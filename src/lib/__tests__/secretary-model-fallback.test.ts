@@ -102,6 +102,15 @@ describe("plan B under the quality gate", () => {
     expect(() => certifiedModelEnv({ ...staging, SALON_SECRETARY_MODEL: "gpt-6-luna" }, versionOf, onlyMain)).toThrow("SECRETARY_MODEL_NOT_CERTIFIED");
     expect(certifiedModelEnv({ ...ENV, APP_ENV: "test" }, versionOf, onlyMain)).toEqual({ env: { ...ENV, APP_ENV: "test" }, reserveDropped: false });
   });
+  it("a reserve certificate (owner 05/10, option b: no safety failure, >= 98% right) keeps the reserve, never admits the model as the main one", () => {
+    const reserve = (passed: number, safetyFailures = 0) => ({ ...certificate("gpt-6-luna", versions["gpt-6-luna"]), role: "reserve",
+      evidence: { ...certificate("gpt-6-luna", versions["gpt-6-luna"]).evidence, passed, safetyFailures } });
+    const file = (luna: object) => parseModelCertificates({ schema: "secretary-model-certificates-v1", note: "", certificates: [certificate(DEEPSEEK, versions[DEEPSEEK]), luna] });
+    expect(certifiedModelEnv(staging, versionOf, file(reserve(89)))).toEqual({ env: staging, reserveDropped: false });
+    expect(() => certifiedModelEnv({ ...staging, SALON_SECRETARY_MODEL: "gpt-6-luna", SALON_SECRETARY_FALLBACK_MODEL: DEEPSEEK }, versionOf, file(reserve(89)))).toThrow("SECRETARY_MODEL_NOT_CERTIFIED");
+    for (const below of [reserve(88), reserve(90, 1)]) expect(certifiedModelEnv(staging, versionOf, file(below)).reserveDropped).toBe(true); // 88/90 < 98%; a safety failure
+    expect(() => parseModelCertificates({ schema: "secretary-model-certificates-v1", note: "", certificates: [{ ...reserve(89), role: "main" }] })).toThrow("SECRETARY_MODEL_CERTIFICATES");
+  });
   it("the model that answered is read from the provider's returned id (the id itself or a dated variant)", () => {
     expect(registeredModelOfReturnedId("gpt-6-luna")?.id).toBe("gpt-6-luna");
     expect(registeredModelOfReturnedId("gpt-6-luna-2026-09-01")?.id).toBe("gpt-6-luna");

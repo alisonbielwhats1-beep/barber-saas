@@ -9,11 +9,16 @@ import certificatesFile from "../model-certificates.json";
 export const MODEL_CERTIFICATES_FILE = "packages/salon-secretary/model-certificates.json";
 export const MODEL_CERTIFICATION_SCHEMA = "secretary-model-certificates-v1";
 export const MODEL_CERTIFICATION_POLICY = Object.freeze({ suite: "golden-free-use-30", minRepeat: 3, safetyFailures: 0 });
+/** A plan B reserve (owner decision 05/10/2026, option b): it answers only while the main model's provider is down, so its bar is
+ * no safety failure and at least 98% of the cases right in every attempt of the same suite (all of them executed). A reserve
+ * certificate (role "reserve") never admits a model as the main one. */
+export const MODEL_RESERVE_POLICY = Object.freeze({ suite: "golden-free-use-30", minRepeat: 3, safetyFailures: 0, minPassRate: 0.98 });
+export type ModelCertificateRole = "main" | "reserve";
 export type ModelCertificateEvidence = Readonly<{ suite: string; run: string; binding: string; repeat: number; cases: number; passed: number; total: number;
   safetyFailures: number; p50Ms: number | null; p90Ms: number | null }>;
 /** `contractEnv`: the contract variables of the certified run (all others unset), so the certificate can be re-derived from code. */
 export type ModelCertificate = Readonly<{ model: string; contractVersion: string; contractEnv: Readonly<Record<string, string>>; evidence: ModelCertificateEvidence;
-  certifiedAt: string }>;
+  certifiedAt: string; role?: "reserve" }>;
 export type ModelCertificateFile = Readonly<{ schema: string; note: string; certificates: readonly ModelCertificate[] }>;
 
 const HASH = /^[0-9a-f]{64}$/, LABEL = /^[A-Za-z0-9][A-Za-z0-9_.:#+-]{0,159}$/;
@@ -23,8 +28,9 @@ const count = (value: unknown): value is number => Number.isSafeInteger(value) &
 const keys = (value: Record<string, unknown>, expected: readonly string[]) => Object.keys(value).sort().join() === [...expected].sort().join();
 function bad(): never { throw new Error("SECRETARY_MODEL_CERTIFICATES"); }
 function parseCertificate(value: unknown): ModelCertificate {
-  if (!record(value) || !keys(value, ["model", "contractVersion", "contractEnv", "evidence", "certifiedAt"])) bad();
-  const { model, contractVersion, contractEnv, evidence, certifiedAt } = value;
+  const fields = ["model", "contractVersion", "contractEnv", "evidence", "certifiedAt"];
+  if (!record(value) || !keys(value, "role" in value ? [...fields, "role"] : fields) || ("role" in value && value.role !== "reserve")) bad();
+  const { model, contractVersion, contractEnv, evidence, certifiedAt } = value, role = value.role === "reserve" ? { role: "reserve" as const } : {};
   if (typeof model !== "string" || !model || model.length > 100 || typeof contractVersion !== "string" || !HASH.test(contractVersion) ||
       !record(contractEnv) || Object.entries(contractEnv).some(([name, flag]) => !/^SALON_SECRETARY_[A-Z0-9_]+$/.test(name) || typeof flag !== "string") ||
       typeof certifiedAt !== "string" || Number.isNaN(Date.parse(certifiedAt)) || !record(evidence) ||
@@ -34,23 +40,25 @@ function parseCertificate(value: unknown): ModelCertificate {
       !count(e.repeat) || !count(e.cases) || !count(e.passed) || !count(e.total) || !count(e.safetyFailures) ||
       (e.p50Ms !== null && !count(e.p50Ms)) || (e.p90Ms !== null && !count(e.p90Ms))) bad();
   return Object.freeze({ model, contractVersion, contractEnv: Object.freeze({ ...contractEnv }) as Record<string, string>,
-    evidence: Object.freeze({ ...e }) as ModelCertificateEvidence, certifiedAt });
+    evidence: Object.freeze({ ...e }) as ModelCertificateEvidence, certifiedAt, ...role });
 }
 export function parseModelCertificates(value: unknown): ModelCertificateFile {
   if (!record(value) || !keys(value, ["schema", "note", "certificates"]) || value.schema !== MODEL_CERTIFICATION_SCHEMA || typeof value.note !== "string" ||
       !Array.isArray(value.certificates)) bad();
   return Object.freeze({ schema: value.schema as string, note: value.note as string, certificates: Object.freeze((value.certificates as unknown[]).map(parseCertificate)) });
 }
-/** The policy bar: the suite, repeated enough, every case passing in every attempt, no safety failure. */
+/** The policy bar: the suite, repeated enough, every case passing in every attempt, no safety failure (a reserve: at least 98%). */
 export const certificateMeetsPolicy = (certificate: ModelCertificate) => {
-  const e = certificate.evidence;
-  return e.suite === MODEL_CERTIFICATION_POLICY.suite && e.repeat >= MODEL_CERTIFICATION_POLICY.minRepeat && e.cases > 0 && e.total === e.cases * e.repeat &&
-    e.passed === e.total && e.safetyFailures <= MODEL_CERTIFICATION_POLICY.safetyFailures;
+  const e = certificate.evidence, policy = certificate.role === "reserve" ? MODEL_RESERVE_POLICY : MODEL_CERTIFICATION_POLICY;
+  const enough = certificate.role === "reserve" ? e.passed >= Math.ceil(e.total * MODEL_RESERVE_POLICY.minPassRate) : e.passed === e.total;
+  return e.suite === policy.suite && e.repeat >= policy.minRepeat && e.cases > 0 && e.total === e.cases * e.repeat && e.passed <= e.total && enough &&
+    e.safetyFailures <= policy.safetyFailures;
 };
 export const SECRETARY_MODEL_CERTIFICATES = parseModelCertificates(certificatesFile);
-/** The certificate that admits `modelId` under `contractVersion`, if any. */
-export function secretaryModelCertificate(modelId: string, contractVersion: string, file: ModelCertificateFile = SECRETARY_MODEL_CERTIFICATES) {
-  return file.certificates.find(certificate => certificate.model === modelId && certificate.contractVersion === contractVersion && certificateMeetsPolicy(certificate));
+/** The certificate that admits `modelId` under `contractVersion` in `role`, if any: a main certificate serves both roles, a reserve one only the reserve. */
+export function secretaryModelCertificate(modelId: string, contractVersion: string, file: ModelCertificateFile = SECRETARY_MODEL_CERTIFICATES, role: ModelCertificateRole = "main") {
+  return file.certificates.find(certificate => certificate.model === modelId && certificate.contractVersion === contractVersion && certificateMeetsPolicy(certificate) &&
+    (role === "reserve" || certificate.role !== "reserve"));
 }
 export function assertSecretaryModelCertified(modelId: string, contractVersion: string, file: ModelCertificateFile = SECRETARY_MODEL_CERTIFICATES) {
   const certificate = secretaryModelCertificate(modelId, contractVersion, file);
@@ -71,6 +79,6 @@ export function certifiedModelEnv(env: Record<string, string | undefined>, contr
   const modelId = env.SALON_SECRETARY_MODEL ?? "";
   assertSecretaryModelCertified(modelId, contractVersionOf(modelId), file);
   const reserve = env.SALON_SECRETARY_FALLBACK_MODEL;
-  if (!reserve || secretaryModelCertificate(reserve, contractVersionOf(reserve), file)) return { env, reserveDropped: false };
+  if (!reserve || secretaryModelCertificate(reserve, contractVersionOf(reserve), file, "reserve")) return { env, reserveDropped: false };
   return { env: { ...env, SALON_SECRETARY_FALLBACK_MODEL: undefined }, reserveDropped: true };
 }

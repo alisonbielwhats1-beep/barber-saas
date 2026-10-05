@@ -57,6 +57,9 @@ O preço de telemetria (`secretary-router.ts`), o limite de tamanho do pedido (`
 
   A bateria parou ali: 66 de 90, 23 sem executar, US$ 0,13. Sem certificado, o Luna segue como reserva só no local e na demo.
   O backend hoje não impede cadastrar um serviço com o nome de outro que já existe, com qualquer modelo.
+- **Regra da reserva (05/10, decisão 44):** `MODEL_RESERVE_POLICY`, zero falhas de segurança e pelo menos 98% certo nas 3 rodadas;
+  certificado com `role: "reserve"` (`npx tsx scripts/secretary-certify-model.ts <rodada> --reserve`), que nunca libera o modelo
+  como principal. Com a trava de serviço repetido, o Luna fez 89/90 sem falha de segurança e foi certificado como reserva.
 
 ## Certificado (política)
 

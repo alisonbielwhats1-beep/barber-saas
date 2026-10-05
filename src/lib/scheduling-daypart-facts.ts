@@ -123,19 +123,25 @@ export function daypartPurpose(op: string, field: string): DaypartPurpose | unde
  * the unique service (for alternatives). `release`: a move's own appointment (its slot does not count against itself). */
 export type HoursContext = { day: string; staff: { ids: string[]; name?: string }; duration?: number; service?: string; release?: string; basis: string };
 type ContextInput = { op: string; field: DaypartField; fields: SchedulingFields; unproven: ReadonlySet<string>; names?: Record<string, string> };
-/** A move keeps its appointment's professional (and, for a time-only move, its day): the ONE appointment the proven data locate
- * (the resolved ref, or the tenant locator with a unique customer); anything else is unknown. */
-async function movedAppointment(actor: ServiceActor, f: SchedulingFields, unproven: ReadonlySet<string>) {
-  if (f.appointment_ref) return withTenant(actor, tx => getSchedulingAppointment(tx, actor, f.appointment_ref!));
-  let customer = f.customer_ref;
-  if (!customer) {
+/** A move keeps its appointment's professional (and, for a time-only move, its day). The appointments the proven data locate: the
+ * resolved ref, or the tenant locator for the customer (every homonym of the name the owner wrote). Owner decision of 05/10/2026:
+ * a move whose appointment is not chosen yet is checked against all of them (at most 20; more, or none, is unknown). */
+const MOVED_ENVELOPE_LIMIT = 20;
+async function movedAppointments(actor: ServiceActor, f: SchedulingFields, unproven: ReadonlySet<string>) {
+  if (f.appointment_ref) { const one = await withTenant(actor, tx => getSchedulingAppointment(tx, actor, f.appointment_ref!)); return one ? [one] : undefined; }
+  let customers = f.customer_ref ? [f.customer_ref] : undefined;
+  if (!customers) {
     if (!f.customer_name || unproven.has("customer_name")) return;
     const rows = await withTenant(actor, tx => searchSalonCustomer(tx, actor, f.customer_name!));
-    if (rows.length !== 1) return;
-    customer = rows[0].id;
+    if (!rows.length || rows.length > MOVED_ENVELOPE_LIMIT) return;
+    customers = rows.map(row => row.id);
   }
-  const rows = await withTenant(actor, tx => locateSchedulingAppointments(tx, actor, { ...f, customer_ref: customer }, "appointment.change"));
-  return rows.length === 1 ? rows[0] : undefined;
+  const found = [];
+  for (const customer of customers) {
+    found.push(...await withTenant(actor, tx => locateSchedulingAppointments(tx, actor, { ...f, customer_ref: customer }, "appointment.change")));
+    if (found.length > MOVED_ENVELOPE_LIMIT) return;
+  }
+  return found.length ? found : undefined;
 }
 /** The professionals a reading is checked against: the resolved one, the one match of the name the owner wrote, every homonym
  * of it (their envelope), or every eligible active professional (the salon's envelope). Never a pick; a list the catalog
@@ -173,11 +179,22 @@ export async function hoursContext(actor: ServiceActor, input: ContextInput): Pr
   if (!purpose || purpose === "LOCATE") return;
   let day = field === "end_time" ? f.end_date ?? f.date : f.date, staff: HoursContext["staff"] | undefined, duration: number | undefined, service: string | undefined, release: string | undefined;
   if (op === "appointment.change") {
-    const appointment = await movedAppointment(actor, f, input.unproven);
-    if (!appointment) return;
-    staff = { ids: [appointment.professional_ref], name: appointment.professional_name };
-    duration = Math.round((Date.parse(appointment.end_at) - Date.parse(appointment.start_at)) / 60000) || undefined;
-    service = appointment.service_ref; release = appointment.appointment_ref; day ??= appointment.start_local.slice(0, 10);
+    const appointments = await movedAppointments(actor, f, input.unproven);
+    if (!appointments) return;
+    const minutes = (appointment: (typeof appointments)[number]) => Math.round((Date.parse(appointment.end_at) - Date.parse(appointment.start_at)) / 60000) || undefined;
+    if (appointments.length === 1) {
+      const [appointment] = appointments;
+      staff = { ids: [appointment.professional_ref], name: appointment.professional_name };
+      duration = minutes(appointment); service = appointment.service_ref; release = appointment.appointment_ref; day ??= appointment.start_local.slice(0, 10);
+    } else {
+      // Not chosen yet (owner, 05/10/2026): the envelope of every appointment it may be, on the destination day the owner said: their
+      // professionals and the shortest of their durations. A reading none of them could take is out; one left is used and said
+      // ("Considerei 10:00"), two keep today's question; once the appointment is chosen, its own facts check the reading again.
+      if (!day) return;
+      staff = { ids: [...new Set(appointments.map(appointment => appointment.professional_ref))] };
+      const durations = appointments.map(minutes).filter((value): value is number => value !== undefined);
+      duration = durations.length ? Math.min(...durations) : undefined;
+    }
   } else {
     if (op === "appointment.create") { const found = await serviceOf(actor, f); duration = found?.duration; service = found?.ref; }
     staff = await staffOf(actor, f, op, input.unproven, input.names, service);
