@@ -79,7 +79,7 @@ const moved = (view: SecretaryView) => view.action_plan!.actions.find(action => 
 const codes = () => db.rows.filter(row => row.entityType === "SECRETARY_ROUTER").flatMap(row => (row.metadata as { outcome?: { divergence: { failed_codes: string[] } } }).outcome?.divergence.failed_codes ?? []);
 /** Asked, never proposed: no move inspected, no confirmable action, the origin's Friday never shown as the destination. */
 function asksDay(view: SecretaryView) {
-  expect(moved(view).status).toBe("NEEDS_INPUT");expect(moved(view).missing_fields).toContain("date");expect(moved(view).fields.date).toBeUndefined();
+  expect(moved(view).status).toBe("NEEDS_INPUT");expect(moved(view).missing_fields).toContain("date");expect((moved(view).fields as Record<string, unknown>).date).toBeUndefined();
   expect(db.moves).toEqual([]);expect(JSON.stringify(view)).not.toContain("DEPOIS: sex, 02/10");expect(codes()).toContain("TEMPORAL_KEPT_DAY_UNCLAIMED");
 }
 

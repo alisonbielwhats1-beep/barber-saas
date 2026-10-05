@@ -92,7 +92,7 @@ describe("V30 replay (c4-vn-final): 'Passa a Rosa para amanhã às 10h e meia.'"
   });
   it("k2 (date dropped by Luna) asks the destination day: nothing confirmable, the origin day is never proposed", async () => {
     const view = await (await session(K2)).say(MESSAGE);
-    expect(action(view).status).toBe("NEEDS_INPUT");expect(action(view).missing_fields).toContain("date");expect(action(view).fields.date).toBeUndefined();
+    expect(action(view).status).toBe("NEEDS_INPUT");expect(action(view).missing_fields).toContain("date");expect((action(view).fields as Record<string, unknown>).date).toBeUndefined();
     expect(view.message).toBe("Para qual dia devo passar Rosa?");expect(action(view).assessment?.preview).toContain("Preciso confirmar data de destino");
     expect(JSON.stringify(view)).not.toContain("02/10 às 10h30");
     expect(db.moves).toEqual([]);expect(codes()).toContain("TEMPORAL_KEPT_DAY_UNCLAIMED");
