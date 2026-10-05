@@ -15,6 +15,8 @@ Mesma branch (`claude/llm-model-migration-a6ed7a`), decisões do dono 40–43 (`
 - **Exceções de agenda** (decisão 46, flag `SALON_SECRETARY_SCHEDULE_EXCEPTIONS`, ligada na demo): agendar/remarcar fora do expediente,
 - **Troca e marcação de serviço** (decisão 47, flag `SALON_SECRETARY_SERVICE_SWAP_V2`, ligada na demo): "troque o serviço … do dia 17
 - **Nomes parecidos** (decisão 48, flags `SALON_SECRETARY_PHONETIC_NAMES`, `SALON_SECRETARY_NAME_ALIASES`, `SALON_SECRETARY_TRANSCRIBE_CUSTOMER_NAMES`,
+- **Piloto em Produção** (decisão 49): código pronto (`secretary-production-pilot.ts`), certificados DeepSeek 90/90 e Luna 90/90 com as flags
+  novas; falta PR/merge, Supabase (026/027) e variáveis da Vercel — ver `docs/SECRETARY_PRODUCTION_PILOT.md`.
   ligadas na demo): Walter → Valter, Isabella → Isabela, Tiago → Thiago sem travar; nomes das clientes próximas no vocabulário da voz.
   para pedicure" vira ALTERAR no mesmo horário; serviço de nome exato escolhido sem perguntar. Provado no fluxo real.
   em bloqueio, no intervalo, depois do expediente ou sobre outro atendimento, com pergunta e botão "mesmo assim". Testado em unidade;

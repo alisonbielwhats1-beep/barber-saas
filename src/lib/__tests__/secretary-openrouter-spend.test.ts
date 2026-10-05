@@ -58,7 +58,7 @@ describe('DeepSeek spend admission (offline)', () => {
   });
 
   it('runs under its own mission (US$ 50 of reservations, owner-approved 04/10) with its own pricing; the Luna wire is refused there', () => {
-    expect(freeUseMission(FREE_USE_DEEPSEEK_MISSION).capMicroUsd).toBe(50_000_000);
+    expect(freeUseMission(FREE_USE_DEEPSEEK_MISSION).capMicroUsd).toBe(75_000_000);
     expect(freeUseMissionPricing(FREE_USE_DEEPSEEK_MISSION)).toEqual({ pricing: FREE_USE_DEEPSEEK_PRICING, pricingSha256: FREE_USE_DEEPSEEK_PRICING_SHA256 });
     expect(freeUseMissionPricing(FREE_USE_RELIABILITY_MISSION).pricingSha256).toBe(FREE_USE_PRICING_SHA256);
     const journal = join(dir(), 'deepseek-mission.jsonl'), body = outbound();

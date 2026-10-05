@@ -4,6 +4,7 @@ import { getTenantContext, assertRole } from "@/lib/tenant";
 import { assertSecretaryEnvironment, salonSecretary } from "@/lib/salon-secretary-runtime";
 import type { SecretaryView } from "@/lib/salon-secretary";
 import { assertSecretaryRolloutAccess } from "@/lib/secretary-rollout";
+import { assertSecretaryDailyBudget } from "@/lib/secretary-production-pilot";
 import type { DictationSuggestion } from "@/lib/secretary-voice-correction";
 import { secretaryCopyV2Enabled, secretaryErrorMessage } from "@/lib/secretary-error-copy";
 
@@ -37,7 +38,9 @@ export async function startSecretary() { return safely(async () => salonSecretar
 /** D1: the actor's latest open conversation (SALON_SECRETARY_PERSISTED_STATE), reattached after a reload or on another
  * worker; null otherwise. Read and authorize only: nothing is sent, selected or confirmed. */
 export async function currentSecretary(): Promise<CurrentSecretaryReply> { return safely(async () => salonSecretary.current(await context())); }
-export async function sendSecretary(input: unknown) { return safely(async () => salonSecretary.send(await context(), input)); }
+/** Owner 05/10: a message is a model call; in the Production pilot the salon's daily cap is checked first. */
+async function budgeted() { const actor = await context(); await assertSecretaryDailyBudget(actor); return actor; }
+export async function sendSecretary(input: unknown) { return safely(async () => salonSecretary.send(await budgeted(), input)); }
 /** Owner, 03/10 ("mandei um oi e demorou cinco segundos"): the first message of a new conversation opens it and is read in the
  * same request, one round trip instead of two. A message that fails closes the conversation it opened (nothing was said in it
  * yet), so a retry opens a fresh one and no empty conversation keeps one of the user's open slots. */
@@ -190,7 +193,7 @@ export async function transcribeSecretaryVoice(form: FormData): Promise<Transcri
     try { return await work(); } finally { timing[stage] = Math.round(performance.now() - at); }
   };
   try {
-    const actor = await timed("auth_ms", context);
+    const actor = await timed("auth_ms", budgeted);
     const seconds = Number(form.get("seconds")), { withTenant } = await import("@/lib/prisma-tenant");
     const directory = await timed("vocabulary_ms", () => voiceVocabulary(actor));
     return { ok: true, ...(await timed("pipeline_ms", () => transcription.transcribeSecretaryAudio({ audio: form.get("audio"), seconds, directory,

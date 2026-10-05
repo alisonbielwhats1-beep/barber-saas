@@ -6,7 +6,7 @@ import type { NameCheck, NameResolution } from "./secretary-router";
 import { assertCustomerAccess } from "./customer-catalog";
 import { isFirstPersonReference } from "./secretary-first-person";
 import { maskPhone } from "./client-identity";
-import { FOLD_FROM, FOLD_TO, nameTokens, phoneticNamesEnabled, phoneticPrefixes, rankNameSuggestions, withoutArticle, withoutHonorific, type NameSuggestions } from "./name-search";
+import { closestByLetters, FOLD_FROM, FOLD_TO, nameTokens, phoneticNamesEnabled, phoneticPrefixes, rankNameSuggestions, withoutArticle, withoutHonorific, type NameSuggestions } from "./name-search";
 
 /** C3 (rec 16): tolerant name SUGGESTIONS, behind SALON_SECRETARY_NAME_SUGGESTIONS (default off).
  * Used only after the unchanged exact/substring search found no row. A suggestion is never an
@@ -42,7 +42,11 @@ export async function suggestSchedulingServices(tx: Tx, actor: ServiceActor, inp
   const term = query.parse(input);
   const rows = await tx.service.findMany({ where: { salonId: actor.salonId, active: true },
     select: { id: true, name: true, durationMin: true, priceCents: true, priceType: true }, orderBy: [{ name: "asc" }, { id: "asc" }], take: SUGGESTION_POOL.services + 1 });
-  return rows.length > SUGGESTION_POOL.services ? { status: "TOO_MANY" } as const : rankNameSuggestions(term, rows);
+  if (rows.length > SUGGESTION_POOL.services) return { status: "TOO_MANY" } as const;
+  const ranked = rankNameSuggestions(term, rows);
+  // Owner 05/10 (flag SALON_SECRETARY_PHONETIC_NAMES): a service the voice heard as other words ("pedido curto" for Pedicure) is
+  // offered by the whole phrase's letters: the closest services (at most 3), always a click.
+  return ranked.status === "NONE" && phoneticNamesEnabled() ? closestByLetters(term, rows) : ranked;
 }
 /** Professionals: every active professional of the salon (eligible for the service when given), at most 100. */
 export async function suggestSchedulingProfessionals(tx: Tx, actor: ServiceActor, input: { service_ref?: string; service_refs?: string[]; query: string }): Promise<Suggested<{ id: string; name: string }>> {

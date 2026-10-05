@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { phoneticPrefixes, phoneticToken, rankNameSuggestions, samePhoneticName } from "../name-search";
+import { closestByLetters, phoneticPrefixes, phoneticToken, rankNameSuggestions, samePhoneticName } from "../name-search";
 import { suggestSalonCustomers } from "../entity-suggestions";
 import { transcriptionPrompt, TRANSCRIBE_PROMPT_MAX } from "../secretary-transcribe";
 import type { Tx } from "../prisma-tenant";
@@ -69,4 +69,15 @@ describe("transcription vocabulary", () => {
     expect(many.length).toBeLessThanOrEqual(TRANSCRIBE_PROMPT_MAX);
     expect(many).toMatch(/Clientes: Cliente Número 0, /);
   });
+});
+
+describe("a service the voice heard as other words", () => {
+  const services = ["Pedicure", "Manicure", "Manicure + Pedicure", "Hidratação capilar", "Corte masculino", "Barba", "Escova progressiva", "Sobrancelha"]
+    .map((name, i) => ({ id: String(i), name }));
+  it.each([["pedido curto", "Pedicure"], ["mani cure", "Manicure"], ["idrata são capilar", "Hidratação capilar"], ["escova progreciva", "Escova progressiva"]])(
+    "%s → %s first", (said, service) => {
+      const found = closestByLetters(said, services);
+      expect(found.status === "SUGGEST" && found.rows[0].name).toBe(service);
+    });
+  it("offers nothing far away", () => expect(closestByLetters("massagem relaxante", services).status).toBe("NONE"));
 });

@@ -74,3 +74,10 @@ describe("schedule exception policy", () => {
     expect(exceptionReply("quem é o Otávio?")).toBeUndefined();
   });
 });
+
+describe("owner 05/10: 'quero marcar mesmo nesse horário'", () => {
+  it.each(["Quero marcar mesmo nesse horário", "esse horário mesmo", "pode marcar nesse horário", "mesmo nesse horário", "neste horário mesmo"])("%s consents", text =>
+    expect(exceptionReply(text)).toEqual({ decision: "CONSENT" }));
+  it.each(["não, esse horário não", "nesse horário não dá", "quero outro horário"])("%s never consents", text =>
+    expect(exceptionReply(text)?.decision).not.toBe("CONSENT"));
+});

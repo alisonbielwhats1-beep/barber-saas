@@ -5,8 +5,11 @@ import { SalonSecretary } from "./salon-secretary";
 import { persistedSessionStore } from "./secretary-session-store";
 import { assertSafeDatabaseOperation } from "./database-safety";
 import { isSecretaryCodespaceTarget } from "./secretary-staging-target.mjs";
+import { productionPilotActive } from "./secretary-production-pilot";
 
 export function assertSecretaryEnvironment() {
+  // Owner 05/10: the Production pilot (presentation salon owner only; the actor gate is secretary-rollout.ts).
+  if (productionPilotActive(process.env)) return;
   if (process.env.SALON_SECRETARY_ENABLED !== "true" ||
       !["development", "test", "staging"].includes(process.env.APP_ENV ?? "") ||
       process.env.VERCEL_ENV === "production") throw new Error("SECRETARY_DISABLED");

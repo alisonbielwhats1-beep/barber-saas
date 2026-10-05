@@ -15,7 +15,7 @@ import { requestTooLargeMessage } from "@everflair/salon-secretary";
  * and the "turn reply" marker change only with SALON_SECRETARY_COPY_V2. Codes in, pt-BR out: no exception text ever. */
 describe("the shared code→pt-BR table (snapshot of the table the server actions held)", () => {
   it("keeps every historical code with its exact text", () => {
-    expect(Object.keys(secretaryErrorMessages)).toHaveLength(69);
+    expect(Object.keys(secretaryErrorMessages)).toHaveLength(70);
     // Pinned: any change of wording or of the code set is a deliberate, reviewed change of this digest.
     expect(createHash("sha256").update(JSON.stringify(secretaryErrorMessages)).digest("hex")).toBe(EXPECTED_TABLE_SHA256);
     for (const [code, text] of Object.entries(secretaryErrorMessages)) expect(secretaryErrorMessage(code)).toEqual({ code, text });
@@ -76,4 +76,4 @@ describe("server actions use the shared table (flag off: byte-identical replies;
     expect(await run()).toEqual({ ok: false, code: "BACKEND_FAILURE", error: unknownExecutionMessage, copyV2: true });
   });
 });
-const EXPECTED_TABLE_SHA256 = "16d03bf4459db076dd58411f9db3c94c3bf761df6a39b17991423ee20aea42e2";
+const EXPECTED_TABLE_SHA256 = "aef9b1b7d4ecf84c3894364224630cd31c69a984608d54077ad50310e2a9532a";

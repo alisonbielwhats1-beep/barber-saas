@@ -301,6 +301,12 @@ async function settleDayparts(actor:ServiceActor,c:SchedulingState,f:SchedulingF
     if(readings.open.length===1)
       fill(field,readings.open[0],"DAYPART_RESOLVED_BY_HOURS",{candidates:pending.candidates,expression:pending.expression,basis,line:`Considerei ${formatClock(readings.open[0])}: ${why}.`});
     else if(!readings.open.length&&readings.closed.length){
+      // Owner 05/10 (flag SALON_SECRETARY_SCHEDULE_EXCEPTIONS): no reading is free, but the owner may still book over the professional's
+      // schedule. The reading inside the SALON's working hours that day (any professional working then) is the one meant ("9 horas"
+      // in a salon open 9–20 is 9h, never 21h); it goes on to the exception question ("quer marcar mesmo assim?"). A closure, the
+      // past, or a salon that does not tell the two readings apart keeps today's answer.
+      const salonReading=purpose==="BOOK"&&scheduleExceptionsEnabled()&&readings.closed.every(item=>["OUTSIDE","OFF","DURATION"].includes(item.cause))?await salonHoursReading(actor,day,pending.candidates,refused,now):undefined;
+      if(salonReading){fill(field,salonReading,"DAYPART_KEPT_FOR_EXCEPTION",{candidates:pending.candidates,expression:pending.expression,basis,line:`Considerei ${formatClock(salonReading)}, no horário de funcionamento do salão.`});continue;}
       codes.push("DAYPART_UNAVAILABLE_BY_HOURS");
       const whole=closedDayText(facts,day,who),detail=whole?`: ${whole}`:` em ${formatDay(day)}: ${why}`;
       // An existing appointment's own clock stays asked, with what was ruled out; a time to book or block is never guessed.
@@ -1397,4 +1403,16 @@ export function refuseScheduleException(c:SchedulingState){
   c.waiting_for=free.length?"time":"date";
   c.message=`Tudo bem, nada foi alterado. ${free.length?`Tenho ${free.join(", ")}. Qual horário você prefere?`:"Qual outro dia ou horário você prefere?"}`;
   return c.message;
+}
+
+/** Owner 05/10: the one reading of an ambiguous clock that falls inside the salon's working hours that day (any active
+ * professional working then; TimeOff ignored), or undefined when none or both do. Read-only. */
+async function salonHoursReading(actor:ServiceActor,day:string,candidates:readonly string[],refused:ReadonlySet<string>,now:Date){
+  const facts=await withTenant(actor,async tx=>{
+    const ids=(await tx.professional.findMany({where:{salonId:actor.salonId,active:true},select:{id:true},take:200})).map(row=>row.id);
+    return loadDayFacts(tx,actor.salonId,await schedulingTimezone(tx,actor),day,ids,now);
+  }).catch(()=>undefined);
+  if(!facts)return undefined;
+  const open=openReadings(candidates.filter(time=>!refused.has(time)),"BLOCK_START",facts).open;
+  return open.length===1?open[0]:undefined;
 }

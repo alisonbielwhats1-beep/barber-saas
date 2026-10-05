@@ -89,7 +89,7 @@ const fold = (text: string) => text.normalize("NFD").replace(/[̀-ͯ]/g, "").toL
 const NEGATION = /\b(nao|nunca|jamais|nem|cancela|cancelar|desiste|deixa pra la|outro horario)\b/;
 /** A new date or time in the reply is a new request for the model, never a consent. */
 const TEMPORAL = /\d|\b(hoje|amanha|depois de amanha|segunda|terca|quarta|quinta|sexta|sabado|domingo|manha|tarde|noite|meio dia|meia noite|hora|horas|semana|dia)\b/;
-const EXPLICIT = /\bmesmo assim\b|\b(pode|quero|vamos|pode sim)\s+(agendar|remarcar|marcar|manter|encaixar|abrir)\b|\b(autorizo|confirmo|libero|liberar|abre|abrir)\s+(a\s+)?(excecao|agenda|horario)\b/;
+const EXPLICIT = /\bmesmo assim\b|\b(?:nesse|neste|esse|este)(?: mesmo)? horario(?: mesmo)?\b|\bmesmo (?:nesse|neste|esse|este) horario\b|\b(pode|quero|vamos|pode sim)\s+(agendar|remarcar|marcar|manter|encaixar|abrir)\b|\b(autorizo|confirmo|libero|liberar|abre|abrir)\s+(a\s+)?(excecao|agenda|horario)\b/;
 const BARE = /^(sim|pode|pode sim|ok|claro|isso|beleza|sim pode|sim por favor)$/;
 const REASON = /\b(?:porque|pois|ja que|motivo(?: e)?)\b\s*:?\s*(.+)$/i;
 /** Deterministic reading of a reply to a live exception question (the model never decides it): CONSENT with the owner's

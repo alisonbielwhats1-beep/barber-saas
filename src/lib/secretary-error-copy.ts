@@ -8,6 +8,7 @@ export const secretaryCopyV2Enabled = (env: Record<string, string | undefined> =
 
 export const secretaryErrorMessages: Readonly<Record<string, string>> = {
   SECRETARY_NOT_AVAILABLE: "A Secretária não está habilitada para este acesso.",
+  SECRETARY_DAILY_BUDGET: "A Secretária atingiu o limite de uso de hoje. Amanhã ela volta; até lá, use a agenda normalmente.",
   FORBIDDEN: "Seu acesso não permite esta ação. O plano foi preservado para revisão.",
   CONFIRMATION_STALE: "Esta proposta foi substituída. Revise a versão atual antes de confirmar.",
   CONFIRMATION_BATCH_INVALID: "Confirmação inválida. Nada foi executado. Revise as ações atuais antes de confirmar.",

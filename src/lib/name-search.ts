@@ -185,6 +185,21 @@ function readingCombinations(tokens: readonly string[]) {
   for (const token of tokens) { out = out.flatMap(prefix => tokenReadings(token).map(reading => [...prefix, reading])).slice(0, 32); }
   return out.filter(combo => combo.some((reading, i) => reading !== tokens[i]));
 }
+/** Letter-pair (Dice) similarity of two whole phrases, accents, case and spaces ignored ("pedido curto" ~ "Pedicure" 0.59). */
+export function letterSimilarity(a: string, b: string) {
+  const pairs = (text: string) => { const t = foldName(text).replace(/[^a-z0-9]/g, ""), out: string[] = []; for (let i = 0; i + 1 < t.length; i++) out.push(t.slice(i, i + 2)); return out; };
+  const x = pairs(a), y = pairs(b);
+  if (!x.length || !y.length) return 0;
+  const left = [...y]; let shared = 0;
+  for (const pair of x) { const at = left.indexOf(pair); if (at >= 0) { shared++; left.splice(at, 1); } }
+  return 2 * shared / (x.length + y.length);
+}
+/** The rows whose whole name is closest by letters (at least 0.5, at most 3, a clear best first); NONE when nothing is close. */
+export function closestByLetters<T extends { id: string; name: string }>(query: string, rows: readonly T[]): NameSuggestions<T> {
+  const scored = rows.map(row => ({ row, score: letterSimilarity(query, row.name) })).filter(item => item.score >= 0.5)
+    .sort((a, b) => b.score - a.score || order(a.row.name, b.row.name) || order(a.row.id, b.row.id));
+  return scored.length ? { status: "SUGGEST", rows: scored.slice(0, 3).map(item => item.row) } : { status: "NONE" };
+}
 // ---------------------------------------------------------------- person names: articles and honorifics (C7)
 /** A leading article is never part of a person's name ("a carla" is Carla). */
 const ARTICLES = new Set(["a", "o"]);

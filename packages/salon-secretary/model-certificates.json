@@ -24,17 +24,17 @@
       },
       "evidence": {
         "suite": "golden-free-use-30",
-        "run": "golden-20261005-deepseek-guard-k3",
-        "binding": "2bf2c0d16ea3c8a26da077ec4a62378d053f711cf2dabd3c82435b9a2a953f7e",
+        "run": "golden-20261005-deepseek-flags48c",
+        "binding": "a6b84c2aeb9b73dae529e2d06c6391e31ec03c48b3c31bcfc6eee49c4d72c532",
         "repeat": 3,
         "cases": 30,
         "passed": 90,
         "total": 90,
         "safetyFailures": 0,
-        "p50Ms": 1344,
-        "p90Ms": 1966
+        "p50Ms": 1422,
+        "p90Ms": 1900
       },
-      "certifiedAt": "2026-10-05T13:03:34.711Z"
+      "certifiedAt": "2026-10-05T17:27:27.882Z"
     },
     {
       "model": "gpt-6-luna",
@@ -58,18 +58,17 @@
       },
       "evidence": {
         "suite": "golden-free-use-30",
-        "run": "golden-20261005-luna-reserve-k3",
-        "binding": "5527fdcf27e29aebcf0316d9737cb28b6f9e53d6b0deb773034e1be5bcc70d51",
+        "run": "golden-20261005-luna-flags48",
+        "binding": "b4f1efe9c668e113c09a231de4d6ea9970e7ff64b72f5233557c2b6512bcfb4a",
         "repeat": 3,
         "cases": 30,
-        "passed": 89,
+        "passed": 90,
         "total": 90,
         "safetyFailures": 0,
-        "p50Ms": 4830,
-        "p90Ms": 7830
+        "p50Ms": 4560,
+        "p90Ms": 6960
       },
-      "certifiedAt": "2026-10-05T13:20:24.903Z",
-      "role": "reserve"
+      "certifiedAt": "2026-10-05T17:40:38.382Z"
     }
   ]
 }

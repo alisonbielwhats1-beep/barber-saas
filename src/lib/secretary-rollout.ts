@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { assertPilotActor, productionPilotActive } from "./secretary-production-pilot";
 
 type Actor = { salonId: string; userId: string };
 type Environment = Record<string, string | undefined>;
@@ -11,6 +12,8 @@ const allowlist = z.array(z.object({ salonId: identifier, userId: identifier }).
  */
 export function assertSecretaryRolloutAccess(actor: Actor, env: Environment = process.env): void {
   const deny = () => { throw new Error("SECRETARY_NOT_AVAILABLE"); };
+  // Owner 05/10: in the Production pilot only the exact allowlisted pairs (the presentation salon's owner) are admitted.
+  if (productionPilotActive(env)) { assertPilotActor(actor, env); return; }
   if (env.SALON_SECRETARY_ENABLED !== "true" || env.VERCEL_ENV === "production" ||
       !["development", "test", "staging"].includes(env.APP_ENV ?? "")) deny();
   const raw = env.SALON_SECRETARY_ALLOWED_ACTORS;
