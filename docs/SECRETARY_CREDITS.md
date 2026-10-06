@@ -13,17 +13,18 @@ Decisões do dono em 06/10/2026:
 
   | Pacote | Crédito (unidades de R$ 0,0001) | Estimativa | Margem média antes da taxa |
   |---|---|---|---|
-  | R$ 15 | 150.000 | cerca de 80 pedidos | 90% |
-  | R$ 25 | 275.000 | cerca de 145 pedidos | 89% |
-  | R$ 40 | 485.000 | cerca de 260 pedidos | 88% |
-  | R$ 80 | 1.053.000 | cerca de 565 pedidos | 87% |
+  | R$ 15 | 150.000 | cerca de 120 pedidos | 90% |
+  | R$ 25 | 275.000 | cerca de 220 pedidos | 89% |
+  | R$ 40 | 485.000 | cerca de 390 pedidos | 88% |
+  | R$ 80 | 1.053.000 | cerca de 840 pedidos | 87% |
 
-  As estimativas usam o custo medido no piloto em 06/10: 37 mensagens e 35 chamadas ao DeepSeek, cada uma com ~11.400 tokens
-  de entrada, dos quais 58% vieram do cache. Isso dá US$ 0,0033 por pedido, ou R$ 0,187 com o ×10. A primeira estimativa
-  (R$ 0,08) estava cerca de 4 vezes abaixo. É preciso medir de novo no relatório do HQ depois de qualquer mudança no prompt.
+  As estimativas usam o **custo real** (decisão do dono em 06/10: ×10 sobre o custo real). São os tokens do piloto às
+  tarifas reais do provedor, ajustadas em 868 chamadas informadas pelo OpenRouter (US$ 0,30 / 0,006 / 1,20 por milhão para
+  entrada nova, entrada do cache e saída), mais 5,5% de taxa do OpenRouter, mais a voz. Isso dá US$ 0,0022 por pedido, ou
+  R$ 0,125 com o ×10. É preciso medir de novo no relatório do HQ.
 
-- **Franquia grátis todo mês:** 37.400 unidades, cerca de 20 pedidos, para todo salão.
-  - Custa uns R$ 0,37 reais por salão por mês.
+- **Franquia grátis todo mês:** 25.000 unidades, cerca de 20 pedidos, para todo salão.
+  - Custa uns R$ 0,25 reais por salão por mês.
   - É usada antes do crédito pago e não acumula: o que sobrar não passa para o mês seguinte.
 - A recarga **soma** ao que sobrou e a barra volta a 100%. O crédito não expira.
 - Só o dono recarrega. Todos os papéis veem a barra. Aviso abaixo de 20%; sem nada, a Secretária para e a agenda segue normal.
@@ -33,9 +34,14 @@ Decisões do dono em 06/10/2026:
 Fonte: `src/lib/secretary-credits-rules.ts`. Testes em `src/lib/__tests__/secretary-credits-rules.test.ts` e
 `src/lib/billing/secretary-credits.test.ts`.
 
-- **Cobrança:** custo em micro-dólares × câmbio fixo (`SALON_SECRETARY_USD_BRL`, padrão 5,60) × 10, em unidades inteiras de
-  R$ 0,0001, arredondando para cima.
-  - Média medida no piloto: US$ 0,0033 por pedido, que vira R$ 0,187. Desse custo, o modelo é US$ 0,0029 e a voz US$ 0,0005.
+- **Cobrança (×10 sobre o custo real):** custo em micro-dólares × câmbio fixo (`SALON_SECRETARY_USD_BRL`, padrão 5,60) × 10,
+  em unidades inteiras de R$ 0,0001, arredondando para cima.
+  - **Custo real de cada chamada:** o valor que o OpenRouter informa em `usage.cost`, gravado em cada uso como
+    `cost_micro_usd`, mais 5,5% de taxa da plataforma.
+  - **Sem custo informado** (por exemplo, a reserva da OpenAI): usa os tokens pela tabela do provedor.
+  - **Custo informado abaixo de 20% do preço da tabela:** não é confiável, e vale a tabela.
+  - **Voz:** é o custo que a OpenAI informa, que já é o real.
+  - Média real medida no piloto: US$ 0,0022 por pedido, que vira R$ 0,125. Desse custo, o modelo é US$ 0,0017 (já com a taxa) e a voz US$ 0,0005.
   - O custo usa o preço mais alto dos fornecedores, então a margem nunca fica abaixo de 90%.
 - **Uma cobrança por chamada e por gravação** (correção da validação de 06/10):
   - Antes de cada pedido e logo depois dele, todas as chamadas do modelo do salão que ainda não foram cobradas são cobradas,

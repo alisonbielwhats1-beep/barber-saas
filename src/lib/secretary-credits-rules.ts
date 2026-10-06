@@ -12,12 +12,13 @@
 export const CREDIT_UNIT_BRL = 0.0001;
 /** Price = cost x 10: a 90% gross margin before the payment fee (cost is priced at the providers' highest rates). */
 export const MARGIN_MULTIPLIER = 10;
-/** Average units of one request, MEASURED in the Production pilot on 06/10/2026 (37 messages, 35 DeepSeek calls of ~11 440 input
- * tokens with 58% cached, 38 recordings of ~3,6 s): US$ 0,00334 per request at the charged rates = R$ 0,187 with the x10. Only
- * used to show "about N requests" (never a promise); re-measure with the HQ report (/api/hq/secretary-spend) after any change
- * to the prompt or the providers. */
-export const AVERAGE_REQUEST_UNITS = 1_870;
-/** Free allowance per salon and month: about 20 requests at the measured average (37 400 units, ~R$ 0,37 of real cost). */
+/** Average units of one request at the REAL cost (owner, 06/10/2026: x10 on the real cost). Measured in the Production pilot
+ * (37 messages, 35 DeepSeek calls of ~11 440 input tokens with 58% cached, 38 recordings of ~3,6 s) priced at the provider's
+ * real rates fitted on 868 OpenRouter-reported calls (US$ 0,30 / 0,006 / 1,20 per million uncached / cached / output) plus the
+ * 5,5% OpenRouter fee: US$ 0,0022 per request = R$ 0,125 with the x10. Only used to show "about N requests" (never a promise);
+ * re-measure with the HQ report (/api/hq/secretary-spend). */
+export const AVERAGE_REQUEST_UNITS = 1_250;
+/** Free allowance per salon and month: about 20 requests at the measured average (25 000 units, ~R$ 0,25 of real cost). */
 export const FREE_MONTHLY_UNITS = 20 * AVERAGE_REQUEST_UNITS;
 export const LOW_BALANCE_PERCENT = 20;
 export const CREDIT_KINDS = ["PURCHASE", "GRANT", "USAGE", "REVERSAL"] as const;

@@ -51,8 +51,8 @@ export function accessState(sub: { paidThrough: Date | null; delinquentSince: Da
 /** Owner decisions 06/10/2026: the Secretária is prepaid CREDIT, in every plan, in packs paid once (Mercado Pago, Pix or card).
  * Credit is in units of R$ 0,0001 (secretary-credits-rules.ts): each request takes its own real cost x 10, so the margin holds
  * on every request; "about N requests" is only an estimate at the average cost. A bigger pack yields more credit per real
- * (gross margin before the payment fee: 90%, 89%, 88% and 87%; at the cost measured on 06/10 about 80, 145, 260 and 565
- * requests). The credit never expires. */
+ * (gross margin before the payment fee: 90%, 89%, 88% and 87%; at the real cost measured on 06/10 about 120, 220, 390 and
+ * 840 requests). The credit never expires. */
 export const SECRETARY_CREDIT_PACKS = {
   P15: { amountCents: 1500, units: 150_000 },
   P25: { amountCents: 2500, units: 275_000 },
