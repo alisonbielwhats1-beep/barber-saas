@@ -161,8 +161,8 @@ export function AvailabilityBlockDialog({
 
   return (
     <Dialog open={open} onOpenChange={changeOpen}>
-      <DialogContent className="max-h-[85dvh] overflow-y-auto pr-6 sm:max-w-md sm:pr-16">
-        <DialogHeader className="pr-10 sm:pr-0">
+      <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-md">
+        <DialogHeader>
           <DialogTitle>Bloqueio de horário</DialogTitle>
           <DialogDescription>
             Este período não aparece como disponível para os clientes.

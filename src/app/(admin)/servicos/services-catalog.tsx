@@ -2,7 +2,7 @@
 import { MobileListTools } from "@/components/mobile-list-tools";
 import { servicePriceLabel } from "@/lib/service-price";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   Search,
@@ -330,15 +330,39 @@ function ServiceRow({
   canSeeFinancial: boolean;
 }) {
   const m = margin(s);
+  // O mesmo estado abre a edição pela linha e pelo menu ⋮ > Editar.
+  const [editOpen, setEditOpen] = useState(false);
+  const rowButton = useRef<HTMLButtonElement>(null);
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const opener = useRef<HTMLElement | null>(null);
+  function openEdit(from: HTMLElement | null) {
+    opener.current = from;
+    setEditOpen(true);
+  }
   return (
     <div
-      className={`flex items-center gap-2.5 border-b border-border py-3 sm:px-4 last:border-0 ${
+      className={`relative flex items-center gap-2.5 border-b border-border py-3 sm:px-4 last:border-0 ${
+        canManage ? "transition-colors hover:bg-card-hover" : ""
+      } ${
         !s.active ? "opacity-50" : ""
       }`}
     >
       <ServiceIcon service={s} />
       <div className="min-w-0 flex-1">
-        <p className="break-words text-sm font-medium leading-snug md:truncate">{s.name}</p>
+        {canManage ? (
+          // Botão "esticado": só o nome recebe o foco, mas o ::after cobre a linha toda e o ⋮ fica acima (z-10).
+          <button
+            ref={rowButton}
+            type="button"
+            aria-label={`Editar ${s.name}`}
+            onClick={() => openEdit(rowButton.current)}
+            className="block w-full cursor-pointer text-left focus-visible:outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:outline focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-ring"
+          >
+            <span className="block break-words text-sm font-medium leading-snug md:truncate">{s.name}</span>
+          </button>
+        ) : (
+          <p className="break-words text-sm font-medium leading-snug md:truncate">{s.name}</p>
+        )}
         <p className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
           <span className="flex items-center gap-1">
             <Clock className="h-3.5 w-3.5" />
@@ -374,15 +398,24 @@ function ServiceRow({
         {servicePriceLabel(s)}
       </p>
 
-      {canManage && <ActionsMenu s={s} />}
+      {canManage && <ActionsMenu s={s} triggerRef={menuButton} onEdit={() => openEdit(menuButton.current)} />}
+      {canManage && (
+        <ServiceForm
+          service={s}
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          restoreFocus={() => (opener.current?.isConnected ? opener.current : rowButton.current)?.focus()}
+        />
+      )}
     </div>
   );
 }
 
 /* ── Menu de ações ────────────────────────────────────────────────────── */
 
-function ActionsMenu({ s }: { s: ServiceCard }) {
+function ActionsMenu({ s, triggerRef, onEdit }: { s: ServiceCard; triggerRef: React.Ref<HTMLButtonElement>; onEdit: () => void }) {
   const router = useRouter();
+  const choseEdit = useRef(false);
   const [pending, startTransition] = useTransition();
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -402,19 +435,18 @@ function ActionsMenu({ s }: { s: ServiceCard }) {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button aria-label={`Mais opções para ${s.name}`} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-card-hover hover:text-foreground">
+          <button ref={triggerRef} aria-label={`Mais opções para ${s.name}`} className="relative z-10 grid h-11 w-11 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-card-hover hover:text-foreground">
             {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <ServiceForm
-            service={s}
-            trigger={
-              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                <Pencil className="mr-2 h-3.5 w-3.5" /> Editar
-              </DropdownMenuItem>
-            }
-          />
+        <DropdownMenuContent
+          align="end"
+          // Ao escolher Editar, o foco é do formulário (que devolve ao ⋮ ao fechar), não do menu.
+          onCloseAutoFocus={(event) => { if (choseEdit.current) { event.preventDefault(); choseEdit.current = false; } }}
+        >
+          <DropdownMenuItem onSelect={() => { choseEdit.current = true; onEdit(); }}>
+            <Pencil className="mr-2 h-3.5 w-3.5" /> Editar
+          </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => run(() => duplicateService(s.id), "Serviço duplicado")}>
             <Copy className="mr-2 h-3.5 w-3.5" /> Duplicar
           </DropdownMenuItem>

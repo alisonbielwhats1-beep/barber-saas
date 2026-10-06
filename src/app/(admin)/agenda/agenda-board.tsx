@@ -437,7 +437,7 @@ export function AgendaBoard({
 
         <div className="agenda-view-controls">
           <AgendaMobileGuide scope={colorScope} canCreate={canCreate} autoStart={!prefill?.linked} />
-          {(awaitingAcceptance > 0 || cancelledWithQueue > 0) && <Dialog><DialogTrigger asChild><button type="button" aria-label="Avisos do período" className="relative grid h-11 w-11 shrink-0 place-items-center rounded-full"><Bell size={17} aria-hidden /><span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-warning" /></button></DialogTrigger><DialogContent aria-describedby={undefined} className="pr-6 sm:pr-16"><DialogHeader className="pr-10 sm:pr-0"><DialogTitle>Avisos do período</DialogTitle></DialogHeader><div className="space-y-3 text-sm">          <p className="font-medium">{noticesPeriod} · independente dos filtros</p>
+          {(awaitingAcceptance > 0 || cancelledWithQueue > 0) && <Dialog><DialogTrigger asChild><button type="button" aria-label="Avisos do período" className="relative grid h-11 w-11 shrink-0 place-items-center rounded-full"><Bell size={17} aria-hidden /><span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-warning" /></button></DialogTrigger><DialogContent aria-describedby={undefined}><DialogHeader><DialogTitle>Avisos do período</DialogTitle></DialogHeader><div className="space-y-3 text-sm">          <p className="font-medium">{noticesPeriod} · independente dos filtros</p>
           <p>
             {awaitingAcceptance > 0 && `${awaitingAcceptance} alteração(ões) aguardando aceite do cliente.`}
             {awaitingAcceptance > 0 && cancelledWithQueue > 0 && " "}
@@ -492,8 +492,8 @@ export function AgendaBoard({
 
 
       <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
-        <DialogContent aria-describedby={undefined} onCloseAutoFocus={event => { event.preventDefault(); filterTrigger.current?.focus(); }} className="max-h-[85dvh] overflow-y-auto pr-6 sm:pr-16">
-          <DialogHeader className="pr-10"><DialogTitle>Buscar e filtrar agenda</DialogTitle></DialogHeader>
+        <DialogContent aria-describedby={undefined} onCloseAutoFocus={event => { event.preventDefault(); filterTrigger.current?.focus(); }} className="max-h-[85dvh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Buscar e filtrar agenda</DialogTitle></DialogHeader>
       <div className="space-y-4">
         <div className="agenda-filter-extras space-y-3 sm:hidden">
           <AgendaColorSelect value={colorMode} onChange={setColorMode} />
@@ -542,8 +542,8 @@ export function AgendaBoard({
         </DialogContent>
       </Dialog>
       <Dialog open={operationsOpen} onOpenChange={setOperationsOpen}>
-        <DialogContent aria-describedby={undefined} onCloseAutoFocus={event => { event.preventDefault(); restoreQuickActionFocus(); }} className="max-h-[85dvh] overflow-y-auto pr-6 sm:max-w-2xl sm:pr-16">
-          <DialogHeader className="pr-10 sm:pr-0"><DialogTitle>Expediente e bloqueios</DialogTitle></DialogHeader>
+        <DialogContent aria-describedby={undefined} onCloseAutoFocus={event => { event.preventDefault(); restoreQuickActionFocus(); }} className="max-h-[85dvh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader><DialogTitle>Expediente e bloqueios</DialogTitle></DialogHeader>
           {canManageAvailability && <AvailabilityPanel canCancelAppointments={canCancel} date={date} timezone={timezone} professionals={professionals} blocks={availabilityBlocks.filter(b => b.kind !== "OFFER")} />}
           {operations}
         </DialogContent>

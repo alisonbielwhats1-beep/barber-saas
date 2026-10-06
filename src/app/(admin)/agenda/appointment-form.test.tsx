@@ -198,6 +198,16 @@ describe("horário livre no formulário manual", () => {
 });
 
 describe("serviços da última reserva", () => {
+  it("mostra a lista de serviços antes dos atalhos de profissional e última reserva", () => {
+    mount();
+    chooseClient();
+    const first = screen.getByRole("checkbox", { name: /Corte/ });
+    const lastButton = screen.getByRole("button", { name: "Usar serviços da última reserva" });
+    expect(first.compareDocumentPosition(lastButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const other = screen.queryByRole("button", { name: "Adicionar outro profissional" });
+    if (other) expect(first.compareDocumentPosition(other) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it("seleciona os serviços compatíveis e preserva data/hora", async () => {
     mocks.last.mockResolvedValue({ serviceIds: ["service-a"] });
     mount();

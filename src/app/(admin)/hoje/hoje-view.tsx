@@ -60,7 +60,7 @@ export function HojeView({
 }) {
   const [colorMode, setColorMode] = useAgendaColorMode(colorScope);
   const router = useRouter();
-  const [filter, setFilter] = useState<Filter>("all");
+  const [filter, setFilter] = useState<Filter>("active");
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [reminderId, setReminderId] = useState<string | null>(null);
   const [sentReminderIds, setSentReminderIds] = useState<Set<string>>(new Set());

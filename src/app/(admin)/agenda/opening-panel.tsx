@@ -27,7 +27,7 @@ export function OpeningPanel({ date, timezone, professionals, openings }: {
       startTransition(async () => { try { await removeOpening(item.id); router.refresh(); } catch { setError("Não foi possível remover o expediente extra."); } });
     }}>Remover expediente extra</button></li>)}</ul></details>}
     {error && !open && <p role="alert" className="text-sm text-danger">{error}</p>}
-    <Dialog open={open} onOpenChange={value => { if (!pending) setOpen(value); }}><DialogContent className="pr-6 sm:pr-16"><DialogHeader className="pr-10 sm:pr-0"><DialogTitle>Liberar expediente extra</DialogTitle></DialogHeader>
+    <Dialog open={open} onOpenChange={value => { if (!pending) setOpen(value); }}><DialogContent><DialogHeader><DialogTitle>Liberar expediente extra</DialogTitle></DialogHeader>
       <form className="space-y-4" onSubmit={event => {
         event.preventDefault(); setError("");
         const form = new FormData(event.currentTarget);

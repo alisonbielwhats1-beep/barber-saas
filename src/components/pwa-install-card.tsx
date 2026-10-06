@@ -281,8 +281,8 @@ export function PwaInstallCard({
       </section>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[88dvh] overflow-y-auto p-5 pr-14 sm:p-6 sm:pr-16">
-          <DialogTitle className="text-xl">Instalar o aplicativo</DialogTitle>
+        <DialogContent className="max-h-[88dvh] overflow-y-auto p-5 sm:p-6 sm:pr-16">
+          <DialogTitle className="pr-9 text-xl sm:pr-0">Instalar o aplicativo</DialogTitle>
           <DialogDescription className="leading-relaxed">
             {isIos
               ? "No iPhone, a instalação é feita pelo Safari e não exige App Store."

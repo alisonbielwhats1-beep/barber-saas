@@ -4,7 +4,7 @@ import { useFormOperation } from "../use-form-operation";
 
 import { FormSection } from "../form-section";
 import { TaskForm } from "../task-form";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DEFAULT_PRICE_NOTE, PRICE_AGREEMENT_NOTE, servicePriceLabel } from "@/lib/service-price";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -41,16 +41,23 @@ type Props = {
     colorHex: string | null;
   };
   trigger?: React.ReactNode;
+  /** Modo controlado: quem abre o formulário (linha do catálogo, menu ⋮) guarda o estado. Sem gatilho próprio. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  restoreFocus?: () => void;
 };
 
 const CATEGORIES = ["Corte", "Barba", "Coloração", "Tratamento", "Finalização", "Estética", "Outros"];
 
-export function ServiceForm({ service, trigger }: Props) {
+export function ServiceForm({ service, trigger, open: controlledOpen, onOpenChange, restoreFocus }: Props) {
   const [priceType, setPriceType] = useState(service?.priceType ?? "FIXED");
   const [priceNote, setPriceNote] = useState(service?.priceNote ?? DEFAULT_PRICE_NOTE);
   const [price, setPrice] = useState(service ? (service.priceCents / 100).toFixed(2) : "");
   const editing = !!service;
-  const [open, setOpen] = useState(false);
+  const controlled = controlledOpen !== undefined;
+  const [innerOpen, setInnerOpen] = useState(false);
+  const open = controlled ? controlledOpen : innerOpen;
+  const setOpen = (value: boolean) => { if (controlled) onOpenChange?.(value); else setInnerOpen(value); };
   const [pending, startTransition] = useFormOperation();
   const submitting = useRef(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,11 +72,16 @@ export function ServiceForm({ service, trigger }: Props) {
     try { setResources(await listResources()); } catch { setResourceError(true); }
     finally { setLoadingResources(false); }
   }
+  function prepareOpen() {
+    setPriceType(service?.priceType ?? "FIXED"); setPriceNote(service?.priceNote ?? DEFAULT_PRICE_NOTE); setPrice(service ? (service.priceCents / 100).toFixed(2) : "");
+    setImageUrl(service?.imageUrl ?? "");
+    setError(null); setResourceId(service?.physicalResourceId ?? ""); void loadResources();
+  }
+  // Controlado: quem abre é o pai, então o formulário se prepara quando `open` vira verdadeiro.
+  useEffect(() => { if (controlled && controlledOpen) prepareOpen(); }, [controlled, controlledOpen]); // eslint-disable-line react-hooks/exhaustive-deps
   function handleOpenChange(v: boolean) {
     setOpen(v);
-    if (v) { setPriceType(service?.priceType ?? "FIXED"); setPriceNote(service?.priceNote ?? DEFAULT_PRICE_NOTE); setPrice(service ? (service.priceCents / 100).toFixed(2) : ""); }
-    if (v) setImageUrl(service?.imageUrl ?? "");
-    if (v) { setError(null); setResourceId(service?.physicalResourceId ?? ""); void loadResources(); }
+    if (v && !controlled) prepareOpen();
   }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -106,7 +118,7 @@ export function ServiceForm({ service, trigger }: Props) {
 
   return (
     <Dialog dirtyKey={JSON.stringify([imageUrl, resourceId, priceType, price, priceNote])} pending={pending} open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
+      {!controlled && <DialogTrigger asChild>
         {trigger ?? (editing ? (
           <Button variant="ghost" size="sm">Editar</Button>
         ) : (
@@ -114,8 +126,8 @@ export function ServiceForm({ service, trigger }: Props) {
             <Plus className="h-5 w-5" /> <span className="hidden md:inline">Novo serviço</span>
           </Button>
         ))}
-      </DialogTrigger>
-      <DialogContent className="admin-form-dialog admin-guided-dialog">
+      </DialogTrigger>}
+      <DialogContent className="admin-form-dialog admin-guided-dialog" onCloseAutoFocus={restoreFocus ? event => { event.preventDefault(); restoreFocus(); } : undefined}>
         <DialogHeader>
           <DialogTitle>{editing ? "Editar serviço" : "Novo serviço"}</DialogTitle>
           <DialogDescription className="sr-only">
