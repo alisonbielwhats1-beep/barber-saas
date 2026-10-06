@@ -230,6 +230,7 @@ export async function transcribeSecretaryVoice(form: FormData): Promise<Transcri
       TRANSCRIBE_EMPTY: "Nenhuma fala foi reconhecida. Grave novamente ou digite.",
       TRANSCRIBE_BUDGET: "O limite de gasto da transcrição foi atingido. Você pode digitar.",
       TRANSCRIBE_DISABLED: "A transcrição da Secretária está desligada. Você pode digitar.",
+      TRANSCRIBE_SALON_NOT_ENABLED: "A voz da Secretária ainda não foi liberada para este salão. Você pode digitar.",
       SECRETARY_CREDITS_EMPTY: "O crédito da Secretária acabou. O dono pode recarregar em Plano e assinatura.",
     };
     return { ok: false, code, error: messages[code] ?? "Não foi possível transcrever. Seu texto foi preservado; você pode digitar." };

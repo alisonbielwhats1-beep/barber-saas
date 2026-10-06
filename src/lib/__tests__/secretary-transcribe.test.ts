@@ -167,7 +167,7 @@ describe("phase 3a review: the billed length is bounded by the file, and the pro
     expect(transcribeConfig(env({ SALON_SECRETARY_TRANSCRIBE_BUDGET_USD: "5", SALON_SECRETARY_TRANSCRIBE_SALONS: "a, b, a,c,d,e" })).salons).toEqual(["a", "b", "c", "d", "e"]);
     const created: unknown[] = [], tx = { $executeRaw: vi.fn(async () => 0), auditLog: { findMany: vi.fn(async () => []), create: vi.fn(async (input: unknown) => { created.push(input); return {}; }) } };
     await expect(reserveTranscriptionBudget(tx as never, { salonId: "other", userId: "owner" }, { worstCaseMicroUsd: WORST, budgetMicroUsd: 10 * WORST, model: "gpt-4o-mini-transcribe", bytes: 1, salons: ["ours"] }))
-      .rejects.toThrow("TRANSCRIBE_DISABLED");
+      .rejects.toThrow("TRANSCRIBE_SALON_NOT_ENABLED");
     expect(tx.$executeRaw).not.toHaveBeenCalled(); expect(created).toHaveLength(0);
   });
 });

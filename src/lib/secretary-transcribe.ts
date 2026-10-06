@@ -156,7 +156,8 @@ export type TranscriptionReservation = { worstCaseMicroUsd: number; budgetMicroU
  * largest reservation; secretary-spend.ts) plus this call's worst case must fit the budget. The reservation row (codes and
  * numbers only) is appended before the network. A month past the row bound fails closed. */
 export async function reserveTranscriptionBudget(tx: Tx, actor: ServiceActor, input: TranscriptionReservation, now = new Date()) {
-  if (!input.salons?.includes(actor.salonId)) throw Error("TRANSCRIBE_DISABLED");
+  // A salon outside the list has its own code: the voice is on, just not released for this salon (owner, 06/10, Studio Martinelli).
+  if (!input.salons?.includes(actor.salonId)) throw Error("TRANSCRIBE_SALON_NOT_ENABLED");
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${TRANSCRIBE_AUDIT_ENTITY}:${actor.salonId}`}, 0))`;
   const spend = await salonSpend(tx, actor.salonId, now), spent = spend.month.totalMicroUsd;
   if (spend.overflow || spent + input.worstCaseMicroUsd > input.budgetMicroUsd) throw Error("TRANSCRIBE_BUDGET");
