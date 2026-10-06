@@ -52,5 +52,10 @@ describe('audited Codespace configuration admission (offline)', () => {
   it('preserves local microphone behavior and denies unknown/production environments', () => {
     for (const APP_ENV of ['test', 'development']) expect(secretaryMicrophoneAllowed({ APP_ENV, SALON_SECRETARY_VOICE_ENABLED: 'true' })).toBe(true);
     for (const APP_ENV of ['production', 'staging', '']) expect(secretaryMicrophoneAllowed({ APP_ENV, SALON_SECRETARY_VOICE_ENABLED: 'true' })).toBe(false);
+    // Production pilot (owner 05/10): voice, Secretária and pilot all on; any one missing keeps the microphone off.
+    const pilot = { VERCEL_ENV: 'production', APP_ENV: 'production', SALON_SECRETARY_VOICE_ENABLED: 'true', SALON_SECRETARY_ENABLED: 'true', SALON_SECRETARY_PRODUCTION_PILOT: 'true' };
+    expect(secretaryMicrophoneAllowed(pilot)).toBe(true);
+    for (const off of ['SALON_SECRETARY_VOICE_ENABLED', 'SALON_SECRETARY_ENABLED', 'SALON_SECRETARY_PRODUCTION_PILOT']) expect(secretaryMicrophoneAllowed({ ...pilot, [off]: 'false' }), off).toBe(false);
+    expect(secretaryMicrophoneAllowed({ VERCEL_ENV: 'production', APP_ENV: 'test', SALON_SECRETARY_VOICE_ENABLED: 'true' })).toBe(false);
   });
 });
