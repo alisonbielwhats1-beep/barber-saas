@@ -11,6 +11,7 @@ import { parseUpgradeReference } from "./change-provider";
 import { applyUpgradePayment } from "./change-payments";
 import { syncPlanChanges } from "./change-worker";
 import { schedulePriceReduction } from "./price-reduction";
+import { receiveCreditPayment } from "./credits-provider";
 
 /** The only global scope is dispatch metadata, not subscriptions, payments or tenant records. */
 async function queueScope<T>(fn: (tx: Tx) => Promise<T>) {
@@ -28,6 +29,8 @@ export async function receiveWebhook(topic: string, resourceId: string, notifica
   else if (topic === "subscription_authorized_payment") remote = await mp.getSubscription((await mp.getInvoice(resourceId)).preapproval_id);
   else if (topic === "payment") {
     const payment = await mp.getPayment(resourceId);
+    // Secretária packs (owner, 06/10/2026): applied here, nothing to drain afterwards.
+    if (payment.external_reference?.startsWith("efc:")) { await receiveCreditPayment(payment); return null; }
     if (payment.external_reference?.startsWith("efu:") && changesEnabled()) {
       const ref = parseUpgradeReference(payment.external_reference);
       return withSalon(ref.salonId, async tx => {

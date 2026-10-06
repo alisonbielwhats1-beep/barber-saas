@@ -197,6 +197,17 @@ function publishedRequirements(requirements:unknown){
   if(!requirements||typeof requirements!=='object'||Array.isArray(requirements)||!Object.hasOwn(requirements,'supported_fields'))return requirements;
   const {supported_fields:_,...rest}=requirements as Record<string,unknown>;void _;return rest;
 }
+/** Cost (owner, 06/10/2026; flag SALON_SECRETARY_CACHE_LAYOUT=dynamic-last, default off): the per-turn data (conversation
+ * context, directory, today, examples, requirements, draft) leaves the system role and opens the user turn, so the request starts
+ * with the byte-stable instructions and tool schema, the part the provider's prompt cache can reuse (measured in the pilot:
+ * 58% cached; expected 85-88%). The text is the same; only its place changes. Named in the contract only when on, so the
+ * certified version without it is unchanged; turning it on needs its own certification. */
+export const cacheLayoutEnabled = () => process.env.SALON_SECRETARY_CACHE_LAYOUT === 'dynamic-last';
+type TurnMessage = { role: 'system' | 'user'; content: string };
+export function turnMessages(system: string | unknown, draft: string, message: string): TurnMessage[] {
+  if (cacheLayoutEnabled() && typeof system === 'string') return [{ role: 'user', content: `${system}\n\n${draft}` }, { role: 'user', content: message }];
+  return [{ role: 'system', content: system as string }, { role: 'user', content: draft }, { role: 'user', content: message }];
+}
 const outputLimit=(multiActionV2:boolean)=>secretaryOutputLimit(multiActionV2||process.env.SALON_SECRETARY_MULTI_ACTION_V2_ENABLED==='true');
 /** `prepared`: the same instructions and wire computed by the caller, plus a full-mode examples
  * block appended to the stable instruction prefix (C2). Absent: exactly the historical agent. */
@@ -294,13 +305,13 @@ export async function runServicesTurn(model: Model, message: string, fields: unk
   const instructions = servicesInstructions(skill, decision), wire = interpreterWire(skill, multiActionV2, existing, instructions);
   // C5 (flag SALON_SECRETARY_PROMPT_CACHE): the system input opens with its constant framing sentence and an explicit cache
   // breakpoint (prompt-cache.ts); measured and sent in the same form. Off: the historical string.
-  const cache = promptCacheEnabled(), systemContent = (text: string) => cache ? cachedSystemContent(text) : text;
+  const cache = promptCacheEnabled() && !cacheLayoutEnabled(), systemContent = (text: string) => cache ? cachedSystemContent(text) : text;
   let system = head + tail, examplesText = '';
   // C2 few-shot examples (flag, default off: nothing below runs and the request is historical).
   // Only decision-envelope turns; never while the isolated adapter publishes CURRENT (no plan).
   const examples = decision && (skill === 'discovery' || !!context?.active_plan) ? examplesMode() : 'off';
   if (examples !== 'off') {
-    const base = secretaryRequestBytes({ instructions, messages: [{ role: 'system', content: systemContent(system) }, { role: 'user', content: draft }, { role: 'user', content: message }],
+    const base = secretaryRequestBytes({ instructions, messages: turnMessages(systemContent(system), draft, message),
       parameters: wire, toolName, toolDescription, maxTokens });
     // The block never pushes the request past the hard cap (request bytes + framing <= 64000). G1: its placeholders are
     // filled for this request, never with a name of the salon's team.
@@ -336,7 +347,7 @@ export async function runServicesTurn(model: Model, message: string, fields: unk
   };
   const modelId = requestModelId(model);
   const fitted = fitRequest(configured, levels, request => secretaryRequestBodyBytes({ modelId, instructions: request.examples ? request.instructions + '\n' + request.examples : request.instructions,
-    messages: [{ role: 'system', content: systemContent(request.system) }, { role: 'user', content: request.draft }, { role: 'user', content: message }], parameters: request.wire, toolName, toolDescription, maxTokens }));
+    messages: turnMessages(systemContent(request.system), request.draft, message), parameters: request.wire, toolName, toolDescription, maxTokens }));
   if (fitted.steps.length || !fitted.request) reportRequestBudget({ steps: fitted.steps, fit: !!fitted.request, initial_bytes: fitted.initialBytes, final_bytes: fitted.bytes });
   // Never over the cap: refused before transport. Nothing of the message was read or applied, so an active plan is
   // kept exactly like an unreadable answer (B5 tag); the owner is asked to split the request.
@@ -353,11 +364,7 @@ export async function runServicesTurn(model: Model, message: string, fields: unk
   try {
     // The SDK types a system content as string but forwards it as is (openaiResponsesConverter getMessageItem): the parts
     // reach the body unchanged (pinned by secretary-c5-prompt-cache.test.ts).
-    await runner.run(agent, [
-      { role: "system", content: systemContent(chosen.system) as string },
-      { role: "user", content: chosen.draft },
-      { role: "user", content: message },
-    ], { maxTurns: 1, signal: messageSignal ? AbortSignal.any([messageSignal, AbortSignal.timeout(45_000)]) : AbortSignal.timeout(45_000) });
+    await runner.run(agent, turnMessages(systemContent(chosen.system), chosen.draft, message), { maxTurns: 1, signal: messageSignal ? AbortSignal.any([messageSignal, AbortSignal.timeout(45_000)]) : AbortSignal.timeout(45_000) });
   } catch (error) { if (unread) markInterpretationFailure(error); throw error; }
   if (!patch) throw markInterpretationFailure(new Error("INTERPRETATION_INVALID"));
   const routed = splitInterpretation(patch as Record<string, unknown>);
@@ -377,7 +384,8 @@ export const SECRETARY_CONTRACT_ENV = ['SALON_SECRETARY_TEMPORAL_COMPONENTS','SA
   'SALON_SECRETARY_MULTI_ACTION_V2_ENABLED','SALON_SECRETARY_SCHEDULING_OVERLAP_ENABLED','SALON_SECRETARY_V2_MAX_OUTPUT_TOKENS','SALON_SECRETARY_MODEL','SALON_SECRETARY_TEMPORAL_POLARITY','SALON_SECRETARY_SAME_AS',
   'SALON_SECRETARY_STRUCTURED_CONTEXT','SALON_SECRETARY_ALTER_APPOINTMENT','SALON_SECRETARY_MULTI_SERVICE','SALON_SECRETARY_COPY_V2','SALON_SECRETARY_REFERENCES_V2','SALON_SECRETARY_READS_V2','SALON_SECRETARY_RECURRENCE_GUARD',
   'SALON_SECRETARY_EXAMPLES_V2','SALON_SECRETARY_PROMPT_CACHE','SALON_SECRETARY_AGENT','SALON_SECRETARY_AGENT_EFFORT','SALON_SECRETARY_AGENT_EFFORT_ROUNDS','SALON_SECRETARY_AGENT_PRELOAD',
-  'SALON_SECRETARY_PILOT_RESCHEDULE','SALON_SECRETARY_CANCEL_REASON_OPTIONAL','SALON_SECRETARY_OPENROUTER_PROVIDER','SALON_SECRETARY_OPENROUTER_REASONING'] as const;
+  'SALON_SECRETARY_PILOT_RESCHEDULE','SALON_SECRETARY_CANCEL_REASON_OPTIONAL','SALON_SECRETARY_OPENROUTER_PROVIDER','SALON_SECRETARY_OPENROUTER_REASONING',
+  'SALON_SECRETARY_CACHE_LAYOUT'] as const;
 const contractHash=(value:unknown)=>createHash('sha256').update(typeof value==='string'?value:JSON.stringify(value)).digest('hex');
 /** Synthetic, fixed: one open action per published operation (an option card, a daypart and both calendar kinds, a
  * pending discard) plus one suspended plan, so every mode, operation group and state-bound rule is compiled. */
@@ -460,6 +468,8 @@ export function secretaryContractParts(options:SecretaryContractOptions={}){
       ...(process.env.SALON_SECRETARY_COPY_V2==='true'?{copyV2:true}:{}),
       // C5: the system input's constant first part with an explicit cache breakpoint (prompt-cache.ts); named only when on.
       ...(promptCache?{promptCache:true}:{}),
+      // 06/10 (owner, cost): the per-turn data opens the user turn instead of the system role; named only when on.
+      ...(cacheLayoutEnabled()?{layout:'dynamic-last'}:{}),
       // B7: the clarification context format (codes + a short stable sentence) the backend publishes; named only when on.
       ...(process.env.SALON_SECRETARY_STRUCTURED_CONTEXT==='true'?{structuredContext:true}:{}),
       // 03/10 (owner): the optional cancellation reason (T14 wording, requirements, served examples); named only when on.

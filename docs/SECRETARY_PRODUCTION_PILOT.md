@@ -12,6 +12,14 @@ Nenhum outro salão vê o botão nem consegue usar a Secretária.
 - Teto diário (`SALON_SECRETARY_DAILY_BUDGET_USD`, padrão US$ 1): antes de cada mensagem e de cada gravação, soma o gasto do
   dia do salão (chamadas de modelo registradas pelos tokens, ao preço do cadastro de modelos, mais as reservas de voz). Ao
   atingir, a Secretária responde que o limite de hoje acabou.
+- Carteira mensal (decisão do dono em 06/10/2026, `src/lib/secretary-spend.ts`): além do teto diário, um teto mensal por salão
+  (`SALON_SECRETARY_MONTHLY_BUDGET_USD`; sem ela vale o antigo teto da voz, `SALON_SECRETARY_TRANSCRIBE_BUDGET_USD`; sem nenhum, US$ 5) soma, no fuso do salão, as duas fontes pagas da Secretária: o modelo
+  (DeepSeek, ou a reserva quando ela respondeu, ao preço dela) e a transcrição (GPT Transcribe, pelo custo informado depois da
+  gravação; enquanto não acertada, pelo pior caso). A reserva de cada gravação consulta essa mesma carteira (não há mais teto separado da voz). O Jev não faz parte da Secretária. Ao atingir, ela responde que o limite do
+  mês acabou. A 1ª mensagem de cada conversa também passa pelos tetos.
+- Relatório do HQ (`GET /api/hq/secretary-spend`, só leitura): custo do mês por salão do piloto, custo médio por pedido e a
+  margem simulada ao preço por pedido configurado (`SALON_SECRETARY_PRICE_PER_REQUEST_CENTS`, padrão 6; câmbio fixo
+  `SALON_SECRETARY_USD_BRL`, padrão 5,60). Serve para fixar o preço pré-pago com meta de 90% de margem; nada é cobrado.
 - Fora do piloto, Produção continua fechada como antes (`secretary-rollout.ts`, `salon-secretary-runtime.ts`).
 - O modelo principal só responde com certificado Golden válido (`model-certificates.json`); a reserva (Luna) só entra se
   também tiver certificado.
@@ -35,6 +43,7 @@ Nenhum outro salão vê o botão nem consegue usar a Secretária.
 | `SALON_SECRETARY_ENABLED`, `SALON_SECRETARY_FRONT_ENABLED`, `SALON_SECRETARY_PRODUCTION_PILOT`, `SALON_SECRETARY_ALLOW_PAID_CALLS` | `true` |
 | `SALON_SECRETARY_ALLOWED_ACTORS` | `[{"salonId":"<id do salão de apresentação>","userId":"<id do dono>"}]` |
 | `SALON_SECRETARY_DAILY_BUDGET_USD` | `1` |
+| `SALON_SECRETARY_MONTHLY_BUDGET_USD` | `5` (carteira do mês, modelo + voz; ausente, vale `SALON_SECRETARY_TRANSCRIBE_BUDGET_USD`, hoje 2) |
 | `SALON_SECRETARY_MODEL` | `deepseek/deepseek-v4.1-flash` |
 | `SALON_SECRETARY_OPENROUTER_PROVIDER` | `together` |
 | `SALON_SECRETARY_FALLBACK_MODEL` | `gpt-6-luna` |

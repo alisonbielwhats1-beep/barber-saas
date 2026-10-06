@@ -1,5 +1,34 @@
 # Decisões de produto para as próximas fases
 
+## 06/10/2026 — custo e cobrança da Secretária
+
+A Secretária usa só dois serviços pagos: o DeepSeek V4.1 Flash (OpenRouter) para
+entender os pedidos e o GPT Transcribe (OpenAI) para a voz. O Jev não é usado
+na Secretária. Cada salão tem uma carteira mensal única, que soma os dois, com
+um teto diário de segurança.
+
+A cobrança será pré-paga e valerá para todos os planos: pacotes fixos
+(R$ 15, R$ 25 e R$ 40) pagos por Mercado Pago ou Pix, convertidos em pedidos
+(cada mensagem enviada à Secretária, digitada ou falada). A meta é 90% de
+margem sem ficar caro para o cliente. O ponto de partida é R$ 0,06 por pedido
+(R$ 15 = 250 pedidos), e o preço final só é fixado depois de cerca de uma semana
+de custo real no piloto (relatório do HQ). A voz é o que mais pesa no custo. Se
+a margem medida ficar abaixo da meta, as opções são subir o preço do pedido,
+contar o pedido por voz como dois ou voltar para a transcrição mini; a escolha
+fica com o responsável. Isto substitui a linha "Preço/consumo da futura IA não
+estão definidos".
+
+Complemento do mesmo dia: o cliente compra crédito, não uma quantidade fixa
+de pedidos. Cada pedido desconta o próprio custo real (DeepSeek e cada
+gravação transcrita) vezes 10, então a margem de 90% vale em todo pedido. A
+quantidade de pedidos de um pacote é só uma estimativa ("cerca de"). A tela
+mostra apenas a barra e a porcentagem, sem valores, contagem ou dias. Os
+pacotes são R$ 15 (cerca de 185 pedidos), R$ 25 (cerca de 340), R$ 40 (cerca
+de 600) e R$ 80 (cerca de 1.300): pacote maior rende mais. Todo salão tem uma
+franquia grátis de cerca de 20 pedidos por mês, que não acumula. A recarga
+soma ao saldo, o crédito não expira e só o dono recarrega. Regras e passos:
+`docs/SECRETARY_CREDITS.md`.
+
 ## 03/10/2026 — motivo do cancelamento de reserva opcional
 
 O responsável decidiu que o motivo não é necessário para cancelar uma reserva.
