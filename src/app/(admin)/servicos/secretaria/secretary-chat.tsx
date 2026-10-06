@@ -39,7 +39,7 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
   const [turns, setTurns] = useState<Turn[]>([]);
   const turnIds = useRef(0);
   /** Owner feedback on the latest reply: the open box (turn id), its draft and the turns already rated. */
-  const [feedback, setFeedback] = useState<{ turn: number; comment: string; transcript: boolean; sending?: boolean; error?: string }>();
+  const [feedback, setFeedback] = useState<{ turn: number; rating: 'good' | 'bad'; comment: string; transcript: boolean; sending?: boolean; error?: string }>();
   const [rated, setRated] = useState<number[]>([]);
   const [message, setMessage] = useState('');
   const [operationRef, setOperationRef] = useState<string>();
@@ -516,7 +516,7 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
       .slice(-FEEDBACK_ENTRIES).map(entry => ({ ...entry, text: entry.text.slice(0, FEEDBACK_TEXT) })) : undefined;
     setFeedback({ ...current, sending: true, error: undefined });
     try {
-      const reply = await sendSecretaryFeedback({ sessionId: state.sessionId, turn: Math.min(index, 500), ...(current.comment.trim() ? { comment: current.comment.trim().slice(0, 1000) } : {}),
+      const reply = await sendSecretaryFeedback({ sessionId: state.sessionId, turn: Math.min(index, 500), rating: current.rating, ...(current.comment.trim() ? { comment: current.comment.trim().slice(0, 1000) } : {}),
         include_transcript: Boolean(transcript?.length), ...(transcript?.length ? { transcript } : {}) });
       if (reply.ok) { setRated(previous => [...previous, current.turn]); setFeedback(undefined); }
       else setFeedback({ ...current, sending: false, error: reply.error });
@@ -525,9 +525,12 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
   function feedbackControl(turn: Turn, index: number) {
     if (!feedbackEnabled || !state || (index === 0 && turn.user === undefined)) return null;
     if (rated.includes(turn.id)) return <p className="mt-1 text-xs text-muted-foreground">Obrigado. Sua avaliação foi registrada.</p>;
-    if (feedback?.turn !== turn.id) return <Button type="button" size="sm" variant="ghost" className="mt-1 min-h-8 px-2 text-xs" onClick={() => setFeedback({ turn: turn.id, comment: '', transcript: false })}>Não era isso</Button>;
+    // Owner decision 06/10/2026: "Boa resposta" next to "Não era isso", both kept for future training (migration 031).
+    if (feedback?.turn !== turn.id) return <div className="mt-1 flex flex-wrap gap-1">
+      <Button type="button" size="sm" variant="ghost" className="min-h-8 px-2 text-xs" onClick={() => setFeedback({ turn: turn.id, rating: 'good', comment: '', transcript: false })}>Boa resposta</Button>
+      <Button type="button" size="sm" variant="ghost" className="min-h-8 px-2 text-xs" onClick={() => setFeedback({ turn: turn.id, rating: 'bad', comment: '', transcript: false })}>Não era isso</Button></div>;
     return <form aria-label="Avaliar esta resposta" className="mt-2 space-y-2 rounded-lg border border-border p-2" onSubmit={event => { event.preventDefault(); void submitFeedback(index); }}>
-      <label htmlFor="secretary-feedback" className="block text-xs font-medium">O que você esperava? (opcional)</label>
+      <label htmlFor="secretary-feedback" className="block text-xs font-medium">{feedback.rating === 'good' ? 'O que ficou bom? (opcional)' : 'O que você esperava? (opcional)'}</label>
       <textarea id="secretary-feedback" rows={2} maxLength={1000} value={feedback.comment} disabled={feedback.sending} onChange={event => setFeedback({ ...feedback, comment: event.target.value })}
         className="w-full resize-none rounded-lg border border-border bg-background p-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
       <label className="flex items-start gap-2 text-xs"><input type="checkbox" className="mt-0.5" checked={feedback.transcript} disabled={feedback.sending} onChange={event => setFeedback({ ...feedback, transcript: event.target.checked })} />incluir o texto desta conversa para melhorar a Secretária</label>

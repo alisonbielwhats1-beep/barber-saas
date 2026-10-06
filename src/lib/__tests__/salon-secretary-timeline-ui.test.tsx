@@ -101,7 +101,7 @@ describe('B7 resolved names and the server year reference on screen', () => {
   });
 });
 
-describe("B7 owner feedback: 'Não era isso' (flag, default off)", () => {
+describe("B7 owner feedback: 'Não era isso' and 'Boa resposta' (flag, default off)", () => {
   it('is absent by default', async () => {
     const user = await open(base);
     await say(user, 'Oi', { ...base, skill: 'auto', capability_status: 'CONVERSATION', message: 'Olá!' });
@@ -118,9 +118,10 @@ describe("B7 owner feedback: 'Não era isso' (flag, default off)", () => {
     expect(within(form).getByRole('checkbox', { name: 'incluir o texto desta conversa para melhorar a Secretária' })).not.toBeChecked();
     mocks.feedback.mockResolvedValueOnce({ ok: true });
     await user.click(within(form).getByRole('button', { name: 'Enviar avaliação' }));
-    expect(mocks.feedback).toHaveBeenCalledExactlyOnceWith({ sessionId: 'session', turn: 2, include_transcript: false });
+    expect(mocks.feedback).toHaveBeenCalledExactlyOnceWith({ sessionId: 'session', turn: 2, rating: 'bad', include_transcript: false });
     expect(screen.getByText('Obrigado. Sua avaliação foi registrada.')).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Não era isso' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Boa resposta' })).not.toBeInTheDocument();
     expect(mocks.send).toHaveBeenCalledTimes(2); expect(mocks.group).not.toHaveBeenCalled(); expect(mocks.confirm).not.toHaveBeenCalled();
   });
   it('with the checkbox, the conversation shown on the screen goes with the comment', async () => {
@@ -132,10 +133,46 @@ describe("B7 owner feedback: 'Não era isso' (flag, default off)", () => {
     await user.click(within(form).getByRole('checkbox', { name: 'incluir o texto desta conversa para melhorar a Secretária' }));
     mocks.feedback.mockResolvedValueOnce({ ok: false, error: 'Não foi possível registrar a avaliação agora. A conversa não foi alterada.' });
     await user.click(within(form).getByRole('button', { name: 'Enviar avaliação' }));
-    expect(mocks.feedback).toHaveBeenCalledExactlyOnceWith({ sessionId: 'session', turn: 1, comment: 'Era para amanhã à tarde.', include_transcript: true,
+    expect(mocks.feedback).toHaveBeenCalledExactlyOnceWith({ sessionId: 'session', turn: 1, rating: 'bad', comment: 'Era para amanhã à tarde.', include_transcript: true,
       transcript: [{ role: 'secretary', text: 'Como posso ajudar?' }, { role: 'owner', text: 'Cancela a Amanda amanhã' }, { role: 'secretary', text: 'Qual o motivo do cancelamento?' }] });
     expect(within(form).getByRole('alert')).toHaveTextContent('A conversa não foi alterada.');
     await user.click(within(form).getByRole('button', { name: 'Cancelar' }));
     expect(screen.queryByRole('form', { name: 'Avaliar esta resposta' })).not.toBeInTheDocument();
+  });
+  it("owner decision 06/10/2026: 'Boa resposta' next to 'Não era isso' (absent with the flag off), rated good, with its own question and the same consent", async () => {
+    const off = await open(base);
+    await say(off, 'Oi', { ...base, skill: 'auto', capability_status: 'CONVERSATION', message: 'Olá!' });
+    expect(screen.queryByRole('button', { name: 'Boa resposta' })).not.toBeInTheDocument();
+    cleanup();
+    const user = await open(base, { feedbackEnabled: true });
+    expect(screen.queryByRole('button', { name: 'Boa resposta' })).not.toBeInTheDocument(); // not on the greeting
+    await say(user, 'Quais horários livres amanhã?', { ...base, skill: 'auto', message: 'Amanhã há horários às 9h e às 14h.' });
+    expect(screen.getAllByRole('button', { name: 'Boa resposta' })).toHaveLength(1);
+    await user.click(screen.getByRole('button', { name: 'Boa resposta' }));
+    const form = screen.getByRole('form', { name: 'Avaliar esta resposta' });
+    expect(within(form).queryByLabelText('O que você esperava? (opcional)')).not.toBeInTheDocument();
+    await user.type(within(form).getByLabelText('O que ficou bom? (opcional)'), 'Rápida e certa.');
+    const consent = within(form).getByRole('checkbox', { name: 'incluir o texto desta conversa para melhorar a Secretária' });
+    expect(consent).not.toBeChecked();
+    await user.click(consent);
+    mocks.feedback.mockResolvedValueOnce({ ok: true });
+    await user.click(within(form).getByRole('button', { name: 'Enviar avaliação' }));
+    expect(mocks.feedback).toHaveBeenCalledExactlyOnceWith({ sessionId: 'session', turn: 1, rating: 'good', comment: 'Rápida e certa.', include_transcript: true,
+      transcript: [{ role: 'secretary', text: 'Como posso ajudar?' }, { role: 'owner', text: 'Quais horários livres amanhã?' }, { role: 'secretary', text: 'Amanhã há horários às 9h e às 14h.' }] });
+    expect(screen.getByText('Obrigado. Sua avaliação foi registrada.')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Boa resposta' })).not.toBeInTheDocument();
+    expect(mocks.group).not.toHaveBeenCalled(); expect(mocks.confirm).not.toHaveBeenCalled();
+  });
+  it("'Boa resposta' then Cancelar then 'Não era isso' sends bad (the earlier choice is not kept)", async () => {
+    const user = await open(base, { feedbackEnabled: true });
+    await say(user, 'Cancela a Amanda amanhã', { ...base, skill: 'auto', message: 'Qual o motivo do cancelamento?' });
+    await user.click(screen.getByRole('button', { name: 'Boa resposta' }));
+    await user.click(within(screen.getByRole('form', { name: 'Avaliar esta resposta' })).getByRole('button', { name: 'Cancelar' }));
+    await user.click(screen.getByRole('button', { name: 'Não era isso' }));
+    const form = screen.getByRole('form', { name: 'Avaliar esta resposta' });
+    expect(within(form).getByLabelText('O que você esperava? (opcional)')).toBeVisible();
+    mocks.feedback.mockResolvedValueOnce({ ok: true });
+    await user.click(within(form).getByRole('button', { name: 'Enviar avaliação' }));
+    expect(mocks.feedback).toHaveBeenCalledExactlyOnceWith({ sessionId: 'session', turn: 1, rating: 'bad', include_transcript: false });
   });
 });
