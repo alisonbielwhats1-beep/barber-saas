@@ -1,7 +1,10 @@
 # 027 (estado da conversa da Secretária) em Produção
 
-Preparado em 05/10/2026 para o piloto no salão de apresentação. **Nada aplicado.** Cada passo que escreve no banco só com
-o ok do dono, na hora.
+Preparado em 05/10/2026 para o piloto no salão de apresentação. **Aplicada em Produção em 06/10/2026 (~00:15 UTC), com o ok
+do dono:** preflight `PREFLIGHT_OK` → `secretary_state_027` → `VERIFY_OK` (67 tabelas, 133 políticas; `authenticated` sem
+acesso) → `secretary_state_027_pg_cron` → 2 jobs ativos (`secretary-conversation-purge` a cada 30 min,
+`secretary-name-alias-purge` às 6h23), como `postgres`. Verificador de segurança do Supabase: nada nas tabelas novas.
+O backup do dia não foi conferido no painel antes (o dono autorizou seguir; a 027 só cria objetos novos).
 
 ## O que a 027 cria
 
