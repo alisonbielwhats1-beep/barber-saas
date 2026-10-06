@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ModelResponse } from "@openai/agents";
 import { modelCallUsage } from "@everflair/salon-secretary";
+type ModelResponse = NonNullable<Parameters<typeof modelCallUsage>[2]>;
 
 /** Owner decision 06/10/2026: the credit charges x10 on the REAL cost of each call, the cost OpenRouter reports in `usage.cost`
  * (the SDK keeps the raw response in providerData). Nothing in the request changes. */
