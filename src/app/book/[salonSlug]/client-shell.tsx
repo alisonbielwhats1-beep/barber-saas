@@ -7,7 +7,6 @@ import { Bell, Moon, Sun } from "lucide-react";
 import { BottomNav } from "./bottom-nav";
 import { UnreadBadge } from "@/components/unread-badge";
 import { cn } from "@/lib/utils";
-import { AnimatedBorder } from "@/components/ui/button-border";
 import { DialogThemeProvider } from "@/components/ui/dialog";
 
 const UnreadNotificationsContext = createContext(0);
@@ -90,7 +89,6 @@ export function ClientNotificationLink({
         className,
       )}
     >
-      {unreadNotifications > 0 && <AnimatedBorder radius={9999} />}
       <Bell className="h-4 w-4" />
       <UnreadBadge
         count={unreadNotifications}

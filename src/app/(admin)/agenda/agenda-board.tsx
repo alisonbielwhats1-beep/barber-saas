@@ -58,7 +58,6 @@ import { minuteAtSlotPointer } from "./agenda-slot-pointer";
 import { AgendaWeekStrip } from "./agenda-week-strip";
 import { AgendaTimeScale } from "./agenda-time-scale";
 import { AgendaMobileGuide } from "./agenda-mobile-guide";
-import { AnimatedBorder } from "@/components/ui/button-border";
 import "./agenda-workspace.css";
 
 const DAY_START = 8 * 60;
@@ -438,7 +437,7 @@ export function AgendaBoard({
 
         <div className="agenda-view-controls">
           <AgendaMobileGuide scope={colorScope} canCreate={canCreate} autoStart={!prefill?.linked} />
-          {(awaitingAcceptance > 0 || cancelledWithQueue > 0) && <Dialog><DialogTrigger asChild><button type="button" aria-label="Avisos do período" className="relative grid h-11 w-11 shrink-0 place-items-center rounded-full"><AnimatedBorder radius={9999} /><Bell size={17} aria-hidden /><span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-warning" /></button></DialogTrigger><DialogContent aria-describedby={undefined}><DialogHeader><DialogTitle>Avisos do período</DialogTitle></DialogHeader><div className="space-y-3 text-sm">          <p className="font-medium">{noticesPeriod} · independente dos filtros</p>
+          {(awaitingAcceptance > 0 || cancelledWithQueue > 0) && <Dialog><DialogTrigger asChild><button type="button" aria-label="Avisos do período" className="relative grid h-11 w-11 shrink-0 place-items-center rounded-full"><Bell size={17} aria-hidden /><span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-warning" /></button></DialogTrigger><DialogContent aria-describedby={undefined}><DialogHeader><DialogTitle>Avisos do período</DialogTitle></DialogHeader><div className="space-y-3 text-sm">          <p className="font-medium">{noticesPeriod} · independente dos filtros</p>
           <p>
             {awaitingAcceptance > 0 && `${awaitingAcceptance} alteração(ões) aguardando aceite do cliente.`}
             {awaitingAcceptance > 0 && cancelledWithQueue > 0 && " "}
