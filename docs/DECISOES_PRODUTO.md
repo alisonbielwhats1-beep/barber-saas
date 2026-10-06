@@ -722,3 +722,10 @@ O lilás nos botões e a borda animada (PR #129, mesclado em 06/10) foram
 desfeitos a pedido do dono: painel e app do cliente voltam aos botões
 principais verdes, com lilás restrito à marca e à seleção. Não reaplicar
 sem conferência visual aprovada pelo dono.
+
+## Tela de início do cliente anterior — 06/10/2026
+
+A pedido do dono, a tela de início do cliente volta à versão anterior ao #131
+(sem a faixa "Nossa equipe" em retratos, as abas fixas e os serviços agrupados
+em categorias recolhidas). Os lembretes em Notificações ("EverFlair lembra
+você") deixam o roxo e usam o verde principal, como as demais notificações.

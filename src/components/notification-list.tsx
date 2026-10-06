@@ -144,15 +144,15 @@ export function NotificationList({
               <article
                 key={notification.id}
                 className={`rounded-2xl border p-4 ${
-                  isClientReminder ? "border-violet-400/45 bg-violet-500/10" : notification.readAt ? "border-border bg-card" : "border-primary/40 bg-primary/5"
+                  isClientReminder ? "border-primary/40 bg-primary/5" : notification.readAt ? "border-border bg-card" : "border-primary/40 bg-primary/5"
                 }`}
               >
                 <div className="flex items-start gap-3">
-                  <span className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full ${isClientReminder ? "bg-violet-500/20 text-violet-500" : "bg-primary/10 text-primary"}`}>
+                  <span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
                     {isClientReminder ? <BellRing className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
                   </span>
                   <div className="min-w-0 flex-1">
-                    {isClientReminder && <p className="mb-1 text-xs font-bold uppercase tracking-[0.16em] text-violet-500">EverFlair lembra você</p>}
+                    {isClientReminder && <p className="mb-1 text-xs font-bold uppercase tracking-[0.16em] text-primary">EverFlair lembra você</p>}
                     <Link href={href} className="font-medium hover:text-primary">
                       {TITLES[notification.template] ?? "Atualização do agendamento"}
                     </Link>
@@ -162,7 +162,7 @@ export function NotificationList({
                       </p>
                     )}
                     {isClientReminder && (
-                      <p className="mt-1 text-xs font-medium text-violet-500">{notification.template === "appointment.reminder.today" ? "Hoje é o dia ✨" : "Amanhã é seu momento ✨"}</p>
+                      <p className="mt-1 text-xs font-medium text-primary">{notification.template === "appointment.reminder.today" ? "Hoje é o dia ✨" : "Amanhã é seu momento ✨"}</p>
                     )}
                     {previousStartAt && startAt ? (
                       <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
