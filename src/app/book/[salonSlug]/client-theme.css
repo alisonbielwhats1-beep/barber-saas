@@ -54,17 +54,17 @@
   color: hsl(var(--primary));
 }
 .client-inline-link:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; border-radius: .375rem; }
-/* Capa e ação principal num só cartão: a foto aparece inteira, o verde embaixo. */
+/* Capa e ação principal num só cartão: a foto aparece inteira, o lilás embaixo. */
 .client-booking-card {
   overflow: hidden;
   border-radius: 1.5rem;
-  border: 1px solid #368967;
-  background: #126949;
-  box-shadow: 0 12px 32px -20px #19875f;
+  border: 1px solid #8d73b8;
+  background: #7457a2;
+  box-shadow: 0 12px 32px -20px #7457a2;
 }
 .client-app .client-booking-card .client-booking-cta { border: 0; border-radius: 0; box-shadow: none; }
-/* No tema claro o primário também é verde: o botão vira branco para não sumir no cartão. */
-.client-app[data-theme="salon-light"] .client-booking-cta-action { background: #fff; color: #0f5b40; }
+/* No tema claro o primário também é lilás: o botão vira branco para não sumir no cartão. */
+.client-app[data-theme="salon-light"] .client-booking-cta-action { background: #fff; color: #634a8c; }
 .client-team-avatar {
   width: 3.5rem;
   height: 3.5rem;
@@ -141,11 +141,11 @@
 }
 .client-access form button[type="submit"] { min-height: 3rem; }
 .client-access form button[type="submit"], .client-access-primary {
-  background: #126949;
+  background: #7457a2;
   color: #fff;
-  border: 1px solid #368967;
+  border: 1px solid #8d73b8;
 }
-.client-access form button[type="submit"]:hover, .client-access-primary:hover { background: #0f5b40; }
+.client-access form button[type="submit"]:hover, .client-access-primary:hover { background: #634a8c; }
 .client-access a:focus-visible, .client-access button:focus-visible {
   outline: 2px solid hsl(var(--ring));
   outline-offset: 3px;
@@ -159,13 +159,13 @@
 }
 
 .client-app .client-booking-cta {
-  background: #126949;
+  background: #7457a2;
   color: #fff;
-  border: 1px solid #368967;
-  box-shadow: 0 12px 32px -20px #19875f;
+  border: 1px solid #8d73b8;
+  box-shadow: 0 12px 32px -20px #7457a2;
   transition: background-color 180ms ease;
 }
-.client-app .client-booking-cta:hover { background: #0f5b40; }
+.client-app .client-booking-cta:hover { background: #634a8c; }
 .client-app .client-booking-cta-action {
   background: hsl(var(--primary));
   color: hsl(var(--primary-foreground));
