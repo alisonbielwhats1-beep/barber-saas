@@ -8,7 +8,7 @@ test("@database serviços do salão preservam contraste ao passar o mouse no tem
   await page.getByRole("button", { name: "Usar tema claro" }).click();
   const service = page.locator('a[href*="/agendar?service="]').first();
   await service.hover();
-  await expect(service).toHaveCSS("background-color", "rgb(238, 246, 243)");
+  await expect(service).toHaveCSS("background-color", "rgb(247, 245, 250)");
   expect((await new AxeBuilder({ page }).include('a[href*="/agendar?service="]').withTags(["wcag2aa"]).analyze()).violations).toEqual([]);
   await page.screenshot({ path: test.info().outputPath("servico-hover-claro.png") });
 });
