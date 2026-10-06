@@ -56,6 +56,14 @@ export function transcribeConfig(env: Env = process.env) {
 /** Owner, 03/10: the transcript comes out already in correct Portuguese (spelling, accents and punctuation), so a spoken
  * message can be sent as is. The meaning, names, numbers, days and times are never changed. */
 export const TRANSCRIBE_STYLE = "Português do Brasil, com ortografia, acentuação e pontuação corretas, sem mudar o sentido, nomes, números, dias e horários.";
+/** Production pilot, 06/10/2026: on a short recording or a trailing silence the transcription model can repeat the vocabulary
+ * prompt as if it had been said ("Cancela o horário da Carolina. Agenda de salão de beleza. Profissionais: …"). The text is cut
+ * where the prompt starts; nothing left means nothing was recognized. Never a reason to execute anything. */
+const PROMPT_ECHO = /\s*(?:Agenda de sal[aã]o de beleza|Portugu[eê]s do Brasil, com ortografia)\b/i;
+export function withoutPromptEcho(text: string) {
+  const at = text.search(PROMPT_ECHO);
+  return (at < 0 ? text : text.slice(0, at)).trim();
+}
 /** The style line, then directory names only (the same bounded list Luna sees), deduplicated and cut at a whole name. */
 export function transcriptionPrompt(directory: { professionals: readonly string[]; services: readonly string[]; customers?: readonly string[] }) {
   if (directory.customers?.length) return groupedTranscriptionPrompt(directory as Required<typeof directory>);
@@ -181,7 +189,9 @@ export async function transcribeSecretaryAudio(input: { audio: unknown; seconds:
       seconds: input.seconds as number, bytes: input.audio.size, model: config.model };
     try { await input.settle(settlement); } catch { console.error("SECRETARY_TRANSCRIBE_SETTLE_FAILED"); }
   }
-  const text = typeof (json as { text?: unknown })?.text === "string" ? (json as { text: string }).text.replace(/\s+/g, " ").trim().slice(0, 1000) : "";
+  const raw = typeof (json as { text?: unknown })?.text === "string" ? (json as { text: string }).text.replace(/\s+/g, " ").trim().slice(0, 1000) : "";
+  const text = withoutPromptEcho(raw);
+  if (raw !== text) console.info("SECRETARY_TRANSCRIBE_PROMPT_ECHO", JSON.stringify({ kept_chars: text.length, dropped_chars: raw.length - text.length }));
   if (!text) throw Error("TRANSCRIBE_EMPTY");
   return { text };
 }
