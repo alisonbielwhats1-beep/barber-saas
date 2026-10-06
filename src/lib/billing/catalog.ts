@@ -47,3 +47,17 @@ export function accessState(sub: { paidThrough: Date | null; delinquentSince: Da
   const graceEnd = new Date(Math.max(sub.paidThrough.getTime(), sub.delinquentSince.getTime()) + 5 * 86400000);
   return now < graceEnd ? "GRACE" : "RESTRICTED";
 }
+
+/** Owner decisions 06/10/2026: the Secretária is prepaid CREDIT, in every plan, in packs paid once (Mercado Pago, Pix or card).
+ * Credit is in units of R$ 0,0001 (secretary-credits-rules.ts): each request takes its own real cost x 10, so the margin holds
+ * on every request; "about N requests" is only an estimate at the average cost. A bigger pack yields more credit per real
+ * (gross margin before the payment fee: 90%, 89%, 88% and 87%; at the cost measured on 06/10 about 80, 145, 260 and 565
+ * requests). The credit never expires. */
+export const SECRETARY_CREDIT_PACKS = {
+  P15: { amountCents: 1500, units: 150_000 },
+  P25: { amountCents: 2500, units: 275_000 },
+  P40: { amountCents: 4000, units: 485_000 },
+  P80: { amountCents: 8000, units: 1_053_000 },
+} as const;
+export type SecretaryCreditPack = keyof typeof SECRETARY_CREDIT_PACKS;
+export const secretaryCreditPack = z.enum(["P15", "P25", "P40", "P80"]);

@@ -11,7 +11,8 @@ import { acceptDictationSuggestion, actionDetails, actionSubject, actionTitle, c
 import type { DictationSuggestion } from '@/lib/secretary-voice-correction';
 import { startSecretary, sendSecretary, startAndSendSecretary, selectSecretaryCustomer, selectSecretaryService, confirmSecretary,
   cancelSecretary, resumeSecretaryPlan, selectSecretaryOperation, confirmSecretaryOperation, confirmSecretaryGroup, confirmSecretaryReadyGroups,
-  discardSecretaryAction, selectSecretaryOption, suggestSecretaryDictation, transcribeSecretaryVoice, sendSecretaryFeedback, currentSecretary, type SecretaryReply, type CurrentSecretaryReply } from './actions';
+  discardSecretaryAction, selectSecretaryOption, suggestSecretaryDictation, transcribeSecretaryVoice, sendSecretaryFeedback, currentSecretary, secretaryCredits, type SecretaryReply, type CurrentSecretaryReply, type CreditsReply } from './actions';
+import { CreditsMeter, CreditsNotice } from '@/components/secretary/credits-bar';
 import { joinDictation, speakSecretary, useSecretaryRecorder, useSecretaryVoice } from './use-secretary-voice';
 import { formatLocal } from '@/lib/secretary-datetime-format';
 import { VOICE_CONFIRM_DELAY_MS, voiceConfirmIntent } from '@/lib/secretary-voice-confirm';
@@ -49,6 +50,9 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
   const [uncertain, setUncertain] = useState(false);
   /** UX-COPY / ERR-COPY (flag SALON_SECRETARY_COPY_V2): the server says so on every reply (`copyV2`); off, the historical screen. */
   const [copyV2, setCopyV2] = useState(false);
+  /** Owner 06/10: the prepaid requests left (SALON_SECRETARY_CREDITS_ENABLED); refreshed when the chat opens and after each message. */
+  const [credits, setCredits] = useState<Extract<CreditsReply, { enabled: true }>>();
+  const refreshCredits = async () => { try { const reply = await secretaryCredits(); if (reply.ok && reply.enabled) setCredits(reply); } catch { /* the bar is informative only */ } };
   /** Review 2b: the card whose discard would also take linked actions, waiting for the owner's confirmation. */
   const [discardAsk, setDiscardAsk] = useState<string>();
   /** Owner, 05/10: the decision window (open by default whenever a new choice is waited for) and the choices it last showed. */
@@ -122,6 +126,8 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
   // D1 (SALON_SECRETARY_PERSISTED_STATE): after a reload, a new tab or another server worker, the owner's latest open
   // conversation comes back as the server holds it. Outside the act() lock and only into an untouched chat: anything the
   // owner did meanwhile wins. Without persisted state the server answers null and nothing changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- refreshed on open; each message refreshes it again.
+  useEffect(() => { if (active) void refreshCredits(); }, [active]);
   useEffect(() => {
     if (!active || reattach.current) return;
     reattach.current = true;
@@ -229,6 +235,7 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
     // The first message opens the conversation in the same request (one round trip instead of two; owner, 03/10).
     const result = await act(() => state ? sendSecretary({ sessionId: state.sessionId, message: text, ...(target ? { operation_ref: target } : {}) })
       : startAndSendSecretary({ message: text }), 'thinking', true, turn);
+    void refreshCredits();
     return Boolean(result);
   }
   async function send(fromVoice = false) {
@@ -533,6 +540,7 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
   return <section aria-label="Conversa com a Secretária" className="relative flex h-full min-h-0 flex-col">
     <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-4 py-2">
       <Button size="sm" variant="outline" disabled={Boolean(busy || uncertain || recording)} onClick={() => void begin()}>Nova conversa</Button>
+      {credits && <CreditsMeter view={credits.view} className="ml-auto" />}
       <Button size="sm" variant="ghost" aria-label="Ouvir resposta curta" disabled={Boolean(busy || recording || !state)} onClick={() => {
         const text = closed ? 'Confira o resultado de cada ação na tela.' : hasProposal ? 'Confira as ações na tela antes de confirmar.' : humanMessage(state?.message ?? '');
         if (!speakSecretary(text)) setError('Leitura em voz não disponível para esta resposta ou neste dispositivo. A resposta permanece na tela.');
@@ -653,6 +661,7 @@ export function SecretaryChat({ voiceEnabled = false, active = true, voiceCorrec
         <Button type="button" size="sm" disabled={Boolean(busy || uncertain)} onClick={() => setDecisionOpen(true)}>Responder</Button>
       </div>}
       <p role="status" aria-live="polite" className="text-xs font-medium">{status}{slow ? ' Ainda aguardando o sistema; nenhuma nova tentativa foi iniciada.' : ''}</p>
+      {credits && <CreditsNotice view={credits.view} canRecharge={credits.canRecharge} />}
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       {uncertain && <Button variant="outline" disabled={Boolean(busy)} onClick={() => { if (retry.current) void act(retry.current, 'executing'); }}>Verificar resultado</Button>}
       {!closed && <form onSubmit={event => { event.preventDefault(); if (recording) finishAndSend(); else void send(); }} className="space-y-2">
