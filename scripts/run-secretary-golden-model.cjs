@@ -17,7 +17,9 @@ const CERTIFICATION_FLAGS = Object.freeze({ SALON_SECRETARY_ALLOW_PAID_CALLS: 'f
   SALON_SECRETARY_SAME_AS: 'true', SALON_SECRETARY_SCHEDULING_OVERLAP_ENABLED: 'true', SALON_SECRETARY_STRUCTURED_CONTEXT: 'true',
   SALON_SECRETARY_TEMPORAL_COMPONENTS: 'true', SALON_SECRETARY_TEMPORAL_POLARITY: 'true',
   // 05/10 (owner decisions 46-48): schedule exceptions, service swap and names by sound are certified on.
-  SALON_SECRETARY_SCHEDULE_EXCEPTIONS: 'true', SALON_SECRETARY_SERVICE_SWAP_V2: 'true', SALON_SECRETARY_PHONETIC_NAMES: 'true' });
+  SALON_SECRETARY_SCHEDULE_EXCEPTIONS: 'true', SALON_SECRETARY_SERVICE_SWAP_V2: 'true', SALON_SECRETARY_PHONETIC_NAMES: 'true',
+  // 06/10 (owner, production pilot): the optional cancel/reschedule reason is part of the model contract, so it is certified on.
+  SALON_SECRETARY_CANCEL_REASON_OPTIONAL: 'true' });
 const args = process.argv.slice(2), options = {};
 for (let i = 0; i < args.length; i += 2) {
   const key = args[i], value = args[i + 1];

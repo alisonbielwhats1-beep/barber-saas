@@ -64,6 +64,7 @@ export const PROGRAM_SPEND_OPENROUTER_LEDGER = 'program-spend-openrouter-2026100
 // admits the remaining US$ 1.40. Its calls settle at the cost OpenRouter reports, never at a ceiling price.
 export const PROGRAM_OPENROUTER_CAP_HISTORY: readonly ProgramCapEntry[] = Object.freeze([
   Object.freeze({ microUsd: 1_400_000, approved: '2026-10-04', note: 'owner: US$ 2.00 real for OpenRouter, minus US$ 0.60 spent before this ledger' }),
+  Object.freeze({ microUsd: 2_400_000, approved: '2026-10-06', note: 'owner (chat, 06/10): +US$ 1.00 to certify the cache layout (SALON_SECRETARY_CACHE_LAYOUT=dynamic-last)' }),
 ]);
 export const PROGRAM_SPEND_WALLETS: Readonly<Record<ProgramSpendWalletId, ProgramSpendWallet>> = Object.freeze({
   openai: Object.freeze({ id: 'openai' as const, ledger: PROGRAM_SPEND_LEDGER, basename: PROGRAM_SPEND_BASENAME, anchorFile: PROGRAM_SPEND_ANCHOR_FILE,
