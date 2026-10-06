@@ -98,14 +98,23 @@ abertas continuam sendo confirmados. O rollback da 029 e da 030 se recusa a apag
    cadastradas na Vercel.
 5. Conferir que o webhook do Mercado Pago recebe o tópico **Pagamentos**.
 
-## Baratear o custo (pronto, desligado)
+## Baratear o custo: resultado da medição (06/10)
 
-O pedido ao modelo leva ~11.400 tokens, mas só 58% vinham do cache, porque os dados que mudam a cada mensagem ficavam antes
-das definições das ferramentas. A chave `SALON_SECRETARY_CACHE_LAYOUT=dynamic-last` move esses dados para o começo da mensagem
-do usuário, com o mesmo texto na mesma ordem, e deixa instruções e ferramentas, que não mudam, no início. A estimativa do
-subagente é de 85% a 88% do texto vindo do cache, cerca de 45% mais barato por chamada.
+A hipótese era que só 58% do pedido vinha do cache porque os dados de cada mensagem ficavam antes das definições das
+ferramentas. A chave `SALON_SECRETARY_CACHE_LAYOUT=dynamic-last` move esses dados para o fim. Ela foi medida numa bateria
+Golden k=3 com a chave ligada (`golden-20261006-deepseek-cache-layout-k3`).
 
-Com a chave desligada, o contrato certificado não muda: o teste de certificação passa. Ligada, o contrato muda, e por isso ela
-só vai para Produção depois de uma nova certificação (Golden k=3 com a chave ligada, que é uma bateria paga) e de remedir o
-custo médio por pedido.
+| | Layout certificado (bateria de 05/10) | Layout novo (06/10) |
+|---|---|---|
+| Resultado | 90/90 | 90/90 |
+| Texto vindo do cache | **94,8%** | 89,1% |
+| Custo real informado pelo OpenRouter, por chamada | **US$ 0,00051** | US$ 0,00069 |
 
+**Conclusão: o layout novo não barateia.** O provedor já reaproveita o prefixo com o layout atual. Os 58% do piloto vêm de
+**cache frio**: as mensagens chegaram com minutos de intervalo e o cache expirou entre elas. A chave fica no código desligada,
+sem certificado.
+
+**Achado para o multiplicador:** o custo real que o OpenRouter cobra (US$ 0,00051 por chamada) é cerca de **40% do custo pelo
+qual cobramos** (US$ 0,00131 por chamada, pela tabela de preço máximo). Com "×10" sobre a tabela máxima, o multiplicador
+efetivo sobre o custo real fica perto de ×25, uma margem de cerca de 96%. Cobrar ×10 sobre o custo real faria o pedido sair
+pela metade ou menos. Essa decisão é do dono.
