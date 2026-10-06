@@ -84,7 +84,7 @@ export function PlanForm({ plan, trigger }: { plan?: PlanEditable; trigger?: Rea
             </div>
             <div>
               <label htmlFor="plan-form-interval" className="mb-1 block text-sm font-medium">Cobrança</label>
-              <select id="plan-form-interval" name="interval" defaultValue={plan?.interval ?? "MONTHLY"} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+              <select id="plan-form-interval" name="interval" defaultValue={plan?.interval ?? "MONTHLY"} className="flex h-11 w-full rounded-md border border-input bg-background px-3 text-sm">
                 <option value="MONTHLY">Mensal</option>
                 <option value="ANNUAL">Anual</option>
               </select>

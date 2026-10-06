@@ -111,7 +111,7 @@ export function SalonSettingsForm({ salon }: { salon: Salon }) {
               <option key={tz} value={tz}>{tz}</option>
             ))}
           </datalist>
-          <p className="mt-1 text-[11px] text-muted-foreground">
+          <p className="mt-1 text-xs text-muted-foreground">
             Use um identificador IANA. Agenda, dashboard e avisos seguirão este fuso.
           </p>
         </Field>

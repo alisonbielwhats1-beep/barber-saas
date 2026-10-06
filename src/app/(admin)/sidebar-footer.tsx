@@ -4,7 +4,8 @@ import { signOut, useSession } from "next-auth/react";
 import { LogOut } from "lucide-react";
 import { PwaInstallButton } from "@/components/pwa-install-button";
 
-export function SidebarFooter({ plan, compact = false }: { plan: string; compact?: boolean }) {
+/** `inline` junta perfil e "Sair" numa linha só (menu "Mais" do celular). */
+export function SidebarFooter({ plan, compact = false, inline = false }: { plan: string; compact?: boolean; inline?: boolean }) {
   const { data: session } = useSession();
   const name = session?.user?.name ?? "Usuário";
   const initials = name
@@ -15,14 +16,14 @@ export function SidebarFooter({ plan, compact = false }: { plan: string; compact
     .toUpperCase();
 
   return (
-    <div className="shrink-0 space-y-2 border-t border-border px-3 py-3">
-      <div className={`flex items-center gap-2.5 ${compact ? "justify-center" : ""}`}>
-        <div title={`${name} · ${plan}`} className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[hsl(var(--selection))] text-[11px] font-semibold text-[hsl(var(--selection-foreground))]">
+    <div className={`shrink-0 border-t border-border px-3 py-3 ${inline ? "flex items-center gap-2" : "space-y-2"}`}>
+      <div className={`flex items-center gap-2.5 ${compact ? "justify-center" : ""} ${inline ? "min-w-0 flex-1" : ""}`}>
+        <div title={`${name} · ${plan}`} className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[hsl(var(--selection))] text-xs font-semibold text-[hsl(var(--selection-foreground))]">
           {initials}
         </div>
         <div className={compact ? "sr-only" : "min-w-0 flex-1"}>
           <p className="truncate text-[13px] font-medium leading-none">{name}</p>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">{plan}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{plan}</p>
         </div>
       </div>
       <div className={`flex items-center ${compact ? "flex-col" : "justify-end gap-1"}`}>

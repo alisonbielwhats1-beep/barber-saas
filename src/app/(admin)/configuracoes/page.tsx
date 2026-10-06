@@ -117,7 +117,7 @@ export default async function ConfiguracoesPage() {
   return (
     <div className="space-y-6">
       <header>
-        <p className="mb-1 text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+        <p className="mb-1 text-xs font-medium uppercase tracking-widest text-muted-foreground">
           Ajustes
         </p>
         <h1 className="text-[26px] font-semibold tracking-tight lg:text-3xl">Configurações</h1>
@@ -230,19 +230,19 @@ export default async function ConfiguracoesPage() {
                 </span>
                 <div>
                   <h2 id="settings-plan-title" className="text-[13px] font-semibold">{billingEnabled() ? "Plano e assinatura" : `Plano ${PLAN_LABEL[salon.plan] ?? salon.plan}`}</h2>
-                  <p className="mt-1 text-[11px] text-muted-foreground">
+                  <p className="mt-1 text-xs text-muted-foreground">
                     {billingEnabled() ? "Consulte seu plano, pagamentos e período de acesso. Você pode cancelar a renovação a qualquer momento, sem perder o período já pago." : salon.plan === "FREE"
                       ? `1 agenda · até ${entitlement.monthlyAppointments} agendamentos por mês`
                       : `${entitlement.maxProfessionals} agendas incluídas · sem taxa por cliente`}
                   </p>
                   {!billingEnabled() && salon.plan !== "FREE" && entitlement.priceCents > 0 && (
-                    <p className="mt-1 text-[11px] font-medium text-primary">
+                    <p className="mt-1 text-xs font-medium text-primary">
                       R$ {(entitlement.priceCents / 100).toFixed(2).replace(".", ",")}/mês
                     </p>
                   )}
                 </div>
               </div>
-              <p className="mt-5 rounded-xl border border-border bg-card/70 px-3 py-2.5 text-[11px] leading-relaxed text-muted-foreground">
+              <p className="mt-5 rounded-xl border border-border bg-card/70 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
                 {billingEnabled() && role === "OWNER" ? <Link className="font-medium underline" href="/assinatura">Gerenciar ou cancelar assinatura</Link> : "A gestão do plano e da assinatura fica protegida e será liberada somente quando o faturamento estiver configurado."}
               </p>
             </div>
@@ -254,5 +254,5 @@ export default async function ConfiguracoesPage() {
 
 function SetupChecklist({ items }: { items: Array<{ label: string; done: boolean }> }) {
   const completed = items.filter((item) => item.done).length;
-  return <section className="rounded-2xl border border-border bg-card p-5"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="flex items-center gap-2 text-[14px] font-semibold"><ListChecks className="h-4 w-4 text-primary" /> Checklist de configuração</h2><p className="mt-0.5 text-[11px] text-muted-foreground">{completed} de {items.length} etapas concluídas</p></div><div className="h-2 w-full max-w-52 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.round((completed / items.length) * 100)}%` }} /></div></div><div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">{items.map((item) => <div key={item.label} className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-[11px] ${item.done ? "border-success/20 bg-success/5 text-foreground" : "border-border bg-surface-1 text-muted-foreground"}`}>{item.done ? <Check className="h-3.5 w-3.5 shrink-0 text-success" /> : <Circle className="h-3.5 w-3.5 shrink-0" />}<span>{item.label}</span></div>)}</div></section>;
+  return <section className="rounded-2xl border border-border bg-card p-5"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="flex items-center gap-2 text-[14px] font-semibold"><ListChecks className="h-4 w-4 text-primary" /> Checklist de configuração</h2><p className="mt-0.5 text-xs text-muted-foreground">{completed} de {items.length} etapas concluídas</p></div><div className="h-2 w-full max-w-52 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.round((completed / items.length) * 100)}%` }} /></div></div><div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">{items.map((item) => <div key={item.label} className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-xs ${item.done ? "border-success/20 bg-success/5 text-foreground" : "border-border bg-surface-1 text-muted-foreground"}`}>{item.done ? <Check className="h-3.5 w-3.5 shrink-0 text-success" /> : <Circle className="h-3.5 w-3.5 shrink-0" />}<span>{item.label}</span></div>)}</div></section>;
 }

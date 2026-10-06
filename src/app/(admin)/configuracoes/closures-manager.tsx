@@ -128,7 +128,7 @@ export function ClosuresManager({
                       ? formatInTimeZone(start, timezone, "d 'de' MMMM", { locale: ptBR })
                       : `${formatInTimeZone(start, timezone, "d MMM", { locale: ptBR })} – ${formatInTimeZone(end, timezone, "d MMM", { locale: ptBR })}`}
                   </p>
-                  {c.reason && <p className="truncate text-[11px] text-muted-foreground">{c.reason}</p>}
+                  {c.reason && <p className="truncate text-xs text-muted-foreground">{c.reason}</p>}
                 </div>
                 {canManage && (
                   <IconButton

@@ -797,6 +797,8 @@ export function AnimatedSidebarMenuSubButton({
     "flex min-h-11 w-full min-w-0 items-center gap-2 rounded-lg px-2 text-left text-[13px] outline-none",
     "text-muted-foreground transition-colors hover:bg-[hsl(var(--card-hover))] hover:text-foreground",
     "focus-visible:ring-2 focus-visible:ring-ring",
+    // No celular os toques e o texto crescem, como no resto do painel móvel.
+    context.isMobile && "min-h-12 text-sm",
     isActive && "bg-[hsl(var(--selection))] font-medium text-[hsl(var(--selection-foreground))] hover:bg-[hsl(var(--selection))] hover:text-[hsl(var(--selection-foreground))]",
     disabled && "cursor-not-allowed opacity-40",
     className,
@@ -921,6 +923,7 @@ export function AnimatedSidebarMenuButton({
     "relative flex min-h-11 w-full min-w-0 items-center gap-3 overflow-hidden rounded-xl px-4 text-left text-[13px] outline-none",
     "text-muted-foreground transition-colors hover:text-foreground",
     "focus-visible:ring-2 focus-visible:ring-ring",
+    context.isMobile && "min-h-12 text-sm",
     isActive && "font-medium text-[hsl(var(--selection-foreground))] hover:text-[hsl(var(--selection-foreground))]",
     disabled && "cursor-not-allowed opacity-40",
     className,

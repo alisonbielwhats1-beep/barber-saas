@@ -60,7 +60,7 @@ export default async function ServicosPage() {
     <div className="admin-directory-page flex min-w-0 flex-col gap-3 pb-20 md:gap-6 md:pb-0">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="mb-1 hidden md:block text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+          <p className="mb-1 hidden md:block text-xs font-medium uppercase tracking-widest text-muted-foreground">
             Catálogo
           </p>
           <h1 className="text-2xl md:text-[26px] font-semibold tracking-tight">Serviços</h1>

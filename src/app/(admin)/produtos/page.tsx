@@ -63,7 +63,7 @@ export default async function ProdutosPage({ searchParams }: { searchParams: Pro
     <div className="admin-directory-page space-y-3 pb-20 md:space-y-6 md:pb-0">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="mb-1 text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+          <p className="mb-1 text-xs font-medium uppercase tracking-widest text-muted-foreground">
             Catálogo
           </p>
           <h1 className="text-[26px] font-semibold tracking-tight">Produtos</h1>

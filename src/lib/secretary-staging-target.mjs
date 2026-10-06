@@ -38,10 +38,13 @@ export function isSecretaryCodespaceTarget(env) {
   } catch { return false; }
 }
 
-/** Microphone permission never grants operational confirmation or tenant access.
+/** Microphone permission never grants operational confirmation or tenant access. Production: only the owner-approved pilot
+ * (05/10/2026, presentation salon) with voice on; the browser still asks the person, and the actor gate stays in the app.
  * @param {Record<string, string | undefined>} env
  */
 export function secretaryMicrophoneAllowed(env) {
-  return env.SALON_SECRETARY_VOICE_ENABLED === 'true' && env.VERCEL_ENV !== 'production' &&
+  if (env.VERCEL_ENV === 'production') return env.SALON_SECRETARY_VOICE_ENABLED === 'true' &&
+    env.SALON_SECRETARY_ENABLED === 'true' && env.SALON_SECRETARY_PRODUCTION_PILOT === 'true';
+  return env.SALON_SECRETARY_VOICE_ENABLED === 'true' &&
     (['development', 'test'].includes(env.APP_ENV ?? '') || isSecretaryCodespaceTarget(env));
 }

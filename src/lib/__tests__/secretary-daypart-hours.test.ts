@@ -97,7 +97,8 @@ beforeEach(() => {
   const overlapping = (row: { startAt: Date; endAt: Date }, where: { startAt: { lt: Date }; endAt: { gt: Date } }) => row.startAt < where.startAt.lt && row.endAt > where.endAt.gt;
   db.tx = { $executeRaw: vi.fn(async () => 0), membership: { findFirstOrThrow: async () => ({ role: "OWNER" }) },
     workingHours: { findFirst: async ({ where }: { where: { salonId: string } }) => db.hours.find(row => row.salonId === where.salonId) ?? null,
-      findMany: async ({ where }: { where: { salonId: string; professionalId: { in: string[] }; weekday: number } }) => db.hours.filter(row => row.salonId === where.salonId && where.professionalId.in.includes(row.professionalId) && row.weekday === where.weekday) },
+      // 06/10: one professional (working-hours.ts) or a list of them (the day facts).
+      findMany: async ({ where }: { where: { salonId: string; professionalId: string | { in: string[] }; weekday: number } }) => db.hours.filter(row => row.salonId === where.salonId && (typeof where.professionalId === "string" ? row.professionalId === where.professionalId : where.professionalId.in.includes(row.professionalId)) && row.weekday === where.weekday) },
     professionalOpening: { findMany: async () => [] },
     salonClosure: { findMany: async ({ where }: { where: { salonId: string; startAt: { lt: Date }; endAt: { gt: Date } } }) => failing(db.closures.filter(row => row.salonId === where.salonId && overlapping(row, where))) },
     timeOff: { findMany: async ({ where }: { where: { professionalId: { in: string[] }; professional: { salonId: string }; startAt: { lt: Date }; endAt: { gt: Date } } }) =>
@@ -330,5 +331,31 @@ describe("UX: a half-day question is never asked again silently (flag V2)", () =
     const state = await ask();
     await turn(spa, state, "appointment.create", { temporal_evidence: [c("time", "às 14h", clock(2, 0, "TARDE"))] }, "o Téo às 14h");
     expect(state.fields.time).toBe("14:00");expect(state.proposal).toBeDefined();expect(state.pending_temporal_ambiguities).toEqual([]);
+  });
+});
+
+/** Owner, 06/10/2026: "o dia inteiro" blocks the professional's whole working day, by each professional's own hours. */
+describe("BLOCK the whole day by the professional's hours", () => {
+  const wholeDay = (actor: Actor, state: SchedulingState, pro: string, message: string) => turn(actor, state, "schedule.block", { professional_name: pro,
+    temporal_evidence: [c("date", "amanhã", TOMORROW)] }, message);
+  it("'o dia inteiro' is 08h-20h for Caio and 08h-12h for Lia: each professional's own hours that day", async () => {
+    const caio = fresh("schedule.block"), caioCodes = await wholeDay(sol, caio, "Caio", "bloqueia a agenda do Caio amanhã o dia inteiro");
+    expect(caio.fields).toMatchObject({ professional_ref: "p-caio", date: "2026-09-30", time: "08:00", end_time: "20:00" });expect(caio.proposal).toBeDefined();
+    expect(caioCodes).toContain("BLOCK_WHOLE_DAY");
+    const lia = fresh("schedule.block"); await wholeDay(sol, lia, "Lia", "fecha o dia todo da Lia amanhã");
+    expect(lia.fields).toMatchObject({ professional_ref: "p-lia", time: "08:00", end_time: "12:00" });expect(lia.proposal).toBeDefined();
+  });
+  it("a professional with no hours that day is asked for the interval; nothing is invented", async () => {
+    db.hours = db.hours.filter(row => row.professionalId !== "p-lia");
+    const lia = fresh("schedule.block"), codes = await wholeDay(sol, lia, "Lia", "bloqueia a agenda da Lia amanhã o dia inteiro");
+    expect(codes).toContain("BLOCK_WHOLE_DAY_NO_HOURS");expect(lia.proposal).toBeUndefined();expect(lia.fields.time).toBeUndefined();expect(lia.fields.end_time).toBeUndefined();
+    expect(lia.message).toContain("não tem expediente");
+  });
+  it("a time said wins over 'o dia inteiro', and without those words nothing is filled", async () => {
+    const said = fresh("schedule.block"), codes = await turn(sol, said, "schedule.block", { professional_name: "Caio",
+      temporal_evidence: [c("date", "amanhã", TOMORROW), c("time", "das 10 às 12", clock(10)), c("end_time", "das 10 às 12", clock(12))] }, "bloqueia o dia inteiro do Caio amanhã, quer dizer, das 10 às 12");
+    expect(said.fields).toMatchObject({ time: "10:00", end_time: "12:00" });expect(codes).not.toContain("BLOCK_WHOLE_DAY");
+    const plain = fresh("schedule.block"), plainCodes = await wholeDay(sol, plain, "Caio", "bloqueia a agenda do Caio amanhã");
+    expect(plainCodes).not.toContain("BLOCK_WHOLE_DAY");expect(plain.fields.time).toBeUndefined();expect(plain.proposal).toBeUndefined();
   });
 });

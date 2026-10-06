@@ -156,7 +156,7 @@ export function StarterServicePicker({
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[13px] font-medium">{s.name}</span>
-                    <span className="text-[11px] text-muted-foreground">
+                    <span className="text-xs text-muted-foreground">
                       {s.durationMin} min
                     </span>
                   </span>

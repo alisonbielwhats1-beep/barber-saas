@@ -51,6 +51,8 @@ type MobileNavProps = {
   unreadNotifications?: number;
   isPlatformAdmin?: boolean;
   accountControls?: React.ReactNode;
+  /** Perfil e "Sair": ficam no fim do menu para a lista de módulos aparecer logo. */
+  accountFooter?: React.ReactNode;
 };
 
 export function MobileNav(props: MobileNavProps) {
@@ -66,6 +68,7 @@ function MobileNavBar({
   unreadNotifications = 0,
   isPlatformAdmin = false,
   accountControls,
+  accountFooter,
 }: MobileNavProps) {
   const pathname = usePathname();
   const { openMobile: open, setOpenMobile, triggerRef } = useAnimatedSidebar();
@@ -127,6 +130,7 @@ function MobileNavBar({
           <div className="-mx-3">
             <SidebarNav id="admin-mobile-navigation" role={role} unreadNotifications={unreadNotifications} isPlatformAdmin={isPlatformAdmin} />
           </div>
+          {accountFooter}
         </div>
         {/* Por último no DOM: o foco entra pela Busca e o Tab fecha o ciclo aqui. */}
         <AnimatedSidebarClose aria-label="Fechar janela" className="absolute right-3 top-[calc(var(--safe-top,0px)+0.625rem)] text-muted-foreground hover:bg-card-hover hover:text-foreground">
@@ -135,7 +139,7 @@ function MobileNavBar({
       </AnimatedSidebar>
 
       {/* Barra inferior */}
-      <nav style={{ paddingLeft: "var(--safe-left)", paddingRight: "var(--safe-right)" }} className="fixed inset-x-0 bottom-0 z-50 flex border-t border-border bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden print:hidden">
+      <nav style={{ paddingLeft: "var(--safe-left)", paddingRight: "var(--safe-right)" }} className="admin-mobile-bar fixed inset-x-0 bottom-0 z-50 flex border-t border-border bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden print:hidden">
         {PRIMARY.filter((item) => !item.roles || item.roles.includes(role)).map((item) => {
           const active = !open && isActive(item.href);
           return (
@@ -145,7 +149,7 @@ function MobileNavBar({
               prefetch={false}
               onClick={() => setOpenMobile(false)}
               className={cn(
-                "flex min-h-14 flex-1 flex-col items-center gap-1 pb-3 pt-2.5 text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+                "admin-mobile-bar-item flex min-h-14 flex-1 flex-col items-center gap-1 pb-3 pt-2.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
                 active ? "text-primary" : "text-muted-foreground",
               )}
             >
@@ -160,7 +164,7 @@ function MobileNavBar({
           aria-label="Abrir todos os módulos"
           aria-haspopup="dialog"
           className={cn(
-            "flex min-h-14 flex-1 flex-col items-center gap-1 rounded-none pb-3 pt-2.5 text-[10px] font-medium transition-colors focus-visible:ring-inset",
+            "admin-mobile-bar-item flex min-h-14 flex-1 flex-col items-center gap-1 rounded-none pb-3 pt-2.5 text-xs font-medium transition-colors focus-visible:ring-inset",
             moreActive ? "text-primary" : "text-muted-foreground",
           )}
         >

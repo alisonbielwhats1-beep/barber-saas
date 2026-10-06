@@ -219,7 +219,7 @@ export function ComandaPanel({
           {payment.discountCents > 0 && <div className="flex justify-between text-muted-foreground print:text-neutral-700"><span>Desconto</span><span>- {formatMoney(payment.discountCents, displayCurrency)}</span></div>}
           <div className="flex justify-between border-t border-border pt-2 text-base"><span>Total recebido</span><strong>{formatMoney(payment.amountCents, displayCurrency)}</strong></div>
           <div className="flex justify-between text-muted-foreground print:text-neutral-700"><span>Forma</span><span>{METHODS.find((item) => item.value === payment.method)?.label ?? payment.method}</span></div>
-          <div className="flex justify-between gap-3 text-[11px] text-muted-foreground print:text-neutral-700"><span>Pagamento</span><span className="break-all text-right">{payment.id}</span></div>
+          <div className="flex justify-between gap-3 text-xs text-muted-foreground print:text-neutral-700"><span>Pagamento</span><span className="break-all text-right">{payment.id}</span></div>
         </div>
         <div className="grid grid-cols-2 gap-2 print:hidden">
           <button onClick={() => window.print()} className="inline-flex items-center justify-center gap-2 rounded-xl border border-border px-4 py-3 text-[13px]"><Printer className="h-4 w-4" /> Imprimir</button>
@@ -233,7 +233,7 @@ export function ComandaPanel({
     <fieldset disabled={pending} className="min-w-0 space-y-4">
       {/* Serviço */}
       <div className="space-y-1.5">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Serviço
         </p>
         <div className="flex items-center justify-between rounded-xl bg-surface-1 px-3 py-2.5">
@@ -270,7 +270,7 @@ export function ComandaPanel({
       {/* Produtos */}
       {data.availableProducts.length > 0 && (
         <div className="space-y-1.5">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Produtos da comanda
           </p>
           <div className="space-y-1">
@@ -284,7 +284,7 @@ export function ComandaPanel({
               >
                 <span className="flex items-center gap-2 text-[13px]">
                   <Package className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                  <span><span className="font-medium">{product.name}</span><span className="block text-[10px] text-muted-foreground">{product.reservedQuantity > 0 ? `${product.reservedQuantity} reservado(s) por ${formatMoney(product.reservedValueCents, displayCurrency)}` : formatMoney(product.priceCents, displayCurrency)} · {product.active ? `${product.stock} disponíveis além da reserva` : "inativo · apenas reserva existente"}</span></span>
+                  <span><span className="font-medium">{product.name}</span><span className="block text-xs text-muted-foreground">{product.reservedQuantity > 0 ? `${product.reservedQuantity} reservado(s) por ${formatMoney(product.reservedValueCents, displayCurrency)}` : formatMoney(product.priceCents, displayCurrency)} · {product.active ? `${product.stock} disponíveis além da reserva` : "inativo · apenas reserva existente"}</span></span>
                 </span>
                 <span className="flex items-center gap-1.5">
                   <button type="button" onClick={() => changeProduct(product.id, -1, maxQuantity)} disabled={quantity === 0} aria-label={`Remover ${product.name}`} className="grid h-8 w-8 place-items-center rounded-lg border border-border disabled:opacity-30"><Minus className="h-3.5 w-3.5" /></button>
@@ -321,7 +321,7 @@ export function ComandaPanel({
           />
         </div>
         {!data.canDiscount && (
-          <p className="text-right text-[10px] text-muted-foreground">
+          <p className="text-right text-xs text-muted-foreground">
             Descontos exigem proprietário ou gerente.
           </p>
         )}
@@ -333,7 +333,7 @@ export function ComandaPanel({
 
       {/* Forma de pagamento */}
       <div className="space-y-2">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Forma de pagamento
         </p>
         <div className="grid grid-cols-5 gap-1.5">
@@ -344,7 +344,7 @@ export function ComandaPanel({
                 idempotencyKeyRef.current = null;
                 setMethod(m.value);
               }}
-              className={`flex flex-col items-center gap-1 rounded-xl border px-1 py-2 text-[11px] font-medium transition ${
+              className={`flex flex-col items-center gap-1 rounded-xl border px-1 py-2 text-xs font-medium transition ${
                 method === m.value
                   ? "border-primary bg-primary/10 text-primary"
                   : "border-border bg-surface-1 text-muted-foreground hover:border-primary/40"

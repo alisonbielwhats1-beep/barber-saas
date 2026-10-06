@@ -2,7 +2,7 @@
 import { MobileListTools } from "@/components/mobile-list-tools";
 import { servicePriceLabel } from "@/lib/service-price";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   Search,
@@ -123,14 +123,14 @@ export function ServicesCatalog({
     <div className="space-y-2">
       {/* Barra de ferramentas */}
       <div className="admin-catalog-tools flex flex-wrap items-center gap-2">
-        <div className="flex min-h-11 min-w-0 flex-1 md:flex-none items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5">
+        <div className="flex min-h-11 min-w-0 flex-1 md:flex-none items-center gap-2 rounded-lg border border-border bg-card px-3 py-0">
           <Search className="h-3.5 w-3.5 text-muted-foreground" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar serviço…"
             aria-label="Buscar serviço"
-            className="w-full min-w-0 md:w-44 bg-transparent text-[13px] placeholder:text-muted-foreground focus:outline-none"
+            className="h-11 w-full min-w-0 md:w-44 bg-transparent text-[13px] placeholder:text-muted-foreground focus:outline-none"
           />
         </div>
 
@@ -140,9 +140,9 @@ export function ServicesCatalog({
               key={c}
               onClick={() => setCategory(c)}
               aria-pressed={activeCategory === c}
-              className="min-h-9 shrink-0 rounded-full px-0 text-[12px] font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+              className="min-h-11 shrink-0 rounded-full px-0 text-[13px] font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
             >
-              <span className={`inline-flex min-h-9 items-center rounded-full border px-3 transition-colors ${activeCategory === c ? "border-transparent bg-primary text-primary-foreground" : "border-border text-muted-foreground hover:text-foreground"}`}>{c === "all" ? "Todas" : c}</span>
+              <span className={`inline-flex min-h-11 items-center rounded-full border px-3 transition-colors ${activeCategory === c ? "border-transparent bg-primary text-primary-foreground" : "border-border text-muted-foreground hover:text-foreground"}`}>{c === "all" ? "Todas" : c}</span>
             </button>
           ))}
         </div>
@@ -290,7 +290,7 @@ function CategoryGroupList({
     <div className="overflow-hidden border-b border-border/50 last:border-b-0">
       {/* Cabeçalho de texto simples */}
       <div className="hidden border-b border-border bg-surface-1 px-4 py-2 md:block">
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
           {cat}
         </p>
       </div>
@@ -330,28 +330,52 @@ function ServiceRow({
   canSeeFinancial: boolean;
 }) {
   const m = margin(s);
+  // O mesmo estado abre a edição pela linha e pelo menu ⋮ > Editar.
+  const [editOpen, setEditOpen] = useState(false);
+  const rowButton = useRef<HTMLButtonElement>(null);
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const opener = useRef<HTMLElement | null>(null);
+  function openEdit(from: HTMLElement | null) {
+    opener.current = from;
+    setEditOpen(true);
+  }
   return (
     <div
-      className={`flex items-center gap-2.5 border-b border-border py-3 sm:px-4 last:border-0 ${
+      className={`relative flex items-center gap-2.5 border-b border-border py-3 sm:px-4 last:border-0 ${
+        canManage ? "transition-colors hover:bg-card-hover" : ""
+      } ${
         !s.active ? "opacity-50" : ""
       }`}
     >
       <ServiceIcon service={s} />
       <div className="min-w-0 flex-1">
-        <p className="break-words text-[13px] font-medium leading-snug md:truncate">{s.name}</p>
-        <p className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
+        {canManage ? (
+          // Botão "esticado": só o nome recebe o foco, mas o ::after cobre a linha toda e o ⋮ fica acima (z-10).
+          <button
+            ref={rowButton}
+            type="button"
+            aria-label={`Editar ${s.name}`}
+            onClick={() => openEdit(rowButton.current)}
+            className="block w-full cursor-pointer text-left focus-visible:outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:outline focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-ring"
+          >
+            <span className="block break-words text-sm font-medium leading-snug md:truncate">{s.name}</span>
+          </button>
+        ) : (
+          <p className="break-words text-sm font-medium leading-snug md:truncate">{s.name}</p>
+        )}
+        <p className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
           <span className="flex items-center gap-1">
-            <Clock className="h-3 w-3" />
+            <Clock className="h-3.5 w-3.5" />
             {formatDuration(s.durationMin)}
           </span>
           {s.proCount > 0 && (
-            <span className="flex items-center gap-1">
-              <Users className="h-3 w-3" />
-              {s.proCount}
+            <span className="flex items-center gap-1" title="Profissionais que fazem este serviço">
+              <Users className="h-3.5 w-3.5" aria-hidden="true" />
+              {s.proCount}<span className="sr-only"> profissionais</span>
             </span>
           )}
           {!s.active && (
-            <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium">
+            <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs font-medium">
               Pausado
             </span>
           )}
@@ -362,27 +386,36 @@ function ServiceRow({
         <p className={`text-[13px] font-semibold ${m === null ? "text-muted-foreground" : ""}`} style={m === null ? undefined : { color: marginColor(m) }}>
           {m === null ? "—" : `${(m * 100).toFixed(0)}%`}
         </p>
-        <p className="text-[10px] text-muted-foreground">{m === null ? "custo não informado" : "margem"}</p>
+        <p className="text-xs text-muted-foreground">{m === null ? "custo não informado" : "margem"}</p>
       </div>}
 
       {canSeeFinancial && <div className="hidden w-10 shrink-0 text-right sm:block">
         <p className="text-[13px] font-semibold">{s.sold}</p>
-        <p className="text-[10px] text-muted-foreground">vendas</p>
+        <p className="text-xs text-muted-foreground">vendas</p>
       </div>}
 
       <p className="w-[4.5rem] md:w-20 shrink-0 text-right text-[13px] font-semibold">
         {servicePriceLabel(s)}
       </p>
 
-      {canManage && <ActionsMenu s={s} />}
+      {canManage && <ActionsMenu s={s} triggerRef={menuButton} onEdit={() => openEdit(menuButton.current)} />}
+      {canManage && (
+        <ServiceForm
+          service={s}
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          restoreFocus={() => (opener.current?.isConnected ? opener.current : rowButton.current)?.focus()}
+        />
+      )}
     </div>
   );
 }
 
 /* ── Menu de ações ────────────────────────────────────────────────────── */
 
-function ActionsMenu({ s }: { s: ServiceCard }) {
+function ActionsMenu({ s, triggerRef, onEdit }: { s: ServiceCard; triggerRef: React.Ref<HTMLButtonElement>; onEdit: () => void }) {
   const router = useRouter();
+  const choseEdit = useRef(false);
   const [pending, startTransition] = useTransition();
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -402,19 +435,18 @@ function ActionsMenu({ s }: { s: ServiceCard }) {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button aria-label={`Mais opções para ${s.name}`} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-card-hover hover:text-foreground">
+          <button ref={triggerRef} aria-label={`Mais opções para ${s.name}`} className="relative z-10 grid h-11 w-11 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-card-hover hover:text-foreground">
             {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <ServiceForm
-            service={s}
-            trigger={
-              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                <Pencil className="mr-2 h-3.5 w-3.5" /> Editar
-              </DropdownMenuItem>
-            }
-          />
+        <DropdownMenuContent
+          align="end"
+          // Ao escolher Editar, o foco é do formulário (que devolve ao ⋮ ao fechar), não do menu.
+          onCloseAutoFocus={(event) => { if (choseEdit.current) { event.preventDefault(); choseEdit.current = false; } }}
+        >
+          <DropdownMenuItem onSelect={() => { choseEdit.current = true; onEdit(); }}>
+            <Pencil className="mr-2 h-3.5 w-3.5" /> Editar
+          </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => run(() => duplicateService(s.id), "Serviço duplicado")}>
             <Copy className="mr-2 h-3.5 w-3.5" /> Duplicar
           </DropdownMenuItem>

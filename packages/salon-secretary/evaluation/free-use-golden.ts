@@ -78,16 +78,27 @@ const oracle: Record<string, { expect: unknown; when?: {missingAny:string[]} }[]
     {operation:'financial.report',statusAny:['DONE'],resultRequired:true,fields:{'financial.metrics':['received_revenue'],'financial.period':'last_week'},proposal:false,resultContains:{id:'received_revenue',value:8500}}]}}],
   GF30:[{expect:unsupported},{expect:unsupported}],
 };
+/** Owner decision 06/10/2026 (production pilot): with SALON_SECRETARY_CANCEL_REASON_OPTIONAL on, a cancellation never waits
+ * for a reason. GF18 then expects the same appointment ready to confirm on the first turn, the reason still never invented
+ * (forbiddenEffective); a reason said after it is ready is used, same draft, copied from the message. The historical table and the oracle above are untouched;
+ * the overlay is chosen by the run's own flags and lands in its manifest. */
+export function ownerDecisionOracle(env: Record<string, string | undefined> = process.env): typeof oracle {
+  if (env.SALON_SECRETARY_CANCEL_REASON_OPTIONAL !== 'true') return {};
+  return {GF18:[{expect:one('appointment.cancel',{appointment_ref:ref('appointment','celia_quarta'),date:'2027-04-14',time:'15:00'},{forbiddenEffective:['reason']})},
+    // Said after the cancellation is ready: the same draft takes it, copied from the message (never gated on a question).
+    {expect:one('appointment.cancel',{appointment_ref:ref('appointment','celia_quarta'),date:'2027-04-14',time:'15:00'},{sameDraft:true,sourceBackedEffective:['reason'],preserve:['appointment_ref','date','time']})}]};
+}
 export function goldenSuite(documentPath = 'docs/SECRETARY_GOLDEN_FREE_USE_30.md'): FreeUseSuite {
   const bytes = readFileSync(documentPath), text = bytes.toString('utf8');
   const cases = text.split(/\r?\n/).filter(line => /^\| GF\d{2} /.test(line)).map(line => {
     const cells = line.split('|').map(cell => cell.trim()), header = cells[1];
     const id = header.slice(0,4), family = header.slice(5), messages = [...cells[2].matchAll(/“([^”]+)”/g)].map(match => match[1]);
-    if (!oracle[id] || messages.length !== oracle[id].length) throw Error('FREE_USE_GOLDEN_SOURCE_SHAPE');
+    const expected = ownerDecisionOracle()[id] ?? oracle[id];
+    if (!expected || messages.length !== expected.length) throw Error('FREE_USE_GOLDEN_SOURCE_SHAPE');
     const fixture = id === 'GF13' ? fixtureSchema.parse({...goldenFixture,appointments:[...goldenFixture.appointments,
       {key:'lara_quarta',customerKey:'lara',professionalKey:'nina',serviceKey:'hidratacao',startAt:'2027-04-14T11:00:00-03:00'}]}) : undefined;
     return {id,family,criterion:cells[3],...(fixture?{fixture}:{}),...(id==='GF26'?{clock:'2027-04-13T01:30:00Z'}:{}),
-      requireOverlap:id==='GF22',turns:messages.map((message,index)=>({message,...oracle[id][index]}))};
+      requireOverlap:id==='GF22',turns:messages.map((message,index)=>({message,...expected[index]}))};
   });
   if(cases.length!==30)throw Error('FREE_USE_GOLDEN_CASE_COUNT');
   return suiteSchema.parse({schemaVersion:1,suiteId:'golden-free-use-30',timezone:'America/Sao_Paulo',clock:'2027-04-12T12:00:00Z',

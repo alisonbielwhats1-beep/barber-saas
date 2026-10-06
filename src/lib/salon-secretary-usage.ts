@@ -30,6 +30,8 @@ const eventSchema = z.object({
   model_id_requested: id, model_id_returned: id.nullable(), request_id: id.nullable(), response_id: id.nullable(),
   requests: counter, input_tokens: counter, cached_input_tokens: counter, cache_write_tokens: counter,
   output_tokens: counter, reasoning_tokens: counter, total_tokens: counter,
+  // Owner 06/10/2026: the provider-reported real cost of the call (micro-USD), when the provider reports one.
+  cost_micro_usd: z.number().int().nonnegative().max(10_000_000).optional(),
 }).strict();
 export const SECRETARY_USAGE_ENTITY = "SALON_SECRETARY_USAGE";
 

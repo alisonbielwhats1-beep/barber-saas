@@ -39,7 +39,7 @@ describe('DeepSeek spend admission (offline)', () => {
 
   it('OpenRouter calls go to their own wallet and settle at the cost OpenRouter reports; the OpenAI wallet keeps its old rows only', async () => {
     expect(programSpendWalletOfModel(MODEL)).toBe('openrouter'); expect(programSpendWalletOfModel('gpt-6-luna')).toBe('openai');
-    expect(PROGRAM_SPEND_WALLETS.openrouter.capHistory.at(-1)?.microUsd).toBe(1_400_000);
+    expect(PROGRAM_SPEND_WALLETS.openrouter.capHistory.at(-1)?.microUsd).toBe(2_400_000); // owner, 06/10: +US$ 1 to certify the cache layout
     const body = outbound(), estimate = openRouterCostEstimator.worstCase(OPENROUTER_CHAT_URL, wire(body));
     expect(estimate).toEqual({ estimator: 'openrouter-cost', model: MODEL, bodyBytes: Buffer.byteLength(body), maxOutputTokens: 8192,
       worstCaseMicroUsd: Math.ceil((Buffer.byteLength(body) + 8192) * 0.45 + 8192 * 2.40), pricingSha256: OPENROUTER_RESERVATION_PRICING_SHA256 });
@@ -49,7 +49,7 @@ describe('DeepSeek spend admission (offline)', () => {
     const paid = guardPaidFetch('golden', transport, { ledger, run: 'golden:deepseek-offline', estimator: openRouterCostEstimator });
     expect((await paid(OPENROUTER_CHAT_URL, wire())).status).toBe(200);
     const totals = programSpendTotals(ledger);
-    expect(totals).toMatchObject({ wallet: 'openrouter', ledger: 'program-spend-openrouter-20261004', capMicroUsd: 1_400_000 });
+    expect(totals).toMatchObject({ wallet: 'openrouter', ledger: 'program-spend-openrouter-20261004', capMicroUsd: 2_400_000 });
     expect(totals.byRun['golden:deepseek-offline']?.spentMicroUsd).toBe(1200);
     // Wallets admit only their own estimators for new reservations.
     expect(() => guardPaidFetch('golden', transport, { ledger, run: 'x', estimator: responsesEstimator })).toThrow('PROGRAM_SPEND_ESTIMATOR');

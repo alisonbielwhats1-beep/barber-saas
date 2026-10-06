@@ -41,12 +41,12 @@ export function MarketingSettingsForm({
         </span>
         <div>
           <h2 className="text-[14px] font-semibold">Regras de crescimento</h2>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">Somente o dono pode alterar. A regra vale no Marketing, CRM e Dashboard.</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">Somente o dono pode alterar. A regra vale no Marketing, CRM e Dashboard.</p>
         </div>
       </div>
 
       <div className="mt-4 grid gap-4 md:grid-cols-[180px_1fr_auto] md:items-end">
-        <label className="block text-[11px] font-medium text-muted-foreground">
+        <label className="block text-xs font-medium text-muted-foreground">
           Cliente vira “sumido” após
           <span className="mt-1 flex h-11 items-center rounded-xl border border-border bg-background px-3">
             <input
@@ -62,7 +62,7 @@ export function MarketingSettingsForm({
             <span>dias</span>
           </span>
         </label>
-        <label className="block text-[11px] font-medium text-muted-foreground">
+        <label className="block text-xs font-medium text-muted-foreground">
           Link para avaliação no Google (opcional)
           <input
             type="url"

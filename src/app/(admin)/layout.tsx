@@ -96,11 +96,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <PlanShortcut {...planShortcut} href={planHref} />
         </header>}
         <AdminMobileHeader role={role} plan={planShortcut} planHref={planHref} />
-        <div className="mx-auto w-full min-w-0 max-w-[1680px] p-4 pb-24 sm:p-5 md:p-6 lg:pb-6">{children}</div>
+        {/* O espaço final cobre a barra inferior, o "+" de criar (84px) e, quando existe, o botão da Secretária (192px). */}
+        <div className={`mx-auto w-full min-w-0 max-w-[1680px] p-4 ${SecretaryDock ? "pb-52" : "pb-36"} sm:p-5 md:p-6 lg:pb-6`}>{children}</div>
       </main>
 
       <MobileNav role={role} unreadNotifications={unreadNotifications} isPlatformAdmin={platformAdmin}
-        accountControls={<div className="space-y-4"><div className="flex items-center justify-between gap-3">{role === "OWNER" && <PlanShortcut compact {...planShortcut} href={planHref} />}<ThemeToggle /></div><SalonSwitcher current={currentSalon} memberships={membershipList} /><SidebarFooter plan={planLabel} /></div>}
+        accountControls={<div className="space-y-3"><div className="flex items-center justify-between gap-3">{role === "OWNER" && <PlanShortcut compact {...planShortcut} href={planHref} />}<ThemeToggle /></div><SalonSwitcher current={currentSalon} memberships={membershipList} /></div>}
+        accountFooter={<SidebarFooter inline plan={planLabel} />}
       />
       <CommandPalette role={role} />
       <Toaster />

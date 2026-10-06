@@ -82,13 +82,13 @@ export function PortfolioForm({
           <div>
             <label className="mb-1 block text-sm font-medium">Feito por</label>
             {lockedProfessional ? (
-              <div className="flex h-10 items-center rounded-md border border-input bg-muted px-3 text-sm">
+              <div className="flex h-11 items-center rounded-md border border-input bg-muted px-3 text-sm">
                 {lockedProfessional.name}
               </div>
             ) : (
               <select aria-label="Feito por"
                 name="professionalId"
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                className="flex h-11 w-full rounded-md border border-input bg-background px-3 text-sm"
               >
                 <option value="">Do salão (sem atribuição)</option>
                 {professionals.map((p) => (

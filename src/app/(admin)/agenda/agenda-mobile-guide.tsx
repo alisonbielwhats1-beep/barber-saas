@@ -82,7 +82,7 @@ export function AgendaMobileGuide({
           setOpen(true);
         }}
         aria-label="Como usar a agenda"
-        className="fixed bottom-[calc(80px+env(safe-area-inset-bottom))] left-3 z-40 grid h-11 w-11 place-items-center rounded-full border border-border bg-card text-muted-foreground shadow-sm md:hidden"
+        className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-border text-muted-foreground md:hidden"
       >
         <HelpCircle size={18} aria-hidden />
       </button>

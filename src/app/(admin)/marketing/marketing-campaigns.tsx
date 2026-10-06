@@ -194,7 +194,7 @@ export function MarketingCampaigns({
           </select>
           <div className="mt-2 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5">
             <p className="text-[12px] font-semibold">{current.title}</p>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">{current.description}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{current.description}</p>
           </div>
         </div>
 
@@ -207,9 +207,9 @@ export function MarketingCampaigns({
             >
               <div className="flex items-center gap-2.5">
                 <span className="grid h-9 w-9 place-items-center rounded-lg" style={{ background: `${campaign.accent}1f`, color: campaign.accent }}><campaign.icon className="h-4 w-4" /></span>
-                <div className="min-w-0 flex-1"><p className="text-[13px] font-semibold">{campaign.title}</p><p className="text-[11px] text-muted-foreground">{campaign.targets.length} clientes</p></div>
+                <div className="min-w-0 flex-1"><p className="text-[13px] font-semibold">{campaign.title}</p><p className="text-xs text-muted-foreground">{campaign.targets.length} clientes</p></div>
               </div>
-              <p className="mt-2 text-[11px] text-muted-foreground">{campaign.description}</p>
+              <p className="mt-2 text-xs text-muted-foreground">{campaign.description}</p>
             </button>
           ))}
         </div>
@@ -225,7 +225,7 @@ export function MarketingCampaigns({
             </div>
           </div>
           <textarea aria-label="Mensagem da campanha" disabled={!enabled} value={templates[active]} onChange={(event) => setTemplates((previous) => ({ ...previous, [active]: event.target.value }))} rows={4} className="w-full resize-none rounded-xl border border-border bg-background px-3 py-2.5 text-[13px] leading-relaxed focus:outline-none focus:ring-2 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-60" />
-          <p className="mt-2 text-[11px] text-muted-foreground">O benefício é comunicado por mensagem; o desconto deve ser aplicado pela equipe no fechamento. Não há aplicação automática de cupom. Personalize com {"{nome}"}, {"{cupom}"}, {"{dias}"}, {"{servico}"}, {"{link}"} e {"{avaliacao}"}.</p>
+          <p className="mt-2 text-xs text-muted-foreground">O benefício é comunicado por mensagem; o desconto deve ser aplicado pela equipe no fechamento. Não há aplicação automática de cupom. Personalize com {"{nome}"}, {"{cupom}"}, {"{dias}"}, {"{servico}"}, {"{link}"} e {"{avaliacao}"}.</p>
           <a href="#marketing-destinatarios" className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-[13px] font-semibold text-primary-foreground lg:hidden"><Users className="h-4 w-4" /> Ver destinatários ({current.targets.length})</a>
         </div>
 
@@ -233,7 +233,7 @@ export function MarketingCampaigns({
           <div className="space-y-3 border-b border-border px-4 py-3 sm:px-5">
             <div className="flex flex-wrap items-center justify-between gap-2 text-[13px] font-semibold">
               <span>{selected.size} de {current.targets.length} destinatários selecionados</span>
-              <span className="flex gap-3 text-[11px] font-medium"><button disabled={!enabled} onClick={() => selectTargets(current.targets.map((target) => target.id))} className="min-h-11 text-primary disabled:opacity-40">Todos</button><button disabled={!enabled} onClick={() => selectTargets([])} className="min-h-11 text-muted-foreground disabled:opacity-40">Nenhum</button></span>
+              <span className="flex gap-3 text-xs font-medium"><button disabled={!enabled} onClick={() => selectTargets(current.targets.map((target) => target.id))} className="min-h-11 text-primary disabled:opacity-40">Todos</button><button disabled={!enabled} onClick={() => selectTargets([])} className="min-h-11 text-muted-foreground disabled:opacity-40">Nenhum</button></span>
             </div>
             <div className="flex h-11 items-center gap-2 rounded-xl border border-border bg-background px-3"><Search className="h-3.5 w-3.5 text-muted-foreground" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar nome, telefone ou serviço" className="w-full bg-transparent text-[12px] outline-none" /></div>
           </div>
@@ -245,10 +245,10 @@ export function MarketingCampaigns({
               {shownTargets.map((target) => (
                 <div key={target.id} className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3 last:border-0 sm:flex-nowrap sm:px-5">
                   <input disabled={!enabled} type="checkbox" checked={selected.has(target.id)} onChange={() => toggleTarget(target.id)} aria-label={`Selecionar ${target.name}`} className="h-4 w-4 accent-primary" />
-                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-surface-1 text-[11px] font-semibold">{target.name.split(" ").map((part) => part[0]).slice(0, 2).join("").toUpperCase()}</span>
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-surface-1 text-xs font-semibold">{target.name.split(" ").map((part) => part[0]).slice(0, 2).join("").toUpperCase()}</span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[13px] font-medium">{target.name}</p>
-                    <p className="truncate text-[11px] text-muted-foreground">{target.phone ?? "sem telefone"}{target.daysSince != null ? ` · ${target.daysSince}d sem visitar` : ""}{target.favoriteService ? ` · ${target.favoriteService}` : ""}</p>
+                    <p className="truncate text-xs text-muted-foreground">{target.phone ?? "sem telefone"}{target.daysSince != null ? ` · ${target.daysSince}d sem visitar` : ""}{target.favoriteService ? ` · ${target.favoriteService}` : ""}</p>
                   </div>
                   <div className="flex basis-full gap-2 pl-12 sm:basis-auto sm:pl-0">
                     <button onClick={() => copyMsg(target)} disabled={!enabled || !selected.has(target.id)} className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-border px-3 text-[12px] text-muted-foreground disabled:opacity-35" title="Copiar mensagem">{copied === target.id ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}<span className="sm:hidden">{copied === target.id ? "Copiado" : "Copiar"}</span></button>
@@ -264,14 +264,14 @@ export function MarketingCampaigns({
                         }}
                         className="inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#25D366]/15 px-3 text-[12px] font-medium text-[#25D366] aria-disabled:pointer-events-none aria-disabled:opacity-35 sm:flex-none"
                       ><MessageCircle className="h-3.5 w-3.5" /><span className="sm:hidden">Enviar pelo WhatsApp</span><span className="hidden sm:inline">Enviar</span></a>
-                    ) : <span className="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg bg-surface-1 px-3 text-[11px] text-muted-foreground sm:flex-none">Sem WhatsApp</span>}
+                    ) : <span className="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg bg-surface-1 px-3 text-xs text-muted-foreground sm:flex-none">Sem WhatsApp</span>}
                   </div>
                 </div>
               ))}
             </div>
           )}
         </div>
-        <p className="text-[11px] text-muted-foreground">{enabled ? "Cada ação abre ou copia a mensagem para revisão. Nada é disparado automaticamente." : "Contrate um plano pago para liberar as ações de campanha. Nada é disparado automaticamente."}</p>
+        <p className="text-xs text-muted-foreground">{enabled ? "Cada ação abre ou copia a mensagem para revisão. Nada é disparado automaticamente." : "Contrate um plano pago para liberar as ações de campanha. Nada é disparado automaticamente."}</p>
       </div>
     </div>
   );

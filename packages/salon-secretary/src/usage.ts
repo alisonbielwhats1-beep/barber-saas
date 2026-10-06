@@ -23,6 +23,9 @@ export type ModelCallUsage = ServicesAttempt & {
   output_tokens: number | null;
   reasoning_tokens: number | null;
   total_tokens: number | null;
+  /** Owner 06/10/2026: the call's real cost as the provider reports it (OpenRouter `usage.cost`, USD), in micro-USD; absent when the
+   * provider does not report it (OpenAI Responses). The prepaid credit charges this x10 when present. */
+  cost_micro_usd?: number;
 };
 const object = (value: unknown): Record<string, unknown> =>
   value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
@@ -55,6 +58,7 @@ export function modelCallUsage(modelId: string, status: ModelCallUsage["status"]
     model_id_returned: identifier(provider.model), request_id: identifier(response?.requestId),
     response_id: identifier(response?.responseId), requests: status === "STARTED" ? null : 1,
     ...tokens,
+    ...(typeof raw.cost === "number" && Number.isFinite(raw.cost) && raw.cost >= 0 && raw.cost < 10 ? { cost_micro_usd: Math.ceil(raw.cost * 1e6) } : {}),
   };
 }
 
