@@ -43,6 +43,8 @@ Nenhum outro salão vê o botão nem consegue usar a Secretária.
 | `SALON_SECRETARY_FLOW_WINDOW`, `SALON_SECRETARY_VOICE_ENABLED`, `SALON_SECRETARY_VOICE_CORRECTION`, `SALON_SECRETARY_TRANSCRIBE_ENABLED`, `SALON_SECRETARY_TRANSCRIBE_CUSTOMER_NAMES` | `true` |
 | `SALON_SECRETARY_TRANSCRIBE_SALONS` | `<id do salão de apresentação>` |
 | `SALON_SECRETARY_TRANSCRIBE_BUDGET_USD` | `2` |
+| `SALON_SECRETARY_TRANSCRIBE_MODEL` | `gpt-transcribe` (dono, 06/10: US$ 0,0045/min cobrado por segundo; nomes vão em `keywords[]`) |
+| `SALON_SECRETARY_TRANSCRIBE_OPENAI_PROJECT` + `SALON_SECRETARY_TRANSCRIBE_OPENAI_API_KEY` | projeto "Transcribe do Everflair" na OpenAI (só voz; libera `gpt-transcribe` e os dois `gpt-4o`) e uma chave desse projeto, cadastrada pelo dono. As duas juntas ou nenhuma; sem elas, a voz usa a chave e o projeto da Secretária |
 
    `SALON_SECRETARY_CANCEL_REASON_OPTIONAL` **fica desligada**: entra no contrato do modelo e não foi certificada (ligada no
    piloto em 06/10, o portão recusou o DeepSeek com `SECRETARY_MODEL_NOT_CERTIFIED`; retirada e novo deploy). Qualquer variável de

@@ -169,7 +169,8 @@ describe("phase 3a review: the billed length is bounded by the file, and the pro
 describe("evaluation composition: program real-spend ledger, source 'transcribe' (sealed estimator 'transcriptions')", () => {
   const evaluationFetch = (network: typeof fetch, ledger: string) => guardPaidFetch("transcribe", network, { ledger, run: "transcribe:evaluation", item: "recording", estimator: transcriptionsEstimator });
   it("runtime bounds and the sealed estimator agree", () => {
-    expect(EVALUATION_URL).toBe(TRANSCRIBE_URL); expect([...TRANSCRIBE_PRICING.models]).toEqual([...TRANSCRIBE_MODELS]);
+    expect(EVALUATION_URL).toBe(TRANSCRIBE_URL); // Owner 06/10/2026: gpt-transcribe is runtime only; the sealed estimator (and its digest) keeps the two gpt-4o models.
+    expect([...TRANSCRIBE_MODELS].filter(m => m !== "gpt-transcribe")).toEqual([...TRANSCRIBE_PRICING.models]);
     expect({ maxAudioSeconds: TRANSCRIBE_PRICING.maxAudioSeconds, maxAudioBytes: TRANSCRIBE_PRICING.maxAudioBytes, upperUsdPerMinute: TRANSCRIBE_PRICING.upperUsdPerMinute }).toEqual(TRANSCRIBE_LIMITS);
     expect(programSpendEstimator("transcriptions")).toMatchObject({ name: "transcriptions", models: ["gpt-4o-mini-transcribe", "gpt-4o-transcribe"], minWorstCaseMicroUsd: WORST });
     expect(programSpendEstimator("whisper")).toBeNull();
