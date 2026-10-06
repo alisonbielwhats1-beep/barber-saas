@@ -47,3 +47,15 @@ export function accessState(sub: { paidThrough: Date | null; delinquentSince: Da
   const graceEnd = new Date(Math.max(sub.paidThrough.getTime(), sub.delinquentSince.getTime()) + 5 * 86400000);
   return now < graceEnd ? "GRACE" : "RESTRICTED";
 }
+
+/** Owner decision 06/10/2026: the Secretária is prepaid, in every plan, in packs paid once (Mercado Pago, Pix or card). The
+ * customer buys requests (pedidos: each message sent to the Secretária), never money: a later price change does not touch
+ * what was bought, and requests never expire. Priced from the average cost per request so the margin stays near 90%
+ * (about R$ 0,08 per request; each pack rounds in the customer's favor). */
+export const SECRETARY_CREDIT_PACKS = {
+  P15: { amountCents: 1500, requests: 185 },
+  P25: { amountCents: 2500, requests: 310 },
+  P40: { amountCents: 4000, requests: 500 },
+} as const;
+export type SecretaryCreditPack = keyof typeof SECRETARY_CREDIT_PACKS;
+export const secretaryCreditPack = z.enum(["P15", "P25", "P40"]);

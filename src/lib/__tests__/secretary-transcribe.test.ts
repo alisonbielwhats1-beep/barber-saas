@@ -9,6 +9,7 @@ import { secretaryGuardedFetch } from "../../../packages/salon-secretary/src/ope
 import { assertTranscriptionWire, reserveTranscriptionBudget, transcribeSecretaryAudio, transcriptionGuardedFetch, transcriptionPrompt, TRANSCRIBE_AUDIT_ENTITY,
   TRANSCRIBE_DEFAULT_MODEL, TRANSCRIBE_LIMITS, TRANSCRIBE_MAX_RESERVATION_MICRO_USD, TRANSCRIBE_MODELS, TRANSCRIBE_SERVER, TRANSCRIBE_URL, TRANSCRIBE_WORST_CASE_MICRO_USD,
   transcribeConfig, transcriptionWorstCaseMicroUsd, settleTranscriptionUsage, transcriptionUsageMicroUsd, TRANSCRIBE_STYLE } from "../secretary-transcribe";
+import { SPEND_ROW_LIMIT } from "../secretary-spend";
 
 /** C3, GPT transcription READY BUT OFF: mocked fetch only (a stub that throws guards the real network). */
 const dirs: string[] = [];
@@ -99,30 +100,35 @@ describe("guards (every refusal happens before the reservation and the network)"
   });
 });
 
-describe("own budget (per salon and UTC month, append-only AuditLog, worst case, never refunded)", () => {
+/** Voice rows as the wallet reads them (secretary-spend.ts): RESERVE rows of this month. */
+const voiceRows = (metadata: unknown[]) => metadata.map((item, i) => ({ entityId: `r${i}`, entityType: TRANSCRIBE_AUDIT_ENTITY, action: "RESERVE", metadata: item, createdAt: new Date() }));
+function walletTx(metadata: unknown[]) {
+  const created: { data: Record<string, unknown> }[] = [];
+  const tx = { $executeRaw: vi.fn(async () => 0), salon: { findUniqueOrThrow: vi.fn(async () => ({ timezone: "America/Sao_Paulo" })) },
+    auditLog: { findMany: vi.fn(async () => voiceRows(metadata)), count: vi.fn(async () => 0), create: vi.fn(async (input: { data: Record<string, unknown> }) => { created.push(input); return {}; }) } };
+  return { tx, created };
+}
+describe("the salon's monthly wallet (owner 06/10: shared with the model, salon's time zone, append-only AuditLog)", () => {
   const actor = { salonId: "ours", userId: "owner" };
-  function fakeTx(metadata: unknown[]) {
-    const created: { data: Record<string, unknown> }[] = [];
-    const tx = { $executeRaw: vi.fn(async () => 0), auditLog: { findMany: vi.fn(async () => metadata.map(item => ({ metadata: item }))), create: vi.fn(async (input: { data: Record<string, unknown> }) => { created.push(input); return {}; }) } };
-    return { tx, created };
-  }
+  const fakeTx = walletTx;
   it("unset budget is zero: refused before any reservation or network", async () => {
     const fetchFn = ok(), reserve = free();
     await expect(transcribeSecretaryAudio({ audio: audio(), seconds: 2, directory, env: env({ SALON_SECRETARY_TRANSCRIBE_BUDGET_USD: "" }), fetchFn, reserve })).rejects.toThrow("TRANSCRIBE_BUDGET");
     expect(reserve).not.toHaveBeenCalled(); expect(fetchFn).not.toHaveBeenCalled();
   });
-  it("admits while this month's reservations plus the worst case fit, and appends a codes-and-numbers row", async () => {
+  it("admits while this month's spend plus the worst case fit, and appends a codes-and-numbers row", async () => {
     const { tx, created } = fakeTx([{ worst_case_micro_usd: WORST }]);
     const now = new Date("2027-06-14T12:00:00Z");
-    expect(await reserveTranscriptionBudget(tx as never, actor, { worstCaseMicroUsd: WORST, budgetMicroUsd: 2 * WORST, model: "gpt-4o-mini-transcribe", bytes: 2048, salons: ["ours"] }, now)).toEqual({ spentMicroUsd: 2 * WORST });
+    expect(await reserveTranscriptionBudget(tx as never, actor, { worstCaseMicroUsd: WORST, budgetMicroUsd: 2 * WORST, model: "gpt-4o-mini-transcribe", bytes: 2048, salons: ["ours"] }, now)).toEqual({ spentMicroUsd: 2 * WORST, reservationId: expect.any(String) });
     expect(tx.$executeRaw).toHaveBeenCalledOnce();
-    expect(tx.auditLog.findMany).toHaveBeenCalledWith({ where: { salonId: "ours", entityType: TRANSCRIBE_AUDIT_ENTITY, action: "RESERVE", createdAt: { gte: new Date("2027-06-01T00:00:00Z") } }, select: { metadata: true }, take: 1001 });
+    // The month starts at midnight in the salon's time zone (São Paulo, UTC−3).
+    expect(tx.auditLog.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ salonId: "ours", createdAt: { gte: new Date("2027-06-01T03:00:00Z") } }) }));
     expect(created[0].data).toMatchObject({ salonId: "ours", userId: "owner", entityType: TRANSCRIBE_AUDIT_ENTITY, action: "RESERVE",
       metadata: { worst_case_micro_usd: WORST, model: "gpt-4o-mini-transcribe", audio_bytes: 2048 } });
   });
   it("refuses a call that does not fit; unreadable rows count at the worst case; an unbounded month fails closed", async () => {
     const input = { worstCaseMicroUsd: WORST, budgetMicroUsd: 2 * WORST, model: "gpt-4o-mini-transcribe", bytes: 1, salons: ["ours"] };
-    for (const rows of [[{ worst_case_micro_usd: WORST }, { worst_case_micro_usd: 1 }], [null, "x"], Array.from({ length: 1001 }, () => ({ worst_case_micro_usd: 1 }))]) {
+    for (const rows of [[{ worst_case_micro_usd: WORST }, { worst_case_micro_usd: 1 }], [null, "x"], Array.from({ length: SPEND_ROW_LIMIT + 1 }, () => ({ worst_case_micro_usd: 1 }))]) {
       const { tx, created } = fakeTx(rows);
       await expect(reserveTranscriptionBudget(tx as never, actor, { ...input, budgetMicroUsd: rows.length > 1000 ? 5_000_000 : input.budgetMicroUsd })).rejects.toThrow("TRANSCRIBE_BUDGET");
       expect(created).toHaveLength(0);
@@ -224,6 +230,14 @@ describe("usage settlement (owner decision 03/10/2026: transcription on in the l
     expect(settle).toHaveBeenCalledExactlyOnceWith({ reservedMicroUsd: transcriptionWorstCaseMicroUsd(recording.size, 4.2), actualMicroUsd: 475, seconds: 4.2, bytes: recording.size,
       model: "gpt-4o-mini-transcribe" });
   });
+  it("the settlement names the reservation it settles (owner 06/10: the wallet counts the reported cost)", async () => {
+    const settle = vi.fn(async () => undefined), reserve = vi.fn(async () => ({ spentMicroUsd: 1, reservationId: "res-1" }));
+    await transcribeSecretaryAudio({ audio: audio(), seconds: 2, directory, env: env(), fetchFn: ok({ text: "oi", usage: usage() }), reserve, settle });
+    expect(settle).toHaveBeenCalledWith(expect.objectContaining({ reservationId: "res-1" }));
+    const created: { data: Record<string, unknown> }[] = [], tx = { auditLog: { create: vi.fn(async (input: { data: Record<string, unknown> }) => { created.push(input); return {}; }) } };
+    await settleTranscriptionUsage(tx as never, actor, { reservedMicroUsd: 1_000, actualMicroUsd: 2_500, seconds: 60, bytes: 400_000, model: "gpt-4o-mini-transcribe", reservationId: "res-1" });
+    expect(created.map(row => (row.data.metadata as Record<string, unknown>).reservation_id)).toEqual(["res-1", "res-1"]);
+  });
   it("an empty transcript is settled (the call was billed) before it is refused; a failed settlement never loses the text", async () => {
     const settle = vi.fn(async () => undefined);
     await expect(transcribeSecretaryAudio({ audio: audio(), seconds: 1, directory, env: env(), fetchFn: ok({ text: " ", usage: usage() }), reserve: free(), settle })).rejects.toThrow("TRANSCRIBE_EMPTY");
@@ -249,8 +263,7 @@ describe("usage settlement (owner decision 03/10/2026: transcription on in the l
     expect(created.map(row => row.data.action)).toEqual(["USAGE"]);
   });
   it("an overrun row counts in the month's budget like any reservation", async () => {
-    const rows = [{ worst_case_micro_usd: 50_000 }, { worst_case_micro_usd: 40_000, kind: "OVERRUN" }];
-    const tx = { $executeRaw: vi.fn(async () => 0), auditLog: { findMany: vi.fn(async () => rows.map(metadata => ({ metadata }))), create: vi.fn(async () => ({})) } };
+    const { tx } = walletTx([{ worst_case_micro_usd: 50_000 }, { worst_case_micro_usd: 40_000, kind: "OVERRUN" }]);
     await expect(reserveTranscriptionBudget(tx as never, actor, { worstCaseMicroUsd: 20_000, budgetMicroUsd: 100_000, model: "gpt-4o-mini-transcribe", bytes: 1, salons: ["ours"] }))
       .rejects.toThrow("TRANSCRIBE_BUDGET");
     expect(tx.auditLog.create).not.toHaveBeenCalled();

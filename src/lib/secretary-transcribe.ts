@@ -1,13 +1,15 @@
 import { randomUUID } from "node:crypto";
 import type { Tx } from "./prisma-tenant";
 import type { ServiceActor } from "./service-catalog";
+import { monthlyBudgetMicroUsd, salonSpend } from "./secretary-spend";
 
 /** C3 voice, GPT transcription: off by default (owner decision 28/09/2026); on in the local demo since the owner's decision
- * of 03/10/2026 (US$ 2 per listed salon and UTC month; scripts/dev-agenda-test.cjs).
+ * of 03/10/2026 (scripts/dev-agenda-test.cjs). Since 06/10/2026 its budget is the salon's monthly wallet (secretary-spend.ts),
+ * shared with the model and counted in the salon's time zone.
  * The recorder's audio goes to the audio transcription endpoint only when SALON_SECRETARY_TRANSCRIBE_ENABLED=true AND
  * paid calls are allowed AND a transcription budget is set. Its own guard: one allowlisted URL, fixed multipart fields,
- * allowlisted models, size and duration caps. Its own budget: every call is reserved at its worst case in the salon's
- * append-only AuditLog before the network (per salon and UTC month). Evaluation runners compose the same guarded fetch
+ * allowlisted models, size and duration caps. The wallet: every call is reserved at its worst case in the salon's
+ * append-only AuditLog before the network, and counts at its reported cost once settled. Evaluation runners compose the same guarded fetch
  * with the program real-spend ledger (source 'transcribe', sealed estimator 'transcriptions'); runtime code never imports
  * evaluation code. The Luna cost guard (openai-cost-guard.ts) is neither used nor widened. The vocabulary prompt carries
  * professional and service names; customers' names only with SALON_SECRETARY_TRANSCRIBE_CUSTOMER_NAMES (owner decision 05/10,
@@ -41,12 +43,14 @@ const FIELDS = ["file", "model", "language", "response_format", "prompt"];
 const model = (value: unknown): value is (typeof TRANSCRIBE_MODELS)[number] => (TRANSCRIBE_MODELS as readonly unknown[]).includes(value);
 
 export function transcribeEnabled(env: Env = process.env) { return env.SALON_SECRETARY_TRANSCRIBE_ENABLED === "true"; }
-/** Budget per salon and UTC month (USD); unset = 0, so enabling needs an explicit budget too. */
+/** The salon's monthly wallet (USD), which needs an explicit setting to transcribe: SALON_SECRETARY_MONTHLY_BUDGET_USD, or the
+ * older SALON_SECRETARY_TRANSCRIBE_BUDGET_USD (0 to 5); neither set = 0. */
 export function transcribeConfig(env: Env = process.env) {
   if (!transcribeEnabled(env)) throw Error("TRANSCRIBE_DISABLED");
   if (env.SALON_SECRETARY_ALLOW_PAID_CALLS !== "true") throw Error("PAID_CALLS_DISABLED");
-  const chosen = env.SALON_SECRETARY_TRANSCRIBE_MODEL?.trim() || TRANSCRIBE_DEFAULT_MODEL, budget = Number(env.SALON_SECRETARY_TRANSCRIBE_BUDGET_USD || "0");
-  if (!model(chosen) || !Number.isFinite(budget) || budget < 0 || budget > 5) throw Error("TRANSCRIBE_CONFIGURATION_REQUIRED");
+  const chosen = env.SALON_SECRETARY_TRANSCRIBE_MODEL?.trim() || TRANSCRIBE_DEFAULT_MODEL, legacy = Number(env.SALON_SECRETARY_TRANSCRIBE_BUDGET_USD || "0");
+  if (!model(chosen) || !Number.isFinite(legacy) || legacy < 0 || legacy > 5) throw Error("TRANSCRIBE_CONFIGURATION_REQUIRED");
+  const budget = env.SALON_SECRETARY_MONTHLY_BUDGET_USD || legacy > 0 ? monthlyBudgetMicroUsd(env) / 1e6 : 0;
   const salons = [...new Set((env.SALON_SECRETARY_TRANSCRIBE_SALONS ?? "").split(",").map(salon => salon.trim()).filter(Boolean))];
   if (!salons.length || salons.length * budget > TRANSCRIBE_SERVER.programCapUsd) throw Error("TRANSCRIBE_CONFIGURATION_REQUIRED");
   const apiKey = env.SALON_SECRETARY_OPENAI_API_KEY, project = env.SALON_SECRETARY_OPENAI_PROJECT;
@@ -121,25 +125,19 @@ export function transcriptionGuardedFetch(fetchFn: typeof fetch, chosen: string,
   };
 }
 export type TranscriptionReservation = { worstCaseMicroUsd: number; budgetMicroUsd: number; model: string; bytes: number; salons: readonly string[] };
-const reservedOf = (metadata: unknown) => {
-  const value = (metadata as { worst_case_micro_usd?: unknown } | null)?.worst_case_micro_usd;
-  // An unreadable row still counts, at the largest reservation: the budget never reads as more headroom than it has.
-  return typeof value === "number" && Number.isSafeInteger(value) && value > 0 ? value : TRANSCRIBE_MAX_RESERVATION_MICRO_USD;
-};
-/** Own budget: only a listed salon (the program cap); under a per-salon advisory lock, this UTC month's reservations plus
- * this call's worst case must fit the budget; the reservation row (codes and numbers only) is appended before the network
- * and is never refunded. */
+/** The wallet: only a listed salon (the program cap); under a per-salon advisory lock, this month's spend of the salon (its time
+ * zone; model calls, settled recordings at their reported cost and unsettled ones at their worst case, unreadable rows at the
+ * largest reservation; secretary-spend.ts) plus this call's worst case must fit the budget. The reservation row (codes and
+ * numbers only) is appended before the network. A month past the row bound fails closed. */
 export async function reserveTranscriptionBudget(tx: Tx, actor: ServiceActor, input: TranscriptionReservation, now = new Date()) {
   if (!input.salons?.includes(actor.salonId)) throw Error("TRANSCRIBE_DISABLED");
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${TRANSCRIBE_AUDIT_ENTITY}:${actor.salonId}`}, 0))`;
-  const since = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-  const rows = await tx.auditLog.findMany({ where: { salonId: actor.salonId, entityType: TRANSCRIBE_AUDIT_ENTITY, action: "RESERVE", createdAt: { gte: since } },
-    select: { metadata: true }, take: 1001 });
-  const spent = rows.reduce((total, row) => total + reservedOf(row.metadata), 0);
-  if (rows.length > 1000 || spent + input.worstCaseMicroUsd > input.budgetMicroUsd) throw Error("TRANSCRIBE_BUDGET");
+  const spend = await salonSpend(tx, actor.salonId, now), spent = spend.month.totalMicroUsd;
+  if (spend.overflow || spent + input.worstCaseMicroUsd > input.budgetMicroUsd) throw Error("TRANSCRIBE_BUDGET");
+  const reservationId = randomUUID();
   await tx.auditLog.create({ data: { salonId: actor.salonId, userId: actor.userId, actorName: "Secretária — transcrição", entityType: TRANSCRIBE_AUDIT_ENTITY,
-    entityId: randomUUID(), action: "RESERVE", metadata: { worst_case_micro_usd: input.worstCaseMicroUsd, model: input.model, audio_bytes: input.bytes } } });
-  return { spentMicroUsd: spent + input.worstCaseMicroUsd };
+    entityId: reservationId, action: "RESERVE", metadata: { worst_case_micro_usd: input.worstCaseMicroUsd, model: input.model, audio_bytes: input.bytes } } });
+  return { spentMicroUsd: spent + input.worstCaseMicroUsd, reservationId };
 }
 /** Upper-bound list prices (USD per 1M tokens) of the admitted models, for the usage the provider reports with each
  * transcription; a duration usage is priced at the per-minute ceiling. */
@@ -157,17 +155,20 @@ export function transcriptionUsageMicroUsd(usage: unknown, chosen: string): numb
   // Input tokens without a split are priced as audio (the dearer kind).
   return Math.ceil(((audio || text ? audio : input) * prices.audio + (audio || text ? text : 0) * prices.text + output * prices.output));
 }
-export type TranscriptionSettlement = { reservedMicroUsd: number; actualMicroUsd: number | null; seconds: number; bytes: number; model: string };
+/** `reservationId`: the RESERVE row this call settles, so the salon's wallet (secretary-spend.ts) counts the reported cost instead
+ * of the worst case once the call is settled. */
+export type TranscriptionSettlement = { reservedMicroUsd: number; actualMicroUsd: number | null; seconds: number; bytes: number; model: string; reservationId?: string };
 /** After the call: one USAGE row (numbers and codes only) with the reported cost, the declared seconds and the file size;
  * when the reported cost passes the reservation, the difference is appended as one more RESERVE (kind OVERRUN), so the
  * month's budget counts the real length of the audio (the open risk of a file longer than its size bound). Never refunds. */
 export async function settleTranscriptionUsage(tx: Tx, actor: ServiceActor, input: TranscriptionSettlement) {
   const row = { salonId: actor.salonId, userId: actor.userId, actorName: "Secretária — transcrição", entityType: TRANSCRIBE_AUDIT_ENTITY };
+  const link = input.reservationId ? { reservation_id: input.reservationId } : {};
   await tx.auditLog.create({ data: { ...row, entityId: randomUUID(), action: "USAGE", metadata: { reserved_micro_usd: input.reservedMicroUsd,
-    actual_micro_usd: input.actualMicroUsd, audio_seconds: Math.round(input.seconds * 10) / 10, audio_bytes: input.bytes, model: input.model } } });
+    actual_micro_usd: input.actualMicroUsd, audio_seconds: Math.round(input.seconds * 10) / 10, audio_bytes: input.bytes, model: input.model, ...link } } });
   const over = input.actualMicroUsd === null ? 0 : input.actualMicroUsd - input.reservedMicroUsd;
   if (over > 0) await tx.auditLog.create({ data: { ...row, entityId: randomUUID(), action: "RESERVE",
-    metadata: { worst_case_micro_usd: over, model: input.model, audio_bytes: input.bytes, kind: "OVERRUN" } } });
+    metadata: { worst_case_micro_usd: over, model: input.model, audio_bytes: input.bytes, kind: "OVERRUN", ...link } } });
 }
 /** One recording → text for the input box. Every refusal happens before the reservation or the network call. `settle`
  * (optional) records the provider-reported usage after the call; its failure never loses the transcript. */
@@ -179,14 +180,15 @@ export async function transcribeSecretaryAudio(input: { audio: unknown; seconds:
   assertTranscriptionWire(url, init, config.model);
   const worstCaseMicroUsd = transcriptionWorstCaseMicroUsd(input.audio.size, input.seconds as number);
   if (worstCaseMicroUsd > config.budgetMicroUsd) throw Error("TRANSCRIBE_BUDGET");
-  await input.reserve({ worstCaseMicroUsd, budgetMicroUsd: config.budgetMicroUsd, model: config.model, bytes: input.audio.size, salons: config.salons });
+  const reserved = await input.reserve({ worstCaseMicroUsd, budgetMicroUsd: config.budgetMicroUsd, model: config.model, bytes: input.audio.size, salons: config.salons });
+  const reservationId = (reserved as { reservationId?: unknown } | undefined)?.reservationId;
   const response = await transcriptionGuardedFetch(input.fetchFn ?? globalThis.fetch, config.model, env)(url, init);
   if (!response.ok) throw Error("TRANSCRIBE_FAILED");
   let json: unknown; try { json = await response.json(); } catch { throw Error("TRANSCRIBE_FAILED"); }
   // The call was billed whatever its text: the usage is recorded first.
   if (input.settle) {
     const settlement = { reservedMicroUsd: worstCaseMicroUsd, actualMicroUsd: transcriptionUsageMicroUsd((json as { usage?: unknown })?.usage, config.model) ?? null,
-      seconds: input.seconds as number, bytes: input.audio.size, model: config.model };
+      seconds: input.seconds as number, bytes: input.audio.size, model: config.model, ...(typeof reservationId === "string" ? { reservationId } : {}) };
     try { await input.settle(settlement); } catch { console.error("SECRETARY_TRANSCRIBE_SETTLE_FAILED"); }
   }
   const raw = typeof (json as { text?: unknown })?.text === "string" ? (json as { text: string }).text.replace(/\s+/g, " ").trim().slice(0, 1000) : "";

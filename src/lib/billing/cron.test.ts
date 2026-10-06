@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-const mocks = vi.hoisted(() => ({ worker: vi.fn(), enabled: vi.fn() }));
+const mocks = vi.hoisted(() => ({ worker: vi.fn(), enabled: vi.fn(), credits: vi.fn() }));
 vi.mock("@/lib/billing/worker", () => ({ runBillingWorker: mocks.worker }));
+vi.mock("@/lib/billing/credits-provider", () => ({ reconcilePendingCreditPurchases: mocks.credits }));
 vi.mock("@/lib/billing/config", () => ({ billingEnabled: mocks.enabled }));
 vi.mock("@/lib/billing/http", () => ({
   billingJson: (body: unknown, status = 200) => Response.json(body, { status }),
@@ -17,13 +18,23 @@ describe("billing reconciler credentials", () => {
     vi.stubEnv("BILLING_CRON_SECRET", "dedicated-billing-key");
     mocks.enabled.mockReturnValue(true);
     mocks.worker.mockResolvedValue({ processed: 1, failed: 0 });
+    mocks.credits.mockResolvedValue({ checked: 0 });
   });
   afterEach(() => vi.unstubAllEnvs());
   it("accepts the billing key and processes only one unit", async () => {
     const response = await GET(request("dedicated-billing-key"));
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ processed: 1, failed: 0 });
+    expect(await response.json()).toEqual({ processed: 1, failed: 0, credits: { checked: 0 } });
     expect(mocks.worker).toHaveBeenCalledExactlyOnceWith(1);
+    expect(mocks.credits).toHaveBeenCalledExactlyOnceWith(20);
+  });
+  it("a failure reconciling Secretária packs never fails the subscriptions' run (owner, 06/10/2026)", async () => {
+    mocks.credits.mockRejectedValue(new Error("DOWN"));
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const response = await GET(request("dedicated-billing-key"));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ processed: 1, failed: 0, credits: null });
+    log.mockRestore();
   });
   it.each([undefined, "wrong-key", "legacy-reminder-key"])("rejects %s when a dedicated key is configured", async secret => {
     expect((await GET(request(secret))).status).toBe(401);

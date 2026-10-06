@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
 /** Owner decision 05/10/2026: the Secretária in Production only for the presentation salon's owner, with a US$ 1 daily cap. */
-const db = vi.hoisted(() => ({ calls: [] as unknown[], voice: [] as unknown[], queried: 0 }));
+const db = vi.hoisted(() => ({ rows: [] as unknown[], queried: 0 }));
 vi.mock("../prisma-tenant", () => ({ withTenant: (_actor: unknown, fn: (tx: unknown) => unknown) => fn({
   salon: { findUniqueOrThrow: async () => ({ timezone: "America/Sao_Paulo" }) },
-  auditLog: { findMany: async ({ where }: { where: { entityType: string } }) => { db.queried++; return where.entityType === "SECRETARY_TRANSCRIBE" ? db.voice : db.calls; } },
+  auditLog: { findMany: async () => { db.queried++; return db.rows; }, count: async () => 0 },
 }) }));
-import { assertPilotActor, assertSecretaryDailyBudget, callMicroUsd, pilotActors, productionPilotActive } from "../secretary-production-pilot";
+import { assertPilotActor, assertSecretaryBudget, pilotActors, productionPilotActive } from "../secretary-production-pilot";
 import { assertSecretaryRolloutAccess } from "../secretary-rollout";
 
 const owner = { salonId: "salao-apresentacao", userId: "dono-apresentacao" };
@@ -36,25 +36,34 @@ describe("Production pilot gate", () => {
   });
 });
 
-describe("daily spend cap", () => {
-  const deepseek = (input: number, output: number) => ({ metadata: { model_id_requested: "deepseek/deepseek-v4.1-flash", input_tokens: input, cached_input_tokens: 0, cache_write_tokens: 0, output_tokens: output } });
-  it("prices a call from its tokens and the registry", () => {
-    expect(callMicroUsd(deepseek(1_000_000, 0).metadata)).toBeCloseTo(450_000);
-    expect(callMicroUsd(deepseek(0, 1_000_000).metadata)).toBeCloseTo(2_400_000);
-    expect(callMicroUsd({ model_id_requested: "unknown", input_tokens: 1_000_000 })).toBeCloseTo(450_000);
-  });
+describe("daily and monthly spend caps (owner 05/10 and 06/10)", () => {
+  const now = new Date("2026-10-20T15:00:00Z"), today = new Date("2026-10-20T13:00:00Z"), earlier = new Date("2026-10-03T13:00:00Z");
+  const call = (input: number, output: number, createdAt = today) => ({ entityId: "c", entityType: "SALON_SECRETARY_USAGE", action: "MODEL_CALL_FINISHED", createdAt,
+    metadata: { model_id_requested: "deepseek/deepseek-v4.1-flash", input_tokens: input, cached_input_tokens: 0, cache_write_tokens: 0, output_tokens: output } });
+  const voice = (worst: number, createdAt = today) => ({ entityId: "r", entityType: "SECRETARY_TRANSCRIBE", action: "RESERVE", createdAt, metadata: { worst_case_micro_usd: worst } });
   it("lets a turn through under the cap and refuses it once the day's calls and voice reach US$ 1", async () => {
-    db.calls = [deepseek(1_000_000, 0)]; db.voice = [{ metadata: { worst_case_micro_usd: 20_000 } }];
-    await expect(assertSecretaryDailyBudget(owner, pilot)).resolves.toBeUndefined();
-    db.calls = [deepseek(1_000_000, 0), deepseek(0, 200_000)]; // 0.45 + 0.48 + 0.02 voice = 0.95
-    await expect(assertSecretaryDailyBudget(owner, pilot)).resolves.toBeUndefined();
-    db.voice = [...db.voice, { metadata: { worst_case_micro_usd: 60_000 } }]; // 1.01
-    await expect(assertSecretaryDailyBudget(owner, pilot)).rejects.toThrow("SECRETARY_DAILY_BUDGET");
-    await expect(assertSecretaryDailyBudget(owner, { ...pilot, SALON_SECRETARY_DAILY_BUDGET_USD: "3" })).resolves.toBeUndefined();
+    db.rows = [call(1_000_000, 0), voice(20_000)];
+    await expect(assertSecretaryBudget(owner, pilot, now)).resolves.toBeUndefined();
+    db.rows = [call(1_000_000, 0), call(0, 200_000), voice(20_000)]; // 0.45 + 0.48 + 0.02 voice = 0.95
+    await expect(assertSecretaryBudget(owner, pilot, now)).resolves.toBeUndefined();
+    db.rows = [...db.rows, voice(60_000)]; // 1.01
+    await expect(assertSecretaryBudget(owner, pilot, now)).rejects.toThrow("SECRETARY_DAILY_BUDGET");
+    await expect(assertSecretaryBudget(owner, { ...pilot, SALON_SECRETARY_DAILY_BUDGET_USD: "3" }, now)).resolves.toBeUndefined();
+  });
+  it("refuses once the month reaches the wallet, even on a quiet day", async () => {
+    db.rows = [call(0, 2_000_000, earlier)]; // US$ 4.80 earlier this month
+    await expect(assertSecretaryBudget(owner, pilot, now)).resolves.toBeUndefined();
+    db.rows = [call(0, 2_000_000, earlier), voice(250_000, earlier)]; // US$ 5.05
+    await expect(assertSecretaryBudget(owner, pilot, now)).rejects.toThrow("SECRETARY_MONTHLY_BUDGET");
+    await expect(assertSecretaryBudget(owner, { ...pilot, SALON_SECRETARY_MONTHLY_BUDGET_USD: "10" }, now)).resolves.toBeUndefined();
+  });
+  it("with prepaid requests on, the caps protect every salon, pilot or not (owner 06/10)", async () => {
+    db.rows = [call(0, 2_000_000, earlier), voice(250_000, earlier)]; // US$ 5.05 this month
+    await expect(assertSecretaryBudget(owner, { SALON_SECRETARY_CREDITS_ENABLED: "true" }, now)).rejects.toThrow("SECRETARY_MONTHLY_BUDGET");
   });
   it("never queries outside the Production pilot", async () => {
     db.queried = 0;
-    await assertSecretaryDailyBudget(owner, { ...pilot, VERCEL_ENV: "preview" });
+    await assertSecretaryBudget(owner, { ...pilot, VERCEL_ENV: "preview" });
     expect(db.queried).toBe(0);
   });
 });

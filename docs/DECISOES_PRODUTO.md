@@ -1,5 +1,30 @@
 # Decisões de produto para as próximas fases
 
+## 06/10/2026 — custo e cobrança da Secretária
+
+A Secretária usa só dois serviços pagos: o DeepSeek V4.1 Flash (OpenRouter) para
+entender os pedidos e o GPT Transcribe (OpenAI) para a voz. O Jev não é usado
+na Secretária. Cada salão tem uma carteira mensal única, que soma os dois, com
+um teto diário de segurança.
+
+A cobrança será pré-paga e valerá para todos os planos: pacotes fixos
+(R$ 15, R$ 25 e R$ 40) pagos por Mercado Pago ou Pix, convertidos em pedidos
+(cada mensagem enviada à Secretária, digitada ou falada). A meta é 90% de
+margem sem ficar caro para o cliente. O ponto de partida é R$ 0,06 por pedido
+(R$ 15 = 250 pedidos), e o preço final só é fixado depois de cerca de uma semana
+de custo real no piloto (relatório do HQ). A voz é o que mais pesa no custo. Se
+a margem medida ficar abaixo da meta, as opções são subir o preço do pedido,
+contar o pedido por voz como dois ou voltar para a transcrição mini; a escolha
+fica com o responsável. Isto substitui a linha "Preço/consumo da futura IA não
+estão definidos".
+
+Complemento do mesmo dia: o preço segue a média de custo por pedido (cerca de
+R$ 0,08). Os pacotes ficam R$ 15 = 185, R$ 25 = 310 e R$ 40 = 500 pedidos. A
+recarga soma ao saldo, os pedidos não expiram e todos os papéis veem o número
+de pedidos; só o dono recarrega. O aviso aparece abaixo de 20%. Só a mensagem
+concluída consome um pedido, e um estorno devolve a parte que pagou. Regras e
+passos para ligar: `docs/SECRETARY_CREDITS.md`.
+
 ## 03/10/2026 — motivo do cancelamento de reserva opcional
 
 O responsável decidiu que o motivo não é necessário para cancelar uma reserva.

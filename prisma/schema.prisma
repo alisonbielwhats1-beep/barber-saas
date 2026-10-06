@@ -1435,6 +1435,55 @@ model SalonClosure {
 // Trilha de auditoria para ações sensíveis (hoje: overbooking deliberado).
 // Append-only por design — a role de runtime só tem GRANT de SELECT/INSERT
 // nesta tabela (ver 007_fase2.sql), sem UPDATE/DELETE.
+/// Owner decision 06/10/2026: the Secretária's prepaid requests (pedidos). Append-only (029: no UPDATE or DELETE); every row
+/// carries the balance and the bar's 100% right after it, written under a per-salon lock (src/lib/secretary-credits.ts).
+model SecretaryCreditLedger {
+  id                String   @id @default(uuid()) @db.Uuid
+  seq               BigInt   @unique @default(autoincrement())
+  salonId           String
+  kind              String
+  requests          Int
+  balanceAfter      Int
+  baseAfter         Int
+  requestKey        String
+  purchaseId        String?  @db.Uuid
+  providerPaymentId String?
+  actorUserId       String?
+  reason            String?
+  createdAt         DateTime @default(now()) @db.Timestamptz(3)
+
+  @@unique([salonId, requestKey])
+  @@index([salonId, seq])
+  @@index([salonId, kind, createdAt])
+}
+
+/// One Checkout Pro purchase of a Secretária pack (reference efc:{salonId}:{id}). The quote (pack, amount, requests,
+/// expiry) is immutable (029 trigger).
+model SecretaryCreditPurchase {
+  id                String    @id @default(uuid()) @db.Uuid
+  salonId           String
+  requestKey        String
+  actorUserId       String
+  packCode          String
+  amountCents       Int
+  requests          Int
+  state             String    @default("CREATED")
+  expiresAt         DateTime  @db.Timestamptz(3)
+  creationStartedAt DateTime? @db.Timestamptz(3)
+  preferenceId      String?   @unique
+  checkoutUrl       String?
+  providerPaymentId String?   @unique
+  paidAt            DateTime? @db.Timestamptz(3)
+  refundedCents     Int       @default(0)
+  lastError         String?
+  createdAt         DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime  @updatedAt @db.Timestamptz(3)
+
+  @@unique([salonId, requestKey])
+  @@index([salonId, createdAt])
+  @@index([state, createdAt])
+}
+
 model AuditLog {
   id         String   @id @default(cuid())
   salonId    String
