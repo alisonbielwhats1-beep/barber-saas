@@ -119,6 +119,34 @@ it("mantém confirmações independentes de término e encaixe e invalida após 
   expect(mocks.edit.mock.calls[3][0]).not.toHaveProperty("scheduleOverrideReason");
 });
 
+describe("cancelamento com motivo opcional", () => {
+  function openCancel() {
+    render(<AppointmentDetail appt={appt} salonName="Salão fictício" timezone="America/Sao_Paulo" canCreate canCancel onClose={mocks.close} />);
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar agendamento" }));
+  }
+  it("confirma sem motivo e sem focar o campo (o teclado não sobe no celular)", async () => {
+    mocks.cancel.mockResolvedValue({ success: true });
+    openCancel();
+    const reason = screen.getByLabelText("Motivo do cancelamento (opcional)");
+    expect(reason).toHaveValue("");
+    expect(reason).not.toHaveFocus();
+    expect(screen.getByRole("heading", { name: "Cancelar este agendamento?" })).toHaveFocus();
+    const confirm = screen.getByRole("button", { name: "Confirmar cancelamento" });
+    expect(confirm).toBeEnabled();
+    fireEvent.click(confirm);
+    await waitFor(() => expect(mocks.cancel).toHaveBeenCalledOnce());
+    expect(mocks.cancel.mock.calls[0]).toEqual(["a", undefined, expect.any(String), 1]);
+  });
+  it("envia o motivo digitado sem espaços nas pontas", async () => {
+    mocks.cancel.mockResolvedValue({ success: true });
+    openCancel();
+    fireEvent.change(screen.getByLabelText("Motivo do cancelamento (opcional)"), { target: { value: "  Imprevisto da cliente  " } });
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar cancelamento" }));
+    await waitFor(() => expect(mocks.cancel).toHaveBeenCalledOnce());
+    expect(mocks.cancel.mock.calls[0][1]).toBe("Imprevisto da cliente");
+  });
+});
+
 describe("fila de espera no detalhe do agendamento", () => {
   const entry = {
     id: "entry-a", name: "Aline Prata", phone: "11957908895", serviceName: "Corte de cabelo masculino", position: 1,
@@ -149,7 +177,7 @@ describe("fila de espera no detalhe do agendamento", () => {
     mountQueue(mocks.schedule);
     fireEvent.click(screen.getByRole("button", { name: /Cancelar agendamento/ }));
     expect(screen.getByText(/ninguém entra no horário sozinho/)).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Motivo do cancelamento"), { target: { value: "Cliente desmarcou" } });
+    fireEvent.change(screen.getByLabelText("Motivo do cancelamento (opcional)"), { target: { value: "Cliente desmarcou" } });
     fireEvent.click(screen.getByRole("checkbox", { name: /Passar este horário para Aline Prata/ }));
     fireEvent.click(screen.getByRole("button", { name: "Cancelar e passar o horário" }));
     await waitFor(() => expect(mocks.cancelAndPromote).toHaveBeenCalledWith(expect.objectContaining({
@@ -163,7 +191,7 @@ describe("fila de espera no detalhe do agendamento", () => {
     mocks.cancelAndPromote.mockResolvedValue({ error: "O horário não serve para a primeira pessoa da fila. Nada foi cancelado." });
     mountQueue(mocks.schedule);
     fireEvent.click(screen.getByRole("button", { name: /Cancelar agendamento/ }));
-    fireEvent.change(screen.getByLabelText("Motivo do cancelamento"), { target: { value: "Cliente desmarcou" } });
+    fireEvent.change(screen.getByLabelText("Motivo do cancelamento (opcional)"), { target: { value: "Cliente desmarcou" } });
     fireEvent.click(screen.getByRole("checkbox", { name: /Passar este horário/ }));
     fireEvent.click(screen.getByRole("button", { name: "Cancelar e passar o horário" }));
     expect((await screen.findByRole("alert")).textContent).toContain("Nada foi cancelado");

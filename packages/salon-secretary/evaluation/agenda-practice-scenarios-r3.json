@@ -1,0 +1,272 @@
+[
+  {
+    "id": "C01",
+    "title": "Correção do profissional",
+    "capability": [
+      "create",
+      "correction",
+      "professional"
+    ],
+    "steps": [
+      {
+        "say": "Marca a Amanda amanhã às 10h para Corte Completo com a Tatiana."
+      },
+      {
+        "say": "Na verdade, coloca com o Ricardo."
+      },
+      {
+        "confirm": true
+      }
+    ]
+  },
+  {
+    "id": "C02",
+    "title": "Remarcar no mesmo horário em outro dia",
+    "capability": [
+      "reschedule"
+    ],
+    "appointments": [
+      {
+        "key": "amanda_d1",
+        "customer": "amanda",
+        "professional": "tatiana",
+        "service": "escova",
+        "day": 1,
+        "time": "10:00"
+      }
+    ],
+    "steps": [
+      {
+        "say": "Remarca a Amanda para depois de amanhã no mesmo horário."
+      },
+      {
+        "confirm": true
+      }
+    ],
+    "answers": {
+      "time": "Às 10h."
+    }
+  },
+  {
+    "id": "C03",
+    "title": "Sinônimo de cancelar",
+    "capability": [
+      "cancel"
+    ],
+    "appointments": [
+      {
+        "key": "joao_d1",
+        "customer": "joao",
+        "professional": "ricardo",
+        "service": "corte",
+        "day": 1,
+        "time": "14:00"
+      }
+    ],
+    "answers": {
+      "reason": "Ele pediu para desmarcar."
+    },
+    "steps": [
+      {
+        "say": "Desmarca o João de amanhã."
+      },
+      {
+        "confirm": true
+      }
+    ]
+  },
+  {
+    "id": "C04",
+    "title": "Disponibilidade sem profissional",
+    "capability": [
+      "availability"
+    ],
+    "answers": {
+      "professional_ref": "Com a Tatiana."
+    },
+    "steps": [
+      {
+        "say": "Tem horário amanhã de manhã para Corte Completo?"
+      }
+    ]
+  },
+  {
+    "id": "C05",
+    "title": "Bloqueio de almoço",
+    "capability": [
+      "block"
+    ],
+    "steps": [
+      {
+        "say": "Bloqueia a Tatiana amanhã das 12h às 13h para almoço."
+      },
+      {
+        "confirm": true
+      }
+    ]
+  },
+  {
+    "id": "C06",
+    "title": "Duas criações sem conflito",
+    "capability": [
+      "create",
+      "multi-action"
+    ],
+    "steps": [
+      {
+        "say": "Marca a Carla para Escova quinta às 14h e a Rosa para Coloração no mesmo dia às 15h."
+      },
+      {
+        "confirm": true
+      }
+    ]
+  },
+  {
+    "id": "C07",
+    "title": "Negação de encaixe em outra frase",
+    "capability": [
+      "create",
+      "negation",
+      "conflict"
+    ],
+    "appointments": [
+      {
+        "key": "joao_d2",
+        "customer": "joao",
+        "professional": "tatiana",
+        "service": "corte",
+        "day": 2,
+        "time": "09:30"
+      }
+    ],
+    "steps": [
+      {
+        "say": "Marca a Rosa para Escova depois de amanhã às 9h45 com a Tatiana. Se tiver conflito, não quero encaixe."
+      },
+      {
+        "say": "Então às 11h."
+      },
+      {
+        "confirm": true
+      }
+    ]
+  },
+  {
+    "id": "C08",
+    "title": "Cancelar e avisar o cliente",
+    "capability": [
+      "cancel",
+      "communication",
+      "multi-action"
+    ],
+    "appointments": [
+      {
+        "key": "joao_d1",
+        "customer": "joao",
+        "professional": "ricardo",
+        "service": "corte",
+        "day": 1,
+        "time": "14:00"
+      }
+    ],
+    "answers": {
+      "channel": "Pelo WhatsApp.",
+      "content": "Pode sugerir um texto educado."
+    },
+    "steps": [
+      {
+        "say": "Cancela o João das 14h de amanhã, ele avisou que está doente, e manda uma mensagem para ele avisando."
+      }
+    ]
+  },
+  {
+    "id": "C09",
+    "title": "Remarcar um e cancelar outro na mesma frase",
+    "capability": [
+      "reschedule",
+      "cancel",
+      "multi-action"
+    ],
+    "appointments": [
+      {
+        "key": "fabio_d1",
+        "customer": "fabio",
+        "professional": "ricardo",
+        "service": "barba",
+        "day": 1,
+        "time": "16:00"
+      },
+      {
+        "key": "carla_fri",
+        "customer": "carla",
+        "professional": "tatiana",
+        "service": "escova",
+        "day": 5,
+        "time": "11:00"
+      }
+    ],
+    "steps": [
+      {
+        "say": "Muda o horário do Fábio de amanhã para as 17h e cancela a Carla de sexta, ela está doente."
+      },
+      {
+        "confirm": true
+      }
+    ],
+    "answers": {
+      "time": "Às 17h."
+    }
+  },
+  {
+    "id": "C10",
+    "title": "Desistir depois da proposta",
+    "capability": [
+      "conversation",
+      "safety"
+    ],
+    "steps": [
+      {
+        "say": "Marca a Carla amanhã às 15h para Escova."
+      },
+      {
+        "say": "Não, deixa. Não marca nada."
+      }
+    ]
+  },
+  {
+    "id": "C11",
+    "title": "Serviço faltando",
+    "capability": [
+      "create",
+      "clarification"
+    ],
+    "answers": {
+      "service_ref": "Escova.",
+      "service_name": "Escova."
+    },
+    "steps": [
+      {
+        "say": "Marca a Amanda amanhã às 10h."
+      },
+      {
+        "confirm": true
+      }
+    ]
+  },
+  {
+    "id": "C12",
+    "title": "Atribuição automática do único profissional",
+    "capability": [
+      "create",
+      "professional"
+    ],
+    "steps": [
+      {
+        "say": "Coloca o Fábio às 16h amanhã para Barba."
+      },
+      {
+        "confirm": true
+      }
+    ]
+  }
+]

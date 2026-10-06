@@ -59,9 +59,12 @@ export function AppointmentDialog({
   canRepeat,
   timezone,
   initialClient,
+  initialServiceIds,
   waitlist,
 }: {
   initialClient?: ClientOption;
+  /** Preselected services (a deep link); the owner still reviews and confirms, and incompatible ones are flagged. */
+  initialServiceIds?: readonly string[];
   waitlist?: WaitlistPrefill;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -125,7 +128,7 @@ export function AppointmentDialog({
   const matchingClients = clientQuery.trim().length >= 2 ? clientResults : clients;
   const clientOptions = chosenClient
     ? [chosenClient, ...matchingClients.filter(client => client.id !== chosenClient.id)] : matchingClients;
-  const [selectedServices, setSelectedServices] = useState<string[]>(waitlist?.serviceIds ?? []);
+  const [selectedServices, setSelectedServices] = useState<string[]>(() => waitlist?.serviceIds ?? [...(initialServiceIds ?? [])]);
   const [loadingLast, setLoadingLast] = useState(false);
   const [lastMessage, setLastMessage] = useState<string | null>(null);
   const lastRequest = useRef(0);

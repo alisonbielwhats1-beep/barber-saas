@@ -73,12 +73,7 @@ export type PotentialClientMatch = {
  * Telefone compartilhado, reciclado ou digitado incorretamente exige revisão
  * humana; por isso o resultado é sempre "possível correspondência".
  */
-export async function findPotentialClientMatches(
-  tx: Tx,
-  salonId: string,
-  input: ClientIdentityInput,
-  excludeId?: string,
-): Promise<PotentialClientMatch[]> {
+export function potentialClientMatchWhere(salonId: string, input: ClientIdentityInput, excludeId?: string): Prisma.ClientProfileWhereInput | null {
   const identity = normalizeClientIdentity(input);
   const or: Prisma.ClientProfileWhereInput[] = [];
 
@@ -89,15 +84,20 @@ export async function findPotentialClientMatches(
     or.push({ phone: identity.phoneNormalized });
     or.push({ phone: `55${identity.phoneNormalized}` });
   }
-  if (or.length === 0) return [];
+  if (!or.length) return null;
+  return { salonId, mergedIntoId: null, ...(excludeId ? { id: { not: excludeId } } : {}), OR: or };
+}
 
+export async function findPotentialClientMatches(
+  tx: Tx,
+  salonId: string,
+  input: ClientIdentityInput,
+  excludeId?: string,
+): Promise<PotentialClientMatch[]> {
+  const where = potentialClientMatchWhere(salonId, input, excludeId);
+  if (!where) return [];
   return tx.clientProfile.findMany({
-    where: {
-      salonId,
-      mergedIntoId: null,
-      ...(excludeId ? { id: { not: excludeId } } : {}),
-      OR: or,
-    },
+    where,
     select: {
       id: true,
       name: true,

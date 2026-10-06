@@ -1,0 +1,4 @@
+/** Shared interpretation contract; entity resolution remains exclusively in the backend. */
+export const entityExtractionInstructions = `Entidades: preserve o nome completo mencionado, incluindo todos os sobrenomes e qualificadores, em customer_name/recipient_name. Não divida uma expressão nominal para preencher outro campo opcional.
+service_name e professional_name exigem menções próprias com esses papéis; se não informados, retorne null/ausência. Parte do nome de cliente não é evidência de serviço. Não complete campos opcionais apenas porque existem no schema.
+No cancelamento seguido de mensagem à mesma pessoa, preserve o nome completo no cancelamento e no destinatário; pronomes podem referir-se à pessoa já mencionada, nunca a outro cadastro. Se a separação de entidades for ambígua, peça esclarecimento; não invente separação, nomes ou referências.`;

@@ -1,0 +1,4943 @@
+{
+  "version": "wave1-fail-closed-continuation-v1",
+  "executed": false,
+  "requiresSeparateAuthorization": true,
+  "wave": 1,
+  "priorReportSha256": "6b7d524c4b13e163450fd7404f38f2544c0069c8b8e35adae35db2fa7b06797b",
+  "frozenPlanSha256": "0db86b3cd6087cfaa6a1d8403aeeb481ca2d718cf4afa61df5c0cabe380e2de7",
+  "datasetHash": "7f544f9609dbeff4cf95cadc3902ed9a8eadd1fe08416126d29e63a952289775",
+  "payloadsHash": "2afdac98bac99b5aecfb24a11b4f4c483f4750303bbfc4766257e59bc29cfa19",
+  "catalog": {
+    "version": "decision-derivations-v1",
+    "hash": "0300667615177bf9d96bb9c96a9f055ff99041db111b0e9fb78e48f407434791",
+    "publicationHash": "5fbee1d13f738e4a7e57c678dbe701590e757c8dde3367cba754b551ea715d0b"
+  },
+  "preservedCases": [
+    "f01",
+    "f02",
+    "f03",
+    "f04"
+  ],
+  "priorEvaluations": 4,
+  "priorHttp": 7,
+  "remainingCases": [
+    {
+      "id": "f05",
+      "wave": 1,
+      "tag": "PARAPHRASE",
+      "message": "Qual o total dos pagamentos recebidos ontem?",
+      "classification": {
+        "caseId": "f05",
+        "currentCategory": "B",
+        "currentRoute": "FORCED_LUNA",
+        "proposedValue": "FULL_JEV_BYPASS",
+        "evidenceState": "CALIBRATION_CANDIDATE",
+        "boundary": "READ_ONLY_CANDIDATE",
+        "skills": [
+          "financial"
+        ],
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "fullBypassPotential": true,
+        "routingOnlyPotential": false,
+        "linguisticDecisions": [
+          "skill",
+          "shape",
+          "metric",
+          "period"
+        ],
+        "derivations": [
+          {
+            "dimension": "operation",
+            "operation": "financial.report",
+            "source": {
+              "skill": "financial",
+              "dimension": "metric",
+              "value": "received_revenue"
+            },
+            "catalogVersion": "decision-derivations-v1",
+            "catalogHash": "0300667615177bf9d96bb9c96a9f055ff99041db111b0e9fb78e48f407434791",
+            "publicationHash": "5fbee1d13f738e4a7e57c678dbe701590e757c8dde3367cba754b551ea715d0b",
+            "evidence": "src/financial-skill.ts#financialRequirements"
+          }
+        ],
+        "backendResolution": [
+          "timezone",
+          "absolute_period",
+          "Payment.paidAt",
+          "values",
+          "differences",
+          "percentages",
+          "rankings",
+          "authorization"
+        ],
+        "lunaRequirement": "No open fields in this oracle; new inputs still fall back under unchanged v1 policy",
+        "evidence": [
+          {
+            "path": "packages/salon-secretary/src/financial-skill.ts",
+            "anchor": "published manual/schema",
+            "kind": "domain_test",
+            "note": "New synthetic oracle reviewed against published selectors; not an observed JEV output"
+          },
+          {
+            "path": "docs/SECRETARIA_GATE_2_5.md",
+            "anchor": "Gate 2.5",
+            "kind": "gate_report",
+            "note": "Cenário/semântica comprovados no Gate; fixture sem IDs reais."
+          },
+          {
+            "path": "src/lib/__tests__/secretary-financial.integration.test.ts",
+            "anchor": "paidAt",
+            "kind": "domain_test",
+            "note": "Expected revisado contra o contrato/backend, não inferido de resposta futura do provedor."
+          },
+          {
+            "path": "packages/salon-secretary/evaluation/luna-baselines.json",
+            "anchor": "financial-received",
+            "kind": "real_output",
+            "note": "Projeção sanitizada de sucesso real validado pelo backend. O output de fragmentação anterior é negativo; não é gabarito."
+          }
+        ],
+        "missingEvidence": [
+          "intent-level coverage beyond historical micro-sample",
+          "per-intent adversarial calibration",
+          "future intent-based acceptance design/approval"
+        ]
+      },
+      "expected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "yesterday",
+          "metric": "received_revenue",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": false,
+        "domainFields": {
+          "metrics": [
+            "received_revenue"
+          ],
+          "period": "yesterday"
+        }
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Qual o total dos pagamentos recebidos ontem?",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detailBySkill": {
+          "financial": {
+            "model": "jev-1.13.0",
+            "state": {
+              "message": "Qual o total dos pagamentos recebidos ontem?",
+              "context": {},
+              "selected_skill": "financial",
+              "selection_source": "prior_jev_discovery"
+            },
+            "questions": {
+              "metric": {
+                "type": "choice",
+                "instructions": "Qual métrica financeira? Faturamento sem qualificador=service_revenue; com produtos=realized_revenue; recebido=received_revenue; a receber=outstanding_receivables; atendimentos realizados=completed_count; ticket médio=average_ticket; multiple para várias. none fora de Financial; unclear se não suportada (lucro/taxas/estornos). Nunca calcular valores.",
+                "criteria": {
+                  "service_revenue": null,
+                  "realized_revenue": null,
+                  "received_revenue": null,
+                  "outstanding_receivables": null,
+                  "completed_count": null,
+                  "average_ticket": null,
+                  "multiple": null,
+                  "none": null,
+                  "unclear": null
+                }
+              },
+              "period": {
+                "type": "choice",
+                "instructions": "Qual período financeiro explícito? today=hoje, yesterday=ontem, this_week=esta semana, last_week=semana passada, this_month=este mês, last_month=mês passado. comparison para comparar períodos; none sem período financeiro; unclear se ambíguo. Não converter datas.",
+                "criteria": {
+                  "today": null,
+                  "yesterday": null,
+                  "this_week": null,
+                  "last_week": null,
+                  "this_month": null,
+                  "last_month": null,
+                  "comparison": null,
+                  "none": null,
+                  "unclear": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "f06",
+      "wave": 1,
+      "tag": "PERIOD",
+      "message": "Quanto recebi este mês?",
+      "classification": {
+        "caseId": "f06",
+        "currentCategory": "B",
+        "currentRoute": "FORCED_LUNA",
+        "proposedValue": "FULL_JEV_BYPASS",
+        "evidenceState": "CALIBRATION_CANDIDATE",
+        "boundary": "READ_ONLY_CANDIDATE",
+        "skills": [
+          "financial"
+        ],
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "fullBypassPotential": true,
+        "routingOnlyPotential": false,
+        "linguisticDecisions": [
+          "skill",
+          "shape",
+          "metric",
+          "period"
+        ],
+        "derivations": [
+          {
+            "dimension": "operation",
+            "operation": "financial.report",
+            "source": {
+              "skill": "financial",
+              "dimension": "metric",
+              "value": "received_revenue"
+            },
+            "catalogVersion": "decision-derivations-v1",
+            "catalogHash": "0300667615177bf9d96bb9c96a9f055ff99041db111b0e9fb78e48f407434791",
+            "publicationHash": "5fbee1d13f738e4a7e57c678dbe701590e757c8dde3367cba754b551ea715d0b",
+            "evidence": "src/financial-skill.ts#financialRequirements"
+          }
+        ],
+        "backendResolution": [
+          "timezone",
+          "absolute_period",
+          "Payment.paidAt",
+          "values",
+          "differences",
+          "percentages",
+          "rankings",
+          "authorization"
+        ],
+        "lunaRequirement": "No open fields in this oracle; new inputs still fall back under unchanged v1 policy",
+        "evidence": [
+          {
+            "path": "packages/salon-secretary/src/financial-skill.ts",
+            "anchor": "published manual/schema",
+            "kind": "domain_test",
+            "note": "New synthetic oracle reviewed against published selectors; not an observed JEV output"
+          },
+          {
+            "path": "docs/SECRETARIA_GATE_2_5.md",
+            "anchor": "Gate 2.5",
+            "kind": "gate_report",
+            "note": "Cenário/semântica comprovados no Gate; fixture sem IDs reais."
+          },
+          {
+            "path": "src/lib/__tests__/secretary-financial.integration.test.ts",
+            "anchor": "paidAt",
+            "kind": "domain_test",
+            "note": "Expected revisado contra o contrato/backend, não inferido de resposta futura do provedor."
+          },
+          {
+            "path": "packages/salon-secretary/evaluation/luna-baselines.json",
+            "anchor": "financial-received",
+            "kind": "real_output",
+            "note": "Projeção sanitizada de sucesso real validado pelo backend. O output de fragmentação anterior é negativo; não é gabarito."
+          }
+        ],
+        "missingEvidence": [
+          "intent-level coverage beyond historical micro-sample",
+          "per-intent adversarial calibration",
+          "future intent-based acceptance design/approval"
+        ]
+      },
+      "expected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "this_month",
+          "metric": "received_revenue",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": false,
+        "domainFields": {
+          "metrics": [
+            "received_revenue"
+          ],
+          "period": "this_month"
+        }
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Quanto recebi este mês?",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detailBySkill": {
+          "financial": {
+            "model": "jev-1.13.0",
+            "state": {
+              "message": "Quanto recebi este mês?",
+              "context": {},
+              "selected_skill": "financial",
+              "selection_source": "prior_jev_discovery"
+            },
+            "questions": {
+              "metric": {
+                "type": "choice",
+                "instructions": "Qual métrica financeira? Faturamento sem qualificador=service_revenue; com produtos=realized_revenue; recebido=received_revenue; a receber=outstanding_receivables; atendimentos realizados=completed_count; ticket médio=average_ticket; multiple para várias. none fora de Financial; unclear se não suportada (lucro/taxas/estornos). Nunca calcular valores.",
+                "criteria": {
+                  "service_revenue": null,
+                  "realized_revenue": null,
+                  "received_revenue": null,
+                  "outstanding_receivables": null,
+                  "completed_count": null,
+                  "average_ticket": null,
+                  "multiple": null,
+                  "none": null,
+                  "unclear": null
+                }
+              },
+              "period": {
+                "type": "choice",
+                "instructions": "Qual período financeiro explícito? today=hoje, yesterday=ontem, this_week=esta semana, last_week=semana passada, this_month=este mês, last_month=mês passado. comparison para comparar períodos; none sem período financeiro; unclear se ambíguo. Não converter datas.",
+                "criteria": {
+                  "today": null,
+                  "yesterday": null,
+                  "this_week": null,
+                  "last_week": null,
+                  "this_month": null,
+                  "last_month": null,
+                  "comparison": null,
+                  "none": null,
+                  "unclear": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "f07",
+      "wave": 1,
+      "tag": "DIRECT",
+      "message": "Quanto tenho a receber?",
+      "classification": {
+        "caseId": "f07",
+        "currentCategory": "B",
+        "currentRoute": "FORCED_LUNA",
+        "proposedValue": "FULL_JEV_BYPASS",
+        "evidenceState": "CALIBRATION_CANDIDATE",
+        "boundary": "READ_ONLY_CANDIDATE",
+        "skills": [
+          "financial"
+        ],
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "fullBypassPotential": true,
+        "routingOnlyPotential": false,
+        "linguisticDecisions": [
+          "skill",
+          "shape",
+          "metric",
+          "period"
+        ],
+        "derivations": [
+          {
+            "dimension": "operation",
+            "operation": "financial.report",
+            "source": {
+              "skill": "financial",
+              "dimension": "metric",
+              "value": "outstanding_receivables"
+            },
+            "catalogVersion": "decision-derivations-v1",
+            "catalogHash": "0300667615177bf9d96bb9c96a9f055ff99041db111b0e9fb78e48f407434791",
+            "publicationHash": "5fbee1d13f738e4a7e57c678dbe701590e757c8dde3367cba754b551ea715d0b",
+            "evidence": "src/financial-skill.ts#financialRequirements"
+          }
+        ],
+        "backendResolution": [
+          "timezone",
+          "absolute_period",
+          "Payment.paidAt",
+          "values",
+          "differences",
+          "percentages",
+          "rankings",
+          "authorization"
+        ],
+        "lunaRequirement": "No open fields in this oracle; new inputs still fall back under unchanged v1 policy",
+        "evidence": [
+          {
+            "path": "packages/salon-secretary/src/financial-skill.ts",
+            "anchor": "published manual/schema",
+            "kind": "domain_test",
+            "note": "New synthetic oracle reviewed against published selectors; not an observed JEV output"
+          },
+          {
+            "path": "docs/SECRETARIA_GATE_2_5.md",
+            "anchor": "Gate 2.5",
+            "kind": "gate_report",
+            "note": "Cenário/semântica comprovados no Gate; fixture sem IDs reais."
+          },
+          {
+            "path": "src/lib/__tests__/secretary-financial.integration.test.ts",
+            "anchor": "outstanding",
+            "kind": "domain_test",
+            "note": "Expected revisado contra o contrato/backend, não inferido de resposta futura do provedor."
+          },
+          {
+            "path": "packages/salon-secretary/evaluation/luna-baselines.json",
+            "anchor": "financial-outstanding",
+            "kind": "real_output",
+            "note": "Projeção sanitizada de sucesso real validado pelo backend. O output de fragmentação anterior é negativo; não é gabarito."
+          }
+        ],
+        "missingEvidence": [
+          "intent-level coverage beyond historical micro-sample",
+          "per-intent adversarial calibration",
+          "future intent-based acceptance design/approval"
+        ]
+      },
+      "expected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "none",
+          "metric": "outstanding_receivables",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": false,
+        "domainFields": {
+          "metrics": [
+            "outstanding_receivables"
+          ],
+          "period": null
+        }
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Quanto tenho a receber?",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detailBySkill": {
+          "financial": {
+            "model": "jev-1.13.0",
+            "state": {
+              "message": "Quanto tenho a receber?",
+              "context": {},
+              "selected_skill": "financial",
+              "selection_source": "prior_jev_discovery"
+            },
+            "questions": {
+              "metric": {
+                "type": "choice",
+                "instructions": "Qual métrica financeira? Faturamento sem qualificador=service_revenue; com produtos=realized_revenue; recebido=received_revenue; a receber=outstanding_receivables; atendimentos realizados=completed_count; ticket médio=average_ticket; multiple para várias. none fora de Financial; unclear se não suportada (lucro/taxas/estornos). Nunca calcular valores.",
+                "criteria": {
+                  "service_revenue": null,
+                  "realized_revenue": null,
+                  "received_revenue": null,
+                  "outstanding_receivables": null,
+                  "completed_count": null,
+                  "average_ticket": null,
+                  "multiple": null,
+                  "none": null,
+                  "unclear": null
+                }
+              },
+              "period": {
+                "type": "choice",
+                "instructions": "Qual período financeiro explícito? today=hoje, yesterday=ontem, this_week=esta semana, last_week=semana passada, this_month=este mês, last_month=mês passado. comparison para comparar períodos; none sem período financeiro; unclear se ambíguo. Não converter datas.",
+                "criteria": {
+                  "today": null,
+                  "yesterday": null,
+                  "this_week": null,
+                  "last_week": null,
+                  "this_month": null,
+                  "last_month": null,
+                  "comparison": null,
+                  "none": null,
+                  "unclear": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "f08",
+      "wave": 1,
+      "tag": "PARAPHRASE",
+      "message": "Qual é o saldo atual a receber dos atendimentos concluídos ainda sem pagamento?",
+      "classification": {
+        "caseId": "f08",
+        "currentCategory": "B",
+        "currentRoute": "FORCED_LUNA",
+        "proposedValue": "FULL_JEV_BYPASS",
+        "evidenceState": "CALIBRATION_CANDIDATE",
+        "boundary": "READ_ONLY_CANDIDATE",
+        "skills": [
+          "financial"
+        ],
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "fullBypassPotential": true,
+        "routingOnlyPotential": false,
+        "linguisticDecisions": [
+          "skill",
+          "shape",
+          "metric",
+          "period"
+        ],
+        "derivations": [
+          {
+            "dimension": "operation",
+            "operation": "financial.report",
+            "source": {
+              "skill": "financial",
+              "dimension": "metric",
+              "value": "outstanding_receivables"
+            },
+            "catalogVersion": "decision-derivations-v1",
+            "catalogHash": "0300667615177bf9d96bb9c96a9f055ff99041db111b0e9fb78e48f407434791",
+            "publicationHash": "5fbee1d13f738e4a7e57c678dbe701590e757c8dde3367cba754b551ea715d0b",
+            "evidence": "src/financial-skill.ts#financialRequirements"
+          }
+        ],
+        "backendResolution": [
+          "timezone",
+          "absolute_period",
+          "Payment.paidAt",
+          "values",
+          "differences",
+          "percentages",
+          "rankings",
+          "authorization"
+        ],
+        "lunaRequirement": "No open fields in this oracle; new inputs still fall back under unchanged v1 policy",
+        "evidence": [
+          {
+            "path": "packages/salon-secretary/src/financial-skill.ts",
+            "anchor": "published manual/schema",
+            "kind": "domain_test",
+            "note": "New synthetic oracle reviewed against published selectors; not an observed JEV output"
+          },
+          {
+            "path": "docs/SECRETARIA_GATE_2_5.md",
+            "anchor": "Gate 2.5",
+            "kind": "gate_report",
+            "note": "Cenário/semântica comprovados no Gate; fixture sem IDs reais."
+          },
+          {
+            "path": "src/lib/__tests__/secretary-financial.integration.test.ts",
+            "anchor": "outstanding",
+            "kind": "domain_test",
+            "note": "Expected revisado contra o contrato/backend, não inferido de resposta futura do provedor."
+          },
+          {
+            "path": "packages/salon-secretary/evaluation/luna-baselines.json",
+            "anchor": "financial-outstanding",
+            "kind": "real_output",
+            "note": "Projeção sanitizada de sucesso real validado pelo backend. O output de fragmentação anterior é negativo; não é gabarito."
+          }
+        ],
+        "missingEvidence": [
+          "intent-level coverage beyond historical micro-sample",
+          "per-intent adversarial calibration",
+          "future intent-based acceptance design/approval"
+        ]
+      },
+      "expected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "none",
+          "metric": "outstanding_receivables",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": false,
+        "domainFields": {
+          "metrics": [
+            "outstanding_receivables"
+          ],
+          "period": null
+        }
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Qual é o saldo atual a receber dos atendimentos concluídos ainda sem pagamento?",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detailBySkill": {
+          "financial": {
+            "model": "jev-1.13.0",
+            "state": {
+              "message": "Qual é o saldo atual a receber dos atendimentos concluídos ainda sem pagamento?",
+              "context": {},
+              "selected_skill": "financial",
+              "selection_source": "prior_jev_discovery"
+            },
+            "questions": {
+              "metric": {
+                "type": "choice",
+                "instructions": "Qual métrica financeira? Faturamento sem qualificador=service_revenue; com produtos=realized_revenue; recebido=received_revenue; a receber=outstanding_receivables; atendimentos realizados=completed_count; ticket médio=average_ticket; multiple para várias. none fora de Financial; unclear se não suportada (lucro/taxas/estornos). Nunca calcular valores.",
+                "criteria": {
+                  "service_revenue": null,
+                  "realized_revenue": null,
+                  "received_revenue": null,
+                  "outstanding_receivables": null,
+                  "completed_count": null,
+                  "average_ticket": null,
+                  "multiple": null,
+                  "none": null,
+                  "unclear": null
+                }
+              },
+              "period": {
+                "type": "choice",
+                "instructions": "Qual período financeiro explícito? today=hoje, yesterday=ontem, this_week=esta semana, last_week=semana passada, this_month=este mês, last_month=mês passado. comparison para comparar períodos; none sem período financeiro; unclear se ambíguo. Não converter datas.",
+                "criteria": {
+                  "today": null,
+                  "yesterday": null,
+                  "this_week": null,
+                  "last_week": null,
+                  "this_month": null,
+                  "last_month": null,
+                  "comparison": null,
+                  "none": null,
+                  "unclear": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "f09",
+      "wave": 1,
+      "tag": "PARAPHRASE",
+      "message": "Qual o valor em aberto dos atendimentos concluídos sem pagamento, incluindo serviços e produtos?",
+      "classification": {
+        "caseId": "f09",
+        "currentCategory": "B",
+        "currentRoute": "FORCED_LUNA",
+        "proposedValue": "FULL_JEV_BYPASS",
+        "evidenceState": "CALIBRATION_CANDIDATE",
+        "boundary": "READ_ONLY_CANDIDATE",
+        "skills": [
+          "financial"
+        ],
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "fullBypassPotential": true,
+        "routingOnlyPotential": false,
+        "linguisticDecisions": [
+          "skill",
+          "shape",
+          "metric",
+          "period"
+        ],
+        "derivations": [
+          {
+            "dimension": "operation",
+            "operation": "financial.report",
+            "source": {
+              "skill": "financial",
+              "dimension": "metric",
+              "value": "outstanding_receivables"
+            },
+            "catalogVersion": "decision-derivations-v1",
+            "catalogHash": "0300667615177bf9d96bb9c96a9f055ff99041db111b0e9fb78e48f407434791",
+            "publicationHash": "5fbee1d13f738e4a7e57c678dbe701590e757c8dde3367cba754b551ea715d0b",
+            "evidence": "src/financial-skill.ts#financialRequirements"
+          }
+        ],
+        "backendResolution": [
+          "timezone",
+          "absolute_period",
+          "Payment.paidAt",
+          "values",
+          "differences",
+          "percentages",
+          "rankings",
+          "authorization"
+        ],
+        "lunaRequirement": "No open fields in this oracle; new inputs still fall back under unchanged v1 policy",
+        "evidence": [
+          {
+            "path": "packages/salon-secretary/src/financial-skill.ts",
+            "anchor": "published manual/schema",
+            "kind": "domain_test",
+            "note": "New synthetic oracle reviewed against published selectors; not an observed JEV output"
+          },
+          {
+            "path": "docs/SECRETARIA_GATE_2_5.md",
+            "anchor": "Gate 2.5",
+            "kind": "gate_report",
+            "note": "Cenário/semântica comprovados no Gate; fixture sem IDs reais."
+          },
+          {
+            "path": "src/lib/__tests__/secretary-financial.integration.test.ts",
+            "anchor": "outstanding",
+            "kind": "domain_test",
+            "note": "Expected revisado contra o contrato/backend, não inferido de resposta futura do provedor."
+          },
+          {
+            "path": "packages/salon-secretary/evaluation/luna-baselines.json",
+            "anchor": "financial-outstanding",
+            "kind": "real_output",
+            "note": "Projeção sanitizada de sucesso real validado pelo backend. O output de fragmentação anterior é negativo; não é gabarito."
+          }
+        ],
+        "missingEvidence": [
+          "intent-level coverage beyond historical micro-sample",
+          "per-intent adversarial calibration",
+          "future intent-based acceptance design/approval"
+        ]
+      },
+      "expected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "none",
+          "metric": "outstanding_receivables",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": false,
+        "domainFields": {
+          "metrics": [
+            "outstanding_receivables"
+          ],
+          "period": null
+        }
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Qual o valor em aberto dos atendimentos concluídos sem pagamento, incluindo serviços e produtos?",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detailBySkill": {
+          "financial": {
+            "model": "jev-1.13.0",
+            "state": {
+              "message": "Qual o valor em aberto dos atendimentos concluídos sem pagamento, incluindo serviços e produtos?",
+              "context": {},
+              "selected_skill": "financial",
+              "selection_source": "prior_jev_discovery"
+            },
+            "questions": {
+              "metric": {
+                "type": "choice",
+                "instructions": "Qual métrica financeira? Faturamento sem qualificador=service_revenue; com produtos=realized_revenue; recebido=received_revenue; a receber=outstanding_receivables; atendimentos realizados=completed_count; ticket médio=average_ticket; multiple para várias. none fora de Financial; unclear se não suportada (lucro/taxas/estornos). Nunca calcular valores.",
+                "criteria": {
+                  "service_revenue": null,
+                  "realized_revenue": null,
+                  "received_revenue": null,
+                  "outstanding_receivables": null,
+                  "completed_count": null,
+                  "average_ticket": null,
+                  "multiple": null,
+                  "none": null,
+                  "unclear": null
+                }
+              },
+              "period": {
+                "type": "choice",
+                "instructions": "Qual período financeiro explícito? today=hoje, yesterday=ontem, this_week=esta semana, last_week=semana passada, this_month=este mês, last_month=mês passado. comparison para comparar períodos; none sem período financeiro; unclear se ambíguo. Não converter datas.",
+                "criteria": {
+                  "today": null,
+                  "yesterday": null,
+                  "this_week": null,
+                  "last_week": null,
+                  "this_month": null,
+                  "last_month": null,
+                  "comparison": null,
+                  "none": null,
+                  "unclear": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "f10",
+      "wave": 1,
+      "tag": "DIRECT",
+      "message": "Qual foi meu ticket médio ontem?",
+      "classification": {
+        "caseId": "f10",
+        "currentCategory": "B",
+        "currentRoute": "FORCED_LUNA",
+        "proposedValue": "FULL_JEV_BYPASS",
+        "evidenceState": "CALIBRATION_CANDIDATE",
+        "boundary": "READ_ONLY_CANDIDATE",
+        "skills": [
+          "financial"
+        ],
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "fullBypassPotential": true,
+        "routingOnlyPotential": false,
+        "linguisticDecisions": [
+          "skill",
+          "shape",
+          "metric",
+          "period"
+        ],
+        "derivations": [
+          {
+            "dimension": "operation",
+            "operation": "financial.report",
+            "source": {
+              "skill": "financial",
+              "dimension": "metric",
+              "value": "average_ticket"
+            },
+            "catalogVersion": "decision-derivations-v1",
+            "catalogHash": "0300667615177bf9d96bb9c96a9f055ff99041db111b0e9fb78e48f407434791",
+            "publicationHash": "5fbee1d13f738e4a7e57c678dbe701590e757c8dde3367cba754b551ea715d0b",
+            "evidence": "src/financial-skill.ts#financialRequirements"
+          }
+        ],
+        "backendResolution": [
+          "timezone",
+          "absolute_period",
+          "Payment.paidAt",
+          "values",
+          "differences",
+          "percentages",
+          "rankings",
+          "authorization"
+        ],
+        "lunaRequirement": "No open fields in this oracle; new inputs still fall back under unchanged v1 policy",
+        "evidence": [
+          {
+            "path": "packages/salon-secretary/src/financial-skill.ts",
+            "anchor": "published manual/schema",
+            "kind": "domain_test",
+            "note": "New synthetic oracle reviewed against published selectors; not an observed JEV output"
+          },
+          {
+            "path": "docs/SECRETARIA_GATE_2_5.md",
+            "anchor": "Gate 2.5",
+            "kind": "gate_report",
+            "note": "Cenário/semântica comprovados no Gate; fixture sem IDs reais."
+          },
+          {
+            "path": "src/lib/__tests__/secretary-financial.integration.test.ts",
+            "anchor": "average_ticket",
+            "kind": "domain_test",
+            "note": "Expected revisado contra o contrato/backend, não inferido de resposta futura do provedor."
+          },
+          {
+            "path": "packages/salon-secretary/evaluation/luna-baselines.json",
+            "anchor": "financial-multiple",
+            "kind": "real_output",
+            "note": "Projeção sanitizada de sucesso real validado pelo backend. O output de fragmentação anterior é negativo; não é gabarito."
+          }
+        ],
+        "missingEvidence": [
+          "intent-level coverage beyond historical micro-sample",
+          "per-intent adversarial calibration",
+          "future intent-based acceptance design/approval"
+        ]
+      },
+      "expected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "yesterday",
+          "metric": "average_ticket",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": false,
+        "domainFields": {
+          "metrics": [
+            "average_ticket"
+          ],
+          "period": "yesterday"
+        }
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Qual foi meu ticket médio ontem?",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detailBySkill": {
+          "financial": {
+            "model": "jev-1.13.0",
+            "state": {
+              "message": "Qual foi meu ticket médio ontem?",
+              "context": {},
+              "selected_skill": "financial",
+              "selection_source": "prior_jev_discovery"
+            },
+            "questions": {
+              "metric": {
+                "type": "choice",
+                "instructions": "Qual métrica financeira? Faturamento sem qualificador=service_revenue; com produtos=realized_revenue; recebido=received_revenue; a receber=outstanding_receivables; atendimentos realizados=completed_count; ticket médio=average_ticket; multiple para várias. none fora de Financial; unclear se não suportada (lucro/taxas/estornos). Nunca calcular valores.",
+                "criteria": {
+                  "service_revenue": null,
+                  "realized_revenue": null,
+                  "received_revenue": null,
+                  "outstanding_receivables": null,
+                  "completed_count": null,
+                  "average_ticket": null,
+                  "multiple": null,
+                  "none": null,
+                  "unclear": null
+                }
+              },
+              "period": {
+                "type": "choice",
+                "instructions": "Qual período financeiro explícito? today=hoje, yesterday=ontem, this_week=esta semana, last_week=semana passada, this_month=este mês, last_month=mês passado. comparison para comparar períodos; none sem período financeiro; unclear se ambíguo. Não converter datas.",
+                "criteria": {
+                  "today": null,
+                  "yesterday": null,
+                  "this_week": null,
+                  "last_week": null,
+                  "this_month": null,
+                  "last_month": null,
+                  "comparison": null,
+                  "none": null,
+                  "unclear": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "f11",
+      "wave": 1,
+      "tag": "PARAPHRASE",
+      "message": "Qual foi o faturamento médio de serviços por atendimento concluído ontem?",
+      "classification": {
+        "caseId": "f11",
+        "currentCategory": "B",
+        "currentRoute": "FORCED_LUNA",
+        "proposedValue": "FULL_JEV_BYPASS",
+        "evidenceState": "CALIBRATION_CANDIDATE",
+        "boundary": "READ_ONLY_CANDIDATE",
+        "skills": [
+          "financial"
+        ],
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "fullBypassPotential": true,
+        "routingOnlyPotential": false,
+        "linguisticDecisions": [
+          "skill",
+          "shape",
+          "metric",
+          "period"
+        ],
+        "derivations": [
+          {
+            "dimension": "operation",
+            "operation": "financial.report",
+            "source": {
+              "skill": "financial",
+              "dimension": "metric",
+              "value": "average_ticket"
+            },
+            "catalogVersion": "decision-derivations-v1",
+            "catalogHash": "0300667615177bf9d96bb9c96a9f055ff99041db111b0e9fb78e48f407434791",
+            "publicationHash": "5fbee1d13f738e4a7e57c678dbe701590e757c8dde3367cba754b551ea715d0b",
+            "evidence": "src/financial-skill.ts#financialRequirements"
+          }
+        ],
+        "backendResolution": [
+          "timezone",
+          "absolute_period",
+          "Payment.paidAt",
+          "values",
+          "differences",
+          "percentages",
+          "rankings",
+          "authorization"
+        ],
+        "lunaRequirement": "No open fields in this oracle; new inputs still fall back under unchanged v1 policy",
+        "evidence": [
+          {
+            "path": "packages/salon-secretary/src/financial-skill.ts",
+            "anchor": "published manual/schema",
+            "kind": "domain_test",
+            "note": "New synthetic oracle reviewed against published selectors; not an observed JEV output"
+          },
+          {
+            "path": "docs/SECRETARIA_GATE_2_5.md",
+            "anchor": "Gate 2.5",
+            "kind": "gate_report",
+            "note": "Cenário/semântica comprovados no Gate; fixture sem IDs reais."
+          },
+          {
+            "path": "src/lib/__tests__/secretary-financial.integration.test.ts",
+            "anchor": "average_ticket",
+            "kind": "domain_test",
+            "note": "Expected revisado contra o contrato/backend, não inferido de resposta futura do provedor."
+          },
+          {
+            "path": "packages/salon-secretary/evaluation/luna-baselines.json",
+            "anchor": "financial-multiple",
+            "kind": "real_output",
+            "note": "Projeção sanitizada de sucesso real validado pelo backend. O output de fragmentação anterior é negativo; não é gabarito."
+          }
+        ],
+        "missingEvidence": [
+          "intent-level coverage beyond historical micro-sample",
+          "per-intent adversarial calibration",
+          "future intent-based acceptance design/approval"
+        ]
+      },
+      "expected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "yesterday",
+          "metric": "average_ticket",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": false,
+        "domainFields": {
+          "metrics": [
+            "average_ticket"
+          ],
+          "period": "yesterday"
+        }
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Qual foi o faturamento médio de serviços por atendimento concluído ontem?",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detailBySkill": {
+          "financial": {
+            "model": "jev-1.13.0",
+            "state": {
+              "message": "Qual foi o faturamento médio de serviços por atendimento concluído ontem?",
+              "context": {},
+              "selected_skill": "financial",
+              "selection_source": "prior_jev_discovery"
+            },
+            "questions": {
+              "metric": {
+                "type": "choice",
+                "instructions": "Qual métrica financeira? Faturamento sem qualificador=service_revenue; com produtos=realized_revenue; recebido=received_revenue; a receber=outstanding_receivables; atendimentos realizados=completed_count; ticket médio=average_ticket; multiple para várias. none fora de Financial; unclear se não suportada (lucro/taxas/estornos). Nunca calcular valores.",
+                "criteria": {
+                  "service_revenue": null,
+                  "realized_revenue": null,
+                  "received_revenue": null,
+                  "outstanding_receivables": null,
+                  "completed_count": null,
+                  "average_ticket": null,
+                  "multiple": null,
+                  "none": null,
+                  "unclear": null
+                }
+              },
+              "period": {
+                "type": "choice",
+                "instructions": "Qual período financeiro explícito? today=hoje, yesterday=ontem, this_week=esta semana, last_week=semana passada, this_month=este mês, last_month=mês passado. comparison para comparar períodos; none sem período financeiro; unclear se ambíguo. Não converter datas.",
+                "criteria": {
+                  "today": null,
+                  "yesterday": null,
+                  "this_week": null,
+                  "last_week": null,
+                  "this_month": null,
+                  "last_month": null,
+                  "comparison": null,
+                  "none": null,
+                  "unclear": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "f12",
+      "wave": 1,
+      "tag": "PERIOD",
+      "message": "Qual foi meu ticket médio no mês passado?",
+      "classification": {
+        "caseId": "f12",
+        "currentCategory": "B",
+        "currentRoute": "FORCED_LUNA",
+        "proposedValue": "FULL_JEV_BYPASS",
+        "evidenceState": "CALIBRATION_CANDIDATE",
+        "boundary": "READ_ONLY_CANDIDATE",
+        "skills": [
+          "financial"
+        ],
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "fullBypassPotential": true,
+        "routingOnlyPotential": false,
+        "linguisticDecisions": [
+          "skill",
+          "shape",
+          "metric",
+          "period"
+        ],
+        "derivations": [
+          {
+            "dimension": "operation",
+            "operation": "financial.report",
+            "source": {
+              "skill": "financial",
+              "dimension": "metric",
+              "value": "average_ticket"
+            },
+            "catalogVersion": "decision-derivations-v1",
+            "catalogHash": "0300667615177bf9d96bb9c96a9f055ff99041db111b0e9fb78e48f407434791",
+            "publicationHash": "5fbee1d13f738e4a7e57c678dbe701590e757c8dde3367cba754b551ea715d0b",
+            "evidence": "src/financial-skill.ts#financialRequirements"
+          }
+        ],
+        "backendResolution": [
+          "timezone",
+          "absolute_period",
+          "Payment.paidAt",
+          "values",
+          "differences",
+          "percentages",
+          "rankings",
+          "authorization"
+        ],
+        "lunaRequirement": "No open fields in this oracle; new inputs still fall back under unchanged v1 policy",
+        "evidence": [
+          {
+            "path": "packages/salon-secretary/src/financial-skill.ts",
+            "anchor": "published manual/schema",
+            "kind": "domain_test",
+            "note": "New synthetic oracle reviewed against published selectors; not an observed JEV output"
+          },
+          {
+            "path": "docs/SECRETARIA_GATE_2_5.md",
+            "anchor": "Gate 2.5",
+            "kind": "gate_report",
+            "note": "Cenário/semântica comprovados no Gate; fixture sem IDs reais."
+          },
+          {
+            "path": "src/lib/__tests__/secretary-financial.integration.test.ts",
+            "anchor": "average_ticket",
+            "kind": "domain_test",
+            "note": "Expected revisado contra o contrato/backend, não inferido de resposta futura do provedor."
+          },
+          {
+            "path": "packages/salon-secretary/evaluation/luna-baselines.json",
+            "anchor": "financial-multiple",
+            "kind": "real_output",
+            "note": "Projeção sanitizada de sucesso real validado pelo backend. O output de fragmentação anterior é negativo; não é gabarito."
+          }
+        ],
+        "missingEvidence": [
+          "intent-level coverage beyond historical micro-sample",
+          "per-intent adversarial calibration",
+          "future intent-based acceptance design/approval"
+        ]
+      },
+      "expected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "last_month",
+          "metric": "average_ticket",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": false,
+        "domainFields": {
+          "metrics": [
+            "average_ticket"
+          ],
+          "period": "last_month"
+        }
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Qual foi meu ticket médio no mês passado?",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detailBySkill": {
+          "financial": {
+            "model": "jev-1.13.0",
+            "state": {
+              "message": "Qual foi meu ticket médio no mês passado?",
+              "context": {},
+              "selected_skill": "financial",
+              "selection_source": "prior_jev_discovery"
+            },
+            "questions": {
+              "metric": {
+                "type": "choice",
+                "instructions": "Qual métrica financeira? Faturamento sem qualificador=service_revenue; com produtos=realized_revenue; recebido=received_revenue; a receber=outstanding_receivables; atendimentos realizados=completed_count; ticket médio=average_ticket; multiple para várias. none fora de Financial; unclear se não suportada (lucro/taxas/estornos). Nunca calcular valores.",
+                "criteria": {
+                  "service_revenue": null,
+                  "realized_revenue": null,
+                  "received_revenue": null,
+                  "outstanding_receivables": null,
+                  "completed_count": null,
+                  "average_ticket": null,
+                  "multiple": null,
+                  "none": null,
+                  "unclear": null
+                }
+              },
+              "period": {
+                "type": "choice",
+                "instructions": "Qual período financeiro explícito? today=hoje, yesterday=ontem, this_week=esta semana, last_week=semana passada, this_month=este mês, last_month=mês passado. comparison para comparar períodos; none sem período financeiro; unclear se ambíguo. Não converter datas.",
+                "criteria": {
+                  "today": null,
+                  "yesterday": null,
+                  "this_week": null,
+                  "last_week": null,
+                  "this_month": null,
+                  "last_month": null,
+                  "comparison": null,
+                  "none": null,
+                  "unclear": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "f13",
+      "wave": 1,
+      "tag": "DIRECT",
+      "message": "Qual a receita realizada com serviços e produtos dos atendimentos concluídos ontem?",
+      "classification": {
+        "caseId": "f13",
+        "currentCategory": "B",
+        "currentRoute": "FORCED_LUNA",
+        "proposedValue": "FULL_JEV_BYPASS",
+        "evidenceState": "CALIBRATION_CANDIDATE",
+        "boundary": "READ_ONLY_CANDIDATE",
+        "skills": [
+          "financial"
+        ],
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "fullBypassPotential": true,
+        "routingOnlyPotential": false,
+        "linguisticDecisions": [
+          "skill",
+          "shape",
+          "metric",
+          "period"
+        ],
+        "derivations": [
+          {
+            "dimension": "operation",
+            "operation": "financial.report",
+            "source": {
+              "skill": "financial",
+              "dimension": "metric",
+              "value": "realized_revenue"
+            },
+            "catalogVersion": "decision-derivations-v1",
+            "catalogHash": "0300667615177bf9d96bb9c96a9f055ff99041db111b0e9fb78e48f407434791",
+            "publicationHash": "5fbee1d13f738e4a7e57c678dbe701590e757c8dde3367cba754b551ea715d0b",
+            "evidence": "src/financial-skill.ts#financialRequirements"
+          }
+        ],
+        "backendResolution": [
+          "timezone",
+          "absolute_period",
+          "Payment.paidAt",
+          "values",
+          "differences",
+          "percentages",
+          "rankings",
+          "authorization"
+        ],
+        "lunaRequirement": "No open fields in this oracle; new inputs still fall back under unchanged v1 policy",
+        "evidence": [
+          {
+            "path": "packages/salon-secretary/src/financial-skill.ts",
+            "anchor": "published manual/schema",
+            "kind": "domain_test",
+            "note": "New synthetic oracle reviewed against published selectors; not an observed JEV output"
+          }
+        ],
+        "missingEvidence": [
+          "intent-level coverage beyond historical micro-sample",
+          "per-intent adversarial calibration",
+          "future intent-based acceptance design/approval"
+        ]
+      },
+      "expected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "yesterday",
+          "metric": "realized_revenue",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": false,
+        "domainFields": {
+          "metrics": [
+            "realized_revenue"
+          ],
+          "period": "yesterday"
+        }
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Qual a receita realizada com serviços e produtos dos atendimentos concluídos ontem?",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detailBySkill": {
+          "financial": {
+            "model": "jev-1.13.0",
+            "state": {
+              "message": "Qual a receita realizada com serviços e produtos dos atendimentos concluídos ontem?",
+              "context": {},
+              "selected_skill": "financial",
+              "selection_source": "prior_jev_discovery"
+            },
+            "questions": {
+              "metric": {
+                "type": "choice",
+                "instructions": "Qual métrica financeira? Faturamento sem qualificador=service_revenue; com produtos=realized_revenue; recebido=received_revenue; a receber=outstanding_receivables; atendimentos realizados=completed_count; ticket médio=average_ticket; multiple para várias. none fora de Financial; unclear se não suportada (lucro/taxas/estornos). Nunca calcular valores.",
+                "criteria": {
+                  "service_revenue": null,
+                  "realized_revenue": null,
+                  "received_revenue": null,
+                  "outstanding_receivables": null,
+                  "completed_count": null,
+                  "average_ticket": null,
+                  "multiple": null,
+                  "none": null,
+                  "unclear": null
+                }
+              },
+              "period": {
+                "type": "choice",
+                "instructions": "Qual período financeiro explícito? today=hoje, yesterday=ontem, this_week=esta semana, last_week=semana passada, this_month=este mês, last_month=mês passado. comparison para comparar períodos; none sem período financeiro; unclear se ambíguo. Não converter datas.",
+                "criteria": {
+                  "today": null,
+                  "yesterday": null,
+                  "this_week": null,
+                  "last_week": null,
+                  "this_month": null,
+                  "last_month": null,
+                  "comparison": null,
+                  "none": null,
+                  "unclear": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "f14",
+      "wave": 1,
+      "tag": "PARAPHRASE",
+      "message": "Quanto totalizaram serviços e produtos dos atendimentos concluídos ontem?",
+      "classification": {
+        "caseId": "f14",
+        "currentCategory": "B",
+        "currentRoute": "FORCED_LUNA",
+        "proposedValue": "FULL_JEV_BYPASS",
+        "evidenceState": "CALIBRATION_CANDIDATE",
+        "boundary": "READ_ONLY_CANDIDATE",
+        "skills": [
+          "financial"
+        ],
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "fullBypassPotential": true,
+        "routingOnlyPotential": false,
+        "linguisticDecisions": [
+          "skill",
+          "shape",
+          "metric",
+          "period"
+        ],
+        "derivations": [
+          {
+            "dimension": "operation",
+            "operation": "financial.report",
+            "source": {
+              "skill": "financial",
+              "dimension": "metric",
+              "value": "realized_revenue"
+            },
+            "catalogVersion": "decision-derivations-v1",
+            "catalogHash": "0300667615177bf9d96bb9c96a9f055ff99041db111b0e9fb78e48f407434791",
+            "publicationHash": "5fbee1d13f738e4a7e57c678dbe701590e757c8dde3367cba754b551ea715d0b",
+            "evidence": "src/financial-skill.ts#financialRequirements"
+          }
+        ],
+        "backendResolution": [
+          "timezone",
+          "absolute_period",
+          "Payment.paidAt",
+          "values",
+          "differences",
+          "percentages",
+          "rankings",
+          "authorization"
+        ],
+        "lunaRequirement": "No open fields in this oracle; new inputs still fall back under unchanged v1 policy",
+        "evidence": [
+          {
+            "path": "packages/salon-secretary/src/financial-skill.ts",
+            "anchor": "published manual/schema",
+            "kind": "domain_test",
+            "note": "New synthetic oracle reviewed against published selectors; not an observed JEV output"
+          }
+        ],
+        "missingEvidence": [
+          "intent-level coverage beyond historical micro-sample",
+          "per-intent adversarial calibration",
+          "future intent-based acceptance design/approval"
+        ]
+      },
+      "expected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "yesterday",
+          "metric": "realized_revenue",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": false,
+        "domainFields": {
+          "metrics": [
+            "realized_revenue"
+          ],
+          "period": "yesterday"
+        }
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Quanto totalizaram serviços e produtos dos atendimentos concluídos ontem?",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detailBySkill": {
+          "financial": {
+            "model": "jev-1.13.0",
+            "state": {
+              "message": "Quanto totalizaram serviços e produtos dos atendimentos concluídos ontem?",
+              "context": {},
+              "selected_skill": "financial",
+              "selection_source": "prior_jev_discovery"
+            },
+            "questions": {
+              "metric": {
+                "type": "choice",
+                "instructions": "Qual métrica financeira? Faturamento sem qualificador=service_revenue; com produtos=realized_revenue; recebido=received_revenue; a receber=outstanding_receivables; atendimentos realizados=completed_count; ticket médio=average_ticket; multiple para várias. none fora de Financial; unclear se não suportada (lucro/taxas/estornos). Nunca calcular valores.",
+                "criteria": {
+                  "service_revenue": null,
+                  "realized_revenue": null,
+                  "received_revenue": null,
+                  "outstanding_receivables": null,
+                  "completed_count": null,
+                  "average_ticket": null,
+                  "multiple": null,
+                  "none": null,
+                  "unclear": null
+                }
+              },
+              "period": {
+                "type": "choice",
+                "instructions": "Qual período financeiro explícito? today=hoje, yesterday=ontem, this_week=esta semana, last_week=semana passada, this_month=este mês, last_month=mês passado. comparison para comparar períodos; none sem período financeiro; unclear se ambíguo. Não converter datas.",
+                "criteria": {
+                  "today": null,
+                  "yesterday": null,
+                  "this_week": null,
+                  "last_week": null,
+                  "this_month": null,
+                  "last_month": null,
+                  "comparison": null,
+                  "none": null,
+                  "unclear": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "f15",
+      "wave": 1,
+      "tag": "PERIOD",
+      "message": "Qual foi o faturamento incluindo produtos na semana passada?",
+      "classification": {
+        "caseId": "f15",
+        "currentCategory": "B",
+        "currentRoute": "FORCED_LUNA",
+        "proposedValue": "FULL_JEV_BYPASS",
+        "evidenceState": "CALIBRATION_CANDIDATE",
+        "boundary": "READ_ONLY_CANDIDATE",
+        "skills": [
+          "financial"
+        ],
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "fullBypassPotential": true,
+        "routingOnlyPotential": false,
+        "linguisticDecisions": [
+          "skill",
+          "shape",
+          "metric",
+          "period"
+        ],
+        "derivations": [
+          {
+            "dimension": "operation",
+            "operation": "financial.report",
+            "source": {
+              "skill": "financial",
+              "dimension": "metric",
+              "value": "realized_revenue"
+            },
+            "catalogVersion": "decision-derivations-v1",
+            "catalogHash": "0300667615177bf9d96bb9c96a9f055ff99041db111b0e9fb78e48f407434791",
+            "publicationHash": "5fbee1d13f738e4a7e57c678dbe701590e757c8dde3367cba754b551ea715d0b",
+            "evidence": "src/financial-skill.ts#financialRequirements"
+          }
+        ],
+        "backendResolution": [
+          "timezone",
+          "absolute_period",
+          "Payment.paidAt",
+          "values",
+          "differences",
+          "percentages",
+          "rankings",
+          "authorization"
+        ],
+        "lunaRequirement": "No open fields in this oracle; new inputs still fall back under unchanged v1 policy",
+        "evidence": [
+          {
+            "path": "packages/salon-secretary/src/financial-skill.ts",
+            "anchor": "published manual/schema",
+            "kind": "domain_test",
+            "note": "New synthetic oracle reviewed against published selectors; not an observed JEV output"
+          }
+        ],
+        "missingEvidence": [
+          "intent-level coverage beyond historical micro-sample",
+          "per-intent adversarial calibration",
+          "future intent-based acceptance design/approval"
+        ]
+      },
+      "expected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "last_week",
+          "metric": "realized_revenue",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": false,
+        "domainFields": {
+          "metrics": [
+            "realized_revenue"
+          ],
+          "period": "last_week"
+        }
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Qual foi o faturamento incluindo produtos na semana passada?",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detailBySkill": {
+          "financial": {
+            "model": "jev-1.13.0",
+            "state": {
+              "message": "Qual foi o faturamento incluindo produtos na semana passada?",
+              "context": {},
+              "selected_skill": "financial",
+              "selection_source": "prior_jev_discovery"
+            },
+            "questions": {
+              "metric": {
+                "type": "choice",
+                "instructions": "Qual métrica financeira? Faturamento sem qualificador=service_revenue; com produtos=realized_revenue; recebido=received_revenue; a receber=outstanding_receivables; atendimentos realizados=completed_count; ticket médio=average_ticket; multiple para várias. none fora de Financial; unclear se não suportada (lucro/taxas/estornos). Nunca calcular valores.",
+                "criteria": {
+                  "service_revenue": null,
+                  "realized_revenue": null,
+                  "received_revenue": null,
+                  "outstanding_receivables": null,
+                  "completed_count": null,
+                  "average_ticket": null,
+                  "multiple": null,
+                  "none": null,
+                  "unclear": null
+                }
+              },
+              "period": {
+                "type": "choice",
+                "instructions": "Qual período financeiro explícito? today=hoje, yesterday=ontem, this_week=esta semana, last_week=semana passada, this_month=este mês, last_month=mês passado. comparison para comparar períodos; none sem período financeiro; unclear se ambíguo. Não converter datas.",
+                "criteria": {
+                  "today": null,
+                  "yesterday": null,
+                  "this_week": null,
+                  "last_week": null,
+                  "this_month": null,
+                  "last_month": null,
+                  "comparison": null,
+                  "none": null,
+                  "unclear": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "f16",
+      "wave": 1,
+      "tag": "DIRECT",
+      "message": "Quantos atendimentos foram concluídos ontem?",
+      "classification": {
+        "caseId": "f16",
+        "currentCategory": "B",
+        "currentRoute": "FORCED_LUNA",
+        "proposedValue": "FULL_JEV_BYPASS",
+        "evidenceState": "CALIBRATION_CANDIDATE",
+        "boundary": "READ_ONLY_CANDIDATE",
+        "skills": [
+          "financial"
+        ],
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "fullBypassPotential": true,
+        "routingOnlyPotential": false,
+        "linguisticDecisions": [
+          "skill",
+          "shape",
+          "metric",
+          "period"
+        ],
+        "derivations": [
+          {
+            "dimension": "operation",
+            "operation": "financial.report",
+            "source": {
+              "skill": "financial",
+              "dimension": "metric",
+              "value": "completed_count"
+            },
+            "catalogVersion": "decision-derivations-v1",
+            "catalogHash": "0300667615177bf9d96bb9c96a9f055ff99041db111b0e9fb78e48f407434791",
+            "publicationHash": "5fbee1d13f738e4a7e57c678dbe701590e757c8dde3367cba754b551ea715d0b",
+            "evidence": "src/financial-skill.ts#financialRequirements"
+          }
+        ],
+        "backendResolution": [
+          "timezone",
+          "absolute_period",
+          "Payment.paidAt",
+          "values",
+          "differences",
+          "percentages",
+          "rankings",
+          "authorization"
+        ],
+        "lunaRequirement": "No open fields in this oracle; new inputs still fall back under unchanged v1 policy",
+        "evidence": [
+          {
+            "path": "packages/salon-secretary/src/financial-skill.ts",
+            "anchor": "published manual/schema",
+            "kind": "domain_test",
+            "note": "New synthetic oracle reviewed against published selectors; not an observed JEV output"
+          }
+        ],
+        "missingEvidence": [
+          "intent-level coverage beyond historical micro-sample",
+          "per-intent adversarial calibration",
+          "future intent-based acceptance design/approval"
+        ]
+      },
+      "expected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "yesterday",
+          "metric": "completed_count",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": false,
+        "domainFields": {
+          "metrics": [
+            "completed_count"
+          ],
+          "period": "yesterday"
+        }
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Quantos atendimentos foram concluídos ontem?",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detailBySkill": {
+          "financial": {
+            "model": "jev-1.13.0",
+            "state": {
+              "message": "Quantos atendimentos foram concluídos ontem?",
+              "context": {},
+              "selected_skill": "financial",
+              "selection_source": "prior_jev_discovery"
+            },
+            "questions": {
+              "metric": {
+                "type": "choice",
+                "instructions": "Qual métrica financeira? Faturamento sem qualificador=service_revenue; com produtos=realized_revenue; recebido=received_revenue; a receber=outstanding_receivables; atendimentos realizados=completed_count; ticket médio=average_ticket; multiple para várias. none fora de Financial; unclear se não suportada (lucro/taxas/estornos). Nunca calcular valores.",
+                "criteria": {
+                  "service_revenue": null,
+                  "realized_revenue": null,
+                  "received_revenue": null,
+                  "outstanding_receivables": null,
+                  "completed_count": null,
+                  "average_ticket": null,
+                  "multiple": null,
+                  "none": null,
+                  "unclear": null
+                }
+              },
+              "period": {
+                "type": "choice",
+                "instructions": "Qual período financeiro explícito? today=hoje, yesterday=ontem, this_week=esta semana, last_week=semana passada, this_month=este mês, last_month=mês passado. comparison para comparar períodos; none sem período financeiro; unclear se ambíguo. Não converter datas.",
+                "criteria": {
+                  "today": null,
+                  "yesterday": null,
+                  "this_week": null,
+                  "last_week": null,
+                  "this_month": null,
+                  "last_month": null,
+                  "comparison": null,
+                  "none": null,
+                  "unclear": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "f17",
+      "wave": 1,
+      "tag": "PARAPHRASE",
+      "message": "Qual a quantidade de atendimentos finalizados ontem?",
+      "classification": {
+        "caseId": "f17",
+        "currentCategory": "B",
+        "currentRoute": "FORCED_LUNA",
+        "proposedValue": "FULL_JEV_BYPASS",
+        "evidenceState": "CALIBRATION_CANDIDATE",
+        "boundary": "READ_ONLY_CANDIDATE",
+        "skills": [
+          "financial"
+        ],
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "fullBypassPotential": true,
+        "routingOnlyPotential": false,
+        "linguisticDecisions": [
+          "skill",
+          "shape",
+          "metric",
+          "period"
+        ],
+        "derivations": [
+          {
+            "dimension": "operation",
+            "operation": "financial.report",
+            "source": {
+              "skill": "financial",
+              "dimension": "metric",
+              "value": "completed_count"
+            },
+            "catalogVersion": "decision-derivations-v1",
+            "catalogHash": "0300667615177bf9d96bb9c96a9f055ff99041db111b0e9fb78e48f407434791",
+            "publicationHash": "5fbee1d13f738e4a7e57c678dbe701590e757c8dde3367cba754b551ea715d0b",
+            "evidence": "src/financial-skill.ts#financialRequirements"
+          }
+        ],
+        "backendResolution": [
+          "timezone",
+          "absolute_period",
+          "Payment.paidAt",
+          "values",
+          "differences",
+          "percentages",
+          "rankings",
+          "authorization"
+        ],
+        "lunaRequirement": "No open fields in this oracle; new inputs still fall back under unchanged v1 policy",
+        "evidence": [
+          {
+            "path": "packages/salon-secretary/src/financial-skill.ts",
+            "anchor": "published manual/schema",
+            "kind": "domain_test",
+            "note": "New synthetic oracle reviewed against published selectors; not an observed JEV output"
+          }
+        ],
+        "missingEvidence": [
+          "intent-level coverage beyond historical micro-sample",
+          "per-intent adversarial calibration",
+          "future intent-based acceptance design/approval"
+        ]
+      },
+      "expected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "yesterday",
+          "metric": "completed_count",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": false,
+        "domainFields": {
+          "metrics": [
+            "completed_count"
+          ],
+          "period": "yesterday"
+        }
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Qual a quantidade de atendimentos finalizados ontem?",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detailBySkill": {
+          "financial": {
+            "model": "jev-1.13.0",
+            "state": {
+              "message": "Qual a quantidade de atendimentos finalizados ontem?",
+              "context": {},
+              "selected_skill": "financial",
+              "selection_source": "prior_jev_discovery"
+            },
+            "questions": {
+              "metric": {
+                "type": "choice",
+                "instructions": "Qual métrica financeira? Faturamento sem qualificador=service_revenue; com produtos=realized_revenue; recebido=received_revenue; a receber=outstanding_receivables; atendimentos realizados=completed_count; ticket médio=average_ticket; multiple para várias. none fora de Financial; unclear se não suportada (lucro/taxas/estornos). Nunca calcular valores.",
+                "criteria": {
+                  "service_revenue": null,
+                  "realized_revenue": null,
+                  "received_revenue": null,
+                  "outstanding_receivables": null,
+                  "completed_count": null,
+                  "average_ticket": null,
+                  "multiple": null,
+                  "none": null,
+                  "unclear": null
+                }
+              },
+              "period": {
+                "type": "choice",
+                "instructions": "Qual período financeiro explícito? today=hoje, yesterday=ontem, this_week=esta semana, last_week=semana passada, this_month=este mês, last_month=mês passado. comparison para comparar períodos; none sem período financeiro; unclear se ambíguo. Não converter datas.",
+                "criteria": {
+                  "today": null,
+                  "yesterday": null,
+                  "this_week": null,
+                  "last_week": null,
+                  "this_month": null,
+                  "last_month": null,
+                  "comparison": null,
+                  "none": null,
+                  "unclear": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "f18",
+      "wave": 1,
+      "tag": "PERIOD",
+      "message": "Quantos atendimentos foram concluídos hoje?",
+      "classification": {
+        "caseId": "f18",
+        "currentCategory": "B",
+        "currentRoute": "FORCED_LUNA",
+        "proposedValue": "FULL_JEV_BYPASS",
+        "evidenceState": "CALIBRATION_CANDIDATE",
+        "boundary": "READ_ONLY_CANDIDATE",
+        "skills": [
+          "financial"
+        ],
+        "riskClasses": [
+          "READ_ONLY"
+        ],
+        "fullBypassPotential": true,
+        "routingOnlyPotential": false,
+        "linguisticDecisions": [
+          "skill",
+          "shape",
+          "metric",
+          "period"
+        ],
+        "derivations": [
+          {
+            "dimension": "operation",
+            "operation": "financial.report",
+            "source": {
+              "skill": "financial",
+              "dimension": "metric",
+              "value": "completed_count"
+            },
+            "catalogVersion": "decision-derivations-v1",
+            "catalogHash": "0300667615177bf9d96bb9c96a9f055ff99041db111b0e9fb78e48f407434791",
+            "publicationHash": "5fbee1d13f738e4a7e57c678dbe701590e757c8dde3367cba754b551ea715d0b",
+            "evidence": "src/financial-skill.ts#financialRequirements"
+          }
+        ],
+        "backendResolution": [
+          "timezone",
+          "absolute_period",
+          "Payment.paidAt",
+          "values",
+          "differences",
+          "percentages",
+          "rankings",
+          "authorization"
+        ],
+        "lunaRequirement": "No open fields in this oracle; new inputs still fall back under unchanged v1 policy",
+        "evidence": [
+          {
+            "path": "packages/salon-secretary/src/financial-skill.ts",
+            "anchor": "published manual/schema",
+            "kind": "domain_test",
+            "note": "New synthetic oracle reviewed against published selectors; not an observed JEV output"
+          }
+        ],
+        "missingEvidence": [
+          "intent-level coverage beyond historical micro-sample",
+          "per-intent adversarial calibration",
+          "future intent-based acceptance design/approval"
+        ]
+      },
+      "expected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "today",
+          "metric": "completed_count",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": false,
+        "domainFields": {
+          "metrics": [
+            "completed_count"
+          ],
+          "period": "today"
+        }
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Quantos atendimentos foram concluídos hoje?",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detailBySkill": {
+          "financial": {
+            "model": "jev-1.13.0",
+            "state": {
+              "message": "Quantos atendimentos foram concluídos hoje?",
+              "context": {},
+              "selected_skill": "financial",
+              "selection_source": "prior_jev_discovery"
+            },
+            "questions": {
+              "metric": {
+                "type": "choice",
+                "instructions": "Qual métrica financeira? Faturamento sem qualificador=service_revenue; com produtos=realized_revenue; recebido=received_revenue; a receber=outstanding_receivables; atendimentos realizados=completed_count; ticket médio=average_ticket; multiple para várias. none fora de Financial; unclear se não suportada (lucro/taxas/estornos). Nunca calcular valores.",
+                "criteria": {
+                  "service_revenue": null,
+                  "realized_revenue": null,
+                  "received_revenue": null,
+                  "outstanding_receivables": null,
+                  "completed_count": null,
+                  "average_ticket": null,
+                  "multiple": null,
+                  "none": null,
+                  "unclear": null
+                }
+              },
+              "period": {
+                "type": "choice",
+                "instructions": "Qual período financeiro explícito? today=hoje, yesterday=ontem, this_week=esta semana, last_week=semana passada, this_month=este mês, last_month=mês passado. comparison para comparar períodos; none sem período financeiro; unclear se ambíguo. Não converter datas.",
+                "criteria": {
+                  "today": null,
+                  "yesterday": null,
+                  "this_week": null,
+                  "last_week": null,
+                  "this_month": null,
+                  "last_month": null,
+                  "comparison": null,
+                  "none": null,
+                  "unclear": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "f19",
+      "wave": 1,
+      "tag": "AMBIGUOUS",
+      "message": "Quanto faturei?",
+      "classification": {
+        "caseId": "f19",
+        "currentCategory": "C",
+        "currentRoute": "FORCED_LUNA",
+        "proposedValue": "JEV_ROUTING_ONLY",
+        "evidenceState": "FORCED_LUNA",
+        "boundary": "OPEN_FORCED_LUNA",
+        "skills": [
+          "financial"
+        ],
+        "riskClasses": [
+          "READ_ONLY",
+          "OPEN_EXTRACTION_REQUIRED"
+        ],
+        "fullBypassPotential": false,
+        "routingOnlyPotential": true,
+        "linguisticDecisions": [
+          "skill",
+          "shape",
+          "metric",
+          "period"
+        ],
+        "derivations": [
+          {
+            "dimension": "operation",
+            "operation": "financial.report",
+            "source": {
+              "skill": "financial",
+              "dimension": "metric",
+              "value": "service_revenue"
+            },
+            "catalogVersion": "decision-derivations-v1",
+            "catalogHash": "0300667615177bf9d96bb9c96a9f055ff99041db111b0e9fb78e48f407434791",
+            "publicationHash": "5fbee1d13f738e4a7e57c678dbe701590e757c8dde3367cba754b551ea715d0b",
+            "evidence": "src/financial-skill.ts#financialRequirements"
+          }
+        ],
+        "backendResolution": [
+          "timezone",
+          "absolute_period",
+          "Payment.paidAt",
+          "values",
+          "differences",
+          "percentages",
+          "rankings",
+          "authorization"
+        ],
+        "lunaRequirement": "Open fields, unrepresented selectors, ambiguity, compound or unsupported request remain outside bypass",
+        "evidence": [
+          {
+            "path": "packages/salon-secretary/src/financial-skill.ts",
+            "anchor": "published manual/schema",
+            "kind": "domain_test",
+            "note": "New synthetic oracle reviewed against published selectors; not an observed JEV output"
+          },
+          {
+            "path": "src/test/fixtures/secretary-real-outputs.json",
+            "anchor": "gate25-0",
+            "kind": "real_output",
+            "note": "Evidência histórica de estrutura; mensagem adaptada não implica baseline pareado de latência."
+          },
+          {
+            "path": "src/test/fixtures/secretary-real-outputs.json",
+            "anchor": "gate25-boundary-0",
+            "kind": "real_output",
+            "note": "Evidência histórica de estrutura; mensagem adaptada não implica baseline pareado de latência."
+          },
+          {
+            "path": "src/lib/__tests__/secretary-financial.integration.test.ts",
+            "anchor": "comparison backend math",
+            "kind": "domain_test",
+            "note": "Expected revisado contra o contrato/backend, não inferido de resposta futura do provedor."
+          },
+          {
+            "path": "packages/salon-secretary/evaluation/luna-baselines.json",
+            "anchor": "financial-revenue",
+            "kind": "real_output",
+            "note": "Projeção sanitizada de sucesso real validado pelo backend. O output de fragmentação anterior é negativo; não é gabarito."
+          }
+        ],
+        "missingEvidence": [
+          "intent-level coverage beyond historical micro-sample",
+          "per-intent adversarial calibration",
+          "future intent-based acceptance design/approval"
+        ]
+      },
+      "expected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "none",
+          "metric": "service_revenue",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": true,
+        "domainFields": {
+          "metrics": [
+            "service_revenue"
+          ],
+          "period": null,
+          "missing": [
+            "period"
+          ]
+        }
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Quanto faturei?",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detailBySkill": {
+          "financial": {
+            "model": "jev-1.13.0",
+            "state": {
+              "message": "Quanto faturei?",
+              "context": {},
+              "selected_skill": "financial",
+              "selection_source": "prior_jev_discovery"
+            },
+            "questions": {
+              "metric": {
+                "type": "choice",
+                "instructions": "Qual métrica financeira? Faturamento sem qualificador=service_revenue; com produtos=realized_revenue; recebido=received_revenue; a receber=outstanding_receivables; atendimentos realizados=completed_count; ticket médio=average_ticket; multiple para várias. none fora de Financial; unclear se não suportada (lucro/taxas/estornos). Nunca calcular valores.",
+                "criteria": {
+                  "service_revenue": null,
+                  "realized_revenue": null,
+                  "received_revenue": null,
+                  "outstanding_receivables": null,
+                  "completed_count": null,
+                  "average_ticket": null,
+                  "multiple": null,
+                  "none": null,
+                  "unclear": null
+                }
+              },
+              "period": {
+                "type": "choice",
+                "instructions": "Qual período financeiro explícito? today=hoje, yesterday=ontem, this_week=esta semana, last_week=semana passada, this_month=este mês, last_month=mês passado. comparison para comparar períodos; none sem período financeiro; unclear se ambíguo. Não converter datas.",
+                "criteria": {
+                  "today": null,
+                  "yesterday": null,
+                  "this_week": null,
+                  "last_week": null,
+                  "this_month": null,
+                  "last_month": null,
+                  "comparison": null,
+                  "none": null,
+                  "unclear": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "f20",
+      "wave": 1,
+      "tag": "AMBIGUOUS",
+      "message": "Quanto entrou ontem?",
+      "classification": {
+        "caseId": "f20",
+        "currentCategory": "C",
+        "currentRoute": "FORCED_LUNA",
+        "proposedValue": "LUNA_REQUIRED",
+        "evidenceState": "FORCED_LUNA",
+        "boundary": "OPEN_FORCED_LUNA",
+        "skills": [
+          "financial"
+        ],
+        "riskClasses": [
+          "READ_ONLY",
+          "OPEN_EXTRACTION_REQUIRED"
+        ],
+        "fullBypassPotential": false,
+        "routingOnlyPotential": false,
+        "linguisticDecisions": [
+          "skill",
+          "shape",
+          "metric",
+          "period"
+        ],
+        "derivations": [],
+        "backendResolution": [
+          "timezone",
+          "absolute_period",
+          "Payment.paidAt",
+          "values",
+          "differences",
+          "percentages",
+          "rankings",
+          "authorization"
+        ],
+        "lunaRequirement": "Open fields, unrepresented selectors, ambiguity, compound or unsupported request remain outside bypass",
+        "evidence": [
+          {
+            "path": "packages/salon-secretary/src/financial-skill.ts",
+            "anchor": "published manual/schema",
+            "kind": "domain_test",
+            "note": "New synthetic oracle reviewed against published selectors; not an observed JEV output"
+          }
+        ],
+        "missingEvidence": [
+          "intent-level coverage beyond historical micro-sample",
+          "per-intent adversarial calibration",
+          "future intent-based acceptance design/approval"
+        ]
+      },
+      "expected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "yesterday",
+          "metric": "unclear",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": true,
+        "domainFields": {
+          "metrics": null,
+          "period": "yesterday",
+          "missing": [
+            "metric"
+          ]
+        }
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Quanto entrou ontem?",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detailBySkill": {
+          "financial": {
+            "model": "jev-1.13.0",
+            "state": {
+              "message": "Quanto entrou ontem?",
+              "context": {},
+              "selected_skill": "financial",
+              "selection_source": "prior_jev_discovery"
+            },
+            "questions": {
+              "metric": {
+                "type": "choice",
+                "instructions": "Qual métrica financeira? Faturamento sem qualificador=service_revenue; com produtos=realized_revenue; recebido=received_revenue; a receber=outstanding_receivables; atendimentos realizados=completed_count; ticket médio=average_ticket; multiple para várias. none fora de Financial; unclear se não suportada (lucro/taxas/estornos). Nunca calcular valores.",
+                "criteria": {
+                  "service_revenue": null,
+                  "realized_revenue": null,
+                  "received_revenue": null,
+                  "outstanding_receivables": null,
+                  "completed_count": null,
+                  "average_ticket": null,
+                  "multiple": null,
+                  "none": null,
+                  "unclear": null
+                }
+              },
+              "period": {
+                "type": "choice",
+                "instructions": "Qual período financeiro explícito? today=hoje, yesterday=ontem, this_week=esta semana, last_week=semana passada, this_month=este mês, last_month=mês passado. comparison para comparar períodos; none sem período financeiro; unclear se ambíguo. Não converter datas.",
+                "criteria": {
+                  "today": null,
+                  "yesterday": null,
+                  "this_week": null,
+                  "last_week": null,
+                  "this_month": null,
+                  "last_month": null,
+                  "comparison": null,
+                  "none": null,
+                  "unclear": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "f21",
+      "wave": 1,
+      "tag": "NEIGHBOR",
+      "message": "Quanto eu tinha a receber ontem?",
+      "classification": {
+        "caseId": "f21",
+        "currentCategory": "C",
+        "currentRoute": "FORCED_LUNA",
+        "proposedValue": "JEV_ROUTING_ONLY",
+        "evidenceState": "FORCED_LUNA",
+        "boundary": "OPEN_FORCED_LUNA",
+        "skills": [
+          "financial"
+        ],
+        "riskClasses": [
+          "READ_ONLY",
+          "OPEN_EXTRACTION_REQUIRED"
+        ],
+        "fullBypassPotential": false,
+        "routingOnlyPotential": true,
+        "linguisticDecisions": [
+          "skill",
+          "shape",
+          "metric",
+          "period"
+        ],
+        "derivations": [
+          {
+            "dimension": "operation",
+            "operation": "financial.report",
+            "source": {
+              "skill": "financial",
+              "dimension": "metric",
+              "value": "outstanding_receivables"
+            },
+            "catalogVersion": "decision-derivations-v1",
+            "catalogHash": "0300667615177bf9d96bb9c96a9f055ff99041db111b0e9fb78e48f407434791",
+            "publicationHash": "5fbee1d13f738e4a7e57c678dbe701590e757c8dde3367cba754b551ea715d0b",
+            "evidence": "src/financial-skill.ts#financialRequirements"
+          }
+        ],
+        "backendResolution": [
+          "timezone",
+          "absolute_period",
+          "Payment.paidAt",
+          "values",
+          "differences",
+          "percentages",
+          "rankings",
+          "authorization"
+        ],
+        "lunaRequirement": "Open fields, unrepresented selectors, ambiguity, compound or unsupported request remain outside bypass",
+        "evidence": [
+          {
+            "path": "packages/salon-secretary/src/financial-skill.ts",
+            "anchor": "published manual/schema",
+            "kind": "domain_test",
+            "note": "New synthetic oracle reviewed against published selectors; not an observed JEV output"
+          },
+          {
+            "path": "docs/SECRETARIA_GATE_2_5.md",
+            "anchor": "Gate 2.5",
+            "kind": "gate_report",
+            "note": "Cenário/semântica comprovados no Gate; fixture sem IDs reais."
+          },
+          {
+            "path": "src/lib/__tests__/secretary-financial.integration.test.ts",
+            "anchor": "outstanding",
+            "kind": "domain_test",
+            "note": "Expected revisado contra o contrato/backend, não inferido de resposta futura do provedor."
+          },
+          {
+            "path": "packages/salon-secretary/evaluation/luna-baselines.json",
+            "anchor": "financial-outstanding",
+            "kind": "real_output",
+            "note": "Projeção sanitizada de sucesso real validado pelo backend. O output de fragmentação anterior é negativo; não é gabarito."
+          }
+        ],
+        "missingEvidence": [
+          "intent-level coverage beyond historical micro-sample",
+          "per-intent adversarial calibration",
+          "future intent-based acceptance design/approval"
+        ]
+      },
+      "expected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "yesterday",
+          "metric": "outstanding_receivables",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": true,
+        "domainFields": {
+          "metrics": [
+            "outstanding_receivables"
+          ],
+          "period": "yesterday",
+          "unsupported": "historical receivables"
+        }
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Quanto eu tinha a receber ontem?",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detailBySkill": {
+          "financial": {
+            "model": "jev-1.13.0",
+            "state": {
+              "message": "Quanto eu tinha a receber ontem?",
+              "context": {},
+              "selected_skill": "financial",
+              "selection_source": "prior_jev_discovery"
+            },
+            "questions": {
+              "metric": {
+                "type": "choice",
+                "instructions": "Qual métrica financeira? Faturamento sem qualificador=service_revenue; com produtos=realized_revenue; recebido=received_revenue; a receber=outstanding_receivables; atendimentos realizados=completed_count; ticket médio=average_ticket; multiple para várias. none fora de Financial; unclear se não suportada (lucro/taxas/estornos). Nunca calcular valores.",
+                "criteria": {
+                  "service_revenue": null,
+                  "realized_revenue": null,
+                  "received_revenue": null,
+                  "outstanding_receivables": null,
+                  "completed_count": null,
+                  "average_ticket": null,
+                  "multiple": null,
+                  "none": null,
+                  "unclear": null
+                }
+              },
+              "period": {
+                "type": "choice",
+                "instructions": "Qual período financeiro explícito? today=hoje, yesterday=ontem, this_week=esta semana, last_week=semana passada, this_month=este mês, last_month=mês passado. comparison para comparar períodos; none sem período financeiro; unclear se ambíguo. Não converter datas.",
+                "criteria": {
+                  "today": null,
+                  "yesterday": null,
+                  "this_week": null,
+                  "last_week": null,
+                  "this_month": null,
+                  "last_month": null,
+                  "comparison": null,
+                  "none": null,
+                  "unclear": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "f22",
+      "wave": 1,
+      "tag": "NEIGHBOR",
+      "message": "Compare esta semana com a semana passada.",
+      "classification": {
+        "caseId": "f22",
+        "currentCategory": "B",
+        "currentRoute": "FORCED_LUNA",
+        "proposedValue": "JEV_ROUTING_ONLY",
+        "evidenceState": "FORCED_LUNA",
+        "boundary": "OPEN_FORCED_LUNA",
+        "skills": [
+          "financial"
+        ],
+        "riskClasses": [
+          "READ_ONLY",
+          "OPEN_EXTRACTION_REQUIRED"
+        ],
+        "fullBypassPotential": false,
+        "routingOnlyPotential": true,
+        "linguisticDecisions": [
+          "skill",
+          "shape",
+          "metric",
+          "period"
+        ],
+        "derivations": [
+          {
+            "dimension": "operation",
+            "operation": "financial.report",
+            "source": {
+              "skill": "financial",
+              "dimension": "metric",
+              "value": "service_revenue"
+            },
+            "catalogVersion": "decision-derivations-v1",
+            "catalogHash": "0300667615177bf9d96bb9c96a9f055ff99041db111b0e9fb78e48f407434791",
+            "publicationHash": "5fbee1d13f738e4a7e57c678dbe701590e757c8dde3367cba754b551ea715d0b",
+            "evidence": "src/financial-skill.ts#financialRequirements"
+          }
+        ],
+        "backendResolution": [
+          "timezone",
+          "absolute_period",
+          "Payment.paidAt",
+          "values",
+          "differences",
+          "percentages",
+          "rankings",
+          "authorization"
+        ],
+        "lunaRequirement": "Open fields, unrepresented selectors, ambiguity, compound or unsupported request remain outside bypass",
+        "evidence": [
+          {
+            "path": "src/lib/__tests__/secretary-financial.test.ts",
+            "anchor": "comparison",
+            "kind": "domain_test",
+            "note": "Expected revisado contra o contrato/backend, não inferido de resposta futura do provedor."
+          },
+          {
+            "path": "docs/SECRETARIA_GATE_2_5.md",
+            "anchor": "Gate 2.5",
+            "kind": "gate_report",
+            "note": "Cenário/semântica comprovados no Gate; fixture sem IDs reais."
+          },
+          {
+            "path": "packages/salon-secretary/evaluation/luna-baselines.json",
+            "anchor": "financial-comparison",
+            "kind": "real_output",
+            "note": "Projeção sanitizada de sucesso real validado pelo backend. O output de fragmentação anterior é negativo; não é gabarito."
+          }
+        ],
+        "missingEvidence": [
+          "intent-level coverage beyond historical micro-sample",
+          "per-intent adversarial calibration",
+          "future intent-based acceptance design/approval"
+        ]
+      },
+      "expected": {
+        "decision": {
+          "skill": "financial",
+          "operation": "financial.report",
+          "shape": "single",
+          "period": "comparison",
+          "metric": "service_revenue",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "domainFields": {
+          "metrics": [
+            "service_revenue"
+          ],
+          "period": "this_week",
+          "compare_period": "last_week"
+        },
+        "requiresOpenExtraction": true
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Compare esta semana com a semana passada.",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detailBySkill": {
+          "financial": {
+            "model": "jev-1.13.0",
+            "state": {
+              "message": "Compare esta semana com a semana passada.",
+              "context": {},
+              "selected_skill": "financial",
+              "selection_source": "prior_jev_discovery"
+            },
+            "questions": {
+              "metric": {
+                "type": "choice",
+                "instructions": "Qual métrica financeira? Faturamento sem qualificador=service_revenue; com produtos=realized_revenue; recebido=received_revenue; a receber=outstanding_receivables; atendimentos realizados=completed_count; ticket médio=average_ticket; multiple para várias. none fora de Financial; unclear se não suportada (lucro/taxas/estornos). Nunca calcular valores.",
+                "criteria": {
+                  "service_revenue": null,
+                  "realized_revenue": null,
+                  "received_revenue": null,
+                  "outstanding_receivables": null,
+                  "completed_count": null,
+                  "average_ticket": null,
+                  "multiple": null,
+                  "none": null,
+                  "unclear": null
+                }
+              },
+              "period": {
+                "type": "choice",
+                "instructions": "Qual período financeiro explícito? today=hoje, yesterday=ontem, this_week=esta semana, last_week=semana passada, this_month=este mês, last_month=mês passado. comparison para comparar períodos; none sem período financeiro; unclear se ambíguo. Não converter datas.",
+                "criteria": {
+                  "today": null,
+                  "yesterday": null,
+                  "this_week": null,
+                  "last_week": null,
+                  "this_month": null,
+                  "last_month": null,
+                  "comparison": null,
+                  "none": null,
+                  "unclear": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "f23",
+      "wave": 1,
+      "tag": "OPEN_FIELDS",
+      "message": "Qual profissional faturou mais este mês?",
+      "classification": {
+        "caseId": "f23",
+        "currentCategory": "C",
+        "currentRoute": "FORCED_LUNA",
+        "proposedValue": "JEV_ROUTING_ONLY",
+        "evidenceState": "FORCED_LUNA",
+        "boundary": "OPEN_FORCED_LUNA",
+        "skills": [
+          "financial"
+        ],
+        "riskClasses": [
+          "READ_ONLY",
+          "OPEN_EXTRACTION_REQUIRED"
+        ],
+        "fullBypassPotential": false,
+        "routingOnlyPotential": true,
+        "linguisticDecisions": [
+          "skill",
+          "shape",
+          "metric",
+          "period"
+        ],
+        "derivations": [
+          {
+            "dimension": "operation",
+            "operation": "financial.report",
+            "source": {
+              "skill": "financial",
+              "dimension": "metric",
+              "value": "service_revenue"
+            },
+            "catalogVersion": "decision-derivations-v1",
+            "catalogHash": "0300667615177bf9d96bb9c96a9f055ff99041db111b0e9fb78e48f407434791",
+            "publicationHash": "5fbee1d13f738e4a7e57c678dbe701590e757c8dde3367cba754b551ea715d0b",
+            "evidence": "src/financial-skill.ts#financialRequirements"
+          }
+        ],
+        "backendResolution": [
+          "timezone",
+          "absolute_period",
+          "Payment.paidAt",
+          "values",
+          "differences",
+          "percentages",
+          "rankings",
+          "authorization"
+        ],
+        "lunaRequirement": "Open fields, unrepresented selectors, ambiguity, compound or unsupported request remain outside bypass",
+        "evidence": [
+          {
+            "path": "packages/salon-secretary/src/financial-skill.ts",
+            "anchor": "published manual/schema",
+            "kind": "domain_test",
+            "note": "New synthetic oracle reviewed against published selectors; not an observed JEV output"
+          },
+          {
+            "path": "src/test/fixtures/secretary-real-outputs.json",
+            "anchor": "gate25-0",
+            "kind": "real_output",
+            "note": "Evidência histórica de estrutura; mensagem adaptada não implica baseline pareado de latência."
+          },
+          {
+            "path": "src/test/fixtures/secretary-real-outputs.json",
+            "anchor": "gate25-boundary-0",
+            "kind": "real_output",
+            "note": "Evidência histórica de estrutura; mensagem adaptada não implica baseline pareado de latência."
+          },
+          {
+            "path": "src/lib/__tests__/secretary-financial.integration.test.ts",
+            "anchor": "comparison backend math",
+            "kind": "domain_test",
+            "note": "Expected revisado contra o contrato/backend, não inferido de resposta futura do provedor."
+          },
+          {
+            "path": "packages/salon-secretary/evaluation/luna-baselines.json",
+            "anchor": "financial-revenue",
+            "kind": "real_output",
+            "note": "Projeção sanitizada de sucesso real validado pelo backend. O output de fragmentação anterior é negativo; não é gabarito."
+          }
+        ],
+        "missingEvidence": [
+          "intent-level coverage beyond historical micro-sample",
+          "per-intent adversarial calibration",
+          "future intent-based acceptance design/approval"
+        ]
+      },
+      "expected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "this_month",
+          "metric": "service_revenue",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": true,
+        "domainFields": {
+          "metrics": [
+            "service_revenue"
+          ],
+          "period": "this_month",
+          "group_by": "professional"
+        }
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Qual profissional faturou mais este mês?",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detailBySkill": {
+          "financial": {
+            "model": "jev-1.13.0",
+            "state": {
+              "message": "Qual profissional faturou mais este mês?",
+              "context": {},
+              "selected_skill": "financial",
+              "selection_source": "prior_jev_discovery"
+            },
+            "questions": {
+              "metric": {
+                "type": "choice",
+                "instructions": "Qual métrica financeira? Faturamento sem qualificador=service_revenue; com produtos=realized_revenue; recebido=received_revenue; a receber=outstanding_receivables; atendimentos realizados=completed_count; ticket médio=average_ticket; multiple para várias. none fora de Financial; unclear se não suportada (lucro/taxas/estornos). Nunca calcular valores.",
+                "criteria": {
+                  "service_revenue": null,
+                  "realized_revenue": null,
+                  "received_revenue": null,
+                  "outstanding_receivables": null,
+                  "completed_count": null,
+                  "average_ticket": null,
+                  "multiple": null,
+                  "none": null,
+                  "unclear": null
+                }
+              },
+              "period": {
+                "type": "choice",
+                "instructions": "Qual período financeiro explícito? today=hoje, yesterday=ontem, this_week=esta semana, last_week=semana passada, this_month=este mês, last_month=mês passado. comparison para comparar períodos; none sem período financeiro; unclear se ambíguo. Não converter datas.",
+                "criteria": {
+                  "today": null,
+                  "yesterday": null,
+                  "this_week": null,
+                  "last_week": null,
+                  "this_month": null,
+                  "last_month": null,
+                  "comparison": null,
+                  "none": null,
+                  "unclear": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "f24",
+      "wave": 1,
+      "tag": "OPEN_FIELDS",
+      "message": "Qual serviço mais faturou ontem?",
+      "classification": {
+        "caseId": "f24",
+        "currentCategory": "C",
+        "currentRoute": "FORCED_LUNA",
+        "proposedValue": "JEV_ROUTING_ONLY",
+        "evidenceState": "FORCED_LUNA",
+        "boundary": "OPEN_FORCED_LUNA",
+        "skills": [
+          "financial"
+        ],
+        "riskClasses": [
+          "READ_ONLY",
+          "OPEN_EXTRACTION_REQUIRED"
+        ],
+        "fullBypassPotential": false,
+        "routingOnlyPotential": true,
+        "linguisticDecisions": [
+          "skill",
+          "shape",
+          "metric",
+          "period"
+        ],
+        "derivations": [
+          {
+            "dimension": "operation",
+            "operation": "financial.report",
+            "source": {
+              "skill": "financial",
+              "dimension": "metric",
+              "value": "service_revenue"
+            },
+            "catalogVersion": "decision-derivations-v1",
+            "catalogHash": "0300667615177bf9d96bb9c96a9f055ff99041db111b0e9fb78e48f407434791",
+            "publicationHash": "5fbee1d13f738e4a7e57c678dbe701590e757c8dde3367cba754b551ea715d0b",
+            "evidence": "src/financial-skill.ts#financialRequirements"
+          }
+        ],
+        "backendResolution": [
+          "timezone",
+          "absolute_period",
+          "Payment.paidAt",
+          "values",
+          "differences",
+          "percentages",
+          "rankings",
+          "authorization"
+        ],
+        "lunaRequirement": "Open fields, unrepresented selectors, ambiguity, compound or unsupported request remain outside bypass",
+        "evidence": [
+          {
+            "path": "packages/salon-secretary/src/financial-skill.ts",
+            "anchor": "published manual/schema",
+            "kind": "domain_test",
+            "note": "New synthetic oracle reviewed against published selectors; not an observed JEV output"
+          },
+          {
+            "path": "src/test/fixtures/secretary-real-outputs.json",
+            "anchor": "gate25-0",
+            "kind": "real_output",
+            "note": "Evidência histórica de estrutura; mensagem adaptada não implica baseline pareado de latência."
+          },
+          {
+            "path": "src/test/fixtures/secretary-real-outputs.json",
+            "anchor": "gate25-boundary-0",
+            "kind": "real_output",
+            "note": "Evidência histórica de estrutura; mensagem adaptada não implica baseline pareado de latência."
+          },
+          {
+            "path": "src/lib/__tests__/secretary-financial.integration.test.ts",
+            "anchor": "comparison backend math",
+            "kind": "domain_test",
+            "note": "Expected revisado contra o contrato/backend, não inferido de resposta futura do provedor."
+          },
+          {
+            "path": "packages/salon-secretary/evaluation/luna-baselines.json",
+            "anchor": "financial-revenue",
+            "kind": "real_output",
+            "note": "Projeção sanitizada de sucesso real validado pelo backend. O output de fragmentação anterior é negativo; não é gabarito."
+          }
+        ],
+        "missingEvidence": [
+          "intent-level coverage beyond historical micro-sample",
+          "per-intent adversarial calibration",
+          "future intent-based acceptance design/approval"
+        ]
+      },
+      "expected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "yesterday",
+          "metric": "service_revenue",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": true,
+        "domainFields": {
+          "metrics": [
+            "service_revenue"
+          ],
+          "period": "yesterday",
+          "group_by": "service"
+        }
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Qual serviço mais faturou ontem?",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detailBySkill": {
+          "financial": {
+            "model": "jev-1.13.0",
+            "state": {
+              "message": "Qual serviço mais faturou ontem?",
+              "context": {},
+              "selected_skill": "financial",
+              "selection_source": "prior_jev_discovery"
+            },
+            "questions": {
+              "metric": {
+                "type": "choice",
+                "instructions": "Qual métrica financeira? Faturamento sem qualificador=service_revenue; com produtos=realized_revenue; recebido=received_revenue; a receber=outstanding_receivables; atendimentos realizados=completed_count; ticket médio=average_ticket; multiple para várias. none fora de Financial; unclear se não suportada (lucro/taxas/estornos). Nunca calcular valores.",
+                "criteria": {
+                  "service_revenue": null,
+                  "realized_revenue": null,
+                  "received_revenue": null,
+                  "outstanding_receivables": null,
+                  "completed_count": null,
+                  "average_ticket": null,
+                  "multiple": null,
+                  "none": null,
+                  "unclear": null
+                }
+              },
+              "period": {
+                "type": "choice",
+                "instructions": "Qual período financeiro explícito? today=hoje, yesterday=ontem, this_week=esta semana, last_week=semana passada, this_month=este mês, last_month=mês passado. comparison para comparar períodos; none sem período financeiro; unclear se ambíguo. Não converter datas.",
+                "criteria": {
+                  "today": null,
+                  "yesterday": null,
+                  "this_week": null,
+                  "last_week": null,
+                  "this_month": null,
+                  "last_month": null,
+                  "comparison": null,
+                  "none": null,
+                  "unclear": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "f25",
+      "wave": 1,
+      "tag": "COMPOUND",
+      "message": "Quanto faturei ontem e altere a massagem para R$80?",
+      "classification": {
+        "caseId": "f25",
+        "currentCategory": "C",
+        "currentRoute": "FORCED_LUNA",
+        "proposedValue": "LUNA_REQUIRED",
+        "evidenceState": "FORCED_LUNA",
+        "boundary": "COMPOUND_FORCED_LUNA",
+        "skills": [
+          "financial",
+          "services"
+        ],
+        "riskClasses": [
+          "READ_ONLY",
+          "MUTATION",
+          "COMPOUND_MUTATION",
+          "OPEN_EXTRACTION_REQUIRED"
+        ],
+        "fullBypassPotential": false,
+        "routingOnlyPotential": false,
+        "linguisticDecisions": [
+          "skill",
+          "shape"
+        ],
+        "derivations": [],
+        "backendResolution": [
+          "timezone",
+          "absolute_period",
+          "Payment.paidAt",
+          "values",
+          "differences",
+          "percentages",
+          "rankings",
+          "authorization",
+          "service_ref",
+          "requirements",
+          "revision"
+        ],
+        "lunaRequirement": "Open fields, unrepresented selectors, ambiguity, compound or unsupported request remain outside bypass",
+        "evidence": [
+          {
+            "path": "src/lib/__tests__/secretary-financial.test.ts",
+            "anchor": "independent Services",
+            "kind": "domain_test",
+            "note": "Expected revisado contra o contrato/backend, não inferido de resposta futura do provedor."
+          }
+        ],
+        "missingEvidence": [
+          "intent-level coverage beyond historical micro-sample",
+          "per-intent adversarial calibration",
+          "future intent-based acceptance design/approval"
+        ]
+      },
+      "expected": {
+        "decision": {
+          "skill": "multiple",
+          "operation": "multiple",
+          "shape": "independent",
+          "period": "yesterday",
+          "metric": "service_revenue",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial",
+          "services"
+        ],
+        "operations": [
+          "financial.report",
+          "service.change"
+        ],
+        "dependencies": [],
+        "domainFields": {
+          "period": "yesterday",
+          "target_name": "massagem",
+          "priceCents": 8000
+        },
+        "requiresOpenExtraction": true
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Quanto faturei ontem e altere a massagem para R$80?",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detailBySkill": {
+          "financial": {
+            "model": "jev-1.13.0",
+            "state": {
+              "message": "Quanto faturei ontem e altere a massagem para R$80?",
+              "context": {},
+              "selected_skill": "financial",
+              "selection_source": "prior_jev_discovery"
+            },
+            "questions": {
+              "metric": {
+                "type": "choice",
+                "instructions": "Qual métrica financeira? Faturamento sem qualificador=service_revenue; com produtos=realized_revenue; recebido=received_revenue; a receber=outstanding_receivables; atendimentos realizados=completed_count; ticket médio=average_ticket; multiple para várias. none fora de Financial; unclear se não suportada (lucro/taxas/estornos). Nunca calcular valores.",
+                "criteria": {
+                  "service_revenue": null,
+                  "realized_revenue": null,
+                  "received_revenue": null,
+                  "outstanding_receivables": null,
+                  "completed_count": null,
+                  "average_ticket": null,
+                  "multiple": null,
+                  "none": null,
+                  "unclear": null
+                }
+              },
+              "period": {
+                "type": "choice",
+                "instructions": "Qual período financeiro explícito? today=hoje, yesterday=ontem, this_week=esta semana, last_week=semana passada, this_month=este mês, last_month=mês passado. comparison para comparar períodos; none sem período financeiro; unclear se ambíguo. Não converter datas.",
+                "criteria": {
+                  "today": null,
+                  "yesterday": null,
+                  "this_week": null,
+                  "last_week": null,
+                  "this_month": null,
+                  "last_month": null,
+                  "comparison": null,
+                  "none": null,
+                  "unclear": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "f26",
+      "wave": 1,
+      "tag": "COMPOUND",
+      "message": "Quanto faturei ontem e cancele a Amanda amanhã?",
+      "classification": {
+        "caseId": "f26",
+        "currentCategory": "C",
+        "currentRoute": "FORCED_LUNA",
+        "proposedValue": "LUNA_REQUIRED",
+        "evidenceState": "FORCED_LUNA",
+        "boundary": "COMPOUND_FORCED_LUNA",
+        "skills": [
+          "financial",
+          "scheduling"
+        ],
+        "riskClasses": [
+          "READ_ONLY",
+          "MUTATION",
+          "COMPOUND_MUTATION",
+          "OPEN_EXTRACTION_REQUIRED"
+        ],
+        "fullBypassPotential": false,
+        "routingOnlyPotential": false,
+        "linguisticDecisions": [
+          "skill",
+          "shape"
+        ],
+        "derivations": [],
+        "backendResolution": [
+          "timezone",
+          "absolute_period",
+          "Payment.paidAt",
+          "values",
+          "differences",
+          "percentages",
+          "rankings",
+          "authorization",
+          "appointment_ref",
+          "customer_ref",
+          "service_ref",
+          "professional_ref",
+          "absolute_time",
+          "availability",
+          "eligibility"
+        ],
+        "lunaRequirement": "Open fields, unrepresented selectors, ambiguity, compound or unsupported request remain outside bypass",
+        "evidence": [
+          {
+            "path": "packages/salon-secretary/src/financial-skill.ts",
+            "anchor": "published manual/schema",
+            "kind": "domain_test",
+            "note": "New synthetic oracle reviewed against published selectors; not an observed JEV output"
+          }
+        ],
+        "missingEvidence": [
+          "intent-level coverage beyond historical micro-sample",
+          "per-intent adversarial calibration",
+          "future intent-based acceptance design/approval"
+        ]
+      },
+      "expected": {
+        "decision": {
+          "skill": "multiple",
+          "shape": "independent",
+          "operation": "multiple",
+          "period": "yesterday",
+          "metric": "service_revenue",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial",
+          "scheduling"
+        ],
+        "operations": [
+          "financial.report",
+          "appointment.cancel"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": true,
+        "domainFields": {
+          "customer_name": "Amanda",
+          "missing": [
+            "reason"
+          ]
+        }
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Quanto faturei ontem e cancele a Amanda amanhã?",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detailBySkill": {
+          "financial": {
+            "model": "jev-1.13.0",
+            "state": {
+              "message": "Quanto faturei ontem e cancele a Amanda amanhã?",
+              "context": {},
+              "selected_skill": "financial",
+              "selection_source": "prior_jev_discovery"
+            },
+            "questions": {
+              "metric": {
+                "type": "choice",
+                "instructions": "Qual métrica financeira? Faturamento sem qualificador=service_revenue; com produtos=realized_revenue; recebido=received_revenue; a receber=outstanding_receivables; atendimentos realizados=completed_count; ticket médio=average_ticket; multiple para várias. none fora de Financial; unclear se não suportada (lucro/taxas/estornos). Nunca calcular valores.",
+                "criteria": {
+                  "service_revenue": null,
+                  "realized_revenue": null,
+                  "received_revenue": null,
+                  "outstanding_receivables": null,
+                  "completed_count": null,
+                  "average_ticket": null,
+                  "multiple": null,
+                  "none": null,
+                  "unclear": null
+                }
+              },
+              "period": {
+                "type": "choice",
+                "instructions": "Qual período financeiro explícito? today=hoje, yesterday=ontem, this_week=esta semana, last_week=semana passada, this_month=este mês, last_month=mês passado. comparison para comparar períodos; none sem período financeiro; unclear se ambíguo. Não converter datas.",
+                "criteria": {
+                  "today": null,
+                  "yesterday": null,
+                  "this_week": null,
+                  "last_week": null,
+                  "this_month": null,
+                  "last_month": null,
+                  "comparison": null,
+                  "none": null,
+                  "unclear": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "f27",
+      "wave": 1,
+      "tag": "OUTSIDE",
+      "message": "Estorne o pagamento da Amanda.",
+      "classification": {
+        "caseId": "f27",
+        "currentCategory": "D",
+        "currentRoute": "OUT_OF_CATALOG",
+        "proposedValue": "OUT_OF_CATALOG",
+        "evidenceState": "FORCED_LUNA",
+        "boundary": "OUT_OF_CATALOG",
+        "skills": [],
+        "riskClasses": [
+          "OUT_OF_CATALOG"
+        ],
+        "fullBypassPotential": false,
+        "routingOnlyPotential": false,
+        "linguisticDecisions": [
+          "skill",
+          "shape"
+        ],
+        "derivations": [],
+        "backendResolution": [],
+        "lunaRequirement": "Open fields, unrepresented selectors, ambiguity, compound or unsupported request remain outside bypass",
+        "evidence": [
+          {
+            "path": "src/lib/__tests__/secretary-financial.test.ts",
+            "anchor": "write operations",
+            "kind": "domain_test",
+            "note": "Expected revisado contra o contrato/backend, não inferido de resposta futura do provedor."
+          }
+        ],
+        "missingEvidence": [
+          "intent-level coverage beyond historical micro-sample",
+          "per-intent adversarial calibration",
+          "future intent-based acceptance design/approval"
+        ]
+      },
+      "expected": {
+        "decision": {
+          "skill": "out_of_catalog",
+          "operation": "out_of_catalog",
+          "shape": "out_of_catalog",
+          "period": "none",
+          "metric": "unclear",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [],
+        "operations": [],
+        "dependencies": [],
+        "domainFields": {
+          "rejection": "financial_write_unpublished"
+        },
+        "requiresOpenExtraction": false
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Estorne o pagamento da Amanda.",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detailBySkill": {
+          "financial": {
+            "model": "jev-1.13.0",
+            "state": {
+              "message": "Estorne o pagamento da Amanda.",
+              "context": {},
+              "selected_skill": "financial",
+              "selection_source": "prior_jev_discovery"
+            },
+            "questions": {
+              "metric": {
+                "type": "choice",
+                "instructions": "Qual métrica financeira? Faturamento sem qualificador=service_revenue; com produtos=realized_revenue; recebido=received_revenue; a receber=outstanding_receivables; atendimentos realizados=completed_count; ticket médio=average_ticket; multiple para várias. none fora de Financial; unclear se não suportada (lucro/taxas/estornos). Nunca calcular valores.",
+                "criteria": {
+                  "service_revenue": null,
+                  "realized_revenue": null,
+                  "received_revenue": null,
+                  "outstanding_receivables": null,
+                  "completed_count": null,
+                  "average_ticket": null,
+                  "multiple": null,
+                  "none": null,
+                  "unclear": null
+                }
+              },
+              "period": {
+                "type": "choice",
+                "instructions": "Qual período financeiro explícito? today=hoje, yesterday=ontem, this_week=esta semana, last_week=semana passada, this_month=este mês, last_month=mês passado. comparison para comparar períodos; none sem período financeiro; unclear se ambíguo. Não converter datas.",
+                "criteria": {
+                  "today": null,
+                  "yesterday": null,
+                  "this_week": null,
+                  "last_week": null,
+                  "this_month": null,
+                  "last_month": null,
+                  "comparison": null,
+                  "none": null,
+                  "unclear": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "f28",
+      "wave": 1,
+      "tag": "OUTSIDE",
+      "message": "Qual foi meu lucro líquido ontem?",
+      "classification": {
+        "caseId": "f28",
+        "currentCategory": "D",
+        "currentRoute": "OUT_OF_CATALOG",
+        "proposedValue": "OUT_OF_CATALOG",
+        "evidenceState": "FORCED_LUNA",
+        "boundary": "OUT_OF_CATALOG",
+        "skills": [],
+        "riskClasses": [
+          "OUT_OF_CATALOG"
+        ],
+        "fullBypassPotential": false,
+        "routingOnlyPotential": false,
+        "linguisticDecisions": [
+          "skill",
+          "shape"
+        ],
+        "derivations": [],
+        "backendResolution": [],
+        "lunaRequirement": "Open fields, unrepresented selectors, ambiguity, compound or unsupported request remain outside bypass",
+        "evidence": [
+          {
+            "path": "packages/salon-secretary/src/financial-skill.ts",
+            "anchor": "published manual/schema",
+            "kind": "domain_test",
+            "note": "New synthetic oracle reviewed against published selectors; not an observed JEV output"
+          }
+        ],
+        "missingEvidence": [
+          "intent-level coverage beyond historical micro-sample",
+          "per-intent adversarial calibration",
+          "future intent-based acceptance design/approval"
+        ]
+      },
+      "expected": {
+        "decision": {
+          "skill": "out_of_catalog",
+          "shape": "out_of_catalog",
+          "operation": "out_of_catalog",
+          "period": "yesterday",
+          "metric": "unclear",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [],
+        "operations": [],
+        "dependencies": [],
+        "requiresOpenExtraction": false,
+        "domainFields": {
+          "unsupported": "profit"
+        }
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Qual foi meu lucro líquido ontem?",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detailBySkill": {
+          "financial": {
+            "model": "jev-1.13.0",
+            "state": {
+              "message": "Qual foi meu lucro líquido ontem?",
+              "context": {},
+              "selected_skill": "financial",
+              "selection_source": "prior_jev_discovery"
+            },
+            "questions": {
+              "metric": {
+                "type": "choice",
+                "instructions": "Qual métrica financeira? Faturamento sem qualificador=service_revenue; com produtos=realized_revenue; recebido=received_revenue; a receber=outstanding_receivables; atendimentos realizados=completed_count; ticket médio=average_ticket; multiple para várias. none fora de Financial; unclear se não suportada (lucro/taxas/estornos). Nunca calcular valores.",
+                "criteria": {
+                  "service_revenue": null,
+                  "realized_revenue": null,
+                  "received_revenue": null,
+                  "outstanding_receivables": null,
+                  "completed_count": null,
+                  "average_ticket": null,
+                  "multiple": null,
+                  "none": null,
+                  "unclear": null
+                }
+              },
+              "period": {
+                "type": "choice",
+                "instructions": "Qual período financeiro explícito? today=hoje, yesterday=ontem, this_week=esta semana, last_week=semana passada, this_month=este mês, last_month=mês passado. comparison para comparar períodos; none sem período financeiro; unclear se ambíguo. Não converter datas.",
+                "criteria": {
+                  "today": null,
+                  "yesterday": null,
+                  "this_week": null,
+                  "last_week": null,
+                  "this_month": null,
+                  "last_month": null,
+                  "comparison": null,
+                  "none": null,
+                  "unclear": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "f29",
+      "wave": 1,
+      "tag": "OUTSIDE",
+      "message": "Quais taxas foram descontadas dos pagamentos ontem?",
+      "classification": {
+        "caseId": "f29",
+        "currentCategory": "D",
+        "currentRoute": "OUT_OF_CATALOG",
+        "proposedValue": "OUT_OF_CATALOG",
+        "evidenceState": "FORCED_LUNA",
+        "boundary": "OUT_OF_CATALOG",
+        "skills": [],
+        "riskClasses": [
+          "OUT_OF_CATALOG"
+        ],
+        "fullBypassPotential": false,
+        "routingOnlyPotential": false,
+        "linguisticDecisions": [
+          "skill",
+          "shape"
+        ],
+        "derivations": [],
+        "backendResolution": [],
+        "lunaRequirement": "Open fields, unrepresented selectors, ambiguity, compound or unsupported request remain outside bypass",
+        "evidence": [
+          {
+            "path": "packages/salon-secretary/src/financial-skill.ts",
+            "anchor": "published manual/schema",
+            "kind": "domain_test",
+            "note": "New synthetic oracle reviewed against published selectors; not an observed JEV output"
+          }
+        ],
+        "missingEvidence": [
+          "intent-level coverage beyond historical micro-sample",
+          "per-intent adversarial calibration",
+          "future intent-based acceptance design/approval"
+        ]
+      },
+      "expected": {
+        "decision": {
+          "skill": "out_of_catalog",
+          "shape": "out_of_catalog",
+          "operation": "out_of_catalog",
+          "period": "yesterday",
+          "metric": "unclear",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [],
+        "operations": [],
+        "dependencies": [],
+        "requiresOpenExtraction": false,
+        "domainFields": {
+          "unsupported": "fees"
+        }
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Quais taxas foram descontadas dos pagamentos ontem?",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detailBySkill": {
+          "financial": {
+            "model": "jev-1.13.0",
+            "state": {
+              "message": "Quais taxas foram descontadas dos pagamentos ontem?",
+              "context": {},
+              "selected_skill": "financial",
+              "selection_source": "prior_jev_discovery"
+            },
+            "questions": {
+              "metric": {
+                "type": "choice",
+                "instructions": "Qual métrica financeira? Faturamento sem qualificador=service_revenue; com produtos=realized_revenue; recebido=received_revenue; a receber=outstanding_receivables; atendimentos realizados=completed_count; ticket médio=average_ticket; multiple para várias. none fora de Financial; unclear se não suportada (lucro/taxas/estornos). Nunca calcular valores.",
+                "criteria": {
+                  "service_revenue": null,
+                  "realized_revenue": null,
+                  "received_revenue": null,
+                  "outstanding_receivables": null,
+                  "completed_count": null,
+                  "average_ticket": null,
+                  "multiple": null,
+                  "none": null,
+                  "unclear": null
+                }
+              },
+              "period": {
+                "type": "choice",
+                "instructions": "Qual período financeiro explícito? today=hoje, yesterday=ontem, this_week=esta semana, last_week=semana passada, this_month=este mês, last_month=mês passado. comparison para comparar períodos; none sem período financeiro; unclear se ambíguo. Não converter datas.",
+                "criteria": {
+                  "today": null,
+                  "yesterday": null,
+                  "this_week": null,
+                  "last_week": null,
+                  "this_month": null,
+                  "last_month": null,
+                  "comparison": null,
+                  "none": null,
+                  "unclear": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "f30",
+      "wave": 1,
+      "tag": "OUTSIDE",
+      "message": "Dê baixa no pagamento pendente da Amanda.",
+      "classification": {
+        "caseId": "f30",
+        "currentCategory": "D",
+        "currentRoute": "OUT_OF_CATALOG",
+        "proposedValue": "OUT_OF_CATALOG",
+        "evidenceState": "FORCED_LUNA",
+        "boundary": "OUT_OF_CATALOG",
+        "skills": [],
+        "riskClasses": [
+          "OUT_OF_CATALOG"
+        ],
+        "fullBypassPotential": false,
+        "routingOnlyPotential": false,
+        "linguisticDecisions": [
+          "skill",
+          "shape"
+        ],
+        "derivations": [],
+        "backendResolution": [],
+        "lunaRequirement": "Open fields, unrepresented selectors, ambiguity, compound or unsupported request remain outside bypass",
+        "evidence": [
+          {
+            "path": "packages/salon-secretary/src/financial-skill.ts",
+            "anchor": "published manual/schema",
+            "kind": "domain_test",
+            "note": "New synthetic oracle reviewed against published selectors; not an observed JEV output"
+          }
+        ],
+        "missingEvidence": [
+          "intent-level coverage beyond historical micro-sample",
+          "per-intent adversarial calibration",
+          "future intent-based acceptance design/approval"
+        ]
+      },
+      "expected": {
+        "decision": {
+          "skill": "out_of_catalog",
+          "shape": "out_of_catalog",
+          "operation": "out_of_catalog",
+          "period": "none",
+          "metric": "unclear",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [],
+        "operations": [],
+        "dependencies": [],
+        "requiresOpenExtraction": false,
+        "domainFields": {
+          "unsupported": "financial mutation"
+        }
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Dê baixa no pagamento pendente da Amanda.",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detailBySkill": {
+          "financial": {
+            "model": "jev-1.13.0",
+            "state": {
+              "message": "Dê baixa no pagamento pendente da Amanda.",
+              "context": {},
+              "selected_skill": "financial",
+              "selection_source": "prior_jev_discovery"
+            },
+            "questions": {
+              "metric": {
+                "type": "choice",
+                "instructions": "Qual métrica financeira? Faturamento sem qualificador=service_revenue; com produtos=realized_revenue; recebido=received_revenue; a receber=outstanding_receivables; atendimentos realizados=completed_count; ticket médio=average_ticket; multiple para várias. none fora de Financial; unclear se não suportada (lucro/taxas/estornos). Nunca calcular valores.",
+                "criteria": {
+                  "service_revenue": null,
+                  "realized_revenue": null,
+                  "received_revenue": null,
+                  "outstanding_receivables": null,
+                  "completed_count": null,
+                  "average_ticket": null,
+                  "multiple": null,
+                  "none": null,
+                  "unclear": null
+                }
+              },
+              "period": {
+                "type": "choice",
+                "instructions": "Qual período financeiro explícito? today=hoje, yesterday=ontem, this_week=esta semana, last_week=semana passada, this_month=este mês, last_month=mês passado. comparison para comparar períodos; none sem período financeiro; unclear se ambíguo. Não converter datas.",
+                "criteria": {
+                  "today": null,
+                  "yesterday": null,
+                  "this_week": null,
+                  "last_week": null,
+                  "this_month": null,
+                  "last_month": null,
+                  "comparison": null,
+                  "none": null,
+                  "unclear": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "f31",
+      "wave": 1,
+      "tag": "NEIGHBOR",
+      "message": "Quanto faturei e quanto recebi ontem?",
+      "classification": {
+        "caseId": "f31",
+        "currentCategory": "C",
+        "currentRoute": "FORCED_LUNA",
+        "proposedValue": "JEV_ROUTING_ONLY",
+        "evidenceState": "FORCED_LUNA",
+        "boundary": "OPEN_FORCED_LUNA",
+        "skills": [
+          "financial"
+        ],
+        "riskClasses": [
+          "READ_ONLY",
+          "OPEN_EXTRACTION_REQUIRED"
+        ],
+        "fullBypassPotential": false,
+        "routingOnlyPotential": true,
+        "linguisticDecisions": [
+          "skill",
+          "shape",
+          "metric",
+          "period"
+        ],
+        "derivations": [],
+        "backendResolution": [
+          "timezone",
+          "absolute_period",
+          "Payment.paidAt",
+          "values",
+          "differences",
+          "percentages",
+          "rankings",
+          "authorization"
+        ],
+        "lunaRequirement": "Open fields, unrepresented selectors, ambiguity, compound or unsupported request remain outside bypass",
+        "evidence": [
+          {
+            "path": "packages/salon-secretary/src/financial-skill.ts",
+            "anchor": "published manual/schema",
+            "kind": "domain_test",
+            "note": "New synthetic oracle reviewed against published selectors; not an observed JEV output"
+          }
+        ],
+        "missingEvidence": [
+          "intent-level coverage beyond historical micro-sample",
+          "per-intent adversarial calibration",
+          "future intent-based acceptance design/approval"
+        ]
+      },
+      "expected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "yesterday",
+          "metric": "multiple",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": true,
+        "domainFields": {
+          "metrics": [
+            "service_revenue",
+            "received_revenue"
+          ],
+          "period": "yesterday"
+        }
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Quanto faturei e quanto recebi ontem?",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detailBySkill": {
+          "financial": {
+            "model": "jev-1.13.0",
+            "state": {
+              "message": "Quanto faturei e quanto recebi ontem?",
+              "context": {},
+              "selected_skill": "financial",
+              "selection_source": "prior_jev_discovery"
+            },
+            "questions": {
+              "metric": {
+                "type": "choice",
+                "instructions": "Qual métrica financeira? Faturamento sem qualificador=service_revenue; com produtos=realized_revenue; recebido=received_revenue; a receber=outstanding_receivables; atendimentos realizados=completed_count; ticket médio=average_ticket; multiple para várias. none fora de Financial; unclear se não suportada (lucro/taxas/estornos). Nunca calcular valores.",
+                "criteria": {
+                  "service_revenue": null,
+                  "realized_revenue": null,
+                  "received_revenue": null,
+                  "outstanding_receivables": null,
+                  "completed_count": null,
+                  "average_ticket": null,
+                  "multiple": null,
+                  "none": null,
+                  "unclear": null
+                }
+              },
+              "period": {
+                "type": "choice",
+                "instructions": "Qual período financeiro explícito? today=hoje, yesterday=ontem, this_week=esta semana, last_week=semana passada, this_month=este mês, last_month=mês passado. comparison para comparar períodos; none sem período financeiro; unclear se ambíguo. Não converter datas.",
+                "criteria": {
+                  "today": null,
+                  "yesterday": null,
+                  "this_week": null,
+                  "last_week": null,
+                  "this_month": null,
+                  "last_month": null,
+                  "comparison": null,
+                  "none": null,
+                  "unclear": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "f32",
+      "wave": 1,
+      "tag": "AMBIGUOUS",
+      "message": "Quanto vendi ontem?",
+      "classification": {
+        "caseId": "f32",
+        "currentCategory": "C",
+        "currentRoute": "FORCED_LUNA",
+        "proposedValue": "LUNA_REQUIRED",
+        "evidenceState": "FORCED_LUNA",
+        "boundary": "OPEN_FORCED_LUNA",
+        "skills": [
+          "financial"
+        ],
+        "riskClasses": [
+          "READ_ONLY",
+          "OPEN_EXTRACTION_REQUIRED"
+        ],
+        "fullBypassPotential": false,
+        "routingOnlyPotential": false,
+        "linguisticDecisions": [
+          "skill",
+          "shape",
+          "metric",
+          "period"
+        ],
+        "derivations": [],
+        "backendResolution": [
+          "timezone",
+          "absolute_period",
+          "Payment.paidAt",
+          "values",
+          "differences",
+          "percentages",
+          "rankings",
+          "authorization"
+        ],
+        "lunaRequirement": "Open fields, unrepresented selectors, ambiguity, compound or unsupported request remain outside bypass",
+        "evidence": [
+          {
+            "path": "packages/salon-secretary/src/financial-skill.ts",
+            "anchor": "published manual/schema",
+            "kind": "domain_test",
+            "note": "New synthetic oracle reviewed against published selectors; not an observed JEV output"
+          }
+        ],
+        "missingEvidence": [
+          "intent-level coverage beyond historical micro-sample",
+          "per-intent adversarial calibration",
+          "future intent-based acceptance design/approval"
+        ]
+      },
+      "expected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "yesterday",
+          "metric": "unclear",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": true,
+        "domainFields": {
+          "metrics": null,
+          "period": "yesterday",
+          "missing": [
+            "services/products/payment semantics"
+          ]
+        }
+      },
+      "payloads": {
+        "discovery": {
+          "model": "jev-1.13.0",
+          "state": {
+            "message": "Quanto vendi ontem?",
+            "context": {}
+          },
+          "questions": {
+            "skill": {
+              "type": "choice",
+              "instructions": "Qual capacidade é necessária? services=cadastro de serviços; customers=cadastro de clientes; scheduling=agenda; financial=relatórios; inventory=estoque; communication=mensagem fake. Use multiple para mais de uma, unclear se indeterminada, out_of_catalog para capacidade não publicada.",
+              "criteria": {
+                "services": null,
+                "customers": null,
+                "scheduling": null,
+                "financial": null,
+                "inventory": null,
+                "communication": null,
+                "multiple": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            },
+            "shape": {
+              "type": "choice",
+              "instructions": "O pedido é uma operação single, várias independent, ou dependent quando uma depende do sucesso/slot da outra? Use unclear para intenção ambígua e out_of_catalog para pedido não suportado. Nunca execute ações.",
+              "criteria": {
+                "single": null,
+                "independent": null,
+                "dependent": null,
+                "unclear": null,
+                "out_of_catalog": null
+              }
+            }
+          }
+        },
+        "detailBySkill": {
+          "financial": {
+            "model": "jev-1.13.0",
+            "state": {
+              "message": "Quanto vendi ontem?",
+              "context": {},
+              "selected_skill": "financial",
+              "selection_source": "prior_jev_discovery"
+            },
+            "questions": {
+              "metric": {
+                "type": "choice",
+                "instructions": "Qual métrica financeira? Faturamento sem qualificador=service_revenue; com produtos=realized_revenue; recebido=received_revenue; a receber=outstanding_receivables; atendimentos realizados=completed_count; ticket médio=average_ticket; multiple para várias. none fora de Financial; unclear se não suportada (lucro/taxas/estornos). Nunca calcular valores.",
+                "criteria": {
+                  "service_revenue": null,
+                  "realized_revenue": null,
+                  "received_revenue": null,
+                  "outstanding_receivables": null,
+                  "completed_count": null,
+                  "average_ticket": null,
+                  "multiple": null,
+                  "none": null,
+                  "unclear": null
+                }
+              },
+              "period": {
+                "type": "choice",
+                "instructions": "Qual período financeiro explícito? today=hoje, yesterday=ontem, this_week=esta semana, last_week=semana passada, this_month=este mês, last_month=mês passado. comparison para comparar períodos; none sem período financeiro; unclear se ambíguo. Não converter datas.",
+                "criteria": {
+                  "today": null,
+                  "yesterday": null,
+                  "this_week": null,
+                  "last_week": null,
+                  "this_month": null,
+                  "last_month": null,
+                  "comparison": null,
+                  "none": null,
+                  "unclear": null
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "remainingEvaluations": 28,
+  "maximumAdditionalHttp": 56,
+  "maximumAdditionalCostUsd": 0.150528,
+  "zeroRetries": true,
+  "noOpenAI": true,
+  "noBackend": true,
+  "continueOnly": [
+    "CORRECT_ACCEPT",
+    "CORRECT_FALLBACK",
+    "FALSE_FALLBACK",
+    "OUT_OF_CATALOG_CORRECT",
+    "KNOWN_INVALID_RESPONSE_FAIL_CLOSED"
+  ],
+  "stopOn": [
+    "UNSAFE_FALSE_POSITIVE",
+    "UNSAFE_SHADOW_CANDIDATE",
+    "FAIL_CLOSED_UNCERTAIN",
+    "CATALOG_OR_PAYLOAD_HASH_DRIFT",
+    "FORBIDDEN_PAYLOAD_DATA",
+    "BUDGET_EXCEEDED",
+    "UNHANDLED_PROVIDER_ERROR",
+    "TIMEOUT_NO_RETRY",
+    "HTTP_FAILURE_NO_RETRY",
+    "UNKNOWN_FALLBACK_REASON",
+    "UNKNOWN_CLASSIFICATION"
+  ],
+  "note": "Only the harness stop matrix changes. Original messages, choices, expected and hashes remain frozen; no new enrollment or router."
+}

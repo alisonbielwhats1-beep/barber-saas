@@ -1,5 +1,18 @@
 # Decisões de produto para as próximas fases
 
+## 03/10/2026 — motivo do cancelamento de reserva opcional
+
+O responsável decidiu que o motivo não é necessário para cancelar uma reserva.
+Dono e gerente cancelam pela agenda (detalhe da reserva e cancelamento em lote)
+sem preencher motivo, e a Secretária deixa de perguntá-lo. Quando informado, o
+motivo continua no histórico e aparece para o cliente; sem motivo,
+`cancelledReason` e o evento ficam nulos, como já acontece quando o próprio
+cliente cancela. Continuam iguais: confirmação explícita, ator e evento
+imutáveis no histórico, horário liberado sem apagar o agendamento e fila
+preservada. O motivo do encaixe (sobreposição, folga e após o expediente)
+continua obrigatório. Substitui "confirmação e motivo" da política de
+cancelamento e o "motivo obrigatório" registrado em 12/09.
+
 ## 04/10/2026 — redução automática para contratos acima da tabela
 
 Aplicação da regra de 03/10: quando a tabela fica mais barata que o valor de um
@@ -387,7 +400,8 @@ necessário um fluxo explícito de diferença/estorno antes de liberar a ação.
   horas antes, configurável pelo estabelecimento.
 - Após o limite, o cliente entra em contato com o estabelecimento; não há
   cobrança automática.
-- Dono/gerente podem cancelar antes do início com confirmação e motivo.
+- Dono/gerente podem cancelar antes do início com confirmação; o motivo é
+  opcional desde 03/10/2026.
 - Cancelamento nunca apaga o agendamento.
 - O intervalo é liberado, mas o evento e o responsável permanecem no histórico.
 - No-show é um status próprio, aplicado pelo estabelecimento, e não um delete.
@@ -585,4 +599,90 @@ enum ficam para uma migration própria, sem reescrever o histórico existente.
 Dono/gerente podem criar e editar bloqueios fora do expediente, inclusive até
 00:00 do dia seguinte. O motivo do bloqueio é opcional. Alterar um bloqueio
 mantém seu ID, registra antes/depois e preserva reservas e outras ocorrências.
-Cancelamento de reserva continua separado, com motivo obrigatório.
+Cancelamento de reserva continua separado; o motivo é opcional desde 03/10/2026.
+
+## Secretária de Agenda — decisões do dono de 29/09/2026 (Candidata 4)
+
+Decididas em conversa. São regras gerais do produto, não regras por frase. A redação é abstrata de propósito: nenhum exemplo reproduz frases de conjuntos de prova.
+
+1. **Criação ou consulta de disponibilidade sem dia dito:** a Secretária pergunta o dia. Não assume o dia corrente.
+2. **Remarcação que muda só o dia, sem pedir para manter o horário:** a Secretária pergunta o horário (decisão da Golden GF14). Com pedido explícito para manter, usa o horário atual.
+3. **Bloqueio com início e sem fim:** a Secretária pergunta o horário final. Não estende sozinha até o fim do expediente (resolve a pendência do OM04).
+4. **Pedido para cancelar e remarcar a mesma cliente:** é uma única remarcação, que mantém o agendamento e o histórico. Não é cancelamento mais agendamento novo, e o motivo de cancelamento não é pedido.
+5. **Referência em primeira pessoa à agenda:** vale a agenda profissional do próprio usuário, quando ele estiver vinculado a um cadastro de profissional. Sem esse vínculo, a Secretária pergunta de quem é a agenda. O simulador de testes ainda não vincula o dono a um profissional.
+6. **Consulta do próximo atendimento de um profissional sem dia, quando não há mais atendimentos no dia corrente:** a Secretária olha o próximo dia de trabalho dele.
+7. **Pronome depois de mover uma cliente e ocupar o horário liberado com outra, no mesmo pedido:** o pronome sem outra pista se refere à cliente movida, que é o tópico do pedido.
+8. **Bloqueio "entre dois horários" que acabaram de ser definidos no mesmo pedido:** bloqueia só o intervalo livre entre os atendimentos, sem sobrepor nenhum deles.
+9. **Combos:** o catálogo de cada salão decide.
+   - Se existe um serviço cadastrado cujo nome corresponde à combinação pedida, a Secretária usa esse serviço.
+   - Se só existem os serviços separados, ela agenda vários serviços no mesmo atendimento.
+   - Se existem os dois cadastros, ela pergunta qual usar.
+   - Para tirar um componente de um atendimento feito com combo, ela propõe trocar para o serviço restante, se ele estiver cadastrado. Se não estiver, ela explica e pergunta.
+   - As provas cobrem salões com combos e salões com serviços separados.
+
+## Secretária de Agenda — decisões do dono de 30/09/2026 (Candidata 5)
+
+10. **Bloqueio com atendimento dentro do intervalo:** a Secretária nunca propõe o bloqueio direto. Ela mostra os atendimentos e pergunta, com opções reais: bloquear só o horário livre ou o período todo, mantendo os agendamentos marcados.
+11. **Acrescentar um combo a um atendimento que já tem uma das partes dele:** o combo substitui essa parte; o atendimento nunca fica com o combo e a parte juntos. Um combo com uma parte que o dono não disse e que o atendimento não tem só entra com a escolha do dono.
+12. **Conferente** (checagem da proposta contra o pedido): quando ele falha ou estoura o tempo, a proposta aparece como antes, e o Confirmar continua obrigatório.
+
+## Secretária de Agenda — arquitetura e critérios delegados pelo dono (30/09/2026)
+
+O dono aprovou a migração para "a LLM conduz a conversa e escolhe as consultas → as ferramentas retornam dados reais → a LLM propõe a ação → o backend valida e executa com segurança" e delegou as escolhas abaixo ("o que for melhor para o usuário e para nós"). São critérios de produto, ajustáveis no prompt, não regras por frase.
+
+13. **Contexto:** híbrido. A Luna escolhe as consultas; junto com a equipe, os serviços e a data de hoje, o backend pode entregar pré-carregada a agenda dos dias que a mensagem cita, se a medição mostrar que isso reduz tempo e custo sem perder acerto. Adoção decidida por A/B.
+14. **Risco:** ação de baixo risco e reversível (marcar, remarcar, trocar serviço) → a Secretária propõe a leitura mais provável e mostra a suposição; ação de alto risco (cancelar, bloquear por cima de cliente, mexer em vários clientes de uma vez) → pergunta. Meta: no máximo 10% dos pedidos parados em pergunta.
+15. **"Com quem tiver":** escolhe quem faz o serviço e está livre no horário; no empate, quem tem menos atendimentos no dia. A proposta diz quem foi escolhido.
+16. **Exceção dita** ("menos o horário da X", "só o vazio"): bloqueia só o horário livre, sem o cartão da regra 10, e mostra isso na proposta. Sem exceção dita, a regra 10 continua.
+17. **"Até fechar":** vale como fim do expediente daquele profissional naquele dia, mostrado na proposta.
+18. **Horas soltas de 8 a 11:** quando o salão ou o profissional atende nas duas leituras (manhã e noite), a Secretária pergunta; quando só uma é possível, usa essa e mostra a suposição.
+19. **Operação:** modelo `gpt-6-luna`, nível de serviço Standard em produção (sem Flex nem Fast), esforço de raciocínio decidido por medição, timeout atual mantido até a medição com cache; nenhum outro modelo sem nova autorização do dono.
+20. **Critérios de tempo e custo do agente (pré-registrados antes da medição):** p50 ≤ 8 s e p90 ≤ 15 s por mensagem; custo por mensagem ≤ 2× o da C4 medido na mesma rodada; timeouts ≤ os da C4 + 2. Acerto e segurança continuam decidindo primeiro.
+21. **"Confirmar tudo":** um lote com cancelamento, bloqueio ou mais de uma cliente mostra antes um resumo de revisão, com o texto do backend, e o dono confirma o lote de uma vez.
+22. **Privacidade do agente:** a Luna só vê os nomes de clientes que o dono escreveu (máscara por palavra); os outros dados da agenda vão sem nome e sem guardar nada na OpenAI (`store:false`).
+23. **Reserva:** o agente pode cair para o caminho da C4 em no máximo 15% das mensagens; acima disso, não é adotado.
+
+## Secretária de Agenda — decisão do dono de 01/10/2026
+
+24. **Tempo da primeira chamada do agente:** a primeira chamada à Luna pode durar até 25 s; as rodadas seguintes de consulta continuam com até 15 s, e a mensagem inteira continua limitada a 45 s. Motivo medido no S2: com 15 s, pedidos com 3–4 ações estouravam o prazo e caíam para a C4, levando 20–28 s no total. A regra 20 (p50 ≤ 8 s, p90 ≤ 15 s) continua valendo.
+
+## Secretária de Agenda — piloto da remarcação (decisões do dono, 02/10/2026, 03:48)
+
+Princípio do piloto: **a Luna interpreta a linguagem; o código depois dela não reinterpreta o português.** O resolvedor determinístico só pode:
+- consultar registros reais;
+- resolver identidade;
+- detectar ambiguidade real;
+- calcular datas e horas a partir do recebido_em congelado;
+- verificar disponibilidade e regras;
+- localizar o atendimento uma única vez.
+
+Ele nunca usa maiúsculas, listas de palavras, citações literais ou gramática para decidir de novo o que o dono quis dizer.
+
+25. **Escopo inicial do piloto:** só remarcação simples de **um** atendimento existente. Pode mudar o dia, o horário, o profissional ou combinações desses três, sempre mantendo o serviço. Consultar, agendar e multi-ação ficam para depois do gate.
+26. **Fora do escopo:** cancelar, bloquear, trocar serviço, combo, recorrência e multi-ação. Se um pedido for só em parte fora do escopo, a Secretária pergunta antes de propor a parte possível.
+27. **Referência temporal com duas interpretações realmente plausíveis** (por exemplo, "sexta" antes ou depois do atendimento original): a Secretária pergunta. Nunca escolhe em silêncio.
+28. **Tempo no piloto:** até 15 s por chamada e 45 s no total. Os 25 s da decisão 24 valem só para o Agent congelado e só voltam como experimento separado.
+29. **Avaliador de desenvolvimento:** `target_professional_ref` conta como equivalente a `professional_ref` só no avaliador de desenvolvimento. Os resultados oficiais não mudam.
+30. **Estado persistido:** só no banco local. A migration 027 não vai para produção.
+31. **Aviso ao cliente:** a remarcação mantém a notificação normal ao cliente, e a proposta diz claramente que o cliente será avisado.
+
+## Secretária de Agenda — DeepSeek no lugar do Luna (decisão do dono, 04/10/2026)
+
+32. **Modelo:** a Secretária usa o **DeepSeek V4.1 Flash pelo OpenRouter** no lugar do `gpt-6-luna`, por velocidade. Isso substitui a parte de modelo da regra 19. O Luna continua disponível como volta (`SALON_SECRETARY_MODEL=gpt-6-luna`). Detalhes em `SECRETARY_DEEPSEEK_OPENROUTER.md`.
+33. **Roteamento:** o servidor **Together** fica fixo, sem reserva: foi o mais rápido medido (1,5–1,6 s por turno) e tem retenção zero de dados (decisão do dono, 04/10, depois da medição; a primeira escolha tinha sido a rota padrão). Raciocínio desligado e `temperature: 0` (decisão do dono, 04/10: menos variação entre respostas). `SALON_SECRETARY_OPENROUTER_PROVIDER=any` volta para a rota padrão.
+34. **Transcrição:** continua na OpenAI (`gpt-4o-mini-transcribe`), com os tetos de 03/10.
+35. **Validação:** teto de US$ 2 de gasto real no OpenRouter para medir tempo e acerto (teste de latência e Golden 30). O teto de reservas da missão Golden do DeepSeek (pior caso, não gasto) subiu para US$ 6 e depois para US$ 10, aprovado pelo dono em 04/10 porque o gasto real é de centavos.
+36. **Escopo:** só o caminho C4 usa o DeepSeek. O agente C5 e o piloto da remarcação continuam exigindo a OpenAI e são recusados com o DeepSeek.
+37. **Arquitetura de modelos (04/10):** trocar de LLM é configuração e prova. Cada modelo tem uma ficha no cadastro; fora do desenvolvimento local e dos testes, só responde o modelo com certificado da Golden 30 (pelo menos 3 rodadas, todos os casos certos, sem falha de segurança) para o contrato atual. Os gastos de avaliação ficam separados por carteira (OpenAI e OpenRouter), e o OpenRouter é cobrado pelo custo real. Detalhes em `SECRETARY_MODEL_ARCHITECTURE.md`.
+38. **Plano B automático (04/10):** quando o provedor do modelo principal falha (erro do provedor, conexão ou tempo), um modelo reserva de outro provedor responde o mesmo pedido; depois de 2 falhas seguidas, o reserva atende direto por 60 s. Na demo o reserva é o GPT-6 Luna. Fora do desenvolvimento local, o reserva também precisa de certificado da Golden.
+39. **Teto da OpenAI (04/10):** o teto de gasto real de avaliação na OpenAI subiu de US$ 15 para US$ 16 (+US$ 1), aprovado pelo dono para certificar o GPT-6 Luna como reserva do plano B. A certificação não passou (falha de segurança no GF07 da 3ª rodada); ver `SECRETARY_MODEL_ARCHITECTURE.md`.
+40. **Nome de serviço que já existe (04/10):** pedir para cadastrar um serviço com o nome de um que o salão já tem vira a **alteração** desse serviço: o preço e a duração ditos viram a mudança, com confirmação, nunca um serviço duplicado. O nome é comparado sem diferenciar maiúsculas, acentos e artigo inicial; um nome parecido ("Escova Lisa Longa" ao lado de "Escova Lisa") continua sendo serviço novo. Vale para qualquer modelo (`src/lib/secretary-existing-service.ts`).
+41. **Reserva do plano B (04/10):** o DeepSeek continua o modelo principal. O GPT-6 Luna fica só como reserva de emergência, para responder quando o OpenRouter cair, e precisa de certificado como o principal. Depois da trava do item 40, os dois passam de novo pela Golden 3 vezes.
+42. **Janela de decisão no chat (05/10):** toda escolha que a Secretária espera (qual cliente, qual agendamento, qual serviço, manhã ou noite, um horário oferecido) abre numa janela por cima da conversa, uma por vez ("Decisão 1 de 2"), com o pedido em destaque e as opções em botões; respondida, a próxima aparece sozinha. Fechada ("Decidir depois" ou Esc), uma barra acima da caixa de mensagem mostra as pendências e reabre a janela. "Responder por mensagem" continua disponível. A janela nunca confirma nada (`secretary-chat.tsx`). Próxima etapa sugerida: confirmação em janela e chat mais limpo.
+43. **Manhã ou noite numa remarcação (05/10):** quando ainda não se sabe qual agendamento será remarcado (a cliente tem mais de um), o horário dito é checado contra todos os agendamentos possíveis daquela cliente: se nenhum profissional deles atende no horário da noite, vale o da manhã e a Secretária diz isso; se algum atende, continua perguntando. Depois que o agendamento é escolhido, a checagem é refeita com ele (`scheduling-daypart-facts.ts`). Complementa a decisão 18 de 30/09.
+44. **Regra da reserva do plano B (05/10, opção b):** um modelo reserva é certificado com zero falhas de segurança e pelo menos 98% dos casos da Golden certos nas 3 rodadas (tudo executado), porque só responde quando o provedor do principal cai. O certificado de reserva nunca libera o modelo como principal. O GPT-6 Luna foi certificado como reserva com 89 de 90 (`golden-20261005-luna-reserve-k3`, sem falha de segurança).
+45. **Fluxo por voz na janela (05/10, flag `SALON_SECRETARY_FLOW_WINDOW`):** além das escolhas, a janela leva a pergunta aberta ("Para quando passo o Sérgio?") e depois a confirmação (resumo antes → depois, Confirmar). Numa conversa conduzida por voz, o microfone reabre sozinho a cada passo e a fala vai sozinha após 2 s de silêncio; sem fala em 15 s, o microfone fecha sem gastar. **Voz confirma, com proteção** (muda a regra de 03/10 "nada é confirmado por voz"): só uma palavra clara de confirmação ("confirma", "pode confirmar") confirma, a tela mostra o que ouviu e conta 3 s com Cancelar, e só com uma ação a confirmar; "cancela"/"não" nunca confirma, um "sim" sozinho não basta, qualquer outra fala vai como correção. Na demo a flag vem ligada; em produção, depende de ligar a variável.
+46. **Exceções de agenda pela Secretária (05/10, flag `SALON_SECRETARY_SCHEDULE_EXCEPTIONS`, depende da de encaixe):** igual à agenda, para agendar e remarcar. Fora do expediente/folga e intervalo: dono, gerente e o próprio profissional; horário bloqueado, terminar depois do expediente e sobreposição: dono e gerente. Antes de propor, a Secretária pergunta "Esse horário fica fora do expediente de Otávio Lins. Quer agendar mesmo assim ou escolher outro horário?" com o botão "Agendar/Remarcar mesmo assim" (ou a resposta "pode agendar mesmo assim", lida sem o modelo; "não" recusa; "sim" sozinho só vale quando a pergunta é da única ação). **Motivo opcional** (o dito pelo dono, ou "Exceção confirmada pela Secretária"); o cartão mostra "EXCEÇÃO: … · Motivo: …" e o Confirmar continua obrigatório. Salão fechado, horário passado, sala/equipamento e oferta da fila continuam sempre recusados. Na execução o perfil e as causas são conferidos de novo (mudou → nada é gravado) e fica registro de auditoria (`SECRETARY_SCHEDULE_EXCEPTION_CREATE/RESCHEDULE`). Encaixe puro num agendamento novo segue o fluxo antigo (motivo obrigatório) para não mexer no que está certificado. Contrato do modelo inalterado.
+47. **Troca e marcação de serviço (05/10, flag `SALON_SECRETARY_SERVICE_SWAP_V2`):** "Troque o serviço da Isabela do dia 17 para pedicure" pedia "data original e data" porque a regra "do [origem] para [destino]" lia "para pedicure" como destino e retirava o "dia 17" que o modelo leu. Agora "para" só é destino quando vem um dia ou horário depois ("para o dia 20 às 11h", "pra terça", "pras 15h"); a troca vira ALTERAR no mesmo horário. E o serviço com o nome exato dito ganha sem perguntar ("pedicure" → "Pedicure", nunca "Manicure + Pedicure"), no agendar e no trocar; "troca a manicure por pedicure" não pergunta mais "pacote ou separado". Provado no fluxo real (banco local + DeepSeek) com as frases do dono.
+48. **Nomes parecidos por voz ou grafia (05/10, dono aprovou as 4 melhorias):** (1) busca pelo som (`SALON_SECRETARY_PHONETIC_NAMES`): W/V, Y/I, letra dobrada, PH/F, TH/T, K/C/QU, H mudo, Z/S, GE/JE, CE/SE; quando só uma cliente ou serviço soa exatamente igual ao dito, a Secretária segue com ele (o nome completo aparece no cartão antes do Confirmar); havendo mais de um, mostra as opções; nunca para um nome que o modelo escreveu diferente da mensagem. (2) O filtro das duas primeiras letras das sugestões de cliente também tenta os começos do mesmo som ("Wa" acha "Va", "Ti" acha "Th"). (3) Memória da escolha (`SALON_SECRETARY_NAME_ALIASES`, já existente) ligada na demo. (4) A transcrição de voz recebe também os nomes das clientes com agendamento de 7 dias atrás a 30 à frente, até 40 nomes, só o nome (`SALON_SECRETARY_TRANSCRIBE_CUSTOMER_NAMES`; decisão do dono: os nomes vão à OpenAI junto com o áudio). Provado no fluxo real: Walter → Valter Assunção, Isabella → Isabela Mattos, Tiago → Thiago Mendes.
+49. **Piloto da Secretária em Produção (05/10):** só para o **dono** do salão de apresentação (`everflair-apresentacao`), teto de **US$ 1 por dia** (chamadas de modelo + voz), todas as funções certificadas (memória da escolha fica desligada). Flag `SALON_SECRETARY_PRODUCTION_PILOT` + lista exata `SALON_SECRETARY_ALLOWED_ACTORS`; qualquer outro salão ou usuário é recusado. Certificação com as flags novas: DeepSeek 90/90 (principal) e Luna 90/90 (reserva). Passos e variáveis: `docs/SECRETARY_PRODUCTION_PILOT.md`. Também: na regra de manhã/noite, quando nenhuma leitura está livre mas o motivo vira exceção, vale a do horário de funcionamento do salão e segue para "quer marcar mesmo assim?"; serviço não reconhecido pela voz vira sugestão pelos mais parecidos na escrita.

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { OVERBOOK_ROLES } from "@/lib/appointment-overlap-policy";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { isOverlapViolation } from "@/lib/db-errors";
@@ -37,7 +38,6 @@ import {
 } from "@/lib/time";
 
 /** Papéis que podem forçar overbooking — decisão de política, não operacional. */
-const OVERBOOK_ROLES = ["OWNER", "MANAGER"] as const;
 /** Pausa recorrente: dono ou o próprio profissional podem abrir exceção. */
 const BREAK_OVERRIDE_ROLES = ["OWNER", "MANAGER", "PROFESSIONAL"] as const;
 
@@ -386,12 +386,12 @@ export async function updateAppointmentStatus(
 
 export async function cancelAppointment(
   id: string,
-  reason: string,
+  reason: string | undefined,
   idempotencyKey: string,
   expectedVersion?: number,
 ): Promise<ActionResult> {
   return updateAppointmentStatus(id, "CANCELLED", {
-    reason,
+    reason: reason?.trim() || undefined,
     idempotencyKey,
     expectedVersion,
   });

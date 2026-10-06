@@ -1,0 +1,406 @@
+[
+  {
+    "id": "A01",
+    "title": "Criar, confirmar e remarcar horário",
+    "capability": [
+      "create",
+      "reschedule",
+      "multi-turn"
+    ],
+    "answers": {
+      "professional_ref": "Com a Tatiana."
+    },
+    "steps": [
+      {
+        "say": "Marca a Amanda amanhã às 10h para Corte Completo."
+      },
+      {
+        "confirm": true
+      },
+      {
+        "say": "Passa a Amanda para 11h."
+      },
+      {
+        "confirm": true
+      }
+    ]
+  },
+  {
+    "id": "A02",
+    "title": "Remarcar por pronome e mudar o dia",
+    "capability": [
+      "reschedule",
+      "multi-turn",
+      "pronoun"
+    ],
+    "appointments": [
+      {
+        "key": "amanda_d2",
+        "customer": "amanda",
+        "professional": "tatiana",
+        "service": "escova",
+        "day": 2,
+        "time": "10:00"
+      }
+    ],
+    "steps": [
+      {
+        "say": "Passa a Amanda para 11h."
+      },
+      {
+        "confirm": true
+      },
+      {
+        "say": "Muda ela para amanhã."
+      },
+      {
+        "confirm": true
+      }
+    ],
+    "answers": {
+      "time": "Às 11h."
+    }
+  },
+  {
+    "id": "A03",
+    "title": "Cancelar com motivo pedido em seguida",
+    "capability": [
+      "cancel",
+      "multi-turn"
+    ],
+    "appointments": [
+      {
+        "key": "joao_d1",
+        "customer": "joao",
+        "professional": "ricardo",
+        "service": "corte",
+        "day": 1,
+        "time": "14:00"
+      }
+    ],
+    "answers": {
+      "reason": "Ele avisou que não vai poder vir.",
+      "date": "Amanhã."
+    },
+    "steps": [
+      {
+        "say": "Cancela o João das 14h."
+      },
+      {
+        "confirm": true
+      }
+    ]
+  },
+  {
+    "id": "A04",
+    "title": "Cancelar e colocar outro cliente no lugar (duas ações)",
+    "capability": [
+      "cancel",
+      "create",
+      "multi-action"
+    ],
+    "appointments": [
+      {
+        "key": "joao_d1",
+        "customer": "joao",
+        "professional": "ricardo",
+        "service": "corte",
+        "day": 1,
+        "time": "14:00"
+      }
+    ],
+    "answers": {
+      "professional_ref": "Com o Ricardo.",
+      "service_ref": "Corte Completo.",
+      "service_name": "Corte Completo."
+    },
+    "steps": [
+      {
+        "say": "Cancela o João das 14h amanhã, ele não vai poder vir, e coloca o Fábio no lugar para Corte Completo."
+      },
+      {
+        "confirm": true
+      }
+    ]
+  },
+  {
+    "id": "A05",
+    "title": "Consultar horários livres da profissional",
+    "capability": [
+      "availability",
+      "professional"
+    ],
+    "answers": {
+      "service_ref": "Para Escova.",
+      "date": "Amanhã.",
+      "service_name": "Para Escova."
+    },
+    "steps": [
+      {
+        "say": "Qual horário a Tatiana tem amanhã?"
+      }
+    ]
+  },
+  {
+    "id": "A06",
+    "title": "Bloquear agenda sem data e completar",
+    "capability": [
+      "block",
+      "multi-turn"
+    ],
+    "answers": {
+      "date": "Amanhã."
+    },
+    "steps": [
+      {
+        "say": "Bloqueia a Tatiana das 14h às 18h."
+      },
+      {
+        "confirm": true
+      }
+    ]
+  },
+  {
+    "id": "A07",
+    "title": "Cancelar Amanda e colocar Fábio no lugar (frase curta)",
+    "capability": [
+      "cancel",
+      "create",
+      "multi-action",
+      "multi-turn"
+    ],
+    "appointments": [
+      {
+        "key": "amanda_d1",
+        "customer": "amanda",
+        "professional": "tatiana",
+        "service": "corte",
+        "day": 1,
+        "time": "10:00"
+      }
+    ],
+    "answers": {
+      "reason": "Ela desmarcou por causa de uma viagem.",
+      "service_ref": "Corte Completo.",
+      "professional_ref": "Com a Tatiana.",
+      "service_name": "Corte Completo."
+    },
+    "steps": [
+      {
+        "say": "Cancela Amanda e coloca Fábio no lugar."
+      },
+      {
+        "confirm": true
+      }
+    ]
+  },
+  {
+    "id": "A08",
+    "title": "Remarcar e bloquear na mesma frase",
+    "capability": [
+      "reschedule",
+      "block",
+      "multi-action"
+    ],
+    "appointments": [
+      {
+        "key": "joao_d1",
+        "customer": "joao",
+        "professional": "ricardo",
+        "service": "corte",
+        "day": 1,
+        "time": "14:00"
+      }
+    ],
+    "answers": {
+      "end_time": "Até as 19h.",
+      "date": "Na sexta."
+    },
+    "steps": [
+      {
+        "say": "Remarca João para sexta às 15h e bloqueia Tatiana depois das 17h."
+      },
+      {
+        "confirm": true
+      }
+    ]
+  },
+  {
+    "id": "A09",
+    "title": "Cancelar e depois colocar outro no lugar em turno separado",
+    "capability": [
+      "cancel",
+      "create",
+      "multi-turn",
+      "context"
+    ],
+    "appointments": [
+      {
+        "key": "joao_d1",
+        "customer": "joao",
+        "professional": "ricardo",
+        "service": "corte",
+        "day": 1,
+        "time": "14:00"
+      }
+    ],
+    "answers": {
+      "professional_ref": "Com o Ricardo.",
+      "service_ref": "Corte Completo.",
+      "service_name": "Corte Completo."
+    },
+    "steps": [
+      {
+        "say": "Cancela o João das 14h de amanhã, ele pediu para desmarcar."
+      },
+      {
+        "say": "Coloca o Fábio no lugar, para Corte Completo."
+      },
+      {
+        "confirm": true
+      }
+    ]
+  },
+  {
+    "id": "A10",
+    "title": "Pedido em dia fechado (HARD_BLOCK)",
+    "capability": [
+      "hard-block",
+      "conflict"
+    ],
+    "steps": [
+      {
+        "say": "Marca a Carla domingo às 10h para Escova."
+      }
+    ]
+  },
+  {
+    "id": "A11",
+    "title": "Conflito com outro atendimento e escolha de alternativa",
+    "capability": [
+      "conflict",
+      "multi-turn"
+    ],
+    "appointments": [
+      {
+        "key": "rosa_d1",
+        "customer": "rosa",
+        "professional": "tatiana",
+        "service": "coloracao",
+        "day": 1,
+        "time": "10:00"
+      }
+    ],
+    "steps": [
+      {
+        "say": "Marca a Carla amanhã às 11h com a Tatiana para Escova."
+      },
+      {
+        "say": "Então às 14h."
+      },
+      {
+        "confirm": true
+      }
+    ]
+  },
+  {
+    "id": "A12",
+    "title": "Faltam data e hora",
+    "capability": [
+      "create",
+      "clarification"
+    ],
+    "answers": {
+      "date": "Amanhã às 16h.",
+      "time": "Às 16h.",
+      "professional_ref": "Com a Tatiana."
+    },
+    "steps": [
+      {
+        "say": "Marca a Amanda para Corte Completo."
+      },
+      {
+        "confirm": true
+      }
+    ]
+  },
+  {
+    "id": "A13",
+    "title": "Escolha de profissional entre dois elegíveis",
+    "capability": [
+      "create",
+      "professional",
+      "clarification"
+    ],
+    "answers": {
+      "professional_ref": "Com o Ricardo."
+    },
+    "steps": [
+      {
+        "say": "Marca o Fábio amanhã às 9h para Corte Completo."
+      },
+      {
+        "confirm": true
+      }
+    ]
+  },
+  {
+    "id": "A14",
+    "title": "Correção no meio da conversa",
+    "capability": [
+      "create",
+      "correction",
+      "multi-turn"
+    ],
+    "steps": [
+      {
+        "say": "Marca a Carla amanhã às 15h para Escova."
+      },
+      {
+        "say": "Na verdade é às 16h, não 15h."
+      },
+      {
+        "confirm": true
+      }
+    ]
+  },
+  {
+    "id": "A15",
+    "title": "Cancelar, confirmar e depois colocar outro no lugar",
+    "capability": [
+      "cancel",
+      "create",
+      "multi-turn",
+      "context"
+    ],
+    "appointments": [
+      {
+        "key": "joao_d1",
+        "customer": "joao",
+        "professional": "ricardo",
+        "service": "corte",
+        "day": 1,
+        "time": "14:00"
+      }
+    ],
+    "answers": {
+      "professional_ref": "Com o Ricardo.",
+      "service_ref": "Corte Completo.",
+      "service_name": "Corte Completo."
+    },
+    "steps": [
+      {
+        "say": "Cancela o João das 14h de amanhã, ele pediu para desmarcar."
+      },
+      {
+        "confirm": true
+      },
+      {
+        "say": "Coloca o Fábio no lugar, para Corte Completo."
+      },
+      {
+        "confirm": true
+      }
+    ]
+  }
+]

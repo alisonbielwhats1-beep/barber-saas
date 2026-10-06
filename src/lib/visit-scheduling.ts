@@ -88,6 +88,8 @@ async function loadVisitRange(
   toDate: string,
   choices: VisitChoice[],
   now: Date,
+  /** Secretária D1: a move's origin projected out (its own slot does not count against the create that takes it). */
+  projection?: { releasedAppointmentId: string },
 ) {
   const salon = await tx.salon.findUnique({
     where: { id: salonId },
@@ -172,6 +174,7 @@ async function loadVisitRange(
   const appointments = await tx.appointment.findMany({
     where: {
       salonId,
+      ...(projection ? { id: { not: projection.releasedAppointmentId } } : {}),
       professionalId: { in: pros },
       status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
       startAt: { lt: bufferedTo },
@@ -188,6 +191,7 @@ async function loadVisitRange(
           salonId,
           resourceId: { in: resources },
           active: true,
+          ...(projection ? { appointmentId: { not: projection.releasedAppointmentId } } : {}),
           startAt: { lt: to },
           endAt: { gt: from },
         },
@@ -274,8 +278,9 @@ export async function loadVisitDay(
   date: string,
   choices: VisitChoice[],
   now = new Date(),
+  projection?: { releasedAppointmentId: string },
 ) {
-  const range = await loadVisitRange(tx, salonId, date, date, choices, now);
+  const range = await loadVisitRange(tx, salonId, date, date, choices, now, projection);
   const priced = await priceServicesForDate(tx, {
     salonId,
     dateKey: date,
@@ -293,6 +298,8 @@ export function findVisitPlan(
   options: {
     manual?: boolean;
     overrideSchedule?: boolean;
+    /** Internal candidate construction only; admission still belongs to the manual inspector. */
+    allowAppointmentOverlap?: boolean;
     budget?: { remaining: number };
     onBlocked?: (index: number, reason: string) => void;
   } = {},
@@ -357,7 +364,7 @@ export function findVisitPlan(
         continue;
       }
       if (
-        day.appointments.some((c) => {
+        !(options.manual && options.allowAppointmentOverlap) && day.appointments.some((c) => {
           const w = bufferedWindow(c.startAt, c.endAt, day.salon.bufferMinutes);
           return c.professionalId === pro.id && overlap(a, b, w.from, w.to);
         })

@@ -67,6 +67,16 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     role: m.role,
   }));
   const currentSalon = membershipList.find((m) => m.id === salonId)!;
+  let SecretaryDock: typeof import("./servicos/secretaria/secretary-dock-lazy").SecretaryDockLazy | undefined;
+  if (process.env.SALON_SECRETARY_FRONT_ENABLED === "true" && ["OWNER", "MANAGER", "RECEPTIONIST"].includes(role)) {
+    // Loaded only here, and the flag is fixed at build time (next.config env): with the Secretária off this branch is dead code,
+    // so no admin page compiles the dock, its server actions or her runtime (the CI journeys timed out compiling them).
+    try {
+      const [{ assertSecretaryEnvironment }, { assertSecretaryRolloutAccess }, dock] = await Promise.all([import("@/lib/salon-secretary-runtime"), import("@/lib/secretary-rollout"),
+        import("./servicos/secretaria/secretary-dock-lazy")]);
+      assertSecretaryEnvironment(); assertSecretaryRolloutAccess(ctx); SecretaryDock = dock.SecretaryDockLazy;
+    } catch { /* Admission and environment gates both fail closed. */ }
+  }
 
   return (
     <ThemeProvider>
@@ -94,6 +104,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       />
       <CommandPalette role={role} />
       <Toaster />
+      {SecretaryDock && <SecretaryDock key={`${salonId}:${userId}`} voiceEnabled={process.env.SALON_SECRETARY_VOICE_ENABLED === "true"}
+        voiceCorrection={process.env.SALON_SECRETARY_VOICE_CORRECTION === "true"} transcribeEnabled={process.env.SALON_SECRETARY_TRANSCRIBE_ENABLED === "true"}
+        feedbackEnabled={process.env.SALON_SECRETARY_FEEDBACK === "true"} flowEnabled={process.env.SALON_SECRETARY_FLOW_WINDOW === "true"} />}
     </div>
     </ThemeProvider>
   );

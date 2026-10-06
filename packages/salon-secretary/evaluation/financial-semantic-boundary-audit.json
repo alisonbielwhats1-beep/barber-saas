@@ -1,0 +1,2805 @@
+{
+  "version": "financial-semantic-boundary-v1",
+  "executed": false,
+  "evaluationOnly": true,
+  "originalReportsUnchanged": true,
+  "sourceHashes": {
+    "plan": {
+      "path": "packages/salon-secretary/evaluation/coverage-expansion-plan.json",
+      "sha256": "0db86b3cd6087cfaa6a1d8403aeeb481ca2d718cf4afa61df5c0cabe380e2de7"
+    },
+    "prior": {
+      "path": "packages/salon-secretary/evaluation/coverage-expansion-wave1-real-2026-09-23.json",
+      "sha256": "6b7d524c4b13e163450fd7404f38f2544c0069c8b8e35adae35db2fa7b06797b"
+    },
+    "continuation": {
+      "path": "packages/salon-secretary/evaluation/coverage-expansion-wave1-continuation-real-2026-09-23.json",
+      "sha256": "ebca4532b0c39ebf97e88aeb75af92184102050473d46d2af995868275130493"
+    }
+  },
+  "observedCount": 23,
+  "unexecutedCount": 9,
+  "counts": {
+    "CLOSED_FINANCIAL": 1,
+    "CLOSED_BUT_UNCALIBRATED": 17,
+    "MODIFIER_NOT_REPRESENTED": 4,
+    "OPEN_EXTRACTION_REQUIRED": 3,
+    "COMPOUND": 2,
+    "OUT_OF_CATALOG": 5
+  },
+  "rows": [
+    {
+      "id": "f01",
+      "message": "Quanto faturei ontem?",
+      "historicalBaseline": "financial-revenue",
+      "originalExpected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "yesterday",
+          "metric": "service_revenue",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": false,
+        "domainFields": {
+          "metrics": [
+            "service_revenue"
+          ],
+          "period": "yesterday"
+        }
+      },
+      "semanticClass": "CLOSED_FINANCIAL",
+      "reviewedSemanticRequirement": {
+        "signature": {
+          "skill": "financial",
+          "shape": "single",
+          "metric": "service_revenue",
+          "period": "yesterday",
+          "comparisonPeriod": null,
+          "groupBy": null,
+          "rankingDirection": null,
+          "topLimit": null,
+          "metricSet": null,
+          "entityFilter": null
+        },
+        "unrepresented": [],
+        "explanation": "Frase exata atualmente inscrita na Policy; ausência de modificadores revisada somente para esta entrada."
+      },
+      "observed": {
+        "status": "OK",
+        "providerValid": true,
+        "selectors": {
+          "skill": "financial",
+          "shape": "single",
+          "metric": "service_revenue",
+          "period": "yesterday",
+          "operation": "financial.report"
+        },
+        "policy": {
+          "policyVersion": "jev-acceptance-v1",
+          "decision": "ACCEPT_JEV",
+          "reason": "ACCEPTED_CLOSED_DECISION",
+          "enrollmentId": "financial-revenue",
+          "riskClasses": [
+            "READ_ONLY"
+          ],
+          "requiredDecisions": [
+            "skill",
+            "shape",
+            "metric",
+            "period"
+          ],
+          "interpretation": {
+            "skill": "financial",
+            "operation": "financial.report",
+            "shape": "single",
+            "period": "yesterday",
+            "metric": "service_revenue",
+            "inventory": "none",
+            "communication": "none"
+          },
+          "provenance": {
+            "skill": "JEV",
+            "shape": "JEV",
+            "metric": "JEV",
+            "period": "JEV",
+            "operation": "DETERMINISTIC_DERIVATION"
+          },
+          "backendOnly": [
+            "customer_ref",
+            "service_ref",
+            "professional_ref",
+            "appointment_ref",
+            "product_ref",
+            "recipient_ref",
+            "financial_values",
+            "stock",
+            "availability",
+            "authorization",
+            "tenant"
+          ],
+          "confidenceData": [
+            {
+              "dimension": "skill",
+              "selected": "financial",
+              "selectedProbability": 1,
+              "runnerUpProbability": 0,
+              "margin": 1,
+              "confidence": 0.99,
+              "correct": null
+            },
+            {
+              "dimension": "shape",
+              "selected": "single",
+              "selectedProbability": 0.72,
+              "runnerUpProbability": 0.22,
+              "margin": 0.5,
+              "confidence": 0.64,
+              "correct": null
+            },
+            {
+              "dimension": "metric",
+              "selected": "service_revenue",
+              "selectedProbability": 0.98,
+              "runnerUpProbability": 0.01,
+              "margin": 0.97,
+              "confidence": 0.97,
+              "correct": null
+            },
+            {
+              "dimension": "period",
+              "selected": "yesterday",
+              "selectedProbability": 1,
+              "runnerUpProbability": 0,
+              "margin": 1,
+              "confidence": 1,
+              "correct": null
+            }
+          ],
+          "executable": false
+        },
+        "historicalClassification": "CORRECT_ACCEPT",
+        "coverage": {
+          "matchingDimensions": [
+            "skill",
+            "shape",
+            "metric",
+            "period",
+            "operation"
+          ],
+          "missingCoreDimensions": [],
+          "missingSemanticDimensions": [],
+          "semanticallyClosed": true,
+          "fullJevBypassObserved": true
+        }
+      },
+      "semanticallyPossibleFullBypass": true,
+      "nextHandling": "BACKEND"
+    },
+    {
+      "id": "f02",
+      "message": "Qual foi meu faturamento de ontem?",
+      "historicalBaseline": "financial-revenue",
+      "originalExpected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "yesterday",
+          "metric": "service_revenue",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": false,
+        "domainFields": {
+          "metrics": [
+            "service_revenue"
+          ],
+          "period": "yesterday"
+        }
+      },
+      "semanticClass": "CLOSED_BUT_UNCALIBRATED",
+      "reviewedSemanticRequirement": {
+        "signature": {
+          "skill": "financial",
+          "shape": "single",
+          "metric": "service_revenue",
+          "period": "yesterday",
+          "comparisonPeriod": null,
+          "groupBy": null,
+          "rankingDirection": null,
+          "topLimit": null,
+          "metricSet": null,
+          "entityFilter": null
+        },
+        "unrepresented": [],
+        "explanation": "Uma métrica publicada e período fechado; valores e datas absolutas continuam no backend."
+      },
+      "observed": {
+        "status": "OK",
+        "providerValid": true,
+        "selectors": {
+          "skill": "financial",
+          "shape": "single",
+          "metric": "service_revenue",
+          "period": "yesterday",
+          "operation": "financial.report"
+        },
+        "policy": {
+          "policyVersion": "jev-acceptance-v1",
+          "decision": "FALLBACK_REQUIRED",
+          "reason": "UNCALIBRATED_INPUT",
+          "enrollmentId": null,
+          "riskClasses": [
+            "READ_ONLY"
+          ],
+          "requiredDecisions": [],
+          "interpretation": null,
+          "provenance": {},
+          "backendOnly": [
+            "customer_ref",
+            "service_ref",
+            "professional_ref",
+            "appointment_ref",
+            "product_ref",
+            "recipient_ref",
+            "financial_values",
+            "stock",
+            "availability",
+            "authorization",
+            "tenant"
+          ],
+          "confidenceData": [],
+          "executable": false
+        },
+        "historicalClassification": "CORRECT_FALLBACK",
+        "coverage": {
+          "matchingDimensions": [
+            "skill",
+            "shape",
+            "metric",
+            "period",
+            "operation"
+          ],
+          "missingCoreDimensions": [],
+          "missingSemanticDimensions": [],
+          "semanticallyClosed": true,
+          "fullJevBypassObserved": false
+        }
+      },
+      "semanticallyPossibleFullBypass": true,
+      "nextHandling": "LUNA_OR_CLARIFICATION"
+    },
+    {
+      "id": "f03",
+      "message": "Qual foi o faturamento de serviços concluídos esta semana?",
+      "historicalBaseline": "financial-revenue",
+      "originalExpected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "this_week",
+          "metric": "service_revenue",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": false,
+        "domainFields": {
+          "metrics": [
+            "service_revenue"
+          ],
+          "period": "this_week"
+        }
+      },
+      "semanticClass": "CLOSED_BUT_UNCALIBRATED",
+      "reviewedSemanticRequirement": {
+        "signature": {
+          "skill": "financial",
+          "shape": "single",
+          "metric": "service_revenue",
+          "period": "this_week",
+          "comparisonPeriod": null,
+          "groupBy": null,
+          "rankingDirection": null,
+          "topLimit": null,
+          "metricSet": null,
+          "entityFilter": null
+        },
+        "unrepresented": [],
+        "explanation": "Uma métrica publicada e período fechado; valores e datas absolutas continuam no backend."
+      },
+      "observed": {
+        "status": "OK",
+        "providerValid": true,
+        "selectors": {
+          "skill": "financial",
+          "shape": "single",
+          "metric": "service_revenue",
+          "period": "this_week",
+          "operation": "financial.report"
+        },
+        "policy": {
+          "policyVersion": "jev-acceptance-v1",
+          "decision": "FALLBACK_REQUIRED",
+          "reason": "UNCALIBRATED_INPUT",
+          "enrollmentId": null,
+          "riskClasses": [
+            "READ_ONLY"
+          ],
+          "requiredDecisions": [],
+          "interpretation": null,
+          "provenance": {},
+          "backendOnly": [
+            "customer_ref",
+            "service_ref",
+            "professional_ref",
+            "appointment_ref",
+            "product_ref",
+            "recipient_ref",
+            "financial_values",
+            "stock",
+            "availability",
+            "authorization",
+            "tenant"
+          ],
+          "confidenceData": [],
+          "executable": false
+        },
+        "historicalClassification": "CORRECT_FALLBACK",
+        "coverage": {
+          "matchingDimensions": [
+            "skill",
+            "shape",
+            "metric",
+            "period",
+            "operation"
+          ],
+          "missingCoreDimensions": [],
+          "missingSemanticDimensions": [],
+          "semanticallyClosed": true,
+          "fullJevBypassObserved": false
+        }
+      },
+      "semanticallyPossibleFullBypass": true,
+      "nextHandling": "LUNA_OR_CLARIFICATION"
+    },
+    {
+      "id": "f04",
+      "message": "Quanto eu recebi ontem?",
+      "historicalBaseline": "financial-received",
+      "originalExpected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "yesterday",
+          "metric": "received_revenue",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": false,
+        "domainFields": {
+          "metrics": [
+            "received_revenue"
+          ],
+          "period": "yesterday"
+        }
+      },
+      "semanticClass": "CLOSED_BUT_UNCALIBRATED",
+      "reviewedSemanticRequirement": {
+        "signature": {
+          "skill": "financial",
+          "shape": "single",
+          "metric": "received_revenue",
+          "period": "yesterday",
+          "comparisonPeriod": null,
+          "groupBy": null,
+          "rankingDirection": null,
+          "topLimit": null,
+          "metricSet": null,
+          "entityFilter": null
+        },
+        "unrepresented": [],
+        "explanation": "Pedido fechado, mas a resposta real do provider foi estruturalmente inválida; não conta como acerto JEV."
+      },
+      "observed": {
+        "status": "ERROR",
+        "providerValid": false,
+        "selectors": {},
+        "policy": {
+          "policyVersion": "jev-acceptance-v1",
+          "decision": "FALLBACK_REQUIRED",
+          "reason": "INVALID_PROVIDER_RESPONSE",
+          "enrollmentId": null,
+          "riskClasses": [],
+          "requiredDecisions": [],
+          "interpretation": null,
+          "provenance": {},
+          "backendOnly": [
+            "customer_ref",
+            "service_ref",
+            "professional_ref",
+            "appointment_ref",
+            "product_ref",
+            "recipient_ref",
+            "financial_values",
+            "stock",
+            "availability",
+            "authorization",
+            "tenant"
+          ],
+          "confidenceData": [],
+          "executable": false
+        },
+        "historicalClassification": "INVALID_PROVIDER_RESPONSE",
+        "coverage": {
+          "matchingDimensions": [],
+          "missingCoreDimensions": [
+            "skill",
+            "shape",
+            "metric",
+            "period",
+            "operation"
+          ],
+          "missingSemanticDimensions": [],
+          "semanticallyClosed": false,
+          "fullJevBypassObserved": false
+        }
+      },
+      "semanticallyPossibleFullBypass": true,
+      "nextHandling": "LUNA_OR_CLARIFICATION"
+    },
+    {
+      "id": "f05",
+      "message": "Qual o total dos pagamentos recebidos ontem?",
+      "historicalBaseline": "financial-received",
+      "originalExpected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "yesterday",
+          "metric": "received_revenue",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": false,
+        "domainFields": {
+          "metrics": [
+            "received_revenue"
+          ],
+          "period": "yesterday"
+        }
+      },
+      "semanticClass": "CLOSED_BUT_UNCALIBRATED",
+      "reviewedSemanticRequirement": {
+        "signature": {
+          "skill": "financial",
+          "shape": "single",
+          "metric": "received_revenue",
+          "period": "yesterday",
+          "comparisonPeriod": null,
+          "groupBy": null,
+          "rankingDirection": null,
+          "topLimit": null,
+          "metricSet": null,
+          "entityFilter": null
+        },
+        "unrepresented": [],
+        "explanation": "Uma métrica publicada e período fechado; valores e datas absolutas continuam no backend."
+      },
+      "observed": {
+        "status": "OK",
+        "providerValid": true,
+        "selectors": {
+          "skill": "financial",
+          "shape": "single",
+          "metric": "received_revenue",
+          "period": "yesterday",
+          "operation": "financial.report"
+        },
+        "policy": {
+          "policyVersion": "jev-acceptance-v1",
+          "decision": "FALLBACK_REQUIRED",
+          "reason": "UNCALIBRATED_INPUT",
+          "enrollmentId": null,
+          "riskClasses": [
+            "READ_ONLY"
+          ],
+          "requiredDecisions": [],
+          "interpretation": null,
+          "provenance": {},
+          "backendOnly": [
+            "customer_ref",
+            "service_ref",
+            "professional_ref",
+            "appointment_ref",
+            "product_ref",
+            "recipient_ref",
+            "financial_values",
+            "stock",
+            "availability",
+            "authorization",
+            "tenant"
+          ],
+          "confidenceData": [],
+          "executable": false
+        },
+        "historicalClassification": "CORRECT_FALLBACK",
+        "coverage": {
+          "matchingDimensions": [
+            "skill",
+            "shape",
+            "metric",
+            "period",
+            "operation"
+          ],
+          "missingCoreDimensions": [],
+          "missingSemanticDimensions": [],
+          "semanticallyClosed": true,
+          "fullJevBypassObserved": false
+        }
+      },
+      "semanticallyPossibleFullBypass": true,
+      "nextHandling": "LUNA_OR_CLARIFICATION"
+    },
+    {
+      "id": "f06",
+      "message": "Quanto recebi este mês?",
+      "historicalBaseline": "financial-received",
+      "originalExpected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "this_month",
+          "metric": "received_revenue",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": false,
+        "domainFields": {
+          "metrics": [
+            "received_revenue"
+          ],
+          "period": "this_month"
+        }
+      },
+      "semanticClass": "CLOSED_BUT_UNCALIBRATED",
+      "reviewedSemanticRequirement": {
+        "signature": {
+          "skill": "financial",
+          "shape": "single",
+          "metric": "received_revenue",
+          "period": "this_month",
+          "comparisonPeriod": null,
+          "groupBy": null,
+          "rankingDirection": null,
+          "topLimit": null,
+          "metricSet": null,
+          "entityFilter": null
+        },
+        "unrepresented": [],
+        "explanation": "Uma métrica publicada e período fechado; valores e datas absolutas continuam no backend."
+      },
+      "observed": {
+        "status": "OK",
+        "providerValid": true,
+        "selectors": {
+          "skill": "financial",
+          "shape": "single",
+          "metric": "received_revenue",
+          "period": "this_month",
+          "operation": "financial.report"
+        },
+        "policy": {
+          "policyVersion": "jev-acceptance-v1",
+          "decision": "FALLBACK_REQUIRED",
+          "reason": "UNCALIBRATED_INPUT",
+          "enrollmentId": null,
+          "riskClasses": [
+            "READ_ONLY"
+          ],
+          "requiredDecisions": [],
+          "interpretation": null,
+          "provenance": {},
+          "backendOnly": [
+            "customer_ref",
+            "service_ref",
+            "professional_ref",
+            "appointment_ref",
+            "product_ref",
+            "recipient_ref",
+            "financial_values",
+            "stock",
+            "availability",
+            "authorization",
+            "tenant"
+          ],
+          "confidenceData": [],
+          "executable": false
+        },
+        "historicalClassification": "CORRECT_FALLBACK",
+        "coverage": {
+          "matchingDimensions": [
+            "skill",
+            "shape",
+            "metric",
+            "period",
+            "operation"
+          ],
+          "missingCoreDimensions": [],
+          "missingSemanticDimensions": [],
+          "semanticallyClosed": true,
+          "fullJevBypassObserved": false
+        }
+      },
+      "semanticallyPossibleFullBypass": true,
+      "nextHandling": "LUNA_OR_CLARIFICATION"
+    },
+    {
+      "id": "f07",
+      "message": "Quanto tenho a receber?",
+      "historicalBaseline": "financial-outstanding",
+      "originalExpected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "none",
+          "metric": "outstanding_receivables",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": false,
+        "domainFields": {
+          "metrics": [
+            "outstanding_receivables"
+          ],
+          "period": null
+        }
+      },
+      "semanticClass": "CLOSED_BUT_UNCALIBRATED",
+      "reviewedSemanticRequirement": {
+        "signature": {
+          "skill": "financial",
+          "shape": "single",
+          "metric": "outstanding_receivables",
+          "period": "none",
+          "comparisonPeriod": null,
+          "groupBy": null,
+          "rankingDirection": null,
+          "topLimit": null,
+          "metricSet": null,
+          "entityFilter": null
+        },
+        "unrepresented": [],
+        "explanation": "Saldo atual a receber: period=none é correto; o backend não aceita período histórico."
+      },
+      "observed": {
+        "status": "NO_MATCH",
+        "providerValid": true,
+        "selectors": {
+          "skill": "financial",
+          "shape": "unclear"
+        },
+        "policy": {
+          "policyVersion": "jev-acceptance-v1",
+          "decision": "FALLBACK_REQUIRED",
+          "reason": "UNCLEAR_DECISION",
+          "enrollmentId": null,
+          "riskClasses": [],
+          "requiredDecisions": [],
+          "interpretation": null,
+          "provenance": {},
+          "backendOnly": [
+            "customer_ref",
+            "service_ref",
+            "professional_ref",
+            "appointment_ref",
+            "product_ref",
+            "recipient_ref",
+            "financial_values",
+            "stock",
+            "availability",
+            "authorization",
+            "tenant"
+          ],
+          "confidenceData": [],
+          "executable": false
+        },
+        "historicalClassification": "CORRECT_FALLBACK",
+        "coverage": {
+          "matchingDimensions": [
+            "skill"
+          ],
+          "missingCoreDimensions": [
+            "shape",
+            "metric",
+            "period",
+            "operation"
+          ],
+          "missingSemanticDimensions": [],
+          "semanticallyClosed": false,
+          "fullJevBypassObserved": false
+        }
+      },
+      "semanticallyPossibleFullBypass": true,
+      "nextHandling": "LUNA_OR_CLARIFICATION"
+    },
+    {
+      "id": "f08",
+      "message": "Qual é o saldo atual a receber dos atendimentos concluídos ainda sem pagamento?",
+      "historicalBaseline": "financial-outstanding",
+      "originalExpected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "none",
+          "metric": "outstanding_receivables",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": false,
+        "domainFields": {
+          "metrics": [
+            "outstanding_receivables"
+          ],
+          "period": null
+        }
+      },
+      "semanticClass": "CLOSED_BUT_UNCALIBRATED",
+      "reviewedSemanticRequirement": {
+        "signature": {
+          "skill": "financial",
+          "shape": "single",
+          "metric": "outstanding_receivables",
+          "period": "none",
+          "comparisonPeriod": null,
+          "groupBy": null,
+          "rankingDirection": null,
+          "topLimit": null,
+          "metricSet": null,
+          "entityFilter": null
+        },
+        "unrepresented": [],
+        "explanation": "Saldo atual a receber: period=none é correto; o backend não aceita período histórico."
+      },
+      "observed": {
+        "status": "OK",
+        "providerValid": true,
+        "selectors": {
+          "skill": "financial",
+          "shape": "single",
+          "metric": "outstanding_receivables",
+          "period": "none",
+          "operation": "financial.report"
+        },
+        "policy": {
+          "policyVersion": "jev-acceptance-v1",
+          "decision": "FALLBACK_REQUIRED",
+          "reason": "UNCALIBRATED_INPUT",
+          "enrollmentId": null,
+          "riskClasses": [
+            "READ_ONLY"
+          ],
+          "requiredDecisions": [],
+          "interpretation": null,
+          "provenance": {},
+          "backendOnly": [
+            "customer_ref",
+            "service_ref",
+            "professional_ref",
+            "appointment_ref",
+            "product_ref",
+            "recipient_ref",
+            "financial_values",
+            "stock",
+            "availability",
+            "authorization",
+            "tenant"
+          ],
+          "confidenceData": [],
+          "executable": false
+        },
+        "historicalClassification": "CORRECT_FALLBACK",
+        "coverage": {
+          "matchingDimensions": [
+            "skill",
+            "shape",
+            "metric",
+            "period",
+            "operation"
+          ],
+          "missingCoreDimensions": [],
+          "missingSemanticDimensions": [],
+          "semanticallyClosed": true,
+          "fullJevBypassObserved": false
+        }
+      },
+      "semanticallyPossibleFullBypass": true,
+      "nextHandling": "LUNA_OR_CLARIFICATION"
+    },
+    {
+      "id": "f09",
+      "message": "Qual o valor em aberto dos atendimentos concluídos sem pagamento, incluindo serviços e produtos?",
+      "historicalBaseline": "financial-outstanding",
+      "originalExpected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "none",
+          "metric": "outstanding_receivables",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": false,
+        "domainFields": {
+          "metrics": [
+            "outstanding_receivables"
+          ],
+          "period": null
+        }
+      },
+      "semanticClass": "CLOSED_BUT_UNCALIBRATED",
+      "reviewedSemanticRequirement": {
+        "signature": {
+          "skill": "financial",
+          "shape": "single",
+          "metric": "outstanding_receivables",
+          "period": "none",
+          "comparisonPeriod": null,
+          "groupBy": null,
+          "rankingDirection": null,
+          "topLimit": null,
+          "metricSet": null,
+          "entityFilter": null
+        },
+        "unrepresented": [],
+        "explanation": "Saldo atual a receber: period=none é correto; o backend não aceita período histórico."
+      },
+      "observed": {
+        "status": "OK",
+        "providerValid": true,
+        "selectors": {
+          "skill": "financial",
+          "shape": "single",
+          "metric": "outstanding_receivables",
+          "period": "none",
+          "operation": "financial.report"
+        },
+        "policy": {
+          "policyVersion": "jev-acceptance-v1",
+          "decision": "FALLBACK_REQUIRED",
+          "reason": "UNCALIBRATED_INPUT",
+          "enrollmentId": null,
+          "riskClasses": [
+            "READ_ONLY"
+          ],
+          "requiredDecisions": [],
+          "interpretation": null,
+          "provenance": {},
+          "backendOnly": [
+            "customer_ref",
+            "service_ref",
+            "professional_ref",
+            "appointment_ref",
+            "product_ref",
+            "recipient_ref",
+            "financial_values",
+            "stock",
+            "availability",
+            "authorization",
+            "tenant"
+          ],
+          "confidenceData": [],
+          "executable": false
+        },
+        "historicalClassification": "CORRECT_FALLBACK",
+        "coverage": {
+          "matchingDimensions": [
+            "skill",
+            "shape",
+            "metric",
+            "period",
+            "operation"
+          ],
+          "missingCoreDimensions": [],
+          "missingSemanticDimensions": [],
+          "semanticallyClosed": true,
+          "fullJevBypassObserved": false
+        }
+      },
+      "semanticallyPossibleFullBypass": true,
+      "nextHandling": "LUNA_OR_CLARIFICATION"
+    },
+    {
+      "id": "f10",
+      "message": "Qual foi meu ticket médio ontem?",
+      "historicalBaseline": "financial-multiple",
+      "originalExpected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "yesterday",
+          "metric": "average_ticket",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": false,
+        "domainFields": {
+          "metrics": [
+            "average_ticket"
+          ],
+          "period": "yesterday"
+        }
+      },
+      "semanticClass": "CLOSED_BUT_UNCALIBRATED",
+      "reviewedSemanticRequirement": {
+        "signature": {
+          "skill": "financial",
+          "shape": "single",
+          "metric": "average_ticket",
+          "period": "yesterday",
+          "comparisonPeriod": null,
+          "groupBy": null,
+          "rankingDirection": null,
+          "topLimit": null,
+          "metricSet": null,
+          "entityFilter": null
+        },
+        "unrepresented": [],
+        "explanation": "Uma métrica publicada e período fechado; valores e datas absolutas continuam no backend."
+      },
+      "observed": {
+        "status": "OK",
+        "providerValid": true,
+        "selectors": {
+          "skill": "financial",
+          "shape": "single",
+          "metric": "average_ticket",
+          "period": "yesterday",
+          "operation": "financial.report"
+        },
+        "policy": {
+          "policyVersion": "jev-acceptance-v1",
+          "decision": "FALLBACK_REQUIRED",
+          "reason": "UNCALIBRATED_INPUT",
+          "enrollmentId": null,
+          "riskClasses": [
+            "READ_ONLY"
+          ],
+          "requiredDecisions": [],
+          "interpretation": null,
+          "provenance": {},
+          "backendOnly": [
+            "customer_ref",
+            "service_ref",
+            "professional_ref",
+            "appointment_ref",
+            "product_ref",
+            "recipient_ref",
+            "financial_values",
+            "stock",
+            "availability",
+            "authorization",
+            "tenant"
+          ],
+          "confidenceData": [],
+          "executable": false
+        },
+        "historicalClassification": "CORRECT_FALLBACK",
+        "coverage": {
+          "matchingDimensions": [
+            "skill",
+            "shape",
+            "metric",
+            "period",
+            "operation"
+          ],
+          "missingCoreDimensions": [],
+          "missingSemanticDimensions": [],
+          "semanticallyClosed": true,
+          "fullJevBypassObserved": false
+        }
+      },
+      "semanticallyPossibleFullBypass": true,
+      "nextHandling": "LUNA_OR_CLARIFICATION"
+    },
+    {
+      "id": "f11",
+      "message": "Qual foi o faturamento médio de serviços por atendimento concluído ontem?",
+      "historicalBaseline": "financial-multiple",
+      "originalExpected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "yesterday",
+          "metric": "average_ticket",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": false,
+        "domainFields": {
+          "metrics": [
+            "average_ticket"
+          ],
+          "period": "yesterday"
+        }
+      },
+      "semanticClass": "CLOSED_BUT_UNCALIBRATED",
+      "reviewedSemanticRequirement": {
+        "signature": {
+          "skill": "financial",
+          "shape": "single",
+          "metric": "average_ticket",
+          "period": "yesterday",
+          "comparisonPeriod": null,
+          "groupBy": null,
+          "rankingDirection": null,
+          "topLimit": null,
+          "metricSet": null,
+          "entityFilter": null
+        },
+        "unrepresented": [],
+        "explanation": "Uma métrica publicada e período fechado; valores e datas absolutas continuam no backend."
+      },
+      "observed": {
+        "status": "OK",
+        "providerValid": true,
+        "selectors": {
+          "skill": "financial",
+          "shape": "single",
+          "metric": "average_ticket",
+          "period": "yesterday",
+          "operation": "financial.report"
+        },
+        "policy": {
+          "policyVersion": "jev-acceptance-v1",
+          "decision": "FALLBACK_REQUIRED",
+          "reason": "UNCALIBRATED_INPUT",
+          "enrollmentId": null,
+          "riskClasses": [
+            "READ_ONLY"
+          ],
+          "requiredDecisions": [],
+          "interpretation": null,
+          "provenance": {},
+          "backendOnly": [
+            "customer_ref",
+            "service_ref",
+            "professional_ref",
+            "appointment_ref",
+            "product_ref",
+            "recipient_ref",
+            "financial_values",
+            "stock",
+            "availability",
+            "authorization",
+            "tenant"
+          ],
+          "confidenceData": [],
+          "executable": false
+        },
+        "historicalClassification": "CORRECT_FALLBACK",
+        "coverage": {
+          "matchingDimensions": [
+            "skill",
+            "shape",
+            "metric",
+            "period",
+            "operation"
+          ],
+          "missingCoreDimensions": [],
+          "missingSemanticDimensions": [],
+          "semanticallyClosed": true,
+          "fullJevBypassObserved": false
+        }
+      },
+      "semanticallyPossibleFullBypass": true,
+      "nextHandling": "LUNA_OR_CLARIFICATION"
+    },
+    {
+      "id": "f12",
+      "message": "Qual foi meu ticket médio no mês passado?",
+      "historicalBaseline": "financial-multiple",
+      "originalExpected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "last_month",
+          "metric": "average_ticket",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": false,
+        "domainFields": {
+          "metrics": [
+            "average_ticket"
+          ],
+          "period": "last_month"
+        }
+      },
+      "semanticClass": "CLOSED_BUT_UNCALIBRATED",
+      "reviewedSemanticRequirement": {
+        "signature": {
+          "skill": "financial",
+          "shape": "single",
+          "metric": "average_ticket",
+          "period": "last_month",
+          "comparisonPeriod": null,
+          "groupBy": null,
+          "rankingDirection": null,
+          "topLimit": null,
+          "metricSet": null,
+          "entityFilter": null
+        },
+        "unrepresented": [],
+        "explanation": "Uma métrica publicada e período fechado; valores e datas absolutas continuam no backend."
+      },
+      "observed": {
+        "status": "OK",
+        "providerValid": true,
+        "selectors": {
+          "skill": "financial",
+          "shape": "single",
+          "metric": "average_ticket",
+          "period": "last_month",
+          "operation": "financial.report"
+        },
+        "policy": {
+          "policyVersion": "jev-acceptance-v1",
+          "decision": "FALLBACK_REQUIRED",
+          "reason": "UNCALIBRATED_INPUT",
+          "enrollmentId": null,
+          "riskClasses": [
+            "READ_ONLY"
+          ],
+          "requiredDecisions": [],
+          "interpretation": null,
+          "provenance": {},
+          "backendOnly": [
+            "customer_ref",
+            "service_ref",
+            "professional_ref",
+            "appointment_ref",
+            "product_ref",
+            "recipient_ref",
+            "financial_values",
+            "stock",
+            "availability",
+            "authorization",
+            "tenant"
+          ],
+          "confidenceData": [],
+          "executable": false
+        },
+        "historicalClassification": "CORRECT_FALLBACK",
+        "coverage": {
+          "matchingDimensions": [
+            "skill",
+            "shape",
+            "metric",
+            "period",
+            "operation"
+          ],
+          "missingCoreDimensions": [],
+          "missingSemanticDimensions": [],
+          "semanticallyClosed": true,
+          "fullJevBypassObserved": false
+        }
+      },
+      "semanticallyPossibleFullBypass": true,
+      "nextHandling": "LUNA_OR_CLARIFICATION"
+    },
+    {
+      "id": "f13",
+      "message": "Qual a receita realizada com serviços e produtos dos atendimentos concluídos ontem?",
+      "historicalBaseline": null,
+      "originalExpected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "yesterday",
+          "metric": "realized_revenue",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": false,
+        "domainFields": {
+          "metrics": [
+            "realized_revenue"
+          ],
+          "period": "yesterday"
+        }
+      },
+      "semanticClass": "CLOSED_BUT_UNCALIBRATED",
+      "reviewedSemanticRequirement": {
+        "signature": {
+          "skill": "financial",
+          "shape": "single",
+          "metric": "realized_revenue",
+          "period": "yesterday",
+          "comparisonPeriod": null,
+          "groupBy": null,
+          "rankingDirection": null,
+          "topLimit": null,
+          "metricSet": null,
+          "entityFilter": null
+        },
+        "unrepresented": [],
+        "explanation": "Uma métrica publicada e período fechado; valores e datas absolutas continuam no backend."
+      },
+      "observed": {
+        "status": "OK",
+        "providerValid": true,
+        "selectors": {
+          "skill": "financial",
+          "shape": "single",
+          "metric": "realized_revenue",
+          "period": "yesterday",
+          "operation": "financial.report"
+        },
+        "policy": {
+          "policyVersion": "jev-acceptance-v1",
+          "decision": "FALLBACK_REQUIRED",
+          "reason": "UNCALIBRATED_INPUT",
+          "enrollmentId": null,
+          "riskClasses": [
+            "READ_ONLY"
+          ],
+          "requiredDecisions": [],
+          "interpretation": null,
+          "provenance": {},
+          "backendOnly": [
+            "customer_ref",
+            "service_ref",
+            "professional_ref",
+            "appointment_ref",
+            "product_ref",
+            "recipient_ref",
+            "financial_values",
+            "stock",
+            "availability",
+            "authorization",
+            "tenant"
+          ],
+          "confidenceData": [],
+          "executable": false
+        },
+        "historicalClassification": "CORRECT_FALLBACK",
+        "coverage": {
+          "matchingDimensions": [
+            "skill",
+            "shape",
+            "metric",
+            "period",
+            "operation"
+          ],
+          "missingCoreDimensions": [],
+          "missingSemanticDimensions": [],
+          "semanticallyClosed": true,
+          "fullJevBypassObserved": false
+        }
+      },
+      "semanticallyPossibleFullBypass": true,
+      "nextHandling": "LUNA_OR_CLARIFICATION"
+    },
+    {
+      "id": "f14",
+      "message": "Quanto totalizaram serviços e produtos dos atendimentos concluídos ontem?",
+      "historicalBaseline": null,
+      "originalExpected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "yesterday",
+          "metric": "realized_revenue",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": false,
+        "domainFields": {
+          "metrics": [
+            "realized_revenue"
+          ],
+          "period": "yesterday"
+        }
+      },
+      "semanticClass": "CLOSED_BUT_UNCALIBRATED",
+      "reviewedSemanticRequirement": {
+        "signature": {
+          "skill": "financial",
+          "shape": "single",
+          "metric": "realized_revenue",
+          "period": "yesterday",
+          "comparisonPeriod": null,
+          "groupBy": null,
+          "rankingDirection": null,
+          "topLimit": null,
+          "metricSet": null,
+          "entityFilter": null
+        },
+        "unrepresented": [],
+        "explanation": "Uma métrica publicada e período fechado; valores e datas absolutas continuam no backend."
+      },
+      "observed": {
+        "status": "OK",
+        "providerValid": true,
+        "selectors": {
+          "skill": "financial",
+          "shape": "single",
+          "metric": "realized_revenue",
+          "period": "yesterday",
+          "operation": "financial.report"
+        },
+        "policy": {
+          "policyVersion": "jev-acceptance-v1",
+          "decision": "FALLBACK_REQUIRED",
+          "reason": "UNCALIBRATED_INPUT",
+          "enrollmentId": null,
+          "riskClasses": [
+            "READ_ONLY"
+          ],
+          "requiredDecisions": [],
+          "interpretation": null,
+          "provenance": {},
+          "backendOnly": [
+            "customer_ref",
+            "service_ref",
+            "professional_ref",
+            "appointment_ref",
+            "product_ref",
+            "recipient_ref",
+            "financial_values",
+            "stock",
+            "availability",
+            "authorization",
+            "tenant"
+          ],
+          "confidenceData": [],
+          "executable": false
+        },
+        "historicalClassification": "CORRECT_FALLBACK",
+        "coverage": {
+          "matchingDimensions": [
+            "skill",
+            "shape",
+            "metric",
+            "period",
+            "operation"
+          ],
+          "missingCoreDimensions": [],
+          "missingSemanticDimensions": [],
+          "semanticallyClosed": true,
+          "fullJevBypassObserved": false
+        }
+      },
+      "semanticallyPossibleFullBypass": true,
+      "nextHandling": "LUNA_OR_CLARIFICATION"
+    },
+    {
+      "id": "f15",
+      "message": "Qual foi o faturamento incluindo produtos na semana passada?",
+      "historicalBaseline": null,
+      "originalExpected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "last_week",
+          "metric": "realized_revenue",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": false,
+        "domainFields": {
+          "metrics": [
+            "realized_revenue"
+          ],
+          "period": "last_week"
+        }
+      },
+      "semanticClass": "CLOSED_BUT_UNCALIBRATED",
+      "reviewedSemanticRequirement": {
+        "signature": {
+          "skill": "financial",
+          "shape": "single",
+          "metric": "realized_revenue",
+          "period": "last_week",
+          "comparisonPeriod": null,
+          "groupBy": null,
+          "rankingDirection": null,
+          "topLimit": null,
+          "metricSet": null,
+          "entityFilter": null
+        },
+        "unrepresented": [],
+        "explanation": "Uma métrica publicada e período fechado; valores e datas absolutas continuam no backend."
+      },
+      "observed": {
+        "status": "OK",
+        "providerValid": true,
+        "selectors": {
+          "skill": "financial",
+          "shape": "single",
+          "metric": "realized_revenue",
+          "period": "last_week",
+          "operation": "financial.report"
+        },
+        "policy": {
+          "policyVersion": "jev-acceptance-v1",
+          "decision": "FALLBACK_REQUIRED",
+          "reason": "UNCALIBRATED_INPUT",
+          "enrollmentId": null,
+          "riskClasses": [
+            "READ_ONLY"
+          ],
+          "requiredDecisions": [],
+          "interpretation": null,
+          "provenance": {},
+          "backendOnly": [
+            "customer_ref",
+            "service_ref",
+            "professional_ref",
+            "appointment_ref",
+            "product_ref",
+            "recipient_ref",
+            "financial_values",
+            "stock",
+            "availability",
+            "authorization",
+            "tenant"
+          ],
+          "confidenceData": [],
+          "executable": false
+        },
+        "historicalClassification": "CORRECT_FALLBACK",
+        "coverage": {
+          "matchingDimensions": [
+            "skill",
+            "shape",
+            "metric",
+            "period",
+            "operation"
+          ],
+          "missingCoreDimensions": [],
+          "missingSemanticDimensions": [],
+          "semanticallyClosed": true,
+          "fullJevBypassObserved": false
+        }
+      },
+      "semanticallyPossibleFullBypass": true,
+      "nextHandling": "LUNA_OR_CLARIFICATION"
+    },
+    {
+      "id": "f16",
+      "message": "Quantos atendimentos foram concluídos ontem?",
+      "historicalBaseline": null,
+      "originalExpected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "yesterday",
+          "metric": "completed_count",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": false,
+        "domainFields": {
+          "metrics": [
+            "completed_count"
+          ],
+          "period": "yesterday"
+        }
+      },
+      "semanticClass": "CLOSED_BUT_UNCALIBRATED",
+      "reviewedSemanticRequirement": {
+        "signature": {
+          "skill": "financial",
+          "shape": "single",
+          "metric": "completed_count",
+          "period": "yesterday",
+          "comparisonPeriod": null,
+          "groupBy": null,
+          "rankingDirection": null,
+          "topLimit": null,
+          "metricSet": null,
+          "entityFilter": null
+        },
+        "unrepresented": [],
+        "explanation": "completed_count é métrica Financial publicada, embora JEV tenha escolhido Scheduling neste ensaio."
+      },
+      "observed": {
+        "status": "NO_MATCH",
+        "providerValid": true,
+        "selectors": {
+          "skill": "scheduling",
+          "shape": "single"
+        },
+        "policy": {
+          "policyVersion": "jev-acceptance-v1",
+          "decision": "FALLBACK_REQUIRED",
+          "reason": "INVALID_PROVIDER_RESPONSE",
+          "enrollmentId": null,
+          "riskClasses": [],
+          "requiredDecisions": [],
+          "interpretation": null,
+          "provenance": {},
+          "backendOnly": [
+            "customer_ref",
+            "service_ref",
+            "professional_ref",
+            "appointment_ref",
+            "product_ref",
+            "recipient_ref",
+            "financial_values",
+            "stock",
+            "availability",
+            "authorization",
+            "tenant"
+          ],
+          "confidenceData": [],
+          "executable": false
+        },
+        "historicalClassification": "CORRECT_FALLBACK",
+        "coverage": {
+          "matchingDimensions": [
+            "shape"
+          ],
+          "missingCoreDimensions": [
+            "skill",
+            "metric",
+            "period",
+            "operation"
+          ],
+          "missingSemanticDimensions": [],
+          "semanticallyClosed": false,
+          "fullJevBypassObserved": false
+        }
+      },
+      "semanticallyPossibleFullBypass": true,
+      "nextHandling": "LUNA_OR_CLARIFICATION"
+    },
+    {
+      "id": "f17",
+      "message": "Qual a quantidade de atendimentos finalizados ontem?",
+      "historicalBaseline": null,
+      "originalExpected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "yesterday",
+          "metric": "completed_count",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": false,
+        "domainFields": {
+          "metrics": [
+            "completed_count"
+          ],
+          "period": "yesterday"
+        }
+      },
+      "semanticClass": "CLOSED_BUT_UNCALIBRATED",
+      "reviewedSemanticRequirement": {
+        "signature": {
+          "skill": "financial",
+          "shape": "single",
+          "metric": "completed_count",
+          "period": "yesterday",
+          "comparisonPeriod": null,
+          "groupBy": null,
+          "rankingDirection": null,
+          "topLimit": null,
+          "metricSet": null,
+          "entityFilter": null
+        },
+        "unrepresented": [],
+        "explanation": "completed_count é métrica Financial publicada, embora JEV tenha escolhido Scheduling neste ensaio."
+      },
+      "observed": {
+        "status": "NO_MATCH",
+        "providerValid": true,
+        "selectors": {
+          "skill": "scheduling",
+          "shape": "single"
+        },
+        "policy": {
+          "policyVersion": "jev-acceptance-v1",
+          "decision": "FALLBACK_REQUIRED",
+          "reason": "INVALID_PROVIDER_RESPONSE",
+          "enrollmentId": null,
+          "riskClasses": [],
+          "requiredDecisions": [],
+          "interpretation": null,
+          "provenance": {},
+          "backendOnly": [
+            "customer_ref",
+            "service_ref",
+            "professional_ref",
+            "appointment_ref",
+            "product_ref",
+            "recipient_ref",
+            "financial_values",
+            "stock",
+            "availability",
+            "authorization",
+            "tenant"
+          ],
+          "confidenceData": [],
+          "executable": false
+        },
+        "historicalClassification": "CORRECT_FALLBACK",
+        "coverage": {
+          "matchingDimensions": [
+            "shape"
+          ],
+          "missingCoreDimensions": [
+            "skill",
+            "metric",
+            "period",
+            "operation"
+          ],
+          "missingSemanticDimensions": [],
+          "semanticallyClosed": false,
+          "fullJevBypassObserved": false
+        }
+      },
+      "semanticallyPossibleFullBypass": true,
+      "nextHandling": "LUNA_OR_CLARIFICATION"
+    },
+    {
+      "id": "f18",
+      "message": "Quantos atendimentos foram concluídos hoje?",
+      "historicalBaseline": null,
+      "originalExpected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "today",
+          "metric": "completed_count",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": false,
+        "domainFields": {
+          "metrics": [
+            "completed_count"
+          ],
+          "period": "today"
+        }
+      },
+      "semanticClass": "CLOSED_BUT_UNCALIBRATED",
+      "reviewedSemanticRequirement": {
+        "signature": {
+          "skill": "financial",
+          "shape": "single",
+          "metric": "completed_count",
+          "period": "today",
+          "comparisonPeriod": null,
+          "groupBy": null,
+          "rankingDirection": null,
+          "topLimit": null,
+          "metricSet": null,
+          "entityFilter": null
+        },
+        "unrepresented": [],
+        "explanation": "completed_count é métrica Financial publicada, embora JEV tenha escolhido Scheduling neste ensaio."
+      },
+      "observed": {
+        "status": "NO_MATCH",
+        "providerValid": true,
+        "selectors": {
+          "skill": "scheduling",
+          "shape": "single"
+        },
+        "policy": {
+          "policyVersion": "jev-acceptance-v1",
+          "decision": "FALLBACK_REQUIRED",
+          "reason": "INVALID_PROVIDER_RESPONSE",
+          "enrollmentId": null,
+          "riskClasses": [],
+          "requiredDecisions": [],
+          "interpretation": null,
+          "provenance": {},
+          "backendOnly": [
+            "customer_ref",
+            "service_ref",
+            "professional_ref",
+            "appointment_ref",
+            "product_ref",
+            "recipient_ref",
+            "financial_values",
+            "stock",
+            "availability",
+            "authorization",
+            "tenant"
+          ],
+          "confidenceData": [],
+          "executable": false
+        },
+        "historicalClassification": "CORRECT_FALLBACK",
+        "coverage": {
+          "matchingDimensions": [
+            "shape"
+          ],
+          "missingCoreDimensions": [
+            "skill",
+            "metric",
+            "period",
+            "operation"
+          ],
+          "missingSemanticDimensions": [],
+          "semanticallyClosed": false,
+          "fullJevBypassObserved": false
+        }
+      },
+      "semanticallyPossibleFullBypass": true,
+      "nextHandling": "LUNA_OR_CLARIFICATION"
+    },
+    {
+      "id": "f19",
+      "message": "Quanto faturei?",
+      "historicalBaseline": "financial-revenue",
+      "originalExpected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "none",
+          "metric": "service_revenue",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": true,
+        "domainFields": {
+          "metrics": [
+            "service_revenue"
+          ],
+          "period": null,
+          "missing": [
+            "period"
+          ]
+        }
+      },
+      "semanticClass": "OPEN_EXTRACTION_REQUIRED",
+      "reviewedSemanticRequirement": {
+        "signature": {
+          "skill": "financial",
+          "shape": "single",
+          "metric": "service_revenue",
+          "period": "none",
+          "comparisonPeriod": null,
+          "groupBy": null,
+          "rankingDirection": null,
+          "topLimit": null,
+          "metricSet": null,
+          "entityFilter": null
+        },
+        "unrepresented": [
+          "required_period"
+        ],
+        "explanation": "Período obrigatório não foi informado; solicitar esclarecimento, nunca inventar período."
+      },
+      "observed": {
+        "status": "OK",
+        "providerValid": true,
+        "selectors": {
+          "skill": "financial",
+          "shape": "single",
+          "metric": "service_revenue",
+          "period": "none",
+          "operation": "financial.report"
+        },
+        "policy": {
+          "policyVersion": "jev-acceptance-v1",
+          "decision": "FALLBACK_REQUIRED",
+          "reason": "OPEN_EXTRACTION_REQUIRED",
+          "enrollmentId": null,
+          "riskClasses": [
+            "READ_ONLY",
+            "OPEN_EXTRACTION_REQUIRED"
+          ],
+          "requiredDecisions": [],
+          "interpretation": null,
+          "provenance": {},
+          "backendOnly": [
+            "customer_ref",
+            "service_ref",
+            "professional_ref",
+            "appointment_ref",
+            "product_ref",
+            "recipient_ref",
+            "financial_values",
+            "stock",
+            "availability",
+            "authorization",
+            "tenant"
+          ],
+          "confidenceData": [],
+          "executable": false
+        },
+        "historicalClassification": "CORRECT_FALLBACK",
+        "coverage": {
+          "matchingDimensions": [
+            "skill",
+            "shape",
+            "metric",
+            "operation"
+          ],
+          "missingCoreDimensions": [
+            "period"
+          ],
+          "missingSemanticDimensions": [
+            "required_period"
+          ],
+          "semanticallyClosed": false,
+          "fullJevBypassObserved": false
+        }
+      },
+      "semanticallyPossibleFullBypass": false,
+      "nextHandling": "LUNA_OR_CLARIFICATION"
+    },
+    {
+      "id": "f20",
+      "message": "Quanto entrou ontem?",
+      "historicalBaseline": null,
+      "originalExpected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "yesterday",
+          "metric": "unclear",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": true,
+        "domainFields": {
+          "metrics": null,
+          "period": "yesterday",
+          "missing": [
+            "metric"
+          ]
+        }
+      },
+      "semanticClass": "OPEN_EXTRACTION_REQUIRED",
+      "reviewedSemanticRequirement": {
+        "signature": {
+          "skill": "financial",
+          "shape": "single",
+          "metric": "unclear",
+          "period": "yesterday",
+          "comparisonPeriod": null,
+          "groupBy": null,
+          "rankingDirection": null,
+          "topLimit": null,
+          "metricSet": null,
+          "entityFilter": null
+        },
+        "unrepresented": [
+          "metric_ambiguity"
+        ],
+        "explanation": "Entrou pode significar recebido, realizado ou outro conceito; pedir esclarecimento."
+      },
+      "observed": {
+        "status": "NO_MATCH",
+        "providerValid": true,
+        "selectors": {
+          "skill": "financial",
+          "shape": "out_of_catalog"
+        },
+        "policy": {
+          "policyVersion": "jev-acceptance-v1",
+          "decision": "FALLBACK_REQUIRED",
+          "reason": "INVALID_PROVIDER_RESPONSE",
+          "enrollmentId": null,
+          "riskClasses": [],
+          "requiredDecisions": [],
+          "interpretation": null,
+          "provenance": {},
+          "backendOnly": [
+            "customer_ref",
+            "service_ref",
+            "professional_ref",
+            "appointment_ref",
+            "product_ref",
+            "recipient_ref",
+            "financial_values",
+            "stock",
+            "availability",
+            "authorization",
+            "tenant"
+          ],
+          "confidenceData": [],
+          "executable": false
+        },
+        "historicalClassification": "CORRECT_FALLBACK",
+        "coverage": {
+          "matchingDimensions": [
+            "skill"
+          ],
+          "missingCoreDimensions": [
+            "shape",
+            "metric",
+            "period",
+            "operation"
+          ],
+          "missingSemanticDimensions": [
+            "metric_ambiguity"
+          ],
+          "semanticallyClosed": false,
+          "fullJevBypassObserved": false
+        }
+      },
+      "semanticallyPossibleFullBypass": false,
+      "nextHandling": "LUNA_OR_CLARIFICATION"
+    },
+    {
+      "id": "f21",
+      "message": "Quanto eu tinha a receber ontem?",
+      "historicalBaseline": "financial-outstanding",
+      "originalExpected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "yesterday",
+          "metric": "outstanding_receivables",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": true,
+        "domainFields": {
+          "metrics": [
+            "outstanding_receivables"
+          ],
+          "period": "yesterday",
+          "unsupported": "historical receivables"
+        }
+      },
+      "semanticClass": "OUT_OF_CATALOG",
+      "reviewedSemanticRequirement": {
+        "signature": {
+          "skill": "financial",
+          "shape": "single",
+          "metric": "outstanding_receivables",
+          "period": "yesterday",
+          "comparisonPeriod": null,
+          "groupBy": null,
+          "rankingDirection": null,
+          "topLimit": null,
+          "metricSet": null,
+          "entityFilter": null
+        },
+        "unrepresented": [
+          "historical_receivables"
+        ],
+        "explanation": "Recebíveis publicados são saldo atual; T09 rejeita recorte histórico."
+      },
+      "observed": {
+        "status": "OK",
+        "providerValid": true,
+        "selectors": {
+          "skill": "financial",
+          "shape": "single",
+          "metric": "outstanding_receivables",
+          "period": "yesterday",
+          "operation": "financial.report"
+        },
+        "policy": {
+          "policyVersion": "jev-acceptance-v1",
+          "decision": "FALLBACK_REQUIRED",
+          "reason": "OPEN_EXTRACTION_REQUIRED",
+          "enrollmentId": null,
+          "riskClasses": [
+            "READ_ONLY",
+            "OPEN_EXTRACTION_REQUIRED"
+          ],
+          "requiredDecisions": [],
+          "interpretation": null,
+          "provenance": {},
+          "backendOnly": [
+            "customer_ref",
+            "service_ref",
+            "professional_ref",
+            "appointment_ref",
+            "product_ref",
+            "recipient_ref",
+            "financial_values",
+            "stock",
+            "availability",
+            "authorization",
+            "tenant"
+          ],
+          "confidenceData": [],
+          "executable": false
+        },
+        "historicalClassification": "CORRECT_FALLBACK",
+        "coverage": {
+          "matchingDimensions": [
+            "skill",
+            "shape",
+            "metric",
+            "period",
+            "operation"
+          ],
+          "missingCoreDimensions": [],
+          "missingSemanticDimensions": [
+            "historical_receivables"
+          ],
+          "semanticallyClosed": false,
+          "fullJevBypassObserved": false
+        }
+      },
+      "semanticallyPossibleFullBypass": false,
+      "nextHandling": "REJECT_OR_CLARIFY"
+    },
+    {
+      "id": "f22",
+      "message": "Compare esta semana com a semana passada.",
+      "historicalBaseline": "financial-comparison",
+      "originalExpected": {
+        "decision": {
+          "skill": "financial",
+          "operation": "financial.report",
+          "shape": "single",
+          "period": "comparison",
+          "metric": "service_revenue",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "domainFields": {
+          "metrics": [
+            "service_revenue"
+          ],
+          "period": "this_week",
+          "compare_period": "last_week"
+        },
+        "requiresOpenExtraction": true
+      },
+      "semanticClass": "MODIFIER_NOT_REPRESENTED",
+      "reviewedSemanticRequirement": {
+        "signature": {
+          "skill": "financial",
+          "shape": "single",
+          "metric": "service_revenue",
+          "period": "comparison",
+          "comparisonPeriod": "last_week",
+          "groupBy": null,
+          "rankingDirection": null,
+          "topLimit": null,
+          "metricSet": null,
+          "entityFilter": null
+        },
+        "unrepresented": [
+          "current_period",
+          "compare_period"
+        ],
+        "explanation": "comparison não identifica os dois períodos; T09 exige period e compare_period separados."
+      },
+      "observed": {
+        "status": "NO_MATCH",
+        "providerValid": true,
+        "selectors": {
+          "skill": "unclear",
+          "shape": "single"
+        },
+        "policy": {
+          "policyVersion": "jev-acceptance-v1",
+          "decision": "FALLBACK_REQUIRED",
+          "reason": "UNCLEAR_DECISION",
+          "enrollmentId": null,
+          "riskClasses": [],
+          "requiredDecisions": [],
+          "interpretation": null,
+          "provenance": {},
+          "backendOnly": [
+            "customer_ref",
+            "service_ref",
+            "professional_ref",
+            "appointment_ref",
+            "product_ref",
+            "recipient_ref",
+            "financial_values",
+            "stock",
+            "availability",
+            "authorization",
+            "tenant"
+          ],
+          "confidenceData": [],
+          "executable": false
+        },
+        "historicalClassification": "CORRECT_FALLBACK",
+        "coverage": {
+          "matchingDimensions": [
+            "shape"
+          ],
+          "missingCoreDimensions": [
+            "skill",
+            "metric",
+            "period",
+            "operation"
+          ],
+          "missingSemanticDimensions": [
+            "current_period",
+            "compare_period"
+          ],
+          "semanticallyClosed": false,
+          "fullJevBypassObserved": false
+        }
+      },
+      "semanticallyPossibleFullBypass": false,
+      "nextHandling": "LUNA_OR_CLARIFICATION"
+    },
+    {
+      "id": "f23",
+      "message": "Qual profissional faturou mais este mês?",
+      "historicalBaseline": "financial-revenue",
+      "originalExpected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "this_month",
+          "metric": "service_revenue",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": true,
+        "domainFields": {
+          "metrics": [
+            "service_revenue"
+          ],
+          "period": "this_month",
+          "group_by": "professional"
+        }
+      },
+      "semanticClass": "MODIFIER_NOT_REPRESENTED",
+      "reviewedSemanticRequirement": {
+        "signature": {
+          "skill": "financial",
+          "shape": "single",
+          "metric": "service_revenue",
+          "period": "this_month",
+          "comparisonPeriod": null,
+          "groupBy": "professional",
+          "rankingDirection": "highest",
+          "topLimit": 1,
+          "metricSet": null,
+          "entityFilter": null
+        },
+        "unrepresented": [
+          "group_by",
+          "ranking_direction",
+          "top_limit"
+        ],
+        "explanation": "T09 aceita group_by=professional e ordena receita decrescente, mas JEV não perguntou agrupamento/ranking/top; T09 devolve até dez, sem seletor limit=1."
+      },
+      "observed": {
+        "status": "OK",
+        "providerValid": true,
+        "selectors": {
+          "skill": "financial",
+          "shape": "single",
+          "metric": "service_revenue",
+          "period": "this_month",
+          "operation": "financial.report"
+        },
+        "policy": {
+          "policyVersion": "jev-acceptance-v1",
+          "decision": "FALLBACK_REQUIRED",
+          "reason": "UNCALIBRATED_INPUT",
+          "enrollmentId": null,
+          "riskClasses": [
+            "READ_ONLY"
+          ],
+          "requiredDecisions": [],
+          "interpretation": null,
+          "provenance": {},
+          "backendOnly": [
+            "customer_ref",
+            "service_ref",
+            "professional_ref",
+            "appointment_ref",
+            "product_ref",
+            "recipient_ref",
+            "financial_values",
+            "stock",
+            "availability",
+            "authorization",
+            "tenant"
+          ],
+          "confidenceData": [],
+          "executable": false
+        },
+        "historicalClassification": "CORRECT_FALLBACK",
+        "coverage": {
+          "matchingDimensions": [
+            "skill",
+            "shape",
+            "metric",
+            "period",
+            "operation"
+          ],
+          "missingCoreDimensions": [],
+          "missingSemanticDimensions": [
+            "group_by",
+            "ranking_direction",
+            "top_limit"
+          ],
+          "semanticallyClosed": false,
+          "fullJevBypassObserved": false
+        }
+      },
+      "semanticallyPossibleFullBypass": false,
+      "nextHandling": "LUNA_OR_CLARIFICATION"
+    },
+    {
+      "id": "f24",
+      "message": "Qual serviço mais faturou ontem?",
+      "historicalBaseline": "financial-revenue",
+      "originalExpected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "yesterday",
+          "metric": "service_revenue",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": true,
+        "domainFields": {
+          "metrics": [
+            "service_revenue"
+          ],
+          "period": "yesterday",
+          "group_by": "service"
+        }
+      },
+      "semanticClass": "MODIFIER_NOT_REPRESENTED",
+      "reviewedSemanticRequirement": {
+        "signature": {
+          "skill": "financial",
+          "shape": "single",
+          "metric": "service_revenue",
+          "period": "yesterday",
+          "comparisonPeriod": null,
+          "groupBy": "service",
+          "rankingDirection": "highest",
+          "topLimit": 1,
+          "metricSet": null,
+          "entityFilter": null
+        },
+        "unrepresented": [
+          "group_by",
+          "ranking_direction",
+          "top_limit"
+        ],
+        "explanation": "T09 aceita group_by=service com cobertura de snapshots; JEV não perguntou agrupamento/ranking/top."
+      },
+      "observed": null,
+      "semanticallyPossibleFullBypass": false,
+      "nextHandling": "LUNA_OR_CLARIFICATION"
+    },
+    {
+      "id": "f25",
+      "message": "Quanto faturei ontem e altere a massagem para R$80?",
+      "historicalBaseline": "compound-financial-services",
+      "originalExpected": {
+        "decision": {
+          "skill": "multiple",
+          "operation": "multiple",
+          "shape": "independent",
+          "period": "yesterday",
+          "metric": "service_revenue",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial",
+          "services"
+        ],
+        "operations": [
+          "financial.report",
+          "service.change"
+        ],
+        "dependencies": [],
+        "domainFields": {
+          "period": "yesterday",
+          "target_name": "massagem",
+          "priceCents": 8000
+        },
+        "requiresOpenExtraction": true
+      },
+      "semanticClass": "COMPOUND",
+      "reviewedSemanticRequirement": {
+        "signature": null,
+        "unrepresented": [
+          "other_skill_operation",
+          "open_entity",
+          "open_value"
+        ],
+        "explanation": "Financial read-only + service.change independente; nome do serviço e preço exigem extração aberta e proposta separada."
+      },
+      "observed": null,
+      "semanticallyPossibleFullBypass": false,
+      "nextHandling": "LUNA_OR_CLARIFICATION"
+    },
+    {
+      "id": "f26",
+      "message": "Quanto faturei ontem e cancele a Amanda amanhã?",
+      "historicalBaseline": null,
+      "originalExpected": {
+        "decision": {
+          "skill": "multiple",
+          "shape": "independent",
+          "operation": "multiple",
+          "period": "yesterday",
+          "metric": "service_revenue",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial",
+          "scheduling"
+        ],
+        "operations": [
+          "financial.report",
+          "appointment.cancel"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": true,
+        "domainFields": {
+          "customer_name": "Amanda",
+          "missing": [
+            "reason"
+          ]
+        }
+      },
+      "semanticClass": "COMPOUND",
+      "reviewedSemanticRequirement": {
+        "signature": null,
+        "unrepresented": [
+          "other_skill_operation",
+          "open_entity"
+        ],
+        "explanation": "Financial read-only + appointment.cancel independente; cliente/data/motivo exigem plano composto e resolução backend."
+      },
+      "observed": null,
+      "semanticallyPossibleFullBypass": false,
+      "nextHandling": "LUNA_OR_CLARIFICATION"
+    },
+    {
+      "id": "f27",
+      "message": "Estorne o pagamento da Amanda.",
+      "historicalBaseline": "outside-financial-write",
+      "originalExpected": {
+        "decision": {
+          "skill": "out_of_catalog",
+          "operation": "out_of_catalog",
+          "shape": "out_of_catalog",
+          "period": "none",
+          "metric": "unclear",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [],
+        "operations": [],
+        "dependencies": [],
+        "domainFields": {
+          "rejection": "financial_write_unpublished"
+        },
+        "requiresOpenExtraction": false
+      },
+      "semanticClass": "OUT_OF_CATALOG",
+      "reviewedSemanticRequirement": {
+        "signature": null,
+        "unrepresented": [
+          "unsupported_capability"
+        ],
+        "explanation": "Estorno financeiro não é publicado."
+      },
+      "observed": null,
+      "semanticallyPossibleFullBypass": false,
+      "nextHandling": "REJECT_OR_CLARIFY"
+    },
+    {
+      "id": "f28",
+      "message": "Qual foi meu lucro líquido ontem?",
+      "historicalBaseline": null,
+      "originalExpected": {
+        "decision": {
+          "skill": "out_of_catalog",
+          "shape": "out_of_catalog",
+          "operation": "out_of_catalog",
+          "period": "yesterday",
+          "metric": "unclear",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [],
+        "operations": [],
+        "dependencies": [],
+        "requiresOpenExtraction": false,
+        "domainFields": {
+          "unsupported": "profit"
+        }
+      },
+      "semanticClass": "OUT_OF_CATALOG",
+      "reviewedSemanticRequirement": {
+        "signature": null,
+        "unrepresented": [
+          "unsupported_capability"
+        ],
+        "explanation": "Lucro líquido não é publicado; não substituir por faturamento."
+      },
+      "observed": null,
+      "semanticallyPossibleFullBypass": false,
+      "nextHandling": "REJECT_OR_CLARIFY"
+    },
+    {
+      "id": "f29",
+      "message": "Quais taxas foram descontadas dos pagamentos ontem?",
+      "historicalBaseline": null,
+      "originalExpected": {
+        "decision": {
+          "skill": "out_of_catalog",
+          "shape": "out_of_catalog",
+          "operation": "out_of_catalog",
+          "period": "yesterday",
+          "metric": "unclear",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [],
+        "operations": [],
+        "dependencies": [],
+        "requiresOpenExtraction": false,
+        "domainFields": {
+          "unsupported": "fees"
+        }
+      },
+      "semanticClass": "OUT_OF_CATALOG",
+      "reviewedSemanticRequirement": {
+        "signature": null,
+        "unrepresented": [
+          "unsupported_capability"
+        ],
+        "explanation": "Taxas de pagamento não são modeladas nesta Skill."
+      },
+      "observed": null,
+      "semanticallyPossibleFullBypass": false,
+      "nextHandling": "REJECT_OR_CLARIFY"
+    },
+    {
+      "id": "f30",
+      "message": "Dê baixa no pagamento pendente da Amanda.",
+      "historicalBaseline": null,
+      "originalExpected": {
+        "decision": {
+          "skill": "out_of_catalog",
+          "shape": "out_of_catalog",
+          "operation": "out_of_catalog",
+          "period": "none",
+          "metric": "unclear",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [],
+        "operations": [],
+        "dependencies": [],
+        "requiresOpenExtraction": false,
+        "domainFields": {
+          "unsupported": "financial mutation"
+        }
+      },
+      "semanticClass": "OUT_OF_CATALOG",
+      "reviewedSemanticRequirement": {
+        "signature": null,
+        "unrepresented": [
+          "unsupported_capability",
+          "open_entity"
+        ],
+        "explanation": "Baixa financeira/escrita não é publicada."
+      },
+      "observed": null,
+      "semanticallyPossibleFullBypass": false,
+      "nextHandling": "REJECT_OR_CLARIFY"
+    },
+    {
+      "id": "f31",
+      "message": "Quanto faturei e quanto recebi ontem?",
+      "historicalBaseline": null,
+      "originalExpected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "yesterday",
+          "metric": "multiple",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": true,
+        "domainFields": {
+          "metrics": [
+            "service_revenue",
+            "received_revenue"
+          ],
+          "period": "yesterday"
+        }
+      },
+      "semanticClass": "MODIFIER_NOT_REPRESENTED",
+      "reviewedSemanticRequirement": {
+        "signature": {
+          "skill": "financial",
+          "shape": "single",
+          "metric": "multiple",
+          "period": "yesterday",
+          "comparisonPeriod": null,
+          "groupBy": null,
+          "rankingDirection": null,
+          "topLimit": null,
+          "metricSet": [
+            "service_revenue",
+            "received_revenue"
+          ],
+          "entityFilter": null
+        },
+        "unrepresented": [
+          "metric_set"
+        ],
+        "explanation": "Um financial.report pode solicitar múltiplas métricas, mas choice=multiple não identifica quais duas."
+      },
+      "observed": null,
+      "semanticallyPossibleFullBypass": false,
+      "nextHandling": "LUNA_OR_CLARIFICATION"
+    },
+    {
+      "id": "f32",
+      "message": "Quanto vendi ontem?",
+      "historicalBaseline": null,
+      "originalExpected": {
+        "decision": {
+          "skill": "financial",
+          "shape": "single",
+          "operation": "financial.report",
+          "period": "yesterday",
+          "metric": "unclear",
+          "inventory": "none",
+          "communication": "none"
+        },
+        "skills": [
+          "financial"
+        ],
+        "operations": [
+          "financial.report"
+        ],
+        "dependencies": [],
+        "requiresOpenExtraction": true,
+        "domainFields": {
+          "metrics": null,
+          "period": "yesterday",
+          "missing": [
+            "services/products/payment semantics"
+          ]
+        }
+      },
+      "semanticClass": "OPEN_EXTRACTION_REQUIRED",
+      "reviewedSemanticRequirement": {
+        "signature": {
+          "skill": "financial",
+          "shape": "single",
+          "metric": "unclear",
+          "period": "yesterday",
+          "comparisonPeriod": null,
+          "groupBy": null,
+          "rankingDirection": null,
+          "topLimit": null,
+          "metricSet": null,
+          "entityFilter": null
+        },
+        "unrepresented": [
+          "sales_semantics"
+        ],
+        "explanation": "Vendi não desambigua serviços, produtos ou pagamento; pedir esclarecimento."
+      },
+      "observed": null,
+      "semanticallyPossibleFullBypass": false,
+      "nextHandling": "LUNA_OR_CLARIFICATION"
+    }
+  ],
+  "note": "Oracle-based offline audit. No message matcher, runtime gate, JEV question, policy change or new accepted intent."
+}

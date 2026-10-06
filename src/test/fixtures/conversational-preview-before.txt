@@ -1,0 +1,15 @@
+export function minimumClarifications(plan: ActionPlan) {
+  return plan.actions.filter(action => action.status !== "DONE" && action.missing_fields.length)
+    .map(action => ({ action_key: action.key, fields: [...action.missing_fields] }));
+}
+export function actionPlanPreview(plan: ActionPlan) {
+  const lines = plan.actions.map(action => `${action.key}. ${action.operation} — ${action.status}` +
+    (action.depends_on.length ? `; depende de ${action.depends_on.join(", ")}` : "") +
+    (action.missing_fields.length ? `; falta: ${action.missing_fields.join(", ")}` : "") +
+    (action.assessment.issue ? `; ${action.assessment.issue}` : "") +
+    (action.assessment.preview ? `\n${action.assessment.preview}` : ""));
+  const questions = minimumClarifications(plan).map(item => `${item.action_key}: ${item.fields.join(" e ")}`);
+  return `${plan.review}\n${lines.join("\n")}\n${questions.length ? `Informe somente ${questions.join("; ")}.` :
+    "Revise os grupos. Mutações exigem confirmação; leituras não autorizam escrita."}\nAções independentes podem concluir mesmo se outra falhar. Dependentes só executam após os pré-requisitos; pares atômicos mantêm a transação conjunta.`;
+}
+
