@@ -25,6 +25,9 @@ function norm(s: string) {
   return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 }
 
+// Prévia curta: a tela de início não vira o cardápio inteiro no celular.
+const PREVIEW_LIMIT = 6;
+
 export function HomeExplore({
   salonSlug,
   currency,
@@ -36,6 +39,7 @@ export function HomeExplore({
 }) {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [expanded, setExpanded] = useState(false);
   const resultsRef = useRef<HTMLElement>(null);
 
   // Derive ordered category list from DB data
@@ -59,29 +63,40 @@ export function HomeExplore({
     return m;
   }, [services]);
 
-  // Groups filtered by active category + search query
-  const groups = useMemo(() => {
+  // Services filtered by active category + search query, in category order
+  const matches = useMemo(() => {
     const q = norm(query.trim());
     return categories
       .filter((cat) => activeCategory === null || cat === activeCategory)
-      .map((cat) => ({
-        cat,
-        items: services.filter((s) => {
+      .flatMap((cat) =>
+        services.filter((s) => {
           if ((s.category ?? "Outros") !== cat) return false;
           if (!q) return true;
           return norm(s.name).includes(q) || norm(s.description ?? "").includes(q);
         }),
-      }))
-      .filter((g) => g.items.length > 0);
+      );
   }, [services, categories, activeCategory, query]);
 
-  function chooseCategory(category: string) {
+  const visible = expanded ? matches : matches.slice(0, PREVIEW_LIMIT);
+  const hidden = matches.length - visible.length;
+  const showCategoryLabel = activeCategory === null && categories.length > 1;
+
+  function chooseCategory(category: string | null, chip?: HTMLElement) {
     setActiveCategory(category);
     setQuery("");
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => resultsRef.current?.focus({ preventScroll: false }));
-    });
+    setExpanded(false);
+    chip?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
   }
+
+  function collapse() {
+    setExpanded(false);
+    requestAnimationFrame(() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }
+
+  const chipClass = (active: boolean) =>
+    `min-h-11 shrink-0 snap-start whitespace-nowrap rounded-full border px-4 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+      active ? "border-primary bg-primary/10 text-primary" : "border-border bg-card hover:border-primary"
+    }`;
 
   return (
     <>
@@ -92,6 +107,7 @@ export function HomeExplore({
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
+            setExpanded(false);
             if (e.target.value) setActiveCategory(null);
           }}
           aria-label="Buscar serviços"
@@ -108,101 +124,84 @@ export function HomeExplore({
         )}
       </div>
 
-      {/* Compact categories keep the focus on service names and prices. */}
-      {categories.length > 1 && !query && activeCategory === null && (
+      {/* Categorias numa linha só, que desliza para o lado no celular. */}
+      {categories.length > 1 && !query && (
         <section aria-label="Categorias de serviços">
-          <p className="mb-3 text-sm font-semibold text-muted-foreground">Categorias</p>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => setActiveCategory(null)} aria-pressed={activeCategory === null} className="min-h-11 rounded-full border border-primary bg-primary/10 px-4 py-2 text-sm font-medium text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-              Todos <span className="ml-1 text-xs">({services.length})</span>
+          <div className="-mx-4 flex snap-x gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:-mx-5 sm:px-5 lg:mx-0 lg:flex-wrap lg:px-0 [&::-webkit-scrollbar]:hidden">
+            <button type="button" onClick={(e) => chooseCategory(null, e.currentTarget)} aria-pressed={activeCategory === null} className={chipClass(activeCategory === null)}>
+              Todos <span className="ml-1 text-xs opacity-75">{services.length}</span>
             </button>
             {categories.map(cat => (
-              <button type="button" key={cat} onClick={() => chooseCategory(cat)} aria-pressed={activeCategory === cat} className="min-h-11 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium transition hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                {cat} <span className="ml-1 text-xs text-muted-foreground">({countByCat.get(cat) ?? 0})</span>
+              <button type="button" key={cat} onClick={(e) => chooseCategory(cat, e.currentTarget)} aria-pressed={activeCategory === cat} className={chipClass(activeCategory === cat)}>
+                {cat} <span className="ml-1 text-xs opacity-75">{countByCat.get(cat) ?? 0}</span>
               </button>
             ))}
           </div>
         </section>
       )}
-      {activeCategory && !query && (
-        <div className="flex items-center justify-between gap-3 rounded-2xl border border-primary/25 bg-primary/5 px-4 py-3">
-          <div className="min-w-0">
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Categoria escolhida</p>
-            <p className="truncate text-sm font-semibold">{activeCategory}</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setActiveCategory(null)}
-            className="min-h-11 shrink-0 rounded-full px-3 text-xs font-semibold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            Trocar categoria
-          </button>
-        </div>
-      )}
 
       {/* Service list */}
-      <section ref={resultsRef} tabIndex={-1} className="space-y-4 outline-none">
+      <section ref={resultsRef} tabIndex={-1} aria-label="Serviços" className="space-y-3 outline-none">
         {query && (
           <p className="text-sm font-semibold text-muted-foreground">
-            {groups.reduce((n, g) => n + g.items.length, 0)} resultado
-            {groups.reduce((n, g) => n + g.items.length, 0) !== 1 ? "s" : ""}
+            {matches.length} resultado{matches.length !== 1 ? "s" : ""}
           </p>
         )}
-        {!query && activeCategory && (
-          <p className="text-sm font-semibold text-muted-foreground">{activeCategory}</p>
-        )}
-        {!query && !activeCategory && categories.length <= 1 && (
-          <p className="text-sm font-semibold text-muted-foreground">Nossos serviços</p>
-        )}
 
-        {groups.length === 0 ? (
+        {matches.length === 0 ? (
           <div className="rounded-3xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
             {services.length === 0
               ? "Este salão ainda não publicou serviços."
               : "Nada encontrado com esse filtro."}
           </div>
         ) : (
-          groups.map(({ cat, items }) => (
-            <div
-              key={cat}
-              className="overflow-hidden rounded-3xl border border-border bg-card"
-            >
-              {/* Category header — only when showing multiple categories */}
-              {(activeCategory === null && categories.length > 1 && !query) && (
-                <div className="border-b border-border px-4 py-3">
-                  <p className="text-[13px] font-semibold">{cat}</p>
+          <div className="overflow-hidden rounded-3xl border border-border bg-card">
+            {visible.map((s) => (
+              <Link
+                key={s.id}
+                href={`/book/${salonSlug}/agendar?service=${s.id}`}
+                className="flex items-center gap-3 border-t border-border px-4 py-3.5 transition hover:bg-card-hover active:opacity-75 first:border-t-0"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="break-words text-[14px] font-medium">{s.name}</p>
+                  {s.description && (
+                    <p className="mt-0.5 line-clamp-2 text-[12px] text-muted-foreground">
+                      {s.description}
+                    </p>
+                  )}
+                  <ServicePriceNote service={s} />
+                  <p className="mt-0.5 text-[12px] text-muted-foreground">
+                    {showCategoryLabel && `${s.category ?? "Outros"} · `}{formatDuration(s.durationMin)}
+                  </p>
                 </div>
-              )}
+                <div className="flex shrink-0 items-center gap-2">
+                  <p className="max-w-32 text-right text-[14px] font-bold text-primary">
+                    {servicePriceLabel(s, currency)}
+                  </p>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
 
-              {/* Service rows */}
-              {items.map((s) => (
-                <Link
-                  key={s.id}
-                  href={`/book/${salonSlug}/agendar?service=${s.id}`}
-                  className="flex items-center gap-3 border-t border-border px-4 py-3.5 transition hover:bg-card-hover active:opacity-75 first:border-t-0"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="break-words text-[14px] font-medium">{s.name}</p>
-                    {s.description && (
-                      <p className="mt-0.5 line-clamp-2 text-[12px] text-muted-foreground">
-                        {s.description}
-                      </p>
-                    )}
-                    <ServicePriceNote service={s} />
-                    <p className="mt-0.5 text-[12px] text-muted-foreground">
-                      {formatDuration(s.durationMin)}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <p className="max-w-32 text-right text-[14px] font-bold text-primary">
-                      {servicePriceLabel(s, currency)}
-                    </p>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                </Link>
-              ))}
-            </div>
-          ))
+        {hidden > 0 && (
+          <button
+            type="button"
+            onClick={() => setExpanded(true)}
+            className="min-h-11 w-full rounded-full border border-border bg-card px-4 text-sm font-semibold text-primary transition hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Ver mais {hidden} {hidden === 1 ? "serviço" : "serviços"}
+          </button>
+        )}
+        {expanded && matches.length > PREVIEW_LIMIT && (
+          <button
+            type="button"
+            onClick={collapse}
+            className="min-h-11 w-full rounded-full px-4 text-sm font-semibold text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Mostrar menos
+          </button>
         )}
       </section>
     </>
