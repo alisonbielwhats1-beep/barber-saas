@@ -4,7 +4,7 @@ import { assertOwner } from "@/lib/billing/service";
 import { BillingError, SECRETARY_CREDIT_PACKS } from "@/lib/billing/catalog";
 import { billingEnabled, checkoutPaused } from "@/lib/billing/config";
 import { ownerContext, readBillingBody, billingJson, billingFailure } from "@/lib/billing/http";
-import { createCreditPurchase, reconcileCreditPurchase } from "@/lib/billing/credits-provider";
+import { createCreditPurchase, syncPendingCreditPurchases } from "@/lib/billing/credits-provider";
 import { creditsEnabled, secretaryCreditView } from "@/lib/secretary-credits";
 import { estimatedRequests } from "@/lib/secretary-credits-rules";
 import { secretaryAvailableTo } from "@/lib/secretary-availability";
@@ -13,19 +13,17 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 const RECENT_PURCHASES = 12;
 
-/** Owner only: the Secretária's balance, the packs and the latest purchases. `sync=1` (back from the checkout) first re-reads
- * this salon's purchases still waiting for payment from Mercado Pago, as the webhook would. */
+/** Owner only: the Secretária's balance, the packs and the latest purchases, after re-reading from Mercado Pago this salon's
+ * purchases still waiting for payment, as the webhook would. */
 export async function GET(request: Request) {
   try {
     const ctx = await ownerContext(request);
     if (!creditsEnabled()) throw new BillingError("CREDITS_DISABLED", 503);
     if (!secretaryAvailableTo(ctx)) throw new BillingError("SECRETARY_NOT_AVAILABLE", 403);
-    const pending = await withTenant(ctx, async tx => {
-      await assertOwner(tx, ctx);
-      return tx.secretaryCreditPurchase.findMany({ where: { salonId: ctx.salonId, state: "AWAITING_PAYMENT" }, select: { id: true }, take: 5, orderBy: { createdAt: "desc" } });
-    });
-    if (new URL(request.url).searchParams.get("sync") === "1" && billingEnabled())
-      for (const purchase of pending) { try { await reconcileCreditPurchase(ctx.salonId, purchase.id); } catch { /* the webhook and the scheduled job retry */ } }
+    await withTenant(ctx, tx => assertOwner(tx, ctx));
+    // Owner 06/10: every view first re-reads this salon's purchases still waiting for payment, so a paid one shows as credit right
+    // away, whether or not the person came back through the checkout's button (Pix is usually paid in the bank's app).
+    if (billingEnabled()) { try { await syncPendingCreditPurchases(ctx.salonId); } catch { /* the webhook and the scheduled job retry */ } }
     const [view, purchases] = await Promise.all([secretaryCreditView(ctx),
       withTenant(ctx, tx => tx.secretaryCreditPurchase.findMany({ where: { salonId: ctx.salonId }, orderBy: { createdAt: "desc" }, take: RECENT_PURCHASES,
         select: { id: true, packCode: true, amountCents: true, units: true, state: true, createdAt: true, paidAt: true, refundedCents: true, checkoutUrl: true, expiresAt: true } }))]);

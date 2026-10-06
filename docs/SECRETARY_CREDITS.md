@@ -81,9 +81,16 @@ Fonte: `src/lib/secretary-credits-rules.ts`. Testes em `src/lib/__tests__/secret
   - Checkout Pro com o item "Everflair — Crédito da Secretária", valor exato, Pix ou cartão em 1x, sem boleto, link de 24 h.
   - Referência `efc:{salão}:{compra}`.
   - A volta do pagamento cai em `/api/billing/return?origem=creditos`.
-- **Confirmação:** pelo webhook (tópico `payment`, ramo `efc:`), pela volta do checkout (`GET /api/billing/credits?sync=1`) e
-  pela rotina de cobrança (`/api/cron/billing`). Nos três, o pagamento é relido no Mercado Pago e conferido: referência,
-  conta, moeda, valor e modo.
+- **Confirmação (dono, 06/10: "pagou, o crédito cai na hora"):** em todos os caminhos o pagamento é relido no Mercado Pago e
+  conferido (referência, conta, moeda, valor e modo), e o crédito entra uma vez só.
+  - Webhook (tópico `payment`, ramo `efc:`): cada compra leva o próprio endereço do aviso (`notification_url`), então o
+    Mercado Pago avisa mesmo que o painel de Webhooks não tenha o evento Pagamentos.
+  - Quem olha confirma (`syncPendingCreditPurchases`): o cartão de Plano e assinatura, a barra de crédito da Secretária e um
+    pedido recusado por falta de crédito conferem antes as compras do salão que aguardam pagamento. O cartão pergunta a cada
+    5 s enquanto houver compra pendente e de novo quando a página volta a ser vista (Pix pago no app do banco).
+  - Rotina de cobrança (`/api/cron/billing`), como rede de segurança.
+  - Caso real: em 06/10 a compra de R$ 15 do Studio Martinelli ficou 1h40 sem crédito (sem aviso, sem volta pelo botão, e a
+    rotina do GitHub rodando poucas vezes ao dia); creditada pela rotina disparada à mão.
 - **Secretária:**
   - `budgeted()` exige crédito ou franquia.
   - Antes e depois de cada mensagem, `chargePendingCalls()` cobra as chamadas pendentes do salão.
