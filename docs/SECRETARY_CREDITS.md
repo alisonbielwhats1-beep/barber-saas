@@ -31,7 +31,7 @@ Fonte: `src/lib/secretary-credits-rules.ts`; testes em `src/lib/__tests__/secret
 - **Segundo pagamento da mesma compra:** não é creditado e a compra vai para revisão (o estorno é manual).
 - **Aprovação depois da compra expirar:** ainda credita. O dinheiro nunca fica sem os pedidos.
 - **Compra não paga:** expira 24 h depois, mais 1 h de tolerância.
-- **Estimativa de dias:** saldo dividido pela média diária dos últimos 7 dias. Só aparece depois de 3 dias de uso.
+- **Sem estimativa de dias para o cliente** (dono, 06/10): a tela mostra só a barra, a porcentagem e os pedidos restantes.
 
 ## Como funciona
 

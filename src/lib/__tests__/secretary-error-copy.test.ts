@@ -76,5 +76,5 @@ describe("server actions use the shared table (flag off: byte-identical replies;
     expect(await run()).toEqual({ ok: false, code: "BACKEND_FAILURE", error: unknownExecutionMessage, copyV2: true });
   });
 });
-// 06/10/2026: + SECRETARY_MONTHLY_BUDGET (monthly wallet per salon) and SECRETARY_CREDITS_EMPTY (prepaid requests).
-const EXPECTED_TABLE_SHA256 = "fa288282ada6d2bb334712b0fdc2320b9830d86c51608811ddf5598d106c9bcb";
+// 06/10/2026: + SECRETARY_MONTHLY_BUDGET (monthly wallet per salon) and SECRETARY_CREDITS_EMPTY (prepaid credit).
+const EXPECTED_TABLE_SHA256 = "5a4658f2da54531ba53b5507abc048f8c544f773c2cc7c1f3e23f5768fc0bbb9";

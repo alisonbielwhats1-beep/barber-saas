@@ -6,9 +6,9 @@ import { HqError } from "@/lib/hq/validation";
 import { creditsEnabled, grantCredits } from "@/lib/secretary-credits";
 export const runtime = "nodejs";
 
-const input = z.object({ salonId: z.string().regex(/^[a-zA-Z0-9_-]{1,100}$/), requests: z.number().int().min(1).max(10_000),
+const input = z.object({ salonId: z.string().regex(/^[a-zA-Z0-9_-]{1,100}$/), units: z.number().int().min(1).max(10_000_000),
   reason: z.string().trim().min(3).max(200), grantKey: z.string().uuid() }).strict();
-/** HQ only (owner decision 06/10/2026): courtesy requests for a salon (the presentation salon, partners). Adds to the balance
+/** HQ only (owner decision 06/10/2026): courtesy credit for a salon (units of R$ 0,0001; the presentation salon, partners). Adds to the balance
  * like a purchase; the grant key makes a repeated submit a single grant. */
 export async function POST(request: Request) {
   try {

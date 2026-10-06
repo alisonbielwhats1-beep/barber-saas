@@ -18,12 +18,16 @@ contar o pedido por voz como dois ou voltar para a transcrição mini; a escolha
 fica com o responsável. Isto substitui a linha "Preço/consumo da futura IA não
 estão definidos".
 
-Complemento do mesmo dia: o preço segue a média de custo por pedido (cerca de
-R$ 0,08). Os pacotes ficam R$ 15 = 185, R$ 25 = 310 e R$ 40 = 500 pedidos. A
-recarga soma ao saldo, os pedidos não expiram e todos os papéis veem o número
-de pedidos; só o dono recarrega. O aviso aparece abaixo de 20%. Só a mensagem
-concluída consome um pedido, e um estorno devolve a parte que pagou. Regras e
-passos para ligar: `docs/SECRETARY_CREDITS.md`.
+Complemento do mesmo dia: o cliente compra crédito, não uma quantidade fixa
+de pedidos. Cada pedido desconta o próprio custo real (DeepSeek e cada
+gravação transcrita) vezes 10, então a margem de 90% vale em todo pedido. A
+quantidade de pedidos de um pacote é só uma estimativa ("cerca de"). A tela
+mostra apenas a barra e a porcentagem, sem valores, contagem ou dias. Os
+pacotes são R$ 15 (cerca de 185 pedidos), R$ 25 (cerca de 340), R$ 40 (cerca
+de 600) e R$ 80 (cerca de 1.300): pacote maior rende mais. Todo salão tem uma
+franquia grátis de cerca de 20 pedidos por mês, que não acumula. A recarga
+soma ao saldo, o crédito não expira e só o dono recarrega. Regras e passos:
+`docs/SECRETARY_CREDITS.md`.
 
 ## 03/10/2026 — motivo do cancelamento de reserva opcional
 

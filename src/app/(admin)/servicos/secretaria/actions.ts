@@ -6,7 +6,7 @@ import type { SecretaryView } from "@/lib/salon-secretary";
 import { assertSecretaryRolloutAccess } from "@/lib/secretary-rollout";
 import { randomUUID } from "node:crypto";
 import { assertSecretaryBudget } from "@/lib/secretary-production-pilot";
-import { assertCanStartRequest, creditsEnabled, debitRequest, secretaryCreditView } from "@/lib/secretary-credits";
+import { assertCanStartRequest, chargeMessage, chargeRecording, creditsEnabled, secretaryCreditView } from "@/lib/secretary-credits";
 import type { CreditView } from "@/lib/secretary-credits-rules";
 import type { DictationSuggestion } from "@/lib/secretary-voice-correction";
 import { secretaryCopyV2Enabled, secretaryErrorMessage } from "@/lib/secretary-error-copy";
@@ -44,14 +44,14 @@ export async function currentSecretary(): Promise<CurrentSecretaryReply> { retur
 /** Owner 05/10 and 06/10: a message is a model call; in the Production pilot the salon's daily and monthly caps are checked first,
  * and with prepaid requests on (SALON_SECRETARY_CREDITS_ENABLED) at least one request must be left. */
 async function budgeted() { const actor = await context(); await assertSecretaryBudget(actor); await assertCanStartRequest(actor); return actor; }
-/** Owner 06/10: one request per message that finished (a refusal or a failure is not charged). The reply is never lost to a
- * debit failure; the message key makes the debit happen once. */
-async function charged(actor: { salonId: string; userId: string }, view: SecretaryView) {
-  try { await debitRequest(actor, randomUUID()); } catch { console.error("SECRETARY_CREDIT_DEBIT_FAILED"); }
+/** Owner 06/10: a message that finished takes the real cost of its model calls from the credit (a refusal or a failure is not
+ * charged). The reply is never lost to a charging failure; each call is charged once. */
+async function charged(actor: { salonId: string; userId: string }, startedAt: Date, view: SecretaryView) {
+  try { await chargeMessage(actor, { sessionId: view.sessionId, startedAt }); } catch { console.error("SECRETARY_CREDIT_DEBIT_FAILED"); }
   return view;
 }
 export async function sendSecretary(input: unknown) {
-  return safely(async () => { const actor = await budgeted(); return charged(actor, await salonSecretary.send(actor, input)); });
+  return safely(async () => { const actor = await budgeted(), startedAt = new Date(); return charged(actor, startedAt, await salonSecretary.send(actor, input)); });
 }
 /** Owner, 03/10 ("mandei um oi e demorou cinco segundos"): the first message of a new conversation opens it and is read in the
  * same request, one round trip instead of two. A message that fails closes the conversation it opened (nothing was said in it
@@ -59,10 +59,10 @@ export async function sendSecretary(input: unknown) {
 export async function startAndSendSecretary(input: unknown) {
   return safely(async () => {
     // The first message is a model call too: the caps are checked before the conversation opens.
-    const actor = await budgeted();
+    const actor = await budgeted(), startedAt = new Date();
     const opened = await salonSecretary.start(actor, "auto");
     const fields = input && typeof input === "object" && !Array.isArray(input) ? input : {};
-    try { return await charged(actor, await salonSecretary.send(actor, { ...fields, sessionId: opened.sessionId })); }
+    try { return await charged(actor, startedAt, await salonSecretary.send(actor, { ...fields, sessionId: opened.sessionId })); }
     catch (error) {
       await Promise.resolve().then(() => salonSecretary.cancel(actor, opened.sessionId)).catch(() => undefined);
       throw error;
@@ -211,7 +211,12 @@ export async function transcribeSecretaryVoice(form: FormData): Promise<Transcri
     const directory = await timed("vocabulary_ms", () => voiceVocabulary(actor));
     return { ok: true, ...(await timed("pipeline_ms", () => transcription.transcribeSecretaryAudio({ audio: form.get("audio"), seconds, directory,
       reserve: reservation => timed("reserve_ms", () => withTenant(actor, tx => transcription.reserveTranscriptionBudget(tx, actor, reservation))),
-      settle: settlement => timed("settle_ms", () => withTenant(actor, tx => transcription.settleTranscriptionUsage(tx, actor, settlement))) }))) };
+      settle: settlement => timed("settle_ms", async () => {
+        await withTenant(actor, tx => transcription.settleTranscriptionUsage(tx, actor, settlement));
+        // Owner 06/10: a recording takes its real cost from the credit, sent or not (a failed charge never loses the text).
+        try { await chargeRecording(actor, { recordingKey: settlement.reservationId ?? randomUUID(), microUsd: settlement.actualMicroUsd ?? settlement.reservedMicroUsd }); }
+        catch { console.error("SECRETARY_CREDIT_DEBIT_FAILED"); }
+      }) }))) };
   } catch (error) {
     const code = voiceCode(error);
     console.error("SECRETARY_TRANSCRIBE_REJECTED", code);
@@ -221,7 +226,7 @@ export async function transcribeSecretaryVoice(form: FormData): Promise<Transcri
       TRANSCRIBE_EMPTY: "Nenhuma fala foi reconhecida. Grave novamente ou digite.",
       TRANSCRIBE_BUDGET: "O limite de gasto da transcrição foi atingido. Você pode digitar.",
       TRANSCRIBE_DISABLED: "A transcrição da Secretária está desligada. Você pode digitar.",
-      SECRETARY_CREDITS_EMPTY: "Os pedidos da Secretária acabaram. O dono pode recarregar em Plano e assinatura.",
+      SECRETARY_CREDITS_EMPTY: "O crédito da Secretária acabou. O dono pode recarregar em Plano e assinatura.",
     };
     return { ok: false, code, error: messages[code] ?? "Não foi possível transcrever. Seu texto foi preservado; você pode digitar." };
   } finally {

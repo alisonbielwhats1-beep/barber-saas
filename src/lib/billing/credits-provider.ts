@@ -38,7 +38,7 @@ export async function createCreditPurchase(ctx: { salonId: string; userId: strin
     const prior = await tx.secretaryCreditPurchase.findUnique({ where: { salonId_requestKey: { salonId: ctx.salonId, requestKey } } });
     if (prior) { if (prior.packCode !== pack) throw new BillingError("IDEMPOTENCY_CONFLICT"); return prior; }
     return tx.secretaryCreditPurchase.create({ data: { salonId: ctx.salonId, requestKey, actorUserId: ctx.userId, packCode: pack, amountCents: quote.amountCents,
-      requests: quote.requests, createdAt: now, expiresAt: new Date(now.getTime() + CREDIT_PURCHASE_TTL_MS) } });
+      units: quote.units, createdAt: now, expiresAt: new Date(now.getTime() + CREDIT_PURCHASE_TTL_MS) } });
   });
   await prepareCreditCheckout(purchase);
   return withSalon(ctx.salonId, tx => tx.secretaryCreditPurchase.findUniqueOrThrow({ where: { id: purchase.id } }));
@@ -64,7 +64,7 @@ export async function prepareCreditCheckout(purchase: SecretaryCreditPurchase) {
   let raw: unknown;
   if (first) {
     raw = await mp.mpRequest("/checkout/preferences", "POST", {
-      items: [{ id: purchase.id, title: `Everflair — Secretária: ${purchase.requests} pedidos`, quantity: 1, currency_id: "BRL", unit_price: purchase.amountCents / 100 }],
+      items: [{ id: purchase.id, title: "Everflair — Crédito da Secretária", quantity: 1, currency_id: "BRL", unit_price: purchase.amountCents / 100 }],
       external_reference: reference, binary_mode: true, payment_methods: { installments: 1, excluded_payment_types: [{ id: "ticket" }, { id: "atm" }] },
       expires: true, expiration_date_from: purchase.createdAt.toISOString(), expiration_date_to: purchase.expiresAt.toISOString(),
       back_urls: { success: back, failure: back, pending: back }, ...(config.baseUrl.startsWith("https:") ? { auto_return: "approved" } : {}),
@@ -96,8 +96,8 @@ export function validateCreditPayment(purchase: Pick<SecretaryCreditPurchase, "s
     paidAt: payment.date_approved ? new Date(payment.date_approved) : null };
 }
 const paymentTotals = async (tx: Tx, salonId: string, paymentId: string) => {
-  const rows = await tx.secretaryCreditLedger.findMany({ where: { salonId, providerPaymentId: paymentId, kind: { in: ["PURCHASE", "REVERSAL"] } }, select: { kind: true, requests: true } });
-  return { credited: rows.filter(r => r.kind === "PURCHASE").reduce((s, r) => s + r.requests, 0), reversed: -rows.filter(r => r.kind === "REVERSAL").reduce((s, r) => s + r.requests, 0) };
+  const rows = await tx.secretaryCreditLedger.findMany({ where: { salonId, providerPaymentId: paymentId, kind: { in: ["PURCHASE", "REVERSAL"] } }, select: { kind: true, units: true } });
+  return { credited: rows.filter(r => r.kind === "PURCHASE").reduce((s, r) => s + r.units, 0), reversed: -rows.filter(r => r.kind === "REVERSAL").reduce((s, r) => s + r.units, 0) };
 };
 /** Applies one payment update to its purchase (credit, reversal, state), idempotently, under the salon's credit lock. */
 export async function applyCreditPayment(purchase: SecretaryCreditPurchase, payment: mp.RemotePayment) {
@@ -108,11 +108,11 @@ export async function applyCreditPayment(purchase: SecretaryCreditPurchase, paym
     await creditLock(tx, purchase.salonId);
     const fresh = await tx.secretaryCreditPurchase.findUniqueOrThrow({ where: { id: purchase.id } });
     const totals = await paymentTotals(tx, purchase.salonId, payment.id);
-    const decision = decideCreditPayment({ purchase: { amountCents: fresh.amountCents, requests: fresh.requests, state: fresh.state as PurchaseState, providerPaymentId: fresh.providerPaymentId },
+    const decision = decideCreditPayment({ purchase: { amountCents: fresh.amountCents, units: fresh.units, state: fresh.state as PurchaseState, providerPaymentId: fresh.providerPaymentId },
       payment: { id: payment.id, status: checked.status, refundedCents: checked.refundedCents, paidAt: checked.paidAt }, ...totals });
-    if (decision.credit) await appendCredit(tx, { salonId: fresh.salonId, kind: "PURCHASE", requests: decision.credit, requestKey: `pay:${payment.id}`,
+    if (decision.credit) await appendCredit(tx, { salonId: fresh.salonId, kind: "PURCHASE", units: decision.credit, requestKey: `pay:${payment.id}`,
       purchaseId: fresh.id, providerPaymentId: payment.id, actorUserId: fresh.actorUserId });
-    if (decision.reverse) await appendCredit(tx, { salonId: fresh.salonId, kind: "REVERSAL", requests: -decision.reverse, requestKey: `rev:${payment.id}:${totals.reversed + decision.reverse}`,
+    if (decision.reverse) await appendCredit(tx, { salonId: fresh.salonId, kind: "REVERSAL", units: -decision.reverse, requestKey: `rev:${payment.id}:${totals.reversed + decision.reverse}`,
       purchaseId: fresh.id, providerPaymentId: payment.id, reason: checked.status });
     const sameState = decision.state === fresh.state && decision.providerPaymentId === fresh.providerPaymentId && (decision.error ?? fresh.lastError) === fresh.lastError;
     const ownPayment = decision.providerPaymentId === payment.id;
@@ -135,7 +135,7 @@ async function applyOrReview(purchase: SecretaryCreditPurchase, payment: mp.Remo
   }
 }
 /** Webhook: a payment whose reference is efc:… Payments are always confirmed, even with selling turned off
- * (SALON_SECRETARY_CREDITS_ENABLED only stops new purchases and the use of requests): money is never kept without its requests. */
+ * (SALON_SECRETARY_CREDITS_ENABLED only stops new purchases and the use of the credit): money is never kept without its credit. */
 export async function receiveCreditPayment(payment: mp.RemotePayment) {
   if (!payment.external_reference) return null;
   const ref = parseCreditReference(payment.external_reference);

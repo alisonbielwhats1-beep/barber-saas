@@ -6,6 +6,7 @@ import { billingEnabled, checkoutPaused } from "@/lib/billing/config";
 import { ownerContext, readBillingBody, billingJson, billingFailure } from "@/lib/billing/http";
 import { createCreditPurchase, reconcileCreditPurchase } from "@/lib/billing/credits-provider";
 import { creditsEnabled, secretaryCreditView } from "@/lib/secretary-credits";
+import { estimatedRequests } from "@/lib/secretary-credits-rules";
 import { secretaryAvailableTo } from "@/lib/secretary-availability";
 
 export const runtime = "nodejs";
@@ -27,11 +28,12 @@ export async function GET(request: Request) {
       for (const purchase of pending) { try { await reconcileCreditPurchase(ctx.salonId, purchase.id); } catch { /* the webhook and the scheduled job retry */ } }
     const [view, purchases] = await Promise.all([secretaryCreditView(ctx),
       withTenant(ctx, tx => tx.secretaryCreditPurchase.findMany({ where: { salonId: ctx.salonId }, orderBy: { createdAt: "desc" }, take: RECENT_PURCHASES,
-        select: { id: true, packCode: true, amountCents: true, requests: true, state: true, createdAt: true, paidAt: true, refundedCents: true, checkoutUrl: true, expiresAt: true } }))]);
+        select: { id: true, packCode: true, amountCents: true, units: true, state: true, createdAt: true, paidAt: true, refundedCents: true, checkoutUrl: true, expiresAt: true } }))]);
     const now = Date.now();
     return billingJson({ view, buyable: billingEnabled() && !checkoutPaused(),
-      packs: Object.entries(SECRETARY_CREDIT_PACKS).map(([code, pack]) => ({ code, ...pack })),
-      purchases: purchases.map(p => ({ ...p, checkoutUrl: p.state === "AWAITING_PAYMENT" && p.expiresAt.getTime() > now ? p.checkoutUrl : null })) });
+      // Owner 06/10: the number of requests is only an estimate ("cerca de"); amounts of credit never leave the server.
+      packs: Object.entries(SECRETARY_CREDIT_PACKS).map(([code, pack]) => ({ code, amountCents: pack.amountCents, estimatedRequests: estimatedRequests(pack.units) })),
+      purchases: purchases.map(({ units, ...p }) => ({ ...p, estimatedRequests: estimatedRequests(units), checkoutUrl: p.state === "AWAITING_PAYMENT" && p.expiresAt.getTime() > now ? p.checkoutUrl : null })) });
   } catch (e) { return billingFailure(e); }
 }
 /** Owner only: one pack. The idempotency key makes a repeated click return the same purchase and checkout. */
